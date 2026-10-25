@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ranger } from "@synnaxlabs/client";
 import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
 import { box, id, scale, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -92,5 +93,67 @@ describe("Provider", () => {
     await expect.poll(drawn).toEqual(5);
     await create(MAX_ANNOTATIONS - 4);
     await expect.poll(drawn).toEqual(0);
+  });
+
+  it("draws an open range from its start through every later viewport", async () => {
+    const client = createTestClient();
+    // Past the cap spec's window, so this range never overlaps it.
+    const start = TimeStamp.now().add(TimeSpan.days(7300));
+    const range = await client.ranges.create({
+      name: `open-${id.create()}`,
+      timeRange: new TimeRange(start, TimeStamp.MAX),
+      color: "#7C3AED",
+    });
+    try {
+      // A fresh provider per viewport, since a requery keeps the previous answer until
+      // the new one lands.
+      const drawn = (viewportStart: TimeStamp) => {
+        const provider = mount();
+        const props = renderProps(
+          new TimeRange(viewportStart, viewportStart.add(TimeSpan.seconds(30))),
+        );
+        return () => {
+          provider.render(props);
+          return provider.state.count;
+        };
+      };
+      await expect.poll(drawn(start.sub(TimeSpan.seconds(10)))).toEqual(1);
+      await expect.poll(drawn(start.add(TimeSpan.hours(1)))).toEqual(1);
+    } finally {
+      await client.ranges.delete(range.key);
+    }
+  });
+
+  it("requeries a live window once per span, not on every sample", () => {
+    const retrieve = vi.spyOn(ranger.Client.prototype, "retrieve");
+    try {
+      const provider = mount();
+      const span = TimeSpan.seconds(30);
+      const start = TimeStamp.now();
+      for (let elapsed = 0; elapsed < 60; elapsed += 2) {
+        const end = start.add(TimeSpan.seconds(elapsed));
+        provider.render(renderProps(new TimeRange(end.sub(span), end)));
+      }
+      expect(retrieve).toHaveBeenCalledTimes(2);
+    } finally {
+      retrieve.mockRestore();
+    }
+  });
+
+  it("requeries once the viewport zooms in past 2x", () => {
+    const retrieve = vi.spyOn(ranger.Client.prototype, "retrieve");
+    try {
+      const provider = mount();
+      const start = TimeStamp.now();
+      const zoomed = (span: TimeSpan) =>
+        provider.render(renderProps(new TimeRange(start, start.add(span))));
+      zoomed(TimeSpan.seconds(60));
+      zoomed(TimeSpan.seconds(40));
+      expect(retrieve).toHaveBeenCalledTimes(1);
+      zoomed(TimeSpan.seconds(20));
+      expect(retrieve).toHaveBeenCalledTimes(2);
+    } finally {
+      retrieve.mockRestore();
+    }
   });
 });

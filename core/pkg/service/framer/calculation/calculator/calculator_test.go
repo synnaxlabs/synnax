@@ -459,6 +459,132 @@ var _ = Describe("Calculator", Ordered, func() {
 			).To(Equal(telem.NewAlignment(10, 4)))
 		})
 
+		Specify("Omitted channel holds its last sample", func(ctx SpecContext) {
+			indexes := []channel.Channel{{
+				Name:     UniqueChannelName(),
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}}
+			bases := []channel.Channel{
+				{Name: UniqueChannelName(), DataType: telem.Int64T},
+				{Name: UniqueChannelName(), DataType: telem.Int64T},
+			}
+			calc := channel.Channel{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: fmt.Sprintf("return %s + %s", bases[0].Name, bases[1].Name),
+			}
+			c := open(ctx, &indexes, &bases, &calc)
+			idxData := telem.NewSeriesSecondsTSV(10, 20, 30)
+			idxData.Alignment = telem.NewAlignment(5, 0)
+			aData := telem.NewSeriesV[int64](15, 25, 35)
+			aData.Alignment = telem.NewAlignment(5, 0)
+			bData := telem.NewSeriesV[int64](5, 10, 15)
+			bData.Alignment = telem.NewAlignment(5, 0)
+			MustSucceed2(c.Next(ctx, frame.NewMulti(
+				[]channel.Key{indexes[0].Key(), bases[0].Key(), bases[1].Key()},
+				[]telem.Series{idxData, aData, bData},
+			), frame.Frame{}))
+			idxData = telem.NewSeriesSecondsTSV(40)
+			idxData.Alignment = telem.NewAlignment(6, 0)
+			aData = telem.NewSeriesV[int64](45)
+			aData.Alignment = telem.NewAlignment(6, 0)
+			of, changed := MustSucceed2(c.Next(ctx, frame.NewMulti(
+				[]channel.Key{indexes[0].Key(), bases[0].Key()},
+				[]telem.Series{idxData, aData},
+			), frame.Frame{}))
+			Expect(changed).To(BeTrue())
+			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](60))
+			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(
+				40 * telem.SecondTS,
+			))
+		})
+
+		Specify("Omitted channel with no prior sample yields nothing", func(
+			ctx SpecContext,
+		) {
+			indexes := []channel.Channel{{
+				Name:     UniqueChannelName(),
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}}
+			bases := []channel.Channel{
+				{Name: UniqueChannelName(), DataType: telem.Int64T},
+				{Name: UniqueChannelName(), DataType: telem.Int64T},
+			}
+			calc := channel.Channel{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: fmt.Sprintf("return %s + %s", bases[0].Name, bases[1].Name),
+			}
+			c := open(ctx, &indexes, &bases, &calc)
+			idxData := telem.NewSeriesSecondsTSV(10)
+			idxData.Alignment = telem.NewAlignment(5, 0)
+			aData := telem.NewSeriesV[int64](15)
+			aData.Alignment = telem.NewAlignment(5, 0)
+			of, changed := MustSucceed2(c.Next(ctx, frame.NewMulti(
+				[]channel.Key{indexes[0].Key(), bases[0].Key()},
+				[]telem.Series{idxData, aData},
+			), frame.Frame{}))
+			Expect(changed).To(BeFalse())
+			Expect(of.Get(calc.Key()).Len()).To(BeZero())
+		})
+
+		Specify("Omitted channel holds through two omissions", func(ctx SpecContext) {
+			indexes := []channel.Channel{{
+				Name:     UniqueChannelName(),
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}}
+			bases := []channel.Channel{
+				{Name: UniqueChannelName(), DataType: telem.Int64T},
+				{Name: UniqueChannelName(), DataType: telem.Int64T},
+			}
+			calc := channel.Channel{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: fmt.Sprintf("return %s + %s", bases[0].Name, bases[1].Name),
+			}
+			c := open(ctx, &indexes, &bases, &calc)
+			next := func(
+				domain uint32,
+				stamp telem.TimeStamp,
+				keys []channel.Key,
+				values ...int64,
+			) {
+				GinkgoHelper()
+				idxData := telem.NewSeriesSecondsTSV(stamp)
+				idxData.Alignment = telem.NewAlignment(domain, 0)
+				series := []telem.Series{idxData}
+				for _, v := range values {
+					d := telem.NewSeriesV[int64](v)
+					d.Alignment = telem.NewAlignment(domain, 0)
+					series = append(series, d)
+				}
+				of, changed := MustSucceed2(c.Next(
+					ctx,
+					frame.NewMulti(
+						append([]channel.Key{indexes[0].Key()}, keys...),
+						series,
+					),
+					frame.Frame{},
+				))
+				Expect(changed).To(BeTrue())
+				Expect(of.Get(calc.Key()).Series[0]).To(
+					telem.MatchSeriesDataV[int64](values[0] + 5),
+				)
+				Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(
+					stamp * telem.SecondTS,
+				))
+			}
+			next(5, 10, []channel.Key{bases[0].Key(), bases[1].Key()}, 15, 5)
+			next(6, 20, []channel.Key{bases[0].Key()}, 25)
+			next(7, 30, []channel.Key{bases[0].Key()}, 35)
+		})
+
 		Specify("Two persisted channels unique indexes", func(ctx SpecContext) {
 			indexes := []channel.Channel{
 				{

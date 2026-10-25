@@ -7,29 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import { useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { renderProp } from "@/component/renderProp";
+import { Haul } from "@/haul";
+import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { List } from "@/list";
 import { Select } from "@/select";
-import { mockBoundingClientRect } from "@/testutil/dom";
+import { mockGeometry } from "@/testutil/dom";
 import { Text } from "@/text";
+import { Triggers } from "@/triggers";
 
 describe("Select.Single", () => {
-  beforeAll(() => {
-    Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
-    Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
-      configurable: true,
-      get: () => 100,
-    });
-    Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
-      configurable: true,
-      get: () => 100,
-    });
-  });
+  beforeAll(() => mockGeometry(100, 100));
 
   interface TestEntry {
     key: string;
@@ -95,6 +88,14 @@ describe("Select.Single", () => {
     expect(c.getByText("Test Item")).toBeTruthy();
   });
 
+  it("should close the selection dialog on one Escape from the search field", () => {
+    const { SelectSingle } = createSelectSingle();
+    const c = render(<SelectSingle />, { wrapper: Triggers.Provider });
+    fireEvent.click(c.getByText("Test Item"));
+    fireEvent.keyDown(c.getByRole("textbox"), { key: "Escape", code: "Escape" });
+    expect(c.queryByRole("option", { name: "First Item Option" })).toBeNull();
+  });
+
   it("should open the selection dialog when the trigger is clicked", () => {
     const { SelectSingle } = createSelectSingle();
     const c = render(<SelectSingle />);
@@ -135,8 +136,9 @@ describe("Select.Single", () => {
     const c = render(<SelectSingle />);
     fireEvent.click(c.getByText("Test Item"));
     fireEvent.click(c.getByText("First Item Option"));
-    expect(c.getByText("First Item")).toBeTruthy();
-    expect(c.queryByText("Test Item")).toBeNull();
+    expect(c.getByRole("button", { name: "Test Item First Item" }).textContent).toBe(
+      "First Item",
+    );
   });
 
   it("should allow the user to change selection", () => {
@@ -154,7 +156,7 @@ describe("Select.Single", () => {
     expect(c.queryByText("First Item")).toBeNull();
   });
 
-  it("should allow the user to deselect an item when allowNone is true", () => {
+  it("should keep the selection when the user picks it again with allowNone", () => {
     const { SelectSingle, onChange } = createSelectSingle();
     const c = render(<SelectSingle allowNone />);
     fireEvent.click(c.getByText("Test Item"));
@@ -162,8 +164,8 @@ describe("Select.Single", () => {
 
     fireEvent.click(c.getByText("First Item"));
     fireEvent.click(c.getByText("First Item Option"));
-    expect(onChange).toHaveBeenLastCalledWith(null);
-    expect(c.getByText("Test Item")).toBeTruthy();
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(c.getByText("First Item")).toBeTruthy();
   });
 
   it("should not allow the user to deselect when allowNone is false", () => {
@@ -190,6 +192,19 @@ describe("Select.Single", () => {
     expect(c.queryByText("Third Item Option")).toBeNull();
   });
 
+  it("should show every item again after a search and a close", () => {
+    const { SelectSingle } = createSelectSingle();
+    const c = render(<SelectSingle />);
+    fireEvent.click(c.getByText("Test Item"));
+    fireEvent.change(c.getByPlaceholderText("Search Test Items..."), {
+      target: { value: "First" },
+    });
+    fireEvent.click(c.getByText("First Item Option"));
+    fireEvent.click(c.getByText("First Item"));
+    expect(c.getByText("Second Item Option")).toBeTruthy();
+    expect(c.getByText("Third Item Option")).toBeTruthy();
+  });
+
   it("should work with initial value", () => {
     const onChange = vi.fn();
     const SelectSingle = () => {
@@ -211,8 +226,9 @@ describe("Select.Single", () => {
       );
     };
     const c = render(<SelectSingle />);
-    expect(c.getByText("Second Item")).toBeTruthy();
-    expect(c.queryByText("Test Item")).toBeNull();
+    expect(c.getByRole("button", { name: "Test Item Second Item" }).textContent).toBe(
+      "Second Item",
+    );
   });
 
   it("should name the trigger by its resource", () => {
@@ -252,6 +268,154 @@ describe("Select.Single", () => {
     ).not.toContain("pluto-btn--prevent-click");
   });
 
+  describe("narrow layout", () => {
+    const select = (c: ReturnType<typeof render>): HTMLElement => {
+      fireEvent.click(c.getByText("Test Item"));
+      fireEvent.click(c.getByText("First Item Option"));
+      return c.getByRole("button", { name: "Test Item First Item" });
+    };
+
+    const hoverPastDelay = (el: HTMLElement): void => {
+      vi.useFakeTimers();
+      fireEvent.pointerOver(el, { pointerType: "mouse" });
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+      vi.useRealTimers();
+    };
+
+    const getTooltip = (): HTMLElement | null =>
+      document.querySelector<HTMLElement>(".pluto-tooltip");
+
+    it("should show the selected name in a label that fades on overflow", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle />);
+      select(c);
+      const label = c.getByText("First Item");
+      expect(label.classList).toContain("pluto-select__label");
+      expect(label.classList).toContain("pluto-text--overflow-fade");
+    });
+
+    it("should mark a collapsible trigger", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle triggerProps={{ collapsible: true }} />);
+      expect(c.getByRole("button", { name: "Test Item" }).classList).toContain(
+        "pluto-select-single-trigger--collapsible",
+      );
+    });
+
+    it("should show the name in a tooltip once the collapsed trigger hides it", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle triggerProps={{ collapsible: true }} />);
+      const trigger = select(c);
+      c.getByText("First Item").style.display = "none";
+      hoverPastDelay(trigger);
+      expect(getTooltip()?.textContent).toBe("First Item");
+    });
+
+    it("should not show the name tooltip while the name is readable", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle triggerProps={{ collapsible: true }} />);
+      hoverPastDelay(select(c));
+      expect(getTooltip()).toBeNull();
+    });
+  });
+
+  describe("clear", () => {
+    const select = (c: ReturnType<typeof render>): void => {
+      fireEvent.click(c.getByText("Test Item"));
+      fireEvent.click(c.getByText("First Item Option"));
+    };
+
+    it("should clear the selection from the button on its icon", () => {
+      const { SelectSingle, onChange } = createSelectSingle();
+      const c = render(<SelectSingle allowNone icon={<Icon.Add />} />);
+      select(c);
+      fireEvent.click(c.getByLabelText("Clear First Item"));
+      expect(onChange).toHaveBeenLastCalledWith(null);
+      expect(c.getByText("Test Item")).toBeTruthy();
+      expect(c.queryByLabelText("Clear First Item")).toBeNull();
+    });
+
+    it("should not open the dialog when the selection is cleared", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle allowNone icon={<Icon.Add />} />);
+      select(c);
+      fireEvent.click(c.getByLabelText("Clear First Item"));
+      expect(c.queryByText("Second Item Option")).toBeNull();
+    });
+
+    it("should clear the selection with Delete on the focused trigger", () => {
+      const { SelectSingle, onChange } = createSelectSingle();
+      const c = render(<SelectSingle allowNone icon={<Icon.Add />} />);
+      select(c);
+      const trigger = c.getByText("First Item").closest("button");
+      if (trigger == null) throw new Error("the trigger did not render");
+      fireEvent.keyDown(trigger, { key: "Delete" });
+      expect(onChange).toHaveBeenLastCalledWith(null);
+    });
+
+    interface StoredProps {
+      value: string;
+      onChange?: (key: string | null) => void;
+    }
+
+    // Holds a fixed value, which may have no entry in the data.
+    const Stored = ({ value, onChange = vi.fn() }: StoredProps) => {
+      const { data, getItem } = List.useStaticData<string, TestEntry>({
+        data: testData,
+      });
+      return (
+        <Select.Single<string, TestEntry>
+          resourceName="Test Item"
+          data={data}
+          getItem={getItem}
+          value={value}
+          onChange={onChange}
+          allowNone
+          icon={<Icon.Add />}
+        >
+          {listItemRenderProp}
+        </Select.Single>
+      );
+    };
+
+    it("should clear a selected key that has no entry", () => {
+      const onChange = vi.fn();
+      const c = render(<Stored value="missing" onChange={onChange} />);
+      fireEvent.click(c.getByLabelText("Clear selection"));
+      expect(onChange).toHaveBeenLastCalledWith(null, { clicked: null });
+    });
+
+    it("should not show the button for an empty key", () => {
+      const c = render(<Stored value="" />);
+      expect(c.queryByLabelText(/^Clear/)).toBeNull();
+    });
+
+    it("should not show the button when the select requires a selection", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle allowNone={false} icon={<Icon.Add />} />);
+      select(c);
+      expect(c.queryByLabelText("Clear First Item")).toBeNull();
+    });
+
+    it("should clear the selection from the button on its caret without an icon", () => {
+      const { SelectSingle, onChange } = createSelectSingle();
+      const c = render(<SelectSingle allowNone />);
+      select(c);
+      fireEvent.click(c.getByLabelText("Clear First Item"));
+      expect(onChange).toHaveBeenLastCalledWith(null);
+      expect(c.getByText("Test Item")).toBeTruthy();
+    });
+
+    it("should not show the button without an icon or a caret", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle allowNone triggerProps={{ hideCaret: true }} />);
+      select(c);
+      expect(c.queryByLabelText("Clear First Item")).toBeNull();
+    });
+  });
+
   describe("preview", () => {
     it("should mark the trigger as a preview", () => {
       const { SelectSingle } = createSelectSingle();
@@ -273,6 +437,101 @@ describe("Select.Single", () => {
       const c = render(<SelectSingle preview />);
       fireEvent.click(c.getByText("None"));
       expect(c.queryByText("First Item Option")).toBeNull();
+    });
+  });
+
+  describe("drag", () => {
+    const HAUL_TYPE = "test-item";
+    const MIXED: Haul.Item[] = [
+      { type: "foreign", key: "1" },
+      { type: HAUL_TYPE, key: "3" },
+    ];
+
+    const MixedSource = () => {
+      const { startDrag } = Haul.useDrag({ type: "foreign", key: "mixed" });
+      return <button aria-label="Mixed drag" onClick={() => startDrag(MIXED)} />;
+    };
+
+    const renderPair = (
+      singleProps: Partial<Select.SingleProps<string, TestEntry>> = {},
+    ) => {
+      const onSingleChange = vi.fn();
+      const onMultipleChange = vi.fn();
+      const Pair = () => {
+        const { data, getItem } = List.useStaticData<string, TestEntry>({
+          data: testData,
+        });
+        return (
+          <Haul.Provider>
+            <Select.Single<string, TestEntry>
+              getItem={getItem}
+              data={data}
+              value="2"
+              onChange={onSingleChange}
+              resourceName="Source"
+              haulType={HAUL_TYPE}
+              {...singleProps}
+            >
+              {listItemRenderProp}
+            </Select.Single>
+            <Select.Multiple<string, TestEntry>
+              getItem={getItem}
+              data={data}
+              value={[]}
+              onChange={onMultipleChange}
+              resourceName="Target"
+              haulType={HAUL_TYPE}
+            >
+              {listItemRenderProp}
+            </Select.Multiple>
+            <MixedSource />
+          </Haul.Provider>
+        );
+      };
+      const c = render(<Pair />);
+      const source = c.getByRole("button", { name: /^Source/ });
+      const target = c.getByRole("button", { name: "Targets" });
+      const mixed = c.getByRole("button", { name: "Mixed drag" });
+      return { source, target, mixed, onSingleChange, onMultipleChange };
+    };
+
+    it("should copy the selection into a select it is dropped on", () => {
+      const { source, target, onSingleChange, onMultipleChange } = renderPair();
+      expect(source.draggable).toBe(true);
+      fireEvent.dragStart(source);
+      fireEvent.drop(target);
+      expect(onMultipleChange).toHaveBeenCalledWith(["2"], expect.anything());
+      expect(onSingleChange).not.toHaveBeenCalled();
+    });
+
+    it("should drop only the entries of its own type on a single select", () => {
+      const { source, mixed, onSingleChange } = renderPair();
+      fireEvent.click(mixed);
+      fireEvent.drop(source);
+      expect(onSingleChange).toHaveBeenCalledExactlyOnceWith("3", expect.anything());
+    });
+
+    it("should drop only the entries of its own type on a multiple select", () => {
+      const { target, mixed, onMultipleChange } = renderPair();
+      fireEvent.click(mixed);
+      fireEvent.drop(target);
+      expect(onMultipleChange).toHaveBeenCalledExactlyOnceWith(
+        ["3"],
+        expect.anything(),
+      );
+    });
+
+    it("should not be draggable while disabled", () => {
+      const { source } = renderPair({ disabled: true });
+      expect(source.draggable).toBe(false);
+    });
+
+    it("should not drag a selected key with no entry", () => {
+      const { source, target, onMultipleChange } = renderPair({ value: "0" });
+      expect(source.draggable).toBe(false);
+      fireEvent.dragStart(source);
+      fireEvent.drop(target);
+      expect(onMultipleChange).not.toHaveBeenCalled();
     });
   });
 });

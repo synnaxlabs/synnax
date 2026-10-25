@@ -22,7 +22,6 @@ const client = createTestClient();
 const createLogID = async (): Promise<ontology.ID> => {
   const proj = await client.projects.create({
     name: uniqueName("project"),
-    layout: {},
   });
   const created = await client.logs.create(proj.key, { name: uniqueName("log") });
   return log.ontologyID(created.key);
@@ -31,7 +30,6 @@ const createLogID = async (): Promise<ontology.ID> => {
 const renderImportBatch = async () => {
   const proj = await client.projects.create({
     name: uniqueName("project"),
-    layout: {},
   });
   const { result, store } = await renderHookWithConsole(
     () => ({
@@ -102,16 +100,20 @@ describe("Import.useImportBatch", () => {
         await result.current.importBatch({
           items: [{ name: "notes.txt" }, { name: "a.json" }],
           importItem: async ({ name }) => {
-            if (name === "notes.txt") throw new Error("not a JSON file");
+            if (name === "notes.txt") throw new Error("The file is not JSON.");
             return id;
           },
           onSuccess,
         }),
     );
     await waitFor(() =>
-      expect(
-        result.current.notifications.statuses.map((status) => status.message),
-      ).toContain("Failed to import notes.txt"),
+      expect(result.current.notifications.statuses).toContainEqual(
+        expect.objectContaining({
+          name: "notes.txt",
+          message: "Failed to import",
+          description: "The file is not JSON.",
+        }),
+      ),
     );
     expect(onSuccess).toHaveBeenCalledTimes(1);
     expect(onSuccess).toHaveBeenCalledWith({ name: "a.json" });

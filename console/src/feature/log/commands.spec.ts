@@ -31,7 +31,6 @@ describe("Log Commands", () => {
   it("creates a log in the active project and opens it as a tab", async () => {
     const project = await client.projects.create({
       name: uniqueName("project"),
-      layout: {},
     });
     const { store, openCommandPalette, selectCommand } = await renderPalette({
       commands: Log.COMMANDS,

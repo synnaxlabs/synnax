@@ -5,14 +5,14 @@
 pnpm workspaces with catalog dependencies: `/alamos/ts/` (instrumentation),
 `/client/ts/` (Synnax client), `/console/` (Tauri app), `/drift/` (multi-window Redux
 sync), `/freighter/ts/` (transport), `/lyra/` (UI primitives, subpath-only:
-`@synnaxlabs/lyra/<module>`), `/x/media/`, `/pluto/` (viz components), `/x/ts/` (shared
-utilities). All use Vite (ESM-only output), TypeScript strict, Vitest, ESLint flat
-config, Turbo for orchestration.
+`@synnaxlabs/lyra/<module>`), `/pluto/` (viz components), `/x/ts/` (shared utilities).
+All use Vite (ESM-only output), TypeScript strict, Vitest, ESLint flat config, Turbo for
+orchestration.
 
 ## Commands
 
 - `pnpm build` / `pnpm build:<pkg>` (console, pluto, lyra, client, x, drift, freighter,
-  alamos, media)
+  alamos)
 - `pnpm check-types` / `pnpm check-types:console`
 - `pnpm dev:console` (Tauri) / `pnpm dev:console-vite` (Vite only, faster, no Tauri
   APIs) / `pnpm dev:pluto`
@@ -32,8 +32,8 @@ form shows placeholders but does NOT pre-fill — actually type the values.
 - Absolute imports: `@/components`, never `../../../components`.
 - Inline type imports: `import { type Foo } from "bar"`; simple-import-sort for
   import/export ordering.
-- JSX: no braces for string props, consistent boolean attributes, no constructed context
-  values.
+- JSX: no braces for string props, bare `true` boolean attributes, and `key` before
+  spread props.
 - `no-floating-promises`: await or `void` every promise. Unused vars must be
   underscore-prefixed.
 
@@ -109,6 +109,49 @@ cross-references. Never put types in JSDoc; the signature carries them.
  */
 ```
 
+## React Compiler
+
+The React Compiler compiles the Console, Pluto, Lyra, and Drift
+(`configs/vite/src/compiler.ts`), in builds and in specs. A build or spec run fails on a
+component or hook that the compiler cannot compile; spec files, test helpers, and the
+dev server skip it instead. The `synnax/react-compiler` lint rule runs the same compiler
+with the same passes (`configs/eslint/compiler.ts`), so the editor reports the same
+errors.
+
+- A hook can be a bare `use` (`Synnax.use`, `Form.use`). A pass gives each `use` that is
+  not React's a hook name before the compiler runs, so never name a value that is not a
+  hook `use`.
+- Keep a hook's name when you store it (`const useKey = Scope.use`, never
+  `const get = Scope.use`). The compiler knows a hook only by its name, so it caches a
+  call to `get()` like a plain function.
+- Give every component and hook a name, including one a factory returns or one passed to
+  `Component.renderProp` or `Modals.create`: `const useForm = ...; return useForm;`. The
+  compiler reads a name only from a function or variable declaration, so it skips a
+  named function expression passed as an argument too.
+- Keep render pure. The compiler caches each computation on its inputs, so a clock, a
+  ref, a module cache, or an object changed in place goes stale in render without an
+  error. Pass the current time in as state, and copy an object instead of changing it.
+- Render a component as an element, never pass it where a render function goes
+  (`{(p) => <Input.Numeric {...p} />}`, not `{Input.Numeric}`). A compiled component
+  calls a hook, so a cached call to it breaks the hook order.
+- Call `use` in the component or hook itself, never inside a plain helper. The compiler
+  caches a call to a plain function, so a later render skips the `use` in it.
+- Subscribe to any changing data a component reads in render: a store, a cache, or a
+  list's `getItem`. A compiled parent reuses a child whose props did not change, so a
+  child that reads without subscribing shows stale data.
+- Write `if (x == null) x = y;` in a component or hook. The compiler cannot compile
+  `??=`.
+- Await in a `try`/`catch` and put the cleanup after it, never in `finally` or a promise
+  chain. The compiler cannot compile `finally`, or `?.`, `??`, `?:`, and `&&` in a `try`
+  body, so assign the awaited value there and test it after the `catch`.
+- Give a computed object key a plain identifier. The compiler cannot compile a call as a
+  key, so move `[CSS.variable("x", "y")]` to a module constant.
+- Never give a parameter a JSX default (`icon = <Icon.Close />`). Put the element in a
+  module constant.
+- Use the `"use no memo"` directive only for an incompatible library, a fixed hook list,
+  or a memo hook that keeps its own cache, with a one-line reason. The lint rule still
+  checks the function, so disable `synnax/react-compiler` on each flagged line.
+
 ## Testing (Vitest — never Jest)
 
 `*.spec.ts` co-located with source. `describe`/`it` blocks, `vi.fn()` mocks,
@@ -168,15 +211,18 @@ errors here are invisible at runtime.
 ## Package layout
 
 `src/index.ts` entry, tests co-located, `dist/` output (ESM `index.js`, types at
-`dist/src/index.d.ts`). Standard scripts: `build` = `tsc --noEmit && vite build`, plus
-`check-types`, `test`, `lint`, `fix`.
+`dist/src/index.d.ts`). X and Lyra build with `lib({ transpiled: true })` instead: one
+file per source file, so `dist/` mirrors `src/` (`dist/index.js`, `dist/index.d.ts`).
+Standard scripts: `build` = `tsc --noEmit && vite build`, plus `check-types`, `test`,
+`lint`, `fix`.
 
 ## Bundling and publishing
 
 Every dependency is either **external** (the import survives in `dist/`, and the
 consumer's installer supplies the code) or **bundled** (the code is copied into
 `dist/`). The choice belongs in the package's `vite.config.ts`
-`rolldownOptions.external` array.
+`rolldownOptions.external` array. A transpiled package bundles nothing: every runtime
+import stays in `dist/`, so each one is a `dependencies` or `peerDependencies` entry.
 
 > **Externalize what appears in your public API surface, or what must exist exactly
 > once. Bundle everything else.**
@@ -188,12 +234,12 @@ identity.
 
 ### The four tiers
 
-| Tier                 | Packages                                                         | Decision        |
-| -------------------- | ---------------------------------------------------------------- | --------------- |
-| 1. Our own stack     | `@synnaxlabs/{x,freighter,alamos,client,media,drift,lyra,pluto}` | Always external |
-| 2. Framework         | `react`, `react-dom`, `react-redux`, `@reduxjs/toolkit`          | External, peer  |
-| 3. Shared vocabulary | `zod`                                                            | External        |
-| 4. Private machinery | monaco, mathjs, fuse.js, d3-scale, `@synnaxlabs/arc`             | Bundle          |
+| Tier                 | Packages                                                   | Decision        |
+| -------------------- | ---------------------------------------------------------- | --------------- |
+| 1. Our own stack     | `@synnaxlabs/{x,freighter,alamos,client,drift,lyra,pluto}` | Always external |
+| 2. Framework         | `react`, `react-dom`, `react-redux`, `@reduxjs/toolkit`    | External, peer  |
+| 3. Shared vocabulary | `zod`                                                      | External        |
+| 4. Private machinery | monaco, mathjs, fuse.js, d3-scale, `@synnaxlabs/arc`       | Bundle          |
 
 Tiers 1 to 3 cross a package boundary: a `Series` from the Client must satisfy
 `instanceof Series` in Pluto, and a Zod schema from the Client must compose with a
@@ -235,7 +281,7 @@ file the tarball omits. Pluto is the only opt-out; its maps are 17MB gzipped.
 - pnpm catalog: shared versions in `pnpm-workspace.yaml`; use `catalog:` prefix in
   package.json.
 - Turbo build cache issues: `pnpm exec turbo clean`.
-- React 19 (19.1.1) — check for React 18 breaking changes.
+- React 19 (19.3.1) — check for React 18 breaking changes.
 
 ## Visual verification (Playwright MCP)
 

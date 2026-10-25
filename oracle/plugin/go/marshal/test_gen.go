@@ -12,6 +12,7 @@ package marshal
 import (
 	"bytes"
 	"fmt"
+	"maps"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -21,6 +22,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/typemap"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
 	"github.com/synnaxlabs/oracle/plugin/go/types"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
@@ -72,21 +74,56 @@ const (
 	modeEmptyCollections
 )
 
+// generateTestCodecFile renders the codec test file, then renders it again when it
+// imports more than one version of a dependency, so the aliases follow
+// naming.VersionAliases.
 func generateTestCodecFile(
 	packageName string,
 	parentPath string,
 	entries []CodecEntry,
 	table *resolution.Table,
 	repoRoot string,
+	pins versioning.Pins,
 ) ([]byte, error) {
 	pkgImport, err := resolveGoImportPath(parentPath, repoRoot)
 	if err != nil {
 		return nil, err
 	}
+	imports := make(map[string]string)
+	content, err := renderTestCodecFile(
+		packageName, parentPath, pkgImport, entries, table, repoRoot, pins, nil,
+		imports,
+	)
+	if err != nil {
+		return nil, err
+	}
+	aliases := naming.VersionAliases(slices.Collect(maps.Keys(imports)), pkgImport)
+	if len(aliases) == 0 {
+		return content, nil
+	}
+	return renderTestCodecFile(
+		packageName, parentPath, pkgImport, entries, table, repoRoot, pins,
+		aliases, make(map[string]string),
+	)
+}
+
+// renderTestCodecFile renders the codec test file, recording its imports into
+// imports. aliases forces the alias of each import path it holds.
+func renderTestCodecFile(
+	packageName string,
+	parentPath string,
+	pkgImport string,
+	entries []CodecEntry,
+	table *resolution.Table,
+	repoRoot string,
+	pins versioning.Pins,
+	aliases map[string]string,
+	imports map[string]string,
+) ([]byte, error) {
 	fo := testFileOutput{
 		Package:      packageName,
 		PkgImport:    pkgImport,
-		ExtraImports: make(map[string]string),
+		ExtraImports: imports,
 	}
 
 	sharedVars := make(map[string]string)
@@ -109,6 +146,8 @@ func generateTestCodecFile(
 			packageName: packageName,
 			parentPath:  parentPath,
 			imports:     fo.ExtraImports,
+			aliases:     aliases,
+			pins:        pins,
 			pkgPrefix:   packageName + ".",
 			mode:        modeFullyPopulated,
 		}
@@ -185,6 +224,8 @@ func generateTestCodecFile(
 					packageName: packageName,
 					parentPath:  parentPath,
 					imports:     fo.ExtraImports,
+					aliases:     aliases,
+					pins:        pins,
 					pkgPrefix:   packageName + ".",
 					mode:        modeFullyPopulated,
 					sharedVars:  sharedVars,
@@ -265,6 +306,9 @@ func generateTestCodecFile(
 					packageName: packageName,
 					parentPath:  parentPath,
 					imports:     fo.ExtraImports,
+					aliases:     aliases,
+					pins:        pins,
+					owner:       e.Type.QualifiedName,
 					sharedVars:  sharedVars,
 					pkgPrefix:   packageName + ".",
 					mode:        m.mode,
@@ -308,7 +352,7 @@ func generateTestCodecFile(
 					fieldGoName := naming.GetFieldName(f)
 					var expr string
 					var err error
-					if f.Optional && b.isGoPointerField(f.Type) {
+					if f.Optional && !typemap.Nilable(f.Type, b.table) {
 						expr, err = b.optionalExpr(r, f.Type)
 					} else {
 						expr, err = b.valueExpr(r, f.Type)
@@ -354,6 +398,8 @@ func generateTestCodecFile(
 					packageName: packageName,
 					parentPath:  parentPath,
 					imports:     fo.ExtraImports,
+					aliases:     aliases,
+					pins:        pins,
 					pkgPrefix:   packageName + ".",
 					mode:        m.mode,
 					sharedVars:  sharedVars,
@@ -459,11 +505,18 @@ type testValueBuilder struct {
 	packageName string
 	parentPath  string
 	imports     map[string]string
-	pkgPrefix   string
-	needsUUID   bool
-	depth       int
-	fieldIndex  int
-	mode        valueMode
+	// aliases forces the alias of each import path it holds.
+	aliases map[string]string
+	// pins resolves a stored reference to the dependency version that owner's version
+	// file imports.
+	pins versioning.Pins
+	// owner is the qualified name of the type whose fields the builder is filling.
+	owner      string
+	pkgPrefix  string
+	needsUUID  bool
+	depth      int
+	fieldIndex int
+	mode       valueMode
 	// sharedVars maps a struct's qualified name to a package-level fixture
 	// var that union embeds reference instead of inlining the literal. Nil
 	// while building the fixtures themselves, so they never reference each
@@ -511,7 +564,7 @@ func (b *testValueBuilder) buildFieldExprs(
 		fieldGoName := naming.GetFieldName(f)
 		var expr string
 		var err error
-		if f.Optional && b.isGoPointerField(f.Type) {
+		if f.Optional && !typemap.Nilable(f.Type, b.table) {
 			expr, err = b.optionalExpr(resolved, f.Type)
 		} else {
 			expr, err = b.valueExpr(resolved, f.Type)
@@ -532,6 +585,12 @@ func (b *testValueBuilder) buildStructFieldExprs(
 	form, ok := typ.Form.(resolution.StructForm)
 	if !ok {
 		return nil, nil
+	}
+	// An inline payload belongs to its union, which already owns the fields.
+	if !typ.Synthetic {
+		prev := b.owner
+		b.owner = typ.QualifiedName
+		defer func() { b.owner = prev }()
 	}
 	if types.CanEmbed(form, b.table) {
 		return b.buildEmbeddedStructFieldExprs(form)
@@ -668,25 +727,6 @@ func declaredFields(
 	return own
 }
 
-// isGoPointerField reports whether an optional field of the given type is
-// generated as a Go pointer by the types plugin. Slices, maps, and record/any
-// (msgpack.EncodedJSON) are nilable in place and are never pointerized, so only
-// the remaining types take the `new(...)` pointer form for their test value.
-func (b *testValueBuilder) isGoPointerField(ref resolution.TypeRef) bool {
-	resolved, ok := ref.Resolve(b.table)
-	if !ok {
-		return false
-	}
-	actual, _ := typemap.UnwrapTypeRef(resolved, ref, b.table)
-	switch form := actual.Form.(type) {
-	case resolution.BuiltinGenericForm:
-		return form.Name != "Array" && form.Name != "Map"
-	case resolution.PrimitiveForm:
-		return form.Name != "record"
-	}
-	return true
-}
-
 func (b *testValueBuilder) optionalExpr(
 	resolved resolution.Type, ref resolution.TypeRef,
 ) (string, error) {
@@ -722,12 +762,19 @@ func (b *testValueBuilder) valueExpr(
 
 	switch form := actual.Form.(type) {
 	case resolution.StructForm:
+		typeArgSuffix := ""
+		if form.IsGeneric() {
+			var err error
+			if typeArgSuffix, err = b.typeArgSuffix(effectiveTypeArgs); err != nil {
+				return "", err
+			}
+		}
 		if b.depth > 2 {
 			goType, err := b.goTypeName(actual)
 			if err != nil {
 				return "", err
 			}
-			return goType + "{}", nil
+			return goType + typeArgSuffix + "{}", nil
 		}
 		b.depth++
 		goName := naming.GetGoName(actual)
@@ -757,7 +804,8 @@ func (b *testValueBuilder) valueExpr(
 				substituted[i].Type = resolution.SubstituteTypeRef(f.Type, typeArgMap)
 			}
 			var fieldExprs []string
-			for _, f := range substituted {
+			outer := b.owner
+			for i, f := range substituted {
 				if f.Type.Name == "nil" {
 					continue
 				}
@@ -770,36 +818,26 @@ func (b *testValueBuilder) valueExpr(
 				}
 				b.fieldIndex++
 				fieldGoName := naming.GetFieldName(f)
+				// A field typed by a type argument was written in the outer
+				// declaration's file, so it keeps the outer pins.
+				b.owner = outer
+				if !actual.Synthetic && !usesTypeParam(fields[i].Type) {
+					b.owner = actual.QualifiedName
+				}
 				var expr string
 				var err error
-				if f.Optional && b.isGoPointerField(f.Type) {
+				if f.Optional && !typemap.Nilable(f.Type, b.table) {
 					expr, err = b.optionalExpr(r, f.Type)
 				} else {
 					expr, err = b.valueExpr(r, f.Type)
 				}
+				b.owner = outer
 				if err != nil {
 					return "", err
 				}
 				if expr != "" {
 					fieldExprs = append(fieldExprs, fieldGoName+": "+expr)
 				}
-			}
-			// Build type argument list for the generic struct literal.
-			var typeArgStrs []string
-			for _, arg := range effectiveTypeArgs {
-				argResolved, ok := arg.Resolve(b.table)
-				if !ok || arg.Name == "nil" {
-					continue
-				}
-				argGoType, err := b.goTypeName(argResolved)
-				if err != nil {
-					return "", err
-				}
-				typeArgStrs = append(typeArgStrs, argGoType)
-			}
-			typeArgSuffix := ""
-			if len(typeArgStrs) > 0 {
-				typeArgSuffix = "[" + strings.Join(typeArgStrs, ", ") + "]"
 			}
 			b.depth--
 			return b.formatComposite(prefix+goName+typeArgSuffix, fieldExprs), nil
@@ -844,6 +882,9 @@ func (b *testValueBuilder) unionExpr(
 	if err != nil {
 		return "", err
 	}
+	prev := b.owner
+	b.owner = actual.QualifiedName
+	defer func() { b.owner = prev }()
 	goName := naming.GetGoName(actual)
 	variantType := strings.TrimSuffix(goType, goName) +
 		casing.VariantTypeName(goName, v.Name)
@@ -1019,7 +1060,7 @@ func (b *testValueBuilder) zeroPrimitiveExpr(
 		if qualifier == "" {
 			qualifier = "msgpack"
 		}
-		return qualifier + ".EncodedJSON{}", nil
+		base = qualifier + ".EncodedJSON{}"
 	case "any":
 		return "nil", nil
 	default:
@@ -1054,12 +1095,36 @@ func (b *testValueBuilder) enumExpr(
 	return fmt.Sprintf("%s(%q)", goType, v.Value), nil
 }
 
+// typeArgSuffix renders the type argument list of a generic struct literal, or the
+// empty string when no argument resolves.
+func (b *testValueBuilder) typeArgSuffix(args []resolution.TypeRef) (string, error) {
+	var rendered []string
+	for _, arg := range args {
+		if arg.Name == "nil" {
+			rendered = append(rendered, "struct{}")
+			continue
+		}
+		if _, ok := arg.Resolve(b.table); !ok {
+			continue
+		}
+		goType, err := typemap.GoTypeRefName(arg, b.table, b.goTypeName)
+		if err != nil {
+			return "", err
+		}
+		rendered = append(rendered, goType)
+	}
+	if len(rendered) == 0 {
+		return "", nil
+	}
+	return "[" + strings.Join(rendered, ", ") + "]", nil
+}
+
 func (b *testValueBuilder) arrayExpr(elemRef resolution.TypeRef) (string, error) {
 	elemType, ok := elemRef.Resolve(b.table)
 	if !ok {
 		return "nil", nil
 	}
-	goType, err := b.goSliceElemType(elemType)
+	goType, err := typemap.ResolveGoSliceElemType(elemRef, b.table, b.goTypeName)
 	if err != nil {
 		return "", err
 	}
@@ -1087,15 +1152,14 @@ func (b *testValueBuilder) mapExpr(keyRef, valRef resolution.TypeRef) (string, e
 	if !ok {
 		return "nil", nil
 	}
-	goKeyType, err := b.goTypeName(keyType)
+	mapType, err := typemap.GoTypeRefName(
+		resolution.TypeRef{Name: "Map", TypeArgs: []resolution.TypeRef{keyRef, valRef}},
+		b.table,
+		b.goTypeName,
+	)
 	if err != nil {
 		return "", err
 	}
-	goValType, err := b.goTypeName(valType)
-	if err != nil {
-		return "", err
-	}
-	mapType := fmt.Sprintf("map[%s]%s", goKeyType, goValType)
 	if b.mode == modeZeroValue || b.mode == modeEmptyCollections {
 		return mapType + "{}", nil
 	}
@@ -1151,17 +1215,23 @@ func (b *testValueBuilder) goTypeName(typ resolution.Type) (string, error) {
 	if goPath == "" || goPath == b.parentPath {
 		return b.pkgPrefix + goName, nil
 	}
+	if p, ok := b.pins.Path(b.owner, typ); ok {
+		goPath = p
+	}
 	importPath, err := resolveGoImportPath(goPath, b.repoRoot)
 	if err != nil {
 		return "", err
 	}
-	alias := naming.DerivePackageAlias(goPath, b.packageName)
+	alias, forced := b.aliases[importPath]
 	// A versioned sub-package (…/versions/v0) aliases to its bare resource name, which
 	// shadows that resource's root package or another already-imported package sharing
 	// the name. Disambiguate with the version-suffixed alias, matching the migration
 	// import convention (spatialv0).
-	if b.aliasCollides(importPath, alias) {
-		alias = naming.DeriveVersionedAlias(goPath, b.packageName)
+	if !forced {
+		alias = naming.DerivePackageAlias(goPath, b.packageName)
+		if b.aliasCollides(importPath, alias) {
+			alias = naming.DeriveVersionedAlias(goPath, b.packageName)
+		}
 	}
 	actualPkg := filepath.Base(importPath)
 	if alias == actualPkg {
@@ -1197,10 +1267,6 @@ func (b *testValueBuilder) aliasCollides(importPath, alias string) bool {
 		}
 	}
 	return false
-}
-
-func (b *testValueBuilder) goSliceElemType(typ resolution.Type) (string, error) {
-	return typemap.ResolveGoSliceElemType(typ, b.table, b.goTypeName)
 }
 
 const testCodecTemplate = `// Copyright 2026 Synnax Labs, Inc.
@@ -1383,3 +1449,8 @@ func FuzzDecode{{.GoName}}(f *testing.F) {
 	})
 }
 {{end}}`
+
+// usesTypeParam reports whether ref names one of its declaration's type parameters.
+func usesTypeParam(ref resolution.TypeRef) bool {
+	return ref.IsTypeParam() || slices.ContainsFunc(ref.TypeArgs, usesTypeParam)
+}

@@ -7,12 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Dialog } from "@/dialog";
 import { PORTAL_ID_ATTR, PORTAL_OWNER_ATTR } from "@/dialog/useClickOutside";
 import { Triggers } from "@/triggers";
+
+const rect = (left: number, top: number, width: number, height: number) =>
+  ({
+    left,
+    top,
+    width,
+    height,
+    right: left + width,
+    bottom: top + height,
+    x: left,
+    y: top,
+    toJSON: () => ({}),
+  }) as DOMRect;
 
 describe("Dialog", () => {
   it("should not display the dialog content by default", () => {
@@ -127,6 +140,33 @@ describe("Dialog", () => {
       expect(onEscape).not.toHaveBeenCalled();
     });
 
+    it("should close nested floating dialogs one Escape at a time", () => {
+      const c = render(
+        <Triggers.Provider>
+          <Dialog.Frame variant="floating">
+            <Dialog.Trigger>Outer</Dialog.Trigger>
+            <Dialog.Dialog>
+              <p>Outer content</p>
+              <Dialog.Frame variant="floating">
+                <Dialog.Trigger>Inner</Dialog.Trigger>
+                <Dialog.Dialog>
+                  <p>Inner content</p>
+                </Dialog.Dialog>
+              </Dialog.Frame>
+            </Dialog.Dialog>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+      fireEvent.click(c.getByText("Outer"));
+      fireEvent.click(c.getByText("Inner"));
+      fireEvent.keyDown(c.container, { code: "Escape" });
+      expect(c.queryByText("Inner content")).toBeNull();
+      expect(c.queryByText("Outer content")).not.toBeNull();
+      fireEvent.keyUp(c.container, { code: "Escape" });
+      fireEvent.keyDown(c.container, { code: "Escape" });
+      expect(c.queryByText("Outer content")).toBeNull();
+    });
+
     it("should let Escape propagate to lower-priority subscribers when no dialog is open", () => {
       const onEscape = vi.fn();
       const c = render(
@@ -229,6 +269,207 @@ describe("Dialog", () => {
         expect(c.getByText("Content")).toBeTruthy();
         expect(c.getByRole("dialog")).toBeTruthy();
         expect(c.getByRole("dialog").classList).toContain(`pluto--${variant}`);
+      });
+    });
+  });
+  describe("anchor", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("should place the dialog under the anchor instead of the frame", () => {
+      const anchor = document.createElement("div");
+      document.body.appendChild(anchor);
+      vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (
+        this: Element,
+      ) {
+        return this === anchor ? rect(400, 100, 100, 30) : rect(0, 0, 0, 0);
+      });
+      vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(200);
+      vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(100);
+      const c = render(
+        <Triggers.Provider>
+          <Dialog.Frame anchor={anchor} initialVisible>
+            <Dialog.Dialog>
+              <p>Content</p>
+            </Dialog.Dialog>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+      act(() => {
+        window.dispatchEvent(new Event("resize"));
+      });
+      const el = c.getByRole("dialog");
+      expect(el.style.left).toBe("400px");
+      expect(parseFloat(el.style.top)).toBeGreaterThanOrEqual(130);
+      anchor.remove();
+    });
+  });
+
+  describe("open", () => {
+    it("should open the frame with the given id", () => {
+      const c = render(
+        <Triggers.Provider>
+          <Dialog.Frame id="frame">
+            <Dialog.Trigger>Toggle</Dialog.Trigger>
+            <Dialog.Dialog>
+              <p>Content</p>
+            </Dialog.Dialog>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+      act(() => Dialog.open("frame"));
+      expect(c.getByText("Content")).toBeTruthy();
+    });
+
+    it("should throw when the id names no frame", () => {
+      render(<p id="paragraph">Text</p>);
+      expect(() => Dialog.open("paragraph")).toThrow(
+        "no dialog frame has the id paragraph",
+      );
+    });
+  });
+
+  describe("window fit", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    const open = (target: DOMRect, dialog: DOMRect): HTMLElement => {
+      vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (
+        this: Element,
+      ) {
+        if (this.classList.contains("pluto-dialog__frame")) return target;
+        return rect(0, 0, 0, 0);
+      });
+      const isDialog = (el: HTMLElement): boolean =>
+        el.classList.contains("pluto-dialog__dialog");
+      vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(
+        function (this: HTMLElement) {
+          return isDialog(this) ? dialog.width : 0;
+        },
+      );
+      vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(
+        function (this: HTMLElement) {
+          return isDialog(this) ? dialog.height : 0;
+        },
+      );
+      const c = render(
+        <Triggers.Provider>
+          <Dialog.Frame>
+            <Dialog.Trigger>Toggle</Dialog.Trigger>
+            <Dialog.Dialog>
+              <p>Content</p>
+            </Dialog.Dialog>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+      fireEvent.click(c.getByText("Toggle"));
+      // jsdom never fires the resize observers, so a window resize places the dialog.
+      act(() => {
+        window.dispatchEvent(new Event("resize"));
+      });
+      return c.getByRole("dialog");
+    };
+
+    const variable = (el: HTMLElement, name: string): string =>
+      el.style.getPropertyValue(`--pluto-dialog-${name}`);
+
+    it("should keep a dialog wider than the window inside its edges", () => {
+      const el = open(rect(400, 100, 100, 30), rect(0, 0, 1100, 100));
+      expect(el.style.left).toBe("6px");
+      expect(variable(el, "available-width")).toBe(`${window.innerWidth - 12}px`);
+    });
+
+    it("should limit a dialog below its trigger to the space under it", () => {
+      const el = open(rect(400, 100, 100, 30), rect(0, 0, 200, 100));
+      const top = parseFloat(el.style.top);
+      expect(top).toBeGreaterThanOrEqual(130);
+      expect(variable(el, "available-height")).toBe(
+        `${window.innerHeight - top - 6}px`,
+      );
+    });
+
+    it("should limit a dialog above its trigger to the space over it", () => {
+      const bottomEdge = window.innerHeight - 40;
+      const el = open(rect(400, bottomEdge, 100, 30), rect(0, 0, 200, 300));
+      const bottom = parseFloat(el.style.bottom);
+      expect(bottom).toBeGreaterThanOrEqual(window.innerHeight - bottomEdge);
+      expect(variable(el, "available-height")).toBe(
+        `${window.innerHeight - bottom - 6}px`,
+      );
+    });
+
+    const resize = (): void => {
+      act(() => {
+        window.dispatchEvent(new Event("resize"));
+      });
+    };
+
+    it("should clamp again when the dialog widens in place", () => {
+      const el = open(rect(400, 100, 100, 30), rect(0, 0, 200, 100));
+      expect(el.style.left).toBe("400px");
+      vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(
+        function (this: HTMLElement) {
+          return this.classList.contains("pluto-dialog__dialog") ? 620 : 0;
+        },
+      );
+      resize();
+      expect(el.style.left).toBe(`${window.innerWidth - 6 - 620}px`);
+    });
+
+    it("should shrink the available height when the window shrinks", () => {
+      const el = open(rect(400, 100, 100, 30), rect(0, 0, 200, 100));
+      const top = parseFloat(el.style.top);
+      vi.spyOn(window, "innerHeight", "get").mockReturnValue(500);
+      resize();
+      expect(el.style.top).toBe(`${top}px`);
+      expect(variable(el, "available-height")).toBe(`${500 - top - 6}px`);
+    });
+
+    describe("a dialog that outgrows its space", () => {
+      // Stands in for the CSS limits: the dialog never grows past its own height
+      // limit or the written space.
+      const MAX_HEIGHT = 360;
+      const grow = (natural: number): void => {
+        vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(
+          function (this: HTMLElement) {
+            if (!this.classList.contains("pluto-dialog__dialog")) return 0;
+            const available = parseFloat(variable(this, "available-height"));
+            return Math.min(
+              natural,
+              MAX_HEIGHT,
+              Number.isNaN(available) ? Infinity : available,
+            );
+          },
+        );
+        resize();
+      };
+
+      it("should move above the trigger when there is more room above", () => {
+        const el = open(rect(400, 500, 100, 30), rect(0, 0, 200, 100));
+        expect(el.style.top).not.toBe("");
+        grow(300);
+        expect(el.style.top).toBe("");
+        expect(parseFloat(el.style.bottom)).toBeGreaterThanOrEqual(
+          window.innerHeight - 500,
+        );
+      });
+
+      it("should stay below the trigger when there is more room below", () => {
+        // The dialog fits on both sides, so only the order of the sides decides.
+        vi.spyOn(window, "innerHeight", "get").mockReturnValue(465);
+        const el = open(rect(400, 215, 100, 30), rect(0, 0, 200, 100));
+        grow(2000);
+        expect(el.style.bottom).toBe("");
+        expect(parseFloat(el.style.top)).toBeGreaterThanOrEqual(245);
+      });
+
+      it("should stay below the trigger when the dialog fits", () => {
+        const el = open(rect(400, 500, 100, 30), rect(0, 0, 200, 100));
+        grow(150);
+        expect(el.style.bottom).toBe("");
+        expect(parseFloat(el.style.top)).toBeGreaterThanOrEqual(530);
       });
     });
   });

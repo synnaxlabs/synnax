@@ -40,7 +40,6 @@ describe("table queries", () => {
     it("should retrieve a table by key", async () => {
       const project = await client.projects.create({
         name: "test_project",
-        layout: {},
       });
       const created = await client.tables.create(project.key, {
         name: "retrieve_test",
@@ -62,7 +61,6 @@ describe("table queries", () => {
     it("should cache retrieved tables", async () => {
       const project = await client.projects.create({
         name: "cache_project",
-        layout: {},
       });
       const created = await client.tables.create(project.key, {
         name: "cached_table",
@@ -87,7 +85,6 @@ describe("table queries", () => {
     it("should create a new table", async () => {
       const project = await client.projects.create({
         name: "create_project",
-        layout: {},
       });
 
       const { result } = renderHook(() => Table.useCreate(), { wrapper });
@@ -112,7 +109,6 @@ describe("table queries", () => {
     it("should cache the created table for subsequent retrieves", async () => {
       const project = await client.projects.create({
         name: "store_project",
-        layout: {},
       });
 
       const { result: createResult } = renderHook(() => Table.useCreate(), {
@@ -141,7 +137,6 @@ describe("table queries", () => {
     it("should initialize a 2x2 layout of empty text cells when rows and columns are empty", async () => {
       const project = await client.projects.create({
         name: "default_layout_project",
-        layout: {},
       });
 
       const { result } = renderHook(() => Table.useCreate(), { wrapper });
@@ -173,7 +168,6 @@ describe("table queries", () => {
     it("should not apply defaults when rows are provided", async () => {
       const project = await client.projects.create({
         name: "explicit_layout_project",
-        layout: {},
       });
 
       const { result } = renderHook(() => Table.useCreate(), { wrapper });
@@ -219,7 +213,6 @@ describe("table queries", () => {
     it("should rename a table", async () => {
       const project = await client.projects.create({
         name: "rename_project",
-        layout: {},
       });
       const created = await client.tables.create(project.key, {
         name: "original_name",
@@ -251,7 +244,6 @@ describe("table queries", () => {
     it("should update cached table after rename", async () => {
       const project = await client.projects.create({
         name: "rename_cache_project",
-        layout: {},
       });
       const created = await client.tables.create(project.key, {
         name: "cache_original",
@@ -283,7 +275,6 @@ describe("table queries", () => {
     it("should delete a single table", async () => {
       const project = await client.projects.create({
         name: "delete_project",
-        layout: {},
       });
       const created = await client.tables.create(project.key, {
         name: "delete_single",
@@ -301,7 +292,6 @@ describe("table queries", () => {
     it("should delete multiple tables", async () => {
       const project = await client.projects.create({
         name: "delete_multi_project",
-        layout: {},
       });
       const created1 = await client.tables.create(project.key, {
         name: "delete_multi_1",
@@ -327,12 +317,14 @@ describe("table queries", () => {
     const createTable = async () => {
       const proj = await client.projects.create({
         name: `dispatch_ws_${uuid.create()}`,
-        layout: {},
       });
       return await client.tables.create(proj.key, {
         name: "dispatch_test",
-        rows: [{ size: 36, cells: ["a", "b"] }],
-        columns: [{ size: 80 }, { size: 100 }],
+        rows: [{ key: "r0", size: 36, cells: ["a", "b"] }],
+        columns: [
+          { key: "c0", size: 80 },
+          { key: "c1", size: 100 },
+        ],
         cells: {
           a: { variant: "text", value: "A" },
           b: { variant: "text", value: "B" },
@@ -520,7 +512,7 @@ describe("table queries", () => {
         await act(async () => {
           await result.current.dispatch.dispatchAsync({
             key: created.key,
-            actions: [table.resizeRow({ index: 0, size })],
+            actions: [table.resizeRow({ key: "r0", size })],
           });
         });
       await waitFor(() => expect(result.current.retrieve?.rows[0].size).toEqual(60));
@@ -557,7 +549,6 @@ describe("table queries", () => {
     it("populates the cache so downstream selectors resolve", async () => {
       const proj = await client.projects.create({
         name: `ensure_ws_${uuid.create()}`,
-        layout: {},
       });
       const created = await client.tables.create(proj.key, {
         name: "ensure_test",
@@ -575,7 +566,6 @@ describe("table queries", () => {
     it("does not suspend when the table is already in the store", async () => {
       const proj = await client.projects.create({
         name: `fastpath_ws_${uuid.create()}`,
-        layout: {},
       });
       const created = await client.tables.create(proj.key, {
         name: "fastpath_test",
@@ -610,15 +600,17 @@ describe("table queries", () => {
     const createTable = async () => {
       const proj = await client.projects.create({
         name: `selector_ws_${uuid.create()}`,
-        layout: {},
       });
       return await client.tables.create(proj.key, {
         name: "selector_test",
         rows: [
-          { size: 30, cells: ["a", "b"] },
-          { size: 40, cells: ["c", "d"] },
+          { key: "r0", size: 30, cells: ["a", "b"] },
+          { key: "r1", size: 40, cells: ["c", "d"] },
         ],
-        columns: [{ size: 80 }, { size: 100 }],
+        columns: [
+          { key: "c0", size: 80 },
+          { key: "c1", size: 100 },
+        ],
         cells: {
           a: { variant: "text", value: "A" },
           b: { variant: "text", value: "B" },
@@ -695,7 +687,7 @@ describe("table queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [table.resizeCol({ index: 0, size: 200 })],
+          actions: [table.resizeCol({ key: "c0", size: 200 })],
         });
       });
       await waitFor(() => expect(result.current.columns[0].size).toEqual(200));
@@ -849,8 +841,8 @@ describe("table queries", () => {
 
 describe("findCellPosition", () => {
   const rows: table.Row[] = [
-    { size: 30, cells: ["a", "b", "c"] },
-    { size: 30, cells: ["d", "e", "f"] },
+    { key: "r0", size: 30, cells: ["a", "b", "c"] },
+    { key: "r1", size: 30, cells: ["d", "e", "f"] },
   ];
 
   it("returns the (x, y) coordinates of a known cell", () => {
@@ -870,8 +862,8 @@ describe("findCellPosition", () => {
 
 describe("nextCellPosition", () => {
   const rows: table.Row[] = [
-    { size: 30, cells: ["a", "b"] },
-    { size: 30, cells: ["c", "d"] },
+    { key: "r0", size: 30, cells: ["a", "b"] },
+    { key: "r1", size: 30, cells: ["c", "d"] },
   ];
 
   it("steps forward within a row", () => {
@@ -904,8 +896,8 @@ describe("nextCellPosition", () => {
 
   it("skips empty neighbor rows when wrapping", () => {
     const ragged: table.Row[] = [
-      { size: 30, cells: ["a"] },
-      { size: 30, cells: [] },
+      { key: "r0", size: 30, cells: ["a"] },
+      { key: "r1", size: 30, cells: [] },
     ];
     expect(Table.nextCellPosition(ragged, { x: 0, y: 0 }, 1)).toBeNull();
   });
@@ -913,9 +905,9 @@ describe("nextCellPosition", () => {
 
 describe("cellsInRegion", () => {
   const rows: table.Row[] = [
-    { size: 30, cells: ["a", "b", "c"] },
-    { size: 30, cells: ["d", "e", "f"] },
-    { size: 30, cells: ["g", "h", "i"] },
+    { key: "r0", size: 30, cells: ["a", "b", "c"] },
+    { key: "r1", size: 30, cells: ["d", "e", "f"] },
+    { key: "r2", size: 30, cells: ["g", "h", "i"] },
   ];
 
   it("returns the inclusive rectangle of cell keys", () => {
@@ -950,8 +942,8 @@ describe("cellsInRegion", () => {
 
   it("skips column slots past the right of a ragged row", () => {
     const ragged: table.Row[] = [
-      { size: 30, cells: ["a", "b"] },
-      { size: 30, cells: ["c"] },
+      { key: "r0", size: 30, cells: ["a", "b"] },
+      { key: "r1", size: 30, cells: ["c"] },
     ];
     expect(Table.cellsInRegion(ragged, { x: 0, y: 0 }, { x: 1, y: 1 })).toEqual([
       "a",

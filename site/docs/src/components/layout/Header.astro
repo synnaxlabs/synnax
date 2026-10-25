@@ -8,13 +8,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Logo } from "@synnaxlabs/media";
+import { Logo } from "@synnaxlabs/lyra/logo";
 import { Button } from "@synnaxlabs/lyra/button";
+import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import Search from "@/components/search/Search.astro";
 import { Page } from "@/components/nav/Page";
 import { REFERENCE_PAGES } from "@/pages/_nav";
+import { enabled } from "@/flags";
+import Drawer from "@synnaxlabs/site-common/Drawer.astro";
+import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
 const url = Astro.url.pathname;
 const version = await Astro.locals.releases.latest("core").catch(() => null);
 const label = version?.split(".").slice(0, -1).join(".");
@@ -30,7 +34,7 @@ const label = version?.split(".").slice(0, -1).join(".");
         >
             <Flex.Box direction="x" align="center" gap={4}>
                 <a href="https://synnaxlabs.com" class="logo-link">
-                    <Logo variant="title" />
+                    <Logo.Logo variant="title" />
                 </a>
                 <Flex.Box direction="x" className="header-nav" align="center" gap={1}>
                     <Button.Button
@@ -66,13 +70,6 @@ const label = version?.split(".").slice(0, -1).join(".");
             <Flex.Box direction="x" align="center" gap="small">
                 <Search />
                 <Button.Button
-                    className="demo-button"
-                    variant="filled"
-                    href="https://synnaxlabs.com/#contact"
-                >
-                    Book a demo
-                </Button.Button>
-                <Button.Button
                     className="version-button"
                     variant="outlined"
                     href="https://github.com/synnaxlabs/synnax"
@@ -80,23 +77,17 @@ const label = version?.split(".").slice(0, -1).join(".");
                     <p class="version">{label}</p>
                     <Icon.Logo.Github />
                 </Button.Button>
-                <button class="mobile-menu-btn" aria-label="Open menu" data-mobile-open>
-                    <span class="mobile-menu-icon"></span>
-                </button>
-                <div class="mobile-overlay" data-mobile-close></div>
-                <nav class="mobile-drawer">
-                    <div class="mobile-drawer-header">
-                        <a href="https://synnaxlabs.com" class="logo-link">
-                            <Logo variant="title" />
-                        </a>
-                        <button
-                            class="mobile-close-btn"
-                            aria-label="Close menu"
-                            data-mobile-close
-                        >
-                            <span class="mobile-close-icon"></span>
-                        </button>
-                    </div>
+                {enabled("portal") && (
+                    <Button.Button
+                        className="login-button"
+                        variant="filled"
+                        href="https://portal.synnaxlabs.com/login"
+                    >
+                        Log in
+                    </Button.Button>
+                )}
+                <MenuButton />
+                <Drawer home="https://synnaxlabs.com">
                     <div class="mobile-drawer-links">
                         <a href="/reference/" class="mobile-drawer-link">
                             Reference
@@ -110,26 +101,40 @@ const label = version?.split(".").slice(0, -1).join(".");
                         <a href="/reliability/" class="mobile-drawer-link">
                             Reliability
                         </a>
-                        <div class="mobile-drawer-divider"></div>
+                        <Divider.Divider x className="mobile-drawer-divider" />
                         <span class="mobile-drawer-section-label">Reference</span>
                     </div>
                     <div class="mobile-drawer-tree">
                         <Page nodes={REFERENCE_PAGES} currentPage={url} />
                     </div>
-                </nav>
+                </Drawer>
             </Flex.Box>
         </Flex.Box>
     </Flex.Box>
 </Flex.Box>
 
 <style is:global>
+    /* The inset of the header content, which the drawer and the outline bar share. */
+    :root {
+        --header-inset: 7rem;
+    }
+
     .main-header {
         z-index: 4;
         position: sticky;
         top: 0;
-        background: var(--pluto-gray-l2-30);
-        -webkit-backdrop-filter: blur(3rem);
-        backdrop-filter: blur(3rem);
+
+        /* A backdrop filter on the header would contain the drawer's fixed position,
+        so the closed drawer would widen the page. */
+        &::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            z-index: -1;
+            background: var(--pluto-gray-l1-80);
+            -webkit-backdrop-filter: blur(3rem);
+            backdrop-filter: blur(3rem);
+        }
 
         .header-row {
             height: var(--nav-height);
@@ -141,16 +146,22 @@ const label = version?.split(".").slice(0, -1).join(".");
         .header-content {
             width: 100%;
             max-width: var(--max-width);
-            padding: 0 7rem;
+            padding: 0 var(--header-inset);
         }
 
+        /* The link fills the header height without moving the logo, so the full
+           height is a touch target. */
         .logo-link {
+            --logo-height: 4.5rem;
+
             text-decoration: none;
             display: flex;
             align-items: center;
+            padding-block: calc((var(--nav-height) - var(--logo-height)) / 2);
+            margin-block: calc((var(--logo-height) - var(--nav-height)) / 2);
 
             & .synnax-logo--title {
-                height: 4.5rem;
+                height: var(--logo-height);
             }
         }
 
@@ -170,7 +181,7 @@ const label = version?.split(".").slice(0, -1).join(".");
             color: var(--pluto-gray-l10);
         }
 
-        .demo-button {
+        .login-button {
             text-decoration: none;
             font-size: 2rem;
             font-weight: 500;
@@ -192,198 +203,83 @@ const label = version?.split(".").slice(0, -1).join(".");
             }
         }
 
-        .mobile-menu-btn {
+        .mobile-menu-btn,
+        .mobile-drawer {
             display: none;
         }
-    }
 
-    .mobile-menu-btn {
-        background: none;
-        border: none;
-        cursor: pointer;
-        padding: 0.8rem;
-        margin-right: -0.8rem;
-    }
-
-    .mobile-menu-icon,
-    .mobile-menu-icon::before,
-    .mobile-menu-icon::after {
-        display: block;
-        width: 2.2rem;
-        height: 2px;
-        background: var(--pluto-gray-l9);
-        border-radius: 1px;
-        transition: all 0.2s ease;
-    }
-
-    .mobile-menu-icon {
-        position: relative;
-    }
-
-    .mobile-menu-icon::before,
-    .mobile-menu-icon::after {
-        content: "";
-        position: absolute;
-        left: 0;
-    }
-
-    .mobile-menu-icon::before {
-        top: -0.7rem;
-    }
-
-    .mobile-menu-icon::after {
-        top: 0.7rem;
-    }
-
-    .mobile-overlay {
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.5);
-        z-index: 49;
-        opacity: 0;
-        transition: opacity 0.25s ease;
-    }
-
-    .mobile-overlay--open {
-        display: block;
-        opacity: 1;
-    }
-
-    .mobile-drawer {
-        position: fixed;
-        inset: 0;
-        width: 100%;
-        height: 100dvh;
-        background: var(--pluto-gray-l1);
-        z-index: 50;
-        transform: translateX(100%);
-        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        display: none;
-        flex-direction: column;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-
-    .mobile-drawer--open {
-        transform: translateX(0);
-    }
-
-    .mobile-drawer-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 2rem;
-        height: var(--nav-height);
-        border-bottom: var(--pluto-border);
-        flex-shrink: 0;
-    }
-
-    .mobile-drawer-header .logo-link .synnax-logo--title {
-        height: 3.5rem;
-    }
-
-    .mobile-close-btn {
-        background: none;
-        border: none;
-        cursor: pointer;
-        padding: 0.8rem;
-        margin-right: -0.8rem;
-    }
-
-    .mobile-close-icon {
-        display: block;
-        width: 2.2rem;
-        height: 2.2rem;
-        position: relative;
-    }
-
-    .mobile-close-icon::before,
-    .mobile-close-icon::after {
-        content: "";
-        position: absolute;
-        top: 50%;
-        left: 0;
-        width: 100%;
-        height: 2px;
-        background: var(--pluto-gray-l9);
-        border-radius: 1px;
-    }
-
-    .mobile-close-icon::before {
-        transform: rotate(45deg);
-    }
-
-    .mobile-close-icon::after {
-        transform: rotate(-45deg);
-    }
-
-    .mobile-drawer-links {
-        display: flex;
-        flex-direction: column;
-        padding: 1.5rem 0;
-    }
-
-    .mobile-drawer-section-label {
-        font-size: 1.4rem;
-        font-weight: 600;
-        color: var(--pluto-gray-l6);
-        font-family: var(--pluto-font-family);
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        padding: 1rem 2rem 0.5rem;
-    }
-
-    .mobile-drawer-link {
-        display: block;
-        padding: 1.2rem 2rem;
-        font-size: 1.8rem;
-        font-weight: 500;
-        font-family: var(--pluto-font-family);
-        color: var(--pluto-gray-l9);
-        text-decoration: none;
-
-        &:hover {
-            background: var(--pluto-gray-l2);
-            text-decoration: none;
+        .mobile-drawer {
+            --mobile-drawer-inset: var(--header-inset);
         }
-    }
-
-    .mobile-drawer-divider {
-        height: 1px;
-        background: var(--pluto-gray-l3);
-        margin: 0.8rem 2rem;
     }
 
     .mobile-drawer-tree {
         flex: 1;
         overflow-y: auto;
         padding-bottom: 2rem;
+
+        .pluto-tree {
+            max-height: calc(100vh - 15rem);
+            padding-top: 5rem;
+            mask-image: linear-gradient(
+                to bottom,
+                transparent 0,
+                black 5rem,
+                black calc(100% - 5rem),
+                transparent 100%
+            );
+            -webkit-mask-image: linear-gradient(
+                to bottom,
+                transparent 0,
+                black 5rem,
+                black calc(100% - 5rem),
+                transparent 100%
+            );
+        }
     }
 
-    body.mobile-menu-open {
-        overflow: hidden;
+    @media (pointer: coarse) {
+        .mobile-drawer-tree .pluto-list__item {
+            padding-top: 1.75rem;
+            padding-bottom: 1.75rem;
+        }
+    }
+
+    /* The menu opens the page list wherever the page nav sidebar is hidden. */
+    @media (max-width: 1023px) {
+        .main-header {
+            .mobile-menu-btn {
+                display: flex;
+            }
+            .mobile-drawer {
+                display: flex;
+            }
+        }
     }
 
     @media (max-width: 800px) {
+        :root {
+            --header-inset: 3rem;
+        }
+
         .main-header {
-            .header-content {
-                padding: 0 3rem;
-            }
             .header-nav {
-                display: none;
-            }
-            .demo-button {
                 display: none;
             }
             .version-button {
                 display: none;
             }
-            .mobile-menu-btn {
-                display: block;
+            /* Search matches the menu button: a bare icon that fills the header
+               height. */
+            .search-box button {
+                width: var(--nav-height);
+                height: var(--nav-height);
+                border-color: transparent;
+                background: none;
             }
-            .mobile-drawer {
-                display: flex;
+            .search-box button > .pluto-icon {
+                font-size: 3rem;
+                color: var(--pluto-gray-l9);
             }
         }
     }

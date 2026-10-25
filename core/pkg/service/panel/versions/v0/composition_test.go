@@ -16,14 +16,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
@@ -37,7 +36,7 @@ var _ = Describe("Composition migrations", func() {
 		return MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[v0.Key, v0.Panel]{
 				DB:         db,
-				Migrations: []migrate.Migration{v0.Migration},
+				Migrations: []gorp.Migration{v0.Migration},
 			},
 		))
 	}
@@ -74,7 +73,7 @@ var _ = Describe("Composition migrations", func() {
 			db.Set(ctx, []byte(project.LegacyLayoutKVPrefix+p.Key.String()), blob),
 		).To(Succeed())
 	}
-	seedResources := func(ctx context.Context, db *gorp.DB, ids ...ontology.ID) {
+	createResources := func(ctx context.Context, db *gorp.DB, ids ...ontology.ID) {
 		GinkgoHelper()
 		table := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[string, ontology.Resource]{DB: db},
@@ -184,7 +183,7 @@ var _ = Describe("Composition migrations", func() {
 			lpKey, scKey, logKey, tblKey := uuid.New().String(), uuid.New().String(),
 				uuid.New().String(), uuid.New().String()
 			staleKey := uuid.New().String()
-			seedResources(ctx, db,
+			createResources(ctx, db,
 				ontology.ID{Type: ontology.ResourceTypeLineplot, Key: lpKey},
 				ontology.ID{Type: ontology.ResourceTypeSchematic, Key: scKey},
 				ontology.ID{Type: ontology.ResourceTypeLog, Key: logKey},
@@ -329,7 +328,7 @@ var _ = Describe("Composition migrations", func() {
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			lpKey, staleKey := uuid.New().String(), uuid.New().String()
-			seedResources(ctx, db, ontology.ID{
+			createResources(ctx, db, ontology.ID{
 				Type: ontology.ResourceTypeLineplot, Key: lpKey,
 			})
 			stageLayout(ctx, db, project.Project{
@@ -538,16 +537,12 @@ var _ = Describe("Composition migrations", func() {
 		},
 	)
 
-	// Regression: range overviews are mosaic tabs keyed by the range's key, so they
-	// must convert into range resource tabs like the other document-backed layouts.
-	It(
-		"Should convert range overview tabs into range resource tabs",
-		func(ctx SpecContext) {
+	DescribeTable(
+		"Should convert a document-backed layout into a resource tab",
+		func(ctx SpecContext, layoutType string, resourceType ontology.ResourceType) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
-			rngKey, staleKey := uuid.New().String(), uuid.New().String()
-			seedResources(ctx, db, ontology.ID{
-				Type: ontology.ResourceTypeRange, Key: rngKey,
-			})
+			docKey, staleKey := uuid.New().String(), uuid.New().String()
+			createResources(ctx, db, ontology.ID{Type: resourceType, Key: docKey})
 			stageLayout(ctx, db, project.Project{
 				Key:  uuid.New(),
 				Name: "Ops",
@@ -557,30 +552,34 @@ var _ = Describe("Composition migrations", func() {
 							"root": map[string]any{
 								"key": 1,
 								"tabs": []any{
-									mosaicTab(rngKey),
-									// Overview whose range was deleted: dropped.
+									mosaicTab(docKey),
+									// A tab whose document was deleted: dropped.
 									mosaicTab(staleKey),
 								},
 							},
 						},
 					},
 					"layouts": map[string]any{
-						rngKey:   vizLayout(rngKey, "overview"),
-						staleKey: vizLayout(staleKey, "overview"),
+						docKey:   vizLayout(docKey, layoutType),
+						staleKey: vizLayout(staleKey, layoutType),
 					},
 				},
 			})
-
 			openPanelTable(ctx, db)
 			runComposition(ctx, db)
 			panels := collectPanels(ctx, db)
 			Expect(panels).To(HaveLen(1))
 			root := panels[0].Root
 			zeroTabKeys(&root)
-			Expect(root).To(Equal(
-				*leaf(resourceTab(ontology.ResourceTypeRange, rngKey)),
-			))
+			Expect(root).To(Equal(*leaf(resourceTab(resourceType, docKey))))
 		},
+		Entry("a range overview", "overview", ontology.ResourceTypeRange),
+		Entry("an Arc", "arc", ontology.ResourceTypeArc),
+		Entry(
+			"an Arc editor from a v0.50 Console",
+			"arc_editor",
+			ontology.ResourceTypeArc,
+		),
 	)
 
 	// Regression: app views (explorers, selectors) have no backing document but the

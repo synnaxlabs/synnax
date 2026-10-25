@@ -9,8 +9,6 @@
 
 import { CSS as Base } from "@synnaxlabs/lyra/css";
 
-export const { B, E, M, BE, BM, BEM } = Base.newBEM("console");
+export const { B, M, BE, BM, BEM } = Base.newBEM("console");
 
 export const cls = Base.cls;
-
-export type VarProperties = Base.VarProperties;

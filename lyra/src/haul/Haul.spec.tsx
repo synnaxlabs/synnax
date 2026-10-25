@@ -726,43 +726,6 @@ describe("Haul", () => {
     });
   });
 
-  describe("useFilterByTypeCallback", () => {
-    it("should filter dropped items by type before invoking the handler", () => {
-      const captured = vi.fn<(items: Haul.Item[]) => void>();
-      const FilterTarget = (): ReactElement => {
-        const onDrop = Haul.useFilterByTypeCallback(
-          "cat",
-          (props) => {
-            captured(props.items);
-            return props.items;
-          },
-          [],
-        );
-        const dropProps = Haul.useDrop({
-          type: "test-target",
-          key: "filter-target",
-          canDrop: () => true,
-          onDrop,
-        });
-        return <div data-testid="filter-target" {...dropProps} />;
-      };
-      render(
-        <Haul.Provider>
-          <Source
-            items={[
-              { type: "cat", key: "1" },
-              { type: "dog", key: "2" },
-            ]}
-          />
-          <FilterTarget />
-        </Haul.Provider>,
-      );
-      beginDrag();
-      fireEvent.drop(screen.getByTestId("filter-target"));
-      expect(captured).toHaveBeenCalledWith([{ type: "cat", key: "1" }]);
-    });
-  });
-
   describe("useDragAndDrop", () => {
     it("should let the same element act as both a drag source and a drop target", () => {
       const onDrop = passthroughDrop();

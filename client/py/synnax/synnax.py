@@ -7,36 +7,36 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import warnings
 import weakref
 from importlib.metadata import version as _version
 
 from alamos import NOOP, Instrumentation
 from freighter import URL
 from synnax import (
-    access,
     arc,
     auth,
     channel,
     connection,
-    control,
     device,
     framer,
     group,
-    imex,
-    license,
-    ontology,
     project,
     rack,
     ranger,
-    signals,
     status,
     task,
     user,
     view,
 )
+from synnax.access import Client as AccessClient
 from synnax.config import try_load_options_if_none_provided
+from synnax.control import Client as ControlClient
+from synnax.imex import Client as ImexClient
+from synnax.license import Client as LicenseClient
+from synnax.ontology import Client as OntologyClient
 from synnax.options import Options
+from synnax.ranger.retrieve import Retriever as RangeRetriever
+from synnax.signals import Registry as SignalsRegistry
 from synnax.telem import TimeSpan
 from synnax.transport import Transport
 
@@ -59,27 +59,28 @@ class Synnax(framer.Client):
             port=9090,
             username="synnax",
             password="seldon",
-            secure=True
+            secure=True,
+            ca_cert="/path/to/ca.crt",
         )
     """
 
     channels: channel.Client
     connectivity: connection.Checker
-    access: access.Client
+    access: AccessClient
     users: user.Client
     ranges: ranger.Client
-    control: control.Client
-    signals: signals.Registry
+    control: ControlClient
+    signals: SignalsRegistry
     racks: rack.Client
     devices: device.Client
     tasks: task.Client
-    ontology: ontology.Client
-    license: license.Client
+    ontology: OntologyClient
+    license: LicenseClient
     statuses: status.Client
     arcs: arc.Client
     groups: group.Client
     views: view.Client
-    imex: imex.Client
+    imex: ImexClient
     projects: project.Client
 
     _transport: Transport
@@ -96,8 +97,8 @@ class Synnax(framer.Client):
         keep_alive: TimeSpan = TimeSpan.SECOND * 30,
         max_retries: int = 3,
         instrumentation: Instrumentation = NOOP,
-        cache_channels: bool = True,
         clock_skew_threshold: TimeSpan = TimeSpan.SECOND,
+        ca_cert: str | None = None,
     ):
         """Creates a new client. Connection parameters can be provided as arguments, or,
         if none are provided, the client will attempt to load them from the Synnax
@@ -112,11 +113,17 @@ class Synnax(framer.Client):
         :param port: Port of the Core.
         :param username: Username to authenticate with.
         :param password: Password to authenticate with.
-        :param secure: Whether to use TLS when connecting to the Core.
+        :param secure: Whether to use TLS when connecting to the Core. The client
+            verifies the Core's certificate against ca_cert, or the system trust roots
+            when ca_cert is None.
         :param clock_skew_threshold: The maximum allowable clock skew between this
             host and Synnax Core before a warning is issued. Defaults to 1 second.
+        :param ca_cert: The path to a PEM file of CA certificates that sign the Core's
+            certificate, such as the ca.crt that the Core generates.
         """
-        opts = try_load_options_if_none_provided(host, port, username, password, secure)
+        opts = try_load_options_if_none_provided(
+            host, port, username, password, secure, ca_cert
+        )
         self._transport = _configure_transport(
             opts=opts,
             open_timeout=open_timeout,
@@ -143,40 +150,28 @@ class Synnax(framer.Client):
         # that, and when an unclosed client is garbage collected.
         self._finalizer = weakref.finalize(self, self.connectivity.stop)
 
-        cluster_retriever = channel.ClusterRetriever(
-            self._transport.unary, instrumentation
-        )
-        cache_retriever: channel.CacheRetriever | None = None
-        ch_retriever: channel.Retriever
-        if cache_channels:
-            cache_retriever = channel.CacheRetriever(cluster_retriever, instrumentation)
-            ch_retriever = cache_retriever
-        else:
-            ch_retriever = cluster_retriever
+        ch_retriever = channel.Retriever(self._transport.unary, instrumentation)
         deleter = framer.Deleter(self._transport.unary, instrumentation)
-        ch_creator = channel.Writer(
-            self._transport.unary,
-            instrumentation,
-            cache_retriever,
-        )
+        ch_creator = channel.Writer(self._transport.unary, instrumentation)
         super().__init__(
             stream_client=self._transport.stream,
             async_client=self._transport.stream_async,
             unary_client=self._transport.unary,
+            file_transport=self._transport.file_transport,
             retriever=ch_retriever,
             deleter=deleter,
             instrumentation=instrumentation,
         )
         self.groups = group.Client(self._transport.unary)
-        self.ontology = ontology.Client(client=self._transport.unary)
+        self.ontology = OntologyClient(client=self._transport.unary)
         self.channels = channel.Client(self, ch_retriever, ch_creator)
-        range_retriever = ranger.Retriever(self._transport.unary, instrumentation)
+        range_retriever = RangeRetriever(self._transport.unary, instrumentation)
         range_creator = ranger.Writer(self._transport.unary, instrumentation)
-        self.signals = signals.Registry(frame_client=self, channels=ch_retriever)
+        self.signals = SignalsRegistry(frame_client=self, channels=ch_retriever)
         self.racks = rack.Client(client=self._transport.unary)
         self.devices = device.Client(client=self._transport.unary)
         self.views = view.Client(client=self._transport.unary)
-        self.imex = imex.Client(file_transport=self._transport.file_transport)
+        self.imex = ImexClient(file_transport=self._transport.file_transport)
         self.projects = project.Client(client=self._transport.unary)
         self.tasks = task.Client(
             client=self._transport.unary,
@@ -194,28 +189,12 @@ class Synnax(framer.Client):
             ontology=self.ontology,
             tasks=self.tasks,
         )
-        self.control = control.Client(self, ch_retriever, self._transport.unary)
+        self.control = ControlClient(self, ch_retriever, self._transport.unary)
         self.users = user.Client(self._transport.unary)
         self.statuses = status.Client(self._transport.unary)
-        self.license = license.Client(self._transport.unary)
+        self.license = LicenseClient(self._transport.unary)
         self.arcs = arc.Client(self._transport.unary)
-        self.access = access.Client(self._transport.unary)
-
-    @property
-    def user(self) -> user.Client:
-        """Deprecated: Use users instead."""
-        return self.users
-
-    @property
-    def hardware(self) -> "Synnax":
-        """Deprecated: Use client.devices, client.tasks, client.racks directly."""
-        warnings.warn(
-            "client.hardware is deprecated and will be removed in a future version. "
-            "Use client.devices, client.tasks, client.racks directly instead.",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self
+        self.access = AccessClient(self._transport.unary)
 
     def close(self) -> None:
         """Shuts down the client and closes all connections. All open iterators or
@@ -232,13 +211,13 @@ def _configure_transport(
     max_retries: int,
     instrumentation: Instrumentation = NOOP,
 ) -> Transport:
-    t = Transport(
+    return Transport(
         instrumentation=instrumentation,
         url=URL(host=opts.host, port=opts.port),
         secure=opts.secure,
+        ca_cert=opts.ca_cert,
         open_timeout=open_timeout,
         read_timeout=read_timeout,
         keep_alive=keep_alive,
         max_retries=max_retries,
     )
-    return t

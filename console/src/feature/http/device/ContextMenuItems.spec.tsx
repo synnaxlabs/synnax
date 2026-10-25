@@ -49,7 +49,6 @@ const renderContextMenuItems = async (configured: boolean) => {
   const { wrapper, store } = await createConsoleWrapper({ client });
   const proj = await client.projects.create({
     name: uniqueName("proj"),
-    layout: {},
   });
   store.dispatch(Session.Project.select(proj.key));
   const props: Tree.ContextMenuProps = {

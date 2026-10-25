@@ -11,10 +11,10 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, Union
+from typing import Annotated, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, JsonValue
 
 from synnax import channel as channel_
 from synnax import device as device_
@@ -173,7 +173,7 @@ class ChannelField(BaseModel):
         name: Is the human-readable name of the command channel.
         data_type: Is the data type of the command channel.
         time_format: Is the output encoding when the command channel holds timestamps.
-            Required for timestamp channels.
+            An unset format is ISO 8601.
         enum_values: Maps numeric channel values to string labels. Only valid when
             json_type is 'string'.
     """
@@ -192,7 +192,7 @@ class StaticWriteField(BaseWriteField):
 
     type: Literal["static"] = "static"
     json_type: JSONType = "number"
-    value: Any
+    value: JsonValue
 
 
 class GeneratedWriteField(BaseWriteField):
@@ -206,7 +206,7 @@ class GeneratedWriteField(BaseWriteField):
 # Is an additional body field on a write endpoint. The type field selects whether
 # the value is fixed or generated per request.
 WriteField = Annotated[
-    Union[StaticWriteField, GeneratedWriteField],
+    StaticWriteField | GeneratedWriteField,
     Field(discriminator="type"),
 ]
 
@@ -274,11 +274,15 @@ class ReadConfig(task.PersistConfig):
         device: Is the key of the HTTP server device to poll.
         rate: Is the polling rate applied to all endpoints, in Hertz.
         endpoints: Contains the endpoints to poll.
+        nan_fill_enabled: Is true when a float field that is missing or fails to convert
+            is written as NaN. When false, the task skips every field that shares the
+            endpoint and index channel with it.
     """
 
     device: device_.Key = ""
     rate: telem.Rate = telem.Rate(1)
     endpoints: list[ReadEndpoint] = Field(default_factory=list)
+    nan_fill_enabled: bool = False
 
     def __hash__(self) -> int:
         return hash(self.key)

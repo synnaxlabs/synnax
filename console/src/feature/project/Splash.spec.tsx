@@ -39,7 +39,7 @@ describe("project/Splash", () => {
     });
 
     it("should name the denial when the list read is refused", async () => {
-      await client.projects.create({ name: uniqueName("argon"), layout: {} });
+      await client.projects.create({ name: uniqueName("argon") });
       const denied = await createTestClientWithPolicy(client, {
         name: uuid.create(),
         objects: [
@@ -51,10 +51,9 @@ describe("project/Splash", () => {
       });
       const { wrapper } = await createConsoleWrapper({ client: denied });
       render(<Project.Splash />, { wrapper });
+      expect(await screen.findByText("Failed to retrieve projects")).toBeDefined();
       expect(
-        await screen.findByText(
-          "Failed to retrieve projects: You do not have permission to do that",
-        ),
+        screen.getByText(/^You do not have permission to do that\. /),
       ).toBeDefined();
       expect(screen.queryByText("No projects created.")).toBeNull();
     });
@@ -109,7 +108,7 @@ describe("project/Splash", () => {
   describe("selecting an existing project", () => {
     it("should activate the project", async () => {
       const name = `proj-${id.create()}`;
-      const proj = await client.projects.create({ name, layout: {} });
+      const proj = await client.projects.create({ name });
       const { wrapper, store } = await createConsoleWrapper({ client });
       render(<Project.Splash />, { wrapper });
 
@@ -128,8 +127,8 @@ describe("project/Splash", () => {
     it("should filter the list to matching projects and allow selecting one", async () => {
       const first = uniqueName("hydrogen");
       const second = uniqueName("xenon");
-      await client.projects.create({ name: first, layout: {} });
-      const created = await client.projects.create({ name: second, layout: {} });
+      await client.projects.create({ name: first });
+      const created = await client.projects.create({ name: second });
       const { wrapper, store } = await createConsoleWrapper({ client });
       render(<Project.Splash />, { wrapper });
 
@@ -149,12 +148,16 @@ describe("project/Splash", () => {
     });
 
     it("should show a no-match message instead of the created-none empty state", async () => {
-      await client.projects.create({ name: uniqueName("krypton"), layout: {} });
+      await client.projects.create({ name: uniqueName("krypton") });
       const { wrapper } = await createConsoleWrapper({ client });
       render(<Project.Splash />, { wrapper });
 
       const input = await screen.findByPlaceholderText("Search projects...");
-      fireEvent.change(input, { target: { value: uniqueName("nomatchterm") } });
+      // One word with no separators: the Core matches each word of a term on its own,
+      // by prefix and edit distance, so a short word can hit another spec's fixture.
+      fireEvent.change(input, {
+        target: { value: uniqueName("nomatchterm").replace(/_/g, "") },
+      });
 
       await screen.findByText("No matching projects");
       expect(screen.queryByText("No projects")).toBeNull();
@@ -164,7 +167,7 @@ describe("project/Splash", () => {
   describe("keyboard navigation", () => {
     it("should select the hovered project when Enter is pressed", async () => {
       const name = uniqueName("kb_enter");
-      const proj = await client.projects.create({ name, layout: {} });
+      const proj = await client.projects.create({ name });
       const { wrapper, store } = await createConsoleWrapper({ client });
       render(
         <Triggers.Provider>
@@ -188,8 +191,8 @@ describe("project/Splash", () => {
 
     it("should move the hover with the arrow keys before selecting", async () => {
       const prefix = uniqueName("kb_arrows");
-      const a = await client.projects.create({ name: `${prefix}_a`, layout: {} });
-      const b = await client.projects.create({ name: `${prefix}_b`, layout: {} });
+      const a = await client.projects.create({ name: `${prefix}_a` });
+      const b = await client.projects.create({ name: `${prefix}_b` });
       const { wrapper, store } = await createConsoleWrapper({ client });
       render(
         <Triggers.Provider>
@@ -219,7 +222,7 @@ describe("project/Splash", () => {
 
     it("should not select a project while a modal is open", async () => {
       const name = uniqueName("kb_modal");
-      await client.projects.create({ name, layout: {} });
+      await client.projects.create({ name });
       const { wrapper, store } = await createConsoleWrapper({ client });
       render(
         <Triggers.Provider>

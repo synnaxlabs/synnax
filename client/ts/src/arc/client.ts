@@ -31,6 +31,7 @@ import {
   rename as renameAction,
   scopedActionZ,
 } from "@/arc/actions.gen";
+import { type Performance, performanceZ } from "@/arc/task/types.gen";
 import { type Arc, arcZ, type Key, keyZ, type New, ontologyID } from "@/arc/types.gen";
 import { NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
@@ -49,7 +50,6 @@ const retrieveReqZ = z.object({
   searchTerm: z.string().optional(),
   limit: z.int().optional(),
   offset: z.int().optional(),
-  includeStatus: z.boolean().optional(),
   ignoreNotFoundError: z.boolean().optional(),
 });
 const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
@@ -66,18 +66,12 @@ export type LSPMessage = z.infer<typeof lspMessageZ>;
 export type RetrieveRequest = z.input<typeof retrieveReqZ>;
 
 const keyRetrieveRequestZ = z
-  .object({
-    key: keyZ,
-    includeStatus: z.boolean().optional(),
-  })
-  .transform(({ key, includeStatus }) => ({ keys: [key], includeStatus }));
+  .object({ key: keyZ })
+  .transform(({ key }) => ({ keys: [key] }));
 
 const nameRetrieveRequestZ = z
-  .object({
-    name: z.string(),
-    includeStatus: z.boolean().optional(),
-  })
-  .transform(({ name, includeStatus }) => ({ names: [name], includeStatus }));
+  .object({ name: z.string() })
+  .transform(({ name }) => ({ names: [name] }));
 
 export const singleRetrieveParamsZ = z.union([
   keyRetrieveRequestZ,
@@ -91,13 +85,28 @@ const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveReqZ]);
 export type RetrieveParams = z.input<typeof retrieveParamsZ>;
 
 const singleQueryZ = z.union([
-  z.strictObject({ key: keyZ, includeStatus: z.boolean().optional() }),
-  z.strictObject({ name: z.string(), includeStatus: z.boolean().optional() }),
+  z.strictObject({ key: keyZ }),
+  z.strictObject({ name: z.string() }),
   keyZ.transform((key) => ({ key })),
 ]);
 
-const setRackReqZ = z.object({ key: keyZ, rack: rack.keyZ });
-const setRackResZ = z.object({ task: task.payloadZ().nullish() });
+const updateTaskReqZ = z.object({
+  key: keyZ,
+  rack: rack.keyZ.optional(),
+  performance: performanceZ.optional(),
+});
+const updateTaskResZ = z.object({ task: task.payloadZ().nullish() });
+
+/** The fields of an Arc's task to change. A field left out stays as it is. */
+export interface UpdateTaskParams {
+  /**
+   * Binds the Arc to the rack, creating its task or moving the existing one. A zero
+   * rack unbinds the Arc, deleting its task.
+   */
+  rack?: rack.Key;
+  /** Sets how closely the task's runtime holds timer deadlines. */
+  performance?: Performance;
+}
 
 /**
  * Client-side matching for a request: key and name sets. Server-computed shapes
@@ -250,39 +259,27 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Binds the Arc to the given rack, creating its task there or moving the existing
-   * one. A zero rack unbinds the Arc, deleting its task. Returns the task, or null
-   * after an unbind.
-   * @throws {ValidationError} when unbinding while the task is running.
+   * Changes the Arc's task. Returns the task, or null after an unbind.
+   * @throws {ValidationError} when unbinding while the task is running, or when
+   * setting the performance of an Arc with no rack.
    */
-  async setRack(key: Key, rackKey: rack.Key): Promise<task.Task | null> {
-    if (rackKey === 0) {
-      await this.clearRack(key);
+  async updateTask(key: Key, params: UpdateTaskParams): Promise<task.Task | null> {
+    // Drops an unbound task from the cache so it is not served until the delete
+    // signal lands.
+    const unbound = params.rack === 0 ? await this.retrieveTask(key) : null;
+    const res = await this.cfg.unary.send(
+      "/arc/update-task",
+      { key, ...params },
+      updateTaskReqZ,
+      updateTaskResZ,
+    );
+    if (res.task == null) {
+      if (unbound != null) this.cfg.tasks.dropCached(unbound.key);
       return null;
     }
-    const res = await this.cfg.unary.send(
-      "/arc/set-rack",
-      { key, rack: rackKey },
-      setRackReqZ,
-      setRackResZ,
-    );
-    if (res.task == null) return null;
     const tsk = this.cfg.tasks.sugar(res.task);
     this.cfg.tasks.store.set(tsk);
     return tsk;
-  }
-
-  // Drops the deleted task from the cache so it is not served until the delete signal
-  // lands.
-  private async clearRack(key: Key): Promise<void> {
-    const tsk = await this.retrieveTask(key);
-    await this.cfg.unary.send(
-      "/arc/set-rack",
-      { key, rack: 0 },
-      setRackReqZ,
-      setRackResZ,
-    );
-    if (tsk != null) this.cfg.tasks.dropCached(tsk.key);
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {

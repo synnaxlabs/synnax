@@ -39,5 +39,3 @@ export const ALERT_SCHEMAS = {
 } as const satisfies task.Schemas;
 
 export type AlertSchemas = typeof ALERT_SCHEMAS;
-
-export interface AlertPayload extends task.Payload<AlertSchemas> {}

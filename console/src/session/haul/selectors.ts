@@ -9,8 +9,6 @@
 
 import { type Dispatch } from "@reduxjs/toolkit";
 import { type Haul } from "@synnaxlabs/lyra/haul";
-import { type state } from "@synnaxlabs/lyra/state";
-import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import {
@@ -27,14 +25,9 @@ const selectHauling = (state: StoreState): Haul.DraggingState =>
 export const useSelectHauling = (): Haul.DraggingState =>
   Select.useMemo(selectHauling, []);
 
-const useState: state.PureUse<Haul.DraggingState> = () => {
-  const hauled = useSelectHauling();
+/** @returns props that keep the Haul provider's drag state in the session. */
+export const useProviderProps = (): Haul.ProviderProps => {
+  const value = useSelectHauling();
   const dispatch = useDispatch<Dispatch<Action>>();
-  const onHauledChange = useCallback(
-    (state: Haul.DraggingState) => dispatch(setHauled(state)),
-    [dispatch],
-  );
-  return [hauled, onHauledChange];
+  return { value, onChange: (state) => dispatch(setHauled(state)) };
 };
-
-export const PROVIDER_PROPS: Haul.ProviderProps = { useState };

@@ -334,7 +334,7 @@ TEST_F(AnalogReadTest, testBasicAnalogRead) {
     EXPECT_EQ(first_state.key, synnax::task::status_key(task));
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(first_state.message, "Task started successfully");
+    EXPECT_EQ(first_state.message, "Started task");
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
     rt->stop("stop_cmd", true);
     ASSERT_EQ(ctx->statuses.size(), 2);
@@ -343,9 +343,9 @@ TEST_F(AnalogReadTest, testBasicAnalogRead) {
     EXPECT_EQ(second_state.key, synnax::task::status_key(task));
     EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(second_state.message, "Task stopped successfully");
+    EXPECT_EQ(second_state.message, "Stopped task");
     ASSERT_GE(mock_factory->writes->size(), 1);
-    auto &fr = mock_factory->writes->at(0);
+    const auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 2);
     ASSERT_EQ(fr.length(), 1);
     ASSERT_EQ(fr.contains(data_channel.key), true);
@@ -370,7 +370,8 @@ TEST_F(AnalogReadTest, testErrorOnStart) {
     EXPECT_EQ(state.details.cmd, "start_cmd");
     EXPECT_EQ(state.details.task, task.key);
     EXPECT_EQ(state.variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(state.message, "Failed to start hardware");
+    EXPECT_EQ(state.message, "Failed to start task");
+    EXPECT_EQ(state.description, "Failed to start hardware");
     rt->stop(false);
 }
 
@@ -397,7 +398,8 @@ TEST_F(AnalogReadTest, testErrorOnStop) {
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
     EXPECT_EQ(stop_state.details.task, task.key);
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(stop_state.message, "Failed to stop hardware");
+    EXPECT_EQ(stop_state.message, "Failed to stop task");
+    EXPECT_EQ(stop_state.description, "Failed to stop hardware");
 }
 
 /// @brief it should communicate an error when the hardware fails to read.
@@ -427,14 +429,16 @@ TEST_F(AnalogReadTest, testErrorOnRead) {
     EXPECT_EQ(read_err_state.key, synnax::task::status_key(task));
     EXPECT_EQ(read_err_state.details.task, task.key);
     EXPECT_EQ(read_err_state.variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(read_err_state.message, "Failed to read hardware");
+    EXPECT_EQ(read_err_state.message, "Failed to read data");
+    EXPECT_EQ(read_err_state.description, "Failed to read hardware");
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
     const auto stop_state = ctx->statuses[2];
     EXPECT_EQ(stop_state.key, synnax::task::status_key(task));
     EXPECT_EQ(stop_state.details.task, task.key);
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(stop_state.message, "Failed to read hardware");
+    EXPECT_EQ(stop_state.message, "Failed to read data");
+    EXPECT_EQ(stop_state.description, "Failed to read hardware");
 }
 
 /// @brief it should correctly coerce read data types to the channel data type.
@@ -498,7 +502,7 @@ TEST_F(AnalogReadTest, testDoubleStart) {
         EXPECT_EQ(state.details.cmd, "start_cmd");
         EXPECT_EQ(state.details.task, task.key);
         EXPECT_EQ(state.variant, synnax::status::VARIANT_SUCCESS);
-        EXPECT_EQ(state.message, "Task started successfully");
+        EXPECT_EQ(state.message, "Started task");
     }
     rt->stop("stop_cmd", true);
 }
@@ -522,13 +526,13 @@ TEST_F(AnalogReadTest, testDoubleStop) {
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd1");
     EXPECT_EQ(stop_state.details.task, task.key);
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(stop_state.message, "Task stopped successfully");
+    EXPECT_EQ(stop_state.message, "Stopped task");
     const auto stop_state_2 = ctx->statuses[2];
     EXPECT_EQ(stop_state_2.key, synnax::task::status_key(task));
     EXPECT_EQ(stop_state_2.details.cmd, "stop_cmd2");
     EXPECT_EQ(stop_state_2.details.task, task.key);
     EXPECT_EQ(stop_state_2.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(stop_state_2.message, "Task stopped successfully");
+    EXPECT_EQ(stop_state_2.message, "Stopped task");
 }
 
 /// @brief every start should claim fresh hardware and every stop should release
@@ -586,14 +590,15 @@ TEST_F(AnalogReadTest, testHardwareBuildFailureRetriesOnNextStart) {
     const auto failed = ctx->statuses[0];
     EXPECT_EQ(failed.details.cmd, "start_cmd");
     EXPECT_EQ(failed.variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(failed.message, "device not found");
+    EXPECT_EQ(failed.message, "Failed to start task");
+    EXPECT_EQ(failed.description, "device not found");
 
     rt->start("start_cmd_2");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto recovered = ctx->statuses[1];
     EXPECT_EQ(recovered.details.cmd, "start_cmd_2");
     EXPECT_EQ(recovered.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(recovered.message, "Task started successfully");
+    EXPECT_EQ(recovered.message, "Started task");
     EXPECT_EQ(calls, 2);
     rt->stop("stop_cmd", true);
 }
@@ -652,7 +657,7 @@ public:
         this->live->fetch_add(1);
     }
 
-    ~CountingReader() { this->live->fetch_sub(1); }
+    ~CountingReader() override { this->live->fetch_sub(1); }
 
     x::errors::Error start() override { return x::errors::NIL; }
     x::errors::Error stop() override { return x::errors::NIL; }
@@ -804,7 +809,7 @@ TEST_F(DigitalReadTest, testBasicDigitalRead) {
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(first_state.message, "Task started successfully");
+    EXPECT_EQ(first_state.message, "Started task");
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
 
     rt->stop("stop_cmd", true);
@@ -814,10 +819,10 @@ TEST_F(DigitalReadTest, testBasicDigitalRead) {
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(second_state.message, "Task stopped successfully");
+    EXPECT_EQ(second_state.message, "Stopped task");
 
     ASSERT_GE(mock_factory->writes->size(), 1);
-    auto &fr = mock_factory->writes->at(0);
+    const auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 2);
     ASSERT_EQ(fr.length(), 1);
     ASSERT_TRUE(fr.contains(data_channel.key));
@@ -1013,7 +1018,7 @@ TEST_F(CounterReadTest, testBasicCounterFrequencyRead) {
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(first_state.message, "Task started successfully");
+    EXPECT_EQ(first_state.message, "Started task");
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
 
     rt->stop("stop_cmd", true);
@@ -1023,10 +1028,10 @@ TEST_F(CounterReadTest, testBasicCounterFrequencyRead) {
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(second_state.message, "Task stopped successfully");
+    EXPECT_EQ(second_state.message, "Stopped task");
 
     ASSERT_GE(mock_factory->writes->size(), 1);
-    auto &fr = mock_factory->writes->at(0);
+    const auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 2);
     ASSERT_EQ(fr.length(), 1);
     ASSERT_TRUE(fr.contains(data_channel.key));
@@ -1053,7 +1058,8 @@ TEST_F(CounterReadTest, testCounterErrorOnStart) {
     EXPECT_EQ(state.details.cmd, "start_cmd");
     EXPECT_EQ(state.details.task, task.key);
     EXPECT_EQ(state.variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(state.message, "Counter failed to start");
+    EXPECT_EQ(state.message, "Failed to start task");
+    EXPECT_EQ(state.description, "Counter failed to start");
     rt->stop(false);
 }
 
@@ -1080,7 +1086,8 @@ TEST_F(CounterReadTest, testCounterErrorOnStop) {
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
     EXPECT_EQ(stop_state.details.task, task.key);
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(stop_state.message, "Counter failed to stop");
+    EXPECT_EQ(stop_state.message, "Failed to stop task");
+    EXPECT_EQ(stop_state.description, "Counter failed to stop");
 }
 
 /// @brief it should communicate an error when the counter hardware fails to read.
@@ -1111,14 +1118,16 @@ TEST_F(CounterReadTest, testCounterErrorOnRead) {
     const auto read_err_state = ctx->statuses[1];
     EXPECT_EQ(read_err_state.key, synnax::task::status_key(task));
     EXPECT_EQ(read_err_state.variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(read_err_state.message, "Counter read failed");
+    EXPECT_EQ(read_err_state.message, "Failed to read data");
+    EXPECT_EQ(read_err_state.description, "Counter read failed");
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
     const auto stop_state = ctx->statuses[2];
     EXPECT_EQ(stop_state.key, synnax::task::status_key(task));
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(stop_state.message, "Counter read failed");
+    EXPECT_EQ(stop_state.message, "Failed to read data");
+    EXPECT_EQ(stop_state.description, "Counter read failed");
 }
 
 /// @brief it should correctly handle multiple counter frequency readings.
@@ -1148,7 +1157,7 @@ TEST_F(CounterReadTest, testMultipleCounterReadings) {
 
     // Verify all three readings
     for (size_t i = 0; i < 3; i++) {
-        auto &fr = mock_factory->writes->at(i);
+        const auto &fr = mock_factory->writes->at(i);
         ASSERT_EQ(fr.size(), 2);
         ASSERT_EQ(fr.length(), 1);
         ASSERT_TRUE(fr.contains(data_channel.key));
@@ -1362,8 +1371,8 @@ TEST(ReadTaskConfigTest, testCrossDeviceChannelLocations) {
     for (const auto &channel: cfg->channels)
         if (!channel->dev_loc.empty()) { unique_locs.insert(channel->dev_loc); }
     EXPECT_EQ(unique_locs.size(), 2);
-    EXPECT_TRUE(unique_locs.count("cDAQ1Mod1") > 0);
-    EXPECT_TRUE(unique_locs.count("cDAQ1Mod2") > 0);
+    EXPECT_TRUE(unique_locs.contains("cDAQ1Mod1"));
+    EXPECT_TRUE(unique_locs.contains("cDAQ1Mod2"));
 }
 
 /// @brief Verify a counter read config without a top-level device binds each
@@ -1467,11 +1476,11 @@ TEST(ReadTaskConfigTest, testMinimumSampleRateErrorMessageFormat) {
     std::string result = msg.str();
 
     // Verify the message contains all required components
-    EXPECT_TRUE(result.find("25 Hz") != std::string::npos);
-    EXPECT_TRUE(result.find("50 Hz") != std::string::npos);
-    EXPECT_TRUE(result.find("cDAQ1Mod1") != std::string::npos);
-    EXPECT_TRUE(result.find("NI SIM") != std::string::npos);
-    EXPECT_TRUE(result.find("below device minimum") != std::string::npos);
+    EXPECT_TRUE(result.contains("25 Hz"));
+    EXPECT_TRUE(result.contains("50 Hz"));
+    EXPECT_TRUE(result.contains("cDAQ1Mod1"));
+    EXPECT_TRUE(result.contains("NI SIM"));
+    EXPECT_TRUE(result.contains("below device minimum"));
 }
 
 /// Regression test to ensure enable_auto_commit is set to true in WriterConfig.
@@ -1500,7 +1509,7 @@ TEST_F(AnalogReadTest, testSkewWarningFiresForAnalogRead) {
     bool found_warning = false;
     for (const auto &s: ctx->statuses) {
         if (s.variant == synnax::status::VARIANT_WARNING &&
-            s.message.find("trailing") != std::string::npos) {
+            s.message == common::SKEW_WARNING.message) {
             found_warning = true;
             break;
         }

@@ -29,7 +29,7 @@ class OPCUAReadFloat(OPCUAReadTaskCase):
                     index=idx.key,
                 ),
                 node_id=f"NS=2;I={8 + i}",
-                data_type="float32",
+                data_type=sy.DataType.FLOAT32,
             )
             for i in range(2)
         ]
@@ -50,7 +50,7 @@ class OPCUAReadBool(OPCUAReadTaskCase):
                     index=idx.key,
                 ),
                 node_id=f"NS=2;I={13 + i}",
-                data_type="boolean",
+                data_type=sy.DataType.BOOLEAN,
             )
             for i in range(2)
         ]
@@ -72,7 +72,7 @@ class OPCUAReadArray(OPCUAReadTaskCase):
                     index=idx.key,
                 ),
                 node_id=f"NS=2;I={2 + i}",
-                data_type="float32",
+                data_type=sy.DataType.FLOAT32,
             )
             for i in range(2)
         ]
@@ -91,7 +91,7 @@ class OPCUAReadTimestamp(OPCUAReadTaskCase):
             sy.opcua.ReadChannel(
                 channel=idx.key,
                 node_id="NS=2;I=7",
-                data_type="datetime",
+                data_type=sy.DataType.TIMESTAMP,
                 is_index=True,
             ),
         ] + [
@@ -103,7 +103,7 @@ class OPCUAReadTimestamp(OPCUAReadTaskCase):
                     index=idx.key,
                 ),
                 node_id=f"NS=2;I={2 + i}",
-                data_type="float32",
+                data_type=sy.DataType.FLOAT32,
             )
             for i in range(2)
         ]
@@ -129,7 +129,7 @@ class OPCUAReadMixed(OPCUAReadTaskCase):
                     index=idx.key,
                 ),
                 node_id=f"NS=2;I={8 + i}",
-                data_type="float32",
+                data_type=sy.DataType.FLOAT32,
             )
             for i in range(2)
         ] + [
@@ -141,7 +141,7 @@ class OPCUAReadMixed(OPCUAReadTaskCase):
                     index=idx.key,
                 ),
                 node_id=f"NS=2;I={13 + i}",
-                data_type="boolean",
+                data_type=sy.DataType.BOOLEAN,
             )
             for i in range(2)
         ]
@@ -163,7 +163,7 @@ class OPCUATLSReadFloat(OPCUAReadTaskCase):
                     index=idx.key,
                 ),
                 node_id=f"NS=2;I={8 + i}",
-                data_type="float32",
+                data_type=sy.DataType.FLOAT32,
             )
             for i in range(2)
         ]
@@ -186,7 +186,7 @@ class OPCUATLSReadArray(OPCUAReadTaskCase):
                     index=idx.key,
                 ),
                 node_id=f"NS=2;I={2 + i}",
-                data_type="float32",
+                data_type=sy.DataType.FLOAT32,
             )
             for i in range(2)
         ]
@@ -208,7 +208,7 @@ class OPCUATLSAuthReadFloat(OPCUAReadTaskCase):
                     index=idx.key,
                 ),
                 node_id=f"NS=2;I={8 + i}",
-                data_type="float32",
+                data_type=sy.DataType.FLOAT32,
             )
             for i in range(2)
         ]

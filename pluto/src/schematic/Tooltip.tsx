@@ -11,13 +11,12 @@ import "@/schematic/Tooltip.css";
 
 import { channel } from "@synnaxlabs/client";
 import { CSS } from "@synnaxlabs/lyra/css";
+import { Description } from "@synnaxlabs/lyra/description";
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Tooltip as Base } from "@synnaxlabs/lyra/tooltip";
-import { caseconv, type color, type primitive, TimeSpan } from "@synnaxlabs/x";
+import { caseconv, type color, primitive, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 
 import { Channel } from "@/channel";
@@ -35,17 +34,17 @@ type KeysOf<C> = C extends object ? keyof C : never;
 type Field = KeysOf<Node.Config>;
 
 const CHANNEL_ROWS: { field: Field; icon: Icon.FC }[] = [
-  { field: "commandChannel", icon: Icon.Edit },
-  { field: "stateChannel", icon: Icon.Visible },
-  { field: "channel", icon: Icon.Visible },
+  { field: "stateChannel", icon: Icon.Channel },
+  { field: "channel", icon: Icon.Channel },
+  { field: "commandChannel", icon: Icon.Control },
 ];
 
-const FIELD_ROWS: { field: Field; unit?: string }[] = [
+const FIELD_ROWS: { field: Field; label?: string; unit?: string }[] = [
   { field: "mode" },
   { field: "normallyOpen" },
   { field: "clickable" },
   { field: "onClickDelay", unit: "ms" },
-  { field: "stalenessTimeout", unit: "s" },
+  { field: "stalenessTimeout", label: "Stale timeout" },
 ];
 
 const kindIcon = (ch: channel.Channel): Icon.FC | null => {
@@ -58,17 +57,17 @@ const kindIcon = (ch: channel.Channel): Icon.FC | null => {
 interface RowProps {
   label: ReactNode;
   value: ReactNode;
-  color?: Theming.Shade | color.Crude;
-  className?: string;
+  labelColor?: Theming.Shade;
+  valueColor?: Theming.Shade | color.Crude;
 }
 
-const Row = ({ label, value, color, className }: RowProps): ReactElement => (
-  <Flex.Box x justify="between" gap="large" className={className}>
-    <Text.Text level="small">{label}</Text.Text>
-    <Text.Text level="small" variant="code" color={color}>
+const Row = ({ label, value, labelColor, valueColor }: RowProps): ReactElement => (
+  <Description.Item>
+    <Description.Label color={labelColor}>{label}</Description.Label>
+    <Description.Value variant="code" color={valueColor}>
       {value}
-    </Text.Text>
-  </Flex.Box>
+    </Description.Value>
+  </Description.Item>
 );
 
 /** Shows a symbol's configuration beside its element. */
@@ -88,10 +87,12 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
   const values: Partial<Record<Field, primitive.Value>> = config;
   const keys = CHANNEL_ROWS.flatMap(({ field }) => {
     const key = values[field];
-    return typeof key === "number" ? key : [];
+    return typeof key === "number" && !primitive.isZero(key) ? key : [];
   });
   // A null query holds the fetch until the delay passes, so mouse sweeps fire nothing.
-  const { data } = Channel.useResultMultiple(visible ? { keys } : null);
+  const { data } = Channel.useResultMultiple(
+    visible && keys.length > 0 ? { keys } : null,
+  );
   if (!visible || (keys.length > 0 && data == null)) return null;
   const channels = CHANNEL_ROWS.flatMap(({ field, icon: RoleIcon }) => {
     const ch = data?.find((c) => c.key === values[field]);
@@ -100,6 +101,7 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
     return (
       <Row
         key={field}
+        labelColor={10}
         label={
           <>
             <RoleIcon />
@@ -119,16 +121,21 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
     "stalenessColor" in config ? config.stalenessColor : undefined,
     theme,
   );
-  const fields = FIELD_ROWS.flatMap(({ field, unit }) => {
+  const fields = FIELD_ROWS.flatMap(({ field, label, unit }) => {
     const value = values[field];
     if (value == null) return [];
+    // A zero click delay means none, so the row would only be noise.
+    if (field === "onClickDelay" && value === 0) return [];
+    const text =
+      field === "stalenessTimeout"
+        ? TimeSpan.seconds(Number(value)).toString("semantic")
+        : `${String(value)}${unit ?? ""}`;
     return (
       <Row
         key={field}
-        className={CSS.BE("schematic-tooltip", "field")}
-        label={caseconv.toSentence(field)}
-        value={unit == null ? String(value) : `${String(value)} ${unit}`}
-        color={field === "stalenessTimeout" ? stalenessColor : undefined}
+        label={label ?? caseconv.toSentence(field)}
+        value={text}
+        valueColor={field === "stalenessTimeout" ? stalenessColor : undefined}
       />
     );
   });
@@ -139,11 +146,19 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
       location={LOCATION}
       className={CSS.B("schematic-tooltip")}
     >
-      {channels}
+      {channels.length > 0 && (
+        <Description.List level="small" justify="between">
+          {channels}
+        </Description.List>
+      )}
       {channels.length > 0 && fields.length > 0 && (
         <Divider.Divider x className={CSS.BE("schematic-tooltip", "divider")} />
       )}
-      {fields}
+      {fields.length > 0 && (
+        <Description.List level="small" justify="between">
+          {fields}
+        </Description.List>
+      )}
     </Base.Frame>
   );
 };

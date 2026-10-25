@@ -35,7 +35,7 @@ const createProjectWithPanel = async (): Promise<{
   proj: project.Project;
   logName: string;
 }> => {
-  const proj = await client.projects.create({ name: uniqueName("proj"), layout: {} });
+  const proj = await client.projects.create({ name: uniqueName("proj") });
   const logName = uniqueName("log");
   const createdLog = await client.logs.create(proj.key, { name: logName });
   await client.panels.create({
@@ -121,7 +121,9 @@ describe("Project Commands", () => {
       expect(
         statuses.some(
           (st) =>
-            st.variant === "success" && st.message === `Imported project "${name}"`,
+            st.variant === "success" &&
+            st.name === name &&
+            st.message === "Imported project",
         ),
       ).toBe(true),
     );

@@ -11,17 +11,16 @@ package task
 
 import (
 	"context"
-	"fmt"
 	"uuid"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -37,16 +36,16 @@ type Writer struct {
 	configs   config.Registry
 }
 
-// resolveStatus returns the status to persist for t. Without a provided status, a
-// task created for the first time provably has no live instance, so it gets a quiet
-// "has not been deployed" placeholder; an existing task may be running, so its
-// placeholder stays a "status unknown" warning.
+// resolveStatus returns the status to persist for t. Without a provided status, a task
+// created for the first time provably has no live instance, so it gets a quiet "not
+// deployed" placeholder; an existing task can be running, so its placeholder stays a
+// "status unknown" warning.
 func resolveStatus(t *Task, provided *Status, existed bool) *Status {
 	if provided == nil {
-		message := fmt.Sprintf("%s status unknown", t.Name)
+		message := "Task status unknown"
 		variant := status.VariantWarning
 		if !existed {
-			message = fmt.Sprintf("%s has not been deployed", t.Name)
+			message = "Task not deployed"
 			variant = status.VariantDisabled
 		}
 		return &Status{
@@ -66,7 +65,8 @@ func resolveStatus(t *Task, provided *Status, existed bool) *Status {
 
 // healStatus returns the task's effective status, writing stat first if no row exists.
 // Tasks are re-created on every scan cycle, so on a no-op update the placeholder must
-// not overwrite a status the driver has already reported.
+// not overwrite a status the driver has already reported. An existing row takes the
+// task's current name.
 func (w Writer) healStatus(ctx context.Context, stat *Status) (*Status, error) {
 	var existing Status
 	err := gorp.NewRetrieve[string, Status]().
@@ -74,6 +74,12 @@ func (w Writer) healStatus(ctx context.Context, stat *Status) (*Status, error) {
 		Entry(&existing).
 		Exec(ctx, w.tx)
 	if err == nil {
+		if existing.Name != stat.Name {
+			if err = w.status.Rename(ctx, existing.Key, stat.Name); err != nil {
+				return nil, err
+			}
+			existing.Name = stat.Name
+		}
 		return &existing, nil
 	}
 	if !errors.Is(err, query.ErrNotFound) {
@@ -88,11 +94,14 @@ func (w Writer) healStatus(ctx context.Context, stat *Status) (*Status, error) {
 // Create creates or updates a task. The task's config is stored as a record keyed by
 // the task's key in its type's config store; the task row itself carries only the
 // config hash. A provided status is persisted as given. Without one, a new task gets
-// a "has not been deployed" placeholder, and an existing task keeps its reported
-// status (healed to "status unknown" if the row is missing).
+// a "not deployed" placeholder, and an existing task keeps its reported status (healed
+// to "status unknown" if the row is missing).
 func (w Writer) Create(ctx context.Context, t *Task) error {
 	if t.Key == uuid.Nil() {
 		t.Key = uuid.New()
+	}
+	if err := t.Validate(); err != nil {
+		return err
 	}
 	store, ok := w.configs.Store(t.Type)
 	if !ok {
@@ -200,6 +209,31 @@ func (w Writer) CreateMany(ctx context.Context, tasks *[]Task) error {
 	return nil
 }
 
+// Rename renames the task with the given key and its status, keeping every other field,
+// including its config. It returns query.ErrNotFound if no task with the key exists and
+// a validation error if name is empty.
+func (w Writer) Rename(ctx context.Context, key Key, name string) error {
+	v := validate.New("task.task")
+	v.NotEmptyString("name", name)
+	if err := v.Error(); err != nil {
+		return err
+	}
+	if err := w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Task](key)).
+		Change(func(_ gorp.Context, t Task) Task {
+			t.Name = name
+			return t
+		}).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	// A missing status row is valid: the next Create heals it.
+	return errors.Skip(
+		w.status.Rename(ctx, OntologyID(key).String(), name),
+		query.ErrNotFound,
+	)
+}
+
 // Delete deletes the task with the given key, its config record, and its associated
 // status.
 func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
@@ -263,12 +297,12 @@ func (w Writer) Copy(
 	var res Task
 	if err := w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Task](key)).
-		Change(func(_ gorp.Context, t Task) Task {
+		ChangeErr(func(_ gorp.Context, t Task) (Task, error) {
 			t.Key = newKey
 			t.Name = name
 			t.Snapshot = snapshot
 			res = t
-			return t
+			return t, t.Validate()
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return Task{}, err

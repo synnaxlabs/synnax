@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from playwright.sync_api import expect
+
 import synnax as sy
 from console.case import ConsoleCase
 from console.table import Table
@@ -104,6 +106,8 @@ class TableLifecycle(ConsoleCase):
             self.test_undo_redo_text_edit(interaction)
             self.test_resize_col_via_drag(interaction)
             self.test_resize_row_via_drag(interaction)
+            self.test_move_row_via_drag(interaction)
+            self.test_move_col_via_drag(interaction)
             self.test_edit_toggle_gates_editing(interaction)
             self.test_multi_cell_variant_swap(interaction)
             self.test_multi_cell_color_grouping(interaction)
@@ -509,6 +513,38 @@ class TableLifecycle(ConsoleCase):
             f"Row 0 should be taller after drag down: was {initial}, now {after}"
         )
 
+    def test_move_row_via_drag(self, table: Table) -> None:
+        """Test that dragging a row label past its neighbor moves the row, and undo
+        moves it back."""
+        self.log("Testing row move via drag")
+        assert table.get_row_count() >= 2, "Moving a row needs at least two rows"
+        first = table.get_cell_key(0, 0)
+        second = table.get_cell_key(1, 0)
+        # The leading edge lands past the midpoint of the next row, and short of the
+        # one after it.
+        table.drag_row_label(0, table.get_row_height(1))
+        table.wait_for_cell_key(0, 0, second)
+        table.wait_for_cell_key(1, 0, first)
+        table.select_cell(0, 0)
+        table.undo()
+        table.wait_for_cell_key(0, 0, first)
+        table.wait_for_cell_key(1, 0, second)
+
+    def test_move_col_via_drag(self, table: Table) -> None:
+        """Test that dragging a column label past its neighbor moves the column, and
+        undo moves it back."""
+        self.log("Testing column move via drag")
+        assert table.get_column_count() >= 2, "Moving a column needs at least two"
+        first = table.get_cell_key(0, 0)
+        second = table.get_cell_key(0, 1)
+        table.drag_col_label(0, table.get_column_width(1))
+        table.wait_for_cell_key(0, 0, second)
+        table.wait_for_cell_key(0, 1, first)
+        table.select_cell(0, 0)
+        table.undo()
+        table.wait_for_cell_key(0, 0, first)
+        table.wait_for_cell_key(0, 1, second)
+
     def test_edit_toggle_gates_editing(self, table: Table) -> None:
         """Test that toggling editing off hides edit affordances and re-enables them on toggle."""
         self.log("Testing edit toggle gates editing affordances")
@@ -592,16 +628,13 @@ class TableLifecycle(ConsoleCase):
             table.delete_selected()
 
     def test_multi_cell_color_grouping(self, table: Table) -> None:
-        """Test that selecting 2+ text cells with the same backgroundColor
-        renders a single Color.Swatch in the toolbar's Selection colors
-        group (not one swatch per cell)."""
+        """Test that the multi-cell toolbar sets a fill on cells that store no color,
+        then lists the shared fill as one Selection swatch."""
         self.log("Testing multi-cell color grouping")
         while table.get_row_count() < 1:
             table.add_row()
         while table.get_column_count() < 2:
             table.add_column()
-        # Fresh text cells inherit the same default backgroundColor, so
-        # selecting two of them should collapse to one swatch.
         table.set_cell_text(0, 0, "group-a")
         table.set_cell_text(0, 1, "group-b")
 
@@ -610,10 +643,12 @@ class TableLifecycle(ConsoleCase):
         assert table.get_toolbar_cell_count() == 2, (
             "Toolbar breadcrumb should report 2-cell selection before color check"
         )
-        assert table.get_color_swatch_count() == 1, (
-            f"Expected one color swatch for two same-colored cells, "
-            f"got {table.get_color_swatch_count()}"
-        )
+        table.layout.show_visualization_toolbar()
+        swatches = table.colors.selection_swatches()
+        expect(table.colors.field("Fill")).to_be_visible()
+        expect(swatches).to_have_count(0)
+        table.colors.set("Fill", "ff0000")
+        expect(swatches).to_have_count(1)
 
     def test_multi_cell_level_bulk_apply(self, table: Table) -> None:
         """Test that the toolbar's Size selector bulk-applies a level to

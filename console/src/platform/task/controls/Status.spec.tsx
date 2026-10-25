@@ -8,12 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/client";
+import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Status } from "@/platform/task/controls/Status";
 import { createTaskStatus } from "@/platform/task/testutil";
-import { queryIcon, renderWithConsole, stubClipboardWriteText } from "@/testutil";
+import { queryIcon, renderWithConsole } from "@/testutil";
 
 describe("Controls.Status", () => {
   it("should invoke onToggle when clicked", async () => {
@@ -37,17 +38,17 @@ describe("Controls.Status", () => {
     expect(screen.getByText("Nothing to report")).toBeTruthy();
   });
 
-  it("should reveal the diagnostics and description only while expanded", async () => {
+  it("should show the description in both states and the diagnostics only while expanded", async () => {
     const stat = createTaskStatus({ description: "detailed diagnostics" });
     const { rerender } = await renderWithConsole(
       <Status status={stat} expanded={false} onToggle={vi.fn()} />,
     );
     expect(screen.queryByText("Copy diagnostics")).toBeNull();
-    expect(screen.queryByText("detailed diagnostics")).toBeNull();
+    expect(screen.getAllByText("detailed diagnostics")).toHaveLength(1);
 
     rerender(<Status status={stat} expanded onToggle={vi.fn()} />);
     expect(screen.getByText("Copy diagnostics")).toBeTruthy();
-    expect(screen.getByText("detailed diagnostics")).toBeTruthy();
+    expect(screen.getAllByText("detailed diagnostics")).toHaveLength(1);
 
     rerender(<Status status={stat} expanded={false} onToggle={vi.fn()} />);
     expect(screen.queryByText("Copy diagnostics")).toBeNull();

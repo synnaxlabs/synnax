@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <memory>
+#include <optional>
 #include <random>
 #include <string>
 
@@ -34,7 +36,10 @@
 #include "arc/cpp/stl/time/time.h"
 
 namespace arc::runtime {
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): one seed per suite,
+// printed so that a failing run can be replayed.
 std::mt19937 gen_rand = random_generator("Node Tests");
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 std::string random_name(const std::string &prefix) {
     std::uniform_int_distribution<> dis(10000, 99999);
@@ -49,10 +54,19 @@ find_node_by_type(const arc::program::Program &mod, const std::string &type) {
     return nullptr;
 }
 
+/// @brief Finds the IR node with the given key in the module.
+const arc::ir::Node *
+find_node_by_key(const arc::program::Program &mod, const std::string &key) {
+    for (const auto &node: mod.nodes)
+        if (node.key == key) return &node;
+    return nullptr;
+}
+
 node::Context make_context() {
     return node::Context{
         .cycle = {.elapsed = x::telem::SECOND},
         .mark_changed = [](size_t) {},
+        .mark_done = [] {},
         .report_error = [](const x::errors::Error &) {},
         .reserve_stamps = testutil::reserve_stamps(),
     };
@@ -161,12 +175,12 @@ func double(val f32) f32 {
     fake_node.type = "nonexistent";
 
     state::State state(
-        state::Config{.ir = (static_cast<arc::ir::IR>(mod)), .channels = {}},
+        state::Config{.ir = static_cast<const arc::ir::IR &>(mod), .channels = {}},
         arc::runtime::errors::noop_handler
     );
     auto node_state = ASSERT_NIL_P(state.node(mod.nodes[0].key));
 
-    const arc::ir::IR prog = static_cast<arc::ir::IR>(mod);
+    const arc::ir::IR &prog = mod;
     node::Config cfg(prog, fake_node, std::move(node_state));
     ASSERT_OCCURRED_AS_P(factory.create(std::move(cfg)), x::errors::NOT_FOUND);
 }
@@ -192,12 +206,12 @@ func double(val f32) f32 {
     ASSERT_NE(func_node, nullptr);
 
     state::State state(
-        state::Config{.ir = (static_cast<arc::ir::IR>(mod)), .channels = {}},
+        state::Config{.ir = static_cast<const arc::ir::IR &>(mod), .channels = {}},
         arc::runtime::errors::noop_handler
     );
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
 
-    const arc::ir::IR prog = static_cast<arc::ir::IR>(mod);
+    const arc::ir::IR &prog = mod;
     node::Config cfg(prog, *func_node, std::move(node_state));
     auto node = ASSERT_NIL_P(factory.create(std::move(cfg)));
     ASSERT_NE(node, nullptr);
@@ -224,12 +238,12 @@ func double(val f32) f32 {
     ASSERT_NE(func_node, nullptr);
 
     state::State state(
-        state::Config{.ir = (static_cast<arc::ir::IR>(mod)), .channels = {}},
+        state::Config{.ir = static_cast<const arc::ir::IR &>(mod), .channels = {}},
         arc::runtime::errors::noop_handler
     );
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
 
-    const arc::ir::IR prog = static_cast<arc::ir::IR>(mod);
+    const arc::ir::IR &prog = mod;
     auto mismatched = *func_node;
     mismatched.outputs.clear();
     node::Config cfg(prog, mismatched, std::move(node_state));
@@ -255,7 +269,7 @@ func double(val f32) f32 {
     ASSERT_NE(func_node, nullptr);
 
     state::State state(
-        state::Config{.ir = (static_cast<arc::ir::IR>(mod)), .channels = {}},
+        state::Config{.ir = static_cast<const arc::ir::IR &>(mod), .channels = {}},
         arc::runtime::errors::noop_handler
     );
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
@@ -269,8 +283,12 @@ func double(val f32) f32 {
         changed_outputs.push_back(func_node->outputs[i].name);
     };
 
+    bool done = false;
+    ctx.mark_done = [&] { done = true; };
+
     ASSERT_NIL(node.next(ctx));
     EXPECT_TRUE(changed_outputs.empty());
+    EXPECT_FALSE(done);
 }
 
 /// @brief reset() keeps a consumed edge-fed input on stage re-entry.
@@ -306,7 +324,7 @@ func double(val f32) f32 {
 
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{input_idx.key, x::telem::TIMESTAMP_T, 0},
                  {input_ch.key, x::telem::FLOAT32_T, input_idx.key}}
@@ -419,7 +437,7 @@ func double(val f32) f32 {
 
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{input_idx.key, x::telem::TIMESTAMP_T, 0},
                  {input_ch.key, x::telem::FLOAT32_T, input_idx.key},
@@ -468,8 +486,12 @@ func double(val f32) f32 {
         changed_outputs.push_back(func_node->outputs[i].name);
     };
 
+    bool done = false;
+    ctx.mark_done = [&] { done = true; };
+
     ASSERT_NIL(node.next(ctx));
     ASSERT_EQ(changed_outputs.size(), 1);
+    EXPECT_TRUE(done);
 
     // Verify the double node's output
     auto double_node_state = ASSERT_NIL_P(state.node(func_node->key));
@@ -478,6 +500,171 @@ func double(val f32) f32 {
     EXPECT_FLOAT_EQ(output->at<float>(0), 10.0f);
     EXPECT_FLOAT_EQ(output->at<float>(1), 20.0f);
     EXPECT_FLOAT_EQ(output->at<float>(2), 30.0f);
+}
+
+/// @brief an add node fed by two sources, driven one write at a time. Mirrors the
+/// omitted-channel calculator specs in the Core.
+struct AddProgram {
+    synnax::Synnax client = new_test_client();
+    program::Program mod;
+    ir::IR ir;
+    std::shared_ptr<wasm::Module> wasm_mod;
+    std::unique_ptr<state::State> state;
+    std::optional<wasm::Node> node;
+    std::vector<std::string> changed_outputs;
+
+    AddProgram() {
+        mod = testutil::compile_text(
+            client,
+            "func add(a f32, b f32) f32 {\n    return a + b\n}"
+        );
+        auto [opened, err] = wasm::Module::open({.program = mod});
+        if (err) throw std::runtime_error(err.message());
+        wasm_mod = std::move(opened);
+        const auto &fn = mod.function("add");
+        ir.functions.push_back(fn);
+        arc::types::Param output;
+        output.name = "output";
+        output.type = arc::types::Type{.kind = arc::types::Kind::F32};
+        for (const auto &key: {"a", "b"}) {
+            ir::Node source;
+            source.key = key;
+            source.type = key;
+            source.outputs.push_back(output);
+            ir.nodes.push_back(source);
+            ir.edges.emplace_back(ir::Handle(key, "output"), ir::Handle("add", key));
+        }
+        ir::Node add;
+        add.key = "add";
+        add.type = "add";
+        add.inputs = fn.inputs;
+        add.outputs = fn.outputs;
+        ir.nodes.push_back(add);
+        state = std::make_unique<state::State>(
+            state::Config{.ir = ir, .channels = {}},
+            arc::runtime::errors::noop_handler
+        );
+        auto [node_state, state_err] = state->node("add");
+        if (state_err) throw std::runtime_error(state_err.message());
+        auto [func, func_err] = wasm_mod->func("add");
+        if (func_err) throw std::runtime_error(func_err.message());
+        node.emplace(
+            ir,
+            ir.nodes.back(),
+            std::move(node_state),
+            func,
+            wasm_mod->strings()
+        );
+    }
+
+    /// @brief publishes one write of values on the named source node.
+    void feed(
+        const std::string &source,
+        const std::uint32_t domain,
+        const std::vector<x::telem::TimeStamp> &stamps,
+        const std::vector<float> &values
+    ) const {
+        auto [src, err] = state->node(source);
+        if (err) throw std::runtime_error(err.message());
+        auto data = x::telem::Series(values);
+        data.alignment = x::telem::Alignment(domain, 0);
+        src.output(0) = x::mem::make_local_shared<x::telem::Series>(std::move(data));
+        auto time = x::telem::Series(stamps);
+        time.alignment = x::telem::Alignment(domain, 0);
+        src.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
+            std::move(time)
+        );
+        src.mark_fresh(0);
+    }
+
+    /// @brief runs the add node once and returns whether it emitted.
+    bool next() {
+        changed_outputs.clear();
+        auto ctx = make_context();
+        ctx.mark_changed = [&](size_t i) {
+            changed_outputs.push_back(ir.nodes.back().outputs[i].name);
+        };
+        if (const auto err = node.value().next(ctx))
+            throw std::runtime_error(err.message());
+        return !changed_outputs.empty();
+    }
+
+    [[nodiscard]] state::Series output() const {
+        auto [n, err] = state->node("add");
+        if (err) throw std::runtime_error(err.message());
+        return n.output(0);
+    }
+
+    [[nodiscard]] state::Series output_time() const {
+        auto [n, err] = state->node("add");
+        if (err) throw std::runtime_error(err.message());
+        return n.output_time(0);
+    }
+};
+
+std::vector<x::telem::TimeStamp> seconds(const std::vector<int64_t> &values) {
+    std::vector<x::telem::TimeStamp> out;
+    out.reserve(values.size());
+    for (const auto v: values)
+        out.emplace_back(v * x::telem::SECOND);
+    return out;
+}
+
+/// @brief an omitted channel holds its last sample, stamped from the fresh input.
+TEST(NodeTest, OmittedChannelHoldsItsLastSample) {
+    AddProgram p;
+    p.feed("a", 5, seconds({10, 20, 30}), {15, 25, 35});
+    p.feed("b", 5, seconds({10, 20, 30}), {5, 10, 15});
+    ASSERT_TRUE(p.next());
+    ASSERT_EQ(p.output()->size(), 3);
+    EXPECT_FLOAT_EQ(p.output()->at<float>(0), 20.0f);
+    EXPECT_FLOAT_EQ(p.output()->at<float>(1), 35.0f);
+    EXPECT_FLOAT_EQ(p.output()->at<float>(2), 50.0f);
+
+    p.feed("a", 6, seconds({40}), {45});
+    ASSERT_TRUE(p.next());
+    ASSERT_EQ(p.output()->size(), 1);
+    EXPECT_FLOAT_EQ(p.output()->at<float>(0), 60.0f);
+    ASSERT_EQ(p.output_time()->size(), 1);
+    EXPECT_EQ(
+        p.output_time()->at<x::telem::TimeStamp>(0),
+        x::telem::TimeStamp(40 * x::telem::SECOND)
+    );
+}
+
+/// @brief an omitted channel with no prior sample yields nothing.
+TEST(NodeTest, OmittedChannelWithNoPriorSampleYieldsNothing) {
+    AddProgram p;
+    p.feed("a", 5, seconds({10}), {15});
+    ASSERT_FALSE(p.next());
+}
+
+/// @brief an omitted channel holds through two omissions.
+TEST(NodeTest, OmittedChannelHoldsThroughTwoOmissions) {
+    AddProgram p;
+    p.feed("a", 5, seconds({10}), {15});
+    p.feed("b", 5, seconds({10}), {5});
+    ASSERT_TRUE(p.next());
+    ASSERT_EQ(p.output()->size(), 1);
+    EXPECT_FLOAT_EQ(p.output()->at<float>(0), 20.0f);
+
+    p.feed("a", 6, seconds({20}), {25});
+    ASSERT_TRUE(p.next());
+    ASSERT_EQ(p.output()->size(), 1);
+    EXPECT_FLOAT_EQ(p.output()->at<float>(0), 30.0f);
+    EXPECT_EQ(
+        p.output_time()->at<x::telem::TimeStamp>(0),
+        x::telem::TimeStamp(20 * x::telem::SECOND)
+    );
+
+    p.feed("a", 7, seconds({30}), {35});
+    ASSERT_TRUE(p.next());
+    ASSERT_EQ(p.output()->size(), 1);
+    EXPECT_FLOAT_EQ(p.output()->at<float>(0), 40.0f);
+    EXPECT_EQ(
+        p.output_time()->at<x::telem::TimeStamp>(0),
+        x::telem::TimeStamp(30 * x::telem::SECOND)
+    );
 }
 
 /// @brief Node::next reports errors via context when WASM execution fails.
@@ -522,7 +709,7 @@ func divide_by_zero(val i32) i32 {
 
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{index_ch.key, x::telem::TIMESTAMP_T, 0},
                  {input_ch.key, x::telem::INT32_T, index_ch.key},
@@ -559,8 +746,12 @@ func divide_by_zero(val i32) i32 {
         reported_errors.push_back(err);
     };
 
+    bool done = false;
+    ctx.mark_done = [&] { done = true; };
+
     ASSERT_NIL(node.next(ctx));
     EXPECT_GE(reported_errors.size(), 1);
+    EXPECT_FALSE(done);
 }
 
 /// @brief Node::is_output_truthy returns false for nonexistent outputs.
@@ -582,7 +773,7 @@ func double(val f32) f32 {
     ASSERT_NE(func_node, nullptr);
 
     state::State state(
-        state::Config{.ir = (static_cast<arc::ir::IR>(mod)), .channels = {}},
+        state::Config{.ir = static_cast<const arc::ir::IR &>(mod), .channels = {}},
         arc::runtime::errors::noop_handler
     );
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
@@ -634,7 +825,7 @@ func passthrough(val f32) f32 {
 
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{index_ch.key, x::telem::TIMESTAMP_T, 0},
                  {input_ch.key, x::telem::FLOAT32_T, index_ch.key},
@@ -703,7 +894,7 @@ constant{} -> )" + output_name;
     ASSERT_NE(func_node, nullptr);
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{output_idx.key, x::telem::TIMESTAMP_T, 0},
                  {output_ch.key, x::telem::INT64_T, output_idx.key}}
@@ -738,13 +929,6 @@ constant{} -> )" + output_name;
     changed_outputs.clear();
     ASSERT_NIL(node.next(ctx));
     EXPECT_EQ(changed_outputs.size(), 1);
-}
-
-const arc::ir::Node *
-find_node_by_key(const arc::program::Program &mod, const std::string &key) {
-    for (const auto &node: mod.nodes)
-        if (node.key == key) return &node;
-    return nullptr;
 }
 
 /// @brief a dispatcher fed a multi-sample batch stamps each sample 1 ns apart.
@@ -791,7 +975,7 @@ TEST(NodeTest, DispatcherStampsEachSampleOfABatch) {
     ASSERT_NE(on_node, nullptr);
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{count_idx.key, x::telem::TIMESTAMP_T, 0},
                  {count_ch.key, x::telem::INT64_T, count_idx.key}}
@@ -885,7 +1069,7 @@ func double(val i64) i64 {
 
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{input_idx.key, x::telem::TIMESTAMP_T, 0},
                  {input_ch.key, x::telem::INT64_T, input_idx.key},
@@ -976,7 +1160,7 @@ counter{} -> )" + output_name;
 
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{output_idx.key, x::telem::TIMESTAMP_T, 0},
                  {output_ch.key, x::telem::INT64_T, output_idx.key}}
@@ -1040,7 +1224,7 @@ counter{} -> )" + output_name;
 
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{output_idx.key, x::telem::TIMESTAMP_T, 0},
                  {output_ch.key, x::telem::INT64_T, output_idx.key}}
@@ -1106,7 +1290,7 @@ counter{} -> )" + output_name;
 
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{output_idx.key, x::telem::TIMESTAMP_T, 0},
                  {output_ch.key, x::telem::INT64_T, output_idx.key}}
@@ -1185,7 +1369,7 @@ func add_config{x i32}(y i32) i32 {
 
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{input_idx.key, x::telem::TIMESTAMP_T, 0},
                  {input_ch.key, x::telem::INT32_T, input_idx.key},
@@ -1279,7 +1463,7 @@ func multi_config{a i32, b i32}(c i32) i32 {
 
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{input_idx.key, x::telem::TIMESTAMP_T, 0},
                  {input_ch.key, x::telem::INT32_T, input_idx.key},
@@ -1385,7 +1569,7 @@ func counter(trigger i64) i64 {
     auto var_st = std::make_shared<stl::stateful::Variables>();
     auto state = std::make_shared<state::State>(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{index_ch.key, x::telem::TIMESTAMP_T, 0},
                  {trigger_ch.key, x::telem::INT64_T, index_ch.key},
@@ -1513,7 +1697,7 @@ counter{} -> )" + output_name;
     auto var_st = std::make_shared<stl::stateful::Variables>();
     auto state = std::make_shared<state::State>(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{output_idx.key, x::telem::TIMESTAMP_T, 0},
                  {output_ch.key, x::telem::INT64_T, output_idx.key}}
@@ -1605,7 +1789,7 @@ counter{} -> )" + output_a_name +
     auto series_st = std::make_shared<stl::series::State>();
     auto var_st = std::make_shared<stl::stateful::Variables>();
     auto state = std::make_shared<state::State>(
-        state::Config{.ir = (static_cast<arc::ir::IR>(mod)), .channels = digests},
+        state::Config{.ir = static_cast<const arc::ir::IR &>(mod), .channels = digests},
         channel_st,
         str_st,
         series_st,
@@ -1748,7 +1932,7 @@ func read_chan{ch chan f32}(trigger u8) f32 {
     auto var_st = std::make_shared<stl::stateful::Variables>();
     auto state = std::make_shared<state::State>(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{trigger_idx.key, x::telem::TIMESTAMP_T, 0},
                  {trigger_ch.key, x::telem::UINT8_T, trigger_idx.key},
@@ -1880,7 +2064,7 @@ func str_len(s str) i64 {
 
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{index_ch.key, x::telem::TIMESTAMP_T, 0},
                  {input_ch.key, x::telem::STRING_T, index_ch.key},
@@ -2009,7 +2193,7 @@ func labeler(x i64) (label str, value i64) {
 
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{index_ch.key, x::telem::TIMESTAMP_T, 0},
                  {input_ch.key, x::telem::INT64_T, index_ch.key},
@@ -2127,7 +2311,7 @@ func qstr_len(s str) i64 {
 
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{index_ch.key, x::telem::TIMESTAMP_T, 0},
                  {input_ch.key, x::telem::STRING_T, index_ch.key},
@@ -2220,7 +2404,7 @@ produce_str{} -> )" + output_name;
 
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels = {{output_ch.key, x::telem::STRING_T, 0}}
         },
         arc::runtime::errors::noop_handler
@@ -2289,7 +2473,7 @@ produce_str{} -> )" + output_name;
 
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels = {{output_ch.key, x::telem::STRING_T, 0}}
         },
         arc::runtime::errors::noop_handler
@@ -2385,7 +2569,7 @@ func concat_len(a str, b str) i64 {
 
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{index_ch.key, x::telem::TIMESTAMP_T, 0},
                  {input_a_ch.key, x::telem::STRING_T, index_ch.key},
@@ -3086,7 +3270,7 @@ func loop_state(trigger i64) i64 {
     auto mod = testutil::compile_text(client, source);
     auto state = std::make_shared<state::State>(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{index_ch.key, x::telem::TIMESTAMP_T, 0},
                  {trigger_ch.key, x::telem::INT64_T, index_ch.key},

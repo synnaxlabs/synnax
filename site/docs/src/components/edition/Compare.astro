@@ -1,0 +1,327 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+// The capabilities of each edition, in groups, with the differences first. A capability
+// is included, not included, or a short note that says who does the work or where.
+
+import { Icon } from "@synnaxlabs/lyra/icon";
+
+import { type Edition, NAMES } from "@/components/edition/edition";
+
+const EDITIONS = [
+    { key: "desktop", price: "Free", icon: Icon.Computer },
+    { key: "enterprise", price: "Contact Synnax Labs", icon: Icon.Core },
+] as const;
+
+const MACOS = { label: "macOS", icon: Icon.Logo.Apple };
+const WINDOWS = { label: "Windows", icon: Icon.Logo.Windows };
+const LINUX = { label: "Linux", icon: Icon.Logo.Linux };
+const DOCKER = { label: "Docker", icon: Icon.Logo.Docker };
+
+type System = typeof MACOS;
+type Value = boolean | string | System[];
+
+interface Capability {
+    name: string;
+    values: Record<Edition, Value>;
+}
+
+interface Group {
+    name: string;
+    capabilities: Capability[];
+}
+
+const BOTH = { desktop: true, enterprise: true };
+const ENTERPRISE = { desktop: false, enterprise: true };
+
+const GROUPS: Group[] = [
+    {
+        name: "Install and upkeep",
+        capabilities: [
+            {
+                name: "Operating systems",
+                values: {
+                    desktop: [
+                        { ...MACOS, label: "macOS (Apple silicon)" },
+                        { ...WINDOWS, label: "Windows (x64)" },
+                    ],
+                    enterprise: [LINUX, MACOS, WINDOWS, DOCKER],
+                },
+            },
+            {
+                name: "Start, restart, and diagnostics",
+                values: { desktop: "Automatic", enterprise: "Your team" },
+            },
+            {
+                name: "Metadata backup before an update",
+                values: { desktop: "Automatic", enterprise: "Your team" },
+            },
+            {
+                name: "Updates",
+                values: {
+                    desktop: "In the app, for all parts",
+                    enterprise: "Console in the app, the rest by your team",
+                },
+            },
+        ],
+    },
+    {
+        name: "Teams and access",
+        capabilities: [
+            { name: "Access from other computers", values: ENTERPRISE },
+            { name: "Console in a web browser", values: ENTERPRISE },
+            { name: "Users and roles", values: ENTERPRISE },
+            { name: "Copy link to a resource", values: ENTERPRISE },
+            { name: "TLS certificates", values: ENTERPRISE },
+        ],
+    },
+    {
+        name: "Hardware",
+        capabilities: [
+            { name: "Drivers on other computers", values: ENTERPRISE },
+            {
+                name: "NI devices",
+                values: {
+                    desktop: "Windows only",
+                    enterprise: "Windows, Linux, and NI Linux Real-Time",
+                },
+            },
+            {
+                name: "LabJack devices",
+                values: { desktop: true, enterprise: "Windows and macOS" },
+            },
+            { name: "Driver on the same computer", values: BOTH },
+            { name: "EtherCAT, Modbus, OPC UA, and HTTP", values: BOTH },
+            { name: "Devices and tasks", values: BOTH },
+        ],
+    },
+    {
+        name: "Automation",
+        capabilities: [
+            { name: "Python and TypeScript clients", values: ENTERPRISE },
+            { name: "Arc automations", values: BOTH },
+            { name: "Statuses and alarms", values: BOTH },
+        ],
+    },
+    {
+        name: "Data and visualization",
+        capabilities: [
+            { name: "Channels and calculated channels", values: BOTH },
+            { name: "Ranges", values: BOTH },
+            { name: "Projects and visualizations", values: BOTH },
+            { name: "Import and export", values: BOTH },
+        ],
+    },
+];
+---
+
+<table class="docs-compare">
+    <colgroup>
+        <col class="docs-compare__capability" />
+        {EDITIONS.map(() => (
+            <col class="docs-compare__edition" />
+        ))}
+    </colgroup>
+    <thead>
+        <tr>
+            <td></td>
+            {EDITIONS.map(({ key, price, icon: EditionIcon }) => (
+                <th scope="col">
+                    <EditionIcon />
+                    <span class="docs-compare__name">Synnax {NAMES[key]}</span>
+                    <span class="docs-compare__price">{price}</span>
+                </th>
+            ))}
+        </tr>
+    </thead>
+    {GROUPS.map((group) => (
+        <tbody>
+            <tr>
+                <th scope="rowgroup" colspan={EDITIONS.length + 1}>
+                    {group.name}
+                </th>
+            </tr>
+            {group.capabilities.map((capability) => (
+                <tr>
+                    <th scope="row">{capability.name}</th>
+                    {EDITIONS.map(({ key }) => {
+                        const value = capability.values[key];
+                        if (value === true)
+                            return (
+                                <td>
+                                    <Icon.Check
+                                        className="docs-mark docs-mark--yes"
+                                        aria-label="Included"
+                                    />
+                                </td>
+                            );
+                        if (value === false)
+                            return (
+                                <td>
+                                    <Icon.Subtract
+                                        className="docs-mark docs-mark--no"
+                                        aria-label="Not included"
+                                    />
+                                </td>
+                            );
+                        if (typeof value === "string") return <td>{value}</td>;
+                        return (
+                            <td>
+                                <ul class="docs-compare__systems">
+                                    {value.map(({ label, icon: SystemIcon }) => (
+                                        <li>
+                                            <SystemIcon />
+                                            {label}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </td>
+                        );
+                    })}
+                </tr>
+            ))}
+        </tbody>
+    ))}
+</table>
+<style is:global>
+    article table.docs-compare {
+        margin: 0 0 var(--docs-block-gap);
+        table-layout: fixed;
+
+        & .docs-compare__capability {
+            width: 44%;
+        }
+
+        & :is(th, td) {
+            padding: 1.5rem 2rem;
+            border: none;
+            text-align: start;
+            vertical-align: top;
+            font-size: var(--pluto-small-size);
+            line-height: var(--pluto-small-line-height);
+            font-weight: var(--pluto-p-weight);
+            color: var(--docs-body-color);
+        }
+
+        /* The table has no frame, so its text lines up with the prose edges. */
+        & tr > :first-child {
+            padding-left: 0;
+        }
+
+        & tr > :last-child {
+            padding-right: 0;
+        }
+
+        & tr {
+            border: none;
+        }
+
+        /* The header stays under the site navigation while the reader scrolls. */
+        & thead :is(th, td) {
+            position: sticky;
+            top: var(--nav-height);
+            z-index: 1;
+            background: var(--pluto-gray-l0);
+            box-shadow: inset 0 -1px var(--pluto-gray-l4);
+        }
+
+        & thead th {
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+            white-space: normal;
+
+            & .pluto-icon {
+                display: block;
+                width: 3rem;
+                height: 3rem;
+                margin-bottom: 1.5rem;
+                color: var(--pluto-gray-l9);
+            }
+        }
+
+        & .docs-compare__name {
+            display: block;
+            font-size: var(--pluto-p-size);
+            line-height: var(--pluto-p-line-height);
+            font-weight: 550;
+            color: var(--pluto-gray-l11);
+        }
+
+        & .docs-compare__price {
+            display: block;
+            font-weight: 500;
+            color: var(--pluto-gray-l8);
+        }
+
+        & th[scope="rowgroup"] {
+            padding-top: 6rem;
+            padding-bottom: 1.5rem;
+            font-size: var(--pluto-p-size);
+            line-height: var(--pluto-p-line-height);
+            font-weight: 550;
+            color: var(--pluto-gray-l11);
+        }
+
+        & tbody:first-of-type th[scope="rowgroup"] {
+            padding-top: 4rem;
+        }
+
+        & tbody tr + tr {
+            box-shadow: inset 0 1px var(--pluto-gray-l3);
+        }
+
+        & th[scope="row"] {
+            color: var(--pluto-gray-l10);
+        }
+
+        & .docs-compare__systems {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem 2.5rem;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+
+            & li {
+                display: inline-flex;
+                align-items: center;
+                gap: 1rem;
+                margin: 0;
+                padding: 0;
+                font-size: inherit;
+                line-height: inherit;
+            }
+
+            & li::before {
+                content: none;
+            }
+
+            & .pluto-icon {
+                width: 2.25rem;
+                height: 2.25rem;
+                color: var(--pluto-gray-l8);
+            }
+        }
+
+        @media (max-width: 600px) {
+            & .docs-compare__capability {
+                width: 34%;
+            }
+
+            & :is(th, td) {
+                padding: 1.25rem 1rem;
+            }
+
+            & .docs-compare__systems {
+                flex-direction: column;
+            }
+        }
+    }
+</style>

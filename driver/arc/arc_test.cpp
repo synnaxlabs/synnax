@@ -11,6 +11,7 @@
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
+#include "x/cpp/sync/list.h"
 #include "x/cpp/test/test.h"
 
 #include "arc/cpp/runtime/errors/errors.h"
@@ -27,113 +28,41 @@ TEST(TaskConfigParsing, DefaultLoopConfig) {
     arc::TaskConfig task_cfg(parser);
     ASSERT_TRUE(parser.ok());
     EXPECT_EQ(task_cfg.loop.mode, ::arc::runtime::loop::ExecutionMode::AUTO);
-    EXPECT_EQ(task_cfg.loop.rt_priority, ::arc::runtime::loop::DEFAULT_RT_PRIORITY);
-    EXPECT_EQ(task_cfg.loop.cpu_affinity, ::arc::runtime::loop::CPU_AFFINITY_AUTO);
-    EXPECT_FALSE(task_cfg.loop.memory_locked);
 }
 
-TEST(TaskConfigParsing, ExplicitExecutionMode) {
-    nlohmann::json cfg{
-        {"arc_key", "12345678-1234-5678-1234-567812345678"},
-        {"execution_mode", "BUSY_WAIT"}
+TEST(TaskConfigParsing, PerformanceLevels) {
+    std::vector<std::pair<std::string, ::arc::runtime::loop::ExecutionMode>> levels = {
+        {"auto", ::arc::runtime::loop::ExecutionMode::AUTO},
+        {"low", ::arc::runtime::loop::ExecutionMode::EVENT_DRIVEN},
+        {"medium", ::arc::runtime::loop::ExecutionMode::HYBRID},
+        {"high", ::arc::runtime::loop::ExecutionMode::BUSY_WAIT},
     };
-    auto parser = x::json::Parser(nlohmann::to_string(cfg));
-    arc::TaskConfig task_cfg(parser);
-    ASSERT_TRUE(parser.ok());
-    EXPECT_EQ(task_cfg.loop.mode, ::arc::runtime::loop::ExecutionMode::BUSY_WAIT);
-}
-
-TEST(TaskConfigParsing, AllExecutionModes) {
-    std::vector<std::pair<std::string, ::arc::runtime::loop::ExecutionMode>> modes = {
-        {"AUTO", ::arc::runtime::loop::ExecutionMode::AUTO},
-        {"BUSY_WAIT", ::arc::runtime::loop::ExecutionMode::BUSY_WAIT},
-        {"HIGH_RATE", ::arc::runtime::loop::ExecutionMode::HIGH_RATE},
-        {"RT_EVENT", ::arc::runtime::loop::ExecutionMode::RT_EVENT},
-        {"HYBRID", ::arc::runtime::loop::ExecutionMode::HYBRID},
-        {"EVENT_DRIVEN", ::arc::runtime::loop::ExecutionMode::EVENT_DRIVEN},
-    };
-    for (const auto &[mode_str, expected_mode]: modes) {
+    for (const auto &[level, expected_mode]: levels) {
         nlohmann::json cfg{
             {"arc_key", "12345678-1234-5678-1234-567812345678"},
-            {"execution_mode", mode_str}
+            {"performance", level}
         };
         auto parser = x::json::Parser(nlohmann::to_string(cfg));
         arc::TaskConfig task_cfg(parser);
-        ASSERT_TRUE(parser.ok()) << "Failed to parse mode: " << mode_str;
-        EXPECT_EQ(task_cfg.loop.mode, expected_mode)
-            << "Mode mismatch for: " << mode_str;
+        ASSERT_TRUE(parser.ok()) << "failed to parse performance: " << level;
+        EXPECT_EQ(task_cfg.loop.mode, expected_mode) << "mode mismatch for: " << level;
     }
 }
 
-TEST(TaskConfigParsing, InvalidExecutionMode) {
+TEST(TaskConfigParsing, InvalidPerformance) {
     nlohmann::json cfg{
         {"arc_key", "12345678-1234-5678-1234-567812345678"},
-        {"execution_mode", "INVALID_MODE"}
+        {"performance", "extreme"}
     };
     auto parser = x::json::Parser(nlohmann::to_string(cfg));
     arc::TaskConfig task_cfg(parser);
-    EXPECT_FALSE(parser.ok());
-}
-
-TEST(TaskConfigParsing, RtPriority) {
-    nlohmann::json cfg{
-        {"arc_key", "12345678-1234-5678-1234-567812345678"},
-        {"rt_priority", 99}
-    };
-    auto parser = x::json::Parser(nlohmann::to_string(cfg));
-    arc::TaskConfig task_cfg(parser);
-    ASSERT_TRUE(parser.ok());
-    EXPECT_EQ(task_cfg.loop.rt_priority, 99);
-}
-
-TEST(TaskConfigParsing, CpuAffinity) {
-    nlohmann::json cfg{
-        {"arc_key", "12345678-1234-5678-1234-567812345678"},
-        {"cpu_affinity", 3}
-    };
-    auto parser = x::json::Parser(nlohmann::to_string(cfg));
-    arc::TaskConfig task_cfg(parser);
-    ASSERT_TRUE(parser.ok());
-    EXPECT_EQ(task_cfg.loop.cpu_affinity, 3);
-}
-
-TEST(TaskConfigParsing, CpuAffinityNone) {
-    nlohmann::json cfg{
-        {"arc_key", "12345678-1234-5678-1234-567812345678"},
-        {"cpu_affinity", ::arc::runtime::loop::CPU_AFFINITY_NONE}
-    };
-    auto parser = x::json::Parser(nlohmann::to_string(cfg));
-    arc::TaskConfig task_cfg(parser);
-    ASSERT_TRUE(parser.ok());
-    EXPECT_EQ(task_cfg.loop.cpu_affinity, ::arc::runtime::loop::CPU_AFFINITY_NONE);
-}
-
-TEST(TaskConfigParsing, MemoryLocked) {
-    nlohmann::json cfg{
-        {"arc_key", "12345678-1234-5678-1234-567812345678"},
-        {"memory_locked", true}
-    };
-    auto parser = x::json::Parser(nlohmann::to_string(cfg));
-    arc::TaskConfig task_cfg(parser);
-    ASSERT_TRUE(parser.ok());
-    EXPECT_TRUE(task_cfg.loop.memory_locked);
-}
-
-TEST(TaskConfigParsing, FullLoopConfig) {
-    nlohmann::json cfg{
-        {"arc_key", "12345678-1234-5678-1234-567812345678"},
-        {"execution_mode", "RT_EVENT"},
-        {"rt_priority", 80},
-        {"cpu_affinity", 7},
-        {"memory_locked", true}
-    };
-    auto parser = x::json::Parser(nlohmann::to_string(cfg));
-    arc::TaskConfig task_cfg(parser);
-    ASSERT_TRUE(parser.ok());
-    EXPECT_EQ(task_cfg.loop.mode, ::arc::runtime::loop::ExecutionMode::RT_EVENT);
-    EXPECT_EQ(task_cfg.loop.rt_priority, 80);
-    EXPECT_EQ(task_cfg.loop.cpu_affinity, 7);
-    EXPECT_TRUE(task_cfg.loop.memory_locked);
+    ASSERT_FALSE(parser.ok());
+    EXPECT_NE(
+        parser.error().data.find(
+            "invalid performance: extreme (must be auto, low, medium, or high)"
+        ),
+        std::string::npos
+    );
 }
 
 TEST(ArcTests, testCalcDoubling) {
@@ -231,7 +160,7 @@ TEST(ArcTests, testCalcDoubling) {
     ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
-    auto &output_fr = mock_writer->writes->at(0);
+    const auto &output_fr = mock_writer->writes->at(0);
     ASSERT_TRUE(output_fr.contains(output_ch.key));
     auto output_val = output_fr.at<float>(output_ch.key, 0);
     EXPECT_FLOAT_EQ(output_val, 10.0f);
@@ -347,7 +276,7 @@ TEST(ArcTests, testBasicSequence) {
 
     // Verify valve_cmd received the value 1
     bool found_valve_cmd = false;
-    for (const auto &output_fr: *mock_writer->writes) {
+    for (const auto &output_fr: mock_writer->writes->snapshot()) {
         if (output_fr.contains(valve_cmd_ch.key)) {
             auto output_val = output_fr.at<int64_t>(valve_cmd_ch.key, 0);
             EXPECT_EQ(output_val, 1);
@@ -487,7 +416,7 @@ TEST(ArcTests, testOneShotTruthiness) {
     // This confirms the sequence was triggered only by the truthy value (1),
     // not by the falsy value (0)
     bool found_valve_cmd = false;
-    for (const auto &output_fr: *mock_writer->writes) {
+    for (const auto &output_fr: mock_writer->writes->snapshot()) {
         if (output_fr.contains(valve_cmd_ch.key)) {
             auto output_val = output_fr.at<int64_t>(valve_cmd_ch.key, 0);
             EXPECT_EQ(output_val, 42);
@@ -686,7 +615,7 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
     bool found_pressurize_output = false;
     bool found_idle_output = false;
 
-    for (const auto &output_fr: *mock_writer->writes) {
+    for (const auto &output_fr: mock_writer->writes->snapshot()) {
         if (output_fr.contains(valve_cmd_ch.key)) {
             auto output_val = output_fr.at<int64_t>(valve_cmd_ch.key, 0);
             if (output_val == 1) {
@@ -723,7 +652,7 @@ void expect_status(
     EXPECT_EQ(status.variant, expected_variant);
     EXPECT_EQ(status.details.running, expected_running);
     if (!message_contains.empty()) {
-        EXPECT_TRUE(status.message.find(message_contains) != std::string::npos)
+        EXPECT_TRUE(status.message.contains(message_contains))
             << "Expected message to contain '" << message_contains
             << "' but got: " << status.message;
     }
@@ -827,6 +756,124 @@ TEST(ArcErrorHandling, WasmTrapTriggersFatalError) {
     );
     ASSERT_NE(error_status, nullptr) << "Fatal WASM trap should produce error status";
     expect_status(*error_status, synnax::status::VARIANT_ERROR, false);
+    EXPECT_EQ(error_status->message, "Failed to run Arc program");
+    EXPECT_TRUE(
+        error_status->description.starts_with("The divide_by_zero node failed: ")
+    );
+
+    task->stop("test_stop", true);
+}
+
+TEST(ArcErrorHandling, NodeWarningKeepsProgramRunning) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+
+    auto input_idx = synnax::channel::Channel{
+        .name = make_unique_channel_name("parked_input_idx"),
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+        .index = 0
+    };
+    ASSERT_NIL(client->channels.create(input_idx));
+    auto output_idx = synnax::channel::Channel{
+        .name = make_unique_channel_name("parked_output_idx"),
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+        .index = 0
+    };
+    ASSERT_NIL(client->channels.create(output_idx));
+    auto input_ch = synnax::channel::Channel{
+        .name = make_unique_channel_name("parked_input"),
+        .data_type = x::telem::UINT8_T,
+        .is_index = false,
+        .index = input_idx.key
+    };
+    auto output_ch = synnax::channel::Channel{
+        .name = make_unique_channel_name("parked_output"),
+        .data_type = x::telem::UINT8_T,
+        .is_index = false,
+        .index = output_idx.key
+    };
+    ASSERT_NIL(client->channels.create(input_ch));
+    ASSERT_NIL(client->channels.create(output_ch));
+
+    synnax::arc::Arc arc_prog{
+        .name = make_unique_channel_name("parked_test"),
+        .mode = synnax::arc::MODE_TEXT
+    };
+    arc_prog.text = ::arc::text::Text{
+        .raw = "import time\n"
+               "sequence main {\n"
+               "    hold := i64 ns(0s)\n"
+               "    stage parked {\n"
+               "        time.wait{duration=hold} -> " +
+               output_ch.name +
+               "\n"
+               "        time.wait{2s} => reenter\n"
+               "    }\n"
+               "    stage reenter {\n"
+               "        time.wait{10ms} -> sequence { hold = i64 ns(100ms) }\n"
+               "        time.wait{50ms} => parked\n"
+               "    }\n"
+               "}\n" +
+               input_ch.name + " => main\n"
+    };
+    ASSERT_NIL(client->arcs.create(arc_prog));
+
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("arc_parked_test_rack"))
+    );
+    synnax::task::Task task_meta{
+        .rack = rack.key,
+        .name = "arc_parked_test",
+        .type = "arc_runtime",
+    };
+    task_meta.config = nlohmann::json{{"arc_key", arc_prog.key.to_string()}};
+    auto parser = x::json::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
+    x::telem::Frame trigger_fr(2);
+    auto idx_series = x::telem::Series(x::telem::TimeStamp::now());
+    idx_series.alignment = x::telem::Alignment(1, 0);
+    auto val_series = x::telem::Series(static_cast<uint8_t>(1));
+    val_series.alignment = x::telem::Alignment(1, 0);
+    trigger_fr.emplace(input_idx.key, std::move(idx_series));
+    trigger_fr.emplace(input_ch.key, std::move(val_series));
+    input_frames->push_back(std::move(trigger_fr));
+
+    auto ctx = std::make_shared<task::MockContext>(client);
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            std::make_shared<pipeline::mock::WriterFactory>(),
+            pipeline::mock::simple_streamer_factory(
+                {input_idx.key, input_ch.key},
+                input_frames
+            )
+        )
+    );
+
+    task->start("test_start");
+    ASSERT_EVENTUALLY_TRUE(
+        find_status_by_variant(ctx->statuses, synnax::status::VARIANT_WARNING) !=
+        nullptr
+    );
+    const auto *warning = find_status_by_variant(
+        ctx->statuses,
+        synnax::status::VARIANT_WARNING
+    );
+    expect_status(*warning, synnax::status::VARIANT_WARNING, true);
+    EXPECT_EQ(warning->message, "Node failed");
+    EXPECT_EQ(
+        warning->description,
+        "The time.wait node failed: The wait duration must be positive, not 0ns."
+    );
+    EXPECT_EQ(
+        find_status_by_variant(ctx->statuses, synnax::status::VARIANT_ERROR),
+        nullptr
+    );
 
     task->stop("test_stop", true);
 }
@@ -953,7 +1000,7 @@ TEST(ArcErrorHandling, RestartAfterWasmTrap) {
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
     bool found_output = false;
-    for (const auto &fr: *mock_writer->writes) {
+    for (const auto &fr: mock_writer->writes->snapshot()) {
         if (fr.contains(output_ch.key)) {
             auto val = fr.at<int32_t>(output_ch.key, 0);
             EXPECT_EQ(val, 10);
@@ -1064,7 +1111,7 @@ TEST(ArcErrorHandling, MultipleErrorRecoveryCycles) {
         ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
         bool found_output = false;
-        for (const auto &fr: *mock_writer->writes) {
+        for (const auto &fr: mock_writer->writes->snapshot()) {
             if (fr.contains(output_ch.key)) {
                 auto val = fr.at<float>(output_ch.key, 0);
                 EXPECT_FLOAT_EQ(val, static_cast<float>((cycle + 1) * 2));
@@ -1173,7 +1220,7 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
         synnax::status::VARIANT_SUCCESS
     );
     ASSERT_NE(start_status, nullptr) << "Should have a success status after start";
-    expect_status(*start_status, synnax::status::VARIANT_SUCCESS, true, "started");
+    expect_status(*start_status, synnax::status::VARIANT_SUCCESS, true, "Started task");
 
     task->stop("verify_stop", true);
 
@@ -1192,6 +1239,106 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
     }
     EXPECT_TRUE(found_stopped)
         << "Should have a success status with running=false after stop";
+}
+
+TEST(ArcStatusVerification, StopCommandStatusCarriesCommandKey) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+
+    auto input_idx_name = make_unique_channel_name("stop_cmd_input_idx");
+    auto input_name = make_unique_channel_name("stop_cmd_input");
+    auto output_idx_name = make_unique_channel_name("stop_cmd_output_idx");
+    auto output_name = make_unique_channel_name("stop_cmd_output");
+
+    auto input_idx = synnax::channel::Channel{
+        .name = input_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+        .index = 0
+    };
+    ASSERT_NIL(client->channels.create(input_idx));
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+        .index = 0
+    };
+    ASSERT_NIL(client->channels.create(output_idx));
+
+    auto input_ch = synnax::channel::Channel{
+        .name = input_name,
+        .data_type = x::telem::FLOAT32_T,
+        .is_index = false,
+        .index = input_idx.key
+    };
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::FLOAT32_T,
+        .is_index = false,
+        .index = output_idx.key
+    };
+    ASSERT_NIL(client->channels.create(input_ch));
+    ASSERT_NIL(client->channels.create(output_ch));
+
+    synnax::arc::Arc arc_prog{
+        .name = make_unique_channel_name("stop_cmd_test"),
+        .mode = synnax::arc::MODE_TEXT
+    };
+    arc_prog.text = ::arc::text::Text{
+        .raw = "func pass(val f32) f32 { return val }\n" + input_name +
+               " -> pass{} -> " + output_name + "\n"
+    };
+    ASSERT_NIL(client->arcs.create(arc_prog));
+
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("arc_stop_cmd_rack"))
+    );
+
+    synnax::task::Task task_meta{
+        .rack = rack.key,
+        .name = "arc_stop_cmd_test",
+        .type = "arc_runtime",
+    };
+    task_meta.config = nlohmann::json{{"arc_key", arc_prog.key.to_string()}};
+
+    auto parser = x::json::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+
+    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
+    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+        {input_idx.key, input_ch.key},
+        input_frames
+    );
+
+    auto ctx = std::make_shared<task::MockContext>(client);
+
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+    );
+
+    synnax::task::Command start_cmd{
+        .task = task_meta.key,
+        .type = "start",
+        .key = "stop_cmd_test_start",
+    };
+    task->exec(start_cmd);
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+
+    synnax::task::Command stop_cmd{
+        .task = task_meta.key,
+        .type = "stop",
+        .key = "stop_cmd_test_stop",
+    };
+    task->exec(stop_cmd);
+
+    bool found_stop_reply = false;
+    for (const auto &s: ctx->statuses)
+        if (s.details.cmd == stop_cmd.key && !s.details.running) {
+            found_stop_reply = true;
+            break;
+        }
+    EXPECT_TRUE(found_stop_reply)
+        << "The stop status should carry the stop command's key";
 }
 
 TEST(ArcEdgeCases, RapidStartStop) {
@@ -1507,7 +1654,7 @@ TEST(ArcTests, testChannelConfigParam) {
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
     bool found_output = false;
-    for (const auto &output_fr: *mock_writer->writes) {
+    for (const auto &output_fr: mock_writer->writes->snapshot()) {
         if (output_fr.contains(output_ch.key)) {
             auto output_val = output_fr.at<float>(output_ch.key, 0);
             EXPECT_FLOAT_EQ(output_val, 42.5f)
@@ -1668,7 +1815,7 @@ TEST(ArcTests, testChannelConfigParamReadWrite) {
     // edge. But counter < read_val (0 < 100) → counter = 100.
     // This proves the config param channel read returned 100 (not 0).
     bool found_output = false;
-    for (const auto &output_fr: *mock_writer->writes) {
+    for (const auto &output_fr: mock_writer->writes->snapshot()) {
         if (output_fr.contains(counter_ch.key)) {
             auto output_val = output_fr.at<float>(counter_ch.key, 0);
             EXPECT_FLOAT_EQ(output_val, 100.0f)
@@ -1877,7 +2024,7 @@ TEST(ArcTests, testRestartResetsState) {
     ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
-    auto &output_fr_1 = mock_writer->writes->at(0);
+    const auto &output_fr_1 = mock_writer->writes->at(0);
     ASSERT_TRUE(output_fr_1.contains(output_ch.key));
     auto output_val_1 = output_fr_1.at<int64_t>(output_ch.key, 0);
     EXPECT_EQ(output_val_1, 1);
@@ -1904,7 +2051,7 @@ TEST(ArcTests, testRestartResetsState) {
     ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
-    auto &output_fr_2 = mock_writer->writes->at(0);
+    const auto &output_fr_2 = mock_writer->writes->at(0);
     ASSERT_TRUE(output_fr_2.contains(output_ch.key));
     auto output_val_2 = output_fr_2.at<int64_t>(output_ch.key, 0);
     EXPECT_EQ(output_val_2, 1) << "State should be reset on restart, count should be 1";
@@ -2000,7 +2147,7 @@ TEST(ArcTests, testStaticAuthorityConfig) {
 
     ASSERT_TRUE(task_cfg.program.authorities.default_.has_value())
         << "IR AuthorityConfig.default_ should be set from 'authority 200'";
-    EXPECT_EQ(*task_cfg.program.authorities.default_, 200);
+    EXPECT_EQ(task_cfg.program.authorities.default_.value(), 200);
 
     task->start("test_start");
     ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
@@ -2096,7 +2243,7 @@ TEST(ArcTests, testPerChannelAuthorityConfig) {
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
     ASSERT_TRUE(task_cfg.program.authorities.default_.has_value());
-    EXPECT_EQ(*task_cfg.program.authorities.default_, 100);
+    EXPECT_EQ(task_cfg.program.authorities.default_.value(), 100);
     ASSERT_EQ(task_cfg.program.authorities.channels.count(out_a_ch.key), 1);
     EXPECT_EQ(task_cfg.program.authorities.channels.at(out_a_ch.key), 200);
 
@@ -2452,7 +2599,7 @@ TEST(ArcTests, testSetAuthorityWithCalcInTopLevelFlow) {
     ASSERT_EVENTUALLY_GE(mock_writer->authority_changes->size(), 1);
 
     bool found_output = false;
-    for (const auto &fr: *mock_writer->writes) {
+    for (const auto &fr: mock_writer->writes->snapshot()) {
         if (fr.contains(output_ch.key)) {
             EXPECT_EQ(fr.at<uint8_t>(output_ch.key, 0), 10);
             found_output = true;
@@ -2629,7 +2776,7 @@ TEST(ArcErrorHandling, WriterFailurePropagatesErrorStatus) {
     // Configure mock writer factory to fail when opening the writer.
     // Writer open errors are propagated through stopped_with_err.
     auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>(
-        std::make_shared<std::vector<x::telem::Frame>>(),
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
         std::vector<x::errors::Error>{x::errors::VALIDATION}
     );
 

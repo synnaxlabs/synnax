@@ -13,6 +13,7 @@ import (
 	"embed"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,12 +21,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v0"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v5"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/text"
 )
@@ -59,7 +59,7 @@ func migrateSeed(ctx SpecContext, seed v0.LinePlot) v5.LinePlot {
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:         db,
 		Namespace:  "LinePlot",
-		Migrations: []migrate.Migration{v0.Migration, v5.Migration},
+		Migrations: []gorp.Migration{v0.Migration, v5.Migration},
 	})).To(Succeed())
 	var got v5.LinePlot
 	Expect(gorp.NewRetrieve[v5.Key, v5.LinePlot]().
@@ -382,5 +382,19 @@ var _ = Describe("MigrateLinePlot", func() {
 			Expect(out.Lines).To(BeEmpty())
 			Expect(out.Rules).To(BeEmpty())
 		})
+
+		DescribeTable(
+			"Should round a fractional downsample factor typed in an older Console",
+			func(ctx SpecContext, factor float64, expected uint32) {
+				out := migrateV4(ctx, fmt.Sprintf(`"lines": [
+				{"key": "l1", "color": "#ff0000", "strokeWidth": 1, "downsample": %g}
+			]`, factor))
+				Expect(out.Lines[0].Downsample).To(Equal(expected))
+			},
+			Entry("rounds half up", 2.5, uint32(3)),
+			Entry("rounds down", 1.4, uint32(1)),
+			Entry("keeps an integer factor", 7.0, uint32(7)),
+			Entry("clamps a sub-one factor to 1", 0.4, uint32(1)),
+		)
 	})
 })

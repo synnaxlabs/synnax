@@ -27,8 +27,7 @@ const formSchema = z.object({
 });
 
 export const ContactForm = (): ReactElement => {
-  const [hardSuccess, setHardSuccess] = useState(false);
-  const [softSuccess, setSoftSuccess] = useState(false);
+  const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const methods = Form.use({
@@ -52,20 +51,17 @@ export const ContactForm = (): ReactElement => {
           body: data,
           headers: { Accept: "application/json" },
         });
-        if (res.ok) {
-          setSoftSuccess(true);
-          setTimeout(() => setHardSuccess(true), 500);
-        } else window.alert("Something went wrong. Please try again later.");
+        if (res.ok) setSuccess(true);
+        else window.alert("Something went wrong. Please try again later.");
       } catch {
         window.alert("Something went wrong. Please try again later.");
-      } finally {
-        setLoading(false);
       }
+      setLoading(false);
     })();
   };
 
   return (
-    <div className={`contact-form-container${hardSuccess ? " success" : ""}`}>
+    <div className={`contact-form-container${success ? " success" : ""}`}>
       <Form.Form<typeof formSchema> {...methods}>
         <Flex.Box
           el="form"
@@ -111,9 +107,9 @@ export const ContactForm = (): ReactElement => {
               handleSubmit();
             }}
             status={loading ? "loading" : undefined}
-            disabled={loading || softSuccess}
+            disabled={loading || success}
           >
-            {softSuccess && <Icon.Check />}
+            {success && <Icon.Check />}
             Submit →
           </Button.Button>
         </Flex.Box>
@@ -132,10 +128,7 @@ export const ContactForm = (): ReactElement => {
             level="p"
             size="large"
             variant="text"
-            onClick={() => {
-              setSoftSuccess(false);
-              setHardSuccess(false);
-            }}
+            onClick={() => setSuccess(false)}
           >
             <Icon.Arrow.Left />
             Back

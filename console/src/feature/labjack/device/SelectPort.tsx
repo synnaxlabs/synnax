@@ -37,7 +37,7 @@ export interface SelectPortProps
   children?: ReactNode;
 }
 
-const listItem = Component.renderProp((props: List.ItemProps<string>) => {
+const ListItem = (props: List.ItemProps<string>) => {
   const port = List.useItem<string, Port>(props.itemKey);
   if (port == null) return null;
   const { alias, key } = port;
@@ -53,7 +53,9 @@ const listItem = Component.renderProp((props: List.ItemProps<string>) => {
       )}
     </Select.Item>
   );
-});
+};
+
+const listItem = Component.renderProp(ListItem);
 
 export const SelectPort = ({
   model,
@@ -67,6 +69,7 @@ export const SelectPort = ({
   variant,
   preview,
   dialogProps,
+  allowNone,
   ...rest
 }: SelectPortProps) => {
   const { data, getItem, retrieve } = List.useStaticData<string, Port>({
@@ -81,11 +84,14 @@ export const SelectPort = ({
         getItem={getItem}
         onChange={onChange}
         value={value}
+        allowNone={allowNone}
         closeDialogOnSelect
       >
         <Flex.Box pack x>
           <Dialog.Trigger preview={preview} {...triggerProps}>
-            {selected?.alias ?? selected?.key}
+            <Select.Label itemKey={value}>
+              {selected?.alias ?? selected?.key}
+            </Select.Label>
           </Dialog.Trigger>
           {children}
         </Flex.Box>

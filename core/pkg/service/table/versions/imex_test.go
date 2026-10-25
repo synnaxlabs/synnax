@@ -33,27 +33,44 @@ var _ = Describe("DecodeImExEnvelope", func() {
 
 	It("Should decode a server-exported envelope", func(ctx SpecContext) {
 		t := decode(ctx, "testdata/import_v1.json")
-		Expect(t.Rows).To(Equal([]versions.Row{{Size: 30, Cells: []string{"c1"}}}))
-		Expect(t.Columns).To(Equal([]versions.Column{{Size: 100}}))
+		Expect(t.Rows).To(Equal([]versions.Row{
+			{Key: "row-0", Size: 30, Cells: []string{"c1"}},
+		}))
+		Expect(t.Columns).To(Equal([]versions.Column{{Key: "col-0", Size: 100}}))
 		Expect(text(t.Cells["c1"]).Value).To(Equal("hi"))
+	})
+
+	It("Should key the rows and columns of a v2 envelope", func(ctx SpecContext) {
+		t := decode(ctx, "testdata/import_v2.json")
+		Expect(t.Rows).To(Equal([]versions.Row{
+			{Key: "row-0", Size: 30, Cells: []string{"c1"}},
+			{Key: "row-1", Size: 40, Cells: []string{"c2"}},
+		}))
+		Expect(t.Columns).To(Equal([]versions.Column{{Key: "col-0", Size: 100}}))
+		Expect(text(t.Cells["c2"]).Value).To(Equal("there"))
 	})
 
 	It(
 		"Should decode the Console typed export stamped at the same version",
 		func(ctx SpecContext) {
 			t := decode(ctx, "testdata/import_typed_console.json")
-			Expect(t.Rows).To(Equal([]versions.Row{{Size: 25, Cells: []string{"c1"}}}))
-			Expect(t.Columns).To(Equal([]versions.Column{{Size: 90}}))
+			Expect(t.Rows).To(Equal([]versions.Row{
+				{Key: "row-0", Size: 25, Cells: []string{"c1"}},
+			}))
+			Expect(t.Columns).To(Equal([]versions.Column{{Key: "col-0", Size: 90}}))
 			Expect(text(t.Cells["c1"]).Weight).To(Equal(700.0))
 		},
 	)
 
 	It("Should lift a Console state through the legacy chain", func(ctx SpecContext) {
 		t := decode(ctx, "testdata/import_v0_state.json")
-		Expect(t.Rows).To(
-			Equal([]versions.Row{{Size: 30, Cells: []string{"c1", "c2"}}}),
-		)
-		Expect(t.Columns).To(Equal([]versions.Column{{Size: 100}, {Size: 120}}))
+		Expect(t.Rows).To(Equal([]versions.Row{
+			{Key: "row-0", Size: 30, Cells: []string{"c1", "c2"}},
+		}))
+		Expect(t.Columns).To(Equal([]versions.Column{
+			{Key: "col-0", Size: 100},
+			{Key: "col-1", Size: 120},
+		}))
 		Expect(t.Cells).To(HaveLen(2))
 		Expect(
 			t.Cells["c2"].Variant,

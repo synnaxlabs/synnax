@@ -24,7 +24,15 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({ save: vi.fn() }));
 
 const DIAGNOSTICS = {
   version: "0.58.0",
-  history: { starts: 2, readyAt: 1790014509000, lastExit: "exited with 3" },
+  history: {
+    starts: 2,
+    exits: 1,
+    failures: 0,
+    readies: 2,
+    readyAt: 1790014509000,
+    timeToReadyMs: 420,
+    lastExit: { reason: "crashed", message: "exited with 3", uptimeSeconds: 12 },
+  },
   dataDir: "/data/synnax",
   logDir: "/logs/synnax",
   dataSize: 3_000_000,

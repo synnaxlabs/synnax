@@ -11,9 +11,11 @@ import { type status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Status } from "@synnaxlabs/pluto";
 import { TimeStamp } from "@synnaxlabs/x";
+import { useState } from "react";
 
 import { Label } from "@/platform/label";
 import { Modals } from "@/platform/modals";
@@ -24,65 +26,66 @@ export interface CreateModalParams {
   statusKey?: status.Key;
 }
 
-export const useCreateModal = Modals.create<CreateModalParams>(
-  ({ close, statusKey }) => {
-    const { form, save, variant } = Status.useForm({
-      query: statusKey == null ? null : { key: statusKey },
-      autoSave: false,
-      initialValues: {
-        key: "",
-        message: "",
-        time: TimeStamp.now(),
-        name: "",
-        description: "",
-        variant: "success",
-        labels: [],
-      },
-      afterSave: () => close(),
-    });
+const Create = ({ close, statusKey }: Modals.ContentProps<CreateModalParams, void>) => {
+  const [now] = useState(() => TimeStamp.now());
+  const { form, save, variant } = Status.useForm({
+    query: statusKey == null ? null : { key: statusKey },
+    autoSave: false,
+    initialValues: {
+      key: "",
+      message: "",
+      time: now,
+      name: "",
+      description: "",
+      variant: "success",
+      labels: [],
+    },
+    afterSave: () => close(),
+  });
 
-    return (
-      <Modals.Frame>
-        <Modals.Header icon={<Icon.Status />}>Status.Create</Modals.Header>
-        <Modals.Body>
-          <Form.Form<typeof Status.formSchema> {...form}>
-            <Form.TextField
-              path="name"
-              inputProps={{
-                autoFocus: true,
-                level: "h2",
-                variant: "text",
-                placeholder: "Name",
-              }}
-            />
-            <Form.Field<status.Variant> path="variant" label="Variant">
-              {(props) => <Status.SelectVariant {...props} />}
-            </Form.Field>
-            <Form.TextField
-              path="message"
-              label="Message"
-              inputProps={{ placeholder: "Message" }}
-            />
-            <Form.Field<string[]> path="labels" required={false}>
-              {(p) => <Label.SelectMultiple zIndex={100} {...p} />}
-            </Form.Field>
-          </Form.Form>
-        </Modals.Body>
-        <Modals.Footer>
-          <Triggers.SaveHelpText action="Create" />
-          <Nav.Bar.End>
-            <Button.Button
-              variant="filled"
-              onClick={() => save()}
-              tooltipLocation="bottom"
-              status={variant}
-              trigger={Triggers.SAVE}
-            >
-              Create
-            </Button.Button>
-          </Nav.Bar.End>
-        </Modals.Footer>
-      </Modals.Frame>
-    );
-  },
-);
+  return (
+    <Modal.Frame>
+      <Modal.Header icon={<Icon.Status />}>Status.Create</Modal.Header>
+      <Modal.Body>
+        <Form.Form<typeof Status.formSchema> {...form}>
+          <Form.TextField
+            path="name"
+            inputProps={{
+              autoFocus: true,
+              level: "h2",
+              variant: "text",
+              placeholder: "Name",
+            }}
+          />
+          <Form.Field<status.Variant> path="variant" label="Variant">
+            {(props) => <Status.SelectVariant {...props} />}
+          </Form.Field>
+          <Form.TextField
+            path="message"
+            label="Message"
+            inputProps={{ placeholder: "Message" }}
+          />
+          <Form.Field<string[]> path="labels" required={false}>
+            {(p) => <Label.SelectMultiple zIndex={100} {...p} />}
+          </Form.Field>
+        </Form.Form>
+      </Modal.Body>
+      <Modal.Footer>
+        <Triggers.SaveHelpText action="Create" />
+        <Nav.Bar.End>
+          <Button.Button
+            variant="filled"
+            onClick={() => save()}
+            tooltipLocation="bottom"
+            status={variant}
+            trigger={Triggers.SAVE}
+          >
+            Create
+          </Button.Button>
+        </Nav.Bar.End>
+      </Modal.Footer>
+    </Modal.Frame>
+  );
+};
+
+export const useCreateModal = Modals.create<CreateModalParams>(Create);

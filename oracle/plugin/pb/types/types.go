@@ -12,8 +12,8 @@ package types
 import (
 	"bytes"
 	"fmt"
-	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -253,7 +253,7 @@ func (p *Plugin) generateFile(
 	}
 
 	data := &templateData{
-		Package:    derivePackageName(outputPath, structs),
+		Package:    derivePackageName(outputPath, namespace),
 		GoPackage:  deriveGoPackage(outputPath, repoRoot),
 		OutputPath: outputPath,
 		Namespace:  namespace,
@@ -300,25 +300,10 @@ func (p *Plugin) generateFile(
 	return buf.Bytes(), nil
 }
 
-func derivePackageName(outputPath string, structs []resolution.Type) string {
-	namespace := ""
-	if len(structs) > 0 {
-		namespace = structs[0].Namespace
-	} else {
-		// Fallback: derive namespace from output path
-		parts := strings.Split(outputPath, "/")
-		if len(parts) >= 1 {
-			if parts[len(parts)-1] == "pb" && len(parts) >= 2 {
-				namespace = parts[len(parts)-2]
-			} else {
-				namespace = parts[len(parts)-1]
-			}
-		} else {
-			namespace = filepath.Base(outputPath)
-		}
-	}
-	prefix := deriveLayerPrefix(outputPath)
-	return prefix + "." + namespace + ".pb"
+// derivePackageName names the proto package generated at outputPath for the schema
+// namespace. The C++ plugins mirror it in naming.PBNamespace.
+func derivePackageName(outputPath, namespace string) string {
+	return deriveLayerPrefix(outputPath) + "." + namespace + ".pb"
 }
 
 func deriveLayerPrefix(outputPath string) string {
@@ -393,7 +378,14 @@ func (p *Plugin) processStruct(
 	}
 
 	fieldNumber := 1
+	var reserved []string
 	for _, field := range resolution.UnifiedFields(entry, data.table) {
+		// An omitted field keeps its number, reserved, so later fields never shift.
+		if omit.IsField(field, "pb") {
+			reserved = append(reserved, strconv.Itoa(fieldNumber))
+			fieldNumber++
+			continue
+		}
 		fd, err := p.processField(field, fieldNumber, data)
 		if err != nil {
 			return messageData{}, errors.Wrapf(err, "struct %q", entry.Name)
@@ -401,6 +393,7 @@ func (p *Plugin) processStruct(
 		md.Fields = append(md.Fields, fd)
 		fieldNumber++
 	}
+	md.Reserved = strings.Join(reserved, ", ")
 
 	return md, nil
 }
@@ -629,7 +622,7 @@ func (p *Plugin) resolveUnionType(
 	}
 	importPath := targetOutputPath + "/" + resolved.Namespace + ".proto"
 	data.imports.add(importPath)
-	pkg := derivePackageName(targetOutputPath, []resolution.Type{resolved})
+	pkg := derivePackageName(targetOutputPath, resolved.Namespace)
 	return fmt.Sprintf(".%s.%s", pkg, pbName), nil
 }
 
@@ -652,13 +645,14 @@ func (p *Plugin) processUnion(
 
 	fieldNumber := 1
 	for _, baseRef := range form.Extends {
-		base, ok := baseRef.Resolve(data.table)
+		target, _, ok := resolution.Dealias(baseRef, data.table)
 		if !ok {
 			continue
 		}
-		if _, isStruct := base.Form.(resolution.StructForm); !isStruct {
+		if _, isStruct := target.Form.(resolution.StructForm); !isStruct {
 			continue
 		}
+		base, _ := baseRef.Resolve(data.table)
 		protoType, err := p.typeToProto(baseRef, data)
 		if err != nil {
 			return messageData{}, errors.Wrapf(err, "union %q base", entry.Name)
@@ -675,7 +669,7 @@ func (p *Plugin) processUnion(
 	for _, v := range form.Variants {
 		// The union's bases are one shared message field, not per-variant, so a
 		// variant cannot drop a field from them.
-		if payload, ok := v.Type.Resolve(data.table); ok {
+		if payload, _, ok := resolution.Dealias(v.Type, data.table); ok {
 			if pform, ok := payload.Form.(resolution.StructForm); ok &&
 				len(pform.OmittedFields) > 0 {
 				return messageData{}, errors.Newf(
@@ -740,7 +734,7 @@ func (p *Plugin) resolveStructType(
 	importPath := targetOutputPath + "/" + resolved.Namespace + ".proto"
 	data.imports.add(importPath)
 
-	pkg := derivePackageName(targetOutputPath, []resolution.Type{resolved})
+	pkg := derivePackageName(targetOutputPath, resolved.Namespace)
 	return fmt.Sprintf(".%s.%s", pkg, pbName), nil
 }
 
@@ -757,7 +751,7 @@ func (p *Plugin) resolveEnumType(resolved resolution.Type, data *templateData) s
 	importPath := targetOutputPath + "/" + resolved.Namespace + ".proto"
 	data.imports.add(importPath)
 
-	pkg := deriveLayerPrefix(targetOutputPath) + "." + resolved.Namespace + ".pb"
+	pkg := derivePackageName(targetOutputPath, resolved.Namespace)
 	return fmt.Sprintf(".%s.%s", pkg, resolved.Name)
 }
 
@@ -824,11 +818,13 @@ func (d *templateData) Imports() []string {
 }
 
 type messageData struct {
-	Name   string
-	Doc    string
-	Fields []fieldData
-	Oneof  *oneofData
-	Skip   bool
+	Name string
+	Doc  string
+	// Reserved lists the numbers of omitted fields, comma-separated.
+	Reserved string
+	Fields   []fieldData
+	Oneof    *oneofData
+	Skip     bool
 }
 
 type oneofData struct {
@@ -898,6 +894,9 @@ enum {{.Name}} {
 {{formatDoc .Name .Doc}}
 {{- end}}
 message {{.Name}} {
+{{- with .Reserved}}
+  reserved {{.}};
+{{- end}}
 {{- range .Fields}}
 {{- if .Doc}}
   {{formatDoc .Name .Doc 2}}

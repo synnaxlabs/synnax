@@ -36,7 +36,7 @@ using Series = x::mem::local_shared<x::telem::Series>;
 
 struct AuthorityChange {
     std::optional<types::ChannelKey> channel_key;
-    uint8_t authority;
+    uint8_t authority = 0;
 };
 
 struct Value {
@@ -103,6 +103,9 @@ class Node {
     bool edge_fed = false;
     /// @brief rearm[i] selects when a consumed input i fires again.
     std::vector<Rearm> rearm;
+    /// @brief stale[i] marks an input whose series an earlier run consumed. It holds
+    /// only its last sample until new data arrives.
+    std::vector<bool> stale;
     /// @brief params holds the node's input params with their configured values.
     types::Params params;
 
@@ -131,6 +134,7 @@ class Node {
         is_reference(std::move(is_reference)),
         literal(std::move(literal)),
         rearm(std::move(rearm)),
+        stale(this->inputs.size(), false),
         params(std::move(params)) {
         for (size_t i = 0; i < this->literal.size(); i++)
             if (!this->literal[i] && !this->is_reference[i]) {
@@ -152,6 +156,12 @@ public:
 
     [[nodiscard]] const Series &input(const size_t param_index) const {
         return this->aligned_data[param_index];
+    }
+
+    /// @brief reports whether the input at param_index was consumed by an earlier
+    /// run.
+    [[nodiscard]] bool input_stale(const size_t param_index) const {
+        return param_index < this->stale.size() && this->stale[param_index];
     }
 
     [[nodiscard]] const Series &input_time(size_t param_index) const;
@@ -195,7 +205,7 @@ public:
 
     /// Reads buffered data and time series from a channel. Returns (data, index_data,
     /// ok). If the channel has an associated index, both data and time are returned.
-    std::tuple<x::telem::MultiSeries, x::telem::MultiSeries, bool>
+    [[nodiscard]] std::tuple<x::telem::MultiSeries, x::telem::MultiSeries, bool>
     read_series(types::ChannelKey key) const;
 
     /// Writes data and time series to a channel buffer.
@@ -209,7 +219,7 @@ public:
     /// @brief Checks if a series is truthy by examining its last element.
     /// Empty series are falsy. A series with a last element of zero is falsy.
     [[nodiscard]] static bool is_series_truthy(const x::telem::Series &series) {
-        if (series.size() == 0) return false;
+        if (series.empty()) return false;
         const auto last_value = series.at(-1);
         return std::visit(
             []<typename T0>(const T0 &v) -> bool {
@@ -247,7 +257,7 @@ public:
     [[nodiscard]] T numeric_input(const std::string &name) const {
         const auto [i, err] = this->resolve_input(name);
         if (err) return 0;
-        if (const auto s = this->ref_input(i); s != nullptr && s->size() > 0)
+        if (const auto s = this->ref_input(i); s != nullptr && !s->empty())
             return s->at<T>(-1);
         const auto &p = this->params[i];
         if (const auto v = types::to_sample_value(p.value, p.type))

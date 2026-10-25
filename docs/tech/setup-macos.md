@@ -159,8 +159,8 @@ pnpm --version && node --version
 The output should look something like
 
 ```text
-12.6.0
-v24.21.0
+12.14.0
+v24.22.0
 ```
 
 pnpm reads the versions this repository needs from the `devEngines` field in the root
@@ -238,21 +238,22 @@ Verify the installation from the repository root by running
 bazel --version
 ```
 
-### 9.1 Install clang-format
+### 9.1 Install clang-format and clang-tidy
 
-We format all C++ with clang-format. CI pins version 22, and other versions format
-differently, so install that release. Homebrew keeps it keg-only, which means you must
-add it to your `PATH` yourself.
+We format all C++ with clang-format and lint it with clang-tidy. CI pins version 23 of
+both, and other versions give different results, so install that release. Homebrew keeps
+it keg-only, which means you must add it to your `PATH` yourself.
 
 ```zsh
-brew install llvm@22
-echo 'export PATH="$(brew --prefix llvm@22)/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc
+brew install llvm@23
+echo 'export PATH="$(brew --prefix llvm@23)/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc
 ```
 
-Format the Driver with
+Format and lint the Driver with
 
 ```zsh
 bash scripts/clang_format.sh driver
+bazel build --config=clang-tidy //driver/...
 ```
 
 ### 9.2 Build the Driver

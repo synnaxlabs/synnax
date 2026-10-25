@@ -15,11 +15,11 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
@@ -36,10 +36,13 @@ type MigrationConfig struct {
 
 // newMigration returns the v0 migration, which swaps invalid time ranges and folds
 // legacy range groups into the group service.
-func newMigration(cfg MigrationConfig) migrate.Migration {
-	return gorp.NewMigration(
+func newMigration(cfg MigrationConfig) gorp.Migration {
+	return migrate.New(
 		"range_groups_1",
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) (err error) {
+			if migrated, err := alreadyMigrated(ctx, tx); err != nil || migrated {
+				return err
+			}
 			ins.L.Debug("swapping invalid time ranges")
 			var (
 				writer = gorp.WrapWriter[Key, Range](tx)
@@ -192,14 +195,27 @@ func newMigration(cfg MigrationConfig) migrate.Migration {
 	)
 }
 
+// alreadyMigrated reports whether a Core up to v0.53 already folded the store's legacy
+// range groups. A group named "Ranges" on such a store belongs to the user.
+func alreadyMigrated(ctx context.Context, tx gorp.Tx) (bool, error) {
+	_, closer, err := tx.Get(ctx, []byte("sy_ranger_migration_performed"))
+	if err != nil {
+		return false, errors.Skip(err, query.ErrNotFound)
+	}
+	if err = closer.Close(); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 // codecMigration re-encodes stored ranges from MessagePack to the Orc value-color
 // layout.
-var codecMigration = gorp.CodecMigration[Key, Range]("msgpack_to_orc")
+var codecMigration = migrate.Codec[Key, Range]("msgpack_to_orc")
 
 // NewMigrations returns the ordered set of migrations introduced at this version.
-func NewMigrations(cfg MigrationConfig) []migrate.Migration {
-	return []migrate.Migration{newMigration(cfg), codecMigration}
+func NewMigrations(cfg MigrationConfig) []gorp.Migration {
+	return []gorp.Migration{newMigration(cfg), codecMigration}
 }
 
 // NormalizeKeys re-keys Range rows stored under the pre-v0.54 key format.
-var NormalizeKeys = gorp.NormalizeKeysMigration[Key, Range]("Range")
+var NormalizeKeys = migrate.NormalizeKeys[Key, Range]("Range")

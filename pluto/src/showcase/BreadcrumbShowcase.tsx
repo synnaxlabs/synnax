@@ -32,7 +32,7 @@ export const BreadcrumbShowcase = () => {
   return (
     <Flex.Box y pack empty>
       <SubcategorySection
-        title="Typography Levels"
+        title="Typography levels"
         description="Breadcrumbs with different text levels for various hierarchical contexts"
       >
         <Flex.Box y gap="medium">
@@ -58,7 +58,7 @@ export const BreadcrumbShowcase = () => {
       </SubcategorySection>
 
       <SubcategorySection
-        title="Highlight Modes"
+        title="Highlight modes"
         description="Different highlighting styles to emphasize specific breadcrumb segments"
       >
         <Flex.Box y gap="medium">
@@ -96,7 +96,7 @@ export const BreadcrumbShowcase = () => {
       </SubcategorySection>
 
       <SubcategorySection
-        title="URL-Based Breadcrumbs"
+        title="URL-based breadcrumbs"
         description="Automatically generated breadcrumbs from URL paths using mapURLSegments utility"
       >
         <Flex.Box y gap="small">

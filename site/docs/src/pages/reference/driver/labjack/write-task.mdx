@@ -40,7 +40,7 @@ This task follows the standard
 <DetailsGroup>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Analog Output ([`analog`](https://support.labjack.com/docs/15-0-dac-t-series-datasheet))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Analog output ([`analog`](https://support.labjack.com/docs/15-0-dac-t-series-datasheet))</Text.Text>
 
 Writes analog voltage to a specified output terminal (DAC).
 
@@ -53,7 +53,7 @@ Writes analog voltage to a specified output terminal (DAC).
 </ChannelType>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Wave.Square /> Digital Output ([`digital`](https://support.labjack.com/docs/13-0-digital-i-o-t-series-datasheet))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Wave.Square /> Digital output ([`digital`](https://support.labjack.com/docs/13-0-digital-i-o-t-series-datasheet))</Text.Text>
 
 Writes digital state (0 or 1) to a specified digital I/O line.
 
@@ -70,6 +70,10 @@ Writes digital state (0 or 1) to a specified digital I/O line.
 <Divider.Divider x />
 
 ## How-to
+
+When you create channels with a client library, give each command channel its own index
+channel. A writer that holds several commands on one index must write all of them in
+every frame.
 
 <Client.Tabs exclude={["cpp"]}>
   <Fragment slot="console">
@@ -91,24 +95,28 @@ client = sy.Synnax()
 # Retrieve device
 dev = client.devices.retrieve(name="my_labjack")
 
-# Create command time index
-cmd_time = client.channels.create(
-    name="lj_cmd_time",
+# Create command channels, each with its own index
+ao_0_cmd_time = client.channels.create(
+    name="ao_0_cmd_time",
     is_index=True,
     data_type=sy.DataType.TIMESTAMP,
     retrieve_if_name_exists=True,
 )
-
-# Create command channels
 ao_0_cmd = client.channels.create(
     name="ao_0_cmd",
-    index=cmd_time.key,
+    index=ao_0_cmd_time.key,
     data_type=sy.DataType.FLOAT32,
+    retrieve_if_name_exists=True,
+)
+do_4_cmd_time = client.channels.create(
+    name="do_4_cmd_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
     retrieve_if_name_exists=True,
 )
 do_4_cmd = client.channels.create(
     name="do_4_cmd",
-    index=cmd_time.key,
+    index=do_4_cmd_time.key,
     data_type=sy.DataType.UINT8,
     retrieve_if_name_exists=True,
 )
@@ -214,30 +222,36 @@ const client = new Synnax();
 // Retrieve device
 const [dev] = await client.devices.retrieve({ names: ["my_labjack"] });
 
-// Create command time index
-const cmdTime = await client.channels.create(
+// Create command channels, each with its own index
+const ao0CmdTime = await client.channels.create(
   {
-    name: "lj_cmd_time",
+    name: "ao_0_cmd_time",
     isIndex: true,
     dataType: "timestamp",
   },
   { retrieveIfNameExists: true },
 );
-
-// Create command channels
 const ao0Cmd = await client.channels.create(
   {
     name: "ao_0_cmd",
-    index: cmdTime.key,
+    index: ao0CmdTime.key,
     dataType: "float32",
   },
   { retrieveIfNameExists: true },
 );
 
+const do4CmdTime = await client.channels.create(
+  {
+    name: "do_4_cmd_time",
+    isIndex: true,
+    dataType: "timestamp",
+  },
+  { retrieveIfNameExists: true },
+);
 const do4Cmd = await client.channels.create(
   {
     name: "do_4_cmd",
-    index: cmdTime.key,
+    index: do4CmdTime.key,
     dataType: "uint8",
   },
   { retrieveIfNameExists: true },

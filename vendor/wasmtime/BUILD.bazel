@@ -14,6 +14,11 @@ genrule(
     srcs = glob(
         ["wasmtime/**"],
         allow_empty = True,
+        # The unsandboxed build writes these into the source tree.
+        exclude = [
+            "wasmtime/artifacts/**",
+            "wasmtime/target/**",
+        ],
     ),
     outs = [
         "lib/wasmtime.lib",
@@ -243,6 +248,10 @@ EOF
             touch "$(execpath lib/libwasmtime.a)"
         """,
         "@platforms//os:macos": """
+            # Actions get only /bin, /usr/bin, and /usr/local/bin on PATH. Add the
+            # directories of rustup's cargo and Homebrew's cmake.
+            export PATH=~/.cargo/bin:/opt/homebrew/bin:$$PATH
+
             # Build wasmtime
             cd vendor/wasmtime/wasmtime
             # Purge both staging trees first. They persist across builds on a warm
@@ -273,6 +282,10 @@ EOF
             touch "$(execpath lib/wasmtime.lib)"
         """,
         "//conditions:default": """
+            # Actions get only /bin, /usr/bin, and /usr/local/bin on PATH. Add the
+            # directory of rustup's cargo.
+            export PATH=~/.cargo/bin:$$PATH
+
             # Build wasmtime
             cd vendor/wasmtime/wasmtime
             # Purge both staging trees first. They persist across builds on a warm
@@ -303,7 +316,8 @@ EOF
             touch "$(execpath lib/wasmtime.lib)"
         """,
     }),
-    local = 1,  # Disable sandboxing for cargo build
+    # Cargo writes into the source tree. Unlike local, no-sandbox keeps the remote cache.
+    tags = ["no-sandbox"],
     visibility = ["//visibility:public"],
 )
 

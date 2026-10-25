@@ -15,13 +15,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
+	gorptestutil "github.com/synnaxlabs/gorp/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project/versions"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
-	gorptestutil "github.com/synnaxlabs/x/gorp/testutil"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -58,17 +58,13 @@ var _ = Describe("Pre-v0.54 workspace key normalization", func() {
 				},
 			))
 
-			By("Lifting the workspace into a project with identical fields")
+			By("Lifting the workspace into a project without its layout")
 			var p versions.Project
 			Expect(table.NewRetrieve().
 				Where(gorp.MatchKeys[versions.Key, versions.Project](wsKey)).
 				Entry(&p).
 				Exec(ctx, db)).To(Succeed())
-			Expect(p).To(Equal(versions.Project{
-				Key:    wsKey,
-				Name:   "Ops",
-				Layout: layout,
-			}))
+			Expect(p).To(Equal(versions.Project{Key: wsKey, Name: "Ops"}))
 
 			By("Staging the layout blob for the panel composition migration")
 			blob, closer := MustSucceed2(

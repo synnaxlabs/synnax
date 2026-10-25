@@ -18,10 +18,12 @@ import {
   type direction,
   math,
   type MultiSeries,
-  type scale,
+  scale,
   type Series,
   type SeriesDigest,
+  TimeRange,
   TimeSpan,
+  TimeStamp,
   xy,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -100,6 +102,7 @@ export class GLProgram extends render.GLProgram {
     string,
     TranslationBufferCacheEntry
   >();
+  private segmentBuffer?: WebGLBuffer;
 
   constructor(ctx: render.Context, vertShader: string, fragShader: string) {
     super(ctx, vertShader, fragShader);
@@ -125,15 +128,28 @@ export class GLProgram extends render.GLProgram {
   }
 
   draw(
-    { x, y, count, downsample, xOffset, yOffset }: DrawOperation,
+    op: DrawOperation,
     instances: number,
     xDataType: DataType,
     yDataType: DataType,
   ): void {
     const { gl } = this.renderCtx;
+    const { x, y, downsample, xOffset, yOffset } = op;
     this.bindAttrBuffer("x", x.glBuffer, downsample, xOffset, xDataType);
     this.bindAttrBuffer("y", y.glBuffer, downsample, yOffset, yDataType);
-    gl.drawArraysInstanced(gl.LINE_STRIP, 0, count / downsample, instances);
+    for (const [first, count] of finiteRuns(op))
+      gl.drawArraysInstanced(gl.LINE_STRIP, first, count, instances);
+  }
+
+  /** Draws one segment per pair of vertices, given as interleaved float32 x and y. */
+  segments(vertices: Float32Array, instances: number): void {
+    const { gl } = this.renderCtx;
+    this.segmentBuffer ??= gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.segmentBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
+    this.bindAttrBuffer("x", this.segmentBuffer, 2, 0, DataType.FLOAT32);
+    this.bindAttrBuffer("y", this.segmentBuffer, 2, 1, DataType.FLOAT32);
+    gl.drawArraysInstanced(gl.LINES, 0, vertices.length / 2, instances);
   }
 
   private bindAttrBuffer(
@@ -349,16 +365,30 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     if (index === -1 || series === -1 || !this.state.visible) return result;
 
     const xSeries = xData.series[series];
-    result.value.x = safelyGetDataValue(series, index, xData);
     let [, yData] = yTelem.value();
     yData = this.internal.yDownsampler.transform(yData);
+    const xAlignment = xSeries.alignment + BigInt(index) * xSeries.alignmentMultiple;
     const ySeries = yData.series.find((ys) =>
-      bounds.contains(ys.alignmentBounds, xSeries.alignment + BigInt(index)),
+      bounds.contains(ys.alignmentBounds, xAlignment),
     );
     if (ySeries == null) return result;
+    result.value.x = safelyGetDataValue(series, index, xData);
 
-    const alignmentDiff = Number(ySeries.alignment - xSeries.alignment);
-    result.value.y = Number(ySeries.at(index - alignmentDiff));
+    const op = buildDrawOperation(
+      xSeries,
+      ySeries,
+      props.exposure,
+      this.state.downsample,
+      this.state.downsampleMode,
+      DEFAULT_OVERLAP_THRESHOLD,
+    );
+    if (op != null) {
+      index = nearestVertex(op, index);
+      result.value.x = safelyGetDataValue(series, index, xData);
+    }
+
+    const offset = (ySeries.alignment - xSeries.alignment) / ySeries.alignmentMultiple;
+    result.value.y = Number(ySeries.at(index - Number(offset)));
 
     result.bounds = { ...ySeries.bounds };
 
@@ -406,6 +436,14 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       prog.draw(op, instances, xData.dataType, yData.dataType);
     });
     clearProg();
+    const bridges = bridgeVertices(ops, dataToDecimalScale);
+    if (bridges.length === 0) return;
+    const bridgeProg = ctx.getProgram(DataType.FLOAT32);
+    const clearBridgeProg = bridgeProg.setAsActive();
+    const bridgeInstances = bridgeProg.bindState(this.state);
+    bridgeProg.bindScale(scale.XY.IDENTITY.transform, regionTransform);
+    bridgeProg.segments(bridges, bridgeInstances);
+    clearBridgeProg();
   }
 }
 
@@ -469,34 +507,138 @@ export const buildDrawOperations = (
   const ops: DrawOperation[] = [];
   xSeries.series.forEach((x) =>
     ySeries.series.forEach((y) => {
-      if (!seriesOverlap(x, y, overlapThreshold)) return;
-      let xAlignmentOffset = 0n;
-      let yAlignmentOffset = 0n;
-      // This means that the x series starts before the y series.
-      if (x.alignment < y.alignment) xAlignmentOffset = y.alignment - x.alignment;
-      // This means that the y series starts before the x series.
-      else if (y.alignment < x.alignment) yAlignmentOffset = x.alignment - y.alignment;
-      // The total number of alignment steps that are common to the two series.
-      const alignmentCount = math.min(
-        bounds.span(x.alignmentBounds) - xAlignmentOffset,
-        bounds.span(y.alignmentBounds) - yAlignmentOffset,
+      const op = buildDrawOperation(
+        x,
+        y,
+        exposure,
+        userSpecifiedDownSampling,
+        downsampleMode,
+        overlapThreshold,
       );
-      if (alignmentCount === 0n) return;
-      let downsample = bounds.clamp(
-        {
-          lower: userSpecifiedDownSampling,
-          upper: 51,
-        },
-        Math.round(exposure * 4 * Number(alignmentCount)),
-      );
-      if (downsampleMode !== "decimate") downsample = 1;
-      const count = Number(alignmentCount / x.alignmentMultiple);
-      const xOffset = Number(xAlignmentOffset / x.alignmentMultiple);
-      const yOffset = Number(yAlignmentOffset / y.alignmentMultiple);
-      ops.push({ x, y, xOffset, yOffset, count, downsample });
+      if (op != null) ops.push(op);
     }),
   );
   return ops;
+};
+
+const buildDrawOperation = (
+  x: Series,
+  y: Series,
+  exposure: number,
+  userSpecifiedDownSampling: number,
+  downsampleMode: telem.DownsampleMode,
+  overlapThreshold: TimeSpan,
+): DrawOperation | null => {
+  if (!seriesOverlap(x, y, overlapThreshold)) return null;
+  let xAlignmentOffset = 0n;
+  let yAlignmentOffset = 0n;
+  // This means that the x series starts before the y series.
+  if (x.alignment < y.alignment) xAlignmentOffset = y.alignment - x.alignment;
+  // This means that the y series starts before the x series.
+  else if (y.alignment < x.alignment) yAlignmentOffset = x.alignment - y.alignment;
+  // The total number of alignment steps that are common to the two series.
+  const alignmentCount = math.min(
+    bounds.span(x.alignmentBounds) - xAlignmentOffset,
+    bounds.span(y.alignmentBounds) - yAlignmentOffset,
+  );
+  if (alignmentCount === 0n) return null;
+  let downsample = bounds.clamp(
+    {
+      lower: userSpecifiedDownSampling,
+      upper: 51,
+    },
+    Math.round(exposure * 4 * Number(alignmentCount)),
+  );
+  if (downsampleMode !== "decimate") downsample = 1;
+  const count = Number(alignmentCount / x.alignmentMultiple);
+  const xOffset = Number(xAlignmentOffset / x.alignmentMultiple);
+  const yOffset = Number(yAlignmentOffset / y.alignmentMultiple);
+  return { x, y, xOffset, yOffset, count, downsample };
+};
+
+/** @returns the number of vertices in the strip op draws. */
+const vertexCount = (op: DrawOperation): number => Math.floor(op.count / op.downsample);
+
+/** @returns the position in the strip of the last vertex op draws. */
+const lastVertex = (op: DrawOperation): number => Math.max(vertexCount(op) - 1, 0);
+
+/** @returns the x index of the vertex op draws nearest to the given x index. */
+export const nearestVertex = (op: DrawOperation, index: number): number => {
+  const vertex = Math.round((index - op.xOffset) / op.downsample);
+  const clamped = bounds.clamp({ lower: 0, upper: lastVertex(op) }, vertex);
+  return op.xOffset + clamped * op.downsample;
+};
+
+/**
+ * @returns the [first, count] vertex ranges of op that hold only finite x and y
+ * samples. A range with one vertex draws no segment, so it is left out.
+ */
+const finiteRuns = (op: DrawOperation): Array<[number, number]> => {
+  const total = vertexCount(op);
+  const gaps = [
+    ...nonFiniteVertices(op.x, op.xOffset, op.downsample, total),
+    ...nonFiniteVertices(op.y, op.yOffset, op.downsample, total),
+  ].sort((a, b) => a.lower - b.lower);
+  const runs: Array<[number, number]> = [];
+  let first = 0;
+  for (const { lower, upper } of gaps) {
+    if (lower - first > 1) runs.push([first, lower - first]);
+    first = Math.max(first, upper);
+  }
+  if (total - first > 1) runs.push([first, total - first]);
+  return runs;
+};
+
+const nonFiniteVertices = (
+  series: Series,
+  offset: number,
+  downsample: number,
+  total: number,
+): bounds.Bounds[] => {
+  const vertices: bounds.Bounds[] = [];
+  for (const { lower, upper } of series.nonFiniteRanges) {
+    const v = {
+      lower: Math.max(0, Math.ceil((lower - offset) / downsample)),
+      upper: Math.min(total, Math.ceil((upper - offset) / downsample)),
+    };
+    if (v.lower >= total) break;
+    if (v.lower < v.upper) vertices.push(v);
+  }
+  return vertices;
+};
+
+/** @returns the time span an op draws: where its x and y series overlap. */
+const opSpan = ({ x, y }: DrawOperation): TimeRange =>
+  new TimeRange(
+    TimeStamp.max(x.timeRange.start, y.timeRange.start),
+    TimeStamp.min(x.timeRange.end, y.timeRange.end),
+  );
+
+/**
+ * @returns interleaved decimal x and y of the segments joining each op to the next in
+ * time, leaving out any segment with a non-finite end. Ops whose time spans overlap
+ * are not joined: they hold the same span twice, so a joining segment would run back in
+ * time.
+ */
+export const bridgeVertices = (ops: DrawOperation[], s: scale.XY): Float32Array => {
+  const vertices: number[] = [];
+  const spans = ops
+    .map((op) => ({ op, span: opSpan(op) }))
+    .sort((a, b) => TimeStamp.sort(a.span.start, b.span.start));
+  for (let i = 1; i < spans.length; i++) {
+    const { op: a, span: aSpan } = spans[i - 1];
+    const { op: b, span: bSpan } = spans[i];
+    if (bSpan.start.before(aSpan.end)) continue;
+    const last = lastVertex(a) * a.downsample;
+    const segment = [
+      s.x.pos(Number(a.x.at(a.xOffset + last, true))),
+      s.y.pos(Number(a.y.at(a.yOffset + last, true))),
+      s.x.pos(Number(b.x.at(b.xOffset, true))),
+      s.y.pos(Number(b.y.at(b.yOffset, true))),
+    ];
+    if (segment.every(Number.isFinite)) vertices.push(...segment);
+  }
+  return new Float32Array(vertices);
 };
 
 const digests = (ops: DrawOperation[]): DrawOperationDigest[] =>

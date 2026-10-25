@@ -8,7 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type destructor, type record } from "@synnaxlabs/x";
-import { useLayoutEffect, useMemo, useReducer, useRef } from "react";
+import {
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useSyncExternalStore,
+} from "react";
 
 import { context } from "@/context";
 import { CSS } from "@/css";
@@ -17,22 +24,29 @@ import { Store } from "@/store";
 
 interface FixedItem {
   element: HTMLElement | null;
+  text: string | undefined;
   hidden: boolean;
 }
 
 const matches = (text: string, term: string): boolean =>
   term === "" || text.toLowerCase().includes(term.toLowerCase());
 
-const isHidden = (element: HTMLElement | null, term: string): boolean =>
-  element != null && !matches(element.textContent, term);
+const isHidden = (
+  element: HTMLElement | null,
+  text: string | undefined,
+  term: string,
+): boolean => element != null && !matches(text ?? element.textContent, term);
 
 /**
  * Registry tracks the parts of a select that live outside its data: fixed items, the
  * position of the data block among them, and the label elements triggers show.
  */
 export interface Registry {
-  /** Records a fixed item's element, hiding it when its text misses the search term. */
-  setItem: (key: record.Key, element: HTMLElement | null) => void;
+  /**
+   * Records a fixed item's element and plain text, hiding it when the text misses the
+   * search term. Without text, the search reads the element's text.
+   */
+  setItem: (key: record.Key, element: HTMLElement | null, text?: string) => void;
   removeItem: (key: record.Key) => void;
   setBlock: (element: HTMLElement | null) => void;
   /**
@@ -42,6 +56,8 @@ export interface Registry {
   getOrder: (data: record.Key[]) => record.Key[];
   getElement: (key: record.Key) => HTMLElement | null;
   hasItem: (key: record.Key) => boolean;
+  /** @returns the plain text a fixed item registered, if any. */
+  getText: (key: record.Key) => string | undefined;
   /** @returns whether the search term hides the fixed item with the given key. */
   isHidden: (key: record.Key) => boolean;
   countVisible: () => number;
@@ -66,11 +82,12 @@ const useRegistry = (): Registry => {
   const termRef = useRef("");
   return useMemo<Registry>(
     () => ({
-      setItem: (key, element) => {
+      setItem: (key, element, text) => {
         const prev = itemsRef.current.get(key);
-        const hidden = isHidden(element, termRef.current);
-        if (prev?.element === element && prev?.hidden === hidden) return;
-        itemsRef.current.set(key, { element, hidden });
+        const hidden = isHidden(element, text, termRef.current);
+        if (prev?.element === element && prev?.text === text && prev?.hidden === hidden)
+          return;
+        itemsRef.current.set(key, { element, text, hidden });
         notifyListeners(key);
       },
       removeItem: (key) => {
@@ -102,12 +119,13 @@ const useRegistry = (): Registry => {
       },
       getElement: (key) => itemsRef.current.get(key)?.element ?? null,
       hasItem: (key) => itemsRef.current.has(key),
+      getText: (key) => itemsRef.current.get(key)?.text,
       isHidden: (key) => itemsRef.current.get(key)?.hidden ?? false,
       setTerm: (term) => {
         termRef.current = term;
         const changed: record.Key[] = [];
         itemsRef.current.forEach((item, key) => {
-          const hidden = isHidden(item.element, term);
+          const hidden = isHidden(item.element, item.text, term);
           if (hidden === item.hidden) return;
           item.hidden = hidden;
           changed.push(key);
@@ -116,23 +134,21 @@ const useRegistry = (): Registry => {
       },
       countVisible: () => {
         let count = 0;
-        itemsRef.current.forEach(({ hidden }) => {
-          if (!hidden) count++;
-        });
+        for (const { hidden } of itemsRef.current.values()) if (!hidden) count++;
         return count;
       },
       getLabel: (key) => {
         let label = labelsRef.current.get(key);
         if (label == null) {
           label = document.createElement("span");
-          label.className = CSS.BE("select", "label");
+          label.className = CSS.BE("select", "fixed-label");
           labelsRef.current.set(key, label);
         }
         return label;
       },
       subscribe,
     }),
-    [notifyListeners, subscribe],
+    [itemsRef, labelsRef, notifyListeners, subscribe],
   );
 };
 
@@ -143,32 +159,37 @@ const [RegistryContext, useRegistryContext] = context.create<Registry>({
 
 export { RegistryContext, useRegistry, useRegistryContext };
 
-// Items register in layout effects, after their readers render. useSyncExternalStore
-// subscribes after paint, so a reader would paint its stale value for one frame.
 const useRegistryValue = <T>(
   name: string,
   get: (registry: Registry, key?: record.Key) => T,
   key?: record.Key,
 ): T => {
   const registry = useRegistryContext(name);
+  const subscribe = useCallback(
+    (listener: () => void) => registry.subscribe(listener, key),
+    [registry, key],
+  );
+  const getSnapshot = useCallback(() => get(registry, key), [get, registry, key]);
+  const value = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  // Items register in layout effects, after their readers render, and the store above
+  // subscribes only after paint. Listening from a layout effect as well re-renders the
+  // reader before it paints a stale value.
   const [, rerender] = useReducer((n: number) => n + 1, 0);
-  const value = get(registry, key);
-  const renderedRef = useRef(value);
-  useLayoutEffect(() => {
-    renderedRef.current = value;
-  });
   useLayoutEffect(() => {
     const check = (): void => {
-      if (get(registry, key) !== renderedRef.current) rerender();
+      if (getSnapshot() !== value) rerender();
     };
     check();
-    return registry.subscribe(check, key);
-  }, [registry, get, key]);
+    return subscribe(check);
+  }, [subscribe, getSnapshot, value]);
   return value;
 };
 
 const isFixed = (registry: Registry, key?: record.Key): boolean =>
   key != null && registry.hasItem(key);
+
+const getText = (registry: Registry, key?: record.Key): string | undefined =>
+  key == null ? undefined : registry.getText(key);
 
 const countVisible = (registry: Registry): number => registry.countVisible();
 
@@ -178,6 +199,10 @@ const isHiddenItem = (registry: Registry, key?: record.Key): boolean =>
 /** @returns whether a fixed item with the given key is registered in the frame. */
 export const useIsFixed = (key: record.Key | undefined): boolean =>
   useRegistryValue("Select.useIsFixed", isFixed, key);
+
+/** @returns the plain text of the fixed item with the given key, if it has one. */
+export const useText = (key: record.Key | undefined): string | undefined =>
+  useRegistryValue("Select.useText", getText, key);
 
 /**
  * @returns the number of fixed items the search has not hidden. It re-renders the

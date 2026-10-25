@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, Union
+from typing import Annotated, Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -28,12 +28,14 @@ class RegisterValue(BaseModel):
     Attributes:
         data_type: Is the data type the register contents are interpreted as.
         bytes_swapped: Is true when the byte order within each 16-bit word is swapped.
+            When absent, the device's byte order applies.
         words_swapped: Is true when the word order of multi-register values is swapped.
+            When absent, the device's word order applies.
     """
 
     data_type: telem.DataType = telem.DataType("uint8")
-    bytes_swapped: bool = False
-    words_swapped: bool = False
+    bytes_swapped: bool | None = None
+    words_swapped: bool | None = None
 
 
 class BaseReadChannel(BaseModel):
@@ -114,12 +116,10 @@ class InputRegisterReadChannel(BaseReadChannel, RegisterValue):
 # Is a single Modbus read channel. The type field selects the register space the
 # channel reads from and the fields that accompany it.
 ReadChannel = Annotated[
-    Union[
-        CoilReadChannel,
-        DiscreteInputReadChannel,
-        HoldingRegisterReadChannel,
-        InputRegisterReadChannel,
-    ],
+    CoilReadChannel
+    | DiscreteInputReadChannel
+    | HoldingRegisterReadChannel
+    | InputRegisterReadChannel,
     Field(discriminator="type"),
 ]
 
@@ -139,7 +139,7 @@ class HoldingRegisterWriteChannel(BaseWriteChannel, RegisterValue):
 # Is a single Modbus write channel. The type field selects the register space the
 # channel writes to and the fields that accompany it.
 WriteChannel = Annotated[
-    Union[CoilWriteChannel, HoldingRegisterWriteChannel],
+    CoilWriteChannel | HoldingRegisterWriteChannel,
     Field(discriminator="type"),
 ]
 

@@ -197,9 +197,7 @@ export const createMigration =
   }: MigrationProps<I, O, ZI, ZO>): Migration<I, O> =>
   (input: I): O => {
     try {
-      const out = migrate(input);
-      console.log(`${name} migrated: ${input.version} -> ${out.version}`);
-      return out;
+      return migrate(input);
     } catch (e) {
       console.log(`${name} failed to migrate from ${input.version}`);
       console.error(e);
@@ -259,21 +257,13 @@ export const migrator = <
       }
     };
   const migLength = Object.keys(migrations).length;
-  let migrationApplied = false;
   const f = (old: Migratable): Migratable => {
     try {
-      if (migLength === 0 || semVerNewer(old.version, latestMigrationVersion)) {
-        if (migrationApplied) console.log(`${name} ${old.version} now up to date`);
-        else
-          console.log(
-            `${name} version ${old.version} is up to date with target version ${def.version}`,
-          );
+      if (migLength === 0 || semVerNewer(old.version, latestMigrationVersion))
         return old;
-      }
       const version = old.version;
       const migrate = migrations[version];
       const new_: Migratable = migrate(old);
-      migrationApplied = true;
       return f(new_);
     } catch (e) {
       console.log(

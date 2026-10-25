@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { type xy } from "@synnaxlabs/x";
+import { type theme } from "@synnaxlabs/lyra/theme";
+import { type color, type xy } from "@synnaxlabs/x";
 import { type FC, type ReactNode } from "react";
 
 import { type Properties } from "@/vis/properties";
@@ -34,6 +35,15 @@ export type PreviewProps<P extends object = object> = P & {
 
 export type Node<Config extends object = object> = FC<NodeProps<Config>>;
 
+/** Resolves the color a symbol paints while one of its colors is absent. */
+export type ColorFallback = (theme: theme.Theme) => color.Color;
+
+/** A color field that element forms edit with a per-variant fallback. */
+export type ColorKey = "fillColor" | "strokeColor" | "textColor";
+
+/** Maps a color field to the color the element paints while the field is absent. */
+export type ColorFallbacks = Partial<Record<ColorKey, ColorFallback>>;
+
 /**
  * Spec describes how to render and edit one node variant. The default parameters give
  * the erased view that holds a spec of any variant.
@@ -51,4 +61,6 @@ export interface Spec<
   Preview: FC<PreviewProps<Config>>;
   zIndex: number;
   needsPosition?: boolean;
+  /** Overrides the default fallback of each color field it lists. */
+  colorFallbacks?: ColorFallbacks;
 }

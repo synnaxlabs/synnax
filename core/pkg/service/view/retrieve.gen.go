@@ -14,10 +14,9 @@ package view
 import (
 	"context"
 
-	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // Retrieve is used to retrieve View records from the database using a
@@ -70,19 +69,8 @@ func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 // r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing
 // inside Or / Not falls back to a full scan.
 func MatchKeys(keys ...Key) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, View] {
+	return func(Retrieve) gorp.Filter[Key, View] {
 		return gorp.MatchKeys[Key, View](keys...)
-	}
-}
-
-// MatchTypes returns a filter for
-// views whose Type matches any of the
-// provided values.
-func MatchTypes(vals ...string) Filter {
-	return func(r Retrieve) gorp.Filter[Key, View] {
-		return gorp.Match(func(_ gorp.Context, e *View) (bool, error) {
-			return lo.Contains(vals, e.Type), nil
-		})
 	}
 }
 

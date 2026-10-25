@@ -21,7 +21,7 @@ import { Primitive } from "@/schematic/node/common/primitive";
 interface RenderProps extends Partial<
   Pick<
     schematic.TankNodeConfig,
-    "dimensions" | "borderRadius" | "color" | "backgroundColor"
+    "dimensions" | "borderRadius" | "strokeColor" | "fillColor"
   >
 > {
   className?: string;
@@ -34,40 +34,31 @@ export const Tank = ({
   dimensions = Border.DEFAULT_DIMENSIONS,
   borderRadius = Border.DEFAULT_RADIUS,
   boxBorderRadius,
-  color: colorVal,
-  backgroundColor,
+  strokeColor,
+  fillColor,
   strokeWidth = 2,
 }: RenderProps): ReactElement => {
   const detailedRadius = border.constructRadius(borderRadius);
   const hasCornerBoundaries = boxBorderRadius == null;
   const { width, height } = dimensions;
-  const refreshDeps = useMemo(
-    () => [dimensions, borderRadius, detailedRadius],
-    [
-      detailedRadius.bottomLeft,
-      detailedRadius.bottomRight,
-      detailedRadius.topLeft,
-      detailedRadius.topRight,
-      height,
-      width,
-    ],
-  );
+  const radiusCSS = Border.cssRadius(detailedRadius);
+  const refreshDeps = `${width} ${height} ${radiusCSS}`;
   const leftOffset = Border.pixelToPercent(1, width);
   const rightOffset = 100 - leftOffset;
   const topOffset = Border.pixelToPercent(1, height);
   const bottomOffset = 100 - topOffset;
-  const cssBorderRadius = boxBorderRadius ?? Border.cssRadius(detailedRadius);
-  const backgroundCSS = color.cssString(backgroundColor);
+  const cssBorderRadius = boxBorderRadius ?? radiusCSS;
+  const fillCSS = color.cssString(fillColor);
   const style = useMemo<CSSProperties>(
     () => ({
       width,
       height,
       borderRadius: cssBorderRadius,
-      [CSS.variable("symbol-color")]: color.rgbaString(colorVal),
-      backgroundColor: backgroundCSS,
+      [Primitive.SYMBOL_COLOR]: color.rgbaString(strokeColor),
+      backgroundColor: fillCSS,
       borderWidth: strokeWidth,
     }),
-    [width, height, cssBorderRadius, colorVal, backgroundCSS, strokeWidth],
+    [width, height, cssBorderRadius, strokeColor, fillCSS, strokeWidth],
   );
   return (
     <Primitive.Div

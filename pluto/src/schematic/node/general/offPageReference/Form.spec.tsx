@@ -63,7 +63,7 @@ describe("OffPageReferenceForm", () => {
         <OffPageReferenceForm />
       </FormWrapper>,
     );
-    expect(getByText("Color")).toBeDefined();
+    expect(getByText("Fill")).toBeDefined();
   });
 
   it("should render label size field when level is provided", () => {
@@ -86,7 +86,7 @@ describe("OffPageReferenceForm", () => {
   }: PageFormFixtureArgs = {}) => {
     const client = createTestClient();
     const SynnaxWrapper = await createAsyncSynnaxWrapper({ client });
-    const proj = await client.projects.create({ name: "off_page_form", layout: {} });
+    const proj = await client.projects.create({ name: "off_page_form" });
     const source = await client.schematics.create(proj.key, { name: "source" });
     const targetName = `target_${uuid.create().slice(0, 8)}`;
     const target =
@@ -96,15 +96,13 @@ describe("OffPageReferenceForm", () => {
     const initialColor = "#000000";
     let methods: Form.UseReturn<typeof CONFIG_Z> | undefined;
     const Wrapper = ({ children }: PropsWithChildren): ReactElement => {
-      methods = Form.use<typeof CONFIG_Z>({
-        values: CONFIG_Z.parse({
-          variant: "off_page_reference",
-          label: { label: "Test Label" },
-          color: initialColor,
-          page: initialPage(target.key),
-        }),
-        schema: CONFIG_Z,
+      const values = CONFIG_Z.parse({
+        variant: "off_page_reference",
+        label: { label: "Test Label" },
+        fillColor: initialColor,
+        page: initialPage(target.key),
       });
+      methods = Form.use<typeof CONFIG_Z>({ values, schema: CONFIG_Z });
       return (
         <SynnaxWrapper>
           <Form.Form<typeof CONFIG_Z> {...methods}>{children}</Form.Form>
@@ -120,7 +118,7 @@ describe("OffPageReferenceForm", () => {
       if (methods == null) throw new Error("form did not mount");
       return methods;
     };
-    const getColor = (): string => JSON.stringify(getMethods().get("color").value);
+    const getColor = (): string => JSON.stringify(getMethods().get("fillColor").value);
     return { ...rendered, target, targetName, getMethods, getColor };
   };
 
@@ -171,15 +169,13 @@ describe("OffPageReferenceForm", () => {
     expect(getColor()).toBe(before);
   });
 
-  it("should clear the page and keep the color when deselected", async () => {
-    const { findByText, getAllByText, getMethods, getColor, targetName } =
+  it("should clear the page and keep the color when cleared", async () => {
+    const { findByLabelText, getMethods, getColor, targetName } =
       await createPageFormFixture({
         initialPage: (key) => ({ type: "lineplot", key }),
       });
     const before = getColor();
-    fireEvent.click(await findByText(targetName));
-    const options = getAllByText(targetName);
-    fireEvent.click(options[options.length - 1]);
+    fireEvent.click(await findByLabelText(`Clear ${targetName}`));
     await waitFor(() =>
       expect(getMethods().get("page", { optional: true })?.value).toBeUndefined(),
     );

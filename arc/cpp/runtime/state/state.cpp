@@ -297,10 +297,10 @@ State::flush_into(x::telem::Frame &out, const x::telem::TimeStamp now) {
 }
 
 void State::reset() {
-    this->channel->reset();
-    this->strings->reset();
+    (*this->channel).reset();
+    (*this->strings).reset();
     this->series->clear();
-    this->vars->reset();
+    (*this->vars).reset();
     this->authority_changes.clear();
 }
 
@@ -308,7 +308,7 @@ void State::set_authority(
     std::optional<types::ChannelKey> channel_key,
     const uint8_t authority
 ) {
-    authority_changes.push_back({std::move(channel_key), authority});
+    authority_changes.push_back({channel_key, authority});
 }
 
 std::vector<AuthorityChange> State::flush_authority_changes() {
@@ -337,7 +337,7 @@ void Node::mark_fresh(const size_t param_index) const {
 bool Node::has_time(const size_t param_index) const {
     if (this->is_reference[param_index] || this->literal[param_index]) return false;
     const auto &t = this->aligned_time[param_index];
-    return t != nullptr && t->size() > 0;
+    return t != nullptr && !t->empty();
 }
 
 int Node::time_source_idx() const {
@@ -367,9 +367,11 @@ bool Node::refresh_inputs() {
     for (size_t i = 0; i < this->inputs.size(); i++) {
         if (this->is_reference[i]) continue;
         has_data_input = true;
+        bool refreshed = false;
         if (this->accumulated[i].source != NO_SOURCE) {
             const Value &src = this->state.values[this->accumulated[i].source];
-            if (src.rev > this->accumulated[i].last_rev) {
+            refreshed = src.rev > this->accumulated[i].last_rev;
+            if (refreshed) {
                 bool consumed = false;
                 if (this->rearm[i] == Rearm::OnReset)
                     consumed = this->accumulated[i].consumed;
@@ -379,6 +381,7 @@ bool Node::refresh_inputs() {
                 this->accumulated[i].consumed = consumed;
             }
         }
+        this->stale[i] = !refreshed && this->accumulated[i].consumed;
         if (this->accumulated[i].data == nullptr || this->accumulated[i].data->empty())
             return false;
         if (!this->accumulated[i].consumed) has_unconsumed = true;
@@ -387,8 +390,16 @@ bool Node::refresh_inputs() {
     if (!has_unconsumed) return false;
     for (size_t i = 0; i < this->inputs.size(); i++) {
         if (this->is_reference[i]) continue;
-        this->aligned_data[i] = this->accumulated[i].data;
-        this->aligned_time[i] = this->accumulated[i].time;
+        auto data = this->accumulated[i].data;
+        auto time = this->accumulated[i].time;
+        if (this->stale[i]) {
+            if (data->size() > 1)
+                data = x::mem::make_local_shared<x::telem::Series>(data->last());
+            if (time != nullptr && time->size() > 1)
+                time = x::mem::make_local_shared<x::telem::Series>(time->last());
+        }
+        this->aligned_data[i] = data;
+        this->aligned_time[i] = time;
         this->accumulated[i].consumed = true;
     }
     return true;
@@ -412,7 +423,7 @@ Series Node::ref_input(const size_t param_index) const {
 std::string Node::string_input(const std::string &name) const {
     const auto [i, err] = this->resolve_input(name);
     if (err) return "";
-    if (const auto s = this->ref_input(i); s != nullptr && s->size() > 0)
+    if (const auto s = this->ref_input(i); s != nullptr && !s->empty())
         return x::telem::cast<std::string>(s->at(-1));
     const auto &p = this->params[i];
     if (p.value.is_string()) return p.value.get<std::string>();

@@ -7,39 +7,33 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PageNavNode } from "@/components/nav/Page";
+import { type PageNavNode } from "@/components/nav/tree";
 
 export const NI_NAV: PageNavNode = {
   key: "ni",
   name: "National Instruments",
   children: [
     {
-      key: "/reference/driver/ni/configure-device",
       href: "/reference/driver/ni/configure-device",
       name: "Configure a device",
     },
     {
-      key: "/reference/driver/ni/analog-read-task",
       href: "/reference/driver/ni/analog-read-task",
       name: "Analog read task",
     },
     {
-      key: "/reference/driver/ni/analog-write-task",
       href: "/reference/driver/ni/analog-write-task",
       name: "Analog write task",
     },
     {
-      key: "/reference/driver/ni/counter-read-task",
       href: "/reference/driver/ni/counter-read-task",
       name: "Counter read task",
     },
     {
-      key: "/reference/driver/ni/digital-read-task",
       href: "/reference/driver/ni/digital-read-task",
       name: "Digital read task",
     },
     {
-      key: "/reference/driver/ni/digital-write-task",
       href: "/reference/driver/ni/digital-write-task",
       name: "Digital write task",
     },

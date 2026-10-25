@@ -15,11 +15,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -66,6 +66,11 @@ var _ = Describe("Group", Ordered, func() {
 
 			child := MustSucceed(w.Create(ctx, "child", parent.OntologyID()))
 			Expect(child.Name).To(Equal("child"))
+		})
+
+		It("Should reject a group with an empty name", func(ctx SpecContext) {
+			Expect(w.Create(ctx, "", ontology.RootID)).Error().
+				To(MatchError(ContainSubstring("name: required")))
 		})
 	})
 
@@ -127,6 +132,12 @@ var _ = Describe("Group", Ordered, func() {
 					Exec(ctx, nil),
 			).To(Succeed())
 			Expect(g.Name).To(Equal(newName))
+		})
+
+		It("Should reject an empty name", func(ctx SpecContext) {
+			created := MustSucceed(w.Create(ctx, "keep-name", ontology.RootID))
+			Expect(w.Rename(ctx, created.Key, "")).
+				To(MatchError(ContainSubstring("name: required")))
 		})
 	})
 

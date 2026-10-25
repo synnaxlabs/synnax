@@ -15,9 +15,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -34,6 +34,11 @@ var _ = Describe("Writer", func() {
 	AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
 
 	Describe("Create", func() {
+		It("Should reject a role with an empty name", func(ctx SpecContext) {
+			Expect(w.Create(ctx, &role.Role{})).
+				To(MatchError(ContainSubstring("name: required")))
+		})
+
 		It("Should create a role with auto-generated UUID", func(ctx SpecContext) {
 			r := &role.Role{
 				Name:        "admin",

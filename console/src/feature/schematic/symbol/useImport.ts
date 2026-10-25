@@ -42,7 +42,7 @@ export const useImport = (): ((parentGroup: group.Key) => void) => {
             });
           },
           onSuccess: ({ name }) =>
-            addStatus({ variant: "success", message: `Imported ${name}` }),
+            addStatus({ variant: "success", name, message: "Imported symbol" }),
         });
       }, "Failed to import symbols");
     },

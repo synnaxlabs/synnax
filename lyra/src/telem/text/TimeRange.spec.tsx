@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { TimeRange as XTimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { render } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, render } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Telem } from "@/telem";
 
@@ -37,6 +37,50 @@ describe("TimeRange", () => {
     const range = new XTimeRange(now, now.add(TimeSpan.hours(4)));
     const c = render(<Telem.Text.TimeRange>{range}</Telem.Text.TimeRange>);
     expect(c.container.textContent).toContain("Today");
+  });
+  describe("at local noon", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(2026, 0, 15, 12));
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+    it("should lowercase today after Started", () => {
+      const earlier = TimeStamp.now().sub(TimeSpan.minutes(5));
+      const range = new XTimeRange(earlier, TimeStamp.MAX);
+      const c = render(<Telem.Text.TimeRange>{range}</Telem.Text.TimeRange>);
+      expect(c.container.textContent).toMatch(/^Started today /);
+    });
+    it("should lowercase today after Starts", () => {
+      const later = TimeStamp.now().add(TimeSpan.minutes(5));
+      const range = new XTimeRange(later, TimeStamp.MAX);
+      const c = render(<Telem.Text.TimeRange>{range}</Telem.Text.TimeRange>);
+      expect(c.container.textContent).toMatch(/^Starts today /);
+    });
+    it("should turn Starts into Started when the start passes", () => {
+      const later = TimeStamp.now().add(TimeSpan.seconds(30));
+      const range = new XTimeRange(later, TimeStamp.MAX);
+      const c = render(<Telem.Text.TimeRange>{range}</Telem.Text.TimeRange>);
+      act(() => {
+        vi.advanceTimersByTime(TimeSpan.seconds(30).milliseconds);
+      });
+      expect(c.container.textContent).toMatch(/^Started today /);
+    });
+  });
+  it("should drop today once local midnight passes", () => {
+    vi.useFakeTimers({ now: new Date(2026, 0, 15, 23, 59, 30) });
+    try {
+      const range = new XTimeRange(TimeStamp.now().sub(TimeSpan.HOUR), TimeStamp.MAX);
+      const c = render(<Telem.Text.TimeRange>{range}</Telem.Text.TimeRange>);
+      expect(c.container.textContent).toMatch(/^Started today /);
+      act(() => {
+        vi.advanceTimersByTime(TimeSpan.seconds(30).milliseconds);
+      });
+      expect(c.container.textContent).toMatch(/^Started Jan 15 /);
+    } finally {
+      vi.useRealTimers();
+    }
   });
   it("should return null for fully-open time range", () => {
     const range = new XTimeRange(TimeStamp.MAX, TimeStamp.MAX);

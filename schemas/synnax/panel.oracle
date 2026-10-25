@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/ontology"
+import "schemas/x/color"
 import "schemas/x/spatial"
 
 @go output "core/pkg/service/panel"
@@ -32,23 +33,12 @@ TabBase struct {
 
 View struct {
     type string {
-        @doc value """
-            is the Console-owned view type identifier (e.g., 'docs', 'selector') used to
-            select a renderer.
-        """
-    }
-    args record = {} {
-        @doc value        """
-            is an opaque, Console-owned configuration payload for the view. Core never
-            interprets it; it round-trips as-is.
-        """
-        @ts preserve_case
+        @doc value "is the type identifier used to select a renderer."
     }
 
     @doc value  """
-        is an inline, self-describing view: a Console-owned type plus an opaque
-        configuration payload, with no backing core document. Used for app-views and
-        tools (docs, explorers, task forms, and the selector pickers).
+        is an inline, self-describing view with no backing Core document. Used for
+        app-views and tools (docs, explorers, task forms, and the selector pickers).
     """
     @go marshal
 }
@@ -62,13 +52,13 @@ Tab union on variant extends TabBase {
             """
         }
 
-        @doc value "is a tab displaying a backing core document."
+        @doc value "is a tab displaying a backing Core document."
     }
     view View {
         @doc value """
             is a tab displaying an inline, self-describing view. Unlike a resource, a
-            view has no backing core document: it carries its own type and opaque args.
-            Used for app-views and tools (docs, explorers, task forms, and the selector
+            view has no backing Core document: its type alone selects the renderer. Used
+            for app-views and tools (docs, explorers, task forms, and the selector
             pickers).
         """
     }
@@ -76,7 +66,7 @@ Tab union on variant extends TabBase {
     @create
     @doc value  """
         is a single tab in a leaf. Tab content is a discriminated union: a resource (a
-        backing core document, e.g. a line plot) or a view (an inline, self-describing
+        backing Core document, e.g. a line plot) or a view (an inline, self-describing
         app-view, e.g. docs). A freshly created tab is a view whose type is a selector
         picker; SetTabResource or SetTabView swaps content in place. Display attributes
         (name, icon, closability) are resolved at render time from the content. A
@@ -139,11 +129,19 @@ Panel struct {
     }
     parent ontology.ID? {
         @doc value  """
-            is the parent resource for the panel in the ontology, required on create.
-            Parenthood lives in the ontology graph, so the field is not persisted on the
-            panel record and is absent on retrieve.
+            is the parent resource for the panel in the ontology. Required on create and
+            absent on retrieve.
         """
         @go marshal omit
+    }
+    icon   string?      {
+        @doc value """
+            is the key of the icon that marks the panel in lists. When null, the Console
+            draws its default panel icon.
+        """
+    }
+    color  color.Color? {
+        @doc value "is the color of the panel's icon. When null, the theme picks it."
     }
 
     action Create {
@@ -159,6 +157,18 @@ Panel struct {
         name string
 
         @doc value "renames the panel."
+    }
+
+    action SetIcon {
+        icon string?
+
+        @doc value "sets the panel's icon. Null resets it to the default panel icon."
+    }
+
+    action SetColor {
+        color color.Color?
+
+        @doc value "sets the color of the panel's icon. Null lets the theme pick it."
     }
 
     action InsertTabs {

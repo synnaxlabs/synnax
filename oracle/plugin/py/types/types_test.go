@@ -24,7 +24,7 @@ import (
 
 func TestTypes(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Py Types Suite")
+	RunSpecs(t, "Plugin Py Types Suite", SuiteConfig())
 }
 
 var _ = Describe("Python Types Plugin", func() {
@@ -53,6 +53,25 @@ var _ = Describe("Python Types Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		Context("field-level omit", func() {
+			It("Should leave out a field omitted in py", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/auth"
+					@py output "out"
+
+					Session struct {
+						key     uuid
+						hash    bytes { @py omit }
+						subject string
+					}
+				`
+				resp := MustGenerate(ctx, source, "auth", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(`key: UUID`, `subject: str`).
+					ToNotContain("hash")
+			})
+		})
+
 		Context("basic struct generation", func() {
 			It(
 				"Should generate Pydantic model for simple struct",
@@ -417,9 +436,45 @@ var _ = Describe("Python Types Plugin", func() {
 				Entry(
 					"record",
 					"record",
-					"dict[str, Any] = Field(default_factory=dict)",
+					"dict[str, JsonValue] = Field(default_factory=dict)",
 				),
-				Entry("bytes", "bytes", "bytes"),
+				Entry("bytes", "bytes", "Bytes"),
+				Entry("any", "any", "JsonValue"),
+			)
+
+			It("Should import Bytes from x.codec", func(ctx SpecContext) {
+				source := `
+					@py output "out"
+
+					Test struct {
+						data bytes
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(`from x.codec import Bytes`, `data: Bytes`)
+			})
+
+			It(
+				"Should import JsonValue from pydantic instead of Any",
+				func(ctx SpecContext) {
+					source := `
+					@py output "out"
+
+					Test struct {
+						props record
+						value any
+					}
+				`
+					resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(
+							`from pydantic import BaseModel, JsonValue`,
+							`props: dict[str, JsonValue]`,
+							`value: JsonValue`,
+						).
+						ToNotContain(`Any`)
+				},
 			)
 		})
 
@@ -603,7 +658,7 @@ var _ = Describe("Python Types Plugin", func() {
 				content := MustContentOf(resp, "types_gen.py")
 				Expect(
 					content,
-				).To(ContainSubstring(`args: dict[str, Any] = Field(default_factory=dict)`))
+				).To(ContainSubstring(`args: dict[str, JsonValue] = Field(default_factory=dict)`))
 			},
 		)
 
@@ -877,6 +932,27 @@ var _ = Describe("Python Types Plugin", func() {
 			},
 		)
 		It(
+			"Should substitute a generic parent's type arguments into inlined fields",
+			func(ctx SpecContext) {
+				source := `
+				@py output "out"
+
+				Box struct<T> {
+					item   T
+					hidden bool
+				}
+
+				Child struct extends Box<string> {
+					hidden bool?
+				}
+			`
+				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").ToContain(
+					"class Child(BaseModel):\n    item: str\n",
+				)
+			},
+		)
+		It(
 			"Should still inherit when child only adds fields without overriding",
 			func(ctx SpecContext) {
 				source := `
@@ -1137,6 +1213,64 @@ var _ = Describe("Python Types Plugin", func() {
 			)
 		})
 
+		Context("ontology on a union", func() {
+			It("Should generate ontology_id for a union", func(ctx SpecContext) {
+				source := `
+					@py output "out"
+
+					Key uuid
+
+					Base struct {
+						key Key @key
+					}
+
+					View union on type extends Base {
+						first {
+							name string
+						}
+						second {
+							size int32
+						}
+						@ontology type "view"
+					}
+				`
+				resp := MustGenerate(ctx, source, "view", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`ONTOLOGY_TYPE = ID(type="view")`,
+						`def ontology_id(key: Key) -> ID:`,
+					)
+			})
+		})
+
+		Context("ontology on a union with a split base", func() {
+			It(
+				"Should generate ontology_id when the base has another output",
+				func(ctx SpecContext) {
+					source := `
+					@py output "out"
+
+					Key uuid
+
+					Base struct {
+						key Key @key
+						@py output "out/base"
+					}
+
+					View union on type extends Base {
+						first {
+							name string
+						}
+						@ontology type "view"
+					}
+				`
+					resp := MustGenerate(ctx, source, "view", loader, typesPlugin)
+					ExpectContent(resp, "out/types_gen.py").
+						ToContain(`ONTOLOGY_TYPE = ID(type="view")`)
+				},
+			)
+		})
+
 		Context("type aliases", func() {
 			It(
 				"Should generate TypeAlias for simple type alias",
@@ -1239,6 +1373,40 @@ var _ = Describe("Python Types Plugin", func() {
 							`return hash(self.key)`,
 						)
 				},
+			)
+
+			DescribeTable(
+				"Should hash by the snake_case name of a mixed-case @key field",
+				func(ctx SpecContext, decl string) {
+					source := `
+					@py output "out"
+
+					` + decl
+					resp := MustGenerate(ctx, source, "node", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(`node_key: str`, `return hash(self.node_key)`).
+						ToNotContain(`self.nodeKey`)
+				},
+				Entry("standalone struct", `
+					Node struct {
+						nodeKey string @key
+					}
+				`),
+				Entry("generic struct", `
+					Node struct<T> {
+						nodeKey string @key
+						value T
+					}
+				`),
+				Entry("extending struct", `
+					Base struct {
+						name string
+					}
+
+					Node struct extends Base {
+						nodeKey string @key
+					}
+				`),
 			)
 
 			It(
@@ -1347,7 +1515,7 @@ var _ = Describe("Python Types Plugin", func() {
 					resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
-							`V = TypeVar("V", bound=dict[str, Any])`,
+							`V = TypeVar("V", bound=dict[str, JsonValue])`,
 							`class Container(BaseModel, Generic[V]):`,
 							`value: V`,
 						)
@@ -1368,11 +1536,33 @@ var _ = Describe("Python Types Plugin", func() {
 					resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
-							`Details = TypeVar("Details")`,
+							`from typing_extensions import TypeVar`,
+							`from pydantic import BaseModel, JsonValue`,
+							`Details = TypeVar("Details", default=JsonValue)`,
 							`class Status(BaseModel, Generic[Details]):`,
 							`details: Details | None = None`,
 						).
-						ToNotContain(`from typing_extensions import`)
+						ToNotContain(`from typing import Generic, TypeVar`)
+				},
+			)
+
+			It(
+				"Should default an optional bounded type param to its bound",
+				func(ctx SpecContext) {
+					source := `
+					@py output "out"
+
+					Box struct<T? extends string> {
+						value T
+					}
+				`
+					resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(
+							`from typing_extensions import TypeVar`,
+							`T = TypeVar("T", bound=str, default=str)`,
+						).
+						ToNotContain(`JsonValue`)
 				},
 			)
 
@@ -1389,7 +1579,7 @@ var _ = Describe("Python Types Plugin", func() {
 					resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
 					content := MustContentOf(resp, "types_gen.py")
 					Expect(content).To(ContainSubstring(`class Task(BaseModel):`))
-					Expect(content).To(ContainSubstring(`config: dict[str, Any]`))
+					Expect(content).To(ContainSubstring(`config: dict[str, JsonValue]`))
 				},
 			)
 
@@ -1412,7 +1602,7 @@ var _ = Describe("Python Types Plugin", func() {
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
 							`class Status(BaseModel, Generic[D]):`,
-							`class TaskStatus(Status[dict[str, Any]]):`,
+							`class TaskStatus(Status[dict[str, JsonValue]]):`,
 							`task_key: UUID`,
 						)
 				},
@@ -1614,6 +1804,44 @@ var _ = Describe("Python Types Plugin", func() {
 			})
 		})
 
+		Context("field name casing", func() {
+			It(
+				"Should snake_case PascalCase, acronym, and camelCase field names",
+				func(ctx SpecContext) {
+					source := `
+					@py output "out"
+
+					Output struct {
+						WASM bytes
+						OutputMemoryBases map<string, uint32>
+						nodeKey string
+					}
+				`
+					resp := MustGenerate(ctx, source, "compiler", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(
+							`wasm: Bytes`,
+							`output_memory_bases: dict[str, int]`,
+							`node_key: str`,
+						).
+						ToNotContain("WASM:", "OutputMemoryBases:", "nodeKey:")
+				},
+			)
+
+			It("Should escape a snake_cased keyword field", func(ctx SpecContext) {
+				source := `
+					@py output "out"
+
+					Example struct {
+						From string
+					}
+				`
+				resp := MustGenerate(ctx, source, "example", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(`from_: str = Field(alias="from")`)
+			})
+		})
+
 		Context("typedef with non-primitive base", func() {
 			It(
 				"Should generate TypeAlias for distinct typedef referencing another typedef",
@@ -1656,7 +1884,7 @@ var _ = Describe("Python Types Plugin", func() {
 
 		Context("generic alias with nil type argument", func() {
 			It(
-				"Should generate TypeAlias with None for nil type arg",
+				"Should drop a nil type arg so the generic uses its default",
 				func(ctx SpecContext) {
 					loader.Add("schemas/status", `
 @py output "client/py/synnax/status"
@@ -1678,8 +1906,9 @@ ChannelStatus = status.Status<nil>
 					resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
 					ExpectContent(resp, "channel/types_gen.py").
 						ToContain(
-							`ChannelStatus: TypeAlias = status.Status[None]`,
-						)
+							"ChannelStatus: TypeAlias = status.Status\n",
+						).
+						ToNotContain(`status.Status[None]`)
 				},
 			)
 		})
@@ -1806,6 +2035,27 @@ ChannelStatus = status.Status<nil>
 			})
 		})
 
+		It(
+			"Should reject same-named type params with different defaults",
+			func(ctx SpecContext) {
+				source := `
+					@py output "out"
+
+					Required struct<T> {
+						value T
+					}
+
+					Optional struct<T?> {
+						value T
+					}
+				`
+				req := MustGenerateRequest(ctx, source, "api", loader)
+				Expect(typesPlugin.Generate(req)).Error().To(MatchError(
+					ContainSubstring("type parameter T of Optional conflicts"),
+				))
+			},
+		)
+
 		Context("constrained type param with comparable", func() {
 			It(
 				"Should not emit a bound and should not import Any",
@@ -1821,10 +2071,11 @@ ChannelStatus = status.Status<nil>
 					resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
+							`from typing import Generic, TypeVar`,
 							`R = TypeVar("R")`,
 							`class State(BaseModel, Generic[R]):`,
 						).
-						ToNotContain(`Any`)
+						ToNotContain(`Any`, `typing_extensions`)
 				},
 			)
 		})
@@ -1906,15 +2157,37 @@ var _ = Describe("Python Union Generation", func() {
 		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
 		ExpectContent(resp, "types_gen.py").
 			ToContain(
-				`from typing import Annotated, Union, Literal`,
+				`from typing import Annotated, Literal`,
 				`from pydantic import BaseModel, Field`,
 				`class LinearScale(LinearParams):`,
 				`type: Literal["linear"]`,
 				`class NoneScale(NoneParams):`,
 				`type: Literal["none"]`,
 				`Scale = Annotated[`,
-				`Union[LinearScale, NoneScale],`,
+				`LinearScale | NoneScale,`,
 				`Field(discriminator="type"),`,
+			)
+	})
+
+	It("Should keep literal discriminators for a borrowed enum", func(ctx SpecContext) {
+		source := `
+			@py output "out"
+
+			Method enum {
+				password = "password"
+			}
+			Credentials struct { username string }
+
+			Proof union on method Method {
+				password Credentials
+			}
+		`
+		resp := MustGenerate(ctx, source, "auth", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").
+			ToContain(
+				`Method = Literal["password"]`,
+				`method: Literal["password"] = "password"`,
+				`Field(discriminator="method"),`,
 			)
 	})
 
@@ -1998,7 +2271,7 @@ var _ = Describe("Python Union Generation", func() {
 				content,
 			).To(ContainSubstring("class AIVoltageChannel(BaseAIChan, VoltageFields):\n    type: Literal[\"ai_voltage\"] = \"ai_voltage\"\n"))
 			Expect(content).To(ContainSubstring(`enabled: bool`))
-			Expect(content).To(ContainSubstring(`minVal: float`))
+			Expect(content).To(ContainSubstring(`min_val: float`))
 		},
 	)
 
@@ -2052,7 +2325,7 @@ var _ = Describe("Python Union Generation", func() {
 		`
 		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
 		ExpectContent(resp, "types_gen.py").
-			ToContain(`customScale: Scale`)
+			ToContain(`custom_scale: Scale`)
 	})
 
 	It("Should emit pass for an empty variant struct", func(ctx SpecContext) {
@@ -2196,7 +2469,7 @@ var _ = Describe("Collection type aliases and maps", func() {
 	)
 
 	It(
-		"Should render a map<string, record> field as a dict[str, dict[str, Any]]",
+		"Should render a map<string, record> field as a dict[str, dict[str, JsonValue]]",
 		func(ctx SpecContext) {
 			loader := NewMockFileLoader()
 			typesPlugin := types.New(types.DefaultOptions())
@@ -2209,7 +2482,7 @@ var _ = Describe("Collection type aliases and maps", func() {
 		`
 			resp := MustGenerate(ctx, source, "graph", loader, typesPlugin)
 			ExpectContent(resp, "types_gen.py").ToContain(
-				"configs: dict[str, dict[str, Any]] = Field(default_factory=dict)",
+				"configs: dict[str, dict[str, JsonValue]] = Field(default_factory=dict)",
 			)
 		},
 	)
@@ -2228,7 +2501,7 @@ var _ = Describe("Collection type aliases and maps", func() {
 		`
 			resp := MustGenerate(ctx, source, "graph", loader, typesPlugin)
 			ExpectContent(resp, "types_gen.py").ToContain(
-				"configs: dict[str, dict[str, Any]] = Field(default_factory=dict)",
+				"configs: dict[str, dict[str, JsonValue]] = Field(default_factory=dict)",
 			)
 		},
 	)

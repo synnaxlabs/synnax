@@ -2,10 +2,10 @@
 
 ## Modules
 
-`/core/` (server), `/aspen/` (distributed KV), `/cesium/` (time-series DB),
-`/freighter/go/` + `/freighter/integration/` (transport + its test server), `/arc/go/`
-(Arc compiler), `/alamos/go/` (instrumentation), `/oracle/` (schema codegen CLI),
-`/x/go/` (shared utilities).
+`/core/` (server), `/aspen/` (distributed KV), `/cesium/` (time-series DB), `/gorp/`
+(typed KV tables), `/freighter/go/` + `/freighter/integration/` (transport + its test
+server), `/arc/go/` (Arc compiler), `/alamos/go/` (instrumentation), `/oracle/` (schema
+codegen CLI), `/x/go/` (shared utilities).
 
 Modules reference siblings via relative-path `replace` directives in each `go.mod`.
 `go.work` is gitignored but fine for local convenience.
@@ -145,9 +145,10 @@ an app-startup function) instead.
 The universal body-comment and doc-comment rules in the root CLAUDE.md apply.
 Go-specific form:
 
-**Doc comments are encouraged on all identifiers, exported and unexported.** Standard Go
-conventions: start with the identifier's name, complete sentences ending in periods,
-single `//` block directly above the declaration.
+**Every exported identifier gets a doc comment.** Standard Go conventions: start with
+the identifier's name, complete sentences ending in periods, single `//` block directly
+above the declaration. An unexported identifier gets one only when its name cannot carry
+the meaning: a subtle invariant, lock discipline, a surprising constraint.
 
 ```go
 // Create persists a new channel with the given name and returns its populated
@@ -155,10 +156,10 @@ single `//` block directly above the declaration.
 func (s *Service) Create(ctx context.Context, name string) (Channel, error)
 ```
 
-**Struct fields, including unexported, get a tight one-line `//` comment above the
-field**: semantic role, units, valid range, invariants, or lock discipline
-(`// mu guards pending and closed.`). Not mutation history, not a restatement of the
-type, never trailing inline.
+**Exported struct fields get a tight one-line `//` comment above the field**: semantic
+role, units, valid range, invariants. An unexported field gets one only for a real
+invariant or lock discipline (`// mu guards pending and closed.`). Never a restatement
+of the type, never trailing inline.
 
 ## Testing (Ginkgo/Gomega)
 
@@ -264,11 +265,15 @@ Every `*_suite_test.go` must call one of the two leak checkers from
 ```go
 func TestChannel(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Distribution Channel Suite")
+	RunSpecs(t, "Distribution Channel Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 ```
+
+Every `RunSpecs` call passes `SuiteConfig()` from `x/testutil`, which puts all specs in
+random order and fails the suite on a pending spec. These settings live in code because
+a Ginkgo flag disables the `go test` result cache. The `suiteconfig` linter enforces it.
 
 ### Rule 11: Every exported symbol gets its own specs
 

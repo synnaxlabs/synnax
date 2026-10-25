@@ -21,6 +21,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useCallback, useMemo, useState } from "react";
 
 import { Button } from "@/platform/button";
+import { Clipboard } from "@/platform/clipboard";
 import { ContextMenu } from "@/platform/context-menu";
 import { Item, nameID } from "@/platform/core/list/Item";
 import { useConnectModal } from "@/platform/core/useConnectModal";
@@ -35,13 +36,12 @@ export interface ListProps
 export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
   const menuProps = Menu.useContextMenu();
   const dispatch = Session.useDispatch();
-  const allCores = Session.Core.useSelectMany().sort((a, b) =>
+  const allCores = Session.Core.useSelectMany().toSorted((a, b) =>
     a.name.localeCompare(b.name),
   );
   const keys = useMemo(() => allCores.map((c) => c.key), [allCores]);
   const [testing, setTesting] = useState<string | null>(null);
   const addStatus = Status.useAdder();
-  const handleError = Status.useErrorHandler();
 
   const handleRemove = (key: string): void => {
     if (key === value) {
@@ -55,35 +55,36 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
 
   const handleLink = Link.useCopyToClipboard();
 
-  const openConnect = useConnectModal();
+  const copy = Clipboard.useCopy();
 
-  const handleRetest = (key: string): void => {
+  const handleCopyAddress = (key: string): void => {
     const core = allCores.find((c) => c.key === key);
     if (core == null) return;
-    handleError(async () => {
-      try {
-        setTesting(key);
-        const status = await connection.check({
-          host: core.host,
-          port: core.port,
-          secure: core.secure,
-          name: core.name,
-        });
-        if (status.variant === "success")
-          addStatus({
-            variant: "success",
-            message: `Connected to ${core.name}`,
-          });
-        else
-          addStatus({
-            variant: "error",
-            message: `Failed to connect to ${core.name}`,
-            description: status.message,
-          });
-      } finally {
-        setTesting(null);
-      }
-    }, `Failed to connect to ${core.name}`);
+    copy(`${core.host}:${core.port}`, "Core address", core.name);
+  };
+
+  const openConnect = useConnectModal();
+
+  const handleRetest = async (key: string): Promise<void> => {
+    const core = allCores.find((c) => c.key === key);
+    if (core == null) return;
+    setTesting(key);
+    const status = await connection.check({
+      host: core.host,
+      port: core.port,
+      secure: core.secure,
+      name: core.name,
+    });
+    setTesting(null);
+    if (status.variant === "success")
+      addStatus({ variant: "success", name: core.name, message: "Connected to Core" });
+    else
+      addStatus({
+        variant: "error",
+        name: core.name,
+        message: status.message,
+        description: status.description,
+      });
   };
 
   const handleEdit = (key: string): void => {
@@ -107,11 +108,15 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
             Edit
           </Menu.Item>
           <Menu.Divider />
-          <Menu.Item itemKey="retest" onClick={() => handleRetest(key)}>
+          <Menu.Item itemKey="retest" onClick={() => void handleRetest(key)}>
             <Icon.Refresh />
             Refresh connection
           </Menu.Item>
           <Menu.Divider />
+          <Menu.Item itemKey="copyAddress" onClick={() => handleCopyAddress(key)}>
+            <Icon.Copy />
+            Copy address
+          </Menu.Item>
           <Link.CopyContextMenuItem
             onClick={() => {
               const core = allCores.find((c) => c.key === key);
@@ -129,7 +134,15 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
         </ContextMenu.Menu>
       );
     },
-    [handleRemove, handleRetest, handleEdit],
+    [
+      allCores,
+      handleCopyAddress,
+      handleEdit,
+      handleLink,
+      handleRemove,
+      handleRename,
+      handleRetest,
+    ],
   );
 
   return (

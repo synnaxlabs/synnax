@@ -88,7 +88,10 @@ func (f *seqFrame) nextMember() string {
 // be stamped onto top-level Scope members once the main loop is done.
 type shellBuilder struct {
 	stack       []*seqFrame
-	activations map[string]ir.Handle
+	activations map[string][]ir.Activation
+	// jumps holds the transitions of the top-level scope being analyzed, so every
+	// jump inside it exits that whole scope. Nil outside a top-level scope.
+	jumps *[]ir.Transition
 	// inlineNodes accumulates the flat IR of every lowered inline body; the
 	// bodies' scopes are placed in their enclosing scope's members.
 	inlineNodes []ir.Node
@@ -136,7 +139,7 @@ func newShellBuilder(
 	synthByAST map[antlr.ParserRuleContext]*symbol.Symbol,
 ) *shellBuilder {
 	return &shellBuilder{
-		activations: map[string]ir.Handle{},
+		activations: map[string][]ir.Activation{},
 		synthByAST:  synthByAST,
 		varNodes:    map[*symbol.Symbol]varEntry{},
 	}
@@ -212,18 +215,25 @@ func (s *shellBuilder) addTransitionTo(f *seqFrame, t ir.Transition) {
 	f.transitions = append(f.transitions, t)
 }
 
-// addCompletion wires a terminal step's completion: the nearest enclosing
-// frame with a next member advances past its current step; a frame that does
-// not escalate its completion takes the exit instead.
-func (s *shellBuilder) addCompletion(on ir.Handle) {
+// addCompletion wires a terminal step's completion with the given kind to the nearest
+// frame that can take it.
+func (s *shellBuilder) addCompletion(on ir.Handle, kind ir.EdgeKind) {
 	for i := len(s.stack) - 1; ; i-- {
 		f := s.stack[i]
 		if next := f.nextMember(); next != "" {
-			s.addTransitionTo(f, ir.Transition{On: on, TargetKey: new(next)})
+			s.addTransitionTo(f, ir.Transition{
+				On:     on,
+				Kind:   kind,
+				Target: ir.Target{Variant: ir.StepTarget{Key: next}},
+			})
 			return
 		}
 		if !f.escalatesCompletion || i == 0 {
-			s.addTransitionTo(f, ir.Transition{On: on})
+			s.addTransitionTo(f, ir.Transition{
+				On:     on,
+				Kind:   kind,
+				Target: ir.Target{Variant: ir.ExitTarget{}},
+			})
 			return
 		}
 	}
@@ -245,20 +255,39 @@ func (s *shellBuilder) resolveTargetFrame(name string) *seqFrame {
 // registerActivation records that the scope named key should be activated by
 // the given handle. The activation is stamped onto the emitted Scope by the
 // main Analyze loop once all top-level items have been processed.
-func (s *shellBuilder) registerActivation(key string, on ir.Handle) {
-	s.activations[key] = on
+func (s *shellBuilder) registerActivation(key string, on ir.Handle, kind ir.EdgeKind) {
+	s.activations[key] = append(s.activations[key], ir.Activation{On: on, Kind: kind})
 }
 
-// applyTransitionIntent records a transition and/or activation against the
-// shell for a firing handle. Exactly one of isNext, memberKey, activateKey is
-// honored, in that priority; a zero intent is a no-op. When the intent is a
-// cross-scope activation and the shell is inside a sequence, an additional
-// exit transition is appended so the current sequence relinquishes control.
-func (s *shellBuilder) applyTransitionIntent(on ir.Handle, intent transitionIntent) {
+// ownJumps makes jumps the destination for the jumps of the top-level scope being
+// analyzed, unless an enclosing top-level scope already owns them. It returns a
+// function that releases the ownership it took.
+func (s *shellBuilder) ownJumps(jumps *[]ir.Transition) func() {
+	if s.jumps != nil {
+		return func() {}
+	}
+	s.jumps = jumps
+	return func() { s.jumps = nil }
+}
+
+// applyTransitionIntent records a transition or an activation against the shell
+// for a firing handle. Exactly one of isNext, memberKey, activateKey is honored,
+// in that priority; a zero intent is a no-op. A cross-scope intent inside a
+// top-level scope becomes a jump that exits that scope. Elsewhere, and for inline
+// bodies, it activates the target without leaving anything.
+func (s *shellBuilder) applyTransitionIntent(
+	on ir.Handle,
+	kind ir.EdgeKind,
+	intent transitionIntent,
+) {
 	switch {
 	case intent.isNext:
 		next := s.top().nextMember()
-		s.addTransition(ir.Transition{On: on, TargetKey: new(next)})
+		s.addTransition(ir.Transition{
+			On:     on,
+			Kind:   kind,
+			Target: ir.Target{Variant: ir.StepTarget{Key: next}},
+		})
 	case intent.memberKey != "":
 		frame := intent.targetFrame
 		if frame == nil {
@@ -266,13 +295,22 @@ func (s *shellBuilder) applyTransitionIntent(on ir.Handle, intent transitionInte
 		}
 		s.addTransitionTo(
 			frame,
-			ir.Transition{On: on, TargetKey: new(intent.memberKey)},
+			ir.Transition{
+				On:     on,
+				Kind:   kind,
+				Target: ir.Target{Variant: ir.StepTarget{Key: intent.memberKey}},
+			},
 		)
 	case intent.activateKey != "":
-		s.registerActivation(intent.activateKey, on)
-		if s.top() != nil && !intent.suppressExit {
-			s.addTransition(ir.Transition{On: on})
+		if s.jumps == nil || intent.suppressExit {
+			s.registerActivation(intent.activateKey, on, kind)
+			return
 		}
+		*s.jumps = append(*s.jumps, ir.Transition{
+			On:     on,
+			Kind:   kind,
+			Target: ir.Target{Variant: ir.ScopeTarget{Key: intent.activateKey}},
+		})
 	}
 }
 
@@ -305,20 +343,15 @@ type transitionIntent struct {
 	// to transition to. The transition lives on targetFrame (or shell.top()
 	// when targetFrame is nil — the same-level fallback).
 	memberKey string
-	// targetFrame is the frame that owns memberKey. When set to a frame
-	// further up the stack than shell.top(), the transition fires on an
-	// enclosing sequence and runtime deactivation of intermediate scopes
-	// cascades via deactivateStep; no explicit exits are needed on inner
-	// frames because they freeze when their parent step is deactivated and
-	// are reset to step 0 on the next activation (scheduler.go
-	// deactivateScope / activateScope).
+	// targetFrame is the frame that owns memberKey. When it is further up the
+	// stack than shell.top(), the transition fires on an enclosing sequence, and
+	// deactivating the step stops every scope inside it.
 	targetFrame *seqFrame
-	// activateKey, when non-empty, names a top-level scope whose activation
-	// should be set to the firing handle. Combined with an exit transition
-	// when the intent is consumed inside a sequence.
+	// activateKey, when non-empty, names the scope the firing handle activates.
+	// Inside a top-level scope, it becomes a jump that exits that scope.
 	activateKey string
-	// suppressExit skips the activateKey exit transition so the enclosing
-	// sequence keeps running instead of deactivating.
+	// suppressExit makes activateKey activate an inline body without leaving
+	// any scope.
 	suppressExit bool
 }
 
@@ -1014,8 +1047,7 @@ func buildVarConstNode(sym *symbol.Symbol, kg *keyGenerator) nodeResult {
 //  1. Walk the shell stack innermost-first; the first enclosing sequence
 //     frame that has X as a direct member owns the transition (same-level
 //     sibling jump — works across any number of intermediate stages or
-//     nested sequences because deactivation cascades through
-//     deactivateStep).
+//     nested sequences because deactivation cascades to nested scopes).
 //  2. If no enclosing frame owns X, X must be a top-level scope (declared
 //     directly under the file root). Register a cross-scope activation.
 //  3. Otherwise, X is unreachable — emit a diagnostic.
@@ -1538,8 +1570,8 @@ func Analyze(
 			if m.Scope == nil {
 				return
 			}
-			if handle, ok := shell.activations[m.Scope.Key]; ok {
-				m.Scope.Activation = new(handle)
+			if a, ok := shell.activations[m.Scope.Key]; ok {
+				m.Scope.Activations = a
 				bound.Add(m.Scope.Key)
 			}
 			bindActivations(m.Scope)
@@ -1767,7 +1799,7 @@ func (p *flowChainProcessor) consumeTransition(
 	// already carries the firing signal, so the extras are dropped.
 	p.additionalTriggers = nil
 
-	p.shell.applyTransitionIntent(p.prevOutput, intent)
+	p.shell.applyTransitionIntent(p.prevOutput, p.edgeKind(), intent)
 	p.transitionEmitted = true
 	return true
 }
@@ -2117,7 +2149,9 @@ func analyzeOutputRoutingTable(
 			}
 
 			if result.transition != nil {
-				shell.applyTransitionIntent(prevOutputHandle, *result.transition)
+				shell.applyTransitionIntent(
+					prevOutputHandle, edgeKinds[i], *result.transition,
+				)
 				continue
 			}
 
@@ -2217,22 +2251,24 @@ func addInlineMembers(scope *ir.Scope, members []ir.Member) {
 	scope.Strata[0] = append(scope.Strata[0], members...)
 }
 
-// autoWireTransition appends an auto-wired transition for a flow-step in a
-// sequence: when the step's last node fires, advance to the next step, or
-// complete the enclosing sequence chain if the step is terminal.
+// autoWireTransition advances past a step, or completes a terminal one, when its
+// last node emits a truthy output, or ran without error if it has no outputs.
 func autoWireTransition(shell *shellBuilder, lastNode ir.Node, nextMemberKey string) {
-	if len(lastNode.Outputs) == 0 {
-		return
-	}
-	on := ir.Handle{
-		Node:  lastNode.Key,
-		Param: firstOutputParam(lastNode.Outputs),
+	on := ir.Handle{Node: lastNode.Key, Param: ir.DoneParam}
+	kind := ir.EdgeKindContinuous
+	if len(lastNode.Outputs) > 0 {
+		on.Param = firstOutputParam(lastNode.Outputs)
+		kind = ir.EdgeKindConditional
 	}
 	if nextMemberKey == "" {
-		shell.addCompletion(on)
+		shell.addCompletion(on, kind)
 		return
 	}
-	shell.addTransition(ir.Transition{On: on, TargetKey: new(nextMemberKey)})
+	shell.addTransition(ir.Transition{
+		On:     on,
+		Kind:   kind,
+		Target: ir.Target{Variant: ir.StepTarget{Key: nextMemberKey}},
+	})
 }
 
 // declaredAsStep reports whether decl sits in a step position: its nearest
@@ -2293,6 +2329,7 @@ func analyzeSequence(
 	frame := shell.pushSeq(seqName, memberKeys)
 	frame.escalatesCompletion = declaredAsStep(ctx.AST)
 	defer shell.popSeq()
+	defer shell.ownJumps(&frame.transitions)()
 
 	var (
 		allNodes []ir.Node
@@ -2429,11 +2466,15 @@ func analyzeTopLevelStage(
 	if !ok {
 		return ir.Scope{}, nil, nil, false
 	}
+	var jumps []ir.Transition
+	release := shell.ownJumps(&jumps)
 	scope, nodes, edges, ok := analyzeStage(ctx, kg, shell)
+	release()
 	if !ok {
 		return ir.Scope{}, nil, nil, false
 	}
 	scope.Key = stageSym.Name
+	scope.Transitions = jumps
 	return scope, nodes, edges, true
 }
 

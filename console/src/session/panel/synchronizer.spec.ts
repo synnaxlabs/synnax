@@ -36,7 +36,7 @@ beforeAll(async () => {
 
 const leaf = (...tabKeys: string[]): panel.Node => ({
   variant: "leaf",
-  tabs: tabKeys.map((key) => ({ variant: "view", key, type: "t", args: {} })),
+  tabs: tabKeys.map((key) => ({ variant: "view", key, type: "t" })),
 });
 
 const createPanel = async (key: panel.Key, root: panel.Node): Promise<panel.Panel> =>
@@ -169,7 +169,7 @@ describe("Panel.WINDOW_SYNCHRONIZERS", () => {
 });
 
 const createProject = async (): Promise<project.Project> =>
-  await client.projects.create({ name: uniqueName("project"), layout: {} });
+  await client.projects.create({ name: uniqueName("project") });
 
 interface ProjectPanelOverrides {
   key?: panel.Key;

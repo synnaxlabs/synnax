@@ -43,7 +43,6 @@ const renderItems = async () => {
   );
   const proj = await client.projects.create({
     name: uniqueName("proj"),
-    layout: {},
   });
   handle.store.dispatch(Session.Project.select(proj.key));
   return { ...handle, dev };

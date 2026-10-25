@@ -19,7 +19,7 @@ from tests.migration.task_modbus_setup import (
 from tests.migration.task_verify import ReadTaskConsoleVerify, ReadTaskMigrationVerify
 
 
-class ModbusReadVerify(ReadTaskMigrationVerify, ModbusReadTaskCase):
+class ModbusReadVerify(ReadTaskMigrationVerify[sy.modbus.ReadTask], ModbusReadTaskCase):
     """Verify Modbus task config survived and task can still run."""
 
     task_name = TASK_NAME
@@ -28,6 +28,15 @@ class ModbusReadVerify(ReadTaskMigrationVerify, ModbusReadTaskCase):
     channel_prefix = CHANNEL_PREFIX
     num_channels = NUM_CHANNELS
     pre_start_sleep = 2
+
+    def test_task_config(self) -> None:
+        super().test_task_config()
+        assert self.tsk is not None
+        for ch in self.tsk.config.channels:
+            assert isinstance(ch, sy.modbus.HoldingRegisterReadChannel)
+            assert ch.bytes_swapped is None and ch.words_swapped is None, (
+                "a released channel's stored false should follow the device"
+            )
 
     @staticmethod
     def create_channels(client: sy.Synnax) -> list[sy.modbus.ReadChannel]:
@@ -41,7 +50,7 @@ class ModbusReadVerify(ReadTaskMigrationVerify, ModbusReadTaskCase):
                     index=idx.key,
                 ),
                 address=i,
-                data_type="float32",
+                data_type=sy.DataType.FLOAT32,
             )
             for i in range(NUM_CHANNELS)
         ]

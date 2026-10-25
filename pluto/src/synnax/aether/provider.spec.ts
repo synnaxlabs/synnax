@@ -15,14 +15,18 @@ import { type aether } from "@/aether/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 
-const { mockClose } = vi.hoisted(() => ({
+const { mockClose, constructed } = vi.hoisted(() => ({
   mockClose: vi.fn(async () => undefined),
+  constructed: [] as SynnaxParams[],
 }));
 
 vi.mock("@synnaxlabs/client", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   class MockSynnax {
     close = mockClose;
+    constructor(params: SynnaxParams) {
+      constructed.push(params);
+    }
   }
   return { ...actual, Synnax: MockSynnax };
 });
@@ -37,7 +41,7 @@ const PARAMS: SynnaxParams = {
   password: "seldon",
 };
 
-const makeProvider = (key: string): aether.Component => {
+const makeAggregator = (key: string): status.Aggregator => {
   const agg = new status.Aggregator({
     path: [`${key}-status`],
     type: status.Aggregator.TYPE,
@@ -51,6 +55,13 @@ const makeProvider = (key: string): aether.Component => {
     type: status.Aggregator.TYPE,
     create: shouldNotCreate,
   });
+  return agg;
+};
+
+const makeProvider = (
+  key: string,
+  agg: status.Aggregator = makeAggregator(key),
+): aether.Component => {
   const props: aether.ComponentConstructorProps = {
     path: [key],
     type: synnax.Provider.TYPE,
@@ -113,6 +124,19 @@ describe("synnax.aether.Provider", () => {
 
     update(provider, key, { ...PARAMS, host: "other-host" });
     expect(mockClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports a client's internal error under the Core's name", () => {
+    const key = "synnax-provider-internal";
+    const agg = makeAggregator(key);
+    const provider = makeProvider(key, agg);
+    update(provider, key, { ...PARAMS, name: "Lab Core" });
+    constructed.at(-1)?.onInternalError?.(new Error("stream broke"));
+    expect(agg.state.statuses).toHaveLength(1);
+    const [stat] = agg.state.statuses;
+    expect(stat.name).toBe("Lab Core");
+    expect(stat.message).toBe("Failed to sync with Core");
+    expect(stat.description).toBe("stream broke");
   });
 
   it("closes the client when props swap to null", () => {

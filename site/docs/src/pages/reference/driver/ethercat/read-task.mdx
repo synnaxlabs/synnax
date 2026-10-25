@@ -10,7 +10,7 @@ nextURL: "/reference/driver/ethercat/write-task"
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
@@ -28,7 +28,7 @@ Before creating a read task,
 [configure your EtherCAT devices](/reference/driver/ethercat/configure-device) and
 identify the TxPDOs (input PDOs) to read from each one.
 
-<Note.Note variant="warning" className="compact">
+<Note.Note variant="warning">
   All channels in a task must use devices connected to the **same network interface**.
   Create separate tasks for devices on different EtherCAT networks.
 </Note.Note>
@@ -55,7 +55,7 @@ the CoE index, subindex, and data type from the device's ESI information.
 <DetailsGroup>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Automatic Channel</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Automatic channel</Text.Text>
 
 Reads data from a TxPDO using the PDO name for automatic configuration.
 
@@ -84,7 +84,7 @@ mode when the ESI file is incomplete or when working with non-standard PDO mappi
 <DetailsGroup>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Edit /> Manual Channel</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Manual channel</Text.Text>
 
 Reads data from a TxPDO using explicit CoE addressing.
 
@@ -109,7 +109,7 @@ Reads data from a TxPDO using explicit CoE addressing.
 - Non-standard devices
 - Accessing vendor-specific objects
 
-<Note.Note variant="info" className="compact">
+<Note.Note variant="info">
   CoE (CAN over EtherCAT) addressing uses a 16-bit index and 8-bit subindex. Common
   servo drive objects include status word (`0x6041`), position actual (`0x6064`), and
   velocity actual (`0x606C`).
@@ -138,7 +138,7 @@ Reads data from a TxPDO using explicit CoE addressing.
   <Fragment slot="python">
 
 <Details>
-<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task (Automatic Mode)</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task (automatic mode)</Text.Text>
 
 ```python
 import synnax as sy
@@ -205,7 +205,7 @@ with task.run():
 </Details>
 
 <Details>
-<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task (Manual Mode)</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task (manual mode)</Text.Text>
 
 ```python
 import synnax as sy
@@ -317,7 +317,7 @@ client.tasks.configure(task)
   <Fragment slot="typescript">
 
 <Details>
-<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task (Automatic Mode)</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task (automatic mode)</Text.Text>
 
 ```typescript
 import { Synnax } from "@synnaxlabs/client";
@@ -401,7 +401,7 @@ await streamer.close();
 </Details>
 
 <Details>
-<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task (Manual Mode)</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task (manual mode)</Text.Text>
 
 ```typescript
 import { Synnax } from "@synnaxlabs/client";

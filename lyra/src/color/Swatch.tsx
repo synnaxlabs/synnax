@@ -29,6 +29,16 @@ interface BaseProps
    * closes. A change pending when the swatch unmounts is dropped.
    */
   onlyChangeOnBlur?: boolean;
+  /**
+   * If true, the swatch stands for several different colors, such as the stroke of a
+   * multi-element selection. It shows stripes until the user picks a color.
+   */
+  mixed?: boolean;
+  /**
+   * If true, the swatch shows a color wheel instead of its value, as the way to a color
+   * outside a set of presets.
+   */
+  custom?: boolean;
 }
 
 interface RequiredValueProps extends BaseProps {
@@ -63,6 +73,8 @@ export const Swatch = ({
   onVisibleChange,
   initialVisible = false,
   onlyChangeOnBlur = false,
+  mixed = false,
+  custom = false,
   onClick,
   value,
   fallback,
@@ -88,7 +100,13 @@ export const Swatch = ({
     setVisible(arg);
   };
   const shownValue = pending != null ? pending.value : value;
-  const auto = shownValue == null;
+  const shownMixed = mixed && pending == null;
+  const auto = !custom && !shownMixed && shownValue == null;
+  let tooltipText = "Click to change color";
+  if (custom) tooltipText = "Custom: pick any color";
+  else if (shownMixed)
+    tooltipText = "Mixed: the selection has several colors. Click to set one.";
+  else if (auto) tooltipText = "Auto: the theme picks the color. Click to change.";
   const swatch = (
     <BaseSwatch
       disabled={onChange == null && onClick == null}
@@ -104,19 +122,18 @@ export const Swatch = ({
       value={shownValue ?? fallback ?? color.ZERO}
       tooltip={
         onChange == null ? undefined : (
-          <Text.Text level="small">
-            {auto
-              ? "Auto: the theme picks the color. Click to change."
-              : "Click to change color"}
-          </Text.Text>
+          <Text.Text level="small">{tooltipText}</Text.Text>
         )
       }
       className={CSS.cls(
         CSS.BM("color-swatch", "chip"),
         auto && CSS.M("auto"),
+        shownMixed && CSS.M("mixed"),
+        custom && CSS.M("custom"),
         className,
       )}
       size={size}
+      aria-label={custom ? "Custom color" : undefined}
       {...rest}
     >
       {auto && size !== "tiny" && <Icon.Auto />}

@@ -22,7 +22,7 @@ const client = createTestClient();
 
 describe("LinePlot.useLink", () => {
   it("should open the retrieved line plot as a tab", async () => {
-    const project = await client.projects.create({ name: id.create(), layout: {} });
+    const project = await client.projects.create({ name: id.create() });
     const linePlot = await client.lineplots.create(project.key, {
       name: "Tank Pressure",
     });

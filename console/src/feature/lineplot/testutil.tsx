@@ -30,8 +30,7 @@ export const client = createTestClient();
 
 let projectKey: string | undefined;
 export const project = async (): Promise<string> =>
-  (projectKey ??= (await client.projects.create({ name: id.create(), layout: {} }))
-    .key);
+  (projectKey ??= (await client.projects.create({ name: id.create() })).key);
 
 // loadLinePlot primes key's flux cache through the production retrieve path. The
 // single-hook bootstrap keeps the suspending useEnsure from being followed by

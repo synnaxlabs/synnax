@@ -22,7 +22,7 @@ import { type location, xy } from "@synnaxlabs/x";
 
 import { CSS } from "@/platform/css";
 
-export const SelectHandleOrientation = (props: Select.ButtonsProps<location.Outer>) => (
+const SelectHandleOrientation = (props: Select.ButtonsProps<location.Outer>) => (
   <Select.Buttons size="small" {...props}>
     <Select.Item itemKey="left" size="small">
       <Icon.Arrow.Left />

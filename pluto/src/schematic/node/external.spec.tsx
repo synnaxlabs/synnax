@@ -13,15 +13,21 @@ import { render, screen } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { createConfig, REGISTRY, type Variant } from "@/schematic/node/registry";
+import {
+  createConfig,
+  REGISTRY,
+  STATIC_SPECS,
+  type Variant,
+} from "@/schematic/node/registry";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const SynnaxWrapper = createSynnaxWrapper({ client: null });
 
 const createFormWrapper = (variant: Variant) => {
   const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
+    const values = createConfig({ variant });
     const methods = Form.use<typeof schematic.nodeConfigZ>({
-      values: createConfig({ variant }),
+      values,
       schema: schematic.nodeConfigZ,
     });
     return (
@@ -51,4 +57,18 @@ describe("symbol forms that wrap a shared form", () => {
     expect(screen.getByRole("tab", { name: "Style" }).ariaSelected).toBe("true");
     expect(screen.getByRole("button", { name: "Swap" })).toBeDefined();
   });
+});
+
+describe("symbol previews", () => {
+  it.each(STATIC_SPECS)(
+    "should render the $key preview from its default config",
+    ({ key, Preview }) => {
+      const { container } = render(
+        <SynnaxWrapper>
+          <Preview {...createConfig({ variant: key })} scale={0.75} />
+        </SynnaxWrapper>,
+      );
+      expect(container.firstChild).not.toBeNull();
+    },
+  );
 });

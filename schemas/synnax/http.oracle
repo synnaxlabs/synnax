@@ -150,21 +150,29 @@ ReadEndpoint struct {
 }
 
 ReadConfig struct extends task.PersistConfig {
-    device    device.Key = "" {
+    device           device.Key = "" {
         @doc value "is the key of the HTTP server device to poll."
     }
-    rate      telem.Rate = 1 {
+    rate             telem.Rate = 1 {
         @doc value "is the polling rate applied to all endpoints, in Hertz."
         @ts type   "number"
     }
-    endpoints ReadEndpoint[] {
+    endpoints        ReadEndpoint[] {
         @doc value "contains the endpoints to poll."
+    }
+    nan_fill_enabled bool = false {
+        @doc value """
+            is true when a float field that is missing or fails to convert is written as
+            NaN. When false, the task skips every field that shares the endpoint and
+            index channel with it.
+        """
     }
 
     @doc value  """
         configures an HTTP read task, which polls one or more endpoints on an HTTP
         server device and writes extracted JSON values to Synnax channels.
     """
+    @go imex    body
     @go marshal
     @go migrate
 }
@@ -207,8 +215,8 @@ ChannelField struct {
     }
     time_format TimeFormat?    {
         @doc value """
-            is the output encoding when the command channel holds timestamps. Required
-            for timestamp channels.
+            is the output encoding when the command channel holds timestamps. An unset
+            format is ISO 8601.
         """
     }
     enum_values EnumEntry[]    {
@@ -309,12 +317,14 @@ WriteConfig struct extends task.StartConfig {
         configures an HTTP write task, which sends an HTTP request whenever a value is
         written to an endpoint's command channel.
     """
+    @go imex    body
     @go marshal
     @go migrate
 }
 
 ScanConfig struct extends task.ScanConfig {
     @doc value  "configures an HTTP scan task."
+    @go imex    body
     @go marshal
     @go migrate
 }

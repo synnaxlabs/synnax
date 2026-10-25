@@ -14,6 +14,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
+	. "github.com/synnaxlabs/gorp/testutil"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -22,10 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
-	. "github.com/synnaxlabs/x/gorp/testutil"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -257,7 +256,7 @@ var _ = Describe("NormalizeKeys", func() {
 			)
 			table := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Rack]{
 				DB:         db,
-				Migrations: []migrate.Migration{v0.NormalizeKeys},
+				Migrations: []gorp.Migration{v0.NormalizeKeys},
 			}))
 			var res v0.Rack
 			Expect(table.NewRetrieve().

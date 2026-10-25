@@ -14,12 +14,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -298,4 +298,79 @@ var _ = Describe("Service.Retrieve", func() {
 			).Error().To(MatchError(query.ErrNotFound))
 		},
 	)
+})
+
+var _ = Describe("Service.Rename", func() {
+	createStatus := func(ctx SpecContext) status.Status[any] {
+		GinkgoHelper()
+		s := status.Status[any]{
+			Key:     uuid.New().String(),
+			Name:    "Before",
+			Variant: status.VariantInfo,
+			Message: "hello",
+			Time:    telem.Now(),
+		}
+		Expect(statusSvc.NewWriter(nil).Set(ctx, &s)).To(Succeed())
+		return s
+	}
+	retrieveStatus := func(ctx SpecContext, key string) status.Status[any] {
+		GinkgoHelper()
+		var s status.Status[any]
+		Expect(statusSvc.NewRetrieve[any]().
+			Where(status.MatchKeys[any](key)).
+			Entry(&s).
+			Exec(ctx, nil)).To(Succeed())
+		return s
+	}
+
+	It("Should rename the status when update is granted", func(ctx SpecContext) {
+		u := freshUser(ctx)
+		s := createStatus(ctx)
+		grantOn(ctx, u.OntologyID(),
+			[]access.Action{access.ActionUpdate},
+			status.OntologyID(s.Key))
+		Expect(apiSvc.Rename(
+			AuthedCtx(ctx, u), nil,
+			apistatus.RenameRequest{Key: s.Key, Name: "After"},
+		)).Error().ToNot(HaveOccurred())
+		renamed := retrieveStatus(ctx, s.Key)
+		Expect(renamed.Name).To(Equal("After"))
+		Expect(renamed.Message).To(Equal("hello"))
+		Expect(renamed.Variant).To(Equal(status.VariantInfo))
+	})
+
+	It("Should reject an empty name", func(ctx SpecContext) {
+		u := freshUser(ctx)
+		s := createStatus(ctx)
+		grantOn(ctx, u.OntologyID(),
+			[]access.Action{access.ActionUpdate},
+			status.OntologyID(s.Key))
+		Expect(apiSvc.Rename(
+			AuthedCtx(ctx, u), nil,
+			apistatus.RenameRequest{Key: s.Key, Name: ""},
+		)).Error().To(MatchError(ContainSubstring("name: required")))
+		Expect(retrieveStatus(ctx, s.Key).Name).To(Equal("Before"))
+	})
+
+	It("Should return a not found error for a missing status", func(ctx SpecContext) {
+		u := freshUser(ctx)
+		key := uuid.New().String()
+		grantOn(ctx, u.OntologyID(),
+			[]access.Action{access.ActionUpdate},
+			status.OntologyID(key))
+		Expect(apiSvc.Rename(
+			AuthedCtx(ctx, u), nil,
+			apistatus.RenameRequest{Key: key, Name: "After"},
+		)).Error().To(MatchError(query.ErrNotFound))
+	})
+
+	It("Should reject the request when update is not granted", func(ctx SpecContext) {
+		u := freshUser(ctx)
+		s := createStatus(ctx)
+		Expect(apiSvc.Rename(
+			AuthedCtx(ctx, u), nil,
+			apistatus.RenameRequest{Key: s.Key, Name: "After"},
+		)).Error().To(MatchError(access.ErrDenied))
+		Expect(retrieveStatus(ctx, s.Key).Name).To(Equal("Before"))
+	})
 })

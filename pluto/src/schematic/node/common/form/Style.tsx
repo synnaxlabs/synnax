@@ -18,11 +18,13 @@ import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { type FormProps } from "@/schematic/node/spec";
 
-interface StyleFormProps extends FormProps {
+export interface StyleFormProps extends FormProps {
   omit?: string[];
   hideInnerOrientation?: boolean;
   hideOuterOrientation?: boolean;
   showStateOverrides?: boolean;
+  /** Whether the config carries `normallyOpen`. Only the solenoid valve does. */
+  showNormallyOpen?: boolean;
 }
 
 export const StyleForm = ({
@@ -30,6 +32,7 @@ export const StyleForm = ({
   omit,
   hideInnerOrientation,
   hideOuterOrientation,
+  showNormallyOpen = false,
 }: StyleFormProps): ReactElement => {
   const hasStateOverrides =
     Form.useFieldValue<string>("stateOverrides", { optional: true }) != null;
@@ -39,13 +42,12 @@ export const StyleForm = ({
         <Label.Form omit={omit} path="label" />
       </Form.Section>
       <Form.Section title="Appearance">
-        {!hasStateOverrides && <ColorField path="color" />}
+        {!hasStateOverrides && <ColorField path="strokeColor" label="Stroke" />}
         <Form.SwitchField
           path="normallyOpen"
           label="Normally open"
           padHelpText={false}
-          hideIfNull
-          optional
+          visible={showNormallyOpen}
         />
         <ScaleField path="scale" />
       </Form.Section>

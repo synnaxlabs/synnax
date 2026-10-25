@@ -33,14 +33,14 @@ export interface KeyedSelectorParams extends record.Keyed<schematic.Key> {
   state: StoreState;
 }
 
-const createSelector = <R>(selector: (params: KeyedSelectorParams) => R) =>
-  Schematic.Scope.bindHook(({ key }: Omit<KeyedSelectorParams, "state">): R =>
-    Select.useMemo((state: StoreState) => selector({ state, key }), [key]),
-  );
+const createSelector = <R>(selector: (params: KeyedSelectorParams) => R) => {
+  const useSelector = ({ key }: Omit<KeyedSelectorParams, "state">): R =>
+    Select.useMemo((state: StoreState) => selector({ state, key }), [key]);
+  return Schematic.Scope.bindHook(useSelector);
+};
 
-const createGetter =
-  <R>(selector: (params: KeyedSelectorParams) => R) =>
-  (): ((args?: { key?: schematic.Key }) => R) => {
+const createGetter = <R>(selector: (params: KeyedSelectorParams) => R) => {
+  const useGetter = (): ((args?: { key?: schematic.Key }) => R) => {
     const store = useStore<StoreState>();
     const scopeKey = Schematic.Scope.useOptional();
     return useCallback(
@@ -52,6 +52,8 @@ const createGetter =
       [store, scopeKey],
     );
   };
+  return useGetter;
+};
 
 export const selectState = ({ state, key }: KeyedSelectorParams): State =>
   Window.selectDocument(state, selectSliceState(state), key) ?? ZERO_STATE;
@@ -92,12 +94,17 @@ const selectActiveToolbarTab = (params: KeyedSelectorParams): ToolbarTab =>
 export const useSelectActiveToolbarTab = createSelector(selectActiveToolbarTab);
 export const useGetActiveToolbarTab = createGetter(selectActiveToolbarTab);
 
+const selectChanging = (params: KeyedSelectorParams): boolean =>
+  selectToolbar(params).changing;
+
+export const useSelectChanging = createSelector(selectChanging);
+
 export const selectSelectedSymbolGroup = (params: KeyedSelectorParams): string =>
   selectToolbar(params).selectedSymbolGroup;
 
 export const useSelectSelectedSymbolGroup = createSelector(selectSelectedSymbolGroup);
 
-export const selectPropertiesTab = (
+const selectPropertiesTab = (
   params: KeyedSelectorParams,
 ): Properties.TabKey | undefined => selectToolbar(params).propertiesTab;
 
@@ -124,6 +131,11 @@ const selectFitViewOnResize = (params: KeyedSelectorParams): boolean =>
 
 export const useSelectFitViewOnResize = createSelector(selectFitViewOnResize);
 export const useGetFitViewOnResize = createGetter(selectFitViewOnResize);
+
+const selectTooltipsDisabled = (params: KeyedSelectorParams): boolean =>
+  selectState(params).tooltipsDisabled;
+
+export const useSelectTooltipsDisabled = createSelector(selectTooltipsDisabled);
 
 const selectViewport = (params: KeyedSelectorParams): Viewport =>
   selectState(params).viewport;

@@ -78,11 +78,14 @@ describe("SuspenseBoundary", () => {
     expect(c.container.innerHTML).toBe("");
   });
 
-  it("should render the default Fallback when a child throws an Error", () => {
-    const c = render(
-      <SuspenseBoundary>
-        <Thrower throwable={new Error("boom")} />
-      </SuspenseBoundary>,
+  it("should render the default Fallback when a child throws an Error", async () => {
+    // The fallback resolves the error's stack in an effect.
+    const c = await act(async () =>
+      render(
+        <SuspenseBoundary>
+          <Thrower throwable={new Error("boom")} />
+        </SuspenseBoundary>,
+      ),
     );
     expect(c.getByText("boom")).toBeTruthy();
     expect(c.getByText("Reload")).toBeTruthy();

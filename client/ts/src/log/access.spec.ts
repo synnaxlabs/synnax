@@ -23,7 +23,7 @@ describe("log", () => {
         objects: [],
         actions: [],
       });
-      const proj = await client.projects.create({ name: "test", layout: {} });
+      const proj = await client.projects.create({ name: "test" });
       const randomLog = await client.logs.create(proj.key, { name: "test" });
       await expect(userClient.logs.retrieve(randomLog.key)).rejects.toSatisfy(
         AccessDeniedError.matches,
@@ -36,7 +36,7 @@ describe("log", () => {
         objects: [log.ontologyID("")],
         actions: ["retrieve"],
       });
-      const proj = await client.projects.create({ name: "test", layout: {} });
+      const proj = await client.projects.create({ name: "test" });
       const randomLog = await client.logs.create(proj.key, { name: "test" });
       const retrieved = await userClient.logs.retrieve(randomLog.key);
       expect(retrieved.key).toBe(randomLog.key);
@@ -49,7 +49,7 @@ describe("log", () => {
         objects: [log.ontologyID("")],
         actions: ["create"],
       });
-      const proj = await client.projects.create({ name: "test", layout: {} });
+      const proj = await client.projects.create({ name: "test" });
       await userClient.logs.create(proj.key, { name: "test" });
     });
 
@@ -59,7 +59,7 @@ describe("log", () => {
         objects: [log.ontologyID("")],
         actions: [],
       });
-      const proj = await client.projects.create({ name: "test", layout: {} });
+      const proj = await client.projects.create({ name: "test" });
       await expect(
         userClient.logs.create(proj.key, { name: "test" }),
       ).rejects.toSatisfy(AccessDeniedError.matches);
@@ -71,7 +71,7 @@ describe("log", () => {
         objects: [log.ontologyID("")],
         actions: ["delete", "retrieve"],
       });
-      const proj = await client.projects.create({ name: "test", layout: {} });
+      const proj = await client.projects.create({ name: "test" });
       const randomLog = await client.logs.create(proj.key, { name: "test" });
       await userClient.logs.delete(randomLog.key);
       await expect(userClient.logs.retrieve(randomLog.key)).rejects.toThrow(
@@ -85,7 +85,7 @@ describe("log", () => {
         objects: [log.ontologyID("")],
         actions: [],
       });
-      const proj = await client.projects.create({ name: "test", layout: {} });
+      const proj = await client.projects.create({ name: "test" });
       const randomLog = await client.logs.create(proj.key, { name: "test" });
       await expect(userClient.logs.delete(randomLog.key)).rejects.toSatisfy(
         AccessDeniedError.matches,

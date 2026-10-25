@@ -18,7 +18,7 @@ const DIMENSIONS = { width: 84, height: 42 };
 export const IsoCheck = ({
   className,
   orientation = "left",
-  color: colorVal,
+  strokeColor: colorVal,
   scale,
   ...rest
 }: Props): ReactElement => (
@@ -26,7 +26,7 @@ export const IsoCheck = ({
     <Handle.Linear orientation={orientation} left={8.3333} right={96.4286} />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={colorVal}
+      strokeColor={colorVal}
       orientation={orientation}
       scale={scale}
     >

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <array>
 #include <iostream>
 
 #include "gtest/gtest.h"
@@ -280,6 +281,34 @@ TEST(TestSeries, testAtVar) {
     ASSERT_EQ(v2, "world");
 }
 
+/// @brief it should return the last sample with its alignment advanced.
+TEST(TestSeries, testLastFixed) {
+    Series s{std::vector<int32_t>{1, 2, 3}};
+    s.alignment = Alignment(2, 5);
+    s.time_range = TimeRange(TimeStamp(10), TimeStamp(40));
+    const auto last = s.last();
+    ASSERT_EQ(last.data_type(), INT32_T);
+    ASSERT_EQ(last.size(), 1);
+    ASSERT_EQ(last.at<int32_t>(0), 3);
+    ASSERT_EQ(last.alignment, Alignment(2, 7));
+    ASSERT_EQ(last.time_range, s.time_range);
+}
+
+/// @brief it should return the last sample of a variable density series.
+TEST(TestSeries, testLastVar) {
+    const Series s{std::vector<std::string>{"a", "bc", "def"}};
+    const auto last = s.last();
+    ASSERT_EQ(last.data_type(), STRING_T);
+    ASSERT_EQ(last.size(), 1);
+    ASSERT_EQ(last.at<std::string>(0), "def");
+}
+
+/// @brief it should throw when the series is empty.
+TEST(TestSeries, testLastEmptyThrows) {
+    const Series s{INT32_T, 0};
+    ASSERT_THROW((void) s.last(), std::runtime_error);
+}
+
 /// @brief it should allocate a series with a fixed capacity.
 TEST(TestSeries, testAllocation) {
     const Series s{UINT32_T, 5};
@@ -337,6 +366,23 @@ TEST(TestSeries, testWriteVector) {
         ASSERT_EQ(v[i], values[i]);
 }
 
+/// @brief it should append a vector after the existing values, up to the capacity.
+TEST(TestSeries, testWriteVectorAppends) {
+    Series s{UINT32_T, 4};
+    s.write(std::uint32_t{1});
+    ASSERT_EQ(s.write(std::vector<std::uint32_t>{2, 3, 4, 5}), 3);
+    ASSERT_EQ(s.values<std::uint32_t>(), (std::vector<std::uint32_t>{1, 2, 3, 4}));
+}
+
+/// @brief it should append an array after the existing values, up to the capacity.
+TEST(TestSeries, testWritePointerAppends) {
+    Series s{UINT32_T, 4};
+    s.write(std::uint32_t{1});
+    constexpr std::array<std::uint32_t, 4> data{2, 3, 4, 5};
+    ASSERT_EQ(s.write(data.data(), data.size()), 3);
+    ASSERT_EQ(s.values<std::uint32_t>(), (std::vector<std::uint32_t>{1, 2, 3, 4}));
+}
+
 /// @brief it should correctly print out the series.
 TEST(TestSeries, testOstreamOperatorForAllTypes) {
     // Refactored tests to match the new format "Series(type: TYPE, size: SIZE, cap:
@@ -352,8 +398,8 @@ TEST(TestSeries, testOstreamOperatorForAllTypes) {
     );
 
     Series s_float32{FLOAT32_T, 3};
-    for (float i = 1.5f; i <= 3.5f; i += 1.0f)
-        s_float32.write(i);
+    for (const float v: {1.5f, 2.5f, 3.5f})
+        s_float32.write(v);
     std::ostringstream oss_float32;
     oss_float32 << s_float32;
     ASSERT_EQ(
@@ -392,8 +438,8 @@ TEST(TestSeries, testOstreamOperatorForAllTypes) {
     );
 
     Series s_float64{FLOAT64_T, 3};
-    for (double i = 1.5; i <= 3.5; i += 1.0)
-        s_float64.write(i);
+    for (const double v: {1.5, 2.5, 3.5})
+        s_float64.write(v);
     std::ostringstream oss_float64;
     oss_float64 << s_float64;
     ASSERT_EQ(
@@ -521,6 +567,7 @@ TEST(TestSeries, testDeepCopy) {
     s1.write(2);
     s1.write(3);
     s1.alignment = Alignment(5, 10);
+    s1.time_range = TimeRange(TimeStamp(10), TimeStamp(40));
 
     const Series s2 = s1.deep_copy();
     ASSERT_EQ(s2.size(), 3);
@@ -531,6 +578,28 @@ TEST(TestSeries, testDeepCopy) {
     ASSERT_EQ(s2.byte_size(), s1.byte_size());
     ASSERT_EQ(s2.cap(), s1.cap());
     ASSERT_EQ(s2.alignment.uint64(), s1.alignment.uint64());
+    ASSERT_EQ(s2.time_range, s1.time_range);
+}
+
+/// @brief it should allocate the spare capacity of the source in a deep copy. The
+/// capacity is large so that an overflow crashes without a sanitizer.
+TEST(TestSeries, testDeepCopyWriteIntoSpareCapacity) {
+    constexpr size_t cap = 1 << 22;
+    Series s1{UINT32_T, cap};
+    s1.write(std::uint32_t{1});
+    Series s2 = s1.deep_copy();
+    ASSERT_EQ(s2.cap(), cap);
+    ASSERT_EQ(s2.write(Series(std::vector<std::uint32_t>(cap - 1, 7))), cap - 1);
+    ASSERT_EQ(s2.size(), cap);
+    ASSERT_EQ(s2.at<std::uint32_t>(0), 1);
+    ASSERT_EQ(s2.at<std::uint32_t>(-1), 7);
+}
+
+/// @brief it should keep the spare byte capacity of a variable series in a deep copy.
+TEST(TestSeries, testDeepCopyVariableSpareCapacity) {
+    const Series s1{STRING_T, 64};
+    const Series s2 = s1.deep_copy();
+    ASSERT_EQ(s2.byte_cap(), 64);
 }
 
 /// @brief it should deep copy a variable data type series.
@@ -635,51 +704,52 @@ const std::vector<double> FLOAT64_DATA = {1.0, 2.0, 3.0, 4.0, 5.0};
 
 #define TEST_ALL_CASTS_FROM_SOURCE(SOURCE_TYPE, SOURCE_DATA)                           \
     ASSERT_EQ(                                                                         \
-        Series::cast(UINT8_T, SOURCE_DATA.data(), SOURCE_DATA.size())                  \
+        Series::cast(UINT8_T, (SOURCE_DATA).data(), (SOURCE_DATA).size())              \
             .values<uint8_t>(),                                                        \
         UINT8_DATA                                                                     \
     );                                                                                 \
     ASSERT_EQ(                                                                         \
-        Series::cast(UINT16_T, SOURCE_DATA.data(), SOURCE_DATA.size())                 \
+        Series::cast(UINT16_T, (SOURCE_DATA).data(), (SOURCE_DATA).size())             \
             .values<uint16_t>(),                                                       \
         UINT16_DATA                                                                    \
     );                                                                                 \
     ASSERT_EQ(                                                                         \
-        Series::cast(UINT32_T, SOURCE_DATA.data(), SOURCE_DATA.size())                 \
+        Series::cast(UINT32_T, (SOURCE_DATA).data(), (SOURCE_DATA).size())             \
             .values<uint32_t>(),                                                       \
         UINT32_DATA                                                                    \
     );                                                                                 \
     ASSERT_EQ(                                                                         \
-        Series::cast(UINT64_T, SOURCE_DATA.data(), SOURCE_DATA.size())                 \
+        Series::cast(UINT64_T, (SOURCE_DATA).data(), (SOURCE_DATA).size())             \
             .values<uint64_t>(),                                                       \
         UINT64_DATA                                                                    \
     );                                                                                 \
     ASSERT_EQ(                                                                         \
-        Series::cast(INT8_T, SOURCE_DATA.data(), SOURCE_DATA.size()).values<int8_t>(), \
+        Series::cast(INT8_T, (SOURCE_DATA).data(), (SOURCE_DATA).size())               \
+            .values<int8_t>(),                                                         \
         INT8_DATA                                                                      \
     );                                                                                 \
     ASSERT_EQ(                                                                         \
-        Series::cast(INT16_T, SOURCE_DATA.data(), SOURCE_DATA.size())                  \
+        Series::cast(INT16_T, (SOURCE_DATA).data(), (SOURCE_DATA).size())              \
             .values<int16_t>(),                                                        \
         INT16_DATA                                                                     \
     );                                                                                 \
     ASSERT_EQ(                                                                         \
-        Series::cast(INT32_T, SOURCE_DATA.data(), SOURCE_DATA.size())                  \
+        Series::cast(INT32_T, (SOURCE_DATA).data(), (SOURCE_DATA).size())              \
             .values<int32_t>(),                                                        \
         INT32_DATA                                                                     \
     );                                                                                 \
     ASSERT_EQ(                                                                         \
-        Series::cast(INT64_T, SOURCE_DATA.data(), SOURCE_DATA.size())                  \
+        Series::cast(INT64_T, (SOURCE_DATA).data(), (SOURCE_DATA).size())              \
             .values<int64_t>(),                                                        \
         INT64_DATA                                                                     \
     );                                                                                 \
     ASSERT_EQ(                                                                         \
-        Series::cast(FLOAT32_T, SOURCE_DATA.data(), SOURCE_DATA.size())                \
+        Series::cast(FLOAT32_T, (SOURCE_DATA).data(), (SOURCE_DATA).size())            \
             .values<float>(),                                                          \
         FLOAT32_DATA                                                                   \
     );                                                                                 \
     ASSERT_EQ(                                                                         \
-        Series::cast(FLOAT64_T, SOURCE_DATA.data(), SOURCE_DATA.size())                \
+        Series::cast(FLOAT64_T, (SOURCE_DATA).data(), (SOURCE_DATA).size())            \
             .values<double>(),                                                         \
         FLOAT64_DATA                                                                   \
     )
@@ -700,55 +770,55 @@ TEST(TestSeries, testCast) {
 
 #define TEST_CAST_FROM_VOID_POINTER(SOURCE_TYPE, SOURCE_DATA)                          \
     do {                                                                               \
-        auto const_void_ptr = static_cast<const void *>(SOURCE_DATA.data());           \
+        auto const_void_ptr = static_cast<const void *>((SOURCE_DATA).data());         \
         auto source_type = DataType::infer<SOURCE_TYPE>();                             \
         ASSERT_EQ(                                                                     \
-            Series::cast(UINT8_T, const_void_ptr, SOURCE_DATA.size(), source_type)     \
+            Series::cast(UINT8_T, const_void_ptr, (SOURCE_DATA).size(), source_type)   \
                 .values<uint8_t>(),                                                    \
             UINT8_DATA                                                                 \
         );                                                                             \
         ASSERT_EQ(                                                                     \
-            Series::cast(UINT16_T, const_void_ptr, SOURCE_DATA.size(), source_type)    \
+            Series::cast(UINT16_T, const_void_ptr, (SOURCE_DATA).size(), source_type)  \
                 .values<uint16_t>(),                                                   \
             UINT16_DATA                                                                \
         );                                                                             \
         ASSERT_EQ(                                                                     \
-            Series::cast(UINT32_T, const_void_ptr, SOURCE_DATA.size(), source_type)    \
+            Series::cast(UINT32_T, const_void_ptr, (SOURCE_DATA).size(), source_type)  \
                 .values<uint32_t>(),                                                   \
             UINT32_DATA                                                                \
         );                                                                             \
         ASSERT_EQ(                                                                     \
-            Series::cast(UINT64_T, const_void_ptr, SOURCE_DATA.size(), source_type)    \
+            Series::cast(UINT64_T, const_void_ptr, (SOURCE_DATA).size(), source_type)  \
                 .values<uint64_t>(),                                                   \
             UINT64_DATA                                                                \
         );                                                                             \
         ASSERT_EQ(                                                                     \
-            Series::cast(INT8_T, const_void_ptr, SOURCE_DATA.size(), source_type)      \
+            Series::cast(INT8_T, const_void_ptr, (SOURCE_DATA).size(), source_type)    \
                 .values<int8_t>(),                                                     \
             INT8_DATA                                                                  \
         );                                                                             \
         ASSERT_EQ(                                                                     \
-            Series::cast(INT16_T, const_void_ptr, SOURCE_DATA.size(), source_type)     \
+            Series::cast(INT16_T, const_void_ptr, (SOURCE_DATA).size(), source_type)   \
                 .values<int16_t>(),                                                    \
             INT16_DATA                                                                 \
         );                                                                             \
         ASSERT_EQ(                                                                     \
-            Series::cast(INT32_T, const_void_ptr, SOURCE_DATA.size(), source_type)     \
+            Series::cast(INT32_T, const_void_ptr, (SOURCE_DATA).size(), source_type)   \
                 .values<int32_t>(),                                                    \
             INT32_DATA                                                                 \
         );                                                                             \
         ASSERT_EQ(                                                                     \
-            Series::cast(INT64_T, const_void_ptr, SOURCE_DATA.size(), source_type)     \
+            Series::cast(INT64_T, const_void_ptr, (SOURCE_DATA).size(), source_type)   \
                 .values<int64_t>(),                                                    \
             INT64_DATA                                                                 \
         );                                                                             \
         ASSERT_EQ(                                                                     \
-            Series::cast(FLOAT32_T, const_void_ptr, SOURCE_DATA.size(), source_type)   \
+            Series::cast(FLOAT32_T, const_void_ptr, (SOURCE_DATA).size(), source_type) \
                 .values<float>(),                                                      \
             FLOAT32_DATA                                                               \
         );                                                                             \
         ASSERT_EQ(                                                                     \
-            Series::cast(FLOAT64_T, const_void_ptr, SOURCE_DATA.size(), source_type)   \
+            Series::cast(FLOAT64_T, const_void_ptr, (SOURCE_DATA).size(), source_type) \
                 .values<double>(),                                                     \
             FLOAT64_DATA                                                               \
         );                                                                             \
@@ -965,7 +1035,7 @@ TEST(TestSeries, testFillFromString) {
 
     binary::Writer writer(binary_data, total_size);
     for (const auto &str: source_strings) {
-        uint32_t len = static_cast<uint32_t>(str.size());
+        auto len = static_cast<uint32_t>(str.size());
         writer.write(&len, sizeof(len));
         writer.write(str.data(), str.size());
     }
@@ -2087,7 +2157,7 @@ TEST(SeriesShallowCopy, EmptySeries) {
 
 /// @brief shallow copy of a single-element series.
 TEST(SeriesShallowCopy, SingleElement) {
-    auto original = Series(static_cast<float>(42.0f));
+    auto original = Series(42.0f);
     auto copy = original.shallow_copy();
     ASSERT_EQ(copy.size(), 1);
     ASSERT_EQ(copy.at<float>(0), 42.0f);
@@ -2232,7 +2302,7 @@ TEST(SeriesDetachBuffer, WriteAfterDetachIsIndependent) {
 /// @brief detach_buffer on an unshared series should not reallocate.
 TEST(SeriesDetachBuffer, NoAllocWhenExclusive) {
     auto original = Series(std::vector<float>{1.0f, 2.0f});
-    auto ptr_before = original.data();
+    auto *ptr_before = original.data();
     original.detach_buffer();
     ASSERT_EQ(original.data(), ptr_before);
     ASSERT_EQ(original.size(), 0);

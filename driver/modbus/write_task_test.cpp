@@ -15,6 +15,7 @@
 #include "x/cpp/test/test.h"
 
 #include "driver/modbus/mock/slave.h"
+#include "driver/modbus/modbus.h"
 #include "driver/modbus/write_task.h"
 #include "driver/pipeline/mock/pipeline.h"
 
@@ -59,7 +60,7 @@ protected:
             .key = "modbus_test_dev",
             .rack = rack.key,
             .location = "dev1",
-            .make = "modbus",
+            .make = MAKE,
             .model = "Modbus Device",
             .name = "modbus_test_dev",
             .properties = properties,
@@ -73,6 +74,37 @@ protected:
         };
     }
 };
+
+/// @brief it should take the device's order for a register with no override and
+/// let an override win.
+TEST(ModbusChannels, OutputRegisterResolvesDeviceOrder) {
+    auto inherit = x::json::Parser(
+        x::json::json{{"type", "holding_register"}, {"data_type", "float32"}}
+    );
+    const auto inherit_cfg = ::synnax::modbus::HoldingRegisterWriteChannel::parse(
+        inherit
+    );
+    ASSERT_NIL(inherit.error());
+    const device::ConnectionConfig conn("h", 1, true, true);
+    const channel::OutputHoldingRegister inherited(inherit_cfg, conn);
+    EXPECT_TRUE(inherited.bytes_swapped);
+    EXPECT_TRUE(inherited.words_swapped);
+
+    auto override = x::json::Parser(
+        x::json::json{
+            {"type", "holding_register"},
+            {"data_type", "float32"},
+            {"bytes_swapped", false}
+        }
+    );
+    const auto override_cfg = ::synnax::modbus::HoldingRegisterWriteChannel::parse(
+        override
+    );
+    ASSERT_NIL(override.error());
+    const channel::OutputHoldingRegister overridden(override_cfg, conn);
+    EXPECT_FALSE(overridden.bytes_swapped);
+    EXPECT_TRUE(overridden.words_swapped);
+}
 
 /// @brief it should write coil and register values to Modbus device.
 TEST_F(ModbusWriteTest, testBasicWrite) {
@@ -212,8 +244,8 @@ TEST_F(ModbusWriteTest, testMultipleDataTypes) {
     fr.emplace(int16_ch.key, x::telem::Series(static_cast<int16_t>(-1234)));
     fr.emplace(uint32_ch.key, x::telem::Series(static_cast<uint32_t>(0xDEADBEEF)));
     fr.emplace(int32_ch.key, x::telem::Series(static_cast<int32_t>(-2147483648)));
-    fr.emplace(float32_ch.key, x::telem::Series(static_cast<float>(3.14159f)));
-    fr.emplace(float64_ch.key, x::telem::Series(static_cast<double>(2.71828)));
+    fr.emplace(float32_ch.key, x::telem::Series(3.14159f));
+    fr.emplace(float64_ch.key, x::telem::Series(2.71828));
     reads->push_back(std::move(fr));
 
     mock_streamer_factory = driver::pipeline::mock::simple_streamer_factory(

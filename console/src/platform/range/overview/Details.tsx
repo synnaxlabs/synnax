@@ -19,7 +19,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Ranger } from "@synnaxlabs/pluto";
 import { type NumericTimeRange, TimeStamp } from "@synnaxlabs/x";
-import { type FC, type ReactElement, useCallback } from "react";
+import { type FC, type ReactElement, useCallback, useState } from "react";
 
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
@@ -71,7 +71,7 @@ export interface DetailsProps {
 
 export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   const range = Ranger.use({ key: rangeKey });
-  const now = TimeStamp.now().nanoseconds;
+  const [now] = useState(() => TimeStamp.now().nanoseconds);
   // The form saves on every edit, so a subject who cannot write the range gets it
   // read-only rather than a field that reverts once the save is refused.
   const canEdit = Access.useUpdateGranted(ranger.ontologyID(rangeKey));
@@ -146,7 +146,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               tooltip={`Copy Python code for ${name}`}
               tooltipLocation="bottom"
               variant="text"
-              successMessage={`Copied Python code for ${name} to clipboard`}
+              successMessage={{ message: "Copied Python code to clipboard", name }}
               textColor={9}
             >
               <Icon.Python />
@@ -156,7 +156,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               text={getTypeScriptCode}
               tooltip={`Copy TypeScript code for ${name}`}
               tooltipLocation="bottom"
-              successMessage={`Copied TypeScript code for ${name} to clipboard`}
+              successMessage={{ message: "Copied TypeScript code to clipboard", name }}
               textColor={9}
             >
               <Icon.TypeScript />

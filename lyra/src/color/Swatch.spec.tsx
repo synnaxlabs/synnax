@@ -128,6 +128,62 @@ describe("Swatch", () => {
     });
   });
 
+  describe("mixed", () => {
+    it("should mark the swatch as mixed instead of auto", () => {
+      const c = render(<Color.Swatch mixed fallback={RED} onChange={vi.fn()} />, {
+        wrapper: Wrapper,
+      });
+      expect(swatchOf(c).className).toContain(CSS.M("mixed"));
+      expect(swatchOf(c).className).not.toContain(CSS.M("auto"));
+    });
+
+    it("should call onChange with the picked color", () => {
+      const onChange = vi.fn();
+      const c = render(<Color.Swatch mixed fallback={RED} onChange={onChange} />, {
+        wrapper: Wrapper,
+      });
+      fireEvent.click(swatchOf(c));
+      pick(c, BLUE);
+      expect(color.hex(onChange.mock.calls[0][0])).toEqual(`#${BLUE}`);
+    });
+
+    it("should call onChange with undefined when the user picks Auto", () => {
+      const onChange = vi.fn();
+      const c = render(<Color.Swatch mixed fallback={RED} onChange={onChange} />, {
+        wrapper: Wrapper,
+      });
+      fireEvent.click(swatchOf(c));
+      fireEvent.click(c.getByLabelText("Auto"));
+      expect(onChange).toHaveBeenCalledExactlyOnceWith(undefined);
+    });
+
+    it("should show a pending pick in place of the stripes", () => {
+      const c = render(
+        <Color.Swatch mixed fallback={RED} onChange={vi.fn()} onlyChangeOnBlur />,
+        { wrapper: Wrapper },
+      );
+      fireEvent.click(swatchOf(c));
+      pick(c, BLUE);
+      expect(swatchOf(c).className).not.toContain(CSS.M("mixed"));
+    });
+  });
+
+  describe("custom", () => {
+    it("should show a color wheel in place of the value", () => {
+      const c = render(<Color.Swatch custom value={RED} onChange={vi.fn()} />, {
+        wrapper: Wrapper,
+      });
+      expect(c.getByLabelText("Custom color").className).toContain(CSS.M("custom"));
+    });
+
+    it("should not mark an absent value as auto", () => {
+      const c = render(<Color.Swatch custom fallback={RED} onChange={vi.fn()} />, {
+        wrapper: Wrapper,
+      });
+      expect(swatchOf(c).className).not.toContain(CSS.M("auto"));
+    });
+  });
+
   describe("onlyChangeOnBlur", () => {
     it("should not call onChange while the picker is open", () => {
       const onChange = vi.fn();

@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import ctypes
 import random
 import threading
 import time
@@ -21,6 +20,7 @@ from framework import run_dir, server_log
 from framework.config_client import ConfigClient, Sequence, TestDefinition
 from framework.models import STATUS, SynnaxConnection, Test
 from framework.test_case import TestCase
+from framework.watchdog import Slots, Timeout, Watchdog, interrupt
 
 # Range coloring
 COLORS: list[str] = [
@@ -38,6 +38,10 @@ COLORS: list[str] = [
     "#000033",
 ]
 
+# Seconds past its timeout a test has to finish before the conductor stops waiting on
+# it.
+TIMEOUT_GRACE = 60.0
+
 
 class ExecutionClient:
     """Executes test sequences with timeout monitoring and thread management."""
@@ -50,7 +54,9 @@ class ExecutionClient:
         conductor_range: sy.Range | None,
         tests: list[Test],
         tests_lock: threading.Lock,
-        active_tests: list[tuple[TestDefinition, TestCase, sy.Range, threading.Thread]],
+        active_tests: list[
+            tuple[TestDefinition, TestCase, sy.Range | None, threading.Thread]
+        ],
         active_tests_lock: threading.Lock,
         log: Callable[[str, bool], None],
         on_status_change: Callable[[Test], None],
@@ -72,6 +78,7 @@ class ExecutionClient:
         self._total_tests = 0
         self._tests_offset = 0
         self._timeout_thread: threading.Thread | None = None
+        self._watchdog = Watchdog(TIMEOUT_GRACE)
 
     def run(self, sequences: list[Sequence]) -> None:
         """Execute all sequences."""
@@ -204,7 +211,7 @@ class ExecutionClient:
                 args=(test_def, future),
             )
             t.start()
-            while t.is_alive():
+            while t.is_alive() and not self._watchdog.abandoned(t):
                 t.join(timeout=1.0)
 
             self._collect_result(test_def, future)
@@ -218,7 +225,7 @@ class ExecutionClient:
         pool_size: int = -1,
     ) -> None:
         use_pool = 0 < pool_size < len(tests)
-        semaphore = threading.Semaphore(pool_size) if use_pool else None
+        slots = Slots(pool_size) if use_pool else None
 
         if use_pool:
             self._log(
@@ -227,19 +234,18 @@ class ExecutionClient:
                 True,
             )
 
-        threads: list[threading.Thread] = []
-        futures: list[Future[Test]] = []
+        pending: list[tuple[threading.Thread, Future[Test], TestDefinition]] = []
 
         def _run(td: TestDefinition, ft: Future[Test], idx: int) -> None:
-            if semaphore is not None:
-                semaphore.acquire()
+            if slots is not None:
+                slots.acquire()
             try:
-                if semaphore is not None:
+                if slots is not None:
                     self._log(f"[{idx}/{self._total_tests}] {td}", True)
                 self._test_runner_thread(td, ft)
             finally:
-                if semaphore is not None:
-                    semaphore.release()
+                if slots is not None:
+                    slots.free(threading.current_thread())
 
         for i, test_def in enumerate(tests):
             if self.should_stop:
@@ -247,7 +253,7 @@ class ExecutionClient:
                 break
 
             global_idx = len(self._tests) - self._tests_offset + i + 1
-            if semaphore is None:
+            if slots is None:
                 self._log(f"[{global_idx}/{self._total_tests}] {test_def}", True)
 
             future: Future[Test] = Future()
@@ -255,19 +261,21 @@ class ExecutionClient:
                 target=_run,
                 args=(test_def, future, global_idx),
             )
-            threads.append(t)
-            futures.append(future)
+            pending.append((t, future, test_def))
             t.start()
 
         self._log(
-            f"Waiting for {len(threads)} tests in sequence '{seq_name}' to complete...",
+            f"Waiting for {len(pending)} tests in sequence '{seq_name}' to complete...",
             True,
         )
-        pending = list(zip(threads, futures, tests))
         while pending:
             still_pending = []
             for t, ft, td in pending:
-                if not t.is_alive():
+                if self._watchdog.abandoned(t):
+                    if slots is not None:
+                        slots.free(t)
+                    self._collect_result(td, ft)
+                elif not t.is_alive():
                     self._collect_result(td, ft)
                 else:
                     still_pending.append((t, ft, td))
@@ -285,7 +293,9 @@ class ExecutionClient:
                 test_name=test_def.case,
                 name=test_def.display_name,
                 status=STATUS.TIMEOUT,
-                error_message="Test was terminated due to timeout",
+                error_message=(
+                    f"Test exceeded its timeout ({test_def.timeout}s) and did not stop"
+                ),
             )
 
         with self._tests_lock:
@@ -302,6 +312,7 @@ class ExecutionClient:
         future.set_result(result)
 
     def _execute_single_test(self, test_def: TestDefinition) -> Test:
+        self._watchdog.watch(threading.current_thread(), test_def.timeout)
         test = Test(
             test_name=test_def.case,
             name=test_def.display_name,
@@ -352,6 +363,11 @@ class ExecutionClient:
             if test_instance._error_traceback is not None:
                 test.error_traceback = test_instance._error_traceback
 
+        except Timeout:
+            test.status = STATUS.TIMEOUT
+            test.error_message = f"Test exceeded its timeout ({test_def.timeout}s)"
+            self._log(f"{test_def} TIMEOUT after {test_def.timeout}s", True)
+
         except Exception as e:
             test.status = STATUS.FAILED
             test.error_message = str(e)
@@ -359,6 +375,7 @@ class ExecutionClient:
             self._log(f"Traceback: {traceback.format_exc()}", True)
 
         finally:
+            self._watchdog.disarm(threading.current_thread())
             test.ended_at = time.time()
             self._slice_server_log_if_failed(test, bundle_dir, log_start_offset)
             run_dir.set_test_dir(None)
@@ -366,8 +383,11 @@ class ExecutionClient:
             if test.range is not None:
                 try:
                     test.range = self._finalize_range(test.range)
-                except RuntimeError as e:
-                    self._log(f"Warning: Could not finalize range: {e}", True)
+                except Exception as e:
+                    self._log(
+                        f"Warning: Could not finalize range '{test.range.name}': {e}",
+                        True,
+                    )
 
             if test_instance is not None and test_instance._status != STATUS.KILLED:
                 if test.status in (
@@ -390,6 +410,7 @@ class ExecutionClient:
                 ]
 
             self._on_status_change(test)
+            self._watchdog.unwatch(threading.current_thread())
 
         return test
 
@@ -424,64 +445,25 @@ class ExecutionClient:
         server_log.slice_to(bundle / "server.log", start_offset, end_offset)
 
     def _finalize_range(self, test_range: sy.Range) -> sy.Range:
-        try:
-            return self._client.ranges.create(
-                key=test_range.key,
-                name=test_range.name,
-                time_range=sy.TimeRange(
-                    start=test_range.time_range.start,
-                    end=sy.TimeStamp.now(),
-                ),
-            )
-        except Exception as e:
-            raise RuntimeError(
-                f"Failed to finalize range '{test_range.name}': {e}"
-            ) from e
+        return self._client.ranges.create(
+            key=test_range.key,
+            name=test_range.name,
+            time_range=sy.TimeRange(
+                start=test_range.time_range.start,
+                end=sy.TimeStamp.now(),
+            ),
+        )
 
     # ----- Timeout monitoring -----
 
     def _timeout_monitor_loop(
         self,
-        monitor_interval: sy.CrudeTimeSpan = 500 * sy.TimeSpan.MILLISECOND,
+        monitor_interval: sy.TimeSpan = 500 * sy.TimeSpan.MILLISECOND,
     ) -> None:
         while self.is_running and not self.should_stop:
-            self._check_test_timeouts()
+            for thread in self._watchdog.check():
+                self._log(f"Interrupted timed-out test thread {thread.name}", True)
             sy.sleep(monitor_interval)
-
-    def _check_test_timeouts(self) -> None:
-        threads_to_terminate: list[threading.Thread] = []
-
-        with self._active_tests_lock:
-            if not self._active_tests:
-                return
-
-            to_remove = []
-            for _test_def, test_instance, test_range, thread in self._active_tests:
-                expected: sy.CrudeTimeSpan | None = getattr(
-                    test_instance, "Expected_Timeout", None
-                )
-                if expected is None or test_range is None:
-                    continue
-
-                elapsed = sy.TimeStamp.now() - test_range.time_range.start
-                timeout_span = sy.TimeSpan.from_seconds(expected)
-                if elapsed <= timeout_span:
-                    continue
-
-                self._log(
-                    f"{test_instance.name} timeout detected "
-                    f"({elapsed} > {timeout_span})",
-                    True,
-                )
-                test_instance._status = STATUS.TIMEOUT
-                to_remove.append((_test_def, test_instance, test_range, thread))
-                threads_to_terminate.append(thread)
-
-            for item in to_remove:
-                self._active_tests.remove(item)
-
-        for thread in threads_to_terminate:
-            self._terminate_thread(thread)
 
     # ----- Kill / terminate -----
 
@@ -495,19 +477,17 @@ class ExecutionClient:
             killed_instances = []
 
             for test_def, test_instance, test_range, thread in self._active_tests:
+                status = STATUS.KILLED
+                error_msg = "Test was manually killed"
                 if test_range is None:
-                    status = STATUS.KILLED
-                    error_msg = "Test was killed (no range available)"
                     finalized_range = None
                 else:
-                    status, error_msg = self._determine_kill_status(
-                        test_instance, test_range
-                    )
                     try:
                         finalized_range = self._finalize_range(test_range)
-                    except RuntimeError as e:
+                    except Exception as e:
                         self._log(
-                            f"Warning: Could not finalize range for killed test: {e}",
+                            f"Warning: Could not finalize range '{test_range.name}' "
+                            f"for killed test: {e}",
                             True,
                         )
                         finalized_range = test_range
@@ -544,43 +524,7 @@ class ExecutionClient:
 
         return len(killed_results)
 
-    def _determine_kill_status(
-        self, test_instance: TestCase, test_range: sy.Range
-    ) -> tuple[STATUS, str]:
-        elapsed_time = (
-            sy.TimeStamp.now() - test_range.time_range.start
-        ) / sy.TimeSpan.SECOND
-
-        expected_timeout = getattr(test_instance, "Expected_Timeout", -1)
-
-        if expected_timeout > 0 and elapsed_time > expected_timeout:
-            self._log(
-                f"Test {test_instance.name} exceeded timeout ({expected_timeout}s)",
-                True,
-            )
-            return STATUS.TIMEOUT, f"Test exceeded timeout ({expected_timeout}s)"
-
-        self._log(f"Test {test_instance.name} was manually killed", True)
-        return STATUS.KILLED, "Test was manually killed"
-
     def _terminate_thread(self, thread: threading.Thread) -> None:
         thread.join(timeout=0.1)
-        if not thread.is_alive():
-            return
-
-        try:
-            thread_id = thread.ident
-            if thread_id is None:
-                return
-
-            res = ctypes.pythonapi.PyThreadState_SetAsyncExc(
-                ctypes.c_long(thread_id), ctypes.py_object(SystemExit)
-            )
-            if res == 0:
-                self._log(f"Warning: Could not terminate thread {thread.name}", True)
-            elif res > 1:
-                ctypes.pythonapi.PyThreadState_SetAsyncExc(
-                    ctypes.c_long(thread_id), None
-                )
-        except Exception as e:
-            self._log(f"Warning: Failed to force-terminate thread: {e}", True)
+        if thread.is_alive() and not interrupt(thread, SystemExit):
+            self._log(f"Warning: Could not terminate thread {thread.name}", True)

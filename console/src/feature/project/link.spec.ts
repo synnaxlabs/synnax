@@ -20,7 +20,6 @@ describe("Project.useLink", () => {
   it("should set the linked project active", async () => {
     const project = await client.projects.create({
       name: "Engine Project",
-      layout: {},
     });
     const { handler, store } = await renderLinkHook(Project.useLink);
     await handler({ client, key: project.key });

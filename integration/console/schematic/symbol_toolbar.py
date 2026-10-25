@@ -266,7 +266,7 @@ class SymbolToolbar:
         save_path = resolve_results_path(f"{name}_export.json")
         download.save_as(save_path)
 
-        with open(save_path, "r", encoding="utf-8") as f:
+        with open(save_path, encoding="utf-8") as f:
             result: dict[str, Any] = json.load(f)
             return result
 
@@ -311,4 +311,8 @@ class SymbolToolbar:
         search_input.wait_for(state="attached", timeout=5000)
         search_input.fill(symbol_type)
 
-        self.layout.click(symbol_type)
+        # The toolbar header also shows the name of the selected symbol.
+        item = self.toolbar.locator(".console-schematic-symbols__button").filter(
+            has=self.page.locator("small").get_by_text(symbol_type, exact=True)
+        )
+        item.first.click(timeout=5000)

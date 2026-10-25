@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeAll, describe, expect, it } from "vitest";
+import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { type Haul } from "@/haul";
 import { List } from "@/list";
@@ -82,10 +82,14 @@ describe("Tree", () => {
     (keys: string[]) => keys.map((key) => ({ key, name: key })),
   );
 
-  const Component = () => {
+  interface ComponentProps {
+    pinned?: string[];
+  }
+
+  const Component = ({ pinned }: ComponentProps) => {
     const props = use({ nodes: NODES });
     return (
-      <Tree {...props} getItem={getItem}>
+      <Tree {...props} getItem={getItem} pinned={pinned}>
         {({ key, ...rest }) => (
           <Item key={key} {...rest}>
             {key}
@@ -119,12 +123,25 @@ describe("Tree", () => {
     );
     expect(virtualizer?.style.minHeight).toBe(`${NODES.length * 27}px`);
   });
+
+  it("should keep a pinned node mounted outside the window", () => {
+    const last = NODES[NODES.length - 1].key;
+    const { rerender } = render(<Component />);
+    expect(screen.queryByText(last)).toBeNull();
+    rerender(<Component pinned={[last]} />);
+    expect(screen.getByText(last)).toBeTruthy();
+    rerender(<Component />);
+    expect(screen.queryByText(last)).toBeNull();
+  });
 });
 
 describe("Tree toggling", () => {
   beforeAll(() => mockGeometry(100, 100));
 
-  const NODES: Node[] = [{ key: "parent", children: [{ key: "child" }] }];
+  const NODES: Node[] = [
+    { key: "parent", children: [{ key: "child" }] },
+    { key: "second", children: [{ key: "second-child" }] },
+  ];
 
   const getItem = List.createGetItem(
     (key: string) => ({ key, name: key }),
@@ -144,9 +161,10 @@ describe("Tree toggling", () => {
     );
   };
 
-  const parentRow = () => screen.getByRole("treeitem", { name: "parent" });
-  const caret = () =>
-    parentRow().querySelector(".pluto-tree__expansion-indicator") as Element;
+  const row = (name: string) => screen.getByRole("treeitem", { name });
+  const parentRow = () => row("parent");
+  const caret = (name = "parent") =>
+    row(name).querySelector(".pluto-tree__expansion-indicator") as Element;
 
   describe("on the row", () => {
     it("should select and expand a node when its row is clicked", () => {
@@ -175,12 +193,60 @@ describe("Tree toggling", () => {
       expect(screen.queryByText("child")).toBeNull();
     });
 
+    it("should toggle the clicked node after an expand above it moves it", () => {
+      render(<Component toggleOn="caret" />);
+      fireEvent.click(caret());
+      fireEvent.click(caret("second"));
+      expect(row("second").getAttribute("aria-expanded")).toBe("true");
+      expect(screen.getByText("second-child")).toBeTruthy();
+    });
+
+    it("should toggle the clicked node after an expand below it", () => {
+      render(<Component toggleOn="caret" />);
+      fireEvent.click(caret("second"));
+      fireEvent.click(caret());
+      expect(parentRow().getAttribute("aria-expanded")).toBe("true");
+      expect(screen.getByText("child")).toBeTruthy();
+    });
+
     it("should select a node without expanding it when its row is clicked", () => {
       render(<Component toggleOn="caret" />);
       fireEvent.click(parentRow());
       expect(parentRow().getAttribute("aria-selected")).toBe("true");
       expect(parentRow().getAttribute("aria-expanded")).toBe("false");
       expect(screen.queryByText("child")).toBeNull();
+    });
+  });
+});
+
+describe("Tree expansion", () => {
+  const NODES: Node[] = [
+    { key: "a", children: [{ key: "a1" }] },
+    { key: "b", children: [{ key: "b1" }] },
+  ];
+
+  it("should report the expanded keys after an expand", () => {
+    const onExpand = vi.fn();
+    const { result } = renderHook(() => use({ nodes: NODES, onExpand }));
+    act(() => result.current.expand("a"));
+    act(() => result.current.expand("b"));
+    expect(onExpand).toHaveBeenLastCalledWith({
+      current: ["a", "b"],
+      action: "expand",
+      clicked: "b",
+    });
+  });
+
+  it("should report the expanded keys after a contract", () => {
+    const onExpand = vi.fn();
+    const { result } = renderHook(() =>
+      use({ nodes: NODES, onExpand, initialExpanded: ["a", "b"] }),
+    );
+    act(() => result.current.contract("a"));
+    expect(onExpand).toHaveBeenLastCalledWith({
+      current: ["b"],
+      action: "contract",
+      clicked: "a",
     });
   });
 });

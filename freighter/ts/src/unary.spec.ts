@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type breaker } from "@synnaxlabs/x";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Unreachable } from "@/errors";
@@ -27,35 +27,43 @@ const send = async (client: UnaryClient): Promise<void> =>
   await client.send("check", undefined, z.void(), z.void());
 
 describe("unaryWithBreaker", () => {
-  let warn: ReturnType<typeof vi.spyOn>;
-
-  beforeEach(() => {
-    warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-  });
-
-  afterEach(() => warn.mockRestore());
-
   it("should retry an unreachable target until the retries run out", async () => {
     const unary = failingUnary(new Unreachable({ message: UNREACHABLE_MESSAGE }));
-    const client = unaryWithBreaker(unary, { ...NO_SLEEP, maxRetries: 2 });
+    const onRetry = vi.fn<(error: Error) => void>();
+    const client = unaryWithBreaker(unary, { ...NO_SLEEP, maxRetries: 2 }, onRetry);
     await expect(send(client)).rejects.toThrow(UNREACHABLE_MESSAGE);
     expect(unary.send).toHaveBeenCalledTimes(3);
-    expect(warn).toHaveBeenCalledTimes(2);
+    expect(onRetry).toHaveBeenCalledTimes(2);
+    expect(Unreachable.matches(onRetry.mock.calls[0][0].cause)).toBe(true);
   });
 
   it("should not announce a retry it will not make", async () => {
     const unary = failingUnary(new Unreachable({ message: UNREACHABLE_MESSAGE }));
-    const client = unaryWithBreaker(unary, { ...NO_SLEEP, maxRetries: 0 });
+    const onRetry = vi.fn<(error: Error) => void>();
+    const client = unaryWithBreaker(unary, { ...NO_SLEEP, maxRetries: 0 }, onRetry);
     await expect(send(client)).rejects.toThrow(UNREACHABLE_MESSAGE);
     expect(unary.send).toHaveBeenCalledTimes(1);
-    expect(warn).not.toHaveBeenCalled();
+    expect(onRetry).not.toHaveBeenCalled();
   });
 
   it("should rethrow an error that is not an unreachable target", async () => {
     const unary = failingUnary(new Error(FATAL_MESSAGE));
-    const client = unaryWithBreaker(unary, { ...NO_SLEEP, maxRetries: 2 });
+    const onRetry = vi.fn<(error: Error) => void>();
+    const client = unaryWithBreaker(unary, { ...NO_SLEEP, maxRetries: 2 }, onRetry);
     await expect(send(client)).rejects.toThrow(FATAL_MESSAGE);
     expect(unary.send).toHaveBeenCalledTimes(1);
-    expect(warn).not.toHaveBeenCalled();
+    expect(onRetry).not.toHaveBeenCalled();
+  });
+
+  it("should warn on the console about a retry by default", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const unary = failingUnary(new Unreachable({ message: UNREACHABLE_MESSAGE }));
+      const client = unaryWithBreaker(unary, { ...NO_SLEEP, maxRetries: 1 });
+      await expect(send(client)).rejects.toThrow(UNREACHABLE_MESSAGE);
+      expect(warn).toHaveBeenCalledTimes(1);
+    } finally {
+      warn.mockRestore();
+    }
   });
 });

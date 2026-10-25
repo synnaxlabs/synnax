@@ -28,6 +28,7 @@ x::errors::Error Manager::open_streamer() {
         synnax::task::DELETE_CHANNEL,
         synnax::task::CMD_CHANNEL,
         synnax::control::CHANNEL_NAME,
+        synnax::rack::SET_CHANNEL,
     };
 
     auto [channels, retrieve_err] = this->ctx->client->channels.retrieve(chan_names);
@@ -46,6 +47,8 @@ x::errors::Error Manager::open_streamer() {
             this->channels.task_cmd = channel;
         else if (channel.name == synnax::control::CHANNEL_NAME)
             this->channels.control_state = channel;
+        else if (channel.name == synnax::rack::SET_CHANNEL)
+            this->channels.rack_set = channel;
 
     if (this->exit_early) return x::errors::NIL;
     // The open runs unlocked: it blocks on the network, and the workers, the
@@ -56,7 +59,8 @@ x::errors::Error Manager::open_streamer() {
                 this->channels.task_set.key,
                 this->channels.task_delete.key,
                 this->channels.task_cmd.key,
-                this->channels.control_state.key
+                this->channels.control_state.key,
+                this->channels.rack_set.key,
             }
         }
     );
@@ -143,7 +147,7 @@ void Manager::stop() {
     if (this->streamer != nullptr) this->streamer->close_send();
 }
 
-x::errors::Error Manager::run(std::function<void()> on_started) {
+x::errors::Error Manager::run(const std::function<void()> &on_started) {
     if (this->exit_early) {
         VLOG(1) << "exiting early";
         return x::errors::NIL;
@@ -172,6 +176,7 @@ x::errors::Error Manager::run(std::function<void()> on_started) {
     // Read after the streamer opens so a transfer arriving during the read is held by
     // the stream instead of lost; the read loop then applies it on top.
     this->retrieve_initial_control_states();
+    this->retrieve_rack_name();
     LOG(INFO) << x::log::GREEN() << "started successfully" << x::log::RESET();
     if (on_started) on_started();
     do {
@@ -188,6 +193,8 @@ x::errors::Error Manager::run(std::function<void()> on_started) {
                 this->process_task_cmd(series);
             else if (key == this->channels.control_state.key)
                 this->control_states_->apply(series);
+            else if (key == this->channels.rack_set.key)
+                this->process_rack_set(series);
         }
     } while (true);
     this->stop_all_tasks();
@@ -210,6 +217,28 @@ void Manager::retrieve_initial_control_states() {
     this->control_states_->set(states);
 }
 
+void Manager::retrieve_rack_name() {
+    auto [rack, err] = this->ctx->client->racks.retrieve(this->rack.key);
+    if (err) {
+        LOG(WARNING) << "failed to retrieve rack name: " << err;
+        return;
+    }
+    this->ctx->set_rack_name(rack.name);
+}
+
+void Manager::process_rack_set(const x::telem::Series &series) {
+    for (const auto &rack_str: series.strings()) {
+        auto parser = x::json::Parser(rack_str);
+        const auto key = parser.field<synnax::rack::Key>("key");
+        const auto name = parser.field<std::string>("name");
+        if (!parser.ok()) {
+            LOG(WARNING) << "failed to parse rack: " << parser.error_json().dump();
+            continue;
+        }
+        if (key == this->rack.key) this->ctx->set_rack_name(name);
+    }
+}
+
 void Manager::process_task_set(const x::telem::Series &series) {
     for (const auto &meta_str: series.strings()) {
         auto parser = x::json::Parser(meta_str);
@@ -227,9 +256,7 @@ void Manager::process_task_set(const x::telem::Series &series) {
         if (snapshot) continue;
         std::lock_guard<std::mutex> lock(this->mu);
         // An untracked task becomes ours only when its row lands on this rack.
-        if (this->entries.find(task_key) == this->entries.end() &&
-            rack_key != this->rack.key)
-            continue;
+        if (!this->entries.contains(task_key) && rack_key != this->rack.key) continue;
         const auto entry = this->entry_for(task_key);
         {
             std::lock_guard entry_lock{entry->mu};
@@ -259,7 +286,7 @@ void Manager::process_task_cmd(const x::telem::Series &series) {
         // Non-start commands go to whichever driver holds the live instance, even
         // when the stored row has moved to another rack.
         std::lock_guard<std::mutex> lock(this->mu);
-        if (this->entries.find(cmd.task) == this->entries.end()) continue;
+        if (!this->entries.contains(cmd.task)) continue;
         VLOG(1) << "queuing " << cmd.type << " command for task " << cmd.task;
         this->op_queue.push_back(Op{Op::Type::COMMAND, cmd.task, {}, cmd});
         this->cv.notify_one();
@@ -270,7 +297,7 @@ void Manager::process_start(const synnax::task::Command &cmd) {
     std::lock_guard<std::mutex> lock(this->mu);
     if (const auto it = this->entries.find(cmd.task); it != this->entries.end()) {
         const auto entry = it->second;
-        bool ours;
+        bool ours = false;
         std::string deployed, wanted;
         {
             std::lock_guard entry_lock{entry->mu};
@@ -341,7 +368,7 @@ void Manager::stop_all_tasks() {
 void Manager::process_task_delete(const x::telem::Series &series) {
     for (const auto &task_key: series.uuids()) {
         std::lock_guard<std::mutex> lock(this->mu);
-        if (this->entries.find(task_key) == this->entries.end()) continue;
+        if (!this->entries.contains(task_key)) continue;
         this->op_queue.push_back(Op{Op::Type::REMOVE, task_key, {}, {}});
         this->cv.notify_one();
     }
@@ -466,7 +493,9 @@ void Manager::monitor_loop() {
                     synnax::task::Status status;
                     status.key = synnax::task::ontology_id(key).string();
                     status.variant = synnax::status::VARIANT_ERROR;
-                    status.message = "operation timed out";
+                    status.message = "Failed to complete task operation";
+                    status.description = "The operation did not finish within " +
+                                         this->op_timeout.to_string() + ".";
                     status.details.task = key;
                     {
                         std::lock_guard entry_lock{entry->mu};
@@ -503,7 +532,8 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                         synnax::task::Status status;
                         status.key = synnax::task::ontology_id(op.task_key).string();
                         status.variant = synnax::status::VARIANT_ERROR;
-                        status.message = err.message();
+                        status.message = "Failed to start task";
+                        status.description = err.data;
                         status.details.task = op.task_key;
                         status.details.cmd = op.cmd.key;
                         {
@@ -591,8 +621,10 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                     status.key = synnax::task::status_key(tsk);
                     status.name = tsk.name;
                     status.variant = synnax::status::VARIANT_ERROR;
-                    status.message = "no driver integration handles task type '" +
-                                     tsk.type + "'";
+                    status.message = "Failed to configure task";
+                    status.description = "No integration on this Driver handles task "
+                                         "type '" +
+                                         tsk.type + "'.";
                     status.details.task = op.task_key;
                     status.details.running = false;
                     status.details.cmd = op.cmd.key;

@@ -20,13 +20,17 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
   await capture.createComponent(session, "Schematic");
   await session.waitFor(page.locator(".pluto-diagram").first());
-  const tank = await capture.place(session, "Tank", { x: 520, y: 300 });
-  const valve = await capture.place(session, "Gate", { x: 950, y: 300 });
-  await capture.deselect(session, { x: 1300, y: 600 });
-  await session.moveTo({ x: 756, y: 640 });
+  // New symbols drop at the canvas center, so only the last one may sit there.
+  const tank = await capture.place(session, "Tank", { x: 300, y: 160 });
+  const valve = await capture.place(session, "Gate", { x: 700, y: 160 });
+  await capture.deselect(session, { x: 100, y: 290 });
+  await capture.fitView(session);
+  await session.moveTo({ x: 800, y: 620 });
 
   session.startRecording();
-  await session.hold(500);
+  await session.hold(1800);
+
+  await session.zoom([tank, valve], 1.6);
 
   // Hovering paints the attachment points; hold on them before the drag.
   await session.moveTo(tank);
@@ -35,8 +39,9 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.drag(capture.handle(tank, "right"), capture.handle(valve, "left"), {
     zoom: false,
   });
+  session.endZoom();
   await session.hold(600);
 
-  await session.moveTo({ x: 756, y: 660 });
-  await session.hold(500);
+  await session.moveTo({ x: 800, y: 620 });
+  await session.hold(2800);
 };

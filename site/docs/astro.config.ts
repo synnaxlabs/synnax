@@ -12,26 +12,31 @@ import mdx from "@astrojs/mdx";
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
+import { integration } from "@synnaxlabs/site-common/integration";
+import { symbols, theme } from "@synnaxlabs/site-common/shiki";
 import { layers } from "@synnaxlabs/vite-plugin";
-import { defineConfig, envField } from "astro/config";
+import { defineConfig } from "astro/config";
 
+import { schema } from "./src/util/env";
+import { inlineCode } from "./src/util/inlineCode";
 import { outline } from "./src/util/outline";
-import { symbols, theme } from "./src/util/shiki";
+import { quantities } from "./src/util/quantities";
+import { listReleaseNotes } from "./src/util/releaseNotes";
+
+// Each version's notes render only inside /releases, so their old routes point at the
+// version's anchor there.
+const RELEASE_REDIRECTS = Object.fromEntries(
+  listReleaseNotes().map(({ name, anchor }) => [
+    `/releases/${name}`,
+    `/releases/#${anchor}`,
+  ]),
+);
 
 // https://astro.build/config
 export default defineConfig({
-  integrations: [react(), mdx()],
+  integrations: [integration(), react(), mdx()],
   output: "server",
-  env: {
-    schema: {
-      // Vercel sets this at build time; flags read it to light up preview deploys.
-      VERCEL_ENV: envField.string({
-        context: "client",
-        access: "public",
-        optional: true,
-      }),
-    },
-  },
+  env: { schema },
   adapter: vercel({
     // Misses read Vercel's shared page cache, not the function, and pages refresh
     // with the release listing. The updater feeds stay uncached so a failed lookup
@@ -39,8 +44,9 @@ export default defineConfig({
     isr: { expiration: 300, exclude: [/^\/releases\/[^/]+\/(latest|next)\.json$/] },
   }),
   vite: {
-    // Lyra is ESM with CSS imports, which Node cannot load; Vite bundles it for SSR.
-    ssr: { noExternal: ["@synnaxlabs/lyra"] },
+    // These ship ESM with CSS imports, which Node cannot load; Vite bundles them for
+    // SSR.
+    ssr: { noExternal: ["@synnaxlabs/lyra", "@synnaxlabs/site-common"] },
     css: {
       postcss: { plugins: [layers([{ name: "pluto", files: /[\\/]lyra[\\/]/ }])] },
     },
@@ -51,7 +57,7 @@ export default defineConfig({
     },
   },
   markdown: {
-    processor: satteri({ hastPlugins: [outline] }),
+    processor: satteri({ hastPlugins: [outline, inlineCode, quantities] }),
     shikiConfig: {
       theme,
       langs: [arcGrammar],
@@ -123,6 +129,7 @@ export default defineConfig({
     "/reference/typescript-client/timestamps": "/reference/client/time-types",
     "/reference/typescript-client/examples": "/reference/client/examples",
     "/reference/typescript-client/troubleshooting": "/reference/client/troubleshooting",
+    ...RELEASE_REDIRECTS,
   },
   site: "https://docs.synnaxlabs.com",
 });

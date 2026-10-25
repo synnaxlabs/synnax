@@ -15,17 +15,8 @@ import {
   query,
   UnexpectedError,
 } from "@synnaxlabs/client";
-import {
-  array,
-  compare,
-  deep,
-  type optional,
-  type record,
-  verbs,
-  zod,
-} from "@synnaxlabs/x";
-import { useCallback, useMemo } from "react";
-import { type z } from "zod";
+import { array, compare, deep, type optional, verbs } from "@synnaxlabs/x";
+import { useCallback } from "react";
 
 import { Access } from "@/access";
 import { Flux } from "@/flux";
@@ -79,14 +70,15 @@ export interface KeyParams {
   key: panel.Key;
 }
 
+const useCanEditBase = ({ key }: KeyParams): boolean =>
+  Access.useUpdateGranted(panel.ontologyID(key));
+
 /**
  * Reports whether the subject may restructure the panel. Every mosaic gesture, from
  * closing a tab to resizing a split, reduces to one dispatch against the panel
  * document, so a single update grant answers all of them.
  */
-export const useCanEdit = Scope.bindHook(({ key }: KeyParams): boolean =>
-  Access.useUpdateGranted(panel.ontologyID(key)),
-);
+export const useCanEdit = Scope.bindHook(useCanEditBase);
 
 export interface TabContentParams {
   key: panel.Key;
@@ -108,13 +100,16 @@ type BoundTabHook<Args extends TabContentParams, R> = optional.Arg<
   R
 >;
 
-const bindTabHook =
-  <Args extends TabContentParams, R>(hook: (args: Args) => R): BoundTabHook<Args, R> =>
-  (args?: optional.Optional<Args, "key" | "tabKey">): R => {
+const bindTabHook = <Args extends TabContentParams, R>(
+  useHook: (args: Args) => R,
+): BoundTabHook<Args, R> => {
+  const useBound = (args?: optional.Optional<Args, "key" | "tabKey">): R => {
     const key = Scope.use(args?.key);
     const tabKey = TabScope.use(args?.tabKey);
-    return hook({ ...args, key, tabKey } as Args);
+    return useHook({ ...args, key, tabKey } as Args);
   };
+  return useBound;
+};
 
 export interface NodeParams extends KeyParams {
   nodeKey: number;
@@ -182,6 +177,12 @@ export const useRoot = Scope.bindHook(createSelector(({ root }) => root));
 
 export const useName = Scope.bindHook(createSelector(({ name }) => name));
 
+export const useIcon = Scope.bindHook(createSelector(({ icon }) => icon));
+
+export const useColor = Scope.bindHook(
+  createSelector(({ color }) => color, deep.equal),
+);
+
 export const useTab = bindTabHook(
   createSelector<panel.Tab, TabContentParams>(({ root }, params) =>
     requireTab(root, params),
@@ -210,8 +211,7 @@ export const useTabVariant = bindTabHook(
 );
 
 // useTabType selects the renderer type of the active tab: the resource's
-// ontology type for resource tabs, the view type for view tabs. Components that
-// render by type do not re-render when a view's args change.
+// ontology type for resource tabs, the view type for view tabs.
 export const useTabType = bindTabHook(
   createSelector<string, TabContentParams>(({ root }, params) => {
     const tab = requireTab(root, params);
@@ -231,31 +231,6 @@ export const useTabResource = bindTabHook(
     return tab.resource;
   }, deep.equal),
 );
-
-// useTabArgs selects only the opaque args of the active view tab, deep-equal
-// compared so it re-renders only when the args contents actually change. Throws
-// UnexpectedError when the active tab is not a view tab (see useTabResource).
-export const useTabArgs = bindTabHook(
-  createSelector<record.Unknown, TabContentParams>(({ root }, params) => {
-    const tab = requireTab(root, params);
-    if (tab.variant !== "view")
-      throw new UnexpectedError(`attempted to select args on resource tab ${tab.key}`);
-    return tab.args;
-  }, deep.equal),
-);
-
-// createSelectTabArgs builds a tab-scoped hook that selects the active view tab's
-// args and parses them with the given schema, for a typed view of a known content
-// kind. Returns null when the active tab is not a view tab.
-export const createSelectTabArgs =
-  <Z extends z.ZodType>(schema: Z): (() => z.output<Z>) =>
-  () => {
-    const args = useTabArgs({});
-    return useMemo(
-      () => zod.parse(schema, args, { label: "view arguments" }),
-      [args, schema],
-    );
-  };
 
 export interface ListParams extends Pick<panel.RetrieveRequest, "offset" | "limit"> {}
 

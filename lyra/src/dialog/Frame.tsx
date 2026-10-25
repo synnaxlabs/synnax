@@ -13,6 +13,7 @@ import {
   type ReactElement,
   type RefCallback,
   useCallback,
+  useEffect,
   useId,
   useMemo,
   useRef,
@@ -58,6 +59,11 @@ export interface FrameProps extends Omit<
   maxHeight?: Component.Size | number;
   zIndex?: number;
   modalPosition?: ModalPosition;
+  /**
+   * Places the dialog against this element instead of the frame's own box, for a dialog
+   * that opens on an element it does not wrap. The frame then takes no space.
+   */
+  anchor?: HTMLElement | null;
 }
 
 interface State {
@@ -116,38 +122,62 @@ export { useInternalContext };
 
 const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];
 
-const positionsEqual = (
-  variant: Variant,
-  next: box.Box,
-  prev?: box.Box | null,
-): boolean => {
-  const prevNull = prev == null;
-  if (prevNull) return false;
-  const topLeftEqual =
-    Math.abs(box.left(next) - box.left(prev)) <= 1 &&
-    Math.abs(box.top(next) - box.top(prev)) <= 1;
-  if (variant === "floating") return topLeftEqual;
-  const widthEqual = Math.abs(box.width(next) - box.width(prev)) <= 1;
-  return topLeftEqual && widthEqual;
+const FRAME_CLASS = CSS.BE("dialog", "frame");
+const OPEN_EVENT_NAME = "open-dialog";
+
+/**
+ * Opens the {@link Frame} with the given id, for code that does not render it, such as
+ * a command or a context menu.
+ *
+ * @throws {Error} if no frame has the id.
+ */
+export const open = (id: string): void => {
+  const frame = document.getElementById(id);
+  if (frame == null || !frame.classList.contains(FRAME_CLASS))
+    throw new Error(`no dialog frame has the id ${id}`);
+  frame.dispatchEvent(new Event(OPEN_EVENT_NAME));
 };
 
-const PREFERENCES: position.LocationPreference[] = [
+/** The gap in pixels a dialog keeps from the window edges. */
+const WINDOW_MARGIN = 6;
+
+/** Compares width too, since a wider dialog clamps further from the window edge. */
+const positionsEqual = (next: box.Box, prev?: box.Box | null): boolean => {
+  if (prev == null) return false;
+  return (
+    Math.abs(box.left(next) - box.left(prev)) <= 1 &&
+    Math.abs(box.top(next) - box.top(prev)) <= 1 &&
+    Math.abs(box.width(next) - box.width(prev)) <= 1
+  );
+};
+
+const BELOW: position.Preference[] = [
   {
     targetCorner: location.BOTTOM_LEFT,
     dialogCorner: location.TOP_LEFT,
   },
   {
-    targetCorner: location.TOP_LEFT,
-    dialogCorner: location.BOTTOM_LEFT,
-  },
-  {
     targetCorner: location.BOTTOM_RIGHT,
     dialogCorner: location.TOP_RIGHT,
+  },
+];
+
+const ABOVE: position.Preference[] = [
+  {
+    targetCorner: location.TOP_LEFT,
+    dialogCorner: location.BOTTOM_LEFT,
   },
   {
     targetCorner: location.TOP_RIGHT,
     dialogCorner: location.BOTTOM_RIGHT,
   },
+];
+
+const PREFERENCES: position.LocationPreference[] = [
+  BELOW[0],
+  ABOVE[0],
+  BELOW[1],
+  ABOVE[1],
   {
     targetCorner: location.TOP_RIGHT,
     dialogCorner: location.TOP_LEFT,
@@ -163,15 +193,6 @@ const selectModalPosition = (
   return "base";
 };
 
-/**
- * A controlled dropdown dialog component that wraps its children. For the simplest
- * case, use the {@link use} hook (more behavioral details explained there).
- * @param props - The props for the dropdown component. Unlisted props are passed to the
- * parent element.
- * @param props.visible - Whether the dropdown is visible or not. This is a controlled
- * @param props.children - Two children are expected: the dropdown trigger (often a
- * button or input) and the dropdown content.
- */
 /**
  * Pairs a {@link Trigger} with a {@link Dialog}, owning whether it is open and placing
  * it in whatever space the viewport leaves.
@@ -194,6 +215,7 @@ export const Frame = ({
   visible: propsVisible,
   onVisibleChange: propsOnVisibleChange,
   modalPosition: propsModalPosition = "base",
+  anchor,
   ...rest
 }: FrameProps): ReactElement => {
   const [visible, setVisible] = state.usePassthrough({
@@ -216,18 +238,22 @@ export const Frame = ({
   const targetRef = useRef<HTMLDivElement>(null);
   const prevLocationPreference = useRef<position.Preference | undefined>(undefined);
   const prevBox = useRef<box.Box | undefined>(undefined);
+  const prevWindowBox = useRef<box.Box | undefined>(undefined);
+  const prevAvailableHeight = useRef<number | undefined>(undefined);
   const dialogRef = useRef<HTMLDivElement>(null);
 
   const [{ targetCorner, dialogCorner, style, modalPosition }, setState] =
     useState<State>({ ...ZERO_STATE, modalPosition: propsModalPosition });
 
   const calculatePosition = useCallback(() => {
-    if (targetRef.current == null || dialogRef.current == null || !visibleRef.current)
-      return;
-    const target = box.construct(targetRef.current);
+    const targetEl = anchor ?? targetRef.current;
+    if (targetEl == null || dialogRef.current == null || !visibleRef.current) return;
+    const target = box.construct(targetEl);
     if (box.areaIsZero(target) && variant !== "modal") return close();
 
-    let dialog = box.construct(dialogRef.current);
+    // Layout size, not the painted box: the entrance animation scales the dialog.
+    const { offsetWidth, offsetHeight } = dialogRef.current;
+    let dialog = box.construct(0, 0, offsetWidth, offsetHeight);
     if (variant === "connected") dialog = box.resize(dialog, "x", box.width(target));
     const windowBox = box.construct(0, 0, window.innerWidth, window.innerHeight);
     if (variant === "modal") {
@@ -243,6 +269,17 @@ export const Frame = ({
     let prefer = PREFERENCES;
     if (prevLocationPreference.current != null)
       prefer = [prevLocationPreference.current, ...PREFERENCES];
+    // A dialog at its height limit fits on either side, so the side with more room
+    // leads.
+    if (
+      prevAvailableHeight.current != null &&
+      offsetHeight >= prevAvailableHeight.current - 1
+    ) {
+      const roomAbove = box.top(target);
+      const roomBelow = box.height(windowBox) - box.bottom(target);
+      if (roomAbove !== roomBelow)
+        prefer = [...(roomAbove > roomBelow ? ABOVE : BELOW), ...prefer];
+    }
     // In the connected or floating case, we use a more sophisticated positioning
     // algorithm.
     const { adjustedDialog, ...locations } = position.position({
@@ -256,24 +293,60 @@ export const Frame = ({
     prevLocationPreference.current = locations;
     const { targetCorner, dialogCorner } = locations;
     const roundedDialog = box.round(adjustedDialog);
-    if (positionsEqual(variant, roundedDialog, prevBox.current)) return;
+    if (
+      positionsEqual(roundedDialog, prevBox.current) &&
+      prevWindowBox.current != null &&
+      box.equals(windowBox, prevWindowBox.current)
+    )
+      return;
     prevBox.current = roundedDialog;
-    const style: CSSProperties = {};
-    style.left = box.left(roundedDialog);
-    if (targetCorner.y === "top" && dialogCorner.x === targetCorner.x)
-      style.bottom = box.height(windowBox) - box.bottom(roundedDialog);
-    else style.top = box.top(roundedDialog);
+    prevWindowBox.current = windowBox;
+    const windowWidth = box.width(windowBox);
+    const windowHeight = box.height(windowBox);
+    const style: CSSProperties & Record<string, string | number> = {};
+    style.left = Math.max(
+      WINDOW_MARGIN,
+      Math.min(
+        box.left(roundedDialog),
+        windowWidth - WINDOW_MARGIN - box.width(roundedDialog),
+      ),
+    );
+    let availableHeight: number;
+    if (targetCorner.y === "top" && dialogCorner.x === targetCorner.x) {
+      const bottom = Math.max(WINDOW_MARGIN, windowHeight - box.bottom(roundedDialog));
+      style.bottom = bottom;
+      availableHeight = windowHeight - bottom - WINDOW_MARGIN;
+    } else {
+      const top = Math.max(WINDOW_MARGIN, box.top(roundedDialog));
+      style.top = top;
+      availableHeight = windowHeight - top - WINDOW_MARGIN;
+    }
+    prevAvailableHeight.current = availableHeight;
+    style[CSS.variable("dialog-available-width")] =
+      `${windowWidth - 2 * WINDOW_MARGIN}px`;
+    style[CSS.variable("dialog-available-height")] = `${availableHeight}px`;
     if (variant === "connected") style.width = box.width(roundedDialog);
-    if (typeof maxHeight === "number") style.maxHeight = maxHeight;
+    if (typeof maxHeight === "number")
+      style[CSS.variable("dialog-max-height")] = `${maxHeight}px`;
     if (visible) style.zIndex = zIndex;
     setState((prev) => ({ ...prev, targetCorner, dialogCorner, style }));
-  }, [propsLocation, variant, close]);
+  }, [visibleRef, variant, close, propsLocation, maxHeight, visible, zIndex, anchor]);
 
   const resizeDialogRef = useResize(calculatePosition, { enabled: visible });
   const combinedDialogRef = useCombinedRefs(dialogRef, resizeDialogRef);
 
   const resizeTargetRef = useResize(calculatePosition, { enabled: visible });
   const combinedTargetRef = useCombinedRefs(targetRef, resizeTargetRef);
+
+  const resizeAnchorRef = useResize(calculatePosition, { enabled: visible });
+  useEffect(() => resizeAnchorRef(anchor ?? null), [anchor, resizeAnchorRef]);
+
+  useEffect(() => {
+    const frame = targetRef.current;
+    if (frame == null) return;
+    frame.addEventListener(OPEN_EVENT_NAME, open);
+    return () => frame.removeEventListener(OPEN_EVENT_NAME, open);
+  }, [open]);
 
   useWindowResize(calculatePosition);
 
@@ -300,7 +373,7 @@ export const Frame = ({
         dialog = dialog.children[0] as HTMLElement;
       return dialog !== dialogRef.current;
     },
-    [zIndex, visibleRef],
+    [visibleRef, variant],
   );
 
   const handleEscape = useCallback(
@@ -311,21 +384,23 @@ export const Frame = ({
         dialogRef.current == null
       )
         return;
+      const dialogEl = dialogRef.current;
+      // A dialog with an open child dialog leaves Escape to the child.
+      if (dialogEl.querySelector(`.${FRAME_CLASS}.${CSS.visible(true)}`) != null)
+        return;
       if (variant !== "modal") {
         close();
         stopPropagation();
         return;
       }
-      const dialogEl = dialogRef.current;
       const allModals = Array.from(document.getElementsByClassName(BACKGROUND_CLASS));
       const thisModalIndex = allModals.findIndex((e) => e.contains(dialogEl));
-      const children = dialogEl.getElementsByClassName(CSS.visible(true));
-      if (thisModalIndex === allModals.length - 1 && children.length === 0) {
+      if (thisModalIndex === allModals.length - 1) {
         close();
         stopPropagation();
       }
     },
-    [close, variant],
+    [visibleRef, close, variant],
   );
 
   useClickOutside({ ref: dialogRef, exclude, onClickOutside: close });
@@ -358,7 +433,7 @@ export const Frame = ({
       variant,
       location: targetCorner,
     }),
-    [close, open, toggle, visible, targetCorner],
+    [close, open, toggle, visible, onPointerEnter, variant, targetCorner],
   );
 
   return (
@@ -370,7 +445,8 @@ export const Frame = ({
           ref={combinedTargetRef}
           className={CSS.cls(
             className,
-            CSS.BE("dialog", "frame"),
+            FRAME_CLASS,
+            anchor != null && CSS.M("anchored"),
             CSS.visible(visible),
             CSS.M(variant),
             CSS.loc(targetCorner.x),

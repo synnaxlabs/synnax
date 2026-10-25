@@ -22,29 +22,30 @@ import { Project } from "@/project";
 import { Form } from "@/schematic/node/common/form";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { PAGE_ICONS } from "@/schematic/node/general/offPageReference/config";
-import { type FormProps } from "@/schematic/node/spec";
+import { type ColorFallbacks, type FormProps } from "@/schematic/node/spec";
 import { Synnax } from "@/synnax";
 
-const ClickModeSelect = Component.renderProp(
-  ({
-    value,
-    onChange,
-  }: {
-    value: boolean;
-    onChange: (v: boolean) => void;
-  }): ReactElement => {
-    const handleChange = useCallback(
-      (v: string) => onChange(v === "single"),
-      [onChange],
-    );
-    return (
-      <Select.Buttons value={value ? "single" : "double"} onChange={handleChange}>
-        <Select.Item itemKey="single">Single</Select.Item>
-        <Select.Item itemKey="double">Double</Select.Item>
-      </Select.Buttons>
-    );
-  },
-);
+export const colorFallbacks = {
+  fillColor: Form.defaultFallback,
+} satisfies ColorFallbacks;
+
+const ClickMode = ({
+  value,
+  onChange,
+}: {
+  value: boolean;
+  onChange: (v: boolean) => void;
+}): ReactElement => {
+  const handleChange = useCallback((v: string) => onChange(v === "single"), [onChange]);
+  return (
+    <Select.Buttons value={value ? "single" : "double"} onChange={handleChange}>
+      <Select.Item itemKey="single">Single</Select.Item>
+      <Select.Item itemKey="double">Double</Select.Item>
+    </Select.Buttons>
+  );
+};
+
+const ClickModeSelect = Component.renderProp(ClickMode);
 
 interface Sibling extends record.KeyedNamed {
   icon: Icon.ReactElement;
@@ -67,7 +68,7 @@ const useHandlePageChange = (): ((v: string | null) => void) => {
         cleared ? undefined : schematic.pageZ.parse(ontology.stringIDZ.parse(v)),
       );
       const hadPage = prev != null && prev.key.length > 0;
-      if (!hadPage && !cleared) ctx.set("color", color.hex(theme.colors.primary.z));
+      if (!hadPage && !cleared) ctx.set("fillColor", color.hex(theme.colors.primary.z));
     },
     [ctx, theme],
   );
@@ -107,13 +108,8 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
     <Base.Sections x>
       <Base.Section title="Label">
         <Base.TextField path="label.label" label="Label" padHelpText={false} />
-        <Base.Field<text.Level>
-          hideIfNull
-          path="label.level"
-          label="Size"
-          padHelpText={false}
-        >
-          {Form.SelectTextLevel}
+        <Base.Field<text.Level> path="label.level" label="Size" padHelpText={false}>
+          {(p) => <Form.SelectTextLevel {...p} />}
         </Base.Field>
       </Base.Section>
       <Base.Section title="Navigation">
@@ -126,7 +122,7 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
             allowNone
           >
             {siblings.map(({ key, name, icon }) => (
-              <Select.Item key={key} itemKey={key}>
+              <Select.Item key={key} itemKey={key} textValue={name}>
                 {icon}
                 {name}
               </Select.Item>
@@ -137,13 +133,12 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
           path="dblClickNavDisabled"
           label="Click mode"
           padHelpText={false}
-          hideIfNull={false}
         >
           {ClickModeSelect}
         </Base.Field>
       </Base.Section>
       <Base.Section title="Appearance">
-        <Form.ColorField path="color" />
+        <Form.FillField fallback={colorFallbacks.fillColor} />
       </Base.Section>
       <Orientation.Section path="" hideOuter />
     </Base.Sections>

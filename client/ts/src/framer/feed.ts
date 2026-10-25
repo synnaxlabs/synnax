@@ -43,12 +43,14 @@ export interface FeedProps
     Omit<MultiplexedStreamerProps, "cache" | "openStreamer"> {
   openStreamer: StreamOpener;
   readLatest: LatestReader;
+  /** Receives each failed reconnect attempt of the stream. Defaults to console.warn. */
+  onRetry?: (error: Error) => void;
 }
 
 /** The part of {@link FeedProps} a caller sets. The client supplies the rest. */
 export interface FeedOptions extends Omit<
   FeedProps,
-  "readRemote" | "openStreamer" | "readLatest"
+  "readRemote" | "openStreamer" | "readLatest" | "onRetry"
 > {}
 
 /**
@@ -79,6 +81,9 @@ export class Feed {
       breaker,
       batchDebounce,
       overlapThreshold,
+      fetchTimeout,
+      now,
+      onRetry,
     } = props;
     this.cache = new Cache({
       transform,
@@ -93,11 +98,22 @@ export class Feed {
       cache: this.cache,
       batchDebounce,
       overlapThreshold,
+      fetchTimeout,
+      now,
     });
     this.streamer = new MultiplexedStreamer({
       cache: this.cache,
-      openStreamer: async (config, { onReopen, onDrop }) =>
-        await HardenedStreamer.open(openStreamer, config, breaker, onReopen, onDrop),
+      openStreamer: async (config, { onReopen, onDrop, signal }) => {
+        const streamer = new HardenedStreamer(openStreamer, config, {
+          breaker,
+          onReopen,
+          onDrop,
+          onRetry,
+        });
+        signal.addEventListener("abort", () => streamer.close());
+        await streamer.start();
+        return streamer;
+      },
       removalDelay,
       breaker,
       instrumentation: instrumentation?.child("streamer"),

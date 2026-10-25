@@ -9,12 +9,18 @@
 
 import { act, fireEvent, render } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { Button } from "@/button";
 import { Icon } from "@/icon";
 import { Status } from "@/status";
 import { type NotificationSpec } from "@/status/Aggregator";
+import {
+  stubClipboardUnavailable,
+  stubClipboardWriteText,
+  stubCopyCommand,
+  stubCopyCommandUnavailable,
+} from "@/testutil";
 
 const StatusSpy = ({ onStatuses }: { onStatuses: (s: NotificationSpec[]) => void }) => {
   const { statuses } = Status.useNotifications();
@@ -22,24 +28,23 @@ const StatusSpy = ({ onStatuses }: { onStatuses: (s: NotificationSpec[]) => void
   return null;
 };
 
+const quiet: Status.Log = () => {};
+
 const wrapper = ({ children }: PropsWithChildren) => (
-  <Status.Aggregator>{children}</Status.Aggregator>
+  <Status.Aggregator log={quiet}>{children}</Status.Aggregator>
 );
 
 describe("Copy", () => {
-  const writeText = vi.fn();
+  let writeText: Mock;
 
   beforeEach(() => {
     vi.useFakeTimers();
-    Object.assign(navigator, {
-      clipboard: { writeText },
-    });
-    writeText.mockResolvedValue(undefined);
+    writeText = stubClipboardWriteText();
+    stubCopyCommandUnavailable();
   });
 
   afterEach(() => {
     vi.useRealTimers();
-    writeText.mockReset();
   });
 
   describe("rendering", () => {
@@ -184,6 +189,17 @@ describe("Copy", () => {
       expect(onCopy).toHaveBeenCalledTimes(1);
     });
 
+    it("should copy through the command and show the check icon without the clipboard API", async () => {
+      stubClipboardUnavailable();
+      const copied = stubCopyCommand();
+      const c = render(<Button.Copy text="hello" />);
+      await act(async () => {
+        fireEvent.click(c.container.querySelector(".pluto-icon--copy")!);
+      });
+      expect(copied).toHaveBeenCalledWith("hello");
+      expect(c.container.querySelector(".pluto-icon--check")!).toBeTruthy();
+    });
+
     it("should not show the check icon when copying fails", async () => {
       writeText.mockRejectedValue(new Error("Failed"));
       const c = render(<Button.Copy text="hello" />, { wrapper });
@@ -199,7 +215,7 @@ describe("Copy", () => {
     it("should push a success status when successMessage is provided", async () => {
       const spy = vi.fn();
       const c = render(
-        <Status.Aggregator>
+        <Status.Aggregator log={quiet}>
           <StatusSpy onStatuses={spy} />
           <Button.Copy text="hello" successMessage="Copied!" />
         </Status.Aggregator>,
@@ -217,7 +233,7 @@ describe("Copy", () => {
       const spy = vi.fn();
       let name = "Task A";
       const c = render(
-        <Status.Aggregator>
+        <Status.Aggregator log={quiet}>
           <StatusSpy onStatuses={spy} />
           <Button.Copy text="hello" successMessage={() => `Copied ${name}`} />
         </Status.Aggregator>,
@@ -231,9 +247,57 @@ describe("Copy", () => {
       expect(lastCall[0].message).toBe("Copied Task B");
     });
 
+    it("should name the success status from a heading", async () => {
+      const spy = vi.fn();
+      const c = render(
+        <Status.Aggregator log={quiet}>
+          <StatusSpy onStatuses={spy} />
+          <Button.Copy
+            text="hello"
+            successMessage={{
+              message: "Copied Python code to clipboard",
+              name: "Run 12",
+            }}
+          />
+        </Status.Aggregator>,
+      );
+      await act(async () => {
+        fireEvent.click(c.container.querySelector(".pluto-icon--copy")!);
+      });
+      const lastCall = spy.mock.lastCall?.[0] as NotificationSpec[];
+      expect(lastCall).toHaveLength(1);
+      expect(lastCall[0].name).toBe("Run 12");
+      expect(lastCall[0].message).toBe("Copied Python code to clipboard");
+    });
+
+    it("should name the error status from the success heading", async () => {
+      writeText.mockRejectedValue(new Error("Clipboard denied"));
+      const spy = vi.fn();
+      const c = render(
+        <Status.Aggregator log={quiet}>
+          <StatusSpy onStatuses={spy} />
+          <Button.Copy
+            text="hello"
+            successMessage={{
+              message: "Copied Python code to clipboard",
+              name: "Run 12",
+            }}
+          />
+        </Status.Aggregator>,
+      );
+      await act(async () => {
+        fireEvent.click(c.container.querySelector(".pluto-icon--copy")!);
+      });
+      const lastCall = spy.mock.lastCall?.[0] as NotificationSpec[];
+      expect(lastCall).toHaveLength(1);
+      expect(lastCall[0].variant).toBe("error");
+      expect(lastCall[0].name).toBe("Run 12");
+      expect(lastCall[0].message).toBe("Failed to copy to clipboard");
+    });
+
     it("should not show the check icon when successMessage is provided", async () => {
       const c = render(
-        <Status.Aggregator>
+        <Status.Aggregator log={quiet}>
           <Button.Copy text="hello" successMessage="Copied!" />
         </Status.Aggregator>,
       );
@@ -247,7 +311,7 @@ describe("Copy", () => {
     it("should not push a status when successMessage is not provided", async () => {
       const spy = vi.fn();
       const c = render(
-        <Status.Aggregator>
+        <Status.Aggregator log={quiet}>
           <StatusSpy onStatuses={spy} />
           <Button.Copy text="hello" />
         </Status.Aggregator>,
@@ -263,7 +327,7 @@ describe("Copy", () => {
       writeText.mockRejectedValue(new Error("Clipboard denied"));
       const spy = vi.fn();
       const c = render(
-        <Status.Aggregator>
+        <Status.Aggregator log={quiet}>
           <StatusSpy onStatuses={spy} />
           <Button.Copy text="hello" />
         </Status.Aggregator>,
@@ -274,14 +338,15 @@ describe("Copy", () => {
       const lastCall = spy.mock.lastCall?.[0] as NotificationSpec[];
       expect(lastCall).toHaveLength(1);
       expect(lastCall[0].variant).toBe("error");
-      expect(lastCall[0].message).toBe("Clipboard denied");
+      expect(lastCall[0].message).toBe("Failed to copy to clipboard");
+      expect(lastCall[0].description).toBe("Clipboard denied");
     });
 
     it("should push an error status when an async text function rejects", async () => {
       const getText = vi.fn(() => Promise.reject(new Error("Failed to compute")));
       const spy = vi.fn();
       const c = render(
-        <Status.Aggregator>
+        <Status.Aggregator log={quiet}>
           <StatusSpy onStatuses={spy} />
           <Button.Copy text={getText} />
         </Status.Aggregator>,
@@ -292,7 +357,8 @@ describe("Copy", () => {
       const lastCall = spy.mock.lastCall?.[0] as NotificationSpec[];
       expect(lastCall).toHaveLength(1);
       expect(lastCall[0].variant).toBe("error");
-      expect(lastCall[0].message).toBe("Failed to compute");
+      expect(lastCall[0].message).toBe("Failed to copy to clipboard");
+      expect(lastCall[0].description).toBe("Failed to compute");
     });
   });
 

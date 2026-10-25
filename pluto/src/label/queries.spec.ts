@@ -9,11 +9,13 @@
 
 import { label } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { color, testutil, TimeSpan } from "@synnaxlabs/x";
+import { color, TimeSpan } from "@synnaxlabs/x";
+import { expectAlways } from "@synnaxlabs/x/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
+import { Flux } from "@/flux";
 import { Label } from "@/label";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
@@ -26,6 +28,26 @@ describe("queries", () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
   });
   describe("useList", () => {
+    it("should update an item read by key when it changes", async () => {
+      const item = await client.labels.create({ name: "original", color: "#FF0000" });
+      const { result } = renderHook(
+        () => {
+          const list = Label.useList({ useCachedList: false });
+          return Flux.useListItem({
+            subscribe: list.subscribe,
+            getItem: list.getItem,
+            key: item.key,
+          });
+        },
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current?.name).toEqual("original"));
+      await act(async () => {
+        await client.labels.create({ ...item, name: "updated" });
+      });
+      await waitFor(() => expect(result.current?.name).toEqual("updated"));
+    });
+
     it("should return a list of label keys", async () => {
       const label1 = await client.labels.create({
         name: "label1",
@@ -489,7 +511,7 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       act(() => result.current.form.set("name", "edited"));
       await act(async () => await client.labels.delete(toDelete.key));
-      await testutil.expectAlways(async () => {
+      await expectAlways(async () => {
         await expect(
           async () => await client.labels.retrieve(toDelete.key),
         ).rejects.toThrow();

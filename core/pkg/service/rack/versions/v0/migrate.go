@@ -15,11 +15,11 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
@@ -37,8 +37,8 @@ type MigrationConfig struct {
 
 // newMigration returns the v0 migration, which renames the host's embedded rack and
 // backfills an unknown status for every rack missing one.
-func newMigration(cfg MigrationConfig) migrate.Migration {
-	return gorp.NewMigration(
+func newMigration(cfg MigrationConfig) gorp.Migration {
+	return migrate.New(
 		"v0.embedded_rack_rename_status_backfill",
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
 			if err := renameEmbeddedRack(ctx, tx, ins, cfg); err != nil {
@@ -157,12 +157,12 @@ func backfillStatuses(
 }
 
 // codecMigration re-encodes stored racks from MessagePack to Orc.
-var codecMigration = gorp.CodecMigration[Key, Rack]("msgpack_to_orc")
+var codecMigration = migrate.Codec[Key, Rack]("msgpack_to_orc")
 
 // NewMigrations returns the ordered set of migrations introduced at this version.
-func NewMigrations(cfg MigrationConfig) []migrate.Migration {
-	return []migrate.Migration{newMigration(cfg), codecMigration}
+func NewMigrations(cfg MigrationConfig) []gorp.Migration {
+	return []gorp.Migration{newMigration(cfg), codecMigration}
 }
 
 // NormalizeKeys re-keys Rack rows stored under the pre-v0.54 key format.
-var NormalizeKeys = gorp.NormalizeKeysMigration[Key, Rack]("Rack")
+var NormalizeKeys = migrate.NormalizeKeys[Key, Rack]("Rack")

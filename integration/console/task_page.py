@@ -29,8 +29,8 @@ class TaskPage(ConsolePage):
     """
 
     pluto_label: str = ".console-task-configure"
-    STARTED_MESSAGE = "Task started successfully"
-    STOPPED_MESSAGE = "Task stopped successfully"
+    STARTED_MESSAGE = "Started task"
+    STOPPED_MESSAGE = "Stopped task"
 
     def __init__(
         self,
@@ -212,13 +212,11 @@ class TaskPage(ConsolePage):
             self.name_input().fill(task_name)
             layout.press_enter()
 
-        if data_saving is not None:
-            if data_saving != layout.get_toggle("Data saving"):
-                layout.click_checkbox("Data saving")
+        if data_saving is not None and data_saving != layout.get_toggle("Data saving"):
+            layout.click_checkbox("Data saving")
 
-        if auto_start is not None:
-            if auto_start != layout.get_toggle("Auto start"):
-                layout.click_checkbox("Auto start")
+        if auto_start is not None and auto_start != layout.get_toggle("Auto start"):
+            layout.click_checkbox("Auto start")
 
         if sample_rate is not None:
             layout.fill_input_field("Sample rate", str(sample_rate))

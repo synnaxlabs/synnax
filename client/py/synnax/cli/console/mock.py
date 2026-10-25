@@ -28,7 +28,7 @@ class Entry(BaseModel, Generic[R]):
     choices: list[R] | None = None
     default: R | None = None
     response: R | None = None
-    type_: type[R] | None = None
+    type_: type[str | int | float | bool] | None = None
     password: bool | None = None
 
 
@@ -36,7 +36,7 @@ class Output(BaseModel):
     entries: list[Entry[Any]]
 
     def __init__(self, entries: list[Entry[Any]] | None = None):
-        super().__init__(entries=entries or list())
+        super().__init__(entries=entries or [])
 
     def append(self, entry: Entry[Any]) -> None:
         assert self.entries is not None
@@ -126,7 +126,7 @@ class MockPrompt:
             password=password,
             response=response,
         )
-        if type(response) != resolved_type:
+        if type(response) is not resolved_type:
             raise TypeError(f"""
                 Mock Prompt: Invalid response type
                 Question: {question}
@@ -141,7 +141,7 @@ class MockConsole(MockPrint, MockPrompt):
 
     def __init__(
         self,
-        output: Output = Output(),
+        output: Output | None = None,
         responses: list[Any] | None = None,
         verbose: bool = False,
     ):
@@ -150,8 +150,9 @@ class MockConsole(MockPrint, MockPrompt):
         :param responses: A list of responses to return in order. These responses
         must be valid for the type of prompt being used.
         """
+        output = output if output is not None else Output()
         MockPrint.__init__(self, output, verbose)
-        MockPrompt.__init__(self, output, responses or list())
+        MockPrompt.__init__(self, output, responses or [])
 
     def _(self) -> Console:
         return self

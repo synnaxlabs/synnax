@@ -15,14 +15,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
+	gorptestutil "github.com/synnaxlabs/gorp/testutil"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions/v0"
 	access "github.com/synnaxlabs/synnax/pkg/service/access/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
-	gorptestutil "github.com/synnaxlabs/x/gorp/testutil"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -42,7 +41,7 @@ var _ = Describe("Migration", func() {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  "Policy",
-			Migrations: []migrate.Migration{v0.Migration},
+			Migrations: []gorp.Migration{v0.Migration},
 		})).To(Succeed())
 	}
 
@@ -116,6 +115,21 @@ var _ = Describe("Migration", func() {
 	)
 })
 
+var _ = DescribeTable("AlreadyMigrated",
+	func(ctx SpecContext, stored []byte, migrated bool) {
+		db := gorp.Wrap(DeferClose(memkv.New()))
+		if stored != nil {
+			Expect(db.Set(ctx, []byte("sy_rbac_migration_performed"), stored)).
+				To(Succeed())
+		}
+		tx := DeferClose(db.OpenTx())
+		Expect(MustSucceed(v0.AlreadyMigrated(ctx, tx))).To(Equal(migrated))
+	},
+	Entry("no flag", nil, false),
+	Entry("the flag a v0.53 Core set", []byte{1}, true),
+	Entry("any other flag value", []byte{2}, false),
+)
+
 var _ = Describe("Legacy mappings", func() {
 	var db *gorp.DB
 	BeforeEach(func() { db = DeferClose(gorp.Wrap(memkv.New())) })
@@ -168,7 +182,7 @@ var _ = Describe("NormalizeKeys", func() {
 			)
 			table := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Policy]{
 				DB:         db,
-				Migrations: []migrate.Migration{v0.NormalizeKeys},
+				Migrations: []gorp.Migration{v0.NormalizeKeys},
 			}))
 			var res v0.Policy
 			Expect(table.NewRetrieve().

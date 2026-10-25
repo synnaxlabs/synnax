@@ -13,6 +13,7 @@ import { type ReactElement } from "react";
 import { type Generic } from "@/generic";
 import { Icon } from "@/icon";
 import { Text as Base } from "@/text";
+import { useReserved } from "@/triggers/Provider";
 import { type Key, type Trigger } from "@/triggers/triggers";
 
 /** Props for {@link Text}. */
@@ -37,6 +38,10 @@ const CUSTOM_TEXT: Partial<Record<Key, ReactElement | string>> = {
   MouseRight: <Icon.Click key="mouse" />,
   MouseMiddle: <Icon.Click key="mouse" />,
   Enter: <Icon.Keyboard.Return key="enter" />,
+  ArrowUp: <Icon.Keyboard.Arrow.Up key="arrow-up" />,
+  ArrowDown: <Icon.Keyboard.Arrow.Down key="arrow-down" />,
+  ArrowLeft: <Icon.Keyboard.Arrow.Left key="arrow-left" />,
+  ArrowRight: <Icon.Keyboard.Arrow.Right key="arrow-right" />,
   Escape: word("esc", "Esc"),
   Delete: word("delete", "Delete"),
   Backspace: word("delete", "Backspace"),
@@ -72,7 +77,7 @@ export const toSymbols = (trigger: Trigger): (ReactElement | string)[] =>
 
 /**
  * Renders a shortcut as keycaps followed by its label, with the platform's own modifier
- * symbols.
+ * symbols. A trigger the {@link Provider} reserves shows only its label, or nothing.
  *
  * @example <Triggers.Text trigger={["Control", "S"]}>Save</Triggers.Text>
  */
@@ -81,15 +86,21 @@ export const Text = <E extends Generic.ElementType = "p">({
   children,
   level,
   ...rest
-}: TextProps<E>): ReactElement => (
-  <Base.Text level={level} gap="small" {...rest}>
-    <Base.Text level={level} gap="tiny" el="span">
-      {sortTriggers(trigger).map((t) => (
-        <Base.Text key={t} el="span" variant="keyboard" level={level}>
-          {getCustomText(t)}
+}: TextProps<E>): ReactElement | null => {
+  const reserved = useReserved(trigger);
+  if (reserved && children == null) return null;
+  return (
+    <Base.Text level={level} gap="small" {...rest}>
+      {!reserved && (
+        <Base.Text level={level} gap="tiny" el="span">
+          {sortTriggers(trigger).map((t) => (
+            <Base.Text key={t} el="span" variant="keyboard" level={level}>
+              {getCustomText(t)}
+            </Base.Text>
+          ))}
         </Base.Text>
-      ))}
+      )}
+      {children}
     </Base.Text>
-    {children}
-  </Base.Text>
-);
+  );
+};

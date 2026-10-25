@@ -10,6 +10,7 @@
 package license_test
 
 import (
+	"context"
 	"crypto/mldsa"
 	"encoding/base64"
 	"encoding/binary"
@@ -90,6 +91,13 @@ var _ = Describe("License", func() {
 		GinkgoHelper()
 		key := append([]byte("license/"), lic.Jti.String()...)
 		Expect(db.Set(ctx, key, []byte(sign(lic)))).To(Succeed())
+	}
+	// announcements collects every key svc announces a change under.
+	announcements := func(svc *license.Service) <-chan string {
+		GinkgoHelper()
+		keys := make(chan string, 10)
+		DeferCleanup(svc.OnChange(func(_ context.Context, key string) { keys <- key }))
+		return keys
 	}
 	open := func(ctx SpecContext, cfgs ...license.ServiceConfig) *license.Service {
 		GinkgoHelper()
@@ -260,8 +268,10 @@ var _ = Describe("License", func() {
 			info := svc.Retrieve()
 			Expect(info.State).To(Equal(license.StateMissing))
 			Expect(info.License).To(BeNil())
-			Expect(svc.Check()).To(MatchError(license.ErrMissing))
-			Expect(svc.CheckChannelLimit(1000)).To(Succeed())
+			Expect(info.Warning).To(ContainSubstring("limited to 50 channels"))
+			Expect(svc.Check()).To(Succeed())
+			Expect(svc.CheckChannelLimit(50)).To(Succeed())
+			Expect(svc.CheckChannelLimit(51)).To(MatchError(license.ErrTooMany))
 		})
 		It(
 			"should accept a license key on open and load it on the next",
@@ -285,12 +295,27 @@ var _ = Describe("License", func() {
 				})).Error().To(MatchError(license.ErrInvalid))
 			},
 		)
-		It("should remove the previous format's entry", func(ctx SpecContext) {
+		Describe("Numeric key stored by an earlier Core", func() {
 			legacy := []byte("bGljZW5zZUtleQ==")
-			Expect(db.Set(ctx, legacy, []byte("old"))).To(Succeed())
-			svc := open(ctx)
-			Expect(svc.Close()).To(Succeed())
-			Expect(db.Get(ctx, legacy)).Error().To(MatchError(query.ErrNotFound))
+			It("should apply the key and move its entry", func(ctx SpecContext) {
+				key := numericKey(now.Add(30*day), 100)
+				Expect(db.Set(ctx, legacy, []byte(key))).To(Succeed())
+				svc := open(ctx)
+				info := svc.Retrieve()
+				Expect(info.State).To(Equal(license.StateOk))
+				Expect(*info.License).To(Equal(MustSucceed(license.ParseLegacy(key))))
+				Expect(svc.Close()).To(Succeed())
+				Expect(db.Get(ctx, legacy)).Error().To(MatchError(query.ErrNotFound))
+				Expect(open(ctx).Retrieve().State).To(Equal(license.StateOk))
+			})
+			It(
+				"should fail to open on a key that does not parse",
+				func(ctx SpecContext) {
+					Expect(db.Set(ctx, legacy, []byte("old"))).To(Succeed())
+					Expect(license.OpenService(ctx, cfg)).Error().
+						To(MatchError(license.ErrInvalid))
+				},
+			)
 		})
 		It("should prefer a covering entry over an expired one", func(ctx SpecContext) {
 			expired := newLicense()
@@ -317,7 +342,7 @@ var _ = Describe("License", func() {
 				store(ctx, lic)
 				svc := open(ctx)
 				Expect(svc.Retrieve().State).To(Equal(license.StateMissing))
-				Expect(svc.Check()).To(MatchError(license.ErrMissing))
+				Expect(svc.Check()).To(Succeed())
 			},
 		)
 		It(
@@ -329,7 +354,7 @@ var _ = Describe("License", func() {
 					Anchors: license.Anchors{keyID: other.PublicKey()},
 				})
 				Expect(svc.Retrieve().State).To(Equal(license.StateMissing))
-				Expect(svc.Check()).To(MatchError(license.ErrMissing))
+				Expect(svc.Check()).To(Succeed())
 			},
 		)
 		It("should report a stored entry that no longer covers", func(ctx SpecContext) {
@@ -424,6 +449,18 @@ var _ = Describe("License", func() {
 				Expect(svc.Retrieve().Warning).To(BeEmpty())
 			},
 		)
+		It(
+			"should announce the license once a clock that was behind catches up",
+			func(ctx SpecContext) {
+				svc := open(ctx, license.ServiceConfig{Key: sign(newLicense())})
+				Expect(svc.Close()).To(Succeed())
+				clock.Store(now.Add(-2 * day).UnixNano())
+				svc = open(ctx, clocked)
+				keys := announcements(svc)
+				clock.Store(now.Add(time.Hour).UnixNano())
+				Eventually(keys).Should(Receive(Equal(license.OntologyKey)))
+			},
+		)
 		It("should never move the recorded time back", func(ctx SpecContext) {
 			svc := open(ctx, clocked, license.ServiceConfig{Key: sign(newLicense())})
 			Expect(mark(ctx)()).To(Equal(now.UnixNano()))
@@ -472,6 +509,57 @@ var _ = Describe("License", func() {
 			info := MustSucceed(svc.Activate(ctx, sign(newLicense())))
 			Expect(info.State).To(Equal(license.StateOk))
 			Expect(info.Warning).To(BeEmpty())
+		})
+		It("should accept a numeric key and cap its channels", func(ctx SpecContext) {
+			info := MustSucceed(svc.Activate(ctx, numericKey(now.Add(30*day), 100)))
+			Expect(info.State).To(Equal(license.StateOk))
+			Expect(svc.CheckChannelLimit(100)).To(Succeed())
+			Expect(svc.CheckChannelLimit(101)).To(MatchError(license.ErrTooMany))
+		})
+		It(
+			"should cap a numeric key past its grace period at the free channels",
+			func(ctx SpecContext) {
+				info := MustSucceed(
+					svc.Activate(ctx, numericKey(now.Add(-30*day), 100)),
+				)
+				Expect(info.State).To(Equal(license.StateOk))
+				Expect(info.Warning).To(ContainSubstring("limited to 50 channels"))
+				Expect(info.License.Channels).To(BeEquivalentTo(license.FreeChannels))
+				Expect(svc.CheckChannelLimit(50)).To(Succeed())
+				Expect(svc.CheckChannelLimit(51)).To(MatchError(license.ErrTooMany))
+			},
+		)
+		It(
+			"should keep an unexpired numeric key over expired ones",
+			func(ctx SpecContext) {
+				for channels := 100; channels < 108; channels++ {
+					MustSucceed(
+						svc.Activate(ctx, numericKey(now.Add(-30*day), channels)),
+					)
+				}
+				info := MustSucceed(svc.Activate(ctx, numericKey(now.Add(30*day), 200)))
+				Expect(info.License.Channels).To(BeEquivalentTo(200))
+				for channels := 108; channels < 116; channels++ {
+					info = MustSucceed(
+						svc.Activate(ctx, numericKey(now.Add(-30*day), channels)),
+					)
+				}
+				Expect(info.License.Channels).To(BeEquivalentTo(200))
+			},
+		)
+		It(
+			"should keep the count of a numeric key inside its grace period",
+			func(ctx SpecContext) {
+				info := MustSucceed(svc.Activate(ctx, numericKey(now.Add(-5*day), 100)))
+				Expect(info.Warning).To(ContainSubstring("grace period ends"))
+				Expect(info.License.Channels).To(BeEquivalentTo(100))
+			},
+		)
+		It("should keep a signed license over a numeric key", func(ctx SpecContext) {
+			lic := newLicense()
+			MustSucceed(svc.Activate(ctx, sign(lic)))
+			info := MustSucceed(svc.Activate(ctx, numericKey(now.Add(30*day), 100)))
+			Expect(*info.License).To(Equal(lic))
 		})
 		It(
 			"should keep a newer license over an older activation",
@@ -658,6 +746,17 @@ var _ = Describe("License", func() {
 			Expect(svc.Activate(ctx, "nope")).Error().
 				To(MatchError(license.ErrInvalid))
 		})
+		It("should announce an activated license", func(ctx SpecContext) {
+			keys := announcements(svc)
+			MustSucceed(svc.Activate(ctx, sign(newLicense())))
+			Expect(keys).To(Receive(Equal(license.OntologyKey)))
+		})
+		It("should not announce a refused license key", func(ctx SpecContext) {
+			keys := announcements(svc)
+			Expect(svc.Activate(ctx, "nope")).Error().
+				To(MatchError(license.ErrInvalid))
+			Expect(keys).ToNot(Receive())
+		})
 		It("should enforce the channel cap", func(ctx SpecContext) {
 			lic := newLicense()
 			lic.Channels = 10
@@ -683,6 +782,54 @@ var _ = Describe("License", func() {
 		It("should not cap a license with a zero cap", func(ctx SpecContext) {
 			MustSucceed(svc.Activate(ctx, sign(newLicense())))
 			Expect(svc.CheckChannelLimit(1 << 19)).To(Succeed())
+		})
+	})
+
+	Describe("Deactivate", func() {
+		var svc *license.Service
+		BeforeEach(func(ctx SpecContext) { svc = open(ctx) })
+
+		It("should leave the Core without a license", func(ctx SpecContext) {
+			lic := newLicense()
+			MustSucceed(svc.Activate(ctx, sign(lic)))
+			info := MustSucceed(svc.Deactivate(ctx, lic.Jti))
+			Expect(info.State).To(Equal(license.StateMissing))
+			Expect(info.License).To(BeNil())
+			Expect(svc.Check()).To(Succeed())
+		})
+		It("should keep the license removed across a reopen", func(ctx SpecContext) {
+			lic := newLicense()
+			MustSucceed(svc.Activate(ctx, sign(lic)))
+			MustSucceed(svc.Deactivate(ctx, lic.Jti))
+			Expect(svc.Close()).To(Succeed())
+			Expect(open(ctx).Retrieve().State).To(Equal(license.StateMissing))
+		})
+		It("should fall back to another stored license", func(ctx SpecContext) {
+			older, newer := newLicense(), newLicense()
+			older.Channels, newer.Channels = 100, 500
+			newer.Iat = uint32(now.Unix())
+			MustSucceed(svc.Activate(ctx, sign(older)))
+			MustSucceed(svc.Activate(ctx, sign(newer)))
+			info := MustSucceed(svc.Deactivate(ctx, newer.Jti))
+			Expect(info.State).To(Equal(license.StateOk))
+			Expect(info.License.Channels).To(BeEquivalentTo(100))
+		})
+		It(
+			"should change nothing for a license that is not stored",
+			func(ctx SpecContext) {
+				lic := newLicense()
+				MustSucceed(svc.Activate(ctx, sign(lic)))
+				info := MustSucceed(svc.Deactivate(ctx, uuid.New()))
+				Expect(info.State).To(Equal(license.StateOk))
+				Expect(info.License.Jti).To(Equal(lic.Jti))
+			},
+		)
+		It("should announce a removed license", func(ctx SpecContext) {
+			lic := newLicense()
+			MustSucceed(svc.Activate(ctx, sign(lic)))
+			keys := announcements(svc)
+			MustSucceed(svc.Deactivate(ctx, lic.Jti))
+			Expect(keys).To(Receive(Equal(license.OntologyKey)))
 		})
 	})
 })

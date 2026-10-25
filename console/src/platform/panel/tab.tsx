@@ -19,7 +19,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type Triggers } from "@synnaxlabs/lyra/triggers";
 import { Access, type Flux, Panel } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
-import { type FC, type ReactElement } from "react";
+import { type FC, lazy, type LazyExoticComponent, type ReactElement } from "react";
 
 export interface TabNameProps {
   /** Whether the render site permits renaming the tab in place. Defaults to true. */
@@ -36,18 +36,21 @@ export interface RestoreParams {
   resource: ontology.ID;
 }
 
-/** Reads the corpse of the surrounding tab's resource, null while it is present. */
-export interface UseTombstone {
-  (): Flux.Tombstone | null;
+export interface ResourceGuardProps {
+  /** Rendered in place of children while the tab's resource is deleted. */
+  FallbackComponent: FC<Flux.Tombstone>;
+  children: ReactElement;
 }
 
+export interface Guard extends FC<ResourceGuardProps> {}
+
 export interface Tab {
-  Content: Content;
+  Content: Content | LazyExoticComponent<Content>;
   Name: TabName;
   /** Represents the tab as a glyph alone, e.g. on the bottom toolbar button.
    * Rendered inside the tab's panel and tab scope. */
   Icon: TabIcon;
-  Toolbar?: Toolbar;
+  Toolbar?: Toolbar | LazyExoticComponent<Toolbar>;
   /**
    * Re-creates the tab's deleted resource from the corpse held by the client's
    * cache. Corpses keep their original keys, so restoring re-registers the
@@ -56,13 +59,23 @@ export interface Tab {
    */
   restore?: (params: RestoreParams) => Promise<void>;
   /**
-   * Reads whether the tab's resource has been deleted. Absent for view tabs,
-   * which address no resource of their own.
+   * Renders the fallback in place of children while the tab's resource is deleted.
+   * Absent for view tabs, which address no resource of their own.
    */
-  useTombstone?: UseTombstone;
+  Guard?: Guard;
 }
 
 export interface Tabs extends Record<string, Tab> {}
+
+/**
+ * Returns a component that loads the export `name` of `load`'s module on first render,
+ * keeping that module out of the startup bundle. Tabs render it inside a Suspense
+ * boundary.
+ */
+export const lazyComponent = <K extends string, C extends FC<record.Empty>>(
+  load: () => Promise<Record<K, C>>,
+  name: K,
+): LazyExoticComponent<C> => lazy(async () => ({ default: (await load())[name] }));
 
 const [RendererContext, useRendererContext] = context.create<Tabs>({
   defaultValue: {},
@@ -70,10 +83,6 @@ const [RendererContext, useRendererContext] = context.create<Tabs>({
 });
 
 export { RendererContext };
-
-export interface UseTabReturn extends Tab {
-  type: string;
-}
 
 // useTab resolves the registered Tab for the active tab's type, sourced from the
 // surrounding panel scope. Throws when no renderer is registered for the type.
@@ -88,36 +97,15 @@ export interface TombstoneService {
   useTombstone: (query: { key: string }) => Flux.Tombstone | null;
 }
 
-/** Binds a domain's tombstone read to the surrounding tab's resource. */
-export const createTombstoneReader = (service: TombstoneService): UseTombstone => {
-  const useRead: UseTombstone = () => {
+/** Builds a {@link Guard} that reads a domain's tombstone for the tab's resource. */
+export const createGuard = ({ useTombstone }: TombstoneService): Guard => {
+  const Guard: Guard = ({ FallbackComponent, children }) => {
     const { key } = Panel.useTabResource();
-    return service.useTombstone({ key });
+    const tombstone = useTombstone({ key });
+    if (tombstone == null) return children;
+    return <FallbackComponent {...tombstone} />;
   };
-  return useRead;
-};
-
-export interface ResourceGuardProps {
-  /** Rendered in place of children while the tab's resource is deleted. */
-  FallbackComponent: FC<Flux.Tombstone>;
-  children: ReactElement;
-}
-
-interface DeletableProps extends ResourceGuardProps {
-  useTombstone: UseTombstone;
-}
-
-// Split from ResourceGuard so the tombstone read is unconditional: a tab type
-// addressing no resource must not change the hook count of the component that
-// renders one that does.
-const Deletable = ({
-  useTombstone,
-  FallbackComponent,
-  children,
-}: DeletableProps): ReactElement => {
-  const tombstone = useTombstone();
-  if (tombstone == null) return children;
-  return <FallbackComponent {...tombstone} />;
+  return Guard;
 };
 
 /**
@@ -129,13 +117,9 @@ export const ResourceGuard = ({
   FallbackComponent,
   children,
 }: ResourceGuardProps): ReactElement => {
-  const { useTombstone } = useTab();
-  if (useTombstone == null) return children;
-  return (
-    <Deletable useTombstone={useTombstone} FallbackComponent={FallbackComponent}>
-      {children}
-    </Deletable>
-  );
+  const { Guard } = useTab();
+  if (Guard == null) return children;
+  return <Guard FallbackComponent={FallbackComponent}>{children}</Guard>;
 };
 
 export interface CreateStaticTabNameParams {

@@ -58,7 +58,7 @@ TEST(ScanTask, testConnection) {
     EXPECT_EQ(first.key, synnax::task::status_key(t));
     EXPECT_EQ(first.details.cmd, cmd.key);
     EXPECT_EQ(first.details.task, t.key);
-    EXPECT_EQ(first.message, "Connection successful");
+    EXPECT_EQ(first.message, "Connected to device");
 }
 
 TEST(ScanTask, testConfigReturnsCorrectValues) {
@@ -70,7 +70,7 @@ TEST(ScanTask, testConfigReturnsCorrectValues) {
 
     const Scanner scanner(ctx, t, dev_manager);
     auto cfg = scanner.config();
-    EXPECT_EQ(cfg.make, "modbus");
+    EXPECT_EQ(cfg.make, "Modbus");
     EXPECT_EQ(cfg.log_prefix, "[modbus.scan_task]");
 }
 
@@ -104,7 +104,7 @@ TEST(ScanTask, testScanChecksDeviceHealth) {
     synnax::device::Device dev;
     dev.key = "health-test-device";
     dev.name = "Health Test Device";
-    dev.make = "modbus";
+    dev.make = MAKE;
     dev.rack = t.rack;
     dev.properties = x::json::json{
         {"connection",
@@ -121,8 +121,8 @@ TEST(ScanTask, testScanChecksDeviceHealth) {
 
     auto devices = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(devices.size(), 1);
-    EXPECT_EQ(devices[0].status->variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(devices[0].status->message, "Device connected");
+    EXPECT_EQ(devices[0].status.value().variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(devices[0].status.value().message, "Device connected");
 }
 
 TEST(ScanTask, testScanReportsDisconnectedDevice) {
@@ -138,7 +138,7 @@ TEST(ScanTask, testScanReportsDisconnectedDevice) {
     synnax::device::Device dev;
     dev.key = "disconnected-device";
     dev.name = "Disconnected Device";
-    dev.make = "modbus";
+    dev.make = MAKE;
     dev.rack = t.rack;
     dev.properties = x::json::json{
         {"connection",
@@ -155,7 +155,7 @@ TEST(ScanTask, testScanReportsDisconnectedDevice) {
 
     auto devices = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(devices.size(), 1);
-    EXPECT_EQ(devices[0].status->variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(devices[0].status->message, "Failed to reach device");
+    EXPECT_EQ(devices[0].status.value().variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(devices[0].status.value().message, "Failed to reach device");
 }
 }

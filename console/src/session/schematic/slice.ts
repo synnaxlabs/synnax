@@ -22,14 +22,14 @@ import z from "zod";
 
 import { Window } from "@/session/window";
 
-export const viewportZ = z.object({
+const viewportZ = z.object({
   position: xy.xyZ.default({ x: 0, y: 0 }),
   zoom: z.number().default(1),
   mode: Viewport.modeZ.default("select"),
 });
 export interface Viewport extends z.infer<typeof viewportZ> {}
 
-export const legendStateZ = z.object({
+const legendStateZ = z.object({
   visible: z.boolean().default(true),
   position: sticky.xyZ.default({
     x: 24,
@@ -43,15 +43,17 @@ export interface LegendState extends z.infer<typeof legendStateZ> {}
 
 export const toolbarTabZ = z.enum(["symbols", "properties", "control"]);
 export type ToolbarTab = z.infer<typeof toolbarTabZ>;
-export const toolbarStateZ = z.object({
+const toolbarStateZ = z.object({
   selectedTab: toolbarTabZ.default("symbols"),
   selectedSymbolGroup: z.string().default("general"),
   /** The last tab selected in a symbol's properties form. */
   propertiesTab: Properties.tabKeyZ.optional(),
+  /** Whether a click in the symbols tab changes the selected symbols. */
+  changing: z.boolean().default(false),
 });
 export interface ToolbarState extends z.infer<typeof toolbarStateZ> {}
 
-export const controlStateZ = z.object({
+const controlStateZ = z.object({
   authority: xcontrol.authorityZ.default(1),
   status: control.statusZ.default("released"),
 });
@@ -63,6 +65,7 @@ export const stateZ = z.object({
   toolbar: toolbarStateZ.prefault({}),
   editable: z.boolean().default(true),
   fitViewOnResize: z.boolean().default(false),
+  tooltipsDisabled: z.boolean().default(false),
   viewport: viewportZ.prefault({}),
 });
 export interface State extends z.infer<typeof stateZ> {}
@@ -70,7 +73,7 @@ export interface NewState extends z.input<typeof stateZ> {}
 
 export const ZERO_STATE = stateZ.parse({});
 
-export const windowStateZ = z.record(z.string(), stateZ).default({});
+const windowStateZ = z.record(z.string(), stateZ).default({});
 
 export const sliceStateZ = z.object({
   version: z.literal(0).default(0),
@@ -130,12 +133,20 @@ export interface SetPropertiesTabPayload extends KeyedPayload {
   tab: Properties.TabKey;
 }
 
+export interface SetChangingPayload extends KeyedPayload {
+  changing: boolean;
+}
+
 export interface SetEditablePayload extends KeyedPayload {
   editable: boolean;
 }
 
 export interface SetFitViewOnResizePayload extends KeyedPayload {
   fitViewOnResize: boolean;
+}
+
+export interface SetTooltipsDisabledPayload extends KeyedPayload {
+  tooltipsDisabled: boolean;
 }
 
 export interface SetViewportPayload extends KeyedPayload {
@@ -156,6 +167,7 @@ const initializeDocument = Window.createDocumentInitializer(stateZ);
 // Properties only configures a selection, so emptying one leaves that tab.
 const clearSelection = (state: State): void => {
   state.selected = [];
+  state.toolbar.changing = false;
   if (state.toolbar.selectedTab === "properties") state.toolbar.selectedTab = "symbols";
 };
 
@@ -167,6 +179,7 @@ export const { actions, reducer } = createSlice({
     setSelected: withSelectedState<SetSelectedPayload, SliceState>(
       (state, { payload }) => {
         state.selected = payload.selected;
+        state.toolbar.changing = false;
         state.toolbar.selectedTab =
           payload.selected.length > 0 ? "properties" : "symbols";
       },
@@ -202,6 +215,13 @@ export const { actions, reducer } = createSlice({
     selectToolbarTab: withSelectedState<SelectToolbarTabPayload, SliceState>(
       (state, { payload: { tab } }) => {
         state.toolbar.selectedTab = tab;
+        state.toolbar.changing = false;
+      },
+    ),
+    setChanging: withSelectedState<SetChangingPayload, SliceState>(
+      (state, { payload: { changing } }) => {
+        state.toolbar.changing = changing;
+        state.toolbar.selectedTab = changing ? "symbols" : "properties";
       },
     ),
     setSelectedSymbolGroup: withSelectedState<
@@ -224,6 +244,11 @@ export const { actions, reducer } = createSlice({
     setFitViewOnResize: withSelectedState<SetFitViewOnResizePayload, SliceState>(
       (state, { payload: { fitViewOnResize } }) => {
         state.fitViewOnResize = fitViewOnResize;
+      },
+    ),
+    setTooltipsDisabled: withSelectedState<SetTooltipsDisabledPayload, SliceState>(
+      (state, { payload: { tooltipsDisabled } }) => {
+        state.tooltipsDisabled = tooltipsDisabled;
       },
     ),
     setViewport: withSelectedState<SetViewportPayload, SliceState>(
@@ -254,8 +279,10 @@ export const {
   selectToolbarTab,
   setSelectedSymbolGroup,
   setPropertiesTab,
+  setChanging,
   setEditable,
   setFitViewOnResize,
+  setTooltipsDisabled,
   setViewport,
   setViewportMode,
   remove,
@@ -288,8 +315,10 @@ export const MIDDLEWARE = [
     selectToolbarTab,
     setSelectedSymbolGroup,
     setPropertiesTab,
+    setChanging,
     setEditable,
     setFitViewOnResize,
+    setTooltipsDisabled,
     setViewport,
     setViewportMode,
   ]),

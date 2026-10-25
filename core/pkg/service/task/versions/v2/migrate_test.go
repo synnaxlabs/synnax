@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -34,7 +35,6 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -214,8 +214,9 @@ var _ = Describe("Migrations", func() {
 				Name: "Stored Arc Task",
 				Type: "arc",
 				Config: msgpack.EncodedJSON{
-					"arc_key": arcModuleKey,
-					"hash":    "abc123",
+					"arc_key":        arcModuleKey,
+					"hash":           "abc123",
+					"execution_mode": "HYBRID",
 				},
 			}
 			bogusTask := v1.Task{
@@ -358,14 +359,9 @@ var _ = Describe("Migrations", func() {
 			)
 			Expect(migratedArc.Config).To(HaveKeyWithValue("hash", "abc123"))
 			Expect(migratedArc.Config).To(
-				HaveKeyWithValue("execution_mode", "AUTO"),
+				HaveKeyWithValue("performance", "medium"),
 			)
-			Expect(migratedArc.Config).To(
-				HaveKeyWithValue("rt_priority", BeEquivalentTo(47)),
-			)
-			Expect(migratedArc.Config).To(
-				HaveKeyWithValue("cpu_affinity", BeEquivalentTo(-1)),
-			)
+			Expect(migratedArc.Config).ToNot(HaveKey("execution_mode"))
 
 			var migratedScan task.Task
 			Expect(svc.NewRetrieve().
@@ -453,5 +449,35 @@ var _ = Describe("Migrations", func() {
 				Expect(blobCloser.Close()).To(Succeed())
 			}
 		},
+	)
+})
+
+var _ = Describe("NameMigration", func() {
+	migrated := func(ctx SpecContext, in v2.Task) v2.Task {
+		GinkgoHelper()
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		Expect(gorp.NewCreate[v2.Key, v2.Task]().Entry(&in).Exec(ctx, db)).
+			To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Task",
+			Migrations: []gorp.Migration{v2.NameMigration},
+		})).To(Succeed())
+		var out v2.Task
+		Expect(gorp.NewRetrieve[v2.Key, v2.Task]().
+			Where(gorp.MatchKeys[v2.Key, v2.Task](in.Key)).
+			Entry(&out).Exec(ctx, db)).To(Succeed())
+		return out
+	}
+	key := uuid.MustParse("1a2b3c4d-0000-0000-0000-000000000000")
+	DescribeTable(
+		"Should name only nameless tasks",
+		func(ctx SpecContext, name, taskType, expected string) {
+			in := v2.Task{Key: key, Name: name, Type: taskType}
+			Expect(migrated(ctx, in).Name).To(Equal(expected))
+		},
+		Entry("type and key", "", "ni_analog_read", "ni_analog_read 1a2b3c4d"),
+		Entry("no type", "", "", "Task 1a2b3c4d"),
+		Entry("named task", "Named", "ni_analog_read", "Named"),
 	)
 })

@@ -44,10 +44,9 @@ export const createReadChannel = <T extends ReadChannelType>(
 ): Extract<ReadChannel, { type: T }> =>
   READ_CHANNEL_SCHEMAS[type].parse(READ_CHANNEL_SEEDS[type]);
 
-export const writeChannelZ = labjack.writeChannelZ;
 export type WriteChannel = labjack.WriteChannel;
 export type WriteChannelType = labjack.WriteChannelType;
-export const WRITE_CHANNEL_SCHEMAS = labjack.WRITE_CHANNEL_SCHEMAS;
+const WRITE_CHANNEL_SCHEMAS = labjack.WRITE_CHANNEL_SCHEMAS;
 
 export const createWriteChannel = <T extends WriteChannelType>(
   type: T,
@@ -92,9 +91,7 @@ const validateUniquePorts: z.core.CheckFn<Channel[]> = ({
 
 export const READ_TYPE = `${PREFIX}_read`;
 
-export interface ReadConfig extends labjack.ReadConfig {}
-
-export const readConfigZ = labjack.readConfigZ;
+const readConfigZ = labjack.readConfigZ;
 
 const deployReadChannelZ = z.union([
   labjack.analogReadChannelZ.extend({
@@ -137,9 +134,7 @@ export interface ReadPayload extends task.Payload<ReadSchemas> {}
 
 export const WRITE_TYPE = `${PREFIX}_write`;
 
-export interface WriteConfig extends labjack.WriteConfig {}
-
-export const writeConfigZ = labjack.writeConfigZ;
+const writeConfigZ = labjack.writeConfigZ;
 
 const deployWriteChannelZ = z.union([
   labjack.analogWriteChannelZ.extend({ port: deployAOPortZ }),

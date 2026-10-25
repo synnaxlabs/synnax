@@ -15,6 +15,7 @@ import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Channel } from "@/channel";
+import { Flux } from "@/flux";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
@@ -290,6 +291,48 @@ describe("queries", () => {
       await waitFor(() =>
         expect(result.current.getItem(channel.key)?.alias).toEqual("new_alias"),
       );
+    });
+
+    it("should update the alias of a read channel after a search drops it from the list", async () => {
+      const range = await client.ranges.create({
+        name: id.create(),
+        timeRange: new TimeRange({ start: 1n, end: 1000n }),
+      });
+      const channel = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      const { result, rerender } = renderHook(
+        ({ key }: { key?: channel.Key }) => {
+          const list = Channel.useList({ initialQuery: { rangeKey: range.key } });
+          const item = Flux.useListItem({
+            subscribe: list.subscribe,
+            getItem: list.getItem,
+            key: key ?? 0,
+          });
+          return { list, item };
+        },
+        { wrapper, initialProps: {} },
+      );
+      await act(async () => {
+        await result.current.list.retrieveAsync(
+          (p) => ({ ...p, searchTerm: channel.name }),
+          { signal: controller.signal },
+        );
+      });
+      rerender({ key: channel.key });
+      await waitFor(() => expect(result.current.item?.name).toEqual(channel.name));
+      await act(async () => {
+        await result.current.list.retrieveAsync(
+          (p) => ({ ...p, searchTerm: id.create() }),
+          { signal: controller.signal },
+        );
+      });
+      await act(async () => {
+        await client.ranges.setAlias(range.key, channel.key, "alias");
+      });
+      await waitFor(() => expect(result.current.item?.alias).toEqual("alias"));
     });
 
     it("should correctly retrieve the alias when an initial query is provided, and getItem is called but not retrieve", async () => {
@@ -1413,6 +1456,9 @@ describe("queries", () => {
       expect(result.current.form.value().expression).toEqual(
         `return ${sourceChannel.name} + 1`,
       );
+      expect(result.current.form.value().operations).toEqual([
+        { type: "none", resetChannel: 0, duration: TimeSpan.ZERO },
+      ]);
 
       act(() => {
         result.current.form.set("expression", `return ${sourceChannel.name} * 3`);

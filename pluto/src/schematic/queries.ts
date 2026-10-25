@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, type project, query, schematic } from "@synnaxlabs/client";
+import {
+  type ontology,
+  type project,
+  query,
+  schematic,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import { array, compare, uuid, verbs, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
@@ -195,8 +201,8 @@ const augmentWithEdgeSegments = (
 const isEdgeConfig = (c: schematic.ElementConfig): c is schematic.EdgeConfig =>
   c.variant in schematic.EDGE_CONFIG_SCHEMAS;
 
-// An edge added in this batch whose config names no color takes its source
-// symbol's color, so a pipe drawn out of a colored symbol matches it.
+// An edge added in this batch whose config names no stroke takes its source symbol's
+// stroke, so a pipe drawn out of a colored symbol matches it.
 const inheritEdgeColor = (
   current: schematic.Schematic,
   actions: schematic.Action[],
@@ -209,10 +215,14 @@ const inheritEdgeColor = (
     if (a.type !== "set_config") return a;
     const { key, config } = a.setConfig;
     const edge = added.get(key);
-    if (edge == null || !isEdgeConfig(config) || config.color != null) return a;
+    if (edge == null || !isEdgeConfig(config) || config.strokeColor != null) return a;
     const source = current.configs[edge.source.node];
-    if (source == null || !("color" in source) || source.color == null) return a;
-    return schematic.setConfig({ key, config: { ...config, color: source.color } });
+    if (source == null || !("strokeColor" in source) || source.strokeColor == null)
+      return a;
+    return schematic.setConfig({
+      key,
+      config: { ...config, strokeColor: source.strokeColor },
+    });
   });
 };
 
@@ -271,6 +281,48 @@ export const useAddNode = () => {
       );
     },
     [dispatch, client],
+  );
+};
+
+// The label a symbol takes on creation: a custom symbol's name, or its spec's label.
+const defaultLabel = (client: Client, config: Node.Config): string | undefined => {
+  if (!Node.isCustomConfig(config)) {
+    const spec = Node.resolveSpec(config.variant);
+    return spec.label ?? spec.name;
+  }
+  const sym = client.schematics.symbols.getCached(config.specKey);
+  return query.isLive(sym) ? sym.name : undefined;
+};
+
+/**
+ * useChangeSymbol returns a callback that changes the given symbols to the symbol the
+ * input names, dispatched as a single undoable step. A label that still reads the old
+ * symbol's name takes the new symbol's name.
+ */
+export const useChangeSymbol = () => {
+  const key = Scope.use();
+  const client = Synnax.use();
+  const dispatch = useSingleDispatch();
+  return useCallback(
+    <V extends Node.Variant>(keys: readonly string[], input: Node.Input<V>) => {
+      const s = client?.schematics.getCached({ key });
+      if (client == null || !query.isLive(s)) return;
+      const actions = keys.flatMap((k) => {
+        const config = s.configs[k];
+        if (!Node.isConfig(config)) throw new Error(`Element ${k} is not a symbol`);
+        const next = Node.changeConfig(config, input);
+        if (Node.symbolKey(next) === Node.symbolKey(config)) return [];
+        if (
+          "label" in config &&
+          "label" in next &&
+          config.label.label === defaultLabel(client, config)
+        )
+          next.label.label = defaultLabel(client, next) ?? next.label.label;
+        return [schematic.setConfig({ key: k, config: next })];
+      });
+      if (actions.length > 0) dispatch(actions);
+    },
+    [client, key, dispatch],
   );
 };
 

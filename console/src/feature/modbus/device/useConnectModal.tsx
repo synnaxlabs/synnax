@@ -15,6 +15,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Device as PDevice, type Flux, Rack } from "@synnaxlabs/pluto";
@@ -26,12 +27,11 @@ import {
   SCAN_TYPE,
   TEST_CONNECTION_COMMAND_TYPE,
 } from "@/feature/modbus/task/types";
+import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { type Device as PlatformDevice } from "@/platform/device";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
-
-const useForm = PDevice.createForm(SCHEMAS);
 
 const TEST_CONNECTION_TIMEOUT = TimeSpan.seconds(10);
 
@@ -46,10 +46,15 @@ const INITIAL_VALUES: Device = {
   configured: true,
 };
 
+const useForm = PDevice.createForm(SCHEMAS, INITIAL_VALUES);
+
 const beforeValidate = ({
   get,
   set,
-}: Flux.BeforeValidateParams<PDevice.RetrieveQuery, typeof PDevice.formSchema>) => {
+}: Flux.BeforeValidateParams<
+  PDevice.RetrieveQuery,
+  PDevice.FormSchema<typeof SCHEMAS>
+>) => {
   const host = get<string>("properties.connection.host").value;
   const port = get<number>("properties.connection.port").value;
   set("location", `${host}:${port}`);
@@ -59,7 +64,10 @@ const beforeSave = async ({
   client,
   get,
   set,
-}: Flux.FormBeforeSaveParams<PDevice.RetrieveQuery, typeof PDevice.formSchema>) => {
+}: Flux.FormBeforeSaveParams<
+  PDevice.RetrieveQuery,
+  PDevice.FormSchema<typeof SCHEMAS>
+>) => {
   const scanTask = await client.tasks.retrieve({
     type: SCAN_TYPE,
     rack: get<rack.Key>("rack").value,
@@ -71,11 +79,12 @@ const beforeSave = async ({
     timeout: TEST_CONNECTION_TIMEOUT,
     args: { connection: get("properties.connection").value },
   });
-  if (state.variant === "error") throw new Error(state.message);
+  if (state.variant === "error") throw status.toError(state);
   // Since we just scanned successfully, we create a default healthy status for the
   // device that can then be overwritten by the scanner if we lose connection.
   const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
-    message: "Server connected",
+    name: get<string>("name").value,
+    message: "Device connected",
     variant: "success",
     details: {
       rack: get<rack.Key>("rack").value,
@@ -86,76 +95,82 @@ const beforeSave = async ({
   return true;
 };
 
-export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
-  ({ deviceKey, close }) => {
-    const {
-      form,
-      save,
-      status: stat,
-      variant,
-    } = useForm({
-      query: deviceKey == null ? null : { key: deviceKey },
-      initialValues: INITIAL_VALUES,
-      beforeValidate,
-      beforeSave,
-      afterSave: useCallback(() => close(), [close]),
-    });
+const Connect = ({
+  deviceKey,
+  close,
+}: Modals.ContentProps<PlatformDevice.ConnectParams, void>) => {
+  const { capture } = Analytics.use();
+  const {
+    form,
+    save,
+    status: stat,
+    variant,
+  } = useForm({
+    query: deviceKey == null ? null : { key: deviceKey },
+    beforeValidate,
+    beforeSave,
+    afterSave: useCallback(() => {
+      if (deviceKey == null) capture("device_connected", { integration: "modbus" });
+      close();
+    }, [capture, close, deviceKey]),
+  });
 
-    return (
-      <Modals.Frame className={CSS.B("modbus-connect")}>
-        <Modals.Header icon={<Icon.Logo.Modbus />}>Server.Connect</Modals.Header>
-        <Flex.Box className={CSS.B("content")} grow size="small">
-          <Form.Form<typeof PDevice.formSchema> {...form}>
-            <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
-            <Form.Field<rack.Key> path="rack" label="Connect from" required>
-              {selectRackRenderProp}
-            </Form.Field>
-            <Flex.Box x justify="between">
-              <Form.TextField
-                grow
-                path="properties.connection.host"
-                inputProps={HOST_INPUT_PROPS}
-              />
-              <Form.NumericField
-                path="properties.connection.port"
-                inputProps={PORT_INPUT_PROPS}
-              />
-            </Flex.Box>
-            <Flex.Box x justify="start">
-              <Form.SwitchField
-                path="properties.connection.swapBytes"
-                label="Swap bytes"
-              />
-              <Form.SwitchField
-                path="properties.connection.swapWords"
-                label="Swap words"
-              />
-            </Flex.Box>
-          </Form.Form>
-        </Flex.Box>
-        <Modals.Footer>
-          <Nav.Bar.Start gap="small">
-            {variant == "success" ? (
-              <Triggers.SaveHelpText action="Connect" noBar />
-            ) : (
-              <Status.Summary variant={variant} message={stat.description} />
-            )}
-          </Nav.Bar.Start>
-          <Nav.Bar.End>
-            <Button.Button
-              status={status.keepVariants(variant, "loading")}
-              onClick={() => save()}
-              variant="filled"
-              trigger={Triggers.SAVE}
-            >
-              Connect
-            </Button.Button>
-          </Nav.Bar.End>
-        </Modals.Footer>
-      </Modals.Frame>
-    );
-  },
-);
+  return (
+    <Modal.Frame className={CSS.B("modbus-connect")}>
+      <Modal.Header icon={<Icon.Logo.Modbus />}>Server.Connect</Modal.Header>
+      <Flex.Box className={CSS.B("content")} grow size="small">
+        <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
+          <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
+          <Form.Field<rack.Key> path="rack" label="Connect from" required>
+            {selectRackRenderProp}
+          </Form.Field>
+          <Flex.Box x justify="between">
+            <Form.TextField
+              grow
+              path="properties.connection.host"
+              inputProps={HOST_INPUT_PROPS}
+            />
+            <Form.NumericField
+              path="properties.connection.port"
+              inputProps={PORT_INPUT_PROPS}
+            />
+          </Flex.Box>
+          <Flex.Box x justify="start">
+            <Form.SwitchField
+              path="properties.connection.swapBytes"
+              label="Swap bytes"
+            />
+            <Form.SwitchField
+              path="properties.connection.swapWords"
+              label="Swap words"
+            />
+          </Flex.Box>
+        </Form.Form>
+      </Flex.Box>
+      <Modal.Footer>
+        <Nav.Bar.Start gap="small">
+          {variant == "success" ? (
+            <Triggers.SaveHelpText action="Connect" noBar />
+          ) : (
+            <Status.Summary variant={variant} message={stat.description} />
+          )}
+        </Nav.Bar.Start>
+        <Nav.Bar.End>
+          <Button.Button
+            status={status.keepVariants(variant, "loading")}
+            onClick={() => save()}
+            variant="filled"
+            trigger={Triggers.SAVE}
+          >
+            Connect
+          </Button.Button>
+        </Nav.Bar.End>
+      </Modal.Footer>
+    </Modal.Frame>
+  );
+};
+
+export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(Connect);
 
 const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "modbus" };
 

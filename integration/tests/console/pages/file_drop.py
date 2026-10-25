@@ -108,7 +108,7 @@ class FileDrop(ConsoleCase):
         with open(path, "w", encoding="utf-8") as f:
             f.write("not an envelope")
         self.console.layout.drop_files([path])
-        if not self.console.notifications.wait_for(f"Failed to import {file_name}"):
+        if not self.console.notifications.wait_for("Failed to import", name=file_name):
             raise AssertionError(
                 "Dropping a non-JSON file did not surface a failure notification"
             )
@@ -134,7 +134,7 @@ class FileDrop(ConsoleCase):
             shutil.rmtree(imported_dir)
         os.rename(export_dir, imported_dir)
         manifest_path = os.path.join(imported_dir, "manifest.json")
-        with open(manifest_path, "r", encoding="utf-8") as f:
+        with open(manifest_path, encoding="utf-8") as f:
             manifest = json.load(f)
         manifest["name"] = imported
         with open(manifest_path, "w", encoding="utf-8") as f:

@@ -32,8 +32,7 @@ interface RenderProps extends Partial<
   Pick<schematic.OffPageReferenceNodeConfig, "orientation">
 > {
   level?: text.Level;
-  color?: color.Crude;
-  id?: string;
+  fillColor?: color.Crude;
   label?: string;
   className?: string;
   title?: string;
@@ -43,24 +42,21 @@ interface RenderProps extends Partial<
 }
 
 export const OffPageReference = ({
-  id,
   className,
   orientation = "right",
   label = "text",
-  color: colorVal,
+  fillColor,
   level = "p",
   linked = false,
   pageType = "schematic",
   onLabelChange,
 }: RenderProps): ReactElement => {
   const PageIcon = PAGE_ICONS[pageType];
-  const element = document.querySelector(`[data-id="${id}"]`);
-  if (element) element.classList.add(orientation);
 
   const swap = direction.construct(orientation) === "y";
   const style = useMemo<CSSProperties>(
-    () => ({ [CSS.variable("symbol-color")]: color.rgbaString(colorVal) }),
-    [colorVal],
+    () => ({ [Primitive.SYMBOL_COLOR]: color.rgbaString(fillColor) }),
+    [fillColor],
   );
 
   return (

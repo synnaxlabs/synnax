@@ -16,13 +16,13 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/builtin"
 	policy "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/migrate"
 )
 
 // MigrationConfig is the configuration for NewMigration.
@@ -39,11 +39,16 @@ type MigrationConfig struct {
 
 // Migration (Phase 2) reads the persisted user-to-policy mapping from KV (written by
 // Phase 1 in the policy package), queries users for their RootUser flag, determines the
-// appropriate role for each user, and creates the ontology relationships.
-func NewMigration(cfg MigrationConfig) migrate.Migration {
-	return gorp.NewMigration(
+// appropriate role for each user, and creates the ontology relationships. It does
+// nothing for a store that a v0.53 Core already migrated.
+func NewMigration(cfg MigrationConfig) gorp.Migration {
+	return migrate.New(
 		"v0.permission_assignment",
 		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+			migrated, err := policy.AlreadyMigrated(ctx, tx)
+			if migrated || err != nil {
+				return err
+			}
 			mappings, err := policy.ReadLegacyMappings(ctx, tx)
 			if err != nil {
 				return err

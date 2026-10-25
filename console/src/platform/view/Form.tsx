@@ -41,17 +41,18 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>, Q extends 
   answered,
 }: FormProps<K, E, Q>): ReactElement | null => {
   const { staticViews, getInitialView } = useContext("View.Form");
+  // type assertion here to deal with the weird setter<Q, Partial<Q>> type that causes
+  // typing issues.
+  const pagerRetrieve = retrieve as List.UsePagerParams["retrieve"];
   const { fetchMore, search } = List.usePager({
-    // type assertion here to deal with the weird setter<Q, Partial<Q>> type that causes
-    // typing issues.
-    retrieve: retrieve as List.UsePagerParams["retrieve"],
+    retrieve: pagerRetrieve,
     pageSize: 50,
   });
   const updateQuery = useCallback(
-    (query: Q) => {
-      retrieve((p) => ({ ...p, ...query, offset: 0, limit: 50, searchTerm: "" }));
+    (query: view.View["query"]) => {
+      pagerRetrieve((p) => ({ ...p, ...query, offset: 0, limit: 50, searchTerm: "" }));
     },
-    [retrieve],
+    [pagerRetrieve],
   );
   const { form } = PView.useForm({
     query: null,
@@ -65,18 +66,19 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>, Q extends 
         // if this is a static view we need to handle it here. Otherwise, the
         // useSetSynchronizer will handle it as it also needs to handle remote updates.
         if (key == null || !staticViews.includes(key)) return true;
-        updateQuery(query as Q);
+        updateQuery(query);
         return false;
       },
       [staticViews, updateQuery],
     ),
   });
+  const { get: getField } = form;
   const handleSet = useCallback(
     (view: view.View) => {
-      if (view.key !== form.get<string>("key").value) return;
-      updateQuery(view.query as Q);
+      if (view.key !== getField<string>("key").value) return;
+      updateQuery(view.query);
     },
-    [form.get, updateQuery],
+    [getField, updateQuery],
   );
   PView.useSetSynchronizer(handleSet);
   const [selected, setSelected] = useState<K[]>([]);

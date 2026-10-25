@@ -13,11 +13,13 @@ import { type panel } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { type List } from "@synnaxlabs/lyra/list";
+import { Modal } from "@synnaxlabs/lyra/modal";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Errors, Panel } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 
+import { renderIcon } from "@/feature/panel/icon";
 import {
   type TabOrigin,
   useMoveTab,
@@ -37,9 +39,11 @@ const RowFallback = (): null => null;
 
 const Row = (props: List.ItemProps<panel.Key>): ReactElement => {
   const name = Panel.useName({ key: props.itemKey });
+  const icon = Panel.useIcon({ key: props.itemKey });
+  const color = Panel.useColor({ key: props.itemKey });
   return (
     <Select.Item {...props} align="center" gap="medium" className={ROW_CLASS}>
-      <Icon.Panel />
+      {renderIcon({ icon, color })}
       <Text.Text overflow="ellipsis">{name}</Text.Text>
     </Select.Item>
   );
@@ -78,11 +82,11 @@ const Content = ({
     [moveTab, moveToNewPanel, origin, close],
   );
   return (
-    <Modals.Frame className={CSS.B("panel-move-picker")}>
-      <Modals.Header hideClose icon={<Icon.Panel />}>
+    <Modal.Frame className={CSS.B("panel-move-picker")}>
+      <Modal.Header closeHidden icon={<Icon.Panel />}>
         Move to panel
-      </Modals.Header>
-      <Modals.Body>
+      </Modal.Header>
+      <Modal.Body>
         <Select.Frame<panel.Key> data={data} allowNone onChange={handleChange}>
           <Select.List
             className={CSS.BE("panel-move-picker", "list")}
@@ -100,8 +104,8 @@ const Content = ({
             </Select.Item>
           </Select.List>
         </Select.Frame>
-      </Modals.Body>
-    </Modals.Frame>
+      </Modal.Body>
+    </Modal.Frame>
   );
 };
 

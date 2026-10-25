@@ -11,6 +11,8 @@ package iterator
 
 import (
 	"context"
+	"maps"
+	"slices"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -20,25 +22,33 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/telem"
 )
 
+// calculationTransform runs calculations on each data response as it arrives, so a
+// read's memory stays bounded by the size of one response. A buffered transform instead
+// calculates the data of each request once the request's ack arrives.
 type calculationTransform struct {
 	confluence.UnarySink[Response]
 	confluence.AbstractUnarySource[Response]
 	keepKeys         set.Set[channel.Key]
 	calculators      []*calculator.Calculator
 	accumulatedError error
-	pendingFrames    []framer.Frame
+	// buffered is true when the calculations read channels on more than one Core. Each
+	// Core sends its own chunks of a request, so one chunk holds only some inputs.
+	buffered bool
+	pending  []framer.Frame
 }
 
 func newCalculationTransform(
 	keepKeys channel.Keys,
 	calculators []*calculator.Calculator,
+	buffered bool,
 ) *calculationTransform {
 	return &calculationTransform{
-		calculators:   calculators,
-		keepKeys:      set.New(keepKeys...),
-		pendingFrames: make([]framer.Frame, 0, 8),
+		calculators: calculators,
+		keepKeys:    set.New(keepKeys...),
+		buffered:    buffered,
 	}
 }
 
@@ -69,56 +79,80 @@ func (t *calculationTransform) Flow(sCtx signal.Context, opts ...confluence.Opti
 }
 
 func (t *calculationTransform) processResponse(ctx context.Context, res Response) {
-	if res.Command == CommandError {
+	switch {
+	case res.Command == CommandError:
 		res.Error = errors.Combine(res.Error, t.accumulatedError)
-		t.Out.Inlet() <- res
+	case res.Variant == ResponseVariantData && t.buffered:
+		t.pending = append(t.pending, res.Frame)
 		return
-	}
-	if res.Variant == ResponseVariantData {
-		if res.Frame.Count() > 0 {
-			t.pendingFrames = append(t.pendingFrames, res.Frame)
+	case res.Variant == ResponseVariantData:
+		res.Frame = t.calculate(ctx, res.Frame)
+		if res.Frame.Count() == 0 {
+			return
 		}
-		return
-	}
-	if res.Variant == ResponseVariantAck {
-		t.processBufferedFrames(ctx, res)
-		return
+	case res.Variant == ResponseVariantAck:
+		if len(t.pending) > 0 {
+			fr := t.calculate(ctx, frame.Merge(t.pending))
+			t.pending = nil
+			if fr.Count() > 0 {
+				t.Out.Inlet() <- Response{
+					Variant: ResponseVariantData,
+					Command: res.Command,
+					SeqNum:  res.SeqNum,
+					Frame:   fr,
+				}
+			}
+		}
+		if t.accumulatedError != nil {
+			res.Ack = false
+		}
 	}
 	t.Out.Inlet() <- res
 }
 
-func (t *calculationTransform) processBufferedFrames(
+func (t *calculationTransform) calculate(
 	ctx context.Context,
-	ackRes Response,
-) {
-	defer func() { t.pendingFrames = t.pendingFrames[:0] }()
-	if len(t.pendingFrames) == 0 {
-		if t.accumulatedError != nil {
-			ackRes.Ack = false
+	fr framer.Frame,
+) framer.Frame {
+	var (
+		err     error
+		rounds  = splitByStart(fr)
+		outputs = make([]framer.Frame, 0, len(rounds))
+	)
+	for _, round := range rounds {
+		for _, c := range t.calculators {
+			if round, _, err = c.Next(ctx, round, round); err != nil {
+				t.accumulatedError = err
+			}
 		}
-		t.Out.Inlet() <- ackRes
-		return
+		outputs = append(outputs, round.KeepKeys(t.keepKeys))
 	}
-	mergedFrame := frame.Merge(t.pendingFrames)
-	var err error
-	for _, c := range t.calculators {
-		mergedFrame, _, err = c.Next(ctx, mergedFrame, mergedFrame)
-		if err != nil {
-			t.accumulatedError = err
+	return frame.Merge(outputs)
+}
+
+// splitByStart groups a frame's series by start time, in time order, so a channel
+// with a missing write does not shift against the others.
+func splitByStart(fr framer.Frame) []framer.Frame {
+	counts := make(map[telem.TimeStamp]int)
+	for i := range fr.RawKeys() {
+		if !fr.ShouldExcludeRaw(i) {
+			counts[fr.RawSeriesAt(i).TimeRange.Start]++
+		}
+	}
+	starts := slices.Sorted(maps.Keys(counts))
+	rounds := make([]framer.Frame, len(starts))
+	positions := make(map[telem.TimeStamp]int, len(starts))
+	for i, start := range starts {
+		rounds[i] = frame.Alloc(counts[start])
+		positions[start] = i
+	}
+	for i, key := range fr.RawKeys() {
+		if fr.ShouldExcludeRaw(i) {
 			continue
 		}
+		s := fr.RawSeriesAt(i)
+		pos := positions[s.TimeRange.Start]
+		rounds[pos] = rounds[pos].Append(key, s)
 	}
-	mergedFrame = mergedFrame.KeepKeys(t.keepKeys)
-	if mergedFrame.Count() > 0 {
-		t.Out.Inlet() <- Response{
-			Variant: ResponseVariantData,
-			Command: ackRes.Command,
-			SeqNum:  ackRes.SeqNum,
-			Frame:   mergedFrame,
-		}
-	}
-	if t.accumulatedError != nil {
-		ackRes.Ack = false
-	}
-	t.Out.Inlet() <- ackRes
+	return rounds
 }

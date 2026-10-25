@@ -19,7 +19,7 @@ export interface CavityProps extends Toggle.ButtonProps, Primitive.SVGBasedProps
 const DIMENSIONS = { width: 64, height: 64 };
 
 export const Cavity = ({
-  color,
+  strokeColor,
   className,
   orientation = "left",
   scale,
@@ -39,7 +39,7 @@ export const Cavity = ({
     />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >

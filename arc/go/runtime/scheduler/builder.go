@@ -12,7 +12,9 @@ package scheduler
 import (
 	"github.com/synnaxlabs/arc/ir"
 	rnode "github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // builder assembles a Scheduler from a compiled IR. It owns every piece of
@@ -39,13 +41,105 @@ type builder struct {
 	// transition-source handle. After build, this is the final length of
 	// the Scheduler's markedFlags slice.
 	nextHandleIdx int
+	// jumps are the transitions that activate a top-level scope, resolved
+	// against the root's members once the whole scope tree exists.
+	jumps []jump
 }
 
-// New creates a scheduler from a compiled IR and a set of runtime node
-// instances keyed by ir.Node.Key. tolerance controls how early timer-based
-// nodes may fire relative to their deadline.
-func New(prog ir.IR, nodes map[string]rnode.Node, tolerance telem.TimeSpan) *Scheduler {
-	return newBuilder(prog, nodes).build(prog, tolerance)
+// jump is transition idx of state, which activates the top-level scope key.
+type jump struct {
+	state *scope
+	idx   int
+	key   string
+}
+
+// New creates a scheduler from a compiled IR and a set of runtime node instances keyed
+// by ir.Node.Key. New returns validate.ErrValidation when a transition or scope
+// activation in prog has no kind, or when a transition has a target its scope cannot
+// reach.
+func New(prog ir.IR, nodes map[string]rnode.Node) (*Scheduler, error) {
+	topLevel := set.New[string]()
+	for _, stratum := range prog.Root.Strata {
+		for _, m := range stratum {
+			if m.Scope != nil {
+				topLevel.Add(m.Scope.Key)
+			}
+		}
+	}
+	if err := validateScope(prog.Root, topLevel); err != nil {
+		return nil, err
+	}
+	return newBuilder(prog, nodes).build(prog), nil
+}
+
+// validateScope returns validate.ErrValidation when sc, or any scope nested under it,
+// has a transition or activation with an unspecified kind, a transition with no
+// target, a parallel transition with a step target, or a transition that activates a
+// scope missing from topLevel.
+func validateScope(sc ir.Scope, topLevel set.Set[string]) error {
+	for _, t := range sc.Transitions {
+		if t.Kind == ir.EdgeKindUnspecified {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"scope %s has a transition with no kind: %s",
+				sc.Key,
+				t,
+			)
+		}
+		switch target := t.Target.Variant.(type) {
+		case nil:
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"scope %s has a transition with no target: %s",
+				sc.Key,
+				t,
+			)
+		case ir.StepTarget:
+			if sc.Mode == ir.ScopeModeParallel {
+				return errors.Wrapf(
+					validate.ErrValidation,
+					"scope %s has a transition with a step target it cannot take: %s",
+					sc.Key,
+					t,
+				)
+			}
+		case ir.ScopeTarget:
+			if !topLevel.Contains(target.Key) {
+				return errors.Wrapf(
+					validate.ErrValidation,
+					"scope %s has a transition to a scope that is not top-level: %s",
+					sc.Key,
+					t,
+				)
+			}
+		}
+	}
+	for _, a := range sc.Activations {
+		if a.Kind == ir.EdgeKindUnspecified {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"scope %s has an activation with no kind",
+				sc.Key,
+			)
+		}
+	}
+	for _, stratum := range sc.Strata {
+		for _, m := range stratum {
+			if m.Scope != nil {
+				if err := validateScope(*m.Scope, topLevel); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	for _, m := range sc.Steps {
+		if m.Scope != nil {
+			if err := validateScope(*m.Scope, topLevel); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func newBuilder(prog ir.IR, runtimeNodes map[string]rnode.Node) *builder {
@@ -60,6 +154,7 @@ func newBuilder(prog ir.IR, runtimeNodes map[string]rnode.Node) *builder {
 			key:     n.Key,
 			idx:     i,
 			entry:   n.IsEntryNode(prog.Edges),
+			done:    -1,
 			Node:    runtimeNodes[n.Key],
 			outputs: make([]outputResolved, 0, len(n.Outputs)),
 		}
@@ -81,7 +176,7 @@ func newBuilder(prog ir.IR, runtimeNodes map[string]rnode.Node) *builder {
 // build wires edges, materializes the scope tree, and returns a fully
 // initialized Scheduler with its root scope activated and its node-context
 // callbacks bound. The receiver is no longer needed after this call.
-func (b *builder) build(prog ir.IR, tolerance telem.TimeSpan) *Scheduler {
+func (b *builder) build(prog ir.IR) *Scheduler {
 	for _, edge := range prog.Edges {
 		src, ok := b.nodes[edge.Source.Node]
 		if !ok {
@@ -105,7 +200,6 @@ func (b *builder) build(prog ir.IR, tolerance telem.TimeSpan) *Scheduler {
 		selfChangedFlags: make([]uint8, len(prog.Nodes)),
 		firedFlags:       make([]uint8, len(prog.Nodes)),
 		visitedFlags:     make([]uint8, len(prog.Nodes)),
-		tolerance:        tolerance,
 	}
 	// Build the scope state tree rooted at prog.Root. buildScopeState
 	// captures activation sources and assigns a dense index to every
@@ -113,6 +207,15 @@ func (b *builder) build(prog ir.IR, tolerance telem.TimeSpan) *Scheduler {
 	// markedFlags is sized after the walk to match the final count.
 	s.root = b.buildScopeState(&prog.Root)
 	s.markedFlags = make([]uint8, b.nextHandleIdx)
+	topLevel := make(map[string]*scope)
+	for _, m := range s.root.members {
+		if m.scope != nil {
+			topLevel[m.scope.ir.Key] = m.scope
+		}
+	}
+	for _, j := range b.jumps {
+		j.state.transitionTargets[j.idx] = topLevel[j.key]
+	}
 	// The root scope is parallel+always-live; seed it active so its strata
 	// execute every cycle. Activating it also resets direct members and
 	// cascades into any gated children (there won't be any at the root
@@ -121,6 +224,7 @@ func (b *builder) build(prog ir.IR, tolerance telem.TimeSpan) *Scheduler {
 	s.nodeCtx = rnode.Context{
 		MarkChanged:     s.markChanged,
 		MarkSelfChanged: s.markSelfChanged,
+		MarkDone:        s.markDone,
 		SetDeadline:     s.setDeadline,
 		ReserveStamps:   s.reserveStamps,
 		ReportError:     s.reportError,
@@ -168,19 +272,26 @@ func (b *builder) buildScopeState(sc *ir.Scope) *scope {
 	for i, m := range state.members {
 		state.memberByKey[m.key] = i
 	}
-	// Register activation lookup for gated scopes with an explicit
-	// activation handle (typically top-level scopes targeted by a
-	// cross-scope reference in source). Stored on the source node's
-	// per-output table so markChanged needs zero scheduler-wide lookups.
-	if sc.Liveness == ir.LivenessGated && sc.Activation != nil {
-		if src, ok := b.nodes[sc.Activation.Node]; ok {
-			oidx := b.getOrCreateOutput(src, sc.Activation.Param)
-			src.outputs[oidx].activates = append(src.outputs[oidx].activates, state)
+	// Register each activation of a gated scope (an entry point or an inline
+	// body's trigger) on the source node's per-output table, so markChanged
+	// needs zero scheduler-wide lookups.
+	if sc.Liveness == ir.LivenessGated {
+		for _, a := range sc.Activations {
+			src, ok := b.nodes[a.On.Node]
+			if !ok {
+				continue
+			}
+			oidx := b.getOrCreateOutput(src, a.On.Param)
+			src.outputs[oidx].activates = append(
+				src.outputs[oidx].activates,
+				activation{
+					scope:      state,
+					continuous: a.Kind == ir.EdgeKindContinuous,
+				},
+			)
 		}
 	}
-	if sc.Mode == ir.ScopeModeSequential {
-		b.resolveTransitions(state, sc.Transitions)
-	}
+	b.resolveTransitions(state, sc.Transitions)
 	return state
 }
 
@@ -202,7 +313,11 @@ func (b *builder) resolveTransitions(state *scope, transitions []ir.Transition) 
 	state.transitionOnIdx = make([]int, len(transitions))
 	state.transitionOnNode = make([]*node, len(transitions))
 	state.transitionOnOutputIdx = make([]int, len(transitions))
+	state.transitionTargets = make([]*scope, len(transitions))
 	for i, t := range transitions {
+		if target, ok := t.Target.Variant.(ir.ScopeTarget); ok {
+			b.jumps = append(b.jumps, jump{state: state, idx: i, key: target.Key})
+		}
 		on, ok := b.nodes[t.On.Node]
 		if !ok {
 			state.transitionOwner[i] = -1
@@ -214,6 +329,9 @@ func (b *builder) resolveTransitions(state *scope, transitions []ir.Transition) 
 		if on.outputs[oIdx].markHandleIdx == -1 {
 			on.outputs[oIdx].markHandleIdx = b.nextHandleIdx
 			b.nextHandleIdx++
+		}
+		if t.On.Param == ir.DoneParam {
+			on.done = on.outputs[oIdx].markHandleIdx
 		}
 		state.transitionOnNode[i] = on
 		state.transitionOnOutputIdx[i] = oIdx
@@ -227,7 +345,11 @@ func (b *builder) resolveTransitions(state *scope, transitions []ir.Transition) 
 	// Pre-filter transitions per step so evaluateTransitions can iterate
 	// a short list instead of scanning all N transitions per cascade step.
 	// Each step's list contains transitions owned by that step plus
-	// every external transition (owner == -1), in source order.
+	// every external transition (owner == -1), in source order. A parallel
+	// scope evaluates its exits directly.
+	if state.ir.Mode != ir.ScopeModeSequential {
+		return
+	}
 	state.transitionsForStep = make([][]int, len(state.members))
 	for m := range state.members {
 		var list []int

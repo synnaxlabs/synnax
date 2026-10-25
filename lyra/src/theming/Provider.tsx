@@ -57,6 +57,12 @@ const prefersDark = () =>
 
 const isDarkMode = (): boolean => prefersDark()?.matches ?? true;
 
+const OVERRIDDEN_KEYS = ["synnaxLight", "synnaxDark"];
+
+/** @returns the variant the caller's theme pins, or null when it names none. */
+const pinnedKey = (theme: UseProviderProps["theme"]): string | null =>
+  theme != null && OVERRIDDEN_KEYS.includes(theme.key) ? theme.key : null;
+
 export const useProvider = ({
   theme,
   themes = baseTheme.SYNNAX_THEMES,
@@ -66,15 +72,21 @@ export const useProvider = ({
   darkTheme = "synnaxDark",
 }: UseProviderProps): ContextValue => {
   const [selected, setSelected] = useState<string>(
-    isDarkMode() ? darkTheme : lightTheme,
+    () => pinnedKey(theme) ?? (isDarkMode() ? darkTheme : lightTheme),
   );
+  const [prevTheme, setPrevTheme] = useState(theme);
+  if (theme !== prevTheme) {
+    setPrevTheme(theme);
+    const pinned = pinnedKey(theme);
+    if (pinned != null) setSelected(pinned);
+  }
 
-  const parsedThemes = useMemo(() => {
+  const parsedThemes = useMemo((): Record<string, baseTheme.Theme> => {
     if (theme != null) {
       // The override applies to both variants and each keeps its own key, since
       // consumers tell light from dark by key. The caller's key pins a variant when it
       // names one and is otherwise ignored.
-      const { key, ...override } = theme;
+      const { key: _, ...override } = theme;
       const synnaxLight = zod.parse(
         baseTheme.themeZ,
         deep.override(deep.copy(baseTheme.SYNNAX_LIGHT), override),
@@ -85,9 +97,7 @@ export const useProvider = ({
         deep.override(deep.copy(baseTheme.SYNNAX_DARK), override),
         { label: "theme" },
       );
-      const overridden: Record<string, baseTheme.Theme> = { synnaxLight, synnaxDark };
-      if (Object.hasOwn(overridden, key)) setSelected(key);
-      return overridden;
+      return { synnaxLight, synnaxDark };
     }
     return Object.entries(themes).reduce<Record<string, baseTheme.Theme>>(
       (acc, [key, value]) => ({
@@ -103,7 +113,7 @@ export const useProvider = ({
     const index = keys.indexOf(selected);
     const nextIndex = (index + 1) % keys.length;
     setSelected(keys[nextIndex]);
-  }, [toggleTheme, selected, themes]);
+  }, [selected, themes]);
 
   const parsedTheme = useMemo(() => parsedThemes[selected], [parsedThemes, selected]);
 
@@ -151,11 +161,11 @@ export const Provider = ({
   // but not the key. This reduces re-renders, but should be corrected once the user
   // has the ability to edit the theme themselves.
   useLayoutEffect(() => {
-    if (el === undefined) el = document.documentElement;
-    if (el == null) return;
-    setThemeClass(el, ret.theme);
-    if (applyCSSVars) CSS.applyVars(el, toCSSVars(ret.theme));
-    else CSS.removeVars(el, "--pluto");
+    const target = el === undefined ? document.documentElement : el;
+    if (target == null) return;
+    setThemeClass(target, ret.theme);
+    if (applyCSSVars) CSS.applyVars(target, toCSSVars(ret.theme));
+    else CSS.removeVars(target, "--pluto");
   }, [ret.theme.key, el]);
 
   return <Context value={ret}>{children}</Context>;

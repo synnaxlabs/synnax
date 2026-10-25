@@ -9,6 +9,7 @@
 
 # Re-exports from x.telem. Canonical definitions live in x/py/x/telem/.
 from x.telem import (
+    Aggregation,
     Alignment,
     Authority,
     Bounds,
@@ -23,11 +24,14 @@ from x.telem import (
     CrudeTimeStamp,
     DataType,
     Density,
+    LimitReduction,
     MultiSeries,
     Rate,
+    Reduction,
     SampleValue,
     Series,
     Size,
+    StrideReduction,
     Subject,
     TimeRange,
     TimeSpan,
@@ -40,10 +44,10 @@ from x.telem import (
 )
 
 __all__ = [
+    "Aggregation",
     "Alignment",
     "Authority",
     "Bounds",
-    "convert_time_units",
     "CrudeAlignment",
     "CrudeAuthority",
     "CrudeDataType",
@@ -55,17 +59,21 @@ __all__ = [
     "CrudeTimeStamp",
     "DataType",
     "Density",
-    "elapsed_seconds",
+    "LimitReduction",
     "MultiSeries",
     "Rate",
+    "Reduction",
     "SampleValue",
     "Series",
     "Size",
+    "StrideReduction",
     "Subject",
     "TimeRange",
     "TimeSpan",
     "TimeSpanUnits",
     "TimeStamp",
     "TypedCrudeSeries",
+    "convert_time_units",
+    "elapsed_seconds",
     "seconds_linspace",
 ]

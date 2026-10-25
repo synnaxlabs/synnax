@@ -12,10 +12,12 @@ package task_test
 import (
 	"context"
 	"math"
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
@@ -23,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/labjack"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -31,7 +34,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -87,8 +89,9 @@ var _ = Describe("Task", Ordered, func() {
 		}))
 		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 		at := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
+		lj := MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{DB: db}))
 		configs = MustSucceed(config.NewRegistry(
-			append(pd.Stores(), at.Stores()...)...,
+			slices.Concat(pd.Stores(), at.Stores(), lj.Stores())...,
 		))
 		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:       db,
@@ -160,6 +163,10 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(m.Key).ToNot(Equal(uuid.Nil()))
 			Expect(m.Rack.IsZero()).To(BeTrue())
 		})
+		It("Should reject a task with an empty name", func(ctx SpecContext) {
+			m := &task.Task{Type: testType, Rack: testRack.Key}
+			Expect(w.Create(ctx, m)).To(MatchError(ContainSubstring("name: required")))
+		})
 	})
 
 	Describe("ConfigHash", func() {
@@ -228,19 +235,19 @@ var _ = Describe("Task", Ordered, func() {
 		It(
 			"Should hash integer and integral float values identically",
 			func(ctx SpecContext) {
-				createArc := func(config msgpack.EncodedJSON) string {
+				createRead := func(config msgpack.EncodedJSON) string {
 					GinkgoHelper()
 					t := &task.Task{
-						Type:   arc.TaskType,
+						Type:   "labjack_read",
 						Rack:   testRack.Key,
-						Name:   "Arc Task",
+						Name:   "LabJack Read",
 						Config: config,
 					}
 					Expect(w.Create(ctx, t)).To(Succeed())
 					return t.ConfigHash
 				}
-				Expect(createArc(msgpack.EncodedJSON{"rt_priority": 50})).
-					To(Equal(createArc(msgpack.EncodedJSON{"rt_priority": 50.0})))
+				Expect(createRead(msgpack.EncodedJSON{"sample_rate": 50})).
+					To(Equal(createRead(msgpack.EncodedJSON{"sample_rate": 50.0})))
 			},
 		)
 		It(
@@ -535,6 +542,297 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(t.Key).ToNot(Equal(m.Key))
 			Expect(t.Snapshot).To(BeTrue())
 		})
+
+		It("Should reject a copy with an empty name", func(ctx SpecContext) {
+			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Test Task"}
+			Expect(w.Create(ctx, m)).To(Succeed())
+			Expect(w.Copy(ctx, m.Key, "", false)).Error().
+				To(MatchError(ContainSubstring("name: required")))
+		})
+	})
+
+	Describe("Rename", func() {
+		It(
+			"Should rename a task and its status, keeping every other field",
+			func(ctx SpecContext) {
+				m := &task.Task{
+					Type:     testType,
+					Rack:     testRack.Key,
+					Name:     "Before",
+					Internal: true,
+					Snapshot: true,
+				}
+				Expect(w.Create(ctx, m)).To(Succeed())
+				Expect(w.Rename(ctx, m.Key, "After")).To(Succeed())
+				var res task.Task
+				Expect(svc.NewRetrieve().
+					Where(task.MatchKeys(m.Key)).
+					Entry(&res).
+					Exec(ctx, tx)).To(Succeed())
+				expected := *m
+				expected.Name = "After"
+				expected.Status = nil
+				Expect(res).To(Equal(expected))
+				var renamed task.Status
+				Expect(stat.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchKeys[task.StatusDetails](m.OntologyID().String())).
+					Entry(&renamed).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(renamed.Name).To(Equal("After"))
+				Expect(renamed.Variant).To(Equal(m.Status.Variant))
+				Expect(renamed.Message).To(Equal(m.Status.Message))
+				Expect(renamed.Details.Task).To(Equal(m.Key))
+			},
+		)
+		It("Should return a validation error for an empty name", func(ctx SpecContext) {
+			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Before"}
+			Expect(w.Create(ctx, m)).To(Succeed())
+			Expect(w.Rename(ctx, m.Key, "")).
+				To(MatchError(ContainSubstring("name: required")))
+		})
+		It("Should return a not found error for a missing task", func(ctx SpecContext) {
+			Expect(w.Rename(ctx, uuid.New(), "After")).
+				To(MatchError(query.ErrNotFound))
+		})
+		It("Should succeed when the task has no status row", func(ctx SpecContext) {
+			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Before"}
+			Expect(w.Create(ctx, m)).To(Succeed())
+			Expect(stat.NewWriter(tx).Delete(ctx, m.OntologyID().String())).
+				To(Succeed())
+			Expect(w.Rename(ctx, m.Key, "After")).To(Succeed())
+		})
+		It("Should notify observers of the rename", func(ctx SpecContext) {
+			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Before"}
+			Expect(svc.NewWriter(db).Create(ctx, m)).To(Succeed())
+			renameTx := db.OpenTx()
+			defer func() { Expect(renameTx.Close()).To(Succeed()) }()
+			Expect(svc.NewWriter(renameTx).Rename(ctx, m.Key, "After")).To(Succeed())
+			var names []string
+			disconnect := svc.Observe().OnChange(func(
+				ctx context.Context,
+				r gorp.TxReader[task.Key, task.Task],
+			) {
+				for c := range r {
+					names = append(names, c.Value.Name)
+				}
+			})
+			defer disconnect()
+			Expect(renameTx.Commit(ctx)).To(Succeed())
+			Expect(names).To(Equal([]string{"After"}))
+		})
+	})
+
+	Describe("Rename", func() {
+		It(
+			"Should rename a task and its status, keeping every other field",
+			func(ctx SpecContext) {
+				m := &task.Task{
+					Type:     testType,
+					Rack:     testRack.Key,
+					Name:     "Before",
+					Internal: true,
+					Snapshot: true,
+				}
+				Expect(w.Create(ctx, m)).To(Succeed())
+				Expect(w.Rename(ctx, m.Key, "After")).To(Succeed())
+				var res task.Task
+				Expect(svc.NewRetrieve().
+					Where(task.MatchKeys(m.Key)).
+					Entry(&res).
+					Exec(ctx, tx)).To(Succeed())
+				expected := *m
+				expected.Name = "After"
+				expected.Status = nil
+				Expect(res).To(Equal(expected))
+				var renamed task.Status
+				Expect(stat.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchKeys[task.StatusDetails](m.OntologyID().String())).
+					Entry(&renamed).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(renamed.Name).To(Equal("After"))
+				Expect(renamed.Variant).To(Equal(m.Status.Variant))
+				Expect(renamed.Message).To(Equal(m.Status.Message))
+				Expect(renamed.Details.Task).To(Equal(m.Key))
+			},
+		)
+		It("Should return a validation error for an empty name", func(ctx SpecContext) {
+			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Before"}
+			Expect(w.Create(ctx, m)).To(Succeed())
+			Expect(w.Rename(ctx, m.Key, "")).
+				To(MatchError(ContainSubstring("name: required")))
+		})
+		It("Should return a not found error for a missing task", func(ctx SpecContext) {
+			Expect(w.Rename(ctx, uuid.New(), "After")).
+				To(MatchError(query.ErrNotFound))
+		})
+		It("Should succeed when the task has no status row", func(ctx SpecContext) {
+			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Before"}
+			Expect(w.Create(ctx, m)).To(Succeed())
+			Expect(stat.NewWriter(tx).Delete(ctx, m.OntologyID().String())).
+				To(Succeed())
+			Expect(w.Rename(ctx, m.Key, "After")).To(Succeed())
+		})
+		It("Should notify observers of the rename", func(ctx SpecContext) {
+			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Before"}
+			Expect(svc.NewWriter(db).Create(ctx, m)).To(Succeed())
+			renameTx := db.OpenTx()
+			defer func() { Expect(renameTx.Close()).To(Succeed()) }()
+			Expect(svc.NewWriter(renameTx).Rename(ctx, m.Key, "After")).To(Succeed())
+			var names []string
+			disconnect := svc.Observe().OnChange(func(
+				ctx context.Context,
+				r gorp.TxReader[task.Key, task.Task],
+			) {
+				for c := range r {
+					names = append(names, c.Value.Name)
+				}
+			})
+			defer disconnect()
+			Expect(renameTx.Commit(ctx)).To(Succeed())
+			Expect(names).To(Equal([]string{"After"}))
+		})
+	})
+
+	Describe("Rename", func() {
+		It(
+			"Should rename a task and its status, keeping every other field",
+			func(ctx SpecContext) {
+				m := &task.Task{
+					Type:     testType,
+					Rack:     testRack.Key,
+					Name:     "Before",
+					Internal: true,
+					Snapshot: true,
+				}
+				Expect(w.Create(ctx, m)).To(Succeed())
+				Expect(w.Rename(ctx, m.Key, "After")).To(Succeed())
+				var res task.Task
+				Expect(svc.NewRetrieve().
+					Where(task.MatchKeys(m.Key)).
+					Entry(&res).
+					Exec(ctx, tx)).To(Succeed())
+				expected := *m
+				expected.Name = "After"
+				expected.Status = nil
+				Expect(res).To(Equal(expected))
+				var renamed task.Status
+				Expect(stat.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchKeys[task.StatusDetails](m.OntologyID().String())).
+					Entry(&renamed).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(renamed.Name).To(Equal("After"))
+				Expect(renamed.Variant).To(Equal(m.Status.Variant))
+				Expect(renamed.Message).To(Equal(m.Status.Message))
+				Expect(renamed.Details.Task).To(Equal(m.Key))
+			},
+		)
+		It("Should return a validation error for an empty name", func(ctx SpecContext) {
+			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Before"}
+			Expect(w.Create(ctx, m)).To(Succeed())
+			Expect(w.Rename(ctx, m.Key, "")).
+				To(MatchError(ContainSubstring("name: required")))
+		})
+		It("Should return a not found error for a missing task", func(ctx SpecContext) {
+			Expect(w.Rename(ctx, uuid.New(), "After")).
+				To(MatchError(query.ErrNotFound))
+		})
+		It("Should succeed when the task has no status row", func(ctx SpecContext) {
+			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Before"}
+			Expect(w.Create(ctx, m)).To(Succeed())
+			Expect(stat.NewWriter(tx).Delete(ctx, m.OntologyID().String())).
+				To(Succeed())
+			Expect(w.Rename(ctx, m.Key, "After")).To(Succeed())
+		})
+		It("Should notify observers of the rename", func(ctx SpecContext) {
+			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Before"}
+			Expect(svc.NewWriter(db).Create(ctx, m)).To(Succeed())
+			renameTx := db.OpenTx()
+			defer func() { Expect(renameTx.Close()).To(Succeed()) }()
+			Expect(svc.NewWriter(renameTx).Rename(ctx, m.Key, "After")).To(Succeed())
+			var names []string
+			disconnect := svc.Observe().OnChange(func(
+				ctx context.Context,
+				r gorp.TxReader[task.Key, task.Task],
+			) {
+				for c := range r {
+					names = append(names, c.Value.Name)
+				}
+			})
+			defer disconnect()
+			Expect(renameTx.Commit(ctx)).To(Succeed())
+			Expect(names).To(Equal([]string{"After"}))
+		})
+	})
+
+	Describe("Rename", func() {
+		It(
+			"Should rename a task and its status, keeping every other field",
+			func(ctx SpecContext) {
+				m := &task.Task{
+					Type:     testType,
+					Rack:     testRack.Key,
+					Name:     "Before",
+					Internal: true,
+					Snapshot: true,
+				}
+				Expect(w.Create(ctx, m)).To(Succeed())
+				Expect(w.Rename(ctx, m.Key, "After")).To(Succeed())
+				var res task.Task
+				Expect(svc.NewRetrieve().
+					Where(task.MatchKeys(m.Key)).
+					Entry(&res).
+					Exec(ctx, tx)).To(Succeed())
+				expected := *m
+				expected.Name = "After"
+				expected.Status = nil
+				Expect(res).To(Equal(expected))
+				var renamed task.Status
+				Expect(stat.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchKeys[task.StatusDetails](m.OntologyID().String())).
+					Entry(&renamed).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(renamed.Name).To(Equal("After"))
+				Expect(renamed.Variant).To(Equal(m.Status.Variant))
+				Expect(renamed.Message).To(Equal(m.Status.Message))
+				Expect(renamed.Details.Task).To(Equal(m.Key))
+			},
+		)
+		It("Should return a validation error for an empty name", func(ctx SpecContext) {
+			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Before"}
+			Expect(w.Create(ctx, m)).To(Succeed())
+			Expect(w.Rename(ctx, m.Key, "")).
+				To(MatchError(ContainSubstring("name: required")))
+		})
+		It("Should return a not found error for a missing task", func(ctx SpecContext) {
+			Expect(w.Rename(ctx, uuid.New(), "After")).
+				To(MatchError(query.ErrNotFound))
+		})
+		It("Should succeed when the task has no status row", func(ctx SpecContext) {
+			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Before"}
+			Expect(w.Create(ctx, m)).To(Succeed())
+			Expect(stat.NewWriter(tx).Delete(ctx, m.OntologyID().String())).
+				To(Succeed())
+			Expect(w.Rename(ctx, m.Key, "After")).To(Succeed())
+		})
+		It("Should notify observers of the rename", func(ctx SpecContext) {
+			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Before"}
+			Expect(svc.NewWriter(db).Create(ctx, m)).To(Succeed())
+			renameTx := db.OpenTx()
+			defer func() { Expect(renameTx.Close()).To(Succeed()) }()
+			Expect(svc.NewWriter(renameTx).Rename(ctx, m.Key, "After")).To(Succeed())
+			var names []string
+			disconnect := svc.Observe().OnChange(func(
+				ctx context.Context,
+				r gorp.TxReader[task.Key, task.Task],
+			) {
+				for c := range r {
+					names = append(names, c.Value.Name)
+				}
+			})
+			defer disconnect()
+			Expect(renameTx.Commit(ctx)).To(Succeed())
+			Expect(names).To(Equal([]string{"After"}))
+		})
 	})
 
 	Describe("Retrieve", func() {
@@ -787,7 +1085,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(taskStatus.Variant).To(Equal(status.VariantDisabled))
 				Expect(
 					taskStatus.Message,
-				).To(Equal("Status Test Task has not been deployed"))
+				).To(Equal("Task not deployed"))
 				Expect(taskStatus.Details.Task).To(Equal(m.Key))
 			},
 		)
@@ -876,7 +1174,7 @@ var _ = Describe("Task", Ordered, func() {
 					Exec(ctx, tx)).To(Succeed())
 				Expect(healed.Details.Task).To(Equal(t.Key))
 				Expect(healed.Variant).To(Equal(status.VariantWarning))
-				Expect(healed.Message).To(Equal("Self Heal Task status unknown"))
+				Expect(healed.Message).To(Equal("Task status unknown"))
 			},
 		)
 
@@ -909,6 +1207,39 @@ var _ = Describe("Task", Ordered, func() {
 		)
 
 		It(
+			"Should rename a live status row when a re-configure renames the task",
+			func(ctx SpecContext) {
+				t := &task.Task{
+					Type: testType,
+					Rack: testRack.Key,
+					Name: "Before Task",
+					Status: &task.Status{
+						Variant: status.VariantSuccess,
+						Message: "Task is running",
+						Time:    telem.Now(),
+					},
+				}
+				Expect(w.Create(ctx, t)).To(Succeed())
+
+				reconfigured := &task.Task{
+					Key:  t.Key,
+					Name: "After Task",
+					Type: testType,
+				}
+				Expect(w.Create(ctx, reconfigured)).To(Succeed())
+				Expect(reconfigured.Status.Name).To(Equal("After Task"))
+
+				var renamed task.Status
+				Expect(stat.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+					Entry(&renamed).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(renamed.Name).To(Equal("After Task"))
+				Expect(renamed.Message).To(Equal("Task is running"))
+			},
+		)
+
+		It(
 			"Should return the status it wrote for a new task",
 			func(ctx SpecContext) {
 				m := &task.Task{
@@ -921,7 +1252,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(m.Status.Variant).To(Equal(status.VariantDisabled))
 				Expect(
 					m.Status.Message,
-				).To(Equal("Returned Status Task has not been deployed"))
+				).To(Equal("Task not deployed"))
 				Expect(m.Status.Details.Task).To(Equal(m.Key))
 			},
 		)
@@ -971,7 +1302,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(copiedStatus.Variant).To(Equal(status.VariantDisabled))
 				Expect(
 					copiedStatus.Message,
-				).To(Equal("Copied Task has not been deployed"))
+				).To(Equal("Task not deployed"))
 				Expect(copiedStatus.Details.Task).To(Equal(copied.Key))
 			},
 		)
@@ -998,7 +1329,7 @@ var _ = Describe("Task", Ordered, func() {
 						Entry(&taskStatus).
 						Exec(ctx, nil)).To(Succeed())
 					g.Expect(taskStatus.Variant).To(Equal(status.VariantWarning))
-					g.Expect(taskStatus.Message).To(ContainSubstring("not running"))
+					g.Expect(taskStatus.Message).To(Equal("Driver not running"))
 					g.Expect(taskStatus.Details.Task).To(Equal(t.Key))
 				}).Should(Succeed())
 			},

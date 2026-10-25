@@ -11,10 +11,11 @@
 
 from __future__ import annotations
 
-from typing import Generic, Literal, TypeAlias, TypeVar
+from typing import Generic, Literal, TypeAlias
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, JsonValue
+from typing_extensions import TypeVar
 
 from synnax import label
 from x import telem
@@ -34,7 +35,7 @@ VARIANT_DISABLED: Literal["disabled"] = "disabled"
 
 Variant = Literal["success", "info", "warning", "error", "loading", "disabled"]
 
-Details = TypeVar("Details")
+Details = TypeVar("Details", default=JsonValue)
 
 Key: TypeAlias = str
 
@@ -47,11 +48,16 @@ class Status(BaseModel, Generic[Details]):
 
     Attributes:
         key: Is a unique identifier for this status, auto-generated if not provided.
-        name: Is an optional human-readable name for the status.
+        name: Is the name of what the status is about, such as a task, device, or rack.
+            Empty when the status is not about a named thing.
         variant: Indicates the severity of the status. One of success, info, warning,
             error, loading, or disabled.
-        message: Is the main message text describing the status.
-        description: Is an optional detailed description providing additional context.
+        message: Says what happened in one short line, such as "Failed to start task" or
+            "Started task". A status that reports a state names the state instead, such
+            as "Driver not running".
+        description: Says why it happened and what to do now, in full sentences. Raw
+            error text goes here, never in the message. Empty when the message says
+            enough.
         time: Is the timestamp when the status was created.
         details: Contains optional component-specific custom details for the status.
         labels: Contains optional labels for categorization and filtering.

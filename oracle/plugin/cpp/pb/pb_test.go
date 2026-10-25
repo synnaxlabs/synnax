@@ -21,7 +21,7 @@ import (
 
 func TestCppPB(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Cpp PB Suite")
+	RunSpecs(t, "Plugin Cpp PB Suite", SuiteConfig())
 }
 
 var _ = Describe("C++ PB Plugin", func() {
@@ -62,6 +62,31 @@ var _ = Describe("C++ PB Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		Context("field-level omit", func() {
+			DescribeTable(
+				"Should leave out a field omitted in cpp or pb",
+				func(ctx SpecContext, lang string) {
+					source := `
+					@go output "core/pkg/service/auth"
+					@cpp output "client/cpp/auth"
+					@pb output "core/pkg/service/auth/pb"
+
+					Session struct {
+						key     uint32
+						hash    bytes { @` + lang + ` omit }
+						subject string
+					}
+				`
+					resp := MustGenerate(ctx, source, "auth", loader, pbPlugin)
+					ExpectContent(resp, "proto.gen.h").
+						ToContain("subject").
+						ToNotContain("hash")
+				},
+				Entry("cpp", "cpp"),
+				Entry("pb", "pb"),
+			)
+		})
+
 		Context("array alias fields (e.g., Params -> Param[])", func() {
 			It(
 				"Should use add_* for repeated fields in forward conversion",
@@ -210,6 +235,53 @@ var _ = Describe("C++ PB Plugin", func() {
 						"pb.add_names(item)",
 					)
 			})
+
+			It("Should convert uuid arrays element by element", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Key = uuid
+
+					Data struct {
+						keys Key[]
+					}
+				`
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+				ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						"pb.add_keys(item.to_string());",
+						"auto [v, err] = x::uuid::UUID::parse(item);",
+						"cpp.keys.push_back(v);",
+					)
+			})
+
+			It(
+				"Should translate string enum arrays element by element",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Variant enum {
+						success = "success"
+						error = "error"
+					}
+
+					Data struct {
+						variants Variant[]
+					}
+				`
+					resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+					ExpectContent(resp, "proto.gen.h").
+						ToContain(
+							"auto [v, err] = variant_to_pb(item);",
+							"pb.add_variants(v);",
+							"variant_from_pb(static_cast<",
+							"cpp.variants.push_back(v);",
+						)
+				},
+			)
 		})
 
 		Context("optional struct fields", func() {
@@ -310,10 +382,11 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
-							// FunctionProperties array alias fields should use add_*
-							"pb.add_inputs()",
-							"pb.add_outputs()",
-							"pb.add_config()",
+							// Optional distinct arrays go through a list wrapper
+							// message.
+							"auto* wrapper = pb.mutable_inputs();",
+							"auto* wrapper = pb.mutable_outputs();",
+							"auto* wrapper = pb.mutable_config();",
 							// Self-referential fields should use has_value() and ->
 							"if (this->elem.has_value())",
 							"if (this->constraint.has_value())",
@@ -1479,7 +1552,7 @@ var _ = Describe("C++ PB Plugin", func() {
 			})
 
 			It(
-				"Should cast through a true distinct (non-alias) primitive wrapper",
+				"Should convert a distinct primitive as its base",
 				func(ctx SpecContext) {
 					source := `
 					@cpp output "client/cpp/types"
@@ -1495,11 +1568,8 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
-							// generateDistinctConversion primitive branch routes
-							// through primitiveToProtoType — uint16 maps to uint32_t on
-							// the wire.
-							"pb.set_priority(static_cast<uint32_t>(this->priority))",
-							"cpp.priority = Priority(pb.priority())",
+							"pb.set_priority(this->priority);",
+							"cpp.priority = pb.priority();",
 						)
 				},
 			)
@@ -1684,7 +1754,188 @@ var _ = Describe("C++ PB Plugin", func() {
 				},
 			)
 		})
+
+		Context("generic struct instance field", func() {
+			DescribeTable("Should name the instance by its C++ type arguments",
+				func(ctx SpecContext, arg, expected string) {
+					resp := MustGenerate(ctx, `
+					@cpp output "x/cpp/status"
+					@pb output "x/go/status/pb"
+
+					Valve struct {
+						open bool
+					}
+
+					Box struct<T> {
+						item T
+					}
+
+					Panel struct {
+						box Box<`+arg+`>
+					}
+				`, "status", loader, pbPlugin)
+					ExpectContent(resp, "proto.gen.h").ToContain(
+						"auto [v, err] = " + expected + "::from_proto(pb.box());",
+					)
+				},
+				Entry("a primitive", "string", "Box<std::string>"),
+				Entry(
+					"a map",
+					"map<string, Valve>",
+					"Box<std::unordered_map<std::string, Valve>>",
+				),
+				Entry("a struct", "Valve", "Box<Valve>"),
+			)
+		})
 	})
+})
+
+var _ = Describe("C++ PB Plugin unions", func() {
+	var (
+		loader   *MockFileLoader
+		pbPlugin *pb.Plugin
+	)
+	const source = `
+	@cpp output "arc/cpp/ir"
+	@go output "arc/go/ir"
+	@pb
+
+	Target union on type {
+		exit {}
+		step { key string }
+		scope { key string }
+	}
+
+	Transition struct {
+		name string
+		target Target
+	}
+	`
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		pbPlugin = pb.New(pb.DefaultOptions())
+	})
+
+	It(
+		"Should convert a union field through the union's free functions",
+		func(ctx SpecContext) {
+			resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
+			ExpectContent(resp, "proto.gen.h").
+				ToContain(
+					"auto [v, err] = ::arc::ir::to_proto(this->target);",
+					"*pb.mutable_target() = v;",
+					"auto [v, err] = ::arc::ir::target_from_proto(pb.target());",
+					"cpp.target = v;",
+				)
+		},
+	)
+
+	It(
+		"Should translate each variant against its payload message",
+		func(ctx SpecContext) {
+			resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
+			ExpectContent(resp, "proto.gen.h").
+				ToContain(
+					"ExitTarget::to_proto() const {",
+					"::arc::ir::pb::TargetExitPayload pb;",
+					"StepTarget::from_proto(",
+					"const ::arc::ir::pb::TargetStepPayload& pb",
+					"cpp.key = pb.key();",
+				).
+				ToNotContain(
+					// The discriminator lives in the oneof case, not the payload.
+					"pb.set_type(",
+				)
+		},
+	)
+
+	It(
+		"Should dispatch between the std::variant and the oneof",
+		func(ctx SpecContext) {
+			resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
+			ExpectContent(resp, "proto.gen.h").
+				ToContain(
+					"inline std::pair<::arc::ir::pb::Target, x::errors::Error> "+
+						"to_proto(const Target& value) {",
+					"if constexpr (std::is_same_v<V, ExitTarget>) *pb.mutable_exit() = inner;",
+					"inline std::pair<Target, x::errors::Error> "+
+						"target_from_proto(const ::arc::ir::pb::Target& pb) {",
+					"switch (pb.variant_case()) {",
+					"case ::arc::ir::pb::Target::kScope: {",
+					"auto [v, err] = ScopeTarget::from_proto(pb.scope());",
+					`x::errors::Error(x::errors::VALIDATION, "Target: no variant set")`,
+				)
+		},
+	)
+
+	It(
+		"Should convert the union's bases on the wrapper and union array elements",
+		func(ctx SpecContext) {
+			source := `
+			@cpp output "arc/cpp/ir"
+			@go output "arc/go/ir"
+			@pb
+
+			Base struct { id string }
+
+			Field union on type extends Base {
+				fixed { value string }
+			}
+
+			Holder struct {
+				fields Field[]
+				spare Field?
+			}
+			`
+			resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
+			ExpectContent(resp, "proto.gen.h").
+				ToContain(
+					"auto [base, base_err] = static_cast<const Base&>(v).to_proto();",
+					"*pb.mutable_base() = base;",
+					"auto [base, base_err] = Base::from_proto(pb.base());",
+					"static_cast<Base&>(v) = base;",
+					"for (const auto& item : this->fields) {",
+					"auto [v, err] = ::arc::ir::to_proto(item);",
+					"*pb.add_fields() = v;",
+					"for (const auto& item : pb.fields()) {",
+					"auto [v, err] = ::arc::ir::field_from_proto(item);",
+					"cpp.fields.push_back(v);",
+					"if (this->spare.has_value()) {",
+					"if (pb.has_spare()) {",
+				)
+		},
+	)
+
+	It(
+		"Should translate a variant against its payload's own proto package",
+		func(ctx SpecContext) {
+			loader.Add("schemas/hw", `
+			@cpp output "client/cpp/hw"
+			@go output "core/pkg/service/hw"
+			@pb
+
+			Valve struct { open bool }
+			`)
+			source := `
+			import "schemas/hw"
+
+			@cpp output "arc/cpp/ir"
+			@go output "arc/go/ir"
+			@pb
+
+			Node union on variant {
+				valve hw.Valve
+			}
+			`
+			resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
+			ExpectContent(resp, "ir/proto.gen.h").ToContain(
+				"inline std::pair<::service::hw::pb::Valve, x::errors::Error> "+
+					"ValveNode::to_proto() const {",
+				"::service::hw::pb::Valve pb;",
+			)
+		},
+	)
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

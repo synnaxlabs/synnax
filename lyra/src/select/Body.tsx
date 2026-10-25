@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type record } from "@synnaxlabs/x";
-import { plural } from "pluralize";
-import { type ReactElement, type ReactNode, useMemo } from "react";
+import pluralize from "pluralize";
+import { type ReactElement, type ReactNode } from "react";
 import { type z } from "zod";
 
 import { CSS } from "@/css";
@@ -35,7 +35,7 @@ export interface BodyProps<K extends record.Key>
 
 export const DefaultEmptyContent = ({ resourceName }: { resourceName: string }) => (
   <Text.Text center status="disabled">
-    No {plural(resourceName)} found
+    No {pluralize.plural(resourceName)} found
   </Text.Text>
 );
 
@@ -55,34 +55,28 @@ export const Body = <K extends record.Key>({
 }: BodyProps<K>): ReactElement => {
   const loading = status?.variant === "loading";
   const hasSearch = onSearch != null;
-  emptyContent = useMemo(() => {
-    if (loading) return hasSearch ? null : <Status.Loading />;
-    if (status != null && status.variant !== "success")
-      return (
-        <Status.Summary
-          center
-          variant={status?.variant}
-          description={status?.description}
-        >
-          {status?.message}
-        </Status.Summary>
-      );
-    if (typeof emptyContent === "string")
-      return (
-        <Status.Summary center variant="disabled">
-          {emptyContent}
-        </Status.Summary>
-      );
-    if (emptyContent == null)
-      return <DefaultEmptyContent resourceName={resourceName} />;
-    return emptyContent;
-  }, [status?.key, emptyContent, loading, hasSearch]);
+  let empty: ReactNode = emptyContent;
+  if (loading) empty = hasSearch ? null : <Status.Loading />;
+  else if (status != null && status.variant !== "success")
+    empty = (
+      <Status.Summary center variant={status.variant} description={status.description}>
+        {status.message}
+      </Status.Summary>
+    );
+  else if (typeof emptyContent === "string")
+    empty = (
+      <Status.Summary center variant="disabled">
+        {emptyContent}
+      </Status.Summary>
+    );
+  else if (emptyContent == null)
+    empty = <DefaultEmptyContent resourceName={resourceName} />;
   return (
     <>
       {hasSearch && (
         <Search
           onSearch={onSearch}
-          placeholder={`Search ${plural(resourceName)}...`}
+          placeholder={`Search ${pluralize.plural(resourceName)}...`}
           actions={actions}
           loading={loading}
         />
@@ -90,7 +84,7 @@ export const Body = <K extends record.Key>({
       {footer == null || footer === false ? (
         <SelectList bordered borderColor={6} grow rounded full="x">
           {fixedItems}
-          <Items<K> emptyContent={emptyContent}>{children}</Items>
+          <Items<K> emptyContent={empty}>{children}</Items>
         </SelectList>
       ) : (
         <Flex.Box
@@ -105,7 +99,7 @@ export const Body = <K extends record.Key>({
         >
           <SelectList grow full="x">
             {fixedItems}
-            <Items<K> emptyContent={emptyContent}>{children}</Items>
+            <Items<K> emptyContent={empty}>{children}</Items>
           </SelectList>
           {footer}
         </Flex.Box>

@@ -12,16 +12,36 @@ import importlib.util
 import inspect
 import itertools
 import json
+import math
 import os
 import sys
 import threading
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
 from framework.target_filter import TargetFilter
 from framework.test_case import TestCase
+
+DEFAULT_TIMEOUT = 300.0
+"""Seconds a test may run before the conductor marks it TIMEOUT, unless its
+definition sets `timeout`."""
+
+
+def _timeout(case: str, value: Any) -> float:
+    """:raises ValueError: If value is not a finite, positive number of seconds."""
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+        or value <= 0
+    ):
+        raise ValueError(
+            f"Test '{case}' has timeout {value!r}; it must be a positive number of "
+            "seconds"
+        )
+    return float(value)
 
 
 @dataclass
@@ -32,6 +52,8 @@ class TestDefinition:
     name: str | None = None
     parameters: dict[str, Any | list[Any]] = field(default_factory=dict)
     matrix: dict[str, list[Any]] | None = None
+    timeout: float = DEFAULT_TIMEOUT
+    """Seconds the test may run before the conductor marks it TIMEOUT."""
 
     @property
     def display_name(self) -> str:
@@ -134,9 +156,9 @@ class ConfigClient:
                 if "sequences" in file_data:
                     all_sequences.extend(file_data["sequences"])
             except FileNotFoundError:
-                raise FileNotFoundError(f"Test file not found: {test_file}")
+                raise FileNotFoundError(f"Test file not found: {test_file}") from None
             except json.JSONDecodeError as e:
-                raise ValueError(f"Invalid JSON in test file '{test_file}': {e}") from e
+                raise ValueError(f"Invalid JSON in test file '{test_file}'") from e
 
         if not all_sequences:
             raise FileNotFoundError("No valid sequences found")
@@ -177,6 +199,7 @@ class ConfigClient:
                     name=test.get("name", None),
                     parameters=test.get("parameters", {}),
                     matrix=test.get("matrix", None),
+                    timeout=_timeout(case_path, test.get("timeout", DEFAULT_TIMEOUT)),
                 )
 
                 class_defs = self._expand_test_classes(test_def)
@@ -275,7 +298,7 @@ class ConfigClient:
 
         expanded: list[TestDefinition] = []
         for combo in combinations:
-            combo_params = dict(zip(param_keys, combo))
+            combo_params = dict(zip(param_keys, combo, strict=True))
             merged_params = {**single_params, **combo_params}
 
             matrix_suffix = "_".join(str(v) for v in combo)
@@ -283,10 +306,11 @@ class ConfigClient:
             generated_name = f"{base_name}_{matrix_suffix}"
 
             expanded.append(
-                TestDefinition(
-                    case=test_def.case,
+                replace(
+                    test_def,
                     name=generated_name,
                     parameters=merged_params,
+                    matrix=None,
                 )
             )
 
@@ -301,21 +325,18 @@ class ConfigClient:
             if len(test_classes) == 1:
                 return [test_def]
 
-            expanded_defs: list[TestDefinition] = []
-            for test_class in test_classes:
-                expanded_defs.append(
-                    TestDefinition(
-                        case=test_def.case,
-                        name=test_class.__name__,
-                        parameters=test_def.parameters.copy(),
-                        matrix=test_def.matrix,
-                    )
+            return [
+                replace(
+                    test_def,
+                    name=test_class.__name__,
+                    parameters=test_def.parameters.copy(),
                 )
-            return expanded_defs
+                for test_class in test_classes
+            ]
 
         except Exception as e:
             raise ImportError(
-                f"Failed to expand test classes for {test_def.case}: {e}"
+                f"Failed to expand test classes for {test_def.case}"
             ) from e
 
     # ----- Dynamic class loading -----
@@ -324,7 +345,7 @@ class ConfigClient:
         """Dynamically load TestCase subclass(es) from a case identifier."""
         try:
             case_path = f"tests/{test_def.case}"
-            module_name = case_path.split("/")[-1]
+            module_name = case_path.replace("/", ".")
 
             current_dir = os.getcwd()
             script_dir = str(Path(__file__).resolve().parent)
@@ -376,6 +397,9 @@ class ConfigClient:
                         f"Cannot create spec for module: {module_name} at {file_path}"
                     )
                 module = importlib.util.module_from_spec(spec)
+                # Pydantic reads sys.modules when a module parametrizes a generic model
+                # at import time.
+                sys.modules[module_name] = module
                 if spec.loader is not None:
                     spec.loader.exec_module(module)
 
@@ -403,18 +427,23 @@ class ConfigClient:
                 raise AttributeError(f"No TestCase subclass found in {file_path}")
 
             if test_def.name:
+                # A parameter matrix adds a suffix to the class name.
                 matching = [
-                    cls for cls in test_classes if cls.__name__ == test_def.name
+                    cls
+                    for cls in test_classes
+                    if test_def.name == cls.__name__
+                    or test_def.name.startswith(f"{cls.__name__}_")
                 ]
                 if matching:
-                    return [matching[0]]
+                    # The longest name is the most exact match.
+                    return [max(matching, key=lambda cls: len(cls.__name__))]
 
             return test_classes
 
         except Exception as e:
             raise ImportError(
-                f"Failed to load test class(es) from {test_def.case}: {e}\n"
-            )
+                f"Failed to load test class(es) from {test_def.case}"
+            ) from e
 
     def load_test_class(self, test_def: TestDefinition) -> type[TestCase]:
         """Load a single test class (first match) from a case identifier."""

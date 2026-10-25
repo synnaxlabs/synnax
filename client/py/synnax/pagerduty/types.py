@@ -11,7 +11,9 @@ from synnax import task
 from synnax.pagerduty.types_gen import Alert, TaskConfig
 
 
-class AlertTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
+class AlertTask(
+    task.StarterStopperMixin, task.JSONConfigMixin[TaskConfig], task.Protocol
+):
     """A PagerDuty alert task that watches Synnax statuses and sends PagerDuty events.
 
     When a watched status changes to an error, warning, or info variant, a PagerDuty
@@ -25,7 +27,6 @@ class AlertTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
     """
 
     TYPE = "pagerduty_alert"
-    config: TaskConfig
     _internal: task.Task
 
     def __init__(

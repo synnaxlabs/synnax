@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type connection, type Synnax as Client } from "@synnaxlabs/client";
+import { disableActEnvironment } from "@synnaxlabs/lyra/testutil";
 import { theme } from "@synnaxlabs/lyra/theme";
 import { type FC, type PropsWithChildren, type ReactElement, Suspense } from "react";
 
 import { Aether } from "@/aether";
 import { type aether } from "@/aether/aether";
-import { aetherTest } from "@/aether/test";
 import { Alamos } from "@/alamos";
 import { alamos } from "@/alamos/aether";
 import { Status } from "@/status";
@@ -22,6 +22,7 @@ import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
 import { Telem } from "@/telem";
 import { telem } from "@/telem/aether";
+import { createAetherProvider } from "@/testutil/Aether";
 import { theming } from "@/theming/aether";
 import { canvasTest } from "@/vis/render/test";
 import { Staleness } from "@/vis/staleness";
@@ -42,6 +43,9 @@ const RenderContextSeed = ({
   });
   return <Aether.Composite path={path}>{children}</Aether.Composite>;
 };
+
+/** Tests assert on reported statuses, so their printed copies are noise. */
+const quiet = (): void => {};
 
 const TEST_THEME = theme.themeZ.parse(theme.SYNNAX_THEMES.synnaxLight);
 
@@ -84,7 +88,8 @@ export const createSynnaxWrapper = ({
   telemFactories,
   connectionStatus,
 }: CreateSynnaxWrapperParams): FC<PropsWithChildren> => {
-  const AetherProvider = aetherTest.createProvider({
+  if (client != null) disableActEnvironment();
+  const AetherProvider = createAetherProvider({
     ...synnax.REGISTRY,
     ...status.REGISTRY,
     ...alamos.REGISTRY,
@@ -113,7 +118,7 @@ export const createSynnaxWrapper = ({
     if (telemFactories != null) inner = <Telem.Provider>{inner}</Telem.Provider>;
     return (
       <AetherProvider>
-        <Status.Aggregator>
+        <Status.Aggregator log={quiet}>
           <Alamos.Provider>
             <Synnax.TestProvider client={client} status={connectionStatus}>
               <Suspense fallback={null}>

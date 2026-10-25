@@ -11,7 +11,7 @@ import { type schematic } from "@synnaxlabs/client";
 import { type FC } from "react";
 import { type z } from "zod";
 
-import { type FormProps } from "@/schematic/node/spec";
+import { type ColorFallbacks, type FormProps } from "@/schematic/node/spec";
 import { type Diagram } from "@/vis/diagram";
 
 export interface EdgeProps extends Diagram.EdgeProps {
@@ -31,4 +31,6 @@ export interface Spec<
   Form: FC<FormProps>;
   Edge: Edge;
   defaultConfig: () => P;
+  /** Overrides the default fallback of each color field it lists. */
+  colorFallbacks?: ColorFallbacks;
 }

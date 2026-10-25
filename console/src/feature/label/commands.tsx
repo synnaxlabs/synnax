@@ -14,7 +14,7 @@ import { Access } from "@synnaxlabs/pluto";
 import { Command } from "@/platform/command";
 import { Label } from "@/platform/label";
 
-export const EditCommand = Command.create({
+const EditCommand = Command.create({
   key: "edit_labels",
   name: "Edit labels",
   icon: <Icon.Label />,

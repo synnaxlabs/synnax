@@ -10,7 +10,7 @@
 import { type channel, type framer, ValidationError } from "@synnaxlabs/client";
 import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
 import { StreamClosed } from "@synnaxlabs/freighter";
-import { color, DataType, id, TimeStamp } from "@synnaxlabs/x";
+import { color, DataType, id, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 import { type z } from "zod";
 
@@ -137,8 +137,20 @@ const setupDisconnected = () => {
   return { controller: h.child<Controller>(CONTROLLER_KEY), handle: h };
 };
 
-const statusesOf = (h: { providers: { status: status.Aggregator | null } }): string[] =>
-  h.providers.status?.state.statuses.map(({ message }) => message) ?? [];
+interface StatusText {
+  name: string;
+  message: string;
+  description?: string;
+}
+
+const statusesOf = (h: {
+  providers: { status: status.Aggregator | null };
+}): StatusText[] =>
+  h.providers.status?.state.statuses.map(({ name, message, description }) => ({
+    name,
+    message,
+    description,
+  })) ?? [];
 
 interface Intercept {
   openWriter: OpenWriter;
@@ -209,9 +221,11 @@ describe("control/aether/Controller", SUITE, () => {
     controller.acquire();
     await expect
       .poll(() => statusesOf(handle), POLL)
-      .toContain(
-        `Failed to acquire control on ${CONTROLLER_NAME}: no Core is connected.`,
-      );
+      .toContainEqual({
+        name: CONTROLLER_NAME,
+        message: "Failed to acquire control",
+        description: "No Core is connected.",
+      });
     expect(controller.state.status).toBeUndefined();
   });
 
@@ -220,9 +234,11 @@ describe("control/aether/Controller", SUITE, () => {
     controller.acquire();
     await expect
       .poll(() => statusesOf(handle), POLL)
-      .toContain(
-        `Cannot acquire control on ${CONTROLLER_NAME} because there are no channels to control.`,
-      );
+      .toContainEqual({
+        name: CONTROLLER_NAME,
+        message: "Failed to acquire control",
+        description: "No symbols control any channels.",
+      });
     expect(controller.state.status).toBeUndefined();
   });
 
@@ -285,6 +301,33 @@ describe("control/aether/Controller", SUITE, () => {
     await expect.poll(() => controller.state.needsControlOf.length, POLL).toEqual(2);
     sink.cleanup();
     await expect.poll(() => controller.state.needsControlOf, POLL).toEqual([]);
+  });
+
+  it("should control the other channels when a sink's channel was deleted", async () => {
+    const ch = await createIndexed();
+    const deleted = await createIndexed();
+    await client.channels.delete(deleted.key);
+    const { controller, source, handle } = await setup(ch.key);
+    controller.create(setChannelValue({ channel: ch.key }));
+    controller.create(setChannelValue({ channel: deleted.key }));
+    controller.acquire();
+    await expect.poll(() => source.value().variant, POLL).toEqual("success");
+    expect([...controller.state.needsControlOf].sort()).toEqual(
+      [ch.key, ch.index].sort(),
+    );
+    expect(statusesOf(handle)).toContainEqual({
+      name: CONTROLLER_NAME,
+      message: "Skipped deleted channels",
+      description: [
+        "Some symbols use channels that no longer exist.",
+        `Channels with keys [${deleted.key}] not found: not found: query`,
+      ].join("\n"),
+    });
+    await expect(controller.set({ [deleted.key]: [1] })).rejects.toThrow();
+    await controller.set({ [ch.key]: [1] });
+    await expect
+      .poll(async () => (await client.read(TimeRange.MAX, ch.key)).length, POLL)
+      .toEqual(1);
   });
 
   it("should reopen the writer and replay the write on a closed stream", async () => {

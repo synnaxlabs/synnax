@@ -9,6 +9,7 @@
 
 #include <atomic>
 #include <csignal>
+#include <cstddef>
 #include <cstdlib>
 #include <cstring>
 #include <exception>
@@ -26,8 +27,10 @@ namespace {
 /// @brief size of the alternate signal stack. Must be large enough to run the
 /// trace-capturing handler when the normal stack is exhausted (the stack-overflow
 /// case). 64 KiB is comfortably above MINSIGSTKSZ on every supported platform.
-constexpr size_t ALT_STACK_SIZE = 64 * 1024;
+constexpr size_t ALT_STACK_SIZE = size_t{64} * 1024;
 
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): the signal handler
+// can only reach global state.
 /// @brief backing storage for the alternate signal stack. Static so it outlives
 /// install() and remains valid when a signal fires.
 alignas(16) char alt_stack[ALT_STACK_SIZE];
@@ -43,6 +46,7 @@ char program_name[256] = {};
 /// unreadable flood. Only the first thread to arrive dumps and terminates the process;
 /// any other crashing thread blocks here instead.
 std::atomic_flag crash_in_progress;
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 /// @brief lets the first crashing thread through; any later thread blocks forever (the
 /// first thread takes the process down). This serializes crash handling so the trace is
@@ -206,7 +210,7 @@ std::string capture_trace() {
         out += demangle_line(symbols[i]);
         out += '\n';
     }
-    std::free(symbols);
+    std::free(static_cast<void *>(symbols));
     return out;
 }
 }

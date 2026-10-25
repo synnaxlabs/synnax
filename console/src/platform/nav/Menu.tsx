@@ -21,7 +21,7 @@ import {
 } from "react";
 
 import { CSS } from "@/platform/css";
-import { type Toolbar } from "@/platform/nav/toolbar";
+import { type Toolbar, useVisibleKeys } from "@/platform/nav/toolbar";
 
 export interface UseItemProps {
   trigger?: Triggers.Trigger;
@@ -98,14 +98,18 @@ export const useItem = ({
         timeoutRef.current = null;
         onStartHover();
         positionRef.current = xy.construct(e);
-        const lis = (e: MouseEvent) => {
-          const delta = xy.translation(xy.construct(e), positionRef.current);
-          if (Math.abs(delta[alongAxis]) > 75 && Math.abs(delta[crossAxis]) < 30) {
-            onStopHover();
-            window.removeEventListener("mousemove", lis);
-          }
-        };
-        window.addEventListener("mousemove", lis);
+        const controller = new AbortController();
+        window.addEventListener(
+          "mousemove",
+          (e: MouseEvent) => {
+            const delta = xy.translation(xy.construct(e), positionRef.current);
+            if (Math.abs(delta[alongAxis]) > 75 && Math.abs(delta[crossAxis]) < 30) {
+              onStopHover();
+              controller.abort();
+            }
+          },
+          { signal: controller.signal },
+        );
       }, 350);
     },
     [onStartHover, onStopHover, bar],
@@ -116,6 +120,7 @@ export const useItem = ({
 
 interface MenuItemProps {
   item: Toolbar;
+  visible: boolean;
   selected: boolean;
   onStartHover: (key: string) => void;
   onStopHover: () => void;
@@ -125,30 +130,30 @@ interface MenuItemProps {
 
 const MenuItem = ({
   item,
+  visible,
   selected,
   onStartHover,
   onStopHover,
   onToggle,
   onPin,
 }: MenuItemProps): ReactElement | null => {
-  const { key, icon, tooltip, trigger, useVisible } = item;
-  const isVisible = useVisible?.() ?? true;
+  const { key, icon, tooltip, trigger } = item;
   const itemProps = useItem({
     trigger,
-    visible: isVisible,
+    visible,
     onStartHover: useCallback(() => onStartHover(key), [onStartHover, key]),
     onStopHover,
     onToggle: useCallback(() => onToggle(key), [onToggle, key]),
     onPin: useCallback(() => onPin(key), [onPin, key]),
   });
 
-  if (!isVisible) return null;
+  if (!visible) return null;
 
   return (
     <PMenu.Item
+      key={key}
       className={CSS.cls(CSS.BE("main-nav", "item"), PCSS.selected(selected))}
       {...itemProps}
-      key={key}
       itemKey={key}
       size="medium"
       triggerIndicator={trigger}
@@ -165,6 +170,7 @@ export interface MenuProps
   extends
     Omit<PMenu.MenuProps, "children" | "onChange">,
     Pick<MenuItemProps, "onStartHover" | "onStopHover" | "onToggle" | "onPin"> {
+  /** A module-level constant, since each toolbar's visibility hook runs in order. */
   items: Toolbar | Toolbar[];
   selected?: string;
   onSelect: (key: string) => void;
@@ -179,18 +185,23 @@ export const Menu = ({
   onToggle,
   onPin,
   ...rest
-}: MenuProps): ReactElement => (
-  <PMenu.Menu {...rest} onChange={onSelect}>
-    {array.toArray(items).map((item) => (
-      <MenuItem
-        key={item.key}
-        item={item}
-        selected={selected === item.key}
-        onStartHover={onStartHover}
-        onStopHover={onStopHover}
-        onToggle={onToggle}
-        onPin={onPin}
-      />
-    ))}
-  </PMenu.Menu>
-);
+}: MenuProps): ReactElement => {
+  const toolbars = array.toArray(items);
+  const visible = useVisibleKeys(toolbars);
+  return (
+    <PMenu.Menu {...rest} onChange={onSelect}>
+      {toolbars.map((item) => (
+        <MenuItem
+          key={item.key}
+          item={item}
+          visible={visible.has(item.key)}
+          selected={selected === item.key}
+          onStartHover={onStartHover}
+          onStopHover={onStopHover}
+          onToggle={onToggle}
+          onPin={onPin}
+        />
+      ))}
+    </PMenu.Menu>
+  );
+};

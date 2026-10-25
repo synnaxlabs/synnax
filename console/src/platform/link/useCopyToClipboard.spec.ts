@@ -8,11 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { Status } from "@synnaxlabs/lyra/status";
+import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { act, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock } from "vitest";
 
 import { Link } from "@/platform/link";
-import { renderHookWithConsole, stubClipboardWriteText } from "@/testutil";
+import { renderHookWithConsole } from "@/testutil";
 
 describe("Link.useCopyToClipboard", () => {
   let writeText: Mock;
@@ -50,11 +51,14 @@ describe("Link.useCopyToClipboard", () => {
     act(() => result.current.copy({ clusterKey: undefined, name: "My Core" }));
     await waitFor(() =>
       expect(
-        result.current.notifications.statuses.map(({ variant, message }) => ({
+        result.current.notifications.statuses.map(({ variant, name, message }) => ({
           variant,
+          name,
           message,
         })),
-      ).toEqual([{ variant: "error", message: "Failed to copy link to My Core" }]),
+      ).toEqual([
+        { variant: "error", name: "My Core", message: "Failed to copy link" },
+      ]),
     );
     expect(writeText).not.toHaveBeenCalled();
   });

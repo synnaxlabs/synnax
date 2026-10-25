@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Synnax } from "@synnaxlabs/client";
 import { type Locator } from "playwright";
 
 import { capture, fixtures } from "@/index";
@@ -27,11 +26,12 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
   await capture.createComponent(session, "Schematic");
   await session.waitFor(page.locator(".pluto-diagram").first());
-  await capture.place(session, "Tank", { x: 480, y: 240 });
-  await capture.place(session, "Gate", { x: 900, y: 250 });
-  await capture.deselect(session, { x: 1300, y: 520 });
+  // New symbols drop at the canvas center, so only the last one may sit there.
+  await capture.place(session, "Tank", { x: 300, y: 160 });
+  await capture.place(session, "Gate", { x: 700, y: 160 });
+  await capture.deselect(session, { x: 100, y: 290 });
   // Close the symbol library so the schematic tab closes cleanly.
-  await page.locator(".console-main-nav__item").last().click();
+  await capture.hideBottomToolbar(session);
   await session.settle(400);
 
   await capture.openToolbar(session, "project");
@@ -62,21 +62,20 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.waitFor(snapshots);
   await snapshots.scrollIntoViewIfNeeded();
   await session.settle(400);
-  await session.moveTo({ x: 900, y: 500 });
+  await session.moveTo({ x: 800, y: 450 });
 
   session.startRecording();
-  await session.hold(1200);
+  await session.hold(1800);
 
   await capture.contextMenu(session, item, `Snapshot to ${RANGE}`);
+  session.endZoom();
   const snapshot = page
     .locator(".console-snapshots__list-item")
     .filter({ hasText: NAME })
     .first();
   await session.waitFor(snapshot);
-  await session.zoom(snapshot, 1.8);
-  await session.hold(2000);
-  session.endZoom();
-  await session.hold(800);
+  await session.moveTo({ x: 800, y: 450 });
+  await session.hold(2800);
 };
 
 /** key extracts a resource's key from its tree item's ontology-id DOM id. */
@@ -87,12 +86,7 @@ const key = async (item: Locator): Promise<string> => {
 };
 
 const rename = async (schematicKey: string, name: string): Promise<void> => {
-  const client = new Synnax({
-    host: "localhost",
-    port: fixtures.defaultPort(),
-    username: "synnax",
-    password: "seldon",
-  });
+  const client = fixtures.connect();
   try {
     await client.schematics.rename(schematicKey, name);
   } finally {

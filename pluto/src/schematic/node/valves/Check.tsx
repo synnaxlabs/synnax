@@ -19,7 +19,7 @@ const DIMENSIONS = { width: 45, height: 43 };
 export const Check = ({
   className,
   orientation = "left",
-  color,
+  strokeColor,
   scale,
   ...rest
 }: Props): ReactElement => (
@@ -36,7 +36,7 @@ export const Check = ({
     />
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >

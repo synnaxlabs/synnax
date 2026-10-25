@@ -12,7 +12,7 @@ nextURL: "/reference/driver/ethercat/read-task"
 import { Text as TextComponent } from "@/components/text";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Image, Video } from "@/components/media/Media";
 import { Details } from "@/components/details";
@@ -33,7 +33,7 @@ Before configuring EtherCAT devices, ensure you have:
 3. An EtherCAT master configured (IgH kernel module or SOEM).
 4. The [Synnax Console](/reference/console/get-started) installed on your local machine.
 
-<Note.Note variant="warning" className="compact">
+<Note.Note variant="warning">
   All channels in a task must use devices connected to the **same network interface**.
   If you have devices on multiple EtherCAT networks, create separate tasks for each
   network.
@@ -80,12 +80,12 @@ devices. PDOs are configured in the device's ESI (EtherCAT Slave Information) fi
 
 ### TxPDO (transmit PDO)
 
-Data transmitted FROM the device TO Synnax. Use TxPDOs in **Read Tasks** to acquire
+Data transmitted FROM the device TO Synnax. Use TxPDOs in **read tasks** to acquire
 sensor data, status information, and feedback values.
 
 ### RxPDO (receive PDO)
 
-Data received BY the device FROM Synnax. Use RxPDOs in **Write Tasks** to send control
+Data received BY the device FROM Synnax. Use RxPDOs in **write tasks** to send control
 commands, setpoints, and configuration values.
 
 ### PDO entry properties

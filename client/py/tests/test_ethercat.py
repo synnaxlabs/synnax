@@ -11,6 +11,7 @@ import pytest
 from pydantic import ValidationError
 
 import synnax as sy
+from tests.json_value import arr, obj
 
 
 @pytest.mark.ethercat
@@ -101,12 +102,12 @@ class TestEtherCATReadTask:
             },
         ],
     )
-    def test_parse_ethercat_read_task(self, test_data):
+    def test_parse_ethercat_read_task(self, test_data: dict[str, object]) -> None:
         """Test that ReadConfig can parse various channel configurations."""
         input_data = test_data["data"]
         sy.ethercat.ReadConfig.model_validate(input_data)
 
-    def test_read_config_defaults(self):
+    def test_read_config_defaults(self) -> None:
         """Test that ReadConfig applies the shared task config defaults."""
         config = sy.ethercat.ReadConfig()
         assert config.sample_rate == sy.Rate(10)
@@ -115,7 +116,7 @@ class TestEtherCATReadTask:
         assert config.auto_start is False
         assert config.channels == []
 
-    def test_read_task_auto_key_generation(self):
+    def test_read_task_auto_key_generation(self) -> None:
         """Test that the ReadTask assigns keys to channels missing one."""
         task = sy.ethercat.ReadTask(
             name="test",
@@ -132,7 +133,7 @@ class TestEtherCATReadTask:
         assert channel.key != ""
         assert len(channel.key) > 0
 
-    def test_manual_input_index_bounds(self):
+    def test_manual_input_index_bounds(self) -> None:
         """Test that index validation works (0-65535)."""
         # Valid index
         sy.ethercat.ManualReadChannel(
@@ -141,7 +142,7 @@ class TestEtherCATReadTask:
             index=0,
             sub_index=0,
             bit_length=16,
-            data_type="uint16",
+            data_type=sy.DataType.UINT16,
             channel=1234,
         )
         sy.ethercat.ManualReadChannel(
@@ -150,7 +151,7 @@ class TestEtherCATReadTask:
             index=65535,
             sub_index=0,
             bit_length=16,
-            data_type="uint16",
+            data_type=sy.DataType.UINT16,
             channel=1234,
         )
 
@@ -162,7 +163,7 @@ class TestEtherCATReadTask:
                 index=-1,
                 sub_index=0,
                 bit_length=16,
-                data_type="uint16",
+                data_type=sy.DataType.UINT16,
                 channel=1234,
             )
         with pytest.raises(ValidationError):
@@ -172,11 +173,11 @@ class TestEtherCATReadTask:
                 index=65536,
                 sub_index=0,
                 bit_length=16,
-                data_type="uint16",
+                data_type=sy.DataType.UINT16,
                 channel=1234,
             )
 
-    def test_manual_input_sub_index_bounds(self):
+    def test_manual_input_sub_index_bounds(self) -> None:
         """Test that sub_index validation works (0-255)."""
         # Valid sub_index
         sy.ethercat.ManualReadChannel(
@@ -185,7 +186,7 @@ class TestEtherCATReadTask:
             index=0x6064,
             sub_index=0,
             bit_length=32,
-            data_type="int32",
+            data_type=sy.DataType.INT32,
             channel=1234,
         )
         sy.ethercat.ManualReadChannel(
@@ -194,7 +195,7 @@ class TestEtherCATReadTask:
             index=0x6064,
             sub_index=255,
             bit_length=32,
-            data_type="int32",
+            data_type=sy.DataType.INT32,
             channel=1234,
         )
 
@@ -206,7 +207,7 @@ class TestEtherCATReadTask:
                 index=0x6064,
                 sub_index=-1,
                 bit_length=32,
-                data_type="int32",
+                data_type=sy.DataType.INT32,
                 channel=1234,
             )
         with pytest.raises(ValidationError):
@@ -216,11 +217,11 @@ class TestEtherCATReadTask:
                 index=0x6064,
                 sub_index=256,
                 bit_length=32,
-                data_type="int32",
+                data_type=sy.DataType.INT32,
                 channel=1234,
             )
 
-    def test_manual_input_bit_length_bounds(self):
+    def test_manual_input_bit_length_bounds(self) -> None:
         """Test that bit_length validation works (0-255)."""
         # Valid bit lengths
         sy.ethercat.ManualReadChannel(
@@ -229,7 +230,7 @@ class TestEtherCATReadTask:
             index=0x6064,
             sub_index=0,
             bit_length=1,
-            data_type="uint8",
+            data_type=sy.DataType.UINT8,
             channel=1234,
         )
         sy.ethercat.ManualReadChannel(
@@ -238,7 +239,7 @@ class TestEtherCATReadTask:
             index=0x6064,
             sub_index=0,
             bit_length=64,
-            data_type="float64",
+            data_type=sy.DataType.FLOAT64,
             channel=1234,
         )
 
@@ -250,7 +251,7 @@ class TestEtherCATReadTask:
                 index=0x6064,
                 sub_index=0,
                 bit_length=-1,
-                data_type="uint8",
+                data_type=sy.DataType.UINT8,
                 channel=1234,
             )
         with pytest.raises(ValidationError):
@@ -260,11 +261,11 @@ class TestEtherCATReadTask:
                 index=0x6064,
                 sub_index=0,
                 bit_length=256,
-                data_type="uint8",
+                data_type=sy.DataType.UINT8,
                 channel=1234,
             )
 
-    def test_create_and_retrieve_read_task(self, client: sy.Synnax):
+    def test_create_and_retrieve_read_task(self, client: sy.Synnax) -> None:
         """Test that ReadTask can be created and retrieved from the database."""
         task = sy.ethercat.ReadTask(
             name="test-ethercat-read-task",
@@ -287,7 +288,7 @@ class TestEtherCATReadTask:
                     index=0x6077,
                     sub_index=0,
                     bit_length=16,
-                    data_type="int16",
+                    data_type=sy.DataType.INT16,
                     channel=5678,
                 ),
             ],
@@ -393,12 +394,12 @@ class TestEtherCATWriteTask:
             },
         ],
     )
-    def test_parse_ethercat_write_task(self, test_data):
+    def test_parse_ethercat_write_task(self, test_data: dict[str, object]) -> None:
         """Test that WriteConfig can parse various channel configurations."""
         input_data = test_data["data"]
         sy.ethercat.WriteConfig.model_validate(input_data)
 
-    def test_write_config_defaults(self):
+    def test_write_config_defaults(self) -> None:
         """Test that WriteConfig applies the shared task config defaults."""
         config = sy.ethercat.WriteConfig()
         assert config.state_rate == sy.Rate(25)
@@ -407,7 +408,7 @@ class TestEtherCATWriteTask:
         assert config.auto_start is False
         assert config.channels == []
 
-    def test_write_task_disabled_channels(self):
+    def test_write_task_disabled_channels(self) -> None:
         """Test that disabled channels are handled correctly."""
         config = sy.ethercat.WriteConfig(
             state_rate=sy.Rate(1),
@@ -436,7 +437,7 @@ class TestEtherCATWriteTask:
         assert config.channels[0].disabled is False
         assert config.channels[1].disabled is True
 
-    def test_write_channel_auto_key_generation(self):
+    def test_write_channel_auto_key_generation(self) -> None:
         """Test that the WriteTask assigns keys to channels missing one."""
         task = sy.ethercat.WriteTask(
             name="test",
@@ -453,7 +454,7 @@ class TestEtherCATWriteTask:
         assert channel.key != ""
         assert len(channel.key) > 0
 
-    def test_write_task_state_channel_optional(self):
+    def test_write_task_state_channel_optional(self) -> None:
         """Test that state_channel is optional (defaults to 0)."""
         channel = sy.ethercat.AutomaticWriteChannel(
             type="automatic",
@@ -472,7 +473,7 @@ class TestEtherCATWriteTask:
         )
         assert channel_with_state.state_channel == 5678
 
-    def test_create_and_retrieve_write_task(self, client: sy.Synnax):
+    def test_create_and_retrieve_write_task(self, client: sy.Synnax) -> None:
         """Test that WriteTask can be created and retrieved from the database."""
         task = sy.ethercat.WriteTask(
             name="test-ethercat-write-task",
@@ -496,7 +497,7 @@ class TestEtherCATWriteTask:
                     index=0x6040,
                     sub_index=0,
                     bit_length=16,
-                    data_type="uint16",
+                    data_type=sy.DataType.UINT16,
                     cmd_channel=9012,
                 ),
             ],
@@ -508,7 +509,7 @@ class TestEtherCATWriteTask:
         )
         sy.ethercat.WriteTask(created_task)
 
-    def test_write_task_serialization_round_trip(self, client: sy.Synnax):
+    def test_write_task_serialization_round_trip(self, client: sy.Synnax) -> None:
         """Test that task can be serialized and deserialized correctly."""
         original_task = sy.ethercat.WriteTask(
             name="test-round-trip",
@@ -533,7 +534,7 @@ class TestEtherCATWriteTask:
                     index=0x6040,
                     sub_index=0,
                     bit_length=16,
-                    data_type="uint16",
+                    data_type=sy.DataType.UINT16,
                     cmd_channel=9012,
                     state_channel=0,
                     disabled=True,
@@ -564,7 +565,7 @@ class TestEtherCATWriteTask:
         assert len(retrieved_task.config.channels) == len(original_task.config.channels)
 
         for orig_ch, retr_ch in zip(
-            original_task.config.channels, retrieved_task.config.channels
+            original_task.config.channels, retrieved_task.config.channels, strict=True
         ):
             assert retr_ch.key == orig_ch.key
             assert retr_ch.device == orig_ch.device
@@ -575,7 +576,7 @@ class TestEtherCATWriteTask:
 class TestEtherCATDevice:
     """Tests for EtherCAT Device configuration."""
 
-    def test_create_device_with_pdos(self, client: sy.Synnax):
+    def test_create_device_with_pdos(self, client: sy.Synnax) -> None:
         """Test that Device can be created with PDO definitions."""
         rack = client.racks.retrieve_embedded_rack()
 
@@ -618,8 +619,8 @@ class TestEtherCATDevice:
         created_device = client.devices.create(device)
         assert created_device.key != ""
         assert created_device.name == "Test Servo Drive"
-        assert created_device.make == "EtherCAT"
-        assert created_device.model == "Slave"
+        assert created_device.make == "ethercat"
+        assert created_device.model == "slave"
 
         # Verify properties
         props = created_device.properties
@@ -627,12 +628,14 @@ class TestEtherCATDevice:
         assert props["position"] == 0
         assert props["vendor_id"] == 0x00000002
         assert props["product_code"] == 0x12345678
-        assert len(props["pdos"]["inputs"]) == 2
-        assert len(props["pdos"]["outputs"]) == 1
-        assert props["pdos"]["inputs"][0]["name"] == "Position actual value"
-        assert props["pdos"]["outputs"][0]["name"] == "Target velocity"
+        inputs = arr(props, "pdos", "inputs")
+        outputs = arr(props, "pdos", "outputs")
+        assert len(inputs) == 2
+        assert len(outputs) == 1
+        assert obj(inputs[0])["name"] == "Position actual value"
+        assert obj(outputs[0])["name"] == "Target velocity"
 
-    def test_device_auto_key_generation(self):
+    def test_device_auto_key_generation(self) -> None:
         """Test that Device auto-generates key if not provided."""
         device = sy.ethercat.Device(
             name="Test Device",
@@ -642,7 +645,7 @@ class TestEtherCATDevice:
         assert device.key != ""
         assert len(device.key) > 0
 
-    def test_device_location_format(self):
+    def test_device_location_format(self) -> None:
         """Test that device location is formatted as network:position."""
         device = sy.ethercat.Device(
             name="Test Device",
@@ -656,7 +659,7 @@ class TestEtherCATDevice:
 class TestPDOEntry:
     """Tests for PDOEntry validation."""
 
-    def test_pdo_entry_valid(self):
+    def test_pdo_entry_valid(self) -> None:
         """Test valid PDOEntry creation."""
         pdo = sy.ethercat.PDOEntry(
             name="Position actual value",
@@ -671,7 +674,7 @@ class TestPDOEntry:
         assert pdo.bit_length == 32
         assert pdo.data_type == "int32"
 
-    def test_pdo_entry_index_bounds(self):
+    def test_pdo_entry_index_bounds(self) -> None:
         """Test PDOEntry index validation."""
         # Valid
         sy.ethercat.PDOEntry(
@@ -707,7 +710,7 @@ class TestPDOEntry:
                 data_type="uint8",
             )
 
-    def test_pdo_entry_bit_length_bounds(self):
+    def test_pdo_entry_bit_length_bounds(self) -> None:
         """Test PDOEntry bit_length validation."""
         # Valid
         sy.ethercat.PDOEntry(

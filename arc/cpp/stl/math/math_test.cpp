@@ -28,7 +28,6 @@ runtime::node::Context make_context() {
         .cycle =
             {.elapsed = x::telem::TimeSpan(0),
              .reason = runtime::node::RunReason::TimerTick},
-        .tolerance = x::telem::TimeSpan(0),
         .mark_changed = [](size_t) {},
         .report_error = [](const x::errors::Error &) {},
     };
@@ -128,7 +127,7 @@ private:
             reset_input.name = "reset";
             reset_input.type = types::Type{.kind = types::Kind::Bool};
             target_node.inputs.push_back(reset_input);
-            ir.nodes[1] = target_node;
+            ir.nodes[1] = std::move(target_node);
 
             ir::Edge reset_edge;
             reset_edge.source = ir::Handle("reset_signal", ir::default_output_param);

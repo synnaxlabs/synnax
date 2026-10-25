@@ -56,6 +56,8 @@ export interface ContextValue {
   removeLine: (key: string) => void;
   lines: LineSpec[];
   setViewport: (viewport: Viewport.UseEvent) => void;
+  viewportElement: HTMLElement | null;
+  setViewportElement: (element: HTMLElement | null) => void;
   addViewportHandler: (handler: Viewport.UseHandler) => destructor.Destructor;
   setHold: (hold: boolean) => void;
   loading: boolean;
@@ -142,6 +144,7 @@ export const Frame = ({
   ...rest
 }: FrameProps): ReactElement => {
   const [lines, setLines] = useState<LineState>([]);
+  const [viewportElement, setViewportElement] = useState<HTMLElement | null>(null);
 
   const memoProps = useMemoDeepEqual({ clearOverScan, hold, visible });
 
@@ -213,7 +216,8 @@ export const Frame = ({
   const removeGridEntry = useCallback(
     (key: string) =>
       setState((prev) => {
-        const { [key]: _, ...grid } = prev.grid;
+        const grid = { ...prev.grid };
+        delete grid[key];
         return { ...prev, grid };
       }),
     [setState],
@@ -228,7 +232,7 @@ export const Frame = ({
 
   const removeLine = useCallback(
     (key: string) => setLines((prev) => prev.filter(({ key: k }) => k !== key)),
-    [setLine],
+    [setLines],
   );
 
   const cssGrid = useMemo(() => buildPlotGrid(grid), [grid]);
@@ -253,6 +257,8 @@ export const Frame = ({
       setLine,
       removeLine,
       setViewport,
+      viewportElement,
+      setViewportElement,
       addViewportHandler,
       setHold,
       id,
@@ -267,6 +273,7 @@ export const Frame = ({
       setLine,
       removeLine,
       setViewport,
+      viewportElement,
       addViewportHandler,
       setHold,
       loading,

@@ -18,7 +18,7 @@ export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 const DIMENSIONS = { width: 87, height: 64 };
 
 export const ThreeWay = ({
-  color,
+  strokeColor,
   orientation = "left",
   scale,
   ...rest
@@ -53,7 +53,7 @@ export const ThreeWay = ({
     </Handle.Boundary>
     <Primitive.SVG
       dimensions={DIMENSIONS}
-      color={color}
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
     >

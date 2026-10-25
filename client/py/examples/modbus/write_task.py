@@ -35,38 +35,57 @@ client = sy.Synnax()
 # Update this with the name you gave the device in the Synnax Console
 dev = client.devices.retrieve(name="Modbus Server")
 
-# Create an index channel for command timestamps
-modbus_cmd_time = client.channels.create(
-    name="modbus_cmd_time",
+# Each command channel gets its own index, so a writer can command one channel at a
+# time.
+
+# Create command channels for coils (digital outputs)
+coil_cmd_0_time = client.channels.create(
+    name="coil_cmd_0_time",
     is_index=True,
     data_type=sy.DataType.TIMESTAMP,
     retrieve_if_name_exists=True,
 )
-
-# Create command channels for coils (digital outputs)
 coil_cmd_0 = client.channels.create(
     name="coil_cmd_0",
-    index=modbus_cmd_time.key,
+    index=coil_cmd_0_time.key,
     data_type=sy.DataType.UINT8,
+    retrieve_if_name_exists=True,
+)
+coil_cmd_1_time = client.channels.create(
+    name="coil_cmd_1_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
     retrieve_if_name_exists=True,
 )
 coil_cmd_1 = client.channels.create(
     name="coil_cmd_1",
-    index=modbus_cmd_time.key,
+    index=coil_cmd_1_time.key,
     data_type=sy.DataType.UINT8,
     retrieve_if_name_exists=True,
 )
 
 # Create command channels for holding registers (analog outputs)
+holding_reg_cmd_0_time = client.channels.create(
+    name="holding_reg_cmd_0_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
+)
 holding_reg_cmd_0 = client.channels.create(
     name="holding_reg_cmd_0",
-    index=modbus_cmd_time.key,
+    index=holding_reg_cmd_0_time.key,
     data_type=sy.DataType.UINT8,
+    retrieve_if_name_exists=True,
+)
+holding_reg_cmd_1_time = client.channels.create(
+    name="holding_reg_cmd_1_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
     retrieve_if_name_exists=True,
 )
 holding_reg_cmd_1 = client.channels.create(
     name="holding_reg_cmd_1",
-    index=modbus_cmd_time.key,
+    index=holding_reg_cmd_1_time.key,
     data_type=sy.DataType.UINT8,
     retrieve_if_name_exists=True,
 )
@@ -90,12 +109,12 @@ tsk = sy.modbus.WriteTask(
         sy.modbus.HoldingRegisterWriteChannel(
             channel=holding_reg_cmd_0.key,
             address=2,
-            data_type="uint8",
+            data_type=sy.DataType.UINT8,
         ),
         sy.modbus.HoldingRegisterWriteChannel(
             channel=holding_reg_cmd_1.key,
             address=3,
-            data_type="uint8",
+            data_type=sy.DataType.UINT8,
         ),
     ],
 )
@@ -119,10 +138,13 @@ with tsk.run():
     with client.open_writer(
         start=sy.TimeStamp.now(),
         channels=[
-            modbus_cmd_time.key,
+            coil_cmd_0_time.key,
             coil_cmd_0.key,
+            coil_cmd_1_time.key,
             coil_cmd_1.key,
+            holding_reg_cmd_0_time.key,
             holding_reg_cmd_0.key,
+            holding_reg_cmd_1_time.key,
             holding_reg_cmd_1.key,
         ],
         enable_auto_commit=True,
@@ -142,9 +164,13 @@ with tsk.run():
             )
 
             # Write all commands with timestamp
+            now = sy.TimeStamp.now()
             writer.write(
                 {
-                    modbus_cmd_time.key: sy.TimeStamp.now(),
+                    coil_cmd_0_time.key: now,
+                    coil_cmd_1_time.key: now,
+                    holding_reg_cmd_0_time.key: now,
+                    holding_reg_cmd_1_time.key: now,
                     coil_cmd_0.key: coil_0_val,
                     coil_cmd_1.key: coil_1_val,
                     holding_reg_cmd_0.key: hold_reg_0_val,

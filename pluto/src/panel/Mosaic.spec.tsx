@@ -17,7 +17,8 @@ import { Haul } from "@synnaxlabs/lyra/haul";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
-import { type record, TimeSpan, uuid } from "@synnaxlabs/x";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { TimeSpan, uuid } from "@synnaxlabs/x";
 import {
   act,
   fireEvent,
@@ -57,14 +58,12 @@ const viewTab = (): panel.Tab => ({
   variant: "view",
   key: uuid.create(),
   type: "docs",
-  args: {},
 });
 
 const selectorTab = (): panel.Tab => ({
   variant: "view",
   key: uuid.create(),
   type: "selector",
-  args: {},
 });
 
 const createPanel = async (...tabs: panel.Tab[]): Promise<panel.Panel> => {
@@ -93,7 +92,6 @@ const contentText = (tab: panel.Tab): string => {
 interface Recorded {
   type: string;
   resource: ontology.ID | null;
-  args: record.Unknown | null;
 }
 
 // records captures what each tab's content probe resolved from the tab scope, so specs
@@ -106,24 +104,23 @@ const ResourceContentProbe = (): ReactElement => {
   const tabKey = Panel.useTabKey();
   const type = Panel.useTabType({});
   const resource = Panel.useTabResource({});
-  records.set(tabKey, { type, resource, args: null });
+  records.set(tabKey, { type, resource });
   return <div>{`${resource.type}:${resource.key}`}</div>;
 };
 
-// ViewContentProbe reads a view tab's args from the surrounding tab scope, records
-// them, and renders the visible content text.
+// ViewContentProbe reads a view tab's type from the surrounding tab scope, records it,
+// and renders the visible content text.
 const ViewContentProbe = (): ReactElement => {
   const tabKey = Panel.useTabKey();
   const type = Panel.useTabType({});
-  const args = Panel.useTabArgs({});
-  records.set(tabKey, { type, resource: null, args });
+  records.set(tabKey, { type, resource: null });
   const text = type === "selector" ? `empty:${tabKey}` : `${type}:${tabKey}`;
   return <div>{text}</div>;
 };
 
 // TabContentProbe dispatches on the tab's variant before touching variant-specific
 // selectors, mirroring how production renderers consume the tab scope: only a
-// resource renderer reads the resource, only a view renderer reads the args.
+// resource renderer reads the resource.
 const TabContentProbe = (): ReactElement => {
   const variant = Panel.useTabVariant({});
   if (variant === "resource") return <ResourceContentProbe />;
@@ -164,9 +161,11 @@ describe("Panel.Mosaic", () => {
 
   const renderMosaic = async ({
     panelKey,
+    reserved = [],
     ...props
   }: Omit<Panel.MosaicProps, "children"> & {
     panelKey: panel.Key;
+    reserved?: Triggers.Trigger[];
   }): Promise<RenderResult> => {
     let bootstrap!: RenderResult;
     await act(async () => {
@@ -185,9 +184,11 @@ describe("Panel.Mosaic", () => {
       utils = render(
         <Errors.SuspenseBoundary loading={<div>loading</div>}>
           <Panel.Suspended panelKey={panelKey}>
-            <Tooltip.Config delay={TimeSpan.milliseconds(1)}>
-              <Panel.Mosaic {...props}>{children}</Panel.Mosaic>
-            </Tooltip.Config>
+            <Triggers.Provider reserved={reserved}>
+              <Tooltip.Config delay={TimeSpan.milliseconds(1)}>
+                <Panel.Mosaic {...props}>{children}</Panel.Mosaic>
+              </Tooltip.Config>
+            </Triggers.Provider>
           </Panel.Suspended>
         </Errors.SuspenseBoundary>,
         { wrapper },
@@ -218,7 +219,6 @@ describe("Panel.Mosaic", () => {
       await waitFor(() => expect(utils.getByText(contentText(resource))).toBeTruthy());
 
       expect(records.get(resource.key)?.type).toEqual("lineplot");
-      expect(records.get(resource.key)?.args).toBeNull();
       expect(records.get(view.key)?.type).toEqual("docs");
       expect(records.get(view.key)?.resource).toBeNull();
       expect(records.get(selector.key)?.type).toEqual("selector");
@@ -430,6 +430,29 @@ describe("Panel.Mosaic", () => {
       expect(tip.textContent?.toLowerCase()).toContain("t");
     });
 
+    it("should open no create tooltip when the host reserves the shortcut", async () => {
+      const tab = resourceTab();
+      const p = await createPanel(tab);
+      const utils = await renderMosaic({
+        panelKey: p.key,
+        selected: [tab.key],
+        reserved: [Panel.CREATE_TAB_TRIGGER],
+      });
+      await waitFor(() => expect(utils.getByText(contentText(tab))).toBeTruthy());
+      const [create] = createButtons(utils);
+      create.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 40);
+      fireEvent.pointerEnter(create);
+      await expect(
+        waitFor(
+          () => {
+            if (document.querySelector(".pluto-tooltip") == null)
+              throw new Error("no tooltip yet");
+          },
+          { timeout: 500 },
+        ),
+      ).rejects.toThrow();
+    });
+
     it("should advertise escape as the way out of focus mode", async () => {
       const tab = resourceTab();
       const p = await createPanel(tab);
@@ -443,8 +466,8 @@ describe("Panel.Mosaic", () => {
   });
 
   describe("surgical re-renders", () => {
-    // tabRenders counts how many times each tab's name render prop ran, so specs can
-    // assert that a selection change re-renders only the leaves it touches.
+    // tabRenders counts how many times each tab's name rendered, so specs can assert
+    // that a selection change re-renders none.
     const tabRenders = new Map<string, number>();
     const TabNameCounter = (): ReactElement => {
       const tabKey = Panel.TabScope.use();
@@ -454,7 +477,7 @@ describe("Panel.Mosaic", () => {
     const countingTabName: Panel.MosaicProps["tabName"] = () => <TabNameCounter />;
     const stableOnSelect = (): void => {};
 
-    it("should re-render only the leaf whose selection changed", async () => {
+    it("should re-render no tab name when the selection changes", async () => {
       tabRenders.clear();
       const a1 = resourceTab();
       const a2 = resourceTab();
@@ -494,6 +517,7 @@ describe("Panel.Mosaic", () => {
       });
       await waitFor(() => expect(utils.getByText(contentText(b2))).toBeTruthy());
       const baseline = new Map(tabRenders);
+      expect(baseline.size).toBe(4);
 
       // A focus swap changes no leaf's selection, so no leaf re-renders.
       await act(async () => {
@@ -503,14 +527,12 @@ describe("Panel.Mosaic", () => {
       expect(isTabFocused(utils, b2.key)).toBe(true);
       expect(isTabFocused(utils, a2.key)).toBe(false);
 
-      // Changing the right leaf's selection re-renders only the right leaf.
+      // A compiled tab reuses its name while the tabName prop is unchanged.
       await act(async () => {
         utils.rerender(make([b1.key, a2.key]));
       });
       await waitFor(() => expect(utils.getByText(contentText(b1))).toBeTruthy());
-      expect(tabRenders.get(a1.key)).toEqual(baseline.get(a1.key));
-      expect(tabRenders.get(a2.key)).toEqual(baseline.get(a2.key));
-      expect(tabRenders.get(b1.key)).toBeGreaterThan(baseline.get(b1.key) ?? 0);
+      expect(tabRenders).toEqual(baseline);
     });
   });
 
@@ -611,7 +633,6 @@ describe("Panel.Mosaic", () => {
       const onCreateTab = (): panel.NewTab => ({
         variant: "view",
         type: "selector",
-        args: {},
       });
       const utils = await renderMosaic({ panelKey: p.key, onSelect, onCreateTab });
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());

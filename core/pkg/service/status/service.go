@@ -14,6 +14,7 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -21,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status/versions"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
@@ -166,13 +166,14 @@ func (s *Service) ResolveKeyOrName(
 
 // SetTarget builds the status a by-key-or-name set should write: the first match, or a
 // new UUID-keyed status named keyOrName when nothing matched, with the new fields
-// applied.
+// applied. It clears the description, which explained the previous message.
 func SetTarget(matches []Status[any], keyOrName, message, variant string) Status[any] {
 	st := Status[any]{Key: uuid.New().String(), Name: keyOrName}
 	if len(matches) > 0 {
 		st = matches[0]
 	}
 	st.Message = message
+	st.Description = ""
 	st.Variant = Variant(variant)
 	st.Time = telem.Now()
 	return st

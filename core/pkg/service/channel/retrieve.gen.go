@@ -13,12 +13,12 @@ package channel
 
 import (
 	"context"
+	"slices"
 
-	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -37,7 +37,8 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	name *gorp.LookupIndex[Key, Channel, Name]
+	name       *gorp.LookupIndex[Key, Channel, Name]
+	localIndex *gorp.LookupIndex[Key, Channel, LocalKey]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one index instance
@@ -49,6 +50,10 @@ func newIndexes() indexes {
 			"name",
 			func(e *Channel) Name { return e.Name },
 		),
+		localIndex: gorp.NewLookupIndex[Key, Channel, LocalKey](
+			"local_index",
+			func(e *Channel) LocalKey { return e.LocalIndex },
+		),
 	}
 }
 
@@ -57,6 +62,7 @@ func newIndexes() indexes {
 func (i indexes) all() []gorp.Index[Key, Channel] {
 	return []gorp.Index[Key, Channel]{
 		i.name,
+		i.localIndex,
 	}
 }
 
@@ -101,7 +107,7 @@ func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 // r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing
 // inside Or / Not falls back to a full scan.
 func MatchKeys(keys ...Key) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Channel] {
+	return func(Retrieve) gorp.Filter[Key, Channel] {
 		return gorp.MatchKeys[Key, Channel](keys...)
 	}
 }
@@ -110,9 +116,9 @@ func MatchKeys(keys ...Key) Filter {
 // channels whose Leaseholder matches any of the
 // provided values.
 func MatchLeaseholders(vals ...node.Key) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Channel] {
+	return func(Retrieve) gorp.Filter[Key, Channel] {
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
-			return lo.Contains(vals, e.Leaseholder), nil
+			return slices.Contains(vals, e.Leaseholder), nil
 		})
 	}
 }
@@ -121,9 +127,9 @@ func MatchLeaseholders(vals ...node.Key) Filter {
 // channels whose DataType matches any of the
 // provided values.
 func MatchDataTypes(vals ...telem.DataType) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Channel] {
+	return func(Retrieve) gorp.Filter[Key, Channel] {
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
-			return lo.Contains(vals, e.DataType), nil
+			return slices.Contains(vals, e.DataType), nil
 		})
 	}
 }
@@ -131,7 +137,7 @@ func MatchDataTypes(vals ...telem.DataType) Filter {
 // MatchIsIndex returns a filter for channels by their
 // IsIndex field.
 func MatchIsIndex(v bool) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Channel] {
+	return func(Retrieve) gorp.Filter[Key, Channel] {
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
 			return e.IsIndex == v, nil
 		})
@@ -141,7 +147,7 @@ func MatchIsIndex(v bool) Filter {
 // MatchInternal returns a filter for channels by their
 // Internal field.
 func MatchInternal(v bool) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Channel] {
+	return func(Retrieve) gorp.Filter[Key, Channel] {
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
 			return e.Internal == v, nil
 		})

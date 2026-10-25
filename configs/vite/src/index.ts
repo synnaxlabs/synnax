@@ -8,15 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import path from "path";
-import { type Plugin } from "vite";
+import { type PluginOption } from "vite";
 
-import { injectCSS } from "./css.js";
+import { reactCompiler } from "./compiler.js";
 import { declarations } from "./declarations.js";
-import { checkEntries } from "./entries.js";
-import { checkExports, discoverModules, moduleEntries } from "./modules.js";
+import { checkExports } from "./modules.js";
+import { ENTRY, transpile } from "./transpile.js";
 
+export { reactCompiler } from "./compiler.js";
 export { type Layer, layers } from "./layers.js";
-export { discoverModules, moduleExports } from "./modules.js";
+export { discoverModules, moduleExports, packageExports } from "./modules.js";
 
 export interface Options {
   name: string;
@@ -30,65 +31,79 @@ export interface Options {
   publishSourcemaps?: boolean;
   /**
    * Build the package as a subpath-only module set: every `src/<name>/index.ts` is an
-   * entry, `package.json` exports must match them, each source file stays its own
-   * output file, and emitted modules keep their CSS imports.
+   * entry, `package.json` exports must match them, and each entry must only re-export.
+   * Implies `transpiled`.
    * @default false
    */
   modules?: boolean;
+  /**
+   * Whether each source file is transpiled to its own output file instead of bundled,
+   * so a consumer's bundler can drop the modules and namespace members it does not
+   * use. The package must declare `sideEffects`.
+   * @default false
+   */
+  transpiled?: boolean;
+  /**
+   * Whether the React Compiler compiles the package's components and hooks, in builds
+   * and in specs.
+   * @default false
+   */
+  reactCompiled?: boolean;
 }
 
 export const lib = ({
   name,
   publishSourcemaps = true,
   modules = false,
-}: Options): Plugin[] => [
-  {
-    name: "vite-plugin-lib",
-    config: (config) => {
-      const prod = isProd();
-      console.log(
-        `\x1b[34m Synnax - ${prod ? "Production" : "Development"} mode\x1b[0m`,
-      );
-      const root = path.resolve(config.root ?? ".");
-      const entry = modules
-        ? moduleEntries(root, discoverModules(root))
-        : path.join(root, "src/index.ts");
-      return {
-        resolve: { tsconfigPaths: true },
-        build: {
-          sourcemap: prod && !publishSourcemaps ? "hidden" : true,
-          minify: prod,
-          cssCodeSplit: modules,
-          lib: {
-            name,
-            formats: ["es"],
-            fileName: (_, entryName) => `${outputName(name, entryName)}.js`,
-            entry,
-            ...config.build?.lib,
+  transpiled = false,
+  reactCompiled = false,
+}: Options): PluginOption[] => {
+  const prod = isProd();
+  console.log(`\x1b[34m Synnax - ${prod ? "Production" : "Development"} mode\x1b[0m`);
+  const compiler = reactCompiled ? [reactCompiler()] : [];
+  if (modules || transpiled)
+    return [
+      ...compiler,
+      {
+        name: "vite-plugin-lib",
+        config: () => ({
+          resolve: { tsconfigPaths: true },
+          build: {
+            write: false,
+            lib: { name, formats: ["es"], entry: { [name]: ENTRY } },
           },
-          rolldownOptions: modules
-            ? { output: { preserveModules: true, preserveModulesRoot: "src" } }
-            : {},
+        }),
+        configResolved: (config) => {
+          if (modules) checkExports(config.root);
         },
-      };
+      },
+      transpile(modules, reactCompiled),
+    ];
+  return [
+    ...compiler,
+    {
+      name: "vite-plugin-lib",
+      config: (config) => {
+        const root = path.resolve(config.root ?? ".");
+        return {
+          resolve: { tsconfigPaths: true },
+          build: {
+            sourcemap: prod && !publishSourcemaps ? "hidden" : true,
+            minify: prod,
+            lib: {
+              name,
+              formats: ["es"],
+              fileName: (_, entryName) =>
+                `${entryName === "index" ? name : entryName}.js`,
+              entry: path.join(root, "src/index.ts"),
+              ...config.build?.lib,
+            },
+          },
+        };
+      },
     },
-    configResolved: (config) => {
-      if (modules) checkExports(config.root, discoverModules(config.root));
-    },
-  },
-  ...(modules ? [checkEntries(), injectCSS()] : []),
-  declarations(),
-];
-
-// Bundled dependencies keep their module paths under preserveModules. npm drops any
-// `node_modules` directory from a tarball, so they land under `vendor/` instead.
-const NODE_MODULES = "node_modules/";
-
-const outputName = (name: string, entryName: string): string => {
-  if (entryName === "index") return name;
-  const at = entryName.lastIndexOf(NODE_MODULES);
-  if (at === -1) return entryName;
-  return `vendor/${entryName.slice(at + NODE_MODULES.length)}`;
+    declarations(),
+  ];
 };
 
 export const isProd = () => process.env.SYNNAX_TS_ENV === "prod";

@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <thread>
@@ -27,7 +28,9 @@
 
 namespace driver::http {
 namespace {
-const auto TIMEOUT = 100 * x::telem::MILLISECOND;
+// Only bounds a hang. A loaded runner can stall a loopback request for seconds, so a
+// test that wants a timeout sets a short one itself.
+const auto TIMEOUT = 5 * x::telem::SECOND;
 
 Request make_request(
     const std::string &base_url,
@@ -126,8 +129,8 @@ TEST(ProcessorTest, CustomHeaders) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/check");
-    req.headers.push_back("X-Global: global-val");
-    req.headers.push_back("X-Request: req-val");
+    req.headers.emplace_back("X-Global: global-val");
+    req.headers.emplace_back("X-Request: req-val");
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
@@ -182,7 +185,7 @@ TEST(ProcessorTest, BearerAuth) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/secure");
-    req.headers.push_back("Authorization: Bearer my-token");
+    req.headers.emplace_back("Authorization: Bearer my-token");
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
@@ -208,7 +211,7 @@ TEST(ProcessorTest, APIKeyAuthAsHeader) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/keyed");
-    req.headers.push_back("X-API-Key: secret123");
+    req.headers.emplace_back("X-API-Key: secret123");
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
@@ -346,7 +349,7 @@ TEST(ProcessorTest, UnreachableError) {
     Request req{
         .url = "http://192.0.2.1:1/",
         .method = Method::GET,
-        .timeout = TIMEOUT,
+        .timeout = 100 * x::telem::MILLISECOND,
     };
 
     Processor proc;
@@ -419,7 +422,7 @@ TEST(ProcessorTest, ParallelRequests) {
     Processor proc;
     const auto results = proc.execute(reqs);
     ASSERT_EQ(results.size(), 3);
-    for (auto &[resp, err]: results) {
+    for (const auto &[resp, err]: results) {
         ASSERT_NIL(err);
         EXPECT_EQ(resp.status_code, 200);
     }
@@ -458,7 +461,7 @@ TEST(ProcessorTest, ParallelRequestsWithMixedStatusCodes) {
     Processor proc;
     const auto results = proc.execute(reqs);
     ASSERT_EQ(results.size(), 3);
-    for (auto &[resp, err]: results)
+    for (const auto &[resp, err]: results)
         ASSERT_NIL(err);
     EXPECT_EQ(results[0].first.body, "success");
     EXPECT_EQ(results[0].first.status_code, 200);
@@ -664,7 +667,7 @@ TEST(ProcessorTest, ContentTypeValidation) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/json");
-    req.headers.push_back("Accept: application/json");
+    req.headers.emplace_back("Accept: application/json");
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
@@ -687,7 +690,7 @@ TEST(ProcessorTest, ContentTypeMismatchStillSucceeds) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/text");
-    req.headers.push_back("Accept: application/json");
+    req.headers.emplace_back("Accept: application/json");
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
@@ -710,7 +713,7 @@ TEST(ProcessorTest, ContentTypeHeaderSent) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/xml", Method::POST);
-    req.headers.push_back("Content-Type: application/xml");
+    req.headers.emplace_back("Content-Type: application/xml");
     req.body = "<req/>";
 
     Processor proc;
@@ -739,7 +742,7 @@ TEST(ProcessorTest, AcceptHeaderSent) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/accept");
-    req.headers.push_back("Accept: application/json");
+    req.headers.emplace_back("Accept: application/json");
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
@@ -796,6 +799,7 @@ TEST(ProcessorTest, ConcurrentExecuteFromMultipleThreads) {
     std::vector<std::thread> threads;
     std::atomic<int> success_count{0};
 
+    threads.reserve(num_threads);
     for (int t = 0; t < num_threads; t++) {
         threads.emplace_back([&] {
             for (int i = 0; i < requests_per_thread; i++) {
@@ -900,7 +904,7 @@ TEST(ProcessorTest, ContentTypeCharsetSuffix) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/charset");
-    req.headers.push_back("Accept: application/json");
+    req.headers.emplace_back("Accept: application/json");
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
@@ -922,7 +926,7 @@ TEST(ProcessorTest, RequestContentTypeOmittedWhenEmpty) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/raw", Method::POST);
-    req.headers.push_back("Content-Type: ");
+    req.headers.emplace_back("Content-Type: ");
     req.body = "data";
 
     Processor proc;
@@ -1053,7 +1057,7 @@ TEST(ProcessorTest, SerialGETRequestsReuseHandles) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/data");
-    req.headers.push_back("X-Header: test-value");
+    req.headers.emplace_back("X-Header: test-value");
 
     Processor proc;
     for (int i = 0; i < 3; i++) {
@@ -1267,7 +1271,7 @@ TEST(ProcessorTest, EmptyBatchExecute) {
 }
 
 TEST(ProcessorTest, LargeResponseBody) {
-    const std::string large_body(256 * 1024, 'X');
+    const std::string large_body(size_t{256} * 1024, 'X');
     mock::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::GET,
@@ -1363,6 +1367,7 @@ TEST(ProcessorTest, RapidInterleavedBatchAndSingle) {
     std::vector<std::thread> threads;
     std::atomic<int> success_count{0};
 
+    threads.reserve(num_threads);
     for (int t = 0; t < num_threads; t++) {
         threads.emplace_back([&, t] {
             for (int i = 0; i < iters_per_thread; i++) {
@@ -1587,6 +1592,7 @@ TEST(ProcessorTest, MultiThreadedParallelBatches) {
     std::vector<std::thread> threads;
     std::atomic<int> success_count{0};
 
+    threads.reserve(num_threads);
     for (int t = 0; t < num_threads; t++) {
         threads.emplace_back([&, t] {
             for (int i = 0; i < iters_per_thread; i++) {
@@ -1729,6 +1735,7 @@ TEST(ProcessorTest, UnreachableSkipsWaitingRequests) {
         make_gated_request(server.base_url(), "/a", 1),
         make_gated_request(server.base_url(), "/b", 1),
     };
+    reqs[0].timeout = 100 * x::telem::MILLISECOND;
 
     Processor proc;
     const auto results = proc.execute(reqs);
@@ -1781,16 +1788,24 @@ TEST(ProcessorTest, ShutdownFailsActiveAndWaitingRequests) {
     ASSERT_NIL(server.start());
 
     std::vector<Request> reqs;
-    for (int i = 0; i < 3; i++) {
-        auto req = make_gated_request(server.base_url(), "/slow", 1);
-        req.timeout = 5 * x::telem::SECOND;
-        reqs.push_back(req);
-    }
+    reqs.reserve(3);
+    for (int i = 0; i < 3; i++)
+        reqs.push_back(make_gated_request(server.base_url(), "/slow", 1));
 
     auto proc = std::make_unique<Processor>();
     std::vector<std::pair<Response, x::errors::Error>> results;
-    std::thread caller([&] { results = proc->execute(reqs); });
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    std::thread caller([&, p = proc.get()] { results = p->execute(reqs); });
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
+        server.received_requests().size(),
+        1,
+        std::chrono::seconds(10),
+        std::chrono::milliseconds(1)
+    );
+    // The wait only records a failure, so keep proc alive until the caller ends.
+    if (HasFailure()) {
+        caller.join();
+        return;
+    }
     proc.reset();
     caller.join();
 
@@ -1825,7 +1840,6 @@ TEST(ProcessorTest, PollTimeoutDoesNotDelayCompletion) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/fast");
-    req.timeout = 5 * x::telem::SECOND;
 
     Processor proc(1 * x::telem::SECOND);
     const auto start = std::chrono::steady_clock::now();
@@ -1845,9 +1859,7 @@ TEST(ProcessorTest, PollTimeoutDoesNotDelaySubmissionWhileActive) {
     ASSERT_NIL(server.start());
 
     auto slow = make_request(server.base_url(), "/slow");
-    slow.timeout = 5 * x::telem::SECOND;
     auto fast = make_request(server.base_url(), "/fast");
-    fast.timeout = 5 * x::telem::SECOND;
 
     Processor proc(1 * x::telem::SECOND);
     std::pair<Response, x::errors::Error> slow_result;
@@ -1878,8 +1890,6 @@ TEST(ProcessorTest, PollTimeoutDoesNotDelayGateDispatch) {
         make_gated_request(server.base_url(), "/a", 1),
         make_gated_request(server.base_url(), "/b", 1),
     };
-    for (auto &req: reqs)
-        req.timeout = 5 * x::telem::SECOND;
 
     Processor proc(1 * x::telem::SECOND);
     const auto start = std::chrono::steady_clock::now();
@@ -1903,6 +1913,7 @@ TEST(ProcessorTest, PollTimeoutDoesNotDelaySkip) {
         make_gated_request(server.base_url(), "/slow", 1),
         make_gated_request(server.base_url(), "/slow", 1),
     };
+    reqs[0].timeout = 100 * x::telem::MILLISECOND;
 
     Processor proc(1 * x::telem::SECOND);
     const auto start = std::chrono::steady_clock::now();
@@ -1929,8 +1940,6 @@ TEST(ProcessorTest, PollTimeoutDoesNotDelayFasterServer) {
         make_request(slow_server.base_url(), "/slow"),
         make_request(fast_server.base_url(), "/fast"),
     };
-    for (auto &req: reqs)
-        req.timeout = 5 * x::telem::SECOND;
 
     Processor proc(1 * x::telem::SECOND);
     const auto start = x::telem::TimeStamp::now();
@@ -1952,7 +1961,6 @@ TEST(ProcessorTest, SubmissionWakesIdleLoop) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/fast");
-    req.timeout = 5 * x::telem::SECOND;
 
     Processor proc(1 * x::telem::SECOND);
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
@@ -1971,12 +1979,21 @@ TEST(ProcessorTest, ShutdownWakesActivePoll) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/slow");
-    req.timeout = 5 * x::telem::SECOND;
 
     auto proc = std::make_unique<Processor>(1 * x::telem::SECOND);
     std::pair<Response, x::errors::Error> result;
-    std::thread caller([&] { result = proc->execute(req); });
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    std::thread caller([&, p = proc.get()] { result = p->execute(req); });
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
+        server.received_requests().size(),
+        1,
+        std::chrono::seconds(10),
+        std::chrono::milliseconds(1)
+    );
+    // The wait only records a failure, so keep proc alive until the caller ends.
+    if (HasFailure()) {
+        caller.join();
+        return;
+    }
 
     const auto start = std::chrono::steady_clock::now();
     proc.reset();

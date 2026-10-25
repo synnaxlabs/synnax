@@ -33,6 +33,8 @@ export interface CalcStep {
 export interface CalcExample {
   id: string;
   title: string;
+  /** The Arc source that the steps highlight, line by line. */
+  code: string;
   diagram: DiagramDef;
   steps: CalcStep[];
 }
@@ -48,6 +50,8 @@ export const CALC_EXAMPLES: CalcExample[] = [
   {
     id: "conversion",
     title: "Conversion",
+    code: `fahrenheit := celsius * 9 / 5 + 32
+return fahrenheit`,
     diagram: CONVERSION_DIAGRAM,
     steps: [
       {
@@ -102,7 +106,8 @@ export const CALC_EXAMPLES: CalcExample[] = [
   },
   {
     id: "mixture",
-    title: "Mixture Ratio",
+    title: "Mixture ratio",
+    code: `return ox_flow / fuel_flow`,
     diagram: MIXTURE_DIAGRAM,
     steps: [
       {
@@ -158,6 +163,10 @@ export const CALC_EXAMPLES: CalcExample[] = [
   {
     id: "alarm",
     title: "Alarm",
+    code: `if pressure > 750 {
+    return 1
+}
+return 0`,
     diagram: ALARM_DIAGRAM,
     steps: [
       {
@@ -237,7 +246,19 @@ export const CALC_EXAMPLES: CalcExample[] = [
   },
   {
     id: "massflow",
-    title: "Mass Flow",
+    title: "Mass flow",
+    code: `dp := upstream_pt - downstream_pt
+rho := fluids.density(
+    fluid="LOX",
+    pressure=upstream_pt,
+    temp=ox_temp,
+)
+return fluids.orifice_flow(
+    dp=dp,
+    rho=rho,
+    cd=0.62,
+    area=0.00045,
+)`,
     diagram: MASSFLOW_DIAGRAM,
     steps: [
       {
@@ -352,7 +373,17 @@ export const CALC_EXAMPLES: CalcExample[] = [
   },
   {
     id: "voting",
-    title: "Sensor Voting",
+    title: "Sensor voting",
+    code: `tol := 5.0
+a := abs(press_1 - press_2) < tol
+b := abs(press_1 - press_3) < tol
+
+if a and b {
+    return (press_1 + press_2 + press_3) / 3
+}
+if a { return (press_1 + press_2) / 2 }
+if b { return (press_1 + press_3) / 2 }
+return (press_2 + press_3) / 2`,
     diagram: VOTING_DIAGRAM,
     steps: [
       {
@@ -480,7 +511,12 @@ export const CALC_EXAMPLES: CalcExample[] = [
   },
   {
     id: "fft",
-    title: "FFT Analysis",
+    title: "FFT analysis",
+    code: `window := series.last(accel_x, 1024)
+spectrum := math.fft(window)
+freqs := math.fft_freqs(n=1024, sample_rate=10000)
+peak_idx := series.argmax(spectrum[1:512]) + 1
+return freqs[peak_idx]`,
     diagram: FFT_DIAGRAM,
     steps: [
       {

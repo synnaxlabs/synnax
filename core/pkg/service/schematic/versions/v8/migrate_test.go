@@ -16,13 +16,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v8"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -127,9 +127,9 @@ var _ = Describe("Migration", func() {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:        db,
 			Namespace: "Schematic",
-			Migrations: []migrate.Migration{
-				gorp.NewMigration(v0.Migration.Key(), noop),
-				gorp.NewMigration(v7.Migration.Key(), noop),
+			Migrations: []gorp.Migration{
+				migrate.New(v0.Migration.Key(), noop),
+				migrate.New(v7.Migration.Key(), noop),
 				v8.Migration,
 			},
 		})).To(Succeed())
@@ -220,4 +220,44 @@ var _ = Describe("NormalizeScales", func() {
 		v8.NormalizeScales(s)
 		Expect(s.Configs["s1"]["dimensions"]).To(Equal(once))
 	})
+})
+
+var _ = Describe("ScaleMigration", func() {
+	// v0.57 drew every scale vertical with its ticks inside the width, whatever
+	// orientation its form stored.
+	DescribeTable("Should restate every scale a v0.57 Core stored",
+		func(ctx SpecContext, orientation string) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			stored := v8.Schematic{
+				Key: uuid.New(),
+				Configs: map[string]msgpack.EncodedJSON{"s1": {
+					"variant":     "scale",
+					"orientation": orientation,
+					"dimensions":  map[string]any{"width": 60.0, "height": 160.0},
+				}},
+			}
+			MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v8.Key, v8.Schematic]{
+				DB: db,
+			}))
+			Expect(gorp.NewCreate[v8.Key, v8.Schematic]().
+				Entry(&stored).Exec(ctx, db)).To(Succeed())
+			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+				DB:         db,
+				Namespace:  "Schematic",
+				Migrations: []gorp.Migration{v8.ScaleMigration},
+			})).To(Succeed())
+			var got v8.Schematic
+			Expect(gorp.NewRetrieve[v8.Key, v8.Schematic]().
+				Where(gorp.MatchKeys[v8.Key, v8.Schematic](stored.Key)).
+				Entry(&got).Exec(ctx, db)).To(Succeed())
+			Expect(got.Configs["s1"]["orientation"]).To(Equal("top"))
+			Expect(got.Configs["s1"]["dimensions"]).To(Equal(
+				map[string]any{"width": 34.0, "height": 160.0},
+			))
+		},
+		Entry("left", "left"),
+		Entry("top", "top"),
+		Entry("right", "right"),
+		Entry("bottom", "bottom"),
+	)
 })

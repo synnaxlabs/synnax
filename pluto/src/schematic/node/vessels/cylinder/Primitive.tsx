@@ -10,7 +10,7 @@
 import { type schematic } from "@synnaxlabs/client";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { border, color } from "@synnaxlabs/x";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { Border } from "@/schematic/node/common/border";
 import { Handle } from "@/schematic/node/common/handle";
@@ -21,8 +21,8 @@ interface RenderProps extends Partial<
     schematic.CylinderNodeConfig,
     | "dimensions"
     | "borderRadius"
-    | "color"
-    | "backgroundColor"
+    | "strokeColor"
+    | "fillColor"
     | "orientation"
     | "scale"
   >
@@ -34,26 +34,14 @@ export const Cylinder = ({
   className,
   dimensions = Border.DEFAULT_DIMENSIONS,
   borderRadius = Border.DEFAULT_RADIUS,
-  color: colorVal,
-  backgroundColor,
+  strokeColor,
+  fillColor,
   orientation = "left",
   scale,
 }: RenderProps): ReactElement => {
-  const detailedRadius = border.constructRadius(borderRadius);
-  const refreshDeps = useMemo(
-    () => [dimensions, borderRadius, detailedRadius, orientation],
-    [
-      detailedRadius.bottomLeft,
-      detailedRadius.bottomRight,
-      detailedRadius.topLeft,
-      detailedRadius.topRight,
-      dimensions.height,
-      dimensions.width,
-      orientation,
-    ],
-  );
-  const bgColor =
-    backgroundColor == null ? undefined : color.cssString(backgroundColor);
+  const radiusCSS = Border.cssRadius(border.constructRadius(borderRadius));
+  const refreshDeps = `${dimensions.width} ${dimensions.height} ${radiusCSS}`;
+  const bgColor = fillColor == null ? undefined : color.cssString(fillColor);
   const transform = `scale(${dimensions.width / 66},${dimensions.height / 180})`;
 
   return (
@@ -65,7 +53,7 @@ export const Cylinder = ({
         dimensions={dimensions}
         orientation={orientation}
         scale={scale}
-        color={colorVal}
+        strokeColor={strokeColor}
       >
         <path
           d="M23 33.6712C11.9844 36.0332 3 42.4382 3 52.8862V174.568C3 176.225 4.34315 177.568 6 177.568H60C61.6569 177.568 63 176.225 63 174.568V52.8862C63 36.3342 40.4511 29.9292 23 33.6712ZM23 33.6712V13.3181C23 0.318109 42.9975 0.318123 42.9975 13.3181V33.6712"

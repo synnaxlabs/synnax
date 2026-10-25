@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
@@ -32,7 +33,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -51,7 +51,7 @@ var (
 
 func TestDriver(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Driver Suite")
+	RunSpecs(t, "Service Driver Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
@@ -163,12 +163,13 @@ func writeConfigFailure(ctx context.Context, t task.Task, cmdKey string, err err
 	details.Cmd = cmdKey
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return statusSvc.NewWriter(tx).Set(ctx, &task.Status{
-			Key:     t.OntologyID().String(),
-			Name:    t.Name,
-			Time:    telem.Now(),
-			Variant: status.VariantError,
-			Message: err.Error(),
-			Details: details,
+			Key:         t.OntologyID().String(),
+			Name:        t.Name,
+			Time:        telem.Now(),
+			Variant:     status.VariantError,
+			Message:     "Failed to configure task",
+			Description: err.Error(),
+			Details:     details,
 		})
 	})).To(Succeed())
 }

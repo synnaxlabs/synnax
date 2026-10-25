@@ -17,16 +17,21 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
+import { Store } from "@synnaxlabs/lyra/store";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
-import { Access, type Flux, Synnax, Task } from "@synnaxlabs/pluto";
+import { Access, type Flux, Task } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 
 import { useOpenSelector } from "@/feature/task/Selector";
 import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
-import { useSetDataSaving } from "@/feature/task/useSetDataSaving";
+import {
+  type SetDataSavingParams,
+  useSetDataSaving,
+} from "@/feature/task/useSetDataSaving";
+import { Analytics } from "@/platform/analytics";
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
@@ -62,9 +67,7 @@ const filter = (task: task.Task) =>
   !task.internal && !task.snapshot && task.type !== "arc";
 
 const Content = () => {
-  const client = Synnax.use();
   const [selected, setSelected] = useState<task.Key[]>([]);
-  const addStatus = Status.useAdder();
   const confirmDelete = Modals.useConfirmDelete({ type: "Task" });
   const menuProps = Menu.useContextMenu();
   const openTab = Panel.useOpenTab();
@@ -86,12 +89,23 @@ const Content = () => {
         if (!(await confirmDelete(getItem(array.toArray(keys))))) return false;
         return keys;
       },
-      [client, getItem, confirmDelete],
+      [getItem, confirmDelete],
     ),
-    afterFailure: ({ status }) => addStatus(status),
   });
 
-  const { update: runCommand } = Task.useCommand();
+  const { capture } = Analytics.use();
+  const { update: runCommand } = Task.useCommand({
+    afterSuccess: useCallback(
+      ({ data }: Flux.AfterSuccessParams<Task.CommandParams>) =>
+        getItem(
+          array
+            .toArray(data)
+            .filter(({ type }) => type === "start")
+            .map(({ task }) => task),
+        ).forEach(({ type }) => capture("task_started", { type })),
+      [getItem, capture],
+    ),
+  });
   const handleCommand = useCallback(
     (keys: string[], type: string) => runCommand(keys.map((k) => ({ task: k, type }))),
     [runCommand],
@@ -123,7 +137,8 @@ const Content = () => {
     ({ keys }) => (
       <ContextMenu
         keys={keys}
-        tasks={getItem(keys)}
+        getItem={getItem}
+        subscribe={subscribe}
         onDelete={handleDelete}
         onStart={handleStart}
         onStop={handleStop}
@@ -133,9 +148,12 @@ const Content = () => {
       />
     ),
     [
+      getItem,
+      subscribe,
       handleDelete,
       handleStart,
       handleStop,
+      handleEdit,
       handleEnableDataSaving,
       handleDisableDataSaving,
     ],
@@ -184,6 +202,7 @@ const Content = () => {
                     key={key}
                     {...p}
                     onStopStart={handleListItemStopStart}
+                    onSetDataSaving={setDataSaving}
                     onRename={rename}
                     onEdit={handleEdit}
                   />
@@ -210,12 +229,14 @@ export const TOOLBAR: Nav.Toolbar = {
 
 interface TaskListItemProps extends List.ItemProps<task.Key> {
   onStopStart: (command: PlatformTask.Command, key: task.Key) => void;
+  onSetDataSaving: (params: SetDataSavingParams) => void;
   onRename: (params: { key: task.Key; name: string }) => void;
   onEdit: (key: task.Key) => void;
 }
 
 const TaskListItem = ({
   onStopStart,
+  onSetDataSaving,
   onRename,
   onEdit,
   ...rest
@@ -231,10 +252,19 @@ const TaskListItem = ({
   const isLoading = variant === "loading";
   const isRunning = details?.running === true;
   const isDrifted = task_ != null && task.drifted(task_.payload);
+  const config = task_?.config;
+  const dataSaving =
+    config != null && typeof config === "object" && "dataSavingDisabled" in config
+      ? config.dataSavingDisabled !== true
+      : null;
   if (!isRunning && variant === "success") variant = "info";
   const handleStartStopClick = useCallback(
     () => onStopStart(isRunning ? "stop" : "start", itemKey),
     [isRunning, onStopStart, itemKey],
+  );
+  const handleDataSavingClick = useCallback(
+    () => onSetDataSaving({ key: itemKey, dataSaving: dataSaving !== true }),
+    [dataSaving, onSetDataSaving, itemKey],
   );
   const handleRename = useCallback(
     (name: string) => onRename({ key: itemKey, name }),
@@ -278,6 +308,32 @@ const TaskListItem = ({
           {parseType(task_?.type ?? "")}
         </Text.Text>
       </Flex.Box>
+      {dataSaving != null && (
+        <Button.Button
+          variant="text"
+          size="small"
+          className={CSS.cls(
+            CSS.BE("task", "data-saving"),
+            isRunning &&
+              dataSaving &&
+              !isDrifted &&
+              CSS.BEM("task", "data-saving", "active"),
+          )}
+          textColor={
+            dataSaving ? "var(--pluto-primary-z)" : "var(--pluto-text-disabled)"
+          }
+          preventClick={!hasUpdatePermission}
+          onClick={handleDataSavingClick}
+          onDoubleClick={stopPropagation}
+          tooltip={`Data saving ${dataSaving ? "enabled" : "disabled"}${
+            hasUpdatePermission
+              ? `. Click to ${dataSaving ? "disable" : "enable"}.`
+              : ""
+          }`}
+        >
+          {dataSaving ? <Icon.Database /> : <Icon.DatabaseOff />}
+        </Button.Button>
+      )}
       {canControl && (
         <Button.Button
           variant="outlined"
@@ -294,20 +350,19 @@ const TaskListItem = ({
   );
 };
 
-interface ContextMenuProps {
-  keys: task.Key[];
+interface ContextMenuProps extends Store.UseItemsProps<task.Key, task.Task> {
   onDelete: (keys: task.Key[]) => void;
   onStart: (keys: task.Key[]) => void;
   onStop: (keys: task.Key[]) => void;
   onEdit: (key: task.Key) => void;
   onEnableDataSaving: (keys: task.Key[]) => void;
   onDisableDataSaving: (keys: task.Key[]) => void;
-  tasks: task.Task[];
 }
 
 const ContextMenu = ({
   keys,
-  tasks: selectedTasks,
+  getItem,
+  subscribe,
   onDelete,
   onStart,
   onStop,
@@ -315,6 +370,7 @@ const ContextMenu = ({
   onEnableDataSaving,
   onDisableDataSaving,
 }: ContextMenuProps) => {
+  const selectedTasks = Store.useItems({ keys, subscribe, getItem });
   const activeRange = Range.useResolve();
   const snapshotToActiveRange = useRangeSnapshot();
   const ontologyIDs = task.ontologyID(keys);

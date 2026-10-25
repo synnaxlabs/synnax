@@ -25,7 +25,7 @@ import (
 
 func TestTypes(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin TS Types Suite")
+	RunSpecs(t, "Plugin TS Types Suite", SuiteConfig())
 }
 
 var _ = Describe("TS Types Plugin", func() {
@@ -54,6 +54,48 @@ var _ = Describe("TS Types Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		Context("field-level omit", func() {
+			It("Should leave out an inherited field the parent omits", func(
+				ctx SpecContext,
+			) {
+				source := `
+					@go output "core/pkg/service/auth"
+					@ts output "out"
+
+					Parent struct {
+						name   string
+						secret bytes { @ts omit }
+					}
+
+					Child struct extends Parent {
+						secret?
+						extra  string
+					}
+				`
+				resp := MustGenerate(ctx, source, "auth", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain("export const childZ", "extra: z.string()").
+					ToNotContain("secret")
+			})
+
+			It("Should leave out a field omitted in ts", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/auth"
+					@ts output "out"
+
+					Session struct {
+						key     uuid
+						hash    bytes { @ts omit }
+						subject string
+					}
+				`
+				resp := MustGenerate(ctx, source, "auth", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(`key: z.uuid()`, `subject: z.string()`).
+					ToNotContain("hash")
+			})
+		})
+
 		Context("basic struct generation", func() {
 			It("Should generate schema for simple struct", func(ctx SpecContext) {
 				source := `
@@ -2312,6 +2354,39 @@ var _ = Describe("TS Types Plugin", func() {
 			})
 		})
 
+		Context("reference into an ancestor namespace", func() {
+			BeforeEach(func() {
+				loader.Add("schemas/ranger", `
+					@ts output "client/ts/src/ranger"
+
+					Key uuid
+				`)
+			})
+
+			It(
+				"Should import the ancestor's types.gen as a namespace",
+				func(ctx SpecContext) {
+					source := `
+					import "schemas/ranger"
+
+					@ts output "client/ts/src/ranger/kv"
+
+					Pair struct {
+						range ranger.Key
+						key string
+					}
+				`
+					resp := MustGenerate(ctx, source, "kv", loader, typesPlugin)
+					ExpectContent(resp, "types.gen.ts").
+						ToContain(
+							`import * as ranger from "@/ranger/types.gen"`,
+							`ranger.keyZ`,
+						).
+						ToNotContain(`from "@/ranger";`)
+				},
+			)
+		})
+
 		Context("snake_case cross-namespace reference", func() {
 			BeforeEach(func() {
 				loader.Add("schemas/task_config", `
@@ -2400,6 +2475,57 @@ var _ = Describe("TS Types Plugin", func() {
 						)
 				},
 			)
+		})
+
+		Context("cross-namespace alias reference", func() {
+			BeforeEach(func() {
+				loader.Add("schemas/common", `
+					@ts output "client/ts/src/common"
+
+					Name = string
+				`)
+			})
+
+			It("Should import the alias's namespace", func(ctx SpecContext) {
+				source := `
+					import "schemas/common"
+
+					@ts output "client/ts/src/task"
+
+					Task struct {
+						key uuid
+						name common.Name
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(`import { common } from "@/common"`, `common.nameZ`)
+			})
+		})
+
+		Context("reference into a namespace with no TS output", func() {
+			BeforeEach(func() {
+				loader.Add("schemas/common", `
+					Info struct {
+						key uuid
+					}
+				`)
+			})
+
+			It("Should import the namespace by its name", func(ctx SpecContext) {
+				source := `
+					import "schemas/common"
+
+					@ts output "client/ts/src/task"
+
+					Task struct {
+						key uuid
+						info common.Info
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").ToContain(`common.infoZ`)
+			})
 		})
 
 		Context("same-package cross-namespace reference", func() {
@@ -2635,6 +2761,64 @@ var _ = Describe("TS Types Plugin", func() {
 					ToContain("extra:")
 			})
 		})
+
+		DescribeTable("Should instantiate a generic parent with its child's arguments",
+			func(ctx SpecContext, child, expected string) {
+				source := `
+					@ts output "out"
+
+					Box struct<T> {
+						item T
+					}
+
+					Pair struct<K, V> {
+						key   K
+						value V
+					}
+
+					Labeled struct {
+						label string
+					}
+				` + child
+				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").ToContain(expected)
+			},
+			Entry("a concrete argument", `
+				Panel struct extends Box<string> {
+					count int32
+				}
+			`, "export const panelZ = boxZ(z.string())\n"),
+			Entry("a renamed type parameter", `
+				Crate struct<U> extends Box<U> {
+					count int32
+				}
+			`, "=>\n  boxZ(u)\n"),
+			Entry("a concrete argument in a generic child", `
+				Crate struct<T> extends Box<string> {
+					extra T
+				}
+			`, "=>\n  boxZ(z.string())\n"),
+			Entry("a non-generic parent of a generic child", `
+				Crate struct<T> extends Labeled {
+					extra T
+				}
+			`, "=>\n  labeledZ\n"),
+			Entry("a parent with more parameters than its child", `
+				Crate struct<T> extends Pair<string, T> {
+					extra T
+				}
+			`, "=>\n  pairZ({k: z.string(), v: t})\n"),
+			Entry("reordered type parameters", `
+				Crate struct<K, V> extends Pair<V, K> {
+					count int32
+				}
+			`, "  pairZ({k: v, v: k})\n"),
+			Entry("a second parent", `
+				Panel struct extends Labeled, Box<string> {
+					count int32
+				}
+			`, "export const panelZ = labeledZ.extend(boxZ(z.string()).shape)\n"),
+		)
 
 		Context("multiple files from different namespaces", func() {
 			BeforeEach(func() {
@@ -3076,6 +3260,53 @@ var _ = Describe("TS Union Generation", func() {
 				)
 		},
 	)
+
+	It("Should key the schema map by a borrowed enum", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			Method enum {
+				password = "password"
+			}
+			Credentials struct { username string }
+
+			Proof union on method Method {
+				password Credentials
+			}
+		`
+		resp := MustGenerate(ctx, source, "auth", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(
+				`export const METHODS = ["password"] as const;`,
+				`method: z.literal("password"),`,
+				`[K in Method]: z.ZodType<Extract<Proof, { method: K }>>;`,
+			).
+			ToNotContain(`PROOF_TYPES`, `proofTypeZ`, `export type ProofType`)
+	})
+
+	It("Should import a borrowed enum from another namespace", func(ctx SpecContext) {
+		loader.Add("schemas/auth", `
+			@ts output "client/ts/src/auth"
+
+			Method enum {
+				password = "password"
+			}
+		`)
+		source := `
+			import "schemas/auth"
+
+			@ts output "client/ts/src/login"
+
+			Credentials struct { username string }
+
+			Proof union on method auth.Method {
+				password Credentials
+			}
+		`
+		resp := MustGenerate(ctx, source, "login", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(`import { auth } from "@/auth"`, `[K in auth.Method]`)
+	})
 
 	Describe("Lazy variants", func() {
 		unionSource := func(count int) string {

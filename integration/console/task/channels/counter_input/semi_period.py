@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from console.layout import LayoutClient
 from console.task.channels.counter import Counter
@@ -29,7 +29,7 @@ class SemiPeriod(Counter):
         layout: LayoutClient,
         name: str,
         device: str,
-        units: Optional[Literal["Seconds", "Ticks", "Custom"]] = None,
+        units: Literal["Seconds", "Ticks", "Custom"] | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize semi period channel with configuration."""

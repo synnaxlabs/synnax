@@ -12,18 +12,19 @@ package rack
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/device"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -31,6 +32,57 @@ type (
 	Key  = rack.Key
 	Rack = rack.Rack
 )
+
+// ServiceConfig is the configuration for the rack API service.
+type ServiceConfig struct {
+	// Rack stores and retrieves racks.
+	//
+	// [REQUIRED]
+	Rack *rack.Service
+	// Device stores and retrieves devices.
+	//
+	// [REQUIRED]
+	Device *device.Service
+	// Task stores and retrieves tasks.
+	//
+	// [REQUIRED]
+	Task *task.Service
+	// Status stores and retrieves statuses.
+	//
+	// [REQUIRED]
+	Status *status.Service
+	// RBAC enforces access control on every request.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
+}
+
+var (
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for the rack API service.
+	DefaultServiceConfig = ServiceConfig{}
+)
+
+// Override implements config.Config.
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.Rack = override.Nil(c.Rack, other.Rack)
+	c.Device = override.Nil(c.Device, other.Device)
+	c.Task = override.Nil(c.Task, other.Task)
+	c.Status = override.Nil(c.Status, other.Status)
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	return c
+}
+
+// Validate implements config.Config.
+func (c ServiceConfig) Validate() error {
+	v := validate.New("api.rack")
+	v.NotNil("rack", c.Rack)
+	v.NotNil("device", c.Device)
+	v.NotNil("task", c.Task)
+	v.NotNil("status", c.Status)
+	v.NotNil("rbac", c.RBAC)
+	return v.Error()
+}
 
 type Service struct {
 	access *rbac.Service
@@ -40,17 +92,17 @@ type Service struct {
 	status *status.Service
 }
 
-func NewService(cfgs ...config.LayerConfig) (*Service, error) {
-	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	return &Service{
-		rack:   cfg.Service.Rack,
-		device: cfg.Service.Device,
-		task:   cfg.Service.Task,
-		status: cfg.Service.Status,
-		access: cfg.Service.RBAC,
+		rack:   cfg.Rack,
+		device: cfg.Device,
+		task:   cfg.Task,
+		status: cfg.Status,
+		access: cfg.RBAC,
 	}, nil
 }
 
@@ -141,15 +193,21 @@ func (s *Service) Retrieve(
 	}
 
 	if req.IncludeStatus {
+		ids := rack.OntologyIDsFromRacks(resRacks)
 		statuses := make([]rack.Status, 0, len(resRacks))
-		if err := s.status.NewRetrieve[rack.StatusDetails]().
-			Where(status.MatchKeys[rack.StatusDetails](ontology.IDsToKeys(rack.OntologyIDsFromRacks(resRacks))...)).
+		// A status row can be missing, so the resource keeps a nil status.
+		if err := errors.Skip(s.status.NewRetrieve[rack.StatusDetails]().
+			Where(status.MatchKeys[rack.StatusDetails](ontology.IDsToKeys(ids)...)).
 			Entries(&statuses).
-			Exec(ctx, nil); err != nil {
+			Exec(ctx, nil), query.ErrNotFound); err != nil {
 			return RetrieveResponse{}, err
 		}
-		for i, stat := range statuses {
-			resRacks[i].Status = &stat
+		statusByKey := make(map[status.Key]*rack.Status, len(statuses))
+		for i := range statuses {
+			statusByKey[statuses[i].Key] = &statuses[i]
+		}
+		for i, id := range ids {
+			resRacks[i].Status = statusByKey[id.String()]
 		}
 	}
 
@@ -161,6 +219,30 @@ func (s *Service) Retrieve(
 		return RetrieveResponse{}, err
 	}
 	return RetrieveResponse{Racks: resRacks}, nil
+}
+
+// RenameRequest names the rack to rename and the name to give it.
+type RenameRequest struct {
+	// Name is the new name. It must not be empty.
+	Name string `json:"name" msgpack:"name"`
+	// Key selects the rack to rename.
+	Key rack.Key `json:"key" msgpack:"key"`
+}
+
+// Rename renames the rack. It requires update access on it.
+func (s *Service) Rename(
+	ctx context.Context,
+	tx gorp.Tx,
+	req RenameRequest,
+) (struct{}, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{req.Key.OntologyID()},
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.rack.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
 type DeleteRequest struct {

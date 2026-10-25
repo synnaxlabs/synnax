@@ -10,15 +10,17 @@
 package v0
 
 import (
+	"bytes"
 	"context"
 	"encoding/json/v2"
 	"uuid"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 )
 
@@ -35,10 +37,10 @@ type LegacyUserMapping struct {
 // persists the user-to-policy mapping in KV, and deletes the legacy entries. This runs
 // before any oracle schema migrations that could re-encode entries and lose the
 // Subjects field.
-var Migration = gorp.NewMigration(
+var Migration = migrate.New(
 	"v0.policy_conversion",
 	func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
-		migrated, err := alreadyMigrated(ctx, tx)
+		migrated, err := AlreadyMigrated(ctx, tx)
 		if migrated || err != nil {
 			return err
 		}
@@ -82,15 +84,18 @@ var Migration = gorp.NewMigration(
 	},
 )
 
-func alreadyMigrated(ctx context.Context, tx gorp.Tx) (bool, error) {
+// AlreadyMigrated reports whether a Core up to v0.53 already converted the store's
+// legacy permissions to roles.
+func AlreadyMigrated(ctx context.Context, tx gorp.Tx) (bool, error) {
 	performed, closer, err := tx.Get(ctx, []byte("sy_rbac_migration_performed"))
 	if err != nil {
 		return false, errors.Skip(err, query.ErrNotFound)
 	}
+	migrated := bytes.Equal(performed, []byte{1})
 	if err = closer.Close(); err != nil {
 		return false, err
 	}
-	return string(performed) == string([]byte{1}), nil
+	return migrated, nil
 }
 
 func buildUserMappings(legacyPolicies []Policy) []LegacyUserMapping {
@@ -125,15 +130,16 @@ func ReadLegacyMappings(ctx context.Context, tx gorp.Tx) ([]LegacyUserMapping, e
 		}
 		return nil, err
 	}
-	if err = closer.Close(); err != nil {
-		return nil, err
-	}
 	if len(mappingBytes) == 0 {
-		return nil, nil
+		return nil, closer.Close()
 	}
 	var mappings []LegacyUserMapping
 	if err = json.Unmarshal(mappingBytes, &mappings); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal legacy permission mapping")
+		err = errors.Wrap(err, "failed to unmarshal legacy permission mapping")
+		return nil, errors.Combine(err, closer.Close())
+	}
+	if err = closer.Close(); err != nil {
+		return nil, err
 	}
 	return mappings, nil
 }
@@ -144,4 +150,4 @@ func DeleteLegacyMappings(ctx context.Context, tx gorp.Tx) error {
 }
 
 // NormalizeKeys re-keys Policy rows stored under the pre-v0.54 key format.
-var NormalizeKeys = gorp.NormalizeKeysMigration[Key, Policy]("Policy")
+var NormalizeKeys = migrate.NormalizeKeys[Key, Policy]("Policy")

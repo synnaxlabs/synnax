@@ -50,8 +50,8 @@ const SingleProvider = <K extends record.Key = record.Key>({
 }: SingleProviderProps<K>): ReactElement => {
   const { value, allowNone, closeDialogOnSelect } = rest;
   const res = useSingle(rest);
-  // Mirrors useSingle: without allowNone a re-select returns before onChange,
-  // so it is a no-op unless it closes a dialog.
+  // Mirrors useSingle: a re-select closes the dialog when it closes on select, and
+  // clears the selection otherwise when allowNone is set.
   const reselectNoop = allowNone !== true && closeDialogOnSelect !== true;
   return (
     <Context<K> value={value} reselectNoop={reselectNoop} {...res}>
@@ -118,6 +118,7 @@ export const Frame = <
   onFetchMore,
   overscan,
   virtual = false,
+  pinned,
   value,
   onChange,
   ...rest
@@ -132,6 +133,7 @@ export const Frame = <
       itemHeight={itemHeight}
       overscan={overscan}
       virtual={virtual}
+      pinned={pinned}
     >
       <RegistryContext value={registry}>
         {multiple ? (

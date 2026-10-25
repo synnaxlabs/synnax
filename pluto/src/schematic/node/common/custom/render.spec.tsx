@@ -83,6 +83,45 @@ describe("Custom.useRender", () => {
       expect(container.children.length).toBe(0);
     });
 
+    it("should not mount anything when the svg markup is malformed", () => {
+      const container = document.createElement("div");
+      const spec = createMockSpec({ svg: "<svg><rect></svg>" });
+      renderAttached(
+        {
+          orientation: "top",
+          activeState: "inactive",
+          externalScale: 1,
+          spec,
+        },
+        container,
+      );
+      expect(container.children.length).toBe(0);
+    });
+
+    it("should mount valid markup that replaces malformed markup", () => {
+      const container = document.createElement("div");
+      const { result, rerender } = renderHook(
+        (props: Custom.UseRenderParams) => Custom.useRender(props),
+        {
+          initialProps: {
+            orientation: "top",
+            activeState: "inactive",
+            externalScale: 1,
+            spec: createMockSpec({ svg: "<svg><rect></svg>" }),
+          },
+        },
+      );
+      result.current(container);
+      expect(container.querySelector("svg")).toBeNull();
+      rerender({
+        orientation: "top",
+        activeState: "inactive",
+        externalScale: 1,
+        spec: createMockSpec(),
+      });
+      expect(container.querySelector("svg")).not.toBeNull();
+    });
+
     it("should not mount anything when svg is empty", () => {
       const container = document.createElement("div");
       const spec = createMockSpec({ svg: "" });
@@ -423,6 +462,39 @@ describe("Custom.useRender", () => {
       expect(svg.getAttribute("height")).toBe("300");
     });
 
+    // A zero scale would size the symbol to nothing.
+    it("should render an internal scale that is not positive at 1", () => {
+      const container = document.createElement("div");
+      renderAttached(
+        {
+          orientation: "top",
+          activeState: "inactive",
+          externalScale: 1,
+          spec: createMockSpec({ scale: 0 }),
+        },
+        container,
+      );
+      const svg = container.querySelector("svg") as SVGSVGElement;
+      expect(svg.getAttribute("width")).toBe("100");
+      expect(svg.getAttribute("height")).toBe("100");
+    });
+
+    it("should render an external scale that is not positive at 1", () => {
+      const container = document.createElement("div");
+      renderAttached(
+        {
+          orientation: "top",
+          activeState: "inactive",
+          externalScale: -1,
+          spec: createMockSpec(),
+        },
+        container,
+      );
+      const svg = container.querySelector("svg") as SVGSVGElement;
+      expect(svg.getAttribute("width")).toBe("100");
+      expect(svg.getAttribute("height")).toBe("100");
+    });
+
     it("should combine internal and external scale", () => {
       const container = document.createElement("div");
       const spec = createMockSpec({ scale: 2 });
@@ -640,6 +712,22 @@ describe("Custom.useRender", () => {
 
       expect(svgBefore).toBe(svgAfter);
       expect(onMount).toHaveBeenCalledTimes(1);
+    });
+
+    it("should not parse unchanged markup again", () => {
+      const container = document.createElement("div");
+      const spec = createMockSpec();
+      const parse = vi.spyOn(DOMParser.prototype, "parseFromString");
+      const { result, rerender } = renderHook(
+        ({ activeState }) =>
+          Custom.useRender({ orientation: "top", activeState, externalScale: 1, spec }),
+        { initialProps: { activeState: "inactive" } },
+      );
+      result.current(container);
+      expect(parse).toHaveBeenCalledTimes(1);
+      rerender({ activeState: "active" });
+      expect(parse).toHaveBeenCalledTimes(1);
+      parse.mockRestore();
     });
 
     it("should recreate SVG when svg content changes", () => {
@@ -1093,71 +1181,53 @@ describe("Custom.useRender", () => {
     });
   });
 
-  // The symbol editor's form mutates its value object in place rather than producing a
-  // new reference on every change, so the same spec object is passed across rerenders.
-  // The diff must detect changes by value, not by object identity.
-  describe("in-place spec mutation", () => {
-    it("should update dimensions when the internal scale is mutated in place", () => {
+  describe("spec changes", () => {
+    const renderSpec = (spec: schematic.symbol.Spec) => {
       const container = document.createElement("div");
-      const spec = createMockSpec();
-      const { result, rerender } = renderHook(() =>
-        Custom.useRender({
+      const utils = renderAttached(
+        { orientation: "top", activeState: "inactive", externalScale: 1, spec },
+        container,
+      );
+      const rerender = (next: schematic.symbol.Spec) =>
+        utils.rerender({
           orientation: "top",
           activeState: "inactive",
           externalScale: 1,
-          spec,
-        }),
-      );
-      result.current(container);
+          spec: next,
+        });
+      return { container, rerender };
+    };
 
+    it("should update dimensions when the internal scale changes", () => {
+      const spec = createMockSpec();
+      const { container, rerender } = renderSpec(spec);
       const svg = container.querySelector("svg") as SVGSVGElement;
       expect(svg.getAttribute("width")).toBe("100");
-
-      spec.scale = 2;
-      rerender();
+      rerender({ ...spec, scale: 2 });
       expect(svg.getAttribute("width")).toBe("200");
       expect(svg.getAttribute("height")).toBe("200");
     });
 
-    it("should apply region color changes when a state is mutated in place", () => {
-      const container = document.createElement("div");
+    it("should apply region color changes when a state changes", () => {
       const spec = createMockSpec();
-      const { result, rerender } = renderHook(() =>
-        Custom.useRender({
-          orientation: "top",
-          activeState: "inactive",
-          externalScale: 1,
-          spec,
-        }),
-      );
-      result.current(container);
-
+      const { container, rerender } = renderSpec(spec);
       const rect = container.querySelector(".main") as SVGRectElement;
       expect(rect.getAttribute("stroke")).toBe("#333333");
-
-      spec.states[0].regions[0].strokeColor = color.construct("#aabbcc");
-      rerender();
+      const [inactive, active] = spec.states;
+      const region = {
+        ...inactive.regions[0],
+        strokeColor: color.construct("#aabbcc"),
+      };
+      rerender({ ...spec, states: [{ ...inactive, regions: [region] }, active] });
       expect(rect.getAttribute("stroke")).toBe(color.hex(color.construct("#aabbcc")));
     });
 
-    it("should toggle stroke scaling when strokeScaled is mutated in place", () => {
-      const container = document.createElement("div");
+    it("should toggle stroke scaling when strokeScaled changes", () => {
       const spec = createMockSpec({ strokeScaled: false });
-      const { result, rerender } = renderHook(() =>
-        Custom.useRender({
-          orientation: "top",
-          activeState: "inactive",
-          externalScale: 1,
-          spec,
-        }),
-      );
-      result.current(container);
-
+      const { container, rerender } = renderSpec(spec);
       const rect = container.querySelector(".main") as SVGRectElement;
       expect(rect.getAttribute("vector-effect")).toBe("non-scaling-stroke");
-
-      spec.strokeScaled = true;
-      rerender();
+      rerender({ ...spec, strokeScaled: true });
       expect(rect.getAttribute("vector-effect")).toBeNull();
     });
   });
@@ -1250,9 +1320,7 @@ const editorInitialValues = (): SymbolValues => ({
 });
 
 // Mirrors the editor's Preview: reads the live form spec and drives useRender with the
-// currently-selected state key as activeState. The editor's form mutates its value
-// object in place, so this exercises useRender through the real Form rather than a
-// hand-mutated spec.
+// currently-selected state key as activeState.
 const PreviewLike = ({ activeState }: { activeState: string }): ReactElement => {
   const spec = Form.useFieldValue<schematic.symbol.Spec>("data");
   const setContainer = Custom.useRender({
@@ -1264,11 +1332,28 @@ const PreviewLike = ({ activeState }: { activeState: string }): ReactElement => 
   return <div data-testid="container" ref={setContainer} />;
 };
 
+describe("Custom.parseSVG", () => {
+  it("should return the root of valid markup", () => {
+    const root = Custom.parseSVG('<svg viewBox="0 0 10 10"><rect /></svg>');
+    expect(root?.tagName.toLowerCase()).toBe("svg");
+  });
+
+  it.each([
+    ["empty", ""],
+    ["malformed", "<svg><rect></svg>"],
+    ["not rooted in svg", "<div><svg /></div>"],
+  ])("should return null for %s markup", (_, svg) => {
+    expect(Custom.parseSVG(svg)).toBeNull();
+    expect(Custom.isValidSVG(svg)).toBe(false);
+  });
+});
+
 describe("custom symbol editor preview", () => {
   it("should recolor a region when its color is edited through the form", () => {
     let form!: Form.ContextValue<any>;
     const Harness = (): ReactElement => {
-      form = Form.use<any>({ values: editorInitialValues() });
+      const values = editorInitialValues();
+      form = Form.use<any>({ values });
       return (
         <Form.Form {...form}>
           <PreviewLike activeState="base" />

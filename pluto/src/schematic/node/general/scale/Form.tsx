@@ -9,7 +9,6 @@
 
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
-import { Theming } from "@synnaxlabs/lyra/theming";
 import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -22,7 +21,6 @@ import { Properties } from "@/vis/properties";
 
 export const ScaleForm = ({ tab, onTabChange }: FormProps): ReactElement => {
   const { value: orientation } = Base.useField<location.Outer>("orientation");
-  const theme = Theming.use();
   return (
     <Properties.Tabs tabs={["telemetry", "style"]} tab={tab} onTabChange={onTabChange}>
       <Tabs.Content itemKey="style">
@@ -45,25 +43,28 @@ export const ScaleForm = ({ tab, onTabChange }: FormProps): ReactElement => {
             />
           </Base.Section>
           <Base.Section title="Display">
-            <Scale.DisplayFields
-              path="indicator"
-              axis={location.direction(orientation)}
-            />
+            <Scale.DisplayFields axis={location.direction(orientation)}>
+              <Form.NegatedSwitchField
+                path="caretHidden"
+                label="Value"
+                padHelpText={false}
+              />
+              <Form.NegatedSwitchField
+                path="scaleHidden"
+                label="Scale"
+                padHelpText={false}
+              />
+            </Scale.DisplayFields>
           </Base.Section>
           <Base.Section title="Appearance">
-            <Form.ColorField
-              path="color"
-              label="Fill color"
-              fallback={theme.colors.visualization.palettes.default[0]}
-            />
-            <Scale.StyleFields path="indicator" />
+            <Scale.StyleFields />
           </Base.Section>
           <Orientation.Section path="" hideInner />
         </Base.Sections>
       </Tabs.Content>
       <Tabs.Content itemKey="telemetry">
         <Base.Sections x>
-          <Scale.TelemForm path="indicator" />
+          <Scale.TelemForm />
         </Base.Sections>
       </Tabs.Content>
     </Properties.Tabs>

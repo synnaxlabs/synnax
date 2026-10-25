@@ -43,11 +43,17 @@ var _ = Describe("Codec", func() {
 				Level:  text.Level("h1"),
 				Weight: 3.5,
 				Align:  v2.FlexAlignment("start"),
-				BackgroundColor: new(color.Color{
+				FillColor: new(color.Color{
 					R: 7,
 					G: 8,
 					B: 9,
 					A: 9.5,
+				}),
+				TextColor: new(color.Color{
+					R: 12,
+					G: 13,
+					B: 14,
+					A: 14.5,
 				}),
 			}}),
 			Entry("value variant", v2.CellConfig{Variant: v2.ValueCellConfig{
@@ -66,14 +72,14 @@ var _ = Describe("Codec", func() {
 					},
 					Smooth: true,
 				},
-				BackgroundColor: new(color.Color{
+				FillColor: new(color.Color{
 					R: 14,
 					G: 15,
 					B: 16,
 					A: 16.5,
 				}),
 				Level: text.Level("h1"),
-				Color: new(color.Color{
+				TextColor: new(color.Color{
 					R: 20,
 					G: 21,
 					B: 22,
@@ -143,11 +149,17 @@ var _ = Describe("Codec", func() {
 						Level:  text.Level("h1"),
 						Weight: 11.5,
 						Align:  v2.FlexAlignment("start"),
-						BackgroundColor: new(color.Color{
+						FillColor: new(color.Color{
 							R: 15,
 							G: 16,
 							B: 17,
 							A: 17.5,
+						}),
+						TextColor: new(color.Color{
+							R: 20,
+							G: 21,
+							B: 22,
+							A: 22.5,
 						}),
 					}},
 				},
@@ -176,11 +188,17 @@ func BenchmarkEncodeDecodeCellConfig(b *testing.B) {
 		Level:  text.Level("h1"),
 		Weight: 3.5,
 		Align:  v2.FlexAlignment("start"),
-		BackgroundColor: new(color.Color{
+		FillColor: new(color.Color{
 			R: 7,
 			G: 8,
 			B: 9,
 			A: 9.5,
+		}),
+		TextColor: new(color.Color{
+			R: 12,
+			G: 13,
+			B: 14,
+			A: 14.5,
 		}),
 	}}
 	w := orc.NewWriter(0)
@@ -244,11 +262,17 @@ func BenchmarkEncodeDecodeTable(b *testing.B) {
 				Level:  text.Level("h1"),
 				Weight: 11.5,
 				Align:  v2.FlexAlignment("start"),
-				BackgroundColor: new(color.Color{
+				FillColor: new(color.Color{
 					R: 15,
 					G: 16,
 					B: 17,
 					A: 17.5,
+				}),
+				TextColor: new(color.Color{
+					R: 20,
+					G: 21,
+					B: 22,
+					A: 22.5,
 				}),
 			}},
 		},
@@ -275,11 +299,17 @@ func FuzzDecodeCellConfig(f *testing.F) {
 			Level:  text.Level("h1"),
 			Weight: 3.5,
 			Align:  v2.FlexAlignment("start"),
-			BackgroundColor: new(color.Color{
+			FillColor: new(color.Color{
 				R: 7,
 				G: 8,
 				B: 9,
 				A: 9.5,
+			}),
+			TextColor: new(color.Color{
+				R: 12,
+				G: 13,
+				B: 14,
+				A: 14.5,
 			}),
 		}}
 		w := orc.NewWriter(0)
@@ -305,14 +335,14 @@ func FuzzDecodeCellConfig(f *testing.F) {
 				},
 				Smooth: true,
 			},
-			BackgroundColor: new(color.Color{
+			FillColor: new(color.Color{
 				R: 14,
 				G: 15,
 				B: 16,
 				A: 16.5,
 			}),
 			Level: text.Level("h1"),
-			Color: new(color.Color{
+			TextColor: new(color.Color{
 				R: 20,
 				G: 21,
 				B: 22,
@@ -454,11 +484,17 @@ func FuzzDecodeTable(f *testing.F) {
 					Level:  text.Level("h1"),
 					Weight: 11.5,
 					Align:  v2.FlexAlignment("start"),
-					BackgroundColor: new(color.Color{
+					FillColor: new(color.Color{
 						R: 15,
 						G: 16,
 						B: 17,
 						A: 17.5,
+					}),
+					TextColor: new(color.Color{
+						R: 20,
+						G: 21,
+						B: 22,
+						A: 22.5,
 					}),
 				}},
 			},

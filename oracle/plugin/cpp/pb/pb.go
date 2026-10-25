@@ -15,6 +15,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
@@ -22,6 +24,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/cpp/json"
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	"github.com/synnaxlabs/oracle/plugin/cpp/naming"
+	cppprimitives "github.com/synnaxlabs/oracle/plugin/cpp/primitives"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/internal/arrays"
@@ -31,6 +34,8 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
+
+var primitiveMapper = cppprimitives.Mapper()
 
 type Plugin struct{ Options Options }
 
@@ -53,6 +58,7 @@ func (p *Plugin) Domains() []string { return []string{"cpp", "pb"} }
 func (p *Plugin) Requires() []string { return []string{"cpp/types", "pb/types"} }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
+	req = req.OmitFields("cpp", "pb")
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 
 	outputStructs := make(map[string][]resolution.Type)
@@ -103,7 +109,10 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 
 		form, ok := entry.Form.(resolution.DistinctForm)
-		if !ok || form.Base.Name != "Array" {
+		if !ok {
+			continue
+		}
+		if _, wraps := arrays.Wrapped(form, req.Resolutions); !wraps {
 			continue
 		}
 
@@ -113,6 +122,21 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			}
 		}
 		outputDistinct[cppOutputPath] = append(outputDistinct[cppOutputPath], entry)
+	}
+
+	outputUnions := make(map[string][]resolution.Type)
+	for _, u := range req.Resolutions.UnionTypes() {
+		cppOutputPath := output.GetPath(u, "cpp")
+		if cppOutputPath == "" || !hasPBFlag(u) {
+			continue
+		}
+		if omit.IsSkipped(u, "pb") || omit.IsSkipped(u, "cpp") {
+			continue
+		}
+		if !slices.Contains(outputOrder, cppOutputPath) {
+			outputOrder = append(outputOrder, cppOutputPath)
+		}
+		outputUnions[cppOutputPath] = append(outputUnions[cppOutputPath], u)
 	}
 
 	standaloneEnums := make(map[string][]resolution.Type)
@@ -148,9 +172,12 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 	for _, outputPath := range outputOrder {
 		structs := outputStructs[outputPath]
+		unions := outputUnions[outputPath]
 		namespace := ""
 		if len(structs) > 0 {
 			namespace = structs[0].Namespace
+		} else if len(unions) > 0 {
+			namespace = unions[0].Namespace
 		}
 
 		enums := enum.CollectReferenced(structs, req.Resolutions)
@@ -165,7 +192,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 
 		content, err := p.generateProto(
-			outputPath, structs, enums, namespace, jsonPaths, protoPaths, req,
+			outputPath, structs, unions, enums, namespace, jsonPaths, protoPaths, req,
 		)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate proto for %s", outputPath)
@@ -201,6 +228,7 @@ func hasExplicitPBName(t resolution.Type) bool {
 func (p *Plugin) generateProto(
 	outputPath string,
 	structs []resolution.Type,
+	unions []resolution.Type,
 	enums []resolution.Type,
 	namespace string,
 	jsonPaths set.Set[string],
@@ -208,16 +236,17 @@ func (p *Plugin) generateProto(
 	req *plugin.Request,
 ) ([]byte, error) {
 	data := &templateData{
-		Namespace:       naming.Namespace(outputPath),
-		Translators:     make([]translatorData, 0, len(structs)),
-		EnumTranslators: make([]enumTranslatorData, 0),
-		ArrayWrappers:   make([]arrayWrapperTranslatorData, 0),
-		Manager:         includes.NewManager(),
-		table:           req.Resolutions,
-		jsonPaths:       jsonPaths,
-		protoPaths:      protoPaths,
-		rawNs:           namespace,
-		processedEnums:  make(set.Set[string]),
+		Namespace:        naming.Namespace(outputPath),
+		Translators:      make([]translatorData, 0, len(structs)),
+		UnionTranslators: make([]unionTranslatorData, 0, len(unions)),
+		EnumTranslators:  make([]enumTranslatorData, 0),
+		ArrayWrappers:    make([]arrayWrapperTranslatorData, 0),
+		Manager:          includes.NewManager(),
+		table:            req.Resolutions,
+		jsonPaths:        jsonPaths,
+		protoPaths:       protoPaths,
+		rawNs:            namespace,
+		processedEnums:   make(set.Set[string]),
 	}
 
 	data.AddSystem("utility")
@@ -227,7 +256,7 @@ func (p *Plugin) generateProto(
 	data.AddInternal("x/cpp/pb/pb.h")
 
 	pbOutputPaths := make(set.Set[string])
-	for _, s := range structs {
+	for _, s := range append(slices.Clone(structs), unions...) {
 		pbPath := output.GetPBPath(s)
 		if pbPath != "" && !pbOutputPaths.Contains(pbPath) {
 			pbOutputPaths.Add(pbPath)
@@ -254,6 +283,21 @@ func (p *Plugin) generateProto(
 		if translator != nil {
 			data.Translators = append(data.Translators, *translator)
 		}
+	}
+
+	for _, u := range unions {
+		form, ok := u.Form.(resolution.UnionForm)
+		if !ok {
+			continue
+		}
+		data.UnionTranslators = append(
+			data.UnionTranslators,
+			p.processUnionForTranslation(u, form, data),
+		)
+	}
+	if len(data.UnionTranslators) > 0 {
+		data.AddSystem("variant")
+		data.AddSystem("type_traits")
 	}
 
 	// Add type_traits include only if there are generic translators
@@ -300,7 +344,7 @@ func (p *Plugin) generateProto(
 		}
 
 		form, ok := dt.Form.(resolution.DistinctForm)
-		if !ok || form.Base.Name != "Array" {
+		if !ok {
 			continue
 		}
 
@@ -311,7 +355,7 @@ func (p *Plugin) generateProto(
 	}
 
 	if len(data.Translators) == 0 && len(data.EnumTranslators) == 0 &&
-		len(data.ArrayWrappers) == 0 {
+		len(data.ArrayWrappers) == 0 && len(data.UnionTranslators) == 0 {
 		return nil, nil
 	}
 
@@ -340,28 +384,130 @@ func (p *Plugin) resolveExtendsType(
 		}
 	}
 
-	if len(extendsRef.TypeArgs) > 0 {
-		args := make([]string, 0, len(extendsRef.TypeArgs))
-		if parentForm, ok := parent.Form.(resolution.StructForm); ok {
-			for i, arg := range extendsRef.TypeArgs {
-				if i < len(parentForm.TypeParams) &&
-					parentForm.TypeParams[i].HasDefault() {
-					continue
-				}
-				args = append(args, p.typeRefToCppForTranslator(arg, data))
-			}
-		} else {
-			// Not a struct form, resolve all args
-			for _, arg := range extendsRef.TypeArgs {
-				args = append(args, p.typeRefToCppForTranslator(arg, data))
-			}
-		}
-		if len(args) > 0 {
-			name = fmt.Sprintf("%s<%s>", name, strings.Join(args, ", "))
-		}
-	}
+	name += p.typeArgsToCpp(
+		resolution.TypeParams(parent.Form),
+		extendsRef.TypeArgs,
+		data,
+	)
 
 	return name
+}
+
+// processUnionForTranslation builds the translator view for a discriminated union:
+// a member translator per variant struct against its payload message, and the free
+// functions that dispatch between the std::variant and the protobuf oneof wrapper.
+// The union's extends bases are message fields on the wrapper, so the dispatch
+// converts them beside the variant payload.
+func (p *Plugin) processUnionForTranslation(
+	u resolution.Type,
+	form resolution.UnionForm,
+	data *templateData,
+) unionTranslatorData {
+	cppName := domain.GetName(u, "cpp")
+	pbNamespace := naming.PBNamespace(output.GetPBPath(u), u.Namespace)
+	ut := unionTranslatorData{
+		CppName:   cppName,
+		SnakeName: casing.FieldSnake(cppName),
+		PBType:    fmt.Sprintf("%s::%s", pbNamespace, naming.PBName(u)),
+	}
+	for _, ext := range form.Extends {
+		base, ok := ext.Resolve(data.table)
+		if !ok {
+			continue
+		}
+		// An alias base keeps its own field name but translates through the struct it
+		// stands for.
+		target, targetRef, ok := resolution.Dealias(ext, data.table)
+		if !ok {
+			continue
+		}
+		if _, isStruct := target.Form.(resolution.StructForm); !isStruct {
+			continue
+		}
+		ut.Bases = append(ut.Bases, unionBaseTranslatorData{
+			CppType:    p.resolveExtendsType(targetRef, target, data),
+			PBAccessor: keywords.Escape(casing.FieldSnake(base.Name)),
+		})
+	}
+	for _, v := range form.Variants {
+		payload, _, ok := resolution.Dealias(v.Type, data.table)
+		if !ok {
+			continue
+		}
+		variantName := naming.VariantTypeName(cppName, v.Name)
+		messageNamespace, _ := naming.VariantPBNamespace(u, v, payload)
+		translator := translatorData{
+			CppName:     variantName,
+			PBName:      naming.PBName(payload),
+			PBNamespace: messageNamespace,
+			Fields:      make([]fieldTranslatorData, 0),
+		}
+		for _, field := range resolution.UnifiedFields(payload, data.table) {
+			translator.Fields = append(
+				translator.Fields,
+				p.processFieldForTranslation(field, data),
+			)
+		}
+		data.Translators = append(data.Translators, translator)
+		accessor := casing.FieldSnake(v.Name)
+		ut.Variants = append(ut.Variants, unionVariantTranslatorData{
+			TypeName:   variantName,
+			PBAccessor: keywords.Escape(accessor),
+			CaseName:   lo.PascalCase(accessor),
+		})
+	}
+	return ut
+}
+
+// unionTranslatorNames returns the to_proto and from_proto functions for a union.
+// Both are namespace-qualified: a call from inside a struct's own to_proto would
+// otherwise resolve to that member function.
+func (p *Plugin) unionTranslatorNames(
+	resolved resolution.Type,
+	data *templateData,
+) (toProto, fromProto string) {
+	fromProto = casing.FieldSnake(domain.GetName(resolved, "cpp")) + "_from_proto"
+	ns := data.Namespace
+	if resolved.Namespace != data.rawNs {
+		if targetOutputPath := output.GetPath(resolved, "cpp"); targetOutputPath != "" {
+			data.addConversionIncludes(targetOutputPath)
+			ns = naming.Namespace(targetOutputPath)
+		}
+	}
+	return fmt.Sprintf("::%s::to_proto", ns), fmt.Sprintf("::%s::%s", ns, fromProto)
+}
+
+func (p *Plugin) generateUnionConversion(
+	resolved resolution.Type,
+	isOptional bool,
+	data *templateData,
+	cppFieldName, pbAccessorName string,
+) (forward, backward string) {
+	toProto, fromProto := p.unionTranslatorNames(resolved, data)
+	if isOptional {
+		forward = fmt.Sprintf(`if (this->%s.has_value()) {
+        auto [v, err] = %s(*this->%s);
+        if (err) return {{}, err};
+        *pb.mutable_%s() = v;
+    }`, cppFieldName, toProto, cppFieldName, pbAccessorName)
+		backward = fmt.Sprintf(`if (pb.has_%s()) {
+        auto [v, err] = %s(pb.%s());
+        if (err) return {{}, err};
+        cpp.%s = v;
+    }`, pbAccessorName, fromProto, pbAccessorName, cppFieldName)
+		return forward, backward
+	}
+	forward = fmt.Sprintf(`{
+        auto [v, err] = %s(this->%s);
+        if (err) return {{}, err};
+        *pb.mutable_%s() = v;
+    }`, toProto, cppFieldName, pbAccessorName)
+	backward = fmt.Sprintf(`{
+        auto [v, err] = %s(pb.%s());
+        if (err) return {{}, err};
+        cpp.%s = v;
+    }`, fromProto, pbAccessorName, cppFieldName)
+	return forward, backward
 }
 
 func (p *Plugin) processStructForTranslation(
@@ -373,7 +519,7 @@ func (p *Plugin) processStructForTranslation(
 
 	pbName := naming.PBName(s)
 	pbOutputPath := output.GetPBPath(s)
-	pbNamespace := naming.PBNamespace(pbOutputPath)
+	pbNamespace := naming.PBNamespace(pbOutputPath, s.Namespace)
 
 	typeParams := make([]typeParamData, 0, len(form.TypeParams))
 	typeParamNames := make([]string, 0, len(form.TypeParams))
@@ -532,6 +678,14 @@ func (p *Plugin) generateFieldConversion(
 			cppFieldName,
 			pbAccessorName,
 		)
+	case resolution.UnionForm:
+		return p.generateUnionConversion(
+			resolved,
+			field.Optional,
+			data,
+			cppFieldName,
+			pbAccessorName,
+		)
 	case resolution.EnumForm:
 		return p.generateEnumConversion(
 			resolved,
@@ -542,24 +696,41 @@ func (p *Plugin) generateFieldConversion(
 			data,
 		)
 	case resolution.DistinctForm:
-		return p.generateDistinctConversion(
-			resolved,
-			form,
-			cppFieldName,
-			pbAccessorName,
-			pbSetter,
-			data,
+		if omit.IsSkipped(resolved, "cpp") {
+			return p.generateHandWrittenConversion(
+				resolved,
+				field.Optional,
+				cppFieldName,
+				pbAccessorName,
+				pbSetter,
+				data,
+			)
+		}
+		// A generated distinct type converts as its base.
+		field.Type = resolution.SubstituteTypeRef(
+			form.Base,
+			resolution.TypeArgMap(form.TypeParams, typeRef.TypeArgs),
 		)
+		return p.generateFieldConversion(field, cppFieldName, data)
 	case resolution.AliasForm:
-		return p.generateAliasConversion(
-			resolved,
-			form,
-			field.Optional,
-			cppFieldName,
-			pbAccessorName,
-			pbSetter,
-			data,
+		field.Type = resolution.SubstituteTypeRef(
+			form.Target,
+			resolution.TypeArgMap(form.TypeParams, typeRef.TypeArgs),
 		)
+		// A C++ alias is a using declaration, so a struct converts through its name.
+		if target, ok := field.Type.Resolve(data.table); ok {
+			if _, isStruct := target.Form.(resolution.StructForm); isStruct {
+				return p.generateStructConversion(
+					typeRef,
+					target,
+					field.Optional,
+					data,
+					cppFieldName,
+					pbAccessorName,
+				)
+			}
+		}
+		return p.generateFieldConversion(field, cppFieldName, data)
 	default:
 		return fmt.Sprintf("%s(this->%s)", pbSetter, cppFieldName),
 			fmt.Sprintf("cpp.%s = pb.%s();", cppFieldName, pbAccessorName)
@@ -782,6 +953,18 @@ func (p *Plugin) typeRefToCppForTranslator(
 		return typeRef.TypeParam.Name
 	}
 
+	if typeRef.Name == "Map" && len(typeRef.TypeArgs) == 2 {
+		return fmt.Sprintf(
+			"std::unordered_map<%s, %s>",
+			p.typeRefToCppForTranslator(typeRef.TypeArgs[0], data),
+			p.typeRefToCppForTranslator(typeRef.TypeArgs[1], data),
+		)
+	}
+	if mapping := primitiveMapper.Map(typeRef.Name); mapping.TargetType != "" &&
+		mapping.TargetType != "void" {
+		return mapping.TargetType
+	}
+
 	resolved, ok := typeRef.Resolve(data.table)
 	if !ok {
 		return typeRef.Name
@@ -804,27 +987,31 @@ func (p *Plugin) typeRefToCppForTranslator(
 		}
 	}
 
-	if len(typeRef.TypeArgs) > 0 {
-		var args []string
-		// Filter type args, skipping those for defaulted params
-		if form, ok := resolved.Form.(resolution.StructForm); ok {
-			for i, arg := range typeRef.TypeArgs {
-				if i < len(form.TypeParams) && form.TypeParams[i].HasDefault() {
-					continue
-				}
-				args = append(args, p.typeRefToCppForTranslator(arg, data))
-			}
-		} else {
-			for _, arg := range typeRef.TypeArgs {
-				args = append(args, p.typeRefToCppForTranslator(arg, data))
-			}
-		}
-		if len(args) > 0 {
-			name = fmt.Sprintf("%s<%s>", name, strings.Join(args, ", "))
-		}
-	}
+	return name + p.typeArgsToCpp(
+		resolution.TypeParams(resolved.Form),
+		typeRef.TypeArgs,
+		data,
+	)
+}
 
-	return name
+// typeArgsToCpp returns args as a C++ template argument list, leaving out each argument
+// bound to a defaulted parameter in params. It returns "" when no argument is left.
+func (p *Plugin) typeArgsToCpp(
+	params []resolution.TypeParam,
+	args []resolution.TypeRef,
+	data *templateData,
+) string {
+	var out []string
+	for i, arg := range args {
+		if i < len(params) && params[i].HasDefault() {
+			continue
+		}
+		out = append(out, p.typeRefToCppForTranslator(arg, data))
+	}
+	if len(out) == 0 {
+		return ""
+	}
+	return "<" + strings.Join(out, ", ") + ">"
 }
 
 func (p *Plugin) generateTypeParamConversion(
@@ -904,7 +1091,7 @@ func (p *Plugin) generateEnumConversion(
 	}
 
 	pbOutputPath := enum.FindPBOutputPath(resolved, data.table)
-	pbNamespace := naming.PBNamespace(pbOutputPath)
+	pbNamespace := naming.PBNamespace(pbOutputPath, resolved.Namespace)
 
 	if form.IsIntEnum {
 		forward = fmt.Sprintf(
@@ -937,14 +1124,15 @@ func (p *Plugin) generateEnumConversion(
 	return forward, backward
 }
 
-func (p *Plugin) generateDistinctConversion(
+// generateHandWrittenConversion converts a type hand-written in C++ through its
+// to_proto and from_proto members.
+func (p *Plugin) generateHandWrittenConversion(
 	resolved resolution.Type,
-	form resolution.DistinctForm,
+	isOptional bool,
 	cppFieldName, pbAccessorName, pbSetter string,
 	data *templateData,
 ) (forward, backward string) {
 	cppName := domain.GetName(resolved, "cpp")
-
 	if resolved.Namespace != data.rawNs {
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
@@ -952,154 +1140,28 @@ func (p *Plugin) generateDistinctConversion(
 			cppName = fmt.Sprintf("::%s::%s", ns, cppName)
 		}
 	}
-
-	if omit.IsSkipped(resolved, "cpp") {
-		return fmt.Sprintf("%s(this->%s.to_proto())", pbSetter, cppFieldName),
-			fmt.Sprintf(
-				"cpp.%s = %s::from_proto(pb.%s());",
-				cppFieldName,
-				cppName,
-				pbAccessorName,
-			)
-	}
-
-	if resolution.IsPrimitive(form.Base.Name) {
-		protoType := primitiveToProtoType(form.Base.Name)
+	if isOptional {
 		return fmt.Sprintf(
-				"%s(static_cast<%s>(this->%s))",
+				"if (this->%s.has_value()) %s(this->%s->to_proto())",
+				cppFieldName,
 				pbSetter,
-				protoType,
 				cppFieldName,
 			),
 			fmt.Sprintf(
-				"cpp.%s = %s(pb.%s());",
+				"if (pb.has_%s()) cpp.%s = %s::from_proto(pb.%s());",
+				pbAccessorName,
 				cppFieldName,
 				cppName,
 				pbAccessorName,
 			)
 	}
-
-	if form.Base.Name == "Array" && len(form.Base.TypeArgs) > 0 {
-		if arrays.IsNested(form.Base, data.table) {
-			return p.generateNestedArrayConversion(
-				cppFieldName,
-				pbAccessorName,
-				form.Base,
-				data,
-			)
-		}
-		elemType := form.Base.TypeArgs[0]
-		return p.generateArrayAliasConversion(
+	return fmt.Sprintf("%s(this->%s.to_proto())", pbSetter, cppFieldName),
+		fmt.Sprintf(
+			"cpp.%s = %s::from_proto(pb.%s());",
 			cppFieldName,
+			cppName,
 			pbAccessorName,
-			elemType,
-			false,
-			data,
 		)
-	}
-
-	return fmt.Sprintf("%s(this->%s)", pbSetter, cppFieldName),
-		fmt.Sprintf("cpp.%s = pb.%s();", cppFieldName, pbAccessorName)
-}
-
-func (p *Plugin) generateAliasConversion(
-	resolved resolution.Type,
-	form resolution.AliasForm,
-	isOptional bool,
-	cppFieldName, pbAccessorName, pbSetter string,
-	data *templateData,
-) (forward, backward string) {
-	if resolution.IsPrimitive(form.Target.Name) {
-		return p.generatePrimitiveConversion(
-			form.Target.Name,
-			cppFieldName,
-			pbAccessorName,
-			pbSetter,
-			isOptional,
-			data,
-		)
-	}
-
-	if form.Target.Name == "Array" && len(form.Target.TypeArgs) > 0 {
-		if arrays.IsNested(form.Target, data.table) {
-			return p.generateNestedArrayConversion(
-				cppFieldName,
-				pbAccessorName,
-				form.Target,
-				data,
-			)
-		}
-		elemType := form.Target.TypeArgs[0]
-		return p.generateArrayAliasConversion(
-			cppFieldName,
-			pbAccessorName,
-			elemType,
-			isOptional,
-			data,
-		)
-	}
-
-	targetResolved, ok := form.Target.Resolve(data.table)
-	if !ok {
-		return fmt.Sprintf("%s(this->%s)", pbSetter, cppFieldName),
-			fmt.Sprintf("cpp.%s = pb.%s();", cppFieldName, pbAccessorName)
-	}
-
-	if _, isStruct := targetResolved.Form.(resolution.StructForm); isStruct {
-		if targetResolved.Namespace != data.rawNs {
-			targetOutputPath := output.GetPath(targetResolved, "cpp")
-			if targetOutputPath != "" {
-				data.addConversionIncludes(targetOutputPath)
-			}
-		}
-		cppType := domain.GetName(resolved, "cpp")
-		if resolved.Namespace != data.rawNs {
-			aliasOutputPath := output.GetPath(resolved, "cpp")
-			if aliasOutputPath != "" {
-				ns := naming.Namespace(aliasOutputPath)
-				cppType = fmt.Sprintf("::%s::%s", ns, cppType)
-			}
-		}
-		if isOptional {
-			forward = fmt.Sprintf(`if (this->%s.has_value()) {
-        auto [v, err] = this->%s->to_proto();
-        if (err) return {{}, err};
-        *pb.mutable_%s() = v;
-    }`, cppFieldName, cppFieldName, pbAccessorName)
-			backward = fmt.Sprintf(`if (pb.has_%s()) {
-        auto [v, err] = %s::from_proto(pb.%s());
-        if (err) return {{}, err};
-        cpp.%s = v;
-    }`, pbAccessorName, cppType, pbAccessorName, cppFieldName)
-		} else {
-			forward = fmt.Sprintf(`{
-        auto [v, err] = this->%s.to_proto();
-        if (err) return {{}, err};
-        *pb.mutable_%s() = v;
-    }`, cppFieldName, pbAccessorName)
-			backward = fmt.Sprintf(`{
-        auto [v, err] = %s::from_proto(pb.%s());
-        if (err) return {{}, err};
-        cpp.%s = v;
-    }`, cppType, pbAccessorName, cppFieldName)
-		}
-		return forward, backward
-	}
-
-	if targetForm, isAlias := targetResolved.Form.(resolution.AliasForm); isAlias {
-		return p.generateAliasConversion(
-			targetResolved,
-			targetForm,
-			isOptional,
-			cppFieldName,
-			pbAccessorName,
-			pbSetter,
-			data,
-		)
-	}
-
-	return fmt.Sprintf("%s(this->%s)", pbSetter, cppFieldName),
-		fmt.Sprintf("cpp.%s = pb.%s();", cppFieldName, pbAccessorName)
 }
 
 func (p *Plugin) generateArrayConversion(
@@ -1134,21 +1196,6 @@ func (p *Plugin) generateArrayConversion(
 	)
 }
 
-func (p *Plugin) generateArrayAliasConversion(
-	cppFieldName, pbAccessorName string,
-	elemType resolution.TypeRef,
-	isOptional bool,
-	data *templateData,
-) (forward, backward string) {
-	return p.generateArrayElementConversion(
-		cppFieldName,
-		pbAccessorName,
-		elemType,
-		isOptional,
-		data,
-	)
-}
-
 // generateArrayElementConversion renders the proto conversion for an array field.
 // A nullable array maps to a wrapper message (a list message whose repeated field
 // is named values) so absence is distinguishable from emptiness; the generated
@@ -1161,7 +1208,7 @@ func (p *Plugin) generateArrayElementConversion(
 	data *templateData,
 ) (forward, backward string) {
 	if !resolution.IsPrimitive(elemType.Name) {
-		if resolved, ok := elemType.Resolve(data.table); ok {
+		if resolved, _, ok := resolution.Dealias(elemType, data.table); ok {
 			if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
 				if resolved.Namespace != data.rawNs {
 					targetOutputPath := output.GetPath(resolved, "cpp")
@@ -1198,7 +1245,41 @@ func (p *Plugin) generateArrayElementConversion(
 				)
 				return forward, backward
 			}
+			if _, isUnion := resolved.Form.(resolution.UnionForm); isUnion {
+				return p.generateUnionArrayConversion(
+					resolved,
+					cppFieldName,
+					pbAccessorName,
+					isOptional,
+					data,
+				)
+			}
 		}
+	}
+
+	if toPB, fromPB, ok := p.elementConversion(elemType, data); ok {
+		if isOptional {
+			forward = fmt.Sprintf(`if (this->%s.has_value()) {
+        auto* wrapper = pb.mutable_%s();
+        for (const auto& item : *this->%s) {
+            %s
+        }
+    }`, cppFieldName, pbAccessorName, cppFieldName, toPB("wrapper->add_values"))
+			backward = fmt.Sprintf(`if (pb.has_%s()) {
+        cpp.%s.emplace();
+        for (const auto& item : pb.%s().values()) {
+            %s
+        }
+    }`, pbAccessorName, cppFieldName, pbAccessorName, fromPB("cpp."+cppFieldName+"->"))
+			return forward, backward
+		}
+		forward = fmt.Sprintf(`for (const auto& item : this->%s) {
+        %s
+    }`, cppFieldName, toPB("pb.add_"+pbAccessorName))
+		backward = fmt.Sprintf(`for (const auto& item : pb.%s()) {
+        %s
+    }`, pbAccessorName, fromPB("cpp."+cppFieldName+"."))
+		return forward, backward
 	}
 
 	if isOptional {
@@ -1227,6 +1308,113 @@ func (p *Plugin) generateArrayElementConversion(
 	return forward, backward
 }
 
+// elementConversion returns the per-item statements that translate an array element
+// that proto cannot hold as is: a uuid (directly or through aliases and distinct types)
+// or an enum. toPB takes the proto adder and fromPB takes the C++ container prefix
+// ("cpp.field." or "cpp.field->"). Both read the loop variable item.
+func (p *Plugin) elementConversion(
+	elemType resolution.TypeRef,
+	data *templateData,
+) (toPB, fromPB func(string) string, ok bool) {
+	if key.ResolvePrimitive(elemType, data.table) == "uuid" {
+		toPB = func(add string) string {
+			return fmt.Sprintf("%s(item.to_string());", add)
+		}
+		fromPB = func(dst string) string {
+			return fmt.Sprintf(`auto [v, err] = x::uuid::UUID::parse(item);
+            if (err) return {{}, err};
+            %spush_back(v);`, dst)
+		}
+		return toPB, fromPB, true
+	}
+	resolved, _, ok := resolution.Dealias(elemType, data.table)
+	if !ok {
+		return nil, nil, false
+	}
+	form, ok := resolved.Form.(resolution.EnumForm)
+	if !ok {
+		return nil, nil, false
+	}
+	cppEnumType := domain.GetName(resolved, "cpp")
+	funcNamespace := ""
+	if resolved.Namespace != data.rawNs {
+		if target := output.GetPath(resolved, "cpp"); target != "" {
+			data.addConversionIncludes(target)
+			ns := naming.Namespace(target)
+			cppEnumType = fmt.Sprintf("::%s::%s", ns, cppEnumType)
+			funcNamespace = fmt.Sprintf("::%s::", ns)
+		}
+	}
+	pbEnumType := fmt.Sprintf(
+		"%s::%s",
+		naming.PBNamespace(
+			enum.FindPBOutputPath(resolved, data.table),
+			resolved.Namespace,
+		),
+		resolved.Name,
+	)
+	if form.IsIntEnum {
+		toPB = func(add string) string {
+			return fmt.Sprintf("%s(static_cast<%s>(item));", add, pbEnumType)
+		}
+		fromPB = func(dst string) string {
+			return fmt.Sprintf("%spush_back(static_cast<%s>(item));", dst, cppEnumType)
+		}
+		return toPB, fromPB, true
+	}
+	funcName := funcNamespace + casing.TypeSnake(resolved.Name)
+	toPB = func(add string) string {
+		return fmt.Sprintf(`auto [v, err] = %s_to_pb(item);
+            if (err) return {{}, err};
+            %s(v);`, funcName, add)
+	}
+	fromPB = func(dst string) string {
+		return fmt.Sprintf(`auto [v, err] = %s_from_pb(static_cast<%s>(item));
+            if (err) return {{}, err};
+            %spush_back(v);`, funcName, pbEnumType, dst)
+	}
+	return toPB, fromPB, true
+}
+
+func (p *Plugin) generateUnionArrayConversion(
+	resolved resolution.Type,
+	cppFieldName, pbAccessorName string,
+	isOptional bool,
+	data *templateData,
+) (forward, backward string) {
+	toProto, fromProto := p.unionTranslatorNames(resolved, data)
+	if isOptional {
+		forward = fmt.Sprintf(`if (this->%s.has_value()) {
+        auto* wrapper = pb.mutable_%s();
+        for (const auto& item : *this->%s) {
+            auto [v, err] = %s(item);
+            if (err) return {{}, err};
+            *wrapper->add_values() = v;
+        }
+    }`, cppFieldName, pbAccessorName, cppFieldName, toProto)
+		backward = fmt.Sprintf(`if (pb.has_%s()) {
+        cpp.%s.emplace();
+        for (const auto& item : pb.%s().values()) {
+            auto [v, err] = %s(item);
+            if (err) return {{}, err};
+            cpp.%s->push_back(v);
+        }
+    }`, pbAccessorName, cppFieldName, pbAccessorName, fromProto, cppFieldName)
+		return forward, backward
+	}
+	forward = fmt.Sprintf(`for (const auto& item : this->%s) {
+        auto [v, err] = %s(item);
+        if (err) return {{}, err};
+        *pb.add_%s() = v;
+    }`, cppFieldName, toProto, pbAccessorName)
+	backward = fmt.Sprintf(`for (const auto& item : pb.%s()) {
+        auto [v, err] = %s(item);
+        if (err) return {{}, err};
+        cpp.%s.push_back(v);
+    }`, pbAccessorName, fromProto, cppFieldName)
+	return forward, backward
+}
+
 func (p *Plugin) generateMapConversion(
 	field resolution.Field,
 	data *templateData,
@@ -1240,8 +1428,10 @@ func (p *Plugin) generateMapConversion(
 	}
 
 	valueType := typeRef.TypeArgs[1]
+	// An alias value converts as the type it stands for.
+	value, valueRef, dealiased := resolution.Dealias(valueType, data.table)
 
-	if valueType.Name == "record" {
+	if dealiased && valueRef.Name == "record" {
 		data.AddInternal("x/cpp/json/struct.h")
 		forward = fmt.Sprintf(`for (const auto& [k, v] : this->%s) {
         auto [pb_v, err] = x::json::to_struct(v);
@@ -1256,10 +1446,10 @@ func (p *Plugin) generateMapConversion(
 		return forward, backward
 	}
 
-	if resolved, ok := valueType.Resolve(data.table); ok {
-		if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
-			if resolved.Namespace != data.rawNs {
-				targetOutputPath := output.GetPath(resolved, "cpp")
+	if dealiased {
+		if _, isStruct := value.Form.(resolution.StructForm); isStruct {
+			if value.Namespace != data.rawNs {
+				targetOutputPath := output.GetPath(value, "cpp")
 				if targetOutputPath != "" {
 					data.addConversionIncludes(targetOutputPath)
 				}
@@ -1306,21 +1496,8 @@ func (p *Plugin) isFixedSizeUint8Array(
 	if !ok {
 		return false
 	}
-
-	if form.Base.Name != "Array" || form.Base.ArraySize == nil {
-		return false
-	}
-
-	if len(form.Base.TypeArgs) == 0 {
-		return false
-	}
-
-	elemType := form.Base.TypeArgs[0]
-	if resolution.IsPrimitive(elemType.Name) && elemType.Name == "uint8" {
-		return true
-	}
-
-	return false
+	base, ok := arrays.Wrapped(form, table)
+	return ok && base.ArraySize != nil && base.TypeArgs[0].Name == "uint8"
 }
 
 func (p *Plugin) generateFixedSizeUint8ArrayConversion(
@@ -1358,7 +1535,7 @@ func (p *Plugin) generateNestedArrayConversion(
 	// primitive-inner path preserves the original `add_values(v)` form.
 	if elemType, ok := arrays.ElementType(typeRef, data.table); ok {
 		if innerElem, ok := arrays.ElementType(elemType, data.table); ok {
-			if innerResolved, ok := innerElem.Resolve(data.table); ok {
+			if innerResolved, _, ok := resolution.Dealias(innerElem, data.table); ok {
 				if _, isStruct := innerResolved.Form.(resolution.StructForm); isStruct {
 					if innerResolved.Namespace != data.rawNs {
 						targetOutputPath := output.GetPath(innerResolved, "cpp")
@@ -1411,7 +1588,7 @@ func (p *Plugin) processEnumForTranslation(
 	}
 
 	pbOutputPath := enum.FindPBOutputPath(e, data.table)
-	pbNamespace := naming.PBNamespace(pbOutputPath)
+	pbNamespace := naming.PBNamespace(pbOutputPath, e.Namespace)
 
 	values := make([]enumValueTranslatorData, 0, len(form.Values))
 	for _, v := range form.Values {
@@ -1445,21 +1622,22 @@ func (p *Plugin) processArrayWrapperForTranslation(
 	form resolution.DistinctForm,
 	data *templateData,
 ) *arrayWrapperTranslatorData {
-	if form.Base.Name != "Array" || len(form.Base.TypeArgs) == 0 {
+	base, ok := arrays.Wrapped(form, data.table)
+	if !ok {
 		return nil
 	}
 
 	cppName := domain.GetName(dt, "cpp")
 	pbName := naming.PBName(dt)
 	pbOutputPath := output.GetPBPath(dt)
-	pbNamespace := naming.PBNamespace(pbOutputPath)
+	pbNamespace := naming.PBNamespace(pbOutputPath, dt.Namespace)
 
-	elemType := form.Base.TypeArgs[0]
+	elemType := base.TypeArgs[0]
 	elemCppType := p.typeRefToCppForTranslator(elemType, data)
 
 	elementNeedsConvert := false
 	if !resolution.IsPrimitive(elemType.Name) {
-		if resolved, ok := elemType.Resolve(data.table); ok {
+		if resolved, _, ok := resolution.Dealias(elemType, data.table); ok {
 			_, elementNeedsConvert = resolved.Form.(resolution.StructForm)
 		}
 	}
@@ -1480,40 +1658,49 @@ func deriveProtoInclude(pbOutputPath, namespace string) string {
 	return fmt.Sprintf("%s/%s.pb.h", pbOutputPath, namespace)
 }
 
-func primitiveToProtoType(primitive string) string {
-	switch primitive {
-	case "uint8", "uint12", "uint16", "uint20", "uint32":
-		return "uint32_t"
-	case "uint64":
-		return "uint64_t"
-	case "int8", "int16", "int32":
-		return "int32_t"
-	case "int64":
-		return "int64_t"
-	case "float32":
-		return "float"
-	case "float64":
-		return "double"
-	case "bool":
-		return "bool"
-	case "string":
-		return "std::string"
-	default:
-		return primitive
-	}
-}
-
 type templateData struct {
 	processedEnums set.Set[string]
 	*includes.Manager
-	table           *resolution.Table
-	jsonPaths       set.Set[string]
-	protoPaths      set.Set[string]
-	Namespace       string
-	rawNs           string
-	Translators     []translatorData
-	EnumTranslators []enumTranslatorData
-	ArrayWrappers   []arrayWrapperTranslatorData
+	table            *resolution.Table
+	jsonPaths        set.Set[string]
+	protoPaths       set.Set[string]
+	Namespace        string
+	rawNs            string
+	Translators      []translatorData
+	UnionTranslators []unionTranslatorData
+	EnumTranslators  []enumTranslatorData
+	ArrayWrappers    []arrayWrapperTranslatorData
+}
+
+// unionTranslatorData is the template view of the free functions that move a
+// discriminated union between its std::variant alias and its protobuf wrapper.
+type unionTranslatorData struct {
+	// CppName is the std::variant alias (e.g. "Target").
+	CppName string
+	// SnakeName names the from_proto function (e.g. target_from_proto).
+	SnakeName string
+	// PBType is the qualified protobuf wrapper message.
+	PBType string
+	// Bases are the union's extends bases, nested as message fields on the wrapper.
+	Bases []unionBaseTranslatorData
+	// Variants lists every variant in declaration order.
+	Variants []unionVariantTranslatorData
+}
+
+type unionBaseTranslatorData struct {
+	// CppType is the qualified base struct the variant structs inherit.
+	CppType string
+	// PBAccessor is the wrapper's message field for the base.
+	PBAccessor string
+}
+
+type unionVariantTranslatorData struct {
+	// TypeName is the variant struct (e.g. "ExitTarget").
+	TypeName string
+	// PBAccessor is the oneof member field (e.g. "exit").
+	PBAccessor string
+	// CaseName is the protoc oneof case without its k prefix (e.g. "Exit").
+	CaseName string
 }
 
 // jsonInclude returns the header to include for a reference to types generated at

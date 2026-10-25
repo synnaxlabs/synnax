@@ -157,7 +157,9 @@ func (n *nodeImpl) Next(ctx node.Context) {
 			continue
 		}
 		dataLen := n.Input(i).Len()
-		if dataLen > maxLength {
+		// A fresh input wins a tie, so stamps come from new data.
+		if dataLen > maxLength ||
+			(dataLen == maxLength && !n.InputStale(i) && n.InputStale(longestInputIdx)) {
 			maxLength = dataLen
 			longestInputIdx = i
 		}
@@ -226,6 +228,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	}
 	batched := n.batch != nil && maxLength > 1 &&
 		n.runBatch(ctx, maxLength, longestInputTime, clockStamp, clockStart)
+	trapped := false
 	for i := int64(0); !batched && i < maxLength; i++ {
 		for j := range n.ir.Inputs {
 			if n.ir.Inputs[j].Value != nil || n.chanInputs[j] || n.varInputs[j] {
@@ -260,6 +263,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 			for j := range stringResults {
 				stringResults[j] = stringResults[j][:0]
 			}
+			trapped = true
 			break
 		}
 		var ts uint64
@@ -308,6 +312,9 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		if n.offsets[j] > 0 {
 			n.Emit(ctx, j)
 		}
+	}
+	if !batched && !trapped {
+		ctx.MarkDone()
 	}
 }
 

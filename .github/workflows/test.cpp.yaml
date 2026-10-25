@@ -17,6 +17,11 @@ on:
         required: false
         type: string
         default: ""
+      clang_tidy:
+        description: Whether to lint the targets with clang-tidy
+        required: false
+        type: boolean
+        default: false
       core_image:
         description: Core image to test against on Ubuntu, or empty for none
         required: false
@@ -78,10 +83,10 @@ jobs:
   test:
     name: Test (${{ matrix.os }})
     # A service with an empty image does not start. Services run on Linux only, so the
-    # other runners skip tests tagged requires-core.
+    # other runners get no image and skip tests tagged requires-core.
     services:
       synnax:
-        image: ${{ inputs.core_image }}
+        image: ${{ matrix.os == 'ubuntu-build-bot' && inputs.core_image || '' }}
         env:
           SYNNAX_LISTEN: localhost:9090
           SYNNAX_VERBOSE: true
@@ -101,10 +106,9 @@ jobs:
           - os: ${{ !inputs.macos && 'macos-build-bot' }}
           - os: ${{ !inputs.ubuntu && 'ubuntu-build-bot' }}
           - os: ${{ !inputs.windows && 'windows-build-bot' }}
-        include:
-          - os: ubuntu-build-bot
-            format: true
     runs-on: ${{ matrix.os }}
+    # About 1.5x the slowest successful cold-cache job on each OS.
+    timeout-minutes: ${{ matrix.os == 'ubuntu-build-bot' && 75 || 30 }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -118,23 +122,32 @@ jobs:
       - name: Install Rust
         if: inputs.rust
         uses: actions-rust-lang/setup-rust-toolchain@v2
+        with:
+          # A cache save deletes rustup from ~/.cargo/bin, which the build bots keep.
+          cache-bin: false
 
       - name: Update submodules
         run: git submodule update --init --recursive
 
       - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.19.0
+        uses: bazel-contrib/setup-bazel@0.19.1
         with:
           bazelisk-cache: false
           disk-cache: false
           repository-cache: false
 
+      - name: Set up uv
+        if: runner.os == 'Linux' && inputs.directories != ''
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version: latest-known
+
       - name: Install clang-format
-        if: matrix.format && inputs.directories != ''
+        if: runner.os == 'Linux' && inputs.directories != ''
         run: scripts/install_clang_format.sh
 
       - name: Check formatting
-        if: matrix.format && inputs.directories != ''
+        if: runner.os == 'Linux' && inputs.directories != ''
         run: |
           for directory in ${{ inputs.directories }}; do
             scripts/check_clang_format.sh "$directory"
@@ -157,15 +170,21 @@ jobs:
       - name: Test (macOS)
         if: runner.os == 'macOS'
         shell: bash
+        env:
+          # The HTTP/2 client in Go stalls Bazelisk downloads on the Mac build bots.
+          GODEBUG: http2client=0
         run: >-
           bazel test ${{ inputs.sanitizers && '--config=asan' || '' }} --test_output=all
           ${{ inputs.targets }} ${{ steps.tags.outputs.flag }} ${{ inputs.test_flags }}
 
+      # The Ubuntu build bots have 16 GB and no swap. A sanitized compile takes up to
+      # 3.5 GB, so eight at once reach the OOM killer, which takes the runner down with
+      # the job and leaves its Core service container holding port 9090.
       - name: Test (Ubuntu)
         if: runner.os == 'Linux'
         shell: bash
         run: >-
-          bazel test $BAZEL_REMOTE_CACHE_FLAGS ${{ inputs.sanitizers &&
+          bazel test $BAZEL_REMOTE_CACHE_FLAGS --jobs=4 ${{ inputs.sanitizers &&
           '--config=asan-leak' || '' }} --test_output=all
           --test_env=LSAN_OPTIONS=suppressions=${{ github.workspace
           }}/scripts/sanitizers/lsan_suppressions.txt ${{ inputs.targets }} ${{
@@ -188,3 +207,45 @@ jobs:
         if: always() && runner.os == 'Windows'
         shell: powershell
         run: integration/scripts/CleanBuildCaches.ps1 -MinFreeGB 30
+
+  lint:
+    name: Lint
+    if: inputs.clang_tidy
+    runs-on: ubuntu-build-bot
+    timeout-minutes: 60
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install packages
+        if: inputs.apt_packages != ''
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ${{ inputs.apt_packages }}
+
+      - name: Install Rust
+        if: inputs.rust
+        uses: actions-rust-lang/setup-rust-toolchain@v2
+        with:
+          # A cache save deletes rustup from ~/.cargo/bin, which the build bots keep.
+          cache-bin: false
+
+      - name: Update submodules
+        run: git submodule update --init --recursive
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.19.1
+        with:
+          bazelisk-cache: false
+          disk-cache: false
+          repository-cache: false
+
+      # Each clang-tidy action peaks near 1 GB, and the build bots have 16 GB.
+      - name: Lint
+        run: >-
+          bazel build $BAZEL_REMOTE_CACHE_FLAGS --jobs=8 --config=clang-tidy
+          --keep_going ${{ inputs.targets }}
+
+      - name: Clean build caches
+        if: always()
+        run: integration/scripts/clean_build_caches.sh 25

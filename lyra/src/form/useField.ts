@@ -13,11 +13,8 @@ import { type z } from "zod";
 
 import { type ContextValue, useContext } from "@/form/Context";
 import {
-  type DefaultGetOptions,
-  type ExtensionGetOptions,
   type FieldState,
   type GetOptions,
-  type OptionalGetOptions,
   type RequiredGetOptions,
 } from "@/form/state";
 import { type Status } from "@/status";
@@ -45,19 +42,12 @@ export interface UseFieldReturn<I, O = I> extends FieldState<I> {
 interface UseField {
   <I, O = I>(
     path: string,
-    opts?: (RequiredGetOptions | DefaultGetOptions<I>) & UseFieldOptions<I, O>,
+    opts?: RequiredGetOptions & UseFieldOptions<I, O>,
   ): UseFieldReturn<I, O>;
   <I, O = I>(
     path: string,
-    opts?: OptionalGetOptions & UseFieldOptions<I, O>,
+    opts?: GetOptions & UseFieldOptions<I, O>,
   ): UseFieldReturn<I, O> | null;
-  <I, O = I>(
-    path: string,
-    // ExtensionGetOptions also accepts `optional: true`, so this overload must stay
-    // below the optional one to keep that call returning null.
-    // eslint-disable-next-line @typescript-eslint/unified-signatures
-    opts?: ExtensionGetOptions<I> & UseFieldOptions<I, O>,
-  ): UseFieldReturn<I, O>;
 }
 
 /**
@@ -70,9 +60,9 @@ interface UseField {
  */
 export const useField = (<I, O = I>(
   path: string,
-  opts: UseFieldOptions<I, O> & GetOptions<I> = {},
+  opts: UseFieldOptions<I, O> & GetOptions = {},
 ): UseFieldReturn<I, O> | null => {
-  const { optional = false, onChange, defaultValue } = opts;
+  const { optional = false, onChange } = opts;
   const ctx = useContext(opts?.ctx, `useField(${path})`);
   const { get, bind, set, setStatus } = ctx;
 
@@ -81,21 +71,19 @@ export const useField = (<I, O = I>(
       onChange?.(value, { ...ctx, path });
       set(path, value);
     },
-    [path, set, onChange],
+    [path, ctx, set, onChange],
   );
 
   const handleSetStatus = useCallback(
     (status: Status.Crude) => setStatus(path, status),
     [path, setStatus],
   );
-  const state = useSyncExternalStore(
-    bind,
-    useCallback(
-      () => get<I>(path, { optional, defaultValue }),
-      [path, get, optional, defaultValue],
-    ),
-    () => null,
+  // The form state lives in memory, so a server render reads it like the client does.
+  const getSnapshot = useCallback(
+    () => get<I>(path, { optional }),
+    [path, get, optional],
   );
+  const state = useSyncExternalStore(bind, getSnapshot, getSnapshot);
   if (state == null) {
     if (!optional) throw new Error(`Field state is null: ${path}`);
     return null;
@@ -107,57 +95,40 @@ export const useField = (<I, O = I>(
 export interface UseFieldValue {
   <I, O = I, Z extends z.ZodType = z.ZodType>(
     path: string,
-    opts?: (RequiredGetOptions | DefaultGetOptions<I>) & ContextOptions<Z>,
+    opts?: RequiredGetOptions & ContextOptions<Z>,
   ): O;
   <I, O = I, Z extends z.ZodType = z.ZodType>(
     path: string,
-    opts?: OptionalGetOptions & ContextOptions<Z>,
+    opts?: GetOptions & ContextOptions<Z>,
   ): O | null;
-  <I, O = I, Z extends z.ZodType = z.ZodType>(
-    path: string,
-    // ExtensionGetOptions also accepts `optional: true`, so this overload must stay
-    // below the optional one to keep that call returning null.
-    // eslint-disable-next-line @typescript-eslint/unified-signatures
-    opts?: ExtensionGetOptions<I> & ContextOptions<Z>,
-  ): O;
 }
 
 export interface UseFieldState {
   <I, O = I, Z extends z.ZodType = z.ZodType>(
     path: string,
-    opts?: (RequiredGetOptions | DefaultGetOptions<I>) & ContextOptions<Z>,
+    opts?: RequiredGetOptions & ContextOptions<Z>,
   ): FieldState<O>;
   <I, O = I, Z extends z.ZodType = z.ZodType>(
     path: string,
-    opts?: OptionalGetOptions & ContextOptions<Z>,
+    opts?: GetOptions & ContextOptions<Z>,
   ): FieldState<O> | null;
-  <I, O = I, Z extends z.ZodType = z.ZodType>(
-    path: string,
-    // ExtensionGetOptions also accepts `optional: true`, so this overload must stay
-    // below the optional one to keep that call returning null.
-    // eslint-disable-next-line @typescript-eslint/unified-signatures
-    opts?: ExtensionGetOptions<I> & ContextOptions<Z>,
-  ): FieldState<O>;
 }
 
 /** Reads a field's value together with its status and required flag. */
 export const useFieldState = (<I, O = I, Z extends z.ZodType = z.ZodType>(
   path: string,
-  opts?: GetOptions<O> & ContextOptions<Z>,
+  opts?: GetOptions & ContextOptions<Z>,
 ): FieldState<O> | null => {
   const { get, bind } = useContext(opts?.ctx);
-  return useSyncExternalStore(
-    bind,
-    useCallback(() => get<O>(path, opts), [path, get, opts]),
-    () => null,
-  );
+  const getSnapshot = useCallback(() => get<O>(path, opts), [path, get, opts]);
+  return useSyncExternalStore(bind, getSnapshot, getSnapshot);
 }) as UseFieldState;
 
 /** Reads just a field's value. Use it to render from a field the caller does not edit. */
 export const useFieldValue = (<I, O = I, Z extends z.ZodType = z.ZodType>(
   path: string,
-  opts?: GetOptions<O> & ContextOptions<Z>,
-): O | null => useFieldState(path, opts)?.value ?? null) as UseFieldValue;
+  opts?: GetOptions & ContextOptions<Z>,
+): O | null => useFieldState<I, O, Z>(path, opts)?.value ?? null) as UseFieldValue;
 
 /** @returns whether the field at the path passed its last validation. */
 export const useFieldValid = (path: string): boolean =>
@@ -240,7 +211,7 @@ export const useFieldList = <
   Z extends z.ZodType = z.ZodType,
 >(
   path: string,
-  opts: ContextOptions<Z> & GetOptions<E[]> = {},
+  opts: ContextOptions<Z> = {},
 ): UseFieldListReturn<K, E> => {
   const ctx = useContext(opts?.ctx);
   const value = useFieldValue<E[]>(path, opts);

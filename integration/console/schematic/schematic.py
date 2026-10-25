@@ -13,6 +13,7 @@ from playwright.sync_api import Locator
 
 import synnax as sy
 from console.layout import LayoutClient
+from console.multiedit import Colors
 from console.page import ConsolePage
 from console.schematic.symbol import (
     Symbol,
@@ -79,6 +80,19 @@ class Schematic(ConsolePage):
     ):
         """Initialize a Schematic page wrapper (see ConsolePage.__init__ for details)."""
         super().__init__(layout, client, page_name, pane_locator=pane_locator)
+        self.colors = Colors(self.page)
+
+    def select(self, symbols: list[Symbol]) -> None:
+        """Replace the selection with `symbols` and show the Properties tab."""
+        # A click on a node that is already selected keeps the rest of the selection,
+        # so an empty corner of the canvas clears it first.
+        if self.pane_locator is None:
+            raise RuntimeError("Schematic pane locator not available")
+        self.pane_locator.click(position={"x": 10, "y": 10})
+        for symbol in symbols:
+            symbol.meta_click()
+        self.layout.show_visualization_toolbar()
+        self.page.get_by_role("tab", name="Properties", exact=True).click()
 
     def create_symbol(self, symbol: Symbol) -> Symbol:
         """Add a symbol to the schematic and configure it.
@@ -345,6 +359,33 @@ class Schematic(ConsolePage):
     def get_edge_count(self) -> int:
         """Get the number of edges on the schematic pane."""
         return self.page.locator(".react-flow__edge").count()
+
+    @property
+    def symbol_name(self) -> Locator:
+        """The toolbar header name of the selected symbols, or Mixed when they differ.
+
+        Symbols must be selected first (see select).
+        """
+        return self.page.locator(".console-schematic__symbol .pluto-text").first
+
+    def change_symbol(self, name: str) -> None:
+        """Change the selected symbols to the named symbol from the symbols tab.
+
+        Symbols must be selected first (see select). A click on the symbols tab
+        ends the change, so this searches the tab that the change opens.
+
+        :param name: The name of the symbol in the symbols tab (e.g. "Solenoid").
+        """
+        self.notifications.close_all()
+        self.page.get_by_label("Change symbol", exact=True).click(timeout=5000)
+        symbols = self.page.locator(".console-schematic__symbols")
+        self.layout.wait_for_visible(symbols)
+        symbols.locator("input[role='textbox']").first.fill(name)
+        item = symbols.locator(".console-schematic-symbols__button").filter(
+            has=self.page.locator("small").get_by_text(name, exact=True)
+        )
+        item.first.click(timeout=5000)
+        self.layout.wait_for_hidden(self.page.locator(".console-schematic__change"))
 
     def set_authority(self, authority: int) -> None:
         """Set the control authority for the schematic page."""

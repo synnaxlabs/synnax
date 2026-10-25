@@ -43,17 +43,15 @@ export interface KeyParams {
 
 export type RetrieveQuery = {
   key: arc.Key;
-  includeStatus?: boolean;
 };
 
 export const { use, useEnsure, useTombstone, useResult, createSelector } =
   Flux.createRetrieve<RetrieveQuery, arc.Arc>({
     name: RESOURCE_NAME,
     retrieve: async ({ client, query }) => await client.arcs.retrieve(query),
-    onChange: ({ client, query: { key, includeStatus } }, handler) =>
-      client.arcs.onChange({ key, includeStatus }, handler),
-    getCached: ({ client, query: { key, includeStatus } }) =>
-      client.arcs.getCached({ key, includeStatus }),
+    onChange: ({ client, query: { key } }, handler) =>
+      client.arcs.onChange({ key }, handler),
+    getCached: ({ client, query: { key } }) => client.arcs.getCached({ key }),
     awaitCreation: true,
   });
 
@@ -157,10 +155,10 @@ export type ListQuery = List.PagerParams & {
 
 export const useList = Flux.createList<ListQuery, arc.Key, arc.Arc>({
   name: PLURAL_RESOURCE_NAME,
-  normalizeQuery: (query) => ({ ...query, includeStatus: true }),
   retrieve: async ({ client, query }) => await client.arcs.retrieve(query),
   retrieveByKey: async ({ client, key }) => await client.arcs.retrieve(key),
   onChange: ({ client, query }, handler) => client.arcs.onChange(query, handler),
+  onChangeByKey: ({ client, key }, handler) => client.arcs.onChange(key, handler),
   getCached: ({ client, query }) => client.arcs.getCached(query),
 });
 
@@ -223,19 +221,18 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   },
 });
 
-export interface SetRackParams {
+export interface UpdateTaskParams extends arc.UpdateTaskParams {
   key: arc.Key;
-  /** Target rack. Zero clears the binding, deleting the arc's task. */
-  rack: rack.Key;
 }
 
-export const { useUpdate: useSetRack } = Flux.createUpdate<
-  SetRackParams,
+export const { useUpdate: useUpdateTask } = Flux.createUpdate<
+  UpdateTaskParams,
   task.Task | null
 >({
-  name: `${RESOURCE_NAME} rack`,
+  name: `${RESOURCE_NAME} task`,
   verbs: verbs.SET,
-  update: async ({ client, data }) => await client.arcs.setRack(data.key, data.rack),
+  update: async ({ client, data: { key, ...params } }) =>
+    await client.arcs.updateTask(key, params),
 });
 
 export type RetrieveTaskParams = {
@@ -271,6 +268,8 @@ export interface UseTaskControlsReturn {
   running: boolean;
   taskKey: task.Key;
   taskRack: rack.Key;
+  /** The performance level of the task, or auto when the arc has no task. */
+  taskPerformance: arc.task.Performance;
   /** Starts the task. The driver rebuilds from the current config when it drifted. */
   onStart: () => void;
   /** Stops the running instance. */
@@ -279,16 +278,25 @@ export interface UseTaskControlsReturn {
   taskStatus: status.Status;
 }
 
-const notDeployedYet = (name: string) =>
-  status.create({ name, variant: "disabled", message: "Not deployed yet" });
+const notDeployed = (name: string) =>
+  status.create({ name, variant: "disabled", message: "Task not deployed" });
 
-/** Running state and start/stop controls for the arc's task. */
-export const useTaskControls = (key: arc.Key, name: string): UseTaskControlsReturn => {
+/**
+ * Running state and start/stop controls for the arc's task. The params hook into the
+ * commands the controls send.
+ */
+export const useTaskControls = (
+  key: arc.Key,
+  name: string,
+  params?: Flux.UseDirectUpdateParams<Task.CommandParams>,
+): UseTaskControlsReturn => {
   const { data: tsk, variant, status: readStatus } = useResultTask({ arcKey: key });
-  const cmd = Task.useCommand();
+  const cmd = Task.useCommand(params);
   const isRunning = tsk?.status?.details.running ?? false;
   const taskKey = tsk?.key ?? "";
   const taskRack = tsk?.rack ?? 0;
+  const taskPerformance =
+    tsk == null ? "auto" : arc.task.performanceZ.parse(tsk.config.performance);
   const exec = useCallback(
     (type: "start" | "stop") => {
       if (taskKey === "") return;
@@ -306,10 +314,10 @@ export const useTaskControls = (key: arc.Key, name: string): UseTaskControlsRetu
     running: isRunning,
     taskKey,
     taskRack,
+    taskPerformance,
     onStart,
     onStop,
     onStartStop,
-    taskStatus:
-      variant !== "success" ? readStatus : (tsk?.status ?? notDeployedYet(name)),
+    taskStatus: variant !== "success" ? readStatus : (tsk?.status ?? notDeployed(name)),
   };
 };

@@ -101,8 +101,7 @@ export const createPanelWrapper = async ({
     store,
   });
   const projectKey =
-    project ??
-    (await client.projects.create({ name: uniqueName("project"), layout: {} })).key;
+    project ?? (await client.projects.create({ name: uniqueName("project") })).key;
   resolvedStore.dispatch(Session.Project.select(projectKey));
   // A scoped panel renders because it is the window's selected panel; tab
   // focus/visibility selectors require that term.
@@ -138,9 +137,8 @@ export const primePanel = async (
   wrapper: FC<PropsWithChildren>,
   key: panel.Key,
 ): Promise<void> => {
-  const { result, unmount } = renderHook(() => PPanel.useResult({ key }).data, {
-    wrapper,
-  });
+  const usePanel = () => PPanel.useResult({ key }).data;
+  const { result, unmount } = renderHook(usePanel, { wrapper });
   await waitFor(() => {
     if (result.current == null) throw new Error(`panel ${key} failed to load`);
   });

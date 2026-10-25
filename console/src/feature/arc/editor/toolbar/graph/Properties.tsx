@@ -61,7 +61,7 @@ const IndividualConfig = ({ nodeKey }: IndividualConfigProps): ReactElement | nu
   return (
     <Flex.Box className={CSS.BE("arc-properties", "individual")} y>
       <Form.Form<typeof Arc.Graph.Node.configZ> {...formMethods}>
-        <C.Form {...formMethods} key={nodeKey} />
+        <C.Form key={nodeKey} {...formMethods} />
       </Form.Form>
     </Flex.Box>
   );
@@ -74,6 +74,7 @@ interface MultiElementPropertiesProps {
 const MultiConfig = ({ nodes }: MultiElementPropertiesProps): ReactElement => {
   const dispatch = Arc.useSingleDispatch();
   const viewport = Session.Arc.useSelectViewport();
+  const handleError = Status.useErrorHandler();
 
   const getLayouts = () =>
     nodes
@@ -91,12 +92,12 @@ const MultiConfig = ({ nodes }: MultiElementPropertiesProps): ReactElement => {
             );
             const orientation = el.className.match(/react-flow__handle-(\w+)/)?.[1];
             if (orientation == null || !location.isOuter(orientation))
-              throw new Error(`[arc] - cannot find handle orientation`);
+              throw new Error("Cannot find the handle orientation.");
             return new Diagram.HandleLayout(dist, orientation);
           });
           return new Diagram.NodeLayout(node.key, nodeBox, handles);
         } catch (e) {
-          console.error(e);
+          handleError(e, "Failed to align nodes");
         }
         return null;
       })

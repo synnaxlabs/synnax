@@ -17,9 +17,15 @@ import { query } from "@/query";
 import { rack } from "@/rack";
 import { type status } from "@/status";
 import { task } from "@/task";
-import { createTestClient, spyOnSend, waitForStreamLive } from "@/testutil";
+import {
+  createTestClient,
+  holdResponses,
+  spyOnSend,
+  waitForStreamLive,
+} from "@/testutil";
 
 const client = createTestClient();
+const writer = createTestClient();
 
 // Mirrors the deadline the task client gives an unanswered command.
 const COMMAND_DEADLINE = TimeSpan.seconds(10);
@@ -104,6 +110,45 @@ describe("Task", async () => {
       expect(updated.name).toBe("updated");
       const retrieved = await client.tasks.retrieve(m.key);
       expect(retrieved.name).toBe("updated");
+    });
+  });
+  describe("rename", () => {
+    it("should rename a task and keep its config", async () => {
+      const m = await testRack.createTask({
+        name: "task-rename",
+        config: { routingKey: "rk-rename" },
+        type: "pagerduty_alert",
+      });
+      await client.tasks.rename(m.key, "task-renamed");
+      const retrieved = await createTestClient().tasks.retrieve(m.key);
+      expect(retrieved.name).toBe("task-renamed");
+      expect(retrieved.type).toBe("pagerduty_alert");
+      expect(retrieved.config).toEqual(m.config);
+    });
+    it("should update the cache of another client", async () => {
+      const m = await testRack.createTask({
+        name: "task-rename-remote",
+        config: { routingKey: "rk" },
+        type: "pagerduty_alert",
+      });
+      expect((await client.tasks.retrieve(m.key)).name).toBe("task-rename-remote");
+      const name = `task-renamed-${id.create()}`;
+      await waitForStreamLive(client.connection);
+      await writer.tasks.rename(m.key, name);
+      await expect
+        .poll(async () => (await client.tasks.retrieve(m.key)).name)
+        .toBe(name);
+    });
+    it("should reject an empty name", async () => {
+      const m = await testRack.createTask({
+        name: "task-rename-empty",
+        config: { routingKey: "rk" },
+        type: "pagerduty_alert",
+      });
+      await expect(client.tasks.rename(m.key, "")).rejects.toThrow();
+      expect((await createTestClient().tasks.retrieve(m.key)).name).toBe(
+        "task-rename-empty",
+      );
     });
   });
   describe("retrieve", () => {
@@ -643,8 +688,28 @@ describe("Task", async () => {
         config: {},
         type: "pagerduty_alert",
       });
-      await expect(t.executeCommandSync({ type: "test", timeout: 0 })).rejects.toThrow(
-        "timed out",
+      await expect(
+        t.executeCommandSync({ type: "test", timeout: TimeSpan.milliseconds(1) }),
+      ).rejects.toThrow(new Error("Command to test timed out after 1ms"));
+    });
+    it("should name the task by key when its name lookup fails", async () => {
+      const t = await testRack.createTask({
+        name: "test",
+        config: {},
+        type: "pagerduty_alert",
+      });
+      await client.tasks.delete(t.key);
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+      onTestFinished(() => consoleError.mockRestore());
+      await expect(
+        client.tasks.executeCommandSync({
+          task: t.key,
+          type: "test",
+          timeout: TimeSpan.milliseconds(1),
+          statusDataZ: z.unknown(),
+        }),
+      ).rejects.toThrow(
+        new Error(`Command to task with key ${t.key} timed out after 1ms`),
       );
     });
   });
@@ -775,6 +840,34 @@ describe("Task", async () => {
     });
   };
 
+  // A task's creation placeholder echoes back over the status stream at its own pace.
+  // Statuses stream in write order, so once a later write by another client lands here,
+  // the echo cannot overwrite a status the spec sets after this returns.
+  const setRackAliveAfterEcho = async (key: rack.Key) => {
+    await waitForStreamLive(client.connection);
+    const message = `alive-${id.create()}`;
+    await writer.statuses.set({
+      key: rack.statusKey(key),
+      name: "Rack Status",
+      variant: "success",
+      message,
+      time: TimeStamp.now(),
+      details: { rack: key },
+    });
+    await expect
+      .poll(() => client.statuses.store.get(rack.statusKey(key))?.message)
+      .toBe(message);
+  };
+
+  // A Driver writes its statuses to the Core. A status set only in the local store
+  // would lose to any refetch, which returns the Core's stored status.
+  const writeAndSee = async (stat: task.Status) => {
+    await writer.statuses.set(stat);
+    await expect
+      .poll(() => client.statuses.store.get(stat.key)?.message)
+      .toBe(stat.message);
+  };
+
   describe("onChange", () => {
     it("merges a status keyed by details.task into a subscribed single query", async () => {
       const t = await testRack.createTask({
@@ -878,6 +971,8 @@ describe("Task", async () => {
         await setRackStatus(testRack.key, "success", "Driver is running");
         await client.tasks.executeCommand({ task: t.key, type: "stop" });
         await expect.poll(() => loading.length).toBeGreaterThan(0);
+        expect(loading[0].name).toBe(t.name);
+        expect(loading[0].message).toBe("Sending stop command");
         expect(loading[0].details.configHash).toBe("deadbeef");
         expect(loading[0].details.rack).toBe(testRack.key);
       } finally {
@@ -987,7 +1082,7 @@ describe("Task", async () => {
       }, key);
       try {
         await client.tasks.retrieve({ key: t.key });
-        await setRackStatus(alive.key, "success", "Driver is running");
+        await setRackAliveAfterEcho(alive.key);
         vi.useFakeTimers({
           toFake: ["setTimeout", "clearTimeout"],
           shouldAdvanceTime: true,
@@ -1011,6 +1106,170 @@ describe("Task", async () => {
         vi.useRealTimers();
         off();
       }
+    });
+
+    it("keeps a reply stamped by a Driver clock behind this client's", async () => {
+      const alive = await client.racks.create({ name: `alive-${id.create()}` });
+      const t = await alive.createTask({
+        name: `skew-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = task.statusKey(t.key);
+      let seeLoading = (): void => {};
+      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const off = client.statuses.store.subscribe((event) => {
+        if (event.variant === "set" && event.value.variant === "loading") seeLoading();
+      }, key);
+      try {
+        await client.tasks.retrieve({ key: t.key });
+        await setRackAliveAfterEcho(alive.key);
+        vi.useFakeTimers({
+          toFake: ["setTimeout", "clearTimeout"],
+          shouldAdvanceTime: true,
+        });
+        const cmdKey = await client.tasks.executeCommand({
+          task: t.key,
+          type: "start",
+        });
+        await loading;
+        // The Driver stamps its reply with its own clock, which here runs a minute
+        // behind. The reply names the command, so it answers it all the same.
+        const reply: task.Status = {
+          key,
+          name: "Task Status",
+          variant: "success",
+          message: "Started task",
+          description: "",
+          time: TimeStamp.now().sub(TimeSpan.minutes(1)),
+          details: {
+            task: t.key,
+            running: true,
+            cmd: cmdKey,
+            configHash: "",
+            rack: alive.key,
+            data: {},
+          },
+        };
+        await writeAndSee(reply);
+        await vi.advanceTimersByTimeAsync(COMMAND_DEADLINE.milliseconds);
+        expect(client.statuses.store.get(key)).toMatchObject({
+          variant: "success",
+          message: "Started task",
+          details: { running: true, cmd: cmdKey },
+        });
+      } finally {
+        vi.useRealTimers();
+        off();
+      }
+    });
+
+    it("keeps a status that follows the reply before the deadline", async () => {
+      const alive = await client.racks.create({ name: `alive-${id.create()}` });
+      const t = await alive.createTask({
+        name: `follow-up-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = task.statusKey(t.key);
+      let seeLoading = (): void => {};
+      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const off = client.statuses.store.subscribe((event) => {
+        if (event.variant === "set" && event.value.variant === "loading") seeLoading();
+      }, key);
+      try {
+        await client.tasks.retrieve({ key: t.key });
+        await setRackAliveAfterEcho(alive.key);
+        vi.useFakeTimers({
+          toFake: ["setTimeout", "clearTimeout"],
+          shouldAdvanceTime: true,
+        });
+        const cmdKey = await client.tasks.executeCommand({
+          task: t.key,
+          type: "start",
+        });
+        await loading;
+        const details = {
+          task: t.key,
+          running: true,
+          cmd: cmdKey,
+          configHash: "",
+          rack: alive.key,
+          data: {},
+        };
+        const reply: task.Status = {
+          key,
+          name: "Task Status",
+          variant: "success",
+          message: "Started task",
+          description: "",
+          time: TimeStamp.now(),
+          details,
+        };
+        await writeAndSee(reply);
+        // The Driver clears cmd on the statuses that follow its reply, so a hardware
+        // warning before the deadline carries none. The reply already answered.
+        const warning: task.Status = {
+          ...reply,
+          variant: "warning",
+          message: "Sensor out of range",
+          time: TimeStamp.now(),
+          details: { ...details, cmd: "" },
+        };
+        await writeAndSee(warning);
+        await vi.advanceTimersByTimeAsync(COMMAND_DEADLINE.milliseconds);
+        expect(client.statuses.store.get(key)).toMatchObject({
+          variant: "warning",
+          message: "Sensor out of range",
+          details: { running: true, cmd: "" },
+        });
+      } finally {
+        vi.useRealTimers();
+        off();
+      }
+    });
+
+    it("keeps a status that streams in during a fetch, whatever its time", async () => {
+      const t = await testRack.createTask({
+        name: `fence-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = task.statusKey(t.key);
+      const local = createTestClient();
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      const { responded, release } = holdResponses(local, "/task/retrieve");
+      const fetching = local.tasks.retrieve({ key: t.key });
+      await responded;
+      // Stamped by a Driver clock a minute behind the Core's, so only arrival order
+      // makes it the newer status.
+      const streamed: task.Status = {
+        key,
+        name: "Task Status",
+        variant: "success",
+        message: "Started task",
+        description: "",
+        time: TimeStamp.now().sub(TimeSpan.minutes(1)),
+        details: {
+          task: t.key,
+          running: true,
+          cmd: "",
+          configHash: "",
+          rack: testRack.key,
+          data: {},
+        },
+      };
+      await writer.statuses.set(streamed);
+      await expect
+        .poll(() => local.statuses.store.get(key)?.message)
+        .toBe(streamed.message);
+      release();
+      await fetching;
+      expect(local.statuses.store.get(key)).toMatchObject({
+        variant: "success",
+        message: "Started task",
+      });
     });
 
     it("refetches a cached task whose config was changed by another client", async () => {

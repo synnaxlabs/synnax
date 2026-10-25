@@ -14,6 +14,8 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
+#include <variant>
 #include <vector>
 
 #include "absl/log/check.h"
@@ -21,6 +23,7 @@
 
 #include "x/cpp/errors/errors.h"
 
+#include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/node/node.h"
 
@@ -33,6 +36,13 @@ namespace arc::runtime::scheduler {
 /// indices into Scheduler::nodes / Scheduler::scopes; the type system
 /// does not distinguish them — tests cover the mixups.
 static constexpr size_t NO_INDEX = ~size_t{0};
+
+/// @brief receives an error raised by a node, along with that node.
+using ErrorHandler = std::function<void(const ir::Node &, const x::errors::Error &)>;
+
+/// @brief an ErrorHandler that ignores every error.
+inline const ErrorHandler noop_handler = [](const ir::Node &,
+                                            const x::errors::Error &) {};
 
 namespace detail {
 class Builder;
@@ -54,19 +64,26 @@ class Scheduler {
         bool conditional;
     };
 
+    /// @brief a gated scope that an output activates.
+    struct Activation {
+        /// @brief dense index into Scheduler::scopes.
+        size_t scope;
+        /// @brief every output activates the scope, not only a truthy one.
+        bool continuous;
+    };
+
     /// @brief per-output propagation table built at construction and indexed
     /// by the node-local output ordinal. Hot-path access is pure array
     /// indexing.
     struct OutputResolved {
         /// @brief outgoing dataflow edges from this output.
         std::vector<OutEdge> edges;
-        /// @brief marked_flags index for sequential-scope transitions
-        /// sourced from this output, or NO_INDEX if none.
+        /// @brief marked_flags index for transitions sourced from this output, or
+        /// NO_INDEX if none.
         size_t mark_handle_idx = NO_INDEX;
-        /// @brief gated scopes whose activation handle is this output
-        /// (dense Scheduler::scopes indices); activated by mark_changed
-        /// when the source fires.
-        std::vector<size_t> activates;
+        /// @brief gated scope activations whose handle is this output; applied by
+        /// mark_changed when the source fires.
+        std::vector<Activation> activates;
     };
 
     /// @brief pairs a runtime node with its pre-resolved per-output
@@ -81,6 +98,9 @@ class Scheduler {
         /// @brief marks a node with no incoming edges and no channel reads.
         /// Entry nodes fire once per activation.
         bool entry = false;
+        /// @brief marked_flags index of the node's ir::done_param pseudo-output,
+        /// NO_INDEX when no transition waits on it.
+        size_t done = NO_INDEX;
         /// @brief propagation table indexed by output ordinal.
         std::vector<OutputResolved> outputs;
     };
@@ -145,6 +165,10 @@ class Scheduler {
         /// NO_INDEX if unresolved. Paired with transition_on_node[i] so
         /// the truthy check is a direct virtual call.
         std::vector<size_t> transition_on_output_idx;
+        /// @brief transition_targets[i] is the Scheduler::scopes index of the
+        /// top-level scope that transition i activates after it exits this scope, or
+        /// NO_INDEX.
+        std::vector<size_t> transition_targets;
     };
 
     /// @brief owns every runtime Node wrapper. Dense: a size_t index
@@ -166,9 +190,9 @@ class Scheduler {
     /// (re)activation. An entry node with the flag set skips the unconditional
     /// stratum-0 dispatch.
     std::vector<uint8_t> fired_flags;
-    /// @brief marked_flags[i] is set when the (node, output) pair behind
-    /// transition handle i fired truthy this cycle. Cleared at end of
-    /// cycle so transitions fire on fresh marks, not stale truthiness.
+    /// @brief marked_flags[i] is set when the (node, output) pair behind transition
+    /// handle i fired this cycle. Cleared at end of cycle so transitions fire on fresh
+    /// marks, not stale outputs.
     std::vector<uint8_t> marked_flags;
     /// @brief visited_flags[i] is set when node i has had its execution
     /// opportunity in the current pass. Cleared at the start of each pass.
@@ -176,17 +200,14 @@ class Scheduler {
     /// @brief settled is cleared when a change lands on a node that already
     /// ran this pass; next keeps running settle passes until it stays true.
     bool settled = true;
-    /// @brief how early a timer-based node may fire relative to its deadline.
-    x::telem::TimeSpan tolerance;
     /// @brief receives errors raised by nodes via ctx.report_error.
-    errors::Handler error_handler;
+    ErrorHandler error_handler;
     /// @brief node::Context passed to every node's next; rebound per cycle
     /// with the latest elapsed time and run reason.
     node::Context ctx;
     /// @brief earliest deadline reported by any node during the current
-    /// cycle. Reset to TimeSpan::max at the start of every next();
-    /// exposed via next_deadline().
-    x::telem::TimeSpan min_deadline = x::telem::TimeSpan::max();
+    /// cycle. Reset at the start of every next(); exposed via next_deadline().
+    node::Deadline min_deadline;
     /// @brief the stamp the current cycle began at.
     x::telem::TimeStamp cycle_now = x::telem::TimeStamp(0);
     /// @brief the first stamp reserve_stamps has not handed out this cycle.
@@ -203,8 +224,7 @@ public:
     Scheduler(
         ir::IR prog,
         std::unordered_map<std::string, std::unique_ptr<node::Node>> &node_impls,
-        x::telem::TimeSpan tolerance,
-        errors::Handler error_handler = errors::noop_handler
+        ErrorHandler error_handler = noop_handler
     );
 
     Scheduler(Scheduler &&) = delete;
@@ -237,11 +257,10 @@ public:
     /// @returns the highest stamp nodes reserved during the cycle, or zero when they
     /// reserved none. The caller's clock must resume above it.
     x::telem::TimeStamp next(const node::Cycle &cycle) {
-        this->min_deadline = x::telem::TimeSpan::max();
+        this->min_deadline = node::Deadline{};
         this->cycle_now = cycle.now;
         this->next_stamp = cycle.now;
         this->ctx.cycle = cycle;
-        this->ctx.tolerance = this->tolerance;
 
         // Re-pass until no change lands on an already-run node, bounded
         // against cycles.
@@ -258,11 +277,9 @@ public:
         return this->next_stamp - int64_t{1};
     }
 
-    /// @brief earliest deadline reported by any node during the previous
-    /// next call.
-    [[nodiscard]] x::telem::TimeSpan next_deadline() const {
-        return this->min_deadline;
-    }
+    /// @brief earliest deadline reported by any node during the previous next call. Of
+    /// equal deadlines, it holds the shortest span.
+    [[nodiscard]] node::Deadline next_deadline() const { return this->min_deadline; }
 
 private:
     /// @brief executes one pass over a scope; no-op if inactive.
@@ -273,6 +290,7 @@ private:
             return;
         }
         this->walk_parallel(state);
+        this->evaluate_exits(state);
     }
 
     /// @brief runs every member of a parallel scope in stratum order.
@@ -337,46 +355,73 @@ private:
         }
     }
 
-    /// @brief clears self-changed on m's node. No-op if m is a scope member
-    /// or an unresolved node-key.
-    void clear_leaf_node_self_changed(MemberState &m) {
-        if (m.is_node() && m.node != NO_INDEX) this->self_changed_flags[m.node] = 0;
-    }
-
-    /// @brief fires the first transition whose `on` handle was freshly
-    /// marked truthy by the active step this cycle. Inactive-owner
-    /// transitions and stale truthiness without a fresh mark are both
-    /// ignored — the latter prevents latched comparisons from driving
-    /// repeat transitions. Iterates the pre-filtered transitions_for_step
-    /// list for the active step, which interleaves external transitions
-    /// and the active step's own transitions in source order. Returns
-    /// true if a transition fired.
+    /// @brief fires the first transition whose `on` handle was freshly marked by the
+    /// active step this cycle, and is truthy unless the transition is continuous.
+    /// Inactive-owner transitions and stale outputs without a fresh mark are both
+    /// ignored — the latter prevents latched comparisons from driving repeat
+    /// transitions. Iterates the pre-filtered transitions_for_step list for the active
+    /// step, which interleaves external transitions and the active step's own
+    /// transitions in source order. Returns true if a transition fired.
     bool evaluate_transitions(ScopeState &state) {
         if (state.active_step == NO_INDEX ||
             state.active_step >= state.transitions_for_step.size())
             return false;
         const auto &transitions = state.ir.transitions;
         for (const size_t i: state.transitions_for_step[state.active_step]) {
-            const size_t handle_idx = state.transition_on_idx[i];
-            if (handle_idx == NO_INDEX || !this->marked_flags[handle_idx]) continue;
-            if (!this->nodes[state.transition_on_node[i]].node->is_output_truthy(
-                    state.transition_on_output_idx[i]
-                ))
-                continue;
-            this->marked_flags[handle_idx] = 0;
-            if (state.active_step != NO_INDEX)
-                this->deactivate_step(state.members[state.active_step]);
-            const auto &target_key = transitions[i].target_key;
-            if (!target_key.has_value()) {
-                this->deactivate_scope(state);
-            } else {
-                const auto mit = state.member_by_key.find(*target_key);
-                if (mit == state.member_by_key.end()) return false;
-                this->activate_sequential_step(state, mit->second);
+            if (!this->fires(state, i)) continue;
+            this->deactivate_member(state.members[state.active_step]);
+            this->clear_transition_marks(state);
+            const auto *step = std::get_if<ir::StepTarget>(&transitions[i].target);
+            if (step == nullptr) {
+                this->exit(state, i);
+                return true;
             }
+            const auto mit = state.member_by_key.find(step->key);
+            if (mit == state.member_by_key.end()) return false;
+            this->activate_sequential_step(state, mit->second);
             return true;
         }
         return false;
+    }
+
+    /// @brief fires the first exit of a parallel scope, in source order, whose `on`
+    /// handle was freshly marked this cycle and is truthy unless the exit is
+    /// continuous.
+    void evaluate_exits(ScopeState &state) {
+        for (size_t i = 0; i < state.ir.transitions.size(); ++i)
+            if (this->fires(state, i)) {
+                this->exit(state, i);
+                return;
+            }
+    }
+
+    /// @brief returns true when transition i of state has a fresh mark and, unless
+    /// the transition is continuous, a truthy output. A firing transition consumes
+    /// its mark.
+    bool fires(const ScopeState &state, const size_t i) {
+        const size_t handle_idx = state.transition_on_idx[i];
+        if (handle_idx == NO_INDEX || !this->marked_flags[handle_idx]) return false;
+        if (state.ir.transitions[i].kind != ir::EdgeKind::Continuous &&
+            !this->nodes[state.transition_on_node[i]].node->is_output_truthy(
+                state.transition_on_output_idx[i]
+            ))
+            return false;
+        this->marked_flags[handle_idx] = 0;
+        return true;
+    }
+
+    /// @brief deactivates state through transition i, then activates the
+    /// transition's target unless it is already active. Activating a target costs a
+    /// settle pass, so the target runs this cycle wherever the walk visits it. A
+    /// target equal to state restarts it.
+    void exit(ScopeState &state, const size_t i) {
+        this->deactivate_scope(state);
+        const size_t target_idx = state.transition_targets[i];
+        if (target_idx == NO_INDEX) return;
+        auto &target = this->scopes[target_idx];
+        if (target.active) return;
+        this->activate_scope(target);
+        this->settled = false;
     }
 
     /// @brief marks a scope active and primes its members. Sequential
@@ -416,24 +461,32 @@ private:
         if (m.scope != NO_INDEX) this->activate_scope(this->scopes[m.scope]);
     }
 
-    /// @brief clears self-changed for the step's node, or marks a nested
-    /// scope inactive. Nested-scope state freezes and is overwritten on
-    /// the next parent activation.
-    void deactivate_step(MemberState &m) {
+    /// @brief deactivates the member's nested scope, or clears self-changed on its
+    /// node.
+    void deactivate_member(MemberState &m) {
         if (m.scope != NO_INDEX) {
             this->deactivate_scope(this->scopes[m.scope]);
             return;
         }
-        this->clear_leaf_node_self_changed(m);
+        if (m.node != NO_INDEX) this->self_changed_flags[m.node] = 0;
     }
 
-    /// @brief marks a scope inactive and clears self-changed on its direct
-    /// leaf-node members. Does not recurse — nested scope state freezes
-    /// until the next activation overwrites it.
+    /// @brief drops the pending marks of state's own transitions, so a losing
+    /// transition does not act after a sibling fired or after state restarts. Marks
+    /// that an enclosing scope's transitions hold stay, because that scope has not
+    /// evaluated them.
+    void clear_transition_marks(const ScopeState &state) {
+        for (const size_t h: state.transition_on_idx)
+            if (h != NO_INDEX) this->marked_flags[h] = 0;
+    }
+
+    /// @brief marks a scope and every scope nested in it inactive, deactivates their
+    /// leaf-node members, and drops the pending marks of each scope's transitions.
     void deactivate_scope(ScopeState &state) {
         if (state.ir.mode == ir::ScopeMode::Sequential) state.active_step = NO_INDEX;
+        this->clear_transition_marks(state);
         for (auto &m: state.members)
-            this->clear_leaf_node_self_changed(m);
+            this->deactivate_member(m);
         state.active = false;
     }
 
@@ -443,24 +496,32 @@ private:
         return first;
     }
 
+    /// @brief sends e to the error handler along with the node that raised it. Only
+    /// callable from inside a node's next().
     void report_error(const x::errors::Error &e) const {
-        LOG(ERROR) << "[arc.scheduler] node encountered error: " << e;
-        this->error_handler(e);
+        DCHECK(this->curr_node != NO_INDEX);
+        const auto &node = this->prog.nodes[this->curr_node];
+        if (e.matches(errors::WARNING))
+            LOG(WARNING) << "[arc.scheduler] node " << node.key
+                         << " reported a warning: " << e;
+        else
+            LOG(ERROR) << "[arc.scheduler] node " << node.key
+                       << " encountered error: " << e;
+        this->error_handler(node, e);
     }
 
-    /// @brief propagates the current node's output to downstream nodes,
-    /// records a fresh transition mark when truthy, and fires any gated
-    /// scope activations attached to this output. Conditional edges
-    /// propagate only when the source is truthy. Only callable from
-    /// inside a node's next() — curr_node is set by execute_member
-    /// immediately before the call.
+    /// @brief propagates the current node's output to downstream nodes, records a fresh
+    /// transition mark, and fires any gated scope activations attached to this output.
+    /// Conditional edges and conditional activations act only when the source is
+    /// truthy. Only callable from inside a node's next() — curr_node is set by
+    /// execute_member immediately before the call.
     void mark_changed(const size_t output_idx) {
         DCHECK(this->curr_node != NO_INDEX);
         const auto &n = this->nodes[this->curr_node];
         if (output_idx >= n.outputs.size()) return;
         const auto &out = n.outputs[output_idx];
         const bool truthy = n.node->is_output_truthy(output_idx);
-        if (truthy && out.mark_handle_idx != NO_INDEX)
+        if (out.mark_handle_idx != NO_INDEX)
             this->marked_flags[out.mark_handle_idx] = 1;
         for (const auto &edge: out.edges)
             if (!edge.conditional || truthy) {
@@ -470,9 +531,9 @@ private:
                     this->visited_flags[edge.target_idx] != 0)
                     this->settled = false;
             }
-        for (const size_t scope_idx: out.activates) {
-            auto &scope = this->scopes[scope_idx];
-            if (!scope.active) this->activate_scope(scope);
+        for (const auto &a: out.activates) {
+            auto &scope = this->scopes[a.scope];
+            if (!scope.active && (truthy || a.continuous)) this->activate_scope(scope);
         }
     }
 
@@ -480,9 +541,54 @@ private:
         DCHECK(this->curr_node != NO_INDEX);
         this->self_changed_flags[this->curr_node] = 1;
     }
+
+    /// @brief records a fresh mark on the current node's ir::done_param pseudo-output.
+    void mark_done() {
+        DCHECK(this->curr_node != NO_INDEX);
+        const size_t done = this->nodes[this->curr_node].done;
+        if (done != NO_INDEX) this->marked_flags[done] = 1;
+    }
 };
 
 namespace detail {
+/// @brief returns a validation error when scope, or any scope nested under it, has a
+/// transition or activation with an unspecified kind, a parallel transition with a
+/// step target, or a transition that activates a scope missing from top_level.
+inline x::errors::Error
+validate(const ir::Scope &scope, const std::unordered_set<std::string> &top_level) {
+    const auto invalid = [&](const std::string &msg, const ir::Transition &t) {
+        return x::errors::Error(
+            x::errors::VALIDATION,
+            "scope " + scope.key + " has a transition " + msg + ": " + t.to_string()
+        );
+    };
+    for (const auto &t: scope.transitions) {
+        if (t.kind == ir::EdgeKind::Unspecified) return invalid("with no kind", t);
+        if (std::holds_alternative<ir::StepTarget>(t.target) &&
+            scope.mode == ir::ScopeMode::Parallel)
+            return invalid("with a step target it cannot take", t);
+        if (const auto *jump = std::get_if<ir::ScopeTarget>(&t.target);
+            jump != nullptr && !top_level.contains(jump->key))
+            return invalid("to a scope that is not top-level", t);
+    }
+    if (std::ranges::find(
+            scope.activations,
+            ir::EdgeKind::Unspecified,
+            &ir::Activation::kind
+        ) != scope.activations.end())
+        return x::errors::Error(
+            x::errors::VALIDATION,
+            "scope " + scope.key + " has an activation with no kind"
+        );
+    for (const auto &stratum: scope.strata)
+        for (const auto &m: stratum)
+            if (m.scope)
+                if (auto err = validate(*m.scope, top_level); err) return err;
+    for (const auto &m: scope.steps)
+        if (m.scope)
+            if (auto err = validate(*m.scope, top_level); err) return err;
+    return x::errors::NIL;
+}
 
 /// @brief assembles a Scheduler from a compiled IR. Owns every piece of
 /// state needed only during wiring — the key → node-index map, the
@@ -504,6 +610,12 @@ public:
         const size_t root_idx = this->build_scope_state(s.prog.root);
         this->register_scope(root_idx);
         s.marked_flags.assign(this->next_handle_idx, 0);
+        std::unordered_map<std::string, size_t> top_level;
+        for (const auto &m: s.scopes[root_idx].members)
+            if (m.scope != NO_INDEX) top_level[s.scopes[m.scope].ir.key] = m.scope;
+        for (const auto &j: this->jumps)
+            if (const auto it = top_level.find(j.key); it != top_level.end())
+                s.scopes[j.scope].transition_targets[j.idx] = it->second;
         s.activate_scope(s.scopes[root_idx]);
     }
 
@@ -521,6 +633,17 @@ private:
     /// @brief next index to assign to a freshly-discovered transition-source
     /// handle. After build, this is the final length of marked_flags.
     size_t next_handle_idx = 0;
+
+    /// @brief transition idx of a scope, which activates the top-level scope key.
+    struct Jump {
+        size_t scope;
+        size_t idx;
+        std::string key;
+    };
+
+    /// @brief transitions that activate a top-level scope, resolved against the
+    /// root's members once the whole scope tree exists.
+    std::vector<Jump> jumps;
 
     /// @brief allocates the flat nodes vector and builds the key → node
     /// index map. Node::idx equals the slot in Scheduler::nodes, so dense
@@ -645,26 +768,22 @@ private:
         return this_idx;
     }
 
-    /// @brief recursively wires per-output activation entries on source
-    /// Nodes (so mark_changed needs zero scheduler-wide hash lookups) and
-    /// resolves the per-sequential-scope transition tables. Takes a
-    /// size_t so it can record it into OutputResolved::activates.
+    /// @brief recursively wires each activation of a gated scope (an entry point or
+    /// an inline body's trigger) onto its source Node, so mark_changed needs zero
+    /// scheduler-wide hash lookups, and resolves each scope's transition tables.
     void register_scope(const size_t idx) {
         auto &state = this->s->scopes[idx];
-        if (state.ir.liveness == ir::Liveness::Gated &&
-            state.ir.activation.has_value()) {
-            if (const size_t src = this->lookup_node(state.ir.activation->node);
-                src != NO_INDEX) {
+        if (state.ir.liveness == ir::Liveness::Gated)
+            for (const auto &a: state.ir.activations) {
+                const size_t src = this->lookup_node(a.on.node);
+                if (src == NO_INDEX) continue;
                 auto &src_node = this->s->nodes[src];
-                const size_t out_idx = this->get_or_create_output(
-                    src_node,
-                    state.ir.activation->param
+                const size_t out_idx = this->get_or_create_output(src_node, a.on.param);
+                src_node.outputs[out_idx].activates.push_back(
+                    Scheduler::Activation{idx, a.kind == ir::EdgeKind::Continuous}
                 );
-                src_node.outputs[out_idx].activates.push_back(idx);
             }
-        }
-        if (state.ir.mode == ir::ScopeMode::Sequential)
-            this->resolve_transitions(state);
+        this->resolve_transitions(idx);
         for (auto &m: state.members)
             if (m.scope != NO_INDEX) this->register_scope(m.scope);
     }
@@ -678,7 +797,8 @@ private:
     /// inactive siblings can be skipped. Transitions whose on-node is
     /// unknown get NO_INDEX/NO_INDEX throughout and are silently skipped
     /// at evaluation time.
-    void resolve_transitions(Scheduler::ScopeState &state) {
+    void resolve_transitions(const size_t scope_idx) {
+        auto &state = this->s->scopes[scope_idx];
         // Key: node index (dense [0, N)); value: owning member index.
         std::unordered_map<size_t, size_t> node_to_member;
         // Only steps own transitions; trailing strata variable nodes stay
@@ -691,7 +811,10 @@ private:
         state.transition_on_idx.assign(transitions.size(), NO_INDEX);
         state.transition_on_node.assign(transitions.size(), NO_INDEX);
         state.transition_on_output_idx.assign(transitions.size(), NO_INDEX);
+        state.transition_targets.assign(transitions.size(), NO_INDEX);
         for (size_t i = 0; i < transitions.size(); ++i) {
+            if (const auto *jump = std::get_if<ir::ScopeTarget>(&transitions[i].target))
+                this->jumps.push_back({scope_idx, i, jump->key});
             const size_t on = this->lookup_node(transitions[i].on.node);
             if (on == NO_INDEX) continue;
             auto &on_node = this->s->nodes[on];
@@ -702,6 +825,8 @@ private:
             auto &out = on_node.outputs[out_idx];
             if (out.mark_handle_idx == NO_INDEX)
                 out.mark_handle_idx = this->next_handle_idx++;
+            if (transitions[i].on.param == ir::done_param)
+                on_node.done = out.mark_handle_idx;
             state.transition_on_node[i] = on;
             state.transition_on_output_idx[i] = out_idx;
             state.transition_on_idx[i] = out.mark_handle_idx;
@@ -712,7 +837,8 @@ private:
         // iterate a short list instead of scanning all N transitions per
         // cascade step. Each step's list contains transitions owned by
         // that step plus every external transition (owner == NO_INDEX),
-        // in source order.
+        // in source order. A parallel scope evaluates its exits directly.
+        if (state.ir.mode != ir::ScopeMode::Sequential) return;
         state.transitions_for_step.assign(state.members.size(), {});
         for (size_t m = 0; m < state.members.size(); ++m) {
             auto &list = state.transitions_for_step[m];
@@ -777,20 +903,32 @@ private:
 
 }
 
+/// @brief returns a validation error when a transition or activation in root, or in
+/// any scope nested under it, has an unspecified kind, or when a transition has a
+/// target its scope cannot reach. A Core that predates the kind field emits such an
+/// IR.
+inline x::errors::Error validate(const ir::Scope &root) {
+    std::unordered_set<std::string> top_level;
+    for (const auto &stratum: root.strata)
+        for (const auto &m: stratum)
+            if (m.scope) top_level.insert(m.scope->key);
+    return detail::validate(root, top_level);
+}
+
 inline Scheduler::Scheduler(
     ir::IR prog,
     std::unordered_map<std::string, std::unique_ptr<node::Node>> &node_impls,
-    const x::telem::TimeSpan tolerance,
-    errors::Handler error_handler
+    ErrorHandler error_handler
 ):
-    tolerance(tolerance),
-    error_handler(std::move(error_handler)),
-    prog(std::move(prog)) {
+    error_handler(std::move(error_handler)), prog(std::move(prog)) {
     this->ctx.mark_changed = std::bind_front(&Scheduler::mark_changed, this);
     this->ctx.mark_self_changed = std::bind_front(&Scheduler::mark_self_changed, this);
-    this->ctx.set_deadline = [this](const x::telem::TimeSpan d) {
-        if (d < this->min_deadline) this->min_deadline = d;
-    };
+    this->ctx.mark_done = std::bind_front(&Scheduler::mark_done, this);
+    this->ctx.set_deadline =
+        [this](const x::telem::TimeSpan at, const x::telem::TimeSpan span) {
+            auto &min = this->min_deadline;
+            if (at < min.at || (at == min.at && span < min.span)) min = {at, span};
+        };
     this->ctx.report_error = std::bind_front(&Scheduler::report_error, this);
     this->ctx.reserve_stamps = std::bind_front(&Scheduler::reserve_stamps, this);
     detail::Builder().build(*this, node_impls);

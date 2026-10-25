@@ -12,34 +12,69 @@ package view
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
-	xconfig "github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
 )
+
+// ServiceConfig is the configuration for the view API service.
+type ServiceConfig struct {
+	// View stores and retrieves views.
+	//
+	// [REQUIRED]
+	View *view.Service
+	// RBAC enforces access control on every request.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
+}
+
+var (
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for the view API service.
+	DefaultServiceConfig = ServiceConfig{}
+)
+
+// Override implements config.Config.
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.View = override.Nil(c.View, other.View)
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	return c
+}
+
+// Validate implements config.Config.
+func (c ServiceConfig) Validate() error {
+	v := validate.New("api.view")
+	v.NotNil("view", c.View)
+	v.NotNil("rbac", c.RBAC)
+	return v.Error()
+}
 
 type Service struct {
 	access   *rbac.Service
 	internal *view.Service
 }
 
-func NewService(cfgs ...config.LayerConfig) (*Service, error) {
-	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	return &Service{
-		internal: cfg.Service.View,
-		access:   cfg.Service.RBAC,
+		internal: cfg.View,
+		access:   cfg.RBAC,
 	}, nil
 }
 
 type (
 	Key  = view.Key
+	Type = view.ViewType
 	View = view.View
 )
 
@@ -72,7 +107,7 @@ func (s *Service) Create(
 type RetrieveRequest struct {
 	SearchTerm string     `json:"search_term" msgpack:"search_term"`
 	Keys       []view.Key `json:"keys"        msgpack:"keys"`
-	Types      []string   `json:"types"       msgpack:"types"`
+	Types      []Type     `json:"types"       msgpack:"types"`
 	Limit      int        `json:"limit"       msgpack:"limit"`
 	Offset     int        `json:"offset"      msgpack:"offset"`
 }
@@ -113,6 +148,30 @@ func (s *Service) Retrieve(
 		return RetrieveResponse{}, err
 	}
 	return RetrieveResponse{Views: views}, nil
+}
+
+// RenameRequest names the view to rename and the name to give it.
+type RenameRequest struct {
+	// Name is the new name. It must not be empty.
+	Name string `json:"name" msgpack:"name"`
+	// Key selects the view to rename.
+	Key view.Key `json:"key" msgpack:"key"`
+}
+
+// Rename renames the view. It requires update access on it.
+func (s *Service) Rename(
+	ctx context.Context,
+	tx gorp.Tx,
+	req RenameRequest,
+) (struct{}, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{view.OntologyID(req.Key)},
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
 type DeleteRequest struct {

@@ -19,15 +19,12 @@ const NAMES = {
   input_register: "Register",
 } as const satisfies Record<ReadChannelType, string>;
 
-export type SelectReadChannelTypeFieldProps = Form.SelectFieldProps<ReadChannelType>;
-
 export const SelectReadChannelTypeField = Form.buildSelectField<ReadChannelType>({
   fieldKey: "type",
   fieldProps: {
     label: "Channel type",
     showLabel: false,
     showHelpText: false,
-    hideIfNull: true,
   },
   inputProps: {
     allowNone: false,

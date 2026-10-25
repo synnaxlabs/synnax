@@ -10,6 +10,7 @@
 import { ontology } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
+import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock } from "vitest";
 
@@ -20,7 +21,7 @@ import {
   createSelection,
   createState,
 } from "@/platform/tree/testutil";
-import { createTestStore, renderWithConsole, stubClipboardWriteText } from "@/testutil";
+import { createTestStore, renderWithConsole } from "@/testutil";
 
 const client = createTestClient();
 
@@ -64,6 +65,11 @@ describe("CopyPropertiesContextMenuItem", () => {
     const otherID = ontology.idZ.parse("channel:2");
     const other = createResource(otherID, "other_channel", {});
     await renderCopyItem([chID, otherID], [resource, other]);
+    expect(screen.queryByText("Copy properties")).toBeNull();
+  });
+
+  it("should render nothing when the tree no longer holds the resource", async () => {
+    await renderCopyItem([chID], []);
     expect(screen.queryByText("Copy properties")).toBeNull();
   });
 

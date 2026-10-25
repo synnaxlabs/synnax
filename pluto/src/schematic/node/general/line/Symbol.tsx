@@ -34,7 +34,7 @@ export const Symbol = ({
   selected,
   draggable,
   position = xy.ZERO,
-  config: { color, start, end, strokeWidth },
+  config: { strokeColor, start, end, strokeWidth },
 }: NodeProps<schematic.LineNodeConfig>): ReactElement => {
   const store = useStoreApi();
   const dragRef = useRef<Drag | null>(null);
@@ -73,7 +73,7 @@ export const Symbol = ({
     <>
       <Line
         className={Grid.DRAG_HANDLE_CLASS}
-        color={color}
+        strokeColor={strokeColor}
         start={start}
         end={end}
         strokeWidth={strokeWidth}

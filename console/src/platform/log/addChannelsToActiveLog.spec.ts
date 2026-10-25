@@ -35,8 +35,7 @@ describe("addChannelsToActiveLog", () => {
   let project: string;
 
   beforeAll(async () => {
-    project = (await client.projects.create({ name: uniqueName("proj"), layout: {} }))
-      .key;
+    project = (await client.projects.create({ name: uniqueName("proj") })).key;
   });
 
   it("should add a channel that the log does not have", async () => {

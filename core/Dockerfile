@@ -13,6 +13,7 @@ COPY x/go/go.mod x/go/go.sum ./x/go/
 COPY cesium/go.mod cesium/go.sum ./cesium/
 COPY aspen/go.mod aspen/go.sum ./aspen/
 COPY arc/go/go.mod arc/go/go.sum ./arc/go/
+COPY gorp/go.mod gorp/go.sum ./gorp/
 
 # Download dependencies with cache mount for go modules
 WORKDIR /workspace/core
@@ -31,6 +32,7 @@ COPY x/go ./x/go
 COPY cesium ./cesium
 COPY aspen ./aspen
 COPY arc/go ./arc/go
+COPY gorp ./gorp
 COPY core ./core
 
 # Build with cache mounts for both go modules and build cache
@@ -84,7 +86,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     fi
 
 # Stage 3: Minimal runtime image with glibc for driver support
-FROM ubuntu:24.04
+FROM ubuntu:26.04
 
 # Pass build args to final stage
 ARG VERSION=

@@ -10,6 +10,7 @@
 import { type EnhancedStore } from "@reduxjs/toolkit";
 import {
   type access,
+  type connection,
   type ontology,
   panel,
   type project,
@@ -17,6 +18,7 @@ import {
   type SynnaxParams,
 } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Access, Synnax } from "@synnaxlabs/pluto";
@@ -38,7 +40,11 @@ import { Provider } from "react-redux";
 import { assert } from "vitest";
 
 import { Session } from "@/session";
-import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
+import {
+  createAsyncSynnaxWrapper,
+  createSynnaxWrapper,
+  disableActEnvironment,
+} from "@/testutil/Synnax";
 
 /**
  * Generates a unique, Core-safe resource name: letters, digits, and underscores only,
@@ -135,7 +141,7 @@ export const selectTestProject = async (
   store: TestStore,
   client: Client,
 ): Promise<string> => {
-  const proj = await client.projects.create({ name: id.create(), layout: {} });
+  const proj = await client.projects.create({ name: id.create() });
   store.dispatch(Session.Project.select(proj.key));
   return proj.key;
 };
@@ -155,6 +161,11 @@ export const CaptureStatuses = ({ onStatuses }: CaptureStatusesProps): null => {
   }, [onStatuses, statuses]);
   return null;
 };
+
+/** The haul provider the app mounts through `Pluto.Context`, kept in the session. */
+export const HaulProvider = ({ children }: PropsWithChildren): ReactElement => (
+  <Haul.Provider {...Session.Haul.useProviderProps()}>{children}</Haul.Provider>
+);
 
 export type ConsolePreloadedState = Partial<Session.State>;
 
@@ -190,7 +201,12 @@ export const createTestStore = async (options: ConsoleTestProviderOptions = {}) 
     runtime: new Drift.NoopRuntime(windowLabel),
     reducer: Session.reducer,
     preloadedState: deep.copy({ ...Session.ZERO_STATE, ...preloadedState }),
-    middleware: (getDefault) => getDefault().concat(...Session.BASE_MIDDLEWARE),
+    // The checks still run. Only their timing warnings, which track machine load, go.
+    middleware: (getDefault) =>
+      getDefault({
+        serializableCheck: { warnAfter: Infinity },
+        immutableCheck: { warnAfter: Infinity },
+      }).concat(...Session.BASE_MIDDLEWARE),
     enablePrerender: false,
   });
 };
@@ -267,10 +283,11 @@ export const renderLinkHook = async <H,>(
     createSynnaxWrapper({ client, additionalRegistry: ADDITIONAL_REGISTRY }),
     store,
   );
-  const { result } = renderHook(
-    () => ({ handler: useHook(), modals: Session.Modals.useStore("renderLinkHook") }),
-    { wrapper: Wrapper },
-  );
+  const useHandle = () => ({
+    handler: useHook(),
+    modals: Session.Modals.useStore("renderLinkHook"),
+  });
+  const { result } = renderHook(useHandle, { wrapper: Wrapper });
   return { handler: result.current.handler, store, modals: result.current.modals };
 };
 
@@ -332,9 +349,8 @@ export const awaitGranted = async (
   action: access.Action = "create",
 ): Promise<void> => {
   const { wrapper } = await createConsoleWrapper({ client });
-  const { result } = renderHook(() => Access.useGranted({ objects: id, action }), {
-    wrapper,
-  });
+  const useGrant = () => Access.useGranted({ objects: id, action });
+  const { result } = renderHook(useGrant, { wrapper });
   await waitFor(() => {
     if (!result.current) throw new Error(`${action} grant did not resolve`);
   });
@@ -357,12 +373,46 @@ export const createConnectedConsoleWrapper = async ({
   wrapper: FC<PropsWithChildren>;
   store: TestStore;
 }> => {
+  disableActEnvironment();
   const { wrapper: Console, store } = await createConsoleWrapper(args);
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
       <Synnax.Provider connParams={connParams}>{children}</Synnax.Provider>
     </Console>
   );
+  return { wrapper: Wrapper, store };
+};
+
+export interface CreateStatusConsoleWrapperParams extends CreateConsoleWrapperParams {
+  /** Connection status the Synnax context reports. */
+  status?: connection.Status;
+}
+
+/**
+ * Like createConsoleWrapper, but the Synnax context reports the given client and status
+ * without connecting the client, the way the Console sees a Core that refuses the
+ * connection.
+ */
+export const createStatusConsoleWrapper = async ({
+  client,
+  status,
+  ...args
+}: CreateStatusConsoleWrapperParams): Promise<{
+  wrapper: FC<PropsWithChildren>;
+  store: TestStore;
+}> => {
+  const { wrapper: Console, store } = await createConsoleWrapper({
+    ...args,
+    client: null,
+  });
+  const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
+    <Console>
+      <Synnax.TestProvider client={client} status={status}>
+        {children}
+      </Synnax.TestProvider>
+    </Console>
+  );
+  Wrapper.displayName = "StatusConsoleWrapper";
   return { wrapper: Wrapper, store };
 };
 
@@ -380,6 +430,7 @@ SessionSynnaxProvider.displayName = "SessionSynnaxProvider";
 export const createSessionConsoleWrapper = async (
   args: CreateConsoleWrapperParams,
 ): Promise<{ wrapper: FC<PropsWithChildren>; store: TestStore }> => {
+  disableActEnvironment();
   const { wrapper: Console, store } = await createConsoleWrapper(args);
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>

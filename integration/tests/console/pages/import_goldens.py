@@ -291,7 +291,9 @@ class ImportGoldens(ConsoleCase):
             toolbar.import_symbol(get_core_fixture_path(relative_path))
             # A per-file failure notification names the file, not the kind.
             file_name = os.path.basename(relative_path)
-            if not self.console.notifications.wait_for(f"Failed to import {file_name}"):
+            if not self.console.notifications.wait_for(
+                "Failed to import", name=file_name
+            ):
                 raise AssertionError(
                     f"Import of {file_name} did not surface a failure notification"
                 )
@@ -318,7 +320,7 @@ class ImportGoldens(ConsoleCase):
                 for file_name in sorted(os.listdir(directory)):
                     path = os.path.join(directory, file_name)
                     if file_name == "manifest.json":
-                        with open(path, "r", encoding="utf-8") as f:
+                        with open(path, encoding="utf-8") as f:
                             manifest = json.load(f)
                         manifest["name"] = name
                         zf.writestr(file_name, json.dumps(manifest))
@@ -332,7 +334,7 @@ class ImportGoldens(ConsoleCase):
         """Import a bundle directory as a group named ``name`` and verify it."""
         with self._group_bundle(directory, name) as zip_path:
             toolbar.import_group(zip_path)
-        if not self.console.notifications.wait_for(f'Imported symbol group "{name}"'):
+        if not self.console.notifications.wait_for("Imported symbol group", name=name):
             raise AssertionError(
                 f"Import of group {name!r} did not surface a success notification"
             )

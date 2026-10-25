@@ -26,7 +26,7 @@ import { context } from "@/context";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Haul } from "@/haul";
-import { useCombinedRefs, useResize } from "@/hooks";
+import { useCombinedRefs, useResize, useWheelScrollX } from "@/hooks";
 import { Select } from "@/select";
 import { KEY_ATTRIBUTE, KEY_SELECTOR } from "@/tabs/Frame";
 import { Triggers } from "@/triggers";
@@ -34,11 +34,13 @@ import { Triggers } from "@/triggers";
 /**
  * The visual variant of a tab selector.
  *
- * - `default`: rounded chip tabs on a borderless strip; the selected tab carries a
- *   subtle fill.
+ * - `default`: rounded tabs on a borderless strip; the selected tab carries a subtle
+ *   fill.
  * - `pill`: separated outlined rounded buttons.
+ * - `chip`: separated outlined rounded tabs; only the selected one fills, with the same
+ *   subtle fill as `default`.
  */
-export type Variant = "default" | "pill";
+export type Variant = "default" | "pill" | "chip";
 
 /**
  * Where a tab's contents sit along the strip's main axis. Vertical strips always
@@ -66,6 +68,7 @@ interface VariantDefaults {
 const VARIANT_DEFAULTS: Record<Variant, VariantDefaults> = {
   default: { align: "center", sizing: "elastic" },
   pill: { align: "start", sizing: "fixed" },
+  chip: { align: "start", sizing: "content" },
 };
 
 interface ContextValue {
@@ -197,8 +200,6 @@ const THUMB_DRAGGING_CLASS = CSS.BEM("tabs", "thumb", "dragging");
 
 const MIN_THUMB_WIDTH = 24;
 
-const LINE_SCROLL = 16;
-
 /**
  * applyReorderPreview shifts the strip's tabs to open a gap for a same-strip drag,
  * mirroring the reorder a drop at index would produce, and lifts the source tab out.
@@ -327,19 +328,22 @@ export interface SelectorOnDropParams extends Haul.OnDropProps {
 
 // align is claimed for the tabs' own alignment; the strip's cross-axis alignment is
 // the Selector's to decide, not a caller's.
-export interface SelectorProps extends Omit<Flex.BoxProps, "onDrop" | "align"> {
+interface StyleProps extends Omit<Flex.BoxProps, "onDrop" | "align" | "wrap"> {
   /** size sets the height of the strip and the typography level of its tabs. */
   size?: Component.Size;
   /**
-   * variant is the chassis its tabs wear: borderless chips on a plain strip, or
-   * separated outlined pills. Everything else about how the strip behaves is a knob
-   * below, which variant only supplies the default for.
+   * variant is the chassis its tabs wear: see {@link Variant}. Everything else about
+   * how the strip behaves is a knob below, which variant only supplies the default for.
    */
   variant?: Variant;
   /** align places a tab's contents along the strip. Defaults per variant. */
   align?: Align;
   /** sizing decides how tabs claim width. Defaults per variant. */
   sizing?: Sizing;
+}
+
+interface DropProps {
+  wrap?: false;
   /**
    * haulType enables drag-and-drop reordering by declaring the Haul item type the
    * strip accepts. When set, dragging an accepted item over the strip opens the slot
@@ -359,6 +363,19 @@ export interface SelectorProps extends Omit<Flex.BoxProps, "onDrop" | "align"> {
    */
   onDrop?: (params: SelectorOnDropParams) => Haul.Item[];
 }
+
+interface WrapProps {
+  /**
+   * wrap lays the tabs out in rows. A wrapping strip takes no drops, because the
+   * insertion index reads one axis.
+   */
+  wrap: true;
+  haulType?: never;
+  canDrop?: never;
+  onDrop?: never;
+}
+
+export type SelectorProps = StyleProps & (DropProps | WrapProps);
 
 /**
  * Selector is the strip that lays out a Frame's tabs. It renders a tablist with
@@ -421,31 +438,13 @@ export const Selector = ({
     // continuous across the gap.
     thumb.style.top = `${offsetTop + offsetHeight + 1}px`;
   }, []);
-  // Native listeners: React registers wheel passively, so onWheel would drop the
-  // preventDefault.
   const attachStrip = useCallback(
     (el: HTMLDivElement | null): void => {
-      if (el == null) return;
-      el.addEventListener("scroll", updateOverflow, { passive: true });
-      el.addEventListener(
-        "wheel",
-        (e) => {
-          if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-          const max = Math.max(el.scrollWidth - el.clientWidth, 0);
-          const delta =
-            e.deltaMode === WheelEvent.DOM_DELTA_PIXEL
-              ? e.deltaY
-              : e.deltaY * LINE_SCROLL;
-          const next = Math.min(Math.max(el.scrollLeft + delta, 0), max);
-          if (next === el.scrollLeft) return;
-          e.preventDefault();
-          el.scrollLeft = next;
-        },
-        { passive: false },
-      );
+      el?.addEventListener("scroll", updateOverflow, { passive: true });
     },
     [updateOverflow],
   );
+  const wheelRef = useWheelScrollX<HTMLDivElement>();
   // A preview shifting tabs toward the end grows the scrollable overflow, so a
   // measurement taken before the reset reads a strip that only the drag made
   // scrollable. Clearing and measuring together keeps the two in step wherever a
@@ -461,7 +460,13 @@ export const Selector = ({
   // Tabs mount, close, and rename without firing scroll or resize, so re-measure
   // after every render.
   useLayoutEffect(updateOverflow);
-  const combinedRef = useCombinedRefs(ref, internalRef, attachStrip, resizeRef);
+  const combinedRef = useCombinedRefs(
+    ref,
+    internalRef,
+    attachStrip,
+    wheelRef,
+    resizeRef,
+  );
   const dir: direction.Direction = Flex.parseDirection(direction, x, y) ?? "x";
   const horizontal = dir === "x";
 
@@ -507,7 +512,7 @@ export const Selector = ({
       const key = Triggers.eventKey(e);
       const next = horizontal ? "ArrowRight" : "ArrowDown";
       const prev = horizontal ? "ArrowLeft" : "ArrowUp";
-      if (![next, prev, "Home", "End"].includes(key)) return;
+      if (key == null || ![next, prev, "Home", "End"].includes(key)) return;
       // Only hover when a tab itself is focused: arrow keys pressed inside a tab's
       // children (an editable name, a close button) must keep their own meaning.
       if (!(e.target instanceof HTMLElement) || e.target.getAttribute("role") !== "tab")
@@ -650,13 +655,12 @@ export const Selector = ({
     }
   }, [dragging, clearPreview]);
 
+  const ghostOffsetKey = horizontal ? "left" : "top";
+  const ghostSizeKey = horizontal ? "width" : "height";
   const ghostStyle: CSSProperties | undefined =
     ghost == null
       ? undefined
-      : {
-          [horizontal ? "left" : "top"]: ghost.offset,
-          [horizontal ? "width" : "height"]: ghost.size ?? undefined,
-        };
+      : { [ghostOffsetKey]: ghost.offset, [ghostSizeKey]: ghost.size ?? undefined };
   // A passive strip registers no drop zone, so it still forwards the consumer's
   // onDragLeave rather than dropping it.
   const dropListeners =

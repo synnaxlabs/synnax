@@ -7,24 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CrudeTimeSpan, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import {
-  type PropsWithChildren,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x";
+import { type PropsWithChildren, useCallback, useMemo, useState } from "react";
 import type z from "zod";
 
 import { context } from "@/context";
-import { useSyncedRef } from "@/hooks";
+import { useNow, useSyncedRef } from "@/hooks";
 import {
   type Adder,
   type AsyncErrorHandler,
   createAsyncErrorHandler,
   createErrorHandler,
   type ErrorHandler,
+  type Log,
 } from "@/status/errorHandler";
 import { create, type Status } from "@/status/status";
 
@@ -39,10 +34,31 @@ const [AdderContext, useAdder] = context.create<Adder>({
 });
 export { useAdder };
 
+interface Handlers {
+  error: ErrorHandler;
+  async: AsyncErrorHandler;
+}
+
+const createHandlers = (add: Adder, log: Log): Handlers => ({
+  error: createErrorHandler(add, log),
+  async: createAsyncErrorHandler(add, log),
+});
+
+const [HandlersContext, useHandlers] = context.create<Handlers>({
+  // Reads console.error at call time, so a test's replacement applies.
+  defaultValue: createHandlers(
+    () => {},
+    (message) => console.error(message),
+  ),
+  displayName: "Status.HandlersContext",
+});
+
 /** Props for {@link Aggregator}. */
 export interface AggregatorProps extends PropsWithChildren {
   /** Statuses kept before the oldest are dropped. Defaults to 500. */
   maxHistory?: number;
+  /** Prints each error reported through an error handler. Defaults to console.error. */
+  log?: Log;
 }
 
 const TRUNCATE_FACTOR = 0.9;
@@ -51,7 +67,11 @@ const TRUNCATE_FACTOR = 0.9;
  * Collects statuses from its subtree and hands them to {@link useNotifications} and
  * the status list. Mount one near the root of the app.
  */
-export const Aggregator = ({ children, maxHistory = 500 }: AggregatorProps) => {
+export const Aggregator = ({
+  children,
+  maxHistory = 500,
+  log = console.error,
+}: AggregatorProps) => {
   const [statuses, setStatuses] = useState<Status[]>([]);
   if (statuses.length > maxHistory)
     setStatuses(statuses.slice(0, Math.floor(maxHistory * TRUNCATE_FACTOR)));
@@ -59,9 +79,12 @@ export const Aggregator = ({ children, maxHistory = 500 }: AggregatorProps) => {
     const stat = create(spec);
     setStatuses((prev) => [stat, ...prev.filter((s) => s.key != stat.key)]);
   }, []);
+  const handlers = useMemo(() => createHandlers(handleAdd, log), [handleAdd, log]);
   return (
     <Context value={statuses}>
-      <AdderContext value={handleAdd}>{children}</AdderContext>
+      <AdderContext value={handleAdd}>
+        <HandlersContext value={handlers}>{children}</HandlersContext>
+      </AdderContext>
     </Context>
   );
 };
@@ -70,21 +93,15 @@ export const Aggregator = ({ children, maxHistory = 500 }: AggregatorProps) => {
  * @returns a handler that turns a caught error into an error status on the enclosing
  * {@link Aggregator}. Use it in place of `console.error` in a UI path.
  *
- * @example handleError(err, "failed to save the range");
+ * @example handleError(err, "Failed to save range");
  */
-export const useErrorHandler = (): ErrorHandler => {
-  const add = useAdder();
-  return useMemo(() => createErrorHandler(add), [add]);
-};
+export const useErrorHandler = (): ErrorHandler => useHandlers().error;
 
 /**
  * @returns a handler that runs an async function and reports a rejection as an error
  * status. Use it wherever an effect or a click handler would otherwise float a promise.
  */
-export const useAsyncErrorHandler = (): AsyncErrorHandler => {
-  const add = useAdder();
-  return useMemo(() => createAsyncErrorHandler(add), [add]);
-};
+export const useAsyncErrorHandler = (): AsyncErrorHandler => useHandlers().async;
 
 /** A status shown as a notification, with how many identical ones it stands for. */
 export type NotificationSpec<Details extends z.ZodType = z.ZodNever> =
@@ -97,6 +114,9 @@ export interface UseNotificationsReturn<Details extends z.ZodType = z.ZodNever> 
   silence: (key: string) => void;
   silenceAll: () => void;
 }
+
+const identity = ({ variant, name, message, description }: Status): string =>
+  JSON.stringify([variant, name, message, description]);
 
 const DEFAULT_EXPIRATION = TimeSpan.seconds(7);
 const DEFAULT_EXPIRATION_POLL = TimeSpan.seconds(1);
@@ -116,14 +136,8 @@ export const useNotifications = ({
   poll = DEFAULT_EXPIRATION_POLL,
 }: UseNotificationsProps = {}): UseNotificationsReturn => {
   const statuses = useContext();
-  const [silencedKeys, setSilencedKeys] = useState<Set<string>>(new Set());
-  const [now, setNow] = useState(() => TimeStamp.now());
-  const pollMs = new TimeSpan(poll).milliseconds;
-
-  useEffect(() => {
-    const interval = setInterval(() => setNow(TimeStamp.now()), pollMs);
-    return () => clearInterval(interval);
-  }, [pollMs]);
+  const [silencedKeys, setSilencedKeys] = useState<Set<string>>(() => new Set());
+  const now = useNow((now) => now.add(poll));
 
   const filtered = useMemo(() => {
     const threshold = now.sub(expiration);
@@ -133,7 +147,7 @@ export const useNotifications = ({
     );
 
     const grouped = active.reduce((acc, status) => {
-      const key = `${status.variant}:${status.message}:${status.name}`;
+      const key = identity(status);
       if (!acc.has(key)) {
         acc.set(key, { ...status, count: 1 });
         return acc;
@@ -151,24 +165,24 @@ export const useNotifications = ({
 
   const statusesRef = useSyncedRef(statuses);
 
-  const silence = useCallback((key: string) => {
-    setSilencedKeys((prev) => {
-      const next = new Set<string>();
-      const existing = statusesRef.current.find(({ key: k }) => k === key);
-      if (!prev.has(key)) next.add(key);
-      if (existing != null) {
-        const silenced = statusesRef.current.filter(
-          ({ message, variant, name }) =>
-            message === existing.message &&
-            variant === existing.variant &&
-            name === existing.name,
-        );
-        silenced.forEach((status) => next.add(status.key));
-      }
-      if (next.size == 0) return prev;
-      return new Set([...next, ...prev]);
-    });
-  }, []);
+  const silence = useCallback(
+    (key: string) => {
+      setSilencedKeys((prev) => {
+        const next = new Set<string>();
+        const existing = statusesRef.current.find(({ key: k }) => k === key);
+        if (!prev.has(key)) next.add(key);
+        if (existing != null) {
+          const id = identity(existing);
+          statusesRef.current
+            .filter((status) => identity(status) === id)
+            .forEach((status) => next.add(status.key));
+        }
+        if (next.size == 0) return prev;
+        return new Set([...next, ...prev]);
+      });
+    },
+    [statusesRef],
+  );
 
   const silenceAll = useCallback(() => {
     setSilencedKeys((prev) => {
@@ -176,7 +190,7 @@ export const useNotifications = ({
       statusesRef.current.forEach(({ key }) => next.add(key));
       return next;
     });
-  }, []);
+  }, [statusesRef]);
 
   return { statuses: filtered, silence, silenceAll };
 };

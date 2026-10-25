@@ -20,6 +20,7 @@ import {
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { Errors, Flux, Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
@@ -27,12 +28,14 @@ import { type ComponentType } from "react";
 import { assert, describe, expect, it, vi } from "vitest";
 
 import { Range } from "@/feature/range";
+import { Overview } from "@/feature/range/overview/Overview";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
 import { createResourceTab, primePanel } from "@/platform/panel/testutil";
 import { Range as PlatformRange } from "@/platform/range";
 import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
 import {
+  CaptureStatuses,
   createConsoleWrapper,
   createTestClientWithGrants,
   getHeaderIconButton,
@@ -49,6 +52,7 @@ interface RenderOverviewResult {
   onSnapshotClick: ReturnType<typeof vi.fn>;
   onSnapshotDelete: ReturnType<typeof vi.fn>;
   setTabResource: (rangeKey: string) => Promise<void>;
+  statuses: Status.NotificationSpec[];
 }
 
 const renderOverview = async (
@@ -71,18 +75,23 @@ const renderOverview = async (
     rangerClient.ontologyID(rangeKey),
   );
   await primePanel(wrapper, panelKey);
+  const statuses: Status.NotificationSpec[] = [];
   await renderSuspended(
     <PlutoPanel.Scope.Provider value={panelKey}>
       <PlutoPanel.TabScope.Provider value={tabKey}>
         <PlatformRange.SnapshotServicesProvider services={services}>
           <Errors.SuspenseBoundary FallbackComponent={FallbackComponent}>
-            <Range.Overview.Overview />
+            <Overview />
           </Errors.SuspenseBoundary>
           <Modals.Stack />
+          <CaptureStatuses
+            onStatuses={(next) => statuses.splice(0, statuses.length, ...next)}
+          />
         </PlatformRange.SnapshotServicesProvider>
       </PlutoPanel.TabScope.Provider>
     </PlutoPanel.Scope.Provider>,
-    { wrapper },
+    // A spec that passes a fallback expects the boundary to catch.
+    { wrapper, onCaughtError: FallbackComponent == null ? undefined : () => {} },
   );
   const setTabResource = async (nextKey: string) =>
     await act(async () => {
@@ -93,7 +102,7 @@ const renderOverview = async (
         }),
       ]);
     });
-  return { onSnapshotClick, onSnapshotDelete, setTabResource };
+  return { onSnapshotClick, onSnapshotDelete, setTabResource, statuses };
 };
 
 const createChildRange = async (parent: ranger.Range): Promise<ranger.Range> => {
@@ -108,7 +117,6 @@ const createChildRange = async (parent: ranger.Range): Promise<ranger.Range> => 
 const createSnapshot = async (rng: ranger.Range): Promise<ontology.ID> => {
   const project = await client.projects.create({
     name: uniqueName("proj"),
-    layout: {},
   });
   const sch = await client.schematics.create(project.key, {
     name: uniqueName("sch"),
@@ -160,12 +168,16 @@ describe("range/overview/Overview", () => {
   it("lists snapshots and routes selection to the snapshot service", async () => {
     const rng = await createTestRange(client);
     const snapID = await createSnapshot(rng);
-    const { onSnapshotClick } = await renderOverview(rng.key);
+    const { onSnapshotClick, statuses } = await renderOverview(rng.key);
     const item = await screen.findByText((await client.ontology.retrieve(snapID)).name);
     fireEvent.click(item);
     await waitFor(() => expect(onSnapshotClick).toHaveBeenCalledTimes(1));
     const [resource] = onSnapshotClick.mock.calls[0] as [ontology.Resource];
     expect(resource.id.key).toBe(snapID.key);
+    await act(async () => {});
+    expect(statuses).not.toContainEqual(
+      expect.objectContaining({ message: "Failed to open snapshot" }),
+    );
   });
 
   it("deletes a snapshot through its service after confirmation", async () => {
@@ -219,7 +231,6 @@ describe("range/overview tab", () => {
 
     const project = await client.projects.create({
       name: uniqueName("proj"),
-      layout: {},
     });
     await act(async () => {
       await restore({ client, project: project.key, resource: rng.ontologyID });
@@ -242,7 +253,6 @@ describe("range/overview tab", () => {
 
     const project = await client.projects.create({
       name: uniqueName("proj"),
-      layout: {},
     });
     await restore({ client, project: project.key, resource: rng.ontologyID });
 

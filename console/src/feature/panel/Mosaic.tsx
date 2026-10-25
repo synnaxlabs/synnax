@@ -15,11 +15,11 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Logo } from "@synnaxlabs/lyra/logo";
 import { Portal } from "@synnaxlabs/lyra/portal";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { Logo } from "@synnaxlabs/media";
 import { Access, Errors, Flux, Panel, Synnax } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 import {
@@ -107,10 +107,13 @@ const DeletedContent = ({ name: corpse }: Flux.Tombstone): ReactElement => {
   const handleError = Status.useErrorHandler();
   const name = corpse ?? "This resource";
   const handleRestore = (): void => {
-    handleError(async () => {
-      if (client == null || restore == null) return;
-      await restore({ client, project, resource });
-    }, `Failed to restore ${name}`);
+    handleError(
+      async () => {
+        if (client == null || restore == null) return;
+        await restore({ client, project, resource });
+      },
+      { message: "Failed to restore resource", name: corpse ?? "" },
+    );
   };
   const restorable = client != null && restore != null;
   return (
@@ -243,7 +246,7 @@ const EmptyTabContent = ({
   );
   return (
     <Flex.Box center gap={5} className={CSS.BE("mosaic", "empty-content")}>
-      <Logo className="synnax-logo-watermark" />
+      <Logo.Logo className="synnax-logo-watermark" />
       <Empty.Action
         className={CSS.BE("mosaic", "empty-action")}
         level="h5"
@@ -345,7 +348,7 @@ const EmptyContent = ({ onFileDrop }: EmptyContentProps): ReactElement => {
       {...haulProps}
     >
       <Flex.Box center gap={5} className={CSS.BE("mosaic", "empty-content")}>
-        <Logo className="synnax-logo-watermark" />
+        <Logo.Logo className="synnax-logo-watermark" />
         <Empty.Action
           className={CSS.BE("mosaic", "empty-action")}
           level="h5"

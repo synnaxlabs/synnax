@@ -146,17 +146,17 @@ func checkChain(
 			return
 		}
 		fkTransient := fk.Transient()
+		// A declaration changes when its own shape differs from its predecessor, or
+		// when it references a declaration that changes. An unchanged one must alias.
+		changed := make(set.Set[string], len(fk.Defined))
+		var unchanged []resolution.Type
 		for _, t := range fk.Defined {
 			if t.Synthetic {
 				continue
 			}
-			// Omit-transient declarations track the live schema and may legitimately
-			// match their predecessor.
-			if fkTransient.Contains(t.Name) {
-				continue
-			}
 			def, ok := surf[t.Name]
-			if !ok {
+			if !ok || fkTransient.Contains(t.Name) {
+				changed.Add(t.QualifiedName)
 				continue
 			}
 			definer, err := resolver.File(ctx, livePath, def.Version)
@@ -168,22 +168,80 @@ func checkChain(
 				})
 				return
 			}
-			if types.StructurallyEqual(def.Type, t, definer.Table, fk.Table) {
-				r.fail(Finding{
-					Path:     chain.FilePath(k) + ".oracle",
-					Severity: SeverityError,
-					Message: fmt.Sprintf(
-						"%s v%d redeclares %s identically to v%d",
-						livePath, k, t.Name, def.Version,
-					),
-					FixHint: fmt.Sprintf(
-						"use an alias: %s = v%d.%s",
-						t.Name, def.Version, t.Name,
-					),
-				})
+			if !types.StructurallyEqual(def.Type, t, definer.Table, fk.Table) {
+				changed.Add(t.QualifiedName)
+				continue
+			}
+			unchanged = append(unchanged, t)
+		}
+		for grew := true; grew; {
+			grew = false
+			for _, t := range unchanged {
+				if !changed.Contains(t.QualifiedName) &&
+					referencesAny(t, changed, fk.Table) {
+					changed.Add(t.QualifiedName)
+					grew = true
+				}
 			}
 		}
+		for _, t := range unchanged {
+			if changed.Contains(t.QualifiedName) {
+				continue
+			}
+			def := surf[t.Name]
+			r.fail(Finding{
+				Path:     chain.FilePath(k) + ".oracle",
+				Severity: SeverityError,
+				Message: fmt.Sprintf(
+					"%s v%d redeclares %s identically to v%d",
+					livePath, k, t.Name, def.Version,
+				),
+				FixHint: fmt.Sprintf(
+					"use an alias: %s = v%d.%s", t.Name, def.Version, t.Name,
+				),
+			})
+		}
 	}
+}
+
+// referencesAny reports whether t's fields, variants, or extended types name a type in
+// names. An inline variant's payload is part of its union, so its references count as
+// the union's.
+func referencesAny(
+	t resolution.Type,
+	names set.Set[string],
+	table *resolution.Table,
+) bool {
+	var refs []resolution.TypeRef
+	var collect func(form resolution.TypeForm)
+	collect = func(form resolution.TypeForm) {
+		switch form := form.(type) {
+		case resolution.StructForm:
+			for _, f := range form.Fields {
+				refs = append(refs, f.Type)
+			}
+			refs = append(refs, form.Extends...)
+		case resolution.UnionForm:
+			for _, v := range form.Variants {
+				payload, ok := v.Type.Resolve(table)
+				if v.Inline && ok {
+					collect(payload.Form)
+				} else {
+					refs = append(refs, v.Type)
+				}
+			}
+			refs = append(refs, form.Extends...)
+		}
+	}
+	collect(t.Form)
+	for len(refs) > 0 {
+		ref := refs[len(refs)-1]
+		refs = append(refs[:len(refs)-1], ref.TypeArgs...)
+		if names.Contains(ref.Name) {
+			return true
+		}
+	}
+	return false
 }
 
 // fail records an error finding and flips the gate status.
@@ -357,6 +415,9 @@ func classifyDeps(f *versions.File) (stored, referenced set.Set[string]) {
 			}
 			for _, e := range form.Included {
 				visit(e)
+			}
+			if form.BorrowsEnum() {
+				visit(form.Enum)
 			}
 		case resolution.DistinctForm:
 			visit(form.Base)
@@ -540,6 +601,9 @@ func storedRefs(
 		for _, v := range form.Variants {
 			locals = append(locals, localRefNames(f, v.Type)...)
 		}
+		if form.BorrowsEnum() {
+			locals = append(locals, localRefNames(f, form.Enum)...)
+		}
 	case resolution.DistinctForm:
 		locals = localRefNames(f, form.Base)
 	case resolution.AliasForm:
@@ -624,6 +688,9 @@ func membersOf(f *versions.File, ns string) []string {
 		case resolution.UnionForm:
 			for _, v := range form.Variants {
 				walkRef(v.Type)
+			}
+			if form.BorrowsEnum() {
+				walkRef(form.Enum)
 			}
 		case resolution.DistinctForm:
 			walkRef(form.Base)

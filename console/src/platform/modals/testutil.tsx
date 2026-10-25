@@ -18,6 +18,7 @@ import {
   render,
   renderHook,
   type RenderHookResult,
+  type RenderOptions,
   type RenderResult,
   screen,
 } from "@testing-library/react";
@@ -29,6 +30,7 @@ import {
 } from "react";
 import { Provider } from "react-redux";
 
+import { Analytics } from "@/platform/analytics";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 import {
@@ -100,10 +102,10 @@ export interface ModalHookHandle<T> {
  */
 export const renderModalHook = <T,>(
   useHook: () => T,
-): RenderHookResult<ModalHookHandle<T>, undefined> =>
-  renderHook(() => ({ hook: useHook(), store: Session.Modals.useStore("test") }), {
-    wrapper: Wrapper,
-  });
+): RenderHookResult<ModalHookHandle<T>, undefined> => {
+  const useHandle = () => ({ hook: useHook(), store: Session.Modals.useStore("test") });
+  return renderHook(useHandle, { wrapper: Wrapper });
+};
 
 /** Pulls the close callback the store bound into the topmost modal's rendered content. */
 export const closeOf = (
@@ -112,13 +114,15 @@ export const closeOf = (
   (store.getState().at(-1)?.render() as ReactElement<Session.Modals.ContentProps>).props
     .close;
 
-export interface RenderModalOpenerOptions {
+export interface RenderModalOpenerOptions extends Pick<RenderOptions, "onCaughtError"> {
   /** Client backing the console wrapper; null (default) for Core-free specs. */
   client?: Client | null;
   preloadedState?: ConsolePreloadedState;
   store?: TestStore;
   /** Extra aether components merged over the default console test registry. */
   additionalRegistry?: aether.ComponentRegistry;
+  /** Receives every event the modal reports; discards them by default. */
+  analytics?: Analytics.Sink;
 }
 
 export interface ModalOpenerHandle<R> {
@@ -142,7 +146,14 @@ export const renderModalOpener = async <Args extends unknown[], R>(
   args: Args,
   options: RenderModalOpenerOptions = {},
 ): Promise<ModalOpenerHandle<R>> => {
-  const { client = null, preloadedState, store, additionalRegistry } = options;
+  const {
+    client = null,
+    preloadedState,
+    store,
+    additionalRegistry,
+    onCaughtError,
+    analytics = Analytics.NOOP,
+  } = options;
   const { wrapper: Console, store: resolvedStore } = await createConsoleWrapper({
     client,
     preloadedState,
@@ -151,13 +162,15 @@ export const renderModalOpener = async <Args extends unknown[], R>(
   });
   const wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
-      <Triggers.Provider>
-        {children}
-        <Modals.Stack />
-      </Triggers.Provider>
+      <Analytics.Provider sink={analytics}>
+        <Triggers.Provider>
+          {children}
+          <Modals.Stack />
+        </Triggers.Provider>
+      </Analytics.Provider>
     </Console>
   );
-  const { result, unmount } = renderHook(useOpen, { wrapper });
+  const { result, unmount } = renderHook(useOpen, { wrapper, onCaughtError });
   const box: { current?: R } = {};
   const reopen = () => {
     act(() => {

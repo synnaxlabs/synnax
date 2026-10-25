@@ -14,7 +14,6 @@ package v2
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
-	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
@@ -70,9 +69,11 @@ type TextCellConfig struct {
 	Weight float64 `json:"weight" msgpack:"weight"`
 	// Align is the alignment of the cell text along the row axis.
 	Align FlexAlignment `json:"align" msgpack:"align"`
-	// BackgroundColor is the background color of the cell. When absent the theme picks
-	// the fill; a fully transparent value paints nothing.
-	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
+	// FillColor is the background color of the cell. When absent the theme picks the
+	// fill; a fully transparent value paints nothing.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// TextColor is the color of the cell text. When absent the theme picks the color.
+	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 }
 
 func (TextCellConfig) isCellConfigVariant() {}
@@ -114,14 +115,14 @@ type ValueCellConfig struct {
 	Notation notation.Notation `json:"notation" msgpack:"notation"`
 	// Redline is the threshold band mapping applied to the background.
 	Redline color.Scale `json:"redline" msgpack:"redline"`
-	// BackgroundColor is the fill behind the value where no redline band paints. When
-	// absent the cell paints no fill.
-	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
+	// FillColor is the fill behind the value where no redline band paints. When absent
+	// the cell paints no fill.
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Level is the typography level of the displayed value.
 	Level text.Level `json:"level" msgpack:"level"`
-	// Color is the color of the displayed text. When absent the value renders with a
-	// theme-derived legible color.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	// TextColor is the color of the displayed text. When absent the value renders with
+	// a theme-derived legible color.
+	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
 	// StalenessTimeout is the duration in seconds after which the value is considered
@@ -264,14 +265,6 @@ func (r *Row) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (r Row) Validate() error {
-	v := validate.New("Row")
-	v.GreaterThanEq("size", r.Size, 1)
-	return v.Error()
-}
-
 // Column is a single column in a table, with width.
 type Column struct {
 	// Size is the width of the column in pixels.
@@ -283,14 +276,6 @@ func (c *Column) ApplyDefaults() {
 	if c.Size == 0 {
 		c.Size = 72
 	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (c Column) Validate() error {
-	v := validate.New("Column")
-	v.GreaterThanEq("size", c.Size, 1)
-	return v.Error()
 }
 
 // Table is a tabular data display component for viewing structured telemetry data.
@@ -329,13 +314,6 @@ func (t *Table) ApplyDefaults() {
 // schema constraints.
 func (t Table) Validate() error {
 	v := validate.New("Table")
-	v.NotEmptyString("name", t.Name)
-	for i := range t.Rows {
-		v.Exec(func() error { return validate.PathedError(t.Rows[i].Validate(), "rows", strconv.Itoa(i)) })
-	}
-	for i := range t.Columns {
-		v.Exec(func() error { return validate.PathedError(t.Columns[i].Validate(), "columns", strconv.Itoa(i)) })
-	}
 	for key, value := range t.Cells {
 		v.Exec(func() error { return validate.PathedError(value.Validate(), "cells", key) })
 	}

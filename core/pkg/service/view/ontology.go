@@ -16,10 +16,10 @@ import (
 	"uuid"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	xchange "github.com/synnaxlabs/x/change"
-	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/zyn"
@@ -55,7 +55,12 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(v View) ontology.Resource {
-	return ontology.NewResource(schema, v.OntologyID(), v.Name, v)
+	base := v.Base()
+	return ontology.NewResource(schema, v.OntologyID(), base.Name, map[string]any{
+		"key":  base.Key,
+		"name": base.Name,
+		"type": string(v.Type()),
+	})
 }
 
 var (

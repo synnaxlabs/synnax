@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <atomic>
 #include <condition_variable>
 #include <list>
@@ -55,6 +56,9 @@ public:
 /// driver. This context provides access to the Synnax client and allows tasks to
 /// easily update their state.
 class Context {
+    std::mutex rack_name_mu;
+    std::string rack_name_;
+
 public:
     /// @brief the client used to communicate with the Synnax server.
     std::shared_ptr<synnax::Synnax> client;
@@ -76,6 +80,18 @@ public:
     /// Core-side deduplication filtering.
     virtual synnax::rack::Key rack_key() { return 0; }
 
+    /// @brief returns the current name of the driver's rack. Safe for concurrent use.
+    std::string rack_name() {
+        std::lock_guard lock{this->rack_name_mu};
+        return this->rack_name_;
+    }
+
+    /// @brief records a new name for the driver's rack. Safe for concurrent use.
+    void set_rack_name(std::string name) {
+        std::lock_guard lock{this->rack_name_mu};
+        this->rack_name_ = std::move(name);
+    }
+
     /// @brief updates the state of the task in the Synnax cluster.
     virtual void set_status(synnax::task::Status &status) = 0;
 };
@@ -85,7 +101,7 @@ class MockContext final : public Context {
     std::mutex mu;
 
 public:
-    std::vector<synnax::task::Status> statuses{};
+    std::vector<synnax::task::Status> statuses;
 
     explicit MockContext(const std::shared_ptr<synnax::Synnax> &client):
         Context(client) {}
@@ -212,21 +228,18 @@ struct ManagerConfig {
 
     template<typename Parser>
     void override(Parser &p) {
-        const auto op_timeout_s = p.field(
-            "op_timeout",
-            static_cast<double>(this->op_timeout.seconds())
-        );
+        const auto op_timeout_s = p.field("op_timeout", this->op_timeout.seconds());
         this->op_timeout = x::telem::TimeSpan(static_cast<int64_t>(op_timeout_s * 1e9));
         const auto poll_interval_s = p.field(
             "poll_interval",
-            static_cast<double>(this->poll_interval.seconds())
+            this->poll_interval.seconds()
         );
         this->poll_interval = x::telem::TimeSpan(
             static_cast<int64_t>(poll_interval_s * 1e9)
         );
         const auto shutdown_timeout_s = p.field(
             "shutdown_timeout",
-            static_cast<double>(this->shutdown_timeout.seconds())
+            this->shutdown_timeout.seconds()
         );
         this->shutdown_timeout = x::telem::TimeSpan(
             static_cast<int64_t>(shutdown_timeout_s * 1e9)
@@ -235,8 +248,8 @@ struct ManagerConfig {
             "worker_count",
             static_cast<int>(this->worker_count)
         );
-        if (this->worker_count < 1) this->worker_count = 1;
-        if (this->worker_count > 64) this->worker_count = 64;
+        this->worker_count = std::max<size_t>(this->worker_count, 1);
+        this->worker_count = std::min<size_t>(this->worker_count, 64);
     }
 
     friend std::ostream &operator<<(std::ostream &os, const ManagerConfig &cfg) {
@@ -274,11 +287,13 @@ public:
         op_timeout(cfg.op_timeout),
         poll_interval(cfg.poll_interval),
         shutdown_timeout(cfg.shutdown_timeout),
-        worker_count(cfg.worker_count) {}
+        worker_count(cfg.worker_count) {
+        this->ctx->set_rack_name(this->rack.name);
+    }
 
     /// @brief runs the main task manager loop, blocking until stop() is called.
     /// Safe to call stop() from another thread.
-    x::errors::Error run(std::function<void()> on_started = nullptr);
+    x::errors::Error run(const std::function<void()> &on_started = nullptr);
 
     /// @brief stops the task manager, halting all tasks and freeing resources.
     void stop();
@@ -309,7 +324,7 @@ private:
         /// one without fetches the stored task on the worker, keeping the
         /// streamer loop off the network.
         enum class Type { DEPLOY, COMMAND, SHUTDOWN, REMOVE, RELEASE };
-        Type type;
+        Type type{};
         synnax::task::Key task_key;
         synnax::task::Task task;
         synnax::task::Command cmd;
@@ -380,6 +395,7 @@ private:
         synnax::channel::Channel task_delete;
         synnax::channel::Channel task_cmd;
         synnax::channel::Channel control_state;
+        synnax::channel::Channel rack_set;
     } channels;
 
     /// @brief opens the streamer for task set/delete/cmd channels.
@@ -391,6 +407,10 @@ private:
     x::errors::Error configure_initial_tasks();
     /// @brief stops all running tasks.
     void stop_all_tasks();
+    /// @brief re-reads this rack's name so a rename made before the streamer opened
+    /// is not lost. Best-effort: a failed read is logged and keeps the boot name.
+    void retrieve_rack_name();
+    void process_rack_set(const x::telem::Series &series);
     /// @brief refreshes the local row for each changed task. Never deploys or stops;
     /// a rack move is acted on by the next start command.
     void process_task_set(const x::telem::Series &series);

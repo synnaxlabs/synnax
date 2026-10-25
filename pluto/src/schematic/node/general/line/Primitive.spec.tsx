@@ -27,21 +27,21 @@ describe("line symbol", () => {
     // The stroke is painted from the display var in line.css; jsdom cannot compute it,
     // so we assert the marker class and the source var.
     it("should carry the symbol-colored class and set the source color", () => {
-      const { container } = render(<Line color="#ff0000" />);
+      const { container } = render(<Line strokeColor="#ff0000" />);
       const root = getRoot(container);
       expect(root.getAttribute("class")).toContain("pluto-symbol-colored");
       expect(root.style.getPropertyValue("--pluto-symbol-color")).toBe("255, 0, 0, 1");
     });
 
     it("should carry the alpha channel of a translucent color", () => {
-      const { container } = render(<Line color={[255, 0, 0, 0.5]} />);
+      const { container } = render(<Line strokeColor={[255, 0, 0, 0.5]} />);
       expect(getRoot(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
         "255, 0, 0, 0.5",
       );
     });
 
     it("should pass a fully transparent color through as a choice", () => {
-      const { container } = render(<Line color={color.ZERO} />);
+      const { container } = render(<Line strokeColor={color.ZERO} />);
       expect(getRoot(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
         "0, 0, 0, 0",
       );

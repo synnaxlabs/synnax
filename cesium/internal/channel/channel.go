@@ -23,15 +23,15 @@ import (
 type Key = uint32
 
 // Version is the format of the files stored in a channel. A channel opened at a lower
-// version is migrated up and its metadata rewritten.
+// version is migrated up in memory; its metadata file moves to the current version the
+// next time it is written.
 type Version = uint8
 
 const (
 	Version1 Version = 1
 	Version2 Version = 2
 	// Version3 renames the metadata's is_index member, which earlier versions stored
-	// under the Go field name. Opening at this version rewrites the file, so the stored
-	// form catches up with the tag.
+	// under the Go field name.
 	Version3       Version = 3
 	VersionCurrent         = Version3
 )

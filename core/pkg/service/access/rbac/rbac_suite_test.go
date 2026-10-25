@@ -14,25 +14,26 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var (
-	db        *gorp.DB
-	otg       *ontology.Ontology
-	groupSvc  *group.Service
-	rbacSvc   *rbac.Service
-	searchIdx *search.Index
-	userSvc   *user.Service
-	authSvc   *auth.Service
+	db          *gorp.DB
+	otg         *ontology.Ontology
+	groupSvc    *group.Service
+	rbacSvc     *rbac.Service
+	searchIdx   *search.Index
+	userSvc     *user.Service
+	passwordSvc *password.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -45,15 +46,21 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology: otg,
 		Search:   searchIdx,
 	}))
-	authSvc = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
+	passwordSvc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:              db,
-		Ontology:        otg,
-		Group:           groupSvc,
-		Search:          searchIdx,
-		Auth:            authSvc,
-		RootCredentials: auth.Credentials{Username: "suite-root", Password: "p"},
+		DB:       db,
+		Ontology: otg,
+		Group:    groupSvc,
+		Search:   searchIdx,
 	}))
+	MustSucceed2(
+		user.ProvisionRoot(
+			ctx,
+			userSvc,
+			passwordSvc,
+			auth.Credentials{Username: "suite-root", Password: "p"},
+		),
+	)
 	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
@@ -65,7 +72,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 
 func TestRBAC(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Access RBAC Suite")
+	RunSpecs(t, "Service Access RBAC Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

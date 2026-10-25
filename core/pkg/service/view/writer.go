@@ -11,11 +11,12 @@ package view
 
 import (
 	"context"
+	"strconv"
 	"uuid"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -34,8 +35,8 @@ func (w Writer) Create(ctx context.Context, view *View) error {
 	if err := w.validate(*view); err != nil {
 		return err
 	}
-	if view.Key == uuid.Nil() {
-		view.Key = uuid.New()
+	if view.GorpKey() == uuid.Nil() {
+		*view = view.WithKey(uuid.New())
 	}
 	if err := w.table.NewCreate().
 		Entry(view).
@@ -65,6 +66,22 @@ func (w Writer) CreateMany(ctx context.Context, views *[]View) error {
 	return nil
 }
 
+// Rename renames the view with the given key, keeping every other field. It returns
+// query.ErrNotFound if no view with the key exists and a validation error if name is
+// empty.
+func (w Writer) Rename(ctx context.Context, key Key, name string) error {
+	return w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, View](key)).
+		ChangeErr(func(_ gorp.Context, v View) (View, error) {
+			v = v.WithName(name)
+			if err := w.validate(v); err != nil {
+				return View{}, err
+			}
+			return v, nil
+		}).
+		Exec(ctx, w.tx)
+}
+
 // Delete deletes the views with the given keys. Delete is idempotent.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	if err := w.table.NewDelete().Where(gorp.MatchKeys[Key, View](keys...)).
@@ -76,7 +93,17 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 
 func (w Writer) validate(v View) error {
 	vld := validate.New("view.view")
-	vld.NotEmptyString("name", v.Name)
-	vld.NotEmptyString("type", v.Type)
+	vld.NotEmptyString("name", v.Base().Name)
+	vld.NotEmptyString("type", v.Type())
+	if status, ok := v.Variant.(StatusView); ok {
+		for i, variant := range status.Query.Variants {
+			vld.Ternaryf(
+				"query.variants."+strconv.Itoa(i),
+				!variant.IsValid(),
+				"invalid status variant %q",
+				variant,
+			)
+		}
+	}
 	return vld.Error()
 }

@@ -19,6 +19,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -28,7 +29,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -57,6 +57,32 @@ var _ = Describe("Driver", func() {
 			Factories: []driver.Factory{factory},
 			Host:      hostProvider,
 		}))
+	}
+
+	openDriverWithInterval := func(
+		ctx context.Context,
+		interval time.Duration,
+	) *driver.Driver {
+		GinkgoHelper()
+		return MustOpen(driver.Open(ctx, driver.Config{
+			DB:                node.DB,
+			Rack:              rackService,
+			Task:              taskService,
+			Framer:            framerSvc,
+			Channel:           channelSvc,
+			Status:            statusSvc,
+			Factories:         []driver.Factory{&mockFactory{name: "test"}},
+			Host:              hostProvider,
+			HeartbeatInterval: interval,
+		}))
+	}
+
+	renameRack := func(ctx context.Context, key rack.Key, name string) {
+		GinkgoHelper()
+		Expect(rackService.NewWriter(nil).Rename(ctx, key, name)).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(rackService.NewWriter(nil).Rename(ctx, key, "Node 1")).To(Succeed())
+		})
 	}
 
 	newTask := func(rackKey rack.Key) task.Task {
@@ -163,10 +189,56 @@ var _ = Describe("Driver", func() {
 			},
 		)
 
+		It("should reuse a renamed rack when reopened", func(ctx SpecContext) {
+			d1 := openDriverWithInterval(ctx, time.Second)
+			key := embeddedRackKey(ctx)
+			Expect(d1.Close()).To(Succeed())
+			renameRack(ctx, key, "Renamed Driver")
+			openDriverWithInterval(ctx, time.Second)
+			var r rack.Rack
+			Expect(rackService.NewRetrieve().
+				Where(rack.MatchKeys(key)).
+				Entry(&r).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(r.Name).To(Equal("Renamed Driver"))
+			Expect(rackService.NewRetrieve().
+				Where(rack.And(rack.MatchEmbedded(true), rack.MatchNames("Node 1"))).
+				Exists(ctx, nil)).To(BeFalse())
+		})
+
 		It("should fail with invalid config", func(ctx SpecContext) {
 			_, err := driver.Open(ctx, driver.Config{})
 			Expect(err).To(HaveOccurred())
 		})
+
+		It(
+			"should return when the context is canceled during startup",
+			func(ctx SpecContext) {
+				cfg := driver.Config{
+					DB:        node.DB,
+					Rack:      rackService,
+					Task:      taskService,
+					Framer:    framerSvc,
+					Channel:   channelSvc,
+					Status:    statusSvc,
+					Factories: []driver.Factory{&mockFactory{name: "test"}},
+					Host:      hostProvider,
+				}
+				Expect(MustSucceed(driver.Open(ctx, cfg)).Close()).To(Succeed())
+				t := newTask(embeddedRackKey(ctx))
+				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				cCtx, cancel := context.WithCancel(ctx)
+				cfg.Factories = []driver.Factory{&mockFactory{
+					name: "test",
+					configureFunc: func(context.Context, task.Task) (driver.Task, error) {
+						cancel()
+						return nil, driver.ErrTaskNotHandled
+					},
+				}}
+				Expect(driver.Open(cCtx, cfg)).Error().To(MatchError(context.Canceled))
+			},
+			NodeTimeout(10*time.Second),
+		)
 	})
 
 	Describe("Task Management", func() {
@@ -189,7 +261,6 @@ var _ = Describe("Driver", func() {
 				},
 			}
 			openDriver(ctx, factory)
-			time.Sleep(50 * time.Millisecond)
 
 			t := newTask(embeddedRackKey(ctx))
 			taskKey.Store(t.Key)
@@ -220,7 +291,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				// Never created: the deploy fetch fails with not-found, which
 				// must stay silent so the driver cannot recreate a status the
@@ -279,7 +349,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
 				t.Config = map[string]any{"routing_key": "rk-1"}
@@ -345,7 +414,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
 				t.Config = map[string]any{"routing_key": "rk-1"}
@@ -389,7 +457,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 				countAfterOpen := configuredCount.Load()
 
 				otherRack := rack.Rack{Name: "Other Rack"}
@@ -440,7 +507,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
@@ -482,7 +548,6 @@ var _ = Describe("Driver", func() {
 				},
 			}
 			openDriver(ctx, factory)
-			time.Sleep(50 * time.Millisecond)
 			countAfterOpen := configuredCount.Load()
 
 			t := newTask(embeddedRackKey(ctx))
@@ -522,7 +587,6 @@ var _ = Describe("Driver", func() {
 				},
 			}
 			openDriver(ctx, factory)
-			time.Sleep(50 * time.Millisecond)
 
 			t := newTask(embeddedRackKey(ctx))
 			taskKey.Store(t.Key)
@@ -569,7 +633,7 @@ var _ = Describe("Driver", func() {
 									Key:     t.OntologyID().String(),
 									Name:    t.Name,
 									Variant: status.VariantSuccess,
-									Message: "Task stopped successfully",
+									Message: "Stopped task",
 									Time:    telem.Now(),
 									Details: task.NewStatusDetails(t, false),
 								}
@@ -581,7 +645,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
@@ -635,7 +698,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
@@ -679,7 +741,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
@@ -724,7 +785,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
@@ -756,7 +816,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
@@ -776,7 +835,8 @@ var _ = Describe("Driver", func() {
 						Exec(ctx, node.DB)).To(Succeed())
 					g.Expect(statuses).To(HaveLen(1))
 					g.Expect(statuses[0].Variant).To(Equal(status.VariantError))
-					g.Expect(statuses[0].Message).To(ContainSubstring("bad config"))
+					g.Expect(statuses[0].Message).To(Equal("Failed to configure task"))
+					g.Expect(statuses[0].Description).To(Equal("bad config"))
 					g.Expect(statuses[0].Details.Cmd).To(Equal("cmd-ack"))
 					g.Expect(statuses[0].Details.Running).To(BeFalse())
 				}).Should(Succeed())
@@ -788,7 +848,6 @@ var _ = Describe("Driver", func() {
 			func(ctx SpecContext) {
 				factory := &mockFactory{name: "test"}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
 				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
@@ -805,7 +864,12 @@ var _ = Describe("Driver", func() {
 						)).
 						Entry(&stat).
 						Exec(ctx, node.DB)).To(Succeed())
+					g.Expect(stat.Name).To(Equal(t.Name))
 					g.Expect(stat.Variant).To(Equal(status.VariantError))
+					g.Expect(stat.Message).To(Equal("Failed to start task"))
+					g.Expect(stat.Description).To(Equal(
+						"task type 'pagerduty_alert': task not handled by factory",
+					))
 					g.Expect(stat.Details.Cmd).To(Equal("cmd-unhandled"))
 					g.Expect(stat.Details.Running).To(BeFalse())
 				}).Should(Succeed())
@@ -843,7 +907,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				// First task: configuration fails.
 				t1 := newTask(embeddedRackKey(ctx))
@@ -898,7 +961,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				t1 := newTask(embeddedRackKey(ctx))
 				knownKeys.Store(t1.Key, true)
@@ -951,7 +1013,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
 				t.Config = map[string]any{"routing_key": "rk-1"}
@@ -1058,7 +1119,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
 				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
@@ -1237,6 +1297,43 @@ var _ = Describe("Driver", func() {
 	})
 
 	Describe("Heartbeat", func() {
+		It("should publish the rack's current name", func(ctx SpecContext) {
+			openDriverWithInterval(ctx, 25*time.Millisecond)
+			key := embeddedRackKey(ctx)
+			renameRack(ctx, key, "Renamed Driver")
+			renamedAt := telem.Now()
+			Eventually(func(g Gomega) {
+				var stat rack.Status
+				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
+					Where(status.MatchKeys[rack.StatusDetails](rack.StatusKey(key))).
+					Entry(&stat).
+					Exec(ctx, node.DB)).To(Succeed())
+				g.Expect(stat.Time).To(BeNumerically(">", renamedAt))
+				g.Expect(stat.Name).To(Equal("Renamed Driver"))
+			}).Should(Succeed())
+		})
+
+		It(
+			"should recreate a deleted status with the current name",
+			func(ctx SpecContext) {
+				openDriverWithInterval(ctx, 25*time.Millisecond)
+				key := embeddedRackKey(ctx)
+				renameRack(ctx, key, "Renamed Driver")
+				Expect(statusSvc.NewWriter(nil).Delete(ctx, rack.StatusKey(key))).
+					To(Succeed())
+				deletedAt := telem.Now()
+				Eventually(func(g Gomega) {
+					var stat rack.Status
+					g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
+						Where(status.MatchKeys[rack.StatusDetails](rack.StatusKey(key))).
+						Entry(&stat).
+						Exec(ctx, node.DB)).To(Succeed())
+					g.Expect(stat.Time).To(BeNumerically(">", deletedAt))
+					g.Expect(stat.Name).To(Equal("Renamed Driver"))
+				}).Should(Succeed())
+			},
+		)
+
 		It("should send periodic status updates", func(ctx SpecContext) {
 			MustOpen(driver.Open(ctx, driver.Config{
 				DB:                node.DB,
@@ -1363,7 +1460,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				// Write valid JSON that won't unmarshal into task.Command
 				// (task field expects a UUID string).
@@ -1464,7 +1560,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
@@ -1503,7 +1598,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
 				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
@@ -1536,7 +1630,6 @@ var _ = Describe("Driver", func() {
 				},
 			}
 			openDriver(ctx, factory)
-			time.Sleep(50 * time.Millisecond)
 
 			unknownTaskKey := uuid.New()
 			cmd := task.Command{
@@ -1571,7 +1664,6 @@ var _ = Describe("Driver", func() {
 				},
 			}
 			openDriver(ctx, factory)
-			time.Sleep(50 * time.Millisecond)
 
 			otherRack := rack.Rack{Name: "Other Rack for Commands"}
 			Expect(rackService.NewWriter(nil).Create(ctx, &otherRack)).To(Succeed())
@@ -1615,7 +1707,6 @@ var _ = Describe("Driver", func() {
 				},
 			}
 			openDriver(ctx, factory)
-			time.Sleep(50 * time.Millisecond)
 
 			t := newTask(embeddedRackKey(ctx))
 			taskKey.Store(t.Key)
@@ -1660,7 +1751,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
@@ -1722,7 +1812,6 @@ var _ = Describe("Driver", func() {
 					},
 				}
 				openDriver(ctx, factory)
-				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)

@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <mutex>
 #include <shared_mutex>
 #include <unordered_map>
 
@@ -113,8 +114,8 @@ public:
         std::shared_lock lock(this->mu);
         if (frame.channels == nullptr || frame.series == nullptr) return {};
         bool all_pass = true;
-        for (size_t i = 0; i < frame.channels->size(); i++) {
-            auto it = this->states.find(frame.channels->at(i));
+        for (unsigned int i: *frame.channels) {
+            auto it = this->states.find(i);
             if (it != this->states.end() && it->second.subject != subject) {
                 all_pass = false;
                 break;

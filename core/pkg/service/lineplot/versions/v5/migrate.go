@@ -11,12 +11,13 @@ package v5
 
 import (
 	"context"
+	"math"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v0"
 	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/text"
 )
@@ -122,7 +123,7 @@ func migrateTickType(t string) *TickType {
 // schema uses. A zero color is the legacy "unset" sentinel, which maps to nil so the
 // Console assigns a default at render time.
 func colorPtr(c color.Color) *color.Color {
-	if c.IsZero() {
+	if c == (color.Color{}) {
 		return nil
 	}
 	return &c
@@ -135,7 +136,7 @@ func migrateLines(in []legacy.Line) []Line {
 			Label:          l.Label,
 			Color:          colorPtr(l.Color),
 			StrokeWidth:    l.StrokeWidth,
-			Downsample:     l.Downsample,
+			Downsample:     uint32(max(1, math.Round(l.Downsample))),
 			DownsampleMode: DownsampleMode(l.DownsampleMode),
 		}
 	})
@@ -157,4 +158,4 @@ func migrateRules(in []legacy.Rule) []Rule {
 }
 
 // Migration lifts stored line plots from the v0 blob layout to the typed v5 shape.
-var Migration = gorp.NewEntryMigration("v55_lift_typed_lineplot", MigrateLinePlot)
+var Migration = migrate.NewEntry("v55_lift_typed_lineplot", MigrateLinePlot)

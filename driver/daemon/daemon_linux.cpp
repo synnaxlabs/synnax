@@ -19,16 +19,15 @@
 
 #include "x/cpp/thread/thread.h"
 
+#include "driver/daemon/common.h"
 #include "driver/daemon/daemon.h"
 
 namespace fs = std::filesystem;
 
 namespace driver::daemon {
-const std::string BINARY_INSTALL_DIR = "/usr/local/bin";
-const std::string BINARY_NAME = "synnax-driver";
 const std::string SYSTEMD_SERVICE_PATH = "/etc/systemd/system/synnax-driver.service";
 
-auto SYSTEMD_SERVICE_TEMPLATE = R"([Unit]
+const auto *const SYSTEMD_SERVICE_TEMPLATE = R"([Unit]
 Description=Synnax Driver Service
 Documentation=https://docs.synnaxlabs.com/reference/driver
 After=network-online.target
@@ -41,6 +40,10 @@ Type=notify
 ExecStart=/usr/local/bin/synnax-driver internal-start --disable-stdin-stop
 User=synnax
 Group=synnax
+EnvironmentFile=-/etc/synnax/driver.env
+
+# Raw Ethernet access for EtherCAT
+AmbientCapabilities=CAP_NET_RAW
 
 # Watchdog configuration
 WatchdogSec=30s
@@ -69,7 +72,9 @@ StandardError=journal
 #RestrictSUIDSGID=true
 #MemoryDenyWriteExecute=true
 
-# Resource limits
+# Resource limits. RTPRIO and MEMLOCK let Arc tasks run on a real-time thread.
+LimitRTPRIO=99
+LimitMEMLOCK=infinity
 LimitNOFILE=65535
 LimitCORE=infinity
 TasksMax=4096
@@ -82,48 +87,45 @@ RestartSec=5s
 WantedBy=multi-user.target
 )";
 
-x::errors::Error create_system_user() {
-    LOG(INFO) << "Creating system user";
-    int result = system(
-        "id -u synnax >/dev/null 2>&1 || useradd -r -s /sbin/nologin synnax"
-    );
-    if (result != 0) { return x::errors::Error("Failed to create system user"); }
-    return {};
+const std::string
+    LATENCY_RULE_PATH = "/etc/udev/rules.d/99-synnax-driver-latency.rules";
+
+/// @brief lets the synnax group hold CPU cores out of deep idle states, which Arc
+/// tasks at high performance do through /dev/cpu_dma_latency.
+const std::string
+    LATENCY_RULE = "KERNEL==\"cpu_dma_latency\", GROUP=\"synnax\", MODE=\"0660\"\n";
+const std::string LATENCY_MATCH = "--name-match=cpu_dma_latency";
+
+const std::string
+    ETHERCAT_RULE_PATH = "/etc/udev/rules.d/99-synnax-driver-ethercat.rules";
+
+/// @brief lets the synnax group open IgH EtherCAT masters through /dev/EtherCAT*.
+const std::string
+    ETHERCAT_RULE = "KERNEL==\"EtherCAT[0-9]*\", GROUP=\"synnax\", MODE=\"0660\"\n";
+const std::string ETHERCAT_MATCH = "--subsystem-match=EtherCAT";
+
+// NOLINTBEGIN(bugprone-command-processor): each command is built from constants.
+/// @brief reloads the udev rules and applies them to the existing devices that match
+/// the udevadm trigger filter in match.
+x::errors::Error apply_udev_rules(const std::string &match) {
+    if (system("udevadm control --reload") != 0)
+        return x::errors::Error("Failed to reload udev rules");
+    if (system(("udevadm trigger " + match).c_str()) != 0)
+        return x::errors::Error("Failed to apply udev rules");
+    return x::errors::NIL;
 }
 
-x::errors::Error install_binary() {
-    LOG(INFO) << "Moving binary to " << BINARY_INSTALL_DIR;
-    std::error_code ec;
-    const fs::path curr_bin_path = fs::read_symlink("/proc/self/exe", ec);
-    if (ec)
-        return x::errors::Error(
-            "Failed to get current executable path: " + ec.message()
-        );
-
-    fs::create_directories(BINARY_INSTALL_DIR, ec);
-    if (ec)
-        return x::errors::Error("Failed to create binary directory: " + ec.message());
-
-    const fs::path target_path = "/usr/local/bin/synnax-driver";
-    // An install run from the installed binary would copy the file onto itself, which
-    // copy_file rejects. Skip the copy: the binary is already in place.
-    const bool already_installed = fs::exists(target_path, ec) &&
-                                   fs::equivalent(curr_bin_path, target_path, ec);
-    if (!already_installed) {
-        fs::copy_file(
-            curr_bin_path,
-            target_path,
-            fs::copy_options::overwrite_existing,
-            ec
-        );
-        if (ec) return x::errors::Error("Failed to copy binary: " + ec.message());
-    }
-
-    if (chmod(target_path.c_str(), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) !=
-        0)
-        return x::errors::Error("Failed to set binary permissions");
-
-    return x::errors::NIL;
+x::errors::Error install_udev_rule(
+    const std::string &path,
+    const std::string &rule,
+    const std::string &match
+) {
+    LOG(INFO) << "Creating udev rule at " << path;
+    std::ofstream rule_file(path.c_str());
+    if (!rule_file) return x::errors::Error("Failed to create udev rule");
+    rule_file << rule;
+    rule_file.close();
+    return apply_udev_rules(match);
 }
 
 x::errors::Error install_service() {
@@ -140,7 +142,13 @@ x::errors::Error install_service() {
     }
 
     if (auto err = create_system_user()) return err;
+    if (auto err = create_env_file()) return err;
     if (auto err = install_binary()) return err;
+    if (auto err = install_udev_rule(LATENCY_RULE_PATH, LATENCY_RULE, LATENCY_MATCH))
+        LOG(WARNING) << "Arc tasks at high performance cannot keep CPU cores awake: "
+                     << err;
+    if (auto err = install_udev_rule(ETHERCAT_RULE_PATH, ETHERCAT_RULE, ETHERCAT_MATCH))
+        LOG(WARNING) << "EtherCAT tasks cannot use an IgH master: " << err;
 
     LOG(INFO) << "Creating service file at " << SYSTEMD_SERVICE_PATH;
     std::error_code ec;
@@ -172,6 +180,14 @@ x::errors::Error uninstall_service() {
         LOG(WARNING) << "Failed to disable service (may not be enabled)";
 
     fs::remove(SYSTEMD_SERVICE_PATH);
+    if (fs::remove(LATENCY_RULE_PATH)) {
+        if (auto err = apply_udev_rules(LATENCY_MATCH))
+            LOG(WARNING) << "Failed to reload udev rules: " << err;
+    }
+    if (fs::remove(ETHERCAT_RULE_PATH)) {
+        if (auto err = apply_udev_rules(ETHERCAT_MATCH))
+            LOG(WARNING) << "Failed to reload udev rules: " << err;
+    }
 
     if (system("systemctl daemon-reload") != 0)
         return x::errors::Error("Failed to reload systemd");
@@ -297,4 +313,6 @@ x::errors::Error status() {
     if (result != 0) return x::errors::Error("Service is not running");
     return x::errors::NIL;
 }
+
+// NOLINTEND(bugprone-command-processor)
 }

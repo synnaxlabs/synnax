@@ -14,7 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -28,7 +28,7 @@ var _ = BeforeSuite(func() {
 
 func TestNI(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service NI Suite")
+	RunSpecs(t, "Service NI Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

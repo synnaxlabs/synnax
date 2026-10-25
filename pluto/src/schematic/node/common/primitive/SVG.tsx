@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/schematic/node/common/primitive/primitive.css";
+
 import { CSS } from "@synnaxlabs/lyra/css";
 import { useUniqueKey } from "@synnaxlabs/lyra/hooks";
 import { color, dimensions, direction } from "@synnaxlabs/x";
@@ -20,6 +22,7 @@ import {
 } from "react";
 
 import { type SVGBasedProps } from "@/schematic/node/common/primitive/orientable";
+import { SYMBOL_COLOR } from "@/schematic/node/common/primitive/variables";
 
 export interface SVGProps
   extends
@@ -45,7 +48,7 @@ export const SVG = ({
   orientation = "left",
   children,
   className,
-  color: colorVal,
+  strokeColor: colorVal,
   style,
   scale = 1,
   ...rest
@@ -69,7 +72,7 @@ export const SVG = ({
       ...style,
       aspectRatio: `${dims.width} / ${dims.height}`,
       width: dimensions.scale(dims, scale * BASE_SCALE).width,
-      [CSS.variable("symbol-color")]: symbolColor,
+      [SYMBOL_COLOR]: symbolColor,
     }),
     [style, dims, scale, symbolColor],
   );

@@ -255,6 +255,161 @@ Entry struct {
 				"schemas/synnax/channel.oracle", "channel")
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 		})
+
+		Describe("Redeclaring types over aliases", func() {
+			var table *resolution.Table
+
+			BeforeEach(func(ctx SpecContext) {
+				table = resolution.NewTable()
+				diag := analyzer.AnalyzeSeeded(ctx, `
+Size enum {
+	small = "small"
+	large = "large"
+}
+
+Method enum {
+	password = "password"
+}
+
+Labeled struct {
+	label  string
+	hidden bool
+}
+
+Valve struct extends Labeled {
+	open bool
+}
+
+Credentials struct {
+	username string
+}
+
+Edge union on variant {
+	pipe Labeled
+}
+`,
+					"schemas/synnax/versions/widget/v0.oracle", "v0", loader, table,
+				)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			})
+
+			analyzeV1 := func(ctx SpecContext, decls string) *diagnostics.Files {
+				return analyzer.AnalyzeSeeded(ctx, `
+Size = v0.Size
+
+Method = v0.Method
+
+Labeled = v0.Labeled
+
+Valve = v0.Valve
+
+Credentials = v0.Credentials
+
+Edge = v0.Edge
+`+decls,
+					"schemas/synnax/versions/widget/v1.oracle", "v1", loader, table,
+				)
+			}
+
+			fieldNames := func(fields []resolution.Field) []string {
+				names := make([]string, len(fields))
+				for i, f := range fields {
+					names[i] = f.Name
+				}
+				return names
+			}
+
+			It("Should accept aliased variants, bases, enums, and defaults", func(
+				ctx SpecContext,
+			) {
+				diag := analyzeV1(ctx, `
+Wide enum extends Size {
+	huge = "huge"
+}
+
+Panel struct extends Labeled {
+	size Size = large
+	hidden?
+}
+
+Node union on variant {
+	valve Valve
+	tank extends Labeled {
+		-hidden
+		size Size = small
+	}
+}
+
+Element union on variant extends Node, Edge {}
+
+Shape union on kind extends Labeled {
+	circle Credentials
+}
+
+Proof union on method Method {
+	password Credentials
+}
+`)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				panel := table.MustGet("v1.Panel")
+				Expect(fieldNames(resolution.UnifiedFields(panel, table))).To(
+					Equal([]string{"label", "size", "hidden"}),
+				)
+				Expect(findField(
+					resolution.UnifiedFields(panel, table), "hidden",
+				).Type.Name).To(Equal("bool"))
+				node := table.MustGet("v1.Node")
+				form := node.Form.(resolution.UnionForm)
+				valve := MustBeOk(form.Variant("valve"))
+				Expect(fieldNames(resolution.UnifiedVariantFields(node, valve, table))).
+					To(Equal([]string{"label", "hidden", "open"}))
+				tank := MustBeOk(form.Variant("tank"))
+				Expect(fieldNames(resolution.UnifiedVariantFields(node, tank, table))).
+					To(Equal([]string{"label", "size"}))
+				element := table.MustGet("v1.Element").Form.(resolution.UnionForm)
+				Expect(element.Variants).To(HaveLen(3))
+				Expect(
+					MustBeOk(element.Variant("pipe")).Type.Name,
+				).To(Equal("v0.Labeled"))
+				shape := table.MustGet("v1.Shape")
+				circle := MustBeOk(shape.Form.(resolution.UnionForm).Variant("circle"))
+				Expect(
+					fieldNames(resolution.UnifiedVariantFields(shape, circle, table)),
+				).
+					To(Equal([]string{"label", "hidden", "username"}))
+			})
+
+			DescribeTable("Should run kind checks through aliases",
+				func(ctx SpecContext, decls, message string) {
+					diag := analyzeV1(ctx, decls)
+					Expect(diag.Ok()).To(BeFalse())
+					Expect(diag.String()).To(ContainSubstring(message))
+				},
+				Entry("a union default whose aliased payload has a required field", `
+Panel struct {
+	edge Edge = pipe
+}
+`, `defaults to union variant "pipe", whose field "label" is required`),
+				Entry("a variant omitting a field it does not inherit", `
+Node union on variant {
+	tank extends Labeled {
+		-open
+	}
+}
+`, `cannot omit field "open", which the variant does not inherit`),
+				Entry("an enum extending an aliased struct", `
+Wide enum extends Labeled {}
+`, "which is not an enum"),
+				Entry("a struct extending an aliased enum", `
+Panel struct extends Size {}
+`, "extends non-struct type"),
+				Entry("a union variant naming an aliased enum", `
+Node union on variant {
+	size Size
+}
+`, "must reference a struct type"),
+			)
+		})
 	})
 
 	Describe("ImEx marker", func() {
@@ -268,6 +423,35 @@ Entry struct {
 			`
 			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
+		})
+
+		It("Should accept @go imex body", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Entry struct {
+					value int32
+					@go imex body
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
+
+		It("Should error when @go imex carries an unknown argument", func(
+			ctx SpecContext,
+		) {
+			source := `
+				@go output "out"
+				Entry struct {
+					value int32
+					@go imex bodies
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring(
+				"malformed @go imex; the marker takes no argument or body",
+			))
 		})
 
 		It("Should error when @go imex carries arguments", func(ctx SpecContext) {
@@ -413,6 +597,132 @@ Entry struct {
 				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 			},
+		)
+
+		It("Should accept a field omitted in some of its languages", func(
+			ctx SpecContext,
+		) {
+			source := `
+				@go output "out"
+				@py output "py/out"
+				@ts output "ts/out"
+				Session struct {
+					key  uuid { @key }
+					hash bytes {
+						@go wire omit
+						@py omit
+						@ts omit
+					}
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			form := table.MustGet("test.Session").Form.(resolution.StructForm)
+			hash := MustBeOk(form.Field("hash"))
+			Expect(omit.IsField(hash, "ts")).To(BeTrue())
+			Expect(omit.IsField(hash, "py")).To(BeTrue())
+			Expect(omit.IsField(hash, "go")).To(BeFalse())
+		})
+
+		It("Should accept an override of a field its parent omits", func(
+			ctx SpecContext,
+		) {
+			source := `
+				@go output "out"
+				@ts output "ts/out"
+				Parent struct {
+					value int32 { @ts omit }
+				}
+				Child struct extends Parent {
+					value?
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
+
+		DescribeTable(
+			"Should reject an illegal field-level omit",
+			func(ctx SpecContext, source, msg string) {
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(msg))
+			},
+			Entry("a field omitted in go", `
+				@go output "out"
+				Entry struct {
+					key   uuid { @key }
+					value int32 { @go omit }
+				}
+			`, "test.Entry.value omits go; use @go marshal omit or @go wire omit"),
+			Entry("a key field omitted in a language", `
+				@go output "out"
+				@ts output "ts/out"
+				Entry struct {
+					key uuid {
+						@key
+						@ts omit
+					}
+				}
+			`, "test.Entry.key is a key and cannot omit ts"),
+			Entry("a key field omitted from the wire", `
+				@go output "out"
+				Entry struct {
+					key uuid {
+						@key
+						@go wire omit
+					}
+				}
+			`, "test.Entry.key is a key and cannot carry @go wire omit"),
+			Entry("an unknown @go wire value", `
+				@go output "out"
+				Entry struct {
+					value int32 { @go wire keep }
+				}
+			`, "test.Entry.value has @go wire keep; the only value is omit"),
+			Entry("a field omitted in a language its type does not generate in", `
+				@go output "out"
+				Entry struct {
+					value int32 { @py omit }
+				}
+			`, "test.Entry.value omits py, but test.Entry does not generate in py"),
+			Entry("a key field omitted in pb", `
+				@go output "out"
+				@pb
+				Entry struct {
+					key uuid {
+						@key
+						@pb omit
+					}
+				}
+			`, "test.Entry.key is a key and cannot omit pb"),
+			Entry("a field omitted in pb without a pb message", `
+				@go output "out"
+				Entry struct {
+					value int32 { @pb omit }
+				}
+			`, "test.Entry.value omits pb, but test.Entry does not generate in pb"),
+			Entry("an override omitting a language its parent field keeps", `
+				@go output "out"
+				@ts output "ts/out"
+				Parent struct {
+					value int32
+				}
+				Child struct extends Parent {
+					value int32 { @ts omit }
+				}
+			`, "test.Child.value overrides an inherited field and cannot omit ts"),
+			Entry("a field omitted in every language its type generates in", `
+				@py output "py/out"
+				@ts output "ts/out"
+				Entry struct {
+					key   uuid { @key }
+					value int32 {
+						@py omit
+						@ts omit
+					}
+				}
+			`, "test.Entry.value is omitted in every language test.Entry generates in"),
 		)
 	})
 
@@ -2448,6 +2758,36 @@ Entry struct {
 			},
 		)
 
+		DescribeTable(
+			"Should reject a required type parameter after an omittable one",
+			func(ctx SpecContext, params string) {
+				source := `Pair struct<` + params + `> {
+					a A
+					b B
+				}`
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(
+					"required type parameter B of Pair cannot follow optional or " +
+						"defaulted type parameter A",
+				))
+			},
+			Entry("optional", "A?, B"),
+			Entry("defaulted", "A = string, B"),
+		)
+
+		It(
+			"Should accept omittable type parameters after required ones",
+			func(ctx SpecContext) {
+				source := `Pair struct<A, B?> {
+					a A
+					b B
+				}`
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue())
+			},
+		)
+
 		It(
 			"Should parse generic struct with default type parameter",
 			func(ctx SpecContext) {
@@ -2464,6 +2804,47 @@ Entry struct {
 				Expect(form.TypeParams[0].Default).NotTo(BeNil())
 				Expect(form.TypeParams[0].Default.Name).To(Equal("string"))
 			},
+		)
+
+		DescribeTable(
+			"Should bind an omitted optional type argument to nil",
+			func(ctx SpecContext, ref string, want []string) {
+				source := `
+				Box struct<T?> {
+					value T?
+				}
+				Pair struct<A?, B?> {
+					a A?
+					b B?
+				}
+				Task struct<T?, C = string> {
+					value  T?
+					config C
+				}
+				Crate<T?> = Box<T>
+
+				Wrapper struct {
+					value ` + ref + `
+				}
+			`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				form := table.MustGet("test.Wrapper").Form.(resolution.StructForm)
+				var got []string
+				for _, arg := range findField(form.Fields, "value").Type.TypeArgs {
+					got = append(got, arg.Name)
+				}
+				Expect(got).To(Equal(want))
+			},
+			Entry("a bare struct", "Box", []string{"nil"}),
+			Entry("a bound struct", "Box<string>", []string{"string"}),
+			Entry("a partly bound struct", "Pair<string>", []string{"string", "nil"}),
+			Entry(
+				"a struct whose later parameter has a default",
+				"Task",
+				[]string{"nil"},
+			),
+			Entry("a bare alias", "Crate", []string{"nil"}),
 		)
 
 		It("Should parse struct with generic field type", func(ctx SpecContext) {
@@ -4057,5 +4438,123 @@ var _ = Describe("Analyze", func() {
 			files = append(files, file)
 		})
 		Expect(files).To(ContainElement("broken.oracle"))
+	})
+})
+
+var _ = Describe("Union enum discriminator", func() {
+	var loader *MockFileLoader
+	BeforeEach(func() { loader = NewMockFileLoader() })
+	const prelude = `
+		Method enum {
+			password = "password"
+			api_key  = "api_key"
+		}
+		Credentials struct { username string }
+		APIKey struct { key string }
+	`
+	It("Should borrow a declared enum as the discriminator", func(ctx SpecContext) {
+		source := prelude + `
+			Proof union on method Method {
+				password Credentials
+				api_key  APIKey
+			}
+		`
+		table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		form := table.MustGet("test.Proof").Form.(resolution.UnionForm)
+		Expect(form.Discriminator).To(Equal("method"))
+		Expect(form.BorrowsEnum()).To(BeTrue())
+		Expect(form.Enum.Name).To(Equal("test.Method"))
+	})
+	It("Should leave the enum unset when none is named", func(ctx SpecContext) {
+		source := prelude + `
+			Proof union on method {
+				password Credentials
+				api_key  APIKey
+			}
+		`
+		table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		Expect(table.MustGet("test.Proof").Form.(resolution.UnionForm).BorrowsEnum()).
+			To(BeFalse())
+	})
+	DescribeTable("Should reject a borrowed enum that does not fit",
+		func(ctx SpecContext, union, message string) {
+			_, diag := analyzer.AnalyzeSource(ctx, prelude+union, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring(message))
+		},
+		Entry("variant without a member", `
+			Proof union on method Method {
+				password Credentials
+				api_key  APIKey
+				oidc     Credentials
+			}
+		`, `union Proof declares variant "oidc", which enum Method has no member for`),
+		Entry("member without a variant", `
+			Proof union on method Method {
+				password Credentials
+			}
+		`, `enum Method member "api_key" has no variant in union Proof`),
+		Entry("a struct instead of an enum", `
+			Proof union on method Credentials {
+				password Credentials
+				api_key  APIKey
+			}
+		`, "union Proof borrows Credentials as its discriminator, which is not an enum"),
+		Entry("an unresolved type", `
+			Proof union on method Missing {
+				password Credentials
+				api_key  APIKey
+			}
+		`, "union Proof borrows unresolved type"),
+		Entry("an int enum", `
+			Level enum {
+				password = 1
+				api_key  = 2
+			}
+			Proof union on method Level {
+				password Credentials
+				api_key  APIKey
+			}
+		`, "union Proof borrows int enum Level as its discriminator"),
+		Entry("an array of the enum", `
+			Proof union on method Method[] {
+				password Credentials
+				api_key  APIKey
+			}
+		`, "union Proof: the discriminator type must be a plain enum reference"),
+		Entry("an optional enum", `
+			Proof union on method Method? {
+				password Credentials
+				api_key  APIKey
+			}
+		`, "union Proof: the discriminator type must be a plain enum reference"),
+		Entry("a map", `
+			Proof union on method map<string, Method> {
+				password Credentials
+				api_key  APIKey
+			}
+		`, "union Proof: the discriminator type must be a plain enum reference"),
+	)
+	It("Should reject an enum omitted in a language the union generates in", func(
+		ctx SpecContext,
+	) {
+		source := `
+			@ts output "out"
+			Method enum {
+				password = "password"
+				@ts omit
+			}
+			Credentials struct { username string }
+			Proof union on method Method {
+				password Credentials
+			}
+		`
+		_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+		Expect(diag.String()).To(ContainSubstring(
+			"test.Proof generates for ts but its discriminator enum references " +
+				"test.Method, which is omitted in ts",
+		))
 	})
 })

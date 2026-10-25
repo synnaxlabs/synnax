@@ -22,8 +22,14 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Tree } from "@/platform/tree";
 import { expandTreeRow, getTreeRow } from "@/platform/tree/menuTestutil";
-import { renderOntologyTree } from "@/platform/tree/treeTestutil";
-import { createConsoleWrapper, uniqueName, withControlHeld } from "@/testutil";
+import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
+import {
+  awaitTextEditingElement,
+  awaitTextEditingExit,
+  createConsoleWrapper,
+  uniqueName,
+  withControlHeld,
+} from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);
@@ -393,6 +399,21 @@ describe("Tree.Tree", () => {
       ).map((row) => row.style.top);
       offsets.forEach((top, index) => expect(top).toBe(`${index * ITEM_HEIGHT}px`));
     });
+
+    it("should start the rename of a new group outside the window", async () => {
+      const { container } = await renderTree(parentID);
+      await findTreeRow(names[CHILD_COUNT - 1]);
+      expect(screen.queryByText(names[0])).toBeNull();
+      const tree = container.querySelector(".pluto-tree");
+      if (tree == null) throw new Error("tree not found");
+      fireEvent.contextMenu(tree);
+      fireEvent.click(await screen.findByText("New group"));
+      const editable = await awaitTextEditingElement();
+      await act(async () => {
+        fireEvent.keyDown(editable, { key: "Escape" });
+      });
+      await awaitTextEditingExit();
+    });
   });
 
   describe("context menu", () => {
@@ -478,6 +499,37 @@ describe("Tree.Tree", () => {
       await waitFor(() => expect(screen.getByText("group service menu")).toBeTruthy());
       const [props] = menuSpy.mock.calls.at(-1) as [Tree.ContextMenuProps];
       expect(props.selection.ids.map(({ key }) => key)).toEqual([survivor.key]);
+    });
+
+    it("should show the fallback menu when a selected resource is deleted while the menu is open", async () => {
+      const parent = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: uniqueName("parent"),
+      });
+      const parentID = group.ontologyID(parent.key);
+      const doomed = await client.groups.create({
+        parent: parentID,
+        name: uniqueName("doomed"),
+      });
+      const TreeContextMenu = ({
+        selection: { ids },
+        state,
+      }: Tree.ContextMenuProps): ReactElement => {
+        const [resource] = Tree.useResources(state, ids);
+        return <span>{`menu for ${resource.name}`}</span>;
+      };
+      const items: Tree.Items = {
+        group: Tree.createItem({ type: "group", ContextMenu: TreeContextMenu }),
+      };
+      await renderTree(parentID, items);
+      await screen.findByText(doomed.name);
+      fireEvent.contextMenu(getTreeRow(doomed.name));
+      await screen.findByText(`menu for ${doomed.name}`);
+      await act(async () => {
+        await client.groups.delete(doomed.key);
+      });
+      await waitFor(() => expect(screen.getByText("Reload Console")).toBeTruthy());
+      expect(screen.queryByText(`menu for ${doomed.name}`)).toBeNull();
     });
   });
 

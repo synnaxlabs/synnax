@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: format-${{ github.ref }}
+  group: format-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -23,9 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/setup@v3
-        with:
-          cache: true
+      - uses: ./.github/actions/setup-pnpm
 
       - name: Check formatting
         run: pnpm check-format

@@ -9,8 +9,8 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
-import { useInitializerRef, useSyncedRef } from "@synnaxlabs/lyra/hooks";
-import { useStoreApi } from "@xyflow/react";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
+import { useStoreApi, useUpdateNodeInternals } from "@xyflow/react";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -18,6 +18,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 
 import { Edge } from "@/schematic/edge";
@@ -47,13 +48,22 @@ const useConfig = <T extends ElementConfig>(
       if (current == null) return;
       dispatch(schematic.setConfig({ key, config: { ...current, ...partial } }));
     },
-    [key, dispatch],
+    [configRef, key, dispatch],
   );
   return [config as T | undefined, handleChange];
 };
 
 const NodeRenderer = ({ position, ...rest }: Base.NodeProps): ReactElement | null => {
   const [config, handleChange] = useConfig<Node.Config>(rest.nodeKey);
+  // React Flow re-measures handles only on a resize. A symbol change may not resize.
+  const updateNodeInternals = useUpdateNodeInternals();
+  const symbolKey = config == null ? null : Node.symbolKey(config);
+  const prevSymbolKey = useRef(symbolKey);
+  useEffect(() => {
+    if (prevSymbolKey.current === symbolKey) return;
+    prevSymbolKey.current = symbolKey;
+    updateNodeInternals(rest.nodeKey);
+  }, [symbolKey, rest.nodeKey, updateNodeInternals]);
   // React flow takes time to unmount, so the config can be temporarily undefined.
   if (config == null) return null;
   const Spec = Node.resolveSpec(config.variant);
@@ -83,8 +93,7 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
   const edgeKeys = useMemo(() => edges.map((e) => e.key), [edges]);
   const configs = useConfigs({ key, keys: edgeKeys });
   const rfStore = useStoreApi();
-  const jumpStoreRef = useInitializerRef<Edge.Jumps.Store>(Edge.Jumps.createStore);
-  const jumpStore = jumpStoreRef.current;
+  const [jumpStore] = useState(Edge.Jumps.createStore);
 
   const recompute = useCallback(() => {
     const { nodeLookup, transform } = rfStore.getState();

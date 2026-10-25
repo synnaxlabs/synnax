@@ -17,26 +17,72 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	arctext "github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type (
 	Arc = arc.Arc
 	Key = arc.Key
 )
+
+// ServiceConfig is the configuration for the Arc API service.
+type ServiceConfig struct {
+	// Instrumentation for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
+	alamos.Instrumentation
+	// RBAC enforces access control on every request.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
+	// Arc stores and runs Arc automations.
+	//
+	// [REQUIRED]
+	Arc *arc.Service
+	// Status stores and retrieves statuses.
+	//
+	// [REQUIRED]
+	Status *status.Service
+}
+
+var (
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for the Arc API service.
+	DefaultServiceConfig = ServiceConfig{}
+)
+
+// Override implements config.Config.
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	c.Arc = override.Nil(c.Arc, other.Arc)
+	c.Status = override.Nil(c.Status, other.Status)
+	return c
+}
+
+// Validate implements config.Config.
+func (c ServiceConfig) Validate() error {
+	v := validate.New("api.arc")
+	v.NotNil("rbac", c.RBAC)
+	v.NotNil("arc", c.Arc)
+	v.NotNil("status", c.Status)
+	return v.Error()
+}
 
 type Service struct {
 	access   *rbac.Service
@@ -45,16 +91,16 @@ type Service struct {
 	alamos.Instrumentation
 }
 
-func NewService(cfgs ...config.LayerConfig) (*Service, error) {
-	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	return &Service{
-		access:          cfg.Service.RBAC,
+		access:          cfg.RBAC,
 		Instrumentation: cfg.Instrumentation,
-		internal:        cfg.Service.Arc,
-		status:          cfg.Service.Status,
+		internal:        cfg.Arc,
+		status:          cfg.Status,
 	}, nil
 }
 
@@ -130,47 +176,57 @@ func (s *Service) Dispatch(
 }
 
 type (
-	// SetRackRequest binds the arc to a rack. A zero Rack unbinds it.
-	SetRackRequest struct {
-		Key  arc.Key  `json:"key"  msgpack:"key"`
-		Rack rack.Key `json:"rack" msgpack:"rack"`
+	// UpdateTaskRequest changes the arc's task. A nil field stays as it is.
+	UpdateTaskRequest struct {
+		// Key is the key of the arc.
+		Key arc.Key `json:"key" msgpack:"key"`
+		// Rack binds the arc to the rack. A zero rack unbinds it.
+		Rack *rack.Key `json:"rack,omitempty" msgpack:"rack,omitempty"`
+		// Performance sets how closely the task's runtime holds timer deadlines.
+		Performance *arctask.Performance `json:"performance,omitempty" msgpack:"performance,omitempty"`
 	}
-	// SetRackResponse carries the arc's task, or a null Task after an unbind.
-	SetRackResponse struct {
+	// UpdateTaskResponse carries the arc's task, or a null Task after an unbind.
+	UpdateTaskResponse struct {
 		Task *task.Task `json:"task" msgpack:"task"`
 	}
 )
 
-// SetRack creates or moves the arc's task so it runs on the requested rack. A zero
-// rack unbinds the arc, deleting its task; unbinding a running arc is rejected.
-func (s *Service) SetRack(
+// UpdateTask creates, moves, or changes the arc's task. A zero rack unbinds the arc,
+// deleting its task; unbinding a running arc is rejected.
+func (s *Service) UpdateTask(
 	ctx context.Context,
 	tx gorp.Tx,
-	req SetRackRequest,
-) (SetRackResponse, error) {
+	req UpdateTaskRequest,
+) (UpdateTaskResponse, error) {
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{arc.OntologyID(req.Key)},
 	}); err != nil {
-		return SetRackResponse{}, err
+		return UpdateTaskResponse{}, err
 	}
-	taskAction := access.ActionCreate
-	if req.Rack == 0 {
-		taskAction = access.ActionDelete
+	taskAction := access.ActionUpdate
+	if req.Rack != nil {
+		taskAction = access.ActionCreate
+		if *req.Rack == 0 {
+			taskAction = access.ActionDelete
+		}
 	}
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  taskAction,
 		Objects: []ontology.ID{{Type: ontology.ResourceTypeTask}},
 	}); err != nil {
-		return SetRackResponse{}, err
+		return UpdateTaskResponse{}, err
 	}
-	tsk, err := s.internal.NewWriter(tx).SetRack(ctx, req.Key, req.Rack)
+	tsk, err := s.internal.NewWriter(tx).UpdateTask(ctx, req.Key, arc.TaskUpdate{
+		Rack:        req.Rack,
+		Performance: req.Performance,
+	})
 	if err != nil {
-		return SetRackResponse{}, err
+		return UpdateTaskResponse{}, err
 	}
-	return SetRackResponse{Task: tsk}, nil
+	return UpdateTaskResponse{Task: tsk}, nil
 }
 
 type (
@@ -180,7 +236,6 @@ type (
 		Names               []string  `json:"names"                  msgpack:"names"`
 		Limit               int       `json:"limit"                  msgpack:"limit"`
 		Offset              int       `json:"offset"                 msgpack:"offset"`
-		IncludeStatus       bool      `json:"include_status"         msgpack:"include_status"`
 		Compile             bool      `json:"compile"                msgpack:"compile"`
 		IgnoreNotFoundError bool      `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}

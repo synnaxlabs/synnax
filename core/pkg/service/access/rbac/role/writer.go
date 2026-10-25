@@ -13,10 +13,10 @@ import (
 	"context"
 	"uuid"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -35,6 +35,9 @@ func (w Writer) Create(ctx context.Context, r *Role) error {
 	}
 	if r.Internal && !w.allowInternal {
 		return errors.Wrap(validate.ErrValidation, "cannot create internal role")
+	}
+	if err := r.Validate(); err != nil {
+		return err
 	}
 	if err := w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
 		return err

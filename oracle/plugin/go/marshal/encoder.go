@@ -12,6 +12,7 @@ package marshal
 import (
 	"bytes"
 	"fmt"
+	"maps"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -22,6 +23,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/typemap"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -72,6 +74,9 @@ type encoderFileOutput struct {
 
 // --- Generation entry point ---
 
+// generateEncoderCodecFile renders the codec file, then renders it again when it
+// imports more than one version of a dependency, so the aliases follow
+// naming.VersionAliases.
 func generateEncoderCodecFile(
 	packageName string,
 	parentPath string,
@@ -79,10 +84,46 @@ func generateEncoderCodecFile(
 	flex []FlexCodec,
 	table *resolution.Table,
 	repoRoot string,
+	pins versioning.Pins,
+) ([]byte, error) {
+	imports := make(map[string]string)
+	content, err := renderEncoderCodecFile(
+		packageName, parentPath, entries, flex, table, repoRoot, pins, nil,
+		imports,
+	)
+	if err != nil {
+		return nil, err
+	}
+	current, err := resolveGoImportPath(parentPath, repoRoot)
+	if err != nil {
+		return nil, err
+	}
+	aliases := naming.VersionAliases(slices.Collect(maps.Keys(imports)), current)
+	if len(aliases) == 0 {
+		return content, nil
+	}
+	return renderEncoderCodecFile(
+		packageName, parentPath, entries, flex, table, repoRoot, pins, aliases,
+		make(map[string]string),
+	)
+}
+
+// renderEncoderCodecFile renders the codec file, recording its imports into imports.
+// aliases forces the alias of each import path it holds.
+func renderEncoderCodecFile(
+	packageName string,
+	parentPath string,
+	entries []CodecEntry,
+	flex []FlexCodec,
+	table *resolution.Table,
+	repoRoot string,
+	pins versioning.Pins,
+	aliases map[string]string,
+	imports map[string]string,
 ) ([]byte, error) {
 	fo := encoderFileOutput{
 		Package:      packageName,
-		ExtraImports: make(map[string]string),
+		ExtraImports: imports,
 	}
 
 	// Generate flex methods for distinct scalar types in sorted order.
@@ -110,6 +151,9 @@ func generateEncoderCodecFile(
 			packageName: packageName,
 			parentPath:  parentPath,
 			imports:     fo.ExtraImports,
+			aliases:     aliases,
+			pins:        pins,
+			owner:       e.Type.QualifiedName,
 		}
 		if uform, isUnion := e.Type.Form.(resolution.UnionForm); isUnion {
 			uc, err := buildUnionCodec(e.Type, uform, b)
@@ -246,11 +290,18 @@ func tpNames(tps []typeParamData) string {
 // --- Encoder builder ---
 
 type encoderBuilder struct {
-	table         *resolution.Table
-	repoRoot      string
-	packageName   string
-	parentPath    string
-	imports       map[string]string
+	table       *resolution.Table
+	repoRoot    string
+	packageName string
+	parentPath  string
+	imports     map[string]string
+	// aliases forces the alias of each import path it holds.
+	aliases map[string]string
+	// pins resolves a stored reference to the dependency version that owner's version
+	// file imports.
+	pins versioning.Pins
+	// owner is the qualified name of the type whose fields the builder is processing.
+	owner         string
 	encodeLines   []string
 	decodeLines   []string
 	needsMath     bool
@@ -318,11 +369,11 @@ func (b *encoderBuilder) processFields(
 			}
 		}
 
-		if f.Optional && !b.isGoNilable(f.Type) {
+		if f.Optional && !typemap.Nilable(f.Type, b.table) {
 			if err := b.processOptional(f, getPath, setPath); err != nil {
 				return err
 			}
-		} else if f.Optional && b.isGoNilable(f.Type) {
+		} else if f.Optional {
 			if err := b.processOptionalNilable(f, getPath, setPath); err != nil {
 				return err
 			}
@@ -479,6 +530,9 @@ func (b *encoderBuilder) processStruct(
 			substituted[i] = f
 			substituted[i].Type = resolution.SubstituteTypeRef(f.Type, typeArgMap)
 		}
+		prev := b.owner
+		b.owner = actual.QualifiedName
+		defer func() { b.owner = prev }()
 		return b.processFields(substituted, getPath, setPath)
 	}
 
@@ -646,6 +700,9 @@ func buildUnionCodec(
 				packageName: b.packageName,
 				parentPath:  b.parentPath,
 				imports:     b.imports,
+				aliases:     b.aliases,
+				pins:        b.pins,
+				owner:       b.owner,
 			}
 			if err := fb.processFields(inlineFields, "v", "v"); err != nil {
 				return concreteCodec{}, errors.Wrapf(err,
@@ -758,7 +815,7 @@ func (b *encoderBuilder) processOptional(
 	}
 
 	// Optional other (pointer to struct/primitive)
-	goType, err := b.goTypeName(resolved)
+	goType, err := typemap.GoTypeRefName(f.Type, b.table, b.goTypeName)
 	if err != nil {
 		return err
 	}
@@ -837,14 +894,15 @@ func (b *encoderBuilder) processArray(
 	if !ok {
 		return errors.Newf("cannot resolve array element type %s", elemRef.Name)
 	}
-	goType, err := b.resolveGoSliceElemType(elemType)
+	goType, err := typemap.ResolveGoSliceElemType(elemRef, b.table, b.goTypeName)
 	if err != nil {
 		return err
 	}
 
 	// Write a presence bit to distinguish nil from empty slices.
 	// When inside a optional guard, the slice is already known non-nil.
-	if !b.skipNilCheck {
+	known := b.takeNonNil()
+	if !known {
 		b.encodeLines = append(b.encodeLines,
 			ind+fmt.Sprintf("w.Bool(%s != nil)", getPath),
 			ind+fmt.Sprintf("if %s != nil {", getPath),
@@ -883,7 +941,7 @@ func (b *encoderBuilder) processArray(
 
 	b.encodeLines = append(b.encodeLines, ind+"\t}")
 	b.decodeLines = append(b.decodeLines, ind+"\t}")
-	if !b.skipNilCheck {
+	if !known {
 		b.encodeLines = append(b.encodeLines, ind+"}")
 		b.decodeLines = append(b.decodeLines, ind+"}", ind+"}")
 	}
@@ -903,18 +961,19 @@ func (b *encoderBuilder) processMap(
 	if !ok {
 		return errors.Newf("cannot resolve map value type %s", valRef.Name)
 	}
-	goKeyType, err := b.goTypeName(keyType)
+	goKeyType, err := typemap.GoTypeRefName(keyRef, b.table, b.goTypeName)
 	if err != nil {
 		return err
 	}
-	goValType, err := b.goTypeName(valType)
+	goValType, err := typemap.GoTypeRefName(valRef, b.table, b.goTypeName)
 	if err != nil {
 		return err
 	}
 
 	// Write a presence bit to distinguish nil from empty maps. When inside a optional
 	// guard, the map is already known non-nil.
-	if !b.skipNilCheck {
+	known := b.takeNonNil()
+	if !known {
 		b.encodeLines = append(b.encodeLines,
 			ind+fmt.Sprintf("w.Bool(%s != nil)", getPath),
 			ind+fmt.Sprintf("if %s != nil {", getPath),
@@ -953,7 +1012,7 @@ func (b *encoderBuilder) processMap(
 		ind+"\t\t"+setPath+"[key] = val",
 		ind+"\t}",
 	)
-	if !b.skipNilCheck {
+	if !known {
 		b.encodeLines = append(b.encodeLines, ind+"}")
 		b.decodeLines = append(b.decodeLines, ind+"}", ind+"}")
 	}
@@ -1023,7 +1082,18 @@ func (b *encoderBuilder) processLeaf(
 		)
 
 	case "bytes":
-		// Write a presence bit to distinguish nil from empty byte slices.
+		// Write a presence bit to distinguish nil from empty byte slices. Inside an
+		// optional guard, the slice is already known non-nil.
+		if b.takeNonNil() {
+			b.encodeLines = append(b.encodeLines,
+				ind+fmt.Sprintf("w.WriteWithLen(%s)", valPath),
+			)
+			b.decodeLines = append(b.decodeLines, ind+fmt.Sprintf(
+				"%s, err = r.ReadWithLen(); if err != nil { return err }",
+				setPath,
+			))
+			break
+		}
 		b.encodeLines = append(b.encodeLines,
 			ind+fmt.Sprintf("w.Bool(%s != nil)", valPath),
 			ind+fmt.Sprintf("if %s != nil {", valPath),
@@ -1042,14 +1112,27 @@ func (b *encoderBuilder) processLeaf(
 		)
 
 	case "bool":
-		b.encodeLines = append(b.encodeLines,
-			ind+fmt.Sprintf("w.Bool(%s)", valPath))
-		b.decodeWithErr(
-			ind + fmt.Sprintf(
-				"if %s, err = r.Bool(); err != nil { return err }",
-				setPath,
-			),
-		)
+		if goTypeCast != "" {
+			b.encodeLines = append(b.encodeLines,
+				ind+fmt.Sprintf("w.Bool(bool(%s))", valPath))
+			b.decodeLine(
+				ind + fmt.Sprintf(
+					"{ rawV, err := r.Bool(); if err != nil { return err }; "+
+						"%s = %s(rawV) }",
+					setPath,
+					goTypeCast,
+				),
+			)
+		} else {
+			b.encodeLines = append(b.encodeLines,
+				ind+fmt.Sprintf("w.Bool(%s)", valPath))
+			b.decodeWithErr(
+				ind + fmt.Sprintf(
+					"if %s, err = r.Bool(); err != nil { return err }",
+					setPath,
+				),
+			)
+		}
 
 	case "int8":
 		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Int8", "int8", "int8(%s)")
@@ -1174,16 +1257,12 @@ func (b *encoderBuilder) unwrapType(typ resolution.Type) resolution.Type {
 	return typemap.UnwrapType(typ, b.table)
 }
 
-func (b *encoderBuilder) isGoNilable(ref resolution.TypeRef) bool {
-	resolved, ok := ref.Resolve(b.table)
-	if !ok {
-		return false
-	}
-	actual := b.unwrapType(resolved)
-	if bg, ok := actual.Form.(resolution.BuiltinGenericForm); ok {
-		return bg.Name == "Array" || bg.Name == "Map"
-	}
-	return false
+// takeNonNil reports whether the value about to be encoded is known non-nil, and clears
+// the flag so the value's elements write their own presence bits.
+func (b *encoderBuilder) takeNonNil() bool {
+	known := b.skipNilCheck
+	b.skipNilCheck = false
+	return known
 }
 
 func (b *encoderBuilder) resolveLeaf(
@@ -1227,6 +1306,9 @@ func (b *encoderBuilder) goTypeName(typ resolution.Type) (string, error) {
 	if goPath == "" || goPath == b.parentPath {
 		return goName, nil
 	}
+	if p, ok := b.pins.Path(b.owner, typ); ok {
+		goPath = p
+	}
 	importPath, err := resolveGoImportPath(goPath, b.repoRoot)
 	if err != nil {
 		return "", err
@@ -1238,13 +1320,16 @@ func (b *encoderBuilder) goTypeName(typ resolution.Type) (string, error) {
 		}
 		return qualifier + "." + goName, nil
 	}
-	alias := naming.DerivePackageAlias(goPath, b.packageName)
-	if alias == b.packageName || b.aliasUsed(alias) {
-		parent := filepath.Base(filepath.Dir(goPath))
-		alias = parent + alias
-	}
-	for b.aliasUsed(alias) {
-		alias = alias + "x"
+	alias, forced := b.aliases[importPath]
+	if !forced {
+		alias = naming.DerivePackageAlias(goPath, b.packageName)
+		if alias == b.packageName || b.aliasUsed(alias) {
+			parent := filepath.Base(filepath.Dir(goPath))
+			alias = parent + alias
+		}
+		for b.aliasUsed(alias) {
+			alias = alias + "x"
+		}
 	}
 	// Only store an alias when it differs from the package's natural name.
 	actualPkg := filepath.Base(importPath)
@@ -1263,10 +1348,6 @@ func (b *encoderBuilder) aliasUsed(alias string) bool {
 		}
 	}
 	return false
-}
-
-func (b *encoderBuilder) resolveGoSliceElemType(typ resolution.Type) (string, error) {
-	return typemap.ResolveGoSliceElemType(typ, b.table, b.goTypeName)
 }
 
 // --- Template ---

@@ -7,43 +7,53 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package auth provides the credential primitives used to authenticate entities in
-// Synnax. It defines the plaintext credential payload [Credentials] and the gorp-backed
-// [Service] that persists and validates them. Password hashing is an implementation
-// detail of [Service].
-//
-// Higher-level packages compose these primitives: the user service owns credential
-// lifecycle alongside user records and drives startup-time root-user reconciliation
-// (creating, demoting, or rotating the root credential to match the configured root).
-// Direct callers of this package are expected to be infrastructure-level — most
-// application code should reach for the user service instead.
+// Package auth logs subjects in and keeps their sessions. A subject presents a [Proof];
+// the [Authenticator] for its method checks it; the [Service] then issues a session
+// token that every later request carries. Each method lives in its own package, such as
+// password.
 package auth
 
 import (
+	"context"
+	"uuid"
+
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Credentials is a set of unencrypted username/password credentials used to
-// authenticate an entity (user, client, etc.). These are NOT safe to store on disk;
-// persistent storage of credentials is the responsibility of [Service].
-type Credentials struct {
-	// Username is the username of the credential entry.
-	Username string `json:"username" msgpack:"username"`
-	// Password is the plaintext password of the credential entry. Hashing and
-	// validation are the responsibility of [Service].
-	Password string `json:"password" msgpack:"password"`
-}
-
 var _ override.Zeroable = Credentials{}
 
-// IsZero implements the override.Zeroable interface.
+// IsZero implements override.Zeroable.
 func (c Credentials) IsZero() bool { return c == Credentials{} }
 
-// Validate validates the Credentials.
-func (c Credentials) Validate() error {
-	v := validate.New("auth.credentials")
-	v.NotEmptyString("username", c.Username)
-	v.NotEmptyString("password", c.Password)
-	return v.Error()
+func (p Proof) method() (Method, error) {
+	switch p.Variant.(type) {
+	case PasswordProof:
+		return MethodPassword, nil
+	}
+	return "", errors.Wrapf(
+		validate.ErrValidation,
+		"proof has no method: %T",
+		p.Variant,
+	)
+}
+
+// Identity is the subject a proof resolved to and the credential that proved it.
+type Identity struct {
+	// Subject is the user or rack that logged in.
+	Subject ontology.ID
+	// Credential is the key of the credential record the proof matched.
+	Credential uuid.UUID
+}
+
+// Authenticator checks proofs for one [Method].
+type Authenticator interface {
+	// Authenticate checks the proof and returns the identity it proves. It returns
+	// [ErrInvalidCredentials] when the proof matches no stored credential.
+	Authenticate(ctx context.Context, proof Proof) (Identity, error)
+	// DeleteFor removes every credential of the given subjects within tx.
+	DeleteFor(ctx context.Context, tx gorp.Tx, subjects ...ontology.ID) error
 }

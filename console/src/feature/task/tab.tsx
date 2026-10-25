@@ -24,7 +24,7 @@ import { getIcon } from "@/feature/task/types";
 import { Panel } from "@/platform/panel";
 import { type Task } from "@/platform/task";
 
-export const FORMS: Task.Forms = {
+const FORMS: Task.Forms = {
   ...EtherCAT.Task.FORMS,
   ...HTTP.Task.FORMS,
   ...LabJack.Task.FORMS,
@@ -87,5 +87,6 @@ export const TAB: Panel.Tab = {
     // nothing running, so core seeds it as never deployed.
     await client.tasks.create({ ...corpse.payload, status: undefined });
   },
-  useTombstone: Panel.createTombstoneReader(Base),
+  // Only these hooks, so the bundler can drop the rest of the namespace.
+  Guard: Panel.createGuard({ useTombstone: Base.useTombstone }),
 };

@@ -9,10 +9,10 @@
 
 package v0
 
-import "github.com/synnaxlabs/x/gorp"
+import "github.com/synnaxlabs/gorp/migrate"
 
 // Migration re-encodes stored workspaces from MessagePack to Orc.
-var Migration = gorp.CodecMigration[Key, Workspace]("msgpack_to_orc")
+var Migration = migrate.Codec[Key, Workspace]("msgpack_to_orc")
 
 // NormalizeKeys re-keys Workspace rows stored under the pre-v0.54 key format.
-var NormalizeKeys = gorp.NormalizeKeysMigration[Key, Workspace]("Workspace")
+var NormalizeKeys = migrate.NormalizeKeys[Key, Workspace]("Workspace")

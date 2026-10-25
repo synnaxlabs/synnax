@@ -11,11 +11,12 @@ import "@/feature/embedded/useDiagnosticsModal.css";
 
 import { type status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
+import { Description } from "@synnaxlabs/lyra/description";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Modal } from "@synnaxlabs/lyra/modal";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Text } from "@synnaxlabs/lyra/text";
 import { Size, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { save } from "@tauri-apps/plugin-dialog";
 import { type ReactElement, type ReactNode, useEffect, useRef, useState } from "react";
@@ -70,12 +71,10 @@ interface FieldProps {
 }
 
 const Field = ({ label, children }: FieldProps): ReactElement => (
-  <Flex.Box x gap="medium" align="start">
-    <Text.Text className={CSS.BE("diagnostics", "label")} color={9} weight={450}>
-      {label}
-    </Text.Text>
-    <Text.Text className={CSS.BE("diagnostics", "value")}>{children}</Text.Text>
-  </Flex.Box>
+  <Description.Item>
+    <Description.Label>{label}</Description.Label>
+    <Description.Value>{children}</Description.Value>
+  </Description.Item>
 );
 
 const useDiagnostics = (state: SupervisorStatus["state"]): Diagnostics | null => {
@@ -87,7 +86,7 @@ const useDiagnostics = (state: SupervisorStatus["state"]): Diagnostics | null =>
         const next = await retrieveDiagnostics();
         if (!signal.aborted) setDiagnostics(next);
       } catch (err) {
-        if (!signal.aborted) handleError(err, "Failed to read the diagnostics");
+        if (!signal.aborted) handleError(err, "Failed to read diagnostics");
       }
     },
     [state, handleError],
@@ -104,7 +103,7 @@ const useLog = (): string => {
       handleError(async () => {
         const next = format(await retrieveLogTail());
         if (!stopped) setLog(next);
-      }, "Failed to read the log");
+      }, "Failed to read log");
     refresh();
     const interval = setInterval(refresh, LOG_REFRESH_INTERVAL.milliseconds);
     return () => {
@@ -129,20 +128,15 @@ const Log = (): ReactElement => {
   );
 };
 
-/**
- * Opens a dialog that shows the health of Synnax Desktop, the place and size of its
- * data, and the end of its log. From it, a person can restart the embedded Core and
- * export an archive for support.
- */
-export const useDiagnosticsModal = Modals.create(() => {
+const DiagnosticsModal = () => {
   const status = useStatus();
   const diagnostics = useDiagnostics(status.state);
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
   const restart = useRestart();
   const reset = useReset();
-  const revealData = useReveal(showData, "Failed to show the data folder");
-  const revealLogs = useReveal(showLogs, "Failed to show the logs");
+  const revealData = useReveal(showData, "Failed to show data folder");
+  const revealLogs = useReveal(showLogs, "Failed to show logs");
   const handleExport = (): void =>
     handleError(async () => {
       const stamp = TimeStamp.now().toString("ISODate", "local");
@@ -153,19 +147,23 @@ export const useDiagnosticsModal = Modals.create(() => {
       });
       if (path == null) return;
       await exportDiagnostics(path);
-      addStatus({ variant: "success", message: `Exported diagnostics to ${path}` });
-    }, "Failed to export the diagnostics");
+      addStatus({
+        variant: "success",
+        message: "Exported diagnostics",
+        description: `Saved to ${path}.`,
+      });
+    }, "Failed to export diagnostics");
   const history = diagnostics?.history;
   return (
-    <Modals.Frame className={CSS.B("diagnostics")}>
-      <Modals.Header icon={<Icon.Hardware />}>Diagnostics</Modals.Header>
-      <Modals.Body className={CSS.BE("diagnostics", "body")} gap="large">
+    <Modal.Frame className={CSS.B("diagnostics")}>
+      <Modal.Header icon={<Icon.Hardware />}>Diagnostics</Modal.Header>
+      <Modal.Body className={CSS.BE("diagnostics", "body")} gap="large">
         <Flex.Box y gap="small">
           <Status.Summary variant={STATE_VARIANTS[status.state]} level="h4">
             {STATE_MESSAGES[status.state]}
           </Status.Summary>
           {diagnostics != null && history != null && (
-            <>
+            <Description.List>
               <Field label="Version">{diagnostics.version}</Field>
               {history.readyAt != null && (
                 <Field label="Running since">
@@ -177,7 +175,7 @@ export const useDiagnosticsModal = Modals.create(() => {
               )}
               <Field label="Starts">{history.starts} in this session</Field>
               {history.lastExit != null && (
-                <Field label="Last problem">{history.lastExit}</Field>
+                <Field label="Last problem">{history.lastExit.message}</Field>
               )}
               {status.state === "failed" && (
                 <Field label="Reason">{status.message}</Field>
@@ -185,12 +183,12 @@ export const useDiagnosticsModal = Modals.create(() => {
               <Field label="Data">
                 {formatSize(diagnostics.dataSize)} in {diagnostics.dataDir}
               </Field>
-            </>
+            </Description.List>
           )}
         </Flex.Box>
         <Log />
-      </Modals.Body>
-      <Modals.Footer>
+      </Modal.Body>
+      <Modal.Footer>
         <Flex.Box
           x
           gap="small"
@@ -223,7 +221,14 @@ export const useDiagnosticsModal = Modals.create(() => {
             Restart
           </Button.Button>
         </Flex.Box>
-      </Modals.Footer>
-    </Modals.Frame>
+      </Modal.Footer>
+    </Modal.Frame>
   );
-});
+};
+
+/**
+ * Opens a dialog that shows the health of Synnax Desktop, the place and size of its
+ * data, and the end of its log. From it, a person can restart the embedded Core and
+ * export an archive for support.
+ */
+export const useDiagnosticsModal = Modals.create(DiagnosticsModal);

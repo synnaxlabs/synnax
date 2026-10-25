@@ -4825,9 +4825,11 @@ time.wait{duration=500ms} -> output`
 					Expect(gate.Type).To(Equal("constant"))
 
 					alarm := findTopLevelScope(inter, "alarm")
-					Expect(alarm.Activation).ToNot(BeNil())
-					Expect(alarm.Activation.Node).To(Equal(gate.Key))
-					Expect(alarm.Activation.Param).To(Equal(ir.DefaultOutputParam))
+					Expect(alarm.Activations).To(HaveLen(1))
+					Expect(alarm.Activations[0].On.Node).To(Equal(gate.Key))
+					Expect(
+						alarm.Activations[0].On.Param,
+					).To(Equal(ir.DefaultOutputParam))
 				},
 			)
 
@@ -5224,9 +5226,11 @@ time.wait{duration=500ms} -> output`
 					main := findTopLevelScope(inter, "main")
 					Expect(main.Mode).To(Equal(ir.ScopeModeSequential))
 					Expect(main.Liveness).To(Equal(ir.LivenessGated))
-					Expect(main.Activation).ToNot(BeNil())
-					Expect(main.Activation.Node).To(Equal("on_trigger_0"))
-					Expect(main.Activation.Param).To(Equal(ir.DefaultOutputParam))
+					Expect(main.Activations).To(HaveLen(1))
+					Expect(main.Activations[0].On.Node).To(Equal("on_trigger_0"))
+					Expect(
+						main.Activations[0].On.Param,
+					).To(Equal(ir.DefaultOutputParam))
 
 					// No dataflow edges and no write node for the sequence name.
 					Expect(inter.Edges).To(BeEmpty())
@@ -5264,8 +5268,8 @@ time.wait{duration=500ms} -> output`
 				// difference in source syntax doesn't change the IR shape.
 				Expect(inter.Edges).To(BeEmpty())
 				main := findTopLevelScope(inter, "main")
-				Expect(main.Activation).ToNot(BeNil())
-				Expect(main.Activation.Node).To(Equal("on_sensor_0"))
+				Expect(main.Activations).To(HaveLen(1))
+				Expect(main.Activations[0].On.Node).To(Equal("on_sensor_0"))
 			})
 
 			It(
@@ -5302,8 +5306,8 @@ time.wait{duration=500ms} -> output`
 					main := findTopLevelScope(inter, "main")
 					Expect(main.Steps).To(HaveLen(2))
 					Expect(main.Steps[0].Key()).To(Equal("first"))
-					Expect(main.Activation).ToNot(BeNil())
-					Expect(main.Activation.Node).To(Equal("on_trigger_0"))
+					Expect(main.Activations).To(HaveLen(1))
+					Expect(main.Activations[0].On.Node).To(Equal("on_trigger_0"))
 				},
 			)
 
@@ -5387,8 +5391,8 @@ time.wait{duration=500ms} -> output`
 					hold := findMember(main, "hold").Scope
 					synth := findMember(*hold, "__inline_0").Scope
 					Expect(synth.Liveness).To(Equal(ir.LivenessGated))
-					Expect(synth.Activation).ToNot(BeNil())
-					Expect(synth.Activation.Param).To(Equal("yes"))
+					Expect(synth.Activations).To(HaveLen(1))
+					Expect(synth.Activations[0].On.Param).To(Equal("yes"))
 				},
 			)
 
@@ -5503,8 +5507,8 @@ time.wait{duration=500ms} -> output`
 					yesBody := findMember(*hold, "__inline_0").Scope
 					noBody := findMember(*hold, "__inline_1").Scope
 					params := []string{
-						yesBody.Activation.Param,
-						noBody.Activation.Param,
+						yesBody.Activations[0].On.Param,
+						noBody.Activations[0].On.Param,
 					}
 					Expect(params).To(ConsistOf("yes", "no"))
 				},
@@ -5555,7 +5559,7 @@ time.wait{duration=500ms} -> output`
 					main := findTopLevelScope(inter, "main")
 					hold := findMember(main, "hold").Scope
 					synth := findMember(*hold, "__inline_0").Scope
-					Expect(synth.Activation.Param).To(Equal("yes"))
+					Expect(synth.Activations[0].On.Param).To(Equal("yes"))
 					inlineCount := 0
 					for _, stratum := range hold.Strata {
 						for _, m := range stratum {
@@ -5605,11 +5609,11 @@ time.wait{duration=500ms} -> output`
 					Expect(main.Mode).To(Equal(ir.ScopeModeParallel))
 					Expect(main.Steps).To(BeEmpty())
 					Expect(
-						findMember(main, "__inline_0").Scope.Activation,
-					).ToNot(BeNil())
+						findMember(main, "__inline_0").Scope.Activations,
+					).To(HaveLen(1))
 					Expect(
-						findMember(main, "__inline_1").Scope.Activation,
-					).ToNot(BeNil())
+						findMember(main, "__inline_1").Scope.Activations,
+					).To(HaveLen(1))
 				},
 			)
 
@@ -5759,7 +5763,7 @@ time.wait{duration=500ms} -> output`
 					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 					main := findTopLevelScope(inter, "main")
-					Expect(main.Activation).ToNot(BeNil(),
+					Expect(main.Activations).To(HaveLen(1),
 						"named top-level stage must keep its trigger activation")
 					Expect(main.Liveness).To(Equal(ir.LivenessGated))
 				},
@@ -5814,9 +5818,9 @@ time.wait{duration=500ms} -> output`
 						"inline flow target must surface as a root-level synth sibling")
 					Expect(synth.Liveness).To(Equal(ir.LivenessGated),
 						"synth inline must be gated by its activation handle")
-					Expect(synth.Activation).ToNot(BeNil(),
+					Expect(synth.Activations).To(HaveLen(1),
 						"synth inline must have an Activation handle bound")
-					Expect(synth.Activation.Node).ToNot(BeEmpty(),
+					Expect(synth.Activations[0].On.Node).ToNot(BeEmpty(),
 						"activation must fire on the upstream source's output node")
 				},
 			)
@@ -5925,11 +5929,11 @@ time.wait{duration=500ms} -> output`
 					Expect(synths).To(HaveLen(2),
 						"each inline flow target must produce a distinct synth sibling")
 					Expect(synths[0].Key).ToNot(Equal(synths[1].Key))
-					Expect(synths[0].Activation).ToNot(BeNil())
-					Expect(synths[1].Activation).ToNot(BeNil())
+					Expect(synths[0].Activations).To(HaveLen(1))
+					Expect(synths[1].Activations).To(HaveLen(1))
 					Expect(
-						synths[0].Activation.Node,
-					).ToNot(Equal(synths[1].Activation.Node),
+						synths[0].Activations[0].On.Node,
+					).ToNot(Equal(synths[1].Activations[0].On.Node),
 						"each synth must be gated by its own source's output")
 				},
 			)
@@ -5979,7 +5983,7 @@ time.wait{duration=500ms} -> output`
 					}
 					Expect(synths).To(HaveLen(1),
 						"only the inline flow target must produce a synth sibling")
-					Expect(synths[0].Activation).ToNot(BeNil())
+					Expect(synths[0].Activations).To(HaveLen(1))
 				},
 			)
 
@@ -6023,11 +6027,11 @@ time.wait{duration=500ms} -> output`
 					Expect(main.Mode).To(Equal(ir.ScopeModeParallel))
 					Expect(main.Steps).To(BeEmpty())
 					Expect(
-						findMember(main, "__inline_0").Scope.Activation,
-					).ToNot(BeNil())
+						findMember(main, "__inline_0").Scope.Activations,
+					).To(HaveLen(1))
 					Expect(
-						findMember(main, "__inline_1").Scope.Activation,
-					).ToNot(BeNil())
+						findMember(main, "__inline_1").Scope.Activations,
+					).To(HaveLen(1))
 				},
 			)
 
@@ -6157,7 +6161,7 @@ time.wait{duration=500ms} -> output`
 					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 					main := findTopLevelScope(inter, "main")
-					Expect(main.Activation).ToNot(BeNil(),
+					Expect(main.Activations).To(HaveLen(1),
 						"named top-level stage must keep its trigger activation")
 					Expect(main.Liveness).To(Equal(ir.LivenessGated))
 				},
@@ -6196,7 +6200,7 @@ time.wait{duration=500ms} -> output`
 					inner := findMember(*outer, "__inline_1").Scope
 					for _, s := range []*ir.Scope{outer, inner} {
 						Expect(s.Liveness).To(Equal(ir.LivenessGated))
-						Expect(s.Activation).ToNot(BeNil())
+						Expect(s.Activations).To(HaveLen(1))
 					}
 				},
 			)
@@ -6431,10 +6435,51 @@ time.wait{duration=500ms} -> output`
 					Expect(highConst.Type).To(Equal("constant"))
 
 					alarm := findTopLevelScope(inter, "alarm")
-					Expect(alarm.Activation).ToNot(BeNil())
-					Expect(alarm.Activation.Node).To(Equal(highConst.Key))
-					Expect(alarm.Activation.Param).To(Equal(ir.DefaultOutputParam))
+					Expect(alarm.Activations).To(HaveLen(1))
+					Expect(alarm.Activations[0].On.Node).To(Equal(highConst.Key))
+					Expect(
+						alarm.Activations[0].On.Param,
+					).To(Equal(ir.DefaultOutputParam))
 				},
+			)
+			DescribeTable(
+				"Should record the arrow kind on every scope jump",
+				func(ctx SpecContext, arrow string, kind ir.EdgeKind) {
+					resolver := []symbol.Symbol{{
+						Name: "cmd",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.U8()),
+						ID:   10060,
+					}}
+					source := strings.ReplaceAll(`
+				sequence main {
+				    stage a {
+				        cmd == 1 ARROW b
+				        cmd == 2 ARROW abort
+				    }
+				    stage b {}
+				}
+				sequence abort {
+				    stage hold {}
+				}
+				cmd == 3 ARROW main`, "ARROW", arrow)
+					parsed := MustSucceed(text.Parse(text.Text{Raw: source}))
+					inter, diagnostics := text.Analyze(
+						ctx,
+						parsed,
+						NewRoot(nil, resolver...),
+					)
+					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+					main := findTopLevelScope(inter, "main")
+					Expect(main.Activations).To(HaveLen(1))
+					Expect(main.Activations[0].Kind).To(Equal(kind))
+					Expect(main.Transitions).To(HaveLen(2))
+					for _, t := range main.Transitions {
+						Expect(t.Kind).To(Equal(kind), t.String())
+					}
+				},
+				Entry("=>", "=>", ir.EdgeKindConditional),
+				Entry("->", "->", ir.EdgeKindContinuous),
 			)
 		})
 
@@ -6470,8 +6515,7 @@ time.wait{duration=500ms} -> output`
 					main := findTopLevelScope(inter, "main")
 					Expect(main.Transitions).To(HaveLen(1))
 					t := main.Transitions[0]
-					Expect(t.TargetKey).ToNot(BeNil())
-					Expect(*t.TargetKey).To(Equal("second"))
+					Expect(t.Target.Variant).To(Equal(ir.StepTarget{Key: "second"}))
 					Expect(t.On.Node).To(HavePrefix("expression_"))
 				},
 			)
@@ -6529,8 +6573,7 @@ time.wait{duration=500ms} -> output`
 					Expect(main.Transitions).To(HaveLen(1),
 						"=> second must be placed on main's frame")
 					t := main.Transitions[0]
-					Expect(t.TargetKey).ToNot(BeNil())
-					Expect(*t.TargetKey).To(Equal("second"))
+					Expect(t.Target.Variant).To(Equal(ir.StepTarget{Key: "second"}))
 					Expect(t.On.Node).To(HavePrefix("on_trigger"))
 
 					// The nested sequence inside first must NOT carry an exit
@@ -6590,7 +6633,9 @@ time.wait{duration=500ms} -> output`
 					outer := findTopLevelScope(inter, "outer")
 					Expect(outer.Transitions).To(HaveLen(1),
 						"outer must carry only its terminal step's completion exit")
-					Expect(outer.Transitions[0].TargetKey).To(BeNil(),
+					Expect(
+						outer.Transitions[0].Target.Variant,
+					).To(Equal(ir.ExitTarget{}),
 						"outer's transition must be an exit, not the shadowed jump")
 
 					inner := findMember(outer, "inner").Scope
@@ -6598,8 +6643,7 @@ time.wait{duration=500ms} -> output`
 					Expect(inner.Transitions).To(HaveLen(1),
 						"inner must carry the transition because its target shadows outer's")
 					t := inner.Transitions[0]
-					Expect(t.TargetKey).ToNot(BeNil())
-					Expect(*t.TargetKey).To(Equal("target"))
+					Expect(t.Target.Variant).To(Equal(ir.StepTarget{Key: "target"}))
 				},
 			)
 
@@ -6657,13 +6701,8 @@ time.wait{duration=500ms} -> output`
 			)
 
 			It(
-				"Preserves root-level activation for => root_sibling from inside a top-level sequence",
+				"Should record a jump to a top-level scope on the scope that holds it",
 				func(ctx SpecContext) {
-					// Regression guard for the activation path. When the target
-					// is not in any enclosing frame's memberKeys but is a root-
-					// level scope, the resolver must register an activation
-					// (not a transition) and the my_funcng loop must set
-					// Activation on that scope.
 					resolver := []symbol.Symbol{
 						{
 							Name: "trigger",
@@ -6693,10 +6732,13 @@ time.wait{duration=500ms} -> output`
 					)
 					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-					other := findTopLevelScope(inter, "other")
-					Expect(other.Activation).ToNot(BeNil(),
-						"=> other from inside main must stamp an Activation handle on other")
-					Expect(other.Activation.Node).To(HavePrefix("on_trigger"))
+					Expect(findTopLevelScope(inter, "other").Activations).To(BeEmpty())
+					main := findTopLevelScope(inter, "main")
+					Expect(main.Transitions).To(HaveLen(1))
+					Expect(main.Transitions[0].On.Node).To(HavePrefix("on_trigger"))
+					Expect(
+						main.Transitions[0].Target.Variant,
+					).To(Equal(ir.ScopeTarget{Key: "other"}))
 				},
 			)
 		})
@@ -6732,8 +6774,7 @@ time.wait{duration=500ms} -> output`
 					Expect(main.Transitions).To(HaveLen(1),
 						"the parent must own the nested step's completion transition")
 					t := main.Transitions[0]
-					Expect(t.TargetKey).ToNot(BeNil())
-					Expect(*t.TargetKey).To(Equal("after"))
+					Expect(t.Target.Variant).To(Equal(ir.StepTarget{Key: "after"}))
 					Expect(t.On.Node).To(HavePrefix("write_a"))
 
 					first := findMember(main, "first").Scope
@@ -6777,9 +6818,12 @@ time.wait{duration=500ms} -> output`
 
 					main := findTopLevelScope(inter, "main")
 					Expect(main.Transitions).To(HaveLen(2))
-					Expect(main.Transitions[0].TargetKey).ToNot(BeNil())
-					Expect(*main.Transitions[0].TargetKey).To(Equal("tail"))
-					Expect(main.Transitions[1].TargetKey).To(BeNil(),
+					Expect(
+						main.Transitions[0].Target.Variant,
+					).To(Equal(ir.StepTarget{Key: "tail"}))
+					Expect(
+						main.Transitions[1].Target.Variant,
+					).To(Equal(ir.ExitTarget{}),
 						"the terminal nested step's completion must exit the parent")
 					Expect(main.Transitions[1].On.Node).To(HavePrefix("write_b"))
 
@@ -6821,8 +6865,7 @@ time.wait{duration=500ms} -> output`
 					Expect(main.Transitions).To(HaveLen(1),
 						"only the outermost frame with a next member gets the transition")
 					t := main.Transitions[0]
-					Expect(t.TargetKey).ToNot(BeNil())
-					Expect(*t.TargetKey).To(Equal("after"))
+					Expect(t.Target.Variant).To(Equal(ir.StepTarget{Key: "after"}))
 					Expect(t.On.Node).To(HavePrefix("write_a"))
 
 					mid := findMember(main, "mid").Scope
@@ -6869,7 +6912,9 @@ time.wait{duration=500ms} -> output`
 					subMember := holder.Strata[0][0]
 					Expect(subMember.Scope).ToNot(BeNil())
 					Expect(subMember.Scope.Transitions).To(HaveLen(1))
-					Expect(subMember.Scope.Transitions[0].TargetKey).To(BeNil(),
+					Expect(
+						subMember.Scope.Transitions[0].Target.Variant,
+					).To(Equal(ir.ExitTarget{}),
 						"the in-stage sequence keeps its own exit")
 				},
 			)
@@ -6919,16 +6964,215 @@ time.wait{duration=500ms} -> output`
 					Expect(main.Transitions).To(HaveLen(1),
 						"the explicit => must be main's only transition, no completion duplicate")
 					t := main.Transitions[0]
-					Expect(t.TargetKey).ToNot(BeNil())
-					Expect(*t.TargetKey).To(Equal("skip"))
+					Expect(t.Target.Variant).To(Equal(ir.StepTarget{Key: "skip"}))
 					Expect(t.On.Node).To(HavePrefix("on_trigger"))
 
 					inner := findMember(main, "inner").Scope
 					Expect(inner).ToNot(BeNil())
 					Expect(inner.Transitions).To(HaveLen(1),
 						"inner keeps only its internal step advance")
-					Expect(inner.Transitions[0].TargetKey).ToNot(BeNil())
-					Expect(*inner.Transitions[0].TargetKey).To(Equal("step_1"))
+					Expect(
+						inner.Transitions[0].Target.Variant,
+					).To(Equal(ir.StepTarget{Key: "step_1"}))
+				},
+			)
+		})
+
+		Context("Step completion without outputs", func() {
+			const funcs = `
+				func notify{msg str} () {
+				    out = msg
+				}
+
+				func produce() u8 {
+				    return 1
+				}
+
+				func sink{} (v u8) {}
+`
+			analyze := func(ctx SpecContext, program string) ir.IR {
+				GinkgoHelper()
+				resolver := []symbol.Symbol{
+					{
+						Name: "out",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.String()),
+						ID:   20201,
+					},
+					{
+						Name: "sensor",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.U8()),
+						ID:   20202,
+					},
+				}
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: program}))
+				inter, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, resolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				return inter
+			}
+			stepNode := func(inter ir.IR, scope ir.Scope, key string) ir.Node {
+				GinkgoHelper()
+				refs := scopeNodeRefs(*findMember(scope, key).Scope)
+				Expect(refs).To(HaveLen(1))
+				return findNodeByKey(inter.Nodes, refs[0])
+			}
+
+			DescribeTable(
+				"Wires the step advance from the last node's output shape",
+				func(
+					ctx SpecContext,
+					step string,
+					nodeType string,
+					param string,
+					kind ir.EdgeKind,
+				) {
+					inter := analyze(ctx, funcs+`
+				sequence main {
+				    `+step+`
+				    stage after {}
+				}`)
+					main := findTopLevelScope(inter, "main")
+					Expect(main.Transitions).To(HaveLen(1))
+					t := main.Transitions[0]
+					Expect(
+						t.On.Node,
+					).To(Equal(findNodeByType(inter.Nodes, nodeType).Key))
+					Expect(t.On.Param).To(Equal(param))
+					Expect(t.Kind).To(Equal(kind))
+					Expect(t.Target.Variant).To(Equal(ir.StepTarget{Key: "after"}))
+				},
+				Entry(
+					"a single invocation without outputs",
+					`notify{"one"}`,
+					"notify",
+					ir.DoneParam,
+					ir.EdgeKindContinuous,
+				),
+				Entry(
+					"a flow ending in a node without outputs",
+					`sensor -> sink{}`,
+					"sink",
+					ir.DoneParam,
+					ir.EdgeKindContinuous,
+				),
+				Entry(
+					"a single invocation with outputs",
+					`produce{}`,
+					"produce",
+					ir.DefaultOutputParam,
+					ir.EdgeKindConditional,
+				),
+			)
+
+			It(
+				"Exits the sequence when its terminal node has no outputs",
+				func(ctx SpecContext) {
+					inter := analyze(ctx, funcs+`
+				sequence main {
+				    produce{}
+				    notify{"done"}
+				}`)
+					main := findTopLevelScope(inter, "main")
+					Expect(main.Transitions).To(HaveLen(2))
+					t := main.Transitions[1]
+					Expect(
+						t.On.Node,
+					).To(Equal(findNodeByType(inter.Nodes, "notify").Key))
+					Expect(t.On.Param).To(Equal(ir.DoneParam))
+					Expect(t.Kind).To(Equal(ir.EdgeKindContinuous))
+					Expect(t.Target.Variant).To(Equal(ir.ExitTarget{}))
+				},
+			)
+
+			It(
+				"Escalates a nested terminal step without outputs to the parent",
+				func(ctx SpecContext) {
+					inter := analyze(ctx, funcs+`
+				sequence main {
+				    sequence first {
+				        notify{"one"}
+				    }
+				    stage after {}
+				}`)
+					main := findTopLevelScope(inter, "main")
+					Expect(main.Transitions).To(HaveLen(1))
+					t := main.Transitions[0]
+					Expect(
+						t.On.Node,
+					).To(Equal(findNodeByType(inter.Nodes, "notify").Key))
+					Expect(t.On.Param).To(Equal(ir.DoneParam))
+					Expect(t.Kind).To(Equal(ir.EdgeKindContinuous))
+					Expect(t.Target.Variant).To(Equal(ir.StepTarget{Key: "after"}))
+					first := findMember(main, "first").Scope
+					Expect(first).ToNot(BeNil())
+					Expect(first.Transitions).To(BeEmpty())
+				},
+			)
+
+			It(
+				"Keeps a stage-declared sequence's exit without outputs on its own frame",
+				func(ctx SpecContext) {
+					inter := analyze(ctx, funcs+`
+				sequence main {
+				    stage holder {
+				        sequence sub {
+				            notify{"one"}
+				        }
+				    }
+				}`)
+					main := findTopLevelScope(inter, "main")
+					Expect(main.Transitions).To(BeEmpty())
+					holder := findMember(main, "holder").Scope
+					Expect(holder).ToNot(BeNil())
+					sub := holder.Strata[0][0].Scope
+					Expect(sub).ToNot(BeNil())
+					Expect(sub.Transitions).To(HaveLen(1))
+					t := sub.Transitions[0]
+					Expect(
+						t.On.Node,
+					).To(Equal(findNodeByType(inter.Nodes, "notify").Key))
+					Expect(t.On.Param).To(Equal(ir.DoneParam))
+					Expect(t.Kind).To(Equal(ir.EdgeKindContinuous))
+					Expect(t.Target.Variant).To(Equal(ir.ExitTarget{}))
+				},
+			)
+
+			It(
+				"Alternates done and output transitions through a wait",
+				func(ctx SpecContext) {
+					inter := analyze(ctx, "import time\n"+funcs+`
+				sequence main {
+				    notify{"one"}
+				    time.wait{1s}
+				    notify{"two"}
+				}
+
+				true => main`)
+					main := findTopLevelScope(inter, "main")
+					Expect(main.Transitions).To(HaveLen(3))
+					first := stepNode(inter, main, "step_0")
+					wait := stepNode(inter, main, "step_1")
+					second := stepNode(inter, main, "step_2")
+					Expect(main.Transitions[0]).To(Equal(ir.Transition{
+						On:     ir.Handle{Node: first.Key, Param: ir.DoneParam},
+						Kind:   ir.EdgeKindContinuous,
+						Target: ir.Target{Variant: ir.StepTarget{Key: "step_1"}},
+					}))
+					Expect(main.Transitions[1]).To(Equal(ir.Transition{
+						On:     ir.Handle{Node: wait.Key, Param: wait.Outputs[0].Name},
+						Kind:   ir.EdgeKindConditional,
+						Target: ir.Target{Variant: ir.StepTarget{Key: "step_2"}},
+					}))
+					Expect(main.Transitions[2]).To(Equal(ir.Transition{
+						On:     ir.Handle{Node: second.Key, Param: ir.DoneParam},
+						Kind:   ir.EdgeKindContinuous,
+						Target: ir.Target{Variant: ir.ExitTarget{}},
+					}))
 				},
 			)
 		})
@@ -6967,7 +7211,7 @@ time.wait{duration=500ms} -> output`
 					s := scopeMembers[0].Scope
 					Expect(s.Key).To(HavePrefix("stage_"))
 					Expect(s.Liveness).To(Equal(ir.LivenessAlways))
-					Expect(s.Activation).To(BeNil())
+					Expect(s.Activations).To(BeEmpty())
 				},
 			)
 
@@ -7004,7 +7248,7 @@ time.wait{duration=500ms} -> output`
 					s := scopeMembers[0].Scope
 					Expect(s.Key).To(HavePrefix("seq_"))
 					Expect(s.Liveness).To(Equal(ir.LivenessAlways))
-					Expect(s.Activation).To(BeNil())
+					Expect(s.Activations).To(BeEmpty())
 				},
 			)
 
@@ -7043,7 +7287,7 @@ time.wait{duration=500ms} -> output`
 					s := scopeMembers[0].Scope
 					Expect(s.Key).To(Equal("main"))
 					Expect(s.Liveness).To(Equal(ir.LivenessGated))
-					Expect(s.Activation).To(BeNil())
+					Expect(s.Activations).To(BeEmpty())
 				},
 			)
 
@@ -7080,7 +7324,7 @@ time.wait{duration=500ms} -> output`
 					s := scopeMembers[0].Scope
 					Expect(s.Key).To(Equal("main"))
 					Expect(s.Liveness).To(Equal(ir.LivenessGated))
-					Expect(s.Activation).To(BeNil())
+					Expect(s.Activations).To(BeEmpty())
 				},
 			)
 
@@ -7126,7 +7370,7 @@ time.wait{duration=500ms} -> output`
 					}
 					Expect(main).ToNot(BeNil())
 					Expect(main.Liveness).To(Equal(ir.LivenessGated))
-					Expect(main.Activation).ToNot(BeNil())
+					Expect(main.Activations).To(HaveLen(1))
 				},
 			)
 
@@ -7351,7 +7595,7 @@ time.wait{duration=500ms} -> output`
 
 					main := findTopLevelScope(inter, "main")
 					nextT, ok := lo.Find(main.Transitions, func(t ir.Transition) bool {
-						return t.TargetKey != nil && *t.TargetKey == "second"
+						return t.Target.Variant == (ir.StepTarget{Key: "second"})
 					})
 					Expect(ok).To(BeTrue(), "expected a transition targeting 'second'")
 					Expect(nextT.On.Node).To(HavePrefix("expression_"))

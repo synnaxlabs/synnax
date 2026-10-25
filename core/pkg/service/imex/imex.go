@@ -26,11 +26,12 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/encoding"
 	xjson "github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -79,6 +80,23 @@ func NewErrUnsupportedVersion(typ string, given, supported Version) error {
 	)
 }
 
+// Ladder lifts a body stamped at any version a type has exported to the type's current
+// shape. Oracle generates one for every type that declares @go imex body.
+type Ladder[T any] struct {
+	// First is the oldest version Decode accepts.
+	First Version
+	// Latest is the version stamped on exports and the newest version Decode accepts.
+	Latest Version
+	// Decode decodes data as the type's shape at version and migrates it to the current
+	// shape. It returns a path-scoped validation error for a version the type never
+	// exported.
+	Decode func(
+		ctx context.Context,
+		version Version,
+		data msgpack.EncodedJSON,
+	) (T, error)
+}
+
 // newFieldError constructs a validation error scoped to the named wire field so API
 // responses can present it as a structured field error, mirroring the path-scoping done
 // by NewErrUnsupportedVersion for the "version" field.
@@ -121,10 +139,17 @@ func (e Envelope) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, e.body)
 }
 
+// decodeOptions are the JSON options every import decode uses.
+var decodeOptions = jsontext.AllowInvalidUTF8(true)
+
+// Codec decodes import files. It replaces invalid UTF-8 and lone surrogates with
+// U+FFFD, since Consoles before v0.57 exported lone surrogates as escapes. It rejects a
+// duplicate object name, which no exporter writes.
+var Codec = xjson.NewCodec(decodeOptions)
+
 // UnmarshalJSONFrom reads a flat JSON object, promoting the headers and retaining the
-// bytes for a later Decode. A duplicate object name or invalid UTF-8 fails the read: an
-// import file comes from outside the Core, so a defect there is corruption, not a value
-// to guess.
+// bytes for a later Decode. A duplicate object name fails the read. Decode it through
+// Codec so that invalid UTF-8 reads as U+FFFD.
 func (e *Envelope) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
@@ -138,14 +163,14 @@ func (e *Envelope) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	// these bytes back long after this call, so they must be copied.
 	raw = raw.Clone()
 	var m map[string]any
-	if err := json.Unmarshal(raw, &m); err != nil {
+	if err := json.Unmarshal(raw, &m, decodeOptions); err != nil {
 		return err
 	}
 	// A JSON null decodes to a nil map rather than an error.
 	if m == nil {
 		return errors.Wrap(validate.ErrValidation, "envelope must be a JSON object")
 	}
-	return e.unmarshal(m, raw, xjson.Codec)
+	return e.unmarshal(m, raw, Codec)
 }
 
 // unmarshal promotes the {version, type, name} headers onto the receiver and stashes

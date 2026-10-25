@@ -15,6 +15,8 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
+import { Primitive } from "@/schematic/node/common/primitive";
+
 interface RenderProps extends Omit<
   schematic.GaugeNodeConfig,
   "variant" | "label" | "scale"
@@ -22,7 +24,7 @@ interface RenderProps extends Omit<
   className?: string;
 }
 
-export const Gauge = ({ color: c, className }: RenderProps): ReactElement => {
+export const Gauge = ({ strokeColor, className }: RenderProps): ReactElement => {
   const radius = 27;
   const strokeWidth = 5;
   const centerX = 33.5;
@@ -44,8 +46,8 @@ export const Gauge = ({ color: c, className }: RenderProps): ReactElement => {
   `;
 
   const style = useMemo<CSSProperties>(
-    () => ({ [CSS.variable("symbol-color")]: color.rgbaString(c) }),
-    [c],
+    () => ({ [Primitive.SYMBOL_COLOR]: color.rgbaString(strokeColor) }),
+    [strokeColor],
   );
 
   return (

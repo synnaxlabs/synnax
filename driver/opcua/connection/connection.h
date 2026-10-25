@@ -14,6 +14,7 @@
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "open62541/common.h"
@@ -69,7 +70,7 @@ struct Config {
         session_timeout_ms(parser.field<uint32_t>("session_timeout_ms", 0)),
         client_timeout_ms(parser.field<uint32_t>("client_timeout_ms", 0)) {}
 
-    x::json::json to_json() const {
+    [[nodiscard]] x::json::json to_json() const {
         return {
             {"endpoint", endpoint},
             {"username", username},
@@ -92,12 +93,8 @@ class Pool {
 public:
     class Connection {
     public:
-        Connection(
-            std::shared_ptr<UA_Client> client,
-            Pool *pool,
-            const std::string &key
-        ):
-            client_(std::move(client)), pool_(pool), key_(key) {}
+        Connection(std::shared_ptr<UA_Client> client, Pool *pool, std::string key):
+            client_(std::move(client)), pool_(pool), key_(std::move(key)) {}
 
         ~Connection() {
             if (pool_ && client_) { pool_->release(key_, client_); }
@@ -124,8 +121,8 @@ public:
             return *this;
         }
 
-        UA_Client *get() const { return client_.get(); }
-        std::shared_ptr<UA_Client> shared() const { return client_; }
+        [[nodiscard]] UA_Client *get() const { return client_.get(); }
+        [[nodiscard]] std::shared_ptr<UA_Client> shared() const { return client_; }
         explicit operator bool() const { return client_ != nullptr; }
 
     private:
@@ -157,7 +154,7 @@ private:
     /// BREAKER_THRESHOLD failures to prevent session exhaustion.
     struct BreakerState {
         int consecutive_failures = 0;
-        std::chrono::steady_clock::time_point cooldown_until{};
+        std::chrono::steady_clock::time_point cooldown_until;
         /// @brief True while a thread is actively connecting. Other
         /// threads wait on connect_cv instead of creating parallel
         /// connections that could exhaust the server's session table.
@@ -174,7 +171,7 @@ private:
     std::unordered_map<std::string, std::vector<Entry>> connections_;
     std::unordered_map<std::string, BreakerState> breakers;
 
-    void release(const std::string &key, std::shared_ptr<UA_Client> client);
+    void release(const std::string &key, const std::shared_ptr<UA_Client> &client);
 
     /// @brief collects stale (non-activated) connections under the lock,
     /// then sends CloseSession outside the lock to free server-side

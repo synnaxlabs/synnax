@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { observe, type record } from "@synnaxlabs/x";
-import { fireEvent, render } from "@testing-library/react";
-import { act, type ReactElement, useState } from "react";
+import { act, fireEvent, render } from "@testing-library/react";
+import { type ReactElement, useState } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Button } from "@/button";
@@ -17,6 +17,36 @@ import { renderProp } from "@/component/renderProp";
 import { List } from "@/list";
 import { mockGeometry } from "@/testutil/dom";
 import { createRenderCounter } from "@/testutil/renders";
+
+const removalObservers = new Set<RemovalResizeObserver>();
+
+/** Notifies when an observed element leaves the document, as a browser does. */
+class RemovalResizeObserver implements ResizeObserver {
+  private readonly callback: ResizeObserverCallback;
+  private readonly targets = new Set<Element>();
+
+  constructor(callback: ResizeObserverCallback) {
+    this.callback = callback;
+    removalObservers.add(this);
+  }
+
+  observe(target: Element): void {
+    this.targets.add(target);
+  }
+
+  unobserve(target: Element): void {
+    this.targets.delete(target);
+  }
+
+  disconnect(): void {
+    this.targets.clear();
+  }
+
+  notifyRemoved(): void {
+    if ([...this.targets].some((target) => !target.isConnected))
+      this.callback([], this);
+  }
+}
 
 describe("List", () => {
   interface Context {
@@ -70,6 +100,45 @@ describe("List", () => {
             "1",
             expect.objectContaining({ shiftKey: true }),
           );
+        });
+
+        const renderPointable = (
+          onHover: () => void,
+          onPointerMove: () => void = vi.fn(),
+        ) =>
+          render(
+            <List.Frame data={["1"]} virtual={context.virtual}>
+              <List.Scroll>
+                <List.Items>
+                  {({ key, ...rest }: List.ItemProps<string>) => (
+                    <List.Item
+                      key={key}
+                      onHover={onHover}
+                      onPointerMove={onPointerMove}
+                      {...rest}
+                    >
+                      {key}
+                    </List.Item>
+                  )}
+                </List.Items>
+              </List.Scroll>
+            </List.Frame>,
+          );
+
+        it("should call onHover when a mouse moves over an item", () => {
+          const onHover = vi.fn();
+          const onPointerMove = vi.fn();
+          const result = renderPointable(onHover, onPointerMove);
+          fireEvent.pointerMove(result.getByText("1"), { pointerType: "mouse" });
+          expect(onHover).toHaveBeenCalledTimes(1);
+          expect(onPointerMove).toHaveBeenCalledTimes(1);
+        });
+
+        it("should not call onHover when a touch moves over an item", () => {
+          const onHover = vi.fn();
+          const result = renderPointable(onHover);
+          fireEvent.pointerMove(result.getByText("1"), { pointerType: "touch" });
+          expect(onHover).not.toHaveBeenCalled();
         });
 
         it("should allow the caller to provide a custom item getter", () => {
@@ -192,9 +261,9 @@ describe("List", () => {
           };
           const result = render(<Component />);
           expect(fetchMore).toHaveBeenCalledTimes(1);
-          result.getByText("Toggle").click();
+          fireEvent.click(result.getByText("Toggle"));
           expect(fetchMore).toHaveBeenCalledTimes(1);
-          result.getByText("Toggle").click();
+          fireEvent.click(result.getByText("Toggle"));
           expect(fetchMore).toHaveBeenCalledTimes(1);
         });
       });
@@ -307,6 +376,85 @@ describe("List", () => {
       expect(result.getByText("after")).toBeTruthy();
     });
 
+    describe("pinned", () => {
+      interface PinnedProps {
+        pinned?: string[];
+        onFetchMore?: () => void;
+      }
+
+      const Pinned = ({ pinned, onFetchMore }: PinnedProps): ReactElement => (
+        <List.Frame
+          data={DATA}
+          virtual
+          itemHeight={ITEM_HEIGHT}
+          pinned={pinned}
+          onFetchMore={onFetchMore}
+        >
+          <List.Scroll>
+            <List.Items>
+              {({ key, ...rest }: List.ItemProps<string>) => (
+                <List.Item key={key} {...rest}>
+                  {key}
+                </List.Item>
+              )}
+            </List.Items>
+          </List.Scroll>
+        </List.Frame>
+      );
+
+      const texts = (result: ReturnType<typeof render>): (string | null)[] =>
+        rows(result).map((row) => row.textContent);
+
+      it("should keep pinned rows mounted outside the window", () => {
+        const result = render(<Pinned pinned={["250", "499"]} />);
+        expect(texts(result)).toContain("250");
+        expect(texts(result)).toContain("499");
+        expect(texts(result)).not.toContain("251");
+      });
+
+      it("should place a pinned row at the offset of its index", () => {
+        const result = render(<Pinned pinned={["250"]} />);
+        const row = rows(result).find((r) => r.textContent === "250");
+        expect(row?.style.top).toBe(`${250 * ITEM_HEIGHT}px`);
+      });
+
+      it("should mount a row when it becomes pinned and release it after", () => {
+        const result = render(<Pinned />);
+        expect(texts(result)).not.toContain("250");
+        result.rerender(<Pinned pinned={["250"]} />);
+        expect(texts(result)).toContain("250");
+        result.rerender(<Pinned />);
+        expect(texts(result)).not.toContain("250");
+      });
+
+      it("should move the pin when the pinned key changes", () => {
+        const result = render(<Pinned pinned={["250"]} />);
+        result.rerender(<Pinned pinned={["300"]} />);
+        expect(texts(result)).toContain("300");
+        expect(texts(result)).not.toContain("250");
+      });
+
+      it("should ignore a pinned key that is not in the data", () => {
+        const unpinned = texts(render(<Pinned />));
+        expect(texts(render(<Pinned pinned={["missing"]} />))).toEqual(unpinned);
+      });
+
+      it("should not fetch more when only the pinned last row is mounted", () => {
+        const onFetchMore = vi.fn();
+        const result = render(<Pinned pinned={["499"]} onFetchMore={onFetchMore} />);
+        const scroller =
+          result.container.querySelector<HTMLElement>(".pluto-list__scroll");
+        if (scroller == null) throw new Error("scroll container not found");
+        const calls = onFetchMore.mock.calls.length;
+        act(() => {
+          scroller.scrollTop = ITEM_HEIGHT;
+          fireEvent.scroll(scroller);
+        });
+        expect(texts(result)).toContain("499");
+        expect(onFetchMore).toHaveBeenCalledTimes(calls);
+      });
+    });
+
     it("should keep the container tall enough to scroll the whole data set", () => {
       const result = renderWindowed();
       const virtualizer = result.container.querySelector<HTMLElement>(
@@ -415,6 +563,45 @@ describe("List", () => {
         expect(rows()).toHaveLength(2);
       } finally {
         offsetTop.mockRestore();
+      }
+    });
+
+    it("should render the items again when the Scroll mounts again", () => {
+      const previous = globalThis.ResizeObserver;
+      vi.stubGlobal("ResizeObserver", RemovalResizeObserver);
+      const clientHeight = vi
+        .spyOn(Element.prototype, "clientHeight", "get")
+        .mockImplementation(function (this: Element) {
+          return this.isConnected ? 100 : 0;
+        });
+      let open: (open: boolean) => void = () => {};
+      // Mounts the Scroll from inside the frame, as a dialog does, so the frame itself
+      // does not render again.
+      const Toggle = (): ReactElement | null => {
+        const [visible, setVisible] = useState(true);
+        open = setVisible;
+        return visible ? (
+          <List.Scroll>
+            <List.Items>{item}</List.Items>
+          </List.Scroll>
+        ) : null;
+      };
+      try {
+        const result = render(
+          <List.Frame data={DATA} virtual itemHeight={ITEM_HEIGHT} overscan={0}>
+            <Toggle />
+          </List.Frame>,
+        );
+        const rows = () => result.container.querySelectorAll(".pluto-list__item");
+        expect(rows()).toHaveLength(4);
+        act(() => open(false));
+        act(() => removalObservers.forEach((observer) => observer.notifyRemoved()));
+        act(() => open(true));
+        expect(rows()).toHaveLength(4);
+      } finally {
+        clientHeight.mockRestore();
+        vi.stubGlobal("ResizeObserver", previous);
+        removalObservers.clear();
       }
     });
 

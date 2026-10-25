@@ -8,7 +8,7 @@ telemetry. Monorepo:
 - **TypeScript** (pnpm + Turbo): Console (Tauri app), Pluto (viz), Client, Drift
   (multi-window state), Freighter, X
 - **Go** (per-module, sibling `replace` directives): Core server, Cesium (time-series
-  DB), Aspen (distributed KV), Arc compiler, Oracle
+  DB), Aspen (distributed KV), Gorp (typed KV tables), Arc compiler, Oracle
 - **Python** (uv workspace): client, integration test conductor
 - **C++** (Bazel): driver for hardware (LabJack, NI, OPC UA, Modbus)
 - **Arc** (`/arc/`) spans languages: Go compiler/LSP/runtime, C++ embedded runtime (used
@@ -35,7 +35,7 @@ needing broader context:
 - `docs/claude/integration-test.md` — writing integration tests (Arc gotchas)
 - `docs/claude/toolchains/{typescript,go,python,cpp}.md` — language rules
 - `scripts/CLAUDE.md` — repo scripts: formatting, copyright headers, codegen checks,
-  versioning; workflow-only scripts in `.github/scripts/` (also auto-loads)
+  versioning (also auto-loads)
 - `docs/tech/rfc/CLAUDE.md` — RFC file names, front matter, headings, definition lists,
   and citations (also auto-loads)
 - `core/CLAUDE.md`, `console/CLAUDE.md`, `driver/CLAUDE.md`, `pluto/CLAUDE.md`,
@@ -133,9 +133,20 @@ included (the Aether binding, Aether-cached); only backticked identifiers and pa
 Go, gRPC, HashiCorp, Zod. Prefer referencing the Core as "the Core" / "a Core", instead
 of "server", "node", or "cluster", unless you are specifically writing about behavior of
 multi-node clusters. If you are referring to code paths, then put those in backticks
-`x/go/gorp`.
+`gorp/table.go`.
 
 Prefer using the word "and" instead of an ampersand (&) in prose.
+
+### Status text
+
+Every status (toasts, task footers, the status list) splits its text three ways:
+
+- `name`: what it is about, such as a task, device, or rack. Empty if nothing named.
+- `message`: what happened, in one short line: "Failed to start task", "Started task". A
+  status that reports a state names the state: "Driver not running".
+- `description`: why, and what to do now, in full sentences. Raw error text goes here.
+
+If the message alone does not tell the outcome, or it says "because", split it.
 
 ### 🚨 KEEP PROSE SHORT. LENGTH IS A DEFECT. 🚨
 
@@ -195,6 +206,8 @@ Red flags. If any of these appear, rewrite immediately:
 
 ### Doc comments
 
+- Doc comments are for the public surface. A private or unexported identifier gets one
+  only when its name cannot carry the meaning.
 - Write from the caller's perspective: what it does, arguments, returns, errors,
   preconditions, side effects. Never narrate implementation ("calls X, uses Y, stores in
   Z, then does W").

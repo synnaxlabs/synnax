@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include <chrono>
+#include <algorithm>
 #include <memory>
 #include <set>
 #include <utility>
@@ -19,6 +19,7 @@
 #include "x/cpp/control/control.h"
 #include "x/cpp/queue/spsc.h"
 #include "x/cpp/telem/frame.h"
+#include "x/cpp/telem/mono_clock.h"
 #include "x/cpp/thread/thread.h"
 
 #include "arc/cpp/program/program.h"
@@ -93,7 +94,8 @@ class Runtime {
     x::telem::MonoClock clock;
     x::queue::SPSC<x::telem::Frame> inputs;
     x::queue::SPSC<Output> outputs;
-    std::chrono::steady_clock::time_point start_time_steady_;
+    /// @brief measures the elapsed time since run() started.
+    x::telem::Stopwatch stopwatch;
     errors::Handler error_handler;
 
 public:
@@ -124,7 +126,7 @@ public:
         write_channels(std::move(write_channels)) {}
 
     void run() {
-        this->start_time_steady_ = std::chrono::steady_clock::now();
+        this->stopwatch.reset();
         x::thread::set_name("runtime");
         if (auto err = this->loop->start(); err) {
             LOG(ERROR) << "[arc.runtime] failed to start loop: " << err.message();
@@ -133,54 +135,68 @@ public:
         }
         if (!this->loop->watch(this->inputs.notifier())) {
             LOG(ERROR) << "[arc.runtime] failed to watch input notifier";
-            this->error_handler(x::errors::Error("failed to watch input notifier"));
+            this->error_handler(
+                x::errors::Error(
+                    x::errors::INTERNAL,
+                    "The runtime failed to watch for input data."
+                )
+            );
             return;
         }
-        auto next_timeout = x::telem::TimeSpan(0);
-        x::telem::TimeSpan elapsed;
+        auto timeout = x::telem::TimeSpan(0);
+        node::Deadline deadline;
+        // The first cycle runs at once as a timer tick, so that timers set their first
+        // deadlines without a wait for input.
+        bool started = false;
         while (this->breaker.running()) {
-            const auto wake_reason = this->loop->wait(this->breaker, next_timeout);
+            auto wake_reason = loop::WakeReason::Timer;
+            if (started)
+                wake_reason = this->loop->wait(this->breaker, timeout, deadline.span);
+            started = true;
             const bool is_timer =
                 (wake_reason == loop::WakeReason::Timer ||
                  wake_reason == loop::WakeReason::Timeout);
             x::telem::Frame frame;
             bool first = true;
             while (this->inputs.try_pop(frame) || first) {
-                const auto reason = (first && is_timer) ? node::RunReason::TimerTick
-                                                        : node::RunReason::ChannelInput;
+                const auto elapsed = this->stopwatch.elapsed();
+                // A due timer fires on any cycle, so steady input cannot starve it.
+                const bool timer_tick = (first && is_timer) || elapsed >= deadline.at;
                 first = false;
                 this->state->ingest(frame);
-                const auto now_steady = std::chrono::steady_clock::now();
-                elapsed = x::telem::TimeSpan(
-                    std::chrono::duration_cast<std::chrono::nanoseconds>(
-                        now_steady - this->start_time_steady_
-                    )
-                        .count()
-                );
                 const node::Cycle cycle{
                     .now = this->clock.now(),
                     .elapsed = elapsed,
-                    .reason = reason
+                    .reason = timer_tick ? node::RunReason::TimerTick
+                                         : node::RunReason::ChannelInput
                 };
                 this->time_module->set_now(cycle.now);
                 this->clock.advance(this->scheduler->next(cycle));
+                deadline = this->scheduler->next_deadline();
                 Output out;
                 out.authority_changes = this->state->flush_authority_changes();
                 this->clock.advance(this->state->flush_into(out.frame, cycle.now));
-                if (!out.frame.empty() || !out.authority_changes.empty()) {
-                    if (!this->outputs.push(std::move(out))) {
-                        if (this->outputs.closed()) break;
-                        this->error_handler(errors::QUEUE_FULL_OUTPUT);
-                    }
+                if ((!out.frame.empty() || !out.authority_changes.empty()) &&
+                    (!this->outputs.push(std::move(out)))) {
+                    if (this->outputs.closed()) break;
+                    this->error_handler(
+                        x::errors::Error(
+                            errors::QUEUE_FULL_OUTPUT,
+                            "The output queue is full, so the program dropped "
+                            "output data."
+                        )
+                    );
                 }
             }
-            const auto deadline = this->scheduler->next_deadline();
-            if (deadline == x::telem::TimeSpan::max())
-                next_timeout = x::telem::TimeSpan(0);
-            else if (deadline > elapsed)
-                next_timeout = deadline - elapsed;
+            // The timeout counts from now, so that the work of the cycle does not delay
+            // the wake.
+            if (deadline.at == x::telem::TimeSpan::max())
+                timeout = x::telem::TimeSpan(0);
             else
-                next_timeout = x::telem::TimeSpan(1);
+                timeout = std::max(
+                    deadline.at - this->stopwatch.elapsed(),
+                    x::telem::TimeSpan(1)
+                );
         }
     }
 
@@ -204,15 +220,20 @@ public:
         this->inputs.close();
         this->outputs.close();
         this->state->reset();
-        this->scheduler->reset();
+        (*this->scheduler).reset();
         return true;
     }
 
     x::errors::Error write(x::telem::Frame frame) {
-        if (this->inputs.closed()) return x::errors::Error("runtime closed");
+        if (this->inputs.closed())
+            return x::errors::Error(errors::CLOSED, "The runtime is closed.");
         if (!this->inputs.push(std::move(frame))) {
-            this->error_handler(errors::QUEUE_FULL_INPUT);
-            return errors::QUEUE_FULL_INPUT;
+            const auto err = x::errors::Error(
+                errors::QUEUE_FULL_INPUT,
+                "The input queue is full, so the program dropped input data."
+            );
+            this->error_handler(err);
+            return err;
         }
         return x::errors::NIL;
     }
@@ -242,8 +263,14 @@ inline std::vector<x::control::Authority> build_authorities(
     return authorities;
 }
 
-inline std::pair<std::shared_ptr<Runtime>, x::errors::Error>
-load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
+/// @brief builds a runtime for cfg.program. node_error_handler receives the errors that
+/// nodes raise, along with the node. error_handler receives every other error.
+inline std::pair<std::shared_ptr<Runtime>, x::errors::Error> load(
+    const Config &cfg,
+    errors::Handler error_handler = errors::noop_handler,
+    scheduler::ErrorHandler node_error_handler = scheduler::noop_handler
+) {
+    if (auto err = scheduler::validate(cfg.program.root); err) return {nullptr, err};
     std::set<types::ChannelKey> reads;
     std::set<types::ChannelKey> writes;
     for (const auto &n: cfg.program.nodes) {
@@ -273,7 +300,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
     auto var_st = std::make_shared<stl::stateful::Variables>();
 
     state::Config state_cfg{
-        .ir = (static_cast<ir::IR>(cfg.program)),
+        .ir = static_cast<const ir::IR &>(cfg.program),
         .channels = digests
     };
     auto state = std::make_shared<state::State>(
@@ -328,7 +355,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
     node::MultiFactory fact(factories);
 
     std::unordered_map<std::string, std::unique_ptr<node::Node>> nodes;
-    const ir::IR prog = static_cast<ir::IR>(cfg.program);
+    const ir::IR &prog = cfg.program;
     for (const auto &mod_node: cfg.program.nodes) {
         auto [node_state, node_state_err] = state->node(mod_node.key);
         if (node_state_err) return {nullptr, node_state_err};
@@ -338,14 +365,11 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         if (err) return {nullptr, err};
         nodes[mod_node.key] = std::move(node);
     }
-    const auto base_interval = time_module->base_interval();
-    const auto loop_cfg = cfg.loop.apply_defaults(base_interval);
-    const auto tolerance = stl::time::calculate_tolerance(loop_cfg.mode, base_interval);
+    const auto loop_cfg = cfg.loop.apply_defaults(time_module->shortest_span());
     auto sched = std::make_unique<scheduler::Scheduler>(
         cfg.program,
         nodes,
-        tolerance,
-        error_handler
+        std::move(node_error_handler)
     );
     auto loop = loop::create(loop_cfg, cfg.rt_handle);
     return {

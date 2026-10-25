@@ -19,11 +19,11 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
@@ -99,14 +99,20 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 			Name:    r.Name,
 			Variant: status.VariantWarning,
 			Time:    state.lastUpdated,
-			Message: fmt.Sprintf("Synnax Driver on %s not running", r.Name),
+			Message: "Driver not running",
 			Description: fmt.Sprintf(
-				"Driver was last alive %s seconds ago",
-				timeSinceAlive,
+				"The Core has not heard from the Driver on %s for %s. Check that "+
+					"the Driver is running and can reach the Core.",
+				r.Name,
+				timeSinceAlive.Truncate(telem.Second),
 			),
 			Details: StatusDetails{Rack: r.Key},
 		}
-		m.L.Warn(stat.Message, zap.Stringer("time_since_alive", timeSinceAlive))
+		m.L.Warn(
+			"driver not running",
+			zap.String("rack", r.Name),
+			zap.Stringer("time_since_alive", timeSinceAlive),
+		)
 		statuses = append(statuses, stat)
 	}
 	m.mu.Unlock()
@@ -160,10 +166,18 @@ func parseKeyFromOntologyIDString(s status.Key) (Key, error) {
 	return KeyFromOntologyID(id)
 }
 
+// openMonitor watches the health of every stored rack. A rack that sends no status
+// within one health check interval is marked as not running, even when its stored
+// status is healthy.
 func openMonitor(
+	ctx context.Context,
 	ins alamos.Instrumentation,
 	svc *Service,
 ) (*monitor, error) {
+	var racks []Rack
+	if err := svc.NewRetrieve().Entries(&racks).Exec(ctx, nil); err != nil {
+		return nil, err
+	}
 	obs := svc.Status.Observe()
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(ins))
 	s := &monitor{
@@ -172,7 +186,11 @@ func openMonitor(
 		svc:              svc,
 		shutdownRoutines: signal.NewHardShutdown(sCtx, cancel),
 	}
-	s.mu.racks = make(map[Key]rackState)
+	now := svc.Now()
+	s.mu.racks = make(map[Key]rackState, len(racks))
+	for _, r := range racks {
+		s.mu.racks[r.Key] = rackState{lastUpdated: now}
+	}
 	s.disconnectStatusObserver = obs.OnChange(s.handleChange)
 	signal.GoTick(
 		sCtx,

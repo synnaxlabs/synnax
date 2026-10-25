@@ -35,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/internal/taskreporter"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/internal/timer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
@@ -117,10 +118,17 @@ func (t *impl) start(ctx context.Context, cmdKey string) error {
 		}
 	}
 	if err := t.open(ctx); err != nil {
-		t.setStatus(ctx, cmdKey, status.VariantError, false, err.Error())
+		t.setStatus(
+			ctx,
+			cmdKey,
+			status.VariantError,
+			false,
+			"Failed to start task",
+			err.Error(),
+		)
 		return err
 	}
-	t.setStatus(ctx, cmdKey, status.VariantSuccess, true, "Task started successfully")
+	t.setStatus(ctx, cmdKey, status.VariantSuccess, true, "Started task", "")
 	return nil
 }
 
@@ -268,8 +276,11 @@ func (t *impl) open(ctx context.Context) (err error) {
 		nodes[irNode.Key] = n
 	}
 
-	tolerance := time.CalculateTolerance(timeMod.BaseInterval)
-	drt.scheduler = scheduler.New(t.prog.Program.IR, nodes, tolerance)
+	sched, err := scheduler.New(t.prog.Program.IR, nodes)
+	if err != nil {
+		return err
+	}
+	drt.scheduler = sched
 	drt.timeMod = timeMod
 
 	drt.scheduler.SetErrorHandler(
@@ -285,14 +296,18 @@ func (t *impl) open(ctx context.Context) (err error) {
 		),
 	)
 
-	drt.startTime = telem.Now()
+	drt.startReading = timer.Now()
 	drt.writeKeys = deps.Writes.Slice()
 
 	pipeline := plumber.New()
 
 	// The ticker's t=0 startup tick fires entry nodes; an input-driven program
 	// would otherwise not fire them until the first input is received.
-	ticker := &tickerRuntime{dataRuntime: drt}
+	spin, ok := spins[t.cfg.Performance]
+	if !ok {
+		return errors.Newf("unknown performance %q", t.cfg.Performance)
+	}
+	ticker := &tickerRuntime{dataRuntime: drt, spin: spin}
 	pipeline.SetSegment(runtimeAddr, ticker)
 
 	var (
@@ -327,7 +342,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 				Name: t.prog.Name,
 				Key:  t.task.Key.String(),
 			},
-			Start: drt.startTime,
+			Start: telem.Now(),
 			Keys:  writeKeys,
 		}
 		if authorities := buildAuthorities(
@@ -356,6 +371,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 						driver.NoCommand,
 						status.VariantError,
 						false,
+						"Failed to write channel data",
 						res.Err.Error(),
 					)
 					return res.Err
@@ -410,30 +426,37 @@ func (t *impl) stop(ctx context.Context, cmdKey string, sendStatus bool) error {
 	err := t.release()
 	if err != nil {
 		if sendStatus {
-			t.setStatus(ctx, cmdKey, status.VariantError, false, err.Error())
+			t.setStatus(
+				ctx,
+				cmdKey,
+				status.VariantError,
+				false,
+				"Failed to stop task",
+				err.Error(),
+			)
 		}
 		return err
 	}
 	if sendStatus {
-		t.setStatus(
-			ctx,
-			cmdKey,
-			status.VariantSuccess,
-			false,
-			"Task stopped successfully",
-		)
+		t.setStatus(ctx, cmdKey, status.VariantSuccess, false, "Stopped task", "")
 	}
 	return nil
 }
 
 func (t *impl) reporter() taskreporter.Reporter {
-	return func(ctx context.Context, variant status.Variant, message string) {
+	return func(
+		ctx context.Context,
+		variant status.Variant,
+		message string,
+		description string,
+	) {
 		t.setStatus(
 			ctx,
 			driver.NoCommand,
 			variant,
 			t.isRunning(),
-			fmt.Sprintf("[%s] %s", t.task.Name, message),
+			message,
+			description,
 		)
 	}
 }
@@ -444,8 +467,16 @@ func (t *impl) setStatus(
 	variant status.Variant,
 	running bool,
 	message string,
+	description string,
 ) {
-	if err := t.status.Send(ctx, cmdKey, variant, running, message); err != nil {
+	if err := t.status.Send(
+		ctx,
+		cmdKey,
+		variant,
+		running,
+		message,
+		description,
+	); err != nil {
 		t.factoryCfg.L.Error(
 			"failed to set status for Arc task",
 			zap.Stringer("key", t.task.Key),
@@ -462,8 +493,8 @@ func (t *impl) setRuntimeError(ctx context.Context, nodeKey string, err error) {
 	}
 	if setErr := t.status.Warn(
 		ctx,
-		fmt.Sprintf("Runtime error in %s", nodeType),
-		err.Error(),
+		"Node failed",
+		fmt.Sprintf("The %s node failed: %v", nodeType, err),
 	); setErr != nil {
 		t.factoryCfg.L.Error("failed to set error status", zap.Error(setErr))
 	}
@@ -479,7 +510,9 @@ type state struct {
 
 type dataRuntime struct {
 	confluence.AbstractLinear[framer.StreamerResponse, framer.WriterRequest]
-	startTime telem.TimeStamp
+	// startReading is the timer.Now reading the runtime started at. Every deadline
+	// counts from it.
+	startReading stdtime.Duration
 	// clock stamps every cycle. It is the runtime's only clock: nodes and host
 	// functions read the stamp it produces instead of sampling their own.
 	clock     telem.MonoClock
@@ -499,7 +532,7 @@ func (d *dataRuntime) next(
 	d.state.channel.Ingest(res.Frame.ToStorage())
 	cycle := node.Cycle{
 		Now:     d.clock.Now(),
-		Elapsed: telem.Since(d.startTime),
+		Elapsed: d.elapsed(),
 		Reason:  reason,
 	}
 	d.timeMod.SetNow(cycle.Now)
@@ -522,6 +555,11 @@ func (d *dataRuntime) next(
 		return signal.SendUnderContext(ctx, d.Out.Inlet(), req)
 	}
 	return nil
+}
+
+// elapsed returns the time since the runtime started.
+func (d *dataRuntime) elapsed() telem.TimeSpan {
+	return telem.TimeSpan(timer.Now() - d.startReading)
 }
 
 func (d *dataRuntime) flushAuthorityChanges(ctx context.Context) error {
@@ -551,8 +589,19 @@ func (d *dataRuntime) flushAuthorityChanges(ctx context.Context) error {
 	return signal.SendUnderContext(ctx, d.Out.Inlet(), req)
 }
 
+// spins maps each performance level to how long the ticker's timer spins before a
+// deadline.
+var spins = map[Performance]stdtime.Duration{
+	PerformanceAuto:   timer.DefaultSpin,
+	PerformanceLow:    0,
+	PerformanceMedium: stdtime.Millisecond,
+	PerformanceHigh:   timer.SpinAll,
+}
+
 type tickerRuntime struct {
 	dataRuntime
+	// spin is how long the timer spins before each deadline.
+	spin stdtime.Duration
 }
 
 func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
@@ -560,41 +609,51 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	if r.Out != nil {
 		o.AttachClosables(r.Out)
 	}
-	sCtx.Go(func(ctx context.Context) error {
+	sCtx.Go(func(ctx context.Context) (err error) {
+		t, err := timer.New(r.spin)
+		if err != nil {
+			return err
+		}
+		defer func() { err = errors.Join(err, t.Close()) }()
+		// Fire right away, so timer nodes set their first deadline even when no
+		// streaming input is connected.
+		if err = t.Reset(0); err != nil {
+			return err
+		}
+		arm := func() error {
+			deadline := r.scheduler.NextDeadline()
+			if deadline == telem.TimeSpanMax {
+				// No active timers, so the loop wakes only on channel input.
+				return t.Stop()
+			}
+			return t.Reset((deadline - r.elapsed()).Duration())
+		}
 		var (
 			runReason node.RunReason
-			// Fire immediately so timer nodes seed their first deadline
-			// even when no streaming input is connected.
-			timer = stdtime.NewTimer(0)
-			res   framer.StreamerResponse
-			ok    bool
+			res       framer.StreamerResponse
+			ok        bool
 		)
-		defer timer.Stop()
 		for {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			case <-timer.C:
+			case <-t.C:
 				runReason = node.ReasonTimerTick
 			case res, ok = <-r.In.Outlet():
 				if !ok {
 					return nil
 				}
 				runReason = node.ReasonChannelInput
+				// A due timer fires on this cycle, not on a later timer wake.
+				if r.elapsed() >= r.scheduler.NextDeadline() {
+					runReason = node.ReasonTimerTick
+				}
 			}
-			if err := r.next(ctx, res, runReason); err != nil {
+			if err = r.next(ctx, res, runReason); err != nil {
 				return err
 			}
-			timer.Stop()
-			deadline := r.scheduler.NextDeadline()
-			elapsed := telem.Since(r.startTime)
-			if deadline == telem.TimeSpanMax {
-				// No active timers. Timer stays stopped, so we only wake on channel
-				// input.
-			} else if deadline > elapsed {
-				timer.Reset((deadline - elapsed).Duration())
-			} else {
-				timer.Reset(0)
+			if err = arm(); err != nil {
+				return err
 			}
 		}
 	}, o.Signal...)

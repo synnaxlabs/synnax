@@ -28,7 +28,7 @@ import { afterAll, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Access } from "@/access";
 import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
 
 const subjectOf = (c: Synnax): ontology.ID => {
   const u = c.auth?.user;
@@ -159,6 +159,83 @@ describe("Access Queries", () => {
       });
     });
 
+    describe("before the client knows its user", () => {
+      let username: string;
+      let rangePolicy: access.policy.Policy;
+      beforeEach(async () => {
+        const u = await client.users.create({
+          username: id.create(),
+          password: "test",
+          firstName: "test",
+          lastName: "test",
+        });
+        username = u.username;
+        const base = await client.access.policies.create({
+          name: id.create(),
+          objects: baseObjects,
+          actions: ["retrieve"],
+        });
+        rangePolicy = await client.access.policies.create({
+          name: id.create(),
+          objects: [ranger.TYPE_ONTOLOGY_ID],
+          actions: ["retrieve"],
+        });
+        const r = await client.access.roles.create({
+          name: id.create(),
+          description: "test",
+        });
+        await client.ontology.addChildren(
+          access.role.ontologyID(r.key),
+          access.policy.ontologyID(base.key),
+          access.policy.ontologyID(rangePolicy.key),
+        );
+        await client.access.roles.assign({ user: u.key, role: r.key });
+      });
+
+      const renderGranted = (userClient: Synnax) =>
+        renderHook(
+          () =>
+            Access.useGranted({ objects: ranger.TYPE_ONTOLOGY_ID, action: "retrieve" }),
+          { wrapper: createSynnaxWrapper({ client: userClient }) },
+        );
+
+      it("should re-evaluate the grant when mounted before the first login", async () => {
+        const userClient = createTestClient({ username, password: "test" });
+        expect(userClient.auth.user).toBeUndefined();
+        const { result } = renderGranted(userClient);
+        await waitFor(() => {
+          expect(result.current).toBe(true);
+        });
+        await client.access.policies.delete(rangePolicy.key);
+        await waitFor(() => {
+          expect(result.current).toBe(false);
+        });
+      });
+
+      it("should re-evaluate the grant when mounted during a repeat login", async () => {
+        const userClient = createTestClient({ username, password: "test" });
+        await userClient.connect();
+        // Drops the session, as an expired token does, and starts the next login.
+        userClient.auth.setCredentials({ username, password: "test" });
+        const pending = userClient.access.policies.retrieve({
+          keys: [rangePolicy.key],
+        });
+        await vi.waitUntil(() => userClient.auth.authenticating != null, {
+          interval: 1,
+        });
+        expect(userClient.auth.user).toBeUndefined();
+        const { result } = renderGranted(userClient);
+        await pending;
+        await waitFor(() => {
+          expect(result.current).toBe(true);
+        });
+        await client.access.policies.delete(rangePolicy.key);
+        await waitFor(() => {
+          expect(result.current).toBe(false);
+        });
+      });
+    });
+
     it("should ignore relationship changes that cannot affect permissions", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
@@ -184,7 +261,6 @@ describe("Access Queries", () => {
       // drop it: no re-evaluation, no re-render.
       const proj = await userClient.projects.create({
         name: id.create(),
-        layout: {},
       });
       // Wait until the link reaches the cache (event delivered)...
       await waitFor(() => {

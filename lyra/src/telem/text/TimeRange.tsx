@@ -17,7 +17,9 @@ import {
 import { type ReactElement } from "react";
 
 import { Flex } from "@/flex";
+import { useNow } from "@/hooks";
 import { Icon } from "@/icon";
+import { nextMidnight } from "@/telem/text/format";
 import { Text } from "@/text";
 
 export interface TimeRangeProps
@@ -29,22 +31,21 @@ export interface TimeRangeProps
 }
 
 const formatTime = (
-  timeRange: CrudeTimeRange,
+  tr: XTimeRange,
+  now: TimeStamp,
   displayTimeZone: TimeZone,
 ): null | string | [string, string] => {
-  const tr = new XTimeRange(timeRange).makeValid();
   if (tr.start.equals(TimeStamp.MAX)) return null;
-  const today = tr.start.isSameDay(TimeStamp.now(), displayTimeZone);
+  const today = tr.start.isSameDay(now, displayTimeZone);
   const startFormat = today ? "time" : "dateTime";
-  let startTime = new TimeStamp(tr.start).toString(startFormat, displayTimeZone);
-  if (today) startTime = `Today ${startTime}`;
+  const startTime = new TimeStamp(tr.start).toString(startFormat, displayTimeZone);
   if (tr.end.equals(TimeStamp.MAX)) {
-    if (tr.start.before(TimeStamp.now())) return `Started ${startTime}`;
-    return `Starts ${startTime}`;
+    const verb = tr.start.beforeEq(now) ? "Started" : "Starts";
+    return today ? `${verb} today ${startTime}` : `${verb} ${startTime}`;
   }
   const endFormat = tr.end.span(tr.start) < TimeSpan.DAY ? "time" : "dateTime";
   const endTime = new TimeStamp(tr.end).toString(endFormat, displayTimeZone);
-  return [startTime, endTime];
+  return [today ? `Today ${startTime}` : startTime, endTime];
 };
 
 export const TimeRange = ({
@@ -55,7 +56,13 @@ export const TimeRange = ({
   weight = 450,
   ...rest
 }: TimeRangeProps): ReactElement | null => {
-  const formattedTime = formatTime(children, displayTimeZone);
+  const tr = new XTimeRange(children).makeValid();
+  // The label changes when the range starts and when the day turns.
+  const now = useNow((now) => {
+    const midnight = nextMidnight(now, displayTimeZone);
+    return tr.start.after(now) ? TimeStamp.min(tr.start, midnight) : midnight;
+  });
+  const formattedTime = formatTime(tr, now, displayTimeZone);
   if (formattedTime == null) return null;
   return (
     <Flex.Box x gap="small" align="center" {...rest}>

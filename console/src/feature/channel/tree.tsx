@@ -51,9 +51,9 @@ const haulItems = ({ name, id: otgID, data }: ontology.Resource): Haul.Item[] =>
 
 const allowRename: Tree.AllowRename = ({ data }) => data?.internal !== true;
 
-export const useDelete = Tree.createUseDelete({
+const useDelete = Tree.createUseDelete({
   type: "Channel",
-  query: PChannel.useDelete,
+  useUpdate: PChannel.useDelete,
   convertKey: Number,
 });
 
@@ -68,7 +68,7 @@ const beforeSetAlias = async ({
   return { ...data, alias };
 };
 
-export const useSetAlias = ({
+const useSetAlias = ({
   selection: {
     ids: [firstID],
   },
@@ -86,13 +86,13 @@ export const useSetAlias = ({
   );
 };
 
-export const useRename = Tree.createUseRename({
-  query: PChannel.useRename,
+const useRename = Tree.createUseRename({
+  useUpdate: PChannel.useRename,
   ontologyID: channel.ontologyID,
   convertKey: Number,
 });
 
-export const useDeleteAlias = ({
+const useDeleteAlias = ({
   selection: { ids },
 }: Tree.ContextMenuProps): (() => void) => {
   const activeRange = Session.Range.useSelectSelectedKey();
@@ -103,7 +103,7 @@ export const useDeleteAlias = ({
         range: activeRange ?? undefined,
         channels: ids.map((id) => Number(id.key)),
       }),
-    [update, ids],
+    [update, activeRange, ids],
   );
 };
 
@@ -119,12 +119,12 @@ const useEditCalculated = () => {
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection: { ids, rootID },
-    state: { getResource, shape },
+    state,
   } = props;
   const activeRange = Range.useResolve();
   const groupFromSelection = Group.useCreateFromSelection();
   const handleSetAlias = useSetAlias(props);
-  const resources = getResource(ids);
+  const resources = Tree.useResources(state, ids);
   const channelKeys = useMemo(() => ids.map((r) => Number(r.key)), [ids]);
   const channels = PChannel.useMultiple({
     rangeKey: activeRange?.key,
@@ -170,7 +170,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       {hasUpdatePermission && (
         <Group.ContextMenuItem
           ids={ids}
-          shape={shape}
+          shape={state.shape}
           rootID={rootID}
           onClick={() => groupFromSelection(props)}
         />

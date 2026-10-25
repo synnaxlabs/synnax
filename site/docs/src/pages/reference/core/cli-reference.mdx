@@ -44,7 +44,7 @@ synnax start -l localhost:9090 -im
       default: '"localhost:9090"',
       description: `A reachable address and port to listen on for incoming client connections and RPCs from other nodes. To bind
             multiple addresses, each with its own certificate, provide a list of listener objects in a configuration file.
-            See <a href="/reference/core/production#serving-multiple-listeners">Serving Multiple Listeners</a>.`,
+            See <a href="/reference/core/production#serving-multiple-listeners">Serving multiple listeners</a>.`,
     },
     {
       option: "--peers/-p",
@@ -70,6 +70,12 @@ synnax start -l localhost:9090 -im
         "Starts the node without TLS encryption. This is not recommended for production use.",
     },
     {
+      option: "--fips",
+      default: "false",
+      description:
+        "Restricts password hashing to PBKDF2, the one password hash NIST approves. With it on, the Core refuses to check a password stored with another algorithm until an administrator sets it again.",
+    },
+    {
       option: "--mem/-m",
       default: "false",
       description: `Starts the node with an in-memory data store. In this mode, all data will
@@ -87,7 +93,7 @@ synnax start -l localhost:9090 -im
       default: '"/usr/local/synnax/config.yaml"',
       description: `Path to a JSON, YAML, or TOML configuration file that can
                 be used to set the node's configuration instead of using flags or environment variables.
-                See <a href="#configuration-files">Configuration Files</a> for more information.`,
+                See <a href="#configuration-files">Configuration files</a> for more information.`,
     },
     {
       option: "--auto-cert",
@@ -119,30 +125,30 @@ synnax start -l localhost:9090 -im
       option: "--username",
       default: '"synnax"',
       description:
-        'Username for the cluster root user. Reconciled on every start — see <a href="#root-user-reconciliation">Root User Reconciliation</a> for the behavior when this changes between restarts.',
+        'Username for the cluster root user. Reconciled on every start — see <a href="#root-user-reconciliation">Root user reconciliation</a> for the behavior when this changes between restarts.',
     },
     {
       option: "--password",
       default: '"seldon"',
       description:
-        'Password for the cluster root user. The configured value is the source of truth: if the stored password diverges, it is rotated to match on the next start. See <a href="#root-user-reconciliation">Root User Reconciliation</a>.',
+        'Password for the cluster root user. The configured value is the source of truth: if the stored password diverges, it is rotated to match on the next start. See <a href="#root-user-reconciliation">Root user reconciliation</a>.',
     },
     {
       option: "--license-key",
       default: '""',
-      description:
-        'License key to activate at start. See <a href="/reference/core/production#licensing">Licensing</a>.',
-    },
-    {
-      option: "--license-file",
-      default: '""',
-      description: "Path to a file that holds the license key to activate at start.",
+      description: "License key that activates the Core.",
     },
     {
       option: "--debug",
       default: "false",
       description:
         "Enables debug logging output. We recommend against using this in production, as it generates a very large amount of output.",
+    },
+    {
+      option: "--session-idle-timeout",
+      default: "168h",
+      description:
+        "Ends a login session after this long without a request from its client.",
     },
     {
       option: "--slow-consumer-timeout",
@@ -242,7 +248,7 @@ Command line flags will take precedence over environment variables.
 <Table.Data
   columns={[
     { key: "option", name: "Flag", type: "code" },
-    { key: "env", name: "Environment Variable", type: "code" },
+    { key: "env", name: "Environment variable", type: "code" },
   ]}
   data={[
     { option: "--listen/-l", env: "SYNNAX_LISTEN" },
@@ -250,6 +256,7 @@ Command line flags will take precedence over environment variables.
     { option: "--data/-d", env: "SYNNAX_DATA" },
     { option: "--verbose/-v", env: "SYNNAX_VERBOSE" },
     { option: "--insecure/-i", env: "SYNNAX_INSECURE" },
+    { option: "--fips", env: "SYNNAX_FIPS" },
     { option: "--mem/-m", env: "SYNNAX_MEM" },
     { option: "--config/c", env: "SYNNAX_CONFIG" },
     { option: "--certs-dir", env: "SYNNAX_CERTS_DIR" },
@@ -259,8 +266,8 @@ Command line flags will take precedence over environment variables.
     { option: "--username", env: "SYNNAX_USERNAME" },
     { option: "--password", env: "SYNNAX_PASSWORD" },
     { option: "--license-key", env: "SYNNAX_LICENSE_KEY" },
-    { option: "--license-file", env: "SYNNAX_LICENSE_FILE" },
     { option: "--debug", env: "SYNNAX_DEBUG" },
+    { option: "--session-idle-timeout", env: "SYNNAX_SESSION_IDLE_TIMEOUT" },
     { option: "--slow-consumer-timeout", env: "SYNNAX_SLOW_CONSUMER_TIMEOUT" },
     { option: "--no-driver", env: "SYNNAX_NO_DRIVER" },
     { option: "--stop-on-stdin-close", env: "SYNNAX_STOP_ON_STDIN_CLOSE" },
@@ -318,7 +325,7 @@ Here are example configuration files in various formats:
   "node-key": "node.key",
   "username": "synnax",
   "password": "seldon",
-  "license-file": "/usr/local/synnax/synnax.license",
+  "license-key": "000000-00000000-0000000000",
   "debug": false,
   "slow-consumer-timeout": "2.5s",
   "no-driver": false,
@@ -356,7 +363,7 @@ node-cert: node.crt
 node-key: node.key
 username: synnax
 password: seldon
-license-file: /usr/local/synnax/synnax.license
+license-key: 000000-00000000-0000000000
 no-driver: false
 disable-integrations: []
 enable-integrations: []
@@ -389,7 +396,7 @@ node-cert = "node.crt"
 node-key = "node.key"
 username = "synnax"
 password = "seldon"
-license-file = "/usr/local/synnax/synnax.license"
+license-key = "000000-00000000-0000000000"
 no-driver = false
 disable-integrations = []
 enable-integrations = []
@@ -447,7 +454,7 @@ Each listener object accepts the following fields:
     {
       field: "cert.source",
       description:
-        'The certificate source: <code>file</code>, <code>auto</code>, or <code>tailscale</code>. See <a href="/reference/core/production#certificate-sources">Certificate Sources</a>.',
+        'The certificate source: <code>file</code>, <code>auto</code>, or <code>tailscale</code>. See <a href="/reference/core/production#certificate-sources">Certificate sources</a>.',
     },
     {
       field: "cert.cert",

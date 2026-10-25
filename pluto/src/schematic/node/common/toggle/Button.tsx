@@ -7,21 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/schematic/node/common/primitive/primitive.css";
+
 import { CSS } from "@synnaxlabs/lyra/css";
 import { useHold } from "@synnaxlabs/lyra/hooks";
-import { color, type CrudeTimeSpan } from "@synnaxlabs/x";
-import { type ComponentPropsWithRef, type ReactElement, useMemo } from "react";
+import { type CrudeTimeSpan } from "@synnaxlabs/x";
+import { type ComponentPropsWithRef, type ReactElement } from "react";
 
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type OrientableProps } from "@/schematic/node/common/primitive/orientable";
 
 export interface ButtonBaseProps extends Omit<
   ComponentPropsWithRef<"button">,
-  "color" | "value"
+  "value"
 > {
   triggered?: boolean;
   enabled?: boolean;
-  color?: color.Crude;
   onClickDelay?: CrudeTimeSpan;
 }
 
@@ -32,7 +33,6 @@ export const Button = ({
   enabled = false,
   triggered = false,
   orientation = "left",
-  color: colorVal,
   onClickDelay = 0,
   onClick,
   onMouseDown,
@@ -49,13 +49,9 @@ export const Button = ({
   });
   const delayed = !hold.delay.isZero;
 
-  const pStyle = useMemo(() => {
-    if (!delayed) return style;
-    return {
-      ...style,
-      [CSS.variable("toggle-delay")]: `${hold.delay.seconds.toString()}s`,
-    };
-  }, [hold.delay, style]);
+  const pStyle = delayed
+    ? { ...style, [Primitive.TOGGLE_DELAY]: `${hold.delay.seconds.toString()}s` }
+    : style;
 
   return (
     <button
@@ -69,7 +65,6 @@ export const Button = ({
         hold.pressed && CSS.M("pressed"),
         className,
       )}
-      color={color.cssString(colorVal)}
       onClick={hold.onClick}
       onMouseDown={hold.onMouseDown}
       disabled={disabled}

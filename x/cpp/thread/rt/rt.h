@@ -46,7 +46,7 @@ struct Capability {
 
     [[nodiscard]] bool ok() const { return this->supported && this->permitted; }
 
-    operator bool() const { return this->ok(); }
+    explicit operator bool() const { return this->ok(); }
 
     [[nodiscard]] bool missing_permissions() const {
         return this->supported && !this->permitted;
@@ -202,8 +202,9 @@ struct Config {
 /// @param cfg The RT configuration to apply.
 void apply_config(const Config &cfg);
 
-/// @brief Checks if the platform supports real-time scheduling.
-/// @return true on Linux with appropriate permissions, false on macOS/Windows.
+/// @brief Checks if the current thread can use any real-time capability: SCHED_FIFO
+/// or SCHED_DEADLINE on Linux, the time-constraint policy on macOS, or raised thread
+/// priority on Windows.
 bool has_support();
 
 /// @brief Discovers isolated or suitable RT cores on the current platform. On Linux,

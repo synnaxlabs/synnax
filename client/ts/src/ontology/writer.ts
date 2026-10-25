@@ -12,9 +12,9 @@ import { z } from "zod";
 
 import { type ID, idZ } from "@/ontology/payload";
 
-export const addRemoveChildrenReqZ = z.object({ id: idZ, children: idZ.array() });
-export const moveChildrenReqZ = z.object({ from: idZ, to: idZ, children: idZ.array() });
-export const emptyResZ = z.object({});
+const addRemoveChildrenReqZ = z.object({ id: idZ, children: idZ.array() });
+const moveChildrenReqZ = z.object({ from: idZ, to: idZ, children: idZ.array() });
+const emptyResZ = z.object({});
 
 /** Edits the parent-child relationships in the ontology. Reach it through the client. */
 export class Writer {

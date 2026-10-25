@@ -9,10 +9,11 @@
 
 import "@/input/time/Time.css";
 
-import { TimeSpan as XTimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useState } from "react";
+import { TimeSpan as XTimeSpan } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
+import { useNow } from "@/hooks";
 import { type BaseProps, Editor } from "@/input/time/Editor";
 import { roundNumeric } from "@/input/time/grammar";
 import { suggestTimeSpans } from "@/input/time/suggest";
@@ -37,18 +38,13 @@ export const formatTimeSpan = (span: XTimeSpan): string =>
 // The clock always reads to the second, whatever the row's labels resolve to: a
 // coarser cut would show 0s for the first minute of a long range.
 const useElapsed = (since: number | undefined): string | null => {
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    if (since == null) return;
-    const i = setInterval(() => setTick((p) => p + 1), 1000);
-    return () => clearInterval(i);
-  }, [since]);
+  const now = useNow((now) => (since == null ? null : now.add(XTimeSpan.SECOND)));
   if (since == null) return null;
-  return formatTimeSpan(TimeStamp.now().span(since).truncate(XTimeSpan.SECOND));
+  return formatTimeSpan(now.span(since).truncate(XTimeSpan.SECOND));
 };
 
 /**
- * A duration input. The value is nanoseconds. At rest it reads `2h 30m 12s`; clicking
+ * A duration input. The value is nanoseconds. At rest it reads `2h 30min 12s`; clicking
  * opens an editor that accepts any duration the grammar does (`30s`, `1:30:00`,
  * `1.5h`) and commits on Enter or a click outside. Unlisted props go to the trigger.
  */
@@ -69,11 +65,8 @@ export const TimeSpan = ({
     resolution == null ? formatted : formatTimeSpan(exact.truncate(resolution));
   const exactTooltip = elapsed == null && shown !== formatted ? formatted : undefined;
 
-  const languageReady = useLanguage();
-  const suggest = useCallback(
-    (text: string) => suggestTimeSpans(text),
-    [languageReady],
-  );
+  const language = useLanguage();
+  const suggest = (text: string) => suggestTimeSpans(text, language);
 
   const handleCommit = (span: XTimeSpan): void => {
     const next = Number(span.valueOf());
@@ -95,9 +88,9 @@ export const TimeSpan = ({
       initialText={elapsed == null ? formatted : ""}
       suggest={suggest}
       onCommit={handleCommit}
-      hint="Try 2h 30m, 1:30:00, 90, or an hour and a half"
+      hint="Try 2h 30min, 1:30:00, 90, or an hour and a half"
       unreadMessage="Not a duration"
-      fieldPlaceholder={elapsed ?? "2h 30m"}
+      fieldPlaceholder={elapsed ?? "2h 30min"}
       {...rest}
     >
       {({ value: span, reading }) => (

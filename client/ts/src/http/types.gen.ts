@@ -131,8 +131,8 @@ export const channelFieldZ = z.object({
   /** dataType is the data type of the command channel. */
   dataType: z.string().default("float64"),
   /**
-   * timeFormat is the output encoding when the command channel holds timestamps.
-   * Required for timestamp channels.
+   * timeFormat is the output encoding when the command channel holds timestamps. An
+   * unset format is ISO 8601.
    */
   timeFormat: timeFormatZ.optional(),
   /**
@@ -235,6 +235,7 @@ export const readConfigZ = task.persistConfigZ.extend({
   device: device.keyZ.default(""),
   rate: z.number().default(1),
   endpoints: readEndpointZ.array().default(() => []),
+  nanFillEnabled: z.boolean().default(false),
 });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 

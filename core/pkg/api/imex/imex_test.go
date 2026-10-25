@@ -17,10 +17,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/gorp"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -186,6 +186,16 @@ var _ = Describe("JSONCodec", func() {
 			Expect(apiimex.JSONCodec.Encode(ctx, v)).To(Equal(first))
 		}
 		Expect(string(first)).To(ContainSubstring("\"a\": 2,\n  \"b\": 4"))
+	})
+})
+
+var _ = Describe("ImportCodec", func() {
+	It("Should replace a lone surrogate with U+FFFD", func(ctx SpecContext) {
+		var env imex.Envelope
+		Expect(apiimex.ImportCodec.Decode(
+			ctx, []byte(`{"version":1,"name":"Tank \ud83d"}`), &env,
+		)).To(Succeed())
+		Expect(env.Name).To(Equal("Tank \uFFFD"))
 	})
 })
 

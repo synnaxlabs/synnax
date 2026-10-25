@@ -31,14 +31,18 @@ cpp: &cpp
   - *ci
   - .clang-format
   - .clang-format-ignore
+  - .clang-tidy
   - .github/workflows/test.cpp.yaml
+  - BUILD.bazel
   - scripts/check_clang_format.sh
+  - scripts/clang_tidy_wrapper.sh
   - scripts/install_clang_format.sh
   - scripts/run_bazel.sh
   - scripts/sanitizers/**
 
 go: &go
   - *ci
+  - .github/scripts/pin_mtimes.py
   - .github/workflows/test.go.yaml
   - .golangci.yaml
   - codecov.yaml
@@ -53,6 +57,7 @@ py: &py
 
 ts: &ts
   - *ci
+  - .github/actions/setup-pnpm/**
   - .github/workflows/test.ts.yaml
   - codecov.yaml
   - configs/**
@@ -61,6 +66,9 @@ ts: &ts
   - pnpm-lock.yaml
   - pnpm-workspace.yaml
   - turbo.json
+
+eslint_config:
+  - *ts
 
 vite_plugin:
   - *ts
@@ -81,9 +89,16 @@ cesium: &cesium
   - *x_go
   - cesium/**
 
+gorp: &gorp
+  - *alamos_go
+  - *go
+  - *x_go
+  - gorp/**
+
 freighter_go: &freighter_go
   - *alamos_go
   - *go
+  - *gorp
   - *x_go
   - freighter/go/**
 
@@ -123,6 +138,7 @@ core: &core
   - *cesium
   - *freighter_go
   - *go
+  - *gorp
   - *x_go
   - core/**
 
@@ -133,10 +149,6 @@ arc_ts: &arc_ts
 oracle_language:
   - *ts
   - oracle/lsp/extensions/vscode/**
-
-media: &media
-  - *ts
-  - x/media/**
 
 x_ts: &x_ts
   - *ts
@@ -176,38 +188,66 @@ pluto: &pluto
   - *client_ts
   - *freighter_ts
   - *lyra
-  - *media
   - *ts
   - *x_ts
   - pluto/**
+
+portal:
+  - *client_ts
+  - *lyra
+  - *ts
+  - *x_ts
+  - site/portal/**
 
 console: &console
   - *client_ts
   - *drift
   - *freighter_ts
   - *lyra
-  - *media
   - *pluto
   - *ts
   - *x_ts
   - console/**
 
+site_common: &site_common
+  - *lyra
+  - *ts
+  - site/common/**
+
 docs:
   - *arc_ts
   - *client_ts
   - *lyra
-  - *media
+  - *site_common
   - *ts
   - *x_ts
   - .github/workflows/test.docs.yaml
   - site/docs/**
 
+foundation:
+  - *lyra
+  - *site_common
+  - *ts
+  - site/foundation/**
+
 www:
   - *arc_ts
   - *lyra
-  - *media
+  - *site_common
   - *ts
   - site/www/**
+
+knip:
+  - *arc_ts
+  - *console
+  - *ts
+  - oracle/lsp/extensions/vscode/**
+  - site/common/**
+  - site/docs/**
+  - site/foundation/**
+  - site/portal/**
+  - site/www/**
+  - studio/**
 
 alamos_py: &alamos_py
   - *py
@@ -293,6 +333,7 @@ oracle_check:
   - *oracle
   - .clang-format
   - .clang-format-ignore
+  - .github/actions/setup-pnpm/**
   - .github/workflows/check.oracle.yaml
   - .prettierignore
   - .prettierrc
@@ -314,10 +355,12 @@ protobuf:
   - buf.gen.yaml
   - buf.yaml
 
-scripts:
-  - *ci
+ci_scripts:
+  - *py
   - .github/scripts/**
-  - .github/workflows/test.scripts.yaml
+
+scripts:
+  - *py
   - scripts/**
 
 console_build: &console_build

@@ -36,7 +36,7 @@ const Roles = (): ReactElement | null => {
   );
 };
 
-/** The signed-in user's first name, falling back to their username. */
+/** The logged-in user's first name, falling back to their username. */
 export const useDisplayName = (): string => {
   const { data: remoteUsername } = User.useResultUsername({});
   const { data: firstName } = User.useResultFirstName({});
@@ -45,7 +45,7 @@ export const useDisplayName = (): string => {
   return firstName != null && firstName !== "" ? firstName : username;
 };
 
-/** The signed-in user's name, roles, and username, for embedding in a dialog. */
+/** The logged-in user's name, roles, and username, for embedding in a dialog. */
 export const Info = (): ReactElement => {
   const { data: remoteUsername } = User.useResultUsername({});
   const { data: firstName } = User.useResultFirstName({});

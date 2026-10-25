@@ -524,6 +524,592 @@ Board struct {
 `,
 			false, nil, nil,
 		),
+		Entry("converts a union variant by variant through a type switch",
+			"board",
+			`Base struct {
+	key uuid
+
+	@go marshal
+}
+
+View struct {
+	type string
+	args record = {}
+
+	@go marshal
+}
+
+Tab union on variant extends Base {
+	view View
+	link {
+		name string
+	}
+
+	@go marshal
+}
+
+Board struct {
+	key uuid @key
+	tabs Tab[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Base = v0.Base
+
+View struct {
+	type string
+
+	@go marshal
+}
+
+Tab union on variant extends v0.Base {
+	view View
+	link {
+		name string
+	}
+
+	@go marshal
+}
+
+Board struct {
+	key uuid @key
+	tabs Tab[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Base struct {
+	key uuid
+}
+
+View struct {
+	type string
+}
+
+Tab union on variant extends Base {
+	view View
+	link {
+		name string
+	}
+}
+
+Board struct {
+	key uuid @key
+	tabs Tab[]
+}
+`,
+			true,
+			[]string{
+				"lo.MapErr(old.Tabs, func(v v0.Tab, _ int) (Tab, error)",
+				"autoMigrateTab(ctx, v)",
+				"func autoMigrateTab(ctx context.Context, old v0.Tab) (Tab, error)",
+				"switch variant := old.Variant.(type)",
+				"case nil:",
+				"case v0.ViewTab:",
+				"view, err := MigrateView(ctx, variant.View)",
+				"return Tab{Variant: ViewTab{",
+				"Base: variant.Base,",
+				"View: view,",
+				"case v0.LinkTab:",
+				"return Tab{Variant: LinkTab{",
+				"Name: variant.Name,",
+				`errors.Newf("unknown Tab variant %T", variant)`,
+				`"github.com/synnaxlabs/x/errors"`,
+			},
+			[]string{"Tab(old)"},
+		),
+		Entry("copies a field of a union the incoming version aliases",
+			"board",
+			`Link struct {
+	name string
+
+	@go marshal
+}
+
+Edge union on variant {
+	link Link
+
+	@go marshal
+}
+
+Board struct {
+	key uuid @key
+	edge Edge
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Link = v0.Link
+Edge = v0.Edge
+
+Board struct {
+	key uuid @key
+	name string
+	edge Edge
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Link struct {
+	name string
+}
+
+Edge union on variant {
+	link Link
+}
+
+Board struct {
+	key uuid @key
+	name string
+	edge Edge
+}
+`,
+			true,
+			[]string{"Edge: old.Edge"},
+			nil,
+		),
+		Entry("leaves a field to the hand-written migration when an alias of a union "+
+			"becomes a struct",
+			"board",
+			`Link struct {
+	name string
+
+	@go marshal
+}
+
+Edge union on variant {
+	link Link
+
+	@go marshal
+}
+
+Wire = Edge
+
+Board struct {
+	key uuid @key
+	wire Wire
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Wire struct {
+	name string
+
+	@go marshal
+}
+
+Board struct {
+	key uuid @key
+	wire Wire
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Wire struct {
+	name string
+}
+
+Board struct {
+	key uuid @key
+	wire Wire
+}
+`,
+			true,
+			[]string{"Key: old.Key"},
+			[]string{"autoMigrateWire", "Wire: "},
+		),
+		Entry("pairs variant embeds by declaration when a union drops a base",
+			"board",
+			`Base struct {
+	key uuid
+
+	@go marshal
+}
+
+View struct {
+	type string
+	args record = {}
+
+	@go marshal
+}
+
+Tab union on variant extends Base {
+	view View
+
+	@go marshal
+}
+
+Board struct {
+	key uuid @key
+	tab Tab
+
+	@go marshal
+	@go migrate
+}
+`,
+			`View struct {
+	type string
+
+	@go marshal
+}
+
+Tab union on variant {
+	view View
+
+	@go marshal
+}
+
+Board struct {
+	key uuid @key
+	tab Tab
+
+	@go marshal
+	@go migrate
+}
+`,
+			`View struct {
+	type string
+}
+
+Tab union on variant {
+	view View
+}
+
+Board struct {
+	key uuid @key
+	tab Tab
+}
+`,
+			true,
+			[]string{
+				"view, err := MigrateView(ctx, variant.View)",
+				"View: view,",
+			},
+			[]string{"Base: variant.Base"},
+		),
+		Entry("keeps a field variable off the type switch's bound name",
+			"board",
+			`View struct {
+	type string
+	args record = {}
+
+	@go marshal
+}
+
+Tab union on kind {
+	panel {
+		variant View
+	}
+
+	@go marshal
+}
+
+Board struct {
+	key uuid @key
+	tab Tab
+
+	@go marshal
+	@go migrate
+}
+`,
+			`View struct {
+	type string
+
+	@go marshal
+}
+
+Tab union on kind {
+	panel {
+		variant View
+	}
+
+	@go marshal
+}
+
+Board struct {
+	key uuid @key
+	tab Tab
+
+	@go marshal
+	@go migrate
+}
+`,
+			`View struct {
+	type string
+}
+
+Tab union on kind {
+	panel {
+		variant View
+	}
+}
+
+Board struct {
+	key uuid @key
+	tab Tab
+}
+`,
+			true,
+			[]string{
+				"variantVal, err := MigrateView(ctx, variant.Variant)",
+				"Variant: variantVal,",
+			},
+			[]string{"variant, err :="},
+		),
+		Entry("leaves a variant the incoming version drops to the generated error",
+			"board",
+			`Tab union on variant {
+	text {
+		value string
+	}
+	link {
+		name string
+	}
+
+	@go marshal
+}
+
+Board struct {
+	key uuid @key
+	tab Tab
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Tab union on variant {
+	text {
+		value string
+	}
+
+	@go marshal
+}
+
+Board struct {
+	key uuid @key
+	tab Tab
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Tab union on variant {
+	text {
+		value string
+	}
+}
+
+Board struct {
+	key uuid @key
+	tab Tab
+}
+`,
+			true,
+			[]string{
+				"func autoMigrateTab(_ context.Context, old v0.Tab) (Tab, error)",
+				"case v0.TextTab:",
+				"Value: variant.Value,",
+			},
+			[]string{"LinkTab"},
+		),
+		Entry("converts a recursive union through its own migration",
+			"board",
+			`Leaf struct {
+	name string
+	note string
+
+	@go marshal
+}
+
+Node union on variant {
+	leaf Leaf
+	split {
+		first Node
+		last Node
+	}
+
+	@go marshal
+}
+
+Board struct {
+	key uuid @key
+	root Node
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Leaf struct {
+	name string
+
+	@go marshal
+}
+
+Node union on variant {
+	leaf Leaf
+	split {
+		first Node
+		last Node
+	}
+
+	@go marshal
+}
+
+Board struct {
+	key uuid @key
+	root Node
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Leaf struct {
+	name string
+}
+
+Node union on variant {
+	leaf Leaf
+	split {
+		first Node
+		last Node
+	}
+}
+
+Board struct {
+	key uuid @key
+	root Node
+}
+`,
+			true,
+			[]string{
+				"root, err := autoMigrateNode(ctx, old.Root)",
+				"case v0.SplitNode:",
+				"first, err := autoMigrateNode(ctx, variant.First)",
+				"last, err := autoMigrateNode(ctx, variant.Last)",
+				"return Node{Variant: SplitNode{",
+				"leaf, err := MigrateLeaf(ctx, variant.Leaf)",
+			},
+			[]string{"Node(old)"},
+		),
+		Entry(
+			"migrates a named variant whose payload changed through the generated switch",
+			"payload",
+			`Text struct {
+	value string
+
+	@go marshal
+}
+
+Payload union on type {
+	text Text
+
+	@go marshal
+}
+
+Config struct {
+	key uuid @key
+	payloads Payload[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Text struct {
+	value string
+	size int32 = 0
+
+	@go marshal
+}
+
+Payload union on type {
+	text Text
+
+	@go marshal
+}
+
+Config struct {
+	key uuid @key
+	payloads Payload[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Text struct {
+	value string
+	size int32 = 0
+}
+
+Payload union on type {
+	text Text
+}
+
+Config struct {
+	key uuid @key
+	payloads Payload[]
+}
+`,
+			true,
+			[]string{"return autoMigratePayload(ctx, v)", "case v0.TextPayload:"},
+			nil,
+		),
+		Entry("routes a union whose variants changed through its hand migration",
+			"channel",
+			`Payload union on type {
+	text {
+		value string
+	}
+
+	@go marshal
+}
+Channel struct {
+	key uuid @key
+	payloads Payload[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Payload union on type {
+	binary {
+		data bytes
+	}
+
+	@go marshal
+}
+Channel struct {
+	key uuid @key
+	payloads Payload[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Payload union on type {
+	binary {
+		data bytes
+	}
+}
+Channel struct {
+	key uuid @key
+	payloads Payload[]
+}
+`,
+			true,
+			[]string{
+				"func autoMigrateChannel",
+				"return MigratePayload(ctx, v)",
+				"func autoMigratePayload",
+			},
+			[]string{"Payload(old)"},
+		),
 		Entry("leaves a field whose union-ness changed to the hand migration",
 			"channel",
 			`Text struct {
@@ -753,6 +1339,269 @@ Keys Member[] {
 			true,
 			[]string{"func autoMigrateKeys", "lo.MapErr"},
 			nil,
+		),
+		Entry(
+			"migrates an alias of an array alias element-wise",
+			"member",
+			`Member struct {
+	name string
+
+	@go marshal
+}
+Members = Member[]
+Crew = Members
+`,
+			`Member struct {
+	name string
+	role string
+
+	@go marshal
+}
+Members = Member[]
+Crew = Members
+`,
+			`Member struct {
+	name string
+	role string
+}
+Members = Member[]
+Crew = Members
+`,
+			true,
+			[]string{
+				"func autoMigrateCrew",
+				"lo.MapErr(old, func(v v0.Member, _ int) (Member, error) {",
+			},
+			[]string{"Crew(old)"},
+		),
+		Entry(
+			"migrates a distinct over an array alias element-wise",
+			"member",
+			`Member struct {
+	name string
+
+	@go marshal
+}
+Members = Member[]
+Keys Members
+`,
+			`Member struct {
+	name string
+	role string
+
+	@go marshal
+}
+Members = Member[]
+Keys Members
+`,
+			`Member struct {
+	name string
+	role string
+}
+Members = Member[]
+Keys Members
+`,
+			true,
+			[]string{
+				"func autoMigrateKeys",
+				"lo.MapErr(old, func(v v0.Member, _ int) (Member, error) {",
+			},
+			[]string{"Keys(old)"},
+		),
+		Entry(
+			"migrates a field of an alias of a distinct array element-wise",
+			"panel",
+			`Member struct {
+	name string
+
+	@go marshal
+}
+Keys Member[]
+Crew = Keys
+Panel struct {
+	key uuid @key
+	crew Crew
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Member struct {
+	name string
+	role string
+
+	@go marshal
+}
+Keys Member[]
+Crew = Keys
+Panel struct {
+	key uuid @key
+	crew Crew
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Member struct {
+	name string
+	role string
+}
+Keys Member[]
+Crew = Keys
+Panel struct {
+	key uuid @key
+	crew Crew
+}
+`,
+			true,
+			[]string{
+				"crew, err := lo.MapErr(old.Crew, " +
+					"func(v v0.Member, _ int) (Member, error) {",
+			},
+			[]string{"Crew(old)"},
+		),
+		Entry("migrates an alias of a struct alias through the target's fields",
+			"member",
+			`Member struct {
+	name string
+
+	@go marshal
+}
+Wrapper = Member
+Outer = Wrapper
+`,
+			`Member struct {
+	name string
+	role string
+
+	@go marshal
+}
+Wrapper = Member
+Outer = Wrapper
+`,
+			`Member struct {
+	name string
+	role string
+}
+Wrapper = Member
+Outer = Wrapper
+`,
+			true,
+			[]string{"func autoMigrateOuter", "Name: old.Name"},
+			[]string{"Outer(old)"},
+		),
+		Entry("migrates an alias of a generic alias with its type arguments",
+			"pair",
+			`Tag struct {
+	name string
+
+	@go marshal
+}
+Pair struct<A, B> {
+	first A
+	second B
+
+	@go marshal
+}
+Wrapper<T> = Pair<Tag, T>
+Outer = Wrapper<string>
+`,
+			`Tag struct {
+	name string
+
+	@go marshal
+}
+Pair struct<A, B> {
+	first A
+	second B
+	third bool
+
+	@go marshal
+}
+Wrapper<T> = Pair<Tag, T>
+Outer = Wrapper<string>
+`,
+			`Tag struct {
+	name string
+}
+Pair struct<A, B> {
+	first A
+	second B
+	third bool
+}
+Wrapper<T> = Pair<Tag, T>
+Outer = Wrapper<string>
+`,
+			true,
+			[]string{
+				"func autoMigrateOuter(" +
+					"ctx context.Context, old v0.Outer) (Outer, error) {\n" +
+					"\tfirst, err := autoMigrateTag(ctx, old.First)",
+			},
+			nil,
+		),
+		Entry(
+			"migrates an alias of a union variant by variant",
+			"panel",
+			`Pipe struct {
+	length float64
+
+	@go marshal
+}
+Edge union on variant {
+	pipe Pipe
+
+	@go marshal
+}
+Link = Edge
+Panel struct {
+	key uuid @key
+	link Link
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Pipe struct {
+	length float64
+	width float64
+
+	@go marshal
+}
+Edge union on variant {
+	pipe Pipe
+
+	@go marshal
+}
+Link = Edge
+Panel struct {
+	key uuid @key
+	link Link
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Pipe struct {
+	length float64
+	width float64
+}
+Edge union on variant {
+	pipe Pipe
+}
+Link = Edge
+Panel struct {
+	key uuid @key
+	link Link
+}
+`,
+			true,
+			[]string{
+				"func autoMigrateLink",
+				"case v0.PipeEdge:",
+				"MigratePipe(ctx, variant.Pipe)",
+			},
+			[]string{"Link(old)"},
 		),
 		Entry("migrates an alias-of-struct through the target's fields",
 			"wrapper",

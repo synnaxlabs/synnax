@@ -27,13 +27,14 @@
     { "name": "freighter/integration", "path": "../freighter/integration" },
     { "name": "freighter/py", "path": "../freighter/py" },
     { "name": "freighter/ts", "path": "../freighter/ts" },
+    { "name": "gorp", "path": "../gorp" },
     { "name": "integration", "path": "../integration" },
     { "name": "lyra", "path": "../lyra" },
-    { "name": "media", "path": "../x/media" },
     { "name": "oracle", "path": "../oracle" },
     { "name": "pluto", "path": "../pluto" },
     { "name": "schemas", "path": "../schemas" },
     { "name": "site/docs", "path": "../site/docs" },
+    { "name": "site/portal", "path": "../site/portal" },
     { "name": "vendor", "path": "../vendor" },
     { "name": "x/cpp", "path": "../x/cpp" },
     { "name": "x/go", "path": "../x/go" },
@@ -153,7 +154,6 @@
       "*.code-workspace": "json"
     },
     "cSpell.words": [
-      "Aliaser",
       "automations",
       "browseable",
       "caseconv",

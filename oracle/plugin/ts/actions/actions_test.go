@@ -21,7 +21,7 @@ import (
 
 func TestTSActions(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin TS Actions Suite")
+	RunSpecs(t, "Plugin TS Actions Suite", SuiteConfig())
 }
 
 var _ = Describe("TS Actions Plugin", func() {
@@ -64,6 +64,33 @@ var _ = Describe("TS Actions Plugin", func() {
 				for _, f := range resp.Files {
 					Expect(f.Path).ToNot(HaveSuffix("actions.gen.ts"))
 				}
+			})
+		})
+
+		Context("field-level omit", func() {
+			It("Should leave an omitted field out of an action payload", func(
+				ctx SpecContext,
+			) {
+				source := `
+					@go output "core/pkg/service/counter"
+					@ts output "client/ts/src/counter"
+
+					Base struct {
+						value  int32
+						secret bytes { @ts omit }
+					}
+
+					Counter struct {
+						key uuid
+
+						action SetValue extends Base {
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "counter", loader, p)
+				ExpectContent(resp, "actions.gen.ts").
+					ToContain("export const setValuePayloadZ = z.object({", "value").
+					ToNotContain("secret")
 			})
 		})
 

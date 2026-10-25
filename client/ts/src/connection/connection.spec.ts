@@ -26,9 +26,9 @@ import {
   AuthError,
   DisconnectedError,
   ExpiredLicenseError,
-  MissingLicenseError,
 } from "@/errors";
 import { license } from "@/license";
+import { query } from "@/query";
 import { TEST_CLIENT_PARAMS, waitForStatus } from "@/testutil";
 import { Transport } from "@/transport";
 
@@ -271,7 +271,9 @@ describe("connection", () => {
 
   describe("reduce", () => {
     it("should start in loading", () => {
-      expect(createInitialStatus(createConfig()).variant).toEqual("loading");
+      const initial = createInitialStatus(createConfig());
+      expect(initial.variant).toEqual("loading");
+      expect(initial.message).toEqual("Connecting");
     });
 
     it("should track an in-flight check without moving the variant", () => {
@@ -298,11 +300,13 @@ describe("connection", () => {
     });
 
     it("should reach success on a check when no stream is required", () => {
-      const status = apply(createConfig(), {
+      const status = apply(createConfig({ name: "Lab Core" }), {
         type: "check.success",
         info: createInfo(),
       });
       expect(status.variant).toEqual("success");
+      expect(status.name).toEqual("Lab Core");
+      expect(status.message).toEqual("Connected");
       expect(status.details.clusterKey).toEqual("test-cluster");
     });
 
@@ -355,6 +359,8 @@ describe("connection", () => {
       const failed = apply(config, { type: "check.failure", error, attempt: 1 });
       const exhausted = reduce(failed, { type: "retry.exhausted" }, config);
       expect(exhausted.variant).toEqual("error");
+      expect(exhausted.message).toEqual("Cannot reach Core");
+      expect(exhausted.description).toEqual("server down");
       expect(reasonOf(exhausted)).toEqual("unreachable");
       expect(exhausted.details.retry).toBeNull();
     });
@@ -387,9 +393,12 @@ describe("connection", () => {
         { type: "stream.denied" },
       );
       expect(denied.variant).toEqual("warning");
+      expect(denied.message).toEqual("Connected");
+      expect(denied.description).toEqual(
+        "Live updates are unavailable. This user cannot read the change channels.",
+      );
       expect(denied.details.streamDenied).toBe(true);
       expect(denied.details.streamLive).toBe(false);
-      expect(denied.description).not.toEqual("");
       // later checks must not drag the settled denial back into loading
       const checked = reduce(
         denied,
@@ -439,6 +448,8 @@ describe("connection", () => {
         error: new AuthError("invalid credentials"),
       });
       expect(rejected.variant).toEqual("error");
+      expect(rejected.message).toEqual("Failed to authenticate");
+      expect(rejected.description).toEqual("invalid credentials");
       expect(reasonOf(rejected)).toEqual("auth");
       expect(rejected.details.authenticated).toBe(false);
       const retrying = reduce(rejected, { type: "retry.requested" }, config);
@@ -458,33 +469,32 @@ describe("connection", () => {
       expect(reasonOf(status)).toEqual("auth");
     });
 
-    it("should enter error(unlicensed) when the Core reports no license", () => {
-      const config = createConfig();
-      const status = apply(config, {
+    it("should connect when the Core reports no license", () => {
+      const status = apply(createConfig(), {
         type: "check.success",
         info: createInfo({ license: "missing" }),
       });
-      expect(reasonOf(status)).toEqual("unlicensed");
+      expect(status.variant).toEqual("success");
       expect(status.details.license).toEqual("missing");
-      expect(status.details.authenticated).toBe(true);
-      expect(MissingLicenseError.matches(status.details.error)).toBe(true);
-      expect(modeFor(status)).toEqual("checking");
     });
 
-    it("should report an expired license with its own error", () => {
+    it("should enter error(unlicensed) when the Core reports an expired license", () => {
       const status = apply(createConfig(), {
         type: "check.success",
         info: createInfo({ license: "expired" }),
       });
       expect(reasonOf(status)).toEqual("unlicensed");
+      expect(status.details.license).toEqual("expired");
+      expect(status.details.authenticated).toBe(true);
       expect(ExpiredLicenseError.matches(status.details.error)).toBe(true);
+      expect(modeFor(status)).toEqual("checking");
     });
 
     it("should leave error(unlicensed) once a check reports a license", () => {
       const config = createConfig();
       const unlicensed = apply(config, {
         type: "check.success",
-        info: createInfo({ license: "missing" }),
+        info: createInfo({ license: "expired" }),
       });
       const licensed = reduce(
         unlicensed,
@@ -500,7 +510,7 @@ describe("connection", () => {
       const config = createConfig({ requiresStream: true });
       const unlicensed = apply(config, {
         type: "check.success",
-        info: createInfo({ license: "missing" }),
+        info: createInfo({ license: "expired" }),
       });
       const checked = reduce(
         unlicensed,
@@ -515,7 +525,7 @@ describe("connection", () => {
       const config = createConfig({ escalateAfter: 2 });
       const unlicensed = apply(config, {
         type: "check.success",
-        info: createInfo({ license: "missing" }),
+        info: createInfo({ license: "expired" }),
       });
       const error = new Unreachable({ message: "server down" });
       const once = reduce(
@@ -526,6 +536,8 @@ describe("connection", () => {
       expect(once.variant).toEqual("loading");
       const twice = reduce(once, { type: "check.failure", error, attempt: 2 }, config);
       expect(reasonOf(twice)).toEqual("unreachable");
+      expect(twice.message).toEqual("Cannot reach Core");
+      expect(twice.description).toEqual("server down");
       expect(twice.details.error).toBe(error);
     });
 
@@ -533,7 +545,7 @@ describe("connection", () => {
       const config = createConfig();
       const unlicensed = apply(config, {
         type: "check.success",
-        info: createInfo({ license: "missing" }),
+        info: createInfo({ license: "expired" }),
       });
       const retrying = reduce(unlicensed, { type: "retry.requested" }, config);
       expect(retrying.variant).toEqual("loading");
@@ -586,6 +598,7 @@ describe("connection", () => {
         config,
       );
       expect(replaced.variant).toEqual("loading");
+      expect(replaced.message).toEqual("Connecting");
       expect(replaced.details.clusterKey).toEqual("other-cluster");
       expect(replaced.details.epoch).toBe(0);
       expect(replaced.details.streamLive).toBe(false);
@@ -931,7 +944,7 @@ describe("connection", () => {
 
     it("should not demand the stream until the Core is licensed", async () => {
       const ensured = vi.fn(async () => {});
-      const unary = createScriptedUnary({ license: "missing" });
+      const unary = createScriptedUnary({ license: "expired" });
       const client = createClient(unary, {
         requiresStream: true,
         stream: { reset: async () => {}, ensure: ensured },
@@ -1097,7 +1110,7 @@ describe("connection", () => {
         TimeSpan.milliseconds(5),
       );
       await waitForStatus(client, (s) => s.details.clusterKey === "first");
-      unary.setLicense("missing");
+      unary.setLicense("expired");
       unary.setClusterKey("second");
       await waitForStatus(client, (s) => s.details.clusterKey === "second");
       while (calls.length === 0) await sleep(TimeSpan.milliseconds(1));
@@ -1105,6 +1118,25 @@ describe("connection", () => {
       const sent = send.mock.calls.length;
       while (send.mock.calls.length < sent + 3) await sleep(TimeSpan.milliseconds(1));
       expect(calls).toEqual(["reset"]);
+      await client.close();
+    });
+
+    it("should open the stream on a Core with no license", async () => {
+      const client: connection.Client = createClient(
+        createScriptedUnary({ license: "missing" }),
+        {
+          requiresStream: true,
+          stream: {
+            reset: async () => {},
+            ensure: async () => client.notify({ type: "stream.live" }),
+          },
+        },
+      );
+      const status = await waitForStatus(
+        client,
+        (s) => s.variant === "success" && s.details.streamLive,
+      );
+      expect(status.details.license).toEqual("missing");
       await client.close();
     });
 
@@ -1124,7 +1156,7 @@ describe("connection", () => {
 
     it("should check again once a license is activated", async () => {
       const client = createClient(
-        createScriptedUnary({ license: "missing" }),
+        createScriptedUnary({ license: "expired" }),
         {},
         FAST_RETRY,
         TimeSpan.seconds(60),
@@ -1139,6 +1171,7 @@ describe("connection", () => {
           use: vi.fn(),
         },
         connection: client,
+        cache: new query.Cache({ openStreamer: null }),
       });
       await licenses.activate("key");
       expect(retryNow).toHaveBeenCalledOnce();
@@ -1146,7 +1179,7 @@ describe("connection", () => {
     });
 
     it("should short-circuit unary calls with the license error while unlicensed", async () => {
-      const client = createClient(createScriptedUnary({ license: "missing" }));
+      const client = createClient(createScriptedUnary({ license: "expired" }));
       await waitForStatus(
         client,
         (s) => s.variant === "error" && s.details.reason === "unlicensed",
@@ -1154,19 +1187,20 @@ describe("connection", () => {
       const next = vi.fn(async (ctx: Context) => ctx);
       await expect(
         client.middleware()(createUnaryContext("/channel/retrieve"), next),
-      ).rejects.toThrow(MissingLicenseError);
+      ).rejects.toThrow(ExpiredLicenseError);
       expect(next).not.toHaveBeenCalled();
       await client.close();
     });
 
     it("should exempt the license endpoints so a license can be activated", async () => {
-      const client = createClient(createScriptedUnary({ license: "missing" }));
+      const client = createClient(createScriptedUnary({ license: "expired" }));
       await waitForStatus(client, (s) => s.variant === "error");
       const mw = client.middleware();
       const next = vi.fn(async (ctx: Context) => ctx);
       await mw(createUnaryContext(`/api/v1${license.RETRIEVE_ENDPOINT}`), next);
       await mw(createUnaryContext(`/api/v1${license.ACTIVATE_ENDPOINT}`), next);
-      expect(next).toHaveBeenCalledTimes(2);
+      await mw(createUnaryContext(`/api/v1${license.DEACTIVATE_ENDPOINT}`), next);
+      expect(next).toHaveBeenCalledTimes(3);
       await client.close();
     });
 

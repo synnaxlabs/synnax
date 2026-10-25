@@ -13,9 +13,9 @@ package group
 
 import (
 	"context"
+	"slices"
 
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp"
 )
 
 // Retrieve is used to retrieve Group records from the database using a
@@ -63,7 +63,7 @@ func Not(f Filter) Filter {
 // r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing
 // inside Or / Not falls back to a full scan.
 func MatchKeys(keys ...Key) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Group] {
+	return func(Retrieve) gorp.Filter[Key, Group] {
 		return gorp.MatchKeys[Key, Group](keys...)
 	}
 }
@@ -72,9 +72,9 @@ func MatchKeys(keys ...Key) Filter {
 // groups whose Name matches any of the
 // provided values.
 func MatchNames(vals ...string) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Group] {
+	return func(Retrieve) gorp.Filter[Key, Group] {
 		return gorp.Match(func(_ gorp.Context, e *Group) (bool, error) {
-			return lo.Contains(vals, e.Name), nil
+			return slices.Contains(vals, e.Name), nil
 		})
 	}
 }

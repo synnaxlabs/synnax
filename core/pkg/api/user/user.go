@@ -12,38 +12,85 @@ package user
 import (
 	"context"
 
-	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
 )
+
+// ServiceConfig is the configuration for the user API service.
+type ServiceConfig struct {
+	// RBAC enforces access control on every request.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
+	// User stores and retrieves users.
+	//
+	// [REQUIRED]
+	User *user.Service
+	// Password stores passwords and checks proofs of them.
+	//
+	// [REQUIRED]
+	Password *password.Service
+	// Auth logs subjects in and checks their session tokens.
+	//
+	// [REQUIRED]
+	Auth *svcauth.Service
+}
+
+var (
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for the user API service.
+	DefaultServiceConfig = ServiceConfig{}
+)
+
+// Override implements config.Config.
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	c.User = override.Nil(c.User, other.User)
+	c.Password = override.Nil(c.Password, other.Password)
+	c.Auth = override.Nil(c.Auth, other.Auth)
+	return c
+}
+
+// Validate implements config.Config.
+func (c ServiceConfig) Validate() error {
+	v := validate.New("api.user")
+	v.NotNil("rbac", c.RBAC)
+	v.NotNil("user", c.User)
+	v.NotNil("password", c.Password)
+	v.NotNil("auth", c.Auth)
+	return v.Error()
+}
 
 // Service is the core authentication service for the Synnax API.
 type Service struct {
 	access   *rbac.Service
 	internal *user.Service
+	password *password.Service
 	auth     *svcauth.Service
 }
 
 // NewService creates a new Service that allows for registering, updating, and removing
 // users.
-func NewService(cfgs ...config.LayerConfig) (*Service, error) {
-	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	return &Service{
-		access:   cfg.Service.RBAC,
-		internal: cfg.Service.User,
-		auth:     cfg.Service.Auth,
+		access:   cfg.RBAC,
+		internal: cfg.User,
+		password: cfg.Password,
+		auth:     cfg.Auth,
 	}, nil
 }
 
@@ -79,13 +126,10 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	authW := s.auth.NewWriter(tx)
+	passwordW := s.password.NewWriter(tx)
 	userW := s.internal.NewWriter(tx)
 	newUsers := make([]user.User, len(req.Users))
 	for i, nu := range req.Users {
-		if err := authW.Register(ctx, nu.Credentials); err != nil {
-			return CreateResponse{}, err
-		}
 		u, err := userW.Create(ctx, user.User{
 			Username:  nu.Username,
 			FirstName: nu.FirstName,
@@ -93,6 +137,9 @@ func (s *Service) Create(
 			Key:       nu.Key,
 		})
 		if err != nil {
+			return CreateResponse{}, err
+		}
+		if err := passwordW.Set(ctx, u.OntologyID(), nu.Credentials); err != nil {
 			return CreateResponse{}, err
 		}
 		newUsers[i] = u
@@ -137,8 +184,8 @@ func (s *Service) ChangeUsername(
 		ChangeUsername(ctx, req.Key, req.Username); err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.auth.NewWriter(tx).
-		UpdateUsername(ctx, u.Username, req.Username)
+	return struct{}{}, s.password.NewWriter(tx).
+		Rename(ctx, u.OntologyID(), req.Username)
 }
 
 type RenameRequest struct {
@@ -218,26 +265,9 @@ func (s *Service) Delete(
 	}); err != nil {
 		return struct{}{}, err
 	}
-	// Look up the usernames of the keys that actually exist so we can deactivate the
-	// matching auth rows. A bare-key retrieve wraps query.ErrNotFound when any key is
-	// missing; we treat that as "those keys are simply not here" and continue with
-	// whatever was found, so deleting a non-existent user is a no-op rather than an
-	// error.
-	var toDelete []user.User
-	if err := s.internal.NewRetrieve().
-		Where(user.MatchKeys(req.Keys...)).
-		Entries(&toDelete).
-		Exec(ctx, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
-		return struct{}{}, err
-	}
 	if err := s.internal.NewWriter(tx).Delete(ctx, req.Keys...); err != nil {
 		return struct{}{}, err
 	}
-	if len(toDelete) == 0 {
-		return struct{}{}, nil
-	}
-	usernames := lo.Map(toDelete, func(u user.User, _ int) string {
-		return u.Username
-	})
-	return struct{}{}, s.auth.NewWriter(tx).Deactivate(ctx, usernames...)
+	return struct{}{}, s.auth.NewWriter(tx).
+		DeleteFor(ctx, user.OntologyIDsFromKeys(req.Keys)...)
 }

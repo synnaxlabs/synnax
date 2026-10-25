@@ -21,7 +21,7 @@ const WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {
 export const LineForm = (): ReactElement => (
   <Base.Sections x>
     <Base.Section title="Appearance">
-      <Form.ColorField path="color" />
+      <Form.ColorField path="strokeColor" label="Stroke" />
       <Base.NumericField
         path="strokeWidth"
         label="Stroke width"

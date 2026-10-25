@@ -17,7 +17,7 @@ export default defineConfig({
   base: "/drift/",
   plugins: [
     esmExternalRequirePlugin({ external: [/^react(-dom)?(\/.*)?$/] }),
-    lib({ name: "drift" }),
+    lib({ name: "drift", reactCompiled: true }),
   ],
   build: {
     lib: {
@@ -45,6 +45,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "jsdom",
+    setupFiles: ["src/testutil/setup.ts"],
     exclude: ["**/node_modules/**", "**/dist/**"],
     coverage: {
       include: ["src/**/*.ts", "src/**/*.tsx"],

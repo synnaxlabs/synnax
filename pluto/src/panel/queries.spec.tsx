@@ -9,7 +9,7 @@
 
 import { type ontology, panel, project, query, ranger } from "@synnaxlabs/client";
 import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
-import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { color, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import {
   act,
   render,
@@ -36,7 +36,6 @@ const newTab = (): panel.Tab => ({
   variant: "view",
   key: uuid.create(),
   type: "selector",
-  args: {},
 });
 
 const asView = (tab?: panel.Tab | null): panel.ViewTab | undefined =>
@@ -268,7 +267,6 @@ describe("Panel queries", () => {
     it("should parent the panel under the given resource", async () => {
       const parentProject = await client.projects.create({
         name: `parent-${uuid.create()}`,
-        layout: {},
       });
       const parent = project.ontologyID(parentProject.key);
 
@@ -321,7 +319,6 @@ describe("Panel queries", () => {
       (
         await client.projects.create({
           name: `by-project-${uuid.create()}`,
-          layout: {},
         })
       ).key;
 
@@ -728,19 +725,17 @@ describe("Panel queries", () => {
           actions: [
             panel.setTabView({
               key: tab.key,
-              view: { type: "docs", args: { path: "/intro" } },
+              view: { type: "docs" },
             }),
           ],
         });
       });
       const updated = asView(panel.findTab(result.current.retrieve.root, tab.key));
       expect(updated?.type).toEqual("docs");
-      expect(updated?.args).toEqual({ path: "/intro" });
 
       const fresh = await client.panels.retrieve(created.key);
       const freshTab = asView(panel.findTab(fresh.root, tab.key));
       expect(freshTab?.type).toEqual("docs");
-      expect(freshTab?.args).toEqual({ path: "/intro" });
     });
 
     it("set_tab_resource swaps a view tab to a resource and persists it", async () => {
@@ -1005,7 +1000,7 @@ describe("Panel queries", () => {
           actions: [
             panel.setTabView({
               key: tab.key,
-              view: { type: "docs", args: { path: "/x" } },
+              view: { type: "docs" },
             }),
           ],
         });
@@ -1060,31 +1055,6 @@ describe("Panel queries", () => {
       return { created, ops };
     };
 
-    it("useTabType does not re-render when only the args change", async () => {
-      const tab = newTab();
-      const { created, ops } = await createTab(tab);
-
-      const type = await loadAndCount(created.key, () =>
-        Panel.useTabType({ key: created.key, tabKey: tab.key }),
-      );
-      const typeCountBefore = type.renderCount();
-
-      await act(async () => {
-        await ops.result.current.dispatchAsync({
-          key: created.key,
-          actions: [
-            panel.setTabView({
-              key: tab.key,
-              view: { type: "selector", args: { path: "/y" } },
-            }),
-          ],
-        });
-      });
-
-      expect(type.result.current).toEqual("selector");
-      expect(type.renderCount()).toEqual(typeCountBefore);
-    });
-
     it("useTabType resolves a resource tab to its ontology type", async () => {
       const tab = newTab();
       const { created, ops } = await createTab(tab);
@@ -1124,15 +1094,15 @@ describe("Panel queries", () => {
       const { result } = renderHook(
         () => ({
           setView: Panel.useSetCurrentTabView(),
-          args: Panel.useTabArgs({}),
+          type: Panel.useTabType({}),
         }),
         { wrapper: composed },
       );
 
       await act(async () => {
-        result.current.setView({ type: "docs", args: { path: "/set" } });
+        result.current.setView({ type: "docs" });
       });
-      await waitFor(() => expect(result.current.args).toEqual({ path: "/set" }));
+      await waitFor(() => expect(result.current.type).toEqual("docs"));
     });
 
     it("useSetCurrentTabResource swaps the scoped tab to the resource", async () => {
@@ -1265,7 +1235,7 @@ describe("Panel queries", () => {
           actions: [
             panel.setTabView({
               key: tabA.key,
-              view: { type: "docs", args: { path: "/x" } },
+              view: { type: "docs" },
             }),
           ],
         });
@@ -1376,6 +1346,40 @@ describe("Panel queries", () => {
         await ops.result.current.updateAsync({ key: created.key, name: "name-after" });
       });
       await waitFor(() => expect(result.current).toEqual("name-after"));
+    });
+
+    it("useIcon returns the icon and updates after a set", async () => {
+      const created = await createPanel();
+      const ops = await loadAndUse(created.key, () => Panel.useDispatch());
+      const { result } = await loadAndUse(created.key, () =>
+        Panel.useIcon({ key: created.key }),
+      );
+      expect(result.current).toBeUndefined();
+
+      await act(async () => {
+        await ops.result.current.dispatchAsync({
+          key: created.key,
+          actions: [panel.setIcon({ icon: "valve" })],
+        });
+      });
+      await waitFor(() => expect(result.current).toEqual("valve"));
+    });
+
+    it("useColor returns the color and updates after a set", async () => {
+      const created = await createPanel();
+      const ops = await loadAndUse(created.key, () => Panel.useDispatch());
+      const { result } = await loadAndUse(created.key, () =>
+        Panel.useColor({ key: created.key }),
+      );
+      expect(result.current).toBeUndefined();
+
+      await act(async () => {
+        await ops.result.current.dispatchAsync({
+          key: created.key,
+          actions: [panel.setColor({ color: "#dc136c" })],
+        });
+      });
+      await waitFor(() => expect(result.current).toEqual(color.construct("#dc136c")));
     });
 
     it("useTabLeaf returns the leaf holding the given tab", async () => {

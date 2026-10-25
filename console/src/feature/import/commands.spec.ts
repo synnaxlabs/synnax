@@ -46,7 +46,7 @@ describe("Import Commands", () => {
   });
 
   it("should offer the import command to a subject who can write the project", async () => {
-    const proj = await client.projects.create({ name: uniqueName("proj"), layout: {} });
+    const proj = await client.projects.create({ name: uniqueName("proj") });
     const { openCommandPalette } = await renderPalette({
       commands: Import.COMMANDS,
       client,
@@ -57,7 +57,7 @@ describe("Import Commands", () => {
   });
 
   it("should hide the import command from a subject who cannot write the project", async () => {
-    const proj = await client.projects.create({ name: uniqueName("proj"), layout: {} });
+    const proj = await client.projects.create({ name: uniqueName("proj") });
     const viewer = await roles.get("Viewer");
     const { openCommandPalette } = await renderPalette({
       commands: Import.COMMANDS,

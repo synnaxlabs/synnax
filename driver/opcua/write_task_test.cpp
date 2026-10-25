@@ -303,7 +303,7 @@ TEST_F(TestWriteTask, testBasicWriteTask) {
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(first_state.message, "Task started successfully");
+    EXPECT_EQ(first_state.message, "Started task");
     ASSERT_EVENTUALLY_GE(
         mock_factory->streamer_opens.load(std::memory_order_acquire),
         1
@@ -316,7 +316,7 @@ TEST_F(TestWriteTask, testBasicWriteTask) {
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(second_state.message, "Task stopped successfully");
+    EXPECT_EQ(second_state.message, "Stopped task");
 }
 
 TEST_F(TestWriteTask, testWriteValuesArePersisted) {
@@ -525,9 +525,9 @@ TEST_F(TestWriteTask, testInvalidNodeIdErrorContainsChannelInfo) {
     ASSERT_TRUE(err) << "Expected error for invalid node ID";
 
     const std::string err_msg = err.data;
-    EXPECT_TRUE(err_msg.find(invalid_cmd_channel.name) != std::string::npos)
+    EXPECT_TRUE(err_msg.contains(invalid_cmd_channel.name))
         << "Error message should contain channel name. Got: " << err_msg;
-    EXPECT_TRUE(err_msg.find("NS=99;I=99999") != std::string::npos)
+    EXPECT_TRUE(err_msg.contains("NS=99;I=99999"))
         << "Error message should contain node ID. Got: " << err_msg;
 
     ASSERT_NIL(sink->stop());

@@ -15,7 +15,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"path/filepath"
 	"slices"
 	"strings"
 	"text/template"
@@ -29,6 +28,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/schemadiff"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/typemap"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
 	goprimitives "github.com/synnaxlabs/oracle/plugin/go/primitives"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
@@ -79,11 +79,12 @@ func (p *Plugin) Requires() []string { return nil }
 // Version-laid-out packages (chain-covered output paths) emit their types into the
 // current versions/vN sub-package, with a root alias file re-exporting the surface.
 // Types whose shape is unchanged from the predecessor version alias it instead of being
-// re-defined. Version-laid-out packages pin persisted references to their dependencies'
-// current version directories (they must stay importable from frozen packages); omitted
-// fields and declarations outside the persisted closure resolve to dependency roots and
-// track the latest version, since they never reach the stored wire format. Unversioned
-// packages reference the root re-export surface.
+// re-defined. Version-laid-out packages resolve persisted references through the
+// dependency version their version file imports, as a frozen package does, so a freeze
+// never moves an import. Omitted fields and declarations outside the persisted
+// closure resolve to dependency roots and track the latest version, since they never
+// reach the stored wire format. Unversioned packages reference the root re-export
+// surface.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	rewritten, pathMap, members, err := versioning.RewriteCurrent(
 		context.Background(), req.Resolutions, req.Versions,
@@ -99,6 +100,12 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	for _, current := range pathMap {
 		currentPaths.Add(current)
 	}
+	pins, err := versioning.NewPins(
+		context.Background(), req.Resolutions, req.Versions,
+	)
+	if err != nil {
+		return nil, err
+	}
 	closure := PersistedClosure(rewritten)
 	versionedGen := &framework.Generator{
 		Domain:      "go",
@@ -109,6 +116,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			pathMap:  pathMap,
 			closure:  closure,
 			members:  members,
+			pins:     pins,
 		},
 		PathFilter:      currentPaths.Contains,
 		MergeByName:     false,
@@ -274,15 +282,36 @@ type goFileGenerator struct {
 	closure set.Set[string]
 	// members holds the qualified names of every chain's current-surface members.
 	members set.Set[string]
+	// pins resolves a stored reference to the dependency version its version file
+	// imports.
+	pins versioning.Pins
+}
+
+// fileLivePath returns the live schema path of the declarations ctx renders.
+func fileLivePath(ctx *framework.GenerateContext) string {
+	for _, group := range [][]resolution.Type{
+		ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Unions,
+	} {
+		if len(group) > 0 {
+			return strings.TrimSuffix(group[0].FilePath, ".oracle")
+		}
+	}
+	return ""
 }
 
 func (g *goFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, error) {
 	latest := latestTable(g.original, g.pathMap, g.members, ctx.OutputPath)
 	_, transient := g.pathMap[ctx.OutputPath]
+	// Every declaration a current package renders belongs to its schema's current
+	// version file, so that file's pins resolve the package's stored references.
+	livePath := fileLivePath(ctx)
+	pinned := func(t resolution.Type) (string, bool) {
+		return g.pins.CurrentPath(livePath, t)
+	}
 	content, err := generateGoFile(
 		ctx.OutputPath, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Unions,
 		ctx.Table, ctx.RepoRoot, g.preds[ctx.OutputPath], latest, g.closure,
-		transient, nil,
+		transient, nil, pinned,
 	)
 	if err != nil {
 		return "", err
@@ -417,28 +446,27 @@ func generateGoFile(
 	closure set.Set[string],
 	transientPass bool,
 	order map[string]int,
+	pinned func(resolution.Type) (string, bool),
 ) ([]byte, error) {
 	content, conflicts, err := renderGoFile(
 		outputPath, structs, enums, typeDefs, unions, table, repoRoot,
-		pred, latest, closure, transientPass, order, nil,
+		pred, latest, closure, transientPass, order, pinned, nil,
 	)
 	if err != nil || len(conflicts) == 0 {
 		return content, err
 	}
-	// Pinned and live imports of one dependency derive the same alias. Rebind
-	// the versioned paths to version-suffixed aliases and render again.
-	pkg := naming.DerivePackageName(outputPath)
-	overrides := make(map[string]string)
+	// Two versions of one dependency derive the same alias. Rebind them by version
+	// and render again.
+	var conflicted []string
 	for _, paths := range conflicts {
-		for _, p := range paths {
-			if filepath.Base(filepath.Dir(p)) == "versions" {
-				overrides[p] = naming.DeriveVersionedAlias(p, pkg)
-			}
-		}
+		conflicted = append(conflicted, paths...)
 	}
+	overrides := naming.VersionAliases(
+		conflicted, resolveGoImportPath(outputPath, repoRoot),
+	)
 	content, conflicts, err = renderGoFile(
 		outputPath, structs, enums, typeDefs, unions, table, repoRoot,
-		pred, latest, closure, transientPass, order, overrides,
+		pred, latest, closure, transientPass, order, pinned, overrides,
 	)
 	if err != nil {
 		return nil, err
@@ -467,6 +495,7 @@ func renderGoFile(
 	closure set.Set[string],
 	transientPass bool,
 	order map[string]int,
+	pinned func(resolution.Type) (string, bool),
 	aliasOverrides map[string]string,
 ) ([]byte, map[string][]string, error) {
 	namespace := ""
@@ -490,6 +519,7 @@ func renderGoFile(
 		RepoRoot:                      repoRoot,
 		DomainName:                    "go",
 		SubstituteDefaultedTypeParams: true,
+		PinnedPath:                    pinned,
 	}
 
 	importResolver := &GoImportResolver{
@@ -531,6 +561,7 @@ func renderGoFile(
 	if latest != nil && (transientPass || pathHasMarshalRoot(structs)) {
 		lctx := *ctx
 		lctx.Table = latest
+		lctx.PinnedPath = nil
 		ld := *data
 		ld.table = latest
 		ld.ctx = &lctx
@@ -708,33 +739,10 @@ func processTypeDef(td resolution.Type, data *templateData) typeDefData {
 		result.IsGeneric = len(result.TypeParams) > 0
 		return result
 	case resolution.AliasForm:
-		targetRef := form.Target
-		if targetResolved, ok := targetRef.Resolve(data.table); ok {
-			if targetForm, ok := targetResolved.Form.(resolution.StructForm); ok {
-				nonDefaultedParams := resolution.NonDefaultedTypeParams(
-					targetForm.TypeParams,
-				)
-				providedArgs := len(targetRef.TypeArgs)
-				if providedArgs < len(nonDefaultedParams) {
-					newTypeArgs := make([]resolution.TypeRef, len(nonDefaultedParams))
-					copy(newTypeArgs, targetRef.TypeArgs)
-					for i := providedArgs; i < len(nonDefaultedParams); i++ {
-						if nonDefaultedParams[i].Optional {
-							newTypeArgs[i] = resolution.TypeRef{Name: "nil"}
-						}
-					}
-					targetRef = resolution.TypeRef{
-						Name:     targetRef.Name,
-						TypeArgs: newTypeArgs,
-					}
-				}
-			}
-		}
-		baseType := data.resolver.ResolveTypeRef(targetRef, data.ctx)
 		result := typeDefData{
 			Name:     name,
 			Doc:      doc.Get(td.Domains),
-			BaseType: baseType,
+			BaseType: data.resolver.ResolveTypeRef(form.Target, data.ctx),
 			IsAlias:  true,
 		}
 		for _, tp := range resolution.NonDefaultedTypeParams(form.TypeParams) {
@@ -906,17 +914,16 @@ func processField(field resolution.Field, data *templateData) fieldData {
 		data = data.latest
 	}
 	goType := data.resolver.ResolveTypeRef(field.Type, data.ctx)
-	if field.Optional && !strings.HasPrefix(goType, "[]") &&
-		!strings.HasPrefix(goType, "map[") &&
-		!strings.HasPrefix(goType, "msgpack.EncodedJSON") {
+	if field.Optional && !typemap.Nilable(field.Type, data.table) {
 		goType = "*" + goType
 	}
 	return fieldData{
-		GoName:     naming.GetFieldName(field),
-		GoType:     goType,
-		JSONName:   casing.FieldSnake(field.Name),
-		IsOptional: field.Optional,
-		Doc:        doc.Get(field.Domains),
+		GoName:      naming.GetFieldName(field),
+		GoType:      goType,
+		JSONName:    casing.FieldSnake(field.Name),
+		IsOptional:  field.Optional,
+		Doc:         doc.Get(field.Domains),
+		WireOmitted: domain.GetStringFromField(field, "go", "wire") == "omit",
 	}
 }
 
@@ -930,24 +937,16 @@ func buildGenericType(
 		return baseName
 	}
 
-	var args []string
+	var typeParams []resolution.TypeParam
 	if targetType != nil {
-		if form, ok := targetType.Form.(resolution.StructForm); ok {
-			for i, arg := range typeArgs {
-				if i < len(form.TypeParams) && form.TypeParams[i].HasDefault() {
-					continue
-				}
-				args = append(args, data.resolver.ResolveTypeRef(arg, data.ctx))
-			}
-		} else {
-			for _, arg := range typeArgs {
-				args = append(args, data.resolver.ResolveTypeRef(arg, data.ctx))
-			}
+		typeParams = resolution.TypeParams(targetType.Form)
+	}
+	var args []string
+	for i, arg := range typeArgs {
+		if i < len(typeParams) && typeParams[i].HasDefault() {
+			continue
 		}
-	} else {
-		for _, arg := range typeArgs {
-			args = append(args, data.resolver.ResolveTypeRef(arg, data.ctx))
-		}
+		args = append(args, data.resolver.ResolveTypeRef(arg, data.ctx))
 	}
 
 	if len(args) == 0 {
@@ -1070,26 +1069,34 @@ type fieldData struct {
 	JSONName   string
 	Doc        string
 	IsOptional bool
+	// WireOmitted is set by @go wire omit: JSON and msgpack skip the field.
+	WireOmitted bool
 }
 
-// JSONTagSuffix returns the JSON tag suffix for the field. An optional field uses
-// `,omitzero` so its Go zero — a nil slice, map or pointer — is omitted while any
-// allocated value serializes, including an empty collection or a pointer to "". A
-// required field always serializes, because the schema says it always applies.
-func (f fieldData) JSONTagSuffix() string {
-	if f.IsOptional {
-		return ",omitzero"
+// JSONTag returns the field's JSON tag. An optional field uses `,omitzero` so its Go
+// zero — a nil slice, map or pointer — is omitted while any allocated value
+// serializes, including an empty collection or a pointer to "". A required field always
+// serializes, because the schema says it always applies.
+func (f fieldData) JSONTag() string {
+	if f.WireOmitted {
+		return "-"
 	}
-	return ""
+	if f.IsOptional {
+		return f.JSONName + ",omitzero"
+	}
+	return f.JSONName
 }
 
-// MsgpackTagSuffix returns the msgpack tag suffix for the field. vmihailenco/msgpack
-// honors only `,omitempty`, which also omits an allocated empty collection.
-func (f fieldData) MsgpackTagSuffix() string {
-	if f.IsOptional {
-		return ",omitempty"
+// MsgpackTag returns the field's msgpack tag. vmihailenco/msgpack honors only
+// `,omitempty`, which also omits an allocated empty collection.
+func (f fieldData) MsgpackTag() string {
+	if f.WireOmitted {
+		return "-"
 	}
-	return ""
+	if f.IsOptional {
+		return f.JSONName + ",omitempty"
+	}
+	return f.JSONName
 }
 
 type enumData struct {
@@ -1271,7 +1278,7 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{- if .Doc}}
 	{{formatFieldDoc .GoName .Doc | printf "%s"}}
 {{- end}}
-	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.JSONTagSuffix}}" msgpack:"{{.JSONName}}{{.MsgpackTagSuffix}}"` + "`" + `
+	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONTag}}" msgpack:"{{.MsgpackTag}}"` + "`" + `
 {{- end}}
 {{- range .ExtraFields}}
 	{{.}}
@@ -1283,7 +1290,7 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{- if .Doc}}
 	{{formatFieldDoc .GoName .Doc | printf "%s"}}
 {{- end}}
-	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.JSONTagSuffix}}" msgpack:"{{.JSONName}}{{.MsgpackTagSuffix}}"` + "`" + `
+	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONTag}}" msgpack:"{{.MsgpackTag}}"` + "`" + `
 {{- end}}
 {{- range .ExtraFields}}
 	{{.}}
@@ -1297,6 +1304,9 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 func ({{$s.Receiver}} *{{$s.Name}}) ApplyDefaults() {
 {{- range $s.DefaultFills}}
 	if {{$s.Receiver}}.{{.GoName}} == {{.ZeroLit}} {
+{{- range .Setup}}
+		{{.}}
+{{- end}}
 		{{$s.Receiver}}.{{.GoName}} = {{.Expr}}
 	}
 {{- end}}
@@ -1378,14 +1388,23 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 {{- end}}
 {{- with .Union}}
 {{- $u := .}}
+{{- if not .BorrowsEnum}}
 
 type {{.DiscType}} string
+{{- if eq (len .Variants) 1}}
+{{- with index .Variants 0}}
+
+const {{.ConstName}} {{$u.DiscType}} = "{{.Value}}"
+{{- end}}
+{{- else}}
 
 const (
 {{- range .Variants}}
 	{{.ConstName}} {{$u.DiscType}} = "{{.Value}}"
 {{- end}}
 )
+{{- end}}
+{{- end}}
 
 type {{.InterfaceName}} interface {
 	{{.Marker}}()
@@ -1402,7 +1421,7 @@ type {{.TypeName}} struct {
 {{- if .Doc}}
 	{{formatFieldDoc .GoName .Doc | printf "%s"}}
 {{- end}}
-	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.JSONTagSuffix}}" msgpack:"{{.JSONName}}{{.MsgpackTagSuffix}}"` + "`" + `
+	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONTag}}" msgpack:"{{.MsgpackTag}}"` + "`" + `
 {{- end}}
 }
 
@@ -1414,6 +1433,9 @@ func ({{.TypeName}}) {{$u.Marker}}() {}
 func ({{$vt.Receiver}} *{{$vt.TypeName}}) ApplyDefaults() {
 {{- range $vt.DefaultFills}}
 	if {{$vt.Receiver}}.{{.GoName}} == {{.ZeroLit}} {
+{{- range .Setup}}
+		{{.}}
+{{- end}}
 		{{$vt.Receiver}}.{{.GoName}} = {{.Expr}}
 	}
 {{- end}}

@@ -9,19 +9,54 @@
 
 import "@/progress/Progress.css";
 
-import { type ReactElement, useMemo } from "react";
+import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x";
+import { type ComponentPropsWithRef, type ReactElement } from "react";
 
 import { CSS } from "@/css";
 
-interface ProgressProps {
-  value: number;
+interface ProgressProps extends Omit<ComponentPropsWithRef<"div">, "children"> {
+  /** How far along the work is, from 0 to 100. Leave it out while that is unknown. */
+  value?: number;
+  /**
+   * How long the work should take. Without a value, the bar fills over this span, then
+   * pulses until it unmounts.
+   */
+  duration?: CrudeTimeSpan;
+  /** Draws a 2px line with no track, to run along the edge of a bar or a pane. */
+  thin?: boolean;
 }
 
-export const Progress = ({ value }: ProgressProps): ReactElement => {
-  const barStyle = useMemo(() => ({ width: `${value}%` }), [value]);
+const DURATION_VARIABLE = CSS.variable("progress-duration");
+
+/** A bar that shows how far along some work is. */
+export const Progress = ({
+  value,
+  duration,
+  thin = false,
+  className,
+  style,
+  ...rest
+}: ProgressProps): ReactElement => {
+  const ms = duration == null ? 0 : new TimeSpan(duration).milliseconds;
   return (
-    <div className={CSS.B("progress")}>
-      <div className={CSS.B("progress-bar")} style={barStyle} />
+    <div
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={value}
+      className={CSS.cls(
+        CSS.B("progress"),
+        thin && CSS.M("thin"),
+        value == null && CSS.M("indeterminate"),
+        className,
+      )}
+      style={{ [DURATION_VARIABLE]: `${ms}ms`, ...style }}
+      {...rest}
+    >
+      <div
+        className={CSS.B("progress-bar")}
+        style={value == null ? undefined : { width: `${value}%` }}
+      />
     </div>
   );
 };

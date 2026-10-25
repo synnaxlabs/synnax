@@ -14,12 +14,14 @@ import {
   task,
 } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
-import { type record, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, assert, describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
 import { Task } from "@/feature/task";
+import { Analytics } from "@/platform/analytics";
+import { createTestSink } from "@/platform/analytics/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
 import {
@@ -66,6 +68,19 @@ afterEach(async () => {
   await client.racks.delete(createdRacks.splice(0)).catch(ignoreNotFound);
 });
 
+const setRunning = async (t: task.Task, running: boolean, drifted = false) =>
+  await client.statuses.set(
+    createTaskStatus({
+      key: task.statusKey(t.key),
+      details: {
+        task: t.key,
+        running,
+        configHash: drifted ? "stale" : t.configHash,
+        rack: t.rack,
+      },
+    }),
+  );
+
 const createTask = async ({
   config = {},
   running,
@@ -80,35 +95,29 @@ const createTask = async ({
     config,
   });
   createdTasks.push(t.key);
-  if (running != null)
-    await client.statuses.set(
-      createTaskStatus({
-        key: task.statusKey(t.key),
-        details: {
-          task: t.key,
-          running,
-          configHash: drifted === true ? "stale" : t.configHash,
-          rack: t.rack,
-        },
-      }),
-    );
+  if (running != null) await setRunning(t, running, drifted);
   return t;
 };
 
-const renderToolbar = async (as: Client = client) => {
+const renderToolbar = async (
+  as: Client = client,
+  analytics: Analytics.Sink = Analytics.NOOP,
+) => {
   const { wrapper, store } = await createConsoleWrapper({ client: as });
   const created = await createSelectedPanel(store, client);
   render(
-    <Task.RegistryProvider registry={Task.REGISTRY}>
-      {Task.TOOLBAR.content}
-      <Modals.Stack />
-    </Task.RegistryProvider>,
+    <Analytics.Provider sink={analytics}>
+      <Task.RegistryProvider registry={Task.REGISTRY}>
+        {Task.TOOLBAR.content}
+        <Modals.Stack />
+      </Task.RegistryProvider>
+    </Analytics.Provider>,
     { wrapper },
   );
   return { created, store };
 };
 
-const awaitTab = async (created: CreatedPanel, type: string): Promise<record.Unknown> =>
+const awaitTab = async (created: CreatedPanel, type: string): Promise<void> =>
   await waitFor(async () => {
     const doc = await client.panels.retrieve(created.panelKey);
     assert(doc.root.variant === "leaf", "panel root is not a leaf");
@@ -116,18 +125,12 @@ const awaitTab = async (created: CreatedPanel, type: string): Promise<record.Unk
       (t): t is panel.ViewTab => t.variant === "view" && t.type === type,
     );
     assertDefined(tab, `no ${type} tab was opened`);
-    return tab.args;
   });
 
-// The task's reported status streams in after the initial list fetch. Reopen the menu
-// until the status-dependent item is present so status-gated flows are deterministic.
+// The task's status streams in after the list fetch, so wait for the item it gates.
 const openContextMenuUntil = async (name: string, text: string): Promise<void> => {
-  await expect
-    .poll(async () => {
-      await openContextMenu(name);
-      return screen.queryByText(text) != null;
-    })
-    .toBe(true);
+  await openContextMenu(name);
+  await screen.findByText(text);
 };
 
 describe("task/Toolbar", () => {
@@ -154,8 +157,7 @@ describe("task/Toolbar", () => {
     const { created } = await renderToolbar();
     await waitFor(() => getIconButton(document.body, "add"));
     fireEvent.click(getIconButton(document.body, "add"));
-    const args = await awaitTab(created, "taskSelector");
-    expect(args).toEqual({});
+    await awaitTab(created, "taskSelector");
   });
 
   it("opens the task's resource tab on double click", async () => {
@@ -166,6 +168,67 @@ describe("task/Toolbar", () => {
     // text node, detaching a match held across an await before the event lands.
     fireEvent.doubleClick(screen.getByText(t.name));
     expect(await awaitTaskResourceTab(created)).toBe(t.key);
+  });
+
+  describe("data saving button", () => {
+    const getRow = (name: string): HTMLElement => {
+      const row = screen.getByText(name).closest<HTMLElement>(".pluto-list__item");
+      assertDefined(row, `no list item for ${name}`);
+      return row;
+    };
+
+    it("disables data saving for a task whose config has it enabled", async () => {
+      const t = await createTask({ config: { dataSavingDisabled: false } });
+      await renderToolbar();
+      await screen.findByText(t.name);
+      fireEvent.click(
+        await within(getRow(t.name)).findByRole("button", {
+          name: "Data saving enabled. Click to disable.",
+        }),
+      );
+      await waitFor(async () => {
+        const updated = await client.tasks.retrieve(t.key);
+        expect(updated.config).toMatchObject({ dataSavingDisabled: true });
+      });
+    });
+
+    it("enables data saving for a task whose config has it disabled", async () => {
+      const t = await createTask({ config: { dataSavingDisabled: true } });
+      await renderToolbar();
+      await screen.findByText(t.name);
+      fireEvent.click(
+        await within(getRow(t.name)).findByRole("button", {
+          name: "Data saving disabled. Click to enable.",
+        }),
+      );
+      await waitFor(async () => {
+        const updated = await client.tasks.retrieve(t.key);
+        expect(updated.config).toMatchObject({ dataSavingDisabled: false });
+      });
+    });
+
+    it("hides the button for a task without the config field", async () => {
+      const t = await createTask({ type: "pagerduty_alert" });
+      await renderToolbar();
+      await screen.findByText(t.name);
+      expect(
+        within(getRow(t.name)).queryByRole("button", { name: /^Data saving/ }),
+      ).toBeNull();
+    });
+
+    it("leaves the config unchanged when a viewer clicks the button", async () => {
+      const t = await createTask({ config: { dataSavingDisabled: false } });
+      const viewer = await roles.get("Viewer");
+      await renderToolbar(viewer);
+      await screen.findByText(t.name);
+      fireEvent.click(
+        await within(getRow(t.name)).findByRole("button", {
+          name: "Data saving enabled",
+        }),
+      );
+      const updated = await client.tasks.retrieve(t.key);
+      expect(updated.config).toMatchObject({ dataSavingDisabled: false });
+    });
   });
 
   describe("context menu", () => {
@@ -198,6 +261,19 @@ describe("task/Toolbar", () => {
       }
     });
 
+    it("reports the type of a task it started", async () => {
+      const t = await createTask({ running: false });
+      const analytics = createTestSink();
+      await renderToolbar(client, analytics);
+      await openContextMenuUntil(t.name, "Start");
+      fireEvent.click(screen.getByText("Start"));
+      await waitFor(() =>
+        expect(analytics.capture).toHaveBeenCalledWith("task_started", {
+          type: NI.Task.ANALOG_READ_TYPE,
+        }),
+      );
+    });
+
     it("issues a stop command for a running task", async () => {
       const t = await createTask({ running: true });
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
@@ -210,6 +286,15 @@ describe("task/Toolbar", () => {
       } finally {
         streamer.close();
       }
+    });
+
+    it("updates an open menu when the task starts running", async () => {
+      const t = await createTask({ running: false });
+      await renderToolbar();
+      await openContextMenuUntil(t.name, "Start");
+      await setRunning(t, true);
+      expect(await screen.findByText("Stop")).toBeTruthy();
+      expect(screen.queryByText("Start")).toBeNull();
     });
 
     it("redeploys a drifted running task from the context menu", async () => {
@@ -317,12 +402,16 @@ describe("task/Toolbar", () => {
       store.dispatch(Session.Range.select(rng.key));
       await openContextMenu(t.name);
       fireEvent.click(await screen.findByText(`Snapshot to ${rng.name}`));
-      await waitFor(async () => {
+      const snapshots = await waitFor(async () => {
         const children = await client.ontology.children.retrieve({
           ids: rng.ontologyID,
         });
-        expect(children.some((c) => c.id.type === "task")).toBe(true);
+        const tasks = children.filter((c) => c.id.type === "task");
+        expect(tasks).not.toHaveLength(0);
+        return tasks;
       });
+      // The snapshot is a task on the same rack, which cannot go while it remains.
+      createdTasks.push(...snapshots.map((c) => c.id.key));
     });
   });
 

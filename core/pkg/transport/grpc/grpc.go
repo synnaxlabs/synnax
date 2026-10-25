@@ -17,6 +17,8 @@ import (
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
+	apidevice "github.com/synnaxlabs/synnax/pkg/api/device"
+	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
@@ -26,10 +28,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/ontology"
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
+	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
+	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/api/table"
+	apitask "github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
+	"github.com/synnaxlabs/synnax/pkg/api/view"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/arc"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/auth"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/channel"
@@ -43,7 +49,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/status"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/task"
-	"github.com/synnaxlabs/synnax/pkg/transport/grpc/view"
 )
 
 // Bind constructs the gRPC transport for every API service, binds the API layer's
@@ -65,7 +70,6 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 		device.New(&t),
 		status.New(&t),
 		arc.New(&t),
-		view.New(&t),
 		control.New(&t),
 	}
 
@@ -75,10 +79,14 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	// LICENSE
 	t.LicenseRetrieve = noop.UnaryServer[license.RetrieveRequest, license.RetrieveResponse]{}
 	t.LicenseActivate = noop.UnaryServer[license.ActivateRequest, license.ActivateResponse]{}
+	t.LicenseDeactivate = noop.UnaryServer[license.DeactivateRequest, license.DeactivateResponse]{}
 
 	// CHANNEL
 	t.ChannelRename = noop.UnaryServer[apichannel.RenameRequest, struct{}]{}
 	t.ChannelRetrieveGroup = noop.UnaryServer[apichannel.RetrieveGroupRequest, apichannel.RetrieveGroupResponse]{}
+
+	// FRAME
+	t.FrameRead = noop.UnaryServer[apiframer.ReadRequest, apiframer.ReadResponse]{}
 
 	// USER
 	t.UserRename = noop.UnaryServer[user.RenameRequest, struct{}]{}
@@ -104,9 +112,15 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.ProjectRetrieve = noop.UnaryServer[project.RetrieveRequest, project.RetrieveResponse]{}
 	t.ProjectDelete = noop.UnaryServer[project.DeleteRequest, struct{}]{}
 	t.ProjectRename = noop.UnaryServer[project.RenameRequest, struct{}]{}
-	t.ProjectSetLayout = noop.UnaryServer[project.SetLayoutRequest, struct{}]{}
 	t.ProjectExport = noop.UnaryServer[project.ExportRequest, project.ExportResponse]{}
 	t.ProjectImport = noop.UnaryServer[project.ImportRequest, project.ImportResponse]{}
+
+	// RENAME
+	t.RackRename = noop.UnaryServer[apirack.RenameRequest, struct{}]{}
+	t.TaskRename = noop.UnaryServer[apitask.RenameRequest, struct{}]{}
+	t.DeviceRename = noop.UnaryServer[apidevice.RenameRequest, struct{}]{}
+	t.StatusRename = noop.UnaryServer[apistatus.RenameRequest, struct{}]{}
+	t.ViewRename = noop.UnaryServer[view.RenameRequest, struct{}]{}
 
 	// SCHEMATIC
 	t.SchematicCreate = noop.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]{}
@@ -143,6 +157,11 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.LogDelete = noop.UnaryServer[log.DeleteRequest, struct{}]{}
 	t.LogDispatch = noop.UnaryServer[log.DispatchRequest, struct{}]{}
 
+	// VIEW
+	t.ViewCreate = noop.UnaryServer[view.CreateRequest, view.CreateResponse]{}
+	t.ViewRetrieve = noop.UnaryServer[view.RetrieveRequest, view.RetrieveResponse]{}
+	t.ViewDelete = noop.UnaryServer[view.DeleteRequest, struct{}]{}
+
 	// TABLE
 	t.TableCreate = noop.UnaryServer[table.CreateRequest, table.CreateResponse]{}
 	t.TableRetrieve = noop.UnaryServer[table.RetrieveRequest, table.RetrieveResponse]{}
@@ -172,7 +191,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 
 	// ARC
 	t.ArcDispatch = noop.UnaryServer[apiarc.DispatchRequest, struct{}]{}
-	t.ArcSetRack = noop.UnaryServer[apiarc.SetRackRequest, apiarc.SetRackResponse]{}
+	t.ArcUpdateTask = noop.UnaryServer[apiarc.UpdateTaskRequest, apiarc.UpdateTaskResponse]{}
 	t.ArcLSP = noop.StreamServer[apiarc.LSPMessage, apiarc.LSPMessage]{}
 
 	layer.BindTo(t)

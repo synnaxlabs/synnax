@@ -20,7 +20,7 @@ import (
 
 func TestImports(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin TS Imports Suite")
+	RunSpecs(t, "Plugin TS Imports Suite", SuiteConfig())
 }
 
 var _ = Describe("Manager", func() {
@@ -79,6 +79,15 @@ var _ = Describe("Manager", func() {
 		Expect(internal).To(HaveLen(2))
 		Expect(internal[0].Path).To(Equal("@/schematic/types.gen"))
 		Expect(internal[1].Path).To(Equal("@/util/keys"))
+	})
+
+	It("Should return a namespace import alongside named imports", func() {
+		m.AddImport("@/channel", "channel")
+		m.AddNamespaceImport("@/ranger/types.gen", "ranger")
+		Expect(m.InternalNamedImports()).To(Equal([]imports.NamedImport{
+			{Path: "@/channel", Names: []string{"channel"}},
+			{Path: "@/ranger/types.gen", Namespace: "ranger"},
+		}))
 	})
 
 	It("Should return nil when no imports were added", func() {

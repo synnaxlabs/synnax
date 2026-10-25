@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { uuid } from "@synnaxlabs/x";
+import { color, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { type ontology } from "@/ontology";
@@ -23,7 +23,6 @@ const viewTab = (key: string, type: string = "selector"): panel.Tab => ({
   variant: "view",
   key,
   type,
-  args: {},
 });
 
 const resource = (key: string): ontology.ID => ({ type: "lineplot", key });
@@ -568,7 +567,7 @@ describe("reduceAll", () => {
 
   describe("setTabView", () => {
     it("should swap a resource tab to the view in place", () => {
-      const view = { type: "docs", args: {} };
+      const view = { type: "docs" };
       const { next } = panel.reduceAll(
         state({ variant: "leaf", tabs: [resourceTab(a), viewTab(b)] }),
         [panel.setTabView({ key: a, view })],
@@ -584,6 +583,37 @@ describe("reduceAll", () => {
         panel.setTabView({ key: missing, view: { type: "docs" } }),
       ]);
       expect(next).toBe(prev);
+    });
+  });
+
+  describe("setIcon", () => {
+    it("should set the panel's icon", () => {
+      const { next } = panel.reduceAll(state(leaf(a)), [
+        panel.setIcon({ icon: "valve" }),
+      ]);
+      expect(next.icon).toEqual("valve");
+    });
+
+    it("should reset the icon when the payload holds none", () => {
+      const { next } = panel.reduceAll({ ...state(leaf(a)), icon: "valve" }, [
+        panel.setIcon({}),
+      ]);
+      expect(next.icon).toBeUndefined();
+    });
+  });
+
+  describe("setColor", () => {
+    it("should set the color of the panel's icon", () => {
+      const { next } = panel.reduceAll(state(leaf(a)), [
+        panel.setColor({ color: "#dc136c" }),
+      ]);
+      expect(next.color).toEqual(color.construct("#dc136c"));
+    });
+
+    it("should reset the color when the payload holds none", () => {
+      const prev = { ...state(leaf(a)), color: color.construct("#dc136c") };
+      const { next } = panel.reduceAll(prev, [panel.setColor({})]);
+      expect(next.color).toBeUndefined();
     });
   });
 });

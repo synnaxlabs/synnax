@@ -67,8 +67,9 @@ export const useDrag = ({
       const el = e.currentTarget as HTMLElement;
       const { pointerId } = e;
       const start = xy.construct(e);
-      const mouseKey = Triggers.eventKey(e);
+      const mouseKey = Triggers.mouseKey(e.button);
       let started = false;
+      const listeners = new AbortController();
 
       // Moves are coalesced to one onMove per animation frame: WebKit delivers
       // pointermove at input rate, not display rate, so forwarding each event
@@ -92,14 +93,12 @@ export const useDrag = ({
           onStart?.(start, mouseKey, el);
         }
         latest = me;
-        frame ??= requestAnimationFrame(flush);
+        if (frame == null) frame = requestAnimationFrame(flush);
       };
 
       const handleEnd = (ee: PointerEvent): void => {
         if (ee.pointerId !== pointerId) return;
-        window.removeEventListener("pointermove", handleMove);
-        window.removeEventListener("pointerup", handleEnd);
-        window.removeEventListener("pointercancel", handleEnd);
+        listeners.abort();
         // A move queued for the next frame must still reach onMove: consumers
         // persist move-built state on end, and a release can outrun the frame.
         if (frame != null) {
@@ -111,9 +110,10 @@ export const useDrag = ({
         onEnd?.(box.construct(start, xy.construct(ee)), mouseKey, ee);
       };
 
-      window.addEventListener("pointermove", handleMove);
-      window.addEventListener("pointerup", handleEnd);
-      window.addEventListener("pointercancel", handleEnd);
+      const { signal } = listeners;
+      window.addEventListener("pointermove", handleMove, { signal });
+      window.addEventListener("pointerup", handleEnd, { signal });
+      window.addEventListener("pointercancel", handleEnd, { signal });
     },
     [onMove, onStart, onEnd, preventDefault],
   );

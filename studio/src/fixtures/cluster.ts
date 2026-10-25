@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
+import {
+  pagerduty,
+  type status,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/client";
 
 import { connect, type ConnectionOptions } from "@/fixtures/client";
 
@@ -58,19 +64,6 @@ export interface LabelSpec {
   name: string;
   color: string;
 }
-
-/** createLabels creates labels on the cluster for label-selection shots. */
-export const createLabels = async (
-  specs: LabelSpec[],
-  opts: ConnectionOptions = {},
-): Promise<void> => {
-  const client = connect(opts);
-  try {
-    await client.labels.create(specs);
-  } finally {
-    await client.close();
-  }
-};
 
 /**
  * resetLabels leaves the cluster holding exactly the given labels: a listed
@@ -208,30 +201,6 @@ export const removeChannels = async (
   }
 };
 
-export interface CalculatedSpec {
-  name: string;
-  /** Arc expression, e.g. `return demo_pressure * 2`. */
-  expression: string;
-}
-
-/**
- * createCalculatedChannels creates virtual calculated channels, for shots that
- * start from one that already exists.
- */
-export const createCalculatedChannels = async (
-  specs: CalculatedSpec[],
-  opts: ConnectionOptions = {},
-): Promise<void> => {
-  const client = connect(opts);
-  try {
-    await client.channels.create(
-      specs.map((spec) => ({ ...spec, virtual: true, dataType: "float32" })),
-    );
-  } finally {
-    await client.close();
-  }
-};
-
 export interface UserSpec {
   username: string;
   password?: string;
@@ -315,6 +284,63 @@ export const createStaticTelemetry = async ({
     });
     await client.write(start, frame);
     return data.map((ch) => ch.name);
+  } finally {
+    await client.close();
+  }
+};
+
+export interface StatusSpec {
+  key: string;
+  name: string;
+  variant?: status.Variant;
+  message?: string;
+}
+
+/** createStatuses sets statuses on the cluster, so alert shots have one to watch. */
+export const createStatuses = async (
+  specs: StatusSpec[],
+  opts: ConnectionOptions = {},
+): Promise<void> => {
+  const client = connect(opts);
+  try {
+    await client.statuses.set(
+      specs.map((s): status.New => ({ variant: "success", message: "Nominal", ...s })),
+    );
+  } finally {
+    await client.close();
+  }
+};
+
+/** A placeholder PagerDuty routing key: 32 characters, never sent anywhere. */
+const ROUTING_KEY = "R022XIJR9M266DX570EVE6EXP1AFBN6D";
+
+export interface AlertTaskSpec {
+  name: string;
+  /** Keys of the statuses the task alerts on. */
+  statuses: string[];
+}
+
+/**
+ * createAlertTask creates a PagerDuty alert task on the Core's own rack, so task
+ * shots need no hardware. The task is never started, so it sends no events.
+ */
+export const createAlertTask = async (
+  { name, statuses }: AlertTaskSpec,
+  opts: ConnectionOptions = {},
+): Promise<void> => {
+  const client = connect(opts);
+  try {
+    const [rack] = await client.racks.retrieve({ integration: "pagerduty" });
+    if (rack == null) throw new Error("the Core has no rack that runs PagerDuty");
+    await client.tasks.create({
+      name,
+      type: "pagerduty_alert",
+      rack: rack.key,
+      config: pagerduty.taskConfigZ.parse({
+        routingKey: ROUTING_KEY,
+        alerts: statuses.map((s) => ({ status: s })),
+      }),
+    });
   } finally {
     await client.close();
   }

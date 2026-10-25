@@ -11,7 +11,6 @@ import { type Synnax as SynnaxClient } from "@synnaxlabs/client";
 import { type FC, type PropsWithChildren } from "react";
 
 import { type aether } from "@/aether/aether";
-import { aetherTest } from "@/aether/test";
 import { Alamos } from "@/alamos";
 import { alamos } from "@/alamos/aether";
 import { Status } from "@/status";
@@ -21,6 +20,7 @@ import { synnax } from "@/synnax/aether";
 import { Telem } from "@/telem";
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/test";
+import { createAetherProvider } from "@/testutil/Aether";
 import { Staleness } from "@/vis/staleness";
 import { staleness } from "@/vis/staleness/aether";
 
@@ -29,6 +29,9 @@ export interface CreateTestWrapperOptions {
   client?: SynnaxClient | null;
   telemFactories?: telem.Factory[];
 }
+
+/** Tests assert on reported statuses, so their printed copies are noise. */
+const quiet = (): void => {};
 
 export const createTestWrapper = (
   options: CreateTestWrapperOptions,
@@ -44,7 +47,7 @@ export const createTestWrapper = (
       ]),
   );
 
-  const AetherProvider = aetherTest.createProvider({
+  const AetherProvider = createAetherProvider({
     ...registry,
     [telem.PROVIDER_TYPE]: TelemProvider,
     ...synnax.REGISTRY,
@@ -55,7 +58,7 @@ export const createTestWrapper = (
 
   const TestWrapper: FC<PropsWithChildren> = ({ children }) => (
     <AetherProvider>
-      <Status.Aggregator>
+      <Status.Aggregator log={quiet}>
         <Alamos.Provider>
           <Synnax.TestProvider client={client}>
             <Telem.Provider>

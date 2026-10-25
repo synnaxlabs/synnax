@@ -10,22 +10,14 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { type ExecutionContext } from "@/components/arc/types";
-import {
-  type TabEntry,
-  Tabs as Base,
-  type TabsProps as BaseProps,
-} from "@/components/tabs/Tabs";
+import { type FilterProps, type TabEntry, Tabs as Base } from "@/components/tabs/Tabs";
 
-interface Entry extends TabEntry {
-  tabKey: ExecutionContext;
-}
-
-const TABS: Entry[] = [
+const TABS: TabEntry<ExecutionContext>[] = [
   { tabKey: "flow", name: "Flow", icon: <Icon.ArcFlow /> },
   { tabKey: "function", name: "Func", icon: <Icon.ArcFunc /> },
 ];
 
-export type TabsProps = Omit<BaseProps, "tabs" | "queryParamKey">;
+export type TabsProps = FilterProps<ExecutionContext>;
 
 export const Tabs = (props: TabsProps) => (
   <Base queryParamKey="context" tabs={TABS} {...props} />

@@ -11,10 +11,11 @@ package status
 
 import (
 	"context"
+	"encoding/json"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -126,6 +127,26 @@ func (w Writer) SetManyWithParent[D any](
 		(*statuses)[i] = s
 	}
 	return nil
+}
+
+// Rename renames the status with the given key, keeping every other field. It returns
+// query.ErrNotFound if no status with the key exists and a validation error if name is
+// empty.
+func (w Writer) Rename(ctx context.Context, key Key, name string) error {
+	v := validate.New("status.status")
+	v.NotEmptyString("name", name)
+	if err := v.Error(); err != nil {
+		return err
+	}
+	// Raw details round-trip byte for byte. Decoding them as any would round numbers
+	// past float64 precision.
+	return gorp.NewUpdate[Key, Status[json.RawMessage]]().
+		Where(gorp.MatchKeys[Key, Status[json.RawMessage]](key)).
+		Change(func(_ gorp.Context, s Status[json.RawMessage]) Status[json.RawMessage] {
+			s.Name = name
+			return s
+		}).
+		Exec(ctx, w.tx)
 }
 
 // Delete deletes the statuses with the given keys. Delete is idempotent.

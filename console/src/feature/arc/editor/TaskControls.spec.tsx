@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, status, type Synnax as Client, task } from "@synnaxlabs/client";
+import { arc, type Synnax as Client, task } from "@synnaxlabs/client";
 import {
   createTestClient,
   createTestClientWithRole,
@@ -19,10 +19,17 @@ import { Suspense } from "react";
 import { describe, expect, it } from "vitest";
 
 import { TaskControls } from "@/feature/arc/editor/TaskControls";
-import { awaitCommand, clickRedeploy } from "@/platform/task/testutil";
+import { Analytics } from "@/platform/analytics";
+import { createTestSink } from "@/platform/analytics/testutil";
+import {
+  awaitCommand,
+  clickRedeploy,
+  reportTaskRunning,
+} from "@/platform/task/testutil";
 import {
   createConsoleWrapper,
   findDialogTrigger,
+  findDialogTriggerByText,
   getIconButton,
   queryIconButton,
   renderSuspended,
@@ -34,14 +41,20 @@ const client = createTestClient();
 const createArcRack = async () =>
   await client.racks.create({ name: uniqueName("rack"), integrations: ["arc"] });
 
-const renderControls = async (arcKey: arc.Key, as: Client = client) => {
+const renderControls = async (
+  arcKey: arc.Key,
+  as: Client = client,
+  analytics: Analytics.Sink = Analytics.NOOP,
+) => {
   const { wrapper } = await createConsoleWrapper({ client: as });
   return await renderSuspended(
-    <Suspense fallback={null}>
-      <Arc.Suspended arcKey={arcKey}>
-        <TaskControls />
-      </Arc.Suspended>
-    </Suspense>,
+    <Analytics.Provider sink={analytics}>
+      <Suspense fallback={null}>
+        <Arc.Suspended arcKey={arcKey}>
+          <TaskControls />
+        </Arc.Suspended>
+      </Suspense>
+    </Analytics.Provider>,
     { wrapper },
   );
 };
@@ -52,24 +65,6 @@ const searchAndClickRack = async (name: string): Promise<void> => {
   fireEvent.change(search, { target: { value: name } });
   const option = await waitFor(() => screen.getByText(name));
   fireEvent.click(option);
-};
-
-const setRunning = async (tsk: task.Task): Promise<void> => {
-  await client.statuses.set(
-    status.create<ReturnType<typeof task.statusDetailsZ>>({
-      key: task.statusKey(tsk.key),
-      variant: "success",
-      message: "Running",
-      details: {
-        task: tsk.key,
-        running: true,
-        cmd: "",
-        configHash: tsk.configHash,
-        rack: tsk.rack,
-        data: {},
-      },
-    }),
-  );
 };
 
 describe("TaskControls", () => {
@@ -97,7 +92,7 @@ describe("TaskControls", () => {
   it("should start the arc from the play button", async () => {
     const rck = await createArcRack();
     const a = await client.arcs.create({ name: uniqueName("arc"), mode: "text" });
-    const tsk = await client.arcs.setRack(a.key, rck.key);
+    const tsk = await client.arcs.updateTask(a.key, { rack: rck.key });
     if (tsk == null) throw new Error("expected a deployment task");
     const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
     try {
@@ -115,12 +110,27 @@ describe("TaskControls", () => {
     }
   });
 
+  it("should report the automation it deployed", async () => {
+    const rck = await createArcRack();
+    const a = await client.arcs.create({ name: uniqueName("arc"), mode: "text" });
+    await client.arcs.updateTask(a.key, { rack: rck.key });
+    const analytics = createTestSink();
+    const { container } = await renderControls(a.key, client, analytics);
+    await waitFor(() =>
+      expect(getIconButton(container, "play").getAttribute("aria-disabled")).toBeNull(),
+    );
+    fireEvent.click(getIconButton(container, "play"));
+    await waitFor(() =>
+      expect(analytics.capture).toHaveBeenCalledWith("automation_deployed", {}),
+    );
+  });
+
   it("should offer a start that picks up the synced config when the arc drifts", async () => {
     const rck = await createArcRack();
     const a = await client.arcs.create({ name: uniqueName("arc"), mode: "text" });
-    const tsk = await client.arcs.setRack(a.key, rck.key);
+    const tsk = await client.arcs.updateTask(a.key, { rack: rck.key });
     if (tsk == null) throw new Error("expected a deployment task");
-    await setRunning(tsk);
+    await reportTaskRunning(client, tsk);
     const gen = new crdt.Text(2);
     await client.arcs.dispatch(
       a.key,
@@ -141,11 +151,44 @@ describe("TaskControls", () => {
     });
   });
 
+  describe("performance", () => {
+    it("should disable the select while no rack is bound", async () => {
+      const a = await client.arcs.create({ name: uniqueName("arc"), mode: "text" });
+      await renderControls(a.key);
+      const trigger = await findDialogTriggerByText("Auto");
+      expect(trigger.getAttribute("aria-disabled")).toBe("true");
+    });
+
+    it("should show the stored level", async () => {
+      const rck = await createArcRack();
+      const a = await client.arcs.create({ name: uniqueName("arc"), mode: "text" });
+      await client.arcs.updateTask(a.key, { rack: rck.key, performance: "medium" });
+      await renderControls(a.key);
+      await findDialogTriggerByText("Medium");
+    });
+
+    it("should set the level of a bound arc", async () => {
+      const rck = await createArcRack();
+      const a = await client.arcs.create({ name: uniqueName("arc"), mode: "text" });
+      await client.arcs.updateTask(a.key, { rack: rck.key });
+      await renderControls(a.key);
+      const trigger = await findDialogTriggerByText("Auto");
+      await waitFor(() => expect(trigger.getAttribute("aria-disabled")).toBeNull());
+      fireEvent.click(trigger);
+      fireEvent.click(await screen.findByText("High"));
+      await waitFor(async () => {
+        const tsk = await client.arcs.task.retrieve(a.key);
+        expect(tsk?.config.performance).toBe("high");
+        expect(tsk?.rack).toBe(rck.key);
+      });
+    });
+  });
+
   describe("without permission to command the task", () => {
     it("should show the status without any action", async () => {
       const rck = await createArcRack();
       const a = await client.arcs.create({ name: uniqueName("arc"), mode: "text" });
-      await client.arcs.setRack(a.key, rck.key);
+      await client.arcs.updateTask(a.key, { rack: rck.key });
       const viewer = await createTestClientWithRole(client, "Viewer");
       const { container } = await renderControls(a.key, viewer);
       await waitFor(() =>

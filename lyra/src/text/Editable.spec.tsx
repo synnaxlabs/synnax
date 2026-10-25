@@ -237,6 +237,26 @@ describe("Editable", () => {
       await expect(promise).resolves.toEqual(["World", true]);
     });
 
+    it("should start an edit after a level change renders a new element", async () => {
+      const onChange = vi.fn();
+      const c = render(
+        <Editable id="relevel" level="p" value="Hello" onChange={onChange} />,
+      );
+      c.rerender(
+        <Editable id="relevel" level="h3" value="Hello" onChange={onChange} />,
+      );
+      const text = c.getByText("Hello");
+      expect(text.tagName).toBe("H3");
+      let promise!: Promise<[string, boolean]>;
+      act(() => {
+        promise = asyncEdit("relevel");
+      });
+      text.innerText = "World";
+      fireEvent.keyDown(text, { key: "Enter" });
+      expect(onChange).toHaveBeenCalledWith("World");
+      await expect(promise).resolves.toEqual(["World", true]);
+    });
+
     it("resolves asyncEdit with renamed=false when the value is unchanged", async () => {
       const c = render(<Editable id="same-name" value="Hello" onChange={vi.fn()} />);
       const text = c.getByText("Hello");
@@ -289,7 +309,7 @@ describe("Editable", () => {
 
     it("should put the element with the given id into edit mode", () => {
       const c = render(<Editable id="tab-name" value="Hello" onChange={vi.fn()} />);
-      edit("tab-name");
+      act(() => edit("tab-name"));
       expect(c.getByText("Hello").getAttribute("contenteditable")).toBe("true");
     });
 
@@ -305,7 +325,7 @@ describe("Editable", () => {
           <Editable id="tab-name" value="Hello" onChange={vi.fn()} />
         </>,
       );
-      edit("tab-name");
+      act(() => edit("tab-name"));
       const [readOnly, editable] = c.getAllByText("Hello");
       expect(editable.getAttribute("contenteditable")).toBe("true");
       expect(readOnly.getAttribute("contenteditable")).toBeNull();

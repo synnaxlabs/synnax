@@ -9,7 +9,8 @@
  * included in the file licenses/APL.txt.
  */
 
-a.pluto-text {
+/* A button styles its own link. :where adds no specificity, so color classes win. */
+a.pluto-text:where(:not(.pluto-btn)) {
     text-decoration: none;
     color: var(--pluto-primary-p1);
     cursor: pointer;

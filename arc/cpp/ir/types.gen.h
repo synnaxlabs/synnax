@@ -17,6 +17,7 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "x/cpp/errors/errors.h"
@@ -32,9 +33,10 @@ struct Handle;
 struct Body;
 struct Node;
 struct Authorities;
-struct Transition;
 struct Function;
 struct Edge;
+struct Activation;
+struct Transition;
 struct Member;
 struct Scope;
 struct IR;
@@ -134,25 +136,60 @@ struct Authorities {
     from_proto(const ::arc::ir::pb::Authorities &pb);
 };
 
-/// @brief Transition is a declarative state-transition rule on a sequential Scope.
-struct Transition {
-    /// @brief on is the dataflow handle whose truthy value fires this transition.
-    Handle on;
-    /// @brief target_key is the sibling step key to activate. Null when the transition
-    /// exits the scope, yielding to the parent.
-    std::optional<std::string> target_key;
+/// @brief ExitTarget leaves the scope and yields to its parent.
+struct ExitTarget {
+    std::string type = "exit";
 
-    static Transition parse(x::json::Parser parser);
+    static ExitTarget parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::arc::ir::pb::Transition;
-    [[nodiscard]] std::pair<::arc::ir::pb::Transition, x::errors::Error>
+    using proto_type = ::arc::ir::pb::TargetExitPayload;
+    [[nodiscard]] std::pair<::arc::ir::pb::TargetExitPayload, x::errors::Error>
     to_proto() const;
-    static std::pair<Transition, x::errors::Error>
-    from_proto(const ::arc::ir::pb::Transition &pb);
-    [[nodiscard]] std::string to_string() const;
-    friend std::ostream &operator<<(std::ostream &os, const Transition &t);
+    static std::pair<ExitTarget, x::errors::Error>
+    from_proto(const ::arc::ir::pb::TargetExitPayload &pb);
 };
+
+/// @brief StepTarget activates a sibling step of the same scope.
+struct StepTarget {
+    std::string type = "step";
+    /// @brief key is the key of the sibling step to activate.
+    std::string key;
+
+    static StepTarget parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::arc::ir::pb::TargetStepPayload;
+    [[nodiscard]] std::pair<::arc::ir::pb::TargetStepPayload, x::errors::Error>
+    to_proto() const;
+    static std::pair<StepTarget, x::errors::Error>
+    from_proto(const ::arc::ir::pb::TargetStepPayload &pb);
+};
+
+/// @brief ScopeTarget leaves the scope, then activates a top-level scope.
+struct ScopeTarget {
+    std::string type = "scope";
+    /// @brief key is the key of the top-level scope to activate.
+    std::string key;
+
+    static ScopeTarget parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::arc::ir::pb::TargetScopePayload;
+    [[nodiscard]] std::pair<::arc::ir::pb::TargetScopePayload, x::errors::Error>
+    to_proto() const;
+    static std::pair<ScopeTarget, x::errors::Error>
+    from_proto(const ::arc::ir::pb::TargetScopePayload &pb);
+};
+
+/// @brief Target is where a transition goes when it fires.
+using Target = std::variant<ExitTarget, StepTarget, ScopeTarget>;
+
+Target parse_target(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Target &value);
+[[nodiscard]] std::pair<::arc::ir::pb::Target, x::errors::Error>
+to_proto(const Target &value);
+std::pair<Target, x::errors::Error> target_from_proto(const ::arc::ir::pb::Target &pb);
 
 /// @brief Function is a function template definition with typed parameters, serving as
 /// a blueprint for node instantiation.
@@ -242,7 +279,7 @@ struct Edge {
     /// @brief target is the target node parameter consuming data.
     Handle target;
     /// @brief kind defines execution semantics for this connection.
-    EdgeKind kind;
+    EdgeKind kind = {};
 
     static Edge parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -252,6 +289,48 @@ struct Edge {
     static std::pair<Edge, x::errors::Error> from_proto(const ::arc::ir::pb::Edge &pb);
     [[nodiscard]] std::string to_string() const;
     friend std::ostream &operator<<(std::ostream &os, const Edge &e);
+};
+
+/// @brief Activation is a handle that activates a gated Scope without leaving any
+/// scope.
+struct Activation {
+    /// @brief on is the dataflow handle whose output activates the scope.
+    Handle on;
+    /// @brief kind is conditional when only a truthy output activates the scope (`=>`),
+    /// and continuous when every output does (`->`).
+    EdgeKind kind = {};
+
+    static Activation parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::arc::ir::pb::Activation;
+    [[nodiscard]] std::pair<::arc::ir::pb::Activation, x::errors::Error>
+    to_proto() const;
+    static std::pair<Activation, x::errors::Error>
+    from_proto(const ::arc::ir::pb::Activation &pb);
+};
+
+/// @brief Transition is a declarative state-transition rule on a sequential Scope, or
+/// an exit from a parallel Scope.
+struct Transition {
+    /// @brief on is the dataflow handle whose output fires this transition.
+    Handle on;
+    /// @brief kind is conditional when only a truthy output fires the transition
+    /// (`=>`), and continuous when every output fires it (`->`).
+    EdgeKind kind = {};
+    /// @brief target is where the transition goes when it fires.
+    Target target;
+
+    static Transition parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::arc::ir::pb::Transition;
+    [[nodiscard]] std::pair<::arc::ir::pb::Transition, x::errors::Error>
+    to_proto() const;
+    static std::pair<Transition, x::errors::Error>
+    from_proto(const ::arc::ir::pb::Transition &pb);
+    [[nodiscard]] std::string to_string() const;
+    friend std::ostream &operator<<(std::ostream &os, const Transition &t);
 };
 
 /// @brief Functions is a collection of function definitions in an Arc module.
@@ -371,8 +450,7 @@ using Members = std::vector<Member>;
 /// transitions) is derived from the set variant via Member.key().
 struct Member {
     /// @brief node_key is the key of the referenced node in IR.nodes. Null when this
-    /// member
-    /// is a nested scope.
+    /// member is a nested scope.
     std::optional<std::string> node_key;
     /// @brief scope is set when this member is a nested scope.
     x::mem::indirect<Scope> scope;
@@ -398,14 +476,13 @@ struct Scope {
     /// @brief key is the scope identifier.
     std::string key;
     /// @brief mode defines whether this scope runs steps in parallel or sequentially.
-    ScopeMode mode;
+    ScopeMode mode = {};
     /// @brief liveness defines whether this scope is continuously active or must be
     /// activated.
-    Liveness liveness;
-    /// @brief activation is the handle whose truthy value activates a gated scope.
-    /// Unset
-    /// for always-live scopes.
-    std::optional<Handle> activation;
+    Liveness liveness = {};
+    /// @brief activations contains the handles that activate a gated scope. Empty for
+    /// always-live scopes.
+    std::vector<Activation> activations;
     /// @brief strata contains stratified execution layers for parallel scopes. On
     /// sequential scopes, strata hold variable nodes that run every pass alongside the
     /// active step. Stratum N depends only on strata 0 to N-1.
@@ -413,9 +490,8 @@ struct Scope {
     /// @brief steps contains ordered steps for sequential scopes. Empty for parallel
     /// scopes.
     Members steps;
-    /// @brief transitions contains state-transition rules for sequential scopes. Empty
-    /// for
-    /// parallel scopes.
+    /// @brief transitions contains state-transition rules in source order. A parallel
+    /// scope holds only exits.
     std::vector<Transition> transitions;
 
     static Scope parse(x::json::Parser parser);

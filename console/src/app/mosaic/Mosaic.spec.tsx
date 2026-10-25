@@ -54,11 +54,10 @@ describe("Mosaic file drop", () => {
   it("imports a JSON file dropped on the mosaic", async () => {
     const existing = await createServerPanel(client, {
       variant: "leaf",
-      tabs: [{ variant: "view", key: uuid.create(), type: "seed", args: {} }],
+      tabs: [{ variant: "view", key: uuid.create(), type: "seed" }],
     });
     const proj = await client.projects.create({
       name: uniqueName("project"),
-      layout: {},
     });
     const { wrapper: Console } = await createPanelWrapper({
       client,

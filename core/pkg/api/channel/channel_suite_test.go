@@ -10,42 +10,47 @@
 package channel_test
 
 import (
-	"context"
 	"testing"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
-	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	svc "github.com/synnaxlabs/synnax/pkg/service"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestAPIChannel(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API Channel Suite")
+	RunSpecs(t, "API Channel Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
 	channelSvc *channel.Service
+	statusSvc  *status.Service
+	rbacSvc    *rbac.Service
 	apiSvc     *apichannel.Service
+	author     user.User
 )
 
-// openService opens a service-layer channel service for the node and creates the node's
-// internal control channel, mirroring what the service layer's OpenLayer does in
-// production.
-func openService(ctx context.Context, node mock.Node) *channel.Service {
-	GinkgoHelper()
+var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
+	node := mock.NewNode(ctx)
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 	searchIdx := MustOpen(search.OpenIndex())
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
@@ -59,14 +64,27 @@ func openService(ctx context.Context, node mock.Node) *channel.Service {
 		Group:    groupSvc,
 		Search:   searchIdx,
 	}))
-	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Group:    groupSvc,
+		Search:   searchIdx,
+	}))
+	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Group:    groupSvc,
+		Search:   searchIdx,
+		User:     userSvc,
+	}))
+	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       node.DB,
 		Group:    groupSvc,
 		Ontology: otg,
 		Label:    labelSvc,
 		Search:   searchIdx,
 	}))
-	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      node.Channel,
 		DB:           node.DB,
 		HostProvider: node.Cluster,
@@ -75,15 +93,50 @@ func openService(ctx context.Context, node mock.Node) *channel.Service {
 		Search:       searchIdx,
 		Status:       statusSvc,
 	}))
-	return channelSvc
-}
-
-var _ = BeforeSuite(func(ctx SpecContext) {
-	ShouldNotLeakGoroutines()
-	node := mock.NewNode(ctx)
-	channelSvc = openService(ctx, node)
-	apiSvc = MustSucceed(apichannel.NewService(apicfg.LayerConfig{
-		Distribution: &distribution.Layer{DB: node.DB},
-		Service:      &svc.Layer{Channel: channelSvc},
+	rangerSvc := MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Group:    groupSvc,
+		Label:    labelSvc,
+		Search:   searchIdx,
 	}))
+	aliasSvc := MustOpen(alias.OpenService(ctx, alias.ServiceConfig{
+		DB:              node.DB,
+		Ontology:        otg,
+		Search:          searchIdx,
+		Channel:         channelSvc,
+		ParentRetriever: rangerSvc,
+	}))
+	apiSvc = MustSucceed(apichannel.NewService(apichannel.ServiceConfig{
+		RBAC:    rbacSvc,
+		Channel: channelSvc,
+		Ranger:  rangerSvc,
+		Alias:   aliasSvc,
+		Status:  statusSvc,
+	}))
+	author = MustSucceed(
+		userSvc.NewWriter(nil).Create(ctx, user.User{Username: "test"}),
+	)
 })
+
+// grantOn assigns the subject a role that allows the actions on the objects.
+func grantOn(
+	ctx SpecContext,
+	subject ontology.ID,
+	actions []access.Action,
+	objects ...ontology.ID,
+) {
+	GinkgoHelper()
+	roleWriter := rbacSvc.Role.NewWriter(nil, true)
+	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
+	r := &role.Role{Name: "role-" + uuid.New().String(), Description: "test"}
+	Expect(roleWriter.Create(ctx, r)).To(Succeed())
+	p := &policy.Policy{
+		Name:    "policy-" + uuid.New().String(),
+		Objects: objects,
+		Actions: actions,
+	}
+	Expect(policyWriter.Create(ctx, p)).To(Succeed())
+	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
+	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+}

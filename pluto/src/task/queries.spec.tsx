@@ -308,7 +308,7 @@ describe("queries", () => {
       await waitFor(() => {
         const taskInList = result.current.getItem(testTask.key);
         expect(taskInList?.status?.variant).toEqual("loading");
-        expect(taskInList?.status?.message).toEqual("Running start command...");
+        expect(taskInList?.status?.message).toEqual("Sending start command");
         expect(taskInList?.status?.details.running).toBe(true);
       });
     });
@@ -1582,6 +1582,7 @@ describe("queries", () => {
               <Display />
             </Errors.SuspenseBoundary>
           </Wrapper>,
+          { onCaughtError: () => {} },
         );
       });
       await waitFor(() =>
@@ -1743,6 +1744,7 @@ describe("queries", () => {
       streamer.close();
       await waitFor(async () => {
         expect(result.current.variant).toEqual("success");
+        expect(result.current.status.message).toEqual("Sent task commands");
         expect(result.current.data).toHaveLength(1);
       });
     });

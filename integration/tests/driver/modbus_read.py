@@ -27,7 +27,7 @@ class ModbusReadInputRegister(ModbusReadTaskCase):
                     index=idx.key,
                 ),
                 address=i,
-                data_type="uint8",
+                data_type=sy.DataType.UINT8,
             )
             for i in range(2)
         ]
@@ -48,7 +48,7 @@ class ModbusReadHoldingRegister(ModbusReadTaskCase):
                     index=idx.key,
                 ),
                 address=i,
-                data_type="uint8",
+                data_type=sy.DataType.UINT8,
             )
             for i in range(2)
         ]
@@ -100,7 +100,7 @@ class ModbusReadMixed(ModbusReadTaskCase):
     @staticmethod
     def create_channels(client: sy.Synnax) -> list[sy.modbus.ReadChannel]:
         idx = create_index(client, "modbus_mixed_index")
-        return [
+        registers = [
             sy.modbus.InputRegisterReadChannel(
                 channel=create_channel(
                     client,
@@ -109,10 +109,11 @@ class ModbusReadMixed(ModbusReadTaskCase):
                     index=idx.key,
                 ),
                 address=i,
-                data_type="uint8",
+                data_type=sy.DataType.UINT8,
             )
             for i in range(2)
-        ] + [
+        ]
+        inputs = [
             sy.modbus.DiscreteInputReadChannel(
                 channel=create_channel(
                     client,
@@ -124,3 +125,4 @@ class ModbusReadMixed(ModbusReadTaskCase):
             )
             for i in range(2)
         ]
+        return [*registers, *inputs]
