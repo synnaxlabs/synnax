@@ -91,7 +91,7 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
       if (key !== selected) return;
       setSelected(staticViews[0].key);
     },
-    [selected, staticViews[0].key],
+    [selected, staticViews],
   );
   PView.useDeleteSynchronizer(deleteSynchronizer);
   const contextValue = useMemo(
@@ -179,7 +179,7 @@ const Selector = ({
         rollbacks.push(() => onSelect(previousSelected));
         return { ...data, name, key: newKey };
       },
-      [renameModal, resourceType, selected, icon],
+      [renameModal, resourceType, selected, onSelect, icon],
     ),
     afterSuccess: useCallback(
       ({ data }: Flux.AfterSuccessParams<view.New>) => {
@@ -236,8 +236,7 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
   const { selected, select, staticViews, resourceType } = useContext("View.Selector");
   const { getItem } = List.useUtilContext<view.Key, View>();
   if (getItem == null) throw new UnexpectedError("No item getter found");
-  const views = getItem(keys);
-  const filteredViews = views.filter((v) => v.static !== true);
+  const editableKeys = keys.filter((key) => !staticViews.includes(key));
   const confirm = Modals.useConfirmDelete({
     icon: "View",
     type: caseconv.capitalize(resourceType),
@@ -251,26 +250,22 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
         if (keys.includes(selected)) select(staticViews[0]);
         return data;
       },
-      [getItem, confirm],
+      [getItem, keys, confirm, selected, select, staticViews],
     ),
   });
   const canRename =
-    Access.useUpdateGranted(view.ontologyID(filteredViews.map(({ key }) => key))) &&
-    filteredViews.length === 1;
+    Access.useUpdateGranted(view.ontologyID(editableKeys)) && editableKeys.length === 1;
   const canDelete =
-    Access.useDeleteGranted(view.ontologyID(filteredViews.map(({ key }) => key))) &&
-    filteredViews.length > 0;
+    Access.useDeleteGranted(view.ontologyID(editableKeys)) && editableKeys.length > 0;
   return (
     <PlatformContextMenu.Menu>
       {canRename && (
         <PlatformContextMenu.RenameItem
-          onClick={() => Text.edit(List.itemNameID(filteredViews[0].key))}
+          onClick={() => Text.edit(List.itemNameID(editableKeys[0]))}
         />
       )}
       {canDelete && (
-        <PlatformContextMenu.DeleteItem
-          onClick={() => del(filteredViews.map(({ key }) => key))}
-        />
+        <PlatformContextMenu.DeleteItem onClick={() => del(editableKeys)} />
       )}
       {(canRename || canDelete) && <Menu.Divider />}
       <PlatformContextMenu.ReloadConsoleItem />

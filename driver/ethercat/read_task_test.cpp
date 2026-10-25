@@ -365,6 +365,68 @@ TEST_F(EtherCATReadTest, InvalidSlaveDevice) {
     ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
 }
 
+/// @brief it should accept a stream rate below 1 Hz and read the matching number of
+/// samples for each stream.
+TEST_F(EtherCATReadTest, StreamRateBelowOneHzIsValid) {
+    auto data_ch = ASSERT_NIL_P(this->client->channels.create(
+        make_unique_channel_name("analog"),
+        x::telem::INT16_T,
+        this->index_channel.key,
+        false
+    ));
+
+    auto cfg = this->create_base_config();
+    cfg["sample_rate"] = 2;
+    cfg["stream_rate"] = 0.5;
+    cfg["channels"].push_back(
+        this->create_automatic_input_channel_config(data_ch, "status_word")
+    );
+
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    EXPECT_EQ(task_cfg.samples_per_chan, 4);
+}
+
+/// @brief it should accept a 0.1 Hz stream rate, despite the float precision of a rate.
+TEST_F(EtherCATReadTest, StreamRateOfATenthHzIsValid) {
+    auto data_ch = ASSERT_NIL_P(this->client->channels.create(
+        make_unique_channel_name("analog"),
+        x::telem::INT16_T,
+        this->index_channel.key,
+        false
+    ));
+
+    auto cfg = this->create_base_config();
+    cfg["sample_rate"] = 100;
+    cfg["stream_rate"] = 0.1;
+    cfg["channels"].push_back(
+        this->create_automatic_input_channel_config(data_ch, "status_word")
+    );
+
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    EXPECT_EQ(task_cfg.samples_per_chan, 1000);
+}
+
+/// @brief it should reject a stream rate that does not divide the sample rate.
+TEST_F(EtherCATReadTest, StreamRateThatDoesNotDivideSampleRateIsInvalid) {
+    auto cfg = this->create_base_config();
+    cfg["sample_rate"] = 10;
+    cfg["stream_rate"] = 3;
+
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+    ASSERT_EQ(parser.errors->size(), 1);
+    EXPECT_EQ(parser.errors->at(0)["path"], "stream_rate");
+    EXPECT_EQ(
+        parser.errors->at(0)["message"],
+        "sample_rate must be divisible by stream_rate"
+    );
+}
+
 TEST_F(EtherCATReadTest, SourceReadsDataFromEngine) {
     auto data_ch = ASSERT_NIL_P(this->client->channels.create(
         make_unique_channel_name("analog"),
@@ -395,6 +457,43 @@ TEST_F(EtherCATReadTest, SourceReadsDataFromEngine) {
     ASSERT_NIL(result.error);
     EXPECT_FALSE(frame.empty());
 
+    brk.stop();
+    ASSERT_NIL(source.stop());
+}
+
+/// @brief it should report samples that failed bus cycles dropped as a warning with a
+/// message and a description.
+TEST_F(EtherCATReadTest, SourceReportsDroppedSamplesAsAWarning) {
+    auto data_ch = ASSERT_NIL_P(this->client->channels.create(
+        make_unique_channel_name("analog"),
+        x::telem::INT16_T,
+        this->index_channel.key,
+        false
+    ));
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_automatic_input_channel_config(data_ch, "status_word")
+    );
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    auto source = ReadTaskSource(this->engine, std::move(task_cfg));
+    ASSERT_NIL(source.start());
+
+    const auto receives = this->mock_master->call_count("receive");
+    this->mock_master->inject_receive_error(
+        x::errors::Error(errors::WORKING_COUNTER_ERROR, "expected 3, got 1")
+    );
+    ASSERT_EVENTUALLY_GE(this->mock_master->call_count("receive"), receives + 3);
+    this->mock_master->clear_injected_errors();
+
+    x::breaker::Breaker brk;
+    brk.start();
+    x::telem::Frame frame;
+    const auto result = source.read(brk, frame);
+    ASSERT_NIL(result.error);
+    EXPECT_EQ(result.warning.message, "Dropped samples");
+    EXPECT_EQ(result.warning.description, "Bus cycles failed: expected 3, got 1.");
     brk.stop();
     ASSERT_NIL(source.stop());
 }

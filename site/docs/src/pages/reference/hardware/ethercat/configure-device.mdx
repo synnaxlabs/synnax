@@ -11,6 +11,7 @@ import { Client } from "@/components/client";
 import { Edition } from "@/components/edition";
 import Platforms from "@/components/hardware/Platforms.astro";
 import { Video } from "@/components/media/Media";
+import { Note } from "@/components/note";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -26,7 +27,7 @@ use a module, you configure it.
 <Platforms integration="ethercat" />
 
 - An Ethernet port on the computer that runs the Driver, cabled to the first module. Use
-  a port for EtherCAT only.
+  a port for EtherCAT only, and do not connect it to a switch or to your office network.
 - Packet capture software:
   - **Windows** -> install [Npcap](https://npcap.com/#download) with **WinPcap
     API-compatible Mode** turned on. Without this mode, the Driver cannot find Npcap.
@@ -38,6 +39,48 @@ On Linux, a standalone Driver needs the file `libpcap.so`. On Debian and Ubuntu,
 the `libpcap-dev` package. If the
 [IgH EtherCAT Master](https://etherlab.org/en_GB/ethercat) kernel module is loaded, the
 Driver uses it instead.
+
+</Edition.Enterprise>
+
+<Divider.Divider x />
+
+## Network interface access
+
+EtherCAT sends raw Ethernet frames, so the Driver needs direct access to the network
+interface.
+
+| Platform                    | What the Driver needs                                                                                                      |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Linux service               | Nothing. The service has raw Ethernet access and IgH access.                                                               |
+| Linux, embedded in the Core | Run the Core as root. Without IgH, you can also start the Core from a systemd unit with `AmbientCapabilities=CAP_NET_RAW`. |
+| NI Linux Real-Time          | Nothing. The service runs as root.                                                                                         |
+| Windows                     | [Npcap](https://npcap.com/#download).                                                                                      |
+| macOS                       | Root access, because only root can open the packet capture devices (`/dev/bpf*`).                                          |
+
+The Core's Docker image runs as a user without these permissions, so its embedded Driver
+cannot run EtherCAT tasks.
+
+<Edition.Enterprise>
+
+To start the Driver on Linux by hand, run it as root or give it the access that the
+service has. Without IgH, the Driver needs the raw Ethernet capability:
+
+```bash
+sudo setcap cap_net_raw+ep /usr/local/bin/synnax-driver
+```
+
+With IgH, the Driver needs access to the master device (`/dev/EtherCAT0`) instead.
+`sudo synnax-driver install` gives this access to the `synnax` group, so add your user
+to that group, then log in again:
+
+```bash
+sudo usermod -aG synnax $USER
+```
+
+<Note.Note variant="info">
+  A service installed by an older Driver does not have these permissions. To update it,
+  run `sudo synnax-driver install` again.
+</Note.Note>
 
 </Edition.Enterprise>
 

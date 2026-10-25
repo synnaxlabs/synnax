@@ -15,12 +15,12 @@ import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { memo, type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { aetherTest } from "@/aether/test";
 import { Flux } from "@/flux";
 import { Status } from "@/status";
 import { status } from "@/status/aether";
 import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
+import { createAetherProvider } from "@/testutil/Aether";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -1717,7 +1717,7 @@ describe("list", () => {
       key: string;
       name: string;
     }
-    const ReconnectAetherProvider = aetherTest.createProvider({
+    const ReconnectAetherProvider = createAetherProvider({
       ...synnax.REGISTRY,
       ...status.REGISTRY,
     });

@@ -119,7 +119,16 @@ export const Numeric = ({
     const plain = parseNumber(raw);
     if (plain != null) return commit(plain);
     void evaluateExpression(raw).then(commit);
-  }, [onChange, setInternalValue, emptyValue]);
+  }, [
+    isValueValidRef,
+    setIsValueValid,
+    internalValueRef,
+    emptyValue,
+    onChange,
+    valueRef,
+    boundsRef,
+    setInternalValue,
+  ]);
 
   const updateActualValueRef = useSyncedRef(updateActualValue);
 
@@ -156,7 +165,7 @@ export const Numeric = ({
       setIsValueValid(true);
       onChange?.(next);
     },
-    [onChange, onlyChangeOnBlur, setInternalValue, setIsValueValid],
+    [boundsRef, onlyChangeOnBlur, setIsValueValid, setInternalValue, onChange],
   );
 
   if (dragScale == null && bounds.isFinite(propsBounds))

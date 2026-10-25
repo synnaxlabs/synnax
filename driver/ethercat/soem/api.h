@@ -13,6 +13,8 @@
 #include <cstring>
 #include <string>
 
+#include "x/cpp/errors/errors.h"
+
 extern "C" {
 #include "soem/soem.h"
 }
@@ -24,6 +26,12 @@ namespace driver::ethercat::soem {
 class API {
 public:
     virtual ~API() = default;
+
+    /// @brief checks that the process can open a raw EtherCAT socket.
+    /// @param ifname the interface named in the returned error.
+    /// @returns errors::PERMISSION_DENIED when the process lacks permission, or
+    /// errors::INTERFACE_ERROR when the socket fails to open for another reason.
+    virtual x::errors::Error check_socket(const char *ifname) = 0;
 
     /// @brief initializes EtherCAT on the specified network interface.
     virtual int init(const char *ifname) = 0;
@@ -37,17 +45,29 @@ public:
     /// @brief maps I/O buffer for process data exchange for a slave group.
     virtual int config_map_group(void *iomap, uint8_t group) = 0;
 
-    /// @brief sends process data to slaves.
-    virtual int send_processdata() = 0;
+    /// @brief sends the process data of a slave group.
+    virtual int send_processdata(uint8_t group) = 0;
 
-    /// @brief receives process data from slaves with timeout in microseconds.
-    virtual int receive_processdata(int timeout) = 0;
+    /// @brief receives the process data of a slave group with a timeout in
+    /// microseconds.
+    virtual int receive_processdata(uint8_t group, int timeout) = 0;
 
     /// @brief requests a state transition for the specified slave.
     virtual int writestate(uint16_t slave) = 0;
 
     /// @brief polls slave state change with timeout in microseconds.
     virtual uint16_t statecheck(uint16_t slave, uint16_t reqstate, int timeout) = 0;
+
+    /// @brief reads the AL state and status code of every slave into the slave list.
+    virtual int readstate() = 0;
+
+    /// @brief takes a slave through INIT and PRE-OP back to SAFE-OP with its stored
+    /// configuration, returning the state it reached.
+    virtual int reconfig_slave(uint16_t slave, int timeout) = 0;
+
+    /// @brief restores the address of a slave that lost power, returning a positive
+    /// value when the same slave answered at its position.
+    virtual int recover_slave(uint16_t slave, int timeout) = 0;
 
     /// @brief reads from slave object dictionary via SDO.
     virtual int SDOread(
@@ -128,6 +148,12 @@ public:
     /// @brief returns the AL status code for a slave.
     [[nodiscard]] virtual uint16_t slave_ALstatuscode(uint16_t pos) const = 0;
 
+    /// @brief returns whether a slave is marked as no longer responding.
+    [[nodiscard]] virtual bool slave_lost(uint16_t pos) const = 0;
+
+    /// @brief marks whether a slave no longer responds.
+    virtual void set_slave_lost(uint16_t pos, bool lost) = 0;
+
     /// @brief returns the input bytes for a group.
     [[nodiscard]] virtual uint32_t group_Ibytes(uint8_t grp) const = 0;
 
@@ -148,6 +174,8 @@ class ProdAPI final : public API {
 public:
     ProdAPI() { std::memset(&this->context, 0, sizeof(this->context)); }
 
+    x::errors::Error check_socket(const char *ifname) override;
+
     int init(const char *ifname) override { return ecx_init(&this->context, ifname); }
 
     void close() override { ecx_close(&this->context); }
@@ -158,10 +186,12 @@ public:
         return ecx_config_map_group(&this->context, iomap, group);
     }
 
-    int send_processdata() override { return ecx_send_processdata(&this->context); }
+    int send_processdata(uint8_t group) override {
+        return ecx_send_processdata_group(&this->context, group);
+    }
 
-    int receive_processdata(int timeout) override {
-        return ecx_receive_processdata(&this->context, timeout);
+    int receive_processdata(uint8_t group, int timeout) override {
+        return ecx_receive_processdata_group(&this->context, group, timeout);
     }
 
     int writestate(uint16_t slave) override {
@@ -170,6 +200,16 @@ public:
 
     uint16_t statecheck(uint16_t slave, uint16_t reqstate, int timeout) override {
         return ecx_statecheck(&this->context, slave, reqstate, timeout);
+    }
+
+    int readstate() override { return ecx_readstate(&this->context); }
+
+    int reconfig_slave(uint16_t slave, int timeout) override {
+        return ecx_reconfig_slave(&this->context, slave, timeout);
+    }
+
+    int recover_slave(uint16_t slave, int timeout) override {
+        return ecx_recover_slave(&this->context, slave, timeout);
     }
 
     int SDOread(
@@ -278,6 +318,14 @@ public:
 
     [[nodiscard]] uint16_t slave_ALstatuscode(uint16_t pos) const override {
         return this->context.slavelist[pos].ALstatuscode;
+    }
+
+    [[nodiscard]] bool slave_lost(uint16_t pos) const override {
+        return this->context.slavelist[pos].islost;
+    }
+
+    void set_slave_lost(uint16_t pos, bool lost) override {
+        this->context.slavelist[pos].islost = lost;
     }
 
     [[nodiscard]] uint32_t group_Ibytes(uint8_t grp) const override {

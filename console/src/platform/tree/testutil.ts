@@ -24,14 +24,19 @@ export const createState = (
   overrides: Partial<Tree.TreeState> = {},
 ): Tree.TreeState => {
   const byKey = new Map(resources.map((r) => [ontology.idToString(r.id), r]));
+  const lookup = (id: ontology.ID | string): ontology.Resource | undefined =>
+    byKey.get(typeof id === "string" ? id : ontology.idToString(id));
   const resolve = (id: ontology.ID | string): ontology.Resource => {
+    const resource = lookup(id);
+    if (resource != null) return resource;
     const key = typeof id === "string" ? id : ontology.idToString(id);
-    const resource = byKey.get(key);
-    if (resource == null) throw new Error(`resource ${key} not found in test state`);
-    return resource;
+    throw new Error(`resource ${key} not found in test state`);
   };
+  // Like the tree's, the list form leaves out the IDs it holds no resource for.
   const getResource = ((id: ontology.ID | string | (ontology.ID | string)[]) =>
-    Array.isArray(id) ? id.map(resolve) : resolve(id)) as Tree.GetResource;
+    Array.isArray(id)
+      ? id.map(lookup).filter((r) => r != null)
+      : resolve(id)) as Tree.GetResource;
   const nodes = resources.map((r) => ({ key: ontology.idToString(r.id) }));
   return {
     nodes,
@@ -39,6 +44,7 @@ export const createState = (
     setNodes: () => {},
     setResource: () => {},
     getResource,
+    subscribeResource: () => () => {},
     setSelection: () => {},
     expand: () => {},
     contract: () => {},

@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <cmath>
 #include <memory>
 #include <set>
 #include <vector>
@@ -21,6 +22,7 @@
 #include "driver/common/sample_clock.h"
 #include "driver/ethercat/channel/channel.h"
 #include "driver/ethercat/engine/engine.h"
+#include "driver/ethercat/telem/telem.h"
 #include "driver/ethercat/topology/topology.h"
 
 namespace driver::ethercat {
@@ -35,7 +37,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief configured input channels.
     std::vector<std::unique_ptr<channel::Input>> channels;
     /// @brief number of samples per channel per batch.
-    size_t samples_per_chan;
+    size_t samples_per_chan = 0;
     /// @brief cached device properties for topology validation.
     std::unordered_map<std::string, slave::Properties> device_cache;
 
@@ -54,15 +56,18 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         const std::shared_ptr<synnax::Synnax> &client,
         x::json::Parser &cfg
     ):
-        BaseReadTaskConfig(cfg), samples_per_chan(sample_rate / stream_rate) {
-        const auto sample_rate_int = static_cast<size_t>(sample_rate.hz());
-        const auto stream_rate_int = static_cast<size_t>(stream_rate.hz());
-        if (sample_rate_int % stream_rate_int != 0) {
-            cfg.field_err(
-                "stream_rate",
-                "sample_rate must be divisible by stream_rate"
-            );
-            return;
+        BaseReadTaskConfig(cfg) {
+        if (this->sample_rate > x::telem::Rate(0) &&
+            this->stream_rate > x::telem::Rate(0)) {
+            const auto ratio = telem::whole_ratio(this->sample_rate, this->stream_rate);
+            if (!ratio) {
+                cfg.field_err(
+                    "stream_rate",
+                    "sample_rate must be divisible by stream_rate"
+                );
+                return;
+            }
+            this->samples_per_chan = *ratio;
         }
 
         std::unordered_map<std::string, slave::Properties> slave_cache;
@@ -166,10 +171,14 @@ class ReadTaskSource final : public common::Source {
     ReadTaskConfig cfg;
     std::shared_ptr<engine::Engine> engine;
     std::unique_ptr<engine::Engine::Reader> reader;
+    /// @brief the bus cycle time of each sample in the latest read.
+    x::telem::Series times;
 
 public:
     explicit ReadTaskSource(std::shared_ptr<engine::Engine> eng, ReadTaskConfig cfg):
-        cfg(std::move(cfg)), engine(std::move(eng)) {}
+        cfg(std::move(cfg)),
+        engine(std::move(eng)),
+        times(x::telem::TIMESTAMP_T, this->cfg.samples_per_chan) {}
 
     x::errors::Error start() override {
         if (auto err = this->engine->ensure_initialized(); err) return err;
@@ -185,7 +194,11 @@ public:
         for (const auto &ch: this->cfg.channels)
             entries.push_back(*ch);
 
-        auto [rdr, err] = this->engine->open_reader(entries, this->cfg.sample_rate);
+        auto [rdr, err] = this->engine->open_reader(
+            entries,
+            this->cfg.sample_rate,
+            this->cfg.samples_per_chan
+        );
         if (err) return err;
         this->reader = std::move(rdr);
         return x::errors::NIL;
@@ -199,36 +212,28 @@ public:
     common::ReadResult
     read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
         common::ReadResult res;
-        const size_t n_channels = this->cfg.channels.size();
-        const size_t n_samples = this->cfg.samples_per_chan;
-        common::initialize_frame(fr, this->cfg.channels, this->cfg.indexes, n_samples);
+        common::initialize_frame(
+            fr,
+            this->cfg.channels,
+            this->cfg.indexes,
+            this->cfg.samples_per_chan
+        );
         for (auto &ser: *fr.series)
             ser.clear();
-
-        const auto engine_rate = this->engine->cycle_rate();
-        const auto decimation = (engine_rate / this->cfg.sample_rate);
-        const size_t epochs_per_batch = n_samples * decimation;
-
-        const auto start = x::telem::TimeStamp::now();
-        for (size_t epoch = 0; epoch < epochs_per_batch; ++epoch) {
-            if (epoch % decimation == 0) {
-                if (res.error = this->reader->read(breaker, fr); res.error) return res;
-            } else if (res.error = this->reader->wait(breaker); res.error)
-                return res;
-            if (!breaker.running()) {
-                fr.clear();
-                return res;
-            }
+        this->times.clear();
+        if (res.error = this->reader->read(breaker, fr, this->times); res.error)
+            return res;
+        if (!breaker.running()) {
+            fr.clear();
+            return res;
         }
-        const auto end = x::telem::TimeStamp::now();
-        common::generate_index_data(
-            fr,
-            this->cfg.indexes,
-            start,
-            end,
-            n_samples,
-            n_channels
-        );
+        if (auto description = this->reader->warning(); !description.empty())
+            res.warning = {
+                .message = "Dropped samples",
+                .description = std::move(description),
+            };
+        for (size_t i = this->cfg.channels.size(); i < fr.series->size(); ++i)
+            fr.series->at(i).write(this->times);
         return res;
     }
 

@@ -70,7 +70,10 @@ The `install` command creates a `synnax` system user, the empty environment file
 service. It gives the service real-time permission and writes the udev rule
 `/etc/udev/rules.d/99-synnax-driver-latency.rules`, so Arc automations can run with
 [precise timing](/reference/control/arc/timing?platform=Linux#get-the-best-timing-from-a-computer).
-After you upgrade the Driver, run `sudo synnax-driver install` again.
+For [EtherCAT](/reference/hardware/ethercat/configure-device#network-interface-access),
+it gives the service raw Ethernet access and writes the udev rule
+`/etc/udev/rules.d/99-synnax-driver-ethercat.rules`. After you upgrade the Driver, run
+`sudo synnax-driver install` again.
 
 </Fragment>
 <Fragment slot="Windows">

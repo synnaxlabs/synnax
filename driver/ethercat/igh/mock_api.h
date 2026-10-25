@@ -28,6 +28,8 @@ class MockAPI final : public API {
     ec_domain_t *sentinel_input_domain = reinterpret_cast<ec_domain_t *>(0x3);
     /// @brief tracks the number of domains created for returning alternating sentinels.
     int domain_create_count = 0;
+    /// @brief configurable return value for check_device.
+    x::errors::Error check_device_err = x::errors::NIL;
     /// @brief configurable return value for request_master.
     ec_master_t *request_master_result;
     /// @brief configurable return value for master() (get info).
@@ -44,8 +46,6 @@ class MockAPI final : public API {
     int activate_result = 0;
     /// @brief configurable return value for master_slave_config.
     bool slave_config_fails = false;
-    /// @brief configurable return value for slave_config_pdos.
-    int slave_config_pdos_result = 0;
 
     /// @brief running byte offset per domain for slave_config_reg_pdo_entry.
     size_t output_domain_offset = 0;
@@ -80,6 +80,10 @@ class MockAPI final : public API {
 
 public:
     MockAPI(): API(MockTag{}), request_master_result(this->sentinel_master) {}
+
+    void set_check_device_err(const x::errors::Error &err) {
+        this->check_device_err = err;
+    }
 
     void set_request_master_result(ec_master_t *result) {
         this->request_master_result = result;
@@ -128,10 +132,6 @@ public:
 
     void set_slave_config_fails(bool fails) { this->slave_config_fails = fails; }
 
-    void set_slave_config_pdos_result(int result) {
-        this->slave_config_pdos_result = result;
-    }
-
     void set_output_domain_size(size_t sz) {
         this->output_domain_sz = sz;
         this->output_data_buf.resize(sz, 0);
@@ -161,6 +161,14 @@ public:
             state.al_state = al_state;
     }
 
+    void set_slave_error_flag(uint16_t position, uint8_t flag) {
+        this->mock_slaves[position].error_flag = flag;
+    }
+
+    [[nodiscard]] size_t slave_config_count() const {
+        return this->created_slave_configs.size();
+    }
+
     [[nodiscard]] bool release_master_called() const {
         return this->release_master_called_val;
     }
@@ -175,6 +183,10 @@ public:
 
     [[nodiscard]] ec_domain_t *get_input_domain() const {
         return this->sentinel_input_domain;
+    }
+
+    [[nodiscard]] x::errors::Error check_device(unsigned int) const override {
+        return this->check_device_err;
     }
 
     [[nodiscard]] ec_master_t *request_master(unsigned int) const override {
@@ -287,14 +299,6 @@ public:
         }
         std::memset(state, 0, sizeof(*state));
         return 0;
-    }
-
-    int slave_config_pdos(
-        ec_slave_config_t *,
-        unsigned int,
-        const ec_sync_info_t[]
-    ) const override {
-        return this->slave_config_pdos_result;
     }
 
     int slave_config_reg_pdo_entry(
