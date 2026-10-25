@@ -34,14 +34,22 @@ namespace driver::ethercat {
 const std::string PCAP_LIB_NAME = "wpcap.dll";
 #elif defined(__APPLE__)
 const std::string PCAP_LIB_NAME = "libpcap.dylib";
-#else
-const std::string PCAP_LIB_NAME = "libpcap.so";
 #endif
 
+#ifndef __linux__
 static bool check_pcap_available() {
+#ifdef _WIN32
+    // Npcap installs its DLLs outside the default search path unless it runs in
+    // WinPcap-compatible mode.
+    char dir[MAX_PATH];
+    const UINT len = GetSystemDirectoryA(dir, MAX_PATH);
+    if (len > 0 && len < MAX_PATH)
+        SetDllDirectoryA((std::string(dir) + "\\Npcap").c_str());
+#endif
     x::lib::Shared lib(PCAP_LIB_NAME);
     return lib.load();
 }
+#endif
 
 std::unique_ptr<master::Manager> default_manager() {
 #ifdef __linux__
@@ -53,11 +61,11 @@ std::unique_ptr<master::Manager> default_manager() {
     LOG(INFO) << "[ethercat] IgH unavailable, falling back to SOEM backend";
 #else
     LOG(INFO) << "[ethercat] using SOEM backend";
-#endif
     if (!check_pcap_available()) {
         LOG(WARNING) << "[ethercat] " << driver::errors::missing_lib(PCAP_LIBRARY_INFO);
         return nullptr;
     }
+#endif
     return std::make_unique<soem::Manager>();
 }
 
@@ -80,10 +88,15 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_read(
     auto [eng, eng_err] = this->pool->acquire(cfg.interface_name);
     if (eng_err) return {std::move(result), eng_err};
     result.auto_start = cfg.auto_start;
+    // The bus recovers a lost device without a limit, so the task waits for it.
     result.task = std::make_unique<common::ReadTask>(
         task,
         ctx,
-        x::breaker::default_config(task.name),
+        x::breaker::Config{
+            .name = task.name,
+            .max_retries = x::breaker::RETRY_INFINITELY,
+            .max_interval = 5 * x::telem::SECOND,
+        },
         std::make_unique<ReadTaskSource>(eng, std::move(cfg))
     );
     return {std::move(result), x::errors::NIL};
@@ -116,6 +129,8 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_scan(
     x::json::Parser parser(task.config);
     ScanTaskConfig cfg(parser);
     if (parser.error()) return {std::move(result), parser.error()};
+    result.auto_start = !cfg.disabled;
+    if (auto err = this->pool->check_available()) return {std::move(result), err};
     auto scanner = std::make_unique<Scanner>(ctx, task, cfg, this->pool);
     result.task = std::make_unique<common::ScanTask>(
         std::move(scanner),
@@ -124,7 +139,6 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_scan(
         x::breaker::default_config(task.name),
         cfg.rate
     );
-    result.auto_start = !cfg.disabled;
     return {std::move(result), x::errors::NIL};
 }
 
@@ -133,7 +147,7 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const synnax::task::Task &task,
     const std::string &cmd_key
 ) {
-    if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
+    if (!task.type.starts_with(INTEGRATION_NAME)) return {nullptr, false};
     std::pair<common::ConfigureResult, x::errors::Error> res;
     if (task.type == READ_TASK_TYPE)
         res = this->configure_read(ctx, task);

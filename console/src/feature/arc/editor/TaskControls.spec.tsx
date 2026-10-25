@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, status, type Synnax as Client, task } from "@synnaxlabs/client";
+import { arc, type Synnax as Client, task } from "@synnaxlabs/client";
 import {
   createTestClient,
   createTestClientWithRole,
@@ -21,12 +21,17 @@ import { describe, expect, it } from "vitest";
 import { TaskControls } from "@/feature/arc/editor/TaskControls";
 import { Analytics } from "@/platform/analytics";
 import { createTestSink } from "@/platform/analytics/testutil";
-import { awaitCommand, clickRedeploy } from "@/platform/task/testutil";
+import {
+  awaitCommand,
+  clickRedeploy,
+  reportTaskRunning,
+} from "@/platform/task/testutil";
 import {
   createConsoleWrapper,
   findDialogTrigger,
   findDialogTriggerByText,
   getIconButton,
+  queryIcon,
   queryIconButton,
   renderSuspended,
   uniqueName,
@@ -61,24 +66,6 @@ const searchAndClickRack = async (name: string): Promise<void> => {
   fireEvent.change(search, { target: { value: name } });
   const option = await waitFor(() => screen.getByText(name));
   fireEvent.click(option);
-};
-
-const setRunning = async (tsk: task.Task): Promise<void> => {
-  await client.statuses.set(
-    status.create<ReturnType<typeof task.statusDetailsZ>>({
-      key: task.statusKey(tsk.key),
-      variant: "success",
-      message: "Running",
-      details: {
-        task: tsk.key,
-        running: true,
-        cmd: "",
-        configHash: tsk.configHash,
-        rack: tsk.rack,
-        data: {},
-      },
-    }),
-  );
 };
 
 describe("TaskControls", () => {
@@ -144,7 +131,7 @@ describe("TaskControls", () => {
     const a = await client.arcs.create({ name: uniqueName("arc"), mode: "text" });
     const tsk = await client.arcs.updateTask(a.key, { rack: rck.key });
     if (tsk == null) throw new Error("expected a deployment task");
-    await setRunning(tsk);
+    await reportTaskRunning(client, tsk);
     const gen = new crdt.Text(2);
     await client.arcs.dispatch(
       a.key,
@@ -173,12 +160,13 @@ describe("TaskControls", () => {
       expect(trigger.getAttribute("aria-disabled")).toBe("true");
     });
 
-    it("should show the stored level", async () => {
+    it("should show the stored level with its glyph as the trigger icon", async () => {
       const rck = await createArcRack();
       const a = await client.arcs.create({ name: uniqueName("arc"), mode: "text" });
       await client.arcs.updateTask(a.key, { rack: rck.key, performance: "medium" });
       await renderControls(a.key);
-      await findDialogTriggerByText("Medium");
+      const trigger = await findDialogTriggerByText("Medium");
+      expect(queryIcon(trigger, "performance-medium")).toBe(trigger.firstElementChild);
     });
 
     it("should set the level of a bound arc", async () => {

@@ -14,10 +14,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -54,12 +54,13 @@ var _ = Describe("StatusHandler", func() {
 				"cmd-1",
 				status.VariantSuccess,
 				true,
-				"Task started successfully",
+				"Started task",
+				"",
 			)).To(Succeed())
 			stat := retrieve(ctx)
 			Expect(stat.Name).To(Equal("handler-test"))
 			Expect(stat.Variant).To(Equal(status.VariantSuccess))
-			Expect(stat.Message).To(Equal("Task started successfully"))
+			Expect(stat.Message).To(Equal("Started task"))
 			Expect(stat.Details.Cmd).To(Equal("cmd-1"))
 			Expect(stat.Details.Running).To(BeTrue())
 			Expect(stat.Details.ConfigHash).To(Equal("hash-1"))
@@ -67,17 +68,33 @@ var _ = Describe("StatusHandler", func() {
 		})
 
 		It("should clear the description a prior warning set", func(ctx SpecContext) {
-			Expect(handler.Warn(ctx, "Runtime error in stage", "details")).To(Succeed())
+			Expect(handler.Warn(ctx, "Node failed", "details")).
+				To(Succeed())
 			Expect(handler.Send(
 				ctx,
 				"cmd-2",
 				status.VariantSuccess,
 				false,
-				"Task stopped successfully",
+				"Stopped task",
+				"",
 			)).To(Succeed())
 			stat := retrieve(ctx)
 			Expect(stat.Description).To(BeEmpty())
 			Expect(stat.Variant).To(Equal(status.VariantSuccess))
+		})
+
+		It("should write the description it is given", func(ctx SpecContext) {
+			Expect(handler.Send(
+				ctx,
+				"cmd-3",
+				status.VariantError,
+				false,
+				"Failed to start task",
+				"The device is unreachable.",
+			)).To(Succeed())
+			stat := retrieve(ctx)
+			Expect(stat.Message).To(Equal("Failed to start task"))
+			Expect(stat.Description).To(Equal("The device is unreachable."))
 		})
 
 		It("should keep the name the task was renamed to", func(ctx SpecContext) {
@@ -86,7 +103,8 @@ var _ = Describe("StatusHandler", func() {
 				"cmd-1",
 				status.VariantSuccess,
 				true,
-				"Task started successfully",
+				"Started task",
+				"",
 			)).To(Succeed())
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return statusSvc.NewWriter(tx).
@@ -105,13 +123,14 @@ var _ = Describe("StatusHandler", func() {
 					"cmd-1",
 					status.VariantSuccess,
 					true,
-					"Task started successfully",
+					"Started task",
+					"",
 				)).To(Succeed())
-				Expect(handler.Warn(ctx, "Runtime error in stage", "div by zero")).
+				Expect(handler.Warn(ctx, "Node failed", "div by zero")).
 					To(Succeed())
 				stat := retrieve(ctx)
 				Expect(stat.Variant).To(Equal(status.VariantWarning))
-				Expect(stat.Message).To(Equal("Runtime error in stage"))
+				Expect(stat.Message).To(Equal("Node failed"))
 				Expect(stat.Description).To(Equal("div by zero"))
 				Expect(stat.Details.Running).To(BeTrue())
 				Expect(stat.Details.Cmd).To(Equal(driver.NoCommand))

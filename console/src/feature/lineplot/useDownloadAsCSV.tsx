@@ -12,7 +12,6 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { LinePlot } from "@synnaxlabs/pluto";
 import { TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { Framer } from "@/platform/framer";
 import { Range } from "@/platform/range";
@@ -32,27 +31,24 @@ export interface DownloadAsCSVParams {
 export const useDownloadAsCSV = (): ((params: DownloadAsCSVParams) => void) => {
   const openDownloadCSVModal = Framer.useDownloadCSVModal();
   const handleError = Status.useErrorHandler();
-  return useCallback(
-    ({ timeRanges, lines, name }) => {
-      const channels = unique.unique(
-        lines
-          .flatMap((l) => [l.channels.y, l.channels.x])
-          .filter((v): v is channel.Key => v != null && v !== 0),
-      );
-      const timeRange = TimeRange.merge(...timeRanges);
-      handleError(
-        async () =>
-          await openDownloadCSVModal({
-            timeRange: timeRange.numeric,
-            name,
-            channels,
-            icon: <Icon.LinePlot />,
-          }),
-        `Failed to download CSV data for ${name}`,
-      );
-    },
-    [openDownloadCSVModal],
-  );
+  return ({ timeRanges, lines, name }) => {
+    const channels = unique.unique(
+      lines
+        .flatMap((l) => [l.channels.y, l.channels.x])
+        .filter((v): v is channel.Key => v != null && v !== 0),
+    );
+    const timeRange = TimeRange.merge(...timeRanges);
+    handleError(
+      async () =>
+        await openDownloadCSVModal({
+          timeRange: timeRange.numeric,
+          name,
+          channels,
+          icon: <Icon.LinePlot />,
+        }),
+      `Failed to download CSV data for ${name}`,
+    );
+  };
 };
 
 export const useDownloadPlotAsCSV = (key: string): (() => void) => {
@@ -62,7 +58,7 @@ export const useDownloadPlotAsCSV = (key: string): (() => void) => {
   const name = LinePlot.useName({ key });
   const rangeKeys = unique.unique([...ranges.x1, ...ranges.x2]);
   const resolved = Range.useResolveMultiple(rangeKeys);
-  return useCallback(() => {
+  return () => {
     const now = TimeStamp.now();
     const lines: DownloadLine[] = derived.map((d) => ({
       channels: { x: d.xChannel, y: d.yChannel },
@@ -73,5 +69,5 @@ export const useDownloadPlotAsCSV = (key: string): (() => void) => {
       return new TimeRange(r.timeRange);
     });
     downloadAsCSV({ timeRanges, lines, name });
-  }, [downloadAsCSV, derived, resolved, name]);
+  };
 };

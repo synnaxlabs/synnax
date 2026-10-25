@@ -14,10 +14,9 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/auth/password/versions/v0"
 	authversions "github.com/synnaxlabs/synnax/pkg/service/auth/versions"
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/migrate"
 )
 
 // MoveLegacy moves the credentials a Core stored before the password table existed
@@ -31,7 +30,7 @@ func MoveLegacy(ctx context.Context, db *gorp.DB, ins alamos.Instrumentation) er
 		Namespace: authversions.Namespace,
 		Migrations: slices.Concat(
 			authversions.Migrations,
-			[]migrate.Migration{v0.NewMove()},
+			[]gorp.Migration{v0.NewMove()},
 		),
 		Instrumentation: ins,
 	})

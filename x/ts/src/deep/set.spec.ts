@@ -104,6 +104,13 @@ describe("set", () => {
     expect(data).toEqual({ "a.b": { c: 1, d: 2 } });
   });
 
+  it("should write the value get reads when a shorter key also matches", () => {
+    const data = { a: { b: { c: 1 } }, "a.b": { c: 2 } };
+    deep.set(data, "a.b.c", 3);
+    expect(deep.get(data, "a.b.c")).toBe(3);
+    expect(data.a.b.c).toBe(1);
+  });
+
   it("should handle setting on null", () => {
     const obj: any = { a: null };
     deep.set(obj, "a.b", 1);

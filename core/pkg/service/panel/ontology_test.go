@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/color"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -72,6 +73,28 @@ var _ = Describe("Ontology", func() {
 			Expect(res.Name).To(Equal("resource"))
 		})
 
+		It("Should carry the icon and the color", func(ctx SpecContext) {
+			c := color.MustFromHex("#dc136c")
+			p := panel.Panel{
+				Name: "styled", Parent: &parentID, Icon: new("valve"), Color: &c,
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
+			res := MustSucceed(svc.RetrieveResource(ctx, p.Key.String(), tx))
+			Expect(res.Data).To(HaveKeyWithValue("icon", "valve"))
+			var got color.Color
+			Expect(color.Schema.Parse(res.Data.(map[string]any)["color"], &got)).
+				To(Succeed())
+			Expect(got).To(Equal(c))
+		})
+
+		It("Should omit an unset icon and color", func(ctx SpecContext) {
+			p := panel.Panel{Name: "plain", Parent: &parentID}
+			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
+			res := MustSucceed(svc.RetrieveResource(ctx, p.Key.String(), tx))
+			Expect(res.Data).ToNot(HaveKey("icon"))
+			Expect(res.Data).ToNot(HaveKey("color"))
+		})
+
 		It(
 			"Should error when retrieving a resource with a non-UUID key",
 			func(ctx SpecContext) {
@@ -108,19 +131,14 @@ var _ = Describe("Ontology", func() {
 			}).Should(Succeed())
 		})
 
-		It("Should iterate existing panels via OpenNexter", func(ctx SpecContext) {
-			p := panel.Panel{Name: "nexted", Parent: &parentID}
+		It("Should search panels by name", func(ctx SpecContext) {
+			p := panel.Panel{Name: "turbopump overview", Parent: &parentID}
 			Expect(writer.Create(ctx, &p)).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
 				Expect(writer.Delete(ctx, p.Key)).To(Succeed())
 			})
-			next, closer := MustSucceed2(svc.OpenNexter(ctx))
-			defer func() { Expect(closer.Close()).To(Succeed()) }()
-			var ids []ontology.ID
-			for res := range next {
-				ids = append(ids, res.ID)
-			}
-			Expect(ids).To(ContainElement(p.OntologyID()))
+			Expect(MustSucceed(svc.Search(ctx, db, "turbopump", 10)).Keys).
+				To(Equal([]ontology.ID{p.OntologyID()}))
 		})
 	})
 })

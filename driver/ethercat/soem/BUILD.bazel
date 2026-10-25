@@ -27,9 +27,17 @@ cc_test(
 
 cc_library(
     name = "soem_api",
+    srcs = select({
+        "@platforms//os:linux": ["api_linux.cpp"],
+        "//conditions:default": ["api_noop.cpp"],
+    }),
     hdrs = ["api.h"],
     visibility = ["//driver/ethercat:__subpackages__"],
-    deps = ["//vendor/soem"],
+    deps = [
+        "//driver/ethercat/errors",
+        "//vendor/soem",
+        "//x/cpp/errors",
+    ],
 )
 
 cc_library(
@@ -64,6 +72,7 @@ cc_test(
         ":soem",
         ":soem_mock_api",
         "//driver/ethercat/errors",
+        "//driver/ethercat/esi",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],

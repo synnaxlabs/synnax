@@ -134,6 +134,8 @@ TEST(CodecTests, FlagsEncodingDecoding) {
     flags.all_channels_present = true;
     flags.equal_alignments = true;
     flags.zero_alignments = false;
+    flags.multiples_present = true;
+    flags.extended = true;
 
     const uint8_t encoded = flags.encode();
     const CodecFlags decoded = CodecFlags::decode(encoded);
@@ -144,6 +146,46 @@ TEST(CodecTests, FlagsEncodingDecoding) {
     ASSERT_EQ(decoded.all_channels_present, flags.all_channels_present);
     ASSERT_EQ(decoded.equal_alignments, flags.equal_alignments);
     ASSERT_EQ(decoded.zero_alignments, flags.zero_alignments);
+    ASSERT_EQ(decoded.multiples_present, flags.multiples_present);
+    ASSERT_EQ(decoded.extended, flags.extended);
+}
+
+/// @brief it should reject a frame that carries alignment multiples.
+TEST(CodecTests, RejectsAlignmentMultiples) {
+    const std::vector<channel::Key> channels = {1};
+    const std::vector data_types = {x::telem::UINT8_T};
+    std::vector<uint8_t> encoded;
+    Codec codec(channels, data_types);
+    codec.encode(
+        x::telem::Frame(1, x::telem::Series(std::vector<uint8_t>{1, 2})),
+        encoded
+    );
+    encoded[0] = x::binary::set_bit(encoded[0], FlagPosition::MultiplesPresent, true);
+    const auto [_, err] = codec.decode(encoded);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    ASSERT_EQ(
+        err.data,
+        "remote sent alignment multiples, which this codec does not support"
+    );
+}
+
+/// @brief it should reject a frame that sets the extended flags bit.
+TEST(CodecTests, RejectsExtendedFlags) {
+    const std::vector<channel::Key> channels = {1};
+    const std::vector data_types = {x::telem::UINT8_T};
+    std::vector<uint8_t> encoded;
+    Codec codec(channels, data_types);
+    codec.encode(
+        x::telem::Frame(1, x::telem::Series(std::vector<uint8_t>{1, 2})),
+        encoded
+    );
+    encoded[0] = x::binary::set_bit(encoded[0], FlagPosition::Extended, true);
+    const auto [_, err] = codec.decode(encoded);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    ASSERT_EQ(
+        err.data,
+        "remote sent an extended flags byte, which this codec does not support"
+    );
 }
 
 /// @brief it should encode and decode a frame with various data types and properties.
@@ -358,7 +400,7 @@ TEST(CodecTests, EncodeMismatchedDataType) {
     std::vector<uint8_t> encoded;
     auto err = codec.encode(frame, encoded);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    ASSERT_TRUE(err.message().find("data type") != std::string::npos);
+    ASSERT_TRUE(err.message().contains("data type"));
 }
 
 /// @brief it should accept an int64 series for a timestamp channel, mirroring the
@@ -418,6 +460,6 @@ TEST(CodecTests, EncodeFrameUnknownKey) {
     auto err = codec.encode(frame, encoded);
 
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    ASSERT_TRUE(err.message().find("extra key") != std::string::npos);
+    ASSERT_TRUE(err.message().contains("extra key"));
 }
 }

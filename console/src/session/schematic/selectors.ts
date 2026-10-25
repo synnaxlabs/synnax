@@ -10,7 +10,6 @@
 import { schematic } from "@synnaxlabs/client";
 import { Access, type Control, type Properties, Schematic } from "@synnaxlabs/pluto";
 import { type control, type record } from "@synnaxlabs/x";
-import { useCallback } from "react";
 import { useStore } from "react-redux";
 
 import {
@@ -33,25 +32,24 @@ export interface KeyedSelectorParams extends record.Keyed<schematic.Key> {
   state: StoreState;
 }
 
-const createSelector = <R>(selector: (params: KeyedSelectorParams) => R) =>
-  Schematic.Scope.bindHook(({ key }: Omit<KeyedSelectorParams, "state">): R =>
-    Select.useMemo((state: StoreState) => selector({ state, key }), [key]),
-  );
+const createSelector = <R>(selector: (params: KeyedSelectorParams) => R) => {
+  const useSelector = ({ key }: Omit<KeyedSelectorParams, "state">): R =>
+    Select.useMemo((state: StoreState) => selector({ state, key }), [key]);
+  return Schematic.Scope.bindHook(useSelector);
+};
 
-const createGetter =
-  <R>(selector: (params: KeyedSelectorParams) => R) =>
-  (): ((args?: { key?: schematic.Key }) => R) => {
+const createGetter = <R>(selector: (params: KeyedSelectorParams) => R) => {
+  const useGetter = (): ((args?: { key?: schematic.Key }) => R) => {
     const store = useStore<StoreState>();
     const scopeKey = Schematic.Scope.useOptional();
-    return useCallback(
-      (args) =>
-        selector({
-          state: store.getState(),
-          key: Schematic.Scope.require(args?.key ?? scopeKey),
-        }),
-      [store, scopeKey],
-    );
+    return (args) =>
+      selector({
+        state: store.getState(),
+        key: Schematic.Scope.require(args?.key ?? scopeKey),
+      });
   };
+  return useGetter;
+};
 
 export const selectState = ({ state, key }: KeyedSelectorParams): State =>
   Window.selectDocument(state, selectSliceState(state), key) ?? ZERO_STATE;
@@ -91,6 +89,11 @@ const selectActiveToolbarTab = (params: KeyedSelectorParams): ToolbarTab =>
 
 export const useSelectActiveToolbarTab = createSelector(selectActiveToolbarTab);
 export const useGetActiveToolbarTab = createGetter(selectActiveToolbarTab);
+
+const selectChanging = (params: KeyedSelectorParams): boolean =>
+  selectToolbar(params).changing;
+
+export const useSelectChanging = createSelector(selectChanging);
 
 export const selectSelectedSymbolGroup = (params: KeyedSelectorParams): string =>
   selectToolbar(params).selectedSymbolGroup;

@@ -32,7 +32,7 @@ template<typename... Channels>
 std::vector<Key> keys_from_channels(const Channels &...channels) {
     std::vector<Key> keys;
     keys.reserve(sizeof...(channels));
-    ((keys.push_back(channels.key)), ...);
+    (keys.push_back(channels.key), ...);
     return keys;
 }
 

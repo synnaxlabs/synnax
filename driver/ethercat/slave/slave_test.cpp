@@ -108,8 +108,8 @@ TEST(PropertiesFindInputPdo, ReturnsMatchingPdo) {
     };
     auto result = props.find_input_pdo("Velocity");
     ASSERT_TRUE(result.has_value());
-    ASSERT_EQ(result->name, "Velocity");
-    ASSERT_EQ(result->bit_length, 32);
+    ASSERT_EQ(result.value().name, "Velocity");
+    ASSERT_EQ(result.value().bit_length, 32);
 }
 
 TEST(PropertiesFindOutputPdo, ReturnsNulloptWhenEmpty) {
@@ -147,8 +147,8 @@ TEST(PropertiesFindOutputPdo, ReturnsMatchingPdo) {
     };
     auto result = props.find_output_pdo("ControlWord");
     ASSERT_TRUE(result.has_value());
-    ASSERT_EQ(result->name, "ControlWord");
-    ASSERT_EQ(result->bit_length, 8);
+    ASSERT_EQ(result.value().name, "ControlWord");
+    ASSERT_EQ(result.value().bit_length, 8);
 }
 
 TEST(PropertiesParse, ParsesBasicProperties) {
@@ -278,4 +278,17 @@ TEST(PropertiesToJson, SerializesAllFields) {
     ASSERT_EQ(j["pdos"]["outputs"][0]["name"], "Control");
 }
 
+/// @brief it should leave padding entries out of the JSON of a slave.
+TEST(PropertiesToJson, OmitsPaddingEntries) {
+    Properties props{
+        .input_pdos = {
+            {.pdo_index = 0x1A00, .index = 0x6000, .sub_index = 1, .bit_length = 1},
+            {.pdo_index = 0x1A00, .index = 0, .bit_length = 7},
+            {.pdo_index = 0x1A00, .index = 0x6000, .sub_index = 17, .bit_length = 16},
+        },
+    };
+    const auto j = props.to_json();
+    ASSERT_EQ(j["pdos"]["inputs"].size(), 2);
+    EXPECT_EQ(j["pdos"]["inputs"][1]["sub_index"], 17);
+}
 }

@@ -27,7 +27,7 @@
     "check-types": "tsc --noEmit",
     "watch": "vite build --watch",
     "test": "vitest",
-    "bench": "vitest bench",
+    "bench": "vitest bench --config vitest.bench.config.ts",
     "cov": "vitest --coverage",
     "lint": "eslint",
     "fix": "eslint --fix"

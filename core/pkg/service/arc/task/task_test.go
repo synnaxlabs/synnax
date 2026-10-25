@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
@@ -39,13 +40,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -95,24 +94,20 @@ var _ = Describe("Task", Ordered, func() {
 		node := mock.NewNode(ctx)
 		db = node.DB
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
-		searchIdx := MustOpen(search.OpenIndex())
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       node.DB,
 			Ontology: otg,
-			Search:   searchIdx,
 		}))
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       node.DB,
 			Ontology: otg,
 			Group:    groupSvc,
-			Search:   searchIdx,
 		}))
 		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       node.DB,
 			Group:    groupSvc,
 			Ontology: otg,
 			Label:    labelSvc,
-			Search:   searchIdx,
 		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel:      node.Channel,
@@ -120,7 +115,6 @@ var _ = Describe("Task", Ordered, func() {
 			HostProvider: node.Cluster,
 			Ontology:     otg,
 			Group:        groupSvc,
-			Search:       searchIdx,
 			Status:       statusSvc,
 		}))
 		channelWriter = channelSvc.NewWriter(nil)
@@ -140,7 +134,6 @@ var _ = Describe("Task", Ordered, func() {
 			Ontology: otg,
 			Group:    groupSvc,
 			Label:    labelSvc,
-			Search:   searchIdx,
 		}))
 	})
 
@@ -423,7 +416,8 @@ var _ = Describe("Task", Ordered, func() {
 				Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
-			Expect(stat.Message).To(ContainSubstring("invalid uuid"))
+			Expect(stat.Message).To(Equal("Failed to configure task"))
+			Expect(stat.Description).To(ContainSubstring("invalid uuid"))
 			Expect(stat.Details.Running).To(BeFalse())
 		})
 
@@ -449,7 +443,8 @@ var _ = Describe("Task", Ordered, func() {
 				Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
-			Expect(stat.Message).To(ContainSubstring("not found"))
+			Expect(stat.Message).To(Equal("Failed to configure task"))
+			Expect(stat.Description).To(ContainSubstring("not found"))
 			Expect(stat.Details.Running).To(BeFalse())
 		})
 
@@ -546,7 +541,7 @@ var _ = Describe("Task", Ordered, func() {
 					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Variant).To(BeEquivalentTo("success"))
-				Expect(stat.Message).To(Equal("Task started successfully"))
+				Expect(stat.Message).To(Equal("Started task"))
 				Expect(stat.Details.Running).To(BeTrue())
 			},
 		)
@@ -579,7 +574,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
-				Expect(stat.Message).To(Equal("Task started successfully"))
+				Expect(stat.Message).To(Equal("Started task"))
 				Expect(stat.Details.Running).To(BeTrue())
 			},
 		)
@@ -663,7 +658,8 @@ var _ = Describe("Task", Ordered, func() {
 					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Variant).To(BeEquivalentTo("error"))
-				Expect(stat.Message).To(ContainSubstring("not found"))
+				Expect(stat.Message).To(Equal("Failed to configure task"))
+				Expect(stat.Description).To(ContainSubstring("not found"))
 				Expect(stat.Details.Running).To(BeFalse())
 			},
 		)
@@ -723,7 +719,7 @@ var _ = Describe("Task", Ordered, func() {
 				Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("success"))
-			Expect(stat.Message).To(Equal("Task started successfully"))
+			Expect(stat.Message).To(Equal("Started task"))
 			Expect(stat.Details.Running).To(BeTrue())
 		})
 	})
@@ -878,6 +874,44 @@ var _ = Describe("Task", Ordered, func() {
 				).
 					Error().
 					To(MatchError(ContainSubstring("undefined symbol")))
+			},
+		)
+	})
+
+	Describe("Start Error Paths", func() {
+		It(
+			"Should report a failed start with the cause in the description",
+			func(ctx SpecContext) {
+				ch := &channel.Channel{
+					Name:     "start_fail_test_ch_" + uuid.New().String()[:8],
+					Virtual:  true,
+					DataType: telem.Float32T,
+				}
+				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				svcTask := task.Task{
+					Key:  uuid.New(),
+					Name: "test-start-fail",
+					Type: arctask.Type,
+					Config: configToMap(arctask.Config{
+						ArcKey:      uuid.New(),
+						Performance: "unknown",
+					}),
+				}
+				t := MustSucceed(newGraphFactory(simpleGraph(ch.Key())).
+					ConfigureTask(ctx, svcTask, "cmd-1"))
+				Expect(t.Exec(ctx, task.Command{Type: "start", Key: "cmd-start"})).
+					To(MatchError(`unknown performance "unknown"`))
+				var stat task.Status
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchKeys[task.StatusDetails](
+						svcTask.OntologyID().String(),
+					)).
+					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("Failed to start task"))
+				Expect(stat.Description).To(Equal(`unknown performance "unknown"`))
+				Expect(stat.Details.Cmd).To(Equal("cmd-start"))
+				Expect(stat.Details.Running).To(BeFalse())
 			},
 		)
 	})
@@ -1935,9 +1969,11 @@ var _ = Describe("Task", Ordered, func() {
 						Where(status.MatchKeys[task.StatusDetails](taskKey)).
 						Entry(&stat).Exec(ctx, nil)).To(Succeed())
 					g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
-					g.Expect(stat.Message).
-						To(ContainSubstring("multiple statuses named"))
-					g.Expect(stat.Message).To(ContainSubstring("test-status-report"))
+					g.Expect(stat.Name).To(Equal("test-status-report"))
+					g.Expect(stat.Message).To(Equal("Found duplicate status names"))
+					g.Expect(stat.Description).To(HavePrefix(
+						fmt.Sprintf("Several statuses are named %q.", dupName),
+					))
 				}).Should(Succeed())
 			},
 		)
@@ -3322,8 +3358,9 @@ var _ = Describe("Task", Ordered, func() {
 						Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 						Entry(&stat).Exec(ctx, nil)).To(Succeed())
 					g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
-					g.Expect(stat.Message).To(ContainSubstring("Runtime error in"))
-					g.Expect(stat.Message).To(ContainSubstring("divide_test"))
+					g.Expect(stat.Message).To(Equal("Node failed"))
+					g.Expect(stat.Description).
+						To(HavePrefix("The divide_test node failed: "))
 					g.Expect(stat.Description).
 						To(ContainSubstring("integer divide by zero"))
 					g.Expect(stat.Details.Running).To(BeTrue())

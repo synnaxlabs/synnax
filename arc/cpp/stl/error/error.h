@@ -35,7 +35,7 @@ public:
         // SAFETY: raw `this` capture is safe because wasm::Module owns this
         // stl::Module via cfg.modules (shared_ptr), and Store/Memory are
         // stable members of the heap-pinned wasm::Module.
-        auto self = this;
+        auto *self = this;
         linker
             .func_wrap(
                 MODULE_NAME,
@@ -43,18 +43,23 @@ public:
                 [self](uint32_t ptr, uint32_t len) {
                     std::string message;
                     if (!self->memory || !self->store) {
-                        message = "no memory available";
+                        message =
+                            "The program panicked before its memory was available.";
                     } else {
                         const auto mem_span = self->memory->data(*self->store);
                         const uint8_t *mem_data = mem_span.data();
                         const size_t mem_size = mem_span.size();
                         if (ptr + len > mem_size)
-                            message = "out of bounds";
+                            message =
+                                "The program panicked with an unreadable message.";
                         else
-                            message = std::string(
-                                reinterpret_cast<const char *>(mem_data + ptr),
-                                len
-                            );
+                            message = "The program panicked: " +
+                                      std::string(
+                                          reinterpret_cast<const char *>(
+                                              mem_data + ptr
+                                          ),
+                                          len
+                                      );
                     }
                     std::fprintf(stderr, "WASM panic: %s\n", message.c_str());
                     self->handler(

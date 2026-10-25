@@ -31,14 +31,18 @@ cpp: &cpp
   - *ci
   - .clang-format
   - .clang-format-ignore
+  - .clang-tidy
   - .github/workflows/test.cpp.yaml
+  - BUILD.bazel
   - scripts/check_clang_format.sh
+  - scripts/clang_tidy_wrapper.sh
   - scripts/install_clang_format.sh
   - scripts/run_bazel.sh
   - scripts/sanitizers/**
 
 go: &go
   - *ci
+  - .github/scripts/pin_mtimes.py
   - .github/workflows/test.go.yaml
   - .golangci.yaml
   - codecov.yaml
@@ -85,9 +89,16 @@ cesium: &cesium
   - *x_go
   - cesium/**
 
+gorp: &gorp
+  - *alamos_go
+  - *go
+  - *x_go
+  - gorp/**
+
 freighter_go: &freighter_go
   - *alamos_go
   - *go
+  - *gorp
   - *x_go
   - freighter/go/**
 
@@ -127,6 +138,7 @@ core: &core
   - *cesium
   - *freighter_go
   - *go
+  - *gorp
   - *x_go
   - core/**
 

@@ -88,6 +88,19 @@ func Size(typeRef resolution.TypeRef, table *resolution.Table) *int64 {
 	}
 }
 
+// Wrapped returns the array a distinct type wraps, through aliases of its base. ok is
+// false when the distinct type does not wrap an array.
+func Wrapped(
+	form resolution.DistinctForm,
+	table *resolution.Table,
+) (resolution.TypeRef, bool) {
+	base := form.Base
+	if _, target, ok := resolution.Dealias(base, table); ok {
+		base = target
+	}
+	return base, base.Name == "Array" && len(base.TypeArgs) > 0
+}
+
 // IsFixedSizeUint8 reports whether the reference is a fixed-size uint8 array,
 // which protobuf carries as bytes.
 func IsFixedSizeUint8(typeRef resolution.TypeRef, table *resolution.Table) bool {

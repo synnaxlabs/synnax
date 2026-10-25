@@ -51,7 +51,8 @@
     },
     "studio": {
       "entry": ["videos.ts", "scripts/*.ts", "films/*.ts", "src/remotion/entry.ts"],
-      "project": ["{src,scripts,films}/**/*.{ts,tsx}"]
+      "project": ["{src,scripts,films}/**/*.{ts,tsx}"],
+      "ignoreBinaries": ["uv"]
     },
     "site/common": {
       "entry": ["src/**/*.{astro,ts}"],
@@ -78,6 +79,7 @@
     },
     "configs/ts": {},
     "configs/vite": {
+      "entry": ["src/index.ts", "src/parallel.ts"],
       "project": ["src/**/*.ts"]
     },
     "configs/stylelint": {

@@ -48,7 +48,7 @@ struct Fixture {
     wasmtime::Linker linker;
     wasmtime::Instance instance;
 
-    Fixture(const std::string &wat):
+    explicit Fixture(const std::string &wat):
         vars(std::make_shared<Variables>()),
         series_state(std::make_shared<series::State>()),
         str_state(std::make_shared<strings::State>()),
@@ -58,7 +58,7 @@ struct Fixture {
         instance(setup(wat)) {}
 
     wasmtime::Func get(const std::string &name) {
-        return std::get<wasmtime::Func>(*instance.get(store, name));
+        return std::get<wasmtime::Func>(instance.get(store, name).value());
     }
 
     int32_t call2(const std::string &name, int32_t a, int32_t b) {

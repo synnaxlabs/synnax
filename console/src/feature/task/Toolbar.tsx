@@ -17,16 +17,20 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
+import { Store } from "@synnaxlabs/lyra/store";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
-import { Access, type Flux, Synnax, Task } from "@synnaxlabs/pluto";
+import { Access, type Flux, Task } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 
 import { useOpenSelector } from "@/feature/task/Selector";
 import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
-import { useSetDataSaving } from "@/feature/task/useSetDataSaving";
+import {
+  type SetDataSavingParams,
+  useSetDataSaving,
+} from "@/feature/task/useSetDataSaving";
 import { Analytics } from "@/platform/analytics";
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
@@ -63,9 +67,7 @@ const filter = (task: task.Task) =>
   !task.internal && !task.snapshot && task.type !== "arc";
 
 const Content = () => {
-  const client = Synnax.use();
   const [selected, setSelected] = useState<task.Key[]>([]);
-  const addStatus = Status.useAdder();
   const confirmDelete = Modals.useConfirmDelete({ type: "Task" });
   const menuProps = Menu.useContextMenu();
   const openTab = Panel.useOpenTab();
@@ -80,83 +82,52 @@ const Content = () => {
   const { update: rename } = Task.useRename();
 
   const { update: handleDelete } = Task.useDelete({
-    beforeUpdate: useCallback(
-      async ({ data: keys }: Flux.BeforeUpdateParams<Task.DeleteParams>) => {
-        setSelected([]);
-        if (keys.length === 0) return false;
-        if (!(await confirmDelete(getItem(array.toArray(keys))))) return false;
-        return keys;
-      },
-      [client, getItem, confirmDelete],
-    ),
-    afterFailure: ({ status }) => addStatus(status),
+    beforeUpdate: async ({
+      data: keys,
+    }: Flux.BeforeUpdateParams<Task.DeleteParams>) => {
+      setSelected([]);
+      if (keys.length === 0) return false;
+      if (!(await confirmDelete(getItem(array.toArray(keys))))) return false;
+      return keys;
+    },
   });
 
   const { capture } = Analytics.use();
   const { update: runCommand } = Task.useCommand({
-    afterSuccess: useCallback(
-      ({ data }: Flux.AfterSuccessParams<Task.CommandParams>) =>
-        getItem(
-          array
-            .toArray(data)
-            .filter(({ type }) => type === "start")
-            .map(({ task }) => task),
-        ).forEach(({ type }) => capture("task_started", { type })),
-      [getItem, capture],
-    ),
+    afterSuccess: ({ data }: Flux.AfterSuccessParams<Task.CommandParams>) =>
+      getItem(
+        array
+          .toArray(data)
+          .filter(({ type }) => type === "start")
+          .map(({ task }) => task),
+      ).forEach(({ type }) => capture("task_started", { type })),
   });
-  const handleCommand = useCallback(
-    (keys: string[], type: string) => runCommand(keys.map((k) => ({ task: k, type }))),
-    [runCommand],
-  );
-  const handleStart = useCallback(
-    (keys: string[]) => handleCommand(keys, "start"),
-    [handleCommand],
-  );
-  const handleStop = useCallback(
-    (keys: string[]) => handleCommand(keys, "stop"),
-    [handleCommand],
-  );
+  const handleCommand = (keys: string[], type: string) =>
+    runCommand(keys.map((k) => ({ task: k, type })));
+  const handleStart = (keys: string[]) => handleCommand(keys, "start");
+  const handleStop = (keys: string[]) => handleCommand(keys, "stop");
   const { update: setDataSaving } = useSetDataSaving();
-  const handleEnableDataSaving = useCallback(
-    (keys: task.Key[]) =>
-      keys.forEach((key) => setDataSaving({ key, dataSaving: true })),
-    [setDataSaving],
+  const handleEnableDataSaving = (keys: task.Key[]) =>
+    keys.forEach((key) => setDataSaving({ key, dataSaving: true }));
+  const handleDisableDataSaving = (keys: task.Key[]) =>
+    keys.forEach((key) => setDataSaving({ key, dataSaving: false }));
+  const handleEdit = (key: task.Key) =>
+    openTab({ variant: "resource", resource: task.ontologyID(key) });
+  const contextMenu: NonNullable<Menu.ContextMenuProps["menu"]> = ({ keys }) => (
+    <ContextMenu
+      keys={keys}
+      getItem={getItem}
+      subscribe={subscribe}
+      onDelete={handleDelete}
+      onStart={handleStart}
+      onStop={handleStop}
+      onEdit={handleEdit}
+      onEnableDataSaving={handleEnableDataSaving}
+      onDisableDataSaving={handleDisableDataSaving}
+    />
   );
-  const handleDisableDataSaving = useCallback(
-    (keys: task.Key[]) =>
-      keys.forEach((key) => setDataSaving({ key, dataSaving: false })),
-    [setDataSaving],
-  );
-  const handleEdit = useCallback(
-    (key: task.Key) => openTab({ variant: "resource", resource: task.ontologyID(key) }),
-    [openTab],
-  );
-  const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
-    ({ keys }) => (
-      <ContextMenu
-        keys={keys}
-        tasks={getItem(keys)}
-        onDelete={handleDelete}
-        onStart={handleStart}
-        onStop={handleStop}
-        onEdit={handleEdit}
-        onEnableDataSaving={handleEnableDataSaving}
-        onDisableDataSaving={handleDisableDataSaving}
-      />
-    ),
-    [
-      handleDelete,
-      handleStart,
-      handleStop,
-      handleEnableDataSaving,
-      handleDisableDataSaving,
-    ],
-  );
-  const handleListItemStopStart = useCallback(
-    (command: PlatformTask.Command, key: task.Key) => handleCommand([key], command),
-    [handleCommand],
-  );
+  const handleListItemStopStart = (command: PlatformTask.Command, key: task.Key) =>
+    handleCommand([key], command);
   return (
     <Menu.ContextMenu menu={contextMenu} {...menuProps}>
       <Toolbar.Content className={CSS.cls(CSS.B("task-toolbar"), menuProps.className)}>
@@ -197,6 +168,7 @@ const Content = () => {
                     key={key}
                     {...p}
                     onStopStart={handleListItemStopStart}
+                    onSetDataSaving={setDataSaving}
                     onRename={rename}
                     onEdit={handleEdit}
                   />
@@ -223,12 +195,14 @@ export const TOOLBAR: Nav.Toolbar = {
 
 interface TaskListItemProps extends List.ItemProps<task.Key> {
   onStopStart: (command: PlatformTask.Command, key: task.Key) => void;
+  onSetDataSaving: (params: SetDataSavingParams) => void;
   onRename: (params: { key: task.Key; name: string }) => void;
   onEdit: (key: task.Key) => void;
 }
 
 const TaskListItem = ({
   onStopStart,
+  onSetDataSaving,
   onRename,
   onEdit,
   ...rest
@@ -244,16 +218,17 @@ const TaskListItem = ({
   const isLoading = variant === "loading";
   const isRunning = details?.running === true;
   const isDrifted = task_ != null && task.drifted(task_.payload);
+  const config = task_?.config;
+  const dataSaving =
+    config != null && typeof config === "object" && "dataSavingDisabled" in config
+      ? config.dataSavingDisabled !== true
+      : null;
   if (!isRunning && variant === "success") variant = "info";
-  const handleStartStopClick = useCallback(
-    () => onStopStart(isRunning ? "stop" : "start", itemKey),
-    [isRunning, onStopStart, itemKey],
-  );
-  const handleRename = useCallback(
-    (name: string) => onRename({ key: itemKey, name }),
-    [onRename, itemKey],
-  );
-  const handleDoubleClick = useCallback(() => onEdit(itemKey), [onEdit, itemKey]);
+  const handleStartStopClick = () => onStopStart(isRunning ? "stop" : "start", itemKey);
+  const handleDataSavingClick = () =>
+    onSetDataSaving({ key: itemKey, dataSaving: dataSaving !== true });
+  const handleRename = (name: string) => onRename({ key: itemKey, name });
+  const handleDoubleClick = () => onEdit(itemKey);
   return (
     <Select.Item
       {...rest}
@@ -291,6 +266,32 @@ const TaskListItem = ({
           {parseType(task_?.type ?? "")}
         </Text.Text>
       </Flex.Box>
+      {dataSaving != null && (
+        <Button.Button
+          variant="text"
+          size="small"
+          className={CSS.cls(
+            CSS.BE("task", "data-saving"),
+            isRunning &&
+              dataSaving &&
+              !isDrifted &&
+              CSS.BEM("task", "data-saving", "active"),
+          )}
+          textColor={
+            dataSaving ? "var(--pluto-primary-z)" : "var(--pluto-text-disabled)"
+          }
+          preventClick={!hasUpdatePermission}
+          onClick={handleDataSavingClick}
+          onDoubleClick={stopPropagation}
+          tooltip={`Data saving ${dataSaving ? "enabled" : "disabled"}${
+            hasUpdatePermission
+              ? `. Click to ${dataSaving ? "disable" : "enable"}.`
+              : ""
+          }`}
+        >
+          {dataSaving ? <Icon.Database /> : <Icon.DatabaseOff />}
+        </Button.Button>
+      )}
       {canControl && (
         <Button.Button
           variant="outlined"
@@ -307,20 +308,19 @@ const TaskListItem = ({
   );
 };
 
-interface ContextMenuProps {
-  keys: task.Key[];
+interface ContextMenuProps extends Store.UseItemsProps<task.Key, task.Task> {
   onDelete: (keys: task.Key[]) => void;
   onStart: (keys: task.Key[]) => void;
   onStop: (keys: task.Key[]) => void;
   onEdit: (key: task.Key) => void;
   onEnableDataSaving: (keys: task.Key[]) => void;
   onDisableDataSaving: (keys: task.Key[]) => void;
-  tasks: task.Task[];
 }
 
 const ContextMenu = ({
   keys,
-  tasks: selectedTasks,
+  getItem,
+  subscribe,
   onDelete,
   onStart,
   onStop,
@@ -328,6 +328,7 @@ const ContextMenu = ({
   onEnableDataSaving,
   onDisableDataSaving,
 }: ContextMenuProps) => {
+  const selectedTasks = Store.useItems({ keys, subscribe, getItem });
   const activeRange = Range.useResolve();
   const snapshotToActiveRange = useRangeSnapshot();
   const ontologyIDs = task.ontologyID(keys);
@@ -371,19 +372,16 @@ const ContextMenu = ({
   const copyLinkToClipboard = Core.useCopyLinkToClipboard();
 
   const handleExport = Export.useResource();
-  const handleLink = useCallback(
-    (key: task.Key) => {
-      const name = selectedTasks.find((t) => t.key === key)?.name;
-      if (name == null)
-        return addStatus({
-          variant: "error",
-          message: "Failed to copy link",
-          description: "The task no longer exists.",
-        });
-      copyLinkToClipboard({ name, ontologyID: task.ontologyID(key) });
-    },
-    [selectedTasks, addStatus, copyLinkToClipboard],
-  );
+  const handleLink = (key: task.Key) => {
+    const name = selectedTasks.find((t) => t.key === key)?.name;
+    if (name == null)
+      return addStatus({
+        variant: "error",
+        message: "Failed to copy link",
+        description: "The task no longer exists.",
+      });
+    copyLinkToClipboard({ name, ontologyID: task.ontologyID(key) });
+  };
   const showSnapshotToActiveRange =
     activeRange?.variant === "persisted" && selectedTasks.length > 0;
   return (

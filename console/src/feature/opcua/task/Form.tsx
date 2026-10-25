@@ -18,7 +18,7 @@ import { Header as PHeader } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type FC, useCallback, useState } from "react";
+import { type FC, useState } from "react";
 
 import {
   Browser,
@@ -148,18 +148,15 @@ const ChannelList = <C extends Channel>({
   const ctx = PForm.useContext();
   const fieldListReturn = PForm.useFieldList<C["key"], C>(CHANNELS_PATH);
   const { data, push } = fieldListReturn;
-  const handleDrop = useCallback(
-    ({ items }: Haul.OnDropProps): Haul.Item[] => {
-      const channels = ctx.get<C[]>(CHANNELS_PATH).value;
-      const dropped = items.filter(isVariableHaulItem);
-      const toAdd = dropped
-        .filter(({ data }) => !channels.some(({ nodeId }) => nodeId === data.nodeId))
-        .map(convertHaulItemToChannel);
-      push(toAdd);
-      return dropped;
-    },
-    [push],
-  );
+  const handleDrop = ({ items }: Haul.OnDropProps): Haul.Item[] => {
+    const channels = ctx.get<C[]>(CHANNELS_PATH).value;
+    const dropped = items.filter(isVariableHaulItem);
+    const toAdd = dropped
+      .filter(({ data }) => !channels.some(({ nodeId }) => nodeId === data.nodeId))
+      .map(convertHaulItemToChannel);
+    push(toAdd);
+    return dropped;
+  };
 
   const haulProps = Haul.useDrop({
     type: HAUL_TYPE,
@@ -170,16 +167,14 @@ const ChannelList = <C extends Channel>({
   // The browser hides in preview, but a second opcua tab's browser can still source
   // drags, so the drop target goes inert too.
   const isPreview = Task.useIsPreview();
-  const isDragging = !isPreview && canDropHaulItem(Haul.useDraggingState());
+  const draggingState = Haul.useDraggingState();
+  const isDragging = !isPreview && canDropHaulItem(draggingState);
 
   const [selected, setSelected] = useState(data.length > 0 ? [data[0]] : []);
-  const listItem = useCallback(
-    ({ key, ...p }: Task.ChannelListItemProps) => (
-      <ChannelListItem<C> key={key} {...p} getChannelKeyAndID={getChannelKeyAndID}>
-        {children}
-      </ChannelListItem>
-    ),
-    [children],
+  const listItem = ({ key, ...p }: Task.ChannelListItemProps) => (
+    <ChannelListItem<C> key={key} {...p} getChannelKeyAndID={getChannelKeyAndID}>
+      {children}
+    </ChannelListItem>
   );
   return (
     <Task.ChannelList
@@ -219,10 +214,7 @@ const Body = <C extends Channel>({
   resolve,
 }: BodyProps<C>) => {
   const isPreview = Task.useIsPreview();
-  const resolveOnDevice = useCallback(
-    (channel: C) => resolve(device, channel),
-    [device, resolve],
-  );
+  const resolveOnDevice = (channel: C) => resolve(device, channel);
   return (
     <>
       {!isPreview && <Browser device={device} />}

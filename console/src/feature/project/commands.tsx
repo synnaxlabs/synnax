@@ -11,7 +11,6 @@ import { DisconnectedError, imex, project } from "@synnaxlabs/client";
 import { type UploadBody } from "@synnaxlabs/freighter";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Project as PProject, Synnax } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { Command } from "@/platform/command";
 import { Export } from "@/platform/export";
@@ -29,23 +28,22 @@ const CreateCommand = Command.create({
   useVisible: useCreateVisible,
 });
 
+const useOnImport = () => {
+  const client = Synnax.use();
+  const store = Session.useStore();
+  return async (bundle: UploadBody, fileName: string) => {
+    if (client == null) throw new DisconnectedError();
+    const imported = await client.projects.import(bundle, { fileName });
+    store.dispatch(Session.Project.select(imported.key));
+    return imported.name;
+  };
+};
+
 /** A modal that imports a project from a .zip export or its extracted folder. */
 const useImportModal = Import.createModal({
   header: "Project.Import",
   resourceName: "project",
-  useOnImport: () => {
-    const client = Synnax.use();
-    const store = Session.useStore();
-    return useCallback(
-      async (bundle: UploadBody, fileName: string) => {
-        if (client == null) throw new DisconnectedError();
-        const imported = await client.projects.import(bundle, { fileName });
-        store.dispatch(Session.Project.select(imported.key));
-        return imported.name;
-      },
-      [client, store],
-    );
-  },
+  useOnImport,
 });
 
 const ImportProjectCommand = Command.create({
@@ -56,29 +54,29 @@ const ImportProjectCommand = Command.create({
   useVisible: useCreateVisible,
 });
 
+const useExportSelected = () => {
+  const handleExport = Export.use();
+  const getSelected = Session.Project.useGetSelected();
+  const client = Synnax.use();
+  const handleError = Status.useErrorHandler();
+  return () => {
+    handleError(async () => {
+      if (client == null) throw new DisconnectedError();
+      const p = await client.projects.retrieve(getSelected());
+      handleExport({
+        stream: (client) => client.projects.export(p.key, imex.JSON_OPTIONS),
+        name: p.name,
+        extension: "zip",
+      });
+    }, "Failed to export project");
+  };
+};
+
 const ExportProjectCommand = Command.create({
   key: "project_export",
   name: "Export current project",
   icon: <PProject.ExportIcon />,
-  useOnSelect: () => {
-    const handleExport = Export.use();
-    const getSelected = Session.Project.useGetSelected();
-    const client = Synnax.use();
-    const handleError = Status.useErrorHandler();
-    return useCallback(() => {
-      let name = "project";
-      handleError(async () => {
-        if (client == null) throw new DisconnectedError();
-        const p = await client.projects.retrieve(getSelected());
-        name = p.name;
-        handleExport({
-          stream: (client) => client.projects.export(p.key, imex.JSON_OPTIONS),
-          name,
-          extension: "zip",
-        });
-      }, `Failed to export ${name}`);
-    }, [handleError, client, getSelected, handleExport]);
-  },
+  useOnSelect: useExportSelected,
   useVisible: () => Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID),
 });
 

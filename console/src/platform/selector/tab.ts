@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type panel } from "@synnaxlabs/client";
-import { useCallback } from "react";
 
 import { Panel } from "@/platform/panel";
 
@@ -21,5 +20,5 @@ export const createEmptyTab = (): panel.NewTab => ({
 
 export const useOpenTab = (): (() => void) => {
   const openTab = Panel.useOpenTab();
-  return useCallback(() => openTab(createEmptyTab()), [openTab]);
+  return () => openTab(createEmptyTab());
 };

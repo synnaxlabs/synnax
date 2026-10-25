@@ -10,7 +10,6 @@
 import { type group } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Schematic } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { Modals } from "@/platform/modals";
 
@@ -21,13 +20,13 @@ export const useDeleteGroup = (): ((group: group.Group) => void) => {
     title: "Schematic.Symbol.Group.Delete",
   });
   const { update } = Schematic.Symbol.useDeleteGroup();
-  return useCallback(
-    (g: group.Group) => {
-      handleError(async () => {
+  return (g: group.Group) => {
+    handleError(
+      async () => {
         if (!(await confirmDelete(g))) return;
         update(g.key);
-      }, `Failed to delete ${g.name}`);
-    },
-    [handleError, confirmDelete, update],
-  );
+      },
+      { message: "Failed to delete group", name: g.name },
+    );
+  };
 };

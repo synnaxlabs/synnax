@@ -66,7 +66,9 @@ public:
     /// @brief lifecycle method called when the scan task stops.
     x::errors::Error stop() override;
 
-    /// @brief periodic scan method to discover networks and slaves.
+    /// @brief periodic scan method to discover networks and slaves. Returns
+    /// common::PARTIAL_SCAN_ERROR, naming each interface it could not scan, with the
+    /// slaves of the others.
     std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const common::ScannerContext &ctx) override;
 
@@ -85,11 +87,14 @@ private:
     synnax::task::Task task;
     ScanTaskConfig cfg;
     std::shared_ptr<engine::Pool> pool;
-    std::unordered_map<std::string, size_t> last_slave_counts;
+    /// @brief the scan count at which to probe again each interface that had no slaves.
+    std::unordered_map<std::string, size_t> next_probes;
 
-    /// @brief creates a slave device for the given slave.
-    synnax::device::Device create_slave_device(
+    /// @brief creates a slave device for the given slave. The status reflects the
+    /// slave's live state when health holds an entry for it.
+    [[nodiscard]] synnax::device::Device create_slave_device(
         const slave::DiscoveryResult &slave,
+        const std::vector<slave::Health> &health,
         const std::string &master_key,
         const common::ScannerContext &scan_ctx
     ) const;

@@ -24,7 +24,7 @@ import (
 
 func TestCppTypes(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Cpp Types Suite")
+	RunSpecs(t, "Plugin Cpp Types Suite", SuiteConfig())
 }
 
 var _ = Describe("C++ Types Plugin", func() {
@@ -1915,6 +1915,31 @@ var _ = Describe("C++ Types Plugin", func() {
 			)
 
 			It(
+				"Should leave an optional telem-typed field without a value",
+				func(ctx SpecContext) {
+					loader.Add("schemas/telem", `
+					@cpp output "x/cpp/telem"
+
+					TimeStamp int64 {
+						@cpp hand
+					}
+				`)
+					source := `
+					import "schemas/telem"
+
+					@cpp output "out"
+
+					Config struct {
+						start telem.TimeStamp?
+					}
+				`
+					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+					ExpectContent(resp, "out/types.gen.h").
+						ToContain("std::optional<::x::telem::TimeStamp> start;")
+				},
+			)
+
+			It(
 				"Should wrap string defaults in the distinct type's constructor",
 				func(ctx SpecContext) {
 					loader.Add("schemas/telem", `
@@ -2540,6 +2565,36 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 						"target_from_proto(const ::arc::ir::pb::Target& pb);",
 					`#include "arc/go/ir/pb/ir.pb.h"`,
 				)
+		},
+	)
+	It(
+		"Should name a variant's proto message from its payload's package",
+		func(ctx SpecContext) {
+			loader.Add("schemas/hw", `
+			@cpp output "client/cpp/hw"
+			@go output "core/pkg/service/hw"
+			@pb
+
+			Valve struct { open bool }
+			`)
+			source := `
+			import "schemas/hw"
+
+			@cpp output "arc/cpp/ir"
+			@go output "arc/go/ir"
+			@pb
+
+			Node union on variant {
+				valve hw.Valve
+			}
+
+			Graph struct { node Node }
+			`
+			resp := MustGenerate(ctx, source, "ir", loader, cppPlugin)
+			ExpectContent(resp, "ir/types.gen.h").ToContain(
+				"using proto_type = ::service::hw::pb::Valve;",
+				`#include "core/pkg/service/hw/pb/hw.pb.h"`,
+			)
 		},
 	)
 })

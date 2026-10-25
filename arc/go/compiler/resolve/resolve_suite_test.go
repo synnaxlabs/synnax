@@ -19,7 +19,7 @@ import (
 
 func TestResolve(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Compiler Resolve Suite")
+	RunSpecs(t, "Compiler Resolve Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

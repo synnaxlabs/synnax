@@ -8,20 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
-import { useCallback } from "react";
 
 import { type Link } from "@/platform/link";
 import { Panel } from "@/platform/panel";
 
 export const useLink = (): Link.Handler => {
   const openTab = Panel.useOpenTab();
-  return useCallback(
-    async ({ client, key }) => {
-      const retrieved = await client.tasks.retrieve({ key });
-      openTab({ variant: "resource", resource: task.ontologyID(retrieved.key) });
-    },
-    [openTab],
-  );
+  return async ({ client, key }) => {
+    const retrieved = await client.tasks.retrieve({ key });
+    openTab({ variant: "resource", resource: task.ontologyID(retrieved.key) });
+  };
 };
-
-export const LINKS: Link.Registry = { task: useLink };

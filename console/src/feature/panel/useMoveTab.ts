@@ -11,7 +11,6 @@ import { panel, project, type Synnax as Client } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Panel, Synnax } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
-import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Session } from "@/session";
@@ -48,21 +47,18 @@ export const useMintPanelForTab = (): MintPanelForTab => {
   const { updateAsync: create } = Panel.useCreate();
   const { dispatch } = Panel.useDispatch();
   const client = Synnax.use();
-  return useCallback(
-    async ({ panel: source, tab }) => {
-      const key = uuid.create();
-      const created = await create({
-        key,
-        name: await resolveName(client, tab),
-        parent: project.ontologyID(projectKey),
-        root: { variant: "leaf", tabs: [tab] },
-      });
-      if (!created) return undefined;
-      dispatch({ key: source, actions: panel.removeTab({ key: tab.key }) });
-      return key;
-    },
-    [create, dispatch, client, projectKey],
-  );
+  return async ({ panel: source, tab }) => {
+    const key = uuid.create();
+    const created = await create({
+      key,
+      name: await resolveName(client, tab),
+      parent: project.ontologyID(projectKey),
+      root: { variant: "leaf", tabs: [tab] },
+    });
+    if (!created) return undefined;
+    dispatch({ key: source, actions: panel.removeTab({ key: tab.key }) });
+    return key;
+  };
 };
 
 export interface MoveTab {
@@ -78,17 +74,14 @@ export const useMoveTab = (): MoveTab => {
   const dispatch = useDispatch();
   const selectTab = Session.Panel.useSelectTab();
   const handleError = Status.useErrorHandler();
-  return useCallback(
-    ({ panel: source, tab }, destination) =>
-      handleError(async () => {
-        if (source === destination) return;
-        const landed = await move({ source, destination, tab });
-        if (landed == null) return;
-        dispatch(Session.Panel.select({ key: destination }));
-        selectTab(landed, destination);
-      }, "Failed to move the component"),
-    [move, dispatch, selectTab, handleError],
-  );
+  return ({ panel: source, tab }, destination) =>
+    handleError(async () => {
+      if (source === destination) return;
+      const landed = await move({ source, destination, tab });
+      if (landed == null) return;
+      dispatch(Session.Panel.select({ key: destination }));
+      selectTab(landed, destination);
+    }, "Failed to move component");
 };
 
 export interface MoveTabToNewPanel {
@@ -103,12 +96,9 @@ export const useMoveTabToNewPanel = (): MoveTabToNewPanel => {
   const mint = useMintPanelForTab();
   const dispatch = useDispatch();
   const handleError = Status.useErrorHandler();
-  return useCallback(
-    (origin) =>
-      handleError(async () => {
-        const key = await mint(origin);
-        if (key != null) dispatch(Session.Panel.select({ key }));
-      }, "Failed to move the component into a new panel"),
-    [mint, dispatch, handleError],
-  );
+  return (origin) =>
+    handleError(async () => {
+      const key = await mint(origin);
+      if (key != null) dispatch(Session.Panel.select({ key }));
+    }, "Failed to move component into a new panel");
 };
