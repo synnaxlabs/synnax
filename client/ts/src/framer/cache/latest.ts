@@ -62,6 +62,10 @@ export class Latest {
   // held holds streamed series until the read lands.
   private held: Series[] | null = [];
   private readonly demand: Demand;
+  // dedupe is how fresh finds repeated samples: by Core alignment for a stored channel,
+  // and by time for a calculated one, whose alignments depend on how its inputs split
+  // into series. A channel that only streams repeats no sample.
+  private dedupe: "alignment" | "time" | null = null;
   private failure: status.Status | null = null;
   private loading = true;
   private generation = 0;
@@ -162,7 +166,9 @@ export class Latest {
         const [payload] = await retrieveChannels([this.key]);
         if (payload == null) throw new NotFoundError(`channel ${this.key} not found`);
         let read: Series[] = [];
-        if (!payload.virtual || channel.isCalculated(payload)) {
+        if (!payload.virtual) this.dedupe = "alignment";
+        else this.dedupe = channel.isCalculated(payload) ? "time" : null;
+        if (this.dedupe != null) {
           await streamer.waitAcked([this.key], signal);
           if (generation !== this.generation) return;
           const tr =
@@ -206,9 +212,9 @@ export class Latest {
   }
 
   // Returns the samples of s newer than the newest sample held, or null if it has none.
-  // In the newest sample's domain, alignments decide. In another domain, the ends of
-  // the time ranges decide, and a series with no time range stays. A series that starts
-  // at or after the end of a static window never enters.
+  // Under alignment dedupe, alignments decide in the newest sample's domain. Otherwise,
+  // the ends of the time ranges decide, and a series with no time range stays. A series
+  // that starts at or after the end of a static window never enters.
   private fresh(s: Series): Series | null {
     if (s.length === 0) return null;
     const timed = !s.timeRange.isZero;
@@ -219,8 +225,11 @@ export class Latest {
     )
       return null;
     const newest = this.front < this.series.length ? this.series.at(-1) : undefined;
-    if (newest == null) return s;
-    if (domainOf(s.alignment) === domainOf(newest.alignment)) {
+    if (newest == null || this.dedupe == null) return s;
+    if (
+      this.dedupe === "alignment" &&
+      domainOf(s.alignment) === domainOf(newest.alignment)
+    ) {
       const overlap = newest.alignment + BigInt(newest.length) - s.alignment;
       if (overlap >= BigInt(s.length)) return null;
       return overlap > 0n ? s.sub(Number(overlap)) : s;

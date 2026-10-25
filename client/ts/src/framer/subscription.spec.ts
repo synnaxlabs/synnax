@@ -710,6 +710,28 @@ describe("Feed.subscribe", () => {
         await feed.close();
       }
     });
+
+    it("should keep every frame of a virtual channel with no index", async () => {
+      const core = createCore({ derived: true });
+      const feed = core.openFeed(OPTIONS);
+      const key = core.virtual!.key;
+      const sub = feed.subscribe({
+        keys: [key],
+        limit: { variant: "latest", count: 100 },
+      });
+      try {
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        await sleep.sleep(TimeSpan.milliseconds(150));
+        core.advance(TimeSpan.milliseconds(100));
+        await expect.poll(() => sub.value(key).series.length, POLL).toBe(10);
+        core.advance(TimeSpan.milliseconds(100));
+        await expect.poll(() => sub.value(key).series.length, POLL).toBe(20);
+        expect(sub.value(key).series.series.map((s) => s.alignment)).toEqual([0n, 0n]);
+      } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
   });
 
   describe("update and status", () => {

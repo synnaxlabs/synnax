@@ -302,20 +302,17 @@ export class SyntheticCore {
       ),
     );
     if (this.calculated != null && this.calculatedIndex != null)
-      // A calculation sums the alignments of its two inputs, and gives its index the
-      // same alignments.
       for (const { key } of [this.calculatedIndex, this.calculated])
-        this.raw(key, from, to).forEach((s) =>
-          index.push(
-            key,
-            new Series({ ...seriesProps(s), alignment: s.alignment * 2n }),
-          ),
-        );
+        this.raw(key, from, to).forEach((s) => index.push(key, s));
 
     if (this.virtual != null) {
       const { key } = this.virtual;
+      // The Core streams each frame of a free channel with no index at alignment 0.
       this.raw(key, from, to).forEach((s) =>
-        index.push(key, new Series({ ...seriesProps(s), timeRange: TimeRange.ZERO })),
+        index.push(
+          key,
+          new Series({ ...seriesProps(s), timeRange: TimeRange.ZERO, alignment: 0n }),
+        ),
       );
     }
     this.streamers.forEach((s) => {
@@ -457,7 +454,11 @@ export class SyntheticCore {
       const next = this.restarts.find((r) => r > lo);
       const hi = next == null ? to : Math.min(next, to);
       const first = domain === 0 ? 0 : this.restarts[domain - 1];
-      const alignment = DOMAIN * BigInt(domain + 1) + BigInt(lo - first);
+      let alignment = DOMAIN * BigInt(domain + 1) + BigInt(lo - first);
+      // A calculation sums the alignments of its two inputs' series, and gives its
+      // index the same alignments.
+      if (key === this.calculated?.key || key === this.calculatedIndex?.key)
+        alignment *= 2n;
       const timeRange =
         view == null
           ? this.range(lo, hi)
