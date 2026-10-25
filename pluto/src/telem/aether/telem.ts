@@ -58,8 +58,18 @@ export type SinkSpec<V extends string> = z.infer<typeof sinkSpecZ> & {
   valueType: V;
 };
 
+/** The part of a line's x range on screen, and the line's width in pixels. */
+export interface View {
+  bounds: bounds.Bounds;
+  width: number;
+}
+
 export interface ValueProps {
-  onLoad: () => void;
+  /**
+   * What the caller shows. A source that fetches by view returns data for it, and
+   * returns its home data when the view is absent.
+   */
+  view?: View;
 }
 
 export interface Telem {
@@ -70,6 +80,8 @@ export interface Source<V> extends Telem, observe.Observable<void> {
   value: (props?: ValueProps) => V;
   /** @returns true while the source's initial read is in flight. */
   loading?: () => boolean;
+  /** @returns true while the source fetches data for a view it already drew. */
+  fetching?: () => boolean;
   sampleTime?: () => TimeStamp | null;
 }
 

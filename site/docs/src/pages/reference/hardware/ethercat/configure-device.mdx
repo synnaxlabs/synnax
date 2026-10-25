@@ -88,14 +88,19 @@ sudo usermod -aG synnax $USER
 
 ## How the Driver finds modules
 
-The Driver looks for EtherCAT modules on each Ethernet port every 5 seconds. A module
-shows in the [devices toolbar](/reference/hardware/devices#devices-toolbar) under its
-Driver:
+The Driver looks for EtherCAT modules on each wired Ethernet port every 5 seconds. It
+skips loopback, Wi-Fi, VPN, bridge, container, and other virtual ports, and it checks a
+port with no modules every 30 seconds. A module shows in the
+[devices toolbar](/reference/hardware/devices#devices-toolbar) under its Driver:
 
 - **Name** -> the name stored in the module, such as `EL3102`, or "EtherCAT Slave
   \<position\>".
 - **Location** -> the port and the position of the module on the network, such as
   `en5.Slot 2`.
+
+When no task uses the network, a module that you connect shows at the next scan, and a
+module that you remove shows **Device disconnected**. While a task uses the network, the
+list of modules does not change. To find new modules, stop the tasks on the port.
 
 The Driver gets the PDOs of a module from a built-in catalog of Beckhoff and Dewesoft
 modules, then from the module itself. If it cannot find them, the status of the module
@@ -261,6 +266,12 @@ and a `data_type`. TypeScript uses the same fields in camel case, such as `subIn
 A task shows this message when the Driver cannot load the packet capture software.
 Follow the [prerequisites](#prerequisites), then
 [restart the Driver](/reference/hardware/troubleshooting#restart-the-driver).
+
+### "Failed to scan for devices"
+
+The Console shows this warning when the Driver cannot scan a port. The description gives
+the reason, such as no raw Ethernet access. See
+[network interface access](#network-interface-access).
 
 ### "device ... expected at position ... not found on bus"
 

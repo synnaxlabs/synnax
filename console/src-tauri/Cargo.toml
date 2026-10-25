@@ -19,18 +19,6 @@ rust-version = "1.99"
 [build-dependencies]
 tauri-build = { version = "2.7.3", features = [] }
 
-[target.'cfg(target_os = "macos")'.dependencies]
-objc2 = "0.6.5"
-objc2-app-kit = { version = "0.3.2", features = [
-    "NSApplication",
-    "NSButton",
-    "NSControl",
-    "NSView",
-    "NSWindow",
-    "NSWindowController",
-] }
-objc2-foundation = "0.3.2"
-
 [target."cfg(any(target_os = \"macos\", windows, target_os = \"linux\"))".dependencies]
 tauri-plugin-single-instance = { version = "2.5.4", features = ["deep-link"] }
 
