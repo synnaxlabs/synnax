@@ -304,6 +304,10 @@ var _ = Describe("Convert", func() {
 				xjson.ISO8601, telem.TimeStamp(1700000000)*telem.SecondTS),
 			Entry("ISO 8601 with a space and lowercase z", `"2023-11-14 22:13:20z"`,
 				xjson.ISO8601, telem.TimeStamp(1700000000)*telem.SecondTS),
+			Entry("the latest ISO 8601 timestamp", `"2262-04-11T23:47:16.854775807Z"`,
+				xjson.ISO8601, telem.TimeStampMax),
+			Entry("the earliest ISO 8601 timestamp", `"1677-09-21T00:12:43.145224192Z"`,
+				xjson.ISO8601, telem.TimeStamp(math.MinInt64)),
 		)
 
 		DescribeTable("Should reject a value it cannot convert",
@@ -371,6 +375,10 @@ var _ = Describe("Convert", func() {
 				xjson.ISO8601, "not a valid ISO 8601 timestamp"),
 			Entry("ISO 8601 with no timezone", `"2023-11-14T22:13:20"`,
 				telem.TimestampT, xjson.ISO8601, "not a valid ISO 8601 timestamp"),
+			Entry("ISO 8601 after 2262", `"2500-01-01T00:00:00Z"`, telem.TimestampT,
+				xjson.ISO8601, "value is out of bounds"),
+			Entry("ISO 8601 before 1677", `"1600-01-01T00:00:00Z"`, telem.TimestampT,
+				xjson.ISO8601, "value is out of bounds"),
 			Entry("a boolean for a timestamp", "true", telem.TimestampT,
 				xjson.UnixSecond, "cannot convert true to timestamp"),
 			Entry("seconds that overflow", "1e30", telem.TimestampT,

@@ -553,6 +553,10 @@ func parseISO8601(text string) (telem.TimeStamp, error) {
 	if err != nil {
 		return 0, errors.Newf("not a valid ISO 8601 timestamp: %s", err.Error())
 	}
+	// UnixNano is undefined outside the years 1677 to 2262.
+	if t.Before(time.Unix(0, math.MinInt64)) || t.After(time.Unix(0, math.MaxInt64)) {
+		return 0, errOutOfBounds
+	}
 	return telem.NewTimeStamp(t), nil
 }
 
