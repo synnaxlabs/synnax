@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { patch, type record } from "@synnaxlabs/x";
+import { patch } from "@synnaxlabs/x";
 import { type Draft } from "immer";
 
 import { actions } from "@/actions";
@@ -22,21 +22,6 @@ import { type Payload, payloadZ } from "@/task/types.gen";
 // The cache decodes every task with the generic schema, so actions convert with it.
 const PAYLOAD_Z = payloadZ();
 
-const targetOf = (action: patch.Action): string => {
-  switch (action.type) {
-    case "set":
-      return action.set.path.join(".");
-    case "remove":
-      return [...action.remove.path, action.remove.key].join(".");
-    case "insert":
-      return [...action.insert.path, (action.insert.value as record.Unknown).key].join(
-        ".",
-      );
-    case "move":
-      return [...action.move.path, action.move.key].join(".");
-  }
-};
-
 // Actions hold snake_case paths and values, the form the Core applies. The cached
 // task holds the camelCase form that the codec decodes.
 const applyPath = (state: Draft<Payload>, action: patch.Action): HandlerResult => {
@@ -47,7 +32,7 @@ const applyPath = (state: Draft<Payload>, action: patch.Action): HandlerResult =
   if (inverse.length === 0) return actions.NO_OP_RESULT;
   return {
     inverse: inverse.map((a) => patch.camelToSnake(a, opts)),
-    targets: [targetOf(action)],
+    targets: [patch.pathOf(action).join(".")],
   };
 };
 

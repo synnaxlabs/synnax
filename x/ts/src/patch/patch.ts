@@ -59,6 +59,25 @@ export const apply = (
   }
 };
 
+/**
+ * @returns the path of the value that the action changes: the path of a set, or the
+ * path of a list or object followed by the key of the entry or field.
+ */
+export const pathOf = (action: Action): string[] => {
+  switch (action.type) {
+    case "set":
+      return action.set.path;
+    case "remove":
+      return [...action.remove.path, action.remove.key];
+    case "insert": {
+      const key = keyOf(action.insert.value);
+      return key == null ? action.insert.path : [...action.insert.path, key];
+    }
+    case "move":
+      return [...action.move.path, action.move.key];
+  }
+};
+
 type Snapshot = NonNullable<ApplyOptions["snapshot"]>;
 
 const applySet = (doc: record.Unknown, a: Set, snapshot: Snapshot): Action[] => {

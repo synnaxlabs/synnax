@@ -68,4 +68,39 @@ describe("patch", () => {
       ]);
     });
   });
+
+  describe("pathOf", () => {
+    it("should return the path of a set", () => {
+      expect(
+        patch.pathOf({ type: "set", set: { path: ["a", "b"], value: 1, guards: [] } }),
+      ).toEqual(["a", "b"]);
+    });
+
+    it("should return the list path and key of a remove", () => {
+      expect(
+        patch.pathOf({ type: "remove", remove: { path: ["l"], key: "a", guards: [] } }),
+      ).toEqual(["l", "a"]);
+    });
+
+    it("should return the list path and entry key of an insert", () => {
+      expect(
+        patch.pathOf({
+          type: "insert",
+          insert: { path: ["l"], value: { key: "a" }, guards: [] },
+        }),
+      ).toEqual(["l", "a"]);
+    });
+
+    it("should return the list path of an insert whose entry has no key", () => {
+      expect(
+        patch.pathOf({ type: "insert", insert: { path: ["l"], value: 1, guards: [] } }),
+      ).toEqual(["l"]);
+    });
+
+    it("should return the list path and key of a move", () => {
+      expect(
+        patch.pathOf({ type: "move", move: { path: ["l"], key: "a", guards: [] } }),
+      ).toEqual(["l", "a"]);
+    });
+  });
 });
