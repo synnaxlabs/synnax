@@ -11,10 +11,10 @@
 
 #include <algorithm>
 #include <cmath>
+#include <format>
 #include <limits>
 #include <memory>
 #include <optional>
-#include <sstream>
 #include <string>
 #include <unordered_set>
 #include <variant>
@@ -227,13 +227,32 @@ struct Output final : Channel {
     }
 
 private:
-    /// @brief accumulates a field error under path when the stop value is not a whole
-    /// number that the bound integer entry holds.
+    /// @brief accumulates a field error under path when the stop value does not fit the
+    /// bound entry.
     void check_stop_value(
         const slave::Properties &slave,
         const x::json::Parser &parser,
         const std::string &path
     ) const {
+        const double v = this->stop_value;
+        const auto reject = [&](const std::string &range) {
+            parser.field_err(
+                path + "stop_value",
+                std::format(
+                    "stop value {} does not fit entry {} on slave {}. Pick {}.",
+                    v,
+                    telem::format_index_sub_index(this->index, this->sub_index),
+                    slave.name,
+                    range
+                )
+            );
+        };
+        if (this->data_type == x::telem::FLOAT32_T) {
+            constexpr float MAX = std::numeric_limits<float>::max();
+            if (std::abs(v) > MAX)
+                reject(std::format("a value from {} to {}", -MAX, MAX));
+            return;
+        }
         static const std::vector SIGNED_TYPES = {
             x::telem::INT64_T,
             x::telem::INT32_T,
@@ -248,23 +267,16 @@ private:
         };
         const bool is_signed = this->data_type.matches(SIGNED_TYPES);
         if (!is_signed && !this->data_type.matches(UNSIGNED_TYPES)) return;
-        const int magnitude_bits = is_signed ? this->bit_length - 1 : this->bit_length;
-        const double min = is_signed ? -std::ldexp(1.0, magnitude_bits) : 0;
-        const double v = this->stop_value;
-        if (v >= min && v < std::ldexp(1.0, magnitude_bits) && v == std::trunc(v))
-            return;
-        const auto max = magnitude_bits == 64 ? std::numeric_limits<uint64_t>::max()
-                                              : (uint64_t{1} << magnitude_bits) - 1;
-        std::ostringstream value;
-        value << v;
-        parser.field_err(
-            path + "stop_value",
-            "stop value " + value.str() + " does not fit entry " +
-                telem::format_index_sub_index(this->index, this->sub_index) +
-                " on slave " + slave.name + ". Pick a whole number from " +
-                (is_signed ? "-" + std::to_string(max + 1) : "0") + " to " +
-                std::to_string(max) + "."
-        );
+        // A double rounds whole numbers of magnitude 2^53 and above, so a larger stop
+        // value may not be the one the user entered.
+        constexpr int DIGITS = std::numeric_limits<double>::digits;
+        constexpr int64_t EXACT = (int64_t{1} << DIGITS) - 1;
+        const int bits = is_signed ? this->bit_length - 1 : this->bit_length;
+        const int64_t max = bits >= DIGITS ? EXACT : (int64_t{1} << bits) - 1;
+        const int64_t min = is_signed ? std::max(-EXACT, -max - 1) : 0;
+        if (v < static_cast<double>(min) || v > static_cast<double>(max) ||
+            v != std::trunc(v))
+            reject(std::format("a whole number from {} to {}", min, max));
     }
 };
 

@@ -101,7 +101,8 @@ Console before the task runs.
   before they leave the operational state. While other tasks keep the network running,
   the entry holds its stop value until a task commands it. After the devices leave the
   operational state, each device sets its outputs to its own safe value, which is
-  often 0. An integer entry needs a whole number that fits it. See
+  often 0. An integer entry needs a whole number that fits it, from -9007199254740991
+  to 9007199254740991. See
   [how the Driver runs a network](/reference/driver/ethercat/get-started#how-the-driver-runs-a-network).
 
 <Divider.Divider x />
