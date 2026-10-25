@@ -352,10 +352,12 @@ class DocumentStore<
     return await this.send(edit.tx);
   }
 
+  /** @returns false when the send failed. A transaction with nothing to send passes. */
   private async send(tx: actions.Transaction<patch.Action>): Promise<boolean> {
     const sent = this.sending.then(async () => {
       try {
-        return await tx.commit();
+        await tx.commit();
+        return true;
       } catch (e) {
         this.params.onError(e);
         return false;

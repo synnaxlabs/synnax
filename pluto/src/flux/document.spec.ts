@@ -237,6 +237,17 @@ describe("createDocumentForm", () => {
     expect((await fetchStored(t.key)).name).toBe(t.name);
   });
 
+  it("should flush a batch that changes nothing", async () => {
+    const t = await createTask();
+    const { result } = await renderForm(t.key);
+    act(() =>
+      result.current.form.batch(() =>
+        result.current.form.set("config.routingKey", "dog"),
+      ),
+    );
+    await act(async () => expect(await result.current.flush()).toBe(true));
+  });
+
   it("should send the valid edits it holds when it unmounts", async () => {
     const t = await createTask();
     const { result, unmount } = await renderForm(t.key);
