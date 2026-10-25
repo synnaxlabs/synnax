@@ -1458,6 +1458,24 @@ describe("list", () => {
         }),
       });
 
+    it("should return the same functions after the list answers", async () => {
+      const rng = await createRange("stable");
+      const { result } = renderHook(() => useRangeList(), { wrapper });
+      const { retrieve, retrieveAsync, getItem, subscribe } = result.current;
+      await act(
+        async () =>
+          await result.current.retrieveAsync(
+            { keys: [rng.key] },
+            { signal: controller.signal },
+          ),
+      );
+      expect(result.current.data).toEqual([rng.key]);
+      expect(result.current.retrieve).toBe(retrieve);
+      expect(result.current.retrieveAsync).toBe(retrieveAsync);
+      expect(result.current.getItem).toBe(getItem);
+      expect(result.current.subscribe).toBe(subscribe);
+    });
+
     it("should correctly update a list item when the subscribed answer changes", async () => {
       const rng = await client.ranges.create({
         name: "Test Range",

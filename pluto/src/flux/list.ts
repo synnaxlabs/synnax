@@ -212,6 +212,31 @@ export const createList = <
       return keys;
     };
 
+    const handleItemChange = (key: Key, cached: query.Cached<Data> | undefined) => {
+      if (cached === undefined) return;
+      if (Deleted.matches<Data>(cached)) dataRef.current.set(key, null);
+      else dataRef.current.set(key, filterRef.current(cached) ? cached : null);
+      notifyListeners(key);
+    };
+
+    // Declared before its callers: when a function calls one declared after it, the
+    // compiler memoizes neither.
+    const openItemSub = (key: Key): void => {
+      if (onChangeByKey == null || client == null) return;
+      if (itemSubsRef.current.has(key)) return;
+      itemSubsRef.current.set(
+        key,
+        onChangeByKey(
+          {
+            client,
+            key,
+            query: queryRef.current ?? {},
+          },
+          (cached) => handleItemChange(key, cached),
+        ),
+      );
+    };
+
     /** Applies a page answer: updates items, notifies, recomputes keys. */
     const applyPageAnswer = (page: Page<Key>, items: Data[]) => {
       const filtered = items.filter(filterRef.current);
@@ -250,29 +275,6 @@ export const createList = <
     };
     const clearPages = () => closePages(() => true);
     useEffect(() => clearPages, [clearPages]);
-
-    const handleItemChange = (key: Key, cached: query.Cached<Data> | undefined) => {
-      if (cached === undefined) return;
-      if (Deleted.matches<Data>(cached)) dataRef.current.set(key, null);
-      else dataRef.current.set(key, filterRef.current(cached) ? cached : null);
-      notifyListeners(key);
-    };
-
-    const openItemSub = (key: Key): void => {
-      if (onChangeByKey == null || client == null) return;
-      if (itemSubsRef.current.has(key)) return;
-      itemSubsRef.current.set(
-        key,
-        onChangeByKey(
-          {
-            client,
-            key,
-            query: queryRef.current ?? {},
-          },
-          (cached) => handleItemChange(key, cached),
-        ),
-      );
-    };
 
     const clearItemSubs = () => {
       itemSubsRef.current.forEach((unsub) => unsub());
