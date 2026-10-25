@@ -181,14 +181,15 @@ to download the data as CSV, export the plot, and copy a link to it.
 
 Each line has one row. The fields have tooltips, not labels.
 
-| Field        | Default      | Description                                                                                             |
-| ------------ | ------------ | ------------------------------------------------------------------------------------------------------- |
-| Label        | Channel name | The name in the legend.                                                                                 |
-| Stroke width | 2            | The thickness of the line, from 1 to 10.                                                                |
-| Downsampling | Decimate, 1  | **Decimate** plots every Nth sample. **Average** plots the mean of each N samples. N is from 1 to 1000. |
-| Color        | Automatic    | The color of the line.                                                                                  |
+| Field        | Default      | Description                                                                                |
+| ------------ | ------------ | ------------------------------------------------------------------------------------------ |
+| Label        | Channel name | The name in the legend.                                                                    |
+| Stroke width | 2            | The thickness of the line, from 1 to 10.                                                   |
+| Aggregation  | Min/max      | **Min/max** draws the lowest and highest sample of each group. **Average** draws the mean. |
+| Detail       | Medium       | **Low**, **Medium**, or **High**: one group per four, two, or one pixel columns.           |
+| Color        | Automatic    | The color of the line.                                                                     |
 
-Raise the downsampling factor when a plot of a long range or of many channels is slow.
+Aggregation shows only for a line whose X1 is time or an index channel.
 
 ### Axes
 
