@@ -430,6 +430,15 @@ describe("State", () => {
       const fieldState = state.getState("name");
       expect(fieldState.status.variant).toBe("success");
     });
+
+    it("should clear every status when no path is given", () => {
+      const state = new State(createLocalStore(initialValues), basicSchema);
+      state.setStatus("name", { key: "name", variant: "error", message: "e" });
+      state.setStatus("email", { key: "email", variant: "error", message: "e" });
+      state.clearStatus();
+      expect(state.getState("name").status.variant).toBe("success");
+      expect(state.getState("email").status.variant).toBe("success");
+    });
   });
 
   describe("setTouched and clearTouched", () => {
@@ -738,6 +747,32 @@ describe("State", () => {
       expect(state.getState("email").status.variant).toBe("success");
     });
 
+    it("should keep the state object of a field whose error did not change", () => {
+      const state = new State(
+        createLocalStore({ ...initialValues, email: "invalid" }),
+        basicSchema,
+      );
+      state.setTouched("email");
+      state.validate();
+      const before = state.getState("email");
+      state.setValue("name", "Jane Doe");
+      state.validate();
+      expect(state.getState("email")).toBe(before);
+    });
+
+    it("should give a field a new state object when its error changes", () => {
+      const state = new State(
+        createLocalStore({ ...initialValues, age: -1 }),
+        basicSchema,
+      );
+      state.setTouched("age");
+      state.validate();
+      expect(state.getState("age").status.message).toBe("Age must be positive");
+      state.setValue("age", 200);
+      state.validate();
+      expect(state.getState("age").status.message).toBe("Age must be realistic");
+    });
+
     it("should return true when no schema is provided", () => {
       const state = new State(createLocalStore(initialValues));
       const isValid = state.validate();
@@ -960,6 +995,50 @@ describe("State", () => {
         state.getState("nested.leaf");
         state.setValue("nested", { leaf: "m" });
         expect(state.getState("nested.leaf").value).toBe("m");
+      });
+
+      describe("a change elsewhere in the form", () => {
+        const buildNested = () => {
+          let checks = 0;
+          const schema = z.object({
+            name: z.string(),
+            config: z.object({
+              tracked: z.unknown().check(() => {
+                checks++;
+              }),
+            }),
+          });
+          const state = new State(
+            createLocalStore({ name: "a", config: { tracked: 1 } }),
+            schema,
+          );
+          state.getState("config.tracked");
+          return { state, checks: () => checks };
+        };
+
+        it.each([
+          ["a write", (s: State<z.ZodType>) => s.setValue("name", "b")],
+          ["setTouched", (s: State<z.ZodType>) => s.setTouched("name")],
+          ["clearTouched", (s: State<z.ZodType>) => s.clearTouched("name")],
+          [
+            "setStatus",
+            (s: State<z.ZodType>) =>
+              s.setStatus("name", { key: "name", variant: "error", message: "e" }),
+          ],
+          ["clearStatus", (s: State<z.ZodType>) => s.clearStatus("name")],
+        ])("should not consult the schema for a field after %s", (_, change) => {
+          const { state, checks } = buildNested();
+          change(state);
+          state.getState("config.tracked");
+          expect(checks()).toBe(1);
+        });
+
+        it("should consult the schema again after clearing every touched flag", () => {
+          const { state, checks } = buildNested();
+          state.clearTouched();
+          state.getState("config.tracked");
+          expect(checks()).toBe(2);
+        });
       });
 
       it("should refresh every field on reset", () => {

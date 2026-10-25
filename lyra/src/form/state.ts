@@ -94,7 +94,6 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
       }
     });
     this.checkTouched(path, value, options);
-    this.updateCachedRefs(path);
   }
 
   /**
@@ -108,14 +107,12 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
       this.store.insert(path, value, after);
     });
     this.checkTouched(path, deep.get(this.values, path, { optional: true }));
-    this.updateCachedRefs(entryPath);
   }
 
   /** Moves the entry with the key after the entry with the key `after`, as insert. */
   move(path: string, key: string, after?: string) {
     this.write(() => this.store.move(path, key, after));
     this.checkTouched(path, deep.get(this.values, path, { optional: true }));
-    this.updateCachedRefs(`${path}.${key}`);
   }
 
   /** Runs the writes that the function makes as one change to the store. */
@@ -255,12 +252,14 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
 
   setStatus(path: string, status: Status.Crude) {
     this.statuses.set(path, status);
-    this.updateCachedRefs(path);
+    this.markStale(path);
   }
 
+  /** Clears the status of the path, or of every path when it is empty. */
   clearStatus(path: string = "") {
-    this.statuses.delete(path);
-    this.updateCachedRefs(path);
+    if (path === "") this.statuses.clear();
+    else this.statuses.delete(path);
+    this.markStale(path);
   }
 
   reset(initialValues?: z.infer<Z>) {
@@ -281,13 +280,13 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
 
   setTouched(path: string) {
     this.touched.add(path);
-    this.updateCachedRefs(path);
+    this.markStale(path);
   }
 
   clearTouched(path: string = "") {
     if (path === "") this.touched.clear();
     else this.touched.delete(path);
-    this.updateCachedRefs(path);
+    this.markStale(path);
   }
 
   remove(path: string) {
@@ -353,25 +352,31 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     validationPath?: string,
   ): boolean {
     if (this.schema == null) return true;
-    const cachedRefsToClear = new Set<string>();
-    this.statuses.forEach((status, childPath) => {
-      if (status.variant !== "success") cachedRefsToClear.add(childPath);
-    });
-    cachedRefsToClear.forEach((path) => this.clearStatus(path));
-    if (result.success) return true;
+    const next = new Map<string, Status.Crude>();
     let success = true;
-    const statuses = this.errorsToStatuses(result.error.issues, [], []);
-    statuses.forEach((status) => {
-      const { key: issuePath, message, variant } = status;
-      if (issuePath == null) return;
-      const matchesPath =
-        validationPath == null ||
-        deep.pathsMatch(issuePath, validationPath) ||
-        deep.pathsMatch(validationPath, issuePath);
-      const isTouched = validateUntouched || this.touched.has(issuePath);
-      if (!matchesPath || !isTouched) return;
-      if (variant !== "warning") success = false;
-      this.setStatus(issuePath, { key: issuePath, variant, message });
+    if (!result.success)
+      this.errorsToStatuses(result.error.issues, [], []).forEach((status) => {
+        const { key: issuePath, message, variant } = status;
+        if (issuePath == null) return;
+        const matchesPath =
+          validationPath == null ||
+          deep.pathsMatch(issuePath, validationPath) ||
+          deep.pathsMatch(validationPath, issuePath);
+        const isTouched = validateUntouched || this.touched.has(issuePath);
+        if (!matchesPath || !isTouched) return;
+        if (variant !== "warning") success = false;
+        next.set(issuePath, { key: issuePath, variant, message });
+      });
+    this.statuses.forEach((status, path) => {
+      if (status.variant === "success" || next.has(path)) return;
+      this.statuses.delete(path);
+      this.markStale(path);
+    });
+    // A status that did not change keeps its object, so its field does not re-render.
+    next.forEach((status, path) => {
+      const prev = this.statuses.get(path);
+      if (prev?.variant !== status.variant || prev.message !== status.message)
+        this.setStatus(path, status);
     });
     return success;
   }
@@ -448,14 +453,14 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
   }
 
   /**
-   * Marks stale the cached state of the path, its ancestors, and everything under its
-   * parent. A sibling can be the discriminator that decides the path's schema.
+   * Marks stale the cached state of the path, whose status or touched flag changed, or
+   * of every path when it is empty. Value changes go through refresh.
    */
-  private updateCachedRefs(fieldPath: string) {
-    const parent = fieldPath.slice(0, Math.max(fieldPath.lastIndexOf("."), 0));
-    this.cachedRefs.forEach((cached, refPath) => {
-      if (deep.pathsMatch(refPath, parent) || deep.pathsMatch(fieldPath, refPath))
-        cached.stale = true;
-    });
+  private markStale(path: string) {
+    if (path === "") this.cachedRefs.forEach((cached) => (cached.stale = true));
+    else {
+      const cached = this.cachedRefs.get(path);
+      if (cached != null) cached.stale = true;
+    }
   }
 }
