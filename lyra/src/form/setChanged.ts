@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { deep, type record } from "@synnaxlabs/x";
-import { type z } from "zod";
 
 import { type ContextValue } from "@/form/Context";
 import { type Entry } from "@/form/store";
@@ -28,8 +27,10 @@ const sameKeys = (a: string[], b: string[]): boolean =>
 const child = (path: string, key: string): string =>
   path === "" ? key : `${path}.${key}`;
 
-const write = <Z extends z.ZodType>(
-  ctx: ContextValue<Z>,
+type Target = Pick<ContextValue, "batch" | "get" | "set" | "value">;
+
+const write = (
+  ctx: Target,
   path: string,
   prev: unknown,
   next: unknown,
@@ -63,8 +64,8 @@ const write = <Z extends z.ZodType>(
  * by entry, and objects with the same fields compare field by field. Other values that
  * differ are set whole.
  */
-export const setChanged = <Z extends z.ZodType>(
-  ctx: ContextValue<Z>,
+export const setChanged = (
+  ctx: Target,
   path: string,
   value: unknown,
 ): void => {

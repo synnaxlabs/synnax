@@ -167,7 +167,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
             name,
           );
           form.batch(() => {
-            PForm.setChanged<PTask.FormSchema<S>>(form, "config", newConfig);
+            PForm.setChanged(form, "config", newConfig);
             if (primitive.isNonZero(newRack) && newRack !== form.value().rack)
               form.set("rack", newRack);
           });
