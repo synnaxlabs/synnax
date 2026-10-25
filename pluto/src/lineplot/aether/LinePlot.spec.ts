@@ -28,7 +28,8 @@ import { YAxis } from "@/lineplot/aether/YAxis";
 import { telem } from "@/telem/aether";
 import { buildStack } from "@/testutil/providers";
 import { line } from "@/vis/line/aether";
-import { render } from "@/vis/render";
+import { lineTest } from "@/vis/line/aether/test";
+import { type render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/test";
 
 const stubLineStateZ = z.object({
@@ -159,18 +160,6 @@ describe("LinePlot", () => {
   });
 });
 
-const lineContextProviderStateZ = z.object({});
-
-// Creates the line GL context the way the Canvas component does in production.
-class LineContextProvider extends aether.Composite<typeof lineContextProviderStateZ> {
-  static readonly TYPE = "LineContextProvider";
-  schema = lineContextProviderStateZ;
-
-  afterUpdate(ctx: aether.Context): void {
-    line.Context.create(ctx, render.Context.use(ctx));
-  }
-}
-
 describe("LinePlot against a Core", () => {
   const synnax = createTestClient();
   const teardowns: (() => void)[] = [];
@@ -211,7 +200,7 @@ describe("LinePlot against a Core", () => {
     const stack = buildStack({
       registry: {
         [telem.PROVIDER_TYPE]: telem.Provider,
-        [LineContextProvider.TYPE]: LineContextProvider,
+        [lineTest.Host.TYPE]: lineTest.Host,
         [LinePlot.TYPE]: LinePlot,
         [XAxis.TYPE]: XAxis,
         [YAxis.TYPE]: YAxis,
@@ -221,7 +210,7 @@ describe("LinePlot against a Core", () => {
       render: true,
     });
     const gl = [...stack.basePath, "gl"];
-    stack.driver.update(gl, LineContextProvider.TYPE, {});
+    stack.driver.update(gl, lineTest.Host.TYPE, {});
     const base = [...gl, "plot"];
     const setViewport = (viewport: box.Box): void =>
       stack.driver.update(base, LinePlot.TYPE, {

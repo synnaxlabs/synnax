@@ -24,23 +24,20 @@ import {
   TimeStamp,
 } from "@synnaxlabs/x";
 import { afterAll, describe, expect, it, vi } from "vitest";
-import { z } from "zod";
 
-import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/test";
 import { renderAether } from "@/testutil/renderAether";
 import {
   bridgeVertices,
   buildDrawOperations,
-  Context,
   DEFAULT_OVERLAP_THRESHOLD,
   type DrawOperation,
   Line,
   type LineProps,
   type State,
 } from "@/vis/line/aether/line";
-import { render } from "@/vis/render";
+import { lineTest } from "@/vis/line/aether/test";
 import { canvasTest } from "@/vis/render/test";
 
 describe("line", () => {
@@ -518,19 +515,6 @@ describe("line", () => {
   });
 
   describe("Line", () => {
-    /** Supplies the line GL context and the render requestor, as the canvas and the
-     * plot do in production. */
-    class Host extends aether.Composite<typeof Host.stateZ> {
-      static readonly TYPE = "line-test-host";
-      static readonly stateZ = z.object({});
-      schema = Host.stateZ;
-
-      afterUpdate(ctx: aether.Context): void {
-        Context.create(ctx, render.Context.use(ctx));
-        render.control(ctx, () => {});
-      }
-    }
-
     const series = (
       data: number[],
       alignment: bigint,
@@ -570,7 +554,7 @@ describe("line", () => {
       const recorder = canvasTest.record();
       (recorder as { gl: unknown }).gl = gl;
       recorder.resize(PROPS.region, 1);
-      const h = renderAether(Host, {
+      const h = renderAether(lineTest.Host, {
         state: {},
         render: recorder,
         registry: { [Line.TYPE]: Line },

@@ -9,17 +9,15 @@
 
 import { bounds, color, DataType, MultiSeries, Series, TimeRange } from "@synnaxlabs/x";
 import { afterEach, describe, expect, it } from "vitest";
-import { z } from "zod";
 
-import { aether } from "@/aether/aether";
 import { aetherTest } from "@/aether/test";
 import { XAxis } from "@/lineplot/aether/XAxis";
 import { YAxis } from "@/lineplot/aether/YAxis";
 import { type telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/test";
 import { buildStack } from "@/testutil/providers";
-import { Context, Line } from "@/vis/line/aether/line";
-import { render } from "@/vis/render";
+import { Line } from "@/vis/line/aether/line";
+import { lineTest } from "@/vis/line/aether/test";
 import { canvasTest } from "@/vis/render/test";
 
 // Covers the calls the line programs make when they compile.
@@ -32,18 +30,6 @@ const GL = {
   attachShader: () => {},
   linkProgram: () => {},
 };
-
-// Supplies the line GL context and the render requestor, as the canvas and plot do.
-class Host extends aether.Composite<typeof Host.stateZ> {
-  static readonly TYPE = "y-axis-test-host";
-  static readonly stateZ = z.object({});
-  schema = Host.stateZ;
-
-  afterUpdate(ctx: aether.Context): void {
-    Context.create(ctx, render.Context.use(ctx));
-    render.control(ctx, () => {});
-  }
-}
 
 const seriesValue = (data: number[]): [bounds.Bounds, MultiSeries] => {
   const s = new Series({
@@ -99,7 +85,7 @@ describe("YAxis", () => {
     (recorder as { gl: unknown }).gl = GL;
     const stack = buildStack({
       registry: {
-        [Host.TYPE]: Host,
+        [lineTest.Host.TYPE]: lineTest.Host,
         [XAxis.TYPE]: XAxis,
         [YAxis.TYPE]: YAxis,
         [Line.TYPE]: Line,
@@ -108,7 +94,7 @@ describe("YAxis", () => {
     });
     const xPath = [...stack.basePath, "host", "x1"];
     const path = [...xPath, "y1"];
-    stack.driver.update(xPath.slice(0, -1), Host.TYPE, {});
+    stack.driver.update(xPath.slice(0, -1), lineTest.Host.TYPE, {});
     stack.driver.update(xPath, XAxis.TYPE, {
       location: "bottom",
       autoBoundPadding: 0,
