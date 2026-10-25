@@ -164,6 +164,8 @@ type Transport struct {
 	LabelDelete   freighter.UnaryServer[label.DeleteRequest, struct{}]
 	LabelAdd      freighter.UnaryServer[label.AddRequest, struct{}]
 	LabelRemove   freighter.UnaryServer[label.RemoveRequest, struct{}]
+	// LabelDispatch applies path actions to a label.
+	LabelDispatch freighter.UnaryServer[label.DispatchRequest, struct{}]
 	// RACK
 	RackCreate   freighter.UnaryServer[rack.CreateRequest, rack.CreateResponse]
 	RackRetrieve freighter.UnaryServer[rack.RetrieveRequest, rack.RetrieveResponse]
@@ -398,6 +400,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.LabelDelete,
 		t.LabelAdd,
 		t.LabelRemove,
+		t.LabelDispatch,
 
 		// RACK
 		t.RackCreate,
@@ -602,6 +605,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.LabelDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Label.Delete))
 	t.LabelAdd.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Label.Add))
 	t.LabelRemove.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Label.Remove))
+	t.LabelDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Label.Dispatch))
 
 	// RACK
 	t.RackCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Rack.Create))

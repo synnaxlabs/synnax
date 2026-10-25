@@ -356,6 +356,9 @@ func Bind(layer *api.Layer, router *http.Router) {
 		LabelRemove: router.NewUnaryServer[label.RemoveRequest, struct{}](
 			"/api/v1/label/remove",
 		),
+		LabelDispatch: router.NewUnaryServer[label.DispatchRequest, struct{}](
+			"/api/v1/label/dispatch",
+		),
 
 		// RACK
 		RackCreate: router.NewUnaryServer[rack.CreateRequest, rack.CreateResponse](

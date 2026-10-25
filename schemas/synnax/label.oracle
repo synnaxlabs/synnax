@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/x/color"
+import "schemas/x/patch"
 
 @cpp output "client/cpp/label"
 @go output  "core/pkg/service/label"
@@ -30,6 +31,33 @@ Label struct {
     }
     color color.Color {
         @doc value "is the display color for visual identification of the label."
+    }
+
+    action Create {
+        label Label
+
+        @doc value """
+            replaces the label with the given created state. Emitted by the Core when a
+            label is created or overwritten whole; clients never dispatch it.
+        """
+    }
+
+    action Set extends patch.Set {
+        @doc value "replaces the value at a path in the label."
+    }
+
+    action Remove extends patch.Remove {
+        @doc value """
+            removes an entry from a list or a field from an object in the label.
+        """
+    }
+
+    action Insert extends patch.Insert {
+        @doc value "adds an entry to a list in the label."
+    }
+
+    action Move extends patch.Move {
+        @doc value "moves an entry in a list in the label."
     }
 
     @create

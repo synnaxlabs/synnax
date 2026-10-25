@@ -15,18 +15,36 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 )
 
 // Writer wraps a transaction to create, update, and delete labels.
 type Writer struct {
-	tx    gorp.Tx
-	otg   ontology.Writer
-	table *gorp.Table[Key, Label]
+	tx         gorp.Tx
+	otg        ontology.Writer
+	table      *gorp.Table[Key, Label]
+	dispatcher actions.Dispatcher[Key, Action]
+	// dispatchKey is stamped onto create broadcasts so the originator skips its echo.
+	dispatchKey string
+}
+
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the create
+// broadcasts it emits, so the client that sent the create recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatchKey = dispatchKey
+	return w
+}
+
+// notify broadcasts the actions on the label with the given key after the transaction
+// commits.
+func (w Writer) notify(ctx context.Context, key Key, acts ...Action) {
+	gorp.OnCommit(w.tx, func() { w.dispatcher.Notify(ctx, key, w.dispatchKey, acts) })
 }
 
 // Create creates a new label, assigning it a unique key if one is not provided. If
-// a label with the same key already exists, it will be overwritten.
+// a label with the same key already exists, it will be overwritten. After the
+// transaction commits, Create broadcasts a create action that carries the stored label.
 func (w Writer) Create(ctx context.Context, l *Label) error {
 	if l.Key == uuid.Nil() {
 		l.Key = uuid.New()
@@ -37,7 +55,27 @@ func (w Writer) Create(ctx context.Context, l *Label) error {
 	if err := w.table.NewCreate().Entry(l).Exec(ctx, w.tx); err != nil {
 		return err
 	}
+	w.notify(ctx, l.Key, NewCreateAction(CreatePayload{Label: *l}))
 	return w.otg.DefineResources(ctx, l.OntologyID())
+}
+
+// apply applies the actions to the label with the given key and stores the result.
+func (w Writer) apply(ctx context.Context, key Key, acts []Action) error {
+	var prev Label
+	if err := w.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Label](key)).
+		Entry(&prev).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	next, err := Reduce(prev, acts...)
+	if err != nil {
+		return err
+	}
+	if err = next.Validate(); err != nil {
+		return err
+	}
+	return w.table.NewCreate().Entry(&next).Exec(ctx, w.tx)
 }
 
 // CreateMany creates multiple labels in a single transaction. If any of the labels
