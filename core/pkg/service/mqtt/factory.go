@@ -375,11 +375,13 @@ func (f *Factory) configureRead(
 		// written names the entry that writes to each channel.
 		written    = make(map[channel.Key]string)
 		writerKeys channel.Keys
+		indexes    channel.Keys
 	)
 	for _, variant := range enabled {
 		var (
 			name      string
 			entryKeys channel.Keys
+			index     channel.Key
 		)
 		switch entry := variant.(type) {
 		case PlainReadEntry:
@@ -394,7 +396,7 @@ func (f *Factory) configureRead(
 				)
 			}
 			src.topics[topic.topic] = topic
-			name, entryKeys = "topic "+topic.topic, topic.keys
+			name, entryKeys, index = "topic "+topic.topic, topic.keys, topic.index
 		case SparkplugReadEntry:
 			tag, err := newReadTag(entry, channels)
 			if err != nil {
@@ -406,7 +408,7 @@ func (f *Factory) configureRead(
 				)
 			}
 			src.tags[tag.tagID] = tag
-			name, entryKeys = tag.String(), tag.keys()
+			name, entryKeys, index = tag.String(), tag.keys(), tag.index
 		default:
 			panic(errors.Newf("mqtt: unknown read entry variant %T", entry))
 		}
@@ -422,6 +424,9 @@ func (f *Factory) configureRead(
 			written[key] = name
 			writerKeys = append(writerKeys, key)
 		}
+		if index != 0 {
+			indexes = append(indexes, index)
+		}
 	}
 	mode := framer.WriterModePersistStream
 	if cfg.DataSavingDisabled {
@@ -434,6 +439,7 @@ func (f *Factory) configureRead(
 		Status:          f.cfg.Status,
 		Framer:          f.cfg.Framer,
 		Channels:        writerKeys,
+		Indexes:         indexes,
 		Task:            t,
 		Mode:            mode,
 	})

@@ -104,6 +104,7 @@ var _ = Describe("ReadTask", func() {
 			DB:     db, Status: statusSvc,
 			Framer:   framerSvc,
 			Channels: channel.Keys{idxCh.Key(), dataCh.Key()},
+			Indexes:  channel.Keys{idxCh.Key()},
 			Task:     t,
 			Breaker:  brk,
 		}))
@@ -129,7 +130,7 @@ var _ = Describe("ReadTask", func() {
 		return fmt.Sprintf("[%s]<%d>", ch.Name, ch.Key())
 	}
 
-	// written returns the samples committed to ch.
+	// written returns every sample committed to ch.
 	written := func(ctx context.Context, ch channel.Channel) telem.Series {
 		GinkgoHelper()
 		iter := MustOpen(framerSvc.OpenIterator(ctx, framer.IteratorConfig{
@@ -137,8 +138,11 @@ var _ = Describe("ReadTask", func() {
 			Bounds: telem.TimeRangeMax,
 		}))
 		Expect(iter.SeekFirst()).To(BeTrue())
-		Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
-		return iter.Value().Get(ch.Key()).Series[0]
+		all := telem.Series{DataType: ch.DataType}
+		for iter.Next(iterator.AutoSpan) {
+			all.Data = append(all.Data, iter.Value().Get(ch.Key()).Data()...)
+		}
+		return all
 	}
 
 	samples := func(seconds ...telem.TimeStamp) readResult {
@@ -173,6 +177,20 @@ var _ = Describe("ReadTask", func() {
 				Channels: channel.Keys{idxCh.Key()},
 			})).Error().To(MatchError(ContainSubstring("task: must have a key")))
 		})
+		It("Should reject an index that is not one of its channels", func() {
+			Expect(driver.NewReadTask(driver.ReadTaskConfig{
+				Source:   src,
+				DB:       db,
+				Status:   statusSvc,
+				Framer:   framerSvc,
+				Channels: channel.Keys{dataCh.Key()},
+				Indexes:  channel.Keys{idxCh.Key()},
+				Task:     t,
+			})).Error().To(MatchError(ContainSubstring(
+				fmt.Sprintf("indexes: %d is not in channels", idxCh.Key()),
+			)))
+		})
+
 		It("Should reject a breaker whose base interval exceeds its maximum", func() {
 			Expect(driver.NewReadTask(driver.ReadTaskConfig{
 				Source: src,
@@ -240,6 +258,7 @@ var _ = Describe("ReadTask", func() {
 					Status:   statusSvc,
 					Framer:   framerSvc,
 					Channels: keys,
+					Indexes:  channel.Keys{idxCh.Key(), earlyIdx.Key()},
 					Task:     t,
 				}))
 				DeferCleanup(func() { Expect(rt.Stop(false)).To(Succeed()) })
@@ -256,6 +275,45 @@ var _ = Describe("ReadTask", func() {
 					To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](5, 6)))
 				Expect(written(ctx, earlyData)).
 					To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](1, 2)))
+			},
+		)
+
+		It("Should start the writer at an index rather than at a timestamp value",
+			func(ctx SpecContext) {
+				w := channelSvc.NewWriter(nil)
+				stampCh := channel.Channel{
+					Name:       UniqueChannelName(),
+					DataType:   telem.TimestampT,
+					LocalIndex: idxCh.LocalKey,
+				}
+				Expect(w.Create(ctx, &stampCh)).To(Succeed())
+				keys := channel.Keys{idxCh.Key(), dataCh.Key(), stampCh.Key()}
+				rt := MustSucceed(driver.NewReadTask(driver.ReadTaskConfig{
+					Source:   src,
+					DB:       db,
+					Status:   statusSvc,
+					Framer:   framerSvc,
+					Channels: keys,
+					Indexes:  channel.Keys{idxCh.Key()},
+					Task:     t,
+				}))
+				DeferCleanup(func() { Expect(rt.Stop(false)).To(Succeed()) })
+				run := func(seconds, stamp telem.TimeStamp) {
+					GinkgoHelper()
+					Expect(rt.Start(ctx, driver.NoCommand)).To(Succeed())
+					src.results <- readResult{frame: frame.NewMulti(keys, []telem.Series{
+						telem.NewSeriesSecondsTSV(seconds, seconds+1),
+						telem.NewSeriesV(float32(seconds), float32(seconds+1)),
+						telem.NewSeriesSecondsTSV(stamp, stamp),
+					})}
+					Eventually(src.results).Should(BeEmpty())
+					Expect(rt.Stop(false)).To(Succeed())
+				}
+				run(10, 10)
+				// An old timestamp value must not start the writer over the first run.
+				run(20, 1)
+				Expect(written(ctx, dataCh)).
+					To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](10, 11, 20, 21)))
 			},
 		)
 

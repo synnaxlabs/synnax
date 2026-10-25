@@ -11,6 +11,7 @@ package driver
 
 import (
 	"context"
+	"slices"
 	"time"
 	"uuid"
 
@@ -74,6 +75,11 @@ type ReadTaskConfig struct {
 	//
 	// [REQUIRED]
 	Channels channel.Keys
+	// Indexes are the index channels among Channels. The writer starts at the earliest
+	// timestamp that the first frame writes to one of them.
+	//
+	// [OPTIONAL] - Without them, the writer starts at the current time.
+	Indexes channel.Keys
 	// Task is the stored task this instance runs.
 	//
 	// [REQUIRED]
@@ -110,6 +116,7 @@ func (c ReadTaskConfig) Override(other ReadTaskConfig) ReadTaskConfig {
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channels = override.Slice(c.Channels, other.Channels)
+	c.Indexes = override.Slice(c.Indexes, other.Indexes)
 	if other.Task.Key != uuid.Nil() {
 		c.Task = other.Task
 	}
@@ -126,6 +133,11 @@ func (c ReadTaskConfig) Validate() error {
 	v.NotNil("status", c.Status)
 	v.NotNil("framer", c.Framer)
 	v.NotEmptySlice("channels", c.Channels)
+	for _, key := range c.Indexes {
+		v.Ternaryf(
+			"indexes", !slices.Contains(c.Channels, key), "%d is not in channels", key,
+		)
+	}
 	v.Ternary("task", c.Task.Key == uuid.Nil(), "must have a key")
 	v.Exec(c.Breaker.Validate)
 	return v.Error()
@@ -217,7 +229,8 @@ func (t *ReadTask) run(ctx context.Context, r Reader) (err error) {
 			continue
 		}
 		if w == nil {
-			if w, err = t.openWriter(ctx, startOf(fr), fail); err != nil {
+			start := startOf(fr, t.cfg.Indexes)
+			if w, err = t.openWriter(ctx, start, fail); err != nil {
 				return err
 			}
 		}
@@ -298,13 +311,13 @@ func (w *frameWriter) close() error {
 	return w.sCtx.Wait()
 }
 
-// startOf returns the earliest first timestamp of the series in fr, so that the
-// writer's domain holds every sample. It returns the current time for a frame with no
-// timestamps.
-func startOf(fr framer.Frame) telem.TimeStamp {
+// startOf returns the earliest timestamp that fr writes to one of indexes, so that the
+// writer's domain holds every sample. It returns the current time for a frame that
+// writes to no index.
+func startOf(fr framer.Frame, indexes channel.Keys) telem.TimeStamp {
 	start := telem.TimeStampMax
-	for s := range fr.Series() {
-		if s.DataType == telem.TimestampT && s.Len() > 0 {
+	for key, s := range fr.Entries() {
+		if s.Len() > 0 && slices.Contains(indexes, key) {
 			start = min(start, s.ValueAt[telem.TimeStamp](0))
 		}
 	}
