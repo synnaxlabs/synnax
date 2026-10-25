@@ -21,7 +21,7 @@ import {
 } from "@synnaxlabs/x";
 import type z from "zod";
 
-import { NotFoundError } from "@/errors";
+import { isConnectionError, NotFoundError } from "@/errors";
 import { Deleted } from "@/query/deleted";
 import { type LookupIndex } from "@/query/indexes";
 import { type Listener } from "@/query/streamer";
@@ -491,7 +491,8 @@ export class Table<
    * Deletes entries and notifies subscribers. Deleted values are retained as tombstones
    * until a subsequent set for the key.
    * @param key - The key(s) to delete or a filter function
-   * @returns A rollback that restores the deleted entries
+   * @returns A rollback that restores the deleted entries, then fetches them again: an
+   * entry misses every change made while it was deleted.
    */
   delete(
     key: Key | Key[] | ((value: Value, key: Key) => boolean),
@@ -531,15 +532,28 @@ export class Table<
       }),
     );
 
-    return () =>
+    return () => {
+      const restored: Key[] = [];
       this.batch(() =>
         toDelete.forEach(({ key: k, value }) => {
           if (value == null) return;
           this.tombstones.delete(k);
           this.show(k, value);
           this.stampWrite(k);
+          restored.push(k);
         }),
       );
+      if (tombstone) this.refetch(restored);
+    };
+  }
+
+  private refetch(keys: Key[]): void {
+    if (this.fetchBatcher == null || keys.length === 0) return;
+    this.retrieve(keys, { refresh: true }).catch((exc: unknown) => {
+      // The reconcile after the next reconnect fetches them.
+      if (isConnectionError(exc)) return;
+      this.onError(new Error("failed to fetch restored entries", { cause: exc }));
+    });
   }
 
   /**

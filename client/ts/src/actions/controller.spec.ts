@@ -74,11 +74,12 @@ const setupStore = (
     coalesceWindow: TimeSpan;
     stackCap: number;
     now: () => TimeStamp;
+    fetch: (keys: string[]) => Promise<Array<Doc & { key: string }>>;
   }> = {},
 ) => {
   const errors: Error[] = [];
   const onError = (error: Error) => errors.push(error);
-  const docs = new Table<string, Doc>({ onError });
+  const docs = new Table<string, Doc>({ onError, fetch: opts.fetch });
   const epochs = new observe.Observer<number>();
   const controller = new Controller<string, Doc, Action>({
     store: docs,
@@ -1012,6 +1013,21 @@ describe("actions.Controller", () => {
       rollback();
       tx.abort();
       expect(docs.get("k")).toEqual({ values: { a: 0 } });
+    });
+
+    it("shows an edit the Core saved while a failed delete hid the doc", async () => {
+      let stored = { key: "k", values: { a: 0 } };
+      const { docs, controller } = setupStore({ fetch: async () => [stored] });
+      prime(docs, "k", { a: 0 });
+      const { send, calls } = createHeldSend();
+      const dispatched = controller.dispatch("k", [set("a", 1)], send);
+      const restore = docs.delete("k");
+      stored = { key: "k", values: { a: 1 } };
+      calls[0].resolve();
+      await dispatched;
+      controller.applyRemote("k", 1, calls[0].dispatchKey, [set("a", 1)]);
+      restore();
+      await expect.poll(() => docs.get("k")).toEqual(stored);
     });
 
     it("applies pending dispatches again on a doc another writer replaced", async () => {

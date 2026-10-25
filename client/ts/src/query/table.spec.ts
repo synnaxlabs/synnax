@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record, TimeSpan } from "@synnaxlabs/x";
+import { Unreachable } from "@synnaxlabs/freighter";
+import { type record, sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { NotFoundError } from "@/errors";
@@ -1630,6 +1631,71 @@ describe("intercept", () => {
     expect(() => table.intercept(createOverlay((b) => b).interceptor)).toThrow(
       "The table already has an interceptor",
     );
+  });
+});
+
+describe("delete rollback", () => {
+  interface Doc extends record.Keyed<string> {
+    key: string;
+    name: string;
+  }
+  const doc = (name: string): Doc => ({ key: "k1", name });
+
+  const newTable = (
+    fetch: (keys: string[]) => Promise<Doc[]>,
+    onError: (error: Error) => void = noopError,
+  ) => new query.Table<string, Doc>({ onError, fetch });
+
+  it("should fetch the restored entries again", async () => {
+    let stored = doc("a");
+    const table = newTable(async () => [stored]);
+    table.set("k1", doc("a"));
+    const rollback = table.delete("k1");
+    stored = doc("b");
+    rollback();
+    expect(table.get("k1")).toEqual(doc("a"));
+    await expect.poll(() => table.get("k1")).toEqual(doc("b"));
+  });
+
+  it("should not fetch the entries an evict restores", async () => {
+    const fetch = vi.fn(async () => [doc("b")]);
+    const table = newTable(fetch);
+    table.set("k1", doc("a"));
+    table.evict("k1")();
+    await sleep.sleep(TimeSpan.milliseconds(30));
+    expect(fetch).not.toHaveBeenCalled();
+    expect(table.get("k1")).toEqual(doc("a"));
+  });
+
+  it("should report a failed fetch of the restored entries", async () => {
+    const onError = vi.fn();
+    const table = newTable(async () => {
+      throw new Error("boom");
+    }, onError);
+    table.set("k1", doc("a"));
+    table.delete("k1")();
+    await expect
+      .poll(() => onError.mock.calls[0]?.[0])
+      .toEqual(
+        expect.objectContaining({
+          message: "failed to fetch restored entries",
+          cause: expect.objectContaining({ message: "boom" }),
+        }),
+      );
+  });
+
+  it("should not report a fetch that cannot reach the Core", async () => {
+    const onError = vi.fn();
+    const fetch = vi.fn(async (): Promise<Doc[]> => {
+      throw new Unreachable();
+    });
+    const table = newTable(fetch, onError);
+    table.set("k1", doc("a"));
+    table.delete("k1")();
+    await expect.poll(() => fetch.mock.calls.length).toBe(1);
+    await sleep.sleep(TimeSpan.milliseconds(10));
+    expect(onError).not.toHaveBeenCalled();
+    expect(table.get("k1")).toEqual(doc("a"));
   });
 });
 
