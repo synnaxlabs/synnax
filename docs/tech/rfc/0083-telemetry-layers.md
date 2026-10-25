@@ -23,8 +23,8 @@ RFC 0013 §3.2 keeps the visualization independent of Synnax, and RFC 0055 makes
 
 - **The `Feed` stores the renderer's format**: Pluto opens the worker `Feed` with
   `GL_TRANSFORM` (`pluto/src/telem/aether/provider.ts:66`), which narrows every type
-  except variable-length types and `uint8` to float32. Logs, values, and tooltips get
-  float32 too. Open work goes around it twice: PR #3387 keeps an exact copy of each
+  except variable-length types and `uint8` to `float32`. Logs, values, and tooltips get
+  `float32` too. Open work goes around it twice: PR #3387 keeps an exact copy of each
   index channel, and PR #3215 opens a second `Feed` with no transform for the log.
 - **Each source joins history and live data**: The line sources' `LiveWindow` removes
   duplicates between a read and the stream by series identity
@@ -42,8 +42,8 @@ RFC 0013 §3.2 keeps the visualization independent of Synnax, and RFC 0055 makes
   `telem.ts:215`). Transformers forward only `sampleTime`, so `lastWrite` reaches no
   value pipeline.
 
-A raw WebSocket source written today must produce float32 series with an offset, because
-`Series.updateGLBuffer` rejects other types (`x/ts/src/telem/series.ts:972`).
+A raw WebSocket source written today must produce `float32` series with an offset,
+because `Series.updateGLBuffer` rejects other types (`x/ts/src/telem/series.ts:972`).
 
 ## 2 Principles
 
@@ -134,7 +134,7 @@ const sub = feed.subscribe(
 
 Pluto stops passing `GL_TRANSFORM` (`provider.ts:66`), and the `Feed`'s `transform`
 option (`client/ts/src/framer/feed.ts:85`) goes with its only user. The line converts a
-series to float32 when it first uploads it, with the offset rule of
+series to `float32` when it first uploads it, with the offset rule of
 `convertSeriesToSupportedGL` (`pluto/src/telem/aether/convertSeries.ts:25`). It keeps
 the copy with the GPU buffer and releases both together. Its reducer and bounds read the
 copy, and its tooltip reads exact values. Logs, values, and tables read exact data from
@@ -188,7 +188,7 @@ change.
    second untransformed `Feed` (PR #3215) fixes one consumer at a time. Storing both
    forms costs the most memory and still makes a raw source produce GPU data. Grafana,
    Lichtblick, Perfetto, and Perspective keep exact data and convert in the view. The
-   trade is real: float64 and timestamp samples take 8 bytes in the cache, not 4.
+   trade is real: `float64` and `timestamp` samples take 8 bytes in the cache, not 4.
 2. **The `Feed` owns the join**: It is the only layer that sees both the read and the
    stream, and RFC 0055 §3 principle 1 gives it convergence. Grafana joins in the data
    source and Lichtblick in the panel, which means one join per consumer. Synnax has
