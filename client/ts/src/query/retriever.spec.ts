@@ -27,6 +27,14 @@ const thing = (key: string, size = 1): Thing => ({ key, name: `${key}-name`, siz
 
 const requestZ = z.object({
   keys: z.string().array().optional(),
+  where: z
+    .object({
+      key: z
+        .object({ eq: z.string().optional(), in: z.string().array().optional() })
+        .optional(),
+      name: z.object({ eq: z.string().optional() }).optional(),
+    })
+    .optional(),
   minSize: z.number().optional(),
   searchTerm: z.string().optional(),
 });
@@ -253,6 +261,33 @@ describe("Retriever", () => {
       release([thing("a")]);
       await pending;
       expect(client.store.get("a")?.name).toEqual("renamed");
+    });
+
+    it("routes a where that only matches a key list through the table fetch", async () => {
+      const fetchKeys = vi.fn(async (keys: string[]) => keys.map((k) => thing(k)));
+      const fetchRequest = vi.fn(async () => []);
+      const client = new Client(newCache(), fetchKeys, fetchRequest);
+      client.store.set([thing("a")]);
+      const results = await client.retrieve({ where: { key: { in: ["a", "b"] } } });
+      expect(results.map((t) => t.key)).toEqual(["a", "b"]);
+      expect(fetchKeys).toHaveBeenCalledWith(["b"]);
+      expect(fetchRequest).not.toHaveBeenCalled();
+    });
+
+    it("answers a where with an empty key list from the table", async () => {
+      const fetchRequest = vi.fn(async () => []);
+      const client = new Client(newCache(), async () => [], fetchRequest);
+      expect(client.getCached({ where: { key: { in: [] } } })).toEqual([]);
+      expect(await client.retrieve({ where: { key: { in: [] } } })).toEqual([]);
+      expect(fetchRequest).not.toHaveBeenCalled();
+    });
+
+    it("routes a where with another line through the request fetch", async () => {
+      const fetchRequest = vi.fn(async () => [thing("a")]);
+      const client = new Client(newCache(), async () => [], fetchRequest);
+      await client.retrieve({ where: { key: { in: ["a"] }, name: { eq: "a-name" } } });
+      await client.retrieve({ where: { key: { eq: "a", in: ["a"] } } });
+      expect(fetchRequest).toHaveBeenCalledTimes(2);
     });
 
     it("treats a request with keys plus another set field as non-keys-only", async () => {

@@ -24,18 +24,37 @@ import { type Data, type FetchOptions, type Params } from "@/query/types";
 /** Query fields only the server can evaluate, shared by most request shapes. */
 const DEFAULT_SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
 
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+/** @returns the one member of value that is not nullish, or null. */
+const soleMember = (value: Record<string, unknown>): [string, unknown] | null => {
+  const set = Object.entries(value).filter(([, v]) => v != null);
+  return set.length === 1 ? set[0] : null;
+};
+
+/** @returns the keys of a filter that only matches keys in a list, or null. */
+const whereKeys = (where: unknown): unknown[] | null => {
+  if (!isObject(where)) return null;
+  const line = soleMember(where);
+  if (line?.[0] !== "key" || !isObject(line[1])) return null;
+  const op = soleMember(line[1]);
+  return op?.[0] === "in" && Array.isArray(op[1]) ? op[1] : null;
+};
+
 /**
- * Returns the keys of a request that addresses keys and nothing else: a non-empty
- * `keys` field with every other field nullish. Such requests resolve through the
- * table's fetch primitive instead of the request fetch. Returns null for any other
- * request.
+ * Returns the keys of a request that addresses keys and nothing else: a `where` that
+ * only matches keys in a list, or a non-empty `keys` field, with every other field
+ * nullish. Such requests resolve through the table's fetch primitive instead of the
+ * request fetch. Returns null for any other request.
  */
 const keysOnly = (query: unknown): unknown[] | null => {
-  if (typeof query !== "object" || query === null || Array.isArray(query)) return null;
-  const { keys } = query as { keys?: unknown };
-  if (!Array.isArray(keys) || keys.length === 0) return null;
-  if (!Object.entries(query).every(([k, v]) => k === "keys" || v == null)) return null;
-  return keys;
+  if (!isObject(query)) return null;
+  const field = soleMember(query);
+  if (field?.[0] === "where") return whereKeys(field[1]);
+  if (field?.[0] !== "keys" || !Array.isArray(field[1]) || field[1].length === 0)
+    return null;
+  return field[1];
 };
 
 /** True for params that are a bare record key rather than a query object. */
@@ -99,6 +118,8 @@ export type RetrieverParams<
     matches?: (record: V, query: z.output<Z>) => boolean;
     /** Overrides {@link DEFAULT_SERVER_FIELDS} for this request shape. */
     serverFields?: readonly string[];
+    /** Rule 3: whether only the server can evaluate the query, such as a regex. */
+    serverComputed?: (query: z.output<Z>) => boolean;
     /** Foreign tables whose events affect this space's answers. */
     watch?: Array<Watch<z.output<Z>, K>>;
   };
@@ -169,6 +190,7 @@ export abstract class Retriever<
       fetch,
       matches,
       serverFields = DEFAULT_SERVER_FIELDS,
+      serverComputed,
       watch,
     } = request;
     this.requestSpace = cache.queries<z.output<Z>, D[], K, V>({
@@ -186,6 +208,7 @@ export abstract class Retriever<
       keysOf: (query) => keysOnly(query) as K[] | null,
       matches,
       serverFields,
+      serverComputed,
       watch,
     }) as Retrieves<Params, D | D[]>;
     this.normalizeRequest = (p) => zod.parse(schema, p, { label: `${name} query` });

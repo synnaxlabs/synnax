@@ -1494,6 +1494,26 @@ describe("Answers", () => {
       await expect.poll(() => fetch.mock.calls.length).toBe(2);
     });
 
+    it("refetches wholesale when serverComputed holds", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 1));
+        return ["a"];
+      });
+      const answers = new Space<{ regex?: string }, Rec[], string, Rec>({
+        name: "things",
+        table,
+        fetch,
+        compose: (records) => records,
+        matches: () => true,
+        serverComputed: (q) => q.regex != null,
+      });
+      answers.onChange({ regex: "^a" }, vi.fn());
+      await answers.retrieve({ regex: "^a" });
+      table.set("z", rec("z", 9));
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+    });
+
     // Regression: only the server recomputes membership, so a change that lands
     // while nothing subscribes reaches the answer through nothing else. Serving
     // the pre-gap answer strands it permanently.
