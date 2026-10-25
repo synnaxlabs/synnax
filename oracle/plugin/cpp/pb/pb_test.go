@@ -94,6 +94,38 @@ var _ = Describe("C++ PB Plugin", func() {
 			},
 		)
 
+		It(
+			"Should translate a generic use over an optional enum value",
+			func(ctx SpecContext) {
+				AddFilterSchema(loader)
+				source := `
+				import "schemas/x/filter"
+
+				@cpp output "client/cpp/thing"
+				@pb
+
+				Kind enum {
+					a = "a"
+				}
+				Level enum {
+					low = 1
+				}
+				Thing struct {
+					kind  filter.Set<Kind>?
+					level filter.Set<Level>?
+				}
+			`
+				resp := MustGenerate(ctx, source, "thing", loader, pbPlugin)
+				ExpectContent(resp, "thing/proto.gen.h").ToContain(
+					"kind_set_to_proto(const ::x::filter::Set<std::string>& self) {",
+					"if (self.eq.has_value()) {\n        auto [v, err] = kind_to_pb(*self.eq);",
+					"if (pb.has_eq()) {\n        auto [v, err] = kind_from_pb(pb.eq());",
+					"if (self.eq.has_value()) pb.set_eq(static_cast<pb::Level>(*self.eq));",
+					"if (pb.has_eq()) cpp.eq = static_cast<Level>(pb.eq());",
+				)
+			},
+		)
+
 		Context("field-level omit", func() {
 			DescribeTable(
 				"Should leave out a field omitted in cpp or pb",
