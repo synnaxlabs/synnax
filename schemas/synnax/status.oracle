@@ -101,5 +101,6 @@ Where filter Status {
         @doc value "matches statuses that have any of the given labels."
     }
 
+    @doc value  "is a filter that selects statuses."
     @go marshal
 }

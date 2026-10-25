@@ -51,6 +51,8 @@ export const payloadZ = z.object({
   },
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
+
+/** Where is a filter that selects ranges. */
 export type Where = {
   and?: Where[];
   or?: Where[];

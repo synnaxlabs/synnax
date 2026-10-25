@@ -57,6 +57,7 @@ func (r Range) Validate() error {
 	return v.Error()
 }
 
+// Where is a filter that selects ranges.
 type Where struct {
 	// And matches when every child matches.
 	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`

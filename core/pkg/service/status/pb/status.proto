@@ -88,6 +88,8 @@ message VariantSet {
 message LabelKeyList {
   repeated string values = 1;
 }
+
+// Where is a filter that selects statuses.
 message Where {
   // and matches when every child matches.
   WhereList and = 1;

@@ -62,6 +62,7 @@ Where filter Range {
         @doc value "matches ranges that have any of the given labels."
     }
 
+    @doc value "is a filter that selects ranges."
     @go marshal
 }
 

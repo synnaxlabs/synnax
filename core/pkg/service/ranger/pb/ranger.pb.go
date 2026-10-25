@@ -363,6 +363,7 @@ func (x *LabelKeyList) GetValues() []string {
 	return nil
 }
 
+// Where is a filter that selects ranges.
 type Where struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// and matches when every child matches.
