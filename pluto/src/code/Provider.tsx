@@ -11,11 +11,12 @@ import type * as monacoT from "@codingame/monaco-vscode-editor-api";
 import { type status } from "@synnaxlabs/client";
 import { context } from "@synnaxlabs/lyra/context";
 import { Status } from "@synnaxlabs/lyra/status";
-import { errors } from "@synnaxlabs/x";
+import { errors, TimeSpan } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactElement,
   use,
+  useEffect,
   useRef,
   useState,
 } from "react";
@@ -202,6 +203,29 @@ const LanguageServerRunner = ({
  * triggering its lazy initialization on first use. It throws to the nearest error
  * boundary if initialization fails. */
 export const useMonaco = (): Monaco => use(useContext().ensure());
+
+// The longest usePreload waits for an idle moment. WebKit has no idle callbacks, so
+// there it always waits this long.
+const PRELOAD_DELAY = TimeSpan.seconds(2).milliseconds;
+
+/**
+ * usePreload starts the Monaco runtime once the page is idle after mount, so the first
+ * editor opens without waiting for it. Each window that calls it pays for its own
+ * runtime (about 50 MB) and a client for each language server.
+ */
+export const usePreload = (): void => {
+  const { ensure } = useContext();
+  useEffect(() => {
+    // A failed start stays cached, and the first editor rethrows it.
+    const start = () => void ensure().catch(() => {});
+    if (typeof requestIdleCallback === "undefined") {
+      const timeout = setTimeout(start, PRELOAD_DELAY);
+      return () => clearTimeout(timeout);
+    }
+    const handle = requestIdleCallback(start, { timeout: PRELOAD_DELAY });
+    return () => cancelIdleCallback(handle);
+  }, []);
+};
 
 /** useLanguage returns the registered Language descriptor for the given id, or undefined
  * if none is registered. */
