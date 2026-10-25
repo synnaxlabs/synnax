@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/ui/auth/Card";
+export * from "@/ui/auth/Invited";
 export * from "@/ui/auth/Login";
 export * from "@/ui/auth/Reset";
 export * from "@/ui/auth/SignUp";

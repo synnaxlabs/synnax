@@ -67,6 +67,11 @@ interface FakeArgs {
   unavailable?: string[];
   /** refusal is what Clerk throws when it creates an invitation. */
   refusal?: Error;
+  pending?: {
+    id: string;
+    organizationId: string;
+    publicOrganizationData: { name: string } | null;
+  }[];
 }
 
 const createClient = ({
@@ -77,6 +82,7 @@ const createClient = ({
   listed = [],
   unavailable = [],
   refusal,
+  pending = [],
 }: FakeArgs = {}) => {
   const calls: Record<string, unknown[]> = {};
   const record = (name: string, args: unknown): void => {
@@ -92,6 +98,12 @@ const createClient = ({
       getOrganizationMembershipList: async (args: Paged & { userId: string }) => {
         record("memberships", args);
         return page(memberships, args);
+      },
+      getOrganizationInvitationList: async (
+        args: Paged & { userId: string; status: string },
+      ) => {
+        record("pending", args);
+        return page(pending, args);
       },
       getUserList: async (args: { userId: string[]; limit: number }) => {
         record("userList", args);
@@ -142,6 +154,11 @@ describe("directory", () => {
         user_c: [{ clerkOrgID: "org_acme", name: "Acme", role: ADMIN_ROLE }],
       },
       organizations: [{ clerkOrgID: "org_acme", name: "Acme" }],
+      invited: {
+        user_b: [
+          { invitationID: "orginv_1", clerkOrgID: "org_globex", name: "Globex" },
+        ],
+      },
     });
 
     it("should return a known person", async () => {
@@ -184,6 +201,13 @@ describe("directory", () => {
 
     it("should name known users and leave out unknown ones", async () => {
       expect(await directory.names(["user_a", "user_x"])).toEqual({ user_a: "Ada" });
+    });
+
+    it("should return a user's pending invitations, or none", async () => {
+      expect(await directory.pending("user_b")).toEqual([
+        { invitationID: "orginv_1", clerkOrgID: "org_globex", name: "Globex" },
+      ]);
+      expect(await directory.pending("user_a")).toEqual([]);
     });
 
     it("should serve records added after it was created", async () => {
@@ -468,6 +492,40 @@ describe("directory", () => {
           refusal: Object.assign(new Error("Down"), { status: 500 }),
         });
         await expect(directory.invite(INVITATION)).rejects.toThrow("Down");
+      });
+    });
+
+    describe("pending", () => {
+      it("should read every page of the user's pending invitations", async () => {
+        const { directory, calls } = createClient({
+          pending: range(150, (i) => ({
+            id: `orginv_${i}`,
+            organizationId: `org_${i}`,
+            publicOrganizationData: { name: `Org ${i}` },
+          })),
+        });
+        const invited = await directory.pending("user_a");
+        expect(invited).toHaveLength(150);
+        expect(invited[149]).toEqual({
+          invitationID: "orginv_149",
+          clerkOrgID: "org_149",
+          name: "Org 149",
+        });
+        expect(calls.pending).toEqual([
+          { userId: "user_a", status: "pending", limit: 100, offset: 0 },
+          { userId: "user_a", status: "pending", limit: 100, offset: 100 },
+        ]);
+      });
+
+      it("should throw for an invitation without its team", async () => {
+        const { directory } = createClient({
+          pending: [
+            { id: "orginv_1", organizationId: "org_1", publicOrganizationData: null },
+          ],
+        });
+        await expect(directory.pending("user_a")).rejects.toThrow(
+          "Clerk sent invitation orginv_1 without its team",
+        );
       });
     });
   });

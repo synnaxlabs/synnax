@@ -51,6 +51,11 @@ export interface Invitation {
   redirectURL: string;
 }
 
+/** Pending is a team invitation that its recipient has not accepted. */
+export interface Pending extends Listed {
+  invitationID: string;
+}
+
 /** ADMIN_ROLE is Clerk's role for members who manage a team. */
 export const ADMIN_ROLE = "org:admin";
 export const MEMBER_ROLE = "org:member";
@@ -73,6 +78,8 @@ export interface Directory {
    * @throws {HTTPError} 400 with Clerk's reason when Clerk refuses the invitation.
    */
   invite: (invitation: Invitation) => Promise<void>;
+  /** pending returns the team invitations the user has not accepted. */
+  pending: (userID: string) => Promise<Pending[]>;
 }
 
 type Client = ReturnType<typeof clerkClient>;
@@ -201,6 +208,21 @@ export const clerk = (client: Client): Directory => ({
         throw refused(e);
       });
   },
+  pending: async (userID) =>
+    await paged(
+      async (offset) =>
+        await client.users.getOrganizationInvitationList({
+          userId: userID,
+          status: "pending",
+          limit: PAGE,
+          offset,
+        }),
+      ({ id, organizationId, publicOrganizationData: org }) => {
+        if (org == null)
+          throw new Error(`Clerk sent invitation ${id} without its team`);
+        return { invitationID: id, clerkOrgID: organizationId, name: org.name };
+      },
+    ),
 });
 
 /** Records are what a {@link memory} directory serves. */
@@ -212,6 +234,8 @@ export interface Records {
   organizations: Listed[];
   /** invitations are every invitation sent, oldest first. */
   invitations: Invitation[];
+  /** invited maps a Clerk user id to the invitations the user has not accepted. */
+  invited: Record<string, Pending[]>;
 }
 
 /** memory serves a directory from records instead of Clerk. For tests. */
@@ -220,11 +244,13 @@ export const memory = ({
   members = {},
   organizations = [],
   invitations = [],
+  invited = {},
 }: Partial<Records> = {}): Directory & Records => ({
   people,
   members,
   organizations,
   invitations,
+  invited,
   person: async (userID) => {
     const person = people[userID];
     if (person == null) throw new Error(`no Clerk user ${userID}`);
@@ -248,4 +274,5 @@ export const memory = ({
   invite: async (invitation) => {
     invitations.push(invitation);
   },
+  pending: async (userID) => invited[userID] ?? [],
 });
