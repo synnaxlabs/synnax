@@ -7,13 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type DataType,
-  MultiSeries,
-  Series,
-  TimeRange,
-  TimeStamp,
-} from "@synnaxlabs/x";
+import { MultiSeries, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import {
@@ -67,8 +61,6 @@ class Member {
   from: number | null = null;
   // fresh is true from a landing until the member places a streamed sample.
   fresh = false;
-  // dataType is the data type of the member's last placed series.
-  dataType: DataType | null = null;
 
   constructor(
     readonly key: channel.Key,
@@ -228,7 +220,11 @@ export class Joins {
    * @param historyless - True when the members have no history to read.
    * @returns the index channels of the joins that wait.
    */
-  landed(index: channel.Key, keys: channel.Key[], historyless = false): Set<channel.Key> {
+  landed(
+    index: channel.Key,
+    keys: channel.Key[],
+    historyless = false,
+  ): Set<channel.Key> {
     const j = this.joins.get(index);
     if (j == null) return this.drain();
     keys.forEach((k) => {
@@ -238,7 +234,6 @@ export class Joins {
       m.historyless = historyless;
       m.from = null;
       m.fresh = true;
-      m.dataType = null;
     });
     const im = j.indexMember;
     if (!im.joined) return this.drain();
@@ -363,16 +358,6 @@ export class Joins {
     return false;
   }
 
-  // A new data type drops the channel's blocks, whether the stream or a read brought
-  // it.
-  private retyped(m: Member, dataType: DataType): boolean {
-    const changed =
-      this.store.retainDataType(m.key, dataType) ||
-      (m.dataType != null && !m.dataType.equals(dataType));
-    m.dataType = dataType;
-    return changed;
-  }
-
   private writeIndex(j: Join, series: Series[]): MultiSeries {
     const allocated = new MultiSeries([]);
     const im = j.indexMember;
@@ -388,7 +373,7 @@ export class Joins {
       }
       const runs = this.runs(j.index, s);
       const fresh = runs.filter((r): r is Run & { offset: number } => r.offset != null);
-      if (fresh.length > 0 && this.retyped(im, s.dataType)) {
+      if (fresh.length > 0 && this.store.retainDataType(j.index, s.dataType)) {
         this.waitJoin(j);
         im.hold(s);
         continue;
@@ -410,7 +395,7 @@ export class Joins {
   // block's coverage.
   private runs(index: channel.Key, s: Series): Run[] {
     const runs: Run[] = [];
-    for (let lo = 0; lo < s.length; ) {
+    for (let lo = 0; lo < s.length;) {
       const b = rawIndex(new TimeStamp(s.data[lo]));
       const end = tileRange({ level: RAW_LEVEL, index: b }).end.valueOf();
       const hi = search(s, end, lo);
@@ -478,7 +463,7 @@ export class Joins {
       });
     }
     if (pieces.length === 0) return true;
-    if (this.retyped(m, s.dataType)) return false;
+    if (this.store.retainDataType(m.key, s.dataType)) return false;
     pieces.forEach(({ block, p }) => allocated.push(this.store.append(block, p)));
     m.fresh = false;
     return true;
