@@ -219,8 +219,8 @@ export const createList = <
       notifyListeners(key);
     };
 
-    // Declared before its callers: when a function calls one declared after it, the
-    // compiler memoizes neither.
+    // Declared above its callers. The compiler caches neither function when a hook call
+    // sits between a caller and a callee declared below it.
     const openItemSub = (key: Key): void => {
       if (onChangeByKey == null || client == null) return;
       if (itemSubsRef.current.has(key)) return;
