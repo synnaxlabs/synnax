@@ -577,6 +577,11 @@ func renderGoFile(
 		if d.kind == declEnum && d.typ.Namespace != namespace {
 			continue
 		}
+		if d.kind != declStruct && domain.HasExprFromType(d.typ, "go", "to_any") {
+			return nil, nil, errors.Newf(
+				"%s: @go to_any goes on a struct", d.typ.QualifiedName,
+			)
+		}
 		if pred.aliased.Contains(d.typ.QualifiedName) {
 			if predAlias == "" {
 				predAlias = naming.DerivePackageName(pred.path)
@@ -599,7 +604,10 @@ func renderGoFile(
 			e := processEnum(d.typ)
 			data.Decls = append(data.Decls, declData{Enum: &e})
 		case declStruct:
-			s := processStruct(d.typ, procData)
+			s, err := processStruct(d.typ, procData)
+			if err != nil {
+				return nil, nil, err
+			}
 			data.Decls = append(data.Decls, declData{Struct: &s})
 		case declUnion:
 			u := processUnion(d.typ, procData)
@@ -755,7 +763,7 @@ func processTypeDef(td resolution.Type, data *templateData) typeDefData {
 	}
 }
 
-func processStruct(entry resolution.Type, data *templateData) structData {
+func processStruct(entry resolution.Type, data *templateData) (structData, error) {
 	form := entry.Form.(resolution.StructForm)
 	sd := structData{
 		Name:    entry.Name,
@@ -858,7 +866,60 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 		data.AddExternal(imp)
 	}
 
-	return sd
+	sd.ToAny = domain.HasExprFromType(entry, "go", "to_any")
+	if sd.ToAny {
+		if err := validateToAny(entry, form, sd); err != nil {
+			return structData{}, err
+		}
+	}
+	return sd, nil
+}
+
+// validateToAny errors when @go to_any marks a struct that its ToAny method cannot
+// convert field by field.
+func validateToAny(
+	entry resolution.Type,
+	form resolution.StructForm,
+	sd structData,
+) error {
+	name := entry.QualifiedName
+	if !sd.IsGeneric {
+		return errors.Newf("%s: @go to_any needs a type parameter", name)
+	}
+	for _, tp := range sd.TypeParams {
+		if tp.Constraint != "any" {
+			return errors.Newf(
+				"%s: @go to_any needs type parameter %s to be unconstrained, not %s",
+				name, tp.Name, tp.Constraint,
+			)
+		}
+	}
+	if len(form.Extends) > 0 {
+		return errors.Newf("%s: @go to_any does not support extends", name)
+	}
+	if len(sd.ExtraFields) > 0 {
+		return errors.Newf("%s: @go to_any cannot copy hand-written @go fields", name)
+	}
+	for _, f := range form.Fields {
+		bare := f.Type.IsTypeParam() && !f.Optional
+		if !bare && holdsTypeParam(f.Type) {
+			return errors.Newf(
+				"%s: @go to_any cannot convert field %s; a type parameter must be "+
+					"the whole type of a required field",
+				name, f.Name,
+			)
+		}
+	}
+	return nil
+}
+
+// holdsTypeParam reports whether ref is or contains a type parameter that Go keeps.
+// Go substitutes a defaulted type parameter with its default.
+func holdsTypeParam(ref resolution.TypeRef) bool {
+	if ref.IsTypeParam() {
+		return !ref.TypeParam.HasDefault()
+	}
+	return slices.ContainsFunc(ref.TypeArgs, holdsTypeParam)
 }
 
 // receiverName derives a method receiver from the type name. It widens to two letters
@@ -1056,6 +1117,23 @@ type structData struct {
 	IsGeneric        bool
 	IsAlias          bool
 	HasExtends       bool
+	// ToAny is set by @go to_any: the struct gets a ToAny method.
+	ToAny bool
+}
+
+// Instance renders the struct instantiated with its own type parameters.
+func (s structData) Instance() string {
+	names := make([]string, len(s.TypeParams))
+	for i, tp := range s.TypeParams {
+		names[i] = tp.Name
+	}
+	return s.Name + "[" + strings.Join(names, ", ") + "]"
+}
+
+// AnyInstance renders the struct instantiated with every type parameter set to any.
+func (s structData) AnyInstance() string {
+	anys := slices.Repeat([]string{"any"}, len(s.TypeParams))
+	return s.Name + "[" + strings.Join(anys, ", ") + "]"
 }
 
 type typeParamData struct {
@@ -1383,6 +1461,17 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 {{- end}}
 {{- end}}
 	return v.Error()
+}
+{{- end}}
+{{- if .ToAny}}
+
+// ToAny converts {{$s.Receiver}} to a {{$s.AnyInstance}}.
+func ({{$s.Receiver}} {{$s.Instance}}) ToAny() {{$s.AnyInstance}} {
+	return {{$s.AnyInstance}}{
+{{- range $s.Fields}}
+		{{.GoName}}: {{$s.Receiver}}.{{.GoName}},
+{{- end}}
+	}
 }
 {{- end}}
 {{- end}}

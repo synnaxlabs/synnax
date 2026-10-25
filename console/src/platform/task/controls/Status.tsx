@@ -14,7 +14,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status as PStatus } from "@synnaxlabs/lyra/status";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -41,7 +41,7 @@ export const Status = ({
   const message = stat.message || fallbackMessage;
   const ExpansionIcon = expanded ? Icon.Collapse : Icon.Expand;
 
-  const getCopyText = useCallback(() => status.toString(stat), [stat]);
+  const getCopyText = () => status.toString(stat);
 
   return (
     <Button.Button
