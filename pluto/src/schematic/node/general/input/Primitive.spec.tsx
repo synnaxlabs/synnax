@@ -71,14 +71,38 @@ describe("input symbol", () => {
       expect(isDirty(container)).toBe(false);
     });
 
-    it("should send the draft and clear the dirty mark on Set", () => {
-      const onSend = vi.fn();
-      const { container, getByText } = render(<Input value="hi" onSend={onSend} />);
-      const input = container.querySelector("input");
+    const sendBye = (onSend: (value: string) => void) => {
+      const r = render(<Input value="hi" onSend={onSend} />);
+      const input = r.container.querySelector("input");
       if (input == null) throw new Error("expected an input");
       fireEvent.change(input, { target: { value: "bye" } });
-      fireEvent.click(getByText("Set"));
+      fireEvent.click(r.getByText("Set"));
+      return { ...r, input };
+    };
+
+    it("should keep the sent value until the target reports it", () => {
+      const onSend = vi.fn();
+      const { container, input, rerender } = sendBye(onSend);
       expect(onSend).toHaveBeenCalledExactlyOnceWith("bye");
+      expect(input.value).toBe("bye");
+      expect(isDirty(container)).toBe(true);
+      rerender(<Input value="bye" onSend={onSend} />);
+      expect(input.value).toBe("bye");
+      expect(isDirty(container)).toBe(false);
+    });
+
+    it("should send the sent value again on a second Set during the wait", () => {
+      const onSend = vi.fn();
+      const { getByText } = sendBye(onSend);
+      fireEvent.click(getByText("Set"));
+      expect(onSend.mock.calls).toEqual([["bye"], ["bye"]]);
+    });
+
+    it("should follow the target once it reports another value", () => {
+      const onSend = vi.fn();
+      const { container, input, rerender } = sendBye(onSend);
+      rerender(<Input value="other" onSend={onSend} />);
+      expect(input.value).toBe("other");
       expect(isDirty(container)).toBe(false);
     });
   });

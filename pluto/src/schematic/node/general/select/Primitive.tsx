@@ -16,13 +16,7 @@ import { type Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Select as BaseSelect } from "@synnaxlabs/lyra/select";
 import { color } from "@synnaxlabs/x";
-import {
-  type CSSProperties,
-  type ReactElement,
-  type ReactNode,
-  useMemo,
-  useState,
-} from "react";
+import { type CSSProperties, type ReactElement, type ReactNode, useMemo } from "react";
 
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -63,11 +57,8 @@ export const Select = ({
   inlineSize,
   onClickDelay,
 }: RenderProps): ReactElement => {
-  // A draft is a chosen option not yet sent. Without one, the field follows the target.
-  const [draft, setDraft] = useState<string | null>(null);
-  const shown = draft ?? value;
-  const dirty = draft != null && draft !== value;
-  const matched = options.find((o) => o.key === shown);
+  const draft = Primitive.useDraft(value);
+  const matched = options.find((o) => o.key === draft.value);
   const symbolColor = color.rgbaString(fillColor);
   const style = useMemo<CSSProperties>(
     () => ({
@@ -84,7 +75,7 @@ export const Select = ({
         CSS.B("symbol-colored"),
         CSS.B("symbol-field"),
         symbolColor != null && CSS.M("colored"),
-        dirty && CSS.M("dirty"),
+        draft.dirty && CSS.M("dirty"),
         className,
       )}
       style={style}
@@ -122,8 +113,8 @@ export const Select = ({
       <Flex.Box y align="stretch" gap={0}>
         <Flex.Box x pack size={size}>
           <BaseSelect.Simple<string>
-            value={shown ?? undefined}
-            onChange={setDraft}
+            value={draft.value ?? undefined}
+            onChange={draft.edit}
             disabled={disabled}
             resourceName="option"
             triggerProps={{ size, className: CSS.BE("symbol-field", "control") }}
@@ -141,7 +132,7 @@ export const Select = ({
             onClick={() => {
               if (matched == null) return;
               onSend(matched.value);
-              setDraft(null);
+              draft.send();
             }}
             onClickDelay={onClickDelay}
             disabled={disabled}

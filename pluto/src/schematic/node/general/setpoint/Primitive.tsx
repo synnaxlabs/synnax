@@ -53,14 +53,12 @@ export const Setpoint = ({
   readback,
   inlineSize,
 }: RenderProps): ReactElement => {
-  // A draft is a typed value not yet sent. Without one, the field follows the target,
-  // and stays blank while no target is known.
-  const [draft, setDraft] = useState<number | null>(null);
+  const draft = Primitive.useDraft(value);
+  const shown = draft.value;
   // Numeric reports a value only on Enter or blur, so a keystroke marks the field
   // edited until then.
   const [edited, setEdited] = useState(false);
-  const shown = draft ?? value;
-  const dirty = edited || (draft != null && draft !== value);
+  const dirty = edited || draft.dirty;
   const inputRef = useRef<HTMLInputElement>(null);
   const symbolColor = color.rgbaString(fillColor);
   const mergedStyle = useMemo(
@@ -123,7 +121,7 @@ export const Setpoint = ({
           emptyValue={NaN}
           onChange={(v) => {
             setEdited(false);
-            setDraft(Number.isNaN(v) ? null : v);
+            draft.edit(Number.isNaN(v) ? null : v);
           }}
           onInput={() => setEdited(true)}
           onBlur={() => setEdited(false)}
@@ -139,7 +137,7 @@ export const Setpoint = ({
             onClick={() => {
               if (shown == null) return;
               onSend(shown);
-              setDraft(null);
+              draft.send();
             }}
             onClickDelay={onClickDelay}
             // WebKit leaves the input focused on a button press, so the typed value

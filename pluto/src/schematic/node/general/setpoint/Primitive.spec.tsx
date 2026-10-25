@@ -129,17 +129,42 @@ describe("setpoint symbol", () => {
       expect(isDirty(container)).toBe(true);
     });
 
-    it("should clear the dirty mark once Set sends the draft", () => {
-      const onSend = vi.fn();
-      const { container, getByText } = render(<Setpoint onSend={onSend} value={3} />);
-      const input = container.querySelector("input");
+    const sendFive = (onSend: (value: number) => void) => {
+      const r = render(<Setpoint onSend={onSend} value={3} />);
+      const input = r.container.querySelector("input");
       if (input == null) throw new Error("expected an input");
       input.focus();
       fireEvent.change(input, { target: { value: "5" } });
-      const btn = getByText("Set");
+      const btn = r.getByText("Set");
       fireEvent.mouseDown(btn);
       fireEvent.click(btn);
+      return { ...r, input, btn };
+    };
+
+    it("should keep the sent value until the target reports it", () => {
+      const onSend = vi.fn();
+      const { container, input, rerender } = sendFive(onSend);
       expect(onSend).toHaveBeenCalledExactlyOnceWith(5);
+      expect(input.value).toBe("5");
+      expect(isDirty(container)).toBe(true);
+      rerender(<Setpoint onSend={onSend} value={5} />);
+      expect(input.value).toBe("5");
+      expect(isDirty(container)).toBe(false);
+    });
+
+    it("should send the sent value again on a second Set during the wait", () => {
+      const onSend = vi.fn();
+      const { btn } = sendFive(onSend);
+      fireEvent.mouseDown(btn);
+      fireEvent.click(btn);
+      expect(onSend.mock.calls).toEqual([[5], [5]]);
+    });
+
+    it("should follow the target once it reports another value", () => {
+      const onSend = vi.fn();
+      const { container, input, rerender } = sendFive(onSend);
+      rerender(<Setpoint onSend={onSend} value={4} />);
+      expect(input.value).toBe("4");
       expect(isDirty(container)).toBe(false);
     });
   });
