@@ -17,7 +17,7 @@ import { Body, type BodyProps } from "@/select/Body";
 import { Dialog } from "@/select/Dialog";
 import { Frame, type MultipleFrameProps } from "@/select/Frame";
 import { MultipleTrigger, type MultipleTriggerProps } from "@/select/MultipleTrigger";
-import { searchWidthStyle, usePlaceholder } from "@/select/placeholder";
+import { usePlaceholder } from "@/select/placeholder";
 
 export interface MultipleProps<
   K extends record.Key,
@@ -105,10 +105,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
         >
           {renderTag}
         </MultipleTrigger>
-        <Dialog
-          {...dialogProps}
-          style={{ ...searchWidthStyle(resourceName), ...dialogProps?.style }}
-        >
+        <Dialog {...dialogProps}>
           <Body<K>
             onSearch={onSearch}
             emptyContent={emptyContent}

@@ -33,7 +33,8 @@ import { Triggers } from "@/triggers";
 /**
  * How a dialog attaches to its trigger.
  *
- * - `connected`: butts against the trigger and matches its width.
+ * - `connected`: butts against the trigger and matches its width, but never narrower
+ *   than its CSS min-width.
  * - `floating`: sits near the trigger at its own width.
  * - `modal`: centers over the page behind a backdrop.
  */
