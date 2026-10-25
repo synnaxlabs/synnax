@@ -79,9 +79,10 @@ lands on the thermocouple as 10 °C.
 ### 1.3 Type safety
 
 One Oracle schema produces the Go struct, the Zod schema, and the actions, with only
-`value` open. The client parses `value` with the field's schema before it sends, and a
-value that fails stays in the field with an error. The Core applies the action to the
-JSON form, decodes it with `json.RejectUnknownMembers`, and runs the generated
+`value` open. The client parses a value typed into a field with the field's schema
+before it sends, and a value that fails stays in the field with an error. Code builds
+the values of a batch or a list edit, so these send at once. The Core applies the action
+to the JSON form, decodes it with `json.RejectUnknownMembers`, and runs the generated
 `Validate`. A failure refuses the dispatch with a path error. Deploy's resolve step
 writes through the form, so no production code builds an action path by hand.
 
