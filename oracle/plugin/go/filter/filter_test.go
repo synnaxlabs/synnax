@@ -159,6 +159,24 @@ var _ = Describe("Go Filter Plugin", func() {
 				)
 		})
 
+		It("Should reject an invalid enum value at its path", func(ctx SpecContext) {
+			resp := MustGenerate(ctx, thing+`
+				Where filter Thing {
+					kind
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					"if !l.Eq.IsValid() {",
+					`errors.Wrapf(validate.ErrValidation, "invalid kind %q", *l.Eq)`,
+					`"eq",`,
+					"if !v.IsValid() {",
+					`errors.Wrapf(validate.ErrValidation, "invalid kind %q", v)`,
+					`"in",`,
+				)
+		})
+
 		It("Should compare ordered members in closures", func(ctx SpecContext) {
 			resp := MustGenerate(ctx, thing+`
 				Where filter Thing {
