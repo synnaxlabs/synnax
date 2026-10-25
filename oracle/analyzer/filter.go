@@ -553,6 +553,15 @@ func retrieveResponse(
 	c *analysisCtx, where, target resolution.Type, plural, words string,
 ) (resolution.Type, bool) {
 	elem := resolution.TypeRef{Name: target.QualifiedName}
+	// A generic target's table holds records of every type argument.
+	if form, ok := target.Form.(resolution.StructForm); ok {
+		for _, param := range form.TypeParams {
+			if param.HasDefault() {
+				break
+			}
+			elem.TypeArgs = append(elem.TypeArgs, resolution.TypeRef{Name: "any"})
+		}
+	}
 	domains := c.fileDomains
 	if dom, ok := where.Domains["response"]; ok {
 		expr, ok := dom.Expressions.Find("type")

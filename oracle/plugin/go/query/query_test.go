@@ -871,6 +871,57 @@ var _ = Describe("Go Query Plugin", func() {
 			)
 		})
 
+		Context("indexes retrieve", func() {
+			It(
+				"Should generate only the indexes of a generic type over any",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/status"
+
+					Status struct<Details?> {
+						key     string { @key }
+						name    string { @search }
+						details Details
+						@retrieve indexes
+					}
+				`
+					resp := MustGenerate(ctx, source, "status", loader, p)
+
+					ExpectContent(resp, "retrieve.gen.go").
+						ToContain(
+							"search *gorp.SearchIndex[string, Status[any]]",
+							"func newIndexes() indexes {",
+							"gorp.NewSearchIndex[string, Status[any]](",
+							"func(e *Status[any]) []string {",
+							"func (i indexes) all() []gorp.Index[string, Status[any]] {",
+						).
+						ToNotContain(
+							"type Retrieve struct",
+							"type Filter",
+							"func MatchKeys",
+							`"context"`,
+						)
+				},
+			)
+
+			It("Should reject @filter under @retrieve indexes", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/status"
+
+					Status struct {
+						key  string { @key }
+						name string { @filter }
+						@retrieve indexes
+					}
+				`
+				req := MustGenerateRequest(ctx, source, "status", loader)
+				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+					"status.Status: @retrieve indexes generates no matchers or " +
+						"orderings, so field name cannot take @filter or @index sorted",
+				)))
+			})
+		})
+
 		Context("key types", func() {
 			It("Should handle a string key type", func(ctx SpecContext) {
 				source := `

@@ -40,6 +40,7 @@ Thing struct {
 	aliased   filter.Set<Alias>
 	detail    filter.Set<Detail>
 	none      filter.Set<nil>
+	anything  filter.Set<any>
 	labels    filter.Set<map<string, Detail>>
 	direction filter.Ordered<filter.Direction>
 	name      filter.String
@@ -109,6 +110,11 @@ var _ = Describe("Of", func() {
 
 	It("Should leave a use over nil to the generic struct's message", func() {
 		_, ok := instance.Of(fieldOf("thing.Thing", "none").Type, "thing", table)
+		Expect(ok).To(BeFalse())
+	})
+
+	It("Should leave a use over any to the generic struct's message", func() {
+		_, ok := instance.Of(fieldOf("thing.Thing", "anything").Type, "thing", table)
 		Expect(ok).To(BeFalse())
 	})
 
