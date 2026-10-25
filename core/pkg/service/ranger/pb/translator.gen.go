@@ -14,9 +14,12 @@ package pb
 import (
 	"uuid"
 
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	labelpb "github.com/synnaxlabs/synnax/pkg/service/label/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	colorpb "github.com/synnaxlabs/x/color/pb"
+	filterpb "github.com/synnaxlabs/x/filter/pb"
 	telempb "github.com/synnaxlabs/x/telem/pb"
 )
 
@@ -114,6 +117,288 @@ func RangesFromPB(pbs []*Range) ([]ranger.Range, error) {
 	for i, pb := range pbs {
 		var err error
 		result[i], err = RangeFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// WhereToPB converts Where to Where.
+func WhereToPB(r ranger.Where) (*Where, error) {
+	pb := &Where{}
+	if r.And != nil {
+		vals, err := WheresToPB(r.And)
+		if err != nil {
+			return nil, err
+		}
+		pb.And = &WhereList{Values: vals}
+	}
+	if r.Or != nil {
+		vals, err := WheresToPB(r.Or)
+		if err != nil {
+			return nil, err
+		}
+		pb.Or = &WhereList{Values: vals}
+	}
+	if r.Not != nil {
+		var err error
+		pb.Not, err = WhereToPB(*r.Not)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Key != nil {
+		var err error
+		pb.Key, err = filterpb.SetToPB(*r.Key, nil)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Name != nil {
+		var err error
+		pb.Name, err = filterpb.StringToPB(*r.Name)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Overlaps != nil {
+		var err error
+		pb.Overlaps, err = telempb.TimeRangeToPB(*r.Overlaps)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Labels != nil {
+		pb.Labels = &KeyList{Values: lo.Map(r.Labels, func(u label.Key, _ int) string { return uuid.UUID(u).String() })}
+	}
+	return pb, nil
+}
+
+// WhereFromPB converts Where to Where.
+func WhereFromPB(pb *Where) (ranger.Where, error) {
+	var r ranger.Where
+	if pb == nil {
+		return r, nil
+	}
+	if pb.And != nil {
+		vals, err := WheresFromPB(pb.And.Values)
+		if err != nil {
+			return ranger.Where{}, err
+		}
+		r.And = vals
+	}
+	if pb.Or != nil {
+		vals, err := WheresFromPB(pb.Or.Values)
+		if err != nil {
+			return ranger.Where{}, err
+		}
+		r.Or = vals
+	}
+	if pb.Not != nil {
+		val, err := WhereFromPB(pb.Not)
+		if err != nil {
+			return ranger.Where{}, err
+		}
+		r.Not = &val
+	}
+	if pb.Key != nil {
+		val, err := filterpb.SetFromPB[any](pb.Key, nil)
+		if err != nil {
+			return ranger.Where{}, err
+		}
+		r.Key = &val
+	}
+	if pb.Name != nil {
+		val, err := filterpb.StringFromPB(pb.Name)
+		if err != nil {
+			return ranger.Where{}, err
+		}
+		r.Name = &val
+	}
+	if pb.Overlaps != nil {
+		val, err := telempb.TimeRangeFromPB(pb.Overlaps)
+		if err != nil {
+			return ranger.Where{}, err
+		}
+		r.Overlaps = &val
+	}
+	if pb.Labels != nil {
+		vals, err := func() ([]label.Key, error) {
+			result := make([]label.Key, len(pb.Labels.Values))
+			for i, s := range pb.Labels.Values {
+				parsed, err := uuid.Parse(s)
+				if err != nil {
+					return nil, err
+				}
+				result[i] = label.Key(parsed)
+			}
+			return result, nil
+		}()
+		if err != nil {
+			return ranger.Where{}, err
+		}
+		r.Labels = vals
+	}
+	return r, nil
+}
+
+// WheresToPB converts a slice of Where to Where.
+func WheresToPB(rs []ranger.Where) ([]*Where, error) {
+	result := make([]*Where, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = WhereToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// WheresFromPB converts a slice of Where to Where.
+func WheresFromPB(pbs []*Where) ([]ranger.Where, error) {
+	result := make([]ranger.Where, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = WhereFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RetrieveRequestToPB converts RetrieveRequest to RetrieveRequest.
+func RetrieveRequestToPB(r ranger.RetrieveRequest) (*RetrieveRequest, error) {
+	pb := &RetrieveRequest{}
+	if r.Where != nil {
+		var err error
+		pb.Where, err = WhereToPB(*r.Where)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.SearchTerm != nil {
+		pb.SearchTerm = r.SearchTerm
+	}
+	if r.Limit != nil {
+		pb.Limit = r.Limit
+	}
+	if r.Offset != nil {
+		pb.Offset = r.Offset
+	}
+	if r.IncludeLabels != nil {
+		pb.IncludeLabels = r.IncludeLabels
+	}
+	if r.IncludeParent != nil {
+		pb.IncludeParent = r.IncludeParent
+	}
+	return pb, nil
+}
+
+// RetrieveRequestFromPB converts RetrieveRequest to RetrieveRequest.
+func RetrieveRequestFromPB(pb *RetrieveRequest) (ranger.RetrieveRequest, error) {
+	var r ranger.RetrieveRequest
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Where != nil {
+		val, err := WhereFromPB(pb.Where)
+		if err != nil {
+			return ranger.RetrieveRequest{}, err
+		}
+		r.Where = &val
+	}
+	if pb.SearchTerm != nil {
+		r.SearchTerm = pb.SearchTerm
+	}
+	if pb.Limit != nil {
+		r.Limit = pb.Limit
+	}
+	if pb.Offset != nil {
+		r.Offset = pb.Offset
+	}
+	if pb.IncludeLabels != nil {
+		r.IncludeLabels = pb.IncludeLabels
+	}
+	if pb.IncludeParent != nil {
+		r.IncludeParent = pb.IncludeParent
+	}
+	return r, nil
+}
+
+// RetrieveRequestsToPB converts a slice of RetrieveRequest to RetrieveRequest.
+func RetrieveRequestsToPB(rs []ranger.RetrieveRequest) ([]*RetrieveRequest, error) {
+	result := make([]*RetrieveRequest, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = RetrieveRequestToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RetrieveRequestsFromPB converts a slice of RetrieveRequest to RetrieveRequest.
+func RetrieveRequestsFromPB(pbs []*RetrieveRequest) ([]ranger.RetrieveRequest, error) {
+	result := make([]ranger.RetrieveRequest, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = RetrieveRequestFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RetrieveResponseToPB converts RetrieveResponse to RetrieveResponse.
+func RetrieveResponseToPB(r ranger.RetrieveResponse) (*RetrieveResponse, error) {
+	rangesVal, err := RangesToPB(r.Ranges)
+	if err != nil {
+		return nil, err
+	}
+	pb := &RetrieveResponse{
+		Ranges: rangesVal,
+	}
+	return pb, nil
+}
+
+// RetrieveResponseFromPB converts RetrieveResponse to RetrieveResponse.
+func RetrieveResponseFromPB(pb *RetrieveResponse) (ranger.RetrieveResponse, error) {
+	var r ranger.RetrieveResponse
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Ranges, err = RangesFromPB(pb.Ranges)
+	if err != nil {
+		return ranger.RetrieveResponse{}, err
+	}
+	return r, nil
+}
+
+// RetrieveResponsesToPB converts a slice of RetrieveResponse to RetrieveResponse.
+func RetrieveResponsesToPB(rs []ranger.RetrieveResponse) ([]*RetrieveResponse, error) {
+	result := make([]*RetrieveResponse, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = RetrieveResponseToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RetrieveResponsesFromPB converts a slice of RetrieveResponse to RetrieveResponse.
+func RetrieveResponsesFromPB(pbs []*RetrieveResponse) ([]ranger.RetrieveResponse, error) {
+	result := make([]ranger.RetrieveResponse, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = RetrieveResponseFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

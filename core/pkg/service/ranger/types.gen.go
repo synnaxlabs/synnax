@@ -11,7 +11,14 @@
 
 package ranger
 
-import "github.com/synnaxlabs/synnax/pkg/service/ranger/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/versions"
+	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
+	"strconv"
+)
 
 // Key is a unique identifier for a range, represented as a UUID.
 type Key = versions.Key
@@ -38,3 +45,52 @@ type KeyRef = versions.KeyRef
 
 // WindowRef is a window carried inline: rolling or fixed.
 type WindowRef = versions.WindowRef
+
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Name selects by name.
+	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Overlaps matches ranges whose time range overlaps the given range.
+	Overlaps *telem.TimeRange `json:"overlaps,omitzero" msgpack:"overlaps,omitempty"`
+	// Labels matches ranges that have any of the given labels.
+	Labels []label.Key `json:"labels,omitzero" msgpack:"labels,omitempty"`
+}
+
+// RetrieveRequest is a request to retrieve ranges.
+type RetrieveRequest struct {
+	// Where selects the ranges to retrieve. An absent where selects all of them.
+	Where *Where `json:"where,omitzero" msgpack:"where,omitempty"`
+	// SearchTerm keeps the ranges that match the term, closest match first.
+	SearchTerm *string `json:"search_term,omitzero" msgpack:"search_term,omitempty"`
+	// Limit is the most ranges to return.
+	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
+	// Offset is the number of matching ranges to skip.
+	Offset *uint32 `json:"offset,omitzero" msgpack:"offset,omitempty"`
+	// IncludeLabels includes the labels of each record.
+	IncludeLabels *bool `json:"include_labels,omitzero" msgpack:"include_labels,omitempty"`
+	// IncludeParent includes the parent of each record.
+	IncludeParent *bool `json:"include_parent,omitzero" msgpack:"include_parent,omitempty"`
+}
+
+// RetrieveResponse holds the ranges a RetrieveRequest selects.
+type RetrieveResponse struct {
+	// Ranges are the ranges the request selects.
+	Ranges []Range `json:"ranges" msgpack:"ranges"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RetrieveResponse) Validate() error {
+	v := validate.New("RetrieveResponse")
+	for i := range r.Ranges {
+		v.Exec(func() error { return validate.PathedError(r.Ranges[i].Validate(), "ranges", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
