@@ -67,7 +67,7 @@ describe("Joins", () => {
   describe("landed", () => {
     it("should hold the series of waiting members until the join lands", () => {
       const { store, joins } = createJoins();
-      const { waiting } = joins.write(
+      const waiting = joins.write(
         createFrame(
           [INDEX, createIndex([1, 2, 3], 0n)],
           [DATA, createData([10, 20, 30], 0n)],
@@ -174,9 +174,9 @@ describe("Joins", () => {
       const { store, joins } = createJoined();
       joins.write(createFrame([INDEX, createIndex([3, 4], 2n)]));
       joins.write(createFrame([INDEX, createIndex([5, 6], 4n)]));
-      expect(
-        joins.write(createFrame([DATA, createData([30, 40], 2n)])).waiting,
-      ).toEqual(new Set());
+      expect(joins.write(createFrame([DATA, createData([30, 40], 2n)]))).toEqual(
+        new Set(),
+      );
       joins.write(createFrame([DATA, createData([50, 60], 4n)]));
       expect(streamed(store, DATA)).toEqual([10, 20, 30, 40, 50, 60]);
       expect(store.raw(DATA, BLOCK).coveredEnd).toEqual(at(6).add(1));
@@ -202,7 +202,7 @@ describe("Joins", () => {
 
     it("should send the join back to wait on a gap in its index stream", () => {
       const { store, joins } = createJoined();
-      const { waiting } = joins.write(
+      const waiting = joins.write(
         createFrame([INDEX, createIndex([4, 5], 5n)], [DATA, createData([40, 50], 5n)]),
       );
       expect(waiting).toEqual(new Set([INDEX]));
@@ -213,12 +213,12 @@ describe("Joins", () => {
 
     it("should continue the index stream into a new Core domain", () => {
       const { joins } = createJoined();
-      const { waiting } = joins.write(
+      const waiting = joins.write(
         createFrame([INDEX, createIndex([3], alignmentOf(1, 0))]),
       );
       expect(waiting.size).toBe(0);
       expect(
-        joins.write(createFrame([INDEX, createIndex([4], alignmentOf(2, 5))])).waiting,
+        joins.write(createFrame([INDEX, createIndex([4], alignmentOf(2, 5))])),
       ).toEqual(new Set([INDEX]));
     });
 
@@ -238,7 +238,7 @@ describe("Joins", () => {
       joins.write(
         createFrame([INDEX, createIndex([1, 2], 0n)], [DATA, createData([10, 20], 0n)]),
       );
-      const { waiting } = joins.write(
+      const waiting = joins.write(
         createFrame([INDEX, createIndex([3], 6n)], [DATA, createData([30], 6n)]),
       );
       expect(waiting.size).toBe(0);
@@ -247,7 +247,7 @@ describe("Joins", () => {
 
     it("should send back only a data member whose alignment has no index samples", () => {
       const { store, joins } = createJoined();
-      const { waiting } = joins.write(createFrame([DATA, createData([90], 50n)]));
+      const waiting = joins.write(createFrame([DATA, createData([90], 50n)]));
       expect(waiting).toEqual(new Set([INDEX]));
       expect(joins.waiting(INDEX)).toEqual([DATA]);
       expect(joins.joined(INDEX)).toBe(true);
@@ -256,7 +256,7 @@ describe("Joins", () => {
 
     it("should send back a member when the stream changes its data type", () => {
       const { store, joins } = createJoined();
-      const { waiting } = joins.write(
+      const waiting = joins.write(
         createFrame(
           [INDEX, createIndex([3], 2n)],
           [DATA, new Series({ data: new Float64Array([30]), alignment: 2n })],
@@ -270,7 +270,7 @@ describe("Joins", () => {
     it("should send back a member when a read changed its data type", () => {
       const { store, joins } = createJoined();
       store.retainDataType(DATA, DataType.FLOAT64);
-      const { waiting } = joins.write(
+      const waiting = joins.write(
         createFrame(
           [INDEX, createIndex([3], 2n)],
           [DATA, new Series({ data: new Float64Array([30]), alignment: 2n })],
@@ -282,10 +282,7 @@ describe("Joins", () => {
 
     it("should write the series of a channel in no join into the store", () => {
       const { store, joins } = createJoins();
-      const { allocated } = joins.write(
-        createFrame([3, createData([1, 2], 0n, spanOf([1, 2]))]),
-      );
-      expect(allocated.get(3)?.series).toEqual([store.leadingBuffer(3)]);
+      joins.write(createFrame([3, createData([1, 2], 0n, spanOf([1, 2]))]));
       expect(streamed(store, 3)).toEqual([1, 2]);
     });
   });

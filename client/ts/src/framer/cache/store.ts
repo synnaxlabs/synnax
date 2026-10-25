@@ -291,9 +291,8 @@ export class Store {
    * Appends a block-aligned piece to the stream's buffer of the block's channel, and
    * extends the block's coverage to the end of the piece. The block becomes the open
    * one, and the block it replaces closes, complete when the stream moved past it.
-   * @returns the buffers the append allocated.
    */
-  append(block: RawBlock, p: Series): MultiSeries {
+  append(block: RawBlock, p: Series): void {
     const live = this.liveOf(block.channel);
     if (live.block !== block || !block.joined) {
       if (live.block != null) this.seal(live, live.block.index < block.index);
@@ -306,17 +305,13 @@ export class Store {
       block.fill(res.flushed.series, block.coveredEnd, block.coveredCount);
     block.extend(p.timeRange.end, offsetOf(p.alignment) + p.length);
     this.set(rawKey(block.channel, block.index), block);
-    return res.allocated;
   }
 
   /**
    * Writes streamed series of the channel into the raw blocks of their start times. A
    * series with no time range goes into the block of the wall clock.
-   * @returns the buffers the write allocated. A write that fits the open buffer appends
-   * in place and returns none.
    */
-  write(ch: channel.Key, series: MultiSeries): MultiSeries {
-    const allocated = new MultiSeries([]);
+  write(ch: channel.Key, series: MultiSeries): void {
     for (const s of series.series) {
       this.retainDataType(ch, s.dataType);
       const live = this.liveOf(ch);
@@ -331,11 +326,9 @@ export class Store {
       }
       const res = live.buffer.write(new MultiSeries([s]));
       block.stream(res.flushed.series);
-      allocated.push(res.allocated);
       if (opened || res.flushed.series.length > 0 || res.allocated.series.length > 0)
         this.set(rawKey(ch, index), block);
     }
-    return allocated;
   }
 
   /**

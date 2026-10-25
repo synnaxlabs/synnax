@@ -326,27 +326,17 @@ describe("Store", () => {
       expect(Array.from(store.leadingBuffer(1) ?? [])).toEqual([1, 2]);
     });
 
-    it("should return only the buffers a write allocates", () => {
-      const store = new Store({ dynamicBufferSize: 100 });
-      const first = store.write(1, createWrite(1, [1, 2], 0n));
-      expect(first.series).toEqual([store.leadingBuffer(1)]);
-      const second = store.write(1, createWrite(3, [3], 2n));
-      expect(second.series).toEqual([]);
-      expect(Array.from(store.leadingBuffer(1) ?? [])).toEqual([1, 2, 3]);
-    });
-
     it("should close the open block when a series starts in the next one", () => {
       const store = new Store({ dynamicBufferSize: 100 });
       store.write(1, createWrite(60, [1, 2], 0n));
       const first = store.raw(1, 100);
       const buffer = store.leadingBuffer(1);
-      const allocated = store.write(1, createWrite(70, [3], 2n));
+      store.write(1, createWrite(70, [3], 2n));
       expect(first.buffer).toBeNull();
       expect(first.streamed).toEqual([buffer]);
       expect(buffer?.timeRange.end).toEqual(BLOCK.start.add(TimeSpan.seconds(62)));
       const next = store.raw(1, 101);
       expect(next.buffer).not.toBeNull();
-      expect(allocated.series).toEqual([store.leadingBuffer(1)]);
     });
 
     it("should keep a series that crosses a block edge whole in its first block", () => {

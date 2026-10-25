@@ -129,13 +129,6 @@ class Join {
   }
 }
 
-/** The buffers a write allocated, and the joins it sent back to wait. */
-export interface Written {
-  allocated: Map<channel.Key, MultiSeries>;
-  /** The index channels of the joins that wait for a catch-up read. */
-  waiting: Set<channel.Key>;
-}
-
 /**
  * Writes the stream's frames into the store, and joins the streams of joined channels
  * to their raw blocks. A join holds the streamed series of its index channel and of
@@ -259,23 +252,18 @@ export class Joins {
   }
 
   /** Writes a streamed frame, holding the series of joined channels that wait. */
-  write(frame: Map<channel.Key, Series[]>): Written {
-    const allocated = new Map<channel.Key, MultiSeries>();
+  write(frame: Map<channel.Key, Series[]>): Set<channel.Key> {
     frame.forEach((series, ch) => {
       const j = this.joins.get(ch);
-      if (j != null) allocated.set(ch, this.writeIndex(j, series));
+      if (j != null) this.writeIndex(j, series);
     });
     frame.forEach((series, ch) => {
       if (this.joins.has(ch)) return;
       const m = this.members.get(ch);
-      allocated.set(
-        ch,
-        m == null
-          ? this.store.write(ch, new MultiSeries(series))
-          : this.writeData(m, series),
-      );
+      if (m == null) this.store.write(ch, new MultiSeries(series));
+      else this.writeData(m, series);
     });
-    return { allocated, waiting: this.drain() };
+    return this.drain();
   }
 
   /**
@@ -365,8 +353,7 @@ export class Joins {
     this.store.flush(m.key);
   }
 
-  private writeIndex(j: Join, series: Series[]): MultiSeries {
-    const allocated = new MultiSeries([]);
+  private writeIndex(j: Join, series: Series[]): void {
     const im = j.indexMember;
     for (const s of series) {
       if (!im.joined) {
@@ -388,16 +375,13 @@ export class Joins {
         continue;
       }
       for (const { from, to, block, offset } of fresh)
-        allocated.push(
-          this.store.append(
-            this.store.raw(j.index, block),
-            piece(s, from, to, s, from, block, offset),
-          ),
+        this.store.append(
+          this.store.raw(j.index, block),
+          piece(s, from, to, s, from, block, offset),
         );
       if (fresh.length > 0) im.fresh = false;
       j.remember({ series: s, runs });
     }
-    return allocated;
   }
 
   // Splits an index series into the runs of each raw block, from the end of each
@@ -418,8 +402,7 @@ export class Joins {
     return runs;
   }
 
-  private writeData(m: Member, series: Series[]): MultiSeries {
-    const allocated = new MultiSeries([]);
+  private writeData(m: Member, series: Series[]): void {
     const j = m.join;
     for (const s of series) {
       if (!m.joined || !j.indexMember.joined) {
@@ -433,13 +416,12 @@ export class Joins {
       if (
         at == null ||
         at.pos + s.length > at.mapped.series.length ||
-        !this.place(m, s, at.mapped, at.pos, allocated)
+        !this.place(m, s, at.mapped, at.pos)
       ) {
         this.waitMember(m);
         m.hold(s);
       }
     }
-    return allocated;
   }
 
   // Writes the samples of a data series into the blocks its index samples went into.
@@ -450,7 +432,6 @@ export class Joins {
     s: Series,
     { series: times, runs }: Mapped,
     pos: number,
-    allocated: MultiSeries,
   ): boolean {
     const end = pos + s.length;
     const pieces: Array<{ block: RawBlock; p: Series }> = [];
@@ -476,7 +457,7 @@ export class Joins {
     }
     if (pieces.length === 0) return true;
     if (this.store.retainDataType(m.key, s.dataType)) return false;
-    pieces.forEach(({ block, p }) => allocated.push(this.store.append(block, p)));
+    pieces.forEach(({ block, p }) => this.store.append(block, p));
     m.fresh = false;
     return true;
   }

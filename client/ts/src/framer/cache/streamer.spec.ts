@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
-import { type MultiSeries, Series, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { Series, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { type channel } from "@/channel";
@@ -182,7 +182,7 @@ describe("MultiplexedStreamer", () => {
         },
         instrumentation: createErrorSpy().instrumentation,
       });
-      const sub = streamer.stream(() => {}, [1, 2, BAD]);
+      const sub = streamer.demand([1, 2, BAD], () => {});
       await vi.advanceTimersByTimeAsync(1000);
       expect(sub.status(1).variant).toEqual("success");
       expect(sub.status(2).variant).toEqual("success");
@@ -203,7 +203,7 @@ describe("MultiplexedStreamer", () => {
         },
         instrumentation: createErrorSpy().instrumentation,
       });
-      const sub = streamer.stream(() => {}, [BAD, 1]);
+      const sub = streamer.demand([BAD, 1], () => {});
       await vi.advanceTimersByTimeAsync(1000);
       expect(sub.status(1).variant).toEqual("success");
       expect(sub.status(BAD).variant).toEqual("error");
@@ -218,7 +218,7 @@ describe("MultiplexedStreamer", () => {
         },
         instrumentation: createErrorSpy().instrumentation,
       });
-      const sub = streamer.stream(() => {}, [BAD]);
+      const sub = streamer.demand([BAD], () => {});
       await vi.advanceTimersByTimeAsync(1000);
       expect(sub.status(BAD).variant).toEqual("error");
       await streamer.close();
@@ -234,11 +234,11 @@ describe("MultiplexedStreamer", () => {
         ),
         removalDelay: TimeSpan.milliseconds(10),
       });
-      const first = streamer.stream(() => {}, [1]);
+      const first = streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(200);
       first.close();
       await vi.advanceTimersByTimeAsync(500);
-      streamer.stream(() => {}, [1]);
+      streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(200);
       expect(hooks).toHaveLength(2);
       expect(hooks[0].signal).not.toBe(hooks[1].signal);
@@ -254,9 +254,9 @@ describe("MultiplexedStreamer", () => {
         openStreamer: createStreamOpener([ms]),
         instrumentation: createErrorSpy().instrumentation,
       });
-      const first = streamer.stream(() => {}, [1]);
+      const first = streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(200);
-      const second = streamer.stream(() => {}, [2, BAD]);
+      const second = streamer.demand([2, BAD], () => {});
       await vi.advanceTimersByTimeAsync(1000);
       expect(first.status(1).variant).toEqual("success");
       expect(second.status(2).variant).toEqual("success");
@@ -279,14 +279,14 @@ describe("MultiplexedStreamer", () => {
         removalDelay: TimeSpan.milliseconds(10),
         instrumentation: createErrorSpy().instrumentation,
       });
-      streamer.stream(() => {}, [1]);
+      streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(200);
-      const bad = streamer.stream(() => {}, [BAD]);
+      const bad = streamer.demand([BAD], () => {});
       await vi.advanceTimersByTimeAsync(1000);
       expect(attempts).toBe(1);
       bad.close();
       await vi.advanceTimersByTimeAsync(1000);
-      const again = streamer.stream(() => {}, [BAD]);
+      const again = streamer.demand([BAD], () => {});
       await vi.advanceTimersByTimeAsync(1000);
       expect(attempts).toBe(2);
       expect(again.status(BAD).variant).toEqual("error");
@@ -326,29 +326,20 @@ describe("MultiplexedStreamer", () => {
         ]),
       });
 
-      const responses: Map<channel.Key, MultiSeries>[] = [];
-      const sub = streamer.stream((d) => responses.push(d), [1]);
-      // The initial buffers land synchronously, before any stream is opened.
-      expect(responses).toHaveLength(1);
-      expect(responses[0].get(1)?.series.length).toEqual(0);
+      const frames: Map<channel.Key, Series[]>[] = [];
+      const sub = streamer.demand([1], (frame) => frames.push(frame));
       expect(sub.status(1).variant).toEqual("loading");
-      // Advance past the 100ms reconcile delay plus enough 5ms read cycles to get
-      // well over 5 responses.
+      // Advance past the 100ms reconcile delay plus enough 5ms read cycles to get well
+      // over 5 frames.
       await vi.advanceTimersByTimeAsync(200);
       sub.close();
 
-      expect(responses.length).toBeGreaterThan(5);
-      // We should only ever get data for that particular channel.
-      expect(responses.filter((r) => r.get(1)?.series.length === 0)).toHaveLength(
-        responses.length - 1,
-      );
-      // Only one response carries the allocated buffer; subsequent frames land in it
-      // and the handler re-reads it.
-      expect(responses.filter((r) => r.get(1)?.series.length === 1)).toHaveLength(1);
+      expect(frames.length).toBeGreaterThan(5);
+      frames.forEach((f) => expect([...f.keys()]).toEqual([1]));
       expect(sub.status(1).variant).toEqual("success");
     });
 
-    it("should deliver the allocated buffer when a frame repeats a key", async () => {
+    it("should deliver the series of a key a frame repeats together", async () => {
       const frame = new Frame(
         [1, 1],
         [
@@ -377,20 +368,17 @@ describe("MultiplexedStreamer", () => {
         ...createCache(),
         openStreamer: createStreamOpener([ms]),
       });
-      const responses: Map<channel.Key, MultiSeries>[] = [];
-      streamer.stream((d) => responses.push(d), [1]);
+      const frames: Map<channel.Key, Series[]>[] = [];
+      streamer.demand([1], (f) => frames.push(f));
       await vi.advanceTimersByTimeAsync(200);
-      // Both series land in one write, so the handler sees the allocated buffer
-      // holding both samples instead of an empty result from a second write.
-      const delivered = responses.filter((r) => (r.get(1)?.series.length ?? 0) > 0);
-      expect(delivered).toHaveLength(1);
-      expect(delivered[0].get(1)?.length).toEqual(2);
+      expect(frames).toHaveLength(1);
+      expect(frames[0].get(1)).toEqual(frame.series);
       await streamer.close();
     });
   });
 
   describe("reconcile race", () => {
-    it("should not open two concurrent streamers when stream() is called twice during a slow open", async () => {
+    it("should not open two concurrent streamers when demand() is called twice during a slow open", async () => {
       const ms1 = pendingStreamer([1]);
       const ms2 = pendingStreamer([1, 2]);
       const queue = [ms1, ms2];
@@ -408,10 +396,10 @@ describe("MultiplexedStreamer", () => {
         openStreamer: slowOpener,
       });
 
-      const sub1 = streamer.stream(() => {}, [1]);
+      const sub1 = streamer.demand([1], () => {});
       // Advance so reconcile #1 is mid-open (sleep ends at T=400).
       await vi.advanceTimersByTimeAsync(150);
-      const sub2 = streamer.stream(() => {}, [2]);
+      const sub2 = streamer.demand([2], () => {});
       await vi.advanceTimersByTimeAsync(700);
 
       expect(openCalls).toBe(1);
@@ -438,7 +426,7 @@ describe("MultiplexedStreamer", () => {
         openStreamer: opener,
       });
 
-      streamer.stream(() => {}, [1]);
+      streamer.demand([1], () => {});
       await streamer.close();
       await vi.advanceTimersByTimeAsync(500);
 
@@ -458,7 +446,7 @@ describe("MultiplexedStreamer", () => {
         openStreamer: slowOpener,
       });
 
-      streamer.stream(() => {}, [1]);
+      streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(150);
       // close() must wait for the in-flight reconcile to finish so that it can
       // observe the newly-assigned streamer and tear it down.
@@ -478,7 +466,7 @@ describe("MultiplexedStreamer", () => {
         removalDelay: TimeSpan.milliseconds(50),
       });
 
-      const sub = streamer.stream(() => {}, [1]);
+      const sub = streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(200);
       expect(ms1.closeVi).not.toHaveBeenCalled();
 
@@ -490,46 +478,13 @@ describe("MultiplexedStreamer", () => {
       expect(ms1.closeVi).toHaveBeenCalled();
     });
 
-    it("should throw when stream() is called after close()", async () => {
+    it("should throw when demand() is called after close()", async () => {
       const streamer = new MultiplexedStreamer({
         ...createCache(),
         openStreamer: createStreamOpener([]),
       });
       await streamer.close();
-      expect(() => streamer.stream(() => {}, [1])).toThrow(UnexpectedError);
-    });
-  });
-
-  describe("registration atomicity", () => {
-    it("should register no demand when the handler throws on its initial call", async () => {
-      const openedWith: unknown[] = [];
-      const opener = async (
-        config: framer.StreamerConfig,
-      ): Promise<framer.Streamer> => {
-        if (typeof config === "object" && "channels" in config)
-          openedWith.push(config.channels);
-        return pendingStreamer([2]);
-      };
-      const streamer = new MultiplexedStreamer({
-        ...createCache(),
-        openStreamer: opener,
-      });
-
-      expect(() =>
-        streamer.stream(() => {
-          throw new Error("broken handler");
-        }, [1]),
-      ).toThrow("broken handler");
-      await vi.advanceTimersByTimeAsync(500);
-      expect(openedWith).toHaveLength(0);
-
-      // A later subscriber must not drag the failed registration's keys onto the
-      // stream.
-      const responses: Map<channel.Key, MultiSeries>[] = [];
-      streamer.stream((d) => responses.push(d), [2]);
-      await vi.advanceTimersByTimeAsync(200);
-      expect(openedWith).toEqual([[2]]);
-      expect(responses).toHaveLength(1);
+      expect(() => streamer.demand([1], () => {})).toThrow(UnexpectedError);
     });
   });
 
@@ -541,13 +496,13 @@ describe("MultiplexedStreamer", () => {
         openStreamer: createStreamOpener([ms1]),
       });
 
-      const sub1 = streamer.stream(() => {}, [1]);
+      const sub1 = streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(200);
       expect(ms1.updateVi).not.toHaveBeenCalled();
 
       // Second subscriber on the same key: the merged set is still [1], so no
       // update round trip is issued.
-      const sub2 = streamer.stream(() => {}, [1]);
+      const sub2 = streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(200);
 
       expect(ms1.updateVi).not.toHaveBeenCalled();
@@ -576,9 +531,9 @@ describe("MultiplexedStreamer", () => {
       });
 
       try {
-        const sub1 = streamer.stream(() => {}, [1]);
+        const sub1 = streamer.demand([1], () => {});
         await vi.advanceTimersByTimeAsync(200);
-        const sub2 = streamer.stream(() => {}, [2]);
+        const sub2 = streamer.demand([2], () => {});
         // First update throws; the streamer must back off and retry on its own.
         await vi.advanceTimersByTimeAsync(2000);
         expect(updateCalls).toBeGreaterThanOrEqual(2);
@@ -609,7 +564,7 @@ describe("MultiplexedStreamer", () => {
         openStreamer: createStreamOpener([dying, replacement]),
       });
 
-      const sub = streamer.stream(() => {}, [1]);
+      const sub = streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(1000);
 
       expect(replacement.iteratorVi).toHaveBeenCalled();
@@ -628,9 +583,9 @@ describe("MultiplexedStreamer", () => {
         openStreamer: createStreamOpener([dying, replacement]),
       });
 
-      const sub1 = streamer.stream(() => {}, [1]);
+      const sub1 = streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(200);
-      const sub2 = streamer.stream(() => {}, [2]);
+      const sub2 = streamer.demand([2], () => {});
       await vi.advanceTimersByTimeAsync(200);
 
       // The loop dies mid-update, so its repair clears the sent keys before the
@@ -671,20 +626,18 @@ describe("MultiplexedStreamer", () => {
       });
 
       let brokenCalls = 0;
-      const broken = streamer.stream(() => {
+      const broken = streamer.demand([1], () => {
         brokenCalls++;
-        // Survive the initial synchronous call so registration completes, then
-        // throw on every live delivery.
-        if (brokenCalls > 1) throw new Error("broken live handler");
-      }, [1]);
-      const responses: Map<channel.Key, MultiSeries>[] = [];
-      const good = streamer.stream((d) => responses.push(d), [1]);
+        throw new Error("broken live handler");
+      });
+      const frames: Map<channel.Key, Series[]>[] = [];
+      const good = streamer.demand([1], (f) => frames.push(f));
       await vi.advanceTimersByTimeAsync(300);
       broken.close();
       good.close();
 
       expect(brokenCalls).toBeGreaterThan(5);
-      expect(responses.length).toBeGreaterThan(5);
+      expect(frames.length).toBeGreaterThan(5);
       expect(openCalls).toBe(1);
       expect(errorSpy).toHaveBeenCalledWith(
         "stream handler failed",
@@ -701,11 +654,11 @@ describe("MultiplexedStreamer", () => {
         instrumentation,
       });
 
-      const broken = streamer.stream(() => {}, [1]);
+      const broken = streamer.demand([1], () => {});
       broken.onStatusChange(() => {
         throw new Error("broken status handler");
       });
-      const good = streamer.stream(() => {}, [1]);
+      const good = streamer.demand([1], () => {});
       const statuses: string[] = [];
       good.onStatusChange((_, s) => statuses.push(s.variant));
       await vi.advanceTimersByTimeAsync(300);
@@ -729,7 +682,7 @@ describe("MultiplexedStreamer", () => {
         openStreamer: createStreamOpener([pendingStreamer([1])], hooks),
       });
       const transitions: string[] = [];
-      const sub = streamer.stream(() => {}, [1]);
+      const sub = streamer.demand([1], () => {});
       sub.onStatusChange((_, s) => transitions.push(s.variant));
       await vi.advanceTimersByTimeAsync(200);
       expect(sub.status(1).variant).toEqual("success");
@@ -852,7 +805,7 @@ describe("MultiplexedStreamer", () => {
         ]),
         removalDelay: TimeSpan.milliseconds(50),
       });
-      const sub = streamer.stream(() => {}, [1]);
+      const sub = streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(200);
       expect(store.leadingBuffer(1)).not.toBeNull();
 
@@ -883,8 +836,8 @@ describe("MultiplexedStreamer", () => {
         ]),
         removalDelay: TimeSpan.milliseconds(50),
       });
-      const sub1 = streamer.stream(() => {}, [1]);
-      const sub2 = streamer.stream(() => {}, [2]);
+      const sub1 = streamer.demand([1], () => {});
+      const sub2 = streamer.demand([2], () => {});
       await vi.advanceTimersByTimeAsync(200);
       expect(store.leadingBuffer(1)).not.toBeNull();
       expect(store.leadingBuffer(2)).not.toBeNull();
@@ -908,7 +861,7 @@ describe("MultiplexedStreamer", () => {
           hooks,
         ),
       });
-      const sub = streamer.stream(() => {}, [1]);
+      const sub = streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(200);
       expect(store.leadingBuffer(1)).not.toBeNull();
 
@@ -929,7 +882,7 @@ describe("MultiplexedStreamer", () => {
         ...createCache(store),
         openStreamer: createStreamOpener([dying, replacement]),
       });
-      const sub = streamer.stream(() => {}, [1]);
+      const sub = streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(1000);
 
       expect(replacement.iteratorVi).toHaveBeenCalled();
@@ -949,7 +902,7 @@ describe("MultiplexedStreamer", () => {
           oneFrameStreamer([1], new Frame({ 2: stampedSeries() })),
         ]),
       });
-      const sub = streamer.stream(() => {}, [1]);
+      const sub = streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(200);
 
       expect(store.leadingBuffer(2)).toBeNull();
@@ -983,7 +936,7 @@ describe("MultiplexedStreamer", () => {
         removalDelay: TimeSpan.milliseconds(50),
       });
 
-      const sub1 = streamer.stream(() => {}, [1]);
+      const sub1 = streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(200);
 
       // Last listener leaves: the no-keys teardown closes the streamer and awaits
@@ -993,7 +946,7 @@ describe("MultiplexedStreamer", () => {
 
       // A fresh subscription must still register even though the connection lock is
       // held by the stuck teardown.
-      const sub2 = streamer.stream(() => {}, [2]);
+      const sub2 = streamer.demand([2], () => {});
       expect(sub2.status(2).variant).toEqual("loading");
       sub2.close();
     });
@@ -1008,7 +961,7 @@ describe("MultiplexedStreamer", () => {
         removalDelay: TimeSpan.seconds(5),
       });
       const baseline = vi.getTimerCount();
-      const sub = streamer.stream(() => {}, [1]);
+      const sub = streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(200);
       sub.close();
       expect(vi.getTimerCount()).toBeGreaterThan(baseline);
@@ -1035,7 +988,7 @@ describe("MultiplexedStreamer", () => {
         instrumentation,
       });
 
-      streamer.stream(() => {}, [1]);
+      streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(200);
       expect(openCalls).toBe(1);
 
@@ -1044,7 +997,7 @@ describe("MultiplexedStreamer", () => {
       expect(errorSpy).toHaveBeenCalledWith("failed to close streamer", {
         error: closeErr,
       });
-      expect(() => streamer.stream(() => {}, [2])).toThrow(UnexpectedError);
+      expect(() => streamer.demand([2], () => {})).toThrow(UnexpectedError);
     });
   });
 });
