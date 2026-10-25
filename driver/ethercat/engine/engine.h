@@ -180,8 +180,8 @@ public:
             x::telem::Series &times
         );
 
-        /// @brief describes the samples dropped since the last call, or returns an
-        /// empty string when none were.
+        /// @brief explains, in full sentences, why samples were dropped since the last
+        /// call, or returns an empty string when none were.
         [[nodiscard]] std::string warning();
     };
 

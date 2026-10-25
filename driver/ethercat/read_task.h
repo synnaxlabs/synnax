@@ -227,7 +227,11 @@ public:
             fr.clear();
             return res;
         }
-        res.warning = this->reader->warning();
+        if (auto description = this->reader->warning(); !description.empty())
+            res.warning = {
+                .message = "Dropped samples",
+                .description = std::move(description),
+            };
         for (size_t i = this->cfg.channels.size(); i < fr.series->size(); ++i)
             fr.series->at(i).write(this->times);
         return res;

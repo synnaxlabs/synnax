@@ -462,10 +462,7 @@ TEST_F(EngineTest, DroppedSamplesFromFailedCyclesAreAWarning) {
     ASSERT_EVENTUALLY_GE(this->master->call_count("receive"), receives + 3);
     this->master->clear_injected_errors();
     EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
-    const auto warning = reader->warning();
-    EXPECT_TRUE(warning.starts_with("dropped ")) << warning;
-    EXPECT_TRUE(warning.ends_with(" samples from failed bus cycles: expected 3, got 1"))
-        << warning;
+    EXPECT_EQ(reader->warning(), "Bus cycles failed: expected 3, got 1.");
     EXPECT_EQ(reader->warning(), "");
 }
 
@@ -481,8 +478,10 @@ TEST_F(EngineTest, ReaderThatFallsBehindGetsAWarning) {
         std::chrono::seconds(6),
         std::chrono::milliseconds(100)
     );
-    EXPECT_TRUE(warning.ends_with(" samples because the task fell behind the bus"))
-        << warning;
+    EXPECT_EQ(
+        warning,
+        "The task cannot keep up with the bus. Lower the stream rate for the task."
+    );
     EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
 }
 
