@@ -198,7 +198,7 @@ export class Points {
       this.raw = this.raw.filter((s) => s.dataType.equals(dataType));
     }
     this.pin(home);
-    if (this.loading && this.loaded(home)) this.loading = false;
+    if (this.loading && this.loaded(targets)) this.loading = false;
     return {
       series: new MultiSeries(series),
       status: this.status(),
@@ -592,11 +592,9 @@ export class Points {
     this.pins = next;
   }
 
-  private loaded(home: TimeRange): boolean {
+  private loaded(targets: TileSpec[]): boolean {
     if (this.rawFilling) return false;
-    return this.targets(home, home, false).every((spec) =>
-      this.held.has(tileRequestKey(spec)),
-    );
+    return targets.every((spec) => this.held.has(tileRequestKey(spec)));
   }
 
   // Returns the end of the newest raw sample's span.

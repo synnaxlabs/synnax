@@ -178,6 +178,22 @@ describe("Points", () => {
     }
   });
 
+  it.each([
+    ["a zoomed view", { view: new TimeRange(START, START.add(TimeSpan.minutes(1))) }],
+    ["kept extremes", { aggregation: "average", extremesKept: true }],
+  ] as const)("should finish loading the tiles of %s", async (_, limit) => {
+    const core = createCore();
+    const { subscribe, close } = createPoints(core);
+    const window = staticWindow(new TimeRange(START, START.add(TimeSpan.minutes(8))));
+    const points = subscribe(core.data[0].key, window, { ...TILED, ...limit });
+    try {
+      await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+      expect(points.value().series.length).toBeGreaterThan(0);
+    } finally {
+      await close();
+    }
+  });
+
   it("should never pin a cached tile for a cut tile at its position", async () => {
     const core = createCore();
     const { store, subscribe, unsubscribe, close } = createPoints(core);
