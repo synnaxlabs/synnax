@@ -801,6 +801,23 @@ describe("MultiplexedStreamer", () => {
       await streamer.close();
     });
 
+    it("should remove a wait's abort listener when the wait settles", async () => {
+      const streamer = new MultiplexedStreamer({
+        ...createCache(),
+        openStreamer: createStreamOpener([pendingStreamer([1])]),
+      });
+      const sub = streamer.demand([1], () => {});
+      const { signal } = new AbortController();
+      const added = vi.spyOn(signal, "addEventListener");
+      const removed = vi.spyOn(signal, "removeEventListener");
+      const waited = streamer.waitAcked([1], signal);
+      await vi.advanceTimersByTimeAsync(200);
+      await waited;
+      expect(removed).toHaveBeenCalledWith("abort", added.mock.calls[0][1]);
+      sub.close();
+      await streamer.close();
+    });
+
     it("should reject a wait when its signal aborts or the streamer closes", async () => {
       const streamer = new MultiplexedStreamer({
         ...createCache(),
