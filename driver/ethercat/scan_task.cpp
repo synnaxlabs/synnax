@@ -81,8 +81,9 @@ parse_properties(const x::json::json &json) {
     auto parser = x::json::Parser(json);
     auto props = slave::Properties::parse(parser);
     if (parser.ok()) return {props, x::errors::NIL};
+    const auto report = parser.error_json();
     std::string problems;
-    for (const auto &e: parser.error_json()["errors"])
+    for (const auto &e: report["errors"])
         problems += (problems.empty() ? "" : "; ") + e["path"].get<std::string>() +
                     ": " + e["message"].get<std::string>();
     return {props, x::errors::Error(x::errors::VALIDATION, problems)};
