@@ -523,15 +523,20 @@ describe("MQTT Read form", () => {
     });
 
     it("should duplicate a tag with no channels", async () => {
+      const ch = await client.channels.create({
+        name: uniqueName("mqtt_tag"),
+        dataType: "float64",
+        virtual: true,
+      });
       const { draft } = await renderRead([
-        createTagEntry("s1", "flow", { channel: 12, name: "flow_ch" }),
+        createTagEntry("s1", "flow", { channel: ch.key, name: "flow_ch" }),
       ]);
       fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /flow/ }));
       fireEvent.click(await screen.findByText("Duplicate"));
       await waitFor(async () => {
         const entries = await retrieveEntries(draft.key);
         expect(entries).toMatchObject([
-          { key: "s1", channel: 12, name: "flow_ch" },
+          { key: "s1", channel: ch.key, name: "flow_ch" },
           { tag: "flow", channel: 0, name: "" },
         ]);
         expect(entries[1].key).not.toBe("s1");

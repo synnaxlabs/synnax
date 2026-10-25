@@ -316,15 +316,20 @@ describe("MQTT Write form", () => {
     });
 
     it("should duplicate a tag with no command channel", async () => {
+      const ch = await client.channels.create({
+        name: uniqueName("mqtt_cmd"),
+        dataType: "float32",
+        virtual: true,
+      });
       const { draft } = await renderWrite([
-        createTagTarget("s1", "setpoint", { channel: 12, tagType: "float" }),
+        createTagTarget("s1", "setpoint", { channel: ch.key, tagType: "float" }),
       ]);
       fireEvent.contextMenu(await screen.findByRole("option", { name: /setpoint/ }));
       fireEvent.click(await screen.findByText("Duplicate"));
       await waitFor(async () => {
         const targets = await retrieveTargets(draft.key);
         expect(targets).toMatchObject([
-          { key: "s1", channel: 12 },
+          { key: "s1", channel: ch.key },
           { tag: "setpoint", tagType: "float", channel: 0 },
         ]);
         expect(targets[1].key).not.toBe("s1");

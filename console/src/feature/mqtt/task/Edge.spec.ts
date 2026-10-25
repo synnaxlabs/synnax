@@ -180,7 +180,8 @@ describe("MQTT Edge form", () => {
 
   it("should name the command channel of a tag without creating it", async () => {
     const name = uniqueName("zone 1/setpoint");
-    const { draft } = await renderEdge([createTag("t1", { name, channel: 1 })]);
+    const ch = await createDataChannel();
+    const { draft } = await renderEdge([createTag("t1", { name, channel: ch.key })]);
     await addCommandChannel();
     const cmdName = `${name.replace(/[ /]/g, "_")}_cmd`;
     await screen.findByText(cmdName);
@@ -193,7 +194,10 @@ describe("MQTT Edge form", () => {
   });
 
   it("should refuse a command channel for a tag with no name", async () => {
-    const { draft, statuses } = await renderEdge([createTag("t1", { channel: 1 })]);
+    const ch = await createDataChannel();
+    const { draft, statuses } = await renderEdge([
+      createTag("t1", { channel: ch.key }),
+    ]);
     await addCommandChannel();
     await waitFor(() =>
       expect(
@@ -208,11 +212,12 @@ describe("MQTT Edge form", () => {
   });
 
   it("should remove the command channel of a tag without deleting it", async () => {
+    const ch = await createDataChannel();
     const cmd = await createDataChannel();
     const { draft } = await renderEdge([
       createTag("t1", {
         name: "setpoint",
-        channel: 1,
+        channel: ch.key,
         commandChannel: cmd.key,
         commandChannelName: cmd.name,
       }),
@@ -231,9 +236,10 @@ describe("MQTT Edge form", () => {
   });
 
   it("should rename the command channel through the context menu", async () => {
+    const ch = await createDataChannel();
     const cmd = await createDataChannel();
     await renderEdge([
-      createTag("t1", { name: "setpoint", channel: 1, commandChannel: cmd.key }),
+      createTag("t1", { name: "setpoint", channel: ch.key, commandChannel: cmd.key }),
     ]);
     await screen.findByText(cmd.name);
     await openTagMenu();
@@ -247,9 +253,10 @@ describe("MQTT Edge form", () => {
   });
 
   it("should withhold rename from a subject who cannot update channels", async () => {
+    const ch = await createDataChannel();
     const cmd = await createDataChannel();
     await renderEdge(
-      [createTag("t1", { name: "setpoint", channel: 1, commandChannel: cmd.key })],
+      [createTag("t1", { name: "setpoint", channel: ch.key, commandChannel: cmd.key })],
       { as: await createChannelReadOnlyClient(client) },
     );
     await screen.findByText(cmd.name);
