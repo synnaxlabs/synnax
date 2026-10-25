@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type destructor } from "@/destructor";
+import { withTimeout } from "@/sync/timeout";
 import { type CrudeTimeSpan, TimeSpan } from "@/telem";
 
 /** Handler is called when the value of an Observable changes. */
@@ -41,22 +42,23 @@ export const until = async <V>(
 ): Promise<V> => {
   const value = current();
   if (predicate(value)) return value;
-  return await new Promise<V>((resolve, reject) => {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const detach = observable.onChange((value) => {
-      if (!predicate(value)) return;
-      if (timer != null) clearTimeout(timer);
-      detach();
-      resolve(value);
+  let detach: destructor.Destructor | undefined;
+  const satisfied = new Promise<V>((resolve) => {
+    detach = observable.onChange((value) => {
+      if (predicate(value)) resolve(value);
     });
-    if (timeout != null) {
-      const span = new TimeSpan(timeout);
-      timer = setTimeout(() => {
-        detach();
-        reject(new Error(`timed out after ${span.toString()}`));
-      }, span.milliseconds);
-    }
   });
+  try {
+    if (timeout == null) return await satisfied;
+    const span = new TimeSpan(timeout);
+    return await withTimeout(
+      satisfied,
+      span,
+      () => new Error(`timed out after ${span.toString()}`),
+    );
+  } finally {
+    detach?.();
+  }
 };
 
 /** An Observable that can be closed using an async function. */
