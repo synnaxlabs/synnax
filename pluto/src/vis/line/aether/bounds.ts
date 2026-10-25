@@ -14,13 +14,8 @@ export const seriesOverlap = (
   ys: Series,
   overlapThreshold: TimeSpan,
 ): boolean => {
-  if (x.alignmentMultiple !== ys.alignmentMultiple) {
-    console.warn(
-      "encountered two series with different alignment multiples in draw operations",
-      { x: x.digest, y: ys.digest },
-    );
-    return false;
-  }
+  // Samples pair by alignment only when both series step through it equally.
+  if (x.alignmentMultiple !== ys.alignmentMultiple) return false;
   // If the time ranges of the x and y series overlap, we meet the first condition
   // for drawing them together. Dynamic buffering can sometimes lead to very slight,
   // unintended overlaps, so we only consider them overlapping if they overlap by a

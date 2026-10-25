@@ -29,7 +29,6 @@ var _ = Describe("ServiceConfig", func() {
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
-			Search:   searchIdx,
 		}
 	})
 	Describe("Override", func() {
@@ -40,7 +39,6 @@ var _ = Describe("ServiceConfig", func() {
 				Expect(result.DB).To(Equal(db))
 				Expect(result.Ontology).To(Equal(otg))
 				Expect(result.Group).To(Equal(groupSvc))
-				Expect(result.Search).To(Equal(searchIdx))
 			},
 		)
 		It(
@@ -50,7 +48,6 @@ var _ = Describe("ServiceConfig", func() {
 				Expect(result.DB).To(Equal(db))
 				Expect(result.Ontology).To(Equal(otg))
 				Expect(result.Group).To(Equal(groupSvc))
-				Expect(result.Search).To(Equal(searchIdx))
 			},
 		)
 	})
@@ -78,11 +75,6 @@ var _ = Describe("ServiceConfig", func() {
 				"group",
 				func(c *user.ServiceConfig) { c.Group = nil },
 				"group: must be non-nil",
-			),
-			Entry(
-				"search",
-				func(c *user.ServiceConfig) { c.Search = nil },
-				"search: must be non-nil",
 			),
 		)
 	})

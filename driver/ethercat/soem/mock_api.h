@@ -65,6 +65,8 @@ public:
     std::map<uint16_t, int16_t> sii_categories;
     /// @brief SII bytes returned by siigetbyte, keyed by address.
     std::map<uint16_t, uint8_t> sii_bytes;
+    /// @brief SII strings returned by siistring, keyed by string index.
+    std::map<uint16_t, std::string> sii_strings;
     int readODlist_return = 0;
     bool close_called = false;
     bool init_called = false;
@@ -78,6 +80,8 @@ public:
     /// @brief entry names and CoE data types returned by readOEsingle, keyed by index
     /// and sub-index.
     std::map<std::pair<uint16_t, uint8_t>, std::pair<std::string, uint16_t>> oe_entries;
+    /// @brief object names returned by readODdescription, keyed by index.
+    std::map<uint16_t, std::string> od_names;
     int readstate_count = 0;
     /// @brief the state reconfig_slave returns.
     int reconfig_return = EC_STATE_SAFE_OP;
@@ -87,6 +91,13 @@ public:
     std::vector<uint16_t> recovered_slaves;
     /// @brief slaves passed to writestate, in call order.
     std::vector<uint16_t> written_slaves;
+    /// @brief the value count_bus_slaves returns, or nullopt for the slave count.
+    std::optional<int> bus_slaves;
+    /// @brief whether the mapped group carries the reference clock time.
+    bool hasdc = false;
+    int configdc_count = 0;
+    /// @brief the value dc_time returns.
+    int64_t dc_time_value = 0;
 
 private:
     uint8_t *iomap_ptr = nullptr;
@@ -145,6 +156,17 @@ public:
         return lowest;
     }
 
+    int count_bus_slaves() override {
+        return this->bus_slaves.value_or(static_cast<int>(this->slave_infos.size()));
+    }
+
+    bool configdc() override {
+        this->configdc_count++;
+        return this->hasdc;
+    }
+
+    [[nodiscard]] int64_t dc_time() const override { return this->dc_time_value; }
+
     int reconfig_slave(uint16_t slave, int) override {
         this->reconfigured_slaves.push_back(slave);
         return this->reconfig_return;
@@ -200,9 +222,22 @@ public:
         return it == this->sii_bytes.end() ? 0 : it->second;
     }
 
-    void siistring(char *str, uint16_t, uint16_t) override { str[0] = '\0'; }
+    void siistring(char *str, uint16_t, uint16_t sn) override {
+        const auto it = this->sii_strings.find(sn);
+        const std::string value = it == this->sii_strings.end() ? "" : it->second;
+        std::strncpy(str, value.c_str(), EC_MAXNAME);
+        str[EC_MAXNAME] = '\0';
+    }
 
     int readODlist(uint16_t, ec_ODlistt *) override { return this->readODlist_return; }
+
+    int readODdescription(uint16_t item, ec_ODlistt *od_list) override {
+        const auto it = this->od_names.find(od_list->Index[item]);
+        if (it == this->od_names.end()) return 0;
+        std::strncpy(od_list->Name[item], it->second.c_str(), EC_MAXNAME);
+        od_list->Name[item][EC_MAXNAME] = '\0';
+        return 1;
+    }
 
     int readOEsingle(
         uint16_t item,
@@ -324,6 +359,10 @@ public:
 
     [[nodiscard]] uint16_t group_inputsWKC(uint8_t group) const override {
         return group == this->mapped_group ? this->inputs_wkc : 0;
+    }
+
+    [[nodiscard]] bool group_hasdc(uint8_t group) const override {
+        return group == this->mapped_group && this->hasdc;
     }
 };
 

@@ -225,6 +225,17 @@ build:ubsan --copt=-fdebug-prefix-map=/proc/self/cwd=.
 build:ubsan --linkopt=-fsanitize=undefined
 build:ubsan --test_env=UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
 
+# ThreadSanitizer (TSan) - Detects data races and lock-order inversions. Cannot be
+# combined with ASan.
+build:tsan --copt=-fsanitize=thread
+build:tsan --copt=-fno-omit-frame-pointer
+build:tsan --copt=-O1
+build:tsan --copt=-g
+build:tsan --copt=-fdebug-prefix-map=/proc/self/cwd=.
+build:tsan --linkopt=-fsanitize=thread
+build:tsan --test_env=TSAN_OPTIONS=halt_on_error=1:second_deadlock_stack=1
+build:tsan --test_timeout=120,600,1800,3600  # TSan adds ~5-15x overhead
+
 # Combined sanitizers (recommended for local development)
 build:sanitize --config=asan
 build:sanitize --config=ubsan

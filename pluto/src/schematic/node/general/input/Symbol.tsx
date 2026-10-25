@@ -11,7 +11,7 @@ import { type channel, type schematic } from "@synnaxlabs/client";
 import { type Component } from "@synnaxlabs/lyra/component";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { type color } from "@synnaxlabs/x";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
@@ -41,7 +41,7 @@ const Readback = ({
   stalenessTimeout,
 }: ReadbackProps): ReactElement => {
   const theme = Theming.use();
-  const source = useMemo(() => telem.streamChannelStringValue({ channel }), [channel]);
+  const source = telem.streamChannelStringValue({ channel });
   const { value, stale } = StringValue.use({
     aetherKey: `${nodeKey}-readback`,
     telem: source,
@@ -72,11 +72,8 @@ export const Symbol = ({
     ...rest
   },
 }: NodeProps<schematic.InputNodeConfig>): ReactElement => {
-  const sink = useMemo(() => Telem.stringSink(commandChannel), [commandChannel]);
-  const source = useMemo(
-    () => telem.streamChannelStringValue({ channel: commandChannel ?? 0 }),
-    [commandChannel],
-  );
+  const sink = Telem.stringSink(commandChannel);
+  const source = telem.streamChannelStringValue({ channel: commandChannel ?? 0 });
   const { set, value } = InputTelem.use({ aetherKey: nodeKey, sink, source });
   const resize = Grid.useInlineResize(inlineSize, (inlineSize) =>
     onConfigChange({ inlineSize }),

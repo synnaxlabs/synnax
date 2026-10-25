@@ -68,6 +68,36 @@ const COMPILER_RULES: Linter.RulesRecord = {
   "synnax/named-hook-values": "error",
 };
 
+const RESTRICTED_SYNTAX = [
+  {
+    selector: "JSXAttribute > JSXExpressionContainer > Literal.expression[value=true]",
+    message: "Write a true boolean attribute without a value.",
+  },
+];
+
+const MEMO_MESSAGE =
+  "The React Compiler caches values and functions. Write a plain value or function.";
+
+/** Bans manual useMemo and useCallback calls in a package built with the compiler. */
+export const reactCompiled: Linter.Config = {
+  rules: {
+    // A later config replaces the rule's whole selector list, so this one repeats it.
+    "no-restricted-syntax": [
+      "error",
+      ...RESTRICTED_SYNTAX,
+      {
+        selector: "CallExpression[callee.name=/^use(Memo|Callback)$/]",
+        message: MEMO_MESSAGE,
+      },
+      {
+        selector:
+          "CallExpression[callee.object.name='React'][callee.property.name=/^use(Memo|Callback)$/]",
+        message: MEMO_MESSAGE,
+      },
+    ],
+  },
+};
+
 const gitignorePath = path.join(import.meta.dirname, "../../.gitignore");
 
 const reactPreset = pluginReact.configs["recommended-type-checked"];
@@ -157,14 +187,7 @@ const config: Linter.Config[] = [
         "error",
         { props: "never", children: "never" },
       ],
-      "no-restricted-syntax": [
-        "error",
-        {
-          selector:
-            "JSXAttribute > JSXExpressionContainer > Literal.expression[value=true]",
-          message: "Write a true boolean attribute without a value.",
-        },
-      ],
+      "no-restricted-syntax": ["error", ...RESTRICTED_SYNTAX],
       "@eslint-react/no-missing-component-display-name": "error",
       "@eslint-react/no-missing-context-display-name": "error",
       "@eslint-react/jsx-no-useless-fragment": "error",
@@ -297,6 +320,7 @@ const config: Linter.Config[] = [
       "**/*.d.ts",
       "examples",
       "vite.config.ts",
+      "vitest.bench.config.ts",
       "stylelint.config.js",
       "bazel-bin",
       "bazel-out",

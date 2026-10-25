@@ -17,6 +17,7 @@
 
 #include "x/cpp/loop/loop.h"
 
+#include "driver/ethercat/engine/clock.h"
 #include "driver/ethercat/engine/engine.h"
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/telem/telem.h"
@@ -113,21 +114,9 @@ std::pair<std::vector<pdo::Offset>, x::errors::Error> resolve_offsets(
     std::vector<pdo::Offset> offsets;
     offsets.reserve(entries.size());
     for (const auto &entry: entries) {
-        const auto name = telem::format_index_sub_index(entry.index, entry.sub_index);
-        const auto offset = master.pdo_offset(entry);
-        if (!offset)
-            return {
-                {},
-                x::errors::Error(
-                    errors::PDO_MAPPING_ERROR,
-                    std::format(
-                        "PDO {} is not in the process image of slave {}",
-                        name,
-                        entry.slave_position
-                    )
-                )
-            };
-        if (offset->byte + telem::pdo_required_bytes(offset->bit, entry.bit_length) >
+        const auto [offset, err] = master.pdo_offset(entry);
+        if (err) return {{}, err};
+        if (offset.byte + telem::pdo_required_bytes(offset.bit, entry.bit_length) >
             image_size)
             return {
                 {},
@@ -135,12 +124,12 @@ std::pair<std::vector<pdo::Offset>, x::errors::Error> resolve_offsets(
                     errors::PDO_MAPPING_ERROR,
                     std::format(
                         "PDO {} on slave {} lies outside the process image",
-                        name,
+                        telem::format_index_sub_index(entry.index, entry.sub_index),
                         entry.slave_position
                     )
                 )
             };
-        offsets.push_back(*offset);
+        offsets.push_back(offset);
     }
     return {offsets, x::errors::NIL};
 }
@@ -220,6 +209,7 @@ void Engine::run() {
     uint64_t receive_failures = 0;
     uint64_t send_failures = 0;
     x::telem::TimeStamp sent_at{};
+    Clock clock;
 
     const auto send = [&] {
         sent_at = x::telem::TimeStamp::now();
@@ -267,7 +257,7 @@ void Engine::run() {
             VLOG(1) << "[ethercat] cycle overrun: " << elapsed;
 
         // The slaves latched these inputs when the previous cycle's frame passed.
-        const auto latched_at = sent_at;
+        auto latched_at = sent_at;
         const auto err = this->master->receive();
         if (err) {
             if (receive_failures++ == 0) {
@@ -276,10 +266,14 @@ void Engine::run() {
                 std::lock_guard lock(this->cycle_err_mu);
                 this->cycle_err = err;
             }
-        } else if (receive_failures > 0) {
-            LOG(INFO) << "[ethercat] cycles recovered on " << iface << " after "
-                      << receive_failures << " failures";
-            receive_failures = 0;
+        } else {
+            if (const auto dc = this->master->dc_time())
+                latched_at = clock.map(*dc, sent_at);
+            if (receive_failures > 0) {
+                LOG(INFO) << "[ethercat] cycles recovered on " << iface << " after "
+                          << receive_failures << " failures";
+                receive_failures = 0;
+            }
         }
         const uint8_t *image = this->master->input_data().data();
         for (const auto &[input, decimation]: sched->inputs) {
@@ -570,9 +564,18 @@ x::telem::Rate Engine::cycle_rate() const {
     return x::telem::Rate(this->cycle_hz.load(std::memory_order_acquire));
 }
 
-x::errors::Error Engine::ensure_initialized() const {
+x::errors::Error Engine::ensure_initialized() {
     std::lock_guard lock(this->mu);
     if (this->running()) return x::errors::NIL;
+    if (auto err = this->master->initialize()) return err;
+    const auto [count, err] = this->master->count_slaves();
+    if (err) return err;
+    const auto discovered = this->master->slaves().size();
+    if (count == discovered) return x::errors::NIL;
+    LOG(INFO) << "[ethercat] " << count << " slaves answer on "
+              << this->master->interface_name() << " where " << discovered
+              << " were discovered, rediscovering";
+    this->master->deactivate();
     return this->master->initialize();
 }
 

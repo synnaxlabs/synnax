@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/config"
@@ -60,11 +59,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Group *group.Service
-	// Search is the search index used by the role and policy sub-services for name
-	// lookups.
-	//
-	// [REQUIRED]
-	Search *search.Index
 	// User is the user service used to load existing root users so the Owner role can
 	// be assigned to them during startup.
 	//
@@ -81,7 +75,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Group = override.Nil(c.Group, other.Group)
-	c.Search = override.Nil(c.Search, other.Search)
 	c.User = override.Nil(c.User, other.User)
 	return c
 }
@@ -92,7 +85,6 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotNil("ontology", c.Ontology)
 	v.NotNil("group", c.Group)
-	v.NotNil("search", c.Search)
 	v.NotNil("user", c.User)
 	return v.Error()
 }
@@ -136,7 +128,6 @@ func OpenService(
 		DB:              cfg.DB,
 		Signals:         cfg.Signals,
 		Ontology:        cfg.Ontology,
-		Search:          cfg.Search,
 	}); !ok(err, s.Policy) {
 		return nil, err
 	}
@@ -146,7 +137,6 @@ func OpenService(
 		Ontology:        cfg.Ontology,
 		Signals:         cfg.Signals,
 		Group:           cfg.Group,
-		Search:          cfg.Search,
 	}); !ok(err, s.Role) {
 		return nil, err
 	}

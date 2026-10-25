@@ -141,7 +141,7 @@ struct Properties {
         return props;
     }
 
-    /// @brief serializes this slave's properties to JSON.
+    /// @brief serializes this slave's properties to JSON, leaving out padding entries.
     [[nodiscard]] nlohmann::json to_json() const {
         nlohmann::json props;
         props["vendor_id"] = this->vendor_id;
@@ -158,11 +158,11 @@ struct Properties {
 
         nlohmann::json inputs = nlohmann::json::array();
         for (const auto &pdo: this->input_pdos)
-            inputs.push_back(pdo.to_json());
+            if (!pdo.is_padding()) inputs.push_back(pdo.to_json());
 
         nlohmann::json outputs = nlohmann::json::array();
         for (const auto &pdo: this->output_pdos)
-            outputs.push_back(pdo.to_json());
+            if (!pdo.is_padding()) outputs.push_back(pdo.to_json());
 
         props["pdos"] = {{"inputs", inputs}, {"outputs", outputs}};
         return props;
@@ -189,7 +189,8 @@ struct Health {
     bool faulted = false;
     /// @brief true when the slave stopped responding.
     bool lost = false;
-    /// @brief description of the slave's AL status code, empty when it reports none.
+    /// @brief description of the slave's AL status code, empty when it reports none or
+    /// the master cannot read it.
     std::string al_status;
 
     bool operator==(const Health &) const = default;

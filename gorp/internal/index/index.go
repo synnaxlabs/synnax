@@ -133,27 +133,32 @@ func (d *delta[K, V]) merge(committed []K, values []V) []K {
 	return result.Slice()
 }
 
-// overlay holds the delta of every scope that has staged changes against an index.
-type overlay[S Scope, K, V comparable] struct {
+// changes is the set of changes that one scope has staged against an index.
+type changes interface{ isEmpty() bool }
+
+// overlay holds the changes of every scope that has staged changes against an index.
+type overlay[S Scope, D changes] struct {
 	// mu guards deltas.
 	mu     sync.Mutex
-	deltas map[S]*delta[K, V]
-	// flush applies the delta of a committed scope to committed state.
-	flush func(*delta[K, V])
+	deltas map[S]D
+	// create returns an empty set of changes.
+	create func() D
+	// flush applies the changes of a committed scope to committed state.
+	flush func(D)
 }
 
-// load returns the delta of scope, creating it on first use. A new delta registers a
-// cleanup on scope that drops the delta and flushes it if scope committed.
-func (o *overlay[S, K, V]) load(scope S) *delta[K, V] {
+// load returns the changes of scope, creating them on first use. New changes register
+// a cleanup on scope that drops them and flushes them if scope committed.
+func (o *overlay[S, D]) load(scope S) D {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	if d, ok := o.deltas[scope]; ok {
 		return d
 	}
 	if o.deltas == nil {
-		o.deltas = make(map[S]*delta[K, V])
+		o.deltas = make(map[S]D)
 	}
-	d := newDelta[K, V]()
+	d := o.create()
 	o.deltas[scope] = d
 	scope.OnCleanup(func(committed bool) {
 		o.mu.Lock()
@@ -166,20 +171,34 @@ func (o *overlay[S, K, V]) load(scope S) *delta[K, V] {
 	return d
 }
 
-// merge returns committed with the delta of scope applied for values. The result is
-// never nil.
-func (o *overlay[S, K, V]) merge(scope S, committed []K, values []V) []K {
-	if committed == nil {
-		committed = []K{}
-	}
+// get returns the changes of scope, or false when scope has staged none.
+func (o *overlay[S, D]) get(scope S) (D, bool) {
+	var none D
 	if isNone(scope) {
-		return committed
+		return none, false
 	}
 	o.mu.Lock()
 	d, ok := o.deltas[scope]
 	o.mu.Unlock()
 	if !ok || d.isEmpty() {
-		return committed
+		return none, false
 	}
-	return d.merge(committed, values)
+	return d, true
+}
+
+// mergeValues returns committed with the delta of scope applied for values. The result
+// is never nil.
+func mergeValues[S Scope, K, V comparable](
+	o *overlay[S, *delta[K, V]],
+	scope S,
+	committed []K,
+	values []V,
+) []K {
+	if committed == nil {
+		committed = []K{}
+	}
+	if d, ok := o.get(scope); ok {
+		return d.merge(committed, values)
+	}
+	return committed
 }

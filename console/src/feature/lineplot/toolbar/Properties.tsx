@@ -11,7 +11,7 @@ import { lineplot } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input } from "@synnaxlabs/lyra/input";
 import { LinePlot } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -23,21 +23,13 @@ export const Properties = (): ReactElement => {
   const dispatch = LinePlot.useSingleDispatch();
   const { update: rename } = LinePlot.useRename({});
 
-  const handleTitleRename = useCallback(
-    (name: string): void => rename({ key, name }),
-    [rename, key],
-  );
+  const handleTitleRename = (name: string): void => rename({ key, name });
 
-  const handleTitleVisibilityChange = useCallback(
-    (visible: boolean): void => dispatch(lineplot.setTitleVisible({ visible })),
-    [dispatch],
-  );
+  const handleTitleVisibilityChange = (visible: boolean): void =>
+    dispatch(lineplot.setTitleVisible({ visible }));
 
-  const handleLegendVisibilityChange = useCallback(
-    (visible: boolean): void =>
-      dispatch(lineplot.setLegendHidden({ hidden: !visible })),
-    [dispatch],
-  );
+  const handleLegendVisibilityChange = (visible: boolean): void =>
+    dispatch(lineplot.setLegendHidden({ hidden: !visible }));
 
   return (
     <Flex.Box x className={CSS.BE("line-plot", "toolbar", "properties")}>

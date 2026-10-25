@@ -13,7 +13,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { errors, primitive } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/ni/device/queries";
 import { Select } from "@/feature/ni/device/Select";
@@ -90,16 +90,13 @@ const channelListItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => {
   const dev = useFromConfig();
-  const resolve = useCallback(
-    (ch: AOChannel) => {
-      if (dev == null) return null;
-      const pair =
-        dev.properties.analogOutput.channels[ch.port.toString()] ??
-        PlatformDevice.ZERO_COMMAND_STATE_PAIR;
-      return { cmdChannel: pair.command, stateChannel: pair.state };
-    },
-    [dev],
-  );
+  const resolve = (ch: AOChannel) => {
+    if (dev == null) return null;
+    const pair =
+      dev.properties.analogOutput.channels[ch.port.toString()] ??
+      PlatformDevice.ZERO_COMMAND_STATE_PAIR;
+    return { cmdChannel: pair.command, stateChannel: pair.state };
+  };
   return (
     <Task.Views.ListAndDetails<AOChannel>
       listItem={channelListItem}

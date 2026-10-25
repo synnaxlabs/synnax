@@ -31,6 +31,7 @@ export class Batcher<Req, Res = void> {
   private readonly interval: TimeSpan;
   private readonly exec: BatcherProps<Req, Res>["exec"];
   private pending: Array<Entry<Req, Res>> | null = null;
+  private readonly running = new Set<Array<Entry<Req, Res>>>();
   private timer: ReturnType<typeof setTimeout> | null = null;
 
   constructor({ interval, exec }: BatcherProps<Req, Res>) {
@@ -51,11 +52,14 @@ export class Batcher<Req, Res = void> {
         this.pending = null;
         this.timer = null;
         if (batch == null) return;
+        this.running.add(batch);
         void (async () => {
           try {
             await this.exec(batch);
           } catch (exc) {
             batch.forEach(({ reject }) => reject(exc));
+          } finally {
+            this.running.delete(batch);
           }
         })();
       }, this.interval.milliseconds);
@@ -65,8 +69,9 @@ export class Batcher<Req, Res = void> {
   }
 
   /**
-   * Rejects every queued entry with the reason and cancels the open window. The
-   * batcher stays usable: a later enqueue opens a new window.
+   * Rejects every unsettled entry with the reason, queued or in a running batch, and
+   * cancels the open window. A running exec is not stopped, and its later settlements
+   * have no effect. The batcher stays usable: a later enqueue opens a new window.
    */
   close(reason: unknown): void {
     if (this.timer != null) clearTimeout(this.timer);
@@ -74,5 +79,7 @@ export class Batcher<Req, Res = void> {
     const batch = this.pending;
     this.pending = null;
     batch?.forEach(({ reject }) => reject(reason));
+    this.running.forEach((b) => b.forEach(({ reject }) => reject(reason)));
+    this.running.clear();
   }
 }

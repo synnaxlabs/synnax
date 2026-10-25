@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { debounce, MultiSeries, type TimeRange } from "@synnaxlabs/x";
+import {
+  type DataType,
+  debounce,
+  MultiSeries,
+  type Size,
+  type TimeRange,
+} from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
@@ -24,6 +30,7 @@ import {
   type StreamHandler,
   type Subscription,
 } from "@/framer/cache/streamer";
+import { TileReader, type TileSpec } from "@/framer/cache/tile";
 import { type Frame } from "@/framer/frame";
 import { HardenedStreamer } from "@/framer/hardened";
 import { type StreamOpener } from "@/framer/streamer";
@@ -33,8 +40,6 @@ export interface LatestReader {
   (keys: channel.Key[]): Promise<Frame>;
 }
 
-type LatestBatch = Array<debounce.Entry<channel.Key, MultiSeries>>;
-
 /** Props for {@link Feed}, including the transport it reads and streams through. */
 export interface FeedProps
   extends
@@ -43,6 +48,11 @@ export interface FeedProps
     Omit<MultiplexedStreamerProps, "cache" | "openStreamer"> {
   openStreamer: StreamOpener;
   readLatest: LatestReader;
+  /**
+   * Byte size the tile cache evicts down to. Tiles a caller holds are never evicted.
+   * @default Size.megabytes(128)
+   */
+  tileBudget?: Size;
   /** Receives each failed reconnect attempt of the stream. Defaults to console.warn. */
   onRetry?: (error: Error) => void;
 }
@@ -62,8 +72,8 @@ export class Feed {
   private readonly cache: Cache;
   private readonly reader: Reader;
   private readonly streamer: MultiplexedStreamer;
+  private readonly tiles: TileReader;
   private readonly latest: debounce.Batcher<channel.Key, MultiSeries>;
-  private readonly inFlight = new Set<LatestBatch>();
   private closed = false;
 
   constructor(props: FeedProps) {
@@ -71,6 +81,7 @@ export class Feed {
       readRemote,
       openStreamer,
       readLatest,
+      tileBudget,
       transform = DEFAULT_STATIC_PROPS.transform,
       instrumentation,
       dynamicBufferSize,
@@ -101,6 +112,14 @@ export class Feed {
       fetchTimeout,
       now,
     });
+    this.tiles = new TileReader({
+      readRemote,
+      transform,
+      batchDebounce,
+      budget: tileBudget,
+      staleThreshold: staleCoverageThreshold,
+      fetchTimeout,
+    });
     this.streamer = new MultiplexedStreamer({
       cache: this.cache,
       openStreamer: async (config, { onReopen, onDrop, signal }) => {
@@ -121,17 +140,11 @@ export class Feed {
     this.latest = new debounce.Batcher({
       interval: batchDebounce ?? DEFAULT_BATCH_DEBOUNCE,
       exec: async (entries) => {
-        if (this.closed) throw new UnexpectedError("telemetry feed is closed");
-        this.inFlight.add(entries);
-        try {
-          const frame = await readLatest([...new Set(entries.map(({ req }) => req))]);
-          entries.forEach(({ req, resolve }) => {
-            const series = frame.get(req).series.map((s) => transform.convert(s));
-            resolve(new MultiSeries(series));
-          });
-        } finally {
-          this.inFlight.delete(entries);
-        }
+        const frame = await readLatest([...new Set(entries.map(({ req }) => req))]);
+        entries.forEach(({ req, resolve }) => {
+          const series = frame.get(req).series.map((s) => transform.convert(s));
+          resolve(new MultiSeries(series));
+        });
       },
     });
   }
@@ -156,6 +169,20 @@ export class Feed {
   }
 
   /**
+   * Reads one tile of a channel, reduced under the tile's point limit. Finished tiles
+   * are cached, so the result may be shared with other callers. Reads of tiles with
+   * equal bounds and options within one batch window share a single request, so their
+   * series share one group size.
+   * @param dataType - The data type of the series the caller holds. A cached tile of
+   * another data type is read again.
+   * @throws {UnexpectedError} if the feed is closed while the read is pending.
+   * @throws {Unreachable} if the fetch serving the read exceeds the fetch timeout.
+   */
+  async readTile(spec: TileSpec, dataType?: DataType): Promise<MultiSeries> {
+    return await this.tiles.read(spec, dataType);
+  }
+
+  /**
    * Reads the latest stored sample of the given channel, in the representation the
    * cache serves. Reads within one batch window share a single request.
    * @throws {UnexpectedError} if the feed is closed while the read is pending.
@@ -168,12 +195,10 @@ export class Feed {
   /** Closes the feed, releasing the stream and all cached buffers. */
   async close(): Promise<void> {
     this.closed = true;
-    const err = new UnexpectedError("telemetry feed is closed");
-    this.latest.close(err);
-    this.inFlight.forEach((batch) => batch.forEach(({ reject }) => reject(err)));
-    this.inFlight.clear();
+    this.latest.close(new UnexpectedError("telemetry feed is closed"));
     await this.streamer.close();
     await this.reader.close();
+    this.tiles.close();
     this.cache.close();
   }
 }

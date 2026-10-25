@@ -15,7 +15,7 @@ import { CSS } from "@synnaxlabs/lyra/css";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { color } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement, useMemo } from "react";
+import { type CSSProperties, type ReactElement } from "react";
 
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -50,14 +50,11 @@ export const StringDisplay = ({
   stale = false,
 }: RenderProps): ReactElement => {
   const symbolColor = color.rgbaString(strokeColor);
-  const style = useMemo<CSSProperties>(
-    () => ({
-      [Primitive.SYMBOL_COLOR]: symbolColor,
-      width: inlineSize,
-      height: Component.HEIGHTS[LEVEL_SIZES[level]],
-    }),
-    [symbolColor, inlineSize, level],
-  );
+  const style: CSSProperties = {
+    [Primitive.SYMBOL_COLOR]: symbolColor,
+    width: inlineSize,
+    height: Component.HEIGHTS[LEVEL_SIZES[level]],
+  };
   const theme = Theming.use();
   const resolvedTextColor = stale
     ? Staleness.resolveColor(stalenessColor, theme)

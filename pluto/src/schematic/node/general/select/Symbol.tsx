@@ -11,7 +11,7 @@ import { type channel, type schematic } from "@synnaxlabs/client";
 import { type Component } from "@synnaxlabs/lyra/component";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { type color } from "@synnaxlabs/x";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
@@ -42,7 +42,7 @@ const Readback = ({
   stalenessTimeout,
 }: ReadbackProps): ReactElement => {
   const theme = Theming.use();
-  const source = useMemo(() => Telem.numberSource(channel), [channel]);
+  const source = Telem.numberSource(channel);
   const { key, stale } = StateIndicator.use({
     aetherKey: `${nodeKey}-readback`,
     source,
@@ -79,8 +79,8 @@ export const Symbol = ({
     onClickDelay,
   },
 }: NodeProps<schematic.SelectNodeConfig>): ReactElement => {
-  const sink = useMemo(() => Telem.numberSink(commandChannel), [commandChannel]);
-  const source = useMemo(() => Telem.numberSource(commandChannel), [commandChannel]);
+  const sink = Telem.numberSink(commandChannel);
+  const source = Telem.numberSource(commandChannel);
   const { set, value } = BaseSetpoint.use({ aetherKey: nodeKey, sink, source });
   const resize = Grid.useInlineResize(inlineSize, (inlineSize) =>
     onConfigChange({ inlineSize }),

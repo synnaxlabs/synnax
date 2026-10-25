@@ -14,7 +14,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Text } from "@synnaxlabs/lyra/text";
 import { color } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement, useMemo } from "react";
+import { type CSSProperties, type ReactElement } from "react";
 
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -48,14 +48,11 @@ export const StateIndicator = ({
   // an unmatched indicator still reads as its symbol.
   const symbolColor = color.rgbaString(matched?.color) ?? color.rgbaString(strokeColor);
   const label = matched != null ? matched.name || `Option ${matched.value}` : "Unknown";
-  const style = useMemo<CSSProperties>(
-    () => ({
-      [Primitive.SYMBOL_COLOR]: symbolColor,
-      minWidth: inlineSize,
-      height: Component.HEIGHTS[size],
-    }),
-    [symbolColor, inlineSize, size],
-  );
+  const style: CSSProperties = {
+    [Primitive.SYMBOL_COLOR]: symbolColor,
+    minWidth: inlineSize,
+    height: Component.HEIGHTS[size],
+  };
   return (
     <Primitive.Div
       className={CSS.cls(

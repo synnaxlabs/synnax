@@ -61,6 +61,10 @@ public:
     /// @brief reads the AL state and status code of every slave into the slave list.
     virtual int readstate() = 0;
 
+    /// @brief returns the number of slaves that answer a broadcast read, or a value
+    /// below 1 when none answers.
+    virtual int count_bus_slaves() = 0;
+
     /// @brief takes a slave through INIT and PRE-OP back to SAFE-OP with its stored
     /// configuration, returning the state it reached.
     virtual int reconfig_slave(uint16_t slave, int timeout) = 0;
@@ -68,6 +72,14 @@ public:
     /// @brief restores the address of a slave that lost power, returning a positive
     /// value when the same slave answered at its position.
     virtual int recover_slave(uint16_t slave, int timeout) = 0;
+
+    /// @brief measures propagation delays and sets up the distributed clock of every
+    /// slave that has one, returning true when at least one does.
+    virtual bool configdc() = 0;
+
+    /// @brief returns the reference clock system time from the latest process data
+    /// frame, in nanoseconds since 2000-01-01.
+    [[nodiscard]] virtual int64_t dc_time() const = 0;
 
     /// @brief reads from slave object dictionary via SDO.
     virtual int SDOread(
@@ -91,6 +103,10 @@ public:
 
     /// @brief reads object dictionary list from slave.
     virtual int readODlist(uint16_t slave, ec_ODlistt *od_list) = 0;
+
+    /// @brief reads the description, including the name, of object
+    /// od_list->Index[item] into od_list.
+    virtual int readODdescription(uint16_t item, ec_ODlistt *od_list) = 0;
 
     /// @brief reads single object entry details from slave.
     virtual int readOEsingle(
@@ -165,6 +181,10 @@ public:
 
     /// @brief returns the expected input working counter for a group.
     [[nodiscard]] virtual uint16_t group_inputsWKC(uint8_t grp) const = 0;
+
+    /// @brief returns true when the group's process data frames carry the reference
+    /// clock time.
+    [[nodiscard]] virtual bool group_hasdc(uint8_t grp) const = 0;
 };
 
 /// @brief production implementation of soem::API wrapping ecx_contextt.
@@ -203,6 +223,22 @@ public:
     }
 
     int readstate() override { return ecx_readstate(&this->context); }
+
+    int count_bus_slaves() override {
+        uint16_t type = 0;
+        return ecx_BRD(
+            &this->context.port,
+            0x0000,
+            ECT_REG_TYPE,
+            sizeof(type),
+            &type,
+            EC_TIMEOUTSAFE
+        );
+    }
+
+    bool configdc() override { return ecx_configdc(&this->context); }
+
+    [[nodiscard]] int64_t dc_time() const override { return this->context.DCtime; }
 
     int reconfig_slave(uint16_t slave, int timeout) override {
         return ecx_reconfig_slave(&this->context, slave, timeout);
@@ -247,6 +283,10 @@ public:
 
     int readODlist(uint16_t slave, ec_ODlistt *od_list) override {
         return ecx_readODlist(&this->context, slave, od_list);
+    }
+
+    int readODdescription(uint16_t item, ec_ODlistt *od_list) override {
+        return ecx_readODdescription(&this->context, item, od_list);
     }
 
     int readOEsingle(
@@ -342,6 +382,10 @@ public:
 
     [[nodiscard]] uint16_t group_inputsWKC(uint8_t grp) const override {
         return this->context.grouplist[grp].inputsWKC;
+    }
+
+    [[nodiscard]] bool group_hasdc(uint8_t grp) const override {
+        return this->context.grouplist[grp].hasdc;
     }
 };
 

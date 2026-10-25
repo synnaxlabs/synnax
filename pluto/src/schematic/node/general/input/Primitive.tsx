@@ -15,7 +15,7 @@ import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input as BaseInput } from "@synnaxlabs/lyra/input";
 import { color } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement, type ReactNode, useMemo } from "react";
+import { type CSSProperties, type ReactElement, type ReactNode } from "react";
 
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -47,13 +47,10 @@ export const Input = ({
   const draft = Primitive.useDraft(value ?? "");
   const shown = draft.value ?? "";
   const symbolColor = color.rgbaString(fillColor);
-  const style = useMemo<CSSProperties>(
-    () => ({
-      [Primitive.SYMBOL_COLOR]: symbolColor,
-      [Primitive.SYMBOL_FIELD_WIDTH]: inlineSize && `${inlineSize}px`,
-    }),
-    [symbolColor, inlineSize],
-  );
+  const style: CSSProperties = {
+    [Primitive.SYMBOL_COLOR]: symbolColor,
+    [Primitive.SYMBOL_FIELD_WIDTH]: inlineSize && `${inlineSize}px`,
+  };
   return (
     <Primitive.Div
       orientation={orientation}

@@ -8,14 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { compare, type destructor, TimeSpan, TimeStamp, xy } from "@synnaxlabs/x";
-import {
-  type PropsWithChildren,
-  type ReactElement,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-} from "react";
+import { type PropsWithChildren, type ReactElement, useEffect, useRef } from "react";
 
 import { context } from "@/context";
 import { useStateRef } from "@/hooks/ref";
@@ -112,9 +105,9 @@ export const Provider = ({
 }: ProviderProps): ReactElement => {
   // We track mouse movement to allow for cursor position on keyboard events;
   const cursor = useRef<xy.XY>(xy.ZERO);
-  const handleMouseMove = useCallback((e: MouseEvent): void => {
+  const handleMouseMove = (e: MouseEvent): void => {
     cursor.current = xy.construct(e);
-  }, []);
+  };
 
   // All registered triggers and callbacks, kept sorted by priority descending.
   // Same-priority entries are stored in insertion order. Higher priority subscribers
@@ -123,7 +116,7 @@ export const Provider = ({
 
   const [, setCurr] = useStateRef<RefState>({ ...ZERO_REF_STATE });
 
-  const updateListeners = useCallback((state: RefState, target: HTMLElement): void => {
+  const updateListeners = (state: RefState, target: HTMLElement): void => {
     const next = state.next.length > 0 ? [state.next] : [];
     const prev = state.prev.length > 0 ? [state.prev] : [];
     let minPriority = -Infinity;
@@ -134,90 +127,81 @@ export const Provider = ({
       };
       callback({ target, next, prev, cursor: cursor.current, stopPropagation });
     }
-  }, []);
+  };
 
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent | MouseEvent): void => {
-      const key = eventKey(e);
-      if (key == null) return;
-      // We prevent the default behavior of arrow keys to prevent scrolling and movement
-      // of the cursor. We might want to move this elsewhere in the future.
-      if (["ArrowUp", "ArrowDown"].includes(key)) e.preventDefault();
-      // We don't want to trigger any events for excluded keys.
-      // If our target element is an input, we don't want to trigger any events.
-      if (!shouldTriggerOnKeyDown(key, e as KeyboardEvent)) return;
-      setCurr((prev) => {
-        const next: Trigger = [...prev.next, key];
-        if (prev.next.includes(key)) return prev;
-        // This is considered a double press.
-        if (
-          prev.prev.includes(key) &&
-          TimeStamp.since(prev.last).valueOf() < DOUBLE_PRESS_WINDOW
-        )
-          next.push(key);
-        const nextState: RefState = {
-          next,
-          prev: prev.next,
-          last: new TimeStamp(),
-        };
-        if (shouldPreventDefault(next, preventDefaultOn, preventDefaultOptions))
-          e.preventDefault();
-        updateListeners(nextState, e.target as HTMLElement);
-        return nextState;
-      });
-    },
-    [setCurr, preventDefaultOn, preventDefaultOptions, updateListeners],
-  );
+  const handleKeyDown = (e: KeyboardEvent | MouseEvent): void => {
+    const key = eventKey(e);
+    if (key == null) return;
+    // We prevent the default behavior of arrow keys to prevent scrolling and movement
+    // of the cursor. We might want to move this elsewhere in the future.
+    if (["ArrowUp", "ArrowDown"].includes(key)) e.preventDefault();
+    // We don't want to trigger any events for excluded keys.
+    // If our target element is an input, we don't want to trigger any events.
+    if (!shouldTriggerOnKeyDown(key, e as KeyboardEvent)) return;
+    setCurr((prev) => {
+      const next: Trigger = [...prev.next, key];
+      if (prev.next.includes(key)) return prev;
+      // This is considered a double press.
+      if (
+        prev.prev.includes(key) &&
+        TimeStamp.since(prev.last).valueOf() < DOUBLE_PRESS_WINDOW
+      )
+        next.push(key);
+      const nextState: RefState = {
+        next,
+        prev: prev.next,
+        last: new TimeStamp(),
+      };
+      if (shouldPreventDefault(next, preventDefaultOn, preventDefaultOptions))
+        e.preventDefault();
+      updateListeners(nextState, e.target as HTMLElement);
+      return nextState;
+    });
+  };
 
-  const handleKeyUp = useCallback(
-    (e: KeyboardEvent | MouseEvent): void => {
-      const key = eventKey(e);
-      if (key == null) return;
-      // We prevent the default behavior of arrow keys to prevent scrolling and movement
-      if (["ArrowUp", "ArrowDown"].includes(key)) e.preventDefault();
-      // We don't want to trigger any events for excluded keys.
-      if (EXCLUDE_TRIGGERS.includes(key)) return;
-      const isMetaRelease = "code" in e && e.code.includes("Meta");
-      setCurr((prevS) => {
-        let next = prevS.next.filter(
-          (k) => k !== key && !MOUSE_KEYS.includes(k as MouseKey),
-        );
-        // Later versions of Safari have a 'sticky shift' phenomenon when the Shift key
-        // key up even it not always fired. To correct for this, we manually check for
-        // the event.shiftKey flag.
-        if (!e.shiftKey && next.includes("Shift"))
-          next = next.filter((k) => k !== "Shift");
-        // macOS suppresses key up events for non-modifier keys while the Cmd (Meta) key
-        // is held. When Cmd is released, drop any non-modifier keys left in the state —
-        // their key up events will never arrive, so without this they stay stuck and
-        // can match later shortcuts (e.g. a lone Cmd press matching Cmd+P).
-        if (isMetaRelease) next = next.filter((k) => MODIFIER_KEYS.includes(k));
-        const prev = prevS.next;
-        const nextS: RefState = { ...prevS, next, prev };
-        if (shouldPreventDefault(next, preventDefaultOn, preventDefaultOptions))
-          e.preventDefault();
-        updateListeners(nextS, e.target as HTMLElement);
-        return nextS;
-      });
-    },
-    [setCurr, preventDefaultOn, preventDefaultOptions, updateListeners],
-  );
+  const handleKeyUp = (e: KeyboardEvent | MouseEvent): void => {
+    const key = eventKey(e);
+    if (key == null) return;
+    // We prevent the default behavior of arrow keys to prevent scrolling and movement
+    if (["ArrowUp", "ArrowDown"].includes(key)) e.preventDefault();
+    // We don't want to trigger any events for excluded keys.
+    if (EXCLUDE_TRIGGERS.includes(key)) return;
+    const isMetaRelease = "code" in e && e.code.includes("Meta");
+    setCurr((prevS) => {
+      let next = prevS.next.filter(
+        (k) => k !== key && !MOUSE_KEYS.includes(k as MouseKey),
+      );
+      // Later versions of Safari have a 'sticky shift' phenomenon when the Shift key
+      // key up even it not always fired. To correct for this, we manually check for
+      // the event.shiftKey flag.
+      if (!e.shiftKey && next.includes("Shift"))
+        next = next.filter((k) => k !== "Shift");
+      // macOS suppresses key up events for non-modifier keys while the Cmd (Meta) key
+      // is held. When Cmd is released, drop any non-modifier keys left in the state —
+      // their key up events will never arrive, so without this they stay stuck and
+      // can match later shortcuts (e.g. a lone Cmd press matching Cmd+P).
+      if (isMetaRelease) next = next.filter((k) => MODIFIER_KEYS.includes(k));
+      const prev = prevS.next;
+      const nextS: RefState = { ...prevS, next, prev };
+      if (shouldPreventDefault(next, preventDefaultOn, preventDefaultOptions))
+        e.preventDefault();
+      updateListeners(nextS, e.target as HTMLElement);
+      return nextS;
+    });
+  };
 
   /**
    * If the mouse leaves the window, we want to clear all triggers. This prevents issues
    * with the user holding down a key and then moving the mouse out of the window.
    */
-  const handlePageVisibility = useCallback(
-    (event: Event): void => {
-      setCurr((prevS) => {
-        const prev = prevS.next;
-        const nextS: RefState = { ...prevS, next: [], prev };
-        updateListeners(nextS, event.target as HTMLElement);
-        return nextS;
-      });
-    },
-    [setCurr, updateListeners],
-  );
+  const handlePageVisibility = (event: Event): void => {
+    setCurr((prevS) => {
+      const prev = prevS.next;
+      const nextS: RefState = { ...prevS, next: [], prev };
+      updateListeners(nextS, event.target as HTMLElement);
+      return nextS;
+    });
+  };
 
   useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);
@@ -240,7 +224,7 @@ export const Provider = ({
     };
   }, [handleKeyDown, handleKeyUp, handleMouseMove, handlePageVisibility]);
 
-  const listen = useCallback<Listen>((callback, priority = 0) => {
+  const listen: Listen = (callback, priority = 0) => {
     const entries = registry.current;
     let i = 0;
     while (i < entries.length && entries[i].priority >= priority) i++;
@@ -249,9 +233,9 @@ export const Provider = ({
       const idx = entries.findIndex((e) => e.callback === callback);
       if (idx >= 0) entries.splice(idx, 1);
     };
-  }, []);
+  };
 
-  const ctxValue = useMemo(() => ({ listen, reserved }), [listen, reserved]);
+  const ctxValue = { listen, reserved };
 
   return <Context value={ctxValue}>{children}</Context>;
 };

@@ -19,7 +19,6 @@ import {
   type CSSProperties,
   type ReactElement,
   type ReactNode,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -61,14 +60,11 @@ export const Setpoint = ({
   const dirty = edited || draft.dirty;
   const inputRef = useRef<HTMLInputElement>(null);
   const symbolColor = color.rgbaString(fillColor);
-  const mergedStyle = useMemo(
-    () => ({
-      ...style,
-      [Primitive.SYMBOL_COLOR]: symbolColor,
-      [Primitive.SYMBOL_FIELD_WIDTH]: inlineSize && `${inlineSize}px`,
-    }),
-    [style, symbolColor, inlineSize],
-  );
+  const mergedStyle: CSSProperties = {
+    ...style,
+    [Primitive.SYMBOL_COLOR]: symbolColor,
+    [Primitive.SYMBOL_FIELD_WIDTH]: inlineSize && `${inlineSize}px`,
+  };
   return (
     <Primitive.Div
       className={CSS.cls(

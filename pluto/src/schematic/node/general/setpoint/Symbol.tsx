@@ -12,7 +12,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { useResize } from "@synnaxlabs/lyra/hooks";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { box, type color, xy } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo, useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
@@ -55,10 +55,10 @@ const Readback = ({
   const offset = xy.construct(READOUT_INSET - textInset, Component.HEIGHTS[size]);
   // offsetWidth ignores the diagram zoom, so it is in the same units as the box.
   const [cellWidth, setCellWidth] = useState(0);
-  const valueRef = useResize<HTMLParagraphElement>(
-    useCallback((_, el) => setCellWidth(el.offsetWidth), []),
+  const valueRef = useResize<HTMLParagraphElement>((_, el) =>
+    setCellWidth(el.offsetWidth),
   );
-  const telem = useMemo(() => BaseValue.stringSource({ channel }), [channel]);
+  const telem = BaseValue.stringSource({ channel });
   BaseValue.use({
     aetherKey: `${nodeKey}-readback`,
     level,
@@ -99,8 +99,8 @@ export const Symbol = ({
     inlineSize,
   },
 }: NodeProps<schematic.SetpointNodeConfig>): ReactElement => {
-  const sink = useMemo(() => Telem.numberSink(commandChannel), [commandChannel]);
-  const source = useMemo(() => Telem.numberSource(commandChannel), [commandChannel]);
+  const sink = Telem.numberSink(commandChannel);
+  const source = Telem.numberSource(commandChannel);
   const { set, value } = BaseSetpoint.use({ aetherKey: nodeKey, sink, source });
   const resize = Grid.useInlineResize(inlineSize, (inlineSize) =>
     onConfigChange({ inlineSize }),
