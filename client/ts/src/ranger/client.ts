@@ -42,7 +42,7 @@ import {
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/ranger/types.gen";
-import { createLines, hasLabels } from "@/ranger/where";
+import { createLines, labelChangeAdmits } from "@/ranger/where";
 import { type Lines, matches, serverComputed } from "@/ranger/where.gen";
 import { Writer } from "@/ranger/writer";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -329,8 +329,8 @@ const seenKeys = (
 
 /**
  * Projects relationship events onto the range keys a filtered query must recheck. Only
- * a label change under a `labels` line can add an unseen range to the answer, so every
- * other event skips unseen ranges instead of fetching them.
+ * a label change that a `labels` line admits can add an unseen range to the answer, so
+ * every other event skips unseen ranges instead of fetching them.
  */
 const watchRequestRelationships = (
   relationships: query.Table<string, ontology.Relationship>,
@@ -342,9 +342,9 @@ const watchRequestRelationships = (
       const rel = relOfEvent(event);
       const keys = affectedRangeKeys(rel);
       if (
+        rel.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE &&
         req.where != null &&
-        hasLabels(req.where) &&
-        rel.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE
+        labelChangeAdmits(req.where, event.variant === "delete")
       )
         return keys;
       return seenKeys(ranges, keys);

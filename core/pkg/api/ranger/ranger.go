@@ -33,6 +33,7 @@ type (
 	Range            = ranger.Range
 	RetrieveRequest  = ranger.RetrieveRequest
 	RetrieveResponse = ranger.RetrieveResponse
+	Where            = ranger.Where
 )
 
 func rangeAccessOntologyIDs(ranges []Range) []ontology.ID {

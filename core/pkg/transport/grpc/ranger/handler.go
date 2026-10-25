@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/pb"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/telem"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -137,8 +138,15 @@ func (retrieveRequestTranslator) Forward(
 	_ context.Context,
 	r ranger.RetrieveRequest,
 ) (*RetrieveRequest, error) {
-	keys := lo.Map(r.Keys, func(k ranger.Key, _ int) string { return k.String() })
-	return &RetrieveRequest{Keys: keys, Names: r.Names}, nil
+	w := lo.FromPtr(r.Where)
+	var keys, names []string
+	if w.Key != nil {
+		keys = lo.Map(w.Key.In, func(k ranger.Key, _ int) string { return k.String() })
+	}
+	if w.Name != nil {
+		names = w.Name.In
+	}
+	return &RetrieveRequest{Keys: keys, Names: names}, nil
 }
 
 func (retrieveRequestTranslator) Backward(
@@ -151,7 +159,14 @@ func (retrieveRequestTranslator) Backward(
 	if err != nil {
 		return ranger.RetrieveRequest{}, err
 	}
-	return ranger.RetrieveRequest{Keys: keys, Names: r.Names}, nil
+	var w ranger.Where
+	if len(keys) > 0 {
+		w.Key = &filter.Set[ranger.Key]{In: keys}
+	}
+	if len(r.Names) > 0 {
+		w.Name = &filter.String{In: r.Names}
+	}
+	return ranger.RetrieveRequest{Where: &w}, nil
 }
 
 func (retrieveResponseTranslator) Forward(

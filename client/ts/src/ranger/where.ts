@@ -22,9 +22,12 @@ export const createLines = (labelsOf: (range: Payload) => label.Label[]): Lines 
   },
 });
 
-/** @returns whether where has a labels line at any depth. */
-export const hasLabels = (where: Where): boolean =>
-  where.labels != null ||
-  where.and?.some(hasLabels) === true ||
-  where.or?.some(hasLabels) === true ||
-  (where.not != null && hasLabels(where.not));
+/**
+ * @returns whether adding a label to a range, or removing one when removed is true, can
+ * make the range match where. A not inverts the change for the lines under it.
+ */
+export const labelChangeAdmits = (where: Where, removed: boolean): boolean =>
+  (where.labels != null && !removed) ||
+  where.and?.some((w) => labelChangeAdmits(w, removed)) === true ||
+  where.or?.some((w) => labelChangeAdmits(w, removed)) === true ||
+  (where.not != null && labelChangeAdmits(where.not, !removed));

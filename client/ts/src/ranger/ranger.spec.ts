@@ -959,6 +959,35 @@ describe("cached reads", () => {
         off();
       }
     });
+
+    it("fetches an unseen range when losing a label adds it to a not query", async () => {
+      const lbl = await remote.labels.create({
+        name: `qry-lbl-${id.create()}`,
+        color: "#FF0000",
+      });
+      const past = TimeStamp.now().sub(TimeSpan.days(7300));
+      const timeRange = new TimeRange(past, past.add(TimeSpan.seconds(1)));
+      const rng = await createRange(remote, { timeRange });
+      await remote.labels.label(ranger.ontologyID(rng.key), [lbl.key]);
+      const local = createTestClient();
+      await local.connect();
+      const params = {
+        where: { and: [{ overlaps: timeRange }, { not: { labels: [lbl.key] } }] },
+      };
+      const off = local.ranges.onChange(params, vi.fn());
+      try {
+        expect(await local.ranges.retrieve(params)).toEqual([]);
+        await remote.labels.remove(ranger.ontologyID(rng.key), [lbl.key]);
+        await expect
+          .poll(() => {
+            const cached = local.ranges.getCached(params);
+            return query.isLive(cached) && cached.map((r) => r.key);
+          })
+          .toEqual([rng.key]);
+      } finally {
+        off();
+      }
+    });
   });
 
   describe("kv", () => {
