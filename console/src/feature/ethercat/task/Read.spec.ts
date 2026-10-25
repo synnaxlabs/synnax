@@ -567,6 +567,59 @@ describe("Read", () => {
     expect(updated.properties.read.channels[`scaled_${0x6000}_1`]).toBe(scaledKey);
   });
 
+  it("should reuse a scaled entry's float64 channel when redeployed", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const config = {
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        createEntryReadChannel(slave.key, STATUS_ENTRY, {
+          scale: { type: "linear", slope: 2, offset: 0 },
+        }),
+      ],
+    };
+    const deploy = async () => {
+      const rendered = await renderRead(config);
+      const deployed = await deployAndAwaitTask(
+        client,
+        rendered.container,
+        rendered.draft.key,
+        EtherCAT.Task.READ_SCHEMAS,
+      );
+      rendered.unmount();
+      return deployed.config.channels[0].channel;
+    };
+    const first = await deploy();
+    expect(await deploy()).toBe(first);
+  });
+
+  it("should reject a data type that differs from the mapped channel's", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const render = async (dataType: string) =>
+      await renderRead({
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+        channels: [createEntryReadChannel(slave.key, STATUS_ENTRY, { dataType })],
+      });
+    const first = await render("uint16");
+    await deployAndAwaitTask(
+      client,
+      first.container,
+      first.draft.key,
+      EtherCAT.Task.READ_SCHEMAS,
+    );
+    first.unmount();
+    const { container, statuses } = await render("int16");
+    await clickDeploy(container);
+    await awaitStatus(statuses, /holds uint16 data, not int16/);
+  });
+
   it("should surface an error when the task has no channels", async () => {
     const { container, statuses } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),

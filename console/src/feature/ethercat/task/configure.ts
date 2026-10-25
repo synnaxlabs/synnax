@@ -148,11 +148,17 @@ export const checkOrCreateIndex = async (
   return false;
 };
 
+/**
+ * @returns the channels whose mapped Synnax channel is missing.
+ * @throws {Error} if a mapped channel holds a different data type than getDataType
+ * gives for its channel.
+ */
 export const findChannelsToCreate = async <C extends EntryChannel>(
   client: Synnax,
   channels: C[],
   existingChannels: Record<string, number>,
   mapKey: (ch: C) => string = addressKey,
+  getDataType: (ch: C) => string = (ch) => ch.dataType,
 ): Promise<C[]> => {
   const toCreate: C[] = [];
   for (const ch of channels) {
@@ -161,12 +167,22 @@ export const findChannelsToCreate = async <C extends EntryChannel>(
       toCreate.push(ch);
       continue;
     }
+    let mapped: channel.Channel;
     try {
-      await client.channels.retrieve(existing);
+      mapped = await client.channels.retrieve(existing);
     } catch (e) {
-      if (NotFoundError.matches(e)) toCreate.push(ch);
-      else throw errors.fromUnknown(e);
+      if (!NotFoundError.matches(e)) throw errors.fromUnknown(e);
+      toCreate.push(ch);
+      continue;
     }
+    const dataType = mapped.dataType.toString();
+    const expected = getDataType(ch);
+    if (dataType !== expected)
+      throw new Error(
+        `Channel ${mapped.name} holds ${dataType} data, not ${expected}. Set the ` +
+          `data type to ${dataType}, or delete channel ${mapped.name} so the task can ` +
+          "create it again.",
+      );
   }
   return toCreate;
 };

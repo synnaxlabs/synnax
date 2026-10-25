@@ -33,6 +33,7 @@ import {
   READ_SCHEMAS,
   READ_TYPE,
   type ReadChannel,
+  readDataType,
   readKey,
   type ReadSchemas,
 } from "@/feature/ethercat/task/types";
@@ -116,6 +117,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       channels,
       slave.properties.read.channels,
       readKey,
+      readDataType,
     );
 
     if (toCreate.length > 0) {
@@ -123,13 +125,12 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       const { identifier, pdos } = slave.properties;
       const created = await client.channels.create(
         toCreate.map((ch) => {
-          const scaled = ch.scale.type !== "none";
-          const suffix = scaled ? "_scaled" : "";
+          const suffix = ch.scale.type === "none" ? "" : "_scaled";
           return {
             name: primitive.isNonZero(ch.name)
               ? ch.name
               : `${getEntryChannelName(identifier, pdos.inputs, ch)}${suffix}`,
-            dataType: scaled ? "float64" : ch.dataType,
+            dataType: readDataType(ch),
             index: slave.properties.readIndex,
           };
         }),

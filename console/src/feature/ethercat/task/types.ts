@@ -124,6 +124,10 @@ export const addressKey = ({ index, subIndex }: Address): string =>
 export const readKey = (ch: EntryReadChannel): string =>
   ch.scale.type === "none" ? addressKey(ch) : `scaled_${addressKey(ch)}`;
 
+/** @returns the data type of the read channel's Synnax channel. */
+export const readDataType = (ch: EntryReadChannel): string =>
+  ch.scale.type === "none" ? ch.dataType : "float64";
+
 /** @returns the device properties key of the write state channel at the address. */
 export const stateKey = (address: Address): string => `state_${addressKey(address)}`;
 
