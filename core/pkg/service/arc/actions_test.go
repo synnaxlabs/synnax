@@ -338,11 +338,14 @@ var _ = Describe("Reducer", func() {
 	})
 
 	Describe("Action envelope", func() {
-		It("Should return state unchanged when Type is unrecognized", func() {
+		It("Should error and leave state unchanged when Type is unrecognized", func() {
 			state := withGraph(graph.Nodes{gnode("n1", 0, 0)}, nil)
-			Expect(
-				MustSucceed(arc.Reduce(state, arc.Action{Type: "totally_made_up"})),
-			).To(Equal(state))
+			out, err := arc.Reduce(state, arc.Action{Type: "made_up"})
+			Expect(err).To(SatisfyAll(
+				MatchError(union.ErrUnknownVariant),
+				MatchError(ContainSubstring("made_up")),
+			))
+			Expect(out).To(Equal(state))
 		})
 
 		DescribeTable(

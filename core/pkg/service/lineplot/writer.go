@@ -24,6 +24,15 @@ type Writer struct {
 	otg        ontology.Writer
 	table      *gorp.Table[Key, LinePlot]
 	dispatcher actions.Dispatcher[Key, Action]
+	// dispatchKey is stamped onto create broadcasts so the originator skips its echo.
+	dispatchKey string
+}
+
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the create
+// broadcasts it emits, so the client that sent the create recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatchKey = dispatchKey
+	return w
 }
 
 func (w Writer) Create(
@@ -71,10 +80,10 @@ func (w Writer) Create(
 			}
 		}
 	}
-	// Notify last: a create rejected by ontology validation must not be broadcast.
-	w.dispatcher.Notify(
-		ctx, lp.Key, "", []Action{NewCreateAction(CreatePayload{LinePlot: *lp})},
-	)
+	key, created := lp.Key, []Action{NewCreateAction(CreatePayload{LinePlot: *lp})}
+	gorp.OnCommit(w.tx, func() {
+		w.dispatcher.Notify(ctx, key, w.dispatchKey, created)
+	})
 	return nil
 }
 

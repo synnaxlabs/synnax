@@ -29,6 +29,15 @@ type Writer struct {
 	otg        *ontology.Ontology
 	table      *gorp.Table[Key, Schematic]
 	dispatcher actions.Dispatcher[Key, Action]
+	// dispatchKey is stamped onto create broadcasts so the originator skips its echo.
+	dispatchKey string
+}
+
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the create
+// broadcasts it emits, so the client that sent the create recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatchKey = dispatchKey
+	return w
 }
 
 // Create creates the given schematic within the project provided. If the
@@ -72,10 +81,10 @@ func (w Writer) Create(
 			}
 		}
 	}
-	// Notify last: a create rejected by ontology validation must not be broadcast.
-	w.dispatcher.Notify(
-		ctx, s.Key, "", []Action{NewCreateAction(CreatePayload{Schematic: *s})},
-	)
+	key, created := s.Key, []Action{NewCreateAction(CreatePayload{Schematic: *s})}
+	gorp.OnCommit(w.tx, func() {
+		w.dispatcher.Notify(ctx, key, w.dispatchKey, created)
+	})
 	return nil
 }
 

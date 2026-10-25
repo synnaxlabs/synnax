@@ -812,13 +812,14 @@ var _ = Describe("Reducer", func() {
 	})
 
 	Describe("Action envelope", func() {
-		It("Should return state unchanged when Type is unrecognized", func() {
+		It("Should error and leave state unchanged when Type is unrecognized", func() {
 			state := schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}}
-			Expect(
-				MustSucceed(
-					schematic.Reduce(state, schematic.Action{Type: "totally_made_up"}),
-				),
-			).To(Equal(state))
+			out, err := schematic.Reduce(state, schematic.Action{Type: "made_up"})
+			Expect(err).To(SatisfyAll(
+				MatchError(union.ErrUnknownVariant),
+				MatchError(ContainSubstring("made_up")),
+			))
+			Expect(out).To(Equal(state))
 		})
 
 		DescribeTable(

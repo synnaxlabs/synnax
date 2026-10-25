@@ -83,8 +83,13 @@ type (
 		// Panels are the panels to create. Each panel carries the Parent resource
 		// it attaches to in the ontology; a panel without a Parent is rejected.
 		Panels []panel.Panel `json:"panels" msgpack:"panels"`
+		// DispatchKey is stamped onto the create broadcasts so the sender skips its
+		// echo.
+		DispatchKey string `json:"dispatch_key" msgpack:"dispatch_key"`
 	}
-	CreateResponse = CreateRequest
+	CreateResponse struct {
+		Panels []panel.Panel `json:"panels" msgpack:"panels"`
+	}
 )
 
 // Create persists the panels in req and returns them with their assigned keys,
@@ -113,7 +118,9 @@ func (s *Service) Create(
 	}); err != nil {
 		return res, err
 	}
-	if err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Panels); err != nil {
+	if err := s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		CreateMany(ctx, &req.Panels); err != nil {
 		return res, err
 	}
 	res.Panels = req.Panels

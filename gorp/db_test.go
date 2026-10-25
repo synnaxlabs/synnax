@@ -53,6 +53,51 @@ var _ = Describe("DB", func() {
 		)
 	})
 
+	Describe("OnCommit", func() {
+		It("Should run the hook after the transaction commits", func(ctx SpecContext) {
+			tx := db.OpenTx()
+			ran := false
+			gorp.OnCommit(tx, func() { ran = true })
+			Expect(ran).To(BeFalse())
+			Expect(tx.Commit(ctx)).To(Succeed())
+			Expect(ran).To(BeTrue())
+			Expect(tx.Close()).To(Succeed())
+		})
+
+		It("Should not run the hook when the transaction closes uncommitted", func() {
+			tx := db.OpenTx()
+			ran := false
+			gorp.OnCommit(tx, func() { ran = true })
+			Expect(tx.Close()).To(Succeed())
+			Expect(ran).To(BeFalse())
+		})
+
+		It("Should run the hook once when the transaction closes after a commit",
+			func(ctx SpecContext) {
+				tx := db.OpenTx()
+				runs := 0
+				gorp.OnCommit(tx, func() { runs++ })
+				Expect(tx.Commit(ctx)).To(Succeed())
+				Expect(tx.Close()).To(Succeed())
+				Expect(runs).To(Equal(1))
+			})
+
+		It("Should run the hook at once for a DB used directly", func() {
+			ran := false
+			gorp.OnCommit(db, func() { ran = true })
+			Expect(ran).To(BeTrue())
+		})
+
+		It("Should not run the hook when WithTx fails", func(ctx SpecContext) {
+			ran := false
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				gorp.OnCommit(tx, func() { ran = true })
+				return query.ErrNotFound
+			})).To(MatchError(query.ErrNotFound))
+			Expect(ran).To(BeFalse())
+		})
+	})
+
 	Describe("OverrideTx", func() {
 		It("Should return the override transaction if it is not nil", func() {
 			tx := db.OpenTx()

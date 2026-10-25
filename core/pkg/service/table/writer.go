@@ -32,6 +32,15 @@ type Writer struct {
 	otg        *ontology.Ontology
 	tbl        *gorp.Table[Key, Table]
 	dispatcher actions.Dispatcher[Key, Action]
+	// dispatchKey is stamped onto create broadcasts so the originator skips its echo.
+	dispatchKey string
+}
+
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the create
+// broadcasts it emits, so the client that sent the create recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatchKey = dispatchKey
+	return w
 }
 
 // Create creates the given table within the project provided. If the table does not
@@ -76,10 +85,10 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, t *Table) er
 			}
 		}
 	}
-	// Notify last: a create rejected by ontology validation must not be broadcast.
-	w.dispatcher.Notify(
-		ctx, t.Key, "", []Action{NewCreateAction(CreatePayload{Table: *t})},
-	)
+	key, created := t.Key, []Action{NewCreateAction(CreatePayload{Table: *t})}
+	gorp.OnCommit(w.tx, func() {
+		w.dispatcher.Notify(ctx, key, w.dispatchKey, created)
+	})
 	return nil
 }
 

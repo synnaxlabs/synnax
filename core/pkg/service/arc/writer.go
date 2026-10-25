@@ -44,8 +44,17 @@ type Writer struct {
 	status     *status.Service
 	table      *gorp.Table[Key, Arc]
 	dispatcher actions.Dispatcher[Key, Action]
-	sweeper    textSweeper
-	taskSync   *debounce.Keyed[Key]
+	// dispatchKey is stamped onto create broadcasts so the originator skips its echo.
+	dispatchKey string
+	sweeper     textSweeper
+	taskSync    *debounce.Keyed[Key]
+}
+
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the create
+// broadcasts it emits, so the client that sent the create recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatchKey = dispatchKey
+	return w
 }
 
 // Create creates the given Arc. If the Arc does not have a key,
@@ -81,10 +90,10 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 	} else if err = w.syncTask(ctx, *a); err != nil {
 		return err
 	}
-	// Notify last: a create rejected by ontology validation must not be broadcast.
-	w.dispatcher.Notify(
-		ctx, a.Key, "", []Action{NewCreateAction(CreatePayload{Arc: *a})},
-	)
+	key, created := a.Key, []Action{NewCreateAction(CreatePayload{Arc: *a})}
+	gorp.OnCommit(w.tx, func() {
+		w.dispatcher.Notify(ctx, key, w.dispatchKey, created)
+	})
 	return nil
 }
 
