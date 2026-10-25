@@ -49,8 +49,8 @@ export const Input = ({
   const symbolColor = color.rgbaString(fillColor);
   const style = useMemo<CSSProperties>(
     () => ({
-      [CSS.variable("symbol-color")]: symbolColor,
-      [CSS.variable("symbol-field-width")]: inlineSize && `${inlineSize}px`,
+      [Primitive.SYMBOL_COLOR]: symbolColor,
+      [Primitive.SYMBOL_FIELD_WIDTH]: inlineSize && `${inlineSize}px`,
     }),
     [symbolColor, inlineSize],
   );

@@ -36,6 +36,7 @@ import {
   type ReactElement,
   type ReactNode,
   useCallback,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -210,7 +211,7 @@ const EditableSlot = ({ loc, nodeKey, items }: SlotProps) => {
           item?.onLocationChange?.(loc);
         });
       },
-      [canDrop, loc],
+      [itemsRef, canDrop, loc],
     ),
   });
   const onDragStart = useCallback(
@@ -285,10 +286,11 @@ export const Grid: FC<GridProps> = ({
   orientation = "left",
 }) => {
   const prevEditable = useRef(editable);
-  if (editable !== prevEditable.current) {
-    reflowPane(nodeKey);
+  useLayoutEffect(() => {
+    if (editable === prevEditable.current) return;
     prevEditable.current = editable;
-  }
+    reflowPane(nodeKey);
+  }, [editable, nodeKey]);
   // Non-draggable symbols are grouped; their rotate and resize affordances hide too.
   const locked = useStore((s) => s.nodeLookup.get(nodeKey)?.draggable === false);
   const [resizeCursor, setResizeCursor] = useState<string | null>(null);

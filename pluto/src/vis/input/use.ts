@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
-import { useEffect } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 
 import { Aether } from "@/aether";
 import { input } from "@/vis/input/aether";
@@ -25,13 +25,15 @@ export interface UseReturn {
 
 export const use = ({ aetherKey, sink, source }: UseProps): UseReturn => {
   const memoProps = useMemoDeepEqual({ sink, source });
-  const [, { value }, setState, methods] = Aether.use({
+  const { setState, methods, subscribe, getSnapshot } = Aether.useLifecycle({
     aetherKey,
     type: input.Input.TYPE,
     schema: input.stateZ,
     initialState: memoProps,
     methods: input.methodsZ,
   });
+  // Reads only the value, so pushing props into the state does not re-render.
+  const value = useSyncExternalStore(subscribe, () => getSnapshot().value);
 
   useEffect(() => {
     setState((state) => ({ ...state, ...memoProps }));

@@ -52,7 +52,7 @@ export const StringDisplay = ({
   const symbolColor = color.rgbaString(strokeColor);
   const style = useMemo<CSSProperties>(
     () => ({
-      [CSS.variable("symbol-color")]: symbolColor,
+      [Primitive.SYMBOL_COLOR]: symbolColor,
       width: inlineSize,
       height: Component.HEIGHTS[LEVEL_SIZES[level]],
     }),

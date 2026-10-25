@@ -29,6 +29,8 @@ const Header = () => (
   </PHeader.Header>
 );
 
+const HEADER = <Header />;
+
 const EMPTY_CONTENT = <Empty.Action message="No channels in task" />;
 
 interface FooterProps {
@@ -61,7 +63,7 @@ export const ChannelList = <C extends Channel>({
   createChannel,
   createChannels,
   path = "config.channels",
-  header = <Header />,
+  header = HEADER,
   ...rest
 }: ChannelListProps<C>) => {
   const ctx = Form.useContext();
@@ -91,7 +93,7 @@ export const ChannelList = <C extends Channel>({
     if (channel == null) return;
     push(channel);
     onSelect([channel.key]);
-  }, [push, createChannel, onSelect]);
+  }, [ctx, path, push, createChannel, onSelect]);
   const handleDuplicate = useCallback(
     (chs: C[], keys: string[]) => {
       if (createChannels == null) return;
@@ -99,7 +101,7 @@ export const ChannelList = <C extends Channel>({
       push(duplicated);
       return duplicated.map(({ key }) => key);
     },
-    [createChannels, onSelect, push],
+    [createChannels, push],
   );
   return (
     <Base

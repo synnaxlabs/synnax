@@ -50,7 +50,7 @@ export const StateIndicator = ({
   const label = matched != null ? matched.name || `Option ${matched.value}` : "Unknown";
   const style = useMemo<CSSProperties>(
     () => ({
-      [CSS.variable("symbol-color")]: symbolColor,
+      [Primitive.SYMBOL_COLOR]: symbolColor,
       minWidth: inlineSize,
       height: Component.HEIGHTS[size],
     }),

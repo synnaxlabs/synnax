@@ -46,6 +46,7 @@ interface Cell extends Pick<Icon.Pickable, "name" | "icon"> {
 }
 
 const COLUMNS = 10;
+const GRID_STYLE = { [CSS.variable("icon-picker", "columns")]: COLUMNS };
 
 type Move = (dims: dimensions.Dimensions, from: xy.XY) => xy.XY | null;
 
@@ -129,7 +130,7 @@ export const IconPicker = ({
           role="listbox"
           aria-label="Icons"
           className={CSS.BE("icon-picker", "grid")}
-          style={{ [CSS.variable("icon-picker", "columns")]: COLUMNS }}
+          style={GRID_STYLE}
           onKeyDown={handleGridKeyDown}
         >
           {cells.map(({ key, name, icon: Glyph }, i) => (

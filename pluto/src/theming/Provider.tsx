@@ -36,7 +36,7 @@ const FONT_URLS = [
 
 const WorkerBridge = ({ children }: PropsWithChildren): ReactElement => {
   const theme = Base.use();
-  const [{ path }, , setState] = Aether.use({
+  const { path, setState } = Aether.useLifecycle({
     type: theming.Provider.TYPE,
     schema: theming.Provider.z,
     initialState: { theme, fontURLs: FONT_URLS },
