@@ -20,7 +20,7 @@ import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
-import { type Block, RAW_LEVEL, rawKey } from "@/framer/cache/block";
+import { alignmentOf, type Block, RAW_LEVEL, rawKey } from "@/framer/cache/block";
 import { tileRange } from "@/framer/cache/grid";
 import { Store } from "@/framer/cache/store";
 import { ManualClock } from "@/testutil";
@@ -261,6 +261,58 @@ describe("Store", () => {
       expect(store.raw(1, 100).fetched).toEqual([series]);
       series.release();
       expect(store.raw(1, 100).fetched).toEqual([]);
+    });
+  });
+
+  describe("append", () => {
+    // Returns a piece of float32 values at the block offset, stamped one second apart
+    // from the start of raw block 100.
+    const createPiece = (offset: number, values: number[]): Series =>
+      new Series({
+        data: new Float32Array(values),
+        alignment: alignmentOf(100, offset),
+        timeRange: new TimeRange(
+          BLOCK.start.add(TimeSpan.seconds(offset)),
+          BLOCK.start.add(TimeSpan.seconds(offset + values.length)),
+        ),
+      });
+
+    it("should join the block and cover it to the end of the piece", () => {
+      const store = new Store({ dynamicBufferSize: 100 });
+      const block = store.raw(1, 100);
+      store.append(block, createPiece(0, [1, 2]));
+      store.append(block, createPiece(2, [3]));
+      expect(store.open(1)).toBe(block);
+      expect(block.joined).toBe(true);
+      expect(block.coveredCount).toBe(3);
+      expect(block.coveredEnd).toEqual(BLOCK.start.add(TimeSpan.seconds(3)));
+      expect(Array.from(store.leadingBuffer(1) ?? [])).toEqual([1, 2, 3]);
+    });
+
+    it("should seal the open block complete when a piece goes past it", () => {
+      const store = new Store({ dynamicBufferSize: 100 });
+      const first = store.raw(1, 100);
+      store.append(first, createPiece(0, [1, 2]));
+      const next = store.raw(1, 101);
+      store.append(
+        next,
+        new Series({ ...createPiece(0, [3]), alignment: alignmentOf(101, 0) }),
+      );
+      expect(store.open(1)).toBe(next);
+      expect(first.joined).toBe(false);
+      expect(first.coveredEnd).toEqual(BLOCK.end);
+      expect(Array.from(first.fetched[0])).toEqual([1, 2]);
+    });
+
+    it("should seal the open block incomplete on a flush", () => {
+      const store = new Store({ dynamicBufferSize: 100 });
+      const block = store.raw(1, 100);
+      store.append(block, createPiece(0, [1, 2]));
+      store.flush(1);
+      expect(store.open(1)).toBeNull();
+      expect(block.joined).toBe(false);
+      expect(block.coveredEnd).toEqual(BLOCK.start.add(TimeSpan.seconds(2)));
+      expect(block.coveredCount).toBe(2);
     });
   });
 
