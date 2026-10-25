@@ -42,8 +42,8 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>, Q extends 
     retrieve: pagerRetrieve,
     pageSize: 50,
   });
-  const updateQuery = (query: view.View["query"]) => {
-    pagerRetrieve((p) => ({ ...p, ...query, offset: 0, limit: 50, searchTerm: "" }));
+  const updateWhere = (where: view.View["where"]) => {
+    pagerRetrieve((p) => ({ ...p, where, offset: 0, limit: 50, searchTerm: "" }));
   };
   const { form } = PView.useForm({
     query: null,
@@ -52,18 +52,18 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>, Q extends 
     beforeSave: async ({
       value,
     }: Flux.FormBeforeSaveParams<PView.FormQuery, typeof PView.formSchema>) => {
-      const { key, query } = value();
+      const { key, where } = value();
       // if this is a static view we need to handle it here. Otherwise, the
       // useSetSynchronizer will handle it as it also needs to handle remote updates.
       if (key == null || !staticViews.includes(key)) return true;
-      updateQuery(query);
+      updateWhere(where);
       return false;
     },
   });
   const { get: getField } = form;
   const handleSet = (view: view.View) => {
     if (view.key !== getField<string>("key").value) return;
-    updateQuery(view.query);
+    updateWhere(view.where);
   };
   PView.useSetSynchronizer(handleSet);
   const [selected, setSelected] = useState<K[]>([]);

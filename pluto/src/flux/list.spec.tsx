@@ -1430,10 +1430,10 @@ describe("list", () => {
           >({
             name: "Resource",
             retrieve: async ({ client }) =>
-              await client.ranges.retrieve({ keys: [rng.key] }),
+              await client.ranges.retrieve({ where: { key: { in: [rng.key] } } }),
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
             onChange: ({ client }, handler) =>
-              client.ranges.onChange({ keys: [rng.key] }, handler),
+              client.ranges.onChange({ where: { key: { in: [rng.key] } } }, handler),
           })();
           const value = Flux.useListItem<ranger.Key, ranger.Range>({
             subscribe,
@@ -1523,10 +1523,10 @@ describe("list", () => {
           >({
             name: "Resource",
             retrieve: async ({ client, query }) =>
-              await client.ranges.retrieve({ keys: query.keys }),
+              await client.ranges.retrieve({ where: { key: { in: query.keys } } }),
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
             onChange: ({ client, query }, handler) =>
-              client.ranges.onChange({ keys: query.keys }, handler),
+              client.ranges.onChange({ where: { key: { in: query.keys } } }, handler),
             onChangeByKey: ({ client, key }, handler) =>
               client.ranges.onChange(key, handler),
           })();
@@ -1578,10 +1578,10 @@ describe("list", () => {
           >({
             name: "Resource",
             retrieve: async ({ client }) =>
-              await client.ranges.retrieve({ keys: [rng.key] }),
+              await client.ranges.retrieve({ where: { key: { in: [rng.key] } } }),
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
             onChange: ({ client }, handler) =>
-              client.ranges.onChange({ keys: [rng.key] }, handler),
+              client.ranges.onChange({ where: { key: { in: [rng.key] } } }, handler),
           })();
           return { retrieveAsync, value: getItem(rng.key) };
         },
@@ -1621,10 +1621,11 @@ describe("list", () => {
         () =>
           Flux.createList<{}, ranger.Key, ranger.Range>({
             name: "Resource",
-            retrieve: async ({ client }) => await client.ranges.retrieve({ keys }),
+            retrieve: async ({ client }) =>
+              await client.ranges.retrieve({ where: { key: { in: keys } } }),
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
             onChange: ({ client }, handler) =>
-              client.ranges.onChange({ keys }, handler),
+              client.ranges.onChange({ where: { key: { in: keys } } }, handler),
           })({ sort: (a, b) => a.name.localeCompare(b.name) }),
         { wrapper },
       );

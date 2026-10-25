@@ -197,12 +197,15 @@ describe("queries", () => {
         keys.push(range.key);
       }
 
-      const { result } = renderHook(() => Ranger.useList({ initialQuery: { keys } }), {
-        wrapper,
-      });
+      const { result } = renderHook(
+        () => Ranger.useList({ initialQuery: { where: { key: { in: keys } } } }),
+        {
+          wrapper,
+        },
+      );
       act(() => {
         result.current.retrieve(
-          { limit: 2, offset: 1, keys },
+          { limit: 2, offset: 1, where: { key: { in: keys } } },
           { signal: controller.signal },
         );
       });

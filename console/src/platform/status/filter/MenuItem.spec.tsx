@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status } from "@synnaxlabs/client";
+import { status } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
@@ -17,17 +17,15 @@ import { z } from "zod";
 import { Status } from "@/platform/status";
 import { findDialogTrigger, renderWithConsole } from "@/testutil";
 
-const schema = z.object({
-  query: z.object({ variants: z.array(z.string()) }),
-});
+const schema = z.object({ where: status.whereZ.optional() });
 
 const Fixture = (): ReactElement => {
-  const methods = Form.use({ schema, values: { query: { variants: [] } } });
+  const methods = Form.use({ schema, values: {} });
   return (
     <Form.Form<typeof schema> {...methods}>
       <Status.Filter.MenuItem />
-      <Form.Field<status.Variant[]> path="query.variants" showLabel={false}>
-        {({ value }) => <span>{`value:${value.join(",")}`}</span>}
+      <Form.Field<status.Where["variant"]> path="where.variant" showLabel={false}>
+        {({ value }) => <span>{`value:${value?.in?.join(",") ?? "none"}`}</span>}
       </Form.Field>
     </Form.Form>
   );
@@ -35,11 +33,20 @@ const Fixture = (): ReactElement => {
 Fixture.displayName = "Fixture";
 
 describe("Status.Filter.MenuItem", () => {
-  it("should add the chosen variant to the query field", async () => {
+  it("should add the chosen variant to the where", async () => {
     await renderWithConsole(<Fixture />);
     fireEvent.click(await findDialogTrigger());
     const option = await waitFor(() => screen.getByText("Error"));
     fireEvent.click(option);
     await waitFor(() => expect(screen.getByText("value:error")).toBeTruthy());
+  });
+
+  it("should drop the variant line when the selection empties", async () => {
+    await renderWithConsole(<Fixture />);
+    fireEvent.click(await findDialogTrigger());
+    fireEvent.click(await waitFor(() => screen.getByText("Error")));
+    await waitFor(() => expect(screen.getByText("value:error")).toBeTruthy());
+    fireEvent.click(screen.getByText("Error"));
+    await waitFor(() => expect(screen.getByText("value:none")).toBeTruthy());
   });
 });

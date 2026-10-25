@@ -30,7 +30,7 @@ export const Explorer: Panel.Content = () => (
 
 const Internal = () => {
   const listProps = Status.useList({
-    initialQuery: View.useContext().getInitialView().query,
+    initialQuery: { where: View.useContext().getInitialView().where },
   });
   const openCreate = PlatformStatus.useCreateModal();
   const handleCreate = () => openCreate();

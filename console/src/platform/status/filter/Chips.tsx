@@ -19,13 +19,15 @@ import { View } from "@/platform/view";
 
 export const Chips = (): ReactElement | null => {
   const { editable } = View.useContext();
-  const field = Form.useField<status.Variant[]>("query.variants", {
+  const field = Form.useField<status.Where["variant"]>("where.variant", {
     optional: true,
   });
-  const variants = field?.value;
+  const variants = field?.value?.in;
   if (variants == null || variants.length === 0 || field == null) return null;
-  const handleClose = (variant: status.Variant) =>
-    field.onChange(variants.filter((v) => v !== variant));
+  const handleClose = (variant: status.Variant) => {
+    const next = variants.filter((v) => v !== variant);
+    field.onChange(next.length === 0 ? undefined : { in: next });
+  };
   return (
     <Flex.Box x pack background={0}>
       <View.FilterChip>Variants</View.FilterChip>

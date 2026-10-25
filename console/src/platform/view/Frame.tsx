@@ -43,8 +43,8 @@ export interface FrameProps extends PropsWithChildren {
 const ZERO_VARIANTS: {
   [K in view.ViewType]: Omit<Extract<view.View, { type: K }>, keyof view.Base>;
 } = {
-  range: { type: "range", query: { hasLabels: [] } },
-  status: { type: "status", query: { hasLabels: [], variants: [] } },
+  range: { type: "range" },
+  status: { type: "status" },
 };
 
 export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElement => {
@@ -160,9 +160,8 @@ const Selector = ({
     },
   });
   const handleCreate = () => {
-    const currentQuery = getItem(selected)?.query;
-    if (currentQuery == null) throw new UnexpectedError("No current query found");
-    create({ name: `View for ${resourceType}`, type: resourceType, query: {} });
+    if (getItem(selected) == null) throw new UnexpectedError("No current view found");
+    create({ name: `View for ${resourceType}`, type: resourceType });
   };
   return (
     <Select.Frame

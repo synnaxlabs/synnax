@@ -42,7 +42,7 @@ const item = Component.renderProp(RenderItem);
 
 const Inner = (): ReactElement => {
   const listProps = Ranger.useList({
-    initialQuery: View.useContext().getInitialView().query,
+    initialQuery: { where: View.useContext().getInitialView().where },
   });
   return (
     <View.Form {...listProps}>
@@ -75,7 +75,6 @@ const createView = async () =>
   await client.views.create({
     name: uniqueName("view"),
     type: "range",
-    query: {},
   });
 
 const renderHarness = async (as: Client = client): Promise<void> => {
@@ -247,7 +246,6 @@ describe("View permissions", () => {
       const { name } = await client.views.create({
         name: uniqueName("view"),
         type: "range",
-        query: {},
       });
       return name;
     };

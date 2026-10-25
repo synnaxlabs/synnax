@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type label, view } from "@synnaxlabs/client";
+import { type label, ranger, view } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
 import { uuid } from "@synnaxlabs/x";
@@ -28,18 +28,19 @@ import {
 
 const client = createTestClient();
 
-const schema = z.object({
-  query: z.object({ hasLabels: z.array(z.string()) }),
-});
+const schema = z.object({ where: ranger.whereZ.optional() });
 
-const Fixture = ({ hasLabels }: { hasLabels: label.Key[] }): ReactElement => {
-  const methods = Form.use({ schema, values: { query: { hasLabels } } });
+const Fixture = ({ labels }: { labels?: label.Key[] }): ReactElement => {
+  const methods = Form.use({
+    schema,
+    values: { where: labels == null ? undefined : { labels } },
+  });
   return (
     <View.Frame resourceType="range" icon="Label">
       <Form.Form<typeof schema> {...methods}>
         <Label.Filter.Chips />
-        <Form.Field<label.Key[]> path="query.hasLabels" showLabel={false}>
-          {({ value }) => <span>{`value:${value.join(",")}`}</span>}
+        <Form.Field<label.Key[] | undefined> path="where.labels" showLabel={false}>
+          {({ value }) => <span>{`value:${value?.join(",") ?? "none"}`}</span>}
         </Form.Field>
       </Form.Form>
     </View.Frame>
@@ -48,7 +49,7 @@ const Fixture = ({ hasLabels }: { hasLabels: label.Key[] }): ReactElement => {
 Fixture.displayName = "Fixture";
 
 describe("Label.Filter.Chips", () => {
-  it("should remove the label's key from the filter query when its chip is closed", async () => {
+  it("should remove the label's key from the where when its chip is closed", async () => {
     const kept = await client.labels.create({
       name: uniqueName("kept"),
       color: "#F00000",
@@ -61,7 +62,7 @@ describe("Label.Filter.Chips", () => {
     // check does not wait on the network mid-test.
     await awaitGranted(client, view.ontologyID(uuid.create()), "update");
     const { wrapper } = await createConsoleWrapper({ client });
-    render(<Fixture hasLabels={[kept.key, removed.key]} />, { wrapper });
+    render(<Fixture labels={[kept.key, removed.key]} />, { wrapper });
     await waitFor(() => expect(screen.getByText(removed.name)).toBeTruthy());
     await enableEditing();
     const close = await waitFor(() => findTagCloseButton(removed.name));
@@ -73,9 +74,23 @@ describe("Label.Filter.Chips", () => {
     });
   });
 
+  it("should drop the labels line when the last chip is closed", async () => {
+    const only = await client.labels.create({
+      name: uniqueName("only"),
+      color: "#0000F0",
+    });
+    await awaitGranted(client, view.ontologyID(uuid.create()), "update");
+    const { wrapper } = await createConsoleWrapper({ client });
+    render(<Fixture labels={[only.key]} />, { wrapper });
+    await waitFor(() => expect(screen.getByText(only.name)).toBeTruthy());
+    await enableEditing();
+    fireEvent.click(await waitFor(() => findTagCloseButton(only.name)));
+    await waitFor(() => expect(screen.getByText("value:none")).toBeTruthy());
+  });
+
   it("should render nothing when no labels are selected", async () => {
     const { wrapper } = await createConsoleWrapper({ client });
-    render(<Fixture hasLabels={[]} />, { wrapper });
+    render(<Fixture />, { wrapper });
     await waitFor(() => expect(screen.getByText("All ranges")).toBeTruthy());
     expect(screen.queryByText("Labels")).toBeNull();
   });

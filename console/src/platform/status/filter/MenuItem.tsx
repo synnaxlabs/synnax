@@ -27,23 +27,22 @@ const DIALOG_LOCATION: position.LocationPreference = {
   dialogCorner: location.TOP_LEFT,
 };
 
+type VariantSet = status.Where["variant"];
+
 export const MenuItem = (): ReactElement => (
-  <Form.Field<status.Variant[] | undefined, status.Variant[]>
-    path="query.variants"
-    showLabel={false}
-  >
+  <Form.Field<VariantSet> path="where.variant" showLabel={false}>
     {selectVariantRenderProp}
   </Form.Field>
 );
 
 const selectVariantRenderProp = Component.renderProp(
-  ({
-    value,
-    onChange,
-  }: Input.Control<status.Variant[] | undefined, status.Variant[]>) => (
+  ({ value, onChange }: Input.Control<VariantSet>) => (
     <Status.SelectMultipleVariants
-      value={value ?? []}
-      onChange={onChange}
+      value={value?.in ?? []}
+      // An empty in matches nothing, so no selection drops the line.
+      onChange={(variants) =>
+        onChange(variants.length === 0 ? undefined : { in: variants })
+      }
       location={DIALOG_LOCATION}
       triggerProps={TRIGGER_PROPS}
     />

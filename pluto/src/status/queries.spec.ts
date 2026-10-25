@@ -856,7 +856,7 @@ describe("Status queries", () => {
       await act(async () => await client.statuses.delete(key));
       await expectAlways(async () => {
         await expect(
-          async () => await client.statuses.retrieve({ where: { key: { in: [key] } } }),
+          async () => await client.statuses.retrieve({ key }),
         ).rejects.toThrow(NotFoundError);
       }, 800);
     });
