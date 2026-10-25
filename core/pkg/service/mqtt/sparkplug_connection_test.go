@@ -355,6 +355,25 @@ var _ = Describe("Sparkplug B host session", func() {
 			},
 		)
 
+		It("Should keep an edge node online that is born again after a drop",
+			func(ctx SpecContext) {
+				_, data := createIndexed(ctx, telem.Float64T)
+				node.setTags("", tagValue{
+					name: "temperature", alias: 1, value: 1.0, timestamp: 1700000000000,
+				})
+				_, t := run(ctx, readConfig(
+					dev, tagEntry("plant", "line1", "", "temperature", data[0]),
+				))
+				Eventually(node.births).Should(Equal(1))
+				broker.dropClients()
+				Eventually(node.births, 10*time.Second).Should(Equal(2))
+				variant := func() status.Variant { return taskStatus(ctx, t).Variant }
+				Eventually(variant).Should(Equal(status.VariantSuccess))
+				Consistently(variant, 2*testBirthGrace).
+					Should(Equal(status.VariantSuccess))
+			},
+		)
+
 		It("Should follow an edge node again after its last task stopped",
 			func(ctx SpecContext) {
 				_, plain := createIndexed(ctx, telem.Float64T)

@@ -70,6 +70,9 @@ type message struct {
 	// every earlier message of the connection.
 	received telem.TimeStamp
 	retained bool
+	// session is the connect of the client that the message arrived in. It rises with
+	// each connect.
+	session uint64
 }
 
 // subscription is one topic filter on a connection and the attachments that use it.
@@ -104,6 +107,9 @@ type connection struct {
 		nodes map[sparkplug.NodeID]set.Set[*attachment]
 		// client is nil while the connection is down.
 		client paho.Client
+		// session counts the connects of the client. Each connect starts a Sparkplug B
+		// session that needs a new birth from each edge node.
+		session uint64
 		// stop ends the connect loop and waits until its client has left the broker.
 		stop func()
 		// settled closes when the first connection attempt of the loop ends.
@@ -391,6 +397,7 @@ func (c *connection) setClient(ctx context.Context, client paho.Client) error {
 	for filter, sub := range c.mu.subs {
 		filters[filter] = sub.qos
 	}
+	c.mu.session++
 	c.mu.host.Reset()
 	c.mu.Unlock()
 	defer c.notify()
@@ -441,6 +448,7 @@ func (c *connection) onMessage(_ paho.Client, m paho.Message) {
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	msg.session = c.mu.session
 	if sub, ok := c.mu.subs[msg.topic]; ok {
 		for a := range sub.attachments {
 			a.enqueue(msg)
@@ -479,7 +487,7 @@ func (c *connection) onSparkplugMessage(m sparkplug.Message, received telem.Time
 	if ev.Type == "" {
 		return
 	}
-	decoded := message{sparkplug: &ev, received: received}
+	decoded := message{sparkplug: &ev, received: received, session: c.mu.session}
 	for a := range attachments {
 		a.enqueue(decoded)
 	}
@@ -504,19 +512,18 @@ func (c *connection) unused() bool {
 	return len(c.mu.attachments) == 0
 }
 
-// health returns errNotConnected while the connection is down, and the refusal of each
-// filter of a while it is up.
-func (c *connection) health(a *attachment) error {
+// health returns the current session, with errNotConnected while the connection is
+// down, and the refusal of each filter of a while it is up.
+func (c *connection) health(a *attachment) (session uint64, err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.mu.client == nil {
-		return errNotConnected
+		return c.mu.session, errNotConnected
 	}
-	var err error
 	for _, filter := range slices.Sorted(maps.Keys(a.filters)) {
 		err = errors.Join(err, c.mu.subs[filter].refused)
 	}
-	return err
+	return c.mu.session, err
 }
 
 // attach returns a new attachment whose queue holds queueSize messages.
@@ -528,8 +535,7 @@ func (c *connection) attach(queueSize int) *attachment {
 		filters:      make(set.Set[string]),
 		nodes:        make(set.Set[sparkplug.NodeID]),
 	}
-	// The pending signal makes the first call to next report an attachment that is not
-	// healthy.
+	// The pending signal makes the first call to next report the state of c.
 	a.stateChanged <- struct{}{}
 	c.mu.Lock()
 	c.mu.attachments.Add(a)
@@ -565,6 +571,8 @@ type attachment struct {
 	// reported is the text of the error that next last reported. Empty while the
 	// attachment is healthy.
 	reported string
+	// session is the session that next last reported.
+	session uint64
 }
 
 // enqueue puts msg on the queue. A full queue drops its oldest message. Only the
@@ -588,9 +596,10 @@ func (a *attachment) enqueue(msg message) {
 	}
 }
 
-// next blocks until a message arrives, the health of the attachment changes, or ctx is
-// cancelled. It returns the error of each change of health, and a zero message with a
-// nil error once for each recovery.
+// next blocks until a message arrives, the health of the attachment changes, the
+// connection starts a new session, or ctx is cancelled. For a change of health or
+// session it returns a message with only its session set, and the error of the
+// attachment.
 func (a *attachment) next(ctx context.Context) (message, error) {
 	for {
 		select {
@@ -599,16 +608,16 @@ func (a *attachment) next(ctx context.Context) (message, error) {
 		case msg := <-a.queue:
 			return msg, nil
 		case <-a.stateChanged:
-			err := a.conn.health(a)
+			session, err := a.conn.health(a)
 			reported := ""
 			if err != nil {
 				reported = err.Error()
 			}
-			if reported == a.reported {
+			if reported == a.reported && session == a.session {
 				continue
 			}
-			a.reported = reported
-			return message{}, err
+			a.reported, a.session = reported, session
+			return message{session: session}, err
 		}
 	}
 }

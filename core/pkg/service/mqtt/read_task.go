@@ -278,7 +278,12 @@ func (s *readSource) Open(ctx context.Context) (driver.Reader, error) {
 	if err != nil {
 		return nil, err
 	}
-	r := &reader{readSource: s, attachment: a, offline: make(set.Set[tagScope])}
+	r := &reader{
+		readSource: s,
+		attachment: a,
+		awaited:    make(map[tagScope]time.Time),
+		offline:    make(set.Set[tagScope]),
+	}
 	if err = r.subscribe(ctx); err != nil {
 		s.pool.release(s.broker, a)
 		return nil, err
@@ -304,6 +309,8 @@ type reader struct {
 	}
 	// dropped is the drop count of the attachment that was last reported.
 	dropped uint64
+	// session is the session of the connection that awaited and offline belong to.
+	session uint64
 }
 
 var _ driver.Reader = (*reader)(nil)
@@ -317,17 +324,20 @@ func (r *reader) subscribe(ctx context.Context) error {
 			return err
 		}
 	}
-	r.await(time.Now())
-	for scope := range r.awaited {
-		if err := r.attachment.follow(ctx, scope.node); err != nil {
+	nodes := make(set.Set[sparkplug.NodeID])
+	for id := range r.tags {
+		nodes.Add(id.node)
+	}
+	for node := range nodes {
+		if err := r.attachment.follow(ctx, node); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// await gives every edge node of the task the time of birthGrace to publish a birth. A
-// task that connects has missed the last birth of each one.
+// await gives every edge node of the task the time of birthGrace to publish a birth.
+// A new session of the connection has missed the last birth of each one.
 func (r *reader) await(now time.Time) {
 	r.awaited = make(map[tagScope]time.Time)
 	until := now.Add(r.birthGrace)
@@ -392,15 +402,17 @@ func (r *reader) Read(ctx context.Context) (framer.Frame, error) {
 	return b.frame(), r.health()
 }
 
-// apply adds the samples of msg to b.
+// apply adds the samples of msg to b. The first message of a new session awaits the
+// births of that session, also when it is itself a birth.
 func (r *reader) apply(now time.Time, msg message, b *batch) {
+	if msg.session > r.session {
+		r.session = msg.session
+		r.await(now)
+	}
 	switch {
 	case msg.sparkplug != nil:
 		r.convertEvent(now, msg, b)
-	case msg.topic == "":
-		// The connection is back, and the births of the outage are lost.
-		r.await(now)
-	default:
+	case msg.topic != "":
 		r.convert(now, msg, b)
 	}
 }
