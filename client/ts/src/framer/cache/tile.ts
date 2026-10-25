@@ -58,6 +58,7 @@ export interface TileReaderProps {
 /** A cached tile: one channel's reduced samples. */
 class Tile implements Block {
   readonly bytes: number;
+  readonly sealed: boolean;
   pins = 0;
 
   constructor(
@@ -67,6 +68,7 @@ class Tile implements Block {
     readonly fetchedAt: TimeStamp,
   ) {
     this.bytes = series.series.reduce((sum, s) => sum + s.byteCapacity.valueOf(), 0);
+    this.sealed = series.series.some((s) => s.timeRange.end.afterEq(range.end));
   }
 
   get held(): boolean {

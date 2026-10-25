@@ -27,7 +27,7 @@ import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import { domainOf, offsetOf, rawIndex } from "@/framer/cache/block";
 import { tileRange } from "@/framer/cache/grid";
-import { type FeedOptions } from "@/framer/feed";
+import { type Feed, type FeedOptions } from "@/framer/feed";
 import {
   type PointsRequest,
   type Snapshot,
@@ -813,6 +813,53 @@ describe("Feed.subscribe", () => {
         await feed.close();
       }
     });
+
+    it.each([
+      ["raw samples", Infinity],
+      ["tiles", 100],
+    ])(
+      "should read %s again once the blocks that appends land in expire",
+      async (_, count) => {
+        // The writer trails the clock, so appends land in blocks the feed read empty.
+        const core = createCore({ lag: TimeSpan.minutes(5) });
+        const feed = core.openFeed(OPTIONS);
+        const key = core.data[0].key;
+        const request: PointsRequest = {
+          keys: [key],
+          window: staticWindow(
+            new TimeRange(
+              START.add(TimeSpan.minutes(6)),
+              START.add(TimeSpan.minutes(7)),
+            ),
+          ),
+          limit: { variant: "points", count, aggregation: "min_max" },
+        };
+        // Returns the samples that a subscription to the window draws.
+        const load = async (f: Feed): Promise<number[]> => {
+          const sub = f.subscribe(request);
+          try {
+            await expect
+              .poll(() => sub.value(key).status.variant, POLL)
+              .toBe("success");
+            return Array.from(sub.value(key).series) as number[];
+          } finally {
+            sub.close();
+          }
+        };
+        const fresh = core.openFeed(OPTIONS);
+        try {
+          expect(await load(feed)).toEqual([]);
+          await sleep.sleep(TimeSpan.milliseconds(150));
+          core.advance(TimeSpan.minutes(20));
+          const drawn = await load(fresh);
+          expect(drawn.length).toBeGreaterThan(0);
+          expect(await load(feed)).toEqual(drawn);
+        } finally {
+          await fresh.close();
+          await feed.close();
+        }
+      },
+    );
   });
 
   describe("history change during a fetch", () => {

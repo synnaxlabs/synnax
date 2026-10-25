@@ -80,8 +80,8 @@ export type InvalidateHandler = (ch: channel.Key | null, tr: TimeRange) => void;
  * Caches blocks of channel samples under one byte budget. The least recently used block
  * leaves first. Every block of a channel holds one data type. Streamed samples go into
  * the raw block of their time, which stays open until the stream moves past it.
- * Fetched blocks stay valid until a history change names them while the history
- * signals stream, and expire otherwise.
+ * A sealed block stays valid until a history change names it while the history signals
+ * stream. Other blocks expire.
  */
 export class Store {
   private readonly budget: number;
@@ -167,18 +167,20 @@ export class Store {
 
   /**
    * @returns true when the block's fetched samples are too old to answer reads. A held
-   * block never expires, and neither does a block that history signals keep valid.
+   * block never expires, nor does a sealed block that history signals keep valid.
    */
   expired(block: Block): boolean {
     if (block.held || this.signaled(block)) return false;
     return !this.now().span(block.fetchedAt).lessThan(this.staleThreshold);
   }
 
-  // A block fetched while the stream carried the history signals stays valid until a
-  // signal names it. The signals name only the channels stored on the node.
+  // A sealed block fetched while the stream carried the history signals stays valid
+  // until a signal names it. The signals name only the channels stored on the node, and
+  // never an append.
   private signaled(block: Block): boolean {
     const node = this.node();
     return (
+      block.sealed &&
       this.signalsSince != null &&
       node != null &&
       this.leaseholders.get(block.channel) === node &&

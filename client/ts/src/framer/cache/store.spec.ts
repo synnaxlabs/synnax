@@ -18,7 +18,7 @@ import {
 } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { type channel } from "@/channel";
+import { channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import { alignmentOf, type Block, RAW_LEVEL, rawKey } from "@/framer/cache/block";
 import { tileRange } from "@/framer/cache/grid";
@@ -41,6 +41,7 @@ const createBlock = (overrides: Partial<TestBlock> = {}): TestBlock => ({
   fetchedAt: TimeStamp.now(),
   bytes: BYTES,
   held: false,
+  sealed: false,
   ...overrides,
 });
 
@@ -175,6 +176,26 @@ describe("Store", () => {
       expect(store.expired(block)).toBe(false);
     });
 
+    it("should keep only a sealed block valid while history signals stream", () => {
+      const clock = new ManualClock();
+      const store = new Store({ now: clock.now, node: () => 1 });
+      store.setChannel(
+        new channel.Channel({
+          key: 1,
+          name: "data",
+          dataType: "float32",
+          leaseholder: 1,
+        }).payload,
+      );
+      store.setSignalKey(99);
+      store.setAcked(new Set([99]));
+      const sealed = createBlock({ fetchedAt: clock.now(), sealed: true });
+      const unsealed = createBlock({ fetchedAt: clock.now() });
+      clock.advance(TimeSpan.hours(1));
+      expect(store.expired(sealed)).toBe(false);
+      expect(store.expired(unsealed)).toBe(true);
+    });
+
     it("should default the stale threshold to ten minutes", () => {
       const clock = new ManualClock();
       const store = new Store({ now: clock.now });
@@ -286,6 +307,7 @@ describe("Store", () => {
       expect(block.joined).toBe(true);
       expect(block.coveredCount).toBe(3);
       expect(block.coveredEnd).toEqual(BLOCK.start.add(TimeSpan.seconds(3)));
+      expect(block.sealed).toBe(true);
       expect(Array.from(store.leadingBuffer(1) ?? [])).toEqual([1, 2, 3]);
     });
 
