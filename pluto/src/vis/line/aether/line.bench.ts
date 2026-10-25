@@ -215,10 +215,14 @@ const opts = (spec: Spec): BenchRunOptions | undefined => {
   return undefined;
 };
 
+// The largest cases load for a minute or more.
+const LOAD_TIMEOUT = TimeSpan.minutes(5).milliseconds;
+
 for (const spec of [...MATRIX, ...CHANNEL_SPECS]) {
   const chunks = buildChunks(spec);
   const o = opts(spec);
-  test(`${spec.name} (${chunkCount(spec)} chunks)`, async ({ bench }) => {
+  const name = `${spec.name} (${chunkCount(spec)} chunks)`;
+  test(name, { timeout: LOAD_TIMEOUT }, async ({ bench }) => {
     // The drain benches keep their landed result so frame after load reuses it.
     // bench.compare would interleave them, so they run in order.
     let landed: Landed | null = null;
