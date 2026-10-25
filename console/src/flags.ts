@@ -17,8 +17,6 @@
 const ENABLED = IS_DEV || DESKTOP || import.meta.env.VITE_FLAGS_ENABLED === "true";
 
 export const FLAGS = {
-  // Owner: Emiliano Bonilla. Umbrella: SY-2253. Removed in 0.60.
-  lineplotTiles: ENABLED,
   // Owner: Emiliano Bonilla. Umbrella: SY-4876. Removed in 0.61, which also links the
   // MQTT docs from the other driver pages.
   mqtt: ENABLED,

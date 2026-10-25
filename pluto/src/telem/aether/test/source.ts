@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color, type destructor, id, observe } from "@synnaxlabs/x";
+import {
+  type Aggregation,
+  type color,
+  type DataType,
+  type destructor,
+  id,
+  observe,
+} from "@synnaxlabs/x";
 
 import {
   type BooleanSourceSpec,
@@ -22,6 +29,9 @@ import { registerInstance, TEST_SOURCE_TYPE } from "@/telem/aether/test/factory"
 export class TestSource<V> extends observe.Observer<void> implements Source<V>, Telem {
   static readonly TYPE = TEST_SOURCE_TYPE;
   readonly id: string;
+  loading?: () => boolean;
+  aggregation?: () => Aggregation | null;
+  dataType?: () => DataType | null;
   private _value: V;
   private _destructor: destructor.Destructor;
 

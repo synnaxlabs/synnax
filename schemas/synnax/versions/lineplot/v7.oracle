@@ -1,0 +1,132 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/x/versions/color/v0"
+
+Key = v0.Key
+
+TickType = v5.TickType
+
+Aggregation enum {
+    min_max = "min_max"
+    average = "average"
+
+    @doc value """
+        selects how a line reduces the samples of one pixel group. min_max draws the
+        lowest and highest sample, and average draws the mean.
+    """
+}
+
+Detail enum {
+    low    = "low"
+    medium = "medium"
+    high   = "high"
+
+    @doc value """
+        selects how many sample groups a line draws per pixel column: one per four, two,
+        or one pixel columns.
+    """
+}
+
+XAxisKey = v5.XAxisKey
+
+YAxisKey = v5.YAxisKey
+
+AxisKey = v5.AxisKey
+
+Title = v5.Title
+
+Legend = v5.Legend
+
+Channels = v5.Channels
+
+CustomRange = v6.CustomRange
+
+Ranges = v6.Ranges
+
+ManualBounds = v5.ManualBounds
+
+Axis = v5.Axis
+
+Axes = v5.Axes
+
+Line struct {
+    key          string       {
+        @doc value """
+            is the line identifier derived from its channel and range assignment. Format
+            is internal to the client and stable across re-renders so styling overrides
+            persist.
+        """
+    }
+    label        string?      {
+        @doc value """
+            is the user-specified line label. Null means derive from the channel name at
+            render time; non-null is an override.
+        """
+    }
+    color        color.Color? {
+        @doc value """
+            is the line color. When null, the Console assigns one from the visualization
+            palette at render time.
+        """
+    }
+    stroke_width float64 = 2 {
+        @doc value "is the line stroke width in pixels."
+    }
+    aggregation  Aggregation = min_max {
+        @doc value "selects how the line reduces the samples of one pixel group."
+    }
+    detail       Detail = medium {
+        @doc value "selects how many sample groups the line draws per pixel column."
+    }
+
+    @doc value  "is the per-line styling and reduction configuration."
+    @go marshal
+}
+
+Rule = v5.Rule
+
+LinePlot struct {
+    key      Key = create {
+        @doc value "is the unique identifier for this line plot."
+        @key
+    }
+    name     string   {
+        @doc value "is a human-readable name for the line plot."
+    }
+    title    Title = {} {
+        @doc value "is the plot title configuration."
+    }
+    legend   Legend = {} {
+        @doc value "is the plot legend configuration."
+    }
+    channels Channels = {} {
+        @doc value "binds channel keys to each axis."
+    }
+    ranges   Ranges = {} {
+        @doc value "binds range keys to each x-axis."
+    }
+    axes     Axes = {} {
+        @doc value "bundles per-axis configuration."
+    }
+    lines    Line[]   {
+        @doc value """
+            holds per-line styling and reduction configuration. Each entry corresponds
+            to one channel and range combination produced by the channels and ranges
+            bindings.
+        """
+    }
+    rules    Rule[]   {
+        @doc value "holds annotation rules drawn over the plot."
+    }
+
+    @go imex
+    @go marshal
+    @go migrate
+}
