@@ -7,19 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package search_test
+package search
 
 import (
-	"testing"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	. "github.com/synnaxlabs/x/testutil"
+	"strings"
+	"unicode"
 )
 
-func TestSearch(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Search Suite", SuiteConfig())
+// tokenize splits s into lowercase tokens at whitespace, '_', '-', and '.'.
+func tokenize(s string) []string {
+	return strings.FieldsFunc(strings.ToLower(s), isSeparator)
 }
 
-var _ = ShouldNotLeakGoroutinesPerSpec()
+func isSeparator(r rune) bool {
+	return unicode.IsSpace(r) || r == '_' || r == '-' || r == '.'
+}

@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/x/query"
@@ -47,20 +46,17 @@ var _ = Describe("View", func() {
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{
 			DB: db,
 		}))
-		searchIdx := MustOpen(search.OpenIndex())
 		g := MustOpen(
 			group.OpenService(
 				ctx,
-				group.ServiceConfig{DB: db, Ontology: otg, Search: searchIdx},
+				group.ServiceConfig{DB: db, Ontology: otg},
 			),
 		)
 		svc = MustOpen(view.OpenService(ctx, view.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
-			Search:   searchIdx,
 		}))
-		Expect(searchIdx.Initialize(ctx)).To(Succeed())
 	})
 	BeforeEach(func() {
 		tx = db.OpenTx()

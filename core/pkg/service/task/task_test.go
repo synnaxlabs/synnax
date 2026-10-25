@@ -29,7 +29,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -59,24 +58,20 @@ var _ = Describe("Task", Ordered, func() {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.OpenIndex())
 		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Search:   searchIdx,
 		}))
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
-			Search:   searchIdx,
 		}))
 		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			Ontology: otg,
 			DB:       db,
 			Group:    g,
 			Label:    labelSvc,
-			Search:   searchIdx,
 		}))
 		rackService = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,
@@ -85,7 +80,6 @@ var _ = Describe("Task", Ordered, func() {
 			HostProvider:        mock.NewStaticHostProvider(1),
 			Status:              stat,
 			HealthCheckInterval: 10 * telem.Millisecond,
-			Search:              searchIdx,
 		}))
 		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 		at := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
@@ -99,7 +93,6 @@ var _ = Describe("Task", Ordered, func() {
 			Group:    g,
 			Rack:     rackService,
 			Status:   stat,
-			Search:   searchIdx,
 			ImEx:     imex.NewService(),
 			Configs:  configs,
 		}))

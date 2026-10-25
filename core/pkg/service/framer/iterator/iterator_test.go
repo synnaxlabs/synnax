@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
@@ -41,24 +40,20 @@ func openServices(
 ) (*iterator.Service, *channel.Service) {
 	GinkgoHelper()
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
-	searchIdx := MustOpen(search.OpenIndex())
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
-		Search:   searchIdx,
 	}))
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
 		Group:    groupSvc,
-		Search:   searchIdx,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
 		Group:    groupSvc,
 		Label:    labelSvc,
-		Search:   searchIdx,
 	}))
 	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      node.Channel,
@@ -66,7 +61,6 @@ func openServices(
 		HostProvider: node.Cluster,
 		Ontology:     otg,
 		Group:        groupSvc,
-		Search:       searchIdx,
 		Status:       statusSvc,
 	}))
 	iteratorSvc := MustSucceed(iterator.NewService(iterator.ServiceConfig{

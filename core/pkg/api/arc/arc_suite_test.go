@@ -35,7 +35,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -67,24 +66,20 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	node := mock.NewNode(ctx)
 	db = node.DB
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	searchIdx := MustOpen(search.OpenIndex())
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Search:   searchIdx,
 	}))
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
-		Search:   searchIdx,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
 		Label:    labelSvc,
-		Search:   searchIdx,
 	}))
 	rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:                  db,
@@ -93,7 +88,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		HostProvider:        mock.NewStaticHostProvider(1),
 		Status:              statusSvc,
 		HealthCheckInterval: 10 * telem.Millisecond,
-		Search:              searchIdx,
 	}))
 	imexSvc := imex.NewService()
 	arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
@@ -104,7 +98,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:        groupSvc,
 		Rack:         rackSvc,
 		Status:       statusSvc,
-		Search:       searchIdx,
 		ImEx:         imexSvc,
 		Configs:      configs,
 		ImExExcluded: []string{arctask.Type},
@@ -116,7 +109,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology:     otg,
 		Group:        groupSvc,
 		Status:       statusSvc,
-		Search:       searchIdx,
 	}))
 	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 		DB:       db,
@@ -124,7 +116,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Channel:  channelSvc,
 		Task:     taskSvc,
 		Status:   statusSvc,
-		Search:   searchIdx,
 		ImEx:     imexSvc,
 	}))
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
@@ -132,7 +123,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
-		Search:   searchIdx,
 	}))
 	MustSucceed2(
 		user.ProvisionRoot(
@@ -146,7 +136,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
-		Search:   searchIdx,
 		User:     userSvc,
 	}))
 	apiSvc = MustSucceed(apiarc.NewService(apicfg.LayerConfig{

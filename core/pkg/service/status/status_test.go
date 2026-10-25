@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
@@ -41,27 +40,23 @@ var _ = Describe("Status", Ordered, func() {
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{
 			DB: db,
 		}))
-		searchIdx := MustOpen(search.OpenIndex())
 		g := MustOpen(
 			group.OpenService(
 				ctx,
-				group.ServiceConfig{DB: db, Ontology: otg, Search: searchIdx},
+				group.ServiceConfig{DB: db, Ontology: otg},
 			),
 		)
 		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
-			Search:   searchIdx,
 		}))
 		svc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Label:    labelSvc,
 			Group:    g,
-			Search:   searchIdx,
 		}))
-		Expect(searchIdx.Initialize(ctx)).To(Succeed())
 	})
 	BeforeEach(func(ctx SpecContext) {
 		tx = db.OpenTx()

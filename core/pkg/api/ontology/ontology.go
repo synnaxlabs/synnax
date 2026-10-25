@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -27,7 +26,6 @@ import (
 
 type Service struct {
 	ontology *ontology.Ontology
-	search   *search.Index
 	access   *rbac.Service
 }
 
@@ -38,7 +36,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	}
 	return &Service{
 		ontology: cfg.Service.Ontology,
-		search:   cfg.Service.Search,
 		access:   cfg.Service.RBAC,
 	}, nil
 }
@@ -66,7 +63,7 @@ func (s *Service) Retrieve(
 ) (RetrieveResponse, error) {
 	resources := make([]ontology.Resource, 0)
 	if req.SearchTerm != "" {
-		ids, err := s.search.Search(ctx, search.Request{Term: req.SearchTerm})
+		ids, err := s.ontology.Search(ctx, nil, req.SearchTerm)
 		if err != nil {
 			return RetrieveResponse{}, err
 		}
