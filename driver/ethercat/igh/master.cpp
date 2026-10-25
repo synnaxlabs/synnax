@@ -415,7 +415,7 @@ void Master::discover_slave_pdos(slave::DiscoveryResult &slave) {
     auto &props = slave.properties;
     this->read_slave_pdos(slave);
     if (!props.input_pdos.empty() || !props.output_pdos.empty()) {
-        esi::fill_data_types(props);
+        esi::fill_known_entries(props);
         return;
     }
     if (!esi::lookup_device_pdos(

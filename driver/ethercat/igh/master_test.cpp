@@ -437,8 +437,9 @@ TEST_F(IGHMasterTest, PaddingIsDiscoveredButNotRegistered) {
     EXPECT_EQ(this->mock_api->registered_entries, registered);
 }
 
-/// @brief it should fill the data types of live entries from the device registry.
-TEST_F(IGHMasterTest, RegistryFillsDataTypesOfLiveEntries) {
+/// @brief it should fill the names and data types of live entries from the device
+/// registry, so a rescan keeps the names that automatic channels refer to.
+TEST_F(IGHMasterTest, RegistryFillsNamesAndDataTypesOfLiveEntries) {
     constexpr uint32_t beckhoff = 0x00000002;
     constexpr uint32_t el3102 = 0x0C1E3052;
     slave::Properties registry{};
@@ -455,6 +456,7 @@ TEST_F(IGHMasterTest, RegistryFillsDataTypesOfLiveEntries) {
 
     const auto inputs = this->master_instance->slaves()[0].properties.input_pdos;
     ASSERT_EQ(inputs.size(), 1);
+    EXPECT_EQ(inputs[0].name, known->name);
     EXPECT_EQ(inputs[0].data_type, known->data_type);
 }
 
