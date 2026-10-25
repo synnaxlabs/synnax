@@ -341,7 +341,6 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			Group:    groupSvc,
 			Status:   statusSvc,
 			Rack:     rackSvc,
-			Search:   searchIdx,
 		}))
 		var stores []config.Store
 		stores = append(
