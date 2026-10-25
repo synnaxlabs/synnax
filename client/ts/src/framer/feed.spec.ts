@@ -682,8 +682,8 @@ describe("feed", () => {
       await direct.close();
     });
 
-    it("should forward tileBudget to the tile cache", async () => {
-      const { direct, counter } = createFeed({ tileBudget: Size.bytes(4) });
+    it("should forward budget to the block cache", async () => {
+      const { direct, counter } = createFeed({ budget: Size.bytes(4) });
       await direct.readTile({ ...TILE, index: 1 });
       await direct.readTile({ ...TILE, index: 2 });
       await direct.readTile({ ...TILE, index: 1 });

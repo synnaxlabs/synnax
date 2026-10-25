@@ -53,7 +53,7 @@ export interface FeedProps
    * stream writes into are never evicted.
    * @default Size.megabytes(128)
    */
-  tileBudget?: Size;
+  budget?: Size;
   /**
    * How long a fetched block answers reads before it is fetched again. Bounds the
    * refetch rate of spans that stay empty. A block a caller holds keeps answering.
@@ -89,7 +89,7 @@ export class Feed {
       retrieveChannels,
       openStreamer,
       readLatest,
-      tileBudget,
+      budget,
       instrumentation,
       dynamicBufferSize,
       staleCoverageThreshold,
@@ -101,7 +101,7 @@ export class Feed {
       onRetry,
     } = props;
     this.store = new Store({
-      budget: tileBudget,
+      budget,
       staleThreshold: staleCoverageThreshold,
       dynamicBufferSize,
       instrumentation: instrumentation?.child("store"),
