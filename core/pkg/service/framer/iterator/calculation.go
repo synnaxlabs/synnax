@@ -35,7 +35,7 @@ type calculationTransform struct {
 	calculators      []*calculator.Calculator
 	accumulatedError error
 	// buffered is true when the calculations read channels on more than one Core. Each
-	// Core sends its own pieces of a request, so one piece holds only some inputs.
+	// Core sends its own chunks of a request, so one chunk holds only some inputs.
 	buffered bool
 	pending  []framer.Frame
 }

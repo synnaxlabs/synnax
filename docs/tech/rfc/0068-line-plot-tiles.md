@@ -61,6 +61,8 @@ bounds come from the home view (§3.0).
 - **Grid**: The tile boundaries of one level. Tile `k` at level `L` spans
   `[k * size(L), (k + 1) * size(L))`, measured from the Unix epoch.
 - **Point limit**: The target number of points the Core returns for one tile.
+- **Chunk**: A bounded part of one read, sent as one response. A `Next` or `Prev` with
+  the automatic span returns one chunk. Cesium sends a large fixed span as several.
 - **Group**: A run of consecutive samples that the Core reduces to one or two points.
 - **Group size**: The number of samples in a group. `1` means the data is raw.
 - **Aggregation**: How the Core reduces a group. `min_max` keeps the lowest and highest
@@ -137,17 +139,17 @@ gets the same group size: the count over the limit, rounded up, and twice that f
 index domain, so two reads of overlapping bounds cut the same groups.
 
 A fixed-span read without a limit can be large: 12 hours of a 1 kHz channel is about 400
-MB. Cesium sends a fixed-span `Next` or `Prev` in pieces, in time order. Each piece
+MB. Cesium sends a fixed-span `Next` or `Prev` in chunks, in time order. Each chunk
 holds at most a fixed number of samples, summed over the channels, and ends at the same
-time for every channel. A limited read is not pieced, because a piece edge would cut its
-groups, and the limit already bounds it.
+time for every channel. A limited read is not chunked, because a chunk edge would cut
+its groups, and the limit already bounds it.
 
 A calculation must see every sample, so a request that runs one reads every channel raw,
 and the service reduces the output. Each channel's group size comes from the concrete
 indexes it depends on, so a stored channel reduces the same way with or without a
 calculation beside it. The service reads each index decimated under the same limit and
 takes the group size Cesium picks for it. The reducer keeps each channel's last group
-until the next piece completes it. The service reads a `Next` or `Prev` with the
+until the next chunk completes it. The service reads a `Next` or `Prev` with the
 automatic span as one fixed-span read to the end of the bounds, so no chunk edge cuts a
 group.
 
@@ -222,7 +224,7 @@ Each phase is one PR into `main`, merged in order. Phase 4 sits behind the Conso
 - **Phase 1: Aether update fix.** Main-thread updates that cross a worker push in flight
   are kept. Tiles push often, so the plot depends on it.
 - **Phase 2: Core reduction.** Alignment multiples and codec bit 6, the `reduction`
-  union from the clients to Cesium, pieced raw reads, and reduced calculations.
+  union from the clients to Cesium, chunked raw reads, and reduced calculations.
 - **Phase 3: Tile cache.** `Feed.readTile`. No plot uses it yet.
 - **Phase 4: Tiled plots, flagged.** Home-view bounds, `tiledChannelData`, the `view`
   value prop, loading, the live window, and XY lines.
@@ -268,9 +270,9 @@ tiles. The trade is real: a large XY plot loads its whole home view.
 **5.7 One `reduction` union, not three fields.** Separate fields allow a stride and a
 limit together, and each layer must reject it. A union cannot state that request.
 
-**5.8 Pieces in Cesium, not in the service.** Only Cesium knows where each index's
+**5.8 Chunks in Cesium, not in the service.** Only Cesium knows where each index's
 samples are. Reducing each chunk alone adds two points at every chunk edge. The trade is
-real: the reducer holds one group per channel between pieces.
+real: the reducer holds one group per channel between chunks.
 
 **5.9 Tiles read through `/frame/read`, not the iterator.** A tile is one bounded read.
 Through the iterator, it costs a new WebSocket and four exchanges. The trade is real: a
