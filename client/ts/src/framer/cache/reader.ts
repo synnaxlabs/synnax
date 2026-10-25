@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Unreachable } from "@synnaxlabs/freighter";
 import {
   debounce,
   MultiSeries,
   type Reduction,
   type Series,
+  sync,
   TimeRange,
   TimeSpan,
   TimeStamp,
@@ -20,7 +22,6 @@ import {
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import { type Cache } from "@/framer/cache/cache";
-import { withDeadline } from "@/framer/deadline";
 import { type Frame } from "@/framer/frame";
 
 /** Reads a telemetry frame from the Core, reduced when a reduction is given. */
@@ -172,11 +173,13 @@ export class Reader {
       TimeStamp.min(gap.end, now().sub(COMMIT_MARGIN)),
     );
     try {
-      const frame = await withDeadline(
+      const frame = await sync.withTimeout(
         readRemote(gap, Array.from(channels)),
         fetchTimeout,
         () =>
-          `gap read for ${gap.toString()} timed out after ${fetchTimeout.toString()}`,
+          new Unreachable({
+            message: `gap read for ${gap.toString()} timed out after ${fetchTimeout.toString()}`,
+          }),
       );
       if (!this.closed) {
         // Group series by key in one pass; per-key get() scans the whole frame.

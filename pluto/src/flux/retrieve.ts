@@ -21,6 +21,7 @@ import {
   type destructor,
   sleep,
   type state,
+  sync,
   TimeSpan,
 } from "@synnaxlabs/x";
 import {
@@ -330,7 +331,7 @@ const NOOP_SUBSCRIBE = () => () => {};
  */
 const NOT_FOUND_WAIT = TimeSpan.seconds(5);
 
-const waitForCreation = <Query extends query.Params, Data extends query.Data>(
+const waitForCreation = async <Query extends query.Params, Data extends query.Data>(
   params: RetrieveParams<Query>,
   {
     name,
@@ -345,47 +346,33 @@ const waitForCreation = <Query extends query.Params, Data extends query.Data>(
     hash: string;
     local: LocalCache<Data>;
   },
-): Promise<Data> =>
-  new Promise<Data>((resolve, reject) => {
-    const epoch = local.epoch;
-    let settled = false;
-    let disconnect: destructor.Destructor = () => {};
-    const finish = () => {
-      settled = true;
-      clearTimeout(timer);
-      disconnect();
-      local.inFlight.delete(hash);
-    };
-    const timer = setTimeout(() => {
-      finish();
-      // A reconnect landed during the wait, so the not-found may no longer hold.
-      if (local.epoch === epoch) setSettled(local, hash, { error });
-      reject(error);
-    }, NOT_FOUND_WAIT.milliseconds);
+): Promise<Data> => {
+  const epoch = local.epoch;
+  let disconnect: destructor.Destructor | undefined;
+  const found = new Promise<query.Cached<Data>>((resolve) => {
     disconnect = onChange(params, (result) => {
-      if (result === undefined) return;
-      finish();
-      if (Deleted.matches<Data>(result))
-        reject(
-          new DeletedError(`${caseconv.capitalize(name)} was deleted`, result.corpse),
-        );
-      else resolve(result);
+      if (result !== undefined) resolve(result);
     });
-    // An already-answered query delivers during onChange itself, before the
-    // destructor exists to be called; tear it down now.
-    if (settled) disconnect();
     // The document may have landed, or been deleted, between the failed
     // fetch and the subscription mounting.
     const cached = getCached(params);
-    if (cached !== undefined) {
-      finish();
-      if (Deleted.matches<Data>(cached))
-        reject(
-          new DeletedError(`${caseconv.capitalize(name)} was deleted`, cached.corpse),
-        );
-      else resolve(cached);
-    }
+    if (cached !== undefined) resolve(cached);
   });
+  let result: query.Cached<Data>;
+  try {
+    result = await sync.withTimeout(found, NOT_FOUND_WAIT, () => {
+      // A reconnect landed during the wait, so the not-found may no longer hold.
+      if (local.epoch === epoch) setSettled(local, hash, { error });
+      return error;
+    });
+  } finally {
+    disconnect?.();
+    local.inFlight.delete(hash);
+  }
+  if (Deleted.matches<Data>(result))
+    throw new DeletedError(`${caseconv.capitalize(name)} was deleted`, result.corpse);
+  return result;
+};
 
 /** Attempts a fetch gets after the Core first proves unreachable. */
 const UNREACHABLE_RETRIES = 3;

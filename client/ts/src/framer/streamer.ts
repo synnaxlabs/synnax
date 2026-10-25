@@ -7,15 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
-import { errors, Rate, TimeSpan, zod } from "@synnaxlabs/x";
+import {
+  EOF,
+  type Stream,
+  Unreachable,
+  type WebSocketClient,
+} from "@synnaxlabs/freighter";
+import { errors, Rate, sync, TimeSpan, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type channel } from "@/channel";
 import { paramsZ } from "@/channel/payload";
 import { type ChannelRetriever, ReadAdapter } from "@/framer/adapter";
 import { WSStreamerCodec } from "@/framer/codec";
-import { withDeadline } from "@/framer/deadline";
 import { Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
@@ -204,10 +208,13 @@ class BaseStreamer implements Streamer {
   private async receiveWithDeadline(): Promise<z.infer<typeof resZ>> {
     const received = this.stream.receive();
     if (!this.armed) return await received;
-    return await withDeadline(
+    return await sync.withTimeout(
       received,
       this.deadline,
-      () => `streamer received no response for ${this.deadline.toString()}`,
+      () =>
+        new Unreachable({
+          message: `streamer received no response for ${this.deadline.toString()}`,
+        }),
     );
   }
 
