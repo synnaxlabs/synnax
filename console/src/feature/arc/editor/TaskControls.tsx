@@ -19,7 +19,9 @@ import { CSS } from "@/platform/css";
 import { Framer } from "@/platform/framer";
 import { Task } from "@/platform/task";
 
-const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "arc" };
+const INITIAL_RACK_QUERY: rack.RetrieveMultipleParams = {
+  where: { integrations: { any: ["arc"] } },
+};
 const RACK_TRIGGER_PROPS = { collapsible: true };
 
 export const TaskControls = () => {

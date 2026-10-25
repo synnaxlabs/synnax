@@ -37,10 +37,9 @@ message CreateResponse {
 }
 
 message RetrieveRequest {
-  repeated uint32 keys = 1;
-  repeated string names = 2;
-  string integration = 3;
-  bool include_status = 4;
+  reserved 1, 2, 3, 4;
+  reserved "keys", "names", "integration", "include_status";
+  service.rack.pb.RetrieveRequest request = 5;
 }
 
 message RetrieveResponse {

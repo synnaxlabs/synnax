@@ -384,4 +384,28 @@ var _ = Describe("Dispatch", Ordered, func() {
 			)
 		})
 	})
+
+	Describe("Join", func() {
+		It(
+			"Should return the status of each resource in order, nil for a missing one",
+			func(ctx SpecContext) {
+				stored := ontology.ID{Type: "rack", Key: "join_stored"}
+				missing := ontology.ID{Type: "rack", Key: "join_missing"}
+				Expect(setStatus(ctx, &status.Status[any]{
+					Key:     stored.String(),
+					Name:    "stored",
+					Variant: status.VariantSuccess,
+					Message: "running",
+					Time:    telem.Now(),
+				})).To(Succeed())
+				joined := MustSucceed(
+					svc.Join[any](ctx, []ontology.ID{missing, stored}),
+				)
+				Expect(joined).To(HaveLen(2))
+				Expect(joined[0]).To(BeNil())
+				Expect(joined[1].Key).To(Equal(stored.String()))
+				Expect(joined[1].Message).To(Equal("running"))
+			},
+		)
+	})
 })

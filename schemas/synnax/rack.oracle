@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/status"
+import "schemas/x/filter"
 
 @cpp output "client/cpp/rack"
 @go output  "core/pkg/service/rack"
@@ -56,6 +57,7 @@ Rack struct {
     status       Status?  {
         @doc value  "is the current operational status of the rack."
         @go marshal omit
+        @include
     }
     integrations string[] = [] {
         @doc value """
@@ -78,6 +80,19 @@ Rack struct {
     @py name         "Base"
     @retrieve custom
     @ts name         "Payload"
+}
+
+Where filter Rack {
+    key
+    name
+    embedded
+    integrations
+    host_is_node bool {
+        @doc value """
+            matches racks on the Core that serves the request, or racks on other Cores
+            when false.
+        """
+    }
 }
 
 New struct extends Rack {

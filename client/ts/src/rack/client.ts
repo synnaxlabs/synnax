@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, deep, primitive } from "@synnaxlabs/x";
+import { array, deep } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
@@ -21,9 +21,13 @@ import {
   ontologyID,
   type Payload,
   payloadZ,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  retrieveResponseZ,
   type Status,
   statusZ,
 } from "@/rack/types.gen";
+import { type Lines, matches, serverComputed } from "@/rack/where.gen";
 import { type status } from "@/status";
 import { type task } from "@/task";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -31,46 +35,37 @@ import { checkForMultipleOrNoResults } from "@/util/retrieve";
 export const SET_CHANNEL_NAME = "sy_rack_set";
 export const DELETE_CHANNEL_NAME = "sy_rack_delete";
 
-const retrieveReqZ = z.object({
-  keys: keyZ.array().optional(),
-  names: z.string().array().optional(),
-  integration: z.string().optional(),
-  searchTerm: z.string().optional(),
-  embedded: z.boolean().optional(),
-  hostIsNode: z.boolean().optional(),
-  limit: z.int().optional(),
-  offset: z.int().optional(),
-  includeStatus: z.boolean().optional(),
+const keysRequest = (keys: Key[]): RetrieveRequest => ({
+  where: { key: { in: keys } },
 });
-const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
-const retrieveResZ = z.object({ racks: payloadZ.array().default(() => []) });
+
+const retrieveMultiParamsZ = z.union([
+  keyZ.array().transform(keysRequest),
+  retrieveRequestZ,
+]);
 export const rackZ = payloadZ;
 
 const singleRetrieveParamsZ = z.union([
   z
-    .object({
-      key: keyZ,
-      includeStatus: z.boolean().optional(),
-    })
-    .transform(({ key, includeStatus }) => ({ keys: [key], includeStatus })),
+    .object({ key: keyZ, includeStatus: z.boolean().optional() })
+    .transform(({ key, includeStatus }): RetrieveRequest => ({
+      where: { key: { eq: key } },
+      includeStatus,
+    })),
   z
-    .object({
-      name: z.string(),
-      includeStatus: z.boolean().optional(),
-    })
-    .transform(({ name, includeStatus }) => ({ names: [name], includeStatus })),
+    .object({ name: z.string(), includeStatus: z.boolean().optional() })
+    .transform(({ name, includeStatus }): RetrieveRequest => ({
+      where: { name: { eq: name } },
+      includeStatus,
+    })),
 ]);
 export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 
-const multiRetrieveParamsZ = retrieveReqZ;
+export type RetrieveMultipleParams = RetrieveRequest;
 
-export type RetrieveMultipleParams = z.input<typeof multiRetrieveParamsZ>;
-
-const retrieveParamsZ = z.union([singleRetrieveParamsZ, multiRetrieveParamsZ]);
+const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
 
 export type RetrieveParams = z.input<typeof retrieveParamsZ>;
-
-interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 
 type SingleQuery =
   { key: Key; includeStatus?: boolean } | { name: string; includeStatus?: boolean };
@@ -82,8 +77,8 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
-/** Query fields only the server can evaluate. */
-const SERVER_FIELDS = ["searchTerm", "limit", "offset", "hostIsNode"] as const;
+// Only the Core knows which Core serves a request.
+const LINES: Lines = { hostIsNode: null };
 
 /** Drops includeStatus when unset so equivalent queries hash identically. */
 const normalizeSingle = (params: RetrieveSingleParams): SingleQuery => {
@@ -101,26 +96,6 @@ const singleQueryZ = z
 
 /** The table never holds statuses; the status table is their single home. */
 const stripStatus = ({ status: _, ...rack }: Payload): Omit<Payload, "status"> => rack;
-
-/**
- * Client-side matching for a request: key and name sets and payload-held
- * flags. Server-computed shapes (search, pagination, host resolution) never
- * reach this filter; they refetch instead.
- */
-const requestFilter = (
-  req: RetrieveRequest,
-): ((r: Omit<Payload, "status">) => boolean) => {
-  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  const nameSet = primitive.isNonZero(req.names) ? new Set(req.names) : undefined;
-  return (r) => {
-    if (keySet != null && !keySet.has(r.key)) return false;
-    if (nameSet != null && !nameSet.has(r.name)) return false;
-    if (req.integration != null && !r.integrations.includes(req.integration))
-      return false;
-    if (req.embedded != null && r.embedded !== req.embedded) return false;
-    return true;
-  };
-};
 
 // Rack statuses live in the status table under the "rack:<key>" status key.
 const affectedRackKeys = (
@@ -155,7 +130,8 @@ export class Client extends query.Retriever<
     const { cache, statusStore } = cfg;
     const store = cache.createTable<Key, Omit<Payload, "status">>({
       name: "racks",
-      fetch: async (keys) => (await this.fetchThrough({ keys })).map(stripStatus),
+      fetch: async (keys) =>
+        (await this.fetchThrough(keysRequest(keys))).map(stripStatus),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, payloadZ, {
           value: ({ status: _, ...rack }) => rack,
@@ -186,8 +162,8 @@ export class Client extends query.Retriever<
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => (await this.fetchThrough(req)).map(stripStatus),
-        matches: (r, req) => requestFilter(req)(r),
-        serverFields: SERVER_FIELDS,
+        matches: (r, req) => matches(LINES, r, req.where ?? {}),
+        serverComputed: (req) => req.where != null && serverComputed(LINES, req.where),
         watch: [
           query.watch(statusStore, (event, q: RetrieveRequest) => {
             if (q.includeStatus !== true) return null;
@@ -291,7 +267,7 @@ export class Client extends query.Retriever<
       "/rack/retrieve",
       params,
       retrieveParamsZ,
-      retrieveResZ,
+      retrieveResponseZ,
     );
     return res.racks;
   }

@@ -11,7 +11,12 @@
 
 package rack
 
-import "github.com/synnaxlabs/synnax/pkg/service/rack/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/rack/versions"
+	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/validate"
+	"strconv"
+)
 
 // Key is a composite identifier for a rack. The high 16 bits contain the Core key, and
 // the low 16 bits contain the local sequential key. A rack is leased to the Core named
@@ -28,3 +33,53 @@ type Status = versions.Status
 // Core. Racks are the integration point between the Core and physical hardware through
 // the Driver.
 type Rack = versions.Rack
+
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Name selects by name.
+	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Embedded selects by embedded.
+	Embedded *filter.Bool `json:"embedded,omitzero" msgpack:"embedded,omitempty"`
+	// Integrations selects by integrations.
+	Integrations *filter.Contains[string] `json:"integrations,omitzero" msgpack:"integrations,omitempty"`
+	// HostIsNode matches racks on the Core that serves the request, or racks on other
+	// Cores when false.
+	HostIsNode *bool `json:"host_is_node,omitzero" msgpack:"host_is_node,omitempty"`
+}
+
+// RetrieveRequest is a request to retrieve racks.
+type RetrieveRequest struct {
+	// Where selects the racks to retrieve. An absent where selects all of them.
+	Where *Where `json:"where,omitzero" msgpack:"where,omitempty"`
+	// SearchTerm keeps the racks that match the term, closest match first.
+	SearchTerm *string `json:"search_term,omitzero" msgpack:"search_term,omitempty"`
+	// Limit is the most racks to return.
+	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
+	// Offset is the number of matching racks to skip.
+	Offset *uint32 `json:"offset,omitzero" msgpack:"offset,omitempty"`
+	// IncludeStatus includes the status of each record.
+	IncludeStatus *bool `json:"include_status,omitzero" msgpack:"include_status,omitempty"`
+}
+
+// RetrieveResponse holds the racks a RetrieveRequest selects.
+type RetrieveResponse struct {
+	// Racks are the racks the request selects.
+	Racks []Rack `json:"racks" msgpack:"racks"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RetrieveResponse) Validate() error {
+	v := validate.New("RetrieveResponse")
+	for i := range r.Racks {
+		v.Exec(func() error { return validate.PathedError(r.Racks[i].Validate(), "racks", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}

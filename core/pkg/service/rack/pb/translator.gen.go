@@ -14,8 +14,11 @@ package pb
 import (
 	"encoding/json/v2"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
+	"github.com/synnaxlabs/x/filter"
+	filterpb "github.com/synnaxlabs/x/filter/pb"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -123,6 +126,384 @@ func RacksFromPB(pbs []*Rack) ([]rack.Rack, error) {
 	for i, pb := range pbs {
 		var err error
 		result[i], err = RackFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// KeySetToPB converts filter.Set[rack.Key] to KeySet.
+func KeySetToPB(r filter.Set[rack.Key]) (*KeySet, error) {
+	pb := &KeySet{}
+	if r.Eq != nil {
+		v := uint32(*r.Eq)
+		pb.Eq = &v
+	}
+	if r.In != nil {
+		pb.In = &KeyList{Values: lo.Map(r.In, func(v rack.Key, _ int) uint32 { return uint32(v) })}
+	}
+	return pb, nil
+}
+
+// KeySetFromPB converts KeySet to filter.Set[rack.Key].
+func KeySetFromPB(pb *KeySet) (filter.Set[rack.Key], error) {
+	var r filter.Set[rack.Key]
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Eq != nil {
+		v := rack.Key(*pb.Eq)
+		r.Eq = &v
+	}
+	if pb.In != nil {
+		r.In = lo.Map(pb.In.Values, func(v uint32, _ int) rack.Key { return rack.Key(v) })
+	}
+	return r, nil
+}
+
+// KeySetsToPB converts a slice of filter.Set[rack.Key] to KeySet.
+func KeySetsToPB(rs []filter.Set[rack.Key]) ([]*KeySet, error) {
+	result := make([]*KeySet, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = KeySetToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// KeySetsFromPB converts a slice of KeySet to filter.Set[rack.Key].
+func KeySetsFromPB(pbs []*KeySet) ([]filter.Set[rack.Key], error) {
+	result := make([]filter.Set[rack.Key], len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = KeySetFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// StringContainsToPB converts filter.Contains[string] to StringContains.
+func StringContainsToPB(r filter.Contains[string]) (*StringContains, error) {
+	pb := &StringContains{}
+	if r.Any != nil {
+		pb.Any = &StringList{Values: r.Any}
+	}
+	return pb, nil
+}
+
+// StringContainsFromPB converts StringContains to filter.Contains[string].
+func StringContainsFromPB(pb *StringContains) (filter.Contains[string], error) {
+	var r filter.Contains[string]
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Any != nil {
+		r.Any = pb.Any.Values
+	}
+	return r, nil
+}
+
+// StringContainsListToPB converts a slice of filter.Contains[string] to StringContains.
+func StringContainsListToPB(rs []filter.Contains[string]) ([]*StringContains, error) {
+	result := make([]*StringContains, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = StringContainsToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// StringContainsListFromPB converts a slice of StringContains to filter.Contains[string].
+func StringContainsListFromPB(pbs []*StringContains) ([]filter.Contains[string], error) {
+	result := make([]filter.Contains[string], len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = StringContainsFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// WhereToPB converts Where to Where.
+func WhereToPB(r rack.Where) (*Where, error) {
+	pb := &Where{}
+	if r.And != nil {
+		vals, err := WheresToPB(r.And)
+		if err != nil {
+			return nil, err
+		}
+		pb.And = &WhereList{Values: vals}
+	}
+	if r.Or != nil {
+		vals, err := WheresToPB(r.Or)
+		if err != nil {
+			return nil, err
+		}
+		pb.Or = &WhereList{Values: vals}
+	}
+	if r.Not != nil {
+		var err error
+		pb.Not, err = WhereToPB(*r.Not)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Key != nil {
+		var err error
+		pb.Key, err = KeySetToPB(*r.Key)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Name != nil {
+		var err error
+		pb.Name, err = filterpb.StringToPB(*r.Name)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Embedded != nil {
+		var err error
+		pb.Embedded, err = filterpb.BoolToPB(*r.Embedded)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Integrations != nil {
+		var err error
+		pb.Integrations, err = StringContainsToPB(*r.Integrations)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.HostIsNode != nil {
+		pb.HostIsNode = r.HostIsNode
+	}
+	return pb, nil
+}
+
+// WhereFromPB converts Where to Where.
+func WhereFromPB(pb *Where) (rack.Where, error) {
+	var r rack.Where
+	if pb == nil {
+		return r, nil
+	}
+	if pb.And != nil {
+		vals, err := WheresFromPB(pb.And.Values)
+		if err != nil {
+			return rack.Where{}, err
+		}
+		r.And = vals
+	}
+	if pb.Or != nil {
+		vals, err := WheresFromPB(pb.Or.Values)
+		if err != nil {
+			return rack.Where{}, err
+		}
+		r.Or = vals
+	}
+	if pb.Not != nil {
+		val, err := WhereFromPB(pb.Not)
+		if err != nil {
+			return rack.Where{}, err
+		}
+		r.Not = &val
+	}
+	if pb.Key != nil {
+		val, err := KeySetFromPB(pb.Key)
+		if err != nil {
+			return rack.Where{}, err
+		}
+		r.Key = &val
+	}
+	if pb.Name != nil {
+		val, err := filterpb.StringFromPB(pb.Name)
+		if err != nil {
+			return rack.Where{}, err
+		}
+		r.Name = &val
+	}
+	if pb.Embedded != nil {
+		val, err := filterpb.BoolFromPB(pb.Embedded)
+		if err != nil {
+			return rack.Where{}, err
+		}
+		r.Embedded = &val
+	}
+	if pb.Integrations != nil {
+		val, err := StringContainsFromPB(pb.Integrations)
+		if err != nil {
+			return rack.Where{}, err
+		}
+		r.Integrations = &val
+	}
+	if pb.HostIsNode != nil {
+		r.HostIsNode = pb.HostIsNode
+	}
+	return r, nil
+}
+
+// WheresToPB converts a slice of Where to Where.
+func WheresToPB(rs []rack.Where) ([]*Where, error) {
+	result := make([]*Where, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = WhereToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// WheresFromPB converts a slice of Where to Where.
+func WheresFromPB(pbs []*Where) ([]rack.Where, error) {
+	result := make([]rack.Where, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = WhereFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RetrieveRequestToPB converts RetrieveRequest to RetrieveRequest.
+func RetrieveRequestToPB(r rack.RetrieveRequest) (*RetrieveRequest, error) {
+	pb := &RetrieveRequest{}
+	if r.Where != nil {
+		var err error
+		pb.Where, err = WhereToPB(*r.Where)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.SearchTerm != nil {
+		pb.SearchTerm = r.SearchTerm
+	}
+	if r.Limit != nil {
+		pb.Limit = r.Limit
+	}
+	if r.Offset != nil {
+		pb.Offset = r.Offset
+	}
+	if r.IncludeStatus != nil {
+		pb.IncludeStatus = r.IncludeStatus
+	}
+	return pb, nil
+}
+
+// RetrieveRequestFromPB converts RetrieveRequest to RetrieveRequest.
+func RetrieveRequestFromPB(pb *RetrieveRequest) (rack.RetrieveRequest, error) {
+	var r rack.RetrieveRequest
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Where != nil {
+		val, err := WhereFromPB(pb.Where)
+		if err != nil {
+			return rack.RetrieveRequest{}, err
+		}
+		r.Where = &val
+	}
+	if pb.SearchTerm != nil {
+		r.SearchTerm = pb.SearchTerm
+	}
+	if pb.Limit != nil {
+		r.Limit = pb.Limit
+	}
+	if pb.Offset != nil {
+		r.Offset = pb.Offset
+	}
+	if pb.IncludeStatus != nil {
+		r.IncludeStatus = pb.IncludeStatus
+	}
+	return r, nil
+}
+
+// RetrieveRequestsToPB converts a slice of RetrieveRequest to RetrieveRequest.
+func RetrieveRequestsToPB(rs []rack.RetrieveRequest) ([]*RetrieveRequest, error) {
+	result := make([]*RetrieveRequest, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = RetrieveRequestToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RetrieveRequestsFromPB converts a slice of RetrieveRequest to RetrieveRequest.
+func RetrieveRequestsFromPB(pbs []*RetrieveRequest) ([]rack.RetrieveRequest, error) {
+	result := make([]rack.RetrieveRequest, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = RetrieveRequestFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RetrieveResponseToPB converts RetrieveResponse to RetrieveResponse.
+func RetrieveResponseToPB(r rack.RetrieveResponse) (*RetrieveResponse, error) {
+	racksVal, err := RacksToPB(r.Racks)
+	if err != nil {
+		return nil, err
+	}
+	pb := &RetrieveResponse{
+		Racks: racksVal,
+	}
+	return pb, nil
+}
+
+// RetrieveResponseFromPB converts RetrieveResponse to RetrieveResponse.
+func RetrieveResponseFromPB(pb *RetrieveResponse) (rack.RetrieveResponse, error) {
+	var r rack.RetrieveResponse
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Racks, err = RacksFromPB(pb.Racks)
+	if err != nil {
+		return rack.RetrieveResponse{}, err
+	}
+	return r, nil
+}
+
+// RetrieveResponsesToPB converts a slice of RetrieveResponse to RetrieveResponse.
+func RetrieveResponsesToPB(rs []rack.RetrieveResponse) ([]*RetrieveResponse, error) {
+	result := make([]*RetrieveResponse, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = RetrieveResponseToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RetrieveResponsesFromPB converts a slice of RetrieveResponse to RetrieveResponse.
+func RetrieveResponsesFromPB(pbs []*RetrieveResponse) ([]rack.RetrieveResponse, error) {
+	result := make([]rack.RetrieveResponse, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = RetrieveResponseFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

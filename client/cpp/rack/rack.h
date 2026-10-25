@@ -135,6 +135,11 @@ public:
     std::pair<Rack, x::errors::Error>
     retrieve(const std::string &name, const RetrieveOptions &options) const;
 
+    /// @brief Retrieves the racks that req selects.
+    [[nodiscard]]
+    std::pair<std::vector<Rack>, x::errors::Error>
+    retrieve(const RetrieveRequest &req) const;
+
     /// @brief Deletes a rack by its key.
     /// @param key The key of the rack to delete.
     /// @returns An error if the deletion failed.
@@ -144,7 +149,7 @@ public:
 private:
     [[nodiscard]]
     std::pair<Rack, x::errors::Error>
-    retrieve(grpc::rack::RetrieveRequest &req, const std::string &query) const;
+    retrieve_one(const RetrieveRequest &req, const std::string &query) const;
 
     /// @brief Rack creation transport.
     std::unique_ptr<CreateClient> rack_create_client;

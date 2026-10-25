@@ -16,7 +16,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/rack/pb"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/unsafe"
+	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -103,26 +105,28 @@ func (createResponseTranslator) Backward(
 
 func (retrieveRequestTranslator) Forward(
 	_ context.Context,
-	req rack.RetrieveRequest,
+	r rack.RetrieveRequest,
 ) (*RetrieveRequest, error) {
-	return &RetrieveRequest{
-		Keys:          unsafe.ReinterpretSlice[rack.Key, uint32](req.Keys),
-		Names:         req.Names,
-		Integration:   req.Integration,
-		IncludeStatus: req.IncludeStatus,
-	}, nil
+	req, err := pb.RetrieveRequestToPB(r)
+	if err != nil {
+		return nil, err
+	}
+	return &RetrieveRequest{Request: req}, nil
 }
 
 func (retrieveRequestTranslator) Backward(
 	_ context.Context,
-	req *RetrieveRequest,
+	r *RetrieveRequest,
 ) (rack.RetrieveRequest, error) {
-	return rack.RetrieveRequest{
-		Keys:          unsafe.ReinterpretSlice[uint32, rack.Key](req.Keys),
-		Names:         req.Names,
-		Integration:   req.Integration,
-		IncludeStatus: req.IncludeStatus,
-	}, nil
+	// A client older than the Core sends the reserved fields, which would otherwise
+	// select every rack.
+	if len(r.ProtoReflect().GetUnknown()) > 0 {
+		return rack.RetrieveRequest{}, errors.Wrap(
+			validate.ErrValidation,
+			"retrieve request has unknown fields",
+		)
+	}
+	return pb.RetrieveRequestFromPB(r.Request)
 }
 
 func (retrieveResponseTranslator) Forward(
