@@ -36,6 +36,7 @@ import { Session } from "@/session";
 import {
   countEditableText,
   getIconButton,
+  HaulProvider,
   type TestStore,
   uniqueName,
 } from "@/testutil";
@@ -78,7 +79,7 @@ const createProjectPanel = async (
 const withHaul = (Wrapper: FC<PropsWithChildren>): FC<PropsWithChildren> => {
   const HaulWrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Wrapper>
-      <Haul.Provider {...Session.Haul.PROVIDER_PROPS}>{children}</Haul.Provider>
+      <HaulProvider>{children}</HaulProvider>
     </Wrapper>
   );
   HaulWrapper.displayName = "HaulWrapper";

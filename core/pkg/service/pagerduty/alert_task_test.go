@@ -11,7 +11,6 @@ package pagerduty_test
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 	"uuid"
@@ -22,6 +21,7 @@ import (
 	pd "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -356,6 +356,30 @@ var _ = Describe("AlertTask", func() {
 			},
 		)
 
+		It("Should use the status key as the source when the status has no name",
+			func(ctx context.Context) {
+				tsk := configureAndStart(ctx, validConfig(
+					pd.Alert{Status: "unnamed"},
+				))
+				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
+
+				tx := db.OpenTx()
+				defer func() { Expect(tx.Close()).To(Succeed()) }()
+				Expect(statusSvc.NewWriter(tx).Set(ctx, &status.Status[any]{
+					Key:     "unnamed",
+					Variant: status.VariantError,
+					Message: "Something broke",
+					Time:    telem.Now(),
+				})).To(Succeed())
+				Expect(tx.Commit(ctx)).To(Succeed())
+
+				Eventually(func() int { return len(sender.getEvents()) }).
+					WithTimeout(2 * time.Second).
+					Should(BeNumerically(">=", 1))
+				Expect(sender.getEvents()[0].Payload.Source).To(Equal("unnamed"))
+			},
+		)
+
 		It("Should use only message as summary when description is empty",
 			func(ctx context.Context) {
 				tsk := configureAndStart(ctx, validConfig(
@@ -394,18 +418,34 @@ var _ = Describe("AlertTask", func() {
 
 		It("Should set error status when sendEvent fails",
 			func(ctx context.Context) {
-				sender.setError(fmt.Errorf("simulated PagerDuty outage"))
-				tsk := configureAndStart(ctx, validConfig(
-					pd.Alert{Status: "send-failure"},
-				))
+				sender.setError(errors.New("simulated PagerDuty outage"))
+				t := task.Task{
+					Key:  uuid.New(),
+					Name: "PagerDuty Test",
+					Type: pd.AlertTaskType,
+					Config: encodeConfig(
+						validConfig(pd.Alert{Status: "send-failure"}),
+					),
+				}
+				tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
+				Expect(tsk.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
 
 				setStatus(ctx, "send-failure", status.VariantError,
 					"Trigger send", nil)
 
-				Eventually(func() int32 { return sender.sendCallCount() }).
-					WithTimeout(2 * time.Second).
-					Should(BeNumerically(">=", 1))
+				Eventually(func(g Gomega) {
+					var stat task.Status
+					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+						Where(status.MatchKeys[task.StatusDetails](
+							t.OntologyID().String(),
+						)).
+						Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					g.Expect(stat.Variant).To(Equal(status.VariantError))
+					g.Expect(stat.Message).To(Equal("Failed to send PagerDuty event"))
+					g.Expect(stat.Description).To(Equal("simulated PagerDuty outage"))
+					g.Expect(stat.Details.Running).To(BeTrue())
+				}).WithTimeout(2 * time.Second).Should(Succeed())
 			},
 		)
 	})

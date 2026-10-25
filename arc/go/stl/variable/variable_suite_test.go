@@ -19,7 +19,7 @@ import (
 
 func TestVariable(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Arc Variable Suite")
+	RunSpecs(t, "Arc Variable Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

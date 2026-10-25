@@ -1086,7 +1086,7 @@ var _ = Describe("Graph", func() {
 
 				s := expectStatus(ctx, calc.Key())
 				Expect(s.Variant).To(Equal(status.VariantError))
-				Expect(s.Message).To(Equal("invalid expression for st_detail"))
+				Expect(s.Message).To(Equal("Failed to compile calculation"))
 				Expect(s.Description).ToNot(BeEmpty())
 				Expect(s.Key).To(Equal(channel.OntologyID(calc.Key()).String()))
 				Expect(s.Name).To(Equal("st_detail"))
@@ -1249,7 +1249,7 @@ var _ = Describe("Graph", func() {
 				Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
 					Name:    "st_expr",
 					Variant: status.VariantError,
-					Message: "calculation for st_expr failed",
+					Message: "Failed to run calculation",
 					Time:    telem.Now(),
 				})).To(Succeed())
 				expectStatus(ctx, calc.Key())
@@ -1321,12 +1321,12 @@ var _ = Describe("Graph", func() {
 			Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
 				Name:    "rt_set",
 				Variant: status.VariantError,
-				Message: "calculation for rt_set failed",
+				Message: "Failed to run calculation",
 				Time:    telem.Now(),
 			})).To(Succeed())
 
 			s := expectStatus(ctx, calc.Key())
-			Expect(s.Message).To(Equal("calculation for rt_set failed"))
+			Expect(s.Message).To(Equal("Failed to run calculation"))
 		})
 
 		It(
@@ -1378,7 +1378,7 @@ var _ = Describe("Graph", func() {
 				Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
 					Name:    "rt_gone",
 					Variant: status.VariantError,
-					Message: "calculation for rt_gone failed",
+					Message: "Failed to run calculation",
 					Time:    telem.Now(),
 				})).To(Succeed())
 
@@ -1400,7 +1400,7 @@ var _ = Describe("Graph", func() {
 			Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
 				Name:    "rt_clear",
 				Variant: status.VariantError,
-				Message: "calculation for rt_clear failed",
+				Message: "Failed to run calculation",
 				Time:    telem.Now(),
 			})).To(Succeed())
 			expectStatus(ctx, calc.Key())

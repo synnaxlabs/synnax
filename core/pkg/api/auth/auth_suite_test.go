@@ -15,9 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
-	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	svc "github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -29,7 +27,7 @@ import (
 
 func TestAPIAuth(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API Auth Suite")
+	RunSpecs(t, "API Auth Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
@@ -64,12 +62,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 			auth.MethodPassword: passwordSvc,
 		},
 	}))
-	apiSvc = MustSucceed(apiauth.NewService(apicfg.LayerConfig{
-		Distribution: node.Layer,
-		Service: &svc.Layer{
-			Auth:     authSvc,
-			Password: passwordSvc,
-			User:     userSvc,
-		},
+	apiSvc = MustSucceed(apiauth.NewService(apiauth.ServiceConfig{
+		Auth:     authSvc,
+		Password: passwordSvc,
+		User:     userSvc,
+		Cluster:  node.Cluster,
 	}))
 })

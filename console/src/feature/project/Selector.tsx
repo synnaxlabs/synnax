@@ -35,37 +35,37 @@ const stopClicksWhileEditing = (e: MouseEvent<HTMLDivElement>): void => {
   if ((e.target as HTMLElement).isContentEditable) e.stopPropagation();
 };
 
-export const listItem = Component.renderProp(
-  (props: List.ItemProps<project.Key>): ReactElement | null => {
-    const { itemKey } = props;
-    const proj = List.useItem<project.Key, project.Project>(itemKey);
-    const { update: rename } = Project.useRename();
-    const canRename = Access.useUpdateGranted(project.ontologyID(itemKey));
-    const handleRename = useCallback(
-      (name: string) => rename({ key: itemKey, name }),
-      [itemKey, rename],
-    );
-    if (proj == null) return null;
-    return (
-      <Select.Item
-        {...props}
-        className={Menu.CONTEXT_TARGET}
-        data-menu-key={itemKey}
-        onClickCapture={stopClicksWhileEditing}
-      >
-        <Avatar.Avatar name={proj.name} size="small" />
-        <Text.MaybeEditable
-          id={PCSS.B(`project-${itemKey}`)}
-          value={proj.name}
-          onChange={canRename ? handleRename : undefined}
-          allowDoubleClick={false}
-          className={CSS.BE("project", "name")}
-          overflow="ellipsis"
-        />
-      </Select.Item>
-    );
-  },
-);
+const ListItem = (props: List.ItemProps<project.Key>): ReactElement | null => {
+  const { itemKey } = props;
+  const proj = List.useItem<project.Key, project.Project>(itemKey);
+  const { update: rename } = Project.useRename();
+  const canRename = Access.useUpdateGranted(project.ontologyID(itemKey));
+  const handleRename = useCallback(
+    (name: string) => rename({ key: itemKey, name }),
+    [itemKey, rename],
+  );
+  if (proj == null) return null;
+  return (
+    <Select.Item
+      {...props}
+      className={Menu.CONTEXT_TARGET}
+      data-menu-key={itemKey}
+      onClickCapture={stopClicksWhileEditing}
+    >
+      <Avatar.Avatar name={proj.name} size="small" />
+      <Text.MaybeEditable
+        id={PCSS.B(`project-${itemKey}`)}
+        value={proj.name}
+        onChange={canRename ? handleRename : undefined}
+        allowDoubleClick={false}
+        className={CSS.BE("project", "name")}
+        overflow="ellipsis"
+      />
+    </Select.Item>
+  );
+};
+
+export const listItem = Component.renderProp(ListItem);
 
 export interface ContextMenuProps extends Menu.ContextMenuMenuProps {
   getItem: (key: project.Key) => project.Project | undefined;

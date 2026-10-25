@@ -309,8 +309,8 @@ TEST(MasterPdoOffset, ReturnsOffsetsOfEveryMappedEntry) {
     );
     ASSERT_TRUE(first.has_value());
     ASSERT_TRUE(second.has_value());
-    EXPECT_EQ(first->byte, 0);
-    EXPECT_EQ(second->byte, 2);
+    EXPECT_EQ(first.value().byte, 0);
+    EXPECT_EQ(second.value().byte, 2);
 }
 
 /// @brief it should return no offset for an entry that is not mapped.

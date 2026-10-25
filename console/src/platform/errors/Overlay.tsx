@@ -136,6 +136,15 @@ interface FallbackRenderContentProps<
   extraInfo?: ExtraInfo;
 }
 
+const applySystemTheme = (): void => {
+  const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  const theme = mediaQuery.matches ? Theming.SYNNAX_DARK : Theming.SYNNAX_LIGHT;
+  PCSS.applyVars(
+    document.documentElement,
+    Theming.toCSSVars(Theming.themeZ.parse(theme)),
+  );
+};
+
 const FallBackRenderContent = <ExtraInfo extends record.Unknown = record.Unknown>({
   onTryAgain,
   onClear,
@@ -145,12 +154,7 @@ const FallBackRenderContent = <ExtraInfo extends record.Unknown = record.Unknown
   const os = OS.use();
   useEffect(() => {
     try {
-      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-      const theme = mediaQuery.matches ? Theming.SYNNAX_DARK : Theming.SYNNAX_LIGHT;
-      PCSS.applyVars(
-        document.documentElement,
-        Theming.toCSSVars(Theming.themeZ.parse(theme)),
-      );
+      applySystemTheme();
     } catch (e) {
       console.error(e);
     }

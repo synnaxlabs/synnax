@@ -36,7 +36,6 @@ import (
 	v3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -462,7 +461,7 @@ var _ = Describe("NameMigration", func() {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  "Task",
-			Migrations: []migrate.Migration{v2.NameMigration},
+			Migrations: []gorp.Migration{v2.NameMigration},
 		})).To(Succeed())
 		var out v2.Task
 		Expect(gorp.NewRetrieve[v2.Key, v2.Task]().

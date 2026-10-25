@@ -16,10 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
 	apipanel "github.com/synnaxlabs/synnax/pkg/api/panel"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
-	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
@@ -37,7 +34,7 @@ import (
 
 func TestAPIPanel(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API Panel Suite")
+	RunSpecs(t, "API Panel Suite", SuiteConfig())
 }
 
 var (
@@ -88,9 +85,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology: otg,
 		Search:   searchIdx,
 	}))
-	apiSvc = MustSucceed(apipanel.NewService(apicfg.LayerConfig{
-		Distribution: &distribution.Layer{DB: db},
-		Service:      &service.Layer{Panel: panelSvc, RBAC: rbacSvc},
+	apiSvc = MustSucceed(apipanel.NewService(apipanel.ServiceConfig{
+		RBAC:  rbacSvc,
+		Panel: panelSvc,
 	}))
 	author = MustSucceed(
 		userSvc.NewWriter(nil).Create(ctx, user.User{Username: "test"}),

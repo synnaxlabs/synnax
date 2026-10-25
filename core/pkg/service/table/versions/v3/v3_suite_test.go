@@ -19,7 +19,7 @@ import (
 
 func TestTableV3(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Table v3 Suite")
+	RunSpecs(t, "Service Table v3 Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

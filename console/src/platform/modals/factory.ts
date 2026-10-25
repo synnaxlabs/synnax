@@ -45,28 +45,33 @@ export interface PromptHook<Params, Result> {
  * dismisses itself). It returns the open hook directly; the hook's function takes the
  * modal's typed params.
  */
-export const create =
-  <Params extends Session.Modals.ReservedParams = Record<never, never>>(
-    Component: Session.Modals.Content<Params, void>,
-  ): OpenHook<Params> =>
-  (): Opener<Params> => {
+export const create = <
+  Params extends Session.Modals.ReservedParams = Record<never, never>,
+>(
+  Component: Session.Modals.Content<Params, void>,
+): OpenHook<Params> => {
+  const useOpen = (): Opener<Params> => {
     const store = Session.Modals.useStore("Modals.create");
     return useCallback(
       (params?: Params) => store.push(Component, params, () => {}),
       [store],
     );
   };
+  return useOpen;
+};
 
 /**
  * prompt defines a result-returning modal. It returns the prompt hook directly; the
  * hook's function takes the modal's typed params and resolves with the renderer's result
  * (or null on dismissal).
  */
-export const createPrompt =
-  <Result, Params extends Session.Modals.ReservedParams = Record<never, never>>(
-    Component: Session.Modals.Content<Params, Result>,
-  ): PromptHook<Params, Result> =>
-  (): Prompt<Result, Params> => {
+export const createPrompt = <
+  Result,
+  Params extends Session.Modals.ReservedParams = Record<never, never>,
+>(
+  Component: Session.Modals.Content<Params, Result>,
+): PromptHook<Params, Result> => {
+  const usePrompt = (): Prompt<Result, Params> => {
     const store = Session.Modals.useStore("Modals.createPrompt");
     return useCallback(
       (params?: Params) =>
@@ -74,3 +79,5 @@ export const createPrompt =
       [store],
     );
   };
+  return usePrompt;
+};

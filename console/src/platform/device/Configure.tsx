@@ -86,7 +86,7 @@ const Internal = <
       }
       if (!methods.validate("identifier")) return false;
       return deviceToCreate();
-    }, [isNameStep, methods, setStep, setRecommendedIds, identifierRef]),
+    }, [isNameStep, methods, deviceToCreate]),
     afterSuccess: useCallback(
       ({ data }: Flux.AfterSuccessParams<device.Device>) => {
         capture("device_configured", { make: data.make });

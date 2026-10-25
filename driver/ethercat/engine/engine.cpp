@@ -66,14 +66,16 @@ std::pair<x::telem::Rate, x::errors::Error> bus_rate(
     uint64_t base = 1;
     for (const auto &rate: reads) {
         const auto mhz = millihertz(rate);
-        if (mhz == 0)
+        // Allow the rounding error of the float a Rate holds.
+        const double error = std::abs(rate.hz() * 1000 - static_cast<double>(mhz));
+        if (mhz == 0 || error > static_cast<double>(mhz) * 1e-6)
             return {
                 x::telem::Rate(0),
                 x::errors::Error(
                     errors::RATE_MISMATCH,
                     std::format(
-                        "a read task on {} samples at {} Hz, below the minimum of "
-                        "0.001 Hz",
+                        "a read task on {} samples at {} Hz, but sample rates must be "
+                        "a positive multiple of 0.001 Hz",
                         interface_name,
                         rate.hz()
                     )
@@ -336,15 +338,7 @@ void Engine::supervise() {
 }
 
 x::errors::Error Engine::start_locked(const x::telem::Rate rate) {
-    x::breaker::Breaker retry(
-        x::breaker::Config{
-            .name = "ethercat_engine",
-            .base_interval = x::telem::MILLISECOND * 100,
-            .max_retries = 10,
-            .scale = 1.5f,
-            .max_interval = x::telem::SECOND * 5
-        }
-    );
+    x::breaker::Breaker retry(this->config.start_retry);
     retry.start();
     while (true) {
         auto err = this->master->initialize();
@@ -452,10 +446,8 @@ void Engine::rebuild_outputs_locked() {
     std::vector<Applied> applied;
     for (const auto &output: this->outputs)
         for (size_t i = 0; i < output->entries.size(); ++i)
-            if (output->commands[i])
-                applied.push_back(
-                    {&output->entries[i], output->offsets[i], &*output->commands[i]}
-                );
+            if (const auto &command = output->commands[i]; command.has_value())
+                applied.push_back({&output->entries[i], output->offsets[i], &*command});
     // Two writers can command the same output, so the latest command must land last.
     std::ranges::sort(applied, {}, [](const Applied &a) { return a.command->seq; });
     std::ranges::fill(this->write_staging, 0);

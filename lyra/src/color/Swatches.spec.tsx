@@ -32,7 +32,7 @@ const renderSwatches = (props: Color.SwatchesProps): RenderResult =>
 
 const renderWithFrequent = (props: Color.SwatchesProps): RenderResult =>
   render(
-    <Color.Provider useState={() => [FREQUENT, vi.fn()]}>
+    <Color.Provider value={FREQUENT} onChange={vi.fn()}>
       <Color.Swatches {...props} />
     </Color.Provider>,
     { wrapper: Wrapper },
