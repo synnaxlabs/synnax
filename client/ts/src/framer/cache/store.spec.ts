@@ -164,6 +164,14 @@ describe("Store", () => {
       expect(store.expired(block)).toBe(true);
     });
 
+    it("should never expire a held block", () => {
+      const clock = new ManualClock();
+      const store = new Store({ now: clock.now });
+      const block = createBlock({ fetchedAt: clock.now(), held: true });
+      clock.advance(TimeSpan.hours(1));
+      expect(store.expired(block)).toBe(false);
+    });
+
     it("should default the stale threshold to ten minutes", () => {
       const clock = new ManualClock();
       const store = new Store({ now: clock.now });
@@ -228,6 +236,21 @@ describe("Store", () => {
       expect(store.raw(1, 100)).toBe(block);
       expect(block.fetched).toEqual([]);
       expect(block.coveredEnd).toEqual(BLOCK.start);
+    });
+
+    it("should keep the fetched samples of a held block past the stale threshold", () => {
+      const clock = new ManualClock();
+      const store = new Store({
+        staleThreshold: TimeSpan.milliseconds(20),
+        now: clock.now,
+      });
+      const series = new Series({ data: new Float32Array([1]), timeRange: BLOCK });
+      store.raw(1, 100).fill([series], BLOCK.end, 1);
+      series.acquire();
+      clock.advance(TimeSpan.milliseconds(20));
+      expect(store.raw(1, 100).fetched).toEqual([series]);
+      series.release();
+      expect(store.raw(1, 100).fetched).toEqual([]);
     });
   });
 

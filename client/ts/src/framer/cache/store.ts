@@ -45,7 +45,7 @@ export interface StoreProps extends Partial<
   budget?: Size;
   /**
    * How long a fetched block answers reads before it is fetched again, so that writes
-   * into the past show up.
+   * into the past show up. A held block keeps answering.
    * @default TimeSpan.minutes(10)
    */
   staleThreshold?: TimeSpan;
@@ -140,9 +140,14 @@ export class Store {
     this.bytes -= bytes;
   }
 
-  /** @returns true when the block's fetched samples are too old to answer reads. */
+  /**
+   * @returns true when the block's fetched samples are too old to answer reads. A held
+   * block never expires.
+   */
   expired(block: Block): boolean {
-    return !this.now().span(block.fetchedAt).lessThan(this.staleThreshold);
+    return (
+      !block.held && !this.now().span(block.fetchedAt).lessThan(this.staleThreshold)
+    );
   }
 
   /**

@@ -56,7 +56,7 @@ export interface FeedProps
   tileBudget?: Size;
   /**
    * How long a fetched block answers reads before it is fetched again. Bounds the
-   * refetch rate of spans that stay empty.
+   * refetch rate of spans that stay empty. A block a caller holds keeps answering.
    * @default TimeSpan.minutes(10)
    */
   staleCoverageThreshold?: TimeSpan;
