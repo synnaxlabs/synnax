@@ -17,7 +17,7 @@ import { Dialog as SelectDialog } from "@/select/Dialog";
 import { Frame, type MultipleFrameProps, type SingleFrameProps } from "@/select/Frame";
 import { List } from "@/select/List";
 import { MultipleTrigger, type MultipleTriggerProps } from "@/select/MultipleTrigger";
-import { usePlaceholder } from "@/select/placeholder";
+import { searchPlaceholder, usePlaceholder } from "@/select/placeholder";
 import { useVisibleCount } from "@/select/registry";
 import { useClosed } from "@/select/scope";
 import { Search } from "@/select/Search";
@@ -136,7 +136,7 @@ export const Simple = <K extends record.Key>({
   };
   const dialog = (
     <SelectDialog {...dialogProps}>
-      <Search placeholder={`Search ${pluralize.plural(resourceName)}...`} />
+      <Search placeholder={searchPlaceholder(resourceName)} />
       <List bordered borderColor={6} grow rounded full="x">
         {children}
         <Empty resourceName={resourceName} emptyContent={emptyContent} />
