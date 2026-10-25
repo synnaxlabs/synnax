@@ -56,13 +56,13 @@ Where filter Range {
 - **Bare line**: Names a field of the target. Oracle picks its operators from the field
   type (§2.1), and go/query emits its matcher. `key` always maps to `MatchKeys`.
 - **Typed line**: Calls a matcher written by hand in the target's service package. The
-  generated Go calls `MatchOverlaps(telem.TimeRange)`. A missing or mistyped function
-  fails the Core build.
+  generated Go calls `MatchOverlaps(telem.TimeRange)`, and a `T[]` line calls a variadic
+  matcher: `MatchLabels(...label.Key)`. A missing or mistyped function fails the Core
+  build.
 - **Target**: A struct or a union (`Where filter View`).
 
 The analyzer expands the definition into an ordinary struct, as `@create` expands into
 `New` (`oracle/analyzer/create.go`), so every type plugin emits it with no change.
-Protobuf and C++ have no test of a direct `Where[]` field yet; Phase 2 adds one.
 
 ```
 Where struct {
@@ -77,8 +77,9 @@ Where struct {
 ```
 
 The set slots on one node are ANDed. `and` matches when all children match, `or` when
-any child matches, and `not` when its child does not. An empty node matches every
-record. A key that does not exist is a non-match, never `ErrNotFound`.
+any child matches, and `not` when its child does not. An empty node or an empty `and`
+matches every record. An empty `or`, `in`, or `any` matches none. A key that does not
+exist is a non-match, never `ErrNotFound`.
 
 go/query builds one matcher list from bare lines and `@filter` fields, and the
 interpreter reads names from it. A field can have both; it gets one matcher.
@@ -88,13 +89,13 @@ interpreter reads names from it. A field can have both; it gets one matcher.
 `schemas/x/filter.oracle` declares the operator types as ordinary Oracle structs. The
 field type selects one:
 
-| Field type          | Operator type        | Operators                            |
-| ------------------- | -------------------- | ------------------------------------ |
-| `string`            | `filter.String`      | `eq`, `in`, `regex`                  |
-| `bool`              | `filter.Bool`        | `eq`                                 |
-| keys, UUIDs, enums  | `filter.Set<T>`      | `eq`, `in`                           |
-| numbers, timestamps | `filter.Ordered<T>`  | `eq`, `in`, `gt`, `gte`, `lt`, `lte` |
-| `T[]`               | `filter.Contains<T>` | `any`                                |
+| Field type                  | Operator type        | Operators                            |
+| --------------------------- | -------------------- | ------------------------------------ |
+| `string`                    | `filter.String`      | `eq`, `in`, `regex`                  |
+| `bool`                      | `filter.Bool`        | `eq`                                 |
+| `@key` fields, UUIDs, enums | `filter.Set<T>`      | `eq`, `in`                           |
+| numbers, timestamps         | `filter.Ordered<T>`  | `eq`, `in`, `gt`, `gte`, `lt`, `lte` |
+| `T[]`                       | `filter.Contains<T>` | `any`                                |
 
 All operators set on one slot are ANDed. "All of these labels" is an AND of nodes. A
 regex is RE2, and the TypeScript API takes a pattern string, with `(?i)` for case.
@@ -119,18 +120,20 @@ RetrieveResponse {
 }
 ```
 
-`Order` holds one `@index sorted` field and a direction. Gorp's `OrderBy` walks a
-`SortedIndex` (`gorp/index.go:207`), so a field without the index cannot sort. When both
-are set, `order_by` replaces search relevance. The response holds the target type,
-unless the definition names another one: channels return the wire-only `APIChannel`.
+`Order` holds a `field`, from the `OrderField` enum of `@index sorted` fields, and a
+`direction`. Gorp's `OrderBy` walks a `SortedIndex` (`gorp/index.go:207`), so a field
+without the index cannot sort. When both are set, `order_by` replaces search relevance.
+The response holds the target type, unless `@response type T` on the definition names
+another. Channels return the wire-only `APIChannel`.
 
 ### 2.3 The Core
 
-A new Go plugin generates the interpreter. It walks a `Where` and returns the service's
-bound filter, built from `And`, `Or`, `Not`, and the matchers. The API handler stays
-hand-written: it runs the filter, the joins that `include_*` asks for, and access
-checks. The status join that channel, device, rack, and task each copy today becomes one
-shared helper.
+A new Go plugin generates the interpreter. `MatchWhere` walks a `Where` and returns the
+service's bound filter, built from `And`, `Or`, `Not`, and the matchers. `OrderingOf`
+turns an `Order` into the service's `Ordering`. For a generic target such as
+`status.Status<D>`, both are generic functions. The API handler stays hand-written: it
+runs the filter, the joins that `include_*` asks for, and access checks. The status join
+that channel, device, rack, and task each copy today becomes one shared helper.
 
 The generated request decodes strictly. An unknown key anywhere in the request is an
 error, so a stale client that sends `keys` fails instead of matching every record. A bad
@@ -240,6 +243,3 @@ and its flat fields go away together, since a client must match the Core's versi
 1. **Optional fields**: Whether bare lines on optional fields get an `is set` operator.
 2. **Nested sort keys**: How `@index sorted` names a sub-field, so ranges sort by
    `time_range.start`.
-3. **Generic targets**: `status.Status<D>` needs the interpreter as a generic function,
-   since Go methods take no type parameters.
-4. **Response override**: The syntax that names `APIChannel` as the channel response.
