@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
-import { framer, UnexpectedError } from "@synnaxlabs/client";
+import { UnexpectedError } from "@synnaxlabs/client";
 import {
   type Aggregation,
   bounds,
@@ -19,6 +19,7 @@ import {
   type direction,
   math,
   type MultiSeries,
+  POINTS_PER_GROUP,
   scale,
   type Series,
   type SeriesDigest,
@@ -444,7 +445,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       }, ZOOM_SETTLE.milliseconds);
     }
     if (i.settleTimer != null) return { bounds: b };
-    const perGroup = framer.grid.POINTS_PER_GROUP[i.aggregation ?? DEFAULT_AGGREGATION];
+    const perGroup = POINTS_PER_GROUP[i.aggregation ?? DEFAULT_AGGREGATION];
     return { bounds: b, points: width * this.state.groupsPerColumn * perGroup };
   }
 

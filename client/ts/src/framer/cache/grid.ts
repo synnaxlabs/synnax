@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Aggregation, TimeRange, TimeSpan, type TimeStamp } from "@synnaxlabs/x";
+import {
+  type Aggregation,
+  POINTS_PER_GROUP,
+  TimeRange,
+  TimeSpan,
+  type TimeStamp,
+} from "@synnaxlabs/x";
 
 /**
  * Identifies one tile of the grid. Tiles at level L span 2^L milliseconds, and tile i
@@ -57,13 +63,6 @@ export const indexes = (tr: TimeRange, level: number): number[] => {
   const out: number[] = [];
   for (let i = first; i < last; i++) out.push(Number(i));
   return out;
-};
-
-/** The points one aggregation group draws. */
-export const POINTS_PER_GROUP: Record<Aggregation, number> = {
-  min_max: 2,
-  average: 1,
-  decimate: 1,
 };
 
 interface PointLimitProps {
