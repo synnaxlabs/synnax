@@ -117,8 +117,8 @@ TEST(PropertiesFindPdo, ReturnsNulloptWhenEmpty) {
 TEST(PropertiesFindPdo, ReturnsTheInputEntryAtAnAddress) {
     const auto result = find_pdo_slave().find_pdo(0x6000, 0x11, true);
     ASSERT_TRUE(result.has_value());
-    ASSERT_EQ(result->name, "Value");
-    ASSERT_EQ(result->bit_length, 16);
+    ASSERT_EQ(result.value().name, "Value");
+    ASSERT_EQ(result.value().bit_length, 16);
 }
 
 /// @brief it should find the output entry at an address.
