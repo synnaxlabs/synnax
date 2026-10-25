@@ -297,6 +297,12 @@ export class Reader {
           catchUp,
         }));
       const trusted = catchUp ? newestEnd(timestamps, start) : committed;
+      // The Core stamps a series with the span of its domain inside the read, so the
+      // channel's samples reach seen.
+      const seen = series.reduce(
+        (end, s) => TimeStamp.max(end, s.timeRange.end),
+        TimeStamp.ZERO,
+      );
       const stale = rewritten(key) || (idx !== 0 && rewritten(idx));
       targets.forEach((r) => {
         const { block } = r;
@@ -325,6 +331,7 @@ export class Reader {
           coveredEnd,
           base + countBefore(part.timestamps, coveredEnd),
         );
+        block.sealed = !seen.before(coveredEnd);
         store.set(rawKey(key, block.index), block);
       });
     });

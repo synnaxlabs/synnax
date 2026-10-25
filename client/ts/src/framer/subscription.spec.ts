@@ -13,7 +13,7 @@ import {
   dynamicWindow,
   id,
   Rate,
-  type Series,
+  Series,
   Size,
   sleep,
   staticWindow,
@@ -27,7 +27,8 @@ import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import { domainOf, offsetOf, rawIndex } from "@/framer/cache/block";
 import { tileRange } from "@/framer/cache/grid";
-import { type FeedOptions } from "@/framer/feed";
+import { type Feed, type FeedOptions } from "@/framer/feed";
+import { Frame } from "@/framer/frame";
 import {
   type PointsRequest,
   type Snapshot,
@@ -77,6 +78,12 @@ const loaded = async (sub: Subscription, key: channel.Key): Promise<Series[]> =>
 };
 
 const timesOf = (snap: Snapshot): bigint[] => Array.from(snap.series) as bigint[];
+
+// Returns the time of the Core's newest sample.
+const newestOf = (core: SyntheticCore): bigint =>
+  START.valueOf() +
+  BigInt(Math.ceil(Number(core.now().sub(START).valueOf()) / Number(PERIOD)) - 1) *
+    PERIOD;
 
 // Advances the Core's clock by step on each tick of the real clock, so a writer keeps
 // writing while a spec waits. Returns a function that stops it.
@@ -545,16 +552,12 @@ describe("Feed.subscribe", () => {
       });
       try {
         await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
-        const newest = (): bigint =>
-          START.valueOf() +
-          BigInt(
-            Math.ceil(Number(core.now().sub(START).valueOf()) / Number(PERIOD)) - 1,
-          ) *
-            PERIOD;
-        expect(sub.value(key).series.at(-1)).toBe(newest());
+        expect(sub.value(key).series.at(-1)).toBe(newestOf(core));
         expect(sub.value(key).series.length).toBe(1);
         core.advance(TimeSpan.seconds(1));
-        await expect.poll(() => sub.value(key).series.at(-1), POLL).toBe(newest());
+        await expect
+          .poll(() => sub.value(key).series.at(-1), POLL)
+          .toBe(newestOf(core));
       } finally {
         sub.close();
         await feed.close();
@@ -632,6 +635,97 @@ describe("Feed.subscribe", () => {
         await expect.poll(() => sub.value(b).status.variant, POLL).toBe("success");
         expect(core.reads).toBe(reads + 1);
       } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
+
+    it("should read the newest samples again after the stream reconnects", async () => {
+      const core = createCore();
+      const feed = core.openFeed(OPTIONS);
+      const key = core.index.key;
+      const sub = feed.subscribe({
+        keys: [key],
+        limit: { variant: "latest", count: 1000 },
+      });
+      try {
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        const [first] = sub.value(key).series.series;
+        core.disconnect();
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("warning");
+        core.advance(TimeSpan.seconds(1));
+        core.reconnect();
+        await expect
+          .poll(() => timesOf(sub.value(key)).at(-1), POLL)
+          .toBe(newestOf(core));
+        const snap = sub.value(key);
+        expect(snap.status.variant).toBe("success");
+        expect(snap.series.series[0]).toBe(first);
+        expectComplete(timesOf(snap));
+      } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
+
+    it("should leave out a streamed write older than the newest sample", async () => {
+      const core = createCore();
+      const feed = core.openFeed(OPTIONS);
+      const key = core.index.key;
+      const sub = feed.subscribe({
+        keys: [key],
+        limit: { variant: "latest", count: 2 },
+      });
+      try {
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        // A writer fills an earlier span in a domain of its own.
+        const older = new Series({
+          data: new BigInt64Array([START.valueOf()]),
+          dataType: DataType.TIMESTAMP,
+          timeRange: new TimeRange(START, START.add(TimeSpan.NANOSECOND)),
+          alignment: 9n << 32n,
+        });
+        core.stream(new Frame(key, older));
+        core.advance(TimeSpan.milliseconds(10));
+        await expect
+          .poll(() => timesOf(sub.value(key)).at(-1), POLL)
+          .toBe(newestOf(core));
+        const times = timesOf(sub.value(key));
+        expect(times).toHaveLength(3);
+        expectComplete(times);
+      } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
+
+    it("should keep samples after the end of a static window out of the count", async () => {
+      const core = createCore();
+      const feed = core.openFeed(OPTIONS);
+      const key = core.index.key;
+      const end = core.now().sub(TimeSpan.seconds(1));
+      const sub = feed.subscribe({
+        keys: [key],
+        window: staticWindow(new TimeRange(end.sub(TimeSpan.seconds(1)), end)),
+        limit: { variant: "latest", count: 100 },
+      });
+      const marker = feed.subscribe({
+        keys: [key],
+        limit: { variant: "latest", count: 1 },
+      });
+      try {
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        await expect.poll(() => marker.value(key).status.variant, POLL).toBe("success");
+        const before = timesOf(sub.value(key));
+        expect(before).toHaveLength(100);
+        core.advance(TimeSpan.seconds(1));
+        // The stream delivers each frame to every subscription before the next.
+        await expect
+          .poll(() => marker.value(key).series.at(-1), POLL)
+          .toBe(newestOf(core));
+        expect(timesOf(sub.value(key))).toEqual(before);
+      } finally {
+        marker.close();
         sub.close();
         await feed.close();
       }
@@ -855,6 +949,53 @@ describe("Feed.subscribe", () => {
         await feed.close();
       }
     });
+
+    it.each([
+      ["raw samples", Infinity],
+      ["tiles", 100],
+    ])(
+      "should read %s again once the blocks that appends land in expire",
+      async (_, count) => {
+        // The writer trails the clock, so appends land in blocks the feed read empty.
+        const core = createCore({ lag: TimeSpan.minutes(5) });
+        const feed = core.openFeed(OPTIONS);
+        const key = core.data[0].key;
+        const request: PointsRequest = {
+          keys: [key],
+          window: staticWindow(
+            new TimeRange(
+              START.add(TimeSpan.minutes(6)),
+              START.add(TimeSpan.minutes(7)),
+            ),
+          ),
+          limit: { variant: "points", count, aggregation: "min_max" },
+        };
+        // Returns the samples that a subscription to the window draws.
+        const load = async (f: Feed): Promise<number[]> => {
+          const sub = f.subscribe(request);
+          try {
+            await expect
+              .poll(() => sub.value(key).status.variant, POLL)
+              .toBe("success");
+            return Array.from(sub.value(key).series) as number[];
+          } finally {
+            sub.close();
+          }
+        };
+        const fresh = core.openFeed(OPTIONS);
+        try {
+          expect(await load(feed)).toEqual([]);
+          await sleep.sleep(TimeSpan.milliseconds(150));
+          core.advance(TimeSpan.minutes(20));
+          const drawn = await load(fresh);
+          expect(drawn.length).toBeGreaterThan(0);
+          expect(await load(feed)).toEqual(drawn);
+        } finally {
+          await fresh.close();
+          await feed.close();
+        }
+      },
+    );
   });
 
   describe("history change during a fetch", () => {

@@ -21,7 +21,12 @@ import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
 import { AccessDeniedError, ValidationError } from "@/errors";
-import * as grid from "@/framer/cache/grid";
+import {
+  index as tileIndex,
+  level as tileLevel,
+  pointLimit as tilePointLimit,
+  tileRange,
+} from "@/framer/cache/grid";
 import { Joins } from "@/framer/cache/join";
 import { Joiner } from "@/framer/cache/joiner";
 import { Points, type PointsProps } from "@/framer/cache/points";
@@ -173,12 +178,14 @@ describe("Points", () => {
     }
   });
 
-  it("should load an extremesKept limit of an aggregation other than min_max", async () => {
+  it.each([
+    ["a zoomed view", { view: new TimeRange(START, START.add(TimeSpan.minutes(1))) }],
+    ["kept extremes", { aggregation: "average", extremesKept: true }],
+  ] as const)("should finish loading the tiles of %s", async (_, limit) => {
     const core = createCore();
     const { subscribe, close } = createPoints(core);
     const window = staticWindow(new TimeRange(START, START.add(TimeSpan.minutes(8))));
-    const limit: PointsLimit = { ...TILED, aggregation: "average", extremesKept: true };
-    const points = subscribe(core.data[0].key, window, limit);
+    const points = subscribe(core.data[0].key, window, { ...TILED, ...limit });
     try {
       await expect.poll(() => points.value().status.variant, POLL).toBe("success");
       expect(points.value().series.length).toBeGreaterThan(0);
@@ -192,11 +199,11 @@ describe("Points", () => {
     const { store, subscribe, unsubscribe, close } = createPoints(core);
     const key = core.data[0].key;
     const span = TimeSpan.minutes(4);
-    const level = grid.level(new TimeRange(START, START.add(span)));
-    const index = grid.index(START, level) + 1;
-    const { start } = grid.tileRange({ level, index });
+    const level = tileLevel(new TimeRange(START, START.add(span)));
+    const index = tileIndex(START, level) + 1;
+    const { start } = tileRange({ level, index });
     const home = new TimeRange(start, start.add(span));
-    const pointLimit = grid.pointLimit({
+    const pointLimit = tilePointLimit({
       level,
       view: home,
       points: TILED.count,

@@ -28,6 +28,11 @@ export interface Block {
   readonly bytes: number;
   /** True while the block must stay cached, as when a subscription serves it. */
   readonly held: boolean;
+  /**
+   * True when the fetch saw the channel's samples reach the block's coverage end.
+   * Appends land after the channel's newest sample, so none lands in a sealed block.
+   */
+  readonly sealed: boolean;
   /** The number of subscriptions that serve the block's series. */
   pins: number;
 }
@@ -220,6 +225,7 @@ interface Streamed {
 export class RawBlock implements Block {
   readonly range: TimeRange;
   fetchedAt = TimeStamp.ZERO;
+  sealed = false;
   pins = 0;
   /** True while a join writes the stream's samples into the block. */
   joined = false;
@@ -273,11 +279,15 @@ export class RawBlock implements Block {
     );
   }
 
-  /** Moves the coverage to end, which holds count index samples of the block. */
+  /**
+   * Moves the coverage to end, which holds count index samples of the block, and seals
+   * the block. Call it only when the channel's samples reach end.
+   */
   extend(end: TimeStamp, count: number): void {
     if (this.coveredEnd.equals(this.range.start)) this.fetchedAt = this.now();
     this.coveredEnd = end;
     this.coveredCount = count;
+    this.sealed = true;
   }
 
   /**
@@ -291,6 +301,7 @@ export class RawBlock implements Block {
     this._fetched = [];
     this.coveredEnd = this.range.start;
     this.coveredCount = 0;
+    this.sealed = false;
     return true;
   }
 
