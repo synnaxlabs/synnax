@@ -30,6 +30,7 @@ import {
   getEntryChannelName,
   getPortLabel,
   hasEntry,
+  isScaled,
   READ_SCHEMAS,
   READ_TYPE,
   type ReadChannel,
@@ -125,7 +126,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       const { identifier, pdos } = slave.properties;
       const created = await client.channels.create(
         toCreate.map((ch) => {
-          const suffix = ch.scale.type === "none" ? "" : "_scaled";
+          const suffix = isScaled(ch) ? "_scaled" : "";
           return {
             name: primitive.isNonZero(ch.name)
               ? ch.name
