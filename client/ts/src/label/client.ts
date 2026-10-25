@@ -11,16 +11,19 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, primitive, zod } from "@synnaxlabs/x";
 import z from "zod";
 
+import { actions } from "@/actions";
+import { createOf, reduceAll } from "@/label/actions";
+import { type Action, dispatchReqZ, scopedActionZ } from "@/label/actions.gen";
 import { LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE } from "@/label/payload";
 import { matchLabeledBy } from "@/label/store";
 import { type Key, keyZ, type Label, labelZ, type New } from "@/label/types.gen";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 
-export const SET_CHANNEL_NAME = "sy_label_set";
+export const ACTION_CHANNEL_NAME = "sy_label_action_set";
 export const DELETE_CHANNEL_NAME = "sy_label_delete";
 
-const createReqZ = z.object({ labels: labelZ.array() });
+const createReqZ = z.object({ labels: labelZ.array(), dispatchKey: z.string() });
 const createResZ = z.object({ labels: labelZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const setReqZ = z.object({
@@ -72,6 +75,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
   /** The label record table; injected into sibling clients at wiring. */
   readonly store: query.Table<Key, Label>;
   private readonly cfg: ClientConfig;
+  private readonly dispatcher: actions.Controller<Key, Label, Action>;
 
   constructor(cfg: ClientConfig) {
     const { cache, ontology: ontologyClient } = cfg;
@@ -80,11 +84,17 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
       name: "labels",
       fetch: async (keys) =>
         await this.execRetrieve({ keys, ignoreNotFoundError: true }),
-      listen: [
-        query.createSetListener(SET_CHANNEL_NAME, labelZ),
-        query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
-      ],
+      listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
+    // Every write to a label reaches the client as actions.
+    const dispatcher = new actions.Controller<Key, Label, Action>({
+      store,
+      onError: cache.onError,
+      onEpoch: (callback) => cache.onEpoch(callback),
+      reduce: reduceAll,
+      createOf,
+    });
+    cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
     super(cache, {
       name: "label",
       table: store,
@@ -107,6 +117,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
     });
     this.cfg = cfg;
     this.store = store;
+    this.dispatcher = dispatcher;
   }
 
   async label(
@@ -174,15 +185,64 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),
       commit: async () =>
-        await this.cfg.unary.send(
-          "/label/create",
-          { labels: optimistic },
-          createReqZ,
-          createResZ,
+        await this.dispatcher.create(
+          optimistic.map(({ key }) => key),
+          async (dispatchKey) =>
+            await this.cfg.unary.send(
+              "/label/create",
+              { labels: optimistic, dispatchKey },
+              createReqZ,
+              createResZ,
+            ),
         ),
     });
     this.store.set(res.labels);
     return isMany ? res.labels : res.labels[0];
+  }
+
+  /**
+   * Applies actions to the cached label and sends them to the Core, recording an
+   * undoable entry. Returns false without side effects when the label is not cached.
+   * @throws the error of the send, after the cached label drops the actions.
+   */
+  async dispatch(key: Key, actions: Action | Action[]): Promise<boolean> {
+    return await this.dispatcher.dispatch(
+      key,
+      array.toArray(actions),
+      this.dispatchSender(key),
+    );
+  }
+
+  /**
+   * Reverts the label's most recent undoable entry. Returns false when nothing is
+   * undoable.
+   */
+  async undo(key: Key): Promise<boolean> {
+    return await this.dispatcher.undo(key, this.dispatchSender(key));
+  }
+
+  /**
+   * Applies the label's most recently undone entry again. Returns false when nothing is
+   * redoable.
+   */
+  async redo(key: Key): Promise<boolean> {
+    return await this.dispatcher.redo(key, this.dispatchSender(key));
+  }
+
+  /** Stages actions committed atomically as one undoable entry. */
+  beginTransaction(key: Key, kind?: string): actions.Transaction<Action> {
+    return this.dispatcher.transaction(key, this.dispatchSender(key), kind);
+  }
+
+  private dispatchSender(key: Key): actions.SendDispatch<Action> {
+    return async (actions, dispatchKey) => {
+      await this.cfg.unary.send(
+        "/label/dispatch",
+        { key, dispatchKey, actions },
+        dispatchReqZ,
+        emptyResZ,
+      );
+    };
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
