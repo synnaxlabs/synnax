@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { destructor, type record } from "@synnaxlabs/x";
-import { useCallback, useMemo } from "react";
 
 import { type FrameProps, type GetItem } from "@/list/Frame";
 
@@ -37,25 +36,19 @@ export const useCombinedData = <
     getItem: secondGetItem,
     subscribe: secondSubscribe,
   } = second;
-  const data = useMemo(() => [...firstData, ...secondData], [firstData, secondData]);
-  const getItem = useCallback(
-    (key: K | K[]) => {
-      if (Array.isArray(key)) {
-        const firstGotten = firstGetItem?.(key) ?? [];
-        const secondGotten = secondGetItem?.(key) ?? [];
-        return [...firstGotten, ...secondGotten];
-      }
-      return firstGetItem?.(key) ?? secondGetItem?.(key);
-    },
-    [firstGetItem, secondGetItem],
-  ) as GetItem<K, E>;
-  const subscribe = useCallback(
-    (callback: () => void, key: K) => {
-      const firstUnsub = firstSubscribe?.(callback, key);
-      const secondUnsub = secondSubscribe?.(callback, key);
-      return () => destructor.unwind(firstUnsub, secondUnsub);
-    },
-    [firstSubscribe, secondSubscribe],
-  );
-  return useMemo(() => ({ data, getItem, subscribe }), [data, getItem, subscribe]);
+  const data = [...firstData, ...secondData];
+  const getItem = ((key: K | K[]) => {
+    if (Array.isArray(key)) {
+      const firstGotten = firstGetItem?.(key) ?? [];
+      const secondGotten = secondGetItem?.(key) ?? [];
+      return [...firstGotten, ...secondGotten];
+    }
+    return firstGetItem?.(key) ?? secondGetItem?.(key);
+  }) as GetItem<K, E>;
+  const subscribe = (callback: () => void, key: K) => {
+    const firstUnsub = firstSubscribe?.(callback, key);
+    const secondUnsub = secondSubscribe?.(callback, key);
+    return () => destructor.unwind(firstUnsub, secondUnsub);
+  };
+  return { data, getItem, subscribe };
 };

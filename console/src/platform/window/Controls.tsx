@@ -13,7 +13,7 @@ import { Drift, setWindowMaximized, setWindowMinimized } from "@synnaxlabs/drift
 import { useSelectWindow } from "@synnaxlabs/drift/react";
 import { OS } from "@synnaxlabs/pluto";
 import { type runtime } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Buttons, type ButtonsProps } from "@/platform/window/Buttons";
@@ -38,15 +38,15 @@ export const Controls = ({
   const os = OS.use({ force: forceOS });
   const window = useSelectWindow();
   const dispatch = Session.useDispatch();
-  const handleClose = useCallback(() => {
+  const handleClose = () => {
     dispatch(Drift.closeWindow({}));
-  }, [dispatch]);
-  const handleMaximize = useCallback(() => {
+  };
+  const handleMaximize = () => {
     dispatch(setWindowMaximized({}));
-  }, [dispatch]);
-  const handleMinimize = useCallback(() => {
+  };
+  const handleMinimize = () => {
     dispatch(setWindowMinimized({ value: true }));
-  }, [dispatch]);
+  };
   if (Session.Runtime.ENGINE !== "tauri" || window?.fullscreen === true) return null;
   if (visibleIfOS != null && visibleIfOS !== os) return null;
   if (os === "macOS")

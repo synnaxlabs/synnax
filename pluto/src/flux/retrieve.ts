@@ -21,16 +21,10 @@ import {
   type destructor,
   sleep,
   type state,
+  sync,
   TimeSpan,
 } from "@synnaxlabs/x";
-import {
-  use,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useSyncExternalStore,
-} from "react";
+import { use, useEffect, useRef, useSyncExternalStore } from "react";
 import { useSyncExternalStoreWithSelector } from "use-sync-external-store/with-selector";
 
 import { type flux } from "@/flux/aether";
@@ -152,14 +146,11 @@ const useCachedSnapshot = <Query extends query.Params, Data extends query.Data>(
 ): query.Cached<Data> | undefined => {
   const held = useRef<{ query: Query; value: Data } | null>(null);
   return useSyncExternalStore(
-    useCallback(
-      (notify) => {
-        if (client == null || memoQuery == null) return NOOP_SUBSCRIBE();
-        return subscribeToCache(locals, client, memoQuery, onChange, notify);
-      },
-      [locals, onChange, client, memoQuery],
-    ),
-    useCallback(() => {
+    (notify) => {
+      if (client == null || memoQuery == null) return NOOP_SUBSCRIBE();
+      return subscribeToCache(locals, client, memoQuery, onChange, notify);
+    },
+    () => {
       if (client == null || memoQuery == null) return undefined;
       const next = getCached?.({ client, query: memoQuery });
       if (!isLive<Data>(next)) return next;
@@ -168,7 +159,7 @@ const useCachedSnapshot = <Query extends query.Params, Data extends query.Data>(
         return prev.value;
       held.current = { query: memoQuery, value: next };
       return next;
-    }, [getCached, equal, client, memoQuery]),
+    },
   );
 };
 
@@ -184,17 +175,14 @@ const useSettled = <Query extends query.Params, Data extends query.Data>(
 ): Settled<Data> | undefined => {
   const hash = memoQuery == null ? null : query.hash(memoQuery);
   return useSyncExternalStore(
-    useCallback(
-      (notify: () => void) => {
-        if (client == null || hash == null) return NOOP_SUBSCRIBE();
-        return subscribeReader(localFor(locals, client), hash, notify);
-      },
-      [locals, client, hash],
-    ),
-    useCallback(() => {
+    (notify: () => void) => {
+      if (client == null || hash == null) return NOOP_SUBSCRIBE();
+      return subscribeReader(localFor(locals, client), hash, notify);
+    },
+    () => {
       if (client == null || hash == null) return undefined;
       return localFor(locals, client).settled.get(hash);
-    }, [locals, client, hash]),
+    },
   );
 };
 
@@ -330,7 +318,7 @@ const NOOP_SUBSCRIBE = () => () => {};
  */
 const NOT_FOUND_WAIT = TimeSpan.seconds(5);
 
-const waitForCreation = <Query extends query.Params, Data extends query.Data>(
+const waitForCreation = async <Query extends query.Params, Data extends query.Data>(
   params: RetrieveParams<Query>,
   {
     name,
@@ -345,47 +333,33 @@ const waitForCreation = <Query extends query.Params, Data extends query.Data>(
     hash: string;
     local: LocalCache<Data>;
   },
-): Promise<Data> =>
-  new Promise<Data>((resolve, reject) => {
-    const epoch = local.epoch;
-    let settled = false;
-    let disconnect: destructor.Destructor = () => {};
-    const finish = () => {
-      settled = true;
-      clearTimeout(timer);
-      disconnect();
-      local.inFlight.delete(hash);
-    };
-    const timer = setTimeout(() => {
-      finish();
-      // A reconnect landed during the wait, so the not-found may no longer hold.
-      if (local.epoch === epoch) setSettled(local, hash, { error });
-      reject(error);
-    }, NOT_FOUND_WAIT.milliseconds);
+): Promise<Data> => {
+  const epoch = local.epoch;
+  let disconnect: destructor.Destructor | undefined;
+  const found = new Promise<query.Cached<Data>>((resolve) => {
     disconnect = onChange(params, (result) => {
-      if (result === undefined) return;
-      finish();
-      if (Deleted.matches<Data>(result))
-        reject(
-          new DeletedError(`${caseconv.capitalize(name)} was deleted`, result.corpse),
-        );
-      else resolve(result);
+      if (result !== undefined) resolve(result);
     });
-    // An already-answered query delivers during onChange itself, before the
-    // destructor exists to be called; tear it down now.
-    if (settled) disconnect();
     // The document may have landed, or been deleted, between the failed
     // fetch and the subscription mounting.
     const cached = getCached(params);
-    if (cached !== undefined) {
-      finish();
-      if (Deleted.matches<Data>(cached))
-        reject(
-          new DeletedError(`${caseconv.capitalize(name)} was deleted`, cached.corpse),
-        );
-      else resolve(cached);
-    }
+    if (cached !== undefined) resolve(cached);
   });
+  let result: query.Cached<Data>;
+  try {
+    result = await sync.withTimeout(found, NOT_FOUND_WAIT, () => {
+      // A reconnect landed during the wait, so the not-found may no longer hold.
+      if (local.epoch === epoch) setSettled(local, hash, { error });
+      return error;
+    });
+  } finally {
+    disconnect?.();
+    local.inFlight.delete(hash);
+  }
+  if (Deleted.matches<Data>(result))
+    throw new DeletedError(`${caseconv.capitalize(name)} was deleted`, result.corpse);
+  return result;
+};
 
 /** Attempts a fetch gets after the Core first proves unreachable. */
 const UNREACHABLE_RETRIES = 3;
@@ -588,14 +562,11 @@ const useInvalidate = <Query extends query.Params, Data extends query.Data>(
   normalizeQuery?: <Q extends Query>(query: Q) => Q,
 ): ((q: Query) => void) => {
   const client = Synnax.use();
-  return useCallback(
-    (q: Query) => {
-      if (client == null) return;
-      const normalized = normalizeQuery?.(q) ?? q;
-      localFor(locals, client).settled.delete(query.hash(normalized));
-    },
-    [client, locals, normalizeQuery],
-  );
+  return (q: Query) => {
+    if (client == null) return;
+    const normalized = normalizeQuery?.(q) ?? q;
+    localFor(locals, client).settled.delete(query.hash(normalized));
+  };
 };
 
 const useTombstone = <Query extends query.Params, Data extends query.Data>(
@@ -609,10 +580,7 @@ const useTombstone = <Query extends query.Params, Data extends query.Data>(
     getCached,
     equal,
   });
-  return useMemo(
-    () => (Deleted.matches<Data>(cached) ? tombstoneOf(cached.corpse) : null),
-    [cached],
-  );
+  return Deleted.matches<Data>(cached) ? tombstoneOf(cached.corpse) : null;
 };
 
 const createSelector = <
@@ -637,14 +605,11 @@ const createSelector = <
     const client = Synnax.use();
     const held = useRef<{ query: Query; value: Data } | null>(null);
     const computed = useRef<{ raw: Data; query: Query; out: Selected } | null>(null);
-    const subscribe = useCallback(
-      (notify: () => void) => {
-        if (onChange == null || client == null) return NOOP_SUBSCRIBE();
-        return onChange({ client, query: memoQuery }, () => notify());
-      },
-      [client, memoQuery],
-    );
-    const getSnapshot = useCallback((): query.Cached<Data> | undefined => {
+    const subscribe = (notify: () => void) => {
+      if (onChange == null || client == null) return NOOP_SUBSCRIBE();
+      return onChange({ client, query: memoQuery }, () => notify());
+    };
+    const getSnapshot = (): query.Cached<Data> | undefined => {
       if (client == null) return undefined;
       const next = getCached({ client, query: memoQuery });
       const prev = held.current;
@@ -657,29 +622,23 @@ const createSelector = <
         return prev.value;
       held.current = { query: memoQuery, value: next };
       return next;
-    }, [client, memoQuery]);
-    const selector = useCallback(
-      (raw: query.Cached<Data> | undefined): Selected => {
-        if (client == null)
-          throw new DisconnectedError(`Cannot select ${name}: no Core connected.`);
-        if (raw === undefined)
-          throw new NotFoundError(
-            `Cannot select ${name}: nothing cached. A parent must retrieve it first.`,
-          );
-        if (Deleted.matches<Data>(raw))
-          throw new DeletedError(
-            `${caseconv.capitalize(name)} was deleted`,
-            raw.corpse,
-          );
-        const cached = computed.current;
-        if (cached != null && cached.raw === raw && cached.query === memoQuery)
-          return cached.out;
-        const out = select(raw, memoQuery);
-        computed.current = { raw, query: memoQuery, out };
-        return out;
-      },
-      [client, memoQuery],
-    );
+    };
+    const selector = (raw: query.Cached<Data> | undefined): Selected => {
+      if (client == null)
+        throw new DisconnectedError(`Cannot select ${name}: no Core connected.`);
+      if (raw === undefined)
+        throw new NotFoundError(
+          `Cannot select ${name}: nothing cached. A parent must retrieve it first.`,
+        );
+      if (Deleted.matches<Data>(raw))
+        throw new DeletedError(`${caseconv.capitalize(name)} was deleted`, raw.corpse);
+      const cached = computed.current;
+      if (cached != null && cached.raw === raw && cached.query === memoQuery)
+        return cached.out;
+      const out = select(raw, memoQuery);
+      computed.current = { raw, query: memoQuery, out };
+      return out;
+    };
     return useSyncExternalStoreWithSelector(
       subscribe,
       getSnapshot,
@@ -732,14 +691,11 @@ const createResultSelector = <
     const memoQuery = useMemoQuery<ExtendedQuery>(q, normalizeQuery);
     const client = Synnax.use();
     const held = useRef<{ query: Query; value: Data } | null>(null);
-    const subscribe = useCallback(
-      (notify: () => void) => {
-        if (client == null || memoQuery == null) return NOOP_SUBSCRIBE();
-        return subscribeToCache(locals, client, memoQuery, onChange, notify);
-      },
-      [client, memoQuery],
-    );
-    const getSnapshot = useCallback((): query.Cached<Data> | undefined => {
+    const subscribe = (notify: () => void) => {
+      if (client == null || memoQuery == null) return NOOP_SUBSCRIBE();
+      return subscribeToCache(locals, client, memoQuery, onChange, notify);
+    };
+    const getSnapshot = (): query.Cached<Data> | undefined => {
       if (client == null || memoQuery == null) return undefined;
       const next = getCached?.({ client, query: memoQuery });
       if (!isLive<Data>(next)) return next;
@@ -748,15 +704,12 @@ const createResultSelector = <
         return prev.value;
       held.current = { query: memoQuery, value: next };
       return next;
-    }, [client, memoQuery]);
-    const selector = useCallback(
-      (raw: query.Cached<Data> | undefined): Slice<Data, Selected> => {
-        if (memoQuery == null || raw === undefined) return NONE_SLICE;
-        if (Deleted.matches<Data>(raw)) return { kind: "deleted", corpse: raw.corpse };
-        return { kind: "live", selected: select(raw, memoQuery) };
-      },
-      [memoQuery],
-    );
+    };
+    const selector = (raw: query.Cached<Data> | undefined): Slice<Data, Selected> => {
+      if (memoQuery == null || raw === undefined) return NONE_SLICE;
+      if (Deleted.matches<Data>(raw)) return { kind: "deleted", corpse: raw.corpse };
+      return { kind: "live", selected: select(raw, memoQuery) };
+    };
     const slice = useSyncExternalStoreWithSelector(
       subscribe,
       getSnapshot,

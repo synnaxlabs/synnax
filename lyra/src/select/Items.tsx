@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type record } from "@synnaxlabs/x";
-import { type ReactNode, useCallback } from "react";
+import { type ReactNode } from "react";
 
 import { CSS } from "@/css";
 import { List } from "@/list";
@@ -35,13 +35,10 @@ export const Items = <
 }: ItemsProps<K>): ReactNode => {
   const closed = useClosed();
   const registry = useRegistryContext("Select.Items");
-  const markerRef = useCallback(
-    (element: HTMLElement | null) => {
-      registry.setBlock(element);
-      return () => registry.setBlock(null);
-    },
-    [registry],
-  );
+  const markerRef = (element: HTMLElement | null) => {
+    registry.setBlock(element);
+    return () => registry.setBlock(null);
+  };
   if (closed) return null;
   return (
     <>

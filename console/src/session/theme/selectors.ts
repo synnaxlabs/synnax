@@ -11,7 +11,7 @@ import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Theming as Base } from "@synnaxlabs/lyra/theming";
 import { type Theming } from "@synnaxlabs/pluto";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { Runtime } from "@/session/runtime";
 import { Select } from "@/session/select";
@@ -62,5 +62,5 @@ export const useProviderProps = (): Theming.ProviderProps => {
     [mode],
   );
   const key = system ? osKey : FIXED_KEYS[mode];
-  return useMemo<Theming.ProviderProps>(() => ({ theme: { key } }), [key]);
+  return { theme: { key } };
 };
