@@ -18,6 +18,7 @@ import {
   createIdentifier,
   createPDOs,
   createRepeatedNamePDOs,
+  createRepeatedNameSlave,
   createSlaveDevice,
   createUnresolvedReadChannel,
   STATUS_ENTRY,
@@ -79,13 +80,6 @@ const awaitStatus = async (
   });
 };
 
-const createRepeatedNameSlave = async () =>
-  await createSlaveDevice(client, testRack.key, {
-    identifier: createIdentifier(),
-    network: "eth0",
-    pdos: createRepeatedNamePDOs(),
-  });
-
 const THREE_INPUTS: ethercat.PDOEntry[] = [
   { name: "Status", index: 0x6000, subIndex: 1, bitLength: 16, dataType: "uint16" },
   { name: "Value", index: 0x6000, subIndex: 2, bitLength: 16, dataType: "int16" },
@@ -111,7 +105,7 @@ describe("Read", () => {
   });
 
   it("should show the entry picker and data type when a channel is selected", async () => {
-    const slave = await createRepeatedNameSlave();
+    const slave = await createRepeatedNameSlave(client, testRack.key);
     const { inputs } = createRepeatedNamePDOs();
     await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
@@ -120,13 +114,13 @@ describe("Read", () => {
     fireEvent.click(await screen.findByRole("option", { name: /0x6010:01/ }));
     await waitFor(() => expect(screen.getByText("Slave device")).toBeTruthy());
     expect(await screen.findByText("Channel 2 › Input · 0x6010:01")).toBeTruthy();
-    expect(screen.getByText("Entry", { selector: "label" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Entry/ })).toBeTruthy();
     expect(screen.getByText("Data type")).toBeTruthy();
     expect(screen.queryByText("Mode")).toBeNull();
   });
 
   it("should list each of eight repeated entry names apart in the picker", async () => {
-    const slave = await createRepeatedNameSlave();
+    const slave = await createRepeatedNameSlave(client, testRack.key);
     const { inputs } = createRepeatedNamePDOs();
     await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
@@ -163,7 +157,7 @@ describe("Read", () => {
   });
 
   it("should set the address and data type of the entry picked", async () => {
-    const slave = await createRepeatedNameSlave();
+    const slave = await createRepeatedNameSlave(client, testRack.key);
     const { inputs } = createRepeatedNamePDOs();
     const { draft } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
@@ -192,7 +186,7 @@ describe("Read", () => {
   });
 
   it("should show why an unresolved channel cannot run", async () => {
-    const slave = await createRepeatedNameSlave();
+    const slave = await createRepeatedNameSlave(client, testRack.key);
     await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [createUnresolvedReadChannel(slave.key, "Input")],
@@ -212,7 +206,7 @@ describe("Read", () => {
   });
 
   it("should turn an unresolved channel into an entry when one is picked", async () => {
-    const slave = await createRepeatedNameSlave();
+    const slave = await createRepeatedNameSlave(client, testRack.key);
     const { draft } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [createUnresolvedReadChannel(slave.key, "Input")],
@@ -336,7 +330,7 @@ describe("Read", () => {
   });
 
   it("should add every input of an unresolved channel's slave from the context menu", async () => {
-    const slave = await createRepeatedNameSlave();
+    const slave = await createRepeatedNameSlave(client, testRack.key);
     await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [createUnresolvedReadChannel(slave.key, "Input")],
@@ -399,7 +393,7 @@ describe("Read", () => {
   });
 
   it("should create one channel for each of eight entries that share a name", async () => {
-    const slave = await createRepeatedNameSlave();
+    const slave = await createRepeatedNameSlave(client, testRack.key);
     const { identifier } = slave.properties;
     const { inputs } = createRepeatedNamePDOs();
     const { container, draft } = await renderRead({
@@ -428,7 +422,7 @@ describe("Read", () => {
   });
 
   it("should block configuration when two channels use the same entry", async () => {
-    const slave = await createRepeatedNameSlave();
+    const slave = await createRepeatedNameSlave(client, testRack.key);
     const { inputs } = createRepeatedNamePDOs();
     const { container, statuses } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
@@ -474,7 +468,7 @@ describe("Read", () => {
   });
 
   it("should configure a task whose unresolved channel is disabled", async () => {
-    const slave = await createRepeatedNameSlave();
+    const slave = await createRepeatedNameSlave(client, testRack.key);
     const { inputs } = createRepeatedNamePDOs();
     const { container, draft } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
@@ -495,7 +489,7 @@ describe("Read", () => {
   });
 
   it("should block configuration of an unresolved channel", async () => {
-    const slave = await createRepeatedNameSlave();
+    const slave = await createRepeatedNameSlave(client, testRack.key);
     const { container, statuses } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [createUnresolvedReadChannel(slave.key, "Input")],
@@ -508,7 +502,7 @@ describe("Read", () => {
   });
 
   it("should block configuration of a channel with no entry", async () => {
-    const slave = await createRepeatedNameSlave();
+    const slave = await createRepeatedNameSlave(client, testRack.key);
     const { container, statuses } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [{ ...EtherCAT.Task.createReadChannel([]), device: slave.key }],
@@ -610,6 +604,33 @@ describe("Read", () => {
     const { container, statuses } = await render("int16");
     await clickDeploy(container);
     await awaitStatus(statuses, /holds uint16 data, not int16/);
+  });
+
+  it("should reject a data type that does not fit the entry before creating a channel", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const { container, statuses } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        {
+          ...EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY),
+          dataType: "float64",
+        },
+      ],
+    });
+    await clickDeploy(container);
+    await awaitStatus(
+      statuses,
+      /Data type float64 does not fit entry 0x6000:01 on slave .+, which holds 16 bits\. Pick a 2 byte number type\./,
+    );
+    const updated = await client.devices.retrieve({
+      key: slave.key,
+      schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+    });
+    expect(updated.properties.read.channels).toEqual({});
   });
 
   it("should surface an error when the task has no channels", async () => {

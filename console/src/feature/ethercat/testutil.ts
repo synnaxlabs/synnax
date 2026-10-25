@@ -21,13 +21,8 @@ import {
 } from "@/feature/ethercat/device/types";
 import {
   READ_CHANNEL_SCHEMAS,
-  type ReadChannel,
   WRITE_CHANNEL_SCHEMAS,
-  type WriteChannel,
 } from "@/feature/ethercat/task/types";
-
-type UnresolvedReadChannel = Extract<ReadChannel, { type: "unresolved" }>;
-type UnresolvedWriteChannel = Extract<WriteChannel, { type: "unresolved" }>;
 
 /** Builds a Core-safe device identifier (2-12 chars, letter first). */
 export const createIdentifier = (): string =>
@@ -80,8 +75,8 @@ export const createRepeatedNamePDOs = (): PDOs => {
 export const createUnresolvedReadChannel = (
   device: string,
   pdo: string,
-  overrides: Partial<UnresolvedReadChannel> = {},
-): UnresolvedReadChannel =>
+  overrides: Partial<ethercat.UnresolvedReadChannel> = {},
+): ethercat.UnresolvedReadChannel =>
   READ_CHANNEL_SCHEMAS.unresolved.parse({
     type: "unresolved",
     device,
@@ -93,8 +88,8 @@ export const createUnresolvedReadChannel = (
 export const createUnresolvedWriteChannel = (
   device: string,
   pdo: string,
-  overrides: Partial<UnresolvedWriteChannel> = {},
-): UnresolvedWriteChannel =>
+  overrides: Partial<ethercat.UnresolvedWriteChannel> = {},
+): ethercat.UnresolvedWriteChannel =>
   WRITE_CHANNEL_SCHEMAS.unresolved.parse({
     type: "unresolved",
     device,
@@ -127,3 +122,14 @@ export const createSlaveDevice = async (
     SLAVE_SCHEMAS,
   );
 };
+
+/** Creates a slave on eth0 whose eight channels repeat the same entry names. */
+export const createRepeatedNameSlave = async (
+  client: Synnax,
+  rackKey: number,
+): Promise<SlaveDevice> =>
+  await createSlaveDevice(client, rackKey, {
+    identifier: createIdentifier(),
+    network: "eth0",
+    pdos: createRepeatedNamePDOs(),
+  });
