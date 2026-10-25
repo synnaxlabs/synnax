@@ -19,11 +19,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
+	distmock "github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
+	servicemock "github.com/synnaxlabs/synnax/pkg/service/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/breaker"
@@ -33,8 +35,9 @@ import (
 )
 
 type readResult struct {
-	err   error
-	frame framer.Frame
+	err           error
+	frame         framer.Frame
+	heldUntilStop bool
 }
 
 // queueSource is a driver.Source whose Reader returns the results a spec queues.
@@ -62,6 +65,9 @@ func (s *queueSource) Read(ctx context.Context) (framer.Frame, error) {
 	case <-ctx.Done():
 		return framer.Frame{}, ctx.Err()
 	case r := <-s.results:
+		if r.heldUntilStop {
+			<-ctx.Done()
+		}
 		return r.frame, r.err
 	}
 }
@@ -131,12 +137,17 @@ var _ = Describe("ReadTask", func() {
 	}
 
 	// written returns every sample committed to ch.
-	written := func(ctx context.Context, ch channel.Channel) telem.Series {
+	written := func(
+		ctx context.Context,
+		fs *framer.Service,
+		ch channel.Channel,
+	) telem.Series {
 		GinkgoHelper()
-		iter := MustOpen(framerSvc.OpenIterator(ctx, framer.IteratorConfig{
+		iter := MustSucceed(fs.OpenIterator(ctx, framer.IteratorConfig{
 			Keys:   []channel.Key{ch.Key()},
 			Bounds: telem.TimeRangeMax,
 		}))
+		defer func() { Expect(iter.Close()).To(Succeed()) }()
 		Expect(iter.SeekFirst()).To(BeTrue())
 		all := telem.Series{DataType: ch.DataType}
 		for iter.Next(iterator.AutoSpan) {
@@ -229,8 +240,67 @@ var _ = Describe("ReadTask", func() {
 				Expect(stopped.Details.Running).To(BeFalse())
 				Expect(stopped.Details.Cmd).To(Equal("cmd-2"))
 				Expect(src.closes.Load()).To(BeEquivalentTo(1))
-				Expect(written(ctx, dataCh)).
+				Expect(written(ctx, framerSvc, dataCh)).
 					To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](1, 2, 3)))
+			},
+		)
+
+		It("Should write a frame that the source returns during a stop",
+			func(ctx SpecContext) {
+				rt := open(breaker.InfiniteRetries)
+				Expect(rt.Start(ctx, driver.NoCommand)).To(Succeed())
+				held := samples(1, 2)
+				held.heldUntilStop = true
+				src.results <- held
+				Eventually(src.results).Should(BeEmpty())
+				Expect(rt.Stop(false)).To(Succeed())
+				Expect(written(ctx, framerSvc, dataCh)).
+					To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](1, 2)))
+			},
+		)
+
+		It("Should write a frame that another node leads during a stop",
+			func(ctx SpecContext) {
+				cluster := distmock.NewCluster(ctx, 0)
+				local, peer := cluster.Provision(ctx), cluster.Provision(ctx)
+				svc := MustOpen(servicemock.OpenLayer(ctx, local))
+				w := svc.Channel.NewWriter(nil)
+				peerIdx := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.TimestampT,
+					IsIndex:     true,
+					Leaseholder: peer.Cluster.HostKey(),
+				}
+				Expect(w.Create(ctx, &peerIdx)).To(Succeed())
+				peerData := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.Float32T,
+					LocalIndex:  peerIdx.LocalKey,
+					Leaseholder: peer.Cluster.HostKey(),
+				}
+				Expect(w.Create(ctx, &peerData)).To(Succeed())
+				keys := channel.Keys{peerIdx.Key(), peerData.Key()}
+				rt := MustSucceed(driver.NewReadTask(driver.ReadTaskConfig{
+					Source:   src,
+					DB:       local.DB,
+					Status:   svc.Status,
+					Framer:   svc.Framer,
+					Channels: keys,
+					Indexes:  channel.Keys{peerIdx.Key()},
+					Task:     t,
+				}))
+				Expect(rt.Start(ctx, driver.NoCommand)).To(Succeed())
+				src.results <- readResult{
+					frame: frame.NewMulti(keys, []telem.Series{
+						telem.NewSeriesSecondsTSV(1, 2),
+						telem.NewSeriesV[float32](1, 2),
+					}),
+					heldUntilStop: true,
+				}
+				Eventually(src.results).Should(BeEmpty())
+				Expect(rt.Stop(false)).To(Succeed())
+				Expect(written(ctx, svc.Framer, peerData)).
+					To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](1, 2)))
 			},
 		)
 
@@ -271,9 +341,9 @@ var _ = Describe("ReadTask", func() {
 				})}
 				Eventually(src.results).Should(BeEmpty())
 				Expect(rt.Stop(false)).To(Succeed())
-				Expect(written(ctx, dataCh)).
+				Expect(written(ctx, framerSvc, dataCh)).
 					To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](5, 6)))
-				Expect(written(ctx, earlyData)).
+				Expect(written(ctx, framerSvc, earlyData)).
 					To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](1, 2)))
 			},
 		)
@@ -312,7 +382,7 @@ var _ = Describe("ReadTask", func() {
 				run(10, 10)
 				// An old timestamp value must not start the writer over the first run.
 				run(20, 1)
-				Expect(written(ctx, dataCh)).
+				Expect(written(ctx, framerSvc, dataCh)).
 					To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](10, 11, 20, 21)))
 			},
 		)
@@ -420,7 +490,7 @@ var _ = Describe("ReadTask", func() {
 					g.Expect(retrieve(ctx).Variant).To(Equal(status.VariantSuccess))
 				}).Should(Succeed())
 				Expect(rt.Stop(false)).To(Succeed())
-				Expect(written(ctx, dataCh)).
+				Expect(written(ctx, framerSvc, dataCh)).
 					To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](1, 2)))
 			},
 		)

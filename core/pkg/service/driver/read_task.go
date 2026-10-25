@@ -207,7 +207,7 @@ func (t *ReadTask) run(ctx context.Context, r Reader) (err error) {
 	}
 	for {
 		fr, err := r.Read(readCtx)
-		if readCtx.Err() != nil {
+		if fr.Empty() && readCtx.Err() != nil {
 			return stopped()
 		}
 		if errors.Is(err, ErrTemporary) {
@@ -253,6 +253,8 @@ func (t *ReadTask) openWriter(
 	start telem.TimeStamp,
 	fail context.CancelCauseFunc,
 ) (*frameWriter, error) {
+	// A stop cancels ctx, but the writer must still write its last frames and commit.
+	ctx = context.WithoutCancel(ctx)
 	sw, err := t.cfg.Framer.NewStreamWriter(ctx, framer.WriterConfig{
 		ControlSubject: control.Subject{
 			Key:  t.cfg.Task.Key.String(),
