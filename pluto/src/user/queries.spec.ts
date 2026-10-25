@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
@@ -191,8 +191,10 @@ describe("User queries", () => {
       });
 
       expect(result.current).not.toBeNull();
-      expect(result.current?.key).toEqual(client.auth?.user?.key);
-      expect(result.current?.username).toEqual(client.auth?.user?.username);
+      const { username } = TEST_CLIENT_PARAMS;
+      const signedIn = await client.users.retrieve({ username });
+      expect(result.current?.key).toEqual(signedIn.key);
+      expect(result.current?.username).toEqual(username);
     });
 
     it("should update the current user on a rename from another client", async () => {

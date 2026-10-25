@@ -32,8 +32,8 @@ import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
 
 const subjectOf = (c: Synnax): ontology.ID => {
-  const u = c.auth?.user;
-  assert(u != null, "client has no authenticated user");
+  const u = c.users.current.getCached();
+  assert(query.isLive(u), "client has no signed-in user");
   return user.ontologyID(u.key);
 };
 
