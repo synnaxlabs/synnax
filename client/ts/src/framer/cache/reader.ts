@@ -182,6 +182,7 @@ export class Reader {
     const { fetchTimeout } = this.props;
     await this.acquire();
     try {
+      if (this.closed) return;
       const tr = new TimeRange(start, tileRange({ level: RAW_LEVEL, index }).end);
       const requests = entries.map(({ req }) => req);
       const refetch = await sync.withTimeout(
@@ -224,7 +225,9 @@ export class Reader {
       else existing.push(r);
     });
     const channels = [...requested.keys()];
+    const refetch = new Set<Request>();
     const payloads = await retrieveChannels(channels);
+    if (this.closed) return refetch;
     // indexOf holds the index of each channel read, or 0 for a channel with none.
     const indexOf = new Map<channel.Key, channel.Key>();
     payloads.forEach((p) => {
@@ -236,7 +239,6 @@ export class Reader {
       if (!indexOf.has(ch)) throw new NotFoundError(`channel ${ch} not found`);
     });
     const frame = await readRemote(tr, [...indexOf.keys()]);
-    const refetch = new Set<Request>();
     if (this.closed) return refetch;
     const grouped = new Map<channel.Key, Series[]>();
     frame.forEach((k, s) => {

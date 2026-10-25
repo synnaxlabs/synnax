@@ -60,6 +60,8 @@ interface SetupProps extends Partial<ReaderProps> {
   before?: (fetch: Fetch) => Promise<void>;
   /** Changes each frame the Core answers with. */
   answer?: (frame: Frame) => Frame;
+  /** Runs before each channel retrieval is answered. */
+  beforeRetrieve?: () => Promise<void>;
 }
 
 // Returns a reader over a Core with one index channel (1) and two data channels (2 and
@@ -68,6 +70,7 @@ const createReader = ({
   elapsed = 300,
   before,
   answer = (frame) => frame,
+  beforeRetrieve,
   ...props
 }: SetupProps = {}): Setup => {
   const core = new SyntheticCore({
@@ -85,7 +88,10 @@ const createReader = ({
       await before?.(fetch);
       return answer(core.read(tr, keys));
     },
-    retrieveChannels: core.retrieveChannels,
+    retrieveChannels: async (keys) => {
+      await beforeRetrieve?.();
+      return await core.retrieveChannels(keys);
+    },
     now: core.now,
     ...props,
     store,
@@ -460,6 +466,25 @@ describe("Reader", () => {
       await expect(reader.read(new TimeRange(at(10), at(20)), 2)).rejects.toThrow(
         "telemetry reader is closed",
       );
+    });
+
+    it("should make no Core read for a fetch that waits on its channels at close", async () => {
+      const gate = createGate();
+      let retrieving = false;
+      const { reader, fetches } = createReader({
+        batchDebounce: TimeSpan.milliseconds(10),
+        beforeRetrieve: async () => {
+          retrieving = true;
+          await gate.wait();
+        },
+      });
+      const read = reader.read(new TimeRange(at(10), at(20)), 2);
+      await expect.poll(() => retrieving).toBe(true);
+      await reader.close();
+      gate.open();
+      await expect(read).rejects.toThrow("telemetry reader is closed");
+      await sleep.sleep(TimeSpan.milliseconds(10));
+      expect(fetches).toHaveLength(0);
     });
 
     it("should discard a fetch that lands after close", async () => {
