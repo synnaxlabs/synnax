@@ -29,7 +29,7 @@ export const { use } = Flux.createRetrieve<RetrieveQuery, project.Project>({
 
 export type ListParams = Pick<
   project.RetrieveRequest,
-  "keys" | "offset" | "limit" | "searchTerm"
+  "where" | "offset" | "limit" | "searchTerm"
 >;
 
 export const useList = Flux.createList<ListParams, project.Key, project.Project>({

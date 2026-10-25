@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/json/v2"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -124,44 +125,44 @@ func (s *Service) Rename(
 }
 
 type (
-	RetrieveRequest struct {
-		SearchTerm          string        `json:"search_term"            msgpack:"search_term"`
-		Keys                []project.Key `json:"keys"                   msgpack:"keys"`
-		Limit               int           `json:"limit"                  msgpack:"limit"`
-		Offset              int           `json:"offset"                 msgpack:"offset"`
-		IgnoreNotFoundError bool          `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
-	}
-	RetrieveResponse struct {
-		Projects []project.Project `json:"projects" msgpack:"projects"`
-	}
+	RetrieveRequest  = project.RetrieveRequest
+	RetrieveResponse = project.RetrieveResponse
 )
 
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
-) (res RetrieveResponse, err error) {
-	q := s.internal.NewRetrieve().Search(req.SearchTerm)
-	if len(req.Keys) > 0 {
-		q = q.Where(project.MatchKeys(req.Keys...))
+) (RetrieveResponse, error) {
+	var res RetrieveResponse
+	q := s.internal.NewRetrieve().Entries(&res.Projects)
+	if req.Where != nil {
+		f, err := project.MatchWhere(*req.Where)
+		if err != nil {
+			return RetrieveResponse{}, validate.PathedError(err, "where")
+		}
+		q = q.Where(f)
 	}
-	if req.Limit > 0 {
-		q = q.Limit(req.Limit)
+	if term := lo.FromPtr(req.SearchTerm); term != "" {
+		q = q.Search(term)
 	}
-	if req.Offset > 0 {
-		q = q.Offset(req.Offset)
+	if req.Limit != nil {
+		q = q.Limit(int(*req.Limit))
 	}
-	err = q.Entries(&res.Projects).Exec(ctx, nil)
-	if req.IgnoreNotFoundError && err != nil {
-		err = errors.Skip(err, query.ErrNotFound)
+	if req.Offset != nil {
+		q = q.Offset(int(*req.Offset))
 	}
-	if eErr := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+	// A filter is a predicate, so a key that does not exist is a non-match.
+	if err := errors.Skip(q.Exec(ctx, nil), query.ErrNotFound); err != nil {
+		return RetrieveResponse{}, err
+	}
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: project.OntologyIDsFromProjects(res.Projects),
-	}); eErr != nil {
-		return RetrieveResponse{}, eErr
+	}); err != nil {
+		return RetrieveResponse{}, err
 	}
-	return res, err
+	return res, nil
 }
 
 type (

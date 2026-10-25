@@ -12,7 +12,7 @@ import {
   type UnaryClient,
   type UploadBody,
 } from "@synnaxlabs/freighter";
-import { array, type destructor, primitive, record, zod } from "@synnaxlabs/x";
+import { array, type destructor, record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { imex } from "@/imex";
@@ -24,21 +24,25 @@ import {
   ontologyID,
   type Project,
   projectZ,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  retrieveResponseZ,
 } from "@/project/types.gen";
+import { type Lines, matches, serverComputed } from "@/project/where.gen";
 import { query } from "@/query";
 
 export const SET_CHANNEL_NAME = "sy_project_set";
 export const DELETE_CHANNEL_NAME = "sy_project_delete";
 
-const retrieveReqZ = z.object({
-  keys: keyZ.array().optional(),
-  searchTerm: z.string().optional(),
-  offset: z.int().optional(),
-  limit: z.int().optional(),
-  ignoreNotFoundError: z.boolean().optional(),
+const keysRequest = (keys: Key[]): RetrieveRequest => ({
+  where: { key: { in: keys } },
 });
-const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
-export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
+
+const retrieveMultiParamsZ = z.union([
+  keyZ.array().transform(keysRequest),
+  retrieveRequestZ,
+]);
+export type RetrieveMultipleParams = RetrieveRequest;
 const createReqZ = z.object({ projects: projectZ.array() });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
@@ -46,7 +50,6 @@ const exportReqZ = z.object({ key: keyZ, encoding: imex.encodingZ });
 
 const importParamsZ = z.object({ fileName: z.string().min(1) });
 
-const retrieveResZ = z.object({ projects: projectZ.array().default(() => []) });
 const createResZ = z.object({ projects: projectZ.array() });
 const importResZ = z.object({ project: projectZ });
 const emptyResZ = z.object({});
@@ -60,14 +63,7 @@ export interface ImportOptions {
   fileName: string;
 }
 
-/**
- * Client-side matching for a request: key sets. Server-computed shapes
- * (search, limit/offset) never reach this filter; they refetch instead.
- */
-const requestFilter = (req: RetrieveRequest): ((p: Project) => boolean) => {
-  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  return (p) => keySet == null || keySet.has(p.key);
-};
+const LINES: Lines = {};
 
 export interface ClientConfig {
   unary: UnaryClient;
@@ -84,7 +80,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
     const { cache } = cfg;
     const store = cache.createTable<Key, Project>({
       name: "projects",
-      fetch: async (keys) => await this.execRetrieve({ keys }),
+      fetch: async (keys) => await this.execRetrieve(keysRequest(keys)),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, projectZ),
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
@@ -96,7 +92,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (project, req) => requestFilter(req)(project),
+        matches: (project, req) => matches(LINES, project, req.where ?? {}),
+        serverComputed: (req) => req.where != null && serverComputed(LINES, req.where),
       },
     });
     this.cfg = cfg;
@@ -231,8 +228,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
     const res = await this.cfg.unary.send(
       "/project/retrieve",
       req,
-      retrieveReqZ,
-      retrieveResZ,
+      retrieveRequestZ,
+      retrieveResponseZ,
     );
     return res.projects;
   }

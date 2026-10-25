@@ -9,12 +9,19 @@
 
 from typing import overload
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax.exceptions import NotFoundError
-from synnax.project.types_gen import Key, Project
+from synnax.project.types_gen import (
+    Key,
+    Project,
+    RetrieveRequest,
+    RetrieveResponse,
+    Where,
+)
+from x import filter
 from x.lists import normalize
 
 
@@ -33,17 +40,6 @@ class _DeleteRequest(BaseModel):
 class _RenameRequest(BaseModel):
     key: Key
     name: str
-
-
-class _RetrieveRequest(BaseModel):
-    keys: list[Key] | None = None
-    search_term: str | None = None
-    limit: int | None = None
-    offset: int | None = None
-
-
-class _RetrieveResponse(BaseModel):
-    projects: list[Project] = Field(default_factory=list)
 
 
 class Client:
@@ -122,6 +118,7 @@ class Client:
     def retrieve(
         self,
         *,
+        where: Where | None = None,
         keys: list[Key] | None = None,
         search_term: str | None = None,
         limit: int | None = None,
@@ -132,6 +129,7 @@ class Client:
         self,
         *,
         key: Key | None = None,
+        where: Where | None = None,
         keys: list[Key] | None = None,
         search_term: str | None = None,
         limit: int | None = None,
@@ -141,6 +139,7 @@ class Client:
 
         :param key: The key of a single project to retrieve. When provided, a single
             project is returned and NotFoundError is raised if it does not exist.
+        :param where: Keeps projects that match this filter tree.
         :param keys: The keys of the projects to retrieve.
         :param search_term: A fuzzy search term matched against project names.
         :param limit: The maximum number of projects to return.
@@ -152,15 +151,15 @@ class Client:
         is_single = key is not None
         if key is not None:
             keys = [key]
+        if keys is not None:
+            flat = Where(key=filter.Set[Key](in_=keys))
+            where = flat if where is None else Where(and_=[where, flat])
         res = self._client.send(
             "/project/retrieve",
-            _RetrieveRequest(
-                keys=keys,
-                search_term=search_term,
-                limit=limit,
-                offset=offset,
+            RetrieveRequest(
+                where=where, search_term=search_term, limit=limit, offset=offset
             ),
-            _RetrieveResponse,
+            RetrieveResponse,
         )
         projects = res.projects
         if is_single:

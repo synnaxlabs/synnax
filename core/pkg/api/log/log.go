@@ -12,6 +12,7 @@ package log
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -129,13 +130,8 @@ func (s *Service) Dispatch(
 }
 
 type (
-	RetrieveRequest struct {
-		Keys                []log.Key `json:"keys"                   msgpack:"keys"`
-		IgnoreNotFoundError bool      `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
-	}
-	RetrieveResponse struct {
-		Logs []log.Log `json:"logs" msgpack:"logs"`
-	}
+	RetrieveRequest  = log.RetrieveRequest
+	RetrieveResponse = log.RetrieveResponse
 )
 
 func (s *Service) Retrieve(
@@ -143,12 +139,25 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	err := s.internal.NewRetrieve().
-		Where(log.MatchKeys(req.Keys...)).Entries(&res.Logs).Exec(ctx, nil)
-	if req.IgnoreNotFoundError && err != nil {
-		err = errors.Skip(err, query.ErrNotFound)
+	q := s.internal.NewRetrieve().Entries(&res.Logs)
+	if req.Where != nil {
+		f, err := log.MatchWhere(*req.Where)
+		if err != nil {
+			return RetrieveResponse{}, validate.PathedError(err, "where")
+		}
+		q = q.Where(f)
 	}
-	if err != nil {
+	if term := lo.FromPtr(req.SearchTerm); term != "" {
+		q = q.Search(term)
+	}
+	if req.Limit != nil {
+		q = q.Limit(int(*req.Limit))
+	}
+	if req.Offset != nil {
+		q = q.Offset(int(*req.Offset))
+	}
+	// A filter is a predicate, so a key that does not exist is a non-match.
+	if err := errors.Skip(q.Exec(ctx, nil), query.ErrNotFound); err != nil {
 		return RetrieveResponse{}, err
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{

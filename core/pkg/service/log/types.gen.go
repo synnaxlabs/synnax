@@ -11,7 +11,12 @@
 
 package log
 
-import "github.com/synnaxlabs/synnax/pkg/service/log/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/log/versions"
+	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/validate"
+	"strconv"
+)
 
 // Key is a unique identifier for a log, represented as a UUID.
 type Key = versions.Key
@@ -26,3 +31,50 @@ type ChannelEntry = versions.ChannelEntry
 // records of events, system messages, and audit trails with filtering and formatting
 // capabilities.
 type Log = versions.Log
+
+// Where is a filter that selects logs.
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+}
+
+// RetrieveRequest is a request to retrieve logs.
+type RetrieveRequest struct {
+	// Where selects the logs to retrieve. An absent where selects all of them.
+	Where *Where `json:"where,omitzero" msgpack:"where,omitempty"`
+	// SearchTerm keeps the logs that match the term, closest match first.
+	SearchTerm *string `json:"search_term,omitzero" msgpack:"search_term,omitempty"`
+	// Limit is the most logs to return.
+	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
+	// Offset is the number of matching logs to skip.
+	Offset *uint32 `json:"offset,omitzero" msgpack:"offset,omitempty"`
+}
+
+// RetrieveResponse holds the logs a RetrieveRequest selects.
+type RetrieveResponse struct {
+	// Logs are the logs the request selects.
+	Logs []Log `json:"logs" msgpack:"logs"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (r *RetrieveResponse) ApplyDefaults() {
+	for i := range r.Logs {
+		r.Logs[i].ApplyDefaults()
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RetrieveResponse) Validate() error {
+	v := validate.New("RetrieveResponse")
+	for i := range r.Logs {
+		v.Exec(func() error { return validate.PathedError(r.Logs[i].Validate(), "logs", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}

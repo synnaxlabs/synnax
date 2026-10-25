@@ -12,6 +12,7 @@ package schematic
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -127,13 +128,8 @@ func (s *Service) Dispatch(
 }
 
 type (
-	RetrieveRequest struct {
-		Keys                []schematic.Key `json:"keys"                   msgpack:"keys"`
-		IgnoreNotFoundError bool            `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
-	}
-	RetrieveResponse struct {
-		Schematics []schematic.Schematic `json:"schematics" msgpack:"schematics"`
-	}
+	RetrieveRequest  = schematic.RetrieveRequest
+	RetrieveResponse = schematic.RetrieveResponse
 )
 
 func (s *Service) Retrieve(
@@ -141,12 +137,25 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	err := s.internal.NewRetrieve().
-		Where(schematic.MatchKeys(req.Keys...)).Entries(&res.Schematics).Exec(ctx, nil)
-	if req.IgnoreNotFoundError && err != nil {
-		err = errors.Skip(err, query.ErrNotFound)
+	q := s.internal.NewRetrieve().Entries(&res.Schematics)
+	if req.Where != nil {
+		f, err := schematic.MatchWhere(*req.Where)
+		if err != nil {
+			return RetrieveResponse{}, validate.PathedError(err, "where")
+		}
+		q = q.Where(f)
 	}
-	if err != nil {
+	if term := lo.FromPtr(req.SearchTerm); term != "" {
+		q = q.Search(term)
+	}
+	if req.Limit != nil {
+		q = q.Limit(int(*req.Limit))
+	}
+	if req.Offset != nil {
+		q = q.Offset(int(*req.Offset))
+	}
+	// A filter is a predicate, so a key that does not exist is a non-match.
+	if err := errors.Skip(q.Exec(ctx, nil), query.ErrNotFound); err != nil {
 		return RetrieveResponse{}, err
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{

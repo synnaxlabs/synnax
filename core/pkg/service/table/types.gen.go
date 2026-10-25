@@ -13,7 +13,9 @@ package table
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/validate"
+	"strconv"
 )
 
 // Key is a unique identifier for a table, represented as a UUID.
@@ -79,5 +81,52 @@ func (c *Cell) ApplyDefaults() {
 func (c Cell) Validate() error {
 	v := validate.New("Cell")
 	v.Exec(func() error { return validate.PathedError(c.Config.Validate(), "config") })
+	return v.Error()
+}
+
+// Where is a filter that selects tables.
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+}
+
+// RetrieveRequest is a request to retrieve tables.
+type RetrieveRequest struct {
+	// Where selects the tables to retrieve. An absent where selects all of them.
+	Where *Where `json:"where,omitzero" msgpack:"where,omitempty"`
+	// SearchTerm keeps the tables that match the term, closest match first.
+	SearchTerm *string `json:"search_term,omitzero" msgpack:"search_term,omitempty"`
+	// Limit is the most tables to return.
+	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
+	// Offset is the number of matching tables to skip.
+	Offset *uint32 `json:"offset,omitzero" msgpack:"offset,omitempty"`
+}
+
+// RetrieveResponse holds the tables a RetrieveRequest selects.
+type RetrieveResponse struct {
+	// Tables are the tables the request selects.
+	Tables []Table `json:"tables" msgpack:"tables"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (r *RetrieveResponse) ApplyDefaults() {
+	for i := range r.Tables {
+		r.Tables[i].ApplyDefaults()
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RetrieveResponse) Validate() error {
+	v := validate.New("RetrieveResponse")
+	for i := range r.Tables {
+		v.Exec(func() error { return validate.PathedError(r.Tables[i].Validate(), "tables", strconv.Itoa(i)) })
+	}
 	return v.Error()
 }

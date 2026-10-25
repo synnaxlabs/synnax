@@ -9,6 +9,7 @@
 
 import "schemas/synnax/channel"
 import "schemas/x/color"
+import "schemas/x/filter"
 import "schemas/x/spatial"
 import "schemas/x/telem"
 import "schemas/x/text"
@@ -638,6 +639,12 @@ LinePlot struct {
     @go migrate
     @ontology type "lineplot"
     @retrieve
+}
+
+Where filter LinePlot {
+    key
+
+    @doc value "is a filter that selects line plots."
 }
 
 Aggregation enum {
