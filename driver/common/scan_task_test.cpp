@@ -1540,7 +1540,7 @@ TEST(TestScanTask, testSignalMonitoringFiltersByMake) {
 }
 
 /// @brief it should create the devices of a partial scan and return its error.
-TEST(TestScanTask, testPartialScanKeepsDevices) {
+TEST(TestScanTask, PartialScanKeepsDevices) {
     synnax::device::Device dev;
     dev.key = "device1";
     dev.name = "Device 1";
@@ -1571,7 +1571,7 @@ TEST(TestScanTask, testPartialScanKeepsDevices) {
 
 /// @brief it should warn once while scans fail the same way, and report success once
 /// they recover.
-TEST(TestScanTask, testScanWarningIsSentOnceAndClears) {
+TEST(TestScanTask, ScanWarningIsSentOnceAndClears) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const auto partial = x::errors::Error(PARTIAL_SCAN_ERROR, "eth1: cannot open");
     const auto scan_task = new_test_task(
