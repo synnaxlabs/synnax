@@ -18,6 +18,7 @@ import { z } from "zod";
 
 import { type channel } from "@/channel";
 import { paramsZ } from "@/channel/payload";
+import { UnexpectedError } from "@/errors";
 import { type ChannelRetriever, ReadAdapter } from "@/framer/adapter";
 import { WSStreamerCodec } from "@/framer/codec";
 import { Frame, frameZ } from "@/framer/frame";
@@ -225,7 +226,10 @@ class BaseStreamer implements Streamer {
         continue;
       }
       if (res.ack === true) {
-        this.pendingAcks.shift()!.resolve();
+        const ack = this.pendingAcks.shift();
+        if (ack == null)
+          throw new UnexpectedError("received an ack with no pending update");
+        ack.resolve();
         continue;
       }
       return this.adapter.adapt(new Frame(res.frame));

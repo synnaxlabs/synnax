@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package signals_test
+package history_test
 
 import (
 	"testing"
@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/history"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -28,9 +28,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestSignals(t *testing.T) {
+func TestHistory(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Framer Signals Suite", SuiteConfig())
+	RunSpecs(t, "Service Framer History Suite", SuiteConfig())
 }
 
 // flushInterval is long enough that writes issued back to back in a spec always land
@@ -85,7 +85,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Channel: channelSvc,
 		Framer:  framerSvc,
 	}))
-	MustOpen(signals.Publish(ctx, signals.Config{
+	MustOpen(history.Publish(ctx, history.Config{
 		Framer:        framerSvc,
 		Signals:       sigs,
 		FlushInterval: flushInterval,

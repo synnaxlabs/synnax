@@ -19,8 +19,7 @@ import (
 )
 
 // HistoryChange names a time range of a channel's stored data that changed in a way the
-// channel's live stream does not carry: a write into the past, a new domain, or a
-// delete.
+// channel's live stream does not carry: a write into the past or a delete.
 type HistoryChange struct {
 	// Key is the channel whose stored data changed.
 	Key channel.Key `json:"key" msgpack:"key"`

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package signals publishes the history changes of channels stored on a Core to the
+// Package history publishes the history changes of channels stored on a Core to the
 // sy_history_change channel.
-package signals
+package history
 
 import (
 	"cmp"
@@ -63,7 +63,7 @@ var (
 
 // Validate implements config.Config.
 func (c Config) Validate() error {
-	v := validate.New("framer.signals")
+	v := validate.New("framer.history")
 	v.NotNil("framer", c.Framer)
 	v.NotNil("signals", c.Signals)
 	v.Positive("flush_interval", c.FlushInterval)

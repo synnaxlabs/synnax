@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package signals_test
+package history_test
 
 import (
 	"context"
@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/history"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -122,14 +122,11 @@ func historyChange(key channel.Key, start, end telem.TimeStamp) framer.HistoryCh
 	return framer.HistoryChange{Key: key, TimeRange: start.Range(end)}
 }
 
-var _ = Describe("Signals", func() {
+var _ = Describe("History", func() {
 	It("Should publish a write into the past", func(ctx SpecContext) {
 		key := createIndex(ctx)
 		next, _ := openStreamer(ctx, key)
 		write(ctx, key, 20, 21)
-		Expect(next()).To(Equal(
-			historyChange(key, 20*telem.SecondTS, 21*telem.SecondTS+1),
-		))
 		write(ctx, key, 10, 11)
 		Expect(next()).To(Equal(
 			historyChange(key, 10*telem.SecondTS, 11*telem.SecondTS+1),
@@ -143,22 +140,20 @@ var _ = Describe("Signals", func() {
 			next, _ := openStreamer(ctx, key)
 			write(ctx, key, 20, 21)
 			write(ctx, key, 10, 11)
+			write(ctx, key, 5, 6)
 			Expect(next()).To(Equal(
-				historyChange(key, 10*telem.SecondTS, 21*telem.SecondTS+1),
+				historyChange(key, 5*telem.SecondTS, 11*telem.SecondTS+1),
 			))
 		},
 	)
 
 	It(
-		"Should not publish a commit that extends the last domain",
+		"Should not publish writes at the end of the channel",
 		func(ctx SpecContext) {
 			key := createIndex(ctx)
-			next, published := openStreamer(ctx, key)
+			_, published := openStreamer(ctx, key)
 			w := openWriter(ctx, key, 10*telem.SecondTS)
 			writeAndCommit(w, key, 10, 11)
-			Expect(next()).To(Equal(
-				historyChange(key, 10*telem.SecondTS, 11*telem.SecondTS+1),
-			))
 			writeAndCommit(w, key, 12, 13)
 			Consistently(published.Outlet(), 2*flushInterval.Duration()).
 				ShouldNot(Receive())
@@ -169,16 +164,13 @@ var _ = Describe("Signals", func() {
 		key := createIndex(ctx)
 		next, _ := openStreamer(ctx, key)
 		write(ctx, key, 10, 11, 12, 13)
-		Expect(next()).To(Equal(
-			historyChange(key, 10*telem.SecondTS, 13*telem.SecondTS+1),
-		))
 		tr := (11 * telem.SecondTS).Range(13 * telem.SecondTS)
 		Expect(framerSvc.DeleteTimeRange(ctx, channel.Keys{key}, tr)).To(Succeed())
 		Expect(next()).To(Equal(framer.HistoryChange{Key: key, TimeRange: tr}))
 	})
 
 	It("Should reject a config without a framer or signals", func(ctx SpecContext) {
-		Expect(signals.Publish(ctx, signals.Config{})).Error().To(MatchError(
+		Expect(history.Publish(ctx, history.Config{})).Error().To(MatchError(
 			"framer: must be non-nil\nsignals: must be non-nil",
 		))
 	})

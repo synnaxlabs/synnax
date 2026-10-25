@@ -97,15 +97,22 @@ var _ = Describe("History", func() {
 				MustSucceed(w.Commit())
 			}
 
-			It("Should signal the first commit of a writer", func(ctx SpecContext) {
-				key := createIndex(ctx)
-				changes := observeHistory(db)
-				w := openWriter(ctx, key, 10*telem.SecondTS)
-				writeAndCommit(w, key, 10, 11)
-				Expect(changes).To(Receive(Equal(
-					historyChange(key, 10*telem.SecondTS, 11*telem.SecondTS+1),
-				)))
-			})
+			It(
+				"Should not signal the first commit of a writer at the end",
+				func(ctx SpecContext) {
+					key := createIndex(ctx)
+					Expect(db.WriteSeries(
+						ctx,
+						key,
+						5*telem.SecondTS,
+						telem.NewSeriesSecondsTSV(5, 6),
+					)).To(Succeed())
+					changes := observeHistory(db)
+					w := openWriter(ctx, key, 10*telem.SecondTS)
+					writeAndCommit(w, key, 10, 11)
+					Expect(changes).ToNot(Receive())
+				},
+			)
 
 			It(
 				"Should not signal a commit that extends the last domain",
@@ -167,20 +174,14 @@ var _ = Describe("History", func() {
 			)
 
 			It(
-				"Should signal the new domain a file rollover starts",
+				"Should not signal the new domain a file rollover starts",
 				func(ctx SpecContext) {
 					key := createIndex(ctx)
 					changes := observeHistory(db)
 					w := openWriter(ctx, key, 10*telem.SecondTS)
 					// Five timestamps fill the 40 byte file, so this commit rolls over.
 					writeAndCommit(w, key, 10, 11, 12, 13, 14)
-					Expect(changes).To(Receive(Equal(
-						historyChange(key, 10*telem.SecondTS, 14*telem.SecondTS+1),
-					)))
 					writeAndCommit(w, key, 15, 16)
-					Expect(changes).To(Receive(Equal(
-						historyChange(key, 14*telem.SecondTS+1, 16*telem.SecondTS+1),
-					)))
 					writeAndCommit(w, key, 17, 18)
 					Expect(changes).ToNot(Receive())
 				},

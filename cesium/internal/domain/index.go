@@ -65,6 +65,7 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 		}
 	}
 
+	appended := insertAt == len(idx.mu.pointers)
 	if insertAt == 0 {
 		idx.mu.pointers = append([]pointer{p}, idx.mu.pointers...)
 	} else if insertAt == len(idx.mu.pointers) {
@@ -77,7 +78,10 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 	idx.persistHead = min(idx.persistHead, insertAt)
 
 	idx.mu.Unlock()
-	idx.notifyHistoryChange(ctx, p.TimeRange)
+	// The live stream carries domains added at the end.
+	if !appended {
+		idx.notifyHistoryChange(ctx, p.TimeRange)
+	}
 	if !persist {
 		return nil
 	}
