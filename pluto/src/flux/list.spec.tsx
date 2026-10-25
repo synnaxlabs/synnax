@@ -1437,18 +1437,16 @@ describe("list", () => {
 
   describe("subscriptions against a live client", () => {
     const useRangeList = Flux.createList<
-      { keys: ranger.Key[] },
+      { keys?: ranger.Key[]; names?: string[] },
       ranger.Key,
       ranger.Range
     >({
       name: "Resource",
-      retrieve: async ({ client, query }) =>
-        await client.ranges.retrieve({ keys: query.keys }),
+      retrieve: async ({ client, query }) => await client.ranges.retrieve(query),
       retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-      onChange: ({ client, query }, handler) =>
-        client.ranges.onChange({ keys: query.keys }, handler),
+      onChange: ({ client, query }, handler) => client.ranges.onChange(query, handler),
       onChangeByKey: ({ client, key }, handler) => client.ranges.onChange(key, handler),
-      getCached: ({ client, query }) => client.ranges.getCached({ keys: query.keys }),
+      getCached: ({ client, query }) => client.ranges.getCached(query),
     });
 
     const createRange = async (name: string): Promise<ranger.Range> =>
@@ -1630,6 +1628,49 @@ describe("list", () => {
       await waitFor(() => expect(result.current?.name).toEqual("Test Range 2"));
     });
 
+    it("should keep a read item that a rename moves out of the cached query", async () => {
+      const name = `Test Range ${uuid.create()}`;
+      const rng = await createRange(name);
+      await client.ranges.retrieve({ names: [name] });
+      const { result } = renderHook(
+        () => {
+          const { getItem, subscribe } = useRangeList({
+            initialQuery: { names: [name] },
+          });
+          return Flux.useListItem<ranger.Key, ranger.Range>({
+            subscribe,
+            getItem,
+            key: rng.key,
+          });
+        },
+        { wrapper },
+      );
+      expect(result.current?.name).toEqual(name);
+      await act(async () => await client.ranges.rename(rng.key, `${name} 2`));
+      await waitFor(() => expect(result.current?.name).toEqual(`${name} 2`));
+    });
+
+    it("should clear a read item painted from the cache when it is deleted", async () => {
+      const rng = await createRange("Test Range");
+      await client.ranges.retrieve({ keys: [rng.key] });
+      const { result } = renderHook(
+        () => {
+          const { getItem, subscribe } = useRangeList({
+            initialQuery: { keys: [rng.key] },
+          });
+          return Flux.useListItem<ranger.Key, ranger.Range>({
+            subscribe,
+            getItem,
+            key: rng.key,
+          });
+        },
+        { wrapper },
+      );
+      expect(result.current?.name).toEqual("Test Range");
+      await act(async () => await client.ranges.delete(rng.key));
+      await waitFor(() => expect(result.current).toBeNull());
+    });
+
     it.each(["append", "replace"] as const)(
       "should update an item painted from the cache after a %s retrieve leaves it out",
       async (mode) => {
@@ -1661,6 +1702,37 @@ describe("list", () => {
         await waitFor(() => expect(result.current.value?.name).toEqual("Test Range 2"));
       },
     );
+
+    it("should keep a read item live without a fetch after an append retrieve replaces the cached page", async () => {
+      const rng = await createRange("Test Range");
+      const other = await createRange("Other Range");
+      await client.ranges.retrieve({ keys: [rng.key, other.key] });
+      const retrieve = vi.spyOn(client.ranges, "retrieve");
+      const { result } = renderHook(
+        () => {
+          const { getItem, subscribe, retrieveAsync } = useRangeList({
+            initialQuery: { keys: [rng.key, other.key] },
+          });
+          const value = Flux.useListItem<ranger.Key, ranger.Range>({
+            subscribe,
+            getItem,
+            key: rng.key,
+          });
+          return { retrieveAsync, value };
+        },
+        { wrapper },
+      );
+      await act(async () => {
+        await result.current.retrieveAsync(
+          { keys: [other.key] },
+          { mode: "append", signal: controller.signal },
+        );
+      });
+      await act(async () => await client.ranges.rename(rng.key, "Test Range 2"));
+      await waitFor(() => expect(result.current.value?.name).toEqual("Test Range 2"));
+      expect(retrieve).not.toHaveBeenCalledWith(rng.key);
+      retrieve.mockRestore();
+    });
 
     it("should correctly remove a list item when it gets deleted", async () => {
       const rng = await client.ranges.create({
@@ -1955,6 +2027,34 @@ describe("list", () => {
       await waitFor(() => expect(result.current.value?.name).toBe("B"));
       expect(result.current.list.data).toEqual([]);
       expect(retrieve).not.toHaveBeenCalled();
+    });
+
+    it("should give a read item from the cache its own feed after the client changes", async () => {
+      const { domain, wrapper, reconnect } = createReconnectSetup();
+      domain.answers.a = [{ key: "k", name: "A" }];
+      const useList = Flux.createList<{}, string, Doc>({
+        name: "Doc",
+        retrieve: async ({ client }) => domain.answers[client.key],
+        retrieveByKey: async ({ key }) => ({ key, name: key }),
+        onChange: ({ client }, handler) => domain.onChange(client.key, handler),
+        onChangeByKey: ({ client, key }, handler) =>
+          domain.subscribeItem(client.key, key, handler),
+        getCached: ({ client }) => domain.answers[client.key],
+      });
+      const { result, rerender } = renderHook(
+        () => {
+          const { subscribe, getItem } = useList();
+          return Flux.useListItem<string, Doc>({ subscribe, getItem, key: "k" });
+        },
+        { wrapper },
+      );
+      expect(result.current?.name).toBe("A");
+
+      reconnect();
+      rerender();
+
+      act(() => domain.pushItem("b", { key: "k", name: "B" }));
+      await waitFor(() => expect(result.current?.name).toBe("B"));
     });
   });
 });

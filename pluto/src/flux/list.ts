@@ -226,8 +226,10 @@ export const createList = <
       page.keys = filtered.map((item) => item.key);
       dropped.forEach((k) => {
         if (pagesRef.current.some((p) => p.keys.includes(k))) return;
-        // The item may only have left the query, and its own feed reports it.
+        // The item may only have left the query, so an item a consumer reads keeps a
+        // feed of its own, which reports a deletion.
         if (itemSubsRef.current.has(k)) return;
+        if (listItemListenersRef.current.has(k)) return openItemSub(k);
         dataRef.current.set(k, null);
         notifyListeners(k);
       });
@@ -310,9 +312,9 @@ export const createList = <
             client,
             query: q,
           },
-          (cached: query.Cached<Data[]> | undefined) => {
-            if (!isLive(cached)) return;
-            applyPageAnswer(page, cached);
+          (answer: query.Cached<Data[]> | undefined) => {
+            if (!isLive(answer)) return;
+            applyPageAnswer(page, answer);
           },
         );
       pagesRef.current.push(page);
@@ -377,15 +379,34 @@ export const createList = <
       }
     };
 
-    // When the client is swapped, an active hook must re-point itself at the
-    // new client's cache. A non-null query means a list retrieve ran: refetch
-    // (retrieveAsync re-subscribes as it goes). Item subscriptions re-open
-    // against the new client without refetching.
+    /**
+     * Fills the list from the cached answer to the query, behind a page that keeps the
+     * answer live until a retrieve answers. Does nothing when the cache has no answer.
+     */
+    const createCachedPage = (query: Query) => {
+      const keys = readCache(query);
+      if (keys == null) return;
+      openPage(query, keys, true);
+      keys.forEach(notifyListeners);
+      setResult((p) =>
+        p.data != null && compare.primitiveArrays(p.data, keys) === compare.EQUAL
+          ? p
+          : loadingResult(`retrieving ${name}`, keys),
+      );
+    };
+
+    // The initial state fills the list from the cache in render, where no feed can
+    // open, so the mount fills it again with one. When the client is swapped, an active
+    // hook must re-point itself at the new client's cache. A non-null query means a
+    // list retrieve ran: refetch (retrieveAsync re-subscribes as it goes). Item
+    // subscriptions re-open against the new client without refetching.
     const retrieveAsyncRef = useSyncedRef(retrieveAsync);
     const firstMountRef = useRef(true);
     useEffect(() => {
       if (firstMountRef.current) {
         firstMountRef.current = false;
+        if (resultRef.current.data != null && pagesRef.current.length === 0)
+          createCachedPage(queryRef.current ?? normalized({} as Query));
         return;
       }
       clearPages();
@@ -464,29 +485,6 @@ export const createList = <
           dataRef.current.delete(key);
       };
     };
-
-    /**
-     * Fills the list from the cached answer to the query, behind a page that keeps the
-     * answer live until a retrieve answers. Does nothing when the cache has no answer.
-     */
-    const createCachedPage = (query: Query) => {
-      const keys = readCache(query);
-      if (keys == null) return;
-      openPage(query, keys, true);
-      keys.forEach(notifyListeners);
-      setResult((p) =>
-        p.data != null && compare.primitiveArrays(p.data, keys) === compare.EQUAL
-          ? p
-          : loadingResult(`retrieving ${name}`, keys),
-      );
-    };
-
-    // The initial state fills the list from the cache in render, where no feed can
-    // open, so the mount fills it again with one.
-    useEffect(() => {
-      if (resultRef.current.data == null || pagesRef.current.length > 0) return;
-      createCachedPage(queryRef.current ?? normalized({} as Query));
-    }, []);
 
     const debouncedRetrieve = useDebouncedCallback(
       (query: state.SetArg<Query, Query | {}>, options: AsyncListOptions = {}) =>
