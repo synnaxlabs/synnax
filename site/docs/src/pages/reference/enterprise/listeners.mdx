@@ -24,23 +24,23 @@ address, use `--listen` and [Set up TLS](/reference/enterprise/tls).
 
 ## Configure listeners
 
-1. Create the Core CA and node certificate. The Core loads `node.crt` and `node.key` at
-   start, whatever certificates the listeners use:
+1. Copy the certificate and key from your organization into the certificates folder as
+   `node.crt` and `node.key`. The certificate must cover `core01.example.com`. The Core
+   loads `node.crt` and `node.key` at start, whatever certificates the listeners use:
 
    ```bash
-   synnax cert ca
-   synnax cert node core01.example.com
+   sudo cp core01.crt /usr/local/synnax/certs/node.crt
+   sudo cp core01.key /usr/local/synnax/certs/node.key
    ```
 
-2. In the configuration file, set `listen` to a list of listeners:
+2. In the configuration file, set `listen` to a list of listeners. A `file` listener
+   with no paths serves `node.crt`:
 
    ```yaml
    listen:
      - address: core01.example.com:9090
        cert:
          source: file
-         cert: /usr/local/synnax/certs/driver.crt
-         key: /usr/local/synnax/certs/driver.key
        advertise: true
      - address: core01.example-tailnet.ts.net:9091
        cert:
@@ -67,8 +67,9 @@ Set `cert.source` on each listener. Listeners can use different sources.
 <Field.List>
 
 <Field.Item name="file" id="source-file">
-  A PEM certificate and key from the `cert` and `key` paths. When the files change, the
-  listener uses the new files with no restart.
+  A PEM certificate and key from the `cert` and `key` paths. Without both paths, the
+  listener serves the node certificate. When the files change, the listener uses the new
+  files with no restart.
 </Field.Item>
 
 <Field.Item name="auto" id="source-auto">
@@ -108,7 +109,7 @@ The Core does not start when:
 
 - Two listeners have the same address.
 - More than one listener sets `advertise: true`.
-- A `file` listener does not set both `cert` and `key`, or an `auto` or `tailscale`
+- A `file` listener sets only one of `cert` and `key`, or an `auto` or `tailscale`
   listener sets either.
 - A `listen` list is used with `--auto-cert`, `--node-cert`, or `--node-key`.
 - The certificate of the advertised listener does not meet the rules above.
