@@ -210,6 +210,34 @@ TEST_F(IGHMasterTest, ActivateFailsWhenSlaveRejectsStartupParameter) {
     EXPECT_TRUE(this->mock_api->config_sdos.empty());
 }
 
+/// @brief it should report no response when a slave does not answer a startup
+/// parameter write.
+TEST_F(IGHMasterTest, ActivateFailsWhenSlaveDoesNotAnswerStartupParameter) {
+    this->initialize_with_slave();
+    this->master_instance->set_slave_config(0, {.startup_parameters = {FILTER}});
+    this->mock_api->set_sdo_download_abort(0x8000, 0x15, 0);
+    const auto err = this->master_instance->activate();
+    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "slave 0 (TestSlave) rejected startup parameter 0x8000:15 (Filter): no response"
+    );
+}
+
+/// @brief it should fail activation when the master cannot add a startup parameter to
+/// the slave's config.
+TEST_F(IGHMasterTest, ActivateFailsWhenStartupParameterCannotBeConfigured) {
+    this->initialize_with_slave();
+    this->master_instance->set_slave_config(0, {.startup_parameters = {FILTER}});
+    this->mock_api->set_config_sdo_fails(true);
+    const auto err = this->master_instance->activate();
+    ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "failed to add startup parameter 0x8000:15 (Filter) to slave 0 (TestSlave)"
+    );
+}
+
 /// @brief it should not write the startup parameters of a disabled slave.
 TEST_F(IGHMasterTest, ActivateSkipsStartupParametersOfDisabledSlave) {
     this->initialize_with_slave();
