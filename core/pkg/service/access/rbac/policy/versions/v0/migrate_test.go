@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -42,7 +41,7 @@ var _ = Describe("Migration", func() {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  "Policy",
-			Migrations: []migrate.Migration{v0.Migration},
+			Migrations: []gorp.Migration{v0.Migration},
 		})).To(Succeed())
 	}
 
@@ -183,7 +182,7 @@ var _ = Describe("NormalizeKeys", func() {
 			)
 			table := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Policy]{
 				DB:         db,
-				Migrations: []migrate.Migration{v0.NormalizeKeys},
+				Migrations: []gorp.Migration{v0.NormalizeKeys},
 			}))
 			var res v0.Policy
 			Expect(table.NewRetrieve().

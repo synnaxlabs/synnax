@@ -20,11 +20,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -38,24 +36,20 @@ var _ = Describe("Migration", func() {
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.OpenIndex())
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Search:   searchIdx,
 		}))
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
-			Search:   searchIdx,
 		}))
 		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			Ontology: otg,
 			DB:       db,
 			Group:    groupSvc,
 			Label:    labelSvc,
-			Search:   searchIdx,
 		}))
 	})
 
@@ -152,7 +146,7 @@ var _ = Describe("NormalizeKeys", func() {
 			)
 			table := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Device]{
 				DB:         db,
-				Migrations: []migrate.Migration{v0.NormalizeKeys},
+				Migrations: []gorp.Migration{v0.NormalizeKeys},
 			}))
 			var res v0.Device
 			Expect(table.NewRetrieve().

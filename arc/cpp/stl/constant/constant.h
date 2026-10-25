@@ -82,7 +82,7 @@ public:
                 nullptr,
                 x::errors::Error(
                     x::errors::VALIDATION,
-                    "constant node missing required value parameter"
+                    "The constant node is missing its value parameter."
                 )
             };
         auto data_type = cfg.node.outputs[0].type.telem();

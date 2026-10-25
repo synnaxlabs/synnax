@@ -17,6 +17,7 @@
 
 #include "x/cpp/loop/loop.h"
 
+#include "driver/ethercat/engine/clock.h"
 #include "driver/ethercat/engine/engine.h"
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/telem/telem.h"
@@ -66,14 +67,16 @@ std::pair<x::telem::Rate, x::errors::Error> bus_rate(
     uint64_t base = 1;
     for (const auto &rate: reads) {
         const auto mhz = millihertz(rate);
-        if (mhz == 0)
+        // Allow the rounding error of the float a Rate holds.
+        const double error = std::abs(rate.hz() * 1000 - static_cast<double>(mhz));
+        if (mhz == 0 || error > static_cast<double>(mhz) * 1e-6)
             return {
                 x::telem::Rate(0),
                 x::errors::Error(
                     errors::RATE_MISMATCH,
                     std::format(
-                        "a read task on {} samples at {} Hz, below the minimum of "
-                        "0.001 Hz",
+                        "a read task on {} samples at {} Hz, but sample rates must be "
+                        "a positive multiple of 0.001 Hz",
                         interface_name,
                         rate.hz()
                     )
@@ -206,6 +209,7 @@ void Engine::run() {
     uint64_t receive_failures = 0;
     uint64_t send_failures = 0;
     x::telem::TimeStamp sent_at{};
+    Clock clock;
 
     const auto send = [&] {
         sent_at = x::telem::TimeStamp::now();
@@ -253,7 +257,7 @@ void Engine::run() {
             VLOG(1) << "[ethercat] cycle overrun: " << elapsed;
 
         // The slaves latched these inputs when the previous cycle's frame passed.
-        const auto latched_at = sent_at;
+        auto latched_at = sent_at;
         const auto err = this->master->receive();
         if (err) {
             if (receive_failures++ == 0) {
@@ -262,10 +266,14 @@ void Engine::run() {
                 std::lock_guard lock(this->cycle_err_mu);
                 this->cycle_err = err;
             }
-        } else if (receive_failures > 0) {
-            LOG(INFO) << "[ethercat] cycles recovered on " << iface << " after "
-                      << receive_failures << " failures";
-            receive_failures = 0;
+        } else {
+            if (const auto dc = this->master->dc_time())
+                latched_at = clock.map(*dc, sent_at);
+            if (receive_failures > 0) {
+                LOG(INFO) << "[ethercat] cycles recovered on " << iface << " after "
+                          << receive_failures << " failures";
+                receive_failures = 0;
+            }
         }
         const uint8_t *image = this->master->input_data().data();
         for (const auto &[input, decimation]: sched->inputs) {
@@ -324,15 +332,7 @@ void Engine::supervise() {
 }
 
 x::errors::Error Engine::start_locked(const x::telem::Rate rate) {
-    x::breaker::Breaker retry(
-        x::breaker::Config{
-            .name = "ethercat_engine",
-            .base_interval = x::telem::MILLISECOND * 100,
-            .max_retries = 10,
-            .scale = 1.5f,
-            .max_interval = x::telem::SECOND * 5
-        }
-    );
+    x::breaker::Breaker retry(this->config.start_retry);
     retry.start();
     while (true) {
         auto err = this->master->initialize();
@@ -440,10 +440,8 @@ void Engine::rebuild_outputs_locked() {
     std::vector<Applied> applied;
     for (const auto &output: this->outputs)
         for (size_t i = 0; i < output->entries.size(); ++i)
-            if (output->commands[i])
-                applied.push_back(
-                    {&output->entries[i], output->offsets[i], &*output->commands[i]}
-                );
+            if (const auto &command = output->commands[i]; command.has_value())
+                applied.push_back({&output->entries[i], output->offsets[i], &*command});
     // Two writers can command the same output, so the latest command must land last.
     std::ranges::sort(applied, {}, [](const Applied &a) { return a.command->seq; });
     std::ranges::fill(this->write_staging, 0);
@@ -566,9 +564,18 @@ x::telem::Rate Engine::cycle_rate() const {
     return x::telem::Rate(this->cycle_hz.load(std::memory_order_acquire));
 }
 
-x::errors::Error Engine::ensure_initialized() const {
+x::errors::Error Engine::ensure_initialized() {
     std::lock_guard lock(this->mu);
     if (this->running()) return x::errors::NIL;
+    if (auto err = this->master->initialize()) return err;
+    const auto [count, err] = this->master->count_slaves();
+    if (err) return err;
+    const auto discovered = this->master->slaves().size();
+    if (count == discovered) return x::errors::NIL;
+    LOG(INFO) << "[ethercat] " << count << " slaves answer on "
+              << this->master->interface_name() << " where " << discovered
+              << " were discovered, rediscovering";
+    this->master->deactivate();
     return this->master->initialize();
 }
 

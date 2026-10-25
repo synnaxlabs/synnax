@@ -14,7 +14,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { type Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type location } from "@synnaxlabs/x";
-import { type CSSProperties, type FC, useMemo } from "react";
+import { type CSSProperties, type FC } from "react";
 
 import { Handle } from "@/arc/graph/handle";
 
@@ -156,14 +156,12 @@ export const Minimal = ({
 }: MinimalProps) => {
   const sinkHandleCount = sinks?.length ?? 0;
   const sourceHandleCount = sources?.length ?? 0;
-  const adjustedStyle = useMemo(() => {
-    const s: CSSProperties = { ...style };
-    if (sinkHandleCount === 0 || centerSinks) s.borderTopLeftRadius = "1rem";
-    if (sinkHandleCount < 2 || centerSinks) s.borderBottomLeftRadius = "1rem";
-    if (sourceHandleCount === 0 || centerSources) s.borderTopRightRadius = "1rem";
-    if (sourceHandleCount < 2 || centerSources) s.borderBottomRightRadius = "1rem";
-    return s;
-  }, [style, sinkHandleCount, sourceHandleCount, centerSinks, centerSources]);
+  const s: CSSProperties = { ...style };
+  if (sinkHandleCount === 0 || centerSinks) s.borderTopLeftRadius = "1rem";
+  if (sinkHandleCount < 2 || centerSinks) s.borderBottomLeftRadius = "1rem";
+  if (sourceHandleCount === 0 || centerSources) s.borderTopRightRadius = "1rem";
+  if (sourceHandleCount < 2 || centerSources) s.borderBottomRightRadius = "1rem";
+  const adjustedStyle = s;
 
   return (
     <Flex.Box x empty className={CSS.BE("arc", "stage")}>

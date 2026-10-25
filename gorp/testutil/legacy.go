@@ -14,24 +14,25 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp/internal/key"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/testutil"
 )
 
 // SetPreV54Row writes a raw row in the key format releases before v0.54 used:
-// msgpack(typeName) + msgpack(key), with an msgpack-encoded value. typeName is the type
-// name the writing release reported, which a later rename can move away from. Returns
-// the full key so callers can assert the row is gone after normalization.
+// msgpack(typeName) + msgpack(entryKey), with an msgpack-encoded value. typeName is the
+// type name the writing release reported, which a later rename can move away from.
+// Returns the full key so callers can assert the row is gone after normalization.
 func SetPreV54Row(
 	ctx context.Context,
 	kvDB kv.DB,
 	typeName string,
-	key, value any,
+	entryKey, value any,
 ) []byte {
 	ginkgo.GinkgoHelper()
-	prefix := testutil.MustSucceed(msgpack.Codec.Encode(ctx, typeName))
-	encodedKey := testutil.MustSucceed(msgpack.Codec.Encode(ctx, key))
+	prefix := testutil.MustSucceed(key.LegacyPrefix(ctx, typeName))
+	encodedKey := testutil.MustSucceed(msgpack.Codec.Encode(ctx, entryKey))
 	fullKey := make([]byte, 0, len(prefix)+len(encodedKey))
 	fullKey = append(fullKey, prefix...)
 	fullKey = append(fullKey, encodedKey...)

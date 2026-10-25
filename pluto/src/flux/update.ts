@@ -11,7 +11,7 @@ import { type query, type status, type Synnax as Client } from "@synnaxlabs/clie
 import { useDebouncedCallback } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
 import { type CrudeTimeSpan, type destructor, state, type verbs } from "@synnaxlabs/x";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import type z from "zod";
 
 import {
@@ -142,6 +142,119 @@ export interface CreateUpdateReturn<
   useUpdate: UseUpdate<Input, Output, StatusDetails>;
 }
 
+interface RunParams<
+  Input extends query.Data,
+  Output extends query.Data = Input,
+  StatusDetails extends z.ZodType = z.ZodNever,
+> extends Omit<UseObservableUpdateParams<Input, Output, StatusDetails>, "debounce"> {
+  client: Client | null;
+  addStatus: Status.Adder;
+  name: string;
+  verbs: verbs.Verbs;
+  update: (
+    params: UpdateParams<Input, Output, StatusDetails>,
+  ) => Promise<Output | false>;
+}
+
+const run = async <
+  Input extends query.Data,
+  Output extends query.Data = Input,
+  StatusDetails extends z.ZodType = z.ZodNever,
+>(
+  {
+    client,
+    addStatus,
+    onChange,
+    update,
+    name,
+    verbs: { present, past, participle },
+    beforeUpdate,
+    afterOptimistic,
+    afterSuccess,
+    afterFailure,
+  }: RunParams<Input, Output, StatusDetails>,
+  data: Input,
+  { signal }: query.FetchOptions = {},
+): Promise<boolean> => {
+  const rollbacks: destructor.Destructor[] = [];
+  const runRollbacks = () => {
+    try {
+      rollbacks.reverse().forEach((rollback) => rollback());
+    } catch (error) {
+      console.error(`failed to rollback changes to ${name}`, error);
+    }
+  };
+
+  if (client == null) {
+    onChange((p) =>
+      nullClientResult(
+        `${present} ${name}`,
+        resultStatusDetails<Input | undefined, StatusDetails>(p),
+      ),
+    );
+    return false;
+  }
+
+  try {
+    onChange((p) =>
+      loadingResult(
+        `${participle} ${name}`,
+        p.data,
+        resultStatusDetails<Input | undefined, StatusDetails>(p),
+      ),
+    );
+
+    if (beforeUpdate != null) {
+      const updatedValue = await beforeUpdate({ client, data, rollbacks });
+      if (signal?.aborted === true) return false;
+      if (updatedValue === false) {
+        onChange(successResult(`${past} ${name}`, data));
+        runRollbacks();
+        return false;
+      }
+      if (updatedValue !== true) data = updatedValue;
+    }
+
+    const setStatus = (setter: state.SetArg<ResultStatus<StatusDetails>>) =>
+      onChange((p) => {
+        const nextStatus = state.executeSetter(setter, p.status);
+        return {
+          ...p,
+          status: nextStatus,
+          variant: nextStatus.variant,
+        } as Result<Input | undefined, StatusDetails>;
+      });
+
+    const onOptimisticComplete = async (output: Output): Promise<void> => {
+      if (signal?.aborted === true) return;
+      await afterOptimistic?.({ client, data: output, rollbacks });
+    };
+
+    const output = await update({ client, data, setStatus, onOptimisticComplete });
+    if (signal?.aborted === true) return false;
+    onChange((p) =>
+      successResult(
+        `${past} ${name}`,
+        data,
+        resultStatusDetails<Input | undefined, StatusDetails>(p),
+      ),
+    );
+    if (output === false) return false;
+    await afterSuccess?.({ client, data: output });
+    return true;
+  } catch (error) {
+    runRollbacks();
+    if (signal?.aborted === true) return false;
+
+    const result = errorResult(`${present} ${name}`, error);
+    const { status } = result;
+    onChange(result);
+    addStatus(status);
+    await afterFailure?.({ client, status, data });
+    return false;
+  }
+};
+
 const useObservable = <
   Input extends query.Data,
   Output extends query.Data = Input,
@@ -154,7 +267,7 @@ const useObservable = <
     onChange,
     update,
     name,
-    verbs: { present, past, participle },
+    verbs,
     debounce = 0,
     beforeUpdate,
     afterOptimistic,
@@ -163,103 +276,23 @@ const useObservable = <
   } = params;
   const client = Synnax.use();
   const addStatus = Status.useAdder();
-  const runUpdate = useCallback(
-    async (data: Input, opts: query.FetchOptions = {}): Promise<boolean> => {
-      const { signal } = opts;
-
-      const rollbacks: destructor.Destructor[] = [];
-      const runRollbacks = () => {
-        try {
-          rollbacks.reverse().forEach((rollback) => rollback());
-        } catch (error) {
-          console.error(`failed to rollback changes to ${name}`, error);
-        }
-      };
-
-      if (client == null) {
-        onChange((p) =>
-          nullClientResult(
-            `${present} ${name}`,
-            resultStatusDetails<Input | undefined, StatusDetails>(p),
-          ),
-        );
-        return false;
-      }
-
-      try {
-        onChange((p) =>
-          loadingResult(
-            `${participle} ${name}`,
-            p.data,
-            resultStatusDetails<Input | undefined, StatusDetails>(p),
-          ),
-        );
-
-        if (beforeUpdate != null) {
-          const updatedValue = await beforeUpdate({ client, data, rollbacks });
-          if (signal?.aborted === true) return false;
-          if (updatedValue === false) {
-            onChange(successResult(`${past} ${name}`, data));
-            runRollbacks();
-            return false;
-          }
-          if (updatedValue !== true) data = updatedValue;
-        }
-
-        const setStatus = (setter: state.SetArg<ResultStatus<StatusDetails>>) =>
-          onChange((p) => {
-            const nextStatus = state.executeSetter(setter, p.status);
-            return {
-              ...p,
-              status: nextStatus,
-              variant: nextStatus.variant,
-            } as Result<Input | undefined, StatusDetails>;
-          });
-
-        const onOptimisticComplete = async (output: Output): Promise<void> => {
-          if (signal?.aborted === true) return;
-          await afterOptimistic?.({ client, data: output, rollbacks });
-        };
-
-        const output = await update({ client, data, setStatus, onOptimisticComplete });
-        if (signal?.aborted === true) return false;
-        onChange((p) =>
-          successResult(
-            `${past} ${name}`,
-            data,
-            resultStatusDetails<Input | undefined, StatusDetails>(p),
-          ),
-        );
-        if (output === false) return false;
-        await afterSuccess?.({ client, data: output });
-        return true;
-      } catch (error) {
-        runRollbacks();
-        if (signal?.aborted === true) return false;
-
-        const result = errorResult(`${present} ${name}`, error);
-        const { status } = result;
-        onChange(result);
-        addStatus(status);
-        await afterFailure?.({ client, status, data });
-        return false;
-      }
-    },
-    [
-      client,
-      name,
-      present,
-      participle,
-      past,
-      onChange,
-      addStatus,
-      update,
-      beforeUpdate,
-      afterOptimistic,
-      afterSuccess,
-      afterFailure,
-    ],
-  );
+  const runUpdate = (data: Input, opts?: query.FetchOptions): Promise<boolean> =>
+    run(
+      {
+        client,
+        addStatus,
+        onChange,
+        update,
+        name,
+        verbs,
+        beforeUpdate,
+        afterOptimistic,
+        afterSuccess,
+        afterFailure,
+      },
+      data,
+      opts,
+    );
   const handleUpdate = useDebouncedCallback(
     (data: Input, opts?: query.FetchOptions) => {
       void runUpdate(data, opts);

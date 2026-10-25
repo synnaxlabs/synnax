@@ -9,7 +9,6 @@
 
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { type xy } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 type Mode =
   | "copy"
@@ -73,31 +72,18 @@ export const useTriggers = ({
     triggers: FLATTENED_CONFIG,
     loose: true,
     enabled,
-    callback: useCallback(
-      ({ triggers, cursor, stage }: Triggers.UseEvent) => {
-        if (stage !== "start") return;
-        const mode = Triggers.determineMode(CONFIG, triggers);
-        if (!editable && MUTATING_MODES.has(mode)) return;
-        if (mode == "undo") return onUndo?.();
-        if (mode == "redo") return onRedo?.();
-        if (mode == "copy") return onCopy?.(cursor);
-        if (mode == "paste") return onPaste?.(cursor);
-        if (mode == "clear") return onClear?.();
-        if (mode == "all") return onSelectAll?.();
-        if (mode == "group") return onGroup?.();
-        if (mode == "ungroup") return onUngroup?.();
-      },
-      [
-        onUndo,
-        onRedo,
-        onCopy,
-        onPaste,
-        onClear,
-        onSelectAll,
-        onGroup,
-        onUngroup,
-        editable,
-      ],
-    ),
+    callback: ({ triggers, cursor, stage }: Triggers.UseEvent) => {
+      if (stage !== "start") return;
+      const mode = Triggers.determineMode(CONFIG, triggers);
+      if (!editable && MUTATING_MODES.has(mode)) return;
+      if (mode == "undo") return onUndo?.();
+      if (mode == "redo") return onRedo?.();
+      if (mode == "copy") return onCopy?.(cursor);
+      if (mode == "paste") return onPaste?.(cursor);
+      if (mode == "clear") return onClear?.();
+      if (mode == "all") return onSelectAll?.();
+      if (mode == "group") return onGroup?.();
+      if (mode == "ungroup") return onUngroup?.();
+    },
   });
 };

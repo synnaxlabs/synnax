@@ -38,7 +38,7 @@ struct StableForInputs {
                 {},
                 x::errors::Error(
                     x::errors::VALIDATION,
-                    "stable_for node missing required duration parameter"
+                    "The stable_for node is missing its duration parameter."
                 )
             };
         return {

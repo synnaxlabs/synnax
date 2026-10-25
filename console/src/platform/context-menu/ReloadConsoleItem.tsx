@@ -10,17 +10,17 @@
 import { Drift } from "@synnaxlabs/drift";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { Link } from "@/platform/link";
 import { Session } from "@/session";
 
 export const ReloadConsoleItem = (): ReactElement => {
   const dispatch = Session.useDispatch();
-  const handleClick = useCallback(() => {
+  const handleClick = () => {
     Link.markNextIgnored();
     dispatch(Drift.reloadWindow({}));
-  }, [dispatch]);
+  };
   return (
     <Menu.Item onClick={handleClick} itemKey="hardReload">
       <Icon.Refresh />

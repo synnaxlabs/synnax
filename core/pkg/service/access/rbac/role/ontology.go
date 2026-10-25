@@ -11,7 +11,6 @@ package role
 
 import (
 	"context"
-	"io"
 	"iter"
 	"uuid"
 
@@ -21,6 +20,7 @@ import (
 	xchange "github.com/synnaxlabs/x/change"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/zyn"
 )
 
@@ -94,13 +94,12 @@ func (s *Service) OnChange(
 	return s.table.Observe().OnChange(handleChange)
 }
 
-// OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter(
+// Search implements ontology.Service.
+func (s *Service) Search(
 	ctx context.Context,
-) (iter.Seq[ontology.Resource], io.Closer, error) {
-	n, closer, err := s.table.OpenNexter(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-	return xiter.Map(n, newResource), closer, nil
+	tx gorp.Tx,
+	term string,
+	limit int,
+) (search.Result[ontology.ID], error) {
+	return ontology.SearchIndex(ctx, tx, s.indexes.search, term, limit, OntologyID)
 }

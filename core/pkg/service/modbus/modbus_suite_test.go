@@ -28,7 +28,7 @@ var _ = BeforeSuite(func() {
 
 func TestModbus(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Modbus Suite")
+	RunSpecs(t, "Service Modbus Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

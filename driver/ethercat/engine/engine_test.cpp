@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <atomic>
 #include <thread>
 
@@ -73,6 +74,20 @@ x::telem::Frame frame_of(const std::vector<x::telem::DataType> &types, size_t n)
     for (const auto &dt: types)
         frame.series->push_back(x::telem::Series(dt, n));
     return frame;
+}
+
+/// @brief an engine configuration that stops trying to start the bus after two quick
+/// retries.
+Config quick_start_config() {
+    Config cfg;
+    cfg.start_retry = {
+        .name = "ethercat_engine_test",
+        .base_interval = x::telem::MILLISECOND,
+        .max_retries = 2,
+        .scale = 1,
+        .max_interval = x::telem::MILLISECOND,
+    };
+    return cfg;
 }
 }
 
@@ -155,6 +170,27 @@ TEST_F(EngineTest, ReadReturnsOneSamplePerPeriodWithItsCycleTime) {
         EXPECT_GT(times.at<int64_t>(i), times.at<int64_t>(i - 1));
     const auto span = x::telem::TimeSpan(times.at<int64_t>(9) - times.at<int64_t>(0));
     EXPECT_GE(span, x::telem::MILLISECOND * 45);
+}
+
+/// @brief it should stamp samples near the host time, spaced by the distributed clock.
+TEST_F(EngineTest, ReadStampsSamplesWithTheDistributedClockSpacing) {
+    this->master->set_dc_step(x::telem::MILLISECOND * 10);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 10)
+    );
+    const auto times = this->read_times(*reader, 10);
+    ASSERT_EQ(times.size(), 10);
+    EXPECT_LT(
+        x::telem::TimeStamp::now() - x::telem::TimeStamp(times.at<int64_t>(0)),
+        x::telem::SECOND
+    );
+    for (size_t i = 1; i < times.size(); ++i) {
+        const auto spacing = x::telem::TimeSpan(
+            times.at<int64_t>(i) - times.at<int64_t>(i - 1)
+        );
+        EXPECT_GT(spacing, x::telem::MICROSECOND * 9'900);
+        EXPECT_LT(spacing, x::telem::MICROSECOND * 10'100);
+    }
 }
 
 TEST_F(EngineTest, ReadReturnsNilWhenBreakerStopped) {
@@ -314,6 +350,25 @@ TEST_F(EngineTest, ReadRateBelowOneMillihertzIsRejected) {
     EXPECT_FALSE(this->engine->running());
 }
 
+/// @brief it should reject a reader with a sample rate between two 0.001 Hz steps,
+/// instead of rounding its rate.
+TEST_F(EngineTest, ReadRateBetweenMillihertzStepsIsRejected) {
+    ASSERT_OCCURRED_AS_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(0.0014), 1),
+        errors::RATE_MISMATCH
+    );
+    EXPECT_FALSE(this->engine->running());
+}
+
+/// @brief it should accept a reader rate whose float holds a rounding error below one
+/// part per million, such as 0.251 Hz.
+TEST_F(EngineTest, ReadRateWithFloatRoundingErrorOpens) {
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(0.251), 1)
+    );
+    EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(100.149));
+}
+
 /// @brief it should open a task without a restart of the bus or a change to the outputs
 /// of other tasks.
 TEST_F(EngineTest, OpeningATaskKeepsTheBusRunning) {
@@ -360,7 +415,7 @@ TEST_F(EngineTest, BusStopsWhenTheLastTaskCloses) {
 
 /// @brief it should reject an entry that is not in the process image and not start the
 /// bus.
-TEST_F(EngineTest, EntryOutsideTheImageIsRejected) {
+TEST_F(EngineTest, UnmappedEntryIsRejected) {
     const auto res = this->engine->open_reader(
         {pdo::Entry(0, 0x9999, 1, 16, true, x::telem::INT16_T)},
         x::telem::Rate(100),
@@ -368,6 +423,21 @@ TEST_F(EngineTest, EntryOutsideTheImageIsRejected) {
     );
     ASSERT_OCCURRED_AS(res.second, errors::PDO_MAPPING_ERROR);
     EXPECT_EQ(res.second.data, "PDO 0x9999:01 is not in the process image of slave 0");
+    EXPECT_FALSE(this->engine->running());
+}
+
+/// @brief it should reject an entry that is longer than the PDO the slave maps.
+TEST_F(EngineTest, EntryLongerThanItsPDOIsRejected) {
+    const auto res = this->engine->open_reader(
+        {pdo::Entry(0, 0x6000, 4, 32, true, x::telem::UINT32_T)},
+        x::telem::Rate(100),
+        1
+    );
+    ASSERT_OCCURRED_AS(res.second, errors::PDO_MAPPING_ERROR);
+    EXPECT_EQ(
+        res.second.data,
+        "PDO 0x6000:04 on slave 0 is 4 bits, not 32. Scan the network again"
+    );
     EXPECT_FALSE(this->engine->running());
 }
 
@@ -398,14 +468,32 @@ TEST_F(EngineTest, DisabledSlaveIsNotMapped) {
     );
 }
 
+/// @brief it should return the error that kept the master from initializing once the
+/// retries run out.
 TEST_F(EngineTest, InitializeErrorPropagates) {
+    this->engine = std::make_shared<Engine>(this->master, quick_start_config());
     this->master->inject_init_error(
         x::errors::Error(errors::MASTER_INIT_ERROR, "init failed")
     );
-    ASSERT_OCCURRED_AS_P(
-        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1),
-        errors::MASTER_INIT_ERROR
+    const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    ASSERT_OCCURRED_AS(res.second, errors::MASTER_INIT_ERROR);
+    EXPECT_EQ(res.second.data, "init failed");
+    EXPECT_EQ(this->master->init_call_count(), 3);
+    EXPECT_FALSE(this->engine->running());
+}
+
+/// @brief it should deactivate the master after each failed activation, and return the
+/// activation error once the retries run out.
+TEST_F(EngineTest, ActivationErrorPropagates) {
+    this->engine = std::make_shared<Engine>(this->master, quick_start_config());
+    this->master->inject_activate_error(
+        x::errors::Error(errors::ACTIVATION_ERROR, "activate failed")
     );
+    const auto res = this->engine->open_writer({OUT_I16}, x::telem::Rate(100));
+    ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(res.second.data, "activate failed");
+    EXPECT_EQ(this->master->call_count("activate"), 3);
+    EXPECT_EQ(this->master->call_count("deactivate"), 3);
     EXPECT_FALSE(this->engine->running());
 }
 
@@ -450,6 +538,22 @@ TEST_F(EngineTest, FailedCyclesReturnATemporaryError) {
     ASSERT_EVENTUALLY_NIL(reader->read(this->brk, frame, times));
 }
 
+/// @brief it should return an error when the bus delivers no samples within twice the
+/// duration of a read, and return samples again once the bus resumes.
+TEST_F(EngineTest, ReadTimesOutWhenTheBusStalls) {
+    this->master->stall();
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    auto frame = frame_of({x::telem::INT16_T}, 1);
+    x::telem::Series times(x::telem::TIMESTAMP_T, 1);
+    const auto err = reader->read(this->brk, frame, times);
+    this->master->resume();
+    ASSERT_OCCURRED_AS(err, errors::CYCLE_OVERRUN);
+    EXPECT_EQ(err.data, "no inputs from eth0 within 220ms");
+    EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
+}
+
 /// @brief it should report the samples that failed cycles dropped as a warning.
 TEST_F(EngineTest, DroppedSamplesFromFailedCyclesAreAWarning) {
     const auto reader = ASSERT_NIL_P(
@@ -462,10 +566,7 @@ TEST_F(EngineTest, DroppedSamplesFromFailedCyclesAreAWarning) {
     ASSERT_EVENTUALLY_GE(this->master->call_count("receive"), receives + 3);
     this->master->clear_injected_errors();
     EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
-    const auto warning = reader->warning();
-    EXPECT_TRUE(warning.starts_with("dropped ")) << warning;
-    EXPECT_TRUE(warning.ends_with(" samples from failed bus cycles: expected 3, got 1"))
-        << warning;
+    EXPECT_EQ(reader->warning(), "Bus cycles failed: expected 3, got 1.");
     EXPECT_EQ(reader->warning(), "");
 }
 
@@ -481,8 +582,10 @@ TEST_F(EngineTest, ReaderThatFallsBehindGetsAWarning) {
         std::chrono::seconds(6),
         std::chrono::milliseconds(100)
     );
-    EXPECT_TRUE(warning.ends_with(" samples because the task fell behind the bus"))
-        << warning;
+    EXPECT_EQ(
+        warning,
+        "The task cannot keep up with the bus. Lower the stream rate for the task."
+    );
     EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
 }
 
@@ -694,6 +797,46 @@ TEST_F(EngineTest, TasksOpenAndCloseWithoutDisturbingRunningOnes) {
 TEST_F(EngineTest, EnsureInitializedIdempotent) {
     ASSERT_NIL(this->engine->ensure_initialized());
     ASSERT_NIL(this->engine->ensure_initialized());
+}
+
+/// @brief it should keep the discovered slaves and not reinitialize the master when the
+/// slave count is unchanged.
+TEST_F(EngineTest, EnsureInitializedKeepsDiscoveryWhenTheBusIsUnchanged) {
+    ASSERT_NIL(this->engine->ensure_initialized());
+    ASSERT_NIL(this->engine->ensure_initialized());
+    const auto calls = this->master->call_log();
+    EXPECT_EQ(std::ranges::count(calls, "deactivate"), 0);
+}
+
+/// @brief it should reinitialize the master and discover again when the slave count
+/// changes.
+TEST_F(EngineTest, EnsureInitializedRediscoversWhenASlaveIsPluggedIn) {
+    ASSERT_NIL(this->engine->ensure_initialized());
+    this->master->set_bus_slaves(2);
+    ASSERT_NIL(this->engine->ensure_initialized());
+    EXPECT_EQ(
+        this->master->call_log(),
+        (std::vector<std::string>{
+            "initialize",
+            "count_slaves",
+            "initialize",
+            "count_slaves",
+            "deactivate",
+            "initialize",
+        })
+    );
+}
+
+/// @brief it should not count or discover slaves while the bus runs.
+TEST_F(EngineTest, EnsureInitializedDoesNotRediscoverWhileTheBusRuns) {
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    this->master->set_bus_slaves(2);
+    this->master->clear_call_log();
+    ASSERT_NIL(this->engine->ensure_initialized());
+    const auto calls = this->master->call_log();
+    EXPECT_EQ(std::ranges::count(calls, "count_slaves"), 0);
 }
 
 TEST_F(EngineTest, SlavesReturnsDiscoveredSlaves) {

@@ -11,7 +11,7 @@ import { table } from "@synnaxlabs/client";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { type border, box, dimensions, xy } from "@synnaxlabs/x";
-import { memo, type ReactElement, useCallback, useMemo } from "react";
+import { memo, type ReactElement } from "react";
 
 import { Cell } from "@/table/cells";
 import { Indicator, type IndicatorProps } from "@/table/Indicator";
@@ -62,32 +62,35 @@ export const Row = memo(
     shift = 0,
     colShifts,
   }: RowProps): ReactElement => {
+    const cellXs: number[] = [];
     let xCursor = x;
+    for (let i = 0; i < cells.length; i++) {
+      cellXs.push(xCursor);
+      xCursor += columns[i];
+    }
     const theme = Theming.use();
     // Table.css rounds the table's outer corners on the corner <td> by
     // --pluto-border-radius-small, but a cell that paints its background on the canvas
     // squares them off unless it knows the radius, so both sides read the same theme
     // step. The indicators occupy the first row and column when shown, so a data cell
     // only reaches the top and left edges without them.
-    const borderRadii = useMemo(() => {
-      const r = theme.sizes.border.radius.small * theme.sizes.base;
-      const top = index === 0 && !showIndicator;
-      return cells.map((_, i): border.CrudeRadius | undefined => {
-        const left = i === 0 && !showIndicator;
-        const right = i === cells.length - 1;
-        const topLeft = top && left;
-        const topRight = top && right;
-        const bottomRight = last && right;
-        const bottomLeft = last && left;
-        if (!topLeft && !topRight && !bottomRight && !bottomLeft) return undefined;
-        return {
-          topLeft: topLeft ? r : 0,
-          topRight: topRight ? r : 0,
-          bottomRight: bottomRight ? r : 0,
-          bottomLeft: bottomLeft ? r : 0,
-        };
-      });
-    }, [cells, index, last, showIndicator, theme]);
+    const r = theme.sizes.border.radius.small * theme.sizes.base;
+    const top = index === 0 && !showIndicator;
+    const borderRadii = cells.map((_, i): border.CrudeRadius | undefined => {
+      const left = i === 0 && !showIndicator;
+      const right = i === cells.length - 1;
+      const topLeft = top && left;
+      const topRight = top && right;
+      const bottomRight = last && right;
+      const bottomLeft = last && left;
+      if (!topLeft && !topRight && !bottomRight && !bottomLeft) return undefined;
+      return {
+        topLeft: topLeft ? r : 0,
+        topRight: topRight ? r : 0,
+        bottomRight: bottomRight ? r : 0,
+        bottomLeft: bottomLeft ? r : 0,
+      };
+    });
     return (
       <tr className={CSS.cls(CSS.BE("table", "row"))}>
         {showIndicator && (
@@ -103,26 +106,22 @@ export const Row = memo(
             shift={shift}
           />
         )}
-        {cells.map((cellKey, i) => {
-          const xPos = xCursor;
-          xCursor += columns[i];
-          return (
-            <VariantCell
-              key={cellKey}
-              resourceKey={resourceKey}
-              cellKey={cellKey}
-              x={xPos}
-              y={y}
-              width={columns[i]}
-              height={size}
-              borderRadius={borderRadii[i]}
-              editable={editable}
-              onSelect={onCellSelect}
-              shiftX={colShifts?.[i] ?? 0}
-              shiftY={shift}
-            />
-          );
-        })}
+        {cells.map((cellKey, i) => (
+          <VariantCell
+            key={cellKey}
+            resourceKey={resourceKey}
+            cellKey={cellKey}
+            x={cellXs[i]}
+            y={y}
+            width={columns[i]}
+            height={size}
+            borderRadius={borderRadii[i]}
+            editable={editable}
+            onSelect={onCellSelect}
+            shiftX={colShifts?.[i] ?? 0}
+            shiftY={shift}
+          />
+        ))}
       </tr>
     );
   },
@@ -168,20 +167,17 @@ const VariantCell = memo(
     const cell = useCell({ key: resourceKey, cellKey });
     const selected = Selection.useIsMember(cellKey);
     const { dispatch } = useDispatch();
-    const b = useMemo(
-      () => box.construct(xy.construct({ x, y }), dimensions.construct(width, height)),
-      [x, y, width, height],
+    const b = box.construct(
+      xy.construct({ x, y }),
+      dimensions.construct(width, height),
     );
-    const shift = useMemo(() => ({ x: shiftX, y: shiftY }), [shiftX, shiftY]);
-    const handleChange = useCallback(
-      (config: table.CellConfig) => {
-        dispatch({
-          key: resourceKey,
-          actions: [table.setCell({ cell: { key: cellKey, config } })],
-        });
-      },
-      [dispatch, resourceKey, cellKey],
-    );
+    const shift = { x: shiftX, y: shiftY };
+    const handleChange = (config: table.CellConfig) => {
+      dispatch({
+        key: resourceKey,
+        actions: [table.setCell({ cell: { key: cellKey, config } })],
+      });
+    };
     if (cell == null) return null;
     const Spec = Cell.resolveSpec(cell.variant);
     return (

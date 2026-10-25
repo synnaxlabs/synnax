@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type compare, type record, type state as xstate, unique } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { type Component } from "@/component";
 import { CSS } from "@/css";
@@ -88,62 +88,48 @@ export const use = <K extends record.Key = string>({
     value: propsSelected,
     onChange: onSelectedChange,
   });
-  const shape = useMemo(
-    () => flatten<K>({ nodes, expanded, sort }),
-    [nodes, expanded, sort],
-  );
+  const shape = flatten<K>({ nodes, expanded, sort });
   const shapeRef = useSyncedRef(shape);
 
   const shiftRef = Triggers.useHeldRef({ triggers: SHIFT_TRIGGERS });
 
-  const handleToggle = useCallback(
-    (key: K): void => {
-      const n = getNodeShape(shapeRef.current, key);
-      if (n == null || !n.hasChildren) return;
-      const currentlyExpanded = expandedRef.current;
-      const action = currentlyExpanded.includes(key) ? "contract" : "expand";
-      const nextExpanded =
-        action === "contract"
-          ? currentlyExpanded.filter((k) => k !== key)
-          : [...currentlyExpanded, key];
-      setExpanded(nextExpanded);
-      onExpand?.({ current: nextExpanded, action, clicked: key });
-    },
-    [onExpand, setExpanded],
-  );
+  const handleToggle = (key: K): void => {
+    const n = getNodeShape(shapeRef.current, key);
+    if (n == null || !n.hasChildren) return;
+    const currentlyExpanded = expandedRef.current;
+    const action = currentlyExpanded.includes(key) ? "contract" : "expand";
+    const nextExpanded =
+      action === "contract"
+        ? currentlyExpanded.filter((k) => k !== key)
+        : [...currentlyExpanded, key];
+    setExpanded(nextExpanded);
+    onExpand?.({ current: nextExpanded, action, clicked: key });
+  };
 
-  const handleSelect: Select.UseMultipleProps<K>["onChange"] = useCallback(
-    (keys: K[], { clicked }: Select.UseOnChangeExtra<K>): void => {
-      setSelected((p): K[] => {
-        if (keys.length === 0 && p.length > 0) return p.slice(0, 1);
-        return keys;
-      });
-      if (toggleOn === "caret" || clicked == null || shiftRef.current.held) return;
-      handleToggle(clicked);
-    },
-    [toggleOn, handleToggle, setSelected],
-  );
+  const handleSelect: Select.UseMultipleProps<K>["onChange"] = (
+    keys: K[],
+    { clicked }: Select.UseOnChangeExtra<K>,
+  ): void => {
+    setSelected((p): K[] => {
+      if (keys.length === 0 && p.length > 0) return p.slice(0, 1);
+      return keys;
+    });
+    if (toggleOn === "caret" || clicked == null || shiftRef.current.held) return;
+    handleToggle(clicked);
+  };
 
-  const handleExpand = useCallback(
-    (key: K): void => {
-      setExpanded((expanded) => unique.unique([...expanded, key]));
-      onExpand?.({ current: expanded, action: "expand", clicked: key });
-    },
-    [setExpanded],
-  );
+  const handleExpand = (key: K): void => {
+    setExpanded((expanded) => unique.unique([...expanded, key]));
+    onExpand?.({ current: expandedRef.current, action: "expand", clicked: key });
+  };
 
-  const handleContract = useCallback(
-    (...keys: K[]): void => {
-      setExpanded((expanded) => expanded.filter((k) => !keys.includes(k)));
-      // Call onExpand for each contracted key
-      keys.forEach((key) => {
-        onExpand?.({ current: expanded, action: "contract", clicked: key });
-      });
-    },
-    [setExpanded],
-  );
+  const handleContract = (...keys: K[]): void => {
+    setExpanded((expanded) => expanded.filter((k) => !keys.includes(k)));
+    const current = expandedRef.current;
+    keys.forEach((key) => onExpand?.({ current, action: "contract", clicked: key }));
+  };
 
-  const clearExpanded = useCallback(() => setExpanded([]), [setExpanded]);
+  const clearExpanded = () => setExpanded([]);
 
   return {
     selected,
@@ -205,13 +191,10 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
   ...rest
 }: TreeProps<K, E>): ReactElement => {
   const { keys, nodes } = shape;
-  const contextValue = useMemo(
-    () => ({
-      nodes,
-      toggle: toggleOn === "caret" ? (i: number) => toggle(keys[i]) : undefined,
-    }),
-    [nodes, keys, toggle, toggleOn],
-  );
+  // Reads keys at click time, so an expand keeps unchanged items cached.
+  const keysRef = useSyncedRef(keys);
+  const toggleAt = (index: number) => toggle(keysRef.current[index]);
+  const contextValue = { nodes, toggle: toggleOn === "caret" ? toggleAt : undefined };
   return (
     <Context value={contextValue}>
       <Select.Frame

@@ -12,10 +12,8 @@ import {
   type CSSProperties,
   type ReactElement,
   type RefCallback,
-  useCallback,
   useEffect,
   useId,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -194,15 +192,6 @@ const selectModalPosition = (
 };
 
 /**
- * A controlled dropdown dialog component that wraps its children. For the simplest
- * case, use the {@link use} hook (more behavioral details explained there).
- * @param props - The props for the dropdown component. Unlisted props are passed to the
- * parent element.
- * @param props.visible - Whether the dropdown is visible or not. This is a controlled
- * @param props.children - Two children are expected: the dropdown trigger (often a
- * button or input) and the dropdown content.
- */
-/**
  * Pairs a {@link Trigger} with a {@link Dialog}, owning whether it is open and placing
  * it in whatever space the viewport leaves.
  *
@@ -235,12 +224,9 @@ export const Frame = ({
   // Read through a ref, so a caller's onVisibleChange can change identity without
   // re-subscribing the outside-click and Escape listeners below.
   const setVisibleRef = useSyncedRef(setVisible);
-  const close = useCallback(() => setVisibleRef.current(false), [setVisibleRef]);
-  const open = useCallback(() => setVisibleRef.current(true), [setVisibleRef]);
-  const toggle = useCallback(
-    () => setVisibleRef.current((prev) => !prev),
-    [setVisibleRef],
-  );
+  const close = () => setVisibleRef.current(false);
+  const open = () => setVisibleRef.current(true);
+  const toggle = () => setVisibleRef.current((prev) => !prev);
 
   const id = useId();
   const visibleRef = useSyncedRef(visible);
@@ -254,7 +240,7 @@ export const Frame = ({
   const [{ targetCorner, dialogCorner, style, modalPosition }, setState] =
     useState<State>({ ...ZERO_STATE, modalPosition: propsModalPosition });
 
-  const calculatePosition = useCallback(() => {
+  const calculatePosition = () => {
     const targetEl = anchor ?? targetRef.current;
     if (targetEl == null || dialogRef.current == null || !visibleRef.current) return;
     const target = box.construct(targetEl);
@@ -339,7 +325,7 @@ export const Frame = ({
       style[CSS.variable("dialog-max-height")] = `${maxHeight}px`;
     if (visible) style.zIndex = zIndex;
     setState((prev) => ({ ...prev, targetCorner, dialogCorner, style }));
-  }, [propsLocation, variant, close, anchor]);
+  };
 
   const resizeDialogRef = useResize(calculatePosition, { enabled: visible });
   const combinedDialogRef = useCombinedRefs(dialogRef, resizeDialogRef);
@@ -359,58 +345,47 @@ export const Frame = ({
 
   useWindowResize(calculatePosition);
 
-  const exclude = useCallback(
-    (e: MouseEvent) => {
-      if (!visibleRef.current || dialogRef.current == null || targetRef.current == null)
-        return true;
-      if (variant !== "modal") {
-        const dialog = dialogRef.current;
-        const visibleChildren = dialog.getElementsByClassName(CSS.visible(true));
-        let exclude = visibleChildren != null && visibleChildren.length > 0;
-        if (!exclude) {
-          const isTrigger = targetRef.current.contains(e.target as Node);
-          exclude = isTrigger;
-        }
-        const contextMenus = document.getElementsByClassName(CONTEXT_MENU_CLASS);
-        if (contextMenus.length > 0) exclude = true;
-        if (!exclude) e.stopImmediatePropagation();
-        return exclude;
+  const exclude = (e: MouseEvent) => {
+    if (!visibleRef.current || dialogRef.current == null || targetRef.current == null)
+      return true;
+    if (variant !== "modal") {
+      const dialog = dialogRef.current;
+      const visibleChildren = dialog.getElementsByClassName(CSS.visible(true));
+      let exclude = visibleChildren != null && visibleChildren.length > 0;
+      if (!exclude) {
+        const isTrigger = targetRef.current.contains(e.target as Node);
+        exclude = isTrigger;
       }
-      if (!(e.target instanceof HTMLElement)) return true;
-      let dialog = e.target;
-      if (dialog.className.includes(BACKGROUND_CLASS))
-        dialog = dialog.children[0] as HTMLElement;
-      return dialog !== dialogRef.current;
-    },
-    [zIndex, visibleRef],
-  );
+      const contextMenus = document.getElementsByClassName(CONTEXT_MENU_CLASS);
+      if (contextMenus.length > 0) exclude = true;
+      if (!exclude) e.stopImmediatePropagation();
+      return exclude;
+    }
+    if (!(e.target instanceof HTMLElement)) return true;
+    let dialog = e.target;
+    if (dialog.className.includes(BACKGROUND_CLASS))
+      dialog = dialog.children[0] as HTMLElement;
+    return dialog !== dialogRef.current;
+  };
 
-  const handleEscape = useCallback(
-    ({ stage, stopPropagation }: Triggers.UseEvent) => {
-      if (
-        stage !== "start" ||
-        visibleRef.current === false ||
-        dialogRef.current == null
-      )
-        return;
-      const dialogEl = dialogRef.current;
-      // A dialog with an open child dialog leaves Escape to the child.
-      if (dialogEl.querySelector(`.${FRAME_CLASS}.${CSS.visible(true)}`) != null)
-        return;
-      if (variant !== "modal") {
-        close();
-        stopPropagation();
-        return;
-      }
-      const allModals = Array.from(document.getElementsByClassName(BACKGROUND_CLASS));
-      const thisModalIndex = allModals.findIndex((e) => e.contains(dialogEl));
-      if (thisModalIndex === allModals.length - 1) {
-        close();
-        stopPropagation();
-      }
-    },
-    [close, variant],
-  );
+  const handleEscape = ({ stage, stopPropagation }: Triggers.UseEvent) => {
+    if (stage !== "start" || visibleRef.current === false || dialogRef.current == null)
+      return;
+    const dialogEl = dialogRef.current;
+    // A dialog with an open child dialog leaves Escape to the child.
+    if (dialogEl.querySelector(`.${FRAME_CLASS}.${CSS.visible(true)}`) != null) return;
+    if (variant !== "modal") {
+      close();
+      stopPropagation();
+      return;
+    }
+    const allModals = Array.from(document.getElementsByClassName(BACKGROUND_CLASS));
+    const thisModalIndex = allModals.findIndex((e) => e.contains(dialogEl));
+    if (thisModalIndex === allModals.length - 1) {
+      close();
+      stopPropagation();
+    }
+  };
 
   useClickOutside({ ref: dialogRef, exclude, onClickOutside: close });
   Triggers.use({
@@ -420,30 +395,24 @@ export const Frame = ({
     priority: 100,
   });
 
-  const internalContextValue: InternalContextValue = useMemo(
-    () => ({
-      ref: combinedDialogRef,
-      id,
-      targetCorner,
-      dialogCorner,
-      style,
-      modalPosition,
-    }),
-    [combinedDialogRef, id, targetCorner, dialogCorner, style, modalPosition],
-  );
+  const internalContextValue: InternalContextValue = {
+    ref: combinedDialogRef,
+    id,
+    targetCorner,
+    dialogCorner,
+    style,
+    modalPosition,
+  };
 
-  const ctxValue = useMemo(
-    () => ({
-      close,
-      open,
-      toggle,
-      visible,
-      onPointerEnter,
-      variant,
-      location: targetCorner,
-    }),
-    [close, open, toggle, visible, targetCorner],
-  );
+  const ctxValue = {
+    close,
+    open,
+    toggle,
+    visible,
+    onPointerEnter,
+    variant,
+    location: targetCorner,
+  };
 
   return (
     <Context value={ctxValue}>

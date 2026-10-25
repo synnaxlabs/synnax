@@ -54,6 +54,7 @@ var hoverDocs = map[string]string{
 	"validate": "**@validate**\n\nValidation constraints.\n\nExpressions: " +
 		"`required`, `skip`, `min_length`, `max_length`, `min`, `max`, `pattern`",
 	"filter": "**@filter**\n\nRetrieve requests can filter on this field.",
+	"search": "**@search**\n\nRetrieve requests can search the text of this field.",
 	"index": "**@index**\n\nIndex configuration for the field.\n\n" +
 		"Expressions: `lookup`, `sorted`",
 	"ontology": "**@ontology**\n\nOntology resource type.\n\nUse " +

@@ -19,7 +19,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Ranger } from "@synnaxlabs/pluto";
 import { type NumericTimeRange, TimeStamp } from "@synnaxlabs/x";
-import { type FC, type ReactElement, useCallback } from "react";
+import { type FC, type ReactElement, useState } from "react";
 
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
@@ -71,7 +71,7 @@ export interface DetailsProps {
 
 export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   const range = Ranger.use({ key: rangeKey });
-  const now = TimeStamp.now().nanoseconds;
+  const [now] = useState(() => TimeStamp.now().nanoseconds);
   // The form saves on every edit, so a subject who cannot write the range gets it
   // read-only rather than a field that reverts once the save is refused.
   const canEdit = Access.useUpdateGranted(ranger.ontologyID(rangeKey));
@@ -93,22 +93,16 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
     ctx: form,
   });
 
-  const getPythonCode = useCallback(
-    () =>
-      `
+  const getPythonCode = () =>
+    `
       # Retrieve ${name}
       rng = client.ranges.retrieve(key="${rangeKey}")
-    `,
-    [name, rangeKey],
-  );
-  const getTypeScriptCode = useCallback(
-    () =>
-      `
+    `;
+  const getTypeScriptCode = () =>
+    `
       // Retrieve ${name}
       const rng = await client.ranges.retrieve("${rangeKey}")
-    `,
-    [name, rangeKey],
-  );
+    `;
 
   const promptDownloadCSVModal = Framer.useDownloadCSVModal();
 

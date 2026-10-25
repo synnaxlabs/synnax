@@ -19,7 +19,7 @@ import (
 
 func TestLegacy(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Task Common Legacy Suite")
+	RunSpecs(t, "Task Common Legacy Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

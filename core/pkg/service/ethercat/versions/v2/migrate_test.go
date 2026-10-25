@@ -22,7 +22,6 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -347,7 +346,7 @@ var _ = Describe("Migrate", func() {
 			table := MustOpen(
 				gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v2.ReadConfig]{
 					DB:         db,
-					Migrations: []migrate.Migration{v2.NewReadMigration(slaves)},
+					Migrations: []gorp.Migration{v2.NewReadMigration(slaves)},
 				}),
 			)
 			var cfg v2.ReadConfig
@@ -374,7 +373,7 @@ var _ = Describe("Migrate", func() {
 			table := MustOpen(
 				gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v2.WriteConfig]{
 					DB:         db,
-					Migrations: []migrate.Migration{v2.NewWriteMigration(slaves)},
+					Migrations: []gorp.Migration{v2.NewWriteMigration(slaves)},
 				}),
 			)
 			var cfg v2.WriteConfig
@@ -397,7 +396,7 @@ var _ = Describe("Migrate", func() {
 				To(Succeed())
 			Expect(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v2.ReadConfig]{
 				DB:         db,
-				Migrations: []migrate.Migration{v2.NewReadMigration(failLookup)},
+				Migrations: []gorp.Migration{v2.NewReadMigration(failLookup)},
 			})).Error().To(MatchError(ContainSubstring(
 				fmt.Sprintf("config %s: lookup failed", old.Key),
 			)))

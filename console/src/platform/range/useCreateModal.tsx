@@ -19,7 +19,7 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Ranger, Synnax } from "@synnaxlabs/pluto";
 import { type NumericTimeRange, TimeRange, uuid } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useRef } from "react";
+import { type ReactElement, useState } from "react";
 import { type z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
@@ -66,129 +66,129 @@ const TimelineField = (): ReactElement => {
   );
 };
 
-export const useCreateModal = Modals.create<CreateModalParams>(
-  ({ close, rangeKey, ...params }) => {
-    const now = useRef(Number(TimeStamp.now().valueOf())).current;
-    const dispatch = Session.useDispatch();
-    const { capture } = Analytics.use();
+const Create = ({
+  close,
+  rangeKey,
+  ...params
+}: Modals.ContentProps<CreateModalParams, void>) => {
+  const [now] = useState(() => Number(TimeStamp.now().valueOf()));
+  const dispatch = Session.useDispatch();
+  const { capture } = Analytics.use();
 
-    const client = Synnax.use();
-    const clientExists = client != null;
-    const { form, save, variant } = Ranger.useForm({
-      query: rangeKey == null ? null : { key: rangeKey },
-      autoSave: false,
-      initialValues: {
-        key: rangeKey ?? uuid.create(),
-        name: "",
-        labels: [],
-        timeRange: { start: now, end: TimeStamp.MAX.nanoseconds },
-        parent: "",
-        ...params,
-      },
-      afterSave: (form) => {
-        if (rangeKey == null) capture("range_created", {});
-        close();
-        const { key } = form.value();
-        if (key == null) return;
-        dispatch(Session.Range.add({ variant: "persisted", key }));
-      },
-    });
-
-    const saveLocal = useCallback(() => {
-      if (!form.validate()) return;
-      const { name, key, timeRange } = form.value();
-      if (key == null) return;
-      dispatch(
-        Session.Range.add({
-          variant: "static",
-          key,
-          name,
-          timeRange: new TimeRange(timeRange.start, timeRange.end).numeric,
-        }),
-      );
+  const client = Synnax.use();
+  const clientExists = client != null;
+  const { form, save, variant } = Ranger.useForm({
+    query: rangeKey == null ? null : { key: rangeKey },
+    autoSave: false,
+    initialValues: {
+      key: rangeKey ?? uuid.create(),
+      name: "",
+      labels: [],
+      timeRange: { start: now, end: TimeStamp.MAX.nanoseconds },
+      parent: "",
+      ...params,
+    },
+    afterSave: (form) => {
+      if (rangeKey == null) capture("range_created", {});
       close();
-    }, [form, dispatch]);
+      const { key } = form.value();
+      if (key == null) return;
+      dispatch(Session.Range.add({ variant: "persisted", key }));
+    },
+  });
 
-    // Makes sure the user doesn't have the option to select the range itself as a parent
-    const recursiveParentFilter = useCallback(
-      (data: ranger.Payload) => data.key !== rangeKey,
-      [rangeKey],
+  const saveLocal = () => {
+    if (!form.validate()) return;
+    const { name, key, timeRange } = form.value();
+    if (key == null) return;
+    dispatch(
+      Session.Range.add({
+        variant: "static",
+        key,
+        name,
+        timeRange: new TimeRange(timeRange.start, timeRange.end).numeric,
+      }),
     );
+    close();
+  };
 
-    const saveName = "Save to Core";
+  // Makes sure the user doesn't have the option to select the range itself as a parent
+  const recursiveParentFilter = (data: ranger.Payload) => data.key !== rangeKey;
 
-    return (
-      <Modal.Frame className={CSS.B("range-create-layout")}>
-        <Modal.Header icon={<Icon.Range />}>Range.Create</Modal.Header>
-        <Modal.Body>
-          <Form.Form<typeof Ranger.formSchema> {...form}>
-            <Flex.Box y gap="huge">
-              <Form.Field<string> path="name" showLabel={false} padHelpText={false}>
-                {(p) => (
-                  <Input.Text
-                    autoFocus
-                    level="h2"
-                    variant="text"
-                    placeholder="Name"
-                    aria-label="Name"
-                    {...p}
+  const saveName = "Save to Core";
+
+  return (
+    <Modal.Frame className={CSS.B("range-create-layout")}>
+      <Modal.Header icon={<Icon.Range />}>Range.Create</Modal.Header>
+      <Modal.Body>
+        <Form.Form<typeof Ranger.formSchema> {...form}>
+          <Flex.Box y gap="huge">
+            <Form.Field<string> path="name" showLabel={false} padHelpText={false}>
+              {(p) => (
+                <Input.Text
+                  autoFocus
+                  level="h2"
+                  variant="text"
+                  placeholder="Name"
+                  aria-label="Name"
+                  {...p}
+                />
+              )}
+            </Form.Field>
+            <TimelineField />
+            <Flex.Box x align="center">
+              <Form.Field<string>
+                path="parent"
+                visible
+                showLabel={false}
+                padHelpText={false}
+              >
+                {({ onChange, value }) => (
+                  <Ranger.Select
+                    className={CSS.BE("range-create-layout", "parent")}
+                    filter={recursiveParentFilter}
+                    value={value}
+                    // Clearing the selection reports null, but the schema types an
+                    // absent parent as "". Null fails validation on a field that
+                    // hides itself when null, so the save would stall unexplained.
+                    onChange={(v: string | null) => onChange(v ?? "")}
+                    icon={<ParentRangeIcon />}
+                    triggerProps={PARENT_TRIGGER_PROPS}
+                    allowNone
                   />
                 )}
               </Form.Field>
-              <TimelineField />
-              <Flex.Box x align="center">
-                <Form.Field<string>
-                  path="parent"
-                  visible
-                  showLabel={false}
-                  padHelpText={false}
-                >
-                  {({ onChange, value }) => (
-                    <Ranger.Select
-                      className={CSS.BE("range-create-layout", "parent")}
-                      zIndex={-1}
-                      filter={recursiveParentFilter}
-                      value={value}
-                      // Clearing the selection reports null, but the schema types an
-                      // absent parent as "". Null fails validation on a field that
-                      // hides itself when null, so the save would stall unexplained.
-                      onChange={(v: string | null) => onChange(v ?? "")}
-                      icon={<ParentRangeIcon />}
-                      triggerProps={PARENT_TRIGGER_PROPS}
-                      allowNone
-                    />
-                  )}
-                </Form.Field>
-                <Form.Field<string[]>
-                  path="labels"
-                  required={false}
-                  showLabel={false}
-                  padHelpText={false}
-                >
-                  {(p) => <Label.SelectMultiple zIndex={100} {...p} />}
-                </Form.Field>
-              </Flex.Box>
+              <Form.Field<string[]>
+                path="labels"
+                required={false}
+                showLabel={false}
+                padHelpText={false}
+              >
+                {(p) => <Label.SelectMultiple zIndex={100} {...p} />}
+              </Form.Field>
             </Flex.Box>
-          </Form.Form>
-        </Modal.Body>
-        <Modal.Footer>
-          <Triggers.SaveHelpText action={saveName} />
-          <Nav.Bar.End>
-            <Button.Button onClick={() => saveLocal()} disabled={variant === "loading"}>
-              Save locally
-            </Button.Button>
-            <Button.Button
-              variant="filled"
-              onClick={() => save()}
-              disabled={!clientExists}
-              status={variant}
-              trigger={Triggers.SAVE}
-            >
-              {saveName}
-            </Button.Button>
-          </Nav.Bar.End>
-        </Modal.Footer>
-      </Modal.Frame>
-    );
-  },
-);
+          </Flex.Box>
+        </Form.Form>
+      </Modal.Body>
+      <Modal.Footer>
+        <Triggers.SaveHelpText action={saveName} />
+        <Nav.Bar.End>
+          <Button.Button onClick={() => saveLocal()} disabled={variant === "loading"}>
+            Save locally
+          </Button.Button>
+          <Button.Button
+            variant="filled"
+            onClick={() => save()}
+            disabled={!clientExists}
+            status={variant}
+            trigger={Triggers.SAVE}
+          >
+            {saveName}
+          </Button.Button>
+        </Nav.Bar.End>
+      </Modal.Footer>
+    </Modal.Frame>
+  );
+};
+
+export const useCreateModal = Modals.create<CreateModalParams>(Create);

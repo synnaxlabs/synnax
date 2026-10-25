@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type text } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement, useCallback, useMemo } from "react";
+import { type PropsWithChildren, type ReactElement } from "react";
 
 import { type Component } from "@/component";
 import { context } from "@/context";
@@ -58,22 +58,16 @@ export const Menu = ({
   background,
   value: selected = "",
 }: MenuProps): ReactElement => {
-  const onClick = useCallback(
-    (key: string) => {
-      if (typeof onChange === "function") onChange(key);
-      else if (onChange && key in onChange) onChange[key](key);
-    },
-    [onChange],
-  );
-  const ctxValue = useMemo(
-    () => ({
-      onClick,
-      selected,
-      level,
-      gap,
-      background,
-    }),
-    [selected, onClick, level, gap, background],
-  );
+  const onClick = (key: string) => {
+    if (typeof onChange === "function") onChange(key);
+    else if (onChange && key in onChange) onChange[key](key);
+  };
+  const ctxValue = {
+    onClick,
+    selected,
+    level,
+    gap,
+    background,
+  };
   return <Context value={ctxValue}>{children}</Context>;
 };

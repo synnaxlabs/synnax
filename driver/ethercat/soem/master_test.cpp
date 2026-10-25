@@ -14,6 +14,7 @@
 #include "x/cpp/test/test.h"
 
 #include "driver/ethercat/errors/errors.h"
+#include "driver/ethercat/esi/known_devices.h"
 #include "driver/ethercat/soem/master.h"
 #include "driver/ethercat/soem/mock_api.h"
 
@@ -83,18 +84,55 @@ TEST_F(SOEMMasterTest, InitializeHappyPath) {
     EXPECT_EQ(slaves[0].properties.output_bits, 16);
 }
 
+/// @brief it should return the socket check error and not start SOEM when the Driver
+/// cannot open a raw socket.
+TEST_F(SOEMMasterTest, InitializeSocketCheckFails) {
+    this->add_default_slave();
+    this->mock->check_socket_err = x::errors::Error(
+        errors::PERMISSION_DENIED,
+        "permission denied opening eth0"
+    );
+    ASSERT_OCCURRED_AS(this->master->initialize(), errors::PERMISSION_DENIED);
+    EXPECT_FALSE(this->mock->init_called);
+}
+
 TEST_F(SOEMMasterTest, InitializeInitFails) {
     this->add_default_slave();
     this->mock->init_return = 0;
-    ASSERT_OCCURRED_AS(this->master->initialize(), errors::MASTER_INIT_ERROR);
+    const auto err = this->master->initialize();
+    ASSERT_OCCURRED_AS(err, errors::MASTER_INIT_ERROR);
+    EXPECT_FALSE(err.matches(errors::NO_SLAVES_FOUND));
+    EXPECT_EQ(
+        err.data,
+        "cannot open eth0 for raw Ethernet access. Run the Driver as root (or with "
+        "CAP_NET_RAW on Linux), and install Npcap on Windows."
+    );
     EXPECT_TRUE(this->mock->close_called);
 }
 
-TEST_F(SOEMMasterTest, InitializeConfigInitFails) {
-    this->add_default_slave();
+/// @brief it should return a no slaves error and close the socket when no slave
+/// answers.
+TEST_F(SOEMMasterTest, InitializeReportsAnInterfaceWithNoSlaves) {
     this->mock->config_init_return = 0;
-    ASSERT_OCCURRED_AS(this->master->initialize(), errors::MASTER_INIT_ERROR);
+    const auto err = this->master->initialize();
+    ASSERT_OCCURRED_AS(err, errors::NO_SLAVES_FOUND);
+    EXPECT_EQ(err.data, "no EtherCAT slaves found on eth0");
     EXPECT_TRUE(this->mock->close_called);
+}
+
+/// @brief it should return the number of slaves that answer on the bus.
+TEST_F(SOEMMasterTest, CountSlavesReportsTheSlavesThatAnswer) {
+    this->initialize_with_slave();
+    this->mock->bus_slaves = 3;
+    EXPECT_EQ(ASSERT_NIL_P(this->master->count_slaves()), 3);
+    this->mock->bus_slaves = 0;
+    EXPECT_EQ(ASSERT_NIL_P(this->master->count_slaves()), 0);
+}
+
+/// @brief it should return a master init error when it counts slaves before
+/// initialization.
+TEST_F(SOEMMasterTest, CountSlavesFailsBeforeInitialize) {
+    ASSERT_OCCURRED_AS_P(this->master->count_slaves(), errors::MASTER_INIT_ERROR);
 }
 
 TEST_F(SOEMMasterTest, InitializeIdempotent) {
@@ -342,6 +380,28 @@ TEST_F(SOEMMasterTest, InputDataAfterActivation) {
     this->initialize_with_slave();
     this->activate_master();
     EXPECT_EQ(this->master->input_data().size(), 4);
+}
+
+/// @brief it should return no distributed clock time when no slave has a distributed
+/// clock.
+TEST_F(SOEMMasterTest, DCTimeIsAbsentWithoutADistributedClock) {
+    this->initialize_with_slave();
+    this->activate_master();
+    EXPECT_EQ(this->mock->configdc_count, 1);
+    EXPECT_EQ(this->master->dc_time(), std::nullopt);
+}
+
+/// @brief it should convert the distributed clock time, which counts from the year
+/// 2000, to a Unix timestamp.
+TEST_F(SOEMMasterTest, DCTimeCountsFromTheDCEpoch) {
+    this->initialize_with_slave();
+    this->mock->hasdc = true;
+    this->activate_master();
+    this->mock->dc_time_value = 1'000'000'000;
+    EXPECT_EQ(
+        this->master->dc_time(),
+        x::telem::TimeStamp(x::telem::SECOND * 946'684'801)
+    );
 }
 
 ////////////////////// Slave State //////////////////////
@@ -633,6 +693,24 @@ TEST_F(SOEMMasterTest, LiveMappingTakesPrecedenceOverRegistry) {
     EXPECT_EQ(inputs[2].sub_index, 17);
 }
 
+/// @brief it should name the live entries of a known device from the device registry,
+/// so a rescan keeps the names that automatic channels refer to.
+TEST_F(SOEMMasterTest, RegistryNamesLiveEntriesOfAKnownDevice) {
+    slave::Properties registry{};
+    ASSERT_TRUE(esi::lookup_device_pdos(BECKHOFF, EL1008, 0, registry));
+    auto info = coe_slave(24);
+    info.eep_man = BECKHOFF;
+    info.eep_id = EL1008;
+    this->add_slave(info);
+    serve_padded_txpdo(*this->mock);
+    ASSERT_NIL(this->master->initialize());
+
+    const auto inputs = this->master->slaves()[0].properties.input_pdos;
+    ASSERT_EQ(inputs.size(), 3);
+    EXPECT_EQ(inputs[0].name, registry.input_pdos.at(0).name);
+    EXPECT_EQ(inputs[2].name, "Value");
+}
+
 /// @brief it should describe a slave from the device registry when the slave reports no
 /// mapping.
 TEST_F(SOEMMasterTest, RegistryDescribesSlaveWithoutLiveMapping) {
@@ -641,6 +719,25 @@ TEST_F(SOEMMasterTest, RegistryDescribesSlaveWithoutLiveMapping) {
     info.eep_man = BECKHOFF;
     info.eep_id = EL1008;
     this->add_slave(info);
+    ASSERT_NIL(this->master->initialize());
+
+    const auto slave = this->master->slaves()[0];
+    EXPECT_EQ(slave.properties.input_pdos.size(), 8);
+    EXPECT_TRUE(slave.status.pdo_discovery_error.empty());
+}
+
+/// @brief it should describe a slave from the device registry when the slave assigns a
+/// PDO whose mapping it cannot read.
+TEST_F(SOEMMasterTest, RegistryDescribesSlaveWithUnreadableMapping) {
+    auto info = coe_slave(8);
+    info.eep_man = BECKHOFF;
+    info.eep_id = EL1008;
+    this->add_slave(info);
+    this->mock->sdo_objects = {
+        {{ECT_SDO_TXPDOASSIGN, 0}, 1},
+        {{ECT_SDO_TXPDOASSIGN, 1}, 0x1A00},
+        {{ECT_SDO_RXPDOASSIGN, 0}, 0},
+    };
     ASSERT_NIL(this->master->initialize());
 
     const auto slave = this->master->slaves()[0];

@@ -21,14 +21,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestLinePlot(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Line Plot Suite")
+	RunSpecs(t, "Service Line Plot Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
@@ -48,16 +47,13 @@ var (
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		var (
-			searchIdx = MustOpen(search.OpenIndex())
-			g         = MustOpen(group.OpenService(ctx, group.ServiceConfig{
+			g = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
-				Search:   searchIdx,
 			}))
 			panelSvc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
-				Search:   searchIdx,
 			}))
 		)
 		imexSvc = imex.NewService()
@@ -65,14 +61,12 @@ var (
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
-			Search:   searchIdx,
 			ImEx:     imexSvc,
 			Panel:    panelSvc,
 		}))
 		svc = MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Search:   searchIdx,
 			ImEx:     imexSvc,
 		}))
 		proj.Name = "test-project"

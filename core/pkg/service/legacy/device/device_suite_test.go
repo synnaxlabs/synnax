@@ -28,7 +28,7 @@ var _ = BeforeSuite(func() {
 
 func TestDevice(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Device Suite")
+	RunSpecs(t, "Service Device Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

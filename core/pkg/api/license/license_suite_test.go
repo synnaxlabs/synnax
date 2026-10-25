@@ -16,10 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
 	apilicense "github.com/synnaxlabs/synnax/pkg/api/license"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
-	svc "github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
@@ -28,7 +25,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	svcmock "github.com/synnaxlabs/synnax/pkg/service/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
@@ -36,7 +32,7 @@ import (
 
 func TestAPILicense(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API License Suite")
+	RunSpecs(t, "API License Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
@@ -55,23 +51,22 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	kvDB := memkv.New()
 	db = DeferClose(gorp.Wrap(kvDB))
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	searchIdx := MustOpen(search.OpenIndex())
 	g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB: db, Ontology: otg, Search: searchIdx,
+		DB: db, Ontology: otg,
 	}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB: db, Ontology: otg, Group: g, Search: searchIdx,
+		DB: db, Ontology: otg, Group: g,
 	}))
 	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-		DB: db, Ontology: otg, Group: g, Search: searchIdx, User: userSvc,
+		DB: db, Ontology: otg, Group: g, User: userSvc,
 	}))
 	signer = svcmock.NewSigner()
 	licenseSvc = MustOpen(license.OpenService(ctx, license.ServiceConfig{
 		DB: kvDB, Anchors: signer.Anchors,
 	}))
-	apiSvc = MustSucceed(apilicense.NewService(apicfg.LayerConfig{
-		Distribution: &distribution.Layer{DB: db},
-		Service:      &svc.Layer{RBAC: rbacSvc, License: licenseSvc},
+	apiSvc = MustSucceed(apilicense.NewService(apilicense.ServiceConfig{
+		RBAC:    rbacSvc,
+		License: licenseSvc,
 	}))
 })
 

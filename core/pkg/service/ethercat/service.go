@@ -23,7 +23,6 @@ import (
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
@@ -89,7 +88,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			LegacyVersion:      legacy.LastVersion,
 			Ladder:             versions.ReadConfigLadder,
 			Legacy:             &legacy.Read,
-			Migrations:         []migrate.Migration{v2.NewReadMigration(slaves)},
+			Migrations:         []gorp.Migration{v2.NewReadMigration(slaves)},
 			SetEntryKey:        (*ReadConfig).SetKey,
 			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
 			ResolveEntry: func(ctx context.Context, tx gorp.Tx, c *ReadConfig) error {
@@ -107,7 +106,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			LegacyVersion:      legacy.LastVersion,
 			Ladder:             versions.WriteConfigLadder,
 			Legacy:             &legacy.Write,
-			Migrations:         []migrate.Migration{v2.NewWriteMigration(slaves)},
+			Migrations:         []gorp.Migration{v2.NewWriteMigration(slaves)},
 			SetEntryKey:        (*WriteConfig).SetKey,
 			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
 			ResolveEntry: func(ctx context.Context, tx gorp.Tx, c *WriteConfig) error {

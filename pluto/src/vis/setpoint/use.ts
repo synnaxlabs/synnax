@@ -24,7 +24,7 @@ export interface UseReturn {
 
 export const use = ({ aetherKey, sink }: UseProps): UseReturn => {
   const memoProps = useMemoDeepEqual({ sink });
-  const [, , setState, methods] = Aether.use({
+  const { setState, methods } = Aether.useLifecycle({
     aetherKey,
     type: setpoint.Setpoint.TYPE,
     schema: setpoint.stateZ,

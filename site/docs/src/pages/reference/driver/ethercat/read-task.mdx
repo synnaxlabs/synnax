@@ -10,7 +10,7 @@ nextURL: "/reference/driver/ethercat/write-task"
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
@@ -28,7 +28,7 @@ Before creating a read task,
 [configure your EtherCAT devices](/reference/driver/ethercat/configure-device) and
 identify the TxPDOs (input PDOs) to read from each one.
 
-<Note.Note variant="warning" className="compact">
+<Note.Note variant="warning">
   All channels in a task must use devices connected to the **same network interface**.
   Create separate tasks for devices on different EtherCAT networks.
 </Note.Note>
@@ -82,7 +82,7 @@ A task from an earlier release can hold an `"unresolved"` channel: one that name
 entry the device does not have, or has more than once. Pick an entry for it in the
 Console before the task runs.
 
-<Note.Note variant="info" className="compact">
+<Note.Note variant="info">
   CoE (CAN over EtherCAT) addressing uses a 16-bit index and 8-bit subindex. Common
   servo drive objects include status word (`0x6041`), position actual (`0x6064`), and
   velocity actual (`0x606C`).
@@ -93,10 +93,16 @@ Console before the task runs.
 ## Important rules
 
 - **Network constraint** -> All channels must use devices on the same network interface.
-- **Hardware timing** -> EtherCAT timing is deterministic. The sample rate sets the
-  EtherCAT cycle time.
+- **Hardware timing** -> EtherCAT timing is deterministic. The sample rate sets how
+  often the task takes a sample from the bus. See
+  [how the Driver runs a network](/reference/driver/ethercat/get-started#how-the-driver-runs-a-network).
 - **Stream rate** -> For sample rates under 50 Hz, set the stream rate equal to the
   sample rate. Above that, keep the stream rate under 50 Hz.
+- **Timestamps** -> Each sample has the time of the bus cycle that read it. If a device
+  on the network has a distributed clock (DC), the SOEM master measures that time with
+  the DC, so the timestamps show when the frame passed the devices, without the jitter
+  of the host clock. They stay aligned with the host clock. When the host computer is
+  busy, a cycle can still run late, and its timestamp shows the delay.
 
 <Divider.Divider x />
 

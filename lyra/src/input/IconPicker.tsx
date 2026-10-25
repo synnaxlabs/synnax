@@ -11,13 +11,7 @@ import "@/input/IconPicker.css";
 
 import { type color, type dimensions, grid, type xy } from "@synnaxlabs/x";
 import Fuse from "fuse.js";
-import {
-  type KeyboardEvent,
-  type ReactElement,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { type KeyboardEvent, type ReactElement, useRef, useState } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
@@ -45,7 +39,13 @@ interface Cell extends Pick<Icon.Pickable, "name" | "icon"> {
   key?: string;
 }
 
+const SEARCH_INDEX = new Fuse(Icon.PICKABLE, {
+  keys: ["name", "tags"],
+  threshold: 0.3,
+});
+
 const COLUMNS = 10;
+const GRID_STYLE = { [CSS.variable("icon-picker", "columns")]: COLUMNS };
 
 type Move = (dims: dimensions.Dimensions, from: xy.XY) => xy.XY | null;
 
@@ -71,15 +71,11 @@ export const IconPicker = ({
 }: IconPickerProps): ReactElement => {
   const [term, setTerm] = useState("");
   const [focused, setFocused] = useState<Pick<Cell, "key">>();
-  const fuse = useMemo(
-    () => new Fuse(Icon.PICKABLE, { keys: ["name", "tags"], threshold: 0.3 }),
-    [],
-  );
-  let cells: readonly Cell[] = Icon.PICKABLE;
-  if (term !== "") cells = fuse.search(term).map(({ item }) => item);
-  else if (fallback != null) cells = [{ name: "Default", icon: fallback }, ...cells];
   const searchRef = useRef<HTMLInputElement>(null);
   const cellRefs = useRef(new Map<string | undefined, HTMLElement>());
+  let cells: readonly Cell[] = Icon.PICKABLE;
+  if (term !== "") cells = SEARCH_INDEX.search(term).map(({ item }) => item);
+  else if (fallback != null) cells = [{ name: "Default", icon: fallback }, ...cells];
   const indexOf = (key?: string): number => cells.findIndex((c) => c.key === key);
   const focusedIndex = focused == null ? -1 : indexOf(focused.key);
   const active = focusedIndex >= 0 ? focusedIndex : Math.max(indexOf(value), 0);
@@ -129,7 +125,7 @@ export const IconPicker = ({
           role="listbox"
           aria-label="Icons"
           className={CSS.BE("icon-picker", "grid")}
-          style={{ [CSS.variable("icon-picker", "columns")]: COLUMNS }}
+          style={GRID_STYLE}
           onKeyDown={handleGridKeyDown}
         >
           {cells.map(({ key, name, icon: Glyph }, i) => (
