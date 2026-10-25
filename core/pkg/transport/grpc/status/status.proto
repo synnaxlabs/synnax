@@ -42,14 +42,10 @@ message SetResponse {
 }
 
 message RetrieveRequest {
-  repeated string keys = 1;
-  string search_term = 2;
-  int32 offset = 3;
-  int32 limit = 4;
-  bool include_labels = 5;
-  repeated string has_labels = 6;
-  repeated string variants = 7;
-  bool ignore_not_found_error = 8;
+  reserved 1 to 8;
+  reserved "keys", "search_term", "offset", "limit", "include_labels", "has_labels",
+      "variants", "ignore_not_found_error";
+  service.status.pb.RetrieveRequest request = 9;
 }
 
 message RetrieveResponse {

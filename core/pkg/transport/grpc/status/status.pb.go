@@ -129,17 +129,10 @@ func (x *SetResponse) GetStatuses() []*pb.Status {
 }
 
 type RetrieveRequest struct {
-	state               protoimpl.MessageState `protogen:"open.v1"`
-	Keys                []string               `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
-	SearchTerm          string                 `protobuf:"bytes,2,opt,name=search_term,json=searchTerm,proto3" json:"search_term,omitempty"`
-	Offset              int32                  `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"`
-	Limit               int32                  `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
-	IncludeLabels       bool                   `protobuf:"varint,5,opt,name=include_labels,json=includeLabels,proto3" json:"include_labels,omitempty"`
-	HasLabels           []string               `protobuf:"bytes,6,rep,name=has_labels,json=hasLabels,proto3" json:"has_labels,omitempty"`
-	Variants            []string               `protobuf:"bytes,7,rep,name=variants,proto3" json:"variants,omitempty"`
-	IgnoreNotFoundError bool                   `protobuf:"varint,8,opt,name=ignore_not_found_error,json=ignoreNotFoundError,proto3" json:"ignore_not_found_error,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Request       *pb.RetrieveRequest    `protobuf:"bytes,9,opt,name=request,proto3" json:"request,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RetrieveRequest) Reset() {
@@ -172,60 +165,11 @@ func (*RetrieveRequest) Descriptor() ([]byte, []int) {
 	return file_core_pkg_transport_grpc_status_status_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *RetrieveRequest) GetKeys() []string {
+func (x *RetrieveRequest) GetRequest() *pb.RetrieveRequest {
 	if x != nil {
-		return x.Keys
+		return x.Request
 	}
 	return nil
-}
-
-func (x *RetrieveRequest) GetSearchTerm() string {
-	if x != nil {
-		return x.SearchTerm
-	}
-	return ""
-}
-
-func (x *RetrieveRequest) GetOffset() int32 {
-	if x != nil {
-		return x.Offset
-	}
-	return 0
-}
-
-func (x *RetrieveRequest) GetLimit() int32 {
-	if x != nil {
-		return x.Limit
-	}
-	return 0
-}
-
-func (x *RetrieveRequest) GetIncludeLabels() bool {
-	if x != nil {
-		return x.IncludeLabels
-	}
-	return false
-}
-
-func (x *RetrieveRequest) GetHasLabels() []string {
-	if x != nil {
-		return x.HasLabels
-	}
-	return nil
-}
-
-func (x *RetrieveRequest) GetVariants() []string {
-	if x != nil {
-		return x.Variants
-	}
-	return nil
-}
-
-func (x *RetrieveRequest) GetIgnoreNotFoundError() bool {
-	if x != nil {
-		return x.IgnoreNotFoundError
-	}
-	return false
 }
 
 type RetrieveResponse struct {
@@ -438,18 +382,10 @@ const file_core_pkg_transport_grpc_status_status_proto_rawDesc = "" +
 	"\x06parent\x18\x01 \x01(\tR\x06parent\x125\n" +
 	"\bstatuses\x18\x02 \x03(\v2\x19.service.status.pb.StatusR\bstatuses\"D\n" +
 	"\vSetResponse\x125\n" +
-	"\bstatuses\x18\x01 \x03(\v2\x19.service.status.pb.StatusR\bstatuses\"\x8b\x02\n" +
-	"\x0fRetrieveRequest\x12\x12\n" +
-	"\x04keys\x18\x01 \x03(\tR\x04keys\x12\x1f\n" +
-	"\vsearch_term\x18\x02 \x01(\tR\n" +
-	"searchTerm\x12\x16\n" +
-	"\x06offset\x18\x03 \x01(\x05R\x06offset\x12\x14\n" +
-	"\x05limit\x18\x04 \x01(\x05R\x05limit\x12%\n" +
-	"\x0einclude_labels\x18\x05 \x01(\bR\rincludeLabels\x12\x1d\n" +
-	"\n" +
-	"has_labels\x18\x06 \x03(\tR\thasLabels\x12\x1a\n" +
-	"\bvariants\x18\a \x03(\tR\bvariants\x123\n" +
-	"\x16ignore_not_found_error\x18\b \x01(\bR\x13ignoreNotFoundError\"I\n" +
+	"\bstatuses\x18\x01 \x03(\v2\x19.service.status.pb.StatusR\bstatuses\"\xb5\x01\n" +
+	"\x0fRetrieveRequest\x12<\n" +
+	"\arequest\x18\t \x01(\v2\".service.status.pb.RetrieveRequestR\arequestJ\x04\b\x01\x10\tR\x04keysR\vsearch_termR\x06offsetR\x05limitR\x0einclude_labelsR\n" +
+	"has_labelsR\bvariantsR\x16ignore_not_found_error\"I\n" +
 	"\x10RetrieveResponse\x125\n" +
 	"\bstatuses\x18\x01 \x03(\v2\x19.service.status.pb.StatusR\bstatuses\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
@@ -493,25 +429,27 @@ var file_core_pkg_transport_grpc_status_status_proto_goTypes = []any{
 	(*SetByKeyOrNameRequest)(nil),  // 5: grpc.status.SetByKeyOrNameRequest
 	(*SetByKeyOrNameResponse)(nil), // 6: grpc.status.SetByKeyOrNameResponse
 	(*pb.Status)(nil),              // 7: service.status.pb.Status
-	(*emptypb.Empty)(nil),          // 8: google.protobuf.Empty
+	(*pb.RetrieveRequest)(nil),     // 8: service.status.pb.RetrieveRequest
+	(*emptypb.Empty)(nil),          // 9: google.protobuf.Empty
 }
 var file_core_pkg_transport_grpc_status_status_proto_depIdxs = []int32{
 	7, // 0: grpc.status.SetRequest.statuses:type_name -> service.status.pb.Status
 	7, // 1: grpc.status.SetResponse.statuses:type_name -> service.status.pb.Status
-	7, // 2: grpc.status.RetrieveResponse.statuses:type_name -> service.status.pb.Status
-	0, // 3: grpc.status.StatusSetService.Exec:input_type -> grpc.status.SetRequest
-	2, // 4: grpc.status.StatusRetrieveService.Exec:input_type -> grpc.status.RetrieveRequest
-	4, // 5: grpc.status.StatusDeleteService.Exec:input_type -> grpc.status.DeleteRequest
-	5, // 6: grpc.status.StatusSetByKeyOrNameService.Exec:input_type -> grpc.status.SetByKeyOrNameRequest
-	1, // 7: grpc.status.StatusSetService.Exec:output_type -> grpc.status.SetResponse
-	3, // 8: grpc.status.StatusRetrieveService.Exec:output_type -> grpc.status.RetrieveResponse
-	8, // 9: grpc.status.StatusDeleteService.Exec:output_type -> google.protobuf.Empty
-	6, // 10: grpc.status.StatusSetByKeyOrNameService.Exec:output_type -> grpc.status.SetByKeyOrNameResponse
-	7, // [7:11] is the sub-list for method output_type
-	3, // [3:7] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	8, // 2: grpc.status.RetrieveRequest.request:type_name -> service.status.pb.RetrieveRequest
+	7, // 3: grpc.status.RetrieveResponse.statuses:type_name -> service.status.pb.Status
+	0, // 4: grpc.status.StatusSetService.Exec:input_type -> grpc.status.SetRequest
+	2, // 5: grpc.status.StatusRetrieveService.Exec:input_type -> grpc.status.RetrieveRequest
+	4, // 6: grpc.status.StatusDeleteService.Exec:input_type -> grpc.status.DeleteRequest
+	5, // 7: grpc.status.StatusSetByKeyOrNameService.Exec:input_type -> grpc.status.SetByKeyOrNameRequest
+	1, // 8: grpc.status.StatusSetService.Exec:output_type -> grpc.status.SetResponse
+	3, // 9: grpc.status.StatusRetrieveService.Exec:output_type -> grpc.status.RetrieveResponse
+	9, // 10: grpc.status.StatusDeleteService.Exec:output_type -> google.protobuf.Empty
+	6, // 11: grpc.status.StatusSetByKeyOrNameService.Exec:output_type -> grpc.status.SetByKeyOrNameResponse
+	8, // [8:12] is the sub-list for method output_type
+	4, // [4:8] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_transport_grpc_status_status_proto_init() }

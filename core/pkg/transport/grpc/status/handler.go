@@ -11,17 +11,16 @@ package status
 
 import (
 	"context"
-	"uuid"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/status"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/status/pb"
+	"github.com/synnaxlabs/x/errors"
 	xpb "github.com/synnaxlabs/x/pb"
+	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -139,50 +138,26 @@ func (retrieveRequestTranslator) Forward(
 	_ context.Context,
 	msg status.RetrieveRequest,
 ) (*RetrieveRequest, error) {
-	hasLabels := lo.Map(msg.HasLabels, func(k label.Key, _ int) string {
-		return k.String()
-	})
-	variants := lo.Map(msg.Variants, func(v svcstatus.Variant, _ int) string {
-		return string(v)
-	})
-	return &RetrieveRequest{
-		Keys:                msg.Keys,
-		SearchTerm:          msg.SearchTerm,
-		Offset:              int32(msg.Offset),
-		Limit:               int32(msg.Limit),
-		IncludeLabels:       msg.IncludeLabels,
-		HasLabels:           hasLabels,
-		Variants:            variants,
-		IgnoreNotFoundError: msg.IgnoreNotFoundError,
-	}, nil
+	req, err := pb.RetrieveRequestToPB(msg)
+	if err != nil {
+		return nil, err
+	}
+	return &RetrieveRequest{Request: req}, nil
 }
 
 func (retrieveRequestTranslator) Backward(
 	_ context.Context,
 	msg *RetrieveRequest,
 ) (status.RetrieveRequest, error) {
-	hasLabelKeys, err := lo.MapErr(
-		msg.HasLabels,
-		func(k string, _ int) (label.Key, error) {
-			return uuid.Parse(k)
-		},
-	)
-	if err != nil {
-		return status.RetrieveRequest{}, err
+	// A client older than the Core sends the reserved fields, which would otherwise
+	// select every status.
+	if len(msg.ProtoReflect().GetUnknown()) > 0 {
+		return status.RetrieveRequest{}, errors.Wrap(
+			validate.ErrValidation,
+			"retrieve request has unknown fields",
+		)
 	}
-	variants := lo.Map(msg.Variants, func(v string, _ int) svcstatus.Variant {
-		return svcstatus.Variant(v)
-	})
-	return status.RetrieveRequest{
-		Keys:                msg.Keys,
-		SearchTerm:          msg.SearchTerm,
-		Offset:              int(msg.Offset),
-		Limit:               int(msg.Limit),
-		HasLabels:           hasLabelKeys,
-		Variants:            variants,
-		IncludeLabels:       msg.IncludeLabels,
-		IgnoreNotFoundError: msg.IgnoreNotFoundError,
-	}, nil
+	return pb.RetrieveRequestFromPB(msg.Request)
 }
 
 func (retrieveResponseTranslator) Forward(

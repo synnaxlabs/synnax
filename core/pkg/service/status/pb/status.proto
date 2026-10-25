@@ -58,3 +58,67 @@ message Status {
   // labels contains optional labels for categorization and filtering.
   LabelList labels = 8;
 }
+message WhereList {
+  repeated Where values = 1;
+}
+message StringList {
+  repeated string values = 1;
+}
+
+// StringSet selects keys and enum values. A value must match every operator that is
+// set.
+message StringSet {
+  // eq matches a value equal to eq.
+  optional string eq = 1;
+  // in matches a value equal to an element of in.
+  StringList in = 2;
+}
+message VariantList {
+  repeated Variant values = 1;
+}
+
+// VariantSet selects keys and enum values. A value must match every operator that is
+// set.
+message VariantSet {
+  // eq matches a value equal to eq.
+  optional Variant eq = 1;
+  // in matches a value equal to an element of in.
+  VariantList in = 2;
+}
+message KeyList {
+  repeated string values = 1;
+}
+message Where {
+  // and matches when every child matches.
+  WhereList and = 1;
+  // or matches when any child matches.
+  WhereList or = 2;
+  // not matches when the child does not match.
+  optional Where not = 3;
+  // key selects by key.
+  optional StringSet key = 4;
+  // variant selects by variant.
+  optional VariantSet variant = 5;
+  // labels matches statuses that have any of the given labels.
+  KeyList labels = 6;
+}
+
+// RetrieveRequest is a request to retrieve statuses.
+message RetrieveRequest {
+  // where selects the statuses to retrieve. An absent where selects all of them.
+  optional Where where = 1;
+  // search_term keeps the statuses that match the term, closest match first.
+  optional string search_term = 2;
+  // limit is the most statuses to return.
+  optional uint32 limit = 3;
+  // offset is the number of matching statuses to skip.
+  optional uint32 offset = 4;
+  // include_labels includes the labels of each record.
+  optional bool include_labels = 5;
+}
+
+// RetrieveResponse holds the statuses a RetrieveRequest selects.
+message RetrieveResponse {
+  // statuses are the statuses the request selects.
+  repeated Status statuses = 1;
+}

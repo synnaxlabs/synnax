@@ -11,7 +11,11 @@
 
 package status
 
-import "github.com/synnaxlabs/synnax/pkg/service/status/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/status/versions"
+	"github.com/synnaxlabs/x/filter"
+)
 
 // Variant is the severity or type of a status message.
 type Variant = versions.Variant
@@ -33,3 +37,38 @@ type Key = versions.Key
 // component-specific details. A status is uniquely identified by a key and may carry a
 // human-readable name and labels for categorization and filtering.
 type Status[Details any] = versions.Status[Details]
+
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Variant selects by variant.
+	Variant *filter.Set[Variant] `json:"variant,omitzero" msgpack:"variant,omitempty"`
+	// Labels matches statuses that have any of the given labels.
+	Labels []label.Key `json:"labels,omitzero" msgpack:"labels,omitempty"`
+}
+
+// RetrieveRequest is a request to retrieve statuses.
+type RetrieveRequest struct {
+	// Where selects the statuses to retrieve. An absent where selects all of them.
+	Where *Where `json:"where,omitzero" msgpack:"where,omitempty"`
+	// SearchTerm keeps the statuses that match the term, closest match first.
+	SearchTerm *string `json:"search_term,omitzero" msgpack:"search_term,omitempty"`
+	// Limit is the most statuses to return.
+	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
+	// Offset is the number of matching statuses to skip.
+	Offset *uint32 `json:"offset,omitzero" msgpack:"offset,omitempty"`
+	// IncludeLabels includes the labels of each record.
+	IncludeLabels *bool `json:"include_labels,omitzero" msgpack:"include_labels,omitempty"`
+}
+
+// RetrieveResponse holds the statuses a RetrieveRequest selects.
+type RetrieveResponse struct {
+	// Statuses are the statuses the request selects.
+	Statuses []Status[any] `json:"statuses" msgpack:"statuses"`
+}

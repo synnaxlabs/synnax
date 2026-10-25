@@ -23,9 +23,9 @@ import (
 type Retrieve[D any] struct {
 	baseTX gorp.Tx
 	gorp   gorp.Retrieve[Key, Status[D]]
-	// search indexes the table, whose entries hold details of any type.
-	search *gorp.SearchIndex[Key, Status[any]]
-	label  *label.Service
+	// indexes are over the table, whose entries hold details of any type.
+	indexes indexes
+	label   *label.Service
 }
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to Where.
@@ -139,7 +139,7 @@ func MatchNames[D any](names ...string) Filter[D] {
 // search index holds details of any type.
 func MatchSearch(term string) Filter[any] {
 	return func(r Retrieve[any]) gorp.Filter[Key, Status[any]] {
-		return r.search.Filter(term)
+		return r.indexes.search.Filter(term)
 	}
 }
 
