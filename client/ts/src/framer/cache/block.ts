@@ -26,7 +26,7 @@ export interface Block {
   readonly fetchedAt: TimeStamp;
   /** The bytes of the block's samples. */
   readonly bytes: number;
-  /** True while the block must stay cached, as when a caller holds its series. */
+  /** True while the block must stay cached, as when a subscription serves it. */
   readonly held: boolean;
   /** The number of subscriptions that serve the block's series. */
   pins: number;
@@ -260,13 +260,7 @@ export class RawBlock implements Block {
   }
 
   get held(): boolean {
-    return (
-      this.pins > 0 ||
-      this.buffer != null ||
-      this.pending != null ||
-      this.fetched.some((s) => s.refCount > 0) ||
-      this.streamed.some((s) => s.refCount > 0)
-    );
+    return this.pins > 0 || this.buffer != null || this.pending != null;
   }
 
   /**

@@ -70,14 +70,15 @@ export interface FeedProps
    */
   node?: () => number | undefined;
   /**
-   * Byte size the block cache evicts down to. Blocks a caller holds and blocks the
-   * stream writes into are never evicted.
+   * Byte size the block cache evicts down to. Blocks a subscription serves and blocks
+   * the stream writes into are never evicted.
    * @default Size.megabytes(128)
    */
   budget?: Size;
   /**
    * How long a fetched block answers reads before it is fetched again. Bounds the
-   * refetch rate of spans that stay empty. A block a caller holds keeps answering.
+   * refetch rate of spans that stay empty. A block a subscription serves keeps
+   * answering.
    * @default TimeSpan.minutes(10)
    */
   staleCoverageThreshold?: TimeSpan;

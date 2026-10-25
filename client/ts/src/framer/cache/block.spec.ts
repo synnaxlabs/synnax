@@ -376,24 +376,22 @@ describe("block", () => {
         expect(block.held).toBe(true);
       });
 
-      it("should hold a block while a caller holds a fetched series", () => {
+      it("should hold a block while a subscription pins it", () => {
         const block = new RawBlock(1, 0);
-        const series = fetched(0, [1], seconds(1).range(seconds(2)));
-        block.fill([series], seconds(5), 1);
-        series.acquire();
+        block.fill([fetched(0, [1], seconds(1).range(seconds(2)))], seconds(5), 1);
+        block.pins++;
         expect(block.held).toBe(true);
-        series.release();
+        block.pins--;
         expect(block.held).toBe(false);
       });
 
-      it("should hold a block while a caller holds a streamed series", () => {
+      it("should not hold a block for a series a caller acquires", () => {
         const block = new RawBlock(1, 0);
         const series = createValues(9n, [1], seconds(9).range(seconds(10)));
         block.stream([series]);
         series.acquire();
-        expect(block.held).toBe(true);
-        series.release();
         expect(block.held).toBe(false);
+        series.release();
       });
     });
 

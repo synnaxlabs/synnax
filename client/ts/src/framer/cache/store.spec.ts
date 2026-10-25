@@ -248,7 +248,7 @@ describe("Store", () => {
       expect(block.coveredEnd).toEqual(BLOCK.start);
     });
 
-    it("should keep the fetched samples of a held block past the stale threshold", () => {
+    it("should keep the fetched samples of a pinned block past the stale threshold", () => {
       const clock = new ManualClock();
       const store = new Store({
         staleThreshold: TimeSpan.milliseconds(20),
@@ -256,10 +256,10 @@ describe("Store", () => {
       });
       const series = new Series({ data: new Float32Array([1]), timeRange: BLOCK });
       store.raw(1, 100).fill([series], BLOCK.end, 1);
-      series.acquire();
+      store.raw(1, 100).pins++;
       clock.advance(TimeSpan.milliseconds(20));
       expect(store.raw(1, 100).fetched).toEqual([series]);
-      series.release();
+      store.raw(1, 100).pins--;
       expect(store.raw(1, 100).fetched).toEqual([]);
     });
   });
