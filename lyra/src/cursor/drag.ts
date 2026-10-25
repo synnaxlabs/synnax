@@ -10,7 +10,7 @@
 import "@/cursor/drag.css";
 
 import { box, xy } from "@synnaxlabs/x";
-import { type PointerEvent as ReactPointerEvent, useCallback } from "react";
+import { type PointerEvent as ReactPointerEvent } from "react";
 
 import { CSS } from "@/css";
 import { Triggers } from "@/triggers";
@@ -54,66 +54,59 @@ const DRAG_THRESHOLD = 4;
  * Add {@link DRAG_CLASS} to the element so touch gestures and text selection don't
  * pre-empt the drag.
  */
-export const useDrag = ({
-  onMove,
-  onStart,
-  onEnd,
-  preventDefault = false,
-}: UseDragProps): UseDragStart =>
-  useCallback(
-    (e) => {
-      if (e.button !== 0 || e.isPrimary === false) return;
-      if (preventDefault) e.preventDefault();
-      const el = e.currentTarget as HTMLElement;
-      const { pointerId } = e;
-      const start = xy.construct(e);
-      const mouseKey = Triggers.mouseKey(e.button);
-      let started = false;
+export const useDrag =
+  ({ onMove, onStart, onEnd, preventDefault = false }: UseDragProps): UseDragStart =>
+  (e) => {
+    if (e.button !== 0 || e.isPrimary === false) return;
+    if (preventDefault) e.preventDefault();
+    const el = e.currentTarget as HTMLElement;
+    const { pointerId } = e;
+    const start = xy.construct(e);
+    const mouseKey = Triggers.mouseKey(e.button);
+    let started = false;
+    const listeners = new AbortController();
 
-      // Moves are coalesced to one onMove per animation frame: WebKit delivers
-      // pointermove at input rate, not display rate, so forwarding each event
-      // would run multiple render passes per frame.
-      let frame: number | null = null;
-      let latest: PointerEvent | null = null;
+    // Moves are coalesced to one onMove per animation frame: WebKit delivers
+    // pointermove at input rate, not display rate, so forwarding each event
+    // would run multiple render passes per frame.
+    let frame: number | null = null;
+    let latest: PointerEvent | null = null;
 
-      const flush = (): void => {
-        frame = null;
-        if (latest == null) return;
-        onMove?.(box.construct(start, xy.construct(latest)), mouseKey, latest);
-      };
+    const flush = (): void => {
+      frame = null;
+      if (latest == null) return;
+      onMove?.(box.construct(start, xy.construct(latest)), mouseKey, latest);
+    };
 
-      const handleMove = (me: PointerEvent): void => {
-        if (me.pointerId !== pointerId) return;
-        const next = xy.construct(me);
-        if (!started) {
-          if (Math.hypot(next.x - start.x, next.y - start.y) < DRAG_THRESHOLD) return;
-          started = true;
-          el.setPointerCapture(pointerId);
-          onStart?.(start, mouseKey, el);
-        }
-        latest = me;
-        frame ??= requestAnimationFrame(flush);
-      };
+    const handleMove = (me: PointerEvent): void => {
+      if (me.pointerId !== pointerId) return;
+      const next = xy.construct(me);
+      if (!started) {
+        if (Math.hypot(next.x - start.x, next.y - start.y) < DRAG_THRESHOLD) return;
+        started = true;
+        el.setPointerCapture(pointerId);
+        onStart?.(start, mouseKey, el);
+      }
+      latest = me;
+      if (frame == null) frame = requestAnimationFrame(flush);
+    };
 
-      const handleEnd = (ee: PointerEvent): void => {
-        if (ee.pointerId !== pointerId) return;
-        window.removeEventListener("pointermove", handleMove);
-        window.removeEventListener("pointerup", handleEnd);
-        window.removeEventListener("pointercancel", handleEnd);
-        // A move queued for the next frame must still reach onMove: consumers
-        // persist move-built state on end, and a release can outrun the frame.
-        if (frame != null) {
-          cancelAnimationFrame(frame);
-          flush();
-        }
-        if (!started) return;
-        if (el.hasPointerCapture(pointerId)) el.releasePointerCapture(pointerId);
-        onEnd?.(box.construct(start, xy.construct(ee)), mouseKey, ee);
-      };
+    const handleEnd = (ee: PointerEvent): void => {
+      if (ee.pointerId !== pointerId) return;
+      listeners.abort();
+      // A move queued for the next frame must still reach onMove: consumers
+      // persist move-built state on end, and a release can outrun the frame.
+      if (frame != null) {
+        cancelAnimationFrame(frame);
+        flush();
+      }
+      if (!started) return;
+      if (el.hasPointerCapture(pointerId)) el.releasePointerCapture(pointerId);
+      onEnd?.(box.construct(start, xy.construct(ee)), mouseKey, ee);
+    };
 
-      window.addEventListener("pointermove", handleMove);
-      window.addEventListener("pointerup", handleEnd);
-      window.addEventListener("pointercancel", handleEnd);
-    },
-    [onMove, onStart, onEnd, preventDefault],
-  );
+    const { signal } = listeners;
+    window.addEventListener("pointermove", handleMove, { signal });
+    window.addEventListener("pointerup", handleEnd, { signal });
+    window.addEventListener("pointercancel", handleEnd, { signal });
+  };

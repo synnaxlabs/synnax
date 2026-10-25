@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
@@ -33,17 +33,17 @@ export const Symbol = ({
     orientation,
   },
 }: NodeProps<schematic.StringDisplayNodeConfig>): ReactElement => {
-  const source = useMemo(
-    () => telem.streamChannelStringValue({ channel: channel ?? 0 }),
-    [channel],
-  );
+  const source = telem.streamChannelStringValue({ channel: channel ?? 0 });
   const { value, stale } = BaseStringValue.use({
     aetherKey: nodeKey,
     telem: source,
     stalenessTimeout,
   });
+  const resize = Grid.useInlineResize(inlineSize, (inlineSize) =>
+    onConfigChange({ inlineSize }),
+  );
   return (
-    <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false}>
+    <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false} {...resize}>
       <Label.Label config={label} onChange={onConfigChange} />
       <StringDisplay
         strokeColor={strokeColor}

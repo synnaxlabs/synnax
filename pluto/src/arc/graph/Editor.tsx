@@ -16,7 +16,7 @@ import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { type Triggers } from "@synnaxlabs/lyra/triggers";
 import { box, id, xy } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useRef } from "react";
+import { type ReactElement, useRef } from "react";
 
 import { useClipboard } from "@/arc/graph/clipboard";
 import {
@@ -71,39 +71,32 @@ export const Editor = ({
   const edgesRef = useSyncedRef(edges);
   const dispatch = useSingleDispatch();
 
-  const handleNodesChange = useCallback(
-    (changes: BaseDiagram.NodeChange[]) => dispatch(nodeChangesToActions(changes)),
-    [dispatch],
-  );
-  const handleEdgesChange = useCallback(
-    (changes: BaseDiagram.EdgeChange[]) => dispatch(edgeChangesToActions(changes)),
-    [dispatch],
-  );
+  const handleNodesChange = (changes: BaseDiagram.NodeChange[]) =>
+    dispatch(nodeChangesToActions(changes));
+  const handleEdgesChange = (changes: BaseDiagram.EdgeChange[]) =>
+    dispatch(edgeChangesToActions(changes));
 
   const handleAddNode = useAddNode();
   const ref = useRef<HTMLDivElement>(null);
   const viewportRef = useSyncedRef(viewport);
-  const calculateCursorPosition = useCallback((cursor: xy.Crude) => {
+  const calculateCursorPosition = (cursor: xy.Crude) => {
     if (ref.current == null) return xy.ZERO;
     return BaseDiagram.calculateCursorPosition(
       box.construct(ref.current),
       cursor,
       viewportRef.current,
     );
-  }, []);
+  };
 
-  const handleDrop = useCallback(
-    ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
-      const valid = filterHaulItems(items);
-      if (event == null) return valid;
-      const position = xy.truncate(calculateCursorPosition(event), 0);
-      valid.forEach(({ key: type }) =>
-        handleAddNode({ key: id.create(), type, position }),
-      );
-      return valid;
-    },
-    [handleAddNode, calculateCursorPosition],
-  );
+  const handleDrop = ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
+    const valid = filterHaulItems(items);
+    if (event == null) return valid;
+    const position = xy.truncate(calculateCursorPosition(event), 0);
+    valid.forEach(({ key: type }) =>
+      handleAddNode({ key: id.create(), type, position }),
+    );
+    return valid;
+  };
 
   const dropProps = Haul.useDrop({
     type: "arc",
@@ -112,18 +105,12 @@ export const Editor = ({
     onDrop: handleDrop,
   });
 
-  const handleClearSelection = useCallback(
-    () => onSelectionChange?.([]),
-    [onSelectionChange],
-  );
-  const handleSelectAll = useCallback(
-    () =>
-      onSelectionChange?.([
-        ...nodesRef.current.map((n) => n.key),
-        ...edgesRef.current.map((e) => e.key),
-      ]),
-    [onSelectionChange],
-  );
+  const handleClearSelection = () => onSelectionChange?.([]);
+  const handleSelectAll = () =>
+    onSelectionChange?.([
+      ...nodesRef.current.map((n) => n.key),
+      ...edgesRef.current.map((e) => e.key),
+    ]);
   const { undo, canUndo } = useUndo();
   const { redo, canRedo } = useRedo();
 
@@ -145,42 +132,28 @@ export const Editor = ({
   });
 
   const contextMenu = Menu.useContextMenu();
-  const renderMenu = useCallback<Component.RenderProp<Menu.ContextMenuMenuProps>>(
-    (menuProps) => (
-      <Menu.Menu level="small" gap="small">
-        {editable && (
-          <>
-            <BaseDiagram.Menu.ClipboardItems
-              cut={cut}
-              copy={copy}
-              paste={paste}
-              hasSelection={(selected?.length ?? 0) > 0}
-            />
-            <Menu.Divider />
-            <Menu.UndoRedoItems
-              undo={undo}
-              redo={redo}
-              canUndo={canUndo}
-              canRedo={canRedo}
-            />
-            {extraMenuItems != null && <Menu.Divider />}
-          </>
-        )}
-        {extraMenuItems?.(menuProps)}
-      </Menu.Menu>
-    ),
-    [
-      undo,
-      redo,
-      canUndo,
-      canRedo,
-      editable,
-      extraMenuItems,
-      selected,
-      cut,
-      copy,
-      paste,
-    ],
+  const renderMenu: Component.RenderProp<Menu.ContextMenuMenuProps> = (menuProps) => (
+    <Menu.Menu level="small" gap="small">
+      {editable && (
+        <>
+          <BaseDiagram.Menu.ClipboardItems
+            cut={cut}
+            copy={copy}
+            paste={paste}
+            hasSelection={(selected?.length ?? 0) > 0}
+          />
+          <Menu.Divider />
+          <Menu.UndoRedoItems
+            undo={undo}
+            redo={redo}
+            canUndo={canUndo}
+            canRedo={canRedo}
+          />
+          {extraMenuItems != null && <Menu.Divider />}
+        </>
+      )}
+      {extraMenuItems?.(menuProps)}
+    </Menu.Menu>
   );
 
   return (

@@ -14,14 +14,13 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status/versions"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
@@ -50,10 +49,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Label *label.Service
-	// Search is the search index for fuzzy searching statuses.
-	//
-	// [REQUIRED]
-	Search *search.Index
 	alamos.Instrumentation
 }
 
@@ -65,7 +60,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Label = override.Nil(c.Label, other.Label)
-	c.Search = override.Nil(c.Search, other.Search)
 	return c
 }
 
@@ -76,7 +70,6 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("ontology", c.Ontology)
 	v.NotNil("group", c.Group)
 	v.NotNil("label", c.Label)
-	v.NotNil("search", c.Search)
 	return v.Error()
 }
 
@@ -87,6 +80,7 @@ type Service struct {
 	cfg    ServiceConfig
 	closer xio.MultiCloser
 	table  *gorp.Table[Key, Status[any]]
+	search *gorp.SearchIndex[Key, Status[any]]
 	group  group.Group
 }
 
@@ -98,13 +92,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg}
+	s = &Service{cfg: cfg, search: newSearchIndex()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(
 		ctx,
 		gorp.TableConfig[Key, Status[any]]{
 			DB:              cfg.DB,
+			Indexes:         []gorp.Index[Key, Status[any]]{s.search},
 			Instrumentation: cfg.Instrumentation,
 			Migrations:      versions.Migrations,
 		},
@@ -119,7 +114,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
-	cfg.Search.RegisterService(s)
 	return s, nil
 }
 
@@ -166,13 +160,14 @@ func (s *Service) ResolveKeyOrName(
 
 // SetTarget builds the status a by-key-or-name set should write: the first match, or a
 // new UUID-keyed status named keyOrName when nothing matched, with the new fields
-// applied.
+// applied. It clears the description, which explained the previous message.
 func SetTarget(matches []Status[any], keyOrName, message, variant string) Status[any] {
 	st := Status[any]{Key: uuid.New().String(), Name: keyOrName}
 	if len(matches) > 0 {
 		st = matches[0]
 	}
 	st.Message = message
+	st.Description = ""
 	st.Variant = Variant(variant)
 	st.Time = telem.Now()
 	return st
@@ -226,7 +221,7 @@ func (s *Service) NewRetrieve[D any]() Retrieve[D] {
 	return Retrieve[D]{
 		gorp:   gorp.NewRetrieve[Key, Status[D]](),
 		baseTX: s.cfg.DB,
-		search: s.cfg.Search,
+		search: s.search,
 		label:  s.cfg.Label,
 	}
 }

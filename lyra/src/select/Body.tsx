@@ -9,7 +9,7 @@
 
 import { type record } from "@synnaxlabs/x";
 import pluralize from "pluralize";
-import { type ReactElement, type ReactNode, useMemo } from "react";
+import { type ReactElement, type ReactNode } from "react";
 import { type z } from "zod";
 
 import { CSS } from "@/css";
@@ -18,7 +18,6 @@ import { Items, type ItemsProps } from "@/select/Items";
 import { List as SelectList } from "@/select/List";
 import { Search, type SearchProps } from "@/select/Search";
 import { Status } from "@/status";
-import { Text } from "@/text";
 
 /** Props for {@link Body}. */
 export interface BodyProps<K extends record.Key>
@@ -36,7 +35,7 @@ export interface BodyProps<K extends record.Key>
 /** Props for {@link EmptyContent}. */
 export interface EmptyContentProps {
   resourceName: string;
-  /** A string renders as a disabled summary. Unset, it says no items were found. */
+  /** A string renders as gray text. Unset, it says no items were found. */
   emptyContent?: ReactNode;
 }
 
@@ -45,17 +44,11 @@ export const EmptyContent = ({
   resourceName,
   emptyContent,
 }: EmptyContentProps): ReactNode => {
-  if (typeof emptyContent === "string")
-    return (
-      <Status.Summary center variant="disabled">
-        {emptyContent}
-      </Status.Summary>
-    );
-  if (emptyContent != null) return emptyContent;
+  if (emptyContent != null && typeof emptyContent !== "string") return emptyContent;
   return (
-    <Text.Text center status="disabled">
-      No {pluralize.plural(resourceName)} found
-    </Text.Text>
+    <Status.Summary center variant="disabled" hideIcon>
+      {emptyContent ?? `No ${pluralize.plural(resourceName)} found`}
+    </Status.Summary>
   );
 };
 
@@ -75,20 +68,15 @@ export const Body = <K extends record.Key>({
 }: BodyProps<K>): ReactElement => {
   const loading = status?.variant === "loading";
   const hasSearch = onSearch != null;
-  emptyContent = useMemo(() => {
-    if (loading) return hasSearch ? null : <Status.Loading />;
-    if (status != null && status.variant !== "success")
-      return (
-        <Status.Summary
-          center
-          variant={status?.variant}
-          description={status?.description}
-        >
-          {status?.message}
-        </Status.Summary>
-      );
-    return <EmptyContent resourceName={resourceName} emptyContent={emptyContent} />;
-  }, [status?.key, emptyContent, loading, hasSearch]);
+  let empty: ReactNode;
+  if (loading) empty = hasSearch ? null : <Status.Loading />;
+  else if (status != null && status.variant !== "success")
+    empty = (
+      <Status.Summary center variant={status.variant} description={status.description}>
+        {status.message}
+      </Status.Summary>
+    );
+  else empty = <EmptyContent resourceName={resourceName} emptyContent={emptyContent} />;
   return (
     <>
       {hasSearch && (
@@ -102,7 +90,7 @@ export const Body = <K extends record.Key>({
       {footer == null || footer === false ? (
         <SelectList bordered borderColor={6} grow rounded full="x">
           {fixedItems}
-          <Items<K> emptyContent={emptyContent}>{children}</Items>
+          <Items<K> emptyContent={empty}>{children}</Items>
         </SelectList>
       ) : (
         <Flex.Box
@@ -117,7 +105,7 @@ export const Body = <K extends record.Key>({
         >
           <SelectList grow full="x">
             {fixedItems}
-            <Items<K> emptyContent={emptyContent}>{children}</Items>
+            <Items<K> emptyContent={empty}>{children}</Items>
           </SelectList>
           {footer}
         </Flex.Box>

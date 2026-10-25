@@ -10,15 +10,16 @@
 package versions
 
 import (
+	"github.com/synnaxlabs/gorp"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
+	v10 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v10"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v8"
 	v9 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v9"
-	"github.com/synnaxlabs/x/migrate"
 )
 
 // Migrations is the ordered migration chain for stored schematics.
-var Migrations = []migrate.Migration{
+var Migrations = []gorp.Migration{
 	v0.NormalizeKeys,
 	v0.Migration,
 	v7.Migration,
@@ -26,4 +27,5 @@ var Migrations = []migrate.Migration{
 	v8.ScaleMigration,
 	v9.Migration,
 	v9.ScaleMigration,
+	v10.Migration,
 }

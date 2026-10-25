@@ -12,10 +12,10 @@ package alias_test
 import (
 	"context"
 	"fmt"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -23,9 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -45,24 +43,20 @@ var _ = Describe("Alias", Ordered, func() {
 		node := mock.NewNode(ctx)
 		db = node.DB
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
-		searchIdx := MustOpen(search.OpenIndex())
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       node.DB,
 			Ontology: otg,
-			Search:   searchIdx,
 		}))
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       node.DB,
 			Ontology: otg,
 			Group:    groupSvc,
-			Search:   searchIdx,
 		}))
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       node.DB,
 			Ontology: otg,
 			Group:    groupSvc,
 			Label:    labelSvc,
-			Search:   searchIdx,
 		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel:      node.Channel,
@@ -70,7 +64,6 @@ var _ = Describe("Alias", Ordered, func() {
 			HostProvider: node.Cluster,
 			Ontology:     otg,
 			Group:        groupSvc,
-			Search:       searchIdx,
 			Status:       statusSvc,
 		}))
 		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
@@ -78,16 +71,13 @@ var _ = Describe("Alias", Ordered, func() {
 			Ontology: otg,
 			Group:    groupSvc,
 			Label:    labelSvc,
-			Search:   searchIdx,
 		}))
 		aliasSvc = MustOpen(alias.OpenService(ctx, alias.ServiceConfig{
 			DB:              node.DB,
 			Ontology:        otg,
 			Channel:         channelSvc,
 			ParentRetriever: rangerSvc,
-			Search:          searchIdx,
 		}))
-		Expect(searchIdx.Initialize(ctx)).To(Succeed())
 	})
 	BeforeEach(func() {
 		tx = DeferClose(db.OpenTx())
@@ -304,23 +294,56 @@ var _ = Describe("Alias", Ordered, func() {
 		)
 	})
 
-	Specify("Aliases should be searchable by the ontology", func(ctx SpecContext) {
-		time.Sleep(10 * time.Millisecond)
-		r := ranger.Range{
-			Name: "Range",
-			TimeRange: telem.TimeRange{
-				Start: telem.TimeStamp(5 * telem.Second),
-				End:   telem.TimeStamp(10 * telem.Second),
+	Describe("Search", func() {
+		var (
+			r, other      ranger.Range
+			inlet, outlet channel.Channel
+		)
+		BeforeEach(func(ctx SpecContext) {
+			r = ranger.Range{
+				Name: "Range",
+				TimeRange: telem.TimeRange{
+					Start: telem.TimeStamp(5 * telem.Second),
+					End:   telem.TimeStamp(10 * telem.Second),
+				},
+			}
+			other = r
+			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+			Expect(rangerSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
+			inlet, outlet = createChannel(ctx), createChannel(ctx)
+			w := aliasSvc.NewWriter(tx)
+			Expect(w.Set(ctx, r.Key, inlet.Key(), "turbopump inlet")).To(Succeed())
+			Expect(w.Set(ctx, r.Key, outlet.Key(), "turbopump")).To(Succeed())
+			Expect(w.Set(ctx, other.Key, inlet.Key(), "valve")).To(Succeed())
+		})
+
+		It("Should return the channels whose alias on the range matches the term",
+			func(ctx SpecContext) {
+				Expect(aliasSvc.NewReader(tx).Search(ctx, r.Key, "turbopump")).
+					To(Equal([]channel.Key{outlet.Key(), inlet.Key()}))
+				Expect(aliasSvc.NewReader(tx).Search(ctx, r.Key, "valve")).To(BeEmpty())
+			})
+
+		It("Should find aliases through the ontology search", func(ctx SpecContext) {
+			Expect(otg.Search(ctx, tx, "turbopump inlet")).To(Equal([]ontology.ID{
+				alias.OntologyID(r.Key, inlet.Key()),
+			}))
+		})
+
+		It(
+			"Should drop a deleted alias from the ontology search",
+			func(ctx SpecContext) {
+				id := alias.OntologyID(r.Key, inlet.Key())
+				Expect(tx.Commit(ctx)).To(Succeed())
+				Expect(otg.Search(ctx, nil, "turbopump inlet")).To(ContainElement(id))
+				del := DeferClose(db.OpenTx())
+				Expect(aliasSvc.NewWriter(del).Delete(ctx, r.Key, inlet.Key())).
+					To(Succeed())
+				Expect(del.Commit(ctx)).To(Succeed())
+				Expect(otg.Search(ctx, nil, "turbopump inlet")).
+					ToNot(ContainElement(id))
 			},
-		}
-		Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
-		ch := createChannel(ctx)
-		Expect(aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Alias")).To(Succeed())
-		Expect(tx.Commit(ctx)).To(Succeed())
-		Eventually(func(g Gomega) {
-			g.Expect(aliasSvc.NewReader(nil).Search(ctx, r.Key, "Alias")).
-				To(ContainElement(ch.Key()))
-		}).Should(Succeed())
+		)
 	})
 
 	Describe("List", func() {

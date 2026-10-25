@@ -79,4 +79,5 @@ Dockerfile
 # - cesium (included)
 # - aspen (included)
 # - arc (included)
+# - gorp (included)
 # - go.mod, go.sum (included)

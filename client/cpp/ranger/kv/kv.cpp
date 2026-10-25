@@ -25,7 +25,7 @@ std::pair<std::string, x::errors::Error> Client::get(const std::string &key) con
 
 x::errors::Error Client::set(const std::string &key, const std::string &value) const {
     auto req = grpc::kv::SetRequest();
-    const auto pair = req.add_pairs();
+    auto *const pair = req.add_pairs();
     pair->set_key(key);
     pair->set_value(value);
     pair->set_range(this->range_key.to_string());

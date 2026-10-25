@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -27,17 +28,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
-	"github.com/synnaxlabs/x/gorp"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestProject(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Project Suite")
+	RunSpecs(t, "Service Project Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
@@ -66,48 +65,40 @@ var (
 		node := mock.NewNode(ctx)
 		db = node.DB
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.OpenIndex())
 		groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Search:   searchIdx,
 		}))
 		imexSvc = imex.NewService()
 		panelSvc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Search:   searchIdx,
 		}))
 		logSvc = MustOpen(log.OpenService(ctx, log.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Search:   searchIdx,
 			ImEx:     imexSvc,
 		}))
 		lineplotSvc = MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Search:   searchIdx,
 			ImEx:     imex.NewService(),
 		}))
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
-			Search:   searchIdx,
 		}))
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
 			Label:    labelSvc,
-			Search:   searchIdx,
 		}))
 		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
 			Ontology:     otg,
 			Group:        groupSvc,
-			Search:       searchIdx,
 			Status:       statusSvc,
 			HostProvider: node.Cluster,
 		}))
@@ -118,7 +109,6 @@ var (
 			Group:    groupSvc,
 			Rack:     rackSvc,
 			Status:   statusSvc,
-			Search:   searchIdx,
 			ImEx:     imexSvc,
 			Configs:  MustSucceed(config.NewRegistry(pd.Stores()...)),
 		}))
@@ -130,7 +120,6 @@ var (
 			HostProvider: node.Cluster,
 			Ontology:     otg,
 			Group:        groupSvc,
-			Search:       searchIdx,
 			Status:       statusSvc,
 		}))
 		arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
@@ -139,14 +128,12 @@ var (
 			Channel:  channelSvc,
 			Task:     taskSvc,
 			Status:   statusSvc,
-			Search:   searchIdx,
 			ImEx:     imexSvc,
 		}))
 		svc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
-			Search:   searchIdx,
 			ImEx:     imexSvc,
 			Panel:    panelSvc,
 		}))

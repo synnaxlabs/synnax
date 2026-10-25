@@ -32,7 +32,7 @@ StatusDetails::to_proto() const {
     pb.set_running(this->running);
     pb.set_cmd(this->cmd);
     pb.set_config_hash(this->config_hash);
-    pb.set_rack(static_cast<uint32_t>(this->rack));
+    pb.set_rack(this->rack);
     if (this->data.has_value()) {
         auto [v, err] = x::json::to_struct(*this->data);
         if (err) return {{}, err};
@@ -52,7 +52,7 @@ StatusDetails::from_proto(const ::service::task::pb::StatusDetails &pb) {
     cpp.running = pb.running();
     cpp.cmd = pb.cmd();
     cpp.config_hash = pb.config_hash();
-    cpp.rack = ::synnax::rack::Key(pb.rack());
+    cpp.rack = pb.rack();
     if (pb.has_data()) {
         auto [v, err] = x::json::from_struct(pb.data());
         if (err) return {{}, err};
@@ -64,7 +64,7 @@ StatusDetails::from_proto(const ::service::task::pb::StatusDetails &pb) {
 inline std::pair<::service::task::pb::Task, x::errors::Error> Task::to_proto() const {
     ::service::task::pb::Task pb;
     pb.set_key(this->key.to_string());
-    pb.set_rack(static_cast<uint32_t>(this->rack));
+    pb.set_rack(this->rack);
     pb.set_name(this->name);
     pb.set_type(this->type);
     {
@@ -91,7 +91,7 @@ Task::from_proto(const ::service::task::pb::Task &pb) {
         if (err) return {{}, err};
         cpp.key = v;
     }
-    cpp.rack = ::synnax::rack::Key(pb.rack());
+    cpp.rack = pb.rack();
     cpp.name = pb.name();
     cpp.type = pb.type();
     {

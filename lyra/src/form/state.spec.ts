@@ -121,6 +121,90 @@ describe("State", () => {
       });
     });
 
+    describe("identity", () => {
+      interface Keyed {
+        channels: { key: string; port: number }[];
+        other: { x: number };
+      }
+      const keyed = (): Keyed => ({
+        channels: [
+          { key: "a", port: 1 },
+          { key: "b", port: 2 },
+        ],
+        other: { x: 1 },
+      });
+
+      it("should give every ancestor of the written path a new identity", () => {
+        const state = new State(initialValues, basicSchema);
+        const { values } = state;
+        const { profile } = values;
+        state.setValue("profile.bio", "Updated bio");
+        expect(state.values).not.toBe(values);
+        expect(state.values.profile).not.toBe(profile);
+        expect(profile.bio).toBe("Software developer");
+      });
+
+      it("should keep the identity of untouched siblings", () => {
+        const state = new State(initialValues, basicSchema);
+        const { tags } = state.values;
+        state.setValue("profile.bio", "Updated bio");
+        expect(state.values.tags).toBe(tags);
+      });
+
+      it("should copy an array entry reached through its key", () => {
+        const state = new State<z.ZodType<Keyed>>(keyed());
+        const { channels, other } = state.values;
+        state.setValue("channels.b.port", 3);
+        expect(state.values.channels).not.toBe(channels);
+        expect(state.values.channels[1]).not.toBe(channels[1]);
+        expect(state.values.channels[1].port).toBe(3);
+        expect(state.values.channels[0]).toBe(channels[0]);
+        expect(state.values.other).toBe(other);
+        expect(channels[1].port).toBe(2);
+      });
+
+      it("should give a field's state a new value after a write below it", () => {
+        const state = new State<z.ZodType<Keyed>>(keyed());
+        const before = state.getState<{ port: number }>("channels.0").value;
+        state.setValue("channels.0.port", 3);
+        const after = state.getState<{ port: number }>("channels.0").value;
+        expect(after).not.toBe(before);
+        expect(after.port).toBe(3);
+        expect(before.port).toBe(1);
+      });
+
+      it("should keep the state object of a sibling the write left unchanged", () => {
+        const state = new State(initialValues, basicSchema);
+        const sibling = state.getState("email");
+        const written = state.getState("name");
+        state.setValue("name", "Jane Doe");
+        expect(state.getState("email")).toBe(sibling);
+        expect(state.getState("name")).not.toBe(written);
+        expect(state.getState("name").value).toBe("Jane Doe");
+      });
+
+      it("should give the ancestors of a removed path a new identity", () => {
+        const state = new State<z.ZodType<Keyed>>(keyed());
+        const { channels } = state.values;
+        state.remove("channels.0");
+        expect(state.values.channels).not.toBe(channels);
+        expect(state.values.channels).toEqual([{ key: "b", port: 2 }]);
+        expect(channels).toHaveLength(2);
+      });
+
+      it("should leave the older value unchanged when a shorter key also matches", () => {
+        const state = new State<z.ZodType<Record<string, object>>>({
+          a: {},
+          "a.b": { x: 1, y: 2 },
+        });
+        const { values } = state;
+        state.remove("a.b.x");
+        expect(state.values).toEqual({ a: {}, "a.b": { y: 2 } });
+        expect(state.values["a.b"]).not.toBe(values["a.b"]);
+        expect(values).toEqual({ a: {}, "a.b": { x: 1, y: 2 } });
+      });
+    });
+
     it("should set a top-level value", () => {
       const state = new State(initialValues, basicSchema);
       state.setValue("name", "Jane Doe");

@@ -11,11 +11,10 @@ import { useCombinedStateAndRef, useStateRef } from "@synnaxlabs/lyra/hooks";
 import { useMemoCompare } from "@synnaxlabs/lyra/memo";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { findParent } from "@synnaxlabs/lyra/util";
-import { box, dimensions, location, record, scale, xy } from "@synnaxlabs/x";
+import { box, type dimensions, location, record, scale, xy } from "@synnaxlabs/x";
 import {
   type ForwardedRef,
   type RefObject,
-  useCallback,
   useEffect,
   useImperativeHandle,
   useRef,
@@ -141,7 +140,7 @@ export const use = ({
   onChange,
   triggers: initialTriggers,
   initial = D,
-  threshold: threshold_ = DEFAULT_THRESHOLD,
+  threshold = DEFAULT_THRESHOLD,
   ref,
 }: UseProps): UseReturn => {
   const defaultMode = initialTriggers?.defaultMode ?? "zoom";
@@ -155,7 +154,6 @@ export const use = ({
   // result of the previous pan update.
   const prevCursorRef = useRef<xy.XY>(xy.ZERO);
   const canvasRef = useRef<HTMLDivElement | null>(null);
-  const threshold = dimensions.construct(threshold_);
 
   useEffect(
     () => setStateRef(() => box.truncate(initial, calculateTruncPrecision(initial))),
@@ -183,84 +181,85 @@ export const use = ({
       [initialTriggers],
     );
 
-  const handleDrag = useCallback<Triggers.DragCallback>(
-    ({ box: box_, triggers, stage, cursor }): void => {
-      if (canvasRef.current == null) return;
-      const mode = Triggers.determineMode<TriggerMode>(triggerConfig, triggers);
-      const canvas = box.construct(canvasRef.current);
-      if (mode == null) return;
+  const handleZoomSelect = (
+    b: box.Box,
+    prev: box.Box,
+    canvas: box.Box,
+  ): box.Box | null => {
+    const next = constructScale(prev, canvas).box(fullSize(threshold, b, canvas));
+    return box.truncate(next, calculateTruncPrecision(next));
+  };
 
-      if (mode === "cancel") {
-        setMaskBox(box.ZERO);
-        onChange?.({ box: stateRef.current, mode, stage, cursor });
+  const handleDrag: Triggers.DragCallback = ({
+    box: box_,
+    triggers,
+    stage,
+    cursor,
+  }): void => {
+    if (canvasRef.current == null) return;
+    const mode = Triggers.determineMode<TriggerMode>(triggerConfig, triggers);
+    const canvas = box.construct(canvasRef.current);
+    if (mode == null) return;
+
+    if (mode === "cancel") {
+      setMaskBox(box.ZERO);
+      onChange?.({ box: stateRef.current, mode, stage, cursor });
+      return;
+    }
+
+    if (mode === "zoomReset") {
+      setMaskBox(box.ZERO);
+      onChange?.({ box: box.DECIMAL, mode, stage, cursor });
+      return setStateRef(box.DECIMAL);
+    }
+
+    const isClick_ = isClick(box_);
+
+    if (stage === "end") {
+      const isContext = triggers.find((t) => t.includes("MouseRight"));
+      // This prevents clicks from being registered as a drag
+      if (isClick_ && !isContext) {
+        if (mode === "zoom") setMaskBox(box.ZERO);
+        onChange?.({ box: stateRef.current, mode: "click", stage, cursor });
         return;
       }
-
-      if (mode === "zoomReset") {
-        setMaskBox(box.ZERO);
-        onChange?.({ box: box.DECIMAL, mode, stage, cursor });
-        return setStateRef(box.DECIMAL);
-      }
-
-      const isClick_ = isClick(box_);
-
-      if (stage === "end") {
-        const isContext = triggers.find((t) => t.includes("MouseRight"));
-        // This prevents clicks from being registered as a drag
-        if (isClick_ && !isContext) {
-          if (mode === "zoom") setMaskBox(box.ZERO);
-          onChange?.({ box: stateRef.current, mode: "click", stage, cursor });
-          return;
-        }
-        return setStateRef((prev) => {
-          if (mode === "pan") {
-            const next = handlePan(box_, prev, canvas);
-            if (next === null || box.equals(next, prev)) return prev;
-            onChange?.({ box: next, mode, stage, cursor });
-            return next;
-          }
-          const next = handleZoomSelect(box_, prev, canvas);
-          if (next === null || (isContext && !box.areaIsZero(maskBoxRef.current)))
-            return prev;
+      return setStateRef((prev) => {
+        if (mode === "pan") {
+          const next = handlePan(box_, prev, canvas);
+          if (next === null || box.equals(next, prev)) return prev;
           onChange?.({ box: next, mode, stage, cursor });
+          return next;
+        }
+        const next = handleZoomSelect(box_, prev, canvas);
+        if (next === null || (isContext && !box.areaIsZero(maskBoxRef.current)))
+          return prev;
+        onChange?.({ box: next, mode, stage, cursor });
 
-          if (mode === "zoom") {
-            setMaskBox(box.ZERO);
-            return next;
-          }
-          return box.truncate(prev, calculateTruncPrecision(prev));
-        });
-      }
+        if (mode === "zoom") {
+          setMaskBox(box.ZERO);
+          return next;
+        }
+        return box.truncate(prev, calculateTruncPrecision(prev));
+      });
+    }
 
-      if (MASK_MODES.includes(mode)) {
-        if (isClick_) return;
-        return setMaskBox(
-          scale.XY.scale(canvas)
-            .clamp(canvas)
-            .translate({ x: -box.left(canvas), y: -box.top(canvas) })
-            .box(fullSize(threshold, box_, canvas)),
-        );
-      }
+    if (MASK_MODES.includes(mode)) {
+      if (isClick_) return;
+      return setMaskBox(
+        scale.XY.scale(canvas)
+          .clamp(canvas)
+          .translate({ x: -box.left(canvas), y: -box.top(canvas) })
+          .box(fullSize(threshold, box_, canvas)),
+      );
+    }
 
-      setMaskBox((prev) => (!box.areaIsZero(prev) ? box.ZERO : prev));
-      if (xy.distance(cursor, prevCursorRef.current) < CURSOR_TRANSLATION_THRESHOLD)
-        return;
-      prevCursorRef.current = cursor;
-      const next = handlePan(box_, stateRef.current, canvas);
-      onChange?.({ box: next, mode, stage, cursor });
-    },
-    [
-      setMaskBox,
-      setMaskMode,
-      onChange,
-      triggerConfig,
-      threshold_.height,
-      threshold_.width,
-      setStateRef,
-      canvasRef,
-      calculateTruncPrecision,
-    ],
-  );
+    setMaskBox((prev) => (!box.areaIsZero(prev) ? box.ZERO : prev));
+    if (xy.distance(cursor, prevCursorRef.current) < CURSOR_TRANSLATION_THRESHOLD)
+      return;
+    prevCursorRef.current = cursor;
+    const next = handlePan(box_, stateRef.current, canvas);
+    onChange?.({ box: next, mode, stage, cursor });
+  };
 
   useImperativeHandle(
     ref,
@@ -277,14 +276,6 @@ export const use = ({
       },
     }),
     [onChange],
-  );
-
-  const handleZoomSelect = useCallback(
-    (b: box.Box, prev: box.Box, canvas: box.Box): box.Box | null => {
-      const next = constructScale(prev, canvas).box(fullSize(threshold, b, canvas));
-      return box.truncate(next, calculateTruncPrecision(next));
-    },
-    [threshold_],
   );
 
   const verticalTrigger = Triggers.useHeldRef({ triggers: [["Control"]] });
@@ -337,15 +328,12 @@ export const use = ({
     loose: true,
   });
 
-  const handleKeyTrigger = useCallback(
-    ({ triggers, stage }: Triggers.UseEvent) => {
-      if (stage === "end") return setMaskMode(defaultMode);
-      const mode = Triggers.determineMode<TriggerMode>(purgedTriggers, triggers);
-      if (mode == null) return;
-      setMaskMode(mode);
-    },
-    [purgedTriggers, defaultMode, onChange],
-  );
+  const handleKeyTrigger = ({ triggers, stage }: Triggers.UseEvent) => {
+    if (stage === "end") return setMaskMode(defaultMode);
+    const mode = Triggers.determineMode<TriggerMode>(purgedTriggers, triggers);
+    if (mode == null) return;
+    setMaskMode(mode);
+  };
 
   Triggers.use({
     triggers: reducedPurgedTriggers,

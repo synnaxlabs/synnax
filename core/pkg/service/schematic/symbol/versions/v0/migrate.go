@@ -9,7 +9,7 @@
 
 package v0
 
-import "github.com/synnaxlabs/x/gorp"
+import "github.com/synnaxlabs/gorp/migrate"
 
 // NormalizeKeys re-keys Symbol rows stored under the pre-v0.54 key format.
-var NormalizeKeys = gorp.NormalizeKeysMigration[Key, Symbol]("Symbol")
+var NormalizeKeys = migrate.NormalizeKeys[Key, Symbol]("Symbol")

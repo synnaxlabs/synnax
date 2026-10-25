@@ -391,7 +391,7 @@ NodeConfig union on variant {
         } {
             @doc value "is the anchor of the value within the gauge."
         }
-        units        string = "RPM" {
+        units        string = "" {
             @doc value "is the unit suffix displayed after the value."
         }
         level        text.Level = text.LevelH5 {
@@ -400,23 +400,31 @@ NodeConfig union on variant {
 
         @doc value "is the configuration for gauge symbols."
     }
-    input extends LabeledConfig {
+    input extends LabeledConfig, StalenessConfig {
         size            ComponentSize = ComponentSizeMedium {
             @doc value "is the rendered size preset of the input."
         }
         command_channel channel.Key?        {
             @doc value "is the channel submitted values are written to."
         }
+        state_channel   channel.Key?        {
+            @doc value "is the channel that reports the value the device holds."
+        }
         dimensions      spatial.Dimensions? {
             @doc value "is the rendered size of the input in pixels."
         }
         fill_color      color.Color?        {
             @doc value """
-                is the fill color of the send button, which the input border follows.
+                is the fill color of the Set button, which the input border follows.
             """
         }
         disabled        bool = false {
             @doc value "indicates whether the input rejects interaction."
+        }
+        inline_size     float64 = 150 {
+            @doc value """
+                is the width of the field in pixels, not counting the Set button.
+            """
         }
         on_click_delay  float64 = 0 {
             @doc value "is the debounce delay applied to clicks, in milliseconds."
@@ -503,20 +511,25 @@ NodeConfig union on variant {
 
         @doc value "is the configuration for polygon annotation symbols."
     }
-    select extends LabeledConfig {
+    select extends LabeledConfig, StalenessConfig {
         size            ComponentSize = ComponentSizeMedium {
             @doc value "is the rendered size preset of the select."
         }
         command_channel channel.Key?        {
             @doc value "is the channel the selected value is written to."
         }
+        state_channel   channel.Key?        {
+            @doc value "is the channel that reports the state the device holds."
+        }
         fill_color      color.Color?        {
             @doc value """
-                is the fill color of the send button, which the select border follows.
+                is the fill color of the Set button, which the select border follows.
             """
         }
         inline_size     float64 = 100 {
-            @doc value "is the inline size of the select in pixels."
+            @doc value """
+                is the width of the field in pixels, not counting the Set button.
+            """
         }
         options         StateMapping[] = [] {
             @doc value "is the set of selectable states."
@@ -552,26 +565,34 @@ NodeConfig union on variant {
 
         @doc value "is the configuration for standalone scale symbols."
     }
-    setpoint extends LabeledConfig {
+    setpoint extends LabeledConfig, StalenessConfig {
         size            ComponentSize = ComponentSizeMedium {
             @doc value "is the rendered size preset of the setpoint."
         }
         command_channel channel.Key?        {
             @doc value "is the channel submitted setpoints are written to."
         }
+        state_channel   channel.Key?        {
+            @doc value "is the channel that reports the value the device holds."
+        }
         dimensions      spatial.Dimensions? {
             @doc value "is the rendered size of the setpoint in pixels."
         }
         fill_color      color.Color?        {
             @doc value """
-                is the fill color of the set button, which the setpoint border follows.
+                is the fill color of the Set button, which the setpoint border follows.
             """
         }
-        units           string = "mV" {
+        units           string = "" {
             @doc value "is the unit suffix displayed after the value."
         }
         disabled        bool = false {
             @doc value "indicates whether the setpoint rejects interaction."
+        }
+        inline_size     float64 = 100 {
+            @doc value """
+                is the width of the field in pixels, not counting the Set button.
+            """
         }
         on_click_delay  float64 = 0 {
             @doc value "is the debounce delay applied to clicks, in milliseconds."
@@ -654,7 +675,7 @@ NodeConfig union on variant {
             @doc value "is the color of the value's border and units divider."
         }
         text_color   color.Color?       {
-            @doc value "is the color of the displayed value and its units."
+            @doc value "is the color of the displayed value."
         }
         fill_color   color.Color?       {
             @doc value """
@@ -668,7 +689,7 @@ NodeConfig union on variant {
         redline      color.Scale = {} {
             @doc value "is the threshold band mapping applied to the background."
         }
-        units        string = "psi" {
+        units        string = "" {
             @doc value "is the unit suffix displayed after the value."
         }
         inline_size  float64 = 70 {
@@ -862,6 +883,7 @@ Schematic struct {
     }
     name     string                     {
         @doc value         "is a human-readable name for the schematic."
+        @search
         @validate required
     }
     snapshot bool = false {

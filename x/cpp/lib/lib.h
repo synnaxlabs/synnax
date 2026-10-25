@@ -19,7 +19,7 @@
 typedef HMODULE LibraryHandle;
 #else
 #include <dlfcn.h>
-typedef void *LibraryHandle;
+using LibraryHandle = void *;
 #endif
 
 namespace x::lib {

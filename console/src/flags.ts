@@ -11,10 +11,10 @@
  * Static build-time flags that hide unfinished work in production. Vite replaces
  * `import.meta.env.VITE_*` statically, so dark code tree-shakes out of production, and
  * dev builds turn every flag on. Only the exact string "true" enables a flag. Each
- * entry names its owner and the release that removes it:
+ * entry names its owner, its Linear umbrella issue, and the release that removes it:
  *
  * `example: IS_DEV || import.meta.env.VITE_FLAG_EXAMPLE === "true", // Owner: Name.
- * Removed in 0.60.`
+ * Umbrella: SY-1234. Removed in 0.60.`
  */
 export const FLAGS = {} as const satisfies Record<string, boolean>;
 

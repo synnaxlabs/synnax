@@ -18,6 +18,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
@@ -25,9 +27,7 @@ import (
 	v9 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v9"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -952,7 +952,7 @@ var _ = Describe("Migration", func() {
 			Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
 			DB:              db,
 			Namespace:       "Schematic",
-			Migrations:      []migrate.Migration{v9.Migration},
+			Migrations:      []gorp.Migration{v9.Migration},
 		})).To(Succeed())
 		var got v9.Schematic
 		Expect(gorp.NewRetrieve[v9.Key, v9.Schematic]().
@@ -1000,7 +1000,7 @@ var _ = Describe("Migration", func() {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  "Schematic",
-			Migrations: []migrate.Migration{v9.Migration},
+			Migrations: []gorp.Migration{v9.Migration},
 		})).To(Succeed())
 		var got v9.Schematic
 		Expect(gorp.NewRetrieve[v9.Key, v9.Schematic]().
@@ -1028,9 +1028,9 @@ var _ = Describe("Migration", func() {
 		noop := func(context.Context, gorp.Tx, alamos.Instrumentation) error {
 			return nil
 		}
-		chain := []migrate.Migration{
-			gorp.NewMigration(v0.Migration.Key(), noop),
-			gorp.NewMigration(v7.Migration.Key(), noop),
+		chain := []gorp.Migration{
+			migrate.New(v0.Migration.Key(), noop),
+			migrate.New(v7.Migration.Key(), noop),
 			v8.Migration,
 		}
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
@@ -1093,7 +1093,7 @@ var _ = Describe("ScaleMigration", func() {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  "Schematic",
-			Migrations: []migrate.Migration{v9.ScaleMigration},
+			Migrations: []gorp.Migration{v9.ScaleMigration},
 		})).To(Succeed())
 		var got v9.Schematic
 		Expect(gorp.NewRetrieve[v9.Key, v9.Schematic]().

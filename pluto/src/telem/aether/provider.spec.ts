@@ -198,7 +198,7 @@ describe("telem.Provider", () => {
     update();
     await expect.poll(() => aggregator.state.statuses).toHaveLength(1);
     expect(aggregator.state.statuses[0].message).toEqual(
-      "failed to close telemetry feed",
+      "Failed to close telemetry feed",
     );
   });
 });

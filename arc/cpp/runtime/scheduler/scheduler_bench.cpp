@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -92,7 +93,7 @@ Program build_flat_parallel(size_t n) {
 }
 
 Program build_fanout_chain(size_t n) {
-    if (n < 2) n = 2;
+    n = std::max<size_t>(n, 2);
     Program p;
     p.ir.nodes.push_back(ir_node("src", {"out"}));
     p.nodes["src"] = std::make_unique<BenchNode>(std::vector<bool>{true});
@@ -196,7 +197,7 @@ Program build_sequential_chain(size_t n) {
 /// linear. Read the result as a guard on the bound logic, not as a cost real
 /// programs pay.
 Program build_settle_chain(size_t n) {
-    if (n < 2) n = 2;
+    n = std::max<size_t>(n, 2);
     Program p;
     p.ir.root.mode = ir::ScopeMode::Parallel;
     p.ir.root.liveness = ir::Liveness::Always;
@@ -221,7 +222,7 @@ Program build_settle_chain(size_t n) {
 /// build_settle_chain by exactly one edge, isolating the cost of re-walking
 /// from the per-pass visited-flag clear.
 Program build_settle_noop(size_t n) {
-    if (n < 2) n = 2;
+    n = std::max<size_t>(n, 2);
     Program p;
     p.ir.root.mode = ir::ScopeMode::Parallel;
     p.ir.root.liveness = ir::Liveness::Always;

@@ -59,7 +59,11 @@ const renderProperties = async ({
     sessionState: {
       editable: true,
       selected: nodeKeys,
-      toolbar: { selectedTab: "properties", selectedSymbolGroup: "general" },
+      toolbar: {
+        selectedTab: "properties",
+        selectedSymbolGroup: "general",
+        changing: false,
+      },
       ...sessionState,
     },
   });
@@ -554,9 +558,7 @@ describe("Schematic toolbar Properties", () => {
       await waitFor(() =>
         expect(
           statuses.some(
-            (st) =>
-              st.variant === "error" &&
-              st.message === "failed to calculate schematic node layout",
+            (st) => st.variant === "error" && st.message === "Failed to align symbols",
           ),
         ).toBe(true),
       );
@@ -579,8 +581,7 @@ describe("Schematic toolbar Properties", () => {
         expect(
           statuses.some(
             (st) =>
-              st.variant === "error" &&
-              st.message === "failed to calculate schematic node layout",
+              st.variant === "error" && st.message === "Failed to distribute symbols",
           ),
         ).toBe(true),
       );

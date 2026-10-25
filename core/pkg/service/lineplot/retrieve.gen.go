@@ -14,14 +14,45 @@ package lineplot
 import (
 	"context"
 
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp"
 )
 
 // Retrieve is used to retrieve LinePlot records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {
-	baseTX gorp.Tx
-	gorp   gorp.Retrieve[Key, LinePlot]
+	baseTX  gorp.Tx
+	gorp    gorp.Retrieve[Key, LinePlot]
+	indexes indexes
+}
+
+// indexes bundles the per-Service secondary indexes registered on the
+// LinePlot table. Each index is constructed via newIndexes and threaded
+// onto the Retrieve so filter functions can resolve them off r.indexes
+// instead of relying on package-level state.
+type indexes struct {
+	search *gorp.SearchIndex[Key, LinePlot]
+}
+
+// newIndexes constructs a fresh indexes value, allocating one instance of each
+// index. Call once per Service in OpenService and store the result on the
+// Service struct.
+func newIndexes() indexes {
+	return indexes{
+		search: gorp.NewSearchIndex[Key, LinePlot](
+			"search",
+			func(e *LinePlot) []string {
+				return []string{e.Name}
+			},
+		),
+	}
+}
+
+// all returns the indexes packaged as a heterogeneous slice for registration
+// via gorp.TableConfig.Indexes when opening the underlying table.
+func (i indexes) all() []gorp.Index[Key, LinePlot] {
+	return []gorp.Index[Key, LinePlot]{
+		i.search,
+	}
 }
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to
@@ -56,13 +87,23 @@ func Not(f Filter) Filter {
 	return gorp.NotBound[Retrieve, Key, LinePlot](f)
 }
 
+// Search filters the lineplots to those whose text matches
+// term, closest match first. An empty term adds no filter.
+func (r Retrieve) Search(term string) Retrieve {
+	if term == "" {
+		return r
+	}
+	r.gorp = r.gorp.Where(r.indexes.search.Filter(term))
+	return r
+}
+
 // MatchKeys returns a filter that restricts results to
 // lineplots whose key matches any of the provided
 // values. Composing MatchKeys at the top level of a Where clause (i.e.
 // r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing
 // inside Or / Not falls back to a full scan.
 func MatchKeys(keys ...Key) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, LinePlot] {
+	return func(Retrieve) gorp.Filter[Key, LinePlot] {
 		return gorp.MatchKeys[Key, LinePlot](keys...)
 	}
 }

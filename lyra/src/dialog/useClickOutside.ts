@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { box, xy } from "@synnaxlabs/x";
-import { type RefObject, useCallback, useEffect } from "react";
+import { type RefObject, useEffect } from "react";
 
 import { useSyncedRef } from "@/hooks";
 
@@ -58,29 +58,26 @@ export const useClickOutside = ({
   exclude,
 }: UseClickOutsideProps): void => {
   const excludeRef = useSyncedRef(exclude);
-  const handleClickOutside = useCallback(
-    (e: MouseEvent): void => {
-      const el = ref.current;
-      const windowBox = box.construct(window.document.documentElement);
-      const pos = xy.construct(e);
+  const handleClickOutside = (e: MouseEvent): void => {
+    const el = ref.current;
+    const windowBox = box.construct(window.document.documentElement);
+    const pos = xy.construct(e);
 
-      const exclude = excludeRef.current;
-      if (exclude != null)
-        if (typeof exclude === "function") {
-          if (exclude(e)) return;
-        } else if (exclude.some((r) => r.current?.contains(e.target as Node))) return;
+    const exclude = excludeRef.current;
+    if (exclude != null)
+      if (typeof exclude === "function") {
+        if (exclude(e)) return;
+      } else if (exclude.some((r) => r.current?.contains(e.target as Node))) return;
 
-      if (
-        el == null ||
-        contains(el, e.target as Node) ||
-        box.contains(el, pos) ||
-        !box.contains(windowBox, pos)
-      )
-        return;
-      onClickOutside();
-    },
-    [onClickOutside],
-  );
+    if (
+      el == null ||
+      contains(el, e.target as Node) ||
+      box.contains(el, pos) ||
+      !box.contains(windowBox, pos)
+    )
+      return;
+    onClickOutside();
+  };
   // pointerdown instead of mousedown: Tauri's drag-region script calls
   // stopImmediatePropagation on mousedown, which would swallow dismissal
   // clicks landing on window drag regions.

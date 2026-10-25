@@ -14,7 +14,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { LinePlot, Viewport } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
-import { memo, type ReactElement, useMemo } from "react";
+import { memo, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Vis } from "@/platform/vis";
@@ -66,7 +66,7 @@ export const Controls = memo(({ hasAnnotations }: ControlsProps): ReactElement =
     dispatch(Session.LinePlot.setMeasureMode({ key, mode: "two" }));
   };
 
-  const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
+  const triggers = Viewport.DEFAULT_TRIGGERS[mode];
 
   return (
     <Vis.Controls>

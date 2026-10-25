@@ -12,12 +12,11 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type Flux } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { type ContextMenuProps } from "@/platform/tree/types";
 
 export interface CreateUseRenameParams<K extends record.Key> {
-  query: Flux.UseUpdate<record.KeyedNamed<K>>;
+  useUpdate: Flux.UseUpdate<record.KeyedNamed<K>>;
   ontologyID: (key: K) => ontology.ID;
   convertKey: (key: string) => K;
   beforeUpdate?: (
@@ -26,46 +25,42 @@ export interface CreateUseRenameParams<K extends record.Key> {
   ) => Promise<record.KeyedNamed<K> | boolean>;
 }
 
-export const createUseRename =
-  <K extends record.Key>({
-    query,
-    ontologyID,
-    convertKey,
-    beforeUpdate,
-  }: CreateUseRenameParams<K>): ((props: ContextMenuProps) => () => void) =>
-  (props: ContextMenuProps) => {
+export const createUseRename = <K extends record.Key>({
+  useUpdate,
+  ontologyID,
+  convertKey,
+  beforeUpdate,
+}: CreateUseRenameParams<K>): ((props: ContextMenuProps) => () => void) => {
+  const useRename = (props: ContextMenuProps) => {
     const {
       selection: {
         ids: [firstID],
       },
       state: { getResource },
     } = props;
-    const { update } = query({
-      beforeUpdate: useCallback(
-        async (query: Flux.BeforeUpdateParams<record.KeyedNamed<K>>) => {
-          const { data } = query;
-          const { key, name: oldName } = data;
-          // The row may display a derived value (a channel alias); the edit always
-          // targets the resource's real name.
-          const [name, renamed] = await Text.asyncEdit(
-            List.itemNameID(ontology.idToString(ontologyID(key))),
-            { initialValue: oldName },
-          );
-          if (!renamed) return false;
-          if (beforeUpdate != null)
-            return await beforeUpdate({
-              ...query,
-              ...props,
-              oldName,
-              data: { ...data, name },
-            });
-          return { ...data, name: name ?? "" };
-        },
-        [beforeUpdate, props],
-      ),
+    const { update } = useUpdate({
+      beforeUpdate: async (query: Flux.BeforeUpdateParams<record.KeyedNamed<K>>) => {
+        const { data } = query;
+        const { key, name: oldName } = data;
+        // The row may display a derived value (a channel alias); the edit always
+        // targets the resource's real name.
+        const [name, renamed] = await Text.asyncEdit(
+          List.itemNameID(ontology.idToString(ontologyID(key))),
+          { initialValue: oldName },
+        );
+        if (!renamed) return false;
+        if (beforeUpdate != null)
+          return await beforeUpdate({
+            ...query,
+            ...props,
+            oldName,
+            data: { ...data, name },
+          });
+        return { ...data, name: name ?? "" };
+      },
     });
-    return useCallback(
-      () => update({ key: convertKey(firstID.key), name: getResource(firstID).name }),
-      [firstID, getResource],
-    );
+    return () =>
+      update({ key: convertKey(firstID.key), name: getResource(firstID).name });
   };
+  return useRename;
+};

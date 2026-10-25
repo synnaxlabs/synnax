@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback } from "react";
 import { useStore } from "react-redux";
 
 import {
@@ -22,7 +21,7 @@ const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
 export const useGetSliceState = (): (() => SliceState) => {
   const store = useStore<StoreState>();
-  return useCallback(() => selectSliceState(store.getState()), [store]);
+  return () => selectSliceState(store.getState());
 };
 
 export const selectSelectedKey = (state: StoreState): string | undefined =>
@@ -33,7 +32,7 @@ export const useSelectSelectedKey = (): string | undefined =>
 
 export const useGetSelectedKey = (): (() => string | undefined) => {
   const store = useStore<StoreState>();
-  return useCallback(() => selectSelectedKey(store.getState()), [store]);
+  return () => selectSelectedKey(store.getState());
 };
 
 /** The Core stored under key, or nothing when key names none. */
@@ -45,7 +44,7 @@ export const useSelectState = (key?: string): Core | undefined =>
 
 export const useGetState = (): ((key?: string) => Core | undefined) => {
   const store = useStore<StoreState>();
-  return useCallback((key?: string) => selectState(store.getState(), key), [store]);
+  return (key?: string) => selectState(store.getState(), key);
 };
 
 export const selectSelected = (state: StoreState): Core | undefined =>
@@ -102,5 +101,5 @@ export const useSelectIsAnySelected = (): boolean =>
 
 export const useGetIsAnySelected = (): (() => boolean) => {
   const store = useStore<StoreState>();
-  return useCallback(() => selectIsAnySelected(store.getState()), [store]);
+  return () => selectIsAnySelected(store.getState());
 };
