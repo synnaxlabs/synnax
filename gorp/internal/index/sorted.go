@@ -34,13 +34,13 @@ type Sorted[S Scope, K comparable, V cmp.Ordered] struct {
 	// binary search and a slice shift.
 	entries []entry[K, V]
 	reverse map[K]V
-	overlay overlay[S, K, V]
+	overlay overlay[S, *delta[K, V]]
 }
 
 // NewSorted returns an empty Sorted index that waits for its bulk load.
 func NewSorted[S Scope, K comparable, V cmp.Ordered]() *Sorted[S, K, V] {
 	s := &Sorted[S, K, V]{population: newPopulation(), reverse: make(map[K]V)}
-	s.overlay.flush = s.flush
+	s.overlay.create, s.overlay.flush = newDelta[K, V], s.flush
 	return s
 }
 
@@ -123,7 +123,7 @@ func (s *Sorted[S, K, V]) Get(scope S, values ...V) ([]K, error) {
 			committed = append(committed, s.entries[i].key)
 		}
 	}
-	return s.overlay.merge(scope, committed, values), nil
+	return mergeValues(&s.overlay, scope, committed, values), nil
 }
 
 // Walk returns up to limit committed keys in ascending value order, or in descending

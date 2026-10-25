@@ -27,7 +27,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -46,24 +45,20 @@ var _ = Describe("Migrations", func() {
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
 			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-			searchIdx := MustOpen(search.OpenIndex())
 			g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
-				Search:   searchIdx,
 			}))
 			labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    g,
-				Search:   searchIdx,
 			}))
 			stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 				Ontology: otg,
 				DB:       db,
 				Group:    g,
 				Label:    labelSvc,
-				Search:   searchIdx,
 			}))
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 				DB:           db,
@@ -71,7 +66,6 @@ var _ = Describe("Migrations", func() {
 				Group:        g,
 				HostProvider: mock.NewStaticHostProvider(1),
 				Status:       stat,
-				Search:       searchIdx,
 			}))
 
 			testRack := &rack.Rack{Name: "Migration Test Rack"}
@@ -122,7 +116,6 @@ var _ = Describe("Migrations", func() {
 				Group:    g,
 				Rack:     rackSvc,
 				Status:   stat,
-				Search:   searchIdx,
 				ImEx:     imex.NewService(),
 				Configs:  configs,
 			}))
@@ -169,24 +162,20 @@ var _ = Describe("Migrations", func() {
 			seedDB := gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec))
 			db := DeferClose(gorp.Wrap(kvDB))
 			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-			searchIdx := MustOpen(search.OpenIndex())
 			g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
-				Search:   searchIdx,
 			}))
 			labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    g,
-				Search:   searchIdx,
 			}))
 			stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 				Ontology: otg,
 				DB:       db,
 				Group:    g,
 				Label:    labelSvc,
-				Search:   searchIdx,
 			}))
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 				DB:           db,
@@ -194,7 +183,6 @@ var _ = Describe("Migrations", func() {
 				Group:        g,
 				HostProvider: mock.NewStaticHostProvider(1),
 				Status:       stat,
-				Search:       searchIdx,
 			}))
 			testRack := &rack.Rack{Name: "Decompose Test Rack"}
 			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
@@ -331,7 +319,6 @@ var _ = Describe("Migrations", func() {
 				Group:    g,
 				Rack:     rackSvc,
 				Status:   stat,
-				Search:   searchIdx,
 				ImEx:     imex.NewService(),
 				Configs:  configs,
 			}))

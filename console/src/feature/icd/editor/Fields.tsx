@@ -13,7 +13,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { deep, uuid } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { useNestedStatus } from "@/feature/icd/editor/useNestedStatus";
 
@@ -320,15 +320,12 @@ export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
   const fieldsPath = `${path}.fields`;
   const { set } = Form.useContext();
   const fields = Form.useFieldValue<Field[]>(fieldsPath);
+  const status = useNestedStatus(fieldsPath, (key) =>
+    fields.some((f) => encodingOf(f) === encoding && matchOwnField(key, fieldsPath, f)),
+  );
   const columns = COLUMNS[encoding] as Column<Field>[];
-  const own = useMemo(
-    () => fields.filter((f) => encodingOf(f) === encoding),
-    [fields, encoding],
-  );
-  const rows = useMemo(
-    () => own.map((f) => columns.map((c) => c.get(f))),
-    [own, columns],
-  );
+  const own = fields.filter((f) => encodingOf(f) === encoding);
+  const rows = own.map((f) => columns.map((c) => c.get(f)));
   const handleChange = (next: Input.TableCell[][]) =>
     set(
       fieldsPath,
@@ -341,11 +338,6 @@ export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
     );
   const createRow = () =>
     columns.map((c) => c.get(createField(encoding, uniqueFieldName(fields))));
-  const matchOwn = useCallback(
-    (key: string) => own.some((f) => matchOwnField(key, fieldsPath, f)),
-    [own, fieldsPath],
-  );
-  const status = useNestedStatus(fieldsPath, matchOwn);
   const failing = own.findIndex((f) => matchOwnField(status?.key, fieldsPath, f));
   let helpText = status?.message;
   if (failing !== -1) helpText = `Field ${failing + 1}: ${helpText}`;

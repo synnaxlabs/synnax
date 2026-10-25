@@ -11,7 +11,7 @@ import "@/mosaic/Mosaic.css";
 
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { useContext } from "@/mosaic/Frame";
 import { filterTabCreateHaulItems, filterTabDropHaulItems } from "@/mosaic/haul";
@@ -27,13 +27,10 @@ export const Shield = (): ReactElement | null => {
   const { onFileDrop } = useContext("Mosaic.Shield");
   const items = Haul.useDraggingState().items;
   const acceptsFiles = onFileDrop != null;
-  const active = useMemo(
-    () =>
-      filterTabDropHaulItems(items).length > 0 ||
-      filterTabCreateHaulItems(items).length > 0 ||
-      (acceptsFiles && Haul.filterByType(Haul.FILE_TYPE, items).length > 0),
-    [items, acceptsFiles],
-  );
+  const active =
+    filterTabDropHaulItems(items).length > 0 ||
+    filterTabCreateHaulItems(items).length > 0 ||
+    (acceptsFiles && Haul.filterByType(Haul.FILE_TYPE, items).length > 0);
   if (!active) return null;
   return <div className={CSS.BE("mosaic", "shield")} />;
 };

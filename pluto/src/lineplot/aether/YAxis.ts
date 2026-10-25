@@ -129,6 +129,10 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
     return this.lines.some((el) => el.loading);
   }
 
+  get fetching(): boolean {
+    return this.lines.some((el) => el.fetching);
+  }
+
   private dataBounds(xBounds: bounds.Bounds): bounds.Bounds[] {
     return this.visibleLines.map((el) => el.yBounds(xBounds));
   }

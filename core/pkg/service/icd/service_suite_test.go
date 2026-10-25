@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -131,24 +130,20 @@ var (
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.OpenIndex())
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Search:   searchIdx,
 		}))
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
-			Search:   searchIdx,
 		}))
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
 			Label:    labelSvc,
-			Search:   searchIdx,
 		}))
 		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,
@@ -157,7 +152,6 @@ var (
 			HostProvider:        mock.NewStaticHostProvider(1),
 			Status:              statusSvc,
 			HealthCheckInterval: 10 * telem.Millisecond,
-			Search:              searchIdx,
 		}))
 		stamper := icd.Stamper{DB: db, Ontology: otg}
 		store := MustOpen(taskconfig.OpenService(
@@ -205,7 +199,6 @@ var (
 			Group:    groupSvc,
 			Rack:     rackSvc,
 			Status:   statusSvc,
-			Search:   searchIdx,
 			ImEx:     imexSvc,
 			Configs:  configs,
 		}))
@@ -216,10 +209,8 @@ var (
 			Ontology: otg,
 			Task:     taskSvc,
 			Uses:     testUses,
-			Search:   searchIdx,
 			ImEx:     imexSvc,
 		}))
-		Expect(searchIdx.Initialize(ctx)).To(Succeed())
 	})
 	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 )

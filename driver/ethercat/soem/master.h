@@ -11,8 +11,11 @@
 
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <set>
 #include <span>
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "driver/ethercat/master/master.h"
@@ -35,6 +38,9 @@ class Master final : public master::Master {
     size_t output_sz;
     /// @brief cached PDO offsets computed at activation time.
     pdo::Offsets pdo_offsets;
+    /// @brief why each slave whose discovered layout disagrees with what SOEM mapped
+    /// has no offsets, keyed by position.
+    std::unordered_map<uint16_t, x::errors::Error> layout_errors;
     /// @brief cached slave information populated during initialization.
     std::vector<slave::DiscoveryResult> slave_list;
     /// @brief slave positions that are disabled (excluded from cyclic exchange).
@@ -47,6 +53,8 @@ class Master final : public master::Master {
     bool activated;
     /// @brief expected working counter value for cyclic exchange.
     int expected_wkc;
+    /// @brief whether the enabled slaves' frames carry the reference clock time.
+    bool has_dc = false;
 
 public:
     /// @brief constructs a SOEM master with injected API and interface name.
@@ -59,7 +67,7 @@ public:
 
     x::errors::Error initialize() override;
 
-    x::errors::Error register_pdos(const std::vector<pdo::Entry> &entries) override;
+    std::pair<size_t, x::errors::Error> count_slaves() override;
 
     void set_slave_enabled(uint16_t position, bool enabled) override;
 
@@ -75,13 +83,14 @@ public:
 
     std::span<uint8_t> output_data() override;
 
-    pdo::Offset pdo_offset(const pdo::Entry &entry) const override;
+    std::pair<pdo::Offset, x::errors::Error>
+    pdo_offset(const pdo::Entry &entry) const override;
 
     std::vector<slave::DiscoveryResult> slaves() const override;
 
-    slave::State slave_state(uint16_t position) const override;
+    std::vector<slave::Health> check(const x::breaker::Breaker &breaker) override;
 
-    bool all_slaves_operational() const override;
+    std::optional<x::telem::TimeStamp> dc_time() const override;
 
     std::string interface_name() const override;
 
@@ -109,6 +118,9 @@ private:
         slave::DiscoveryResult &slave
     );
 
+    /// @brief reads the name of a CoE object, or nullopt when the slave has none.
+    std::optional<std::string> read_object_name(uint16_t slave_pos, uint16_t index);
+
     /// @brief reads PDO mapping entries from a specific PDO.
     x::errors::Error read_pdo_mapping(
         uint16_t slave_pos,
@@ -132,6 +144,11 @@ private:
     /// @brief transitions all enabled slaves to OP while exchanging process data, so
     /// slaves with a sync manager watchdog see valid outputs.
     x::errors::Error request_operational();
+
+    /// @brief takes one recovery step for a slave that is not in OP, following the SOEM
+    /// ecatcheck sample: acknowledge an error, request OP, reconfigure, or restore a
+    /// slave that lost power.
+    void recover(uint16_t pos);
 
     /// @brief builds the error for enabled slaves that did not reach a state.
     x::errors::Error state_error(const std::vector<uint16_t> &failed, uint16_t state);

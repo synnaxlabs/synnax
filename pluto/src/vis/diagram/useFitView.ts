@@ -14,7 +14,7 @@ import {
   useReactFlow,
   useStoreApi,
 } from "@xyflow/react";
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 
 import { type diagram } from "@/vis/diagram/aether";
 import { selectNodesScreenBounds } from "@/vis/diagram/util";
@@ -27,33 +27,30 @@ import { selectNodesScreenBounds } from "@/vis/diagram/util";
 export const useFitView = (): ((options?: diagram.FitViewOptions) => void) => {
   const store = useStoreApi();
   const { screenToFlowPosition, setViewport } = useReactFlow();
-  return useCallback(
-    (options?: diagram.FitViewOptions) => {
-      const { domNode, width, height, minZoom, maxZoom } = store.getState();
-      if (domNode == null) return;
-      const screen = selectNodesScreenBounds(domNode);
-      if (screen == null) return;
-      const toFlow = (p: xy.XY) => screenToFlowPosition(p, { snapToGrid: false });
-      const min = toFlow(box.topLeft(screen));
-      const max = toFlow(box.bottomRight(screen));
-      const bounds = {
-        x: min.x,
-        y: min.y,
-        width: max.x - min.x,
-        height: max.y - min.y,
-      };
-      const viewport = getViewportForBounds(
-        bounds,
-        width,
-        height,
-        options?.minZoom ?? minZoom,
-        options?.maxZoom ?? maxZoom,
-        options?.padding ?? 0.1,
-      );
-      void setViewport(viewport, options);
-    },
-    [store, screenToFlowPosition, setViewport],
-  );
+  return (options?: diagram.FitViewOptions) => {
+    const { domNode, width, height, minZoom, maxZoom } = store.getState();
+    if (domNode == null) return;
+    const screen = selectNodesScreenBounds(domNode);
+    if (screen == null) return;
+    const toFlow = (p: xy.XY) => screenToFlowPosition(p, { snapToGrid: false });
+    const min = toFlow(box.topLeft(screen));
+    const max = toFlow(box.bottomRight(screen));
+    const bounds = {
+      x: min.x,
+      y: min.y,
+      width: max.x - min.x,
+      height: max.y - min.y,
+    };
+    const viewport = getViewportForBounds(
+      bounds,
+      width,
+      height,
+      options?.minZoom ?? minZoom,
+      options?.maxZoom ?? maxZoom,
+      options?.padding ?? 0.1,
+    );
+    void setViewport(viewport, options);
+  };
 };
 
 /**

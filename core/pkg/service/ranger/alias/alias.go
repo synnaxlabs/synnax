@@ -15,6 +15,7 @@ import (
 	"uuid"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
@@ -68,4 +69,10 @@ func newResource(a Alias) ontology.Resource {
 		a.Alias,
 		a,
 	)
+}
+
+func newSearchIndex() *gorp.SearchIndex[string, Alias] {
+	return gorp.NewSearchIndex("search", func(a *Alias) []string {
+		return []string{a.Alias}
+	})
 }

@@ -28,9 +28,7 @@ import {
   type FC,
   type ReactElement,
   type ReactNode,
-  useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -96,10 +94,7 @@ const TreeItem = ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
   const Item = useItems()[id.type] ?? DefaultItem;
   const { onDrop, subscribeLoading, getLoading, onDragStart, onDragEnd } =
     useContext("Tree.itemRenderProp");
-  const handleDragStart = useCallback(
-    () => onDragStart(itemKey),
-    [onDragStart, itemKey],
-  );
+  const handleDragStart = () => onDragStart(itemKey);
   const loading = useSyncExternalStore(
     subscribeLoading,
     () => getLoading() === itemKey,
@@ -114,20 +109,17 @@ const TreeItem = ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
   const onDropDrops = Haul.useDrop({
     type: Base.HAUL_TYPE,
     key: itemKey,
-    canDrop: useCallback(
-      ({ items: entities, source }) => {
-        const keys = entities.map((item) => item.key);
-        setDraggingOver(false);
-        if (source.type !== Base.HAUL_TYPE || keys.includes(itemKey)) return false;
-        return Access.updateGranted({
-          client,
-          id: Base.filterHaulItems(entities).map(({ key }) => ontology.idZ.parse(key)),
-        });
-      },
-      [itemKey, client],
-    ),
-    onDrop: useCallback((props) => onDrop(itemKey, props) ?? [], [onDrop, itemKey]),
-    onDragOver: useCallback(() => setDraggingOver(true), []),
+    canDrop: ({ items: entities, source }) => {
+      const keys = entities.map((item) => item.key);
+      setDraggingOver(false);
+      if (source.type !== Base.HAUL_TYPE || keys.includes(itemKey)) return false;
+      return Access.updateGranted({
+        client,
+        id: Base.filterHaulItems(entities).map(({ key }) => ontology.idZ.parse(key)),
+      });
+    },
+    onDrop: (props) => onDrop(itemKey, props) ?? [],
+    onDragOver: () => setDraggingOver(true),
   });
 
   // The virtualizer has already reserved this row's slot. Rendering nothing would
@@ -193,10 +185,7 @@ const toNodes = (
 
 const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const items = useItems();
-  const resolveItem = useCallback(
-    (type: ontology.ResourceType): Item => items[type] ?? DefaultItem,
-    [items],
-  );
+  const resolveItem = (type: ontology.ResourceType): Item => items[type] ?? DefaultItem;
   const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
   const loadingRef = useRef<string | false>(false);
   const handleError = Status.useErrorHandler();
@@ -219,127 +208,109 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   // inline rename) before the Core delivers the real resource.
   const placeholders = List.useMapData<string, ontology.Resource>();
 
-  const getResourceByKey = useCallback(
-    (key: string): ontology.Resource | undefined =>
-      client?.ontology.cache.resources.get(key) ?? placeholders.getItem(key),
-    [client, placeholders],
-  );
+  const getResourceByKey = (key: string): ontology.Resource | undefined =>
+    client?.ontology.cache.resources.get(key) ?? placeholders.getItem(key);
 
-  const subscribeResource = useCallback(
-    (handler: () => void, key: string): destructor.Destructor => {
-      const releasePlaceholder = placeholders.subscribe(handler, key);
-      const releaseCached = client?.ontology.cache.resources.subscribe(handler, key);
-      return () => {
-        releasePlaceholder();
-        releaseCached?.();
-      };
-    },
-    [client, placeholders],
-  );
+  const subscribeResource = (
+    handler: () => void,
+    key: string,
+  ): destructor.Destructor => {
+    const releasePlaceholder = placeholders.subscribe(handler, key);
+    const releaseCached = client?.ontology.cache.resources.subscribe(handler, key);
+    return () => {
+      releasePlaceholder();
+      releaseCached?.();
+    };
+  };
 
-  const applyAnswer = useCallback(
-    (parent: ontology.ID, resources: ontology.Resource[]) => {
-      const next = toNodes(resources, resolveItem);
-      const nextKeys = new Set(next.map(({ key }) => key));
-      // A placeholder stands in only until the Core delivers the real resource, which
-      // the answer carries.
-      const settled = ontology
-        .idToString(resources.map(({ id }) => id))
-        .filter(placeholders.hasItem);
-      if (settled.length > 0) placeholders.deleteItem(settled);
-      // The answer is the authority on its parent's membership. A node it omits
-      // survives only while a placeholder backs it, since an optimistic row the Core
-      // has not heard about yet cannot be in any answer.
-      const merge = (prevChildren: Base.Node<string>[]): Base.Node<string>[] => [
-        ...prevChildren.filter(
-          ({ key }) => !nextKeys.has(key) && placeholders.hasItem(key),
-        ),
-        ...keepLoadedChildren(prevChildren, next),
-      ];
-      if (ontology.idsEqual(parent, root)) {
-        setNodes(merge);
-        setAnswered(true);
-        return;
-      }
-      setNodes((prevNodes) => [
-        // The children subscription can outlive the parent's presence in the
-        // tree; a missing parent means the update is stale.
-        ...Base.updateNodeChildren({
-          tree: prevNodes,
-          parent: ontology.idToString(parent),
-          throwOnMissing: false,
-          updater: merge,
-        }),
-      ]);
-    },
-    [resolveItem, setNodes, root, placeholders],
-  );
+  const applyAnswer = (parent: ontology.ID, resources: ontology.Resource[]) => {
+    const next = toNodes(resources, resolveItem);
+    const nextKeys = new Set(next.map(({ key }) => key));
+    // A placeholder stands in only until the Core delivers the real resource, which
+    // the answer carries.
+    const settled = ontology
+      .idToString(resources.map(({ id }) => id))
+      .filter(placeholders.hasItem);
+    if (settled.length > 0) placeholders.deleteItem(settled);
+    // The answer is the authority on its parent's membership. A node it omits
+    // survives only while a placeholder backs it, since an optimistic row the Core
+    // has not heard about yet cannot be in any answer.
+    const merge = (prevChildren: Base.Node<string>[]): Base.Node<string>[] => [
+      ...prevChildren.filter(
+        ({ key }) => !nextKeys.has(key) && placeholders.hasItem(key),
+      ),
+      ...keepLoadedChildren(prevChildren, next),
+    ];
+    if (ontology.idsEqual(parent, root)) {
+      setNodes(merge);
+      setAnswered(true);
+      return;
+    }
+    setNodes((prevNodes) => [
+      // The children subscription can outlive the parent's presence in the
+      // tree; a missing parent means the update is stale.
+      ...Base.updateNodeChildren({
+        tree: prevNodes,
+        parent: ontology.idToString(parent),
+        throwOnMissing: false,
+        updater: merge,
+      }),
+    ]);
+  };
 
-  const subscribeLoading = useCallback(
-    (handler: () => void) => {
-      loadingListenersRef.current.add(handler);
-      return () => {
-        loadingListenersRef.current.delete(handler);
-      };
-    },
-    [loadingListenersRef],
-  );
+  const subscribeLoading = (handler: () => void) => {
+    loadingListenersRef.current.add(handler);
+    return () => {
+      loadingListenersRef.current.delete(handler);
+    };
+  };
 
-  const getLoading = useCallback(() => loadingRef.current, []);
+  const getLoading = () => loadingRef.current;
 
-  const setLoading = useCallback(
-    (key: string | false) => {
-      loadingRef.current = key;
-      loadingListenersRef.current.forEach((callback) => callback());
-    },
-    [loadingListenersRef],
-  );
+  const setLoading = (key: string | false) => {
+    loadingRef.current = key;
+    loadingListenersRef.current.forEach((callback) => callback());
+  };
 
   /** Live children subscriptions, keyed by the parent they answer for. */
   const watchedRef = useInitializerRef(() => new Map<string, destructor.Destructor>());
 
-  const watchChildren = useCallback(
-    async (parent: ontology.ID): Promise<void> => {
-      if (client == null) return;
-      const key = ontology.idToString(parent);
-      // An already-watched parent has nothing to wait for, and no fetch will come
-      // along to end the wait.
-      if (watchedRef.current.has(key)) {
-        if (loadingRef.current === key) setLoading(false);
-        return;
-      }
-      // Subscribe before fetching. A change landing between the two would
-      // otherwise reach neither the answer nor the tree.
-      watchedRef.current.set(
-        key,
-        client.ontology.children.onChange({ ids: parent }, (answer) => {
-          if (query.isLive(answer)) applyAnswer(parent, answer);
-        }),
-      );
-      // A retained answer paints before the fetch that reconfirms it.
-      const cached = client.ontology.children.getCached({ ids: parent });
-      if (query.isLive(cached)) applyAnswer(parent, cached);
-      try {
-        const resources = await client.ontology.children.retrieve({ ids: parent });
-        // A release during the fetch means the answer is no longer wanted.
-        if (watchedRef.current.has(key)) applyAnswer(parent, resources);
-      } catch (e) {
-        handleError(e, "Failed to retrieve resources");
-      }
+  const watchChildren = async (parent: ontology.ID): Promise<void> => {
+    if (client == null) return;
+    const key = ontology.idToString(parent);
+    // An already-watched parent has nothing to wait for, and no fetch will come
+    // along to end the wait.
+    if (watchedRef.current.has(key)) {
       if (loadingRef.current === key) setLoading(false);
-    },
-    [client, applyAnswer, handleError, setLoading, watchedRef],
-  );
+      return;
+    }
+    // Subscribe before fetching. A change landing between the two would
+    // otherwise reach neither the answer nor the tree.
+    watchedRef.current.set(
+      key,
+      client.ontology.children.onChange({ ids: parent }, (answer) => {
+        if (query.isLive(answer)) applyAnswer(parent, answer);
+      }),
+    );
+    // A retained answer paints before the fetch that reconfirms it.
+    const cached = client.ontology.children.getCached({ ids: parent });
+    if (query.isLive(cached)) applyAnswer(parent, cached);
+    try {
+      const resources = await client.ontology.children.retrieve({ ids: parent });
+      // A release during the fetch means the answer is no longer wanted.
+      if (watchedRef.current.has(key)) applyAnswer(parent, resources);
+    } catch (e) {
+      handleError(e, "Failed to retrieve resources");
+    }
+    if (loadingRef.current === key) setLoading(false);
+  };
 
-  const releaseChildren = useCallback(
-    (keys: string[]) => {
-      keys.forEach((key) => {
-        watchedRef.current.get(key)?.();
-        watchedRef.current.delete(key);
-      });
-    },
-    [watchedRef],
-  );
+  const releaseChildren = (keys: string[]) => {
+    keys.forEach((key) => {
+      watchedRef.current.get(key)?.();
+      watchedRef.current.delete(key);
+    });
+  };
 
   useEffect(() => {
     void watchChildren(root);
@@ -355,62 +326,50 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     });
   }, [nodes, setSelected]);
 
-  const handleExpand = useCallback(
-    ({ action, clicked }: Base.HandleExpandProps) => {
-      if (action === "contract") {
-        // A hidden subtree needs no maintenance. Its answers stay cached, so a
-        // re-expand paints from them.
-        const node = Base.findNode({ tree: nodesRef.current, key: clicked });
-        if (node != null)
-          releaseChildren(Base.getDescendants(node).map(({ key }) => key));
-        return;
-      }
-      setLoading(clicked);
-      void watchChildren(ontology.parseID(clicked));
-    },
-    [watchChildren, releaseChildren, setLoading, nodesRef],
+  const handleExpand = ({ action, clicked }: Base.HandleExpandProps) => {
+    if (action === "contract") {
+      // A hidden subtree needs no maintenance. Its answers stay cached, so a
+      // re-expand paints from them.
+      const node = Base.findNode({ tree: nodesRef.current, key: clicked });
+      if (node != null)
+        releaseChildren(Base.getDescendants(node).map(({ key }) => key));
+      return;
+    }
+    setLoading(clicked);
+    void watchChildren(ontology.parseID(clicked));
+  };
+
+  const getResource = ((id: ontology.ID | ontology.ID[] | string | string[]) => {
+    const isSingle = !Array.isArray(id);
+    const ids = array.toArray(id);
+    const resources = ontology
+      .idToString(ids)
+      .map(getResourceByKey)
+      .filter((r) => r != null);
+    if (isSingle) {
+      if (resources[0] == null)
+        throw new NotFoundError(`Resource ${ontology.idToString(id)} not found`);
+      return resources[0];
+    }
+
+    return resources;
+  }) as GetResource;
+
+  const getItem = List.createGetItem<string, ontology.Resource>(
+    getResourceByKey,
+    (keys) => keys.map(getResourceByKey).filter((r) => r != null),
   );
 
-  const getResource = useCallback(
-    (id: ontology.ID | ontology.ID[] | string | string[]) => {
-      const isSingle = !Array.isArray(id);
-      const ids = array.toArray(id);
-      const resources = ontology
-        .idToString(ids)
-        .map(getResourceByKey)
-        .filter((r) => r != null);
-      if (isSingle) {
-        if (resources[0] == null)
-          throw new NotFoundError(`Resource ${ontology.idToString(id)} not found`);
-        return resources[0];
-      }
-
-      return resources;
-    },
-    [getResourceByKey],
-  ) as GetResource;
-
-  const getItem = useMemo(
-    () =>
-      List.createGetItem<string, ontology.Resource>(getResourceByKey, (keys) =>
-        keys.map(getResourceByKey).filter((r) => r != null),
-      ),
-    [getResourceByKey],
-  );
-
-  const sort = useCallback(
-    (a: Base.Node<string>, b: Base.Node<string>) => {
-      const aResource = getResourceByKey(a.key);
-      const bResource = getResourceByKey(b.key);
-      if (aResource == null && bResource == null) return 0;
-      if (aResource == null) return 1;
-      if (bResource == null) return -1;
-      if (aResource.id.type === "group" && bResource.id.type !== "group") return -1;
-      if (aResource.id.type !== "group" && bResource.id.type === "group") return 1;
-      return aResource.name.localeCompare(bResource.name);
-    },
-    [getResourceByKey],
-  );
+  const sort = (a: Base.Node<string>, b: Base.Node<string>) => {
+    const aResource = getResourceByKey(a.key);
+    const bResource = getResourceByKey(b.key);
+    if (aResource == null && bResource == null) return 0;
+    if (aResource == null) return 1;
+    if (bResource == null) return -1;
+    if (aResource.id.type === "group" && bResource.id.type !== "group") return -1;
+    if (aResource.id.type !== "group" && bResource.id.type === "group") return 1;
+    return aResource.name.localeCompare(bResource.name);
+  };
 
   const treeProps = Base.use({
     nodes,
@@ -422,10 +381,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const { shape, expand, contract } = treeProps;
   // A placeholder's row stays mounted, so its rename can start out of view. Focusing
   // the editable then scrolls the row into view.
-  const pinned = useMemo(
-    () => shape.keys.filter(placeholders.hasItem),
-    [shape.keys, placeholders],
-  );
+  const pinned = shape.keys.filter(placeholders.hasItem);
 
   const state: TreeState = {
     nodes,
@@ -445,144 +401,129 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
 
   const { update: moveChildren } = Ontology.useMoveChildren({});
 
-  const getBaseProps = useCallback(
-    (client: Client): BaseProps => ({
-      client,
-      store,
-      openTab,
-      addStatus,
-      handleError,
-    }),
-    [store, openTab, addStatus, handleError],
-  );
+  const getBaseProps = (client: Client): BaseProps => ({
+    client,
+    store,
+    openTab,
+    addStatus,
+    handleError,
+  });
 
-  const handleDrop = useCallback(
-    (key: string, { source, items }: Haul.OnDropProps): Haul.Item[] => {
-      const nodesSnapshot = nodesRef.current;
-      const dropped = Base.filterHaulItems(items);
-      const isValidDrop = dropped.length > 0 && source.type === Base.HAUL_TYPE;
-      if (!isValidDrop) return [];
-      const destination = ontology.parseID(key);
-      const svc = resolveItem(destination.type);
-      if (!svc.canDrop({ source, items })) return [];
+  const handleDrop = (
+    key: string,
+    { source, items }: Haul.OnDropProps,
+  ): Haul.Item[] => {
+    const nodesSnapshot = nodesRef.current;
+    const dropped = Base.filterHaulItems(items);
+    const isValidDrop = dropped.length > 0 && source.type === Base.HAUL_TYPE;
+    if (!isValidDrop) return [];
+    const destination = ontology.parseID(key);
+    const svc = resolveItem(destination.type);
+    if (!svc.canDrop({ source, items })) return [];
 
-      // An item inside another dragged item travels with it. Moving it explicitly
-      // would re-parent it onto the destination as a sibling of its own parent.
-      const droppedKeys = dropped.map(({ key }) => key);
-      const contained = findContainedKeys(nodesSnapshot, droppedKeys);
-      const moved = dropped.filter(({ key }) => !contained.has(key));
-      if (moved.length === 0) return [];
+    // An item inside another dragged item travels with it. Moving it explicitly
+    // would re-parent it onto the destination as a sibling of its own parent.
+    const droppedKeys = dropped.map(({ key }) => key);
+    const contained = findContainedKeys(nodesSnapshot, droppedKeys);
+    const moved = dropped.filter(({ key }) => !contained.has(key));
+    if (moved.length === 0) return [];
 
-      // Each item leaves its own parent: a selection can span several.
-      const bySource = new Map<string, ontology.ID[]>();
-      moved.forEach(({ key }) => {
-        const parent = Base.findNodeParent({ tree: nodesSnapshot, key });
-        const sourceKey = parent?.key ?? ontology.idToString(root);
-        const ids = bySource.get(sourceKey) ?? [];
-        ids.push(ontology.parseID(key));
-        bySource.set(sourceKey, ids);
-      });
-      contract(...moved.map(({ key }) => key));
-      bySource.forEach((ids, sourceKey) =>
-        moveChildren({
-          source: ontology.parseID(sourceKey),
-          destination,
-          ids,
-        }),
-      );
-      return moved;
-    },
-    [nodesRef, resolveItem, contract, root, moveChildren],
-  );
+    // Each item leaves its own parent: a selection can span several.
+    const bySource = new Map<string, ontology.ID[]>();
+    moved.forEach(({ key }) => {
+      const parent = Base.findNodeParent({ tree: nodesSnapshot, key });
+      const sourceKey = parent?.key ?? ontology.idToString(root);
+      const ids = bySource.get(sourceKey) ?? [];
+      ids.push(ontology.parseID(key));
+      bySource.set(sourceKey, ids);
+    });
+    contract(...moved.map(({ key }) => key));
+    bySource.forEach((ids, sourceKey) =>
+      moveChildren({
+        source: ontology.parseID(sourceKey),
+        destination,
+        ids,
+      }),
+    );
+    return moved;
+  };
 
   const { startDrag, onDragEnd } = Haul.useDrag({ type: Base.HAUL_TYPE });
 
-  const handleDragStart = useCallback(
-    (itemKey: string) => {
-      if (selectedRef.current.includes(itemKey)) {
-        const selectedHaulItems = getResource(selectedRef.current).flatMap((res) => {
-          const items: Haul.Item[] = [Base.createHaulItem(ontology.idToString(res.id))];
-          const svcItems = resolveItem(res.id.type).haulItems(res);
-          if (svcItems != null) items.push(...svcItems);
-          return items;
-        });
-        return startDrag(selectedHaulItems);
-      }
-      const haulItems = resolveItem(ontology.parseID(itemKey).type).haulItems(
-        getResource(itemKey),
-      );
-      startDrag([Base.createHaulItem(itemKey), ...haulItems]);
-    },
-    [getResource, selectedRef, resolveItem, startDrag],
-  );
+  const handleDragStart = (itemKey: string) => {
+    if (selectedRef.current.includes(itemKey)) {
+      const selectedHaulItems = getResource(selectedRef.current).flatMap((res) => {
+        const items: Haul.Item[] = [Base.createHaulItem(ontology.idToString(res.id))];
+        const svcItems = resolveItem(res.id.type).haulItems(res);
+        if (svcItems != null) items.push(...svcItems);
+        return items;
+      });
+      return startDrag(selectedHaulItems);
+    }
+    const haulItems = resolveItem(ontology.parseID(itemKey).type).haulItems(
+      getResource(itemKey),
+    );
+    startDrag([Base.createHaulItem(itemKey), ...haulItems]);
+  };
 
-  const renderContextMenu = useCallback(
-    ({ keys }: Menu.ContextMenuMenuProps) => {
-      if (client == null) return <FallbackContextMenu />;
-      if (keys.length === 0) return <DefaultContextMenu root={root} state={state} />;
-      const rightClickedButNotSelected = keys.find((v) => !selected.includes(v));
-      // In the case where we right clicked the menu, but it's not in the current
-      // selection, we only display a context menu for that item.
-      if (rightClickedButNotSelected != null) keys = [rightClickedButNotSelected];
-      // Because we're using a virtualized tree, the keys from the context menu
-      // might not actually be accurate (because we're missing DOM elements), so instead
-      // we pull directly from the list selected state.
-      else keys = selected;
+  const renderContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
+    if (client == null) return <FallbackContextMenu />;
+    if (keys.length === 0) return <DefaultContextMenu root={root} state={state} />;
+    const rightClickedButNotSelected = keys.find((v) => !selected.includes(v));
+    // In the case where we right clicked the menu, but it's not in the current
+    // selection, we only display a context menu for that item.
+    if (rightClickedButNotSelected != null) keys = [rightClickedButNotSelected];
+    // Because we're using a virtualized tree, the keys from the context menu
+    // might not actually be accurate (because we're missing DOM elements), so instead
+    // we pull directly from the list selected state.
+    else keys = selected;
 
-      const ids = keys.map((key) => ontology.parseID(key));
+    const ids = keys.map((key) => ontology.parseID(key));
 
-      // We want to find the parent of the node with the lowest depth, since we
-      // might be selecting nodes AND their children.
-      const [shallowest] = keys.toSorted(Base.compareDepth(shape));
-      // TODO: we might be selecting two nodes that are not ascendants or descendants of
-      // the other ones. We need to change this function to implement recursion.
-      const parent = Base.findNodeParent({ tree: nodes, key: shallowest });
+    // We want to find the parent of the node with the lowest depth, since we
+    // might be selecting nodes AND their children.
+    const [shallowest] = keys.toSorted(Base.compareDepth(shape));
+    // TODO: we might be selecting two nodes that are not ascendants or descendants of
+    // the other ones. We need to change this function to implement recursion.
+    const parent = Base.findNodeParent({ tree: nodes, key: shallowest });
 
-      const parentID = parent == null ? root : ontology.parseID(parent.key);
+    const parentID = parent == null ? root : ontology.parseID(parent.key);
 
-      const firstID = ontology.parseID(shallowest);
+    const firstID = ontology.parseID(shallowest);
 
-      const props: ContextMenuProps = {
-        selection: {
-          rootID: root,
-          parentID,
-          ids,
-        },
-        state,
-        ...getBaseProps(client),
-      };
+    const props: ContextMenuProps = {
+      selection: {
+        rootID: root,
+        parentID,
+        ids,
+      },
+      state,
+      ...getBaseProps(client),
+    };
 
-      const allSameType = ids.every((id) => id.type === firstID.type);
-      const M = allSameType
-        ? resolveItem(firstID.type).ContextMenu
-        : MultipleSelectionContextMenu;
-      return M == null ? (
-        <FallbackContextMenu />
-      ) : (
-        <SelectionContextMenu menu={M} {...props} />
-      );
-    },
-    [client, root, state, selected, nodes, shape, getBaseProps, resolveItem],
-  );
-  const handleContextMenu = useCallback(
-    (props: Menu.ContextMenuMenuProps) => (
-      <Errors.SuspenseBoundary loading={null}>
-        {renderContextMenu(props)}
-      </Errors.SuspenseBoundary>
-    ),
-    [renderContextMenu],
+    const allSameType = ids.every((id) => id.type === firstID.type);
+    const M = allSameType
+      ? resolveItem(firstID.type).ContextMenu
+      : MultipleSelectionContextMenu;
+    return M == null ? (
+      <FallbackContextMenu />
+    ) : (
+      <SelectionContextMenu menu={M} {...props} />
+    );
+  };
+  const handleContextMenu = (props: Menu.ContextMenuMenuProps) => (
+    <Errors.SuspenseBoundary loading={null}>
+      {renderContextMenu(props)}
+    </Errors.SuspenseBoundary>
   );
   const menuProps = Menu.useContextMenu();
-  const contextValue = useMemo(
-    () => ({
-      onDrop: handleDrop,
-      subscribeLoading,
-      getLoading,
-      onDragStart: handleDragStart,
-      onDragEnd,
-    }),
-    [handleDrop, handleDragStart, subscribeLoading, getLoading, onDragEnd],
-  );
+  const contextValue = {
+    onDrop: handleDrop,
+    subscribeLoading,
+    getLoading,
+    onDragStart: handleDragStart,
+    onDragEnd,
+  };
 
   return (
     <Context value={contextValue}>

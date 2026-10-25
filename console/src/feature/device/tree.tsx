@@ -16,7 +16,6 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Access, Device } from "@synnaxlabs/pluto";
-import { useMemo } from "react";
 
 import { getContextMenuItems, getIcon, getMake } from "@/feature/device/make";
 import { ContextMenu } from "@/platform/context-menu";
@@ -43,7 +42,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
     selection: { ids, rootID },
     state,
   } = props;
-  const ontologyIDs = useMemo(() => ids.map((id) => device.ontologyID(id.key)), [ids]);
+  const ontologyIDs = ids.map((id) => device.ontologyID(id.key));
   const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
   const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
   const singleResource = ids.length === 1;

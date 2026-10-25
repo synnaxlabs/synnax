@@ -278,14 +278,10 @@ describe("restoreWindows", () => {
     const next = restoreWindows(
       sliceState({ [MAIN_WINDOW]: reserved(MAIN_WINDOW) }),
       sliceState({
-        incoming: reserved("new", { focusCount: 3, centerCount: 2, processCount: 1 }),
+        incoming: reserved("new", { focusCount: 3, centerCount: 2 }),
       }),
     );
-    expect(next.windows.incoming).toMatchObject({
-      focusCount: 0,
-      centerCount: 0,
-      processCount: 0,
-    });
+    expect(next.windows.incoming).toMatchObject({ focusCount: 0, centerCount: 0 });
   });
 
   it("should drop how a restored window looked when its process ended", () => {

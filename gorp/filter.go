@@ -11,8 +11,10 @@ package gorp
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/gorp/internal/keyset"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // Filter is a composable query filter applied to entries during a
@@ -110,32 +112,7 @@ func MatchKeys[K Key, E Entry[K]](keys ...K) Filter[K, E] {
 // no-decode skip.
 func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 	var f Filter[K, E]
-
-	hasAnyEval := false
-	for _, child := range filters {
-		if child.eval != nil {
-			hasAnyEval = true
-			break
-		}
-	}
-	if hasAnyEval {
-		f.eval = func(ctx Context, e *E, key, value []byte) (bool, error) {
-			entryKey := (*e).GorpKey()
-			for _, child := range filters {
-				if !child.keys.Contains(entryKey) {
-					return false, nil
-				}
-				if child.eval == nil {
-					continue
-				}
-				ok, err := child.eval(ctx, e, key, value)
-				if err != nil || !ok {
-					return false, err
-				}
-			}
-			return true, nil
-		}
-	}
+	f.eval = andEval(filters)
 
 	var firstRaw func(key, value []byte) (bool, error)
 	rawCount := 0
@@ -177,12 +154,36 @@ func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 			}
 			return resolved[K, E]{
 				keys: keyset.Intersect(filterKeys(materialized)...),
+				eval: andEval(materialized),
 			}, nil
 		}
 		return f
 	}
 	f.keys = keyset.Intersect(filterKeys(filters)...)
 	return f
+}
+
+// andEval returns the eval closure used by And composition, or nil when no child has
+// an eval. It does not check the keys of each child, because the keys of the And are
+// their intersection.
+func andEval[K Key, E Entry[K]](filters []Filter[K, E]) evalFunc[K, E] {
+	if !slices.ContainsFunc(
+		filters,
+		func(f Filter[K, E]) bool { return f.eval != nil },
+	) {
+		return nil
+	}
+	return func(ctx Context, e *E, key, value []byte) (bool, error) {
+		for _, child := range filters {
+			if child.eval == nil {
+				continue
+			}
+			if ok, err := child.eval(ctx, e, key, value); err != nil || !ok {
+				return false, err
+			}
+		}
+		return true, nil
+	}
 }
 
 // Or returns a filter that matches when ANY child matches.
@@ -203,19 +204,8 @@ func Or[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 	var f Filter[K, E]
 
 	if anyHasResolver(filters) {
-		// Resolver path: materialize the children fresh per Exec so
-		// concurrent Execs never share mutable child state. The
-		// resolver also produces the per-Exec eval closure, which
-		// overrides this construction-time fallback on the happy path.
-		// The fallback survives when resolveFilter swallows
-		// ErrIndexInvalid: keys get cleared but the eval stays
-		// installed so the sequential-scan path still applies each
-		// child's predicate. Closing over the unmaterialized children
-		// is safe here because evalChild skips the keys check when
-		// keys is unbounded and dispatches to each child's
-		// scan-fallback eval (set by LookupIndex.Filter /
-		// SortedIndex.Filter).
-		f.eval = orEval(filters)
+		// Materialize the children fresh per Exec so concurrent Execs never share
+		// mutable child state.
 		f.resolve = func(ctx context.Context, tx Tx) (resolved[K, E], error) {
 			materialized, err := materializeFilters(ctx, tx, filters)
 			if err != nil {
@@ -396,6 +386,9 @@ func anyHasResolver[K Key, E Entry[K]](filters []Filter[K, E]) bool {
 // mutated. Resolver-returned eval overrides are installed on the copy
 // so Or / Not's per-call eval closures see the right predicate for
 // each child.
+//
+// A child whose index failed to populate is copied through unchanged, so its
+// scan-fallback eval applies while its siblings keep their resolved keys.
 func materializeFilters[K Key, E Entry[K]](
 	ctx context.Context,
 	tx Tx,
@@ -408,6 +401,10 @@ func materializeFilters[K Key, E Entry[K]](
 			continue
 		}
 		res, err := child.resolve(ctx, tx)
+		if errors.Is(err, ErrIndexInvalid) {
+			out[i] = child
+			continue
+		}
 		if err != nil {
 			return nil, err
 		}

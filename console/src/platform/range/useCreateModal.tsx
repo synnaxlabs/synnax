@@ -19,7 +19,7 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Ranger, Synnax } from "@synnaxlabs/pluto";
 import { type NumericTimeRange, TimeRange, uuid } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useState } from "react";
 import { type z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
@@ -97,7 +97,7 @@ const Create = ({
     },
   });
 
-  const saveLocal = useCallback(() => {
+  const saveLocal = () => {
     if (!form.validate()) return;
     const { name, key, timeRange } = form.value();
     if (key == null) return;
@@ -110,13 +110,10 @@ const Create = ({
       }),
     );
     close();
-  }, [form, dispatch, close]);
+  };
 
   // Makes sure the user doesn't have the option to select the range itself as a parent
-  const recursiveParentFilter = useCallback(
-    (data: ranger.Payload) => data.key !== rangeKey,
-    [rangeKey],
-  );
+  const recursiveParentFilter = (data: ranger.Payload) => data.key !== rangeKey;
 
   const saveName = "Save to Core";
 

@@ -15,7 +15,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Access, LinePlot, Panel as PlutoPanel } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { Annotations } from "@/feature/lineplot/toolbar/Annotations";
 import { Axes } from "@/feature/lineplot/toolbar/Axes";
@@ -36,17 +36,14 @@ const Internal = (): ReactElement => {
   const dispatch = Session.useDispatch();
   const activeTab = Session.LinePlot.useSelectActiveToolbarTab();
   const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(key));
-  const handleTabSelect = useCallback(
-    (tabKey: string): void => {
-      dispatch(
-        Session.LinePlot.setActiveToolbarTab({
-          key,
-          tab: tabKey as Session.LinePlot.ToolbarTab,
-        }),
-      );
-    },
-    [dispatch, key],
-  );
+  const handleTabSelect = (tabKey: string): void => {
+    dispatch(
+      Session.LinePlot.setActiveToolbarTab({
+        key,
+        tab: tabKey as Session.LinePlot.ToolbarTab,
+      }),
+    );
+  };
   const downloadAsCSV = useDownloadPlotAsCSV(key);
   return (
     <Base.Content className={CSS.B("line-plot-toolbar")}>

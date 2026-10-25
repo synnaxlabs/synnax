@@ -15,14 +15,12 @@ import (
 	apiontology "github.com/synnaxlabs/synnax/pkg/api/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 )
 
 var _ = Describe("ServiceConfig", func() {
 	full := func() apiontology.ServiceConfig {
 		return apiontology.ServiceConfig{
 			Ontology: &ontology.Ontology{},
-			Search:   &search.Index{},
 			RBAC:     &rbac.Service{},
 		}
 	}
@@ -45,11 +43,6 @@ var _ = Describe("ServiceConfig", func() {
 				"ontology: must be non-nil",
 			),
 			Entry(
-				"search",
-				func(c *apiontology.ServiceConfig) { c.Search = nil },
-				"search: must be non-nil",
-			),
-			Entry(
 				"rbac",
 				func(c *apiontology.ServiceConfig) { c.RBAC = nil },
 				"rbac: must be non-nil",
@@ -62,7 +55,6 @@ var _ = Describe("ServiceConfig", func() {
 			cfg := full()
 			merged := apiontology.ServiceConfig{}.Override(cfg)
 			Expect(merged.Ontology).To(BeIdenticalTo(cfg.Ontology))
-			Expect(merged.Search).To(BeIdenticalTo(cfg.Search))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 		})
 
@@ -70,7 +62,6 @@ var _ = Describe("ServiceConfig", func() {
 			cfg := full()
 			merged := cfg.Override(apiontology.ServiceConfig{})
 			Expect(merged.Ontology).To(BeIdenticalTo(cfg.Ontology))
-			Expect(merged.Search).To(BeIdenticalTo(cfg.Search))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 		})
 	})

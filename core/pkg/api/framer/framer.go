@@ -153,9 +153,11 @@ func (s *Service) Delete(
 
 // ReadRequest requests every sample in Bounds for the given channels.
 type ReadRequest struct {
-	Keys             channel.Keys    `json:"keys"              msgpack:"keys"`
-	Bounds           telem.TimeRange `json:"bounds"            msgpack:"bounds"`
-	DownsampleFactor uint32          `json:"downsample_factor" msgpack:"downsample_factor"`
+	Keys   channel.Keys    `json:"keys"   msgpack:"keys"`
+	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds"`
+	// Reduction reduces the samples of each channel. A read without one keeps every
+	// sample.
+	Reduction telem.Reduction `json:"reduction" msgpack:"reduction"`
 	// TimestampsIncluded also reads the index channels that timestamp Keys, when Keys
 	// leaves them out. A CSV read fails without it unless Keys holds every index.
 	TimestampsIncluded bool `json:"timestamps_included" msgpack:"timestamps_included"`
@@ -170,11 +172,10 @@ type ReadResponse struct {
 	// requested channels, excluding any the caller already requested. It is empty
 	// unless the request set TimestampsIncluded.
 	Indexes []channel.Channel
-	// DownsampleFactor is the request's downsample factor. Sample i of a series sits at
-	// the series' alignment plus i times the factor. Values below 2 keep every sample.
-	DownsampleFactor uint32
-	// OpenIterator opens an iterator over keys within the read's bounds and at its
-	// downsample factor. The caller must close it.
+	// Reduction is the request's reduction.
+	Reduction telem.Reduction
+	// OpenIterator opens an iterator over keys within the read's bounds and under its
+	// reduction. The caller must close it.
 	OpenIterator func(ctx context.Context, keys channel.Keys) (*framer.Iterator, error)
 }
 
@@ -208,17 +209,17 @@ func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, erro
 		}
 	}
 	return ReadResponse{
-		Channels:         channels,
-		Indexes:          indexes,
-		DownsampleFactor: req.DownsampleFactor,
+		Channels:  channels,
+		Indexes:   indexes,
+		Reduction: req.Reduction,
 		OpenIterator: func(
 			ctx context.Context,
 			keys channel.Keys,
 		) (*framer.Iterator, error) {
 			return s.internal.OpenIterator(ctx, framer.IteratorConfig{
-				Keys:             keys,
-				Bounds:           req.Bounds,
-				DownsampleFactor: req.DownsampleFactor,
+				Keys:      keys,
+				Bounds:    req.Bounds,
+				Reduction: req.Reduction,
 			})
 		},
 	}, nil
@@ -330,7 +331,7 @@ func (s *Service) Iterate(ctx context.Context, stream IteratorStream) error {
 		iteratorRequestBufferSize,
 	)
 
-	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())
 	return sCtx.Wait()
 }
 
@@ -350,10 +351,10 @@ func (s *Service) openIterator(
 		return nil, err
 	}
 	iter, err := s.internal.NewStreamIterator(ctx, framer.IteratorConfig{
-		Bounds:           req.Bounds,
-		Keys:             req.Keys,
-		ChunkSize:        req.ChunkSize,
-		DownsampleFactor: req.DownsampleFactor,
+		Bounds:    req.Bounds,
+		Keys:      req.Keys,
+		ChunkSize: req.ChunkSize,
+		Reduction: req.Reduction,
 	})
 	if err != nil {
 		return nil, err

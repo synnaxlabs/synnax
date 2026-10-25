@@ -10,7 +10,6 @@
 import { type ranger } from "@synnaxlabs/client";
 import { Ranger } from "@synnaxlabs/pluto";
 import { type NumericTimeRange } from "@synnaxlabs/x";
-import { useMemo } from "react";
 
 import { Session } from "@/session";
 
@@ -45,18 +44,14 @@ const fold = (
  */
 export const useResolveMultiple = (keys?: string[]): Resolved[] => {
   const entries = Session.Range.useSelectMultiple(keys);
-  const persisted = useMemo(
-    () =>
-      entries.filter(({ variant }) => variant === "persisted").map(({ key }) => key),
-    [entries],
-  );
+  const persisted = entries
+    .filter(({ variant }) => variant === "persisted")
+    .map(({ key }) => key);
   const { data } = Ranger.useResultMultiple(
     persisted.length === 0 ? null : { keys: persisted },
   );
-  return useMemo(() => {
-    const found = new Map((data ?? []).map((range) => [range.key, range]));
-    return entries.map((entry) => fold(entry, found)).filter((entry) => entry != null);
-  }, [entries, data]);
+  const found = new Map((data ?? []).map((range) => [range.key, range]));
+  return entries.map((entry) => fold(entry, found)).filter((entry) => entry != null);
 };
 
 /**
@@ -68,9 +63,7 @@ export const useResolve = (key?: string): Resolved | undefined => {
   const { data } = Ranger.useResult(
     entry?.variant === "persisted" ? { key: entry.key } : null,
   );
-  return useMemo(() => {
-    if (entry == null) return undefined;
-    const found = new Map(data == null ? [] : [[data.key, data] as const]);
-    return fold(entry, found);
-  }, [entry, data]);
+  if (entry == null) return undefined;
+  const found = new Map(data == null ? [] : [[data.key, data] as const]);
+  return fold(entry, found);
 };

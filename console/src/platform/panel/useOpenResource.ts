@@ -8,14 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology } from "@synnaxlabs/client";
-import { useCallback } from "react";
 
 import { useOpenTab } from "@/platform/panel/useOpenTab";
 
 export const useOpenResource = (): ((resource: ontology.Resource) => void) => {
   const openTab = useOpenTab();
-  return useCallback(
-    ({ id }: ontology.Resource) => openTab({ variant: "resource", resource: id }),
-    [openTab],
-  );
+  return ({ id }: ontology.Resource) => openTab({ variant: "resource", resource: id });
 };

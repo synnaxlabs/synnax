@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { Toolbars } from "@/app/toolbars";
 import { Nav } from "@/platform/nav";
@@ -16,18 +16,10 @@ import { Session } from "@/session";
 export const Bottom = (): ReactElement | null => {
   const { visible, hover, size } = Session.Nav.useSelectBottom();
   const dispatch = Session.useDispatch();
-  const handleResizeEnd = useCallback(
-    (size: number) => dispatch(Session.Nav.resizeBottom({ size })),
-    [dispatch],
-  );
-  const handleCollapse = useCallback(
-    () => dispatch(Session.Nav.collapseBottom({})),
-    [dispatch],
-  );
-  const handleStopHover = useCallback(
-    () => dispatch(Session.Nav.stopBottomHover({})),
-    [dispatch],
-  );
+  const handleResizeEnd = (size: number) =>
+    dispatch(Session.Nav.resizeBottom({ size }));
+  const handleCollapse = () => dispatch(Session.Nav.collapseBottom({}));
+  const handleStopHover = () => dispatch(Session.Nav.stopBottomHover({}));
   const { initialSize = Toolbars.DEFAULT_SIZE, sizeBounds, content } = Toolbars.BOTTOM;
   return (
     <Nav.Drawer

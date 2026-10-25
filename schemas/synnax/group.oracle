@@ -23,6 +23,7 @@ Group struct {
     name string {
         @doc value         "is a human-readable name for the group."
         @filter
+        @search
         @validate required
     }
 

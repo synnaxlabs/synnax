@@ -148,9 +148,20 @@ errors.
   key, so move `[CSS.variable("x", "y")]` to a module constant.
 - Never give a parameter a JSX default (`icon = <Icon.Close />`). Put the element in a
   module constant.
+- Never write `useMemo` or `useCallback`. Lint bans them in each package that the
+  compiler builds. The compiler caches each value and function on its inputs. A function
+  named like a hook, and a `memo` or `forwardRef` component, compiles even when it calls
+  no hook.
+- The compiler reads a call it cannot see into, such as a library method or a plain
+  helper, as a change to the values it receives. When a hook comes between the code that
+  makes a value and such a call, the compiler drops the value's cache. Call hooks first,
+  and put that call next to the code that makes the value. When the call must come after
+  a hook, as with a Fuse index searched later, keep a `useMemo` with a one-line reason
+  and disable `no-restricted-syntax` on it.
 - Use the `"use no memo"` directive only for an incompatible library, a fixed hook list,
-  or a memo hook that keeps its own cache, with a one-line reason. The lint rule still
-  checks the function, so disable `synnax/react-compiler` on each flagged line.
+  or a memo hook that keeps its own cache, with a one-line reason. The lint rules still
+  check the function, so disable `synnax/react-compiler` on each flagged line and
+  `no-restricted-syntax` on each memo.
 
 ## Testing (Vitest — never Jest)
 

@@ -11,7 +11,7 @@ import { type icd } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { ICD } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useSyncExternalStore } from "react";
+import { type ReactElement, useSyncExternalStore } from "react";
 
 const PATH = "config.icd";
 
@@ -24,19 +24,15 @@ export const SelectICD = (): ReactElement => {
   const value = Form.useFieldValue<icd.Key>(PATH, { optional: true });
   // A form keeps no field state for an absent value, so the status that configure sets
   // on a missing ICD is only in the form's statuses.
-  const status = useSyncExternalStore(
-    bind,
-    useCallback(() => getStatuses().find((s) => s.key === PATH), [getStatuses]),
+  const status = useSyncExternalStore(bind, () =>
+    getStatuses().find((s) => s.key === PATH),
   );
   const preview = mode === "preview";
-  const handleChange = useCallback(
-    (next: icd.Key | null) => {
-      if (next === value) return;
-      set(PATH, next ?? undefined);
-      set("config.messages", []);
-    },
-    [set, value],
-  );
+  const handleChange = (next: icd.Key | null) => {
+    if (next === value) return;
+    set(PATH, next ?? undefined);
+    set("config.messages", []);
+  };
   return (
     <Input.Item
       label="ICD"

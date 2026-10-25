@@ -9,7 +9,7 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Header as PHeader } from "@synnaxlabs/lyra/header";
-import { type ReactNode, useCallback, useEffect } from "react";
+import { type ReactNode, useEffect } from "react";
 
 import { Button } from "@/platform/button";
 import { Empty } from "@/platform/empty";
@@ -87,22 +87,19 @@ export const ChannelList = <C extends Channel>({
 
   const { data, push, remove } = Form.useFieldList<C["key"], C>(path);
   const { onSelect } = rest;
-  const handleAdd = useCallback(() => {
+  const handleAdd = () => {
     const channels = ctx.get<C[]>(path).value;
     const channel = createChannel(channels);
     if (channel == null) return;
     push(channel);
     onSelect([channel.key]);
-  }, [ctx, path, push, createChannel, onSelect]);
-  const handleDuplicate = useCallback(
-    (chs: C[], keys: string[]) => {
-      if (createChannels == null) return;
-      const duplicated = createChannels(chs, keys);
-      push(duplicated);
-      return duplicated.map(({ key }) => key);
-    },
-    [createChannels, push],
-  );
+  };
+  const handleDuplicate = (chs: C[], keys: string[]) => {
+    if (createChannels == null) return;
+    const duplicated = createChannels(chs, keys);
+    push(duplicated);
+    return duplicated.map(({ key }) => key);
+  };
   return (
     <Base
       {...rest}

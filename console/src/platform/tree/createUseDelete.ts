@@ -9,7 +9,6 @@
 
 import { type Flux } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { Modals } from "@/platform/modals";
 import { type ContextMenuProps } from "@/platform/tree/types";
@@ -42,26 +41,17 @@ export const createUseDelete = <K extends record.Key>({
     } = props;
     const confirm = Modals.useConfirmDelete({ type, description, icon });
     const { update } = useUpdate({
-      beforeUpdate: useCallback(
-        async (query: Flux.BeforeUpdateParams<K | K[]>) => {
-          const res = await confirm(getResource(ids));
-          if (!res) return false;
-          if (beforeUpdate != null) return await beforeUpdate({ ...query, ...props });
-          return true;
-        },
-        [confirm, getResource, ids, props],
-      ),
-      afterSuccess: useCallback(
-        (query: Flux.AfterSuccessParams<K | K[]>) => {
-          afterSuccess?.({ ...query, ...props });
-        },
-        [props],
-      ),
+      beforeUpdate: async (query: Flux.BeforeUpdateParams<K | K[]>) => {
+        const res = await confirm(getResource(ids));
+        if (!res) return false;
+        if (beforeUpdate != null) return await beforeUpdate({ ...query, ...props });
+        return true;
+      },
+      afterSuccess: (query: Flux.AfterSuccessParams<K | K[]>) => {
+        afterSuccess?.({ ...query, ...props });
+      },
     });
-    return useCallback(
-      () => update(ids.map((id) => convertKey(id.key))),
-      [update, ids],
-    );
+    return () => update(ids.map((id) => convertKey(id.key)));
   };
   return useDelete;
 };

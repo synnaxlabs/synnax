@@ -11,7 +11,7 @@ import { panel } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Panel as PPanel, TimeSpan } from "@synnaxlabs/pluto";
-import { useCallback, useRef } from "react";
+import { useRef } from "react";
 
 import { Palette } from "@/app/palette";
 import { useSelectorVisible } from "@/app/vis/useSelectorVisible";
@@ -78,104 +78,78 @@ export const use = (): void => {
   Triggers.use({
     triggers: OVERLAY_TRIGGERS,
     loose: true,
-    callback: useCallback(
-      ({ stage }: Triggers.UseEvent) => {
-        if (stage !== "start") return;
-        if (getIsOverlaid()) {
-          sessionDispatch(Session.Panel.stopOverlaying({}));
-          return;
-        }
-        const focused = getFocusedTab();
-        if (focused != null) sessionDispatch(Session.Panel.startOverlaying({}));
-      },
-      [getIsOverlaid, getFocusedTab, sessionDispatch],
-    ),
+    callback: ({ stage }: Triggers.UseEvent) => {
+      if (stage !== "start") return;
+      if (getIsOverlaid()) {
+        sessionDispatch(Session.Panel.stopOverlaying({}));
+        return;
+      }
+      const focused = getFocusedTab();
+      if (focused != null) sessionDispatch(Session.Panel.startOverlaying({}));
+    },
   });
   Triggers.use({
     triggers: ESCAPE_TRIGGERS,
     double: true,
-    callback: useCallback(
-      ({ stage }: Triggers.UseEvent) => {
-        if (stage !== "start" || !getIsOverlaid()) return;
-        sessionDispatch(Session.Panel.stopOverlaying({}));
-      },
-      [getIsOverlaid, sessionDispatch],
-    ),
+    callback: ({ stage }: Triggers.UseEvent) => {
+      if (stage !== "start" || !getIsOverlaid()) return;
+      sessionDispatch(Session.Panel.stopOverlaying({}));
+    },
   });
   Triggers.use({
     triggers: CLOSE_TRIGGERS,
     loose: true,
-    callback: useCallback(
-      ({ stage }: Triggers.UseEvent) => {
-        if (stage !== "start") {
-          if (stage === "end" && closeWindowTimeout.current != null) {
-            clearTimeout(closeWindowTimeout.current);
-            closeWindowTimeout.current = null;
-          }
-          return;
+    callback: ({ stage }: Triggers.UseEvent) => {
+      if (stage !== "start") {
+        if (stage === "end" && closeWindowTimeout.current != null) {
+          clearTimeout(closeWindowTimeout.current);
+          closeWindowTimeout.current = null;
         }
-        if (modals.isAnyOpen()) return modals.closeTop();
-        const panelKey = getSelectedPanel();
-        const focused = getFocusedTab();
-        if (canEditPanel && panelKey != null && focused != null) {
-          if (getIsOverlaid()) sessionDispatch(Session.Panel.stopOverlaying({}));
-          dispatch({
-            key: panelKey,
-            actions: [panel.removeTab({ key: focused })],
-          });
-          return;
-        }
-        // A page cannot close the tab that holds it.
-        if (Session.Runtime.ENGINE !== "tauri") return;
-        closeWindowTimeout.current = setTimeout(
-          () => sessionDispatch(Drift.closeWindow({})),
-          CLOSE_WINDOW_TIMEOUT.milliseconds,
-        );
-      },
-      [
-        dispatch,
-        sessionDispatch,
-        getSelectedPanel,
-        getFocusedTab,
-        getIsOverlaid,
-        modals,
-        canEditPanel,
-      ],
-    ),
+        return;
+      }
+      if (modals.isAnyOpen()) return modals.closeTop();
+      const panelKey = getSelectedPanel();
+      const focused = getFocusedTab();
+      if (canEditPanel && panelKey != null && focused != null) {
+        if (getIsOverlaid()) sessionDispatch(Session.Panel.stopOverlaying({}));
+        dispatch({
+          key: panelKey,
+          actions: [panel.removeTab({ key: focused })],
+        });
+        return;
+      }
+      // A page cannot close the tab that holds it.
+      if (Session.Runtime.ENGINE !== "tauri") return;
+      closeWindowTimeout.current = setTimeout(
+        () => sessionDispatch(Drift.closeWindow({})),
+        CLOSE_WINDOW_TIMEOUT.milliseconds,
+      );
+    },
   });
   Triggers.use({
     triggers: RENAME_TRIGGERS,
     loose: true,
-    callback: useCallback(
-      ({ stage }: Triggers.UseEvent) => {
-        if (stage !== "start") return;
-        const focused = getFocusedTab();
-        if (focused == null) return;
-        PlatformPanel.editTabName(focused);
-      },
-      [getFocusedTab],
-    ),
+    callback: ({ stage }: Triggers.UseEvent) => {
+      if (stage !== "start") return;
+      const focused = getFocusedTab();
+      if (focused == null) return;
+      PlatformPanel.editTabName(focused);
+    },
   });
   Triggers.use({
     triggers: OPEN_WINDOW_TRIGGERS,
     loose: true,
-    callback: useCallback(
-      ({ stage }: Triggers.UseEvent) => {
-        if (stage !== "start" || Session.Runtime.ENGINE !== "tauri") return;
-        openWindow(getSelectedPanel());
-      },
-      [openWindow, getSelectedPanel],
-    ),
+    callback: ({ stage }: Triggers.UseEvent) => {
+      if (stage !== "start" || Session.Runtime.ENGINE !== "tauri") return;
+      openWindow(getSelectedPanel());
+    },
   });
   Triggers.use({
     triggers: CREATE_TAB_TRIGGERS,
     loose: true,
-    callback: useCallback(
-      ({ stage }: Triggers.UseEvent) => {
-        if (stage !== "start" || !createTabEnabled) return;
-        openSelector();
-      },
-      [createTabEnabled, openSelector],
-    ),
+    callback: ({ stage }: Triggers.UseEvent) => {
+      if (stage !== "start" || !createTabEnabled) return;
+      openSelector();
+    },
   });
 };

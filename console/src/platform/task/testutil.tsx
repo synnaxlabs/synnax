@@ -24,7 +24,7 @@ import { Drift } from "@synnaxlabs/drift";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
-import { id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { id, sync, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import {
   act,
   fireEvent,
@@ -490,18 +490,11 @@ export const awaitCommand = async (
       }
     }
   };
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const deadline = new Promise<never>((_, reject) => {
-    timer = setTimeout(
-      () => reject(new Error(`no command for task ${taskKey} received within 10s`)),
-      TimeSpan.seconds(10).milliseconds,
-    );
-  });
-  try {
-    return await Promise.race([read(), deadline]);
-  } finally {
-    clearTimeout(timer);
-  }
+  return await sync.withTimeout(
+    read(),
+    TimeSpan.seconds(10),
+    () => new Error(`no command for task ${taskKey} received within 10s`),
+  );
 };
 
 /**

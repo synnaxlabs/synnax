@@ -9,7 +9,7 @@
 
 import { type schematic } from "@synnaxlabs/client";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
@@ -35,7 +35,7 @@ export const Symbol = ({
   },
 }: NodeProps<schematic.StateIndicatorNodeConfig>): ReactElement => {
   const theme = Theming.use();
-  const source = useMemo(() => Telem.numberSource(channel), [channel]);
+  const source = Telem.numberSource(channel);
   const { key: optKey, stale } = BaseStateIndicator.use({
     aetherKey: nodeKey,
     source,

@@ -32,11 +32,7 @@ export const Nav = ({ connection }: NavProps): ReactElement => {
   return (
     <Shell.Islands>
       <Flex.Box x align="center" gap="medium">
-        {chrome && os === "macOS" && (
-          <Shell.Island data-tauri-drag-region>
-            <Window.Controls visibleIfOS="macOS" forceOS={os} />
-          </Shell.Island>
-        )}
+        <Window.Controls visibleIfOS="macOS" forceOS={os} />
         {chrome && (
           <Shell.Island data-tauri-drag-region>
             <Version.Badge />

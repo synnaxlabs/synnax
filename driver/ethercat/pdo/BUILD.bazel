@@ -15,6 +15,9 @@ cc_library(
     hdrs = ["pdo.h"],
     visibility = ["//visibility:public"],
     deps = [
+        "//driver/ethercat/errors",
+        "//driver/ethercat/telem",
+        "//x/cpp/errors",
         "//x/cpp/json",
         "//x/cpp/telem",
     ],
@@ -25,6 +28,7 @@ cc_test(
     srcs = ["pdo_test.cpp"],
     deps = [
         ":pdo",
+        "//driver/ethercat/errors",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],

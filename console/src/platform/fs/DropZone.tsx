@@ -9,7 +9,7 @@
 
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { captureEntries } from "@/platform/fs/entries";
@@ -37,24 +37,21 @@ export const DropZone = ({
   ...rest
 }: DropZoneProps): ReactElement => {
   const [draggingOver, setDraggingOver] = useState(false);
-  const handleDrop = useCallback(
-    ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
-      if (event == null) return items;
-      event.preventDefault();
-      setDraggingOver(false);
-      onDrop(captureEntries(event.dataTransfer));
-      return items;
-    },
-    [onDrop],
-  );
-  const handleDragOver = useCallback(() => setDraggingOver(true), []);
+  const handleDrop = ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
+    if (event == null) return items;
+    event.preventDefault();
+    setDraggingOver(false);
+    onDrop(captureEntries(event.dataTransfer));
+    return items;
+  };
+  const handleDragOver = () => setDraggingOver(true);
   const dropProps = Haul.useDrop({
     type: Haul.FILE_TYPE,
     onDrop: handleDrop,
     canDrop: canDropFile,
     onDragOver: handleDragOver,
   });
-  const handleDragLeave = useCallback(() => setDraggingOver(false), []);
+  const handleDragLeave = () => setDraggingOver(false);
   return (
     <Flex.Box
       className={CSS.cls(

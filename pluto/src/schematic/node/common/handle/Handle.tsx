@@ -15,7 +15,7 @@ import {
   type HandleProps as RFHandleProps,
   type Position as RFPosition,
 } from "@xyflow/react";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { adjust, smart, swap } from "@/schematic/node/common/handle/position";
 
@@ -41,10 +41,7 @@ export const Handle = ({
   ...rest
 }: HandleProps): ReactElement => {
   const adjusted = adjust(top, left, orientation, preventAutoAdjust);
-  const mergedStyle = useMemo(
-    () => ({ left: `${adjusted.left}%`, top: `${adjusted.top}%`, ...style }),
-    [adjusted.left, adjusted.top, style],
-  );
+  const mergedStyle = { left: `${adjusted.left}%`, top: `${adjusted.top}%`, ...style };
   return (
     <RFHandle
       position={swap(smart(location, orientation), !swapPos)}

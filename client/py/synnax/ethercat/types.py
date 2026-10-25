@@ -29,6 +29,8 @@ class PDOEntry(BaseModel):
     """A single PDO entry stored in slave device properties after scanning.
 
     :param name: Human-readable name of the PDO entry (e.g. "Position actual value").
+    :param pdo_name: Name of the parent PDO (e.g. "Channel 1"), when the slave gives
+        one.
     :param pdo_index: Parent PDO index (e.g. 0x1A00 for TxPDO, 0x1600 for RxPDO).
     :param index: CoE object dictionary index (e.g. 0x6064 = 24676).
     :param sub_index: CoE object dictionary subindex.
@@ -37,6 +39,7 @@ class PDOEntry(BaseModel):
     """
 
     name: str
+    pdo_name: str | None = None
     pdo_index: int = Field(default=0, ge=0, le=65535)
     index: int = Field(ge=0, le=65535)
     sub_index: int = Field(ge=0, le=255)
@@ -188,8 +191,10 @@ class Device(device.Device):
             "name": name,
             "enabled": enabled,
             "pdos": {
-                "inputs": [p.model_dump() for p in (input_pdos or [])],
-                "outputs": [p.model_dump() for p in (output_pdos or [])],
+                "inputs": [p.model_dump(exclude_none=True) for p in (input_pdos or [])],
+                "outputs": [
+                    p.model_dump(exclude_none=True) for p in (output_pdos or [])
+                ],
             },
         }
         super().__init__(

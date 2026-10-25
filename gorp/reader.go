@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/types"
@@ -126,8 +127,9 @@ func (r Reader[K, E]) OpenIterator(opts IterOptions) (iter *Iterator[E], err err
 	return &Iterator[E]{Iterator: base, codec: r.tx}, err
 }
 
-// OpenNexter opens a new Nexter that can be used to iterate over
-// the entries in the reader in sequential order.
+// OpenNexter opens a new Nexter that can be used to iterate over the entries in the
+// reader in sequential order. Iteration stops at the first entry that fails to decode,
+// and Close returns the decode error.
 func (r Reader[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, error) {
 	i, err := r.OpenIterator(IterOptions{})
 	if err != nil {
@@ -143,7 +145,7 @@ func (r Reader[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, e
 				return
 			}
 		}
-	}, i, nil
+	}, xio.CloserFunc(func() error { return errors.Combine(i.err, i.Close()) }), nil
 }
 
 // Iterator provides a simple wrapper around a kv.Iterator that decodes a byte-value

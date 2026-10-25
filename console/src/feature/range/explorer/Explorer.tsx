@@ -15,7 +15,6 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access, Ranger } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { ContextMenu } from "@/feature/range/list/ContextMenu";
 import { Item, type ItemProps } from "@/feature/range/list/Item";
@@ -42,7 +41,7 @@ const Internal = () => {
     sort: Ranger.sortByStage,
   });
   const openCreate = Range.useCreateModal();
-  const handleCreate = useCallback(() => openCreate(), [openCreate]);
+  const handleCreate = () => openCreate();
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   return (
     <View.Form {...listProps}>

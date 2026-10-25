@@ -9,7 +9,7 @@
 
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { type record, uuid, xy } from "@synnaxlabs/x";
-import { type ClipboardEvent, type RefObject, useCallback, useRef } from "react";
+import { type ClipboardEvent, type RefObject, useRef } from "react";
 
 import { type ClipboardHandler } from "@/vis/diagram/Diagram";
 
@@ -178,92 +178,77 @@ export const useClipboard = <N extends ClipboardNode, E extends ClipboardEdge, C
 
   // Writes the selection to the event's clipboard data. Returns the written keys,
   // or null when nothing was written.
-  const writeSelection = useCallback(
-    (e: ClipboardEvent<HTMLDivElement>): SelectionKeys | null => {
-      // Defer to the browser if the user has a real text selection.
-      const text = window.getSelection()?.toString();
-      if (text != null && text.length > 0) return null;
-      const { mime, edgeKey, getSnapshot } = adapterRef.current;
-      const snapshot = getSnapshot();
-      if (snapshot == null) return null;
-      const sel = new Set(selectedRef.current);
-      if (sel.size === 0) return null;
-      const nodes = snapshot.nodes.filter((n) => sel.has(n.key));
-      const edges = snapshot.edges.filter((edge) => sel.has(edgeKey(edge)));
-      if (nodes.length === 0 && edges.length === 0) return null;
-      const keys: SelectionKeys = {
-        nodes: nodes.map((n) => n.key),
-        edges: edges.map(edgeKey),
-      };
-      const configs: Record<string, C> = {};
-      for (const k of [...keys.nodes, ...keys.edges]) {
-        const c = snapshot.configs[k];
-        if (c != null) configs[k] = c;
-      }
-      const payload: Payload<N, E, C> = {
-        version: VERSION,
-        nodes,
-        edges,
-        configs,
-        anchor: centroid(nodes),
-      };
-      e.preventDefault();
-      const json = JSON.stringify(payload);
-      e.clipboardData.setData(mime, json);
-      e.clipboardData.setData("text/plain", describe(nodes.length, edges.length));
-      lastCopiedRef.current = json;
-      return keys;
-    },
-    [adapterRef, selectedRef],
-  );
+  const writeSelection = (e: ClipboardEvent<HTMLDivElement>): SelectionKeys | null => {
+    // Defer to the browser if the user has a real text selection.
+    const text = window.getSelection()?.toString();
+    if (text != null && text.length > 0) return null;
+    const { mime, edgeKey, getSnapshot } = adapterRef.current;
+    const snapshot = getSnapshot();
+    if (snapshot == null) return null;
+    const sel = new Set(selectedRef.current);
+    if (sel.size === 0) return null;
+    const nodes = snapshot.nodes.filter((n) => sel.has(n.key));
+    const edges = snapshot.edges.filter((edge) => sel.has(edgeKey(edge)));
+    if (nodes.length === 0 && edges.length === 0) return null;
+    const keys: SelectionKeys = {
+      nodes: nodes.map((n) => n.key),
+      edges: edges.map(edgeKey),
+    };
+    const configs: Record<string, C> = {};
+    for (const k of [...keys.nodes, ...keys.edges]) {
+      const c = snapshot.configs[k];
+      if (c != null) configs[k] = c;
+    }
+    const payload: Payload<N, E, C> = {
+      version: VERSION,
+      nodes,
+      edges,
+      configs,
+      anchor: centroid(nodes),
+    };
+    e.preventDefault();
+    const json = JSON.stringify(payload);
+    e.clipboardData.setData(mime, json);
+    e.clipboardData.setData("text/plain", describe(nodes.length, edges.length));
+    lastCopiedRef.current = json;
+    return keys;
+  };
 
   // Removes the written keys and reports the surviving selection.
-  const removeWritten = useCallback(
-    (keys: SelectionKeys) => {
-      adapterRef.current.remove(keys);
-      const removed = new Set([...keys.nodes, ...keys.edges]);
-      onCutRef.current?.(selectedRef.current.filter((k) => !removed.has(k)));
-    },
-    [adapterRef, onCutRef, selectedRef],
-  );
+  const removeWritten = (keys: SelectionKeys) => {
+    adapterRef.current.remove(keys);
+    const removed = new Set([...keys.nodes, ...keys.edges]);
+    onCutRef.current?.(selectedRef.current.filter((k) => !removed.has(k)));
+  };
 
-  const onCopy = useCallback<ClipboardHandler>(
-    (e) => {
-      const keys = writeSelection(e);
-      if (cutPendingRef.current && keys != null) removeWritten(keys);
-    },
-    [writeSelection, removeWritten],
-  );
+  const onCopy: ClipboardHandler = (e) => {
+    const keys = writeSelection(e);
+    if (cutPendingRef.current && keys != null) removeWritten(keys);
+  };
 
-  const onCut = useCallback<ClipboardHandler>(
-    (e) => {
-      const keys = writeSelection(e);
-      if (keys != null) removeWritten(keys);
-    },
-    [writeSelection, removeWritten],
-  );
+  const onCut: ClipboardHandler = (e) => {
+    const keys = writeSelection(e);
+    if (keys != null) removeWritten(keys);
+  };
 
-  const exec = useCallback(
-    (command: "copy" | "paste"): boolean => {
-      const el = containerRef?.current;
-      if (el == null) return false;
-      window.getSelection()?.removeAllRanges();
-      el.focus({ preventScroll: true });
-      // Monaco's clipboard menu actions call execCommand the same way. It is deprecated
-      // with no replacement: WebKit's clipboard API rejects custom MIME types. Only
-      // these menu triggers use it; the keyboard path fires native events.
-      // eslint-disable-next-line @typescript-eslint/no-deprecated
-      return document.execCommand(command);
-    },
-    [containerRef],
-  );
+  const exec = (command: "copy" | "paste"): boolean => {
+    const el = containerRef?.current;
+    if (el == null) return false;
+    window.getSelection()?.removeAllRanges();
+    el.focus({ preventScroll: true });
+    // Monaco's clipboard menu actions call execCommand the same way. It is deprecated
+    // with no replacement: WebKit's clipboard API rejects custom MIME types. Only
+    // these menu triggers use it; the keyboard path fires native events.
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
+    return document.execCommand(command);
+  };
 
-  const copy = useCallback(() => void exec("copy"), [exec]);
+  const copy = () => void exec("copy");
 
   // Native cut events only fire in editable DOM, so cut copies, then removes.
-  const cut = useCallback(() => copyAsCut(() => exec("copy"), cutPendingRef), [exec]);
+  const cut = () => copyAsCut(() => exec("copy"), cutPendingRef);
 
-  const paste = useCallback(() => {
+  const paste = () => {
     // Chromium refuses execCommand("paste"). Replay the last copied payload as a
     // synthetic event so it flows through the normal handler and its cursor math.
     if (exec("paste")) return;
@@ -275,45 +260,42 @@ export const useClipboard = <N extends ClipboardNode, E extends ClipboardEdge, C
     el.dispatchEvent(
       new globalThis.ClipboardEvent("paste", { clipboardData: data, bubbles: true }),
     );
-  }, [exec, containerRef, adapterRef]);
+  };
 
-  const onPaste = useCallback<ClipboardHandler>(
-    (e, cursor) => {
-      const { mime, edgeKey, apply } = adapterRef.current;
-      const raw = e.clipboardData.getData(mime);
-      if (raw === "") return;
-      const payload = parsePayload<N, E, C>(raw);
-      if (payload == null || payload.version !== VERSION) return;
-      e.preventDefault();
-      const offset = xy.translation(payload.anchor, cursor);
-      const remap: Record<string, string> = {};
-      const nodes: PastedNode<N, C>[] = payload.nodes.map((node) => {
-        const newKey = uuid.create();
-        remap[node.key] = newKey;
-        return {
-          node: { ...node, key: newKey, position: xy.translate(node.position, offset) },
-          config: payload.configs[node.key],
-        };
+  const onPaste: ClipboardHandler = (e, cursor) => {
+    const { mime, edgeKey, apply } = adapterRef.current;
+    const raw = e.clipboardData.getData(mime);
+    if (raw === "") return;
+    const payload = parsePayload<N, E, C>(raw);
+    if (payload == null || payload.version !== VERSION) return;
+    e.preventDefault();
+    const offset = xy.translation(payload.anchor, cursor);
+    const remap: Record<string, string> = {};
+    const nodes: PastedNode<N, C>[] = payload.nodes.map((node) => {
+      const newKey = uuid.create();
+      remap[node.key] = newKey;
+      return {
+        node: { ...node, key: newKey, position: xy.translate(node.position, offset) },
+        config: payload.configs[node.key],
+      };
+    });
+    const edges: PastedEdge<E, C>[] = [];
+    for (const edge of payload.edges) {
+      const source = remap[edge.source.node];
+      const target = remap[edge.target.node];
+      if (source == null || target == null) continue;
+      edges.push({
+        edge: {
+          ...edge,
+          source: { ...edge.source, node: source },
+          target: { ...edge.target, node: target },
+        },
+        config: payload.configs[edgeKey(edge)],
       });
-      const edges: PastedEdge<E, C>[] = [];
-      for (const edge of payload.edges) {
-        const source = remap[edge.source.node];
-        const target = remap[edge.target.node];
-        if (source == null || target == null) continue;
-        edges.push({
-          edge: {
-            ...edge,
-            source: { ...edge.source, node: source },
-            target: { ...edge.target, node: target },
-          },
-          config: payload.configs[edgeKey(edge)],
-        });
-      }
-      if (nodes.length === 0 && edges.length === 0) return;
-      apply({ nodes, edges, remap });
-    },
-    [adapterRef],
-  );
+    }
+    if (nodes.length === 0 && edges.length === 0) return;
+    apply({ nodes, edges, remap });
+  };
 
   return { onCopy, onCut, onPaste, copy, cut, paste };
 };

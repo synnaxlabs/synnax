@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type record } from "@synnaxlabs/x";
-import { type ReactNode, useCallback } from "react";
+import { type ReactNode } from "react";
 
 import { CSS } from "@/css";
 import { useIsFixed, useRegistryContext } from "@/select/registry";
@@ -35,15 +35,12 @@ export const Label = <K extends record.Key>({
 }: LabelProps<K>): ReactNode => {
   const fixed = useIsFixed(itemKey);
   const registry = useRegistryContext("Select.Label");
-  const ref = useCallback(
-    (host: HTMLElement | null) => {
-      if (host == null || itemKey == null) return;
-      const label = registry.getLabel(itemKey);
-      host.appendChild(label);
-      return () => label.remove();
-    },
-    [registry, itemKey],
-  );
+  const ref = (host: HTMLElement | null) => {
+    if (host == null || itemKey == null) return;
+    const label = registry.getLabel(itemKey);
+    host.appendChild(label);
+    return () => label.remove();
+  };
   return (
     <Text.Text
       el="span"

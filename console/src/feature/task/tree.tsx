@@ -11,7 +11,6 @@ import { ontology, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access, Mosaic, Task as Base } from "@synnaxlabs/pluto";
-import { useCallback, useMemo } from "react";
 
 import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
 import { ContextMenu } from "@/platform/context-menu";
@@ -25,10 +24,7 @@ import { Tree } from "@/platform/tree";
 
 const useOnSelect = (): ((resource: ontology.Resource) => void) => {
   const openTab = Panel.useOpenTab();
-  return useCallback(
-    (resource) => openTab({ variant: "resource", resource: resource.id }),
-    [openTab],
-  );
+  return (resource) => openTab({ variant: "resource", resource: resource.id });
 };
 
 const useDelete = Tree.createUseDelete({
@@ -54,7 +50,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const range = Range.useResolve();
   const group = Group.useCreateFromSelection();
   const rename = useRename(props);
-  const ontologyIDs = useMemo(() => ids.map((id) => task.ontologyID(id.key)), [ids]);
+  const ontologyIDs = ids.map((id) => task.ontologyID(id.key));
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
   const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);

@@ -13,7 +13,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { primitive } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC } from "react";
 
 import { useSlavesByKeys } from "@/feature/ethercat/device/queries";
 import { WriteChannelDetails } from "@/feature/ethercat/task/ChannelDetails";
@@ -91,19 +91,16 @@ const listItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => {
   const slaves = useSlavesByKeys(Task.useChannelDeviceKeys());
-  const resolve = useCallback(
-    (ch: WriteChannel) => {
-      const slave = slaves?.find(({ key }) => key === ch.device);
-      if (slave == null) return null;
-      const { channels } = slave.properties.write;
-      const mapKey = channelMapKey(ch);
-      return {
-        cmdChannel: getChannelByMapKey(channels, mapKey),
-        stateChannel: getChannelByMapKey(channels, `${mapKey}${STATE_KEY_SUFFIX}`),
-      };
-    },
-    [slaves],
-  );
+  const resolve = (ch: WriteChannel) => {
+    const slave = slaves?.find(({ key }) => key === ch.device);
+    if (slave == null) return null;
+    const { channels } = slave.properties.write;
+    const mapKey = channelMapKey(ch);
+    return {
+      cmdChannel: getChannelByMapKey(channels, mapKey),
+      stateChannel: getChannelByMapKey(channels, `${mapKey}${STATE_KEY_SUFFIX}`),
+    };
+  };
   return (
     <Task.Views.ListAndDetails<WriteChannel>
       listItem={listItem}

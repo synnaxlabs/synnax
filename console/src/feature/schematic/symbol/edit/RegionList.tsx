@@ -22,7 +22,6 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Schematic } from "@synnaxlabs/pluto";
-import { useMemo } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -41,10 +40,7 @@ const RegionListItem = ({ selectedState, svg, ...props }: RegionListItemProps) =
   const path = `data.states.${selectedState}.regions.${itemKey}`;
   const region = Form.useFieldValue<schematic.symbol.Region>(path, { optional: true });
   const { set } = Form.useContext();
-  const paint = useMemo(
-    () => Schematic.Node.Region.paint(svg, region?.selectors ?? []),
-    [svg, region?.selectors],
-  );
+  const paint = Schematic.Node.Region.paint(svg, region?.selectors ?? []);
   const { remove } = Form.useFieldListUtils<string, schematic.symbol.Region>(
     `data.states.${selectedState}.regions`,
   );

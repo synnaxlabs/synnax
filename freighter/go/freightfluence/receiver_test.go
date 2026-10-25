@@ -28,6 +28,19 @@ type errReceiver struct {
 
 func (e *errReceiver) Receive() (int, error) { return 0, e.recvErr }
 
+// blockingReceiver closes entered when Receive is called, then blocks until release
+// closes.
+type blockingReceiver struct {
+	entered chan struct{}
+	release chan struct{}
+}
+
+func (b *blockingReceiver) Receive() (int, error) {
+	close(b.entered)
+	<-b.release
+	return 0, freighter.EOF
+}
+
 var _ = Describe("Receiver", func() {
 	var (
 		server freighter.StreamServer[int, int]
@@ -127,6 +140,45 @@ var _ = Describe("Receiver", func() {
 			},
 		)
 	})
+	DescribeTable(
+		"Should exit when its context is canceled while Receive blocks",
+		func(
+			ctx SpecContext,
+			newSource func(freighter.StreamReceiver[int]) confluence.Source[int],
+		) {
+			stream := &blockingReceiver{
+				entered: make(chan struct{}),
+				release: make(chan struct{}),
+			}
+			DeferCleanup(func() { close(stream.release) })
+			sCtx, cancel := signal.WithCancel(ctx)
+			defer cancel()
+			source := newSource(stream)
+			outputStream := confluence.NewStream[int](1)
+			source.OutTo(outputStream)
+			source.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			Eventually(stream.entered).Should(BeClosed())
+			cancel()
+			waited := make(chan error, 1)
+			go func() { waited <- sCtx.Wait() }()
+			Eventually(waited).Should(Receive(MatchError(context.Canceled)))
+			Eventually(outputStream.Outlet()).Should(BeClosed())
+		},
+		Entry("Receiver", func(r freighter.StreamReceiver[int]) confluence.Source[int] {
+			return &freightfluence.Receiver[int]{Receiver: r}
+		}),
+		Entry(
+			"TransformReceiver",
+			func(r freighter.StreamReceiver[int]) confluence.Source[int] {
+				return &freightfluence.TransformReceiver[int, int]{
+					Receiver: r,
+					Transform: func(_ context.Context, v int) (int, bool, error) {
+						return v, true, nil
+					},
+				}
+			},
+		),
+	)
 	Describe("TransformReceiver", func() {
 		It(
 			"It should transform values before sending them through the channel",

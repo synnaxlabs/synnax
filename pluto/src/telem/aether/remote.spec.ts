@@ -10,15 +10,25 @@
 import {
   channel,
   DataType,
-  type framer,
+  framer,
+  NotFoundError,
   type status as cstatus,
   TimeRange,
   ValidationError,
 } from "@synnaxlabs/client";
-import { bounds, id, MultiSeries, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  bounds,
+  type breaker,
+  id,
+  MultiSeries,
+  Series,
+  sleep,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
-import { createFactory } from "@/telem/aether/factory";
+import { createFactory, type CreateOptions } from "@/telem/aether/factory";
 import {
   ChannelData,
   type ChannelDataProps,
@@ -29,8 +39,10 @@ import {
   StreamChannelValue,
   streamChannelValue,
   type StreamChannelValueProps,
+  TiledChannelData,
+  type TiledChannelDataProps,
 } from "@/telem/aether/remote";
-import { type Source } from "@/telem/aether/telem";
+import { type Source, type View } from "@/telem/aether/telem";
 import { telemTest } from "@/telem/aether/test";
 
 const waitForResolve = async <T>(source: Source<T>): Promise<T> => {
@@ -78,6 +90,7 @@ describe("remote", () => {
 
       feed = {
         readLatest: async (): Promise<MultiSeries> => new MultiSeries([]),
+        readTile: async (): Promise<MultiSeries> => new MultiSeries([]),
         read: async (): Promise<MultiSeries> => this.response,
         stream: (
           handler: framer.StreamHandler,
@@ -460,6 +473,7 @@ describe("remote", () => {
 
       feed = {
         readLatest: async (): Promise<MultiSeries> => new MultiSeries([]),
+        readTile: async (): Promise<MultiSeries> => new MultiSeries([]),
         read: async (): Promise<MultiSeries> => this.response,
         stream: (
           handler: framer.StreamHandler,
@@ -819,6 +833,7 @@ describe("remote", () => {
 
       feed = {
         readLatest: async (): Promise<MultiSeries> => new MultiSeries([]),
+        readTile: async (): Promise<MultiSeries> => new MultiSeries([]),
         read: async (tr: TimeRange, key: channel.Key): Promise<MultiSeries> => {
           this.readMock(tr, key);
           return this.response[key];
@@ -1222,6 +1237,7 @@ describe("remote", () => {
 
       feed = {
         readLatest: async (): Promise<MultiSeries> => new MultiSeries([]),
+        readTile: async (): Promise<MultiSeries> => new MultiSeries([]),
         read: async (tr: TimeRange, key: channel.Key): Promise<MultiSeries> => {
           this.readMock(tr, key);
           return this.response;
@@ -2206,6 +2222,892 @@ describe("remote", () => {
     });
   });
 
+  describe("TiledChannelData", () => {
+    const DATA_KEY = 65537;
+    const INDEX_KEY = 65538;
+    const XY_KEY = 65539;
+
+    interface Pending {
+      spec: framer.TileSpec;
+      resolve: (series: MultiSeries) => void;
+    }
+
+    // Returns one series per tile. Data tiles hold [level, index], and index tiles hold
+    // the tile's start and end.
+    const tileSeries = (spec: framer.TileSpec): MultiSeries => {
+      const tr = framer.tileRange(spec);
+      const alignment = (BigInt(spec.level) << 32n) + BigInt(spec.index);
+      if (spec.key === INDEX_KEY)
+        return new MultiSeries([
+          new Series({
+            data: new BigInt64Array([tr.start.valueOf(), tr.end.valueOf() - 1n]),
+            dataType: DataType.TIMESTAMP,
+            timeRange: tr,
+            alignment,
+          }),
+        ]);
+      return new MultiSeries([
+        new Series({
+          data: new Float32Array([spec.level, spec.index]),
+          timeRange: tr,
+          alignment,
+        }),
+      ]);
+    };
+
+    class MockClient implements Client {
+      now = (): TimeStamp => TimeStamp.now();
+      tiles: framer.TileSpec[] = [];
+      tileDataTypes: Array<DataType | undefined> = [];
+      reads: TimeRange[] = [];
+      deferred = false;
+      pending: Pending[] = [];
+      served = new Map<string, MultiSeries>();
+      streamHandler: framer.StreamHandler | null = null;
+      streamDestructorF = vi.fn();
+      response: MultiSeries = new MultiSeries([]);
+
+      channels = {
+        retrieve: async (key: channel.Key | channel.Name): Promise<channel.Channel> => {
+          if (key === INDEX_KEY)
+            return new channel.Channel({
+              key: INDEX_KEY,
+              name: "time",
+              dataType: DataType.TIMESTAMP,
+              isIndex: true,
+            });
+          return new channel.Channel({
+            key,
+            name: `data-${key}`,
+            dataType: DataType.FLOAT32,
+            index: INDEX_KEY,
+          });
+        },
+      };
+
+      feed = {
+        readLatest: async (): Promise<MultiSeries> => new MultiSeries([]),
+        read: async (tr: TimeRange): Promise<MultiSeries> => {
+          this.reads.push(tr);
+          return this.response;
+        },
+        readTile: async (
+          spec: framer.TileSpec,
+          dataType?: DataType,
+        ): Promise<MultiSeries> => {
+          this.tiles.push(spec);
+          this.tileDataTypes.push(dataType);
+          if (this.deferred)
+            return await new Promise<MultiSeries>((resolve) =>
+              this.pending.push({ spec, resolve }),
+            );
+          const series = tileSeries(spec);
+          this.served.set(`${spec.level}/${spec.index}/${spec.key}`, series);
+          return series;
+        },
+        stream: (handler: framer.StreamHandler): framer.Subscription => {
+          this.streamHandler = handler;
+          return telemTest.mockSubscription(this.streamDestructorF);
+        },
+      };
+
+      resolveAll(): void {
+        const pending = this.pending.splice(0);
+        pending.forEach(({ spec, resolve }) => {
+          const series = tileSeries(spec);
+          this.served.set(`${spec.level}/${spec.index}/${spec.key}`, series);
+          resolve(series);
+        });
+      }
+    }
+
+    let c: MockClient;
+    beforeEach(() => {
+      c = new MockClient();
+    });
+
+    const HOME = new TimeRange(TimeStamp.SECOND, TimeStamp.seconds(10));
+
+    const create = (
+      props: Partial<TiledChannelDataProps> = {},
+      now: () => TimeStamp = () => TimeStamp.seconds(100),
+      options?: CreateOptions,
+      levelSettle: TimeSpan = TimeSpan.ZERO,
+      breakerConfig?: breaker.Config,
+    ): TiledChannelData =>
+      new TiledChannelData(
+        c,
+        { channel: DATA_KEY, timeRange: HOME, ...props },
+        options,
+        now,
+        levelSettle,
+        breakerConfig,
+      );
+
+    // Waits for the source to settle after a value call that starts reads.
+    const settle = async (source: TiledChannelData): Promise<void> =>
+      await expect.poll(() => source.loading()).toBe(false);
+
+    const view = (lower: number, upper: number, width = 500): View => ({
+      bounds: {
+        lower: Number(TimeStamp.milliseconds(lower).valueOf()),
+        upper: Number(TimeStamp.milliseconds(upper).valueOf()),
+      },
+      width,
+    });
+
+    const positions = (series: MultiSeries): number[][] =>
+      series.series.map((s) => Array.from(s) as number[]);
+
+    it("should return nothing when no channel is set", () => {
+      const source = create({ channel: 0 });
+      const [b, series] = source.value();
+      expect(b).toEqual(bounds.INVALID);
+      expect(series.length).toBe(0);
+      expect(source.loading()).toBe(false);
+      expect(c.tiles).toHaveLength(0);
+    });
+
+    it("should load the tiles of the home view", async () => {
+      const source = create();
+      expect(source.loading()).toBe(true);
+      await settle(source);
+      expect(c.tiles.map((t) => [t.level, t.index, t.pointLimit])).toEqual([
+        [13, 0, 1024],
+        [13, 1, 1024],
+      ]);
+      expect(c.tiles.every((t) => t.aggregation === "min_max")).toBe(true);
+      expect(positions(source.value()[1])).toEqual([
+        [13, 0],
+        [13, 1],
+      ]);
+    });
+
+    it("should size tiles by the line's aggregation and groups per column", async () => {
+      const source = create({ aggregation: "average", groupsPerColumn: 1 });
+      await settle(source);
+      expect(c.tiles.map((t) => [t.pointLimit, t.aggregation])).toEqual([
+        [1024, "average"],
+        [1024, "average"],
+      ]);
+    });
+
+    it("should bound an index channel by the home view", async () => {
+      const source = create({ useIndexOfChannel: true });
+      await settle(source);
+      expect(source.value()[0]).toEqual(HOME.numericBounds);
+      expect(c.tiles.every((t) => t.key === INDEX_KEY)).toBe(true);
+    });
+
+    it("should bound a data channel by its data", async () => {
+      const source = create();
+      await settle(source);
+      expect(source.value()[0]).toEqual({ lower: 0, upper: 13 });
+    });
+
+    it("should draw the tiles of the view it is given", async () => {
+      const source = create();
+      await settle(source);
+      source.value({ view: view(2000, 3000) });
+      await expect
+        .poll(() => positions(source.value({ view: view(2000, 3000) })[1]))
+        .toEqual([
+          [9, 3],
+          [9, 4],
+          [9, 5],
+        ]);
+    });
+
+    it("should draw a coarse tile until the view's tiles arrive", async () => {
+      const source = create();
+      await settle(source);
+      c.deferred = true;
+      const [, series] = source.value({ view: view(2000, 3000) });
+      expect(positions(series)).toEqual([[13, 0]]);
+      expect(source.fetching()).toBe(true);
+      c.resolveAll();
+      await expect.poll(() => source.fetching()).toBe(false);
+      expect(positions(source.value({ view: view(2000, 3000) })[1])).toHaveLength(3);
+    });
+
+    it("should draw finer tiles until a zoomed out view's tiles arrive", async () => {
+      const source = create();
+      await settle(source);
+      c.deferred = true;
+      const [, series] = source.value({ view: view(0, 60000) });
+      expect(positions(series)).toEqual([
+        [13, 0],
+        [13, 1],
+      ]);
+      c.resolveAll();
+      await expect.poll(() => source.fetching()).toBe(false);
+      expect(positions(source.value({ view: view(0, 60000) })[1])).toEqual([
+        [15, 0],
+        [15, 1],
+      ]);
+    });
+
+    it("should request each tile once while it is pending", async () => {
+      const source = create();
+      await settle(source);
+      c.deferred = true;
+      const before = c.tiles.length;
+      source.value({ view: view(2000, 3000) });
+      source.value({ view: view(2000, 3000) });
+      expect(c.tiles.length - before).toBe(3);
+    });
+
+    describe("data type changes", () => {
+      const bytes = (spec: framer.TileSpec): MultiSeries =>
+        new MultiSeries([
+          new Series({
+            data: new Uint8Array([spec.level, spec.index]),
+            timeRange: framer.tileRange(spec),
+          }),
+        ]);
+
+      it("should ask for tiles in the data type the line holds", async () => {
+        const source = create();
+        await settle(source);
+        expect(c.tileDataTypes).toEqual([undefined, undefined]);
+        source.value({ view: view(2000, 3000) });
+        await expect.poll(() => source.fetching()).toBe(false);
+        expect(c.tileDataTypes.slice(2)).toEqual([
+          DataType.FLOAT32,
+          DataType.FLOAT32,
+          DataType.FLOAT32,
+        ]);
+      });
+
+      it("should read the channel again when a tile of a new data type arrives", async () => {
+        const source = create();
+        await settle(source);
+        const home = [...c.served.values()];
+        c.feed.readTile = async (spec) => bytes(spec);
+        source.value({ view: view(2000, 3000) });
+        await expect
+          .poll(() => home.every((tile) => tile.series[0].refCount === 0))
+          .toBe(true);
+        await settle(source);
+        expect(positions(source.value()[1])).toEqual([
+          [13, 0],
+          [13, 1],
+        ]);
+        expect(source.value()[1].dataType.equals(DataType.UINT8)).toBe(true);
+      });
+    });
+
+    describe("level settle", () => {
+      const SETTLE = TimeSpan.milliseconds(50);
+      const createSettling = () => create({}, undefined, undefined, SETTLE);
+
+      it("should read a new level's tiles once the level holds", async () => {
+        const source = createSettling();
+        await settle(source);
+        const handleChange = vi.fn();
+        source.onChange(handleChange);
+        const before = c.tiles.length;
+        source.value({ view: view(2000, 3000) });
+        expect(c.tiles).toHaveLength(before);
+        await expect.poll(() => handleChange.mock.calls.length).toBeGreaterThan(0);
+        source.value({ view: view(2000, 3000) });
+        expect(c.tiles.slice(before).map((t) => [t.level, t.index])).toEqual([
+          [9, 3],
+          [9, 4],
+          [9, 5],
+        ]);
+      });
+
+      it("should skip the levels a fast zoom passes through", async () => {
+        const source = createSettling();
+        await settle(source);
+        const before = c.tiles.length;
+        source.value({ view: view(2000, 6000) });
+        source.value({ view: view(2000, 3000) });
+        await sleep.sleep(SETTLE.mult(2));
+        source.value({ view: view(2000, 3000) });
+        expect(new Set(c.tiles.slice(before).map((t) => t.level))).toEqual(
+          new Set([9]),
+        );
+      });
+
+      it("should read a pan within a level at once", async () => {
+        const source = createSettling();
+        await settle(source);
+        source.value({ view: view(2000, 3000) });
+        await sleep.sleep(SETTLE.mult(2));
+        source.value({ view: view(2000, 3000) });
+        const before = c.tiles.length;
+        source.value({ view: view(3000, 4000) });
+        expect(c.tiles.slice(before).map((t) => [t.level, t.index])).toEqual([
+          [9, 6],
+          [9, 7],
+        ]);
+      });
+    });
+
+    it("should release the tiles a view no longer needs", async () => {
+      const source = create();
+      await settle(source);
+      source.value({ view: view(2000, 3000) });
+      await expect
+        .poll(() => source.value({ view: view(2000, 3000) })[1].series.length)
+        .toBe(3);
+      const fine = c.served.get(`9/3/${DATA_KEY}`)!;
+      expect(fine.series[0].refCount).toBe(1);
+      source.value({ view: view(1000, 10000, 1000) });
+      expect(fine.series[0].refCount).toBe(0);
+      expect(c.served.get(`13/0/${DATA_KEY}`)!.series[0].refCount).toBe(1);
+    });
+
+    it("should release a tile that arrives after its view moved on", async () => {
+      const source = create();
+      await settle(source);
+      c.deferred = true;
+      source.value({ view: view(2000, 3000) });
+      const home = view(1000, 10000, 1000);
+      source.value({ view: home });
+      c.resolveAll();
+      await expect.poll(() => source.fetching()).toBe(false);
+      const late = c.served.get(`9/3/${DATA_KEY}`)!;
+      expect(late.series[0].refCount).toBe(1);
+      expect(positions(source.value({ view: home })[1])).toEqual([
+        [13, 0],
+        [13, 1],
+      ]);
+      expect(late.series[0].refCount).toBe(0);
+    });
+
+    it("should keep the home tiles through a view far from home", async () => {
+      const source = create();
+      await settle(source);
+      source.value({ view: view(500_000, 501_000) });
+      await expect.poll(() => source.fetching()).toBe(false);
+      source.value({ view: view(500_000, 501_000) });
+      expect(c.served.get(`13/0/${DATA_KEY}`)!.series[0].refCount).toBe(1);
+    });
+
+    it("should read an xy line's home range once with decimate", async () => {
+      const source = create({ xChannel: XY_KEY, channel: XY_KEY });
+      await settle(source);
+      expect(
+        c.tiles.map((t) => [
+          t.index,
+          t.aggregation,
+          t.start?.valueOf(),
+          t.end?.valueOf(),
+        ]),
+      ).toEqual([
+        [0, "decimate", HOME.start.valueOf(), undefined],
+        [1, "decimate", undefined, HOME.end.valueOf()],
+      ]);
+      const before = c.tiles.length;
+      source.value({ view: view(2000, 3000, 1000) });
+      expect(c.tiles.length).toBe(before);
+    });
+
+    it("should release an xy line's tiles of a former width", async () => {
+      const source = create({ xChannel: XY_KEY, channel: XY_KEY });
+      await settle(source);
+      const former = [...c.served.values()];
+      const wide = view(2000, 3000, 4000);
+      source.value({ view: wide });
+      await expect.poll(() => source.fetching()).toBe(false);
+      source.value({ view: wide });
+      expect(c.tiles).toHaveLength(4);
+      expect(former.map((s) => s.series[0].refCount)).toEqual([0, 0]);
+    });
+
+    describe("failures", () => {
+      const NO_WAIT: breaker.Config = { sleepFn: async () => {} };
+      const FAST: breaker.Config = {
+        baseInterval: TimeSpan.milliseconds(1),
+        scale: 1,
+        jitter: 0,
+      };
+
+      const failTiles = (error: Error): void => {
+        c.feed.readTile = async (spec) => {
+          c.tiles.push(spec);
+          throw error;
+        };
+      };
+
+      it("should not request a failed tile again while it backs off", async () => {
+        const statuses: cstatus.Crude[] = [];
+        failTiles(new Error("transient"));
+        const source = create(
+          {},
+          undefined,
+          { onStatusChange: (s) => statuses.push(s) },
+          undefined,
+          { sleepFn: async () => await new Promise(() => {}) },
+        );
+        const handleChange = vi.fn();
+        source.onChange(handleChange);
+        await settle(source);
+        const failed = c.tiles.length;
+        for (let i = 0; i < 5; i++) source.value();
+        await sleep.sleep(TimeSpan.milliseconds(10));
+        expect(c.tiles).toHaveLength(failed);
+        expect(statuses.map((s) => [s.message, s.description])).toEqual([
+          ["Failed to read channel data", "transient"],
+        ]);
+        // Once when the channel resolves, and once when the first tile read fails.
+        expect(handleChange).toHaveBeenCalledTimes(2);
+        source.cleanup();
+      });
+
+      it("should request a failed tile again once the backoff ends", async () => {
+        let failing = true;
+        c.feed.readTile = async (spec) => {
+          c.tiles.push(spec);
+          if (failing) throw new Error("transient");
+          return tileSeries(spec);
+        };
+        let wake = (): void => {};
+        const source = create({}, undefined, undefined, undefined, {
+          sleepFn: async () =>
+            await new Promise<void>((resolve) => {
+              wake = resolve;
+            }),
+        });
+        await settle(source);
+        failing = false;
+        wake();
+        await expect
+          .poll(() => positions(source.value()[1]))
+          .toEqual([
+            [13, 0],
+            [13, 1],
+          ]);
+        source.cleanup();
+      });
+
+      it("should park a tile on a definitive rejection", async () => {
+        failTiles(new ValidationError("bad tile"));
+        const source = create({}, undefined, undefined, undefined, NO_WAIT);
+        await settle(source);
+        const failed = c.tiles.length;
+        await sleep.sleep(TimeSpan.milliseconds(10));
+        source.value();
+        expect(c.tiles).toHaveLength(failed);
+        source.cleanup();
+      });
+
+      it("should stop retrying tiles at cleanup", async () => {
+        failTiles(new Error("boom"));
+        const source = create({}, undefined, undefined, undefined, FAST);
+        // The notify at the end of each backoff stands in for the render it starts.
+        source.onChange(() => source.value());
+        source.value();
+        await expect.poll(() => c.tiles.length >= 6).toBe(true);
+        source.cleanup();
+        const settled = c.tiles.length;
+        await sleep.sleep(TimeSpan.milliseconds(20));
+        expect(c.tiles).toHaveLength(settled);
+      });
+
+      it("should retry a failed channel retrieval until it lands", async () => {
+        const { retrieve } = c.channels;
+        let calls = 0;
+        c.channels.retrieve = async (key) => {
+          calls++;
+          if (calls === 1) throw new Error("transient");
+          return await retrieve(key);
+        };
+        const source = create({}, undefined, undefined, undefined, NO_WAIT);
+        source.value();
+        await expect
+          .poll(() => positions(source.value()[1]))
+          .toEqual([
+            [13, 0],
+            [13, 1],
+          ]);
+        expect(calls).toBe(2);
+        source.cleanup();
+      });
+
+      it("should park on a definitive rejection of the channel retrieval", async () => {
+        const statuses: cstatus.Crude[] = [];
+        let calls = 0;
+        c.channels.retrieve = async () => {
+          calls++;
+          throw new NotFoundError("channel not found");
+        };
+        const source = create(
+          {},
+          undefined,
+          { onStatusChange: (s) => statuses.push(s) },
+          undefined,
+          NO_WAIT,
+        );
+        await settle(source);
+        await sleep.sleep(TimeSpan.milliseconds(10));
+        source.value();
+        expect(calls).toBe(1);
+        expect(statuses.map((s) => [s.message, s.description])).toEqual([
+          ["Failed to read channel data", "channel not found"],
+        ]);
+        source.cleanup();
+      });
+
+      it("should stop retrying a channel retrieval at cleanup", async () => {
+        let calls = 0;
+        c.channels.retrieve = async () => {
+          calls++;
+          throw new Error("boom");
+        };
+        const source = create({}, undefined, undefined, undefined, FAST);
+        source.value();
+        await expect.poll(() => calls >= 3).toBe(true);
+        source.cleanup();
+        const settled = calls;
+        await sleep.sleep(TimeSpan.milliseconds(20));
+        expect(calls).toBe(settled);
+      });
+    });
+
+    it("should release every tile on cleanup", async () => {
+      const source = create();
+      await settle(source);
+      const home = c.served.get(`13/0/${DATA_KEY}`)!;
+      source.cleanup();
+      expect(home.series[0].refCount).toBe(0);
+    });
+
+    describe("live", () => {
+      const SPAN = TimeSpan.seconds(10);
+      let now: TimeStamp;
+      const clock = (): TimeStamp => now;
+      beforeEach(() => {
+        now = TimeStamp.seconds(100);
+      });
+
+      const createLive = (props: Partial<TiledChannelDataProps> = {}) =>
+        create({ timeRange: undefined, timeSpan: SPAN, ...props }, clock);
+
+      const raw = (start: number, end: number, alignment = BigInt(start)): Series =>
+        new Series({
+          data: new Float32Array([start, end]),
+          timeRange: new TimeRange(TimeStamp.seconds(start), TimeStamp.seconds(end)),
+          alignment,
+        });
+
+      // A live window of a minute or less never reports loading, so specs wait for the
+      // notify that ends its first read.
+      const firstRead = async (source: TiledChannelData): Promise<void> => {
+        const notified = vi.fn();
+        source.onChange(notified);
+        source.value();
+        await expect.poll(() => notified).toHaveBeenCalled();
+      };
+
+      // Holds every back-fill read until the returned release is called.
+      const gateReads = (): (() => void) => {
+        let release = (): void => {};
+        const gate = new Promise<void>((resolve) => (release = resolve));
+        const { read } = c.feed;
+        c.feed.read = async (tr) => {
+          await gate;
+          return await read(tr);
+        };
+        return release;
+      };
+
+      it("should read the live window at full resolution", async () => {
+        c.response = new MultiSeries([raw(82, 100)]);
+        const source = createLive();
+        await firstRead(source);
+        expect(c.reads).toHaveLength(1);
+        expect(c.reads[0].start.valueOf()).toBe(
+          TimeStamp.milliseconds(81_920).valueOf(),
+        );
+        expect(c.tiles).toHaveLength(0);
+        expect(positions(source.value()[1])).toEqual([[82, 100]]);
+      });
+
+      it("should stream a live xy line's home view without tiles", async () => {
+        c.response = new MultiSeries([raw(90, 100)]);
+        const source = createLive({ xChannel: XY_KEY, channel: XY_KEY });
+        await firstRead(source);
+        expect(c.tiles).toHaveLength(0);
+        expect(c.reads[0].start.valueOf()).toBe(TimeStamp.seconds(90).valueOf());
+        expect(positions(source.value()[1])).toEqual([[90, 100]]);
+      });
+
+      it("should stream new samples into the live window", async () => {
+        const source = createLive();
+        await firstRead(source);
+        c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([raw(100, 101)])]]));
+        expect(positions(source.value()[1])).toEqual([[100, 101]]);
+      });
+
+      it("should draw tiles before the live window and raw data after it", async () => {
+        c.response = new MultiSeries([raw(82, 100)]);
+        const source = createLive();
+        await firstRead(source);
+        const v = view(75_000, 100_000, 1000);
+        source.value({ view: v });
+        await expect.poll(() => source.fetching()).toBe(false);
+        expect(positions(source.value({ view: v })[1])).toEqual([
+          [14, 4],
+          [82, 100],
+        ]);
+      });
+
+      it("should cut a coarse tile at the start of the live window", async () => {
+        const source = createLive();
+        await firstRead(source);
+        source.value({ view: view(0, 100_000, 1000) });
+        const cut = c.tiles.find((t) => t.end != null);
+        expect(cut?.level).toBe(16);
+        expect(cut?.end?.valueOf()).toBe(TimeStamp.milliseconds(81_920).valueOf());
+      });
+
+      it("should drop raw series that end before the live window", async () => {
+        const old = raw(82, 90);
+        c.response = new MultiSeries([old]);
+        const source = createLive();
+        await firstRead(source);
+        expect(old.refCount).toBe(1);
+        now = TimeStamp.seconds(200);
+        source.value();
+        expect(old.refCount).toBe(0);
+      });
+
+      it("should draw a finished tile where the live window moved past", async () => {
+        const left = raw(82, 90);
+        c.response = new MultiSeries([left, raw(90, 100)]);
+        const source = createLive();
+        await firstRead(source);
+        now = TimeStamp.seconds(108);
+        const v = view(80_000, 108_000, 1000);
+        source.value({ view: v });
+        await expect.poll(() => source.fetching()).toBe(false);
+        // The tile stops where the held raw series starts, so no span draws twice.
+        const cut = c.tiles.find((t) => t.level === 14 && t.index === 5);
+        expect(cut?.end?.valueOf()).toBe(TimeStamp.seconds(90).valueOf());
+        expect(positions(source.value({ view: v })[1])).toEqual([
+          [14, 4],
+          [14, 5],
+          [90, 100],
+        ]);
+        expect(left.refCount).toBe(0);
+      });
+
+      it("should draw raw series the live window moved past until their tile arrives", async () => {
+        const left = raw(82, 90);
+        c.response = new MultiSeries([left, raw(90, 100)]);
+        const source = createLive();
+        await firstRead(source);
+        now = TimeStamp.seconds(108);
+        c.deferred = true;
+        const v = view(80_000, 108_000, 1000);
+        expect(positions(source.value({ view: v })[1])).toEqual([
+          [82, 90],
+          [90, 100],
+        ]);
+        c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([raw(100, 108)])]]));
+        expect(left.refCount).toBe(1);
+        c.resolveAll();
+        await expect.poll(() => source.fetching()).toBe(false);
+        expect(positions(source.value({ view: v })[1])).toEqual([
+          [14, 4],
+          [14, 5],
+          [90, 100],
+          [100, 108],
+        ]);
+        expect(left.refCount).toBe(0);
+      });
+
+      it("should release raw series a line that never draws moved past", async () => {
+        const [left, right] = [raw(82, 90), raw(90, 100)];
+        c.response = new MultiSeries([left, right]);
+        const source = createLive();
+        await firstRead(source);
+        now = TimeStamp.seconds(120);
+        c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([raw(100, 120)])]]));
+        expect(left.refCount).toBe(0);
+        expect(right.refCount).toBe(1);
+      });
+
+      it("should release older tiles when the view returns to the live window", async () => {
+        const source = createLive();
+        await firstRead(source);
+        const older = view(75_000, 100_000, 1000);
+        source.value({ view: older });
+        await expect.poll(() => source.fetching()).toBe(false);
+        const tile = c.served.get(`14/4/${DATA_KEY}`)!;
+        expect(tile.series[0].refCount).toBe(1);
+        source.value({ view: view(95_000, 100_000, 1000) });
+        expect(tile.series[0].refCount).toBe(0);
+        source.cleanup();
+      });
+
+      it("should bound a live index by the span before its latest sample", async () => {
+        const source = createLive({ useIndexOfChannel: true });
+        await firstRead(source);
+        const [b] = source.value();
+        expect(b.upper).toBe(Number(TimeStamp.seconds(100).valueOf()));
+        expect(b.upper - b.lower).toBe(Number(SPAN.valueOf()));
+      });
+
+      it("should stop streaming on cleanup", async () => {
+        const source = createLive();
+        await firstRead(source);
+        source.cleanup();
+        expect(c.streamDestructorF).toHaveBeenCalled();
+      });
+
+      it("should keep the buffers of a restarted Core after the older ones", async () => {
+        const source = createLive();
+        await firstRead(source);
+        const before = raw(95, 96, 5n << 32n);
+        const after = raw(97, 98, 0n);
+        c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([before])]]));
+        c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([after])]]));
+        expect(positions(source.value()[1])).toEqual([
+          [95, 96],
+          [97, 98],
+        ]);
+      });
+
+      it("should read the channel again when a new data type meets held tiles", async () => {
+        const source = createLive();
+        await firstRead(source);
+        const v = view(75_000, 100_000, 1000);
+        source.value({ view: v });
+        await expect.poll(() => source.fetching()).toBe(false);
+        const tile = c.served.get(`14/4/${DATA_KEY}`)!;
+        const opened = c.streamHandler;
+        const bytes = new Series({
+          data: new Uint8Array([3, 4]),
+          timeRange: new TimeRange(TimeStamp.seconds(96), TimeStamp.seconds(97)),
+        });
+        c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([bytes])]]));
+        expect(tile.series[0].refCount).toBe(0);
+        expect(bytes.refCount).toBe(0);
+        expect(source.value({ view: v })[1].series).toEqual([]);
+        await expect.poll(() => c.streamHandler !== opened).toBe(true);
+        source.cleanup();
+      });
+
+      it("should keep streaming series the feed converted from the channel's data type", async () => {
+        c.channels.retrieve = async (key) =>
+          new channel.Channel({
+            key,
+            name: "data",
+            dataType: DataType.FLOAT64,
+            index: INDEX_KEY,
+          });
+        const source = createLive();
+        await firstRead(source);
+        const opened = c.streamHandler;
+        c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([raw(100, 101)])]]));
+        expect(c.streamHandler).toBe(opened);
+        expect(positions(source.value()[1])).toEqual([[100, 101]]);
+      });
+
+      it("should read the channel again when its data type changes", async () => {
+        const source = createLive();
+        await firstRead(source);
+        const v = view(75_000, 100_000, 1000);
+        source.value({ view: v });
+        await expect.poll(() => source.fetching()).toBe(false);
+        const tile = c.served.get(`14/4/${DATA_KEY}`)!;
+        const float = raw(95, 96);
+        c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([float])]]));
+        const bytes = new Series({
+          data: new Uint8Array([3, 4]),
+          timeRange: new TimeRange(TimeStamp.seconds(96), TimeStamp.seconds(97)),
+        });
+        const opened = c.streamHandler;
+        c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([bytes])]]));
+        expect(source.value()[1].series).toEqual([]);
+        expect(float.refCount).toBe(0);
+        expect(tile.series[0].refCount).toBe(0);
+        await expect.poll(() => c.streamHandler !== opened).toBe(true);
+        c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([bytes])]]));
+        expect(source.value()[1].series).toEqual([bytes]);
+        source.cleanup();
+      });
+
+      it("should end the back-fill where the stream opened", async () => {
+        let openedAt: TimeStamp | undefined;
+        const { stream } = c.feed;
+        // The clock moves on once the stream opens, so a back-fill that reads it again
+        // overlaps live data.
+        c.feed.stream = (handler) => {
+          openedAt = now;
+          now = now.add(TimeSpan.seconds(1));
+          return stream(handler);
+        };
+        const source = createLive();
+        await firstRead(source);
+        expect(c.reads.map((r) => r.end)).toEqual([openedAt]);
+      });
+
+      it("should read the span between the back-fill and the first live series", async () => {
+        const source = create({ timeRange: undefined, timeSpan: SPAN }, () =>
+          TimeStamp.now(),
+        );
+        await firstRead(source);
+        expect(c.reads).toHaveLength(1);
+        const liveStart = c.reads[0].end.add(TimeSpan.milliseconds(200));
+        const live = new Series({
+          data: new Float32Array([1, 2]),
+          timeRange: new TimeRange(liveStart, TimeStamp.MAX),
+        });
+        c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([live])]]));
+        // The seam read waits a second for its samples to commit.
+        await sleep.sleep(TimeSpan.milliseconds(300));
+        expect(c.reads).toHaveLength(1);
+        await expect.poll(() => c.reads.length, { timeout: 3000 }).toBe(2);
+        expect(c.reads[1]).toEqual(new TimeRange(c.reads[0].end, liveStart));
+        source.cleanup();
+      });
+
+      it("should draw a live window of up to a minute while its back-fill loads", async () => {
+        const release = gateReads();
+        const source = createLive({ timeSpan: TimeSpan.minutes(1) });
+        expect(source.loading()).toBe(false);
+        source.value();
+        await expect.poll(() => c.streamHandler != null).toBe(true);
+        c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([raw(100, 101)])]]));
+        expect(source.loading()).toBe(false);
+        expect(positions(source.value()[1])).toEqual([[100, 101]]);
+        release();
+        source.cleanup();
+      });
+
+      it("should report loading for a live window over a minute until its back-fill lands", async () => {
+        const release = gateReads();
+        now = TimeStamp.seconds(600);
+        const source = createLive({ timeSpan: TimeSpan.minutes(2) });
+        expect(source.loading()).toBe(true);
+        await expect.poll(() => c.streamHandler != null).toBe(true);
+        expect(source.loading()).toBe(true);
+        release();
+        await settle(source);
+        source.cleanup();
+      });
+
+      it("should report fetching for tiles in view while the back-fill loads", async () => {
+        const release = gateReads();
+        c.deferred = true;
+        const source = createLive();
+        source.value();
+        await expect.poll(() => c.streamHandler != null).toBe(true);
+        source.value({ view: view(75_000, 100_000, 1000) });
+        expect(source.fetching()).toBe(true);
+        c.resolveAll();
+        release();
+        source.cleanup();
+      });
+    });
+  });
+
   describe("disconnected", () => {
     it("should still create remote sources from a null-client factory", () => {
       const factory = createFactory(null);
@@ -2226,6 +3128,22 @@ describe("remote", () => {
       // A repeated read must not re-report: the source is rebuilt on reconnect.
       expect(scv.value()).toBe(NaN);
       expect(statuses).toHaveLength(1);
+    });
+
+    it("should clear loading for a disconnected TiledChannelData source", () => {
+      const statuses: cstatus.Crude[] = [];
+      const source = new TiledChannelData(
+        null,
+        {
+          channel: 1,
+          timeRange: new TimeRange(TimeStamp.SECOND, TimeStamp.seconds(10)),
+        },
+        { onStatusChange: (s) => statuses.push(s) },
+      );
+      expect(source.loading()).toBe(false);
+      expect(source.value()[1]).toHaveLength(0);
+      expect(statuses).toHaveLength(1);
+      expect(statuses[0].variant).toEqual("warning");
     });
 
     it("should return empty data from a disconnected ChannelData source", () => {

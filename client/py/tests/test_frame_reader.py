@@ -54,14 +54,9 @@ def _read_tdms(
     client: sy.Synnax,
     channels: list[sy.Channel],
     dest: pathlib.Path,
-    downsample_factor: int = 1,
+    reduction: sy.StrideReduction | None = None,
 ) -> TdmsFile:
-    client.read_tdms(
-        sy.TimeRange.MAX,
-        [ch.key for ch in channels],
-        dest,
-        downsample_factor=downsample_factor,
-    )
+    client.read_tdms(sy.TimeRange.MAX, [ch.key for ch in channels], dest, reduction)
     return TdmsFile.read(dest, raw_timestamps=True)
 
 
@@ -129,13 +124,44 @@ class TestReader:
         f = client.read(sy.TimeRange.MAX, [idx_ch.name, data_ch.name])
         assert np.array_equal(f[data_ch.name], np.arange(10, dtype=np.float64))
 
-    def test_read_downsampled(
+    def test_read_strided(
         self, written_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ) -> None:
-        """Should keep one sample in every downsample_factor"""
+        """Should keep every factor-th sample under a stride"""
         _, data_ch = written_pair
-        series = client.read(sy.TimeRange.MAX, data_ch.key, downsample_factor=2)
+        series = client.read(
+            sy.TimeRange.MAX, data_ch.key, reduction=sy.StrideReduction(factor=2)
+        )
         assert np.array_equal(series, np.arange(0, 10, 2, dtype=np.float64))
+        assert series.series[0].alignment_multiple == 2
+
+    def test_read_limited(
+        self, written_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should reduce each channel to the point limit with its alignment multiple"""
+        _, data_ch = written_pair
+        series = client.read(
+            sy.TimeRange.MAX,
+            data_ch.key,
+            reduction=sy.LimitReduction(aggregation="decimate", point_limit=5),
+        )
+        assert np.array_equal(series, np.arange(0, 10, 2, dtype=np.float64))
+        assert series.series[0].alignment_multiple == 2
+
+    def test_read_csv_strided(
+        self,
+        written_pair: tuple[sy.Channel, sy.Channel],
+        client: sy.Synnax,
+        tmp_path: pathlib.Path,
+    ) -> None:
+        """Should write every factor-th row under a stride"""
+        _, data_ch = written_pair
+        dest = tmp_path / "out.csv"
+        client.read_csv(
+            sy.TimeRange.MAX, data_ch.key, dest, sy.StrideReduction(factor=5)
+        )
+        lines = dest.read_text().splitlines()
+        assert lines[1:] == ["1000000000,0", "6000000000,5"]
 
     def test_read_csv(
         self,
@@ -413,7 +439,9 @@ class TestReader:
     ) -> None:
         """Should keep one sample of the channel and its index in every factor"""
         index, data = written_pair
-        tdms = _read_tdms(client, [data], tmp_path / "out.tdms", downsample_factor=2)
+        tdms = _read_tdms(
+            client, [data], tmp_path / "out.tdms", sy.StrideReduction(factor=2)
+        )
         tdms_index, tdms_data = _tdms_group(tdms, index).channels()
         assert _tdms_timestamps(tdms_index) == [
             int(t) for t in seconds_linspace(1, 10)[::2]

@@ -17,7 +17,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Group, Schematic } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import { Edit } from "@/feature/schematic/symbol/edit";
 import { CSS } from "@/platform/css";
@@ -29,22 +29,19 @@ export const MissingForm = (): ReactElement => {
   const [createGroupKey, setCreateGroupKey] = useState<group.Key | undefined>(
     undefined,
   );
-  const handleRelink = useCallback(
-    (key: schematic.symbol.Key | undefined) => {
-      if (key == null) return;
-      form.set("specKey", key);
-      form.set("stateOverrides", []);
-    },
-    [form],
-  );
-  const handleCreate = useCallback(() => {
+  const handleRelink = (key: schematic.symbol.Key | undefined) => {
+    if (key == null) return;
+    form.set("specKey", key);
+    form.set("stateOverrides", []);
+  };
+  const handleCreate = () => {
     if (createGroupKey == null) return;
     const missingKey = form.get<string>("specKey", { optional: true })?.value;
     openEditModal({
       parent: group.ontologyID(createGroupKey),
       createKey: missingKey,
     });
-  }, [openEditModal, createGroupKey, form]);
+  };
   return (
     <Flex.Box
       y

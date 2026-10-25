@@ -79,6 +79,7 @@
     },
     "configs/ts": {},
     "configs/vite": {
+      "entry": ["src/index.ts", "src/parallel.ts"],
       "project": ["src/**/*.ts"]
     },
     "configs/stylelint": {

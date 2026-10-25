@@ -22,13 +22,7 @@ import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Panel as PPanel } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import {
-  type FC,
-  type PropsWithChildren,
-  type ReactElement,
-  useCallback,
-  useEffect,
-} from "react";
+import { type FC, type PropsWithChildren, type ReactElement, useEffect } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Mosaic } from "@/feature/panel/Mosaic";
@@ -104,12 +98,9 @@ const TriggerProbeContent: Panel.Content = () => {
   const tabKey = PPanel.useTabKey();
   Triggers.use({
     triggers: TRIGGER,
-    callback: useCallback(
-      ({ stage }: Triggers.UseEvent) => {
-        if (stage === "start") triggerFires.push(tabKey);
-      },
-      [tabKey],
-    ),
+    callback: ({ stage }: Triggers.UseEvent) => {
+      if (stage === "start") triggerFires.push(tabKey);
+    },
   });
   return <Text.Text>{`tab-content-${tabKey}`}</Text.Text>;
 };

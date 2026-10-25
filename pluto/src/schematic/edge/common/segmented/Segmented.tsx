@@ -15,14 +15,7 @@ import { Cursor } from "@synnaxlabs/lyra/cursor";
 import { type Triggers } from "@synnaxlabs/lyra/triggers";
 import { box, direction, xy } from "@synnaxlabs/x";
 import { type ReactFlowState, useReactFlow, useStore } from "@xyflow/react";
-import {
-  type FC,
-  Fragment,
-  type ReactElement,
-  useCallback,
-  useRef,
-  useState,
-} from "react";
+import { type FC, Fragment, type ReactElement, useRef, useState } from "react";
 
 import { type Base } from "@/schematic/edge/common/base";
 import { Jumps } from "@/schematic/edge/common/jumps";
@@ -54,10 +47,7 @@ export interface PathProps extends Omit<Base.BaseProps, "path" | "points"> {
 
 const useNodeBox = (key: string): box.Box =>
   useStore(
-    useCallback(
-      ({ nodeLookup }: ReactFlowState) => internalNodeBox(nodeLookup.get(key) ?? null),
-      [key],
-    ),
+    ({ nodeLookup }: ReactFlowState) => internalNodeBox(nodeLookup.get(key) ?? null),
     box.equals,
   );
 
@@ -85,65 +75,50 @@ const create = (Path: FC<PathProps>): Edge => {
       middleSegments,
     });
 
-    const persistMiddle = useCallback(
-      (segs: Segment[]) => {
-        onChange({
-          segments: extractMiddle(segs, source.orientation, target.orientation),
-        });
-      },
-      [source.orientation, target.orientation, onChange],
-    );
+    const persistMiddle = (segs: Segment[]) => {
+      onChange({
+        segments: extractMiddle(segs, source.orientation, target.orientation),
+      });
+    };
 
     const [dragOverride, setDragOverride] = useState<Segment[] | null>(null);
 
     const segments = dragOverride ?? visualSegments;
     const dragRef = useRef<CurrentlyDragging | null>(null);
 
-    const computeDragged = useCallback(
-      (b: box.Box): Segment[] | null => {
-        const drag = dragRef.current;
-        if (drag == null) return null;
-        return dragSegment({
-          segments: drag.segments,
-          index: drag.index,
-          magnitude:
-            box.dim(b, direction.swap(drag.segments[drag.index].direction), true) /
-            flow.getZoom(),
-        });
-      },
-      [flow],
-    );
+    const computeDragged = (b: box.Box): Segment[] | null => {
+      const drag = dragRef.current;
+      if (drag == null) return null;
+      return dragSegment({
+        segments: drag.segments,
+        index: drag.index,
+        magnitude:
+          box.dim(b, direction.swap(drag.segments[drag.index].direction), true) /
+          flow.getZoom(),
+      });
+    };
 
     const dragStart = Cursor.useDrag({
-      onStart: useCallback(
-        (_: xy.XY, __: Triggers.Key, el: HTMLElement) => {
-          dragRef.current = {
-            index: Number(el.id.split("-")[1]),
-            segments: [...segments],
-          };
-        },
-        [segments],
-      ),
-      onMove: useCallback(
-        (b: box.Box) => {
-          const next = computeDragged(b);
-          if (next != null) setDragOverride(next);
-        },
-        [computeDragged],
-      ),
+      onStart: (_: xy.XY, __: Triggers.Key, el: HTMLElement) => {
+        dragRef.current = {
+          index: Number(el.id.split("-")[1]),
+          segments: [...segments],
+        };
+      },
+      onMove: (b: box.Box) => {
+        const next = computeDragged(b);
+        if (next != null) setDragOverride(next);
+      },
       // The final segments are computed from the release box rather than read
       // back from state: the last move and the end run in one task, so state
       // written by the move cannot re-render before the end handler reads it.
-      onEnd: useCallback(
-        (b: box.Box) => {
-          const final = computeDragged(b);
-          dragRef.current = null;
-          if (final == null) return;
-          persistMiddle(final);
-          setDragOverride(null);
-        },
-        [computeDragged, persistMiddle],
-      ),
+      onEnd: (b: box.Box) => {
+        const final = computeDragged(b);
+        dragRef.current = null;
+        if (final == null) return;
+        persistMiddle(final);
+        setDragOverride(null);
+      },
     });
 
     const points = segmentsToPoints(source.position, segments, zoom, true);

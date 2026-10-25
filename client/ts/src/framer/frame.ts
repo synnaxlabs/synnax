@@ -475,8 +475,15 @@ export interface CrudePayload extends z.input<typeof frameZ> {}
 
 /** Rebuilds a {@link Series} from its wire form. */
 export const seriesFromPayload = (series: SeriesPayload): Series => {
-  const { dataType, data, timeRange, alignment } = series;
-  return new Series({ data, dataType, timeRange, glBufferUsage: "static", alignment });
+  const { dataType, data, timeRange, alignment, alignmentMultiple } = series;
+  return new Series({
+    data,
+    dataType,
+    timeRange,
+    glBufferUsage: "static",
+    alignment,
+    alignmentMultiple,
+  });
 };
 
 /** Reduces a {@link Series} to its wire form. */
@@ -485,4 +492,5 @@ export const seriesToPayload = (series: Series): SeriesPayload => ({
   dataType: series.dataType,
   data: new Uint8Array(series.data.buffer),
   alignment: series.alignment,
+  alignmentMultiple: series.alignmentMultiple,
 });

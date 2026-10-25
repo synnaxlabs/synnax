@@ -13,7 +13,6 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access, Status } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { contextMenu } from "@/feature/status/list/ContextMenu";
 import { Label } from "@/platform/label";
@@ -34,7 +33,7 @@ const Internal = () => {
     initialQuery: View.useContext().getInitialView().query,
   });
   const openCreate = PlatformStatus.useCreateModal();
-  const handleCreate = useCallback(() => openCreate(), [openCreate]);
+  const handleCreate = () => openCreate();
   const hasCreatePermission = Access.useCreateGranted(status.TYPE_ONTOLOGY_ID);
   return (
     <View.Form {...listProps}>

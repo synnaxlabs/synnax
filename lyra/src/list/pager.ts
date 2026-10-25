@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type state } from "@synnaxlabs/x";
-import { useCallback, useMemo } from "react";
 
 /**
  * Parameters for pagination functionality.
@@ -82,18 +81,13 @@ export const usePager = ({
   pageSize = DEFAULT_PAGE_SIZE,
 }: UsePagerParams): UsePagerReturn => {
   /** Fetches the next page of results by incrementing the offset. */
-  const fetchMore = useCallback(() => {
+  const fetchMore = () => {
     retrieve((prev) => page(prev, pageSize), { mode: "append" });
-  }, [retrieve, pageSize]);
+  };
 
   /** Performs a search with the given term, resetting to the first page. */
-  const handleSearch = useCallback(
-    (searchTerm: string) => retrieve((prev) => search(prev, searchTerm, pageSize)),
-    [retrieve, pageSize],
-  );
+  const handleSearch = (searchTerm: string) =>
+    retrieve((prev) => search(prev, searchTerm, pageSize));
 
-  return useMemo(
-    () => ({ fetchMore, search: handleSearch }),
-    [fetchMore, handleSearch],
-  );
+  return { fetchMore, search: handleSearch };
 };

@@ -12,7 +12,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { List as Base } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Ontology } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { Palette } from "@/platform/palette";
 import { type Search } from "@/platform/search";
@@ -39,15 +39,9 @@ const ListItem = ({ items, ...props }: ListItemProps): ReactElement | null => {
 };
 
 export const List = ({ items, ...rest }: ListProps): ReactElement => {
-  const filter = useCallback(
-    (item: ontology.Resource) => items[item.id.type] != null,
-    [items],
-  );
-  const listItem = useCallback(
-    ({ key, ...props }: Base.ItemProps<string>) => (
-      <ListItem key={key} {...props} items={items} />
-    ),
-    [items],
+  const filter = (item: ontology.Resource) => items[item.id.type] != null;
+  const listItem = ({ key, ...props }: Base.ItemProps<string>) => (
+    <ListItem key={key} {...props} items={items} />
   );
   const listProps = Ontology.useResourceList({ filter });
   return (

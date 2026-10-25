@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { array, type destructor, type record } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { useInitializerRef } from "@/hooks";
 
@@ -34,36 +33,30 @@ export const useKeyedListeners = <
     keyed: new Map(),
     unkeyed: new Set(),
   }));
-  const notifyListeners = useCallback(
-    (keys: K | K[]) => {
-      const { keyed, unkeyed } = listenersRef.current;
-      const notified = new Set(unkeyed);
-      array.toArray(keys).forEach((k) => keyed.get(k)?.forEach((l) => notified.add(l)));
-      notified.forEach((l) => l());
-    },
-    [listenersRef],
-  );
-  const subscribe = useCallback(
-    (listener: () => void, key?: K) => {
-      const { keyed, unkeyed } = listenersRef.current;
-      if (key == null) {
-        unkeyed.add(listener);
-        return () => {
-          unkeyed.delete(listener);
-        };
-      }
-      let listeners = keyed.get(key);
-      if (listeners == null) {
-        listeners = new Set();
-        keyed.set(key, listeners);
-      }
-      listeners.add(listener);
+  const notifyListeners = (keys: K | K[]) => {
+    const { keyed, unkeyed } = listenersRef.current;
+    const notified = new Set(unkeyed);
+    array.toArray(keys).forEach((k) => keyed.get(k)?.forEach((l) => notified.add(l)));
+    notified.forEach((l) => l());
+  };
+  const subscribe = (listener: () => void, key?: K) => {
+    const { keyed, unkeyed } = listenersRef.current;
+    if (key == null) {
+      unkeyed.add(listener);
       return () => {
-        listeners.delete(listener);
-        if (listeners.size === 0 && keyed.get(key) === listeners) keyed.delete(key);
+        unkeyed.delete(listener);
       };
-    },
-    [listenersRef],
-  );
+    }
+    let listeners = keyed.get(key);
+    if (listeners == null) {
+      listeners = new Set();
+      keyed.set(key, listeners);
+    }
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+      if (listeners.size === 0 && keyed.get(key) === listeners) keyed.delete(key);
+    };
+  };
   return { notifyListeners, subscribe };
 };

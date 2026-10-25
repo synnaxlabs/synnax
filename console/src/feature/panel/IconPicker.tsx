@@ -18,7 +18,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Errors, Panel } from "@synnaxlabs/pluto";
 import { type color } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -47,24 +47,16 @@ const Content = ({ panel: key }: ContentProps): ReactElement => {
   const { dispatch } = Panel.useDispatch();
   const updateFrequent = Color.useFrequentUpdater();
   // The custom picker counts its own picks as frequent.
-  const setColor = useCallback(
-    (next?: color.Color) => dispatch({ key, actions: panel.setColor({ color: next }) }),
-    [dispatch, key],
-  );
-  const handlePresetChange = useCallback(
-    (next?: color.Color) => {
-      setColor(next);
-      if (next != null) updateFrequent(next);
-    },
-    [setColor, updateFrequent],
-  );
-  const handleIconChange = useCallback(
-    (next?: string) => {
-      dispatch({ key, actions: panel.setIcon({ icon: next }) });
-      close();
-    },
-    [dispatch, key, close],
-  );
+  const setColor = (next?: color.Color) =>
+    dispatch({ key, actions: panel.setColor({ color: next }) });
+  const handlePresetChange = (next?: color.Color) => {
+    setColor(next);
+    if (next != null) updateFrequent(next);
+  };
+  const handleIconChange = (next?: string) => {
+    dispatch({ key, actions: panel.setIcon({ icon: next }) });
+    close();
+  };
   return (
     <Flex.Box y gap="large" className={CSS.BE("panel-icon-picker", "content")}>
       <Color.Swatches

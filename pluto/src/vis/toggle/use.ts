@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
-import { useCallback, useEffect } from "react";
+import { useEffect } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
@@ -47,6 +47,6 @@ export const use = ({
   }, [memoProps, setState]);
   // Wrap to prevent React event from being passed as argument
   const { toggle: runToggle } = methods;
-  const handleToggle = useCallback(() => runToggle(), [runToggle]);
+  const handleToggle = () => runToggle();
   return { toggle: handleToggle, enabled, stale };
 };

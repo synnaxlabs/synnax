@@ -137,6 +137,8 @@ jobs:
         with:
           cache-workspaces: console/src-tauri -> target
           cache-shared-key: ${{ runner.os }}-${{ env.PRODUCT }}
+          # A cache save deletes rustup from ~/.cargo/bin, which the build bots keep.
+          cache-bin: false
 
       - name: Download Core binary
         if: inputs.desktop

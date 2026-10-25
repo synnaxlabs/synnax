@@ -10,7 +10,6 @@
 import { type table } from "@synnaxlabs/client";
 import { type Properties, Table } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
-import { useCallback } from "react";
 import { useStore } from "react-redux";
 
 import { Select } from "@/session/select";
@@ -39,14 +38,11 @@ const createGetter = <R>(selector: (params: KeyedSelectorParams) => R) => {
   const useGetter = (): ((args?: { key?: table.Key }) => R) => {
     const store = useStore<StoreState>();
     const scopeKey = Table.Scope.useOptional();
-    return useCallback(
-      (args) =>
-        selector({
-          state: store.getState(),
-          key: Table.Scope.require(args?.key ?? scopeKey),
-        }),
-      [store, scopeKey],
-    );
+    return (args) =>
+      selector({
+        state: store.getState(),
+        key: Table.Scope.require(args?.key ?? scopeKey),
+      });
   };
   return useGetter;
 };

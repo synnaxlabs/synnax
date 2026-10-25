@@ -218,6 +218,35 @@ var _ = Describe("CSV", func() {
 				))
 		})
 
+		It("Should fail a limited read before the first byte", func(ctx SpecContext) {
+			index, channels := createIndexed(ctx, telem.Float32T)
+			write(
+				ctx,
+				index,
+				telem.NewSeriesSecondsTSV(1, 2, 3, 4),
+				channels,
+				telem.NewSeriesV[float32](1, 2, 3, 4),
+			)
+			res := response(
+				channels,
+				[]svcchannel.Channel{index},
+				svcframer.IteratorConfig{
+					Reduction: telem.Reduction{
+						Variant: telem.LimitReduction{
+							Aggregation: telem.AggregationDecimate,
+							PointLimit:  2,
+						},
+					},
+				},
+			)
+			var buf bytes.Buffer
+			Expect(framer.CSVEncoder.EncodeStream(ctx, &buf, res)).To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("cannot take a limit reduction")),
+			))
+			Expect(buf.Len()).To(BeZero())
+		})
+
 		It("Should read each column through its own iterator", func(ctx SpecContext) {
 			firstIndex, first := createIndexed(ctx, telem.Float32T)
 			secondIndex, second := createIndexed(ctx, telem.Float32T)
@@ -453,7 +482,11 @@ var _ = Describe("CSV", func() {
 					response(
 						channels,
 						[]svcchannel.Channel{index},
-						svcframer.IteratorConfig{DownsampleFactor: 2},
+						svcframer.IteratorConfig{
+							Reduction: telem.Reduction{
+								Variant: telem.StrideReduction{Factor: 2},
+							},
+						},
 					),
 				),
 			)

@@ -10,7 +10,6 @@
 import { type project, table } from "@synnaxlabs/client";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { compare, grid, id, uuid, verbs, type xy } from "@synnaxlabs/x";
-import { useCallback, useMemo } from "react";
 
 import { Flux } from "@/flux";
 import { Cell } from "@/table/cells";
@@ -124,14 +123,10 @@ const withDefaultLayout = (data: CreateParams): CreateParams =>
 export const useCreate: typeof useCreateBase = (args) => {
   const base = useCreateBase(args);
   const baseRef = useSyncedRef(base);
-  const update = useCallback<typeof base.update>(
-    (data, opts) => baseRef.current.update(withDefaultLayout(data), opts),
-    [baseRef],
-  );
-  const updateAsync = useCallback<typeof base.updateAsync>(
-    (data, opts) => baseRef.current.updateAsync(withDefaultLayout(data), opts),
-    [baseRef],
-  );
+  const update: typeof base.update = (data, opts) =>
+    baseRef.current.update(withDefaultLayout(data), opts);
+  const updateAsync: typeof base.updateAsync = (data, opts) =>
+    baseRef.current.updateAsync(withDefaultLayout(data), opts);
   return { ...base, update, updateAsync };
 };
 
@@ -206,7 +201,7 @@ export const cellsInRegion = (rows: table.Row[], start: xy.XY, end: xy.XY): stri
 
 const useCellPositionBase = ({ key, cellKey }: CellParams): xy.XY | null => {
   const rows = useRows({ key });
-  return useMemo(() => findCellPosition(rows, cellKey), [rows, cellKey]);
+  return findCellPosition(rows, cellKey);
 };
 
 export const useCellPosition = Scope.bindHook(useCellPositionBase);

@@ -14,7 +14,6 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Access, Synnax } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
@@ -33,7 +32,7 @@ const AssignRole = ({
   const client = Synnax.use();
   const { form, save, variant } = Access.Role.useChangeRoleForm({
     query: { key: userKey },
-    afterSave: useCallback(() => close(), [close]),
+    afterSave: () => close(),
   });
   return (
     <Form.Form<typeof Access.Role.changeRoleFormSchema> {...form}>

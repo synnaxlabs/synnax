@@ -33,8 +33,9 @@ import (
 // samples, then the samples. A channel whose name another channel of the read shares
 // takes its name and key, such as "temp (1048577)". Each group sets wf_xcolumns to mark
 // its first channel as its time channel. UUID, bytes, and JSON samples become TDMS
-// strings in their text form. A read of a channel whose index it does not include fails
-// before the first byte. A read that fails after the first byte truncates the body.
+// strings in their text form. A read of a channel whose index it does not include, or a
+// read under a limit reduction, fails before the first byte. A read that fails after
+// the first byte truncates the body.
 var TDMSEncoder tdmsEncoder
 
 type tdmsEncoder struct{}
@@ -161,14 +162,11 @@ func newTDMSFile(res ReadResponse) (*tdmsFile, error) {
 	if err != nil {
 		return nil, err
 	}
-	var (
-		stride = max(res.DownsampleFactor, 1)
-		f      = &tdmsFile{groups: make([]tdmsGroup, len(indexGroups))}
-	)
+	f := &tdmsFile{groups: make([]tdmsGroup, len(indexGroups))}
 	for i, channels := range indexGroups {
 		indexName := names[channels[0].Key()]
 		g := &f.groups[i]
-		g.index, g.path = newColumn(channels[0], stride), tdmsPath(indexName)
+		g.index, g.path = newColumn(channels[0]), tdmsPath(indexName)
 		g.indexPath = tdmsPath(indexName, indexName)
 		var own []tdmsChannel
 		for _, ch := range channels[1:] {
@@ -178,7 +176,7 @@ func newTDMSFile(res ReadResponse) (*tdmsFile, error) {
 				return nil, err
 			}
 			c := tdmsChannel{
-				column:   newColumn(ch, stride),
+				column:   newColumn(ch),
 				tdmsType: t,
 				nan:      tdmsNaN(t),
 			}
@@ -425,6 +423,7 @@ func (g *tdmsGroup) read() (int, error) {
 		}
 		var (
 			start = g.index.alignment()
+			step  = g.index.pending[0].Multiple()
 			k     = g.index.remaining()
 			data  = g.index.pending[0].Data[g.index.offset:]
 			from  = len(g.times)
@@ -435,7 +434,7 @@ func (g *tdmsGroup) read() (int, error) {
 		}
 		g.index.skip(k)
 		for i := range g.channels {
-			if err := g.channels[i].read(start, k, g.times[from:]); err != nil {
+			if err := g.channels[i].read(start, step, k, g.times[from:]); err != nil {
 				return 0, err
 			}
 		}
@@ -444,23 +443,28 @@ func (g *tdmsGroup) read() (int, error) {
 	return n, nil
 }
 
-// read appends the channel's samples at the n index alignments from start, which sit in
-// one domain. times holds the TDMS timestamps of those alignments.
-func (c *tdmsChannel) read(start telem.Alignment, n int, times []byte) error {
+// read appends the channel's samples at the n index alignments from start, step apart
+// and in one domain. times holds the TDMS timestamps of those alignments.
+func (c *tdmsChannel) read(
+	start telem.Alignment,
+	step uint32,
+	n int,
+	times []byte,
+) error {
 	for i := 0; i < n; {
 		if _, size := c.sample(); size == 0 {
 			c.appendMissing(n - i)
 			return nil
 		}
-		at, a := start.AddSamples(uint32(i)*c.stride), c.alignment()
+		at, a := start.AddSamples(uint32(i)*step), c.alignment()
 		if a < at {
 			return c.unindexedError()
 		}
 		if a > at {
 			gap := n - i
 			if a.DomainIndex() == at.DomainIndex() {
-				d := uint64(a.SampleIndex()-at.SampleIndex()) + uint64(c.stride) - 1
-				gap = min(gap, int(d/uint64(c.stride)))
+				d := uint64(a.SampleIndex()-at.SampleIndex()) + uint64(step) - 1
+				gap = min(gap, int(d/uint64(step)))
 			}
 			c.appendMissing(gap)
 			i += gap

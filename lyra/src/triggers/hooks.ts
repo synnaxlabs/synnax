@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { box, compare, unique, type xy } from "@synnaxlabs/x";
-import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 
 import { useStateRef, useSyncedRef } from "@/hooks/ref";
 import { useMemoCompare } from "@/memo";
@@ -182,15 +182,12 @@ export const useUndoRedo = ({ undo, redo, enabled }: UseUndoRedoProps): void => 
     triggers: UNDO_REDO_TRIGGERS,
     loose: true,
     enabled,
-    callback: useCallback(
-      ({ triggers, stage }: UseEvent) => {
-        if (stage !== "start") return;
-        const mode = determineMode(UNDO_REDO_CONFIG, triggers);
-        if (mode === "undo") undo();
-        else if (mode === "redo") redo();
-      },
-      [undo, redo],
-    ),
+    callback: ({ triggers, stage }: UseEvent) => {
+      if (stage !== "start") return;
+      const mode = determineMode(UNDO_REDO_CONFIG, triggers);
+      if (mode === "undo") undo();
+      else if (mode === "redo") redo();
+    },
   });
 };
 
@@ -221,18 +218,15 @@ export const useHeldRef = ({
   });
   use({
     triggers,
-    callback: useCallback(
-      (e: UseEvent) => {
-        setRef((prev) => {
-          let next: Trigger[];
-          if (e.stage === "start")
-            next = unique.unique([...prev.triggers, ...e.triggers]);
-          else next = purge(prev.triggers, e.triggers);
-          return { triggers: next, held: next.length > 0 };
-        });
-      },
-      [setRef],
-    ),
+    callback: (e: UseEvent) => {
+      setRef((prev) => {
+        let next: Trigger[];
+        if (e.stage === "start")
+          next = unique.unique([...prev.triggers, ...e.triggers]);
+        else next = purge(prev.triggers, e.triggers);
+        return { triggers: next, held: next.length > 0 };
+      });
+    },
     loose,
   });
   return ref;
@@ -246,7 +240,7 @@ export const useHeld = ({ triggers, loose }: UseHeldProps): UseHeldReturn => {
   const [held, setHeld] = useState<UseHeldReturn>({ triggers: [], held: false });
   use({
     triggers,
-    callback: useCallback((e: UseEvent) => {
+    callback: (e: UseEvent) => {
       setHeld((prev) => {
         let next: Trigger[];
         if (e.stage === "start")
@@ -254,7 +248,7 @@ export const useHeld = ({ triggers, loose }: UseHeldProps): UseHeldReturn => {
         else next = purge(prev.triggers, e.triggers);
         return { triggers: next, held: next.length > 0 };
       });
-    }, []),
+    },
     loose,
   });
   return held;

@@ -12,11 +12,9 @@ package channel_test
 import (
 	"context"
 	"iter"
-	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -94,30 +92,28 @@ var _ = Describe("Ontology", Ordered, func() {
 			Expect(ch.ToPayload()).ToNot(HaveKey("operations"))
 		})
 	})
-	Describe("OpenNexter", func() {
-		It("Should correctly iterate over all channels", func(ctx SpecContext) {
-			Expect(channelWriter.Create(ctx, &channel.Channel{
-				Name: "SG01", DataType: telem.Int64T, Virtual: true,
-			})).To(Succeed())
-			Expect(channelWriter.Create(ctx, &channel.Channel{
-				Name: "SG02", DataType: telem.Int64T, Virtual: true,
-			})).To(Succeed())
-			Expect(channelWriter.Create(ctx, &channel.Channel{
-				Name: "SG03", DataType: telem.Int64T, Virtual: true,
-			})).To(Succeed())
-			n, closer := MustSucceed2(svc.OpenNexter(ctx))
-			defer func() {
-				GinkgoRecover()
-				Expect(closer.Close()).To(Succeed())
-			}()
-			values := slices.Collect(n)
-			Expect(len(values)).To(BeNumerically(">=", 3))
-			names := lo.Map(
-				values,
-				func(v ontology.Resource, _ int) string { return v.Name },
-			)
-			Expect(names).To(ContainElements("SG01", "SG02", "SG03"))
-		})
+	Describe("Search", func() {
+		It(
+			"Should return the channels whose name matches the term",
+			func(ctx SpecContext) {
+				inlet := channel.Channel{
+					Name:     "turbopump_inlet_pressure",
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}
+				outlet := channel.Channel{
+					Name:     "turbopump_outlet_pressure",
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}
+				Expect(channelWriter.Create(ctx, &inlet)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &outlet)).To(Succeed())
+				Expect(MustSucceed(svc.Search(ctx, db, "turbopump inlet", 10)).Keys).
+					To(Equal([]ontology.ID{inlet.OntologyID()}))
+				Expect(MustSucceed(svc.Search(ctx, db, "turbopump", 10)).Keys).
+					To(ConsistOf(inlet.OntologyID(), outlet.OntologyID()))
+			},
+		)
 	})
 	Describe("OnChange", func() {
 		Context("Create", func() {

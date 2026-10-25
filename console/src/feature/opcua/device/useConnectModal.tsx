@@ -20,7 +20,6 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Device as PDevice, type Flux, Rack } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { retrieveScanTask } from "@/feature/opcua/device/retrieveScanTask";
 import { SelectSecurityMode } from "@/feature/opcua/device/SelectSecurityMode";
@@ -108,10 +107,10 @@ const Connect = ({
     query: deviceKey == null ? null : { key: deviceKey },
     beforeValidate,
     beforeSave,
-    afterSave: useCallback(() => {
+    afterSave: () => {
       if (deviceKey == null) capture("device_connected", { integration: "opcua" });
       close();
-    }, [capture, close, deviceKey]),
+    },
   });
 
   const hasSecurity =

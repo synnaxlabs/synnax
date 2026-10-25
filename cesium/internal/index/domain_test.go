@@ -348,6 +348,115 @@ var _ = Describe("Domain", func() {
 				})
 			})
 
+			Describe("EndAfter", func() {
+				BeforeEach(func(ctx SpecContext) {
+					Expect(domain.Write(
+						ctx,
+						db,
+						(1 * telem.SecondTS).Range(5*telem.SecondTS+1),
+						telem.NewSeriesSecondsTSV(1, 2, 3, 5).Data,
+					)).To(Succeed())
+					Expect(domain.Write(
+						ctx,
+						db,
+						(10 * telem.SecondTS).Range(12*telem.SecondTS+1),
+						telem.NewSeriesSecondsTSV(10, 11, 12).Data,
+					)).To(Succeed())
+				})
+				DescribeTable(
+					"returns the end of the range holding n samples",
+					func(
+						ctx SpecContext,
+						ref telem.TimeStamp,
+						n int64,
+						expected telem.TimeStamp,
+					) {
+						Expect(idx.EndAfter(ctx, ref, n)).To(Equal(expected))
+					},
+					Entry(
+						"zero samples, after ref",
+						1*telem.SecondTS,
+						int64(0),
+						1*telem.SecondTS+1,
+					),
+					Entry(
+						"inside the first domain",
+						1*telem.SecondTS,
+						int64(2),
+						3*telem.SecondTS,
+					),
+					Entry(
+						"from a stamp between samples",
+						4*telem.SecondTS,
+						int64(1),
+						10*telem.SecondTS,
+					),
+					Entry(
+						"across the gap between domains",
+						2*telem.SecondTS,
+						int64(4),
+						11*telem.SecondTS,
+					),
+					Entry(
+						"from a stamp inside the gap",
+						7*telem.SecondTS,
+						int64(2),
+						12*telem.SecondTS,
+					),
+					Entry(
+						"before the first domain",
+						telem.TimeStamp(0),
+						int64(1),
+						2*telem.SecondTS,
+					),
+					Entry(
+						"past the last sample",
+						1*telem.SecondTS,
+						int64(7),
+						telem.TimeStampMax,
+					),
+					Entry(
+						"after every domain",
+						20*telem.SecondTS,
+						int64(1),
+						telem.TimeStampMax,
+					),
+				)
+				Context("Equal timestamps", func() {
+					BeforeEach(func(ctx SpecContext) {
+						Expect(domain.Write(
+							ctx,
+							db,
+							(19 * telem.SecondTS).Range(21*telem.SecondTS+1),
+							telem.NewSeriesSecondsTSV(19, 20, 20, 20, 21).Data,
+						)).To(Succeed())
+					})
+					DescribeTable(
+						"ends after the whole run of equal timestamps",
+						func(
+							ctx SpecContext,
+							ref telem.TimeStamp,
+							n int64,
+							expected telem.TimeStamp,
+						) {
+							Expect(idx.EndAfter(ctx, ref, n)).To(Equal(expected))
+						},
+						Entry(
+							"inside the run",
+							20*telem.SecondTS,
+							int64(1),
+							20*telem.SecondTS+1,
+						),
+						Entry(
+							"past the run",
+							20*telem.SecondTS,
+							int64(2),
+							21*telem.SecondTS,
+						),
+					)
+				})
+			})
+
 			Describe("AppendSegments", func() {
 				var rolledOver *index.Domain
 				BeforeEach(func(ctx SpecContext) {

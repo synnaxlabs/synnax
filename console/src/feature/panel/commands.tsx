@@ -10,7 +10,6 @@
 import { panel } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { openIconPicker } from "@/feature/panel/IconPicker";
 import { OPEN_WINDOW_TRIGGER, useOpenWindow } from "@/feature/panel/useOpenWindow";
@@ -20,7 +19,7 @@ import { Session } from "@/session";
 const useOpenNewWindow = () => {
   const openWindow = useOpenWindow();
   const getSelected = Session.Panel.useGetSelected();
-  return useCallback(() => openWindow(getSelected()), [openWindow, getSelected]);
+  return () => openWindow(getSelected());
 };
 
 const OpenWindowCommand = Command.create({
@@ -34,10 +33,10 @@ const OpenWindowCommand = Command.create({
 
 const useOpenIconPicker = () => {
   const getSelected = Session.Panel.useGetSelected();
-  return useCallback(() => {
+  return () => {
     const selected = getSelected();
     if (selected != null) openIconPicker(selected);
-  }, [getSelected]);
+  };
 };
 
 const useCanChangeIcon = (): boolean => {

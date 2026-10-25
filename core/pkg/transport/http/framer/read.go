@@ -126,8 +126,17 @@ func readResponse(value any) (ReadResponse, error) {
 
 // groupByIndex groups the channels of res by the index channel that timestamps them,
 // ordered by the first channel each group timestamps. Each group starts with its index.
-// It returns a validation error when res leaves out the index of a channel.
+// It returns a validation error when res leaves out the index of a channel or carries a
+// limit reduction.
 func groupByIndex(res ReadResponse) ([][]channel.Channel, error) {
+	if _, ok := res.Reduction.Variant.(telem.LimitReduction); ok {
+		// A limit leaves non-numeric channels raw beside their reduced index, so their
+		// samples have no row.
+		return nil, errors.Wrap(
+			validate.ErrValidation,
+			"a CSV or TDMS read cannot take a limit reduction: use a stride",
+		)
+	}
 	all := slices.Concat(res.Channels, res.Indexes)
 	records := make(map[channel.Key]channel.Channel, len(all))
 	for _, ch := range all {
@@ -175,12 +184,10 @@ type column struct {
 	offset int
 	// position is the index of the next sample within the first pending series.
 	position uint32
-	// stride is the alignment distance between consecutive samples of a series.
-	stride uint32
 }
 
-func newColumn(ch channel.Channel, stride uint32) column {
-	c := column{key: ch.Key(), name: ch.Name, dataType: ch.DataType, stride: stride}
+func newColumn(ch channel.Channel) column {
+	c := column{key: ch.Key(), name: ch.Name, dataType: ch.DataType}
 	if !ch.DataType.IsVariable() {
 		c.size = int(ch.DataType.Density())
 	}
@@ -241,7 +248,7 @@ func (c *column) sample() (sample []byte, n int) {
 // alignment returns the alignment of the sample the column points at. Only valid when
 // sample returns one.
 func (c *column) alignment() telem.Alignment {
-	return c.pending[0].Alignment.AddSamples(c.position * c.stride)
+	return c.pending[0].Alignment.AddSamples(c.position * c.pending[0].Multiple())
 }
 
 // advance moves the column past the sample it points at, which occupies n bytes.

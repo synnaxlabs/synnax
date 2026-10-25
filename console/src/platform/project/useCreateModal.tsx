@@ -15,7 +15,6 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { type Flux, Panel, Project, Synnax } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { Modals } from "@/platform/modals";
 import { Selector } from "@/platform/selector";
@@ -27,12 +26,9 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
   const dispatch = Session.useDispatch();
 
   const { update: createPanel } = Panel.useCreate({
-    afterOptimistic: useCallback(
-      ({ data: { key } }: Flux.AfterOptimisticParams<panel.Panel>) => {
-        dispatch(Session.Panel.select({ key }));
-      },
-      [dispatch],
-    ),
+    afterOptimistic: ({ data: { key } }: Flux.AfterOptimisticParams<panel.Panel>) => {
+      dispatch(Session.Panel.select({ key }));
+    },
   });
 
   const { form, save, variant } = Project.useForm({

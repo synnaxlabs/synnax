@@ -23,7 +23,7 @@ import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
 import { Access, type Flux, Task } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 
 import { useOpenSelector } from "@/feature/task/Selector";
 import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
@@ -82,86 +82,52 @@ const Content = () => {
   const { update: rename } = Task.useRename();
 
   const { update: handleDelete } = Task.useDelete({
-    beforeUpdate: useCallback(
-      async ({ data: keys }: Flux.BeforeUpdateParams<Task.DeleteParams>) => {
-        setSelected([]);
-        if (keys.length === 0) return false;
-        if (!(await confirmDelete(getItem(array.toArray(keys))))) return false;
-        return keys;
-      },
-      [getItem, confirmDelete],
-    ),
+    beforeUpdate: async ({
+      data: keys,
+    }: Flux.BeforeUpdateParams<Task.DeleteParams>) => {
+      setSelected([]);
+      if (keys.length === 0) return false;
+      if (!(await confirmDelete(getItem(array.toArray(keys))))) return false;
+      return keys;
+    },
   });
 
   const { capture } = Analytics.use();
   const { update: runCommand } = Task.useCommand({
-    afterSuccess: useCallback(
-      ({ data }: Flux.AfterSuccessParams<Task.CommandParams>) =>
-        getItem(
-          array
-            .toArray(data)
-            .filter(({ type }) => type === "start")
-            .map(({ task }) => task),
-        ).forEach(({ type }) => capture("task_started", { type })),
-      [getItem, capture],
-    ),
+    afterSuccess: ({ data }: Flux.AfterSuccessParams<Task.CommandParams>) =>
+      getItem(
+        array
+          .toArray(data)
+          .filter(({ type }) => type === "start")
+          .map(({ task }) => task),
+      ).forEach(({ type }) => capture("task_started", { type })),
   });
-  const handleCommand = useCallback(
-    (keys: string[], type: string) => runCommand(keys.map((k) => ({ task: k, type }))),
-    [runCommand],
-  );
-  const handleStart = useCallback(
-    (keys: string[]) => handleCommand(keys, "start"),
-    [handleCommand],
-  );
-  const handleStop = useCallback(
-    (keys: string[]) => handleCommand(keys, "stop"),
-    [handleCommand],
-  );
+  const handleCommand = (keys: string[], type: string) =>
+    runCommand(keys.map((k) => ({ task: k, type })));
+  const handleStart = (keys: string[]) => handleCommand(keys, "start");
+  const handleStop = (keys: string[]) => handleCommand(keys, "stop");
   const { update: setDataSaving } = useSetDataSaving();
-  const handleEnableDataSaving = useCallback(
-    (keys: task.Key[]) =>
-      keys.forEach((key) => setDataSaving({ key, dataSaving: true })),
-    [setDataSaving],
+  const handleEnableDataSaving = (keys: task.Key[]) =>
+    keys.forEach((key) => setDataSaving({ key, dataSaving: true }));
+  const handleDisableDataSaving = (keys: task.Key[]) =>
+    keys.forEach((key) => setDataSaving({ key, dataSaving: false }));
+  const handleEdit = (key: task.Key) =>
+    openTab({ variant: "resource", resource: task.ontologyID(key) });
+  const contextMenu: NonNullable<Menu.ContextMenuProps["menu"]> = ({ keys }) => (
+    <ContextMenu
+      keys={keys}
+      getItem={getItem}
+      subscribe={subscribe}
+      onDelete={handleDelete}
+      onStart={handleStart}
+      onStop={handleStop}
+      onEdit={handleEdit}
+      onEnableDataSaving={handleEnableDataSaving}
+      onDisableDataSaving={handleDisableDataSaving}
+    />
   );
-  const handleDisableDataSaving = useCallback(
-    (keys: task.Key[]) =>
-      keys.forEach((key) => setDataSaving({ key, dataSaving: false })),
-    [setDataSaving],
-  );
-  const handleEdit = useCallback(
-    (key: task.Key) => openTab({ variant: "resource", resource: task.ontologyID(key) }),
-    [openTab],
-  );
-  const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
-    ({ keys }) => (
-      <ContextMenu
-        keys={keys}
-        getItem={getItem}
-        subscribe={subscribe}
-        onDelete={handleDelete}
-        onStart={handleStart}
-        onStop={handleStop}
-        onEdit={handleEdit}
-        onEnableDataSaving={handleEnableDataSaving}
-        onDisableDataSaving={handleDisableDataSaving}
-      />
-    ),
-    [
-      getItem,
-      subscribe,
-      handleDelete,
-      handleStart,
-      handleStop,
-      handleEdit,
-      handleEnableDataSaving,
-      handleDisableDataSaving,
-    ],
-  );
-  const handleListItemStopStart = useCallback(
-    (command: PlatformTask.Command, key: task.Key) => handleCommand([key], command),
-    [handleCommand],
-  );
+  const handleListItemStopStart = (command: PlatformTask.Command, key: task.Key) =>
+    handleCommand([key], command);
   return (
     <Menu.ContextMenu menu={contextMenu} {...menuProps}>
       <Toolbar.Content className={CSS.cls(CSS.B("task-toolbar"), menuProps.className)}>
@@ -258,19 +224,11 @@ const TaskListItem = ({
       ? config.dataSavingDisabled !== true
       : null;
   if (!isRunning && variant === "success") variant = "info";
-  const handleStartStopClick = useCallback(
-    () => onStopStart(isRunning ? "stop" : "start", itemKey),
-    [isRunning, onStopStart, itemKey],
-  );
-  const handleDataSavingClick = useCallback(
-    () => onSetDataSaving({ key: itemKey, dataSaving: dataSaving !== true }),
-    [dataSaving, onSetDataSaving, itemKey],
-  );
-  const handleRename = useCallback(
-    (name: string) => onRename({ key: itemKey, name }),
-    [onRename, itemKey],
-  );
-  const handleDoubleClick = useCallback(() => onEdit(itemKey), [onEdit, itemKey]);
+  const handleStartStopClick = () => onStopStart(isRunning ? "stop" : "start", itemKey);
+  const handleDataSavingClick = () =>
+    onSetDataSaving({ key: itemKey, dataSaving: dataSaving !== true });
+  const handleRename = (name: string) => onRename({ key: itemKey, name });
+  const handleDoubleClick = () => onEdit(itemKey);
   return (
     <Select.Item
       {...rest}
@@ -414,19 +372,16 @@ const ContextMenu = ({
   const copyLinkToClipboard = Core.useCopyLinkToClipboard();
 
   const handleExport = Export.useResource();
-  const handleLink = useCallback(
-    (key: task.Key) => {
-      const name = selectedTasks.find((t) => t.key === key)?.name;
-      if (name == null)
-        return addStatus({
-          variant: "error",
-          message: "Failed to copy link",
-          description: "The task no longer exists.",
-        });
-      copyLinkToClipboard({ name, ontologyID: task.ontologyID(key) });
-    },
-    [selectedTasks, addStatus, copyLinkToClipboard],
-  );
+  const handleLink = (key: task.Key) => {
+    const name = selectedTasks.find((t) => t.key === key)?.name;
+    if (name == null)
+      return addStatus({
+        variant: "error",
+        message: "Failed to copy link",
+        description: "The task no longer exists.",
+      });
+    copyLinkToClipboard({ name, ontologyID: task.ontologyID(key) });
+  };
   const showSnapshotToActiveRange =
     activeRange?.variant === "persisted" && selectedTasks.length > 0;
   return (

@@ -24,13 +24,16 @@ User struct {
         @doc value         "is the unique login name for the user."
         @filter
         @index lookup
+        @search
         @validate required
     }
     first_name string {
         @doc value "is the user's first name."
+        @search
     }
     last_name  string {
         @doc value "is the user's last name."
+        @search
     }
     root_user  bool = false {
         @doc value """

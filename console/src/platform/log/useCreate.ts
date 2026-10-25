@@ -9,7 +9,6 @@
 
 import { log, type panel, type project } from "@synnaxlabs/client";
 import { Log } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Panel } from "@/platform/panel";
@@ -35,9 +34,6 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
       openTab({ variant: "resource", resource: log.ontologyID(key), key: tabKey });
     },
   });
-  return useCallback(
-    (params = {}) =>
-      update({ name: "Log", ...params, project: project ?? getActiveProject() }),
-    [update, project, getActiveProject],
-  );
+  return (params = {}) =>
+    update({ name: "Log", ...params, project: project ?? getActiveProject() });
 };

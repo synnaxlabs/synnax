@@ -243,6 +243,7 @@ ICD struct {
     }
     name     string    {
         @doc value           "is a human-readable name for the ICD."
+        @search
         @validate min_length 1
     }
     messages Message[] = [] {
@@ -265,7 +266,6 @@ ICD struct {
     @go migrate
     @ontology type "icd"
     @retrieve
-    @search
 }
 
 Reference struct {

@@ -131,19 +131,14 @@ var _ = Describe("Ontology", func() {
 			}).Should(Succeed())
 		})
 
-		It("Should iterate existing panels via OpenNexter", func(ctx SpecContext) {
-			p := panel.Panel{Name: "nexted", Parent: &parentID}
+		It("Should search panels by name", func(ctx SpecContext) {
+			p := panel.Panel{Name: "turbopump overview", Parent: &parentID}
 			Expect(writer.Create(ctx, &p)).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
 				Expect(writer.Delete(ctx, p.Key)).To(Succeed())
 			})
-			next, closer := MustSucceed2(svc.OpenNexter(ctx))
-			defer func() { Expect(closer.Close()).To(Succeed()) }()
-			var ids []ontology.ID
-			for res := range next {
-				ids = append(ids, res.ID)
-			}
-			Expect(ids).To(ContainElement(p.OntologyID()))
+			Expect(MustSucceed(svc.Search(ctx, db, "turbopump", 10)).Keys).
+				To(Equal([]ontology.ID{p.OntologyID()}))
 		})
 	})
 })

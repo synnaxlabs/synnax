@@ -20,7 +20,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Project as PProject } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useEffect, useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 
 import { ContextMenu, listItem } from "@/feature/project/Selector";
 import { Shell } from "@/feature/shell";
@@ -48,27 +48,20 @@ export const Splash = (): ReactElement => {
     fetchMore();
   }, [fetchMore]);
 
-  const handleSearch = useCallback(
-    (term: string) => {
-      setSearchTerm(term);
-      search(term);
-    },
-    [search],
-  );
+  const handleSearch = (term: string) => {
+    setSearchTerm(term);
+    search(term);
+  };
 
-  const handleSelect = useCallback(
-    (key: project.Key | null) => {
-      if (key == null) return;
-      const p = getItem(key);
-      if (p == null) throw new UnexpectedError(`Project ${key} not found`);
-      dispatch(Session.Project.select(p.key));
-    },
-    [dispatch, getItem],
-  );
+  const handleSelect = (key: project.Key | null) => {
+    if (key == null) return;
+    const p = getItem(key);
+    if (p == null) throw new UnexpectedError(`Project ${key} not found`);
+    dispatch(Session.Project.select(p.key));
+  };
 
-  const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
-    (props) => <ContextMenu {...props} getItem={getItem} />,
-    [getItem],
+  const contextMenu: NonNullable<Menu.ContextMenuProps["menu"]> = (props) => (
+    <ContextMenu {...props} getItem={getItem} />
   );
   const menuProps = Menu.useContextMenu();
   const getIsAnyModalOpen = Session.Modals.useGetIsAnyOpen();

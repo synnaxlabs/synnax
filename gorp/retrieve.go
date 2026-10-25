@@ -359,16 +359,18 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 // true if no filter is set. key may be nil when the caller does not
 // have the raw key bytes available.
 func (r Retrieve[K, E]) match(ctx Context, e *E, key, value []byte) (bool, error) {
-	if !r.filter.present() {
-		return true, nil
-	}
 	if !r.filter.keys.Contains((*e).GorpKey()) {
 		return false, nil
 	}
-	if r.filter.eval != nil {
-		return r.filter.eval(ctx, e, key, value)
+	return r.matchEval(ctx, e, key, value)
+}
+
+// matchEval is match for an entry that the filter's keys contain.
+func (r Retrieve[K, E]) matchEval(ctx Context, e *E, key, value []byte) (bool, error) {
+	if r.filter.eval == nil {
+		return true, nil
 	}
-	return true, nil
+	return r.filter.eval(ctx, e, key, value)
 }
 
 // matchRaw runs the filter's raw-byte pre-screen against key/value.
@@ -382,7 +384,9 @@ func (r Retrieve[K, E]) matchRaw(key, value []byte) (bool, error) {
 
 // execKeys fetches and matches each candidate key in turn. Returns the
 // keys that were not found in the underlying KV store; the caller
-// decides whether to surface that as query.ErrNotFound.
+// decides whether to surface that as query.ErrNotFound. Unless the filter
+// is bare keys, execKeys stops at the limit, so it reports only the keys
+// it fetched.
 func (r *Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) ([]K, error) {
 	var (
 		keys       = r.filter.keys.Keys()
@@ -392,9 +396,17 @@ func (r *Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) ([]K, error) {
 		gorpCtx    = Context{Context: ctx, Tx: tx}
 		e          E
 		zero       E
+		capacity   = len(keys)
+		stops      = r.limit > 0 && !r.isBareKeys()
 	)
-	r.entries.ensureCap(len(keys))
+	if r.limit > 0 {
+		capacity = min(capacity, r.limit)
+	}
+	r.entries.ensureCap(capacity)
 	for _, k := range keys {
+		if stops && validCount == r.offset+r.limit {
+			break
+		}
 		e = zero
 		b, closer, err := reader.get(ctx, k, &e)
 		if err != nil {
@@ -405,7 +417,7 @@ func (r *Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) ([]K, error) {
 			return nil, err
 		}
 		if reader.keyCodec.HasPrefix(e.GorpKey(), r.prefix) {
-			match, mErr := r.match(gorpCtx, &e, nil, b)
+			match, mErr := r.matchEval(gorpCtx, &e, nil, b)
 			if mErr != nil {
 				return nil, errors.Combine(mErr, closer.Close())
 			}

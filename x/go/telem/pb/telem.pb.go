@@ -32,6 +32,59 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Aggregation selects how a limited read collapses each group of samples into points.
+// min_max keeps the lowest and highest sample of each group in the order they occurred,
+// average keeps the mean of each group, and decimate keeps the first sample of each
+// group.
+type Aggregation int32
+
+const (
+	Aggregation_AGGREGATION_MIN_MAX  Aggregation = 0
+	Aggregation_AGGREGATION_AVERAGE  Aggregation = 1
+	Aggregation_AGGREGATION_DECIMATE Aggregation = 2
+)
+
+// Enum value maps for Aggregation.
+var (
+	Aggregation_name = map[int32]string{
+		0: "AGGREGATION_MIN_MAX",
+		1: "AGGREGATION_AVERAGE",
+		2: "AGGREGATION_DECIMATE",
+	}
+	Aggregation_value = map[string]int32{
+		"AGGREGATION_MIN_MAX":  0,
+		"AGGREGATION_AVERAGE":  1,
+		"AGGREGATION_DECIMATE": 2,
+	}
+)
+
+func (x Aggregation) Enum() *Aggregation {
+	p := new(Aggregation)
+	*p = x
+	return p
+}
+
+func (x Aggregation) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Aggregation) Descriptor() protoreflect.EnumDescriptor {
+	return file_x_go_telem_pb_telem_proto_enumTypes[0].Descriptor()
+}
+
+func (Aggregation) Type() protoreflect.EnumType {
+	return &file_x_go_telem_pb_telem_proto_enumTypes[0]
+}
+
+func (x Aggregation) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Aggregation.Descriptor instead.
+func (Aggregation) EnumDescriptor() ([]byte, []int) {
+	return file_x_go_telem_pb_telem_proto_rawDescGZIP(), []int{0}
+}
+
 // TimeRange is a time interval defined by a start and end timestamp. The range is
 // start-inclusive and end-exclusive, following standard interval conventions for
 // predictable boundary handling.
@@ -89,6 +142,188 @@ func (x *TimeRange) GetEnd() int64 {
 	return 0
 }
 
+type ReductionStridePayload struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// factor is the stride. Values below 2 keep every sample.
+	Factor        uint32 `protobuf:"varint,1,opt,name=factor,proto3" json:"factor,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReductionStridePayload) Reset() {
+	*x = ReductionStridePayload{}
+	mi := &file_x_go_telem_pb_telem_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReductionStridePayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReductionStridePayload) ProtoMessage() {}
+
+func (x *ReductionStridePayload) ProtoReflect() protoreflect.Message {
+	mi := &file_x_go_telem_pb_telem_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReductionStridePayload.ProtoReflect.Descriptor instead.
+func (*ReductionStridePayload) Descriptor() ([]byte, []int) {
+	return file_x_go_telem_pb_telem_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *ReductionStridePayload) GetFactor() uint32 {
+	if x != nil {
+		return x.Factor
+	}
+	return 0
+}
+
+type ReductionLimitPayload struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// aggregation selects the points each group of samples reduces to.
+	Aggregation Aggregation `protobuf:"varint,1,opt,name=aggregation,proto3,enum=x.telem.pb.Aggregation" json:"aggregation,omitempty"`
+	// point_limit is the number of points each channel reduces to.
+	PointLimit    uint32 `protobuf:"varint,2,opt,name=point_limit,json=pointLimit,proto3" json:"point_limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReductionLimitPayload) Reset() {
+	*x = ReductionLimitPayload{}
+	mi := &file_x_go_telem_pb_telem_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReductionLimitPayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReductionLimitPayload) ProtoMessage() {}
+
+func (x *ReductionLimitPayload) ProtoReflect() protoreflect.Message {
+	mi := &file_x_go_telem_pb_telem_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReductionLimitPayload.ProtoReflect.Descriptor instead.
+func (*ReductionLimitPayload) Descriptor() ([]byte, []int) {
+	return file_x_go_telem_pb_telem_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ReductionLimitPayload) GetAggregation() Aggregation {
+	if x != nil {
+		return x.Aggregation
+	}
+	return Aggregation_AGGREGATION_MIN_MAX
+}
+
+func (x *ReductionLimitPayload) GetPointLimit() uint32 {
+	if x != nil {
+		return x.PointLimit
+	}
+	return 0
+}
+
+// Reduction selects how a read reduces samples. A read without one keeps every sample.
+type Reduction struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Variant:
+	//
+	//	*Reduction_Stride
+	//	*Reduction_Limit
+	Variant       isReduction_Variant `protobuf_oneof:"variant"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Reduction) Reset() {
+	*x = Reduction{}
+	mi := &file_x_go_telem_pb_telem_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Reduction) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Reduction) ProtoMessage() {}
+
+func (x *Reduction) ProtoReflect() protoreflect.Message {
+	mi := &file_x_go_telem_pb_telem_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Reduction.ProtoReflect.Descriptor instead.
+func (*Reduction) Descriptor() ([]byte, []int) {
+	return file_x_go_telem_pb_telem_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *Reduction) GetVariant() isReduction_Variant {
+	if x != nil {
+		return x.Variant
+	}
+	return nil
+}
+
+func (x *Reduction) GetStride() *ReductionStridePayload {
+	if x != nil {
+		if x, ok := x.Variant.(*Reduction_Stride); ok {
+			return x.Stride
+		}
+	}
+	return nil
+}
+
+func (x *Reduction) GetLimit() *ReductionLimitPayload {
+	if x != nil {
+		if x, ok := x.Variant.(*Reduction_Limit); ok {
+			return x.Limit
+		}
+	}
+	return nil
+}
+
+type isReduction_Variant interface {
+	isReduction_Variant()
+}
+
+type Reduction_Stride struct {
+	Stride *ReductionStridePayload `protobuf:"bytes,1,opt,name=stride,proto3,oneof"`
+}
+
+type Reduction_Limit struct {
+	Limit *ReductionLimitPayload `protobuf:"bytes,2,opt,name=limit,proto3,oneof"`
+}
+
+func (*Reduction_Stride) isReduction_Variant() {}
+
+func (*Reduction_Limit) isReduction_Variant() {}
+
 var File_x_go_telem_pb_telem_proto protoreflect.FileDescriptor
 
 const file_x_go_telem_pb_telem_proto_rawDesc = "" +
@@ -97,7 +332,21 @@ const file_x_go_telem_pb_telem_proto_rawDesc = "" +
 	"x.telem.pb\"3\n" +
 	"\tTimeRange\x12\x14\n" +
 	"\x05start\x18\x01 \x01(\x03R\x05start\x12\x10\n" +
-	"\x03end\x18\x02 \x01(\x03R\x03endB\x88\x01\n" +
+	"\x03end\x18\x02 \x01(\x03R\x03end\"0\n" +
+	"\x16ReductionStridePayload\x12\x16\n" +
+	"\x06factor\x18\x01 \x01(\rR\x06factor\"s\n" +
+	"\x15ReductionLimitPayload\x129\n" +
+	"\vaggregation\x18\x01 \x01(\x0e2\x17.x.telem.pb.AggregationR\vaggregation\x12\x1f\n" +
+	"\vpoint_limit\x18\x02 \x01(\rR\n" +
+	"pointLimit\"\x8f\x01\n" +
+	"\tReduction\x12<\n" +
+	"\x06stride\x18\x01 \x01(\v2\".x.telem.pb.ReductionStridePayloadH\x00R\x06stride\x129\n" +
+	"\x05limit\x18\x02 \x01(\v2!.x.telem.pb.ReductionLimitPayloadH\x00R\x05limitB\t\n" +
+	"\avariant*Y\n" +
+	"\vAggregation\x12\x17\n" +
+	"\x13AGGREGATION_MIN_MAX\x10\x00\x12\x17\n" +
+	"\x13AGGREGATION_AVERAGE\x10\x01\x12\x18\n" +
+	"\x14AGGREGATION_DECIMATE\x10\x02B\x88\x01\n" +
 	"\x0ecom.x.telem.pbB\n" +
 	"TelemProtoP\x01Z github.com/synnaxlabs/x/telem/pb\xa2\x02\x03XTP\xaa\x02\n" +
 	"X.Telem.Pb\xca\x02\n" +
@@ -115,16 +364,24 @@ func file_x_go_telem_pb_telem_proto_rawDescGZIP() []byte {
 	return file_x_go_telem_pb_telem_proto_rawDescData
 }
 
-var file_x_go_telem_pb_telem_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_x_go_telem_pb_telem_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_x_go_telem_pb_telem_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_x_go_telem_pb_telem_proto_goTypes = []any{
-	(*TimeRange)(nil), // 0: x.telem.pb.TimeRange
+	(Aggregation)(0),               // 0: x.telem.pb.Aggregation
+	(*TimeRange)(nil),              // 1: x.telem.pb.TimeRange
+	(*ReductionStridePayload)(nil), // 2: x.telem.pb.ReductionStridePayload
+	(*ReductionLimitPayload)(nil),  // 3: x.telem.pb.ReductionLimitPayload
+	(*Reduction)(nil),              // 4: x.telem.pb.Reduction
 }
 var file_x_go_telem_pb_telem_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	0, // 0: x.telem.pb.ReductionLimitPayload.aggregation:type_name -> x.telem.pb.Aggregation
+	2, // 1: x.telem.pb.Reduction.stride:type_name -> x.telem.pb.ReductionStridePayload
+	3, // 2: x.telem.pb.Reduction.limit:type_name -> x.telem.pb.ReductionLimitPayload
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_x_go_telem_pb_telem_proto_init() }
@@ -132,18 +389,23 @@ func file_x_go_telem_pb_telem_proto_init() {
 	if File_x_go_telem_pb_telem_proto != nil {
 		return
 	}
+	file_x_go_telem_pb_telem_proto_msgTypes[3].OneofWrappers = []any{
+		(*Reduction_Stride)(nil),
+		(*Reduction_Limit)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_x_go_telem_pb_telem_proto_rawDesc), len(file_x_go_telem_pb_telem_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   1,
+			NumEnums:      1,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_x_go_telem_pb_telem_proto_goTypes,
 		DependencyIndexes: file_x_go_telem_pb_telem_proto_depIdxs,
+		EnumInfos:         file_x_go_telem_pb_telem_proto_enumTypes,
 		MessageInfos:      file_x_go_telem_pb_telem_proto_msgTypes,
 	}.Build()
 	File_x_go_telem_pb_telem_proto = out.File

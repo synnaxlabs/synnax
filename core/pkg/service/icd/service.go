@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/icd/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
@@ -47,10 +46,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Uses func(config msgpack.EncodedJSON) ([]Use, error)
-	// Search is the search index for fuzzy searching ICDs.
-	//
-	// [REQUIRED]
-	Search *search.Index
 	// ImEx is the import/export registry the service registers itself with.
 	//
 	// [REQUIRED]
@@ -71,7 +66,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Task = override.Nil(c.Task, other.Task)
 	c.Uses = override.Nil(c.Uses, other.Uses)
-	c.Search = override.Nil(c.Search, other.Search)
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
@@ -84,22 +78,22 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("ontology", c.Ontology)
 	v.NotNil("task", c.Task)
 	v.NotNil("uses", c.Uses)
-	v.NotNil("search", c.Search)
 	v.NotNil("imex", c.ImEx)
 	return v.Error()
 }
 
 // Service creates, retrieves, and deletes ICDs.
 type Service struct {
-	cfg    ServiceConfig
-	table  *gorp.Table[Key, ICD]
-	closer xio.MultiCloser
+	cfg     ServiceConfig
+	table   *gorp.Table[Key, ICD]
+	indexes indexes
+	closer  xio.MultiCloser
 }
 
 // OpenService opens a Service with the provided configuration. The service must be
 // closed by calling Close.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
-	s = &Service{}
+	s = &Service{indexes: newIndexes()}
 	if s.cfg, err = config.New(ServiceConfig{}, cfgs...); err != nil {
 		return nil, err
 	}
@@ -107,13 +101,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, ICD]{
 		DB:              s.cfg.DB,
+		Indexes:         s.indexes.all(),
 		Migrations:      versions.Migrations,
 		Instrumentation: s.cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
 	s.cfg.Ontology.RegisterService(s)
-	s.cfg.Search.RegisterService(s)
 	if err = s.cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
 		return nil, err
 	}
@@ -151,8 +145,8 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 // NewRetrieve opens a query for ICDs.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:   s.table.NewRetrieve(),
-		baseTX: s.cfg.DB,
-		search: s.cfg.Search,
+		gorp:    s.table.NewRetrieve(),
+		baseTX:  s.cfg.DB,
+		indexes: s.indexes,
 	}
 }

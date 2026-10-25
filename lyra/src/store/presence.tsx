@@ -11,9 +11,7 @@ import { type record } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactElement,
-  useCallback,
   useLayoutEffect,
-  useMemo,
   useRef,
   useSyncExternalStore,
 } from "react";
@@ -73,11 +71,8 @@ export const createPresence = (name: string): Presence => {
   const Context = ({ value, children }: PresenceProps): ReactElement => {
     const valueRef = useRef(value);
     const { notifyListeners, subscribe } = useKeyedListeners();
-    const getPresent = useCallback(() => valueRef.current, []);
-    const ctx = useMemo<ContextValue>(
-      () => ({ getPresent, subscribe }),
-      [getPresent, subscribe],
-    );
+    const getPresent = () => valueRef.current;
+    const ctx: ContextValue = { getPresent, subscribe };
     useLayoutEffect(() => {
       if (valueRef.current === value) return;
       const changed: record.Key[] = [];
@@ -94,12 +89,9 @@ export const createPresence = (name: string): Presence => {
   // The value is known on the first render, so the server renders it too.
   const useIsPresent = (key: record.Key): boolean => {
     const { getPresent, subscribe } = useContext();
-    const isPresent = useCallback(
-      (): boolean => getPresent() === key,
-      [key, getPresent],
-    );
+    const isPresent = (): boolean => getPresent() === key;
     return useSyncExternalStore(
-      useCallback((onStoreChange) => subscribe(onStoreChange, key), [key, subscribe]),
+      (onStoreChange) => subscribe(onStoreChange, key),
       isPresent,
       isPresent,
     );

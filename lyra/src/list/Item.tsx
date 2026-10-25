@@ -15,9 +15,7 @@ import {
   type MouseEventHandler,
   type PointerEventHandler,
   type ReactElement,
-  useCallback,
   useLayoutEffect,
-  useMemo,
   useRef,
 } from "react";
 
@@ -100,22 +98,16 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
   // top of the list, and the browser snapshots that box for the drag preview, so every
   // row but the first dragged with no image. The offset is the row's place in the whole
   // list, so it is written once at mount rather than on every scroll frame.
-  const itemStyle = useMemo(() => ({ top: translate, ...style }), [translate, style]);
-  const handleClick = useCallback<MouseEventHandler<HTMLElement>>(
-    (e) => {
-      onSelect?.(itemKey, e);
-      onClick?.(e);
-    },
-    [onSelect, onClick, itemKey],
-  );
+  const itemStyle = { top: translate, ...style };
+  const handleClick: MouseEventHandler<HTMLElement> = (e) => {
+    onSelect?.(itemKey, e);
+    onClick?.(e);
+  };
   // A touch drag scrolls the list rather than pointing at an item.
-  const handlePointerMove = useCallback<PointerEventHandler<HTMLElement>>(
-    (e) => {
-      if (e.pointerType !== "touch") onHover?.();
-      onPointerMove?.(e);
-    },
-    [onHover, onPointerMove],
-  );
+  const handlePointerMove: PointerEventHandler<HTMLElement> = (e) => {
+    if (e.pointerType !== "touch") onHover?.();
+    onPointerMove?.(e);
+  };
   const elementRef = useRef<HTMLElement>(null);
   const combinedRef = useCombinedRefs<HTMLElement>(ref, elementRef);
   const setElement = useItemsContext();

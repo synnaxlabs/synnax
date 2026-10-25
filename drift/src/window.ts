@@ -70,8 +70,6 @@ export interface WindowProps extends z.infer<typeof windowPropsZ> {}
 const windowStateExtensionPropsZ = z.object({
   /** Lifecycle stage */
   stage: windowStageZ,
-  /** Number of active processes */
-  processCount: z.number(),
   /**
    * Whether the window has been reserved for use. If this value is false,
    * the window is a pre-forked window that is not currently in use.
@@ -102,7 +100,6 @@ export interface WindowState extends z.infer<typeof windowStateZ> {}
 
 export const INITIAL_WINDOW_STATE: WindowStateExtensionProps = {
   stage: "creating",
-  processCount: 0,
   reserved: false,
   focusCount: 0,
   centerCount: 0,
@@ -121,7 +118,6 @@ export const INITIAL_PRERENDER_WINDOW_STATE: WindowState = {
 export const resetTransientState = (window: WindowState): WindowState => ({
   ...window,
   stage: "creating",
-  processCount: 0,
   focusCount: 0,
   centerCount: 0,
   focus: undefined,

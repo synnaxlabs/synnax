@@ -11,7 +11,7 @@ import { Drift } from "@synnaxlabs/drift";
 import { useAsyncEffect, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
-import { strings, TimeSpan } from "@synnaxlabs/x";
+import { strings, sync, TimeSpan } from "@synnaxlabs/x";
 import { useLayoutEffect, useRef } from "react";
 
 import { Link } from "@/platform/link";
@@ -40,18 +40,16 @@ const useWaitFor = (
   }, [met]);
   return async (): Promise<void> => {
     if (metRef.current) return;
-    await new Promise<void>((resolve, reject) => {
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      const release = (): void => {
-        clearTimeout(timer);
-        resolve();
-      };
-      if (timeout != null)
-        timer = setTimeout(() => {
-          waitersRef.current = waitersRef.current.filter((w) => w !== release);
-          reject(new Error(timeoutMessage));
-        }, timeout.milliseconds);
-      waitersRef.current.push(release);
+    let release: (() => void) | undefined;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+      waitersRef.current.push(resolve);
+    });
+    if (timeout == null) return await released;
+    // A release clears every waiter, so only a timeout removes its own.
+    await sync.withTimeout(released, timeout, () => {
+      waitersRef.current = waitersRef.current.filter((w) => w !== release);
+      return new Error(timeoutMessage);
     });
   };
 };

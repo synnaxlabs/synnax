@@ -22,15 +22,7 @@ import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Group, Schematic } from "@synnaxlabs/pluto";
 import { id, uuid } from "@synnaxlabs/x";
-import {
-  createContext,
-  type ReactElement,
-  use,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { createContext, type ReactElement, use, useEffect, useState } from "react";
 import { z } from "zod";
 
 import { Symbol } from "@/feature/schematic/symbol";
@@ -60,24 +52,15 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const addNode = Schematic.useAddNode();
   const { startDrag, onDragEnd } = Haul.useDrag(HAUL_DRAG_PROPS);
   const variant = itemKey as Schematic.Node.Variant;
-  const createParams = useCallback(
-    (): Schematic.AddNodeProps => ({ key: id.create(), config: { variant } }),
-    [variant],
-  );
-  const handleDragStart = useCallback(
-    () => startDrag([Schematic.createHaulItem(createParams())]),
-    [startDrag, createParams],
-  );
-  const handleAddNode = useCallback(
-    () => addNode(createParams()),
-    [addNode, createParams],
-  );
+  const createParams = (): Schematic.AddNodeProps => ({
+    key: id.create(),
+    config: { variant },
+  });
+  const handleDragStart = () => startDrag([Schematic.createHaulItem(createParams())]);
+  const handleAddNode = () => addNode(createParams());
   const change = use(ChangeContext);
   const spec = List.useItem<string, Schematic.Node.Spec>(itemKey);
-  const config = useMemo(
-    () => (spec == null ? null : Schematic.Node.createConfig({ variant })),
-    [spec, variant],
-  );
+  const config = spec == null ? null : Schematic.Node.createConfig({ variant });
   if (spec == null || config == null) return null;
   const { name, Preview } = spec;
   return (
@@ -108,10 +91,8 @@ export interface SymbolListProps {
 }
 
 const StaticSymbolList = ({ groupKey }: SymbolListProps): ReactElement => {
-  const symbols = useMemo(() => {
-    const g = Schematic.Node.GROUPS.find((g) => g.key === groupKey);
-    return Schematic.Node.STATIC_SPECS.filter((s) => g?.symbols.includes(s.key));
-  }, [groupKey]);
+  const g = Schematic.Node.GROUPS.find((g) => g.key === groupKey);
+  const symbols = Schematic.Node.STATIC_SPECS.filter((s) => g?.symbols.includes(s.key));
   const { data, getItem } = List.useStaticData<string, Schematic.Node.Spec>({
     data: symbols,
   });
@@ -138,28 +119,16 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   const addNode = Schematic.useAddNode();
   const { startDrag, onDragEnd } = Haul.useDrag(HAUL_DRAG_PROPS);
 
-  const createParams = useCallback(
-    (): Schematic.AddNodeProps<Schematic.Node.CustomVariant> => ({
-      key: id.create(),
-      config: { variant, specKey: itemKey },
-    }),
-    [variant, itemKey],
-  );
-  const handleDragStart = useCallback(
-    () => startDrag([Schematic.createHaulItem(createParams())]),
-    [startDrag, createParams],
-  );
-  const handleAddNode = useCallback(
-    () => addNode(createParams()),
-    [addNode, createParams],
-  );
+  const createParams = (): Schematic.AddNodeProps<Schematic.Node.CustomVariant> => ({
+    key: id.create(),
+    config: { variant, specKey: itemKey },
+  });
+  const handleDragStart = () => startDrag([Schematic.createHaulItem(createParams())]);
+  const handleAddNode = () => addNode(createParams());
   const change = use(ChangeContext);
   const { update: rename } = Schematic.Symbol.useRename();
   const canRename = Access.useUpdateGranted(schematic.symbol.ontologyID(itemKey));
-  const handleRename = useCallback(
-    (name: string) => rename({ key: itemKey, name }),
-    [itemKey, rename],
-  );
+  const handleRename = (name: string) => rename({ key: itemKey, name });
 
   if (symbol == null) return null;
 
@@ -246,9 +215,9 @@ const RemoteSymbolListContextMenu = ({
 
 const useCreateSymbol = (selectedGroup: string) => {
   const openEdit = Symbol.Edit.useModal();
-  const handleCreateSymbol = useCallback(() => {
+  const handleCreateSymbol = () => {
     openEdit({ parent: group.ontologyID(selectedGroup) });
-  }, [openEdit, selectedGroup]);
+  };
   return handleCreateSymbol;
 };
 
@@ -310,10 +279,7 @@ const GroupTab = ({ itemKey }: GroupTabProps): ReactElement | null => {
   const item = List.useItem<group.Key, group.Group & { Icon?: Icon.FC }>(itemKey);
   const { update: rename } = Group.useRename();
   const canRename = Access.useUpdateGranted(group.ontologyID(itemKey));
-  const handleRename = useCallback(
-    (name: string) => rename({ key: itemKey, name }),
-    [itemKey, rename],
-  );
+  const handleRename = (name: string) => rename({ key: itemKey, name });
   if (item == null) return null;
   const { Icon: GroupIcon } = item;
   // Static groups ship with the Console under non-UUID keys and have no server record.
@@ -365,7 +331,7 @@ const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement =
     schematic.symbol.TYPE_ONTOLOGY_ID,
   );
 
-  const handleCreateGroup = useCallback(() => {
+  const handleCreateGroup = () => {
     handleError(async () => {
       const result = await rename({
         initialValue: "",
@@ -380,14 +346,14 @@ const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement =
         parent: symbolGroupID,
       });
     }, "Failed to create group");
-  }, [updateAsync, rename, handleError, symbolGroupID]);
+  };
 
   const isRemoteGroup = z.validate(group.keyZ, selectedGroup);
 
-  const handleCreateSymbol = useCallback(() => {
+  const handleCreateSymbol = () => {
     if (!isRemoteGroup) return;
     openEdit({ parent: group.ontologyID(selectedGroup) });
-  }, [isRemoteGroup, openEdit, selectedGroup]);
+  };
 
   return (
     <Flex.Box x shrink={0}>
@@ -555,13 +521,10 @@ const SearchSymbolList = ({ searchTerm }: SearchSymbolListProps): ReactElement =
   const { retrieve: retrieveRemote } = remote;
   const { retrieve: retrieveStatic } = staticData;
   const { search } = List.usePager({
-    retrieve: useCallback(
-      (args) => {
-        retrieveRemote(args);
-        retrieveStatic(args);
-      },
-      [retrieveRemote, retrieveStatic],
-    ),
+    retrieve: (args) => {
+      retrieveRemote(args);
+      retrieveStatic(args);
+    },
   });
 
   useEffect(() => search(searchTerm), [search, searchTerm]);
@@ -587,11 +550,8 @@ export const Symbols = ({ change }: SymbolsProps): ReactElement => {
   const dispatch = Session.useDispatch();
   const key = Schematic.useKey();
   const groupKey = Session.Schematic.useSelectSelectedSymbolGroup({ key });
-  const setGroupKey = useCallback(
-    (group: group.Key) =>
-      dispatch(Session.Schematic.setSelectedSymbolGroup({ key, group })),
-    [dispatch, key],
-  );
+  const setGroupKey = (group: group.Key) =>
+    dispatch(Session.Schematic.setSelectedSymbolGroup({ key, group }));
   const isRemoteGroup = z.validate(group.keyZ, groupKey);
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -602,10 +562,8 @@ export const Symbols = ({ change }: SymbolsProps): ReactElement => {
     symbolList = <RemoteSymbolList key={groupKey} groupKey={groupKey} />;
   else if (searchMode) symbolList = <SearchSymbolList searchTerm={searchTerm} />;
   const symbolGroupKey = symbolGroup?.key;
-  const symbolGroupID = useMemo(
-    () => (symbolGroupKey == null ? undefined : group.ontologyID(symbolGroupKey)),
-    [symbolGroupKey],
-  );
+  const symbolGroupID =
+    symbolGroupKey == null ? undefined : group.ontologyID(symbolGroupKey);
   return (
     <ChangeContext value={change}>
       <Flex.Box

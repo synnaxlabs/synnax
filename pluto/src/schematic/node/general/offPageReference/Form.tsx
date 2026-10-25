@@ -16,7 +16,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { color, type record, type text } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 
 import { Project } from "@/project";
 import { Form } from "@/schematic/node/common/form";
@@ -36,7 +36,7 @@ const ClickMode = ({
   value: boolean;
   onChange: (v: boolean) => void;
 }): ReactElement => {
-  const handleChange = useCallback((v: string) => onChange(v === "single"), [onChange]);
+  const handleChange = (v: string) => onChange(v === "single");
   return (
     <Select.Buttons value={value ? "single" : "double"} onChange={handleChange}>
       <Select.Item itemKey="single">Single</Select.Item>
@@ -57,21 +57,18 @@ const selectKey = (page?: schematic.Page | null): string =>
 const useHandlePageChange = (): ((v: string | null) => void) => {
   const theme = Theming.use();
   const ctx = Base.useContext();
-  return useCallback(
-    (v: string | null) => {
-      const prev = ctx.get<schematic.Page | undefined>("page", {
-        optional: true,
-      })?.value;
-      const cleared = v == null || v.length === 0;
-      ctx.set(
-        "page",
-        cleared ? undefined : schematic.pageZ.parse(ontology.stringIDZ.parse(v)),
-      );
-      const hadPage = prev != null && prev.key.length > 0;
-      if (!hadPage && !cleared) ctx.set("fillColor", color.hex(theme.colors.primary.z));
-    },
-    [ctx, theme],
-  );
+  return (v: string | null) => {
+    const prev = ctx.get<schematic.Page | undefined>("page", {
+      optional: true,
+    })?.value;
+    const cleared = v == null || v.length === 0;
+    ctx.set(
+      "page",
+      cleared ? undefined : schematic.pageZ.parse(ontology.stringIDZ.parse(v)),
+    );
+    const hadPage = prev != null && prev.key.length > 0;
+    if (!hadPage && !cleared) ctx.set("fillColor", color.hex(theme.colors.primary.z));
+  };
 };
 
 export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement => {

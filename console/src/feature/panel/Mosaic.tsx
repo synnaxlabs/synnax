@@ -22,13 +22,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Access, Errors, Flux, Panel, Synnax } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
-import {
-  memo,
-  type PropsWithChildren,
-  type ReactElement,
-  useCallback,
-  useState,
-} from "react";
+import { memo, type PropsWithChildren, type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { TabMenuItems } from "@/feature/panel/ContextMenu";
@@ -240,10 +234,7 @@ const EmptyTabContent = ({
 }: Pick<MosaicProps, "onCreateTab">): ReactElement => {
   const openTab = PlatformPanel.useOpenTab();
   const canEdit = Panel.useCanEdit({});
-  const handleCreate = useCallback(
-    () => openTab(onCreateTab()),
-    [onCreateTab, openTab],
-  );
+  const handleCreate = () => openTab(onCreateTab());
   return (
     <Flex.Box center gap={5} className={CSS.BE("mosaic", "empty-content")}>
       <Logo.Logo className="synnax-logo-watermark" />
@@ -265,10 +256,7 @@ const Internal = ({ onCreateTab, onFileDrop }: MosaicProps): ReactElement => {
   const focusedTab = Session.Panel.useSelectFocusedTab();
   const isOverlaid = Session.Panel.useSelectIsTabOverlaid(undefined, focusedTab);
   const dispatch = useDispatch();
-  const handleStopOverlay = useCallback(
-    () => dispatch(Session.Panel.stopOverlaying({})),
-    [dispatch],
-  );
+  const handleStopOverlay = () => dispatch(Session.Panel.stopOverlaying({}));
   return (
     <Panel.Mosaic
       className={CSS.B("mosaic")}
@@ -306,23 +294,18 @@ const EmptyContent = ({ onFileDrop }: EmptyContentProps): ReactElement => {
   const canCreate = Access.useCreateGranted(panel.TYPE_ONTOLOGY_ID);
   const [over, setOver] = useState(false);
   const acceptsFiles = onFileDrop != null;
-  const canDrop: Haul.CanDrop = useCallback(
-    ({ items }) => acceptsFiles && Haul.filterByType(Haul.FILE_TYPE, items).length > 0,
-    [acceptsFiles],
-  );
-  const handleDragOver = useCallback(() => setOver(true), []);
-  const handleDragLeave = useCallback(() => setOver(false), []);
-  const handleDrop = useCallback(
-    ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
-      setOver(false);
-      if (event == null) return [];
-      // No leaf exists to target, so the root key and center stand in; the handler
-      // creates a fresh panel and the placement never applies.
-      onFileDrop?.({ nodeKey: panel.ROOT_NODE_KEY, location: "center", event });
-      return items;
-    },
-    [onFileDrop],
-  );
+  const canDrop: Haul.CanDrop = ({ items }) =>
+    acceptsFiles && Haul.filterByType(Haul.FILE_TYPE, items).length > 0;
+  const handleDragOver = () => setOver(true);
+  const handleDragLeave = () => setOver(false);
+  const handleDrop = ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
+    setOver(false);
+    if (event == null) return [];
+    // No leaf exists to target, so the root key and center stand in; the handler
+    // creates a fresh panel and the placement never applies.
+    onFileDrop?.({ nodeKey: panel.ROOT_NODE_KEY, location: "center", event });
+    return items;
+  };
   const haulProps = Haul.useDrop({
     type: "Mosaic",
     key: EMPTY_DROP_KEY,

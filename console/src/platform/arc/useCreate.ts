@@ -9,7 +9,6 @@
 
 import { arc, type panel } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
-import { useCallback } from "react";
 
 import { useCreateModal } from "@/platform/arc/useCreateModal";
 import { Panel } from "@/platform/panel";
@@ -22,7 +21,7 @@ export const useCreate = ({ tabKey }: UseCreateProps = {}): (() => void) => {
   const openModal = useCreateModal();
   const openTab = Panel.useOpenTab();
   const handleError = Status.useErrorHandler();
-  return useCallback(() => {
+  return () => {
     handleError(async () => {
       const result = await openModal({});
       if (result == null) return;
@@ -32,5 +31,5 @@ export const useCreate = ({ tabKey }: UseCreateProps = {}): (() => void) => {
         key: tabKey,
       });
     }, "Failed to create automation");
-  }, [openModal, openTab, tabKey, handleError]);
+  };
 };

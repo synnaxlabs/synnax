@@ -10,20 +10,16 @@
 import { DisconnectedError } from "@synnaxlabs/client";
 import { type UploadBody } from "@synnaxlabs/freighter";
 import { Synnax } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { Import } from "@/platform/import";
 
 const useOnImport = () => {
   const client = Synnax.use();
-  return useCallback(
-    async (bundle: UploadBody) => {
-      if (client == null) throw new DisconnectedError();
-      const imported = await client.schematics.symbols.importGroup(bundle);
-      return imported.name;
-    },
-    [client],
-  );
+  return async (bundle: UploadBody) => {
+    if (client == null) throw new DisconnectedError();
+    const imported = await client.schematics.symbols.importGroup(bundle);
+    return imported.name;
+  };
 };
 
 /** A modal that imports a symbol group from a .zip export or its extracted folder. */

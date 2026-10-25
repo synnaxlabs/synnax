@@ -16,6 +16,8 @@ import { Ranger } from "@/ranger";
 
 // A float64 holds the nanoseconds of this instant exactly.
 const EXACT = new Date(Date.UTC(2026, 0, 1));
+// A float64 rounds the nanoseconds of this instant up by 64 ns.
+const ROUNDS_UP = new Date(EXACT.getTime() + 3);
 
 const DAY = Number(TimeSpan.DAY.valueOf());
 const HOUR = Number(TimeSpan.HOUR.valueOf());
@@ -142,6 +144,40 @@ describe("Ranger.Timeline", () => {
       render(
         <Ranger.Timeline value={{ start: now - HOUR, end: now }} onChange={() => {}} />,
       );
+      expect(screen.getByText("Completed")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("should move to in progress at a planned start between clock readings", () => {
+    vi.useFakeTimers({ now: ROUNDS_UP });
+    try {
+      const start = new TimeStamp(ROUNDS_UP).nanoseconds;
+      render(
+        <Ranger.Timeline value={{ start, end: start + HOUR }} onChange={() => {}} />,
+      );
+      expect(screen.getByText("To do")).toBeTruthy();
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
+      expect(screen.getByText("In progress")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("should move to completed at a planned end between clock readings", () => {
+    vi.useFakeTimers({ now: ROUNDS_UP });
+    try {
+      const end = new TimeStamp(ROUNDS_UP).nanoseconds;
+      render(
+        <Ranger.Timeline value={{ start: end - HOUR, end }} onChange={() => {}} />,
+      );
+      expect(screen.getByText("In progress")).toBeTruthy();
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
       expect(screen.getByText("Completed")).toBeTruthy();
     } finally {
       vi.useRealTimers();

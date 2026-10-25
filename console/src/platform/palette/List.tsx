@@ -14,7 +14,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { List as Base } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { destructor, type record, type state } from "@synnaxlabs/x";
-import { type MouseEvent, type ReactElement, useCallback } from "react";
+import { type MouseEvent, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -40,10 +40,7 @@ export interface ListItemProps extends Select.ItemProps<string> {}
 // The row's own onSelect runs its action from onClick, so the frame's selection still
 // runs first and closes the palette.
 export const ListItem = ({ onSelect, itemKey, ...rest }: Select.ItemProps<string>) => {
-  const handleClick = useCallback(
-    (e: MouseEvent<HTMLElement>) => onSelect?.(itemKey, e),
-    [onSelect, itemKey],
-  );
+  const handleClick = (e: MouseEvent<HTMLElement>) => onSelect?.(itemKey, e);
   return (
     <Select.Item
       justify="between"
@@ -67,14 +64,11 @@ export const BaseList = <E extends record.Keyed<string>>({
 }: BaseListProps<E>) => {
   const { fetchMore, search } = Base.usePager({ retrieve, pageSize: 20 });
 
-  const handleSearch = useCallback(
-    (v: string) => {
-      onChange(v);
-      if (v.startsWith(prefix)) v = v.slice(prefix.length);
-      search(v);
-    },
-    [search, onChange, prefix],
-  );
+  const handleSearch = (v: string) => {
+    onChange(v);
+    if (v.startsWith(prefix)) v = v.slice(prefix.length);
+    search(v);
+  };
   return (
     <Select.Frame<string, E>
       {...rest}

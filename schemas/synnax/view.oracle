@@ -35,15 +35,14 @@ View union on type extends Base {
     }
 
     @create
-    @doc value     """
+    @doc value       """
         is a saved, named filter over a list of resources. The type selects the resource
         the view lists and the shape of its query.
     """
     @go marshal
     @go migrate
-    @ontology type "view"
-    @retrieve
-    @search
+    @ontology type   "view"
+    @retrieve custom
 }
 
 Base struct {

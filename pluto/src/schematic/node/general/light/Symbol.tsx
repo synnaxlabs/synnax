@@ -9,7 +9,7 @@
 
 import { type schematic } from "@synnaxlabs/client";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
@@ -36,10 +36,7 @@ export const Symbol = ({
   },
 }: NodeProps<schematic.LightNodeConfig>): ReactElement => {
   const theme = Theming.use();
-  const source = useMemo(
-    () => Telem.booleanSource(channel, threshold),
-    [channel, threshold],
-  );
+  const source = Telem.booleanSource(channel, threshold);
   const { enabled, stale } = BaseLight.use({
     aetherKey: nodeKey,
     source,

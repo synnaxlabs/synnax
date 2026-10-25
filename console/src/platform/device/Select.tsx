@@ -13,7 +13,7 @@ import { type Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Device, Synnax } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
-import { type JSX, useCallback, useMemo } from "react";
+import { type JSX } from "react";
 
 export interface SelectProps extends Pick<Device.SelectSingleProps, "filter"> {
   onConfigure: (deviceKey: device.Key) => void;
@@ -37,24 +37,19 @@ export const Select = ({
 }: SelectProps) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  const handleDeviceChange = useCallback(
-    (key: device.Key, { set }: Form.ContextValue) => {
-      if (client == null || primitive.isZero(key)) return;
-      handleError(async () => {
-        const { configured, rack } = await client.devices.retrieve({ key });
-        set("rack", rack);
-        if (configured) return;
-        onConfigure(key);
-      }, "Failed to retrieve device");
-    },
-    [client, onConfigure, handleError],
-  );
-  const filter = useMemo(() => {
-    const baseFilter = (d: device.Device) =>
-      d.make === make && (model == null || d.model === model);
-    if (filterProp == null) return baseFilter;
-    return (d: device.Device) => baseFilter(d) && filterProp(d);
-  }, [make, model, filterProp]);
+  const handleDeviceChange = (key: device.Key, { set }: Form.ContextValue) => {
+    if (client == null || primitive.isZero(key)) return;
+    handleError(async () => {
+      const { configured, rack } = await client.devices.retrieve({ key });
+      set("rack", rack);
+      if (configured) return;
+      onConfigure(key);
+    }, "Failed to retrieve device");
+  };
+  const filter = (d: device.Device) =>
+    d.make === make &&
+    (model == null || d.model === model) &&
+    (filterProp?.(d) ?? true);
   return (
     <Form.Field<string> grow label={label} onChange={handleDeviceChange} path={path}>
       {({ value, onChange, preview }) => (

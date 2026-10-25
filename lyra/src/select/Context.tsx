@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { destructor, type record } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement, useCallback, useMemo } from "react";
+import { type PropsWithChildren, type ReactElement } from "react";
 
 import { context } from "@/context";
 import { Store } from "@/store";
@@ -131,19 +131,16 @@ export const useReselectNoop = (): boolean => useReselectNoopContext();
 export const useContext = <K extends record.Key = record.Key>(): ContextValue<K> => {
   const membersCtx = Members.useContext();
   const hoverCtx = Hover.useContext();
-  return useMemo<ContextValue<K>>(
-    () => ({
-      onSelect: membersCtx.onItem,
-      setSelected: membersCtx.setValue,
-      clear: membersCtx.clear,
-      subscribe: membersCtx.subscribe,
-      getState: () => ({
-        value: membersCtx.getValue() as Value<K>,
-        hover: hoverCtx.getPresent() as K | undefined,
-      }),
+  return {
+    onSelect: membersCtx.onItem,
+    setSelected: membersCtx.setValue,
+    clear: membersCtx.clear,
+    subscribe: membersCtx.subscribe,
+    getState: () => ({
+      value: membersCtx.getValue() as Value<K>,
+      hover: hoverCtx.getPresent() as K | undefined,
     }),
-    [membersCtx, hoverCtx],
-  );
+  };
 };
 
 /**
@@ -161,19 +158,15 @@ export const useItemState = <K extends record.Key>(key: K): UseItemStateReturn =
   const sole = Sole.useIsPresent(key);
   const hovered = Hover.useIsPresent(key);
   const setHover = useSetHover();
-  const onHover = useCallback(() => setHover(key), [setHover, key]);
-  return useMemo(
-    () => ({
-      selected: member,
-      focused,
-      head,
-      sole,
-      hovered,
-      onSelect: onItem,
-      onHover,
-    }),
-    [member, focused, head, sole, hovered, onItem, onHover],
-  );
+  return {
+    selected: member,
+    focused,
+    head,
+    sole,
+    hovered,
+    onSelect: onItem,
+    onHover: () => setHover(key),
+  };
 };
 
 /**

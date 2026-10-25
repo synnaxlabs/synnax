@@ -12,7 +12,6 @@ import { NotFoundError, panel, query } from "@synnaxlabs/client";
 import { type Drift } from "@synnaxlabs/drift";
 import { Panel, Synnax } from "@synnaxlabs/pluto";
 import { array, compare, type require } from "@synnaxlabs/x";
-import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 import z from "zod";
 
@@ -336,28 +335,25 @@ export const useSelectTab = (panelKey?: panel.Key) => {
   const scopedPanelKey = Panel.useOptionalKey(panelKey);
   const client = Synnax.use();
   const dispatch = useDispatch<Dispatch<Action>>();
-  return useCallback(
-    (key: panel.TabKey, overridePanelKey?: panel.Key) => {
-      const resolvedPanelKey = overridePanelKey ?? scopedPanelKey;
-      if (resolvedPanelKey == null) return;
-      const cached = client?.panels.getCached(resolvedPanelKey);
-      if (!query.isLive(cached))
-        throw new NotFoundError(`Panel with key ${resolvedPanelKey} not found`);
-      const leaf = panel.findTabLeaf(cached.root, key);
-      if (leaf == null)
-        throw new NotFoundError(
-          `Leaf holding tab ${key} not found in panel ${resolvedPanelKey}`,
-        );
-      dispatch(
-        internalSelectTab({
-          tabKey: key,
-          key: resolvedPanelKey,
-          otherTabKeys: leaf.tabs.map((t) => t.key),
-        }),
+  return (key: panel.TabKey, overridePanelKey?: panel.Key) => {
+    const resolvedPanelKey = overridePanelKey ?? scopedPanelKey;
+    if (resolvedPanelKey == null) return;
+    const cached = client?.panels.getCached(resolvedPanelKey);
+    if (!query.isLive(cached))
+      throw new NotFoundError(`Panel with key ${resolvedPanelKey} not found`);
+    const leaf = panel.findTabLeaf(cached.root, key);
+    if (leaf == null)
+      throw new NotFoundError(
+        `Leaf holding tab ${key} not found in panel ${resolvedPanelKey}`,
       );
-    },
-    [scopedPanelKey, client, dispatch],
-  );
+    dispatch(
+      internalSelectTab({
+        tabKey: key,
+        key: resolvedPanelKey,
+        otherTabKeys: leaf.tabs.map((t) => t.key),
+      }),
+    );
+  };
 };
 
 /**
@@ -369,12 +365,9 @@ export const useStartOverlaying = (panelKey?: panel.Key) => {
   const scopedPanelKey = Panel.useOptionalKey(panelKey);
   const selectTab = useSelectTab(panelKey);
   const dispatch = useDispatch<Dispatch<Action>>();
-  return useCallback(
-    (tabKey: panel.TabKey) => {
-      if (scopedPanelKey == null) return;
-      selectTab(tabKey);
-      dispatch(startOverlaying({}));
-    },
-    [scopedPanelKey, selectTab, dispatch],
-  );
+  return (tabKey: panel.TabKey) => {
+    if (scopedPanelKey == null) return;
+    selectTab(tabKey);
+    dispatch(startOverlaying({}));
+  };
 };

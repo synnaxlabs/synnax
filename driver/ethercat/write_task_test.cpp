@@ -69,6 +69,22 @@ protected:
                 .product_code = 0x2,
                 .serial = SLAVE_SERIAL,
                 .name = "Test Slave",
+                .output_pdos = {
+                    {.pdo_index = 0x1600,
+                     .index = 0x7000,
+                     .sub_index = 1,
+                     .bit_length = 16,
+                     .is_input = false,
+                     .name = "control_word",
+                     .data_type = x::telem::INT16_T},
+                    {.pdo_index = 0x1600,
+                     .index = 0x7000,
+                     .sub_index = 2,
+                     .bit_length = 32,
+                     .is_input = false,
+                     .name = "setpoint",
+                     .data_type = x::telem::INT32_T},
+                },
             }
         );
         engine = std::make_shared<engine::Engine>(mock_master);

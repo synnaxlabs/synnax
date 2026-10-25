@@ -10,7 +10,6 @@
 import { type panel } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { Panel } from "@synnaxlabs/pluto";
-import { useCallback, useMemo } from "react";
 import { useStore } from "react-redux";
 
 import {
@@ -89,12 +88,10 @@ export const useSelectOrderedKeys = (): panel.Key[] => {
   // The query answers membership, the session answers order. A key the session has
   // not reconciled yet lands at the end in answer order: the sort is stable and
   // every unknown compares equal.
-  return useMemo(() => {
-    const slots = new Map(order.map((key, index) => [key, index]));
-    return [...keys].sort(
-      (a, b) => (slots.get(a) ?? order.length) - (slots.get(b) ?? order.length),
-    );
-  }, [keys, order]);
+  const slots = new Map(order.map((key, index) => [key, index]));
+  return [...keys].sort(
+    (a, b) => (slots.get(a) ?? order.length) - (slots.get(b) ?? order.length),
+  );
 };
 
 /**
@@ -140,7 +137,7 @@ export const useSelectOverlaid = (): boolean => Select.useMemo(selectOverlaid, [
 /** @returns a getter for whether any tab is overlaid on the active window. */
 export const useGetIsOverlaid = (): (() => boolean) => {
   const store = useStore<StoreState>();
-  return useCallback(() => selectOverlaid(store.getState()), [store]);
+  return () => selectOverlaid(store.getState());
 };
 
 /**
@@ -167,7 +164,7 @@ export const useSelectIsTabOverlaid = (
 /** @returns a getter for the active window's selected panel key, if any. */
 export const useGetSelected = (): (() => panel.Key | undefined) => {
   const store = useStore<StoreState>();
-  return useCallback(() => selectSelected(store.getState()), [store]);
+  return () => selectSelected(store.getState());
 };
 
 /** @returns the active window's selected panel key, if any. */
@@ -177,7 +174,7 @@ export const useSelectSelected = (): panel.Key | undefined =>
 /** @returns a getter reporting whether the active window has a selected panel. */
 export const useGetIsAnySelected = (): (() => boolean) => {
   const getSelected = useGetSelected();
-  return useCallback(() => getSelected() != null, [getSelected]);
+  return () => getSelected() != null;
 };
 
 /**
@@ -197,11 +194,8 @@ export const useSelectFocusedTab = (key?: panel.Key): panel.TabKey | undefined =
 export const useGetFocusedTab = (): ((key?: panel.Key) => panel.TabKey | undefined) => {
   const scoped = Panel.useOptionalKey();
   const store = useStore<StoreState>();
-  return useCallback(
-    (key: panel.Key | undefined = scoped) =>
-      selectSelectedTabs(store.getState(), key)[0],
-    [scoped, store],
-  );
+  return (key: panel.Key | undefined = scoped) =>
+    selectSelectedTabs(store.getState(), key)[0];
 };
 
 // The tab predicates below resolve to one bit from far more volatile inputs: a
@@ -249,13 +243,10 @@ export const useGetTabIsFocused = (): ((
   const store = useStore<StoreState>();
   const resolvedPanel = Panel.useOptionalKey();
   const resolvedTab = Panel.useOptionalTabKey();
-  return useCallback(
-    (
-      key: panel.Key | undefined = resolvedPanel,
-      tabKey: panel.TabKey | undefined = resolvedTab,
-    ) => selectIsTabFocused(store.getState(), key, tabKey),
-    [store, resolvedPanel, resolvedTab],
-  );
+  return (
+    key: panel.Key | undefined = resolvedPanel,
+    tabKey: panel.TabKey | undefined = resolvedTab,
+  ) => selectIsTabFocused(store.getState(), key, tabKey);
 };
 
 const selectIsTabVisible = (

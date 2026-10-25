@@ -12,7 +12,7 @@ import { type Icon } from "@synnaxlabs/lyra/icon";
 import { type List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { type FC, type ReactElement, useCallback } from "react";
+import { type FC, type ReactElement } from "react";
 
 import { Palette } from "@/platform/palette";
 
@@ -75,7 +75,7 @@ export const create = ({
 }: CreateParams): Command => {
   const Cmd: Command = (listProps) => {
     const handleSelect = useOnSelect();
-    const onSelect = useCallback(() => handleSelect(), [handleSelect]);
+    const onSelect = () => handleSelect();
     return (
       <ListItem
         {...listProps}

@@ -9,3 +9,4 @@
 
 export * from "@/sync/mutex";
 export * from "@/sync/notifier";
+export * from "@/sync/timeout";

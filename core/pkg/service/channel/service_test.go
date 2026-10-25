@@ -76,16 +76,8 @@ var _ = Describe("Service", func() {
 				Virtual:  true,
 			}
 			Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
-			Eventually(func(g Gomega) {
-				results := MustSucceed(
-					svc.NewArcSymbolResolver(nil).Search(ctx, ch.Name),
-				)
-				names := make([]string, len(results))
-				for i, sym := range results {
-					names[i] = sym.Name
-				}
-				g.Expect(names).To(ContainElement(ch.Name))
-			}).Should(Succeed())
+			Expect(svc.NewArcSymbolResolver(nil).Search(ctx, ch.Name)).
+				To(ContainElement(HaveField("Name", ch.Name)))
 		})
 	})
 

@@ -14,7 +14,6 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status as LyraStatus } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Status } from "@synnaxlabs/pluto";
-import { useCallback, useMemo } from "react";
 
 import { ContextMenu as Base } from "@/platform/context-menu";
 import { Errors } from "@/platform/errors";
@@ -39,18 +38,9 @@ const Internal = ({ keys, nameID = List.itemNameID }: ContextMenuProps) => {
   const { update: del } = Status.useDelete();
   const handleError = LyraStatus.useErrorHandler();
 
-  const anyFavorited = useMemo(
-    () => keys.some((k) => favoriteSet.has(k)),
-    [favoriteSet, keys],
-  );
-  const anyNotFavorited = useMemo(
-    () => keys.some((k) => !favoriteSet.has(k)),
-    [favoriteSet, keys],
-  );
-  const getCopyText = useCallback(
-    () => statuses.map((s) => status.toString(s)).join("\n\n"),
-    [statuses],
-  );
+  const anyFavorited = keys.some((k) => favoriteSet.has(k));
+  const anyNotFavorited = keys.some((k) => !favoriteSet.has(k));
+  const getCopyText = () => statuses.map((s) => status.toString(s)).join("\n\n");
 
   const isEmpty = statuses.length === 0;
   const isSingle = statuses.length === 1;

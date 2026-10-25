@@ -15,7 +15,7 @@ import { CSS } from "@synnaxlabs/lyra/css";
 import { type Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Select as BaseSelect } from "@synnaxlabs/lyra/select";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -51,7 +51,7 @@ export const Select = ({
   onClickDelay,
 }: RenderProps): ReactElement => {
   const matched = options.find((o) => o.key === value);
-  const triggerStyle = useMemo(() => ({ minWidth: inlineSize }), [inlineSize]);
+  const triggerStyle = { minWidth: inlineSize };
   return (
     <Primitive.Div
       orientation={orientation}

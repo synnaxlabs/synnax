@@ -9,7 +9,7 @@
 
 import { type status } from "@synnaxlabs/client";
 import { type Flex } from "@synnaxlabs/lyra/flex";
-import { type ReactElement, type ReactNode, useCallback, useState } from "react";
+import { type ReactElement, type ReactNode, useState } from "react";
 
 import { Actions } from "@/platform/task/controls/Actions";
 import { Frame } from "@/platform/task/controls/Frame";
@@ -54,12 +54,9 @@ export const Bar = ({
   ...props
 }: BarProps): ReactElement => {
   const [expanded, setExpanded] = useState(false);
-  const handleToggle = useCallback(() => setExpanded((prev) => !prev), []);
-  const handleContract = useCallback(() => setExpanded(false), []);
-  const handleStartStop = useCallback(
-    () => (running ? onStop() : onDeploy()),
-    [running, onStop, onDeploy],
-  );
+  const handleToggle = () => setExpanded((prev) => !prev);
+  const handleContract = () => setExpanded(false);
+  const handleStartStop = () => (running ? onStop() : onDeploy());
   return (
     <Frame expanded={expanded} onContract={handleContract} {...props}>
       <Status

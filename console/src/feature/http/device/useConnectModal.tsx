@@ -23,7 +23,6 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Device as PDevice, type Flux, Rack } from "@synnaxlabs/pluto";
 import { json } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import {
   type APIKeyAuthConfigSendAs,
@@ -121,10 +120,10 @@ const Connect = ({
   } = useForm({
     query: deviceKey == null ? null : { key: deviceKey },
     beforeSave,
-    afterSave: useCallback(() => {
+    afterSave: () => {
       if (deviceKey == null) capture("device_connected", { integration: "http" });
       close();
-    }, [capture, close, deviceKey]),
+    },
   });
 
   const { set: setField } = form;
@@ -161,77 +160,62 @@ const Connect = ({
     optional: true,
   });
 
-  const handleValidateResponseChange = useCallback(
-    (value: boolean) => {
-      setField("properties.healthCheck.validateResponse", value);
-      setField("properties.healthCheck.response", value ? ZERO_RESPONSE : undefined);
-    },
-    [setField],
-  );
+  const handleValidateResponseChange = (value: boolean) => {
+    setField("properties.healthCheck.validateResponse", value);
+    setField("properties.healthCheck.response", value ? ZERO_RESPONSE : undefined);
+  };
 
-  const renderExpectedValueType = useCallback(
-    ({
-      onChange,
-      ...rest
-    }: SelectExpectedValueTypeProps & {
-      onChange: (v: json.PrimitiveType) => void;
-    }) => {
-      const handleChange = (value: json.PrimitiveType) => {
-        setField(
-          "properties.healthCheck.response.expectedValue",
-          json.ZERO_PRIMITIVES[value],
-        );
-        onChange(value);
-      };
-      return <SelectExpectedValueType {...rest} onChange={handleChange} />;
-    },
-    [setField],
-  );
+  const renderExpectedValueType = ({
+    onChange,
+    ...rest
+  }: SelectExpectedValueTypeProps & {
+    onChange: (v: json.PrimitiveType) => void;
+  }) => {
+    const handleChange = (value: json.PrimitiveType) => {
+      setField(
+        "properties.healthCheck.response.expectedValue",
+        json.ZERO_PRIMITIVES[value],
+      );
+      onChange(value);
+    };
+    return <SelectExpectedValueType {...rest} onChange={handleChange} />;
+  };
 
-  const renderAuthType = useCallback(
-    ({
-      onChange,
-      ...rest
-    }: SelectAuthTypeProps & { onChange: (v: AuthType) => void }) => {
-      const handleChange = (value: AuthType) => {
-        setField("properties.auth", ZERO_AUTH_CONFIGS[value]);
-        onChange(value);
-      };
-      return <SelectAuthType {...rest} onChange={handleChange} />;
-    },
-    [setField],
-  );
+  const renderAuthType = ({
+    onChange,
+    ...rest
+  }: SelectAuthTypeProps & { onChange: (v: AuthType) => void }) => {
+    const handleChange = (value: AuthType) => {
+      setField("properties.auth", ZERO_AUTH_CONFIGS[value]);
+      onChange(value);
+    };
+    return <SelectAuthType {...rest} onChange={handleChange} />;
+  };
 
-  const renderHealthCheckMethod = useCallback(
-    ({
-      onChange,
-      ...rest
-    }: Select.ButtonsProps<HealthCheckMethod> & {
-      onChange: (v: HealthCheckMethod) => void;
-    }) => {
-      const handleChange = (method: HealthCheckMethod) => {
-        onChange(method);
-        setField("properties.healthCheck.body", method === "POST" ? "" : undefined);
-      };
-      return <SelectHealthCheckMethod {...rest} onChange={handleChange} />;
-    },
-    [setField],
-  );
+  const renderHealthCheckMethod = ({
+    onChange,
+    ...rest
+  }: Select.ButtonsProps<HealthCheckMethod> & {
+    onChange: (v: HealthCheckMethod) => void;
+  }) => {
+    const handleChange = (method: HealthCheckMethod) => {
+      onChange(method);
+      setField("properties.healthCheck.body", method === "POST" ? "" : undefined);
+    };
+    return <SelectHealthCheckMethod {...rest} onChange={handleChange} />;
+  };
 
-  const renderSendAs = useCallback(
-    ({
-      onChange,
-      ...rest
-    }: SelectSendAsProps & { onChange: (v: APIKeyAuthConfigSendAs) => void }) => {
-      const handleChange = (value: APIKeyAuthConfigSendAs) => {
-        if (value === "header") setField("properties.auth.header", "");
-        else setField("properties.auth.parameter", "");
-        onChange(value);
-      };
-      return <SelectSendAs {...rest} onChange={handleChange} />;
-    },
-    [setField],
-  );
+  const renderSendAs = ({
+    onChange,
+    ...rest
+  }: SelectSendAsProps & { onChange: (v: APIKeyAuthConfigSendAs) => void }) => {
+    const handleChange = (value: APIKeyAuthConfigSendAs) => {
+      if (value === "header") setField("properties.auth.header", "");
+      else setField("properties.auth.parameter", "");
+      onChange(value);
+    };
+    return <SelectSendAs {...rest} onChange={handleChange} />;
+  };
 
   return (
     <Modal.Frame className={CSS.B("http-connect")}>

@@ -17,7 +17,7 @@ import { Tag } from "@synnaxlabs/lyra/tag";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Access, Ranger } from "@synnaxlabs/pluto";
 import { type NumericTimeRange } from "@synnaxlabs/x";
-import { memo, type MouseEvent, useMemo } from "react";
+import { memo, type MouseEvent } from "react";
 
 import { CSS } from "@/platform/css";
 import { Panel } from "@/platform/panel";
@@ -42,17 +42,17 @@ const Base = ({
   const { onSelect, onHover, selected, hovered } = Select.useItemState(itemKey);
   const openTab = Panel.useOpenTab();
   const item = List.useItem<ranger.Key, ranger.Range>(itemKey);
-  const initialValues = useMemo(() => {
-    if (item == null) return undefined;
-    return {
-      ...item.payload,
-      labels: item.labels?.map((l) => l.key) ?? [],
-      parent: item.parent?.key ?? "",
-      timeRange: item.timeRange.numeric,
-    };
-  }, [item]);
   const canEdit = Access.useUpdateGranted(ranger.ontologyID(itemKey));
   const { update: rename } = Session.Range.useRename();
+  const initialValues =
+    item == null
+      ? undefined
+      : {
+          ...item.payload,
+          labels: item.labels?.map((l) => l.key) ?? [],
+          parent: item.parent?.key ?? "",
+          timeRange: item.timeRange.numeric,
+        };
   const { form } = Ranger.useForm({
     query: null,
     initialValues,

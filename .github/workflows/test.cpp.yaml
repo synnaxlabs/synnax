@@ -152,15 +152,12 @@ jobs:
           sudo ip link set vcan0 mtu 72
           sudo ip link set up vcan0
 
-      # TSan reserves fixed address ranges that the wider mmap randomization of recent
-      # kernels can map over.
-      - name: Narrow mmap randomization for TSan
-        if: runner.os == 'Linux' && inputs.sanitizer == 'thread'
-        run: sudo sysctl vm.mmap_rnd_bits=28
-
       - name: Install Rust
         if: inputs.rust
         uses: actions-rust-lang/setup-rust-toolchain@v2
+        with:
+          # A cache save deletes rustup from ~/.cargo/bin, which the build bots keep.
+          cache-bin: false
 
       - name: Update submodules
         run: git submodule update --init --recursive
@@ -229,7 +226,13 @@ jobs:
             address/macOS)
               flags+=(--config=asan "--test_env=UBSAN_OPTIONS=$ubsan")
               ;;
-            thread/Linux | thread/macOS)
+            # The GCC TSan runtime aborts on the kernel's address randomization, so
+            # the tests run with it off.
+            thread/Linux)
+              flags+=(--config=tsan "--test_env=TSAN_OPTIONS=$tsan"
+                '--run_under="setarch -R"')
+              ;;
+            thread/macOS)
               flags+=(--config=tsan "--test_env=TSAN_OPTIONS=$tsan")
               ;;
             address/Windows | none/*) ;;
@@ -319,6 +322,9 @@ jobs:
       - name: Install Rust
         if: inputs.rust
         uses: actions-rust-lang/setup-rust-toolchain@v2
+        with:
+          # A cache save deletes rustup from ~/.cargo/bin, which the build bots keep.
+          cache-bin: false
 
       - name: Update submodules
         run: git submodule update --init --recursive

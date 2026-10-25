@@ -10,7 +10,6 @@
 import { icd } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { ICD } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { Runtime } from "@/platform/runtime";
 
@@ -33,17 +32,14 @@ export const useImport = ({ onImport }: UseImportParams = {}): ((
   const { updateAsync } = ICD.useImport({
     afterSuccess: ({ data }) => onImport?.(data),
   });
-  return useCallback(
-    (key: icd.Key) =>
-      handleError(async () => {
-        const file = await Runtime.pickFiles({
-          title: "Import ICD",
-          extension: [...icd.IMPORT_FORMATS],
-        });
-        if (file == null) return;
-        const data = await Runtime.toBytes(await file.read());
-        await updateAsync({ key, format: formatOf(file.path), data });
-      }, "Failed to import ICD"),
-    [handleError, updateAsync],
-  );
+  return (key: icd.Key) =>
+    handleError(async () => {
+      const file = await Runtime.pickFiles({
+        title: "Import ICD",
+        extension: [...icd.IMPORT_FORMATS],
+      });
+      if (file == null) return;
+      const data = await Runtime.toBytes(await file.read());
+      await updateAsync({ key, format: formatOf(file.path), data });
+    }, "Failed to import ICD");
 };

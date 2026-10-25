@@ -9,7 +9,6 @@
 
 import { type ontology, type panel } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
-import { useCallback } from "react";
 
 import { Panel } from "@/platform/panel";
 
@@ -56,18 +55,15 @@ const importOne = async <I extends { name: string }>(
 export const useImportBatch = (): ImportBatch => {
   const handleError = Status.useErrorHandler();
   const openTabs = Panel.useOpenTabs();
-  return useCallback(
-    async <I extends { name: string }>({
-      items,
-      importItem,
-      placement,
-      onSuccess,
-    }: ImportBatchParams<I>): Promise<void> => {
-      const ids = await Promise.all(
-        items.map((item) => importOne(item, importItem, handleError, onSuccess)),
-      );
-      openTabs(resourceTabs(ids), { placement });
-    },
-    [handleError, openTabs],
-  );
+  return async <I extends { name: string }>({
+    items,
+    importItem,
+    placement,
+    onSuccess,
+  }: ImportBatchParams<I>): Promise<void> => {
+    const ids = await Promise.all(
+      items.map((item) => importOne(item, importItem, handleError, onSuccess)),
+    );
+    openTabs(resourceTabs(ids), { placement });
+  };
 };

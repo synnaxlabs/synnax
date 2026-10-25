@@ -108,4 +108,39 @@ describe("Batcher", () => {
     await vi.advanceTimersByTimeAsync(100);
     expect(await revived).toEqual(4);
   });
+
+  it("should reject the entries of a running batch on close", async () => {
+    const fetched = Promise.withResolvers<void>();
+    const batcher = new Batcher<number, number>({
+      interval: TimeSpan.milliseconds(100),
+      exec: async (entries) => {
+        await fetched.promise;
+        resolveAll(entries);
+      },
+    });
+    const running = batcher.enqueue(1);
+    await vi.advanceTimersByTimeAsync(100);
+    batcher.close(new Error("closed"));
+    fetched.resolve();
+    await expect(running).rejects.toThrow("closed");
+  });
+
+  it("should not reject the settled entries of a running batch on close", async () => {
+    const fetched = Promise.withResolvers<void>();
+    const batcher = new Batcher<number, number>({
+      interval: TimeSpan.milliseconds(100),
+      exec: async ([first, second]) => {
+        first.resolve(first.req);
+        await fetched.promise;
+        second.resolve(second.req);
+      },
+    });
+    const settled = batcher.enqueue(1);
+    const unsettled = batcher.enqueue(2);
+    await vi.advanceTimersByTimeAsync(100);
+    batcher.close(new Error("closed"));
+    fetched.resolve();
+    expect(await settled).toEqual(1);
+    await expect(unsettled).rejects.toThrow("closed");
+  });
 });

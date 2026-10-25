@@ -13,7 +13,6 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, type Flux, User } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { ContextMenu } from "@/platform/context-menu";
 import { Tree } from "@/platform/tree";
@@ -31,33 +30,26 @@ const useRename = ({
   },
   state: { getResource },
 }: Tree.ContextMenuProps): (() => void) => {
-  const beforeUpdate = useCallback(
-    async ({ data }: Flux.BeforeUpdateParams<User.ChangeUsernameParams>) => {
-      const [username, renamed] = await Text.asyncEdit(
-        List.itemNameID(ontology.idToString(firstID)),
-      );
-      if (!renamed) return false;
-      return { ...data, username };
-    },
-    [firstID],
-  );
+  const beforeUpdate = async ({
+    data,
+  }: Flux.BeforeUpdateParams<User.ChangeUsernameParams>) => {
+    const [username, renamed] = await Text.asyncEdit(
+      List.itemNameID(ontology.idToString(firstID)),
+    );
+    if (!renamed) return false;
+    return { ...data, username };
+  };
   const { update } = User.useRename({ beforeUpdate });
-  return useCallback(
-    () => update({ key: firstID.key, username: getResource(firstID).name }),
-    [update, firstID, getResource],
-  );
+  return () => update({ key: firstID.key, username: getResource(firstID).name });
 };
 
 const useAssignRole = (): ((props: Tree.ContextMenuProps) => void) => {
   const openAssignRole = PlatformUser.useAssignRoleModal();
 
-  return useCallback(
-    ({ selection: { ids }, state: { getResource } }: Tree.ContextMenuProps) => {
-      const resource = getResource(ids[0]);
-      openAssignRole({ userKey: ids[0].key, title: ["Role", "Assign", resource.name] });
-    },
-    [openAssignRole],
-  );
+  return ({ selection: { ids }, state: { getResource } }: Tree.ContextMenuProps) => {
+    const resource = getResource(ids[0]);
+    openAssignRole({ userKey: ids[0].key, title: ["Role", "Assign", resource.name] });
+  };
 };
 
 const TreeContextMenu: Tree.ContextMenu = (props) => {

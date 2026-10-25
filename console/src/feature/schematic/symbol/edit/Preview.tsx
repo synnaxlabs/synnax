@@ -19,14 +19,7 @@ import { Theming as Base } from "@synnaxlabs/lyra/theming";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Schematic, Theming, TimeSpan } from "@synnaxlabs/pluto";
 import { id, type xy } from "@synnaxlabs/x";
-import {
-  type ReactElement,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { FileDrop } from "@/feature/schematic/symbol/edit/FileDrop";
 import { HandleOverlay } from "@/feature/schematic/symbol/edit/Handles";
@@ -104,16 +97,13 @@ export const Preview = ({
 
   // A held chord steps on an interval, so the step reads the live zoom from the form
   // rather than the one captured when the hold started.
-  const stepZoom = useCallback(
-    (factor: number) => {
-      const current = form.get<number>(ZOOM_PATH).value;
-      form.set(ZOOM_PATH, Math.min(Math.max(current * factor, MIN_ZOOM), MAX_ZOOM));
-    },
-    [form],
-  );
+  const stepZoom = (factor: number) => {
+    const current = form.get<number>(ZOOM_PATH).value;
+    form.set(ZOOM_PATH, Math.min(Math.max(current * factor, MIN_ZOOM), MAX_ZOOM));
+  };
 
-  const handleZoomIn = useCallback(() => stepZoom(ZOOM_STEP), [stepZoom]);
-  const handleZoomOut = useCallback(() => stepZoom(1 / ZOOM_STEP), [stepZoom]);
+  const handleZoomIn = () => stepZoom(ZOOM_STEP);
+  const handleZoomOut = () => stepZoom(1 / ZOOM_STEP);
   const handleResetZoom = () => resetViewport();
 
   const handleWheel = (e: React.WheelEvent) => {
@@ -140,31 +130,28 @@ export const Preview = ({
   const handleMouseUp = () => setIsDragging(false);
 
   const repeat = useRef<ReturnType<typeof setInterval>>(null);
-  const stopRepeat = useCallback(() => {
+  const stopRepeat = () => {
     if (repeat.current == null) return;
     clearInterval(repeat.current);
     repeat.current = null;
-  }, []);
+  };
   useEffect(() => stopRepeat, [stopRepeat]);
 
   Triggers.use({
     triggers: FLATTENED_ZOOM_TRIGGERS,
     enabled: Boolean(spec.svg),
-    callback: useCallback(
-      ({ triggers, stage }: Triggers.UseEvent) => {
-        if (stage === "end") return stopRepeat();
-        if (stage !== "start") return;
-        const mode = Triggers.determineMode(ZOOM_TRIGGERS, triggers);
-        if (mode === "reset") return handleResetZoom();
-        if (mode !== "in" && mode !== "out") return;
-        const step = mode === "in" ? handleZoomIn : handleZoomOut;
-        step();
-        // A held chord keeps zooming, the way a held arrow key keeps scrolling.
-        stopRepeat();
-        repeat.current = setInterval(step, ZOOM_REPEAT.milliseconds);
-      },
-      [handleZoomIn, handleZoomOut, handleResetZoom, stopRepeat],
-    ),
+    callback: ({ triggers, stage }: Triggers.UseEvent) => {
+      if (stage === "end") return stopRepeat();
+      if (stage !== "start") return;
+      const mode = Triggers.determineMode(ZOOM_TRIGGERS, triggers);
+      if (mode === "reset") return handleResetZoom();
+      if (mode !== "in" && mode !== "out") return;
+      const step = mode === "in" ? handleZoomIn : handleZoomOut;
+      step();
+      // A held chord keeps zooming, the way a held arrow key keeps scrolling.
+      stopRepeat();
+      repeat.current = setInterval(step, ZOOM_REPEAT.milliseconds);
+    },
   });
 
   const onMount = (svgElement: SVGSVGElement) => {
@@ -236,13 +223,10 @@ export const Preview = ({
     spec,
     onMount,
   });
-  const setContainer = useCallback(
-    (el: HTMLDivElement | null) => {
-      containerRef.current = el;
-      setRenderContainer(el);
-    },
-    [setRenderContainer],
-  );
+  const setContainer = (el: HTMLDivElement | null) => {
+    containerRef.current = el;
+    setRenderContainer(el);
+  };
 
   const handleContentsChange = (contents: string, filename?: string) => {
     const processedSVG = Schematic.Node.Region.normalizeSVG(contents);
@@ -263,14 +247,11 @@ export const Preview = ({
 
   const fileDropEnabled = spec.svg.length === 0;
 
-  const svgWrapperStyle = useMemo(
-    () => ({
-      transform: `translate(${pan.value.x}px, ${pan.value.y}px) scale(${zoom.value})`,
-      transition: isDragging ? "none" : "transform 0.2s ease-out",
-      cursor: isDragging ? "grabbing" : "default",
-    }),
-    [pan.value, zoom.value, isDragging],
-  );
+  const svgWrapperStyle = {
+    transform: `translate(${pan.value.x}px, ${pan.value.y}px) scale(${zoom.value})`,
+    transition: isDragging ? "none" : "transform 0.2s ease-out",
+    cursor: isDragging ? "grabbing" : "default",
+  };
 
   return (
     <FileDrop

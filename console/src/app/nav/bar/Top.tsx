@@ -10,7 +10,7 @@
 import { Button } from "@synnaxlabs/lyra/button";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { OS } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { useBottomActions } from "@/app/nav/bar/bottom";
 import { Toolbars } from "@/app/toolbars";
@@ -33,10 +33,10 @@ const BottomToggleButton = (): ReactElement => {
     onToggle: toggle,
     onPin: pin,
   });
-  const handleClick = useCallback(() => {
+  const handleClick = () => {
     onClick();
     select();
-  }, [onClick, select]);
+  };
   return (
     <Button.Button
       variant="outlined"

@@ -10,7 +10,6 @@
 import { lineplot, NotFoundError, type project } from "@synnaxlabs/client";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { color, compare, DataType, type require, uuid, verbs } from "@synnaxlabs/x";
-import { useMemo } from "react";
 
 import { Channel } from "@/channel";
 import { Flux } from "@/flux";
@@ -124,24 +123,17 @@ const useStoredLines = createSelector(({ lines }) => lines);
 // the lines actually change.
 const useRawLines = (params: KeyParams): RawDerivedLine[] => {
   const lines = useStoredLines(params);
-  return useMemo(
-    () => lines.map((l) => ({ ...l, ...lineplot.parseLineKey(l.key) })),
-    [lines],
-  );
+  return lines.map((l) => ({ ...l, ...lineplot.parseLineKey(l.key) }));
 };
 
 const useLinesBase = (params: KeyParams): DerivedLine[] => {
   const lines = useRawLines(params);
   const palette = Theming.use().colors.visualization.palettes.default;
-  return useMemo(
-    () =>
-      lines.map(({ color, ...line }, i) => ({
-        ...line,
-        ...resolveColor(color, i, palette),
-        isDefaultLabel: line.label == null,
-      })),
-    [lines, palette],
-  );
+  return lines.map(({ color, ...line }, i) => ({
+    ...line,
+    ...resolveColor(color, i, palette),
+    isDefaultLabel: line.label == null,
+  }));
 };
 
 // useLines returns the plot's lines, each enriched with its decoded
@@ -214,13 +206,11 @@ const useResolvedXAxis = (params: XAxisParams): lineplot.Axis => {
   const { data: dataType } = Channel.useResultDataType(
     channel > 0 ? { key: channel } : null,
   );
-  return useMemo(() => {
-    if (axis.type != null) return axis;
-    let type: lineplot.TickType = "linear";
-    if (channel == 0 || dataType == null || dataType.equals(DataType.TIMESTAMP))
-      type = "time";
-    return { ...axis, type };
-  }, [axis, channel, dataType]);
+  if (axis.type != null) return axis;
+  let type: lineplot.TickType = "linear";
+  if (channel == 0 || dataType == null || dataType.equals(DataType.TIMESTAMP))
+    type = "time";
+  return { ...axis, type };
 };
 
 // useXAxis returns the x-axis configuration with its tick type resolved:
@@ -280,16 +270,13 @@ const useLineBase = (params: LineParams): require.Require<DerivedLine, "label"> 
   const { data: chanName } = Channel.useResultName(
     yChannel > 0 ? { key: yChannel } : null,
   );
-  return useMemo(
-    () => ({
-      ...raw.line,
-      ...lineplot.parseLineKey(raw.line.key),
-      ...resolveColor(raw.line.color, raw.index, palette),
-      label: raw.line.label ?? chanName ?? "",
-      isDefaultLabel: raw.line.label == null,
-    }),
-    [raw, palette, chanName],
-  );
+  return {
+    ...raw.line,
+    ...lineplot.parseLineKey(raw.line.key),
+    ...resolveColor(raw.line.color, raw.index, palette),
+    label: raw.line.label ?? chanName ?? "",
+    isDefaultLabel: raw.line.label == null,
+  };
 };
 
 // useLine returns a single line, enriched with its identity and its color
@@ -306,14 +293,10 @@ const useRawRules = createSelector(({ rules }) => rules);
 const useRulesBase = (params: KeyParams): DerivedRule[] => {
   const rules = useRawRules(params);
   const palette = Theming.use().colors.visualization.palettes.default;
-  return useMemo(
-    () =>
-      rules.map(({ color, ...rule }, i) => ({
-        ...rule,
-        ...resolveColor(color, i, palette),
-      })),
-    [rules, palette],
-  );
+  return rules.map(({ color, ...rule }, i) => ({
+    ...rule,
+    ...resolveColor(color, i, palette),
+  }));
 };
 
 // useRules returns the plot's rules, each with its render color resolved
@@ -343,13 +326,10 @@ const useRawRule = createSelector<RawRule, RuleParams>(
 const useRuleBase = (params: RuleParams): DerivedRule => {
   const raw = useRawRule(params);
   const palette = Theming.use().colors.visualization.palettes.default;
-  return useMemo(
-    () => ({
-      ...raw.rule,
-      ...resolveColor(raw.rule.color, raw.index, palette),
-    }),
-    [raw, palette],
-  );
+  return {
+    ...raw.rule,
+    ...resolveColor(raw.rule.color, raw.index, palette),
+  };
 };
 
 // useRule returns a single rule with its color resolved by position the

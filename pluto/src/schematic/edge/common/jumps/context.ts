@@ -9,7 +9,7 @@
 
 import { context } from "@synnaxlabs/lyra/context";
 import { type xy } from "@synnaxlabs/x";
-import { useCallback, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 
 import { type Store } from "@/schematic/edge/common/jumps/store";
 
@@ -22,10 +22,7 @@ export { Context };
 
 export const useCrossings = (key: string): xy.XY[] => {
   const store = useStore("useCrossings");
-  const subscribe = useCallback(
-    (onChange: () => void) => store.subscribe(key, onChange),
-    [store, key],
-  );
-  const getSnapshot = useCallback(() => store.get(key), [store, key]);
+  const subscribe = (onChange: () => void) => store.subscribe(key, onChange);
+  const getSnapshot = () => store.get(key);
   return useSyncExternalStore(subscribe, getSnapshot);
 };

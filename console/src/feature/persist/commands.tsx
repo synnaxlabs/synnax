@@ -9,7 +9,6 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
-import { useCallback } from "react";
 
 import { Command } from "@/platform/command";
 import { Modals } from "@/platform/modals";
@@ -19,19 +18,16 @@ const useClear = () => {
   const store = Session.useStore();
   const confirm = Modals.useConfirm();
   const handleError = Status.useErrorHandler();
-  return useCallback(
-    () =>
-      handleError(async () => {
-        const res = await confirm({
-          message: "Are you sure you want to clear the Console's local storage?",
-          description:
-            "This removes all saved Console data that is not stored in a Core.",
-        });
-        if (!res) return;
-        store.dispatch(Session.Persist.clearState());
-      }, "Failed to clear local storage"),
-    [store, confirm, handleError],
-  );
+  return () =>
+    handleError(async () => {
+      const res = await confirm({
+        message: "Are you sure you want to clear the Console's local storage?",
+        description:
+          "This removes all saved Console data that is not stored in a Core.",
+      });
+      if (!res) return;
+      store.dispatch(Session.Persist.clearState());
+    }, "Failed to clear local storage");
 };
 
 const ClearCommand = Command.create({

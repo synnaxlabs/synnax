@@ -9,7 +9,7 @@
 
 import { type Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { type Channel } from "@/platform/task/types";
@@ -41,21 +41,15 @@ export const ListAndDetails = <C extends Channel>({
   ...rest
 }: ListAndDetailsProps<C>) => {
   const [selected, setSelected] = useState<string[]>([]);
-  const handleCreateChannel = useCallback(
-    (channels: C[]) => createChannel(channels, selected[0]),
-    [createChannel, selected],
-  );
-  const handleDuplicateChannels = useCallback(
-    (allChannels: C[], keys: string[]) => {
-      const newlyMade: C[] = [];
-      keys.forEach((key) => {
-        const newlyMadeChannel = createChannel([...allChannels, ...newlyMade], key);
-        if (newlyMadeChannel != null) newlyMade.push(newlyMadeChannel);
-      });
-      return newlyMade;
-    },
-    [createChannel],
-  );
+  const handleCreateChannel = (channels: C[]) => createChannel(channels, selected[0]);
+  const handleDuplicateChannels = (allChannels: C[], keys: string[]) => {
+    const newlyMade: C[] = [];
+    keys.forEach((key) => {
+      const newlyMadeChannel = createChannel([...allChannels, ...newlyMade], key);
+      if (newlyMadeChannel != null) newlyMade.push(newlyMadeChannel);
+    });
+    return newlyMade;
+  };
   const detailsPath = selected.length > 0 ? `config.channels.${selected[0]}` : null;
   return (
     <Panes

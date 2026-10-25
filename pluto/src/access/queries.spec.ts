@@ -9,6 +9,7 @@
 
 import {
   access,
+  AuthError,
   channel,
   framer,
   type ontology,
@@ -31,8 +32,8 @@ import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
 
 const subjectOf = (c: Synnax): ontology.ID => {
-  const u = c.auth?.user;
-  assert(u != null, "client has no authenticated user");
+  const u = c.users.current.getCached();
+  assert(query.isLive(u), "client has no signed-in user");
   return user.ontologyID(u.key);
 };
 
@@ -140,15 +141,11 @@ describe("Access Queries", () => {
         access.policy.ontologyID(p.key),
       );
       await client.access.roles.assign({ user: u.key, role: r.key });
-      const subject = user.ontologyID(u.key);
+      const userClient = createTestClient({ username: u.username, password: "test" });
       const { result } = renderHook(
         () =>
-          Access.useGranted({
-            subject,
-            objects: ranger.TYPE_ONTOLOGY_ID,
-            action: "retrieve",
-          }),
-        { wrapper: await createAsyncSynnaxWrapper({ client }) },
+          Access.useGranted({ objects: ranger.TYPE_ONTOLOGY_ID, action: "retrieve" }),
+        { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
       );
       await waitFor(() => {
         expect(result.current).toBe(true);
@@ -161,6 +158,7 @@ describe("Access Queries", () => {
 
     describe("before the client knows its user", () => {
       let username: string;
+      let role: access.role.Role;
       let rangePolicy: access.policy.Policy;
       beforeEach(async () => {
         const u = await client.users.create({
@@ -180,16 +178,16 @@ describe("Access Queries", () => {
           objects: [ranger.TYPE_ONTOLOGY_ID],
           actions: ["retrieve"],
         });
-        const r = await client.access.roles.create({
+        role = await client.access.roles.create({
           name: id.create(),
           description: "test",
         });
         await client.ontology.addChildren(
-          access.role.ontologyID(r.key),
+          access.role.ontologyID(role.key),
           access.policy.ontologyID(base.key),
           access.policy.ontologyID(rangePolicy.key),
         );
-        await client.access.roles.assign({ user: u.key, role: r.key });
+        await client.access.roles.assign({ user: u.key, role: role.key });
       });
 
       const renderGranted = (userClient: Synnax) =>
@@ -201,7 +199,7 @@ describe("Access Queries", () => {
 
       it("should re-evaluate the grant when mounted before the first login", async () => {
         const userClient = createTestClient({ username, password: "test" });
-        expect(userClient.auth.user).toBeUndefined();
+        expect(userClient.users.current.getCached()).toBeUndefined();
         const { result } = renderGranted(userClient);
         await waitFor(() => {
           expect(result.current).toBe(true);
@@ -212,26 +210,39 @@ describe("Access Queries", () => {
         });
       });
 
-      it("should re-evaluate the grant when mounted during a repeat login", async () => {
+      it("should re-evaluate the grant when mounted during a login with new credentials", async () => {
         const userClient = createTestClient({ username, password: "test" });
         await userClient.connect();
-        // Drops the session, as an expired token does, and starts the next login.
-        userClient.auth.setCredentials({ username, password: "test" });
-        const pending = userClient.access.policies.retrieve({
-          keys: [rangePolicy.key],
-        });
-        await vi.waitUntil(() => userClient.auth.authenticating != null, {
-          interval: 1,
-        });
-        expect(userClient.auth.user).toBeUndefined();
+        userClient.reauthenticate({ username, password: "test" });
+        expect(userClient.users.current.getCached()).toBeUndefined();
         const { result } = renderGranted(userClient);
-        await pending;
         await waitFor(() => {
           expect(result.current).toBe(true);
         });
         await client.access.policies.delete(rangePolicy.key);
         await waitFor(() => {
           expect(result.current).toBe(false);
+        });
+      });
+
+      it("should re-evaluate the grant after a failed login", async () => {
+        await client.access.policies.delete(rangePolicy.key);
+        const userClient = createTestClient({ username, password: "wrong" });
+        const { result } = renderGranted(userClient);
+        await expect(userClient.connect()).rejects.toThrow(AuthError);
+        userClient.reauthenticate({ username, password: "test" });
+        await userClient.connect();
+        const granting = await client.access.policies.create({
+          name: id.create(),
+          objects: [ranger.TYPE_ONTOLOGY_ID],
+          actions: ["retrieve"],
+        });
+        await client.ontology.addChildren(
+          access.role.ontologyID(role.key),
+          access.policy.ontologyID(granting.key),
+        );
+        await waitFor(() => {
+          expect(result.current).toBe(true);
         });
       });
     });
@@ -687,53 +698,6 @@ describe("Access Queries", () => {
       expect(policies.length).toBe(1);
       expect(policies[0].actions).toContain("retrieve");
       expect(policies[0].actions).toContain("create");
-    });
-
-    it("should cache the policies of another subject", async () => {
-      const policyName = id.create();
-      const u = await client.users.create({
-        username: id.create(),
-        password: "test",
-        firstName: "test",
-        lastName: "test",
-      });
-      const p = await client.access.policies.create({
-        name: policyName,
-        objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
-        actions: ["retrieve"],
-      });
-      const r = await client.access.roles.create({
-        name: id.create(),
-        description: "test",
-      });
-      await client.ontology.addChildren(
-        access.role.ontologyID(r.key),
-        access.policy.ontologyID(p.key),
-      );
-      await client.access.roles.assign({ user: u.key, role: r.key });
-      const subject = user.ontologyID(u.key);
-      await renderHookSuspended(() => Access.useEnsurePermissions({ subject }), {
-        wrapper: await createAsyncSynnaxWrapper({ client }),
-      });
-      const policy = cachedPoliciesOf(client, subject).find(
-        ({ name }) => name === policyName,
-      );
-      expect(policy).toBeDefined();
-      expect(policy!.actions).toContain("retrieve");
-    });
-
-    it("should cache an empty set for a subject holding no policies", async () => {
-      const u = await client.users.create({
-        username: id.create(),
-        password: "test",
-        firstName: "test",
-        lastName: "test",
-      });
-      const subject = user.ontologyID(u.key);
-      await renderHookSuspended(() => Access.useEnsurePermissions({ subject }), {
-        wrapper: await createAsyncSynnaxWrapper({ client }),
-      });
-      expect(cachedPoliciesOf(client, subject).length).toBe(0);
     });
 
     it("should cache the relationships between roles and policies", async () => {

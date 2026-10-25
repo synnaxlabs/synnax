@@ -19,7 +19,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Access, Channel, Flux } from "@synnaxlabs/pluto";
 import { type optional, primitive } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { useIsPreview } from "@/platform/task/Form";
@@ -47,13 +47,10 @@ const Name = ({ channel, namePath, name, className, ...rest }: NameProps) => {
   const canRename = Access.useUpdateGranted(clientChannel.TYPE_ONTOLOGY_ID);
   const isPreview = useIsPreview();
   const { update } = Channel.useRename();
-  const handleRename = useCallback(
-    (name: string) => {
-      if (channel === 0) return onChange?.(name);
-      update({ key: channel, name });
-    },
-    [channel, update, onChange],
-  );
+  const handleRename = (name: string) => {
+    if (channel === 0) return onChange?.(name);
+    update({ key: channel, name });
+  };
   return (
     <Text.MaybeEditable
       className={CSS.cls(className, CSS.BE("task", "channel-name"))}

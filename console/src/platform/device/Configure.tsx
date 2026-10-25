@@ -19,7 +19,7 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Device as Base, Device, type Flux } from "@synnaxlabs/pluto";
 import { deep, type record, strings } from "@synnaxlabs/x";
-import { useCallback, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
@@ -73,7 +73,7 @@ const Internal = <
     },
   });
   const { update, variant } = Base.useCreate({
-    beforeUpdate: useCallback(async () => {
+    beforeUpdate: async () => {
       if (isNameStep) {
         if (methods.validate("name")) {
           setStep("identifier");
@@ -86,14 +86,11 @@ const Internal = <
       }
       if (!methods.validate("identifier")) return false;
       return deviceToCreate();
-    }, [isNameStep, methods, deviceToCreate]),
-    afterSuccess: useCallback(
-      ({ data }: Flux.AfterSuccessParams<device.Device>) => {
-        capture("device_configured", { make: data.make });
-        close();
-      },
-      [capture, close],
-    ),
+    },
+    afterSuccess: ({ data }: Flux.AfterSuccessParams<device.Device>) => {
+      capture("device_configured", { make: data.make });
+      close();
+    },
   });
 
   return (

@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package node publishes the cluster's nodes as resources in the Synnax ontology and
-// search index.
+// Package node publishes the cluster's nodes as resources in the Synnax ontology.
 package node
 
 import (
@@ -17,7 +16,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -36,10 +34,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology
-	// Search is the search index to which node resources are registered.
-	//
-	// [REQUIRED]
-	Search *search.Index
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -49,7 +43,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Cluster = override.Nil(c.Cluster, other.Cluster)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Search = override.Nil(c.Search, other.Search)
 	return c
 }
 
@@ -58,16 +51,14 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("node")
 	v.NotNil("cluster", c.Cluster)
 	v.NotNil("ontology", c.Ontology)
-	v.NotNil("search", c.Search)
 	return v.Error()
 }
 
-// Service publishes the cluster's nodes as resources in the Synnax ontology and search
-// index.
+// Service publishes the cluster's nodes as resources in the Synnax ontology.
 type Service struct{ cfg ServiceConfig }
 
-// NewService creates a Service, registers it with the ontology and search index, and
-// defines the sentinel free-node resource (KeyFree) that free channels parent under.
+// NewService creates a Service, registers it with the ontology, and defines the
+// sentinel free-node resource (KeyFree) that free channels parent under.
 func NewService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
@@ -75,7 +66,6 @@ func NewService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	s := &Service{cfg: cfg}
 	cfg.Ontology.RegisterService(s)
-	cfg.Search.RegisterService(s)
 	if err := cfg.Ontology.NewWriter(nil).
 		DefineResources(ctx, OntologyID(KeyFree)); err != nil {
 		return nil, errors.Wrap(err, "define free node ontology resource")

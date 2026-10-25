@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback } from "react";
 import { useSelector } from "react-redux";
 
 import {
@@ -26,22 +25,15 @@ import { type WindowState } from "@/window";
  * @returns The window.
  */
 export const useSelectWindow = (key?: string): WindowState | null =>
-  useSelector(useCallback((state: StoreState) => selectWindow(state, key), [key]));
+  useSelector((state: StoreState) => selectWindow(state, key));
 
 export const useSelectWindows = (): WindowState[] => useSelector(selectWindows);
 
 export const useSelectWindowKey = (label?: string): string | null =>
-  useSelector(
-    useCallback((state: StoreState) => selectWindowKey(state, label), [label]),
-  );
+  useSelector((state: StoreState) => selectWindowKey(state, label));
 
 export const useSelectWindowAttribute = <K extends keyof WindowState>(
   keyOrLabel: string,
   attr: K,
 ): WindowState[K] | null =>
-  useSelector(
-    useCallback(
-      (state: StoreState) => selectWindowAttribute(state, keyOrLabel, attr),
-      [keyOrLabel, attr],
-    ),
-  );
+  useSelector((state: StoreState) => selectWindowAttribute(state, keyOrLabel, attr));

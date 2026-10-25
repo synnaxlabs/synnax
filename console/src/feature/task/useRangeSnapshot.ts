@@ -11,7 +11,6 @@ import { ranger } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { type Flux, Task } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { Range } from "@/platform/range";
 
@@ -19,22 +18,21 @@ export const useRangeSnapshot = () => {
   const addStatus = Status.useAdder();
   const rng = Range.useResolve();
   const { update } = Task.useCreateSnapshot({
-    afterSuccess: useCallback(
-      ({ data: { tasks } }: Flux.AfterSuccessParams<Task.SnapshotParams>) => {
-        const names = array.toArray(tasks).map((t) => t.name);
-        const joined = strings.naturalLanguageJoin(names);
-        const single = names.length === 1;
-        addStatus({
-          variant: "success",
-          name: rng?.name ?? "",
-          message: single ? "Snapshotted task" : `Snapshotted ${names.length} tasks`,
-          description: single
-            ? `Created a snapshot of ${joined}.`
-            : `Created snapshots of ${joined}.`,
-        });
-      },
-      [rng, addStatus],
-    ),
+    afterSuccess: ({
+      data: { tasks },
+    }: Flux.AfterSuccessParams<Task.SnapshotParams>) => {
+      const names = array.toArray(tasks).map((t) => t.name);
+      const joined = strings.naturalLanguageJoin(names);
+      const single = names.length === 1;
+      addStatus({
+        variant: "success",
+        name: rng?.name ?? "",
+        message: single ? "Snapshotted task" : `Snapshotted ${names.length} tasks`,
+        description: single
+          ? `Created a snapshot of ${joined}.`
+          : `Created snapshots of ${joined}.`,
+      });
+    },
     afterFailure: ({ status }: Flux.AfterFailureParams<Task.SnapshotParams>) =>
       addStatus({ ...status, name: rng?.name ?? "" }),
   });

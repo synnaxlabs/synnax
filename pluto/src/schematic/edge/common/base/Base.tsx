@@ -10,7 +10,7 @@
 import { CSS } from "@synnaxlabs/lyra/css";
 import { color } from "@synnaxlabs/x";
 import { BaseEdge, type BaseEdgeProps } from "@xyflow/react";
-import { type CSSProperties, type ReactElement, useMemo } from "react";
+import { type CSSProperties, type ReactElement } from "react";
 import { z } from "zod";
 
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -34,14 +34,14 @@ export const Base = ({
       ? stroke
       : undefined;
   const symbolColor = rawStroke == null ? color.rgbaString(stroke) : undefined;
-  const style = useMemo<CSSProperties>(() => {
-    if (rawStroke != null) return { ...baseStyle, stroke: rawStroke };
-    return {
-      ...baseStyle,
-      [Primitive.SYMBOL_COLOR]: symbolColor,
-      stroke: "var(--pluto-symbol-display)",
-    };
-  }, [rawStroke, symbolColor, baseStyle]);
+  const style: CSSProperties =
+    rawStroke != null
+      ? { ...baseStyle, stroke: rawStroke }
+      : {
+          ...baseStyle,
+          [Primitive.SYMBOL_COLOR]: symbolColor,
+          stroke: "var(--pluto-symbol-display)",
+        };
   return (
     <BaseEdge
       {...props}

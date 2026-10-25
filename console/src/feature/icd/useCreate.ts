@@ -9,7 +9,6 @@
 
 import { icd } from "@synnaxlabs/client";
 import { ICD } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { Panel } from "@/platform/panel";
 
@@ -20,5 +19,5 @@ export const useCreate = (): (() => void) => {
     afterOptimistic: ({ data: { key } }) =>
       openTab({ variant: "resource", resource: icd.ontologyID(key) }),
   });
-  return useCallback(() => update({ name: "ICD", messages: [] }), [update]);
+  return () => update({ name: "ICD", messages: [] });
 };

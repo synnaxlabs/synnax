@@ -24,7 +24,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Tree } from "@synnaxlabs/lyra/tree";
 import { Synnax, TimeSpan } from "@synnaxlabs/pluto";
 import { array, type optional } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 
 import { retrieveScanTask } from "@/feature/opcua/device/retrieveScanTask";
 import { type ConnectionConfig, type Device } from "@/feature/opcua/device/types";
@@ -75,14 +75,14 @@ const NodeItem = (props: Tree.ItemRenderProps<string>) => {
     type: HAUL_TYPE,
     key: node?.nodeId,
   });
-  const handleDragStart = useCallback(() => {
+  const handleDragStart = () => {
     if (node == null) return;
     const selected = array.toArray(getState().value);
     if (getItem != null && selected.includes(props.itemKey)) {
       const nodes = getItem(selected);
       startDrag(nodes.map(createHaulItem));
     } else startDrag([createHaulItem(node)]);
-  }, [startDrag, node, getState, getItem, props.itemKey]);
+  };
   if (node == null) return null;
   const icon = node.isArray ? <ArrayVariableIcon /> : ICONS[node.nodeClass];
   return (
@@ -126,54 +126,51 @@ export const Browser = ({ device }: BrowserProps) => {
   const [initialLoading, setInitialLoading] = useState(false);
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  const retrieveNodes = useCallback(
-    (id: string, key: string | undefined) => {
-      if (client == null) return;
-      setStat(status.create({ variant: "loading", message: "Browsing OPC UA nodes" }));
-      handleError(async () => {
-        let channels: ScannedNode[];
-        try {
-          channels = await browseNodes(
-            client,
-            device.rack,
-            device.properties.connection,
-            id,
-          );
-        } catch (e) {
-          setStat(status.fromException(e, "Failed to browse OPC UA nodes"));
-          return;
-        }
-        setStat(status.create({ variant: "success", message: "Browsed OPC UA nodes" }));
-        const isRoot = id === "";
-        const newNodes = channels.map((node): Tree.Node => ({
-          key: nodeKey(node.nodeId, id),
-          children: [],
-        }));
-        opcNodesStore.setItem(
-          channels.map((node) => ({ ...node, key: nodeKey(node.nodeId, id) })),
+  const retrieveNodes = (id: string, key: string | undefined) => {
+    if (client == null) return;
+    setStat(status.create({ variant: "loading", message: "Browsing OPC UA nodes" }));
+    handleError(async () => {
+      let channels: ScannedNode[];
+      try {
+        channels = await browseNodes(
+          client,
+          device.rack,
+          device.properties.connection,
+          id,
         );
-        setInitialLoading(false);
-        if (isRoot) setTreeNodes(newNodes);
-        else
-          setTreeNodes([
-            ...Tree.setNode({
-              tree: treeNodesRef.current,
-              destination: key ?? null,
-              additions: newNodes,
-            }),
-          ]);
-      }, "Failed to browse OPC UA nodes");
-    },
-    [client, device, handleError, opcNodesStore, setTreeNodes, treeNodesRef],
-  );
+      } catch (e) {
+        setStat(status.fromException(e, "Failed to browse OPC UA nodes"));
+        return;
+      }
+      setStat(status.create({ variant: "success", message: "Browsed OPC UA nodes" }));
+      const isRoot = id === "";
+      const newNodes = channels.map((node): Tree.Node => ({
+        key: nodeKey(node.nodeId, id),
+        children: [],
+      }));
+      opcNodesStore.setItem(
+        channels.map((node) => ({ ...node, key: nodeKey(node.nodeId, id) })),
+      );
+      setInitialLoading(false);
+      if (isRoot) setTreeNodes(newNodes);
+      else
+        setTreeNodes([
+          ...Tree.setNode({
+            tree: treeNodesRef.current,
+            destination: key ?? null,
+            additions: newNodes,
+          }),
+        ]);
+    }, "Failed to browse OPC UA nodes");
+  };
 
-  const expand = useCallback(
-    ({ clicked, action }: optional.Optional<Tree.HandleExpandProps, "clicked">) => {
-      if (action === "contract") return;
-      retrieveNodes(clicked == null ? "" : parseNodeID(clicked), clicked);
-    },
-    [retrieveNodes],
-  );
+  const expand = ({
+    clicked,
+    action,
+  }: optional.Optional<Tree.HandleExpandProps, "clicked">) => {
+    if (action === "contract") return;
+    retrieveNodes(clicked == null ? "" : parseNodeID(clicked), clicked);
+  };
 
   const treeProps = Tree.use({ nodes: treeNodes, onExpand: expand });
   const { shape, clearExpanded } = treeProps;

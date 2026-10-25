@@ -31,6 +31,7 @@ import {
   findDialogTrigger,
   findDialogTriggerByText,
   getIconButton,
+  queryIcon,
   queryIconButton,
   renderSuspended,
   uniqueName,
@@ -159,12 +160,13 @@ describe("TaskControls", () => {
       expect(trigger.getAttribute("aria-disabled")).toBe("true");
     });
 
-    it("should show the stored level", async () => {
+    it("should show the stored level with its glyph as the trigger icon", async () => {
       const rck = await createArcRack();
       const a = await client.arcs.create({ name: uniqueName("arc"), mode: "text" });
       await client.arcs.updateTask(a.key, { rack: rck.key, performance: "medium" });
       await renderControls(a.key);
-      await findDialogTriggerByText("Medium");
+      const trigger = await findDialogTriggerByText("Medium");
+      expect(queryIcon(trigger, "performance-medium")).toBe(trigger.firstElementChild);
     });
 
     it("should set the level of a bound arc", async () => {

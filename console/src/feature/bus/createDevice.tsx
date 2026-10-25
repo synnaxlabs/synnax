@@ -22,7 +22,7 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Device as PDevice, type Flux, Rack } from "@synnaxlabs/pluto";
 import { caseconv, type record } from "@synnaxlabs/x";
-import { type FC, type ReactElement, useCallback } from "react";
+import { type FC, type ReactElement } from "react";
 import { z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
@@ -136,10 +136,10 @@ export const createDevice = <M extends string, P extends z.ZodType<record.Unknow
     } = useForm({
       query: deviceKey == null ? null : { key: deviceKey },
       beforeValidate,
-      afterSave: useCallback(() => {
+      afterSave: () => {
         if (deviceKey == null) capture("device_connected", { integration });
         close();
-      }, [capture, close, deviceKey]),
+      },
     });
     return (
       <Modal.Frame className={CSS.B("bus-connect")}>

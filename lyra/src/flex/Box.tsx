@@ -10,7 +10,7 @@
 import "@/flex/Box.css";
 
 import { type color, direction } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement, useMemo } from "react";
+import { type CSSProperties, type ReactElement } from "react";
 import z from "zod";
 
 import { type Component } from "@/component";
@@ -223,30 +223,18 @@ export const Box = <E extends Generic.ElementType = "div">({
 }: BoxProps<E>): ReactElement => {
   const parsedDirection = parseDirection(crudeDirection, x, y, pack);
   const resolvedRounded = rounded ?? pack;
-  const computedStyle = useMemo(() => {
-    const s: CSSProperties = { borderWidth, ...style };
-    if (typeof color !== "number" && color != null && color !== false)
-      s.color = CSS.colorVar(color);
-    if (typeof background !== "number" && background != null && background !== false)
-      s.backgroundColor = CSS.colorVar(background);
-    if (typeof borderColor !== "number" && borderColor != null)
-      s.borderColor = CSS.colorVar(borderColor);
-    if (typeof resolvedRounded === "number") s.borderRadius = `${resolvedRounded}rem`;
-    if (typeof gap === "number") s.gap = `${gap}rem`;
-    if (typeof grow === "number") s.flexGrow = grow;
-    if (typeof shrink === "number") s.flexShrink = shrink;
-    return s;
-  }, [
-    borderWidth,
-    style,
-    color,
-    background,
-    borderColor,
-    resolvedRounded,
-    gap,
-    grow,
-    shrink,
-  ]);
+  const s: CSSProperties = { borderWidth, ...style };
+  if (typeof color !== "number" && color != null && color !== false)
+    s.color = CSS.colorVar(color);
+  if (typeof background !== "number" && background != null && background !== false)
+    s.backgroundColor = CSS.colorVar(background);
+  if (typeof borderColor !== "number" && borderColor != null)
+    s.borderColor = CSS.colorVar(borderColor);
+  if (typeof resolvedRounded === "number") s.borderRadius = `${resolvedRounded}rem`;
+  if (typeof gap === "number") s.gap = `${gap}rem`;
+  if (typeof grow === "number") s.flexGrow = grow;
+  if (typeof shrink === "number") s.flexShrink = shrink;
+  const computedStyle = s;
   return (
     <Generic.Element<E>
       className={CSS.cls(

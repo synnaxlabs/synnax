@@ -10,7 +10,7 @@
 import { Form } from "@synnaxlabs/lyra/form";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { deep } from "@synnaxlabs/x";
-import { useCallback, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 
 /**
  * @returns the first error or warning on a form path under the prefix, or null. Use it
@@ -23,13 +23,10 @@ export const useNestedStatus = (
   const { bind, getStatuses } = Form.useContext();
   return useSyncExternalStore(
     bind,
-    useCallback(
-      () =>
-        getStatuses().find(
-          ({ key }) =>
-            key != null && deep.pathsMatch(key, prefix) && (match?.(key) ?? true),
-        ) ?? null,
-      [getStatuses, prefix, match],
-    ),
+    () =>
+      getStatuses().find(
+        ({ key }) =>
+          key != null && deep.pathsMatch(key, prefix) && (match?.(key) ?? true),
+      ) ?? null,
   );
 };

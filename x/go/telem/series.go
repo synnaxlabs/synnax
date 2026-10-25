@@ -40,9 +40,16 @@ type Series struct {
 	// Alignment defines the location of the series relative to other series in a
 	// logical group. Typically used for defining the position of the series within a
 	// channel's data.
-	Alignment    Alignment `json:"alignment" msgpack:"alignment"`
-	cachedLength *int64
+	Alignment Alignment `json:"alignment" msgpack:"alignment"`
+	// AlignmentMultiple is the number of alignment steps between consecutive samples.
+	// It is above one when each sample stands for a group of stored samples. Zero means
+	// one.
+	AlignmentMultiple uint32 `json:"alignment_multiple,omitempty" msgpack:"alignment_multiple,omitempty"`
+	cachedLength      *int64
 }
+
+// Multiple returns the number of alignment steps between consecutive samples.
+func (s Series) Multiple() uint32 { return max(s.AlignmentMultiple, 1) }
 
 // Len returns the number of samples currently in the Series.
 func (s Series) Len() int64 {
@@ -238,7 +245,7 @@ func (s Series) Last() Series {
 	return Series{
 		DataType:  s.DataType,
 		Data:      data,
-		Alignment: s.Alignment.AddSamples(uint32(s.Len() - 1)),
+		Alignment: s.Alignment.AddSamples(uint32(s.Len()-1) * s.Multiple()),
 		TimeRange: s.TimeRange,
 	}
 }
@@ -256,14 +263,14 @@ func CopyValue(dst, src Series, dstIdx, srcIdx int) {
 }
 
 // AlignmentBounds returns the alignment bounds of the series. The lower bound is the
-// alignment of the first sample, and the upper bound is the alignment of the last
-// sample + 1. The lower bound is inclusive, while the upper bound is exclusive.
+// alignment of the first sample, and the upper bound is one alignment multiple past the
+// last sample. The lower bound is inclusive, while the upper bound is exclusive.
 func (s Series) AlignmentBounds() AlignmentBounds {
 	return AlignmentBounds{
 		Lower: s.Alignment,
 		Upper: NewAlignment(
 			s.Alignment.DomainIndex(),
-			s.Alignment.SampleIndex()+uint32(s.Len()),
+			s.Alignment.SampleIndex()+uint32(s.Len())*s.Multiple(),
 		),
 	}
 }
@@ -328,10 +335,11 @@ func truncateAndFormatSlice[T any](slice []T) string {
 // DeepCopy creates a deep copy of the series, including all of its data.
 func (s Series) DeepCopy() Series {
 	return Series{
-		TimeRange: s.TimeRange,
-		Alignment: s.Alignment,
-		DataType:  s.DataType,
-		Data:      slices.Clone(s.Data),
+		TimeRange:         s.TimeRange,
+		Alignment:         s.Alignment,
+		AlignmentMultiple: s.AlignmentMultiple,
+		DataType:          s.DataType,
+		Data:              slices.Clone(s.Data),
 	}
 }
 
@@ -340,6 +348,7 @@ func (s Series) DeepCopy() Series {
 func (s *Series) CopyFrom(src Series) {
 	s.TimeRange = src.TimeRange
 	s.Alignment = src.Alignment
+	s.AlignmentMultiple = src.AlignmentMultiple
 	s.DataType = src.DataType
 	s.Data = append(s.Data[:0], src.Data...)
 }
@@ -435,15 +444,20 @@ func NewMultiSeries(series []Series) MultiSeries {
 	return MultiSeries{Series: series}
 }
 
-// AtAlignment returns the value at the given alignment in the MultiSeries.
+// AtAlignment returns the value at the given alignment in the MultiSeries. It panics
+// when no sample sits at the alignment, including an alignment between two samples of a
+// series with an alignment multiple.
 func (ms MultiSeries) AtAlignment[T FixedSample](alignment Alignment) T {
 	for _, s := range ms.Series {
-		if s.AlignmentBounds().Contains(alignment) {
-			return s.ValueAt[T](int(alignment - s.Alignment))
+		if !s.AlignmentBounds().Contains(alignment) {
+			continue
+		}
+		if offset := uint64(alignment - s.Alignment); offset%uint64(s.Multiple()) == 0 {
+			return s.ValueAt[T](int(offset / uint64(s.Multiple())))
 		}
 	}
 	panic(fmt.Sprintf(
-		"alignment %v out of bounds for multi series with alignment bounds %v",
+		"no sample at alignment %v in multi series with alignment bounds %v",
 		alignment,
 		ms.AlignmentBounds(),
 	))

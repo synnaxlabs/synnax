@@ -13,7 +13,6 @@ import {
   isValidElement,
   type MouseEvent,
   type ReactElement,
-  useCallback,
   useState,
 } from "react";
 
@@ -70,32 +69,29 @@ export const Copy = ({
   const addStatus = useAdder();
   const handleError = useErrorHandler();
 
-  const handleClick = useCallback(
-    (e: MouseEvent<HTMLButtonElement>) => {
-      onClick?.(e);
-      const success =
-        successMessage == null
-          ? undefined
-          : toObject(
-              typeof successMessage === "function" ? successMessage() : successMessage,
-            );
-      handleError(
-        async () => {
-          const resolvedText = await (typeof text === "function" ? text() : text);
-          await clipboard.writeText(resolvedText);
-          onCopy?.();
-          if (success != null) return addStatus({ variant: "success", ...success });
-          setCopied(true);
-          setTimeout(
-            () => setCopied(false),
-            TimeSpan.fromMilliseconds(copiedDuration).milliseconds,
+  const handleClick = (e: MouseEvent<HTMLButtonElement>) => {
+    onClick?.(e);
+    const success =
+      successMessage == null
+        ? undefined
+        : toObject(
+            typeof successMessage === "function" ? successMessage() : successMessage,
           );
-        },
-        { message: "Failed to copy to clipboard", name: success?.name ?? "" },
-      );
-    },
-    [text, onCopy, copiedDuration, addStatus, successMessage, handleError, onClick],
-  );
+    handleError(
+      async () => {
+        const resolvedText = await (typeof text === "function" ? text() : text);
+        await clipboard.writeText(resolvedText);
+        onCopy?.();
+        if (success != null) return addStatus({ variant: "success", ...success });
+        setCopied(true);
+        setTimeout(
+          () => setCopied(false),
+          TimeSpan.fromMilliseconds(copiedDuration).milliseconds,
+        );
+      },
+      { message: "Failed to copy to clipboard", name: success?.name ?? "" },
+    );
+  };
 
   const childArray = Children.toArray(children);
   const hasCustomIcon = isValidElement(childArray[0]);

@@ -15,7 +15,6 @@ import {
   type PropsWithChildren,
   type ReactElement,
   type ReactNode,
-  useCallback,
 } from "react";
 
 export interface PermissionsFallbackProps extends Errors.FallbackProps {
@@ -56,16 +55,13 @@ export const PermissionsBoundary = ({
   children,
 }: PermissionsBoundaryProps): ReactElement => {
   const invalidate = PAccess.useInvalidatePermissions();
-  const Fallback = useCallback(
-    (props: Errors.FallbackProps): ReactElement => {
-      const retry = (): void => {
-        invalidate({});
-        props.resetErrorBoundary();
-      };
-      return <FallbackComponent {...props} retry={retry} />;
-    },
-    [FallbackComponent, invalidate],
-  );
+  const Fallback = (props: Errors.FallbackProps): ReactElement => {
+    const retry = (): void => {
+      invalidate({});
+      props.resetErrorBoundary();
+    };
+    return <FallbackComponent {...props} retry={retry} />;
+  };
   return (
     <Errors.SuspenseBoundary loading={loading} FallbackComponent={Fallback}>
       <AwaitPermissions>{children}</AwaitPermissions>

@@ -32,11 +32,11 @@ import (
 // node to retry population.
 var ErrIndexInvalid = errors.New("gorp: index failed to populate")
 
-// Index is a registered secondary index on a Table. Implementations are
-// provided by gorp (LookupIndex, SortedIndex) and constructed via
-// NewLookupIndex and NewSortedIndex. The interface methods are unexported
-// so external code cannot substitute custom implementations; callers
-// should use the provided generic types.
+// Index is a registered secondary index on a Table. Implementations are provided by
+// gorp (LookupIndex, SortedIndex, SearchIndex) and constructed via NewLookupIndex,
+// NewSortedIndex, and NewSearchIndex. The interface methods are unexported so external
+// code cannot substitute custom implementations; callers should use the provided
+// generic types.
 type Index[K Key, E Entry[K]] interface {
 	// Name returns the human-readable name of the index, used in diagnostics.
 	Name() string

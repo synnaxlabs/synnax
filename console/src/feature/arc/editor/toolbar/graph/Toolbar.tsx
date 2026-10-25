@@ -15,7 +15,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Arc } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { Stages } from "@/feature/arc/editor/toolbar/graph/Nodes";
 import { Properties } from "@/feature/arc/editor/toolbar/graph/Properties";
@@ -56,14 +56,11 @@ export const Toolbar = (): ReactElement | null => {
     singleConfig != null
       ? (Arc.Graph.Node.REGISTRY[singleConfig.type]?.name ?? null)
       : null;
-  const handleTabSelect = useCallback(
-    (tabKey: string): void => {
-      dispatch(
-        Session.Arc.selectToolbarTab({ key, tab: tabKey as Session.Arc.ToolbarTab }),
-      );
-    },
-    [key, dispatch],
-  );
+  const handleTabSelect = (tabKey: string): void => {
+    dispatch(
+      Session.Arc.selectToolbarTab({ key, tab: tabKey as Session.Arc.ToolbarTab }),
+    );
+  };
   return (
     <Tabs.Frame value={toolbar.selectedTab} onChange={handleTabSelect} grow>
       <Base.Header>

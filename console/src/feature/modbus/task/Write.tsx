@@ -19,7 +19,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Telem } from "@synnaxlabs/pluto";
 import { deep, errors, id, primitive } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/modbus/device/queries";
 import { Select as SelectDevice } from "@/feature/modbus/device/Select";
@@ -148,13 +148,10 @@ const contextMenuItems = Component.renderProp(ContextMenuItem);
 
 const Form: FC = () => {
   const dev = useFromConfig();
-  const resolve = useCallback(
-    (c: WriteChannel) =>
-      dev == null
-        ? null
-        : { channel: dev.properties.write.channels[writeMapKey(c)] ?? 0 },
-    [dev],
-  );
+  const resolve = (c: WriteChannel) =>
+    dev == null
+      ? null
+      : { channel: dev.properties.write.channels[writeMapKey(c)] ?? 0 };
   return (
     <Task.Views.List<WriteChannel>
       createChannel={getOpenChannel}

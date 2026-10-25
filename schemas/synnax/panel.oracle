@@ -122,6 +122,7 @@ Panel struct {
     }
     name   string       {
         @doc value         "is a human-readable name for the panel."
+        @search
         @validate required
     }
     root   Node = { variant = "leaf", tabs = [] } {
@@ -276,5 +277,4 @@ Panel struct {
     @go migrate
     @ontology type "panel"
     @retrieve
-    @search
 }

@@ -9,7 +9,6 @@
 
 import { state } from "@synnaxlabs/x";
 import { renderHook } from "@testing-library/react";
-import { useCallback } from "react";
 import { describe, expect, it } from "vitest";
 
 import { List } from "@/list";
@@ -17,17 +16,14 @@ import { List } from "@/list";
 describe("pager", () => {
   it("should fetch the correct page when onFetchMore is called", () => {
     let currParams: List.PagerParams | undefined;
-    const { result } = renderHook(() => {
-      const retrieve = useCallback(
-        (setter: state.SetArg<List.PagerParams, Partial<List.PagerParams>>) => {
-          const nextParams = state.executeSetter(setter, currParams ?? {});
-          currParams = nextParams;
-          return nextParams;
-        },
-        [],
-      );
-      return List.usePager({ retrieve });
-    });
+    const retrieve = (
+      setter: state.SetArg<List.PagerParams, Partial<List.PagerParams>>,
+    ) => {
+      const nextParams = state.executeSetter(setter, currParams ?? {});
+      currParams = nextParams;
+      return nextParams;
+    };
+    const { result } = renderHook(() => List.usePager({ retrieve }));
     result.current.fetchMore();
     expect(currParams).toEqual({
       offset: 0,
@@ -44,17 +40,14 @@ describe("pager", () => {
 
   it("should reset the offset when onSearch is called", () => {
     let currParams: List.PagerParams | undefined;
-    const { result } = renderHook(() => {
-      const retrieve = useCallback(
-        (setter: state.SetArg<List.PagerParams, Partial<List.PagerParams>>) => {
-          const nextParams = state.executeSetter(setter, currParams ?? {});
-          currParams = nextParams;
-          return nextParams;
-        },
-        [],
-      );
-      return List.usePager({ retrieve });
-    });
+    const retrieve = (
+      setter: state.SetArg<List.PagerParams, Partial<List.PagerParams>>,
+    ) => {
+      const nextParams = state.executeSetter(setter, currParams ?? {});
+      currParams = nextParams;
+      return nextParams;
+    };
+    const { result } = renderHook(() => List.usePager({ retrieve }));
     result.current.search("test");
     expect(currParams).toEqual({
       offset: 0,

@@ -17,7 +17,6 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Arc, type Flux, Task } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { useCaptureDeploy } from "@/platform/arc/useCaptureDeploy";
 import { useDriftedTaskKeys } from "@/platform/arc/useDriftedTaskKeys";
@@ -58,17 +57,14 @@ export const ContextMenu = ({
   const handleLink = Core.useCopyLinkToClipboard();
   const confirm = Modals.useConfirmDelete({ type: "Arc" });
   const { update: del } = Arc.useDelete({
-    beforeUpdate: useCallback(
-      async ({ data }: Flux.BeforeUpdateParams<arc.Key | arc.Key[]>) => {
-        const arcKeys = array.toArray(data);
-        if (arcKeys.length === 0) return false;
-        const arcs = getItem(arcKeys);
-        if (!(await confirm(arcs))) return false;
-        dispatch(Session.Arc.remove({ keys: arcKeys }));
-        return data;
-      },
-      [getItem, confirm, dispatch],
-    ),
+    beforeUpdate: async ({ data }: Flux.BeforeUpdateParams<arc.Key | arc.Key[]>) => {
+      const arcKeys = array.toArray(data);
+      if (arcKeys.length === 0) return false;
+      const arcs = getItem(arcKeys);
+      if (!(await confirm(arcs))) return false;
+      dispatch(Session.Arc.remove({ keys: arcKeys }));
+      return data;
+    },
   });
 
   const handleEdit = () => {

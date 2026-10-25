@@ -9,7 +9,7 @@
 
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Arc as Base, Diagram, Viewport } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { TaskControls } from "@/feature/arc/editor/TaskControls";
 import { ContextMenu } from "@/platform/context-menu";
@@ -26,47 +26,26 @@ export const Graph = (): ReactElement => {
   const viewportMode = Session.Arc.useSelectViewportMode();
   const visible = Session.Panel.useSelectIsTabVisible();
 
-  const triggers = useMemo(
-    () => Viewport.DEFAULT_TRIGGERS[viewportMode],
-    [viewportMode],
-  );
+  const triggers = Viewport.DEFAULT_TRIGGERS[viewportMode];
 
-  const handleSelectionChange = useCallback(
-    (selected: string[]) => dispatch(Session.Arc.setSelected({ key, selected })),
-    [key, dispatch],
-  );
-  const handleViewportChange = useCallback(
-    (viewport: Diagram.Viewport) =>
-      dispatch(Session.Arc.setViewport({ key, viewport })),
-    [key, dispatch],
-  );
-  const handleEditableChange = useCallback(
-    (editable: boolean) => dispatch(Session.Arc.setEditable({ key, editable })),
-    [key, dispatch],
-  );
-  const handleSetFitViewOnResize = useCallback(
-    (fitViewOnResize: boolean) =>
-      dispatch(Session.Arc.setFitViewOnResize({ key, fitViewOnResize })),
-    [key, dispatch],
-  );
-  const handleViewportModeChange = useCallback(
-    (mode: Viewport.Mode) => dispatch(Session.Arc.setViewportMode({ key, mode })),
-    [key, dispatch],
-  );
-  const handleDoubleClick = useCallback(
-    () => dispatch(Session.Nav.showBottom({})),
-    [dispatch],
-  );
+  const handleSelectionChange = (selected: string[]) =>
+    dispatch(Session.Arc.setSelected({ key, selected }));
+  const handleViewportChange = (viewport: Diagram.Viewport) =>
+    dispatch(Session.Arc.setViewport({ key, viewport }));
+  const handleEditableChange = (editable: boolean) =>
+    dispatch(Session.Arc.setEditable({ key, editable }));
+  const handleSetFitViewOnResize = (fitViewOnResize: boolean) =>
+    dispatch(Session.Arc.setFitViewOnResize({ key, fitViewOnResize }));
+  const handleViewportModeChange = (mode: Viewport.Mode) =>
+    dispatch(Session.Arc.setViewportMode({ key, mode }));
+  const handleDoubleClick = () => dispatch(Session.Nav.showBottom({}));
 
-  const renderExtraMenuItems = useCallback(
-    (): ReactElement => (
-      <>
-        {canEdit && <Diagram.Menu.ToggleEditItem />}
-        <Menu.Divider />
-        <ContextMenu.ReloadConsoleItem />
-      </>
-    ),
-    [canEdit],
+  const renderExtraMenuItems = (): ReactElement => (
+    <>
+      {canEdit && <Diagram.Menu.ToggleEditItem />}
+      <Menu.Divider />
+      <ContextMenu.ReloadConsoleItem />
+    </>
   );
 
   return (

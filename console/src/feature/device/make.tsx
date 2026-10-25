@@ -9,7 +9,7 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 import { z } from "zod";
 
 import { CAN } from "@/feature/can";
@@ -84,24 +84,21 @@ export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => voi
   const modbus = Modbus.Device.useConnectModal();
   const ni = NI.Device.useConfigureModal();
   const opcua = OPCUA.Device.useConnectModal();
-  return useCallback(
-    (make, deviceKey) => {
-      const openers: Record<Make, (args: { deviceKey: device.Key }) => void> = {
-        [CAN.Device.MAKE]: can,
-        [Serial.Device.MAKE]: serial,
-        [TCP.Device.MAKE]: tcp,
-        [UDP.Device.MAKE]: udp,
-        [EtherCAT.Device.MAKE]: ethercat,
-        [HTTP.Device.MAKE]: http,
-        [LabJack.Device.MAKE]: labjack,
-        [Modbus.Device.MAKE]: modbus,
-        [NI.Device.MAKE]: ni,
-        [OPCUA.Device.MAKE]: opcua,
-      };
-      openers[make]({ deviceKey });
-    },
-    [can, serial, tcp, udp, ethercat, http, labjack, modbus, ni, opcua],
-  );
+  return (make, deviceKey) => {
+    const openers: Record<Make, (args: { deviceKey: device.Key }) => void> = {
+      [CAN.Device.MAKE]: can,
+      [Serial.Device.MAKE]: serial,
+      [TCP.Device.MAKE]: tcp,
+      [UDP.Device.MAKE]: udp,
+      [EtherCAT.Device.MAKE]: ethercat,
+      [HTTP.Device.MAKE]: http,
+      [LabJack.Device.MAKE]: labjack,
+      [Modbus.Device.MAKE]: modbus,
+      [NI.Device.MAKE]: ni,
+      [OPCUA.Device.MAKE]: opcua,
+    };
+    openers[make]({ deviceKey });
+  };
 };
 
 const CONTEXT_MENU_ITEMS: Partial<

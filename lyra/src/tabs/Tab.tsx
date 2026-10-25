@@ -11,7 +11,6 @@ import {
   type KeyboardEventHandler,
   type MouseEventHandler,
   type ReactElement,
-  useCallback,
 } from "react";
 
 import { Button } from "@/button";
@@ -72,25 +71,19 @@ export const Tab = ({
   const frameID = useFrameID("Tabs.Tab");
   const { size, variant } = useSelectorContext("Tabs.Tab");
   const { selected, focused, head, onSelect } = Select.useItemState(itemKey);
-  const handleClick = useCallback<MouseEventHandler<HTMLDivElement>>(
-    (e) => {
-      onClick?.(e);
-      onSelect();
-    },
-    [onClick, onSelect],
-  );
-  const handleKeyDown = useCallback<KeyboardEventHandler<HTMLDivElement>>(
-    (e) => {
-      onKeyDown?.(e);
-      if (e.target !== e.currentTarget || e.defaultPrevented) return;
-      const key = Triggers.eventKey(e);
-      if (onClose != null && (key === "Delete" || key === "Backspace")) {
-        e.preventDefault();
-        onClose();
-      }
-    },
-    [onKeyDown, onClose],
-  );
+  const handleClick: MouseEventHandler<HTMLDivElement> = (e) => {
+    onClick?.(e);
+    onSelect();
+  };
+  const handleKeyDown: KeyboardEventHandler<HTMLDivElement> = (e) => {
+    onKeyDown?.(e);
+    if (e.target !== e.currentTarget || e.defaultPrevented) return;
+    const key = Triggers.eventKey(e);
+    if (onClose != null && (key === "Delete" || key === "Backspace")) {
+      e.preventDefault();
+      onClose();
+    }
+  };
   return (
     <Button.Button
       el="div"

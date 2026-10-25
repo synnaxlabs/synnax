@@ -342,9 +342,17 @@ type flags struct {
 	equalAlignments bool
 	// zeroAlignments is true if all alignments are zero
 	zeroAlignments bool
+	// multiplesPresent is true when each series carries its alignment multiple after
+	// its alignment. It is set only when a series has a multiple above one.
+	multiplesPresent bool
+	// extended marks a second flags byte after the first. No encoder sets it yet, so a
+	// decoder rejects it.
+	extended bool
 }
 
 const (
+	extendedFlagPos           bit.FlagPos = 7
+	multiplesPresentFlagPos   bit.FlagPos = 6
 	zeroAlignmentsFlagPos     bit.FlagPos = 5
 	equalAlignmentsFlagPos    bit.FlagPos = 4
 	equalLengthsFlagPos       bit.FlagPos = 3
@@ -361,6 +369,7 @@ func (f flags) encode() byte {
 	b = allChannelsPresentFlagPos.Set(b, f.allChannelsPresent)
 	b = equalAlignmentsFlagPos.Set(b, f.equalAlignments)
 	b = zeroAlignmentsFlagPos.Set(b, f.zeroAlignments)
+	b = multiplesPresentFlagPos.Set(b, f.multiplesPresent)
 	return b
 }
 
@@ -372,6 +381,8 @@ func decodeFlags(b byte) flags {
 	f.allChannelsPresent = allChannelsPresentFlagPos.Get(b)
 	f.equalAlignments = equalAlignmentsFlagPos.Get(b)
 	f.zeroAlignments = zeroAlignmentsFlagPos.Get(b)
+	f.multiplesPresent = multiplesPresentFlagPos.Get(b)
+	f.extended = extendedFlagPos.Get(b)
 	return f
 }
 
@@ -403,19 +414,20 @@ func (c *Codec) panicIfNotUpdated(opName string) {
 	if c.mu.seqNum < 1 {
 		panic(
 			fmt.Sprintf(
-				"[framer.codec] - dynamic codec was not updated for first call to %s",
+				"dynamic codec was not updated for first call to %s",
 				opName,
 			),
 		)
 	}
 }
 
-// isAlignmentContiguous checks if two series have contiguous alignments where
-// the first series' upper bound equals the second series' lower bound.
+// isAlignmentContiguous checks if two series have equal alignment multiples and
+// contiguous alignments where the first series' upper bound equals the second series'
+// lower bound.
 func isAlignmentContiguous(s1, s2 telem.Series) bool {
 	bounds1 := s1.AlignmentBounds()
 	bounds2 := s2.AlignmentBounds()
-	return bounds1.Upper == bounds2.Lower
+	return s1.Multiple() == s2.Multiple() && bounds1.Upper == bounds2.Lower
 }
 
 // mergedSeriesInfo holds information about a series that may be merged or original.
@@ -512,9 +524,10 @@ func (c *Codec) mergeContiguousSeries(
 					if k == runStart {
 						// Initialize merged series with first series properties
 						mergedSeries = telem.Series{
-							DataType:  s.DataType,
-							Alignment: s.Alignment,
-							TimeRange: s.TimeRange,
+							DataType:          s.DataType,
+							Alignment:         s.Alignment,
+							AlignmentMultiple: s.AlignmentMultiple,
+							TimeRange:         s.TimeRange,
 						}
 					} else {
 						// Extend time range to encompass all series
@@ -692,6 +705,10 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 			fgs.equalAlignments = false
 		}
 	}
+	fgs.multiplesPresent = slices.ContainsFunc(
+		mergedSeries,
+		func(msi mergedSeriesInfo) bool { return msi.series.Multiple() > 1 },
+	)
 
 	fgs.timeRangesZero = fgs.equalTimeRanges && refTr.Start.IsZero() &&
 		refTr.End.IsZero()
@@ -716,6 +733,9 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 		} else {
 			byteArraySize += 8
 		}
+	}
+	if fgs.multiplesPresent {
+		byteArraySize += len(mergedSeries) * 4
 	}
 
 	// Allocate buffer and write headers
@@ -757,6 +777,9 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 		if !fgs.equalAlignments {
 			c.buf.Uint64(uint64(s.Alignment))
 		}
+		if fgs.multiplesPresent {
+			c.buf.Uint32(s.Multiple())
+		}
 	}
 
 	return nil
@@ -794,13 +817,19 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 		states := lo.Keys(c.mu.states)
 		err = errors.Wrapf(
 			validate.ErrValidation,
-			"[framer.codec] - remote sent invalid sequence number %d. Valid rawIndices are %v",
+			"remote sent invalid sequence number %d. Valid rawIndices are %v",
 			seqNum,
 			states,
 		)
 		return framer.Frame{}, err
 	}
 	fgs := decodeFlags(flagB)
+	if fgs.extended {
+		return framer.Frame{}, errors.Wrap(
+			validate.ErrValidation,
+			"remote sent an extended flags byte, which this codec does not support",
+		)
+	}
 	if fgs.equalLens {
 		if dataLen, err = c.reader.Uint32(); err != nil {
 			return framer.Frame{}, err
@@ -859,6 +888,15 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 				return readErr
 			}
 			s.Alignment = telem.Alignment(v)
+		}
+		if fgs.multiplesPresent {
+			multiple, readErr := c.reader.Uint32()
+			if readErr != nil {
+				return readErr
+			}
+			if multiple > 1 {
+				s.AlignmentMultiple = multiple
+			}
 		}
 		fr = fr.Append(key, s)
 		return err

@@ -93,8 +93,9 @@ export const defaultGetter = (obj: record.Unknown, key: string): unknown => {
 export const resolvePath = <T = record.Unknown>(path: string, obj: T): string => {
   const parts = path.split(SEPARATOR);
   parts.forEach((part, i) => {
+    const inArray = Array.isArray(obj);
     obj = defaultGetter(obj as record.Unknown, part) as T;
-    if (obj != null && typeof obj === "object" && "key" in obj)
+    if (inArray && obj != null && typeof obj === "object" && "key" in obj)
       parts[i] = obj.key as string;
   });
   return parts.join(SEPARATOR);

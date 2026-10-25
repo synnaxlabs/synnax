@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback } from "react";
-
 import { Core } from "@/session/core";
 import { Nav } from "@/session/nav";
 import { Panel } from "@/session/panel";
@@ -17,12 +15,12 @@ import { useDispatch } from "@/session/store";
 
 export const useLogout = () => {
   const dispatch = useDispatch();
-  return useCallback(() => {
+  return () => {
     // The Core clear must come last: it flushes the Core's persistence partition, which
     // must already hold the cleared project selection.
     dispatch(Project.clearSelected());
     dispatch(Panel.reset());
     dispatch(Nav.hideAll({}));
     dispatch(Core.clearSelected());
-  }, [dispatch]);
+  };
 };

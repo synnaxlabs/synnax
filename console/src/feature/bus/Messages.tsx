@@ -17,13 +17,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { ICD } from "@synnaxlabs/pluto";
-import {
-  type ReactElement,
-  type ReactNode,
-  useCallback,
-  useMemo,
-  useState,
-} from "react";
+import { type ReactElement, type ReactNode, useState } from "react";
 
 import { type Accepts, type Message, messagesOf } from "@/feature/bus/types";
 import { CSS } from "@/platform/css";
@@ -42,8 +36,10 @@ const useICDMessages = (): {
 } => {
   const key = Form.useFieldValue<icd.Key>("config.icd", { optional: true });
   const { data, variant, status } = ICD.useResult(key == null ? null : { key });
-  const messages = useMemo(() => messagesOf(data), [data]);
-  return { messages, error: variant === "error" ? status.message : undefined };
+  return {
+    messages: messagesOf(data),
+    error: variant === "error" ? status.message : undefined,
+  };
 };
 
 /** @returns a short label for how a message is matched on its transport. */
@@ -108,10 +104,7 @@ const ADD_TRIGGER_PROPS = { placeholder: "Add message", icon: <Icon.Add /> } as 
 
 /** Picks an ICD message to add. Carries the status of the messages list. */
 const AddMessage = ({ definitions, onAdd }: AddMessageProps) => {
-  const byKey = useMemo(
-    () => new Map(definitions.map((e) => [e.key, e])),
-    [definitions],
-  );
+  const byKey = new Map(definitions.map((e) => [e.key, e]));
   return (
     <Form.Field<Message[]>
       path={MESSAGES_PATH}
@@ -169,39 +162,30 @@ export const Messages = ({ accepts, create, details }: MessagesProps): ReactElem
   const { messages: definitions, error } = useICDMessages();
   const ctx = Form.useContext();
   const messages = Form.useFieldValue<Message[]>(MESSAGES_PATH);
-  const keys = useMemo(() => messages.map((m) => m.message), [messages]);
-  const [selected, setSelected] = useState<icd.MessageKey | undefined>(keys[0]);
-  const addable = useMemo(
-    () => [...definitions.values()].filter((e) => accepts(e) && !keys.includes(e.key)),
-    [definitions, keys, accepts],
+  const [selected, setSelected] = useState<icd.MessageKey | undefined>(
+    messages[0]?.message,
   );
-  const handleAdd = useCallback(
-    (definition: icd.Message) => {
-      ctx.set(MESSAGES_PATH, [
-        ...ctx.get<Message[]>(MESSAGES_PATH).value,
-        create(definition),
-      ]);
-      setSelected(definition.key);
-    },
-    [ctx, create],
+  const keys = messages.map((m) => m.message);
+  const addable = [...definitions.values()].filter(
+    (e) => accepts(e) && !keys.includes(e.key),
   );
-  const handleRemove = useCallback(
-    (key: icd.MessageKey) => {
-      const next = ctx
-        .get<Message[]>(MESSAGES_PATH)
-        .value.filter((m) => m.message !== key);
-      ctx.set(MESSAGES_PATH, next);
-      if (selected === key) setSelected(next[0]?.message);
-    },
-    [ctx, selected],
-  );
-  const renderItem = useMemo(
-    () =>
-      Component.renderProp((p: List.ItemRenderProps<icd.MessageKey>) => (
-        <MessageItem {...p} definitions={definitions} onRemove={handleRemove} />
-      )),
-    [definitions, handleRemove],
-  );
+  const handleAdd = (definition: icd.Message) => {
+    ctx.set(MESSAGES_PATH, [
+      ...ctx.get<Message[]>(MESSAGES_PATH).value,
+      create(definition),
+    ]);
+    setSelected(definition.key);
+  };
+  const handleRemove = (key: icd.MessageKey) => {
+    const next = ctx
+      .get<Message[]>(MESSAGES_PATH)
+      .value.filter((m) => m.message !== key);
+    ctx.set(MESSAGES_PATH, next);
+    if (selected === key) setSelected(next[0]?.message);
+  };
+  const renderItem = Component.renderProp((p: List.ItemRenderProps<icd.MessageKey>) => (
+    <MessageItem {...p} definitions={definitions} onRemove={handleRemove} />
+  ));
   const index = selected == null ? -1 : keys.indexOf(selected);
   const path = index === -1 ? null : `${MESSAGES_PATH}.${index}`;
   const definition = selected == null ? undefined : definitions.get(selected);

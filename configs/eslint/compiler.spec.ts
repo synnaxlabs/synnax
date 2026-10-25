@@ -130,6 +130,58 @@ describe("plugins", () => {
     });
   });
 
+  describe("hooks and memo components", () => {
+    it("should compile a hook that calls no other hook", () => {
+      const code = compile(
+        "export const useDouble = (n: number) => ({ value: n * 2 });\n",
+      );
+      expect(code).toContain("const $ = _c(2);");
+    });
+
+    it("should compile a hook that a factory returns in an object", () => {
+      const code = compile(
+        "export const create = (k: number) => ({\n" +
+          "  useValue: (n: number) => ({ n, k }),\n" +
+          "});\n",
+      );
+      expect(code).toContain("useValue: n => {");
+      expect(code).toContain("const $ = _c(2);");
+    });
+
+    it("should compile a memo component that renders no JSX", () => {
+      const code = compile(
+        'import { memo } from "react";\n' +
+          'export const C = memo(({ a }: { a: string[] }) => a.join(","));\n',
+      );
+      expect(code).toContain("const $ = _c(2);");
+    });
+
+    it("should leave a hook with a use no memo directive uncompiled", () => {
+      const code = compile(
+        "export const useDouble = (n: number) => {\n" +
+          '  "use no memo";\n' +
+          "  return { value: n * 2 };\n" +
+          "};\n",
+      );
+      expect(code).not.toContain("react/compiler-runtime");
+    });
+
+    it("should leave a file with a use no memo directive uncompiled", () => {
+      const code = compile(
+        '"use no memo";\n' +
+          "export const useDouble = (n: number) => ({ value: n * 2 });\n",
+      );
+      expect(code).not.toContain("react/compiler-runtime");
+    });
+
+    it("should leave a function not named like a hook uncompiled", () => {
+      const code = compile(
+        "export const double = (n: number) => ({ value: n * 2 });\n",
+      );
+      expect(code).not.toContain("react/compiler-runtime");
+    });
+  });
+
   describe("a local Symbol", () => {
     it("should compile a component named Symbol", () => {
       const code = compile(

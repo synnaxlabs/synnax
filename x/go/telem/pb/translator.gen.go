@@ -11,7 +11,10 @@
 
 package pb
 
-import "github.com/synnaxlabs/x/telem"
+import (
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
+)
 
 // TimeRangeToPB converts TimeRange to TimeRange.
 func TimeRangeToPB(r telem.TimeRange) (*TimeRange, error) {
@@ -57,4 +60,206 @@ func TimeRangesFromPB(pbs []*TimeRange) ([]telem.TimeRange, error) {
 		}
 	}
 	return result, nil
+}
+
+// StrideReductionToPB converts StrideReduction to ReductionStridePayload.
+func StrideReductionToPB(r telem.StrideReduction) (*ReductionStridePayload, error) {
+	pb := &ReductionStridePayload{
+		Factor: r.Factor,
+	}
+	return pb, nil
+}
+
+// StrideReductionFromPB converts ReductionStridePayload to StrideReduction.
+func StrideReductionFromPB(pb *ReductionStridePayload) (telem.StrideReduction, error) {
+	var r telem.StrideReduction
+	if pb == nil {
+		return r, nil
+	}
+	r.Factor = pb.Factor
+	return r, nil
+}
+
+// StrideReductionsToPB converts a slice of StrideReduction to ReductionStridePayload.
+func StrideReductionsToPB(rs []telem.StrideReduction) ([]*ReductionStridePayload, error) {
+	result := make([]*ReductionStridePayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = StrideReductionToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// StrideReductionsFromPB converts a slice of ReductionStridePayload to StrideReduction.
+func StrideReductionsFromPB(pbs []*ReductionStridePayload) ([]telem.StrideReduction, error) {
+	result := make([]telem.StrideReduction, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = StrideReductionFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// LimitReductionToPB converts LimitReduction to ReductionLimitPayload.
+func LimitReductionToPB(r telem.LimitReduction) (*ReductionLimitPayload, error) {
+	aggregationVal, err := AggregationToPB(r.Aggregation)
+	if err != nil {
+		return nil, err
+	}
+	pb := &ReductionLimitPayload{
+		PointLimit:  r.PointLimit,
+		Aggregation: aggregationVal,
+	}
+	return pb, nil
+}
+
+// LimitReductionFromPB converts ReductionLimitPayload to LimitReduction.
+func LimitReductionFromPB(pb *ReductionLimitPayload) (telem.LimitReduction, error) {
+	var r telem.LimitReduction
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Aggregation, err = AggregationFromPB(pb.Aggregation)
+	if err != nil {
+		return telem.LimitReduction{}, err
+	}
+	r.PointLimit = pb.PointLimit
+	return r, nil
+}
+
+// LimitReductionsToPB converts a slice of LimitReduction to ReductionLimitPayload.
+func LimitReductionsToPB(rs []telem.LimitReduction) ([]*ReductionLimitPayload, error) {
+	result := make([]*ReductionLimitPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = LimitReductionToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// LimitReductionsFromPB converts a slice of ReductionLimitPayload to LimitReduction.
+func LimitReductionsFromPB(pbs []*ReductionLimitPayload) ([]telem.LimitReduction, error) {
+	result := make([]telem.LimitReduction, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = LimitReductionFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ReductionToPB converts Reduction to Reduction.
+func ReductionToPB(r telem.Reduction) (*Reduction, error) {
+	if r.Variant == nil {
+		return nil, nil
+	}
+	pb := &Reduction{}
+	switch v := r.Variant.(type) {
+	case telem.StrideReduction:
+		inner, err := StrideReductionToPB(v)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &Reduction_Stride{Stride: inner}
+	case telem.LimitReduction:
+		inner, err := LimitReductionToPB(v)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &Reduction_Limit{Limit: inner}
+	default:
+		return nil, errors.Newf("Reduction: unknown variant %T", r.Variant)
+	}
+	return pb, nil
+}
+
+// ReductionFromPB converts Reduction to Reduction.
+func ReductionFromPB(pb *Reduction) (telem.Reduction, error) {
+	var r telem.Reduction
+	if pb == nil {
+		return r, nil
+	}
+	switch v := pb.Variant.(type) {
+	case *Reduction_Stride:
+		inner, err := StrideReductionFromPB(v.Stride)
+		if err != nil {
+			return r, err
+		}
+		m := inner
+		r.Variant = m
+	case *Reduction_Limit:
+		inner, err := LimitReductionFromPB(v.Limit)
+		if err != nil {
+			return r, err
+		}
+		m := inner
+		r.Variant = m
+	}
+	return r, nil
+}
+
+// ReductionsToPB converts a slice of Reduction to Reduction.
+func ReductionsToPB(rs []telem.Reduction) ([]*Reduction, error) {
+	result := make([]*Reduction, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ReductionToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ReductionsFromPB converts a slice of Reduction to Reduction.
+func ReductionsFromPB(pbs []*Reduction) ([]telem.Reduction, error) {
+	result := make([]telem.Reduction, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ReductionFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// AggregationToPB converts telem.Aggregation to Aggregation.
+func AggregationToPB(v telem.Aggregation) (Aggregation, error) {
+	switch v {
+	case telem.AggregationMinMax:
+		return Aggregation_AGGREGATION_MIN_MAX, nil
+	case telem.AggregationAverage:
+		return Aggregation_AGGREGATION_AVERAGE, nil
+	case telem.AggregationDecimate:
+		return Aggregation_AGGREGATION_DECIMATE, nil
+	default:
+		return 0, errors.Newf("unrecognized telem.Aggregation value: %v", v)
+	}
+}
+
+// AggregationFromPB converts Aggregation to telem.Aggregation.
+func AggregationFromPB(v Aggregation) (telem.Aggregation, error) {
+	switch v {
+	case Aggregation_AGGREGATION_MIN_MAX:
+		return telem.AggregationMinMax, nil
+	case Aggregation_AGGREGATION_AVERAGE:
+		return telem.AggregationAverage, nil
+	case Aggregation_AGGREGATION_DECIMATE:
+		return telem.AggregationDecimate, nil
+	default:
+		return telem.Aggregation(""), errors.Newf("unrecognized Aggregation value: %v", v)
+	}
 }

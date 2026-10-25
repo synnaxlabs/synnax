@@ -15,7 +15,6 @@ import {
   type KeyboardEventHandler,
   type MouseEvent as ReactMouseEvent,
   type ReactElement,
-  useCallback,
   useRef,
 } from "react";
 
@@ -198,13 +197,10 @@ export const Button = <E extends ElementType = "button">(
 
   Triggers.use({
     triggers: trigger,
-    callback: useCallback<(e: Triggers.UseEvent) => void>(
-      ({ stage }) => {
-        if (stage !== "end" || isDisabled || preview === true) return;
-        elRef.current?.click();
-      },
-      [isDisabled, preview],
-    ),
+    callback: ({ stage }: Triggers.UseEvent) => {
+      if (stage !== "end" || isDisabled || preview === true) return;
+      elRef.current?.click();
+    },
   });
 
   const res = color.colorZ.safeParse(colorVal);

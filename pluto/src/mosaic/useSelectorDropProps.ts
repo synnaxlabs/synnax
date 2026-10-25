@@ -9,7 +9,6 @@
 
 import { type Haul } from "@synnaxlabs/lyra/haul";
 import { type Tabs } from "@synnaxlabs/lyra/tabs";
-import { useCallback, useMemo } from "react";
 
 import { useContext } from "@/mosaic/Frame";
 import {
@@ -45,41 +44,32 @@ export const useSelectorDropProps = ({
   tabKeys,
 }: UseSelectorDropPropsParams): UseSelectorDropPropsReturn => {
   const { onDrop, onCreate, disabled } = useContext("Mosaic.useSelectorDropProps");
-  const canDrop: Haul.CanDrop = useCallback(
-    ({ items }) => {
-      if (disabled) return false;
-      if (filterTabCreateHaulItems(items).length > 0) return true;
-      const dropped = filterTabDropHaulItems(items).map(({ key }) => key);
-      if (dropped.length === 0) return false;
-      return tabKeys.length === 0 || tabKeys.some((key) => !dropped.includes(key));
-    },
-    [tabKeys, disabled],
-  );
-  const handleDrop = useCallback(
-    ({ items, index }: Tabs.SelectorOnDropParams): Haul.Item[] => {
-      const dropped = filterTabDropHaulItems(items);
-      if (dropped.length > 0)
-        onDrop?.({
-          nodeKey,
-          tabKey: dropped[0].key,
-          data: dropped[0].data,
-          location: "center",
-          index,
-        });
-      const created = filterTabCreateHaulItems(items);
-      if (created.length > 0)
-        onCreate?.({
-          nodeKey,
-          location: "center",
-          tabKeys: created.map(({ key }) => key),
-          index,
-        });
-      return dropped;
-    },
-    [nodeKey, onDrop, onCreate],
-  );
-  return useMemo(
-    () => ({ haulType: HAUL_DROP_TYPE, canDrop, onDrop: handleDrop }),
-    [canDrop, handleDrop],
-  );
+  const canDrop: Haul.CanDrop = ({ items }) => {
+    if (disabled) return false;
+    if (filterTabCreateHaulItems(items).length > 0) return true;
+    const dropped = filterTabDropHaulItems(items).map(({ key }) => key);
+    if (dropped.length === 0) return false;
+    return tabKeys.length === 0 || tabKeys.some((key) => !dropped.includes(key));
+  };
+  const handleDrop = ({ items, index }: Tabs.SelectorOnDropParams): Haul.Item[] => {
+    const dropped = filterTabDropHaulItems(items);
+    if (dropped.length > 0)
+      onDrop?.({
+        nodeKey,
+        tabKey: dropped[0].key,
+        data: dropped[0].data,
+        location: "center",
+        index,
+      });
+    const created = filterTabCreateHaulItems(items);
+    if (created.length > 0)
+      onCreate?.({
+        nodeKey,
+        location: "center",
+        tabKeys: created.map(({ key }) => key),
+        index,
+      });
+    return dropped;
+  };
+  return { haulType: HAUL_DROP_TYPE, canDrop, onDrop: handleDrop };
 };

@@ -11,20 +11,17 @@ package library_test
 
 import (
 	"context"
-	"io"
 	"iter"
-	"slices"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/zyn"
 )
@@ -66,16 +63,13 @@ func (s *namedService) RetrieveResource(
 	), nil
 }
 
-func (s *namedService) OpenNexter(
-	ctx context.Context,
-) (iter.Seq[ontology.Resource], io.Closer, error) {
-	resources := lo.Map(
-		lo.Keys(s.names),
-		func(key string, _ int) ontology.Resource {
-			return lo.Must(s.RetrieveResource(ctx, key, nil))
-		},
-	)
-	return slices.Values(resources), xio.NopCloser, nil
+func (*namedService) Search(
+	context.Context,
+	gorp.Tx,
+	string,
+	int,
+) (search.Result[ontology.ID], error) {
+	return search.Result[ontology.ID]{}, nil
 }
 
 var (

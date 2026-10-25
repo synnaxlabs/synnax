@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type breaker, sleep, TimeSpan } from "@synnaxlabs/x";
+import { type breaker, observe, sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { DisconnectedError, isConnectionError } from "@/errors";
@@ -15,7 +15,6 @@ import {
   createProxiedTestClient,
   FAST_RETRY,
   type ProxiedTestClient,
-  waitForStatus,
   waitForStreamLive,
 } from "@/testutil";
 
@@ -57,8 +56,9 @@ describe("downtime", () => {
     await proxy.sever();
     // The default 30s heartbeat cannot notice the outage this fast: reaching
     // error proves the dropped change stream drove the state machine.
-    await waitForStatus(
+    await observe.until(
       client.connection,
+      () => client.connection.status,
       ({ variant, details }) => variant === "error" && details.reason === "unreachable",
     );
     // A cached read never leaves the process, so it survives the outage.
@@ -86,8 +86,9 @@ describe("downtime", () => {
     await expect(client.projects.create({ name: "on-the-wire" })).rejects.toSatisfy(
       isConnectionError,
     );
-    await waitForStatus(
+    await observe.until(
       client.connection,
+      () => client.connection.status,
       ({ variant, details }) => variant === "error" && details.reason === "unreachable",
     );
     // Escalated, so the connection short circuits before the wire.

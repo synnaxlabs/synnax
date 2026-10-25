@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { array, type destructor } from "@synnaxlabs/x";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 
 /** The handle returned by {@link useDestructors}. */
 export interface UseDestructorsReturn {
@@ -27,21 +27,18 @@ export interface UseDestructorsReturn {
  */
 export const useDestructors = (): UseDestructorsReturn => {
   const ref = useRef<destructor.Destructor[]>([]);
-  const value = useMemo(
-    () => ({
-      cleanup: () => {
-        ref.current.forEach((destructor) => destructor());
-        ref.current = [];
-      },
-      set: (
-        destructors: destructor.Destructor | destructor.Destructor[] | undefined,
-      ): void => {
-        if (destructors == null) return;
-        ref.current.push(...array.toArray(destructors));
-      },
-    }),
-    [],
-  );
+  const value = {
+    cleanup: () => {
+      ref.current.forEach((destructor) => destructor());
+      ref.current = [];
+    },
+    set: (
+      destructors: destructor.Destructor | destructor.Destructor[] | undefined,
+    ): void => {
+      if (destructors == null) return;
+      ref.current.push(...array.toArray(destructors));
+    },
+  };
   useEffect(() => value.cleanup, [value.cleanup]);
   return value;
 };

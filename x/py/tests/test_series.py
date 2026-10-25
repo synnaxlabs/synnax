@@ -293,6 +293,37 @@ class TestSeries:
         assert bounds.lower == float(expected_start)
         assert bounds.upper == float(expected_start + 3)
 
+    def test_alignment_bounds_with_multiple(self) -> None:
+        """Should step alignment_bounds by the alignment multiple of each sample"""
+        s = telem.Series(
+            [1, 2, 3],
+            data_type=telem.DataType.INT8,
+            alignment=telem.Alignment(0, 8),
+            alignment_multiple=4,
+        )
+        assert s.alignment_bounds.lower == 8
+        assert s.alignment_bounds.upper == 20
+
+    def test_alignment_multiple_preserved_from_series(self) -> None:
+        """Should preserve the alignment multiple when constructing from a Series"""
+        s1 = telem.Series([1, 2], data_type=telem.DataType.INT8, alignment_multiple=4)
+        assert telem.Series(s1).alignment_multiple == 4
+        assert telem.Series(telem.MultiSeries([s1])).alignment_multiple == 4
+
+    def test_alignment_multiple_argument_wins(self) -> None:
+        """Should prefer an explicit alignment multiple to the source's multiple"""
+        s1 = telem.Series([1, 2], data_type=telem.DataType.INT8, alignment_multiple=4)
+        assert telem.Series(s1, alignment_multiple=2).alignment_multiple == 2
+        multi = telem.MultiSeries([s1])
+        assert telem.Series(multi, alignment_multiple=2).alignment_multiple == 2
+
+    def test_astype_keeps_alignment_multiple(self) -> None:
+        """Should keep the alignment multiple when converting the data type"""
+        s1 = telem.Series([1, 2], data_type=telem.DataType.INT8, alignment_multiple=4)
+        converted = s1.astype(telem.DataType.FLOAT64)
+        assert converted.alignment_multiple == 4
+        assert converted.alignment_bounds.upper == 8
+
     def test_alignment_preserved_from_series(self) -> None:
         """Should preserve alignment when constructing from another telem.Series"""
         s1 = telem.Series(

@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { Status } from "@synnaxlabs/lyra/status";
-import { useMemo } from "react";
 
 import { type Action, removeFavorites, type StoreState } from "@/session/status/slice";
 import { Synchronizer } from "@/session/synchronizer";
@@ -17,10 +16,7 @@ import { Synchronizer } from "@/session/synchronizer";
 // repaired at a boundary: a notification missed during a gap has no state behind it.
 const useForwardStatuses: Synchronizer.Use<StoreState, Action> = () => {
   const addStatus = Status.useAdder();
-  return useMemo(
-    () => ({ listen: ({ client }) => client.statuses.onSet(addStatus) }),
-    [addStatus],
-  );
+  return { listen: ({ client }) => client.statuses.onSet(addStatus) };
 };
 
 export const SYNCHRONIZERS: Synchronizer.Synchronizers<StoreState, Action> = [

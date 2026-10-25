@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PropsWithChildren, type ReactElement, useCallback } from "react";
+import { type PropsWithChildren, type ReactElement } from "react";
 
 import { context } from "@/context";
 
@@ -38,9 +38,6 @@ export interface ScopeProps extends PropsWithChildren {
  */
 export const Scope = ({ active, children }: ScopeProps): ReactElement => {
   const parent = useScope();
-  const value = useCallback(
-    () => parent() && resolveCondition(active),
-    [parent, active],
-  );
+  const value = () => parent() && resolveCondition(active);
   return <Context value={value}>{children}</Context>;
 };

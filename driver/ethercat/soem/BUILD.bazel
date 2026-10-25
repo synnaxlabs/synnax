@@ -72,6 +72,7 @@ cc_test(
         ":soem",
         ":soem_mock_api",
         "//driver/ethercat/errors",
+        "//driver/ethercat/esi",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],

@@ -171,10 +171,14 @@ class ReadTaskSource final : public common::Source {
     ReadTaskConfig cfg;
     std::shared_ptr<engine::Engine> engine;
     std::unique_ptr<engine::Engine::Reader> reader;
+    /// @brief the bus cycle time of each sample in the latest read.
+    x::telem::Series times;
 
 public:
     explicit ReadTaskSource(std::shared_ptr<engine::Engine> eng, ReadTaskConfig cfg):
-        cfg(std::move(cfg)), engine(std::move(eng)) {}
+        cfg(std::move(cfg)),
+        engine(std::move(eng)),
+        times(x::telem::TIMESTAMP_T, this->cfg.samples_per_chan) {}
 
     x::errors::Error start() override {
         if (auto err = this->engine->ensure_initialized(); err) return err;
@@ -190,7 +194,11 @@ public:
         for (const auto &ch: this->cfg.channels)
             entries.push_back(*ch);
 
-        auto [rdr, err] = this->engine->open_reader(entries, this->cfg.sample_rate);
+        auto [rdr, err] = this->engine->open_reader(
+            entries,
+            this->cfg.sample_rate,
+            this->cfg.samples_per_chan
+        );
         if (err) return err;
         this->reader = std::move(rdr);
         return x::errors::NIL;
@@ -204,37 +212,28 @@ public:
     common::ReadResult
     read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
         common::ReadResult res;
-        const size_t n_channels = this->cfg.channels.size();
-        const size_t n_samples = this->cfg.samples_per_chan;
-        common::initialize_frame(fr, this->cfg.channels, this->cfg.indexes, n_samples);
+        common::initialize_frame(
+            fr,
+            this->cfg.channels,
+            this->cfg.indexes,
+            this->cfg.samples_per_chan
+        );
         for (auto &ser: *fr.series)
             ser.clear();
-
-        const size_t decimation = std::lround(
-            this->engine->cycle_rate().hz() / this->cfg.sample_rate.hz()
-        );
-        const size_t epochs_per_batch = n_samples * decimation;
-
-        const auto start = x::telem::TimeStamp::now();
-        for (size_t epoch = 0; epoch < epochs_per_batch; ++epoch) {
-            if (epoch % decimation == 0) {
-                if (res.error = this->reader->read(breaker, fr); res.error) return res;
-            } else if (res.error = this->reader->wait(breaker); res.error)
-                return res;
-            if (!breaker.running()) {
-                fr.clear();
-                return res;
-            }
+        this->times.clear();
+        if (res.error = this->reader->read(breaker, fr, this->times); res.error)
+            return res;
+        if (!breaker.running()) {
+            fr.clear();
+            return res;
         }
-        const auto end = x::telem::TimeStamp::now();
-        common::generate_index_data(
-            fr,
-            this->cfg.indexes,
-            start,
-            end,
-            n_samples,
-            n_channels
-        );
+        if (auto description = this->reader->warning(); !description.empty())
+            res.warning = {
+                .message = "Dropped samples",
+                .description = std::move(description),
+            };
+        for (size_t i = this->cfg.channels.size(); i < fr.series->size(); ++i)
+            fr.series->at(i).write(this->times);
         return res;
     }
 

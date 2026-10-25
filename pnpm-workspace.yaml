@@ -199,6 +199,7 @@ catalog:
   remark-gfm: ^4.0.1
   remotion: ^4.0.536
   resend: ^6.34.1
+  rolldown: ~1.2.14
   satteri: ^0.10.5
   sharp: ^0.35.5
   shiki: ^4.5.0

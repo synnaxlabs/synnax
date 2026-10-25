@@ -250,7 +250,7 @@ func frozenFile(
 	if err != nil {
 		return plugin.File{}, err
 	}
-	if err = withLiveValidation(ctx, req, table, ns, livePath, f.Chain, k); err != nil {
+	if err = withLiveMethods(ctx, req, table, ns, livePath, f.Chain, k); err != nil {
 		return plugin.File{}, err
 	}
 	pred := predecessor{}
@@ -302,11 +302,11 @@ func frozenFile(
 	return plugin.File{Path: vkPath + "/" + fileName, Content: content}, nil
 }
 
-// withLiveValidation copies the live file's @validate rules onto the version k types
-// that the chain's current version aliases, and onto the inline variant payloads of
-// those unions. The current package's alias is the frozen type, so the frozen Validate
-// is the one the live surface runs.
-func withLiveValidation(
+// withLiveMethods copies the live file's @validate rules and @go to_any markers onto
+// the version k types that the chain's current version aliases, and onto the inline
+// variant payloads of those unions. The current package's alias is the frozen type, so
+// the frozen methods are the ones the live surface calls.
+func withLiveMethods(
 	ctx context.Context,
 	req *plugin.Request,
 	table *resolution.Table,
@@ -369,6 +369,9 @@ func withLiveValidation(
 		}
 		form.Fields = fields
 		t.Form = form
+		if toAny, has := live.Domains["go"].Expressions.Find("to_any"); has {
+			withGoExpr(t, toAny)
+		}
 	}
 	return nil
 }
@@ -440,15 +443,24 @@ func versionedGoRoot(
 // withGoOutput replaces the type's @go output expression, cloning the shared domain
 // maps first.
 func withGoOutput(t *resolution.Type, path string) {
-	withGoExpr(t, "output", path)
+	withGoExpr(t, goStringExpr("output", path))
 }
 
 // withGoName overrides the type's generated Go identifier.
 func withGoName(t *resolution.Type, name string) {
-	withGoExpr(t, "name", name)
+	withGoExpr(t, goStringExpr("name", name))
 }
 
-func withGoExpr(t *resolution.Type, expr, value string) {
+func goStringExpr(name, value string) resolution.Expression {
+	return resolution.Expression{
+		Name: name,
+		Values: []resolution.ExpressionValue{
+			{Kind: resolution.ValueKindString, StringValue: value},
+		},
+	}
+}
+
+func withGoExpr(t *resolution.Type, expr resolution.Expression) {
 	domains := maps.Clone(t.Domains)
 	if domains == nil {
 		domains = make(map[string]resolution.Domain)
@@ -457,16 +469,11 @@ func withGoExpr(t *resolution.Type, expr, value string) {
 	dom.Name = "go"
 	exprs := make(resolution.Expressions, 0, len(dom.Expressions)+1)
 	for _, e := range dom.Expressions {
-		if e.Name != expr {
+		if e.Name != expr.Name {
 			exprs = append(exprs, e)
 		}
 	}
-	exprs = append(exprs, resolution.Expression{
-		Name: expr,
-		Values: []resolution.ExpressionValue{
-			{Kind: resolution.ValueKindString, StringValue: value},
-		},
-	})
+	exprs = append(exprs, expr)
 	dom.Expressions = exprs
 	domains["go"] = dom
 	t.Domains = domains

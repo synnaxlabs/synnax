@@ -13,7 +13,7 @@ import { type schematic } from "@synnaxlabs/client";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Text } from "@synnaxlabs/lyra/text";
 import { color, direction, type text } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement, useMemo } from "react";
+import { type CSSProperties, type ReactElement } from "react";
 
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -54,10 +54,9 @@ export const OffPageReference = ({
   const PageIcon = PAGE_ICONS[pageType];
 
   const swap = direction.construct(orientation) === "y";
-  const style = useMemo<CSSProperties>(
-    () => ({ [Primitive.SYMBOL_COLOR]: color.rgbaString(fillColor) }),
-    [fillColor],
-  );
+  const style: CSSProperties = {
+    [Primitive.SYMBOL_COLOR]: color.rgbaString(fillColor),
+  };
 
   return (
     <Primitive.Div

@@ -60,8 +60,11 @@ type moduleSnapshot struct {
 }
 
 type channelInfo struct {
-	module        compiler.Module
-	calcDeps      []channel.Key
+	module   compiler.Module
+	calcDeps []channel.Key
+	// baseDeps are the concrete channels the channel reads, directly or through other
+	// calculated channels.
+	baseDeps      set.Set[channel.Key]
 	groupID       int
 	explicitCount int
 	depCount      int
@@ -366,6 +369,7 @@ func (g *Graph) updateSingle(
 	info.module = mod
 	info.groupID = newGroupID
 	info.calcDeps = newCalcDeps
+	info.baseDeps = baseDeps
 	info.explicitCount = oldExplicitCount
 	info.depCount = oldDepCount
 
@@ -587,6 +591,7 @@ func (g *Graph) addInternal(
 	info.module = mod
 	info.groupID = groupID
 	info.calcDeps = calcDeps
+	info.baseDeps = baseDeps
 	if explicit {
 		info.explicitCount = 1
 	}
@@ -855,6 +860,17 @@ func (g *Graph) ConcreteBaseKeys() set.Set[channel.Key] {
 		}
 	}
 	return allBaseDeps
+}
+
+// BaseKeys returns the concrete channels that the calculated channel with the given key
+// reads, directly or through other calculated channels. It returns an error if the
+// graph does not hold the channel.
+func (g *Graph) BaseKeys(key channel.Key) (set.Set[channel.Key], error) {
+	info, err := g.getChannelInfo(key)
+	if err != nil {
+		return nil, err
+	}
+	return info.baseDeps, nil
 }
 
 func (g *Graph) topologicalSortGroup(

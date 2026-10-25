@@ -21,7 +21,6 @@ import {
   type PropsWithChildren,
   type ReactElement,
   useEffect,
-  useMemo,
   useRef,
 } from "react";
 import { type z } from "zod";
@@ -101,7 +100,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
 
     const font = Theming.useTypography(labelLevel).toString();
 
-    const axisStyle = useMemo(() => ({ ...style, ...gridStyle }), [style, gridStyle]);
+    const axisStyle = { ...style, ...gridStyle };
 
     const prevLabelSize = useRef(0);
 

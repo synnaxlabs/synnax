@@ -9,7 +9,6 @@
 
 import { lineplot, type panel, type project } from "@synnaxlabs/client";
 import { LinePlot } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { Analytics } from "@/platform/analytics";
 import { Panel } from "@/platform/panel";
@@ -32,14 +31,11 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
       openTab({ variant: "resource", resource: lineplot.ontologyID(key), key: tabKey }),
     afterSuccess: () => capture("plot_created", {}),
   });
-  return useCallback(
-    (params = {}) =>
-      update({
-        name: "Line plot",
-        ranges: { x1: [getSelectedRange() ?? Session.Range.RECENT_KEY] },
-        ...params,
-        project: project ?? getActiveProject(),
-      }),
-    [update, project, getActiveProject, getSelectedRange],
-  );
+  return (params = {}) =>
+    update({
+      name: "Line plot",
+      ranges: { x1: [getSelectedRange() ?? Session.Range.RECENT_KEY] },
+      ...params,
+      project: project ?? getActiveProject(),
+    });
 };

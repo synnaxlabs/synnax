@@ -19,7 +19,6 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Arc, type Flux } from "@synnaxlabs/pluto";
-import { useCallback, useMemo } from "react";
 import { type z } from "zod";
 
 import { CSS } from "@/platform/css";
@@ -50,18 +49,14 @@ const Create = ({
 }: Modals.ContentProps<CreateModalParams, CreateModalResult>) => {
   const { form, save, variant } = Arc.useForm({
     query: null,
-    initialValues: useMemo(
-      () => ({ ...Arc.ZERO_FORM_VALUES, ...initialValues }),
-      [initialValues],
-    ),
-    afterSave: useCallback(
-      ({ value }: Flux.AfterSaveParams<Arc.FormQuery, typeof Arc.formSchema>) => {
-        const { key } = value();
-        if (key == null) throw new UnexpectedError("Arc key is null");
-        close({ key });
-      },
-      [close],
-    ),
+    initialValues: { ...Arc.ZERO_FORM_VALUES, ...initialValues },
+    afterSave: ({
+      value,
+    }: Flux.AfterSaveParams<Arc.FormQuery, typeof Arc.formSchema>) => {
+      const { key } = value();
+      if (key == null) throw new UnexpectedError("Arc key is null");
+      close({ key });
+    },
   });
 
   return (

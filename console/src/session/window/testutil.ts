@@ -58,7 +58,6 @@ export const createDriftStateWithWindow = (
       [label]: {
         key,
         stage: "created",
-        processCount: 0,
         reserved: true,
         focusCount: 0,
         centerCount: 0,

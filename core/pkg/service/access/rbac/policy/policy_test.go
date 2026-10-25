@@ -10,7 +10,6 @@
 package policy_test
 
 import (
-	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -613,24 +612,19 @@ var _ = Describe("Ontology Integration", func() {
 		})
 	})
 
-	Describe("OpenNexter", func() {
-		It("Should iterate over all policies", func(ctx SpecContext) {
-			w := svc.NewWriter(tx, false)
-			for range 3 {
+	Describe("Search", func() {
+		It(
+			"Should return the policies whose name matches the term",
+			func(ctx SpecContext) {
 				p := &policy.Policy{
-					Name:    "nexter-test",
+					Name:    "turbopump readers",
 					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
 					Actions: []access.Action{access.ActionRetrieve},
 				}
-				Expect(w.Create(ctx, p)).To(Succeed())
-			}
-			Expect(tx.Commit(ctx)).To(Succeed())
-
-			nexter, closer := MustSucceed2(svc.OpenNexter(ctx))
-			defer func() { Expect(closer.Close()).To(Succeed()) }()
-
-			count := len(slices.Collect(nexter))
-			Expect(count).To(BeNumerically(">=", 3))
-		})
+				Expect(svc.NewWriter(tx, false).Create(ctx, p)).To(Succeed())
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 10)).Keys).
+					To(Equal([]ontology.ID{p.OntologyID()}))
+			},
+		)
 	})
 })

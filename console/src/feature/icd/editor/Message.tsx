@@ -12,7 +12,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { Fields } from "@/feature/icd/editor/Fields";
 import { FormattedField, parseInteger } from "@/feature/icd/editor/FormattedField";
@@ -48,8 +48,7 @@ interface FieldsStatusProps {
 /** Shows a problem with the fields of the message as a whole. */
 const FieldsStatus = ({ path }: FieldsStatusProps): ReactElement | null => {
   const fieldsPath = `${path}.fields`;
-  const isFields = useCallback((key: string) => key === fieldsPath, [fieldsPath]);
-  const status = useNestedStatus(fieldsPath, isFields);
+  const status = useNestedStatus(fieldsPath, (key) => key === fieldsPath);
   if (status == null) return null;
   return <Input.HelpText variant={status.variant}>{status.message}</Input.HelpText>;
 };

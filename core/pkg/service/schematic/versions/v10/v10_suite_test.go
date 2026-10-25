@@ -7,5 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { Controls, type ControlsProps } from "@/os/Controls/Controls";
-export { type ControlsAction } from "@/os/Controls/types";
+package v10_test
+
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+func TestSchematicV10(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Service Schematic v10 Suite", SuiteConfig())
+}
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

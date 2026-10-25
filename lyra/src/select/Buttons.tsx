@@ -10,7 +10,7 @@
 import "@/select/Buttons.css";
 
 import { type record } from "@synnaxlabs/x";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
@@ -70,7 +70,7 @@ export const Buttons = <K extends record.Key = record.Key>({
     onChange,
   } as FrameProps<K, record.Keyed<K>>;
   const isEmpty = value == null || (Array.isArray(value) && value.length === 0);
-  const ctx = useMemo(() => ({ preview, variant }), [preview, variant]);
+  const ctx = { preview, variant };
   const text = variant === "text";
   return (
     <Frame<K, record.Keyed<K>> closeDialogOnSelect={false} {...selectionProps}>

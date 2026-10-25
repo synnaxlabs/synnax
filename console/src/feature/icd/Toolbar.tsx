@@ -15,7 +15,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, type Flux, ICD } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import { useCreate } from "@/feature/icd/useCreate";
 import { useImport } from "@/feature/icd/useImport";
@@ -43,13 +43,10 @@ const ContextMenu = ({ keys, getItem }: ContextMenuProps): ReactElement => {
   const handleLink = Core.useCopyLinkToClipboard();
   const confirm = Modals.useConfirmDelete({ type: "ICD", icon: "Library" });
   const { update: del } = ICD.useDelete({
-    beforeUpdate: useCallback(
-      async ({ data }: Flux.BeforeUpdateParams<ICD.DeleteParams>) => {
-        const icds = getItem(array.toArray(data));
-        return (await confirm(icds)) && data;
-      },
-      [getItem, confirm],
-    ),
+    beforeUpdate: async ({ data }: Flux.BeforeUpdateParams<ICD.DeleteParams>) => {
+      const icds = getItem(array.toArray(data));
+      return (await confirm(icds)) && data;
+    },
   });
   const [first] = keys;
   const single = keys.length === 1;
@@ -130,13 +127,10 @@ const Content = (): ReactElement => {
   const canCreate = Access.useCreateGranted(icd.TYPE_ONTOLOGY_ID);
   const { data, getItem, subscribe, retrieve, answered } = ICD.useList({});
   const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
-  const handleOpen = useCallback(
-    (key: icd.Key) => openTab({ variant: "resource", resource: icd.ontologyID(key) }),
-    [openTab],
-  );
-  const menu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
-    (props) => <ContextMenu {...props} getItem={getItem} />,
-    [getItem],
+  const handleOpen = (key: icd.Key) =>
+    openTab({ variant: "resource", resource: icd.ontologyID(key) });
+  const menu: NonNullable<Menu.ContextMenuProps["menu"]> = (props) => (
+    <ContextMenu {...props} getItem={getItem} />
   );
   return (
     <Menu.ContextMenu menu={menu} {...menuProps}>

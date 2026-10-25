@@ -168,6 +168,65 @@ const MARK_BARE_USE: PluginObj = {
   },
 };
 
+const HOOK = /^use[A-Z0-9]/;
+const DIRECTIVES = new Set(["use memo", "use no memo", "use forget", "use no forget"]);
+
+const functionName = (fn: NodePath<t.Function>): string | null => {
+  if (fn.isFunctionDeclaration()) return fn.node.id?.name ?? null;
+  const { parent } = fn;
+  let id: t.Node | null = null;
+  if (t.isVariableDeclarator(parent) && parent.init === fn.node) id = parent.id;
+  else if (t.isAssignmentExpression(parent) && parent.right === fn.node)
+    id = parent.left;
+  else if (t.isObjectProperty(parent) && parent.value === fn.node && !parent.computed)
+    id = parent.key;
+  if (t.isMemberExpression(id) && !id.computed) id = id.property;
+  return t.isIdentifier(id) ? id.name : null;
+};
+
+const hasDirective = (directives: t.Directive[]): boolean =>
+  directives.some((d) => DIRECTIVES.has(d.value.value));
+
+const MEMO_APIS = new Set(["memo", "forwardRef"]);
+
+const isMemoCallback = (fn: NodePath<t.Function>): boolean => {
+  const { parent } = fn;
+  if (!t.isCallExpression(parent) || parent.arguments[0] !== fn.node) return false;
+  const { callee } = parent;
+  const api =
+    t.isMemberExpression(callee) && t.isIdentifier(callee.object, { name: "React" })
+      ? callee.property
+      : callee;
+  return t.isIdentifier(api) && MEMO_APIS.has(api.name);
+};
+
+/**
+ * Compiles every function named like a hook, as rules-of-hooks treats it, and every
+ * `memo` or `forwardRef` component. The compiler skips one unless it sees a hook call
+ * or JSX in it, and it misses hook calls through a nested or lowercase namespace, such
+ * as `Session.Panel.useGetSelected()`.
+ */
+const COMPILE_HOOKS_AND_MEMOS: PluginObj = {
+  visitor: {
+    Program: (program, { filename }) => {
+      if (filename != null && isWorker(filename)) return;
+      if (hasDirective(program.node.directives)) return;
+      program.traverse({
+        Function: (fn) => {
+          const name = functionName(fn);
+          if ((name == null || !HOOK.test(name)) && !isMemoCallback(fn)) return;
+          fn.skip();
+          const directive = t.directive(t.directiveLiteral("use memo"));
+          const { body } = fn.node;
+          if (!t.isBlockStatement(body))
+            fn.node.body = t.blockStatement([t.returnStatement(body)], [directive]);
+          else if (!hasDirective(body.directives)) body.directives.unshift(directive);
+        },
+      });
+    },
+  },
+};
+
 /** Reverses {@link MARK_BARE_USE} after the compiler runs. */
 const RESTORE_BARE_USE: PluginObj = {
   visitor: {
@@ -187,6 +246,7 @@ const RESTORE_BARE_USE: PluginObj = {
 export const plugins = (compiler: PluginItem): PluginItem[] => [
   UNWRAP_CASTS,
   MARK_BARE_USE,
+  COMPILE_HOOKS_AND_MEMOS,
   compiler,
   RESTORE_BARE_USE,
   GLOBAL_SYMBOL,

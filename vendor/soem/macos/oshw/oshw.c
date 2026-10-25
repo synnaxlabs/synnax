@@ -68,6 +68,11 @@ ec_adaptert *oshw_find_adapters(void)
     */
    for (d = alldevs; d != NULL; d = d->next)
    {
+      /* A wireless adapter cannot carry EtherCAT, and its name (en0) looks wired. */
+      if (d->flags & PCAP_IF_WIRELESS)
+      {
+         continue;
+      }
       adapter = (ec_adaptert *)malloc(sizeof(ec_adaptert));
       if (adapter == NULL)
       {

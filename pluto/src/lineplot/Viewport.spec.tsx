@@ -54,4 +54,37 @@ describe("Viewport", () => {
       expect(container.querySelector(".pluto-line-plot__loading")).toBeNull(),
     );
   });
+
+  it("should show the corner spinner while fetching after the first load", async () => {
+    const { container, root } = render(
+      <Frame aetherKey="plot">
+        <Viewport />
+      </Frame>,
+      { render: true, registry: lineplot.REGISTRY },
+    );
+    let plot: lineplot.LinePlot | null = null;
+    await waitFor(() => {
+      plot = root.findChildAtPath(WORKER_PATH) as lineplot.LinePlot;
+      expect(plot).toBeInstanceOf(lineplot.LinePlot);
+    });
+    expect(container.querySelector(".pluto-line-plot__fetching")).toBeNull();
+    act(() => {
+      plot?.setState((p) => ({ ...p, fetching: true }));
+    });
+    await waitFor(() =>
+      expect(container.querySelector(".pluto-line-plot__fetching")).not.toBeNull(),
+    );
+    act(() => {
+      plot?.setState((p) => ({ ...p, loading: true }));
+    });
+    await waitFor(() =>
+      expect(container.querySelector(".pluto-line-plot__fetching")).toBeNull(),
+    );
+    act(() => {
+      plot?.setState((p) => ({ ...p, loading: false, fetching: false }));
+    });
+    await waitFor(() =>
+      expect(container.querySelector(".pluto-line-plot__fetching")).toBeNull(),
+    );
+  });
 });

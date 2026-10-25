@@ -12,7 +12,7 @@ import "@/schematic/node/vessels/tank/tank.css";
 import { type schematic } from "@synnaxlabs/client";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { border, color } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement, useMemo } from "react";
+import { type CSSProperties, type ReactElement } from "react";
 
 import { Border } from "@/schematic/node/common/border";
 import { Handle } from "@/schematic/node/common/handle";
@@ -49,17 +49,14 @@ export const Tank = ({
   const bottomOffset = 100 - topOffset;
   const cssBorderRadius = boxBorderRadius ?? radiusCSS;
   const fillCSS = color.cssString(fillColor);
-  const style = useMemo<CSSProperties>(
-    () => ({
-      width,
-      height,
-      borderRadius: cssBorderRadius,
-      [Primitive.SYMBOL_COLOR]: color.rgbaString(strokeColor),
-      backgroundColor: fillCSS,
-      borderWidth: strokeWidth,
-    }),
-    [width, height, cssBorderRadius, strokeColor, fillCSS, strokeWidth],
-  );
+  const style: CSSProperties = {
+    width,
+    height,
+    borderRadius: cssBorderRadius,
+    [Primitive.SYMBOL_COLOR]: color.rgbaString(strokeColor),
+    backgroundColor: fillCSS,
+    borderWidth: strokeWidth,
+  };
   return (
     <Primitive.Div
       className={CSS.cls(className, CSS.B("tank"), CSS.B("symbol-colored"))}

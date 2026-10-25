@@ -45,11 +45,16 @@ export const getStage = (
 const nextBoundary = (start: number, end: number, now: TimeStamp): TimeStamp => {
   const midnight = now.date();
   midnight.setHours(24, 0, 0, 0);
-  let next = new TimeStamp(midnight).nanoseconds;
+  let next = new TimeStamp(midnight);
   const day = end >= UNSET ? start + Number(TimeSpan.DAY.valueOf()) : UNSET;
-  for (const instant of [start, end, day])
-    if (instant < UNSET && instant > now.nanoseconds && instant < next) next = instant;
-  return new TimeStamp(next);
+  for (const instant of [start, end, day]) {
+    if (instant >= UNSET) continue;
+    // Compares as getStage does. A float64 compare reads an instant that rounds up past
+    // the clock's reading as passed, so the stage never moves.
+    const ts = new TimeStamp(instant);
+    if (ts.after(now) && ts.before(next)) next = ts;
+  }
+  return next;
 };
 
 /**

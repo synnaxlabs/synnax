@@ -10,7 +10,6 @@
 import { type channel, DisconnectedError } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { useIsRunning } from "@/platform/task/Form";
 import { useKey } from "@/platform/task/useKey";
@@ -37,40 +36,27 @@ export const useTare = <C extends TareableChannel>({
   const key = useKey();
   const isRunning = useIsRunning();
   const handleError = Status.useErrorHandler();
-  const tare = useCallback(
-    (keys: channel.Key[]) => {
-      if (client == null) throw new DisconnectedError();
-      if (key == null) throw new Error("Task has not been configured");
-      const args = { keys };
-      handleError(
-        async () =>
-          await client.tasks.executeCommand({ task: key, type: "tare", args }),
-        "Failed to tare channels",
-      );
-    },
-    [client, key, handleError],
-  );
-  const getTareableChannels = useCallback(
-    (keys: string[], channels: C[]) => {
-      const keySet = new Set(keys);
-      return channels.filter(
-        (channel) => keySet.has(channel.key) && isChannelTareable?.(channel) !== false,
-      );
-    },
-    [isChannelTareable],
-  );
-  const tareSingle = useCallback((key: channel.Key) => tare([key]), [tare]);
-  const allowTare = useCallback(
-    (keys: string[], channels: C[]) =>
-      getTareableChannels(keys, channels).length > 0 && isRunning,
-    [getTareableChannels, isRunning],
-  );
-  const handleTare = useCallback(
-    (keys: string[], channels: C[]) => {
-      const tareableChannels = getTareableChannels(keys, channels);
-      tare(tareableChannels.map(({ channel }) => channel));
-    },
-    [getTareableChannels, tare],
-  );
+  const tare = (keys: channel.Key[]) => {
+    if (client == null) throw new DisconnectedError();
+    if (key == null) throw new Error("Task has not been configured");
+    const args = { keys };
+    handleError(
+      async () => await client.tasks.executeCommand({ task: key, type: "tare", args }),
+      "Failed to tare channels",
+    );
+  };
+  const getTareableChannels = (keys: string[], channels: C[]) => {
+    const keySet = new Set(keys);
+    return channels.filter(
+      (channel) => keySet.has(channel.key) && isChannelTareable?.(channel) !== false,
+    );
+  };
+  const tareSingle = (key: channel.Key) => tare([key]);
+  const allowTare = (keys: string[], channels: C[]) =>
+    getTareableChannels(keys, channels).length > 0 && isRunning;
+  const handleTare = (keys: string[], channels: C[]) => {
+    const tareableChannels = getTareableChannels(keys, channels);
+    tare(tareableChannels.map(({ channel }) => channel));
+  };
   return [tareSingle, allowTare, handleTare];
 };

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color, TimeStamp } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement, useCallback, useMemo } from "react";
+import { type PropsWithChildren, type ReactElement } from "react";
 import { z } from "zod";
 
 import { context } from "@/context";
@@ -86,29 +86,23 @@ export const Provider = ({
 
   const valueRef = useSyncedRef(value);
 
-  const updateFrequent = useCallback(
-    (colorVal: color.Color) => {
-      const prev = valueRef.current;
-      const hex = color.hex(colorVal);
-      const count = prev.frequent[hex]?.count ?? 0;
-      const next: Frequent = {
-        ...prev.frequent,
-        [hex]: {
-          lastUsed: Number(TimeStamp.now().valueOf()),
-          count: count + 1,
-          relevance: 0,
-        },
-      };
-      const nextFreq = recalculate(10, next);
-      setValue({ ...prev, frequent: nextFreq });
-    },
-    [valueRef, setValue],
-  );
+  const updateFrequent = (colorVal: color.Color) => {
+    const prev = valueRef.current;
+    const hex = color.hex(colorVal);
+    const count = prev.frequent[hex]?.count ?? 0;
+    const next: Frequent = {
+      ...prev.frequent,
+      [hex]: {
+        lastUsed: Number(TimeStamp.now().valueOf()),
+        count: count + 1,
+        relevance: 0,
+      },
+    };
+    const nextFreq = recalculate(10, next);
+    setValue({ ...prev, frequent: nextFreq });
+  };
 
-  const memoValue = useMemo(
-    () => ({ ...value, updateFrequent }),
-    [value, updateFrequent],
-  );
+  const memoValue = { ...value, updateFrequent };
   return <Context value={memoValue}>{children}</Context>;
 };
 

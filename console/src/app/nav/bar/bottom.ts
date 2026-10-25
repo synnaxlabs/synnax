@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useMemo } from "react";
-
 import { Session } from "@/session";
 
 export interface BottomActions {
@@ -22,14 +20,11 @@ export interface BottomActions {
 /** Bound dispatchers for the bottom drawer's toolbar item. */
 export const useBottomActions = (): BottomActions => {
   const dispatch = Session.useDispatch();
-  return useMemo(
-    () => ({
-      select: () => dispatch(Session.Nav.selectBottom({})),
-      toggle: () => dispatch(Session.Nav.toggleBottom({})),
-      pin: () => dispatch(Session.Nav.showBottom({})),
-      startHover: () => dispatch(Session.Nav.startBottomHover({})),
-      stopHover: () => dispatch(Session.Nav.stopBottomHover({})),
-    }),
-    [dispatch],
-  );
+  return {
+    select: () => dispatch(Session.Nav.selectBottom({})),
+    toggle: () => dispatch(Session.Nav.toggleBottom({})),
+    pin: () => dispatch(Session.Nav.showBottom({})),
+    startHover: () => dispatch(Session.Nav.startBottomHover({})),
+    stopHover: () => dispatch(Session.Nav.stopBottomHover({})),
+  };
 };

@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type optional } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { Session } from "@/session";
 
@@ -52,10 +51,7 @@ export const create = <
 ): OpenHook<Params> => {
   const useOpen = (): Opener<Params> => {
     const store = Session.Modals.useStore("Modals.create");
-    return useCallback(
-      (params?: Params) => store.push(Component, params, () => {}),
-      [store],
-    );
+    return (params?: Params) => store.push(Component, params, () => {});
   };
   return useOpen;
 };
@@ -73,11 +69,8 @@ export const createPrompt = <
 ): PromptHook<Params, Result> => {
   const usePrompt = (): Prompt<Result, Params> => {
     const store = Session.Modals.useStore("Modals.createPrompt");
-    return useCallback(
-      (params?: Params) =>
-        new Promise<Result | null>((resolve) => store.push(Component, params, resolve)),
-      [store],
-    );
+    return (params?: Params) =>
+      new Promise<Result | null>((resolve) => store.push(Component, params, resolve));
   };
   return usePrompt;
 };

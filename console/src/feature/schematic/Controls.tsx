@@ -12,7 +12,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Control, Diagram, Schematic } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
-import { memo, type ReactElement, useCallback } from "react";
+import { memo, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Framer } from "@/platform/framer";
@@ -22,10 +22,7 @@ import { Session } from "@/session";
 const ControlToggleButton = (): ReactElement => {
   const isAcquired = Session.Schematic.useSelectControlIsAcquired();
   const { acquire, release } = Control.useContext();
-  const handleChange = useCallback(
-    (v: boolean) => (v ? acquire() : release()),
-    [acquire, release],
-  );
+  const handleChange = (v: boolean) => (v ? acquire() : release());
   return (
     <Button.Toggle
       value={isAcquired}
@@ -43,13 +40,10 @@ const TooltipsToggleButton = (): ReactElement => {
   const key = Schematic.useKey();
   const dispatch = Session.useDispatch();
   const tooltipsDisabled = Session.Schematic.useSelectTooltipsDisabled();
-  const handleChange = useCallback(
-    (enabled: boolean) =>
-      dispatch(
-        Session.Schematic.setTooltipsDisabled({ key, tooltipsDisabled: !enabled }),
-      ),
-    [dispatch, key],
-  );
+  const handleChange = (enabled: boolean) =>
+    dispatch(
+      Session.Schematic.setTooltipsDisabled({ key, tooltipsDisabled: !enabled }),
+    );
   return (
     <Button.Toggle
       value={!tooltipsDisabled}

@@ -26,8 +26,7 @@ import {
   type PropsWithChildren,
   type ReactElement,
   startTransition,
-  useCallback,
-  useMemo,
+  useRef,
   useState,
 } from "react";
 import { assert, beforeAll, describe, expect, it, vi } from "vitest";
@@ -384,8 +383,8 @@ describe("use", () => {
     ): Promise<Error[]> => {
       const Display = (): ReactElement => {
         const value = use({ key });
-        const format = useCallback(() => `n=${value}`, [value]);
-        return <div data-testid="value">{format()}</div>;
+        useRef(null);
+        return <div data-testid="value">{`n=${value}`}</div>;
       };
       const Harness = (): ReactElement => {
         const [mounted, setMounted] = useState(false);
@@ -1301,7 +1300,7 @@ describe("use connection changes", () => {
 
     const Display = (): ReactElement => {
       const value = use({ key: "disconnect-test" });
-      const label = useMemo(() => `value-${value}`, [value]);
+      const label = `value-${value}`;
       return <div data-testid="value">{label}</div>;
     };
 

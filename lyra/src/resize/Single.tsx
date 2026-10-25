@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { bounds, box, location } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useRef, useState } from "react";
+import { type ReactElement, useRef, useState } from "react";
 
 import { Cursor } from "@/cursor";
 import { Base, type BaseProps } from "@/resize/Base";
@@ -52,43 +52,34 @@ export const Single = ({
   const loc = location.construct(propsLoc);
   const ref = useRef<HTMLDivElement>(null);
 
-  const calcNextSize = useCallback(
-    (dragRegion: box.Box): [clamped: number, raw: number] => {
-      const signedDim = box.dim(dragRegion, location.direction(loc), true);
-      const isInverted = loc === "bottom" || loc === "right";
-      const dim = isInverted ? -signedDim : signedDim;
-      const rawNextSize = marker.current + dim;
-      return [bounds.clamp(fullSizeBounds, rawNextSize), rawNextSize];
-    },
-    [loc, fullSizeBounds],
-  );
+  const calcNextSize = (dragRegion: box.Box): [clamped: number, raw: number] => {
+    const signedDim = box.dim(dragRegion, location.direction(loc), true);
+    const isInverted = loc === "bottom" || loc === "right";
+    const dim = isInverted ? -signedDim : signedDim;
+    const rawNextSize = marker.current + dim;
+    return [bounds.clamp(fullSizeBounds, rawNextSize), rawNextSize];
+  };
 
-  const handleStart = useCallback(() => {
+  const handleStart = () => {
     marker.current = clamped;
-  }, [clamped]);
+  };
 
-  const handleMove = useCallback(
-    (dragRegion: box.Box) => {
-      const [nextSize, rawNextSize] = calcNextSize(dragRegion);
-      setDragSize(nextSize);
-      if (ref.current != null)
-        onResize?.(nextSize, {
-          box: box.construct(ref.current),
-          dragSize: rawNextSize,
-        });
-    },
-    [onResize, calcNextSize],
-  );
+  const handleMove = (dragRegion: box.Box) => {
+    const [nextSize, rawNextSize] = calcNextSize(dragRegion);
+    setDragSize(nextSize);
+    if (ref.current != null)
+      onResize?.(nextSize, {
+        box: box.construct(ref.current),
+        dragSize: rawNextSize,
+      });
+  };
 
-  const handleEnd = useCallback(
-    (dragRegion: box.Box) => {
-      const [nextSize, dragSize] = calcNextSize(dragRegion);
-      setDragSize(null);
-      if (ref.current != null)
-        onResizeEnd?.(nextSize, { box: box.construct(ref.current), dragSize });
-    },
-    [onResizeEnd, calcNextSize],
-  );
+  const handleEnd = (dragRegion: box.Box) => {
+    const [nextSize, dragSize] = calcNextSize(dragRegion);
+    setDragSize(null);
+    if (ref.current != null)
+      onResizeEnd?.(nextSize, { box: box.construct(ref.current), dragSize });
+  };
 
   const handleDragStart = Cursor.useDrag({
     onMove: handleMove,

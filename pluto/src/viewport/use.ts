@@ -15,7 +15,6 @@ import { box, type dimensions, location, record, scale, xy } from "@synnaxlabs/x
 import {
   type ForwardedRef,
   type RefObject,
-  useCallback,
   useEffect,
   useImperativeHandle,
   useRef,
@@ -182,91 +181,85 @@ export const use = ({
       [initialTriggers],
     );
 
-  const handleZoomSelect = useCallback(
-    (b: box.Box, prev: box.Box, canvas: box.Box): box.Box | null => {
-      const next = constructScale(prev, canvas).box(fullSize(threshold, b, canvas));
-      return box.truncate(next, calculateTruncPrecision(next));
-    },
-    [threshold],
-  );
+  const handleZoomSelect = (
+    b: box.Box,
+    prev: box.Box,
+    canvas: box.Box,
+  ): box.Box | null => {
+    const next = constructScale(prev, canvas).box(fullSize(threshold, b, canvas));
+    return box.truncate(next, calculateTruncPrecision(next));
+  };
 
-  const handleDrag = useCallback<Triggers.DragCallback>(
-    ({ box: box_, triggers, stage, cursor }): void => {
-      if (canvasRef.current == null) return;
-      const mode = Triggers.determineMode<TriggerMode>(triggerConfig, triggers);
-      const canvas = box.construct(canvasRef.current);
-      if (mode == null) return;
+  const handleDrag: Triggers.DragCallback = ({
+    box: box_,
+    triggers,
+    stage,
+    cursor,
+  }): void => {
+    if (canvasRef.current == null) return;
+    const mode = Triggers.determineMode<TriggerMode>(triggerConfig, triggers);
+    const canvas = box.construct(canvasRef.current);
+    if (mode == null) return;
 
-      if (mode === "cancel") {
-        setMaskBox(box.ZERO);
-        onChange?.({ box: stateRef.current, mode, stage, cursor });
+    if (mode === "cancel") {
+      setMaskBox(box.ZERO);
+      onChange?.({ box: stateRef.current, mode, stage, cursor });
+      return;
+    }
+
+    if (mode === "zoomReset") {
+      setMaskBox(box.ZERO);
+      onChange?.({ box: box.DECIMAL, mode, stage, cursor });
+      return setStateRef(box.DECIMAL);
+    }
+
+    const isClick_ = isClick(box_);
+
+    if (stage === "end") {
+      const isContext = triggers.find((t) => t.includes("MouseRight"));
+      // This prevents clicks from being registered as a drag
+      if (isClick_ && !isContext) {
+        if (mode === "zoom") setMaskBox(box.ZERO);
+        onChange?.({ box: stateRef.current, mode: "click", stage, cursor });
         return;
       }
-
-      if (mode === "zoomReset") {
-        setMaskBox(box.ZERO);
-        onChange?.({ box: box.DECIMAL, mode, stage, cursor });
-        return setStateRef(box.DECIMAL);
-      }
-
-      const isClick_ = isClick(box_);
-
-      if (stage === "end") {
-        const isContext = triggers.find((t) => t.includes("MouseRight"));
-        // This prevents clicks from being registered as a drag
-        if (isClick_ && !isContext) {
-          if (mode === "zoom") setMaskBox(box.ZERO);
-          onChange?.({ box: stateRef.current, mode: "click", stage, cursor });
-          return;
-        }
-        return setStateRef((prev) => {
-          if (mode === "pan") {
-            const next = handlePan(box_, prev, canvas);
-            if (next === null || box.equals(next, prev)) return prev;
-            onChange?.({ box: next, mode, stage, cursor });
-            return next;
-          }
-          const next = handleZoomSelect(box_, prev, canvas);
-          if (next === null || (isContext && !box.areaIsZero(maskBoxRef.current)))
-            return prev;
+      return setStateRef((prev) => {
+        if (mode === "pan") {
+          const next = handlePan(box_, prev, canvas);
+          if (next === null || box.equals(next, prev)) return prev;
           onChange?.({ box: next, mode, stage, cursor });
+          return next;
+        }
+        const next = handleZoomSelect(box_, prev, canvas);
+        if (next === null || (isContext && !box.areaIsZero(maskBoxRef.current)))
+          return prev;
+        onChange?.({ box: next, mode, stage, cursor });
 
-          if (mode === "zoom") {
-            setMaskBox(box.ZERO);
-            return next;
-          }
-          return box.truncate(prev, calculateTruncPrecision(prev));
-        });
-      }
+        if (mode === "zoom") {
+          setMaskBox(box.ZERO);
+          return next;
+        }
+        return box.truncate(prev, calculateTruncPrecision(prev));
+      });
+    }
 
-      if (MASK_MODES.includes(mode)) {
-        if (isClick_) return;
-        return setMaskBox(
-          scale.XY.scale(canvas)
-            .clamp(canvas)
-            .translate({ x: -box.left(canvas), y: -box.top(canvas) })
-            .box(fullSize(threshold, box_, canvas)),
-        );
-      }
+    if (MASK_MODES.includes(mode)) {
+      if (isClick_) return;
+      return setMaskBox(
+        scale.XY.scale(canvas)
+          .clamp(canvas)
+          .translate({ x: -box.left(canvas), y: -box.top(canvas) })
+          .box(fullSize(threshold, box_, canvas)),
+      );
+    }
 
-      setMaskBox((prev) => (!box.areaIsZero(prev) ? box.ZERO : prev));
-      if (xy.distance(cursor, prevCursorRef.current) < CURSOR_TRANSLATION_THRESHOLD)
-        return;
-      prevCursorRef.current = cursor;
-      const next = handlePan(box_, stateRef.current, canvas);
-      onChange?.({ box: next, mode, stage, cursor });
-    },
-    [
-      setMaskBox,
-      onChange,
-      triggerConfig,
-      threshold,
-      setStateRef,
-      stateRef,
-      maskBoxRef,
-      handleZoomSelect,
-    ],
-  );
+    setMaskBox((prev) => (!box.areaIsZero(prev) ? box.ZERO : prev));
+    if (xy.distance(cursor, prevCursorRef.current) < CURSOR_TRANSLATION_THRESHOLD)
+      return;
+    prevCursorRef.current = cursor;
+    const next = handlePan(box_, stateRef.current, canvas);
+    onChange?.({ box: next, mode, stage, cursor });
+  };
 
   useImperativeHandle(
     ref,
@@ -335,15 +328,12 @@ export const use = ({
     loose: true,
   });
 
-  const handleKeyTrigger = useCallback(
-    ({ triggers, stage }: Triggers.UseEvent) => {
-      if (stage === "end") return setMaskMode(defaultMode);
-      const mode = Triggers.determineMode<TriggerMode>(purgedTriggers, triggers);
-      if (mode == null) return;
-      setMaskMode(mode);
-    },
-    [purgedTriggers, defaultMode],
-  );
+  const handleKeyTrigger = ({ triggers, stage }: Triggers.UseEvent) => {
+    if (stage === "end") return setMaskMode(defaultMode);
+    const mode = Triggers.determineMode<TriggerMode>(purgedTriggers, triggers);
+    if (mode == null) return;
+    setMaskMode(mode);
+  };
 
   Triggers.use({
     triggers: reducedPurgedTriggers,

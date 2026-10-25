@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Session } from "@/session";
@@ -23,11 +22,8 @@ export const useMaybeChange = (): ((key: string) => void) => {
   // Optional: the active project vanishes transiently when it is deleted, and this
   // hook's consumers stay subscribed until the Guard unmounts them.
   const selected = Session.Project.useSelectOptionalSelected();
-  return useCallback(
-    (key) => {
-      if (selected === key) return;
-      dispatch(Session.Project.select(key));
-    },
-    [dispatch, selected],
-  );
+  return (key) => {
+    if (selected === key) return;
+    dispatch(Session.Project.select(key));
+  };
 };

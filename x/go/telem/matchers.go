@@ -42,7 +42,7 @@ type seriesMatcher struct {
 // - DataType (unless excluded)
 // - TimeRange (unless excluded)
 // - Data contents (unless excluded)
-// - Alignment (unless excluded)
+// - Alignment and AlignmentMultiple (unless excluded)
 func MatchSeries(expected Series, opts ...SeriesMatcherOption) types.GomegaMatcher {
 	m := &seriesMatcher{
 		expected:       expected,
@@ -103,7 +103,8 @@ func (m *seriesMatcher) Match(actual any) (success bool, err error) {
 		return false, nil
 	}
 	if !m.excludedFields.Contains("Alignment") &&
-		actualSeries.Alignment != m.expected.Alignment {
+		(actualSeries.Alignment != m.expected.Alignment ||
+			actualSeries.Multiple() != m.expected.Multiple()) {
 		return false, nil
 	}
 	if !m.excludedFields.Contains("Data") &&
@@ -143,6 +144,14 @@ func (m *seriesMatcher) FailureMessage(actual any) string {
 			"Alignment:\n\tExpected: %v\n\tActual: %v",
 			m.expected.Alignment,
 			actualSeries.Alignment,
+		))
+	}
+	if !m.excludedFields.Contains("Alignment") &&
+		actualSeries.Multiple() != m.expected.Multiple() {
+		differences = append(differences, fmt.Sprintf(
+			"AlignmentMultiple:\n\tExpected: %d\n\tActual: %d",
+			m.expected.Multiple(),
+			actualSeries.Multiple(),
 		))
 	}
 	if dataTypesEqual && !m.excludedFields.Contains("Data") &&

@@ -10,7 +10,6 @@
 import { arc } from "@synnaxlabs/client";
 import { Access, Arc, type Diagram, type Viewport } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
-import { useCallback } from "react";
 import { useStore } from "react-redux";
 
 import {
@@ -41,14 +40,11 @@ const createGetter = <R>(selector: (params: KeyedSelectorParams) => R) => {
   const useGetter = (): ((args?: { key?: arc.Key }) => R) => {
     const store = useStore<StoreState>();
     const scopeKey = Arc.Scope.useOptional();
-    return useCallback(
-      (args) =>
-        selector({
-          state: store.getState(),
-          key: Arc.Scope.require(args?.key ?? scopeKey),
-        }),
-      [store, scopeKey],
-    );
+    return (args) =>
+      selector({
+        state: store.getState(),
+        key: Arc.Scope.require(args?.key ?? scopeKey),
+      });
   };
   return useGetter;
 };

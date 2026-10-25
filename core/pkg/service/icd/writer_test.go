@@ -297,18 +297,13 @@ var _ = Describe("Writer", func() {
 	Describe("Retrieve", func() {
 		It("Should find an ICD by a fuzzy search on its name", func(ctx SpecContext) {
 			ic := icd.ICD{Name: "Flight Controls ICD"}
-			Expect(svc.NewWriter(nil).Create(ctx, &ic)).To(Succeed())
-			DeferCleanup(func(ctx SpecContext) {
-				Expect(svc.NewWriter(nil).Delete(ctx, ic.Key)).To(Succeed())
-			})
-			Eventually(func(g Gomega) {
-				var res []icd.ICD
-				g.Expect(svc.NewRetrieve().
-					Search("flight controls").
-					Entries(&res).
-					Exec(ctx, nil)).To(Succeed())
-				g.Expect(res).To(ContainElement(HaveField("Key", ic.Key)))
-			}).Should(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, &ic)).To(Succeed())
+			var res []icd.ICD
+			Expect(svc.NewRetrieve().
+				Search("flight controls").
+				Entries(&res).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(HaveExactElements(HaveField("Key", ic.Key)))
 		})
 	})
 })

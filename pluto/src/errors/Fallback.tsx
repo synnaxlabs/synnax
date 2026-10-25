@@ -19,14 +19,7 @@ import { Logo } from "@synnaxlabs/lyra/logo";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Text } from "@synnaxlabs/lyra/text";
 import { errors, primitive, type record } from "@synnaxlabs/x";
-import {
-  type PropsWithChildren,
-  type ReactElement,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { type PropsWithChildren, type ReactElement, useEffect, useState } from "react";
 import { z } from "zod";
 
 import { type ResolvedStack, resolveStack } from "@/errors/resolveStack";
@@ -112,9 +105,9 @@ export const Fallback = ({
   const message =
     error instanceof z.core.$ZodError ? z.prettifyError(error) : error.message;
   const multiline = message.includes("\n");
-  const causes = useMemo(() => causeChain(error), [error]);
+  const causes = causeChain(error);
 
-  const getCopyText = useCallback(() => {
+  const getCopyText = () => {
     const sections: string[] = [];
     sections.push(`Error: ${error.name}`);
     sections.push(`Message: ${error.message}`);
@@ -125,7 +118,7 @@ export const Fallback = ({
     if (extraInfo && Object.keys(extraInfo).length > 0)
       sections.push(`\nAdditional info:\n${JSON.stringify(extraInfo, null, 2)}`);
     return sections.join("\n");
-  }, [error, causes, displayStack, displayComponentStack, extraInfo]);
+  };
 
   return (
     <Flex.Box className={CSS.BE("error-fallback", "container")} y grow center>

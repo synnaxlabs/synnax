@@ -230,7 +230,7 @@ export interface CreateStoreOptions extends Partial<
 
 export const createStore = async (opts: CreateStoreOptions = {}): Promise<Store> => {
   const {
-    runtime = new Runtime.Drift<State, Action>(),
+    runtime = Runtime.createDrift<State, Action>(),
     enablePrerender = !IS_DEV,
     debug = false,
     enablePersistence = true,

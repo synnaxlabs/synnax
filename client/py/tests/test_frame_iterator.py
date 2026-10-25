@@ -8,7 +8,10 @@
 #  included in the file licenses/APL.txt.
 
 
+from collections.abc import Callable
+
 import numpy as np
+import pydantic
 import pytest
 
 import synnax as sy
@@ -377,10 +380,10 @@ class TestIterator:
         result = client.read_latest(data_ch.key)
         assert np.array_equal(result, np.array([10]))
 
-    def test_downsample_factor_2(
+    def test_stride_factor_2(
         self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ) -> None:
-        """Test downsampling with factor of 2."""
+        """Should keep every second sample and report a multiple of 2"""
         idx_ch, data_ch = indexed_pair
         time_data = seconds_linspace(1, 8)
         data = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], dtype=np.float32)
@@ -388,18 +391,20 @@ class TestIterator:
         data_ch.write(sy.TimeSpan.SECOND * 1, data)
 
         with client.open_iterator(
-            sy.TimeRange.MAX, [idx_ch.key, data_ch.key], downsample_factor=2
+            sy.TimeRange.MAX,
+            [idx_ch.key, data_ch.key],
+            reduction=sy.StrideReduction(factor=2),
         ) as i:
             assert i.seek_first()
             assert i.next(sy.framer.AUTO_SPAN)
-            # [1, 2, 3, 4, 5, 6, 7, 8] downsampled by 2 = [1, 3, 5, 7]
-            result = i.value[data_ch.key].to_numpy()
-            assert np.array_equal(result, np.array([1.0, 3.0, 5.0, 7.0]))
+            series = i.value[data_ch.key]
+            assert np.array_equal(series.to_numpy(), np.array([1.0, 3.0, 5.0, 7.0]))
+            assert series.series[0].alignment_multiple == 2
 
-    def test_downsample_factor_3(
+    def test_stride_factor_3(
         self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ) -> None:
-        """Test downsampling with factor of 3."""
+        """Should keep every third sample under a factor of 3"""
         idx_ch, data_ch = indexed_pair
         time_data = seconds_linspace(1, 9)
         data = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0], dtype=np.float32)
@@ -407,22 +412,23 @@ class TestIterator:
         data_ch.write(sy.TimeSpan.SECOND * 1, data)
 
         with client.open_iterator(
-            sy.TimeRange.MAX, [idx_ch.key, data_ch.key], downsample_factor=3
+            sy.TimeRange.MAX,
+            [idx_ch.key, data_ch.key],
+            reduction=sy.StrideReduction(factor=3),
         ) as i:
             assert i.seek_first()
             assert i.next(sy.framer.AUTO_SPAN)
-            # [1, 2, 3, 4, 5, 6, 7, 8, 9] downsampled by 3 = [1, 4, 7]
             result = i.value[data_ch.key].to_numpy()
             assert np.array_equal(result, np.array([1.0, 4.0, 7.0]))
 
     @pytest.mark.parametrize("factor", [0, 1])
-    def test_no_downsample_when_factor_lte_1(
+    def test_stride_factor_lte_1(
         self,
         factor: int,
         indexed_pair: tuple[sy.Channel, sy.Channel],
         client: sy.Synnax,
     ) -> None:
-        """Test that downsampling does not occur when factor is 0 or 1."""
+        """Should keep every sample under a factor of 0 or 1"""
         idx_ch, data_ch = indexed_pair
         time_data = seconds_linspace(1, 4)
         data = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32)
@@ -430,32 +436,15 @@ class TestIterator:
         data_ch.write(sy.TimeSpan.SECOND * 1, data)
 
         with client.open_iterator(
-            sy.TimeRange.MAX, data_ch.key, downsample_factor=factor
+            sy.TimeRange.MAX, data_ch.key, reduction=sy.StrideReduction(factor=factor)
         ) as i:
             assert i.seek_first()
             assert i.next(sy.framer.AUTO_SPAN)
             result = i.value[data_ch.key].to_numpy()
             assert np.array_equal(result, np.array([1.0, 2.0, 3.0, 4.0]))
 
-    def test_downsample_negative(
-        self,
-        indexed_pair: tuple[sy.Channel, sy.Channel],
-        client: sy.Synnax,
-    ) -> None:
-        """Test that a negative factor is rejected.
-
-        The wire field is unsigned, so a negative one would reach the Core as a very
-        large factor rather than as an error.
-        """
-        _, data_ch = indexed_pair
-        with (
-            pytest.raises(sy.ValidationError),
-            client.open_iterator(sy.TimeRange.MAX, data_ch.key, downsample_factor=-1),
-        ):
-            ...
-
-    def test_downsample_multiple_domains(self, client: sy.Synnax) -> None:
-        """Test downsampling across multiple domains."""
+    def test_stride_multiple_domains(self, client: sy.Synnax) -> None:
+        """Should keep every factor-th sample of each domain"""
         idx_ch = client.channels.create(
             name=random_name(),
             data_type=sy.DataType.TIMESTAMP,
@@ -481,11 +470,68 @@ class TestIterator:
         )
 
         with client.open_iterator(
-            sy.TimeRange.MAX, [idx_ch.key, data_ch.key], downsample_factor=2
+            sy.TimeRange.MAX,
+            [idx_ch.key, data_ch.key],
+            reduction=sy.StrideReduction(factor=2),
         ) as i:
             assert i.seek_first()
             assert i.next(sy.framer.AUTO_SPAN)
-            # Domain 0: [1, 2, 3] downsampled by 2 = [1, 3]
-            # Domain 1: [10, 11, 12, 13] downsampled by 2 = [10, 12]
             result = i.value[data_ch.key].to_numpy()
             assert np.array_equal(result, np.array([1.0, 3.0, 10.0, 12.0]))
+
+    @pytest.mark.parametrize(
+        ("aggregation", "point_limit", "expected", "multiple"),
+        [
+            ("min_max", 4, [1.0, 8.0, 2.0, 7.0], 2),
+            ("average", 4, [2.5, 5.5, 3.5, 6.5], 2),
+            ("decimate", 2, [4.0, 5.0], 4),
+            ("min_max", 8, [4.0, 1.0, 3.0, 8.0, 5.0, 2.0, 6.0, 7.0], 1),
+        ],
+    )
+    def test_aggregation(
+        self,
+        aggregation: sy.Aggregation,
+        point_limit: int,
+        expected: list[float],
+        multiple: int,
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+        client: sy.Synnax,
+    ) -> None:
+        """Should reduce each channel under the point limit with the aggregation."""
+        idx_ch, data_ch = indexed_pair
+        idx_ch.write(sy.TimeSpan.SECOND * 1, seconds_linspace(1, 8))
+        data_ch.write(
+            sy.TimeSpan.SECOND * 1,
+            np.array([4.0, 1.0, 3.0, 8.0, 5.0, 2.0, 6.0, 7.0], dtype=np.float32),
+        )
+        with client.open_iterator(
+            sy.TimeRange.MAX,
+            [idx_ch.key, data_ch.key],
+            reduction=sy.LimitReduction(
+                aggregation=aggregation, point_limit=point_limit
+            ),
+        ) as i:
+            assert i.seek_first()
+            assert i.next(sy.framer.AUTO_SPAN)
+            data = i.value[data_ch.key].series[0]
+            index = i.value[idx_ch.key].series[0]
+            assert np.array_equal(data.to_numpy(), np.array(expected))
+            assert data.alignment_multiple == multiple
+            assert data.alignment == index.alignment
+            assert not i.next(sy.framer.AUTO_SPAN)
+
+    @pytest.mark.parametrize(
+        ("make", "field"),
+        [
+            (lambda: sy.StrideReduction(factor=-1), "factor"),
+            (lambda: sy.LimitReduction(point_limit=0), "point_limit"),
+            (lambda: sy.LimitReduction(point_limit=-1), "point_limit"),
+            (lambda: sy.LimitReduction(point_limit=2**32), "point_limit"),
+        ],
+    )
+    def test_reduction_out_of_range(
+        self, make: Callable[[], sy.Reduction], field: str
+    ) -> None:
+        """Should reject a reduction the unsigned wire fields would reinterpret."""
+        with pytest.raises(pydantic.ValidationError, match=field):
+            make()

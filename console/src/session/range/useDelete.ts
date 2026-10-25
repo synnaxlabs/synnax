@@ -9,7 +9,6 @@
 
 import { type Flux, Ranger } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
-import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { useGetSliceState } from "@/session/range/selectors";
@@ -28,27 +27,24 @@ export const useDelete: Flux.UseUpdate<Ranger.DeleteParams> = ({
   const dispatch = useDispatch();
   return Ranger.useDelete({
     ...params,
-    beforeUpdate: useCallback(
-      async (args: Flux.BeforeUpdateParams<Ranger.DeleteParams>) => {
-        const res = (await beforeUpdate?.(args)) ?? true;
-        if (res === false) return false;
-        const data = typeof res === "boolean" ? args.data : res;
-        const keys = array.toArray(data);
-        const { ranges, selected } = getSliceState();
-        const removed = ranges
-          .map((range, index) => ({ index, range }))
-          .filter(({ range }) => keys.includes(range.key));
-        if (removed.length === 0) return data;
-        dispatch(remove({ keys }));
-        const cleared = selected != null && keys.includes(selected);
-        args.rollbacks.push(() =>
-          dispatch(
-            restore({ ranges: removed, selected: cleared ? selected : undefined }),
-          ),
-        );
-        return data;
-      },
-      [beforeUpdate, getSliceState, dispatch],
-    ),
+    beforeUpdate: async (args: Flux.BeforeUpdateParams<Ranger.DeleteParams>) => {
+      const res = (await beforeUpdate?.(args)) ?? true;
+      if (res === false) return false;
+      const data = typeof res === "boolean" ? args.data : res;
+      const keys = array.toArray(data);
+      const { ranges, selected } = getSliceState();
+      const removed = ranges
+        .map((range, index) => ({ index, range }))
+        .filter(({ range }) => keys.includes(range.key));
+      if (removed.length === 0) return data;
+      dispatch(remove({ keys }));
+      const cleared = selected != null && keys.includes(selected);
+      args.rollbacks.push(() =>
+        dispatch(
+          restore({ ranges: removed, selected: cleared ? selected : undefined }),
+        ),
+      );
+      return data;
+    },
   });
 };

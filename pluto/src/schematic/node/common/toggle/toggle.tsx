@@ -10,7 +10,7 @@
 import { schematic } from "@synnaxlabs/client";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { TimeSpan } from "@synnaxlabs/x";
-import { type FC, memo, type ReactElement, useMemo } from "react";
+import { type FC, memo, type ReactElement } from "react";
 
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
@@ -54,8 +54,8 @@ export const createToggle = <C extends ToggleConfig>(
       ...rest
     } = config;
     const theme = Theming.use();
-    const source = useMemo(() => Telem.booleanSource(stateChannel), [stateChannel]);
-    const sink = useMemo(() => Telem.booleanSink(commandChannel), [commandChannel]);
+    const source = Telem.booleanSource(stateChannel);
+    const sink = Telem.booleanSink(commandChannel);
     const { enabled, toggle, stale } = Base.use({
       aetherKey: nodeKey,
       source,

@@ -17,10 +17,8 @@ import {
   type PropsWithChildren,
   type ReactNode,
   type RefObject,
-  useCallback,
   useEffect,
   useId,
-  useMemo,
   useRef,
 } from "react";
 import { z } from "zod";
@@ -180,68 +178,62 @@ export const Provider = memo(
     const watchers = useRef<Set<OnResolve>>(new Set());
     const handledEvents = useRef<WeakSet<Event>>(new WeakSet());
 
-    const claimDragEvent: ContextValue["claimDragEvent"] = useCallback((event) => {
+    const claimDragEvent: ContextValue["claimDragEvent"] = (event) => {
       if (handledEvents.current.has(event)) return false;
       handledEvents.current.add(event);
       return true;
-    }, []);
+    };
 
-    const start: ContextValue["start"] = useCallback(
-      (source, items, onSuccessfulDrop) => {
-        ref.current = { source, items, onSuccessfulDrop };
-        setDragging({ source, items });
-      },
-      [setDragging],
-    );
+    const start: ContextValue["start"] = (source, items, onSuccessfulDrop) => {
+      ref.current = { source, items, onSuccessfulDrop };
+      setDragging({ source, items });
+    };
 
-    const resolve = useCallback(
-      (landed: boolean) => watchers.current.forEach((watcher) => watcher(landed)),
-      [],
-    );
+    const resolve = (landed: boolean) =>
+      watchers.current.forEach((watcher) => watcher(landed));
 
-    const drop: ContextValue["drop"] = useCallback(
-      ({ target, dropped }) => {
-        const hauled = ref.current.items;
-        ref.current.onSuccessfulDrop?.({ target, dropped, hauled });
-        ref.current = HAUL_REF;
-        setDragging(ZERO_DRAGGING_STATE);
-        resolve(true);
-      },
-      [setDragging, resolve],
-    );
+    const drop: ContextValue["drop"] = ({ target, dropped }) => {
+      const hauled = ref.current.items;
+      ref.current.onSuccessfulDrop?.({ target, dropped, hauled });
+      ref.current = HAUL_REF;
+      setDragging(ZERO_DRAGGING_STATE);
+      resolve(true);
+    };
 
-    const end: ContextValue["end"] = useCallback(
-      (cursor: xy.XY) => {
-        // A drag already finalized by a drop leaves nothing to resolve: dragend still
-        // fires after it, and the drag must be reported exactly once.
-        const active = ref.current.items.length > 0;
-        let dropped: DropProps | null = null;
-        interceptors.current.forEach((interceptor) => {
-          if (dropped != null) return;
-          dropped = interceptor(ref.current, cursor);
-        });
-        if (dropped != null) return drop(dropped);
-        ref.current = HAUL_REF;
-        setDragging(ZERO_DRAGGING_STATE);
-        if (active) resolve(false);
-      },
-      [setDragging, drop, resolve],
-    );
+    const end: ContextValue["end"] = (cursor: xy.XY) => {
+      // A drag already finalized by a drop leaves nothing to resolve: dragend still
+      // fires after it, and the drag must be reported exactly once.
+      const active = ref.current.items.length > 0;
+      let dropped: DropProps | null = null;
+      interceptors.current.forEach((interceptor) => {
+        if (dropped != null) return;
+        dropped = interceptor(ref.current, cursor);
+      });
+      if (dropped != null) return drop(dropped);
+      ref.current = HAUL_REF;
+      setDragging(ZERO_DRAGGING_STATE);
+      if (active) resolve(false);
+    };
 
-    const bind: ContextValue["bind"] = useCallback((interceptor) => {
+    const bind: ContextValue["bind"] = (interceptor) => {
       interceptors.current.add(interceptor);
       return () => interceptors.current.delete(interceptor);
-    }, []);
+    };
 
-    const watch: ContextValue["watch"] = useCallback((onResolve) => {
+    const watch: ContextValue["watch"] = (onResolve) => {
       watchers.current.add(onResolve);
       return () => watchers.current.delete(onResolve);
-    }, []);
+    };
 
-    const controls = useMemo<ContextValue>(
-      () => ({ start, end, drop, bind, watch, claimDragEvent, stateRef: ref }),
-      [start, end, drop, bind, watch, claimDragEvent],
-    );
+    const controls: ContextValue = {
+      start,
+      end,
+      drop,
+      bind,
+      watch,
+      claimDragEvent,
+      stateRef: ref,
+    };
     // A nested Provider reuses the outer one's contexts, which are already in scope,
     // so it renders children without re-providing.
     if (ctx != null) return children;

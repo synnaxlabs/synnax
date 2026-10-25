@@ -8,10 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { id } from "@synnaxlabs/x";
-import { describe, expect, test } from "vitest";
+import { beforeAll, describe, expect, test, vi } from "vitest";
 
 import { AuthError, NotFoundError } from "@/errors";
-import { createTestClient } from "@/testutil";
+import { query } from "@/query";
+import { createTestClient, expectDeleted } from "@/testutil";
 import { type user } from "@/user";
 
 interface SortType {
@@ -286,5 +287,54 @@ describe("User", () => {
         NotFoundError,
       );
     });
+  });
+});
+
+// A second client with its own cache: its writes reach the first client only through
+// the cluster's change streams, never through a shared cache.
+const remote = createTestClient();
+
+const createUser = async (): Promise<user.User> =>
+  await client.users.create({ username: id.create(), password: "test" });
+
+describe("cached reads", () => {
+  // Changes made while the stream is still opening are lost, so open it up front.
+  beforeAll(async () => await client.connect());
+
+  test("should deliver a remote rename to a subscribed user", async () => {
+    const u = await createUser();
+    const handler = vi.fn();
+    const off = client.users.onChange(u.key, handler);
+    try {
+      await client.users.retrieve(u.key);
+      await remote.users.rename(u.key, "Abigail", "Adams");
+      await expect
+        .poll(() => {
+          const cached = client.users.getCached(u.key);
+          return query.isLive(cached) && cached.firstName === "Abigail";
+        })
+        .toBe(true);
+      expect(handler).toHaveBeenCalledWith(
+        expect.objectContaining({ firstName: "Abigail" }),
+      );
+    } finally {
+      off();
+    }
+  });
+
+  test("should deliver a remote delete as a deleted result", async () => {
+    const u = await createUser();
+    const results: Array<query.Cached<user.User> | undefined> = [];
+    const off = client.users.onChange(u.key, (res) => results.push(res));
+    try {
+      await client.users.retrieve(u.key);
+      await remote.users.delete(u.key);
+      await expect
+        .poll(() => query.Deleted.matches(client.users.getCached(u.key)))
+        .toBe(true);
+      expect(expectDeleted(results.at(-1)).corpse.username).toEqual(u.username);
+    } finally {
+      off();
+    }
   });
 });
