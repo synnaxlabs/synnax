@@ -128,7 +128,9 @@ export class TileReader {
     const key = cacheKey(spec);
     const tile = tileRequestKey(spec);
     const cached = store.get(key);
-    if (cached instanceof Tile)
+    if (cached != null && !(cached instanceof Tile))
+      throw new UnexpectedError(`block ${key} is not a tile`);
+    if (cached != null)
       if (
         store.expired(cached) ||
         (dataType != null &&

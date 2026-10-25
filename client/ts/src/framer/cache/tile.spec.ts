@@ -40,10 +40,11 @@ const SAMPLES = 4;
 const createReader = (
   { budget, staleThreshold, now, ...props }: Partial<TileReaderProps> & StoreProps = {},
   samples: number = SAMPLES,
-): { reader: TileReader; calls: Call[] } => {
+): { reader: TileReader; calls: Call[]; store: Store } => {
   const calls: Call[] = [];
+  const store = new Store({ budget, staleThreshold, now });
   const reader = new TileReader({
-    store: new Store({ budget, staleThreshold, now }),
+    store,
     now,
     batchDebounce: TimeSpan.milliseconds(5),
     readRemote: async (tr, keys, reduction) => {
@@ -61,7 +62,7 @@ const createReader = (
     },
     ...props,
   });
-  return { reader, calls };
+  return { reader, calls, store };
 };
 
 // Budget specs read large tiles, so the fixed overhead of each tile does not change how
@@ -93,6 +94,15 @@ describe("tile", () => {
         pointLimit: 100,
       });
       expect(Array.from(series)).toEqual([1, 1, 1, 1]);
+      reader.close();
+    });
+
+    it("should reject a read when the block under the tile's key is not a tile", async () => {
+      const { reader, store } = createReader();
+      store.set("1/10/3/100/min_max", store.raw(1, 0));
+      const read = reader.read(createSpec());
+      await expect(read).rejects.toThrow(UnexpectedError);
+      await expect(read).rejects.toThrow("block 1/10/3/100/min_max is not a tile");
       reader.close();
     });
 

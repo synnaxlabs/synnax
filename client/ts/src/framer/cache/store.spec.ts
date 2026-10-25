@@ -19,6 +19,7 @@ import {
 import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
+import { UnexpectedError } from "@/errors";
 import { type Block, RAW_LEVEL, rawKey } from "@/framer/cache/block";
 import { tileRange } from "@/framer/cache/grid";
 import { Store } from "@/framer/cache/store";
@@ -217,6 +218,13 @@ describe("Store", () => {
       expect(block.fetched).toEqual([]);
       expect(store.get(rawKey(1, 100))).toBe(block);
       expect(store.raw(1, 100)).toBe(block);
+    });
+
+    it("should throw when the block under a raw key is not a raw block", () => {
+      const store = new Store();
+      store.set(rawKey(1, 100), createBlock());
+      expect(() => store.raw(1, 100)).toThrow(UnexpectedError);
+      expect(() => store.raw(1, 100)).toThrow("block 1/raw/100 is not a raw block");
     });
 
     it("should return an expired block without its fetched samples", () => {

@@ -18,6 +18,7 @@ import {
 } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
+import { UnexpectedError } from "@/errors";
 import {
   type Block,
   RAW_LEVEL,
@@ -148,17 +149,20 @@ export class Store {
   /**
    * @returns the channel's raw block at the index, cached empty when absent. An expired
    * block comes back without its fetched samples.
+   * @throws {UnexpectedError} if the block under the raw block's key is not a raw block.
    */
   raw(ch: channel.Key, index: number): RawBlock {
     const key = rawKey(ch, index);
     const cached = this.get(key);
-    if (cached instanceof RawBlock) {
-      if (this.expired(cached) && cached.expire()) this.set(key, cached);
-      return cached;
+    if (cached == null) {
+      const block = new RawBlock(ch, index, this.now);
+      this.set(key, block);
+      return block;
     }
-    const block = new RawBlock(ch, index, this.now);
-    this.set(key, block);
-    return block;
+    if (!(cached instanceof RawBlock))
+      throw new UnexpectedError(`block ${key} is not a raw block`);
+    if (this.expired(cached) && cached.expire()) this.set(key, cached);
+    return cached;
   }
 
   /**
