@@ -19,6 +19,8 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Device } from "@/feature/device";
+import { createModbusDevice } from "@/feature/modbus/testutil";
+import { NI } from "@/feature/ni";
 import { createTestDevice } from "@/platform/device/testutil";
 import { findButton } from "@/platform/modals/testutil";
 import { renderTreeContextMenu } from "@/platform/tree/menuTestutil";
@@ -96,6 +98,28 @@ describe("device/ontology", () => {
         NotFoundError.matches(e),
       );
     });
+  });
+
+  it("should configure a found device with an action to create a read task", async () => {
+    const dev = await createTestDevice(client, {
+      make: NI.Device.MAKE,
+      configured: false,
+    });
+    const root = await createDeviceGroup(dev);
+    await renderDeviceTree(root);
+    await openTreeRowContextMenu(dev.name);
+    fireEvent.click(await screen.findByText("Configure"));
+    expect(await screen.findByText("Save and create read task")).toBeTruthy();
+  });
+
+  it("should open the connect form from Edit connection", async () => {
+    const dev = await createModbusDevice(client);
+    const root = await createDeviceGroup(dev);
+    await renderDeviceTree(root);
+    await openTreeRowContextMenu(dev.name);
+    fireEvent.click(await screen.findByText("Edit connection"));
+    expect(await screen.findByText("Modbus TCP server")).toBeTruthy();
+    await waitFor(() => expect(screen.getByDisplayValue(dev.name)).toBeTruthy());
   });
 });
 

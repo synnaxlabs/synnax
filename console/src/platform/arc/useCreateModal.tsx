@@ -41,8 +41,6 @@ const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
   selectOnFocus: true,
 };
 
-const MODE_CLASS = CSS.BE("arc-create-modal", "mode-select-button");
-
 const Create = ({
   initialValues,
   close,
@@ -67,42 +65,22 @@ const Create = ({
           <Form.TextField path="name" required inputProps={NAME_INPUT_PROPS} />
           <Form.Field<arc.Mode> path="mode" label="Editor mode" full="x">
             {({ value, onChange }) => (
-              <Select.Buttons
-                value={value}
-                onChange={onChange}
-                variant="outlined"
-                pack={false}
-                gap="tiny"
-                x
-                full="x"
-              >
-                <Select.Item
-                  itemKey="text"
-                  className={MODE_CLASS}
-                  y
-                  grow
-                  alignSelf="stretch"
-                  justify="start"
-                >
-                  <Text.Text>
-                    <Icon.Text /> Text
-                  </Text.Text>
-                  <Text.Text color={9} level="small" wrap overflow="wrap">
+              <Select.Buttons value={value} onChange={onChange} variant="card" full="x">
+                <Select.Item itemKey="text">
+                  <Icon.Tile>
+                    <Icon.Text />
+                  </Icon.Tile>
+                  <Text.Text weight={500}>Text</Text.Text>
+                  <Text.Text color={9} level="small">
                     Best for complex automations such as control sequences
                   </Text.Text>
                 </Select.Item>
-                <Select.Item
-                  itemKey="graph"
-                  className={MODE_CLASS}
-                  y
-                  grow
-                  alignSelf="stretch"
-                  justify="start"
-                >
-                  <Text.Text>
-                    <Icon.Schematic /> Graph
-                  </Text.Text>
-                  <Text.Text color={9} level="small" wrap overflow="wrap">
+                <Select.Item itemKey="graph">
+                  <Icon.Tile>
+                    <Icon.Schematic />
+                  </Icon.Tile>
+                  <Text.Text weight={500}>Graph</Text.Text>
+                  <Text.Text color={9} level="small">
                     Best for simple automations such as alarms
                   </Text.Text>
                 </Select.Item>
