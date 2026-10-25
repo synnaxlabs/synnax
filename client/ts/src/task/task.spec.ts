@@ -706,6 +706,7 @@ describe("Task", async () => {
           task: t.key,
           type: "test",
           timeout: TimeSpan.milliseconds(1),
+          statusDataZ: z.unknown(),
         }),
       ).rejects.toThrow(
         new Error(`Command to task with key ${t.key} timed out after 1ms`),
