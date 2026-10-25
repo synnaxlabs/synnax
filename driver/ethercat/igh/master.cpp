@@ -22,6 +22,11 @@ constexpr uint16_t SM_TYPE_INDEX = 0x1C00;
 constexpr uint16_t PDO_ASSIGN_INDEX = 0x1C10;
 constexpr uint32_t SM_TYPE_OUTPUTS = 3;
 constexpr uint32_t SM_TYPE_INPUTS = 4;
+/// @brief the most sync managers a slave can type, one per PDO assign object from
+/// 0x1C10 to 0x1C2F.
+constexpr uint32_t MAX_SYNC_MANAGERS = 32;
+/// @brief the most PDOs an assign object, or entries a mapping object, can count.
+constexpr uint32_t MAX_SUB_INDEX = 254;
 constexpr uint32_t ABORT_OBJECT_MISSING = 0x06020000;
 const x::errors::Error OBJECT_MISSING = errors::SDO_READ_ERROR.sub("object_missing");
 
@@ -81,7 +86,22 @@ read_assigned_pdos(const API &api, ec_master_t *master, const uint16_t position)
     const auto read = [&](const uint16_t index, const uint32_t sub_index) {
         return read_sdo(api, master, position, index, static_cast<uint8_t>(sub_index));
     };
-    const auto [sm_count, count_err] = read(SM_TYPE_INDEX, 0);
+    const auto read_count =
+        [&](const uint16_t index,
+            const uint32_t max) -> std::pair<uint32_t, x::errors::Error> {
+        const auto [count, err] = read(index, 0);
+        if (err || count <= max) return {count, err};
+        return {
+            0,
+            x::errors::Error(
+                errors::PDO_DISCOVERY_ERROR,
+                telem::format_index_sub_index(index, 0) + " counts " +
+                    std::to_string(count) + " entries, above the maximum of " +
+                    std::to_string(max)
+            )
+        };
+    };
+    const auto [sm_count, count_err] = read_count(SM_TYPE_INDEX, MAX_SYNC_MANAGERS);
     if (count_err.matches(OBJECT_MISSING)) return {{}, x::errors::NIL};
     if (count_err) return {{}, count_err};
     std::vector<AssignedSync> syncs;
@@ -97,7 +117,7 @@ read_assigned_pdos(const API &api, ec_master_t *master, const uint16_t position)
             }
         );
         const auto assign_index = static_cast<uint16_t>(PDO_ASSIGN_INDEX + sm);
-        const auto [pdo_count, pdo_count_err] = read(assign_index, 0);
+        const auto [pdo_count, pdo_count_err] = read_count(assign_index, MAX_SUB_INDEX);
         if (pdo_count_err) return {{}, pdo_count_err};
         for (uint32_t i = 1; i <= pdo_count; i++) {
             const auto [pdo_index, pdo_err] = read(assign_index, i);
@@ -105,7 +125,10 @@ read_assigned_pdos(const API &api, ec_master_t *master, const uint16_t position)
             auto &pdo = sync.pdos.emplace_back(
                 AssignedPDO{.index = static_cast<uint16_t>(pdo_index), .entries = {}}
             );
-            const auto [entry_count, entry_count_err] = read(pdo.index, 0);
+            const auto [entry_count, entry_count_err] = read_count(
+                pdo.index,
+                MAX_SUB_INDEX
+            );
             if (entry_count_err) return {{}, entry_count_err};
             for (uint32_t j = 1; j <= entry_count; j++) {
                 const auto [mapping, mapping_err] = read(pdo.index, j);

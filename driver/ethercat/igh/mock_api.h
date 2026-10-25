@@ -15,6 +15,7 @@
 #include <cstring>
 #include <map>
 #include <span>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -117,9 +118,9 @@ public:
     std::vector<SDOWrite> sdo_downloads;
     /// @brief SDOs added to slave configs, in call order.
     std::vector<SDOWrite> config_sdos;
-    /// @brief the object dictionary of every slave, keyed by index and sub-index. A
-    /// download writes to it, and an upload of a missing object aborts.
-    std::map<std::pair<uint16_t, uint8_t>, uint32_t> objects;
+    /// @brief the object dictionary of each slave, keyed by position, index, and
+    /// sub-index. A download writes to it, and an upload of a missing object aborts.
+    std::map<std::tuple<uint16_t, uint16_t, uint8_t>, uint32_t> objects;
     /// @brief one entry of a PDO passed to slave_config_pdos.
     struct ConfiguredEntry {
         uint16_t position;
@@ -411,13 +412,13 @@ public:
         uint32_t value = 0;
         for (size_t i = 0; i < data_size && i < sizeof(value); i++)
             value |= static_cast<uint32_t>(data[i]) << (8 * i);
-        self->objects[{index, subindex}] = value;
+        self->objects[{slave_position, index, subindex}] = value;
         return 0;
     }
 
     int master_sdo_upload(
         ec_master_t *,
-        uint16_t,
+        uint16_t slave_position,
         uint16_t index,
         uint8_t subindex,
         uint8_t *target,
@@ -425,7 +426,7 @@ public:
         size_t *result_size,
         uint32_t *abort_code
     ) const override {
-        const auto it = this->objects.find({index, subindex});
+        const auto it = this->objects.find({slave_position, index, subindex});
         if (it == this->objects.end()) {
             *abort_code = 0x06020000;
             return -EIO;
