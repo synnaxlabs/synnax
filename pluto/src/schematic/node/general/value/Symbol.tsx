@@ -66,13 +66,16 @@ export const Symbol = ({
     valueBackgroundOverScan: VALUE_BACKGROUND_OVERSCAN,
     valueBackgroundShift: VALUE_BACKGROUND_SHIFT,
   });
+  // The text can widen the box past inlineSize, so a drag starts from the drawn width.
+  const resize = Grid.useInlineResize(oWidth, (inlineSize) =>
+    onConfigChange({ inlineSize }),
+  );
 
   return (
-    <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false}>
+    <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false} {...resize}>
       <Label.Label config={label} onChange={onConfigChange} />
       <Value
         strokeColor={strokeColor}
-        textColor={textColor}
         orientation={orientation}
         dimensions={{ height: valueBoxHeight, width: oWidth }}
         inlineSize={inlineSize}

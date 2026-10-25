@@ -22,7 +22,7 @@ const Preview = ({
   size,
 }: schematic.InputNodeConfig): ReactElement => (
   <Input
-    initialValue="send message"
+    value="send message"
     fillColor={fillColor}
     orientation={orientation}
     size={size}
