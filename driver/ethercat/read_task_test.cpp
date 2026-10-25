@@ -683,6 +683,30 @@ TEST_F(EtherCATReadTest, SourceReadsCorrectValueFromEngine) {
     ASSERT_NIL(source.stop());
 }
 
+/// @brief it should reject a map scale whose pre-scaled bounds are equal.
+TEST_F(EtherCATReadTest, ParseConfigRejectsAMapScaleWithEqualPreScaledBounds) {
+    const auto data_ch = create_data_channel("analog", x::telem::FLOAT64_T);
+
+    auto cfg = this->create_base_config();
+    auto ch = create_input_channel_config(data_ch, 0x6000, 1, "int16");
+    ch["scale"] = {
+        {"type", "map"},
+        {"pre_scaled_min", 4},
+        {"pre_scaled_max", 4},
+        {"scaled_min", 0},
+        {"scaled_max", 10},
+    };
+    cfg["channels"].push_back(ch);
+
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "channels.0.scale.pre_scaled_max");
+    EXPECT_EQ(errors[0]["message"], "must differ from the pre-scaled minimum");
+}
+
 /// @brief it should apply a linear scale to each sample it reads.
 TEST_F(EtherCATReadTest, SourceAppliesALinearScale) {
     const auto source = start_scaled_source(
