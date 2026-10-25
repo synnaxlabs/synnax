@@ -10,12 +10,13 @@
 import {
   AccessDeniedError,
   channel,
-  type framer,
+  framer,
   NotFoundError,
   status as cstatus,
   ValidationError,
 } from "@synnaxlabs/client";
 import {
+  aggregationZ,
   bounds,
   breaker,
   DataType,
@@ -43,11 +44,19 @@ import {
   type StringSource,
   type StringSourceSpec,
   type Telem,
+  type ValueProps,
 } from "@/telem/aether/telem";
+import {
+  choose,
+  indexes,
+  level,
+  pointLimit,
+  type Position,
+} from "@/telem/aether/tiles";
 
 /** The slice of a Synnax client that remote telemetry sources consume. */
 export interface Client {
-  feed: Pick<framer.Feed, "read" | "stream" | "readLatest">;
+  feed: Pick<framer.Feed, "read" | "stream" | "readLatest" | "readTile">;
   channels: {
     retrieve: (ch: channel.Key | channel.Name) => Promise<channel.Channel>;
   };
@@ -385,6 +394,163 @@ interface Seam {
   filled: boolean;
 }
 
+interface LiveWindowConfig {
+  now: () => TimeStamp;
+  /** @returns where the back-fill starts. */
+  start: () => TimeStamp;
+  /** A held series that ends at or before cutoff() is released. */
+  cutoff: () => TimeStamp;
+  failures: FailureReporter;
+  breakerConfig?: breaker.Config;
+  notify: () => void;
+  /** @returns the data type of the series the source holds, or undefined if none. */
+  dataType: () => DataType | undefined;
+  /** Drops everything the source holds when the channel's data type changes. */
+  restart: () => void;
+}
+
+/** The newest series of a live source at full resolution, held in time order. */
+class LiveWindow {
+  readonly data = new MultiSeries([]);
+  private generation = 0;
+  private stopStreaming?: destructor.Destructor;
+  private readonly notifier = new sync.Notifier();
+
+  constructor(private readonly config: LiveWindowConfig) {}
+
+  /**
+   * Opens the stream, then back-fills from start(), so a stalled or failed back-fill
+   * never blocks live data. Resolves when the back-fill lands.
+   * @throws {Error} if the back-fill fails. The caller reports the failure.
+   */
+  async open(client: Client, ch: SelectedChannelProperties): Promise<void> {
+    const generation = this.generation;
+    const seam: Seam = { filled: false };
+    const handler: framer.StreamHandler = (res) => {
+      if (generation !== this.generation) return;
+      const series = res.get(ch.key);
+      if (series == null || !this.push(series.series)) return;
+      if (seam.liveStart == null && series.series.length > 0) {
+        seam.liveStart = TimeStamp.min(...series.series.map((s) => s.timeRange.start));
+        void this.fillSeam(generation, client, ch.key, seam);
+      }
+      this.config.notify();
+      this.prune();
+    };
+    this.stopStreaming?.();
+    const streamStart = this.config.now();
+    this.stopStreaming = client.feed.stream(handler, [ch.key]).close;
+    if (ch.virtual && !ch.isCalculated) return;
+    try {
+      // The back-fill stops where live data starts: the cache can return a span in
+      // both representations, and overlapping series pair into stray segments.
+      const liveStart = this.data.series.reduce(
+        (start, s) => (s.timeRange.start.before(start) ? s.timeRange.start : start),
+        streamStart,
+      );
+      // Live data held across a long retry can start before the window.
+      const start = this.config.start();
+      if (!liveStart.after(start)) return;
+      const res = await client.feed.read(new TimeRange(start, liveStart), ch.key);
+      if (generation !== this.generation || !this.push(res.series)) return;
+      seam.backfillEnd = liveStart;
+      void this.fillSeam(generation, client, ch.key, seam);
+    } catch (e) {
+      // Certain calculated channels can fail to read because they need access to
+      // virtual channels that cannot be read from historically.
+      if (
+        e instanceof Error &&
+        (e.message.includes("cannot open iterator on virtual channel") ||
+          e.message.includes("cannot read from free channel"))
+      )
+        console.warn("failed to read calculated channel data", e);
+      else throw errors.fromUnknown(e);
+    }
+  }
+
+  // Reads the span between the back-fill's end and the first streamed series once both
+  // are known. The stream delivers only samples written after it opens, which is later
+  // than the back-fill's end.
+  private async fillSeam(
+    generation: number,
+    client: Client,
+    key: channel.Key,
+    seam: Seam,
+  ): Promise<void> {
+    const { backfillEnd, liveStart } = seam;
+    if (backfillEnd == null || liveStart == null || seam.filled) return;
+    seam.filled = true;
+    if (!liveStart.after(backfillEnd)) return;
+    // Samples written just before the stream opened may still be committing.
+    const settled = liveStart.add(SEAM_SETTLE);
+    const { now } = this.config;
+    // A wake saved by an earlier clear ends a wait early, so recheck the clock.
+    for (let t = now(); t.before(settled); t = now()) {
+      await this.notifier.wait(settled.span(t));
+      if (generation !== this.generation) return;
+    }
+    const brk = newRetryBreaker(this.notifier, this.config.breakerConfig);
+    while (generation === this.generation)
+      try {
+        const res = await client.feed.read(new TimeRange(backfillEnd, liveStart), key);
+        if (generation !== this.generation) return;
+        if (this.push(res.series)) this.config.notify();
+        return;
+      } catch (e) {
+        this.config.failures.report(e, "Failed to read channel data");
+        if (isDefinitive(e) || !(await brk.wait())) return;
+      }
+  }
+
+  // feed.read returns the live leading buffer that the stream's first delivery repeats,
+  // so series already held by identity are skipped. Consumers assume the array is
+  // chronological, so a late back-fill is inserted by time. Alignment would misorder
+  // the buffers of a restarted Core, which resets its leading alignment. Returns false
+  // when a series of a new data type restarts the source.
+  private push(series: Series[]): boolean {
+    const held = this.config.dataType();
+    // Series of two data types cannot share a MultiSeries.
+    if (held != null && series.some((s) => !s.dataType.equals(held))) {
+      this.config.restart();
+      return false;
+    }
+    for (const s of series) {
+      if (this.data.series.includes(s)) continue;
+      s.acquire();
+      const at = this.data.series.findIndex(
+        (held) =>
+          held.timeRange.start.after(s.timeRange.start) ||
+          (held.timeRange.start.equals(s.timeRange.start) &&
+            held.alignment > s.alignment),
+      );
+      if (at === -1) this.data.push(s);
+      else this.data.series.splice(at, 0, s);
+    }
+    return true;
+  }
+
+  /** Releases the series that end at or before the cutoff. */
+  prune(): void {
+    const cutoff = this.config.cutoff();
+    const kept = this.data.series.filter((s) => {
+      if (s.timeRange.end.after(cutoff)) return true;
+      s.release();
+      return false;
+    });
+    this.data.series.splice(0, this.data.series.length, ...kept);
+  }
+
+  /** Stops the stream and releases every held series. Reads in flight are dropped. */
+  clear(): void {
+    this.generation++;
+    this.notifier.notify();
+    this.stopStreaming?.();
+    this.stopStreaming = undefined;
+    this.data.release();
+    this.data.series.splice(0);
+  }
+}
+
 const streamChannelDataPropsZ = z.object({
   channel: z.number().or(z.string()),
   useIndexOfChannel: z.boolean().default(false),
@@ -400,19 +566,17 @@ export class StreamChannelData
 {
   static readonly TYPE = "dynamic-series-source";
   private readonly client: Client | null;
-  private readonly data: MultiSeries = new MultiSeries([]);
   private readonly now: () => TimeStamp;
   private readonly onStatusChange?: status.Adder;
 
   private channel: SelectedChannelProperties | null = null;
-  private stopStreaming?: destructor.Destructor;
   private valid: boolean = false;
   private readonly skipLoading: boolean;
   private generation = 0;
-  private readonly breakerConfig?: breaker.Config;
   private readonly breaker: breaker.Breaker;
   private readonly retryNotifier = new sync.Notifier();
   private readonly failures: FailureReporter;
+  private readonly window: LiveWindow;
   schema = streamChannelDataPropsZ;
 
   constructor(
@@ -426,12 +590,24 @@ export class StreamChannelData
     this.client = client;
     this.now = now;
     this.onStatusChange = options?.onStatusChange;
-    const { channel, timeSpan } = this.props;
+    const { channel, timeSpan, keepFor } = this.props;
     this.skipLoading = channel === 0 || timeSpan.valueOf() <= LOADING_MIN_SPAN;
     this.loading_ = true;
-    this.breakerConfig = breakerConfig;
     this.breaker = newRetryBreaker(this.retryNotifier, breakerConfig);
     this.failures = new FailureReporter(options?.onStatusChange);
+    this.window = new LiveWindow({
+      now,
+      start: () => now().sub(timeSpan),
+      cutoff: () => now().sub(keepFor ?? timeSpan),
+      failures: this.failures,
+      breakerConfig,
+      notify: () => this.notify(),
+      dataType: () => this.window.data.series[0]?.dataType,
+      restart: () => {
+        this.cleanup();
+        this.notify();
+      },
+    });
   }
 
   loading(): boolean {
@@ -442,18 +618,19 @@ export class StreamChannelData
 
   value(): [bounds.Bounds, MultiSeries] {
     const { channel, timeSpan } = this.props;
-    if (channel === 0) return [bounds.INVALID, this.data];
+    const { data } = this.window;
+    if (channel === 0) return [bounds.INVALID, data];
     if (!this.valid) void this.read();
-    const { data, channel: ch } = this;
+    const { channel: ch } = this;
     const now = this.now();
-    if (ch != null && ch.dataType.isVariable) return [bounds.INVALID, this.data];
+    if (ch != null && ch.dataType.isVariable) return [bounds.INVALID, data];
     const filtered = data.series
       .filter((d) => d.timeRange.end.after(now.sub(timeSpan)))
       .map((d) => d.bounds);
     const b = bounds.max(filtered);
     if (ch != null && ch.dataType.equals(DataType.TIMESTAMP))
       b.lower = Math.max(b.lower, b.upper - Number(timeSpan.valueOf()));
-    return [b, this.data];
+    return [b, data];
   }
 
   /**
@@ -483,159 +660,33 @@ export class StreamChannelData
       }
   }
 
-  // One full read attempt: it opens the live stream, then runs the historical
-  // back-fill, so a stalled or failed back-fill never blocks live data. Throws the
-  // failure after posting its status.
+  // One full read attempt: it resolves the channel, then opens the live window. Throws
+  // the failure after posting its status.
   private async attempt(generation: number, client: Client): Promise<void> {
-    const { channel, useIndexOfChannel, timeSpan } = this.props;
-    let fetched: SelectedChannelProperties;
-    let streamStart: TimeStamp;
-    const seam: Seam = { filled: false };
+    const { channel, useIndexOfChannel } = this.props;
+    let ch: SelectedChannelProperties;
     try {
-      fetched = await fetchChannelProperties(client, channel, useIndexOfChannel);
-      if (generation !== this.generation) return;
-      this.channel = fetched;
-      const handler: framer.StreamHandler = (res) => {
-        if (generation !== this.generation || this.channel == null) return;
-        const series = res.get(this.channel.key);
-        if (series == null) return;
-        // Held series of the channel's old data type cannot share a MultiSeries with
-        // the new one.
-        const { dataType } = this.data;
-        if (
-          series.series.some((s) => !s.dataType.equals(dataType)) &&
-          this.data.length > 0
-        )
-          return this.restart();
-        this.pushNew(series.series);
-        if (seam.liveStart == null && series.series.length > 0) {
-          seam.liveStart = TimeStamp.min(
-            ...series.series.map((s) => s.timeRange.start),
-          );
-          void this.fillSeam(generation, client, seam);
-        }
-        this.notify();
-        this.gcOutOfRangeData();
-      };
-      this.stopStreaming?.();
-      streamStart = this.now();
-      this.stopStreaming = client.feed.stream(handler, [fetched.key]).close;
+      ch = await fetchChannelProperties(client, channel, useIndexOfChannel);
     } catch (e) {
       this.failures.report(e, "Failed to stream channel data");
       throw errors.fromUnknown(e);
     }
-    if (!fetched.virtual || fetched.isCalculated)
-      try {
-        // The back-fill stops where live data starts: the cache can return a span in
-        // both representations, and overlapping series pair into stray segments.
-        const liveStart = this.data.series.reduce(
-          (start, s) => (s.timeRange.start.before(start) ? s.timeRange.start : start),
-          streamStart,
-        );
-        // Live data held across a long retry can start before the window.
-        const start = this.now().sub(timeSpan);
-        if (liveStart.after(start)) {
-          const res = await client.feed.read(
-            new TimeRange(start, liveStart),
-            fetched.key,
-          );
-          if (generation !== this.generation) return;
-          this.pushNew(res.series);
-          seam.backfillEnd = liveStart;
-          void this.fillSeam(generation, client, seam);
-        }
-      } catch (e) {
-        // Certain calculated channels can fail to read because they need access to
-        // virtual channels that cannot be read from historically.
-        if (
-          e instanceof Error &&
-          (e.message.includes("cannot open iterator on virtual channel") ||
-            e.message.includes("cannot read from free channel"))
-        )
-          console.warn("failed to read calculated channel data", e);
-        else {
-          this.failures.report(e, "Failed to read channel data");
-          throw errors.fromUnknown(e);
-        }
-      }
-    this.notify();
-  }
-
-  // Reads the span between the back-fill's end and the first streamed series once both
-  // are known. The stream delivers only samples written after it opens, which is later
-  // than the back-fill's end.
-  private async fillSeam(
-    generation: number,
-    client: Client,
-    seam: Seam,
-  ): Promise<void> {
-    const { backfillEnd, liveStart } = seam;
-    if (backfillEnd == null || liveStart == null || seam.filled || this.channel == null)
-      return;
-    seam.filled = true;
-    if (!liveStart.after(backfillEnd)) return;
-    const { key } = this.channel;
-    // Samples written just before the stream opened may still be committing.
-    const settled = liveStart.add(SEAM_SETTLE);
-    // A wake saved by an earlier cleanup ends a wait early, so recheck the clock.
-    for (let now = this.now(); now.before(settled); now = this.now()) {
-      await this.retryNotifier.wait(settled.span(now));
-      if (generation !== this.generation) return;
+    if (generation !== this.generation) return;
+    this.channel = ch;
+    try {
+      await this.window.open(client, ch);
+    } catch (e) {
+      this.failures.report(e, "Failed to read channel data");
+      throw errors.fromUnknown(e);
     }
-    const brk = newRetryBreaker(this.retryNotifier, this.breakerConfig);
-    while (generation === this.generation)
-      try {
-        const res = await client.feed.read(new TimeRange(backfillEnd, liveStart), key);
-        if (generation !== this.generation) return;
-        this.pushNew(res.series);
-        this.notify();
-        return;
-      } catch (e) {
-        this.failures.report(e, "Failed to read channel data");
-        if (isDefinitive(e) || !(await brk.wait())) return;
-      }
-  }
-
-  // feed.read returns the live leading buffer that the stream's first delivery repeats,
-  // so series already held by identity are skipped. Consumers assume the array is
-  // chronological, so a late back-fill is inserted by time. Alignment would misorder
-  // the buffers of a restarted Core, which resets its leading alignment.
-  private pushNew(series: Series[]): void {
-    for (const s of series) {
-      if (this.data.series.includes(s)) continue;
-      s.acquire();
-      const at = this.data.series.findIndex(
-        (held) =>
-          held.timeRange.start.after(s.timeRange.start) ||
-          (held.timeRange.start.equals(s.timeRange.start) &&
-            held.alignment > s.alignment),
-      );
-      if (at === -1) this.data.push(s);
-      else this.data.series.splice(at, 0, s);
-    }
-  }
-
-  private gcOutOfRangeData(): void {
-    const threshold = this.now().sub(this.props.keepFor ?? this.props.timeSpan);
-    const toGC = this.data.series.findIndex((d) => d.timeRange.end.before(threshold));
-    if (toGC === -1) return;
-    this.data.series.splice(toGC, 1).forEach((d) => d.release());
-    this.gcOutOfRangeData();
-  }
-
-  // Drops everything held and reads the channel again on the next value() call.
-  private restart(): void {
-    this.cleanup();
-    this.data.series.splice(0);
+    if (generation !== this.generation) return;
     this.notify();
   }
 
   cleanup(): void {
     this.generation++;
     this.retryNotifier.notify();
-    this.stopStreaming?.();
-    this.stopStreaming = undefined;
-    this.data.release();
+    this.window.clear();
     this.valid = false;
     // No notify so a read settling after cleanup cannot wake stale observers.
     this.loading_ = false;
@@ -754,6 +805,488 @@ export class StreamChannelStringValue
   }
 }
 
+const tiledChannelDataPropsZ = z.object({
+  channel: z.number().or(z.string()),
+  useIndexOfChannel: z.boolean().default(false),
+  /** The line's x channel, or zero when x is the index of the line's y channel. */
+  xChannel: z.number().or(z.string()).default(0),
+  /** The home view of a static line. */
+  timeRange: TimeRange.z.optional(),
+  /** The span of the home view of a live line, which ends now. */
+  timeSpan: TimeSpan.z.optional(),
+  aggregation: aggregationZ.default("min_max"),
+  /** The number of aggregation groups the line draws per pixel column. */
+  groupsPerColumn: z
+    .number()
+    .positive()
+    .default(1 / 2),
+});
+
+export type TiledChannelDataProps = z.input<typeof tiledChannelDataPropsZ>;
+
+interface HeldTile {
+  spec: framer.TileSpec;
+  series: MultiSeries;
+}
+
+// The width tiles are sized for before a line reports its own.
+const DEFAULT_WIDTH = 1000;
+
+// How long a view must hold a new level before its tiles are requested.
+const DEFAULT_LEVEL_SETTLE = TimeSpan.milliseconds(150);
+
+const viewRange = ({ lower, upper }: bounds.Bounds): TimeRange =>
+  new TimeRange(BigInt(Math.max(Math.floor(lower), 0)), BigInt(Math.ceil(upper)));
+
+/**
+ * A series source that draws tiles of reduced data covering the view passed to value(),
+ * or the home view when none is passed. A live line streams its newest data at full
+ * resolution. An xy line reads its home view once, reduced with decimate.
+ */
+export class TiledChannelData
+  extends AbstractSource<typeof tiledChannelDataPropsZ>
+  implements SeriesSource
+{
+  static readonly TYPE = "tiled-series-source";
+  schema = tiledChannelDataPropsZ;
+
+  private readonly client: Client | null;
+  private readonly now: () => TimeStamp;
+  private readonly onStatusChange?: status.Adder;
+  private generation = 0;
+  private valid = false;
+  private channel: SelectedChannelProperties | null = null;
+  // xy is true when the line's x channel is not an index.
+  private xy = false;
+  private readonly held = new Map<string, HeldTile>();
+  private readonly pending = new Set<string>();
+  private width = DEFAULT_WIDTH;
+  // window holds a live line's full-resolution series from boundary on.
+  private readonly window: LiveWindow;
+  // boundary is where a live line's tiles end and its full-resolution data begins. It
+  // trails rawFrom until the tiles that replace the series before rawFrom arrive, so
+  // their span never goes blank. It trails by at most one tile of the home level.
+  private boundary = TimeStamp.ZERO;
+  // drawn is the view of the last read that drew.
+  private drawn?: TimeRange;
+  private rawLoaded = false;
+  private readonly skipLoading: boolean;
+  private readonly failures: FailureReporter;
+  private readonly retryNotifier = new sync.Notifier();
+  // breaker paces retries of the channel and live reads, and tileBreaker paces retries
+  // of failed tiles.
+  private readonly breaker: breaker.Breaker;
+  private readonly tileBreaker: breaker.Breaker;
+  // retrying holds the keys of failed tiles that wait for tileBreaker, and parked holds
+  // the keys of tiles a definitive rejection stopped.
+  private readonly retrying = new Set<string>();
+  private readonly parked = new Set<string>();
+  private readonly levelSettle: TimeSpan;
+  // viewLevel is the level of the last view drawn, and settleTimer runs until that
+  // level has held for levelSettle.
+  private viewLevel?: number;
+  private settleTimer?: ReturnType<typeof setTimeout>;
+
+  constructor(
+    client: Client | null,
+    props: unknown,
+    options?: CreateOptions,
+    now: () => TimeStamp = client?.now ?? (() => TimeStamp.now()),
+    levelSettle: TimeSpan = DEFAULT_LEVEL_SETTLE,
+    breakerConfig?: breaker.Config,
+  ) {
+    super(props);
+    this.client = client;
+    this.now = now;
+    this.levelSettle = levelSettle;
+    this.onStatusChange = options?.onStatusChange;
+    this.failures = new FailureReporter(options?.onStatusChange);
+    this.breaker = newRetryBreaker(this.retryNotifier, breakerConfig);
+    this.tileBreaker = newRetryBreaker(this.retryNotifier, breakerConfig);
+    this.window = new LiveWindow({
+      now,
+      start: () => this.rawFrom(),
+      cutoff: () => this.cutoff(),
+      failures: this.failures,
+      breakerConfig,
+      notify: () => this.notify(),
+      dataType: () => this.dataType(),
+      restart: () => this.restart(),
+    });
+    const { timeSpan } = this.props;
+    this.skipLoading = timeSpan != null && timeSpan.valueOf() <= LOADING_MIN_SPAN;
+    this.loading_ = true;
+  }
+
+  private get live(): boolean {
+    return this.props.timeSpan != null;
+  }
+
+  loading(): boolean {
+    if (this.skipLoading || primitive.isZero(this.props.channel) || !this.loading_)
+      return false;
+    this.value();
+    return this.loading_;
+  }
+
+  fetching(): boolean {
+    return (this.skipLoading || !this.loading_) && this.pending.size > 0;
+  }
+
+  value(props?: ValueProps): [bounds.Bounds, MultiSeries] {
+    if (primitive.isZero(this.props.channel))
+      return [bounds.INVALID, new MultiSeries()];
+    if (!this.valid) void this.resolve();
+    const ch = this.channel;
+    if (ch == null) return [bounds.INVALID, new MultiSeries()];
+    const home = this.home();
+    const view = props?.view;
+    if (view != null) this.width = view.width;
+    const drawsView =
+      view != null &&
+      !this.xy &&
+      bounds.isFinite(view.bounds) &&
+      bounds.span(view.bounds) > 0;
+    // Any read with a view draws, so it releases the tiles the line no longer needs.
+    const series = this.select(
+      ch.key,
+      drawsView ? viewRange(view.bounds) : home,
+      view != null,
+    );
+    if (!drawsView && this.loaded(ch.key, home)) this.loading_ = false;
+    return [this.bounds(ch, home, series), series];
+  }
+
+  private home(): TimeRange {
+    const { timeRange, timeSpan } = this.props;
+    if (timeSpan == null) return timeRange ?? TimeRange.ZERO;
+    const now = this.now();
+    return new TimeRange(now.sub(timeSpan), now);
+  }
+
+  // rawFrom is where a live line's full-resolution data starts. It sits on a tile
+  // boundary of the home level, so no tile of the home level or finer crosses it.
+  private rawFrom(): TimeStamp {
+    const home = this.home();
+    if (this.xy) return home.start;
+    const span = framer.tileSpan(level(home)).valueOf();
+    return new TimeStamp((home.start.valueOf() / span) * span);
+  }
+
+  // cutoff returns the boundary after it moves to at most one home level tile behind
+  // rawFrom. The stream prunes with it, so a line that never draws stops growing.
+  private cutoff(): TimeStamp {
+    const home = this.home();
+    const floor = this.xy
+      ? home.start
+      : this.rawFrom().sub(framer.tileSpan(level(home)));
+    this.boundary = TimeStamp.max(this.boundary, floor);
+    return this.boundary;
+  }
+
+  // tilesEnd is where a live line's tiles stop for the boundary: the boundary, or the
+  // start of a held raw series that crosses it, so no span draws twice.
+  private tilesEnd(boundary: TimeStamp = this.boundary): TimeStamp {
+    const first = this.window.data.series.find((s) => s.timeRange.end.after(boundary));
+    return first == null ? boundary : TimeStamp.min(boundary, first.timeRange.start);
+  }
+
+  private targets(
+    key: channel.Key,
+    view: TimeRange,
+    boundary?: TimeStamp,
+  ): framer.TileSpec[] {
+    const aggregation = this.xy ? "decimate" : this.props.aggregation;
+    // Tiles are cut to [start, end): the home view for an xy line, and the start of
+    // full-resolution data for a live line.
+    let start: TimeStamp | undefined;
+    let end: TimeStamp | undefined;
+    let tiled = view;
+    if (this.xy) {
+      if (this.live) return [];
+      [start, end] = [this.home().start, this.home().end];
+    } else if (this.live) {
+      end = this.tilesEnd(boundary);
+      if (!end.after(view.start)) return [];
+      if (view.end.after(end)) tiled = new TimeRange(view.start, end);
+    }
+    const l = level(view);
+    const limit = pointLimit({
+      level: l,
+      view,
+      width: this.width,
+      groupsPerColumn: this.props.groupsPerColumn,
+      aggregation,
+    });
+    return indexes(tiled, l).map((index) => {
+      const spec: framer.TileSpec = {
+        key,
+        level: l,
+        index,
+        pointLimit: limit,
+        aggregation,
+      };
+      const tr = framer.tileRange(spec);
+      if (start != null && tr.start.before(start)) spec.start = start;
+      if (end != null && tr.end.after(end)) spec.end = end;
+      return spec;
+    });
+  }
+
+  private find(
+    p: Position,
+    preferred: Map<string, string>,
+    tiles: Iterable<HeldTile> = this.held.values(),
+  ): HeldTile | undefined {
+    const want = preferred.get(`${p.level}/${p.index}`);
+    if (want != null) {
+      const exact = this.held.get(want);
+      if (exact != null) return exact;
+    }
+    for (const tile of tiles)
+      if (tile.spec.level === p.level && tile.spec.index === p.index) return tile;
+    return undefined;
+  }
+
+  // A zoom that changes the view's level waits for the level to hold, so a fast zoom
+  // does not read the levels it passes through. A pan within a level reads at once.
+  private settled(l: number): boolean {
+    if (l === this.viewLevel) return this.settleTimer == null;
+    this.viewLevel = l;
+    clearTimeout(this.settleTimer);
+    this.settleTimer = undefined;
+    if (this.levelSettle.isZero) return true;
+    this.settleTimer = setTimeout(() => {
+      this.settleTimer = undefined;
+      this.notify();
+    }, this.levelSettle.milliseconds);
+    return false;
+  }
+
+  // advance moves the boundary to rawFrom once the tiles that replace the raw series
+  // before rawFrom in the drawn view arrive. It returns the keys of those tiles while
+  // any is missing.
+  private advance(key: channel.Key): string[] {
+    const rawFrom = this.rawFrom();
+    if (!rawFrom.after(this.boundary)) return [];
+    const next = this.targets(key, this.drawn ?? this.home(), rawFrom);
+    const keys = next.map((spec) => framer.tileRequestKey(spec));
+    if (keys.every((k) => this.held.has(k))) {
+      this.boundary = rawFrom;
+      return [];
+    }
+    if (this.settled(next[0].level)) next.forEach((spec) => this.request(spec));
+    return keys;
+  }
+
+  private select(key: channel.Key, view: TimeRange, prune: boolean): MultiSeries {
+    if (prune) this.drawn = view;
+    const next = this.live ? this.advance(key) : [];
+    if (this.live) this.window.prune();
+    const targets = this.targets(key, view);
+    if (!prune || (targets.length > 0 && this.settled(targets[0].level)))
+      targets.forEach((spec) => this.request(spec));
+    const preferred = new Map(
+      targets.map((t) => [`${t.level}/${t.index}`, framer.tileRequestKey(t)]),
+    );
+    // A held tile that reaches past tilesEnd covers raw series the line still draws, so
+    // it waits until the boundary moves.
+    const end = this.live ? this.tilesEnd() : null;
+    const drawable = [...this.held.values()].filter(
+      ({ spec }) => end == null || !framer.tileRange(spec).end.after(end),
+    );
+    const chosen =
+      targets.length === 0
+        ? []
+        : choose(
+            targets[0].level,
+            targets.map((t) => t.index),
+            drawable.map((t) => t.spec),
+          ).map((p) => this.find(p, preferred, drawable)!);
+    const out = chosen.flatMap((tile) => tile.series.series);
+    if (prune) {
+      // The home view's tiles stay held, and so do the tiles that stand in for them
+      // until they arrive.
+      const home = this.targets(key, this.home());
+      const homePreferred = new Map(
+        home.map((t) => [`${t.level}/${t.index}`, framer.tileRequestKey(t)]),
+      );
+      const keep = new Set([
+        ...chosen.map((t) => framer.tileRequestKey(t.spec)),
+        ...preferred.values(),
+        ...next,
+        ...homePreferred.values(),
+        ...home.flatMap((t) => {
+          const found = this.find(t, homePreferred);
+          return found == null ? [] : [framer.tileRequestKey(found.spec)];
+        }),
+      ]);
+      for (const [tileKey, tile] of this.held)
+        if (!keep.has(tileKey)) {
+          tile.series.release();
+          this.held.delete(tileKey);
+        }
+    }
+    if (this.live) out.push(...this.window.data.series);
+    return new MultiSeries(out);
+  }
+
+  private loaded(key: channel.Key, home: TimeRange): boolean {
+    if (this.live && !this.rawLoaded) return false;
+    return this.targets(key, home).every((spec) =>
+      this.held.has(framer.tileRequestKey(spec)),
+    );
+  }
+
+  private bounds(
+    ch: SelectedChannelProperties,
+    home: TimeRange,
+    series: MultiSeries,
+  ): bounds.Bounds {
+    if (!ch.dataType.equals(DataType.TIMESTAMP) || this.xy) return series.bounds;
+    if (!this.live) return home.numericBounds;
+    const { data } = this.window;
+    const latest = data.series.length > 0 ? data.bounds.upper : NaN;
+    const upper = Number.isFinite(latest) ? latest : Number(home.end.valueOf());
+    return { lower: upper - Number(home.span.valueOf()), upper };
+  }
+
+  // A failed tile waits for tileBreaker before a later value() call requests it again.
+  // A definitive rejection parks it until cleanup.
+  private request(spec: framer.TileSpec): void {
+    const key = framer.tileRequestKey(spec);
+    const { client } = this;
+    if (
+      client == null ||
+      this.held.has(key) ||
+      this.pending.has(key) ||
+      this.retrying.has(key) ||
+      this.parked.has(key)
+    )
+      return;
+    const generation = this.generation;
+    this.pending.add(key);
+    client.feed
+      .readTile(spec, this.dataType())
+      .then((series) => {
+        if (generation !== this.generation) return;
+        this.pending.delete(key);
+        const held = this.dataType();
+        // Series of two data types cannot share a MultiSeries.
+        if (held != null && series.series.some((s) => !s.dataType.equals(held)))
+          return this.restart();
+        series.acquire();
+        this.held.set(key, { spec, series });
+        this.tileBreaker.reset();
+        this.failures.reset();
+        this.notify();
+      })
+      .catch((e: unknown) => {
+        if (generation !== this.generation) return;
+        this.pending.delete(key);
+        this.fail(e);
+        if (isDefinitive(e)) {
+          this.parked.add(key);
+          return;
+        }
+        const waiting = this.retrying.size > 0;
+        this.retrying.add(key);
+        if (!waiting) void this.retryTiles(generation);
+      });
+  }
+
+  // Waits out tileBreaker for the tiles that fail during the wait. The notify at its
+  // end makes the next value() call request them again.
+  private async retryTiles(generation: number): Promise<void> {
+    if (!(await this.tileBreaker.wait()) || generation !== this.generation) return;
+    this.retrying.clear();
+    this.notify();
+  }
+
+  /**
+   * Never rejects. A connectivity failure retries under the breaker, and a definitive
+   * rejection parks the source. Every distinct failure reaches onStatusChange.
+   */
+  private async resolve(): Promise<void> {
+    const generation = this.generation;
+    this.valid = true;
+    const { client } = this;
+    if (client == null) {
+      this.declareLoaded();
+      this.onStatusChange?.(DISCONNECTED_STATUS);
+      return;
+    }
+    while (generation === this.generation)
+      try {
+        await this.attempt(generation, client);
+        this.breaker.reset();
+        this.failures.reset();
+        return;
+      } catch (e) {
+        if (generation !== this.generation) return;
+        this.fail(e);
+        if (isDefinitive(e) || !(await this.breaker.wait())) return;
+      }
+  }
+
+  private async attempt(generation: number, client: Client): Promise<void> {
+    const { channel, useIndexOfChannel, xChannel } = this.props;
+    const ch = await fetchChannelProperties(client, channel, useIndexOfChannel);
+    const xy =
+      !primitive.isZero(xChannel) &&
+      !(await client.channels.retrieve(xChannel)).isIndex;
+    if (generation !== this.generation) return;
+    this.channel = ch;
+    this.xy = xy;
+    if (this.live) {
+      this.boundary = this.rawFrom();
+      await this.window.open(client, ch);
+      if (generation !== this.generation) return;
+      this.rawLoaded = true;
+    }
+    this.notify();
+  }
+
+  // Declares the home view loaded on the first failure, so retries never hold loading
+  // forever.
+  private fail(e: unknown): void {
+    this.failures.report(e, "Failed to read channel data");
+    this.declareLoaded();
+  }
+
+  // The data type of every series the line holds, or undefined when it holds none.
+  private dataType(): DataType | undefined {
+    for (const tile of this.held.values())
+      if (tile.series.series.length > 0) return tile.series.series[0].dataType;
+    return this.window.data.series[0]?.dataType;
+  }
+
+  private restart(): void {
+    this.cleanup();
+    this.notify();
+  }
+
+  cleanup(): void {
+    this.generation++;
+    this.retryNotifier.notify();
+    clearTimeout(this.settleTimer);
+    this.settleTimer = undefined;
+    this.viewLevel = undefined;
+    this.drawn = undefined;
+    this.window.clear();
+    this.held.forEach((tile) => tile.series.release());
+    this.held.clear();
+    this.pending.clear();
+    this.retrying.clear();
+    this.parked.clear();
+    this.valid = false;
+    this.channel = null;
+    this.loading_ = true;
+    this.rawLoaded = false;
+    this.failures.reset();
+  }
+}
+
 type Constructor = new (
   client: Client | null,
   props: unknown,
@@ -763,6 +1296,7 @@ type Constructor = new (
 const REGISTRY: Record<string, Constructor> = {
   [ChannelData.TYPE]: ChannelData,
   [StreamChannelData.TYPE]: StreamChannelData,
+  [TiledChannelData.TYPE]: TiledChannelData,
   [StreamChannelValue.TYPE]: StreamChannelValue,
   [StreamChannelStringValue.TYPE]: StreamChannelStringValue,
 };
@@ -790,6 +1324,13 @@ export const channelData = (props: ChannelDataProps): SeriesSourceSpec => ({
 
 export const streamChannelData = (props: StreamChannelDataProps): SeriesSourceSpec => ({
   type: StreamChannelData.TYPE,
+  props,
+  variant: "source",
+  valueType: "series",
+});
+
+export const tiledChannelData = (props: TiledChannelDataProps): SeriesSourceSpec => ({
+  type: TiledChannelData.TYPE,
   props,
   variant: "source",
   valueType: "series",

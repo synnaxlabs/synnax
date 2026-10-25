@@ -89,11 +89,11 @@ three tiles, and fetches every tile that touches the view at that level. A zoom 
 changes the level fetches after the level holds for 150 ms, so a fast zoom does not read
 the levels it passes through.
 
-Each slot of the view at the chosen level draws its own tile when it is cached, else its
-two child tiles when both are cached, else the finest cached ancestor up to eight levels
-coarser. Else it stays empty until its tile arrives. A tile is drawn whole, and two
-drawn tiles never overlap. A tile whose sample count is under the point limit comes back
-raw, so full resolution is not a special case.
+Each slot of the view at the chosen level draws the first of: its own cached tile,
+cached finer tiles that cover it whole, the finest cached ancestor, and cached finer
+tiles that cover part of it. Else it stays empty until its tile arrives. A tile is drawn
+whole, and two drawn tiles never overlap. A tile whose sample count is under the point
+limit comes back raw, so full resolution is not a special case.
 
 ### 3.2 Point limit and detail
 
@@ -199,9 +199,10 @@ aggregation setting is hidden for these lines.
 A live line keeps a window at full resolution: `feed.read` fills it once, and
 `Feed.stream` extends it. The window starts at the home-level tile boundary at or before
 the start of the home view, and series that end before the start are released as it
-moves. Tiles cover everything before the start. No tile at the home level or finer
-crosses it, and a coarser tile that does is read with `end` set to it. The x and y
-sources compute the start from the clock, so both cut at the same time.
+moves. Tiles cover everything before the start, or before the first held series when
+that series crosses the start, so no span draws twice. A tile that crosses where tiles
+stop is read with `end` set to it. The x and y sources compute the start from the clock,
+so both cut at the same time.
 
 ### 3.9 Loading
 
