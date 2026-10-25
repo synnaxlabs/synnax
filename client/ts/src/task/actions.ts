@@ -22,18 +22,10 @@ import { type Payload, payloadZ } from "@/task/types.gen";
 // The cache decodes every task with the generic schema, so actions convert with it.
 const PAYLOAD_Z = payloadZ();
 
-// Actions hold snake_case paths and values, the form the Core applies. The cached
-// task holds the camelCase form that the codec decodes.
 const applyPath = (state: Draft<Payload>, action: patch.Action): HandlerResult => {
-  const opts = { schema: PAYLOAD_Z, doc: state };
-  const inverse = patch.apply(state, patch.snakeToCamel(action, opts), {
-    snapshot: actions.snapshotDraft,
-  });
+  const inverse = actions.applyPath(state, action, PAYLOAD_Z);
   if (inverse.length === 0) return actions.NO_OP_RESULT;
-  return {
-    inverse: inverse.map((a) => patch.camelToSnake(a, opts)),
-    targets: [patch.pathOf(action).join(".")],
-  };
+  return { inverse, targets: [patch.pathOf(action).join(".")] };
 };
 
 const handlers: Handlers = {

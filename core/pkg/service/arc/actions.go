@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -295,4 +296,43 @@ func containsTextEdit(actions []Action) bool {
 		}
 	}
 	return false
+}
+
+// Handle applies the set to the graph's node inputs.
+func (p SetPayload) Handle(state Arc) (Arc, error) {
+	return edit(state, patch.Set(p).Apply)
+}
+
+// Handle applies the remove to the graph's node inputs.
+func (p RemovePayload) Handle(state Arc) (Arc, error) {
+	return edit(state, patch.Remove(p).Apply)
+}
+
+// Handle applies the insert to the graph's node inputs.
+func (p InsertPayload) Handle(state Arc) (Arc, error) {
+	return edit(state, patch.Insert(p).Apply)
+}
+
+// Handle applies the move to the graph's node inputs.
+func (p MovePayload) Handle(state Arc) (Arc, error) {
+	return edit(state, patch.Move(p).Apply)
+}
+
+// document is the part of an Arc module that path actions edit.
+type document struct {
+	Graph struct {
+		Inputs map[string]msgpack.EncodedJSON `json:"inputs"`
+	} `json:"graph"`
+}
+
+// edit applies a path action to a copy of the graph's node inputs.
+func edit(state Arc, apply func(map[string]any) error) (Arc, error) {
+	var doc document
+	doc.Graph.Inputs = state.Graph.Inputs
+	next, err := patch.Edit(doc, apply)
+	if err != nil {
+		return Arc{}, err
+	}
+	state.Graph.Inputs = next.Graph.Inputs
+	return state, nil
 }

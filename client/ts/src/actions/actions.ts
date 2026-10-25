@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { patch, type record } from "@synnaxlabs/x";
 import { current, type Draft, isDraft, produce } from "immer";
 import { z } from "zod";
 
@@ -47,6 +48,28 @@ export interface ReduceAllResult<S, A> {
  * next action would crash if it called `current` unconditionally.
  */
 export const snapshotDraft = <T>(v: T): T => (isDraft(v) ? current(v as Draft<T>) : v);
+
+/**
+ * Applies a path action to a draft of a cached document. The action holds the form the
+ * Core stores, with snake_case keys, and the draft holds the camelCase form that the
+ * client decodes.
+ * @param schema - The document's schema, which names the keys that keep their case.
+ * @returns the inverse actions, in the form the Core stores.
+ * @throws {Error} if the document cannot hold the action.
+ */
+export const applyPath = <S extends object>(
+  state: Draft<S>,
+  action: patch.Action,
+  schema: z.ZodType,
+): patch.Action[] => {
+  const opts = { schema, doc: state };
+  const inverse = patch.apply(
+    state as record.Unknown,
+    patch.snakeToCamel(action, opts),
+    { snapshot: snapshotDraft },
+  );
+  return inverse.map((a) => patch.camelToSnake(a, opts));
+};
 
 /**
  * createReduceAll lifts a per-variant `reduceOne` switch into a batched

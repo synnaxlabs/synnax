@@ -10,6 +10,7 @@
 import "schemas/synnax/channel"
 import "schemas/x/color"
 import "schemas/x/notation"
+import "schemas/x/patch"
 import "schemas/x/text"
 
 @go output "core/pkg/service/table"
@@ -339,6 +340,24 @@ Table struct {
             their original keys. Cells in the selection whose keys are not in the
             table's cells map are silently skipped.
         """
+    }
+
+    action Set extends patch.Set {
+        @doc value "replaces the value at a path in the table's cells."
+    }
+
+    action Remove extends patch.Remove {
+        @doc value """
+            removes an entry from a list or a field from an object in the table's cells.
+        """
+    }
+
+    action Insert extends patch.Insert {
+        @doc value "adds an entry to a list in the table's cells."
+    }
+
+    action Move extends patch.Move {
+        @doc value "moves an entry in a list in the table's cells."
     }
 
     @create

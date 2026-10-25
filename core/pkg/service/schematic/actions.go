@@ -17,6 +17,7 @@ import (
 	v10 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v10"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -224,4 +225,45 @@ func (p *SetConfigPayload) fromRaw(raw rawSetConfigPayload) error {
 	}
 	*p = SetConfigPayload{Key: raw.Key, Config: cfg}
 	return nil
+}
+
+// Handle applies the set to the schematic's element configs.
+func (p SetPayload) Handle(state Schematic) (Schematic, error) {
+	return edit(state, patch.Set(p).Apply)
+}
+
+// Handle applies the remove to the schematic's element configs.
+func (p RemovePayload) Handle(state Schematic) (Schematic, error) {
+	return edit(state, patch.Remove(p).Apply)
+}
+
+// Handle applies the insert to the schematic's element configs.
+func (p InsertPayload) Handle(state Schematic) (Schematic, error) {
+	return edit(state, patch.Insert(p).Apply)
+}
+
+// Handle applies the move to the schematic's element configs.
+func (p MovePayload) Handle(state Schematic) (Schematic, error) {
+	return edit(state, patch.Move(p).Apply)
+}
+
+// document is the part of a schematic that path actions edit.
+type document struct {
+	Configs map[string]ElementConfig `json:"configs"`
+}
+
+// edit applies a path action to a copy of the schematic's element configs. A config
+// that names no variant is rejected, as SetConfigPayload rejects it.
+func edit(state Schematic, apply func(map[string]any) error) (Schematic, error) {
+	d, err := patch.Edit(document{Configs: state.Configs}, apply)
+	if err != nil {
+		return Schematic{}, err
+	}
+	for key, cfg := range d.Configs {
+		if cfg.Variant == nil {
+			return Schematic{}, noVariantError(key)
+		}
+	}
+	state.Configs = d.Configs
+	return state, nil
 }

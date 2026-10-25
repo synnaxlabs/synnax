@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/union"
@@ -931,5 +932,105 @@ var _ = Describe("Payload decoding", func() {
 		cfg := a.SetConfig.Config.Variant.(schematic.LineElementConfig)
 		Expect(cfg.End.X).To(BeZero())
 		Expect(cfg.StrokeWidth).To(BeEquivalentTo(2))
+	})
+})
+
+var _ = Describe("Path actions", func() {
+	var state schematic.Schematic
+	BeforeEach(func() {
+		state = schematic.Schematic{
+			Name:    "Engine",
+			Configs: map[string]schematic.ElementConfig{"n1": tankCfg("T1", "")},
+		}
+	})
+	set := func(path []string, value any, guards ...patch.Guard) schematic.Action {
+		return schematic.NewSetAction(
+			schematic.SetPayload{Path: path, Value: value, Guards: guards},
+		)
+	}
+	tank := func(s schematic.Schematic) schematic.TankElementConfig {
+		GinkgoHelper()
+		cfg, ok := s.Configs["n1"].Variant.(schematic.TankElementConfig)
+		Expect(ok).To(BeTrue())
+		return cfg
+	}
+
+	Describe("SetPayload", func() {
+		It("Should set a field of an element config", func() {
+			next := MustSucceed(schematic.Reduce(
+				state,
+				set([]string{"configs", "n1", "label", "label"}, "T2"),
+			))
+			Expect(tank(next).Label.Label).To(Equal("T2"))
+			Expect(next.Name).To(Equal("Engine"))
+		})
+
+		It("Should set a color from its hex form", func() {
+			next := MustSucceed(schematic.Reduce(
+				state,
+				set([]string{"configs", "n1", "stroke_color"}, "#ff0000"),
+			))
+			Expect(tank(next).StrokeColor).To(Equal(new(color.MustFromHex("#ff0000"))))
+		})
+
+		It("Should do nothing when the variant guard fails", func() {
+			next := MustSucceed(schematic.Reduce(state, set(
+				[]string{"configs", "n1", "label", "label"},
+				"T2",
+				patch.Guard{Path: []string{"configs", "n1", "variant"}, Value: "valve"},
+			)))
+			Expect(tank(next).Label.Label).To(Equal("T1"))
+		})
+
+		It("Should reject a path outside the element configs", func() {
+			Expect(schematic.Reduce(state, set([]string{"name"}, "Other"))).
+				Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("decoding document")),
+			))
+		})
+
+		It("Should reject a config that names no variant", func() {
+			Expect(schematic.Reduce(state, set([]string{"configs", "n2"}, nil))).
+				Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(`config for "n2" names no variant`)),
+			))
+		})
+	})
+
+	Describe("RemovePayload", func() {
+		It("Should remove an element config", func() {
+			next := MustSucceed(schematic.Reduce(state, schematic.NewRemoveAction(
+				schematic.RemovePayload{Path: []string{"configs"}, Key: "n1"},
+			)))
+			Expect(next.Configs).To(BeEmpty())
+		})
+	})
+
+	Describe("InsertPayload", func() {
+		It("Should reject a list the element config does not declare", func() {
+			Expect(schematic.Reduce(state, schematic.NewInsertAction(
+				schematic.InsertPayload{
+					Path:  []string{"configs", "n1", "tags"},
+					Value: map[string]any{"key": "a"},
+				},
+			))).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("decoding document")),
+			))
+		})
+	})
+
+	Describe("MovePayload", func() {
+		It("Should leave the schematic unchanged when the list is missing", func() {
+			next := MustSucceed(schematic.Reduce(state, schematic.NewMoveAction(
+				schematic.MovePayload{
+					Path: []string{"configs", "n1", "tags"},
+					Key:  "a",
+				},
+			)))
+			Expect(next).To(Equal(state))
+		})
 	})
 })

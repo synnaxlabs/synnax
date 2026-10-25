@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { caseconv, type patch } from "@synnaxlabs/x";
 import { type Draft, produce } from "immer";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -98,6 +99,52 @@ describe("snapshotDraft", () => {
     expect(actions.snapshotDraft(42)).toBe(42);
     expect(actions.snapshotDraft("hello")).toBe("hello");
     expect(actions.snapshotDraft(null)).toBe(null);
+  });
+});
+
+describe("applyPath", () => {
+  const docZ = z.object({
+    maxSize: z.number(),
+    params: caseconv.preserveCase(z.record(z.string(), z.unknown())),
+  });
+  type Doc = z.infer<typeof docZ>;
+  const apply = (doc: Doc, action: patch.Action) => {
+    let inverse: patch.Action[] = [];
+    const next = produce(doc, (draft) => {
+      inverse = actions.applyPath(draft, action, docZ);
+    });
+    return { next, inverse };
+  };
+
+  it("should apply a wire-form path to the camelCase document", () => {
+    const { next, inverse } = apply(
+      { maxSize: 1, params: {} },
+      { type: "set", set: { path: ["max_size"], value: 2, guards: [] } },
+    );
+    expect(next.maxSize).toBe(2);
+    expect(inverse).toEqual([
+      { type: "set", set: { path: ["max_size"], value: 1, guards: [] } },
+    ]);
+  });
+
+  it("should keep the case of a key the schema preserves", () => {
+    const { next } = apply(
+      { maxSize: 1, params: {} },
+      { type: "set", set: { path: ["params", "minValue"], value: 2, guards: [] } },
+    );
+    expect(next.params).toEqual({ minValue: 2 });
+  });
+
+  it("should return no inverse when a guard fails", () => {
+    const { next, inverse } = apply(
+      { maxSize: 1, params: {} },
+      {
+        type: "set",
+        set: { path: ["max_size"], value: 2, guards: [{ path: ["kind"], value: "a" }] },
+      },
+    );
+    expect(next.maxSize).toBe(1);
+    expect(inverse).toEqual([]);
   });
 });
 

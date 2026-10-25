@@ -7,12 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { patch } from "@synnaxlabs/x";
+import { type Draft } from "immer";
+
 import { actions } from "@/actions";
 import {
   type Action,
   addCol,
   addRow,
   createReduceAll,
+  type HandlerResult,
   type Handlers,
   moveCol,
   moveRow,
@@ -23,7 +27,7 @@ import {
   resizeRow,
   setCell,
 } from "@/table/actions.gen";
-import { type Cell, columnZ, rowZ } from "@/table/types.gen";
+import { type Cell, columnZ, rowZ, type Table, tableZ } from "@/table/types.gen";
 
 const MIN_CELL_DIM = 32;
 // baseRow and baseCol are the entries an action gives the opposing axis when it
@@ -54,6 +58,17 @@ const expandTemplate = (template: Cell, count: number): Cell[] =>
     key: deriveKey(template.key, i),
     config: template.config,
   }));
+
+// Path actions edit only the cells. Each targets the cell it reaches, as the other
+// actions do.
+const applyPath = (state: Draft<Table>, action: patch.Action): HandlerResult => {
+  const path = patch.pathOf(action);
+  if (path[0] !== "cells" || path.length < 2)
+    throw new Error(`${path.join(".")} is not inside a cell`);
+  const inverse = actions.applyPath(state, action, tableZ);
+  if (inverse.length === 0) return actions.NO_OP_RESULT;
+  return { inverse, targets: [path[1]] };
+};
 
 const handlers: Handlers = {
   create: (state, payload) => {
@@ -275,6 +290,10 @@ const handlers: Handlers = {
     }
     return { inverse, targets };
   },
+  set: (state, set) => applyPath(state, { type: "set", set }),
+  remove: (state, remove) => applyPath(state, { type: "remove", remove }),
+  insert: (state, insert) => applyPath(state, { type: "insert", insert }),
+  move: (state, move) => applyPath(state, { type: "move", move }),
 };
 
 export const reduceAll = createReduceAll(handlers);
