@@ -156,10 +156,11 @@ server-computed and refetches (RFC 0047 §5.1).
 One case table, `x/testdata/filter/vectors.json`, runs against the Go interpreter and
 the TypeScript `matches`, as `x/testdata/crdt/vectors.json` does for CRDTs.
 
-The list pager sends `searchTerm: ""` and `offset: 0` on every page
+The list pager sends `searchTerm: ""` and `offset: 0` on the first page
 (`lyra/src/list/pager.ts:51-71`). The cache counts any non-null server field as set
-(`client/ts/src/query/query.ts:703`), so every explorer list refetches today. The pager
-stops sending empty values.
+(`client/ts/src/query/query.ts:703`), so every explorer list refetches today. The cache
+counts an empty string and a zero `offset` as unset, since they ask the Core for
+nothing. The pager keeps `offset: 0`, which marks the first page as fetched.
 
 ### 2.5 Saved views
 
@@ -197,7 +198,8 @@ and its flat fields go away together, since a client must match the Core's versi
 - **Phase 3: Ranges and statuses.** The two entities with saved views move to `where` in
   every language:
   - Schemas, handlers, and behavior specs for AND, OR, NOT, and each operator.
-  - The shared case table, the server-computed rule in the cache, and the pager fix.
+  - The shared case table, the server-computed rule in the cache, and the empty-value
+    fix.
   - The TypeScript, Python, and C++ clients, with retrieve-by-key specs, and the Pluto
     queries.
   - Saved views that store `where` and `order_by`.
