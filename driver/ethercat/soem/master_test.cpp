@@ -14,6 +14,7 @@
 #include "x/cpp/test/test.h"
 
 #include "driver/ethercat/errors/errors.h"
+#include "driver/ethercat/esi/known_devices.h"
 #include "driver/ethercat/soem/master.h"
 #include "driver/ethercat/soem/mock_api.h"
 
@@ -643,6 +644,24 @@ TEST_F(SOEMMasterTest, LiveMappingTakesPrecedenceOverRegistry) {
     ASSERT_EQ(inputs.size(), 3);
     EXPECT_EQ(inputs[2].index, 0x6000);
     EXPECT_EQ(inputs[2].sub_index, 17);
+}
+
+/// @brief it should name the live entries of a known device from the device registry,
+/// so a rescan keeps the names that automatic channels refer to.
+TEST_F(SOEMMasterTest, RegistryNamesLiveEntriesOfAKnownDevice) {
+    slave::Properties registry{};
+    ASSERT_TRUE(esi::lookup_device_pdos(BECKHOFF, EL1008, 0, registry));
+    auto info = coe_slave(24);
+    info.eep_man = BECKHOFF;
+    info.eep_id = EL1008;
+    this->add_slave(info);
+    serve_padded_txpdo(*this->mock);
+    ASSERT_NIL(this->master->initialize());
+
+    const auto inputs = this->master->slaves()[0].properties.input_pdos;
+    ASSERT_EQ(inputs.size(), 3);
+    EXPECT_EQ(inputs[0].name, registry.input_pdos.at(0).name);
+    EXPECT_EQ(inputs[2].name, "Value");
 }
 
 /// @brief it should describe a slave from the device registry when the slave reports no

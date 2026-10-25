@@ -381,10 +381,16 @@ constexpr int MAX_SDO_FAILURES = 3;
 
 void Master::discover_slave_pdos(slave::DiscoveryResult &slave) {
     auto &props = slave.properties;
-    if (this->discover_pdos_coe(slave)) return;
+    if (this->discover_pdos_coe(slave)) {
+        esi::fill_known_entries(props);
+        return;
+    }
     slave.status.pdo_discovery_error.clear();
     this->discover_pdos_sii(slave);
-    if (!props.input_pdos.empty() || !props.output_pdos.empty()) return;
+    if (!props.input_pdos.empty() || !props.output_pdos.empty()) {
+        esi::fill_known_entries(props);
+        return;
+    }
     if (!esi::lookup_device_pdos(
             props.vendor_id,
             props.product_code,
