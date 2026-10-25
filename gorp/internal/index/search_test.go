@@ -105,7 +105,7 @@ var _ = Describe("Search", func() {
 		It("Should hide the committed text of a key the scope changed", func() {
 			s.Stage(txn, 1, []string{"valve"})
 			Expect(keys(s, txn, "pressure")).To(Equal([]int{2}))
-			Expect(keys(s, txn, "valve")).To(ConsistOf(1, 3))
+			Expect(keys(s, txn, "valve")).To(Equal([]int{3, 1}))
 		})
 
 		It("Should match any word when only changed keys matched every word", func() {
@@ -132,12 +132,26 @@ var _ = Describe("Search", func() {
 			Entry("every key", 0, []int{1, 2, 4, 5}),
 		)
 
+		It("Should order equal staged matches by when they were first staged", func() {
+			expected := []int{3}
+			for key := 20; key > 10; key-- {
+				s.Stage(txn, key, []string{"valve"})
+				expected = append(expected, key)
+			}
+			s.Stage(txn, 15, []string{"valve"})
+			for range 5 {
+				Expect(keys(s, txn, "valve")).To(Equal(expected))
+			}
+			txn.end(true)
+			Expect(keys(s, nil, "valve")).To(Equal(expected))
+		})
+
 		It("Should keep the last staged change of a key", func() {
 			s.Stage(txn, 4, []string{"valve"})
 			s.StageDelete(txn, 4)
 			Expect(keys(s, txn, "valve")).To(Equal([]int{3}))
 			s.Stage(txn, 4, []string{"valve"})
-			Expect(keys(s, txn, "valve")).To(ConsistOf(3, 4))
+			Expect(keys(s, txn, "valve")).To(Equal([]int{3, 4}))
 		})
 
 		It("Should stage a key with no text as matching nothing", func() {

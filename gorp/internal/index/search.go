@@ -24,19 +24,31 @@ type Search[S Scope, K comparable] struct {
 	mu         sync.RWMutex
 	population population
 	committed  *search.Index[K]
-	overlay    overlay[S, texts[K]]
+	overlay    overlay[S, *texts[K]]
 }
 
 // texts is the text that one scope has staged for each key. A nil text marks a deleted
 // key.
-type texts[K comparable] map[K][]string
+type texts[K comparable] struct {
+	// keys holds each staged key once, in the order it was first staged, so equal
+	// matches rank in the same order on every search.
+	keys []K
+	text map[K][]string
+}
 
-func (t texts[K]) isEmpty() bool { return len(t) == 0 }
+func (t *texts[K]) set(key K, text []string) {
+	if _, ok := t.text[key]; !ok {
+		t.keys = append(t.keys, key)
+	}
+	t.text[key] = text
+}
+
+func (t *texts[K]) isEmpty() bool { return len(t.keys) == 0 }
 
 // NewSearch returns an empty Search that waits for its bulk load.
 func NewSearch[S Scope, K comparable]() *Search[S, K] {
 	s := &Search[S, K]{population: newPopulation(), committed: search.New[K]()}
-	s.overlay.create = func() texts[K] { return make(texts[K]) }
+	s.overlay.create = func() *texts[K] { return &texts[K]{text: make(map[K][]string)} }
 	s.overlay.flush = s.flush
 	return s
 }
@@ -83,7 +95,7 @@ func (s *Search[S, K]) Stage(scope S, key K, text []string) {
 	if text == nil {
 		text = []string{}
 	}
-	s.overlay.load(scope)[key] = text
+	s.overlay.load(scope).set(key, text)
 }
 
 // StageDelete removes key in the changes of scope. The removal applies to committed
@@ -93,7 +105,7 @@ func (s *Search[S, K]) StageDelete(scope S, key K) {
 		s.Delete(key)
 		return
 	}
-	s.overlay.load(scope)[key] = nil
+	s.overlay.load(scope).set(key, nil)
 }
 
 // Get returns at most limit keys whose text matches term, closest match first, with the
@@ -111,22 +123,23 @@ func (s *Search[S, K]) Get(scope S, term string, limit int) (search.Result[K], e
 		return s.committed.Search(term, limit), nil
 	}
 	pending := search.New[K]()
-	for key, text := range staged {
-		if text != nil {
+	for _, key := range staged.keys {
+		if text := staged.text[key]; text != nil {
 			pending.Set(key, text...)
 		}
 	}
 	committed := s.committed.SearchExcept(term, func(key K) bool {
-		_, ok := staged[key]
+		_, ok := staged.text[key]
 		return ok
 	}, limit)
 	return search.Merge(limit, committed, pending.Search(term, limit)), nil
 }
 
-func (s *Search[S, K]) flush(staged texts[K]) {
+func (s *Search[S, K]) flush(staged *texts[K]) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	for key, text := range staged {
+	for _, key := range staged.keys {
+		text := staged.text[key]
 		if text == nil {
 			s.committed.Delete(key)
 			continue
