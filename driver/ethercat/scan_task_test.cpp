@@ -353,7 +353,7 @@ TEST_F(EtherCATScanTest, ScanTaskFailsToConfigureWithoutAPacketCaptureLibrary) {
     EXPECT_EQ(
         this->ctx->statuses.back().description,
         "EtherCAT is unavailable because a required packet capture library is not "
-        "installed. Check driver logs for details."
+        "installed. Check the Driver logs for details."
     );
 }
 }

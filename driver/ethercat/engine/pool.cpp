@@ -29,7 +29,7 @@ x::errors::Error Pool::check_available() const {
     return x::errors::Error(
         x::lib::LOAD_ERROR,
         "EtherCAT is unavailable because a required packet capture library is not "
-        "installed. Check driver logs for details."
+        "installed. Check the Driver logs for details."
     );
 }
 

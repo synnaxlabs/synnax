@@ -23,7 +23,7 @@
 
 namespace driver::ethercat {
 namespace {
-/// The number of scans to skip an interface that had no slaves.
+/// An interface that had no slaves is probed again this many scans later.
 constexpr size_t EMPTY_INTERFACE_PROBE_INTERVAL = 6;
 
 std::string get_pdo_error_guidance(const std::string &error) {
