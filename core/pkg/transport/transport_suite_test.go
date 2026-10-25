@@ -24,7 +24,7 @@ var apiLayer *api.Layer
 
 func TestTransport(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Transport Suite")
+	RunSpecs(t, "Transport Suite", SuiteConfig())
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {

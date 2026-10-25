@@ -9,8 +9,9 @@
 
 import { status, type Synnax } from "@synnaxlabs/client";
 import { EOF } from "@synnaxlabs/freighter";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { breaker, errors, TimeSpan } from "@synnaxlabs/x";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { type Message, type MessageReader, type MessageWriter } from "vscode-jsonrpc";
 import {
   type BaseLanguageClient,
@@ -225,8 +226,7 @@ export const useLanguageServer = ({
   open,
   onStatus,
 }: UseLanguageServerParams): void => {
-  const onStatusRef = useRef(onStatus);
-  onStatusRef.current = onStatus;
+  const onStatusRef = useSyncedRef(onStatus);
   useEffect(() => {
     if (monaco == null || client == null) {
       onStatusRef.current(INACTIVE_STATUS());

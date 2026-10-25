@@ -21,7 +21,7 @@ import { User as PlatformUser } from "@/platform/user";
 
 const useDelete = Tree.createUseDelete({
   type: "User",
-  query: User.useDelete,
+  useUpdate: User.useDelete,
   convertKey: String,
 });
 
@@ -63,7 +63,7 @@ const useAssignRole = (): ((props: Tree.ContextMenuProps) => void) => {
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     client,
-    state: { getResource },
+    state,
     selection: { ids },
   } = props;
   const hasUpdatePermission = Access.useUpdateGranted(ids);
@@ -72,8 +72,9 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const rename = useRename(props);
   const handleAssignRole = useAssignRole();
   const singleResource = ids.length === 1;
-  const isNotCurrentUser = getResource(ids[0]).name !== client.params.username;
-  const isRootUser = getResource(ids[0]).data?.root_user === true;
+  const first = Tree.useResource(state, ids[0]);
+  const isNotCurrentUser = first != null && first.name !== client.params.username;
+  const isRootUser = first?.data?.root_user === true;
 
   return (
     <ContextMenu.Menu>

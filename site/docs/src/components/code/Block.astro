@@ -25,7 +25,7 @@ if (wrap) className += " wrap";
 
 <div class={className} tabindex={tabindex}>
     {!hideCopyButton && (
-        <Button.Button variant="outlined" size="medium" square>
+        <Button.Button variant="outlined" size="medium" square aria-label="Copy code">
             <>
                 <Icon.Copy className="copy" />
                 <Icon.Check className="check" />
@@ -70,11 +70,16 @@ if (wrap) className += " wrap";
             overflow-x: hidden;
         }
 
+        /* Pinned, so a block in a list item does not take the item's text metrics. At
+           13px, a line of 88 characters, the width Prettier formats to, fits the
+           column. */
         pre {
             margin: 0;
+            font-size: var(--pluto-tiny-size);
+            line-height: 1.5;
         }
 
-        margin: 5rem var(--docs-block-inset) var(--docs-block-gap);
+        margin: 5rem 0 var(--docs-block-gap);
         button {
             opacity: 0;
             position: absolute;
@@ -92,7 +97,8 @@ if (wrap) className += " wrap";
             }
         }
 
-        &:hover button {
+        &:hover button,
+        & button:focus-visible {
             opacity: 1;
         }
 
@@ -131,18 +137,43 @@ if (wrap) className += " wrap";
         }
     }
 
-    /* The code block's own padding carries the gap under the tab strip. */
-    .pluto-tabs__content .astro-code-wrapper:first-child,
-    .pluto-tabs__content > p:first-child {
-        margin-top: 0;
+    /* In a pane, a code block is a band across the full pane, split from the prose by
+       hairlines, and its code lines up with the prose. */
+    article :is(.pluto-tabs__content, .docs-details > .content) > .astro-code-wrapper {
+        --band: var(--docs-block-padding);
+        margin: var(--band) calc(-1 * var(--band));
+        .astro-code {
+            border: none;
+            border-block: 1px solid var(--pluto-gray-l3);
+            border-radius: 0;
+        }
+        &:first-child {
+            margin-top: calc(-1 * var(--band));
+            .astro-code {
+                border-top: none;
+            }
+        }
+        &:last-child {
+            margin-bottom: calc(-1 * var(--band));
+            .astro-code {
+                border-bottom: none;
+            }
+        }
     }
 
-    /* A lead-in sentence owns the gap to the code block it introduces. */
+    article
+        :is(.pluto-tabs__content, .docs-details > .content)
+        > p:has(+ .astro-code-wrapper) {
+        margin-bottom: 0;
+    }
+
+    /* A lead-in sentence or a heading owns the gap to the code block under it. */
     p:has(+ .astro-code-wrapper) {
         margin-bottom: 2rem;
     }
     p + .astro-code-wrapper,
-    .pluto-note + .astro-code-wrapper {
+    .pluto-note + .astro-code-wrapper,
+    :is(h2, h3, h4, h5, h6) + .astro-code-wrapper {
         margin-top: 0;
     }
 </style>

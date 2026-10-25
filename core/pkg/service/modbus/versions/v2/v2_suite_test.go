@@ -19,7 +19,7 @@ import (
 
 func TestModbusV2(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Modbus v2 Suite")
+	RunSpecs(t, "Service Modbus v2 Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

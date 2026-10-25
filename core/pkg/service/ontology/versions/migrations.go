@@ -10,18 +10,18 @@
 package versions
 
 import (
+	"github.com/synnaxlabs/gorp"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
-	"github.com/synnaxlabs/x/migrate"
 )
 
 // ResourceMigrations is the ordered migration chain for stored resources.
-var ResourceMigrations = []migrate.Migration{
+var ResourceMigrations = []gorp.Migration{
 	v0.ResourceNormalizeKeys,
 	v0.ResourceMigration,
 }
 
 // RelationshipMigrations is the ordered migration chain for stored relationships.
-var RelationshipMigrations = []migrate.Migration{
+var RelationshipMigrations = []gorp.Migration{
 	v0.RelationshipNormalizeKeys,
 	v0.RelationshipMigration,
 }

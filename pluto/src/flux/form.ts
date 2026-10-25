@@ -17,6 +17,9 @@ import {
 import { Status } from "@synnaxlabs/lyra/status";
 import { type CrudeTimeSpan, type destructor, state, TimeSpan } from "@synnaxlabs/x";
 import {
+  type Dispatch,
+  type SetStateAction,
+  use,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -35,11 +38,11 @@ import {
   successResult,
 } from "@/flux/result";
 import {
+  fulfilled,
   type LocalCache,
   localFor,
-  readCached,
+  promiseFor,
   type RetrieveParams,
-  suspendOnFetch,
   useMemoQuery,
   usePendingFetch,
 } from "@/flux/suspend";
@@ -168,6 +171,68 @@ interface QueuedSave {
   signal?: AbortSignal;
 }
 
+interface PersistParams<
+  Query extends query.Params,
+  Schema extends z.ZodType<query.Data>,
+>
+  extends
+    Pick<UseFormParams<Query, Schema>, "beforeValidate" | "beforeSave" | "afterSave">,
+    Pick<CreateFormParams<Query, Schema>, "name" | "update"> {
+  params: FormBeforeSaveParams<Query, Schema>;
+  setResult: Dispatch<SetStateAction<Result<undefined>>>;
+  addStatus: Status.Adder;
+  signal?: AbortSignal;
+}
+
+/** Validates and writes the form, reporting progress through `setResult`. */
+const persist = async <
+  Query extends query.Params,
+  Schema extends z.ZodType<query.Data>,
+>({
+  name,
+  params,
+  update,
+  beforeValidate,
+  beforeSave,
+  afterSave,
+  setResult,
+  addStatus,
+  signal,
+}: PersistParams<Query, Schema>): Promise<boolean> => {
+  try {
+    if (beforeValidate?.(params) === false) return false;
+    if (!(await params.validateAsync())) return false;
+    setResult(loadingResult(`updating ${name}`, undefined));
+    if ((await beforeSave?.(params)) === false) {
+      setResult(successResult(`updated ${name}`, undefined));
+      return false;
+    }
+    if (signal?.aborted === true) {
+      setResult(successResult(`updated ${name}`, undefined));
+      return false;
+    }
+    const setStatus = (setter: state.SetArg<ResultStatus<never>>) =>
+      setResult((p) => {
+        const nextStatus = state.executeSetter(setter, p.status);
+        return {
+          ...p,
+          status: nextStatus,
+          variant: nextStatus.variant,
+        } as Result<undefined>;
+      });
+    await update({ ...params, setStatus });
+    setResult(successResult(`updated ${name}`, undefined));
+    if (afterSave != null) afterSave(params);
+    return true;
+  } catch (error) {
+    if (signal?.aborted === true) return false;
+    const res = errorResult(`update ${name}`, error);
+    addStatus(res.status);
+    setResult(res);
+    return false;
+  }
+};
+
 export const createForm = <
   Query extends query.Params,
   Schema extends z.ZodType<query.Data>,
@@ -182,7 +247,7 @@ export const createForm = <
   normalizeQuery,
 }: CreateFormParams<Query, Schema>): UseForm<Query, Schema> => {
   const locals = new WeakMap<Client, LocalCache<z.infer<Schema>>>();
-  return ({
+  const useForm = ({
     query,
     initialValues,
     autoSave = false,
@@ -193,7 +258,7 @@ export const createForm = <
     sync,
     onHasTouched,
     mode,
-  }) => {
+  }: UseFormParams<Query, Schema>): UseFormReturn<Schema> => {
     const [result, setResult] = useState<Result<undefined>>(() =>
       successResult(`retrieved ${name}`, undefined),
     );
@@ -215,17 +280,21 @@ export const createForm = <
     // answer from anywhere else would skip the `use` call React needs to find the
     // end of the recorded hook list, corrupting every hook below.
     let retrieved: z.infer<Schema> | undefined =
-      pending.promise == null && cached !== undefined ? readCached(cached) : undefined;
+      pending.promise == null && cached !== undefined
+        ? use(fulfilled(cached))
+        : undefined;
     if (retrieved == null && memoQuery != null && client != null && retrieve != null)
-      retrieved = suspendOnFetch(
-        { client, query: memoQuery },
-        { name, retrieve, getCached, local: localFor(locals, client) },
-        pending,
+      retrieved = use(
+        promiseFor(
+          { client, query: memoQuery },
+          { name, retrieve, getCached, local: localFor(locals, client) },
+          pending,
+        ),
       );
 
     const abandonedRef = useRef(false);
-    const abortRef = useRef<AbortController>(null);
-    abortRef.current ??= new AbortController();
+    const [initialAbort] = useState(() => new AbortController());
+    const abortRef = useRef(initialAbort);
     const values = retrieved ?? initialValues ?? baseInitialValues;
     const form = Form.use<Schema>({
       schema,
@@ -257,8 +326,7 @@ export const createForm = <
     // Form state is built once, so a query pointing at a different record has
     // to replace it.
     const readQuery = useRef(memoQuery);
-    const valuesRef = useRef(values);
-    valuesRef.current = values;
+    const valuesRef = useSyncedRef(values);
     useLayoutEffect(() => {
       if (readQuery.current === memoQuery) return;
       readQuery.current = memoQuery;
@@ -269,47 +337,33 @@ export const createForm = <
 
     const runSave = useCallback(
       async (opts: query.FetchOptions = {}): Promise<boolean> => {
-        const { signal = abortRef.current?.signal } = opts;
-        try {
-          if (client == null) {
-            setResult(nullClientResult<undefined>(`update ${name}`));
-            return false;
-          }
-          const params = { client, query: memoQuery, ...form, set: noNotifySet };
-          if (beforeValidate?.(params) === false) return false;
-          if (!(await form.validateAsync())) return false;
-          setResult(loadingResult(`updating ${name}`, undefined));
-          if ((await beforeSave?.(params)) === false) {
-            setResult(successResult(`updated ${name}`, undefined));
-            return false;
-          }
-          if (signal?.aborted === true) {
-            setResult(successResult(`updated ${name}`, undefined));
-            return false;
-          }
-          const setStatus = (setter: state.SetArg<ResultStatus<never>>) =>
-            setResult((p) => {
-              const nextStatus = state.executeSetter(setter, p.status);
-              return {
-                ...p,
-                status: nextStatus,
-                variant: nextStatus.variant,
-              } as Result<undefined>;
-            });
-
-          await update({ ...params, setStatus });
-          setResult(successResult(`updated ${name}`, undefined));
-          if (afterSave != null) afterSave(params);
-          return true;
-        } catch (error) {
-          if (signal?.aborted === true) return false;
-          const res = errorResult(`update ${name}`, error);
-          addStatus(res.status);
-          setResult(res);
+        const signal = opts.signal ?? abortRef.current.signal;
+        if (client == null) {
+          setResult(nullClientResult<undefined>(`update ${name}`));
           return false;
         }
+        return await persist({
+          name,
+          params: { client, query: memoQuery, ...form, set: noNotifySet },
+          update,
+          beforeValidate,
+          beforeSave,
+          afterSave,
+          setResult,
+          addStatus,
+          signal,
+        });
       },
-      [client, name, memoQuery, beforeSave, afterSave, beforeValidate],
+      [
+        client,
+        memoQuery,
+        form,
+        noNotifySet,
+        addStatus,
+        beforeSave,
+        afterSave,
+        beforeValidate,
+      ],
     );
 
     // Saves of one record run one at a time. A caller that reads the form, awaits the
@@ -324,7 +378,7 @@ export const createForm = <
     const queuedSave = useRef<QueuedSave>(null);
     const saveAsync = useCallback(
       async (opts: query.FetchOptions = {}): Promise<boolean> => {
-        const signal = opts.signal ?? abortRef.current?.signal;
+        const signal = opts.signal ?? abortRef.current.signal;
         const queued = queuedSave.current;
         if (queued != null && queued.signal === signal) return await queued.promise;
         const issuedFor = memoQuery;
@@ -355,7 +409,7 @@ export const createForm = <
     const abandon = useCallback(() => {
       abandonedRef.current = true;
       debouncedSave.cancel();
-      abortRef.current?.abort();
+      abortRef.current.abort();
     }, [debouncedSave]);
 
     useEffect(() => {
@@ -375,4 +429,5 @@ export const createForm = <
 
     return { form, save, saveAsync, ...result };
   };
+  return useForm;
 };

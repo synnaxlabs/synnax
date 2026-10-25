@@ -49,6 +49,8 @@ const x::errors::Error CYCLE_OVERRUN = BASE_ERROR.sub("cycle_overrun");
 const x::errors::Error STATE_CHANGE_ERROR = BASE_ERROR.sub("state_change");
 /// @brief error returned when the cyclic engine is restarting for reconfiguration.
 const x::errors::Error ENGINE_RESTARTING = TEMPORARY_ERROR.sub("engine_restarting");
+/// @brief error returned when the latest bus cycle failed and its inputs were dropped.
+const x::errors::Error CYCLE_FAILED = TEMPORARY_ERROR.sub("cycle_failed");
 /// @brief error returned when PDO discovery fails for a slave.
 const x::errors::Error PDO_DISCOVERY_ERROR = BASE_ERROR.sub("pdo_discovery");
 /// @brief error returned when an SDO read operation fails.

@@ -109,7 +109,9 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithInvalidArgs) {
 
     bool handled = scanner.exec(cmd, task, ctx);
     EXPECT_TRUE(handled);
-    EXPECT_FALSE(ctx->statuses.empty());
+    ASSERT_FALSE(ctx->statuses.empty());
+    EXPECT_EQ(ctx->statuses.back().message, "Failed to parse test command");
+    EXPECT_EQ(ctx->statuses.back().description, "interface: This field is required");
 }
 
 TEST_F(EtherCATScanTest, UnknownCommandNotHandled) {
@@ -291,5 +293,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandInitError) {
     EXPECT_TRUE(handled);
     ASSERT_FALSE(this->ctx->statuses.empty());
     EXPECT_EQ(this->ctx->statuses.back().variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(this->ctx->statuses.back().message, "Failed to probe interface");
+    EXPECT_EQ(this->ctx->statuses.back().description, "no interface");
 }
 }

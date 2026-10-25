@@ -19,17 +19,17 @@ import { Task } from "@/feature/ethercat/task";
 import { Device } from "@/platform/device";
 import { type Tree } from "@/platform/tree";
 
-const TASK_CONTEXT_MENU_ITEM_CONFIGS: Device.TaskContextMenuItemConfig[] = [
-  {
+const TASK_CONTEXT_MENU_ITEMS = [
+  Device.createTaskContextMenuItem({
     itemKey: "ethercat.readTask",
     label: "Create read task",
     useCreate: Task.useCreateRead,
-  },
-  {
+  }),
+  Device.createTaskContextMenuItem({
     itemKey: "ethercat.writeTask",
     label: "Create write task",
     useCreate: Task.useCreateWrite,
-  },
+  }),
 ];
 
 export const ContextMenuItems = (props: Tree.ContextMenuProps) => {
@@ -57,7 +57,7 @@ export const ContextMenuItems = (props: Tree.ContextMenuProps) => {
       <Device.TaskContextMenuItems
         {...props}
         onConfigure={onConfigure}
-        taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
+        items={TASK_CONTEXT_MENU_ITEMS}
       />
       <Menu.Divider />
       {hasUpdatePermission && !allDisabled && (

@@ -49,7 +49,7 @@ export const Container = memo(
       initialValue: initial,
     });
     const positionRef = useRef<sticky.XY>(position);
-    const disabled = useSyncedRef(draggable === false);
+    const disabledRef = useSyncedRef(draggable === false);
     const ref = useRef<HTMLDivElement | null>(null);
 
     const mergedStyle = useMemo(
@@ -103,19 +103,19 @@ export const Container = memo(
       }, []),
       onMove: useCallback(
         (box: box.Box) => {
-          if (disabled.current) return;
+          if (disabledRef.current) return;
           const pos = calculatePosition(box);
           if (pos !== null) setPosition(pos);
         },
-        [calculatePosition, setPosition],
+        [calculatePosition, setPosition, disabledRef],
       ),
       onEnd: useCallback(
         (box: box.Box) => {
-          if (disabled.current) return;
+          if (disabledRef.current) return;
           const pos = calculatePosition(box);
           if (pos !== null) positionRef.current = pos;
         },
-        [calculatePosition],
+        [calculatePosition, disabledRef],
       ),
     });
 
