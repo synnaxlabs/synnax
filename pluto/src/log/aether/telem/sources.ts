@@ -11,7 +11,7 @@ import { channel, type framer, status as cstatus } from "@synnaxlabs/client";
 import {
   compare,
   DataType,
-  type destructor,
+  dynamicWindow,
   type Series,
   TimeSpan,
   TimeStamp,
@@ -27,6 +27,8 @@ import { type status } from "@/status/aether";
 import { telem } from "@/telem/aether";
 
 const MAX_ENTRIES = 100_000;
+// The newest stored samples of each channel a log shows when it opens.
+const PAGE_SIZE = 10_000;
 
 const streamMultiChannelLogPropsZ = z.object({
   channels: z.array(channel.keyZ.or(z.string())),
@@ -36,12 +38,10 @@ const streamMultiChannelLogPropsZ = z.object({
 
 export type StreamMultiChannelLogProps = z.input<typeof streamMultiChannelLogPropsZ>;
 
-interface ChannelMeta {
-  key: channel.Key;
-  dataType: DataType;
-  leadingBuffer: Series | null;
-  readCursor: number;
-  skipInitialBatch: boolean;
+// The series and sample a channel's entries were last read up to.
+interface Cursor {
+  series: Series;
+  index: number;
 }
 
 export class StreamMultiChannelLog
@@ -55,13 +55,13 @@ export class StreamMultiChannelLog
   private readonly onStatusChange?: status.Adder;
   private readonly now: () => TimeStamp;
   private readonly maxEntries: number;
-  private channelMeta: Map<channel.Key, ChannelMeta> = new Map();
+  private readonly failures: telem.FailureReporter;
+  private subscription: framer.Subscription | null = null;
+  private readonly cursors = new Map<channel.Key, Cursor>();
   private entries: LogEntry[] = [];
-  private stopStreaming?: destructor.Destructor;
   private valid = false;
   private _evictedCount: number = 0;
   private _channels: channel.Key[] = [];
-  private readGeneration = 0;
 
   get evictedCount(): number {
     return this._evictedCount;
@@ -77,6 +77,7 @@ export class StreamMultiChannelLog
     super(props);
     this.client = client;
     this.onStatusChange = options?.onStatusChange;
+    this.failures = new telem.FailureReporter(this.onStatusChange);
     this.now = now;
     this.maxEntries = maxEntries;
     this._channels = this.props.channels.filter(
@@ -85,129 +86,97 @@ export class StreamMultiChannelLog
   }
 
   value(): telem.Result<LogEntry[]> {
-    if (this._channels.length === 0) return telem.success(this.entries);
-    if (!this.valid) void this.read();
+    if (this._channels.length > 0 && !this.valid) this.subscribe();
     return telem.success(this.entries);
   }
 
+  /** Channels that stay keep their entries and samples, so none show twice. */
   setChannels(channels: channel.Key[]): void {
     if (compare.primitiveArrays(this._channels, channels) === compare.EQUAL) return;
     this._channels = channels;
-    this.valid = false;
-    if (channels.length === 0) {
-      this.stopStreaming?.();
-      this.stopStreaming = undefined;
-      this.entries = [];
-      this.channelMeta.clear();
+    const kept = new Set(channels);
+    this.entries = this.entries.filter((e) => kept.has(e.channelKey));
+    this.cursors.forEach((_, key) => {
+      if (!kept.has(key)) this.cursors.delete(key);
+    });
+    if (channels.length > 0) this.subscription?.update(this.request());
+    else {
+      this.subscription?.close();
+      this.subscription = null;
+      this.valid = false;
       this._evictedCount = 0;
     }
     this.notify();
   }
 
-  /** Never rejects: a failure invalidates the read and reaches onStatusChange. */
-  private async read(): Promise<void> {
+  private request(): framer.LatestRequest {
+    return {
+      keys: [...this._channels],
+      window: dynamicWindow(this.props.timeSpan),
+      limit: { variant: "latest", count: PAGE_SIZE },
+    };
+  }
+
+  private subscribe(): void {
     this.valid = true;
     const { client } = this;
     if (client == null) {
       this.onStatusChange?.(telem.DISCONNECTED_STATUS);
       return;
     }
-    try {
-      // A newer read() or cleanup() bumps the generation; older reads bail after
-      // awaiting.
-      const generation = ++this.readGeneration;
-      this.stopStreaming?.();
+    const subscription = client.feed.subscribe(this.request());
+    this.subscription = subscription;
+    subscription.onChange(() => this.pull(subscription));
+  }
 
-      const channels = await Promise.all(
-        this._channels.map((ch) => client.channels.retrieve(ch)),
-      );
-      if (generation !== this.readGeneration) return;
-
-      const newKeys = new Set(channels.map((ch) => ch.key));
-      const removedKeys = new Set(
-        [...this.channelMeta.keys()].filter((k) => !newKeys.has(k)),
-      );
-      if (removedKeys.size > 0)
-        this.entries = this.entries.filter((e) => !removedKeys.has(e.channelKey));
-
-      // When channels change mid-session, the new stream replays buffered data for ALL
-      // channels. Skip that initial batch to avoid re-displaying existing entries.
-      const isRestart = this.channelMeta.size > 0;
-      this.channelMeta.clear();
-      for (const ch of channels)
-        this.channelMeta.set(ch.key, {
-          key: ch.key,
-          leadingBuffer: null,
-          readCursor: 0,
-          dataType: new DataType(ch.dataType),
-          skipInitialBatch: isRestart,
-        });
-
-      const streamKeys = channels.map((ch) => ch.key);
-      const handler: framer.StreamHandler = (res) => {
-        const now = this.now();
-        let pushed = 0;
-        for (const [key, chMeta] of this.channelMeta) {
-          const allocated = res.get(key);
-          const isString = chMeta.dataType.equals(DataType.STRING);
-          const pushSamples = (buf: Series, start: number): void => {
-            for (let i = start; i < buf.length; i++) {
-              const value = buf.asString(i, true);
-              if (!isString || !value.includes("\n")) {
-                this.entries.push({ channelKey: chMeta.key, timestamp: now, value });
-                pushed++;
-                continue;
-              }
-              const lines = value.split(/\r?\n/);
-              for (let j = 0; j < lines.length; j++)
-                this.entries.push({
-                  channelKey: chMeta.key,
-                  timestamp: now,
-                  value: lines[j],
-                  continuation: j > 0,
-                });
-              pushed += lines.length;
-            }
-          };
-          if (allocated != null && allocated.series.length > 0) {
-            // First callback after channel change: skip buffered data.
-            if (chMeta.skipInitialBatch) {
-              const lastSeries = allocated.series[allocated.series.length - 1];
-              chMeta.leadingBuffer = lastSeries;
-              chMeta.readCursor = lastSeries.length;
-              chMeta.skipInitialBatch = false;
-              continue;
-            }
-            // Drain unread tail of the old leading buffer before switching.
-            if (chMeta.leadingBuffer != null)
-              pushSamples(chMeta.leadingBuffer, chMeta.readCursor);
-            // Drain intermediate buffers (burst crossed multiple allocations).
-            for (let s = 0; s < allocated.series.length - 1; s++)
-              pushSamples(allocated.series[s], 0);
-            [chMeta.leadingBuffer, chMeta.readCursor] = [
-              allocated.series[allocated.series.length - 1],
-              0,
-            ];
-          }
-          const buf = chMeta.leadingBuffer;
-          if (buf == null || buf.length <= chMeta.readCursor) continue;
-          if (chMeta.skipInitialBatch) {
-            chMeta.readCursor = buf.length;
-            chMeta.skipInitialBatch = false;
-            continue;
-          }
-          pushSamples(buf, chMeta.readCursor);
-          chMeta.readCursor = buf.length;
-        }
-        this._evictedCount = this.gcEntries();
-        if (pushed > 0) this.notify();
-      };
-      this.stopStreaming = client.feed.stream(handler, streamKeys).close;
-      this.notify();
-    } catch (e) {
-      this.valid = false;
-      this.onStatusChange?.(cstatus.fromException(e, "Failed to stream log channels"));
+  // Appends the samples each channel received since the last pull. History lands in one
+  // pull, so its entries take the time it loaded.
+  private pull(subscription: framer.Subscription): void {
+    const now = this.now();
+    let pushed = 0;
+    let worst: cstatus.Status | undefined;
+    for (const key of this._channels) {
+      const { series, status } = subscription.value(key);
+      if (worst == null || cstatus.moreSevere(status.variant, worst.variant))
+        worst = status;
+      pushed += this.append(key, series.series, now);
     }
+    if (worst != null) this.failures.observe(worst);
+    this._evictedCount = this.gcEntries();
+    if (pushed > 0) this.notify();
+  }
+
+  // Appends the samples after the key's cursor. Series only leave the front of a
+  // snapshot, so when the cursor's series is gone, every series is new.
+  private append(key: channel.Key, series: Series[], now: TimeStamp): number {
+    let [from, index, pushed] = [0, 0, 0];
+    const cursor = this.cursors.get(key);
+    const at = cursor == null ? -1 : series.lastIndexOf(cursor.series);
+    if (cursor != null && at !== -1) [from, index] = [at, cursor.index];
+    for (let i = from; i < series.length; i++, index = 0)
+      for (let j = index; j < series[i].length; j++)
+        pushed += this.push(key, series[i], j, now);
+    const last = series.at(-1);
+    if (last != null) this.cursors.set(key, { series: last, index: last.length });
+    return pushed;
+  }
+
+  private push(key: channel.Key, series: Series, i: number, now: TimeStamp): number {
+    const value = series.asString(i, true);
+    if (!series.dataType.equals(DataType.STRING) || !value.includes("\n")) {
+      this.entries.push({ channelKey: key, timestamp: now, value });
+      return 1;
+    }
+    const lines = value.split(/\r?\n/);
+    lines.forEach((line, j) =>
+      this.entries.push({
+        channelKey: key,
+        timestamp: now,
+        value: line,
+        continuation: j > 0,
+      }),
+    );
+    return lines.length;
   }
 
   // Evicts stale entries from the front of the array. Returns the count so
@@ -234,12 +203,12 @@ export class StreamMultiChannelLog
   }
 
   cleanup(): void {
-    this.readGeneration++;
-    this.stopStreaming?.();
-    this.stopStreaming = undefined;
+    this.subscription?.close();
+    this.subscription = null;
+    this.cursors.clear();
     this.entries = [];
-    this.channelMeta.clear();
     this.valid = false;
+    this.failures.reset();
   }
 }
 
