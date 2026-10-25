@@ -10,13 +10,9 @@
 package task
 
 import (
-	"encoding/json/v2"
-
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Handle replaces the task with its created state.
@@ -52,23 +48,9 @@ type document struct {
 // edit applies a path action to a copy of the task's document. A document that gains
 // a member it does not declare, such as a path to the task's type, is rejected.
 func edit(t Task, apply func(map[string]any) error) (Task, error) {
-	b, err := json.Marshal(document{Name: t.Name, Rack: t.Rack, Config: t.Config})
+	d, err := patch.Edit(document{Name: t.Name, Rack: t.Rack, Config: t.Config}, apply)
 	if err != nil {
-		return t, errors.Wrapf(validate.ErrValidation, "encoding task: %s", err)
-	}
-	var doc map[string]any
-	if err = json.Unmarshal(b, &doc); err != nil {
 		return t, err
-	}
-	if err = apply(doc); err != nil {
-		return t, err
-	}
-	if b, err = json.Marshal(doc); err != nil {
-		return t, err
-	}
-	var d document
-	if err = json.Unmarshal(b, &d, json.RejectUnknownMembers(true)); err != nil {
-		return t, errors.Wrapf(validate.ErrValidation, "decoding task: %s", err)
 	}
 	t.Name, t.Rack, t.Config = d.Name, d.Rack, d.Config
 	return t, nil
