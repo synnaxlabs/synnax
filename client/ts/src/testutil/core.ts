@@ -67,6 +67,11 @@ export interface SyntheticCoreProps {
   dataUntimed?: boolean;
   /** Streams data series at alignments that none of their index samples have. */
   dataMisaligned?: boolean;
+  /**
+   * The text of sample i of a channel retyped to string.
+   * @default the sample's index as text
+   */
+  text?: (i: number) => string;
 }
 
 // A span of a channel's samples rewritten with values moved by delta.
@@ -118,6 +123,7 @@ export class SyntheticCore {
   private readonly dataFramedApart: boolean;
   private readonly dataUntimed: boolean;
   private readonly dataMisaligned: boolean;
+  private readonly text: (i: number) => string;
   private readonly denied = new Set<channel.Key>();
 
   constructor({
@@ -130,6 +136,7 @@ export class SyntheticCore {
     dataFramedApart = false,
     dataUntimed = false,
     dataMisaligned = false,
+    text = (i) => String(i),
   }: SyntheticCoreProps) {
     this.start = start.valueOf();
     this.period = new Rate(rate).period.valueOf();
@@ -138,6 +145,7 @@ export class SyntheticCore {
     this.dataFramedApart = dataFramedApart;
     this.dataUntimed = dataUntimed;
     this.dataMisaligned = dataMisaligned;
+    this.text = text;
     this.index = new channel.Channel({
       key: INDEX_KEY,
       name: "time",
@@ -452,6 +460,14 @@ export class SyntheticCore {
     alignment: bigint,
   ): Series {
     const n = to - from;
+    const timeRange = this.range(from, to);
+    if (this.dataTypes.get(key)?.equals(DataType.STRING))
+      return new Series({
+        data: Array.from({ length: n }, (_, i) => this.text(from + i)),
+        dataType: DataType.STRING,
+        timeRange,
+        alignment,
+      });
     let data:
       | BigInt64Array<ArrayBuffer>
       | Float32Array<ArrayBuffer>
@@ -470,7 +486,7 @@ export class SyntheticCore {
       for (let i = 0; i < n; i++) values[i] = this.value(key, from + i);
       data = values;
     }
-    return new Series({ data, dataType, timeRange: this.range(from, to), alignment });
+    return new Series({ data, dataType, timeRange, alignment });
   }
 
   // reduced returns the samples in [first, last) in groups of size samples anchored at
