@@ -82,10 +82,8 @@ export const Login = ({ target, ticket }: LoginProps): ReactElement => {
 
   const accept = useAction(async () => {
     if (clerk?.client == null || ticket == null) return;
-    await proceed(
-      clerk,
-      await clerk.client.signIn.create({ strategy: "ticket", ticket }),
-    );
+    const res = await clerk.client.signIn.create({ strategy: "ticket", ticket });
+    await proceed(clerk, res);
   });
 
   const verify = useAction(async () => {

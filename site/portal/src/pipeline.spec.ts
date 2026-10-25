@@ -9,7 +9,7 @@
 
 import { type APIRoute, type MiddlewareHandler } from "astro";
 import { eq } from "drizzle-orm";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { POST as unlinkRoute } from "@/pages/api/activations/[key]/unlink";
 import { POST as linkRoute } from "@/pages/api/desktop/link";
@@ -28,6 +28,7 @@ import {
 
 const PORTAL = "https://portal.synnaxlabs.com";
 const CROSS_SITE = { "sec-fetch-site": "cross-site", origin: "https://evil.example" };
+const REFUSED = { error: "Cross-site requests are not allowed" };
 
 interface Linked {
   secret: string;
@@ -118,7 +119,7 @@ describe("pipeline", () => {
         headers: CROSS_SITE,
       });
       expect(res.status).toBe(403);
-      expect(await body(res)).toEqual({ error: "Cross-site requests are not allowed" });
+      expect(await body(res)).toEqual(REFUSED);
       expect(await secretHash(linked.activation)).not.toBeNull();
     });
 
@@ -130,6 +131,7 @@ describe("pipeline", () => {
         headers: CROSS_SITE,
       });
       expect(res.status).toBe(403);
+      expect(await body(res)).toEqual(REFUSED);
     });
 
     it("should refuse a post from a sibling subdomain", async () => {
@@ -139,12 +141,14 @@ describe("pipeline", () => {
         origin: "https://www.synnaxlabs.com",
       });
       expect(res.status).toBe(403);
+      expect(await body(res)).toEqual(REFUSED);
     });
 
     it("should refuse a post from another origin without Sec-Fetch-Site", async () => {
       harness.signIn("user_a");
       const res = await link({ origin: "https://evil.example" });
       expect(res.status).toBe(403);
+      expect(await body(res)).toEqual(REFUSED);
     });
 
     it("should pass a same-origin post", async () => {
@@ -171,6 +175,23 @@ describe("pipeline", () => {
         headers: CROSS_SITE,
       });
       expect(res.status).toBe(200);
+    });
+  });
+
+  describe("security headers", () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it("should forbid other sites to frame a page outside development", async () => {
+      vi.stubEnv("DEV", false);
+      const res = await send(async () => new Response("page"), {
+        method: "GET",
+        path: "/licenses",
+      });
+      expect(res.headers.get("content-security-policy")).toContain(
+        "frame-ancestors 'none'",
+      );
     });
   });
 });

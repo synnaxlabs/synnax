@@ -49,11 +49,11 @@ export const Link = ({
   const clerk = useClerk();
   const [linked, setLinked] = useState<Linked | null>(null);
   const [shared, setShared] = useState(false);
-  const analytics = consent === "notice" || shared;
+  const analyticsOn = consent === "notice" || shared;
   const action = useAction(async () => {
     const res = await post<Linked>("/api/desktop/link", { fingerprint, name });
     setLinked(res);
-    window.location.assign(activateURL(state, res, analytics));
+    window.location.assign(activateURL(state, res, analyticsOn));
   });
   // Reloading after the log out sends the visitor through the login page and back.
   const logOut = (): void => {
@@ -109,7 +109,9 @@ export const Link = ({
           size="large"
           full="x"
           justify="center"
-          onClick={() => window.location.assign(activateURL(state, linked, analytics))}
+          onClick={() =>
+            window.location.assign(activateURL(state, linked, analyticsOn))
+          }
         >
           Open Synnax Desktop
           <Icon.Arrow.Right />
@@ -133,7 +135,7 @@ export const Link = ({
       }
     >
       <Summary name={name} email={email} />
-      <Usage consent={consent} shared={shared} onChange={setShared} />
+      <Usage consent={consent} value={shared} onChange={setShared} />
       <Button.Button
         variant="filled"
         size="large"
@@ -162,12 +164,12 @@ export const Link = ({
 
 interface UsageProps {
   consent: Mode;
-  shared: boolean;
-  onChange: (shared: boolean) => void;
+  value: boolean;
+  onChange: (value: boolean) => void;
 }
 
 /** Usage tells the user that the app sends usage data, or asks to send it. */
-const Usage = ({ consent, shared, onChange }: UsageProps): ReactElement => {
+const Usage = ({ consent, value, onChange }: UsageProps): ReactElement => {
   const id = useId();
   if (consent === "notice")
     return (
@@ -178,7 +180,7 @@ const Usage = ({ consent, shared, onChange }: UsageProps): ReactElement => {
     );
   return (
     <Flex.Box x align="center" gap="small">
-      <Input.Checkbox id={id} value={shared} onChange={onChange} size="small" />
+      <Input.Checkbox id={id} value={value} onChange={onChange} size="small" />
       <Text.Text level="small" color={10}>
         <label htmlFor={id}>Share usage data to help improve Synnax Desktop</label>{" "}
         <Text.Text

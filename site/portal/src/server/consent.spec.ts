@@ -9,22 +9,16 @@
 
 import { describe, expect, it } from "vitest";
 
-import { ASK, modeFor } from "@/server/consent";
+import { modeFor } from "@/server/consent";
+
+const EU =
+  "AT BE BG CY CZ DE DK EE ES FI FR GR HR HU IE IT LT LU LV MT NL PL PT RO SE SI SK";
 
 describe("consent", () => {
-  describe("ASK", () => {
-    it("should hold the EU, the rest of the EEA, the UK, and Switzerland", () => {
-      expect(ASK.size).toBe(32);
-      for (const country of ["DE", "FR", "GR", "IE", "IS", "LI", "NO", "GB", "CH"])
-        expect(ASK.has(country)).toBe(true);
-    });
-  });
-
   describe("modeFor", () => {
-    it("should ask a visitor from a country on the list", () => {
-      expect(modeFor("DE")).toBe("ask");
-      expect(modeFor("GB")).toBe("ask");
-      expect(modeFor("CH")).toBe("ask");
+    it("should ask a visitor from the EU, the EEA, the UK, or Switzerland", () => {
+      for (const country of `${EU} IS LI NO GB CH`.split(" "))
+        expect(modeFor(country)).toBe("ask");
     });
 
     it("should give notice to a visitor from any other country", () => {

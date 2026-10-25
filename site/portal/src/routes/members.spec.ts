@@ -67,6 +67,7 @@ describe("member routes", () => {
     it("should refuse a visitor who is not logged in", async () => {
       const res = await invite({});
       expect(res.status).toBe(401);
+      expect(await body(res)).toEqual({ error: "Log in first" });
       expect(harness.directory.invitations).toHaveLength(0);
     });
 
@@ -82,6 +83,7 @@ describe("member routes", () => {
       harness.signIn("user_admin");
       const res = await invite({ organization: "org_other" });
       expect(res.status).toBe(403);
+      expect(await body(res)).toEqual({ error: "Only a team admin can invite" });
       expect(harness.directory.invitations).toHaveLength(0);
     });
 

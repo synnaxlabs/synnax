@@ -38,9 +38,7 @@ export const tooMany = (): HTTPError =>
 export const toResponse = (err: unknown): Response => {
   if (err instanceof HTTPError)
     return Response.json(
-      err.code == null
-        ? { error: err.message }
-        : { error: err.message, code: err.code },
+      { error: err.message, code: err.code },
       { status: err.status },
     );
   console.error(err);

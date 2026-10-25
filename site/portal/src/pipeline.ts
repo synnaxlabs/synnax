@@ -37,10 +37,10 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 const RENEW = "/api/desktop/renew";
 
 /**
- * crossSite reports whether a request that changes state came from another site. A
+ * crossOrigin reports whether a request that changes state came from another origin. A
  * browser without `Sec-Fetch-Site` is judged by its `Origin`.
  */
-const crossSite = ({ method, headers }: Request, url: URL): boolean => {
+const crossOrigin = ({ method, headers }: Request, url: URL): boolean => {
   if (SAFE_METHODS.has(method)) return false;
   const site = headers.get("sec-fetch-site");
   if (site != null && site !== "") return site !== "same-origin" && site !== "none";
@@ -48,9 +48,9 @@ const crossSite = ({ method, headers }: Request, url: URL): boolean => {
   return origin != null && origin !== url.origin;
 };
 
-/** origin refuses a cross-site request that changes state, which a cookie allows. */
+/** origin refuses a cross-origin request that changes state. */
 const origin: MiddlewareHandler = async ({ request, url }, next) => {
-  if (url.pathname !== RENEW && crossSite(request, url))
+  if (url.pathname !== RENEW && crossOrigin(request, url))
     return toResponse(forbidden("Cross-site requests are not allowed"));
   return await next();
 };

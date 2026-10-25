@@ -171,13 +171,13 @@ export const link = async (
  * UNLINKED is the code of a refusal that means the machine is logged out. The Desktop
  * app logs out on this code alone, so a 403 from a proxy does not log a user out.
  */
-export const UNLINKED = "unlinked";
+const UNLINKED = "unlinked";
 
 const LOGGED_OUT = "This machine was logged out. Log in again.";
 
 /**
  * resolve finds the machine a renewal secret belongs to. Throws a 403 with the code
- * {@link UNLINKED} when the secret is unknown or the machine was unlinked.
+ * `unlinked` when the secret is unknown or the machine was unlinked.
  */
 export const resolve = async (store: Store, secret: string): Promise<Machine> => {
   const [row] = await store.query
@@ -198,8 +198,8 @@ export interface RenewArgs {
 
 /**
  * renew slides the expiry of a machine's license and returns a fresh license key.
- * Throws a 403 with the {@link UNLINKED} code when the machine was unlinked after
- * `resolve` found it. Nothing is stored when signing fails.
+ * Throws a 403 with the code `unlinked` when the machine was unlinked after `resolve`
+ * found it. Nothing is stored when signing fails.
  */
 export const renew = async (
   store: Store,
