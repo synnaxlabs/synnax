@@ -11,8 +11,7 @@ import { type Mock, vi } from "vitest";
 
 import { type GLBufferController } from "@/telem/gl";
 
-// bytes returns the bytes of data, which WebGL copies whether data is a buffer or a
-// view.
+// WebGL copies data whether it is a buffer or a view.
 const bytes = (data: AllowSharedBufferSource): Uint8Array =>
   ArrayBuffer.isView(data)
     ? new Uint8Array(data.buffer, data.byteOffset, data.byteLength)

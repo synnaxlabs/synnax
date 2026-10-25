@@ -8,7 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { SyntheticCore } from "@synnaxlabs/client/testutil";
-import { type Aggregation, sleep, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  type Aggregation,
+  dynamicWindow,
+  sleep,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { afterAll, test } from "vitest";
 
 import { TiledChannelData, type TiledChannelDataProps } from "@/telem/aether/remote";
@@ -48,9 +55,9 @@ const channel = core.data[0].key;
 const x = createSource({
   channel,
   useIndexOfChannel: true,
-  window: telemTest.dynamicWindow(SPAN),
+  window: dynamicWindow(SPAN),
 });
-const y = createSource({ channel, window: telemTest.dynamicWindow(SPAN) });
+const y = createSource({ channel, window: dynamicWindow(SPAN) });
 
 const read = (): DrawOperation[] => {
   const { bounds, width } = view();

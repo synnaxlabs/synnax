@@ -36,7 +36,7 @@ describe("telem", () => {
     expect(() => source.props).toThrow(zod.ParseError);
   });
 
-  it("pipeline", async () => {
+  it("pipeline", () => {
     const s1 = telem.fixedNumber(20);
     const s2 = telem.fixedNumber(9);
     const avg = telem.mean({});
@@ -53,7 +53,7 @@ describe("telem", () => {
       },
       telem.createFactory(),
     );
-    expect(await p.value().data).toBe(true);
+    expect(p.value().data).toBe(true);
   });
 
   describe("Result", () => {

@@ -16,8 +16,11 @@ import {
   type CrudeDataType,
   DataType,
   Density,
+  dynamicWindow,
   Rate,
+  resolveWindow,
   Size,
+  staticWindow,
   TimeRange,
   TimeSpan,
   TimeStamp,
@@ -2602,5 +2605,39 @@ describe("windowZ", () => {
 
   it("should reject a static window without a time range", () => {
     expect(() => windowZ.parse({ variant: "static", start: "0", end: "1" })).toThrow();
+  });
+});
+
+describe("staticWindow", () => {
+  it("should keep int64 bounds exact", () => {
+    const end = 2n ** 62n + 1n;
+    expect(staticWindow(new TimeRange(5n, end))).toEqual({
+      variant: "static",
+      timeRange: { start: "5", end: String(end) },
+    });
+  });
+});
+
+describe("dynamicWindow", () => {
+  it("should hold the span in nanoseconds", () => {
+    expect(dynamicWindow(TimeSpan.minutes(2))).toEqual({
+      variant: "dynamic",
+      timeSpan: 120e9,
+    });
+  });
+});
+
+describe("resolveWindow", () => {
+  const now = new TimeStamp(10_000n);
+
+  it("should end a dynamic window now", () => {
+    const tr = resolveWindow(dynamicWindow(4_000), now);
+    expect([tr.start.valueOf(), tr.end.valueOf()]).toEqual([6_000n, 10_000n]);
+  });
+
+  it("should return the exact range of a static window", () => {
+    const end = 2n ** 62n + 1n;
+    const tr = resolveWindow(staticWindow(new TimeRange(5n, end)), now);
+    expect([tr.start.valueOf(), tr.end.valueOf()]).toEqual([5n, end]);
   });
 });

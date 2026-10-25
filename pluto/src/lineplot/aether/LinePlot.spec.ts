@@ -11,8 +11,10 @@ import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testuti
 import {
   box,
   DataType,
+  dynamicWindow,
   id,
   sleep,
+  staticWindow,
   TimeRange,
   TimeSpan,
   TimeStamp,
@@ -26,7 +28,6 @@ import { LinePlot } from "@/lineplot/aether/LinePlot";
 import { XAxis } from "@/lineplot/aether/XAxis";
 import { YAxis } from "@/lineplot/aether/YAxis";
 import { telem } from "@/telem/aether";
-import { telemTest } from "@/telem/aether/test";
 import { buildStack } from "@/testutil/providers";
 import { line } from "@/vis/line/aether";
 import { lineTest } from "@/vis/line/aether/test";
@@ -243,7 +244,7 @@ describe("LinePlot against a Core", () => {
     const { data, home } = await writeData();
     const { plot, setViewport } = mount({
       channel: data.key,
-      window: telemTest.staticWindow(home),
+      window: staticWindow(home),
     });
     const homeSpan = Number(home.span.valueOf());
     const lower = Number(home.start.valueOf()) + homeSpan / 2;
@@ -277,7 +278,7 @@ describe("LinePlot against a Core", () => {
     });
     const { plot } = mount({
       channel: data.key,
-      window: telemTest.dynamicWindow(TimeSpan.seconds(10)),
+      window: dynamicWindow(TimeSpan.seconds(10)),
     });
     const writer = await synnax.openWriter({
       start: TimeStamp.now(),

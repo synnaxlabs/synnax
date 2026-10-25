@@ -25,6 +25,7 @@ import {
   errors,
   MultiSeries,
   primitive,
+  resolveWindow,
   type Series,
   sync,
   TimeRange,
@@ -210,8 +211,8 @@ export class StreamChannelValue
     if (this.leadingBuffer == null || this.leadingBuffer.length === 0)
       return { data: NaN, status };
     const v = this.leadingBuffer.at(-1, true);
-    // A boolean channel reads as 0 or 1.
-    const data = (typeof v === "boolean" ? Number(v) : v) as number;
+    // A boolean channel reads as 0 or 1, and an int64 channel as its nearest number.
+    const data = Number(v);
     return { data, status, time: this.time };
   }
 
@@ -723,13 +724,7 @@ export class TiledChannelData
   }
 
   private home(): TimeRange {
-    const { window } = this.props;
-    if (window.variant === "static") {
-      const { start, end } = window.timeRange;
-      return new TimeRange(BigInt(start), BigInt(end));
-    }
-    const now = this.now();
-    return new TimeRange(now.sub(window.timeSpan), now);
+    return resolveWindow(this.props.window, this.now());
   }
 
   // rawFrom is where a live line's full-resolution data starts. It sits on a tile
@@ -791,7 +786,7 @@ export class TiledChannelData
       level: l,
       view,
       points: this.points,
-      drawn: this.props.aggregation,
+      drawn: this.aggregation(),
       aggregation,
     });
     return indexes(tiled, l).map((index) => {

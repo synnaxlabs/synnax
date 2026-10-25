@@ -26,6 +26,7 @@ import {
   box,
   location,
   scale,
+  staticWindow,
   TimeRange,
   TimeSpan,
   unique,
@@ -48,12 +49,6 @@ import { Session } from "@/session";
 
 const CLEAR_OVERSCAN: xy.XY = { x: 5, y: 5 };
 const VIEWPORT_DEBOUNCE = TimeSpan.milliseconds(100);
-
-// Decimal strings keep the int64 bounds exact.
-const staticWindow = ({ start, end }: TimeRange): Window => ({
-  variant: "static",
-  timeRange: { start: String(start.valueOf()), end: String(end.valueOf()) },
-});
 
 interface RangeAnnotationContextMenuProps {
   lines: DownloadLine[];

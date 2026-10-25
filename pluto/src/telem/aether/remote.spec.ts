@@ -19,10 +19,12 @@ import {
 import {
   bounds,
   type breaker,
+  dynamicWindow,
   id,
   MultiSeries,
   Series,
   sleep,
+  staticWindow,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
@@ -185,6 +187,17 @@ describe("remote", () => {
       await expect.poll(() => handleChange.mock.calls.length === 1).toBe(true);
       expect(scv.testingOnlyLeadingBuffer).toBe(series);
       expect(scv.value().data).toBe(3);
+    });
+
+    it("should read an int64 sample as a number", async () => {
+      const scv = new StreamChannelValue(c, { channel: c.channel.key });
+      const handleChange = vi.fn();
+      scv.onChange(handleChange);
+      await waitForStream(scv, c);
+      const series = new Series({ data: new BigInt64Array([1n, 2n ** 40n]) });
+      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series])]]));
+      await expect.poll(() => handleChange.mock.calls.length).toBe(1);
+      expect(scv.value().data).toBe(2 ** 40);
     });
 
     it("should return the correct value when the leading buffer is appended to", async () => {
@@ -1066,7 +1079,7 @@ describe("remote", () => {
     ): TiledChannelData =>
       new TiledChannelData(
         c,
-        { channel: DATA_KEY, window: telemTest.staticWindow(HOME), ...props },
+        { channel: DATA_KEY, window: staticWindow(HOME), ...props },
         options,
         now,
         breakerConfig,
@@ -1128,7 +1141,7 @@ describe("remote", () => {
       const source = create({
         xChannel: XY_KEY,
         channel: XY_KEY,
-        window: telemTest.staticWindow(home),
+        window: staticWindow(home),
       });
       await settle(source);
       expect(c.tiles[0].start?.valueOf()).toBe(start);
@@ -1567,7 +1580,7 @@ describe("remote", () => {
       });
 
       const createLive = (props: Partial<TiledChannelDataProps> = {}) =>
-        create({ window: telemTest.dynamicWindow(SPAN), ...props }, clock);
+        create({ window: dynamicWindow(SPAN), ...props }, clock);
 
       const raw = (start: number, end: number, alignment = BigInt(start)): Series =>
         new Series({
@@ -1576,8 +1589,7 @@ describe("remote", () => {
           alignment,
         });
 
-      // A live window of a minute or less never reports loading, so specs wait for the
-      // notify that ends its first read.
+      // Resolves on the notify that ends the source's first read.
       const firstRead = async (source: TiledChannelData): Promise<void> => {
         const notified = vi.fn();
         source.onChange(notified);
@@ -1829,9 +1841,7 @@ describe("remote", () => {
       });
 
       it("should read the span between the back-fill and the first live series", async () => {
-        const source = create({ window: telemTest.dynamicWindow(SPAN) }, () =>
-          TimeStamp.now(),
-        );
+        const source = create({ window: dynamicWindow(SPAN) }, () => TimeStamp.now());
         await firstRead(source);
         expect(c.reads).toHaveLength(1);
         const liveStart = c.reads[0].end.add(TimeSpan.milliseconds(200));
@@ -1851,7 +1861,7 @@ describe("remote", () => {
       it("should draw streamed data while its back-fill loads", async () => {
         const release = gateReads();
         const source = createLive({
-          window: telemTest.dynamicWindow(TimeSpan.minutes(1)),
+          window: dynamicWindow(TimeSpan.minutes(1)),
         });
         source.value();
         await expect.poll(() => c.streamHandler != null).toBe(true);
@@ -1867,7 +1877,7 @@ describe("remote", () => {
         const release = gateReads();
         now = TimeStamp.seconds(600);
         const source = createLive({
-          window: telemTest.dynamicWindow(TimeSpan.minutes(2)),
+          window: dynamicWindow(TimeSpan.minutes(2)),
         });
         expect(loading(source)).toBe(true);
         await expect.poll(() => c.streamHandler != null).toBe(true);
@@ -1920,9 +1930,7 @@ describe("remote", () => {
         null,
         {
           channel: 1,
-          window: telemTest.staticWindow(
-            new TimeRange(TimeStamp.SECOND, TimeStamp.seconds(10)),
-          ),
+          window: staticWindow(new TimeRange(TimeStamp.SECOND, TimeStamp.seconds(10))),
         },
         { onStatusChange: (s) => statuses.push(s) },
       );
@@ -1936,7 +1944,7 @@ describe("remote", () => {
       const statuses: cstatus.Crude[] = [];
       const source = new TiledChannelData(
         null,
-        { window: telemTest.staticWindow(TimeRange.MAX), channel: 1 },
+        { window: staticWindow(TimeRange.MAX), channel: 1 },
         { onStatusChange: (s) => statuses.push(s) },
       );
       const [b, data] = source.value().data;

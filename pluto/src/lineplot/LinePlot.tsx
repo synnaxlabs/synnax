@@ -17,7 +17,8 @@ import {
   type direction,
   type location,
   primitive,
-  TimeSpan,
+  resolveWindow,
+  TimeStamp,
   type Window,
 } from "@synnaxlabs/x";
 import { type ReactElement, type RefObject, useEffect, useRef } from "react";
@@ -153,7 +154,6 @@ const Line = ({
       y={telemetry.y}
       visible={visible}
       groupsPerColumn={groupsPerColumn}
-      aggregation={aggregation}
       window={window}
       legendGroup={line.yAxis.toUpperCase()}
       {...line}
@@ -432,16 +432,12 @@ export interface LinePlotProps extends FrameProps {
   onLineVisibleChange?: (lineKey: string, visible: boolean) => void;
 }
 
-const span = (window: Window): TimeSpan =>
-  window.variant === "dynamic"
-    ? new TimeSpan(window.timeSpan)
-    : new TimeSpan(BigInt(window.timeRange.end) - BigInt(window.timeRange.start));
-
 const fetchingMessage = (
   windows: Map<string, Window> | undefined,
 ): string | undefined => {
   if (windows == null || windows.size === 0) return undefined;
-  const spans = [...windows.values()].map(span);
+  const now = TimeStamp.now();
+  const spans = [...windows.values()].map((w) => resolveWindow(w, now).span);
   const longest = spans.reduce((a, b) => (b.greaterThan(a) ? b : a));
   return `Fetching ${longest.toString()} of data`;
 };

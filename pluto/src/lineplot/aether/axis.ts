@@ -24,6 +24,7 @@ import { theming } from "@/theming/aether";
 import { axis } from "@/vis/axis";
 import { type TickType } from "@/vis/axis/ticks";
 import { grid } from "@/vis/grid";
+import { type line } from "@/vis/line/aether";
 import { render } from "@/vis/render";
 
 export const baseAxisStateZ = axis.axisStateZ
@@ -107,9 +108,6 @@ export abstract class BaseAxis<
   S extends typeof baseAxisStateZ,
   C extends aether.Component = aether.Component,
 > extends aether.Composite<S, InternalState, C> {
-  /** True while a line on the axis loads its first data. */
-  abstract get loading(): boolean;
-
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     const { location, autoBoundUpdateInterval } = this.state;
@@ -154,7 +152,7 @@ export abstract class BaseAxis<
 
   protected iBounds(
     hold: boolean,
-    fetchDataBounds: () => bounds.Bounds[],
+    fetchDataBounds: () => line.DataBounds[],
   ): [bounds.Bounds, Error | null] {
     if (hold && this.internal.boundSnapshot != null)
       return [this.internal.boundSnapshot, null];
@@ -173,16 +171,22 @@ export abstract class BaseAxis<
     });
     let ab: bounds.Bounds;
     let err: Error | null = null;
+    let loading = false;
     try {
       const dataBounds = fetchDataBounds();
-      ab = autoBounds(dataBounds, this.state.autoBoundPadding, this.state.type);
+      loading = dataBounds.some((b) => b.loading);
+      ab = autoBounds(
+        dataBounds.map((b) => b.bounds),
+        this.state.autoBoundPadding,
+        this.state.type,
+      );
     } catch (err_) {
       ab = emptyBounds(this.state.type);
       err = err_ as Error;
     }
     const bounds = merge(ab);
-    // A hold keeps bounds of loaded data, never of a line still loading.
-    if (!this.loading) this.internal.boundSnapshot = bounds;
+    // A hold keeps bounds of loaded data, never of data still loading.
+    if (!loading) this.internal.boundSnapshot = bounds;
     if (
       this.state.bounds == null ||
       (autoLower && this.state.bounds.lower !== bounds.lower) ||
@@ -194,7 +198,7 @@ export abstract class BaseAxis<
 
   dataToDecimalScale(
     hold: boolean,
-    fetchDataBounds: () => bounds.Bounds[],
+    fetchDataBounds: () => line.DataBounds[],
     viewport: box.Box,
   ): [scale.Scale, bounds.Bounds, Error | null] {
     const [bounds, err] = this.iBounds(hold, fetchDataBounds);

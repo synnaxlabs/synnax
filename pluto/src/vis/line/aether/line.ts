@@ -10,7 +10,7 @@
 import { type Instrumentation } from "@synnaxlabs/alamos";
 import { UnexpectedError } from "@synnaxlabs/client";
 import {
-  aggregationZ,
+  type Aggregation,
   bounds,
   box,
   color,
@@ -25,6 +25,7 @@ import {
   TimeRange,
   TimeSpan,
   TimeStamp,
+  type Window,
   windowZ,
   xy,
 } from "@synnaxlabs/x";
@@ -55,8 +56,6 @@ export const stateZ = z.object({
     .default(1 / 2),
   /** The window the line draws: a fixed range, or a span that ends now. */
   window: windowZ.optional(),
-  /** The aggregation the line's sources reduce by. */
-  aggregation: aggregationZ.default("min_max"),
 });
 
 // A zoom waits this long for its span to hold before the line's sources read for it.
@@ -65,6 +64,23 @@ const ZOOM_SETTLE = TimeSpan.milliseconds(150);
 // A live window of a minute or less draws from the stream at once, so it shows no
 // first-load message.
 const LOADING_MIN_SPAN = Number(TimeSpan.minutes(1).valueOf());
+
+// The line reduces data by this when its y source reports no aggregation.
+const DEFAULT_AGGREGATION: Aggregation = "min_max";
+
+type Result = telem.Result<[bounds.Bounds, MultiSeries]>;
+
+const isLoading = ({ status }: Result): boolean => status.variant === "loading";
+
+type LoadingState = "none" | "empty" | "drawn";
+
+const loadingState = (x: Result, y: Result, window?: Window): LoadingState => {
+  if (!isLoading(x) && !isLoading(y)) return "none";
+  if (x.data[1].length > 0 && y.data[1].length > 0) return "drawn";
+  return window?.variant === "dynamic" && window.timeSpan <= LOADING_MIN_SPAN
+    ? "none"
+    : "empty";
+};
 
 const safelyGetDataValue = (
   series: number,
@@ -88,6 +104,12 @@ export interface FindResult {
   label?: string;
   units?: string;
   bounds: bounds.Bounds;
+}
+
+/** Bounds of a line's data, and whether a source still loads the data. */
+export interface DataBounds {
+  bounds: bounds.Bounds;
+  loading: boolean;
 }
 
 export interface LineProps {
@@ -289,6 +311,9 @@ interface InternalState {
   // zoom has held for ZOOM_SETTLE.
   zoom?: number;
   settleTimer?: ReturnType<typeof setTimeout>;
+  // aggregation and loadingState come from the data the line last drew.
+  aggregation?: Aggregation;
+  loadingState?: LoadingState;
 }
 
 export class Line extends aether.Leaf<typeof stateZ, InternalState> {
@@ -322,29 +347,19 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     i.requestRender("layout");
   }
 
-  /** True while a source loads and the line has no data to draw. */
+  /** True while a source loads and the line drew no data on its last render. */
   get loading(): boolean {
-    return this.loadingState() === "empty";
+    return this.internal.loadingState === "empty";
   }
 
-  /** True while a source loads and the line draws the data it has. */
+  /** True while a source loads and the line drew the data it has on its last render. */
   get fetching(): boolean {
-    return this.loadingState() === "drawn";
+    return this.internal.loadingState === "drawn";
   }
 
-  private loadingState(): "none" | "empty" | "drawn" {
-    const { xTelem, yTelem } = this.internal;
-    const [x, y] = [xTelem.value(), yTelem.value()];
-    if (x.status.variant !== "loading" && y.status.variant !== "loading") return "none";
-    if (x.data[1].length > 0 && y.data[1].length > 0) return "drawn";
-    const { window } = this.state;
-    return window?.variant === "dynamic" && window.timeSpan <= LOADING_MIN_SPAN
-      ? "none"
-      : "empty";
-  }
-
-  xBounds(): bounds.Bounds {
-    return this.internal.xTelem.value().data[0];
+  xBounds(): DataBounds {
+    const x = this.internal.xTelem.value();
+    return { bounds: x.data[0], loading: isLoading(x) };
   }
 
   /**
@@ -353,13 +368,17 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
    * source's full bounds are used instead.
    * @returns the y bounds of this line's samples inside the window.
    */
-  yBounds(xWindow: bounds.Bounds): bounds.Bounds {
+  yBounds(xWindow: bounds.Bounds): DataBounds {
     const { xTelem, yTelem } = this.internal;
     const valueProps = { extremesKept: true };
-    const [b, yData] = yTelem.value(valueProps).data;
-    if (!bounds.isFinite(xWindow)) return b;
-    const [, xData] = xTelem.value(valueProps).data;
-    return windowBounds(xData, yData, xWindow, DEFAULT_OVERLAP_THRESHOLD, b);
+    const y = yTelem.value(valueProps);
+    const [b, yData] = y.data;
+    if (!bounds.isFinite(xWindow)) return { bounds: b, loading: isLoading(y) };
+    const x = xTelem.value(valueProps);
+    return {
+      bounds: windowBounds(x.data[1], yData, xWindow, DEFAULT_OVERLAP_THRESHOLD, b),
+      loading: isLoading(x) || isLoading(y),
+    };
   }
 
   findByXValue(props: LineProps, target: number): FindResult {
@@ -425,28 +444,30 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       }, ZOOM_SETTLE.milliseconds);
     }
     if (i.settleTimer != null) return { bounds: b };
-    const { groupsPerColumn, aggregation } = this.state;
-    return {
-      bounds: b,
-      points: width * groupsPerColumn * telem.POINTS_PER_GROUP[aggregation],
-    };
+    const perGroup = telem.POINTS_PER_GROUP[i.aggregation ?? DEFAULT_AGGREGATION];
+    return { bounds: b, points: width * this.state.groupsPerColumn * perGroup };
   }
 
   render(props: LineProps): void {
-    if (this.deleted || !this.state.visible) return;
-    const { xTelem, yTelem, lineCtx: ctx, reducer } = this.internal;
-    const { groupsPerColumn } = this.state;
+    const { internal: i } = this;
+    if (this.deleted) return;
+    if (!this.state.visible) {
+      i.loadingState = undefined;
+      return;
+    }
+    const { xTelem, yTelem, lineCtx: ctx, reducer } = i;
+    const { groupsPerColumn, window } = this.state;
     const { dataToDecimalScale } = props;
     const v = view(props);
     const valueProps = this.read(v);
-    const [, xData] = xTelem.value(valueProps).data;
+    const x = xTelem.value(valueProps);
     const y = yTelem.value(valueProps);
-    const [, yData] = y.data;
+    i.loadingState = loadingState(x, y, window);
     // Full-resolution data reduces as the source reduces its tiles.
-    const aggregation = y.aggregation ?? "min_max";
-    const full = buildDrawOperations(xData, yData, DEFAULT_OVERLAP_THRESHOLD);
+    i.aggregation = y.aggregation ?? DEFAULT_AGGREGATION;
+    const full = buildDrawOperations(x.data[1], y.data[1], DEFAULT_OVERLAP_THRESHOLD);
     const size = groupSize(full, v, groupsPerColumn);
-    const ops = reducer.reduce(full, aggregation, size);
+    const ops = reducer.reduce(full, i.aggregation, size);
     if (ops.length === 0) return;
     ops.forEach(({ x, y }) => {
       x.updateGLBuffer(ctx.gl);

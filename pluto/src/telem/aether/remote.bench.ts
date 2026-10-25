@@ -8,7 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { SyntheticCore } from "@synnaxlabs/client/testutil";
-import { sleep, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  dynamicWindow,
+  sleep,
+  staticWindow,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { allocSuite } from "@synnaxlabs/x/bench";
 import { afterAll, test } from "vitest";
 
@@ -75,7 +82,7 @@ const staticRead = async (view: ValueProps): Promise<() => void> => {
   const { core, client } = createClient();
   const source = await createSource(
     client,
-    { channel: core.data[0].key, window: telemTest.staticWindow(WEEK) },
+    { channel: core.data[0].key, window: staticWindow(WEEK) },
     view,
   );
   return () => void source.value(view);
@@ -88,7 +95,7 @@ const liveRead = async (): Promise<{
   const { core, client } = createClient();
   const source = await createSource(
     client,
-    { channel: core.data[0].key, window: telemTest.dynamicWindow(LIVE_SPAN) },
+    { channel: core.data[0].key, window: dynamicWindow(LIVE_SPAN) },
     liveView(core),
   );
   return { core, source };
@@ -128,7 +135,7 @@ const pan = async (): Promise<() => Promise<void>> => {
   };
   const source = await createSource(
     client,
-    { channel: core.data[0].key, window: telemTest.staticWindow(WEEK) },
+    { channel: core.data[0].key, window: staticWindow(WEEK) },
     next(),
   );
   for (let s = 0; s < 2 * steps; s++) {

@@ -2088,6 +2088,25 @@ export interface StaticWindow extends z.infer<typeof staticWindowZ> {}
 export const windowZ = z.discriminatedUnion("variant", [dynamicWindowZ, staticWindowZ]);
 export type Window = DynamicWindow | StaticWindow;
 
+/** @returns a static window over the time range, with exact bounds. */
+export const staticWindow = ({ start, end }: TimeRange): StaticWindow => ({
+  variant: "static",
+  timeRange: { start: String(start.valueOf()), end: String(end.valueOf()) },
+});
+
+/** @returns a dynamic window of the span. */
+export const dynamicWindow = (span: CrudeTimeSpan): DynamicWindow => ({
+  variant: "dynamic",
+  timeSpan: Number(new TimeSpan(span).valueOf()),
+});
+
+/** @returns the time range the window covers when the time is now. */
+export const resolveWindow = (window: Window, now: TimeStamp): TimeRange => {
+  if (window.variant === "dynamic") return new TimeRange(now.sub(window.timeSpan), now);
+  const { start, end } = window.timeRange;
+  return new TimeRange(BigInt(start), BigInt(end));
+};
+
 export const typedArrayZ = z.union([
   z.instanceof(Uint8Array),
   z.instanceof(Uint16Array),

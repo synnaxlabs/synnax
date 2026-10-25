@@ -8,7 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { SyntheticCore } from "@synnaxlabs/client/testutil";
-import { box, sleep, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  box,
+  dynamicWindow,
+  sleep,
+  staticWindow,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { type Bench, test } from "vitest";
 
 import { aetherTest } from "@/aether/test";
@@ -157,7 +165,7 @@ const closeAll = async (): Promise<void> => {
 };
 
 const createStatic = (viewport: box.Box) => async (lines: number) => {
-  const plot = await mount(lines, { window: telemTest.staticWindow(WEEK) }, viewport);
+  const plot = await mount(lines, { window: staticWindow(WEEK) }, viewport);
   plots.push(plot);
   return plot.frame;
 };
@@ -176,11 +184,7 @@ test("static week, hour view", async ({ bench }) => {
 // it. The yield that lands them costs about 15 µs.
 test("live 10 minutes", async ({ bench }) => {
   await compareLineCounts(bench, async (lines) => {
-    const plot = await mount(
-      lines,
-      { window: telemTest.dynamicWindow(LIVE_SPAN) },
-      box.DECIMAL,
-    );
+    const plot = await mount(lines, { window: dynamicWindow(LIVE_SPAN) }, box.DECIMAL);
     plots.push(plot);
     return async () => {
       plot.core.advance(FRAME);
@@ -207,7 +211,7 @@ test("pan an hour view", async ({ bench }) => {
       const offset = (phase < steps ? phase : 2 * steps - phase) * step;
       return box.translate(start, { x: offset, y: 0 });
     };
-    const plot = await mount(lines, { window: telemTest.staticWindow(WEEK) }, start);
+    const plot = await mount(lines, { window: staticWindow(WEEK) }, start);
     plots.push(plot);
     const pan = async (): Promise<void> => {
       plot.setViewport(next());

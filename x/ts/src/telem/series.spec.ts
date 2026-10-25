@@ -997,6 +997,16 @@ describe("Series", () => {
       expect(series.glOffset).toEqual(7n);
     });
 
+    it("should add the sample offset of a bigint series to its offset", () => {
+      const series = new Series({
+        data: new BigInt64Array([7n, 9n]),
+        sampleOffset: 3n,
+      });
+      expect(series.glData).toEqual(new Float32Array([0, 2]));
+      expect(series.glOffset).toEqual(10n);
+      expect(series.at(1)).toEqual(12n);
+    });
+
     it("should keep the copy until the last reference is released", () => {
       const series = new Series({ data: new BigInt64Array([7n, 9n]) });
       series.acquire();
