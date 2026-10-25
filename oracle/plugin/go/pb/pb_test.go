@@ -2411,6 +2411,38 @@ var _ = Describe("Go PB Plugin", func() {
 			)
 		})
 
+		Context("generic struct instantiated with any", func() {
+			It(
+				"Should translate the values through the x/pb Any helpers",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/control"
+					@pb
+
+					Status struct<D?> {
+						key     string
+						details D
+					}
+
+					Response struct {
+						status   Status<any>?
+						statuses Status<any>[]
+					}
+				`
+					resp := MustGenerate(ctx, source, "control", loader, pbPlugin)
+
+					ExpectContent(resp, "translator.gen.go").
+						ToContain(
+							`xpb "github.com/synnaxlabs/x/pb"`,
+							"StatusToPB(*r.Status, xpb.AnyToPBAny)",
+							"StatusFromPB(pb.Status, xpb.AnyFromPBAny)",
+							"StatusesToPB[any](r.Statuses, xpb.AnyToPBAny)",
+							"StatusesFromPB[any](pb.Statuses, xpb.AnyFromPBAny)",
+						)
+				},
+			)
+		})
+
 		Context("generic struct instantiated with a struct type arg", func() {
 			It(
 				"Should keep explicit instantiation only for backward conversion with nil converters",
