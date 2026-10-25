@@ -53,7 +53,7 @@ func edit(r Range, apply func(map[string]any) error) (Range, error) {
 		apply,
 	)
 	if err != nil {
-		return r, err
+		return Range{}, err
 	}
 	r.Name, r.TimeRange, r.Color = d.Name, d.TimeRange, d.Color
 	return r, nil

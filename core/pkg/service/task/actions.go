@@ -50,7 +50,7 @@ type document struct {
 func edit(t Task, apply func(map[string]any) error) (Task, error) {
 	d, err := patch.Edit(document{Name: t.Name, Rack: t.Rack, Config: t.Config}, apply)
 	if err != nil {
-		return t, err
+		return Task{}, err
 	}
 	t.Name, t.Rack, t.Config = d.Name, d.Rack, d.Config
 	return t, nil

@@ -75,20 +75,18 @@ var _ = Describe("Actions", func() {
 			Expect(res.Parent).To(Equal(base.Parent))
 		})
 		It("Should reject a path outside the name, time range, and color", func() {
-			next, err := ranger.Reduce(base, set([]string{"key"}, uuid.New().String()))
-			Expect(err).To(SatisfyAll(
+			act := set([]string{"key"}, uuid.New().String())
+			Expect(ranger.Reduce(base, act)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("decoding document")),
 			))
-			Expect(next).To(Equal(base))
 		})
 		It("Should reject a value the time range cannot hold", func() {
-			next, err := ranger.Reduce(base, set([]string{"time_range", "end"}, "soon"))
-			Expect(err).To(SatisfyAll(
+			act := set([]string{"time_range", "end"}, "soon")
+			Expect(ranger.Reduce(base, act)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("decoding document")),
 			))
-			Expect(next).To(Equal(base))
 		})
 	})
 
@@ -105,18 +103,16 @@ var _ = Describe("Actions", func() {
 
 	Describe("InsertPayload", func() {
 		It("Should reject a list the range does not declare", func() {
-			next, err := ranger.Reduce(
+			Expect(ranger.Reduce(
 				base,
 				ranger.NewInsertAction(ranger.InsertPayload{
 					Path:  []string{"tags"},
 					Value: map[string]any{"key": "a"},
 				}),
-			)
-			Expect(err).To(SatisfyAll(
+			)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("decoding document")),
 			))
-			Expect(next).To(Equal(base))
 		})
 	})
 

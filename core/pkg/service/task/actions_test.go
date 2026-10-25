@@ -110,15 +110,13 @@ var _ = Describe("Actions", func() {
 
 		DescribeTable("Should reject a path to a field that actions cannot edit",
 			func(field string) {
-				next, err := task.Reduce(base, task.NewSetAction(task.SetPayload{
+				Expect(task.Reduce(base, task.NewSetAction(task.SetPayload{
 					Path:  []string{field},
 					Value: "x",
-				}))
-				Expect(err).To(SatisfyAll(
+				}))).Error().To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring(`unknown object member name "`+field)),
 				))
-				Expect(next).To(Equal(base))
 			},
 			Entry("type", "type"),
 			Entry("key", "key"),
@@ -127,12 +125,10 @@ var _ = Describe("Actions", func() {
 		)
 
 		It("Should reject a value that the field cannot hold", func() {
-			next, err := task.Reduce(base, task.NewSetAction(task.SetPayload{
+			Expect(task.Reduce(base, task.NewSetAction(task.SetPayload{
 				Path:  []string{"rack"},
 				Value: "not a rack",
-			}))
-			Expect(err).To(MatchError(validate.ErrValidation))
-			Expect(next).To(Equal(base))
+			}))).Error().To(MatchError(validate.ErrValidation))
 		})
 	})
 

@@ -48,7 +48,7 @@ type document struct {
 func edit(l Label, apply func(map[string]any) error) (Label, error) {
 	d, err := patch.Edit(document{Name: l.Name, Color: l.Color}, apply)
 	if err != nil {
-		return l, err
+		return Label{}, err
 	}
 	l.Name, l.Color = d.Name, d.Color
 	return l, nil

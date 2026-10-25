@@ -34,12 +34,10 @@ var _ = Describe("Actions", func() {
 	}
 	expectRejected := func(acts ...label.Action) {
 		GinkgoHelper()
-		next, err := label.Reduce(base, acts...)
-		Expect(err).To(SatisfyAll(
+		Expect(label.Reduce(base, acts...)).Error().To(SatisfyAll(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring("decoding document")),
 		))
-		Expect(next).To(Equal(base))
 	}
 
 	Describe("CreatePayload", func() {
