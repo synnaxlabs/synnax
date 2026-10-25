@@ -2583,9 +2583,9 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Expect(v.Series[0].AlignmentMultiple).To(Equal(uint32(10)))
 		})
 
-		Describe("Pieces", func() {
-			// Pieces reads from its own Core, whose storage sends a fixed-span read in
-			// pieces of 7 samples per channel.
+		Describe("Chunks", func() {
+			// Chunks reads from its own Core, whose storage sends a fixed-span read in
+			// chunks of 7 samples per channel.
 			var (
 				node          mock.Node
 				iteratorSvc   *iterator.Service
@@ -2600,7 +2600,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						ctx,
 						"",
 						cesium.WithFS(xfs.NewMem()),
-						cesium.WithPieceSize(14),
+						cesium.WithChunkSize(14),
 					))),
 				}
 				node = cluster.Provision(ctx, distribution.LayerConfig{Storage: store})
@@ -2619,7 +2619,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				return out
 			}
 
-			It("Should reduce a calculation read in pieces to exact groups", func(
+			It("Should reduce a calculation read in chunks to exact groups", func(
 				ctx SpecContext,
 			) {
 				calc := &channel.Channel{
@@ -2725,7 +2725,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Expect(iter.Close()).To(Succeed())
 			})
 
-			It("Should keep each group inside its domain when read in pieces", func(
+			It("Should keep each group inside its domain when read in chunks", func(
 				ctx SpecContext,
 			) {
 				index := &channel.Channel{
@@ -2772,7 +2772,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				)))
 			})
 
-			It("Should keep the stride of a calculation read in pieces", func(
+			It("Should keep the stride of a calculation read in chunks", func(
 				ctx SpecContext,
 			) {
 				calc := &channel.Channel{

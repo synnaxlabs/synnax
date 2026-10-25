@@ -499,7 +499,9 @@ var _ = Describe("Codec", func() {
 				encoded[0] |= 1 << 7
 				Expect(c.Decode(encoded)).Error().To(SatisfyAll(
 					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("extended flags byte")),
+					MatchError(
+						"remote sent an extended flags byte, which this codec does not support: validation error",
+					),
 				))
 			},
 		)
@@ -597,7 +599,7 @@ var _ = Describe("Codec", func() {
 			Expect(func() {
 				fr := framer.Frame{}
 				_, _ = codec.Encode(ctx, fr)
-			}).To(Panic())
+			}).To(PanicWith("dynamic codec was not updated for first call to Encode"))
 		})
 
 		It(

@@ -94,8 +94,7 @@ class CodecFlags:
     def decode(cls, b: int) -> CodecFlags:
         if (b >> EXTENDED_FLAG_POS) & 1:
             raise ValidationError(
-                "[framer.codec] - remote sent an extended flags byte, which this "
-                "codec does not support"
+                "remote sent an extended flags byte, which this codec does not support"
             )
         flags = cls()
         flags.eq_len = bool((b >> EQUAL_LENGTHS_FLAG_POS) & 1)
