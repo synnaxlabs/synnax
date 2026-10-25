@@ -176,7 +176,7 @@ type Transport struct {
 	// TaskRename renames a task.
 	TaskRename freighter.UnaryServer[task.RenameRequest, struct{}]
 	// TaskDispatch applies path actions to a task.
-	TaskDispatch freighter.UnaryServer[task.DispatchRequest, task.DispatchResponse]
+	TaskDispatch freighter.UnaryServer[task.DispatchRequest, struct{}]
 	// DEVICE
 	DeviceCreate   freighter.UnaryServer[device.CreateRequest, device.CreateResponse]
 	DeviceRetrieve freighter.UnaryServer[device.RetrieveRequest, device.RetrieveResponse]

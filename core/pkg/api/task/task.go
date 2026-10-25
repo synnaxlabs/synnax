@@ -127,32 +127,21 @@ func (s *Service) Create(
 // recognizes its own echo.
 type DispatchRequest = actions.DispatchRequest[task.Key, task.Action]
 
-// DispatchResponse is the result of a dispatch.
-type DispatchResponse struct {
-	// ConfigHash is the hash of the task's config after the dispatch.
-	ConfigHash string `json:"config_hash" msgpack:"config_hash"`
-}
-
-// Dispatch applies the action sequence to the target task atomically and returns the
-// hash of its new config. Subscribers to the task action signals receive the sequence
-// after the transaction commits.
+// Dispatch applies the action sequence to the target task atomically. Subscribers to
+// the task action signals receive the sequence after the transaction commits.
 func (s *Service) Dispatch(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DispatchRequest,
-) (DispatchResponse, error) {
+) (struct{}, error) {
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{task.OntologyID(req.Key)},
 	}); err != nil {
-		return DispatchResponse{}, err
+		return struct{}{}, err
 	}
-	hash, err := s.task.Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
-	if err != nil {
-		return DispatchResponse{}, err
-	}
-	return DispatchResponse{ConfigHash: hash}, nil
+	return struct{}{}, s.task.Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 }
 
 type (

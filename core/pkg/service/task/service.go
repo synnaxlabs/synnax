@@ -245,46 +245,38 @@ func (s *Service) OnAction(
 	return s.state.OnAction(handler)
 }
 
-// Dispatch applies the actions atomically to the task with the given key and returns
-// the hash of its new config. Dispatches for the same task run one at a time, each in
-// its own transaction. After the commit, Dispatch broadcasts the actions and a set of
-// the new config hash, which only the Core writes. dispatchKey is carried onto the
-// broadcast so the sender recognizes its echo. The new config is stored only when it
-// decodes into the task type's config with no unknown members and passes validation.
-// Dispatch returns an error wrapping validate.ErrValidation when an action is a create,
-// the task is a snapshot, or the result fails to decode or validate, and an error
-// wrapping query.ErrNotFound when no task has the key.
+// Dispatch applies the actions atomically to the task with the given key. Dispatches
+// for the same task run one at a time, each in its own transaction. After the commit,
+// Dispatch broadcasts the actions and a set of the new config hash, which only the Core
+// writes. dispatchKey is carried onto the broadcast so the sender recognizes its echo.
+// The new config is stored only when it decodes into the task type's config with no
+// unknown members and passes validation. Dispatch returns an error wrapping
+// validate.ErrValidation when an action is a create, the task is a snapshot, or the
+// result fails to decode or validate, and an error wrapping query.ErrNotFound when no
+// task has the key.
 func (s *Service) Dispatch(
 	ctx context.Context,
 	key Key,
 	dispatchKey string,
 	acts []Action,
-) (string, error) {
+) error {
 	for _, a := range acts {
 		if a.Type == ActionTypeCreate {
-			return "", errors.Wrap(
+			return errors.Wrap(
 				validate.ErrValidation, "only the Core dispatches a task create",
 			)
 		}
 	}
-	var hash string
-	if err := s.state.Dispatch(
-		ctx,
-		key,
-		dispatchKey,
-		func(tx gorp.Tx) (_ []Action, err error) {
-			if hash, err = s.NewWriter(tx).apply(ctx, key, acts); err != nil {
-				return nil, err
-			}
-			return slices.Concat(acts, []Action{NewSetAction(SetPayload{
-				Path:  []string{"config_hash"},
-				Value: hash,
-			})}), nil
-		},
-	); err != nil {
-		return "", err
-	}
-	return hash, nil
+	return s.state.Dispatch(ctx, key, dispatchKey, func(tx gorp.Tx) ([]Action, error) {
+		hash, err := s.NewWriter(tx).apply(ctx, key, acts)
+		if err != nil {
+			return nil, err
+		}
+		return slices.Concat(acts, []Action{NewSetAction(SetPayload{
+			Path:  []string{"config_hash"},
+			Value: hash,
+		})}), nil
+	})
 }
 
 func (s *Service) CommandChannelKey() channel.Key {

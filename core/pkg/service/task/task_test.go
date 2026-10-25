@@ -758,22 +758,21 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(res.ConfigHash).To(Equal(alerts.ConfigHash))
 		}
 
-		It("Should store the new config and return its hash", func(ctx SpecContext) {
-			hash := MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
+		It("Should store the new config and its hash", func(ctx SpecContext) {
+			Expect(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"config", "routing_key"}, "rk-2"),
-			}))
-			Expect(hash).ToNot(Equal(alerts.ConfigHash))
+			})).To(Succeed())
 			res := retrieve(ctx, alerts.Key)
 			Expect(res.Config["routing_key"]).To(Equal("rk-2"))
-			Expect(res.ConfigHash).To(Equal(hash))
+			Expect(res.ConfigHash).ToNot(Equal(alerts.ConfigHash))
 		})
 
 		It("Should hash the config as a create of the same config does", func(
 			ctx SpecContext,
 		) {
-			hash := MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
+			Expect(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"config", "routing_key"}, "rk-2"),
-			}))
+			})).To(Succeed())
 			same := &task.Task{
 				Type: testType,
 				Rack: testRack.Key,
@@ -784,12 +783,12 @@ var _ = Describe("Task", Ordered, func() {
 				},
 			}
 			createCommitted(ctx, same)
-			Expect(same.ConfigHash).To(Equal(hash))
+			Expect(same.ConfigHash).To(Equal(retrieve(ctx, alerts.Key).ConfigHash))
 		})
 
 		It("Should apply list actions to the config", func(ctx SpecContext) {
 			after := "a"
-			MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
+			Expect(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
 				task.NewInsertAction(task.InsertPayload{
 					Path:  []string{"config", "alerts"},
 					Value: map[string]any{"key": "b", "status": "st-b"},
@@ -803,7 +802,7 @@ var _ = Describe("Task", Ordered, func() {
 					Path: []string{"config", "alerts"},
 					Key:  "a",
 				}),
-			}))
+			})).To(Succeed())
 			res := retrieve(ctx, alerts.Key)
 			Expect(res.Config["alerts"]).To(HaveExactElements(
 				HaveKeyWithValue("key", "b"),
@@ -811,9 +810,9 @@ var _ = Describe("Task", Ordered, func() {
 		})
 
 		It("Should rename the task and its status", func(ctx SpecContext) {
-			MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
+			Expect(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"name"}, "Renamed"),
-			}))
+			})).To(Succeed())
 			Expect(retrieve(ctx, alerts.Key).Name).To(Equal("Renamed"))
 			var renamed task.Status
 			Expect(stat.NewRetrieve[task.StatusDetails]().
@@ -831,9 +830,9 @@ var _ = Describe("Task", Ordered, func() {
 			DeferCleanup(func(ctx SpecContext) {
 				Expect(rackService.NewWriter(db).Delete(ctx, other.Key)).To(Succeed())
 			})
-			MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
+			Expect(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"rack"}, other.Key),
-			}))
+			})).To(Succeed())
 			Expect(retrieve(ctx, alerts.Key).Rack).To(Equal(other.Key))
 		})
 
@@ -841,7 +840,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"config", "routing_key"}, "rk-2"),
 				set([]string{"type"}, "arc"),
-			})).Error().To(MatchError(validate.ErrValidation))
+			})).To(MatchError(validate.ErrValidation))
 			expectUnchanged(ctx)
 		})
 
@@ -850,7 +849,7 @@ var _ = Describe("Task", Ordered, func() {
 		) {
 			Expect(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"config", "routng_key"}, "rk-2"),
-			})).Error().To(SatisfyAll(
+			})).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(`unknown object member name "routng_key"`)),
 			))
@@ -867,20 +866,20 @@ var _ = Describe("Task", Ordered, func() {
 			createCommitted(ctx, arcTask)
 			Expect(svc.Dispatch(ctx, arcTask.Key, "dk", []task.Action{
 				set([]string{"config", "performance"}, "BOGUS"),
-			})).Error().To(MatchError(ContainSubstring("invalid performance: BOGUS")))
+			})).To(MatchError(ContainSubstring("invalid performance: BOGUS")))
 		})
 
 		It("Should reject an empty name", func(ctx SpecContext) {
 			Expect(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"name"}, ""),
-			})).Error().To(MatchError(ContainSubstring("name: required")))
+			})).To(MatchError(ContainSubstring("name: required")))
 			expectUnchanged(ctx)
 		})
 
 		It("Should reject a create", func(ctx SpecContext) {
 			Expect(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
 				task.NewCreateAction(task.CreatePayload{Task: *alerts}),
-			})).Error().To(SatisfyAll(
+			})).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("only the Core dispatches a task create")),
 			))
@@ -896,7 +895,7 @@ var _ = Describe("Task", Ordered, func() {
 			createCommitted(ctx, snap)
 			Expect(svc.Dispatch(ctx, snap.Key, "dk", []task.Action{
 				set([]string{"name"}, "Renamed"),
-			})).Error().To(SatisfyAll(
+			})).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("is a snapshot")),
 			))
@@ -905,7 +904,7 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should return not found for a missing task", func(ctx SpecContext) {
 			Expect(svc.Dispatch(ctx, uuid.New(), "dk", []task.Action{
 				set([]string{"name"}, "Renamed"),
-			})).Error().To(MatchError(query.ErrNotFound))
+			})).To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should broadcast the actions and the new config hash", func(
@@ -913,7 +912,8 @@ var _ = Describe("Task", Ordered, func() {
 		) {
 			frames := collect()
 			acts := []task.Action{set([]string{"config", "routing_key"}, "rk-2")}
-			hash := MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk-1", acts))
+			Expect(svc.Dispatch(ctx, alerts.Key, "dk-1", acts)).To(Succeed())
+			hash := retrieve(ctx, alerts.Key).ConfigHash
 			Expect(*frames).To(HaveLen(1))
 			f := (*frames)[0]
 			Expect(f.Key).To(Equal(alerts.Key))
@@ -928,7 +928,7 @@ var _ = Describe("Task", Ordered, func() {
 			frames := collect()
 			Expect(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"type"}, "arc"),
-			})).Error().To(MatchError(validate.ErrValidation))
+			})).To(MatchError(validate.ErrValidation))
 			Expect(*frames).To(BeEmpty())
 		})
 	})

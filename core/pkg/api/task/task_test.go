@@ -107,13 +107,11 @@ var _ = Describe("Dispatch", func() {
 		Path:  []string{"config", "routing_key"},
 		Value: "rk-2",
 	})}
-	It("Should apply the actions and return the new hash when update is granted", func(
-		ctx SpecContext,
-	) {
+	It("Should apply the actions when update is granted", func(ctx SpecContext) {
 		u := createUser(ctx)
 		t := createDraft(ctx)
 		grant(ctx, access.ActionUpdate, u.OntologyID(), t.OntologyID())
-		res := MustSucceed(apiSvc.Dispatch(
+		MustSucceed(apiSvc.Dispatch(
 			AuthedCtx(ctx, u),
 			nil,
 			apitask.DispatchRequest{
@@ -124,7 +122,7 @@ var _ = Describe("Dispatch", func() {
 		))
 		stored := retrieveTask(ctx, t.Key)
 		Expect(stored.Config["routing_key"]).To(Equal("rk-2"))
-		Expect(res.ConfigHash).To(Equal(stored.ConfigHash))
+		Expect(stored.ConfigHash).ToNot(Equal(t.ConfigHash))
 	})
 	It("Should reject the request when update is not granted", func(ctx SpecContext) {
 		u := createUser(ctx)
