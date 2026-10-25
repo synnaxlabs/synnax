@@ -1597,6 +1597,17 @@ describe("remote", () => {
         expect(left.refCount).toBe(0);
       });
 
+      it("should release raw series a line that never draws moved past", async () => {
+        const [left, right] = [raw(82, 90), raw(90, 100)];
+        c.response = new MultiSeries([left, right]);
+        const source = createLive();
+        await firstRead(source);
+        now = TimeStamp.seconds(120);
+        c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([raw(100, 120)])]]));
+        expect(left.refCount).toBe(0);
+        expect(right.refCount).toBe(1);
+      });
+
       it("should release older tiles when the view returns to the live window", async () => {
         const source = createLive();
         await firstRead(source);

@@ -610,7 +610,7 @@ export class TiledChannelData
   private readonly window: LiveWindow;
   // boundary is where a live line's tiles end and its full-resolution data begins. It
   // trails rawFrom until the tiles that replace the series before rawFrom arrive, so
-  // their span never goes blank.
+  // their span never goes blank. It trails by at most one tile of the home level.
   private boundary = TimeStamp.ZERO;
   // drawn is the view of the last read that drew.
   private drawn?: TimeRange;
@@ -651,7 +651,7 @@ export class TiledChannelData
     this.window = new LiveWindow({
       now,
       start: () => this.rawFrom(),
-      cutoff: () => this.boundary,
+      cutoff: () => this.cutoff(),
       failures: this.failures,
       breakerConfig,
       notify: () => this.notify(),
@@ -716,6 +716,17 @@ export class TiledChannelData
     if (this.xy) return home.start;
     const span = framer.tileSpan(level(home)).valueOf();
     return new TimeStamp((home.start.valueOf() / span) * span);
+  }
+
+  // cutoff returns the boundary after it moves to at most one home level tile behind
+  // rawFrom. The stream prunes with it, so a line that never draws stops growing.
+  private cutoff(): TimeStamp {
+    const home = this.home();
+    const floor = this.xy
+      ? home.start
+      : this.rawFrom().sub(framer.tileSpan(level(home)));
+    this.boundary = TimeStamp.max(this.boundary, floor);
+    return this.boundary;
   }
 
   // tilesEnd is where a live line's tiles stop for the boundary: the boundary, or the
