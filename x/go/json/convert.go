@@ -286,8 +286,9 @@ const maxDigits = 20
 func parseDecimal(text string) (number, error) {
 	mantissa, exp := text, 0
 	if i := strings.IndexAny(text, "eE"); i >= 0 {
+		// Atoi saturates an exponent beyond the int range, which keeps its meaning.
 		e, err := strconv.Atoi(text[i+1:])
-		if err != nil {
+		if err != nil && !errors.Is(err, strconv.ErrRange) {
 			return number{}, errNotDecimal
 		}
 		mantissa, exp = text[:i], e
@@ -302,19 +303,21 @@ func parseDecimal(text string) (number, error) {
 	}
 	digits := strings.TrimLeft(whole+frac, "0")
 	significant := strings.TrimRight(digits, "0")
-	exp += len(digits) - len(significant) - len(frac)
 	if significant == "" {
 		return number{kind: kindUint}, nil
 	}
-	if exp < 0 {
+	// The value is significant × 10^(exp+shift). The checks leave exp on one side,
+	// since adding to an exponent near the int limits overflows.
+	shift := len(digits) - len(significant) - len(frac)
+	if exp < -shift {
 		n, err := parseFloat(text)
 		n.fractional = true
 		return n, err
 	}
-	if len(significant)+exp > maxDigits {
+	if exp > maxDigits-len(significant)-shift {
 		return number{}, errOutOfBounds
 	}
-	u, err := strconv.ParseUint(significant+strings.Repeat("0", exp), 10, 64)
+	u, err := strconv.ParseUint(significant+strings.Repeat("0", exp+shift), 10, 64)
 	if err != nil {
 		return number{}, errOutOfBounds
 	}
