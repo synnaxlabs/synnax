@@ -112,7 +112,7 @@ func (s *State[K, A]) Dispatch(
 		}); err != nil {
 			return err
 		}
-		s.Dispatcher().Notify(ctx, key, dispatchKey, applied)
+		s.Dispatcher().WithDispatchKey(dispatchKey).Notify(ctx, key, applied...)
 		return nil
 	})
 }
@@ -138,24 +138,38 @@ func (s *State[K, A]) Dispatcher() Dispatcher[K, A] {
 // the resulting Scoped envelope to the State's observer. Construct via
 // State.Dispatcher; the zero value is not usable.
 type Dispatcher[K comparable, A any] struct {
-	observer observe.Observer[Scoped[K, A]]
-	seq      *atomic.Uint64
+	observer    observe.Observer[Scoped[K, A]]
+	seq         *atomic.Uint64
+	dispatchKey string
+}
+
+// WithDispatchKey returns a copy of the Dispatcher that stamps dispatchKey onto each
+// envelope it emits, so the client that sent the write recognizes its own echo.
+func (d Dispatcher[K, A]) WithDispatchKey(dispatchKey string) Dispatcher[K, A] {
+	d.dispatchKey = dispatchKey
+	return d
 }
 
 // Notify increments the bound sequence counter and emits a Scoped envelope to
 // the bound observer. Call Notify only after the underlying transaction
 // commits so subscribers never observe an action sequence whose effects are
 // not yet persisted.
-func (d Dispatcher[K, A]) Notify(
-	ctx context.Context,
-	key K,
-	dispatchKey string,
-	actions []A,
-) {
+func (d Dispatcher[K, A]) Notify(ctx context.Context, key K, actions ...A) {
 	d.observer.Notify(ctx, Scoped[K, A]{
 		Key:         key,
-		DispatchKey: dispatchKey,
+		DispatchKey: d.dispatchKey,
 		Seq:         d.seq.Add(1),
 		Actions:     actions,
 	})
+}
+
+// NotifyOnCommit calls Notify with the given actions once tx commits. It notifies
+// nothing when tx aborts, and notifies at once when tx is not a transaction.
+func (d Dispatcher[K, A]) NotifyOnCommit(
+	ctx context.Context,
+	tx gorp.Tx,
+	key K,
+	actions ...A,
+) {
+	gorp.OnCommit(tx, func() { d.Notify(ctx, key, actions...) })
 }

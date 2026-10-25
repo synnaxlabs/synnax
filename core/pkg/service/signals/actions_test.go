@@ -146,7 +146,7 @@ var _ = Describe("Actions", func() {
 		) {
 			key := uuid.New()
 			acts := []action{{Type: "rename", Payload: "next-name"}}
-			state.Dispatcher().Notify(ctx, key, "dk-1", acts)
+			state.Dispatcher().WithDispatchKey("dk-1").Notify(ctx, key, acts...)
 			var res framer.StreamerResponse
 			Eventually(responses.Outlet(), 5*time.Second).Should(Receive(&res))
 			Expect(res.Frame.KeysSlice()).To(ConsistOf(ch.Key()))
@@ -161,9 +161,9 @@ var _ = Describe("Actions", func() {
 		It("Should publish increasing sequence numbers", func(ctx SpecContext) {
 			key := uuid.New()
 			d := state.Dispatcher()
-			d.Notify(ctx, key, "", []action{{Type: "a"}})
-			d.Notify(ctx, key, "", []action{{Type: "b"}})
-			d.Notify(ctx, key, "", []action{{Type: "c"}})
+			d.Notify(ctx, key, action{Type: "a"})
+			d.Notify(ctx, key, action{Type: "b"})
+			d.Notify(ctx, key, action{Type: "c"})
 			var seqs []uint64
 			for len(seqs) < 3 {
 				var res framer.StreamerResponse

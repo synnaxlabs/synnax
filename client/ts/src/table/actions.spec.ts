@@ -88,7 +88,7 @@ describe("table path actions", () => {
 
   it("should throw for a path outside the cells", () => {
     expect(() => table.reduceAll(create(), [set(["name"], "Other")])).toThrow(
-      "name is not inside a cell",
+      "name is not inside an entry of cells",
     );
   });
 });

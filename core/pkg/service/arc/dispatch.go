@@ -69,9 +69,9 @@ func (s *Service) Dispatch(
 		}); err != nil {
 			return err
 		}
-		dispatcher.Notify(ctx, key, dispatchKey, acts)
+		dispatcher.WithDispatchKey(dispatchKey).Notify(ctx, key, acts...)
 		if len(sweep) > 0 {
-			dispatcher.Notify(ctx, key, "", sweep)
+			dispatcher.Notify(ctx, key, sweep...)
 		}
 		s.taskSync.Trigger(key)
 		return nil

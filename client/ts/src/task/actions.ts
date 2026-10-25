@@ -34,10 +34,7 @@ const handlers: Handlers = {
     Object.assign(state, created);
     return { inverse: [], targets: [task.key] };
   },
-  set: (state, set) => applyPath(state, { type: "set", set }),
-  remove: (state, remove) => applyPath(state, { type: "remove", remove }),
-  insert: (state, insert) => applyPath(state, { type: "insert", insert }),
-  move: (state, move) => applyPath(state, { type: "move", move }),
+  ...actions.createPathHandlers(applyPath),
 };
 
 /**

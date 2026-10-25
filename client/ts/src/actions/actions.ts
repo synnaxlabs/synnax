@@ -72,6 +72,41 @@ export const applyPath = <S extends object>(
 };
 
 /**
+ * Applies a path action to an entry of the map at root in a draft of a cached document,
+ * such as one element config of a schematic. The result targets that entry.
+ * @param root - The path of the map.
+ * @param schema - The document's schema, which names the keys that keep their case.
+ * @throws {Error} if the action's path does not reach an entry of the map, or if the
+ * document cannot hold the action.
+ */
+export const applyEntryPath = <S extends object>(
+  state: Draft<S>,
+  action: patch.Action,
+  root: string[],
+  schema: z.ZodType,
+): HandlerResult<patch.Action> => {
+  const path = patch.pathOf(action);
+  if (path.length <= root.length || root.some((field, i) => path[i] !== field))
+    throw new Error(`${path.join(".")} is not inside an entry of ${root.join(".")}`);
+  const inverse = applyPath(state, action, schema);
+  if (inverse.length === 0) return NO_OP_RESULT;
+  return { inverse, targets: [path[root.length]] };
+};
+
+/**
+ * createPathHandlers builds the set, remove, insert, and move handlers of a document's
+ * action union from one function that applies a path action.
+ */
+export const createPathHandlers = <D, A>(
+  apply: (state: D, action: patch.Action) => HandlerResult<A>,
+) => ({
+  set: (state: D, set: patch.Set) => apply(state, { type: "set", set }),
+  remove: (state: D, remove: patch.Remove) => apply(state, { type: "remove", remove }),
+  insert: (state: D, insert: patch.Insert) => apply(state, { type: "insert", insert }),
+  move: (state: D, move: patch.Move) => apply(state, { type: "move", move }),
+});
+
+/**
  * createReduceAll lifts a per-variant `reduceOne` switch into a batched
  * reducer. The returned function applies each action against an Immer draft of
  * `state` in order, accumulates the inverses in reverse application order so a

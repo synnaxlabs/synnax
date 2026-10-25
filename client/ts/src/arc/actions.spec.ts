@@ -645,7 +645,7 @@ describe("arc path actions", () => {
 
   it("should throw for a path outside the node inputs", () => {
     expect(() => apply(empty(), set(["graph", "nodes"], []))).toThrow(
-      "graph.nodes is not inside a node's inputs",
+      "graph.nodes is not inside an entry of graph.inputs",
     );
   });
 });

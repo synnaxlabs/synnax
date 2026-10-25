@@ -21,24 +21,17 @@ import (
 
 // Writer wraps a transaction to create, update, and delete labels.
 type Writer struct {
-	tx          gorp.Tx
-	otg         ontology.Writer
-	table       *gorp.Table[Key, Label]
-	dispatcher  actions.Dispatcher[Key, Action]
-	dispatchKey string
+	tx         gorp.Tx
+	otg        ontology.Writer
+	table      *gorp.Table[Key, Label]
+	dispatcher actions.Dispatcher[Key, Action]
 }
 
 // WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
 // broadcasts it emits, so the client that sent the write recognizes its own echo.
 func (w Writer) WithDispatchKey(dispatchKey string) Writer {
-	w.dispatchKey = dispatchKey
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
 	return w
-}
-
-// notify broadcasts the actions on the label with the given key after the transaction
-// commits.
-func (w Writer) notify(ctx context.Context, key Key, acts ...Action) {
-	gorp.OnCommit(w.tx, func() { w.dispatcher.Notify(ctx, key, w.dispatchKey, acts) })
 }
 
 // Create creates a new label, assigning it a unique key if one is not provided. If
@@ -54,7 +47,12 @@ func (w Writer) Create(ctx context.Context, l *Label) error {
 	if err := w.table.NewCreate().Entry(l).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	w.notify(ctx, l.Key, NewCreateAction(CreatePayload{Label: *l}))
+	w.dispatcher.NotifyOnCommit(
+		ctx,
+		w.tx,
+		l.Key,
+		NewCreateAction(CreatePayload{Label: *l}),
+	)
 	return w.otg.DefineResources(ctx, l.OntologyID())
 }
 

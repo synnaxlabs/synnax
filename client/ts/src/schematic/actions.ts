@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { patch } from "@synnaxlabs/x";
+import { type patch } from "@synnaxlabs/x";
 import { type Draft } from "immer";
 
 import { actions } from "@/actions";
@@ -26,16 +26,9 @@ import {
 } from "@/schematic/actions.gen";
 import { type Schematic, schematicZ } from "@/schematic/types.gen";
 
-// Path actions edit only the element configs. Each targets the element it reaches, as
-// the other actions do.
-const applyPath = (state: Draft<Schematic>, action: patch.Action): HandlerResult => {
-  const path = patch.pathOf(action);
-  if (path[0] !== "configs" || path.length < 2)
-    throw new Error(`${path.join(".")} is not inside an element config`);
-  const inverse = actions.applyPath(state, action, schematicZ);
-  if (inverse.length === 0) return actions.NO_OP_RESULT;
-  return { inverse, targets: [path[1]] };
-};
+// Path actions edit only the element configs.
+const applyPath = (state: Draft<Schematic>, action: patch.Action): HandlerResult =>
+  actions.applyEntryPath(state, action, ["configs"], schematicZ);
 
 const handlers: Handlers = {
   create: (state, payload) => {
@@ -145,10 +138,7 @@ const handlers: Handlers = {
       targets: [payload.key],
     };
   },
-  set: (state, set) => applyPath(state, { type: "set", set }),
-  remove: (state, remove) => applyPath(state, { type: "remove", remove }),
-  insert: (state, insert) => applyPath(state, { type: "insert", insert }),
-  move: (state, move) => applyPath(state, { type: "move", move }),
+  ...actions.createPathHandlers(applyPath),
 };
 
 export const reduceAll = createReduceAll(handlers);

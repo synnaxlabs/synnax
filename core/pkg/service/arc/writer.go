@@ -37,22 +37,21 @@ const TaskType = "arc"
 // method. If no transaction is provided, the writer will execute operations directly
 // on the database.
 type Writer struct {
-	tx          gorp.Tx
-	otgWriter   ontology.Writer
-	otg         *ontology.Ontology
-	tasks       *task.Service
-	status      *status.Service
-	table       *gorp.Table[Key, Arc]
-	dispatcher  actions.Dispatcher[Key, Action]
-	dispatchKey string
-	sweeper     textSweeper
-	taskSync    *debounce.Keyed[Key]
+	tx         gorp.Tx
+	otgWriter  ontology.Writer
+	otg        *ontology.Ontology
+	tasks      *task.Service
+	status     *status.Service
+	table      *gorp.Table[Key, Arc]
+	dispatcher actions.Dispatcher[Key, Action]
+	sweeper    textSweeper
+	taskSync   *debounce.Keyed[Key]
 }
 
 // WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the create
 // broadcasts it emits, so the client that sent the create recognizes its own echo.
 func (w Writer) WithDispatchKey(dispatchKey string) Writer {
-	w.dispatchKey = dispatchKey
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
 	return w
 }
 
@@ -89,10 +88,12 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 	} else if err = w.syncTask(ctx, *a); err != nil {
 		return err
 	}
-	key, created := a.Key, []Action{NewCreateAction(CreatePayload{Arc: *a})}
-	gorp.OnCommit(w.tx, func() {
-		w.dispatcher.Notify(ctx, key, w.dispatchKey, created)
-	})
+	w.dispatcher.NotifyOnCommit(
+		ctx,
+		w.tx,
+		a.Key,
+		NewCreateAction(CreatePayload{Arc: *a}),
+	)
 	return nil
 }
 

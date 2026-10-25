@@ -27,26 +27,19 @@ import (
 
 // Writer is used to create ranges within the DB.
 type Writer struct {
-	tx          gorp.Tx
-	otgWriter   ontology.Writer
-	otg         *ontology.Ontology
-	label       *label.Service
-	table       *gorp.Table[Key, Range]
-	dispatcher  actions.Dispatcher[Key, Action]
-	dispatchKey string
+	tx         gorp.Tx
+	otgWriter  ontology.Writer
+	otg        *ontology.Ontology
+	label      *label.Service
+	table      *gorp.Table[Key, Range]
+	dispatcher actions.Dispatcher[Key, Action]
 }
 
 // WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
 // broadcasts it emits, so the client that sent the write recognizes its own echo.
 func (w Writer) WithDispatchKey(dispatchKey string) Writer {
-	w.dispatchKey = dispatchKey
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
 	return w
-}
-
-// notify broadcasts the actions on the range with the given key after the transaction
-// commits.
-func (w Writer) notify(ctx context.Context, key Key, acts ...Action) {
-	gorp.OnCommit(w.tx, func() { w.dispatcher.Notify(ctx, key, w.dispatchKey, acts) })
 }
 
 // Create creates or updates the given range. If r.Parent is non-nil, the range is
@@ -83,7 +76,12 @@ func (w Writer) Create(ctx context.Context, r *Range) error {
 	}
 	created := *r
 	created.Labels, created.Parent = nil, nil
-	w.notify(ctx, r.Key, NewCreateAction(CreatePayload{Range: created}))
+	w.dispatcher.NotifyOnCommit(
+		ctx,
+		w.tx,
+		r.Key,
+		NewCreateAction(CreatePayload{Range: created}),
+	)
 	otgID := r.OntologyID()
 	if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
 		return err
@@ -168,7 +166,12 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	w.notify(ctx, key, NewSetAction(SetPayload{Path: []string{"name"}, Value: name}))
+	w.dispatcher.NotifyOnCommit(
+		ctx,
+		w.tx,
+		key,
+		NewSetAction(SetPayload{Path: []string{"name"}, Value: name}),
+	)
 	return nil
 }
 
@@ -194,7 +197,7 @@ func (w Writer) SetEnd(ctx context.Context, key Key, end telem.TimeStamp) error 
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	w.notify(ctx, key, NewSetAction(SetPayload{
+	w.dispatcher.NotifyOnCommit(ctx, w.tx, key, NewSetAction(SetPayload{
 		Path:  []string{"time_range", "end"},
 		Value: end,
 	}))

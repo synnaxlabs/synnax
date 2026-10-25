@@ -24,18 +24,17 @@ import (
 // method. If no transaction is provided, the writer will execute operations directly
 // on the database.
 type Writer struct {
-	tx          gorp.Tx
-	otgWriter   ontology.Writer
-	otg         *ontology.Ontology
-	table       *gorp.Table[Key, Schematic]
-	dispatcher  actions.Dispatcher[Key, Action]
-	dispatchKey string
+	tx         gorp.Tx
+	otgWriter  ontology.Writer
+	otg        *ontology.Ontology
+	table      *gorp.Table[Key, Schematic]
+	dispatcher actions.Dispatcher[Key, Action]
 }
 
 // WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the create
 // broadcasts it emits, so the client that sent the create recognizes its own echo.
 func (w Writer) WithDispatchKey(dispatchKey string) Writer {
-	w.dispatchKey = dispatchKey
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
 	return w
 }
 
@@ -80,10 +79,12 @@ func (w Writer) Create(
 			}
 		}
 	}
-	key, created := s.Key, []Action{NewCreateAction(CreatePayload{Schematic: *s})}
-	gorp.OnCommit(w.tx, func() {
-		w.dispatcher.Notify(ctx, key, w.dispatchKey, created)
-	})
+	w.dispatcher.NotifyOnCommit(
+		ctx,
+		w.tx,
+		s.Key,
+		NewCreateAction(CreatePayload{Schematic: *s}),
+	)
 	return nil
 }
 

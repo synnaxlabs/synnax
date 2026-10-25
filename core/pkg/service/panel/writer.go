@@ -19,17 +19,16 @@ import (
 )
 
 type Writer struct {
-	tx          gorp.Tx
-	otg         ontology.Writer
-	table       *gorp.Table[Key, Panel]
-	dispatcher  actions.Dispatcher[Key, Action]
-	dispatchKey string
+	tx         gorp.Tx
+	otg        ontology.Writer
+	table      *gorp.Table[Key, Panel]
+	dispatcher actions.Dispatcher[Key, Action]
 }
 
 // WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the create
 // broadcasts it emits, so the client that sent the create recognizes its own echo.
 func (w Writer) WithDispatchKey(dispatchKey string) Writer {
-	w.dispatchKey = dispatchKey
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
 	return w
 }
 
@@ -74,10 +73,12 @@ func (w Writer) Create(
 			return err
 		}
 	}
-	key, created := p.Key, []Action{NewCreateAction(CreatePayload{Panel: *p})}
-	gorp.OnCommit(w.tx, func() {
-		w.dispatcher.Notify(ctx, key, w.dispatchKey, created)
-	})
+	w.dispatcher.NotifyOnCommit(
+		ctx,
+		w.tx,
+		p.Key,
+		NewCreateAction(CreatePayload{Panel: *p}),
+	)
 	return nil
 }
 

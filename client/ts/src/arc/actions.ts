@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type crdt, patch, type record } from "@synnaxlabs/x";
+import { type crdt, type patch, type record } from "@synnaxlabs/x";
 import { type Draft } from "immer";
 
 import { actions } from "@/actions";
@@ -36,16 +36,9 @@ const sameEndpoints = (a: ir.Edge, source: ir.Handle, target: ir.Handle): boolea
   a.target.node === target.node &&
   a.target.param === target.param;
 
-// Path actions edit only the graph's node inputs. Each targets the node it reaches, as
-// the other actions do.
-const applyPath = (state: Draft<Arc>, action: patch.Action): HandlerResult => {
-  const path = patch.pathOf(action);
-  if (path[0] !== "graph" || path[1] !== "inputs" || path.length < 3)
-    throw new Error(`${path.join(".")} is not inside a node's inputs`);
-  const inverse = actions.applyPath(state, action, arcZ);
-  if (inverse.length === 0) return actions.NO_OP_RESULT;
-  return { inverse, targets: [path[2]] };
-};
+// Path actions edit only the graph's node inputs.
+const applyPath = (state: Draft<Arc>, action: patch.Action): HandlerResult =>
+  actions.applyEntryPath(state, action, ["graph", "inputs"], arcZ);
 
 const handlers: Handlers = {
   create: (state, payload) => {
@@ -175,10 +168,7 @@ const handlers: Handlers = {
     );
     return { inverse: [], targets: [] };
   },
-  set: (state, set) => applyPath(state, { type: "set", set }),
-  remove: (state, remove) => applyPath(state, { type: "remove", remove }),
-  insert: (state, insert) => applyPath(state, { type: "insert", insert }),
-  move: (state, move) => applyPath(state, { type: "move", move }),
+  ...actions.createPathHandlers(applyPath),
 };
 
 export const reduceAll = createReduceAll(handlers);

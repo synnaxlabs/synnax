@@ -84,11 +84,11 @@ var _ = Describe("State", func() {
 			},
 		)
 		key := uuid.New()
-		state.Dispatcher().Notify(ctx, key, "dk", []testAction{{Type: "ping"}})
+		state.Dispatcher().Notify(ctx, key, testAction{Type: "ping"})
 		var got actions.Scoped[uuid.UUID, testAction]
 		Eventually(received).Should(Receive(&got))
 		Expect(got.Key).To(Equal(key))
-		Expect(got.DispatchKey).To(Equal("dk"))
+		Expect(got.DispatchKey).To(BeEmpty())
 		Expect(got.Seq).To(Equal(uint64(1)))
 		Expect(got.Actions).To(HaveLen(1))
 	})
@@ -106,7 +106,7 @@ var _ = Describe("State", func() {
 			d := state.Dispatcher()
 			key := uuid.New()
 			for range 3 {
-				d.Notify(ctx, key, "", nil)
+				d.Notify(ctx, key)
 			}
 			var got [3]uint64
 			for i := range got {
@@ -134,9 +134,9 @@ var _ = Describe("State", func() {
 			d1 := state.Dispatcher()
 			d2 := state.Dispatcher()
 			key := uuid.New()
-			d1.Notify(ctx, key, "", nil)
-			d2.Notify(ctx, key, "", nil)
-			d1.Notify(ctx, key, "", nil)
+			d1.Notify(ctx, key)
+			d2.Notify(ctx, key)
+			d1.Notify(ctx, key)
 			Eventually(maxSeq.Load).Should(Equal(uint64(3)))
 		},
 	)
@@ -159,7 +159,7 @@ var _ = Describe("State", func() {
 		for range N {
 			go func() {
 				defer wg.Done()
-				d.Notify(ctx, uuid.New(), "", nil)
+				d.Notify(ctx, uuid.New())
 			}()
 		}
 		wg.Wait()
@@ -189,7 +189,7 @@ var _ = Describe("State", func() {
 			state.OnChange(
 				func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) { b <- sa },
 			)
-			state.Dispatcher().Notify(ctx, uuid.New(), "", []testAction{{Type: "fan"}})
+			state.Dispatcher().Notify(ctx, uuid.New(), testAction{Type: "fan"})
 			Eventually(a).Should(Receive())
 			Eventually(b).Should(Receive())
 		},
@@ -204,10 +204,10 @@ var _ = Describe("State", func() {
 			},
 		)
 		key := uuid.New()
-		state.Dispatcher().Notify(ctx, key, "", nil)
+		state.Dispatcher().Notify(ctx, key)
 		Eventually(hits.Load).Should(Equal(uint64(1)))
 		disconnect()
-		state.Dispatcher().Notify(ctx, key, "", nil)
+		state.Dispatcher().Notify(ctx, key)
 		Consistently(hits.Load).Should(Equal(uint64(1)))
 	})
 
@@ -226,10 +226,47 @@ var _ = Describe("State", func() {
 				{Type: "b", Payload: "2"},
 				{Type: "c", Payload: "3"},
 			}
-			state.Dispatcher().Notify(ctx, uuid.New(), "dk", actionSeq)
+			state.Dispatcher().Notify(ctx, uuid.New(), actionSeq...)
 			var got actions.Scoped[uuid.UUID, testAction]
 			Eventually(received).Should(Receive(&got))
 			Expect(got.Actions).To(Equal(actionSeq))
 		},
 	)
+})
+
+var _ = Describe("Dispatcher", func() {
+	Describe("WithDispatchKey", func() {
+		var (
+			state    *actions.State[uuid.UUID, testAction]
+			received chan actions.Scoped[uuid.UUID, testAction]
+		)
+		BeforeEach(func() {
+			state = actions.NewState[uuid.UUID, testAction](nil)
+			received = make(chan actions.Scoped[uuid.UUID, testAction], 2)
+			state.OnChange(
+				func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) {
+					received <- sa
+				},
+			)
+		})
+
+		It("Should stamp the dispatch key onto each envelope", func(ctx SpecContext) {
+			d := state.Dispatcher().WithDispatchKey("dk")
+			d.Notify(ctx, uuid.New())
+			d.Notify(ctx, uuid.New())
+			Eventually(received).Should(Receive(
+				HaveField("DispatchKey", "dk"),
+			))
+			Eventually(received).Should(Receive(
+				HaveField("DispatchKey", "dk"),
+			))
+		})
+
+		It("Should leave the original Dispatcher unchanged", func(ctx SpecContext) {
+			d := state.Dispatcher()
+			d.WithDispatchKey("dk")
+			d.Notify(ctx, uuid.New())
+			Eventually(received).Should(Receive(HaveField("DispatchKey", "")))
+		})
+	})
 })

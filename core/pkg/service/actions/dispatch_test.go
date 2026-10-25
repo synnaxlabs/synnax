@@ -143,3 +143,49 @@ var _ = Describe("Dispatch", func() {
 		},
 	)
 })
+
+var _ = Describe("NotifyOnCommit", func() {
+	var (
+		db  *gorp.DB
+		d   actions.Dispatcher[string, testAction]
+		rec *Recorder[string, testAction]
+	)
+
+	BeforeEach(func() {
+		db = DeferClose(gorptestutil.OpenGorpMsgpackDB())
+		st := actions.NewState[string, testAction](db)
+		d = st.Dispatcher().WithDispatchKey("dk")
+		rec = &Recorder[string, testAction]{}
+		DeferCleanup(st.OnChange(rec.Record))
+	})
+
+	It("Should notify the actions only once the transaction commits",
+		func(ctx SpecContext) {
+			acts := []testAction{{Type: "a"}, {Type: "b"}}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				d.NotifyOnCommit(ctx, tx, "c", acts...)
+				Expect(rec.Snapshot()).To(BeEmpty())
+				return nil
+			})).To(Succeed())
+			seen := rec.Snapshot()
+			Expect(seen).To(HaveLen(1))
+			Expect(seen[0].Key).To(Equal("c"))
+			Expect(seen[0].DispatchKey).To(Equal("dk"))
+			Expect(seen[0].Actions).To(Equal(acts))
+		},
+	)
+
+	It("Should notify nothing when the transaction aborts", func(ctx SpecContext) {
+		txErr := errors.New("abort")
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			d.NotifyOnCommit(ctx, tx, "c", testAction{Type: "a"})
+			return txErr
+		})).To(MatchError(txErr))
+		Expect(rec.Snapshot()).To(BeEmpty())
+	})
+
+	It("Should notify at once outside a transaction", func(ctx SpecContext) {
+		d.NotifyOnCommit(ctx, db, "c", testAction{Type: "a"})
+		Expect(rec.Snapshot()).To(HaveLen(1))
+	})
+})

@@ -553,7 +553,7 @@ describe("schematic reducer", () => {
 
     it("should throw for a path outside the element configs", () => {
       expect(() => apply(empty(), set(["name"], "Other"))).toThrow(
-        "name is not inside an element config",
+        "name is not inside an entry of configs",
       );
     });
   });
