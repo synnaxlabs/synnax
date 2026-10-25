@@ -161,11 +161,11 @@ public:
     void fault_slave(
         const uint16_t position,
         const slave::State state,
-        const std::string &al_status
+        const std::string &fault
     ) {
         std::lock_guard lock(this->mu);
         this->slave_states[position] = state;
-        this->faults[position] = al_status;
+        this->faults[position] = fault;
     }
 
     /// @brief makes check() report a slave as not responding until lost is false.
@@ -353,13 +353,13 @@ public:
         for (const auto &slave: this->slave_list) {
             const auto pos = slave.properties.position;
             if (this->disabled_slaves.contains(pos)) continue;
-            const auto fault = this->faults.find(pos);
+            const auto it = this->faults.find(pos);
             health.push_back({
                 .position = pos,
                 .state = this->slave_states[pos],
-                .faulted = fault != this->faults.end(),
+                .faulted = it != this->faults.end(),
                 .lost = this->lost_slaves.contains(pos),
-                .al_status = fault != this->faults.end() ? fault->second : "",
+                .fault = it != this->faults.end() ? it->second : "",
             });
             if (this->lost_slaves.contains(pos)) continue;
             const auto blocked = this->state_transition_failures.find(pos);

@@ -441,7 +441,7 @@ TEST_F(SOEMMasterTest, CheckAcknowledgesSafeOpError) {
     ASSERT_EQ(health.size(), 1);
     EXPECT_EQ(health[0].state, slave::State::SAFE_OP);
     EXPECT_TRUE(health[0].faulted);
-    EXPECT_EQ(health[0].al_status, ec_ALstatuscode2string(0x001B));
+    EXPECT_EQ(health[0].fault, ec_ALstatuscode2string(0x001B));
     EXPECT_EQ(
         this->mock->state_change_requests,
         (std::vector<std::pair<uint16_t, uint16_t>>{
@@ -848,7 +848,7 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenStartupParameterGetsNoResponse) {
 TEST_F(SOEMMasterTest, StartupFailureIgnoresAbortsOfOtherObjects) {
     this->initialize_with_slave();
     this->master->set_slave_config(1, {.startup_parameters = {RANGE}});
-    this->mock->sdo_aborts.push_back({1, 0x1C12, 0, 0x06020000});
+    this->mock->push_sdo_abort(1, 0x1C12, 0, 0x06020000);
     this->mock->sdo_write_aborts[{0x8000, 0x19}] = 0;
     const auto err = this->master->activate();
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
@@ -935,7 +935,7 @@ TEST_F(SOEMMasterTest, CheckHoldsSlaveInPreOpWhenReconfigWriteFails) {
     ASSERT_EQ(health.size(), 1);
     EXPECT_TRUE(health[0].faulted);
     EXPECT_EQ(
-        health[0].al_status,
+        health[0].fault,
         "rejected startup parameter 0x8000:15 (Filter): Value of parameter written "
         "too high"
     );
