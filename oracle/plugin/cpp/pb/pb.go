@@ -1200,14 +1200,7 @@ func (p *Plugin) generateHandWrittenConversion(
 	cppFieldName, pbAccessorName, pbSetter string,
 	data *templateData,
 ) (forward, backward string) {
-	cppName := domain.GetName(resolved, "cpp")
-	if resolved.Namespace != data.rawNs {
-		targetOutputPath := output.GetPath(resolved, "cpp")
-		if targetOutputPath != "" {
-			ns := naming.Namespace(targetOutputPath)
-			cppName = fmt.Sprintf("::%s::%s", ns, cppName)
-		}
-	}
+	cppName := handWrittenName(resolved, data)
 	if isOptional {
 		return fmt.Sprintf(
 				"if (this->%s.has_value()) %s(this->%s->to_proto())",
@@ -1230,6 +1223,19 @@ func (p *Plugin) generateHandWrittenConversion(
 			cppName,
 			pbAccessorName,
 		)
+}
+
+// handWrittenName returns the C++ name of a type hand-written in C++, qualified when
+// it lives in another namespace.
+func handWrittenName(resolved resolution.Type, data *templateData) string {
+	cppName := domain.GetName(resolved, "cpp")
+	if resolved.Namespace == data.rawNs {
+		return cppName
+	}
+	if target := output.GetPath(resolved, "cpp"); target != "" {
+		return fmt.Sprintf("::%s::%s", naming.Namespace(target), cppName)
+	}
+	return cppName
 }
 
 func (p *Plugin) generateArrayConversion(
@@ -1377,9 +1383,10 @@ func (p *Plugin) generateArrayElementConversion(
 }
 
 // elementConversion returns the per-item statements that translate an array element
-// that proto cannot hold as is: a uuid (directly or through aliases and distinct types)
-// or an enum. toPB takes the proto adder and fromPB takes the C++ container prefix
-// ("cpp.field." or "cpp.field->"). Both read the loop variable item.
+// that proto cannot hold as is: a uuid (directly or through aliases and distinct types),
+// a type hand-written in C++, or an enum. toPB takes the proto adder and fromPB takes
+// the C++ container prefix ("cpp.field." or "cpp.field->"). Both read the loop
+// variable item.
 func (p *Plugin) elementConversion(
 	elemType resolution.TypeRef,
 	data *templateData,
@@ -1398,6 +1405,17 @@ func (p *Plugin) elementConversion(
 	resolved, _, ok := resolution.Dealias(elemType, data.table)
 	if !ok {
 		return nil, nil, false
+	}
+	if _, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct &&
+		omit.IsSkipped(resolved, "cpp") {
+		cppName := handWrittenName(resolved, data)
+		toPB = func(add string) string {
+			return fmt.Sprintf("%s(item.to_proto());", add)
+		}
+		fromPB = func(dst string) string {
+			return fmt.Sprintf("%spush_back(%s::from_proto(item));", dst, cppName)
+		}
+		return toPB, fromPB, true
 	}
 	form, ok := resolved.Form.(resolution.EnumForm)
 	if !ok {

@@ -321,6 +321,30 @@ var _ = Describe("C++ PB Plugin", func() {
 			})
 
 			It(
+				"Should convert arrays of a hand-written type element by element",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					DataType string {
+						@cpp hand
+					}
+
+					Data struct {
+						data_types DataType[]
+					}
+				`
+					resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+					ExpectContent(resp, "proto.gen.h").
+						ToContain(
+							"pb.add_data_types(item.to_proto());",
+							"cpp.data_types.push_back(DataType::from_proto(item));",
+						)
+				},
+			)
+
+			It(
 				"Should translate string enum arrays element by element",
 				func(ctx SpecContext) {
 					source := `
