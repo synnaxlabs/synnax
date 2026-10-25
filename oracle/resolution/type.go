@@ -240,13 +240,34 @@ func (r TypeRef) Resolve(table *Table) (Type, bool) {
 	return table.Get(r.Name)
 }
 
-// IsDistinct reports whether ref resolves to a distinct type. Primitives and
-// references the table cannot resolve are not distinct.
-func IsDistinct(ref TypeRef, table *Table) bool {
-	if IsPrimitive(ref.Name) {
-		return false
+// Dealias follows ref through alias declarations to the type it stands for, and returns
+// that type with the reference to it. A generic alias's type arguments carry over to
+// the target. A distinct type is not an alias, so the walk stops there. ok is false
+// when ref is a bare type parameter, or when ref or an alias target does not resolve or
+// forms a cycle.
+func Dealias(ref TypeRef, table *Table) (Type, TypeRef, bool) {
+	visited := make(set.Set[string])
+	for {
+		if ref.IsTypeParam() || visited.Contains(ref.Name) {
+			return Type{}, TypeRef{}, false
+		}
+		visited.Add(ref.Name)
+		resolved, ok := ref.Resolve(table)
+		if !ok {
+			return Type{}, TypeRef{}, false
+		}
+		form, isAlias := resolved.Form.(AliasForm)
+		if !isAlias {
+			return resolved, ref, true
+		}
+		ref = SubstituteTypeRef(form.Target, TypeArgMap(form.TypeParams, ref.TypeArgs))
 	}
-	resolved, ok := ref.Resolve(table)
+}
+
+// IsDistinct reports whether ref, or the type its aliases stand for, is a distinct
+// type. Primitives and references the table cannot resolve are not distinct.
+func IsDistinct(ref TypeRef, table *Table) bool {
+	resolved, _, ok := Dealias(ref, table)
 	if !ok {
 		return false
 	}
@@ -420,6 +441,20 @@ func (tp TypeParam) HasDefault() bool {
 	return tp.Default != nil
 }
 
+// TypeParams returns the type parameters form declares, or nil when form cannot declare
+// any.
+func TypeParams(form TypeForm) []TypeParam {
+	switch f := form.(type) {
+	case StructForm:
+		return f.TypeParams
+	case AliasForm:
+		return f.TypeParams
+	case DistinctForm:
+		return f.TypeParams
+	}
+	return nil
+}
+
 // NonDefaultedTypeParams returns the subset of type params that do NOT have a
 // default value, preserving input order. Languages that can't express literal
 // narrowing or advanced generics (Go, Python, C++, Proto) substitute defaulted
@@ -454,8 +489,8 @@ func UnifiedFields(typ Type, table *Table) []Field {
 	seenFields := make(set.Set[string])
 	var allParentFields []Field
 
-	for _, extendsRef := range form.Extends {
-		parent, ok := extendsRef.Resolve(table)
+	for _, ext := range form.Extends {
+		parent, extendsRef, ok := Dealias(ext, table)
 		if !ok {
 			continue
 		}
@@ -464,13 +499,7 @@ func UnifiedFields(typ Type, table *Table) []Field {
 			continue
 		}
 
-		// Build type argument substitution map for this parent
-		typeArgMap := make(map[string]TypeRef)
-		for i, tp := range parentForm.TypeParams {
-			if i < len(extendsRef.TypeArgs) {
-				typeArgMap[tp.Name] = extendsRef.TypeArgs[i]
-			}
-		}
+		typeArgMap := TypeArgMap(parentForm.TypeParams, extendsRef.TypeArgs)
 
 		// Copy parent fields before modifying to avoid mutating the table
 		parentFieldsOrig := UnifiedFields(parent, table)
@@ -505,12 +534,38 @@ func UnifiedFields(typ Type, table *Table) []Field {
 
 	for _, cf := range form.Fields {
 		if pf, isOverride := parentFieldMap[cf.Name]; isOverride {
-			result = append(result, mergeOverrideField(*pf, cf))
+			result = append(result, MergeOverrideField(*pf, cf))
 		} else {
 			result = append(result, cf)
 		}
 	}
 	return result
+}
+
+// InheritedFields returns the fields the given parents contribute, keyed by name, with
+// each parent's type arguments substituted. The leftmost parent wins a name collision,
+// matching UnifiedFields.
+func InheritedFields(extends []TypeRef, table *Table) map[string]Field {
+	out := make(map[string]Field)
+	for _, declared := range extends {
+		parent, ext, ok := Dealias(declared, table)
+		if !ok {
+			continue
+		}
+		parentForm, ok := parent.Form.(StructForm)
+		if !ok {
+			continue
+		}
+		typeArgs := TypeArgMap(parentForm.TypeParams, ext.TypeArgs)
+		for _, f := range UnifiedFields(parent, table) {
+			if _, seen := out[f.Name]; seen {
+				continue
+			}
+			f.Type = SubstituteTypeRef(f.Type, typeArgs)
+			out[f.Name] = f
+		}
+	}
+	return out
 }
 
 // UnifiedVariantFields returns the flattened field list for one variant of a
@@ -536,7 +591,7 @@ func UnifiedVariantFields(union Type, variant UnionVariant, table *Table) []Fiel
 	var result []Field
 	// A variant drops a field the union's bases contribute with `-name`.
 	var omitted set.Set[string]
-	variantType, variantOK := variant.Type.Resolve(table)
+	variantType, _, variantOK := Dealias(variant.Type, table)
 	variantForm, isStruct := StructForm{}, false
 	if variantOK {
 		variantForm, isStruct = variantType.Form.(StructForm)
@@ -554,7 +609,7 @@ func UnifiedVariantFields(union Type, variant UnionVariant, table *Table) []Fiel
 		}
 	}
 	for _, baseRef := range form.Extends {
-		base, ok := baseRef.Resolve(table)
+		base, _, ok := Dealias(baseRef, table)
 		if !ok {
 			continue
 		}
@@ -570,14 +625,14 @@ func UnifiedVariantFields(union Type, variant UnionVariant, table *Table) []Fiel
 	return result
 }
 
-// mergeOverrideField resolves a child field that overrides parent into a
+// MergeOverrideField resolves a child field that overrides parent into a
 // complete field. When the child omits its type it inherits the parent's type,
 // optionality, and (unless the child declares its own) default; writing a type
 // fully (re)defines both, leaving the override to drop the parent's default by
 // omission, matching a from-scratch field declaration. Domains are always
 // merged (child expressions win per name), after which any domains the child
 // lists via `-@domain` are dropped.
-func mergeOverrideField(parent, child Field) Field {
+func MergeOverrideField(parent, child Field) Field {
 	out := child
 	if !child.HasType() {
 		out.Type = parent.Type
@@ -604,6 +659,18 @@ func mergeOverrideField(parent, child Field) Field {
 	}
 	out.Domains = domains
 	return out
+}
+
+// TypeArgMap maps each of params to the argument at its position in args, for
+// SubstituteTypeRef. A parameter with no argument is left out.
+func TypeArgMap(params []TypeParam, args []TypeRef) map[string]TypeRef {
+	typeArgMap := make(map[string]TypeRef, len(params))
+	for i, tp := range params {
+		if i < len(args) {
+			typeArgMap[tp.Name] = args[i]
+		}
+	}
+	return typeArgMap
 }
 
 func SubstituteTypeRef(ref TypeRef, typeArgMap map[string]TypeRef) TypeRef {

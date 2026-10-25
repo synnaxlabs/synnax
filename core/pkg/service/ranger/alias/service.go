@@ -15,19 +15,19 @@ import (
 	"iter"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -47,7 +47,6 @@ type ParentRetriever interface {
 type ServiceConfig struct {
 	DB              *gorp.DB
 	Ontology        *ontology.Ontology
-	Search          *search.Index
 	Channel         *channel.Service
 	Signals         *signals.Provider
 	ParentRetriever ParentRetriever
@@ -61,7 +60,6 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("service.ranger.alias")
 	v.NotNil("db", c.DB)
 	v.NotNil("ontology", c.Ontology)
-	v.NotNil("search", c.Search)
 	v.NotNil("channel", c.Channel)
 	v.NotNil("parent_retriever", c.ParentRetriever)
 	return v.Error()
@@ -72,7 +70,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Search = override.Nil(c.Search, other.Search)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.ParentRetriever = override.Nil(c.ParentRetriever, other.ParentRetriever)
@@ -83,6 +80,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 type Service struct {
 	closer xio.MultiCloser
 	table  *gorp.Table[string, Alias]
+	search *gorp.SearchIndex[string, Alias]
 	cfg    ServiceConfig
 }
 
@@ -92,18 +90,18 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg}
+	s = &Service{cfg: cfg, search: newSearchIndex()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[string, Alias]{
 		DB:              cfg.DB,
+		Indexes:         []gorp.Index[string, Alias]{s.search},
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
-	cfg.Search.RegisterService(s)
 	if cfg.Signals != nil {
 		signalsCfg := signals.GorpPublisherConfigString(s.table.Observe())
 		signalsCfg.SetName = "sy_range_alias_set"
@@ -134,7 +132,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 func (s *Service) NewReader(tx gorp.Tx) Reader {
 	return Reader{
 		tx:              gorp.OverrideTx(s.cfg.DB, tx),
-		search:          s.cfg.Search,
 		parentRetriever: s.cfg.ParentRetriever,
 		table:           s.table,
 	}
@@ -142,10 +139,7 @@ func (s *Service) NewReader(tx gorp.Tx) Reader {
 
 // ontology.Service implementation
 
-var (
-	_ ontology.Service = (*Service)(nil)
-	_ search.Service   = (*Service)(nil)
-)
+var _ ontology.Service = (*Service)(nil)
 
 type change = xchange.Change[string, Alias]
 
@@ -190,13 +184,17 @@ func (s *Service) OnChange(
 	return s.table.Observe().OnChange(handleChange)
 }
 
-// OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter(
+// Search implements ontology.Service.
+func (s *Service) Search(
 	ctx context.Context,
-) (iter.Seq[ontology.Resource], io.Closer, error) {
-	n, closer, err := s.table.OpenNexter(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-	return xiter.Map(n, newResource), closer, nil
+	tx gorp.Tx,
+	term string,
+	limit int,
+) (search.Result[ontology.ID], error) {
+	return ontology.SearchIndex(ctx, tx, s.search, term, limit, ontologyID)
+}
+
+// ontologyID returns the ontology ID of the alias with the given gorp key.
+func ontologyID(key string) ontology.ID {
+	return ontology.ID{Type: ontology.ResourceTypeRangeAlias, Key: key}
 }

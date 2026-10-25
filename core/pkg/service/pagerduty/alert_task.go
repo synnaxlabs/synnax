@@ -15,11 +15,11 @@ import (
 	"time"
 
 	"github.com/PagerDuty/go-pagerduty"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/change"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -87,7 +87,8 @@ func (t *alertTask) start(ctx context.Context, cmdKey string) error {
 		cmdKey,
 		status.VariantSuccess,
 		true,
-		"Task started successfully",
+		"Started task",
+		"",
 	)
 	return nil
 }
@@ -111,7 +112,8 @@ func (t *alertTask) stop(ctx context.Context, cmdKey string, sendStatus bool) er
 			cmdKey,
 			status.VariantSuccess,
 			false,
-			"Task stopped successfully",
+			"Stopped task",
+			"",
 		)
 	}
 	return nil
@@ -163,6 +165,11 @@ func (t *alertTask) buildTriggerEvent(
 	if s.Description != "" {
 		summary += fmt.Sprintf(": %s", s.Description)
 	}
+	// PagerDuty requires a source, which an unnamed status lacks.
+	source := s.Name
+	if source == "" {
+		source = s.Key
+	}
 	return pagerduty.V2Event{
 		RoutingKey: t.cfg.RoutingKey,
 		Action:     "trigger",
@@ -170,7 +177,7 @@ func (t *alertTask) buildTriggerEvent(
 		Client:     "Synnax",
 		Payload: &pagerduty.V2Payload{
 			Summary:   summary,
-			Source:    s.Name,
+			Source:    source,
 			Severity:  mapSeverity(s.Variant, alertCfg.ErrorsCritical),
 			Timestamp: s.Time.Time().Format(time.RFC3339),
 			Component: alertCfg.Component,
@@ -214,8 +221,14 @@ func (t *alertTask) sendEvent(ctx context.Context, event pagerduty.V2Event) {
 			zap.Any("event", event),
 			zap.Error(err),
 		)
-		t.updateStatus(ctx, driver.NoCommand, status.VariantError, true,
-			fmt.Sprintf("Failed to send PagerDuty event: %s", err.Error()))
+		t.updateStatus(
+			ctx,
+			driver.NoCommand,
+			status.VariantError,
+			true,
+			"Failed to send PagerDuty event",
+			err.Error(),
+		)
 		return
 	}
 	t.factoryCfg.L.Debug(
@@ -232,8 +245,16 @@ func (t *alertTask) updateStatus(
 	variant status.Variant,
 	running bool,
 	message string,
+	description string,
 ) {
-	if err := t.status.Send(ctx, cmdKey, variant, running, message); err != nil {
+	if err := t.status.Send(
+		ctx,
+		cmdKey,
+		variant,
+		running,
+		message,
+		description,
+	); err != nil {
 		t.factoryCfg.L.Error("failed to set task status", zap.Error(err))
 	}
 }

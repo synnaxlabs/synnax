@@ -20,10 +20,11 @@ export interface Tracks {
 }
 
 /**
- * direct turns a timeline into per-frame camera and cursor tracks. Pure and
- * deterministic: the same timeline always yields the same tracks.
+ * direct turns a timeline into per-frame camera and cursor tracks for a video
+ * outputWidth pixels wide. Pure and deterministic: the same inputs always yield the
+ * same tracks.
  */
-export const direct = (tl: Timeline): Tracks => {
-  const segments = plan(tl);
+export const direct = (tl: Timeline, outputWidth: number): Tracks => {
+  const segments = plan(tl, outputWidth);
   return { camera: simulate(tl, segments), cursor: synthesize(tl), segments };
 };

@@ -14,13 +14,12 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
@@ -31,7 +30,6 @@ type ServiceConfig struct {
 	alamos.Instrumentation
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
-	Search   *search.Index
 	Signals  *signals.Provider
 	Group    *group.Service
 }
@@ -43,7 +41,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Group = override.Nil(c.Group, other.Group)
 	return c
@@ -55,15 +52,15 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotNil("group", c.Group)
 	v.NotNil("ontology", c.Ontology)
-	v.NotNil("search", c.Search)
 	return v.Error()
 }
 
 type Service struct {
-	cfg    ServiceConfig
-	closer xio.MultiCloser
-	group  group.Group
-	table  *gorp.Table[Key, Role]
+	cfg     ServiceConfig
+	closer  xio.MultiCloser
+	group   group.Group
+	table   *gorp.Table[Key, Role]
+	indexes indexes
 }
 
 func (s *Service) Close() error { return s.closer.Close() }
@@ -76,11 +73,12 @@ func OpenService(
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg}
+	s = &Service{cfg: cfg, indexes: newIndexes()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Role]{
 		DB:              cfg.DB,
+		Indexes:         s.indexes.all(),
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
@@ -89,7 +87,6 @@ func OpenService(
 	if cfg.Ontology != nil {
 		cfg.Ontology.RegisterService(s)
 	}
-	cfg.Search.RegisterService(s)
 	if s.group, err = cfg.Group.CreateOrRetrieve(
 		ctx,
 		"Users",
@@ -125,5 +122,5 @@ func (s *Service) NewWriter(tx gorp.Tx, allowInternal bool) Writer {
 }
 
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{baseTX: s.cfg.DB, gorp: s.table.NewRetrieve(), search: s.cfg.Search}
+	return Retrieve{baseTX: s.cfg.DB, gorp: s.table.NewRetrieve(), indexes: s.indexes}
 }

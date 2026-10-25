@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <utility>
+
 #include "driver/ni/hardware/hardware.h"
 
 namespace driver::ni::hardware::mock {
@@ -64,7 +66,7 @@ Writer<T>::Writer(
     Base(start_errors, stop_errors),
     write_responses(std::move(write_responses)),
     write_call_count(0),
-    written_data(written_data) {}
+    written_data(std::move(std::move(written_data))) {}
 
 template<typename T>
 x::errors::Error Writer<T>::write(const std::vector<T> &data) {

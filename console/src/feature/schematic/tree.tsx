@@ -15,7 +15,6 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, type Flux, Mosaic, Schematic as Base } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { Symbol } from "@/feature/schematic/symbol";
 import { ContextMenu } from "@/platform/context-menu";
@@ -30,7 +29,7 @@ import { Session } from "@/session";
 
 const useDelete = Tree.createUseDelete({
   type: "Schematic",
-  query: Base.useDelete,
+  useUpdate: Base.useDelete,
   convertKey: String,
   beforeUpdate: async ({ data, store }) => {
     store.dispatch(Session.Schematic.remove({ keys: array.toArray(data) }));
@@ -45,17 +44,14 @@ const useCopy = (props: Tree.ContextMenuProps): (() => void) => {
   } = props;
   const rename = Base.useRename();
   const copy = Base.useCopy({
-    afterSuccess: useCallback(
-      async ({ data }: Flux.AfterSuccessParams<schematic.Schematic>) => {
-        const id = schematic.ontologyID(data.key);
-        const [name, renamed] = await Text.asyncEdit(
-          List.itemNameID(ontology.idToString(id)),
-        );
-        if (!renamed) return;
-        await rename.updateAsync({ key: data.key, name });
-      },
-      [rename],
-    ),
+    afterSuccess: async ({ data }: Flux.AfterSuccessParams<schematic.Schematic>) => {
+      const id = schematic.ontologyID(data.key);
+      const [name, renamed] = await Text.asyncEdit(
+        List.itemNameID(ontology.idToString(id)),
+      );
+      if (!renamed) return;
+      await rename.updateAsync({ key: data.key, name });
+    },
   });
   return () =>
     ids.map((id) => {
@@ -67,25 +63,26 @@ const useCopy = (props: Tree.ContextMenuProps): (() => void) => {
 export const useRangeSnapshot = () => {
   const addStatus = Status.useAdder();
   const rng = Range.useResolve();
-  const buildMessage = useCallback(
-    ({ schematics }: Base.SnapshotParams) =>
-      `${strings.naturalLanguageJoin(
-        array.toArray(schematics).map((s) => s.name),
-        "schematic",
-      )} to ${rng?.name ?? "active range"}`,
-    [rng],
-  );
   const { update } = Base.useSnapshot({
-    afterSuccess: useCallback(
-      ({ data }: Flux.AfterSuccessParams<Base.SnapshotParams>) =>
-        addStatus({
-          variant: "success",
-          message: `Snapshotted ${buildMessage(data)}`,
-        }),
-      [buildMessage, addStatus],
-    ),
-    afterFailure: ({ status, data }: Flux.AfterFailureParams<Base.SnapshotParams>) =>
-      addStatus({ ...status, message: `Failed to snapshot ${buildMessage(data)}` }),
+    afterSuccess: ({
+      data: { schematics },
+    }: Flux.AfterSuccessParams<Base.SnapshotParams>) => {
+      const names = array.toArray(schematics).map((s) => s.name);
+      const joined = strings.naturalLanguageJoin(names);
+      const single = names.length === 1;
+      addStatus({
+        variant: "success",
+        name: rng?.name ?? "",
+        message: single
+          ? "Snapshotted schematic"
+          : `Snapshotted ${names.length} schematics`,
+        description: single
+          ? `Created a snapshot of ${joined}.`
+          : `Created snapshots of ${joined}.`,
+      });
+    },
+    afterFailure: ({ status }: Flux.AfterFailureParams<Base.SnapshotParams>) =>
+      addStatus({ ...status, name: rng?.name ?? "" }),
   });
   return ({ selection: { ids }, state: { getResource } }: Tree.ContextMenuProps) => {
     if (rng == null)
@@ -104,7 +101,7 @@ export const useRangeSnapshot = () => {
 };
 
 const useRename = Tree.createUseRename({
-  query: Base.useRename,
+  useUpdate: Base.useRename,
   ontologyID: schematic.ontologyID,
   convertKey: String,
 });
@@ -112,7 +109,7 @@ const useRename = Tree.createUseRename({
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection: { ids, rootID },
-    state: { getResource, shape },
+    state,
   } = props;
   const activeRange = Range.useResolve();
   const hasCreatePermission = Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID);
@@ -126,7 +123,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
   const firstID = ids[0];
-  const resources = getResource(ids);
+  const resources = Tree.useResources(state, ids);
   const first = resources[0];
   const singleResource = ids.length === 1;
   return (
@@ -136,7 +133,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           {singleResource && <ContextMenu.RenameItem onClick={rename} />}
           <Group.ContextMenuItem
             ids={ids}
-            shape={shape}
+            shape={state.shape}
             rootID={rootID}
             onClick={() => group(props)}
           />

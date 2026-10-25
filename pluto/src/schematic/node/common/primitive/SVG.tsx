@@ -18,10 +18,10 @@ import {
   type CSSProperties,
   type ReactElement,
   use,
-  useMemo,
 } from "react";
 
 import { type SVGBasedProps } from "@/schematic/node/common/primitive/orientable";
+import { SYMBOL_COLOR } from "@/schematic/node/common/primitive/variables";
 
 export interface SVGProps
   extends
@@ -61,20 +61,14 @@ export const SVG = ({
     height: dimsProp.height + 2 * HOLD_FILL_MARGIN,
   };
   const dir = direction.construct(orientation);
-  const dims = useMemo(
-    () => (dir === "y" ? dimensions.swap(dimsProp) : dimsProp),
-    [dir, dimsProp],
-  );
+  const dims = dir === "y" ? dimensions.swap(dimsProp) : dimsProp;
   const symbolColor = color.rgbaString(colorVal);
-  const pStyle = useMemo<CSSProperties>(
-    () => ({
-      ...style,
-      aspectRatio: `${dims.width} / ${dims.height}`,
-      width: dimensions.scale(dims, scale * BASE_SCALE).width,
-      [CSS.variable("symbol-color")]: symbolColor,
-    }),
-    [style, dims, scale, symbolColor],
-  );
+  const pStyle: CSSProperties = {
+    ...style,
+    aspectRatio: `${dims.width} / ${dims.height}`,
+    width: dimensions.scale(dims, scale * BASE_SCALE).width,
+    [SYMBOL_COLOR]: symbolColor,
+  };
 
   return (
     <svg

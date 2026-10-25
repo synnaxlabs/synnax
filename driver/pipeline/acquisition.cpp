@@ -86,7 +86,7 @@ x::telem::TimeStamp resolve_start(const x::telem::Frame &frame) {
     auto min_timestamp = x::telem::TimeStamp::max();
     for (size_t i = 0; i < frame.size(); i++) {
         const auto &series = frame.series->at(i);
-        if (series.data_type() == x::telem::TIMESTAMP_T && series.size() > 0) {
+        if (series.data_type() == x::telem::TIMESTAMP_T && !series.empty()) {
             const auto ts = series.at<x::telem::TimeStamp>(0);
             if (ts < min_timestamp) min_timestamp = ts;
         }
@@ -110,8 +110,10 @@ void Acquisition::run() {
         writer_err = writer_err_i;
         if (writer_err) {
             if (synnax::errors::is_temporarily_unavailable(writer_err) &&
-                this->breaker.wait(writer_err.message()))
-                return this->run();
+                this->breaker.wait(writer_err.message())) {
+                this->run();
+                return;
+            }
             LOG(ERROR) << "[acquisition] failed to eagerly open writer: "
                        << writer_err.message();
             this->source->stopped_with_err(writer_err);
@@ -216,8 +218,10 @@ void Acquisition::run() {
     }
     if (writer_opened) writer_err = writer->close();
     if (synnax::errors::is_temporarily_unavailable(writer_err) &&
-        this->breaker.wait(writer_err.message()))
-        return this->run();
+        this->breaker.wait(writer_err.message())) {
+        this->run();
+        return;
+    }
     if (source_err && !source_err.matches(errors::NOMINAL_SHUTDOWN_ERROR))
         this->source->stopped_with_err(source_err);
     else if (writer_err)

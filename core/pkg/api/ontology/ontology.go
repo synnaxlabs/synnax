@@ -13,33 +13,64 @@ import (
 	"context"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
-	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/validate"
 )
+
+// ServiceConfig is the configuration for the ontology API service.
+type ServiceConfig struct {
+	// Ontology stores the relationships between resources.
+	//
+	// [REQUIRED]
+	Ontology *ontology.Ontology
+	// RBAC enforces access control on every request.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
+}
+
+var (
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for the ontology API service.
+	DefaultServiceConfig = ServiceConfig{}
+)
+
+// Override implements config.Config.
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	return c
+}
+
+// Validate implements config.Config.
+func (c ServiceConfig) Validate() error {
+	v := validate.New("api.ontology")
+	v.NotNil("ontology", c.Ontology)
+	v.NotNil("rbac", c.RBAC)
+	return v.Error()
+}
 
 type Service struct {
 	ontology *ontology.Ontology
-	search   *search.Index
 	access   *rbac.Service
 }
 
-func NewService(cfgs ...config.LayerConfig) (*Service, error) {
-	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	return &Service{
-		ontology: cfg.Service.Ontology,
-		search:   cfg.Service.Search,
-		access:   cfg.Service.RBAC,
+		ontology: cfg.Ontology,
+		access:   cfg.RBAC,
 	}, nil
 }
 
@@ -66,7 +97,7 @@ func (s *Service) Retrieve(
 ) (RetrieveResponse, error) {
 	resources := make([]ontology.Resource, 0)
 	if req.SearchTerm != "" {
-		ids, err := s.search.Search(ctx, search.Request{Term: req.SearchTerm})
+		ids, err := s.ontology.Search(ctx, nil, req.SearchTerm)
 		if err != nil {
 			return RetrieveResponse{}, err
 		}

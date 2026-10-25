@@ -8,12 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology } from "@synnaxlabs/client";
-import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List as Base } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Ontology } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { Palette } from "@/platform/palette";
 import { type Search } from "@/platform/search";
@@ -29,21 +28,21 @@ export interface ListProps extends Palette.ListProps<ontology.Resource> {
   items: Search.ListItems;
 }
 
+interface ListItemProps extends Base.ItemProps<string>, Pick<ListProps, "items"> {}
+
+const ListItem = ({ items, ...props }: ListItemProps): ReactElement | null => {
+  const item = Base.useItem<string, ontology.Resource>(props.itemKey);
+  if (item == null) return null;
+  const Item = items[item.id.type];
+  if (Item == null) return null;
+  return <Item {...props} />;
+};
+
 export const List = ({ items, ...rest }: ListProps): ReactElement => {
-  const filter = useCallback(
-    (item: ontology.Resource) => items[item.id.type] != null,
-    [items],
+  const filter = (item: ontology.Resource) => items[item.id.type] != null;
+  const listItem = ({ key, ...props }: Base.ItemProps<string>) => (
+    <ListItem key={key} {...props} items={items} />
   );
-  const listItem = useMemo(() => {
-    const ListItem = (props: Base.ItemProps<string>) => {
-      const item = Base.useItem<string, ontology.Resource>(props.itemKey);
-      if (item == null) return null;
-      const Item = items[item.id.type];
-      if (Item == null) return null;
-      return <Item {...props} />;
-    };
-    return Component.renderProp(ListItem);
-  }, [items]);
   const listProps = Ontology.useResourceList({ filter });
   return (
     <Palette.BaseList

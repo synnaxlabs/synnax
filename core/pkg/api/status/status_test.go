@@ -14,12 +14,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -296,6 +296,22 @@ var _ = Describe("Service.Retrieve", func() {
 					Keys: []status.Key{uuid.New().String()},
 				}),
 			).Error().To(MatchError(query.ErrNotFound))
+		},
+	)
+
+	It(
+		"Should return the statuses whose name matches the search term",
+		func(ctx SpecContext) {
+			s := createStatus(ctx, "cryostat pressure")
+			grantOn(ctx, author.OntologyID(),
+				[]access.Action{access.ActionRetrieve},
+				statusTypeOnly)
+
+			res := MustSucceed(apiSvc.Retrieve(
+				AuthedCtx(ctx, author),
+				apistatus.RetrieveRequest{SearchTerm: "cryostat"},
+			))
+			Expect(res.Statuses).To(HaveExactElements(HaveField("Key", s.Key)))
 		},
 	)
 })

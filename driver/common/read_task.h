@@ -69,9 +69,27 @@ void initialize_frame(
         fr.emplace(idx, x::telem::Series(x::telem::TIMESTAMP_T, samples_per_chan));
 }
 
+/// @brief a problem that does not stop a read, sent as a task warning.
+struct Warning {
+    /// @brief what happened, in one short line.
+    std::string message;
+    /// @brief why it happened and what to do now.
+    std::string description;
+
+    [[nodiscard]] bool empty() const { return this->message.empty(); }
+};
+
+/// @brief the warning a source reports when it falls behind the hardware. It holds no
+/// sample count, so its text stays the same from read to read.
+const Warning SKEW_WARNING{
+    .message = "Falling behind hardware",
+    .description = "The Driver cannot keep up with the hardware and is falling "
+                   "behind. Lower the stream rate for the task.",
+};
+
 struct ReadResult {
     x::errors::Error error;
-    std::string warning;
+    Warning warning;
 };
 
 /// @brief a source that can be used to read data from a hardware device.
@@ -116,7 +134,7 @@ class ReadTask final : public driver::task::Task {
             p(p), internal(std::move(internal)) {}
 
         void stopped_with_err(const x::errors::Error &err) override {
-            this->p.state.error(err);
+            this->p.state.error(err, "Failed to read data");
             this->p.stop("", true);
         }
 
@@ -134,18 +152,22 @@ class ReadTask final : public driver::task::Task {
             // 3. We have a warning, in which case we communicate it and return nil.
             if (err) {
                 if (err.matches(errors::TEMPORARY_HARDWARE_ERROR)) {
-                    auto msg = err.message();
-                    if (const auto retry = breaker.next_retry(); !retry.empty())
-                        msg += " (" + retry + ")";
-                    LOG(WARNING) << this->p.name() << ": " << msg;
-                    this->p.state.send_warning(msg);
+                    auto description = err.data;
+                    if (const auto retry = breaker.next_retry(); !retry.empty()) {
+                        if (!description.empty()) description += ' ';
+                        description += "Next " + retry + ".";
+                    }
+                    LOG(WARNING)
+                        << this->p.name() << ": [" << err.type << "] " << description;
+                    this->p.state.send_warning("Failed to read data", description);
                 } else
                     LOG(ERROR) << this->p.name() << ": " << err.message();
                 return err;
             }
             if (!warning.empty()) {
-                LOG(WARNING) << this->p.name() << ": " << warning;
-                this->p.state.send_warning(warning);
+                LOG(WARNING) << this->p.name() << ": " << warning.message << ": "
+                             << warning.description;
+                this->p.state.send_warning(warning.message, warning.description);
             } else
                 this->p.state.clear_warning();
             return this->p.tare.transform(fr);
@@ -222,7 +244,8 @@ public:
     /// communicating success state.
     bool stop(const std::string &cmd_key, const bool propagate_state) {
         const auto stopped = this->pipe.stop();
-        if (stopped) this->state.error(this->source->internal->stop());
+        if (stopped)
+            this->state.error(this->source->internal->stop(), "Failed to stop task");
         if (propagate_state) this->state.send_stop(cmd_key);
         return stopped;
     }
@@ -236,7 +259,10 @@ public:
             return false;
         }
         this->state.reset();
-        const auto start_ok = !this->state.error(this->source->internal->start());
+        const auto start_ok = !this->state.error(
+            this->source->internal->start(),
+            "Failed to start task"
+        );
         if (start_ok) this->pipe.start();
         this->state.send_start(cmd_key);
         return start_ok;
@@ -245,13 +271,6 @@ public:
     /// @brief implements driver::task::Task.
     std::string name() const override { return this->state.task.name; }
 };
-
-inline std::string skew_warning(const size_t skew) {
-    return "Synnax Driver can't keep up with hardware data acquisition, and is "
-           "trailing " +
-           std::to_string(skew) +
-           " samples behind. Lower the stream rate for the task.";
-}
 
 template<typename T>
 void transfer_buf(

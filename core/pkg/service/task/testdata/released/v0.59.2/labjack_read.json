@@ -1,0 +1,54 @@
+{
+  "auto_start": true,
+  "stream_rate": 87.5,
+  "device": "fixture-labjack-device",
+  "device_scan_backlog_warn_on_count": 0,
+  "ljm_scan_backlog_warn_on_count": 0,
+  "type": "labjack_read",
+  "data_saving_disabled": true,
+  "sample_rate": 876.5,
+  "channels": [
+    {
+      "type": "analog",
+      "key": "ch-lj-ai",
+      "name": "fixture_lj_ain2",
+      "channel": 7010,
+      "range": 4.5,
+      "neg_chan": 3,
+      "scale": {
+        "type": "linear",
+        "slope": 2.25,
+        "offset": -1.125
+      },
+      "disabled": false,
+      "port": "AIN2"
+    },
+    {
+      "port": "DIO6",
+      "type": "digital",
+      "key": "ch-lj-di",
+      "name": "fixture_lj_dio6",
+      "disabled": false,
+      "channel": 7020
+    },
+    {
+      "scale": {
+        "type": "none"
+      },
+      "type": "thermocouple",
+      "key": "ch-lj-tc",
+      "thermocouple_type": "E",
+      "neg_chan": 5,
+      "cjc_slope": 1.125,
+      "cjc_offset": -0.25,
+      "name": "fixture_lj_tc",
+      "disabled": true,
+      "channel": 7030,
+      "port": "AIN4",
+      "cjc_source": "TEMPERATURE_AIR_K",
+      "units": "F"
+    }
+  ],
+  "name": "labjack_read",
+  "version": 2
+}

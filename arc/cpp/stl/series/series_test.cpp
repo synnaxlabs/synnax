@@ -36,11 +36,11 @@ std::string build_core_wat(const std::string &suffix) {
     std::string wt = wasm_type_str(suffix);
     std::ostringstream w;
     w << "(module\n";
-    w << "  (import \"series\" \"create_empty_" << suffix
+    w << R"(  (import "series" "create_empty_)" << suffix
       << "\" (func $create_empty (param i32) (result i32)))\n";
-    w << "  (import \"series\" \"set_element_" << suffix
+    w << R"(  (import "series" "set_element_)" << suffix
       << "\" (func $set_element (param i32 i32 " << wt << ") (result i32)))\n";
-    w << "  (import \"series\" \"index_" << suffix
+    w << R"(  (import "series" "index_)" << suffix
       << "\" (func $index (param i32 i32) (result " << wt << ")))\n";
     w << "  (func (export \"create_empty\") (param i32) (result i32)\n";
     w << "    (call $create_empty (local.get 0)))\n";
@@ -56,18 +56,18 @@ std::string build_element_ops_wat(const std::string &suffix) {
     std::string wt = wasm_type_str(suffix);
     std::ostringstream w;
     w << "(module\n";
-    w << "  (import \"series\" \"create_empty_" << suffix
+    w << R"(  (import "series" "create_empty_)" << suffix
       << "\" (func $create_empty (param i32) (result i32)))\n";
-    w << "  (import \"series\" \"set_element_" << suffix
+    w << R"(  (import "series" "set_element_)" << suffix
       << "\" (func $set_element (param i32 i32 " << wt << ") (result i32)))\n";
-    w << "  (import \"series\" \"index_" << suffix
+    w << R"(  (import "series" "index_)" << suffix
       << "\" (func $index (param i32 i32) (result " << wt << ")))\n";
 
     const std::vector<std::string> ops =
         {"element_add", "element_mul", "element_sub", "element_div", "element_mod"};
     for (const auto &op: ops) {
         if (is_float(suffix) && op == "element_mod") continue;
-        w << "  (import \"series\" \"" << op << "_" << suffix << "\" (func $" << op
+        w << R"(  (import "series" ")" << op << "_" << suffix << "\" (func $" << op
           << " (param i32 " << wt << ") (result i32)))\n";
     }
 
@@ -80,7 +80,7 @@ std::string build_element_ops_wat(const std::string &suffix) {
     };
     for (const auto &op: rops) {
         if (is_float(suffix) && op == "element_rmod") continue;
-        w << "  (import \"series\" \"" << op << "_" << suffix << "\" (func $" << op
+        w << R"(  (import "series" ")" << op << "_" << suffix << "\" (func $" << op
           << " (param " << wt << " i32) (result i32)))\n";
     }
 
@@ -112,18 +112,18 @@ std::string build_series_ops_wat(const std::string &suffix) {
     std::string wt = wasm_type_str(suffix);
     std::ostringstream w;
     w << "(module\n";
-    w << "  (import \"series\" \"create_empty_" << suffix
+    w << R"(  (import "series" "create_empty_)" << suffix
       << "\" (func $create_empty (param i32) (result i32)))\n";
-    w << "  (import \"series\" \"set_element_" << suffix
+    w << R"(  (import "series" "set_element_)" << suffix
       << "\" (func $set_element (param i32 i32 " << wt << ") (result i32)))\n";
-    w << "  (import \"series\" \"index_" << suffix
+    w << R"(  (import "series" "index_)" << suffix
       << "\" (func $index (param i32 i32) (result " << wt << ")))\n";
 
     const std::vector<std::string> ops =
         {"series_add", "series_mul", "series_sub", "series_div", "series_mod"};
     for (const auto &op: ops) {
         if (is_float(suffix) && op == "series_mod") continue;
-        w << "  (import \"series\" \"" << op << "_" << suffix << "\" (func $" << op
+        w << R"(  (import "series" ")" << op << "_" << suffix << "\" (func $" << op
           << " (param i32 i32) (result i32)))\n";
     }
 
@@ -148,9 +148,9 @@ std::string build_compare_wat(const std::string &suffix) {
     std::string wt = wasm_type_str(suffix);
     std::ostringstream w;
     w << "(module\n";
-    w << "  (import \"series\" \"create_empty_" << suffix
+    w << R"(  (import "series" "create_empty_)" << suffix
       << "\" (func $create_empty (param i32) (result i32)))\n";
-    w << "  (import \"series\" \"set_element_" << suffix
+    w << R"(  (import "series" "set_element_)" << suffix
       << "\" (func $set_element (param i32 i32 " << wt << ") (result i32)))\n";
 
     const std::vector<std::string> cmp = {
@@ -162,7 +162,7 @@ std::string build_compare_wat(const std::string &suffix) {
         "compare_ne"
     };
     for (const auto &op: cmp) {
-        w << "  (import \"series\" \"" << op << "_" << suffix << "\" (func $" << op
+        w << R"(  (import "series" ")" << op << "_" << suffix << "\" (func $" << op
           << " (param i32 i32) (result i32)))\n";
     }
     const std::vector<std::string> scmp = {
@@ -174,11 +174,11 @@ std::string build_compare_wat(const std::string &suffix) {
         "compare_ne_scalar"
     };
     for (const auto &op: scmp) {
-        w << "  (import \"series\" \"" << op << "_" << suffix << "\" (func $" << op
+        w << R"(  (import "series" ")" << op << "_" << suffix << "\" (func $" << op
           << " (param i32 " << wt << ") (result i32)))\n";
     }
 
-    w << "  (import \"series\" \"index_u8"
+    w << R"(  (import "series" "index_u8)"
       << "\" (func $index_u8 (param i32 i32) (result i32)))\n";
 
     w << "  (func (export \"create_empty\") (param i32) (result i32)\n";
@@ -210,7 +210,7 @@ struct Fixture {
     wasmtime::Linker linker;
     wasmtime::Instance instance;
 
-    Fixture(const std::string &wat):
+    explicit Fixture(const std::string &wat):
         state(std::make_shared<State>()),
         mod(state),
         store(engine),
@@ -218,7 +218,7 @@ struct Fixture {
         instance(setup(wat)) {}
 
     wasmtime::Func get(const std::string &name) {
-        return std::get<wasmtime::Func>(*instance.get(store, name));
+        return std::get<wasmtime::Func>(instance.get(store, name).value());
     }
 
 private:
@@ -827,13 +827,13 @@ std::string build_negate_wat(const std::string &suffix) {
     std::string wt = wasm_type_str(suffix);
     std::ostringstream w;
     w << "(module\n";
-    w << "  (import \"series\" \"create_empty_" << suffix
+    w << R"(  (import "series" "create_empty_)" << suffix
       << "\" (func $create_empty (param i32) (result i32)))\n";
-    w << "  (import \"series\" \"set_element_" << suffix
+    w << R"(  (import "series" "set_element_)" << suffix
       << "\" (func $set_element (param i32 i32 " << wt << ") (result i32)))\n";
-    w << "  (import \"series\" \"index_" << suffix
+    w << R"(  (import "series" "index_)" << suffix
       << "\" (func $index (param i32 i32) (result " << wt << ")))\n";
-    w << "  (import \"series\" \"negate_" << suffix
+    w << R"(  (import "series" "negate_)" << suffix
       << "\" (func $negate (param i32) (result i32)))\n";
     w << "  (func (export \"create_empty\") (param i32) (result i32)\n";
     w << "    (call $create_empty (local.get 0)))\n";

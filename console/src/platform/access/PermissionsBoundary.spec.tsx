@@ -46,8 +46,7 @@ describe("Access.PermissionsBoundary", () => {
     await renderBoundary(client, () => {});
     const retry = await screen.findByRole("button", { name: "Retry" });
     expect(screen.queryByText("workspace")).toBeNull();
-    const user = client.auth.user;
-    if (user == null) throw new Error("the client is not logged in");
+    const user = await client.users.current.retrieve();
     const roles = await root.access.roles.retrieve({});
     const operator = roles.find(({ name }) => name === "Operator");
     if (operator == null) throw new Error("no Operator role");

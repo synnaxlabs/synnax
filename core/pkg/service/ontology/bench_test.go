@@ -12,18 +12,15 @@ package ontology_test
 import (
 	"context"
 	"fmt"
-	"io"
 	"iter"
-	"slices"
 	"strconv"
 	"testing"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
-	"github.com/synnaxlabs/x/gorp"
-	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/zyn"
 )
 
@@ -55,18 +52,20 @@ func (*benchService) RetrieveResource(
 	), nil
 }
 
-func (s *benchService) OpenNexter(context.Context) (
-	iter.Seq[ontology.Resource], io.Closer, error,
-) {
-	return slices.Values([]ontology.Resource{}), xio.NopCloser, nil
+func (*benchService) Search(
+	context.Context,
+	gorp.Tx,
+	string,
+	int,
+) (search.Result[ontology.ID], error) {
+	return search.Result[ontology.ID]{}, nil
 }
 
 type benchEnv struct {
-	ctx       context.Context
-	db        *gorp.DB
-	otg       *ontology.Ontology
-	svc       *benchService
-	searchIdx *search.Index
+	ctx context.Context
+	db  *gorp.DB
+	otg *ontology.Ontology
+	svc *benchService
 }
 
 func newBenchEnv(b *testing.B) *benchEnv {
@@ -80,18 +79,10 @@ func newBenchEnv(b *testing.B) *benchEnv {
 		b.Fatalf("failed to open ontology: %v", err)
 	}
 	otg.RegisterService(svc)
-	searchIdx, err := search.OpenIndex(search.Config{})
-	if err != nil {
-		b.Fatalf("failed to create search index: %v", err)
-	}
-	searchIdx.RegisterService(svc)
-	return &benchEnv{ctx: ctx, db: db, otg: otg, svc: svc, searchIdx: searchIdx}
+	return &benchEnv{ctx: ctx, db: db, otg: otg, svc: svc}
 }
 
 func (e *benchEnv) close(b *testing.B) {
-	if err := e.searchIdx.Close(); err != nil {
-		b.Errorf("failed to close search index: %v", err)
-	}
 	if err := e.otg.Close(); err != nil {
 		b.Errorf("failed to close ontology: %v", err)
 	}
@@ -260,28 +251,6 @@ func BenchmarkPagination(b *testing.B) {
 				}
 			})
 		}
-	}
-}
-
-func BenchmarkSearch(b *testing.B) {
-	for _, count := range []int{1000, 10000} {
-		b.Run(fmt.Sprintf("resources=%d", count), func(b *testing.B) {
-			env := newBenchEnv(b)
-			defer env.close(b)
-			env.populate(b, count)
-			if err := env.searchIdx.Initialize(env.ctx); err != nil {
-				b.Fatalf("failed to initialize search index: %v", err)
-			}
-			b.ReportAllocs()
-			b.ResetTimer()
-			var err error
-			for i := 0; i < b.N; i++ {
-				_, err = env.searchIdx.Search(env.ctx, search.Request{Term: "500"})
-			}
-			if err != nil {
-				b.Fatalf("benchmark failed: %v", err)
-			}
-		})
 	}
 }
 

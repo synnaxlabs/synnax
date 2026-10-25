@@ -9,10 +9,10 @@
 
 package v0
 
-import "github.com/synnaxlabs/x/gorp"
+import "github.com/synnaxlabs/gorp/migrate"
 
 // Migration re-encodes stored line plots from MessagePack to Orc.
-var Migration = gorp.CodecMigration[Key, LinePlot]("msgpack_to_orc")
+var Migration = migrate.Codec[Key, LinePlot]("msgpack_to_orc")
 
 // NormalizeKeys re-keys LinePlot rows stored under the pre-v0.54 key format.
-var NormalizeKeys = gorp.NormalizeKeysMigration[Key, LinePlot]("LinePlot")
+var NormalizeKeys = migrate.NormalizeKeys[Key, LinePlot]("LinePlot")

@@ -20,7 +20,7 @@ import (
 
 func TestConnectivity(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API Connectivity Suite")
+	RunSpecs(t, "API Connectivity Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

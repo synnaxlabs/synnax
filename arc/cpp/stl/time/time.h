@@ -42,7 +42,7 @@ validate_static_span(const x::telem::TimeSpan span, const types::Param &p) {
         return x::errors::NIL;
     return x::errors::Error(
         x::errors::VALIDATION,
-        p.name + " must be positive, got " + span.to_string()
+        "The " + p.name + " parameter must be positive, not " + span.to_string() + "."
     );
 }
 
@@ -68,7 +68,7 @@ public:
             ctx.report_error(
                 x::errors::Error(
                     runtime::errors::WARNING,
-                    label + " must be positive, got " + span.to_string()
+                    "The " + label + " must be positive, not " + span.to_string() + "."
                 )
             );
             this->reported = true;
@@ -91,7 +91,7 @@ struct IntervalInputs {
                 {},
                 x::errors::Error(
                     x::errors::VALIDATION,
-                    "interval node missing required period parameter"
+                    "The interval node is missing its period parameter."
                 )
             };
         const auto period = x::telem::TimeSpan(x::telem::cast<std::int64_t>(*sv));
@@ -167,7 +167,7 @@ struct WaitInputs {
                 {},
                 x::errors::Error(
                     x::errors::VALIDATION,
-                    "wait node missing required duration parameter"
+                    "The wait node is missing its duration parameter."
                 )
             };
         const auto duration = x::telem::TimeSpan(x::telem::cast<std::int64_t>(*sv));
@@ -274,7 +274,7 @@ public:
     /// creation, or TimeSpan::max() if there is none.
     [[nodiscard]] x::telem::TimeSpan shortest_span() const { return this->shortest; }
 
-    bool handles(const std::string &node_type) const override {
+    [[nodiscard]] bool handles(const std::string &node_type) const override {
         return node_type == "interval" || node_type == "wait" || node_type == "now";
     }
 

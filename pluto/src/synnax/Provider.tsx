@@ -16,9 +16,7 @@ import { migrate } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactElement,
-  useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -125,14 +123,11 @@ export const TestProvider = ({
     schema: synnax.Provider.stateZ,
     state: { props: null },
   });
-  const value = useMemo(
-    () => ({
-      ...ZERO_CONTEXT_VALUE,
-      client,
-      status: status ?? ZERO_CONTEXT_VALUE.status,
-    }),
-    [client, status],
-  );
+  const value = {
+    ...ZERO_CONTEXT_VALUE,
+    client,
+    status: status ?? ZERO_CONTEXT_VALUE.status,
+  };
   return (
     <Context value={value}>
       <Aether.Composite path={path}>{children}</Aether.Composite>
@@ -163,29 +158,25 @@ export const Provider = ({
   const handleError = Status.useErrorHandler();
   const versionWarned = useRef(false);
 
-  const handleChange = useCallback(
-    (connStatus: connection.Status) => {
-      const prev = ref.current.status;
-      if (
-        prev.variant !== connStatus.variant ||
-        prev.message !== connStatus.message ||
-        reasonOf(prev) !== reasonOf(connStatus)
-      )
-        addStatus(connStatus);
-      if (connStatus.variant === "success") {
-        if (connStatus.details.clockSkewExceeded)
-          addClockSkewStatus(addStatus, connStatus);
-        if (!connStatus.details.clientServerCompatible && !versionWarned.current) {
-          versionWarned.current = true;
-          addVersionMismatchStatus(addStatus, connStatus);
-        }
+  const handleChange = (connStatus: connection.Status) => {
+    const prev = ref.current.status;
+    if (
+      prev.variant !== connStatus.variant ||
+      prev.message !== connStatus.message ||
+      reasonOf(prev) !== reasonOf(connStatus)
+    )
+      addStatus(connStatus);
+    if (connStatus.variant === "success") {
+      if (connStatus.details.clockSkewExceeded)
+        addClockSkewStatus(addStatus, connStatus);
+      if (!connStatus.details.clientServerCompatible && !versionWarned.current) {
+        versionWarned.current = true;
+        addVersionMismatchStatus(addStatus, connStatus);
       }
-      if (connStatus.details.epoch !== prev.details.epoch)
-        setResetKey((key) => key + 1);
-      setState((prev) => ({ ...prev, status: connStatus }));
-    },
-    [addStatus],
-  );
+    }
+    if (connStatus.details.epoch !== prev.details.epoch) setResetKey((key) => key + 1);
+    setState((prev) => ({ ...prev, status: connStatus }));
+  };
 
   useEffect(() => {
     if (connParams == null) {
@@ -193,7 +184,14 @@ export const Provider = ({
       return;
     }
     versionWarned.current = false;
-    const client = new Synnax({ ...connParams, onInternalError: handleError });
+    const heading = {
+      message: "Failed to sync with Core",
+      name: connParams.name ?? "",
+    };
+    const client = new Synnax({
+      ...connParams,
+      onInternalError: (e) => handleError(e, heading),
+    });
     setState({ client, status: client.connection.status });
     setResetKey((key) => key + 1);
     const detach = client.connection.onChange(handleChange);

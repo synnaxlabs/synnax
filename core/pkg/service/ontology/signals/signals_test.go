@@ -11,22 +11,21 @@ package signals_test
 
 import (
 	"context"
-	"io"
 	"iter"
 	"slices"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/encoding/json"
-	"github.com/synnaxlabs/x/gorp"
-	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -73,10 +72,13 @@ var _ ontology.Service = (*changeService)(nil)
 
 func (s *changeService) Type() ontology.ResourceType { return ontology.ResourceTypeChannel }
 
-func (s *changeService) OpenNexter(
+func (*changeService) Search(
 	context.Context,
-) (iter.Seq[ontology.Resource], io.Closer, error) {
-	return slices.Values([]ontology.Resource{}), xio.NopCloser, nil
+	gorp.Tx,
+	string,
+	int,
+) (search.Result[ontology.ID], error) {
+	return search.Result[ontology.ID]{}, nil
 }
 
 func (s *changeService) RetrieveResource(

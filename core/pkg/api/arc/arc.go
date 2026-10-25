@@ -17,8 +17,8 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	arctext "github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
@@ -28,16 +28,61 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type (
 	Arc = arc.Arc
 	Key = arc.Key
 )
+
+// ServiceConfig is the configuration for the Arc API service.
+type ServiceConfig struct {
+	// Instrumentation for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
+	alamos.Instrumentation
+	// RBAC enforces access control on every request.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
+	// Arc stores and runs Arc automations.
+	//
+	// [REQUIRED]
+	Arc *arc.Service
+	// Status stores and retrieves statuses.
+	//
+	// [REQUIRED]
+	Status *status.Service
+}
+
+var (
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for the Arc API service.
+	DefaultServiceConfig = ServiceConfig{}
+)
+
+// Override implements config.Config.
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	c.Arc = override.Nil(c.Arc, other.Arc)
+	c.Status = override.Nil(c.Status, other.Status)
+	return c
+}
+
+// Validate implements config.Config.
+func (c ServiceConfig) Validate() error {
+	v := validate.New("api.arc")
+	v.NotNil("rbac", c.RBAC)
+	v.NotNil("arc", c.Arc)
+	v.NotNil("status", c.Status)
+	return v.Error()
+}
 
 type Service struct {
 	access   *rbac.Service
@@ -46,16 +91,16 @@ type Service struct {
 	alamos.Instrumentation
 }
 
-func NewService(cfgs ...config.LayerConfig) (*Service, error) {
-	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	return &Service{
-		access:          cfg.Service.RBAC,
+		access:          cfg.RBAC,
 		Instrumentation: cfg.Instrumentation,
-		internal:        cfg.Service.Arc,
-		status:          cfg.Service.Status,
+		internal:        cfg.Arc,
+		status:          cfg.Status,
 	}, nil
 }
 

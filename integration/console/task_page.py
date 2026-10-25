@@ -29,8 +29,8 @@ class TaskPage(ConsolePage):
     """
 
     pluto_label: str = ".console-task-configure"
-    STARTED_MESSAGE = "Task started successfully"
-    STOPPED_MESSAGE = "Task stopped successfully"
+    STARTED_MESSAGE = "Started task"
+    STOPPED_MESSAGE = "Stopped task"
 
     def __init__(
         self,

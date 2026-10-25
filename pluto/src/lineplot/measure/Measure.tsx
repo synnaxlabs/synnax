@@ -10,7 +10,7 @@
 import { useSyncedRef, useUniqueKey } from "@synnaxlabs/lyra/hooks";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { xy } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useRef } from "react";
+import { type ReactElement, useEffect, useRef } from "react";
 
 import { Aether } from "@/aether";
 import { useViewport } from "@/lineplot/Frame";
@@ -55,47 +55,39 @@ export const Measure = ({
   Triggers.use({
     triggers: REDUCED_MEASURE_TRIGGERS,
     loose: true,
-    callback: useCallback(
-      (e: Triggers.UseEvent) => {
-        const measureMode = determineMode(e.triggers);
-        if (measureMode === "one" || measureMode === "two") onModeChange?.(measureMode);
-      },
-      [onModeChange],
-    ),
+    callback: (e: Triggers.UseEvent) => {
+      const measureMode = determineMode(e.triggers);
+      if (measureMode === "one" || measureMode === "two") onModeChange?.(measureMode);
+    },
   });
 
   const measureModeRef = useSyncedRef(mode);
   const hasSecondRef = useSyncedRef(state.two != null);
   const hasFirstRef = useSyncedRef(state.one != null);
 
-  const handleClick: Viewport.UseHandler = useCallback(
-    ({ mode, cursor }): void => {
-      const measureMode = measureModeRef.current;
-      if (mode === "click") {
-        const isOne = measureMode === "one";
-        const isTwo = measureMode === "two";
-        setState((p) => ({ ...p, [measureMode]: cursor }));
-        const moveToTwo = isOne && !hasSecondRef.current;
-        const moveToOne = isTwo && !hasFirstRef.current;
-        if (moveToTwo || moveToOne)
-          // Add a small delay to allow the aether state to propagate. This ensures
-          // that we don't accidentally clear the new point state we just set.
-          setTimeout(() => onModeChange?.(moveToTwo ? "two" : "one"), 10);
-      }
-    },
-    [setState, onModeChange],
-  );
+  const handleClick: Viewport.UseHandler = ({ mode, cursor }): void => {
+    const measureMode = measureModeRef.current;
+    if (mode === "click") {
+      const isOne = measureMode === "one";
+      const isTwo = measureMode === "two";
+      setState((p) => ({ ...p, [measureMode]: cursor }));
+      const moveToTwo = isOne && !hasSecondRef.current;
+      const moveToOne = isTwo && !hasFirstRef.current;
+      if (moveToTwo || moveToOne)
+        // Add a small delay to allow the aether state to propagate. This ensures
+        // that we don't accidentally clear the new point state we just set.
+        setTimeout(() => onModeChange?.(moveToTwo ? "two" : "one"), 10);
+    }
+  };
 
   useViewport(handleClick, "Measure.Measure");
 
-  const handleMove = useCallback(
-    (e: MouseEvent): void => setState((p) => ({ ...p, hover: xy.construct(e) })),
-    [setState],
-  );
+  const handleMove = (e: MouseEvent): void =>
+    setState((p) => ({ ...p, hover: xy.construct(e) }));
 
-  const handleLeave = useCallback((): void => {
+  const handleLeave = (): void => {
     setState((p) => ({ ...p, hover: null }));
-  }, [setState]);
+  };
 
   useEffect(() => {
     if (ref.current === null) return;
@@ -107,7 +99,7 @@ export const Measure = ({
       parent.removeEventListener("mousemove", handleMove);
       parent.removeEventListener("mouseleave", handleLeave);
     };
-  }, [handleClick]);
+  }, [handleMove, handleLeave]);
 
   return <span ref={ref} />;
 };

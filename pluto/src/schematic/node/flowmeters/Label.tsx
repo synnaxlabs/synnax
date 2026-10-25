@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color, type xy } from "@synnaxlabs/x";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
 export interface LabelProps {
   position?: xy.XY;
@@ -17,7 +17,7 @@ export interface LabelProps {
 
 export const Label = ({ position, strokeColor }: LabelProps): ReactElement => {
   const colorStr = color.cssString(strokeColor);
-  const style = useMemo(() => ({ fill: colorStr }), [colorStr]);
+  const style = { fill: colorStr };
   return (
     <text x={position?.x ?? 57} y={position?.y ?? 27} style={style} stroke="none">
       F

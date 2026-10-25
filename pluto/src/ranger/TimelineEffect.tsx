@@ -11,7 +11,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type NumericTimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 
 import { UNSET } from "@/ranger/move";
 import { getStage, type Stage, STAGE_ICONS, STAGE_NAMES } from "@/ranger/stage";
@@ -75,7 +75,7 @@ export const TimelineEffect = ({
   changes,
   resolution,
 }: TimelineEffectProps): ReactElement => {
-  const now = TimeStamp.now();
+  const [now] = useState(() => TimeStamp.now());
   return (
     <>
       {changes.map((change) => {

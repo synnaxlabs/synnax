@@ -26,7 +26,10 @@ export interface Toolbar extends Pick<Resize.SingleProps, "sizeBounds"> {
  * The keys of the toolbars the subject may open. Calls every toolbar's own visibility
  * hook, so items has to be a module-level constant to keep the hook order stable.
  */
-export const useVisibleKeys = (items: Toolbar[]): Set<string> =>
-  new Set(
+export const useVisibleKeys = (items: Toolbar[]): Set<string> => {
+  "use no memo"; // Calls a hook per item, so the item list sets the hook order.
+  return new Set(
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     items.filter(({ useVisible }) => useVisible?.() ?? true).map(({ key }) => key),
   );
+};

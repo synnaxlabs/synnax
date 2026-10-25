@@ -14,9 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
-	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	svcmock "github.com/synnaxlabs/synnax/pkg/service/mock"
 	"github.com/synnaxlabs/synnax/pkg/version"
@@ -46,9 +44,9 @@ var _ = Describe("Check", func() {
 	}
 	check := func(ctx SpecContext, lic *license.Service) connectivity.CheckResponse {
 		GinkgoHelper()
-		svc := MustSucceed(connectivity.NewService(apicfg.LayerConfig{
-			Distribution: node.Layer,
-			Service:      &service.Layer{License: lic},
+		svc := MustSucceed(connectivity.NewService(connectivity.ServiceConfig{
+			Cluster: node.Cluster,
+			License: lic,
 		}))
 		return MustSucceed(svc.Check(ctx, struct{}{}))
 	}

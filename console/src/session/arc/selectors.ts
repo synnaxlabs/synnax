@@ -10,7 +10,6 @@
 import { arc } from "@synnaxlabs/client";
 import { Access, Arc, type Diagram, type Viewport } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
-import { useCallback } from "react";
 import { useStore } from "react-redux";
 
 import {
@@ -31,25 +30,24 @@ export interface KeyedSelectorParams extends record.Keyed<arc.Key> {
   state: StoreState;
 }
 
-const createSelector = <R>(selector: (params: KeyedSelectorParams) => R) =>
-  Arc.Scope.bindHook(({ key }: Omit<KeyedSelectorParams, "state">): R =>
-    Select.useMemo((state: StoreState) => selector({ state, key }), [key]),
-  );
+const createSelector = <R>(selector: (params: KeyedSelectorParams) => R) => {
+  const useSelector = ({ key }: Omit<KeyedSelectorParams, "state">): R =>
+    Select.useMemo((state: StoreState) => selector({ state, key }), [key]);
+  return Arc.Scope.bindHook(useSelector);
+};
 
-const createGetter =
-  <R>(selector: (params: KeyedSelectorParams) => R) =>
-  (): ((args?: { key?: arc.Key }) => R) => {
+const createGetter = <R>(selector: (params: KeyedSelectorParams) => R) => {
+  const useGetter = (): ((args?: { key?: arc.Key }) => R) => {
     const store = useStore<StoreState>();
     const scopeKey = Arc.Scope.useOptional();
-    return useCallback(
-      (args) =>
-        selector({
-          state: store.getState(),
-          key: Arc.Scope.require(args?.key ?? scopeKey),
-        }),
-      [store, scopeKey],
-    );
+    return (args) =>
+      selector({
+        state: store.getState(),
+        key: Arc.Scope.require(args?.key ?? scopeKey),
+      });
   };
+  return useGetter;
+};
 
 export const selectState = ({ state, key }: KeyedSelectorParams): State =>
   Window.selectDocument(state, selectSliceState(state), key) ?? ZERO_STATE;

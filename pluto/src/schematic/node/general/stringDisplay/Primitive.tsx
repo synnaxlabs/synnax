@@ -15,7 +15,7 @@ import { CSS } from "@synnaxlabs/lyra/css";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { color } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement, useMemo } from "react";
+import { type CSSProperties, type ReactElement } from "react";
 
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -49,21 +49,25 @@ export const StringDisplay = ({
   value,
   stale = false,
 }: RenderProps): ReactElement => {
-  const style = useMemo<CSSProperties>(
-    () => ({
-      [CSS.variable("symbol-color")]: color.rgbaString(strokeColor),
-      width: inlineSize,
-      height: Component.HEIGHTS[LEVEL_SIZES[level]],
-    }),
-    [strokeColor, inlineSize, level],
-  );
+  const symbolColor = color.rgbaString(strokeColor);
+  const style: CSSProperties = {
+    [Primitive.SYMBOL_COLOR]: symbolColor,
+    width: inlineSize,
+    height: Component.HEIGHTS[LEVEL_SIZES[level]],
+  };
   const theme = Theming.use();
   const resolvedTextColor = stale
     ? Staleness.resolveColor(stalenessColor, theme)
     : textColor;
   return (
     <Primitive.Div
-      className={CSS.cls(CSS.B("string-display"), CSS.B("symbol-colored"), className)}
+      className={CSS.cls(
+        CSS.B("string-display"),
+        CSS.B("symbol-colored"),
+        CSS.B("symbol-readout"),
+        symbolColor != null && CSS.M("colored"),
+        className,
+      )}
       style={style}
     >
       <div className={CSS.BE("string-display", "content")}>

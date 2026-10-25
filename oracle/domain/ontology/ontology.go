@@ -75,7 +75,7 @@ func Extract(
 func baseKeys(form resolution.UnionForm, table *resolution.Table) []key.Field {
 	var result []key.Field
 	for _, ext := range form.Extends {
-		base, ok := ext.Resolve(table)
+		base, _, ok := resolution.Dealias(ext, table)
 		if !ok {
 			continue
 		}

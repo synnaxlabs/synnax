@@ -51,10 +51,11 @@ func SeriesToPB(r telem.Series) (*Series, error) {
 		return nil, err
 	}
 	pb := &Series{
-		DataType:  string(r.DataType),
-		Data:      r.Data,
-		Alignment: uint64(r.Alignment),
-		TimeRange: timeRangeVal,
+		DataType:          string(r.DataType),
+		Data:              r.Data,
+		Alignment:         uint64(r.Alignment),
+		AlignmentMultiple: r.AlignmentMultiple,
+		TimeRange:         timeRangeVal,
 	}
 	return pb, nil
 }
@@ -73,6 +74,7 @@ func SeriesFromPB(pb *Series) (telem.Series, error) {
 	r.DataType = telem.DataType(pb.DataType)
 	r.Data = pb.Data
 	r.Alignment = telem.Alignment(pb.Alignment)
+	r.AlignmentMultiple = pb.AlignmentMultiple
 	return r, nil
 }
 

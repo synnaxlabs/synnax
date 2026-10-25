@@ -13,19 +13,17 @@ import (
 	"context"
 	"regexp"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/search"
 )
 
 // Reader is used to retrieve aliases.
 type Reader struct {
 	tx              gorp.Tx
-	search          *search.Index
 	parentRetriever ParentRetriever
 	table           *gorp.Table[string, Alias]
 }
@@ -143,29 +141,23 @@ func (r Reader) listAliases(
 	return r.listAliases(ctx, parentKey, accumulated)
 }
 
-// Search searches for aliases fuzzily matching the given term on the
-// specified range.
+// Search returns the channels whose alias on the specified range matches term, closest
+// match first. It does not search the aliases of parent ranges.
 func (r Reader) Search(
 	ctx context.Context,
 	rng ranger.Key,
 	term string,
 ) ([]channel.Key, error) {
-	ids, err := r.search.Search(
-		ctx,
-		search.Request{Term: term, Type: ontology.ResourceTypeRangeAlias},
-	)
-	if err != nil {
+	var aliases []Alias
+	if err := r.table.NewRetrieve().
+		WherePrefix([]byte(rng.String()+keySeparator)).
+		Entries(&aliases).
+		Exec(ctx, r.tx); err != nil {
 		return nil, err
 	}
-	res := make([]channel.Key, 0)
-	for _, id := range ids {
-		rangeKey, chKey, err := parseGorpKey(id.Key)
-		if err != nil {
-			return nil, err
-		}
-		if rangeKey == rng {
-			res = append(res, chKey)
-		}
+	idx := search.New[channel.Key]()
+	for _, a := range aliases {
+		idx.Set(a.Channel, a.Alias)
 	}
-	return res, nil
+	return idx.Search(term, 0).Keys, nil
 }

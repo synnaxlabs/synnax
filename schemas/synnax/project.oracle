@@ -22,6 +22,7 @@ Project struct {
     }
     name string {
         @doc value         "is a human-readable name for the project."
+        @search
         @validate required
     }
 
@@ -34,5 +35,4 @@ Project struct {
     @go migrate
     @ontology type "project"
     @retrieve
-    @search
 }

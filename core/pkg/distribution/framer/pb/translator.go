@@ -175,15 +175,19 @@ func (IteratorRequestTranslator) Backward(
 	if err != nil {
 		return iterator.Request{}, err
 	}
+	reduction, err := telempb.ReductionFromPB(req.Reduction)
+	if err != nil {
+		return iterator.Request{}, err
+	}
 	return iterator.Request{
-		Command:          iterator.Command(req.Command),
-		Span:             telem.TimeSpan(req.Span),
-		Bounds:           bounds,
-		Stamp:            telem.TimeStamp(req.Stamp),
-		Keys:             channel.KeysFromUint32(req.Keys),
-		ChunkSize:        req.ChunkSize,
-		SeqNum:           int(req.SeqNum),
-		DownsampleFactor: req.DownsampleFactor,
+		Command:   iterator.Command(req.Command),
+		Span:      telem.TimeSpan(req.Span),
+		Bounds:    bounds,
+		Stamp:     telem.TimeStamp(req.Stamp),
+		Keys:      channel.KeysFromUint32(req.Keys),
+		ChunkSize: req.ChunkSize,
+		SeqNum:    int(req.SeqNum),
+		Reduction: reduction,
 	}, nil
 }
 
@@ -196,15 +200,19 @@ func (IteratorRequestTranslator) Forward(
 	if err != nil {
 		return nil, err
 	}
+	reduction, err := telempb.ReductionToPB(req.Reduction)
+	if err != nil {
+		return nil, err
+	}
 	return &IteratorRequest{
-		Command:          int32(req.Command),
-		Span:             int64(req.Span),
-		Bounds:           bounds,
-		Stamp:            int64(req.Stamp),
-		Keys:             req.Keys.Uint32(),
-		ChunkSize:        req.ChunkSize,
-		SeqNum:           int32(req.SeqNum),
-		DownsampleFactor: req.DownsampleFactor,
+		Command:   int32(req.Command),
+		Span:      int64(req.Span),
+		Bounds:    bounds,
+		Stamp:     int64(req.Stamp),
+		Keys:      req.Keys.Uint32(),
+		ChunkSize: req.ChunkSize,
+		SeqNum:    int32(req.SeqNum),
+		Reduction: reduction,
 	}, nil
 }
 

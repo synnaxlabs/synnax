@@ -19,7 +19,7 @@ import (
 
 func TestMessagePack(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Encoding MessagePack Suite")
+	RunSpecs(t, "Encoding MessagePack Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

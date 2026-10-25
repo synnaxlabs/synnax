@@ -14,13 +14,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -31,13 +30,12 @@ var (
 	writer      user.Writer
 	otg         *ontology.Ontology
 	groupSvc    *group.Service
-	searchIdx   *search.Index
 	passwordSvc *password.Service
 )
 
 func TestUser(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service User Suite")
+	RunSpecs(t, "Service User Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
@@ -46,18 +44,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	searchIdx = MustOpen(search.OpenIndex())
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Search:   searchIdx,
 	}))
 	passwordSvc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	svc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
-		Search:   searchIdx,
 	}))
 	MustSucceed2(
 		user.ProvisionRoot(
@@ -68,5 +63,4 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		),
 	)
 	writer = svc.NewWriter(nil)
-	Expect(searchIdx.Initialize(ctx)).To(Succeed())
 })
