@@ -171,6 +171,18 @@ describe("createDocumentForm", () => {
     expect((await fetchStored(t.key)).config).toMatchObject({ routingKey: "cat" });
   });
 
+  it("should send a batch at once when a value fails its schema", async () => {
+    const t = await createTask();
+    const { result } = await renderForm(t.key);
+    const send = spyOnSend(formClient);
+    act(() =>
+      result.current.form.batch(() => result.current.form.set("config.routingKey", "")),
+    );
+    await act(async () => expect(await result.current.flush()).toBe(true));
+    expect(countDispatches(send)).toBe(1);
+    expect((await fetchStored(t.key)).config).toMatchObject({ routingKey: "" });
+  });
+
   it("should insert, move, and remove list entries by key", async () => {
     const t = await createTask();
     const { result } = await renderForm(t.key);

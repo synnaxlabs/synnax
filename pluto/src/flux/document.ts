@@ -131,8 +131,8 @@ interface StoreParams<
  * A form store over a document in the client cache. A write applies to the cached
  * document at once and reaches the Core as a path action. Writes to one field coalesce
  * into one dispatch, and a field whose value fails its schema holds its edits until the
- * value passes. Sends run in order, so the Core applies edits in the order they were
- * made.
+ * value passes. A batch and a list edit send at once, and the Core checks their values.
+ * Sends run in order, so the Core applies edits in the order they were made.
  */
 class DocumentStore<
   Key extends record.Key,
@@ -383,8 +383,9 @@ export interface CreateDocumentFormParams<
 > {
   name: string;
   /**
-   * The form's schema. Each field value passes its field schema before the form sends
-   * it, and the discriminated unions of a path decide the guards of its action.
+   * The form's schema. A field write outside a batch waits until its value passes its
+   * field schema, and the discriminated unions of a path decide the guards of its
+   * action.
    */
   schema: Schema;
   /**
