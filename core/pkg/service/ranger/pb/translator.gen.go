@@ -43,7 +43,7 @@ func RangeToPB(r ranger.Range) (*Range, error) {
 		if err != nil {
 			return nil, err
 		}
-		pb.Labels = &LabelList{Values: vals}
+		pb.Labels = &LabelLabelList{Values: vals}
 	}
 	if r.Parent != nil {
 		var err error

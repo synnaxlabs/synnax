@@ -87,7 +87,7 @@ func StatusToPB[Details any](
 		if err != nil {
 			return nil, err
 		}
-		pb.Labels = &LabelList{Values: vals}
+		pb.Labels = &LabelLabelList{Values: vals}
 	}
 	return pb, nil
 }
