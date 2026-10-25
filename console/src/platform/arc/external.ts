@@ -11,3 +11,4 @@ export * from "@/platform/arc/ContextMenu";
 export * from "@/platform/arc/useCaptureDeploy";
 export * from "@/platform/arc/useCreate";
 export * from "@/platform/arc/useCreateModal";
+export * from "@/platform/arc/useDriftedTaskKeys";

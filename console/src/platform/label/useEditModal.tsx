@@ -148,7 +148,7 @@ const EMPTY_CONTENT = (
   </Flex.Box>
 );
 
-export const useEditModal = Modals.create(() => {
+const Edit = () => {
   const { data, getItem, retrieve, subscribe, answered } = Label.useList();
   const { fetchMore, search } = List.usePager({ retrieve, pageSize: 15 });
   const [newFormVisible, setNewFormVisible] = useState(false);
@@ -204,4 +204,6 @@ export const useEditModal = Modals.create(() => {
       </List.Frame>
     </Modal.Frame>
   );
-});
+};
+
+export const useEditModal = Modals.create(Edit);

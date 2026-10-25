@@ -22,5 +22,3 @@ export const useLink = (): Link.Handler => {
     [dispatch],
   );
 };
-
-export const LINKS: Link.Registry = { project: useLink };

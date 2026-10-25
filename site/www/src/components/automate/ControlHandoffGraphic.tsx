@@ -241,7 +241,7 @@ export function ControlHandoffGraphic({
           animRef.current = 0;
           return;
         }
-        start ??= timestamp;
+        if (start == null) start = timestamp;
         if (ctx == null) return;
         const elapsed = timestamp - start;
 

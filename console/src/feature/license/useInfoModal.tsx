@@ -124,11 +124,7 @@ const Headline = ({ info }: HeadlineProps): ReactElement => {
   );
 };
 
-/**
- * Opens a dialog with the active Core's license and the facts support asks for: the
- * license's claims, the host fingerprint, and the Core and Console versions.
- */
-export const useInfoModal = Modals.create(() => {
+const Info = () => {
   const result = PLicense.useResult({});
   const info = result.data;
   const { details } = Synnax.useConnectionStatus();
@@ -200,4 +196,10 @@ export const useInfoModal = Modals.create(() => {
       </Modal.Body>
     </Modal.Frame>
   );
-});
+};
+
+/**
+ * Opens a dialog with the active Core's license and the facts support asks for: the
+ * license's claims, the host fingerprint, and the Core and Console versions.
+ */
+export const useInfoModal = Modals.create(Info);

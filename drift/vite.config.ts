@@ -17,7 +17,7 @@ export default defineConfig({
   base: "/drift/",
   plugins: [
     esmExternalRequirePlugin({ external: [/^react(-dom)?(\/.*)?$/] }),
-    lib({ name: "drift" }),
+    lib({ name: "drift", reactCompiled: true }),
   ],
   build: {
     lib: {

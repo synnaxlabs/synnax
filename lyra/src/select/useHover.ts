@@ -141,7 +141,7 @@ export const useHover = <K extends record.Key>({
         intervalRef.current = setInterval(move, HOVER_INTERVAL);
       }, INITIAL_HOVER_DELAY);
     },
-    [click, initialHover],
+    [enabledRef, getOrderRef, scrollToRef, click, initialHover],
   );
   Triggers.use({
     triggers: TRIGGERS,
@@ -168,15 +168,18 @@ export const useHover = <K extends record.Key>({
     return () =>
       window.removeEventListener("pointermove", handleMove, { capture: true });
   }, [tracking]);
-  const setHover = useCallback((key: K) => {
-    if (
-      movedRef.current === key ||
-      !pointerMovedRef.current ||
-      !Triggers.resolveCondition(enabledRef.current)
-    )
-      return;
-    movedRef.current = key;
-    setHoverKey(key);
-  }, []);
+  const setHover = useCallback(
+    (key: K) => {
+      if (
+        movedRef.current === key ||
+        !pointerMovedRef.current ||
+        !Triggers.resolveCondition(enabledRef.current)
+      )
+        return;
+      movedRef.current = key;
+      setHoverKey(key);
+    },
+    [enabledRef],
+  );
   return { hover, setHover };
 };

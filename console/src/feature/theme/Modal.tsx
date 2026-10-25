@@ -35,18 +35,18 @@ const OPTIONS: Entry[] = [
   { key: "system", name: "System", icon: <Icon.Sync /> },
 ];
 
-const listItem = Component.renderProp(
-  (props: List.ItemProps<Theme.Mode>): ReactElement | null => {
-    const entry = List.useItem<Theme.Mode, Entry>(props.itemKey);
-    if (entry == null) return null;
-    return (
-      <Select.Item {...props} align="center" gap="medium">
-        {entry.icon}
-        {entry.name}
-      </Select.Item>
-    );
-  },
-);
+const ListItem = (props: List.ItemProps<Theme.Mode>): ReactElement | null => {
+  const entry = List.useItem<Theme.Mode, Entry>(props.itemKey);
+  if (entry == null) return null;
+  return (
+    <Select.Item {...props} align="center" gap="medium">
+      {entry.icon}
+      {entry.name}
+    </Select.Item>
+  );
+};
+
+const listItem = Component.renderProp(ListItem);
 
 const Content = ({
   close,
