@@ -79,7 +79,8 @@ const expectComplete = (times: bigint[]): void => {
   expect([...steps]).toEqual([PERIOD]);
 };
 
-// Returns the timestamps once they hold each sample since the window start once.
+// Returns the timestamps once they hold each sample from the window start to the newest
+// frames once.
 const settled = async (
   core: SyntheticCore,
   sub: Subscription,
@@ -90,11 +91,12 @@ const settled = async (
   await expect
     .poll(() => {
       const start = core.now().sub(span).valueOf();
+      const recent = core.now().sub(TimeSpan.milliseconds(500)).valueOf();
       const snap = sub.value(key);
       times = timesOf(snap);
       if (snap.status.variant !== "success" || times.length < 2) return false;
       const steps = times.slice(1).every((t, i) => t - times[i] === PERIOD);
-      return steps && times[0] <= start + PERIOD;
+      return steps && times[0] <= start + PERIOD && times.at(-1)! >= recent;
     }, POLL)
     .toBe(true);
   return times;
@@ -227,15 +229,18 @@ describe("Feed.subscribe", () => {
     it("should fill samples the stream skipped with a read", async () => {
       const core = createCore();
       const feed = core.openFeed(OPTIONS);
-      const span = TimeSpan.seconds(30);
+      // The window outlasts the spec, so a hole cannot roll out of it.
+      const span = TimeSpan.minutes(10);
       const sub = feed.subscribe(raw([core.index.key], span));
       let stop = tick(core);
       try {
         await settled(core, sub, core.index.key, span);
         stop();
+        const skipped = core.now();
         core.advance(TimeSpan.seconds(2), false);
         stop = tick(core);
-        await settled(core, sub, core.index.key, span);
+        const times = await settled(core, sub, core.index.key, span);
+        expect(times.some((t) => t > skipped.valueOf() + PERIOD)).toBe(true);
       } finally {
         stop();
         sub.close();
