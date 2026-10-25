@@ -18,8 +18,6 @@
  * Umbrella: SY-1234. Removed in 0.60.`
  */
 export const FLAGS = {
-  // Owner: Emiliano Bonilla. Umbrella: SY-2253. Removed in 0.60.
-  lineplotTiles: IS_DEV || import.meta.env.VITE_FLAG_LINEPLOT_TILES === "true",
   // Owner: Emiliano Bonilla. Umbrella: SY-5210. Removed in 0.61.
   ethercatStartupParameters:
     FLAGS_ON || import.meta.env.VITE_FLAG_ETHERCAT_STARTUP_PARAMETERS === "true",

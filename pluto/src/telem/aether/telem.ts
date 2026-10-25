@@ -9,8 +9,10 @@
 
 import { type status, ValidationError } from "@synnaxlabs/client";
 import {
+  type Aggregation,
   type bounds,
   type color,
+  type DataType,
   type destructor,
   type MultiSeries,
   observe,
@@ -70,6 +72,8 @@ export interface ValueProps {
    * returns its home data when the view is absent.
    */
   view?: View;
+  /** True when every sample must fall inside the bounds of the returned series. */
+  extremesKept?: boolean;
 }
 
 export interface Telem {
@@ -82,6 +86,13 @@ export interface Source<V> extends Telem, observe.Observable<void> {
   loading?: () => boolean;
   /** @returns true while the source fetches data for a view it already drew. */
   fetching?: () => boolean;
+  /** @returns the aggregation the source reduces its data by, or null for none. */
+  aggregation?: () => Aggregation | null;
+  /**
+   * @returns the data type the source's channel stores, or null when unknown. The
+   * source may convert its series to another data type.
+   */
+  dataType?: () => DataType | null;
   sampleTime?: () => TimeStamp | null;
 }
 

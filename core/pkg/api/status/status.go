@@ -218,7 +218,7 @@ func (s *Service) Retrieve(
 	resStatuses := make([]status.Status[any], 0, len(req.Keys))
 
 	if req.SearchTerm != "" {
-		q = q.Search(req.SearchTerm)
+		q = q.Where(status.MatchSearch(req.SearchTerm))
 	}
 	if req.Limit > 0 {
 		q = q.Limit(req.Limit)
