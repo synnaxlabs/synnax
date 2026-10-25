@@ -803,27 +803,34 @@ describe("remote", () => {
     }
 
     // Returns one series per tile. Data tiles hold [level, index], and index tiles hold
-    // the tile's start and end.
+    // the tile's start and end. An average tile holds the mean of the two.
     const tileSeries = (spec: framer.TileSpec): MultiSeries => {
       const tr = framer.tileRange(spec);
       const alignment = (BigInt(spec.level) << 32n) + BigInt(spec.index);
-      if (spec.key === INDEX_KEY)
+      const average = spec.aggregation === "average";
+      if (spec.key === INDEX_KEY) {
+        const [start, end] = [tr.start.valueOf(), tr.end.valueOf() - 1n];
         return new MultiSeries([
           new Series({
-            data: new BigInt64Array([tr.start.valueOf(), tr.end.valueOf() - 1n]),
+            data: new BigInt64Array(average ? [(start + end) / 2n] : [start, end]),
             dataType: DataType.TIMESTAMP,
             timeRange: tr,
             alignment,
           }),
         ]);
+      }
+      const { level, index } = spec;
       return new MultiSeries([
         new Series({
-          data: new Float32Array([spec.level, spec.index]),
+          data: new Float32Array(average ? [(level + index) / 2] : [level, index]),
           timeRange: tr,
           alignment,
         }),
       ]);
     };
+
+    const servedKey = ({ level, index, key, aggregation }: framer.TileSpec): string =>
+      `${level}/${index}/${key}/${aggregation}`;
 
     class MockClient implements Client {
       now = (): TimeStamp => TimeStamp.now();
@@ -873,7 +880,7 @@ describe("remote", () => {
               this.pending.push({ spec, resolve }),
             );
           const series = tileSeries(spec);
-          this.served.set(`${spec.level}/${spec.index}/${spec.key}`, series);
+          this.served.set(servedKey(spec), series);
           return series;
         },
         stream: (handler: framer.StreamHandler): framer.Subscription => {
@@ -886,7 +893,7 @@ describe("remote", () => {
         const pending = this.pending.splice(0);
         pending.forEach(({ spec, resolve }) => {
           const series = tileSeries(spec);
-          this.served.set(`${spec.level}/${spec.index}/${spec.key}`, series);
+          this.served.set(servedKey(spec), series);
           resolve(series);
         });
       }
@@ -984,6 +991,70 @@ describe("remote", () => {
       const source = create();
       await settle(source);
       expect(source.value()[0]).toEqual({ lower: 0, upper: 13 });
+    });
+
+    describe("extremes kept", () => {
+      it("should bound an average line by min_max tiles of the home view", async () => {
+        const source = create({ aggregation: "average" });
+        await settle(source);
+        expect(source.value()[0]).toEqual({ lower: 6.5, upper: 7 });
+        source.value({ extremesKept: true });
+        await expect.poll(() => source.fetching()).toBe(false);
+        expect(c.tiles.map((t) => [t.level, t.index, t.aggregation])).toEqual([
+          [13, 0, "average"],
+          [13, 1, "average"],
+          [13, 0, "min_max"],
+          [13, 1, "min_max"],
+        ]);
+        expect(source.value({ extremesKept: true })[0]).toEqual({
+          lower: 0,
+          upper: 13,
+        });
+      });
+
+      it("should bound a min_max line by the tiles it draws", async () => {
+        const source = create();
+        await settle(source);
+        const before = c.tiles.length;
+        expect(source.value({ extremesKept: true })[0]).toEqual({
+          lower: 0,
+          upper: 13,
+        });
+        expect(c.tiles).toHaveLength(before);
+      });
+
+      it("should bound an xy line by the decimated tiles it draws", async () => {
+        const source = create({ xChannel: XY_KEY, channel: XY_KEY });
+        await settle(source);
+        const before = c.tiles.length;
+        source.value({ extremesKept: true });
+        expect(c.tiles).toHaveLength(before);
+      });
+
+      it("should keep the min_max home tiles through a zoomed view", async () => {
+        const source = create({ aggregation: "average" });
+        await settle(source);
+        source.value({ extremesKept: true });
+        source.value({ view: view(2000, 3000, 1000) });
+        await expect.poll(() => source.fetching()).toBe(false);
+        source.value({ view: view(2000, 3000, 1000) });
+        const tile = c.served.get(`13/0/${DATA_KEY}/min_max`)!;
+        expect(tile.series[0].refCount).toBe(1);
+        const before = c.tiles.length;
+        source.value({ extremesKept: true });
+        expect(c.tiles).toHaveLength(before);
+      });
+
+      it("should draw an average stand-in over a min_max one", async () => {
+        const source = create({ aggregation: "average" });
+        await expect
+          .poll(() => source.value({ extremesKept: true })[0])
+          .toEqual({ lower: 0, upper: 13 });
+        await settle(source);
+        c.deferred = true;
+        const [, series] = source.value({ view: view(2000, 3000, 1000) });
+        expect(positions(series)).toEqual([[6.5]]);
+      });
     });
 
     it("should draw the tiles of the view it is given", async () => {
@@ -1134,11 +1205,11 @@ describe("remote", () => {
       await expect
         .poll(() => source.value({ view: view(2000, 3000) })[1].series.length)
         .toBe(3);
-      const fine = c.served.get(`9/3/${DATA_KEY}`)!;
+      const fine = c.served.get(`9/3/${DATA_KEY}/min_max`)!;
       expect(fine.series[0].refCount).toBe(1);
       source.value({ view: view(1000, 10000, 1000) });
       expect(fine.series[0].refCount).toBe(0);
-      expect(c.served.get(`13/0/${DATA_KEY}`)!.series[0].refCount).toBe(1);
+      expect(c.served.get(`13/0/${DATA_KEY}/min_max`)!.series[0].refCount).toBe(1);
     });
 
     it("should release a tile that arrives after its view moved on", async () => {
@@ -1150,7 +1221,7 @@ describe("remote", () => {
       source.value({ view: home });
       c.resolveAll();
       await expect.poll(() => source.fetching()).toBe(false);
-      const late = c.served.get(`9/3/${DATA_KEY}`)!;
+      const late = c.served.get(`9/3/${DATA_KEY}/min_max`)!;
       expect(late.series[0].refCount).toBe(1);
       expect(positions(source.value({ view: home })[1])).toEqual([
         [13, 0],
@@ -1165,7 +1236,7 @@ describe("remote", () => {
       source.value({ view: view(500_000, 501_000) });
       await expect.poll(() => source.fetching()).toBe(false);
       source.value({ view: view(500_000, 501_000) });
-      expect(c.served.get(`13/0/${DATA_KEY}`)!.series[0].refCount).toBe(1);
+      expect(c.served.get(`13/0/${DATA_KEY}/min_max`)!.series[0].refCount).toBe(1);
     });
 
     it("should read an xy line's home range once with decimate", async () => {
@@ -1341,7 +1412,7 @@ describe("remote", () => {
     it("should release every tile on cleanup", async () => {
       const source = create();
       await settle(source);
-      const home = c.served.get(`13/0/${DATA_KEY}`)!;
+      const home = c.served.get(`13/0/${DATA_KEY}/min_max`)!;
       source.cleanup();
       expect(home.series[0].refCount).toBe(0);
     });
@@ -1473,7 +1544,7 @@ describe("remote", () => {
         const older = view(75_000, 100_000, 1000);
         source.value({ view: older });
         await expect.poll(() => source.fetching()).toBe(false);
-        const tile = c.served.get(`14/4/${DATA_KEY}`)!;
+        const tile = c.served.get(`14/4/${DATA_KEY}/min_max`)!;
         expect(tile.series[0].refCount).toBe(1);
         source.value({ view: view(95_000, 100_000, 1000) });
         expect(tile.series[0].refCount).toBe(0);
@@ -1514,7 +1585,7 @@ describe("remote", () => {
         const v = view(75_000, 100_000, 1000);
         source.value({ view: v });
         await expect.poll(() => source.fetching()).toBe(false);
-        const tile = c.served.get(`14/4/${DATA_KEY}`)!;
+        const tile = c.served.get(`14/4/${DATA_KEY}/min_max`)!;
         const opened = c.streamHandler;
         const bytes = new Series({
           data: new Uint8Array([3, 4]),
@@ -1550,7 +1621,7 @@ describe("remote", () => {
         const v = view(75_000, 100_000, 1000);
         source.value({ view: v });
         await expect.poll(() => source.fetching()).toBe(false);
-        const tile = c.served.get(`14/4/${DATA_KEY}`)!;
+        const tile = c.served.get(`14/4/${DATA_KEY}/min_max`)!;
         const float = raw(95, 96);
         c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([float])]]));
         const bytes = new Series({

@@ -626,6 +626,15 @@ describe("line", () => {
       values.forEach((value) => expect(value.mock.calls).toEqual([[view], [view]]));
     });
 
+    it("should read its bounds with the extremes of every sample kept", () => {
+      const m = mount([X1], [Y1]);
+      const values = [vi.spyOn(m.xSource, "value"), vi.spyOn(m.ySource, "value")];
+      expect(m.line.yBounds({ lower: 0, upper: 2 })).toEqual({ lower: 10, upper: 30 });
+      values.forEach((value) =>
+        expect(value.mock.calls).toEqual([[{ extremesKept: true }]]),
+      );
+    });
+
     describe("render", () => {
       it("should draw one strip per domain and no bridge for a single domain", () => {
         const m = mount([X1], [Y1]);
@@ -890,9 +899,11 @@ describe("line", () => {
     afterAll(async () => await feed.close());
 
     const COUNT = 10_000;
+    const SPIKE = 10;
 
-    // Writes COUNT samples one millisecond apart. Data sample i holds sin(i / 100).
-    const writeChannels = async () => {
+    // Writes COUNT samples one millisecond apart. Data sample i holds sin(i / 100), or
+    // SPIKE at spikeAt.
+    const writeChannels = async (spikeAt?: number) => {
       const time = await synnax.channels.create({
         name: id.create(),
         dataType: DataType.TIMESTAMP,
@@ -908,7 +919,9 @@ describe("line", () => {
         [time.key]: Array.from({ length: COUNT }, (_, i) =>
           start.add(TimeSpan.milliseconds(i)),
         ),
-        [data.key]: Array.from({ length: COUNT }, (_, i) => Math.sin(i / 100)),
+        [data.key]: Array.from({ length: COUNT }, (_, i) =>
+          i === spikeAt ? SPIKE : Math.sin(i / 100),
+        ),
       });
       const home = new TimeRange(start, start.add(TimeSpan.milliseconds(COUNT)));
       return { data, home };
@@ -946,6 +959,15 @@ describe("line", () => {
       expect(y.value()[0].upper).toBeCloseTo(1, 3);
       expect(y.value()[0].lower).toBeCloseTo(-1, 3);
       x.cleanup();
+      y.cleanup();
+    });
+
+    it("should keep a spike that an average drops inside the line's bounds", async () => {
+      const { data, home } = await writeChannels(COUNT / 2);
+      const y = create({ channel: data.key, timeRange: home, aggregation: "average" });
+      await settle(y);
+      expect(y.value()[0].upper).toBeLessThan(SPIKE / 2);
+      await expect.poll(() => y.value({ extremesKept: true })[0].upper).toBe(SPIKE);
       y.cleanup();
     });
 

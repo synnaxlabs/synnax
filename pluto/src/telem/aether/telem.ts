@@ -72,6 +72,8 @@ export interface ValueProps {
    * returns its home data when the view is absent.
    */
   view?: View;
+  /** True when every sample must fall inside the bounds of the returned series. */
+  extremesKept?: boolean;
 }
 
 export interface Telem {
