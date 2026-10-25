@@ -11,6 +11,7 @@ package resolution
 
 import (
 	"maps"
+	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/set"
@@ -28,7 +29,35 @@ type Type struct {
 	// payloads) that resolve like any other type but are excluded from
 	// standalone code generation.
 	Synthetic bool
+	// Filter is the filter definition the type was declared as, or nil. Form holds
+	// the struct the definition expands into.
+	Filter *Filter
 }
+
+// Filter is a filter definition: the lines a filter tree over Target can set.
+type Filter struct {
+	// Target is the struct or union the filter selects.
+	Target TypeRef
+	Lines  []FilterLine
+}
+
+// Line returns the line named name.
+func (f Filter) Line(name string) (FilterLine, bool) {
+	return lo.Find(f.Lines, func(l FilterLine) bool { return l.Name == name })
+}
+
+// FilterLine is one line of a filter definition. A bare line names a field of the
+// target and has no Type. A typed line names a hand-written matcher that takes a value
+// of Type.
+type FilterLine struct {
+	AST     any
+	Domains map[string]Domain
+	Name    string
+	Type    TypeRef
+}
+
+// Bare reports whether the line names a field of the target.
+func (l FilterLine) Bare() bool { return l.Type.Name == "" && l.Type.TypeParam == nil }
 
 type TypeForm interface {
 	typeForm()
@@ -469,6 +498,35 @@ func NonDefaultedTypeParams(tps []TypeParam) []TypeParam {
 		out = append(out, tp)
 	}
 	return out
+}
+
+// RecordFields returns the fields every record of typ holds: a struct's fields, or the
+// fields of a union's base structs. A field typed by a type parameter with a default
+// takes the default. It returns false when typ is neither a struct nor a union.
+func RecordFields(typ Type, table *Table) ([]Field, bool) {
+	var fields []Field
+	switch form := typ.Form.(type) {
+	case StructForm:
+		fields = slices.Clone(UnifiedFields(typ, table))
+	case UnionForm:
+		for _, ext := range form.Extends {
+			if base, _, ok := Dealias(ext, table); ok {
+				fields = append(fields, UnifiedFields(base, table)...)
+			}
+		}
+	default:
+		return nil, false
+	}
+	defaults := make(map[string]TypeRef)
+	for _, p := range TypeParams(typ.Form) {
+		if p.Default != nil {
+			defaults[p.Name] = *p.Default
+		}
+	}
+	for i := range fields {
+		fields[i].Type = SubstituteTypeRef(fields[i].Type, defaults)
+	}
+	return fields, true
 }
 
 func UnifiedFields(typ Type, table *Table) []Field {

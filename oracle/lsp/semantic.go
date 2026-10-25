@@ -74,6 +74,9 @@ func extractSemanticTokens(content string) []uint32 {
 	var tokens []lsp.Token
 	// prev is the type of the previous token that is not a comment, or -1 at the start.
 	prev := -1
+	// prevName reports whether the previous token that is not a comment is the name of
+	// a definition, so a soft keyword can follow it.
+	var prevName bool
 	for _, t := range allTokens {
 		typ := t.GetTokenType()
 		if typ == antlr.TokenEOF {
@@ -88,8 +91,13 @@ func extractSemanticTokens(content string) []uint32 {
 			prev == parser.OracleLexerAT,
 			nameStart,
 		)
+		if prevName && typ == parser.OracleLexerIDENT && t.GetText() == "filter" {
+			keyword := uint32(SemanticTokenTypeKeyword)
+			tokenType = &keyword
+		}
 		if typ != parser.OracleLexerLINE_COMMENT &&
 			typ != parser.OracleLexerBLOCK_COMMENT {
+			prevName = nameStart && typ == parser.OracleLexerIDENT
 			prev = typ
 		}
 		if tokenType == nil {

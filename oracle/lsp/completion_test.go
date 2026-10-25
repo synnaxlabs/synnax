@@ -456,6 +456,27 @@ var _ = Describe("SemanticTokensFull", func() {
 	)
 
 	DescribeTable(
+		"should color the filter soft keyword by position",
+		func(ctx SpecContext, text string, char uint32, expected int) {
+			openDoc(ctx, "file:///filter.oracle", text)
+			data := tokensFor(ctx, "file:///filter.oracle").Data
+			Expect(tokenTypeAt(data, 0, char)).To(Equal(uint32(expected)))
+		},
+		Entry(
+			"after a definition name",
+			"Where filter Range {}\n",
+			uint32(6),
+			lsp.SemanticTokenTypeKeyword,
+		),
+		Entry(
+			"as a field name",
+			"filter string\n",
+			uint32(0),
+			lsp.SemanticTokenTypeProperty,
+		),
+	)
+
+	DescribeTable(
 		"should color a primitive in type position as a type",
 		func(ctx SpecContext, text string, line, char uint32) {
 			openDoc(ctx, "file:///types.oracle", text)

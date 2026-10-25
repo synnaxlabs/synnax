@@ -122,9 +122,8 @@ func MatchEmbedded(v bool) Filter {
 	}
 }
 
-// MatchIntegration returns a filter for
-// racks whose Integrations contains the provided
-// value.
+// MatchIntegration returns a filter for racks whose
+// Integrations contains the provided value.
 func MatchIntegration(v string) Filter {
 	return func(Retrieve) gorp.Filter[Key, Rack] {
 		return gorp.Match(func(_ gorp.Context, e *Rack) (bool, error) {
