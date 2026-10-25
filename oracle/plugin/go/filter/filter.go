@@ -125,6 +125,8 @@ type lineData struct {
 	Deref bool
 	// Spread is true when a typed line's value is a slice passed as variadic values.
 	Spread bool
+	// Enum is true when a bare line selects string enum values, which it validates.
+	Enum bool
 }
 
 // Has reports whether the line's operator has the member.
@@ -236,6 +238,7 @@ func generateFile(
 			continue
 		}
 		ld.Operator = strings.TrimPrefix(field.Type.Name, "filter.")
+		ld.Enum = ld.Operator == "Set" && isStringEnum(field.Type.TypeArgs[0], table)
 		// The matcher list leaves out the key, which MatchKeys matches.
 		if m, ok := byField[line.Name]; ok {
 			ld.Func = m.Func
@@ -267,6 +270,15 @@ func generateFile(
 	return buf.Bytes(), nil
 }
 
+func isStringEnum(ref resolution.TypeRef, table *resolution.Table) bool {
+	typ, _, ok := resolution.Dealias(ref, table)
+	if !ok {
+		return false
+	}
+	form, ok := typ.Form.(resolution.EnumForm)
+	return ok && !form.IsIntEnum
+}
+
 func addImports(data templateData, repoRoot string) {
 	internal := func(name, path string) {
 		data.AddInternal(
@@ -285,7 +297,8 @@ func addImports(data templateData, repoRoot string) {
 	if needsRegex {
 		data.AddExternal("regexp")
 	}
-	if needsRegex || data.OrderFields != nil {
+	needsEnum := lo.SomeBy(data.Lines, func(l lineData) bool { return l.Enum })
+	if needsRegex || needsEnum || data.OrderFields != nil {
 		internal("errors", "x/go/errors")
 	}
 	if needsMatch || data.OrderFields != nil {
@@ -348,11 +361,32 @@ func MatchWhere{{.TypeParams}}(w Where) (Filter{{.TypeArgs}}, error) {
 {{- else}}
 {{- if .Has "Eq"}}
 		if l.Eq != nil {
+{{- if .Enum}}
+			if !l.Eq.IsValid() {
+				return nil, validate.PathedError(
+					errors.Wrapf(validate.ErrValidation, "invalid {{.Path}} %q", *l.Eq),
+					"{{.Path}}",
+					"eq",
+				)
+			}
+{{- end}}
 			fs = append(fs, {{.Func}}{{$.TypeArgs}}(*l.Eq))
 		}
 {{- end}}
 {{- if .Has "In"}}
 		if l.In != nil {
+{{- if .Enum}}
+			for i, v := range l.In {
+				if !v.IsValid() {
+					return nil, validate.PathedError(
+						errors.Wrapf(validate.ErrValidation, "invalid {{.Path}} %q", v),
+						"{{.Path}}",
+						"in",
+						strconv.Itoa(i),
+					)
+				}
+			}
+{{- end}}
 {{- if .One}}
 			in := make([]Filter{{$.TypeArgs}}, len(l.In))
 			for i, v := range l.In {
