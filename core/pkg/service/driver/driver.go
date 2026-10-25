@@ -234,14 +234,7 @@ func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
 				zap.Stringer("task", cmd.Task),
 				zap.Error(err),
 			)
-			d.refuseStart(
-				ctx,
-				task.Task{Key: cmd.Task},
-				cmd,
-				status.VariantError,
-				startFailedMessage,
-				err.Error(),
-			)
+			d.ackFailure(ctx, task.Task{Key: cmd.Task}, cmd, err)
 		}
 		return
 	}
@@ -260,15 +253,7 @@ func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
 		return
 	}
 	if cmd.Pinned && cmd.ConfigHash != tsk.ConfigHash {
-		d.refuseStart(
-			ctx,
-			tsk,
-			cmd,
-			status.VariantWarning,
-			"Config changed",
-			"The task config changed after you saw it. Review the task, then start "+
-				"it again.",
-		)
+		d.refusePinnedStart(ctx, tsk, cmd)
 		return
 	}
 	d.mu.RLock()
@@ -285,14 +270,7 @@ func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
 			// out of time has no live context to write with.
 			if errors.Is(err, ErrTaskNotHandled) ||
 				errors.Is(err, context.DeadlineExceeded) {
-				d.refuseStart(
-					ctx,
-					tsk,
-					cmd,
-					status.VariantError,
-					startFailedMessage,
-					err.Error(),
-				)
+				d.ackFailure(ctx, tsk, cmd, err)
 			}
 			return
 		}
@@ -306,27 +284,55 @@ func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
 	d.exec(ctx, inst.task, cmd)
 }
 
-const startFailedMessage = "Failed to start task"
-
-// refuseStart answers a start command that did not start the task, when no factory
-// reports the reason.
-func (d *Driver) refuseStart(
+// ackFailure acknowledges a start command whose deploy failed without a factory
+// reporting it.
+func (d *Driver) ackFailure(
 	ctx context.Context,
 	t task.Task,
 	cmd task.Command,
-	variant status.Variant,
-	message string,
-	description string,
+	err error,
 ) {
 	if sErr := NewStatusHandler(d.cfg.DB, d.cfg.Status, t).Send(
 		ctx,
 		cmd.Key,
-		variant,
+		status.VariantError,
 		false,
-		message,
-		description,
+		"Failed to start task",
+		err.Error(),
 	); sErr != nil {
 		d.cfg.L.Error("failed to write start failure status", zap.Error(sErr))
+	}
+}
+
+// refusePinnedStart answers a pinned start whose config changed after the sender saw
+// it. The live instance runs on as it was, so the status keeps the stored running
+// state and config hash.
+func (d *Driver) refusePinnedStart(ctx context.Context, t task.Task, cmd task.Command) {
+	stat := task.Status{
+		Key:     t.OntologyID().String(),
+		Name:    t.Name,
+		Variant: status.VariantWarning,
+		Message: "Config changed",
+		Description: "The task config changed after you saw it. Review the task, " +
+			"then start it again.",
+		Details: task.NewStatusDetails(t, false),
+	}
+	stat.Details.Cmd = cmd.Key
+	if err := d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		var stored task.Status
+		if err := d.cfg.Status.NewRetrieve[task.StatusDetails]().
+			Where(status.MatchKeys[task.StatusDetails](stat.Key)).
+			Entry(&stored).
+			Exec(ctx, tx); err == nil {
+			stat.Details.Running = stored.Details.Running
+			stat.Details.ConfigHash = stored.Details.ConfigHash
+		} else if !errors.Is(err, query.ErrNotFound) {
+			return err
+		}
+		stat.Time = telem.Now()
+		return d.cfg.Status.NewWriter(tx).Set(ctx, &stat)
+	}); err != nil {
+		d.cfg.L.Error("failed to write refused start status", zap.Error(err))
 	}
 }
 

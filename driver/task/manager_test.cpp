@@ -871,11 +871,47 @@ TEST_F(TaskManagerTest, PinnedStartWithStaleHashIsRefused) {
         "The task config changed after you saw it. Review the task, then start it "
         "again."
     );
-    EXPECT_FALSE(s.details.running);
     EXPECT_EQ(state->exec_count.load(), 1);
     EXPECT_FALSE(state->stopped.load());
     std::lock_guard lock(f->mu);
     EXPECT_EQ(f->task_states.size(), 1);
+}
+
+/// @brief a refused pinned start should keep the running state and config hash of
+/// the live instance, so the task still shows as running its deployed config.
+TEST_F(TaskManagerTest, PinnedStartWithStaleHashKeepsRunningStatus) {
+    start_manager(std::make_unique<EchoTaskFactory>());
+
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+        .config = x::json::json{{"rate", 50}},
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "s1");
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "s1" && s.details.running;
+    });
+    const auto deployed_hash = task.config_hash;
+
+    task.config = x::json::json{{"rate", 100}};
+    ASSERT_NIL(rack.tasks.create(task));
+    ASSERT_NE(task.config_hash, deployed_hash);
+    send_cmd(
+        client,
+        {.task = task.key,
+         .type = synnax::task::START_CMD_TYPE,
+         .key = "s2",
+         .config_hash = deployed_hash,
+         .pinned = true}
+    );
+    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "s2";
+    });
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_TRUE(s.details.running);
+    EXPECT_EQ(s.details.config_hash, deployed_hash);
 }
 
 /// @brief a pinned start should fetch the stored config even when the live instance

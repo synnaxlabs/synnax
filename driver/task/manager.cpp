@@ -581,9 +581,20 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                     status.description = "The task config changed after you saw it. "
                                          "Review the task, then start it again.";
                     status.details.task = op.task_key;
-                    status.details.running = false;
                     status.details.cmd = op.cmd.key;
-                    status.details.config_hash = tsk.config_hash;
+                    // The live instance runs on as it was, so the status keeps the
+                    // stored running state and config hash.
+                    auto [stored, stored_err] = this->ctx->client->statuses.retrieve<
+                        synnax::task::StatusDetails>(status.key);
+                    if (stored_err && !stored_err.matches(x::errors::NOT_FOUND)) {
+                        LOG(ERROR) << "failed to retrieve status of task " << tsk
+                                   << ": " << stored_err;
+                        break;
+                    }
+                    if (!stored_err) {
+                        status.details.running = stored.details.running;
+                        status.details.config_hash = stored.details.config_hash;
+                    }
                     this->ctx->set_status(status);
                     break;
                 }

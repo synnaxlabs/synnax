@@ -600,9 +600,37 @@ var _ = Describe("Driver", func() {
 					g.Expect(stat.Message).To(Equal("Config changed"))
 					g.Expect(stat.Description).
 						To(ContainSubstring("Review the task, then start it again."))
-					g.Expect(stat.Details.Running).To(BeFalse())
 				}).Should(Succeed())
 				Expect(configured.Load()).To(BeZero())
+			})
+
+			It("should keep the running state and config hash of a refused start", func(
+				ctx SpecContext,
+			) {
+				details := task.NewStatusDetails(t, true)
+				details.ConfigHash = "deployed"
+				Expect(statusSvc.NewWriter(nil).Set(ctx, &task.Status{
+					Key:     t.OntologyID().String(),
+					Name:    t.Name,
+					Time:    telem.Now(),
+					Variant: status.VariantSuccess,
+					Message: "Task running",
+					Details: details,
+				})).To(Succeed())
+				writeCommand(ctx, task.Command{
+					Task:       t.Key,
+					Type:       "start",
+					Key:        "cmd-stale",
+					ConfigHash: "stale",
+					Pinned:     true,
+				})
+				Eventually(func(g Gomega) {
+					stat := retrieveStatus(ctx)
+					g.Expect(stat.Details.Cmd).To(Equal("cmd-stale"))
+					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
+					g.Expect(stat.Details.Running).To(BeTrue())
+					g.Expect(stat.Details.ConfigHash).To(Equal("deployed"))
+				}).Should(Succeed())
 			})
 
 			It("should deploy the stored config for an unpinned stale hash", func(
