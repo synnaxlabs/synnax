@@ -27,7 +27,7 @@ import { createConsoleWrapper, resolveFocusedTab, uniqueName } from "@/testutil"
 
 const client = createTestClient();
 
-const renderContextMenuItems = async (configured: boolean) => {
+const renderContextMenuItems = async () => {
   const rack = await client.racks.create({ name: uniqueName("rack") });
   const dev = await client.devices.create({
     key: id.create(),
@@ -36,10 +36,14 @@ const renderContextMenuItems = async (configured: boolean) => {
     model: "HTTP server",
     location: "http://localhost",
     rack: rack.key,
-    configured,
+    configured: true,
     properties: HTTP.Device.ZERO_PROPERTIES,
   });
-  const resource = createDeviceResource({ key: dev.key, name: dev.name, configured });
+  const resource = createDeviceResource({
+    key: dev.key,
+    name: dev.name,
+    configured: true,
+  });
   const { wrapper, store } = await createConsoleWrapper({ client });
   const proj = await client.projects.create({
     name: uniqueName("proj"),
@@ -62,7 +66,7 @@ const renderContextMenuItems = async (configured: boolean) => {
 
 describe("HTTP device ContextMenuItems", () => {
   it("should create read and write task drafts bound to the device", async () => {
-    const { store, deviceKey } = await renderContextMenuItems(true);
+    const { store, deviceKey } = await renderContextMenuItems();
     fireEvent.click(await screen.findByText("Create read task"));
     const readTab = await resolveFocusedTab(store, client);
     if (readTab.variant !== "resource") throw new Error("expected a resource tab");

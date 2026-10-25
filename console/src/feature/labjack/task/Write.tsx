@@ -18,7 +18,6 @@ import { List } from "@synnaxlabs/lyra/list";
 import { deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { HARDWARE } from "@/feature/labjack/device/hardware";
 import { use } from "@/feature/labjack/device/queries";
 import { Select } from "@/feature/labjack/device/Select";
 import { SelectPort } from "@/feature/labjack/device/SelectPort";
@@ -38,6 +37,7 @@ import {
   type WriteChannelType,
   type WriteSchemas,
 } from "@/feature/labjack/task/types";
+import { useConfigure } from "@/feature/labjack/task/useConfigure";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
@@ -162,12 +162,6 @@ const ChannelList = ({ device }: ChannelListProps) => {
       resolve={resolve}
     />
   );
-};
-
-const useConfigure = () => {
-  const configure = PlatformDevice.useConfigureModal();
-  return ({ deviceKey }: PlatformDevice.ConfigureParams) =>
-    configure({ deviceKey, hardware: HARDWARE });
 };
 
 const Form: FC = PlatformDevice.wrapTaskForm({

@@ -12,7 +12,8 @@ import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { EtherCAT } from "@/feature/ethercat";
-import { renderWithDeviceForm } from "@/platform/device/testutil";
+import { createIdentifier, createSlaveDevice } from "@/feature/ethercat/testutil";
+import { createRunningRack, renderWithDeviceForm } from "@/platform/device/testutil";
 import { Modals } from "@/platform/modals";
 import { findDialogTrigger } from "@/testutil";
 
@@ -30,5 +31,30 @@ describe("EtherCAT.Device.SelectSlave", () => {
     fireEvent.click(await findDialogTrigger());
     fireEvent.click(await screen.findByText("Connect EtherCAT network"));
     expect(await screen.findByText("Not seeing your hardware?")).toBeTruthy();
+  });
+
+  it("should find only slaves on the network of the task's channels", async () => {
+    const rack = await createRunningRack(client, EtherCAT.Device.HARDWARE.key);
+    const create = async (network: string, configured: boolean) =>
+      await createSlaveDevice(
+        client,
+        rack.key,
+        { identifier: createIdentifier(), network },
+        configured,
+      );
+    const inTask = await create("eth0", true);
+    const sameNetwork = await create("eth0", false);
+    const otherNetwork = await create("eth1", false);
+    await renderWithDeviceForm(
+      <>
+        <EtherCAT.Device.SelectSlave path="config.device" />
+        <Modals.Stack />
+      </>,
+      { deviceKey: "", channels: [{ device: inTask.key }], client },
+    );
+    fireEvent.click(await findDialogTrigger());
+    fireEvent.click(await screen.findByText("Connect EtherCAT network"));
+    await screen.findByText(sameNetwork.name);
+    expect(screen.queryByText(otherNetwork.name)).toBeNull();
   });
 });

@@ -137,16 +137,18 @@ const deviceFormSchema = z.object({
 interface DeviceFormFixtureProps extends PropsWithChildren {
   deviceKey: string;
   selectableKey?: string;
+  channels?: unknown[];
 }
 
 const DeviceFormFixture = ({
   deviceKey,
   selectableKey,
+  channels = [],
   children,
 }: DeviceFormFixtureProps): ReactElement => {
   const methods = Form.use({
     schema: deviceFormSchema,
-    values: { config: { device: deviceKey, channels: [] } },
+    values: { config: { device: deviceKey, channels } },
   });
   return (
     <Form.Form<typeof deviceFormSchema> {...methods}>
@@ -168,20 +170,27 @@ export interface RenderWithDeviceFormOptions {
    * the form's config.device field, letting a spec flip the selection mid-test.
    */
   selectableKey?: string;
+  /** The form's config.channels. Defaults to none. */
+  channels?: unknown[];
   client?: Synnax | null;
 }
 
 /**
  * Renders ui inside the console provider stack and a Form context shaped like a task
- * config: config.device holds the selected device key, and config.channels is empty.
+ * config: config.device holds the selected device key, and config.channels holds the
+ * channels.
  */
 export const renderWithDeviceForm = async (
   ui: ReactElement,
-  { deviceKey, selectableKey, client = null }: RenderWithDeviceFormOptions,
+  { deviceKey, selectableKey, channels, client = null }: RenderWithDeviceFormOptions,
 ): Promise<RenderResult & { store: TestStore }> => {
   const { wrapper, store } = await createConsoleWrapper({ client });
   const rendered = render(
-    <DeviceFormFixture deviceKey={deviceKey} selectableKey={selectableKey}>
+    <DeviceFormFixture
+      deviceKey={deviceKey}
+      selectableKey={selectableKey}
+      channels={channels}
+    >
       {ui}
     </DeviceFormFixture>,
     { wrapper },
