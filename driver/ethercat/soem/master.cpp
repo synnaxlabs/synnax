@@ -32,6 +32,9 @@ const auto OP_POLL_INTERVAL = x::telem::MILLISECOND;
 const int RECOVERY_TIMEOUT = static_cast<int>(
     (x::telem::MILLISECOND * 500).microseconds()
 );
+/// The distributed clock epoch, 2000-01-01, as a Unix timestamp.
+const x::telem::TimeStamp DC_EPOCH(x::telem::SECOND * 946684800);
+
 /// SOEM group 0 addresses every slave, so enabled and disabled slaves get their own.
 constexpr uint8_t ENABLED_GROUP = 1;
 constexpr uint8_t DISABLED_GROUP = 2;
@@ -131,6 +134,9 @@ x::errors::Error Master::activate() {
             "failed to configure PDO mapping"
         );
 
+    this->api->configdc();
+    this->has_dc = this->api->group_hasdc(ENABLED_GROUP);
+
     this->input_sz = this->api->group_Ibytes(ENABLED_GROUP);
     this->output_sz = this->api->group_Obytes(ENABLED_GROUP);
 
@@ -163,6 +169,7 @@ void Master::deactivate() {
         this->request_state(EC_STATE_INIT, STATE_CHANGE_TIMEOUT);
         this->activated = false;
         this->expected_wkc = 0;
+        this->has_dc = false;
         this->input_sz = 0;
         this->output_sz = 0;
         this->pdo_offsets.clear();
@@ -204,6 +211,11 @@ x::errors::Error Master::send() {
         return x::errors::Error(errors::CYCLIC_ERROR, "process data send failed");
 
     return x::errors::NIL;
+}
+
+std::optional<x::telem::TimeStamp> Master::dc_time() const {
+    if (!this->has_dc) return std::nullopt;
+    return DC_EPOCH + x::telem::TimeSpan(this->api->dc_time());
 }
 
 std::span<const uint8_t> Master::input_data() {

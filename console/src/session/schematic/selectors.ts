@@ -10,7 +10,6 @@
 import { schematic } from "@synnaxlabs/client";
 import { Access, type Control, type Properties, Schematic } from "@synnaxlabs/pluto";
 import { type control, type record } from "@synnaxlabs/x";
-import { useCallback } from "react";
 import { useStore } from "react-redux";
 
 import {
@@ -43,14 +42,11 @@ const createGetter = <R>(selector: (params: KeyedSelectorParams) => R) => {
   const useGetter = (): ((args?: { key?: schematic.Key }) => R) => {
     const store = useStore<StoreState>();
     const scopeKey = Schematic.Scope.useOptional();
-    return useCallback(
-      (args) =>
-        selector({
-          state: store.getState(),
-          key: Schematic.Scope.require(args?.key ?? scopeKey),
-        }),
-      [store, scopeKey],
-    );
+    return (args) =>
+      selector({
+        state: store.getState(),
+        key: Schematic.Scope.require(args?.key ?? scopeKey),
+      });
   };
   return useGetter;
 };

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Nav } from "@synnaxlabs/lyra/nav";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { useBottomActions } from "@/app/nav/bar/bottom";
 import { Palette } from "@/app/palette";
@@ -36,26 +36,12 @@ const BottomMenu = () => {
 const LeftMenu = () => {
   const dispatch = Session.useDispatch();
   const selected = Session.Nav.useSelectLeftSelected();
-  const handleSelect = useCallback(
-    (key: string) => dispatch(Session.Nav.selectLeft({ key })),
-    [dispatch],
-  );
-  const handleToggle = useCallback(
-    (key: string) => dispatch(Session.Nav.toggleLeft({ key })),
-    [dispatch],
-  );
-  const handlePin = useCallback(
-    (key: string) => dispatch(Session.Nav.pinLeft({ key })),
-    [dispatch],
-  );
-  const handleStartover = useCallback(
-    (key: string) => dispatch(Session.Nav.startLeftHover({ key })),
-    [dispatch],
-  );
-  const handleStopHover = useCallback(
-    () => dispatch(Session.Nav.stopLeftHover({})),
-    [dispatch],
-  );
+  const handleSelect = (key: string) => dispatch(Session.Nav.selectLeft({ key }));
+  const handleToggle = (key: string) => dispatch(Session.Nav.toggleLeft({ key }));
+  const handlePin = (key: string) => dispatch(Session.Nav.pinLeft({ key }));
+  const handleStartover = (key: string) =>
+    dispatch(Session.Nav.startLeftHover({ key }));
+  const handleStopHover = () => dispatch(Session.Nav.stopLeftHover({}));
   return (
     <PlatformNav.Menu
       items={Toolbars.LEFT}

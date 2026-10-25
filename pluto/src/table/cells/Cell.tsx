@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { CSS } from "@synnaxlabs/lyra/css";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { transform, useShift } from "@/table/shift";
 
@@ -33,10 +33,7 @@ export const Cell = ({
   ...rest
 }: CellProps): ReactElement => {
   const shift = useShift();
-  const mergedStyle = useMemo(
-    () => ({ ...style, height, transform: transform(shift) }),
-    [style, height, shift],
-  );
+  const mergedStyle = { ...style, height, transform: transform(shift) };
   return (
     <td
       ref={ref}

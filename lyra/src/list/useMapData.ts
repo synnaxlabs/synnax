@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { array, type record } from "@synnaxlabs/x";
-import { useCallback, useMemo } from "react";
 
 import { useInitializerRef } from "@/hooks";
 import { type FrameProps } from "@/list/Frame";
@@ -62,35 +61,23 @@ export const useMapData = <
     return data;
   });
   const { notifyListeners, subscribe } = Store.useKeyedListeners<K>();
-  const setItem = useCallback(
-    (item: E | E[]) => {
-      const items = array.toArray(item);
-      const itemKeys = items.map((i) => i.key);
-      items.forEach((i) => dataRef.current.set(i.key, i));
-      notifyListeners(itemKeys);
-    },
-    [dataRef, notifyListeners],
-  );
-  const deleteItem = useCallback(
-    (key: K | K[]) => {
-      const keys = array.toArray(key);
-      keys.forEach((k) => dataRef.current.delete(k));
-      notifyListeners(keys);
-    },
-    [dataRef, notifyListeners],
-  );
-  const getItem = useCallback(
-    (key?: K | K[]) => {
-      if (key == null) return;
-      if (Array.isArray(key))
-        return key.map((k) => dataRef.current.get(k)).filter((i) => i != null);
-      return dataRef.current.get(key);
-    },
-    [dataRef],
-  ) as GetItem<K, E>;
-  const hasItem = useCallback((key: K) => dataRef.current.has(key), [dataRef]);
-  return useMemo(
-    () => ({ setItem, deleteItem, subscribe, getItem, hasItem }),
-    [setItem, deleteItem, subscribe, getItem, hasItem],
-  );
+  const setItem = (item: E | E[]) => {
+    const items = array.toArray(item);
+    const itemKeys = items.map((i) => i.key);
+    items.forEach((i) => dataRef.current.set(i.key, i));
+    notifyListeners(itemKeys);
+  };
+  const deleteItem = (key: K | K[]) => {
+    const keys = array.toArray(key);
+    keys.forEach((k) => dataRef.current.delete(k));
+    notifyListeners(keys);
+  };
+  const getItem = ((key?: K | K[]) => {
+    if (key == null) return;
+    if (Array.isArray(key))
+      return key.map((k) => dataRef.current.get(k)).filter((i) => i != null);
+    return dataRef.current.get(key);
+  }) as GetItem<K, E>;
+  const hasItem = (key: K) => dataRef.current.has(key);
+  return { setItem, deleteItem, subscribe, getItem, hasItem };
 };

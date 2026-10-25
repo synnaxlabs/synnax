@@ -17,7 +17,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
 import { box, direction, xy } from "@synnaxlabs/x";
-import { memo, type ReactElement, useCallback, useMemo, useRef } from "react";
+import { memo, type ReactElement, useRef } from "react";
 
 import { transform } from "@/table/shift";
 
@@ -62,23 +62,16 @@ export const ColumnIndicators = memo(
   }: ColumnIndicatorsProps): ReactElement => {
     // cellToCol indexes the rows once per layout change so selectedCols can
     // resolve each selected cell to its column in O(1).
-    const cellToCol = useMemo(() => {
-      const map = new Map<string, number>();
-      for (const row of rows) row.cells.forEach((k, i) => map.set(k, i));
-      return map;
-    }, [rows]);
-    const selectedCols = useMemo(() => {
-      const cols = new Set<number>();
-      for (const k of selected) {
-        const idx = cellToCol.get(k);
-        if (idx !== undefined) cols.add(idx);
-      }
-      return cols;
-    }, [cellToCol, selected]);
-    const totalCells = useMemo(
-      () => rows.reduce((n, r) => n + r.cells.length, 0),
-      [rows],
-    );
+    const map = new Map<string, number>();
+    for (const row of rows) row.cells.forEach((k, i) => map.set(k, i));
+    const cellToCol = map;
+    const cols = new Set<number>();
+    for (const k of selected) {
+      const idx = cellToCol.get(k);
+      if (idx !== undefined) cols.add(idx);
+    }
+    const selectedCols = cols;
+    const totalCells = rows.reduce((n, r) => n + r.cells.length, 0);
     const allSelected = totalCells > 0 && selected.length >= totalCells;
     return (
       <tr className={CSS.cls(CSS.BE("table", "row"), CSS.BE("table", "col-resizer"))}>
@@ -142,19 +135,13 @@ export const Indicator = ({
   const valueRef = useSyncedRef(value);
   const sizeRef = useRef(value);
   const onDragStart = Cursor.useDrag({
-    onStart: useCallback(() => {
+    onStart: () => {
       sizeRef.current = valueRef.current;
-    }, [valueRef]),
-    onMove: useCallback(
-      (b: box.Box) => onChange(sizeRef.current + box.dim(b, dir, true), itemKey),
-      [onChange, itemKey, dir],
-    ),
+    },
+    onMove: (b: box.Box) => onChange(sizeRef.current + box.dim(b, dir, true), itemKey),
   });
   const dim = direction.dimension(dir);
-  const style = useMemo(
-    () => ({ [dim]: value, transform: transform(xy.construct(dir, shift)) }),
-    [dim, dir, value, shift],
-  );
+  const style = { [dim]: value, transform: transform(xy.construct(dir, shift)) };
   const label = dir === "x" ? getCellColumn(index) : index + 1;
   return (
     <td
