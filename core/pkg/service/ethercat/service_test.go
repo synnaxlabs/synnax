@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -36,24 +35,20 @@ import (
 func openDevices(ctx SpecContext, db *gorp.DB) *device.Service {
 	GinkgoHelper()
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	searchIdx := MustOpen(search.OpenIndex())
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Search:   searchIdx,
 	}))
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
-		Search:   searchIdx,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
 		Label:    labelSvc,
-		Search:   searchIdx,
 	}))
 	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:           db,
@@ -61,7 +56,6 @@ func openDevices(ctx SpecContext, db *gorp.DB) *device.Service {
 		Group:        groupSvc,
 		HostProvider: mock.NewStaticHostProvider(1),
 		Status:       statusSvc,
-		Search:       searchIdx,
 	}))
 	devices := MustOpen(device.OpenService(ctx, device.ServiceConfig{
 		DB:       db,
@@ -69,7 +63,6 @@ func openDevices(ctx SpecContext, db *gorp.DB) *device.Service {
 		Group:    groupSvc,
 		Status:   statusSvc,
 		Rack:     rackSvc,
-		Search:   searchIdx,
 	}))
 	entry := func(name string, index int) map[string]any {
 		return map[string]any{

@@ -21,7 +21,6 @@ import (
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
@@ -76,7 +75,7 @@ type ServiceConfig[E any] struct {
 	SetEntryKey func(e *E, key uuid.UUID)
 	// Migrations is the stored-shape migration chain for the record type. Empty for
 	// a type whose stored shape has never changed.
-	Migrations []migrate.Migration
+	Migrations []gorp.Migration
 	// Ladder decodes typed config blobs at every version the type has exported and
 	// migrates them to the current shape. Its Latest is stamped on exports.
 	// [REQUIRED]

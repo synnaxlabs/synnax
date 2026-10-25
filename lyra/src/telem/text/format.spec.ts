@@ -27,6 +27,30 @@ describe("describeDay", () => {
   });
 });
 
+describe("nextMidnight", () => {
+  it("should return the next local midnight", () => {
+    expect(
+      Telem.Text.nextMidnight(NOW).equals(new TimeStamp(new Date(2026, 7, 24))),
+    ).toBe(true);
+  });
+
+  it("should return the next day's midnight at midnight", () => {
+    const midnight = new TimeStamp(new Date(2026, 7, 24));
+    expect(
+      Telem.Text.nextMidnight(midnight).equals(new TimeStamp(new Date(2026, 7, 25))),
+    ).toBe(true);
+  });
+
+  it("should return the next UTC midnight in UTC", () => {
+    const now = new TimeStamp(new Date(Date.UTC(2026, 7, 23, 14, 5)));
+    expect(
+      Telem.Text.nextMidnight(now, "UTC").equals(
+        new TimeStamp(new Date(Date.UTC(2026, 7, 24))),
+      ),
+    ).toBe(true);
+  });
+});
+
 describe("formatTime", () => {
   it("should drop zero seconds and keep set precision", () => {
     expect(Telem.Text.formatTime(NOW)).toBe("14:05");

@@ -21,14 +21,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestSymbol(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Schematic Symbol Suite")
+	RunSpecs(t, "Service Schematic Symbol Suite", SuiteConfig())
 }
 
 var (
@@ -45,23 +44,19 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	searchIdx := MustOpen(search.OpenIndex())
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Search:   searchIdx,
 	}))
 	panelSvc := MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Search:   searchIdx,
 	}))
 	imexSvc = imex.NewService()
 	projectSvc := MustOpen(project.OpenService(ctx, project.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
-		Search:   searchIdx,
 		ImEx:     imexSvc,
 		Panel:    panelSvc,
 	}))
@@ -69,7 +64,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
-		Search:   searchIdx,
 		ImEx:     imexSvc,
 	}))
 	proj.Name = "test-project"

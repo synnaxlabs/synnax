@@ -21,25 +21,20 @@ import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
 import { Session } from "@/session";
 
-const LINKS: Link.Registry = {
-  ...Arc.LINKS,
-  ...Channel.LINKS,
-  ...Device.LINKS,
-  ...LinePlot.LINKS,
-  ...Log.LINKS,
-  ...Range.LINKS,
-  ...Schematic.LINKS,
-  ...Table.LINKS,
-  ...Task.LINKS,
-  ...Project.LINKS,
-};
-
-const useLinks = (): void => {
-  const linkHandlers = Object.fromEntries(
-    Object.entries(LINKS).map(([key, handler]) => [key, handler()]),
-  );
-  Link.useDeep(Core.useLink(), linkHandlers);
-};
+// Keyed by the resource type, the segment after the cluster key in a deep link.
+const useLinks = (): void =>
+  Link.useDeep(Core.useLink(), {
+    arc: Arc.useLink(),
+    channel: Channel.useLink(),
+    device: Device.useLink(),
+    lineplot: LinePlot.useLink(),
+    log: Log.useLink(),
+    project: Project.useLink(),
+    range: Range.useLink(),
+    schematic: Schematic.useLink(),
+    table: Table.useLink(),
+    task: Task.useLink(),
+  });
 
 // Synnax Desktop takes one link, its login, and Account.Guard handles that one.
 export const useDeep: () => void = Session.Runtime.LINKS_DISABLED ? () => {} : useLinks;

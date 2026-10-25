@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
@@ -24,7 +24,7 @@ export const Symbol = ({
   selected,
   config: { label, control, commandChannel, ...rest },
 }: NodeProps<schematic.InputNodeConfig>): ReactElement => {
-  const sink = useMemo(() => Telem.stringSink(commandChannel), [commandChannel]);
+  const sink = Telem.stringSink(commandChannel);
   const { set } = InputTelem.use({ aetherKey: nodeKey, sink });
   return (
     <Grid.Grid nodeKey={nodeKey} allowRotate={false} editable={selected}>

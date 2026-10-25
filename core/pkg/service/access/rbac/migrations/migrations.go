@@ -10,14 +10,14 @@
 package migrations
 
 import (
+	"github.com/synnaxlabs/gorp"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/migrations/v0"
-	"github.com/synnaxlabs/x/migrate"
 )
 
 // Config is the configuration for New.
 type Config = v0.MigrationConfig
 
 // New returns the ordered migration chain for RBAC.
-func New(cfg Config) []migrate.Migration {
-	return []migrate.Migration{v0.NewMigration(cfg)}
+func New(cfg Config) []gorp.Migration {
+	return []gorp.Migration{v0.NewMigration(cfg)}
 }

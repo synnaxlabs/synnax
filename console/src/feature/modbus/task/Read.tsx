@@ -17,7 +17,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Telem } from "@synnaxlabs/pluto";
 import { DataType, deep, errors, id, primitive } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/modbus/device/queries";
 import { Select as SelectDevice } from "@/feature/modbus/device/Select";
@@ -136,13 +136,8 @@ const listItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => {
   const dev = useFromConfig();
-  const resolve = useCallback(
-    (c: ReadChannel) =>
-      dev == null
-        ? null
-        : { channel: dev.properties.read.channels[readMapKey(c)] ?? 0 },
-    [dev],
-  );
+  const resolve = (c: ReadChannel) =>
+    dev == null ? null : { channel: dev.properties.read.channels[readMapKey(c)] ?? 0 };
   return (
     <Task.Views.List<ReadChannel>
       createChannel={getOpenChannel}

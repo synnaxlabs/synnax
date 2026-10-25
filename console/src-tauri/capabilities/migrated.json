@@ -37,6 +37,7 @@
     "core:window:allow-close",
     "core:window:allow-destroy",
     "core:window:allow-set-decorations",
+    "core:window:allow-set-theme",
     "core:window:allow-set-always-on-top",
     "core:window:allow-set-content-protected",
     "core:window:allow-set-size",

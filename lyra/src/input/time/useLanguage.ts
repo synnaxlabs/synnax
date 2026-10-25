@@ -9,17 +9,18 @@
 
 import { useEffect, useState } from "react";
 
-import { languageLoaded, loadLanguage } from "@/input/time/suggest";
+import { type Language, loadedLanguage, loadLanguage } from "@/input/time/suggest";
 
 /**
  * Loads the natural-language parser on mount.
- * @returns true once phrases read, so a memoized suggest function can refresh.
+ * @returns the parser once it loads, or null until then.
  */
-export const useLanguage = (): boolean => {
-  const [ready, setReady] = useState(languageLoaded);
+export const useLanguage = (): Language | null => {
+  // The parser is callable, so it passes through updaters, never as a bare value.
+  const [language, setLanguage] = useState(() => loadedLanguage());
   useEffect(() => {
-    if (ready) return;
-    void loadLanguage().then(() => setReady(true));
-  }, [ready]);
-  return ready;
+    if (language != null) return;
+    void loadLanguage().then((loaded) => setLanguage(() => loaded));
+  }, [language]);
+  return language;
 };

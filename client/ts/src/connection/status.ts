@@ -379,7 +379,9 @@ const reduceCheckFailure = (
 
 const reduceStreamLive = (prev: Status): Status => {
   const parked = prev.variant === "error" && prev.details.reason !== "unreachable";
-  if (parked) return update(prev, { streamLive: true, streamDenied: false });
+  // A stream opened under replaced credentials says nothing about the new ones.
+  if (parked || !prev.details.authenticated)
+    return update(prev, { streamLive: true, streamDenied: false });
   return enter(prev, "success", CONNECTED, {
     streamLive: true,
     streamDenied: false,
@@ -444,6 +446,7 @@ export const reduce = (prev: Status, event: Event, config: Config): Status => {
       return enter(prev, "loading", CONNECTING, {
         error: undefined,
         streamDenied: false,
+        authenticated: false,
       });
     case "closed":
       return enter(prev, "disabled", "Closed", {

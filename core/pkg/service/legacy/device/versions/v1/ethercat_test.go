@@ -18,7 +18,6 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -31,7 +30,7 @@ var _ = Describe("EtherCATChannelMapMigration", func() {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  "Device",
-			Migrations: []migrate.Migration{v1.EtherCATChannelMapMigration},
+			Migrations: []gorp.Migration{v1.EtherCATChannelMapMigration},
 		})).To(Succeed())
 		var got v1.Device
 		Expect(gorp.NewRetrieve[v1.Key, v1.Device]().
@@ -194,7 +193,7 @@ var _ = Describe("EtherCATChannelMapMigration", func() {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  "Device",
-			Migrations: []migrate.Migration{v1.EtherCATChannelMapMigration},
+			Migrations: []gorp.Migration{v1.EtherCATChannelMapMigration},
 		})).To(SatisfyAll(
 			MatchError(ContainSubstring(
 				"migration v60_ethercat_channel_map_addresses failed: entry slave "+

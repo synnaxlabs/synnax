@@ -46,6 +46,7 @@ struct MockSlaveInfo {
 class MockAPI final : public API {
 public:
     std::vector<MockSlaveInfo> slave_infos;
+    x::errors::Error check_socket_err = x::errors::NIL;
     int init_return = 1;
     int config_init_return = 1;
     int config_map_return = 64;
@@ -90,11 +91,22 @@ public:
     std::vector<uint16_t> recovered_slaves;
     /// @brief slaves passed to writestate, in call order.
     std::vector<uint16_t> written_slaves;
+    /// @brief the value count_bus_slaves returns, or nullopt for the slave count.
+    std::optional<int> bus_slaves;
+    /// @brief whether the mapped group carries the reference clock time.
+    bool hasdc = false;
+    int configdc_count = 0;
+    /// @brief the value dc_time returns.
+    int64_t dc_time_value = 0;
 
 private:
     uint8_t *iomap_ptr = nullptr;
 
 public:
+    x::errors::Error check_socket(const char *) override {
+        return this->check_socket_err;
+    }
+
     int init(const char *) override {
         this->init_called = true;
         return this->init_return;
@@ -143,6 +155,17 @@ public:
         }
         return lowest;
     }
+
+    int count_bus_slaves() override {
+        return this->bus_slaves.value_or(static_cast<int>(this->slave_infos.size()));
+    }
+
+    bool configdc() override {
+        this->configdc_count++;
+        return this->hasdc;
+    }
+
+    [[nodiscard]] int64_t dc_time() const override { return this->dc_time_value; }
 
     int reconfig_slave(uint16_t slave, int) override {
         this->reconfigured_slaves.push_back(slave);
@@ -336,6 +359,10 @@ public:
 
     [[nodiscard]] uint16_t group_inputsWKC(uint8_t group) const override {
         return group == this->mapped_group ? this->inputs_wkc : 0;
+    }
+
+    [[nodiscard]] bool group_hasdc(uint8_t group) const override {
+        return group == this->mapped_group && this->hasdc;
     }
 };
 

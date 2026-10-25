@@ -8,14 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { bounds, box, direction, math } from "@synnaxlabs/x";
-import {
-  Children,
-  type ReactElement,
-  type ReactNode,
-  useCallback,
-  useRef,
-  useState,
-} from "react";
+import { Children, type ReactElement, type ReactNode, useRef, useState } from "react";
 
 import { CSS } from "@/css";
 import { Cursor } from "@/cursor";
@@ -98,41 +91,32 @@ export const Split = ({
   const parentSize = useRef(0);
   const [first, last] = Children.toArray(children);
 
-  const handleStart = useCallback(() => {
+  const handleStart = () => {
     start.current = size;
     if (ref.current != null)
       parentSize.current = box.dim(box.construct(ref.current), dir);
-  }, [size, dir]);
+  };
 
-  const calcNextSize = useCallback(
-    (region: box.Box): number | null => {
-      const total = parentSize.current;
-      if (total === 0) return null;
-      const min = Math.min(minSize / total, 0.5);
-      const diff = box.dim(region, dir, true) / total;
-      return bounds.clamp({ lower: min, upper: 1 - min }, start.current + diff);
-    },
-    [dir, minSize],
-  );
+  const calcNextSize = (region: box.Box): number | null => {
+    const total = parentSize.current;
+    if (total === 0) return null;
+    const min = Math.min(minSize / total, 0.5);
+    const diff = box.dim(region, dir, true) / total;
+    return bounds.clamp({ lower: min, upper: 1 - min }, start.current + diff);
+  };
 
-  const handleMove = useCallback(
-    (region: box.Box) => {
-      const next = calcNextSize(region);
-      if (next == null) return;
-      setDragSize(next);
-      onResize?.(next);
-    },
-    [calcNextSize, onResize],
-  );
+  const handleMove = (region: box.Box) => {
+    const next = calcNextSize(region);
+    if (next == null) return;
+    setDragSize(next);
+    onResize?.(next);
+  };
 
-  const handleEnd = useCallback(
-    (region: box.Box) => {
-      const next = calcNextSize(region);
-      setDragSize(null);
-      if (next != null) onResizeEnd?.(next);
-    },
-    [calcNextSize, onResizeEnd],
-  );
+  const handleEnd = (region: box.Box) => {
+    const next = calcNextSize(region);
+    setDragSize(null);
+    if (next != null) onResizeEnd?.(next);
+  };
 
   const handleDragStart = Cursor.useDrag({
     onStart: handleStart,

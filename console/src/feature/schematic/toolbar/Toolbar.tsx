@@ -17,7 +17,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Panel as PlutoPanel, Schematic } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { Control } from "@/feature/schematic/toolbar/Control";
 import { Properties } from "@/feature/schematic/toolbar/Properties";
@@ -59,23 +59,21 @@ const useChangeableSymbols = (
 ): Map<string, Schematic.Node.Config> => {
   const configs = Schematic.useConfigs({ keys: selected });
   const parentOf = Schematic.useParentOf();
-  return useMemo(() => {
-    const shielded = Schematic.Group.shielded(
-      [...configs.keys()],
-      parentOf,
-      Object.fromEntries(configs),
-    );
-    const out = new Map<string, Schematic.Node.Config>();
-    configs.forEach((config, key) => {
-      if (
-        Schematic.Node.isConfig(config) &&
-        config.variant !== Schematic.Node.GroupBox.VARIANT &&
-        !shielded.has(key)
-      )
-        out.set(key, config);
-    });
-    return out;
-  }, [configs, parentOf]);
+  const shielded = Schematic.Group.shielded(
+    [...configs.keys()],
+    parentOf,
+    Object.fromEntries(configs),
+  );
+  const out = new Map<string, Schematic.Node.Config>();
+  configs.forEach((config, key) => {
+    if (
+      Schematic.Node.isConfig(config) &&
+      config.variant !== Schematic.Node.GroupBox.VARIANT &&
+      !shielded.has(key)
+    )
+      out.set(key, config);
+  });
+  return out;
 };
 
 interface SymbolName {
@@ -162,40 +160,34 @@ const Internal = (): ReactElement => {
   const current = useSymbolName(changeable);
   const changing = Session.Schematic.useSelectChanging();
   const changeSymbol = Schematic.useChangeSymbol();
-  const setChanging = useCallback(
-    (changing: boolean) => dispatch(Session.Schematic.setChanging({ key, changing })),
-    [dispatch, key],
-  );
-  const change = useMemo((): SymbolsChangeProps | undefined => {
-    if (!changing) return undefined;
-    return {
-      value: current.symbol,
-      onChange: (input) => {
-        changeSymbol([...changeable.keys()], input);
-        setChanging(false);
-      },
-    };
-  }, [changing, current.symbol, changeSymbol, changeable, setChanging]);
+  const setChanging = (changing: boolean) =>
+    dispatch(Session.Schematic.setChanging({ key, changing }));
   const singleSelectedConfig = Schematic.useElementConfig({
     elKey: selected.length === 1 ? selected[0] : "",
   });
+  const change: SymbolsChangeProps | undefined = changing
+    ? {
+        value: current.symbol,
+        onChange: (input) => {
+          changeSymbol([...changeable.keys()], input);
+          setChanging(false);
+        },
+      }
+    : undefined;
   const singleSelectedName =
     selected.length === 1 &&
     singleSelectedConfig != null &&
     "label" in singleSelectedConfig
       ? (singleSelectedConfig.label?.label ?? null)
       : null;
-  const handleTabSelect = useCallback(
-    (tabKey: string): void => {
-      dispatch(
-        Session.Schematic.selectToolbarTab({
-          key,
-          tab: tabKey as Session.Schematic.ToolbarTab,
-        }),
-      );
-    },
-    [dispatch],
-  );
+  const handleTabSelect = (tabKey: string): void => {
+    dispatch(
+      Session.Schematic.selectToolbarTab({
+        key,
+        tab: tabKey as Session.Schematic.ToolbarTab,
+      }),
+    );
+  };
   return (
     <Base.Content>
       <Tabs.Frame value={activeTab} onChange={handleTabSelect} grow>

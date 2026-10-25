@@ -17,21 +17,22 @@ import (
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/address"
-	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type Frame = framer.Frame
@@ -44,6 +45,50 @@ const (
 	frameWriterAddr    address.Address = "writer"
 )
 
+// ServiceConfig is the configuration for the framer API service.
+type ServiceConfig struct {
+	// Instrumentation for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
+	alamos.Instrumentation
+	// Framer reads, writes, and streams frames of telemetry.
+	//
+	// [REQUIRED]
+	Framer *framer.Service
+	// Channel stores and retrieves channels.
+	//
+	// [REQUIRED]
+	Channel *channel.Service
+	// RBAC enforces access control on every request.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
+}
+
+var (
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for the framer API service.
+	DefaultServiceConfig = ServiceConfig{}
+)
+
+// Override implements config.Config.
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.Framer = override.Nil(c.Framer, other.Framer)
+	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	return c
+}
+
+// Validate implements config.Config.
+func (c ServiceConfig) Validate() error {
+	v := validate.New("api.framer")
+	v.NotNil("framer", c.Framer)
+	v.NotNil("channel", c.Channel)
+	v.NotNil("rbac", c.RBAC)
+	return v.Error()
+}
+
 type Service struct {
 	access   *rbac.Service
 	channel  *channel.Service
@@ -51,16 +96,16 @@ type Service struct {
 	alamos.Instrumentation
 }
 
-func NewService(cfgs ...config.LayerConfig) (*Service, error) {
-	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	return &Service{
 		Instrumentation: cfg.Instrumentation,
-		internal:        cfg.Service.Framer,
-		channel:         cfg.Service.Channel,
-		access:          cfg.Service.RBAC,
+		internal:        cfg.Framer,
+		channel:         cfg.Channel,
+		access:          cfg.RBAC,
 	}, nil
 }
 
@@ -108,9 +153,11 @@ func (s *Service) Delete(
 
 // ReadRequest requests every sample in Bounds for the given channels.
 type ReadRequest struct {
-	Keys             channel.Keys    `json:"keys"              msgpack:"keys"`
-	Bounds           telem.TimeRange `json:"bounds"            msgpack:"bounds"`
-	DownsampleFactor uint32          `json:"downsample_factor" msgpack:"downsample_factor"`
+	Keys   channel.Keys    `json:"keys"   msgpack:"keys"`
+	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds"`
+	// Reduction reduces the samples of each channel. A read without one keeps every
+	// sample.
+	Reduction telem.Reduction `json:"reduction" msgpack:"reduction"`
 	// TimestampsIncluded also reads the index channels that timestamp Keys, when Keys
 	// leaves them out. A CSV read fails without it unless Keys holds every index.
 	TimestampsIncluded bool `json:"timestamps_included" msgpack:"timestamps_included"`
@@ -125,11 +172,10 @@ type ReadResponse struct {
 	// requested channels, excluding any the caller already requested. It is empty
 	// unless the request set TimestampsIncluded.
 	Indexes []channel.Channel
-	// DownsampleFactor is the request's downsample factor. Sample i of a series sits at
-	// the series' alignment plus i times the factor. Values below 2 keep every sample.
-	DownsampleFactor uint32
-	// OpenIterator opens an iterator over keys within the read's bounds and at its
-	// downsample factor. The caller must close it.
+	// Reduction is the request's reduction.
+	Reduction telem.Reduction
+	// OpenIterator opens an iterator over keys within the read's bounds and under its
+	// reduction. The caller must close it.
 	OpenIterator func(ctx context.Context, keys channel.Keys) (*framer.Iterator, error)
 }
 
@@ -163,17 +209,17 @@ func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, erro
 		}
 	}
 	return ReadResponse{
-		Channels:         channels,
-		Indexes:          indexes,
-		DownsampleFactor: req.DownsampleFactor,
+		Channels:  channels,
+		Indexes:   indexes,
+		Reduction: req.Reduction,
 		OpenIterator: func(
 			ctx context.Context,
 			keys channel.Keys,
 		) (*framer.Iterator, error) {
 			return s.internal.OpenIterator(ctx, framer.IteratorConfig{
-				Keys:             keys,
-				Bounds:           req.Bounds,
-				DownsampleFactor: req.DownsampleFactor,
+				Keys:      keys,
+				Bounds:    req.Bounds,
+				Reduction: req.Reduction,
 			})
 		},
 	}, nil
@@ -285,7 +331,7 @@ func (s *Service) Iterate(ctx context.Context, stream IteratorStream) error {
 		iteratorRequestBufferSize,
 	)
 
-	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())
 	return sCtx.Wait()
 }
 
@@ -305,10 +351,10 @@ func (s *Service) openIterator(
 		return nil, err
 	}
 	iter, err := s.internal.NewStreamIterator(ctx, framer.IteratorConfig{
-		Bounds:           req.Bounds,
-		Keys:             req.Keys,
-		ChunkSize:        req.ChunkSize,
-		DownsampleFactor: req.DownsampleFactor,
+		Bounds:    req.Bounds,
+		Keys:      req.Keys,
+		ChunkSize: req.ChunkSize,
+		Reduction: req.Reduction,
 	})
 	if err != nil {
 		return nil, err

@@ -254,6 +254,27 @@ describe("queries", () => {
       expect(result.current.data?.[0].key).toEqual(role.key);
     });
 
+    it("should pick up an edit to an assigned role by another client", async () => {
+      const remote = createTestClient();
+      const role = await client.access.roles.create({
+        name: `edited-${id.create()}`,
+        description: "Before",
+      });
+      const u = await createUser("role-edit");
+      await client.access.roles.assign({ user: u.key, role: role.key });
+
+      const { result } = renderHook(() => Role.useResultForUser({ user: u.key }), {
+        wrapper,
+      });
+      await waitFor(() =>
+        expect(result.current.data?.[0]?.description).toEqual("Before"),
+      );
+      await remote.access.roles.create({ ...role, description: "After" });
+      await waitFor(() =>
+        expect(result.current.data?.[0]?.description).toEqual("After"),
+      );
+    });
+
     it("should not read at all when the query is null", async () => {
       const { result } = renderHook(() => Role.useResultForUser(null), { wrapper });
       expect(result.current.data).toBeUndefined();

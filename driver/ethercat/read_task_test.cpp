@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/test/test.h"
 
+#include "driver/ethercat/ethercat.h"
 #include "driver/ethercat/mock/master.h"
 #include "driver/ethercat/read_task.h"
 #include "driver/pipeline/mock/pipeline.h"
@@ -609,6 +612,38 @@ TEST_F(EtherCATReadTest, SourceReadsDataFromEngine) {
     ASSERT_NIL(source.stop());
 }
 
+/// @brief it should report samples that failed bus cycles dropped as a warning with a
+/// message and a description.
+TEST_F(EtherCATReadTest, SourceReportsDroppedSamplesAsAWarning) {
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
+    );
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    auto source = ReadTaskSource(this->engine, std::move(task_cfg));
+    ASSERT_NIL(source.start());
+
+    const auto receives = this->mock_master->call_count("receive");
+    this->mock_master->inject_receive_error(
+        x::errors::Error(errors::WORKING_COUNTER_ERROR, "expected 3, got 1")
+    );
+    ASSERT_EVENTUALLY_GE(this->mock_master->call_count("receive"), receives + 3);
+    this->mock_master->clear_injected_errors();
+
+    x::breaker::Breaker brk;
+    brk.start();
+    x::telem::Frame frame;
+    const auto result = source.read(brk, frame);
+    ASSERT_NIL(result.error);
+    EXPECT_EQ(result.warning.message, "Dropped samples");
+    EXPECT_EQ(result.warning.description, "Bus cycles failed: expected 3, got 1.");
+    brk.stop();
+    ASSERT_NIL(source.stop());
+}
+
 TEST_F(EtherCATReadTest, SourceReadsCorrectValueFromEngine) {
     auto data_ch = ASSERT_NIL_P(this->client->channels.create(
         make_unique_channel_name("analog"),
@@ -746,6 +781,53 @@ TEST_F(EtherCATReadTest, SourceReadsMultipleChannelValues) {
 
     brk.stop();
     ASSERT_NIL(source.stop());
+}
+
+/// @brief it should retry a read task without a limit while every bus cycle fails,
+/// because the bus recovers a lost device without a limit.
+TEST_F(EtherCATReadTest, ReadTaskRetriesFailedCyclesWithoutALimit) {
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
+    );
+    auto manager = std::make_unique<mock::Manager>();
+    manager->configure(NETWORK_INTERFACE, this->mock_master);
+    Factory factory(std::move(manager));
+    const synnax::task::Task task{
+        .rack = this->rack.key,
+        .name = "read",
+        .type = READ_TASK_TYPE,
+        .config = cfg,
+    };
+    auto [read_task, ok] = factory.configure_task(this->ctx, task, "");
+    ASSERT_TRUE(ok);
+    ASSERT_NE(read_task, nullptr);
+    this->mock_master->inject_receive_error(
+        x::errors::Error(errors::WORKING_COUNTER_ERROR, "expected 3, got 1")
+    );
+    synnax::task::Command start{.task = task.key, .type = "start"};
+    read_task->exec(start);
+    // The first read fails after 400 ms, which is 40 cycles at 100 Hz.
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        this->mock_master->call_count("receive"),
+        60,
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    synnax::task::Command stop{.task = task.key, .type = "stop"};
+    read_task->exec(stop);
+    const auto warning = std::ranges::find(
+        this->ctx->statuses,
+        std::string(synnax::status::VARIANT_WARNING),
+        &synnax::task::Status::variant
+    );
+    ASSERT_NE(warning, this->ctx->statuses.end());
+    EXPECT_EQ(warning->message, "Failed to read data");
+    EXPECT_EQ(
+        warning->description,
+        "every bus cycle failed: expected 3, got 1 Next retry 1/∞ in 1.0 s."
+    );
 }
 
 TEST_F(EtherCATReadTest, SourceReturnsEmptyFrameWhenBreakerStopped) {

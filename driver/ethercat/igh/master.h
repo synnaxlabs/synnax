@@ -83,6 +83,8 @@ public:
 
     x::errors::Error initialize() override;
 
+    std::pair<size_t, x::errors::Error> count_slaves() override;
+
     void set_slave_enabled(uint16_t position, bool enabled) override;
 
     x::errors::Error activate() override;
@@ -105,6 +107,9 @@ public:
     /// @brief reports each configured slave. The IgH master returns slaves that leave
     /// OP to it on its own, so this takes no recovery step.
     std::vector<slave::Health> check(const x::breaker::Breaker &breaker) override;
+
+    /// @brief returns nullopt, since this master does not read the distributed clock.
+    std::optional<x::telem::TimeStamp> dc_time() const override { return std::nullopt; }
 
     std::string interface_name() const override;
 

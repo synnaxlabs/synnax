@@ -9,7 +9,7 @@
 
 import { type compare, type record, type state } from "@synnaxlabs/x";
 import Fuse from "fuse.js";
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { type FrameProps, type GetItem } from "@/list/Frame";
 
@@ -53,12 +53,13 @@ export const useStaticData = <
   filter,
   sort,
 }: UseStaticDataParams<K, E>): UseStaticDataReturn<K, E> => {
-  const filteredData = useMemo(() => {
-    let result = data;
-    if (filter != null) result = result.filter((d) => filter(d, {}));
-    if (sort != null) result = [...result].sort(sort);
-    return result;
-  }, [data, filter, sort]);
+  const [params, setParams] = useState<RetrieveParams>({});
+  let filteredData = data;
+  if (filter != null) filteredData = filteredData.filter((d) => filter(d, {}));
+  if (sort != null) filteredData = [...filteredData].sort(sort);
+  // The compiler reads fuse.search as a write to filteredData, so without this memo it
+  // rebuilds the index and getItem on every search.
+  // eslint-disable-next-line no-restricted-syntax
   const fuse = useMemo(() => {
     if (filteredData.length === 0) return null;
     return new Fuse(filteredData, {
@@ -66,26 +67,20 @@ export const useStaticData = <
       threshold: 0.3,
     });
   }, [filteredData]);
-  const [params, setParams] = useState<RetrieveParams>({});
-  const getItem = useCallback(
-    ((key: K | K[]) => {
-      if (Array.isArray(key)) {
-        const keySet = new Set(key);
-        return filteredData.filter((d) => keySet.has(d.key));
-      }
-      return filteredData.find((d) => d.key === key);
-    }) as GetItem<K, E>,
-    [filteredData],
-  );
-  const res = useMemo(() => {
-    let processedData = filteredData;
-    if (params.searchTerm != null && params.searchTerm.length > 0 && fuse != null) {
-      const searchResults = fuse.search(params.searchTerm);
-      processedData = searchResults.map((result) => result.item);
-      if (sort != null) processedData = [...processedData].sort(sort);
+  const getItem = ((key: K | K[]) => {
+    if (Array.isArray(key)) {
+      const keySet = new Set(key);
+      return filteredData.filter((d) => keySet.has(d.key));
     }
-    const keys = processedData.map((d) => d.key);
-    return { getItem, data: keys };
-  }, [filteredData, params, getItem, fuse, sort]);
-  return useMemo(() => ({ ...res, retrieve: setParams }), [res, setParams]);
+    return filteredData.find((d) => d.key === key);
+  }) as GetItem<K, E>;
+  let processedData = filteredData;
+  if (params.searchTerm != null && params.searchTerm.length > 0 && fuse != null) {
+    const searchResults = fuse.search(params.searchTerm);
+    processedData = searchResults.map((result) => result.item);
+    if (sort != null) processedData = [...processedData].sort(sort);
+  }
+  const keys = processedData.map((d) => d.key);
+  const res = { getItem, data: keys };
+  return { ...res, retrieve: setParams };
 };

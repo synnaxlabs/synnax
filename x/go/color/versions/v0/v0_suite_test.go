@@ -19,7 +19,7 @@ import (
 
 func TestColorV0(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Color v0 Suite")
+	RunSpecs(t, "Color v0 Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

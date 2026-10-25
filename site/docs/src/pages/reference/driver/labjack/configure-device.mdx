@@ -12,7 +12,7 @@ nextURL: "/reference/driver/labjack/read-task"
 import { Text as TextComponent } from "@/components/text";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Image, Video } from "@/components/media/Media";
 import { Details } from "@/components/details";
@@ -23,7 +23,7 @@ export const components = mdxOverrides;
 
 The Synnax Driver reads from and writes to LabJack T-Series devices.
 
-<Note.Note variant="warning" className="compact">
+<Note.Note variant="warning">
   Only T-Series devices are supported. If you are interested in using Synnax with other
   LabJack devices, [contact us](https://www.synnaxlabs.com/#contact).
 </Note.Note>
@@ -69,7 +69,7 @@ that you have the following:
 | `identifier`      | string | Yes      | Device identifier: serial number, IP address, device name, etc.         |
 | `connection_type` | string | No       | Connection method: `ANY` (default), `USB`, `TCP`, `ETHERNET`, or `WIFI` |
 
-<Note.Note variant="info" className="compact">
+<Note.Note variant="info">
   `connection_type` is only supported through the Python and TypeScript client
   libraries.
 </Note.Note>
@@ -78,7 +78,7 @@ that you have the following:
 
 ## How-to
 
-<Note.Note variant="warning" className="compact">
+<Note.Note variant="warning">
   Before you begin, connect to your device and update it using
   [Kipling](https://support.labjack.com/docs/kipling).
 </Note.Note>

@@ -10,7 +10,7 @@
 import { query, table } from "@synnaxlabs/client";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { uuid } from "@synnaxlabs/x";
-import { type ClipboardEventHandler, useCallback } from "react";
+import { type ClipboardEventHandler } from "react";
 
 import { Synnax } from "@/synnax";
 import { Cell } from "@/table/cells";
@@ -63,145 +63,139 @@ export const useClipboard = ({
   const client = Synnax.use();
   const selectedRef = useSyncedRef(selected ?? []);
 
-  const getTable = useCallback((): table.Table | undefined => {
+  const getTable = (): table.Table | undefined => {
     const cached = client?.tables.getCached(key);
     if (!query.isLive(cached)) return undefined;
     return cached;
-  }, [client, key]);
+  };
 
-  const handleCopy = useCallback<ClipboardEventHandler>(
-    (e) => {
-      // Defer to the browser if the user has a real text selection.
-      const text = window.getSelection()?.toString();
-      if (text != null && text.length > 0) return;
-      const t = getTable();
-      if (t == null) return;
-      const sel = selectedRef.current;
-      if (sel.length === 0) return;
-      const cells: CellPayload[] = [];
-      let minRow = Number.POSITIVE_INFINITY;
-      let minCol = Number.POSITIVE_INFINITY;
-      const intermediate: Array<{
-        row: number;
-        col: number;
-        cell: table.CellConfig;
-      }> = [];
-      for (const cellKey of sel) {
-        const p = findCellPosition(t.rows, cellKey);
-        const c = t.cells[cellKey];
-        if (p == null || c == null) continue;
-        if (p.y < minRow) minRow = p.y;
-        if (p.x < minCol) minCol = p.x;
-        intermediate.push({ row: p.y, col: p.x, cell: c });
-      }
-      if (intermediate.length === 0) return;
-      for (const { row, col, cell } of intermediate)
-        cells.push({ row: row - minRow, col: col - minCol, config: cell });
-      const payload: Payload = { version: VERSION, cells };
-      e.preventDefault();
-      e.clipboardData.setData(MIME, JSON.stringify(payload));
-      e.clipboardData.setData("text/plain", describe(payload));
-    },
-    [key, getTable],
-  );
+  const handleCopy: ClipboardEventHandler = (e) => {
+    // Defer to the browser if the user has a real text selection.
+    const text = window.getSelection()?.toString();
+    if (text != null && text.length > 0) return;
+    const t = getTable();
+    if (t == null) return;
+    const sel = selectedRef.current;
+    if (sel.length === 0) return;
+    const cells: CellPayload[] = [];
+    let minRow = Number.POSITIVE_INFINITY;
+    let minCol = Number.POSITIVE_INFINITY;
+    const intermediate: Array<{
+      row: number;
+      col: number;
+      cell: table.CellConfig;
+    }> = [];
+    for (const cellKey of sel) {
+      const p = findCellPosition(t.rows, cellKey);
+      const c = t.cells[cellKey];
+      if (p == null || c == null) continue;
+      if (p.y < minRow) minRow = p.y;
+      if (p.x < minCol) minCol = p.x;
+      intermediate.push({ row: p.y, col: p.x, cell: c });
+    }
+    if (intermediate.length === 0) return;
+    for (const { row, col, cell } of intermediate)
+      cells.push({ row: row - minRow, col: col - minCol, config: cell });
+    const payload: Payload = { version: VERSION, cells };
+    e.preventDefault();
+    e.clipboardData.setData(MIME, JSON.stringify(payload));
+    e.clipboardData.setData("text/plain", describe(payload));
+  };
 
-  const handlePaste = useCallback<ClipboardEventHandler>(
-    (e) => {
-      const raw = e.clipboardData.getData(MIME);
-      if (raw === "") return;
-      let payload: Payload;
-      try {
-        payload = JSON.parse(raw) as Payload;
-      } catch {
-        return;
-      }
-      if (payload.version !== VERSION || payload.cells.length === 0) return;
-      const sel = selectedRef.current;
-      const anchorKey = sel[sel.length - 1] ?? null;
-      if (anchorKey == null) return;
-      const t = getTable();
-      if (t == null) return;
-      const anchorPos = findCellPosition(t.rows, anchorKey);
-      if (anchorPos == null) return;
-      e.preventDefault();
+  const handlePaste: ClipboardEventHandler = (e) => {
+    const raw = e.clipboardData.getData(MIME);
+    if (raw === "") return;
+    let payload: Payload;
+    try {
+      payload = JSON.parse(raw) as Payload;
+    } catch {
+      return;
+    }
+    if (payload.version !== VERSION || payload.cells.length === 0) return;
+    const sel = selectedRef.current;
+    const anchorKey = sel[sel.length - 1] ?? null;
+    if (anchorKey == null) return;
+    const t = getTable();
+    if (t == null) return;
+    const anchorPos = findCellPosition(t.rows, anchorKey);
+    if (anchorPos == null) return;
+    e.preventDefault();
 
-      const existingRows = t.rows.length;
-      const existingCols = t.columns.length;
-      let maxRow = existingRows - 1;
-      let maxCol = existingCols - 1;
-      for (const c of payload.cells) {
-        const r = anchorPos.y + c.row;
-        const col = anchorPos.x + c.col;
-        if (r > maxRow) maxRow = r;
-        if (col > maxCol) maxCol = col;
-      }
-      const targetRows = maxRow + 1;
-      const targetCols = maxCol + 1;
+    const existingRows = t.rows.length;
+    const existingCols = t.columns.length;
+    let maxRow = existingRows - 1;
+    let maxCol = existingCols - 1;
+    for (const c of payload.cells) {
+      const r = anchorPos.y + c.row;
+      const col = anchorPos.x + c.col;
+      if (r > maxRow) maxRow = r;
+      if (col > maxCol) maxCol = col;
+    }
+    const targetRows = maxRow + 1;
+    const targetCols = maxCol + 1;
 
-      const actions: table.Action[] = [];
-      const defaultConfig = Cell.defaultConfig("text");
-      // keyAt maps a final-state grid position to the cell key at that
-      // position. Existing positions use the current document keys; newly-added
-      // positions get fresh UUIDs that are baked into the addCol/addRow
-      // actions below so the post-batch state is fully resolved.
-      const keyAt: Record<string, string> = {};
-      const posKey = (r: number, c: number): string => `${r},${c}`;
-      for (let r = 0; r < existingRows; r++)
-        for (let c = 0; c < existingCols; c++) {
-          const k = t.rows[r]?.cells[c];
-          if (k != null) keyAt[posKey(r, c)] = k;
-        }
-
-      const newColCount = Math.max(0, targetCols - existingCols);
-      for (let i = 0; i < newColCount; i++) {
-        const colIdx = existingCols + i;
-        const cellsForExistingRows: table.Cell[] = [];
-        for (let r = 0; r < existingRows; r++) {
-          const newKey = uuid.create();
-          keyAt[posKey(r, colIdx)] = newKey;
-          cellsForExistingRows.push({ key: newKey, config: defaultConfig });
-        }
-        actions.push(
-          table.addCol({
-            index: colIdx,
-            size: BASE_COL_SIZE,
-            cells: cellsForExistingRows,
-          }),
-        );
+    const actions: table.Action[] = [];
+    const defaultConfig = Cell.defaultConfig("text");
+    // keyAt maps a final-state grid position to the cell key at that
+    // position. Existing positions use the current document keys; newly-added
+    // positions get fresh UUIDs that are baked into the addCol/addRow
+    // actions below so the post-batch state is fully resolved.
+    const keyAt: Record<string, string> = {};
+    const posKey = (r: number, c: number): string => `${r},${c}`;
+    for (let r = 0; r < existingRows; r++)
+      for (let c = 0; c < existingCols; c++) {
+        const k = t.rows[r]?.cells[c];
+        if (k != null) keyAt[posKey(r, c)] = k;
       }
 
-      const newRowCount = Math.max(0, targetRows - existingRows);
-      for (let i = 0; i < newRowCount; i++) {
-        const rowIdx = existingRows + i;
-        const cellsForAllCols: table.Cell[] = [];
-        for (let c = 0; c < targetCols; c++) {
-          const newKey = uuid.create();
-          keyAt[posKey(rowIdx, c)] = newKey;
-          cellsForAllCols.push({ key: newKey, config: defaultConfig });
-        }
-        actions.push(
-          table.addRow({
-            index: rowIdx,
-            size: BASE_ROW_SIZE,
-            cells: cellsForAllCols,
-          }),
-        );
+    const newColCount = Math.max(0, targetCols - existingCols);
+    for (let i = 0; i < newColCount; i++) {
+      const colIdx = existingCols + i;
+      const cellsForExistingRows: table.Cell[] = [];
+      for (let r = 0; r < existingRows; r++) {
+        const newKey = uuid.create();
+        keyAt[posKey(r, colIdx)] = newKey;
+        cellsForExistingRows.push({ key: newKey, config: defaultConfig });
       }
+      actions.push(
+        table.addCol({
+          index: colIdx,
+          size: BASE_COL_SIZE,
+          cells: cellsForExistingRows,
+        }),
+      );
+    }
 
-      const overwritten: string[] = [];
-      for (const c of payload.cells) {
-        const r = anchorPos.y + c.row;
-        const col = anchorPos.x + c.col;
-        const k = keyAt[posKey(r, col)];
-        if (k == null) continue;
-        actions.push(table.setCell({ cell: { key: k, config: c.config } }));
-        overwritten.push(k);
+    const newRowCount = Math.max(0, targetRows - existingRows);
+    for (let i = 0; i < newRowCount; i++) {
+      const rowIdx = existingRows + i;
+      const cellsForAllCols: table.Cell[] = [];
+      for (let c = 0; c < targetCols; c++) {
+        const newKey = uuid.create();
+        keyAt[posKey(rowIdx, c)] = newKey;
+        cellsForAllCols.push({ key: newKey, config: defaultConfig });
       }
-      dispatch({ key, actions });
-      if (actions.length > 0) onPaste?.(overwritten);
-    },
-    [key, getTable, dispatch, onPaste],
-  );
+      actions.push(
+        table.addRow({
+          index: rowIdx,
+          size: BASE_ROW_SIZE,
+          cells: cellsForAllCols,
+        }),
+      );
+    }
+
+    const overwritten: string[] = [];
+    for (const c of payload.cells) {
+      const r = anchorPos.y + c.row;
+      const col = anchorPos.x + c.col;
+      const k = keyAt[posKey(r, col)];
+      if (k == null) continue;
+      actions.push(table.setCell({ cell: { key: k, config: c.config } }));
+      overwritten.push(k);
+    }
+    dispatch({ key, actions });
+    if (actions.length > 0) onPaste?.(overwritten);
+  };
 
   return { onCopy: handleCopy, onPaste: handlePaste };
 };

@@ -13,6 +13,7 @@ package gorp
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp/internal/keyset"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/types"
@@ -98,15 +99,11 @@ func (r Retrieve[K, E]) HasNonKeyFilters() bool {
 // indexed filter (LookupIndex.Filter / SortedIndex.Filter) whose keys have
 // already been resolved. Note that for filters carrying a deferred resolver,
 // this returns false until resolveFilter has populated keys.
-func (r Retrieve[K, E]) HasFilterKeys() bool {
-	return r.filter.keys != nil
-}
+func (r Retrieve[K, E]) HasFilterKeys() bool { return r.filter.keys.Bounded() }
 
 // GetFilterKeys returns the resolved filter's primary key set, or nil if the
 // query is not bounded by keys.
-func (r Retrieve[K, E]) GetFilterKeys() []K {
-	return r.filter.keys
-}
+func (r Retrieve[K, E]) GetFilterKeys() []K { return r.filter.keys.Keys() }
 
 // WherePrefix filters entries whose key starts with the given prefix.
 func (r Retrieve[K, E]) WherePrefix(prefix []byte) Retrieve[K, E] {
@@ -187,7 +184,7 @@ func (r Retrieve[K, E]) Entry(entry *E) Retrieve[K, E] {
 // isBareKeys reports whether the filter is exactly Where(MatchKeys(...))
 // with no eval, raw, or resolver layered on top.
 func (r Retrieve[K, E]) isBareKeys() bool {
-	return r.filter.keys != nil &&
+	return r.filter.keys.Bounded() &&
 		r.filter.eval == nil &&
 		r.filter.raw == nil &&
 		r.filter.resolve == nil
@@ -240,7 +237,7 @@ func (r Retrieve[K, E]) Exec(ctx context.Context, tx Tx) error {
 //
 // When the resolver returns ErrIndexInvalid (the index failed to
 // populate), resolveFilter swallows the error and leaves r.filter.keys
-// nil so dispatch falls through to the eval-only sequential scan path.
+// unbounded so dispatch falls through to the eval-only sequential scan path.
 // The accompanying eval predicate carried by index-backed filters
 // preserves correctness at scan cost.
 func (r *Retrieve[K, E]) resolveFilter(ctx context.Context, tx Tx) error {
@@ -250,18 +247,12 @@ func (r *Retrieve[K, E]) resolveFilter(ctx context.Context, tx Tx) error {
 	res, err := r.filter.resolve(ctx, tx)
 	if err != nil {
 		if errors.Is(err, ErrIndexInvalid) {
-			r.filter.keys = nil
-			r.filter.membership = nil
+			r.filter.keys = keyset.Set[K]{}
 			return nil
 		}
 		return err
 	}
 	r.filter.keys = res.keys
-	if res.build != nil && res.keys != nil {
-		r.filter.membership = newLazyMembership(res.keys, res.build)
-	} else {
-		r.filter.membership = nil
-	}
 	// Or / Not return a per-Exec eval closed over freshly materialized
 	// children; installing it on the per-call r.filter avoids sharing
 	// mutable child state across concurrent Execs.
@@ -278,7 +269,7 @@ func (r Retrieve[K, E]) Exists(ctx context.Context, tx Tx) (bool, error) {
 		return false, err
 	}
 	if r.HasFilterKeys() {
-		keys := r.filter.keys
+		keys := r.filter.keys.Keys()
 		if len(keys) == 0 {
 			return false, nil
 		}
@@ -307,7 +298,7 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 		return 0, err
 	}
 	if r.HasFilterKeys() {
-		r.entries.bindMultiple(new(make([]E, 0, len(r.filter.keys))))
+		r.entries.bindMultiple(new(make([]E, 0, len(r.filter.keys.Keys()))))
 		if _, err := r.execKeys(
 			ctx,
 			tx,
@@ -368,16 +359,18 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 // true if no filter is set. key may be nil when the caller does not
 // have the raw key bytes available.
 func (r Retrieve[K, E]) match(ctx Context, e *E, key, value []byte) (bool, error) {
-	if !r.filter.present() {
-		return true, nil
-	}
-	if r.filter.keys != nil && !r.filter.containsKey((*e).GorpKey()) {
+	if !r.filter.keys.Contains((*e).GorpKey()) {
 		return false, nil
 	}
-	if r.filter.eval != nil {
-		return r.filter.eval(ctx, e, key, value)
+	return r.matchEval(ctx, e, key, value)
+}
+
+// matchEval is match for an entry that the filter's keys contain.
+func (r Retrieve[K, E]) matchEval(ctx Context, e *E, key, value []byte) (bool, error) {
+	if r.filter.eval == nil {
+		return true, nil
 	}
-	return true, nil
+	return r.filter.eval(ctx, e, key, value)
 }
 
 // matchRaw runs the filter's raw-byte pre-screen against key/value.
@@ -391,19 +384,29 @@ func (r Retrieve[K, E]) matchRaw(key, value []byte) (bool, error) {
 
 // execKeys fetches and matches each candidate key in turn. Returns the
 // keys that were not found in the underlying KV store; the caller
-// decides whether to surface that as query.ErrNotFound.
+// decides whether to surface that as query.ErrNotFound. Unless the filter
+// is bare keys, execKeys stops at the limit, so it reports only the keys
+// it fetched.
 func (r *Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) ([]K, error) {
 	var (
-		keys       = r.filter.keys
+		keys       = r.filter.keys.Keys()
 		reader     = wrapReader[K, E](tx, r.keyPrefix)
 		notFound   []K
 		validCount int
 		gorpCtx    = Context{Context: ctx, Tx: tx}
 		e          E
 		zero       E
+		capacity   = len(keys)
+		stops      = r.limit > 0 && !r.isBareKeys()
 	)
-	r.entries.ensureCap(len(keys))
+	if r.limit > 0 {
+		capacity = min(capacity, r.limit)
+	}
+	r.entries.ensureCap(capacity)
 	for _, k := range keys {
+		if stops && validCount == r.offset+r.limit {
+			break
+		}
 		e = zero
 		b, closer, err := reader.get(ctx, k, &e)
 		if err != nil {
@@ -413,8 +416,8 @@ func (r *Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) ([]K, error) {
 			}
 			return nil, err
 		}
-		if reader.keyCodec.matchPrefix(r.prefix, e.GorpKey()) {
-			match, mErr := r.match(gorpCtx, &e, nil, b)
+		if reader.keyCodec.HasPrefix(e.GorpKey(), r.prefix) {
+			match, mErr := r.matchEval(gorpCtx, &e, nil, b)
 			if mErr != nil {
 				return nil, errors.Combine(mErr, closer.Close())
 			}

@@ -191,8 +191,10 @@ class Device(device.Device):
             "name": name,
             "enabled": enabled,
             "pdos": {
-                "inputs": [p.model_dump() for p in (input_pdos or [])],
-                "outputs": [p.model_dump() for p in (output_pdos or [])],
+                "inputs": [p.model_dump(exclude_none=True) for p in (input_pdos or [])],
+                "outputs": [
+                    p.model_dump(exclude_none=True) for p in (output_pdos or [])
+                ],
             },
         }
         super().__init__(

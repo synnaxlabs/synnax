@@ -10,6 +10,7 @@
 #pragma once
 
 #include <algorithm>
+#include <condition_variable>
 #include <cstring>
 #include <mutex>
 #include <set>
@@ -30,7 +31,11 @@ class Master final : public master::Master {
     std::unordered_map<uint16_t, slave::State> slave_states;
     /// @brief the AL status text of each faulted slave.
     std::unordered_map<uint16_t, std::string> faults;
+    std::set<uint16_t> lost_slaves;
     std::set<uint16_t> disabled_slaves;
+    std::optional<size_t> bus_slaves;
+    std::optional<x::telem::TimeSpan> dc_step;
+    x::telem::TimeStamp dc_now{};
     pdo::Offsets pdo_offset_cache;
     bool initialized{false};
     bool activated{false};
@@ -52,6 +57,9 @@ class Master final : public master::Master {
     std::vector<std::string> calls;
     size_t init_calls{0};
     size_t output_padding = 0;
+    std::mutex stall_mu;
+    std::condition_variable stall_cv;
+    bool stalled{false};
 
 public:
     explicit Master(std::string interface_name = "mock0"):
@@ -91,6 +99,21 @@ public:
     void inject_send_error(const x::errors::Error &err) {
         std::lock_guard lock(this->mu);
         this->inject_send_err = err;
+    }
+
+    /// @brief makes receive() block until resume(), which stalls the bus cycle.
+    void stall() {
+        std::lock_guard lock(this->stall_mu);
+        this->stalled = true;
+    }
+
+    /// @brief unblocks receive() after stall().
+    void resume() {
+        {
+            std::lock_guard lock(this->stall_mu);
+            this->stalled = false;
+        }
+        this->stall_cv.notify_all();
     }
 
     /// @brief clears all injected errors.
@@ -143,6 +166,15 @@ public:
         this->faults[position] = al_status;
     }
 
+    /// @brief makes check() report a slave as not responding until lost is false.
+    void set_slave_lost(const uint16_t position, const bool lost) {
+        std::lock_guard lock(this->mu);
+        if (lost)
+            this->lost_slaves.insert(position);
+        else
+            this->lost_slaves.erase(position);
+    }
+
     /// @brief returns the log of method calls for verification.
     std::vector<std::string> call_log() const {
         std::lock_guard lock(this->mu);
@@ -174,6 +206,19 @@ public:
         if (this->inject_init_err) return this->inject_init_err;
         this->initialized = true;
         return x::errors::NIL;
+    }
+
+    std::pair<size_t, x::errors::Error> count_slaves() override {
+        std::lock_guard lock(this->mu);
+        this->calls.emplace_back("count_slaves");
+        return {this->bus_slaves.value_or(this->slave_list.size()), x::errors::NIL};
+    }
+
+    /// @brief makes count_slaves() report count instead of the number of added slaves,
+    /// as when a slave is plugged in or removed after discovery.
+    void set_bus_slaves(const std::optional<size_t> count) {
+        std::lock_guard lock(this->mu);
+        this->bus_slaves = count;
     }
 
     void set_slave_enabled(const uint16_t position, const bool enabled) override {
@@ -227,15 +272,33 @@ public:
     }
 
     x::errors::Error receive() override {
+        {
+            std::unique_lock lock(this->stall_mu);
+            this->stall_cv.wait(lock, [this] { return !this->stalled; });
+        }
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("receive");
         if (this->inject_receive_err) return this->inject_receive_err;
+        if (this->dc_step) this->dc_now = this->dc_now + *this->dc_step;
         std::memcpy(
             this->input_iomap.data(),
             this->pending_inputs.data(),
             std::min(this->pending_inputs.size(), this->input_iomap.size())
         );
         return x::errors::NIL;
+    }
+
+    std::optional<x::telem::TimeStamp> dc_time() const override {
+        std::lock_guard lock(this->mu);
+        if (!this->dc_step) return std::nullopt;
+        return this->dc_now;
+    }
+
+    /// @brief gives the bus a distributed clock that advances by step at each
+    /// receive(), or removes it when step is nullopt.
+    void set_dc_step(const std::optional<x::telem::TimeSpan> step) {
+        std::lock_guard lock(this->mu);
+        this->dc_step = step;
     }
 
     x::errors::Error send() override {
@@ -281,8 +344,10 @@ public:
                 .position = pos,
                 .state = this->slave_states[pos],
                 .faulted = fault != this->faults.end(),
+                .lost = this->lost_slaves.contains(pos),
                 .al_status = fault != this->faults.end() ? fault->second : "",
             });
+            if (this->lost_slaves.contains(pos)) continue;
             const auto blocked = this->state_transition_failures.find(pos);
             if (!breaker.running() ||
                 (blocked != this->state_transition_failures.end() &&
