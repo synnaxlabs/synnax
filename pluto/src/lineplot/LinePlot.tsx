@@ -109,36 +109,35 @@ interface LineProps {
   visible?: boolean;
 }
 
+const GROUPS_PER_COLUMN: Record<lineplot.Detail, number> = {
+  low: 1 / 4,
+  medium: 1 / 2,
+  high: 1,
+};
+
 const createTelemetry = (
   resolved: ResolvedRange,
   xChannel: channel.Key,
   yChannel: channel.Key,
+  aggregation: lineplot.Aggregation,
+  groupsPerColumn: number,
 ) => {
   const hasX = primitive.isNonZero(xChannel);
-  if (resolved.variant === "dynamic") {
-    const keepFor = Number(resolved.span.valueOf()) * 3;
-    const { span: timeSpan } = resolved;
-    return {
-      x: telem.streamChannelData({
-        timeSpan,
-        channel: hasX ? xChannel : yChannel,
-        useIndexOfChannel: !hasX,
-        keepFor,
-      }),
-      y: telem.streamChannelData({
-        timeSpan,
-        channel: yChannel,
-        keepFor,
-      }),
-    };
-  }
+  const props = {
+    ...(resolved.variant === "dynamic"
+      ? { timeSpan: resolved.span }
+      : { timeRange: resolved.timeRange }),
+    xChannel,
+    aggregation,
+    groupsPerColumn,
+  };
   return {
-    x: telem.channelData({
-      timeRange: resolved.timeRange,
+    x: telem.tiledChannelData({
+      ...props,
       channel: hasX ? xChannel : yChannel,
       useIndexOfChannel: !hasX,
     }),
-    y: telem.channelData({ timeRange: resolved.timeRange, channel: yChannel }),
+    y: telem.tiledChannelData({ ...props, channel: yChannel }),
   };
 };
 
@@ -149,11 +148,14 @@ const Line = ({
   visible = true,
 }: LineProps): ReactElement | null => {
   const spec = useLine({ key: pKey, lineKey });
-  const { key, ...line } = spec;
+  const { key, aggregation, detail, ...line } = spec;
   // JSX takes the rest object, so the compiler counts reads from it as changing later.
   const { xChannel, yChannel } = spec;
+  const groupsPerColumn = GROUPS_PER_COLUMN[detail];
   const telemetry =
-    resolved == null ? null : createTelemetry(resolved, xChannel, yChannel);
+    resolved == null
+      ? null
+      : createTelemetry(resolved, xChannel, yChannel, aggregation, groupsPerColumn);
   if (telemetry == null) return null;
   return (
     <BaseLine
@@ -162,6 +164,7 @@ const Line = ({
       x={telemetry.x}
       y={telemetry.y}
       visible={visible}
+      groupsPerColumn={groupsPerColumn}
       legendGroup={line.yAxis.toUpperCase()}
       {...line}
     />

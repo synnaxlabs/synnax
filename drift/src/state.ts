@@ -223,14 +223,10 @@ const assignBool = <T extends MaybeKeyPayload & MaybeBooleanPayload>(
   });
 
 const incrementCounter =
-  (prop: keyof WindowState, decrement: boolean = false) =>
-  (s: SliceState, a: PayloadAction<LabelPayload>) => {
+  (prop: keyof WindowState) => (s: SliceState, a: PayloadAction<LabelPayload>) => {
     const win = s.windows[a.payload.label];
     if (win == null) return;
-    s.windows[a.payload.label] = {
-      ...win,
-      [prop]: (win[prop] as number) + (decrement ? -1 : 1),
-    };
+    s.windows[a.payload.label] = { ...win, [prop]: (win[prop] as number) + 1 };
   };
 
 const alreadyHasPreRender = (s: SliceState): boolean =>
@@ -341,7 +337,7 @@ const reduceSetWindowStage = assertLabel<SetWindowStagePayload>((s, a) => {
 const reduceCloseWindow = assertLabel<CloseWindowPayload>(
   (s, { payload: { label } }) => {
     const win = s.windows[label];
-    if (win == null || win.processCount > 0) return;
+    if (win == null) return;
     win.stage = "closing";
     delete s.windows[label];
     delete s.labelKeys[label];
@@ -351,27 +347,9 @@ const reduceCloseWindow = assertLabel<CloseWindowPayload>(
 
 const reduceReloadWindow = assertLabel<ReloadWindowPayload>((s, a) => {
   const win = s.windows[a.payload.label];
-  if (win == null || win.processCount > 0) return;
+  if (win == null) return;
   win.stage = "reloading";
   delayedReload();
-});
-
-const reduceRegisterProcess = assertLabel<MaybeKeyPayload>(
-  incrementCounter("processCount"),
-);
-
-const reduceCompleteProcess = assertLabel<MaybeKeyPayload>((s, a) => {
-  incrementCounter("processCount", true)(s, a);
-  const win = s.windows[a.payload.label];
-  if (win == null) return;
-  if (win.processCount === 0)
-    if (win.stage === "reloading") delayedReload();
-    else {
-      s.windows[a.payload.label].visible = false;
-      delete s.windows[a.payload.label];
-      delete s.labelKeys[a.payload.label];
-      delete s.keyLabels[win.key];
-    }
 });
 
 const reduceSetWindowError = (
@@ -471,8 +449,6 @@ const slice = createSlice({
     createWindow: reduceCreateWindow,
     setWindowStage: reduceSetWindowStage,
     closeWindow: reduceCloseWindow,
-    registerProcess: reduceRegisterProcess,
-    completeProcess: reduceCompleteProcess,
     setWindowError: reduceSetWindowError,
     focusWindow: reduceFocusWindow,
     reloadWindow: reduceReloadWindow,
@@ -506,8 +482,6 @@ export const {
     internalSetInitial,
     setWindowStage,
     closeWindow,
-    registerProcess,
-    completeProcess,
     setWindowError,
     focusWindow,
     reloadWindow,

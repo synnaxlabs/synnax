@@ -9,6 +9,7 @@
 
 // @vitest-environment node
 
+import { tokens } from "@synnaxlabs/arc";
 import { experimental_AstroContainer as AstroContainer } from "astro/container";
 import { type Element, type Root } from "hast";
 import { fromHtml } from "hast-util-from-html";
@@ -139,9 +140,42 @@ describe("Field.Item", () => {
       );
     });
 
-    it("should mark a required entry", async () => {
+    it("should show the default after the type", async () => {
+      const { get } = await render({
+        name: "--listen",
+        type: "address",
+        default: '"localhost:9090"',
+      });
+      expect(text(get("field__signature"))).toEqual('<address> = "localhost:9090"');
+      expect(text(get("field__default"))).toEqual('"localhost:9090"');
+    });
+
+    it("should color the type and default as Arc code does", async () => {
+      const { get } = await render({ name: "rate", type: "number", default: "0" });
+      const { style } = get("field").properties;
+      expect(style).toContain(
+        `--type-color: light-dark(${tokens.type.light}, ${tokens.type.dark})`,
+      );
+      expect(style).toContain(
+        `--default-color: light-dark(${tokens.string.light}, ${tokens.string.dark})`,
+      );
+    });
+
+    it("should show a default without a type", async () => {
+      const { get, has } = await render({ name: "--cluster-key", default: "0" });
+      expect(text(get("field__signature"))).toEqual("= 0");
+      expect(has("field__type")).toBe(false);
+    });
+
+    it("should leave out the signature when there is no type or default", async () => {
+      const { has } = await render({ name: "--verbose" });
+      expect(has("field__signature")).toBe(false);
+    });
+
+    it("should mark a required entry with an asterisk that readers skip", async () => {
       const { get } = await render({ name: "rate", required: true });
-      expect(text(get("field__required"))).toEqual("Required");
+      expect(text(get("field__required"))).toEqual("* Required");
+      expect(get("field__required-mark").properties.ariaHidden).toEqual("true");
     });
   });
 
@@ -159,7 +193,7 @@ describe("Field.Item", () => {
       expect(meta()).toEqual(["Python data_rate", "TypeScript dataRate"]);
     });
 
-    it("should list the Console label, default, variable, and change rule", async () => {
+    it("should list the Console label, variable, and change rule", async () => {
       const { meta } = await render({
         name: "--listen",
         console: "Address",
@@ -167,12 +201,7 @@ describe("Field.Item", () => {
         env: "SYNNAX_LISTEN",
         changeable: false,
       });
-      expect(meta()).toEqual([
-        "Console Address",
-        "Default localhost:9090",
-        "Env SYNNAX_LISTEN",
-        "Cannot change",
-      ]);
+      expect(meta()).toEqual(["Console Address", "Env SYNNAX_LISTEN", "Cannot change"]);
     });
 
     it("should say when the value can change", async () => {

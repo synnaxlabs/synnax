@@ -13,6 +13,8 @@
 #include "x/cpp/test/test.h"
 
 #include "driver/ethercat/engine/pool.h"
+#include "driver/ethercat/errors/errors.h"
+#include "driver/ethercat/ethercat.h"
 #include "driver/ethercat/mock/master.h"
 #include "driver/ethercat/scan_task.h"
 
@@ -301,27 +303,6 @@ TEST_F(EtherCATScanTest, ScanReturnsPermissionDenied) {
     ASSERT_OCCURRED_AS_P(scanner.scan({}), errors::PERMISSION_DENIED);
 }
 
-/// @brief it should skip an interface that fails to initialize for a reason other than
-/// permission, and return no devices for it.
-TEST_F(EtherCATScanTest, ScanSkipsInterfaceInitError) {
-    auto mock_master = std::make_shared<mock::Master>("eth0");
-    mock_master->inject_init_error(
-        x::errors::Error(errors::MASTER_INIT_ERROR, "no EtherCAT slaves found")
-    );
-    auto manager = std::make_unique<mock::Manager>();
-    manager->configure("eth0", mock_master);
-    auto pool = std::make_shared<engine::Pool>(std::move(manager));
-    synnax::task::Task task{
-        .rack = this->rack.key,
-        .name = "EtherCAT Scanner",
-        .type = SCAN_TASK_TYPE,
-        .internal = true
-    };
-    Scanner scanner(this->ctx, task, ScanTaskConfig{}, pool);
-    const auto devices = ASSERT_NIL_P(scanner.scan({}));
-    EXPECT_TRUE(devices.empty());
-}
-
 TEST_F(EtherCATScanTest, TestInterfaceCommandInitError) {
     auto mock_master = std::make_shared<mock::Master>("eth0");
     mock_master->inject_init_error(
@@ -352,6 +333,85 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandInitError) {
     EXPECT_EQ(this->ctx->statuses.back().variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(this->ctx->statuses.back().message, "Failed to probe interface");
     EXPECT_EQ(this->ctx->statuses.back().description, "no interface");
+}
+
+/// @brief a scanner over a mock bus on eth0, for scan specs.
+class EtherCATScanProbeTest : public EtherCATScanTest {
+protected:
+    std::shared_ptr<mock::Master> master;
+    std::unique_ptr<Scanner> scanner;
+    std::size_t scans = 0;
+
+    void SetUp() override {
+        EtherCATScanTest::SetUp();
+        this->master = std::make_shared<mock::Master>("eth0");
+        auto manager = std::make_unique<mock::Manager>();
+        manager->configure("eth0", this->master);
+        this->scanner = std::make_unique<Scanner>(
+            this->ctx,
+            synnax::task::Task{
+                .rack = this->rack.key,
+                .name = "EtherCAT Scanner",
+                .type = SCAN_TASK_TYPE,
+                .internal = true,
+            },
+            ScanTaskConfig{},
+            std::make_shared<engine::Pool>(std::move(manager))
+        );
+    }
+
+    void scan() { ASSERT_NIL_P(this->scanner->scan({.count = this->scans++})); }
+};
+
+/// @brief it should probe an interface with no slaves only on every sixth scan.
+TEST_F(EtherCATScanProbeTest, ProbesAnInterfaceWithNoSlavesEverySixthScan) {
+    this->master->inject_init_error(
+        x::errors::Error(errors::NO_SLAVES_FOUND, "no EtherCAT slaves found on eth0")
+    );
+    for (int i = 0; i < 7; ++i)
+        this->scan();
+    EXPECT_EQ(this->master->init_call_count(), 2);
+}
+
+/// @brief it should return a partial scan error for an interface it cannot open, then
+/// scan the interface again when it opens.
+TEST_F(EtherCATScanProbeTest, ReturnsAnInterfaceItCannotScanAsAPartialScan) {
+    this->master->inject_init_error(
+        x::errors::Error(errors::MASTER_INIT_ERROR, "cannot open eth0")
+    );
+    const auto [devices, err] = this->scanner->scan({});
+    ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
+    EXPECT_EQ(err.data, "cannot open eth0");
+    EXPECT_TRUE(devices.empty());
+    this->master->inject_init_error(x::errors::NIL);
+    ASSERT_NIL_P(this->scanner->scan({.count = 1}));
+}
+
+/// @brief it should fail to configure the scan task and report an error status when the
+/// packet capture library is missing.
+TEST_F(EtherCATScanTest, ScanTaskFailsToConfigureWithoutAPacketCaptureLibrary) {
+    Factory factory(std::unique_ptr<master::Manager>{});
+    const synnax::task::Task task{
+        .rack = this->rack.key,
+        .name = "EtherCAT Scanner",
+        .type = SCAN_TASK_TYPE,
+        .internal = true,
+    };
+    const auto [configured, handled] = factory.configure_task(
+        this->ctx,
+        task,
+        driver::task::NO_COMMAND
+    );
+    EXPECT_TRUE(handled);
+    EXPECT_EQ(configured, nullptr);
+    ASSERT_EQ(this->ctx->statuses.size(), 1);
+    EXPECT_EQ(this->ctx->statuses.back().variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(this->ctx->statuses.back().message, "Failed to configure task");
+    EXPECT_EQ(
+        this->ctx->statuses.back().description,
+        "EtherCAT is unavailable because a required packet capture library is not "
+        "installed. Check the Driver logs for details."
+    );
 }
 
 /// @brief it should show the discovery result in the status of a slave while the bus is

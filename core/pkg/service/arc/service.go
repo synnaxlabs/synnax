@@ -140,7 +140,7 @@ func (c ServiceConfig) Validate() error {
 // Service is the primary service for retrieving and modifying arcs from Synnax.
 type Service struct {
 	table    *gorp.Table[Key, Arc]
-	search   *gorp.SearchIndex[Key, Arc]
+	indexes  indexes
 	closer   xio.MultiCloser
 	cfg      ServiceConfig
 	state    *actions.State[Key, Action]
@@ -235,9 +235,9 @@ func OpenService(
 		return nil, err
 	}
 	s = &Service{
-		cfg:    cfg,
-		state:  actions.NewState[Key, Action](cfg.DB),
-		search: newSearchIndex(),
+		cfg:     cfg,
+		state:   actions.NewState[Key, Action](cfg.DB),
+		indexes: newIndexes(),
 		sweeper: newTextSweeper(
 			cfg.Now,
 			cfg.TextSweepQuiescence,
@@ -248,7 +248,7 @@ func OpenService(
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Arc]{
 		DB:              cfg.DB,
-		Indexes:         []gorp.Index[Key, Arc]{s.search},
+		Indexes:         s.indexes.all(),
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
@@ -312,8 +312,8 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 // NewRetrieve opens a new query builder for retrieving Arcs from Synnax.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:   s.table.NewRetrieve(),
-		baseTX: s.cfg.DB,
-		search: s.search,
+		gorp:    s.table.NewRetrieve(),
+		baseTX:  s.cfg.DB,
+		indexes: s.indexes,
 	}
 }

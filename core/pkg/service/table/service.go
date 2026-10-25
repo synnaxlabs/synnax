@@ -79,11 +79,11 @@ func (c ServiceConfig) Validate() error {
 
 // Service is the primary service for retrieving and modifying tables from Synnax.
 type Service struct {
-	cfg    ServiceConfig
-	closer io.MultiCloser
-	table  *gorp.Table[Key, Table]
-	search *gorp.SearchIndex[Key, Table]
-	state  *actions.State[Key, Action]
+	cfg     ServiceConfig
+	closer  io.MultiCloser
+	table   *gorp.Table[Key, Table]
+	indexes indexes
+	state   *actions.State[Key, Action]
 }
 
 // OpenService instantiates a new table service using the provided configurations. Each
@@ -95,15 +95,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	s = &Service{
-		cfg:    cfg,
-		state:  actions.NewState[Key, Action](cfg.DB),
-		search: newSearchIndex(),
+		cfg:     cfg,
+		state:   actions.NewState[Key, Action](cfg.DB),
+		indexes: newIndexes(),
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Table]{
 		DB:              cfg.DB,
-		Indexes:         []gorp.Index[Key, Table]{s.search},
+		Indexes:         s.indexes.all(),
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
@@ -181,7 +181,8 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 // NewRetrieve opens a new query build for retrieving tables from Synnax.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:   s.table.NewRetrieve(),
-		baseTX: s.cfg.DB,
+		gorp:    s.table.NewRetrieve(),
+		baseTX:  s.cfg.DB,
+		indexes: s.indexes,
 	}
 }

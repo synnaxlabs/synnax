@@ -427,7 +427,6 @@ describe("useSyncWindowTitle", () => {
   const auxWindow: Drift.WindowState = {
     key: AUX_KEY,
     stage: "created",
-    processCount: 0,
     reserved: true,
     focusCount: 0,
     centerCount: 0,

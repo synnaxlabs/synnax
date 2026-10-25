@@ -83,6 +83,8 @@ public:
 
     x::errors::Error initialize() override;
 
+    std::pair<size_t, x::errors::Error> count_slaves() override;
+
     void set_slave_enabled(uint16_t position, bool enabled) override;
 
     x::errors::Error activate() override;
@@ -97,7 +99,8 @@ public:
 
     std::span<uint8_t> output_data() override;
 
-    std::optional<pdo::Offset> pdo_offset(const pdo::Entry &entry) const override;
+    std::pair<pdo::Offset, x::errors::Error>
+    pdo_offset(const pdo::Entry &entry) const override;
 
     std::vector<slave::DiscoveryResult> slaves() const override;
 
@@ -117,6 +120,9 @@ private:
 
     /// @brief discovers PDO entries for a slave and populates its PDO lists.
     void discover_slave_pdos(slave::DiscoveryResult &slave);
+
+    /// @brief reads the PDO entries the slave's sync managers carry.
+    void read_slave_pdos(slave::DiscoveryResult &slave);
 
     /// @brief reads the name of a PDO entry from the slave's object dictionary.
     std::string

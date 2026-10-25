@@ -25,7 +25,6 @@ import (
 type Retrieve struct {
 	baseTX  gorp.Tx
 	gorp    gorp.Retrieve[Key, Channel]
-	search  *gorp.SearchIndex[Key, Channel]
 	indexes indexes
 }
 
@@ -36,11 +35,12 @@ type Retrieve struct {
 type indexes struct {
 	name       *gorp.LookupIndex[Key, Channel, Name]
 	localIndex *gorp.LookupIndex[Key, Channel, LocalKey]
+	search     *gorp.SearchIndex[Key, Channel]
 }
 
-// newIndexes constructs a fresh indexes value, allocating one index instance
-// per registered field. Call once per Service in OpenService and store the
-// result on the Service struct.
+// newIndexes constructs a fresh indexes value, allocating one instance of each
+// index. Call once per Service in OpenService and store the result on the
+// Service struct.
 func newIndexes() indexes {
 	return indexes{
 		name: gorp.NewLookupIndex[Key, Channel, Name](
@@ -51,6 +51,12 @@ func newIndexes() indexes {
 			"local_index",
 			func(e *Channel) LocalKey { return e.LocalIndex },
 		),
+		search: gorp.NewSearchIndex[Key, Channel](
+			"search",
+			func(e *Channel) []string {
+				return []string{string(e.Name)}
+			},
+		),
 	}
 }
 
@@ -60,6 +66,7 @@ func (i indexes) all() []gorp.Index[Key, Channel] {
 	return []gorp.Index[Key, Channel]{
 		i.name,
 		i.localIndex,
+		i.search,
 	}
 }
 
@@ -101,7 +108,7 @@ func (r Retrieve) Search(term string) Retrieve {
 	if term == "" {
 		return r
 	}
-	r.gorp = r.gorp.Where(r.search.Filter(term))
+	r.gorp = r.gorp.Where(r.indexes.search.Filter(term))
 	return r
 }
 

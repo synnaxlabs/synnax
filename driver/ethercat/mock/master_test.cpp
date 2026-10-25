@@ -11,6 +11,7 @@
 
 #include "x/cpp/test/test.h"
 
+#include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/mock/master.h"
 
 namespace driver::ethercat::mock {
@@ -301,29 +302,28 @@ TEST(MasterPdoOffset, ReturnsOffsetsOfEveryMappedEntry) {
     );
     ASSERT_NIL(master.initialize());
     ASSERT_NIL(master.activate());
-    const auto first = master.pdo_offset(
-        pdo::Entry(0, 0x6000, 1, 16, true, x::telem::INT16_T)
+    const auto first = ASSERT_NIL_P(
+        master.pdo_offset(pdo::Entry(0, 0x6000, 1, 16, true, x::telem::INT16_T))
     );
-    const auto second = master.pdo_offset(
-        pdo::Entry(0, 0x6000, 2, 32, true, x::telem::INT32_T)
+    const auto second = ASSERT_NIL_P(
+        master.pdo_offset(pdo::Entry(0, 0x6000, 2, 32, true, x::telem::INT32_T))
     );
-    ASSERT_TRUE(first.has_value());
-    ASSERT_TRUE(second.has_value());
-    EXPECT_EQ(first.value().byte, 0);
-    EXPECT_EQ(second.value().byte, 2);
+    EXPECT_EQ(first.byte, 0);
+    EXPECT_EQ(second.byte, 2);
 }
 
-/// @brief it should return no offset for an entry that is not mapped.
-TEST(MasterPdoOffset, ReturnsNulloptForUnmappedEntry) {
+/// @brief it should return a mapping error for an entry that is not mapped.
+TEST(MasterPdoOffset, ReturnsMappingErrorForUnmappedEntry) {
     Master master;
     ASSERT_NIL(master.initialize());
     ASSERT_NIL(master.activate());
-    EXPECT_FALSE(master
-                     .pdo_offset(pdo::Entry(0, 0x9999, 1, 16, true, x::telem::INT16_T))
-                     .has_value());
+    ASSERT_OCCURRED_AS_P(
+        master.pdo_offset(pdo::Entry(0, 0x9999, 1, 16, true, x::telem::INT16_T)),
+        errors::PDO_MAPPING_ERROR
+    );
 }
 
-/// @brief it should return no offset for an entry on a disabled slave.
+/// @brief it should return a mapping error for an entry on a disabled slave.
 TEST(MasterPdoOffset, SkipsDisabledSlave) {
     Master master;
     master.add_slave(
@@ -342,9 +342,10 @@ TEST(MasterPdoOffset, SkipsDisabledSlave) {
     master.set_slave_enabled(0, false);
     ASSERT_NIL(master.initialize());
     ASSERT_NIL(master.activate());
-    EXPECT_FALSE(master
-                     .pdo_offset(pdo::Entry(0, 0x6000, 1, 16, true, x::telem::INT16_T))
-                     .has_value());
+    ASSERT_OCCURRED_AS_P(
+        master.pdo_offset(pdo::Entry(0, 0x6000, 1, 16, true, x::telem::INT16_T)),
+        errors::PDO_MAPPING_ERROR
+    );
 }
 
 /// @brief it should copy a set input into the input image only on the next receive.

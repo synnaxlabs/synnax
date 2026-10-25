@@ -7,11 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <utility>
+#include <vector>
+
 #include "gtest/gtest.h"
 
 #include "x/cpp/test/test.h"
 
 #include "driver/ethercat/errors/errors.h"
+#include "driver/ethercat/esi/known_devices.h"
 #include "driver/ethercat/igh/master.h"
 #include "driver/ethercat/igh/mock_api.h"
 
@@ -123,6 +128,22 @@ TEST_F(IGHMasterTest, InitializeMultipleSlaves) {
     ASSERT_EQ(slaves.size(), 2u);
     EXPECT_EQ(slaves[0].properties.name, "Slave0");
     EXPECT_EQ(slaves[1].properties.name, "Slave1");
+}
+
+/// @brief it should return the number of slaves on the bus.
+TEST_F(IGHMasterTest, CountSlavesReportsTheSlavesOnTheBus) {
+    this->initialize_with_slave();
+    this->add_default_slave(1);
+    EXPECT_EQ(ASSERT_NIL_P(this->master_instance->count_slaves()), 2);
+}
+
+/// @brief it should return a master init error when it counts slaves before
+/// initialization.
+TEST_F(IGHMasterTest, CountSlavesFailsBeforeInitialize) {
+    ASSERT_OCCURRED_AS_P(
+        this->master_instance->count_slaves(),
+        errors::MASTER_INIT_ERROR
+    );
 }
 
 /// @brief it should configure each enabled slave on activation.
@@ -409,6 +430,50 @@ TEST_F(IGHMasterTest, SetSlaveEnabledReEnable) {
     this->master_instance->set_slave_enabled(0, true);
     this->activate_with_domains();
     EXPECT_EQ(this->mock_api->slave_config_count(), 1u);
+}
+
+/// @brief it should discover padding entries but not register them with the master.
+TEST_F(IGHMasterTest, PaddingIsDiscoveredButNotRegistered) {
+    this->mock_api->fake_syncs = {
+        {EC_DIR_INPUT,
+         {{0x1A00, {{0x6000, 0x01, 1}, {0x0000, 0x00, 7}, {0x6000, 0x11, 16}}}}},
+    };
+    this->initialize_with_slave();
+
+    const auto inputs = this->master_instance->slaves()[0].properties.input_pdos;
+    ASSERT_EQ(inputs.size(), 3);
+    EXPECT_TRUE(inputs[1].is_padding());
+    EXPECT_EQ(inputs[1].bit_length, 7);
+
+    this->activate_with_domains();
+    const std::vector<std::pair<uint16_t, uint8_t>> registered = {
+        {0x6000, 0x01},
+        {0x6000, 0x11},
+    };
+    EXPECT_EQ(this->mock_api->registered_entries, registered);
+}
+
+/// @brief it should fill the names and data types of live entries from the device
+/// registry, so a rescan keeps the names that automatic channels refer to.
+TEST_F(IGHMasterTest, RegistryFillsNamesAndDataTypesOfLiveEntries) {
+    constexpr uint32_t beckhoff = 0x00000002;
+    constexpr uint32_t el3102 = 0x0C1E3052;
+    slave::Properties registry{};
+    ASSERT_TRUE(esi::lookup_device_pdos(beckhoff, el3102, 1, registry));
+    const auto known = std::ranges::find_if(registry.input_pdos, [](const auto &p) {
+        return !p.is_padding() && p.bit_length == 16;
+    });
+    ASSERT_NE(known, registry.input_pdos.end());
+    this->mock_api->fake_syncs = {
+        {EC_DIR_INPUT, {{0x1A00, {{known->index, known->sub_index, 16}}}}},
+    };
+    this->add_default_slave(0, beckhoff, el3102);
+    ASSERT_NIL(this->master_instance->initialize());
+
+    const auto inputs = this->master_instance->slaves()[0].properties.input_pdos;
+    ASSERT_EQ(inputs.size(), 1);
+    EXPECT_EQ(inputs[0].name, known->name);
+    EXPECT_EQ(inputs[0].data_type, known->data_type);
 }
 
 }

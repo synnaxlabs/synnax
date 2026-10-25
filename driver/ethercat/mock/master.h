@@ -33,6 +33,7 @@ class Master final : public master::Master {
     std::unordered_map<uint16_t, std::string> faults;
     std::set<uint16_t> lost_slaves;
     std::set<uint16_t> disabled_slaves;
+    std::optional<size_t> bus_slaves;
     std::optional<x::telem::TimeSpan> dc_step;
     x::telem::TimeStamp dc_now{};
     pdo::Offsets pdo_offset_cache;
@@ -207,6 +208,19 @@ public:
         return x::errors::NIL;
     }
 
+    std::pair<size_t, x::errors::Error> count_slaves() override {
+        std::lock_guard lock(this->mu);
+        this->calls.emplace_back("count_slaves");
+        return {this->bus_slaves.value_or(this->slave_list.size()), x::errors::NIL};
+    }
+
+    /// @brief makes count_slaves() report count instead of the number of added slaves,
+    /// as when a slave is plugged in or removed after discovery.
+    void set_bus_slaves(const std::optional<size_t> count) {
+        std::lock_guard lock(this->mu);
+        this->bus_slaves = count;
+    }
+
     void set_slave_enabled(const uint16_t position, const bool enabled) override {
         std::lock_guard lock(this->mu);
         if (enabled)
@@ -305,7 +319,8 @@ public:
         return {this->output_iomap.data(), this->output_sz};
     }
 
-    std::optional<pdo::Offset> pdo_offset(const pdo::Entry &entry) const override {
+    std::pair<pdo::Offset, x::errors::Error>
+    pdo_offset(const pdo::Entry &entry) const override {
         std::lock_guard lock(this->mu);
         return pdo::find_offset(this->pdo_offset_cache, entry);
     }
