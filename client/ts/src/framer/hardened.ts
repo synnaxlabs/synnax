@@ -204,13 +204,14 @@ export class HardenedStreamer implements Streamer {
       await this.wrapped.update(channels, options);
     } catch (e) {
       if (this.closed) throw new EOF();
+      const err = errors.fromUnknown(e);
       // A rejection of the keys recurs on every retry, and leaves the stream as it was.
-      if (isDefinitive(e)) {
+      if (isDefinitive(err)) {
         this.config.channels = prev;
-        throw e;
+        throw err;
       }
       // an EOF the client did not ask for is a drop, as in read
-      await this.reconnect(errors.fromUnknown(e));
+      await this.reconnect(err);
       return await this.update(channels, options);
     }
   }
