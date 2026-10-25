@@ -187,6 +187,24 @@ var _ = Describe("Index", func() {
 		),
 	)
 
+	DescribeTable(
+		"Reading the first 64 words of a term",
+		func(term string, expected []int) {
+			idx.Set(1, "alpha")
+			Expect(idx.Search(term, 0).Keys).To(Equal(expected))
+		},
+		Entry(
+			"a word within the first 64",
+			strings.Repeat("zzz ", 63)+"alpha",
+			[]int{1},
+		),
+		Entry(
+			"not a word after the first 64",
+			strings.Repeat("zzz ", 64)+"alpha",
+			[]int{},
+		),
+	)
+
 	DescribeTable("Not matching",
 		func(text, term string) {
 			idx.Set(1, text)

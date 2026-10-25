@@ -28,6 +28,24 @@ func tokenize(s string) []string {
 	return tokens
 }
 
+// firstWords returns the start of s that holds its first n words.
+func firstWords(s string, n int) string {
+	words, inWord := 0, false
+	for i, r := range s {
+		if isSeparator(r) {
+			inWord = false
+			continue
+		}
+		if !inWord {
+			if words == n {
+				return s[:i]
+			}
+			words, inWord = words+1, true
+		}
+	}
+	return s
+}
+
 func truncate(token string) string {
 	if len(token) <= maxTokenRunes {
 		return token

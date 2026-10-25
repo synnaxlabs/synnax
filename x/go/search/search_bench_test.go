@@ -142,6 +142,15 @@ func BenchmarkSetManyWords(b *testing.B) {
 	}
 }
 
+func BenchmarkSearchLongTerm(b *testing.B) {
+	idx := newBenchIndex(makeNames(100000))
+	term := strings.Repeat("sensor 12 ", 100000)
+	b.ReportAllocs()
+	for b.Loop() {
+		idx.Search(term, 100)
+	}
+}
+
 func BenchmarkSearchMiss(b *testing.B) {
 	for _, count := range counts {
 		b.Run(fmt.Sprintf("resources=%d", count), func(b *testing.B) {

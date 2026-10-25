@@ -24,8 +24,12 @@ const (
 	fuzzyWeight  = 1
 )
 
-// retainedScratches is how many idle search scratches an Index keeps.
-const retainedScratches = 4
+const (
+	// retainedScratches is how many idle search scratches an Index keeps.
+	retainedScratches = 4
+	// maxQueryWords is how many words of a term Search reads.
+	maxQueryWords = 64
+)
 
 // Index is a full-text index of entries keyed by K. It is safe for concurrent use.
 type Index[K comparable] struct {
@@ -130,8 +134,9 @@ func (idx *Index[K]) Delete(key K) {
 }
 
 // Search returns the entries that match every word of term, closest match first. When
-// no entry matches every word, it returns the entries that match any word. It returns
-// at most limit entries, or every entry when limit is 0.
+// no entry matches every word, it returns the entries that match any word. It reads
+// only the first 64 words of term, and returns at most limit entries, or every entry
+// when limit is 0.
 func (idx *Index[K]) Search(term string, limit int) Result[K] {
 	return idx.search(term, nil, limit)
 }
@@ -147,7 +152,7 @@ func (idx *Index[K]) SearchExcept(
 }
 
 func (idx *Index[K]) search(term string, except func(K) bool, limit int) Result[K] {
-	words := tokenize(term)
+	words := tokenize(firstWords(term, maxQueryWords))
 	if len(words) == 0 {
 		return Result[K]{}
 	}
