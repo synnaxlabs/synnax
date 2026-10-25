@@ -14,8 +14,8 @@ export const components = mdxOverrides;
 
 This page explains the parts of Synnax and how they connect. It also defines the words
 that the rest of the docs use. The examples come from the
-[sample project](/reference/get-started/sample-project), a simulated tank that a
-sequence fills with nitrogen and then vents.
+[sample project](/reference/get-started/sample-project), a simulated tank in Synnax
+Desktop that a sequence fills with nitrogen and then vents.
 
 <Divider.Divider x />
 
@@ -230,7 +230,8 @@ When more than one writer sends commands to a channel,
 authority goes from 0 to 255, and the highest authority wins.
 
 In the sample project, the Press sequence runs at authority 100 and the Tank schematic
-at 200. Thus an operator can take control of the valves at any time.
+at 1. To take a valve from the sequence, an operator clicks its control chip, which
+writes at 255.
 
 </Term>
 <Term>

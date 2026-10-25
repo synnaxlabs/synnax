@@ -33,6 +33,7 @@ export const GET_STARTED_NAV: PageNavNode = {
     {
       href: "/reference/get-started/sample-project",
       name: "Sample project",
+      edition: "desktop",
     },
     {
       href: "/reference/get-started/first-run",

@@ -44,6 +44,8 @@ unchanged since their last successful production are skipped.
                     pruned, since each theme's frames run to gigabytes)
   --list            print matching entries and exit
   --url <url>       Console URL (default http://localhost:5173)
+  --desktop-url <url>  Console URL of a Desktop build (VITE_DESKTOP=true), for
+                    scripts that export desktop (default http://localhost:5175)
   --core-bin <path> synnax binary for the ephemeral cores
   --port <n>        core port for the ephemeral cores (default 9095)
   --jobs <n>        entries to produce concurrently (default 1); worker i gets
@@ -60,6 +62,7 @@ const paths = (entry: Entry) => ({
 interface ProduceEntryOptions {
   entry: Entry;
   url: string;
+  desktopUrl?: string;
   draft: boolean;
   keepFrames: boolean;
   coreBin?: string;
@@ -76,6 +79,7 @@ const versionOf = (files: Record<string, Buffer>): string => {
 const produceEntry = async ({
   entry,
   url,
+  desktopUrl,
   draft,
   keepFrames,
   coreBin,
@@ -91,6 +95,7 @@ const produceEntry = async ({
       scriptPath: path.resolve(ROOT, entry.script),
       outDir: captureDir,
       url,
+      desktopUrl,
       theme,
       core: "ephemeral",
       coreBin,
@@ -156,6 +161,7 @@ const produceEntry = async ({
 
 interface Options {
   url: string;
+  desktopUrl?: string;
   draft: boolean;
   keepFrames: boolean;
   coreBin?: string;
@@ -186,6 +192,7 @@ const runChild = async (id: string, port: number, opts: Options): Promise<Result
   if (opts.draft) args.push("--draft");
   if (opts.keepFrames) args.push("--keep-frames");
   if (opts.coreBin != null) args.push("--core-bin", opts.coreBin);
+  if (opts.desktopUrl != null) args.push("--desktop-url", opts.desktopUrl);
   return await new Promise<Result>((resolve) => {
     const proc = spawn(process.execPath, args, { stdio: ["ignore", "pipe", "pipe"] });
     let log = "";
@@ -234,6 +241,7 @@ const main = async (): Promise<void> => {
       list: { type: "boolean", default: false },
       exact: { type: "boolean", default: false },
       url: { type: "string", default: "http://localhost:5173" },
+      "desktop-url": { type: "string" },
       "core-bin": { type: "string" },
       port: { type: "string" },
       jobs: { type: "string" },
@@ -283,6 +291,7 @@ const main = async (): Promise<void> => {
       await produceEntry({
         entry,
         url: values.url,
+        desktopUrl: values["desktop-url"],
         draft: values.draft,
         keepFrames: values["keep-frames"],
         coreBin: values["core-bin"],
@@ -297,6 +306,7 @@ const main = async (): Promise<void> => {
   if (pooled.length > 0) {
     const result = await runPool(pooled, jobs, basePort, {
       url: values.url,
+      desktopUrl: values["desktop-url"],
       draft: values.draft,
       keepFrames: values["keep-frames"],
       coreBin: values["core-bin"],
