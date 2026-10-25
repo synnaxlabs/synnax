@@ -18,6 +18,7 @@
 #include "driver/ethercat/master/master.h"
 #include "driver/ethercat/pdo/pdo.h"
 #include "driver/ethercat/soem/api.h"
+#include "driver/ethercat/telem/telem.h"
 
 namespace driver::ethercat::soem {
 /// @brief SOEM-based implementation of the Master interface.
@@ -116,16 +117,24 @@ private:
         slave::DiscoveryResult &slave
     );
 
-    /// @brief reads the name of a PDO entry from the CoE object dictionary.
-    std::string
-    read_pdo_entry_name(uint16_t slave_pos, uint16_t index, uint8_t sub_index);
+    /// @brief reads the name and CoE data type of a PDO entry from the object
+    /// dictionary.
+    std::pair<std::string, telem::DataType>
+    read_pdo_entry(uint16_t slave_pos, uint16_t index, uint8_t sub_index);
 
     /// @brief scans the CoE object dictionary to find PDO mapping indices.
     bool
     scan_object_dictionary_for_pdos(uint16_t slave_pos, slave::DiscoveryResult &slave);
 
-    /// @brief transitions all slaves to the specified state.
+    /// @brief transitions all enabled slaves to the specified state.
     x::errors::Error request_state(uint16_t state, int timeout);
+
+    /// @brief transitions all enabled slaves to OP while exchanging process data, so
+    /// slaves with a sync manager watchdog see valid outputs.
+    x::errors::Error request_operational();
+
+    /// @brief builds the error for enabled slaves that did not reach a state.
+    x::errors::Error state_error(const std::vector<uint16_t> &failed, uint16_t state);
 };
 
 /// @brief SOEM-based implementation of master::Manager.
