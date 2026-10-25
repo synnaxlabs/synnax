@@ -29,6 +29,7 @@ import {
   RAW_LEVEL,
   type RawBlock,
   rawKey,
+  split,
 } from "@/framer/cache/block";
 import { indexes, tileRange } from "@/framer/cache/grid";
 import { type Store } from "@/framer/cache/store";
@@ -45,18 +46,17 @@ export const DEFAULT_BATCH_DEBOUNCE = TimeSpan.milliseconds(50);
 // marks them as covered.
 const COMMIT_MARGIN = TimeSpan.seconds(1);
 
-// The most block fetches in flight at once.
-const MAX_FETCHES = 4;
-
 // A request to fill a read's raw block up to at least end.
 interface Request {
   block: RawBlock;
   end: TimeStamp;
 }
 
-// Block fetches that start at the same time in the same block share one Core read.
+// One Core read from start through the end of the blocks first to last, shared by every
+// channel whose blocks need that span.
 interface Group {
-  index: number;
+  first: number;
+  last: number;
   start: TimeStamp;
   entries: Array<debounce.Entry<Request>>;
 }
@@ -88,17 +88,14 @@ export interface ReaderProps {
 }
 
 /**
- * Reads raw telemetry through raw blocks of the store. A read fetches each block it
- * needs from the end of the block's coverage to the block's end, with the channel's
- * index, and gives fetched series block alignment. A fetch failure rejects only the
- * reads that wait on it.
+ * Reads raw telemetry through raw blocks of the store. A read fetches the blocks it
+ * needs from the end of their coverage, with the channel's index, in one Core read for
+ * each run of adjacent blocks. Fetched series split at block edges and get block
+ * alignment. A fetch failure rejects only the reads that wait on it.
  */
 export class Reader {
   private readonly props: Required<Omit<ReaderProps, "batchDebounce">>;
   private readonly batcher: debounce.Batcher<Request>;
-  private active = 0;
-  // Fetches waiting for a slot, in arrival order. Each is handed a freed slot.
-  private readonly waiting: Array<() => void> = [];
   private closed = false;
 
   constructor(props: ReaderProps) {
@@ -157,36 +154,41 @@ export class Reader {
   }
 
   private async batchRead(entries: Array<debounce.Entry<Request>>): Promise<void> {
-    const groups = new Map<string, Group>();
+    const byChannel = new Map<channel.Key, Array<debounce.Entry<Request>>>();
     for (const entry of entries) {
       const { block, end } = entry.req;
-      const { index, coveredEnd } = block;
       // A fetch that landed while the request waited may have covered it.
-      if (!coveredEnd.before(end)) {
+      if (!block.coveredEnd.before(end)) {
         entry.resolve();
         continue;
       }
-      const key = `${index}/${coveredEnd.valueOf()}`;
-      let group = groups.get(key);
-      if (group == null) {
-        group = { index, start: coveredEnd, entries: [] };
-        groups.set(key, group);
-      }
-      group.entries.push(entry);
+      const existing = byChannel.get(block.channel);
+      if (existing == null) byChannel.set(block.channel, [entry]);
+      else existing.push(entry);
     }
+    const groups = new Map<string, Group>();
+    byChannel.forEach((pending) =>
+      runs(pending).forEach((run) => {
+        const key = `${run.first}/${run.last}/${run.start.valueOf()}`;
+        const group = groups.get(key);
+        if (group == null) groups.set(key, run);
+        else group.entries.push(...run.entries);
+      }),
+    );
     await Promise.all([...groups.values()].map(async (g) => await this.fetch(g)));
   }
 
   // Never throws: every outcome settles the group's entries.
-  private async fetch({ index, start, entries }: Group): Promise<void> {
+  private async fetch(group: Group): Promise<void> {
     const { fetchTimeout } = this.props;
-    await this.acquire();
+    const { entries } = group;
+    const tr = new TimeRange(
+      group.start,
+      tileRange({ level: RAW_LEVEL, index: group.last }).end,
+    );
     try {
-      if (this.closed) return;
-      const tr = new TimeRange(start, tileRange({ level: RAW_LEVEL, index }).end);
-      const requests = entries.map(({ req }) => req);
       const refetch = await sync.withTimeout(
-        this.load(index, tr, requests),
+        this.load(group, tr),
         fetchTimeout,
         () =>
           new Unreachable({
@@ -200,29 +202,24 @@ export class Reader {
       });
     } catch (err) {
       entries.forEach(({ reject }) => reject(err));
-    } finally {
-      this.release();
     }
   }
 
-  // Reads the requested channels and their indexes over tr, and fills each block whose
-  // coverage still ends at tr's start. A new data type resets a block, so a block that
-  // the fetch started after its start comes back in the result, to fetch again.
+  // Reads the requested channels and their indexes over tr, splits the result at block
+  // edges, and fills each block whose coverage still ends where the read starts in it.
+  // A new data type resets a block, so a block that the read started after its start
+  // comes back in the result, to fetch again.
   private async load(
-    index: number,
+    { first, last, start, entries }: Group,
     tr: TimeRange,
-    requests: Request[],
   ): Promise<Set<Request>> {
     const { readRemote, retrieveChannels, store, now } = this.props;
-    const coveredEnd = TimeStamp.max(
-      tr.start,
-      TimeStamp.min(tr.end, now().sub(COMMIT_MARGIN)),
-    );
+    const committed = now().sub(COMMIT_MARGIN);
     const requested = new Map<channel.Key, Request[]>();
-    requests.forEach((r) => {
-      const existing = requested.get(r.block.channel);
-      if (existing == null) requested.set(r.block.channel, [r]);
-      else existing.push(r);
+    entries.forEach(({ req }) => {
+      const existing = requested.get(req.block.channel);
+      if (existing == null) requested.set(req.block.channel, [req]);
+      else existing.push(req);
     });
     const channels = [...requested.keys()];
     const refetch = new Set<Request>();
@@ -251,44 +248,37 @@ export class Reader {
       const series = grouped.get(key) ?? [];
       const changed =
         series.length > 0 && store.retainDataType(key, series[0].dataType);
-      const targets = requested.get(key) ?? [
-        { block: store.raw(key, index), end: tr.end },
-      ];
       const timestamps = idx === 0 ? [] : (grouped.get(idx) ?? []);
+      const parts = split(first, last, timestamps, series);
+      const targets =
+        requested.get(key) ??
+        parts.map((_, i) => ({ block: store.raw(key, first + i), end: tr.end }));
       targets.forEach((r) => {
         const { block } = r;
+        const from = block.index === first ? start : block.range.start;
         if (changed) {
           block.reset();
-          if (!tr.start.equals(block.range.start)) {
+          if (!from.equals(block.range.start)) {
             refetch.add(r);
             return;
           }
         }
-        if (!block.coveredEnd.equals(tr.start)) return;
+        if (!block.coveredEnd.equals(from)) return;
+        const part = parts[block.index - first];
+        const coveredEnd = TimeStamp.max(
+          from,
+          TimeStamp.min(block.range.end, committed),
+        );
         const base = block.coveredCount;
         block.fill(
-          align(index, base, timestamps, series),
+          align(block.index, base, part.timestamps, part.series),
           coveredEnd,
-          base + countBefore(timestamps, coveredEnd),
+          base + countBefore(part.timestamps, coveredEnd),
         );
-        store.set(rawKey(key, index), block);
+        store.set(rawKey(key, block.index), block);
       });
     });
     return refetch;
-  }
-
-  private async acquire(): Promise<void> {
-    if (this.active < MAX_FETCHES) {
-      this.active++;
-      return;
-    }
-    await new Promise<void>((resolve) => this.waiting.push(resolve));
-  }
-
-  private release(): void {
-    const next = this.waiting.shift();
-    if (next == null) this.active--;
-    else next();
   }
 
   /**
@@ -300,6 +290,27 @@ export class Reader {
     this.batcher.close(new UnexpectedError("telemetry reader is closed"));
   }
 }
+
+// Splits one channel's pending requests into runs of adjacent blocks that one Core read
+// can fill: a run starts at the coverage end of its first block, and every later block
+// in it has no coverage.
+const runs = (entries: Array<debounce.Entry<Request>>): Group[] => {
+  const sorted = [...entries].sort((a, b) => a.req.block.index - b.req.block.index);
+  const out: Group[] = [];
+  for (const entry of sorted) {
+    const { index, coveredEnd, range } = entry.req.block;
+    const run = out.at(-1);
+    const joins =
+      run != null &&
+      index <= run.last + 1 &&
+      coveredEnd.equals(index === run.first ? run.start : range.start);
+    if (joins) {
+      run.last = Math.max(run.last, index);
+      run.entries.push(entry);
+    } else out.push({ first: index, last: index, start: coveredEnd, entries: [entry] });
+  }
+  return out;
+};
 
 // Returns the series of the blocks that overlap tr in time order. The fetched form of a
 // span wins: a streamed series that overlaps a fetched one is left out.

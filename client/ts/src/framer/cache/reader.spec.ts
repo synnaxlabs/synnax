@@ -128,11 +128,29 @@ describe("Reader", () => {
       expect(second.series).toEqual(first.series);
     });
 
-    it("should fetch each block a read spans", async () => {
+    it("should fetch the blocks a read spans in one Core read", async () => {
       const { reader, fetches } = createReader();
       const res = await reader.read(new TimeRange(at(60), at(70)), 1);
-      expect(fetches.map(({ tr }) => tr)).toEqual([blockRange(100), blockRange(101)]);
+      expect(fetches.map(({ tr }) => tr)).toEqual([
+        new TimeRange(blockRange(100).start, blockRange(101).end),
+      ]);
       expect(timestamps(res)).toEqual(expectedTimestamps(0, 132));
+      expect(res.series.map((s) => s.alignment)).toEqual([
+        blockAlignment(100, 0),
+        blockAlignment(101, 0),
+      ]);
+    });
+
+    it("should fetch the blocks on each side of a covered block apart", async () => {
+      const { reader, fetches } = createReader();
+      await reader.read(new TimeRange(at(70), at(80)), 2);
+      const res = await reader.read(new TimeRange(at(10), at(140)), 2);
+      expect(fetches.map(({ tr }) => tr)).toEqual([
+        blockRange(101),
+        blockRange(100),
+        blockRange(102),
+      ]);
+      expect(res.length).toBe(197);
     });
 
     it("should share one Core read among channels reading one block", async () => {
@@ -175,27 +193,24 @@ describe("Reader", () => {
       expect(await reader.read(tr, 2)).toHaveLength(66);
       expect(fetches).toHaveLength(2);
     });
+  });
 
-    it("should run at most four fetches at once", async () => {
-      const gate = createGate();
-      let active = 0;
-      let most = 0;
-      const { reader, fetches } = createReader({
-        before: async () => {
-          most = Math.max(most, ++active);
-          await gate.wait();
-          active--;
-        },
-      });
-      const read = reader.read(new TimeRange(at(0), blockRange(106).start), 2);
-      await expect.poll(() => fetches.length).toBe(4);
-      await sleep.sleep(TimeSpan.milliseconds(20));
-      expect(fetches).toHaveLength(4);
-      gate.open();
-      await read;
-      expect(fetches).toHaveLength(6);
-      expect(most).toBe(4);
-    });
+  describe("back-fill", () => {
+    it.each([TimeSpan.minutes(10), TimeSpan.days(1)])(
+      "should back-fill %s in one Core read split at block edges",
+      async (span) => {
+        const { core, reader, fetches } = createReader({ elapsed: span.seconds });
+        const res = await reader.read(new TimeRange(at(0), core.now()), 2);
+        expect(fetches).toHaveLength(1);
+        expect(res.length).toBe(span.seconds);
+        res.series.forEach((s) => {
+          const index = rawIndex(s.timeRange.start);
+          const block = blockRange(index);
+          expect(s.alignment >> 32n).toBe(BigInt(index));
+          expect(s.timeRange.end.beforeEq(block.end)).toBe(true);
+        });
+      },
+    );
   });
 
   describe("budget", () => {
@@ -384,14 +399,19 @@ describe("Reader", () => {
 
     it("should reject a read after its last fetch lands when one fails", async () => {
       const gate = createGate();
+      let gated = false;
       const { reader } = createReader({
         before: async (fetch) => {
-          await failBlock(101)(fetch);
+          if (!gated) return;
+          await failBlock(102)(fetch);
           await gate.wait();
         },
       });
+      // A covered block 101 splits the read into two fetches.
+      await reader.read(new TimeRange(at(70), at(80)), 2);
+      gated = true;
       let settled = false;
-      const read = reader.read(new TimeRange(at(60), at(70)), 2).finally(() => {
+      const read = reader.read(new TimeRange(at(10), at(140)), 2).finally(() => {
         settled = true;
       });
       await sleep.sleep(TimeSpan.milliseconds(100));

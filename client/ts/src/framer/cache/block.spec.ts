@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, MultiSeries, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
+import {
+  DataType,
+  MultiSeries,
+  Series,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { UnexpectedError } from "@/errors";
@@ -18,6 +25,7 @@ import {
   RawBlock,
   rawIndex,
   rawKey,
+  split,
 } from "@/framer/cache/block";
 import { Dynamic } from "@/framer/cache/dynamic";
 import { tileSpan } from "@/framer/cache/grid";
@@ -113,6 +121,55 @@ describe("block", () => {
       const aligned = () => align(3, 0, [ts], [createValues(501n, [1, 2])]);
       expect(aligned).toThrow(UnexpectedError);
       expect(aligned).toThrow("no index samples share alignment 501 in raw block 3");
+    });
+  });
+
+  describe("split", () => {
+    const span = tileSpan(RAW_LEVEL);
+    // Returns index samples at the given offsets from the start of raw block 0.
+    const createIndex = (alignment: bigint, ...ms: number[]): Series =>
+      new Series({
+        data: new BigInt64Array(ms.map((m) => TimeSpan.milliseconds(m).valueOf())),
+        dataType: DataType.TIMESTAMP,
+        alignment,
+        timeRange: new TimeRange(0n, span.mult(3).valueOf()),
+      });
+
+    it("should split series at block edges and cut their time ranges", () => {
+      const edge = Number(span.milliseconds);
+      const ts = createIndex(500n, 1, edge - 1, edge, 2 * edge + 1);
+      const values = createValues(500n, [1, 2, 3, 4], ts.timeRange);
+      const parts = split(0, 2, [ts], [values]);
+      expect(parts.map((p) => p.series.map((s) => Array.from(s)))).toEqual([
+        [[1, 2]],
+        [[3]],
+        [[4]],
+      ]);
+      expect(parts.map((p) => p.series[0].alignment)).toEqual([500n, 502n, 503n]);
+      expect(parts.map((p) => p.timestamps[0].timeRange)).toEqual([
+        new TimeRange(0n, span.valueOf()),
+        new TimeRange(span.valueOf(), span.mult(2).valueOf()),
+        new TimeRange(span.mult(2).valueOf(), span.mult(3).valueOf()),
+      ]);
+    });
+
+    it("should split a series that spans index series of two blocks", () => {
+      const edge = Number(span.milliseconds);
+      const ts = [createIndex(500n, 1, 2), createIndex(502n, edge + 1)];
+      const parts = split(0, 1, ts, [createValues(501n, [2, 3], ts[0].timeRange)]);
+      expect(parts.map((p) => p.series.map((s) => s.alignmentBounds))).toEqual([
+        [{ lower: 501n, upper: 502n }],
+        [{ lower: 502n, upper: 503n }],
+      ]);
+    });
+
+    it("should throw when a sample has no index sample of its Core alignment", () => {
+      const ts = createIndex(500n, 1, 2);
+      const split_ = () => split(0, 0, [ts], [createValues(501n, [1, 2])]);
+      expect(split_).toThrow(UnexpectedError);
+      expect(split_).toThrow(
+        "no index samples share alignment 501 in raw blocks 0 to 0",
+      );
     });
   });
 

@@ -89,19 +89,87 @@ export const align = (
     });
 };
 
+// Returns the position of the first sample of the timestamp series at or after t, from
+// lo.
+const search = (s: Series, t: bigint, lo = 0): number => {
+  let hi = s.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (BigInt(s.data[mid]) < t) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+};
+
 /** @returns the samples of the timestamp series stamped before ts. */
-export const countBefore = (timestamps: Series[], ts: TimeStamp): number => {
-  const t = ts.valueOf();
-  return timestamps.reduce((count, s) => {
-    let lo = 0;
-    let hi = s.length;
-    while (lo < hi) {
-      const mid = (lo + hi) >>> 1;
-      if (BigInt(s.data[mid]) < t) lo = mid + 1;
-      else hi = mid;
+export const countBefore = (timestamps: Series[], ts: TimeStamp): number =>
+  timestamps.reduce((count, s) => count + search(s, ts.valueOf()), 0);
+
+/** The index samples and samples of one channel that a fetch read in one block. */
+export interface Part {
+  timestamps: Series[];
+  series: Series[];
+}
+
+const cut = (s: Series, tr: TimeRange): Series =>
+  derive(s, {
+    timeRange: new TimeRange(
+      TimeStamp.max(s.timeRange.start, tr.start),
+      TimeStamp.min(s.timeRange.end, tr.end),
+    ),
+  });
+
+/**
+ * Splits a fetch's series of one channel at the edges of the raw blocks first to last,
+ * and cuts the time range of each part to its block.
+ * @param timestamps - The fetch's series of the channel's index, in time order.
+ * @param series - The fetch's series of the channel, in time order.
+ * @returns the part of each block, from first to last.
+ * @throws {UnexpectedError} if a series has samples with no index sample of the same
+ * Core alignment.
+ */
+export const split = (
+  first: number,
+  last: number,
+  timestamps: Series[],
+  series: Series[],
+): Part[] => {
+  const parts: Part[] = Array.from({ length: last - first + 1 }, () => ({
+    timestamps: [],
+    series: [],
+  }));
+  // edges holds the Core alignment bounds of the index samples of each part, in order.
+  const edges: Array<{ part: Part; range: TimeRange; lower: bigint; upper: bigint }> =
+    [];
+  for (const ts of timestamps)
+    for (let lo = 0; lo < ts.length;) {
+      const index = rawIndex(new TimeStamp(ts.data[lo]));
+      const range = tileRange({ level: RAW_LEVEL, index });
+      const hi = search(ts, range.end.valueOf(), lo);
+      const part = parts[index - first];
+      part.timestamps.push(cut(ts.sub(lo, hi), range));
+      const lower = ts.alignment + BigInt(lo);
+      edges.push({ part, range, lower, upper: lower + BigInt(hi - lo) });
+      lo = hi;
     }
-    return count + lo;
-  }, 0);
+  let e = 0;
+  for (const s of series) {
+    const { lower, upper } = s.alignmentBounds;
+    while (e < edges.length && edges[e].upper <= lower) e++;
+    let claimed = 0;
+    for (let i = e; i < edges.length && edges[i].lower < upper; i++) {
+      const { part, range } = edges[i];
+      const from = edges[i].lower > lower ? edges[i].lower : lower;
+      const to = edges[i].upper < upper ? edges[i].upper : upper;
+      part.series.push(cut(s.sub(Number(from - lower), Number(to - lower)), range));
+      claimed += Number(to - from);
+    }
+    if (claimed < s.length)
+      throw new UnexpectedError(
+        `no index samples share alignment ${lower} in raw blocks ${first} to ${last}`,
+      );
+  }
+  return parts;
 };
 
 /** A streamed series and the span its samples cover. */
