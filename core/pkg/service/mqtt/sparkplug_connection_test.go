@@ -228,7 +228,9 @@ var _ = Describe("Sparkplug B host session", func() {
 				_, first := run(ctx, readConfig(
 					dev, tagEntry("plant", "line1", "", "temperature", a[0]),
 				))
-				Eventually(node.births).Should(Equal(1))
+				Eventually(func() int64 { return stored(ctx, a[0]).Len() }).
+					Should(BeEquivalentTo(1))
+				Expect(node.births()).To(Equal(1))
 				_, second := run(ctx, readConfig(
 					dev, tagEntry("plant", "line1", "", "pressure", b[0]),
 				))
@@ -272,7 +274,10 @@ var _ = Describe("Sparkplug B host session", func() {
 				second := configure(ctx, factory, secondTask)
 				Expect(first.Exec(ctx, task.Command{Type: "start", Key: "start"})).
 					To(Succeed())
-				Eventually(node.births).Should(Equal(1))
+				// A birth that the host handles after the second request answers it.
+				Eventually(func() int64 { return stored(ctx, a[0]).Len() }).
+					Should(BeEquivalentTo(1))
+				Expect(node.births()).To(Equal(1))
 				Expect(second.Exec(ctx, task.Command{Type: "start", Key: "start"})).
 					To(Succeed())
 				Consistently(
