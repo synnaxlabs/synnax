@@ -219,12 +219,13 @@ Each phase is one pull request from `main`.
   consumer. `Source.dataType` and the `transform` option go. The line computes `points`
   and owns its zoom settle timer.
 - **Phase 3: Blocks.** The tile grid moves from Pluto into the client and the store
-  comes out of `TileReader`. Raw reads fetch whole blocks, and raw data moves into
-  blocks with block alignment. `Static`, `Unary`, and `Cache` go. Needs phase 2.
+  comes out of `TileReader`. Raw reads fetch whole blocks with block alignment, and
+  streamed data goes into the open block. `Static`, `Unary`, and `Cache` go. Needs
+  phase 2.
 - **Phase 4: The live request.** `Feed.subscribe` over blocks, with specs for the seam,
-  duplicates, the rolling edge, and data type changes. Lines, values, and logs move onto
-  it. `LiveWindow` and the tile targets go, and the old `Feed` methods leave the public
-  surface. Needs phases 1 and 3.
+  duplicates, the rolling edge, and data type changes. The join gives streamed samples
+  block alignment. Lines, values, and logs move onto it. `LiveWindow` and the tile
+  targets go, and the old `Feed` methods leave the public surface. Needs phases 1 and 3.
 - **Phase 5: Validity.** Subscription holds replace reference counts, history change
   signals replace the 10 minute expiry, and the size options merge into one budget.
 
