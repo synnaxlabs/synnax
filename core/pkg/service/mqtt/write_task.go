@@ -71,9 +71,12 @@ func (t writeTarget) String() string { return "target " + t.topic }
 // publication implements target.
 func (t writeTarget) publication(series telem.Series, i int) (publication, error) {
 	payload, err := t.payload(series, i)
+	if err != nil {
+		return publication{}, err
+	}
 	return publication{
 		topic: t.topic, payload: payload, qos: t.qos, retained: t.retained,
-	}, err
+	}, nil
 }
 
 func parseTimeFormat(format *TimeFormat) (xjson.TimeFormat, error) {
@@ -94,24 +97,24 @@ func newWriteTarget(target PlainWriteTarget, ch channel.Channel) (writeTarget, e
 	}
 	err := validateTopic(target.Topic)
 	if err != nil {
-		return t, err
+		return writeTarget{}, err
 	}
 	if t.pointer, err = xjson.ParsePointer(target.Channel.Pointer); err != nil {
-		return t, errors.Wrap(err, path)
+		return writeTarget{}, errors.Wrap(err, path)
 	}
 	if t.jsonType, err = xjson.ParseType(string(target.Channel.JSONType)); err != nil {
-		return t, errors.Wrap(err, path)
+		return writeTarget{}, errors.Wrap(err, path)
 	}
 	if ch.DataType == telem.TimestampT {
 		if t.format, err = parseTimeFormat(target.Channel.TimeFormat); err != nil {
-			return t, errors.Wrap(err, path)
+			return writeTarget{}, errors.Wrap(err, path)
 		}
 	} else if err = xjson.CheckFromSample(ch.DataType, t.jsonType); err != nil {
-		return t, errors.Wrapf(err, "%s: channel %s", path, ch.Name)
+		return writeTarget{}, errors.Wrapf(err, "%s: channel %s", path, ch.Name)
 	}
 	if len(target.Channel.EnumValues) > 0 {
 		if t.jsonType != xjson.String {
-			return t, errors.Wrapf(
+			return writeTarget{}, errors.Wrapf(
 				validate.ErrValidation,
 				"%s: enum values require the string JSON type", path,
 			)
@@ -122,7 +125,7 @@ func newWriteTarget(target PlainWriteTarget, ch channel.Channel) (writeTarget, e
 		}
 	}
 	if len(t.pointer) == 0 && len(target.Fields) > 0 {
-		return t, errors.Wrapf(
+		return writeTarget{}, errors.Wrapf(
 			validate.ErrValidation,
 			"%s: a channel value that is the whole payload allows no other fields",
 			path,
@@ -133,36 +136,40 @@ func newWriteTarget(target PlainWriteTarget, ch channel.Channel) (writeTarget, e
 		switch field := f.Variant.(type) {
 		case StaticWriteField:
 			if extra.pointer, err = xjson.ParsePointer(field.Pointer); err != nil {
-				return t, errors.Wrap(err, path)
+				return writeTarget{}, errors.Wrap(err, path)
 			}
 			if !matchesJSONType(field.Value, field.JSONType) {
-				return t, errors.Wrapf(
+				return writeTarget{}, errors.Wrapf(
 					validate.ErrValidation,
 					"%s: static value at %s is not a %s",
 					path, field.Pointer, field.JSONType,
 				)
 			}
 			if extra.static, err = xjson.Marshal(field.Value); err != nil {
-				return t, errors.Wrapf(
+				return writeTarget{}, errors.Wrapf(
 					validate.ErrValidation,
 					"%s: static value at %s is not JSON", path, field.Pointer,
 				)
 			}
 		case GeneratedWriteField:
 			if extra.pointer, err = xjson.ParsePointer(field.Pointer); err != nil {
-				return t, errors.Wrap(err, path)
+				return writeTarget{}, errors.Wrap(err, path)
 			}
 			extra.generator = field.Generator
 			if extra.format, err = parseTimeFormat(field.TimeFormat); err != nil {
-				return t, errors.Wrap(err, path)
+				return writeTarget{}, errors.Wrap(err, path)
 			}
 		case nil:
-			return t, errors.Wrapf(validate.ErrValidation, "%s: a field is null", path)
+			return writeTarget{}, errors.Wrapf(
+				validate.ErrValidation,
+				"%s: a field is null",
+				path,
+			)
 		default:
 			panic(errors.Newf("mqtt: unknown write field variant %T", field))
 		}
 		if len(extra.pointer) == 0 {
-			return t, errors.Wrapf(
+			return writeTarget{}, errors.Wrapf(
 				validate.ErrValidation, "%s: a field requires a pointer", path,
 			)
 		}
@@ -177,7 +184,7 @@ func newWriteTarget(target PlainWriteTarget, ch channel.Channel) (writeTarget, e
 				shorter, longer = longer, shorter
 			}
 			if slices.Equal(shorter, longer[:len(shorter)]) {
-				return t, errors.Wrapf(
+				return writeTarget{}, errors.Wrapf(
 					validate.ErrValidation, "%s: two fields set %s", path, shorter,
 				)
 			}

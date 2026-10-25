@@ -86,36 +86,40 @@ func (s *scanner) browseSparkplug(
 		res  = browseSparkplugResult{Nodes: []browsedNode{}, Tags: []browsedTag{}}
 	)
 	if err := cmd.Args.Unmarshal(&args); err != nil {
-		return res, errors.Wrapf(
+		return browseSparkplugResult{}, errors.Wrapf(
 			validate.ErrValidation, "invalid arguments: %s", err.Error(),
 		)
 	}
 	_, props, cfg, err := s.browseConfig(ctx, args.Device)
 	if err != nil {
-		return res, err
+		return browseSparkplugResult{}, err
 	}
 	duration := browseDuration(args.Duration)
 	if args.EdgeNode == "" {
 		if args.Group != "" {
 			if err = sparkplug.ValidateID("group", args.Group); err != nil {
-				return res, err
+				return browseSparkplugResult{}, err
 			}
 		}
-		res.Nodes, err = browseNodes(
+		if res.Nodes, err = browseNodes(
 			ctx,
 			s.ins,
 			cfg,
 			nodeFilters(props, args.Group),
 			duration,
-		)
-		return res, err
+		); err != nil {
+			return browseSparkplugResult{}, err
+		}
+		return res, nil
 	}
 	node := sparkplug.NodeID{Group: args.Group, EdgeNode: args.EdgeNode}
 	if err = node.Validate(); err != nil {
-		return res, err
+		return browseSparkplugResult{}, err
 	}
-	res.Tags, err = browseTags(ctx, s.ins, cfg, node, duration)
-	return res, err
+	if res.Tags, err = browseTags(ctx, s.ins, cfg, node, duration); err != nil {
+		return browseSparkplugResult{}, err
+	}
+	return res, nil
 }
 
 // nodeFilters returns the topic filters of a browse for edge nodes: the group that

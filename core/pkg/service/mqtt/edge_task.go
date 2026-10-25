@@ -55,16 +55,19 @@ func newPublishedTag(
 ) (publishedTag, sparkplug.Tag, error) {
 	t := publishedTag{name: cfg.Name, channel: cfg.Channel}
 	if cfg.Name == "" {
-		return t, sparkplug.Tag{}, errors.Wrap(validate.ErrValidation, "tag: required")
+		return publishedTag{}, sparkplug.Tag{}, errors.Wrap(
+			validate.ErrValidation,
+			"tag: required",
+		)
 	}
 	if sparkplug.Reserved(cfg.Name) {
-		return t, sparkplug.Tag{}, errors.Wrapf(
+		return publishedTag{}, sparkplug.Tag{}, errors.Wrapf(
 			validate.ErrValidation, "tag %s: Sparkplug B reserves the name", cfg.Name,
 		)
 	}
 	ch, ok := channels[cfg.Channel]
 	if !ok {
-		return t, sparkplug.Tag{}, errors.Wrapf(
+		return publishedTag{}, sparkplug.Tag{}, errors.Wrapf(
 			validate.ErrValidation,
 			"tag %s: channel %d does not exist", cfg.Name, cfg.Channel,
 		)
@@ -72,14 +75,14 @@ func newPublishedTag(
 	t.index = ch.Index()
 	sparkplugType, ok := sparkplugTypes[cfg.TagType]
 	if !ok {
-		return t, sparkplug.Tag{}, errors.Wrapf(
+		return publishedTag{}, sparkplug.Tag{}, errors.Wrapf(
 			validate.ErrValidation,
 			"tag %s: unknown Sparkplug B data type %s", cfg.Name, cfg.TagType,
 		)
 	}
 	declared := sparkplug.Tag{Name: cfg.Name, DataType: sparkplugType}
 	if !sparkplug.Compatible(ch.DataType, sparkplugType) {
-		return t, declared, errors.Wrapf(
+		return publishedTag{}, sparkplug.Tag{}, errors.Wrapf(
 			validate.ErrValidation,
 			"tag %s: channel %s of type %s cannot be sent as %s",
 			cfg.Name, ch.Name, ch.DataType, sparkplugType,
@@ -95,10 +98,10 @@ func newPublishedTag(
 		Channel:  cfg.CommandChannel,
 	}, channels)
 	if err != nil {
-		return t, declared, errors.Wrap(err, "command channel")
+		return publishedTag{}, sparkplug.Tag{}, errors.Wrap(err, "command channel")
 	}
 	if !sparkplug.Compatible(command.dataType, sparkplugType) {
-		return t, declared, errors.Wrapf(
+		return publishedTag{}, sparkplug.Tag{}, errors.Wrapf(
 			validate.ErrValidation,
 			"tag %s: command channel %s of type %s cannot take values of %s",
 			cfg.Name, channels[cfg.CommandChannel].Name, command.dataType,

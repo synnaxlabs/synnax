@@ -79,7 +79,10 @@ func newAlertTask(
 		Task:            t,
 		Open:            at.open,
 	})
-	return at, err
+	if err != nil {
+		return nil, err
+	}
+	return at, nil
 }
 
 func (t *alertTask) open(context.Context) (func(context.Context) error, error) {

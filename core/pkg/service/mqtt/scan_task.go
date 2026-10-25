@@ -268,17 +268,20 @@ func (s *scanner) browseConfig(
 		Where(device.MatchKeys(key)).
 		Entry(&dev).
 		Exec(ctx, nil); err != nil {
-		return dev, properties{}, clientConfig{}, err
+		return device.Device{}, properties{}, clientConfig{}, err
 	}
 	props, err := parseProperties(dev)
 	if err != nil {
-		return dev, props, clientConfig{}, err
+		return device.Device{}, properties{}, clientConfig{}, err
 	}
 	cfg, err := newClientConfigOf(dev, props)
+	if err != nil {
+		return device.Device{}, properties{}, clientConfig{}, err
+	}
 	cfg.clientID = deriveClientID(dev.Key + "/browse")
 	// A browse is never the host application, so it sets no STATE last will.
 	cfg.hostID = ""
-	return dev, props, cfg, err
+	return dev, props, cfg, nil
 }
 
 // payloadSample returns the start of a text payload.

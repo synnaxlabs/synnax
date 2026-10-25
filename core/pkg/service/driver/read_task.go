@@ -168,7 +168,10 @@ func NewReadTask(cfgs ...ReadTaskConfig) (*ReadTask, error) {
 		Task:            cfg.Task,
 		Open:            t.open,
 	})
-	return t, err
+	if err != nil {
+		return nil, err
+	}
+	return t, nil
 }
 
 func (t *ReadTask) open(ctx context.Context) (func(context.Context) error, error) {

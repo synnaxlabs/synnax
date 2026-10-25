@@ -188,10 +188,10 @@ func (s *Sequence) EndSession() { s.bdSeq++ }
 func (e *Edge) encode(pm *pb.Payload_Metric, m Metric) (tag, error) {
 	tg, ok := e.table.byName[m.Name]
 	if !ok {
-		return tg, errors.Newf("tag %s is not a tag of the edge node", m.Name)
+		return tag{}, errors.Newf("tag %s is not a tag of the edge node", m.Name)
 	}
 	if err := encodeValue(pm, tg.dataType, m.Value); err != nil {
-		return tg, errors.Wrapf(err, "tag %s", m.Name)
+		return tag{}, errors.Wrapf(err, "tag %s", m.Name)
 	}
 	return tg, nil
 }

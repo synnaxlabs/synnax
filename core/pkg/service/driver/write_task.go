@@ -131,7 +131,10 @@ func NewWriteTask(cfgs ...WriteTaskConfig) (*WriteTask, error) {
 		Task:            cfg.Task,
 		Open:            t.open,
 	})
-	return t, err
+	if err != nil {
+		return nil, err
+	}
+	return t, nil
 }
 
 func (t *WriteTask) open(ctx context.Context) (func(context.Context) error, error) {

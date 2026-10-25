@@ -161,7 +161,10 @@ func NewScanTask(cfgs ...ScanTaskConfig) (*ScanTask, error) {
 			return t.run, nil
 		},
 	})
-	return t, err
+	if err != nil {
+		return nil, err
+	}
+	return t, nil
 }
 
 // Exec implements Task. A command other than start and stop goes to the Scanner in the

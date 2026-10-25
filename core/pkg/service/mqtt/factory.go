@@ -268,28 +268,33 @@ func (f *Factory) retrieveDevice(
 ) (device.Device, error) {
 	var dev device.Device
 	if key == "" {
-		return dev, errors.Wrap(validate.ErrValidation, "device: a broker is required")
+		return device.Device{}, errors.Wrap(
+			validate.ErrValidation,
+			"device: a broker is required",
+		)
 	}
 	err := f.cfg.Device.NewRetrieve().
 		Where(device.MatchKeys(key)).
 		Entry(&dev).
 		Exec(ctx, nil)
 	if errors.Is(err, query.ErrNotFound) {
-		return dev, errors.Wrapf(
+		return device.Device{}, errors.Wrapf(
 			validate.ErrValidation, "device: broker %s does not exist", key,
 		)
 	}
 	if err != nil {
-		return dev, err
+		return device.Device{}, err
 	}
 	if dev.Make != Make {
-		return dev, errors.Wrapf(
+		return device.Device{}, errors.Wrapf(
 			validate.ErrValidation, "device: %s is not an MQTT broker", dev.Name,
 		)
 	}
 	// Bad properties fail the configure, not the first start.
-	_, err = newClientConfig(dev)
-	return dev, err
+	if _, err = newClientConfig(dev); err != nil {
+		return device.Device{}, err
+	}
+	return dev, nil
 }
 
 func (f *Factory) retrieveChannels(
@@ -443,7 +448,10 @@ func (f *Factory) configureRead(
 		Task:            t,
 		Mode:            mode,
 	})
-	return rt, cfg.AutoStart, err
+	if err != nil {
+		return nil, cfg.AutoStart, err
+	}
+	return rt, cfg.AutoStart, nil
 }
 
 // enabledTarget returns the command channel and the name of a target. ok is false
@@ -531,7 +539,10 @@ func (f *Factory) configureWrite(
 		Channels:        keys.Unique(),
 		Task:            t,
 	})
-	return wt, cfg.AutoStart, err
+	if err != nil {
+		return nil, cfg.AutoStart, err
+	}
+	return wt, cfg.AutoStart, nil
 }
 
 func (f *Factory) configureEdge(
@@ -632,7 +643,10 @@ func (f *Factory) configureEdge(
 		Channels:        streamKeys.Unique(),
 		Task:            t,
 	})
-	return wt, cfg.AutoStart, err
+	if err != nil {
+		return nil, cfg.AutoStart, err
+	}
+	return wt, cfg.AutoStart, nil
 }
 
 func (f *Factory) configureScan(t task.Task) (autoStarter, bool, error) {
@@ -659,5 +673,8 @@ func (f *Factory) configureScan(t task.Task) (autoStarter, bool, error) {
 		scanCfg.Interval = cfg.Rate.Period().Duration()
 	}
 	st, err := driver.NewScanTask(scanCfg)
-	return st, !cfg.Disabled, err
+	if err != nil {
+		return nil, !cfg.Disabled, err
+	}
+	return st, !cfg.Disabled, nil
 }

@@ -106,7 +106,7 @@ type clientConfig struct {
 func parseProperties(dev device.Device) (properties, error) {
 	var props properties
 	if err := dev.Properties.Unmarshal(&props); err != nil {
-		return props, errors.Wrapf(
+		return properties{}, errors.Wrapf(
 			validate.ErrValidation, "invalid broker properties: %s", err.Error(),
 		)
 	}

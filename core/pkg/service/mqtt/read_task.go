@@ -97,7 +97,7 @@ func newReadTopic(
 		indexField:      -1,
 	}
 	if err := validateTopic(entry.Topic); err != nil {
-		return t, err
+		return readTopic{}, err
 	}
 	indexSet := false
 	for _, f := range entry.Fields {
@@ -107,7 +107,7 @@ func newReadTopic(
 		path := "field " + f.Name + " of topic " + entry.Topic
 		ch, ok := channels[f.Channel]
 		if !ok {
-			return t, errors.Wrapf(
+			return readTopic{}, errors.Wrapf(
 				validate.ErrValidation,
 				"%s: channel %d does not exist",
 				path,
@@ -115,11 +115,11 @@ func newReadTopic(
 			)
 		}
 		if err := xjson.CheckToSample(ch.DataType); err != nil {
-			return t, errors.Wrapf(err, "%s: channel %s", path, ch.Name)
+			return readTopic{}, errors.Wrapf(err, "%s: channel %s", path, ch.Name)
 		}
 		pointer, err := xjson.ParsePointer(f.Pointer)
 		if err != nil {
-			return t, errors.Wrap(err, path)
+			return readTopic{}, errors.Wrap(err, path)
 		}
 		field := readField{
 			name:     f.Name,
@@ -129,7 +129,7 @@ func newReadTopic(
 		}
 		if ch.DataType == telem.TimestampT {
 			if f.TimeFormat == nil {
-				return t, errors.Wrapf(
+				return readTopic{}, errors.Wrapf(
 					validate.ErrValidation,
 					"%s: a timestamp channel requires a time format", path,
 				)
@@ -137,7 +137,7 @@ func newReadTopic(
 			if field.format, err = xjson.ParseTimeFormat(
 				string(*f.TimeFormat),
 			); err != nil {
-				return t, errors.Wrap(err, path)
+				return readTopic{}, errors.Wrap(err, path)
 			}
 		}
 		if len(f.EnumValues) > 0 {
@@ -149,21 +149,21 @@ func newReadTopic(
 		if !indexSet {
 			t.index, indexSet = ch.Index(), true
 		} else if ch.Index() != t.index {
-			return t, errors.Wrapf(
+			return readTopic{}, errors.Wrapf(
 				validate.ErrValidation,
 				"%s: every channel of a topic must share one index channel", path,
 			)
 		}
 		if f.Key == entry.Index {
 			if !ch.IsIndex {
-				return t, errors.Wrapf(
+				return readTopic{}, errors.Wrapf(
 					validate.ErrValidation,
 					"%s: the index field must write to an index channel", path,
 				)
 			}
 			t.indexField = len(t.fields)
 		} else if ch.IsIndex {
-			return t, errors.Wrapf(
+			return readTopic{}, errors.Wrapf(
 				validate.ErrValidation,
 				"%s: only the index field can write to an index channel", path,
 			)
@@ -171,12 +171,12 @@ func newReadTopic(
 		t.fields = append(t.fields, field)
 	}
 	if len(t.fields) == 0 {
-		return t, errors.Wrapf(
+		return readTopic{}, errors.Wrapf(
 			validate.ErrValidation, "topic %s has no enabled fields", entry.Topic,
 		)
 	}
 	if entry.Index != "" && t.indexField == -1 {
-		return t, errors.Wrapf(
+		return readTopic{}, errors.Wrapf(
 			validate.ErrValidation,
 			"topic %s: index field %s does not exist or is disabled",
 			entry.Topic, entry.Index,

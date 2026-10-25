@@ -86,16 +86,16 @@ func newReadTag(
 		channel: entry.Channel,
 	}
 	if err := t.validate(); err != nil {
-		return t, err
+		return readTag{}, err
 	}
 	ch, ok := channels[entry.Channel]
 	if !ok {
-		return t, errors.Wrapf(
+		return readTag{}, errors.Wrapf(
 			validate.ErrValidation, "%s: channel %d does not exist", t, entry.Channel,
 		)
 	}
 	if ch.IsIndex || !takesTags(ch.DataType) {
-		return t, errors.Wrapf(
+		return readTag{}, errors.Wrapf(
 			validate.ErrValidation,
 			"%s: channel %s cannot take the values of a tag", t, ch.Name,
 		)
@@ -159,17 +159,17 @@ func newCommandTarget(
 		name:   cfg.Tag,
 	}
 	if err := t.validate(); err != nil {
-		return t, err
+		return commandTarget{}, err
 	}
 	var ok bool
 	if t.sparkplugType, ok = sparkplugTypes[cfg.TagType]; !ok {
-		return t, errors.Wrapf(
+		return commandTarget{}, errors.Wrapf(
 			validate.ErrValidation,
 			"%s: unknown Sparkplug B data type %s", t, cfg.TagType,
 		)
 	}
 	if !sparkplug.Compatible(ch.DataType, t.sparkplugType) {
-		return t, errors.Wrapf(
+		return commandTarget{}, errors.Wrapf(
 			validate.ErrValidation,
 			"%s: channel %s of type %s cannot be sent as %s",
 			t, ch.Name, ch.DataType, t.sparkplugType,
@@ -191,10 +191,13 @@ func (t commandTarget) publication(series telem.Series, i int) (publication, err
 		},
 		telem.Now(),
 	)
+	if err != nil {
+		return publication{}, err
+	}
 	return publication{
 		topic:    pub.Topic,
 		payload:  pub.Payload,
 		qos:      pub.QoS,
 		retained: pub.Retained,
-	}, err
+	}, nil
 }

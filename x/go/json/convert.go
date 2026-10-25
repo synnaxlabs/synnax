@@ -260,8 +260,12 @@ func parseNumber(text string, dt telem.DataType) (number, error) {
 		return number{}, errNotNumber
 	}
 	if !isFloatType(dt) {
-		if n, err := parseDecimal(text); !errors.Is(err, errNotDecimal) {
-			return n, err
+		n, err := parseDecimal(text)
+		if err == nil {
+			return n, nil
+		}
+		if !errors.Is(err, errNotDecimal) {
+			return number{}, err
 		}
 	}
 	return parseFloat(text)
@@ -311,8 +315,11 @@ func parseDecimal(text string) (number, error) {
 	shift := len(digits) - len(significant) - len(frac)
 	if exp < -shift {
 		n, err := parseFloat(text)
+		if err != nil {
+			return number{}, err
+		}
 		n.fractional = true
-		return n, err
+		return n, nil
 	}
 	if exp > maxDigits-len(significant)-shift {
 		return number{}, errOutOfBounds
