@@ -335,8 +335,8 @@ const chainOf = (
  *
  * A reduced pair starts at the alignment of its first group and steps groupSize / 2 per
  * point for min_max, or groupSize otherwise. It holds the GL data type, and keeps the
- * time range and GL offset, of its source series. Pairs are cached until they leave the ops, or until the
- * aggregation or group size changes.
+ * time range and GL offset, of its source series. Pairs are cached until they leave the
+ * ops, or until the aggregation or group size changes.
  */
 export class Reducer {
   private aggregation?: Aggregation;
@@ -344,8 +344,8 @@ export class Reducer {
   private readonly pairs = new Map<Series, Map<Series, Pair>>();
 
   /**
-   * @param groupSize - The samples per group. It must be even for min_max. An average of
-   * an integer series rounds down, as the Core does.
+   * @param groupSize - The samples per group. It must be even for min_max. An average
+   * of an integer series rounds down, as the Core does.
    * @returns the ops with each full-resolution op replaced by its reduced pair, or left
    * out when it draws no group. Ops of reduced series stay the same, and so does every
    * op when groupSize is below 2. The pairs of ops not in the list are released.

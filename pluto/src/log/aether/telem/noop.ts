@@ -9,7 +9,7 @@
 
 import { type destructor, type observe } from "@synnaxlabs/x";
 
-import { type Result, success } from "@/telem/aether/telem";
+import { telem } from "@/telem/aether";
 
 import { type LogEntry, type LogSource, type LogSourceSpec } from "./types";
 
@@ -17,8 +17,8 @@ export class NoopLogSource implements LogSource {
   static readonly TYPE = "noop-log-source";
   readonly evictedCount = 0;
 
-  value(): Result<LogEntry[]> {
-    return success([]);
+  value(): telem.Result<LogEntry[]> {
+    return telem.success([]);
   }
 
   cleanup(): void {}

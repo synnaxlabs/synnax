@@ -34,7 +34,6 @@ import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
-import { POINTS_PER_GROUP } from "@/telem/aether/tiles";
 import { seriesOverlap, windowBounds } from "@/vis/line/aether/bounds";
 import FRAG_SHADER from "@/vis/line/aether/frag.glsl?raw";
 import { groupSize, Reducer, type View } from "@/vis/line/aether/reduce";
@@ -429,7 +428,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const { groupsPerColumn, aggregation } = this.state;
     return {
       bounds: b,
-      points: width * groupsPerColumn * POINTS_PER_GROUP[aggregation],
+      points: width * groupsPerColumn * telem.POINTS_PER_GROUP[aggregation],
     };
   }
 

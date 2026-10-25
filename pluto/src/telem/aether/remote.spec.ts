@@ -269,6 +269,36 @@ describe("remote", () => {
       expect(c.streamF).not.toHaveBeenCalled();
     });
 
+    describe("status", () => {
+      it("should report loading until the first read lands", async () => {
+        const scv = new StreamChannelValue(c, { channel: c.channel.key });
+        expect(loading(scv)).toBe(true);
+        await expect.poll(() => scv.value().status.variant).toBe("success");
+      });
+
+      it("should report an error when the channel cannot be retrieved", async () => {
+        c.channels.retrieve = async () => {
+          throw new Error("retrieve exploded");
+        };
+        const scv = new StreamChannelValue(c, { channel: c.channel.key });
+        await expect
+          .poll(() => scv.value().status)
+          .toMatchObject({
+            variant: "error",
+            message: "Failed to stream channel value",
+            description: "retrieve exploded",
+          });
+        expect(scv.value().data).toBe(NaN);
+      });
+
+      it("should report loading again after cleanup", async () => {
+        const scv = new StreamChannelValue(c, { channel: c.channel.key });
+        await expect.poll(() => scv.value().status.variant).toBe("success");
+        scv.cleanup();
+        expect(loading(scv)).toBe(true);
+      });
+    });
+
     describe("initializing", () => {
       const SAMPLE_TIME = TimeStamp.seconds(100);
       const stored = (): Series =>
@@ -419,9 +449,14 @@ describe("remote", () => {
         expect(statuses[0].description).toEqual("read exploded");
         expect(c.streamDestructorF).not.toHaveBeenCalled();
         expect(scv.testingOnlyValid).toBe(true);
+        expect(scv.value().status).toMatchObject({
+          variant: "error",
+          message: "Failed to read latest value",
+          description: "read exploded",
+        });
         const live = new Series({ data: new Float32Array([5]) });
         c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
-        expect(scv.value().data).toBe(5);
+        expect(scv.value()).toMatchObject({ data: 5, status: { variant: "success" } });
       });
 
       describe("time", () => {
@@ -523,6 +558,27 @@ describe("remote", () => {
       expect(await waitForStream(scsv, c)).toBe("");
       expect(c.streamF).toHaveBeenCalledTimes(1);
       expect(c.streamKeys).toEqual([c.channel.key]);
+    });
+
+    it("should report loading until the first read lands", async () => {
+      const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
+      expect(loading(scsv)).toBe(true);
+      await expect.poll(() => scsv.value().status.variant).toBe("success");
+    });
+
+    it("should report an error when the channel cannot be retrieved", async () => {
+      c.channels.retrieve = async () => {
+        throw new Error("retrieve exploded");
+      };
+      const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
+      await expect
+        .poll(() => scsv.value().status)
+        .toMatchObject({
+          variant: "error",
+          message: "Failed to stream channel string value",
+          description: "retrieve exploded",
+        });
+      expect(scsv.value().data).toBe("");
     });
 
     // A consumer that counts arrivals reads the open as a sample, and then reports the

@@ -70,22 +70,6 @@ export interface Client {
   now: () => TimeStamp;
 }
 
-const readLatestSeries = async (
-  client: Client,
-  ch: channel.Channel,
-  onStatusChange?: status.Adder,
-): Promise<Series | null> => {
-  if (ch.virtual && !channel.isCalculated(ch)) return null;
-  try {
-    const latest = (await client.feed.readLatest(ch.key)).series.at(-1);
-    if (latest == null || latest.length === 0) return null;
-    return latest;
-  } catch (e) {
-    onStatusChange?.(cstatus.fromException(e, "Failed to read latest value"));
-    return null;
-  }
-};
-
 /** Reported by remote sources created while the cluster is disconnected. */
 export const DISCONNECTED_STATUS: cstatus.Crude = {
   variant: "warning",
@@ -142,6 +126,26 @@ class FailureReporter {
   }
 }
 
+// Loading until a source's first read lands, then its last failure, if any.
+const sourceStatus = (loading: boolean, failures: FailureReporter): cstatus.Status =>
+  loading ? LOADING_STATUS : (failures.status ?? SUCCESS_STATUS);
+
+const readLatestSeries = async (
+  client: Client,
+  ch: channel.Channel,
+  failures: FailureReporter,
+): Promise<Series | null> => {
+  if (ch.virtual && !channel.isCalculated(ch)) return null;
+  try {
+    const latest = (await client.feed.readLatest(ch.key)).series.at(-1);
+    if (latest == null || latest.length === 0) return null;
+    return latest;
+  } catch (e) {
+    failures.report(e, "Failed to read latest value");
+    return null;
+  }
+};
+
 export const streamChannelValuePropsZ = z.object({
   channel: z.number().or(z.string()),
 });
@@ -163,11 +167,14 @@ export class StreamChannelValue
   private time?: TimeStamp;
   private generation = 0;
   private valid = false;
+  private loading = true;
+  private readonly failures: FailureReporter;
   private readonly onStatusChange?: status.Adder;
   constructor(client: Client | null, props: unknown, options?: CreateOptions) {
     super(props);
     this.client = client;
     this.onStatusChange = options?.onStatusChange;
+    this.failures = new FailureReporter(this.onStatusChange);
   }
 
   /** @returns the leading series buffer for testing purposes. */
@@ -189,18 +196,22 @@ export class StreamChannelValue
     this.leadingBuffer = null;
     this.time = undefined;
     this.removeStreamHandler = null;
+    this.loading = true;
+    this.failures.reset();
   }
 
   value(): Result<number> {
     // No valid channel has been set.
     if (primitive.isZero(this.props.channel)) return success(NaN);
     if (!this.valid) void this.read();
+    const status = sourceStatus(this.loading, this.failures);
     // No data has been received and no recent samples were fetched on initialization.
     if (this.leadingBuffer == null || this.leadingBuffer.length === 0)
-      return success(NaN);
+      return { data: NaN, status };
     const v = this.leadingBuffer.at(-1, true);
     // A boolean channel reads as 0 or 1.
-    return success((typeof v === "boolean" ? Number(v) : v) as number, this.time);
+    const data = (typeof v === "boolean" ? Number(v) : v) as number;
+    return { data, status, time: this.time };
   }
 
   /** Never rejects: a failure invalidates the read and reaches onStatusChange. */
@@ -209,6 +220,7 @@ export class StreamChannelValue
     this.valid = true;
     const { client } = this;
     if (client == null) {
+      this.loading = false;
       this.onStatusChange?.(DISCONNECTED_STATUS);
       return;
     }
@@ -231,26 +243,32 @@ export class StreamChannelValue
         // holds nothing for this channel looks the same, so with no buffer yet there is
         // nothing to report.
         else if (this.leadingBuffer == null) return;
+        this.loading = false;
+        this.failures.reset();
         this.notify();
       };
       if (generation !== this.generation) return;
       this.removeStreamHandler = client.feed.stream(handler, [ch.key]).close;
+      this.failures.reset();
       // Opening the stream is not a sample. Notify only when a buffer already holds
       // one, so a consumer that counts arrivals does not count the open.
       if (this.leadingBuffer != null && this.leadingBuffer.length > 0) {
         this.notify();
         return;
       }
-      const latest = await readLatestSeries(client, ch, this.onStatusChange);
-      if (latest == null) return;
-      if (generation !== this.generation || this.leadingBuffer != null) return;
+      const latest = await readLatestSeries(client, ch, this.failures);
+      if (generation !== this.generation) return;
+      this.loading = false;
+      if (latest == null || this.leadingBuffer != null) return;
       latest.acquire();
       this.leadingBuffer = latest;
       this.time = latest.timeRange.isZero ? undefined : latest.timeRange.end;
       this.notify();
     } catch (e) {
+      if (generation !== this.generation) return;
       this.valid = false;
-      this.onStatusChange?.(cstatus.fromException(e, "Failed to stream channel value"));
+      this.loading = false;
+      this.failures.report(e, "Failed to stream channel value");
     }
   }
 }
@@ -462,11 +480,14 @@ export class StreamChannelStringValue
   // Bumped by cleanup to invalidate a read that is still awaiting.
   private generation = 0;
   private valid = false;
+  private loading = true;
+  private readonly failures: FailureReporter;
   private readonly onStatusChange?: status.Adder;
   constructor(client: Client | null, props: unknown, options?: CreateOptions) {
     super(props);
     this.client = client;
     this.onStatusChange = options?.onStatusChange;
+    this.failures = new FailureReporter(this.onStatusChange);
   }
 
   cleanup(): void {
@@ -479,21 +500,24 @@ export class StreamChannelStringValue
     this.latest = "";
     this.decodedAt = -1;
     this.removeStreamHandler = null;
+    this.loading = true;
+    this.failures.reset();
   }
 
   value(): Result<string> {
     // No valid channel has been set.
     if (primitive.isZero(this.props.channel)) return success("");
     if (!this.valid) void this.read();
+    const status = sourceStatus(this.loading, this.failures);
     const buffer = this.leadingBuffer;
-    if (buffer == null || buffer.length === 0) return success("");
+    if (buffer == null || buffer.length === 0) return { data: "", status };
     // Samples are appended into the leading buffer in place, so the length is what
     // marks new data. Decoding is gated on it because asString scans linearly.
     if (buffer.length !== this.decodedAt) {
       this.latest = buffer.asString(-1) ?? this.latest;
       this.decodedAt = buffer.length;
     }
-    return success(this.latest, this.time);
+    return { data: this.latest, status, time: this.time };
   }
 
   /** Never rejects: a failure invalidates the read and reaches onStatusChange. */
@@ -502,6 +526,7 @@ export class StreamChannelStringValue
     this.valid = true;
     const { client } = this;
     if (client == null) {
+      this.loading = false;
       this.onStatusChange?.(DISCONNECTED_STATUS);
       return;
     }
@@ -524,29 +549,33 @@ export class StreamChannelStringValue
         // that holds nothing for this channel looks the same, so with no buffer yet
         // there is nothing to report.
         else if (this.leadingBuffer == null) return;
+        this.loading = false;
+        this.failures.reset();
         this.notify();
       };
       if (generation !== this.generation) return;
       this.removeStreamHandler = client.feed.stream(handler, [ch.key]).close;
+      this.failures.reset();
       // Opening the stream is not a sample. Notify only when a buffer already holds
       // one, so a consumer that counts arrivals does not count the open.
       if (this.leadingBuffer != null && this.leadingBuffer.length > 0) {
         this.notify();
         return;
       }
-      const latest = await readLatestSeries(client, ch, this.onStatusChange);
-      if (latest == null) return;
-      if (generation !== this.generation || this.leadingBuffer != null) return;
+      const latest = await readLatestSeries(client, ch, this.failures);
+      if (generation !== this.generation) return;
+      this.loading = false;
+      if (latest == null || this.leadingBuffer != null) return;
       latest.acquire();
       this.leadingBuffer = latest;
       this.time = latest.timeRange.isZero ? undefined : latest.timeRange.end;
       this.decodedAt = -1;
       this.notify();
     } catch (e) {
+      if (generation !== this.generation) return;
       this.valid = false;
-      this.onStatusChange?.(
-        cstatus.fromException(e, "Failed to stream channel string value"),
-      );
+      this.loading = false;
+      this.failures.report(e, "Failed to stream channel string value");
     }
   }
 }
@@ -679,7 +708,7 @@ export class TiledChannelData
     const loading = this.loading || this.pending.size > 0;
     return {
       data,
-      status: loading ? LOADING_STATUS : (this.failures.status ?? SUCCESS_STATUS),
+      status: sourceStatus(loading, this.failures),
       aggregation: this.aggregation(),
     };
   }
