@@ -20,15 +20,17 @@ import { type NodeProps } from "@/schematic/node/spec";
 import { Gauge as BaseGauge } from "@/vis/gauge";
 import { Value } from "@/vis/value";
 
-const GAUGE_SIZE_MULTIPLIER: Record<text.Level, number> = {
-  h1: 220,
-  h2: 190,
-  h3: 160,
-  h4: 130,
-  h5: 100,
-  p: 85,
-  small: 80,
-} as const;
+const GAUGE_DIMENSIONS: Record<text.Level, dimensions.Dimensions> = {
+  h1: dimensions.construct(220),
+  h2: dimensions.construct(190),
+  h3: dimensions.construct(160),
+  h4: dimensions.construct(130),
+  h5: dimensions.construct(100),
+  p: dimensions.construct(85),
+  small: dimensions.construct(80),
+};
+
+const DEFAULT_DIMENSIONS = dimensions.construct(100);
 
 export const Symbol = ({
   nodeKey,
@@ -50,7 +52,7 @@ export const Symbol = ({
     stalenessTimeout,
   },
 }: NodeProps<schematic.GaugeNodeConfig>): ReactElement => {
-  const dims = dimensions.construct(GAUGE_SIZE_MULTIPLIER[level] ?? 100);
+  const dims = GAUGE_DIMENSIONS[level] ?? DEFAULT_DIMENSIONS;
   const telem = Value.stringSource({ channel, rollingAverage, precision, notation });
   BaseGauge.use({
     aetherKey: nodeKey,
