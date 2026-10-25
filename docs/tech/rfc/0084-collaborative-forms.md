@@ -39,8 +39,9 @@ actions, as Arc reuses the text CRDT payloads (`schemas/synnax/arc.oracle:149-16
 
 A path segment into a list names an entry's `key`, as Lyra paths already do
 (`x/ts/src/deep/path.ts:82-90`). A path never names an index, and a list of plain values
-is set whole. Paths use the stored form of the record, with snake_case keys, and the
-binding converts key case with the document's schema. `x/go/patch` applies actions to a
+is set whole. Callers write paths on the cached document, with camelCase keys. The
+domain client converts them with its own schema to the stored form, with snake_case
+keys, which the Core and the other clients see. `x/go/patch` applies actions to a
 record's JSON form, and `x/ts/src/patch` applies them on `deep`. Shared conformance
 vectors fix both, as `x/go/crdt/conformance_test.go` does for the text CRDT. Typed
 actions stay where they mean more than a field write: node moves, group cascades, and
