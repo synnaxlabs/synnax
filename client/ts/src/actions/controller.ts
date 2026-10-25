@@ -313,15 +313,26 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     return this.write(key, r);
   }
 
-  /** Holds the entry as pending, if it is not yet, and writes the doc with it. */
+  /**
+   * Holds the entry as the last pending entry and writes the doc with it. The next doc
+   * applies the entry's latest actions last.
+   */
   private track(key: Key, current: State, entry: Pending<Action>, next: State): void {
     let r = this.rebases.get(key);
     if (r == null) {
       r = { base: current, pending: [], written: current };
       this.rebases.set(key, r);
     }
-    if (!r.pending.includes(entry)) r.pending.push(entry);
-    this.set(key, r, next);
+    const i = r.pending.indexOf(entry);
+    if (i === -1) r.pending.push(entry);
+    if (i === -1 || i === r.pending.length - 1) {
+      this.set(key, r, next);
+      return;
+    }
+    // An open transaction sends after the entries behind it, so it moves behind them.
+    r.pending.splice(i, 1);
+    r.pending.push(entry);
+    this.write(key, r);
   }
 
   /**

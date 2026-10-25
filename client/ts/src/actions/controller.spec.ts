@@ -665,6 +665,38 @@ describe("actions.Controller", () => {
       expect(docs.get("k")).toEqual({ values: { a: 5, b: 5 } });
     });
 
+    it("keeps an add to an earlier transaction on top when a foreign frame lands", () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0, b: 0 });
+      const first = controller.transaction("k", resolved());
+      const second = controller.transaction("k", resolved());
+      first.add(set("a", 1));
+      second.add(set("a", 2));
+      first.add(set("a", 3));
+      expect(docs.get("k")).toEqual({ values: { a: 3, b: 0 } });
+      controller.applyRemote("k", 1, "foreign", [set("b", 5)]);
+      expect(docs.get("k")).toEqual({ values: { a: 3, b: 5 } });
+    });
+
+    it("matches the Core when the echoes of two transactions on a field arrive", async () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const { send, calls } = createHeldSend();
+      const first = controller.transaction("k", send);
+      const second = controller.transaction("k", send);
+      first.add(set("a", 1));
+      second.add(set("a", 2));
+      first.add(set("a", 3));
+      const committed = [first.commit(), second.commit()];
+      // The Core applied the first transaction, then the second.
+      controller.applyRemote("k", 1, calls[0].dispatchKey, calls[0].actions);
+      controller.applyRemote("k", 2, calls[1].dispatchKey, calls[1].actions);
+      expect(docs.get("k")).toEqual({ values: { a: 2 } });
+      calls.forEach(({ resolve }) => resolve());
+      await Promise.all(committed);
+      expect(controller.hasPending("k")).toBe(false);
+    });
+
     it("sends the staged actions under the dispatch key it held them pending with", async () => {
       const { docs, controller } = setupStore();
       prime(docs, "k", { a: 0 });
