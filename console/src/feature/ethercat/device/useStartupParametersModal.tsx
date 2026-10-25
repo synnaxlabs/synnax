@@ -16,7 +16,7 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Telem } from "@synnaxlabs/pluto";
 import { DataType } from "@synnaxlabs/x";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 
 import {
   useSlave,
@@ -89,7 +89,7 @@ const StartupParameters = ({
   const [rows, setRows] = useState(() => toRows(slave.properties.startupParameters));
   const [error, setError] = useState<string | null>(null);
   const { update, variant } = useUpdateStartupParameters({
-    afterSuccess: useCallback(() => close(), [close]),
+    afterSuccess: () => close(),
   });
   const handleSave = () => {
     const parsed = parseRows(rows);
