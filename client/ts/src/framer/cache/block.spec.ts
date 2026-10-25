@@ -59,6 +59,10 @@ describe("block", () => {
       expect(rawIndex(new TimeStamp(span.valueOf()))).toBe(1);
       expect(rawIndex(new TimeStamp(span.valueOf() * 7n + 5n))).toBe(7);
     });
+
+    it("should round the index of a timestamp before the epoch down", () => {
+      expect(rawIndex(new TimeStamp(-1n))).toBe(-1);
+    });
   });
 
   describe("rawKey", () => {

@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   choose,
+  index,
   indexes,
   level,
   pointLimit,
@@ -84,9 +85,26 @@ describe("grid", () => {
     });
   });
 
+  describe("index", () => {
+    it("should return the index of the tile that holds a timestamp", () => {
+      expect(index(TimeStamp.milliseconds(1023), 10)).toBe(0);
+      expect(index(TimeStamp.milliseconds(1024), 10)).toBe(1);
+    });
+
+    it("should round the index of a timestamp before the epoch down", () => {
+      expect(index(new TimeStamp(-1n), 10)).toBe(-1);
+      expect(index(TimeStamp.milliseconds(-1024), 10)).toBe(-1);
+    });
+  });
+
   describe("indexes", () => {
     it("should list every tile the range overlaps", () => {
       expect(indexes(range(1000, 3000), 10)).toEqual([0, 1, 2]);
+    });
+
+    it("should list the tiles of a range that crosses the epoch", () => {
+      expect(indexes(range(-1500, -1), 10)).toEqual([-2, -1]);
+      expect(indexes(range(-1, 1), 10)).toEqual([-1, 0]);
     });
 
     it("should exclude a tile that starts at the end of the range", () => {

@@ -12,16 +12,14 @@ import { bounds, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import { type Dynamic } from "@/framer/cache/dynamic";
-import { tileRange, tileSpan } from "@/framer/cache/grid";
+import { index as tileIndex, tileRange } from "@/framer/cache/grid";
 import { type Block } from "@/framer/cache/store";
 
 /** The grid level of raw blocks: 2^16 milliseconds, about 65.5 seconds. */
 export const RAW_LEVEL = 16;
 
-const RAW_SPAN = tileSpan(RAW_LEVEL).valueOf();
-
 /** @returns the index of the raw block that holds the timestamp. */
-export const rawIndex = (ts: TimeStamp): number => Number(ts.valueOf() / RAW_SPAN);
+export const rawIndex = (ts: TimeStamp): number => tileIndex(ts, RAW_LEVEL);
 
 /** @returns the store key of the channel's raw block at the index. */
 export const rawKey = (ch: channel.Key, index: number): string => `${ch}/raw/${index}`;

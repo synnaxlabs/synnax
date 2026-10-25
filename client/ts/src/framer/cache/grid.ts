@@ -54,11 +54,21 @@ export const level = (tr: TimeRange): number => {
   return l;
 };
 
+// Returns a / b rounded down, for a positive b.
+const floorDiv = (a: bigint, b: bigint): bigint => {
+  const q = a / b;
+  return a % b < 0n ? q - 1n : q;
+};
+
+/** @returns the index of the tile of the level that holds the timestamp. */
+export const index = (ts: TimeStamp, level: number): number =>
+  Number(floorDiv(ts.valueOf(), tileSpan(level).valueOf()));
+
 /** @returns the indexes of every tile of the level that overlaps the range. */
 export const indexes = (tr: TimeRange, level: number): number[] => {
   const span = tileSpan(level).valueOf();
-  const first = tr.start.valueOf() / span;
-  let last = (tr.end.valueOf() + span - 1n) / span;
+  const first = floorDiv(tr.start.valueOf(), span);
+  let last = -floorDiv(-tr.end.valueOf(), span);
   if (last <= first) last = first + 1n;
   const out: number[] = [];
   for (let i = first; i < last; i++) out.push(Number(i));

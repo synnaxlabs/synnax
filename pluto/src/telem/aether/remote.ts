@@ -725,8 +725,9 @@ export class TiledChannelData
   private rawFrom(): TimeStamp {
     const home = this.home();
     if (this.xy) return home.start;
-    const span = framer.grid.tileSpan(framer.grid.level(home)).valueOf();
-    return new TimeStamp((home.start.valueOf() / span) * span);
+    const level = framer.grid.level(home);
+    const index = framer.grid.index(home.start, level);
+    return framer.grid.tileRange({ level, index }).start;
   }
 
   // cutoff returns the boundary after it moves to at most one home level tile behind
