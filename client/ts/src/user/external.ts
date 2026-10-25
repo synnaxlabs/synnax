@@ -19,4 +19,5 @@ export {
   type UsernameRetrieveRequest,
   type UsernamesRetrieveRequest,
 } from "@/user/client";
+export * from "@/user/current";
 export * from "@/user/types.gen";

@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <utility>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -710,7 +711,7 @@ TypePreservationCase
 make_preservation_case(types::Kind kind, x::telem::DataType dt, T value) {
     std::vector<uint8_t> bytes(sizeof(T));
     std::memcpy(bytes.data(), &value, sizeof(T));
-    return {kind, dt, std::move(bytes)};
+    return {kind, std::move(dt), std::move(bytes)};
 }
 
 class StableForTypePreservationTest

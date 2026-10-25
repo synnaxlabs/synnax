@@ -14,8 +14,9 @@ import (
 	"fmt"
 	"iter"
 
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/search"
 	"go.uber.org/zap"
 )
 
@@ -29,6 +30,14 @@ type Service interface {
 	// RetrieveResource returns the resource with the given key. If the resource does
 	// not exist, returns [query.ErrNotFound].
 	RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (Resource, error)
+	// Search returns the IDs of at most limit resources whose text matches term,
+	// closest match first. Search reads the changes staged against tx.
+	Search(
+		ctx context.Context,
+		tx gorp.Tx,
+		term string,
+		limit int,
+	) (search.Result[ID], error)
 	// Observable is used by the [Ontology] to subscribe to changes in the entities.
 	// This is used to propagate resource changes for signals (see
 	// [Ontology.ObserveResources]). If the service's entities are static, use
@@ -36,15 +45,36 @@ type Service interface {
 	observe.Observable[iter.Seq[Change]]
 }
 
+// SearchIndex returns the IDs of at most limit entries of idx whose text matches term,
+// closest match first. id returns the ID of the entry with a key. Services use it to
+// implement Service.Search.
+func SearchIndex[K gorp.Key, E gorp.Entry[K]](
+	ctx context.Context,
+	tx gorp.Tx,
+	idx *gorp.SearchIndex[K, E],
+	term string,
+	limit int,
+	id func(K) ID,
+) (search.Result[ID], error) {
+	res, err := idx.Search(ctx, tx, term, limit)
+	if err != nil {
+		return search.Result[ID]{}, err
+	}
+	return search.MapKeys(res, id), nil
+}
+
 type serviceRegistrar map[ResourceType]Service
 
-func (s serviceRegistrar) register(svc Service) {
+// register returns false, and keeps the registered Service, when a Service is already
+// registered for the type of svc.
+func (s serviceRegistrar) register(svc Service) bool {
 	t := svc.Type()
 	if _, ok := s[t]; ok {
 		zap.S().DPanic("service already registered", zap.Stringer("type", t))
-		return
+		return false
 	}
 	s[t] = svc
+	return true
 }
 
 func (s serviceRegistrar) retrieveResource(

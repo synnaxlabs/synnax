@@ -2,10 +2,10 @@
 
 ## Modules
 
-`/core/` (server), `/aspen/` (distributed KV), `/cesium/` (time-series DB),
-`/freighter/go/` + `/freighter/integration/` (transport + its test server), `/arc/go/`
-(Arc compiler), `/alamos/go/` (instrumentation), `/oracle/` (schema codegen CLI),
-`/x/go/` (shared utilities).
+`/core/` (server), `/aspen/` (distributed KV), `/cesium/` (time-series DB), `/gorp/`
+(typed KV tables), `/freighter/go/` + `/freighter/integration/` (transport + its test
+server), `/arc/go/` (Arc compiler), `/alamos/go/` (instrumentation), `/oracle/` (schema
+codegen CLI), `/x/go/` (shared utilities).
 
 Modules reference siblings via relative-path `replace` directives in each `go.mod`.
 `go.work` is gitignored but fine for local convenience.
@@ -265,11 +265,15 @@ Every `*_suite_test.go` must call one of the two leak checkers from
 ```go
 func TestChannel(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Distribution Channel Suite")
+	RunSpecs(t, "Distribution Channel Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 ```
+
+Every `RunSpecs` call passes `SuiteConfig()` from `x/testutil`, which puts all specs in
+random order and fails the suite on a pending spec. These settings live in code because
+a Ginkgo flag disables the `go test` result cache. The `suiteconfig` linter enforces it.
 
 ### Rule 11: Every exported symbol gets its own specs
 

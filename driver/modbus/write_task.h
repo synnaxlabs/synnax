@@ -176,11 +176,13 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
                 parsed
             );
             if (base.disabled) return;
-            if (base.channel == 0)
-                return ch.field_err("channel", "channel must be specified");
+            if (base.channel == 0) {
+                ch.field_err("channel", "channel must be specified");
+                return;
+            }
             if (const auto *c = std::get_if<
                     ::synnax::modbus::HoldingRegisterWriteChannel>(&parsed))
-                registers.emplace_back(*c);
+                registers.emplace_back(*c, this->conn);
             else
                 coils.emplace_back(
                     std::get<::synnax::modbus::CoilWriteChannel>(parsed)
@@ -228,9 +230,7 @@ class WriteTaskSink final : public common::Sink {
 
 public:
     WriteTaskSink(const std::shared_ptr<device::Manager> &devs, WriteTaskConfig cfg):
-        Sink(x::telem::Rate(0), {}, {}, cfg.cmd_keys(), cfg.data_saving_disabled),
-        config(std::move(cfg)),
-        devs(devs) {}
+        Sink(cfg.cmd_keys()), config(std::move(cfg)), devs(devs) {}
 
     /// @brief connects on every start so a server restart between runs cannot
     /// leave the task writing to a dead socket.

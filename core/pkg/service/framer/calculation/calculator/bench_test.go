@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/telem"
@@ -46,15 +45,9 @@ func newBenchEnv(b *testing.B) *benchEnv {
 		b.Fatalf("failed to open ontology: %v", err)
 	}
 
-	searchIdx, err := search.OpenIndex()
-	if err != nil {
-		b.Fatalf("failed to open search index: %v", err)
-	}
-
 	groupSvc, err := group.OpenService(b.Context(), group.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
-		Search:   searchIdx,
 	})
 	if err != nil {
 		b.Fatalf("failed to open group service: %v", err)
@@ -64,14 +57,12 @@ func newBenchEnv(b *testing.B) *benchEnv {
 		DB:       node.DB,
 		Ontology: otg,
 		Group:    groupSvc,
-		Search:   searchIdx,
 	}))
 	statusSvc := MustSucceed(status.OpenService(b.Context(), status.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
 		Group:    groupSvc,
 		Label:    labelSvc,
-		Search:   searchIdx,
 	}))
 	channelSvc := MustSucceed(channel.OpenService(b.Context(), channel.ServiceConfig{
 		Channel:      node.Channel,
@@ -79,7 +70,6 @@ func newBenchEnv(b *testing.B) *benchEnv {
 		HostProvider: node.Cluster,
 		Ontology:     otg,
 		Group:        groupSvc,
-		Search:       searchIdx,
 		Status:       statusSvc,
 	}))
 	return &benchEnv{
@@ -88,7 +78,7 @@ func newBenchEnv(b *testing.B) *benchEnv {
 		channelSvc:    channelSvc,
 		channelWriter: channelSvc.NewWriter(nil),
 		closer: io.MultiCloser{
-			node, otg, searchIdx, groupSvc, channelSvc, statusSvc, labelSvc,
+			node, otg, groupSvc, channelSvc, statusSvc, labelSvc,
 		},
 	}
 }

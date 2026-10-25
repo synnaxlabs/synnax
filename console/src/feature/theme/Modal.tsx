@@ -15,7 +15,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Select } from "@synnaxlabs/lyra/select";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/platform/css";
@@ -35,31 +35,28 @@ const OPTIONS: Entry[] = [
   { key: "system", name: "System", icon: <Icon.Sync /> },
 ];
 
-const listItem = Component.renderProp(
-  (props: List.ItemProps<Theme.Mode>): ReactElement | null => {
-    const entry = List.useItem<Theme.Mode, Entry>(props.itemKey);
-    if (entry == null) return null;
-    return (
-      <Select.Item {...props} align="center" gap="medium">
-        {entry.icon}
-        {entry.name}
-      </Select.Item>
-    );
-  },
-);
+const ListItem = (props: List.ItemProps<Theme.Mode>): ReactElement | null => {
+  const entry = List.useItem<Theme.Mode, Entry>(props.itemKey);
+  if (entry == null) return null;
+  return (
+    <Select.Item {...props} align="center" gap="medium">
+      {entry.icon}
+      {entry.name}
+    </Select.Item>
+  );
+};
+
+const listItem = Component.renderProp(ListItem);
 
 const Content = ({
   close,
 }: Session.Modals.ContentProps<Record<never, never>, void>): ReactElement => {
   const mode = Theme.useSelectMode();
   const dispatch = useDispatch<Dispatch<Theme.Action>>();
-  const handleChange = useCallback(
-    (next: Theme.Mode) => {
-      dispatch(Theme.set(next));
-      close();
-    },
-    [dispatch, close],
-  );
+  const handleChange = (next: Theme.Mode) => {
+    dispatch(Theme.set(next));
+    close();
+  };
   const { data, getItem } = List.useStaticData<Theme.Mode, Entry>({ data: OPTIONS });
   return (
     <Modal.Frame className={CSS.B("theme-modal")} bordered rounded="small" pack>

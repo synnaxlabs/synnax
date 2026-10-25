@@ -11,6 +11,7 @@ package test
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	"github.com/onsi/ginkgo/v2"
@@ -363,6 +364,36 @@ func StreamSuite(
 					next freighter.Next,
 				) (freighter.Context, error) {
 					return ctx, errors.New("middleware error")
+				}))
+				cancelCtx, cancel := context.WithCancel(ctx)
+				defer cancel()
+				gomega.Expect(client.Stream(cancelCtx, addr)).
+					Error().
+					To(gomega.MatchError(gomega.ContainSubstring("middleware error")))
+			},
+		)
+
+		ginkgo.It(
+			"Should return the error when a middleware rejects with a zero context",
+			func(ctx ginkgo.SpecContext) {
+				server, client, addr := deps()
+				server.BindHandler(
+					func(context.Context, freighter.ServerStream[Request, Response]) error {
+						return nil
+					},
+				)
+				// the server outlives this spec, so the middleware must stop rejecting
+				var rejecting atomic.Bool
+				rejecting.Store(true)
+				ginkgo.DeferCleanup(func() { rejecting.Store(false) })
+				server.Use(freighter.MiddlewareFunc(func(
+					ctx freighter.Context,
+					next freighter.Next,
+				) (freighter.Context, error) {
+					if !rejecting.Load() {
+						return next(ctx)
+					}
+					return freighter.Context{}, errors.New("middleware error")
 				}))
 				cancelCtx, cancel := context.WithCancel(ctx)
 				defer cancel()

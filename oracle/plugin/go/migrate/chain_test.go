@@ -621,6 +621,110 @@ Board struct {
 			},
 			[]string{"Tab(old)"},
 		),
+		Entry("copies a field of a union the incoming version aliases",
+			"board",
+			`Link struct {
+	name string
+
+	@go marshal
+}
+
+Edge union on variant {
+	link Link
+
+	@go marshal
+}
+
+Board struct {
+	key uuid @key
+	edge Edge
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Link = v0.Link
+Edge = v0.Edge
+
+Board struct {
+	key uuid @key
+	name string
+	edge Edge
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Link struct {
+	name string
+}
+
+Edge union on variant {
+	link Link
+}
+
+Board struct {
+	key uuid @key
+	name string
+	edge Edge
+}
+`,
+			true,
+			[]string{"Edge: old.Edge"},
+			nil,
+		),
+		Entry("leaves a field to the hand-written migration when an alias of a union "+
+			"becomes a struct",
+			"board",
+			`Link struct {
+	name string
+
+	@go marshal
+}
+
+Edge union on variant {
+	link Link
+
+	@go marshal
+}
+
+Wire = Edge
+
+Board struct {
+	key uuid @key
+	wire Wire
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Wire struct {
+	name string
+
+	@go marshal
+}
+
+Board struct {
+	key uuid @key
+	wire Wire
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Wire struct {
+	name string
+}
+
+Board struct {
+	key uuid @key
+	wire Wire
+}
+`,
+			true,
+			[]string{"Key: old.Key"},
+			[]string{"autoMigrateWire", "Wire: "},
+		),
 		Entry("pairs variant embeds by declaration when a union drops a base",
 			"board",
 			`Base struct {
@@ -1235,6 +1339,269 @@ Keys Member[] {
 			true,
 			[]string{"func autoMigrateKeys", "lo.MapErr"},
 			nil,
+		),
+		Entry(
+			"migrates an alias of an array alias element-wise",
+			"member",
+			`Member struct {
+	name string
+
+	@go marshal
+}
+Members = Member[]
+Crew = Members
+`,
+			`Member struct {
+	name string
+	role string
+
+	@go marshal
+}
+Members = Member[]
+Crew = Members
+`,
+			`Member struct {
+	name string
+	role string
+}
+Members = Member[]
+Crew = Members
+`,
+			true,
+			[]string{
+				"func autoMigrateCrew",
+				"lo.MapErr(old, func(v v0.Member, _ int) (Member, error) {",
+			},
+			[]string{"Crew(old)"},
+		),
+		Entry(
+			"migrates a distinct over an array alias element-wise",
+			"member",
+			`Member struct {
+	name string
+
+	@go marshal
+}
+Members = Member[]
+Keys Members
+`,
+			`Member struct {
+	name string
+	role string
+
+	@go marshal
+}
+Members = Member[]
+Keys Members
+`,
+			`Member struct {
+	name string
+	role string
+}
+Members = Member[]
+Keys Members
+`,
+			true,
+			[]string{
+				"func autoMigrateKeys",
+				"lo.MapErr(old, func(v v0.Member, _ int) (Member, error) {",
+			},
+			[]string{"Keys(old)"},
+		),
+		Entry(
+			"migrates a field of an alias of a distinct array element-wise",
+			"panel",
+			`Member struct {
+	name string
+
+	@go marshal
+}
+Keys Member[]
+Crew = Keys
+Panel struct {
+	key uuid @key
+	crew Crew
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Member struct {
+	name string
+	role string
+
+	@go marshal
+}
+Keys Member[]
+Crew = Keys
+Panel struct {
+	key uuid @key
+	crew Crew
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Member struct {
+	name string
+	role string
+}
+Keys Member[]
+Crew = Keys
+Panel struct {
+	key uuid @key
+	crew Crew
+}
+`,
+			true,
+			[]string{
+				"crew, err := lo.MapErr(old.Crew, " +
+					"func(v v0.Member, _ int) (Member, error) {",
+			},
+			[]string{"Crew(old)"},
+		),
+		Entry("migrates an alias of a struct alias through the target's fields",
+			"member",
+			`Member struct {
+	name string
+
+	@go marshal
+}
+Wrapper = Member
+Outer = Wrapper
+`,
+			`Member struct {
+	name string
+	role string
+
+	@go marshal
+}
+Wrapper = Member
+Outer = Wrapper
+`,
+			`Member struct {
+	name string
+	role string
+}
+Wrapper = Member
+Outer = Wrapper
+`,
+			true,
+			[]string{"func autoMigrateOuter", "Name: old.Name"},
+			[]string{"Outer(old)"},
+		),
+		Entry("migrates an alias of a generic alias with its type arguments",
+			"pair",
+			`Tag struct {
+	name string
+
+	@go marshal
+}
+Pair struct<A, B> {
+	first A
+	second B
+
+	@go marshal
+}
+Wrapper<T> = Pair<Tag, T>
+Outer = Wrapper<string>
+`,
+			`Tag struct {
+	name string
+
+	@go marshal
+}
+Pair struct<A, B> {
+	first A
+	second B
+	third bool
+
+	@go marshal
+}
+Wrapper<T> = Pair<Tag, T>
+Outer = Wrapper<string>
+`,
+			`Tag struct {
+	name string
+}
+Pair struct<A, B> {
+	first A
+	second B
+	third bool
+}
+Wrapper<T> = Pair<Tag, T>
+Outer = Wrapper<string>
+`,
+			true,
+			[]string{
+				"func autoMigrateOuter(" +
+					"ctx context.Context, old v0.Outer) (Outer, error) {\n" +
+					"\tfirst, err := autoMigrateTag(ctx, old.First)",
+			},
+			nil,
+		),
+		Entry(
+			"migrates an alias of a union variant by variant",
+			"panel",
+			`Pipe struct {
+	length float64
+
+	@go marshal
+}
+Edge union on variant {
+	pipe Pipe
+
+	@go marshal
+}
+Link = Edge
+Panel struct {
+	key uuid @key
+	link Link
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Pipe struct {
+	length float64
+	width float64
+
+	@go marshal
+}
+Edge union on variant {
+	pipe Pipe
+
+	@go marshal
+}
+Link = Edge
+Panel struct {
+	key uuid @key
+	link Link
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Pipe struct {
+	length float64
+	width float64
+}
+Edge union on variant {
+	pipe Pipe
+}
+Link = Edge
+Panel struct {
+	key uuid @key
+	link Link
+}
+`,
+			true,
+			[]string{
+				"func autoMigrateLink",
+				"case v0.PipeEdge:",
+				"MigratePipe(ctx, variant.Pipe)",
+			},
+			[]string{"Link(old)"},
 		),
 		Entry("migrates an alias-of-struct through the target's fields",
 			"wrapper",

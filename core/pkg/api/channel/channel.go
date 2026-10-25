@@ -14,8 +14,8 @@ import (
 	"uuid"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
@@ -26,14 +26,66 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type Key = channel.Key
+
+// ServiceConfig is the configuration for the channel API service.
+type ServiceConfig struct {
+	// RBAC enforces access control on every request.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
+	// Channel stores and retrieves channels.
+	//
+	// [REQUIRED]
+	Channel *channel.Service
+	// Ranger stores and retrieves ranges.
+	//
+	// [REQUIRED]
+	Ranger *ranger.Service
+	// Alias stores and retrieves channel aliases on ranges.
+	//
+	// [REQUIRED]
+	Alias *alias.Service
+	// Status stores and retrieves statuses.
+	//
+	// [REQUIRED]
+	Status *status.Service
+}
+
+var (
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for the channel API service.
+	DefaultServiceConfig = ServiceConfig{}
+)
+
+// Override implements config.Config.
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.Ranger = override.Nil(c.Ranger, other.Ranger)
+	c.Alias = override.Nil(c.Alias, other.Alias)
+	c.Status = override.Nil(c.Status, other.Status)
+	return c
+}
+
+// Validate implements config.Config.
+func (c ServiceConfig) Validate() error {
+	v := validate.New("api.channel")
+	v.NotNil("rbac", c.RBAC)
+	v.NotNil("channel", c.Channel)
+	v.NotNil("ranger", c.Ranger)
+	v.NotNil("alias", c.Alias)
+	v.NotNil("status", c.Status)
+	return v.Error()
+}
 
 // Service is the central service for all things Channel related.
 type Service struct {
@@ -44,17 +96,17 @@ type Service struct {
 	status   *status.Service
 }
 
-func NewService(cfgs ...config.LayerConfig) (*Service, error) {
-	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	return &Service{
-		access:   cfg.Service.RBAC,
-		internal: cfg.Service.Channel,
-		ranger:   cfg.Service.Ranger,
-		alias:    cfg.Service.Alias,
-		status:   cfg.Service.Status,
+		access:   cfg.RBAC,
+		internal: cfg.Channel,
+		ranger:   cfg.Ranger,
+		alias:    cfg.Alias,
+		status:   cfg.Status,
 	}, nil
 }
 

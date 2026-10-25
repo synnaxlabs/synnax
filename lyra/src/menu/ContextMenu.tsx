@@ -10,15 +10,7 @@
 import "@/menu/ContextMenu.css";
 
 import { box, location, unique, xy } from "@synnaxlabs/x";
-import {
-  type ReactNode,
-  type RefCallback,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { type ReactNode, type RefCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { type RenderProp } from "@/component/renderProp";
@@ -114,42 +106,39 @@ export const useContextMenu = (): UseContextMenuReturn => {
   const [state, setMenuState] = useState<ContextMenuState>(INITIAL_STATE);
   const targetRef = useRef<HTMLElement | null>(null);
 
-  const clearTarget = useCallback(() => {
+  const clearTarget = () => {
     targetRef.current?.removeAttribute(CONTEXT_OPEN_ATTRIBUTE);
     targetRef.current = null;
-  }, []);
+  };
 
   // Clear the stamped target if the hook unmounts while a menu is open.
   useEffect(() => clearTarget, [clearTarget]);
 
-  const handleOpen: ContextMenuOpen = useCallback(
-    (e) => {
-      const p = xy.construct(e);
-      clearTarget();
-      let keys: string[] = [];
-      if (typeof e === "object" && "preventDefault" in e) {
-        e.preventDefault();
-        e.stopPropagation();
-        const target = findTarget(e.target as HTMLElement);
-        const selected = findSelected(target);
-        keys = unique.unique(
-          selected
-            .map((el) => el.dataset.menuKey ?? el.id)
-            .filter((key) => key.length > 0),
-        );
-        // Only the row the menu physically opened over holds the hover look, even
-        // when the menu acts on a wider selection.
-        if (target.classList.contains(CONTEXT_TARGET)) {
-          targetRef.current = target;
-          target.setAttribute(CONTEXT_OPEN_ATTRIBUTE, "");
-        }
+  const handleOpen: ContextMenuOpen = (e) => {
+    const p = xy.construct(e);
+    clearTarget();
+    let keys: string[] = [];
+    if (typeof e === "object" && "preventDefault" in e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const target = findTarget(e.target as HTMLElement);
+      const selected = findSelected(target);
+      keys = unique.unique(
+        selected
+          .map((el) => el.dataset.menuKey ?? el.id)
+          .filter((key) => key.length > 0),
+      );
+      // Only the row the menu physically opened over holds the hover look, even
+      // when the menu acts on a wider selection.
+      if (target.classList.contains(CONTEXT_TARGET)) {
+        targetRef.current = target;
+        target.setAttribute(CONTEXT_OPEN_ATTRIBUTE, "");
       }
-      setMenuState({ visible: true, keys, position: p, cursor: p });
-    },
-    [clearTarget],
-  );
+    }
+    setMenuState({ visible: true, keys, position: p, cursor: p });
+  };
 
-  const calculatePosition = useCallback(() => {
+  const calculatePosition = () => {
     const el = menuRef.current;
     if (el == null) return;
     setMenuState((prev) => {
@@ -164,29 +153,26 @@ export const useContextMenu = (): UseContextMenuReturn => {
       if (xy.equals(prev.position, nextPos)) return prev;
       return { ...prev, position: nextPos };
     });
-  }, []);
+  };
 
   const resizeRef = useResize(calculatePosition, { enabled: state.visible });
   const combinedRef = useCombinedRefs(menuRef, resizeRef);
 
   useWindowResize(calculatePosition, { enabled: state.visible });
 
-  const hideMenu = useCallback((): void => {
+  const hideMenu = (): void => {
     clearTarget();
     setMenuState(INITIAL_STATE);
-  }, [clearTarget]);
+  };
 
   Dialog.useClickOutside({ ref: menuRef, onClickOutside: hideMenu });
 
   const visibleRef = useSyncedRef(state.visible);
-  const handleEscape = useCallback(
-    ({ stage, stopPropagation }: Triggers.UseEvent) => {
-      if (stage !== "start" || !visibleRef.current) return;
-      hideMenu();
-      stopPropagation();
-    },
-    [hideMenu],
-  );
+  const handleEscape = ({ stage, stopPropagation }: Triggers.UseEvent) => {
+    if (stage !== "start" || !visibleRef.current) return;
+    hideMenu();
+    stopPropagation();
+  };
   // Outranks the dialog Escape handler (priority 100) so a menu opened inside a
   // dialog closes without also closing the dialog.
   Triggers.use({
@@ -228,10 +214,7 @@ const Internal = ({
   onClick,
   ...rest
 }: ContextMenuProps): ReactNode | null => {
-  const menuStyle = useMemo(
-    () => ({ ...xy.css(position), ...style }),
-    [position, style],
-  );
+  const menuStyle = { ...xy.css(position), ...style };
   if (!visible) return null;
   return createPortal(
     <Flex.Box

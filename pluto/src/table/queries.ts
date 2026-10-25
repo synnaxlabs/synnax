@@ -10,7 +10,6 @@
 import { type project, table } from "@synnaxlabs/client";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { compare, grid, id, uuid, verbs, type xy } from "@synnaxlabs/x";
-import { useCallback, useMemo } from "react";
 
 import { Flux } from "@/flux";
 import { Cell } from "@/table/cells";
@@ -91,7 +90,7 @@ export interface CreateParams extends table.New {
   project?: project.Key;
 }
 
-const createDefaultLayout = (): Pick<table.Table, "rows" | "columns" | "cells"> => {
+const createDefaultLayout = (): Pick<table.New, "rows" | "columns" | "cells"> => {
   const cellKeys = [id.create(), id.create(), id.create(), id.create()];
   const config = Cell.defaultConfig("text");
   return {
@@ -113,27 +112,21 @@ const { useUpdate: useCreateBase } = Flux.createUpdate<CreateParams, table.Table
     }),
 });
 
+const withDefaultLayout = (data: CreateParams): CreateParams =>
+  (data.rows?.length ?? 0) === 0 && (data.columns?.length ?? 0) === 0
+    ? { ...data, ...createDefaultLayout() }
+    : data;
+
 // useCreate creates a new table. If the caller passes no rows or columns,
 // the table opens with a 2x2 grid of empty text cells so the user lands on
 // a usable starter layout instead of a blank canvas.
 export const useCreate: typeof useCreateBase = (args) => {
   const base = useCreateBase(args);
   const baseRef = useSyncedRef(base);
-  const withDefaultLayout = useCallback(
-    (data: CreateParams): CreateParams =>
-      (data.rows?.length ?? 0) === 0 && (data.columns?.length ?? 0) === 0
-        ? { ...data, ...createDefaultLayout() }
-        : data,
-    [],
-  );
-  const update = useCallback<typeof base.update>(
-    (data, opts) => baseRef.current.update(withDefaultLayout(data), opts),
-    [withDefaultLayout],
-  );
-  const updateAsync = useCallback<typeof base.updateAsync>(
-    (data, opts) => baseRef.current.updateAsync(withDefaultLayout(data), opts),
-    [withDefaultLayout],
-  );
+  const update: typeof base.update = (data, opts) =>
+    baseRef.current.update(withDefaultLayout(data), opts);
+  const updateAsync: typeof base.updateAsync = (data, opts) =>
+    baseRef.current.updateAsync(withDefaultLayout(data), opts);
   return { ...base, update, updateAsync };
 };
 
@@ -206,9 +199,9 @@ export const cellsInRegion = (rows: table.Row[], start: xy.XY, end: xy.XY): stri
     .map(({ x, y }) => rows[y]?.cells[x])
     .filter((cellKey) => cellKey != null);
 
-export const useCellPosition = Scope.bindHook(
-  ({ key, cellKey }: CellParams): xy.XY | null => {
-    const rows = useRows({ key });
-    return useMemo(() => findCellPosition(rows, cellKey), [rows, cellKey]);
-  },
-);
+const useCellPositionBase = ({ key, cellKey }: CellParams): xy.XY | null => {
+  const rows = useRows({ key });
+  return findCellPosition(rows, cellKey);
+};
+
+export const useCellPosition = Scope.bindHook(useCellPositionBase);

@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/test/test.h"
 
+#include "driver/ethercat/ethercat.h"
 #include "driver/ethercat/mock/master.h"
 #include "driver/ethercat/read_task.h"
 #include "driver/pipeline/mock/pipeline.h"
@@ -168,7 +171,7 @@ TEST_F(EtherCATReadTest, ParseConfigWithAutomaticChannel) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_automatic_input_channel_config(data_ch, "status_word")
     );
@@ -191,7 +194,7 @@ TEST_F(EtherCATReadTest, ParseConfigWithManualChannel) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_manual_input_channel_config(data_ch, 0x6000, 2, 32, "int32")
     );
@@ -219,7 +222,7 @@ TEST_F(EtherCATReadTest, ParseConfigWithMultipleChannels) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_automatic_input_channel_config(ch1, "status_word")
     );
@@ -234,7 +237,7 @@ TEST_F(EtherCATReadTest, ParseConfigWithMultipleChannels) {
 }
 
 TEST_F(EtherCATReadTest, ParseConfigWithInvalidChannel) {
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     synnax::channel::Channel invalid_ch;
     invalid_ch.key = 99999;
     cfg["channels"].push_back(
@@ -254,7 +257,7 @@ TEST_F(EtherCATReadTest, ParseConfigWithInvalidPDOName) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_automatic_input_channel_config(data_ch, "nonexistent_pdo")
     );
@@ -278,7 +281,7 @@ TEST_F(EtherCATReadTest, ParseConfigWithMixedChannelTypes) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_automatic_input_channel_config(auto_ch, "status_word")
     );
@@ -304,7 +307,7 @@ TEST_F(EtherCATReadTest, WriterConfigIncludesAllChannels) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_automatic_input_channel_config(ch1, "status_word")
     );
@@ -325,7 +328,7 @@ TEST_F(EtherCATReadTest, SourceStartRegistersWithEngine) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_automatic_input_channel_config(data_ch, "status_word")
     );
@@ -365,6 +368,68 @@ TEST_F(EtherCATReadTest, InvalidSlaveDevice) {
     ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
 }
 
+/// @brief it should accept a stream rate below 1 Hz and read the matching number of
+/// samples for each stream.
+TEST_F(EtherCATReadTest, StreamRateBelowOneHzIsValid) {
+    auto data_ch = ASSERT_NIL_P(this->client->channels.create(
+        make_unique_channel_name("analog"),
+        x::telem::INT16_T,
+        this->index_channel.key,
+        false
+    ));
+
+    auto cfg = this->create_base_config();
+    cfg["sample_rate"] = 2;
+    cfg["stream_rate"] = 0.5;
+    cfg["channels"].push_back(
+        this->create_automatic_input_channel_config(data_ch, "status_word")
+    );
+
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    EXPECT_EQ(task_cfg.samples_per_chan, 4);
+}
+
+/// @brief it should accept a 0.1 Hz stream rate, despite the float precision of a rate.
+TEST_F(EtherCATReadTest, StreamRateOfATenthHzIsValid) {
+    auto data_ch = ASSERT_NIL_P(this->client->channels.create(
+        make_unique_channel_name("analog"),
+        x::telem::INT16_T,
+        this->index_channel.key,
+        false
+    ));
+
+    auto cfg = this->create_base_config();
+    cfg["sample_rate"] = 100;
+    cfg["stream_rate"] = 0.1;
+    cfg["channels"].push_back(
+        this->create_automatic_input_channel_config(data_ch, "status_word")
+    );
+
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    EXPECT_EQ(task_cfg.samples_per_chan, 1000);
+}
+
+/// @brief it should reject a stream rate that does not divide the sample rate.
+TEST_F(EtherCATReadTest, StreamRateThatDoesNotDivideSampleRateIsInvalid) {
+    auto cfg = this->create_base_config();
+    cfg["sample_rate"] = 10;
+    cfg["stream_rate"] = 3;
+
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+    ASSERT_EQ(parser.errors->size(), 1);
+    EXPECT_EQ(parser.errors->at(0)["path"], "stream_rate");
+    EXPECT_EQ(
+        parser.errors->at(0)["message"],
+        "sample_rate must be divisible by stream_rate"
+    );
+}
+
 TEST_F(EtherCATReadTest, SourceReadsDataFromEngine) {
     auto data_ch = ASSERT_NIL_P(this->client->channels.create(
         make_unique_channel_name("analog"),
@@ -395,6 +460,43 @@ TEST_F(EtherCATReadTest, SourceReadsDataFromEngine) {
     ASSERT_NIL(result.error);
     EXPECT_FALSE(frame.empty());
 
+    brk.stop();
+    ASSERT_NIL(source.stop());
+}
+
+/// @brief it should report samples that failed bus cycles dropped as a warning with a
+/// message and a description.
+TEST_F(EtherCATReadTest, SourceReportsDroppedSamplesAsAWarning) {
+    auto data_ch = ASSERT_NIL_P(this->client->channels.create(
+        make_unique_channel_name("analog"),
+        x::telem::INT16_T,
+        this->index_channel.key,
+        false
+    ));
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_automatic_input_channel_config(data_ch, "status_word")
+    );
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    auto source = ReadTaskSource(this->engine, std::move(task_cfg));
+    ASSERT_NIL(source.start());
+
+    const auto receives = this->mock_master->call_count("receive");
+    this->mock_master->inject_receive_error(
+        x::errors::Error(errors::WORKING_COUNTER_ERROR, "expected 3, got 1")
+    );
+    ASSERT_EVENTUALLY_GE(this->mock_master->call_count("receive"), receives + 3);
+    this->mock_master->clear_injected_errors();
+
+    x::breaker::Breaker brk;
+    brk.start();
+    x::telem::Frame frame;
+    const auto result = source.read(brk, frame);
+    ASSERT_NIL(result.error);
+    EXPECT_EQ(result.warning.message, "Dropped samples");
+    EXPECT_EQ(result.warning.description, "Bus cycles failed: expected 3, got 1.");
     brk.stop();
     ASSERT_NIL(source.stop());
 }
@@ -430,8 +532,7 @@ TEST_F(EtherCATReadTest, SourceReadsCorrectValueFromEngine) {
         [&] {
             x::telem::Frame frame;
             source.read(brk, frame);
-            if (frame.empty() || frame.series->size() < 1)
-                return static_cast<int16_t>(0);
+            if (frame.empty() || frame.series->empty()) return static_cast<int16_t>(0);
             return frame.series->at(0).at<int16_t>(0);
         }(),
         static_cast<int16_t>(0x5678)
@@ -497,6 +598,58 @@ TEST_F(EtherCATReadTest, SourceReadsMultipleChannelValues) {
 
     brk.stop();
     ASSERT_NIL(source.stop());
+}
+
+/// @brief it should retry a read task without a limit while every bus cycle fails,
+/// because the bus recovers a lost device without a limit.
+TEST_F(EtherCATReadTest, ReadTaskRetriesFailedCyclesWithoutALimit) {
+    auto data_ch = ASSERT_NIL_P(this->client->channels.create(
+        make_unique_channel_name("analog"),
+        x::telem::INT16_T,
+        this->index_channel.key,
+        false
+    ));
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_automatic_input_channel_config(data_ch, "status_word")
+    );
+    auto manager = std::make_unique<mock::Manager>();
+    manager->configure(NETWORK_INTERFACE, this->mock_master);
+    Factory factory(std::move(manager));
+    const synnax::task::Task task{
+        .rack = this->rack.key,
+        .name = "read",
+        .type = READ_TASK_TYPE,
+        .config = cfg,
+    };
+    auto [read_task, ok] = factory.configure_task(this->ctx, task, "");
+    ASSERT_TRUE(ok);
+    ASSERT_NE(read_task, nullptr);
+    this->mock_master->inject_receive_error(
+        x::errors::Error(errors::WORKING_COUNTER_ERROR, "expected 3, got 1")
+    );
+    synnax::task::Command start{.task = task.key, .type = "start"};
+    read_task->exec(start);
+    // The first read fails after 400 ms, which is 40 cycles at 100 Hz.
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        this->mock_master->call_count("receive"),
+        60,
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    synnax::task::Command stop{.task = task.key, .type = "stop"};
+    read_task->exec(stop);
+    const auto warning = std::ranges::find(
+        this->ctx->statuses,
+        std::string(synnax::status::VARIANT_WARNING),
+        &synnax::task::Status::variant
+    );
+    ASSERT_NE(warning, this->ctx->statuses.end());
+    EXPECT_EQ(warning->message, "Failed to read data");
+    EXPECT_EQ(
+        warning->description,
+        "every bus cycle failed: expected 3, got 1 Next retry 1/∞ in 1.0 s."
+    );
 }
 
 TEST_F(EtherCATReadTest, SourceReturnsEmptyFrameWhenBreakerStopped) {

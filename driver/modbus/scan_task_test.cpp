@@ -58,7 +58,7 @@ TEST(ScanTask, testConnection) {
     EXPECT_EQ(first.key, synnax::task::status_key(t));
     EXPECT_EQ(first.details.cmd, cmd.key);
     EXPECT_EQ(first.details.task, t.key);
-    EXPECT_EQ(first.message, "Connection successful");
+    EXPECT_EQ(first.message, "Connected to device");
 }
 
 TEST(ScanTask, testConfigReturnsCorrectValues) {
@@ -121,8 +121,8 @@ TEST(ScanTask, testScanChecksDeviceHealth) {
 
     auto devices = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(devices.size(), 1);
-    EXPECT_EQ(devices[0].status->variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(devices[0].status->message, "Device connected");
+    EXPECT_EQ(devices[0].status.value().variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(devices[0].status.value().message, "Device connected");
 }
 
 TEST(ScanTask, testScanReportsDisconnectedDevice) {
@@ -155,7 +155,7 @@ TEST(ScanTask, testScanReportsDisconnectedDevice) {
 
     auto devices = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(devices.size(), 1);
-    EXPECT_EQ(devices[0].status->variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(devices[0].status->message, "Failed to reach device");
+    EXPECT_EQ(devices[0].status.value().variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(devices[0].status.value().message, "Failed to reach device");
 }
 }

@@ -11,7 +11,7 @@ next: "Task basics"
 
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 import { Table } from "@/components/table";
 import { Driver } from "@/components/driver";
 import Step from "@/components/text/Step.astro";
@@ -107,7 +107,10 @@ The `install` command copies the binary to `/usr/local/bin` if it is not already
 creates a `synnax` system user, and registers the `synnax-driver` service. It also gives
 the service real-time permission, and writes the udev rule
 `/etc/udev/rules.d/99-synnax-driver-latency.rules`, so that Arc automations get
-[precise timing](/reference/control/arc/timing#linux). After you upgrade the Driver, run
+[precise timing](/reference/control/arc/timing#linux). For
+[EtherCAT](/reference/driver/ethercat/get-started#network-interface-access), it gives
+the service raw Ethernet access and writes the udev rule
+`/etc/udev/rules.d/99-synnax-driver-ethercat.rules`. After you upgrade the Driver, run
 `sudo synnax-driver install` again.
 
 To verify the installation, run:

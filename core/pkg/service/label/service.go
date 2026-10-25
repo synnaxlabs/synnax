@@ -13,12 +13,11 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
@@ -43,10 +42,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Group *group.Service
-	// Search is the search index for fuzzy searching labels.
-	//
-	// [REQUIRED]
-	Search *search.Index
 	// Instrumentation for logging, tracing, and metrics.
 	//
 	// [OPTIONAL]
@@ -61,7 +56,6 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotNil("ontology", c.Ontology)
 	v.NotNil("group", c.Group)
-	v.NotNil("search", c.Search)
 	return v.Error()
 }
 
@@ -71,7 +65,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
-	c.Search = override.Nil(c.Search, other.Search)
 	return c
 }
 
@@ -81,6 +74,7 @@ type Service struct {
 	cfg    ServiceConfig
 	closer xio.MultiCloser
 	table  *gorp.Table[Key, Label]
+	search *gorp.SearchIndex[Key, Label]
 }
 
 // OpenService opens a new label service using the provided configuration. If error
@@ -91,18 +85,18 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg}
+	s = &Service{cfg: cfg, search: newSearchIndex()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Label]{
 		DB:              cfg.DB,
+		Indexes:         []gorp.Index[Key, Label]{s.search},
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
-	cfg.Search.RegisterService(s)
 	return s, nil
 }
 
@@ -120,7 +114,7 @@ func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		baseTx: s.cfg.DB,
 		gorp:   s.table.NewRetrieve(),
-		search: s.cfg.Search,
+		search: s.search,
 	}
 }
 

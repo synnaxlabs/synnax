@@ -14,9 +14,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -87,8 +88,8 @@ var _ = Describe("Service", func() {
 	Describe("Normalize", func() {
 		It(
 			"Should convert the loop mode of a v1 config to a performance level",
-			func() {
-				data := MustSucceed(svc.Config.Normalize(1, msgpack.EncodedJSON{
+			func(ctx SpecContext) {
+				data := MustSucceed(svc.Config.Normalize(ctx, 1, msgpack.EncodedJSON{
 					"arc_key":        uuid.New().String(),
 					"execution_mode": "BUSY_WAIT",
 					"rt_priority":    80,
@@ -98,11 +99,19 @@ var _ = Describe("Service", func() {
 			},
 		)
 
-		It("Should leave a current config unchanged", func() {
-			data := MustSucceed(svc.Config.Normalize(2, msgpack.EncodedJSON{
-				"performance": "low",
-			}))
-			Expect(data).To(Equal(msgpack.EncodedJSON{"performance": "low"}))
+		It("Should decode a current config without rewriting it", func(
+			ctx SpecContext,
+		) {
+			data := MustSucceed(svc.Config.Normalize(
+				ctx,
+				versions.Latest,
+				msgpack.EncodedJSON{
+					"performance":    "low",
+					"execution_mode": "BUSY_WAIT",
+				},
+			))
+			Expect(data).To(HaveKeyWithValue("performance", "low"))
+			Expect(data).ToNot(HaveKey("execution_mode"))
 		})
 	})
 })

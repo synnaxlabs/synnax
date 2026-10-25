@@ -9,9 +9,7 @@
 
 import { caseconv } from "@synnaxlabs/x";
 import pluralize from "pluralize";
-import { type CSSProperties } from "react";
 
-import { CSS } from "@/css";
 import { Input } from "@/input";
 
 /**
@@ -24,8 +22,3 @@ export const usePlaceholder = (resourceName: string): string =>
 /** @returns what the search field of a selection reads. */
 export const searchPlaceholder = (resourceName: string): string =>
   `Search ${pluralize.plural(resourceName)}...`;
-
-/** @returns a dialog style that widens the dialog to fit its search placeholder. */
-export const searchWidthStyle = (resourceName: string): CSSProperties => ({
-  [CSS.variable("select-search-chars")]: searchPlaceholder(resourceName).length,
-});

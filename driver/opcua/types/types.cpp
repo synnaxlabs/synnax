@@ -28,7 +28,7 @@ namespace {
 /// @returns false if str is empty, has a non-digit, or overflows T.
 template<typename T>
 bool parse_number(const std::string_view str, T &value) {
-    const auto end = str.data() + str.size();
+    const auto *const end = str.data() + str.size();
     const auto [ptr, ec] = std::from_chars(str.data(), end, value);
     return ec == std::errc() && ptr == end;
 }
@@ -49,11 +49,11 @@ std::string guid_to_string(const UA_Guid &guid) {
 }
 
 NodeId NodeId::parse(const std::string &field_name, x::json::Parser &parser) {
-    const std::string nodeIdStr = parser.field<std::string>(field_name);
+    const auto nodeIdStr = parser.field<std::string>(field_name);
     if (!parser.ok()) return NodeId();
     auto [node_id, err] = parse(nodeIdStr);
     if (err) {
-        parser.field_err(field_name, err.message());
+        parser.field_err(field_name, err.data);
         return NodeId();
     }
     return std::move(node_id);

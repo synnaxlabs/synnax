@@ -16,8 +16,6 @@ import {
   type PropsWithChildren,
   type ReactElement,
   use,
-  useCallback,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -142,35 +140,24 @@ export const Provider = ({
   const initRef = useRef<Promise<Monaco> | null>(null);
   const addStatus = Status.useAdder();
 
-  const ensure = useCallback((): Promise<Monaco> => {
-    initRef.current ??= (async () => {
-      const m = await initializeMonaco(languages);
-      setMonaco(m);
-      return m;
-    })();
+  const ensure = (): Promise<Monaco> => {
+    if (initRef.current == null)
+      initRef.current = (async () => {
+        const m = await initializeMonaco(languages);
+        setMonaco(m);
+        return m;
+      })();
     return initRef.current;
-  }, [languages]);
+  };
 
-  const languageMap = useMemo(
-    () => new Map(languages.map((l) => [l.name, l])),
-    [languages],
-  );
-  const getLanguage = useCallback(
-    (name: string) => languageMap.get(name),
-    [languageMap],
-  );
+  const languageMap = new Map(languages.map((l) => [l.name, l]));
+  const getLanguage = (name: string) => languageMap.get(name);
 
-  const value = useMemo<ContextValue>(
-    () => ({ ensure, getLanguage }),
-    [ensure, getLanguage],
-  );
+  const value: ContextValue = { ensure, getLanguage };
 
-  const handleStatus = useCallback(
-    (stat: status.Status) => {
-      if (stat.variant === "error" || stat.variant === "warning") addStatus(stat);
-    },
-    [addStatus],
-  );
+  const handleStatus = (stat: status.Status) => {
+    if (stat.variant === "error" || stat.variant === "warning") addStatus(stat);
+  };
 
   return (
     <Context value={value}>

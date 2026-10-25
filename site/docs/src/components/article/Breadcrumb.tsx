@@ -11,32 +11,35 @@ import { Breadcrumb as Base } from "@synnaxlabs/lyra/breadcrumb";
 import { caseconv } from "@synnaxlabs/x";
 
 import { parseSegments } from "@/components/text/InlineCode";
+import { labelOf } from "@/pages/_nav";
 
 export interface BreadcrumbProps {
   url: string;
   title?: string;
 }
 
-// not exactly best coding practices but is a quick fix for the breadcrumb
-// capitalization issues (SY-1468)
-const breadcrumbOverrides: Record<string, string> = {
+// Acronyms and proper nouns in a URL slug, for routes that the nav does not name.
+const WORDS: Record<string, string> = {
+  arc: "Arc",
   cli: "CLI",
-  systemd: "systemd",
-  typescript: "TypeScript",
-  ui: "UI",
+  ethercat: "EtherCAT",
+  http: "HTTP",
   labjack: "LabJack",
   ni: "NI",
   opc: "OPC",
+  pagerduty: "PagerDuty",
+  python: "Python",
+  synnax: "Synnax",
+  typescript: "TypeScript",
   ua: "UA",
-  http: "HTTP",
-  and: "and",
-  in: "in",
-  sys: "System",
-  admin: "Administrator",
+  ui: "UI",
 };
 
-const capitalize = (str: string): string =>
-  breadcrumbOverrides[str] ?? caseconv.capitalize(str);
+const fromSlug = (segment: string): string =>
+  segment
+    .split("-")
+    .map((word, i) => WORDS[word] ?? (i === 0 ? caseconv.capitalize(word) : word))
+    .join(" ");
 
 // The URL slug drops the casing of a code title, so a fully backticked title supplies
 // the text of the last segment itself.
@@ -57,7 +60,7 @@ export const Breadcrumb = ({ url, title }: BreadcrumbProps) => {
           {code != null && index === lastIndex ? (
             <code>{code}</code>
           ) : (
-            segment.split("-").map(capitalize).join(" ")
+            (labelOf(`/${href}`) ?? fromSlug(segment))
           )}
         </Base.Segment>
       ))}

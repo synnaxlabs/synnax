@@ -10,6 +10,7 @@
 import { group, NotFoundError, ontology, type task } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
@@ -41,6 +42,7 @@ import { Session } from "@/session";
 import {
   assertDefined,
   awaitTextEditing,
+  CaptureStatuses,
   commitTextEdit,
   createConsoleWrapper,
   createTestStore,
@@ -106,14 +108,18 @@ const createMenuProps = async ({
 
 const renderMenu = async (props: Tree.ContextMenuProps) => {
   const { wrapper, store } = await createConsoleWrapper({ client });
+  const statuses: Status.NotificationSpec[] = [];
   render(
     <>
       <Menu {...props} />
       <Modals.Stack />
+      <CaptureStatuses
+        onStatuses={(next) => statuses.splice(0, statuses.length, ...next)}
+      />
     </>,
     { wrapper },
   );
-  return { store };
+  return { store, statuses };
 };
 
 describe("task ontology", () => {
@@ -219,7 +225,7 @@ describe("task ontology", () => {
         timeRange: { start, end: start.add(TimeSpan.seconds(1)) },
       });
       const props = await createMenuProps({ tasks: [t] });
-      const { store } = await renderMenu(props);
+      const { store, statuses } = await renderMenu(props);
       store.dispatch(Session.Range.add(Session.Range.fromClient(rng.payload)));
       store.dispatch(Session.Range.select(rng.key));
       fireEvent.click(await screen.findByText(`Snapshot to ${rng.name}`));
@@ -229,6 +235,16 @@ describe("task ontology", () => {
         });
         expect(children.some((c) => c.id.type === "task")).toBe(true);
       });
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({
+            variant: "success",
+            name: rng.name,
+            message: "Snapshotted task",
+            description: `Created a snapshot of ${t.name}.`,
+          }),
+        ),
+      );
     });
   });
 });

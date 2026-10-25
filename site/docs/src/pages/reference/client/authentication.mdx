@@ -12,7 +12,7 @@ platforms: ["Linux", "Windows", "macOS"]
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
@@ -59,7 +59,7 @@ In the terminal, run the following command:
 sy login
 ```
 
-<Note.Note variant="info" className="compact">
+<Note.Note variant="info">
   If you get the error `command not found`, see our [troubleshooting
   guide](/reference/client/troubleshooting#synnax-command-not-found).
 </Note.Note>

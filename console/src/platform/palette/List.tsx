@@ -10,13 +10,11 @@
 import "@/platform/palette/List.css";
 
 import { type Component } from "@synnaxlabs/lyra/component";
-import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List as Base } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { destructor, type record, type state } from "@synnaxlabs/x";
-import { type MouseEvent, type ReactElement, useCallback } from "react";
+import { type MouseEvent, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -37,17 +35,12 @@ export interface ListProps<E extends record.Keyed<string>> extends Pick<
   "inputPlaceholder" | "onChange" | "value"
 > {}
 
-const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];
-
 export interface ListItemProps extends Select.ItemProps<string> {}
 
 // The row's own onSelect runs its action from onClick, so the frame's selection still
 // runs first and closes the palette.
 export const ListItem = ({ onSelect, itemKey, ...rest }: Select.ItemProps<string>) => {
-  const handleClick = useCallback(
-    (e: MouseEvent<HTMLElement>) => onSelect?.(itemKey, e),
-    [onSelect, itemKey],
-  );
+  const handleClick = (e: MouseEvent<HTMLElement>) => onSelect?.(itemKey, e);
   return (
     <Select.Item
       justify="between"
@@ -70,16 +63,12 @@ export const BaseList = <E extends record.Keyed<string>>({
   ...rest
 }: BaseListProps<E>) => {
   const { fetchMore, search } = Base.usePager({ retrieve, pageSize: 20 });
-  const { close } = Dialog.useContext();
 
-  const handleSearch = useCallback(
-    (v: string) => {
-      onChange(v);
-      if (v.startsWith(prefix)) v = v.slice(prefix.length);
-      search(v);
-    },
-    [search, onChange],
-  );
+  const handleSearch = (v: string) => {
+    onChange(v);
+    if (v.startsWith(prefix)) v = v.slice(prefix.length);
+    search(v);
+  };
   return (
     <Select.Frame<string, E>
       {...rest}
@@ -90,17 +79,15 @@ export const BaseList = <E extends record.Keyed<string>>({
       closeDialogOnSelect
       virtual
     >
-      <Input.Text
+      <Input.Search
         className={CSS.cls(CSS.BE("palette", "input"))}
         placeholder={inputPlaceholder}
         size="huge"
         flush
-        autoFocus
         onChange={handleSearch}
         borderColor={8}
         value={value}
         autoComplete="off"
-        onKeyDown={Triggers.matchCallback(ESCAPE_TRIGGERS, close)}
         full="x"
       />
       <Base.Scroll

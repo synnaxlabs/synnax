@@ -9,7 +9,7 @@
 
 import { Control, Schematic } from "@synnaxlabs/pluto";
 import { type color, type sticky } from "@synnaxlabs/x";
-import { memo, type ReactElement, useCallback } from "react";
+import { memo, type ReactElement } from "react";
 
 import { Session } from "@/session";
 
@@ -17,15 +17,10 @@ export const Legend = memo((): ReactElement | null => {
   const key = Schematic.useKey();
   const { visible, position, colors } = Session.Schematic.useSelectLegend();
   const dispatch = Session.useDispatch();
-  const handleLegendPositionChange = useCallback(
-    (position: sticky.XY) => dispatch(Session.Schematic.moveLegend({ key, position })),
-    [dispatch, key],
-  );
-  const handleLegendColorsChange = useCallback(
-    (colors: Record<string, color.Color>) =>
-      dispatch(Session.Schematic.setLegendColors({ key, colors })),
-    [key, dispatch],
-  );
+  const handleLegendPositionChange = (position: sticky.XY) =>
+    dispatch(Session.Schematic.moveLegend({ key, position }));
+  const handleLegendColorsChange = (colors: Record<string, color.Color>) =>
+    dispatch(Session.Schematic.setLegendColors({ key, colors }));
   if (!visible) return null;
   return (
     <Control.Legend

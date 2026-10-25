@@ -19,7 +19,7 @@ import (
 
 func TestArc(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Arc Suite")
+	RunSpecs(t, "Arc Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

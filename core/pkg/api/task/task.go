@@ -12,19 +12,59 @@ package task
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/validate"
 )
+
+// ServiceConfig is the configuration for the task API service.
+type ServiceConfig struct {
+	// Task stores and retrieves tasks.
+	//
+	// [REQUIRED]
+	Task *task.Service
+	// Status stores and retrieves statuses.
+	//
+	// [REQUIRED]
+	Status *status.Service
+	// RBAC enforces access control on every request.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
+}
+
+var (
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for the task API service.
+	DefaultServiceConfig = ServiceConfig{}
+)
+
+// Override implements config.Config.
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.Task = override.Nil(c.Task, other.Task)
+	c.Status = override.Nil(c.Status, other.Status)
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	return c
+}
+
+// Validate implements config.Config.
+func (c ServiceConfig) Validate() error {
+	v := validate.New("api.task")
+	v.NotNil("task", c.Task)
+	v.NotNil("status", c.Status)
+	v.NotNil("rbac", c.RBAC)
+	return v.Error()
+}
 
 type Service struct {
 	access *rbac.Service
@@ -32,15 +72,15 @@ type Service struct {
 	status *status.Service
 }
 
-func NewService(cfgs ...config.LayerConfig) (*Service, error) {
-	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	return &Service{
-		task:   cfg.Service.Task,
-		status: cfg.Service.Status,
-		access: cfg.Service.RBAC,
+		task:   cfg.Task,
+		status: cfg.Status,
+		access: cfg.RBAC,
 	}, nil
 }
 
