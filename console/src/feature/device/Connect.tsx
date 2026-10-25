@@ -166,11 +166,11 @@ const Connect = ({
   rack: rackKey,
   close,
 }: Session.Modals.ContentProps<ConnectModalParams, void>): ReactElement => {
-  const racks = Rack.useResultMultiple({}).data;
+  const { data: racks, variant } = Rack.useResultMultiple({});
   const [selected, setSelected] = useState<string | null>(integration ?? null);
   const network = NETWORK.find(({ key }) => key === selected);
-  // A network form reads its default rack once, so it waits for the rack list.
-  if (selected == null || (network != null && racks == null))
+  // A network form reads its default rack once, so it waits while the rack list loads.
+  if (selected == null || (network != null && variant === "loading"))
     return <Picker racks={racks} rack={rackKey} onSelect={setSelected} />;
   const back = () => setSelected(null);
   if (network != null)
