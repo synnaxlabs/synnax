@@ -93,6 +93,8 @@ Where filter Rack {
             when false.
         """
     }
+
+    @doc value "is a filter that selects racks."
 }
 
 New struct extends Rack {

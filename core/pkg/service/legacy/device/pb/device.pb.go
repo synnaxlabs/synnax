@@ -504,6 +504,7 @@ func (x *RackKeyOrdered) GetLte() uint32 {
 	return 0
 }
 
+// Where is a filter that selects devices.
 type Where struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// and matches when every child matches.

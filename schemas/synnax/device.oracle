@@ -130,4 +130,6 @@ Where filter Device {
     model
     location
     rack
+
+    @doc value "is a filter that selects devices."
 }

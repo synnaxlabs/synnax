@@ -398,6 +398,7 @@ func (x *StringContains) GetAny() *StringList {
 	return nil
 }
 
+// Where is a filter that selects racks.
 type Where struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// and matches when every child matches.

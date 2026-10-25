@@ -82,6 +82,7 @@ struct StatusDetails {
     from_proto(const ::service::task::pb::StatusDetails &pb);
 };
 
+/// @brief Where is a filter that selects tasks.
 struct Where {
     /// @brief and_ matches when every child matches.
     std::optional<std::vector<Where>> and_;

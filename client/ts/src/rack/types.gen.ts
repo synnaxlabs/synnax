@@ -24,6 +24,8 @@ export const statusDetailsZ = z.object({
   rack: keyZ,
 });
 export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
+
+/** Where is a filter that selects racks. */
 export type Where = {
   and?: Where[];
   or?: Where[];

@@ -133,6 +133,8 @@ Where filter Task {
     rack
     internal
     snapshot
+
+    @doc value "is a filter that selects tasks."
 }
 
 Command struct {

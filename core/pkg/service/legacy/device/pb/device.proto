@@ -92,6 +92,8 @@ message RackKeyOrdered {
   // lte matches a value less than or equal to lte.
   optional uint32 lte = 6;
 }
+
+// Where is a filter that selects devices.
 message Where {
   // and matches when every child matches.
   WhereList and = 1;

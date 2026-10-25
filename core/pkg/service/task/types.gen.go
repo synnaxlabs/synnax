@@ -51,6 +51,7 @@ type WriteConfig = versions.WriteConfig
 // ScanConfig carries the fields shared by every scan task configuration.
 type ScanConfig = versions.ScanConfig
 
+// Where is a filter that selects tasks.
 type Where struct {
 	// And matches when every child matches.
 	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`

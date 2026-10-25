@@ -33,6 +33,7 @@ type Status = versions.Status
 // servers, or Modbus devices.
 type Device = versions.Device
 
+// Where is a filter that selects devices.
 type Where struct {
 	// And matches when every child matches.
 	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`

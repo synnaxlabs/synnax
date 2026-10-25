@@ -70,6 +70,8 @@ export type StatusDetails<Data extends z.ZodType = z.ZodNever> = {
   configHash: string;
   rack: rack.Key;
 } & ([Data] extends [z.ZodNever] ? {} : { data?: z.infer<Data> });
+
+/** Where is a filter that selects tasks. */
 export type Where = {
   and?: Where[];
   or?: Where[];

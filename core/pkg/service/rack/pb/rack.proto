@@ -63,6 +63,8 @@ message StringContains {
   // any matches an array that holds an element of any.
   StringList any = 1;
 }
+
+// Where is a filter that selects racks.
 message Where {
   // and matches when every child matches.
   WhereList and = 1;

@@ -30,6 +30,8 @@ export const statusDetailsZ = z.object({
   device: keyZ,
 });
 export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
+
+/** Where is a filter that selects devices. */
 export type Where = {
   and?: Where[];
   or?: Where[];

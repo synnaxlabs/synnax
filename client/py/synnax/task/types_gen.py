@@ -60,7 +60,8 @@ class StatusDetails(BaseModel):
 
 
 class Where(BaseModel):
-    """
+    """Is a filter that selects tasks.
+
     Attributes:
         and_: Matches when every child matches.
         or_: Matches when any child matches.

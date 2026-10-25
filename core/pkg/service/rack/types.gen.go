@@ -34,6 +34,7 @@ type Status = versions.Status
 // the Driver.
 type Rack = versions.Rack
 
+// Where is a filter that selects racks.
 type Where struct {
 	// And matches when every child matches.
 	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
