@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/service"
@@ -29,6 +30,11 @@ import (
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
+	xfs "github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
+	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -48,18 +54,28 @@ var (
 	rbacSvc       *rbac.Service
 	userSvc       *user.Service
 	root          user.User
+	// faultyFS holds the Core's time-series data and fails the operations a spec sets.
+	faultyFS *FaultyFS
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node := mock.NewNode(ctx)
+	faultyFS = WrapFaultyFS(xfs.NewMem())
+	store := &storage.Layer{
+		KV: DeferClose(memkv.New()),
+		TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faultyFS}))),
+	}
+	node := mock.NewCluster(ctx, 0).Provision(
+		ctx,
+		distribution.LayerConfig{Storage: store},
+	)
 	sec := MustSucceed(security.NewProvider(security.ProviderConfig{
 		Insecure: new(true),
 	}))
 	svc := MustOpen(service.OpenLayer(ctx, service.LayerConfig{
 		Distribution: node.Layer,
 		Security:     sec,
-		Storage:      node.Storage,
+		Storage:      store,
 		RootCredentials: auth.Credentials{
 			Username: rootUsername,
 			Password: "p",
