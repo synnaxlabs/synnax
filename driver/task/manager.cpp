@@ -493,7 +493,9 @@ void Manager::monitor_loop() {
                     synnax::task::Status status;
                     status.key = synnax::task::ontology_id(key).string();
                     status.variant = synnax::status::VARIANT_ERROR;
-                    status.message = "operation timed out";
+                    status.message = "Failed to complete task operation";
+                    status.description = "The operation did not finish within " +
+                                         this->op_timeout.to_string() + ".";
                     status.details.task = key;
                     {
                         std::lock_guard entry_lock{entry->mu};
@@ -530,7 +532,8 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                         synnax::task::Status status;
                         status.key = synnax::task::ontology_id(op.task_key).string();
                         status.variant = synnax::status::VARIANT_ERROR;
-                        status.message = err.message();
+                        status.message = "Failed to start task";
+                        status.description = err.data;
                         status.details.task = op.task_key;
                         status.details.cmd = op.cmd.key;
                         {
@@ -618,8 +621,10 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                     status.key = synnax::task::status_key(tsk);
                     status.name = tsk.name;
                     status.variant = synnax::status::VARIANT_ERROR;
-                    status.message = "no driver integration handles task type '" +
-                                     tsk.type + "'";
+                    status.message = "Failed to configure task";
+                    status.description = "No integration on this Driver handles task "
+                                         "type '" +
+                                         tsk.type + "'.";
                     status.details.task = op.task_key;
                     status.details.running = false;
                     status.details.cmd = op.cmd.key;

@@ -194,14 +194,17 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 
         auto [dev, dev_err] = client->devices.retrieve(this->device_key);
         if (dev_err) {
-            cfg.field_err("device", dev_err.message());
+            cfg.field_err("device", dev_err.data);
             return;
         }
 
         auto conn_parser = x::json::Parser(dev.properties);
         this->conn = device::ConnectionConfig(conn_parser.child("connection"));
         if (conn_parser.error()) {
-            cfg.field_err("device", conn_parser.error().message());
+            cfg.field_err(
+                "device",
+                common::config_err_description(conn_parser.error())
+            );
             return;
         }
 
@@ -256,7 +259,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 
         auto [synnax_channels, err] = client->channels.retrieve(keys);
         if (err) {
-            cfg.field_err("channels", err.message());
+            cfg.field_err("channels", err.data);
             return;
         }
 

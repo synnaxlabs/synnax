@@ -79,7 +79,7 @@ export const useClickOutside = ({
         return;
       onClickOutside();
     },
-    [onClickOutside],
+    [ref, excludeRef, onClickOutside],
   );
   // pointerdown instead of mousedown: Tauri's drag-region script calls
   // stopImmediatePropagation on mousedown, which would swallow dismissal

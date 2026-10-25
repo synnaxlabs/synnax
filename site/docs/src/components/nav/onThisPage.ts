@@ -12,6 +12,10 @@ import { CHANGE_EVENT } from "@/components/tabs/sync";
 const ACTIVE_CLASS = "active";
 // Marks an outline menu; the value selects the headings its entries link to.
 const MENU = "[data-outline]";
+// A bar that holds a menu in a popover panel, and names the entry being read.
+const BAR = "[data-outline-bar]";
+const CURRENT = "[data-outline-current]";
+const LABEL = "[data-item-label]";
 // A heading this close to the top of the viewport counts as the one being read.
 const READING_LINE = 120;
 const READING_LIMIT = 150;
@@ -40,15 +44,25 @@ const follow = (menu: HTMLElement, signal: AbortSignal): void => {
   const headings = menu.dataset.outline ?? "";
   const items = [...menu.querySelectorAll<HTMLAnchorElement>("[data-item-key]")];
   const indicator = menu.querySelector<HTMLElement>("[data-outline-indicator]");
+  const current = menu.closest(BAR)?.querySelector(CURRENT);
+  const panel = menu.closest<HTMLElement>("[popover]");
 
-  const activate = (id: string | null): void => {
-    const active = items.find((item) => item.dataset.itemKey === id);
+  // Above the first entry's heading, the first entry is the one being read.
+  const activate = (id: string | null): HTMLElement | undefined => {
+    const active =
+      items.find((item) => item.dataset.itemKey === id) ??
+      items.find((item) => !item.hidden);
     if (active == null) return;
     for (const item of items) item.classList.toggle(ACTIVE_CLASS, item === active);
-    if (indicator == null) return;
-    indicator.style.transform = `translateY(${active.offsetTop}px)`;
-    indicator.style.height = `${active.offsetHeight}px`;
-    indicator.style.opacity = "1";
+    const label = active.querySelector(LABEL);
+    if (current != null && label != null)
+      current.replaceChildren(...label.cloneNode(true).childNodes);
+    if (indicator != null) {
+      indicator.style.transform = `translateY(${active.offsetTop}px)`;
+      indicator.style.height = `${active.offsetHeight}px`;
+      indicator.style.opacity = "1";
+    }
+    return active;
   };
 
   const hideTabbedAway = (): void => {
@@ -70,7 +84,21 @@ const follow = (menu: HTMLElement, signal: AbortSignal): void => {
     (e) => {
       if (!(e.target instanceof Element)) return;
       const item = e.target.closest<HTMLElement>("[data-item-key]");
-      if (item != null) activate(item.dataset.itemKey ?? null);
+      if (item == null) return;
+      activate(item.dataset.itemKey ?? null);
+      panel?.hidePopover();
+    },
+    { signal },
+  );
+  // A closed panel lays out nothing, so the indicator is placed again once it opens,
+  // with the entry being read in the middle of the panel.
+  panel?.addEventListener(
+    "toggle",
+    (e) => {
+      if (!(e instanceof ToggleEvent) || e.newState !== "open") return;
+      const active = activate(findReading(headings));
+      if (active == null) return;
+      panel.scrollTop = menu.offsetTop + active.offsetTop - panel.clientHeight / 2;
     },
     { signal },
   );

@@ -13,6 +13,8 @@
 #include <cstring>
 #include <string>
 
+#include "x/cpp/errors/errors.h"
+
 extern "C" {
 #include "soem/soem.h"
 }
@@ -24,6 +26,12 @@ namespace driver::ethercat::soem {
 class API {
 public:
     virtual ~API() = default;
+
+    /// @brief checks that the process can open a raw EtherCAT socket.
+    /// @param ifname the interface named in the returned error.
+    /// @returns errors::PERMISSION_DENIED when the process lacks permission, or
+    /// errors::INTERFACE_ERROR when the socket fails to open for another reason.
+    virtual x::errors::Error check_socket(const char *ifname) = 0;
 
     /// @brief initializes EtherCAT on the specified network interface.
     virtual int init(const char *ifname) = 0;
@@ -177,6 +185,8 @@ class ProdAPI final : public API {
 
 public:
     ProdAPI() { std::memset(&this->context, 0, sizeof(this->context)); }
+
+    x::errors::Error check_socket(const char *ifname) override;
 
     int init(const char *ifname) override { return ecx_init(&this->context, ifname); }
 

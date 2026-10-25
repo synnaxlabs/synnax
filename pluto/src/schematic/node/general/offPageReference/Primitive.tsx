@@ -33,7 +33,6 @@ interface RenderProps extends Partial<
 > {
   level?: text.Level;
   fillColor?: color.Crude;
-  id?: string;
   label?: string;
   className?: string;
   title?: string;
@@ -43,7 +42,6 @@ interface RenderProps extends Partial<
 }
 
 export const OffPageReference = ({
-  id,
   className,
   orientation = "right",
   label = "text",
@@ -54,12 +52,10 @@ export const OffPageReference = ({
   onLabelChange,
 }: RenderProps): ReactElement => {
   const PageIcon = PAGE_ICONS[pageType];
-  const element = document.querySelector(`[data-id="${id}"]`);
-  if (element) element.classList.add(orientation);
 
   const swap = direction.construct(orientation) === "y";
   const style = useMemo<CSSProperties>(
-    () => ({ [CSS.variable("symbol-color")]: color.rgbaString(fillColor) }),
+    () => ({ [Primitive.SYMBOL_COLOR]: color.rgbaString(fillColor) }),
     [fillColor],
   );
 

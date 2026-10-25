@@ -461,6 +461,43 @@ TEST_F(EtherCATReadTest, SourceReadsDataFromEngine) {
     ASSERT_NIL(source.stop());
 }
 
+/// @brief it should report samples that failed bus cycles dropped as a warning with a
+/// message and a description.
+TEST_F(EtherCATReadTest, SourceReportsDroppedSamplesAsAWarning) {
+    auto data_ch = ASSERT_NIL_P(this->client->channels.create(
+        make_unique_channel_name("analog"),
+        x::telem::INT16_T,
+        this->index_channel.key,
+        false
+    ));
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_automatic_input_channel_config(data_ch, "status_word")
+    );
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    auto source = ReadTaskSource(this->engine, std::move(task_cfg));
+    ASSERT_NIL(source.start());
+
+    const auto receives = this->mock_master->call_count("receive");
+    this->mock_master->inject_receive_error(
+        x::errors::Error(errors::WORKING_COUNTER_ERROR, "expected 3, got 1")
+    );
+    ASSERT_EVENTUALLY_GE(this->mock_master->call_count("receive"), receives + 3);
+    this->mock_master->clear_injected_errors();
+
+    x::breaker::Breaker brk;
+    brk.start();
+    x::telem::Frame frame;
+    const auto result = source.read(brk, frame);
+    ASSERT_NIL(result.error);
+    EXPECT_EQ(result.warning.message, "Dropped samples");
+    EXPECT_EQ(result.warning.description, "Bus cycles failed: expected 3, got 1.");
+    brk.stop();
+    ASSERT_NIL(source.stop());
+}
+
 TEST_F(EtherCATReadTest, SourceReadsCorrectValueFromEngine) {
     auto data_ch = ASSERT_NIL_P(this->client->channels.create(
         make_unique_channel_name("analog"),

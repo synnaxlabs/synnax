@@ -96,7 +96,7 @@ const MetaDataListItem = ({
         onClose?.();
         if (isCreate) reset({ key: "", value: "", range: rangeKey });
       },
-      [isCreate, onClose],
+      [isCreate, onClose, rangeKey],
     ),
   });
   useEffect(() => {

@@ -146,7 +146,7 @@ export const useMove = ({
         setHeld(heldRef.current);
         Cursor.setGlobalStyle("grabbing");
       },
-      [dir, ref],
+      [dir, itemsRef, ref],
     ),
     onMove: useCallback(
       (_: box.Box, __: Triggers.Key, e: PointerEvent) => {
@@ -162,17 +162,20 @@ export const useMove = ({
         heldRef.current = { keys: current.keys, to };
         setHeld(heldRef.current);
       },
-      [dir, ref],
+      [dir, itemsRef, ref],
     ),
-    onEnd: useCallback((_: box.Box, __: Triggers.Key, e: PointerEvent) => {
-      const current = heldRef.current;
-      heldRef.current = null;
-      Cursor.clearGlobalStyle();
-      setHeld(null);
-      if (current == null || e.type === "pointercancel") return;
-      const move = resolve(itemsRef.current, current);
-      if (move != null) onMoveRef.current(move);
-    }, []),
+    onEnd: useCallback(
+      (_: box.Box, __: Triggers.Key, e: PointerEvent) => {
+        const current = heldRef.current;
+        heldRef.current = null;
+        Cursor.clearGlobalStyle();
+        setHeld(null);
+        if (current == null || e.type === "pointercancel") return;
+        const move = resolve(itemsRef.current, current);
+        if (move != null) onMoveRef.current(move);
+      },
+      [itemsRef, onMoveRef],
+    ),
   });
   const press = useCallback(
     (key: string, e: ReactPointerEvent) => {
@@ -181,7 +184,7 @@ export const useMove = ({
       pressedRef.current = { key, keys: selected.includes(key) ? selected : [key] };
       startDrag(e);
     },
-    [startDrag],
+    [selectedRef, startDrag],
   );
   const consumeMoved = useCallback(() => {
     const moved = movedRef.current;

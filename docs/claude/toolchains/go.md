@@ -265,11 +265,15 @@ Every `*_suite_test.go` must call one of the two leak checkers from
 ```go
 func TestChannel(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Distribution Channel Suite")
+	RunSpecs(t, "Distribution Channel Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 ```
+
+Every `RunSpecs` call passes `SuiteConfig()` from `x/testutil`, which puts all specs in
+random order and fails the suite on a pending spec. These settings live in code because
+a Ginkgo flag disables the `go test` result cache. The `suiteconfig` linter enforces it.
 
 ### Rule 11: Every exported symbol gets its own specs
 

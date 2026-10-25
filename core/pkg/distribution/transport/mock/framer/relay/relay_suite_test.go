@@ -19,7 +19,7 @@ import (
 
 func TestRelay(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Distribution Transport Mock Framer Relay Suite")
+	RunSpecs(t, "Distribution Transport Mock Framer Relay Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

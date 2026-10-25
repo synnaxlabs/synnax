@@ -19,7 +19,7 @@ import (
 
 func TestIter(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Iter Suite")
+	RunSpecs(t, "Iter Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

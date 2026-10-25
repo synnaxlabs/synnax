@@ -46,6 +46,7 @@ struct MockSlaveInfo {
 class MockAPI final : public API {
 public:
     std::vector<MockSlaveInfo> slave_infos;
+    x::errors::Error check_socket_err = x::errors::NIL;
     int init_return = 1;
     int config_init_return = 1;
     int config_map_return = 64;
@@ -96,6 +97,10 @@ private:
     uint8_t *iomap_ptr = nullptr;
 
 public:
+    x::errors::Error check_socket(const char *) override {
+        return this->check_socket_err;
+    }
+
     int init(const char *) override {
         this->init_called = true;
         return this->init_return;

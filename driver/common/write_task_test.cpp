@@ -210,7 +210,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     EXPECT_EQ(start_state.details.cmd, cmd_key);
     EXPECT_EQ(start_state.details.task, task.key);
     EXPECT_EQ(start_state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(start_state.message, "Task started successfully");
+    EXPECT_EQ(start_state.message, "Started task");
 
     ASSERT_EVENTUALLY_GE(
         mock_writer_factory->writer_opens.load(std::memory_order_acquire),
@@ -242,7 +242,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     EXPECT_EQ(stop_state.details.cmd, stop_cmd_key);
     EXPECT_EQ(stop_state.details.task, task.key);
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(stop_state.message, "Task stopped successfully");
+    EXPECT_EQ(stop_state.message, "Stopped task");
 
     auto write_fr = writes->at(0).deep_copy();
     ASSERT_EQ(write_fr.size(), 1);
@@ -309,7 +309,7 @@ TEST(TestCommonWriteTask, testStartWhileRunningAcks) {
     EXPECT_EQ(ack_state.key, synnax::task::status_key(task));
     EXPECT_EQ(ack_state.details.cmd, "cmd_2");
     EXPECT_EQ(ack_state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(ack_state.message, "Task started successfully");
+    EXPECT_EQ(ack_state.message, "Started task");
     EXPECT_EQ(ack_state.details.running, true);
     // The live sink was not closed and reopened.
     EXPECT_EQ(mock_streamer_factory->streamer_opens.load(std::memory_order_acquire), 1);

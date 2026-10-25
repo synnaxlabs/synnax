@@ -157,7 +157,7 @@ var _ = Describe("Time", func() {
 				}
 				Expect(factory.Create(cfg)).Error().To(SatisfyAll(
 					BeAValidationPathError(),
-					MatchError(ContainSubstring("period: must be positive, got 0s")),
+					MatchError(ContainSubstring("period: must be positive, not 0s")),
 				))
 			},
 		)
@@ -179,7 +179,7 @@ var _ = Describe("Time", func() {
 				}
 				Expect(factory.Create(cfg)).Error().To(SatisfyAll(
 					BeAValidationPathError(),
-					MatchError(ContainSubstring("period: must be positive, got - 1s")),
+					MatchError(ContainSubstring("period: must be positive, not - 1s")),
 				))
 			},
 		)
@@ -552,7 +552,7 @@ var _ = Describe("Time", func() {
 				}
 				Expect(factory.Create(cfg)).Error().To(SatisfyAll(
 					BeAValidationPathError(),
-					MatchError(ContainSubstring("duration: must be positive, got 0s")),
+					MatchError(ContainSubstring("duration: must be positive, not 0s")),
 				))
 			},
 		)
@@ -1196,7 +1196,7 @@ var _ = Describe("Time", func() {
 			Expect(reported[0]).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(
-					"interval period must be positive, got 0s",
+					"The interval period must be positive, not 0s",
 				)),
 			))
 		})
@@ -1222,7 +1222,7 @@ var _ = Describe("Time", func() {
 			Expect(reported[0]).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(
-					"wait duration must be positive, got 0s",
+					"The wait duration must be positive, not 0s",
 				)),
 			))
 		})
