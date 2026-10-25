@@ -542,4 +542,26 @@ Where filter Channel {
 		Expect(merged).To(ContainSubstring(`import "schemas/x/filter"`))
 		Expect(versions.MergeLive(ctx, r, chain, merged)).To(Equal(merged))
 	})
+	It("Should project a filter over a generic target as a plain reference", func(
+		ctx SpecContext,
+	) {
+		write("schemas/x/filter.oracle", "Set struct<T> {\n    eq T?\n}\n")
+		write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/x/filter"
+
+Channel struct<Details?> {
+    key     string  {
+        @key
+    }
+    details Details
+}
+
+Where filter Channel {
+    key
+}
+`)
+		r, chain := resolver()
+		merged := MustSucceed(versions.MergeLive(ctx, r, chain, ""))
+		Expect(merged).To(ContainSubstring("Where filter Channel {"))
+	})
 })
