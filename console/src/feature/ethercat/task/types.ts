@@ -184,6 +184,7 @@ export const createWriteChannel = (channels: WriteChannel[]): WriteChannel => {
     ...ZERO_ENTRY,
     type: "entry",
     name: "",
+    stopValue: 0,
     key: id.create(),
   });
 };

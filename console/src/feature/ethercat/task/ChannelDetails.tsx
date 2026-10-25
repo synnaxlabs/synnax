@@ -56,7 +56,7 @@ const ChannelDetails: FC<ChannelDetailsProps> = ({ path, pdoType, schema }) => {
             {renderSelectDataType}
           </PForm.Field>
         )}
-        {hasEntry(ch) && "stopValue" in ch && (
+        {hasEntry(ch) && pdoType === "outputs" && (
           <PForm.NumericField path={`${path}.stopValue`} label="Stop value" />
         )}
       </PForm.Section>
