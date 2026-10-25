@@ -147,6 +147,16 @@ describe("createDocumentForm", () => {
     expect(result.current.form.get("config.alerts").value).toBe(alerts);
   });
 
+  it("should send nothing for a set to the value a field holds", async () => {
+    const t = await createTask();
+    const { result } = await renderForm(t.key);
+    const send = spyOnSend(formClient);
+    act(() => result.current.form.set("config.routingKey", "dog"));
+    await act(async () => expect(await result.current.flush()).toBe(true));
+    expect(countDispatches(send)).toBe(0);
+    expect(formClient.tasks.hasUndo(t.key)).toBe(false);
+  });
+
   it("should hold a value that fails its schema until the value passes", async () => {
     const t = await createTask();
     const { result } = await renderForm(t.key);

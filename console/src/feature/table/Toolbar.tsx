@@ -160,35 +160,18 @@ interface CellFormProps {
   cellKey: string;
 }
 
-const CellForm = ({ cellKey }: CellFormProps): ReactElement | null => {
+const CellForm = ({ cellKey }: CellFormProps): ReactElement => {
   const cell = Table.useCell({ cellKey });
-  const dispatch = Table.useSingleDispatch();
+  if (cell == null) throw new Error(`Cell with key ${cellKey} not found`);
   const key = Table.useKey();
   const sessionDispatch = Session.useDispatch();
   const tab = Session.Table.useSelectPropertiesTab({ key });
   const handleTabChange = (tab: Properties.TabKey) =>
     sessionDispatch(Session.Table.setPropertiesTab({ key, tab }));
-
-  const handleChange = ({ values }: Form.OnChangeParams<typeof Table.Cell.configZ>) => {
-    if (cell == null) return;
-    dispatch([
-      table.setCell({
-        cell: { key: cellKey, config: Table.Cell.configZ.parse(values) },
-      }),
-    ]);
-  };
-
-  const methods = Form.use<typeof Table.Cell.configZ>({
-    values: cell != null ? deep.copy(cell) : Table.Cell.defaultConfig("text"),
-    schema: Table.Cell.configZ,
-    onChange: handleChange,
-    sync: true,
-  });
-
-  if (cell == null) return null;
+  const { form } = Table.useCellForm({ cellKey });
   const C = Table.Cell.REGISTRY[cell.variant];
   return (
-    <Form.Form<typeof Table.Cell.configZ> {...methods}>
+    <Form.Form<typeof Table.Cell.configZ> {...form}>
       <C.Form tab={tab} onTabChange={handleTabChange} />
     </Form.Form>
   );

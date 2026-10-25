@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
-import { RoleClients } from "@synnaxlabs/client/testutil";
+import { type Synnax as Client, table } from "@synnaxlabs/client";
+import {
+  createTestClient,
+  RoleClients,
+  waitForStreamLive,
+} from "@synnaxlabs/client/testutil";
 import { color } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -114,6 +118,41 @@ describe("table/Toolbar", () => {
       const t = await client.tables.retrieve(key);
       expect(t.cells.a).toMatchObject({ variant: "text", value: "Updated" });
     });
+  });
+
+  it("shows an edit that another client makes to the selected cell", async () => {
+    const { key } = await renderToolbar({
+      tableState: { selectedCells: ["a"], lastSelected: "a" },
+    });
+    await screen.findByDisplayValue("Cell A");
+    await waitForStreamLive(client.connection);
+    const remote = createTestClient();
+    await remote.tables.retrieve(key);
+    await act(async () => {
+      await remote.tables.dispatch(
+        key,
+        table.set({ path: ["cells", "a", "value"], value: "Remote" }),
+      );
+    });
+    expect(await screen.findByDisplayValue("Remote")).toBeDefined();
+  });
+
+  it("shows the empty state when another client removes the selected cell", async () => {
+    const { key } = await renderToolbar({
+      tableState: { selectedCells: ["a"], lastSelected: "a" },
+    });
+    await screen.findByDisplayValue("Cell A");
+    await waitForStreamLive(client.connection);
+    const remote = createTestClient();
+    const { rows } = await remote.tables.retrieve(key);
+    await act(async () => {
+      await remote.tables.dispatch(key, table.removeRow({ key: rows[0].key }));
+    });
+    expect(
+      await screen.findByText(
+        "No cell selected. Select a cell to view its properties.",
+      ),
+    ).toBeDefined();
   });
 
   it("swaps the cell variant while preserving compatible fields", async () => {

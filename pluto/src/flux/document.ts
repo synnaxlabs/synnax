@@ -186,6 +186,7 @@ class DocumentStore<
       whole = deep.copy(target.node);
       deep.set(whole, target.rest, value);
     }
+    if (deep.equal(whole, target.node)) return;
     const guards = this.guards(target.path, values);
     const action = this.toWire(
       { type: "set", set: { path: target.path, value: whole, guards } },
