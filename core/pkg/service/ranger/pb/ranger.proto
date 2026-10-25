@@ -19,7 +19,7 @@ import "x/go/filter/pb/filter.proto";
 import "x/go/telem/pb/telem.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/ranger/pb";
-message LabelList {
+message LabelLabelList {
   repeated .service.label.pb.Label values = 1;
 }
 
@@ -38,7 +38,7 @@ message Range {
   optional .x.color.pb.Color color = 4;
   // labels contains optional labels attached to this range for categorization and
   // filtering.
-  LabelList labels = 5;
+  LabelLabelList labels = 5;
   // parent is an optional parent range for hierarchical organization. Ranges can be
   // nested within other ranges.
   optional Range parent = 6;
@@ -57,7 +57,7 @@ message UuidSet {
   // in matches a value equal to an element of in.
   UuidList in = 2;
 }
-message KeyList {
+message LabelKeyList {
   repeated string values = 1;
 }
 message Where {
@@ -74,7 +74,7 @@ message Where {
   // overlaps matches ranges whose time range overlaps the given range.
   optional .x.telem.pb.TimeRange overlaps = 6;
   // labels matches ranges that have any of the given labels.
-  KeyList labels = 7;
+  LabelKeyList labels = 7;
 }
 
 // RetrieveRequest is a request to retrieve ranges.

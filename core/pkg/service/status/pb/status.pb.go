@@ -93,27 +93,27 @@ func (Variant) EnumDescriptor() ([]byte, []int) {
 	return file_core_pkg_service_status_pb_status_proto_rawDescGZIP(), []int{0}
 }
 
-type LabelList struct {
+type LabelLabelList struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Values        []*pb.Label            `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *LabelList) Reset() {
-	*x = LabelList{}
+func (x *LabelLabelList) Reset() {
+	*x = LabelLabelList{}
 	mi := &file_core_pkg_service_status_pb_status_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *LabelList) String() string {
+func (x *LabelLabelList) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*LabelList) ProtoMessage() {}
+func (*LabelLabelList) ProtoMessage() {}
 
-func (x *LabelList) ProtoReflect() protoreflect.Message {
+func (x *LabelLabelList) ProtoReflect() protoreflect.Message {
 	mi := &file_core_pkg_service_status_pb_status_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -125,12 +125,12 @@ func (x *LabelList) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use LabelList.ProtoReflect.Descriptor instead.
-func (*LabelList) Descriptor() ([]byte, []int) {
+// Deprecated: Use LabelLabelList.ProtoReflect.Descriptor instead.
+func (*LabelLabelList) Descriptor() ([]byte, []int) {
 	return file_core_pkg_service_status_pb_status_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *LabelList) GetValues() []*pb.Label {
+func (x *LabelLabelList) GetValues() []*pb.Label {
 	if x != nil {
 		return x.Values
 	}
@@ -163,7 +163,7 @@ type Status struct {
 	// details contains optional component-specific custom details for the status.
 	Details *anypb.Any `protobuf:"bytes,7,opt,name=details,proto3" json:"details,omitempty"`
 	// labels contains optional labels for categorization and filtering.
-	Labels        *LabelList `protobuf:"bytes,8,opt,name=labels,proto3" json:"labels,omitempty"`
+	Labels        *LabelLabelList `protobuf:"bytes,8,opt,name=labels,proto3" json:"labels,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -247,7 +247,7 @@ func (x *Status) GetDetails() *anypb.Any {
 	return nil
 }
 
-func (x *Status) GetLabels() *LabelList {
+func (x *Status) GetLabels() *LabelLabelList {
 	if x != nil {
 		return x.Labels
 	}
@@ -498,27 +498,27 @@ func (x *VariantSet) GetIn() *VariantList {
 	return nil
 }
 
-type KeyList struct {
+type LabelKeyList struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Values        []string               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *KeyList) Reset() {
-	*x = KeyList{}
+func (x *LabelKeyList) Reset() {
+	*x = LabelKeyList{}
 	mi := &file_core_pkg_service_status_pb_status_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *KeyList) String() string {
+func (x *LabelKeyList) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*KeyList) ProtoMessage() {}
+func (*LabelKeyList) ProtoMessage() {}
 
-func (x *KeyList) ProtoReflect() protoreflect.Message {
+func (x *LabelKeyList) ProtoReflect() protoreflect.Message {
 	mi := &file_core_pkg_service_status_pb_status_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -530,12 +530,12 @@ func (x *KeyList) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use KeyList.ProtoReflect.Descriptor instead.
-func (*KeyList) Descriptor() ([]byte, []int) {
+// Deprecated: Use LabelKeyList.ProtoReflect.Descriptor instead.
+func (*LabelKeyList) Descriptor() ([]byte, []int) {
 	return file_core_pkg_service_status_pb_status_proto_rawDescGZIP(), []int{7}
 }
 
-func (x *KeyList) GetValues() []string {
+func (x *LabelKeyList) GetValues() []string {
 	if x != nil {
 		return x.Values
 	}
@@ -555,7 +555,7 @@ type Where struct {
 	// variant selects by variant.
 	Variant *VariantSet `protobuf:"bytes,5,opt,name=variant,proto3,oneof" json:"variant,omitempty"`
 	// labels matches statuses that have any of the given labels.
-	Labels        *KeyList `protobuf:"bytes,6,opt,name=labels,proto3" json:"labels,omitempty"`
+	Labels        *LabelKeyList `protobuf:"bytes,6,opt,name=labels,proto3" json:"labels,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -625,7 +625,7 @@ func (x *Where) GetVariant() *VariantSet {
 	return nil
 }
 
-func (x *Where) GetLabels() *KeyList {
+func (x *Where) GetLabels() *LabelKeyList {
 	if x != nil {
 		return x.Labels
 	}
@@ -764,9 +764,9 @@ var File_core_pkg_service_status_pb_status_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_status_pb_status_proto_rawDesc = "" +
 	"\n" +
-	"'core/pkg/service/status/pb/status.proto\x12\x11service.status.pb\x1a%core/pkg/service/label/pb/label.proto\x1a\x19google/protobuf/any.proto\"<\n" +
-	"\tLabelList\x12/\n" +
-	"\x06values\x18\x01 \x03(\v2\x17.service.label.pb.LabelR\x06values\"\x9a\x02\n" +
+	"'core/pkg/service/status/pb/status.proto\x12\x11service.status.pb\x1a%core/pkg/service/label/pb/label.proto\x1a\x19google/protobuf/any.proto\"A\n" +
+	"\x0eLabelLabelList\x12/\n" +
+	"\x06values\x18\x01 \x03(\v2\x17.service.label.pb.LabelR\x06values\"\x9f\x02\n" +
 	"\x06Status\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x124\n" +
@@ -774,8 +774,8 @@ const file_core_pkg_service_status_pb_status_proto_rawDesc = "" +
 	"\amessage\x18\x04 \x01(\tR\amessage\x12 \n" +
 	"\vdescription\x18\x05 \x01(\tR\vdescription\x12\x12\n" +
 	"\x04time\x18\x06 \x01(\x03R\x04time\x12.\n" +
-	"\adetails\x18\a \x01(\v2\x14.google.protobuf.AnyR\adetails\x124\n" +
-	"\x06labels\x18\b \x01(\v2\x1c.service.status.pb.LabelListR\x06labels\"=\n" +
+	"\adetails\x18\a \x01(\v2\x14.google.protobuf.AnyR\adetails\x129\n" +
+	"\x06labels\x18\b \x01(\v2!.service.status.pb.LabelLabelListR\x06labels\"=\n" +
 	"\tWhereList\x120\n" +
 	"\x06values\x18\x01 \x03(\v2\x18.service.status.pb.WhereR\x06values\"$\n" +
 	"\n" +
@@ -791,16 +791,16 @@ const file_core_pkg_service_status_pb_status_proto_rawDesc = "" +
 	"VariantSet\x12/\n" +
 	"\x02eq\x18\x01 \x01(\x0e2\x1a.service.status.pb.VariantH\x00R\x02eq\x88\x01\x01\x12.\n" +
 	"\x02in\x18\x02 \x01(\v2\x1e.service.status.pb.VariantListR\x02inB\x05\n" +
-	"\x03_eq\"!\n" +
-	"\aKeyList\x12\x16\n" +
-	"\x06values\x18\x01 \x03(\tR\x06values\"\xd9\x02\n" +
+	"\x03_eq\"&\n" +
+	"\fLabelKeyList\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"\xde\x02\n" +
 	"\x05Where\x12.\n" +
 	"\x03and\x18\x01 \x01(\v2\x1c.service.status.pb.WhereListR\x03and\x12,\n" +
 	"\x02or\x18\x02 \x01(\v2\x1c.service.status.pb.WhereListR\x02or\x12/\n" +
 	"\x03not\x18\x03 \x01(\v2\x18.service.status.pb.WhereH\x00R\x03not\x88\x01\x01\x123\n" +
 	"\x03key\x18\x04 \x01(\v2\x1c.service.status.pb.StringSetH\x01R\x03key\x88\x01\x01\x12<\n" +
-	"\avariant\x18\x05 \x01(\v2\x1d.service.status.pb.VariantSetH\x02R\avariant\x88\x01\x01\x122\n" +
-	"\x06labels\x18\x06 \x01(\v2\x1a.service.status.pb.KeyListR\x06labelsB\x06\n" +
+	"\avariant\x18\x05 \x01(\v2\x1d.service.status.pb.VariantSetH\x02R\avariant\x88\x01\x01\x127\n" +
+	"\x06labels\x18\x06 \x01(\v2\x1f.service.status.pb.LabelKeyListR\x06labelsB\x06\n" +
 	"\x04_notB\x06\n" +
 	"\x04_keyB\n" +
 	"\n" +
@@ -844,14 +844,14 @@ var file_core_pkg_service_status_pb_status_proto_enumTypes = make([]protoimpl.En
 var file_core_pkg_service_status_pb_status_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_core_pkg_service_status_pb_status_proto_goTypes = []any{
 	(Variant)(0),             // 0: service.status.pb.Variant
-	(*LabelList)(nil),        // 1: service.status.pb.LabelList
+	(*LabelLabelList)(nil),   // 1: service.status.pb.LabelLabelList
 	(*Status)(nil),           // 2: service.status.pb.Status
 	(*WhereList)(nil),        // 3: service.status.pb.WhereList
 	(*StringList)(nil),       // 4: service.status.pb.StringList
 	(*StringSet)(nil),        // 5: service.status.pb.StringSet
 	(*VariantList)(nil),      // 6: service.status.pb.VariantList
 	(*VariantSet)(nil),       // 7: service.status.pb.VariantSet
-	(*KeyList)(nil),          // 8: service.status.pb.KeyList
+	(*LabelKeyList)(nil),     // 8: service.status.pb.LabelKeyList
 	(*Where)(nil),            // 9: service.status.pb.Where
 	(*RetrieveRequest)(nil),  // 10: service.status.pb.RetrieveRequest
 	(*RetrieveResponse)(nil), // 11: service.status.pb.RetrieveResponse
@@ -859,10 +859,10 @@ var file_core_pkg_service_status_pb_status_proto_goTypes = []any{
 	(*anypb.Any)(nil),        // 13: google.protobuf.Any
 }
 var file_core_pkg_service_status_pb_status_proto_depIdxs = []int32{
-	12, // 0: service.status.pb.LabelList.values:type_name -> service.label.pb.Label
+	12, // 0: service.status.pb.LabelLabelList.values:type_name -> service.label.pb.Label
 	0,  // 1: service.status.pb.Status.variant:type_name -> service.status.pb.Variant
 	13, // 2: service.status.pb.Status.details:type_name -> google.protobuf.Any
-	1,  // 3: service.status.pb.Status.labels:type_name -> service.status.pb.LabelList
+	1,  // 3: service.status.pb.Status.labels:type_name -> service.status.pb.LabelLabelList
 	9,  // 4: service.status.pb.WhereList.values:type_name -> service.status.pb.Where
 	4,  // 5: service.status.pb.StringSet.in:type_name -> service.status.pb.StringList
 	0,  // 6: service.status.pb.VariantList.values:type_name -> service.status.pb.Variant
@@ -873,7 +873,7 @@ var file_core_pkg_service_status_pb_status_proto_depIdxs = []int32{
 	9,  // 11: service.status.pb.Where.not:type_name -> service.status.pb.Where
 	5,  // 12: service.status.pb.Where.key:type_name -> service.status.pb.StringSet
 	7,  // 13: service.status.pb.Where.variant:type_name -> service.status.pb.VariantSet
-	8,  // 14: service.status.pb.Where.labels:type_name -> service.status.pb.KeyList
+	8,  // 14: service.status.pb.Where.labels:type_name -> service.status.pb.LabelKeyList
 	9,  // 15: service.status.pb.RetrieveRequest.where:type_name -> service.status.pb.Where
 	2,  // 16: service.status.pb.RetrieveResponse.statuses:type_name -> service.status.pb.Status
 	17, // [17:17] is the sub-list for method output_type

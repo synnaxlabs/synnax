@@ -506,7 +506,7 @@ func (p *Plugin) generateOptionalArrayWrapper(
 			"could not convert optional array element type to proto",
 		)
 	}
-	wrapperName := arrays.OptionalWrapperName(typeRef, data.table)
+	wrapperName := arrays.OptionalWrapperName(typeRef, data.Namespace, data.table)
 	if data.wrapperMessages == nil {
 		data.wrapperMessages = make(set.Set[string])
 	}

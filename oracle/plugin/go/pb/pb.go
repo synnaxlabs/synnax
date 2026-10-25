@@ -725,7 +725,7 @@ func (p *Plugin) processFieldForTranslation(
 			"pb."+pbName+".Values",
 		)
 		fd.IsOptionalArrayWrapper = true
-		fd.WrapperName = arrays.OptionalWrapperName(typeRef, data.table)
+		fd.WrapperName = arrays.OptionalWrapperName(typeRef, data.Namespace, data.table)
 		fd.ForwardExpr = f
 		fd.BackwardExpr = b
 		fd.HasError = e
@@ -1050,7 +1050,7 @@ func (p *Plugin) processGenericFieldForTranslation(
 		pbValues := "pb." + pbName
 		if isOptional {
 			fd.IsOptionalArrayWrapper = true
-			fd.WrapperName = arrays.OptionalWrapperName(typeRef, data.table)
+			fd.WrapperName = arrays.OptionalWrapperName(typeRef, data.Namespace, data.table)
 			pbValues += ".Values"
 		}
 		fd.ForwardExpr = fmt.Sprintf(
@@ -1082,7 +1082,7 @@ func (p *Plugin) processGenericFieldForTranslation(
 			"pb."+pbName+".Values",
 		)
 		fd.IsOptionalArrayWrapper = true
-		fd.WrapperName = arrays.OptionalWrapperName(typeRef, data.table)
+		fd.WrapperName = arrays.OptionalWrapperName(typeRef, data.Namespace, data.table)
 		fd.ForwardExpr = f
 		fd.BackwardExpr = b
 		fd.HasError = e

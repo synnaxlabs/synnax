@@ -36,27 +36,27 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type LabelList struct {
+type LabelLabelList struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Values        []*pb.Label            `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *LabelList) Reset() {
-	*x = LabelList{}
+func (x *LabelLabelList) Reset() {
+	*x = LabelLabelList{}
 	mi := &file_core_pkg_service_ranger_pb_ranger_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *LabelList) String() string {
+func (x *LabelLabelList) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*LabelList) ProtoMessage() {}
+func (*LabelLabelList) ProtoMessage() {}
 
-func (x *LabelList) ProtoReflect() protoreflect.Message {
+func (x *LabelLabelList) ProtoReflect() protoreflect.Message {
 	mi := &file_core_pkg_service_ranger_pb_ranger_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -68,12 +68,12 @@ func (x *LabelList) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use LabelList.ProtoReflect.Descriptor instead.
-func (*LabelList) Descriptor() ([]byte, []int) {
+// Deprecated: Use LabelLabelList.ProtoReflect.Descriptor instead.
+func (*LabelLabelList) Descriptor() ([]byte, []int) {
 	return file_core_pkg_service_ranger_pb_ranger_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *LabelList) GetValues() []*pb.Label {
+func (x *LabelLabelList) GetValues() []*pb.Label {
 	if x != nil {
 		return x.Values
 	}
@@ -96,7 +96,7 @@ type Range struct {
 	Color *pb2.Color `protobuf:"bytes,4,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// labels contains optional labels attached to this range for categorization and
 	// filtering.
-	Labels *LabelList `protobuf:"bytes,5,opt,name=labels,proto3" json:"labels,omitempty"`
+	Labels *LabelLabelList `protobuf:"bytes,5,opt,name=labels,proto3" json:"labels,omitempty"`
 	// parent is an optional parent range for hierarchical organization. Ranges can be
 	// nested within other ranges.
 	Parent        *Range `protobuf:"bytes,6,opt,name=parent,proto3,oneof" json:"parent,omitempty"`
@@ -162,7 +162,7 @@ func (x *Range) GetColor() *pb2.Color {
 	return nil
 }
 
-func (x *Range) GetLabels() *LabelList {
+func (x *Range) GetLabels() *LabelLabelList {
 	if x != nil {
 		return x.Labels
 	}
@@ -319,27 +319,27 @@ func (x *UuidSet) GetIn() *UuidList {
 	return nil
 }
 
-type KeyList struct {
+type LabelKeyList struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Values        []string               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *KeyList) Reset() {
-	*x = KeyList{}
+func (x *LabelKeyList) Reset() {
+	*x = LabelKeyList{}
 	mi := &file_core_pkg_service_ranger_pb_ranger_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *KeyList) String() string {
+func (x *LabelKeyList) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*KeyList) ProtoMessage() {}
+func (*LabelKeyList) ProtoMessage() {}
 
-func (x *KeyList) ProtoReflect() protoreflect.Message {
+func (x *LabelKeyList) ProtoReflect() protoreflect.Message {
 	mi := &file_core_pkg_service_ranger_pb_ranger_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -351,12 +351,12 @@ func (x *KeyList) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use KeyList.ProtoReflect.Descriptor instead.
-func (*KeyList) Descriptor() ([]byte, []int) {
+// Deprecated: Use LabelKeyList.ProtoReflect.Descriptor instead.
+func (*LabelKeyList) Descriptor() ([]byte, []int) {
 	return file_core_pkg_service_ranger_pb_ranger_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *KeyList) GetValues() []string {
+func (x *LabelKeyList) GetValues() []string {
 	if x != nil {
 		return x.Values
 	}
@@ -378,7 +378,7 @@ type Where struct {
 	// overlaps matches ranges whose time range overlaps the given range.
 	Overlaps *pb1.TimeRange `protobuf:"bytes,6,opt,name=overlaps,proto3,oneof" json:"overlaps,omitempty"`
 	// labels matches ranges that have any of the given labels.
-	Labels        *KeyList `protobuf:"bytes,7,opt,name=labels,proto3" json:"labels,omitempty"`
+	Labels        *LabelKeyList `protobuf:"bytes,7,opt,name=labels,proto3" json:"labels,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -455,7 +455,7 @@ func (x *Where) GetOverlaps() *pb1.TimeRange {
 	return nil
 }
 
-func (x *Where) GetLabels() *KeyList {
+func (x *Where) GetLabels() *LabelKeyList {
 	if x != nil {
 		return x.Labels
 	}
@@ -603,16 +603,16 @@ var File_core_pkg_service_ranger_pb_ranger_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_ranger_pb_ranger_proto_rawDesc = "" +
 	"\n" +
-	"'core/pkg/service/ranger/pb/ranger.proto\x12\x11service.ranger.pb\x1a%core/pkg/service/label/pb/label.proto\x1a\x19x/go/color/pb/color.proto\x1a\x1bx/go/filter/pb/filter.proto\x1a\x19x/go/telem/pb/telem.proto\"<\n" +
-	"\tLabelList\x12/\n" +
-	"\x06values\x18\x01 \x03(\v2\x17.service.label.pb.LabelR\x06values\"\x93\x02\n" +
+	"'core/pkg/service/ranger/pb/ranger.proto\x12\x11service.ranger.pb\x1a%core/pkg/service/label/pb/label.proto\x1a\x19x/go/color/pb/color.proto\x1a\x1bx/go/filter/pb/filter.proto\x1a\x19x/go/telem/pb/telem.proto\"A\n" +
+	"\x0eLabelLabelList\x12/\n" +
+	"\x06values\x18\x01 \x03(\v2\x17.service.label.pb.LabelR\x06values\"\x98\x02\n" +
 	"\x05Range\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x124\n" +
 	"\n" +
 	"time_range\x18\x03 \x01(\v2\x15.x.telem.pb.TimeRangeR\ttimeRange\x12,\n" +
-	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorH\x00R\x05color\x88\x01\x01\x124\n" +
-	"\x06labels\x18\x05 \x01(\v2\x1c.service.ranger.pb.LabelListR\x06labels\x125\n" +
+	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorH\x00R\x05color\x88\x01\x01\x129\n" +
+	"\x06labels\x18\x05 \x01(\v2!.service.ranger.pb.LabelLabelListR\x06labels\x125\n" +
 	"\x06parent\x18\x06 \x01(\v2\x18.service.ranger.pb.RangeH\x01R\x06parent\x88\x01\x01B\b\n" +
 	"\x06_colorB\t\n" +
 	"\a_parent\"=\n" +
@@ -623,17 +623,17 @@ const file_core_pkg_service_ranger_pb_ranger_proto_rawDesc = "" +
 	"\aUuidSet\x12\x13\n" +
 	"\x02eq\x18\x01 \x01(\tH\x00R\x02eq\x88\x01\x01\x12+\n" +
 	"\x02in\x18\x02 \x01(\v2\x1b.service.ranger.pb.UuidListR\x02inB\x05\n" +
-	"\x03_eq\"!\n" +
-	"\aKeyList\x12\x16\n" +
-	"\x06values\x18\x01 \x03(\tR\x06values\"\x89\x03\n" +
+	"\x03_eq\"&\n" +
+	"\fLabelKeyList\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"\x8e\x03\n" +
 	"\x05Where\x12.\n" +
 	"\x03and\x18\x01 \x01(\v2\x1c.service.ranger.pb.WhereListR\x03and\x12,\n" +
 	"\x02or\x18\x02 \x01(\v2\x1c.service.ranger.pb.WhereListR\x02or\x12/\n" +
 	"\x03not\x18\x03 \x01(\v2\x18.service.ranger.pb.WhereH\x00R\x03not\x88\x01\x01\x121\n" +
 	"\x03key\x18\x04 \x01(\v2\x1a.service.ranger.pb.UuidSetH\x01R\x03key\x88\x01\x01\x12,\n" +
 	"\x04name\x18\x05 \x01(\v2\x13.x.filter.pb.StringH\x02R\x04name\x88\x01\x01\x126\n" +
-	"\boverlaps\x18\x06 \x01(\v2\x15.x.telem.pb.TimeRangeH\x03R\boverlaps\x88\x01\x01\x122\n" +
-	"\x06labels\x18\a \x01(\v2\x1a.service.ranger.pb.KeyListR\x06labelsB\x06\n" +
+	"\boverlaps\x18\x06 \x01(\v2\x15.x.telem.pb.TimeRangeH\x03R\boverlaps\x88\x01\x01\x127\n" +
+	"\x06labels\x18\a \x01(\v2\x1f.service.ranger.pb.LabelKeyListR\x06labelsB\x06\n" +
 	"\x04_notB\x06\n" +
 	"\x04_keyB\a\n" +
 	"\x05_nameB\v\n" +
@@ -670,12 +670,12 @@ func file_core_pkg_service_ranger_pb_ranger_proto_rawDescGZIP() []byte {
 
 var file_core_pkg_service_ranger_pb_ranger_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_core_pkg_service_ranger_pb_ranger_proto_goTypes = []any{
-	(*LabelList)(nil),        // 0: service.ranger.pb.LabelList
+	(*LabelLabelList)(nil),   // 0: service.ranger.pb.LabelLabelList
 	(*Range)(nil),            // 1: service.ranger.pb.Range
 	(*WhereList)(nil),        // 2: service.ranger.pb.WhereList
 	(*UuidList)(nil),         // 3: service.ranger.pb.UuidList
 	(*UuidSet)(nil),          // 4: service.ranger.pb.UuidSet
-	(*KeyList)(nil),          // 5: service.ranger.pb.KeyList
+	(*LabelKeyList)(nil),     // 5: service.ranger.pb.LabelKeyList
 	(*Where)(nil),            // 6: service.ranger.pb.Where
 	(*RetrieveRequest)(nil),  // 7: service.ranger.pb.RetrieveRequest
 	(*RetrieveResponse)(nil), // 8: service.ranger.pb.RetrieveResponse
@@ -685,10 +685,10 @@ var file_core_pkg_service_ranger_pb_ranger_proto_goTypes = []any{
 	(*pb3.String)(nil),       // 12: x.filter.pb.String
 }
 var file_core_pkg_service_ranger_pb_ranger_proto_depIdxs = []int32{
-	9,  // 0: service.ranger.pb.LabelList.values:type_name -> service.label.pb.Label
+	9,  // 0: service.ranger.pb.LabelLabelList.values:type_name -> service.label.pb.Label
 	10, // 1: service.ranger.pb.Range.time_range:type_name -> x.telem.pb.TimeRange
 	11, // 2: service.ranger.pb.Range.color:type_name -> x.color.pb.Color
-	0,  // 3: service.ranger.pb.Range.labels:type_name -> service.ranger.pb.LabelList
+	0,  // 3: service.ranger.pb.Range.labels:type_name -> service.ranger.pb.LabelLabelList
 	1,  // 4: service.ranger.pb.Range.parent:type_name -> service.ranger.pb.Range
 	6,  // 5: service.ranger.pb.WhereList.values:type_name -> service.ranger.pb.Where
 	3,  // 6: service.ranger.pb.UuidSet.in:type_name -> service.ranger.pb.UuidList
@@ -698,7 +698,7 @@ var file_core_pkg_service_ranger_pb_ranger_proto_depIdxs = []int32{
 	4,  // 10: service.ranger.pb.Where.key:type_name -> service.ranger.pb.UuidSet
 	12, // 11: service.ranger.pb.Where.name:type_name -> x.filter.pb.String
 	10, // 12: service.ranger.pb.Where.overlaps:type_name -> x.telem.pb.TimeRange
-	5,  // 13: service.ranger.pb.Where.labels:type_name -> service.ranger.pb.KeyList
+	5,  // 13: service.ranger.pb.Where.labels:type_name -> service.ranger.pb.LabelKeyList
 	6,  // 14: service.ranger.pb.RetrieveRequest.where:type_name -> service.ranger.pb.Where
 	1,  // 15: service.ranger.pb.RetrieveResponse.ranges:type_name -> service.ranger.pb.Range
 	16, // [16:16] is the sub-list for method output_type
