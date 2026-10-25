@@ -54,6 +54,19 @@ TEST_F(IGHMasterTest, InitializeHappyPath) {
     EXPECT_EQ(slaves.size(), 1u);
 }
 
+/// @brief it should return the device check error when the Driver cannot open the
+/// device of the master.
+TEST_F(IGHMasterTest, InitializeDeviceCheckFails) {
+    this->add_default_slave();
+    this->mock_api->set_check_device_err(
+        x::errors::Error(
+            errors::PERMISSION_DENIED,
+            "permission denied opening /dev/EtherCAT0"
+        )
+    );
+    ASSERT_OCCURRED_AS(this->master_instance->initialize(), errors::PERMISSION_DENIED);
+}
+
 TEST_F(IGHMasterTest, InitializeRequestMasterFails) {
     this->mock_api->set_request_master_result(nullptr);
     ASSERT_OCCURRED_AS(this->master_instance->initialize(), errors::MASTER_INIT_ERROR);
@@ -196,14 +209,19 @@ TEST_F(IGHMasterTest, ReceiveWcZeroReturnsError) {
     ASSERT_OCCURRED_AS(this->master_instance->receive(), errors::WORKING_COUNTER_ERROR);
 }
 
-TEST_F(IGHMasterTest, ReceiveWcIncompleteReturnsNil) {
+/// @brief it should return a working counter error when the domains report an
+/// incomplete working counter.
+TEST_F(IGHMasterTest, ReceiveWcIncompleteReturnsWorkingCounterError) {
     this->initialize_with_slave();
     this->activate_with_domains();
     ec_domain_state_t incomplete{};
     incomplete.wc_state = EC_WC_INCOMPLETE;
+    incomplete.working_counter = 1;
     this->mock_api->set_output_domain_state(incomplete);
     this->mock_api->set_input_domain_state(incomplete);
-    ASSERT_NIL(this->master_instance->receive());
+    const auto err = this->master_instance->receive();
+    ASSERT_OCCURRED_AS(err, errors::WORKING_COUNTER_ERROR);
+    EXPECT_EQ(err.data, "incomplete working counter: output 1, input 1");
 }
 
 TEST_F(IGHMasterTest, ReceiveWcCompleteReturnsNil) {
@@ -226,6 +244,34 @@ TEST_F(IGHMasterTest, ReceiveOutputZeroInputComplete) {
     this->mock_api->set_output_domain_state(zero_state);
     this->mock_api->set_input_domain_state(complete);
     ASSERT_OCCURRED_AS(this->master_instance->receive(), errors::WORKING_COUNTER_ERROR);
+}
+
+/// @brief it should not count the zero working counter of an empty output domain on a
+/// bus with only input slaves.
+TEST_F(IGHMasterTest, ReceiveIgnoresEmptyOutputDomain) {
+    this->initialize_with_slave();
+    this->activate_with_domains(0, 16);
+    ec_domain_state_t zero_state{};
+    zero_state.wc_state = EC_WC_ZERO;
+    ec_domain_state_t complete{};
+    complete.wc_state = EC_WC_COMPLETE;
+    this->mock_api->set_output_domain_state(zero_state);
+    this->mock_api->set_input_domain_state(complete);
+    ASSERT_NIL(this->master_instance->receive());
+}
+
+/// @brief it should not count the zero working counter of an empty input domain on a
+/// bus with only output slaves.
+TEST_F(IGHMasterTest, ReceiveIgnoresEmptyInputDomain) {
+    this->initialize_with_slave();
+    this->activate_with_domains(16, 0);
+    ec_domain_state_t zero_state{};
+    zero_state.wc_state = EC_WC_ZERO;
+    ec_domain_state_t complete{};
+    complete.wc_state = EC_WC_COMPLETE;
+    this->mock_api->set_output_domain_state(complete);
+    this->mock_api->set_input_domain_state(zero_state);
+    ASSERT_NIL(this->master_instance->receive());
 }
 
 TEST_F(IGHMasterTest, SendNotActivatedFails) {

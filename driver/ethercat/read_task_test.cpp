@@ -168,7 +168,7 @@ TEST_F(EtherCATReadTest, ParseConfigWithAutomaticChannel) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_automatic_input_channel_config(data_ch, "status_word")
     );
@@ -191,7 +191,7 @@ TEST_F(EtherCATReadTest, ParseConfigWithManualChannel) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_manual_input_channel_config(data_ch, 0x6000, 2, 32, "int32")
     );
@@ -219,7 +219,7 @@ TEST_F(EtherCATReadTest, ParseConfigWithMultipleChannels) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_automatic_input_channel_config(ch1, "status_word")
     );
@@ -234,7 +234,7 @@ TEST_F(EtherCATReadTest, ParseConfigWithMultipleChannels) {
 }
 
 TEST_F(EtherCATReadTest, ParseConfigWithInvalidChannel) {
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     synnax::channel::Channel invalid_ch;
     invalid_ch.key = 99999;
     cfg["channels"].push_back(
@@ -254,7 +254,7 @@ TEST_F(EtherCATReadTest, ParseConfigWithInvalidPDOName) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_automatic_input_channel_config(data_ch, "nonexistent_pdo")
     );
@@ -278,7 +278,7 @@ TEST_F(EtherCATReadTest, ParseConfigWithMixedChannelTypes) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_automatic_input_channel_config(auto_ch, "status_word")
     );
@@ -304,7 +304,7 @@ TEST_F(EtherCATReadTest, WriterConfigIncludesAllChannels) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_automatic_input_channel_config(ch1, "status_word")
     );
@@ -325,7 +325,7 @@ TEST_F(EtherCATReadTest, SourceStartRegistersWithEngine) {
         false
     ));
 
-    auto cfg = create_base_config();
+    auto cfg = this->create_base_config();
     cfg["channels"].push_back(
         create_automatic_input_channel_config(data_ch, "status_word")
     );
@@ -363,6 +363,68 @@ TEST_F(EtherCATReadTest, InvalidSlaveDevice) {
     auto parser = x::json::Parser(cfg);
     ReadTaskConfig task_cfg(this->client, parser);
     ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+}
+
+/// @brief it should accept a stream rate below 1 Hz and read the matching number of
+/// samples for each stream.
+TEST_F(EtherCATReadTest, StreamRateBelowOneHzIsValid) {
+    auto data_ch = ASSERT_NIL_P(this->client->channels.create(
+        make_unique_channel_name("analog"),
+        x::telem::INT16_T,
+        this->index_channel.key,
+        false
+    ));
+
+    auto cfg = this->create_base_config();
+    cfg["sample_rate"] = 2;
+    cfg["stream_rate"] = 0.5;
+    cfg["channels"].push_back(
+        this->create_automatic_input_channel_config(data_ch, "status_word")
+    );
+
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    EXPECT_EQ(task_cfg.samples_per_chan, 4);
+}
+
+/// @brief it should accept a 0.1 Hz stream rate, despite the float precision of a rate.
+TEST_F(EtherCATReadTest, StreamRateOfATenthHzIsValid) {
+    auto data_ch = ASSERT_NIL_P(this->client->channels.create(
+        make_unique_channel_name("analog"),
+        x::telem::INT16_T,
+        this->index_channel.key,
+        false
+    ));
+
+    auto cfg = this->create_base_config();
+    cfg["sample_rate"] = 100;
+    cfg["stream_rate"] = 0.1;
+    cfg["channels"].push_back(
+        this->create_automatic_input_channel_config(data_ch, "status_word")
+    );
+
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    EXPECT_EQ(task_cfg.samples_per_chan, 1000);
+}
+
+/// @brief it should reject a stream rate that does not divide the sample rate.
+TEST_F(EtherCATReadTest, StreamRateThatDoesNotDivideSampleRateIsInvalid) {
+    auto cfg = this->create_base_config();
+    cfg["sample_rate"] = 10;
+    cfg["stream_rate"] = 3;
+
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+    ASSERT_EQ(parser.errors->size(), 1);
+    EXPECT_EQ(parser.errors->at(0)["path"], "stream_rate");
+    EXPECT_EQ(
+        parser.errors->at(0)["message"],
+        "sample_rate must be divisible by stream_rate"
+    );
 }
 
 TEST_F(EtherCATReadTest, SourceReadsDataFromEngine) {
@@ -430,8 +492,7 @@ TEST_F(EtherCATReadTest, SourceReadsCorrectValueFromEngine) {
         [&] {
             x::telem::Frame frame;
             source.read(brk, frame);
-            if (frame.empty() || frame.series->size() < 1)
-                return static_cast<int16_t>(0);
+            if (frame.empty() || frame.series->empty()) return static_cast<int16_t>(0);
             return frame.series->at(0).at<int16_t>(0);
         }(),
         static_cast<int16_t>(0x5678)

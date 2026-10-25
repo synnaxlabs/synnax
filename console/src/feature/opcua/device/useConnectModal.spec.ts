@@ -99,6 +99,28 @@ describe("OPCUA.Device.useConnectModal", () => {
     expect(findLastButton("Connect").getAttribute("aria-disabled")).toBe("true");
   });
 
+  it("should show a failure from a Driver that sends no description", async () => {
+    const rack = await createRunningRack(client, "opc");
+    const scan = await rack.createTask({
+      name: uniqueName("opcua_scan"),
+      type: OPCUA.Task.SCAN_TYPE,
+      config: {},
+    });
+    await renderModalOpener(OPCUA.Device.useConnectModal, [{ rack: rack.key }], {
+      client,
+    });
+    fireEvent.change(screen.getByPlaceholderText("opc.tcp://localhost:4840"), {
+      target: { value: "opc.tcp://localhost:4840" },
+    });
+    const { answered } = await answerNextCommand(client, scan, {
+      variant: "error",
+      message: "Connection refused",
+    });
+    pressSaveTrigger();
+    await answered;
+    expect(await screen.findByText("Connection refused")).toBeTruthy();
+  });
+
   // A running rack keeps Connect enabled while none is chosen, so the save fails
   // validation. That error proves the keys reached the Connect button's save path.
   it("should submit on the shortcut its footer advertises", async () => {

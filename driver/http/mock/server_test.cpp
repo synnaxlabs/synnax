@@ -259,7 +259,7 @@ TEST(MockServerTest, BaseURLUsesHTTPScheme) {
     ASSERT_NIL(server.start());
 
     EXPECT_TRUE(server.base_url().find("http://") == 0);
-    EXPECT_TRUE(server.base_url().find("https://") == std::string::npos);
+    EXPECT_FALSE(server.base_url().contains("https://"));
 
     server.stop();
 }

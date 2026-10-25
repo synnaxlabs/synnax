@@ -194,6 +194,10 @@ build:asan --test_timeout=120,600,1800,3600  # ASan adds ~2-3x overhead
 # macOS-specific: Suppress _FORTIFY_SOURCE redefinition warning (ASan defines it to 0)
 build:asan --copt=-Wno-macro-redefined
 
+# ASan gives each temporary in open62541's generated namespace zero its own padded stack
+# slot. One node function then needs more than the 512 KB stack of a macOS thread.
+build:asan --per_file_copt=.*/open62541/namespace0_generated\.c@-fno-sanitize=address
+
 # ASan with LeakSanitizer (Linux only - LSan not supported on macOS/Windows)
 build:asan-leak --config=asan
 build:asan-leak --copt=-fsanitize=leak
@@ -231,3 +235,18 @@ build:sanitize --config=ubsan
 build:sanitize-ci --config=sanitize
 build:sanitize-ci --test_output=errors
 build:sanitize-ci --test_summary=detailed
+
+# ===== clang-tidy =====
+#
+# bazel build --config=clang-tidy <targets> lints every C++ source and header in the
+# targets without compiling them. Each file is its own cached action, and any finding
+# fails it. Bazel fetches the clang-tidy that MODULE.bazel pins, and each action takes
+# the binary and its headers as inputs, so a new version lints every file again.
+build:clang-tidy --aspects=@bazel_clang_tidy//clang_tidy:clang_tidy.bzl%clang_tidy_aspect
+build:clang-tidy --output_groups=report
+build:clang-tidy --@bazel_clang_tidy//:clang_tidy_config=//:clang_tidy_config
+build:clang-tidy --@bazel_clang_tidy//:clang_tidy_executable=//:clang_tidy
+build:clang-tidy --@bazel_clang_tidy//:clang_tidy_additional_deps=//:clang_tidy_binary
+build:clang-tidy --@bazel_clang_tidy//:clang_tidy_resource_dir=//:clang_resource_dir
+build:clang-tidy-fix --config=clang-tidy
+build:clang-tidy-fix --@bazel_clang_tidy//:clang_tidy_config=//:clang_tidy_fix_config

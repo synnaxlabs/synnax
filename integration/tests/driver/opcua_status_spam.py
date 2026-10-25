@@ -71,7 +71,7 @@ class StatusRateLimit(OPCUAReadArray):
                         continue
                     for status in _warnings_for_task(frame, task_key):
                         warning_count += 1
-                        msg = status.message
+                        msg = f"{status.message}: {status.description}"
                         if msg not in seen:
                             seen[msg] = status.time
                             continue

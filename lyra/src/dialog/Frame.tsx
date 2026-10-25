@@ -194,15 +194,6 @@ const selectModalPosition = (
 };
 
 /**
- * A controlled dropdown dialog component that wraps its children. For the simplest
- * case, use the {@link use} hook (more behavioral details explained there).
- * @param props - The props for the dropdown component. Unlisted props are passed to the
- * parent element.
- * @param props.visible - Whether the dropdown is visible or not. This is a controlled
- * @param props.children - Two children are expected: the dropdown trigger (often a
- * button or input) and the dropdown content.
- */
-/**
  * Pairs a {@link Trigger} with a {@link Dialog}, owning whether it is open and placing
  * it in whatever space the viewport leaves.
  *
@@ -339,7 +330,7 @@ export const Frame = ({
       style[CSS.variable("dialog-max-height")] = `${maxHeight}px`;
     if (visible) style.zIndex = zIndex;
     setState((prev) => ({ ...prev, targetCorner, dialogCorner, style }));
-  }, [propsLocation, variant, close, anchor]);
+  }, [visibleRef, variant, close, propsLocation, maxHeight, visible, zIndex, anchor]);
 
   const resizeDialogRef = useResize(calculatePosition, { enabled: visible });
   const combinedDialogRef = useCombinedRefs(dialogRef, resizeDialogRef);
@@ -382,7 +373,7 @@ export const Frame = ({
         dialog = dialog.children[0] as HTMLElement;
       return dialog !== dialogRef.current;
     },
-    [zIndex, visibleRef],
+    [visibleRef, variant],
   );
 
   const handleEscape = useCallback(
@@ -409,7 +400,7 @@ export const Frame = ({
         stopPropagation();
       }
     },
-    [close, variant],
+    [visibleRef, close, variant],
   );
 
   useClickOutside({ ref: dialogRef, exclude, onClickOutside: close });
@@ -442,7 +433,7 @@ export const Frame = ({
       variant,
       location: targetCorner,
     }),
-    [close, open, toggle, visible, targetCorner],
+    [close, open, toggle, visible, onPointerEnter, variant, targetCorner],
   );
 
   return (

@@ -16,6 +16,7 @@ import { Device } from "@/feature/device";
 import { LabJack } from "@/feature/labjack";
 import { createRunningRack, createTestDevice } from "@/platform/device/testutil";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
+import { createTaskStatus } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -100,6 +101,27 @@ describe("Device.useConnectModal", () => {
         const updated = await client.tasks.retrieve({ key: scanner.key });
         expect(updated.config).toMatchObject({ disabled: false });
       });
+    });
+
+    it("should show why a scanner failed", async () => {
+      const rack = await createRunningRack(client, "labjack");
+      const scanner = await rack.createTask({
+        name: uniqueName("labjack_scan"),
+        type: LabJack.Task.SCAN_TYPE,
+        config: {},
+      });
+      await client.tasks.create({
+        ...scanner.payload,
+        status: createTaskStatus({
+          variant: "error",
+          message: "Failed to start scan task",
+          description: "LJM library not found",
+          details: { task: scanner.key, rack: rack.key },
+        }),
+      });
+      await open({ integration: "labjack", rack: rack.key });
+      await screen.findByText("Failed to start scan task");
+      expect(screen.getByText("LJM library not found")).toBeTruthy();
     });
   });
 });

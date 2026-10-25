@@ -7,14 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { type LocalCache, setSettled } from "@/flux/suspend";
+import { type LocalCache, setSettled, subscribeReader } from "@/flux/suspend";
 
 const newLocal = (): LocalCache<number> => ({
   epoch: 0,
   inFlight: new Map(),
   settled: new Map(),
+  listeners: new Map(),
 });
 
 describe("setSettled", () => {
@@ -35,5 +36,30 @@ describe("setSettled", () => {
     expect(local.settled.has("q0")).toBe(true);
     expect(local.settled.get("q0")).toEqual({ data: -1 });
     expect(local.settled.has("q1")).toBe(false);
+  });
+
+  it("notifies listeners after the entry lands", () => {
+    const local = newLocal();
+    const listener = vi.fn(() => expect(local.settled.get("q")).toEqual({ data: 1 }));
+    subscribeReader(local, "q", listener);
+    setSettled(local, "q", { data: 1 });
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it("notifies only the readers of the settled query", () => {
+    const local = newLocal();
+    const listener = vi.fn();
+    subscribeReader(local, "other", listener);
+    setSettled(local, "q", { data: 1 });
+    expect(listener).not.toHaveBeenCalled();
+  });
+});
+
+describe("subscribeReader", () => {
+  it("drops the hash once its last reader leaves", () => {
+    const local = newLocal();
+    const release = subscribeReader(local, "q", vi.fn());
+    release();
+    expect(local.listeners.has("q")).toBe(false);
   });
 });

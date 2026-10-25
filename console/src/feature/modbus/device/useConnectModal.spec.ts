@@ -66,6 +66,28 @@ describe("Modbus.Device.useConnectModal", () => {
     );
   });
 
+  it("should show a failure from a Driver that sends no description", async () => {
+    const rack = await createRunningRack(client, "modbus");
+    const scan = await rack.createTask({
+      name: uniqueName("modbus_scan"),
+      type: Modbus.Task.SCAN_TYPE,
+      config: {},
+    });
+    await renderModalOpener(Modbus.Device.useConnectModal, [{ rack: rack.key }], {
+      client,
+    });
+    fireEvent.change(screen.getByPlaceholderText("localhost"), {
+      target: { value: "localhost" },
+    });
+    const { answered } = await answerNextCommand(client, scan, {
+      variant: "error",
+      message: "Connection refused",
+    });
+    pressSaveTrigger();
+    await answered;
+    expect(await screen.findByText("Connection refused")).toBeTruthy();
+  });
+
   // A running rack keeps Connect enabled while none is chosen, so the save fails
   // validation. That error proves the keys reached the Connect button's save path.
   it("should submit on the shortcut its footer advertises", async () => {

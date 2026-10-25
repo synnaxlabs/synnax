@@ -143,7 +143,11 @@ describe("Schematic.useRangeSnapshot", () => {
     await waitFor(() =>
       expect(
         result.current.notifications.statuses.some(
-          (st) => st.variant === "success" && st.message.includes("Snapshotted"),
+          (st) =>
+            st.variant === "success" &&
+            st.name === rng.name &&
+            st.message === "Snapshotted schematic" &&
+            st.description === `Created a snapshot of ${s.name}.`,
         ),
       ).toBe(true),
     );

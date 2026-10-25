@@ -33,7 +33,7 @@ struct TestSetup {
             )
         ) {}
 
-    runtime::state::Node make_node() const {
+    [[nodiscard]] runtime::state::Node make_node() const {
         return ASSERT_NIL_P(this->state->node("set_auth"));
     }
 
@@ -162,7 +162,8 @@ class SetAuthorityInputsTest : public testing::TestWithParam<bool> {
 protected:
     std::shared_ptr<runtime::state::State> auth = auth_state();
 
-    stl::testutil::Fixture config(const uint8_t value, const uint32_t channel) const {
+    [[nodiscard]] stl::testutil::Fixture
+    config(const uint8_t value, const uint32_t channel) const {
         stl::testutil::InputValue v = x::json::json(value);
         if (GetParam())
             v = std::shared_ptr<stl::testutil::VarBinding>(
@@ -191,7 +192,7 @@ TEST_P(SetAuthorityInputsTest, BuffersAPerChannelAuthorityChange) {
     ASSERT_EQ(changes.size(), 1);
     EXPECT_EQ(changes[0].authority, 200);
     ASSERT_TRUE(changes[0].channel_key.has_value());
-    EXPECT_EQ(*changes[0].channel_key, 42);
+    EXPECT_EQ(changes[0].channel_key.value(), 42);
 }
 
 TEST_P(SetAuthorityInputsTest, BuffersAGlobalAuthorityChange) {
@@ -273,7 +274,7 @@ TEST_P(SetAuthorityInputsTest, ProducesSameAuthorityOnReFire) {
     const auto second = this->auth->flush_authority_changes();
     ASSERT_EQ(second.size(), 1);
     EXPECT_EQ(second[0].authority, first[0].authority);
-    EXPECT_EQ(*second[0].channel_key, *first[0].channel_key);
+    EXPECT_EQ(second[0].channel_key.value(), first[0].channel_key.value());
 }
 
 TEST(SetAuthorityVarTest, UsesTheVarsDeclaredInitialBeforeAnyWrite) {

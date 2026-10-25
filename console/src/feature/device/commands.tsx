@@ -26,15 +26,20 @@ const ConnectCommand = Command.create({
   useVisible,
 });
 
+const createUseConnect = (integration: string) => {
+  const useConnect = () => {
+    const openConnect = useConnectModal();
+    return useCallback(() => openConnect({ integration }), [openConnect]);
+  };
+  return useConnect;
+};
+
 const HARDWARE_COMMANDS = HARDWARE.map(({ key, title, icon }) =>
   Command.create({
     key: `device_connect_${key}`,
     name: `Connect ${title}`,
     icon,
-    useOnSelect: () => {
-      const openConnect = useConnectModal();
-      return useCallback(() => openConnect({ integration: key }), [openConnect]);
-    },
+    useOnSelect: createUseConnect(key),
     useVisible,
   }),
 );

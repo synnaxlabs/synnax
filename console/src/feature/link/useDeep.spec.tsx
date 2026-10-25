@@ -18,7 +18,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
-import { TimeSpan, uuid } from "@synnaxlabs/x";
+import { scheduler, TimeSpan, uuid } from "@synnaxlabs/x";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
@@ -314,6 +314,8 @@ describe("useDeep", () => {
   it("should be a no-op when the engine is not tauri", async () => {
     const getCurrentURLs = vi.fn(async () => ["synnax://cluster/c1/schematic/s1"]);
     const { connect } = await setup({ engine: "web", getCurrentURLs });
+    // Async effects start after a task queue flush, so wait one out before asserting.
+    await act(async () => await scheduler.flushTaskQueue());
     expect(getCurrentURLs).not.toHaveBeenCalled();
     expect(connect).not.toHaveBeenCalled();
   });
@@ -572,7 +574,14 @@ describe("useDeep", () => {
     });
     vi.useRealTimers();
     await waitFor(() =>
-      expect(h.statuses().some((s) => s.message.includes("Failed to open"))).toBe(true),
+      expect(h.statuses()).toContainEqual(
+        expect.objectContaining({
+          variant: "error",
+          name: "synnax://cluster/c1/range/r1",
+          message: "Failed to open link",
+          description: "Timed out waiting for the workspace to settle.",
+        }),
+      ),
     );
     expect(h.handlers.range).not.toHaveBeenCalled();
   });

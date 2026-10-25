@@ -19,6 +19,7 @@
 #include "x/cpp/control/control.h"
 #include "x/cpp/queue/spsc.h"
 #include "x/cpp/telem/frame.h"
+#include "x/cpp/telem/mono_clock.h"
 #include "x/cpp/thread/thread.h"
 
 #include "arc/cpp/program/program.h"
@@ -134,7 +135,12 @@ public:
         }
         if (!this->loop->watch(this->inputs.notifier())) {
             LOG(ERROR) << "[arc.runtime] failed to watch input notifier";
-            this->error_handler(x::errors::Error("failed to watch input notifier"));
+            this->error_handler(
+                x::errors::Error(
+                    x::errors::INTERNAL,
+                    "The runtime failed to watch for input data."
+                )
+            );
             return;
         }
         auto timeout = x::telem::TimeSpan(0);
@@ -170,11 +176,16 @@ public:
                 Output out;
                 out.authority_changes = this->state->flush_authority_changes();
                 this->clock.advance(this->state->flush_into(out.frame, cycle.now));
-                if (!out.frame.empty() || !out.authority_changes.empty()) {
-                    if (!this->outputs.push(std::move(out))) {
-                        if (this->outputs.closed()) break;
-                        this->error_handler(errors::QUEUE_FULL_OUTPUT);
-                    }
+                if ((!out.frame.empty() || !out.authority_changes.empty()) &&
+                    (!this->outputs.push(std::move(out)))) {
+                    if (this->outputs.closed()) break;
+                    this->error_handler(
+                        x::errors::Error(
+                            errors::QUEUE_FULL_OUTPUT,
+                            "The output queue is full, so the program dropped "
+                            "output data."
+                        )
+                    );
                 }
             }
             // The timeout counts from now, so that the work of the cycle does not delay
@@ -209,15 +220,20 @@ public:
         this->inputs.close();
         this->outputs.close();
         this->state->reset();
-        this->scheduler->reset();
+        (*this->scheduler).reset();
         return true;
     }
 
     x::errors::Error write(x::telem::Frame frame) {
-        if (this->inputs.closed()) return x::errors::Error("runtime closed");
+        if (this->inputs.closed())
+            return x::errors::Error(errors::CLOSED, "The runtime is closed.");
         if (!this->inputs.push(std::move(frame))) {
-            this->error_handler(errors::QUEUE_FULL_INPUT);
-            return errors::QUEUE_FULL_INPUT;
+            const auto err = x::errors::Error(
+                errors::QUEUE_FULL_INPUT,
+                "The input queue is full, so the program dropped input data."
+            );
+            this->error_handler(err);
+            return err;
         }
         return x::errors::NIL;
     }
@@ -247,8 +263,13 @@ inline std::vector<x::control::Authority> build_authorities(
     return authorities;
 }
 
-inline std::pair<std::shared_ptr<Runtime>, x::errors::Error>
-load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
+/// @brief builds a runtime for cfg.program. node_error_handler receives the errors that
+/// nodes raise, along with the node. error_handler receives every other error.
+inline std::pair<std::shared_ptr<Runtime>, x::errors::Error> load(
+    const Config &cfg,
+    errors::Handler error_handler = errors::noop_handler,
+    scheduler::ErrorHandler node_error_handler = scheduler::noop_handler
+) {
     if (auto err = scheduler::validate(cfg.program.root); err) return {nullptr, err};
     std::set<types::ChannelKey> reads;
     std::set<types::ChannelKey> writes;
@@ -279,7 +300,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
     auto var_st = std::make_shared<stl::stateful::Variables>();
 
     state::Config state_cfg{
-        .ir = (static_cast<ir::IR>(cfg.program)),
+        .ir = static_cast<const ir::IR &>(cfg.program),
         .channels = digests
     };
     auto state = std::make_shared<state::State>(
@@ -334,7 +355,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
     node::MultiFactory fact(factories);
 
     std::unordered_map<std::string, std::unique_ptr<node::Node>> nodes;
-    const ir::IR prog = static_cast<ir::IR>(cfg.program);
+    const ir::IR &prog = cfg.program;
     for (const auto &mod_node: cfg.program.nodes) {
         auto [node_state, node_state_err] = state->node(mod_node.key);
         if (node_state_err) return {nullptr, node_state_err};
@@ -348,7 +369,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
     auto sched = std::make_unique<scheduler::Scheduler>(
         cfg.program,
         nodes,
-        error_handler
+        std::move(node_error_handler)
     );
     auto loop = loop::create(loop_cfg, cfg.rt_handle);
     return {

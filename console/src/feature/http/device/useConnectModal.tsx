@@ -90,9 +90,10 @@ const beforeSave = async ({
     timeout: TEST_CONNECTION_TIMEOUT,
     args: { connection, healthCheck },
   });
-  if (state.variant === "error") throw new Error(state.message);
+  if (state.variant === "error") throw status.toError(state);
   const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
-    message: "Server connected",
+    name: get<string>("name").value,
+    message: "Device connected",
     variant: "success",
     details: {
       rack: get<rack.Key>("rack").value,
@@ -135,6 +136,8 @@ export const Connect = ({
     rack: rackKey,
   });
 
+  const { set: setField } = form;
+
   const authType = Form.useFieldValue<
     AuthType,
     AuthType,
@@ -169,10 +172,10 @@ export const Connect = ({
 
   const handleValidateResponseChange = useCallback(
     (value: boolean) => {
-      form.set("properties.healthCheck.validateResponse", value);
-      form.set("properties.healthCheck.response", value ? ZERO_RESPONSE : undefined);
+      setField("properties.healthCheck.validateResponse", value);
+      setField("properties.healthCheck.response", value ? ZERO_RESPONSE : undefined);
     },
-    [form.set],
+    [setField],
   );
 
   const renderExpectedValueType = useCallback(
@@ -183,7 +186,7 @@ export const Connect = ({
       onChange: (v: json.PrimitiveType) => void;
     }) => {
       const handleChange = (value: json.PrimitiveType) => {
-        form.set(
+        setField(
           "properties.healthCheck.response.expectedValue",
           json.ZERO_PRIMITIVES[value],
         );
@@ -191,7 +194,7 @@ export const Connect = ({
       };
       return <SelectExpectedValueType {...rest} onChange={handleChange} />;
     },
-    [form.set],
+    [setField],
   );
 
   const renderAuthType = useCallback(
@@ -200,12 +203,12 @@ export const Connect = ({
       ...rest
     }: SelectAuthTypeProps & { onChange: (v: AuthType) => void }) => {
       const handleChange = (value: AuthType) => {
-        form.set("properties.auth", ZERO_AUTH_CONFIGS[value]);
+        setField("properties.auth", ZERO_AUTH_CONFIGS[value]);
         onChange(value);
       };
       return <SelectAuthType {...rest} onChange={handleChange} />;
     },
-    [form.set],
+    [setField],
   );
 
   const renderHealthCheckMethod = useCallback(
@@ -217,11 +220,11 @@ export const Connect = ({
     }) => {
       const handleChange = (method: HealthCheckMethod) => {
         onChange(method);
-        form.set("properties.healthCheck.body", method === "POST" ? "" : undefined);
+        setField("properties.healthCheck.body", method === "POST" ? "" : undefined);
       };
       return <SelectHealthCheckMethod {...rest} onChange={handleChange} />;
     },
-    [form.set],
+    [setField],
   );
 
   const renderSendAs = useCallback(
@@ -230,13 +233,13 @@ export const Connect = ({
       ...rest
     }: SelectSendAsProps & { onChange: (v: APIKeyAuthConfigSendAs) => void }) => {
       const handleChange = (value: APIKeyAuthConfigSendAs) => {
-        if (value === "header") form.set("properties.auth.header", "");
-        else form.set("properties.auth.parameter", "");
+        if (value === "header") setField("properties.auth.header", "");
+        else setField("properties.auth.parameter", "");
         onChange(value);
       };
       return <SelectSendAs {...rest} onChange={handleChange} />;
     },
-    [form.set],
+    [setField],
   );
 
   return (

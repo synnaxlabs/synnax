@@ -43,7 +43,7 @@ export const createRunningRack = async (
       key: rack.statusKey(r.key),
       name: r.name,
       variant: "success",
-      message: "Driver running",
+      message: "Driver is running",
       details: { rack: r.key },
     }),
   );

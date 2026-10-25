@@ -21,7 +21,7 @@ import (
 
 func TestPassword(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Auth Password Suite")
+	RunSpecs(t, "Service Auth Password Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

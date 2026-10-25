@@ -65,7 +65,7 @@ public:
 
     [[nodiscard]] std::string module_name() const override { return "control"; }
 
-    bool handles(const std::string &node_type) const override {
+    [[nodiscard]] bool handles(const std::string &node_type) const override {
         return node_type == "set_authority";
     }
 
@@ -78,7 +78,7 @@ public:
                 nullptr,
                 x::errors::Error(
                     x::errors::VALIDATION,
-                    "set_authority node missing required value parameter"
+                    "The set_authority node is missing its value parameter."
                 )
             };
         return {

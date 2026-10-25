@@ -187,6 +187,28 @@ describe("useConnectModal", () => {
     expect(analytics.capture).not.toHaveBeenCalled();
   });
 
+  it("should show a failure from a Driver that sends no description", async () => {
+    const rack = await createRunningRack(client, "http");
+    const scan = await rack.createTask({
+      name: uniqueName("http_scan"),
+      type: HTTP.Task.SCAN_TYPE,
+      config: {},
+    });
+    await renderModalOpener(HTTP.Device.useConnectModal, [{ rack: rack.key }], {
+      client,
+    });
+    fireEvent.change(screen.getByPlaceholderText("www.example.com"), {
+      target: { value: "localhost:8080" },
+    });
+    const { answered } = await answerNextCommand(client, scan, {
+      variant: "error",
+      message: "Connection refused",
+    });
+    pressSaveTrigger();
+    await answered;
+    expect(await screen.findByText("Connection refused")).toBeTruthy();
+  });
+
   // A running rack keeps Connect enabled while none is chosen, so the save fails
   // validation. That error proves the keys reached the Connect button's save path.
   it("should submit on the shortcut its footer advertises", async () => {

@@ -120,7 +120,7 @@ export const createDispatch = <
             preprocess,
           });
         } catch (e) {
-          addStatus(errorResult("dispatch action", e).status);
+          addStatus(errorResult("apply changes", e).status);
           return false;
         }
       },
@@ -144,7 +144,7 @@ export const createDispatch = <
             try {
               return await tx.commit();
             } catch (e) {
-              addStatus(errorResult("commit transaction", e).status);
+              addStatus(errorResult("apply changes", e).status);
               return false;
             }
           },
@@ -164,7 +164,7 @@ export const createDispatch = <
       if (client == null) return;
       domain(client)
         .undo(key)
-        .catch((e: unknown) => addStatus(errorResult("undo action", e).status));
+        .catch((e: unknown) => addStatus(errorResult("undo change", e).status));
     }, [client, key, addStatus]);
     return { undo, canUndo };
   };
@@ -177,7 +177,7 @@ export const createDispatch = <
       if (client == null) return;
       domain(client)
         .redo(key)
-        .catch((e: unknown) => addStatus(errorResult("redo action", e).status));
+        .catch((e: unknown) => addStatus(errorResult("redo change", e).status));
     }, [client, key, addStatus]);
     return { redo, canRedo };
   };

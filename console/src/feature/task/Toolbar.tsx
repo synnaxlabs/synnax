@@ -17,10 +17,11 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
+import { Store } from "@synnaxlabs/lyra/store";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
-import { Access, type Flux, Synnax, Task } from "@synnaxlabs/pluto";
+import { Access, type Flux, Task } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 
@@ -66,9 +67,7 @@ const filter = (task: task.Task) =>
   !task.internal && !task.snapshot && task.type !== "arc";
 
 const Content = () => {
-  const client = Synnax.use();
   const [selected, setSelected] = useState<task.Key[]>([]);
-  const addStatus = Status.useAdder();
   const confirmDelete = Modals.useConfirmDelete({ type: "Task" });
   const menuProps = Menu.useContextMenu();
   const openTab = Panel.useOpenTab();
@@ -90,9 +89,8 @@ const Content = () => {
         if (!(await confirmDelete(getItem(array.toArray(keys))))) return false;
         return keys;
       },
-      [client, getItem, confirmDelete],
+      [getItem, confirmDelete],
     ),
-    afterFailure: ({ status }) => addStatus(status),
   });
 
   const { capture } = Analytics.use();
@@ -139,7 +137,8 @@ const Content = () => {
     ({ keys }) => (
       <ContextMenu
         keys={keys}
-        tasks={getItem(keys)}
+        getItem={getItem}
+        subscribe={subscribe}
         onDelete={handleDelete}
         onStart={handleStart}
         onStop={handleStop}
@@ -149,9 +148,12 @@ const Content = () => {
       />
     ),
     [
+      getItem,
+      subscribe,
       handleDelete,
       handleStart,
       handleStop,
+      handleEdit,
       handleEnableDataSaving,
       handleDisableDataSaving,
     ],
@@ -348,20 +350,19 @@ const TaskListItem = ({
   );
 };
 
-interface ContextMenuProps {
-  keys: task.Key[];
+interface ContextMenuProps extends Store.UseItemsProps<task.Key, task.Task> {
   onDelete: (keys: task.Key[]) => void;
   onStart: (keys: task.Key[]) => void;
   onStop: (keys: task.Key[]) => void;
   onEdit: (key: task.Key) => void;
   onEnableDataSaving: (keys: task.Key[]) => void;
   onDisableDataSaving: (keys: task.Key[]) => void;
-  tasks: task.Task[];
 }
 
 const ContextMenu = ({
   keys,
-  tasks: selectedTasks,
+  getItem,
+  subscribe,
   onDelete,
   onStart,
   onStop,
@@ -369,6 +370,7 @@ const ContextMenu = ({
   onEnableDataSaving,
   onDisableDataSaving,
 }: ContextMenuProps) => {
+  const selectedTasks = Store.useItems({ keys, subscribe, getItem });
   const activeRange = Range.useResolve();
   const snapshotToActiveRange = useRangeSnapshot();
   const ontologyIDs = task.ontologyID(keys);

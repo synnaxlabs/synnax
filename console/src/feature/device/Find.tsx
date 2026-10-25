@@ -29,6 +29,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Device as PDevice, Rack, Synnax, Task } from "@synnaxlabs/pluto";
 import { type ReactElement, type ReactNode, useState } from "react";
 
+import { ConfigureHardware } from "@/feature/device/Configure";
 import { type Hardware } from "@/feature/device/integrations";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
@@ -46,15 +47,23 @@ const QUIET = new Set<Status.Variant>(["loading", "disabled"]);
 interface StateProps {
   variant: Status.Variant;
   message: ReactNode;
+  description?: string;
   action?: ReactNode;
 }
 
-const State = ({ variant, message, action }: StateProps): ReactElement => (
+const State = ({ variant, message, description, action }: StateProps): ReactElement => (
   <Pane.Item>
-    <Text.Text level="small" color={QUIET.has(variant) ? 9 : 10} grow>
-      <Status.Indicator variant={variant} />
-      {message}
-    </Text.Text>
+    <Flex.Box y gap="tiny" grow>
+      <Text.Text level="small" color={QUIET.has(variant) ? 9 : 10}>
+        <Status.Indicator variant={variant} />
+        {message}
+      </Text.Text>
+      {description != null && description.length > 0 && (
+        <Text.Text level="small" color={9}>
+          {description}
+        </Text.Text>
+      )}
+    </Flex.Box>
     {action}
   </Pane.Item>
 );
@@ -74,7 +83,11 @@ const ScannerState = ({
   const handleError = Status.useErrorHandler();
   if (!PlatformDevice.isRunning(r))
     return (
-      <State variant="warning" message={r.status?.message ?? "Driver not running"} />
+      <State
+        variant="warning"
+        message={r.status?.message ?? "Driver not running"}
+        description={r.status?.description}
+      />
     );
   if (scanner == null)
     return (
@@ -110,7 +123,13 @@ const ScannerState = ({
       />
     );
   if (scanner.status?.variant === "error")
-    return <State variant="error" message={scanner.status.message} />;
+    return (
+      <State
+        variant="error"
+        message={scanner.status.message}
+        description={scanner.status.description}
+      />
+    );
   return null;
 };
 
@@ -227,17 +246,7 @@ export interface FindProps {
  * action to scan now, and what to check when the hardware is missing.
  */
 export const Find = ({
-  integration: {
-    key,
-    name,
-    title,
-    icon,
-    make,
-    scanType,
-    checks,
-    zeroProperties,
-    useCreateRead,
-  },
+  integration: { key, name, title, icon, make, scanType, checks },
   rack: rackKey,
   close,
   onBack,
@@ -251,7 +260,6 @@ export const Find = ({
   const found = (PDevice.useResultMultiple({ makes: [make] }).data ?? [])
     .filter((d) => racks?.some((r) => r.key === d.rack) === true)
     .toSorted((a, b) => Number(a.configured) - Number(b.configured));
-  const createRead = useCreateRead();
   const [configuring, setConfiguring] = useState<device.Key | null>(null);
   const handleError = Status.useErrorHandler();
   const [scanning, setScanning] = useState(false);
@@ -260,31 +268,27 @@ export const Find = ({
       !isScanDisabled(s) &&
       racks?.some((r) => r.key === s.rack && PlatformDevice.isRunning(r)) === true,
   );
-  const scan = () =>
-    handleError(async () => {
-      setScanning(true);
-      try {
-        await Promise.all(
-          targets.map((s) =>
-            s.executeCommandSync({ type: SCAN_COMMAND, timeout: SCAN_TIMEOUT }),
-          ),
-        );
-      } finally {
-        setScanning(false);
-      }
-    }, `Failed to scan for ${name} hardware`);
+  const scan = async () => {
+    setScanning(true);
+    try {
+      await Promise.all(
+        targets.map((s) =>
+          s.executeCommandSync({ type: SCAN_COMMAND, timeout: SCAN_TIMEOUT }),
+        ),
+      );
+    } catch (e) {
+      handleError(e, `Failed to scan for ${name} hardware`);
+    }
+    setScanning(false);
+  };
   if (configuring != null)
     return (
-      <PlatformDevice.Configure
+      <ConfigureHardware
+        integration={key}
         deviceKey={configuring}
-        icon={icon}
-        initialProperties={zeroProperties}
         close={() => setConfiguring(null)}
         onBack={() => setConfiguring(null)}
-        onCreateTask={(deviceKey) => {
-          createRead({ deviceKey });
-          close();
-        }}
+        onTaskCreated={close}
       />
     );
   return (
@@ -335,7 +339,7 @@ export const Find = ({
         <Nav.Bar.End>
           <Button.Button
             variant="outlined"
-            onClick={() => scan()}
+            onClick={() => void scan()}
             status={scanning ? "loading" : undefined}
             disabled={targets.length === 0}
           >
