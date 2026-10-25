@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -34,7 +33,6 @@ type ServiceConfig struct {
 	Signals  *signals.Provider
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
-	Search   *search.Index
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -44,7 +42,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
 }
@@ -54,7 +51,6 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("panel")
 	v.NotNil("db", c.DB)
 	v.NotNil("ontology", c.Ontology)
-	v.NotNil("search", c.Search)
 	return v.Error()
 }
 
@@ -62,6 +58,7 @@ type Service struct {
 	cfg    ServiceConfig
 	closer xio.MultiCloser
 	table  *gorp.Table[Key, Panel]
+	search *gorp.SearchIndex[Key, Panel]
 	state  *actions.State[Key, Action]
 }
 
@@ -73,18 +70,22 @@ func OpenService(
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, state: actions.NewState[Key, Action](cfg.DB)}
+	s = &Service{
+		cfg:    cfg,
+		state:  actions.NewState[Key, Action](cfg.DB),
+		search: newSearchIndex(),
+	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Panel]{
 		DB:              cfg.DB,
+		Indexes:         []gorp.Index[Key, Panel]{s.search},
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
-	cfg.Search.RegisterService(s)
 	if cfg.Signals == nil {
 		return s, nil
 	}
@@ -152,7 +153,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		search: s.cfg.Search,
+		search: s.search,
 		baseTX: s.cfg.DB,
 		gorp:   s.table.NewRetrieve(),
 	}

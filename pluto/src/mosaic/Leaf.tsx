@@ -15,13 +15,7 @@ import { Haul } from "@synnaxlabs/lyra/haul";
 import { useCombinedRefs } from "@synnaxlabs/lyra/hooks";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { box, type location, xy } from "@synnaxlabs/x";
-import {
-  type DragEventHandler,
-  type ReactElement,
-  useCallback,
-  useRef,
-  useState,
-} from "react";
+import { type DragEventHandler, type ReactElement, useRef, useState } from "react";
 
 import { useContext } from "@/mosaic/Frame";
 import { filterTabCreateHaulItems, filterTabDropHaulItems } from "@/mosaic/haul";
@@ -98,53 +92,47 @@ export const Leaf = ({
   const [mask, setMask] = useState<location.Location | null>(null);
 
   const hasFileDrop = onFileDrop != null;
-  const canDrop: Haul.CanDrop = useCallback(
-    ({ items }) => {
-      if (disabled) return false;
-      const hasFiles = Haul.filterByType(Haul.FILE_TYPE, items).length > 0;
-      if (hasFiles && hasFileDrop) return true;
-      if (filterTabCreateHaulItems(items).length > 0) return true;
-      const dropped = filterTabDropHaulItems(items).map(({ key }) => key);
-      if (dropped.length === 0) return false;
-      const el = internalRef.current;
-      if (el == null) return false;
-      const keys = leafTabKeys(el);
-      return keys.length === 0 || keys.some((key) => !dropped.includes(key));
-    },
-    [hasFileDrop, disabled],
-  );
+  const canDrop: Haul.CanDrop = ({ items }) => {
+    if (disabled) return false;
+    const hasFiles = Haul.filterByType(Haul.FILE_TYPE, items).length > 0;
+    if (hasFiles && hasFileDrop) return true;
+    if (filterTabCreateHaulItems(items).length > 0) return true;
+    const dropped = filterTabDropHaulItems(items).map(({ key }) => key);
+    if (dropped.length === 0) return false;
+    const el = internalRef.current;
+    if (el == null) return false;
+    const keys = leafTabKeys(el);
+    return keys.length === 0 || keys.some((key) => !dropped.includes(key));
+  };
 
-  const handleDrop = useCallback(
-    ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
-      setMask(null);
-      const el = internalRef.current;
-      if (event == null || el == null) return [];
-      const location = resolveLocation(el, event);
-      if (Haul.filterByType(Haul.FILE_TYPE, items).length > 0) {
-        onFileDrop?.({ nodeKey, location, event });
-        return items;
-      }
-      const dropped = filterTabDropHaulItems(items);
-      if (dropped.length > 0)
-        onDrop?.({
-          nodeKey,
-          tabKey: dropped[0].key,
-          data: dropped[0].data,
-          location,
-        });
-      const created = filterTabCreateHaulItems(items);
-      if (created.length > 0)
-        onCreate?.({ nodeKey, location, tabKeys: created.map(({ key }) => key) });
-      return dropped;
-    },
-    [nodeKey, onDrop, onCreate, onFileDrop],
-  );
+  const handleDrop = ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
+    setMask(null);
+    const el = internalRef.current;
+    if (event == null || el == null) return [];
+    const location = resolveLocation(el, event);
+    if (Haul.filterByType(Haul.FILE_TYPE, items).length > 0) {
+      onFileDrop?.({ nodeKey, location, event });
+      return items;
+    }
+    const dropped = filterTabDropHaulItems(items);
+    if (dropped.length > 0)
+      onDrop?.({
+        nodeKey,
+        tabKey: dropped[0].key,
+        data: dropped[0].data,
+        location,
+      });
+    const created = filterTabCreateHaulItems(items);
+    if (created.length > 0)
+      onCreate?.({ nodeKey, location, tabKeys: created.map(({ key }) => key) });
+    return dropped;
+  };
 
-  const handleDragOver = useCallback(({ event }: Haul.OnDragOverProps): void => {
+  const handleDragOver = ({ event }: Haul.OnDragOverProps): void => {
     const el = internalRef.current;
     if (event == null || el == null) return;
     setMask(resolveLocation(el, event));
-  }, []);
+  };
 
   const haulProps = Haul.useDrop({
     type: "Mosaic",
@@ -154,13 +142,10 @@ export const Leaf = ({
     onDragOver: handleDragOver,
   });
 
-  const handleDragLeave: DragEventHandler<HTMLDivElement> = useCallback(
-    (e) => {
-      onDragLeave?.(e);
-      setMask(null);
-    },
-    [onDragLeave],
-  );
+  const handleDragLeave: DragEventHandler<HTMLDivElement> = (e) => {
+    onDragLeave?.(e);
+    setMask(null);
+  };
 
   return (
     <Flex.Box

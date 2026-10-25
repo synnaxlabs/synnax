@@ -10,7 +10,6 @@
 import { device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { useConnectModal } from "@/feature/device/Connect";
 import { HARDWARE } from "@/feature/device/integrations";
@@ -29,7 +28,7 @@ const ConnectCommand = Command.create({
 const createUseConnect = (integration: string) => {
   const useConnect = () => {
     const openConnect = useConnectModal();
-    return useCallback(() => openConnect({ integration }), [openConnect]);
+    return () => openConnect({ integration });
   };
   return useConnect;
 };

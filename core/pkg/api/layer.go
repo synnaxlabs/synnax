@@ -731,7 +731,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.Ontology, err = ontology.NewService(ontology.ServiceConfig{
 		Ontology: cfg.Service.Ontology,
-		Search:   cfg.Service.Search,
 		RBAC:     cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err

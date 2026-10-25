@@ -14,7 +14,6 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import {
   type Device,
@@ -114,13 +113,10 @@ export const Connect = ({
     initialValues: { ...INITIAL_VALUES, rack: defaultRack ?? 0 },
     beforeValidate,
     beforeSave,
-    afterSave: useCallback(
-      ({ get }) => {
-        if (deviceKey == null) capture("device_connected", { integration: "modbus" });
-        close(get<device.Key>("key").value);
-      },
-      [capture, close, deviceKey],
-    ),
+    afterSave: ({ get }) => {
+      if (deviceKey == null) capture("device_connected", { integration: "modbus" });
+      close(get<device.Key>("key").value);
+    },
   });
   const rackKey = Form.useFieldValue<
     rack.Key,

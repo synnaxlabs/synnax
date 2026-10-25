@@ -14,7 +14,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access, Panel as PPanel, Table as Base } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
@@ -33,33 +33,23 @@ const Internal: Panel.Content = () => {
   const dispatch = Session.useDispatch();
   const visible = Session.Panel.useSelectIsTabVisible();
 
-  const handleSelectionChange = useCallback(
-    (cells: string[]) =>
-      dispatch(
-        Session.Table.setSelectedCells({ key, cells, anchor: cells.at(-1) ?? null }),
-      ),
-    [dispatch, key],
-  );
+  const handleSelectionChange = (cells: string[]) =>
+    dispatch(
+      Session.Table.setSelectedCells({ key, cells, anchor: cells.at(-1) ?? null }),
+    );
 
-  const handleEditableChange = useCallback(
-    (next: boolean) => dispatch(Session.Table.setEditable({ key, editable: next })),
-    [dispatch, key],
-  );
+  const handleEditableChange = (next: boolean) =>
+    dispatch(Session.Table.setEditable({ key, editable: next }));
 
-  const handleShowIndicatorsChange = useCallback(
-    (next: boolean) =>
-      dispatch(Session.Table.setHideIndicators({ key, hideIndicators: !next })),
-    [dispatch, key],
-  );
+  const handleShowIndicatorsChange = (next: boolean) =>
+    dispatch(Session.Table.setHideIndicators({ key, hideIndicators: !next }));
 
-  const handleCenteredChange = useCallback(
-    (next: boolean) => dispatch(Session.Table.setCentered({ key, centered: next })),
-    [dispatch, key],
-  );
+  const handleCenteredChange = (next: boolean) =>
+    dispatch(Session.Table.setCentered({ key, centered: next }));
 
-  const handleDoubleClick = useCallback(() => {
+  const handleDoubleClick = () => {
     if (canEdit) dispatch(Session.Nav.showBottom({}));
-  }, [canEdit, dispatch]);
+  };
 
   // When editing, indicators always show; the hideIndicators setting only
   // takes effect outside edit mode.
@@ -92,18 +82,10 @@ const TableControls = (): ReactElement => {
   const centered = Session.Table.useSelectCentered();
   const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(key));
   const dispatch = Session.useDispatch();
-  const handleEdit = useCallback(
-    () => dispatch(Session.Table.setEditable({ key })),
-    [dispatch, key],
-  );
-  const handleToggleHideIndicators = useCallback(
-    () => dispatch(Session.Table.setHideIndicators({ key })),
-    [dispatch, key],
-  );
-  const handleToggleCentered = useCallback(
-    () => dispatch(Session.Table.setCentered({ key })),
-    [dispatch, key],
-  );
+  const handleEdit = () => dispatch(Session.Table.setEditable({ key }));
+  const handleToggleHideIndicators = () =>
+    dispatch(Session.Table.setHideIndicators({ key }));
+  const handleToggleCentered = () => dispatch(Session.Table.setCentered({ key }));
   const canEdit = hasUpdatePermission && editable;
   // Hide-indicators only matters outside edit mode; the toggle is irrelevant
   // while editing because indicators are forced visible.

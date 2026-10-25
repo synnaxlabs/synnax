@@ -9,7 +9,6 @@
 
 import { type rack } from "@synnaxlabs/client";
 import { Rack } from "@synnaxlabs/pluto";
-import { useMemo } from "react";
 
 /** Whether the rack's Driver is running. */
 export const isRunning = (r: rack.Payload): boolean => r.status?.variant === "success";
@@ -67,15 +66,10 @@ export const useBlockedReason = ({
   rack: key,
 }: UseBlockedReasonArgs): string | null => {
   const { data } = Rack.useResultMultiple({});
-  return useMemo(
-    () =>
-      data == null
-        ? null
-        : getBlockedReason(data, {
-            integration,
-            name,
-            rack: key == null || key === 0 ? undefined : key,
-          }),
-    [data, integration, name, key],
-  );
+  if (data == null) return null;
+  return getBlockedReason(data, {
+    integration,
+    name,
+    rack: key == null || key === 0 ? undefined : key,
+  });
 };

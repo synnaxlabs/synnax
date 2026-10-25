@@ -15,7 +15,6 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { retrieveScanTask } from "@/feature/opcua/device/retrieveScanTask";
 import {
@@ -111,13 +110,10 @@ export const Connect = ({
     initialValues: { ...INITIAL_VALUES, rack: defaultRack ?? 0 },
     beforeValidate,
     beforeSave,
-    afterSave: useCallback(
-      ({ get }) => {
-        if (deviceKey == null) capture("device_connected", { integration: "opcua" });
-        close(get<device.Key>("key").value);
-      },
-      [capture, close, deviceKey],
-    ),
+    afterSave: ({ get }) => {
+      if (deviceKey == null) capture("device_connected", { integration: "opcua" });
+      close(get<device.Key>("key").value);
+    },
   });
   const rackKey = Form.useFieldValue<
     rack.Key,
@@ -137,24 +133,21 @@ export const Connect = ({
       { ctx: form },
     ) != NO_SECURITY_MODE;
 
-  const renderSecurityMode = useCallback(
-    ({
-      onChange,
-      ...rest
-    }: SelectSecurityModeProps & { onChange: (v: SecurityMode) => void }) => {
-      const handleChange = (mode: SecurityMode) => {
-        onChange(mode);
-        const policyPath = "properties.connection.securityPolicy";
-        // Security mode None pairs only with policy None, and every other mode with a
-        // policy other than None.
-        if (mode === NO_SECURITY_MODE) setField(policyPath, NO_SECURITY_POLICY);
-        else if (getField<SecurityPolicy>(policyPath).value === NO_SECURITY_POLICY)
-          setField(policyPath, BASIC256_SHA256_SECURITY_POLICY);
-      };
-      return <SelectSecurityMode {...rest} onChange={handleChange} />;
-    },
-    [getField, setField],
-  );
+  const renderSecurityMode = ({
+    onChange,
+    ...rest
+  }: SelectSecurityModeProps & { onChange: (v: SecurityMode) => void }) => {
+    const handleChange = (mode: SecurityMode) => {
+      onChange(mode);
+      const policyPath = "properties.connection.securityPolicy";
+      // Security mode None pairs only with policy None, and every other mode with a
+      // policy other than None.
+      if (mode === NO_SECURITY_MODE) setField(policyPath, NO_SECURITY_POLICY);
+      else if (getField<SecurityPolicy>(policyPath).value === NO_SECURITY_POLICY)
+        setField(policyPath, BASIC256_SHA256_SECURITY_POLICY);
+    };
+    return <SelectSecurityMode {...rest} onChange={handleChange} />;
+  };
 
   return (
     <Modal.Frame className={CSS.B("opc-connect")}>

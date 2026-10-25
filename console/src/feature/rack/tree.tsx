@@ -16,7 +16,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Access, Rack } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { Arc } from "@/feature/arc";
 import { Device } from "@/feature/device";
@@ -92,10 +92,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
     state: { shape },
   } = props;
   const { ids, rootID } = selection;
-  const ontologyIDs = useMemo(
-    () => ids.map((id) => rack.ontologyID(Number(id.key))),
-    [ids],
-  );
+  const ontologyIDs = ids.map((id) => rack.ontologyID(Number(id.key)));
   const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
   const hasArcCreatePermission = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
   const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
@@ -105,10 +102,10 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
   const create = Arc.useCreate();
+  const openConnectDevice = Device.useConnectModal();
   const isSingle = ids.length === 1;
   const rackKey = Number(ids[0]?.key ?? 0);
-  const handleCreate = useCallback(() => create(), [create]);
-  const openConnectDevice = Device.useConnectModal();
+  const handleCreate = () => create();
   return (
     <ContextMenu.Menu>
       {hasUpdatePermission && isSingle && <ContextMenu.RenameItem onClick={rename} />}

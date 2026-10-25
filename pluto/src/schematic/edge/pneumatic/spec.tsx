@@ -10,7 +10,7 @@
 import { type schematic } from "@synnaxlabs/client";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { color, type direction, xy } from "@synnaxlabs/x";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { Base } from "@/schematic/edge/common/base";
 import { Path } from "@/schematic/edge/common/path";
@@ -61,10 +61,7 @@ const Line = ({
   crossings,
   color: colorVal,
 }: Segmented.PathProps): ReactElement => {
-  const symbolStyle = useMemo(
-    () => ({ [Primitive.SYMBOL_COLOR]: color.rgbaString(colorVal) }),
-    [colorVal],
-  );
+  const symbolStyle = { [Primitive.SYMBOL_COLOR]: color.rgbaString(colorVal) };
   return (
     <g className={CSS.B("symbol-colored")} style={symbolStyle}>
       <Base.Base path={Path.rounded(points, crossings)} color={colorVal} />

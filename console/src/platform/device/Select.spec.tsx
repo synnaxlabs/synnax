@@ -98,7 +98,8 @@ describe("Device.Select", () => {
     });
     await openAndClick("Connect test hardware");
     await waitFor(() => expect(screen.getByText(`rack:${dev.rack}`)).toBeTruthy());
-    expect((await findDialogTrigger()).textContent).toContain(dev.name);
+    const trigger = await findDialogTrigger();
+    await waitFor(() => expect(trigger.textContent).toContain(dev.name));
   });
 
   it("should show the empty content when no devices match the make", async () => {

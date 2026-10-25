@@ -19,7 +19,6 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Device } from "@synnaxlabs/pluto";
 import { deep, type record, strings } from "@synnaxlabs/x";
-import { useMemo } from "react";
 import { z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
@@ -66,12 +65,9 @@ const Internal = <
     "name",
     { ctx: methods },
   );
-  const suggestions = useMemo(
-    () => strings.createShortIdentifiers(currentName),
-    [currentName],
-  );
   const { capture } = Analytics.use();
   const { updateAsync, variant } = Device.useCreate();
+  const suggestions = strings.createShortIdentifiers(currentName);
   const save = async (createTask: boolean) => {
     if (!methods.validate()) return;
     const saved = await updateAsync({

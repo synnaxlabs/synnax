@@ -14,7 +14,7 @@ import {
   TimeSpan,
   xy,
 } from "@synnaxlabs/x";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Dialog } from "@/dialog";
 import { useSyncedRef } from "@/hooks";
@@ -90,10 +90,8 @@ export const useHover = <K extends record.Key>({
   const movedRef = useRef<K | undefined>(undefined);
   const [hover, setHoverKey] = useState<K | undefined>(undefined);
   const getOrderRef = useSyncedRef(getOrder);
-  const resolve = useCallback(
-    () => setHoverKey(resolveHover(getOrder(), movedRef.current, initialHover)),
-    [getOrder, initialHover],
-  );
+  const resolve = () =>
+    setHoverKey(resolveHover(getOrder(), movedRef.current, initialHover));
   useEffect(() => {
     resolve();
     return subscribe(resolve);
@@ -103,46 +101,43 @@ export const useHover = <K extends record.Key>({
   const enabledRef = useSyncedRef<Triggers.Condition>(enableTriggers ?? visible);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const handleTrigger = useCallback(
-    ({ triggers, stage }: Triggers.UseEvent) => {
-      if (!Triggers.resolveCondition(enabledRef.current)) return;
-      if (intervalRef.current != null) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      if (stage !== "start") return;
+  const handleTrigger = ({ triggers, stage }: Triggers.UseEvent) => {
+    if (!Triggers.resolveCondition(enabledRef.current)) return;
+    if (intervalRef.current != null) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    if (stage !== "start") return;
 
-      if (Triggers.match(triggers, [SELECT_TRIGGER])) {
-        const current = resolveHover(
-          getOrderRef.current(),
-          movedRef.current,
-          initialHover,
-        );
-        if (current != null) click(current);
-        return;
-      }
-      const move = () => {
-        const order = getOrderRef.current();
-        if (order.length === 0) return;
-        const current = resolveHover(order, movedRef.current, initialHover);
-        const pos = current == null ? -1 : order.indexOf(current);
-        let next: number;
-        if (Triggers.match(triggers, [UP_TRIGGER], { loose: true }))
-          next = pos <= 0 ? order.length - 1 : pos - 1;
-        else if (Triggers.match(triggers, [DOWN_TRIGGER], { loose: true }))
-          next = pos >= order.length - 1 ? 0 : pos + 1;
-        else return;
-        movedRef.current = order[next];
-        setHoverKey(order[next]);
-        scrollToRef.current?.(order[next], pos > next ? "bottom" : "top");
-      };
-      move();
-      intervalRef.current = setTimeout(() => {
-        intervalRef.current = setInterval(move, HOVER_INTERVAL);
-      }, INITIAL_HOVER_DELAY);
-    },
-    [enabledRef, getOrderRef, scrollToRef, click, initialHover],
-  );
+    if (Triggers.match(triggers, [SELECT_TRIGGER])) {
+      const current = resolveHover(
+        getOrderRef.current(),
+        movedRef.current,
+        initialHover,
+      );
+      if (current != null) click(current);
+      return;
+    }
+    const move = () => {
+      const order = getOrderRef.current();
+      if (order.length === 0) return;
+      const current = resolveHover(order, movedRef.current, initialHover);
+      const pos = current == null ? -1 : order.indexOf(current);
+      let next: number;
+      if (Triggers.match(triggers, [UP_TRIGGER], { loose: true }))
+        next = pos <= 0 ? order.length - 1 : pos - 1;
+      else if (Triggers.match(triggers, [DOWN_TRIGGER], { loose: true }))
+        next = pos >= order.length - 1 ? 0 : pos + 1;
+      else return;
+      movedRef.current = order[next];
+      setHoverKey(order[next]);
+      scrollToRef.current?.(order[next], pos > next ? "bottom" : "top");
+    };
+    move();
+    intervalRef.current = setTimeout(() => {
+      intervalRef.current = setInterval(move, HOVER_INTERVAL);
+    }, INITIAL_HOVER_DELAY);
+  };
   Triggers.use({
     triggers: TRIGGERS,
     callback: handleTrigger,
@@ -168,18 +163,15 @@ export const useHover = <K extends record.Key>({
     return () =>
       window.removeEventListener("pointermove", handleMove, { capture: true });
   }, [tracking]);
-  const setHover = useCallback(
-    (key: K) => {
-      if (
-        movedRef.current === key ||
-        !pointerMovedRef.current ||
-        !Triggers.resolveCondition(enabledRef.current)
-      )
-        return;
-      movedRef.current = key;
-      setHoverKey(key);
-    },
-    [enabledRef],
-  );
+  const setHover = (key: K) => {
+    if (
+      movedRef.current === key ||
+      !pointerMovedRef.current ||
+      !Triggers.resolveCondition(enabledRef.current)
+    )
+      return;
+    movedRef.current = key;
+    setHoverKey(key);
+  };
   return { hover, setHover };
 };

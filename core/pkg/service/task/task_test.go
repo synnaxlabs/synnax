@@ -29,7 +29,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -59,24 +58,20 @@ var _ = Describe("Task", Ordered, func() {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.OpenIndex())
 		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Search:   searchIdx,
 		}))
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
-			Search:   searchIdx,
 		}))
 		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			Ontology: otg,
 			DB:       db,
 			Group:    g,
 			Label:    labelSvc,
-			Search:   searchIdx,
 		}))
 		rackService = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,
@@ -85,7 +80,6 @@ var _ = Describe("Task", Ordered, func() {
 			HostProvider:        mock.NewStaticHostProvider(1),
 			Status:              stat,
 			HealthCheckInterval: 10 * telem.Millisecond,
-			Search:              searchIdx,
 		}))
 		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 		at := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
@@ -99,7 +93,6 @@ var _ = Describe("Task", Ordered, func() {
 			Group:    g,
 			Rack:     rackService,
 			Status:   stat,
-			Search:   searchIdx,
 			ImEx:     imex.NewService(),
 			Configs:  configs,
 		}))
@@ -1433,5 +1426,42 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(tx.Commit(ctx)).To(Succeed())
 			Expect(called).To(BeTrue())
 		})
+	})
+
+	Describe("Search", func() {
+		create := func(ctx SpecContext, name string) ontology.ID {
+			GinkgoHelper()
+			t := task.Task{Type: testType, Rack: testRack.Key, Name: name}
+			Expect(w.Create(ctx, &t)).To(Succeed())
+			return task.OntologyID(t.Key)
+		}
+
+		It(
+			"Should return the matching tasks, closest match first",
+			func(ctx SpecContext) {
+				a := create(ctx, "turbopump test")
+				b := create(ctx, "turbopump")
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 0)).Keys).
+					To(Equal([]ontology.ID{b, a}))
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 1)).Keys).
+					To(Equal([]ontology.ID{b}))
+			},
+		)
+
+		It("Should match a task by its type", func(ctx SpecContext) {
+			id := create(ctx, "igniter")
+			Expect(MustSucceed(svc.Search(ctx, tx, testType, 0)).Keys).
+				To(ContainElement(id))
+		})
+
+		It(
+			"Should not match a staged task outside its transaction",
+			func(ctx SpecContext) {
+				create(ctx, "injector")
+				Expect(
+					MustSucceed(svc.Search(ctx, db, "injector", 0)).Keys,
+				).To(BeEmpty())
+			},
+		)
 	})
 })

@@ -9,7 +9,7 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 import { z } from "zod";
 
 import { useConfigureModal as useConfigureHardwareModal } from "@/feature/device/Configure";
@@ -57,23 +57,20 @@ export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => voi
   const http = HTTP.Device.useConnectModal();
   const modbus = Modbus.Device.useConnectModal();
   const opcua = OPCUA.Device.useConnectModal();
-  return useCallback(
-    (make, deviceKey) => {
-      const openers: Record<Make, (args: { deviceKey: device.Key }) => void> = {
-        [EtherCAT.Device.MAKE]: ({ deviceKey }) =>
-          configure({ deviceKey, integration: EtherCAT.Device.INTEGRATION }),
-        [HTTP.Device.MAKE]: ({ deviceKey }) => void http({ deviceKey }),
-        [LabJack.Device.MAKE]: ({ deviceKey }) =>
-          configure({ deviceKey, integration: LabJack.Device.INTEGRATION }),
-        [Modbus.Device.MAKE]: ({ deviceKey }) => void modbus({ deviceKey }),
-        [NI.Device.MAKE]: ({ deviceKey }) =>
-          configure({ deviceKey, integration: NI.Device.INTEGRATION }),
-        [OPCUA.Device.MAKE]: ({ deviceKey }) => void opcua({ deviceKey }),
-      };
-      openers[make]({ deviceKey });
-    },
-    [configure, http, modbus, opcua],
-  );
+  return (make, deviceKey) => {
+    const openers: Record<Make, (args: { deviceKey: device.Key }) => void> = {
+      [EtherCAT.Device.MAKE]: ({ deviceKey }) =>
+        configure({ deviceKey, integration: EtherCAT.Device.INTEGRATION }),
+      [HTTP.Device.MAKE]: ({ deviceKey }) => void http({ deviceKey }),
+      [LabJack.Device.MAKE]: ({ deviceKey }) =>
+        configure({ deviceKey, integration: LabJack.Device.INTEGRATION }),
+      [Modbus.Device.MAKE]: ({ deviceKey }) => void modbus({ deviceKey }),
+      [NI.Device.MAKE]: ({ deviceKey }) =>
+        configure({ deviceKey, integration: NI.Device.INTEGRATION }),
+      [OPCUA.Device.MAKE]: ({ deviceKey }) => void opcua({ deviceKey }),
+    };
+    openers[make]({ deviceKey });
+  };
 };
 
 const CONTEXT_MENU_ITEMS: Partial<

@@ -10,7 +10,7 @@
 import { type ontology } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { useCopyLinkToClipboard } from "@/platform/core/useCopyLinkToClipboard";
 import { Session } from "@/session";
@@ -29,10 +29,7 @@ export const CopyLinkToolbarButton = ({
   ...rest
 }: CopyLinkToolbarButtonProps): ReactElement | null => {
   const copyLink = useCopyLinkToClipboard();
-  const handleClick = useCallback(
-    () => copyLink({ name, ontologyID }),
-    [copyLink, name, ontologyID],
-  );
+  const handleClick = () => copyLink({ name, ontologyID });
   if (Session.Runtime.LINKS_DISABLED) return null;
   return (
     <Button.Button

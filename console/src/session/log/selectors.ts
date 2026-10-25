@@ -10,7 +10,6 @@
 import { type log } from "@synnaxlabs/client";
 import { Log } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
-import { useCallback } from "react";
 import { useStore } from "react-redux";
 
 import {
@@ -40,14 +39,11 @@ const createGetter = <R>(selector: (params: KeyedSelectorParams) => R) => {
   const useGetter = (): ((args?: { key?: log.Key }) => R) => {
     const store = useStore<StoreState>();
     const scopeKey = Log.Scope.useOptional();
-    return useCallback(
-      (args) =>
-        selector({
-          state: store.getState(),
-          key: Log.Scope.require(args?.key ?? scopeKey),
-        }),
-      [store, scopeKey],
-    );
+    return (args) =>
+      selector({
+        state: store.getState(),
+        key: Log.Scope.require(args?.key ?? scopeKey),
+      });
   };
   return useGetter;
 };

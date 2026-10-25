@@ -10,7 +10,6 @@
 import { status } from "@synnaxlabs/client";
 import { type Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
-import { useCallback } from "react";
 
 import { Framer } from "@/platform/framer";
 import { Bar } from "@/platform/task/controls/Bar";
@@ -33,14 +32,14 @@ export const Controls = ({ onDeploy, onStop, ...props }: ControlsProps) => {
   const drifted = useDrifted();
   const canControl = Framer.useCanCommand();
 
-  const handleDeploy = useCallback(() => {
+  const handleDeploy = () => {
     if (key == null) return;
     onDeploy();
-  }, [key, onDeploy]);
-  const handleStop = useCallback(() => {
+  };
+  const handleStop = () => {
     if (key == null) return;
     onStop();
-  }, [key, onStop]);
+  };
 
   return (
     <Bar

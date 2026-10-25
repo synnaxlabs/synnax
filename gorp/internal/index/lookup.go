@@ -24,7 +24,7 @@ type Lookup[S Scope, K, V comparable] struct {
 	population population
 	forward    map[V][]K
 	reverse    map[K]V
-	overlay    overlay[S, K, V]
+	overlay    overlay[S, *delta[K, V]]
 }
 
 // NewLookup returns an empty Lookup that waits for its bulk load.
@@ -34,7 +34,7 @@ func NewLookup[S Scope, K, V comparable]() *Lookup[S, K, V] {
 		forward:    make(map[V][]K),
 		reverse:    make(map[K]V),
 	}
-	l.overlay.flush = l.flush
+	l.overlay.create, l.overlay.flush = newDelta[K, V], l.flush
 	return l
 }
 
@@ -106,7 +106,7 @@ func (l *Lookup[S, K, V]) Get(scope S, values ...V) ([]K, error) {
 	for _, v := range values {
 		committed = append(committed, l.forward[v]...)
 	}
-	return l.overlay.merge(scope, committed, values), nil
+	return mergeValues(&l.overlay, scope, committed, values), nil
 }
 
 func (l *Lookup[S, K, V]) put(key K, value V) {
