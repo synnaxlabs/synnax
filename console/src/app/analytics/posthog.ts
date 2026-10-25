@@ -19,11 +19,11 @@ const KEY = "phc_CaKeC8DVDWCYaiYSnUpEaWWXLrWptuXwgF7tTY3U6Q7t";
 
 const API_HOST = "https://us.i.posthog.com";
 
-/** Pinned, so a posthog release cannot change the behavior of a shipped install. */
+/** Pinned, so a PostHog release cannot change the behavior of a shipped install. */
 const DEFAULTS = "2026-08-30";
 
 /**
- * Properties posthog reads off the host page. The window title holds the project name,
+ * Properties PostHog reads off the host page. The window title holds the project name,
  * and the rest describe a `tauri://` origin that means nothing. Screens carry a
  * synthesized address instead.
  */
@@ -96,7 +96,7 @@ const attach = (posthog: PostHog, installID: string): void => {
   });
 };
 
-/** Captures again after a stop. Posthog stores the opt-out, so it outlives a launch. */
+/** Captures again after a stop. PostHog stores the opt-out, so it outlives a launch. */
 const resume = (posthog: PostHog, installID: string): void => {
   if (posthog.has_opted_out_capturing())
     posthog.opt_in_capturing({ captureEventName: false });
@@ -153,14 +153,14 @@ interface Loaded {
 
 /** A transport that loads nothing and sends nothing until it starts. */
 export interface Transport extends Analytics.Transport {
-  /** Loads posthog on the first call, then sends every call until {@link stop}. */
+  /** Loads PostHog on the first call, then sends every call until {@link stop}. */
   start: () => void;
-  /** Drops every later call, then resets posthog and opts it out of all requests. */
+  /** Drops every later call, then resets PostHog and opts it out of all requests. */
   stop: () => void;
 }
 
 /**
- * Returns a transport over posthog right away. Posthog loads on the first start, and
+ * Returns a transport over PostHog right away. PostHog loads on the first start, and
  * calls made while it loads run once it is there, so the first seconds of a launch
  * report like any other. The import is dynamic, so the Console build, where this module
  * is unreachable, carries no analytics code at all.
@@ -175,7 +175,7 @@ export const create = (params: Promise<Params>): Transport => {
     loading = true;
     try {
       const [{ installID }, posthog] = await Promise.all([params, importPostHog()]);
-      // Posthog sends from init on, and the user can refuse while the bundles load.
+      // PostHog sends from init on, and the user can refuse while the bundles load.
       if (started) {
         init(posthog, installID);
         const next = { posthog, installID };
@@ -212,9 +212,9 @@ export const create = (params: Promise<Params>): Transport => {
       waiting = [];
       if (loaded == null) return;
       const { posthog } = loaded;
-      // A reset reloads feature flags, which posthog requests even while opted out.
+      // A reset reloads feature flags, which PostHog requests even while opted out.
       posthog.set_config({ advanced_disable_flags: true });
-      // A reset clears the opt-out that posthog stores, so the reset goes first.
+      // A reset clears the opt-out that PostHog stores, so the reset goes first.
       posthog.reset();
       posthog.opt_out_capturing();
     },

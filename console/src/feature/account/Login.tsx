@@ -72,7 +72,7 @@ const Handoff = ({ stage, onStage }: HandoffProps): ReactElement => {
     handleError(async () => {
       if (client == null) return;
       const { fingerprint } = await client.license.retrieve();
-      // Each page the hub opens must finish the same login, so a pending one is reused.
+      // A page opened before must still finish the login, so reuse the pending state.
       let state = Session.Account.selectPending(store.getState());
       if (state == null) {
         state = mintState();

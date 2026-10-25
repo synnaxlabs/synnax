@@ -37,7 +37,7 @@ export const start = (store: Session.Store): Analytics.Sink => {
   return sink;
 };
 
-/** Names the install that posthog reports as. */
+/** Names the install that PostHog reports as. */
 const identify = async (install: Promise<Install>): Promise<Params> => ({
   installID: (await install).id,
 });
@@ -56,7 +56,7 @@ const open = async (sink: Analytics.Sink, install: Promise<Install>): Promise<vo
       first_launch: record.firstLaunch,
       hours_since_last_launch: record.hoursSinceLastLaunch,
     });
-    // A reset restarts the app before posthog can send, so the launch after it reports.
+    // A reset restarts the app before PostHog can send, so the launch after it reports.
     if (record.erasedBytes != null)
       sink.capture("core_reset", { data_size_bytes: record.erasedBytes });
   } catch (err) {

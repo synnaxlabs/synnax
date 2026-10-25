@@ -43,14 +43,14 @@ vi.mock("@tauri-apps/api/window", async (importOriginal) => ({
   getCurrentWindow: () => ({ label: "some-child-window" }),
 }));
 
-// Posthog sends from init on, so it is the network boundary of this spec.
+// PostHog sends from init on, so it is the network boundary of this spec.
 vi.mock("posthog-js/dist/module.no-external", () => ({ default: mocks.posthog }));
 vi.mock("posthog-js/dist/surveys", () => ({}));
 vi.mock("posthog-js/dist/exception-autocapture", () => ({}));
 vi.mock("posthog-js/dist/posthog-recorder", () => ({}));
 
 import { Analytics } from "@/app/analytics";
-import { Analytics as Sink } from "@/platform/analytics";
+import { Analytics as PlatformAnalytics } from "@/platform/analytics";
 import { Session } from "@/session";
 import { createConsoleWrapper } from "@/testutil";
 
@@ -77,7 +77,7 @@ const renderProvider = async (account: Partial<Session.Account.SliceState>) => {
       <Analytics.Provider>{children}</Analytics.Provider>
     </Base>
   );
-  const { result } = renderHook(() => Sink.use(), { wrapper: Wrapper });
+  const { result } = renderHook(() => PlatformAnalytics.use(), { wrapper: Wrapper });
   return { store, sink: () => result.current };
 };
 
@@ -102,6 +102,24 @@ describe("Analytics.Provider", () => {
     await waitFor(() => expect(mocks.posthog.init).toHaveBeenCalledOnce());
     // An event from before the choice stays dropped.
     expect(mocks.posthog.capture).not.toHaveBeenCalled();
+  });
+
+  it("should not start posthog when the user refuses while it loads", async () => {
+    let answer: (install: typeof INSTALL) => void = () => {};
+    mockIPC((cmd) =>
+      cmd === "install_info"
+        ? new Promise<typeof INSTALL>((resolve) => {
+            answer = resolve;
+          })
+        : undefined,
+    );
+    const { store } = await renderProvider({ link: LINK, analyticsAllowed: true });
+    act(() => {
+      store.dispatch(Session.Account.setAnalyticsAllowed(false));
+    });
+    answer(INSTALL);
+    await act(async () => await scheduler.flushTaskQueue());
+    expect(mocks.posthog.init).not.toHaveBeenCalled();
   });
 
   it("should identify the account once posthog starts", async () => {
@@ -151,7 +169,7 @@ describe("Analytics.Provider", () => {
     expect(mocks.posthog.opt_out_capturing).toHaveBeenCalledOnce();
   });
 
-  it("should capture and identify again when the user allows usage data again", async () => {
+  it("should send and identify again once usage data is allowed again", async () => {
     const { store, sink } = await renderProvider({
       link: LINK,
       analyticsAllowed: true,

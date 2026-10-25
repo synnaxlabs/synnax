@@ -170,14 +170,12 @@ class TestDesktop:
         assert out["previous_tag"] == ""
         assert out["latest"] == "true"
 
+    @pytest.mark.parametrize("bump", ["patch", "minor"])
     def test_should_require_a_major_bump_for_the_first_release(
-        self, repo: Repo
+        self, repo: Repo, bump: str
     ) -> None:
         repo.tag("desktop/v1.0.0-rc.1")
-        for bump in ("patch", "minor"):
-            assert "bump must be major, not " + bump in repo.resolve_error(
-                "desktop", bump
-            )
+        assert f"bump must be major, not {bump}" in repo.resolve_error("desktop", bump)
 
     def test_should_bump_from_the_reachable_desktop_tag(self, repo: Repo) -> None:
         repo.tag("desktop/v1.2.0")

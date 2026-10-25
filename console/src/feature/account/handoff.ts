@@ -53,7 +53,7 @@ export interface Linked {
   activation: string;
   email: string;
   user: string;
-  /** True only when the person said yes to usage data on the hub. */
+  /** True only when the hub turned usage data on for this login. */
   analyticsAllowed: boolean;
 }
 
