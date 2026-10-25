@@ -124,6 +124,7 @@ var _ = Describe("Streamer Behavior", func() {
 							writers[key] = MustSucceed(db.OpenWriter(ctx, cfg))
 						}
 						write := func(key cesium.ChannelKey) {
+							GinkgoHelper()
 							MustSucceed(writers[key].Write(telem.MultiFrame(
 								[]cesium.ChannelKey{key},
 								[]telem.Series{telem.NewSeriesV[int64](1)},
@@ -133,6 +134,7 @@ var _ = Describe("Streamer Behavior", func() {
 							o confluence.Outlet[cesium.StreamerResponse],
 							key cesium.ChannelKey,
 						) {
+							GinkgoHelper()
 							var res cesium.StreamerResponse
 							Eventually(o.Outlet()).Should(Receive(&res))
 							Expect(res.Frame.KeysSlice()).To(ConsistOf(key))
