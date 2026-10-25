@@ -16,7 +16,7 @@ import { type ReactElement } from "react";
 
 export interface SelectTimestampFormatProps extends Omit<
   Select.SingleSimpleProps<TimestampFormat>,
-  "children" | "resourceName"
+  "children" | "resourceName" | "searchName"
 > {}
 
 export const SelectTimestampFormat = ({

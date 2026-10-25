@@ -162,6 +162,7 @@ const MeasMethodField = Form.buildSelectField<CIMeasMethod>({
   fieldProps: { label: "Measurement method" },
   inputProps: {
     resourceName: "measurement method",
+    searchName: "method",
     children: Task.selectItems(CI_MEAS_METHOD_NAMES),
   },
 });
