@@ -161,11 +161,14 @@ an exact index answers time questions with no second copy.
   level 16 (65.5 s, near today's 60 s live buffer), or reduced by an aggregation at a
   power-of-two point count. Plots of different widths share blocks.
 - **Alignment**: At ingest the `Feed` sets each series' alignment to
-  `(block << 32) | offset`, where `offset` counts index samples from the block start. It
-  reads the offset from the index series of the same response or frame, which always
-  shares the Core's alignment. Fetched and streamed copies of a sample then get one
-  alignment, and a block's alignments change only when its content does. Streamed series
-  split at block edges.
+  `(block << 32) | offset`, where `offset` counts index samples from the block start. A
+  fetched block counts from 0. The open block continues the count of the join's history
+  read, which starts at the block start because raw reads fetch whole blocks, so the
+  `Feed` places streamed frames only after that read returns. A data series takes the
+  offsets of the index samples that share its Core alignment, in any frame. A gap in the
+  Core's sample index means the relay dropped frames, and marks the block out of date.
+  Fetched and streamed copies of a sample then get one alignment, and a block's
+  alignments change only when its content does. Streamed series split at block edges.
 - **Budget**: One byte budget covers all blocks. The least recently used block leaves
   first, and a block that a subscription holds never leaves.
 - **Live writes**: A streamed write goes into the newest raw block, which stays open,
