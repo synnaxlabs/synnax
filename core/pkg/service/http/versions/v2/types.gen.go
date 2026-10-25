@@ -386,22 +386,30 @@ func (u *WriteField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type WriteFieldType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case StaticWriteFieldType:
-		var v StaticWriteField
+		var v struct {
+			Type WriteFieldType `json:"type"`
+			StaticWriteField
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.StaticWriteField
 	case GeneratedWriteFieldType:
-		var v GeneratedWriteField
+		var v struct {
+			Type WriteFieldType `json:"type"`
+			GeneratedWriteField
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.GeneratedWriteField
 	default:
 		return errors.Newf("WriteField: unknown type %q", disc.Type)
 	}

@@ -130,22 +130,30 @@ func (u *Tab) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type TabType `json:"variant"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case ResourceTabType:
-		var v ResourceTab
+		var v struct {
+			Type TabType `json:"variant"`
+			ResourceTab
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ResourceTab
 	case ViewTabType:
-		var v ViewTab
+		var v struct {
+			Type TabType `json:"variant"`
+			ViewTab
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ViewTab
 	default:
 		return errors.Newf("Tab: unknown variant %q", disc.Type)
 	}
@@ -257,22 +265,30 @@ func (u *Node) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type NodeType `json:"variant"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case LeafNodeType:
-		var v LeafNode
+		var v struct {
+			Type NodeType `json:"variant"`
+			LeafNode
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.LeafNode
 	case SplitNodeType:
-		var v SplitNode
+		var v struct {
+			Type NodeType `json:"variant"`
+			SplitNode
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.SplitNode
 	default:
 		return errors.Newf("Node: unknown variant %q", disc.Type)
 	}
