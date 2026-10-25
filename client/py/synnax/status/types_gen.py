@@ -81,7 +81,8 @@ class Status(BaseModel, Generic[Details]):
 
 
 class Where(BaseModel):
-    """
+    """Is a filter that selects statuses.
+
     Attributes:
         and_: Matches when every child matches.
         or_: Matches when any child matches.

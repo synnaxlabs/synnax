@@ -23,6 +23,8 @@ type Key = versions.Key
 // Range is a user-defined region of time in the Synnax cluster. Ranges act as a method
 // for labeling and categorizing telemetry data within specific time periods.
 type Range = versions.Range
+
+// Where is a filter that selects ranges.
 type Where = versions.Where
 
 // Ref is the range a visualization shows: a range saved in the Core, or an inline

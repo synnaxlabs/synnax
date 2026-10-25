@@ -98,6 +98,8 @@ export type Status<
   time: telem.TimeStamp;
   labels?: label.Label[];
 } & ([Details] extends [z.ZodNever] ? {} : { details: z.infer<Details> });
+
+/** Where is a filter that selects statuses. */
 export type Where = {
   and?: Where[];
   or?: Where[];

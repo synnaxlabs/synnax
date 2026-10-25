@@ -69,6 +69,7 @@ struct Range {
     ranger::kv::Client kv;
 };
 
+/// @brief Where is a filter that selects ranges.
 struct Where {
     /// @brief and_ matches when every child matches.
     std::optional<std::vector<Where>> and_;

@@ -60,6 +60,8 @@ message UuidSet {
 message LabelKeyList {
   repeated string values = 1;
 }
+
+// Where is a filter that selects ranges.
 message Where {
   // and matches when every child matches.
   WhereList and = 1;

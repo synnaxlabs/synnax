@@ -84,6 +84,7 @@ struct Status {
     from_proto(const ::service::status::pb::Status &pb);
 };
 
+/// @brief Where is a filter that selects statuses.
 struct Where {
     /// @brief and_ matches when every child matches.
     std::optional<std::vector<Where>> and_;
