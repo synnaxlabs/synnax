@@ -54,6 +54,19 @@ var _ = Describe("TS Types Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		It("Should generate the recursive Where of a filter", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
+			ExpectContent(resp, "thing/types.gen.ts").ToContain(
+				"and?: Where[];",
+				"or?: Where[];",
+				"not?: Where;",
+				"export const whereZ: z.ZodType<Where> = z.object({",
+				"get and() {\n    return zod.nullToUndefined(whereZ.array());",
+				"get not() {\n    return whereZ.optional();",
+			)
+		})
+
 		Context("field-level omit", func() {
 			It("Should leave out an inherited field the parent omits", func(
 				ctx SpecContext,

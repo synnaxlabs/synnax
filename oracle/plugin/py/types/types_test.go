@@ -53,6 +53,17 @@ var _ = Describe("Python Types Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		It("Should generate the recursive Where of a filter", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
+			ExpectContent(resp, "thing/types_gen.py").ToContain(
+				`and_: list[Where] | None = Field(default=None, alias="and")`,
+				`or_: list[Where] | None = Field(default=None, alias="or")`,
+				`not_: Where | None = Field(default=None, alias="not")`,
+				"Where.model_rebuild()",
+			)
+		})
+
 		Context("field-level omit", func() {
 			It("Should leave out a field omitted in py", func(ctx SpecContext) {
 				source := `

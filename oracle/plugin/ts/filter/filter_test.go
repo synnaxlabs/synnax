@@ -83,7 +83,7 @@ var _ = Describe("TS Filter Plugin", func() {
 					`import { filter } from "@synnaxlabs/x";`,
 					`import { Payload, Where } from "@/thing/types.gen";`,
 					"export type Lines = Record<never, never>;",
-					"export const matches = (lines: Lines, record: Payload, where: " +
+					"export const matches = (lines: Lines, record: Payload, where: "+
 						"Where): boolean => {",
 					"!filter.matchesSet(where.key, record.key)",
 					"!filter.matchesString(where.name, record.name)",

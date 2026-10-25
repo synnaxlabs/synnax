@@ -77,6 +77,17 @@ var _ = Describe("Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		It("Should generate the recursive Where of a filter", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, p)
+			ExpectContent(resp, "thing/pb/thing.proto").ToContain(
+				"message WhereList {\n  repeated Where values = 1;",
+				"WhereList and = 1;",
+				"WhereList or = 2;",
+				"optional Where not = 3;",
+			)
+		})
+
 		Context("field-level omit", func() {
 			It("Should reserve the number of a field omitted in pb", func(
 				ctx SpecContext,
