@@ -527,7 +527,7 @@ describe("Task", async () => {
       const stored = await createTestClient().tasks.retrieve(t.key);
       expect(stored.config).toMatchObject({ routingKey: "cat" });
       expect(stored.configHash).not.toBe(t.configHash);
-      await expect.poll(() => client.tasks.hasPending(t.key)).toBe(false);
+      await client.tasks.settled(t.key);
       const cached = await client.tasks.retrieve(t.key);
       expect(cached.config).toEqual(stored.config);
       expect(cached.configHash).toBe(stored.configHash);
@@ -584,7 +584,7 @@ describe("Task", async () => {
       ).rejects.toThrow('unknown object member name "type"');
       const cached = await client.tasks.retrieve(t.key);
       expect(cached.type).toBe("pagerduty_alert");
-      expect(client.tasks.hasPending(t.key)).toBe(false);
+      await client.tasks.settled(t.key);
     });
 
     it("should undo and redo a dispatch", async () => {

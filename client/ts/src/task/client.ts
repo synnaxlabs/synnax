@@ -641,9 +641,12 @@ export class Client extends query.Retriever<
     return this.dispatcher.hasRedo(key);
   }
 
-  /** Whether the cached task holds a dispatch that the Core has not echoed. */
-  hasPending(key: Key): boolean {
-    return this.dispatcher.hasPending(key);
+  /**
+   * Resolves once the cached task holds no dispatch that the Core has not echoed, so its
+   * config hash is the one the Core holds for the edits made so far.
+   */
+  async settled(key: Key): Promise<void> {
+    await this.dispatcher.settled(key);
   }
 
   /**

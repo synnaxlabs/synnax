@@ -680,6 +680,79 @@ describe("actions.Controller", () => {
     });
   });
 
+  describe("settled", () => {
+    /** @returns a probe that reads whether the settled promise resolved. */
+    const watch = (promise: Promise<void>) => {
+      let done = false;
+      void promise.then(() => {
+        done = true;
+      });
+      return async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        return done;
+      };
+    };
+
+    it("resolves at once when nothing is pending", async () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      expect(await watch(controller.settled("k"))()).toBe(true);
+    });
+
+    it("resolves when the echo of the last pending dispatch arrives", async () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const send = resolved();
+      await controller.dispatch("k", [set("a", 1)], send);
+      await controller.dispatch("k", [set("a", 2)], send);
+      const done = watch(controller.settled("k"));
+      controller.applyRemote("k", 1, send.mock.calls[0][1], [set("a", 1)]);
+      expect(await done()).toBe(false);
+      controller.applyRemote("k", 2, send.mock.calls[1][1], [set("a", 2)]);
+      expect(await done()).toBe(true);
+    });
+
+    it("resolves when the Core refuses the pending dispatch", async () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const { send, calls } = createHeldSend();
+      const dispatched = controller.dispatch("k", [set("a", 1)], send);
+      const done = watch(controller.settled("k"));
+      calls[0].reject(new Error("boom"));
+      await expect(dispatched).rejects.toThrow("boom");
+      expect(await done()).toBe(true);
+    });
+
+    it("waits for an open transaction until it aborts", async () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const tx = controller.transaction("k", resolved());
+      tx.add(set("a", 1));
+      const done = watch(controller.settled("k"));
+      expect(await done()).toBe(false);
+      tx.abort();
+      expect(await done()).toBe(true);
+    });
+
+    it("resolves when the cache resets", async () => {
+      const { docs, epochs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      await controller.dispatch("k", [set("a", 1)], resolved());
+      const done = watch(controller.settled("k"));
+      epochs.notify(0);
+      expect(await done()).toBe(true);
+    });
+
+    it("resolves when the doc is deleted", async () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      await controller.dispatch("k", [set("a", 1)], resolved());
+      const done = watch(controller.settled("k"));
+      docs.delete("k");
+      expect(await done()).toBe(true);
+    });
+  });
+
   describe("applyRemote", () => {
     it("applies foreign actions and stamps targets as remote-touched", async () => {
       const { docs, controller } = setupStore();

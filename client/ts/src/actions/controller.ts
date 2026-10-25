@@ -221,6 +221,8 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   // "unstamped" and always applies.
   private readonly lastAppliedSeq = new Map<Key, number>();
   private readonly rebases = new Map<Key, Rebase<State, Action>>();
+  /** Callers of settled, waiting for a doc to hold no pending entry. */
+  private readonly settling = new Map<Key, Array<() => void>>();
   private epoch = 0;
   // Monotonic counter ordering entry pushes against remote touches. Program
   // order is the ground truth here; the wall clock ties within a millisecond
@@ -256,7 +258,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   private drop(key: Key): void {
     this.undos.delete(key);
     this.lastAppliedSeq.delete(key);
-    this.rebases.delete(key);
+    this.release(key);
   }
 
   private changeEpoch(epoch: number): void {
@@ -264,7 +266,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     // Sequence numbers restart with the Core.
     this.lastAppliedSeq.clear();
     if (epoch === 0) {
-      this.rebases.clear();
+      [...this.rebases.keys()].forEach((key) => this.release(key));
       this.undos.delete(() => true);
       return;
     }
@@ -341,7 +343,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     const held = i === 0 && !replaced && deep.equal(r.pending[0].actions, actions);
     if (i !== -1) r.pending.splice(i, 1);
     if (!held) this.write(key, r);
-    if (r.pending.length === 0) this.rebases.delete(key);
+    if (r.pending.length === 0) this.release(key);
     return { own: i !== -1, targets };
   }
 
@@ -353,7 +355,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     this.sync(key, r);
     r.pending.splice(i, 1);
     this.write(key, r);
-    if (r.pending.length === 0) this.rebases.delete(key);
+    if (r.pending.length === 0) this.release(key);
   }
 
   /** Marks a pending entry as applied by the Core. */
@@ -615,6 +617,27 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   /** Whether the cached doc holds a dispatch that the Core has not echoed. */
   hasPending(key: Key): boolean {
     return this.rebases.has(key);
+  }
+
+  /**
+   * Resolves once the cached doc holds no dispatch that the Core has not echoed. An
+   * open transaction is pending until it commits or aborts.
+   */
+  async settled(key: Key): Promise<void> {
+    if (!this.rebases.has(key)) return;
+    await new Promise<void>((resolve) => {
+      const waiting = this.settling.get(key);
+      if (waiting == null) this.settling.set(key, [resolve]);
+      else waiting.push(resolve);
+    });
+  }
+
+  private release(key: Key): void {
+    this.rebases.delete(key);
+    const waiting = this.settling.get(key);
+    if (waiting == null) return;
+    this.settling.delete(key);
+    waiting.forEach((resolve) => resolve());
   }
 
   /**
