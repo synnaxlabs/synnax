@@ -229,6 +229,14 @@ describe("createDocumentForm", () => {
     expect(result.current.form.get("name").value).toBe(t.name);
   });
 
+  it("should report a refused send that was in flight when it flushes", async () => {
+    const t = await createTask();
+    const { result } = await renderForm(t.key);
+    act(() => result.current.form.batch(() => result.current.form.set("name", "")));
+    await act(async () => expect(await result.current.flush()).toBe(false));
+    expect((await fetchStored(t.key)).name).toBe(t.name);
+  });
+
   it("should send the valid edits it holds when it unmounts", async () => {
     const t = await createTask();
     const { result, unmount } = await renderForm(t.key);

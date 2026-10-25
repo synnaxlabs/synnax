@@ -149,6 +149,7 @@ class DocumentStore<
   private readonly edits: Edit[] = [];
   private batched: actions.Transaction<patch.Action> | null = null;
   private sending: Promise<boolean> = Promise.resolve(true);
+  private readonly inFlight = new Set<Promise<boolean>>();
 
   constructor(params: StoreParams<Key, Doc, Query, V>) {
     this.params = params;
@@ -258,14 +259,15 @@ class DocumentStore<
     this.params.domain.onChange(this.key, () => callback());
 
   /**
-   * Sends every edit the store holds.
+   * Sends every edit the store holds, and waits for the sends already in flight.
    * @returns false when a field holds a value that fails its schema, which stays
-   * unsent, or when a send failed.
+   * unsent, or when one of those sends failed.
    */
   async flush(): Promise<boolean> {
+    const queued = [...this.inFlight];
     const sent = await this.commitValid();
-    await this.sending;
-    return sent && this.edits.length === 0;
+    const done = await Promise.all(queued);
+    return sent && done.every(Boolean) && this.edits.length === 0;
   }
 
   /** Sends every valid edit and drops every invalid one. The store stays usable. */
@@ -360,7 +362,12 @@ class DocumentStore<
       }
     });
     this.sending = sent;
-    return await sent;
+    this.inFlight.add(sent);
+    try {
+      return await sent;
+    } finally {
+      this.inFlight.delete(sent);
+    }
   }
 }
 
