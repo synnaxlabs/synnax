@@ -656,18 +656,20 @@ var _ = Describe("Status", Ordered, func() {
 		// 3. The generic type only affects how the Details field is decoded
 
 		It(
-			"Should store and retrieve statuses with typed details",
+			"Should store and retrieve every field of a status with typed details",
 			func(ctx SpecContext) {
 				type IntDetails struct {
 					Count int
 				}
 				intWriter := svc.NewWriter(tx)
 				s := &status.Status[IntDetails]{
-					Key:     "typed-int-status",
-					Name:    "Typed Int Status",
-					Variant: "info",
-					Details: IntDetails{Count: 42},
-					Time:    telem.Now(),
+					Key:         "typed-int-status",
+					Name:        "Typed Int Status",
+					Variant:     "info",
+					Message:     "Counted",
+					Description: "The counter reached its target.",
+					Details:     IntDetails{Count: 42},
+					Time:        telem.Now(),
 				}
 				Expect(intWriter.Set(ctx, s)).To(Succeed())
 
@@ -678,7 +680,7 @@ var _ = Describe("Status", Ordered, func() {
 						Entry(&retrieved).
 						Exec(ctx, tx),
 				).To(Succeed())
-				Expect(retrieved.Details.Count).To(Equal(42))
+				Expect(retrieved).To(Equal(*s))
 			},
 		)
 
