@@ -21,7 +21,12 @@ import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
 import { AccessDeniedError, ValidationError } from "@/errors";
-import * as grid from "@/framer/cache/grid";
+import {
+  index as tileIndex,
+  level as tileLevel,
+  pointLimit as tilePointLimit,
+  tileRange,
+} from "@/framer/cache/grid";
 import { Joins } from "@/framer/cache/join";
 import { Joiner } from "@/framer/cache/joiner";
 import { Points, type PointsProps } from "@/framer/cache/points";
@@ -178,11 +183,11 @@ describe("Points", () => {
     const { store, subscribe, unsubscribe, close } = createPoints(core);
     const key = core.data[0].key;
     const span = TimeSpan.minutes(4);
-    const level = grid.level(new TimeRange(START, START.add(span)));
-    const index = grid.index(START, level) + 1;
-    const { start } = grid.tileRange({ level, index });
+    const level = tileLevel(new TimeRange(START, START.add(span)));
+    const index = tileIndex(START, level) + 1;
+    const { start } = tileRange({ level, index });
     const home = new TimeRange(start, start.add(span));
-    const pointLimit = grid.pointLimit({
+    const pointLimit = tilePointLimit({
       level,
       view: home,
       points: TILED.count,
