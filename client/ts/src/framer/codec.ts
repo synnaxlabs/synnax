@@ -284,7 +284,7 @@ export class Codec {
     const view = new DataView(src.buffer, src.byteOffset, src.byteLength);
     if ((src[index] >> EXTENDED_FLAG_POS) & 1)
       throw new ValidationError(
-        "[framer.codec] - remote sent an extended flags byte, which this codec does not support",
+        "remote sent an extended flags byte, which this codec does not support",
       );
     const multiplesPresentFlag = Boolean(
       (src[index] >> MULTIPLES_PRESENT_FLAG_POS) & 1,

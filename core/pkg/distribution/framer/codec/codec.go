@@ -414,7 +414,7 @@ func (c *Codec) panicIfNotUpdated(opName string) {
 	if c.mu.seqNum < 1 {
 		panic(
 			fmt.Sprintf(
-				"[framer.codec] - dynamic codec was not updated for first call to %s",
+				"dynamic codec was not updated for first call to %s",
 				opName,
 			),
 		)
@@ -817,7 +817,7 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 		states := lo.Keys(c.mu.states)
 		err = errors.Wrapf(
 			validate.ErrValidation,
-			"[framer.codec] - remote sent invalid sequence number %d. Valid rawIndices are %v",
+			"remote sent invalid sequence number %d. Valid rawIndices are %v",
 			seqNum,
 			states,
 		)
@@ -827,7 +827,7 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 	if fgs.extended {
 		return framer.Frame{}, errors.Wrap(
 			validate.ErrValidation,
-			"[framer.codec] - remote sent an extended flags byte, which this codec does not support",
+			"remote sent an extended flags byte, which this codec does not support",
 		)
 	}
 	if fgs.equalLens {

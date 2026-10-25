@@ -3061,7 +3061,7 @@ var _ = Describe("Downsampled Iteration", func() {
 	}
 })
 
-var _ = Describe("Pieced Iteration", func() {
+var _ = Describe("Chunked Iteration", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, func() {
 			var indexDB, dataDB *unary.DB

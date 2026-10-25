@@ -96,7 +96,7 @@ func (g *groupSizer) decimate(
 
 // reducer reduces the series of each response with the group size of its channel. The
 // last reduced series of each channel waits for the next response, and takes the
-// points of a group cut between the two responses. A read split into pieces therefore
+// points of a group cut between the two responses. A read split into chunks therefore
 // reduces the same as one read. The reducer sends the waiting series before any
 // response that is not data.
 type reducer struct {

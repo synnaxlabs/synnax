@@ -76,6 +76,6 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 	return &streamIterator{
 		internal:  internal,
 		limited:   limited,
-		pieceSize: db.pieceSize,
+		chunkSize: db.chunkSize,
 	}, nil
 }

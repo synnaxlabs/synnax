@@ -390,7 +390,7 @@ describe("encoder", () => {
       encoded[0] |= EXTENDED_BIT;
       expect(() => codec.decode(encoded)).toThrow(
         new ValidationError(
-          "[framer.codec] - remote sent an extended flags byte, which this codec does not support",
+          "remote sent an extended flags byte, which this codec does not support",
         ),
       );
     });

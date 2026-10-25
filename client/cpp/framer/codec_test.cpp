@@ -161,7 +161,12 @@ TEST(CodecTests, RejectsAlignmentMultiples) {
         encoded
     );
     encoded[0] = x::binary::set_bit(encoded[0], FlagPosition::MultiplesPresent, true);
-    ASSERT_OCCURRED_AS_P(codec.decode(encoded), x::errors::VALIDATION);
+    const auto [_, err] = codec.decode(encoded);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    ASSERT_EQ(
+        err.data,
+        "remote sent alignment multiples, which this codec does not support"
+    );
 }
 
 /// @brief it should reject a frame that sets the extended flags bit.
@@ -175,7 +180,12 @@ TEST(CodecTests, RejectsExtendedFlags) {
         encoded
     );
     encoded[0] = x::binary::set_bit(encoded[0], FlagPosition::Extended, true);
-    ASSERT_OCCURRED_AS_P(codec.decode(encoded), x::errors::VALIDATION);
+    const auto [_, err] = codec.decode(encoded);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    ASSERT_EQ(
+        err.data,
+        "remote sent an extended flags byte, which this codec does not support"
+    );
 }
 
 /// @brief it should encode and decode a frame with various data types and properties.

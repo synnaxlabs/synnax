@@ -130,9 +130,9 @@ type streamIterator struct {
 	confluence.AbstractUnarySource[IteratorResponse]
 	internal []*unary.Iterator
 	// limited is true when the read has a limit reduction. A limited read is never
-	// pieced, because a piece edge would cut its groups.
+	// chunked, because a chunk edge would cut its groups.
 	limited   bool
-	pieceSize int64
+	chunkSize int64
 }
 
 // IteratorConfig is the configuration for opening an iterator :). See the fields for
@@ -194,7 +194,7 @@ func (s *streamIterator) exec(
 				func(i *unary.Iterator) bool { return i.Next(ctx, req.Span) },
 			)
 		} else {
-			ok, err = s.readInPieces(ctx, req)
+			ok, err = s.readInChunks(ctx, req)
 		}
 	case IteratorCommandPrev:
 		if s.limited || req.Span == AutoSpan {
@@ -203,7 +203,7 @@ func (s *streamIterator) exec(
 				func(i *unary.Iterator) bool { return i.Prev(ctx, req.Span) },
 			)
 		} else {
-			ok, err = s.readInPieces(ctx, req)
+			ok, err = s.readInChunks(ctx, req)
 		}
 	case IteratorCommandSeekFirst:
 		ok = s.execWithoutResponse(
@@ -250,18 +250,18 @@ func (s *streamIterator) execWithResponse(
 	return ok
 }
 
-// readInPieces runs a Next or Prev with a fixed span. It reads the range of each
-// iterator forward in pieces that each hold at most pieceSize samples summed over the
-// channels, or more for a run of equal timestamps. Each piece is one data response that
-// holds every channel's data up to the end of the piece.
-func (s *streamIterator) readInPieces(
+// readInChunks runs a Next or Prev with a fixed span. It reads the range of each
+// iterator forward in chunks that each hold at most chunkSize samples summed over the
+// channels, or more for a run of equal timestamps. Each chunk is one data response that
+// holds every channel's data up to the end of the chunk.
+func (s *streamIterator) readInChunks(
 	ctx context.Context,
 	req IteratorRequest,
 ) (ok bool, err error) {
 	var (
 		ends = make([]telem.TimeStamp, len(s.internal))
 		last telem.TimeStamp
-		n    = max(1, s.pieceSize/int64(max(1, len(s.internal))))
+		n    = max(1, s.chunkSize/int64(max(1, len(s.internal))))
 	)
 	for j, i := range s.internal {
 		tr := i.View().End.SpanRange(req.Span)
@@ -285,21 +285,21 @@ func (s *streamIterator) readInPieces(
 				continue
 			}
 			probed.Add(idx)
-			pieceEnd, err := i.EndAfter(ctx, n)
+			chunkEnd, err := i.EndAfter(ctx, n)
 			if err != nil {
 				return ok, err
 			}
-			end = min(end, pieceEnd)
+			end = min(end, chunkEnd)
 		}
-		var piece Frame
+		var chunk Frame
 		for j, i := range s.internal {
 			stop := min(end, ends[j])
 			if stop > i.View().End && i.Continue(ctx, stop) {
 				ok = true
-				piece = piece.Extend(i.Value())
+				chunk = chunk.Extend(i.Value())
 			}
 		}
-		s.send(req.SeqNum, piece)
+		s.send(req.SeqNum, chunk)
 		if end >= last {
 			return ok, nil
 		}

@@ -184,7 +184,7 @@ func BenchmarkReadSamples(b *testing.B) {
 }
 
 // BenchmarkStreamFixedSpan reads an index and its data channels with one fixed-span
-// Next over every sample, taking each piece as the stream iterator sends it.
+// Next over every sample, taking each chunk as the stream iterator sends it.
 func BenchmarkStreamFixedSpan(b *testing.B) {
 	for _, c := range []struct{ samples, channels int }{
 		{samples: 1_000_000, channels: 1},
