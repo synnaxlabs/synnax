@@ -66,14 +66,16 @@ std::pair<x::telem::Rate, x::errors::Error> bus_rate(
     uint64_t base = 1;
     for (const auto &rate: reads) {
         const auto mhz = millihertz(rate);
-        if (mhz == 0)
+        // Allow the rounding error of the float a Rate holds.
+        const double error = std::abs(rate.hz() * 1000 - static_cast<double>(mhz));
+        if (mhz == 0 || error > static_cast<double>(mhz) * 1e-6)
             return {
                 x::telem::Rate(0),
                 x::errors::Error(
                     errors::RATE_MISMATCH,
                     std::format(
-                        "a read task on {} samples at {} Hz, below the minimum of "
-                        "0.001 Hz",
+                        "a read task on {} samples at {} Hz, but sample rates must be "
+                        "a positive multiple of 0.001 Hz",
                         interface_name,
                         rate.hz()
                     )

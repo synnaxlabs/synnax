@@ -314,6 +314,25 @@ TEST_F(EngineTest, ReadRateBelowOneMillihertzIsRejected) {
     EXPECT_FALSE(this->engine->running());
 }
 
+/// @brief it should reject a reader with a sample rate between two 0.001 Hz steps,
+/// instead of rounding its rate.
+TEST_F(EngineTest, ReadRateBetweenMillihertzStepsIsRejected) {
+    ASSERT_OCCURRED_AS_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(0.0014), 1),
+        errors::RATE_MISMATCH
+    );
+    EXPECT_FALSE(this->engine->running());
+}
+
+/// @brief it should accept a reader rate whose float holds a rounding error below one
+/// part per million, such as 0.251 Hz.
+TEST_F(EngineTest, ReadRateWithFloatRoundingErrorOpens) {
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(0.251), 1)
+    );
+    EXPECT_EQ(this->engine->cycle_rate(), x::telem::Rate(100.149));
+}
+
 /// @brief it should open a task without a restart of the bus or a change to the outputs
 /// of other tasks.
 TEST_F(EngineTest, OpeningATaskKeepsTheBusRunning) {
