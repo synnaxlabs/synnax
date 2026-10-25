@@ -19,7 +19,7 @@ import (
 
 func TestGomod(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin GoMod Suite")
+	RunSpecs(t, "Plugin GoMod Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -19,7 +19,7 @@ import (
 
 func TestEthercatV2(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service EtherCAT v2 Suite")
+	RunSpecs(t, "Service EtherCAT v2 Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

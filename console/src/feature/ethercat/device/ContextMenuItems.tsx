@@ -11,7 +11,6 @@ import { device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { useEnabledState, useToggleEnabled } from "@/feature/ethercat/device/queries";
 import { useConfigureModal } from "@/feature/ethercat/device/useConfigureModal";
@@ -19,17 +18,17 @@ import { Task } from "@/feature/ethercat/task";
 import { Device } from "@/platform/device";
 import { type Tree } from "@/platform/tree";
 
-const TASK_CONTEXT_MENU_ITEM_CONFIGS: Device.TaskContextMenuItemConfig[] = [
-  {
+const TASK_CONTEXT_MENU_ITEMS = [
+  Device.createTaskContextMenuItem({
     itemKey: "ethercat.readTask",
     label: "Create read task",
     useCreate: Task.useCreateRead,
-  },
-  {
+  }),
+  Device.createTaskContextMenuItem({
     itemKey: "ethercat.writeTask",
     label: "Create write task",
     useCreate: Task.useCreateWrite,
-  },
+  }),
 ];
 
 export const ContextMenuItems = (props: Tree.ContextMenuProps) => {
@@ -41,13 +40,13 @@ export const ContextMenuItems = (props: Tree.ContextMenuProps) => {
 
   const { allDisabled, allEnabled } = useEnabledState({ keys });
 
-  const handleDisable = useCallback(() => {
+  const handleDisable = () => {
     toggleEnabled({ keys, enabled: false });
-  }, [keys, toggleEnabled]);
+  };
 
-  const handleEnable = useCallback(() => {
+  const handleEnable = () => {
     toggleEnabled({ keys, enabled: true });
-  }, [keys, toggleEnabled]);
+  };
 
   return (
     <>
@@ -57,7 +56,7 @@ export const ContextMenuItems = (props: Tree.ContextMenuProps) => {
       <Device.TaskContextMenuItems
         {...props}
         onConfigure={onConfigure}
-        taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
+        items={TASK_CONTEXT_MENU_ITEMS}
       />
       <Menu.Divider />
       {hasUpdatePermission && !allDisabled && (

@@ -19,7 +19,7 @@ import (
 
 func TestGraph(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Channel Calculation Graph Suite")
+	RunSpecs(t, "Service Channel Calculation Graph Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

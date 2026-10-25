@@ -18,7 +18,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -27,7 +27,7 @@ import (
 // maps to its first entry, the one the Driver read. When two keys name one entry, the
 // first in sorted order takes its address. A key that names no entry, or loses its
 // entry to another key, is kept.
-var EtherCATChannelMapMigration = gorp.NewEntryMigration(
+var EtherCATChannelMapMigration = migrate.NewEntry(
 	"v60_ethercat_channel_map_addresses",
 	func(_ context.Context, d Device) (Device, error) {
 		if d.Make != "ethercat" {

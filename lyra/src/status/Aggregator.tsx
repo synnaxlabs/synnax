@@ -7,18 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CrudeTimeSpan, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import {
-  type PropsWithChildren,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { type CrudeTimeSpan, TimeSpan, type TimeStamp } from "@synnaxlabs/x";
+import { type PropsWithChildren, useState } from "react";
 import type z from "zod";
 
 import { context } from "@/context";
-import { useSyncedRef } from "@/hooks";
+import { useNow, useSyncedRef } from "@/hooks";
 import {
   type Adder,
   type AsyncErrorHandler,
@@ -81,11 +75,11 @@ export const Aggregator = ({
   const [statuses, setStatuses] = useState<Status[]>([]);
   if (statuses.length > maxHistory)
     setStatuses(statuses.slice(0, Math.floor(maxHistory * TRUNCATE_FACTOR)));
-  const handleAdd: Adder = useCallback((spec) => {
+  const handleAdd: Adder = (spec) => {
     const stat = create(spec);
     setStatuses((prev) => [stat, ...prev.filter((s) => s.key != stat.key)]);
-  }, []);
-  const handlers = useMemo(() => createHandlers(handleAdd, log), [handleAdd, log]);
+  };
+  const handlers = createHandlers(handleAdd, log);
   return (
     <Context value={statuses}>
       <AdderContext value={handleAdd}>
@@ -132,6 +126,35 @@ interface UseNotificationsProps {
   poll?: CrudeTimeSpan;
 }
 
+// A `{}` default makes a new object on each call, so the compiler cannot cache the
+// values read from it.
+const NO_PROPS: UseNotificationsProps = {};
+
+const group = (
+  statuses: Status[],
+  threshold: TimeStamp,
+  silencedKeys: Set<string>,
+): NotificationSpec[] => {
+  const active = statuses.filter(
+    ({ key, time }) => time.afterEq(threshold) && !silencedKeys.has(key),
+  );
+  const grouped = active.reduce((acc, status) => {
+    const key = identity(status);
+    if (!acc.has(key)) {
+      acc.set(key, { ...status, count: 1 });
+      return acc;
+    }
+    const existing = acc.get(key)!;
+    acc.set(key, {
+      ...existing,
+      count: existing.count + 1,
+      time: status.time.after(existing.time) ? status.time : existing.time,
+    });
+    return acc;
+  }, new Map<string, NotificationSpec>());
+  return Array.from(grouped.values());
+};
+
 /**
  * @returns the statuses recent enough to show as notifications, with identical ones
  * folded into a single entry carrying a count. They drop off on their own after the
@@ -140,44 +163,15 @@ interface UseNotificationsProps {
 export const useNotifications = ({
   expiration = DEFAULT_EXPIRATION,
   poll = DEFAULT_EXPIRATION_POLL,
-}: UseNotificationsProps = {}): UseNotificationsReturn => {
+}: UseNotificationsProps = NO_PROPS): UseNotificationsReturn => {
   const statuses = useContext();
   const [silencedKeys, setSilencedKeys] = useState<Set<string>>(() => new Set());
-  const [now, setNow] = useState(() => TimeStamp.now());
-  const pollMs = new TimeSpan(poll).milliseconds;
-
-  useEffect(() => {
-    const interval = setInterval(() => setNow(TimeStamp.now()), pollMs);
-    return () => clearInterval(interval);
-  }, [pollMs]);
-
-  const filtered = useMemo(() => {
-    const threshold = now.sub(expiration);
-
-    const active = statuses.filter(
-      ({ key, time }) => time.afterEq(threshold) && !silencedKeys.has(key),
-    );
-
-    const grouped = active.reduce((acc, status) => {
-      const key = identity(status);
-      if (!acc.has(key)) {
-        acc.set(key, { ...status, count: 1 });
-        return acc;
-      }
-      const existing = acc.get(key)!;
-      acc.set(key, {
-        ...existing,
-        count: existing.count + 1,
-        time: status.time.after(existing.time) ? status.time : existing.time,
-      });
-      return acc;
-    }, new Map<string, NotificationSpec>());
-    return Array.from(grouped.values());
-  }, [statuses, expiration, silencedKeys, now]);
-
+  const now = useNow((now) => now.add(poll));
   const statusesRef = useSyncedRef(statuses);
 
-  const silence = useCallback((key: string) => {
+  const filtered = group(statuses, now.sub(expiration), silencedKeys);
+
+  const silence = (key: string) => {
     setSilencedKeys((prev) => {
       const next = new Set<string>();
       const existing = statusesRef.current.find(({ key: k }) => k === key);
@@ -191,15 +185,15 @@ export const useNotifications = ({
       if (next.size == 0) return prev;
       return new Set([...next, ...prev]);
     });
-  }, []);
+  };
 
-  const silenceAll = useCallback(() => {
+  const silenceAll = () => {
     setSilencedKeys((prev) => {
       const next = new Set(prev);
       statusesRef.current.forEach(({ key }) => next.add(key));
       return next;
     });
-  }, []);
+  };
 
   return { statuses: filtered, silence, silenceAll };
 };

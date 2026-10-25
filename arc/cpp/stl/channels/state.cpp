@@ -214,7 +214,8 @@ static void sort_by_time(Series &data, Series &times, std::vector<size_t> order)
                      times->at<int64_t>(static_cast<int>(i));
         if (sorted) return;
         order.resize(n);
-        std::ranges::iota(order, 0);
+        // NOLINTNEXTLINE(modernize-use-ranges): macOS libc++ has no std::ranges::iota.
+        std::iota(order.begin(), order.end(), 0);
     }
     const auto stamps = times->values<int64_t>();
     std::ranges::stable_sort(order, {}, [&stamps](const size_t i) {

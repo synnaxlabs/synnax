@@ -41,6 +41,7 @@ Arc struct {
     name    string           {
         @doc value         "is a human-readable name for the module."
         @filter
+        @search
         @validate required
     }
     mode    Mode             {
@@ -187,5 +188,4 @@ Arc struct {
     @ontology type "arc"
     @py name       "Payload"
     @retrieve
-    @search
 }

@@ -11,7 +11,7 @@ import { type channel, lineplot } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Channel, LinePlot } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { CustomRangeInput } from "@/feature/lineplot/CustomRangeInput";
 import { Range } from "@/platform/range";
@@ -37,10 +37,8 @@ export const YAxisChannelSelect = ({
   const value = LinePlot.useYAxisChannels({ axisKey });
   const dispatch = LinePlot.useSingleDispatch();
   const rangeKey = Session.Range.useSelectSelectedKey();
-  const handleChange = useCallback(
-    (channels: channel.Key[]) => dispatch(lineplot.setChannels({ axisKey, channels })),
-    [dispatch, axisKey],
-  );
+  const handleChange = (channels: channel.Key[]) =>
+    dispatch(lineplot.setChannels({ axisKey, channels }));
   return (
     <Input.Item x label={LinePlot.axisLabel(axisKey)} {...rest}>
       <Channel.SelectMultiple
@@ -68,11 +66,8 @@ export const XAxisChannelSelect = ({
   const value = LinePlot.useXAxisChannel({ axisKey });
   const dispatch = LinePlot.useSingleDispatch();
   const rangeKey = Session.Range.useSelectSelectedKey();
-  const handleChange = useCallback(
-    (channel: channel.Key | null) =>
-      dispatch(lineplot.setXChannel({ axisKey, channel: channel ?? 0 })),
-    [dispatch, axisKey],
-  );
+  const handleChange = (channel: channel.Key | null) =>
+    dispatch(lineplot.setXChannel({ axisKey, channel: channel ?? 0 }));
   return (
     <Input.Item x label={LinePlot.axisLabel(axisKey)} {...rest} grow>
       <Channel.SelectSingle
@@ -99,10 +94,8 @@ export const XAxisRangeSelect = ({
 }: XAxisRangeSelectProps): ReactElement => {
   const value = LinePlot.useXAxisRanges({ axisKey });
   const dispatch = LinePlot.useSingleDispatch();
-  const handleChange = useCallback(
-    (ranges: string[]) => dispatch(lineplot.setRanges({ axisKey, ranges })),
-    [dispatch, axisKey],
-  );
+  const handleChange = (ranges: string[]) =>
+    dispatch(lineplot.setRanges({ axisKey, ranges }));
   return (
     <Flex.Box x grow>
       <Range.SelectMultipleInputItem value={value} onChange={handleChange} {...rest} />

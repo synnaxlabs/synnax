@@ -98,20 +98,12 @@ x::errors::Error Engine::Reader::read(
 
 std::string Engine::Reader::warning() {
     std::string msg;
-    if (const auto n = this->input->failed_samples
-                           .exchange(0, std::memory_order_relaxed))
-        msg = std::format(
-            "dropped {} samples from failed bus cycles: {}",
-            n,
-            this->engine.cycle_error().data
-        );
-    if (const auto n = this->input->overflowed_samples
-                           .exchange(0, std::memory_order_relaxed))
-        msg += std::format(
-            "{}dropped {} samples because the task fell behind the bus",
-            msg.empty() ? "" : "; ",
-            n
-        );
+    if (this->input->failed_samples.exchange(0, std::memory_order_relaxed) > 0)
+        msg = "Bus cycles failed: " + this->engine.cycle_error().data + ".";
+    if (this->input->overflowed_samples.exchange(0, std::memory_order_relaxed) > 0)
+        msg += std::string(msg.empty() ? "" : " ") +
+               "The task cannot keep up with the bus. Lower the stream rate for the "
+               "task.";
     return msg;
 }
 }

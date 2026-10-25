@@ -15,7 +15,7 @@ import { CSS } from "@synnaxlabs/lyra/css";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { color } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement, useMemo } from "react";
+import { type CSSProperties, type ReactElement } from "react";
 
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -61,15 +61,12 @@ export const StateIndicator = ({
           )
         : undefined;
   const label = matched != null ? matched.name || `Option ${matched.value}` : "Unknown";
-  const style = useMemo<CSSProperties>(
-    () => ({
-      [CSS.variable("symbol-color")]: color.rgbaString(strokeColor),
-      backgroundColor,
-      minWidth: inlineSize,
-      height: Component.HEIGHTS[size],
-    }),
-    [strokeColor, backgroundColor, inlineSize, size],
-  );
+  const style: CSSProperties = {
+    [Primitive.SYMBOL_COLOR]: color.rgbaString(strokeColor),
+    backgroundColor,
+    minWidth: inlineSize,
+    height: Component.HEIGHTS[size],
+  };
   return (
     <Primitive.Div
       className={CSS.cls(CSS.B("state-indicator"), CSS.B("symbol-colored"), className)}

@@ -11,7 +11,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type DragEventHandler, type ReactElement, useCallback, useState } from "react";
+import { type DragEventHandler, type ReactElement, useState } from "react";
 
 import { SubcategorySection } from "./SubcategorySection";
 
@@ -46,14 +46,11 @@ interface DraggableTabProps {
 
 const DraggableTab = ({ tabKey, children }: DraggableTabProps): ReactElement => {
   const { startDrag, onDragEnd } = Haul.useDrag({ type: TAB_TYPE, key: tabKey });
-  const handleDragStart = useCallback<DragEventHandler<HTMLDivElement>>(
-    (e) => {
-      e.dataTransfer.effectAllowed = "move";
-      e.dataTransfer.setData("text/plain", tabKey);
-      startDrag([{ type: TAB_TYPE, key: tabKey }]);
-    },
-    [startDrag, tabKey],
-  );
+  const handleDragStart: DragEventHandler<HTMLDivElement> = (e) => {
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", tabKey);
+    startDrag([{ type: TAB_TYPE, key: tabKey }]);
+  };
   return (
     <Tabs.Tab
       itemKey={tabKey}
@@ -77,12 +74,12 @@ const ReorderableTabs = ({
 }: ReorderableTabsProps): ReactElement => {
   const [tabs, setTabs] = useState<TabItem[]>(INITIAL_TABS);
   const [selected, setSelected] = useState<string>(INITIAL_TABS[0].key);
-  const handleDrop = useCallback((params: Tabs.SelectorOnDropParams): Haul.Item[] => {
+  const handleDrop = (params: Tabs.SelectorOnDropParams): Haul.Item[] => {
     const items = Haul.filterByType(TAB_TYPE, params.items);
     if (items.length === 0) return [];
     setTabs((prev) => moveTab(prev, String(params.source.key), params.index));
     return items;
-  }, []);
+  };
   return (
     <Haul.Provider>
       <Tabs.Frame

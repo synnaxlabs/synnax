@@ -10,7 +10,6 @@
 import { type table } from "@synnaxlabs/client";
 import { type Properties, Table } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
-import { useCallback } from "react";
 import { useStore } from "react-redux";
 
 import { Select } from "@/session/select";
@@ -29,25 +28,24 @@ export interface KeyedSelectorParams extends record.Keyed<table.Key> {
   state: StoreState;
 }
 
-const createSelector = <R>(selector: (params: KeyedSelectorParams) => R) =>
-  Table.Scope.bindHook(({ key }: Omit<KeyedSelectorParams, "state">): R =>
-    Select.useMemo((state: StoreState) => selector({ state, key }), [key]),
-  );
+const createSelector = <R>(selector: (params: KeyedSelectorParams) => R) => {
+  const useSelector = ({ key }: Omit<KeyedSelectorParams, "state">): R =>
+    Select.useMemo((state: StoreState) => selector({ state, key }), [key]);
+  return Table.Scope.bindHook(useSelector);
+};
 
-const createGetter =
-  <R>(selector: (params: KeyedSelectorParams) => R) =>
-  (): ((args?: { key?: table.Key }) => R) => {
+const createGetter = <R>(selector: (params: KeyedSelectorParams) => R) => {
+  const useGetter = (): ((args?: { key?: table.Key }) => R) => {
     const store = useStore<StoreState>();
     const scopeKey = Table.Scope.useOptional();
-    return useCallback(
-      (args) =>
-        selector({
-          state: store.getState(),
-          key: Table.Scope.require(args?.key ?? scopeKey),
-        }),
-      [store, scopeKey],
-    );
+    return (args) =>
+      selector({
+        state: store.getState(),
+        key: Table.Scope.require(args?.key ?? scopeKey),
+      });
   };
+  return useGetter;
+};
 
 const selectOptional = ({ state, key }: KeyedSelectorParams): State | undefined =>
   Window.selectDocument(state, selectSliceState(state), key);

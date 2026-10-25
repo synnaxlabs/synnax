@@ -117,16 +117,16 @@ TEST(PropertiesFindPdo, ReturnsNulloptWhenEmpty) {
 TEST(PropertiesFindPdo, ReturnsTheInputEntryAtAnAddress) {
     const auto result = find_pdo_slave().find_pdo(0x6000, 0x11, true);
     ASSERT_TRUE(result.has_value());
-    ASSERT_EQ(result->name, "Value");
-    ASSERT_EQ(result->bit_length, 16);
+    ASSERT_EQ(result.value().name, "Value");
+    ASSERT_EQ(result.value().bit_length, 16);
 }
 
 /// @brief it should find the output entry at an address.
 TEST(PropertiesFindPdo, ReturnsTheOutputEntryAtAnAddress) {
     const auto result = find_pdo_slave().find_pdo(0x7000, 1, false);
     ASSERT_TRUE(result.has_value());
-    ASSERT_EQ(result->name, "ControlWord");
-    ASSERT_EQ(result->bit_length, 8);
+    ASSERT_EQ(result.value().name, "ControlWord");
+    ASSERT_EQ(result.value().bit_length, 8);
 }
 
 /// @brief it should find no entry at an address the slave does not have.

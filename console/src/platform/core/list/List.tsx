@@ -18,7 +18,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement, useCallback, useMemo, useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import { Button } from "@/platform/button";
 import { Clipboard } from "@/platform/clipboard";
@@ -36,12 +36,14 @@ export interface ListProps
 export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
   const menuProps = Menu.useContextMenu();
   const dispatch = Session.useDispatch();
-  const allCores = Session.Core.useSelectMany().sort((a, b) =>
-    a.name.localeCompare(b.name),
-  );
-  const keys = useMemo(() => allCores.map((c) => c.key), [allCores]);
+  const cores = Session.Core.useSelectMany();
   const [testing, setTesting] = useState<string | null>(null);
   const addStatus = Status.useAdder();
+  const handleLink = Link.useCopyToClipboard();
+  const copy = Clipboard.useCopy();
+  const openConnect = useConnectModal();
+  const allCores = cores.toSorted((a, b) => a.name.localeCompare(b.name));
+  const keys = allCores.map((c) => c.key);
 
   const handleRemove = (key: string): void => {
     if (key === value) {
@@ -53,17 +55,11 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
 
   const handleRename = (key: string): void => Text.edit(nameID(key));
 
-  const handleLink = Link.useCopyToClipboard();
-
-  const copy = Clipboard.useCopy();
-
   const handleCopyAddress = (key: string): void => {
     const core = allCores.find((c) => c.key === key);
     if (core == null) return;
     copy(`${core.host}:${core.port}`, "Core address", core.name);
   };
-
-  const openConnect = useConnectModal();
 
   const handleRetest = async (key: string): Promise<void> => {
     const core = allCores.find((c) => c.key === key);
@@ -91,51 +87,48 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
     openConnect({ coreKey: key });
   };
 
-  const contextMenu = useCallback(
-    ({ keys: [key] }: Menu.ContextMenuMenuProps): ReactElement => {
-      if (key == null)
-        return (
-          <ContextMenu.Menu>
-            <ContextMenu.ReloadConsoleItem />
-          </ContextMenu.Menu>
-        );
-
+  const contextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps): ReactElement => {
+    if (key == null)
       return (
         <ContextMenu.Menu>
-          <ContextMenu.RenameItem onClick={() => handleRename(key)} />
-          <Menu.Item itemKey="edit" onClick={() => handleEdit(key)}>
-            <Icon.Edit />
-            Edit
-          </Menu.Item>
-          <Menu.Divider />
-          <Menu.Item itemKey="retest" onClick={() => void handleRetest(key)}>
-            <Icon.Refresh />
-            Refresh connection
-          </Menu.Item>
-          <Menu.Divider />
-          <Menu.Item itemKey="copyAddress" onClick={() => handleCopyAddress(key)}>
-            <Icon.Copy />
-            Copy address
-          </Menu.Item>
-          <Link.CopyContextMenuItem
-            onClick={() => {
-              const core = allCores.find((c) => c.key === key);
-              if (core == null) return;
-              handleLink({ clusterKey: core.clusterKey, name: core.name });
-            }}
-          />
-          <Menu.Divider />
-          <Menu.Item itemKey="remove" onClick={() => handleRemove(key)}>
-            <Icon.Delete />
-            Remove
-          </Menu.Item>
-          <Menu.Divider />
           <ContextMenu.ReloadConsoleItem />
         </ContextMenu.Menu>
       );
-    },
-    [handleRemove, handleRetest, handleEdit, handleCopyAddress],
-  );
+
+    return (
+      <ContextMenu.Menu>
+        <ContextMenu.RenameItem onClick={() => handleRename(key)} />
+        <Menu.Item itemKey="edit" onClick={() => handleEdit(key)}>
+          <Icon.Edit />
+          Edit
+        </Menu.Item>
+        <Menu.Divider />
+        <Menu.Item itemKey="retest" onClick={() => void handleRetest(key)}>
+          <Icon.Refresh />
+          Refresh connection
+        </Menu.Item>
+        <Menu.Divider />
+        <Menu.Item itemKey="copyAddress" onClick={() => handleCopyAddress(key)}>
+          <Icon.Copy />
+          Copy address
+        </Menu.Item>
+        <Link.CopyContextMenuItem
+          onClick={() => {
+            const core = allCores.find((c) => c.key === key);
+            if (core == null) return;
+            handleLink({ clusterKey: core.clusterKey, name: core.name });
+          }}
+        />
+        <Menu.Divider />
+        <Menu.Item itemKey="remove" onClick={() => handleRemove(key)}>
+          <Icon.Delete />
+          Remove
+        </Menu.Item>
+        <Menu.Divider />
+        <ContextMenu.ReloadConsoleItem />
+      </ContextMenu.Menu>
+    );
+  };
 
   return (
     <Select.Frame data={keys} value={value} onChange={onChange} itemHeight={54}>

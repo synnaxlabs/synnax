@@ -13,12 +13,7 @@ import { type schematic } from "@synnaxlabs/client";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Text } from "@synnaxlabs/lyra/text";
 import { color, type dimensions, type text } from "@synnaxlabs/x";
-import {
-  type CSSProperties,
-  type PropsWithChildren,
-  type ReactElement,
-  useMemo,
-} from "react";
+import { type CSSProperties, type PropsWithChildren, type ReactElement } from "react";
 
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -46,21 +41,15 @@ export const Value = ({
   inlineSize = 80,
 }: RenderProps): ReactElement => {
   const symbolColor = color.rgbaString(strokeColor);
-  const style = useMemo<CSSProperties>(
-    () => ({
-      [CSS.variable("symbol-color")]: symbolColor,
-      height: dimensions?.height,
-    }),
-    [symbolColor, dimensions?.height],
-  );
-  const contentStyle = useMemo<CSSProperties>(
-    () => ({
-      minWidth: dimensions?.width,
-      inlineSize,
-      maxWidth: dimensions?.width,
-    }),
-    [dimensions?.width, inlineSize],
-  );
+  const style: CSSProperties = {
+    [Primitive.SYMBOL_COLOR]: symbolColor,
+    height: dimensions?.height,
+  };
+  const contentStyle: CSSProperties = {
+    minWidth: dimensions?.width,
+    inlineSize,
+    maxWidth: dimensions?.width,
+  };
   return (
     <Primitive.Div
       className={CSS.cls(CSS.B("value"), CSS.B("symbol-colored"), className)}

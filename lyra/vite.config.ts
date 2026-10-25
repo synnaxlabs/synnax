@@ -19,7 +19,7 @@ export default defineConfig({
   base: "/lyra/",
   plugins: [
     react(),
-    lib({ name: "lyra", modules: true }),
+    lib({ name: "lyra", modules: true, reactCompiled: true }),
     {
       name: "copy-app-css",
       closeBundle() {

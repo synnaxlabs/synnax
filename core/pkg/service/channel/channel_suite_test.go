@@ -15,51 +15,48 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var (
+	db            *gorp.DB
 	svc           *channel.Service
 	channelWriter channel.Writer
 )
 
 func TestChannel(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Channel Suite")
+	RunSpecs(t, "Service Channel Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 // serviceConfig builds a channel ServiceConfig for the node, opening the ontology,
-// search, group, label, and status services the channel service depends on.
+// group, label, and status services the channel service depends on.
 func serviceConfig(ctx context.Context, node mock.Node) channel.ServiceConfig {
 	GinkgoHelper()
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
-	searchIdx := MustOpen(search.OpenIndex())
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
-		Search:   searchIdx,
 	}))
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
 		Group:    groupSvc,
-		Search:   searchIdx,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       node.DB,
 		Group:    groupSvc,
 		Ontology: otg,
 		Label:    labelSvc,
-		Search:   searchIdx,
 	}))
 	return channel.ServiceConfig{
 		Channel:      node.Channel,
@@ -67,7 +64,6 @@ func serviceConfig(ctx context.Context, node mock.Node) channel.ServiceConfig {
 		HostProvider: node.Cluster,
 		Ontology:     otg,
 		Group:        groupSvc,
-		Search:       searchIdx,
 		Status:       statusSvc,
 	}
 }
@@ -87,13 +83,13 @@ func openService(
 		ctx,
 		append([]channel.ServiceConfig{cfg}, cfgs...)...,
 	))
-	Expect(cfg.Search.Initialize(ctx)).To(Succeed())
 	return channelSvc, cfg.Ontology
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := mock.NewNode(ctx)
+	db = node.DB
 	svc, _ = openService(ctx, node)
 	channelWriter = svc.NewWriter(nil)
 })

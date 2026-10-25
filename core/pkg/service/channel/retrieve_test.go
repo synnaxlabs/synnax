@@ -151,16 +151,13 @@ var _ = Describe("Retrieve", Ordered, func() {
 				},
 			}
 			Expect(writer.CreateMany(ctx, &created)).To(Succeed())
-			Eventually(func(g Gomega) {
-				var resChannels []channel.Channel
-				g.Expect(svc.
-					NewRetrieve().
-					Search("catalina").
-					Entries(&resChannels).
-					Exec(ctx, nil)).To(Succeed())
-				g.Expect(resChannels).To(HaveLen(1))
-				g.Expect(resChannels[0].Name).To(Equal("catalina"))
-			}).Should(Succeed())
+			var resChannels []channel.Channel
+			Expect(svc.
+				NewRetrieve().
+				Search("catalina").
+				Entries(&resChannels).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(resChannels).To(HaveExactElements(HaveField("Name", "catalina")))
 		})
 
 		It(

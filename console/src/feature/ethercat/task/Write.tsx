@@ -12,7 +12,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { primitive } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC } from "react";
 
 import { useSlavesByKeys } from "@/feature/ethercat/device/queries";
 import {
@@ -84,18 +84,15 @@ const listItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => {
   const slaves = useSlavesByKeys(Task.useChannelDeviceKeys());
-  const resolve = useCallback(
-    (ch: WriteChannel) => {
-      const slave = slaves?.find(({ key }) => key === ch.device);
-      if (slave == null || !hasEntry(ch)) return null;
-      const { channels } = slave.properties.write;
-      return {
-        cmdChannel: channels[addressKey(ch)] ?? 0,
-        stateChannel: channels[stateKey(ch)] ?? 0,
-      };
-    },
-    [slaves],
-  );
+  const resolve = (ch: WriteChannel) => {
+    const slave = slaves?.find(({ key }) => key === ch.device);
+    if (slave == null || !hasEntry(ch)) return null;
+    const { channels } = slave.properties.write;
+    return {
+      cmdChannel: channels[addressKey(ch)] ?? 0,
+      stateChannel: channels[stateKey(ch)] ?? 0,
+    };
+  };
   return (
     <Task.Views.ListAndDetails<WriteChannel>
       listItem={listItem}

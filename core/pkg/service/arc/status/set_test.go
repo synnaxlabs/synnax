@@ -11,6 +11,7 @@ package status_test
 
 import (
 	"context"
+	"fmt"
 	"regexp"
 	"sync"
 	"uuid"
@@ -34,8 +35,9 @@ import (
 )
 
 type reportCall struct {
-	variant status.Variant
-	message string
+	variant     status.Variant
+	message     string
+	description string
 }
 
 type recordingReporter struct {
@@ -43,10 +45,15 @@ type recordingReporter struct {
 	calls []reportCall
 }
 
-func (r *recordingReporter) report(_ context.Context, v status.Variant, m string) {
+func (r *recordingReporter) report(
+	_ context.Context,
+	v status.Variant,
+	m string,
+	d string,
+) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.calls = append(r.calls, reportCall{variant: v, message: m})
+	r.calls = append(r.calls, reportCall{variant: v, message: m, description: d})
 }
 
 func (r *recordingReporter) get() []reportCall {
@@ -412,8 +419,8 @@ var _ = Describe("setNode.Next", func() {
 		calls := rep.get()
 		Expect(calls).To(HaveLen(1))
 		Expect(calls[0].variant).To(Equal(status.VariantWarning))
-		Expect(calls[0].message).To(HavePrefix("status.set:"))
-		Expect(calls[0].message).To(ContainSubstring("invalid status variant"))
+		Expect(calls[0].message).To(Equal("Failed to set status"))
+		Expect(calls[0].description).To(ContainSubstring("invalid status variant"))
 
 		Expect(statSvc.NewRetrieve[any]().Where(status.MatchKeys[any](name)).
 			Entry(&status.Status[any]{}).
@@ -429,7 +436,8 @@ var _ = Describe("setNode.Next", func() {
 		n.Next(nodeCtx(ctx))
 		calls := rep.get()
 		Expect(calls).To(HaveLen(1))
-		Expect(calls[0].message).To(ContainSubstring("invalid status variant"))
+		Expect(calls[0].message).To(Equal("Failed to set status"))
+		Expect(calls[0].description).To(ContainSubstring("invalid status variant"))
 	})
 
 	It(
@@ -458,18 +466,17 @@ var _ = Describe("setNode.Next", func() {
 			calls := rep.get()
 			Expect(calls).To(HaveLen(1))
 			Expect(calls[0].variant).To(Equal(status.VariantWarning))
-			// Exact format: `status.set: multiple statuses named "name"; updated first
-			// match (<uuid>)`.
-			re := regexp.MustCompile(
-				`^status\.set: multiple statuses named "[^"]+"; updated first match \([0-9a-f-]+\)$`,
-			)
-			Expect(
-				re.MatchString(calls[0].message),
-			).To(BeTrue(), "got: %q", calls[0].message)
+			Expect(calls[0].message).To(Equal("Found duplicate status names"))
 
 			resolvedRows := state.Output(0).Unmarshal[string]()
 			Expect(resolvedRows).To(HaveLen(1))
 			Expect(resolvedRows[0]).To(SatisfyAny(Equal(k1), Equal(k2)))
+			Expect(calls[0].description).To(Equal(fmt.Sprintf(
+				"Several statuses are named %q. Updated the first match, %s. Give "+
+					"each status a unique name, or set it by key.",
+				name,
+				resolvedRows[0],
+			)))
 
 			// Only one row picked up the new variant.
 			var rows []status.Status[any]
@@ -494,7 +501,7 @@ var _ = Describe("setNode.Next", func() {
 	)
 
 	It(
-		"Should warn with a 'status.set:' prefix when the service returns an error",
+		"Should warn with the service error when the service returns an error",
 		func(ctx SpecContext) {
 			// Empty keyOrName trips the service-side required-input validation guard.
 			n, state := build("", "msg", "info")
@@ -503,7 +510,8 @@ var _ = Describe("setNode.Next", func() {
 			calls := rep.get()
 			Expect(calls).To(HaveLen(1))
 			Expect(calls[0].variant).To(Equal(status.VariantWarning))
-			Expect(calls[0].message).To(HavePrefix("status.set:"))
+			Expect(calls[0].message).To(Equal("Failed to set status"))
+			Expect(calls[0].description).ToNot(BeEmpty())
 
 			Expect(
 				state.Output(0).Unmarshal[string](),
@@ -772,9 +780,10 @@ var _ = Describe("WASM host functions", func() {
 				calls := rep.get()
 				Expect(calls).To(HaveLen(1))
 				Expect(calls[0].variant).To(Equal(status.VariantWarning))
+				Expect(calls[0].message).To(Equal("Failed to set status"))
 				Expect(
-					calls[0].message,
-				).To(ContainSubstring("status.set: invalid string handle"))
+					calls[0].description,
+				).To(Equal("The Arc runtime passed an invalid string handle."))
 			},
 		)
 
