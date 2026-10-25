@@ -49,7 +49,10 @@ export const SelectSlave = ({
       make={MAKE}
       model={SLAVE_MODEL}
       filter={filter}
-      connect={{ title: HARDWARE.title, open: () => find({ hardware: HARDWARE }) }}
+      connect={{
+        title: HARDWARE.title,
+        open: () => find({ hardware: HARDWARE, filter }),
+      }}
     />
   );
 };

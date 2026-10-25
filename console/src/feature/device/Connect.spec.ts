@@ -122,6 +122,7 @@ describe("Device.useConnectModal", () => {
       await open({ integration: "labjack", rack: rack.key });
       await screen.findByText("Failed to start scan task");
       expect(screen.getByText("LJM library not found")).toBeTruthy();
+      expect(screen.queryByText("Looking for LabJack hardware")).toBeNull();
     });
   });
 });

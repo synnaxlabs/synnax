@@ -138,7 +138,10 @@ const ScannerState = ({
 };
 
 const isScanning = (r: rack.Rack, scanner: task.Task | undefined): boolean =>
-  isRunning(r) && scanner != null && !isScanDisabled(scanner);
+  isRunning(r) &&
+  scanner != null &&
+  !isScanDisabled(scanner) &&
+  scanner.status?.variant !== "error";
 
 interface DeviceItemProps {
   device: device.Device;
@@ -241,6 +244,8 @@ export interface FindProps {
   hardware: Hardware;
   /** Lists only this rack. */
   rack?: rack.Key;
+  /** Lists only the devices it accepts. */
+  filter?: (device: device.Device) => boolean;
   /** Returns to the view that opened this one. Adds a "Back" action. */
   onBack?: () => void;
   /** Runs when the user picks a found device to configure. */
@@ -254,6 +259,7 @@ export interface FindProps {
 export const Find = ({
   hardware: { key, name, title, icon, make, scanType, checks },
   rack: rackKey,
+  filter,
   onBack,
   onConfigure,
 }: FindProps): ReactElement => {
@@ -264,7 +270,9 @@ export const Find = ({
   );
   const scanners = Task.useResultMultiple({ types: [scanType] }).data;
   const found = (PDevice.useResultMultiple({ makes: [make] }).data ?? [])
-    .filter((d) => racks?.some((r) => r.key === d.rack) === true)
+    .filter(
+      (d) => racks?.some((r) => r.key === d.rack) === true && (filter?.(d) ?? true),
+    )
     .toSorted((a, b) => Number(a.configured) - Number(b.configured));
   const handleError = Status.useErrorHandler();
   const [scanning, setScanning] = useState(false);
@@ -349,17 +357,16 @@ export const Find = ({
   );
 };
 
-export interface FindModalParams {
-  hardware: Hardware;
-}
+export interface FindModalParams extends Pick<FindProps, "hardware" | "filter"> {}
 
 const FindModal = ({
   hardware,
+  filter,
   close,
 }: Session.Modals.ContentProps<FindModalParams, device.Key>): ReactElement => {
   const [configuring, setConfiguring] = useState<device.Key | null>(null);
   if (configuring == null)
-    return <Find hardware={hardware} onConfigure={setConfiguring} />;
+    return <Find hardware={hardware} filter={filter} onConfigure={setConfiguring} />;
   return (
     <Configure
       deviceKey={configuring}

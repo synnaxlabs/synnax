@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type device } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { fireEvent, screen } from "@testing-library/react";
@@ -50,5 +51,22 @@ describe("Device.useFindModal", () => {
     });
     fireEvent.click(findButton("Save"));
     expect(await result()).toBe(dev.key);
+  });
+
+  it("should list only the devices the filter accepts", async () => {
+    const hardware = createHardware();
+    const rack = await createRunningRack(client, hardware.key);
+    const create = async () =>
+      await createTestDevice(client, {
+        make: hardware.make,
+        configured: false,
+        rack: rack.key,
+      });
+    const accepted = await create();
+    const rejected = await create();
+    const filter = (d: device.Device) => d.key === accepted.key;
+    await renderModalOpener(Device.useFindModal, [{ hardware, filter }], { client });
+    await screen.findByText(accepted.name);
+    expect(screen.queryByText(rejected.name)).toBeNull();
   });
 });
