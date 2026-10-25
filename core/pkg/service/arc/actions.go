@@ -300,39 +300,35 @@ func containsTextEdit(actions []Action) bool {
 
 // Handle applies the set to the graph's node inputs.
 func (p SetPayload) Handle(state Arc) (Arc, error) {
-	return edit(state, patch.Set(p).Apply)
+	return edit(state, patch.Set(p))
 }
 
 // Handle applies the remove to the graph's node inputs.
 func (p RemovePayload) Handle(state Arc) (Arc, error) {
-	return edit(state, patch.Remove(p).Apply)
+	return edit(state, patch.Remove(p))
 }
 
 // Handle applies the insert to the graph's node inputs.
 func (p InsertPayload) Handle(state Arc) (Arc, error) {
-	return edit(state, patch.Insert(p).Apply)
+	return edit(state, patch.Insert(p))
 }
 
 // Handle applies the move to the graph's node inputs.
 func (p MovePayload) Handle(state Arc) (Arc, error) {
-	return edit(state, patch.Move(p).Apply)
+	return edit(state, patch.Move(p))
 }
 
-// document is the part of an Arc module that path actions edit.
-type document struct {
-	Graph struct {
-		Inputs map[string]msgpack.EncodedJSON `json:"inputs"`
-	} `json:"graph"`
-}
-
-// edit applies a path action to a copy of the graph's node inputs.
-func edit(state Arc, apply func(map[string]any) error) (Arc, error) {
-	var doc document
-	doc.Graph.Inputs = state.Graph.Inputs
-	next, err := patch.Edit(doc, apply)
+// edit applies a path action to the inputs of the node that its path names.
+func edit(state Arc, a patch.Action) (Arc, error) {
+	inputs, err := patch.EditMap(
+		state.Graph.Inputs,
+		[]string{"graph", "inputs"},
+		a,
+		nil,
+	)
 	if err != nil {
 		return Arc{}, err
 	}
-	state.Graph.Inputs = next.Graph.Inputs
+	state.Graph.Inputs = inputs
 	return state, nil
 }

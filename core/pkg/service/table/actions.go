@@ -329,45 +329,42 @@ func (p EraseCellsPayload) Handle(state Table) (Table, error) {
 
 // Handle applies the set to the table's cells.
 func (p SetPayload) Handle(state Table) (Table, error) {
-	return edit(state, patch.Set(p).Apply)
+	return edit(state, patch.Set(p))
 }
 
 // Handle applies the remove to the table's cells.
 func (p RemovePayload) Handle(state Table) (Table, error) {
-	return edit(state, patch.Remove(p).Apply)
+	return edit(state, patch.Remove(p))
 }
 
 // Handle applies the insert to the table's cells.
 func (p InsertPayload) Handle(state Table) (Table, error) {
-	return edit(state, patch.Insert(p).Apply)
+	return edit(state, patch.Insert(p))
 }
 
 // Handle applies the move to the table's cells.
 func (p MovePayload) Handle(state Table) (Table, error) {
-	return edit(state, patch.Move(p).Apply)
+	return edit(state, patch.Move(p))
 }
 
-// document is the part of a table that path actions edit.
-type document struct {
-	Cells map[string]CellConfig `json:"cells"`
-}
-
-// edit applies a path action to a copy of the table's cells. A cell config that names
-// no variant is rejected.
-func edit(state Table, apply func(map[string]any) error) (Table, error) {
-	d, err := patch.Edit(document{Cells: state.Cells}, apply)
+// edit applies a path action to the cell config that its path names. A cell config that
+// names no variant or fails its schema is rejected.
+func edit(state Table, a patch.Action) (Table, error) {
+	cells, err := patch.EditMap(state.Cells, []string{"cells"}, a, checkCell)
 	if err != nil {
 		return Table{}, err
 	}
-	for key, cfg := range d.Cells {
-		if cfg.Variant == nil {
-			return Table{}, errors.Wrapf(
-				validate.ErrValidation,
-				"[Table] - config for cell %q names no variant",
-				key,
-			)
-		}
-	}
-	state.Cells = d.Cells
+	state.Cells = cells
 	return state, nil
+}
+
+func checkCell(key string, cfg CellConfig) error {
+	if cfg.Variant == nil {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"[Table] - config for cell %q names no variant",
+			key,
+		)
+	}
+	return validate.PathedError(cfg.Validate(), "cells", key)
 }

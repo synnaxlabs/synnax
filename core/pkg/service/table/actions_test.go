@@ -638,8 +638,25 @@ var _ = Describe("Path actions", func() {
 			Expect(table.Reduce(create2x2(), set([]string{"name"}, "Other"))).
 				Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("decoding document")),
+				MatchError(ContainSubstring("the path is outside")),
 			))
+		})
+
+		It("Should reject a value that fails the cell config's schema", func() {
+			Expect(table.Reduce(create2x2(), set([]string{"cells", "a", "weight"}, 0))).
+				Error().To(MatchError(ContainSubstring(
+				"cells.a.weight: must be greater than or equal to 1",
+			)))
+		})
+
+		It("Should edit a cell beside a stored cell that fails its schema", func() {
+			state := create2x2()
+			state.Cells["b"] = table.CellConfig{Variant: table.TextCellConfig{}}
+			next := MustSucceed(table.Reduce(
+				state,
+				set([]string{"cells", "a", "value"}, "Pressure"),
+			))
+			Expect(asText(next.Cells["a"]).Value).To(Equal("Pressure"))
 		})
 
 		It("Should reject a cell config that names no variant", func() {
@@ -654,9 +671,9 @@ var _ = Describe("Path actions", func() {
 	Describe("RemovePayload", func() {
 		It("Should remove a field from a cell config", func() {
 			state := create2x2()
-			state.Cells["a"] = table.CellConfig{Variant: table.TextCellConfig{
-				FillColor: new(color.MustFromHex("#ff0000")),
-			}}
+			text := asText(textCfg(""))
+			text.FillColor = new(color.MustFromHex("#ff0000"))
+			state.Cells["a"] = table.CellConfig{Variant: text}
 			next := MustSucceed(table.Reduce(state, table.NewRemoveAction(
 				table.RemovePayload{Path: []string{"cells", "a"}, Key: "fill_color"},
 			)))
@@ -671,7 +688,7 @@ var _ = Describe("Path actions", func() {
 				Value: map[string]any{"key": "x"},
 			}))).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("decoding document")),
+				MatchError(ContainSubstring("decoding entries")),
 			))
 		})
 	})

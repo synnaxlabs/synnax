@@ -229,41 +229,38 @@ func (p *SetConfigPayload) fromRaw(raw rawSetConfigPayload) error {
 
 // Handle applies the set to the schematic's element configs.
 func (p SetPayload) Handle(state Schematic) (Schematic, error) {
-	return edit(state, patch.Set(p).Apply)
+	return edit(state, patch.Set(p))
 }
 
 // Handle applies the remove to the schematic's element configs.
 func (p RemovePayload) Handle(state Schematic) (Schematic, error) {
-	return edit(state, patch.Remove(p).Apply)
+	return edit(state, patch.Remove(p))
 }
 
 // Handle applies the insert to the schematic's element configs.
 func (p InsertPayload) Handle(state Schematic) (Schematic, error) {
-	return edit(state, patch.Insert(p).Apply)
+	return edit(state, patch.Insert(p))
 }
 
 // Handle applies the move to the schematic's element configs.
 func (p MovePayload) Handle(state Schematic) (Schematic, error) {
-	return edit(state, patch.Move(p).Apply)
+	return edit(state, patch.Move(p))
 }
 
-// document is the part of a schematic that path actions edit.
-type document struct {
-	Configs map[string]ElementConfig `json:"configs"`
-}
-
-// edit applies a path action to a copy of the schematic's element configs. A config
-// that names no variant is rejected, as SetConfigPayload rejects it.
-func edit(state Schematic, apply func(map[string]any) error) (Schematic, error) {
-	d, err := patch.Edit(document{Configs: state.Configs}, apply)
+// edit applies a path action to the element config that its path names. A config that
+// names no variant or fails its schema is rejected.
+func edit(state Schematic, a patch.Action) (Schematic, error) {
+	configs, err := patch.EditMap(state.Configs, []string{"configs"}, a, checkConfig)
 	if err != nil {
 		return Schematic{}, err
 	}
-	for key, cfg := range d.Configs {
-		if cfg.Variant == nil {
-			return Schematic{}, noVariantError(key)
-		}
-	}
-	state.Configs = d.Configs
+	state.Configs = configs
 	return state, nil
+}
+
+func checkConfig(key string, cfg ElementConfig) error {
+	if cfg.Variant == nil {
+		return noVariantError(key)
+	}
+	return validate.PathedError(cfg.Validate(), "configs", key)
 }

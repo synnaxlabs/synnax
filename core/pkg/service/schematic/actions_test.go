@@ -938,9 +938,11 @@ var _ = Describe("Payload decoding", func() {
 var _ = Describe("Path actions", func() {
 	var state schematic.Schematic
 	BeforeEach(func() {
+		cfg := tankCfg("T1", "")
+		cfg.ApplyDefaults()
 		state = schematic.Schematic{
 			Name:    "Engine",
-			Configs: map[string]schematic.ElementConfig{"n1": tankCfg("T1", "")},
+			Configs: map[string]schematic.ElementConfig{"n1": cfg},
 		}
 	})
 	set := func(path []string, value any, guards ...patch.Guard) schematic.Action {
@@ -994,8 +996,24 @@ var _ = Describe("Path actions", func() {
 			Expect(schematic.Reduce(state, set([]string{"name"}, "Other"))).
 				Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("decoding document")),
+				MatchError(ContainSubstring("the path is outside")),
 			))
+		})
+
+		It("Should reject a value that fails the element config's schema", func() {
+			Expect(schematic.Reduce(
+				state,
+				set([]string{"configs", "n1", "level"}, "h9"),
+			)).Error().To(MatchError(ContainSubstring("level: invalid level: h9")))
+		})
+
+		It("Should edit a config beside a stored config that fails its schema", func() {
+			state.Configs["n2"] = tankCfg("T2", "")
+			next := MustSucceed(schematic.Reduce(
+				state,
+				set([]string{"configs", "n1", "label", "label"}, "T3"),
+			))
+			Expect(tank(next).Label.Label).To(Equal("T3"))
 		})
 
 		It("Should reject a config that names no variant", func() {
@@ -1025,7 +1043,7 @@ var _ = Describe("Path actions", func() {
 				},
 			))).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("decoding document")),
+				MatchError(ContainSubstring("decoding entries")),
 			))
 		})
 	})
