@@ -173,6 +173,20 @@ describe("Points", () => {
     }
   });
 
+  it("should load an extremesKept limit of an aggregation other than min_max", async () => {
+    const core = createCore();
+    const { subscribe, close } = createPoints(core);
+    const window = staticWindow(new TimeRange(START, START.add(TimeSpan.minutes(8))));
+    const limit: PointsLimit = { ...TILED, aggregation: "average", extremesKept: true };
+    const points = subscribe(core.data[0].key, window, limit);
+    try {
+      await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+      expect(points.value().series.length).toBeGreaterThan(0);
+    } finally {
+      await close();
+    }
+  });
+
   it("should never pin a cached tile for a cut tile at its position", async () => {
     const core = createCore();
     const { store, subscribe, unsubscribe, close } = createPoints(core);

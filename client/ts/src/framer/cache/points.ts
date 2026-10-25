@@ -587,7 +587,8 @@ export class Points {
 
   private loaded(home: TimeRange): boolean {
     if (this.rawFilling) return false;
-    return this.targets(home, home, false).every((spec) =>
+    const extremesKept = this.limit.extremesKept === true;
+    return this.targets(home, home, extremesKept).every((spec) =>
       this.held.has(tileRequestKey(spec)),
     );
   }
