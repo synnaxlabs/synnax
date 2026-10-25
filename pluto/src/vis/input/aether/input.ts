@@ -54,7 +54,7 @@ export class Input
 
   // An empty string reads as null: string sources report it before the first sample.
   private updateValue(): void {
-    const v = this.internal.source.value();
+    const v = this.internal.source.value().data;
     const next = v === "" ? null : v;
     if (next !== this.state.value) this.setState((p) => ({ ...p, value: next }));
   }
