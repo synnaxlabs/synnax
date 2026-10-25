@@ -31,7 +31,7 @@ import {
 } from "@/framer/cache/block";
 import { Dynamic, type DynamicProps } from "@/framer/cache/dynamic";
 import { tileRange, tileSpan } from "@/framer/cache/grid";
-import { Join, type Mapped, Member, type Part, piece } from "@/framer/cache/join";
+import { hold, Join, type Mapped, Member, type Part, piece } from "@/framer/cache/join";
 
 export interface StoreProps extends Partial<
   Pick<DynamicProps, "dynamicBufferSize" | "now">
@@ -72,6 +72,9 @@ interface Live {
  */
 export type InvalidateHandler = (ch: channel.Key | null, tr: TimeRange) => void;
 
+/** Receives the index channel of a join whose members wait for a catch-up read. */
+export type WaitHandler = (index: channel.Key) => void;
+
 /**
  * Caches blocks of channel samples under one byte budget. The least recently used block
  * leaves first. Every block of a channel holds one data type. Streamed samples go into
@@ -103,6 +106,7 @@ export class Store {
   // does not carry them.
   private signalsSince: TimeStamp | null = null;
   private readonly invalidateHandlers = new Set<InvalidateHandler>();
+  private readonly waitHandlers = new Set<WaitHandler>();
 
   constructor({
     budget = DEFAULT_BUDGET,
@@ -178,6 +182,11 @@ export class Store {
     );
   }
 
+  /** @returns true when the channel is calculated. */
+  isCalculated(ch: channel.Key): boolean {
+    return this.calculated.has(ch);
+  }
+
   /** Records whether the channel is calculated, so its blocks keep expiring. */
   setCalculated(ch: channel.Key, calculated: boolean): void {
     if (calculated) this.calculated.add(ch);
@@ -202,6 +211,12 @@ export class Store {
     return () => this.invalidateHandlers.delete(handler);
   }
 
+  /** Registers a handler for joins that wait for a catch-up read. */
+  onWait(handler: WaitHandler): destructor.Destructor {
+    this.waitHandlers.add(handler);
+    return () => this.waitHandlers.delete(handler);
+  }
+
   /**
    * Drops the cached samples of the channel over the time range, or of every channel
    * when the channel is null. A joined channel whose open block the span touches
@@ -214,7 +229,7 @@ export class Store {
       const block = this.live.get(ch)?.block;
       if (j != null && block?.joined === true && block.range.overlapsWith(tr))
         if (ch === j.index) this.waitJoin(j);
-        else this.waitMember(j.members.get(ch)!);
+        else this.waitMember(j, j.members.get(ch)!);
     }
     const touched = [...this.blocks].filter(
       ([, b]) => (ch == null || b.channel === ch) && b.range.overlapsWith(tr),
@@ -276,7 +291,10 @@ export class Store {
     frame.forEach((series, ch) => {
       if (this.joins.has(ch)) return;
       const j = this.joinOf.get(ch);
-      out.set(ch, j == null ? this.writePlain(ch, series) : this.writeData(j, ch, series));
+      out.set(
+        ch,
+        j == null ? this.writePlain(ch, series) : this.writeData(j, ch, series),
+      );
     });
     return out;
   }
@@ -293,6 +311,7 @@ export class Store {
     }
     this.addMember(j, index);
     if (ch !== index) this.addMember(j, ch);
+    this.waitHandlers.forEach((h) => h(index));
   }
 
   /** Removes the channel and its index from the join, undoing one call to join. */
@@ -306,9 +325,14 @@ export class Store {
 
   /** @returns the members of the index's join that wait for a catch-up read. */
   waiting(index: channel.Key): channel.Key[] {
-    const j = this.joins.get(index);
-    if (j == null) return [];
-    return [...j.members.values()].filter((m) => !m.joined).map((m) => m.key);
+    return this.members(index).filter(
+      (k) => !this.joinOf.get(k)!.members.get(k)!.joined,
+    );
+  }
+
+  /** @returns the members of the index's join. */
+  members(index: channel.Key): channel.Key[] {
+    return [...(this.joins.get(index)?.members.keys() ?? [])];
   }
 
   /** @returns true when the channel's join has caught up with its stream. */
@@ -317,9 +341,18 @@ export class Store {
     return j != null && j.indexMember.joined && j.members.get(ch)?.joined === true;
   }
 
-  /** @returns the first raw block a catch-up read of the member must fetch. */
-  catchUpFrom(ch: channel.Key): number {
-    return this.live.get(ch)?.block?.index ?? rawIndex(this.now());
+  /**
+   * @returns the first raw block a catch-up read of the member must fetch: the block of
+   * its last joined sample, of its first held series, or of at, whichever is first.
+   */
+  catchUpFrom(ch: channel.Key, at: TimeStamp): number {
+    const m = this.joinOf.get(ch)?.members.get(ch);
+    let from = rawIndex(at);
+    if (m?.from != null) from = Math.min(from, m.from);
+    const first = m?.held[0];
+    if (first != null && !first.timeRange.isZero)
+      from = Math.min(from, rawIndex(first.timeRange.start));
+    return from;
   }
 
   /**
@@ -335,6 +368,7 @@ export class Store {
       if (m == null) return;
       m.joined = true;
       m.historyless = historyless;
+      m.from = null;
     });
     const im = j.indexMember;
     if (!im.joined) return;
@@ -366,13 +400,17 @@ export class Store {
   // Sends every member of the join back to wait for a catch-up read.
   private waitJoin(j: Join): void {
     j.restart();
-    j.members.forEach((m) => this.waitMember(m));
+    j.members.forEach((m) => this.waitMember(j, m));
   }
 
-  private waitMember(m: Member): void {
+  private waitMember(j: Join, m: Member): void {
     m.joined = false;
     const live = this.live.get(m.key);
-    if (live?.block?.joined === true) this.seal(live);
+    if (live?.block?.joined === true) {
+      m.from = Math.min(m.from ?? live.block.index, live.block.index);
+      this.seal(live);
+    }
+    this.waitHandlers.forEach((h) => h(j.index));
   }
 
   private writeIndex(j: Join, series: Series[]): MultiSeries {
@@ -380,19 +418,23 @@ export class Store {
     const im = j.indexMember;
     for (const s of series) {
       if (!im.joined) {
-        im.held.push(s);
+        hold(im, s);
         continue;
       }
-      this.retainDataType(j.index, s.dataType);
-      if (!j.continues(s)) {
+      // A new data type sends the join back to wait, as a gap does.
+      if (this.retainDataType(j.index, s.dataType) || !j.continues(s)) {
         this.waitJoin(j);
-        im.held.push(s);
+        hold(im, s);
         continue;
       }
       const parts: Part[] = [];
-      for (let lo = 0; lo < s.length; ) {
+      for (let lo = 0; lo < s.length;) {
         const b = rawIndex(new TimeStamp(s.data[lo]));
-        const hi = search(s, tileRange({ level: RAW_LEVEL, index: b }).end.valueOf(), lo);
+        const hi = search(
+          s,
+          tileRange({ level: RAW_LEVEL, index: b }).end.valueOf(),
+          lo,
+        );
         const block = this.raw(j.index, b);
         const fresh = Math.max(lo, search(s, block.coveredEnd.valueOf(), lo));
         if (fresh > lo) parts.push({ from: lo, to: fresh, block: b, offset: null });
@@ -413,19 +455,26 @@ export class Store {
     const m = j.members.get(ch)!;
     for (const s of series) {
       if (!m.joined || !j.indexMember.joined) {
-        m.held.push(s);
+        hold(m, s);
         continue;
       }
-      this.retainDataType(ch, s.dataType);
+      if (this.retainDataType(ch, s.dataType)) {
+        hold(m, s);
+        continue;
+      }
+      // A catch-up read already holds every sample of a series that ends in covered
+      // span, which can be older than the index series the join remembers.
+      const last = this.raw(ch, rawIndex(s.timeRange.end.sub(TimeSpan.nanoseconds(1))));
+      if (s.timeRange.end.beforeEq(last.coveredEnd)) continue;
       const at = j.locate(s.timeRange.start);
       if (at == null || at.pos + s.length > at.mapped.series.length) {
-        this.waitMember(m);
-        m.held.push(s);
+        this.waitMember(j, m);
+        hold(m, s);
         continue;
       }
       if (!this.writeParts(m, s, at.mapped, at.pos, allocated)) {
-        this.waitMember(m);
-        m.held.push(s);
+        this.waitMember(j, m);
+        hold(m, s);
       }
     }
     return allocated;
@@ -455,7 +504,12 @@ export class Store {
         from += held;
         offset += held;
       }
-      allocated.push(this.append(block, piece(s, from - pos, to - pos, times, from, part.block, offset)));
+      allocated.push(
+        this.append(
+          block,
+          piece(s, from - pos, to - pos, times, from, part.block, offset),
+        ),
+      );
     }
     return true;
   }
@@ -464,7 +518,7 @@ export class Store {
   // when the stream moves into it.
   private append(block: RawBlock, p: Series): MultiSeries {
     const live = this.liveOf(block.channel);
-    if (live.block !== block) {
+    if (live.block !== block || !block.joined) {
       if (live.block != null) this.seal(live, live.block.index < block.index);
       block.buffer = live.buffer;
       block.joined = true;
@@ -510,7 +564,7 @@ export class Store {
     const j = this.joinOf.get(ch);
     if (j != null)
       if (ch === j.index) this.waitJoin(j);
-      else this.waitMember(j.members.get(ch)!);
+      else this.waitMember(j, j.members.get(ch)!);
     const live = this.live.get(ch);
     if (live != null) this.seal(live);
   }
@@ -538,7 +592,7 @@ export class Store {
     const j = this.joinOf.get(ch);
     if (j != null)
       if (ch === j.index) this.waitJoin(j);
-      else this.waitMember(j.members.get(ch)!);
+      else this.waitMember(j, j.members.get(ch)!);
     for (const [key, block] of this.blocks) if (block.channel === ch) this.delete(key);
     const live = this.live.get(ch);
     if (live == null) return true;
@@ -558,6 +612,7 @@ export class Store {
     this.joins.clear();
     this.joinOf.clear();
     this.invalidateHandlers.clear();
+    this.waitHandlers.clear();
     this.blocks.clear();
     this.counted.clear();
     this.dataTypes.clear();

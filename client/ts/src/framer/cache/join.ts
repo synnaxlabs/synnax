@@ -49,6 +49,8 @@ export class Member {
    * the offset its timestamp gives.
    */
   historyless = false;
+  /** The first raw block the member's catch-up read must fetch, when known. */
+  from: number | null = null;
 
   constructor(readonly key: channel.Key) {}
 }
@@ -111,6 +113,15 @@ export class Join {
     return null;
   }
 }
+
+/**
+ * Holds a streamed series of a waiting member. The oldest held series leaves past a
+ * cap, since the member's catch-up read fetches its span anyway.
+ */
+export const hold = (m: Member, s: Series): void => {
+  m.held.push(s);
+  if (m.held.length > RECENT) m.held.shift();
+};
 
 /**
  * @returns the samples [from, to) of the series with block alignment and the time range

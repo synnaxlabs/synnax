@@ -13,6 +13,7 @@ import {
   breaker,
   type CrudeTimeSpan,
   type destructor,
+  errors,
   MultiSeries,
   Rate,
   type Series,
@@ -245,13 +246,19 @@ export class MultiplexedStreamer {
   /**
    * Resolves when the stream carries the keys and the Core has acked them, so the
    * stream delivers every sample written after it resolves.
+   * @param signal - Rejects the wait with its reason when it aborts.
    * @throws {UnexpectedError} if the streamer closes first.
    * @throws the Core's rejection of a key, if the stream leaves the key off.
    */
-  async waitAcked(keys: channel.Key[]): Promise<void> {
+  async waitAcked(keys: channel.Key[], signal?: AbortSignal): Promise<void> {
     if (this.connMu.closed) throw new UnexpectedError("telemetry streamer is closed");
+    signal?.throwIfAborted();
     await new Promise<void>((resolve, reject) => {
-      this.ackWaiters.add({ keys, resolve, reject });
+      const waiter: AckWaiter = { keys, resolve, reject };
+      signal?.addEventListener("abort", () => {
+        if (this.ackWaiters.delete(waiter)) reject(errors.fromUnknown(signal.reason));
+      });
+      this.ackWaiters.add(waiter);
       this.settleAckWaiters();
     });
   }

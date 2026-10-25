@@ -20,7 +20,7 @@ import {
   TimeStamp,
 } from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
+import { channel } from "@/channel";
 import { NotFoundError, UnexpectedError } from "@/errors";
 import { type ChannelRetriever } from "@/framer/adapter";
 import {
@@ -42,9 +42,11 @@ export interface RemoteReader {
 
 export const DEFAULT_BATCH_DEBOUNCE = TimeSpan.milliseconds(50);
 
-// Samples stamped this close to a fetch may commit after it answers, so a fetch never
-// marks them as covered.
-const COMMIT_MARGIN = TimeSpan.seconds(1);
+/**
+ * Samples stamped this close to a fetch may commit after it answers, so a fetch never
+ * marks them as covered.
+ */
+export const COMMIT_MARGIN = TimeSpan.seconds(1);
 
 // A request to fill a read's raw block up to at least end. A catch-up request trusts
 // every sample it reads, since the stream acked the channel before it.
@@ -263,7 +265,7 @@ export class Reader {
       const idx = p.isIndex ? p.key : p.index;
       indexOf.set(p.key, idx);
       if (idx !== 0) indexOf.set(idx, idx);
-      store.setCalculated(p.key, p.virtual && p.expression !== "");
+      store.setCalculated(p.key, channel.isCalculated(p));
     });
     channels.forEach((ch) => {
       if (!indexOf.has(ch)) throw new NotFoundError(`channel ${ch} not found`);
