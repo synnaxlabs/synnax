@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { EOF } from "@synnaxlabs/freighter";
+import { EOF, Unreachable } from "@synnaxlabs/freighter";
 import {
   type Aggregation,
   array,
@@ -18,21 +18,27 @@ import {
   Series,
   TimeRange,
   type TimeSpan,
-  type TimeStamp,
+  TimeStamp,
 } from "@synnaxlabs/x";
 
 import { channel } from "@/channel";
-import { NotFoundError } from "@/errors";
+import { NotFoundError, ValidationError } from "@/errors";
 import { type ChannelRetriever } from "@/framer/adapter";
 import { Feed, type FeedOptions } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
-import { type Streamer, type StreamerConfig, streamerConfigZ } from "@/framer/streamer";
+import {
+  type Streamer,
+  type StreamerConfig,
+  streamerConfigZ,
+  type StreamerUpdateOptions,
+} from "@/framer/streamer";
 
 // Samples per series in an unreduced read, matching an iterator response.
 const CHUNK = 1e5;
-// Every sample shares one alignment domain, which holds at most 2^32 samples.
+// An alignment domain holds at most 2^32 samples. Each restart starts a new one.
 const DOMAIN = 1n << 32n;
 const INDEX_KEY = 1;
+const HISTORY_CHANGE_KEY = 1 << 20;
 
 export interface SyntheticCoreProps {
   /** The rate of the index channel. */
@@ -46,6 +52,15 @@ export interface SyntheticCoreProps {
    * @default 1
    */
   channels?: number;
+  /** Adds a calculated channel on the index and a virtual channel. */
+  derived?: boolean;
+}
+
+// A span of a channel's samples rewritten with values moved by delta.
+interface Rewrite {
+  key: channel.Key;
+  tr: TimeRange;
+  delta: number;
 }
 
 /**
@@ -57,13 +72,17 @@ export interface SyntheticCoreProps {
 export class SyntheticCore {
   readonly index: channel.Channel;
   readonly data: channel.Channel[];
+  /** A calculated channel on the index, when derived channels were asked for. */
+  readonly calculated?: channel.Channel;
+  /** A virtual channel with no index, when derived channels were asked for. */
+  readonly virtual?: channel.Channel;
+  /** The channel history changes stream on. */
+  readonly historyChange: channel.Channel;
   /** The number of reads the Core has served, reduced or not. */
   reads = 0;
   readonly channels = {
     retrieve: async (key: channel.Key | channel.Name): Promise<channel.Channel> => {
-      const ch = [this.index, ...this.data].find(
-        (c) => c.key === key || c.name === key,
-      );
+      const ch = this.all().find((c) => c.key === key || c.name === key);
       if (ch == null) throw new NotFoundError(`channel ${key} not found`);
       return ch;
     },
@@ -73,8 +92,13 @@ export class SyntheticCore {
   private readonly period: bigint;
   private clock: TimeStamp;
   private readonly streamers = new Set<SyntheticStreamer>();
+  // restarts holds the first sample of each domain after the first.
+  private readonly restarts: number[] = [];
+  private readonly rewrites: Rewrite[] = [];
+  private readonly dataTypes = new Map<channel.Key, DataType>();
+  private disconnected = false;
 
-  constructor({ rate, start, now, channels = 1 }: SyntheticCoreProps) {
+  constructor({ rate, start, now, channels = 1, derived = false }: SyntheticCoreProps) {
     this.start = start.valueOf();
     this.period = new Rate(rate).period.valueOf();
     this.clock = now;
@@ -94,19 +118,84 @@ export class SyntheticCore {
           index: INDEX_KEY,
         }),
     );
+    if (derived) {
+      this.calculated = new channel.Channel({
+        key: INDEX_KEY + 1 + channels,
+        name: "calculated",
+        dataType: DataType.FLOAT32,
+        index: INDEX_KEY,
+        virtual: true,
+        expression: "return data_0 * 2",
+      });
+      this.virtual = new channel.Channel({
+        key: INDEX_KEY + 2 + channels,
+        name: "virtual",
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+    }
+    this.historyChange = new channel.Channel({
+      key: HISTORY_CHANGE_KEY,
+      name: "sy_history_change",
+      dataType: DataType.JSON,
+      virtual: true,
+    });
     this.checkDomain();
   }
 
   /** @returns the time on the Core's clock. */
   now = (): TimeStamp => this.clock;
 
-  /** Retrieves the payloads of the Core's channels with the given keys. */
+  /** Retrieves the payloads of the Core's channels with the given keys or names. */
   retrieveChannels: ChannelRetriever = async (params) => {
-    const keys = array.toArray(params);
-    return [this.index, ...this.data]
-      .filter((c) => keys.includes(c.key))
+    const keys = array.toArray(params) as unknown[];
+    return this.all()
+      .filter((c) => keys.includes(c.key) || keys.includes(c.name))
       .map((c) => c.payload);
   };
+
+  /** Changes the data type of a data channel's every sample, as a recalculation does. */
+  retype(key: channel.Key, dataType: DataType): void {
+    this.dataTypes.set(key, dataType);
+  }
+
+  /**
+   * Moves the values of a channel's samples in the time range by delta, and streams the
+   * history change.
+   */
+  rewrite(key: channel.Key, tr: TimeRange, delta: number): void {
+    this.rewrites.push({ key, tr, delta });
+    const signal = new Series({
+      data: [[{ key, timeRange: tr }]],
+      dataType: DataType.JSON,
+    });
+    this.streamers.forEach((s) => s.push(new Frame(this.historyChange.key, signal)));
+  }
+
+  /**
+   * Restarts the Core: open streams end, and samples written from now on start a new
+   * alignment domain.
+   */
+  restart(): void {
+    this.restarts.push(this.written());
+    this.drop();
+  }
+
+  /** Ends every open stream, as a dropped connection does. */
+  drop(): void {
+    [...this.streamers].forEach((s) => s.close());
+  }
+
+  /** Ends every open stream, and fails every read and stream open until reconnect. */
+  disconnect(): void {
+    this.disconnected = true;
+    this.drop();
+  }
+
+  /** Lets reads and stream opens through again. */
+  reconnect(): void {
+    this.disconnected = false;
+  }
 
   /** Opens a feed that reads and streams from the Core. */
   openFeed(options: FeedOptions = {}): Feed {
@@ -116,31 +205,48 @@ export class SyntheticCore {
       readRemote: async (tr, keys, reduction) => this.read(tr, keys, reduction),
       retrieveChannels: this.retrieveChannels,
       openStreamer: async (config) => this.openStreamer(config),
-      readLatest: async (keys) => this.readLatest(keys),
+      readLatest: async (keys, count, tr) => this.readLatest(keys, count, tr),
     });
   }
 
   /**
    * Advances the clock by the span, and streams the samples written within it to every
    * open streamer.
+   * @param streamed - False drops the samples from the stream, as a relay that falls
+   * behind does.
    */
-  advance(span: TimeSpan): void {
+  advance(span: TimeSpan, streamed = true): void {
     const from = this.written();
     this.clock = this.clock.add(span);
     this.checkDomain();
     const to = this.written();
-    if (to === from) return;
-    const keys = [this.index.key, ...this.data.map((c) => c.key)];
-    const frame = new Frame(
-      keys,
-      keys.map((key) => this.raw(key, from, to)),
+    if (to === from || !streamed) return;
+    const frame = new Frame();
+    [this.index, ...this.data].forEach(({ key }) =>
+      this.raw(key, from, to).forEach((s) => frame.push(key, s)),
     );
+    if (this.calculated != null) {
+      // A calculation sums the alignments of its two inputs.
+      const { key } = this.calculated;
+      this.raw(key, from, to).forEach((s) =>
+        frame.push(key, new Series({ ...seriesProps(s), alignment: s.alignment * 2n })),
+      );
+    }
+    if (this.virtual != null) {
+      const { key } = this.virtual;
+      this.raw(key, from, to).forEach((s) =>
+        frame.push(key, new Series({ ...seriesProps(s), timeRange: TimeRange.ZERO })),
+      );
+    }
     this.streamers.forEach((s) => s.push(frame));
   }
 
   /** Reads the channels over the time range, as the Core's read with a reduction. */
   read(tr: TimeRange, keys: channel.Key[], reduction?: Reduction): Frame {
     this.reads++;
+    this.checkConnected();
+    if (this.virtual != null && keys.includes(this.virtual.key))
+      throw new ValidationError("cannot read from a virtual channel");
     const first = this.samplesBefore(tr.start);
     const last = this.samplesBefore(tr.end);
     if (last <= first) return new Frame();
@@ -154,7 +260,9 @@ export class SyntheticCore {
     for (const key of keys) {
       if (size < 2) {
         for (let c = first; c < last; c += CHUNK)
-          frame.push(key, this.raw(key, c, Math.min(c + CHUNK, last)));
+          this.raw(key, c, Math.min(c + CHUNK, last)).forEach((s) =>
+            frame.push(key, s),
+          );
         continue;
       }
       frame.push(
@@ -165,16 +273,22 @@ export class SyntheticCore {
     return frame;
   }
 
-  private readLatest(keys: channel.Key[]): Frame {
-    const n = this.written();
+  /** Reads the newest count samples of each channel in the time range. */
+  readLatest(keys: channel.Key[], count: number, tr: TimeRange = TimeRange.MAX): Frame {
+    this.reads++;
+    this.checkConnected();
+    const last = this.samplesBefore(tr.end);
+    const first = Math.max(this.samplesBefore(tr.start), last - count);
     const frame = new Frame();
-    keys.forEach((key) => {
-      if (n > 0) frame.push(key, this.raw(key, n - 1, n));
-    });
+    if (last > first)
+      keys.forEach((key) =>
+        this.raw(key, first, last).forEach((s) => frame.push(key, s)),
+      );
     return frame;
   }
 
   private openStreamer(config: StreamerConfig): Streamer {
+    this.checkConnected();
     const streamer = new SyntheticStreamer(config, (s) => this.streamers.delete(s));
     this.streamers.add(streamer);
     return streamer;
@@ -203,32 +317,75 @@ export class SyntheticCore {
       throw new Error("synthetic core holds at most 2^32 samples");
   }
 
+  private checkConnected(): void {
+    if (this.disconnected) throw new Unreachable({ message: "synthetic core is down" });
+  }
+
+  private all(): channel.Channel[] {
+    return [
+      this.index,
+      ...this.data,
+      this.calculated,
+      this.virtual,
+      this.historyChange,
+    ].filter((c) => c != null);
+  }
+
   private value(key: channel.Key, i: number): number {
-    return Math.sin(i / 1000 + key);
+    const t = new TimeStamp(this.time(i));
+    return this.rewrites.reduce(
+      (v, r) => (r.key === key && r.tr.contains(t) ? v + r.delta : v),
+      Math.sin(i / 1000 + key),
+    );
   }
 
   private range(from: number, to: number): TimeRange {
     return new TimeRange(this.time(from), this.time(to - 1) + 1n);
   }
 
-  private raw(key: channel.Key, from: number, to: number): Series {
+  // Returns the samples [from, to) split at the first sample of each domain.
+  private raw(key: channel.Key, from: number, to: number): Series[] {
+    const out: Series[] = [];
+    for (let lo = from; lo < to;) {
+      const domain = this.restarts.filter((r) => r <= lo).length;
+      const next = this.restarts.find((r) => r > lo);
+      const hi = next == null ? to : Math.min(next, to);
+      const first = domain === 0 ? 0 : this.restarts[domain - 1];
+      out.push(
+        this.series(key, lo, hi, DOMAIN * BigInt(domain + 1) + BigInt(lo - first)),
+      );
+      lo = hi;
+    }
+    return out;
+  }
+
+  private series(
+    key: channel.Key,
+    from: number,
+    to: number,
+    alignment: bigint,
+  ): Series {
     const n = to - from;
-    let data: BigInt64Array<ArrayBuffer> | Float32Array<ArrayBuffer>;
+    let data:
+      | BigInt64Array<ArrayBuffer>
+      | Float32Array<ArrayBuffer>
+      | Float64Array<ArrayBuffer>;
+    const dataType =
+      key === this.index.key
+        ? DataType.TIMESTAMP
+        : (this.dataTypes.get(key) ?? DataType.FLOAT32);
     if (key === this.index.key) {
       const times = new BigInt64Array(n);
       for (let i = 0; i < n; i++) times[i] = this.time(from + i);
       data = times;
     } else {
-      const values = new Float32Array(n);
+      const values = dataType.equals(DataType.FLOAT64)
+        ? new Float64Array(n)
+        : new Float32Array(n);
       for (let i = 0; i < n; i++) values[i] = this.value(key, from + i);
       data = values;
     }
-    return new Series({
-      data,
-      dataType: key === this.index.key ? DataType.TIMESTAMP : DataType.FLOAT32,
-      timeRange: this.range(from, to),
-      alignment: DOMAIN + BigInt(from),
-    });
+    return new Series({ data, dataType, timeRange: this.range(from, to), alignment });
   }
 
   // reduced returns the samples in [first, last) in groups of size samples anchored at
@@ -307,7 +464,8 @@ class SyntheticStreamer implements Streamer {
     this.waiting = null;
   }
 
-  async update(channels: channel.Params): Promise<void> {
+  // The Core acks an update before it streams another frame, so the keys apply at once.
+  async update(channels: channel.Params, _?: StreamerUpdateOptions): Promise<void> {
     this.keys = toKeys(channels);
   }
 
@@ -341,6 +499,13 @@ class SyntheticStreamer implements Streamer {
     return await new Promise((resolve) => (this.waiting = resolve));
   }
 }
+
+const seriesProps = (s: Series) => ({
+  data: s.data,
+  dataType: s.dataType,
+  timeRange: s.timeRange,
+  alignment: s.alignment,
+});
 
 const toKeys = (channels: channel.Params): channel.Key[] =>
   array.toArray(channels).map((c) => {
