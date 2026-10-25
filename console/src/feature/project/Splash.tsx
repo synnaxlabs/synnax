@@ -159,11 +159,6 @@ export const Splash = (): ReactElement => {
               New project
             </Button.CreateListItem>
           )}
-          {sampleVisible && (
-            <Button.CreateListItem size="large" onClick={openSample}>
-              Sample project
-            </Button.CreateListItem>
-          )}
         </Flex.Box>
       </Select.Frame>
     </Shell.Frame>

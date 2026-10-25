@@ -7,12 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { act, screen } from "@testing-library/react";
+import { createTestClient } from "@synnaxlabs/client/testutil";
+import { act, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Project } from "@/feature/project";
 import { Session } from "@/session";
-import { renderWithConsole } from "@/testutil";
+import { createConsoleWrapper, renderWithConsole, uniqueName } from "@/testutil";
+
+const client = createTestClient();
 
 describe("project/Splash", () => {
   it("should offer no log out and name no Core", async () => {
@@ -25,5 +28,14 @@ describe("project/Splash", () => {
     expect(screen.getByText("Projects")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Log out" })).toBeNull();
     expect(screen.queryByText(name)).toBeNull();
+  });
+
+  it("should not offer the sample project when projects exist", async () => {
+    await client.projects.create({ name: uniqueName("proj") });
+    const { wrapper } = await createConsoleWrapper({ client });
+    render(<Project.Splash />, { wrapper });
+    await screen.findByPlaceholderText("Search projects...");
+    expect(screen.queryByRole("button", { name: "Sample project" })).toBeNull();
+    expect(screen.queryByText("Open sample project")).toBeNull();
   });
 });

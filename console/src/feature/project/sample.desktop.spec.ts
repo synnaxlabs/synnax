@@ -16,14 +16,13 @@ import {
   TimeStamp,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { renderPalette } from "@/feature/command/testutil";
 import { Project } from "@/feature/project";
-import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
-import { createConsoleWrapper, type TestStore } from "@/testutil";
+import { type TestStore } from "@/testutil";
 
 const client = createTestClient();
 
@@ -79,8 +78,8 @@ describe("Sample project", () => {
     return created;
   };
 
-  const openFromPalette = async () => {
-    const palette = await renderPalette({ commands: Project.COMMANDS, client });
+  const openFromPalette = async (store?: TestStore) => {
+    const palette = await renderPalette({ commands: Project.COMMANDS, client, store });
     const open = async () => {
       await palette.openCommandPalette();
       await palette.selectCommand("Open sample project");
@@ -100,14 +99,12 @@ describe("Sample project", () => {
   });
 
   it("should open the schematic out of edit mode after the project loads", async () => {
-    const store = await Session.createStore({
-      enablePrerender: false,
-      openKV: () => new Session.Persist.MemoryKV(),
-    });
-    const { wrapper } = await createConsoleWrapper({ client, store });
-    render(<Project.Splash />, { wrapper });
-    fireEvent.click(await screen.findByRole("button", { name: "Sample project" }));
-    const sample = await waitForSample(store);
+    const { store, sample } = await openFromPalette(
+      await Session.createStore({
+        enablePrerender: false,
+        openKV: () => new Session.Persist.MemoryKV(),
+      }),
+    );
     await waitFor(() =>
       expect(Session.Persist.selectSwapping(store.getState())).toBe(false),
     );
@@ -117,17 +114,8 @@ describe("Sample project", () => {
     ).toBe(false);
   });
 
-  it("should open from the splash bound to the sample channels", async () => {
-    const { wrapper, store } = await createConsoleWrapper({ client });
-    render(
-      <>
-        <Project.Splash />
-        <Modals.Stack />
-      </>,
-      { wrapper },
-    );
-    fireEvent.click(await screen.findByRole("button", { name: "Sample project" }));
-    const sample = await waitForSample(store);
+  it("should open bound to the sample channels", async () => {
+    const { sample } = await openFromPalette();
     expect((await client.projects.retrieve({ key: sample.project })).name).toBe(
       "Sample project",
     );
