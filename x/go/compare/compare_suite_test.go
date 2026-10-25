@@ -19,7 +19,7 @@ import (
 
 func TestCompare(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Compare Suite")
+	RunSpecs(t, "Compare Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

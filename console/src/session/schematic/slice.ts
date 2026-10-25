@@ -48,6 +48,8 @@ const toolbarStateZ = z.object({
   selectedSymbolGroup: z.string().default("general"),
   /** The last tab selected in a symbol's properties form. */
   propertiesTab: Properties.tabKeyZ.optional(),
+  /** Whether a click in the symbols tab changes the selected symbols. */
+  changing: z.boolean().default(false),
 });
 export interface ToolbarState extends z.infer<typeof toolbarStateZ> {}
 
@@ -131,6 +133,10 @@ export interface SetPropertiesTabPayload extends KeyedPayload {
   tab: Properties.TabKey;
 }
 
+export interface SetChangingPayload extends KeyedPayload {
+  changing: boolean;
+}
+
 export interface SetEditablePayload extends KeyedPayload {
   editable: boolean;
 }
@@ -161,6 +167,7 @@ const initializeDocument = Window.createDocumentInitializer(stateZ);
 // Properties only configures a selection, so emptying one leaves that tab.
 const clearSelection = (state: State): void => {
   state.selected = [];
+  state.toolbar.changing = false;
   if (state.toolbar.selectedTab === "properties") state.toolbar.selectedTab = "symbols";
 };
 
@@ -172,6 +179,7 @@ export const { actions, reducer } = createSlice({
     setSelected: withSelectedState<SetSelectedPayload, SliceState>(
       (state, { payload }) => {
         state.selected = payload.selected;
+        state.toolbar.changing = false;
         state.toolbar.selectedTab =
           payload.selected.length > 0 ? "properties" : "symbols";
       },
@@ -207,6 +215,13 @@ export const { actions, reducer } = createSlice({
     selectToolbarTab: withSelectedState<SelectToolbarTabPayload, SliceState>(
       (state, { payload: { tab } }) => {
         state.toolbar.selectedTab = tab;
+        state.toolbar.changing = false;
+      },
+    ),
+    setChanging: withSelectedState<SetChangingPayload, SliceState>(
+      (state, { payload: { changing } }) => {
+        state.toolbar.changing = changing;
+        state.toolbar.selectedTab = changing ? "symbols" : "properties";
       },
     ),
     setSelectedSymbolGroup: withSelectedState<
@@ -264,6 +279,7 @@ export const {
   selectToolbarTab,
   setSelectedSymbolGroup,
   setPropertiesTab,
+  setChanging,
   setEditable,
   setFitViewOnResize,
   setTooltipsDisabled,
@@ -299,6 +315,7 @@ export const MIDDLEWARE = [
     selectToolbarTab,
     setSelectedSymbolGroup,
     setPropertiesTab,
+    setChanging,
     setEditable,
     setFitViewOnResize,
     setTooltipsDisabled,

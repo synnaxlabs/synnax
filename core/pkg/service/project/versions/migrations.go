@@ -12,20 +12,20 @@ package versions
 import (
 	"slices"
 
+	"github.com/synnaxlabs/gorp"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v2"
-	"github.com/synnaxlabs/x/migrate"
 )
 
 // MigrationsConfig configures the stored-project migration chain.
 type MigrationsConfig = v1.MigrationsConfig
 
 // NewMigrations returns the ordered migration chain for stored projects.
-func NewMigrations(cfg MigrationsConfig) []migrate.Migration {
+func NewMigrations(cfg MigrationsConfig) []gorp.Migration {
 	return slices.Concat(
-		[]migrate.Migration{v0.NormalizeKeys, v0.Migration},
+		[]gorp.Migration{v0.NormalizeKeys, v0.Migration},
 		v1.NewMigrations(cfg),
-		[]migrate.Migration{v2.Migration},
+		[]gorp.Migration{v2.Migration},
 	)
 }

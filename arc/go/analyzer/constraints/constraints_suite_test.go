@@ -19,7 +19,7 @@ import (
 
 func TestConstraints(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Analyzer Constraints Suite")
+	RunSpecs(t, "Analyzer Constraints Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

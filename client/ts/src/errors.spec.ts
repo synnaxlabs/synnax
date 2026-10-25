@@ -112,19 +112,21 @@ describe("error", () => {
 });
 
 describe("AccessDeniedError", () => {
-  test("should render a denial without the wire wording", () => {
+  test("should lead the description with a plain denial", () => {
     const err = new AccessDeniedError("access denied: auth error");
-    const stat = status.fromException(err);
-    expect(stat.message).toBe("You do not have permission to do that");
-    expect(stat.description).toBe("access denied: auth error");
+    const stat = status.fromException(err, "Failed to delete range");
     expect(stat.variant).toBe("error");
+    expect(stat.message).toBe("Failed to delete range");
+    expect(stat.description).toBe(
+      "You do not have permission to do that. access denied: auth error",
+    );
   });
 
   test("should survive the wire as a denial that still renders", () => {
     const decoded = errors.decode(errors.encode(new AccessDeniedError("nope")));
     expect(AccessDeniedError.matches(decoded)).toBe(true);
-    expect(status.fromException(decoded).message).toBe(
-      "You do not have permission to do that",
+    expect(status.fromException(decoded, "Failed to delete range").description).toBe(
+      "You do not have permission to do that. nope",
     );
   });
 });

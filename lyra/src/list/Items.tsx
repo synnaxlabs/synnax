@@ -10,12 +10,12 @@
 import "@/list/Items.css";
 
 import { type record } from "@synnaxlabs/x";
-import { type ReactNode, useMemo } from "react";
+import { type ReactNode } from "react";
 
 import { memo } from "@/component/memo";
 import { CSS } from "@/css";
 import { useData } from "@/list/Frame";
-import { type ItemRenderProp } from "@/list/Item";
+import { type ItemRenderProp, type ItemRenderProps } from "@/list/Item";
 import { ItemsContext, useElementsContext, useScrollContext } from "@/list/scope";
 
 /** Props for {@link Items}. */
@@ -29,11 +29,20 @@ export interface ItemsProps<K extends record.Key = record.Key> {
   emptyContent?: ReactNode;
 }
 
-interface CachedItem {
-  index: number;
-  translate?: number;
-  element: ReactNode;
+interface SlotProps<K extends record.Key> extends Pick<
+  ItemRenderProps<K>,
+  "itemKey" | "index" | "translate"
+> {
+  render: ItemRenderProp<K>;
 }
+
+// A memoized slot lets React skip an item whose key, index, and offset are unchanged,
+// so a scroll or a data change renders only the items that moved or appeared. A new
+// render function renders every item again.
+const Slot = memo(
+  <K extends record.Key>({ render, itemKey, index, translate }: SlotProps<K>) =>
+    render({ key: itemKey, index, itemKey, translate }),
+);
 
 const BaseItems = <
   K extends record.Key = record.Key,
@@ -43,37 +52,28 @@ const BaseItems = <
   emptyContent,
 }: ItemsProps<K>): ReactNode => {
   const scrollRef = useScrollContext("List.Items");
-  const { ref, itemsRef, getItems, getTotalSize, data, sentinelRef } = useData<K, E>();
+  const { ref, itemsRef, items, totalSize, data, sentinelRef } = useData<K, E>();
   const { setElement } = useElementsContext("List.Items");
   if (scrollRef !== ref)
     throw new Error("List.Items must be inside the List.Scroll of its own List.Frame");
-  const totalSize = getTotalSize();
-  const virtualizerStyle = useMemo(() => ({ minHeight: totalSize }), [totalSize]);
-  // Returning the same element for an unchanged item lets React skip it, so a scroll or
-  // a data change renders only the items that moved or appeared. A new render function
-  // clears the cache.
-  const cache = useMemo(() => new Map<K, CachedItem>(), [children]);
   if (data.length === 0) return emptyContent;
-  const items = getItems();
-  const keys = new Set(items.map(({ key }) => key));
-  cache.forEach((_, key) => {
-    if (!keys.has(key)) cache.delete(key);
-  });
-  const elements = items.map(({ key, index, translate }) => {
-    const cached = cache.get(key);
-    if (cached?.index === index && cached.translate === translate)
-      return cached.element;
-    const element = children({ key, index, itemKey: key, translate });
-    cache.set(key, { index, translate, element });
-    return element;
-  });
   return (
     <div
       ref={itemsRef}
       className={CSS.BE("list", "virtualizer")}
-      style={virtualizerStyle}
+      style={{ minHeight: totalSize }}
     >
-      <ItemsContext value={setElement}>{elements}</ItemsContext>
+      <ItemsContext value={setElement}>
+        {items.map(({ key, index, translate }) => (
+          <Slot<K>
+            key={key}
+            itemKey={key}
+            index={index}
+            translate={translate}
+            render={children}
+          />
+        ))}
+      </ItemsContext>
       {sentinelRef != null && (
         <div
           ref={sentinelRef}

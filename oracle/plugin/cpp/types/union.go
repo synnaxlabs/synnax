@@ -79,7 +79,7 @@ func (p *Plugin) processUnion(
 	pbNamespace := ""
 	if hasPBFlag(entry) && !omit.IsSkipped(entry, "pb") {
 		if pbOutputPath := output.GetPBPath(entry); pbOutputPath != "" {
-			pbNamespace = cppnaming.PBNamespace(pbOutputPath)
+			pbNamespace = cppnaming.PBNamespace(pbOutputPath, entry.Namespace)
 			ud.HasProto = true
 			ud.ProtoType = fmt.Sprintf("%s::%s", pbNamespace, cppnaming.PBName(entry))
 			data.AddSystem("utility")
@@ -88,7 +88,7 @@ func (p *Plugin) processUnion(
 		}
 	}
 
-	enumType, borrows := form.Enum.Resolve(data.table)
+	enumType, _, borrows := resolution.Dealias(form.Enum, data.table)
 	borrows = borrows && form.BorrowsEnum()
 	if borrows && enumType.Namespace != data.rawNs {
 		if path := enum.FindOutputPath(enumType, data.table, "cpp"); path != "" {
@@ -130,14 +130,17 @@ func (p *Plugin) processUnion(
 				)
 			}
 		}
-		if payload, ok := v.Type.Resolve(data.table); ok {
+		if message, _, ok := resolution.Dealias(v.Type, data.table); ok {
+			payload, _ := v.Type.Resolve(data.table)
 			// The variant translates against its payload message: a synthetic one
 			// for an inline body, the referenced struct's own message otherwise.
 			if ud.HasProto {
+				ns, header := cppnaming.VariantPBNamespace(entry, v, message)
+				data.AddInternal(header)
 				sd.HasProto = true
-				sd.ProtoNamespace = pbNamespace
-				sd.ProtoClass = cppnaming.PBName(payload)
-				sd.ProtoType = fmt.Sprintf("%s::%s", pbNamespace, sd.ProtoClass)
+				sd.ProtoNamespace = ns
+				sd.ProtoClass = cppnaming.PBName(message)
+				sd.ProtoType = fmt.Sprintf("%s::%s", ns, sd.ProtoClass)
 			}
 			if v.Inline {
 				pform := payload.Form.(resolution.StructForm)

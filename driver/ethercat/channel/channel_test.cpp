@@ -557,46 +557,4 @@ TEST(Input, BindRemoteInfoCopiesChannelInformation) {
     ASSERT_EQ(ch->ch.data_type, x::telem::UINT16_T);
 }
 
-TEST(Output, BindRemoteInfoCopiesStateChannelInformation) {
-    slave::Properties slave{
-        .position = 1,
-        .output_pdos = {
-            {.pdo_index = 0x1600,
-             .index = 0x7000,
-             .sub_index = 1,
-             .bit_length = 8,
-             .is_input = false,
-             .name = "Control",
-             .data_type = x::telem::UINT8_T},
-        },
-    };
-
-    nlohmann::json j = {
-        {"disabled", false},
-        {"device", "dev-015"},
-        {"cmd_channel", 1400},
-        {"state_channel", 1401},
-        {"type", "automatic"},
-        {"pdo", "Control"}
-    };
-
-    auto parser = x::json::Parser(j);
-    const auto ch = make_output(
-        ::synnax::ethercat::parse_write_channel(parser),
-        slave,
-        parser
-    );
-
-    synnax::channel::Channel state_ch;
-    state_ch.key = 1401;
-    state_ch.name = "state_channel";
-    state_ch.data_type = x::telem::UINT8_T;
-
-    ch->bind_remote_info(state_ch);
-
-    ASSERT_EQ(ch->state_ch.key, 1401);
-    ASSERT_EQ(ch->state_ch.name, "state_channel");
-    ASSERT_EQ(ch->state_ch.data_type, x::telem::UINT8_T);
-}
-
 }

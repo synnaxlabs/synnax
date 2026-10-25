@@ -13,6 +13,7 @@ import { type optional, type record } from "@synnaxlabs/x";
 import {
   type MouseEvent,
   type MouseEventHandler,
+  type PointerEventHandler,
   type ReactElement,
   useCallback,
   useLayoutEffect,
@@ -50,14 +51,20 @@ export interface ItemRenderProps<K extends record.Key = record.Key> {
 export type ItemProps<
   K extends record.Key,
   E extends Button.ElementType = "div",
-> = Omit<Button.ButtonProps<E>, "key" | "onSelect" | "translate" | "onClick"> &
+> = Omit<
+  Button.ButtonProps<E>,
+  "key" | "onSelect" | "translate" | "onClick" | "onPointerMove"
+> &
   optional.Optional<ItemRenderProps<K>, "index" | "key"> & {
     draggingOver?: boolean;
     rightAligned?: boolean;
     onClick?: MouseEventHandler<HTMLElement>;
+    onPointerMove?: PointerEventHandler<HTMLElement>;
     onSelect?: (key: K, e: MouseEvent<HTMLElement>) => void;
     selected?: boolean;
     hovered?: boolean;
+    /** Called when a mouse or pen moves over the item. */
+    onHover?: () => void;
   };
 
 export type ItemRenderProp<K extends record.Key> = RenderProp<ItemRenderProps<K>>;
@@ -81,7 +88,9 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
   translate,
   onSelect,
   onClick,
+  onPointerMove,
   hovered,
+  onHover,
   style,
   role,
   ref,
@@ -99,6 +108,14 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
     },
     [onSelect, onClick, itemKey],
   );
+  // A touch drag scrolls the list rather than pointing at an item.
+  const handlePointerMove = useCallback<PointerEventHandler<HTMLElement>>(
+    (e) => {
+      if (e.pointerType !== "touch") onHover?.();
+      onPointerMove?.(e);
+    },
+    [onHover, onPointerMove],
+  );
   const elementRef = useRef<HTMLElement>(null);
   const combinedRef = useCombinedRefs<HTMLElement>(ref, elementRef);
   const setElement = useItemsContext();
@@ -115,6 +132,7 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
       id={itemKey.toString()}
       variant="text"
       onClick={handleClick}
+      onPointerMove={handlePointerMove}
       className={CSS.cls(
         className,
         CONTEXT_TARGET,

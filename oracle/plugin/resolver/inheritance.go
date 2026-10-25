@@ -31,40 +31,6 @@ func HasDomainOmissions(form resolution.StructForm) bool {
 	return false
 }
 
-// InheritedFields returns the fields the given parents contribute, keyed by name, with
-// each parent's type arguments substituted. The leftmost parent wins a name collision,
-// matching resolution.UnifiedFields.
-func InheritedFields(
-	extends []resolution.TypeRef,
-	table *resolution.Table,
-) map[string]resolution.Field {
-	out := make(map[string]resolution.Field)
-	for _, ext := range extends {
-		parent, ok := ext.Resolve(table)
-		if !ok {
-			continue
-		}
-		parentForm, ok := parent.Form.(resolution.StructForm)
-		if !ok {
-			continue
-		}
-		typeArgs := make(map[string]resolution.TypeRef, len(parentForm.TypeParams))
-		for i, tp := range parentForm.TypeParams {
-			if i < len(ext.TypeArgs) {
-				typeArgs[tp.Name] = ext.TypeArgs[i]
-			}
-		}
-		for _, f := range resolution.UnifiedFields(parent, table) {
-			if _, seen := out[f.Name]; seen {
-				continue
-			}
-			f.Type = resolution.SubstituteTypeRef(f.Type, typeArgs)
-			out[f.Name] = f
-		}
-	}
-	return out
-}
-
 // DefaultOnlyOverrides returns the names of fields that redeclare a field inherited
 // from extends to change only its default. Every language can express such an override
 // while still inheriting: the field keeps its declared type and optionality, so only
@@ -76,7 +42,7 @@ func DefaultOnlyOverrides(
 	table *resolution.Table,
 ) set.Set[string] {
 	out := make(set.Set[string])
-	inherited := InheritedFields(extends, table)
+	inherited := resolution.InheritedFields(extends, table)
 	for _, child := range fields {
 		parent, ok := inherited[child.Name]
 		if !ok || isStructuralOverride(parent, child) {
@@ -95,7 +61,7 @@ func HasStructuralOverride(
 	form resolution.StructForm,
 	table *resolution.Table,
 ) bool {
-	inherited := InheritedFields(form.Extends, table)
+	inherited := resolution.InheritedFields(form.Extends, table)
 	for _, child := range form.Fields {
 		if parent, ok := inherited[child.Name]; ok &&
 			isStructuralOverride(parent, child) {
@@ -194,7 +160,7 @@ func VariantBases(
 	})...)
 	var flattened [][]resolution.Field
 	for _, ref := range bases {
-		base, ok := ref.Resolve(table)
+		base, _, ok := resolution.Dealias(ref, table)
 		if !ok {
 			continue
 		}

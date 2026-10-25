@@ -10,11 +10,15 @@
 package arc_test
 
 import (
+	"maps"
+	"slices"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/stl/channels"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -114,6 +118,62 @@ var _ = Describe("Sequence", func() {
 		h.Tick(ctx, elapsed)
 		h.channelState.ClearReads()
 	}
+
+	// steps maps every native function without outputs to a call that runs it.
+	Describe("Native steps without outputs", func() {
+		steps := map[string]string{
+			"control.set_authority": "control.set_authority{value=200}",
+		}
+		names := slices.Sorted(maps.Keys(steps))
+
+		It("Should list every native function without outputs", func() {
+			var found []string
+			var walk func([]*symbol.Symbol)
+			walk = func(syms []*symbol.Symbol) {
+				for _, s := range syms {
+					if s.Kind == symbol.KindFunction && s.Deprecated == nil &&
+						s.Exec&symbol.ExecFlow != 0 && len(s.Type.Outputs) == 0 {
+						found = append(found, s.QualifiedName())
+					}
+					walk(s.Children())
+				}
+			}
+			walk(stl.NewSymbols())
+			Expect(found).To(
+				ConsistOf(names),
+				"add the function to steps and call MarkDone in its node",
+			)
+		})
+
+		advancesPast := func(ctx SpecContext, call string) {
+			resolver := channelSymbols(
+				map[string]channelDef{"log": {types.String(), 101}},
+			)
+			module, _, _ := strings.Cut(call, ".")
+			h := newRuntimeHarness(ctx, `
+			import `+module+`
+
+			sequence main {
+			    `+call+`
+			    "after" -> log
+			}
+			true => main`, resolver,
+				channels.Digest{Key: 101, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+
+			for i := range 5 {
+				advance(h, ctx, telem.TimeSpan(i+1)*telem.Millisecond)
+			}
+			out, _ := h.Flush()
+			Expect(drainStrings(out, 101)).To(Equal([]string{"after"}))
+		}
+		args := []any{advancesPast}
+		for _, name := range names {
+			args = append(args, Entry(name, steps[name]))
+		}
+		DescribeTable("Should advance past the step once its node runs", args...)
+	})
 
 	// A nested sequence is one step of its parent: when its last step
 	// completes, the parent advances, or exits when that step was terminal. A

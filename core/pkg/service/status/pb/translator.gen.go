@@ -74,7 +74,7 @@ func StatusToPB[Details any](
 		return nil, err
 	}
 	pb := &Status{
-		Key:         string(r.Key),
+		Key:         r.Key,
 		Name:        r.Name,
 		Message:     r.Message,
 		Description: r.Description,
@@ -111,7 +111,7 @@ func StatusFromPB[Details any](
 	if err != nil {
 		return status.Status[Details]{}, err
 	}
-	r.Key = status.Key(pb.Key)
+	r.Key = pb.Key
 	r.Name = pb.Name
 	r.Message = pb.Message
 	r.Description = pb.Description

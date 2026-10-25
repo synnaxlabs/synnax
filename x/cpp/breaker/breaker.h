@@ -13,6 +13,7 @@
 #include <cassert>
 #include <condition_variable>
 #include <format>
+#include <utility>
 
 #include "absl/log/log.h"
 
@@ -71,7 +72,7 @@ class Breaker {
     [[nodiscard]] std::string next_retry_locked() const {
         const auto next = this->retries + 1;
         if (this->config.max_retries != RETRY_INFINITELY &&
-            next > static_cast<size_t>(this->config.max_retries))
+            std::cmp_greater(next, this->config.max_retries))
             return "";
         return std::format(
             "retry {}/{} in {:.1f} s",

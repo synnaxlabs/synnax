@@ -137,8 +137,20 @@ const setupDisconnected = () => {
   return { controller: h.child<Controller>(CONTROLLER_KEY), handle: h };
 };
 
-const statusesOf = (h: { providers: { status: status.Aggregator | null } }): string[] =>
-  h.providers.status?.state.statuses.map(({ message }) => message) ?? [];
+interface StatusText {
+  name: string;
+  message: string;
+  description?: string;
+}
+
+const statusesOf = (h: {
+  providers: { status: status.Aggregator | null };
+}): StatusText[] =>
+  h.providers.status?.state.statuses.map(({ name, message, description }) => ({
+    name,
+    message,
+    description,
+  })) ?? [];
 
 interface Intercept {
   openWriter: OpenWriter;
@@ -209,9 +221,11 @@ describe("control/aether/Controller", SUITE, () => {
     controller.acquire();
     await expect
       .poll(() => statusesOf(handle), POLL)
-      .toContain(
-        `Failed to acquire control on ${CONTROLLER_NAME}: no Core is connected.`,
-      );
+      .toContainEqual({
+        name: CONTROLLER_NAME,
+        message: "Failed to acquire control",
+        description: "No Core is connected.",
+      });
     expect(controller.state.status).toBeUndefined();
   });
 
@@ -220,9 +234,11 @@ describe("control/aether/Controller", SUITE, () => {
     controller.acquire();
     await expect
       .poll(() => statusesOf(handle), POLL)
-      .toContain(
-        `Cannot acquire control on ${CONTROLLER_NAME} because there are no channels to control.`,
-      );
+      .toContainEqual({
+        name: CONTROLLER_NAME,
+        message: "Failed to acquire control",
+        description: "No symbols control any channels.",
+      });
     expect(controller.state.status).toBeUndefined();
   });
 
@@ -299,9 +315,14 @@ describe("control/aether/Controller", SUITE, () => {
     expect([...controller.state.needsControlOf].sort()).toEqual(
       [ch.key, ch.index].sort(),
     );
-    expect(statusesOf(handle)).toContain(
-      `Some symbols on ${CONTROLLER_NAME} use channels that no longer exist`,
-    );
+    expect(statusesOf(handle)).toContainEqual({
+      name: CONTROLLER_NAME,
+      message: "Skipped deleted channels",
+      description: [
+        "Some symbols use channels that no longer exist.",
+        `Channels with keys [${deleted.key}] not found: not found: query`,
+      ].join("\n"),
+    });
     await expect(controller.set({ [deleted.key]: [1] })).rejects.toThrow();
     await controller.set({ [ch.key]: [1] });
     await expect

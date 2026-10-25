@@ -26,9 +26,9 @@ namespace arc::stl::channels {
 using Series = x::mem::local_shared<x::telem::Series>;
 
 struct Digest {
-    types::ChannelKey key;
+    types::ChannelKey key{};
     x::telem::DataType data_type;
-    types::ChannelKey index;
+    types::ChannelKey index{};
 };
 
 class State {

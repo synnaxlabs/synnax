@@ -25,12 +25,12 @@ export interface SelectSingleProps
     >,
     Flux.UseListParams<ListQuery, icd.Key, icd.ICD> {}
 
-const listItemRenderProp = Component.renderProp(
-  (props: List.ItemRenderProps<icd.Key>) => {
-    const item = List.useItem<icd.Key, icd.ICD>(props.itemKey);
-    return <Select.Item {...props}>{item?.name}</Select.Item>;
-  },
-);
+const ListItem = (props: List.ItemRenderProps<icd.Key>) => {
+  const item = List.useItem<icd.Key, icd.ICD>(props.itemKey);
+  return <Select.Item {...props}>{item?.name}</Select.Item>;
+};
+
+const listItemRenderProp = Component.renderProp(ListItem);
 
 /** Selects one ICD. */
 export const SelectSingle = ({

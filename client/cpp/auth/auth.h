@@ -78,7 +78,7 @@ class Middleware final : public freighter::PassthroughMiddleware {
 
 public:
     /// Cluster information.
-    ClusterInfo cluster_info = ClusterInfo();
+    ClusterInfo cluster_info;
 
     Middleware(
         std::unique_ptr<LoginClient> login_client,

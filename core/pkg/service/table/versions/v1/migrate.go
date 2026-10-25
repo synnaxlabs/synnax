@@ -13,10 +13,10 @@ import (
 	"context"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // MigrateTable transforms the previous Table snapshot (v0) into the v1 Table.
@@ -55,4 +55,4 @@ func MigrateTable(ctx context.Context, old v0.Table) (Table, error) {
 }
 
 // Migration lifts stored tables from the v0 blob layout to the typed v1 shape.
-var Migration = gorp.NewEntryMigration("v55_lift_typed_table", MigrateTable)
+var Migration = migrate.NewEntry("v55_lift_typed_table", MigrateTable)

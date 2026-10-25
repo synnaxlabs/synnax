@@ -9,7 +9,14 @@
 
 import { describe, expect, it } from "vitest";
 
-import { cdnKey, define, filter, videoName } from "@/manifest/manifest";
+import {
+  cdnKey,
+  define,
+  filter,
+  stillKey,
+  stillsDir,
+  videoName,
+} from "@/manifest/manifest";
 
 describe("manifest.define", () => {
   it("should accept well-formed entries", () => {
@@ -75,6 +82,15 @@ describe("manifest names", () => {
   it("should drop the theme suffix from an unthemed CDN key", () => {
     expect(cdnKey("releases/0-57-0/panels", null)).toEqual(
       "docs/releases/0-57-0/panels.mp4",
+    );
+  });
+
+  it("should keep the id's slashes in the stills directory and CDN keys", () => {
+    expect(stillsDir("console/ui-overview/tour")).toEqual(
+      "stills/console/ui-overview/tour",
+    );
+    expect(stillKey("console/ui-overview/tour", "3f2a/mosaic-dark.webp")).toEqual(
+      "docs/console/ui-overview/tour/3f2a/mosaic-dark.webp",
     );
   });
 });

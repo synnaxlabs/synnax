@@ -56,7 +56,7 @@ const useResolve = ({ canDrop, onDrop }: UseDropOutsideProps) => {
       onDrop(state, cursor);
       return { target: TARGET, dropped: state.items };
     },
-    [windowsContain],
+    [propsRef, windowsContain],
   );
 };
 

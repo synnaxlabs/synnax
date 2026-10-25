@@ -20,7 +20,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.moveTo({ x: 756, y: 500 });
 
   session.startRecording();
-  await session.hold(1000);
+  await session.hold(1800);
 
   // The dialog opens beside the small avatar, so a punch-in would crop it.
   const trigger = page.locator(".console-project-selector__trigger").first();
@@ -33,15 +33,15 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(900);
   await session.click(create, { text: true, zoom: false });
 
-  const name = page.locator(".console-modal").getByPlaceholder("Name").first();
+  const name = page.locator(capture.MODAL).getByPlaceholder("Name").first();
   await session.waitFor(name);
   await session.hold(600);
-  await session.zoom(page.locator(".console-modal").first());
+  await session.zoom(page.locator(capture.MODAL).first());
   await session.type("Hotfire Campaign");
   await session.hold(500);
   await capture.clickButton(session, "Create");
-  await session.waitForHidden(name);
   session.endZoom();
+  await session.waitForHidden(name);
   await session.waitFor(page.getByText("New panel").first());
   await session.hold(1200);
 
@@ -49,6 +49,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.click(trigger, { zoom: false });
   const dialog = page.locator(".console-project-selector-dialog").first();
   await session.waitFor(dialog.getByText("Hotfire Campaign").first());
-  await session.zoom(dialog);
+  // Park clear of the component buttons, so none shows a hover state.
+  await session.moveTo({ x: 1300, y: 780 });
   await session.hold(2800);
 };

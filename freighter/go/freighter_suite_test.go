@@ -20,7 +20,7 @@ import (
 
 func TestGo(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Freighter Suite")
+	RunSpecs(t, "Freighter Suite", SuiteConfig())
 }
 
 var _ = Describe("SenderNopCloser", func() {

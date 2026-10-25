@@ -14,14 +14,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestPassword(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Auth Password Suite")
+	RunSpecs(t, "Service Auth Password Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

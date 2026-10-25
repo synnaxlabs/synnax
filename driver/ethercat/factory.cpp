@@ -34,14 +34,22 @@ namespace driver::ethercat {
 const std::string PCAP_LIB_NAME = "wpcap.dll";
 #elif defined(__APPLE__)
 const std::string PCAP_LIB_NAME = "libpcap.dylib";
-#else
-const std::string PCAP_LIB_NAME = "libpcap.so";
 #endif
 
+#ifndef __linux__
 static bool check_pcap_available() {
+#ifdef _WIN32
+    // Npcap installs its DLLs outside the default search path unless it runs in
+    // WinPcap-compatible mode.
+    char dir[MAX_PATH];
+    const UINT len = GetSystemDirectoryA(dir, MAX_PATH);
+    if (len > 0 && len < MAX_PATH)
+        SetDllDirectoryA((std::string(dir) + "\\Npcap").c_str());
+#endif
     x::lib::Shared lib(PCAP_LIB_NAME);
     return lib.load();
 }
+#endif
 
 std::unique_ptr<master::Manager> default_manager() {
 #ifdef __linux__
@@ -53,11 +61,11 @@ std::unique_ptr<master::Manager> default_manager() {
     LOG(INFO) << "[ethercat] IgH unavailable, falling back to SOEM backend";
 #else
     LOG(INFO) << "[ethercat] using SOEM backend";
-#endif
     if (!check_pcap_available()) {
         LOG(WARNING) << "[ethercat] " << driver::errors::missing_lib(PCAP_LIBRARY_INFO);
         return nullptr;
     }
+#endif
     return std::make_unique<soem::Manager>();
 }
 
@@ -133,7 +141,7 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const synnax::task::Task &task,
     const std::string &cmd_key
 ) {
-    if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
+    if (!task.type.starts_with(INTEGRATION_NAME)) return {nullptr, false};
     std::pair<common::ConfigureResult, x::errors::Error> res;
     if (task.type == READ_TASK_TYPE)
         res = this->configure_read(ctx, task);

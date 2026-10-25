@@ -19,7 +19,7 @@ import (
 
 func TestStreamer(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Framer Streamer Suite")
+	RunSpecs(t, "Service Framer Streamer Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

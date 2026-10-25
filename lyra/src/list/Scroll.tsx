@@ -9,7 +9,7 @@
 
 import "@/list/Scroll.css";
 
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
@@ -33,6 +33,8 @@ export interface ScrollProps extends Omit<Flex.BoxProps, "ref"> {
    border-box, so omitting it leaves short lists scrolling by exactly this amount. */
 const VERTICAL_PADDING = 12;
 
+const ITEM_HEIGHT_VARIABLE = CSS.variable("list-item-height");
+
 /**
  * The scroll container of a {@link Frame}. It holds {@link Items} and any content
  * rendered around them, and it is the element a virtualized list measures.
@@ -49,24 +51,20 @@ export const Scroll = ({
   y,
   ...rest
 }: ScrollProps): ReactElement => {
-  const { ref, data, itemHeight, getTotalSize } = useData();
+  const { ref, data, itemHeight, totalSize } = useData();
   const count = itemCount ?? data.length;
   const hasItems = count > 0;
-  const isVirtual = getTotalSize() != null;
+  const isVirtual = totalSize != null;
 
   let minHeight: number | undefined;
   if (itemHeight != null && displayItems != null && isFinite(displayItems) && hasItems)
     minHeight = Math.min(displayItems, count) * itemHeight + VERTICAL_PADDING + 1;
 
-  const boxStyle = useMemo(
-    () => ({
-      height: minHeight,
-      [CSS.variable("list-item-height")]:
-        itemHeight != null ? `${itemHeight}px` : undefined,
-      ...style,
-    }),
-    [minHeight, itemHeight, style],
-  );
+  const boxStyle = {
+    height: minHeight,
+    [ITEM_HEIGHT_VARIABLE]: itemHeight != null ? `${itemHeight}px` : undefined,
+    ...style,
+  };
 
   const parsedDirection = Flex.parseDirection(direction, x, y);
   return (

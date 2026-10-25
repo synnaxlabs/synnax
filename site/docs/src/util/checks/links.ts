@@ -7,11 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import fs from "fs";
-import path from "path";
-
 import { type Check, type Context } from "@/util/checks/check";
-import { locate, pageFiles, PAGES_DIR } from "@/util/checks/crawl";
+import { locate, navRefs, type Ref } from "@/util/checks/crawl";
 import { attrValues, idValues } from "@/util/checks/html";
 import { normalizeRoute } from "@/util/route";
 
@@ -38,26 +35,6 @@ const externalURL = (url: URL): string => {
   }
   return url.toString();
 };
-
-interface Ref {
-  source: string;
-  base: string;
-  href: string;
-}
-
-// Deep nav entries only render after hydration, so the crawl can't see them; pull every
-// href straight from the nav definitions.
-const navRefs = (): Ref[] =>
-  pageFiles()
-    .filter((f) => f.endsWith("_nav.ts"))
-    .flatMap((f) => {
-      const text = fs.readFileSync(path.join(PAGES_DIR, f), "utf8");
-      return [...text.matchAll(/href:\s*"([^"]+)"/g)].map((m) => ({
-        source: `src/pages/${f}:${text.slice(0, m.index).split("\n").length}`,
-        base: "/",
-        href: m[1],
-      }));
-    });
 
 const checkRef = async (
   ctx: Context,

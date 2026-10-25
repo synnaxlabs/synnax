@@ -15,7 +15,7 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp"
 )
 
 // MatchVirtual returns a filter for channels that are virtual if virtual is true, or

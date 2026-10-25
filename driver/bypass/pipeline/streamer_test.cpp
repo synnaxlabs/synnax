@@ -136,7 +136,7 @@ TEST(StreamerTest, CoreErrorDuringActiveReading) {
     x::telem::Frame valid_frame;
     valid_frame.emplace(1, x::telem::Series(static_cast<float>(99.0)));
     reads->push_back(std::move(valid_frame));
-    reads->push_back(x::telem::Frame());
+    reads->emplace_back();
     auto read_errors = std::make_shared<std::vector<x::errors::Error>>();
     read_errors->push_back(x::errors::NIL);
     read_errors->push_back(freighter::UNREACHABLE);

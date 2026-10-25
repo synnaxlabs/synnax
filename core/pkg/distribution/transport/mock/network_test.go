@@ -107,4 +107,22 @@ var _ = Describe("Transport", func() {
 			Expect(res.States).To(ConsistOf(control.State{Resource: 9}))
 		},
 	)
+
+	It(
+		"Should count control subscriptions on the control network",
+		func(ctx SpecContext) {
+			server.Control().SubscribeServer().BindHandler(func(
+				_ context.Context,
+				srv control.SubscribeStream,
+			) error {
+				return srv.Send(control.SubscribeResponse{})
+			})
+			stream := MustSucceed(
+				client.Control().SubscribeClient().Stream(ctx, leaseholder),
+			)
+			MustSucceed(stream.Receive())
+			Expect(stream.CloseSend()).To(Succeed())
+			Expect(net.Control().Subscriptions()).To(Equal(1))
+		},
+	)
 })

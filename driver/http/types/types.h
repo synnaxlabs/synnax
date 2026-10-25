@@ -18,6 +18,7 @@
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/strings/strings.h"
 #include "x/cpp/telem/telem.h"
 
 namespace driver::http {
@@ -109,7 +110,7 @@ constexpr bool has_response_body(const Method m) {
 /// @brief static request configuration, set once at task setup time.
 struct RequestConfig {
     /// @brief HTTP method.
-    Method method;
+    Method method = Method::GET;
     /// @brief URL path (appended to base_url).
     std::string path;
     /// @brief query parameters.
@@ -132,7 +133,7 @@ struct Request {
     /// @brief cap on in-flight requests sharing base_url.
     std::size_t max_concurrent_requests = DEFAULT_MAX_CONCURRENT_REQUESTS;
     /// @brief HTTP method.
-    Method method;
+    Method method = Method::GET;
     /// @brief request timeout.
     x::telem::TimeSpan timeout;
     /// @brief whether to verify SSL certificates.
@@ -144,6 +145,9 @@ struct Request {
     std::string body;
 };
 
+/// @brief the most bytes of a response body that Response::body_excerpt keeps.
+constexpr std::size_t MAX_BODY_EXCERPT_SIZE = 500;
+
 /// @brief an HTTP response.
 struct Response {
     /// @brief HTTP status code.
@@ -152,6 +156,18 @@ struct Response {
     std::string body;
     /// @brief time range spanning the request.
     x::telem::TimeRange time_range;
+
+    /// @brief returns the start of the body on one line, for quoting in a status. A
+    /// body over MAX_BODY_EXCERPT_SIZE bytes is cut at a UTF-8 character boundary and
+    /// ends in "...".
+    [[nodiscard]] std::string body_excerpt() const {
+        if (this->body.size() <= MAX_BODY_EXCERPT_SIZE)
+            return x::strings::escape_line_breaks(this->body);
+        auto end = MAX_BODY_EXCERPT_SIZE;
+        while (end > 0 && (static_cast<unsigned char>(this->body[end]) & 0xC0) == 0x80)
+            end--;
+        return x::strings::escape_line_breaks(this->body.substr(0, end)) + "...";
+    }
 };
 
 /// @brief validates that str is a well-formed JSON Pointer, accumulating an error

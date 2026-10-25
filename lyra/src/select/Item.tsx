@@ -43,13 +43,14 @@ export type ItemProps<
 const BlockItem = <K extends record.Key, E extends Button.ElementType>(
   props: List.ItemProps<K, E>,
 ): ReactNode => {
-  const { selected, hovered, onSelect, sole } = useItemState(props.itemKey);
+  const { selected, hovered, onSelect, onHover, sole } = useItemState(props.itemKey);
   const reselectNoop = useReselectNoop();
   return (
     <List.Item<K, E>
       role="option"
       selected={selected}
       hovered={hovered}
+      onHover={onHover}
       onSelect={onSelect}
       preventClick={reselectNoop && sole ? true : undefined}
       {...props}
@@ -119,7 +120,7 @@ const OpenFixedItem = <K extends record.Key, E extends Button.ElementType>(
   props: List.ItemProps<K, E>,
 ): ReactNode => {
   const { itemKey, children } = props;
-  const { selected, hovered, onSelect, sole } = useItemState(itemKey);
+  const { selected, hovered, onSelect, onHover, sole } = useItemState(itemKey);
   const reselectNoop = useReselectNoop();
   const registry = useRegistryContext("Select.Item");
   const hidden = useIsHidden(itemKey);
@@ -130,6 +131,7 @@ const OpenFixedItem = <K extends record.Key, E extends Button.ElementType>(
         role="option"
         selected={selected}
         hovered={hovered}
+        onHover={onHover}
         onSelect={onSelect}
         preventClick={reselectNoop && sole ? true : undefined}
         hidden={hidden}

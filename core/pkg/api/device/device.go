@@ -12,19 +12,65 @@ package device
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/device"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/validate"
 )
+
+// ServiceConfig is the configuration for the device API service.
+type ServiceConfig struct {
+	// Device stores and retrieves devices.
+	//
+	// [REQUIRED]
+	Device *device.Service
+	// Status stores and retrieves statuses.
+	//
+	// [REQUIRED]
+	Status *status.Service
+	// RBAC enforces access control on every request.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
+	// Ontology stores the relationships between resources.
+	//
+	// [REQUIRED]
+	Ontology *ontology.Ontology
+}
+
+var (
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for the device API service.
+	DefaultServiceConfig = ServiceConfig{}
+)
+
+// Override implements config.Config.
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.Device = override.Nil(c.Device, other.Device)
+	c.Status = override.Nil(c.Status, other.Status)
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	return c
+}
+
+// Validate implements config.Config.
+func (c ServiceConfig) Validate() error {
+	v := validate.New("api.device")
+	v.NotNil("device", c.Device)
+	v.NotNil("status", c.Status)
+	v.NotNil("rbac", c.RBAC)
+	v.NotNil("ontology", c.Ontology)
+	return v.Error()
+}
 
 type Service struct {
 	access   *rbac.Service
@@ -33,16 +79,16 @@ type Service struct {
 	ontology *ontology.Ontology
 }
 
-func NewService(cfgs ...config.LayerConfig) (*Service, error) {
-	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	return &Service{
-		device:   cfg.Service.Device,
-		status:   cfg.Service.Status,
-		access:   cfg.Service.RBAC,
-		ontology: cfg.Service.Ontology,
+		device:   cfg.Device,
+		status:   cfg.Status,
+		access:   cfg.RBAC,
+		ontology: cfg.Ontology,
 	}, nil
 }
 

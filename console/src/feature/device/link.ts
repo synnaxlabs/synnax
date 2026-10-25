@@ -24,5 +24,3 @@ export const useLink = (): Link.Handler => {
     [configure],
   );
 };
-
-export const LINKS: Link.Registry = { device: useLink };

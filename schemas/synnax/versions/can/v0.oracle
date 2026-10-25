@@ -53,18 +53,21 @@ Properties struct {
 
 ReadConfig struct extends bus.ReadConfig {
     @doc value  "configures a CAN read task."
+    @go imex    body
     @go marshal
     @go migrate
 }
 
 WriteConfig struct extends bus.WriteConfig {
     @doc value  "configures a CAN write task."
+    @go imex    body
     @go marshal
     @go migrate
 }
 
 ScanConfig struct extends task.ScanConfig {
     @doc value  "configures the scan task that lists the channels of each backend."
+    @go imex    body
     @go marshal
     @go migrate
 }

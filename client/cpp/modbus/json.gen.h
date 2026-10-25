@@ -32,8 +32,8 @@ inline RegisterValue RegisterValue::parse(x::json::Parser parser) {
             "data_type",
             ::x::telem::DataType("uint8")
         ),
-        .bytes_swapped = parser.field<bool>("bytes_swapped", false),
-        .words_swapped = parser.field<bool>("words_swapped", false),
+        .bytes_swapped = parser.field<std::optional<bool>>("bytes_swapped"),
+        .words_swapped = parser.field<std::optional<bool>>("words_swapped"),
     };
 }
 

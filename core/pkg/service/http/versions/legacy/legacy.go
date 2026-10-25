@@ -17,8 +17,9 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
-// LastVersion is the newest legacy HTTP shape. The typed shape sits directly above it.
-const LastVersion imex.Version = 1
+// LastVersion is the newest version whose blobs need the rewrite. Released Cores
+// stamped both the v2 and v3 read shapes at 2, and the rewrite leaves both unchanged.
+const LastVersion imex.Version = 2
 
 // Read converts both released read shapes.
 var Read = legacy.Rewrite{Pre: listify, Post: read}

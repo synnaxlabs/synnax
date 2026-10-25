@@ -21,8 +21,8 @@ from synnax.ethercat.types_gen import (
 from synnax.telem import CrudeRate, Rate
 
 # Device identifiers - must match driver expectations
-MAKE = "EtherCAT"
-MODEL = "Slave"
+MAKE = "ethercat"
+MODEL = "slave"
 
 
 class PDOEntry(BaseModel):

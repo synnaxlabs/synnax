@@ -19,7 +19,7 @@ import (
 
 func TestAddress(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Address Suite")
+	RunSpecs(t, "Address Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

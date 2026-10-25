@@ -13,8 +13,11 @@
 #include "x/cpp/bench/bench.h"
 
 namespace x::bench {
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): the global operator
+// new counts into these.
 std::atomic<int64_t> alloc_count{0};
 std::atomic<int64_t> alloc_bytes{0};
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 }
 
 // A replacement operator new may not be declared inline, so these live here

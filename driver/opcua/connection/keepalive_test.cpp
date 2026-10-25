@@ -52,8 +52,8 @@ TEST_F(ConnectionPoolKeepAliveTest, RepeatedAcquireKeepsConnectionAlive) {
         auto connection = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
 
         // Verify connection is actually functional
-        UA_SessionState session_state;
-        UA_SecureChannelState channel_state;
+        UA_SessionState session_state = UA_SESSIONSTATE_CLOSED;
+        UA_SecureChannelState channel_state = UA_SECURECHANNELSTATE_CLOSED;
         UA_Client_getState(connection.get(), &channel_state, &session_state, nullptr);
 
         EXPECT_EQ(session_state, UA_SESSIONSTATE_ACTIVATED)
@@ -88,8 +88,8 @@ TEST_F(ConnectionPoolKeepAliveTest, ConnectionSurvivesIdlePeriods) {
     // Acquire again - should get same connection, still alive
     auto conn2 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
 
-    UA_SessionState session_state;
-    UA_SecureChannelState channel_state;
+    UA_SessionState session_state = UA_SESSIONSTATE_CLOSED;
+    UA_SecureChannelState channel_state = UA_SECURECHANNELSTATE_CLOSED;
     UA_Client_getState(conn2.get(), &channel_state, &session_state, nullptr);
 
     EXPECT_EQ(session_state, UA_SESSIONSTATE_ACTIVATED);
@@ -107,6 +107,7 @@ TEST_F(ConnectionPoolKeepAliveTest, ConcurrentAccessWithKeepAlive) {
 
     std::vector<std::thread> threads;
 
+    threads.reserve(num_threads);
     for (int i = 0; i < num_threads; ++i) {
         threads.emplace_back([&]() {
             for (int j = 0; j < iterations_per_thread; ++j) {
@@ -116,8 +117,8 @@ TEST_F(ConnectionPoolKeepAliveTest, ConcurrentAccessWithKeepAlive) {
                     continue;
                 }
 
-                UA_SessionState session_state;
-                UA_SecureChannelState channel_state;
+                UA_SessionState session_state = UA_SESSIONSTATE_CLOSED;
+                UA_SecureChannelState channel_state = UA_SECURECHANNELSTATE_CLOSED;
                 UA_Client_getState(
                     connection.get(),
                     &channel_state,
@@ -188,8 +189,8 @@ TEST_F(ConnectionPoolKeepAliveTest, ShortTimeoutKeepAlive) {
         auto connection = ASSERT_NIL_P(pool.acquire(short_cfg, "[test] "));
 
         // Verify connection is active
-        UA_SessionState session_state;
-        UA_SecureChannelState channel_state;
+        UA_SessionState session_state = UA_SESSIONSTATE_CLOSED;
+        UA_SecureChannelState channel_state = UA_SECURECHANNELSTATE_CLOSED;
         UA_Client_getState(connection.get(), &channel_state, &session_state, nullptr);
 
         EXPECT_EQ(session_state, UA_SESSIONSTATE_ACTIVATED)

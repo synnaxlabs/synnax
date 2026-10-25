@@ -62,6 +62,9 @@ type node struct {
 	// entry marks a node with no incoming edges and no channel reads. Entry
 	// nodes fire once per activation.
 	entry bool
+	// done is the markedFlags index of the node's ir.DoneParam pseudo-output, -1
+	// when no transition waits on it.
+	done int
 }
 
 // member mirrors an ir.Member: exactly one of node or scope is set.
@@ -486,6 +489,13 @@ func (s *Scheduler) markChanged(outputIdx int) {
 // without an upstream change.
 func (s *Scheduler) markSelfChanged() {
 	s.selfChangedFlags[s.currNode.idx] = 1
+}
+
+// markDone records a fresh mark on the current node's ir.DoneParam pseudo-output.
+func (s *Scheduler) markDone() {
+	if s.currNode.done >= 0 {
+		s.markedFlags[s.currNode.done] = 1
+	}
 }
 
 // reportError forwards err to the error handler, tagged with the

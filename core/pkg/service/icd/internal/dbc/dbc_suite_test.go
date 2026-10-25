@@ -19,7 +19,7 @@ import (
 
 func TestDBC(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "DBC Suite")
+	RunSpecs(t, "DBC Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

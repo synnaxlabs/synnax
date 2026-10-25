@@ -19,8 +19,8 @@ var _ = Describe("Retrieve", func() {
 	It("Should retrieve a Table", func(ctx SpecContext) {
 		s := table.Table{
 			Name:    "test",
-			Rows:    []table.Row{{Size: 30, Cells: []string{"a"}}},
-			Columns: []table.Column{{Size: 80}},
+			Rows:    []table.Row{{Key: "r0", Size: 30, Cells: []string{"a"}}},
+			Columns: []table.Column{{Key: "c0", Size: 80}},
 			Cells: map[string]table.CellConfig{
 				"a": textCfg("hello"),
 			},

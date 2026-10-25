@@ -16,10 +16,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
-	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
 	apicontrol "github.com/synnaxlabs/synnax/pkg/api/control"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	svc "github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
@@ -40,7 +38,7 @@ import (
 
 func TestAPIControl(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API Control Suite")
+	RunSpecs(t, "API Control Suite", SuiteConfig())
 }
 
 var (
@@ -108,9 +106,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Control: dist.Control,
 		Signals: sigs,
 	}))
-	apiSvc = MustSucceed(apicontrol.NewService(apicfg.LayerConfig{
-		Distribution: dist.Layer,
-		Service:      &svc.Layer{Control: controlSvc, RBAC: rbacSvc},
+	apiSvc = MustSucceed(apicontrol.NewService(apicontrol.ServiceConfig{
+		Control: controlSvc,
+		RBAC:    rbacSvc,
 	}))
 })
 

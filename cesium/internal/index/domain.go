@@ -58,16 +58,11 @@ func byteSize(sampleCount int64) telem.Size {
 // timestamp less than or equal to the start timestamp). Naturally, a time range
 // whose start timestamp and end timestamps are both known will have an equal lower
 // and upper bound.
-//
-// The distance method also returns an alignment pair, which represents the
-// alignment of the lower and upper bounds. The alignment pair is a 64-bit integer
-// where the lower 32 bits represent the domain and the upper 32 bits represent the
-// sample index within the domain.
 func (i *Domain) Distance(
 	ctx context.Context,
 	tr telem.TimeRange,
 	continuous ContinuousPolicy,
-) (approx DistanceApproximation, alignment telem.Alignment, err error) {
+) (approx DistanceApproximation, err error) {
 	ctx, span := i.T.Bench(ctx, "distance")
 	defer func() { _ = span.EndWith(err, ErrDiscontinuous) }()
 
@@ -79,7 +74,7 @@ func (i *Domain) Distance(
 		// no data exists for that time range, so it's impossible to approximate a
 		// distance.
 		err = NewDiscontinuousTRError(tr)
-		return approx, alignment, err
+		return approx, err
 	}
 
 	effectiveDomainTR, _ := resolveForwardEffectiveDomainTR(iter)
@@ -88,7 +83,7 @@ func (i *Domain) Distance(
 		// A result of false in this case should be impossible, as we already validated
 		// the iterator by calling SeekFirst in a previous call.
 		i.L.DPanic("iterator seekFirst failed in stamp")
-		return approx, alignment, err
+		return approx, err
 	}
 
 	// If the time range is not contained within the effective domain, then it's
@@ -96,19 +91,18 @@ func (i *Domain) Distance(
 	// results.
 	if !effectiveDomainTR.ContainsRange(tr) && continuous {
 		err = NewDiscontinuousTRError(tr)
-		return approx, alignment, err
+		return approx, err
 	}
 
 	// If the time range is zero, then the distance is zero.
 	if tr.Span().IsZero() {
-		alignment = telem.NewAlignment(iter.Position(), 0)
-		return approx, alignment, err
+		return approx, err
 	}
 
 	// Open a new reader on the domain at the start of the range.
 	r, err := iter.OpenReader(ctx)
 	if err != nil {
-		return approx, alignment, err
+		return approx, err
 	}
 	defer func() { err = errors.Combine(err, r.Close()) }()
 
@@ -116,7 +110,7 @@ func (i *Domain) Distance(
 
 	startApprox, err = i.search(tr.Start, r)
 	if err != nil {
-		return approx, alignment, err
+		return approx, err
 	}
 	approx.StartExact = startApprox.Exact()
 
@@ -129,16 +123,14 @@ func (i *Domain) Distance(
 			endApprox.Upper-startApprox.Lower,
 		)
 		approx.EndExact = endApprox.Exact()
-
-		alignment = telem.NewAlignment(iter.Position(), uint32(endApprox.Upper))
-		return approx, alignment, err
+		return approx, err
 	} else if continuous &&
 		!effectiveDomainTR.ContainsStamp(tr.End) &&
 		effectiveDomainTR.End != tr.End {
 		// Otherwise, unless the effective domain contains the end of the time range
 		// the distance is discontinuous
 		err = NewDiscontinuousTRError(tr)
-		return approx, alignment, err
+		return approx, err
 	}
 
 	var (
@@ -158,38 +150,105 @@ func (i *Domain) Distance(
 			(continuous && !effectiveDomainTR.ContainsRange(iter.TimeRange())) {
 			if continuous {
 				err = NewDiscontinuousTRError(tr)
-				return approx, alignment, err
+				return approx, err
 			}
 			approx.Approximation = Between(
 				startToFirstEnd.Lower+totalTraversed,
 				startToFirstEnd.Upper+totalTraversed,
 			)
-			alignment = telem.NewAlignment(
-				iter.Position(),
-				uint32(sampleCount(iter.Size())),
-			)
-			return approx, alignment, err
+			return approx, err
 		}
 		if iter.TimeRange().ContainsStamp(tr.End) {
 			if err = r.Close(); err != nil {
-				return approx, alignment, err
+				return approx, err
 			}
 			if r, err = iter.OpenReader(ctx); err != nil {
-				return approx, alignment, err
+				return approx, err
 			}
 			if endApprox, err = i.search(tr.End, r); err != nil {
-				return approx, alignment, err
+				return approx, err
 			}
 			approx.EndExact = endApprox.Exact()
-			alignment = telem.NewAlignment(iter.Position(), uint32(endApprox.Lower))
 			approx.Approximation = Between(
 				startToFirstEnd.Lower+totalTraversed+endApprox.Lower,
 				startToFirstEnd.Upper+totalTraversed+endApprox.Upper,
 			)
-			return approx, alignment, err
+			return approx, err
 		}
 		totalTraversed += sampleCount(iter.Size())
 	}
+}
+
+// Segment is a run of consecutive samples that lie in one domain of an index.
+type Segment struct {
+	// TimeRange is the time range of the domain that holds the segment.
+	TimeRange telem.TimeRange
+	// Alignment is the alignment of the segment's first sample.
+	Alignment telem.Alignment
+	// Len is the number of samples in the segment.
+	Len int64
+}
+
+// AppendSegments splits samples [start, end) of a run of consecutive index samples into
+// one segment per domain that holds them, and appends the segments to dst in time
+// order. The first sample of the run is the first sample at or after ts. It returns
+// ErrDiscontinuous if no domain holds a sample at or after ts, or if the run extends
+// past the effective domain that holds its first sample.
+func (i *Domain) AppendSegments(
+	ctx context.Context,
+	dst []Segment,
+	ts telem.TimeStamp,
+	start, end int64,
+) (segments []Segment, err error) {
+	if start >= end {
+		return dst, nil
+	}
+	iter := i.DB.OpenIterator(domain.IterRange(ts.SpanRange(telem.TimeSpanMax)))
+	defer func() { err = errors.Combine(err, iter.Close()) }()
+	if !iter.SeekFirst(ctx) {
+		return nil, NewDiscontinuousStampError(ts)
+	}
+	// base is the position in the run of the first sample of the current domain.
+	var base int64
+	if ts > iter.TimeRange().Start {
+		if base, err = i.position(ctx, iter, ts); err != nil {
+			return nil, err
+		}
+		base = -base
+	}
+	for {
+		n := sampleCount(iter.Size())
+		if lo, hi := max(start, base), min(end, base+n); lo < hi {
+			dst = append(dst, Segment{
+				TimeRange: iter.TimeRange(),
+				Alignment: telem.NewAlignment(iter.Position(), uint32(lo-base)),
+				Len:       hi - lo,
+			})
+		}
+		if base += n; base >= end {
+			return dst, nil
+		}
+		prevEnd := iter.TimeRange().End
+		if !iter.Next() || iter.TimeRange().Start != prevEnd {
+			return nil, NewDiscontinuousOffsetError(end, base)
+		}
+	}
+}
+
+// position returns the position in the current domain of iter of the first sample at or
+// after ts.
+func (i *Domain) position(
+	ctx context.Context,
+	iter *domain.Iterator,
+	ts telem.TimeStamp,
+) (pos int64, err error) {
+	r, err := iter.OpenReader(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { err = errors.Combine(err, r.Close()) }()
+	approx, err := i.search(ts, r)
+	return approx.Upper, err
 }
 
 // Stamp calculates an approximate ending timestamp for a range given a known distance

@@ -68,8 +68,6 @@ export const TankForm = ({
         {showBorderRadius && (
           <Base.NumericField
             path="borderRadius"
-            hideIfNull
-            optional
             label="Border radius"
             inputProps={Form.DIMENSIONS_INPUT_PROPS}
           />
@@ -77,8 +75,6 @@ export const TankForm = ({
         {showStrokeWidth && (
           <Base.NumericField
             path="strokeWidth"
-            hideIfNull
-            optional
             label="Border width"
             inputProps={Form.STROKE_WIDTH_INPUT_PROPS}
           />

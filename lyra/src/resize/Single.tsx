@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { bounds, box, location } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
+import { type ReactElement, useCallback, useRef, useState } from "react";
 
 import { Cursor } from "@/cursor";
 import { Base, type BaseProps } from "@/resize/Base";
@@ -41,14 +41,10 @@ export const Single = ({
   className,
   ...rest
 }: SingleProps): ReactElement => {
-  const fullSizeBounds = useMemo(
-    () =>
-      bounds.construct({
-        ...sizeBounds,
-        lower: sizeBounds?.lower ?? DEFAULT_SIZE_BOUNDS.lower,
-      }),
-    [sizeBounds?.lower, sizeBounds?.upper],
-  );
+  const fullSizeBounds = bounds.construct({
+    ...sizeBounds,
+    lower: sizeBounds?.lower ?? DEFAULT_SIZE_BOUNDS.lower,
+  });
   const clamped = bounds.clamp(fullSizeBounds, size);
   const [dragSize, setDragSize] = useState<number | null>(null);
   const rendered = dragSize ?? clamped;

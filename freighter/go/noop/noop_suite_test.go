@@ -19,7 +19,7 @@ import (
 
 func TestNoop(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Noop Suite")
+	RunSpecs(t, "Noop Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

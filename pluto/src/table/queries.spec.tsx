@@ -320,8 +320,11 @@ describe("table queries", () => {
       });
       return await client.tables.create(proj.key, {
         name: "dispatch_test",
-        rows: [{ size: 36, cells: ["a", "b"] }],
-        columns: [{ size: 80 }, { size: 100 }],
+        rows: [{ key: "r0", size: 36, cells: ["a", "b"] }],
+        columns: [
+          { key: "c0", size: 80 },
+          { key: "c1", size: 100 },
+        ],
         cells: {
           a: { variant: "text", value: "A" },
           b: { variant: "text", value: "B" },
@@ -509,7 +512,7 @@ describe("table queries", () => {
         await act(async () => {
           await result.current.dispatch.dispatchAsync({
             key: created.key,
-            actions: [table.resizeRow({ index: 0, size })],
+            actions: [table.resizeRow({ key: "r0", size })],
           });
         });
       await waitFor(() => expect(result.current.retrieve?.rows[0].size).toEqual(60));
@@ -601,10 +604,13 @@ describe("table queries", () => {
       return await client.tables.create(proj.key, {
         name: "selector_test",
         rows: [
-          { size: 30, cells: ["a", "b"] },
-          { size: 40, cells: ["c", "d"] },
+          { key: "r0", size: 30, cells: ["a", "b"] },
+          { key: "r1", size: 40, cells: ["c", "d"] },
         ],
-        columns: [{ size: 80 }, { size: 100 }],
+        columns: [
+          { key: "c0", size: 80 },
+          { key: "c1", size: 100 },
+        ],
         cells: {
           a: { variant: "text", value: "A" },
           b: { variant: "text", value: "B" },
@@ -681,7 +687,7 @@ describe("table queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [table.resizeCol({ index: 0, size: 200 })],
+          actions: [table.resizeCol({ key: "c0", size: 200 })],
         });
       });
       await waitFor(() => expect(result.current.columns[0].size).toEqual(200));
@@ -835,8 +841,8 @@ describe("table queries", () => {
 
 describe("findCellPosition", () => {
   const rows: table.Row[] = [
-    { size: 30, cells: ["a", "b", "c"] },
-    { size: 30, cells: ["d", "e", "f"] },
+    { key: "r0", size: 30, cells: ["a", "b", "c"] },
+    { key: "r1", size: 30, cells: ["d", "e", "f"] },
   ];
 
   it("returns the (x, y) coordinates of a known cell", () => {
@@ -856,8 +862,8 @@ describe("findCellPosition", () => {
 
 describe("nextCellPosition", () => {
   const rows: table.Row[] = [
-    { size: 30, cells: ["a", "b"] },
-    { size: 30, cells: ["c", "d"] },
+    { key: "r0", size: 30, cells: ["a", "b"] },
+    { key: "r1", size: 30, cells: ["c", "d"] },
   ];
 
   it("steps forward within a row", () => {
@@ -890,8 +896,8 @@ describe("nextCellPosition", () => {
 
   it("skips empty neighbor rows when wrapping", () => {
     const ragged: table.Row[] = [
-      { size: 30, cells: ["a"] },
-      { size: 30, cells: [] },
+      { key: "r0", size: 30, cells: ["a"] },
+      { key: "r1", size: 30, cells: [] },
     ];
     expect(Table.nextCellPosition(ragged, { x: 0, y: 0 }, 1)).toBeNull();
   });
@@ -899,9 +905,9 @@ describe("nextCellPosition", () => {
 
 describe("cellsInRegion", () => {
   const rows: table.Row[] = [
-    { size: 30, cells: ["a", "b", "c"] },
-    { size: 30, cells: ["d", "e", "f"] },
-    { size: 30, cells: ["g", "h", "i"] },
+    { key: "r0", size: 30, cells: ["a", "b", "c"] },
+    { key: "r1", size: 30, cells: ["d", "e", "f"] },
+    { key: "r2", size: 30, cells: ["g", "h", "i"] },
   ];
 
   it("returns the inclusive rectangle of cell keys", () => {
@@ -936,8 +942,8 @@ describe("cellsInRegion", () => {
 
   it("skips column slots past the right of a ragged row", () => {
     const ragged: table.Row[] = [
-      { size: 30, cells: ["a", "b"] },
-      { size: 30, cells: ["c"] },
+      { key: "r0", size: 30, cells: ["a", "b"] },
+      { key: "r1", size: 30, cells: ["c"] },
     ];
     expect(Table.cellsInRegion(ragged, { x: 0, y: 0 }, { x: 1, y: 1 })).toEqual([
       "a",

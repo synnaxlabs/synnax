@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <thread>
+#include <utility>
 
 #include "gtest/gtest.h"
 
@@ -87,7 +88,7 @@ public:
     size_t stop_count = 0;
     std::vector<x::errors::Error> stop_errors;
 
-    ScannerConfig config() const override {
+    [[nodiscard]] ScannerConfig config() const override {
         return ScannerConfig{.make = "", .log_prefix = "[mock] "};
     }
 
@@ -198,13 +199,15 @@ public:
     std::vector<x::errors::Error> scan_errors;
 
     explicit MockScannerWithSignals(
-        const ScannerConfig &config,
+        ScannerConfig config,
         const std::vector<std::vector<synnax::device::Device>> &devices_ = {},
         const std::vector<x::errors::Error> &scan_errors_ = {}
     ):
-        scanner_config(config), devices(devices_), scan_errors(scan_errors_) {}
+        scanner_config(std::move(config)),
+        devices(devices_),
+        scan_errors(scan_errors_) {}
 
-    ScannerConfig config() const override { return scanner_config; }
+    [[nodiscard]] ScannerConfig config() const override { return scanner_config; }
 
     x::errors::Error start() override { return x::errors::NIL; }
 
@@ -740,7 +743,7 @@ TEST(TestScanTask, TestStatePropagation) {
         remote_devices,
         created_devices
     );
-    auto cluster_api_ptr = cluster_api.get();
+    auto *cluster_api_ptr = cluster_api.get();
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
@@ -767,8 +770,7 @@ TEST(TestScanTask, TestStatePropagation) {
     auto &first_states = cluster_api_ptr->propagated_statuses[0];
     ASSERT_EQ(first_states.size(), 2);
 
-    for (size_t i = 0; i < first_states.size(); i++) {
-        auto status = first_states.at(i);
+    for (const auto &status: first_states) {
         if (status.key == "device:device1") {
             ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
             ASSERT_EQ(status.details.rack, 1);
@@ -784,8 +786,7 @@ TEST(TestScanTask, TestStatePropagation) {
     auto &second_states = cluster_api_ptr->propagated_statuses[1];
     ASSERT_EQ(second_states.size(), 2);
 
-    for (size_t i = 0; i < second_states.size(); i++) {
-        auto status = second_states.at(i);
+    for (const auto &status: second_states) {
         if (status.key == "device:device1") {
             ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
             ASSERT_EQ(status.details.rack, 1);
@@ -798,11 +799,50 @@ TEST(TestScanTask, TestStatePropagation) {
     }
 }
 
+/// @brief it should key and name the disconnect status of a device that had none.
+TEST(TestScanTask, DisconnectedDeviceWithoutStatus) {
+    synnax::device::Device dev;
+    dev.key = "device1";
+    dev.name = "Device 1";
+    auto remote_devices = std::make_shared<std::vector<synnax::device::Device>>(
+        std::vector{dev}
+    );
+    auto cluster_api = std::make_unique<MockClusterAPI>(
+        remote_devices,
+        std::make_shared<std::vector<synnax::device::Device>>()
+    );
+    const auto *cluster_api_ptr = cluster_api.get();
+    ScanTask scan_task(
+        std::make_unique<MockScanner>(
+            std::vector<std::vector<synnax::device::Device>>{},
+            std::vector<x::errors::Error>{},
+            std::vector<x::errors::Error>{},
+            std::vector<x::errors::Error>{}
+        ),
+        std::make_shared<task::MockContext>(nullptr),
+        synnax::task::Task{},
+        x::breaker::Config{},
+        x::telem::HERTZ * 1,
+        std::move(cluster_api)
+    );
+
+    ASSERT_NIL(scan_task.init());
+    ASSERT_NIL(scan_task.scan());
+    ASSERT_EQ(cluster_api_ptr->propagated_statuses.size(), 1);
+    ASSERT_EQ(cluster_api_ptr->propagated_statuses[0].size(), 1);
+    const auto &status = cluster_api_ptr->propagated_statuses[0][0];
+    EXPECT_EQ(status.key, synnax::device::status_key(dev));
+    EXPECT_EQ(status.name, "Device 1");
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Device disconnected");
+    EXPECT_EQ(status.description, "");
+}
+
 /// @brief it should delegate unknown commands to scanner exec handler.
 TEST(TestScanTask, testCustomCommandDelegation) {
     ScannerConfig cfg{.make = "test", .log_prefix = "[test] "};
     auto scanner = std::make_unique<MockScannerWithSignals>(cfg);
-    auto scanner_ptr = scanner.get();
+    auto *scanner_ptr = scanner.get();
     scanner_ptr->exec_return_value = true;
 
     auto remote_devices = std::make_shared<std::vector<synnax::device::Device>>();
@@ -903,12 +943,12 @@ TEST(TestScanTask, testRunningTransitions) {
     scan_task->start();
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     EXPECT_TRUE(ctx->statuses[0].details.running);
-    EXPECT_EQ(ctx->statuses[0].message, "Scan task started");
+    EXPECT_EQ(ctx->statuses[0].message, "Started scan task");
 
     scan_task->stop(false);
     ASSERT_EQ(ctx->statuses.size(), 2);
     EXPECT_FALSE(ctx->statuses[1].details.running);
-    EXPECT_EQ(ctx->statuses[1].message, "scan task stopped");
+    EXPECT_EQ(ctx->statuses[1].message, "Stopped scan task");
 }
 
 /// @brief it should come up on a second start after the first one failed. run() exits
@@ -917,7 +957,7 @@ TEST(TestScanTask, testRunningTransitions) {
 TEST(TestScanTask, testStartRecoversAfterFailedStart) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const auto task = new_test_task_record();
-    const auto start_err = x::errors::Error("scanner unavailable");
+    const auto start_err = x::errors::Error(x::errors::INTERNAL, "scanner unavailable");
     const auto scan_task = new_test_task(ctx, task, {}, {start_err});
 
     synnax::task::Command cmd{
@@ -928,7 +968,8 @@ TEST(TestScanTask, testStartRecoversAfterFailedStart) {
     scan_task->exec(cmd);
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(ctx->statuses[0].message, start_err.message());
+    EXPECT_EQ(ctx->statuses[0].message, "Failed to start scan task");
+    EXPECT_EQ(ctx->statuses[0].description, "scanner unavailable");
     EXPECT_FALSE(ctx->statuses[0].details.running);
     // The thread is over once run() returns, so the pipeline must report stopped.
     ASSERT_EVENTUALLY_FALSE(scan_task->running());
@@ -941,7 +982,7 @@ TEST(TestScanTask, testStartRecoversAfterFailedStart) {
     scan_task->exec(retry);
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
     EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(ctx->statuses[1].message, "Scan task started");
+    EXPECT_EQ(ctx->statuses[1].message, "Started scan task");
     EXPECT_TRUE(ctx->statuses[1].details.running);
     EXPECT_EQ(ctx->statuses[1].details.cmd, "start_2");
     scan_task->stop(false);
@@ -1014,7 +1055,8 @@ TEST(TestScanTask, testUnknownCommandAnswersWithError) {
     const auto ack = ctx->statuses[0];
     EXPECT_EQ(ack.details.cmd, "unknown_1");
     EXPECT_EQ(ack.variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(ack.message, "Unknown command type 'not_a_command'");
+    EXPECT_EQ(ack.message, "Failed to execute command");
+    EXPECT_EQ(ack.description, "Unknown command type 'not_a_command'.");
 }
 
 /// @brief it should not let a scan warning claim the key of the start that
@@ -1068,7 +1110,7 @@ TEST(TestScanTask, TestUpdateWhenParentDeviceChanges) {
         remote_devices,
         created_devices
     );
-    auto cluster_api_ptr = cluster_api.get();
+    auto *cluster_api_ptr = cluster_api.get();
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
@@ -1199,7 +1241,7 @@ TEST(TestScanTask, TestUpdateWhenParentDeviceCleared) {
         remote_devices,
         created_devices
     );
-    auto cluster_api_ptr = cluster_api.get();
+    auto *cluster_api_ptr = cluster_api.get();
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
@@ -1248,8 +1290,8 @@ public:
     std::vector<std::unordered_map<std::string, synnax::device::Device>>
         captured_devices;
 
-    explicit DeviceCapturingScanner(const ScannerConfig &config):
-        scanner_config(config) {}
+    explicit DeviceCapturingScanner(ScannerConfig config):
+        scanner_config(std::move(config)) {}
 
     ScannerConfig config() const override { return scanner_config; }
 
@@ -1259,7 +1301,7 @@ public:
         if (ctx.devices != nullptr)
             captured_devices.push_back(*ctx.devices);
         else
-            captured_devices.push_back({});
+            captured_devices.emplace_back();
         // Return devices from context (like OPC scanner does)
         std::vector<synnax::device::Device> result;
         if (ctx.devices != nullptr)
@@ -1277,7 +1319,7 @@ public:
     bool has_device(const std::string &key) {
         std::lock_guard lock(mu);
         if (captured_devices.empty()) return false;
-        return captured_devices.back().find(key) != captured_devices.back().end();
+        return captured_devices.back().contains(key);
     }
 };
 
@@ -1325,7 +1367,7 @@ TEST(TestScanTask, testSignalMonitoringAddsDevicesToContext) {
 
     ScannerConfig cfg{.make = "test_make", .log_prefix = "[test] "};
     auto scanner = std::make_unique<DeviceCapturingScanner>(cfg);
-    auto scanner_ptr = scanner.get();
+    auto *scanner_ptr = scanner.get();
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
@@ -1393,12 +1435,12 @@ TEST(TestScanTask, testSignalMonitoringRemovesDevicesFromContext) {
         remote_devices,
         created_devices
     );
-    cluster_api->streamer_factory = streamer_factory;
+    cluster_api->streamer_factory = std::move(streamer_factory);
     cluster_api->signal_channels = {device_set_ch, device_delete_ch};
 
     ScannerConfig cfg{.make = "test_make", .log_prefix = "[test] "};
     auto scanner = std::make_unique<DeviceCapturingScanner>(cfg);
-    auto scanner_ptr = scanner.get();
+    auto *scanner_ptr = scanner.get();
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
@@ -1468,7 +1510,7 @@ TEST(TestScanTask, testSignalMonitoringFiltersByMake) {
     // Scanner expects "test_make" but device has "other_make"
     ScannerConfig cfg{.make = "test_make", .log_prefix = "[test] "};
     auto scanner = std::make_unique<DeviceCapturingScanner>(cfg);
-    auto scanner_ptr = scanner.get();
+    auto *scanner_ptr = scanner.get();
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 

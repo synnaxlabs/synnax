@@ -16,6 +16,7 @@ import numpy as np
 import synnax as sy
 from synnax.cli import channel, default
 from synnax.cli.connect import connect_client
+from x.telem import to_int
 
 
 @click.command()
@@ -84,7 +85,7 @@ def collect_samples(
             offsets.append(offset)
             diff = sy.TimeSpan(last - second_last)
             diffs.append(diff)
-            times.extend(data)  # type: ignore[arg-type]
+            times.extend(sy.TimeStamp(to_int(t)) for t in data)
 
     local_end = sy.TimeStamp.now()
     return offsets, diffs, times, local_start, local_end

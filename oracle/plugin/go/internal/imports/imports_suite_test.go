@@ -19,7 +19,7 @@ import (
 
 func TestImports(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Go Imports Suite")
+	RunSpecs(t, "Plugin Go Imports Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

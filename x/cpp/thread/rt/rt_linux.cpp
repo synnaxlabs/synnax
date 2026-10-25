@@ -48,10 +48,10 @@ int sched_setattr(pid_t pid, const sched_attr *attr, unsigned int flags) {
 }
 
 bool test_sched_fifo() {
-    struct sched_param param;
+    struct sched_param param{};
     param.sched_priority = 1;
     const int orig_policy = sched_getscheduler(0);
-    struct sched_param orig_param;
+    struct sched_param orig_param{};
     sched_getparam(0, &orig_param);
     if (sched_setscheduler(0, SCHED_FIFO, &param) == 0) {
         sched_setscheduler(0, orig_policy, &orig_param);
@@ -68,7 +68,7 @@ bool test_sched_deadline() {
     attr.sched_deadline = 500000;
     attr.sched_period = 1000000;
     if (sched_setattr(0, &attr, 0) == 0) {
-        struct sched_param param;
+        struct sched_param param{};
         param.sched_priority = 0;
         sched_setscheduler(0, SCHED_OTHER, &param);
         return true;
@@ -106,7 +106,7 @@ bool apply_deadline_scheduler(const Config &cfg) {
 std::string build_exclusion_mask(const std::set<int> &excluded_cores, int num_cpus) {
     std::vector<uint8_t> bytes((num_cpus + 7) / 8, 0);
     for (int i = 0; i < num_cpus; i++) {
-        if (excluded_cores.count(i) == 0) bytes[i / 8] |= (1 << (i % 8));
+        if (!excluded_cores.contains(i)) bytes[i / 8] |= (1 << (i % 8));
     }
     std::string result;
     bool leading = true;
@@ -132,7 +132,7 @@ void migrate_irqs(const std::set<int> &cores) {
     int failed = 0;
     while (auto *entry = readdir(dir)) {
         if (entry->d_type != DT_DIR) continue;
-        char *end;
+        char *end = nullptr;
         strtol(entry->d_name, &end, 10);
         if (*end != '\0') continue;
         const std::string path = std::string("/proc/irq/") + entry->d_name +
@@ -154,7 +154,7 @@ void migrate_irqs(const std::set<int> &cores) {
             [&]() {
                 std::string s;
                 for (auto it = cores.begin(); it != cores.end(); ++it) {
-                    if (it != cores.begin()) s += ",";
+                    if (it != cores.begin()) s += ',';
                     s += std::to_string(*it);
                 }
                 return s;
@@ -178,7 +178,7 @@ std::mutex &migrated_cores_mu() {
 }
 
 void apply_sched_fifo(int priority) {
-    struct sched_param param;
+    struct sched_param param{};
     param.sched_priority = priority;
     if (sched_setscheduler(0, SCHED_FIFO, &param) == -1)
         LOG(WARNING) << "[xthread] Failed to set SCHED_FIFO priority " << priority

@@ -21,6 +21,7 @@ export const useListenForChanges = () => {
       alreadyNotified.current.add(dev.key);
       addStatus<ReturnType<typeof device.deviceZ>>({
         variant: "info",
+        name: dev.name,
         message: `New ${dev.model} connected`,
         details: dev,
       });

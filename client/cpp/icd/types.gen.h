@@ -47,12 +47,10 @@ using FieldKey = x::uuid::UUID;
 /// at most one ICD.
 struct Reference {
     /// @brief icd is the key of the ICD the task reads its messages from. When absent
-    /// the
-    /// task uses no ICD yet.
+    /// the task uses no ICD yet.
     std::optional<Key> icd;
     /// @brief icd_hash is the hash of the ICD messages the task uses, stamped by the
-    /// Core
-    /// when the task or the ICD is written.
+    /// Core when the task or the ICD is written.
     std::string icd_hash = "";
 
     static Reference parse(x::json::Parser parser);
@@ -81,8 +79,7 @@ struct BaseField {
     /// present. When absent the field is always present.
     std::optional<FieldKey> multiplexor;
     /// @brief multiplex_values are the raw values of the multiplexor for which this
-    /// field
-    /// is present.
+    /// field is present.
     std::vector<std::int32_t> multiplex_values = {};
     /// @brief min is the smallest decoded value a write task accepts. When absent the
     /// field's bit width sets the limit.
@@ -114,8 +111,7 @@ struct CanIdentifier {
     /// bitrate.
     bool bitrate_switched = false;
     /// @brief mask is the bit mask applied to both identifiers before matching. When
-    /// absent
-    /// the identifiers must match exactly.
+    /// absent the identifiers must match exactly.
     std::optional<std::uint32_t> mask;
 
     static CanIdentifier parse(x::json::Parser parser);
@@ -160,9 +156,8 @@ identifier_from_proto(const ::service::icd::pb::Identifier &pb);
 /// @brief BinaryField is a field read from a bit range of a binary payload.
 struct BinaryField : public BaseField {
     /// @brief start_bit is the bit where the field starts, numbered as in a DBC file:
-    /// the
-    /// least significant bit for little-endian fields and the most significant bit for
-    /// big-endian fields.
+    /// the least significant bit for little-endian fields and the most significant bit
+    /// for big-endian fields.
     std::uint16_t start_bit = 0;
     /// @brief bit_length is the number of bits in the field, from 1 to 64.
     std::uint8_t bit_length = 8;
@@ -234,8 +229,7 @@ struct BinaryPayload {
     /// variable.
     std::optional<std::uint16_t> length;
     /// @brief identifier selects the frames that belong to the message. When absent
-    /// every
-    /// frame on the bus belongs to it.
+    /// every frame on the bus belongs to it.
     std::optional<Identifier> identifier;
     /// @brief fields are the values the payload carries.
     std::vector<BinaryField> fields = {};
@@ -256,8 +250,7 @@ struct TextPayload {
     /// @brief delimiter splits the items of the line.
     std::string delimiter = ",";
     /// @brief prefix is the text a line must start with to belong to the message. An
-    /// empty
-    /// prefix matches every line.
+    /// empty prefix matches every line.
     std::string prefix = "";
     /// @brief fields are the values the line carries.
     std::vector<TextField> fields = {};
@@ -294,8 +287,8 @@ struct Message {
     /// when one of its command channels changes.
     std::optional<::x::telem::TimeSpan> period;
     /// @brief query is the request a polling task sends to get the message. Binary
-    /// messages
-    /// hold escaped bytes. When absent the device sends the message unprompted.
+    /// messages hold escaped bytes. When absent the device sends the message
+    /// unprompted.
     std::optional<std::string> query;
 
     static Message parse(x::json::Parser parser);
@@ -318,8 +311,8 @@ struct ICD {
     /// @brief messages are the messages the ICD holds.
     std::vector<Message> messages = {};
     /// @brief hash is the hash of the messages as the Core last stored them. A write
-    /// sends
-    /// the hash it read, and the Core rejects the write when the ICD changed since.
+    /// sends the hash it read, and the Core rejects the write when the ICD changed
+    /// since.
     std::string hash = "";
 
     static ICD parse(x::json::Parser parser);

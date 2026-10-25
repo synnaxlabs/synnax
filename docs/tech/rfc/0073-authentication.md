@@ -218,8 +218,8 @@ on every request. Neither names a subject type or a method. Each method implemen
 type Authenticator interface {
     // Authenticate checks the proof and returns the subject and the credential used.
     Authenticate(ctx context.Context, proof Proof) (Identity, error)
-    // DeleteFor removes every credential of the given subjects.
-    DeleteFor(ctx context.Context, subjects ...ontology.ID) error
+    // DeleteFor removes every credential of the given subjects within tx.
+    DeleteFor(ctx context.Context, tx gorp.Tx, subjects ...ontology.ID) error
 }
 ```
 
@@ -245,19 +245,15 @@ Session struct {
     key         Key
     hash        bytes        // SHA-256 of the token's secret
     subject     ontology.ID
-    method      Method
     credential  uuid
-    address     string
-    created     timestamp
     last_active timestamp
 }
 ```
 
 A session is a Gorp record, so it survives a restart and every node sees it. It replaces
 the JWT, which cannot be revoked, gives a stream nothing to watch, and needs a signing
-key on every node. The cost is one replicated write per login. `method` and `credential`
-let a deleted credential end its sessions. `address` and `created` let an administrator
-tell sessions apart before revoking one.
+key on every node. The cost is one replicated write per login. `credential` lets a
+deleted credential end its sessions.
 
 A token is `sys_`, the session key, and 32 random bytes, the same layout as an API key.
 That exceeds the [64 bit minimum](https://pages.nist.gov/800-63-4/sp800-63b.html) for a

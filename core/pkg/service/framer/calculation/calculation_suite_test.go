@@ -19,7 +19,7 @@ import (
 
 func TestCalculated(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Framer Calculation Suite")
+	RunSpecs(t, "Service Framer Calculation Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

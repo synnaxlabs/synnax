@@ -619,8 +619,8 @@ class TestEtherCATDevice:
         created_device = client.devices.create(device)
         assert created_device.key != ""
         assert created_device.name == "Test Servo Drive"
-        assert created_device.make == "EtherCAT"
-        assert created_device.model == "Slave"
+        assert created_device.make == "ethercat"
+        assert created_device.model == "slave"
 
         # Verify properties
         props = created_device.properties

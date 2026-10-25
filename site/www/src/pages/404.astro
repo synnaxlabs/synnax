@@ -1,0 +1,85 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+// The layout comes first: its stylesheet declares the order of the cascade layers.
+import Layout from "@/layouts/Layout.astro";
+import PanelTab from "@/components/common/PanelTab.astro";
+
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
+import LostSignal from "@synnaxlabs/site-common/LostSignal.astro";
+---
+
+<Layout title="Page not found" description="No page exists at this address.">
+    <Flex.Box el="section" className="section-hero-wrapper not-found">
+        <Text.Text level="h5" variant="code" className="section-label">
+            404 -&gt; Signal lost
+        </Text.Text>
+        <div class="section-hero">
+            <Text.Text level="h2" el="h1" className="section-hero-title">
+                Page not found
+            </Text.Text>
+            <Flex.Box y gap={6} align="start">
+                <Text.Text
+                    level="h4"
+                    className="section-hero-description section-description"
+                >
+                    No page exists at this address. The page can have moved, or the
+                    address can have an error.
+                </Text.Text>
+                <Flex.Box x gap="small" wrap>
+                    <Button.Button href="/" variant="filled" size="large">
+                        Go to the home page
+                    </Button.Button>
+                    <Button.Button
+                        href="https://docs.synnaxlabs.com/reference"
+                        variant="text"
+                        size="large"
+                        className="not-found__docs"
+                    >
+                        Read the docs -&gt;
+                    </Button.Button>
+                </Flex.Box>
+            </Flex.Box>
+        </div>
+        <div class="not-found__panel">
+            <PanelTab label="Line plot">
+                <Icon.LinePlot slot="icon" className="panel-tab-icon" />
+            </PanelTab>
+            <LostSignal />
+        </div>
+    </Flex.Box>
+</Layout>
+
+<style is:global>
+    .not-found {
+        padding-top: var(--space-xl);
+        padding-bottom: var(--space-2xl);
+    }
+
+    .not-found__docs {
+        color: var(--pluto-gray-l8);
+    }
+
+    .not-found__panel {
+        width: 100%;
+        background: color-mix(in srgb, var(--pluto-gray-l1) 50%, var(--pluto-gray-l2));
+        border: var(--pluto-border);
+        border-radius: 2rem;
+        overflow: hidden;
+    }
+
+    .not-found .lost-signal {
+        padding: clamp(2rem, 1rem + 1vw, 4rem);
+        padding-bottom: clamp(6rem, 4rem + 1vw, 8rem);
+    }
+</style>

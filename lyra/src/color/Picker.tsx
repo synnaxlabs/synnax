@@ -13,11 +13,11 @@ import { color, TimeSpan } from "@synnaxlabs/x";
 import { type ComponentPropsWithoutRef, type ReactElement, useState } from "react";
 
 import { Button } from "@/button";
-import { BaseSwatch } from "@/color/BaseSwatch";
 import { HexText, parseHexInput } from "@/color/HexText";
 import { Plane } from "@/color/Plane";
-import { useFrequent, useFrequentUpdater } from "@/color/Provider";
+import { useFrequentUpdater } from "@/color/Provider";
 import { Slider } from "@/color/Slider";
+import { Swatches } from "@/color/Swatches";
 import { CSS } from "@/css";
 import { Divider } from "@/divider";
 import { Flex } from "@/flex";
@@ -25,16 +25,11 @@ import { useDebouncedCallback } from "@/hooks";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { Status } from "@/status";
-import { Theming } from "@/theming";
 
-export interface PickerProps extends Omit<
-  ComponentPropsWithoutRef<"div">,
-  "onChange" | "defaultValue"
-> {
-  /** The picked color. Absent only when {@link PickerProps.fallback} is set. */
-  value?: color.Crude;
-  /** Called with the new color, or with undefined when the user picks Auto. */
-  onChange: (value?: color.Color) => void;
+export interface PickerProps
+  extends
+    Omit<ComponentPropsWithoutRef<"div">, "onChange" | "defaultValue">,
+    Input.Control<color.Crude | undefined, color.Color | undefined> {
   /**
    * The color the theme paints while the value is absent. Setting it makes the value
    * optional and adds an Auto button that clears it.
@@ -116,7 +111,6 @@ export const Picker = ({
       <InputRow value={shown} onChange={handleChange} />
       <Divider.Divider x />
       <Swatches value={value} fallback={fallback} onChange={handleChange} />
-      <Recent value={value} onChange={handleChange} />
     </Flex.Box>
   );
 };
@@ -140,95 +134,6 @@ const useHSVA = (value: color.Crude): UseHSVAReturn => {
   }
   return { value: hsva, set: setHSVA };
 };
-
-interface SwatchesProps {
-  value?: color.Crude;
-  fallback?: color.Crude;
-  onChange: (value?: color.Color) => void;
-}
-
-const Swatches = ({ value, fallback, onChange }: SwatchesProps): ReactElement => {
-  const { colors } = Theming.use();
-  const presets = [
-    colors.primary.z,
-    colors.secondary.z,
-    colors.warning.z,
-    colors.error.z,
-    ...colors.visualization.palettes.default,
-  ];
-  return (
-    <div className={CSS.BE("color-picker", "swatches")}>
-      {fallback != null && (
-        <Button.Button
-          variant="outlined"
-          size="tiny"
-          className={CSS.cls(
-            CSS.BE("color-picker", "auto"),
-            CSS.selected(value == null),
-          )}
-          onClick={() => onChange(undefined)}
-          tooltip="Auto: the theme picks the color"
-          aria-label="Auto"
-        >
-          <Icon.Auto />
-          Auto
-        </Button.Button>
-      )}
-      {presets.map((c) => (
-        <PickerSwatch
-          key={color.hex(c)}
-          value={c}
-          current={value}
-          onChange={onChange}
-        />
-      ))}
-    </div>
-  );
-};
-
-const Recent = ({
-  value,
-  onChange,
-}: Omit<SwatchesProps, "fallback">): ReactElement | null => {
-  const frequent = useFrequent();
-  if (frequent.length === 0) return null;
-  return (
-    <>
-      <Divider.Divider x />
-      <div className={CSS.BE("color-picker", "swatches")}>
-        {frequent.map((c) => (
-          <PickerSwatch
-            key={color.hex(c)}
-            value={c}
-            current={value}
-            onChange={onChange}
-          />
-        ))}
-      </div>
-    </>
-  );
-};
-
-interface PickerSwatchProps {
-  value: color.Crude;
-  /** The picker's color. The swatch shows as selected when it matches. */
-  current?: color.Crude;
-  onChange: (value: color.Color) => void;
-}
-
-const PickerSwatch = ({
-  value,
-  current,
-  onChange,
-}: PickerSwatchProps): ReactElement => (
-  <BaseSwatch
-    value={value}
-    className={CSS.cls(CSS.selected(current != null && color.equals(current, value)))}
-    size="tiny"
-    onClick={() => onChange(color.construct(value))}
-    aria-label={color.hex(value)}
-  />
-);
 
 interface InputRowProps {
   value: color.Crude;

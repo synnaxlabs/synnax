@@ -126,8 +126,7 @@ struct ReadField {
     /// @brief data_type is the data type of the extracted value.
     ::x::telem::DataType data_type = ::x::telem::DataType("float64");
     /// @brief time_format is the encoding of the JSON value when the target channel
-    /// holds
-    /// timestamps. Required for timestamp channels.
+    /// holds timestamps. Required for timestamp channels.
     std::optional<std::string> time_format;
     /// @brief enum_values maps string labels in the response to numeric channel values.
     std::vector<EnumEntry> enum_values;
@@ -140,9 +139,8 @@ struct ReadField {
 /// body.
 struct ChannelField {
     /// @brief pointer is the JSON Pointer where the channel value is placed in the
-    /// body. An
-    /// empty pointer sends the bare value as the entire body, in which case the
-    /// endpoint may not declare any additional fields.
+    /// body. An empty pointer sends the bare value as the entire body, in which case
+    /// the endpoint may not declare any additional fields.
     std::string pointer = "";
     /// @brief json_type is the JSON type the channel value is serialized as.
     std::string json_type = JSON_TYPE_NUMBER;
@@ -153,8 +151,7 @@ struct ChannelField {
     /// @brief data_type is the data type of the command channel.
     ::x::telem::DataType data_type = ::x::telem::DataType("float64");
     /// @brief time_format is the output encoding when the command channel holds
-    /// timestamps.
-    /// Required for timestamp channels.
+    /// timestamps. An unset format is ISO 8601.
     std::optional<std::string> time_format;
     /// @brief enum_values maps numeric channel values to string labels. Only valid when
     /// json_type is 'string'.
@@ -213,8 +210,7 @@ struct ReadEndpoint {
     /// @brief fields contains the values to extract from the response.
     std::vector<ReadField> fields;
     /// @brief index is the key of the field whose channel indexes the others. Empty
-    /// when
-    /// the task stamps samples on arrival.
+    /// when the task stamps samples on arrival.
     std::string index = "";
 
     static ReadEndpoint parse(x::json::Parser parser);

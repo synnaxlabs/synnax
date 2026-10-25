@@ -81,7 +81,7 @@ export const Frame = ({
     el.style.left = CSS.px(box.left(rounded));
     el.style.top = CSS.px(box.top(rounded));
     el.style.transformOrigin = `${placement.dialogCorner.x} ${placement.dialogCorner.y}`;
-  }, [anchor]);
+  }, [anchor, onAnchorLostRef, locationRef]);
   useLayoutEffect(reposition);
   const observeAnchor = useResize(reposition);
   useEffect(() => observeAnchor(anchor), [anchor, observeAnchor]);

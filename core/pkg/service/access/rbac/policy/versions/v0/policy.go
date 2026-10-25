@@ -12,7 +12,7 @@ package v0
 import (
 	"uuid"
 
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp"
 )
 
 var _ gorp.Entry[uuid.UUID] = Policy{}

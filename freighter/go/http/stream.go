@@ -79,6 +79,11 @@ type streamCoreConfig struct {
 	conn  *websocket.Conn
 	alamos.Instrumentation
 	writeDeadline time.Duration
+	// forced closes when a server middleware ends the handler's context with a cause.
+	// Nil on a client.
+	forced <-chan struct{}
+	// cause is nil on a client.
+	cause func() error
 }
 
 // streamCore is the common functionality implemented by both the client and server
@@ -121,7 +126,9 @@ func (c *streamCore[I, O]) Receive() (I, error) {
 	}
 	msg, err := c.receiveRaw()
 	if err != nil {
-		if websocket.IsCloseError(
+		if cause := c.forcedCause(); cause != nil {
+			c.peerCloseErr = cause
+		} else if websocket.IsCloseError(
 			err,
 			websocket.CloseNormalClosure,
 			websocket.CloseNoStatusReceived,
@@ -152,6 +159,17 @@ func (c *streamCore[I, O]) close() error {
 	return c.conn.Close()
 }
 
+func (c *streamCore[I, O]) forcedCause() error {
+	if c.cause == nil {
+		return nil
+	}
+	cause := c.cause()
+	if cause == nil || errors.Is(cause, context.Canceled) {
+		return nil
+	}
+	return cause
+}
+
 // listenForContextCancellation is a goroutine that listens for the context to be
 // canceled and shuts down the stream forcefully if it is. We need this as the websocket
 // implementation itself doesn't support context cancellation.
@@ -174,6 +192,11 @@ func (c *streamCore[I, O]) listenForContextCancellation() {
 			time.Now().Add(closeReadWriteDeadline),
 		); err != nil {
 			c.L.Error("error setting close read deadline", zap.Error(err))
+		}
+	case <-c.forced:
+		// no close frame: the handler returns and the normal close sends the cause
+		if err := c.conn.SetReadDeadline(time.Now()); err != nil {
+			c.L.Error("error setting forced read deadline", zap.Error(err))
 		}
 	}
 }

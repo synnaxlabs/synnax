@@ -9,13 +9,14 @@
 
 import {
   type CrudeTimeStamp,
-  type TimeSpan as XTimeSpan,
+  TimeSpan as XTimeSpan,
   type TimeSpanStringFormat,
-  TimeStamp as XTimeStamp,
+  type TimeStamp as XTimeStamp,
 } from "@synnaxlabs/x";
-import { type ReactElement, useEffect, useState } from "react";
+import { type ReactElement } from "react";
 
 import { type Generic } from "@/generic";
+import { useNow } from "@/hooks";
 import { TimeSpan, type TimeSpanProps } from "@/telem/text/TimeSpan";
 
 export type TimeSpanSinceProps<E extends Generic.ElementType = "p"> = Omit<
@@ -26,16 +27,11 @@ export type TimeSpanSinceProps<E extends Generic.ElementType = "p"> = Omit<
   format?: TimeSpanStringFormat;
 };
 
-export const useTimeSpanSince = (stamp: CrudeTimeStamp): XTimeSpan => {
-  const [, setCounter] = useState(0);
-  useEffect(() => {
-    const i = setInterval(() => {
-      setCounter((p) => p + 1);
-    }, 1000);
-    return () => clearInterval(i);
-  }, []);
-  return XTimeStamp.since(stamp);
-};
+const nextSecond = (now: XTimeStamp): XTimeStamp => now.add(XTimeSpan.SECOND);
+
+/** @returns the time elapsed since the stamp, refreshed every second. */
+export const useTimeSpanSince = (stamp: CrudeTimeStamp): XTimeSpan =>
+  useNow(nextSecond).span(stamp);
 
 export const TimeSpanSince = <E extends Generic.ElementType = "p">({
   children,

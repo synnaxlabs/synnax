@@ -64,7 +64,8 @@ TEST_F(SerialFactory, RejectsAMessageThatIsNotInTheICD) {
     const auto &status = core.ctx->statuses[0];
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.details.cmd, "configure");
-    EXPECT_NE(status.message.find("is not in ICD"), std::string::npos);
+    EXPECT_EQ(status.message, "Failed to configure task");
+    EXPECT_NE(status.description.find("is not in ICD"), std::string::npos);
 }
 
 TEST_F(SerialFactory, ConfiguresAWriteTask) {

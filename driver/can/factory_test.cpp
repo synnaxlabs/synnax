@@ -55,13 +55,14 @@ protected:
         return std::move(t);
     }
 
-    /// @returns the message of the last status the factory reported.
+    /// @returns the description of the last status the factory reported.
     [[nodiscard]] std::string error() const {
         EXPECT_FALSE(core.ctx->statuses.empty());
         if (core.ctx->statuses.empty()) return "";
         const auto &status = core.ctx->statuses.back();
         EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
-        return status.message;
+        EXPECT_EQ(status.message, "Failed to configure task");
+        return status.description;
     }
 
     /// @returns a write config that drives the first field of the ICD's message

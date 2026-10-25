@@ -19,7 +19,7 @@ import (
 
 func TestSync(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Sync Suite")
+	RunSpecs(t, "Sync Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

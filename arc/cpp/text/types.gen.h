@@ -48,8 +48,7 @@ struct Document {
 /// @brief Text is text-based Arc source code with optional parsed AST for compilation.
 struct Text {
     /// @brief doc is the replicated source of truth for the text. It defaults to empty
-    /// on
-    /// create, in which case the server seeds it from raw.
+    /// on create, in which case the server seeds it from raw.
     Document doc = {};
     /// @brief raw is the materialized Arc source code, derived from doc and not
     /// persisted.

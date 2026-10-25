@@ -21,7 +21,7 @@ export default defineConfig({
     react(),
     // Pluto's maps are 17MB gzipped, mostly sourcesContent from bundled dependencies,
     // so they stay out of the tarball. Every other package publishes its maps.
-    lib({ name: "pluto", publishSourcemaps: false }),
+    lib({ name: "pluto", publishSourcemaps: false, reactCompiled: true }),
   ],
   build: {
     lib: {

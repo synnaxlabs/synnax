@@ -12,8 +12,9 @@ package versions
 import "github.com/synnaxlabs/x/set"
 
 // versionOwnedGo are the @go expressions a version file records: the persistence
-// declarations, plus the imex marker that dates a resource's export history.
-var versionOwnedGo = set.New("marshal", "hand", "migrate", "imex")
+// declarations, the wire tags of the struct a version declares, and the imex marker
+// that dates a resource's export history.
+var versionOwnedGo = set.New("marshal", "wire", "hand", "migrate", "imex")
 
 // VersionOwned reports whether a domain expression belongs to the version files: the
 // live file must match chain resolution on it exactly. Everything else (outputs,

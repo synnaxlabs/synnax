@@ -19,7 +19,7 @@ import (
 
 func TestBounds(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Bounds Suite")
+	RunSpecs(t, "Bounds Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

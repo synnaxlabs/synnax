@@ -19,7 +19,7 @@ import (
 
 func TestMock(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Mock Suite")
+	RunSpecs(t, "Mock Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

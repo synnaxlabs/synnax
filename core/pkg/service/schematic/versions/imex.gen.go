@@ -58,3 +58,17 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 	}
 	return Schematic{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
 }
+
+// liftFirst lifts the first exported Schematic shape to the current shape. A decoder
+// of an older shape builds the first exported shape and enters the ladder here.
+func liftFirst(ctx context.Context, t7 v7.Schematic) (Schematic, error) {
+	t8, err := v8.MigrateSchematic(ctx, t7)
+	if err != nil {
+		return Schematic{}, err
+	}
+	t9, err := v9.MigrateSchematic(ctx, t8)
+	if err != nil {
+		return Schematic{}, err
+	}
+	return t9, nil
+}

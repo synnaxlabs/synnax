@@ -679,12 +679,11 @@ TEST(WriteTest, NextReportsErrorOnTimeLengthMismatch) {
     };
     ASSERT_NIL(sink->next(ctx));
 
-    EXPECT_TRUE(static_cast<bool>(captured));
-    EXPECT_NE(
-        captured.message().find("sample count 2 does not match timestamp count 1"),
-        std::string::npos
+    EXPECT_TRUE(captured.matches(x::errors::INTERNAL));
+    EXPECT_EQ(
+        captured.data,
+        "write to channel 100: sample count 2 does not match timestamp count 1"
     );
-    EXPECT_NE(captured.message().find("channel 100"), std::string::npos);
     EXPECT_FALSE(changed);
 
     x::telem::Frame out;
@@ -1529,8 +1528,9 @@ TEST(ChannelStateTest, StampInvariants_TimeThenWriteOrder) {
             synthesized.push_back(order[i] == 'b');
         }
         std::vector<size_t> positions(written.size());
+        // NOLINTNEXTLINE(modernize-use-ranges): macOS libc++ has no std::ranges::iota.
         std::iota(positions.begin(), positions.end(), 0);
-        std::stable_sort(positions.begin(), positions.end(), [&](size_t a, size_t b) {
+        std::ranges::stable_sort(positions, [&](size_t a, size_t b) {
             return written[a].first < written[b].first;
         });
         std::vector<std::pair<int64_t, float>> expected;
@@ -1782,7 +1782,7 @@ struct WasmFixture {
         instance(setup(wat)) {}
 
     wasmtime::Func get(const std::string &name) {
-        return std::get<wasmtime::Func>(*instance.get(store, name));
+        return std::get<wasmtime::Func>(instance.get(store, name).value());
     }
 
     void write_bool(int32_t channel, int32_t value) {
@@ -1798,7 +1798,7 @@ struct WasmFixture {
             .i32();
     }
 
-    void flush_and_ingest() {
+    void flush_and_ingest() const {
         ::x::telem::Frame frame(1);
         this->state->flush_into(frame, FLUSH_NOW);
         this->state->ingest(frame);

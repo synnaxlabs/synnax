@@ -30,7 +30,7 @@ func BaseFieldToPB(r icd.BaseField) (*BaseField, error) {
 		Key:             r.Key.String(),
 	}
 	if r.Multiplexor != nil {
-		v := (*r.Multiplexor).String()
+		v := r.Multiplexor.String()
 		pb.Multiplexor = &v
 	}
 	if r.Min != nil {
@@ -49,22 +49,20 @@ func BaseFieldFromPB(pb *BaseField) (icd.BaseField, error) {
 		return r, nil
 	}
 	var err error
-	parsedKey, err := uuid.Parse(pb.Key)
+	r.Key, err = uuid.Parse(pb.Key)
 	if err != nil {
 		return icd.BaseField{}, err
 	}
-	r.Key = icd.FieldKey(parsedKey)
 	r.Name = pb.Name
 	r.Scale = pb.Scale
 	r.Offset = pb.Offset
 	r.Units = pb.Units
 	r.MultiplexValues = pb.MultiplexValues
 	if pb.Multiplexor != nil {
-		parsed, err := uuid.Parse(*pb.Multiplexor)
+		v, err := uuid.Parse(*pb.Multiplexor)
 		if err != nil {
 			return icd.BaseField{}, err
 		}
-		v := parsed
 		r.Multiplexor = &v
 	}
 	if pb.Min != nil {
@@ -122,7 +120,7 @@ func BinaryFieldToPB(r icd.BinaryField) (*BinaryField, error) {
 		ByteOrder:       byteOrderVal,
 	}
 	if r.Multiplexor != nil {
-		v := (*r.Multiplexor).String()
+		v := r.Multiplexor.String()
 		pb.Multiplexor = &v
 	}
 	if r.Min != nil {
@@ -141,11 +139,10 @@ func BinaryFieldFromPB(pb *BinaryField) (icd.BinaryField, error) {
 		return r, nil
 	}
 	var err error
-	parsedKey, err := uuid.Parse(pb.Key)
+	r.Key, err = uuid.Parse(pb.Key)
 	if err != nil {
 		return icd.BinaryField{}, err
 	}
-	r.Key = icd.FieldKey(parsedKey)
 	r.ByteOrder, err = ByteOrderFromPB(pb.ByteOrder)
 	if err != nil {
 		return icd.BinaryField{}, err
@@ -160,11 +157,10 @@ func BinaryFieldFromPB(pb *BinaryField) (icd.BinaryField, error) {
 	r.Signed = pb.Signed
 	r.Float = pb.Float
 	if pb.Multiplexor != nil {
-		parsed, err := uuid.Parse(*pb.Multiplexor)
+		v, err := uuid.Parse(*pb.Multiplexor)
 		if err != nil {
 			return icd.BinaryField{}, err
 		}
-		v := parsed
 		r.Multiplexor = &v
 	}
 	if pb.Min != nil {
@@ -230,11 +226,10 @@ func MessageFromPB(pb *Message) (icd.Message, error) {
 		return r, nil
 	}
 	var err error
-	parsedKey, err := uuid.Parse(pb.Key)
+	r.Key, err = uuid.Parse(pb.Key)
 	if err != nil {
 		return icd.Message{}, err
 	}
-	r.Key = icd.MessageKey(parsedKey)
 	r.Payload, err = PayloadFromPB(pb.Payload)
 	if err != nil {
 		return icd.Message{}, err
@@ -298,11 +293,10 @@ func ICDFromPB(pb *ICD) (icd.ICD, error) {
 		return r, nil
 	}
 	var err error
-	parsedKey, err := uuid.Parse(pb.Key)
+	r.Key, err = uuid.Parse(pb.Key)
 	if err != nil {
 		return icd.ICD{}, err
 	}
-	r.Key = icd.Key(parsedKey)
 	r.Messages, err = MessagesFromPB(pb.Messages)
 	if err != nil {
 		return icd.ICD{}, err
@@ -344,7 +338,7 @@ func ReferenceToPB(r icd.Reference) (*Reference, error) {
 		IcdHash: r.ICDHash,
 	}
 	if r.ICD != nil {
-		v := (*r.ICD).String()
+		v := r.ICD.String()
 		pb.Icd = &v
 	}
 	return pb, nil
@@ -358,11 +352,10 @@ func ReferenceFromPB(pb *Reference) (icd.Reference, error) {
 	}
 	r.ICDHash = pb.IcdHash
 	if pb.Icd != nil {
-		parsed, err := uuid.Parse(*pb.Icd)
+		v, err := uuid.Parse(*pb.Icd)
 		if err != nil {
 			return icd.Reference{}, err
 		}
-		v := parsed
 		r.ICD = &v
 	}
 	return r, nil
@@ -466,11 +459,10 @@ func FieldIdentifierFromPB(pb *IdentifierFieldPayload) (icd.FieldIdentifier, err
 		return r, nil
 	}
 	var err error
-	parsedField, err := uuid.Parse(pb.Field)
+	r.Field, err = uuid.Parse(pb.Field)
 	if err != nil {
 		return icd.FieldIdentifier{}, err
 	}
-	r.Field = icd.FieldKey(parsedField)
 	r.Value = pb.Value
 	return r, nil
 }

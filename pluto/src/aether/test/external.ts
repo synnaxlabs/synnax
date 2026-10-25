@@ -10,4 +10,3 @@
 export * from "@/aether/test/Composite";
 export * from "@/aether/test/driver";
 export * from "@/aether/test/Leaf";
-export * from "@/aether/test/provider";

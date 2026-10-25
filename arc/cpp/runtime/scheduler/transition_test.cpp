@@ -197,6 +197,249 @@ TEST_F(SchedulerTest, CascadesMultipleTransitionsInOneCycle) {
     EXPECT_EQ(s3.next_called, 1);
 }
 
+TEST_F(SchedulerTest, AdvancesTheStepInTheCycleItsNodeWithoutOutputsRuns) {
+    mock("trigger", {true});
+    auto &first = mock("first_node");
+    auto &second = mock("second_node");
+    second.on_next = [](node::Context &ctx) { ctx.mark_self_changed(); };
+    auto first_scope = parallel_scope(
+        "first",
+        {stratum_of({ir::node_member("first_node")})}
+    );
+    auto second_scope = parallel_scope(
+        "second",
+        {stratum_of({ir::node_member("second_node")})}
+    );
+    auto main = sequential_scope(
+        "main",
+        {ir::scope_member(std::move(first_scope)),
+         ir::scope_member(std::move(second_scope))},
+        {done_transition("first_node", step_key_target("second"))}
+    );
+    main.activations = {
+        {.on = ir::Handle{"trigger", "output"}, .kind = ir::EdgeKind::Conditional}
+    };
+    auto program = program_of(
+        {ir_node("trigger", {"output"}), ir_node("first_node"), ir_node("second_node")},
+        {},
+        root_scope({ir::node_member("trigger"), ir::scope_member(std::move(main))})
+    );
+    const auto s = build(std::move(program));
+    s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
+    EXPECT_EQ(first.next_called, 1);
+    EXPECT_EQ(second.next_called, 1);
+    EXPECT_EQ(second.reset_called, 1);
+    s->next(
+        {.elapsed = 2 * x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
+    );
+    EXPECT_EQ(first.next_called, 1);
+    EXPECT_EQ(second.next_called, 2);
+}
+
+TEST_F(SchedulerTest, ExitsTheSequenceWhenItsTerminalNodeWithoutOutputsRuns) {
+    mock("trigger", {true});
+    auto &only = mock("only_node");
+    auto only_scope = parallel_scope(
+        "only",
+        {stratum_of({ir::node_member("only_node")})}
+    );
+    auto main = sequential_scope(
+        "main",
+        {ir::scope_member(std::move(only_scope))},
+        {done_transition("only_node", exit_target())}
+    );
+    main.activations = {
+        {.on = ir::Handle{"trigger", "output"}, .kind = ir::EdgeKind::Conditional}
+    };
+    auto program = program_of(
+        {ir_node("trigger", {"output"}), reader_node("only_node")},
+        {},
+        root_scope({ir::node_member("trigger"), ir::scope_member(std::move(main))})
+    );
+    const auto s = build(std::move(program));
+    s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
+    EXPECT_EQ(only.next_called, 1);
+    s->next(
+        {.elapsed = 2 * x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
+    );
+    EXPECT_EQ(only.next_called, 1);
+}
+
+TEST_F(SchedulerTest, AdvancesTheParentWhenANestedSequenceEndsInANodeWithoutOutputs) {
+    mock("trigger", {true});
+    auto &sink = mock("sink");
+    auto &after = mock("after_node");
+    auto body = parallel_scope("body", {stratum_of({ir::node_member("sink")})});
+    auto inner = sequential_scope("inner", {ir::scope_member(std::move(body))});
+    auto after_scope = parallel_scope(
+        "after",
+        {stratum_of({ir::node_member("after_node")})}
+    );
+    auto main = sequential_scope(
+        "main",
+        {ir::scope_member(std::move(inner)), ir::scope_member(std::move(after_scope))},
+        {done_transition("sink", step_key_target("after"))}
+    );
+    main.activations = {
+        {.on = ir::Handle{"trigger", "output"}, .kind = ir::EdgeKind::Conditional}
+    };
+    auto program = program_of(
+        {ir_node("trigger", {"output"}), reader_node("sink"), ir_node("after_node")},
+        {},
+        root_scope({ir::node_member("trigger"), ir::scope_member(std::move(main))})
+    );
+    const auto s = build(std::move(program));
+    s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
+    EXPECT_EQ(sink.next_called, 1);
+    EXPECT_EQ(after.next_called, 1);
+    s->next(
+        {.elapsed = 2 * x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
+    );
+    EXPECT_EQ(sink.next_called, 1);
+}
+
+TEST_F(SchedulerTest, CascadesThroughConsecutiveNodesWithoutOutputsInOneCycle) {
+    mock("trigger", {true});
+    auto &a = mock("a_node");
+    auto &b = mock("b_node");
+    auto &c = mock("c_node");
+    auto a_scope = parallel_scope("a", {stratum_of({ir::node_member("a_node")})});
+    auto b_scope = parallel_scope("b", {stratum_of({ir::node_member("b_node")})});
+    auto c_scope = parallel_scope("c", {stratum_of({ir::node_member("c_node")})});
+    auto main = sequential_scope(
+        "main",
+        {ir::scope_member(std::move(a_scope)),
+         ir::scope_member(std::move(b_scope)),
+         ir::scope_member(std::move(c_scope))},
+        {done_transition("a_node", step_key_target("b")),
+         done_transition("b_node", step_key_target("c")),
+         done_transition("c_node", exit_target())}
+    );
+    main.activations = {
+        {.on = ir::Handle{"trigger", "output"}, .kind = ir::EdgeKind::Conditional}
+    };
+    auto program = program_of(
+        {ir_node("trigger", {"output"}),
+         ir_node("a_node"),
+         ir_node("b_node"),
+         reader_node("c_node")},
+        {},
+        root_scope({ir::node_member("trigger"), ir::scope_member(std::move(main))})
+    );
+    const auto s = build(std::move(program));
+    s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
+    EXPECT_EQ(a.next_called, 1);
+    EXPECT_EQ(b.next_called, 1);
+    EXPECT_EQ(c.next_called, 1);
+    s->next(
+        {.elapsed = 2 * x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
+    );
+    EXPECT_EQ(c.next_called, 1);
+}
+
+TEST_F(SchedulerTest, HoldsTheStepUntilItsNodeWithoutOutputsMarksDone) {
+    mock("trigger", {true});
+    auto &first = mock("first_node");
+    first.suppress_auto_mark = true;
+    first.on_next = [&first](node::Context &ctx) {
+        ctx.mark_self_changed();
+        if (first.next_called == 2) ctx.mark_done();
+    };
+    auto &second = mock("second_node");
+    auto first_scope = parallel_scope(
+        "first",
+        {stratum_of({ir::node_member("first_node")})}
+    );
+    auto second_scope = parallel_scope(
+        "second",
+        {stratum_of({ir::node_member("second_node")})}
+    );
+    auto main = sequential_scope(
+        "main",
+        {ir::scope_member(std::move(first_scope)),
+         ir::scope_member(std::move(second_scope))},
+        {done_transition("first_node", step_key_target("second"))}
+    );
+    main.activations = {
+        {.on = ir::Handle{"trigger", "output"}, .kind = ir::EdgeKind::Conditional}
+    };
+    auto program = program_of(
+        {ir_node("trigger", {"output"}), ir_node("first_node"), ir_node("second_node")},
+        {},
+        root_scope({ir::node_member("trigger"), ir::scope_member(std::move(main))})
+    );
+    const auto s = build(std::move(program));
+    s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
+    EXPECT_EQ(first.next_called, 1);
+    EXPECT_EQ(second.next_called, 0);
+    s->next(
+        {.elapsed = 2 * x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
+    );
+    EXPECT_EQ(first.next_called, 2);
+    EXPECT_EQ(second.next_called, 1);
+}
+
+TEST_F(SchedulerTest, InterleavesDoneAndOutputTransitions) {
+    mock("trigger", {true});
+    auto &first = mock("first_node");
+    auto &waiter = mock("waiter");
+    waiter.suppress_auto_mark = true;
+    waiter.on_next = [](node::Context &ctx) {
+        ctx.mark_self_changed();
+        ctx.mark_changed(0);
+    };
+    auto &last = mock("last_node");
+    auto first_scope = parallel_scope(
+        "first",
+        {stratum_of({ir::node_member("first_node")})}
+    );
+    auto wait_scope = parallel_scope("wait", {stratum_of({ir::node_member("waiter")})});
+    auto last_scope = parallel_scope(
+        "last",
+        {stratum_of({ir::node_member("last_node")})}
+    );
+    ir::Transition t_wait;
+    t_wait.on = ir::Handle{"waiter", "output"};
+    t_wait.kind = ir::EdgeKind::Conditional;
+    t_wait.target = step_key_target("last");
+    auto main = sequential_scope(
+        "main",
+        {ir::scope_member(std::move(first_scope)),
+         ir::scope_member(std::move(wait_scope)),
+         ir::scope_member(std::move(last_scope))},
+        {done_transition("first_node", step_key_target("wait")),
+         t_wait,
+         done_transition("last_node", exit_target())}
+    );
+    main.activations = {
+        {.on = ir::Handle{"trigger", "output"}, .kind = ir::EdgeKind::Conditional}
+    };
+    auto program = program_of(
+        {ir_node("trigger", {"output"}),
+         ir_node("first_node"),
+         ir_node("waiter", {"output"}),
+         ir_node("last_node")},
+        {},
+        root_scope({ir::node_member("trigger"), ir::scope_member(std::move(main))})
+    );
+    const auto s = build(std::move(program));
+    s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
+    EXPECT_EQ(first.next_called, 1);
+    EXPECT_EQ(waiter.next_called, 1);
+    EXPECT_EQ(last.next_called, 0);
+    waiter.set_truthy(0);
+    s->next(
+        {.elapsed = 2 * x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
+    );
+    EXPECT_EQ(waiter.next_called, 2);
+    EXPECT_EQ(last.next_called, 1);
+    s->next(
+        {.elapsed = 3 * x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
+    );
+    EXPECT_EQ(waiter.next_called, 2);
+    EXPECT_EQ(last.next_called, 1);
+}
+
 // Sequential transitions must fire only when the source node called
 // MarkChanged with a truthy output this cycle. Nodes whose output cache
 // stays truthy across cycles (e.g., wait, interval, latched comparisons)

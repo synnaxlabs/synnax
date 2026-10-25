@@ -1,0 +1,29 @@
+{
+  "auto_start": true,
+  "data_saving_disabled": true,
+  "device": "fixture-modbus-write-device",
+  "channels": [
+    {
+      "type": "coil",
+      "key": "ch-mb-coil-out",
+      "name": "fixture_mb_coil_output",
+      "disabled": false,
+      "channel": 8110,
+      "address": 2001
+    },
+    {
+      "key": "ch-mb-holding-out",
+      "name": "fixture_mb_holding_register_output",
+      "disabled": true,
+      "address": 2002,
+      "data_type": "uint32",
+      "bytes_swapped": false,
+      "type": "holding_register",
+      "channel": 8120,
+      "words_swapped": false
+    }
+  ],
+  "type": "modbus_write",
+  "name": "modbus_write",
+  "version": 1
+}

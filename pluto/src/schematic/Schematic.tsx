@@ -112,14 +112,17 @@ export const Schematic = ({
   const handleAddNode = useAddNode();
   const ref = useRef<HTMLDivElement>(null);
   const viewportRef = useSyncedRef(viewport);
-  const calculateCursorPosition = useCallback((cursor: xy.Crude) => {
-    if (ref.current == null) return xy.ZERO;
-    return BaseDiagram.calculateCursorPosition(
-      box.construct(ref.current),
-      cursor,
-      viewportRef.current,
-    );
-  }, []);
+  const calculateCursorPosition = useCallback(
+    (cursor: xy.Crude) => {
+      if (ref.current == null) return xy.ZERO;
+      return BaseDiagram.calculateCursorPosition(
+        box.construct(ref.current),
+        cursor,
+        viewportRef.current,
+      );
+    },
+    [viewportRef],
+  );
 
   const handleDrop = useCallback(
     ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
@@ -148,7 +151,7 @@ export const Schematic = ({
       ...nodesRef.current.map((n) => n.key),
       ...edgesRef.current.map((e) => e.key),
     ]);
-  }, [onSelectionChange]);
+  }, [nodesRef, edgesRef, onSelectionChange]);
   const { undo, canUndo } = useUndo();
   const { redo, canRedo } = useRedo();
 
@@ -164,11 +167,11 @@ export const Schematic = ({
   const handleGroup = useCallback(() => {
     const selection = group(selectedRef.current ?? []);
     if (selection != null) onSelectionChange?.(selection);
-  }, [group, onSelectionChange]);
+  }, [selectedRef, group, onSelectionChange]);
   const handleUngroup = useCallback(() => {
     const freed = ungroup(selectedRef.current ?? []);
     if (freed != null) onSelectionChange?.(freed);
-  }, [ungroup, onSelectionChange]);
+  }, [selectedRef, ungroup, onSelectionChange]);
 
   const canGroup = useMemo(
     () => Group.canGroup(selected ?? [], nodes, parentOf),
@@ -183,7 +186,7 @@ export const Schematic = ({
   const handleSelectionChange = useCallback(
     (keys: string[]) =>
       onSelectionChange?.(Group.closure(keys, parentOfRef.current, configsRef.current)),
-    [onSelectionChange],
+    [parentOfRef, configsRef, onSelectionChange],
   );
 
   // Double-clicking a grouped member drills in, selecting only that member.
@@ -197,7 +200,7 @@ export const Schematic = ({
       }
       onNodeDoubleClick?.(e, node);
     },
-    [editable, onSelectionChange, onNodeDoubleClick],
+    [parentOfRef, configsRef, editable, onSelectionChange, onNodeDoubleClick],
   );
 
   const [hovered, setHovered] = useState<Hovered | null>(null);

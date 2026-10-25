@@ -143,11 +143,12 @@ export const Provider = ({
   const addStatus = Status.useAdder();
 
   const ensure = useCallback((): Promise<Monaco> => {
-    initRef.current ??= (async () => {
-      const m = await initializeMonaco(languages);
-      setMonaco(m);
-      return m;
-    })();
+    if (initRef.current == null)
+      initRef.current = (async () => {
+        const m = await initializeMonaco(languages);
+        setMonaco(m);
+        return m;
+      })();
     return initRef.current;
   }, [languages]);
 

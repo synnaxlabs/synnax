@@ -57,6 +57,9 @@ struct Context {
     /// position in the owning ir::Node's outputs slice. Zero hash
     /// lookups on the hot path.
     std::function<void(size_t output_idx)> mark_changed;
+    /// @brief records that the node performed its work this cycle. A step whose
+    /// node has no outputs completes on it.
+    std::function<void()> mark_done;
     std::function<void()> mark_self_changed;
     /// @brief requests a run at the elapsed time at, for a timer with the period span.
     std::function<void(x::telem::TimeSpan at, x::telem::TimeSpan span)> set_deadline;

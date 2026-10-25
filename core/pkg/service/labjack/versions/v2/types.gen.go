@@ -17,7 +17,7 @@ import (
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	device "github.com/synnaxlabs/synnax/pkg/service/device/versions/v0"
+	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"

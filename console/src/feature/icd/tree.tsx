@@ -20,7 +20,7 @@ import { Panel } from "@/platform/panel";
 import { Tree } from "@/platform/tree";
 
 const useRename = Tree.createUseRename({
-  query: ICD.useRename,
+  useUpdate: ICD.useRename,
   ontologyID: icd.ontologyID,
   convertKey: String,
 });
@@ -28,7 +28,7 @@ const useRename = Tree.createUseRename({
 const useDelete = Tree.createUseDelete({
   type: "ICD",
   icon: "Library",
-  query: ICD.useDelete,
+  useUpdate: ICD.useDelete,
   convertKey: String,
 });
 

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { connection } from "@synnaxlabs/client";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -23,6 +24,7 @@ import {
 import {
   createConnectedConsoleWrapper,
   createConsoleWrapper,
+  createStatusConsoleWrapper,
   renderWithConsole,
 } from "@/testutil";
 
@@ -30,6 +32,15 @@ const CORE_KEY = "core-key";
 
 const createStateWithUser = (username: string) =>
   createCoreState([createCore("Local", { key: CORE_KEY, username })], CORE_KEY);
+
+const UNREACHABLE: connection.Status = {
+  ...connection.DEFAULT_STATUS,
+  variant: "error",
+  name: "Local",
+  message: "Cannot reach Core",
+  description: "Cannot reach Core at localhost:9090",
+  details: { ...connection.DEFAULT_STATUS.details, reason: "unreachable" },
+};
 
 describe("Core.Badge", () => {
   it("should report disconnected when no Core connection exists", async () => {
@@ -46,6 +57,21 @@ describe("Core.Badge", () => {
     const { container } = render(<Core.Badge />, { wrapper });
     hoverCoreBadge(container);
     expect(await screen.findByText("Connected")).toBeTruthy();
+  });
+
+  it("should show why the connection failed in the tooltip", async () => {
+    const { wrapper } = await createStatusConsoleWrapper({
+      client: null,
+      status: UNREACHABLE,
+    });
+    const { container } = render(<Core.Badge />, { wrapper });
+    hoverCoreBadge(container);
+    const tooltip = await screen.findByRole("tooltip");
+    expect(within(tooltip).getByText("Unreachable")).toBeTruthy();
+    expect(within(tooltip).getByText("Local")).toBeTruthy();
+    expect(
+      within(tooltip).getByText("Cannot reach Core at localhost:9090"),
+    ).toBeTruthy();
   });
 
   it("should show the logged-in user's name in the trigger", async () => {

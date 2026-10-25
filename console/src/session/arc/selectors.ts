@@ -31,14 +31,14 @@ export interface KeyedSelectorParams extends record.Keyed<arc.Key> {
   state: StoreState;
 }
 
-const createSelector = <R>(selector: (params: KeyedSelectorParams) => R) =>
-  Arc.Scope.bindHook(({ key }: Omit<KeyedSelectorParams, "state">): R =>
-    Select.useMemo((state: StoreState) => selector({ state, key }), [key]),
-  );
+const createSelector = <R>(selector: (params: KeyedSelectorParams) => R) => {
+  const useSelector = ({ key }: Omit<KeyedSelectorParams, "state">): R =>
+    Select.useMemo((state: StoreState) => selector({ state, key }), [key]);
+  return Arc.Scope.bindHook(useSelector);
+};
 
-const createGetter =
-  <R>(selector: (params: KeyedSelectorParams) => R) =>
-  (): ((args?: { key?: arc.Key }) => R) => {
+const createGetter = <R>(selector: (params: KeyedSelectorParams) => R) => {
+  const useGetter = (): ((args?: { key?: arc.Key }) => R) => {
     const store = useStore<StoreState>();
     const scopeKey = Arc.Scope.useOptional();
     return useCallback(
@@ -50,6 +50,8 @@ const createGetter =
       [store, scopeKey],
     );
   };
+  return useGetter;
+};
 
 export const selectState = ({ state, key }: KeyedSelectorParams): State =>
   Window.selectDocument(state, selectSliceState(state), key) ?? ZERO_STATE;

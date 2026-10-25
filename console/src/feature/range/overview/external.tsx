@@ -33,7 +33,7 @@ const TAB: Panel.Tab = {
     await client.ranges.create(corpse.payload);
   },
   // Only these hooks, so the bundler can drop the rest of the namespace.
-  useTombstone: Panel.createTombstoneReader({ useTombstone: Ranger.useTombstone }),
+  Guard: Panel.createGuard({ useTombstone: Ranger.useTombstone }),
 };
 
 export const TABS: Panel.Tabs = {

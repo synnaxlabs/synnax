@@ -84,7 +84,7 @@ export const createProvider = (
       this.feed = null;
       this.internal.handleError(
         async () => await feed.close(),
-        "failed to close telemetry feed",
+        "Failed to close telemetry feed",
       );
     }
   }

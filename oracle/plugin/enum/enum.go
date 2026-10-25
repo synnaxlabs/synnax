@@ -63,8 +63,7 @@ func collectEnumsFromTypeRef(
 		return
 	}
 
-	// Try to resolve the type
-	resolved, ok := ref.Resolve(table)
+	resolved, _, ok := resolution.Dealias(ref, table)
 	if !ok {
 		return
 	}

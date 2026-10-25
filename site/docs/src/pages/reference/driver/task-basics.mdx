@@ -10,7 +10,7 @@ nextURL: "/reference/driver/ethercat/get-started"
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Video } from "@/components/media/Media";
 import { Tabs } from "@/components/tabs/Tabs";
@@ -86,7 +86,7 @@ select the task type from the menu.
 The task form saves every edit. Click play (<Icon.Play />) to send the configuration to
 the Driver and start the task. Click stop (<Icon.Stop />) to stop it.
 
-<Note.Note variant="info" className="compact">
+<Note.Note variant="info">
   Edits made while a task is running are saved but not applied. Click `Redeploy` to
   apply them.
 </Note.Note>

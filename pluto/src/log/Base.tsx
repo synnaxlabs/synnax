@@ -43,6 +43,12 @@ const TRIGGER_CONFIG: Triggers.ModeConfig<Mode> = {
 
 const FLATTENED_TRIGGERS = Triggers.flattenConfig(TRIGGER_CONFIG);
 
+const EMPTY_CONTENT = (
+  <Status.Summary center level="h3" variant="disabled" hideIcon>
+    No log entries
+  </Status.Summary>
+);
+
 export interface BaseProps extends UseProps, Omit<Flex.BoxProps, "color"> {
   emptyContent?: ReactElement;
   extraContextMenuItems?: ReactNode;
@@ -60,11 +66,7 @@ export const Base = ({
   receiptTimestampHidden,
   timestampPrecision,
   channels,
-  emptyContent = (
-    <Status.Summary center level="h3" variant="disabled" hideIcon>
-      No log entries
-    </Status.Summary>
-  ),
+  emptyContent = EMPTY_CONTENT,
   color,
   telem,
   extraContextMenuItems,

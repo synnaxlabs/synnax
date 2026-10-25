@@ -297,8 +297,7 @@ struct Activation {
     /// @brief on is the dataflow handle whose output activates the scope.
     Handle on;
     /// @brief kind is conditional when only a truthy output activates the scope (`=>`),
-    /// and
-    /// continuous when every output does (`->`).
+    /// and continuous when every output does (`->`).
     EdgeKind kind = {};
 
     static Activation parse(x::json::Parser parser);
@@ -317,8 +316,7 @@ struct Transition {
     /// @brief on is the dataflow handle whose output fires this transition.
     Handle on;
     /// @brief kind is conditional when only a truthy output fires the transition
-    /// (`=>`),
-    /// and continuous when every output fires it (`->`).
+    /// (`=>`), and continuous when every output fires it (`->`).
     EdgeKind kind = {};
     /// @brief target is where the transition goes when it fires.
     Target target;
@@ -452,8 +450,7 @@ using Members = std::vector<Member>;
 /// transitions) is derived from the set variant via Member.key().
 struct Member {
     /// @brief node_key is the key of the referenced node in IR.nodes. Null when this
-    /// member
-    /// is a nested scope.
+    /// member is a nested scope.
     std::optional<std::string> node_key;
     /// @brief scope is set when this member is a nested scope.
     x::mem::indirect<Scope> scope;
@@ -494,8 +491,7 @@ struct Scope {
     /// scopes.
     Members steps;
     /// @brief transitions contains state-transition rules in source order. A parallel
-    /// scope
-    /// holds only exits.
+    /// scope holds only exits.
     std::vector<Transition> transitions;
 
     static Scope parse(x::json::Parser parser);

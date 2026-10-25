@@ -944,8 +944,7 @@ struct AIAccel4WireDCVoltageChannel : public BaseAIChannel,
     /// @brief sensitivity_units are the units of the accelerometer sensitivity.
     std::string sensitivity_units = ACCEL_SENSITIVITY_UNITS_M_VOLTS_PER_G;
     /// @brief scaled_by_excitation is true when the excitation voltage is used to scale
-    /// the
-    /// reading.
+    /// the reading.
     bool scaled_by_excitation = false;
 
     static AIAccel4WireDCVoltageChannel parse(x::json::Parser parser);
@@ -1125,8 +1124,7 @@ struct AIVoltageWithExcitChannel : public BaseAIChannel,
     /// @brief bridge_config selects the physical bridge wiring.
     std::string bridge_config = BRIDGE_CONFIG_FULL_BRIDGE;
     /// @brief scaled_by_excitation is true when the excitation voltage is used to scale
-    /// the
-    /// reading.
+    /// the reading.
     bool scaled_by_excitation = false;
 
     static AIVoltageWithExcitChannel parse(x::json::Parser parser);

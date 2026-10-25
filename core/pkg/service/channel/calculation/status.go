@@ -21,13 +21,14 @@ type Status = status.Status[struct{}]
 // StatusKey returns the status key for the given channel key.
 func StatusKey(key channel.Key) status.Key { return channel.OntologyID(key).String() }
 
-// StatusFromError builds an error status for a calculated channel.
-func StatusFromError(key channel.Key, name, msg string, err error) *Status {
+// StatusFromError builds the error status for a calculated channel whose expression
+// fails to compile.
+func StatusFromError(key channel.Key, name string, err error) *Status {
 	return &Status{
 		Key:         StatusKey(key),
 		Name:        name,
 		Variant:     status.VariantError,
-		Message:     msg,
+		Message:     "Failed to compile calculation",
 		Description: err.Error(),
 		Time:        telem.Now(),
 	}

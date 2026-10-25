@@ -57,6 +57,9 @@ type Context struct {
 	// scheduler cycle without requiring upstream re-triggering. Used by
 	// nodes like Wait that need multiple ticks to complete after activation.
 	MarkSelfChanged func()
+	// MarkDone records that the node performed its work this cycle. A step whose
+	// node has no outputs completes on it.
+	MarkDone func()
 	// SetDeadline reports the absolute elapsed time at which this node next
 	// needs a TimerTick. The scheduler tracks the minimum across all nodes
 	// and uses it to wake the loop at the right time.

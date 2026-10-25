@@ -13,16 +13,29 @@ import { describe, expect, it } from "vitest";
 import { Aether } from "@/aether";
 import { aetherTest } from "@/aether/test";
 import { alamos } from "@/alamos/aether";
-import { render } from "@/testutil/render";
+import { render, renderHook } from "@/testutil/render";
 import { theming } from "@/theming/aether";
 
-const HookComponent = ({ initialValue }: { initialValue: number }) => {
+const CONSUMER_PATH = [
+  "alamos",
+  "status",
+  "synnax",
+  "theming",
+  "telem",
+  "staleness",
+  "consumer",
+];
+
+const useConsumer = (initialValue: number) =>
   Aether.use({
     type: aetherTest.Leaf.TYPE,
     schema: aetherTest.Leaf.stateZ,
     aetherKey: "consumer",
     initialState: { value: initialValue },
   });
+
+const HookComponent = ({ initialValue }: { initialValue: number }) => {
+  useConsumer(initialValue);
   return <div>hook-component</div>;
 };
 
@@ -38,18 +51,10 @@ describe("render", () => {
     expect(providers.theming).toBeInstanceOf(theming.Provider);
   });
 
-  it("mounts components used via Aether.use under the telem provider path", async () => {
+  it("mounts Aether components under the telem provider path", async () => {
     const { root } = render(<HookComponent initialValue={7} />);
     await waitFor(() => {
-      const leaf = root.findChildAtPath([
-        "alamos",
-        "status",
-        "synnax",
-        "theming",
-        "telem",
-        "staleness",
-        "consumer",
-      ]);
+      const leaf = root.findChildAtPath(CONSUMER_PATH);
       expect(leaf).toBeInstanceOf(aetherTest.Leaf);
       expect((leaf as aetherTest.Leaf).state).toEqual({ value: 7 });
     });
@@ -63,5 +68,17 @@ describe("render", () => {
   it("drops a provider from the stack when toggled off", () => {
     const { providers } = render(<div />, { telem: false });
     expect(providers.telem).toBeNull();
+  });
+});
+
+describe("renderHook", () => {
+  it("mounts a hook's Aether components under the telem provider path", async () => {
+    const { root, result } = renderHook(() => useConsumer(7));
+    expect(result.current[1]).toEqual({ value: 7 });
+    await waitFor(() => {
+      const leaf = root.findChildAtPath(CONSUMER_PATH);
+      expect(leaf).toBeInstanceOf(aetherTest.Leaf);
+      expect((leaf as aetherTest.Leaf).state).toEqual({ value: 7 });
+    });
   });
 });

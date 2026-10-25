@@ -8,6 +8,7 @@ replace (
 	github.com/synnaxlabs/aspen => ../aspen
 	github.com/synnaxlabs/cesium => ../cesium
 	github.com/synnaxlabs/freighter => ../freighter/go
+	github.com/synnaxlabs/gorp => ../gorp
 	github.com/synnaxlabs/x => ../x/go
 )
 
@@ -19,7 +20,6 @@ require (
 	github.com/cockroachdb/pebble/v2 v2.1.7
 	github.com/gofiber/contrib/v3/monitor v1.2.3
 	github.com/gofiber/fiber/v3 v3.6.1
-	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/onsi/ginkgo/v2 v2.33.1
 	github.com/onsi/gomega v1.44.0
 	github.com/samber/lo v1.53.0
@@ -31,6 +31,7 @@ require (
 	github.com/synnaxlabs/aspen v0.0.0
 	github.com/synnaxlabs/cesium v0.0.0
 	github.com/synnaxlabs/freighter v0.0.0
+	github.com/synnaxlabs/gorp v0.0.0
 	github.com/synnaxlabs/x v0.0.0
 	github.com/tetratelabs/wazero v1.12.0
 	github.com/uptrace/uptrace-go v1.47.0

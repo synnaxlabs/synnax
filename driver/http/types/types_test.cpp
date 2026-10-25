@@ -192,3 +192,24 @@ TEST(HasResponseBodyTest, HEAD) {
 TEST(HasResponseBodyTest, CONNECT) {
     EXPECT_FALSE(has_response_body(Method::CONNECT));
 }
+
+/// @brief it should escape line breaks in a short body and keep the rest.
+TEST(BodyExcerptTest, EscapesLineBreaks) {
+    const Response resp{.status_code = 500, .body = "a\nb\r\nc"};
+    EXPECT_EQ(resp.body_excerpt(), "a\\nb\\r\\nc");
+}
+
+/// @brief it should cut a long body at the size limit and end it in "...".
+TEST(BodyExcerptTest, CutsLongBody) {
+    const Response resp{.status_code = 500, .body = std::string(600, 'a')};
+    EXPECT_EQ(resp.body_excerpt(), std::string(MAX_BODY_EXCERPT_SIZE, 'a') + "...");
+}
+
+/// @brief it should cut before a multi-byte character that crosses the size limit.
+TEST(BodyExcerptTest, CutsAtCharacterBoundary) {
+    const Response resp{
+        .status_code = 500,
+        .body = std::string(MAX_BODY_EXCERPT_SIZE - 1, 'a') + "\xC3\xA9" + "tail",
+    };
+    EXPECT_EQ(resp.body_excerpt(), std::string(MAX_BODY_EXCERPT_SIZE - 1, 'a') + "...");
+}

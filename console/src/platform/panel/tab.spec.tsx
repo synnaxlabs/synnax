@@ -131,7 +131,7 @@ describe("Panel tab", () => {
           Content: () => <>content</>,
           Name: () => <>name</>,
           Icon: () => <>icon</>,
-          useTombstone: Panel.createTombstoneReader(Schematic),
+          Guard: Panel.createGuard(Schematic),
         },
       };
       const Wrapper = ({ children }: PropsWithChildren): ReactElement => (

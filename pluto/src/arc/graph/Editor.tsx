@@ -83,14 +83,17 @@ export const Editor = ({
   const handleAddNode = useAddNode();
   const ref = useRef<HTMLDivElement>(null);
   const viewportRef = useSyncedRef(viewport);
-  const calculateCursorPosition = useCallback((cursor: xy.Crude) => {
-    if (ref.current == null) return xy.ZERO;
-    return BaseDiagram.calculateCursorPosition(
-      box.construct(ref.current),
-      cursor,
-      viewportRef.current,
-    );
-  }, []);
+  const calculateCursorPosition = useCallback(
+    (cursor: xy.Crude) => {
+      if (ref.current == null) return xy.ZERO;
+      return BaseDiagram.calculateCursorPosition(
+        box.construct(ref.current),
+        cursor,
+        viewportRef.current,
+      );
+    },
+    [viewportRef],
+  );
 
   const handleDrop = useCallback(
     ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
@@ -122,7 +125,7 @@ export const Editor = ({
         ...nodesRef.current.map((n) => n.key),
         ...edgesRef.current.map((e) => e.key),
       ]),
-    [onSelectionChange],
+    [onSelectionChange, nodesRef, edgesRef],
   );
   const { undo, canUndo } = useUndo();
   const { redo, canRedo } = useRedo();

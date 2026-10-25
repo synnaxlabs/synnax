@@ -21,7 +21,7 @@ import (
 
 func TestUnion(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Union Suite")
+	RunSpecs(t, "Union Suite", SuiteConfig())
 }
 
 var _ = Describe("MissingPayload", func() {

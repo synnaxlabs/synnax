@@ -124,7 +124,7 @@ TEST(NiDeviceTests, testToSynnaxPreservesStatus) {
 
     auto synnax_dev = dev.to_synnax();
     ASSERT_TRUE(synnax_dev.status.has_value());
-    EXPECT_EQ(synnax_dev.status->variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(synnax_dev.status->message, "Device present");
+    EXPECT_EQ(synnax_dev.status.value().variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(synnax_dev.status.value().message, "Device present");
 }
 }

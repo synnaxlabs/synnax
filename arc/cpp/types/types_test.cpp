@@ -23,7 +23,7 @@ TEST(ToSampleValue, I64FromNumber) {
     t.kind = arc::types::Kind::I64;
     auto sv = arc::types::to_sample_value(x::json::json(1000000000000LL), t);
     ASSERT_TRUE(sv.has_value());
-    ASSERT_EQ(x::telem::cast<int64_t>(*sv), 1000000000000LL);
+    ASSERT_EQ(x::telem::cast<int64_t>(sv.value()), 1000000000000LL);
 }
 
 TEST(ToSampleValue, I64FromString) {
@@ -31,7 +31,7 @@ TEST(ToSampleValue, I64FromString) {
     t.kind = arc::types::Kind::I64;
     auto sv = arc::types::to_sample_value(x::json::json("1000000000000"), t);
     ASSERT_TRUE(sv.has_value());
-    ASSERT_EQ(x::telem::cast<int64_t>(*sv), 1000000000000LL);
+    ASSERT_EQ(x::telem::cast<int64_t>(sv.value()), 1000000000000LL);
 }
 
 TEST(ToSampleValue, I64NegativeFromString) {
@@ -39,7 +39,7 @@ TEST(ToSampleValue, I64NegativeFromString) {
     t.kind = arc::types::Kind::I64;
     auto sv = arc::types::to_sample_value(x::json::json("-5000000000"), t);
     ASSERT_TRUE(sv.has_value());
-    ASSERT_EQ(x::telem::cast<int64_t>(*sv), -5000000000LL);
+    ASSERT_EQ(x::telem::cast<int64_t>(sv.value()), -5000000000LL);
 }
 
 TEST(ToSampleValue, U64FromNumber) {
@@ -47,7 +47,7 @@ TEST(ToSampleValue, U64FromNumber) {
     t.kind = arc::types::Kind::U64;
     auto sv = arc::types::to_sample_value(x::json::json(5000000000ULL), t);
     ASSERT_TRUE(sv.has_value());
-    ASSERT_EQ(x::telem::cast<uint64_t>(*sv), 5000000000ULL);
+    ASSERT_EQ(x::telem::cast<uint64_t>(sv.value()), 5000000000ULL);
 }
 
 TEST(ToSampleValue, U64FromString) {
@@ -55,7 +55,7 @@ TEST(ToSampleValue, U64FromString) {
     t.kind = arc::types::Kind::U64;
     auto sv = arc::types::to_sample_value(x::json::json("5000000000"), t);
     ASSERT_TRUE(sv.has_value());
-    ASSERT_EQ(x::telem::cast<uint64_t>(*sv), 5000000000ULL);
+    ASSERT_EQ(x::telem::cast<uint64_t>(sv.value()), 5000000000ULL);
 }
 
 TEST(ToSampleValue, I64FromNull) {
@@ -77,7 +77,7 @@ TEST(ToSampleValue, BoolFromTrue) {
     t.kind = arc::types::Kind::Bool;
     auto sv = arc::types::to_sample_value(x::json::json(true), t);
     ASSERT_TRUE(sv.has_value());
-    ASSERT_EQ(x::telem::cast<uint8_t>(*sv), 1);
+    ASSERT_EQ(x::telem::cast<uint8_t>(sv.value()), 1);
 }
 
 TEST(ToSampleValue, BoolFromFalse) {
@@ -85,7 +85,7 @@ TEST(ToSampleValue, BoolFromFalse) {
     t.kind = arc::types::Kind::Bool;
     auto sv = arc::types::to_sample_value(x::json::json(false), t);
     ASSERT_TRUE(sv.has_value());
-    ASSERT_EQ(x::telem::cast<uint8_t>(*sv), 0);
+    ASSERT_EQ(x::telem::cast<uint8_t>(sv.value()), 0);
 }
 
 TEST(ToSampleValue, BoolFromNonzeroNumberNormalizesToOne) {
@@ -93,7 +93,7 @@ TEST(ToSampleValue, BoolFromNonzeroNumberNormalizesToOne) {
     t.kind = arc::types::Kind::Bool;
     auto sv = arc::types::to_sample_value(x::json::json(42), t);
     ASSERT_TRUE(sv.has_value());
-    ASSERT_EQ(x::telem::cast<uint8_t>(*sv), 1);
+    ASSERT_EQ(x::telem::cast<uint8_t>(sv.value()), 1);
 }
 
 TEST(ToSampleValue, BoolFromZeroNumber) {
@@ -101,7 +101,7 @@ TEST(ToSampleValue, BoolFromZeroNumber) {
     t.kind = arc::types::Kind::Bool;
     auto sv = arc::types::to_sample_value(x::json::json(0), t);
     ASSERT_TRUE(sv.has_value());
-    ASSERT_EQ(x::telem::cast<uint8_t>(*sv), 0);
+    ASSERT_EQ(x::telem::cast<uint8_t>(sv.value()), 0);
 }
 
 TEST(ToSampleValue, BoolFromStringReturnsNullopt) {

@@ -72,12 +72,13 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>, Q extends 
       [staticViews, updateQuery],
     ),
   });
+  const { get: getField } = form;
   const handleSet = useCallback(
     (view: view.View) => {
-      if (view.key !== form.get<string>("key").value) return;
+      if (view.key !== getField<string>("key").value) return;
       updateQuery(view.query);
     },
-    [form.get, updateQuery],
+    [getField, updateQuery],
   );
   PView.useSetSynchronizer(handleSet);
   const [selected, setSelected] = useState<K[]>([]);

@@ -228,7 +228,7 @@ TEST(ManagerTest, ReleaseAndReallocate) {
     auto mgr = std::make_shared<Manager>();
     const auto total = mgr->total_cores();
     if (total == 0) { GTEST_SKIP() << "no RT cores available"; }
-    int core;
+    int core = 0;
     {
         Config cfg;
         cfg.enabled = true;

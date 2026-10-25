@@ -19,7 +19,7 @@ import (
 
 func TestVirtual(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Virtual Suite")
+	RunSpecs(t, "Virtual Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

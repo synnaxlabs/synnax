@@ -75,42 +75,45 @@ export const termsOf = (lic: License): TermsValues => ({
 });
 
 /** TermsFields are the license terms staff set, shared by issuing and editing. */
-export const TermsFields = (): ReactElement => (
-  <>
-    <Form.TextField
-      path="label"
-      label="Label"
-      inputProps={{ autoFocus: true, placeholder: "Test stand, site B" }}
-    />
-    <Form.Field<Term> path="term" label="Term">
-      {(p) => (
-        <Select.Simple<Term> {...p} resourceName="Term">
-          <Select.Item itemKey="subscription">Subscription</Select.Item>
-          <Select.Item itemKey="perpetual">Perpetual</Select.Item>
-        </Select.Simple>
-      )}
-    </Form.Field>
-    <Form.NumericField path="nodes" label="Machines that may activate" />
-    <Form.NumericField
-      path="channels"
-      label="Channel cap per Core"
-      inputProps={{ placeholder: "0 for unlimited" }}
-    />
-    <Form.Field<string>
-      path="expiresAt"
-      label="Expires (UTC)"
-      visible={(_, ctx) => ctx.get<Term>("term")?.value === "subscription"}
-    >
-      {(p) => <Input.Text {...p} type="date" />}
-    </Form.Field>
-    <Form.TextField
-      path="maxVersion"
-      label="Maximum Core version"
-      inputProps={{ placeholder: "0.62" }}
-    />
-    <Text.Text level="small" color={9}>
-      Required on a perpetual license. On a subscription it is the version the license
-      keeps covering after it expires.
-    </Text.Text>
-  </>
-);
+export const TermsFields = (): ReactElement => {
+  const term = Form.useFieldValue<Term>("term");
+  return (
+    <>
+      <Form.TextField
+        path="label"
+        label="Label"
+        inputProps={{ autoFocus: true, placeholder: "Test stand, site B" }}
+      />
+      <Form.Field<Term> path="term" label="Term">
+        {(p) => (
+          <Select.Simple<Term> {...p} resourceName="Term">
+            <Select.Item itemKey="subscription">Subscription</Select.Item>
+            <Select.Item itemKey="perpetual">Perpetual</Select.Item>
+          </Select.Simple>
+        )}
+      </Form.Field>
+      <Form.NumericField path="nodes" label="Machines that may activate" />
+      <Form.NumericField
+        path="channels"
+        label="Channel cap per Core"
+        inputProps={{ placeholder: "0 for unlimited" }}
+      />
+      <Form.Field<string>
+        path="expiresAt"
+        label="Expires (UTC)"
+        visible={term === "subscription"}
+      >
+        {(p) => <Input.Text {...p} type="date" />}
+      </Form.Field>
+      <Form.TextField
+        path="maxVersion"
+        label="Maximum Core version"
+        inputProps={{ placeholder: "0.62" }}
+      />
+      <Text.Text level="small" color={9}>
+        Required on a perpetual license. On a subscription it is the version the license
+        keeps covering after it expires.
+      </Text.Text>
+    </>
+  );
+};

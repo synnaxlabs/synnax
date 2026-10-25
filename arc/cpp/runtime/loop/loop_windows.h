@@ -122,6 +122,7 @@ public:
         if (this->wake_event_ == NULL)
             return this->fail_start(
                 x::errors::Error(
+                    x::errors::INTERNAL,
                     "Failed to create wake event: " + std::to_string(GetLastError())
                 )
             );
@@ -176,6 +177,7 @@ private:
             this->timer_event_ = this->api_.create();
             if (this->timer_event_ == NULL)
                 return x::errors::Error(
+                    x::errors::INTERNAL,
                     "Failed to create waitable timer: " + std::to_string(GetLastError())
                 );
             VLOG(1) << "[arc.loop] using standard waitable timer with a 1 ms tick";

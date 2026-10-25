@@ -12,7 +12,7 @@ import fs from "fs";
 import path from "path";
 
 /** The directory that holds each version's notes. */
-export const RELEASE_NOTES_DIR = "./src/releases";
+export const RELEASE_NOTES_DIR = path.join(import.meta.dirname, "../releases");
 
 export interface Notes {
   /** The file name without its extension, which was the notes' route before. */

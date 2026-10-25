@@ -13,11 +13,11 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/task/versions/legacy"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
@@ -72,7 +72,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Instrumentation:    cfg.Instrumentation,
 			Type:               Type,
 			Migrations:         versions.Migrations,
-			Version:            legacy.LastVersion + 1,
+			LegacyVersion:      legacy.LastVersion,
+			Ladder:             versions.ConfigLadder,
 			Legacy:             &legacy.Config,
 			SetEntryKey:        (*Config).SetKey,
 			ApplyEntryDefaults: (*Config).ApplyDefaults,

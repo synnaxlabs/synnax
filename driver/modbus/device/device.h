@@ -30,7 +30,7 @@ const x::errors::Error TEMPORARY_ERROR = errors::TEMPORARY_HARDWARE_ERROR.sub("m
 /// @brief parses the x::errors compatible representation of the modbus error code.
 inline x::errors::Error parse_error(const int code) {
     if (code != -1) return x::errors::NIL;
-    const auto err = modbus_strerror(errno);
+    const auto *const err = modbus_strerror(errno);
     return x::errors::Error(CRITICAL_ERROR, err);
 }
 
@@ -169,7 +169,7 @@ public:
     /// connection problems when servers restart.
     std::pair<std::shared_ptr<Device>, x::errors::Error>
     acquire(const ConnectionConfig &config) {
-        auto ctx = modbus_new_tcp(config.host.c_str(), config.port);
+        auto *ctx = modbus_new_tcp(config.host.c_str(), config.port);
         if (ctx == nullptr)
             return {nullptr, x::errors::Error(CRITICAL_ERROR, modbus_strerror(errno))};
 

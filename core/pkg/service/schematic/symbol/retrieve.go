@@ -12,9 +12,9 @@ package symbol
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // Retrieve is a query builder for retrieving symbols. It should not be instantiated

@@ -32,3 +32,9 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (ICD, error) {
 	}
 	return ICD{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
 }
+
+// liftFirst lifts the first exported ICD shape to the current shape. A decoder
+// of an older shape builds the first exported shape and enters the ladder here.
+func liftFirst(ctx context.Context, t0 v0.ICD) (ICD, error) {
+	return t0, nil
+}

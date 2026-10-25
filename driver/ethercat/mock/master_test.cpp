@@ -317,7 +317,7 @@ TEST(MasterIoMap, SetInputWritesToInputMap) {
     master.set_input<int16_t>(0, 0x1234);
     auto data = master.input_data();
     ASSERT_GE(data.size(), 2);
-    int16_t value;
+    int16_t value = 0;
     std::memcpy(&value, data.data(), sizeof(value));
     EXPECT_EQ(value, 0x1234);
 }
@@ -329,7 +329,7 @@ TEST(MasterIoMap, GetOutputReadsFromOutputMap) {
     ASSERT_NIL(master.activate());
     auto data = master.output_data();
     ASSERT_GE(data.size(), 4);
-    int32_t write_val = 0xDEADBEEF;
+    auto write_val = static_cast<int32_t>(0xDEADBEEF);
     std::memcpy(data.data(), &write_val, sizeof(write_val));
     EXPECT_EQ(master.get_output<int32_t>(0), 0xDEADBEEF);
 }

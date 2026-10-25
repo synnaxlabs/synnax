@@ -13,6 +13,8 @@ import { type ComponentType, type ReactElement, type ReactNode, Suspense } from 
 import { Boundary } from "@/errors/Boundary";
 import { type FallbackProps } from "@/errors/Fallback";
 
+const LOADING = <Status.Loading />;
+
 export interface SuspenseBoundaryProps {
   /// Rendered while children are suspended. Defaults to a delayed
   /// {@link Status.Loading}, which stays invisible for a short wait and fades in
@@ -33,7 +35,7 @@ export interface SuspenseBoundaryProps {
 /// the panel is loading, `loading` shows; when a child throws, the fallback
 /// shows.
 export const SuspenseBoundary = ({
-  loading = <Status.Loading />,
+  loading = LOADING,
   FallbackComponent,
   children,
 }: SuspenseBoundaryProps): ReactElement => (

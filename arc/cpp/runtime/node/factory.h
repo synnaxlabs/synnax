@@ -43,7 +43,9 @@ public:
     /// prefix. Factories that return an empty string are always considered.
     [[nodiscard]] virtual std::string module_name() const { return ""; }
 
-    virtual bool handles(const std::string &node_type) const { return false; }
+    [[nodiscard]] virtual bool handles(const std::string &node_type) const {
+        return false;
+    }
 
     virtual std::pair<std::unique_ptr<Node>, x::errors::Error> create(Config &&cfg) = 0;
 };

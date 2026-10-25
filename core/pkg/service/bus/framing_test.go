@@ -87,9 +87,7 @@ var _ = Describe("Framing", func() {
 			"Should accept a stream read config with a valid framing",
 			func(ctx SpecContext) {
 				cfg := bus.StreamReadConfig{
-					ReadConfig: bus.ReadConfig{
-						Reference: icd.Reference{ICD: &ic.Key},
-					},
+					ICD:     &ic.Key,
 					Framing: syncFraming(func(*bus.SyncFraming) {}),
 				}
 				Expect(resolver.StreamRead(ctx, tx, task, &cfg)).To(Succeed())
@@ -100,9 +98,7 @@ var _ = Describe("Framing", func() {
 			"Should reject a stream read config with a bad framing",
 			func(ctx SpecContext) {
 				cfg := bus.StreamReadConfig{
-					ReadConfig: bus.ReadConfig{
-						Reference: icd.Reference{ICD: &ic.Key},
-					},
+					ICD:     &ic.Key,
 					Framing: syncFraming(func(s *bus.SyncFraming) { s.LengthSize = 3 }),
 				}
 				Expect(resolver.StreamRead(ctx, tx, task, &cfg)).
@@ -114,9 +110,7 @@ var _ = Describe("Framing", func() {
 			"Should reject a stream write config with a bad framing",
 			func(ctx SpecContext) {
 				cfg := bus.StreamWriteConfig{
-					WriteConfig: bus.WriteConfig{
-						Reference: icd.Reference{ICD: &ic.Key},
-					},
+					ICD:     &ic.Key,
 					Framing: syncFraming(func(s *bus.SyncFraming) { s.Sync = "ZZ" }),
 				}
 				Expect(resolver.StreamWrite(ctx, tx, task, &cfg)).
@@ -128,9 +122,7 @@ var _ = Describe("Framing", func() {
 			"Should accept a stream write config with a valid framing",
 			func(ctx SpecContext) {
 				cfg := bus.StreamWriteConfig{
-					WriteConfig: bus.WriteConfig{
-						Reference: icd.Reference{ICD: &ic.Key},
-					},
+					ICD:     &ic.Key,
 					Framing: bus.Framing{Variant: bus.SlipFraming{}},
 				}
 				Expect(resolver.StreamWrite(ctx, tx, task, &cfg)).To(Succeed())

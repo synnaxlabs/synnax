@@ -12,7 +12,7 @@ package v2
 import (
 	"uuid"
 
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp"
 )
 
 var _ gorp.Entry[uuid.UUID] = KeyedConfig{}

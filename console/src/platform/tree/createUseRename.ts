@@ -17,7 +17,7 @@ import { useCallback } from "react";
 import { type ContextMenuProps } from "@/platform/tree/types";
 
 export interface CreateUseRenameParams<K extends record.Key> {
-  query: Flux.UseUpdate<record.KeyedNamed<K>>;
+  useUpdate: Flux.UseUpdate<record.KeyedNamed<K>>;
   ontologyID: (key: K) => ontology.ID;
   convertKey: (key: string) => K;
   beforeUpdate?: (
@@ -26,21 +26,20 @@ export interface CreateUseRenameParams<K extends record.Key> {
   ) => Promise<record.KeyedNamed<K> | boolean>;
 }
 
-export const createUseRename =
-  <K extends record.Key>({
-    query,
-    ontologyID,
-    convertKey,
-    beforeUpdate,
-  }: CreateUseRenameParams<K>): ((props: ContextMenuProps) => () => void) =>
-  (props: ContextMenuProps) => {
+export const createUseRename = <K extends record.Key>({
+  useUpdate,
+  ontologyID,
+  convertKey,
+  beforeUpdate,
+}: CreateUseRenameParams<K>): ((props: ContextMenuProps) => () => void) => {
+  const useRename = (props: ContextMenuProps) => {
     const {
       selection: {
         ids: [firstID],
       },
       state: { getResource },
     } = props;
-    const { update } = query({
+    const { update } = useUpdate({
       beforeUpdate: useCallback(
         async (query: Flux.BeforeUpdateParams<record.KeyedNamed<K>>) => {
           const { data } = query;
@@ -61,11 +60,13 @@ export const createUseRename =
             });
           return { ...data, name: name ?? "" };
         },
-        [beforeUpdate, props],
+        [props],
       ),
     });
     return useCallback(
       () => update({ key: convertKey(firstID.key), name: getResource(firstID).name }),
-      [firstID, getResource],
+      [firstID, getResource, update],
     );
   };
+  return useRename;
+};

@@ -24,6 +24,9 @@
             font-size: 2rem;
             min-width: 2rem;
         }
+        .console-task__data-saving--active .pluto-icon {
+            animation: console-task-data-saving-pulse 2s ease-in-out infinite;
+        }
         .console-task__metadata {
             flex-shrink: 1;
             text-overflow: ellipsis;
@@ -34,13 +37,17 @@
                 &:not(:has([contenteditable="true"])) {
                     overflow: hidden;
                 }
-                /* Padding fixes overflow issues with the slightly enlarged OPC UA logo */
-                padding-left: 0.25rem;
                 p {
                     text-overflow: ellipsis;
                     overflow: hidden;
                 }
             }
         }
+    }
+}
+
+@keyframes console-task-data-saving-pulse {
+    50% {
+        opacity: 0.4;
     }
 }

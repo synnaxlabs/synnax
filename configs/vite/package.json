@@ -17,9 +17,16 @@
       "default": "./dist/src/index.js"
     }
   },
-  "devDependencies": {
+  "dependencies": {
+    "@babel/core": "catalog:",
+    "@babel/plugin-transform-react-jsx": "catalog:",
+    "@rolldown/plugin-babel": "catalog:",
     "@synnaxlabs/eslint-config": "catalog:",
+    "babel-plugin-react-compiler": "catalog:"
+  },
+  "devDependencies": {
     "@synnaxlabs/tsconfig": "catalog:",
+    "@types/babel__core": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
     "postcss": "catalog:",

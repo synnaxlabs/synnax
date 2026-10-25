@@ -19,7 +19,7 @@ class UnaryClient final : public freighter::UnaryClient<RQ, RS>, Finalizer<RQ, R
 public:
     std::vector<RQ> requests{};
     std::vector<RS> responses{};
-    std::vector<x::errors::Error> response_errors{};
+    std::vector<x::errors::Error> response_errors;
 
     UnaryClient() = default;
 

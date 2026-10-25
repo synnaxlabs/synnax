@@ -72,7 +72,7 @@ private:
     Aligner aligner;
     std::vector<std::uint8_t> raw;
 
-    /// @returns the warning for an unreachable bus: "reconnecting to <device>:
+    /// @returns the problem an unreachable bus reports: "reconnecting to <device>:
     /// <reason>".
     [[nodiscard]] std::string reconnecting(const x::errors::Error &err) const;
     void handle(const Frame &frame);

@@ -44,9 +44,9 @@ struct TaskConfig : ::synnax::task::PersistConfig {
 
     TaskConfig(TaskConfig &&other) noexcept:
         ::synnax::task::PersistConfig(std::move(other)),
-        arc_key(std::move(other.arc_key)),
+        arc_key(other.arc_key),
         program(std::move(other.program)),
-        loop(std::move(other.loop)) {}
+        loop(other.loop) {}
 
     TaskConfig(const TaskConfig &) = delete;
     const TaskConfig &operator=(const TaskConfig &) = delete;
@@ -66,7 +66,13 @@ struct TaskConfig : ::synnax::task::PersistConfig {
         );
         if (arc_err) return {std::move(cfg), arc_err};
         if (!arc_data.program.has_value())
-            return {std::move(cfg), x::errors::Error("arc module not compiled")};
+            return {
+                std::move(cfg),
+                x::errors::Error(
+                    x::errors::INTERNAL,
+                    "The Arc program is not compiled."
+                )
+            };
         cfg.program = *arc_data.program;
         return {std::move(cfg), x::errors::NIL};
     }
@@ -103,7 +109,7 @@ class Task final : public task::Task {
         }
 
         void stopped_with_err(const x::errors::Error &err) override {
-            this->task.state.error(err);
+            this->task.state.error(err, "Failed to run Arc program");
             this->task.stop("", true);
         }
     };
@@ -134,7 +140,7 @@ public:
         const TaskConfig &cfg,
         std::shared_ptr<pipeline::WriterFactory> writer_factory = nullptr,
         std::shared_ptr<pipeline::StreamerFactory> streamer_factory = nullptr,
-        std::shared_ptr<x::thread::rt::Manager> rt_manager = nullptr
+        const std::shared_ptr<x::thread::rt::Manager> &rt_manager = nullptr
     ) {
         auto task = std::unique_ptr<Task>(new Task(task_meta, ctx));
 
@@ -169,29 +175,37 @@ public:
                 {
                     std::make_shared<::driver::arc::status::Module>(
                         ctx->client,
-                        [task_ptr = task.get()](const std::string &message) {
-                            task_ptr->state.send_warning(message);
-                        }
+                        [task_ptr = task.get()](
+                            const std::string &message,
+                            const std::string &description
+                        ) { task_ptr->state.send_warning(message, description); }
                     ),
                     std::make_shared<::driver::arc::ranges::Module>(
                         ctx->client,
-                        [task_ptr = task.get()](const std::string &message) {
-                            task_ptr->state.send_warning(message);
-                        }
+                        [task_ptr = task.get()](
+                            const std::string &message,
+                            const std::string &description
+                        ) { task_ptr->state.send_warning(message, description); }
                     ),
                 },
             .rt_handle = rt_handle,
         };
 
+        const auto fail = [task_ptr = task.get()](const x::errors::Error &err) {
+            task_ptr->state.send_error(err, "Failed to run Arc program");
+            task_ptr->runtime->close_outputs();
+        };
         auto [rt, err] = ::arc::runtime::load(
             runtime_cfg,
-            [task_ptr = task.get()](const x::errors::Error &err) {
+            fail,
+            [task_ptr = task.get(),
+             fail](const ::arc::ir::Node &node, const x::errors::Error &err) {
+                const auto description = "The " + node.type +
+                                         " node failed: " + err.data;
                 if (err.matches(::arc::runtime::errors::WARNING))
-                    task_ptr->state.send_warning(err);
-                else {
-                    task_ptr->state.send_error(err);
-                    task_ptr->runtime->close_outputs();
-                }
+                    task_ptr->state.send_warning("Node failed", description);
+                else
+                    fail(x::errors::Error(err, description));
             }
         );
         if (err) return {nullptr, err};

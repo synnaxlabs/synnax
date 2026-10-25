@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import re
+
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
@@ -36,28 +38,26 @@ class Log(ConsolePage):
         if channel_name is not None:
             self.set_channel(channel_name)
 
+    def _channels(self) -> Locator:
+        """The list of the log's channel rows in the Log toolbar."""
+        self.layout.show_visualization_toolbar()
+        return self.page.get_by_role("list", name="Log channels")
+
     def clear_channels(self) -> None:
         """Remove all currently selected channels from the log.
 
-        The remove button reveals on row hover but stays under the row's own
-        content in hit-testing, so a physical click never lands; dispatch the
-        click on the button instead.
+        Clearing a row's channel select removes the row. The clear button
+        reveals on hover over the select, so dispatch the click on it instead of
+        moving the mouse there.
         """
-        self.layout.show_visualization_toolbar()
-        toolbar = self.page.locator(".console-log-toolbar")
+        rows = self._channels().get_by_role("listitem")
         while True:
-            rows = toolbar.locator(".console-log__channel-row").filter(
-                has=self.page.get_by_role("button", name="Remove channel", exact=True)
-            )
             count = rows.count()
             if count == 0:
                 break
-            row = rows.first
-            row.hover()
-            remove_btn = row.get_by_role(
-                "button", name="Remove channel", exact=True
-            ).first
-            remove_btn.dispatch_event("click")
+            rows.first.get_by_role(
+                "button", name=re.compile(r"^Clear ")
+            ).dispatch_event("click")
             # Confirm the row actually detached before rescanning; a silent
             # no-op here would loop forever.
             for _ in range(10):
@@ -69,23 +69,16 @@ class Log(ConsolePage):
 
     def set_channel(self, channel_name: str) -> None:
         """Add a channel to the log via the 'Add channel' row."""
-        self.layout.show_visualization_toolbar()
-        toolbar = self.page.locator(".console-log-toolbar")
-        add_trigger = toolbar.get_by_text("Add channel")
-        add_trigger.click()
+        self._channels().get_by_text("Add channel").click()
         self.layout.select_from_dropdown(channel_name, "Search channels")
 
     def has_channel(self, channel_name: str) -> bool:
         """Check if a channel is shown in the Log toolbar."""
         self.layout.get_tab(self.page_name).click()
-        self.layout.show_visualization_toolbar()
-        toolbar = self.page.locator(".console-log-toolbar")
-        rows = toolbar.locator(".console-log__channel-row")
-        for i in range(rows.count()):
-            row_text = rows.nth(i).inner_text() or ""
-            if channel_name in row_text:
-                return True
-        return False
+        clear = self._channels().get_by_role(
+            "button", name=f"Clear {channel_name}", exact=True
+        )
+        return clear.count() > 0
 
     def copy_visible_entries(self) -> str:
         """Drag-select the log and copy the selection via the context menu.

@@ -10,7 +10,7 @@ nextURL: "/reference/driver/http/connect-server"
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
@@ -29,7 +29,7 @@ Before creating a write task,
 identify the RxPDOs (output PDOs) to write to each one. State channels carry feedback
 read back from the device.
 
-<Note.Note variant="warning" className="compact">
+<Note.Note variant="warning">
   All channels in a task must use devices connected to the **same network interface**.
   Create separate tasks for devices on different EtherCAT networks.
 </Note.Note>
@@ -112,7 +112,7 @@ Writes data to an RxPDO using explicit CoE addressing.
 - Non-standard devices
 - Accessing vendor-specific objects
 
-<Note.Note variant="info" className="compact">
+<Note.Note variant="info">
   Common servo drive RxPDO objects include control word (`0x6040`), target position
   (`0x607A`), and target velocity (`0x60FF`).
 </Note.Note>

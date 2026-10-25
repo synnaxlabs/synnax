@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/schemadiff"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/typemap"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
 	goprimitives "github.com/synnaxlabs/oracle/plugin/go/primitives"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
@@ -738,33 +739,10 @@ func processTypeDef(td resolution.Type, data *templateData) typeDefData {
 		result.IsGeneric = len(result.TypeParams) > 0
 		return result
 	case resolution.AliasForm:
-		targetRef := form.Target
-		if targetResolved, ok := targetRef.Resolve(data.table); ok {
-			if targetForm, ok := targetResolved.Form.(resolution.StructForm); ok {
-				nonDefaultedParams := resolution.NonDefaultedTypeParams(
-					targetForm.TypeParams,
-				)
-				providedArgs := len(targetRef.TypeArgs)
-				if providedArgs < len(nonDefaultedParams) {
-					newTypeArgs := make([]resolution.TypeRef, len(nonDefaultedParams))
-					copy(newTypeArgs, targetRef.TypeArgs)
-					for i := providedArgs; i < len(nonDefaultedParams); i++ {
-						if nonDefaultedParams[i].Optional {
-							newTypeArgs[i] = resolution.TypeRef{Name: "nil"}
-						}
-					}
-					targetRef = resolution.TypeRef{
-						Name:     targetRef.Name,
-						TypeArgs: newTypeArgs,
-					}
-				}
-			}
-		}
-		baseType := data.resolver.ResolveTypeRef(targetRef, data.ctx)
 		result := typeDefData{
 			Name:     name,
 			Doc:      doc.Get(td.Domains),
-			BaseType: baseType,
+			BaseType: data.resolver.ResolveTypeRef(form.Target, data.ctx),
 			IsAlias:  true,
 		}
 		for _, tp := range resolution.NonDefaultedTypeParams(form.TypeParams) {
@@ -940,17 +918,16 @@ func processField(field resolution.Field, data *templateData) fieldData {
 		data = data.latest
 	}
 	goType := data.resolver.ResolveTypeRef(field.Type, data.ctx)
-	if field.Optional && !strings.HasPrefix(goType, "[]") &&
-		!strings.HasPrefix(goType, "map[") &&
-		!strings.HasPrefix(goType, "msgpack.EncodedJSON") {
+	if field.Optional && !typemap.Nilable(field.Type, data.table) {
 		goType = "*" + goType
 	}
 	return fieldData{
-		GoName:     naming.GetFieldName(field),
-		GoType:     goType,
-		JSONName:   casing.FieldSnake(field.Name),
-		IsOptional: field.Optional,
-		Doc:        doc.Get(field.Domains),
+		GoName:      naming.GetFieldName(field),
+		GoType:      goType,
+		JSONName:    casing.FieldSnake(field.Name),
+		IsOptional:  field.Optional,
+		Doc:         doc.Get(field.Domains),
+		WireOmitted: domain.GetStringFromField(field, "go", "wire") == "omit",
 	}
 }
 
@@ -964,24 +941,16 @@ func buildGenericType(
 		return baseName
 	}
 
-	var args []string
+	var typeParams []resolution.TypeParam
 	if targetType != nil {
-		if form, ok := targetType.Form.(resolution.StructForm); ok {
-			for i, arg := range typeArgs {
-				if i < len(form.TypeParams) && form.TypeParams[i].HasDefault() {
-					continue
-				}
-				args = append(args, data.resolver.ResolveTypeRef(arg, data.ctx))
-			}
-		} else {
-			for _, arg := range typeArgs {
-				args = append(args, data.resolver.ResolveTypeRef(arg, data.ctx))
-			}
+		typeParams = resolution.TypeParams(targetType.Form)
+	}
+	var args []string
+	for i, arg := range typeArgs {
+		if i < len(typeParams) && typeParams[i].HasDefault() {
+			continue
 		}
-	} else {
-		for _, arg := range typeArgs {
-			args = append(args, data.resolver.ResolveTypeRef(arg, data.ctx))
-		}
+		args = append(args, data.resolver.ResolveTypeRef(arg, data.ctx))
 	}
 
 	if len(args) == 0 {
@@ -1104,26 +1073,34 @@ type fieldData struct {
 	JSONName   string
 	Doc        string
 	IsOptional bool
+	// WireOmitted is set by @go wire omit: JSON and msgpack skip the field.
+	WireOmitted bool
 }
 
-// JSONTagSuffix returns the JSON tag suffix for the field. An optional field uses
-// `,omitzero` so its Go zero — a nil slice, map or pointer — is omitted while any
-// allocated value serializes, including an empty collection or a pointer to "". A
-// required field always serializes, because the schema says it always applies.
-func (f fieldData) JSONTagSuffix() string {
-	if f.IsOptional {
-		return ",omitzero"
+// JSONTag returns the field's JSON tag. An optional field uses `,omitzero` so its Go
+// zero — a nil slice, map or pointer — is omitted while any allocated value
+// serializes, including an empty collection or a pointer to "". A required field always
+// serializes, because the schema says it always applies.
+func (f fieldData) JSONTag() string {
+	if f.WireOmitted {
+		return "-"
 	}
-	return ""
+	if f.IsOptional {
+		return f.JSONName + ",omitzero"
+	}
+	return f.JSONName
 }
 
-// MsgpackTagSuffix returns the msgpack tag suffix for the field. vmihailenco/msgpack
-// honors only `,omitempty`, which also omits an allocated empty collection.
-func (f fieldData) MsgpackTagSuffix() string {
-	if f.IsOptional {
-		return ",omitempty"
+// MsgpackTag returns the field's msgpack tag. vmihailenco/msgpack honors only
+// `,omitempty`, which also omits an allocated empty collection.
+func (f fieldData) MsgpackTag() string {
+	if f.WireOmitted {
+		return "-"
 	}
-	return ""
+	if f.IsOptional {
+		return f.JSONName + ",omitempty"
+	}
+	return f.JSONName
 }
 
 type enumData struct {
@@ -1305,7 +1282,7 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{- if .Doc}}
 	{{formatFieldDoc .GoName .Doc | printf "%s"}}
 {{- end}}
-	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.JSONTagSuffix}}" msgpack:"{{.JSONName}}{{.MsgpackTagSuffix}}"` + "`" + `
+	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONTag}}" msgpack:"{{.MsgpackTag}}"` + "`" + `
 {{- end}}
 {{- range .ExtraFields}}
 	{{.}}
@@ -1317,7 +1294,7 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{- if .Doc}}
 	{{formatFieldDoc .GoName .Doc | printf "%s"}}
 {{- end}}
-	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.JSONTagSuffix}}" msgpack:"{{.JSONName}}{{.MsgpackTagSuffix}}"` + "`" + `
+	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONTag}}" msgpack:"{{.MsgpackTag}}"` + "`" + `
 {{- end}}
 {{- range .ExtraFields}}
 	{{.}}
@@ -1448,7 +1425,7 @@ type {{.TypeName}} struct {
 {{- if .Doc}}
 	{{formatFieldDoc .GoName .Doc | printf "%s"}}
 {{- end}}
-	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.JSONTagSuffix}}" msgpack:"{{.JSONName}}{{.MsgpackTagSuffix}}"` + "`" + `
+	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONTag}}" msgpack:"{{.MsgpackTag}}"` + "`" + `
 {{- end}}
 }
 

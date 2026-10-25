@@ -45,7 +45,7 @@ protected:
 TEST_F(BeckhoffDevicesTest, VendorNameReturnsBeckhoff) {
     auto name = vendor_name(BECKHOFF_VENDOR_ID);
     ASSERT_TRUE(name.has_value());
-    EXPECT_NE(name->find("Beckhoff"), std::string_view::npos);
+    EXPECT_NE(name.value().find("Beckhoff"), std::string_view::npos);
 }
 
 // DEWESoft vendor tests (vendor ID: 0xDEBE50F7)

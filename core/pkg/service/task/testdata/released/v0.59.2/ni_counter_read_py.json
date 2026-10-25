@@ -1,0 +1,51 @@
+{
+  "stream_rate": 25,
+  "channels": [
+    {
+      "terminal": "/Dev1/PFI0",
+      "name": "",
+      "disabled": false,
+      "device": "fixture-ni-py-ctr-dev",
+      "min_val": 2.5,
+      "max_val": 95.5,
+      "edge": "Falling",
+      "type": "ci_frequency",
+      "channel": 3110,
+      "custom_scale": {
+        "type": "none"
+      },
+      "meas_method": "DynamicAvg",
+      "units": "Hz",
+      "meas_time": 0.002,
+      "divisor": 8,
+      "key": "ch-py-ci-frequency",
+      "port": 0
+    },
+    {
+      "units": "Ticks",
+      "divisor": 16,
+      "type": "ci_period",
+      "channel": 3111,
+      "terminal": "/Dev1/PFI1",
+      "disabled": true,
+      "custom_scale": {
+        "type": "none"
+      },
+      "starting_edge": "Rising",
+      "key": "ch-py-ci-period",
+      "name": "",
+      "min_val": 0.0005,
+      "max_val": 0.85,
+      "meas_method": "DynamicAvg",
+      "meas_time": 0.004,
+      "port": 1,
+      "device": "fixture-ni-py-ctr-dev"
+    }
+  ],
+  "type": "ni_counter_read",
+  "name": "ni_counter_read_py",
+  "version": 2,
+  "auto_start": true,
+  "data_saving_disabled": true,
+  "sample_rate": 100
+}

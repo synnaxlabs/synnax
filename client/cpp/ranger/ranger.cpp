@@ -60,7 +60,7 @@ Client::retrieve_many(grpc::ranger::RetrieveRequest &req) const {
 std::pair<std::vector<Range>, x::errors::Error>
 Client::retrieve_by_name(const std::vector<std::string> &names) const {
     auto req = grpc::ranger::RetrieveRequest();
-    for (auto &name: names)
+    for (const auto &name: names)
         req.add_names(name);
     return retrieve_many(req);
 }
@@ -68,7 +68,7 @@ Client::retrieve_by_name(const std::vector<std::string> &names) const {
 std::pair<std::vector<Range>, x::errors::Error>
 Client::retrieve_by_key(const std::vector<x::uuid::UUID> &keys) const {
     auto req = grpc::ranger::RetrieveRequest();
-    for (auto &key: keys)
+    for (const auto &key: keys)
         req.add_keys(key.to_string());
     return retrieve_many(req);
 }

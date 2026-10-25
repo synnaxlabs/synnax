@@ -22,9 +22,17 @@ const client = createTestClient();
 const readCreate = vi.fn();
 const writeCreate = vi.fn();
 
-const configs: Device.TaskContextMenuItemConfig[] = [
-  { itemKey: "read", label: "Create Read Task", useCreate: () => readCreate },
-  { itemKey: "write", label: "Create Write Task", useCreate: () => writeCreate },
+const items = [
+  Device.createTaskContextMenuItem({
+    itemKey: "read",
+    label: "Create Read Task",
+    useCreate: () => readCreate,
+  }),
+  Device.createTaskContextMenuItem({
+    itemKey: "write",
+    label: "Create Write Task",
+    useCreate: () => writeCreate,
+  }),
 ];
 
 const setup = async (configured: boolean, itemClient: Synnax | null = client) => {
@@ -35,7 +43,7 @@ const setup = async (configured: boolean, itemClient: Synnax | null = client) =>
       onConfigure={onConfigure}
       selection={createSelection({ ids: [resource.id] })}
       state={createState([resource])}
-      taskContextMenuItemConfigs={configs}
+      items={items}
     />,
     { client: itemClient },
   );

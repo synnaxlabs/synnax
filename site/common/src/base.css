@@ -33,8 +33,9 @@ html {
     background: var(--pluto-gray-l0);
 }
 
+/* The lighter blue is too faint on a light page. */
 a:not(.pluto-btn) {
-    color: var(--pluto-primary-p1);
+    color: light-dark(var(--pluto-primary-z), var(--pluto-primary-p1));
     text-decoration: none;
 
     &:hover {

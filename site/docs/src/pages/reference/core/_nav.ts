@@ -7,40 +7,37 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PageNavNode } from "@/components/nav/Page";
+import { type PageNavNode } from "@/components/nav/tree";
 
 export const CORE_NAV: PageNavNode = {
   key: "core",
   name: "Core",
-  icon: "Core",
   children: [
     {
-      key: "/reference/core/quick-start",
       href: "/reference/core/quick-start",
       name: "Quick start",
     },
     {
-      key: "/reference/core/installation",
       href: "/reference/core/installation",
       name: "Installation",
     },
     {
-      key: "/reference/core/production",
       href: "/reference/core/production",
       name: "Production",
     },
     {
-      key: "/reference/core/requirements",
+      href: "/reference/core/installing-certificates",
+      name: "Installing certificates",
+    },
+    {
       href: "/reference/core/requirements",
       name: "Requirements",
     },
     {
-      key: "/reference/core/cli-reference",
       href: "/reference/core/cli-reference",
       name: "CLI reference",
     },
     {
-      key: "/reference/core/systemd-service",
       href: "/reference/core/systemd-service",
       name: "systemd service",
     },

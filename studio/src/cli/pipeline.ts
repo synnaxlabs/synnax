@@ -66,18 +66,25 @@ export const runCapture = async (opts: CaptureRunOptions): Promise<Timeline> => 
   // Fixture defaults (sineTelemetry, createRanges, ...) resolve this so scripts
   // need no port plumbing.
   process.env.SYNNAX_STUDIO_PORT = String(port);
+  const mod = (await import(path.resolve(opts.scriptPath))) as {
+    default: VideoScript;
+    /** Script-local capture size; the --width/--height flags win over it. */
+    viewport?: { width: number; height: number };
+    /** Runs the Driver inside the capture's Core. */
+    driver?: boolean;
+  };
   let core: Core | undefined;
   if (opts.core !== "external") {
     const { startCore } = await import("@/fixtures/core");
-    core = await startCore({ outDir: opts.outDir, binary: opts.coreBin, port });
+    core = await startCore({
+      outDir: opts.outDir,
+      binary: opts.coreBin,
+      port,
+      driver: mod.driver ?? false,
+    });
   }
   try {
     const { CaptureSession } = await import("@/capture/rig");
-    const mod = (await import(path.resolve(opts.scriptPath))) as {
-      default: VideoScript;
-      /** Script-local capture size; the --width/--height flags win over it. */
-      viewport?: { width: number; height: number };
-    };
     const width = opts.width ?? mod.viewport?.width;
     const height = opts.height ?? mod.viewport?.height;
     const session = await CaptureSession.launch({
@@ -174,13 +181,12 @@ const withBundle = async (
 /** runRender directs the timeline and renders the video through Remotion. */
 export const runRender = async (opts: RenderRunOptions): Promise<void> => {
   const { timeline, captureDir, outputLocation, draft = false } = opts;
-  const tracks = direct(timeline);
-
-  const inputProps = { meta: timeline.meta, tracks, events: timeline.events };
   const native = Math.round(timeline.meta.width * timeline.meta.dsf);
   const targetWidth =
     opts.target == null ? Math.min(1920, native) : parseTarget(opts.target, native);
   const scale = targetWidth / native;
+  const tracks = direct(timeline, targetWidth);
+  const inputProps = { meta: timeline.meta, tracks, events: timeline.events };
   await withBundle(captureDir, async (serveUrl) => {
     const composition = await selectComposition({ serveUrl, id: "studio", inputProps });
     await renderMedia({

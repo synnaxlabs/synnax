@@ -8,11 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { type SatteriAstroData } from "@astrojs/markdown-satteri";
+import { type MarkdownHeading } from "astro";
 import {
   type HastNode,
   type HastPluginDefinition,
   type HastVisitorContext,
 } from "satteri";
+
+/** Returns the headings that the page outline lists. */
+export const outlined = (headings: MarkdownHeading[]): MarkdownHeading[] =>
+  headings.filter(({ depth }) => depth > 1 && depth <= 3);
 
 /** How the page outline shows a heading that Astro's heading list flattens. */
 export interface Entry {

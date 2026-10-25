@@ -62,11 +62,10 @@ protected:
         const x::json::Parser &parser,
         const std::string &path
     ) {
-        if (!pdo)
-            return parser.field_err(
-                path + "pdo",
-                "PDO '" + name + "' not found in slave"
-            );
+        if (!pdo) {
+            parser.field_err(path + "pdo", "PDO '" + name + "' not found in slave");
+            return;
+        }
         this->index = pdo->index;
         this->sub_index = pdo->sub_index;
         this->bit_length = pdo->bit_length;
@@ -111,8 +110,8 @@ struct Output final : Channel {
     synnax::channel::Key command_key;
     /// @brief the key of the Synnax channel to write state feedback to.
     synnax::channel::Key state_key;
-    /// @brief the Synnax state channel object (populated after remote lookup).
-    synnax::channel::Channel state_ch;
+    /// @brief the state channel, bound by the owning task when state_key is set.
+    std::optional<synnax::channel::Channel> state;
 
     Output(
         const ::synnax::ethercat::AutomaticWriteChannel &cfg,
@@ -134,10 +133,6 @@ struct Output final : Channel {
         command_key(cfg.cmd_channel),
         state_key(cfg.state_channel) {
         this->bind_address(cfg);
-    }
-
-    void bind_remote_info(const synnax::channel::Channel &state_channel) {
-        this->state_ch = state_channel;
     }
 };
 

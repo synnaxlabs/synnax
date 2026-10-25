@@ -16,6 +16,7 @@ linters:
     - must
     - set
     - goroutineleak
+    - suiteconfig
   settings:
     ginkgolinter:
       forbid-focus-container: true
@@ -54,6 +55,11 @@ linters:
           Enforces goroutine leak checks in Ginkgo suites: every suite must register
           ShouldNotLeakGoroutinesPerSpec, and every BeforeSuite/BeforeAll must call
           ShouldNotLeakGoroutines first.
+      suiteconfig:
+        type: "module"
+        description: >
+          Enforces the shared Ginkgo configuration in Ginkgo suites: every RunSpecs call
+          must pass SuiteConfig().
 formatters:
   enable:
     - gci

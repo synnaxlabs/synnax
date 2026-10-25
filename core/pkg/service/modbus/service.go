@@ -13,10 +13,12 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/modbus/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/modbus/versions/legacy"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
@@ -74,8 +76,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			DB:                 cfg.DB,
 			Instrumentation:    cfg.Instrumentation,
 			Type:               "modbus_read",
-			Version:            legacy.LastVersion + 1,
+			LegacyVersion:      legacy.LastVersion,
+			Ladder:             versions.ReadConfigLadder,
 			Legacy:             &legacy.Read,
+			Migrations:         []gorp.Migration{v2.ReadMigration},
 			SetEntryKey:        (*ReadConfig).SetKey,
 			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
 		},
@@ -87,8 +91,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			DB:                 cfg.DB,
 			Instrumentation:    cfg.Instrumentation,
 			Type:               "modbus_write",
-			Version:            legacy.LastVersion + 1,
+			LegacyVersion:      legacy.LastVersion,
+			Ladder:             versions.WriteConfigLadder,
 			Legacy:             &legacy.Write,
+			Migrations:         []gorp.Migration{v2.WriteMigration},
 			SetEntryKey:        (*WriteConfig).SetKey,
 			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
 		},
@@ -100,7 +106,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			DB:                 cfg.DB,
 			Instrumentation:    cfg.Instrumentation,
 			Type:               "modbus_scan",
-			Version:            legacy.LastVersion + 1,
+			LegacyVersion:      legacy.LastVersion,
+			Ladder:             versions.ScanConfigLadder,
 			Legacy:             &legacy.Scan,
 			SetEntryKey:        (*ScanConfig).SetKey,
 			ApplyEntryDefaults: (*ScanConfig).ApplyDefaults,

@@ -585,6 +585,24 @@ var _ = Describe("Type Forms", func() {
 		})
 	})
 
+	Describe("TypeParams", func() {
+		params := []resolution.TypeParam{{Name: "T"}}
+		DescribeTable(
+			"Should return the type parameters a form declares",
+			func(form resolution.TypeForm, expected []resolution.TypeParam) {
+				Expect(resolution.TypeParams(form)).To(Equal(expected))
+			},
+			Entry("a struct", resolution.StructForm{TypeParams: params}, params),
+			Entry("an alias", resolution.AliasForm{TypeParams: params}, params),
+			Entry(
+				"a distinct type",
+				resolution.DistinctForm{TypeParams: params},
+				params,
+			),
+			Entry("an enum", resolution.EnumForm{}, nil),
+		)
+	})
+
 	Describe("NonDefaultedTypeParams", func() {
 		It("returns empty slice for empty input", func() {
 			Expect(resolution.NonDefaultedTypeParams(nil)).To(BeEmpty())

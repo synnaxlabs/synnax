@@ -26,7 +26,7 @@ var mockFS fs.FS
 
 func TestDriver(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Driver Suite")
+	RunSpecs(t, "Driver Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

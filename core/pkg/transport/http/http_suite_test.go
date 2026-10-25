@@ -24,7 +24,7 @@ var apiLayer *api.Layer
 
 func TestHTTP(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Transport HTTP Suite")
+	RunSpecs(t, "Transport HTTP Suite", SuiteConfig())
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {

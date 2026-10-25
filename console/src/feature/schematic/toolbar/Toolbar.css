@@ -14,6 +14,12 @@
     width: 72px;
 }
 
+.console-schematic__symbol {
+    margin-left: 1rem;
+    padding-left: 2rem;
+    border-left: var(--pluto-border-l6);
+}
+
 .console-schematic__control {
     padding: 1.5rem 2rem;
 }
@@ -109,5 +115,23 @@
                 max-width: 90px !important;
             }
         }
+    }
+}
+
+/* The chip and frame set a symbol change apart from adding symbols. */
+.console-schematic__change {
+    height: var(--pluto-height-small);
+    padding: 0 1.5rem;
+    border-radius: var(--pluto-border-radius-small);
+    background: var(--pluto-selected-bg);
+    border: var(--pluto-border-width) solid var(--pluto-selected-border-color);
+}
+
+.console-schematic__symbols.console--changing {
+    outline: var(--pluto-border-width) solid var(--pluto-selected-border-color);
+    outline-offset: calc(-1 * var(--pluto-border-width));
+
+    .console-schematic-symbols__button {
+        --pluto-hover-border-color: var(--pluto-selected-border-color);
     }
 }

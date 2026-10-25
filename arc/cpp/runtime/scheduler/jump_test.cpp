@@ -51,6 +51,7 @@ ir::Scope main_seq(
     std::vector<ir::Transition> transitions
 ) {
     std::vector<ir::Member> members;
+    members.reserve(keys.size());
     for (const auto &k: keys)
         members.push_back(ir::node_member(k));
     auto s = parallel_scope("s", {stratum_of(std::move(members))});

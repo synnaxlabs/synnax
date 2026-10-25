@@ -19,7 +19,7 @@ import (
 
 func TestCRDT(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "CRDT Suite")
+	RunSpecs(t, "CRDT Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

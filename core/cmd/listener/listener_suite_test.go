@@ -21,5 +21,5 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 func TestListener(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Listener Suite")
+	RunSpecs(t, "Listener Suite", SuiteConfig())
 }

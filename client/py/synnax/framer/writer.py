@@ -213,16 +213,9 @@ class Writer:
 
     @overload
     def write(
-        self, channels_or_data: channel.Key | str, series: CrudeSeries
-    ) -> None: ...
-
-    @overload
-    def write(
         self,
-        channels_or_data: (
-            list[channel.Key] | tuple[channel.Key] | list[str] | tuple[str]
-        ),
-        series: list[CrudeSeries],
+        channels_or_data: channel.Params,
+        series: CrudeSeries | list[CrudeSeries],
     ) -> None: ...
 
     @overload
@@ -233,15 +226,7 @@ class Writer:
 
     def write(
         self,
-        channels_or_data: (
-            str
-            | channel.Key
-            | list[channel.Key]
-            | tuple[channel.Key]
-            | list[str]
-            | tuple[str]
-            | CrudeFrame[K]
-        ),
+        channels_or_data: channel.Params | CrudeFrame[K],
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> None:
         """Writes the given data to the database. The formats are listed below. Before

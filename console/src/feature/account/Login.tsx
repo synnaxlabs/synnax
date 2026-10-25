@@ -81,7 +81,7 @@ const Handoff = ({ stage, onStage }: HandoffProps): ReactElement => {
       });
       await Runtime.openExternal(url);
       onStage("waiting");
-    }, "Failed to open the login page");
+    }, "Failed to open login page");
 
   const lapsed = email != null;
   let title: string;

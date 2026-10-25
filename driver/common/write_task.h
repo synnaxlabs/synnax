@@ -11,6 +11,7 @@
 
 #include <functional>
 #include <mutex>
+#include <optional>
 
 #include "client/cpp/task/json.gen.h"
 
@@ -34,12 +35,22 @@ struct BaseWriteTaskConfig : ::synnax::task::WriteConfig {
 };
 
 class Sink : public pipeline::Sink, public pipeline::Source {
+public:
+    /// @brief an output of a write task.
+    struct Output {
+        /// @brief the channel the output receives commands from.
+        synnax::channel::Key command = 0;
+        /// @brief the channel the output writes its state to, if it has one.
+        std::optional<synnax::channel::Channel> state;
+    };
+
+private:
     /// @brief the vector of channels to stream for commands.
-    const std::vector<synnax::channel::Key> cmd_channels;
-    /// @brief the vector of channels to write state updates for.
+    std::vector<synnax::channel::Key> cmd_channels;
+    /// @brief the state channel of each output, keyed by its command channel.
     std::unordered_map<synnax::channel::Key, synnax::channel::Channel> state_channels;
     /// @brief the index keys of the state channels.
-    const std::set<synnax::channel::Key> state_indexes;
+    std::set<synnax::channel::Key> state_indexes;
     /// @brief whether data saving is disabled for the task.
     bool data_saving_disabled;
 
@@ -68,20 +79,16 @@ public:
 
     Sink(
         const x::telem::Rate state_rate,
-        std::set<synnax::channel::Key> state_indexes,
-        const std::vector<synnax::channel::Channel> &state_channels,
-        std::vector<synnax::channel::Key> cmd_channels,
+        const std::vector<Output> &outputs,
         const bool data_saving_disabled
     ):
-        cmd_channels(std::move(cmd_channels)),
-        state_indexes(std::move(state_indexes)),
-        data_saving_disabled(data_saving_disabled),
-        state_rate(state_rate) {
-        auto idx = 0;
-        for (const auto &ch: state_channels) {
-            this->chan_state[ch.key] = ch.data_type.cast(0);
-            this->state_channels[this->cmd_channels[idx]] = ch;
-            idx++;
+        data_saving_disabled(data_saving_disabled), state_rate(state_rate) {
+        for (const auto &out: outputs) {
+            this->cmd_channels.push_back(out.command);
+            if (!out.state) continue;
+            this->state_channels[out.command] = *out.state;
+            this->chan_state[out.state->key] = out.state->data_type.cast(0);
+            if (out.state->index != 0) this->state_indexes.insert(out.state->index);
         }
     }
 
@@ -95,6 +102,7 @@ public:
 
     [[nodiscard]] synnax::framer::WriterConfig writer_config() const {
         std::vector<synnax::channel::Key> keys;
+        keys.reserve(this->state_channels.size());
         for (const auto &[_, ch]: this->state_channels)
             keys.push_back(ch.key);
         for (const auto idx: this->state_indexes)
@@ -153,7 +161,7 @@ class WriteTask final : public driver::task::Task {
         void stopped_with_err(const x::errors::Error &err) override {
             {
                 std::lock_guard lock(this->p.state_mu);
-                this->p.state.error(err);
+                this->p.state.error(err, "Failed to write commands");
             }
             this->p.stop("", true);
         }
@@ -277,7 +285,7 @@ public:
         // taken after.
         const auto err = stopped ? this->sink->internal->stop() : x::errors::NIL;
         std::lock_guard lock(this->state_mu);
-        this->state.error(err);
+        this->state.error(err, "Failed to stop task");
         if (propagate_state) this->state.send_stop(cmd_key);
         return stopped;
     }
@@ -307,7 +315,7 @@ public:
                 this->state_write_pipe.start();
         }
         std::lock_guard lock(this->state_mu);
-        this->state.error(err);
+        this->state.error(err, "Failed to start task");
         this->state.send_start(cmd_key);
         return !err;
     }
@@ -322,7 +330,7 @@ private:
         std::lock_guard lock(this->state_mu);
         if (err) {
             this->write_warning = from_write;
-            this->state.send_warning(err);
+            this->state.send_warning("Failed to write commands", err.data);
             return;
         }
         if (from_write && !this->write_warning) return;

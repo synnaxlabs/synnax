@@ -10,7 +10,7 @@
 import { type channel, DataType, log, type Synnax as Client } from "@synnaxlabs/client";
 import { RoleClients } from "@synnaxlabs/client/testutil";
 import { color, id } from "@synnaxlabs/x";
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Channels } from "@/feature/log/toolbar/Channels";
@@ -36,22 +36,20 @@ const roles = new RoleClients(client);
 const renderChannels = (channels: log.ChannelEntry[] = [], as?: Client) =>
   renderLog(Channels, { log: { channels }, as });
 
-const rowsIn = (result: { container: HTMLElement }) =>
-  result.container.querySelectorAll(".console-log__channel-row");
+// The channel rows, not counting the add-channel row.
+const channelRows = (): HTMLElement[] =>
+  within(screen.getByRole("list", { name: "Log channels" })).queryAllByRole("listitem");
 
 describe("log/toolbar/Channels", () => {
-  it("renders only the add-channel row when there are no channels", async () => {
-    const { result } = await renderChannels();
+  it("renders no channel rows when there are no channels", async () => {
+    await renderChannels();
     expect(await screen.findByText("Add channel")).toBeDefined();
-    await waitFor(() => expect(rowsIn(result)).toHaveLength(1));
+    await waitFor(() => expect(channelRows()).toHaveLength(0));
   });
 
-  it("renders a row for each channel plus the add row", async () => {
-    const { result } = await renderChannels([
-      entry(await createChannel()),
-      entry(await createChannel()),
-    ]);
-    await waitFor(() => expect(rowsIn(result)).toHaveLength(3));
+  it("renders a row for each channel", async () => {
+    await renderChannels([entry(await createChannel()), entry(await createChannel())]);
+    await waitFor(() => expect(channelRows()).toHaveLength(2));
   });
 
   it("renders the configured channel alias", async () => {
@@ -59,17 +57,38 @@ describe("log/toolbar/Channels", () => {
     expect(await screen.findByDisplayValue("pressure")).toBeDefined();
   });
 
-  it("renders an enabled remove button on each channel row for a permitted user", async () => {
-    const { result } = await renderChannels([
-      entry(await createChannel()),
-      entry(await createChannel()),
-    ]);
-    await waitFor(() => {
-      const removeButtons = result.container.querySelectorAll(
-        ".console-log__channel-row button:not([disabled])",
-      );
-      expect(removeButtons.length).toBeGreaterThanOrEqual(2);
-    });
+  it("removes a channel row with the clear button on its channel icon", async () => {
+    const removed = await createChannel();
+    const kept = await createChannel();
+    await renderChannels([entry(removed), entry(kept)]);
+    const { name } = await client.channels.retrieve(removed);
+    fireEvent.click(await screen.findByLabelText(`Clear ${name}`));
+    await waitFor(() => expect(channelRows()).toHaveLength(1));
+    expect(screen.queryByLabelText(`Clear ${name}`)).toBeNull();
+  });
+
+  it("swaps a row's channel for the one picked in its select", async () => {
+    const from = await createChannel();
+    const to = await createChannel();
+    await renderChannels([entry(from)]);
+    const [fromCh, toCh] = await client.channels.retrieve([from, to]);
+    await screen.findByLabelText(`Clear ${fromCh.name}`);
+    fireEvent.click(screen.getAllByText(fromCh.name)[0]);
+    const search = await screen.findByPlaceholderText("Search channels...");
+    fireEvent.change(search, { target: { value: toCh.name } });
+    fireEvent.click(await screen.findByRole("option", { name: new RegExp(toCh.name) }));
+    expect(await screen.findByLabelText(`Clear ${toCh.name}`)).toBeDefined();
+    expect(screen.queryByLabelText(`Clear ${fromCh.name}`)).toBeNull();
+    expect(channelRows()).toHaveLength(1);
+  });
+
+  it("removes the row of a deleted channel with the clear button", async () => {
+    const deleted = await createChannel();
+    await client.channels.delete(deleted);
+    await renderChannels([entry(deleted)]);
+    await waitFor(() => expect(channelRows()).toHaveLength(1));
+    fireEvent.click(await screen.findByLabelText("Clear selection"));
+    await waitFor(() => expect(channelRows()).toHaveLength(0));
   });
 });
 
@@ -81,14 +100,14 @@ describe("log/toolbar/Channels permissions", () => {
   it("should leave the add row live for a subject who may write the log", async () => {
     const ch = await createChannel();
     const { result } = await renderChannels([entry(ch)]);
-    await waitFor(() => expect(rowsIn(result)).toHaveLength(2));
+    await waitFor(() => expect(channelRows()).toHaveLength(1));
     await waitFor(() => expect(isAddRowFrozen(result)).toBe(false));
   });
 
   it("should freeze the add row for a viewer", async () => {
     const ch = await createChannel();
     const { result } = await renderChannels([entry(ch)], await roles.get("Viewer"));
-    await waitFor(() => expect(rowsIn(result)).toHaveLength(2));
+    await waitFor(() => expect(channelRows()).toHaveLength(1));
     await waitFor(() => expect(isAddRowFrozen(result)).toBe(true));
   });
 });

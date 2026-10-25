@@ -36,6 +36,8 @@ export interface CreateSelectableConfig {
   useVisible?: () => boolean;
 }
 
+const useAlwaysVisible = (): boolean => true;
+
 export const createSelectable = ({
   title,
   icon,
@@ -43,8 +45,9 @@ export const createSelectable = ({
   useOnSelect,
   useVisible,
 }: CreateSelectableConfig): Selectable => {
+  const useSelectableVisible = useVisible ?? useAlwaysVisible;
   const C: Selectable = ({ tabKey }: SelectableProps) => {
-    const visible = useVisible?.() ?? true;
+    const visible = useSelectableVisible();
     const onSelect = useOnSelect({ tabKey });
     if (!visible) return null;
     return <Item title={title} icon={icon} onClick={() => onSelect()} />;

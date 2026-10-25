@@ -118,4 +118,19 @@ TEST(URLTest, EmptyAndInvalidStringConstruction) {
     EXPECT_EQ(invalid_port.port, 0);
     EXPECT_TRUE(invalid_port.path.empty());
 }
+
+/// @brief it should parse the largest port and leave a larger one at zero.
+TEST(URLTest, PortBounds) {
+    EXPECT_EQ(URL("localhost:65535").port, 65535);
+    EXPECT_EQ(URL("localhost:65536").port, 0);
+    const URL past_max("localhost:70000/api");
+    EXPECT_EQ(past_max.port, 0);
+    EXPECT_EQ(past_max.path, "/api/");
+}
+
+/// @brief it should leave a port with a sign or a leading space at zero.
+TEST(URLTest, PortWithSignOrSpace) {
+    EXPECT_EQ(URL("localhost:+80").port, 0);
+    EXPECT_EQ(URL("localhost: 80").port, 0);
+}
 }

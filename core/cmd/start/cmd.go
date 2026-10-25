@@ -181,6 +181,7 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 		peers:               peers,
 		dataPath:            viper.GetString(FlagData),
 		slowConsumerTimeout: viper.GetDuration(FlagSlowConsumerTimeout),
+		sessionIdleTimeout:  viper.GetDuration(FlagSessionIdleTimeout),
 		rootCredentials: auth.Credentials{
 			Username: viper.GetString(FlagUsername),
 			Password: viper.GetString(FlagPassword),

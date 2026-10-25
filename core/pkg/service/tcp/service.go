@@ -14,10 +14,11 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/bus"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
+	"github.com/synnaxlabs/synnax/pkg/service/tcp/versions"
 	xconfig "github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
@@ -82,7 +83,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			DB:                 cfg.DB,
 			Instrumentation:    cfg.Instrumentation,
 			Type:               "tcp_read",
-			Version:            1,
+			Ladder:             versions.ReadConfigLadder,
 			SetEntryKey:        (*ReadConfig).SetKey,
 			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
 			ValidateEntry:      (*ReadConfig).Validate,
@@ -103,7 +104,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			DB:                 cfg.DB,
 			Instrumentation:    cfg.Instrumentation,
 			Type:               "tcp_write",
-			Version:            1,
+			Ladder:             versions.WriteConfigLadder,
 			SetEntryKey:        (*WriteConfig).SetKey,
 			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
 			ValidateEntry:      (*WriteConfig).Validate,
@@ -124,7 +125,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			DB:                 cfg.DB,
 			Instrumentation:    cfg.Instrumentation,
 			Type:               "tcp_scan",
-			Version:            1,
+			Ladder:             versions.ScanConfigLadder,
 			SetEntryKey:        (*ScanConfig).SetKey,
 			ApplyEntryDefaults: (*ScanConfig).ApplyDefaults,
 		},

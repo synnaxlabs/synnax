@@ -41,29 +41,20 @@ export const Tank = ({
   const detailedRadius = border.constructRadius(borderRadius);
   const hasCornerBoundaries = boxBorderRadius == null;
   const { width, height } = dimensions;
-  const refreshDeps = useMemo(
-    () => [dimensions, borderRadius, detailedRadius],
-    [
-      detailedRadius.bottomLeft,
-      detailedRadius.bottomRight,
-      detailedRadius.topLeft,
-      detailedRadius.topRight,
-      height,
-      width,
-    ],
-  );
+  const radiusCSS = Border.cssRadius(detailedRadius);
+  const refreshDeps = `${width} ${height} ${radiusCSS}`;
   const leftOffset = Border.pixelToPercent(1, width);
   const rightOffset = 100 - leftOffset;
   const topOffset = Border.pixelToPercent(1, height);
   const bottomOffset = 100 - topOffset;
-  const cssBorderRadius = boxBorderRadius ?? Border.cssRadius(detailedRadius);
+  const cssBorderRadius = boxBorderRadius ?? radiusCSS;
   const fillCSS = color.cssString(fillColor);
   const style = useMemo<CSSProperties>(
     () => ({
       width,
       height,
       borderRadius: cssBorderRadius,
-      [CSS.variable("symbol-color")]: color.rgbaString(strokeColor),
+      [Primitive.SYMBOL_COLOR]: color.rgbaString(strokeColor),
       backgroundColor: fillCSS,
       borderWidth: strokeWidth,
     }),

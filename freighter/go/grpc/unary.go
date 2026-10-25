@@ -135,7 +135,7 @@ func (u *UnaryServer[RQ, RQT, RS, RST]) Exec(
 	ctx context.Context,
 	tReq RQT,
 ) (tRes RST, err error) {
-	oCtx, err := u.MiddlewareCollector.Exec(
+	_, err = u.MiddlewareCollector.Exec(
 		parseServerContext(ctx, u.ServiceDesc.ServiceName, freighter.VariantUnary),
 		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
 			oCtx := freighter.Context{
@@ -162,11 +162,11 @@ func (u *UnaryServer[RQ, RQT, RS, RST]) Exec(
 		},
 		),
 	)
-	oCtx = attachContext(oCtx)
-	if err == nil {
-		return tRes, nil
+	if err != nil {
+		var zero RST
+		return zero, errors.Encode(ctx, err, u.Internal)
 	}
-	return tRes, errors.Encode(oCtx, err, u.Internal)
+	return tRes, nil
 }
 
 func (u *UnaryServer[RQ, RQT, RS, RST]) BindHandler(

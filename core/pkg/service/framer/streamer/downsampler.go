@@ -30,9 +30,11 @@ func (d *downsampler) transform(
 	_ context.Context,
 	in Response,
 ) (out Response, ok bool, err error) {
+	hadData := in.Frame.HasData()
 	in.Frame = in.Frame.ShallowCopy()
 	for i, s := range in.Frame.SeriesI() {
 		in.Frame.SetSeriesAt(i, s.Downsample(d.cfg.DownsampleFactor))
 	}
-	return in, true, nil
+	// A frame whose samples all lie off the downsampling grid carries nothing to send.
+	return in, !hadData || in.Frame.HasData(), nil
 }

@@ -14,9 +14,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/freighter/gorp"
+	fgorp "github.com/synnaxlabs/freighter/gorp"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/errors"
-	xgorp "github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 )
 
@@ -35,10 +35,10 @@ var _ = Describe("CreateWriteUnaryHandler", func() {
 	It(
 		"Should commit the transaction when the handler returns nil",
 		func(ctx SpecContext) {
-			handler := gorp.CreateWriteUnaryHandler(
+			handler := fgorp.CreateWriteUnaryHandler(
 				db,
-				func(ctx context.Context, tx xgorp.Tx, req entry) (entry, error) {
-					if err := xgorp.NewCreate[string, entry]().
+				func(ctx context.Context, tx gorp.Tx, req entry) (entry, error) {
+					if err := gorp.NewCreate[string, entry]().
 						Entry(&req).
 						Exec(ctx, tx); err != nil {
 						return entry{}, err
@@ -50,8 +50,8 @@ var _ = Describe("CreateWriteUnaryHandler", func() {
 				To(Equal(entry{ID: "unary-commit", Data: "v"}))
 			var got entry
 			Expect(
-				xgorp.NewRetrieve[string, entry]().
-					Where(xgorp.MatchKeys[string, entry]("unary-commit")).
+				gorp.NewRetrieve[string, entry]().
+					Where(gorp.MatchKeys[string, entry]("unary-commit")).
 					Entry(&got).Exec(ctx, db),
 			).To(Succeed())
 			Expect(got).To(Equal(entry{ID: "unary-commit", Data: "v"}))
@@ -61,10 +61,10 @@ var _ = Describe("CreateWriteUnaryHandler", func() {
 	It(
 		"Should roll back the transaction when the handler returns an error",
 		func(ctx SpecContext) {
-			handler := gorp.CreateWriteUnaryHandler(
+			handler := fgorp.CreateWriteUnaryHandler(
 				db,
-				func(ctx context.Context, tx xgorp.Tx, req entry) (entry, error) {
-					if err := xgorp.NewCreate[string, entry]().Entry(&req).
+				func(ctx context.Context, tx gorp.Tx, req entry) (entry, error) {
+					if err := gorp.NewCreate[string, entry]().Entry(&req).
 						Exec(ctx, tx); err != nil {
 						return entry{}, err
 					}
@@ -73,17 +73,17 @@ var _ = Describe("CreateWriteUnaryHandler", func() {
 			)
 			Expect(handler(ctx, entry{ID: "unary-rollback", Data: "v"})).
 				Error().To(MatchError(errBoom))
-			Expect(xgorp.NewRetrieve[string, entry]().
-				Where(xgorp.MatchKeys[string, entry]("unary-rollback")).
+			Expect(gorp.NewRetrieve[string, entry]().
+				Where(gorp.MatchKeys[string, entry]("unary-rollback")).
 				Entry(&entry{}).Exec(ctx, db),
 			).To(MatchError(query.ErrNotFound))
 		},
 	)
 
 	It("Should return a zero RS on error", func(ctx SpecContext) {
-		handler := gorp.CreateWriteUnaryHandler(
+		handler := fgorp.CreateWriteUnaryHandler(
 			db,
-			func(context.Context, xgorp.Tx, entry) (entry, error) {
+			func(context.Context, gorp.Tx, entry) (entry, error) {
 				return entry{ID: "leaked", Data: "leaked"}, errBoom
 			},
 		)
@@ -91,9 +91,9 @@ var _ = Describe("CreateWriteUnaryHandler", func() {
 	})
 
 	It("Should propagate the request to the handler unchanged", func(ctx SpecContext) {
-		handler := gorp.CreateWriteUnaryHandler(
+		handler := fgorp.CreateWriteUnaryHandler(
 			db,
-			func(_ context.Context, _ xgorp.Tx, req entry) (entry, error) {
+			func(_ context.Context, _ gorp.Tx, req entry) (entry, error) {
 				return req, nil
 			},
 		)

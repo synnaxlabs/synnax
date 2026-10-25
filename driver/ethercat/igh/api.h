@@ -9,9 +9,17 @@
 
 #pragma once
 
+#include <cerrno>
+#include <string>
+#include <system_error>
+
+#include <fcntl.h>
+#include <unistd.h>
+
 #include "x/cpp/lib/lib.h"
 
 #include "driver/errors/errors.h"
+#include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/igh/ecrt.h"
 
 namespace driver::ethercat::igh {
@@ -47,7 +55,6 @@ class API {
         decltype(&ecrt_master_get_slave) master_get_slave;
         decltype(&ecrt_master_slave_config) master_slave_config;
         decltype(&ecrt_slave_config_state) slave_config_state;
-        decltype(&ecrt_slave_config_pdos) slave_config_pdos;
         decltype(&ecrt_slave_config_reg_pdo_entry) slave_config_reg_pdo_entry;
         decltype(&ecrt_master_get_sync_manager) master_get_sync_manager;
         decltype(&ecrt_master_get_pdo) master_get_pdo;
@@ -57,7 +64,7 @@ class API {
     /// @brief shared library handle.
     std::unique_ptr<x::lib::Shared> lib;
     /// @brief function pointers loaded from the library.
-    FunctionPointers func_ptrs;
+    FunctionPointers func_ptrs{};
 
 protected:
     /// @brief tag type for constructing without loading shared library (testing only).
@@ -129,10 +136,6 @@ public:
             .slave_config_state = reinterpret_cast<decltype(&ecrt_slave_config_state)>(
             const_cast<void *>(this->lib->get_func_ptr("ecrt_slave_config_state"))
         );
-        this->func_ptrs
-            .slave_config_pdos = reinterpret_cast<decltype(&ecrt_slave_config_pdos)>(
-            const_cast<void *>(this->lib->get_func_ptr("ecrt_slave_config_pdos"))
-        );
         this->func_ptrs.slave_config_reg_pdo_entry = reinterpret_cast<
             decltype(&ecrt_slave_config_reg_pdo_entry)>(const_cast<void *>(
             this->lib->get_func_ptr("ecrt_slave_config_reg_pdo_entry")
@@ -159,6 +162,33 @@ public:
         auto lib = std::make_unique<x::lib::Shared>(IGH_LIBRARY_NAME);
         if (!lib->load()) return {nullptr, LOAD_ERROR};
         return {std::make_shared<API>(std::move(lib)), x::errors::NIL};
+    }
+
+    /// @brief checks that the process can open the device of a master.
+    /// @param master_index the index of the master, whose device is
+    /// /dev/EtherCAT<master_index>.
+    /// @returns errors::PERMISSION_DENIED when the process lacks permission to open the
+    /// device, or errors::MASTER_INIT_ERROR when it fails to open for another reason.
+    [[nodiscard]] virtual x::errors::Error
+    check_device(unsigned int master_index) const {
+        const std::string path = "/dev/EtherCAT" + std::to_string(master_index);
+        const int fd = ::open(path.c_str(), O_RDWR);
+        if (fd >= 0) {
+            ::close(fd);
+            return x::errors::NIL;
+        }
+        const int err = errno;
+        if (err == EACCES)
+            return x::errors::Error(
+                errors::PERMISSION_DENIED,
+                "permission denied opening " + path +
+                    ": reinstall the Driver service with 'sudo synnax-driver install', "
+                    "or run the Core or the Driver as root"
+            );
+        return x::errors::Error(
+            errors::MASTER_INIT_ERROR,
+            "failed to open " + path + ": " + std::generic_category().message(err)
+        );
     }
 
     /// @brief requests an EtherCAT master for realtime operation.
@@ -255,15 +285,6 @@ public:
         ec_slave_config_state_t *state
     ) const {
         return this->func_ptrs.slave_config_state(sc, state);
-    }
-
-    /// @brief configures PDOs using sync info structures.
-    [[nodiscard]] virtual int slave_config_pdos(
-        ec_slave_config_t *sc,
-        unsigned int n_syncs,
-        const ec_sync_info_t syncs[]
-    ) const {
-        return this->func_ptrs.slave_config_pdos(sc, n_syncs, syncs);
     }
 
     /// @brief registers a PDO entry for process data exchange.

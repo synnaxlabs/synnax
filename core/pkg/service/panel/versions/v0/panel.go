@@ -10,9 +10,9 @@
 package v0
 
 import (
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // Version is the portable schema version of the Panel shape this package defines. A

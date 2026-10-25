@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <thread>
@@ -128,8 +129,8 @@ TEST(ProcessorTest, CustomHeaders) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/check");
-    req.headers.push_back("X-Global: global-val");
-    req.headers.push_back("X-Request: req-val");
+    req.headers.emplace_back("X-Global: global-val");
+    req.headers.emplace_back("X-Request: req-val");
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
@@ -184,7 +185,7 @@ TEST(ProcessorTest, BearerAuth) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/secure");
-    req.headers.push_back("Authorization: Bearer my-token");
+    req.headers.emplace_back("Authorization: Bearer my-token");
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
@@ -210,7 +211,7 @@ TEST(ProcessorTest, APIKeyAuthAsHeader) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/keyed");
-    req.headers.push_back("X-API-Key: secret123");
+    req.headers.emplace_back("X-API-Key: secret123");
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
@@ -421,7 +422,7 @@ TEST(ProcessorTest, ParallelRequests) {
     Processor proc;
     const auto results = proc.execute(reqs);
     ASSERT_EQ(results.size(), 3);
-    for (auto &[resp, err]: results) {
+    for (const auto &[resp, err]: results) {
         ASSERT_NIL(err);
         EXPECT_EQ(resp.status_code, 200);
     }
@@ -460,7 +461,7 @@ TEST(ProcessorTest, ParallelRequestsWithMixedStatusCodes) {
     Processor proc;
     const auto results = proc.execute(reqs);
     ASSERT_EQ(results.size(), 3);
-    for (auto &[resp, err]: results)
+    for (const auto &[resp, err]: results)
         ASSERT_NIL(err);
     EXPECT_EQ(results[0].first.body, "success");
     EXPECT_EQ(results[0].first.status_code, 200);
@@ -666,7 +667,7 @@ TEST(ProcessorTest, ContentTypeValidation) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/json");
-    req.headers.push_back("Accept: application/json");
+    req.headers.emplace_back("Accept: application/json");
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
@@ -689,7 +690,7 @@ TEST(ProcessorTest, ContentTypeMismatchStillSucceeds) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/text");
-    req.headers.push_back("Accept: application/json");
+    req.headers.emplace_back("Accept: application/json");
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
@@ -712,7 +713,7 @@ TEST(ProcessorTest, ContentTypeHeaderSent) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/xml", Method::POST);
-    req.headers.push_back("Content-Type: application/xml");
+    req.headers.emplace_back("Content-Type: application/xml");
     req.body = "<req/>";
 
     Processor proc;
@@ -741,7 +742,7 @@ TEST(ProcessorTest, AcceptHeaderSent) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/accept");
-    req.headers.push_back("Accept: application/json");
+    req.headers.emplace_back("Accept: application/json");
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
@@ -798,6 +799,7 @@ TEST(ProcessorTest, ConcurrentExecuteFromMultipleThreads) {
     std::vector<std::thread> threads;
     std::atomic<int> success_count{0};
 
+    threads.reserve(num_threads);
     for (int t = 0; t < num_threads; t++) {
         threads.emplace_back([&] {
             for (int i = 0; i < requests_per_thread; i++) {
@@ -902,7 +904,7 @@ TEST(ProcessorTest, ContentTypeCharsetSuffix) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/charset");
-    req.headers.push_back("Accept: application/json");
+    req.headers.emplace_back("Accept: application/json");
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
@@ -924,7 +926,7 @@ TEST(ProcessorTest, RequestContentTypeOmittedWhenEmpty) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/raw", Method::POST);
-    req.headers.push_back("Content-Type: ");
+    req.headers.emplace_back("Content-Type: ");
     req.body = "data";
 
     Processor proc;
@@ -1055,7 +1057,7 @@ TEST(ProcessorTest, SerialGETRequestsReuseHandles) {
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/data");
-    req.headers.push_back("X-Header: test-value");
+    req.headers.emplace_back("X-Header: test-value");
 
     Processor proc;
     for (int i = 0; i < 3; i++) {
@@ -1269,7 +1271,7 @@ TEST(ProcessorTest, EmptyBatchExecute) {
 }
 
 TEST(ProcessorTest, LargeResponseBody) {
-    const std::string large_body(256 * 1024, 'X');
+    const std::string large_body(size_t{256} * 1024, 'X');
     mock::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::GET,
@@ -1365,6 +1367,7 @@ TEST(ProcessorTest, RapidInterleavedBatchAndSingle) {
     std::vector<std::thread> threads;
     std::atomic<int> success_count{0};
 
+    threads.reserve(num_threads);
     for (int t = 0; t < num_threads; t++) {
         threads.emplace_back([&, t] {
             for (int i = 0; i < iters_per_thread; i++) {
@@ -1589,6 +1592,7 @@ TEST(ProcessorTest, MultiThreadedParallelBatches) {
     std::vector<std::thread> threads;
     std::atomic<int> success_count{0};
 
+    threads.reserve(num_threads);
     for (int t = 0; t < num_threads; t++) {
         threads.emplace_back([&, t] {
             for (int i = 0; i < iters_per_thread; i++) {
@@ -1784,6 +1788,7 @@ TEST(ProcessorTest, ShutdownFailsActiveAndWaitingRequests) {
     ASSERT_NIL(server.start());
 
     std::vector<Request> reqs;
+    reqs.reserve(3);
     for (int i = 0; i < 3; i++)
         reqs.push_back(make_gated_request(server.base_url(), "/slow", 1));
 

@@ -14,7 +14,6 @@ import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Control } from "@/schematic/node/common/control";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
@@ -31,12 +30,11 @@ const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
       Pick<schematic.SetpointNodeConfig, "commandChannel" | "control" | "disabled">
     >(path);
   const handleSinkChange = (v: channel.Key | null): void => {
-    v ??= 0;
+    const commandChannel = v ?? 0;
     onChange({
       ...value,
-      commandChannel: v,
-      control: Control.reveal(value.control),
-      disabled: v == 0,
+      commandChannel,
+      disabled: commandChannel === 0,
     });
   };
 
@@ -45,6 +43,7 @@ const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
       <Base.Section title="Command">
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
+            allowNone
             value={value.commandChannel ?? 0}
             onChange={handleSinkChange}
           />

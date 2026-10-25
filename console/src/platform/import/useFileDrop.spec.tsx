@@ -188,7 +188,9 @@ describe("Import.useFileDrop", () => {
       }),
     );
     await waitFor(() =>
-      expect(statuses.map((s) => s.message)).toContain("Failed to import notes.txt"),
+      expect(statuses).toContainEqual(
+        expect.objectContaining({ name: "notes.txt", message: "Failed to import" }),
+      ),
     );
     const panelKey = await waitFor(() => {
       const selected = Session.Panel.selectSelected(store.getState());

@@ -40,7 +40,7 @@ public:
         // A var-bound value input emits the referenced variable's latest value;
         // otherwise the configured value is emitted.
         if (const auto s = this->state.ref_input(0);
-            this->state.ref_sourced(0) && s != nullptr && s->size() > 0) {
+            this->state.ref_sourced(0) && s != nullptr && !s->empty()) {
             if (s->data_type().is_variable())
                 *o = x::telem::Series(s->at<std::string>(-1), s->data_type());
             else {
@@ -68,7 +68,7 @@ public:
 
 class Module : public stl::Module {
 public:
-    bool handles(const std::string &node_type) const override {
+    [[nodiscard]] bool handles(const std::string &node_type) const override {
         return node_type == "constant";
     }
 
@@ -82,7 +82,7 @@ public:
                 nullptr,
                 x::errors::Error(
                     x::errors::VALIDATION,
-                    "constant node missing required value parameter"
+                    "The constant node is missing its value parameter."
                 )
             };
         auto data_type = cfg.node.outputs[0].type.telem();

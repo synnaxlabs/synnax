@@ -14,7 +14,7 @@ import (
 	"encoding/hex"
 	"uuid"
 
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/validate"
 )
 

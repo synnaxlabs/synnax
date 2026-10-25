@@ -31,7 +31,7 @@
         }
 
         & .pluto-icon {
-            width: 2.5rem;
+            width: calc(var(--pluto-icon-aspect, 1) * 2.5rem);
             height: 2.5rem;
         }
 

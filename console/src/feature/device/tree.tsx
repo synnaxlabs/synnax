@@ -28,12 +28,12 @@ import { Tree } from "@/platform/tree";
 
 const useDelete = Tree.createUseDelete({
   type: "Device",
-  query: Device.useDelete,
+  useUpdate: Device.useDelete,
   convertKey: String,
 });
 
 const useRename = Tree.createUseRename({
-  query: Device.useRename,
+  useUpdate: Device.useRename,
   ontologyID: device.ontologyID,
   convertKey: String,
 });
@@ -41,19 +41,19 @@ const useRename = Tree.createUseRename({
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection: { ids, rootID },
-    state: { getResource, shape },
+    state,
   } = props;
   const ontologyIDs = useMemo(() => ids.map((id) => device.ontologyID(id.key)), [ids]);
   const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
   const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
   const singleResource = ids.length === 1;
-  const first = getResource(ids[0]);
+  const first = Tree.useResource(state, ids[0]);
   const handleDelete = useDelete(props);
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
   const handleLink = Core.useCopyLinkToClipboard();
   if (ids.length === 0) return null;
-  const C = singleResource ? getContextMenuItems(first.data?.make) : null;
+  const C = singleResource ? getContextMenuItems(first?.data?.make) : null;
   const customMenuItems = C ? <C {...props} /> : null;
   return (
     <ContextMenu.Menu>
@@ -63,7 +63,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       {hasUpdatePermission && (
         <Group.ContextMenuItem
           ids={ids}
-          shape={shape}
+          shape={state.shape}
           rootID={rootID}
           onClick={() => group(props)}
         />
@@ -77,14 +77,16 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       <Menu.Divider />
       {singleResource && (
         <>
-          <Link.CopyContextMenuItem
-            onClick={() =>
-              handleLink({
-                name: first.name,
-                ontologyID: device.ontologyID(first.id.key),
-              })
-            }
-          />
+          {first != null && (
+            <Link.CopyContextMenuItem
+              onClick={() =>
+                handleLink({
+                  name: first.name,
+                  ontologyID: device.ontologyID(first.id.key),
+                })
+              }
+            />
+          )}
           <Tree.CopyPropertiesContextMenuItem {...props} />
         </>
       )}

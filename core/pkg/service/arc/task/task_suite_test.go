@@ -19,7 +19,7 @@ import (
 
 func TestArcTask(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Arc Task Suite")
+	RunSpecs(t, "Service Arc Task Suite", SuiteConfig())
 }
 
 var _ = BeforeSuite(func() {

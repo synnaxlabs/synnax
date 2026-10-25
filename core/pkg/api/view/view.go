@@ -12,29 +12,63 @@ package view
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
-	xconfig "github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
 )
+
+// ServiceConfig is the configuration for the view API service.
+type ServiceConfig struct {
+	// View stores and retrieves views.
+	//
+	// [REQUIRED]
+	View *view.Service
+	// RBAC enforces access control on every request.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
+}
+
+var (
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for the view API service.
+	DefaultServiceConfig = ServiceConfig{}
+)
+
+// Override implements config.Config.
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.View = override.Nil(c.View, other.View)
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	return c
+}
+
+// Validate implements config.Config.
+func (c ServiceConfig) Validate() error {
+	v := validate.New("api.view")
+	v.NotNil("view", c.View)
+	v.NotNil("rbac", c.RBAC)
+	return v.Error()
+}
 
 type Service struct {
 	access   *rbac.Service
 	internal *view.Service
 }
 
-func NewService(cfgs ...config.LayerConfig) (*Service, error) {
-	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	return &Service{
-		internal: cfg.Service.View,
-		access:   cfg.Service.RBAC,
+		internal: cfg.View,
+		access:   cfg.RBAC,
 	}, nil
 }
 

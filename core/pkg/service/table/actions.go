@@ -13,7 +13,9 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // minCellDim is the floor enforced on row and column sizes.
@@ -21,39 +23,48 @@ const minCellDim = 32
 
 // baseRow and baseCol are the entries an action gives the opposing axis when it
 // bootstraps that axis on an empty table. Both take their size from the schema.
-func baseRow() Row {
-	var r Row
+func baseRow(key string) Row {
+	r := Row{Key: key}
 	r.ApplyDefaults()
 	return r
 }
 
-func baseCol() Column {
-	var c Column
+func baseCol(key string) Column {
+	c := Column{Key: key}
 	c.ApplyDefaults()
 	return c
 }
 
-// deriveCellKey returns the key for the index-th replica of template. Both
-// reducers run the same scheme so optimistic client state agrees with the
-// server.
-func deriveCellKey(templateKey string, index int) string {
-	if len(templateKey) < 36 {
-		return fmt.Sprintf("%s-%04x", templateKey, index)
+// deriveKey returns the index-th key derived from base. Both reducers run the same
+// scheme so optimistic client state agrees with the server.
+func deriveKey(base string, index int) string {
+	if len(base) < 36 {
+		return fmt.Sprintf("%s-%04x", base, index)
 	}
-	return templateKey[:32] + fmt.Sprintf("%04x", index)
+	return base[:32] + fmt.Sprintf("%04x", index)
 }
 
-// expandTemplate returns count replicas of template with keys derived via
-// deriveCellKey.
+// expandTemplate returns count replicas of template with keys derived via deriveKey.
 func expandTemplate(template Cell, count int) []Cell {
 	cells := make([]Cell, count)
 	for i := range cells {
 		cells[i] = Cell{
-			Key:    deriveCellKey(template.Key, i),
+			Key:    deriveKey(template.Key, i),
 			Config: template.Config,
 		}
 	}
 	return cells
+}
+
+// rowIndex returns the index of the row with the given key, or -1 if no row has it.
+func rowIndex(rows []Row, key string) int {
+	return slices.IndexFunc(rows, func(r Row) bool { return r.Key == key })
+}
+
+// colIndex returns the index of the column with the given key, or -1 if no column has
+// it.
+func colIndex(cols []Column, key string) int {
+	return slices.IndexFunc(cols, func(c Column) bool { return c.Key == key })
 }
 
 // Handle replaces the document with its created state.
@@ -67,12 +78,16 @@ func (p RenamePayload) Handle(state Table) (Table, error) {
 	return state, nil
 }
 
-// Handle inserts a row at the given index. When CellTemplate is non-nil it
-// replaces Cells with one replica per existing column (or one when the table
-// is empty, which also seeds a default column). When both are absent against
-// a column-less table, the new row is inserted with no cells. Sizes clamp
-// up to minCellDim; indices clamp down to the end of the rows slice.
+// Handle inserts a row with the given key at the given index. When CellTemplate is
+// non-nil it replaces Cells with one replica per existing column (or one when the table
+// is empty, which also creates a default column keyed from the row's key). When both
+// are absent against a column-less table, the new row is inserted with no cells. Sizes
+// clamp up to minCellDim; indices clamp down to the end of the rows slice. Returns a
+// validation error if the key is empty.
 func (p AddRowPayload) Handle(state Table) (Table, error) {
+	if p.Key == "" {
+		return Table{}, errors.Wrap(validate.ErrValidation, "row key is required")
+	}
 	cells := p.Cells
 	if p.CellTemplate != nil {
 		n := len(state.Columns)
@@ -82,13 +97,16 @@ func (p AddRowPayload) Handle(state Table) (Table, error) {
 		cells = expandTemplate(*p.CellTemplate, n)
 	}
 	if len(state.Columns) == 0 && len(cells) > 0 {
-		state.Columns = slices.Repeat([]Column{baseCol()}, len(cells))
+		state.Columns = make([]Column, len(cells))
+		for i := range state.Columns {
+			state.Columns[i] = baseCol(deriveKey(p.Key, i))
+		}
 	}
 	keys := make([]string, len(cells))
 	for i, c := range cells {
 		keys[i] = c.Key
 	}
-	row := Row{Size: max(p.Size, minCellDim), Cells: keys}
+	row := Row{Key: p.Key, Size: max(p.Size, minCellDim), Cells: keys}
 	idx := min(int(p.Index), len(state.Rows))
 	state.Rows = slices.Insert(state.Rows, idx, row)
 	if state.Cells == nil {
@@ -100,11 +118,11 @@ func (p AddRowPayload) Handle(state Table) (Table, error) {
 	return state, nil
 }
 
-// Handle removes the row at the given index and drops every cell it
-// referenced. No-op if the index is out of range.
+// Handle removes the row with the given key and drops every cell it referenced. No-op
+// if no row has the key.
 func (p RemoveRowPayload) Handle(state Table) (Table, error) {
-	idx := int(p.Index)
-	if idx >= len(state.Rows) {
+	idx := rowIndex(state.Rows, p.Key)
+	if idx == -1 {
 		return state, nil
 	}
 	for _, k := range state.Rows[idx].Cells {
@@ -114,10 +132,13 @@ func (p RemoveRowPayload) Handle(state Table) (Table, error) {
 	return state, nil
 }
 
-// Handle inserts a column at the given index, mirroring AddRow with axes
-// swapped. Cells whose row index exceeds the row count enter the cells map
-// without being referenced by any row.
+// Handle inserts a column with the given key at the given index, mirroring AddRow with
+// axes swapped. Cells whose row index exceeds the row count enter the cells map without
+// being referenced by any row. Returns a validation error if the key is empty.
 func (p AddColPayload) Handle(state Table) (Table, error) {
+	if p.Key == "" {
+		return Table{}, errors.Wrap(validate.ErrValidation, "column key is required")
+	}
 	cells := p.Cells
 	if p.CellTemplate != nil {
 		n := len(state.Rows)
@@ -127,13 +148,16 @@ func (p AddColPayload) Handle(state Table) (Table, error) {
 		cells = expandTemplate(*p.CellTemplate, n)
 	}
 	if len(state.Rows) == 0 && len(cells) > 0 {
-		state.Rows = slices.Repeat([]Row{baseRow()}, len(cells))
+		state.Rows = make([]Row, len(cells))
+		for i := range state.Rows {
+			state.Rows[i] = baseRow(deriveKey(p.Key, i))
+		}
 	}
 	idx := min(int(p.Index), len(state.Columns))
 	state.Columns = slices.Insert(
 		state.Columns,
 		idx,
-		Column{Size: max(p.Size, minCellDim)},
+		Column{Key: p.Key, Size: max(p.Size, minCellDim)},
 	)
 	if state.Cells == nil {
 		state.Cells = make(map[string]CellConfig, len(cells))
@@ -151,11 +175,11 @@ func (p AddColPayload) Handle(state Table) (Table, error) {
 	return state, nil
 }
 
-// Handle removes the column at the given index and drops every cell that
-// column referenced across every row. No-op if the index is out of range.
+// Handle removes the column with the given key and drops every cell that column
+// referenced across every row. No-op if no column has the key.
 func (p RemoveColPayload) Handle(state Table) (Table, error) {
-	idx := int(p.Index)
-	if idx >= len(state.Columns) {
+	idx := colIndex(state.Columns, p.Key)
+	if idx == -1 {
 		return state, nil
 	}
 	state.Columns = slices.Delete(state.Columns, idx, idx+1)
@@ -169,26 +193,61 @@ func (p RemoveColPayload) Handle(state Table) (Table, error) {
 	return state, nil
 }
 
-// Handle resizes the row at the given index. Sizes below the minimum cell
-// dimension are clamped up to the floor. No-op if the index is out of range.
+// Handle resizes the row with the given key. Sizes below the minimum cell dimension are
+// clamped up to the floor. No-op if no row has the key.
 func (p ResizeRowPayload) Handle(state Table) (Table, error) {
-	idx := int(p.Index)
-	if idx >= len(state.Rows) {
+	idx := rowIndex(state.Rows, p.Key)
+	if idx == -1 {
 		return state, nil
 	}
 	state.Rows[idx].Size = max(p.Size, minCellDim)
 	return state, nil
 }
 
-// Handle resizes the column at the given index. Sizes below the minimum
-// cell dimension are clamped up to the floor. No-op if the index is out of
-// range.
+// Handle resizes the column with the given key. Sizes below the minimum cell dimension
+// are clamped up to the floor. No-op if no column has the key.
 func (p ResizeColPayload) Handle(state Table) (Table, error) {
-	idx := int(p.Index)
-	if idx >= len(state.Columns) {
+	idx := colIndex(state.Columns, p.Key)
+	if idx == -1 {
 		return state, nil
 	}
 	state.Columns[idx].Size = max(p.Size, minCellDim)
+	return state, nil
+}
+
+// move relocates the element at from to index to, shifting the elements between them by
+// one.
+func move[T any](s []T, from, to int) []T {
+	v := s[from]
+	return slices.Insert(slices.Delete(s, from, from+1), to, v)
+}
+
+// Handle moves the row with key p.Key to index p.To, clamping p.To to the last row.
+// No-op if no row has the key.
+func (p MoveRowPayload) Handle(state Table) (Table, error) {
+	from := rowIndex(state.Rows, p.Key)
+	if from == -1 {
+		return state, nil
+	}
+	state.Rows = move(state.Rows, from, min(int(p.To), len(state.Rows)-1))
+	return state, nil
+}
+
+// Handle moves the column with key p.Key to index p.To, clamping p.To to the last
+// column, and moves the matching cell in every row that holds both indices. No-op if no
+// column has the key.
+func (p MoveColPayload) Handle(state Table) (Table, error) {
+	from := colIndex(state.Columns, p.Key)
+	if from == -1 {
+		return state, nil
+	}
+	to := min(int(p.To), len(state.Columns)-1)
+	state.Columns = move(state.Columns, from, to)
+	for i := range state.Rows {
+		if max(from, to) < len(state.Rows[i].Cells) {
+			state.Rows[i].Cells = move(state.Rows[i].Cells, from, to)
+		}
+	}
 	return state, nil
 }
 

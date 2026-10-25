@@ -55,7 +55,7 @@ func serveApp(app *fiber.App) address.Address {
 
 func TestHTTP(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "HTTP Suite")
+	RunSpecs(t, "HTTP Suite", SuiteConfig())
 }
 
 func pollHealth(url string) error {

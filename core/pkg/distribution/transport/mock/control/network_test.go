@@ -81,6 +81,40 @@ var _ = Describe("Transport", func() {
 		Expect(stream.CloseSend()).To(Succeed())
 	})
 
+	Describe("Subscriptions", func() {
+		It(
+			"Should count a subscription once it receives a response",
+			func(ctx SpecContext) {
+				server.SubscribeServer().BindHandler(func(
+					_ context.Context,
+					srv distcontrol.SubscribeStream,
+				) error {
+					if err := srv.Send(distcontrol.SubscribeResponse{}); err != nil {
+						return err
+					}
+					return srv.Send(distcontrol.SubscribeResponse{})
+				})
+				stream := MustSucceed(
+					client.SubscribeClient().Stream(ctx, leaseholder),
+				)
+				Expect(net.Subscriptions()).To(BeZero())
+				MustSucceed(stream.Receive())
+				MustSucceed(stream.Receive())
+				Expect(net.Subscriptions()).To(Equal(1))
+				Expect(stream.CloseSend()).To(Succeed())
+			},
+		)
+
+		It(
+			"Should not count a subscription to an unbound leaseholder",
+			func(ctx SpecContext) {
+				Expect(client.SubscribeClient().Stream(ctx, "nonexistent")).
+					Error().To(MatchError(ContainSubstring("not found")))
+				Expect(net.Subscriptions()).To(BeZero())
+			},
+		)
+	})
+
 	It(
 		"Should return a target-not-found error for an unbound leaseholder",
 		func(ctx SpecContext) {

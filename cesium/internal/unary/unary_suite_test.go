@@ -19,7 +19,7 @@ import (
 
 func TestUnary(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Unary Suite")
+	RunSpecs(t, "Unary Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

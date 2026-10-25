@@ -68,8 +68,10 @@ export const Legend = (props: LegendProps): ReactElement | null => {
 
   const handleColorChange = useCallback(
     (key: string, c?: color.Color) => {
-      const { [key]: _removed, ...rest } = colors;
-      onColorsChange?.(c == null ? rest : { ...rest, [key]: c });
+      const next = { ...colors };
+      if (c == null) delete next[key];
+      else next[key] = c;
+      onColorsChange?.(next);
     },
     [colors, onColorsChange],
   );

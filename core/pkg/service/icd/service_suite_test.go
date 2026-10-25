@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
@@ -28,7 +29,6 @@ import (
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -167,6 +167,19 @@ var (
 				Type: testTaskType,
 				SetEntryKey: func(c *testTaskConfig, key uuid.UUID) {
 					c.Key = key
+				},
+				Ladder: imex.Ladder[testTaskConfig]{
+					Decode: func(
+						_ context.Context,
+						version imex.Version,
+						data msgpack.EncodedJSON,
+					) (testTaskConfig, error) {
+						return imex.DecodeBlob[testTaskConfig](
+							data,
+							testTaskType,
+							version,
+						)
+					},
 				},
 				ResolveEntry: func(
 					ctx context.Context,

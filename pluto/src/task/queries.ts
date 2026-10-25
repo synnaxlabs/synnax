@@ -283,15 +283,15 @@ export const shouldExecuteCommand = <StatusData extends z.ZodType = z.ZodNever>(
   );
 };
 
-const COMMAND_VERBS: verbs.Verbs = {
-  present: "command",
-  participle: "commanding",
-  past: "commanded",
+const SEND_VERBS: verbs.Verbs = {
+  present: "send",
+  participle: "sending",
+  past: "sent",
 };
 
 export const { useUpdate: useCommand } = Flux.createUpdate<CommandParams>({
-  name: PLURAL_RESOURCE_NAME,
-  verbs: COMMAND_VERBS,
+  name: "task commands",
+  verbs: SEND_VERBS,
   update: async ({ data, client }) => {
     const commands = array.toArray(data);
     const keys = commands.map(({ task }) => task);

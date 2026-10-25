@@ -20,13 +20,13 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/spatial"
@@ -38,7 +38,7 @@ import (
 // open, since the producing services open after the panel table. Like the chain, they
 // are frozen at this version: they read frozen staging and write v0-shape panels, and
 // later versions must order their migrations after these.
-var CompositionMigrations = []migrate.Migration{
+var CompositionMigrations = []gorp.Migration{
 	projectLayoutsMigration,
 	taskTabKeysMigration,
 	resourceTabTypesMigration,
@@ -571,19 +571,19 @@ func convertSize(s float64) float64 {
 // projectLayoutsMigration adopts the project service's staged legacy layouts as panels.
 // It runs in the composition pass, after the project chain has staged every layout and
 // the task chain has staged its re-key mapping.
-var projectLayoutsMigration = gorp.NewMigration(
+var projectLayoutsMigration = migrate.New(
 	"v56_migrate_project_layouts_to_panels", migrateProjectLayouts,
 )
 
 // taskTabKeysMigration re-keys task view tabs from the legacy-to-UUID mapping staged
 // by the task re-key migration. It runs after the project-layouts migration so
 // converted tabs are re-keyed in the same pass.
-var taskTabKeysMigration = gorp.NewMigration(
+var taskTabKeysMigration = migrate.New(
 	"v56_task_tab_uuid_keys", migrateTaskTabKeys,
 )
 
 // resourceTabTypesMigration strips resource tabs the type whitelist rejects. It runs
 // last so converted and re-keyed tabs are filtered in the same pass.
-var resourceTabTypesMigration = gorp.NewMigration(
+var resourceTabTypesMigration = migrate.New(
 	"v56_strip_invalid_resource_tabs", stripInvalidResourceTabs,
 )

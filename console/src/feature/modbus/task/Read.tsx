@@ -22,6 +22,7 @@ import { type FC, useCallback } from "react";
 import { useFromConfig } from "@/feature/modbus/device/queries";
 import { Select as SelectDevice } from "@/feature/modbus/device/Select";
 import * as Device from "@/feature/modbus/device/types";
+import { OrderFields } from "@/feature/modbus/task/OrderFields";
 import { SelectReadChannelTypeField } from "@/feature/modbus/task/SelectReadChannelTypeField";
 import {
   deployReadConfigZ,
@@ -53,7 +54,8 @@ const Properties = () => (
 const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = `config.channels.${itemKey}`;
-  const { type, channel } = PForm.useFieldValue<ReadChannel>(path);
+  const ch = PForm.useFieldValue<ReadChannel>(path);
+  const { type, channel } = ch;
   return (
     <Select.Item
       {...props}
@@ -80,7 +82,6 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
         />
         <PForm.NumericField
           inputProps={{ showDragHandle: false }}
-          hideIfNull
           showLabel={false}
           showHelpText={false}
           path={`${path}.address`}
@@ -90,12 +91,14 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
             path={`${path}.dataType`}
             showLabel={false}
             showHelpText={false}
-            hideIfNull
           >
             {renderTelemSelectDataType}
           </PForm.Field>
         )}
       </Flex.Box>
+      {isVariableDensityReadChannel(ch) && (
+        <OrderFields path={path} dataType={ch.dataType} />
+      )}
       <Flex.Box x align="center" grow justify="end">
         <Task.ChannelName
           channel={channel}

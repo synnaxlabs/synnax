@@ -25,14 +25,17 @@ export const useNormalizedDrag = (
 ): void => {
   // A drag keeps the handlers it started with, so they read the latest onChange.
   const onChangeRef = useSyncedRef(onChange);
-  const handlePoint = useCallback((point: xy.XY) => {
-    if (ref.current == null) return;
-    const b = box.construct(ref.current);
-    onChangeRef.current({
-      x: bounds.clamp(UNIT, (point.x - box.left(b)) / box.width(b)),
-      y: bounds.clamp(UNIT, (point.y - box.top(b)) / box.height(b)),
-    });
-  }, []);
+  const handlePoint = useCallback(
+    (point: xy.XY) => {
+      if (ref.current == null) return;
+      const b = box.construct(ref.current);
+      onChangeRef.current({
+        x: bounds.clamp(UNIT, (point.x - box.left(b)) / box.width(b)),
+        y: bounds.clamp(UNIT, (point.y - box.top(b)) / box.height(b)),
+      });
+    },
+    [ref, onChangeRef],
+  );
   Cursor.useVirtualDrag({
     ref,
     onStart: handlePoint,

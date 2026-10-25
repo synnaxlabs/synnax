@@ -19,7 +19,7 @@ import (
 
 func TestOPCUAV1(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service OPC UA v1 Suite")
+	RunSpecs(t, "Service OPC UA v1 Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

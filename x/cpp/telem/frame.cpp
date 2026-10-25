@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <memory>
 #include <vector>
 
@@ -31,7 +32,7 @@ Frame::Frame(const std::uint32_t &chan, Series &&ser):
 Frame::Frame(std::unordered_map<std::uint32_t, SampleValue> &data, size_t cap):
     channels(std::make_unique<std::vector<std::uint32_t>>()),
     series(std::make_unique<std::vector<Series>>()) {
-    if (cap < data.size()) cap = data.size();
+    cap = std::max(cap, data.size());
     this->series->reserve(cap);
     this->channels->reserve(cap);
     for (auto &[key, value]: data) {

@@ -15,6 +15,8 @@
 #include "client/cpp/modbus/types.gen.h"
 #include "client/cpp/synnax.h"
 
+#include "driver/modbus/device/device.h"
+
 namespace driver::modbus::channel {
 /// @brief base class for input channels (reading from Modbus).
 struct Input {
@@ -43,9 +45,11 @@ struct InputDiscrete final : Input {
 struct InputRegister final : Input {
     /// @brief The data type to interpret the register(s) as
     x::telem::DataType value_type;
-    /// @brief The byte order for multi-register values
+    /// @brief whether the byte order within each 16-bit word is swapped, from the
+    /// channel's override or else the device.
     bool bytes_swapped;
-    /// @brief The word order for multi-register values
+    /// @brief whether the word order of multi-register values is swapped, from the
+    /// channel's override or else the device.
     bool words_swapped;
     /// @brief String length for STRING data type
     int string_length;
@@ -53,19 +57,26 @@ struct InputRegister final : Input {
     InputRegister(
         const ::synnax::modbus::BaseReadChannel &base,
         const ::synnax::modbus::RegisterValue &value,
-        const std::int32_t string_length
+        const std::int32_t string_length,
+        const device::ConnectionConfig &conn
     ):
         Input(base),
         value_type(value.data_type),
-        bytes_swapped(value.bytes_swapped),
-        words_swapped(value.words_swapped),
+        bytes_swapped(value.bytes_swapped.value_or(conn.swap_bytes)),
+        words_swapped(value.words_swapped.value_or(conn.swap_words)),
         string_length(string_length) {}
 
-    explicit InputRegister(const ::synnax::modbus::HoldingRegisterReadChannel &cfg):
-        InputRegister(cfg, cfg, cfg.string_length) {}
+    InputRegister(
+        const ::synnax::modbus::HoldingRegisterReadChannel &cfg,
+        const device::ConnectionConfig &conn
+    ):
+        InputRegister(cfg, cfg, cfg.string_length, conn) {}
 
-    explicit InputRegister(const ::synnax::modbus::InputRegisterReadChannel &cfg):
-        InputRegister(cfg, cfg, cfg.string_length) {}
+    InputRegister(
+        const ::synnax::modbus::InputRegisterReadChannel &cfg,
+        const device::ConnectionConfig &conn
+    ):
+        InputRegister(cfg, cfg, cfg.string_length, conn) {}
 };
 
 /// @brief base class for output channels (writing to Modbus).
@@ -88,18 +99,21 @@ struct OutputCoil final : Output {
 struct OutputHoldingRegister final : Output {
     /// @brief The data type to interpret the register(s) as
     x::telem::DataType value_type;
-    /// @brief The byte order for multi-register values
+    /// @brief whether the byte order within each 16-bit word is swapped, from the
+    /// channel's override or else the device.
     bool bytes_swapped;
-    /// @brief The word order for multi-register values
+    /// @brief whether the word order of multi-register values is swapped, from the
+    /// channel's override or else the device.
     bool words_swapped;
 
-    explicit OutputHoldingRegister(
-        const ::synnax::modbus::HoldingRegisterWriteChannel &cfg
+    OutputHoldingRegister(
+        const ::synnax::modbus::HoldingRegisterWriteChannel &cfg,
+        const device::ConnectionConfig &conn
     ):
         Output(cfg),
         value_type(cfg.data_type),
-        bytes_swapped(cfg.bytes_swapped),
-        words_swapped(cfg.words_swapped) {}
+        bytes_swapped(cfg.bytes_swapped.value_or(conn.swap_bytes)),
+        words_swapped(cfg.words_swapped.value_or(conn.swap_words)) {}
 };
 
 /// @brief sorts a vector of channels in place by their address.

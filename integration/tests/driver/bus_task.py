@@ -22,7 +22,7 @@ from pydantic import ValidationError
 import synnax as sy
 from synnax import bus, can, icd, serial, tcp, udp
 from tests.driver.simulator_case import SimulatorCase
-from tests.driver.task import delete_channels
+from tests.driver.task import delete_channels, status_text
 
 STATUS_CHANNEL = "sy_status_set"
 PROBLEMS = ("warning", "error")
@@ -437,7 +437,7 @@ class BusCase(SimulatorCase):
         problems: list[str] = []
         while (frame := streamer.read(timeout=0)) is not None:
             problems.extend(
-                f"{s.variant}: {s.message}"
+                f"{s.variant}: {status_text(s)}"
                 for s in self._task_statuses(frame)
                 if s.variant in PROBLEMS
             )
@@ -451,8 +451,9 @@ class BusCase(SimulatorCase):
         containing: str = "",
         timeout: sy.TimeSpan = 10 * sy.TimeSpan.SECOND,
     ) -> str:
-        """Blocks until the task reports a status of the given variant whose message
-        contains the given text, and returns the message.
+        """Blocks until the task reports a status of the given variant whose text
+        contains the given text, and returns the text. The text is the message and
+        the description.
 
         :raises AssertionError: If no such status arrives before the timeout.
         """
@@ -465,10 +466,10 @@ class BusCase(SimulatorCase):
             for status in self._task_statuses(frame):
                 if status.variant != variant:
                     continue
-                message = str(status.message)
-                if containing in message:
-                    return message
-                seen.append(message)
+                text = status_text(status)
+                if containing in text:
+                    return text
+                seen.append(text)
         wanted = f"{variant} status"
         if containing:
             wanted += f" containing {containing!r}"

@@ -20,10 +20,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const { page } = session;
     await capture.login(session);
     await capture.clearPanel(session);
-    await session.moveTo({ x: 756, y: 500 });
+    await session.moveTo({ x: 800, y: 450 });
 
     session.startRecording();
-    await session.hold(500);
+    await session.hold(1800);
 
     await capture.clickPanelCreate(session);
     await session.hold(800);
@@ -39,6 +39,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       });
     await session.waitFor(add);
     await session.hold(600);
+    await capture.zoomCenter(session, drawer, 1.4);
 
     for (const channel of fixture.channels) {
       await session.click(page.getByText("Add channel", { exact: true }).first(), {
@@ -71,7 +72,9 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.press("ControlOrMeta+a");
     await session.type("3");
     await session.press("Enter");
-    await session.hold(500);
+    session.endZoom();
+    await session.moveTo({ x: 1200, y: 300 });
+    await session.hold(3000);
   } finally {
     await fixture.stop();
   }

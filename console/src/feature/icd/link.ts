@@ -9,6 +9,4 @@
 
 import { Link } from "@/platform/link";
 
-const useLink = Link.createUseOpenResourceTab("icd");
-
-export const LINKS: Link.Registry = { icd: useLink };
+export const useLink = Link.createUseOpenResourceTab("icd");

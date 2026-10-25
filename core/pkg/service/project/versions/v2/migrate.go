@@ -9,7 +9,7 @@
 
 package v2
 
-import "github.com/synnaxlabs/x/gorp"
+import "github.com/synnaxlabs/gorp/migrate"
 
 // Migration lifts stored projects from v1 to v2, dropping the layout.
-var Migration = gorp.NewEntryMigration("v59_drop_layout", autoMigrateProject)
+var Migration = migrate.NewEntry("v59_drop_layout", autoMigrateProject)

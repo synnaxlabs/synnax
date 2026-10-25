@@ -19,7 +19,7 @@ import (
 
 func TestUDPV0(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service UDP v0 Suite")
+	RunSpecs(t, "Service UDP v0 Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

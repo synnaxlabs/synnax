@@ -28,7 +28,7 @@ class Entry(BaseModel, Generic[R]):
     choices: list[R] | None = None
     default: R | None = None
     response: R | None = None
-    type_: type[R] | None = None
+    type_: type[str | int | float | bool] | None = None
     password: bool | None = None
 
 

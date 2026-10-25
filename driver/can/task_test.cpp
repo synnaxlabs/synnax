@@ -595,9 +595,10 @@ TEST_F(CANTask, WaitsForAChannelThatIsAbsentAtStart) {
     auto t = this->read_task(status_read_config());
     t->start("start");
     ASSERT_EVENTUALLY_EQ(
-        this->ctx->last().message,
+        this->ctx->last().description,
         "reconnecting to dev: channel can0 is not attached"
     );
+    EXPECT_EQ(this->ctx->last().message, "Failed to read some data");
     EXPECT_EQ(this->ctx->last().variant, synnax::status::VARIANT_WARNING);
     EXPECT_TRUE(this->ctx->last().details.running);
     this->backend->plug("can0");
@@ -612,9 +613,10 @@ TEST_F(CANTask, ReconnectsAReadTaskAfterAnUnplug) {
     ASSERT_TRUE(this->eventually_reads(1));
     this->backend->unplug("can0");
     ASSERT_EVENTUALLY_EQ(
-        this->ctx->last().message,
+        this->ctx->last().description,
         "reconnecting to dev: channel can0 is not attached"
     );
+    EXPECT_EQ(this->ctx->last().message, "Failed to read some data");
     EXPECT_EQ(this->ctx->last().variant, synnax::status::VARIANT_WARNING);
     EXPECT_TRUE(this->ctx->last().details.running);
     this->backend->plug("can0");
@@ -650,9 +652,10 @@ TEST_F(CANTask, WarnsWithTheFaultsABusErrorFrameReports) {
     );
     this->backend->raise("can0", error);
     ASSERT_EVENTUALLY_EQ(
-        this->ctx->last().message,
+        this->ctx->last().description,
         "the adapter reported bus off, transmit error passive"
     );
+    EXPECT_EQ(this->ctx->last().message, "Failed to read some data");
     EXPECT_EQ(this->ctx->last().variant, synnax::status::VARIANT_WARNING);
     EXPECT_TRUE(this->ctx->last().details.running);
     t->stop("stop", true);
@@ -667,7 +670,8 @@ TEST_F(CANTask, StopsAReadTaskOnACriticalFault) {
         {CRITICAL_HARDWARE_ERROR, "the adapter failed"}
     );
     ASSERT_EVENTUALLY_EQ(this->ctx->last().variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(this->ctx->last().message, "the adapter failed");
+    EXPECT_EQ(this->ctx->last().message, "Failed to read data");
+    EXPECT_EQ(this->ctx->last().description, "the adapter failed");
     EXPECT_FALSE(this->ctx->last().details.running);
     t->stop("stop", true);
     EXPECT_EQ(this->backend->in_use("can0"), 0);

@@ -11,10 +11,10 @@
 // over the results. Set DOCS_URL to check an already-running server instead.
 //
 // usage: check-site [check ...] [--route prefix ...]
-//   pnpm check-site:build                        build dist/ for checking
-//   pnpm check-site                              all checks, all pages
-//   pnpm check-site links media                  only the named checks
-//   pnpm check-site --route /reference/driver    only routes under the prefix
+//   pnpm check-site:build                          build dist/ for checking
+//   pnpm check-site                                all checks, all pages
+//   pnpm check-site links media                    only the named checks
+//   pnpm check-site --route /reference/hardware    only routes under the prefix
 
 import { preview } from "astro";
 import fs from "fs";
@@ -25,6 +25,7 @@ import { crawlPages, enumerateRoutes } from "@/util/checks/crawl";
 import { createFetcher } from "@/util/checks/fetch";
 import { links } from "@/util/checks/links";
 import { media } from "@/util/checks/media";
+import { nav } from "@/util/checks/nav";
 import { notes } from "@/util/checks/notes";
 import { tabs } from "@/util/checks/tabs";
 import { normalizeRoute } from "@/util/route";
@@ -40,7 +41,7 @@ for (let i = 0; i < argv.length; i++)
   if (argv[i] === "--route") {
     const prefix = argv[i + 1];
     if (prefix == null) {
-      console.error("--route requires a prefix, e.g. --route /reference/driver");
+      console.error("--route requires a prefix, e.g. --route /reference/hardware");
       process.exit(1);
     }
     prefixes.push(prefix);
@@ -57,6 +58,7 @@ const ALL: Check[] = [
   links(fullCrawl),
   media(fullCrawl),
   notes(fullCrawl),
+  nav(fullCrawl),
 ];
 const unknown = names.filter((name) => ALL.every((check) => check.name !== name));
 if (unknown.length > 0) {

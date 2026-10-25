@@ -19,7 +19,7 @@ import (
 
 func TestScheduler(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Runtime Scheduler Suite")
+	RunSpecs(t, "Runtime Scheduler Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

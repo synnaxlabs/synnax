@@ -24,7 +24,7 @@ var apiLayer *api.Layer
 
 func TestGRPC(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Transport gRPC Suite")
+	RunSpecs(t, "Transport gRPC Suite", SuiteConfig())
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {

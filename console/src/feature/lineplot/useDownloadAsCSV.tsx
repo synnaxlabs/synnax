@@ -51,7 +51,7 @@ export const useDownloadAsCSV = (): ((params: DownloadAsCSVParams) => void) => {
         `Failed to download CSV data for ${name}`,
       );
     },
-    [openDownloadCSVModal],
+    [openDownloadCSVModal, handleError],
   );
 };
 

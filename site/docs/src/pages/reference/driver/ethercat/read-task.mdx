@@ -10,7 +10,7 @@ nextURL: "/reference/driver/ethercat/write-task"
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
@@ -28,7 +28,7 @@ Before creating a read task,
 [configure your EtherCAT devices](/reference/driver/ethercat/configure-device) and
 identify the TxPDOs (input PDOs) to read from each one.
 
-<Note.Note variant="warning" className="compact">
+<Note.Note variant="warning">
   All channels in a task must use devices connected to the **same network interface**.
   Create separate tasks for devices on different EtherCAT networks.
 </Note.Note>
@@ -109,7 +109,7 @@ Reads data from a TxPDO using explicit CoE addressing.
 - Non-standard devices
 - Accessing vendor-specific objects
 
-<Note.Note variant="info" className="compact">
+<Note.Note variant="info">
   CoE (CAN over EtherCAT) addressing uses a 16-bit index and 8-bit subindex. Common
   servo drive objects include status word (`0x6041`), position actual (`0x6064`), and
   velocity actual (`0x606C`).

@@ -16,9 +16,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -36,7 +36,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 
 func TestSerial(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Serial Suite")
+	RunSpecs(t, "Service Serial Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

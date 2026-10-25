@@ -10,7 +10,7 @@
 import "@/resize/Base.css";
 
 import { direction, location } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement, useMemo } from "react";
+import { type CSSProperties, type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Cursor } from "@/cursor";
@@ -43,11 +43,9 @@ export const Base = ({
 }: BaseProps): ReactElement => {
   const parsedLocation = location.construct(cloc);
   const dir = location.direction(parsedLocation);
-  const style = useMemo<CSSProperties>(() => {
-    const dim = direction.dimension(dir);
-    const cssSize = decimal ? `${size * 100}%` : `${size}px`;
-    return { [dim]: cssSize, ...propsStyle };
-  }, [decimal, size, dir, propsStyle]);
+  const dim = direction.dimension(dir);
+  const cssSize = decimal ? `${size * 100}%` : `${size}px`;
+  const style: CSSProperties = { [dim]: cssSize, ...propsStyle };
   return (
     <Flex.Box
       className={CSS.cls(

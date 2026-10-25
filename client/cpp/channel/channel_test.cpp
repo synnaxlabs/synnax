@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <random>
 #include <string>
 
 #include <include/gtest/gtest.h>
@@ -18,8 +17,6 @@
 #include "x/cpp/test/test.h"
 
 namespace synnax::channel {
-std::mt19937 gen_rand = random_generator(std::move("Channel Tests"));
-
 /// @brief it should create a rate based channel and assign it a non-zero key.
 TEST(TestChannel, testCreate) {
     const auto client = new_test_client();

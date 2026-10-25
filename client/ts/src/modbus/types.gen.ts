@@ -20,10 +20,16 @@ import { task } from "@/task";
 export const registerValueZ = z.object({
   /** dataType is the data type the register contents are interpreted as. */
   dataType: z.string().default("uint8"),
-  /** bytesSwapped is true when the byte order within each 16-bit word is swapped. */
-  bytesSwapped: z.boolean().default(false),
-  /** wordsSwapped is true when the word order of multi-register values is swapped. */
-  wordsSwapped: z.boolean().default(false),
+  /**
+   * bytesSwapped is true when the byte order within each 16-bit word is swapped. When
+   * absent, the device's byte order applies.
+   */
+  bytesSwapped: z.boolean().optional(),
+  /**
+   * wordsSwapped is true when the word order of multi-register values is swapped. When
+   * absent, the device's word order applies.
+   */
+  wordsSwapped: z.boolean().optional(),
 });
 export interface RegisterValue extends z.infer<typeof registerValueZ> {}
 

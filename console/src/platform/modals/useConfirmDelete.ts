@@ -26,13 +26,16 @@ interface ConfirmDeleteItem {
   name: string;
 }
 
+// A call, since the compiler cannot reorder a template literal in a parameter default.
+const deleteTitle = (type: string): string => `${type}.Delete`;
+
 /**
  * Prompts for confirmation before deleting resources. One item is named; two or more
  * collapse to a count, keeping the message bounded however large the selection.
  */
 export const useConfirmDelete = ({
   type,
-  title = `${type}.Delete`,
+  title = deleteTitle(type),
   icon,
   description = "This action cannot be undone.",
 }: UseConfirmDeleteProps) => {

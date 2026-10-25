@@ -13,29 +13,57 @@ import { useCallback } from "react";
 import { useInitializerRef } from "@/hooks";
 
 export interface UseKeyedListenersReturn<K extends record.Key> {
+  /** Calls each listener subscribed to one of the keys or to every key, once. */
   notifyListeners: (keys: K | K[]) => void;
+  /**
+   * Subscribes the listener to the key, or to every key when key is omitted. A listener
+   * may subscribe to many keys; each destructor removes one subscription.
+   */
   subscribe: (listener: () => void, key?: K) => destructor.Destructor;
+}
+
+interface Listeners<K extends record.Key> {
+  keyed: Map<K, Set<() => void>>;
+  unkeyed: Set<() => void>;
 }
 
 export const useKeyedListeners = <
   K extends record.Key,
 >(): UseKeyedListenersReturn<K> => {
-  const listenersRef = useInitializerRef(() => new Map<() => void, K | undefined>());
-  const notifyListeners = useCallback((keys: K | K[]) => {
-    const keySet = new Set(array.toArray(keys));
-    listenersRef.current.forEach((key, listener) => {
-      if (key == null || keySet.has(key)) listener();
-    });
-  }, []);
-  const subscribe = useCallback((listener: () => void, key?: K) => {
-    if (listenersRef.current.has(listener)) {
-      const prevKey = listenersRef.current.get(listener);
-      console.warn(
-        `[store] attempted to subscribe listener with key ${prevKey} to key ${key} without being unsubscribed first`,
-      );
-    }
-    listenersRef.current.set(listener, key);
-    return () => listenersRef.current.delete(listener);
-  }, []);
+  const listenersRef = useInitializerRef<Listeners<K>>(() => ({
+    keyed: new Map(),
+    unkeyed: new Set(),
+  }));
+  const notifyListeners = useCallback(
+    (keys: K | K[]) => {
+      const { keyed, unkeyed } = listenersRef.current;
+      const notified = new Set(unkeyed);
+      array.toArray(keys).forEach((k) => keyed.get(k)?.forEach((l) => notified.add(l)));
+      notified.forEach((l) => l());
+    },
+    [listenersRef],
+  );
+  const subscribe = useCallback(
+    (listener: () => void, key?: K) => {
+      const { keyed, unkeyed } = listenersRef.current;
+      if (key == null) {
+        unkeyed.add(listener);
+        return () => {
+          unkeyed.delete(listener);
+        };
+      }
+      let listeners = keyed.get(key);
+      if (listeners == null) {
+        listeners = new Set();
+        keyed.set(key, listeners);
+      }
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+        if (listeners.size === 0 && keyed.get(key) === listeners) keyed.delete(key);
+      };
+    },
+    [listenersRef],
+  );
   return { notifyListeners, subscribe };
 };

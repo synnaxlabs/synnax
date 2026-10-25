@@ -19,7 +19,7 @@ import (
 
 func TestContext(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Compiler Context Suite")
+	RunSpecs(t, "Compiler Context Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

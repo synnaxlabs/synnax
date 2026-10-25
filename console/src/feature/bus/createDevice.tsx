@@ -35,11 +35,6 @@ import { type Task } from "@/platform/task";
 import { type Tree } from "@/platform/tree";
 import { Triggers } from "@/platform/triggers";
 
-type FormParams = Flux.BeforeValidateParams<
-  PDevice.RetrieveQuery,
-  typeof PDevice.formSchema
->;
-
 export interface CreateDeviceParams<
   M extends string,
   P extends z.ZodType<record.Unknown>,
@@ -83,9 +78,9 @@ export const createDevice = <M extends string, P extends z.ZodType<record.Unknow
     model: z.string(),
   } as const satisfies device.DeviceSchemas<P, z.ZodLiteral<M>, z.ZodString>;
 
-  const useForm = PDevice.createForm(SCHEMAS);
+  type Schema = PDevice.FormSchema<typeof SCHEMAS>;
 
-  const INITIAL_VALUES: device.Device = {
+  const INITIAL_VALUES: device.Device<P, z.ZodLiteral<M>> = {
     key: "",
     name: noun,
     make,
@@ -96,7 +91,13 @@ export const createDevice = <M extends string, P extends z.ZodType<record.Unknow
     configured: true,
   };
 
-  const beforeValidate = ({ get, set, setStatus }: FormParams): boolean => {
+  const useForm = PDevice.createForm(SCHEMAS, INITIAL_VALUES);
+
+  const beforeValidate = ({
+    get,
+    set,
+    setStatus,
+  }: Flux.BeforeValidateParams<PDevice.RetrieveQuery, Schema>): boolean => {
     const props = properties.parse(get("properties").value);
     let valid = true;
     for (const [field, message] of Object.entries(required)) {
@@ -122,58 +123,60 @@ export const createDevice = <M extends string, P extends z.ZodType<record.Unknow
 
   const NAME_INPUT_PROPS = { level: "h2", variant: "text", placeholder: noun } as const;
 
-  const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
-    ({ deviceKey, close }) => {
-      const { capture } = Analytics.use();
-      const {
-        form,
-        save,
-        status: stat,
-        variant,
-      } = useForm({
-        query: deviceKey == null ? null : { key: deviceKey },
-        initialValues: INITIAL_VALUES,
-        beforeValidate,
-        afterSave: useCallback(() => {
-          if (deviceKey == null) capture("device_connected", { integration });
-          close();
-        }, [capture, close, deviceKey]),
-      });
-      return (
-        <Modal.Frame className={CSS.B("bus-connect")}>
-          <Modal.Header icon={icon}>{`${noun}.Connect`}</Modal.Header>
-          <Flex.Box className={CSS.B("content")} grow size="small">
-            <Form.Form<typeof PDevice.formSchema> {...form}>
-              <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
-              <Form.Field<rack.Key> path="rack" label="Connect from" required>
-                {renderRack}
-              </Form.Field>
-              <Properties />
-            </Form.Form>
-          </Flex.Box>
-          <Modal.Footer>
-            <Nav.Bar.Start gap="small">
-              {variant == "success" ? (
-                <Triggers.SaveHelpText action="Connect" noBar />
-              ) : (
-                <Status.Summary variant={variant} message={stat.description} />
-              )}
-            </Nav.Bar.Start>
-            <Nav.Bar.End>
-              <Button.Button
-                status={status.keepVariants(variant, "loading")}
-                onClick={() => save()}
-                variant="filled"
-                trigger={Triggers.SAVE}
-              >
-                Connect
-              </Button.Button>
-            </Nav.Bar.End>
-          </Modal.Footer>
-        </Modal.Frame>
-      );
-    },
-  );
+  const Connect = ({
+    deviceKey,
+    close,
+  }: Modals.ContentProps<PlatformDevice.ConnectParams, void>) => {
+    const { capture } = Analytics.use();
+    const {
+      form,
+      save,
+      status: stat,
+      variant,
+    } = useForm({
+      query: deviceKey == null ? null : { key: deviceKey },
+      beforeValidate,
+      afterSave: useCallback(() => {
+        if (deviceKey == null) capture("device_connected", { integration });
+        close();
+      }, [capture, close, deviceKey]),
+    });
+    return (
+      <Modal.Frame className={CSS.B("bus-connect")}>
+        <Modal.Header icon={icon}>{`${noun}.Connect`}</Modal.Header>
+        <Flex.Box className={CSS.B("content")} grow size="small">
+          <Form.Form<Schema> {...form}>
+            <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
+            <Form.Field<rack.Key> path="rack" label="Connect from" required>
+              {renderRack}
+            </Form.Field>
+            <Properties />
+          </Form.Form>
+        </Flex.Box>
+        <Modal.Footer>
+          <Nav.Bar.Start gap="small">
+            {variant == "success" ? (
+              <Triggers.SaveHelpText action="Connect" noBar />
+            ) : (
+              <Status.Summary variant={variant} message={stat.description} />
+            )}
+          </Nav.Bar.Start>
+          <Nav.Bar.End>
+            <Button.Button
+              status={status.keepVariants(variant, "loading")}
+              onClick={() => save()}
+              variant="filled"
+              trigger={Triggers.SAVE}
+            >
+              Connect
+            </Button.Button>
+          </Nav.Bar.End>
+        </Modal.Footer>
+      </Modal.Frame>
+    );
+  };
+
+  const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(Connect);
 
   const EmptyContent = () => {
     const connect = useConnectModal();
@@ -234,17 +237,17 @@ export const createContextMenuItems = ({
   useCreateRead,
   useCreateWrite,
 }: CreateContextMenuItemsParams) => {
-  const configs: PlatformDevice.TaskContextMenuItemConfig[] = [
-    {
+  const items = [
+    PlatformDevice.createTaskContextMenuItem({
       itemKey: `${integration}.readTask`,
       label: "Create read task",
       useCreate: useCreateRead,
-    },
-    {
+    }),
+    PlatformDevice.createTaskContextMenuItem({
       itemKey: `${integration}.writeTask`,
       label: "Create write task",
       useCreate: useCreateWrite,
-    },
+    }),
   ];
   const ContextMenuItems = (props: Tree.ContextMenuProps): ReactElement => {
     const connect = useConnectModal();
@@ -256,7 +259,7 @@ export const createContextMenuItems = ({
         <PlatformDevice.TaskContextMenuItems
           {...props}
           onConfigure={onConfigure}
-          taskContextMenuItemConfigs={configs}
+          items={items}
         />
       </>
     );

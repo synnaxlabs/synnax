@@ -158,6 +158,10 @@ public:
 
     explicit MockManager(std::shared_ptr<Device> dev = std::make_shared<Mock>()):
         open([this] { return this->dev; }), dev(std::move(dev)) {}
+    MockManager(const MockManager &) = delete;
+    MockManager &operator=(const MockManager &) = delete;
+    MockManager(MockManager &&) = delete;
+    MockManager &operator=(MockManager &&) = delete;
 
     x::errors::Error list_all(int, int, int *, int *, int *, int *, int *) override {
         return x::errors::NIL;

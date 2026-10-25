@@ -19,7 +19,7 @@ import (
 
 func TestVersioning(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Go Versioning Suite")
+	RunSpecs(t, "Plugin Go Versioning Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -1,0 +1,52 @@
+{
+  "device": "fixture-modbus-device",
+  "channels": [
+    {
+      "type": "coil",
+      "key": "ch-mb-coil-in",
+      "name": "fixture_mb_coil_input",
+      "disabled": false,
+      "channel": 8010,
+      "address": 1001
+    },
+    {
+      "disabled": true,
+      "channel": 8020,
+      "address": 1002,
+      "type": "discrete_input",
+      "key": "ch-mb-discrete-in",
+      "name": "fixture_mb_discrete_input"
+    },
+    {
+      "data_type": "float32",
+      "words_swapped": false,
+      "bytes_swapped": false,
+      "string_length": 0,
+      "type": "holding_register",
+      "key": "ch-mb-holding-in",
+      "name": "fixture_mb_holding_register_input",
+      "disabled": false,
+      "channel": 8030,
+      "address": 1003
+    },
+    {
+      "type": "input_register",
+      "disabled": false,
+      "channel": 8040,
+      "data_type": "int32",
+      "bytes_swapped": false,
+      "words_swapped": false,
+      "string_length": 0,
+      "key": "ch-mb-register-in",
+      "name": "fixture_mb_register_input",
+      "address": 1004
+    }
+  ],
+  "type": "modbus_read",
+  "version": 1,
+  "auto_start": true,
+  "data_saving_disabled": true,
+  "name": "modbus_read",
+  "sample_rate": 654.5,
+  "stream_rate": 65.5
+}

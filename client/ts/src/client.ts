@@ -169,6 +169,7 @@ export default class Synnax extends framer.Client {
     super({
       stream: transport.stream,
       unary: transport.unary,
+      file: transport.file,
       retrieveChannels,
       onRetry: parsedParams.onRetry,
     });

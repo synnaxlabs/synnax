@@ -119,7 +119,7 @@ export const ContactForm = (): ReactElement => {
       const message = validate(field, values[field]);
       if (message == null) continue;
       errors[field] = message;
-      firstInvalid ??= field;
+      if (firstInvalid == null) firstInvalid = field;
     }
     invalidFieldRef.current = firstInvalid;
     setFieldErrors(errors);
@@ -136,17 +136,13 @@ export const ContactForm = (): ReactElement => {
           body: data,
           headers: { Accept: "application/json" },
         });
-        if (!response.ok) {
-          setError(true);
-          return;
-        }
-        setSuccess(true);
+        if (response.ok) setSuccess(true);
+        else setError(true);
       } catch {
         setError(true);
-      } finally {
-        inFlight.current = false;
-        setPending(false);
       }
+      inFlight.current = false;
+      setPending(false);
     })();
   };
 

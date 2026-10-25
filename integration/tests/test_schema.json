@@ -42,6 +42,12 @@
                   "type": "string",
                   "description": "Optional specific test name within the test case"
                 },
+                "timeout": {
+                  "type": "number",
+                  "description": "Seconds the test may run before the conductor marks it TIMEOUT",
+                  "exclusiveMinimum": 0,
+                  "default": 300
+                },
                 "parameters": {
                   "type": "object",
                   "description": "Parameters to pass to the test case",

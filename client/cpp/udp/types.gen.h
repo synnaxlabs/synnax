@@ -28,8 +28,7 @@ struct Properties {
     /// @brief port is the local port the task binds to.
     std::uint16_t port = 0;
     /// @brief remote_host is the host that writes and queries are sent to. Empty when
-    /// the
-    /// task only receives.
+    /// the task only receives.
     std::string remote_host = "";
     /// @brief remote_port is the port that writes and queries are sent to.
     std::uint16_t remote_port = 0;

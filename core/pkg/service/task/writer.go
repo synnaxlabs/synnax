@@ -11,17 +11,16 @@ package task
 
 import (
 	"context"
-	"fmt"
 	"uuid"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -37,16 +36,16 @@ type Writer struct {
 	configs   config.Registry
 }
 
-// resolveStatus returns the status to persist for t. Without a provided status, a
-// task created for the first time provably has no live instance, so it gets a quiet
-// "has not been deployed" placeholder; an existing task may be running, so its
-// placeholder stays a "status unknown" warning.
+// resolveStatus returns the status to persist for t. Without a provided status, a task
+// created for the first time provably has no live instance, so it gets a quiet "not
+// deployed" placeholder; an existing task can be running, so its placeholder stays a
+// "status unknown" warning.
 func resolveStatus(t *Task, provided *Status, existed bool) *Status {
 	if provided == nil {
-		message := fmt.Sprintf("%s status unknown", t.Name)
+		message := "Task status unknown"
 		variant := status.VariantWarning
 		if !existed {
-			message = fmt.Sprintf("%s has not been deployed", t.Name)
+			message = "Task not deployed"
 			variant = status.VariantDisabled
 		}
 		return &Status{
@@ -95,8 +94,8 @@ func (w Writer) healStatus(ctx context.Context, stat *Status) (*Status, error) {
 // Create creates or updates a task. The task's config is stored as a record keyed by
 // the task's key in its type's config store; the task row itself carries only the
 // config hash. A provided status is persisted as given. Without one, a new task gets
-// a "has not been deployed" placeholder, and an existing task keeps its reported
-// status (healed to "status unknown" if the row is missing).
+// a "not deployed" placeholder, and an existing task keeps its reported status (healed
+// to "status unknown" if the row is missing).
 func (w Writer) Create(ctx context.Context, t *Task) error {
 	if t.Key == uuid.Nil() {
 		t.Key = uuid.New()

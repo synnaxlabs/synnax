@@ -15,6 +15,7 @@ import (
 	"iter"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
@@ -23,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"

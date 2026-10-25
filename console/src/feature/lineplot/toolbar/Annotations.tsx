@@ -244,7 +244,7 @@ export const Annotations = (): ReactElement => {
     const rule = lineplot.ruleZ.parse({ key: ruleKey, label, axis, position });
     dispatch(lineplot.setRule({ rule }));
     setSelectedRuleKeys([ruleKey]);
-  }, [dispatch, key, axes, rules.length, setSelectedRuleKeys]);
+  }, [dispatch, axes, rules.length, setSelectedRuleKeys]);
 
   const handleRemoveRules = (keys: string[]): void => {
     dispatch(keys.map((ruleKey) => lineplot.removeRule({ key: ruleKey })));

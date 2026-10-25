@@ -2,7 +2,12 @@
   "name": "@synnaxlabs/eslint-config",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
   "main": "index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./compiler": "./compiler.ts"
+  },
   "scripts": {
     "check-types": "tsc --noEmit",
     "test": "vitest",
@@ -11,15 +16,19 @@
     "fix": "eslint --fix"
   },
   "dependencies": {
+    "@babel/core": "catalog:",
     "@eslint-react/eslint-plugin": "catalog:",
     "@eslint/js": "catalog:",
     "@stylistic/eslint-plugin": "catalog:",
+    "babel-plugin-react-compiler": "catalog:",
+    "eslint-plugin-react-hooks": "catalog:",
     "eslint-plugin-simple-import-sort": "catalog:",
     "globals": "catalog:",
     "typescript-eslint": "catalog:"
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "catalog:",
+    "@types/babel__core": "catalog:",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",

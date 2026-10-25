@@ -14,12 +14,13 @@ import { type UseHandler } from "@/platform/link/types";
 import { Panel } from "@/platform/panel";
 
 /** Creates a handler that opens the linked resource of the given type in a tab. */
-export const createUseOpenResourceTab =
-  (type: ontology.ResourceType): UseHandler =>
-  () => {
+export const createUseOpenResourceTab = (type: ontology.ResourceType): UseHandler => {
+  const useOpenResourceTab: UseHandler = () => {
     const openTab = Panel.useOpenTab();
     return useCallback(
       async ({ key }) => openTab({ variant: "resource", resource: { type, key } }),
       [openTab],
     );
   };
+  return useOpenResourceTab;
+};

@@ -9,7 +9,7 @@
 
 import { access, type ontology, query, type Synnax, user } from "@synnaxlabs/client";
 import { type List } from "@synnaxlabs/lyra/list";
-import { verbs } from "@synnaxlabs/x";
+import { type destructor, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -35,6 +35,24 @@ const retrieveForUser = async (
   return await client.access.roles.retrieve({ keys: parents.map(({ id }) => id.key) });
 };
 
+const cachedRoleKeys = (
+  client: Synnax,
+  key: user.Key,
+): access.role.Key[] | undefined => {
+  const parents = client.ontology.parents.getCached(parentsQuery(key));
+  return query.isLive(parents) ? parents.map(({ id }) => id.key) : undefined;
+};
+
+const getCachedForUser = (
+  client: Synnax,
+  key: user.Key,
+): query.Cached<access.role.Role[]> | undefined => {
+  const keys = cachedRoleKeys(client, key);
+  if (keys == null) return undefined;
+  if (keys.length === 0) return [];
+  return client.access.roles.getCached({ keys });
+};
+
 export const { use } = Flux.createRetrieve<RetrieveQuery, access.role.Role>({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.access.roles.retrieve(query),
@@ -58,16 +76,30 @@ export const { useResult: useResultForUser } = Flux.createRetrieve<
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query: { user: key } }) =>
     await retrieveForUser(client, key),
-  onChange: ({ client, query: { user: key } }, handler) =>
-    client.ontology.parents.onChange(parentsQuery(key), () => {
+  onChange: ({ client, query: { user: key } }, handler) => {
+    // The answer reads the assigned roles too, so an edit to one must notify.
+    let detachRoles: destructor.Destructor = () => {};
+    const watchRoles = (): void => {
+      detachRoles();
+      const keys = cachedRoleKeys(client, key) ?? [];
+      detachRoles =
+        keys.length === 0
+          ? () => {}
+          : client.access.roles.onChange({ keys }, () =>
+              handler(getCachedForUser(client, key)),
+            );
+    };
+    watchRoles();
+    const detachParents = client.ontology.parents.onChange(parentsQuery(key), () => {
+      watchRoles();
       void retrieveForUser(client, key).then(handler);
-    }),
-  getCached: ({ client, query: { user: key } }) => {
-    const parents = client.ontology.parents.getCached(parentsQuery(key));
-    if (!query.isLive(parents)) return undefined;
-    if (parents.length === 0) return [];
-    return client.access.roles.getCached({ keys: parents.map(({ id }) => id.key) });
+    });
+    return () => {
+      detachParents();
+      detachRoles();
+    };
   },
+  getCached: ({ client, query: { user: key } }) => getCachedForUser(client, key),
 });
 
 export type ListQuery = List.PagerParams;

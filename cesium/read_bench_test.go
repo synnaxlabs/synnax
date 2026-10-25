@@ -94,3 +94,89 @@ func BenchmarkReadDomains(b *testing.B) {
 		})
 	}
 }
+
+// BenchmarkReadSamples reads an index and a data channel that hold a million samples in
+// one domain each, with the data starting at the first index sample or partway through
+// the index.
+func BenchmarkReadSamples(b *testing.B) {
+	const n = 1_000_000
+	for _, late := range []int{0, n / 2} {
+		b.Run(fmt.Sprintf("late=%d", late), func(b *testing.B) {
+			ctx := b.Context()
+			db, err := cesium.Open(
+				ctx,
+				"",
+				cesium.WithFS(fs.NewMem()),
+				cesium.WithInstrumentation(alamos.New("bench")),
+			)
+			if err != nil {
+				b.Fatal(err)
+			}
+			defer func() {
+				if err := db.Close(); err != nil {
+					b.Error(err)
+				}
+			}()
+			keys := []cesium.ChannelKey{1, 2}
+			if err := db.CreateChannel(
+				ctx,
+				cesium.Channel{
+					Key:      keys[0],
+					Name:     "time",
+					IsIndex:  true,
+					DataType: telem.TimestampT,
+				},
+				cesium.Channel{
+					Key:      keys[1],
+					Name:     "data",
+					Index:    keys[0],
+					DataType: telem.Float32T,
+				},
+			); err != nil {
+				b.Fatal(err)
+			}
+			stamps := make([]telem.TimeStamp, n)
+			for i := range stamps {
+				stamps[i] = telem.TimeStamp(i+1) * telem.MillisecondTS
+			}
+			if err := db.WriteSeries(
+				ctx,
+				keys[0],
+				stamps[0],
+				telem.NewSeriesV(stamps...),
+			); err != nil {
+				b.Fatal(err)
+			}
+			if err := db.WriteSeries(
+				ctx,
+				keys[1],
+				stamps[late],
+				telem.NewSeriesV(make([]float32, n-late)...),
+			); err != nil {
+				b.Fatal(err)
+			}
+			b.ReportAllocs()
+			for b.Loop() {
+				iter, err := db.OpenIterator(cesium.IteratorConfig{
+					Bounds:   telem.TimeRangeMax,
+					Channels: keys,
+				})
+				if err != nil {
+					b.Fatal(err)
+				}
+				read := 0
+				for iter.SeekFirst(); iter.Next(cesium.AutoSpan); {
+					for _, series := range iter.Value().SeriesSlice() {
+						read += int(series.Len())
+					}
+				}
+				if err := iter.Close(); err != nil {
+					b.Fatal(err)
+				}
+				if read != 2*n-late {
+					b.Fatalf("read %d samples, want %d", read, 2*n-late)
+				}
+			}
+		})
+	}
+}

@@ -30,7 +30,7 @@ import (
 
 func TestControl(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Control Suite")
+	RunSpecs(t, "Service Control Suite", SuiteConfig())
 }
 
 var (

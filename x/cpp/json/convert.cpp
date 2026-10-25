@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <cmath>
+#include <cstddef>
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -116,8 +117,10 @@ telem::SampleValue parse_rfc3339(const std::string &input) {
          static_cast<uint8_t>(month),
          static_cast<uint8_t>(day)}
     );
-    const int64_t total_seconds = static_cast<int64_t>(days) * 86400 + hour * 3600 +
-                                  minute * 60 + second - tz_offset_seconds;
+    const int64_t total_seconds = static_cast<int64_t>(days) * 86400 +
+                                  static_cast<int64_t>(hour * 3600) +
+                                  static_cast<int64_t>(minute * 60) + second -
+                                  tz_offset_seconds;
     return telem::SampleValue(telem::TimeStamp(total_seconds * 1000000000 + frac_ns));
 }
 
@@ -234,7 +237,7 @@ bool is_integer_string(const std::string &str) {
 
 double parse_string_double(const std::string &str) {
     size_t pos = 0;
-    double v;
+    double v = NAN;
     v = std::stod(str, &pos);
     if (pos != str.size()) throw std::runtime_error("not a valid number");
     return v;
@@ -242,7 +245,7 @@ double parse_string_double(const std::string &str) {
 
 int64_t parse_string_int64(const std::string &str) {
     size_t pos = 0;
-    int64_t v;
+    int64_t v = 0;
     v = std::stoll(str, &pos);
     if (pos != str.size()) throw std::runtime_error("not a valid number");
     return v;
@@ -250,7 +253,7 @@ int64_t parse_string_int64(const std::string &str) {
 
 uint64_t parse_string_uint64(const std::string &str) {
     size_t pos = 0;
-    uint64_t v;
+    uint64_t v = 0;
     v = std::stoull(str, &pos);
     if (pos != str.size()) throw std::runtime_error("not a valid number");
     return v;
@@ -359,7 +362,7 @@ std::pair<telem::SampleValue, errors::Error> to_sample_value(
         auto msg = std::string("cannot convert ") + value.dump() + " to " +
                    target.name();
         auto details = std::string(e.what());
-        if (details.size() > 0) msg += ": " + details;
+        if (!details.empty()) msg += ": " + details;
         return {
             telem::SampleValue(),
             errors::Error(CONVERSION_ERROR, msg),

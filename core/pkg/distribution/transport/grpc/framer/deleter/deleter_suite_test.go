@@ -24,7 +24,7 @@ import (
 
 func TestDeleter(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Distribution Transport gRPC Framer Deleter Suite")
+	RunSpecs(t, "Distribution Transport gRPC Framer Deleter Suite", SuiteConfig())
 }
 
 var (

@@ -19,7 +19,7 @@ import (
 
 func TestEncoding(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Encoding Suite")
+	RunSpecs(t, "Encoding Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

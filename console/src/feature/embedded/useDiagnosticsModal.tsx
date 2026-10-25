@@ -86,7 +86,7 @@ const useDiagnostics = (state: SupervisorStatus["state"]): Diagnostics | null =>
         const next = await retrieveDiagnostics();
         if (!signal.aborted) setDiagnostics(next);
       } catch (err) {
-        if (!signal.aborted) handleError(err, "Failed to read the diagnostics");
+        if (!signal.aborted) handleError(err, "Failed to read diagnostics");
       }
     },
     [state, handleError],
@@ -103,7 +103,7 @@ const useLog = (): string => {
       handleError(async () => {
         const next = format(await retrieveLogTail());
         if (!stopped) setLog(next);
-      }, "Failed to read the log");
+      }, "Failed to read log");
     refresh();
     const interval = setInterval(refresh, LOG_REFRESH_INTERVAL.milliseconds);
     return () => {
@@ -128,20 +128,15 @@ const Log = (): ReactElement => {
   );
 };
 
-/**
- * Opens a dialog that shows the health of Synnax Desktop, the place and size of its
- * data, and the end of its log. From it, a person can restart the embedded Core and
- * export an archive for support.
- */
-export const useDiagnosticsModal = Modals.create(() => {
+const DiagnosticsModal = () => {
   const status = useStatus();
   const diagnostics = useDiagnostics(status.state);
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
   const restart = useRestart();
   const reset = useReset();
-  const revealData = useReveal(showData, "Failed to show the data folder");
-  const revealLogs = useReveal(showLogs, "Failed to show the logs");
+  const revealData = useReveal(showData, "Failed to show data folder");
+  const revealLogs = useReveal(showLogs, "Failed to show logs");
   const handleExport = (): void =>
     handleError(async () => {
       const stamp = TimeStamp.now().toString("ISODate", "local");
@@ -152,8 +147,12 @@ export const useDiagnosticsModal = Modals.create(() => {
       });
       if (path == null) return;
       await exportDiagnostics(path);
-      addStatus({ variant: "success", message: `Exported diagnostics to ${path}` });
-    }, "Failed to export the diagnostics");
+      addStatus({
+        variant: "success",
+        message: "Exported diagnostics",
+        description: `Saved to ${path}.`,
+      });
+    }, "Failed to export diagnostics");
   const history = diagnostics?.history;
   return (
     <Modal.Frame className={CSS.B("diagnostics")}>
@@ -225,4 +224,11 @@ export const useDiagnosticsModal = Modals.create(() => {
       </Modal.Footer>
     </Modal.Frame>
   );
-});
+};
+
+/**
+ * Opens a dialog that shows the health of Synnax Desktop, the place and size of its
+ * data, and the end of its log. From it, a person can restart the embedded Core and
+ * export an archive for support.
+ */
+export const useDiagnosticsModal = Modals.create(DiagnosticsModal);

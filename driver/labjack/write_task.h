@@ -44,14 +44,10 @@ struct OutputChan {
 struct WriteTaskConfig : ::synnax::labjack::WriteConfig {
     /// @brief configurations for the enabled channels, keyed by command channel.
     std::map<synnax::channel::Key, std::unique_ptr<OutputChan>> outputs;
-    /// @brief the set of index channel keys for the state channels.
-    /// Dynamically populated by querying the core.
-    std::set<synnax::channel::Key> state_index_keys;
 
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:
         ::synnax::labjack::WriteConfig(std::move(other)),
-        outputs(std::move(other.outputs)),
-        state_index_keys(std::move(other.state_index_keys)) {}
+        outputs(std::move(other.outputs)) {}
 
     WriteTaskConfig(const WriteTaskConfig &) = delete;
 
@@ -84,7 +80,7 @@ struct WriteTaskConfig : ::synnax::labjack::WriteConfig {
             return;
         }
         if (const auto err = client->devices.retrieve(this->device).second) {
-            parser.field_err("device", "failed to retrieve device: " + err.message());
+            parser.field_err("device", "failed to retrieve device: " + err.data);
             return;
         }
         std::vector<synnax::channel::Key> state_channels;
@@ -93,14 +89,10 @@ struct WriteTaskConfig : ::synnax::labjack::WriteConfig {
             state_channels.push_back(ch->cfg.state_channel);
         const auto [sy_channels, ch_err] = client->channels.retrieve(state_channels);
         if (ch_err) {
-            parser.field_err(
-                "channels",
-                "failed to retrieve channels: " + ch_err.message()
-            );
+            parser.field_err("channels", "failed to retrieve channels: " + ch_err.data);
             return;
         }
         for (const auto &state_ch: sy_channels) {
-            if (state_ch.index != 0) this->state_index_keys.insert(state_ch.index);
             auto &ch = this->outputs[state_to_cmd[state_ch.key]];
             ch->bind_remote_info(state_ch);
         }
@@ -117,22 +109,13 @@ struct WriteTaskConfig : ::synnax::labjack::WriteConfig {
         return {WriteTaskConfig(client, parser), parser.error()};
     }
 
-    /// @brief returns the list of state channels used in the task.
-    [[nodiscard]] std::vector<synnax::channel::Channel> state_channels() const {
-        std::vector<synnax::channel::Channel> chs;
-        chs.reserve(this->outputs.size());
+    /// @brief returns the command and state channel of each output.
+    [[nodiscard]] std::vector<common::Sink::Output> output_channels() const {
+        std::vector<common::Sink::Output> outs;
+        outs.reserve(this->outputs.size());
         for (const auto &[_, ch]: this->outputs)
-            chs.push_back(ch->state_ch);
-        return chs;
-    }
-
-    /// @brief returns the list of command channel keys used in the task.
-    [[nodiscard]] std::vector<synnax::channel::Key> cmd_channels() const {
-        std::vector<synnax::channel::Key> keys;
-        keys.reserve(this->outputs.size());
-        for (const auto &[_, ch]: this->outputs)
-            keys.push_back(ch->cfg.cmd_channel);
-        return keys;
+            outs.push_back({ch->cfg.cmd_channel, ch->state_ch});
+        return outs;
     }
 };
 
@@ -159,13 +142,7 @@ public:
         const std::shared_ptr<device::Manager> &devs,
         WriteTaskConfig cfg
     ):
-        Sink(
-            cfg.state_rate,
-            cfg.state_index_keys,
-            cfg.state_channels(),
-            cfg.cmd_channels(),
-            cfg.data_saving_disabled
-        ),
+        Sink(cfg.state_rate, cfg.output_channels(), cfg.data_saving_disabled),
         cfg(std::move(cfg)),
         devs(devs) {}
 
@@ -212,7 +189,7 @@ public:
 
     /// @brief flushes the current value buffer to the LabJack device, executing the
     /// write.
-    x::errors::Error write_buf_to_dev() const {
+    [[nodiscard]] x::errors::Error write_buf_to_dev() const {
         int err_addr = 0;
         auto locs = this->ports_buf;
         return this->dev->e_write_names(

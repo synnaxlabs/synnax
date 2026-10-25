@@ -86,7 +86,7 @@ func ChannelToPB(r channel.Channel) (*Channel, error) {
 		return nil, err
 	}
 	pb := &Channel{
-		Name:        string(r.Name),
+		Name:        r.Name,
 		Leaseholder: uint32(r.Leaseholder),
 		DataType:    string(r.DataType),
 		IsIndex:     r.IsIndex,
@@ -116,7 +116,7 @@ func ChannelFromPB(pb *Channel) (channel.Channel, error) {
 	if err != nil {
 		return channel.Channel{}, err
 	}
-	r.Name = channel.Name(pb.Name)
+	r.Name = pb.Name
 	r.Leaseholder = node.Key(pb.Leaseholder)
 	r.DataType = telem.DataType(pb.DataType)
 	r.IsIndex = pb.IsIndex

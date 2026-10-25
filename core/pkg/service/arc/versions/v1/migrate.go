@@ -12,9 +12,9 @@ package v1
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/migrate"
 )
 
 // renameSetStatus rewrites every deprecated set_status flow node in a to status.set.
@@ -47,17 +47,17 @@ func legacyStatusConfigString(config msgpack.EncodedJSON, key, def string) strin
 
 // dropProgramStatusMigration lifts stored arcs from v0 to v1, dropping the persisted
 // program status.
-var dropProgramStatusMigration = gorp.NewEntryMigration(
+var dropProgramStatusMigration = migrate.NewEntry(
 	"v54_drop_program_status", autoMigrateArc,
 )
 
 // renameSetStatusMigration renames legacy set_status graph nodes onto the current node
 // type.
-var renameSetStatusMigration = gorp.NewEntryMigration(
+var renameSetStatusMigration = migrate.NewEntry(
 	"v55_rename_set_status", renameSetStatus,
 )
 
 // Migrations is the ordered set of migrations introduced at this version.
-var Migrations = []migrate.Migration{
+var Migrations = []gorp.Migration{
 	dropProgramStatusMigration, renameSetStatusMigration,
 }

@@ -18,7 +18,6 @@ import { type RenderProp, renderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
-import { useSyncedRef } from "@/hooks";
 import { Icon } from "@/icon";
 import { List } from "@/list";
 import { useContext, useItemState, useSelected } from "@/select/Context";
@@ -122,7 +121,6 @@ export const MultipleTrigger = <
   className,
 }: MultipleTriggerProps<K, E>): ReactElement | null => {
   const value = useSelected<K>();
-  const valueRef = useSyncedRef(value);
   const { setSelected } = useContext<K>();
   const { getItem } = List.useUtilContext<K, E>();
   const { toggle, visible } = Dialog.useContext();
@@ -134,17 +132,11 @@ export const MultipleTrigger = <
   const { startDrag, ...dropProps } = Haul.useDragAndDrop({
     type: haulType,
     canDrop,
-    onDrop: Haul.useFilterByTypeCallback(
-      haulType,
-      ({ items }) => {
-        const v = array.toArray(valueRef.current);
-        setSelected(
-          unique.unique([...array.toArray(v), ...(items.map((c) => c.key) as K[])]),
-        );
-        return items;
-      },
-      [setSelected],
-    ),
+    onDrop: ({ items }) => {
+      const dropped = Haul.filterByType(haulType, items);
+      setSelected(unique.unique([...value, ...(dropped.map((c) => c.key) as K[])]));
+      return dropped;
+    },
   });
 
   const handleSuccessfulDrop = useCallback(

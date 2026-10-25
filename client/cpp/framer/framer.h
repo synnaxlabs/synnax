@@ -291,7 +291,7 @@ struct WriterConfig {
     ///     - WriterPersistStream: persist data and stream it.
     ///     - WriterPersistOnly: persist data only.
     ///     - WriterStreamOnly: stream data only.
-    WriterMode mode;
+    WriterMode mode = PersistStream;
 
     /// @brief sets whether auto commit is enabled for the writer. If true, samples
     /// will be made immediately available for reads. If false, samples will be made
@@ -425,11 +425,7 @@ private:
     exec(grpc::framer::WriterRequest &req, bool ack);
 
     /// @brief opens a writer to the Synnax cluster.
-    explicit Writer(
-        std::unique_ptr<WriterStream> s,
-        WriterConfig cfg,
-        const Codec &codec
-    );
+    explicit Writer(std::unique_ptr<WriterStream> s, WriterConfig cfg, Codec codec);
 
     /// @brief initializes the cached request with the frame structure
     x::errors::Error init_request(const x::telem::Frame &fr);

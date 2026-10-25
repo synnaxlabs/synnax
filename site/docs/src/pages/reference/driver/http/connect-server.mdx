@@ -11,7 +11,7 @@ nextURL: "/reference/driver/http/read-task"
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
@@ -49,7 +49,7 @@ following:
 | <Icon.Logo.Apple /> macOS           | ✓ Supported |
 | <Icon.Logo.Docker /> Docker         | ✓ Supported |
 
-<Note.Note variant="info" className="compact">
+<Note.Note variant="info">
   When running in a Docker container, ensure [the container has network
   access](https://docs.docker.com/get-started/docker-concepts/running-containers/publishing-ports/)
   to the HTTP server.
@@ -70,7 +70,7 @@ following:
 | `auth`         | object  | No       | `none`  | The [configuration](#authentication-reference) used to authenticate with the HTTP server                |
 | `health_check` | object  | Yes      | -       | The [configuration](#health-check-configuration) the Driver uses to track the health of the HTTP server |
 
-<Note.Note variant="warning" className="compact">
+<Note.Note variant="warning">
   Setting `verify_ssl` to `false` should be used when the HTTP server does not have a
   verified SSL certificate, which is common for internal servers not connected to the
   public internet.

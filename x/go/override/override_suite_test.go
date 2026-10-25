@@ -19,7 +19,7 @@ import (
 
 func TestOverride(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Override Suite")
+	RunSpecs(t, "Override Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

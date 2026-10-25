@@ -19,7 +19,7 @@ import (
 
 func TestObserve(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Observe Suite")
+	RunSpecs(t, "Observe Suite", SuiteConfig())
 }
 
 var _ = BeforeSuite(func() {

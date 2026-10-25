@@ -724,6 +724,7 @@ describe("Status", () => {
 });
 
 describe("fromException", () => {
+  const HEADING = "Failed to save task";
   class CustomError extends Error {
     toStatus() {
       return {
@@ -734,70 +735,90 @@ describe("fromException", () => {
     }
   }
 
-  it("should derive variant, message, and details from a plain Error", () => {
-    const s = status.fromException(new Error("boom"));
+  it("should put the heading in the message and the error in the description", () => {
+    const s = status.fromException(new Error("boom"), HEADING);
     expect(s.variant).toBe("error");
-    expect(s.message).toBe("boom");
-    const details = s.details;
-    expect(typeof details.stack).toBe("string");
-    expect(details.error).toBeInstanceOf(Error);
+    expect(s.name).toBe("");
+    expect(s.message).toBe(HEADING);
+    expect(s.description).toBe("boom");
+    expect(typeof s.details.stack).toBe("string");
+    expect(s.details.error).toBeInstanceOf(Error);
   });
 
-  it("should set the status message from a custom toStatus()", () => {
-    expect(status.fromException(new CustomError("boom")).message).toBe(
-      "Failed to parse task config",
+  it("should set the name and message from a heading", () => {
+    const s = status.fromException(new Error("boom"), {
+      message: "Failed to export",
+      name: "Main schematic",
+    });
+    expect(s.name).toBe("Main schematic");
+    expect(s.message).toBe("Failed to export");
+    expect(s.description).toBe("boom");
+  });
+
+  it("should append the cause chain to the error message", () => {
+    const err = new Error("failed to reconcile projects cache", {
+      cause: new Error("projects not found", { cause: new Error("query") }),
+    });
+    const s = status.fromException(err, "Failed to load projects");
+    expect(s.message).toBe("Failed to load projects");
+    expect(s.description).toBe(
+      "failed to reconcile projects cache: projects not found: query",
     );
   });
 
-  it("should set the status description from a custom toStatus()", () => {
-    expect(status.fromException(new CustomError("boom")).description).toBe(
-      "the formatted breakdown",
+  it("should lead the description with the toStatus() message", () => {
+    const s = status.fromException(new CustomError("boom"), HEADING);
+    expect(s.message).toBe(HEADING);
+    expect(s.description).toBe("Failed to parse task config. the formatted breakdown");
+  });
+
+  it("should keep the error text when toStatus() gives no description", () => {
+    class MessageOnlyError extends Error {
+      toStatus() {
+        return { message: "Failed to parse task config" };
+      }
+    }
+    const err = new MessageOnlyError("outer", { cause: new Error("inner") });
+    const s = status.fromException(err, HEADING);
+    expect(s.message).toBe(HEADING);
+    expect(s.description).toBe("Failed to parse task config. outer: inner");
+  });
+
+  it("should leave out an empty toStatus() description", () => {
+    class EmptyDescriptionError extends Error {
+      toStatus() {
+        return { message: "Failed to connect to server", description: "" };
+      }
+    }
+    const s = status.fromException(new EmptyDescriptionError("boom"), HEADING);
+    expect(s.description).toBe("Failed to connect to server");
+  });
+
+  it("should leave out an empty error message before the cause chain", () => {
+    const s = status.fromException(
+      new Error("", { cause: new Error("inner") }),
+      HEADING,
     );
+    expect(s.description).toBe("inner");
   });
 
   it("should merge custom toStatus() details with the stack and original error", () => {
-    const details = status.fromException(new CustomError("boom")).details;
+    const { details } = status.fromException(new CustomError("boom"), HEADING);
     expect(details.taskKey).toBe("tk-1");
     expect(typeof details.stack).toBe("string");
     expect(details.error).toBeInstanceOf(Error);
   });
 
-  it("should prefix a caller-provided message with the custom toStatus() message", () => {
-    expect(status.fromException(new CustomError("boom"), "Saving failed").message).toBe(
-      "Saving failed: Failed to parse task config",
-    );
-  });
-
-  it("should surface the cause chain as the description", () => {
-    const err = new Error("failed to reconcile projects cache", {
-      cause: new Error("projects not found", { cause: new Error("query") }),
-    });
-    const s = status.fromException(err);
-    expect(s.message).toBe("failed to reconcile projects cache");
-    expect(s.description).toBe("projects not found: query");
-  });
-
-  it("should append the cause chain after a caller-provided message", () => {
-    const err = new Error("outer", { cause: new Error("inner") });
-    const s = status.fromException(err, "Saving failed");
-    expect(s.message).toBe("Saving failed");
-    expect(s.description).toBe("outer: inner");
-  });
-
-  it("should leave the description empty without a cause or message", () => {
-    expect(status.fromException(new Error("boom")).description).toBe("");
-  });
-
   describe("clone safety", () => {
     it("should keep the original error instance when it is cloneable", () => {
       const err = new Error("boom", { cause: new Error("root") });
-      expect(status.fromException(err).details.error).toBe(err);
+      expect(status.fromException(err, HEADING).details.error).toBe(err);
     });
 
     it("should rebuild an error whose cause cannot be cloned", () => {
       const err = new Error("boom", { cause: () => {} });
       err.name = "SocketError";
-      const stored = status.fromException(err).details.error;
+      const stored = status.fromException(err, HEADING).details.error;
       expect(stored).not.toBe(err);
       expect(stored.message).toBe("boom");
       expect(stored.name).toBe("SocketError");
@@ -809,7 +830,7 @@ describe("fromException", () => {
     it("should rebuild an error carrying an un-cloneable own field", () => {
       const err = new Error("boom");
       (err as unknown as { cb: () => void }).cb = () => {};
-      const stored = status.fromException(err).details.error;
+      const stored = status.fromException(err, HEADING).details.error;
       expect(stored).not.toBe(err);
       expect(() => structuredClone(stored)).not.toThrow();
     });
@@ -817,7 +838,7 @@ describe("fromException", () => {
     it("should preserve error causes as errors in the rebuilt chain", () => {
       const root = new Error("root", { cause: () => {} });
       const err = new Error("boom", { cause: root });
-      const stored = status.fromException(err).details.error;
+      const stored = status.fromException(err, HEADING).details.error;
       expect(stored.cause).toBeInstanceOf(Error);
       expect((stored.cause as Error).message).toBe("root");
       expect(() => structuredClone(stored)).not.toThrow();
@@ -827,7 +848,7 @@ describe("fromException", () => {
       const err = new Error("boom");
       err.cause = err;
       (err as unknown as { cb: () => void }).cb = () => {};
-      const stored = status.fromException(err).details.error;
+      const stored = status.fromException(err, HEADING).details.error;
       expect(stored.message).toBe("boom");
       expect(() => structuredClone(stored)).not.toThrow();
     });
@@ -840,7 +861,7 @@ describe("fromException", () => {
           throw new Error("trapped");
         },
       });
-      const stored = status.fromException(err).details.error;
+      const stored = status.fromException(err, HEADING).details.error;
       // Passing err to expect would trip the getter while vitest inspects it.
       expect(stored === err).toBe(false);
       expect(stored.message).toBe("boom");
@@ -856,7 +877,7 @@ describe("fromException", () => {
         },
       });
       const err = new Error("boom", { cause });
-      const stored = status.fromException(err).details.error;
+      const stored = status.fromException(err, HEADING).details.error;
       expect(stored).not.toBe(err);
       expect(typeof stored.cause).toBe("string");
       expect(() => structuredClone(stored)).not.toThrow();
@@ -866,10 +887,44 @@ describe("fromException", () => {
       const wide: Record<string, number> = {};
       for (let i = 0; i < 100; i++) wide[`k${i}`] = i;
       const err = new Error("boom", { cause: wide });
-      const stored = status.fromException(err).details.error;
+      const stored = status.fromException(err, HEADING).details.error;
       expect(stored).not.toBe(err);
       expect(() => structuredClone(stored)).not.toThrow();
     });
+  });
+});
+
+describe("toError", () => {
+  const STATUS = status.create({
+    variant: "error",
+    message: "Failed to connect to server",
+    description: "Connection refused",
+  });
+
+  it("should take its message from the status", () => {
+    expect(status.toError(STATUS).message).toBe("Failed to connect to server");
+  });
+
+  it("should keep the status as its cause", () => {
+    expect(status.toError(STATUS).cause).toBe(STATUS);
+  });
+
+  it("should give back the status message and description from toStatus", () => {
+    expect(status.toError(STATUS).toStatus()).toEqual({
+      message: "Failed to connect to server",
+      description: "Connection refused",
+    });
+  });
+
+  it("should take the name and stack of the error inside an exception status", () => {
+    const inner = new TypeError("boom");
+    const err = status.toError(status.fromException(inner, "Failed to load"));
+    expect(err.name).toBe("TypeError");
+    expect(err.stack).toBe(inner.stack);
+  });
+
+  it("should keep the default name for a status with no inner error", () => {
+    expect(status.toError(STATUS).name).toBe("Error");
   });
 });
 

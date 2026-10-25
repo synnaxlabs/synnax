@@ -20,16 +20,20 @@ import { Logo } from "@synnaxlabs/lyra/logo";
     direction="x"
     justify="between"
     align="start"
-    gap={8}
 >
     <Text.Text level="small" className="tile-date" color={8}>
         Oct 15, 2024
     </Text.Text>
-    <Flex.Box direction="y" justify="between" style={{ height: "100%" }}>
+    <Flex.Box direction="y" justify="between" className="one-billion-rows__content">
         <Text.Text level="h3" color={10}>
             Database performance compared
         </Text.Text>
-        <Text.Text level="p" color={9} weight={400} style={{ maxWidth: 450 }}>
+        <Text.Text
+            level="p"
+            color={9}
+            weight={400}
+            className="one-billion-rows__summary"
+        >
             See how Synnax stacks up against InfluxDB and Timescale in a head to head
             ingestion and retrieval of 1 billion rows.
         </Text.Text>
@@ -43,7 +47,7 @@ import { Logo } from "@synnaxlabs/lyra/logo";
         align="center"
         justify="around"
         grow
-        style={{ height: "100%", paddingBottom: "2rem" }}
+        className="one-billion-rows__logos"
     >
         <svg
             class="influx"
@@ -110,6 +114,7 @@ import { Logo } from "@synnaxlabs/lyra/logo";
 <style is:global>
     .one-billion-rows {
         position: relative;
+        gap: 8rem;
         background-color: var(--pluto-gray-l1);
         padding: 5rem;
         cursor: pointer;
@@ -168,5 +173,53 @@ import { Logo } from "@synnaxlabs/lyra/logo";
         box-shadow: var(--pluto-shadow-v1);
         border-radius: 2rem;
         height: 300px;
+
+        & .one-billion-rows__content {
+            height: 100%;
+        }
+
+        & .one-billion-rows__summary {
+            max-width: 450px;
+        }
+
+        & .one-billion-rows__logos {
+            height: 100%;
+            padding-bottom: 2rem;
+        }
+
+        /* On a phone, the tile stacks, with the date above the title as in the Arc
+           tile. */
+        @media (max-width: 600px) {
+            flex-direction: column;
+            gap: 3rem;
+            height: auto;
+            padding: 4rem;
+
+            & .tile-date {
+                position: static;
+            }
+
+            & .one-billion-rows__content {
+                gap: 2rem;
+                height: auto;
+            }
+
+            & .one-billion-rows__logos {
+                justify-content: flex-start;
+                gap: 5rem;
+                height: auto;
+                padding-bottom: 0;
+            }
+
+            & .pluto-text--h1 {
+                font-size: var(--pluto-h2-size);
+                line-height: var(--pluto-h2-line-height);
+            }
+
+            & :is(.influx, .timescale, .synnax-logo) {
+                width: 48px;
+                height: 48px;
+            }
+        }
     }
 </style>

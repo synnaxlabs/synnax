@@ -9,9 +9,14 @@
 // included in the file licenses/APL.txt.
 
 import Article from "@/components/article/Article.astro";
+import { STORAGE_KEY } from "@/components/nav/collapse";
 import OnThisPage from "@/components/nav/OnThisPage.astro";
+import OutlineBar from "@/components/nav/OutlineBar.astro";
 import PageNav from "@/components/nav/Page.astro";
+import { editionOf, groupOf, neighbors, type PageNavNode } from "@/components/nav/tree";
 import Main from "@/layouts/Root.astro";
+import { labelOf, REFERENCE_PAGES } from "@/pages/_nav";
+import { outlined } from "@/util/outline";
 import { normalizeRoute } from "@/util/route";
 const { headings, frontmatter } = Astro.props;
 const {
@@ -19,39 +24,79 @@ const {
     heading,
     description,
     url,
-    next,
-    nextURL,
-    prev,
-    prevURL,
     clients,
     platforms,
     showOnThisPage = true,
 } = frontmatter;
+const { prev, next } = neighbors(REFERENCE_PAGES, Astro.url.pathname);
+const group = groupOf(REFERENCE_PAGES, Astro.url.pathname);
+// A link into another group names that group, unless its title already does.
+interface Link {
+    title?: string;
+    href?: string;
+    group?: string;
+}
+const link = (node?: PageNavNode): Link => {
+    if (node?.href == null) return {};
+    const { href } = node;
+    const title = labelOf(href) ?? node.name;
+    const target = groupOf(REFERENCE_PAGES, href);
+    return {
+        title,
+        href,
+        group: target !== group && target !== title ? target : undefined,
+    };
+};
+const nextLink = link(next);
+const prevLink = link(prev);
+const edition = editionOf(REFERENCE_PAGES, Astro.url.pathname);
+const shown = outlined(headings);
 ---
 
 <Main frontmatter={frontmatter} headings={headings}>
+    <script is:inline slot="head" define:vars={{ STORAGE_KEY }}>
+        // Applies a remembered sidebar collapse before the body parses. A script in the
+        // body would let the browser paint a half-loaded page that then shifts.
+        try {
+            if (localStorage.getItem(STORAGE_KEY) === "true")
+                document.documentElement.dataset.pageNavCollapsed = "";
+        } catch {}
+    </script>
     <link
         slot="head"
         rel="alternate"
         type="text/markdown"
         href={`${normalizeRoute(Astro.url.pathname)}.md`}
     />
+    <Fragment slot="subheader">
+        {showOnThisPage && (
+            <OutlineBar
+                headings={shown}
+                outline={frontmatter.outline}
+                clients={clients}
+                platforms={platforms}
+            />
+        )}
+    </Fragment>
     <PageNav />
     <section>
         <Article
             url={url}
             title={heading ?? title}
             description={description}
-            next={next}
-            prev={prev}
-            nextURL={nextURL}
-            prevURL={prevURL}
+            next={nextLink.title}
+            prev={prevLink.title}
+            nextURL={nextLink.href}
+            prevURL={prevLink.href}
+            nextGroup={nextLink.group}
+            prevGroup={prevLink.group}
+            edition={edition}
         >
             <slot />
         </Article>
         {showOnThisPage && (
             <OnThisPage
-                headings={headings}
+                headings={shown}
                 outline={frontmatter.outline}
                 clients={clients}
                 platforms={platforms}

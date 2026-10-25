@@ -33,7 +33,7 @@ import (
 
 func TestSignals(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Ontology Signals Suite")
+	RunSpecs(t, "Service Ontology Signals Suite", SuiteConfig())
 }
 
 var (

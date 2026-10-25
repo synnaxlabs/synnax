@@ -12,7 +12,7 @@ import { CSS } from "@synnaxlabs/lyra/css";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type MouseEventHandler, type ReactElement, useMemo } from "react";
+import { type MouseEventHandler, type ReactElement } from "react";
 
 import { Custom } from "@/schematic/node/common/custom";
 import { Handle } from "@/schematic/node/common/handle";
@@ -45,10 +45,8 @@ export const Actuator = ({
     spec,
     stateOverrides,
   });
-  const invalid = useMemo(
-    () => spec != null && !Custom.isValidSVG(spec.svg),
-    [spec?.svg],
-  );
+  const svg = spec?.svg;
+  const invalid = svg != null && !Custom.isValidSVG(svg);
   if (missing || invalid)
     return (
       <Note.Note variant="warning" className={className}>

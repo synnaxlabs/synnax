@@ -21,13 +21,13 @@ import (
 	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/internal/taskreporter"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -157,8 +157,12 @@ func NewModule(ctx context.Context, cfg ModuleConfig) (node.Factory, error) {
 			parent, pOK := heap.Get(parentH)
 			colorHex, cOK := heap.Get(colorH)
 			if !nOK || !cOK || !pOK {
-				m.report(ctx, status.VariantWarning,
-					"ranges.create: invalid string handle from WASM runtime")
+				m.report(
+					ctx,
+					status.VariantWarning,
+					createFailed,
+					"The Arc runtime passed an invalid string handle.",
+				)
 				return 0
 			}
 			return heap.Create(
@@ -172,7 +176,8 @@ func NewModule(ctx context.Context, cfg ModuleConfig) (node.Factory, error) {
 				m.report(
 					ctx,
 					status.VariantWarning,
-					"ranges.end: invalid string handle from WASM runtime",
+					endFailed,
+					"The Arc runtime passed an invalid string handle.",
 				)
 				return 0
 			}
@@ -228,6 +233,11 @@ func (n *createNode) Next(ctx node.Context) {
 	n.Emit(ctx, 0)
 }
 
+const (
+	createFailed = "Failed to create range"
+	endFailed    = "Failed to end range"
+)
+
 // dispatchCreate creates an open range that starts now, parsing the color and parent
 // key, reporting failures as warnings so the task keeps running. On any failure no
 // range is created.
@@ -242,8 +252,12 @@ func dispatchCreate(
 	if colorHex != "" {
 		parsed, err := color.FromCSS(colorHex)
 		if err != nil {
-			report(ctx, status.VariantWarning,
-				fmt.Sprintf("ranges.create: invalid color %q: %v", colorHex, err))
+			report(
+				ctx,
+				status.VariantWarning,
+				createFailed,
+				fmt.Sprintf("The color %q is not valid: %v", colorHex, err),
+			)
 			return ""
 		}
 		c = &parsed
@@ -256,8 +270,12 @@ func dispatchCreate(
 	if parent != "" {
 		uid, err := uuid.Parse(parent)
 		if err != nil {
-			report(ctx, status.VariantWarning,
-				fmt.Sprintf("ranges.create: invalid parent key %q", parent))
+			report(
+				ctx,
+				status.VariantWarning,
+				createFailed,
+				fmt.Sprintf("The parent key %q is not a valid range key.", parent),
+			)
 			return ""
 		}
 		r.Parent = &ranger.Range{Key: uid}
@@ -265,7 +283,7 @@ func dispatchCreate(
 	if err := db.WithTx(ctx, func(tx gorp.Tx) error {
 		return rng.NewWriter(tx).Create(ctx, &r)
 	}); err != nil {
-		report(ctx, status.VariantWarning, fmt.Sprintf("ranges.create: %v", err))
+		report(ctx, status.VariantWarning, createFailed, err.Error())
 		return ""
 	}
 	return r.Key.String()
@@ -303,14 +321,15 @@ func dispatchEnd(
 		report(
 			ctx,
 			status.VariantWarning,
-			fmt.Sprintf("ranges.end: invalid range key %q", key),
+			endFailed,
+			fmt.Sprintf("The key %q is not a valid range key.", key),
 		)
 		return ""
 	}
 	if err := db.WithTx(ctx, func(tx gorp.Tx) error {
 		return rng.NewWriter(tx).SetEnd(ctx, uid, telem.Now())
 	}); err != nil {
-		report(ctx, status.VariantWarning, fmt.Sprintf("ranges.end: %v", err))
+		report(ctx, status.VariantWarning, endFailed, err.Error())
 		return ""
 	}
 	return uid.String()

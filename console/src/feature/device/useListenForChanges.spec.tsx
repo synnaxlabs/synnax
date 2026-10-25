@@ -58,6 +58,7 @@ describe("device/useListenForChanges", () => {
     );
     const first = statuses().find((s) => s.message === `New ${model} connected`);
     expect(first?.count).toBe(1);
+    expect(first?.name).toBe(dev.name);
   });
 
   it("does not notify for devices that are already configured", async () => {

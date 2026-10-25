@@ -19,7 +19,7 @@ import (
 
 func TestZip(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Encoding Zip Suite")
+	RunSpecs(t, "Encoding Zip Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

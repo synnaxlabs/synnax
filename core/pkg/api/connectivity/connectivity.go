@@ -13,27 +13,62 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/version"
-	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
+
+// ServiceConfig is the configuration for the connectivity API service.
+type ServiceConfig struct {
+	// Cluster provides information about the cluster topology.
+	//
+	// [REQUIRED]
+	Cluster cluster.Cluster
+	// License holds the Core's license.
+	//
+	// [REQUIRED]
+	License *license.Service
+}
+
+var (
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for the connectivity API
+	// service.
+	DefaultServiceConfig = ServiceConfig{}
+)
+
+// Override implements config.Config.
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.Cluster = override.Nil(c.Cluster, other.Cluster)
+	c.License = override.Nil(c.License, other.License)
+	return c
+}
+
+// Validate implements config.Config.
+func (c ServiceConfig) Validate() error {
+	v := validate.New("api.connectivity")
+	v.NotNil("cluster", c.Cluster)
+	v.NotNil("license", c.License)
+	return v.Error()
+}
 
 type Service struct {
 	cluster cluster.Cluster
 	license *license.Service
 }
 
-func NewService(cfgs ...config.LayerConfig) (*Service, error) {
-	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	return &Service{
-		cluster: cfg.Distribution.Cluster,
-		license: cfg.Service.License,
+		cluster: cfg.Cluster,
+		license: cfg.License,
 	}, nil
 }
 

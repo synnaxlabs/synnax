@@ -166,13 +166,18 @@ class NotificationsClient:
         except PlaywrightTimeoutError:
             return False
 
-    def wait_for(self, text: str) -> bool:
+    def wait_for(self, text: str, name: str | None = None) -> bool:
         """Wait for a notification containing specific text to appear.
 
         :param text: Text to search for in the notification.
+        :param name: Text the notification's name must contain, if given.
         :returns: True if the notification was found, False if timeout.
         """
         notification = self._all().filter(has_text=text)
+        if name is not None:
+            notification = notification.filter(
+                has=self.page.locator(".pluto-notification__name", has_text=name)
+            )
         try:
             notification.first.wait_for(state="visible", timeout=5000)
             return True

@@ -29,7 +29,7 @@ export const Properties = (): ReactElement => {
   const handlePrecisionChange = useCallback(
     (timestampPrecision: number) =>
       dispatch(log.setTimestampPrecision({ timestampPrecision })),
-    [],
+    [dispatch],
   );
 
   const handleShowChannelNamesChange = useCallback(

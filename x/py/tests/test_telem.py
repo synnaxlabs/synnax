@@ -19,6 +19,7 @@ import pandas as pd
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
+from pydantic import ValidationError
 
 import x.telem as sy
 from x.exceptions import ContiguityError
@@ -583,6 +584,8 @@ class TestDataType:
             ({"a": 1}, sy.DataType.JSON),
             (["a"], sy.DataType.STRING),
             (uuid.uuid4(), sy.DataType.UUID),
+            (np.dtype("datetime64[ns]"), sy.DataType.TIMESTAMP),
+            (np.datetime64, sy.DataType.TIMESTAMP),
         ],
     )
     def test_construction(self, crude: sy.CrudeDataType, expected: sy.DataType) -> None:
@@ -655,6 +658,28 @@ class TestDataType:
             sy.DataType.BYTES,
         }
         assert len(sy.DataType.ALL) == len(set(sy.DataType.ALL))
+
+    @pytest.mark.parametrize("name", ["float65", "datetime", "f8", "FLOAT64"])
+    def test_unknown_name(self, name: str) -> None:
+        """Should raise a ValueError for a name that is not a data type."""
+        with pytest.raises(ValueError, match="not a valid data type"):
+            sy.DataType(name)
+
+    @pytest.mark.parametrize("data_type", sy.DataType.ALL)
+    def test_known_name(self, data_type: sy.DataType) -> None:
+        """Should construct every data type from its name."""
+        assert sy.DataType(str(data_type)) == data_type
+
+
+@pytest.mark.telem
+class TestBounds:
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [(-1, False), (0, True), (5, True), (9.5, True), (10, False), (11, False)],
+    )
+    def test_contains(self, value: float, expected: bool) -> None:
+        """Should include the lower bound and exclude the upper bound."""
+        assert sy.Bounds(0, 10).contains(value) is expected
 
 
 @pytest.mark.telem
@@ -911,6 +936,7 @@ _INT64 = st.integers(min_value=-(2**63), max_value=2**63 - 1)
 _SPAN = st.integers(min_value=-(2**62), max_value=2**62)
 _NONZERO = _SPAN.filter(lambda v: v != 0)
 _STAMP = st.integers(min_value=0, max_value=2**62)
+_OUT_OF_INT64 = st.integers(min_value=2**63) | st.integers(max_value=-(2**63) - 1)
 
 
 @pytest.mark.telem
@@ -922,8 +948,13 @@ class TestTimeProperties:
 
     @given(_SPAN, st.integers(min_value=-1000, max_value=1000))
     def test_mul_exact(self, value: int, factor: int) -> None:
-        """Should multiply a span by an integer exactly"""
-        assert int(sy.TimeSpan(value) * factor) == value * factor
+        """Should multiply a span by an integer exactly, or reject overflow"""
+        product = value * factor
+        if -(2**63) <= product < 2**63:
+            assert int(sy.TimeSpan(value) * factor) == product
+        else:
+            with pytest.raises(ValueError, match="64-bit"):
+                sy.TimeSpan(value) * factor
 
     @given(_SPAN, _NONZERO)
     def test_div_truncates(self, a: int, b: int) -> None:
@@ -972,3 +1003,45 @@ class TestTimeProperties:
         if r1.overlaps_with(r2, delta=delta):
             assert r1.overlaps_with(r2)
             assert shared >= delta
+
+    @given(_OUT_OF_INT64)
+    def test_out_of_range_rejected(self, value: int) -> None:
+        """Should reject a value that does not fit in 64 bits at construction"""
+        with pytest.raises(ValueError, match="64-bit TimeStamp"):
+            sy.TimeStamp(value)
+        with pytest.raises(ValueError, match="64-bit TimeSpan"):
+            sy.TimeSpan(value)
+
+    @given(_INT64)
+    def test_hash_matches_int(self, value: int) -> None:
+        """Should hash a timestamp and a span like the equal int"""
+        assert hash(sy.TimeStamp(value)) == hash(value)
+        assert hash(sy.TimeSpan(value)) == hash(value)
+        assert len({sy.TimeStamp(value), sy.TimeSpan(value), value}) == 1
+
+    @given(_SPAN, st.floats(allow_nan=False, allow_infinity=False))
+    def test_span_float_eq_matches_hash(self, value: int, other: float) -> None:
+        """Should only equal a float whose hash matches"""
+        span = sy.TimeSpan(value)
+        assert (span == other) == (value == other)
+        if span == other:
+            assert hash(span) == hash(other)
+
+    @given(_STAMP, st.integers(min_value=2**63))
+    def test_compare_with_out_of_range_int(self, value: int, big: int) -> None:
+        """Should compare against an int that does not fit in 64 bits"""
+        assert sy.TimeStamp(value) < big
+        assert sy.TimeSpan(value) < big
+        assert sy.TimeStamp(value) != big
+
+    @given(_STAMP, _STAMP)
+    def test_time_range_hash_matches_eq(self, start: int, end: int) -> None:
+        """Should hash equal time ranges to the same value"""
+        assert hash(sy.TimeRange(start, end)) == hash(sy.TimeRange(start, end))
+        assert len({sy.TimeRange(start, end), sy.TimeRange(start, end)}) == 1
+
+    def test_time_range_frozen(self) -> None:
+        """Should reject a change to a hashable time range"""
+        tr = sy.TimeRange(0, 10)
+        with pytest.raises(ValidationError):
+            sy.TimeRange.__setattr__(tr, "end", sy.TimeStamp(20))

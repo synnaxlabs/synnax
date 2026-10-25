@@ -87,10 +87,7 @@ std::pair<size_t, x::errors::Error> ua_array_write_to_series(
     if (UA_Variant_isScalar(val))
         return {
             0,
-            x::errors::Error(
-                x::errors::VALIDATION,
-                "cannot not convert scalar to series"
-            )
+            x::errors::Error(x::errors::VALIDATION, "cannot convert scalar to series")
         };
 
     if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_DATETIME])) {
@@ -110,7 +107,7 @@ std::pair<size_t, x::errors::Error> ua_array_write_to_series(
 std::pair<UA_Variant, x::errors::Error> series_to_variant(const x::telem::Series &s) {
     UA_Variant v;
     UA_Variant_init(&v);
-    const auto dt = data_type_to_ua(s.data_type());
+    auto *const dt = data_type_to_ua(s.data_type());
     auto sample = s.at(-1);
     const auto status = UA_Variant_setScalarCopy(&v, cast_to_void_ptr(sample), dt);
     return {v, opcua::errors::parse(status)};
@@ -120,7 +117,7 @@ std::pair<size_t, x::errors::Error>
 write_to_series(x::telem::Series &s, const UA_Variant &v) {
     if (s.data_type() == x::telem::TIMESTAMP_T &&
         v.type == &UA_TYPES[UA_TYPES_DATETIME]) {
-        const auto dt = static_cast<const UA_DateTime *>(v.data);
+        const auto *const dt = static_cast<const UA_DateTime *>(v.data);
         return {
             s.write(s.data_type().cast(ua_datetime_to_unix_nano(*dt))),
             x::errors::NIL

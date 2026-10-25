@@ -12,34 +12,65 @@ package schematic
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
-	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/validate"
 )
+
+// ServiceConfig is the configuration for the schematic API service.
+type ServiceConfig struct {
+	// RBAC enforces access control on every request.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
+	// Schematic is the service that stores and modifies schematics.
+	//
+	// [REQUIRED]
+	Schematic *schematic.Service
+}
+
+var (
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for the schematic API service.
+	DefaultServiceConfig = ServiceConfig{}
+)
+
+// Override implements config.Config.
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	c.Schematic = override.Nil(c.Schematic, other.Schematic)
+	return c
+}
+
+// Validate implements config.Config.
+func (c ServiceConfig) Validate() error {
+	v := validate.New("api.schematic")
+	v.NotNil("rbac", c.RBAC)
+	v.NotNil("schematic", c.Schematic)
+	return v.Error()
+}
 
 type Service struct {
 	access   *rbac.Service
 	internal *schematic.Service
 }
 
-func NewService(cfgs ...config.LayerConfig) (*Service, error) {
-	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	return &Service{
-		internal: cfg.Service.Schematic,
-		access:   cfg.Service.RBAC,
-	}, nil
+	return &Service{internal: cfg.Schematic, access: cfg.RBAC}, nil
 }
 
 type (

@@ -15,14 +15,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
-	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/security"
-	secmock "github.com/synnaxlabs/synnax/pkg/security/mock"
-	svc "github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
@@ -32,14 +27,14 @@ import (
 
 func TestAPIAuth(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API Auth Suite")
+	RunSpecs(t, "API Auth Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
 	node        mock.Node
-	tokenSvc    *token.Service
+	authSvc     *auth.Service
 	passwordSvc *password.Service
 	userSvc     *user.Service
 	apiSvc      *apiauth.Service
@@ -61,17 +56,16 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	passwordSvc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	root, _ = MustSucceed2(user.ProvisionRoot(ctx, userSvc, passwordSvc, creds))
-	sec := MustSucceed(security.NewProvider(security.ProviderConfig{
-		Insecure: new(true),
-		KeySize:  secmock.SmallKeySize,
-	}))
-	tokenSvc = MustSucceed(token.NewService(token.ServiceConfig{KeyProvider: sec}))
-	apiSvc = MustSucceed(apiauth.NewService(apicfg.LayerConfig{
-		Distribution: node.Layer,
-		Service: &svc.Layer{
-			Token:    tokenSvc,
-			Password: passwordSvc,
-			User:     userSvc,
+	authSvc = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
+		DB: db,
+		Authenticators: map[auth.Method]auth.Authenticator{
+			auth.MethodPassword: passwordSvc,
 		},
+	}))
+	apiSvc = MustSucceed(apiauth.NewService(apiauth.ServiceConfig{
+		Auth:     authSvc,
+		Password: passwordSvc,
+		User:     userSvc,
+		Cluster:  node.Cluster,
 	}))
 })

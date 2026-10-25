@@ -61,7 +61,11 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
     <>
       <Form.Section title="Source">
         <Input.Item label="Channel" padHelpText={false}>
-          <Channel.SelectSingle value={channelKey} onChange={handleSourceChange} />
+          <Channel.SelectSingle
+            value={channelKey}
+            onChange={handleSourceChange}
+            allowNone
+          />
         </Input.Item>
         <Input.Item label="Averaging window" padHelpText={false}>
           <Input.Numeric

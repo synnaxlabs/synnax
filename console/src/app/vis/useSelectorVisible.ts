@@ -11,9 +11,9 @@ import { Selector as AppSelector } from "@/app/selector";
 import { Panel } from "@/platform/panel";
 
 export const useSelectorVisible = (): boolean => {
-  // It's safe to call hooks in map since VIS_SELECTABLES is a module-level constant
-  // and never changes between renders, ensuring consistent hook order.
+  "use no memo"; // Calls a hook per selectable; VIS_SELECTABLES is a module constant.
   const anySelectable = AppSelector.VIS_SELECTABLES.map(
+    // eslint-disable-next-line synnax/react-compiler
     (s) => s.useVisible?.() ?? true,
   ).some(Boolean);
   return Panel.useCanOpenTab() && anySelectable;

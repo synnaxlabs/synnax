@@ -171,7 +171,15 @@ void Decoder::flush(x::telem::Frame &fr) {
     }
 }
 
-std::string Decoder::warning() {
+common::Warning read_warning(const std::vector<std::string> &problems) {
+    if (problems.empty()) return {};
+    return {
+        .message = "Failed to read some data",
+        .description = x::strings::join(problems, "; "),
+    };
+}
+
+common::Warning Decoder::warning() {
     const auto now = this->now();
     std::vector<std::string> out;
     if (!this->received.has_value() && now - this->started >= SILENCE)
@@ -201,6 +209,6 @@ std::string Decoder::warning() {
             );
     }
     this->warnings.collect(out);
-    return x::strings::join(out, "; ");
+    return read_warning(out);
 }
 }

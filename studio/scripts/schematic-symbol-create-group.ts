@@ -21,23 +21,23 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await capture.createComponent(session, "Schematic");
   await session.waitFor(page.locator(".pluto-diagram").first());
   await capture.selectToolbarTab(session, "Symbols");
-  await session.moveTo({ x: 756, y: 500 });
+  await session.moveTo({ x: 800, y: 450 });
 
   session.startRecording();
-  await session.hold(500);
+  await session.hold(1800);
 
-  await session.click(capture.toolbarButton(page, "group", "add"));
-  const name = page.locator(".console-modal").getByPlaceholder("Name").first();
+  await session.click(capture.toolbarButton(page, "group", "add"), { zoom: false });
+  const name = page.locator(capture.MODAL).getByPlaceholder("Name").first();
   await session.waitFor(name);
   await session.hold(600);
-  await session.zoom(page.locator(".console-modal").first());
+  await session.zoom(page.locator(capture.MODAL).first());
 
   await session.click(name);
   await session.type("Test stand");
   await session.hold(600);
   await capture.clickButton(session, "Save");
-  await session.waitForHidden(name);
   session.endZoom();
+  await session.waitForHidden(name);
 
   const group = page
     .locator(".console-schematic__symbols-group-list [role='tab']")
@@ -50,6 +50,6 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.click(group, { text: true, zoom: false });
   await session.hold(600);
   // Clear the cursor off the new group's tab so its name stays readable.
-  await session.moveTo({ x: 756, y: 500 });
-  await session.hold(500);
+  await session.moveTo({ x: 800, y: 450 });
+  await session.hold(2800);
 };

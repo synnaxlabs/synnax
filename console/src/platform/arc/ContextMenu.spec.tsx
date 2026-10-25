@@ -11,11 +11,12 @@ import { type arc, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { type List } from "@synnaxlabs/lyra/list";
 import { array } from "@synnaxlabs/x";
-import { screen } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/platform/arc";
 import { Modals } from "@/platform/modals";
+import { reportTaskRunning } from "@/platform/task/testutil";
 import { createConsoleWrapper, renderSuspended, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -58,6 +59,23 @@ describe("Arc.ContextMenu", () => {
   it("should offer Reload Console", async () => {
     await renderMenu(await createArc());
     expect(await screen.findByText("Reload Console")).toBeTruthy();
+  });
+
+  it("should follow whether the running task of the arc drifted", async () => {
+    const rck = await client.racks.create({
+      name: uniqueName("rack"),
+      integrations: ["arc"],
+    });
+    const a = await createArc();
+    const tsk = await client.arcs.updateTask(a.key, { rack: rck.key });
+    if (tsk == null) throw new Error("expected a deployment task");
+    await reportTaskRunning(client, tsk, "stale");
+    // The menu reads only cached tasks, which the list it opens from has fetched.
+    await client.arcs.task.retrieve(a.key);
+    await renderMenu(a);
+    expect(await screen.findByText("Redeploy")).toBeTruthy();
+    await act(async () => await reportTaskRunning(client, tsk));
+    await waitFor(() => expect(screen.queryByText("Redeploy")).toBeNull());
   });
 
   it.each(["Viewer", "Operator"] as const)(

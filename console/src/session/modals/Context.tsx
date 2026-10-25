@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { context } from "@synnaxlabs/lyra/context";
-import { useInitializerRef } from "@synnaxlabs/lyra/hooks";
 import { id, type record } from "@synnaxlabs/x";
 import {
   type ComponentType,
   type PropsWithChildren,
   type ReactElement,
   type ReactNode,
+  useState,
   useSyncExternalStore,
 } from "react";
 
@@ -142,8 +142,8 @@ export { useStore };
  * lifetime and is never shared across windows or persisted.
  */
 export const Context = ({ children }: PropsWithChildren): ReactElement => {
-  const storeRef = useInitializerRef(() => new Store());
-  return <BaseContext value={storeRef.current}>{children}</BaseContext>;
+  const [store] = useState(() => new Store());
+  return <BaseContext value={store}>{children}</BaseContext>;
 };
 
 /** useStack subscribes to and returns the current modal stack. */

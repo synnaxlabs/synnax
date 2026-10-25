@@ -10,7 +10,7 @@
 import { type schematic } from "@synnaxlabs/client";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { border, color } from "@synnaxlabs/x";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { Border } from "@/schematic/node/common/border";
 import { Handle } from "@/schematic/node/common/handle";
@@ -39,19 +39,8 @@ export const Cylinder = ({
   orientation = "left",
   scale,
 }: RenderProps): ReactElement => {
-  const detailedRadius = border.constructRadius(borderRadius);
-  const refreshDeps = useMemo(
-    () => [dimensions, borderRadius, detailedRadius, orientation],
-    [
-      detailedRadius.bottomLeft,
-      detailedRadius.bottomRight,
-      detailedRadius.topLeft,
-      detailedRadius.topRight,
-      dimensions.height,
-      dimensions.width,
-      orientation,
-    ],
-  );
+  const radiusCSS = Border.cssRadius(border.constructRadius(borderRadius));
+  const refreshDeps = `${dimensions.width} ${dimensions.height} ${radiusCSS}`;
   const bgColor = fillColor == null ? undefined : color.cssString(fillColor);
   const transform = `scale(${dimensions.width / 66},${dimensions.height / 180})`;
 

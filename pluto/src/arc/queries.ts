@@ -278,8 +278,8 @@ export interface UseTaskControlsReturn {
   taskStatus: status.Status;
 }
 
-const notDeployedYet = (name: string) =>
-  status.create({ name, variant: "disabled", message: "Not deployed yet" });
+const notDeployed = (name: string) =>
+  status.create({ name, variant: "disabled", message: "Task not deployed" });
 
 /**
  * Running state and start/stop controls for the arc's task. The params hook into the
@@ -318,7 +318,6 @@ export const useTaskControls = (
     onStart,
     onStop,
     onStartStop,
-    taskStatus:
-      variant !== "success" ? readStatus : (tsk?.status ?? notDeployedYet(name)),
+    taskStatus: variant !== "success" ? readStatus : (tsk?.status ?? notDeployed(name)),
   };
 };

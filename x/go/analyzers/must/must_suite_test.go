@@ -19,7 +19,7 @@ import (
 
 func TestMust(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Analyzers Must Suite")
+	RunSpecs(t, "Analyzers Must Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

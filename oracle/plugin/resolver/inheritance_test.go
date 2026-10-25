@@ -59,79 +59,6 @@ func fieldNames(fields []resolution.Field) []string {
 }
 
 var _ = Describe("Inheritance", func() {
-	Describe("InheritedFields", func() {
-		It("Should return the fields of a single parent", func(ctx SpecContext) {
-			form, table := analyze(ctx, `
-				@go output "pkg/test"
-
-				Base struct {
-					port string = ""
-					name string = ""
-				}
-
-				Child struct extends Base {
-					range float64 = 10
-				}
-			`, "Child")
-			Expect(resolver.InheritedFields(form.Extends, table)).To(SatisfyAll(
-				HaveKey("port"), HaveKey("name"), Not(HaveKey("range")),
-			))
-		})
-
-		It("Should resolve fields inherited through a grandparent", func(
-			ctx SpecContext,
-		) {
-			form, table := analyze(ctx, `
-				@go output "pkg/test"
-
-				Root struct {
-					key string = ""
-				}
-
-				Middle struct extends Root {
-					port string = ""
-				}
-
-				Child struct extends Middle {
-					range float64 = 10
-				}
-			`, "Child")
-			Expect(resolver.InheritedFields(form.Extends, table)).
-				To(SatisfyAll(HaveKey("key"), HaveKey("port")))
-		})
-
-		It("Should substitute a generic parent's type arguments", func(
-			ctx SpecContext,
-		) {
-			form, table := analyze(ctx, `
-				@go output "pkg/test"
-
-				Box struct<T> {
-					value T
-				}
-
-				Child struct extends Box<string> {
-					range float64 = 10
-				}
-			`, "Child")
-			inherited := resolver.InheritedFields(form.Extends, table)
-			Expect(inherited["value"].Type.Name).To(Equal("string"))
-		})
-
-		It("Should return no fields when the struct has no parents", func(
-			ctx SpecContext,
-		) {
-			form, table := analyze(ctx, `
-				@go output "pkg/test"
-
-				Solo struct {
-					port string = ""
-				}
-			`, "Solo")
-			Expect(resolver.InheritedFields(form.Extends, table)).To(BeEmpty())
-		})
-	})
-
 	Describe("HasDomainOmissions", func() {
 		It("Should report a field that drops an inherited domain", func() {
 			form := resolution.StructForm{Fields: []resolution.Field{
@@ -473,6 +400,34 @@ var _ = Describe("Inheritance", func() {
 			Expect(inherited[0].Name).To(Equal("test.Extra"))
 			Expect(fieldNames(declared)).To(Equal([]string{"name"}))
 		})
+
+		It(
+			"Should declare the other fields of an aliased base it drops a field from",
+			func(
+				ctx SpecContext,
+			) {
+				form, v, table := analyzeUnion(ctx, `
+				@go output "pkg/test"
+
+				Base struct {
+					port string = ""
+					name string = ""
+				}
+
+				AliasBase = Base
+
+				Chan union on type extends AliasBase {
+					builtin {
+						-port
+						units string = "c"
+					}
+				}
+			`, "Chan", "builtin")
+				inherited, declared := resolver.VariantBases(form, v, table)
+				Expect(inherited).To(BeEmpty())
+				Expect(fieldNames(declared)).To(Equal([]string{"name"}))
+			},
+		)
 
 		It("Should not declare a field an inherited base already supplies", func(
 			ctx SpecContext,

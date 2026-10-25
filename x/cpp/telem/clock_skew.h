@@ -50,12 +50,14 @@ public:
 
     /// @brief returns the most recently measured clock skew
     /// @return TimeSpan representing the clock skew
-    TimeSpan skew() const { return this->last_skew; }
+    [[nodiscard]] TimeSpan skew() const { return this->last_skew; }
 
     /// @brief checks if the absolute value of the average clock skew exceeds a
     /// threshold
     /// @param threshold The maximum acceptable clock skew
     /// @return true if the absolute skew exceeds the threshold, false otherwise
-    bool exceeds(const TimeSpan &threshold) const { return skew().abs() > threshold; }
+    [[nodiscard]] bool exceeds(const TimeSpan &threshold) const {
+        return skew().abs() > threshold;
+    }
 };
 }

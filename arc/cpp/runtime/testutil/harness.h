@@ -20,6 +20,7 @@
 
 #include "client/cpp/synnax.h"
 #include "x/cpp/telem/frame.h"
+#include "x/cpp/telem/mono_clock.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
@@ -59,7 +60,7 @@ class Harness {
     x::telem::MonoClock clock;
     /// @brief the stamp the last tick ran with. drain() and flush() stamp indexes
     /// from it, matching what the runtime loop does after every pass.
-    x::telem::TimeStamp cycle_now;
+    x::telem::TimeStamp cycle_now{};
     x::telem::Alignment alignment;
     /// @brief holds writes drained by advance() until the next flush().
     x::telem::Frame pending;
@@ -98,7 +99,7 @@ public:
         auto series_st = std::make_shared<stl::series::State>();
         auto var_st = std::make_shared<stl::stateful::Variables>();
         state::Config state_cfg{
-            .ir = static_cast<ir::IR>(this->program),
+            .ir = static_cast<const ir::IR &>(this->program),
             .channels = digests
         };
         this->node_state = std::make_shared<state::State>(
@@ -141,12 +142,12 @@ public:
             this->wasm_module = std::move(mod);
             factories.push_back(std::make_shared<wasm::Factory>(this->wasm_module));
         }
-        for (auto &m: stl_modules)
+        for (const auto &m: stl_modules)
             factories.push_back(m);
         node::MultiFactory fact(factories);
 
         std::unordered_map<std::string, std::unique_ptr<node::Node>> nodes;
-        const ir::IR prog_ir = static_cast<ir::IR>(this->program);
+        const ir::IR &prog_ir = this->program;
         for (const auto &ir_node: this->program.nodes) {
             auto [ns, ns_err] = this->node_state->node(ir_node.key);
             if (ns_err) throw std::runtime_error(ns_err.message());
@@ -158,11 +159,7 @@ public:
             nodes[ir_node.key] = std::move(n);
         }
 
-        this->sched = std::make_unique<scheduler::Scheduler>(
-            prog_ir,
-            nodes,
-            errors::noop_handler
-        );
+        this->sched = std::make_unique<scheduler::Scheduler>(prog_ir, nodes);
     }
 
     void tick(const x::telem::TimeSpan elapsed) {

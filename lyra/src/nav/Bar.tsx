@@ -10,7 +10,7 @@
 import "@/nav/Bar.css";
 
 import { direction, location, type spatial } from "@synnaxlabs/x";
-import { type FunctionComponent, type ReactElement, useMemo } from "react";
+import { type FunctionComponent, type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
@@ -32,13 +32,8 @@ const BaseBar = ({
   const loc = location.construct(propsLoc);
   const dir = location.direction(loc);
   const oppositeDir = direction.swap(dir);
-  const style = useMemo(
-    () => ({
-      [direction.dimension(dir)]: size,
-      ...propsStyle,
-    }),
-    [size, propsStyle],
-  );
+  const dimension = direction.dimension(dir);
+  const style = { [dimension]: size, ...propsStyle };
   return (
     <Flex.Box
       className={CSS.cls(

@@ -19,7 +19,7 @@ import (
 
 func TestResolution(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Resolution Suite")
+	RunSpecs(t, "Resolution Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

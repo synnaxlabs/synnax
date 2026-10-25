@@ -50,9 +50,9 @@ std::string create_version_warning(
     const std::string &client_version,
     const bool is_client_newer
 ) {
-    const auto to_upgrade = is_client_newer ? "Core" : "client";
-    const auto slug = is_client_newer ? "core" : "client";
-    const auto age = is_client_newer ? "old" : "new";
+    const auto *const to_upgrade = is_client_newer ? "Core" : "client";
+    const auto *const slug = is_client_newer ? "core" : "client";
+    const auto *const age = is_client_newer ? "old" : "new";
     std::ostringstream ss;
     ss << "The Synnax Core version ";
     if (!node_version.empty()) ss << node_version << " ";
@@ -74,9 +74,9 @@ Checker::Checker(
     poll_freq(poll_freq),
     client_version(std::move(client_version)),
     name(std::move(name)),
-    clock_skew_threshold(clock_skew_threshold.abs()) {
+    clock_skew_threshold(clock_skew_threshold.abs()),
+    running(true) {
     this->_state.client_version = this->client_version;
-    this->running = true;
     this->check();
     this->poll_thread = std::thread([this] { this->run(); });
 }
@@ -95,8 +95,8 @@ void Checker::stop() {
 }
 
 State Checker::check() {
-    Status prev_status;
-    bool prev_skew_exceeded;
+    auto prev_status = Status::DISCONNECTED;
+    bool prev_skew_exceeded = false;
     {
         std::lock_guard lk(this->mu);
         prev_status = this->_state.status;
@@ -121,9 +121,10 @@ State Checker::check() {
                 this->clock_skew_threshold
             );
             if (this->_state.clock_skew_exceeded) {
-                auto direction = this->skew_calc.skew() > x::telem::TimeSpan::ZERO()
-                                   ? "ahead of"
-                                   : "behind";
+                const auto *direction = this->skew_calc.skew() >
+                                                x::telem::TimeSpan::ZERO()
+                                          ? "ahead of"
+                                          : "behind";
                 LOG(WARNING) << "Measured excessive clock skew between this host and "
                                 "the Synnax Core. This host is "
                              << direction << " the Synnax Core by approximately "

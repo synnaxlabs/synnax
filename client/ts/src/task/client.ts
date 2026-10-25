@@ -89,8 +89,6 @@ const HEALTHY_RACK_VARIANTS: status.Variant[] = ["success", "info"];
 /** How long a command waits for the Driver before the wait is called off. */
 const COMMAND_DEADLINE = TimeSpan.seconds(10);
 
-const STATUS_NAME = "Task Status";
-
 /** A command awaiting the Driver's reply, with the timer that gives up on it. */
 interface CommandDeadline {
   cmd: string;
@@ -698,18 +696,20 @@ export class Client extends query.Retriever<
       rack: latest?.details.rack ?? 0,
       data: {},
     };
-    const down = this.downRackStatus(this.store.get(cmd.task)?.rack);
+    const cached = this.store.get(cmd.task);
+    const name = cached?.name ?? latest?.name ?? "";
+    const down = this.downRackStatus(cached?.rack);
     if (down == null)
       return status.create<StatusDetailsZodObject>({
         key,
-        name: STATUS_NAME,
+        name,
         variant: "loading",
-        message: `Running ${cmd.type} command...`,
+        message: `Sending ${cmd.type} command`,
         details: { ...details, running: true },
       });
     return status.create<StatusDetailsZodObject>({
       key,
-      name: STATUS_NAME,
+      name,
       variant: "warning",
       message: down.message,
       description: down.description,
@@ -731,7 +731,7 @@ export class Client extends query.Retriever<
         key,
         status.create<StatusDetailsZodObject>({
           key,
-          name: STATUS_NAME,
+          name: optimistic.name,
           variant: "warning",
           message: `No response to the ${cmd.type} command`,
           description: `The Driver did not respond within ${COMMAND_DEADLINE.toString()}.`,

@@ -19,7 +19,7 @@ import (
 
 func TestNIV2(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service NI v2 Suite")
+	RunSpecs(t, "Service NI v2 Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

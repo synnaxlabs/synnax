@@ -1491,7 +1491,7 @@ public:
         int32 expState94,
         const char lines95[],
         int32 expState95
-    );
+    ) const;
 
     int32 CreateWatchdogTimerTaskEx(
         const char deviceName[],
@@ -1835,7 +1835,7 @@ public:
         const char channelName95[],
         float64 *state95,
         int32 channelType95
-    );
+    ) const;
 
     int32 GetAnalogPowerUpStatesWithOutputType(
         const char channelNames[],
@@ -2176,7 +2176,7 @@ public:
         int32 *state94,
         const char channelName95[],
         int32 *state95
-    );
+    ) const;
 
     int32 GetDigitalPullUpPullDownStates(
         const char deviceName[],
@@ -2374,7 +2374,7 @@ public:
         int32 *state94,
         const char channelName95[],
         int32 *state95
-    );
+    ) const;
 
     int32 GetDisconnectedCDAQSyncPorts(char portList[], uInt32 portListSize) override;
 
@@ -3520,7 +3520,7 @@ public:
         const char channelNames95[],
         float64 state95,
         int32 channelType95
-    );
+    ) const;
 
     int32 SetAnalogPowerUpStatesWithOutputType(
         const char channelNames[],
@@ -3802,7 +3802,7 @@ public:
         int32 state94,
         const char channelNames95[],
         int32 state95
-    );
+    ) const;
 
     int32 SetDigitalPullUpPullDownStates(
         const char deviceName[],
@@ -4000,7 +4000,7 @@ public:
         int32 state94,
         const char channelNames95[],
         int32 state95
-    );
+    ) const;
 
     int32 SetExportedSignalAttributeBool(
         TaskHandle task,
@@ -4969,7 +4969,7 @@ private:
     using GetReadTotalSampPerChanAcquiredPtr =
         decltype(&DAQmxGetReadTotalSampPerChanAcquired);
 
-    typedef struct FunctionPointers {
+    using FunctionLoadStatus = struct FunctionPointers {
         AddCDAQSyncConnectionPtr AddCDAQSyncConnection;
         AddGlobalChansToTaskPtr AddGlobalChansToTask;
         AddNetworkDevicePtr AddNetworkDevice;
@@ -5371,7 +5371,7 @@ private:
         SetReadOffsetPtr SetReadOffset;
         SetReadOverWritePtr SetReadOverWrite;
         GetReadTotalSampPerChanAcquiredPtr GetReadTotalSampPerChanAcquired;
-    } FunctionLoadStatus;
+    };
 
     FunctionPointers function_pointers_{};
     std::unique_ptr<x::lib::Shared> lib;

@@ -7,13 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type access,
-  type ontology,
-  type Synnax,
-  UnexpectedError,
-  user,
-} from "@synnaxlabs/client";
+import { type access, type ontology, type Synnax, user } from "@synnaxlabs/client";
+import { type destructor } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 
@@ -26,22 +21,15 @@ export type PermissionsQuery = {
 };
 
 const retrieveCurrent = async (client: Synnax): Promise<user.User> => {
-  const user = client.auth?.user;
-  if (user == null) {
-    await client.connect();
-    if (client.auth?.user == null)
-      throw new UnexpectedError(
-        "Expected user to be available after successfully connecting to cluster",
-      );
-    return client.auth.user;
-  }
-  return user;
+  // A first login happens on connect. A repeat login is already in flight.
+  if (!client.auth.authenticated) await client.connect();
+  return await client.auth.retrieveUser();
 };
 
 const resolveSubjectAsync = async (
   client: Synnax,
   subject?: ontology.ID,
-): Promise<ontology.ID | undefined> => {
+): Promise<ontology.ID> => {
   if (subject != null) return subject;
   const u = await retrieveCurrent(client);
   return user.ontologyID(u.key);
@@ -52,6 +40,30 @@ const resolveSubject = (client: Synnax, subject?: ontology.ID): ontology.ID | nu
   const u = client?.auth?.user;
   if (u == null) return null;
   return user.ontologyID(u.key);
+};
+
+/** Subscribes for the subject, waiting for a login when the user is not known yet. */
+const subscribeFor = (
+  client: Synnax,
+  subject: ontology.ID | undefined,
+  subscribe: (subject: ontology.ID) => destructor.Destructor,
+): destructor.Destructor => {
+  const known = resolveSubject(client, subject);
+  if (known != null) return subscribe(known);
+  let released = false;
+  let release: destructor.Destructor | undefined;
+  void (async () => {
+    try {
+      const resolved = await resolveSubjectAsync(client, subject);
+      if (!released) release = subscribe(resolved);
+    } catch {
+      // The fetch waits for the same login and reports its failure.
+    }
+  })();
+  return () => {
+    released = true;
+    release?.();
+  };
 };
 
 export interface IsGrantedParams {
@@ -78,14 +90,12 @@ const { useResult: useResultGranted } = Flux.createRetrieve<PermissionsQuery, bo
   retryUnreachable: true,
   retrieve: async ({ client, query: { subject, objects, action } }) => {
     subject = await resolveSubjectAsync(client, subject);
-    if (subject == null) return false;
     return await client.access.granted.retrieve(subject, { objects, action });
   },
-  onChange: ({ client, query: { subject, objects, action } }, handler) => {
-    const sub = resolveSubject(client, subject);
-    if (sub == null) return () => {};
-    return client.access.granted.onChange(sub, { objects, action }, handler);
-  },
+  onChange: ({ client, query: { subject, objects, action } }, handler) =>
+    subscribeFor(client, subject, (sub) =>
+      client.access.granted.onChange(sub, { objects, action }, handler),
+    ),
   getCached: ({ client, query }) => {
     const sub = resolveSubject(client, query.subject);
     if (sub == null) return undefined;
@@ -144,14 +154,12 @@ export const {
   retryUnreachable: true,
   retrieve: async ({ client, query }) => {
     const subject = await resolveSubjectAsync(client, query.subject);
-    if (subject == null) return [];
     return await client.access.policies.retrieveForSubject(subject);
   },
-  onChange: ({ client, query }, handler) => {
-    const subject = resolveSubject(client, query.subject);
-    if (subject == null) return () => {};
-    return client.access.policies.onChange({ for: subject }, handler);
-  },
+  onChange: ({ client, query }, handler) =>
+    subscribeFor(client, query.subject, (subject) =>
+      client.access.policies.onChange({ for: subject }, handler),
+    ),
   getCached: ({ client, query }) => {
     const subject = resolveSubject(client, query.subject);
     if (subject == null) return undefined;

@@ -19,7 +19,7 @@ import (
 
 func TestGRPC(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Aspen gRPC Transport Suite")
+	RunSpecs(t, "Aspen gRPC Transport Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

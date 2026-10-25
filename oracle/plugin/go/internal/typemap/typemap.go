@@ -13,6 +13,10 @@
 package typemap
 
 import (
+	"fmt"
+	"strings"
+
+	"github.com/synnaxlabs/oracle/plugin/internal/arrays"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -56,6 +60,30 @@ func PrimitiveGoType(primName string) (string, bool) {
 	}
 }
 
+// Nilable reports whether a Go value of ref, through aliases and distinct types, is a
+// slice, map, or record. An optional field of such a type holds no pointer, since nil
+// already marks it absent. A defaulted type parameter counts as its default.
+func Nilable(ref resolution.TypeRef, table *resolution.Table) bool {
+	if ref.IsTypeParam() {
+		return ref.TypeParam.HasDefault() && Nilable(*ref.TypeParam.Default, table)
+	}
+	if arrays.IsArray(ref, table) {
+		return arrays.Size(ref, table) == nil
+	}
+	resolved, ok := ref.Resolve(table)
+	if !ok {
+		return false
+	}
+	switch form := UnwrapType(resolved, table).Form.(type) {
+	case resolution.BuiltinGenericForm:
+		return form.Name == "Map"
+	case resolution.PrimitiveForm:
+		return form.Name == "record" || form.Name == "bytes"
+	default:
+		return false
+	}
+}
+
 // IsUUID returns true if the primitive name is "uuid".
 func IsUUID(primName string) bool { return primName == "uuid" }
 
@@ -86,41 +114,110 @@ func UnwrapType(typ resolution.Type, table *resolution.Table) resolution.Type {
 	return actual
 }
 
-// UnwrapTypeRef resolves through alias and distinct type ref wrappers,
-// tracking effective type arguments as it goes. Returns the final resolved
-// type and the effective type arguments at that level.
+// UnwrapTypeRef follows ref, which resolves to resolved, through alias and distinct
+// declarations to the type they stand for. It returns that type with the type arguments
+// it takes, with the arguments ref passes in place of the declarations' type
+// parameters. The walk stops at a declaration whose target does not resolve.
 func UnwrapTypeRef(
 	resolved resolution.Type, ref resolution.TypeRef, table *resolution.Table,
 ) (resolution.Type, []resolution.TypeRef) {
-	actual := resolved
-	effectiveTypeArgs := ref.TypeArgs
 	for {
-		switch form := actual.Form.(type) {
-		case resolution.AliasForm:
-			target, ok := form.Target.Resolve(table)
-			if !ok {
-				return actual, effectiveTypeArgs
-			}
-			if len(form.Target.TypeArgs) > 0 {
-				effectiveTypeArgs = form.Target.TypeArgs
-			}
-			actual = target
-			continue
-		case resolution.DistinctForm:
-			target, ok := form.Base.Resolve(table)
-			if !ok {
-				return actual, effectiveTypeArgs
-			}
-			if len(form.Base.TypeArgs) > 0 {
-				effectiveTypeArgs = form.Base.TypeArgs
-			}
-			actual = target
-			continue
-		default:
+		target, ok := wrappedTypeRef(resolved, ref)
+		if !ok {
+			return resolved, ref.TypeArgs
 		}
-		break
+		next, ok := target.Resolve(table)
+		if !ok {
+			return resolved, ref.TypeArgs
+		}
+		resolved, ref = next, target
 	}
-	return actual, effectiveTypeArgs
+}
+
+// wrappedTypeRef returns the reference an alias or distinct type wraps, with the type
+// arguments ref passes substituted in. ok is false for any other type.
+func wrappedTypeRef(
+	resolved resolution.Type, ref resolution.TypeRef,
+) (resolution.TypeRef, bool) {
+	var target resolution.TypeRef
+	switch form := resolved.Form.(type) {
+	case resolution.AliasForm:
+		target = form.Target
+	case resolution.DistinctForm:
+		target = form.Base
+	default:
+		return resolution.TypeRef{}, false
+	}
+	typeArgMap := resolution.TypeArgMap(
+		resolution.TypeParams(resolved.Form),
+		ref.TypeArgs,
+	)
+	return resolution.SubstituteTypeRef(target, typeArgMap), true
+}
+
+// GoTypeRefName renders ref as a Go type, with goTypeNameFn naming each declared type.
+// A generic struct or alias takes the type arguments ref passes, except those bound to
+// a defaulted type parameter, which Go declarations drop.
+func GoTypeRefName(
+	ref resolution.TypeRef, table *resolution.Table,
+	goTypeNameFn func(resolution.Type) (string, error),
+) (string, error) {
+	if ref.IsTypeParam() {
+		if ref.TypeParam.HasDefault() {
+			return GoTypeRefName(*ref.TypeParam.Default, table, goTypeNameFn)
+		}
+		return ref.TypeParam.Name, nil
+	}
+	if ref.Name == "Array" && len(ref.TypeArgs) > 0 {
+		elem, err := GoTypeRefName(ref.TypeArgs[0], table, goTypeNameFn)
+		if err != nil {
+			return "", err
+		}
+		if ref.ArraySize != nil {
+			return fmt.Sprintf("[%d]%s", *ref.ArraySize, elem), nil
+		}
+		return "[]" + elem, nil
+	}
+	if ref.Name == "Map" && len(ref.TypeArgs) >= 2 {
+		key, err := GoTypeRefName(ref.TypeArgs[0], table, goTypeNameFn)
+		if err != nil {
+			return "", err
+		}
+		val, err := GoTypeRefName(ref.TypeArgs[1], table, goTypeNameFn)
+		if err != nil {
+			return "", err
+		}
+		return "map[" + key + "]" + val, nil
+	}
+	resolved, ok := ref.Resolve(table)
+	if !ok {
+		return "", errors.Newf("cannot resolve type %s", ref.Name)
+	}
+	name, err := goTypeNameFn(resolved)
+	if err != nil {
+		return "", err
+	}
+	switch resolved.Form.(type) {
+	case resolution.StructForm, resolution.AliasForm:
+	default:
+		return name, nil
+	}
+	params := resolution.TypeParams(resolved.Form)
+	var args []string
+	for i, arg := range ref.TypeArgs {
+		if i < len(params) && params[i].HasDefault() {
+			continue
+		}
+		rendered, err := GoTypeRefName(arg, table, goTypeNameFn)
+		if err != nil {
+			return "", err
+		}
+		args = append(args, rendered)
+	}
+	if len(args) == 0 {
+		return name, nil
+	}
+	return name + "[" + strings.Join(args, ", ") + "]", nil
 }
 
 // ResolveLeafPrimitive walks through distinct and alias types to find the
@@ -189,8 +286,8 @@ func ResolveLeafPrimitive(
 	}
 }
 
-// ResolveGoSliceElemType resolves through alias chains to find the Go type
-// string for a slice element. Handles nested arrays (e.g., [][]string).
+// ResolveGoSliceElemType renders the Go type of a slice element ref, through alias
+// chains. Handles nested arrays (e.g., [][]string).
 //
 // Distinct types are NOT unwrapped past their declared name: a distinct
 // channel.Key over uint32 resolves as "channel.Key", because `make([]X, n)`
@@ -199,46 +296,34 @@ func ResolveLeafPrimitive(
 // (e.g., `type Tags = string[]` distinct), where we still recurse into the
 // element so nested arrays decode correctly.
 func ResolveGoSliceElemType(
-	typ resolution.Type, table *resolution.Table,
+	ref resolution.TypeRef, table *resolution.Table,
 	goTypeNameFn func(resolution.Type) (string, error),
 ) (string, error) {
-	actual := typ
 	for {
-		var baseRef resolution.TypeRef
-		isDistinct := false
-		switch form := actual.Form.(type) {
-		case resolution.AliasForm:
-			baseRef = form.Target
-		case resolution.DistinctForm:
-			baseRef = form.Base
-			isDistinct = true
-		default:
-			return goTypeNameFn(actual)
+		resolved, ok := ref.Resolve(table)
+		var target resolution.TypeRef
+		isWrapper := false
+		if ok {
+			target, isWrapper = wrappedTypeRef(resolved, ref)
 		}
-		target, ok := baseRef.Resolve(table)
-		if !ok {
-			return "", errors.Newf("cannot resolve type %s", baseRef.Name)
+		if !isWrapper {
+			return GoTypeRefName(ref, table, goTypeNameFn)
 		}
-		if bg, ok := target.Form.(resolution.BuiltinGenericForm); ok &&
-			bg.Name == "Array" &&
-			len(baseRef.TypeArgs) > 0 {
-			innerElem, ok := baseRef.TypeArgs[0].Resolve(table)
-			if !ok {
-				return "", errors.Newf(
-					"cannot resolve array element %s",
-					baseRef.TypeArgs[0].Name,
-				)
-			}
-			innerGoType, err := ResolveGoSliceElemType(innerElem, table, goTypeNameFn)
+		if target.Name == "Array" && len(target.TypeArgs) > 0 {
+			inner, err := ResolveGoSliceElemType(
+				target.TypeArgs[0],
+				table,
+				goTypeNameFn,
+			)
 			if err != nil {
 				return "", err
 			}
-			return "[]" + innerGoType, nil
+			return "[]" + inner, nil
 		}
-		if isDistinct {
-			return goTypeNameFn(actual)
+		if _, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct {
+			return GoTypeRefName(ref, table, goTypeNameFn)
 		}
-		actual = target
+		ref = target
 	}
 }
 

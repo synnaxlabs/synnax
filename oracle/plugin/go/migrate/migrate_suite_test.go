@@ -19,7 +19,7 @@ import (
 
 func TestMigrate(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Go Migrate Suite")
+	RunSpecs(t, "Plugin Go Migrate Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

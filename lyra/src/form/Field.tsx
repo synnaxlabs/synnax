@@ -12,8 +12,6 @@ import { type FC, type ReactElement } from "react";
 
 import { type RenderProp, renderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
-import { type ContextValue, useContext } from "@/form/Context";
-import { type FieldState, type GetOptions } from "@/form/state";
 import { useField, type UseFieldOptions, type UseFieldReturn } from "@/form/useField";
 import { Input } from "@/input";
 import { Select } from "@/select";
@@ -22,8 +20,7 @@ interface FieldChild<I, O>
   extends Input.Control<I, O>, Pick<UseFieldReturn<I, O>, "preview"> {}
 
 /** Props for {@link Field}. */
-export type FieldProps<I = string | number, O = I> = GetOptions<I> &
-  UseFieldOptions<I, O> &
+export type FieldProps<I = string | number, O = I> = UseFieldOptions<I, O> &
   Omit<Input.ItemProps, "children" | "onChange" | "defaultValue"> & {
     /** Dot-separated path into the form values. */
     path: string;
@@ -31,10 +28,8 @@ export type FieldProps<I = string | number, O = I> = GetOptions<I> &
     children?: RenderProp<FieldChild<I, O>>;
     /** Whether to hold room for help text, so the layout does not jump. */
     padHelpText?: boolean;
-    /** Hides the field when false, or when the predicate rejects its state. */
-    visible?: boolean | ((state: FieldState<I>, ctx: ContextValue) => boolean);
-    /** Whether an absent value hides the field instead of throwing. */
-    hideIfNull?: boolean;
+    /** Hides the field when false. */
+    visible?: boolean;
   };
 
 const defaultInput = renderProp((p: Input.TextProps) => <Input.Text {...p} />);
@@ -54,24 +49,14 @@ export const Field = <I = string | number, O = I>({
   label,
   padHelpText = true,
   visible = true,
-  hideIfNull = true,
-  optional,
   onChange,
   className,
-  defaultValue,
   ...rest
 }: FieldProps<I, O>): ReactElement | null => {
-  const field = useField<I, O>(path, {
-    optional: optional ?? hideIfNull,
-    onChange,
-    defaultValue,
-  });
-  const ctx = useContext(undefined, `Field(${path})`);
-  if (field == null) return null;
-  if (path == null) throw new Error("No path provided to form field");
-  label ??= caseconv.toSentence(deep.element(path, -1));
-  visible = typeof visible === "function" ? visible(field, ctx) : visible;
-  if (!visible) return null;
+  // A hidden field may bind a path its config lacks.
+  const field = useField<I, O>(path, { onChange, optional: !visible });
+  if (field == null || !visible) return null;
+  if (label == null) label = caseconv.toSentence(deep.element(path, -1));
   const helpText = field.status.message;
   const { onChange: fieldOnChange, value } = field;
   const childrenProps: FieldChild<I, O> = { onChange: fieldOnChange, value };
@@ -138,15 +123,11 @@ export const fieldBuilder =
       inputProps,
       path,
       fieldKey = baseFieldKey,
-      optional,
-      defaultValue,
       ...rest
     }: BuiltFieldProps<I, O, P>) => (
       <Field<I, O>
         {...fieldProps}
         {...rest}
-        defaultValue={defaultValue}
-        optional={optional}
         path={fieldKey ? `${path}.${fieldKey}` : path}
       >
         {(cp) => <Component {...cp} {...baseInputProps} {...(inputProps as P)} />}

@@ -9,9 +9,12 @@
 
 #pragma once
 
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <iomanip>
+#include <optional>
 #include <sstream>
 #include <string>
 
@@ -63,6 +66,17 @@ enum class DataType : uint16_t {
     EC_BIT8 = 0x0037,
 };
 
+/// @brief returns how many times b fits into a, or nullopt when a is not a whole
+/// multiple of b. Rate stores a float, so the ratio need only be whole to within one
+/// part per million.
+inline std::optional<size_t>
+whole_ratio(const x::telem::Rate a, const x::telem::Rate b) {
+    const double ratio = static_cast<double>(a.hz()) / b.hz();
+    const double whole = std::round(ratio);
+    if (whole < 1 || std::abs(ratio - whole) > whole * 1e-6) return std::nullopt;
+    return static_cast<size_t>(whole);
+}
+
 /// @brief infers a Synnax data type from the bit length when the CoE type is unknown.
 inline x::telem::DataType
 infer_type_from_bit_length(const uint8_t bit_length, const bool is_signed = false) {
@@ -77,7 +91,8 @@ infer_type_from_bit_length(const uint8_t bit_length, const bool is_signed = fals
     return is_signed ? x::telem::INT64_T : x::telem::UINT64_T;
 }
 
-/// @brief maps an EtherCAT CoE data type to a Synnax x::telem::DataType.
+/// @brief maps an EtherCAT CoE data type to a Synnax x::telem::DataType. A type with
+/// no fixed numeric width, such as a string, takes its type from bit_length.
 inline x::telem::DataType
 map_ethercat_to_synnax(const DataType ec_type, const uint8_t bit_length) {
     switch (ec_type) {
@@ -118,10 +133,6 @@ map_ethercat_to_synnax(const DataType ec_type, const uint8_t bit_length) {
             return x::telem::FLOAT32_T;
         case DataType::EC_REAL64:
             return x::telem::FLOAT64_T;
-        case DataType::EC_VISIBLE_STRING:
-        case DataType::EC_OCTET_STRING:
-        case DataType::EC_UNICODE_STRING:
-            return x::telem::STRING_T;
         case DataType::EC_TIME_OF_DAY:
         case DataType::EC_TIME_DIFFERENCE:
             return x::telem::INT64_T;
@@ -162,8 +173,18 @@ format_index_sub_index(const uint16_t index, const uint8_t sub_index) {
     return ss.str();
 }
 
+/// @brief calculates the number of bytes required to read/write a PDO value.
+/// Accounts for bit offsets that may cause values to span additional bytes.
+/// @param bit_offset bit offset within the first byte (0-7).
+/// @param bit_length total bit length of the value.
+/// @return the number of bytes required in the buffer.
+inline size_t pdo_required_bytes(const uint8_t bit_offset, const uint8_t bit_length) {
+    return (static_cast<size_t>(bit_offset) + bit_length + 7) / 8;
+}
+
 /// @brief reads a PDO value from a byte buffer and writes it to a series.
-/// Handles sub-byte values, 24-bit values, and standard byte-aligned values.
+/// Handles sub-byte values, integers narrower than their data type, and byte-aligned
+/// values.
 /// @param src pointer to the start of the PDO data in the buffer.
 /// @param bit_offset bit offset within the first byte (0-7).
 /// @param bit_length total bit length of the value.
@@ -173,38 +194,40 @@ inline void read_pdo_to_series(
     const uint8_t *src,
     const uint8_t bit_offset,
     const uint8_t bit_length,
-    const x::telem::DataType data_type,
+    const x::telem::DataType &data_type,
     x::telem::Series &series
 ) {
     if (bit_length < 8) {
         uint16_t two_bytes = src[0];
         if (bit_offset + bit_length > 8)
             two_bytes |= static_cast<uint16_t>(src[1]) << 8;
-        const uint8_t mask = static_cast<uint8_t>((1u << bit_length) - 1);
-        const uint8_t extracted = static_cast<uint8_t>(
-            (two_bytes >> bit_offset) & mask
-        );
+        const auto mask = static_cast<uint8_t>((1u << bit_length) - 1);
+        const auto extracted = static_cast<uint8_t>((two_bytes >> bit_offset) & mask);
         series.write_casted(&extracted, 1, x::telem::UINT8_T);
-        return;
-    }
-
-    if (bit_length == 24) {
-        uint32_t raw = static_cast<uint32_t>(src[0]) |
-                       (static_cast<uint32_t>(src[1]) << 8) |
-                       (static_cast<uint32_t>(src[2]) << 16);
-        if (bit_offset > 0)
-            raw = (raw >> bit_offset) |
-                  (static_cast<uint32_t>(src[3]) << (24 - bit_offset));
-        uint32_t val = raw & 0x00FFFFFF;
-        if (data_type == x::telem::INT32_T || data_type == x::telem::INT64_T)
-            if (val & 0x800000) val |= 0xFF000000;
-        series.write_casted(&val, 1, data_type);
         return;
     }
 
     x::telem::DataType source_type = data_type;
     if (source_type == x::telem::UNKNOWN_T) source_type = series.data_type();
-    series.write_casted(src, 1, source_type);
+    if (bit_length >= source_type.density() * 8) {
+        series.write_casted(src, 1, source_type);
+        return;
+    }
+    // The bytes past a narrow entry, such as a 24 or 40 bit integer, belong to the next
+    // entry.
+    const size_t n_bytes = pdo_required_bytes(bit_offset, bit_length);
+    uint64_t raw = 0;
+    for (size_t i = 0; i < std::min<size_t>(n_bytes, 8); ++i)
+        raw |= static_cast<uint64_t>(src[i]) << (8 * i);
+    raw >>= bit_offset;
+    if (n_bytes > 8) raw |= static_cast<uint64_t>(src[8]) << (64 - bit_offset);
+    raw &= (uint64_t{1} << bit_length) - 1;
+    const bool is_signed = source_type.matches(
+        {x::telem::INT8_T, x::telem::INT16_T, x::telem::INT32_T, x::telem::INT64_T}
+    );
+    if (is_signed && ((raw >> (bit_length - 1)) & 1) != 0)
+        raw |= ~uint64_t{0} << bit_length;
+    series.write_casted(&raw, 1, is_signed ? x::telem::INT64_T : x::telem::UINT64_T);
 }
 
 /// @brief writes a sample value to a byte buffer as a PDO value.
@@ -218,7 +241,7 @@ inline void write_pdo_from_value(
     uint8_t *dest,
     const uint8_t bit_offset,
     const uint8_t bit_length,
-    const x::telem::DataType data_type,
+    const x::telem::DataType &data_type,
     const x::telem::SampleValue &value
 ) {
     const auto casted = data_type == x::telem::UNKNOWN_T ? value
@@ -226,13 +249,13 @@ inline void write_pdo_from_value(
 
     if (bit_length < 8) {
         const auto src_val = x::telem::cast<uint8_t>(casted);
-        const uint16_t mask = static_cast<uint16_t>((1u << bit_length) - 1);
+        const auto mask = static_cast<uint16_t>((1u << bit_length) - 1);
 
         if (bit_offset + bit_length > 8) {
             uint16_t two_bytes = static_cast<uint16_t>(dest[0]) |
                                  (static_cast<uint16_t>(dest[1]) << 8);
-            const uint16_t shifted_mask = static_cast<uint16_t>(mask << bit_offset);
-            const uint16_t shifted_val = static_cast<uint16_t>(
+            const auto shifted_mask = static_cast<uint16_t>(mask << bit_offset);
+            const auto shifted_val = static_cast<uint16_t>(
                 (src_val & mask) << bit_offset
             );
             two_bytes = static_cast<uint16_t>(
@@ -241,8 +264,8 @@ inline void write_pdo_from_value(
             dest[0] = static_cast<uint8_t>(two_bytes & 0xFF);
             dest[1] = static_cast<uint8_t>((two_bytes >> 8) & 0xFF);
         } else {
-            const uint8_t shifted_mask = static_cast<uint8_t>(mask << bit_offset);
-            const uint8_t shifted_val = static_cast<uint8_t>(
+            const auto shifted_mask = static_cast<uint8_t>(mask << bit_offset);
+            const auto shifted_val = static_cast<uint8_t>(
                 (src_val & mask) << bit_offset
             );
             dest[0] = static_cast<uint8_t>((dest[0] & ~shifted_mask) | shifted_val);
@@ -251,7 +274,7 @@ inline void write_pdo_from_value(
     }
 
     if (bit_length == 24) {
-        const uint32_t src_val = x::telem::cast<uint32_t>(casted);
+        const auto src_val = x::telem::cast<uint32_t>(casted);
         const uint32_t masked_val = src_val & 0x00FFFFFF;
 
         if (bit_offset > 0) {
@@ -279,15 +302,4 @@ inline void write_pdo_from_value(
     std::memcpy(dest, data, byte_len);
 }
 
-/// @brief calculates the number of bytes required to read/write a PDO value.
-/// Accounts for bit offsets that may cause values to span additional bytes.
-/// @param bit_offset bit offset within the first byte (0-7).
-/// @param bit_length total bit length of the value.
-/// @return the number of bytes required in the buffer.
-inline size_t pdo_required_bytes(const uint8_t bit_offset, const uint8_t bit_length) {
-    const size_t byte_len = (bit_length + 7) / 8;
-    if (bit_length == 24 && bit_offset > 0) return 4;
-    if (bit_length < 8 && bit_offset + bit_length > 8) return 2;
-    return byte_len;
-}
 }

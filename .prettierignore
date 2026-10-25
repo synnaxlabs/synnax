@@ -1,5 +1,4 @@
 vendor/open62541/open62541/
-vendor/mbedtls/mbedtls/
 vendor/wasmtime/wasmtime/
 vendor/libmodbus/libmodbus/
 vendor/soem/SOEM/

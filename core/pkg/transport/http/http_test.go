@@ -27,7 +27,6 @@ import (
 	apilicense "github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/security"
-	secmock "github.com/synnaxlabs/synnax/pkg/security/mock"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
@@ -56,6 +55,7 @@ var _ = Describe("HTTP", func() {
 			Entry("unary auth login", http.MethodPost, "/api/v1/auth/login"),
 			Entry("unary channel create", http.MethodPost, "/api/v1/channel/create"),
 			Entry("unary frame delete", http.MethodPost, "/api/v1/frame/delete"),
+			Entry("unary frame read", http.MethodPost, "/api/v1/frame/read"),
 			Entry("stream frame writer", http.MethodGet, "/api/v1/frame/write"),
 			Entry("unary task rename", http.MethodPost, "/api/v1/task/rename"),
 			Entry("unary device rename", http.MethodPost, "/api/v1/device/rename"),
@@ -88,7 +88,6 @@ var _ = Describe("HTTP", func() {
 				To(Succeed())
 			sec := MustSucceed(security.NewProvider(security.ProviderConfig{
 				Insecure: new(true),
-				KeySize:  secmock.SmallKeySize,
 			}))
 			svc := MustOpen(service.OpenLayer(ctx, service.LayerConfig{
 				Distribution:    node.Layer,

@@ -11,7 +11,7 @@
 // solely to drive the migration that lifts stored rows into the current Orc format.
 package v0
 
-import "github.com/synnaxlabs/x/gorp"
+import "github.com/synnaxlabs/gorp"
 
 // SecureCredentials is the legacy storage shape of a credential row. Stored rows are
 // MessagePack maps keyed by Go field names, so the struct must stay untagged. The type

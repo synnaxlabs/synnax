@@ -16,12 +16,12 @@ import (
 	"math"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy"
 	legacyv6 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v6"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/spatial"
 )
 
@@ -260,7 +260,7 @@ func stringOrEmpty(s *string) string {
 }
 
 // Migration lifts stored schematics from the v0 blob layout to the typed v7 shape.
-var Migration = gorp.NewEntryMigration("v55_lift_typed_schematic", MigrateSchematic)
+var Migration = migrate.NewEntry("v55_lift_typed_schematic", MigrateSchematic)
 
 // SchematicFromConsole lifts the frozen Console export into the current Schematic.
 func SchematicFromConsole(d legacy.Export) Schematic {

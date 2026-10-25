@@ -11,7 +11,6 @@ package cert
 
 import (
 	"crypto"
-	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
@@ -165,27 +164,6 @@ func (f *Factory) caKey() (crypto.Signer, error) {
 	return signer, nil
 }
 
-// CreateTokenKeyIfMissing creates the key a Core signs authentication tokens with, if
-// it does not already exist. A Core whose certificate uses a post-quantum algorithm
-// needs it, because ML-DSA has no JWT signing method. Ed25519 is fixed rather than
-// configurable: the key never appears in a certificate, so it needs no agreement with a
-// peer, and EdDSA keeps tokens small.
-func (f *Factory) CreateTokenKeyIfMissing() error {
-	exists, err := f.cfg.FS.Exists(f.cfg.TokenKeyPath)
-	if err != nil || exists {
-		return err
-	}
-	_, key, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		return err
-	}
-	p, err := xpem.FromPrivateKey(key)
-	if err != nil {
-		return err
-	}
-	return f.writePEM(f.cfg.TokenKeyPath, p /* multi */, false)
-}
-
 // CreateCAPairIfMissing creates the CA certificate and its private key if the
 // certificate does not already exist. An existing pair is left untouched.
 func (f *Factory) CreateCAPairIfMissing() error {
@@ -200,17 +178,11 @@ func (f *Factory) CreateCAPairIfMissing() error {
 }
 
 // CreateAll creates everything a Core needs to serve securely: the CA pair if it does
-// not exist, the token signing key if the configured algorithm cannot sign JWTs, and
-// the node pair if it is missing or does not cover every host in Hosts. Callers that do
-// not own the files on disk must not use it.
+// not exist, and the node pair if it is missing or does not cover every host in Hosts.
+// Callers that do not own the files on disk must not use it.
 func (f *Factory) CreateAll() error {
 	if err := f.CreateCAPairIfMissing(); err != nil {
 		return err
-	}
-	if f.cfg.KeyAlgorithm.PostQuantum() {
-		if err := f.CreateTokenKeyIfMissing(); err != nil {
-			return err
-		}
 	}
 	return f.CreateNodePairIfStale()
 }

@@ -15,7 +15,7 @@ import { errors } from "@synnaxlabs/x";
 
 import { useChangeIdentifier } from "@/platform/device/useChangeIdentifier";
 import { Modals } from "@/platform/modals";
-import { type Tree } from "@/platform/tree";
+import { Tree } from "@/platform/tree";
 
 export interface ChangeIdentifierMenuItemProps extends Pick<
   Tree.ContextMenuProps,
@@ -65,12 +65,17 @@ const Internal = ({ icon, deviceKey, handleError }: InternalProps) => {
 export const ChangeIdentifierMenuItem = ({
   icon,
   selection: { ids },
-  state: { getResource },
+  state,
   handleError,
 }: ChangeIdentifierMenuItemProps) => {
-  const first = getResource(ids[0]);
+  const first = Tree.useResource(state, ids[0]);
   const hasUpdatePermission = Access.useUpdateGranted(device.ontologyID(ids[0].key));
-  if (ids.length !== 1 || first.data?.configured !== true || !hasUpdatePermission)
+  if (
+    ids.length !== 1 ||
+    first == null ||
+    first.data?.configured !== true ||
+    !hasUpdatePermission
+  )
     return null;
   return <Internal icon={icon} deviceKey={first.id.key} handleError={handleError} />;
 };

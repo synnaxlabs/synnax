@@ -32,7 +32,7 @@ struct Server::Impl {
     std::mutex stop_mu;
     std::condition_variable stop_cv;
     std::string host;
-    bool secure;
+    bool secure{};
     std::string cert_path;
     std::string key_path;
     int port = 0;
@@ -111,10 +111,7 @@ struct Server::Impl {
                 res.set_redirect(route.redirect_to, route.status_code);
                 return;
             }
-            if (route.remaining_failures > 0 && counter->fetch_sub(1) > 0) {
-                res.status = route.status_code;
-                res.set_content(route.response_body, route.content_type);
-            } else if (route.remaining_failures > 0) {
+            if (route.remaining_failures > 0 && counter->fetch_sub(1) <= 0) {
                 res.status = 200;
                 res.set_content(R"({"status":"ok"})", route.content_type);
             } else {

@@ -19,7 +19,7 @@ import (
 
 func TestBase64(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Encoding Base64 Suite")
+	RunSpecs(t, "Encoding Base64 Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -12,6 +12,8 @@ import { CSS } from "@synnaxlabs/lyra/css";
 import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
+import { Primitive } from "@/schematic/node/common/primitive";
+
 interface RenderProps extends Partial<
   Pick<
     schematic.ScaleNodeConfig,
@@ -58,7 +60,7 @@ export const Scale = ({
   const containerStyle = useMemo<CSSProperties>(
     () => ({
       ...CONTAINER_STYLE,
-      [CSS.variable("symbol-color")]: color.rgbaString(levelColor),
+      [Primitive.SYMBOL_COLOR]: color.rgbaString(levelColor),
     }),
     [levelColor],
   );

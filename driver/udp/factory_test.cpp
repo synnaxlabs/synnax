@@ -76,15 +76,15 @@ protected:
         return std::move(t);
     }
 
-    /// @returns the field errors of the configure failure that the factory reported
+    /// @returns the description of the configure failure that the factory reported
     /// last.
-    [[nodiscard]] x::json::json field_errors() const {
+    [[nodiscard]] std::string error() const {
         EXPECT_FALSE(core.ctx->statuses.empty());
-        if (core.ctx->statuses.empty()) return x::json::json::array();
+        if (core.ctx->statuses.empty()) return "";
         const auto &status = core.ctx->statuses.back();
         EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
-        const auto &msg = status.message;
-        return x::json::json::parse(msg.substr(msg.find('{')))["errors"];
+        EXPECT_EQ(status.message, "Failed to configure task");
+        return status.description;
     }
 
     /// @returns a write config that drives the first field of the ICD's message on
@@ -109,10 +109,7 @@ TEST_F(UDPFactory, RejectsAWriteTaskOnADeviceWithNoRemoteHost) {
     const auto ic = core.create_icd({binary_message("cmd", {binary_field("v", 0)})});
     const auto cfg = this->write_config(ic, this->create_listening_device());
     EXPECT_EQ(this->configure(WRITE_TASK_TYPE, cfg.to_json()), nullptr);
-    const auto errs = this->field_errors();
-    ASSERT_EQ(errs.size(), 1);
-    EXPECT_EQ(errs[0]["path"], "device");
-    EXPECT_EQ(errs[0]["message"], "device has no remote host, so it cannot send");
+    EXPECT_EQ(this->error(), "device: device has no remote host, so it cannot send");
 }
 
 TEST_F(UDPFactory, RejectsAPollingReadTaskOnADeviceWithNoRemoteHost) {
@@ -124,10 +121,7 @@ TEST_F(UDPFactory, RejectsAPollingReadTaskOnADeviceWithNoRemoteHost) {
         cfg
     ) = core.read_config(ic, this->create_listening_device());
     EXPECT_EQ(this->configure(READ_TASK_TYPE, cfg.to_json()), nullptr);
-    const auto errs = this->field_errors();
-    ASSERT_EQ(errs.size(), 1);
-    EXPECT_EQ(errs[0]["path"], "device");
-    EXPECT_EQ(errs[0]["message"], "device has no remote host, so it cannot send");
+    EXPECT_EQ(this->error(), "device: device has no remote host, so it cannot send");
 }
 
 TEST_F(UDPFactory, ConfiguresAListeningReadTaskOnADeviceWithNoRemoteHost) {
@@ -153,10 +147,10 @@ TEST_F(UDPFactory, NamesOnlyTheChannelsThatDoNotExist) {
     const synnax::channel::Key missing = (1 << 16) | 0xFFFF;
     cfg.messages[0].fields[1].channel = missing;
     EXPECT_EQ(this->configure(READ_TASK_TYPE, cfg.to_json()), nullptr);
-    const auto errs = this->field_errors();
-    ASSERT_EQ(errs.size(), 1);
-    EXPECT_EQ(errs[0]["path"], "messages.0.fields.1.channel");
-    EXPECT_EQ(errs[0]["message"], "channel 131071 does not exist");
+    EXPECT_EQ(
+        this->error(),
+        "messages.0.fields.1.channel: channel 131071 does not exist"
+    );
 }
 
 TEST_F(UDPFactory, ConfiguresAReadTaskThatStreamsDecodedValues) {

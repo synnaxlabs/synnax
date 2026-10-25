@@ -165,7 +165,8 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
         }
         const auto &ch = it->second;
 
-        // Validate data type vs json_type.
+        // Timestamp channels encode by time_format, not json_type.
+        if (ch.data_type == x::telem::TIMESTAMP_T) continue;
         if (auto conv_err = x::json::check_from_sample_value(
                 ch.data_type,
                 parse_json_type(ep.channel.json_type).first
@@ -175,15 +176,6 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
                 "endpoints",
                 "channel " + ch.name + " (type " + ch.data_type.name() +
                     ") cannot be converted to the specified JSON type"
-            );
-        }
-
-        // Timestamp channels require time_format.
-        if (ch.data_type == x::telem::TIMESTAMP_T &&
-            !ep.channel.time_format.has_value()) {
-            parser.field_err(
-                "endpoints",
-                "channel " + ch.name + " is a timestamp channel but has no time_format"
             );
         }
     }
@@ -287,34 +279,23 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
 
         const auto sample_val = series.at(-1);
 
-        const auto *enum_ptr = ep.enum_values.empty() ? nullptr : &ep.enum_values;
-        auto [json_val, conv_err] = x::json::from_sample_value(
-            sample_val,
-            ep.json_type,
-            enum_ptr
-        );
-        if (conv_err)
-            return {
-                conv_err.type,
-                "failed to convert value for endpoint " +
-                    this->cfg.endpoints[ep_idx].path + ": " + conv_err.data,
-            };
-
-        if (ep.time_format.has_value()) {
-            const auto ts_val = std::visit(
-                [](auto &&v) -> int64_t {
-                    using T = std::decay_t<decltype(v)>;
-                    if constexpr (std::is_arithmetic_v<T>)
-                        return static_cast<int64_t>(v);
-                    else
-                        return 0;
-                },
-                sample_val
+        x::json::json json_val;
+        if (const auto *ts = std::get_if<x::telem::TimeStamp>(&sample_val)) {
+            json_val = x::json::from_timestamp(*ts, ep.time_format);
+        } else {
+            const auto *enum_ptr = ep.enum_values.empty() ? nullptr : &ep.enum_values;
+            auto [val, conv_err] = x::json::from_sample_value(
+                sample_val,
+                ep.json_type,
+                enum_ptr
             );
-            json_val = x::json::from_timestamp(
-                x::telem::TimeStamp(ts_val),
-                *ep.time_format
-            );
+            if (conv_err)
+                return {
+                    conv_err.type,
+                    "failed to convert value for endpoint " +
+                        this->cfg.endpoints[ep_idx].path + ": " + conv_err.data,
+                };
+            json_val = std::move(val);
         }
 
         auto req = base_requests[ep_idx];

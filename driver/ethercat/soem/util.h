@@ -17,13 +17,13 @@ namespace driver::ethercat::soem {
 /// (not loopback, VPN, virtual bridge, or container interface).
 inline bool is_physical_interface(const std::string &name) {
     if (name == "lo" || name == "localhost") return false;
-    if (name.find("tailscale") != std::string::npos) return false;
-    if (name.find("tun") == 0) return false;
-    if (name.find("tap") == 0) return false;
-    if (name.find("veth") == 0) return false;
-    if (name.find("docker") != std::string::npos) return false;
-    if (name.find("br-") == 0) return false;
-    if (name.find("virbr") == 0) return false;
+    if (name.contains("tailscale")) return false;
+    if (name.starts_with("tun")) return false;
+    if (name.starts_with("tap")) return false;
+    if (name.starts_with("veth")) return false;
+    if (name.contains("docker")) return false;
+    if (name.starts_with("br-")) return false;
+    if (name.starts_with("virbr")) return false;
     return true;
 }
 

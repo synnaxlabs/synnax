@@ -9,6 +9,7 @@
 
 import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { id } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -221,5 +222,39 @@ describe("Write", () => {
     // absence below is read.
     expect(await screen.findByText("Remove")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();
+  });
+
+  it("should store a byte order override on a holding register channel", async () => {
+    const dev = await createModbusDevice(client, {
+      properties: {
+        connection: { host: "localhost", port: 502, swapBytes: true, swapWords: false },
+      },
+    });
+    const draft = await createDraft(client, {
+      ...Modbus.Task.WRITE_SCHEMAS.config.parse({}),
+      device: dev.key,
+      channels: [
+        Modbus.Task.WRITE_CHANNEL_SCHEMAS.holding_register.parse({
+          type: "holding_register",
+          key: id.create(),
+          dataType: "float32",
+        }),
+      ],
+    });
+    const { container } = await renderWrite({ client, taskKey: draft.key });
+    fireEvent.click(await screen.findByText("Bytes: device (swapped)"));
+    fireEvent.click(await screen.findByText("Bytes: not swapped"));
+    screen.getByText("Words: device (not swapped)");
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      Modbus.Task.WRITE_SCHEMAS,
+    );
+    const [register] = created.config.channels;
+    if (register.type !== "holding_register")
+      throw new Error(`expected a holding register, got ${register.type}`);
+    expect(register.bytesSwapped).toBe(false);
+    expect(register.wordsSwapped).toBeUndefined();
   });
 });

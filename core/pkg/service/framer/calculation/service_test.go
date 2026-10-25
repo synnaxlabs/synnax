@@ -799,6 +799,9 @@ var _ = Describe("Calculation", Ordered, func() {
 					Entry(&st).
 					Exec(ctx, nil)).To(Succeed())
 				Expect(st.Variant).To(Equal(status.VariantError))
+				Expect(st.Name).To(Equal(calc.Name))
+				Expect(st.Message).To(Equal("Failed to request calculation"))
+				Expect(st.Description).To(ContainSubstring(base.Name))
 				Expect(rm.Close(ctx)).To(Succeed())
 			},
 		)
@@ -840,6 +843,8 @@ var _ = Describe("Calculation", Ordered, func() {
 						Entry(&st).
 						Exec(ctx, nil)).To(Succeed())
 					g.Expect(st.Variant).To(Equal(status.VariantError))
+					g.Expect(st.Message).To(Equal("Failed to compile calculation"))
+					g.Expect(st.Description).To(ContainSubstring(base.Name))
 				}).Should(Succeed())
 				Expect(rm.Close(ctx)).To(Succeed())
 			},

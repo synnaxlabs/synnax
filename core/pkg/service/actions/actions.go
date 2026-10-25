@@ -24,7 +24,7 @@ import (
 	"context"
 	"sync/atomic"
 
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/observe"
 	xsync "github.com/synnaxlabs/x/sync"
 )

@@ -19,7 +19,7 @@ import (
 
 func TestICDV0(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service ICD v0 Suite")
+	RunSpecs(t, "Service ICD v0 Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

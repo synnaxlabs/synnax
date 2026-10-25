@@ -98,6 +98,16 @@ Flushed flush(Decoder &decoder, const std::set<synnax::channel::Key> &indexes) {
 const auto T = x::telem::TimeStamp(x::telem::SECOND);
 }
 
+TEST(ReadWarning, IsEmptyWithoutProblems) {
+    EXPECT_TRUE(read_warning({}).empty());
+}
+
+TEST(ReadWarning, JoinsProblemsIntoTheDescription) {
+    const auto warning = read_warning({"bad frame", "other"});
+    EXPECT_EQ(warning.message, "Failed to read some data");
+    EXPECT_EQ(warning.description, "bad frame; other");
+}
+
 TEST(Decoder, WritesASampleToEachGroupWhoseFieldsArePresent) {
     const auto cfg = grouped(multiplexed(), {100, 101, 102});
     Decoder decoder(cfg);
@@ -178,12 +188,12 @@ TEST(Decoder, WarnsWhenNoFrameArrivesForTenSecondsAfterStart) {
     Clock clock;
     Decoder decoder(cfg, clock.func());
     clock.advance(SILENCE - x::telem::TimeSpan(1));
-    EXPECT_EQ(decoder.warning(), "");
+    EXPECT_EQ(decoder.warning().description, "");
     clock.advance(x::telem::TimeSpan(1));
-    EXPECT_EQ(decoder.warning(), "no frames received since start");
+    EXPECT_EQ(decoder.warning().description, "no frames received since start");
     decoder.raw(std::vector<std::uint8_t>{1});
     decoder.decode(0, std::vector<std::uint8_t>{1}, T);
-    EXPECT_EQ(decoder.warning(), "");
+    EXPECT_EQ(decoder.warning().description, "");
 }
 
 TEST(Decoder, RestartsTheSilenceClockOnReset) {
@@ -194,9 +204,9 @@ TEST(Decoder, RestartsTheSilenceClockOnReset) {
     decoder.warn("old");
     clock.advance(SILENCE);
     decoder.reset();
-    EXPECT_EQ(decoder.warning(), "");
+    EXPECT_EQ(decoder.warning().description, "");
     clock.advance(SILENCE);
-    EXPECT_EQ(decoder.warning(), "no frames received since start");
+    EXPECT_EQ(decoder.warning().description, "no frames received since start");
 }
 
 TEST(Decoder, WarnsWhenFramesArriveButNoneMatch) {
@@ -208,10 +218,13 @@ TEST(Decoder, WarnsWhenFramesArriveButNoneMatch) {
         decoder.raw(std::vector<std::uint8_t>{9});
         clock.advance(x::telem::SECOND);
     }
-    EXPECT_EQ(decoder.warning(), "frames arrive, but none match a message in the ICD");
+    EXPECT_EQ(
+        decoder.warning().description,
+        "frames arrive, but none match a message in the ICD"
+    );
     decoder.raw(std::vector<std::uint8_t>{1});
     decoder.decode(0, std::vector<std::uint8_t>{1}, T);
-    EXPECT_EQ(decoder.warning(), "");
+    EXPECT_EQ(decoder.warning().description, "");
 }
 
 TEST(Decoder, StopsWarningAboutUnmatchedFramesWhenTheyStop) {
@@ -222,7 +235,7 @@ TEST(Decoder, StopsWarningAboutUnmatchedFramesWhenTheyStop) {
     clock.advance(x::telem::SECOND);
     decoder.raw(std::vector<std::uint8_t>{9});
     clock.advance(SILENCE);
-    EXPECT_EQ(decoder.warning(), "");
+    EXPECT_EQ(decoder.warning().description, "");
 }
 
 TEST(Decoder, WarnsWhenAMessageMissesThreePeriods) {
@@ -234,12 +247,15 @@ TEST(Decoder, WarnsWhenAMessageMissesThreePeriods) {
     decoder.raw(std::vector<std::uint8_t>{1});
     decoder.decode(0, std::vector<std::uint8_t>{1}, T);
     clock.advance(300 * x::telem::MILLISECOND - x::telem::TimeSpan(1));
-    EXPECT_EQ(decoder.warning(), "");
+    EXPECT_EQ(decoder.warning().description, "");
     clock.advance(x::telem::TimeSpan(1));
-    EXPECT_EQ(decoder.warning(), "status missed 3 periods (expected every 100ms)");
+    EXPECT_EQ(
+        decoder.warning().description,
+        "status missed 3 periods (expected every 100ms)"
+    );
     decoder.raw(std::vector<std::uint8_t>{1});
     decoder.decode(0, std::vector<std::uint8_t>{1}, T);
-    EXPECT_EQ(decoder.warning(), "");
+    EXPECT_EQ(decoder.warning().description, "");
 }
 
 TEST(Decoder, WarnsAboutMissedPeriodsBeforeAnyFrameArrives) {
@@ -249,9 +265,12 @@ TEST(Decoder, WarnsAboutMissedPeriodsBeforeAnyFrameArrives) {
     Clock clock;
     Decoder decoder(cfg, clock.func());
     clock.advance(300 * x::telem::MILLISECOND);
-    EXPECT_EQ(decoder.warning(), "status missed 3 periods (expected every 100ms)");
+    EXPECT_EQ(
+        decoder.warning().description,
+        "status missed 3 periods (expected every 100ms)"
+    );
     clock.advance(SILENCE);
-    EXPECT_EQ(decoder.warning(), "no frames received since start");
+    EXPECT_EQ(decoder.warning().description, "no frames received since start");
 }
 
 TEST(Decoder, ExpectsAPolledMessageEveryPollPeriod) {
@@ -267,7 +286,10 @@ TEST(Decoder, ExpectsAPolledMessageEveryPollPeriod) {
     Decoder decoder(cfg, clock.func());
     clock.advance(300 * x::telem::MILLISECOND);
     decoder.raw(std::vector<std::uint8_t>{1});
-    EXPECT_EQ(decoder.warning(), "volt missed 3 periods (expected every 100ms)");
+    EXPECT_EQ(
+        decoder.warning().description,
+        "volt missed 3 periods (expected every 100ms)"
+    );
 }
 
 TEST(Decoder, NamesAtMostThreeMessagesThatMissedPeriods) {
@@ -284,7 +306,7 @@ TEST(Decoder, NamesAtMostThreeMessagesThatMissedPeriods) {
     clock.advance(3 * x::telem::SECOND);
     decoder.raw(std::vector<std::uint8_t>{1});
     EXPECT_EQ(
-        decoder.warning(),
+        decoder.warning().description,
         "a missed 3 periods (expected every 1s); b missed 3 periods (expected every "
         "1s); c missed 3 periods (expected every 1s); 2 more messages missed 3 periods"
     );
@@ -300,11 +322,11 @@ TEST(Decoder, HoldsAWarningForOneSecondAfterItLastOccurs) {
     decoder.warn("other");
     clock.advance(WARNING_HOLD / 2);
     decoder.warn("bad frame");
-    EXPECT_EQ(decoder.warning(), "bad frame; other");
+    EXPECT_EQ(decoder.warning().description, "bad frame; other");
     clock.advance(WARNING_HOLD / 2);
-    EXPECT_EQ(decoder.warning(), "bad frame");
+    EXPECT_EQ(decoder.warning().description, "bad frame");
     clock.advance(WARNING_HOLD / 2);
-    EXPECT_EQ(decoder.warning(), "");
+    EXPECT_EQ(decoder.warning().description, "");
 }
 
 TEST(Decoder, WarnsAboutADiscardedLateReply) {
@@ -320,7 +342,7 @@ TEST(Decoder, WarnsAboutADiscardedLateReply) {
     Decoder decoder(cfg, clock.func());
     decoder.raw(std::vector<std::uint8_t>{1});
     decoder.late(0);
-    EXPECT_EQ(decoder.warning(), "late reply to volt discarded");
+    EXPECT_EQ(decoder.warning().description, "late reply to volt discarded");
     x::telem::Frame fr;
     decoder.flush(fr);
     EXPECT_TRUE(fr.empty());
@@ -341,7 +363,7 @@ TEST(Decoder, WarnsAndDropsAValueItsChannelCannotHold) {
     Decoder decoder(cfg);
     decoder.decode(0, std::vector<std::uint8_t>{0x2C, 0x01, 7}, T);
     EXPECT_EQ(
-        decoder.warning(),
+        decoder.warning().description,
         "status: channel data_1 of data type int8 cannot hold 300"
     );
     x::telem::Frame fr;
@@ -357,7 +379,9 @@ TEST(Decoder, WarnsAndDropsAPayloadThatDoesNotDecode) {
     const auto cfg = grouped(m, {100});
     Decoder decoder(cfg);
     decoder.decode(0, std::vector<std::uint8_t>{1}, T);
-    EXPECT_TRUE(decoder.warning().starts_with("status: payload of 1 bytes"));
+    EXPECT_TRUE(
+        decoder.warning().description.starts_with("status: payload of 1 bytes")
+    );
     x::telem::Frame fr;
     decoder.flush(fr);
     EXPECT_TRUE(fr.empty());

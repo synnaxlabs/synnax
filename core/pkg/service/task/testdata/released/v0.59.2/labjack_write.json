@@ -1,0 +1,31 @@
+{
+  "data_saving_disabled": true,
+  "device": "fixture-labjack-write-device",
+  "state_rate": 65.5,
+  "channels": [
+    {
+      "state_channel_name": "fixture_lj_dac1_state",
+      "port": "DAC1",
+      "type": "analog",
+      "key": "ch-lj-ao",
+      "disabled": false,
+      "cmd_channel": 7110,
+      "state_channel": 7111,
+      "cmd_channel_name": "fixture_lj_dac1_cmd"
+    },
+    {
+      "type": "digital",
+      "key": "ch-lj-do",
+      "disabled": true,
+      "cmd_channel": 7120,
+      "state_channel": 7121,
+      "cmd_channel_name": "fixture_lj_dio7_cmd",
+      "state_channel_name": "fixture_lj_dio7_state",
+      "port": "DIO7"
+    }
+  ],
+  "type": "labjack_write",
+  "name": "labjack_write",
+  "version": 2,
+  "auto_start": true
+}

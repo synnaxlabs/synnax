@@ -40,17 +40,22 @@ export const FileDrop = ({
     if (!isSVGFile(name)) {
       addStatus({
         variant: "error",
-        message: "Invalid file type. Expected an SVG file.",
+        name,
+        message: "Failed to load symbol",
+        description: "The file is not an SVG.",
       });
       return;
     }
-    handleError(async () => {
-      const contents = await read();
-      const nameWithoutExt = name.replace(/\.svg$/i, "");
-      const properName =
-        nameWithoutExt === "" ? undefined : caseconv.toProperNoun(nameWithoutExt);
-      onContentsChange(contents, properName);
-    }, `Failed to load ${name}`);
+    handleError(
+      async () => {
+        const contents = await read();
+        const nameWithoutExt = name.replace(/\.svg$/i, "");
+        const properName =
+          nameWithoutExt === "" ? undefined : caseconv.toProperNoun(nameWithoutExt);
+        onContentsChange(contents, properName);
+      },
+      { message: "Failed to load symbol", name },
+    );
   };
 
   const handleDrop = (entries: FileSystemEntry[]): void => {

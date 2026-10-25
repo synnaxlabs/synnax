@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Progress } from "@synnaxlabs/lyra/progress";
 import {
   type DetailedHTMLProps,
   type ImgHTMLAttributes,
@@ -33,7 +36,8 @@ export interface VideoProps
 
 /**
  * Renders a looping, muted docs video that follows the reader's color scheme. The
- * script in `@/components/media/video` plays it while it is in view.
+ * script in `@/components/media/video` plays it while it is in view, and the script in
+ * `@/components/media/lightbox` expands it.
  */
 export const Video = ({ id, themed = true, ...rest }: VideoProps): ReactElement => {
   // The time fragment makes iOS Safari render the first frame before playback.
@@ -47,6 +51,47 @@ export const Video = ({ id, themed = true, ...rest }: VideoProps): ReactElement 
       <div className="docs-video__play" aria-hidden>
         <Icon.Play />
       </div>
+      <div className="docs-video__progress" aria-hidden>
+        <Progress.Progress thin value={0} />
+      </div>
+      <Flex.Box x gap="small" className="docs-video__controls">
+        <Button.Button
+          variant="outlined"
+          size="small"
+          className="docs-video__play-button"
+          aria-label="Play video"
+          propagateClick
+        >
+          <Icon.Play />
+        </Button.Button>
+        <Button.Button
+          variant="outlined"
+          size="small"
+          className="docs-video__pause-button"
+          aria-label="Pause video"
+          propagateClick
+        >
+          <Icon.Pause />
+        </Button.Button>
+        <Button.Button
+          variant="outlined"
+          size="small"
+          className="docs-video__replay"
+          aria-label="Replay video"
+          propagateClick
+        >
+          <Icon.Replay />
+        </Button.Button>
+        <Button.Button
+          variant="outlined"
+          size="small"
+          className="docs-video__expand"
+          aria-label="Expand video"
+          propagateClick
+        >
+          <Icon.Expand />
+        </Button.Button>
+      </Flex.Box>
     </div>
   );
 };
@@ -61,13 +106,17 @@ export interface ImageProps
   extension?: "png" | "jpg" | "jpeg" | "webp" | "svg";
 }
 
-/** Renders a docs image that follows the reader's color scheme. */
+/**
+ * Renders a docs image that follows the reader's color scheme. The script in
+ * `@/components/media/lightbox` expands it.
+ */
 export const Image = ({
   id,
   themed = true,
   extension = "png",
   loading = "lazy",
   decoding = "async",
+  className,
   ...rest
 }: ImageProps): ReactElement => {
   const img = (
@@ -75,6 +124,7 @@ export const Image = ({
       src={mediaURL(id, extension, themed ? "light" : undefined)}
       loading={loading}
       decoding={decoding}
+      className={className == null ? "docs-image" : `docs-image ${className}`}
       {...rest}
     />
   );

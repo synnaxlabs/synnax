@@ -51,10 +51,9 @@ describe("project/Splash", () => {
       });
       const { wrapper } = await createConsoleWrapper({ client: denied });
       render(<Project.Splash />, { wrapper });
+      expect(await screen.findByText("Failed to retrieve projects")).toBeDefined();
       expect(
-        await screen.findByText(
-          "Failed to retrieve projects: You do not have permission to do that",
-        ),
+        screen.getByText(/^You do not have permission to do that\. /),
       ).toBeDefined();
       expect(screen.queryByText("No projects created.")).toBeNull();
     });

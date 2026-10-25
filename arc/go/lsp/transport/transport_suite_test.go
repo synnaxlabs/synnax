@@ -19,7 +19,7 @@ import (
 
 func TestTransport(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "LSP Transport Suite")
+	RunSpecs(t, "LSP Transport Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

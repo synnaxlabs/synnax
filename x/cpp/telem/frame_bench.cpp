@@ -49,9 +49,9 @@ x::telem::Frame make_frame(
 }
 
 struct FrameWorkload {
-    const char *name;
-    uint32_t channels;
-    size_t samples;
+    const char *name{};
+    uint32_t channels{};
+    size_t samples{};
     x::telem::DataType dt;
 
     [[nodiscard]] size_t total_bytes() const {

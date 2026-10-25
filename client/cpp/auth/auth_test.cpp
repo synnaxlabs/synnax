@@ -93,7 +93,7 @@ protected:
 
     void SetUp() override { res.set_token("abc"); }
 
-    void setupTest(x::errors::Error first_error) {
+    void setupTest(const x::errors::Error &first_error) {
         mock_login_client = std::make_unique<freighter::mock::UnaryClient<
             grpc::auth::LoginRequest,
             grpc::auth::LoginResponse>>(

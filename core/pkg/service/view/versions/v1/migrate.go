@@ -13,11 +13,11 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v0"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/migrate"
 	"go.uber.org/zap"
 )
 
@@ -25,8 +25,8 @@ import (
 // of every range and status view. It deletes every view of another type, and every view
 // whose query does not decode into a valid typed query, along with the view's ontology
 // resource and relationships.
-func NewMigration(otg *ontology.Ontology) migrate.Migration {
-	return gorp.NewMigration(
+func NewMigration(otg *ontology.Ontology) gorp.Migration {
+	return migrate.New(
 		"v60_typed_views",
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
 			olds, err := collect(ctx, tx)

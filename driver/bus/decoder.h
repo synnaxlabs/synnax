@@ -23,6 +23,7 @@
 #include "driver/bus/clock.h"
 #include "driver/bus/config.h"
 #include "driver/bus/warnings.h"
+#include "driver/common/read_task.h"
 
 namespace driver::bus {
 /// @brief how long a read task waits after start, or after its last matching frame,
@@ -31,6 +32,10 @@ const auto SILENCE = 10 * x::telem::SECOND;
 /// @brief the number of periods a message with a known period may miss before its task
 /// warns.
 constexpr int MISSED_PERIODS = 3;
+
+/// @returns the warning a read task sends for problems, joined by "; ", or an empty
+/// warning when problems is empty.
+common::Warning read_warning(const std::vector<std::string> &problems);
 
 /// @brief collects the decoded samples, raw frames, and warnings of a read task between
 /// reads, and moves them into a frame for the task's channels.
@@ -79,10 +84,10 @@ public:
     /// index strictly increase.
     void flush(x::telem::Frame &fr);
 
-    /// @returns the warnings that hold now, joined by "; ", or an empty string. They
-    /// are, in order: nothing received since start, frames that match no message,
+    /// @returns the warnings that hold now as one read_warning, or an empty warning.
+    /// They are, in order: nothing received since start, frames that match no message,
     /// messages that missed MISSED_PERIODS periods, and the warnings from warn.
-    std::string warning();
+    common::Warning warning();
 
 private:
     /// @brief the decoded samples of one group waiting to go into a frame.

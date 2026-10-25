@@ -16,6 +16,7 @@ import { Base } from "@/schematic/edge/common/base";
 import { Path } from "@/schematic/edge/common/path";
 import { Segmented } from "@/schematic/edge/common/segmented";
 import { type Spec } from "@/schematic/edge/spec";
+import { Primitive } from "@/schematic/node/common/primitive";
 
 const SYMBOL_INTERVAL = 40;
 const SYMBOL_SIZE = 10;
@@ -55,24 +56,26 @@ const PneumaticSymbol = ({ position, direction }: SymbolProps): ReactElement => 
   );
 };
 
-export const spec: Spec<"pneumatic", schematic.PneumaticEdgeConfig> =
-  Segmented.createSpec(
-    "pneumatic",
-    "Pneumatic",
-    ({ points, crossings, color: colorVal }) => {
-      const symbolStyle = useMemo(
-        () => ({ [CSS.variable("symbol-color")]: color.rgbaString(colorVal) }),
-        [colorVal],
-      );
-      return (
-        <g className={CSS.B("symbol-colored")} style={symbolStyle}>
-          <Base.Base path={Path.rounded(points, crossings)} color={colorVal} />
-          {Path.computeSymbolPositions(points, SYMBOL_INTERVAL).map(
-            ({ position, direction }, i) => (
-              <PneumaticSymbol key={i} position={position} direction={direction} />
-            ),
-          )}
-        </g>
-      );
-    },
+const Line = ({
+  points,
+  crossings,
+  color: colorVal,
+}: Segmented.PathProps): ReactElement => {
+  const symbolStyle = useMemo(
+    () => ({ [Primitive.SYMBOL_COLOR]: color.rgbaString(colorVal) }),
+    [colorVal],
   );
+  return (
+    <g className={CSS.B("symbol-colored")} style={symbolStyle}>
+      <Base.Base path={Path.rounded(points, crossings)} color={colorVal} />
+      {Path.computeSymbolPositions(points, SYMBOL_INTERVAL).map(
+        ({ position, direction }, i) => (
+          <PneumaticSymbol key={i} position={position} direction={direction} />
+        ),
+      )}
+    </g>
+  );
+};
+
+export const spec: Spec<"pneumatic", schematic.PneumaticEdgeConfig> =
+  Segmented.createSpec("pneumatic", "Pneumatic", Line);

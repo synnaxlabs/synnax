@@ -205,7 +205,7 @@ export const StateOverrideForm = (): ReactElement => {
       if (prev == null) return;
       form.set(path, deep.copy(prev));
     },
-    [form.set, originalStates],
+    [form, originalStates],
   );
 
   const getOriginalRegion = useCallback(

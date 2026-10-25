@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/http"
+	"github.com/synnaxlabs/synnax/pkg/service/http/versions/legacy"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -46,6 +47,30 @@ var _ = Describe("Service", func() {
 				"http_scan",
 			))
 		})
+	})
+
+	Describe("Normalize", func() {
+		DescribeTable(
+			"Should import both read shapes released Cores stamped at version 2",
+			func(ctx SpecContext, data msgpack.EncodedJSON, nanFill bool) {
+				out := MustSucceed(svc.Read.Normalize(ctx, 2, data))
+				Expect(out).To(HaveKeyWithValue("nan_fill_enabled", nanFill))
+				Expect(out).To(HaveKeyWithValue("device", "dev-1"))
+			},
+			Entry("v2", msgpack.EncodedJSON{"device": "dev-1"}, false),
+			Entry(
+				"v3",
+				msgpack.EncodedJSON{"device": "dev-1", "nan_fill_enabled": true},
+				true,
+			),
+		)
+
+		It(
+			"Should export read configs above every version released Cores stamped",
+			func() {
+				Expect(svc.Read.Version()).To(BeNumerically(">", legacy.LastVersion))
+			},
+		)
 	})
 
 	Describe("Write", func() {

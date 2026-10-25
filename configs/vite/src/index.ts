@@ -8,12 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import path from "path";
-import { type Plugin } from "vite";
+import { type PluginOption } from "vite";
 
+import { reactCompiler } from "./compiler.js";
 import { declarations } from "./declarations.js";
 import { checkExports } from "./modules.js";
 import { ENTRY, transpile } from "./transpile.js";
 
+export { reactCompiler } from "./compiler.js";
 export { type Layer, layers } from "./layers.js";
 export { discoverModules, moduleExports, packageExports } from "./modules.js";
 
@@ -41,6 +43,12 @@ export interface Options {
    * @default false
    */
   transpiled?: boolean;
+  /**
+   * Whether the React Compiler compiles the package's components and hooks, in builds
+   * and in specs.
+   * @default false
+   */
+  reactCompiled?: boolean;
 }
 
 export const lib = ({
@@ -48,11 +56,14 @@ export const lib = ({
   publishSourcemaps = true,
   modules = false,
   transpiled = false,
-}: Options): Plugin[] => {
+  reactCompiled = false,
+}: Options): PluginOption[] => {
   const prod = isProd();
   console.log(`\x1b[34m Synnax - ${prod ? "Production" : "Development"} mode\x1b[0m`);
+  const compiler = reactCompiled ? [reactCompiler()] : [];
   if (modules || transpiled)
     return [
+      ...compiler,
       {
         name: "vite-plugin-lib",
         config: () => ({
@@ -66,9 +77,10 @@ export const lib = ({
           if (modules) checkExports(config.root);
         },
       },
-      transpile(modules),
+      transpile(modules, reactCompiled),
     ];
   return [
+    ...compiler,
     {
       name: "vite-plugin-lib",
       config: (config) => {

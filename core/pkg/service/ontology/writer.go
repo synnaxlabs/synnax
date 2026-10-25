@@ -15,8 +15,8 @@ import (
 	"maps"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/graph"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"

@@ -6978,6 +6978,205 @@ time.wait{duration=500ms} -> output`
 			)
 		})
 
+		Context("Step completion without outputs", func() {
+			const funcs = `
+				func notify{msg str} () {
+				    out = msg
+				}
+
+				func produce() u8 {
+				    return 1
+				}
+
+				func sink{} (v u8) {}
+`
+			analyze := func(ctx SpecContext, program string) ir.IR {
+				GinkgoHelper()
+				resolver := []symbol.Symbol{
+					{
+						Name: "out",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.String()),
+						ID:   20201,
+					},
+					{
+						Name: "sensor",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.U8()),
+						ID:   20202,
+					},
+				}
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: program}))
+				inter, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, resolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				return inter
+			}
+			stepNode := func(inter ir.IR, scope ir.Scope, key string) ir.Node {
+				GinkgoHelper()
+				refs := scopeNodeRefs(*findMember(scope, key).Scope)
+				Expect(refs).To(HaveLen(1))
+				return findNodeByKey(inter.Nodes, refs[0])
+			}
+
+			DescribeTable(
+				"Wires the step advance from the last node's output shape",
+				func(
+					ctx SpecContext,
+					step string,
+					nodeType string,
+					param string,
+					kind ir.EdgeKind,
+				) {
+					inter := analyze(ctx, funcs+`
+				sequence main {
+				    `+step+`
+				    stage after {}
+				}`)
+					main := findTopLevelScope(inter, "main")
+					Expect(main.Transitions).To(HaveLen(1))
+					t := main.Transitions[0]
+					Expect(
+						t.On.Node,
+					).To(Equal(findNodeByType(inter.Nodes, nodeType).Key))
+					Expect(t.On.Param).To(Equal(param))
+					Expect(t.Kind).To(Equal(kind))
+					Expect(t.Target.Variant).To(Equal(ir.StepTarget{Key: "after"}))
+				},
+				Entry(
+					"a single invocation without outputs",
+					`notify{"one"}`,
+					"notify",
+					ir.DoneParam,
+					ir.EdgeKindContinuous,
+				),
+				Entry(
+					"a flow ending in a node without outputs",
+					`sensor -> sink{}`,
+					"sink",
+					ir.DoneParam,
+					ir.EdgeKindContinuous,
+				),
+				Entry(
+					"a single invocation with outputs",
+					`produce{}`,
+					"produce",
+					ir.DefaultOutputParam,
+					ir.EdgeKindConditional,
+				),
+			)
+
+			It(
+				"Exits the sequence when its terminal node has no outputs",
+				func(ctx SpecContext) {
+					inter := analyze(ctx, funcs+`
+				sequence main {
+				    produce{}
+				    notify{"done"}
+				}`)
+					main := findTopLevelScope(inter, "main")
+					Expect(main.Transitions).To(HaveLen(2))
+					t := main.Transitions[1]
+					Expect(
+						t.On.Node,
+					).To(Equal(findNodeByType(inter.Nodes, "notify").Key))
+					Expect(t.On.Param).To(Equal(ir.DoneParam))
+					Expect(t.Kind).To(Equal(ir.EdgeKindContinuous))
+					Expect(t.Target.Variant).To(Equal(ir.ExitTarget{}))
+				},
+			)
+
+			It(
+				"Escalates a nested terminal step without outputs to the parent",
+				func(ctx SpecContext) {
+					inter := analyze(ctx, funcs+`
+				sequence main {
+				    sequence first {
+				        notify{"one"}
+				    }
+				    stage after {}
+				}`)
+					main := findTopLevelScope(inter, "main")
+					Expect(main.Transitions).To(HaveLen(1))
+					t := main.Transitions[0]
+					Expect(
+						t.On.Node,
+					).To(Equal(findNodeByType(inter.Nodes, "notify").Key))
+					Expect(t.On.Param).To(Equal(ir.DoneParam))
+					Expect(t.Kind).To(Equal(ir.EdgeKindContinuous))
+					Expect(t.Target.Variant).To(Equal(ir.StepTarget{Key: "after"}))
+					first := findMember(main, "first").Scope
+					Expect(first).ToNot(BeNil())
+					Expect(first.Transitions).To(BeEmpty())
+				},
+			)
+
+			It(
+				"Keeps a stage-declared sequence's exit without outputs on its own frame",
+				func(ctx SpecContext) {
+					inter := analyze(ctx, funcs+`
+				sequence main {
+				    stage holder {
+				        sequence sub {
+				            notify{"one"}
+				        }
+				    }
+				}`)
+					main := findTopLevelScope(inter, "main")
+					Expect(main.Transitions).To(BeEmpty())
+					holder := findMember(main, "holder").Scope
+					Expect(holder).ToNot(BeNil())
+					sub := holder.Strata[0][0].Scope
+					Expect(sub).ToNot(BeNil())
+					Expect(sub.Transitions).To(HaveLen(1))
+					t := sub.Transitions[0]
+					Expect(
+						t.On.Node,
+					).To(Equal(findNodeByType(inter.Nodes, "notify").Key))
+					Expect(t.On.Param).To(Equal(ir.DoneParam))
+					Expect(t.Kind).To(Equal(ir.EdgeKindContinuous))
+					Expect(t.Target.Variant).To(Equal(ir.ExitTarget{}))
+				},
+			)
+
+			It(
+				"Alternates done and output transitions through a wait",
+				func(ctx SpecContext) {
+					inter := analyze(ctx, "import time\n"+funcs+`
+				sequence main {
+				    notify{"one"}
+				    time.wait{1s}
+				    notify{"two"}
+				}
+
+				true => main`)
+					main := findTopLevelScope(inter, "main")
+					Expect(main.Transitions).To(HaveLen(3))
+					first := stepNode(inter, main, "step_0")
+					wait := stepNode(inter, main, "step_1")
+					second := stepNode(inter, main, "step_2")
+					Expect(main.Transitions[0]).To(Equal(ir.Transition{
+						On:     ir.Handle{Node: first.Key, Param: ir.DoneParam},
+						Kind:   ir.EdgeKindContinuous,
+						Target: ir.Target{Variant: ir.StepTarget{Key: "step_1"}},
+					}))
+					Expect(main.Transitions[1]).To(Equal(ir.Transition{
+						On:     ir.Handle{Node: wait.Key, Param: wait.Outputs[0].Name},
+						Kind:   ir.EdgeKindConditional,
+						Target: ir.Target{Variant: ir.StepTarget{Key: "step_2"}},
+					}))
+					Expect(main.Transitions[2]).To(Equal(ir.Transition{
+						On:     ir.Handle{Node: second.Key, Param: ir.DoneParam},
+						Kind:   ir.EdgeKindContinuous,
+						Target: ir.Target{Variant: ir.ExitTarget{}},
+					}))
+				},
+			)
+		})
+
 		Context("Top-level anonymous scopes", func() {
 			It(
 				"Should compile an anonymous top-level stage and produce a root member with an auto-generated key",

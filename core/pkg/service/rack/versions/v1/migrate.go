@@ -13,7 +13,7 @@
 
 package v1
 
-import "github.com/synnaxlabs/x/gorp"
+import "github.com/synnaxlabs/gorp/migrate"
 
 // Migration lifts stored racks from v0 to v1, dropping the persisted status field.
-var Migration = gorp.NewEntryMigration("v54_drop_status", autoMigrateRack)
+var Migration = migrate.NewEntry("v54_drop_status", autoMigrateRack)

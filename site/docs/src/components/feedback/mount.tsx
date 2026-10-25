@@ -10,15 +10,10 @@
 import { createRoot } from "react-dom/client";
 
 import { Button } from "@/components/feedback/Feedback";
-import { Form } from "@/components/feedback/Form";
 import { type Mount } from "@/util/island";
 
 export const mount: Mount = (el) => {
   const root = createRoot(el);
-  root.render(
-    <Button initialVisible>
-      <Form />
-    </Button>,
-  );
+  root.render(<Button initialVisible />);
   return () => root.unmount();
 };

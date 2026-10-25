@@ -19,7 +19,7 @@ import (
 
 func TestArcVersions(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Arc Versions Suite")
+	RunSpecs(t, "Service Arc Versions Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

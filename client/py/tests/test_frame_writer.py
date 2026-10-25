@@ -15,9 +15,10 @@ import pandas as pd
 import pytest
 
 import synnax as sy
+from synnax.framer.frame import FramePayload
 from tests.channel import RetrieveCounter
 from x.strings import random_name
-from x.telem import seconds_linspace
+from x.telem import CrudeSeries, seconds_linspace
 
 
 @pytest.mark.framer
@@ -236,6 +237,34 @@ class TestWriter:
                     idx_ch.name: seconds_linspace(1, 3),
                     data_ch.name: np.array([1.0, 2.0, 3.0]),
                 }
+            ),
+        )
+        f = client.read(sy.TimeRange.MAX, data_ch.key)
+        assert list(f) == [1.0, 2.0, 3.0]
+
+    def test_client_write_channel_tuple(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should write a tuple of channels and a list of series."""
+        idx_ch, data_ch = indexed_pair
+        series: list[CrudeSeries] = [seconds_linspace(1, 3), [1.0, 2.0, 3.0]]
+        client.write(1 * sy.TimeSpan.SECOND, (idx_ch.key, data_ch.key), series)
+        f = client.read(sy.TimeRange.MAX, data_ch.key)
+        assert list(f) == [1.0, 2.0, 3.0]
+
+    def test_client_write_frame_payload(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should write a frame payload."""
+        idx_ch, data_ch = indexed_pair
+        client.write(
+            1 * sy.TimeSpan.SECOND,
+            FramePayload(
+                keys=[idx_ch.key, data_ch.key],
+                series=[
+                    sy.Series(seconds_linspace(1, 3)),
+                    sy.Series(np.array([1.0, 2.0, 3.0])),
+                ],
             ),
         )
         f = client.read(sy.TimeRange.MAX, data_ch.key)

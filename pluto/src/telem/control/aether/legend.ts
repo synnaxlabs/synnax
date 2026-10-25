@@ -46,10 +46,7 @@ export class Legend extends aether.Leaf<typeof legendStateZ, InternalState> {
     i.retrieve ??= new flux.Retrieve({
       definition: listDefinition,
       onChange: () => this.publish(),
-      onError: (error) =>
-        runAsync(async () => {
-          throw error;
-        }, "failed to retrieve control state"),
+      onError: (error) => runAsync(error, "Failed to retrieve control state"),
     });
     i.disconnectColors ??= i.colors.onChange(() => this.publish());
     i.retrieve.update(synnax.use(ctx), { keys: this.state.needsControlOf });

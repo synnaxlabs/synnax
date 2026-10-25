@@ -9,6 +9,7 @@
 
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "driver/can/read.h"
 
@@ -42,7 +43,7 @@ common::ReadResult Source::read(x::breaker::Breaker &breaker, x::telem::Frame &f
     auto [opened, err] = this->link->bus();
     if (err.matches(UNREACHABLE_ERROR)) {
         breaker.wait_for(bus::READ_TIMEOUT);
-        res.warning = this->reconnecting(err);
+        res.warning = bus::read_warning({this->reconnecting(err)});
         return res;
     }
     if (err) {
@@ -74,8 +75,11 @@ common::ReadResult Source::read(x::breaker::Breaker &breaker, x::telem::Frame &f
     }
     this->decoder.flush(fr);
     res.warning = this->decoder.warning();
-    if (!fault.empty())
-        res.warning = res.warning.empty() ? fault : fault + "; " + res.warning;
+    if (!fault.empty()) {
+        std::vector problems{fault};
+        if (!res.warning.empty()) problems.push_back(res.warning.description);
+        res.warning = bus::read_warning(problems);
+    }
     return res;
 }
 

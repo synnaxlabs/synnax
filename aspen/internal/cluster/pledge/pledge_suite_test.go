@@ -23,7 +23,7 @@ var ins alamos.Instrumentation
 
 func TestMembership(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cluster Pledge Suite")
+	RunSpecs(t, "Cluster Pledge Suite", SuiteConfig())
 }
 
 var _ = BeforeSuite(func() {

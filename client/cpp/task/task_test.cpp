@@ -15,7 +15,10 @@
 #include "x/cpp/test/test.h"
 #include "x/cpp/uuid/uuid.h"
 
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): one seed per suite,
+// printed so that a failing run can be replayed.
 std::mt19937 gen_rand_task = random_generator("Task Tests");
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 namespace synnax::task {
 /// @brief it should correctly create a module on the rack.
@@ -152,10 +155,10 @@ TEST(TaskTests, testCreateTaskWithStatus) {
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(t.key, {.include_status = true}));
     ASSERT_EQ(t2.name, "test_task_with_status");
     ASSERT_TRUE(t2.status.has_value());
-    ASSERT_EQ(t2.status->variant, synnax::status::VARIANT_SUCCESS);
-    ASSERT_EQ(t2.status->message, "Task is running");
-    ASSERT_EQ(t2.status->details.running, true);
-    ASSERT_EQ(t2.status->details.cmd, "start");
+    ASSERT_EQ(t2.status.value().variant, synnax::status::VARIANT_SUCCESS);
+    ASSERT_EQ(t2.status.value().message, "Task is running");
+    ASSERT_EQ(t2.status.value().details.running, true);
+    ASSERT_EQ(t2.status.value().details.cmd, "start");
 }
 
 /// @brief it should correctly retrieve a task with status by name.
@@ -179,8 +182,8 @@ TEST(TaskTests, testRetrieveTaskWithStatusByName) {
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(rand_name, {.include_status = true}));
     ASSERT_EQ(t2.name, rand_name);
     ASSERT_TRUE(t2.status.has_value());
-    ASSERT_EQ(t2.status->variant, synnax::status::VARIANT_WARNING);
-    ASSERT_EQ(t2.status->message, "Task warning");
+    ASSERT_EQ(t2.status.value().variant, synnax::status::VARIANT_WARNING);
+    ASSERT_EQ(t2.status.value().message, "Task warning");
 }
 
 /// @brief it should correctly list tasks with statuses.
@@ -203,8 +206,8 @@ TEST(TaskTests, testListTasksWithStatus) {
     const auto tasks = ASSERT_NIL_P(r.tasks.list({.include_status = true}));
     ASSERT_EQ(tasks.size(), 1);
     ASSERT_TRUE(tasks[0].status.has_value());
-    ASSERT_EQ(tasks[0].status->variant, synnax::status::VARIANT_INFO);
-    ASSERT_EQ(tasks[0].status->message, "Task info");
+    ASSERT_EQ(tasks[0].status.value().variant, synnax::status::VARIANT_INFO);
+    ASSERT_EQ(tasks[0].status.value().message, "Task info");
 }
 /// @brief it should retrieve multiple tasks by their names.
 TEST(TaskTests, testRetrieveTasksByNames) {
@@ -289,7 +292,7 @@ TEST(StatusDetailsTests, testParseFromJSON) {
     ASSERT_EQ(details.cmd, "start");
     ASSERT_EQ(details.running, true);
     ASSERT_TRUE(details.data.has_value());
-    ASSERT_EQ((*details.data)["routing_key"], "rk");
+    ASSERT_EQ((details.data.value())["routing_key"], "rk");
 }
 
 /// @brief it should correctly serialize StatusDetails to JSON.
@@ -324,8 +327,8 @@ TEST(StatusDetailsTests, testRoundTrip) {
     ASSERT_EQ(recovered.cmd, original.cmd);
     ASSERT_EQ(recovered.running, original.running);
     ASSERT_TRUE(recovered.data.has_value());
-    ASSERT_EQ((*recovered.data)["config"], "test");
-    ASSERT_EQ((*recovered.data)["version"], 2);
+    ASSERT_EQ((recovered.data.value())["config"], "test");
+    ASSERT_EQ((recovered.data.value())["version"], 2);
 }
 
 /// @brief it should report a config that does not convert instead of sending an empty

@@ -50,16 +50,13 @@ describe("clipboard.writeText", () => {
     expect(document.querySelector("textarea")).toBeNull();
   });
 
-  it("should reject with the API's denial as the cause when both paths fail", async () => {
+  it("should reject with the API's denial when both paths fail", async () => {
     const denial = new Error("denied");
     stubClipboardWriteText(async () => {
       throw denial;
     });
     stubCopyCommand(false);
-    await expect(clipboard.writeText("hello")).rejects.toMatchObject({
-      message: "Failed to copy to the clipboard",
-      cause: denial,
-    });
+    await expect(clipboard.writeText("hello")).rejects.toBe(denial);
   });
 
   it("should clean up and reject when the command throws", async () => {
@@ -73,7 +70,7 @@ describe("clipboard.writeText", () => {
     stubClipboardUnavailable();
     stubCopyCommandUnavailable();
     await expect(clipboard.writeText("hello")).rejects.toThrow(
-      "Failed to copy to the clipboard",
+      new Error("The browser did not allow the copy."),
     );
   });
 });

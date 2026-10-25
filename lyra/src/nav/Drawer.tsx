@@ -42,7 +42,7 @@ export const Drawer = ({
       setDragCollapsed(next);
       if (!next) onResize?.(size, extra);
     },
-    [onResize, underCollapseThreshold],
+    [collapsedRef, onResize, underCollapseThreshold],
   );
   const handleResizeEnd = useCallback(
     (size: number, extra: Resize.HandlerExtra) => {
@@ -51,7 +51,7 @@ export const Drawer = ({
       if (underCollapseThreshold(size, extra)) onCollapse?.();
       else onResizeEnd?.(size, extra);
     },
-    [onResizeEnd, onCollapse, underCollapseThreshold],
+    [collapsedRef, onResizeEnd, onCollapse, underCollapseThreshold],
   );
   return (
     <Resize.Single

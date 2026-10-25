@@ -19,7 +19,7 @@ import (
 
 func TestLog(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Driver Log Suite")
+	RunSpecs(t, "Driver Log Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

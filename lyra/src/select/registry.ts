@@ -8,7 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type destructor, type record } from "@synnaxlabs/x";
-import { useLayoutEffect, useMemo, useReducer, useRef } from "react";
+import {
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useSyncExternalStore,
+} from "react";
 
 import { context } from "@/context";
 import { CSS } from "@/css";
@@ -127,9 +134,7 @@ const useRegistry = (): Registry => {
       },
       countVisible: () => {
         let count = 0;
-        itemsRef.current.forEach(({ hidden }) => {
-          if (!hidden) count++;
-        });
+        for (const { hidden } of itemsRef.current.values()) if (!hidden) count++;
         return count;
       },
       getLabel: (key) => {
@@ -143,7 +148,7 @@ const useRegistry = (): Registry => {
       },
       subscribe,
     }),
-    [notifyListeners, subscribe],
+    [itemsRef, labelsRef, notifyListeners, subscribe],
   );
 };
 
@@ -154,27 +159,29 @@ const [RegistryContext, useRegistryContext] = context.create<Registry>({
 
 export { RegistryContext, useRegistry, useRegistryContext };
 
-// Items register in layout effects, after their readers render. useSyncExternalStore
-// subscribes after paint, so a reader would paint its stale value for one frame.
 const useRegistryValue = <T>(
   name: string,
   get: (registry: Registry, key?: record.Key) => T,
   key?: record.Key,
 ): T => {
   const registry = useRegistryContext(name);
+  const subscribe = useCallback(
+    (listener: () => void) => registry.subscribe(listener, key),
+    [registry, key],
+  );
+  const getSnapshot = useCallback(() => get(registry, key), [get, registry, key]);
+  const value = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  // Items register in layout effects, after their readers render, and the store above
+  // subscribes only after paint. Listening from a layout effect as well re-renders the
+  // reader before it paints a stale value.
   const [, rerender] = useReducer((n: number) => n + 1, 0);
-  const value = get(registry, key);
-  const renderedRef = useRef(value);
-  useLayoutEffect(() => {
-    renderedRef.current = value;
-  });
   useLayoutEffect(() => {
     const check = (): void => {
-      if (get(registry, key) !== renderedRef.current) rerender();
+      if (getSnapshot() !== value) rerender();
     };
     check();
-    return registry.subscribe(check, key);
-  }, [registry, get, key]);
+    return subscribe(check);
+  }, [subscribe, getSnapshot, value]);
   return value;
 };
 

@@ -10,6 +10,7 @@
 import { type ontology, type Synnax } from "@synnaxlabs/client";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { type Tree } from "@synnaxlabs/lyra/tree";
+import { type destructor } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { type Panel } from "@/platform/panel";
@@ -26,6 +27,8 @@ export interface TreeState {
   setNodes: (nodes: Tree.Node[]) => void;
   setResource: (resource: ontology.Resource | ontology.Resource[]) => void;
   getResource: GetResource;
+  /** Calls the handler when the resource with the given key changes. */
+  subscribeResource: (handler: () => void, key: string) => destructor.Destructor;
   setSelection: (keys: string[]) => void;
   expand: (key: string) => void;
   contract: (key: string) => void;

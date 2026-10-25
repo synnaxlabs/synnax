@@ -10,7 +10,7 @@
 import "@/input/DragButton.css";
 
 import { box, type direction, xy } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo, useRef } from "react";
+import { type ReactElement, useRef } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
@@ -88,71 +88,45 @@ export const DragButton = ({
   disabled,
   ...rest
 }: DragButtonProps): ReactElement => {
-  const vRef = useRef({
-    dragging: false,
-    curr: value,
-    prev: value,
-  });
+  // The value a drag scrubs from, held until the drag ends.
+  const startRef = useRef<number | null>(null);
   const elRef = useRef<HTMLButtonElement>(null);
 
-  if (!vRef.current.dragging) vRef.current.prev = value;
+  const scale = xy.construct(dragScale);
+  let normalDragScale = scale;
+  if (dragDirection === "x") normalDragScale = xy.construct(scale.x, 0);
+  else if (dragDirection === "y") normalDragScale = xy.construct(0, scale.y);
+  const normalDragThreshold =
+    dragThreshold != null ? xy.construct(dragThreshold) : null;
 
-  const normalDragScale = useMemo(() => {
-    const scale = xy.construct(dragScale);
-    if (dragDirection === "x") return xy.construct(scale.x, 0);
-    if (dragDirection === "y") return xy.construct(0, scale.y);
-    return scale;
-  }, [dragScale, dragDirection]);
-
-  const normalDragThreshold = useMemo(
-    () => (dragThreshold != null ? xy.construct(dragThreshold) : null),
-    [dragThreshold],
-  );
+  const scrub = (b: box.Box, el: HTMLElement): number => {
+    if (startRef.current == null) startRef.current = value;
+    return calculateValue(
+      startRef.current,
+      b,
+      normalDragScale,
+      normalDragThreshold,
+      box.construct(el),
+    );
+  };
 
   Cursor.useVirtualDrag({
     ref: elRef,
-    onMove: useCallback(
-      (b: box.Box) => {
-        if (elRef.current == null || disabled) return;
-        let value = vRef.current.prev;
-        vRef.current.dragging = true;
-        value = calculateValue(
-          value,
-          b,
-          normalDragScale,
-          normalDragThreshold,
-          box.construct(elRef.current),
-        );
-        vRef.current.curr = value;
-        onChange(value);
-      },
-      [onChange, normalDragScale, normalDragThreshold, disabled],
-    ),
-    onEnd: useCallback(
-      (b: box.Box, _: unknown) => {
-        if (elRef.current == null || disabled) return;
-        let value = vRef.current.prev;
-        value = calculateValue(
-          value,
-          b,
-          normalDragScale,
-          normalDragThreshold,
-          box.construct(elRef.current),
-        );
-
-        vRef.current.prev = value;
-        vRef.current.dragging = false;
-        Cursor.clearGlobalStyle();
-        onDragEnd?.(value);
-        rest.onBlur?.();
-      },
-      [rest.onBlur, onDragEnd, normalDragScale, normalDragThreshold, disabled],
-    ),
+    onMove: (b: box.Box) => {
+      if (elRef.current == null || disabled) return;
+      onChange(scrub(b, elRef.current));
+    },
+    onEnd: (b: box.Box) => {
+      if (elRef.current == null || disabled) return;
+      const next = scrub(b, elRef.current);
+      startRef.current = null;
+      Cursor.clearGlobalStyle();
+      onDragEnd?.(next);
+      rest.onBlur?.();
+    },
   });
 
-  const handleDoubleClick = useCallback(() => {
-    onChange(resetValue ?? vRef.current.prev);
-  }, [onChange, resetValue]);
+  const handleDoubleClick = () => onChange(resetValue ?? value);
 
   return (
     <Button.Button

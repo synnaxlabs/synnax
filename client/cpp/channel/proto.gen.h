@@ -70,7 +70,7 @@ Operation::to_proto() const {
         if (err) return {{}, err};
         pb.set_type(v);
     }
-    pb.set_reset_channel(static_cast<uint32_t>(this->reset_channel));
+    pb.set_reset_channel(this->reset_channel);
     pb.set_duration(this->duration.to_proto());
     return {pb, x::errors::NIL};
 }
@@ -83,7 +83,7 @@ Operation::from_proto(const ::service::channel::pb::Operation &pb) {
         if (err) return {{}, err};
         cpp.type = v;
     }
-    cpp.reset_channel = Key(pb.reset_channel());
+    cpp.reset_channel = pb.reset_channel();
     cpp.duration = ::x::telem::TimeSpan::from_proto(pb.duration());
     return {cpp, x::errors::NIL};
 }
@@ -91,12 +91,12 @@ Operation::from_proto(const ::service::channel::pb::Operation &pb) {
 inline std::pair<::api::channel::pb::Channel, x::errors::Error>
 Channel::to_proto() const {
     ::api::channel::pb::Channel pb;
-    pb.set_key(static_cast<uint32_t>(this->key));
+    pb.set_key(this->key);
     pb.set_name(this->name);
-    pb.set_leaseholder(static_cast<uint32_t>(this->leaseholder));
+    pb.set_leaseholder(this->leaseholder);
     pb.set_data_type(this->data_type.to_proto());
     pb.set_is_index(this->is_index);
-    pb.set_index(static_cast<uint32_t>(this->index));
+    pb.set_index(this->index);
     if (this->alias.has_value()) pb.set_alias(*this->alias);
     pb.set_virtual_(this->is_virtual);
     pb.set_internal(this->internal);
@@ -118,12 +118,12 @@ Channel::to_proto() const {
 inline std::pair<Channel, x::errors::Error>
 Channel::from_proto(const ::api::channel::pb::Channel &pb) {
     Channel cpp;
-    cpp.key = Key(pb.key());
+    cpp.key = pb.key();
     cpp.name = pb.name();
-    cpp.leaseholder = ::synnax::node::Key(pb.leaseholder());
+    cpp.leaseholder = pb.leaseholder();
     cpp.data_type = ::x::telem::DataType::from_proto(pb.data_type());
     cpp.is_index = pb.is_index();
-    cpp.index = Key(pb.index());
+    cpp.index = pb.index();
     if (pb.has_alias()) cpp.alias = pb.alias();
     cpp.is_virtual = pb.virtual_();
     cpp.internal = pb.internal();

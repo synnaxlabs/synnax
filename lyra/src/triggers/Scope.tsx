@@ -30,11 +30,11 @@ export interface ScopeProps extends PropsWithChildren {
 }
 
 /**
- * Scope withholds trigger events from every {@link use} subscriber in its subtree while
- * active resolves false. Scopes nest: an inner scope cannot re-enable triggers that an
- * outer one has switched off. Keep active's identity stable. Every subscriber in the
- * subtree re-renders when it changes, so an inline arrow re-renders all of them on
- * every render of this scope.
+ * Scope withholds trigger events from every {@link use} subscriber in its subtree
+ * while active resolves false. Scopes nest: an inner scope cannot re-enable triggers
+ * that an outer one has switched off. Keep active's identity stable. Every subscriber
+ * in the subtree re-renders when it changes, so an inline arrow re-renders all of them
+ * on every render of this scope.
  */
 export const Scope = ({ active, children }: ScopeProps): ReactElement => {
   const parent = useScope();

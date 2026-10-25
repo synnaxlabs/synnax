@@ -12,6 +12,7 @@ package http
 import (
 	"context"
 	"encoding/json/v2"
+	"io"
 	"slices"
 	"strings"
 	"sync"
@@ -98,6 +99,16 @@ func BindTo(f *fiber.App) error {
 		streamEventuallyResponseWithMessage,
 	)
 
+	// Uncompressed, so the body leaves the server before the encoder fails.
+	unaryTruncatedServer := router.NewUnaryServer[Message, Message](
+		"/unary/truncated",
+		http.WithResponseEncoders(truncatingEncoder{}),
+		http.WithStreamingResponse(),
+	)
+	unaryTruncatedServer.BindHandler(
+		func(_ context.Context, req Message) (Message, error) { return req, nil },
+	)
+
 	router.BindTo(f)
 
 	// Bound as a raw fiber route rather than a freighter unary server because freighter
@@ -115,6 +126,29 @@ func BindTo(f *fiber.App) error {
 	})
 
 	return nil
+}
+
+// truncatingEncoder writes the message once per unit of its ID, then fails. It lets
+// clients verify that they reject a streamed body the server cuts short.
+type truncatingEncoder struct{}
+
+func (truncatingEncoder) ContentType() string { return "application/x-truncated" }
+
+func (truncatingEncoder) Encode(context.Context, any) ([]byte, error) {
+	return nil, errors.New("truncating encoder only streams")
+}
+
+func (truncatingEncoder) EncodeStream(_ context.Context, w io.Writer, v any) error {
+	msg, ok := v.(Message)
+	if !ok {
+		return errors.Newf("truncating encoder cannot encode %T", v)
+	}
+	for range msg.ID {
+		if _, err := w.Write([]byte(msg.Message)); err != nil {
+			return err
+		}
+	}
+	return errors.New("truncating encoder failed partway")
 }
 
 func checkMiddleware(

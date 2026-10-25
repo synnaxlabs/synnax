@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PageNavNode } from "@/components/nav/Page";
+import { labels, type PageNavNode } from "@/components/nav/tree";
 import { FLAGS } from "@/flags";
 import { CLIENT_NAV } from "@/pages/reference/client/_nav";
 import { CONCEPTS_NAV } from "@/pages/reference/concepts/_nav";
@@ -25,10 +25,9 @@ const visible = (nodes: PageNavNode[]): PageNavNode[] =>
     );
 
 export const REFERENCE_PAGES: PageNavNode[] = visible([
-  { name: "Get started", key: "/reference/", href: "/reference/" },
+  { name: "Get started", href: "/reference/" },
   {
     name: "Installation",
-    key: "/reference/installation",
     href: "/reference/installation",
   },
   CONCEPTS_NAV,
@@ -39,10 +38,11 @@ export const REFERENCE_PAGES: PageNavNode[] = visible([
   DRIVER_NAV,
 ]);
 
-const contains = (node: PageNavNode, route: string): boolean =>
-  (node.href != null && normalizeRoute(node.href) === route) ||
-  (node.children?.some((child) => contains(child, route)) ?? false);
+const LABELS = labels(REFERENCE_PAGES);
 
-/** Returns the name of the nav section that holds a route, if one does. */
-export const sectionOf = (route: string): string | undefined =>
-  REFERENCE_PAGES.find((node) => node.children != null && contains(node, route))?.name;
+/**
+ * Returns the nav name of a route. A route that the pages of a group share, such as the
+ * route of its overview page, takes the name of the group.
+ */
+export const labelOf = (route: string): string | undefined =>
+  LABELS.get(normalizeRoute(route));

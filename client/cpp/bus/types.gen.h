@@ -68,8 +68,7 @@ struct WriteField {
 /// @brief PollConfig configures how a read task polls messages that carry a query.
 struct PollConfig {
     /// @brief rate is the rate, in Hertz, at which the task sends the query of each
-    /// message
-    /// that has one.
+    /// message that has one.
     ::x::telem::Rate rate = ::x::telem::Rate(1);
     /// @brief timeout is how long the task waits for a reply before it counts a miss.
     ::x::telem::TimeSpan timeout = ::x::telem::TimeSpan(1000000000);
@@ -184,8 +183,7 @@ struct ReadConfig : public ::synnax::task::PersistConfig,
     /// @brief device is the key of the device the task reads from.
     ::synnax::device::Key device = "";
     /// @brief raw is the virtual bytes channel every received frame is written to,
-    /// known or
-    /// unknown. Zero when the task does not stream raw frames.
+    /// known or unknown. Zero when the task does not stream raw frames.
     ::synnax::channel::Key raw = ::synnax::channel::Key(0);
     /// @brief messages are the messages the task decodes.
     std::vector<ReadMessage> messages;

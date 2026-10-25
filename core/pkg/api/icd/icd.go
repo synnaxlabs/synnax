@@ -12,16 +12,50 @@ package icd
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/library"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	xconfig "github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
 )
+
+// ServiceConfig is the configuration for the ICD API service.
+type ServiceConfig struct {
+	// ICD stores, checks, and retrieves interface control documents.
+	//
+	// [REQUIRED]
+	ICD *icd.Service
+	// RBAC enforces access control on every request.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
+}
+
+var (
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for the ICD API service.
+	DefaultServiceConfig = ServiceConfig{}
+)
+
+// Override implements config.Config.
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.ICD = override.Nil(c.ICD, other.ICD)
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	return c
+}
+
+// Validate implements config.Config.
+func (c ServiceConfig) Validate() error {
+	v := validate.New("api.icd")
+	v.NotNil("icd", c.ICD)
+	v.NotNil("rbac", c.RBAC)
+	return v.Error()
+}
 
 // Service is the API for interface control documents.
 type Service struct {
@@ -30,12 +64,12 @@ type Service struct {
 }
 
 // NewService creates the ICD API service.
-func NewService(cfgs ...config.LayerConfig) (*Service, error) {
-	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	return &Service{internal: cfg.Service.ICD, access: cfg.Service.RBAC}, nil
+	return &Service{internal: cfg.ICD, access: cfg.RBAC}, nil
 }
 
 type (

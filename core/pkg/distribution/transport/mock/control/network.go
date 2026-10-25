@@ -10,6 +10,9 @@
 package control
 
 import (
+	"context"
+	"sync/atomic"
+
 	"github.com/synnaxlabs/freighter/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/control"
 	"github.com/synnaxlabs/x/address"
@@ -21,6 +24,7 @@ import (
 type Network struct {
 	retrieve  *mock.Network[control.RetrieveRequest, control.RetrieveResponse]
 	subscribe *mock.Network[control.SubscribeRequest, control.SubscribeResponse]
+	live      atomic.Int64
 }
 
 func NewNetwork() *Network {
@@ -37,11 +41,49 @@ func NewNetwork() *Network {
 // channel buffer size for the subscription streams.
 func (n *Network) New(addr address.Address, buffers ...int) control.Transport {
 	return transport{
-		retrieveClient:  n.retrieve.UnaryClient(),
-		retrieveServer:  n.retrieve.UnaryServer(addr),
-		subscribeClient: n.subscribe.StreamClient(buffers...),
+		retrieveClient: n.retrieve.UnaryClient(),
+		retrieveServer: n.retrieve.UnaryServer(addr),
+		subscribeClient: countingClient{
+			SubscribeClient: n.subscribe.StreamClient(buffers...),
+			live:            &n.live,
+		},
 		subscribeServer: n.subscribe.StreamServer(addr, buffers...),
 	}
+}
+
+// Subscriptions returns how many subscription streams opened by clients on the network
+// have received a response, including streams since closed.
+func (n *Network) Subscriptions() int { return int(n.live.Load()) }
+
+type countingClient struct {
+	control.SubscribeClient
+	live *atomic.Int64
+}
+
+func (c countingClient) Stream(
+	ctx context.Context,
+	target address.Address,
+) (control.SubscribeClientStream, error) {
+	stream, err := c.SubscribeClient.Stream(ctx, target)
+	if err != nil {
+		return nil, err
+	}
+	return &countingStream{SubscribeClientStream: stream, live: c.live}, nil
+}
+
+type countingStream struct {
+	control.SubscribeClientStream
+	live     *atomic.Int64
+	received bool
+}
+
+func (s *countingStream) Receive() (control.SubscribeResponse, error) {
+	res, err := s.SubscribeClientStream.Receive()
+	if err == nil && !s.received {
+		s.received = true
+		s.live.Add(1)
+	}
+	return res, err
 }
 
 type transport struct {

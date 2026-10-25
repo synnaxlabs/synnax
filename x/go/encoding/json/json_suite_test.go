@@ -19,7 +19,7 @@ import (
 
 func TestJSON(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Encoding JSON Suite")
+	RunSpecs(t, "Encoding JSON Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -12,27 +12,16 @@
 #include "x/cpp/telem/clock_skew.h"
 
 namespace x::telem {
-// A mock global time variable to simulate custom time behavior.
-static TimeStamp mockTime(0);
-
-// Custom "now()" function that returns the current mock time.
-TimeStamp customNow() {
-    return mockTime;
-}
-
 /// @brief it should correctly calculate clock skew from a single measurement.
 TEST(ClockSkewCalculatorTest, SingleMeasurement) {
-    // Reset mock time to 0 for a clean test.
-    mockTime = TimeStamp(0);
-
-    // Create ClockSkewCalculator with our custom "now" function.
-    ClockSkewCalculator calc(customNow);
+    auto now = TimeStamp(0);
+    ClockSkewCalculator calc([&now] { return now; });
 
     // Local system starts measuring.
     calc.start(); // local_start_t = 0
 
     // Advance the local clock by 10 ns.
-    mockTime = TimeStamp(10);
+    now = TimeStamp(10);
 
     // Suppose the remote system's midpoint was 3 ns at the same "real" point in time.
     const TimeStamp remoteMidpoint(3);
@@ -50,14 +39,13 @@ TEST(ClockSkewCalculatorTest, SingleMeasurement) {
 
 /// @brief it should report zero skew when local and remote times match perfectly.
 TEST(ClockSkewCalculatorTest, ZeroSkewScenario) {
-    // Reset mock time to 0.
-    mockTime = TimeStamp(0);
-    ClockSkewCalculator calc(customNow);
+    auto now = TimeStamp(0);
+    ClockSkewCalculator calc([&now] { return now; });
 
     // Pretend local and remote times match perfectly.
     calc.start();
     // Move local time forward by 1000.
-    mockTime = TimeStamp(1000);
+    now = TimeStamp(1000);
     // If remote time is exactly the same midpoint (500 behind us from the start),
     // that forces the skew to be zero.
     calc.end(TimeStamp(500));

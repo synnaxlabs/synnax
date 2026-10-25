@@ -33,14 +33,15 @@ export const useCopyToClipboard = (): CopyToClipboard => {
       if (clusterKey == null) {
         addStatus({
           variant: "error",
-          message: `Failed to copy link to ${name}`,
+          name,
+          message: "Failed to copy link",
           description: "Connect to the Core to get a link to its cluster.",
         });
         return;
       }
       let url = `${PREFIX}${clusterKey}`;
       if (ontologyID != null) url += `/${ontologyID.type}/${ontologyID.key}`;
-      return copy(url, `link to ${name}`);
+      return copy(url, "link", name);
     },
     [copy, addStatus],
   );

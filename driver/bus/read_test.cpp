@@ -79,7 +79,7 @@ public:
         if (!this->started) { ASSERT_NIL(this->start()); }
         x::telem::Frame fr;
         const auto res = this->source->read(this->breaker, fr);
-        this->out.warning = res.warning;
+        this->out.warning = res.warning.description;
         this->out.error = res.error;
         for (const auto &[key, series]: fr) {
             if (key == this->raw) {

@@ -30,15 +30,17 @@
 
 namespace driver::arc::status {
 
-// Reporter message templates. Keep in sync with
-// core/pkg/service/arc/status/status.go.
-inline std::string set_failure_msg(const std::string &err) {
-    return "status.set: " + err;
-}
-inline std::string
-set_multi_match_msg(const std::string &key_or_name, const std::string &resolved_key) {
-    return "status.set: multiple statuses named \"" + key_or_name +
-           "\"; updated first match (" + resolved_key + ")";
+// Reporter text. Keep in sync with core/pkg/service/arc/status/status.go.
+const std::string SET_FAILURE_MSG = "Failed to set status";
+const std::string MULTI_MATCH_MSG = "Found duplicate status names";
+/// @brief returns the description for a set that matched more than one status.
+inline std::string multi_match_description(
+    const std::string &key_or_name,
+    const std::string &resolved_key
+) {
+    return "Several statuses are named \"" + key_or_name +
+           "\". Updated the first match, " + resolved_key +
+           ". Give each status a unique name, or set it by key.";
 }
 
 /// @brief Upserts a status via the core API and surfaces failures via report.
@@ -55,10 +57,11 @@ inline std::string dispatch_set(
     if (err) {
         LOG(ERROR) << "status.set failed: key_or_name=" << key_or_name
                    << " error=" << err.data;
-        report(set_failure_msg(err.data));
+        report(SET_FAILURE_MSG, err.data);
         return "";
     }
-    if (res.multiple_matches) report(set_multi_match_msg(key_or_name, res.key));
+    if (res.multiple_matches)
+        report(MULTI_MATCH_MSG, multi_match_description(key_or_name, res.key));
     return res.key;
 }
 
@@ -126,7 +129,7 @@ public:
 
     [[nodiscard]] std::string module_name() const override { return "status"; }
 
-    bool handles(const std::string &node_type) const override {
+    [[nodiscard]] bool handles(const std::string &node_type) const override {
         return node_type == "set";
     }
 

@@ -14,10 +14,10 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp/migrate"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v8"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"go.uber.org/zap"
 )
 
@@ -160,14 +160,14 @@ func rejectedConfigsError(losses map[string]configLoss) error {
 }
 
 // Migration types stored schematic element configs, lifting them from v8 to v9.
-var Migration = gorp.NewInstrumentedEntryMigration(
+var Migration = migrate.NewInstrumentedEntry(
 	"v58_type_element_configs", migrateStored,
 )
 
 // ScaleMigration resets every stored config scale that is not positive to the schema
 // default of 1. A zero scale sizes a symbol to nothing, so it hides the symbol while
 // its label and control state still render.
-var ScaleMigration = gorp.NewEntryMigration(
+var ScaleMigration = migrate.NewEntry(
 	"v59_positive_scale",
 	func(_ context.Context, s Schematic) (Schematic, error) {
 		for k, cfg := range s.Configs {

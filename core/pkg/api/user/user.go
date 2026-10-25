@@ -12,37 +12,85 @@ package user
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
 )
+
+// ServiceConfig is the configuration for the user API service.
+type ServiceConfig struct {
+	// RBAC enforces access control on every request.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
+	// User stores and retrieves users.
+	//
+	// [REQUIRED]
+	User *user.Service
+	// Password stores passwords and checks proofs of them.
+	//
+	// [REQUIRED]
+	Password *password.Service
+	// Auth logs subjects in and checks their session tokens.
+	//
+	// [REQUIRED]
+	Auth *svcauth.Service
+}
+
+var (
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for the user API service.
+	DefaultServiceConfig = ServiceConfig{}
+)
+
+// Override implements config.Config.
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	c.User = override.Nil(c.User, other.User)
+	c.Password = override.Nil(c.Password, other.Password)
+	c.Auth = override.Nil(c.Auth, other.Auth)
+	return c
+}
+
+// Validate implements config.Config.
+func (c ServiceConfig) Validate() error {
+	v := validate.New("api.user")
+	v.NotNil("rbac", c.RBAC)
+	v.NotNil("user", c.User)
+	v.NotNil("password", c.Password)
+	v.NotNil("auth", c.Auth)
+	return v.Error()
+}
 
 // Service is the core authentication service for the Synnax API.
 type Service struct {
 	access   *rbac.Service
 	internal *user.Service
 	password *password.Service
+	auth     *svcauth.Service
 }
 
 // NewService creates a new Service that allows for registering, updating, and removing
 // users.
-func NewService(cfgs ...config.LayerConfig) (*Service, error) {
-	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	return &Service{
-		access:   cfg.Service.RBAC,
-		internal: cfg.Service.User,
-		password: cfg.Service.Password,
+		access:   cfg.RBAC,
+		internal: cfg.User,
+		password: cfg.Password,
+		auth:     cfg.Auth,
 	}, nil
 }
 
@@ -220,6 +268,6 @@ func (s *Service) Delete(
 	if err := s.internal.NewWriter(tx).Delete(ctx, req.Keys...); err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.password.NewWriter(tx).
+	return struct{}{}, s.auth.NewWriter(tx).
 		DeleteFor(ctx, user.OntologyIDsFromKeys(req.Keys)...)
 }

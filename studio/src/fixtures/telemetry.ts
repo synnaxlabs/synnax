@@ -14,6 +14,12 @@ import { connect, type ConnectionOptions } from "@/fixtures/client";
 export interface TelemetryOptions extends ConnectionOptions {
   /** Wall-clock milliseconds between samples. */
   periodMs?: number;
+  /** Prefix for the channel names: "tank" creates tank_time, tank_pressure, etc. */
+  prefix?: string;
+  /** Center of the pressure waveform. */
+  base?: number;
+  /** Amplitude of the pressure waveform's slow swing. */
+  swing?: number;
 }
 
 export interface TelemetryFixture {
@@ -31,19 +37,22 @@ export interface TelemetryFixture {
  */
 export const sineTelemetry = async ({
   periodMs = 40,
+  prefix = "demo",
+  base = 60,
+  swing = 25,
   ...opts
 }: TelemetryOptions = {}): Promise<TelemetryFixture> => {
   const client = connect(opts);
   const time = await client.channels.create(
-    { name: "demo_time", isIndex: true, dataType: "timestamp" },
+    { name: `${prefix}_time`, isIndex: true, dataType: "timestamp" },
     { retrieveIfNameExists: true },
   );
   const pressure = await client.channels.create(
-    { name: "demo_pressure", dataType: "float32", index: time.key },
+    { name: `${prefix}_pressure`, dataType: "float32", index: time.key },
     { retrieveIfNameExists: true },
   );
   const temperature = await client.channels.create(
-    { name: "demo_temperature", dataType: "float32", index: time.key },
+    { name: `${prefix}_temperature`, dataType: "float32", index: time.key },
     { retrieveIfNameExists: true },
   );
 
@@ -60,7 +69,7 @@ export const sineTelemetry = async ({
       i++;
       await writer.write({
         [time.key]: TimeStamp.now(),
-        [pressure.key]: 60 + 25 * Math.sin(i / 25) + 2 * Math.sin(i / 3),
+        [pressure.key]: base + swing * Math.sin(i / 25) + 2 * Math.sin(i / 3),
         [temperature.key]: 21 + 8 * Math.cos(i / 40) + 0.4 * Math.sin(i / 5),
       });
     }

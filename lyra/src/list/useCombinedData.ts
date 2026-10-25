@@ -31,28 +31,31 @@ export const useCombinedData = <
   first,
   second,
 }: UseCombinedDataParams<K, E>): FrameProps<K, E> => {
-  const data = useMemo(
-    () => [...first.data, ...second.data],
-    [first.data, second.data],
-  );
+  const { data: firstData, getItem: firstGetItem, subscribe: firstSubscribe } = first;
+  const {
+    data: secondData,
+    getItem: secondGetItem,
+    subscribe: secondSubscribe,
+  } = second;
+  const data = useMemo(() => [...firstData, ...secondData], [firstData, secondData]);
   const getItem = useCallback(
     (key: K | K[]) => {
       if (Array.isArray(key)) {
-        const firstGotten = first.getItem?.(key) ?? [];
-        const secondGotten = second.getItem?.(key) ?? [];
+        const firstGotten = firstGetItem?.(key) ?? [];
+        const secondGotten = secondGetItem?.(key) ?? [];
         return [...firstGotten, ...secondGotten];
       }
-      return first.getItem?.(key) ?? second.getItem?.(key);
+      return firstGetItem?.(key) ?? secondGetItem?.(key);
     },
-    [first.getItem, second.getItem],
+    [firstGetItem, secondGetItem],
   ) as GetItem<K, E>;
   const subscribe = useCallback(
     (callback: () => void, key: K) => {
-      const firstUnsub = first.subscribe?.(callback, key);
-      const secondUnsub = second.subscribe?.(callback, key);
+      const firstUnsub = firstSubscribe?.(callback, key);
+      const secondUnsub = secondSubscribe?.(callback, key);
       return () => destructor.unwind(firstUnsub, secondUnsub);
     },
-    [first.subscribe, second.subscribe],
+    [firstSubscribe, secondSubscribe],
   );
   return useMemo(() => ({ data, getItem, subscribe }), [data, getItem, subscribe]);
 };

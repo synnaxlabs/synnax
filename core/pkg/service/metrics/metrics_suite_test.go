@@ -37,7 +37,7 @@ var (
 
 func TestMetrics(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Metrics Suite")
+	RunSpecs(t, "Service Metrics Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

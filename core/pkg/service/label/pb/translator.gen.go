@@ -39,11 +39,10 @@ func LabelFromPB(pb *Label) (label.Label, error) {
 		return r, nil
 	}
 	var err error
-	parsedKey, err := uuid.Parse(pb.Key)
+	r.Key, err = uuid.Parse(pb.Key)
 	if err != nil {
 		return label.Label{}, err
 	}
-	r.Key = label.Key(parsedKey)
 	r.Color, err = colorpb.ColorFromPB(pb.Color)
 	if err != nil {
 		return label.Label{}, err

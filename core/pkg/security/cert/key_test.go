@@ -10,15 +10,10 @@
 package cert_test
 
 import (
-	"crypto/ecdsa"
-	"crypto/ed25519"
-	"crypto/elliptic"
 	"crypto/mldsa"
-	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
-	fs2 "io/fs"
 	"net"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -76,42 +71,20 @@ var _ = Describe("KeyAlgorithm", func() {
 			Entry("ML-DSA-65", cert.KeyAlgorithmMLDSA65, true),
 			Entry("ML-DSA-87", cert.KeyAlgorithmMLDSA87, true),
 		)
-
-		DescribeTable("should agree with SignsJWT on the key it generates",
-			func(algo cert.KeyAlgorithm) {
-				key := MustSucceed(algo.GenerateKey(mock.SmallKeySize))
-				Expect(cert.SignsJWT(key)).To(Equal(!algo.PostQuantum()))
-			},
-			Entry("RSA", cert.KeyAlgorithmRSA),
-			Entry("ML-DSA-44", cert.KeyAlgorithmMLDSA44),
-			Entry("ML-DSA-65", cert.KeyAlgorithmMLDSA65),
-			Entry("ML-DSA-87", cert.KeyAlgorithmMLDSA87),
-		)
 	})
 })
 
 var _ = Describe("CreateAll", func() {
-	DescribeTable("should create the token key only when the node key cannot sign JWTs",
-		func(algo cert.KeyAlgorithm, expectTokenKey bool) {
-			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
-				FS:           xfs.NewMem(),
-				Hosts:        []address.Address{"synnaxlabs.com"},
-				KeySize:      mock.SmallKeySize,
-				KeyAlgorithm: algo,
-			}))
-			Expect(f.CreateAll()).To(Succeed())
-			node, _ := MustSucceed2(f.Loader.LoadNodePair())
-			Expect(node.DNSNames).To(ConsistOf("synnaxlabs.com"))
-			if !expectTokenKey {
-				Expect(f.Loader.LoadTokenKey()).Error().To(MatchError(fs2.ErrNotExist))
-				return
-			}
-			Expect(MustSucceed(f.Loader.LoadTokenKey())).
-				To(BeAssignableToTypeOf(ed25519.PrivateKey{}))
-		},
-		Entry("RSA", cert.KeyAlgorithmRSA, false),
-		Entry("ML-DSA-65", cert.KeyAlgorithmMLDSA65, true),
-	)
+	It("should create the CA and node pairs", func() {
+		f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
+			FS:      xfs.NewMem(),
+			Hosts:   []address.Address{"synnaxlabs.com"},
+			KeySize: mock.SmallKeySize,
+		}))
+		Expect(f.CreateAll()).To(Succeed())
+		node, _ := MustSucceed2(f.Loader.LoadNodePair())
+		Expect(node.DNSNames).To(ConsistOf("synnaxlabs.com"))
+	})
 
 	It("should leave a covering node pair untouched", func() {
 		f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
@@ -125,27 +98,6 @@ var _ = Describe("CreateAll", func() {
 		after, _ := MustSucceed2(f.Loader.LoadNodePair())
 		Expect(after.SerialNumber).To(Equal(before.SerialNumber))
 	})
-})
-
-var _ = Describe("SignsJWT", func() {
-	DescribeTable("should report whether the key has a JWT signing method",
-		func(generate func() any, expected bool) {
-			Expect(cert.SignsJWT(generate())).To(Equal(expected))
-		},
-		Entry("RSA", func() any {
-			return MustSucceed(rsa.GenerateKey(rand.Reader, mock.SmallKeySize))
-		}, true),
-		Entry("ECDSA", func() any {
-			return MustSucceed(ecdsa.GenerateKey(elliptic.P256(), rand.Reader))
-		}, true),
-		Entry("Ed25519", func() any {
-			_, priv := MustSucceed2(ed25519.GenerateKey(rand.Reader))
-			return priv
-		}, true),
-		Entry("ML-DSA-65", func() any {
-			return MustSucceed(mldsa.GenerateKey(mldsa.MLDSA65()))
-		}, false),
-	)
 })
 
 var _ = Describe("Factory key algorithms", func() {
@@ -178,42 +130,6 @@ var _ = Describe("Factory key algorithms", func() {
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring("unsupported key algorithm")),
 		))
-	})
-})
-
-var _ = Describe("Token key", func() {
-	var f *cert.Factory
-
-	BeforeEach(func() {
-		f = MustSucceed(cert.NewFactory(cert.FactoryConfig{
-			FS:      xfs.NewMem(),
-			Hosts:   []address.Address{"synnaxlabs.com"},
-			KeySize: mock.SmallKeySize,
-		}))
-	})
-
-	It("should create an Ed25519 key that round trips through the loader", func() {
-		Expect(f.CreateTokenKeyIfMissing()).To(Succeed())
-		Expect(MustSucceed(f.Loader.LoadTokenKey())).
-			To(BeAssignableToTypeOf(ed25519.PrivateKey{}))
-	})
-
-	It("should leave an existing key untouched", func() {
-		Expect(f.CreateTokenKeyIfMissing()).To(Succeed())
-		first := MustSucceed(f.Loader.LoadTokenKey())
-		Expect(f.CreateTokenKeyIfMissing()).To(Succeed())
-		Expect(MustSucceed(f.Loader.LoadTokenKey())).To(Equal(first))
-	})
-
-	It("should report a missing key", func() {
-		Expect(f.Loader.LoadTokenKey()).Error().To(SatisfyAll(
-			MatchError(fs2.ErrNotExist),
-			MatchError(ContainSubstring("token signing key not found")),
-		))
-	})
-
-	It("should resolve the key's absolute path", func() {
-		Expect(f.Config().AbsoluteTokenKeyPath()).To(HaveSuffix("/token.key"))
 	})
 })
 

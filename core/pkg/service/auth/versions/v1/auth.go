@@ -9,7 +9,7 @@
 
 package v1
 
-import "github.com/synnaxlabs/x/gorp"
+import "github.com/synnaxlabs/gorp"
 
 var _ gorp.Entry[string] = SecureCredentials{}
 

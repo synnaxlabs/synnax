@@ -19,7 +19,7 @@ import (
 
 func TestBusV0(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Bus v0 Suite")
+	RunSpecs(t, "Service Bus v0 Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

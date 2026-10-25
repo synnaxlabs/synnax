@@ -14,7 +14,6 @@ package v2
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
-	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
@@ -266,14 +265,6 @@ func (r *Row) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (r Row) Validate() error {
-	v := validate.New("Row")
-	v.GreaterThanEq("size", r.Size, 1)
-	return v.Error()
-}
-
 // Column is a single column in a table, with width.
 type Column struct {
 	// Size is the width of the column in pixels.
@@ -285,14 +276,6 @@ func (c *Column) ApplyDefaults() {
 	if c.Size == 0 {
 		c.Size = 72
 	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (c Column) Validate() error {
-	v := validate.New("Column")
-	v.GreaterThanEq("size", c.Size, 1)
-	return v.Error()
 }
 
 // Table is a tabular data display component for viewing structured telemetry data.
@@ -331,13 +314,6 @@ func (t *Table) ApplyDefaults() {
 // schema constraints.
 func (t Table) Validate() error {
 	v := validate.New("Table")
-	v.NotEmptyString("name", t.Name)
-	for i := range t.Rows {
-		v.Exec(func() error { return validate.PathedError(t.Rows[i].Validate(), "rows", strconv.Itoa(i)) })
-	}
-	for i := range t.Columns {
-		v.Exec(func() error { return validate.PathedError(t.Columns[i].Validate(), "columns", strconv.Itoa(i)) })
-	}
 	for key, value := range t.Cells {
 		v.Exec(func() error { return validate.PathedError(value.Validate(), "cells", key) })
 	}

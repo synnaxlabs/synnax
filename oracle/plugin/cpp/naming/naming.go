@@ -18,6 +18,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
+	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
@@ -72,25 +73,16 @@ func Namespace(outputPath string) string {
 	return topLevel + "::" + strings.Join(rest, "::")
 }
 
-// PBNamespace converts a pb output path to a fully qualified C++ namespace.
-// This mirrors the package derivation logic in pb/types plugin:
-// - For "core/pkg/{layer}/{service}/pb" -> "::{layer}::{service}::pb"
-// - For "x/go/{service}/pb" -> "::x::{service}::pb"
-// - For other paths -> "::{first}::{last-before-pb}::pb"
-func PBNamespace(pbOutputPath string) string {
+// PBNamespace returns the C++ namespace of the protobuf package generated at
+// pbOutputPath for the schema namespace. It mirrors the pb/types plugin, which
+// takes the layer prefix from the path and the package name from the namespace:
+// - For "core/pkg/{layer}/.../pb" -> "::{layer}::{namespace}::pb"
+// - For "x/go/.../pb" -> "::x::{namespace}::pb"
+func PBNamespace(pbOutputPath, namespace string) string {
 	if pbOutputPath == "" {
 		return "pb"
 	}
 	parts := strings.Split(pbOutputPath, "/")
-	if len(parts) == 0 {
-		return "pb"
-	}
-
-	// Derive namespace (directory before /pb, or last component)
-	namespace := parts[len(parts)-1]
-	if namespace == "pb" && len(parts) >= 2 {
-		namespace = parts[len(parts)-2]
-	}
 
 	// Derive layer prefix (mirrors deriveLayerPrefix in pb/types)
 	var prefix string
@@ -103,6 +95,25 @@ func PBNamespace(pbOutputPath string) string {
 	}
 
 	return fmt.Sprintf("::%s::%s::pb", prefix, namespace)
+}
+
+// VariantPBNamespace returns the C++ namespace of the protobuf message a union variant
+// translates against, and the header that declares it. An inline variant's message
+// belongs to its union, and any other variant's to its payload struct. cpp/types
+// declares the variant's proto members and cpp/pb defines them, so both MUST derive the
+// message here.
+func VariantPBNamespace(
+	union resolution.Type,
+	v resolution.UnionVariant,
+	payload resolution.Type,
+) (namespace, header string) {
+	owner := union
+	if !v.Inline {
+		owner = payload
+	}
+	path := output.GetPBPath(owner)
+	return PBNamespace(path, owner.Namespace),
+		fmt.Sprintf("%s/%s.pb.h", path, owner.Namespace)
 }
 
 // PBName returns the type's @pb name override, or its declared name.

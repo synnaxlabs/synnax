@@ -16,7 +16,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp"
 )
 
 // symbolResolver resolves cluster channels into Arc symbols by name or numeric key. It

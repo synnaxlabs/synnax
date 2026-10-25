@@ -22,6 +22,7 @@ import {
 } from "react";
 
 import { context } from "@/context";
+import { useSyncedRef } from "@/hooks";
 
 export interface ContextValue {
   delay: CrudeTimeSpan;
@@ -69,14 +70,13 @@ export const Config = ({
 }: ConfigProps): ReactElement => {
   const lastClosed = useRef<TimeStamp | null>(null);
   const open = useRef<(() => void) | null>(null);
-  const skipDelayRef = useRef(skipDelay);
-  skipDelayRef.current = skipDelay;
+  const skipDelayRef = useSyncedRef(skipDelay);
 
   const isWarm = useCallback((): boolean => {
     if (lastClosed.current == null) return false;
     const since = TimeStamp.since(lastClosed.current);
     return since.valueOf() < new TimeSpan(skipDelayRef.current).valueOf();
-  }, []);
+  }, [skipDelayRef]);
   const markClosed = useCallback((): void => {
     lastClosed.current = TimeStamp.now();
   }, []);

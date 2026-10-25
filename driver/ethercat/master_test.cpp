@@ -530,7 +530,7 @@ TEST_F(MasterTest, InputOutputDataReadWrite) {
     uint32_t test_value = 0xDEADBEEF;
     this->master->set_input(0, test_value);
 
-    uint32_t read_value;
+    uint32_t read_value = 0;
     std::memcpy(&read_value, this->master->input_data().data(), sizeof(read_value));
     EXPECT_EQ(read_value, 0xDEADBEEF);
 

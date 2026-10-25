@@ -21,6 +21,7 @@ import (
 	fhttp "github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/freighter/test"
 	"github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/errors"
 	xhttp "github.com/synnaxlabs/x/http"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -204,6 +205,110 @@ var _ = Describe("Router", func() {
 				Expect(app.Shutdown()).To(Succeed())
 				Eventually(handlerCtxDone).Should(BeClosed())
 				Expect(stream.CloseSend()).To(Succeed())
+			},
+		)
+
+		It(
+			"should deliver a handler's result when it returns normally",
+			func(specCtx SpecContext) {
+				app := newFiberApp(fiber.Config{})
+				router := MustSucceed(fhttp.NewRouter())
+				server := router.NewStreamServer[test.Request, test.Response]("/stream")
+				server.Use(freighter.MiddlewareFunc(func(
+					ctx freighter.Context,
+					next freighter.Next,
+				) (freighter.Context, error) {
+					dCtx, cancel := context.WithCancelCause(ctx.Context)
+					defer cancel(nil)
+					ctx.Context = dCtx
+					return next(ctx)
+				}))
+				server.BindHandler(func(
+					_ context.Context,
+					stream freighter.ServerStream[test.Request, test.Response],
+				) error {
+					req, err := stream.Receive()
+					if err != nil {
+						return err
+					}
+					return stream.Send(test.Response(req))
+				})
+				router.BindTo(app)
+				addr := serveApp(app)
+				Eventually(func(g Gomega) {
+					g.Expect(pollHealth("http://" + addr.String() + "/anything")).
+						To(Succeed())
+				}).WithPolling(time.Millisecond).Should(Succeed())
+				client := MustSucceed(
+					fhttp.NewStreamClient[test.Request, test.Response](
+						fhttp.StreamClientConfig{Codec: json.Codec},
+					),
+				)
+				stream := MustSucceed(client.Stream(specCtx, addr+"/stream"))
+				Expect(stream.Send(test.Request{ID: 7, Message: "hello"})).To(Succeed())
+				Expect(MustSucceed(stream.Receive())).
+					To(Equal(test.Response{ID: 7, Message: "hello"}))
+				Expect(stream.Receive()).Error().To(MatchError(freighter.EOF))
+			},
+		)
+
+		It(
+			"should unblock a parked handler and tell the peer why when middleware cancels",
+			func(specCtx SpecContext) {
+				app := newFiberApp(fiber.Config{})
+				router := MustSucceed(fhttp.NewRouter())
+				errEnded := errors.New("session ended")
+				endSession := make(chan struct{})
+				server := router.NewStreamServer[test.Request, test.Response]("/stream")
+				server.Use(freighter.MiddlewareFunc(func(
+					ctx freighter.Context,
+					next freighter.Next,
+				) (freighter.Context, error) {
+					dCtx, cancel := context.WithCancelCause(ctx.Context)
+					defer cancel(nil)
+					go func() {
+						select {
+						case <-endSession:
+							cancel(errEnded)
+						case <-dCtx.Done():
+						}
+					}()
+					ctx.Context = dCtx
+					oCtx, err := next(ctx)
+					if cause := context.Cause(dCtx); errors.Is(cause, errEnded) {
+						return oCtx, cause
+					}
+					return oCtx, err
+				}))
+				handlerEntered := make(chan struct{})
+				received := make(chan error, 1)
+				server.BindHandler(func(
+					_ context.Context,
+					stream freighter.ServerStream[test.Request, test.Response],
+				) error {
+					close(handlerEntered)
+					_, err := stream.Receive()
+					received <- err
+					return err
+				})
+				router.BindTo(app)
+				addr := serveApp(app)
+				Eventually(func(g Gomega) {
+					g.Expect(
+						pollHealth("http://" + addr.String() + "/anything"),
+					).To(Succeed())
+				}).WithPolling(time.Millisecond).Should(Succeed())
+				client := MustSucceed(
+					fhttp.NewStreamClient[test.Request, test.Response](
+						fhttp.StreamClientConfig{Codec: json.Codec},
+					),
+				)
+				stream := MustSucceed(client.Stream(specCtx, addr+"/stream"))
+				Eventually(handlerEntered).Should(BeClosed())
+				close(endSession)
+				Eventually(received).Should(Receive())
+				Expect(stream.Receive()).Error().
+					To(MatchError(ContainSubstring("session ended")))
 			},
 		)
 	})

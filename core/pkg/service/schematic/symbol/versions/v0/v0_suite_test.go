@@ -19,7 +19,7 @@ import (
 
 func TestSymbolV0(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Schematic Symbol v0 Suite")
+	RunSpecs(t, "Service Schematic Symbol v0 Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

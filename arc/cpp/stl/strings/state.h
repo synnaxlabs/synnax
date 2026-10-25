@@ -58,7 +58,7 @@ public:
 
     /// Gets the string value for a handle. Handle 0 is the empty string (per
     /// create), returned without a lookup. Unknown handles return "".
-    std::string get(uint32_t handle) const {
+    [[nodiscard]] std::string get(uint32_t handle) const {
         if (handle == 0) return "";
         const auto it = this->handles.find(handle);
         if (it != this->handles.end()) return it->second;
@@ -69,7 +69,7 @@ public:
 
     /// Checks if a string handle exists. Handle 0 always exists as the empty
     /// string, matching the create("") -> 0 -> get(0) == "" round-trip.
-    bool exists(uint32_t handle) const {
+    [[nodiscard]] bool exists(uint32_t handle) const {
         if (handle == 0) return true;
         return this->handles.contains(handle) || this->literal_handles.contains(handle);
     }

@@ -10,6 +10,7 @@
 import { box, xy } from "@synnaxlabs/x";
 import { type RefObject, useCallback, useRef } from "react";
 
+import { useSyncedRef } from "@/hooks";
 import { use, type UseEvent } from "@/triggers/hooks";
 import { type Stage, type Trigger } from "@/triggers/triggers";
 
@@ -47,19 +48,22 @@ export const useDrag = ({
 }: UseDragProps): void => {
   const triggerRef = useRef<UseEvent | null>(null);
   const startLoc = useRef<xy.XY>(xy.ZERO);
+  // A move started under one onDrag must reach a later one, and release must remove the
+  // listener it added, so the listener keeps one identity.
+  const onDragRef = useSyncedRef(onDrag);
   const onMove = useCallback(
     (e: xy.Client & { buttons: number }) => {
       const cursor = xy.construct(e);
       if (triggerRef.current === null) return;
       const { triggers } = triggerRef.current;
-      onDrag({
+      onDragRef.current({
         box: box.construct(startLoc.current, cursor),
         cursor,
         triggers,
         stage: "during",
       });
     },
-    [onDrag],
+    [onDragRef],
   );
   const handleTrigger = useCallback(
     (event: UseEvent): void => {
@@ -76,7 +80,7 @@ export const useDrag = ({
         startLoc.current = xy.ZERO;
       }
     },
-    [onDrag],
+    [onDrag, onMove],
   );
   use({ triggers, callback: handleTrigger, region: bound, loose });
 };

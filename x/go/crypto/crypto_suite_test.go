@@ -19,7 +19,7 @@ import (
 
 func TestCrypto(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Crypto Suite")
+	RunSpecs(t, "Crypto Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

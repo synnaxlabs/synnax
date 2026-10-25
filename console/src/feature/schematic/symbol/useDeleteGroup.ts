@@ -23,10 +23,13 @@ export const useDeleteGroup = (): ((group: group.Group) => void) => {
   const { update } = Schematic.Symbol.useDeleteGroup();
   return useCallback(
     (g: group.Group) => {
-      handleError(async () => {
-        if (!(await confirmDelete(g))) return;
-        update(g.key);
-      }, `Failed to delete ${g.name}`);
+      handleError(
+        async () => {
+          if (!(await confirmDelete(g))) return;
+          update(g.key);
+        },
+        { message: "Failed to delete group", name: g.name },
+      );
     },
     [handleError, confirmDelete, update],
   );

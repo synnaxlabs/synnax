@@ -85,7 +85,7 @@ TEST_F(SchedulerTest, ReactivationAfterResetStampsFromTheNewCycle) {
     ASSERT_EQ(stage_node.reset_now.size(), 1);
     EXPECT_EQ(stage_node.reset_now[0], first);
 
-    s->reset();
+    (*s).reset();
     EXPECT_EQ(stage_node.reset_now.back(), first);
 
     const auto second = x::telem::TimeStamp(9 * x::telem::SECOND);

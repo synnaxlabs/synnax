@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <map>
 #include <string>
 #include <vector>
@@ -131,7 +132,7 @@ struct ExcitationConfig {
         max_val_for_excitation(0),
         use_excit_for_scaling(0) {}
 
-    ExcitationConfig(
+    explicit ExcitationConfig(
         const ::synnax::ni::VoltageExcitation &e,
         const bool use_excit_for_scaling = false
     ):
@@ -181,10 +182,10 @@ struct TableConfig {
     int32_t physical_units;
 
     TableConfig(const ::synnax::ni::Table &t, const std::string &physical_units_str):
-        electrical_vals(t.electrical_vals), physical_vals(t.physical_vals) {
-        electrical_units = units_or_volts(t.electrical_units);
-        physical_units = units_or_volts(physical_units_str);
-    }
+        electrical_vals(t.electrical_vals),
+        physical_vals(t.physical_vals),
+        electrical_units(units_or_volts(t.electrical_units)),
+        physical_units(units_or_volts(physical_units_str)) {}
 };
 
 struct TwoPointLinConfig {
@@ -211,7 +212,7 @@ struct TwoPointLinConfig {
 
 inline std::string format_cfg_path(const std::string &path) {
     auto formatted = path;
-    std::replace(formatted.begin(), formatted.end(), '.', '_');
+    std::ranges::replace(formatted, '.', '_');
     if (formatted.empty()) return formatted;
     formatted.pop_back();
     return formatted;
@@ -281,7 +282,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AIAccelChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -323,7 +324,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AIAccel4WireDCVoltageChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -367,7 +368,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AIAccelChargeChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -404,7 +405,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AIBridgeChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -437,7 +438,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AIChargeChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -467,7 +468,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AICurrentChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -500,7 +501,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AICurrentRMSChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -533,7 +534,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AIForceBridgePolynomialChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -573,7 +574,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AIForceBridgeTableChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -613,7 +614,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AIForceBridgeTwoPointLinChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -653,7 +654,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AIForceIEPEChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -695,7 +696,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AIFreqVoltageChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     auto [scale, scale_err] = make_scale(ch.custom_scale);
     if (scale_err) return scale_err;
@@ -726,7 +727,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AIMicrophoneChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -760,7 +761,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AIPressureBridgePolynomialChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -800,7 +801,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AIPressureBridgeTableChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -840,7 +841,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AIPressureBridgeTwoPointLinChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -880,7 +881,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AIRTDChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     const ExcitationConfig excitation_config(
@@ -912,7 +913,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AIResistanceChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -946,7 +947,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AIStrainGaugeChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -990,7 +991,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AITempBuiltinChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
@@ -1007,7 +1008,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AIThermistorIexChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     const auto a = ch.a;
@@ -1041,7 +1042,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AIThermistorVexChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     const auto a = ch.a;
@@ -1077,7 +1078,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AITorqueBridgePolynomialChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -1117,7 +1118,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AITorqueBridgeTableChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -1157,7 +1158,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AITorqueBridgeTwoPointLinChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -1197,7 +1198,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AIVelocityIEPEChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -1239,7 +1240,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AIVoltageChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -1268,7 +1269,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AIVoltageRMSChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -1297,7 +1298,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AIVoltageWithExcitChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -1332,7 +1333,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AOCurrentChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ao" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -1359,7 +1360,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AOFuncGenChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ao" + std::to_string(ch.port);
     const auto amplitude = ch.amplitude;
@@ -1381,7 +1382,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AOVoltageChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ao" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -1408,7 +1409,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::CIPositionAngularChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ctr" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -1482,7 +1483,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::CIVelocityAngularChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ctr" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -1540,7 +1541,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::CIDutyCycleChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ctr" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -1580,7 +1581,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::CIEdgeCountChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ctr" + std::to_string(ch.port);
     const auto count_direction = get_ci_count_direction(ch.count_direction);
@@ -1614,7 +1615,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::CIFrequencyChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ctr" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -1664,7 +1665,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::CIPositionLinearChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ctr" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -1738,7 +1739,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::CIVelocityLinearChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ctr" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -1796,7 +1797,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::CIPeriodChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ctr" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -1846,7 +1847,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::CIPulseWidthChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ctr" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -1890,7 +1891,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::CISemiPeriodChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ctr" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -1932,7 +1933,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::CITwoEdgeSepChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ctr" + std::to_string(ch.port);
     auto [scale, scale_err] = make_scale(ch.custom_scale);
@@ -1990,7 +1991,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::DIChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/port" + std::to_string(ch.port) + "/line" +
                      std::to_string(ch.line);
@@ -2006,7 +2007,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::DOChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/port" + std::to_string(ch.port) + "/line" +
                      std::to_string(ch.line);
@@ -2022,7 +2023,7 @@ inline x::errors::Error apply(
     const ::synnax::ni::AIThermocoupleChannel &ch,
     const ApplyContext &ctx,
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
+    TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     auto [units, units_err] = parse_units(ch.units);
@@ -2051,7 +2052,7 @@ using OutputUnion = std::variant<::synnax::ni::AOChannel, ::synnax::ni::DOChanne
 /// @brief invokes f with the leaf channel config: nested unions (AI, CI, AO) are
 /// visited through, plain structs (DI, DO) are passed straight to f.
 template<typename F, typename U>
-auto visit_leaf(F &&f, const U &u) {
+auto visit_leaf(const F &f, const U &u) {
     return std::visit(
         [&](const auto &alt) {
             if constexpr (requires { std::visit(f, alt); })

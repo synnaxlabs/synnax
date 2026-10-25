@@ -19,7 +19,7 @@ import (
 
 func TestGoQuery(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Go Query Suite")
+	RunSpecs(t, "Plugin Go Query Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

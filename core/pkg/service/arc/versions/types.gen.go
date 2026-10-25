@@ -24,12 +24,6 @@ const (
 	ModeGraph Mode = v3.ModeGraph
 )
 
-// StatusDetails contains Arc-specific status details for execution state.
-type StatusDetails = v3.StatusDetails
-
-// Status is the status of an Arc module including execution state.
-type Status = v3.Status
-
 // Arc is an Arc module combining visual graph representation and text-based source code
 // for reactive control systems. Compiles to WebAssembly for sandboxed execution.
 type Arc = v3.Arc

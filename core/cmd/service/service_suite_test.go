@@ -19,7 +19,7 @@ import (
 
 func TestService(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cmd Service Suite")
+	RunSpecs(t, "Cmd Service Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

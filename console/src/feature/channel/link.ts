@@ -29,5 +29,3 @@ export const useLink = (): Link.Handler => {
     [create, getSelectedKey],
   );
 };
-
-export const LINKS: Link.Registry = { channel: useLink };

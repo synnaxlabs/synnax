@@ -12,9 +12,9 @@ package v0
 import (
 	"strconv"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v0"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // String returns the key formatted as its decimal integer value.

@@ -9,16 +9,11 @@
 
 import { createRoot } from "react-dom/client";
 
-import { Results } from "@/components/search/Results";
 import { Search } from "@/components/search/Search";
 import { type Mount } from "@/util/island";
 
 export const mount: Mount = (el) => {
   const root = createRoot(el);
-  root.render(
-    <Search initialVisible>
-      <Results />
-    </Search>,
-  );
+  root.render(<Search initialVisible />);
   return () => root.unmount();
 };

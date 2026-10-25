@@ -19,7 +19,7 @@ import (
 
 func TestFormatter(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Formatter Suite")
+	RunSpecs(t, "Formatter Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

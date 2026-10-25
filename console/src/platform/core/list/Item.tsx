@@ -17,6 +17,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Synnax } from "@synnaxlabs/pluto";
+import { primitive } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -78,7 +79,14 @@ const Base = ({ item, loading, ...rest }: ListItemProps): ReactElement | null =>
           className={CSS.BE("core-list-item", "name")}
         />
         <Tooltip.Dialog>
-          <Text.Text level="h5">{status?.message}</Text.Text>
+          <Flex.Box y gap="tiny">
+            <Text.Text level="h5">{status?.message}</Text.Text>
+            {primitive.isNonZero(status?.description) && (
+              <Text.Text level="small" color={9}>
+                {status.description}
+              </Text.Text>
+            )}
+          </Flex.Box>
           <Status.Summary variant={statusVariant} message={statusMessage} />
         </Tooltip.Dialog>
       </Flex.Box>

@@ -1,0 +1,112 @@
+{
+  "version": 2,
+  "auto_start": true,
+  "data_saving_disabled": true,
+  "device": "fixture-http-device",
+  "endpoints": [
+    {
+      "fields": [
+        {
+          "channel": 10010,
+          "pointer": "/data/timestamp",
+          "data_type": "timestamp",
+          "time_format": "unix_ms",
+          "enum_values": [],
+          "key": "fld-ts",
+          "name": "fixture_http_timestamp",
+          "disabled": false
+        },
+        {
+          "name": "fixture_http_mode",
+          "disabled": false,
+          "channel": 10020,
+          "pointer": "/data/modeLabel",
+          "data_type": "uint8",
+          "enum_values": [
+            {
+              "label": "faulted",
+              "value": 3
+            },
+            {
+              "label": "idle",
+              "value": 1
+            },
+            {
+              "label": "running",
+              "value": 2
+            }
+          ],
+          "key": "fld-mode"
+        },
+        {
+          "key": "fld-press",
+          "name": "fixture_http_pressure",
+          "disabled": true,
+          "channel": 10030,
+          "pointer": "/data/pressurePsi",
+          "data_type": "float32",
+          "enum_values": []
+        }
+      ],
+      "index": "fixture_http_time_index",
+      "key": "ep-read-get",
+      "method": "GET",
+      "path": "/api/v1/fixtureTelemetry",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "xApiKey",
+          "value": "fixture-api-key-123"
+        }
+      ],
+      "query_params": [
+        {
+          "parameter": "siteId",
+          "value": "fixture-site-7"
+        },
+        {
+          "parameter": "verbose",
+          "value": "true"
+        }
+      ],
+      "body": ""
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/fixtureQuery",
+      "headers": [
+        {
+          "name": "xRequestSource",
+          "value": "fixture"
+        }
+      ],
+      "query_params": [
+        {
+          "parameter": "limitCount",
+          "value": "25"
+        }
+      ],
+      "body": "{\"deviceId\": \"fixture-42\"}",
+      "fields": [
+        {
+          "disabled": false,
+          "channel": 10040,
+          "pointer": "/results/0/tempC",
+          "data_type": "float64",
+          "enum_values": [],
+          "key": "fld-temp",
+          "name": "fixture_http_temperature"
+        }
+      ],
+      "index": "",
+      "key": "ep-read-post"
+    }
+  ],
+  "nan_fill_enabled": false,
+  "rate": 2.5,
+  "type": "http_read",
+  "name": "http_read"
+}

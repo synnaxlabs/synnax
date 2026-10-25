@@ -121,7 +121,9 @@ describe("Project Commands", () => {
       expect(
         statuses.some(
           (st) =>
-            st.variant === "success" && st.message === `Imported project "${name}"`,
+            st.variant === "success" &&
+            st.name === name &&
+            st.message === "Imported project",
         ),
       ).toBe(true),
     );

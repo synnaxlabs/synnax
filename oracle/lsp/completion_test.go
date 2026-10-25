@@ -124,7 +124,9 @@ var _ = Describe("Completion", func() {
 		It("should return output expressions inside go domain", func(ctx SpecContext) {
 			openDoc(ctx, "file:///go-domain.oracle", "  @go \n")
 			list := completionFor(ctx, "file:///go-domain.oracle", 0, 6)
-			Expect(labels(list.Items)).To(ContainElements("output", "omit"))
+			Expect(labels(list.Items)).To(ContainElements(
+				"output", "omit", "marshal", "wire",
+			))
 		})
 	})
 
@@ -133,7 +135,7 @@ var _ = Describe("Completion", func() {
 			openDoc(ctx, "file:///ts-domain.oracle", "  @ts \n")
 			list := completionFor(ctx, "file:///ts-domain.oracle", 0, 6)
 			Expect(labels(list.Items)).To(ContainElements(
-				"output", "use_input", "name",
+				"output", "omit", "use_input", "name",
 			))
 		})
 	})

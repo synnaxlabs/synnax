@@ -86,7 +86,7 @@ export const Fallback = ({
   error,
   componentStack,
   resetErrorBoundary,
-  children = <DefaultChild resetErrorBoundary={resetErrorBoundary} />,
+  children,
   extraInfo,
 }: FallbackProps): ReactElement => {
   const [resolved, setResolved] = useState<ResolvedStack | null>(null);
@@ -212,7 +212,13 @@ export const Fallback = ({
             <Button.Copy text={getCopyText} textColor={10}>
               Copy diagnostics
             </Button.Copy>
-            <Flex.Box x>{children}</Flex.Box>
+            <Flex.Box x>
+              {children === undefined ? (
+                <DefaultChild resetErrorBoundary={resetErrorBoundary} />
+              ) : (
+                children
+              )}
+            </Flex.Box>
           </Flex.Box>
         </Flex.Box>
       </Flex.Box>

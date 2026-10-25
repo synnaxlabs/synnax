@@ -33,7 +33,7 @@ public:
     SetAuthority(runtime::state::Node &&state, runtime::state::State &auth):
         state(std::move(state)), auth(auth) {}
 
-    x::errors::Error next(runtime::node::Context & /*ctx*/) override {
+    x::errors::Error next(runtime::node::Context &ctx) override {
         if (this->initialized) return x::errors::NIL;
         this->initialized = true;
         std::optional<types::ChannelKey> channel_key;
@@ -44,6 +44,7 @@ public:
             channel_key,
             this->state.numeric_input<uint8_t>("value")
         );
+        ctx.mark_done();
         return x::errors::NIL;
     }
 
@@ -64,7 +65,7 @@ public:
 
     [[nodiscard]] std::string module_name() const override { return "control"; }
 
-    bool handles(const std::string &node_type) const override {
+    [[nodiscard]] bool handles(const std::string &node_type) const override {
         return node_type == "set_authority";
     }
 
@@ -77,7 +78,7 @@ public:
                 nullptr,
                 x::errors::Error(
                     x::errors::VALIDATION,
-                    "set_authority node missing required value parameter"
+                    "The set_authority node is missing its value parameter."
                 )
             };
         return {

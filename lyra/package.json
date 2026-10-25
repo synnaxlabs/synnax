@@ -206,6 +206,10 @@
       "types": "./dist/select/index.d.ts",
       "default": "./dist/select/index.js"
     },
+    "./skeleton": {
+      "types": "./dist/skeleton/index.d.ts",
+      "default": "./dist/skeleton/index.js"
+    },
     "./state": {
       "types": "./dist/state/index.d.ts",
       "default": "./dist/state/index.js"

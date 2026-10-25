@@ -45,6 +45,7 @@ cc_test(
     deps = [
         "//driver/ethercat/engine",
         "//driver/ethercat/mock",
+        "//x/cpp/defer",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],

@@ -79,10 +79,10 @@ func inlinePayloadsEqual(
 }
 
 // marshalEqual compares the codec surface schemadiff cannot see: the declared field
-// list including omitted fields, and each field's @go marshal value. Two versions with
-// the same persisted shape still declare different Go structs when one omits a field
-// the other stores. Field types are schemadiff's concern — the two sides resolve
-// against different tables, so their qualified names never compare directly.
+// list including omitted fields, and each field's @go marshal and @go wire values. Two
+// versions with the same persisted shape still declare different Go structs when one
+// omits a field the other stores. Field types are schemadiff's concern — the two sides
+// resolve against different tables, so their qualified names never compare directly.
 func marshalEqual(old, new resolution.Type) bool {
 	// The type-level persistence set is part of the declared shape: a version that
 	// flips a type between hand and generated, or changes its codec marker, is a
@@ -109,7 +109,9 @@ func marshalEqual(old, new resolution.Type) bool {
 			n.Optional != f.Optional ||
 			bareTypeName(n.Type) != bareTypeName(f.Type) ||
 			domain.GetStringFromField(n, "go", "marshal") !=
-				domain.GetStringFromField(f, "go", "marshal") {
+				domain.GetStringFromField(f, "go", "marshal") ||
+			domain.GetStringFromField(n, "go", "wire") !=
+				domain.GetStringFromField(f, "go", "wire") {
 			return false
 		}
 	}

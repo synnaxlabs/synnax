@@ -1405,19 +1405,16 @@ export class TimeRange implements primitive.Stringer, primitive.Hashable {
   }
 
   /**
-   * Checks if the two time ranges overlap. If the two time ranges are equal, returns
-   * true. If the start of one range is equal to the end of the other, it returns false.
-   * Just follow the rule [start, end), i.e., start is inclusive, and the end is
-   * exclusive.
-   * @param delta - A TimeSpan representing the minimum amount of overlap for overlap to
-   * return true. This allows for a slight amount of leeway when checking for overlap.
-   * @returns True if the two TimeRanges overlap, false otherwise.
+   * Checks if the two time ranges overlap. The check is symmetric, and ranges that
+   * only touch at a boundary do not overlap.
+   * @param delta - The minimum shared span. Defaults to zero.
+   * @returns True if the two TimeRanges share at least delta of time.
    */
   overlapsWith(other: TimeRange, delta: TimeSpan = TimeSpan.ZERO): boolean {
     other = other.makeValid();
     const rng = this.makeValid();
 
-    if (this.equals(other)) return true;
+    if (rng.equals(other)) return rng.span.greaterThanOrEqual(delta);
 
     // If the ranges touch at their boundaries, they do not overlap.
     if (other.end.equals(rng.start) || rng.end.equals(other.start)) return false;

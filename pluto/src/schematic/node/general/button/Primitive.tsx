@@ -62,7 +62,7 @@ export const Button = ({
 }: ButtonProps): ReactElement => {
   const symbolColor = color.rgbaString(fillColor);
   const style = useMemo<CSSProperties>(
-    () => ({ [CSS.variable("symbol-color")]: symbolColor }),
+    () => ({ [Primitive.SYMBOL_COLOR]: symbolColor }),
     [symbolColor],
   );
   // The activation delay gates Base.Button's onClick, so single-shot actuation

@@ -170,6 +170,19 @@ describe("Store.createMembership", () => {
       act(() => setValue(["b", "y"]));
       expect(result.current).toEqual("b");
     });
+
+    it("should re-render when only the first of the keys changes", () => {
+      let setValue: (value: string[]) => void = () => {};
+      const wrapper = ({ children }: PropsWithChildren): ReactElement => {
+        const [value, setState] = useState<string[]>(["x"]);
+        setValue = setState;
+        return <Set.Context value={value}>{children}</Set.Context>;
+      };
+      const { result } = renderHook(() => Set.useMemberAmong(["a", "b"]), { wrapper });
+      expect(result.current).toBeUndefined();
+      act(() => setValue(["a", "x"]));
+      expect(result.current).toEqual("a");
+    });
   });
   describe("server rendering", () => {
     const Probe = (): ReactElement => (

@@ -14,9 +14,6 @@ import {
   BLUR_ZOOM_GAIN,
   CAMERA_SIM_DT,
   CAMERA_SPRING,
-  EDGE_SNAP_RATIO,
-  FOLLOW_DEADZONE_H,
-  FOLLOW_DEADZONE_W,
   PRE_AIM_EPSILON,
   ZOOM_RECT_MARGIN_PX,
 } from "@/director/constants";
@@ -53,9 +50,9 @@ export const crop = (s: CameraSample, width: number, height: number): Crop => ({
 });
 
 /**
- * focusToCenter maps a focus point (CSS px) to the travel-space center that puts
- * the point at the middle of the crop, with edge snapping: focus in the outer
- * band pins flush to the edge.
+ * focusToCenter maps a focus point (CSS px) to the travel-space center that puts the
+ * point at the middle of the crop. A focus too near an edge to center pins the crop
+ * flush to that edge.
  */
 export const focusToCenter = (
   focus: Point,
@@ -65,9 +62,7 @@ export const focusToCenter = (
 ): Point => {
   const map = (u: number, z: number): number => {
     if (z <= 1) return 0.5;
-    const naive = (u - 1 / (2 * z)) / (1 - 1 / z);
-    const snapped = (naive - EDGE_SNAP_RATIO) / (1 - 2 * EDGE_SNAP_RATIO);
-    return Math.min(1, Math.max(0, snapped));
+    return Math.min(1, Math.max(0, (u - 1 / (2 * z)) / (1 - 1 / z)));
   };
   return { x: map(focus.x / width, amount), y: map(focus.y / height, amount) };
 };
@@ -135,32 +130,67 @@ export const frameRect = (
 };
 
 /**
- * segmentAmount caps a segment's zoom so the active focus rect (when present)
- * fits inside the viewport with margin.
+ * segmentAmount caps a segment's zoom so its framing rect (when present) fits inside
+ * the viewport with margin.
  */
-const segmentAmount = (
-  seg: Segment,
-  focus: Focus,
-  width: number,
-  height: number,
-): number =>
-  focus.rect == null
+const segmentAmount = (seg: Segment, width: number, height: number): number =>
+  seg.focus.rect == null
     ? seg.amount
-    : Math.min(seg.amount, fitAmount(focus.rect, width, height));
+    : Math.min(seg.amount, fitAmount(seg.focus.rect, width, height));
+
+/** frame returns the travel-space center that frames a focus at the given amount. */
+const frame = (focus: Focus, amount: number, width: number, height: number): Point =>
+  focus.rect != null
+    ? frameRect(focus.rect, amount, width, height)
+    : focusToCenter(focus.point, amount, width, height);
 
 /**
- * simulate runs the spring-driven virtual camera over the planned segments and
- * samples it once per output frame. Targets are step functions; velocity carries
- * across retargets. While fully zoomed out the center pre-aims at the next focus
- * so zoom-ins scale straight toward their subject. Within a segment the center
- * retargets only when a new focus point leaves the dead-zone box.
+ * contain returns the travel-space center nearest to `center` whose crop holds the
+ * focus with margin: its rect when the rect fits, else its point. A focus already in
+ * frame leaves the center unchanged, so the camera pans only as far as it must.
+ */
+export const contain = (
+  center: Point,
+  focus: Focus,
+  amount: number,
+  width: number,
+  height: number,
+): Point => {
+  const axis = (c: number, pos: number, size: number, point: number, span: number) => {
+    if (amount <= 1) return 0.5;
+    const cropSpan = span / amount;
+    const slack = span - cropSpan;
+    let [lo, hi] = [pos - ZOOM_RECT_MARGIN_PX, pos + size + ZOOM_RECT_MARGIN_PX];
+    if (hi - lo > cropSpan)
+      [lo, hi] = [point - ZOOM_RECT_MARGIN_PX, point + ZOOM_RECT_MARGIN_PX];
+    let x = c * slack;
+    if (lo < x) x = lo;
+    else if (hi > x + cropSpan) x = hi - cropSpan;
+    return Math.min(1, Math.max(0, x / slack));
+  };
+  const { point } = focus;
+  const rect = focus.rect ?? { ...point, width: 0, height: 0 };
+  return {
+    x: axis(center.x, rect.x, rect.width, point.x, width),
+    y: axis(center.y, rect.y, rect.height, point.y, height),
+  };
+};
+
+/**
+ * simulate runs the spring-driven virtual camera over the planned segments and samples
+ * it once per output frame. Targets are step functions; velocity carries across
+ * retargets. While fully zoomed out the center pre-aims at the next segment's framing
+ * so zoom-ins scale straight toward their subject. Within a segment the camera holds
+ * its framing and pans only when a cursor target leaves the crop.
  */
 export const simulate = (tl: Timeline, segments: Segment[]): CameraTrack => {
   const { fps, frames, width, height } = tl.meta;
   let amount = at(1);
   let center = at2D(0.5, 0.5);
 
-  let activeFocus: Focus | null = null;
+  let active: Segment | null = null;
+  let followed: Focus | null = null;
+  let framed: Point = { x: 0.5, y: 0.5 };
   const track: CameraTrack = [];
   const stepsPerFrame = Math.max(1, Math.round(1 / fps / CAMERA_SIM_DT));
   const dt = 1 / fps / stepsPerFrame;
@@ -179,32 +209,28 @@ export const simulate = (tl: Timeline, segments: Segment[]): CameraTrack => {
       let targetCenter: Point | null = null;
 
       if (seg != null) {
-        const passed = seg.focus.filter((p) => p.tick <= tick);
-        const focus = passed.at(-1) ?? seg.focus[0];
-        if (activeFocus == null) activeFocus = focus;
-        else {
-          const halfW = (FOLLOW_DEADZONE_W * width) / seg.amount / 2;
-          const halfH = (FOLLOW_DEADZONE_H * height) / seg.amount / 2;
-          const dx = Math.abs(focus.point.x - activeFocus.point.x);
-          const dy = Math.abs(focus.point.y - activeFocus.point.y);
-          if (dx > halfW || dy > halfH || focus.rect !== activeFocus.rect)
-            activeFocus = focus;
+        targetAmount = segmentAmount(seg, width, height);
+        if (seg !== active) {
+          active = seg;
+          followed = null;
+          framed = frame(seg.focus, targetAmount, width, height);
         }
-        targetAmount = segmentAmount(seg, activeFocus, width, height);
-        targetCenter =
-          activeFocus.rect != null
-            ? frameRect(activeFocus.rect, targetAmount, width, height)
-            : focusToCenter(activeFocus.point, targetAmount, width, height);
+        const focus = seg.follow.findLast((p) => p.tick <= tick) ?? null;
+        if (focus != null && focus !== followed) {
+          followed = focus;
+          framed = contain(framed, focus, targetAmount, width, height);
+        }
+        targetCenter = framed;
       } else {
-        activeFocus = null;
+        active = null;
         const next = nextSegment(tick);
         if (next != null && amount.position <= PRE_AIM_EPSILON) {
-          const first = next.focus[0];
-          const nextAmount = segmentAmount(next, first, width, height);
-          const c =
-            first.rect != null
-              ? frameRect(first.rect, nextAmount, width, height)
-              : focusToCenter(first.point, nextAmount, width, height);
+          const c = frame(
+            next.focus,
+            segmentAmount(next, width, height),
+            width,
+            height,
+          );
           center = at2D(c.x, c.y);
         }
       }

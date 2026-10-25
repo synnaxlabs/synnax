@@ -10,7 +10,6 @@
 package security
 
 import (
-	"crypto"
 	"crypto/tls"
 
 	"github.com/samber/lo"
@@ -43,29 +42,16 @@ type TLSProvider interface {
 	VerifyCertTrustAnchors(cert.Source) error
 }
 
-// KeyProvider provides the private keys the node signs with.
-type KeyProvider interface {
-	// TokenPrivate returns the key the node signs authentication tokens with. It is the
-	// node's TLS key when that key's algorithm has a JWT signing method, and the
-	// dedicated key at LoaderConfig.TokenKeyPath otherwise.
-	TokenPrivate() crypto.PrivateKey
-}
-
 // Provider provides security information and services for the node. It's important to
 // note that Provider itself does not implement any security mechanisms, but rather
 // provides configuration and information for other components to implement them.
-type Provider interface {
-	TLSProvider
-	KeyProvider
-}
+type Provider interface{ TLSProvider }
 
 // ProviderConfig is the configuration for creating a new Provider.
 type ProviderConfig struct {
 	// Insecure indicates whether the node should run in insecure mode.
 	Insecure *bool
 	cert.LoaderConfig
-	// KeySize is the size of private key to use in case key generation is required.
-	KeySize int
 }
 
 var _ config.Config[ProviderConfig] = ProviderConfig{}
@@ -90,7 +76,6 @@ func NewProvider(configs ...ProviderConfig) (Provider, error) {
 	cfg, err := config.New(ProviderConfig{
 		LoaderConfig: cert.DefaultLoaderConfig,
 		Insecure:     new(true),
-		KeySize:      cert.DefaultFactoryConfig.KeySize,
 	}, configs...)
 	if err != nil {
 		return nil, err

@@ -10,6 +10,7 @@
 #pragma once
 
 #include <string>
+#include <utility>
 
 #include "open62541/client.h"
 
@@ -21,11 +22,8 @@ struct Properties {
     connection::Config connection;
     std::vector<types::Node> channels;
 
-    Properties(
-        const connection::Config &connection,
-        const std::vector<types::Node> &channels
-    ):
-        connection(connection), channels(channels) {}
+    Properties(connection::Config connection, const std::vector<types::Node> &channels):
+        connection(std::move(connection)), channels(channels) {}
 
     explicit Properties(const x::json::Parser &parser):
         connection(parser.child("connection")) {
@@ -35,7 +33,7 @@ struct Properties {
         });
     }
 
-    x::json::json to_json() const {
+    [[nodiscard]] x::json::json to_json() const {
         x::json::json j;
         j["connection"] = connection.to_json();
         j["channels"] = x::json::json::array();

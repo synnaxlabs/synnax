@@ -58,7 +58,7 @@ export const Context = ({ children }: ContextProps): ReactElement => {
       get: (key) => nodesRef.current.get(key),
       subscribe,
     }),
-    [notifyListeners, subscribe],
+    [nodesRef, notifyListeners, subscribe],
   );
   return <Base value={registry}>{children}</Base>;
 };

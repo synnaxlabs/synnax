@@ -31,8 +31,7 @@ export interface LinkDeps extends Link.Deps {
  * refused.
  */
 export const useLink = (deps: LinkDeps = Link.DEFAULT_DEPS): void => {
-  // The engine is fixed per runtime, so this early return never changes the hook order.
-  if (deps.engine !== "tauri") return;
+  const enabled = deps.engine === "tauri";
   const handleError = Status.useErrorHandler();
   const dispatch = Session.useDispatch();
   const store = Session.useStore();
@@ -40,8 +39,8 @@ export const useLink = (deps: LinkDeps = Link.DEFAULT_DEPS): void => {
   const api = deps.license ?? client?.license;
   const [received, setReceived] = useState<Linked | null>(null);
 
-  const receive = (urls: string[]): void => {
-    try {
+  const receive = (urls: string[]): void =>
+    handleError(() => {
       dispatch(Drift.focusWindow({}));
       if (urls.length === 0) throw new Error("The login link is empty");
       const linked = parseLink(urls[0]);
@@ -49,23 +48,27 @@ export const useLink = (deps: LinkDeps = Link.DEFAULT_DEPS): void => {
       if (pending == null || linked.state !== pending)
         throw new Error("This login link was not requested by this app");
       setReceived(linked);
-    } catch (e) {
-      handleError(e, FAILED_MESSAGE);
-    }
-  };
+    }, FAILED_MESSAGE);
 
-  useAsyncEffect(async (signal) => {
-    const urls = await deps.getCurrentURLs();
-    // A hard reload re-runs this effect with the same launch link; skip it once.
-    if (localStorage.getItem(Link.SHOULD_IGNORE_KEY) === "true") {
-      localStorage.setItem(Link.SHOULD_IGNORE_KEY, "false");
-      return;
-    }
-    if (urls == null || signal.aborted) return;
-    receive(urls);
-  }, []);
+  useAsyncEffect(
+    async (signal) => {
+      if (!enabled) return;
+      const urls = await deps.getCurrentURLs();
+      // A hard reload re-runs this effect with the same launch link; skip it once.
+      if (localStorage.getItem(Link.SHOULD_IGNORE_KEY) === "true") {
+        localStorage.setItem(Link.SHOULD_IGNORE_KEY, "false");
+        return;
+      }
+      if (urls == null || signal.aborted) return;
+      receive(urls);
+    },
+    [enabled],
+  );
 
-  useAsyncEffect(async () => await deps.onOpenURL(receive), []);
+  useAsyncEffect(async () => {
+    if (!enabled) return;
+    return await deps.onOpenURL(receive);
+  }, [enabled]);
 
   // A launch link can land before the embedded Core answers, so the license key waits
   // for a client.

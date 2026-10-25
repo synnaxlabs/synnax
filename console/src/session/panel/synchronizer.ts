@@ -10,7 +10,7 @@
 import { panel, project, query } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { destructor } from "@synnaxlabs/x";
-import { useRef } from "react";
+import { useState } from "react";
 
 import {
   selectActiveWindow,
@@ -234,8 +234,8 @@ const useTabSelections = (): Synchronizer.Callbacks<
   RequiredStoreState,
   RequiredAction
 > => {
-  const leafGroups = useRef<LeafGroups>(new Map());
-  return createTabSelections(leafGroups.current);
+  const [callbacks] = useState(() => createTabSelections(new Map()));
+  return callbacks;
 };
 
 export const WINDOW_SYNCHRONIZERS: Synchronizer.Synchronizers<

@@ -1,0 +1,77 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+article .pluto-note {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 2rem;
+    margin: var(--docs-block-gap) 0;
+    padding: var(--docs-block-padding);
+    font-family: var(--pluto-font-family);
+    font-size: var(--pluto-p-size);
+    line-height: var(--pluto-p-line-height);
+    /* Softer than the Lyra note: a fainter fill, and text mixed toward the body color.
+       The icon keeps the full color of the note. */
+    color: color-mix(in srgb, var(--note-color) 70%, var(--docs-body-color));
+
+    &.pluto--info {
+        --note-color: var(--pluto-primary-text);
+        background: var(--pluto-primary-z-5);
+    }
+
+    &.pluto--warning {
+        --note-color: var(--pluto-warning-text);
+        background: var(--pluto-warning-z-5);
+    }
+
+    &.pluto--error {
+        --note-color: var(--pluto-error-text);
+        background: var(--pluto-error-z-5);
+    }
+
+    /* One line high, so the icon centers on the first line of text. */
+    & > .note__icon {
+        flex-shrink: 0;
+        width: 2.667rem;
+        height: 1lh;
+        color: var(--note-color);
+    }
+
+    & > .note__body {
+        flex: 1;
+        min-width: 0;
+
+        & :is(p, li, span, strong, code, a) {
+            color: inherit;
+        }
+
+        /* A link takes the color of the note, so the underline marks it. */
+        & a {
+            text-decoration: underline;
+            text-decoration-thickness: 1px;
+            text-underline-offset: 0.2em;
+            text-decoration-color: color-mix(in srgb, currentcolor 50%, transparent);
+
+            &:hover {
+                text-decoration-color: currentcolor;
+            }
+        }
+
+        & > :first-child {
+            margin-top: 0;
+        }
+
+        & > :last-child {
+            margin-bottom: 0;
+        }
+    }
+}

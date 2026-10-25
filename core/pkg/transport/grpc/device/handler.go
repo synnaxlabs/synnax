@@ -15,7 +15,7 @@ import (
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/device"
-	"github.com/synnaxlabs/synnax/pkg/service/device/pb"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/unsafe"
 	"google.golang.org/protobuf/types/known/emptypb"

@@ -85,8 +85,10 @@ var _ = Describe("ImEx", func() {
 				imex.ImportOptions{Parent: proj.OntologyID()},
 			)
 			Expect(res.Name).To(Equal("Server Typed"))
-			Expect(res.Rows).To(Equal([]table.Row{{Size: 30, Cells: []string{"c1"}}}))
-			Expect(res.Columns).To(Equal([]table.Column{{Size: 100}}))
+			Expect(res.Rows).To(Equal([]table.Row{
+				{Key: "row-0", Size: 30, Cells: []string{"c1"}},
+			}))
+			Expect(res.Columns).To(Equal([]table.Column{{Key: "col-0", Size: 100}}))
 			Expect(res.Cells).To(HaveKey("c1"))
 			Expect(asText(res.Cells["c1"]).Value).To(Equal("hi"))
 		})
@@ -117,10 +119,13 @@ var _ = Describe("ImEx", func() {
 					},
 				)
 				Expect(res.Name).To(Equal("Legacy Table"))
-				Expect(res.Rows).To(
-					Equal([]table.Row{{Size: 30, Cells: []string{"c1", "c2"}}}),
-				)
-				Expect(res.Columns).To(Equal([]table.Column{{Size: 100}, {Size: 120}}))
+				Expect(res.Rows).To(Equal([]table.Row{
+					{Key: "row-0", Size: 30, Cells: []string{"c1", "c2"}},
+				}))
+				Expect(res.Columns).To(Equal([]table.Column{
+					{Key: "col-0", Size: 100},
+					{Key: "col-1", Size: 120},
+				}))
 				Expect(res.Cells).To(HaveLen(2))
 				Expect(res.Cells["c2"].Variant).
 					To(BeAssignableToTypeOf(table.ValueCellConfig{}))
@@ -173,8 +178,8 @@ var _ = Describe("ImEx", func() {
 			func(ctx SpecContext) {
 				original := table.Table{
 					Name:    "round-trip",
-					Rows:    []table.Row{{Size: 42, Cells: []string{"c1"}}},
-					Columns: []table.Column{{Size: 77}},
+					Rows:    []table.Row{{Key: "r0", Size: 42, Cells: []string{"c1"}}},
+					Columns: []table.Column{{Key: "c0", Size: 77}},
 				}
 				Expect(
 					svc.NewWriter(nil).Create(ctx, proj.Key, &original),

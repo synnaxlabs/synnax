@@ -15,7 +15,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
 	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service"
@@ -30,7 +29,7 @@ import (
 
 func TestAPIRack(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API Rack Suite")
+	RunSpecs(t, "API Rack Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
@@ -44,9 +43,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := mock.NewNode(ctx)
 	svc = MustOpen(svcmock.OpenLayer(ctx, node))
-	apiSvc = MustSucceed(apirack.NewService(apicfg.LayerConfig{
-		Distribution: node.Layer,
-		Service:      svc,
+	apiSvc = MustSucceed(apirack.NewService(apirack.ServiceConfig{
+		Rack:   svc.Rack,
+		Device: svc.Device,
+		Task:   svc.Task,
+		Status: svc.Status,
+		RBAC:   svc.RBAC,
 	}))
 })
 

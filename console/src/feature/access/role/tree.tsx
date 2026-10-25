@@ -17,12 +17,12 @@ import { Tree } from "@/platform/tree";
 
 const useDelete = Tree.createUseDelete({
   type: "Role",
-  query: Access.Role.useDelete,
+  useUpdate: Access.Role.useDelete,
   convertKey: String,
 });
 
 const useRename = Tree.createUseRename({
-  query: Access.Role.useRename,
+  useUpdate: Access.Role.useRename,
   ontologyID: access.role.ontologyID,
   convertKey: String,
 });
@@ -37,7 +37,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const handleDelete = useDelete(props);
   const handleRename = useRename(props);
   const singleResource = ids.length === 1;
-  const resources = state.getResource(ids);
+  const resources = Tree.useResources(state, ids);
   const hasInternal = resources.some((r) => r.data?.internal === true);
   return (
     <ContextMenu.Menu>

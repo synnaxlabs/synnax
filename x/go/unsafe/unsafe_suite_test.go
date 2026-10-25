@@ -19,7 +19,7 @@ import (
 
 func TestUnsafe(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Unsafe Suite")
+	RunSpecs(t, "Unsafe Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

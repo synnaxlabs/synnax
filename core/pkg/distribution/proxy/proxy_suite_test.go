@@ -19,7 +19,7 @@ import (
 
 func TestProxy(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Distribution Proxy Suite")
+	RunSpecs(t, "Distribution Proxy Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -10,9 +10,10 @@
 import { z } from "zod";
 
 /**
- * The manifest maps docs media ids to the video scripts that produce them. The
- * id is the same string the docs site passes to its Video component: the CDN
- * serves `docs/<id>-light.mp4` and `docs/<id>-dark.mp4`.
+ * The manifest maps docs media ids to the scripts that produce them. For a video, the
+ * id is the same string the docs site passes to its Video component: the CDN serves
+ * `docs/<id>-light.mp4` and `docs/<id>-dark.mp4`. For stills, the CDN serves
+ * `docs/<id>/<version>/<name>-<theme>.webp` for each still the script saves.
  */
 
 export const entryZ = z.object({
@@ -23,7 +24,7 @@ export const entryZ = z.object({
       /^[a-z0-9_-]+(\/[a-z0-9_-]+)+$/,
       "ids are slash-separated lowercase segments",
     ),
-  /** Video script path, relative to the studio package root. */
+  /** Script path, relative to the studio package root. */
   script: z.string().min(1),
   /** Capture viewport width in CSS px. */
   width: z.int().positive().optional(),
@@ -47,6 +48,17 @@ export const entryZ = z.object({
    * entries produce one at a time, since they cannot take a free port.
    */
   port: z.int().positive().optional(),
+  /**
+   * Produces the entry one at a time, never beside another. For shots that bind a
+   * fixed port besides the core's, such as a simulator whose address the form shows.
+   */
+  serial: z.boolean().optional(),
+  /**
+   * Makes the entry a set of stills, which the script saves with `session.still`,
+   * instead of a video. Batch writes the stills' regions to `regions`, a path relative
+   * to the studio package root, for the docs page that draws them.
+   */
+  stills: z.object({ regions: z.string().min(1) }).optional(),
 });
 export type Entry = z.infer<typeof entryZ>;
 
@@ -76,6 +88,12 @@ export const filter = (manifest: Manifest, pattern?: string): Manifest =>
  */
 export const videoName = (id: string, theme: "light" | "dark"): string =>
   `videos/${id.replaceAll("/", "-")}-${theme}.mp4`;
+
+/** stillsDir returns the directory, relative to out/, of an entry's stills. */
+export const stillsDir = (id: string): string => `stills/${id}`;
+
+/** stillKey returns the CDN object key of a file at `file` in an entry's stills. */
+export const stillKey = (id: string, file: string): string => `docs/${id}/${file}`;
 
 /**
  * cdnKey returns the object key the docs CDN serves the video under. An

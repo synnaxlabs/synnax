@@ -10,7 +10,7 @@ clients: ["python", "typescript"]
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
@@ -159,7 +159,7 @@ Auto-index is **not** a good fit when:
 - You're writing historical data with a meaningful time range — supply explicit
   timestamps instead.
 
-<Note.Note variant="warning" className="compact">
+<Note.Note variant="warning">
   Auto-generated timestamps reflect when Synnax received the write, not when the data
   was originally acquired. If preserving acquisition time matters for your use case,
   write timestamps explicitly.

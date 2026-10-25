@@ -139,7 +139,7 @@ TEST(Log, testInitWithoutColor) {
     ASSERT_EXIT(
         {
             init(false);
-            const bool ok = !color_enabled() && RED() == "" && get_color("x") == "";
+            const bool ok = !color_enabled() && RED().empty() && get_color("x").empty();
             std::exit(ok ? 0 : 1);
         },
         testing::ExitedWithCode(0),

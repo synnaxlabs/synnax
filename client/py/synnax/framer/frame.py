@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator, Mapping, Sequence
-from typing import TypeAlias, cast, overload
+from typing import TypeAlias, overload
 
 import numpy as np
 import numpy.typing as npt
@@ -45,7 +45,7 @@ class Frame:
     can be keyed by channel name or channel key, but not both.
     """
 
-    channels: list[channel.Key] | list[str]
+    channels: list[channel.Key | str]
     series: list[Series] = Field(default_factory=list)
 
     @overload
@@ -98,18 +98,16 @@ class Frame:
             self.channels = list(channels.keys)
             self.series = channels.series
         elif isinstance(channels, DataFrame):
-            self.channels = channels.columns.to_list()
+            self.channels = list(channels.columns)
             self.series = [Series(data=channels[k]) for k in self.channels]
         elif isinstance(channels, Mapping):
-            self.channels = cast(list[channel.Key] | list[str], list(channels.keys()))
+            self.channels = list(channels.keys())
             self.series = [Series(d) for d in channels.values()]
         elif (series is None or isinstance(series, list)) and (
             channels is None or isinstance(channels, list)
         ):
             self.series = [] if series is None else [Series(d) for d in series]
-            self.channels = (
-                cast(list[channel.Key] | list[str], list(channels)) if channels else []
-            )
+            self.channels = list(channels) if channels else []
         else:
             raise ValueError(f"""
                 [Frame] - invalid construction arguments. Received {channels}
@@ -147,12 +145,12 @@ class Frame:
         """
         if isinstance(col_or_frame, Frame):
             self.series.extend(col_or_frame.series)
-            self.channels.extend(col_or_frame.channels)  # type: ignore[arg-type]
+            self.channels.extend(col_or_frame.channels)
         else:
             if series is None:
                 raise ValueError("series must be provided when appending a channel")
             self.series.append(series)
-            self.channels.append(col_or_frame)  # type: ignore[arg-type]
+            self.channels.append(col_or_frame)
 
     def items(
         self,
@@ -210,8 +208,7 @@ class Frame:
         corresponds to a channel in the frame.
         """
         base: dict[channel.Key | str, object] = {}
-        channels = cast(list[channel.Key | str], self.channels)
-        for k in set(channels):
+        for k in set(self.channels):
             v = self.get(k)
             if v is None:
                 continue

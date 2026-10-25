@@ -9,7 +9,7 @@
 
 package v0
 
-import "github.com/synnaxlabs/x/gorp"
+import "github.com/synnaxlabs/gorp"
 
 var _ gorp.Entry[Key] = Password{}
 

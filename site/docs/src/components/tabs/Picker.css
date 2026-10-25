@@ -22,8 +22,4 @@
     &:not(:popover-open) {
         display: none;
     }
-
-    & [aria-selected="true"] {
-        background: var(--pluto-gray-l3);
-    }
 }

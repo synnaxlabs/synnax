@@ -45,16 +45,19 @@ struct Status {
     /// @brief key is a unique identifier for this status, auto-generated if not
     /// provided.
     Key key;
-    /// @brief name is an optional human-readable name for the status.
+    /// @brief name is the name of what the status is about, such as a task, device, or
+    /// rack. Empty when the status is not about a named thing.
     std::string name = "";
     /// @brief variant indicates the severity of the status. One of success, info,
-    /// warning,
-    /// error, loading, or disabled.
+    /// warning, error, loading, or disabled.
     std::string variant;
-    /// @brief message is the main message text describing the status.
+    /// @brief message says what happened in one short line, such as "Failed to start
+    /// task" or "Started task". A status that reports a state names the state instead,
+    /// such as "Driver not running".
     std::string message;
-    /// @brief description is an optional detailed description providing additional
-    /// context.
+    /// @brief description says why it happened and what to do now, in full sentences.
+    /// Raw error text goes here, never in the message. Empty when the message says
+    /// enough.
     std::string description = "";
     /// @brief time is the timestamp when the status was created.
     ::x::telem::TimeStamp time = x::telem::TimeStamp::now();

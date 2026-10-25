@@ -16,24 +16,13 @@ import { graph } from "@/arc/graph";
 import { program } from "@/arc/program";
 import { text } from "@/arc/text";
 import { ontology } from "@/ontology";
-import { status } from "@/status";
 
 export const MODES = ["text", "graph"] as const;
 export const modeZ = z.enum(MODES);
 export type Mode = z.infer<typeof modeZ>;
 
-/** StatusDetails contains Arc-specific status details for execution state. */
-export const statusDetailsZ = z.object({
-  /** running indicates whether the Arc module is currently executing. */
-  running: z.boolean(),
-});
-export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
-
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
-
-export const statusZ = status.statusZ({ details: statusDetailsZ });
-export type Status = z.infer<typeof statusZ>;
 
 /**
  * Arc is an Arc module combining visual graph representation and text-based source code
@@ -55,8 +44,6 @@ export const arcZ = z.object({
   text: text.textZ.prefault({}),
   /** program is the compiled module output including IR and WebAssembly bytecode. */
   program: program.programZ.optional(),
-  /** status is the current execution status of the module. */
-  status: statusZ.optional(),
 });
 export interface Arc extends z.infer<typeof arcZ> {}
 export interface New extends z.input<typeof arcZ> {}

@@ -7,24 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PageNavNode } from "@/components/nav/Page";
+import { type PageNavNode } from "@/components/nav/tree";
 
 export const HTTP_NAV: PageNavNode = {
   key: "http",
   name: "HTTP",
   children: [
     {
-      key: "/reference/driver/http/connect-server",
       href: "/reference/driver/http/connect-server",
       name: "Connect to a server",
     },
     {
-      key: "/reference/driver/http/read-task",
       href: "/reference/driver/http/read-task",
       name: "Read task",
     },
     {
-      key: "/reference/driver/http/write-task",
       href: "/reference/driver/http/write-task",
       name: "Write task",
     },

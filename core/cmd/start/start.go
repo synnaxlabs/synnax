@@ -72,6 +72,7 @@ type CoreConfig struct {
 	taskPollInterval     time.Duration
 	taskOpTimeout        time.Duration
 	slowConsumerTimeout  time.Duration
+	sessionIdleTimeout   time.Duration
 	taskWorkerCount      uint8
 }
 
@@ -79,6 +80,8 @@ var _ config.Config[CoreConfig] = CoreConfig{}
 
 var DefaultCoreConfig = CoreConfig{
 	certFactoryConfig: cert.DefaultFactoryConfig,
+	// a Core installed before the flag existed starts without it
+	sessionIdleTimeout: auth.DefaultIdleTimeout,
 }
 
 // driverEnabled reports whether the embedded Driver starts with this Core.
@@ -110,6 +113,7 @@ func (c CoreConfig) Validate() error {
 	}
 	v.NotEmptyString("data_path", c.dataPath)
 	v.NonZero("slow_consumer_timeout", c.slowConsumerTimeout)
+	v.Positive("session_idle_timeout", c.sessionIdleTimeout)
 	v.NotNil("no_driver", c.noDriver)
 	v.Exec(c.rootCredentials.Validate)
 	v.NonZero("task_op_timeout", c.taskOpTimeout)
@@ -138,8 +142,12 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 			other.slowConsumerTimeout,
 		),
 		rootCredentials: override.Zero(c.rootCredentials, other.rootCredentials),
-		noDriver:        override.Nil(c.noDriver, other.noDriver),
-		taskOpTimeout:   override.Numeric(c.taskOpTimeout, other.taskOpTimeout),
+		sessionIdleTimeout: override.Numeric(
+			c.sessionIdleTimeout,
+			other.sessionIdleTimeout,
+		),
+		noDriver:      override.Nil(c.noDriver, other.noDriver),
+		taskOpTimeout: override.Numeric(c.taskOpTimeout, other.taskOpTimeout),
 		taskPollInterval: override.Numeric(
 			c.taskPollInterval,
 			other.taskPollInterval,
@@ -209,7 +217,6 @@ func BootupCore(
 	securityProvider, err := security.NewProvider(security.ProviderConfig{
 		LoaderConfig: cfg.certFactoryConfig.LoaderConfig,
 		Insecure:     cfg.insecure,
-		KeySize:      cfg.certFactoryConfig.KeySize,
 	})
 	if !ok(err, nil) {
 		return err
@@ -255,12 +262,13 @@ func BootupCore(
 	}
 
 	serviceLayer, err := service.OpenLayer(ctx, service.LayerConfig{
-		Instrumentation: cfg.Child("service"),
-		Distribution:    distributionLayer,
-		Security:        securityProvider,
-		Storage:         storageLayer,
-		RootCredentials: cfg.rootCredentials,
-		FIPS:            cfg.fips,
+		Instrumentation:    cfg.Child("service"),
+		Distribution:       distributionLayer,
+		Security:           securityProvider,
+		Storage:            storageLayer,
+		RootCredentials:    cfg.rootCredentials,
+		FIPS:               cfg.fips,
+		SessionIdleTimeout: cfg.sessionIdleTimeout,
 		License: license.ServiceConfig{
 			Key:     cfg.licenseKey,
 			Version: version.Get(),

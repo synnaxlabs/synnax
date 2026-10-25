@@ -17,6 +17,7 @@ const TABS = [
   { tabKey: "python", name: "Python" },
   { tabKey: "typescript", name: "TypeScript" },
   { tabKey: "cpp", name: "C++" },
+  { tabKey: "arc", name: "Arc", optional: true },
 ];
 
 const keys = (page: ReactElement): (string | undefined)[] => {
@@ -35,6 +36,16 @@ describe("Tabs", () => {
     expect(keys(<Tabs tabs={TABS} exclude={["typescript"]} />)).toEqual([
       "python",
       "cpp",
+    ]);
+  });
+
+  it("should show an optional tab only in a block that fills its slot", () => {
+    expect(keys(<Tabs tabs={TABS} />)).not.toContain("arc");
+    expect(keys(<Tabs tabs={TABS} arc={<p>Arc</p>} />)).toEqual([
+      "python",
+      "typescript",
+      "cpp",
+      "arc",
     ]);
   });
 

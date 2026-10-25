@@ -10,7 +10,7 @@ clients: ["console", "python", "typescript"]
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
 import { Video, Image } from "@/components/media/Media";
@@ -38,7 +38,7 @@ into tests, runs, and events, and carry metadata about them.
 | `parent`                                      | `Range`                                               | No       | <Client.Var py="None" ts="null" /> | Optional parent range. Pass the parent `Range` itself.                                                          |
 | `retrieve_if_name_exists`                     | boolean                                               | No       | `False`                            | If `True`, retrieves existing range with same name and time range instead of creating a duplicate. Python only. |
 
-<Note.Note variant="info" className="compact">
+<Note.Note variant="info">
   TypeScript does not support conditional range creation.
 </Note.Note>
 
@@ -366,7 +366,7 @@ const updatedRange = await client.ranges.create({
 When updating a range, you must provide the `key` parameter. If you provide a `key` that
 doesn't exist, Synnax will create a new range with that key instead of raising an error.
 
-<Note.Note variant="warning" className="compact">
+<Note.Note variant="warning">
   Updating a range will completely replace its properties. Make sure to include all the
   properties you want to keep, not just the ones you want to change.
 </Note.Note>

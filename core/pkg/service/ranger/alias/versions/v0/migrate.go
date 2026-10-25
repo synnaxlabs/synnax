@@ -9,10 +9,10 @@
 
 package v0
 
-import "github.com/synnaxlabs/x/gorp"
+import "github.com/synnaxlabs/gorp/migrate"
 
 // Migration re-encodes stored entries from MessagePack to Orc.
-var Migration = gorp.CodecMigration[string, Alias]("msgpack_to_orc")
+var Migration = migrate.Codec[string, Alias]("msgpack_to_orc")
 
 // NormalizeKeys re-keys Alias rows stored under the pre-v0.54 key format.
-var NormalizeKeys = gorp.NormalizeKeysMigration[string, Alias]("Alias")
+var NormalizeKeys = migrate.NormalizeKeys[string, Alias]("Alias")

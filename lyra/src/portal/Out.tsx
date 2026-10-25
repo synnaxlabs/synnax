@@ -107,15 +107,13 @@ export const Out = ({
   useLayoutEffect(() => {
     const hostEl = host.current;
     if (hostEl == null) return;
-    const bound = record
-      .entries(DELEGATED_EVENTS)
-      .map(([reactName, { name, capture }]) => {
-        const listener = (ev: Event): void =>
-          (handlers.current[reactName] as ((e: Event) => void) | undefined)?.(ev);
-        hostEl.addEventListener(name, listener, capture);
-        return () => hostEl.removeEventListener(name, listener, capture);
-      });
-    return () => bound.forEach((unbind) => unbind());
+    const controller = new AbortController();
+    record.entries(DELEGATED_EVENTS).forEach(([reactName, { name, capture }]) => {
+      const listener = (ev: Event): void =>
+        (handlers.current[reactName] as ((e: Event) => void) | undefined)?.(ev);
+      hostEl.addEventListener(name, listener, { capture, signal: controller.signal });
+    });
+    return () => controller.abort();
   }, []);
   // Attachment is fully imperative: the hosted element never appears in JSX,
   // so routing it through state would only add a second pre-paint render on

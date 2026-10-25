@@ -9,20 +9,20 @@
 
 package v0
 
-import "github.com/synnaxlabs/x/gorp"
+import "github.com/synnaxlabs/gorp/migrate"
 
 // ResourceMigration re-encodes stored resources from MessagePack to Orc.
-var ResourceMigration = gorp.CodecMigration[string, Resource]("msgpack_to_orc")
+var ResourceMigration = migrate.Codec[string, Resource]("msgpack_to_orc")
 
 // RelationshipMigration re-encodes stored relationships from MessagePack to Orc.
-var RelationshipMigration = gorp.CodecMigration[string, Relationship]("msgpack_to_orc")
+var RelationshipMigration = migrate.Codec[string, Relationship]("msgpack_to_orc")
 
 // ResourceNormalizeKeys re-keys Resource rows stored under the pre-v0.54 key format.
-var ResourceNormalizeKeys = gorp.NormalizeKeysMigration[string, Resource]("Resource")
+var ResourceNormalizeKeys = migrate.NormalizeKeys[string, Resource]("Resource")
 
 // RelationshipNormalizeKeys re-keys Relationship rows stored under the pre-v0.54 key
 // format.
-var RelationshipNormalizeKeys = gorp.NormalizeKeysMigration[
+var RelationshipNormalizeKeys = migrate.NormalizeKeys[
 	string,
 	Relationship,
 ]("Relationship")

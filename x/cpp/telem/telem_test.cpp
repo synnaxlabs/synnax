@@ -659,8 +659,8 @@ TEST(RateTests, testRateInErrorMessage) {
     const Rate configured_rate(25.0);
     std::ostringstream msg;
     msg << "configured sample rate (" << configured_rate << ") is below device minimum";
-    EXPECT_TRUE(msg.str().find("25 Hz") != std::string::npos);
-    EXPECT_FALSE(msg.str().find(".hz()") != std::string::npos);
+    EXPECT_TRUE(msg.str().contains("25 Hz"));
+    EXPECT_FALSE(msg.str().contains(".hz()"));
 }
 
 /// @brief it should serialize to a plain JSON number and round-trip back.

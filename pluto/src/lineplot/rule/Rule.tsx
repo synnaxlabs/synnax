@@ -82,13 +82,9 @@ export const Rule = ({
     ),
   });
 
-  const pixelPosRef = useRef(pixelPosition);
-  if (pixelPosition !== pixelPosRef.current) pixelPosRef.current = pixelPosition;
+  const pixelPosRef = useSyncedRef(pixelPosition);
 
-  const { id } = useContext("Rule.Rule");
-
-  const plotEl = document.getElementById(id);
-  const viewportEl = plotEl?.querySelector(".pluto-line-plot__viewport");
+  const { viewportElement } = useContext("Rule.Rule");
 
   const dragStartRef = useRef(pixelPosition);
 
@@ -107,7 +103,7 @@ export const Rule = ({
       onSelect?.();
       setState((p) => ({ ...p, dragging: true }));
       dragStartRef.current = pixelPosRef.current;
-    }, []),
+    }, [onSelect, setState, pixelPosRef]),
     onMove: (b: box.Box) => {
       setState((p) => ({
         ...p,
@@ -116,8 +112,7 @@ export const Rule = ({
     },
     onEnd: useCallback(() => {
       setState((p) => ({ ...p, dragging: false }));
-      dragStartRef.current = pixelPosition;
-    }, []),
+    }, [setState]),
   });
 
   const ref = useRef<HTMLDivElement>(null);
@@ -192,6 +187,6 @@ export const Rule = ({
     </div>
   );
 
-  if (viewportEl == null) return content;
-  return createPortal(content, viewportEl);
+  if (viewportElement == null) return content;
+  return createPortal(content, viewportElement);
 };

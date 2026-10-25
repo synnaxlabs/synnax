@@ -10,5 +10,3 @@
 import { Link } from "@/platform/link";
 
 export const useLink = Link.createUseOpenResourceTab("log");
-
-export const LINKS: Link.Registry = { log: useLink };

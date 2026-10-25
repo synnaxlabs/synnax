@@ -25,13 +25,13 @@ export const Control = () => {
     (authority: control.Authority) => {
       dispatch(Session.Schematic.setControlAuthority({ key, authority }));
     },
-    [key],
+    [dispatch, key],
   );
   const handleLegendVisibleChange = useCallback(
     (visible: boolean) => {
       dispatch(Session.Schematic.setLegendVisible({ key, visible }));
     },
-    [key],
+    [dispatch, key],
   );
   return (
     <Flex.Box x gap="small" className={CSS.BE("schematic", "control")}>

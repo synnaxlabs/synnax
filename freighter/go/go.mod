@@ -4,6 +4,7 @@ go 1.27.2
 
 replace (
 	github.com/synnaxlabs/alamos => ../../alamos/go
+	github.com/synnaxlabs/gorp => ../../gorp
 	github.com/synnaxlabs/x => ../../x/go
 )
 
@@ -17,6 +18,7 @@ require (
 	github.com/onsi/gomega v1.44.0
 	github.com/samber/lo v1.53.0
 	github.com/synnaxlabs/alamos v0.0.0
+	github.com/synnaxlabs/gorp v0.0.0
 	github.com/synnaxlabs/x v0.0.0
 	go.uber.org/zap v1.28.0
 	google.golang.org/grpc v1.84.0

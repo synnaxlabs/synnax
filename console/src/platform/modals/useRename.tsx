@@ -40,7 +40,7 @@ const Rename = ({
     if (allowEmpty && name.length === 0) return close();
     if (!allowEmpty && name.length === 0) return setError(`${label} is required`);
     return close(name);
-  }, [close, setError, name, allowEmpty]);
+  }, [close, name, allowEmpty, label]);
   return (
     <Modal.Frame>
       <Modal.Header icon={icon}>{title}</Modal.Header>

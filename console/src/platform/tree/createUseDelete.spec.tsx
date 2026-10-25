@@ -29,7 +29,7 @@ const client = createTestClient();
 
 const useDelete = Tree.createUseDelete({
   type: "Channel",
-  query: PChannel.useDelete,
+  useUpdate: PChannel.useDelete,
   convertKey: Number,
 });
 

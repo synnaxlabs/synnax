@@ -85,6 +85,7 @@ type testHarness struct {
 	analyzed     ir.IR
 	graph        arc.Graph
 	errors       []error
+	done         bool
 }
 
 func (h *testHarness) ChannelState() *channels.ProgramState { return h.channelState }
@@ -182,9 +183,11 @@ func (h *testHarness) NextChanged(
 	outputs := h.analyzed.Nodes.Get(nodeKey).Outputs
 	changed := make(set.Set[string])
 	h.errors = nil
+	h.done = false
 	n.Next(node.Context{
 		Context:       ctx,
 		ReserveStamps: testutil.ReserveStamps(0),
+		MarkDone:      func() { h.done = true },
 		MarkChanged: func(i int) {
 			if i >= 0 && i < len(outputs) {
 				changed.Add(outputs[i].Name)
@@ -196,6 +199,8 @@ func (h *testHarness) NextChanged(
 }
 
 func (h *testHarness) Errors() []error { return h.errors }
+
+func (h *testHarness) Done() bool { return h.done }
 
 func (h *testHarness) Outputs(nodeKey string) types.Params {
 	return h.analyzed.Nodes.Get(nodeKey).Outputs
@@ -548,6 +553,66 @@ var _ = Describe("WASM", func() {
 		)
 	})
 
+	Describe("Done marks", func() {
+		It(
+			"Should mark done only after a function without outputs runs",
+			func(ctx SpecContext) {
+				g := binaryOpGraph("sink", "lhs", "rhs", types.I64(), types.I64(), `{}`)
+				g.Functions[0].Outputs = nil
+				h := newHarness(ctx, g, nil)
+				DeferCleanup(h.Close)
+				n := h.CreateNode(ctx, "sink")
+				h.SetInput(
+					"lhs",
+					0,
+					telem.NewSeriesV[int64](1),
+					telem.NewSeriesSecondsTSV(1),
+				)
+				h.NextChanged(ctx, n, "sink")
+				Expect(h.Done()).To(BeFalse())
+				h.SetInput(
+					"rhs",
+					0,
+					telem.NewSeriesV[int64](2),
+					telem.NewSeriesSecondsTSV(1),
+				)
+				h.NextChanged(ctx, n, "sink")
+				Expect(h.Done()).To(BeTrue())
+			},
+		)
+
+		It("Should not mark done when the function traps", func(ctx SpecContext) {
+			g := binaryOpGraph(
+				"div",
+				"lhs",
+				"rhs",
+				types.I32(),
+				types.I32(),
+				`{ return lhs / rhs }`,
+			)
+			h := newHarness(ctx, g, nil)
+			DeferCleanup(h.Close)
+			h.SetInput(
+				"lhs",
+				0,
+				telem.NewSeriesV[int32](1),
+				telem.NewSeriesSecondsTSV(1),
+			)
+			h.SetInput(
+				"rhs",
+				0,
+				telem.NewSeriesV[int32](0),
+				telem.NewSeriesSecondsTSV(1),
+			)
+			h.Execute(ctx, "div")
+			Expect(h.Errors()).To(HaveLen(1))
+			Expect(h.Errors()[0]).To(MatchError(ContainSubstring(
+				"WASM execution failed in node div",
+			)))
+			Expect(h.Done()).To(BeFalse())
+		})
+	})
+
 	Describe("Next with multiple outputs", func() {
 		It(
 			"Should handle functions with multiple outputs and mismatched input lengths",
@@ -715,6 +780,7 @@ var _ = Describe("WASM", func() {
 				nCtx := node.Context{
 					Context:       ctx,
 					ReserveStamps: testutil.ReserveStamps(0),
+					MarkDone:      func() {},
 					MarkChanged:   func(int) {},
 				}
 
@@ -779,6 +845,7 @@ var _ = Describe("WASM", func() {
 				nCtx := node.Context{
 					Context:       ctx,
 					ReserveStamps: testutil.ReserveStamps(0),
+					MarkDone:      func() {},
 					MarkChanged:   func(int) {},
 				}
 
@@ -1148,6 +1215,7 @@ sequence main {
 				Context:       ctx,
 				Now:           now,
 				ReserveStamps: testutil.ReserveStamps(now),
+				MarkDone:      func() {},
 				MarkChanged:   func(int) {},
 			})
 			Expect(h.Output("disp_r_0", 0).Len()).To(Equal(int64(3)))
@@ -2698,6 +2766,7 @@ sequence main {
 				node.Context{
 					Context:       ctx,
 					ReserveStamps: testutil.ReserveStamps(0),
+					MarkDone:      func() {},
 					MarkChanged:   func(i int) { changed.Add(i) },
 				},
 			)
@@ -2763,6 +2832,7 @@ sequence main {
 				node.Context{
 					Context:       ctx,
 					ReserveStamps: testutil.ReserveStamps(0),
+					MarkDone:      func() {},
 					MarkChanged:   func(i int) { changed.Add(i) },
 				},
 			)
@@ -2960,6 +3030,7 @@ sequence main {
 							node.Context{
 								Context:       ctx,
 								ReserveStamps: testutil.ReserveStamps(0),
+								MarkDone:      func() {},
 								MarkChanged:   func(int) {},
 							},
 						)
@@ -3311,6 +3382,7 @@ sequence main {
 				nCtx := node.Context{
 					Context:       ctx,
 					ReserveStamps: testutil.ReserveStamps(0),
+					MarkDone:      func() {},
 					MarkChanged:   func(int) {},
 				}
 
@@ -3351,6 +3423,7 @@ sequence main {
 				nCtx := node.Context{
 					Context:       ctx,
 					ReserveStamps: testutil.ReserveStamps(0),
+					MarkDone:      func() {},
 					MarkChanged:   func(int) {},
 				}
 
@@ -3387,6 +3460,7 @@ sequence main {
 				nCtx := node.Context{
 					Context:       ctx,
 					ReserveStamps: testutil.ReserveStamps(0),
+					MarkDone:      func() {},
 					MarkChanged:   func(int) { executions++ },
 				}
 
@@ -5295,6 +5369,7 @@ input_ch -> count_local{} -> sink_ch
 				nCtx := node.Context{
 					Context:       ctx,
 					ReserveStamps: testutil.ReserveStamps(0),
+					MarkDone:      func() {},
 					MarkChanged:   func(int) {},
 				}
 

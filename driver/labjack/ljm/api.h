@@ -54,7 +54,7 @@ class API {
 
     /// @brief Shared library handle.
     std::unique_ptr<x::lib::Shared> lib;
-    FunctionPointers func_ptrs;
+    FunctionPointers func_ptrs{};
 
 public:
     explicit API(std::unique_ptr<x::lib::Shared> lib_): lib(std::move(lib_)) {
@@ -181,7 +181,7 @@ public:
     }
 
     LJM_VOID_RETURN err_to_string(const int err_code, char *err_string) const {
-        return this->func_ptrs.ErrorToString(err_code, err_string);
+        this->func_ptrs.ErrorToString(err_code, err_string);
     }
 
     [[nodiscard]] LJM_ERROR_RETURN e_write_names(

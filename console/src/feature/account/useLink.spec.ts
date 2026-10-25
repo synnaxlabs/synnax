@@ -10,6 +10,7 @@
 import { type license } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
+import { scheduler } from "@synnaxlabs/x";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { act, waitFor } from "@testing-library/react";
 import { describe, expect, it, type Mock, vi } from "vitest";
@@ -121,5 +122,18 @@ describe("Account.useLink", () => {
   it("should take the link the app was launched with", async () => {
     const h = await setup({ getCurrentURLs: async () => [linkOf(LINKED)] });
     await waitFor(() => expect(failed(h)).toBe(true));
+  });
+
+  it("should be a no-op when the engine is not tauri", async () => {
+    const getCurrentURLs = vi.fn(async () => [linkOf(LINKED)]);
+    const onOpenURL = vi.fn(async (): Promise<UnlistenFn> => () => {});
+    await renderHookWithConsole(
+      () => Account.useLink({ engine: "web", getCurrentURLs, onOpenURL }),
+      { client: createTestClient() },
+    );
+    // Async effects start after a task queue flush, so wait one out before asserting.
+    await act(async () => await scheduler.flushTaskQueue());
+    expect(getCurrentURLs).not.toHaveBeenCalled();
+    expect(onOpenURL).not.toHaveBeenCalled();
   });
 });

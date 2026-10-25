@@ -32,3 +32,9 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 	}
 	return Arc{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
 }
+
+// liftFirst lifts the first exported Arc shape to the current shape. A decoder
+// of an older shape builds the first exported shape and enters the ladder here.
+func liftFirst(ctx context.Context, t3 v3.Arc) (Arc, error) {
+	return t3, nil
+}

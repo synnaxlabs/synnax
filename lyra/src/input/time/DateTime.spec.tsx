@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Input } from "@/input";
@@ -247,6 +247,22 @@ describe("Input.DateTime", () => {
       vi.setSystemTime(new Date(2026, 7, 23, 15, 5));
       open(container);
       expect(screen.getByText("local time · 1h ago")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("should name the day again once midnight passes", () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date(2026, 7, 23, 23, 59, 30));
+      const { container } = render(<Input.DateTime value={VALUE} onChange={vi.fn()} />);
+      const day = () => container.querySelector(".pluto-datetime__day")?.textContent;
+      expect(day()).toBe("Today");
+      act(() => {
+        vi.advanceTimersByTime(TimeSpan.seconds(30).milliseconds);
+      });
+      expect(day()).toBe("Yesterday");
     } finally {
       vi.useRealTimers();
     }

@@ -57,6 +57,7 @@ JOBS: dict[str, tuple[str, str, list[str]]] = {
     "core": ("core", "go", ["core"]),
     "cesium": ("core", "go", ["cesium"]),
     "aspen": ("core", "go", ["aspen"]),
+    "gorp": ("core", "go", ["gorp"]),
     "x-go": ("core", "go", ["x/go"]),
     "freighter-go": ("core", "go", ["freighter/go"]),
     "freighter-integration": ("core", "go", ["freighter/integration"]),

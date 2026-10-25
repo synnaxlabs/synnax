@@ -87,10 +87,10 @@ private:
     void bind_ops(
         wasmtime::Linker &linker,
         const std::string &suffix,
-        std::function<T(Variables &, uint32_t, T)> loader,
-        std::function<void(Variables &, uint32_t, T)> storer
+        const std::function<T(Variables &, uint32_t, T)> &loader,
+        const std::function<void(Variables &, uint32_t, T)> &storer
     ) {
-        using W = typename WasmType<T>::type;
+        using W = WasmType<T>::type;
         auto v = this->vars;
         linker
             .func_wrap(

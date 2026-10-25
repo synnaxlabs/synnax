@@ -23,9 +23,18 @@ export type Variant = z.infer<typeof variantZ>;
 
 interface Base<V extends Variant> {
   key: string;
+  /** The name of what the status is about. Empty when it is not about a named thing. */
   name: string;
   variant: V;
+  /**
+   * What happened, in one short line, such as "Failed to save file" or "Saved file". A
+   * status that reports a state names the state instead, such as "Disconnected".
+   */
   message: string;
+  /**
+   * Why it happened and what to do now, in full sentences. Raw error text goes here,
+   * never in the message. Empty when the message says enough.
+   */
   description: string;
   time: TimeStamp;
 }
@@ -75,23 +84,28 @@ const causeChain = (err: Error): string | undefined => {
 };
 
 /**
- * Turns any thrown value into an error status. The message argument becomes the
- * status message and pushes the error's own message into the description, ahead of
- * its flattened cause chain; the error and its stack ride on the details.
+ * The text a status built by {@link fromException} leads with: a message, or a message
+ * and the name of what the status is about.
+ */
+export type Heading = string | Pick<Base<Variant>, "message" | "name">;
+
+/**
+ * Turns any thrown value into an error status. The heading sets the message and name.
+ * The error's own message and its flattened cause chain form the description, and the
+ * details keep the error and its stack.
  */
 export const fromException = (
   exc: unknown,
-  message?: string,
+  heading: Heading,
 ): Status<typeof exceptionDetailsZ, "error"> => {
   const err = errors.fromUnknown(exc);
-  const chain = causeChain(err);
+  const { message, name } =
+    typeof heading === "string" ? { message: heading, name: "" } : heading;
   return create<typeof exceptionDetailsZ, "error">({
     variant: "error",
-    message: message ?? err.message,
-    description:
-      message != null
-        ? [err.message, chain].filter((p) => p != null).join(": ")
-        : chain,
+    name,
+    message,
+    description: [err.message, causeChain(err)].filter((p) => p != null).join(": "),
     details: { stack: err.stack ?? "", error: err },
   });
 };

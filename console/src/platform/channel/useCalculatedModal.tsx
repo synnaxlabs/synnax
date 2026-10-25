@@ -47,140 +47,142 @@ const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
 
 const EXTRA_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
 
-export const useCalculatedModal = Modals.create<CalculatedModalParams>(
-  ({ channelKey, close }) => {
-    const isEdit = primitive.isNonZero(channelKey);
-    const { capture } = Analytics.use();
-    const {
-      form,
-      variant,
-      save,
-      status: stat,
-    } = Channel.useCalculatedForm({
-      query: primitive.isZero(channelKey) ? null : { key: channelKey },
-      afterSave: ({ reset }) => {
-        if (!isEdit) capture("channel_created", { calculated: true });
-        if (createMore) reset();
-        else close();
-      },
-    });
-    const [createMore, setCreateMore] = useState(false);
-    const operationType = Form.useFieldValue<
-      channel.OperationType,
-      channel.OperationType,
-      typeof Channel.calculatedFormSchema
-    >("operations.0.type", {
-      optional: true,
-      ctx: form,
-    });
-    const name = Form.useFieldValue<
-      string,
-      string,
-      typeof Channel.calculatedFormSchema
-    >("name", { ctx: form });
-    return (
-      <Modal.Frame className={CSS.B("channel", "edit", "calculated")}>
-        <Modal.Header icon={<Icon.Channel />}>
-          {isEdit ? `${name}.Edit` : "Channel.Create.Calculated"}
-        </Modal.Header>
-        <Modal.Body justify="start" gap="large">
-          <Form.Form<typeof Channel.calculatedFormSchema> {...form}>
-            <Form.TextField path="name" label="Name" inputProps={NAME_INPUT_PROPS} />
-            <Form.Field<string> path="expression" grow>
-              {({ value, onChange }) => (
-                <Flex.Box grow className={CSS.B("calculated", "editor")}>
-                  <Code.Editor
-                    initialValue={value}
-                    language={Arc.NAME}
-                    onValueChange={onChange}
-                    extraMenuItems={EXTRA_MENU_ITEMS}
-                    isBlock
-                    bordered
-                    rounded
-                  />
-                </Flex.Box>
-              )}
-            </Form.Field>
-            <Flex.Box x className={CSS.B("operations")} align="start">
-              <Form.Field<channel.OperationType>
-                path="operations.0.type"
-                label="Operation"
-              >
-                {(p) => (
-                  <Select.Buttons {...p}>
-                    <Select.Item itemKey="none">None</Select.Item>
-                    <Select.Item itemKey="min">Min</Select.Item>
-                    <Select.Item itemKey="max">Max</Select.Item>
-                    <Select.Item itemKey="avg">Average</Select.Item>
-                    <Select.Item itemKey="derivative">Derivative</Select.Item>
-                  </Select.Buttons>
-                )}
-              </Form.Field>
-              {operationType !== "derivative" && operationType !== "none" && (
-                <>
-                  <Form.Field<TimeSpan>
-                    path="operations.0.duration"
-                    label="Window"
-                    helpText="Resets the value after this duration. Zero disables the reset."
-                    className={CSS.BE("operations", "window")}
-                  >
-                    {({ value, onChange }) => (
-                      <Input.Numeric
-                        value={new TimeSpan(value).seconds}
-                        onChange={(v) => onChange(TimeSpan.seconds(v))}
-                        endContent="s"
-                      />
-                    )}
-                  </Form.Field>
-                  <Form.Field<channel.Key>
-                    path="operations.0.resetChannel"
-                    label="Reset channel"
-                    helpText="Resets the calculation when this boolean channel is triggered."
-                    grow
-                  >
-                    {({ value, onChange }) => (
-                      <Channel.SelectSingle
-                        value={value}
-                        onChange={(v: channel.Key | undefined) => onChange(v ?? 0)}
-                        initialQuery={BOOLEAN_QUERY}
-                        grow
-                        allowNone
-                      />
-                    )}
-                  </Form.Field>
-                </>
-              )}
-            </Flex.Box>
-          </Form.Form>
-        </Modal.Body>
-        <Modal.Footer>
-          <Nav.Bar.Start>
-            {variant == "success" ? (
-              <Triggers.SaveHelpText action={isEdit ? "Save" : "Create"} />
-            ) : (
-              <Status.Summary status={stat} center={false} />
-            )}
-          </Nav.Bar.Start>
-          <Nav.Bar.End align="center" gap="large">
-            {isEdit && (
-              <Flex.Box x align="center" gap="small">
-                <Input.Switch value={createMore} onChange={setCreateMore} />
-                <Text.Text color={9}>Create more</Text.Text>
+const Calculated = ({
+  channelKey,
+  close,
+}: Modals.ContentProps<CalculatedModalParams, void>) => {
+  const isEdit = primitive.isNonZero(channelKey);
+  const { capture } = Analytics.use();
+  const {
+    form,
+    variant,
+    save,
+    status: stat,
+  } = Channel.useCalculatedForm({
+    query: primitive.isZero(channelKey) ? null : { key: channelKey },
+    afterSave: ({ reset }) => {
+      if (!isEdit) capture("channel_created", { calculated: true });
+      if (createMore) reset();
+      else close();
+    },
+  });
+  const [createMore, setCreateMore] = useState(false);
+  const operationType = Form.useFieldValue<
+    channel.OperationType,
+    channel.OperationType,
+    typeof Channel.calculatedFormSchema
+  >("operations.0.type", {
+    optional: true,
+    ctx: form,
+  });
+  const name = Form.useFieldValue<string, string, typeof Channel.calculatedFormSchema>(
+    "name",
+    { ctx: form },
+  );
+  return (
+    <Modal.Frame className={CSS.B("channel", "edit", "calculated")}>
+      <Modal.Header icon={<Icon.Channel />}>
+        {isEdit ? `${name}.Edit` : "Channel.Create.Calculated"}
+      </Modal.Header>
+      <Modal.Body justify="start" gap="large">
+        <Form.Form<typeof Channel.calculatedFormSchema> {...form}>
+          <Form.TextField path="name" label="Name" inputProps={NAME_INPUT_PROPS} />
+          <Form.Field<string> path="expression" grow>
+            {({ value, onChange }) => (
+              <Flex.Box grow className={CSS.B("calculated", "editor")}>
+                <Code.Editor
+                  initialValue={value}
+                  language={Arc.NAME}
+                  onValueChange={onChange}
+                  extraMenuItems={EXTRA_MENU_ITEMS}
+                  isBlock
+                  bordered
+                  rounded
+                />
               </Flex.Box>
             )}
-            <Flex.Box x align="center">
-              <Button.Button
-                status={status.keepVariants(variant, "loading")}
-                trigger={Triggers.SAVE}
-                variant="filled"
-                onClick={() => save()}
-              >
-                {isEdit ? "Save" : "Create"}
-              </Button.Button>
+          </Form.Field>
+          <Flex.Box x className={CSS.B("operations")} align="start">
+            <Form.Field<channel.OperationType>
+              path="operations.0.type"
+              label="Operation"
+            >
+              {(p) => (
+                <Select.Buttons {...p}>
+                  <Select.Item itemKey="none">None</Select.Item>
+                  <Select.Item itemKey="min">Min</Select.Item>
+                  <Select.Item itemKey="max">Max</Select.Item>
+                  <Select.Item itemKey="avg">Average</Select.Item>
+                  <Select.Item itemKey="derivative">Derivative</Select.Item>
+                </Select.Buttons>
+              )}
+            </Form.Field>
+            {operationType !== "derivative" && operationType !== "none" && (
+              <>
+                <Form.Field<TimeSpan>
+                  path="operations.0.duration"
+                  label="Window"
+                  helpText="Resets the value after this duration. Zero disables the reset."
+                  className={CSS.BE("operations", "window")}
+                >
+                  {({ value, onChange }) => (
+                    <Input.Numeric
+                      value={new TimeSpan(value).seconds}
+                      onChange={(v) => onChange(TimeSpan.seconds(v))}
+                      endContent="s"
+                    />
+                  )}
+                </Form.Field>
+                <Form.Field<channel.Key>
+                  path="operations.0.resetChannel"
+                  label="Reset channel"
+                  helpText="Resets the calculation when this boolean channel is triggered."
+                  grow
+                >
+                  {({ value, onChange }) => (
+                    <Channel.SelectSingle
+                      value={value}
+                      onChange={(v: channel.Key | undefined) => onChange(v ?? 0)}
+                      initialQuery={BOOLEAN_QUERY}
+                      grow
+                      allowNone
+                    />
+                  )}
+                </Form.Field>
+              </>
+            )}
+          </Flex.Box>
+        </Form.Form>
+      </Modal.Body>
+      <Modal.Footer>
+        <Nav.Bar.Start>
+          {variant == "success" ? (
+            <Triggers.SaveHelpText action={isEdit ? "Save" : "Create"} />
+          ) : (
+            <Status.Summary status={stat} center={false} />
+          )}
+        </Nav.Bar.Start>
+        <Nav.Bar.End align="center" gap="large">
+          {isEdit && (
+            <Flex.Box x align="center" gap="small">
+              <Input.Switch value={createMore} onChange={setCreateMore} />
+              <Text.Text color={9}>Create more</Text.Text>
             </Flex.Box>
-          </Nav.Bar.End>
-        </Modal.Footer>
-      </Modal.Frame>
-    );
-  },
-);
+          )}
+          <Flex.Box x align="center">
+            <Button.Button
+              status={status.keepVariants(variant, "loading")}
+              trigger={Triggers.SAVE}
+              variant="filled"
+              onClick={() => save()}
+            >
+              {isEdit ? "Save" : "Create"}
+            </Button.Button>
+          </Flex.Box>
+        </Nav.Bar.End>
+      </Modal.Footer>
+    </Modal.Frame>
+  );
+};
+
+export const useCalculatedModal = Modals.create<CalculatedModalParams>(Calculated);

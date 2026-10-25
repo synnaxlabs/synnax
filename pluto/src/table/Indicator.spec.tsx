@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { getCellColumn, Indicator } from "@/table/Indicator";
@@ -20,6 +20,7 @@ const renderIndicator = (props: Partial<React.ComponentProps<typeof Indicator>>)
           <Indicator
             direction="x"
             index={0}
+            itemKey="c0"
             value={80}
             editable
             onChange={() => {}}
@@ -59,6 +60,24 @@ describe("Indicator", () => {
       0,
       expect.objectContaining({ type: "contextmenu" }),
     );
+  });
+});
+
+describe("Indicator resize", () => {
+  const at = (x: number) => ({ pointerId: 1, button: 0, isPrimary: true, clientX: x });
+
+  it("reports the new size with the key of its row or column", async () => {
+    const onChange = vi.fn();
+    const { getByLabelText } = renderIndicator({ editable: true, onChange });
+    fireEvent.pointerDown(getByLabelText("Resize column A"), at(100));
+    fireEvent.pointerMove(window, at(130));
+    // Moves are coalesced and delivered on the next animation frame.
+    await act(
+      async () =>
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+    );
+    fireEvent.pointerUp(window, at(130));
+    expect(onChange).toHaveBeenLastCalledWith(110, "c0");
   });
 });
 

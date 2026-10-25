@@ -12,13 +12,13 @@ package v4
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp/migrate"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions/v3"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // Migration lifts stored Arc task configs from v3 to v4, converting the loop mode to
 // a performance level.
-var Migration = gorp.NewEntryMigration(
+var Migration = migrate.NewEntry(
 	"v59_performance",
 	func(ctx context.Context, old v3.Config) (Config, error) {
 		cfg, err := autoMigrateConfig(ctx, old)

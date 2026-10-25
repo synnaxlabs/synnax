@@ -19,14 +19,17 @@ namespace x::bench {
 // bench.cpp. Benchmarks snapshot these before and after the measurement loop
 // to derive per-iteration allocation stats that surface in state.counters,
 // matching Go's testing.B.ReportAllocs format.
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): the global operator
+// new counts into these.
 extern std::atomic<int64_t> alloc_count;
 extern std::atomic<int64_t> alloc_bytes;
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 /// @brief records allocations attributed to the benchmark loop body and
 /// publishes them as state.counters so the default console reporter
 /// displays per-iteration allocs and bytes alongside time/op.
 template<typename F>
-void run_with_alloc_tracking(benchmark::State &state, F &&body) {
+void run_with_alloc_tracking(benchmark::State &state, const F &body) {
     const auto start_count = alloc_count.load(std::memory_order_relaxed);
     const auto start_bytes = alloc_bytes.load(std::memory_order_relaxed);
     for (auto _: state)

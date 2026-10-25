@@ -22,30 +22,30 @@ import { type ListParams, useList } from "@/device/queries";
 import { StatusIndicator } from "@/device/StatusIndicator";
 import { type Flux } from "@/flux";
 
-const listItemRenderProp = Component.renderProp(
-  ({ itemKey, ...rest }: List.ItemRenderProps<device.Key>) => {
-    const item = List.useItem<device.Key, device.Device>(itemKey);
-    if (item == null) return null;
-    const { name, location, status } = item;
-    return (
-      <Select.Item
-        itemKey={itemKey}
-        {...rest}
-        className={CSS.BE("device", "list-item")}
-        justify="between"
-        align="center"
-      >
-        <Text.Text align="center">
-          <StatusIndicator status={status} />
-          {name}
-        </Text.Text>
-        <Text.Text level="small" color={9} weight={450} style={LOCATION_STYLE}>
-          {location}
-        </Text.Text>
-      </Select.Item>
-    );
-  },
-);
+const ListItem = ({ itemKey, ...rest }: List.ItemRenderProps<device.Key>) => {
+  const item = List.useItem<device.Key, device.Device>(itemKey);
+  if (item == null) return null;
+  const { name, location, status } = item;
+  return (
+    <Select.Item
+      itemKey={itemKey}
+      {...rest}
+      className={CSS.BE("device", "list-item")}
+      justify="between"
+      align="center"
+    >
+      <Text.Text align="center">
+        <StatusIndicator status={status} />
+        {name}
+      </Text.Text>
+      <Text.Text level="small" color={9} weight={450} style={LOCATION_STYLE}>
+        {location}
+      </Text.Text>
+    </Select.Item>
+  );
+};
+
+const listItemRenderProp = Component.renderProp(ListItem);
 
 const LOCATION_STYLE = { marginTop: "0.25rem" } as const;
 

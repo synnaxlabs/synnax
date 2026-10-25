@@ -41,7 +41,7 @@ const Internal = ({ config, onChange, style: baseStyle, ...rest }: InternalProps
   const { label = "", level = "p", direction: dir, align, maxInlineSize } = config;
   const handleLabelChange = useCallback(
     (value: string) => onChange?.({ label: { ...config, label: value } }),
-    [config],
+    [config, onChange],
   );
   const style = useMemo(
     () => ({

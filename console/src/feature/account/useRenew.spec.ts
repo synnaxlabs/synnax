@@ -152,9 +152,9 @@ describe("Account.useRenew", () => {
       renewError: new Error("Failed to fetch"),
     });
     await waitFor(() =>
-      expect(
-        h.statuses().some((s) => s.message === "Failed to renew the license"),
-      ).toBe(true),
+      expect(h.statuses().some((s) => s.message === "Failed to renew license")).toBe(
+        true,
+      ),
     );
   });
 

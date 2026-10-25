@@ -30,8 +30,7 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
   const dispatch = useDispatch();
   const { update } = Table.useCreate({
     afterOptimistic: ({ data: { key } }) => {
-      project ??= getActiveProject();
-      maybeChangeProject(project);
+      maybeChangeProject(project ?? getActiveProject());
       dispatch(Session.Table.create({ key, editable: true }));
       openTab({ variant: "resource", resource: table.ontologyID(key), key: tabKey });
     },
@@ -39,6 +38,6 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
   return useCallback(
     (params = {}) =>
       update({ name: "Table", ...params, project: project ?? getActiveProject() }),
-    [update, project],
+    [update, project, getActiveProject],
   );
 };

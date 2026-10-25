@@ -13,10 +13,10 @@ import (
 	"context"
 	"uuid"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // Writer is used to create, update, and delete logs within Synnax. The writer executes

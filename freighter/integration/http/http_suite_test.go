@@ -19,7 +19,7 @@ import (
 
 func TestHTTP(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Integration HTTP Suite")
+	RunSpecs(t, "Integration HTTP Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

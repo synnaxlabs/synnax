@@ -7,24 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PageNavNode } from "@/components/nav/Page";
+import { type PageNavNode } from "@/components/nav/tree";
 
 export const OPC_UA_NAV: PageNavNode = {
   key: "opc-ua",
   name: "OPC UA",
   children: [
     {
-      key: "/reference/driver/opc-ua/connect-server",
       href: "/reference/driver/opc-ua/connect-server",
       name: "Connect to a server",
     },
     {
-      key: "/reference/driver/opc-ua/read-task",
       href: "/reference/driver/opc-ua/read-task",
       name: "Read task",
     },
     {
-      key: "/reference/driver/opc-ua/write-task",
       href: "/reference/driver/opc-ua/write-task",
       name: "Write task",
     },

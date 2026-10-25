@@ -28,9 +28,32 @@ constants below are re-derived, and the implementation is ours.
 pure and unit-tested; `capture/` owns Playwright and `remotion/` owns compositing. The
 compositor mechanically applies director output.
 
+**Capture size is 1600x900 CSS px.** At that size the Console reads at the scale of a
+desktop window. At 1080x608 it filled the frame like a zoomed-in browser. In an 800 px
+docs column, range names in the wide shot stay readable at 1600 and are not at 1920, and
+zoomed text reads the same at both.
+
 **Zoom budget.** A zoom `z` stays crisp only while
-`z <= (CSS width * dsf) / output width`. A dsf-2 capture rendered at 1080p keeps 2x
-zooms pixel-perfect; deeper crisp zooms at 4k need `--dsf 3`.
+`z <= (CSS width * dsf) / output width`. The default dsf-2 capture rendered at 1080p
+keeps zooms to 1.67x pixel-perfect, which covers the 1.4x to 1.8x depth product videos
+use for normal steps ([Cap](https://github.com/CapSoftware/Cap) defaults to 1.5x,
+[Screenify](https://www.screenify.studio/blog/2026-04-10-auto-zoom-screen-recording) to
+2x). A 1440 capture would cap it at 1.5x. Deeper crisp zooms need `--dsf 3`.
+
+**Shots open wide, zoom on the area of work, and close wide.** A docs reader does not
+know the Console, so the first beat shows all of it
+([OpenScreen](https://mintlify.wiki/siddharthvaddem/openscreen/guides/creating-demos),
+and Screen Studio starts unzoomed unless a zoom starts on frame 0, per its
+[changelog](https://screen.studio/changelog)). Zooms are authored per region, never per
+click, and the last beat returns to the full frame on the result, as Linear's changelog
+videos return to their opening frame.
+
+**The camera pans only as far as it must.** Inside a zoom it holds while the cursor's
+target, with margin, stays in the crop, and moves the crop the minimum distance when the
+target leaves it, starting as the cursor departs.
+[Arcade](https://docs.arcade.software/kb/build/interactive-demo/edit/pan-and-zoom) pans
+by moving a frame of the same size. Cap's dead zone recenters on the focus instead,
+which would pull a framed dialog off center for a click near its edge.
 
 **Encode.** H.264 yuv420p, explicit bt709 tags, 60fps. Supersampling from a
 higher-resolution capture is the chroma-subsampling mitigation.
@@ -73,7 +96,7 @@ over [0.8, 1]). Its [guide](https://screen.studio/guide) and
 [cursor_interpolation.rs](https://github.com/CapSoftware/Cap/blob/main/crates/rendering/src/cursor_interpolation.rs)
 (500 ms click lookahead, 175 ms stiffen, phase lead c/k),
 [zoom_spring.rs](https://github.com/CapSoftware/Cap/blob/main/crates/rendering/src/zoom_spring.rs)
-(8 ms simulation steps, 0.5x0.7 dead-zone follow, pre-aim while zoomed out),
+(8 ms simulation steps, dead-zone follow, pre-aim while zoomed out),
 [configuration.rs](https://github.com/CapSoftware/Cap/blob/main/crates/project/src/configuration.rs)
 (camera spring 200/40/2.25, edge snap),
 [recording.rs](https://github.com/CapSoftware/Cap/blob/main/apps/desktop/src-tauri/src/recording.rs)
@@ -91,6 +114,6 @@ movements_, J. Neurosci. 5(7), 1985. Spring parameters use the react-spring conv
 (omega0 = sqrt(k/m), zeta = c / 2*sqrt(k*m)).
 
 The studio's values diverge where captured app footage asked for it: a softer camera
-spring (130/42/3), a shorter post-click hold, and rect-fitted zoom amounts rather than a
-fixed 2.0x, since the director knows the clicked element's bounding rect and Screen
-Studio does not.
+spring (130/42/3), a shorter post-click hold, rect-fitted zoom amounts rather than a
+fixed 2.0x (the director knows the element's bounding rect and Screen Studio does not),
+and minimal-pan follow instead of a recentering dead zone.

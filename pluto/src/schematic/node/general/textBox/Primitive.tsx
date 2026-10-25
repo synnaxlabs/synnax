@@ -42,7 +42,7 @@ export const TextBox = ({
   const style = useMemo<CSSProperties>(
     () => ({
       textAlign: align as CSSProperties["textAlign"],
-      [CSS.variable("symbol-color")]: color.rgbaString(textColor),
+      [Primitive.SYMBOL_COLOR]: color.rgbaString(textColor),
       ...(isVertical ? { height: size } : { width: size }),
     }),
     [align, textColor, isVertical, size],

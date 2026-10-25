@@ -19,7 +19,7 @@ import (
 
 func TestSerialV0(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Serial v0 Suite")
+	RunSpecs(t, "Service Serial v0 Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

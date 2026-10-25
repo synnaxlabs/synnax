@@ -124,6 +124,7 @@ public:
         if (this->epoll_fd_ == -1)
             return this->fail_start(
                 x::errors::Error(
+                    x::errors::INTERNAL,
                     "Failed to create epoll: " + std::string(strerror(errno))
                 )
             );
@@ -132,16 +133,18 @@ public:
         if (this->event_fd_ == -1)
             return this->fail_start(
                 x::errors::Error(
+                    x::errors::INTERNAL,
                     "Failed to create eventfd: " + std::string(strerror(errno))
                 )
             );
 
-        struct epoll_event ev;
+        struct epoll_event ev{};
         ev.events = EPOLLIN;
         ev.data.fd = this->event_fd_;
         if (epoll_ctl(this->epoll_fd_, EPOLL_CTL_ADD, this->event_fd_, &ev) == -1)
             return this->fail_start(
                 x::errors::Error(
+                    x::errors::INTERNAL,
                     "Failed to add eventfd to epoll: " + std::string(strerror(errno))
                 )
             );
@@ -166,6 +169,7 @@ public:
         if (this->timer_fd_ == -1)
             return this->fail_start(
                 x::errors::Error(
+                    x::errors::INTERNAL,
                     "Failed to create timerfd: " + std::string(strerror(errno))
                 )
             );
@@ -174,6 +178,7 @@ public:
         if (epoll_ctl(this->epoll_fd_, EPOLL_CTL_ADD, this->timer_fd_, &ev) == -1)
             return this->fail_start(
                 x::errors::Error(
+                    x::errors::INTERNAL,
                     "Failed to add timerfd to epoll: " + std::string(strerror(errno))
                 )
             );
@@ -190,7 +195,7 @@ public:
         const int fd = notifier.fd();
         if (fd == -1 || this->epoll_fd_ == -1) return false;
 
-        struct epoll_event ev;
+        struct epoll_event ev{};
         ev.events = EPOLLIN;
         ev.data.fd = fd;
 
@@ -217,7 +222,7 @@ private:
     /// @brief returns true when epoll_pwait2 exists. Linux before 5.11 has no
     /// epoll_pwait2, and some seccomp filters block it.
     bool direct_waits() {
-        epoll_event event;
+        epoll_event event{};
         if (this->api_.wait(this->epoll_fd_, &event, 1, timespec{}) != -1) return true;
         return errno != ENOSYS && errno != EPERM;
     }
@@ -235,7 +240,7 @@ private:
 
     /// @brief closes and clears the descriptors that start opened, so a later start
     /// opens them again. Returns err.
-    x::errors::Error fail_start(x::errors::Error err) {
+    x::errors::Error fail_start(const x::errors::Error &err) {
         this->close_fds();
         return err;
     }
@@ -335,7 +340,7 @@ private:
         if (!this->direct_ && !armed && deadline)
             return this->busy_wait(breaker, max_timeout);
         struct epoll_event events[2];
-        int n;
+        int n = 0;
         if (this->direct_)
             n = this->timed_wait(
                 events,
@@ -376,7 +381,7 @@ private:
         if (!deadline || block.nanoseconds() > 0) {
             if (!this->direct_ && !armed && deadline)
                 return this->busy_wait(breaker, max_timeout);
-            int n;
+            int n = 0;
             if (this->direct_)
                 n = this->timed_wait(
                     events,
@@ -412,7 +417,7 @@ private:
         bool timer_fired = false;
         bool input_fired = false;
         for (int i = 0; i < n; i++) {
-            uint64_t val;
+            uint64_t val = 0;
             const ssize_t ret = read(events[i].data.fd, &val, sizeof(val));
             if (ret == sizeof(val)) {
                 if (events[i].data.fd == this->timer_fd_)
@@ -429,7 +434,7 @@ private:
     /// @brief Drains pending events without tracking expirations.
     void drain_events(struct epoll_event *events, const int n) {
         for (int i = 0; i < n; i++) {
-            uint64_t val;
+            uint64_t val = 0;
             [[maybe_unused]] const ssize_t ret = read(
                 events[i].data.fd,
                 &val,

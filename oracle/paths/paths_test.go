@@ -173,6 +173,25 @@ var _ = Describe("Paths", func() {
 		})
 	})
 
+	Describe("Version", func() {
+		It("Should parse a version name", func() {
+			Expect(MustBeOk(paths.Version("v0"))).To(Equal(0))
+			Expect(MustBeOk(paths.Version("v12"))).To(Equal(12))
+		})
+
+		DescribeTable("Should reject a name that is not a version", func(name string) {
+			_, ok := paths.Version(name)
+			Expect(ok).To(BeFalse())
+		},
+			Entry("a leading zero", "v03"),
+			Entry("no number", "v"),
+			Entry("another prefix", "x1"),
+			Entry("an uppercase prefix", "V1"),
+			Entry("a suffix", "v1a"),
+			Entry("a number that overflows", "v99999999999999999999"),
+		)
+	})
+
 	Describe("VersionFile", func() {
 		It("Should recognize version file paths", func() {
 			resource, version, ok := paths.VersionFile(

@@ -24,18 +24,24 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.waitFor(page.locator(".pluto-line-plot").first());
     await capture.addChannels(session, "Y1", fixture.channels, { search: "demo" });
     await capture.hideBottomToolbar(session);
-    await session.moveTo({ x: 756, y: 400 });
+    // Off the plot, so no hover tooltip covers it.
+    await session.moveTo(capture.PARK);
 
     session.startRecording();
-    await session.hold(1600);
+    await session.hold(1800);
 
-    await session.zoom(page.locator(".console-main-nav__item").last(), 2);
     await capture.showVisualizationToolbar(session);
-    await session.hold(500);
-    await session.zoom(page.locator("label").filter({ hasText: "Y1" }).first(), 1.8);
-    await session.hold(2200);
+    await session.hold(400);
+    await capture.zoomCenter(
+      session,
+      page.locator(".console-nav__drawer.pluto--location-bottom").first(),
+      1.4,
+    );
+    await session.moveTo(page.locator("label").filter({ hasText: "Y1" }).first());
+    await session.hold(2000);
     session.endZoom();
-    await session.hold(900);
+    await session.moveTo(capture.PARK);
+    await session.hold(3000);
   } finally {
     await fixture.stop();
   }

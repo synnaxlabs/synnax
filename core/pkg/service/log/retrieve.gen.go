@@ -14,7 +14,7 @@ package log
 import (
 	"context"
 
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp"
 )
 
 // Retrieve is used to retrieve Log records from the database using a
@@ -62,7 +62,7 @@ func Not(f Filter) Filter {
 // r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing
 // inside Or / Not falls back to a full scan.
 func MatchKeys(keys ...Key) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Log] {
+	return func(Retrieve) gorp.Filter[Key, Log] {
 		return gorp.MatchKeys[Key, Log](keys...)
 	}
 }

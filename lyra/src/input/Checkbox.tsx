@@ -11,12 +11,27 @@ import "@/input/Checkbox.css";
 
 import { type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { Boolean, type BooleanProps } from "@/input/Boolean";
 
 /** Props for {@link Checkbox}. */
-export interface CheckboxProps extends Omit<BooleanProps, "inputType"> {}
+export interface CheckboxProps extends Omit<BooleanProps, "inputType"> {
+  /**
+   * Draws a dash in place of the check, for a choice that is partly made, such as a
+   * folder with some of its items picked.
+   */
+  indeterminate?: boolean;
+}
 
 /** A boolean input drawn as a checkbox. Use it for a choice the user then submits. */
-export const Checkbox = (props: CheckboxProps): ReactElement => (
-  <Boolean {...props} inputType="checkbox" />
+export const Checkbox = ({
+  indeterminate = false,
+  className,
+  ...rest
+}: CheckboxProps): ReactElement => (
+  <Boolean
+    {...rest}
+    inputType="checkbox"
+    className={CSS.cls(indeterminate && CSS.M("indeterminate"), className)}
+  />
 );

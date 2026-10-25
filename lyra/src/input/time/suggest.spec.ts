@@ -11,6 +11,7 @@ import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import {
+  type Language,
   loadLanguage,
   suggestTimeSpans,
   suggestTimeStamps,
@@ -19,32 +20,36 @@ import {
 const NOW = new TimeStamp(new Date(2026, 7, 23, 14, 5, 0, 0));
 const START = new TimeStamp(new Date(2026, 7, 20, 9, 0, 0, 0));
 
-beforeAll(loadLanguage);
+let language: Language;
+beforeAll(async () => {
+  language = await loadLanguage();
+});
 
 describe("suggestTimeStamps", () => {
   it("should lead with the grammar's exact reading", () => {
-    const [first] = suggestTimeStamps("now - 5m", { anchors: { now: NOW } });
+    const [first] = suggestTimeStamps("now - 5m", { language, anchors: { now: NOW } });
     expect(first.value.equals(NOW.sub(TimeSpan.minutes(5)))).toBe(true);
     expect(first.reading).toBe("5min before now");
   });
 
   it("should name the anchor and the side of it an offset lands on", () => {
     const anchors = { now: NOW, parent: START };
-    const [after] = suggestTimeStamps("T+3.2s", { anchors });
+    const [after] = suggestTimeStamps("T+3.2s", { language, anchors });
     expect(after.reading).toBe("3s 200ms after the parent start");
-    const [bare] = suggestTimeStamps("T", { anchors });
+    const [bare] = suggestTimeStamps("T", { language, anchors });
     expect(bare.reading).toBe("the parent start");
   });
 
   it("should read an epoch in its one plausible unit", () => {
     const us = NOW.valueOf() / 1000n;
-    const res = suggestTimeStamps(us.toString(), { anchors: { now: NOW } });
+    const res = suggestTimeStamps(us.toString(), { language, anchors: { now: NOW } });
     expect(res.map((r) => r.reading)).toEqual(["Unix microseconds"]);
     expect(res[0].value.equals(NOW)).toBe(true);
   });
 
   it("should place a bare time on the other end's day for an end cell", () => {
     const res = suggestTimeStamps("11:30", {
+      language,
       anchors: { now: NOW, start: START },
       bound: "end",
     });
@@ -57,6 +62,7 @@ describe("suggestTimeStamps", () => {
 
   it("should read a bare duration relative to the range", () => {
     const res = suggestTimeStamps("2h", {
+      language,
       anchors: { now: NOW, start: START },
       bound: "end",
     });
@@ -66,37 +72,50 @@ describe("suggestTimeStamps", () => {
   });
 
   it("should shift the current value by a signed duration", () => {
-    const res = suggestTimeStamps("+30s", { anchors: { now: NOW }, current: START });
+    const res = suggestTimeStamps("+30s", {
+      language,
+      anchors: { now: NOW },
+      current: START,
+    });
     expect(res[0].reading).toBe("30s after the current value");
     expect(res[0].value.equals(START.add(TimeSpan.seconds(30)))).toBe(true);
   });
 
   it("should read natural language", () => {
-    const res = suggestTimeStamps("tomorrow at 3pm", { anchors: { now: NOW } });
+    const res = suggestTimeStamps("tomorrow at 3pm", {
+      language,
+      anchors: { now: NOW },
+    });
     expect(res[0].value.equals(new TimeStamp(new Date(2026, 7, 24, 15, 0)))).toBe(true);
-    const ago = suggestTimeStamps("5m ago", { anchors: { now: NOW } });
+    const ago = suggestTimeStamps("5m ago", { language, anchors: { now: NOW } });
     expect(ago[0].value.equals(NOW.sub(TimeSpan.minutes(5)))).toBe(true);
   });
 
   it("should offer the end of a whole day to an end cell", () => {
-    const res = suggestTimeStamps("tomorrow", { anchors: { now: NOW }, bound: "end" });
+    const res = suggestTimeStamps("tomorrow", {
+      language,
+      anchors: { now: NOW },
+      bound: "end",
+    });
     expect(res[0].reading).toBe("start of tomorrow");
     expect(res[1].reading).toBe("end of tomorrow");
   });
 
   it("should return nothing for nonsense", () => {
-    expect(suggestTimeStamps("purple", { anchors: { now: NOW } })).toEqual([]);
+    expect(suggestTimeStamps("purple", { language, anchors: { now: NOW } })).toEqual(
+      [],
+    );
   });
 });
 
 describe("suggestTimeSpans", () => {
   it("should lead with the grammar's reading", () => {
-    const [first] = suggestTimeSpans("2h 30m");
+    const [first] = suggestTimeSpans("2h 30m", language);
     expect(first.value.equals(TimeSpan.minutes(150))).toBe(true);
   });
 
   it("should read Ms only as megaseconds", () => {
-    const suggestions = suggestTimeSpans("5Ms");
+    const suggestions = suggestTimeSpans("5Ms", language);
     expect(suggestions.length).toBeGreaterThan(0);
     for (const { value } of suggestions)
       expect(value.equals(TimeSpan.seconds(5e6))).toBe(true);
@@ -104,16 +123,20 @@ describe("suggestTimeSpans", () => {
 
   it("should read natural language durations", () => {
     expect(
-      suggestTimeSpans("an hour and a half")[0].value.equals(TimeSpan.minutes(90)),
+      suggestTimeSpans("an hour and a half", language)[0].value.equals(
+        TimeSpan.minutes(90),
+      ),
     ).toBe(true);
-    expect(suggestTimeSpans("half an hour")[0].value.equals(TimeSpan.minutes(30))).toBe(
-      true,
-    );
     expect(
-      suggestTimeSpans("2 hours and 30 minutes")[0].value.equals(TimeSpan.minutes(150)),
+      suggestTimeSpans("half an hour", language)[0].value.equals(TimeSpan.minutes(30)),
     ).toBe(true);
-    expect(suggestTimeSpans("five minutes")[0].value.equals(TimeSpan.minutes(5))).toBe(
-      true,
-    );
+    expect(
+      suggestTimeSpans("2 hours and 30 minutes", language)[0].value.equals(
+        TimeSpan.minutes(150),
+      ),
+    ).toBe(true);
+    expect(
+      suggestTimeSpans("five minutes", language)[0].value.equals(TimeSpan.minutes(5)),
+    ).toBe(true);
   });
 });

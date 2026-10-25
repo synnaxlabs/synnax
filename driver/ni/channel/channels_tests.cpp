@@ -928,7 +928,7 @@ TEST(ChannelsTest, ParseCIFrequencyChanTicks) {
     EXPECT_EQ(call["args"]["measMethod"], DAQmx_Val_LowFreq1Ctr);
     EXPECT_EQ(call["args"]["measTime"], 0.01);
     EXPECT_EQ(call["args"]["divisor"], 1);
-    EXPECT_EQ(mock->calls_to("SetChanAttributeString").size() >= 1, true);
+    EXPECT_EQ(!mock->calls_to("SetChanAttributeString").empty(), true);
 }
 
 TEST(ChannelsTest, ParseCIEdgeCountChanRising) {
@@ -993,7 +993,7 @@ TEST(ChannelsTest, ParseCIEdgeCountChanFalling) {
     EXPECT_EQ(call["args"]["edge"], DAQmx_Val_Falling);
     EXPECT_EQ(call["args"]["countDirection"], DAQmx_Val_CountDown);
     EXPECT_EQ(call["args"]["initialCount"], 100);
-    EXPECT_EQ(mock->calls_to("SetChanAttributeString").size() >= 1, true);
+    EXPECT_EQ(!mock->calls_to("SetChanAttributeString").empty(), true);
 }
 
 TEST(ChannelsTest, ParseCIPeriodChanSeconds) {
@@ -1066,7 +1066,7 @@ TEST(ChannelsTest, ParseCIPeriodChanTicks) {
     EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr1");
     EXPECT_EQ(call["args"]["edge"], DAQmx_Val_Falling);
     EXPECT_EQ(call["args"]["measMethod"], DAQmx_Val_LowFreq1Ctr);
-    EXPECT_EQ(mock->calls_to("SetChanAttributeString").size() >= 1, true);
+    EXPECT_EQ(!mock->calls_to("SetChanAttributeString").empty(), true);
 }
 
 TEST(ChannelsTest, ParseCIPulseWidthChanSeconds) {
@@ -1129,7 +1129,7 @@ TEST(ChannelsTest, ParseCIPulseWidthChanTicks) {
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr1");
-    EXPECT_EQ(mock->calls_to("SetChanAttributeString").size() >= 1, true);
+    EXPECT_EQ(!mock->calls_to("SetChanAttributeString").empty(), true);
 }
 
 TEST(ChannelsTest, ParseCISemiPeriodChanSeconds) {
@@ -1292,7 +1292,7 @@ TEST(ChannelsTest, ParseCILinearVelocityChanMetersPerSecond) {
     EXPECT_EQ(call["args"]["units"], DAQmx_Val_MetersPerSecond);
     EXPECT_EQ(call["args"]["decodingType"], DAQmx_Val_X4);
     EXPECT_EQ(call["args"]["distPerPulse"], 0.001);
-    EXPECT_EQ(mock->calls_to("SetChanAttributeString").size() >= 1, true);
+    EXPECT_EQ(!mock->calls_to("SetChanAttributeString").empty(), true);
 }
 
 TEST(ChannelsTest, ParseCILinearVelocityChanInchesPerSecond) {
@@ -1369,7 +1369,7 @@ TEST(ChannelsTest, ParseCIAngularVelocityChanRPM) {
     EXPECT_EQ(call["args"]["units"], DAQmx_Val_RPM);
     EXPECT_EQ(call["args"]["decodingType"], DAQmx_Val_X4);
     EXPECT_EQ(call["args"]["pulsesPerRev"], 24);
-    EXPECT_EQ(mock->calls_to("SetChanAttributeString").size() >= 1, true);
+    EXPECT_EQ(!mock->calls_to("SetChanAttributeString").empty(), true);
 }
 
 TEST(ChannelsTest, ParseCIAngularVelocityChanRadiansPerSecond) {
@@ -1453,7 +1453,7 @@ TEST(ChannelsTest, ParseCILinearPositionChanMeters) {
     EXPECT_EQ(call["args"]["zidxEnable"], 1);
     EXPECT_EQ(call["args"]["zidxVal"], 0.0);
     EXPECT_EQ(call["args"]["zidxPhase"], DAQmx_Val_AHighBHigh);
-    EXPECT_EQ(mock->calls_to("SetChanAttributeString").size() >= 1, true);
+    EXPECT_EQ(!mock->calls_to("SetChanAttributeString").empty(), true);
 }
 
 TEST(ChannelsTest, ParseCILinearPositionChanInches) {
@@ -1544,7 +1544,7 @@ TEST(ChannelsTest, ParseCIAngularPositionChanDegrees) {
     EXPECT_EQ(call["args"]["zidxEnable"], 1);
     EXPECT_EQ(call["args"]["zidxVal"], 0.0);
     EXPECT_EQ(call["args"]["zidxPhase"], DAQmx_Val_AHighBHigh);
-    EXPECT_EQ(mock->calls_to("SetChanAttributeString").size() >= 1, true);
+    EXPECT_EQ(!mock->calls_to("SetChanAttributeString").empty(), true);
 }
 
 TEST(ChannelsTest, ParseCIAngularPositionChanRadians) {
@@ -1621,7 +1621,7 @@ TEST(ChannelsTest, ParseCIDutyCycleChanRising) {
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr0");
     EXPECT_EQ(call["args"]["edge"], DAQmx_Val_Rising);
-    EXPECT_EQ(mock->calls_to("SetChanAttributeString").size() >= 1, true);
+    EXPECT_EQ(!mock->calls_to("SetChanAttributeString").empty(), true);
 }
 
 TEST(ChannelsTest, ParseCIDutyCycleChanFalling) {

@@ -19,7 +19,7 @@ import (
 
 func TestLiteral(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Literal Suite")
+	RunSpecs(t, "Literal Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

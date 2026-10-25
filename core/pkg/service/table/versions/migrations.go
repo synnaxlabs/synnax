@@ -10,16 +10,18 @@
 package versions
 
 import (
+	"github.com/synnaxlabs/gorp"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
-	"github.com/synnaxlabs/x/migrate"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v3"
 )
 
 // Migrations is the ordered migration chain for stored tables.
-var Migrations = []migrate.Migration{
+var Migrations = []gorp.Migration{
 	v0.NormalizeKeys,
 	v0.Migration,
 	v1.Migration,
 	v2.Migration,
+	v3.Migration,
 }

@@ -12,7 +12,7 @@ import "schemas/synnax/rack"
 import "schemas/synnax/status"
 
 @cpp output "client/cpp/device"
-@go output  "core/pkg/service/device"
+@go output  "core/pkg/service/legacy/device"
 @pb
 @py output  "client/py/synnax/device"
 @ts output  "client/ts/src/device"

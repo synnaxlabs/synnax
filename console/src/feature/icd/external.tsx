@@ -39,7 +39,7 @@ const TAB: Panel.Tab = {
     );
   },
   // Only these hooks, so the bundler can drop the rest of the namespace.
-  useTombstone: Panel.createTombstoneReader({ useTombstone: ICD.useTombstone }),
+  Guard: Panel.createGuard({ useTombstone: ICD.useTombstone }),
 };
 
 export const TABS: Panel.Tabs = {

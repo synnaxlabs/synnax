@@ -20,7 +20,7 @@ import { Link } from "@/platform/link";
 import { Tree } from "@/platform/tree";
 
 const useRename = Tree.createUseRename({
-  query: Group.useRename,
+  useUpdate: Group.useRename,
   ontologyID: group.ontologyID,
   convertKey: String,
 });
@@ -42,7 +42,6 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const createFromSelection = PlatformGroup.useCreateFromSelection();
   const handleLink = Core.useCopyLinkToClipboard();
   const firstID = ids[0];
-  const firstResource = getResource(firstID);
   const rename = useRename(props);
   const isSingle = ids.length === 1;
   const isZeroDepth =
@@ -78,7 +77,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         <>
           <Link.CopyContextMenuItem
             onClick={() =>
-              handleLink({ name: firstResource.name, ontologyID: firstID })
+              handleLink({ name: getResource(firstID).name, ontologyID: firstID })
             }
           />
           <Tree.CopyPropertiesContextMenuItem {...props} />
@@ -102,7 +101,7 @@ interface UngroupParams extends Tree.ContextMenuProps {
 }
 
 const baseUngroup = Flux.createUpdate<UngroupParams>({
-  name: Group.RESOURCE_NAME,
+  name: "resources",
   verbs: {
     present: "ungroup",
     past: "ungrouped",

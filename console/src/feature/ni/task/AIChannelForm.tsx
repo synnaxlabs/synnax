@@ -412,6 +412,32 @@ const VelocitySensitivityUnitsField = Form.buildSelectField<VelocitySensitivityU
   },
 });
 
+const ThermocoupleForm: FC<FormProps> = ({ prefix }) => {
+  const cjcSource = Form.useFieldValue<CJCType>(`${prefix}.cjc.source`, {
+    optional: true,
+  });
+  const units = Form.useFieldValue<TemperatureUnits>(`${prefix}.units`, {
+    optional: true,
+  });
+  return (
+    <>
+      <ThermocoupleTypeField path={prefix} />
+      <CJCSourceField path={prefix} />
+      {cjcSource === "const_val" && (
+        <Form.NumericField path={`${prefix}.cjc.val`} label="CJC value" />
+      )}
+      {cjcSource === "chan" && (
+        <Form.NumericField path={`${prefix}.cjc.port`} label="CJC port" />
+      )}
+      <TemperatureUnitsField path={prefix} />
+      <MinMaxValueFields
+        path={prefix}
+        units={units == null ? undefined : TEMPERATURE_UNIT_SYMBOLS[units]}
+      />
+    </>
+  );
+};
+
 const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
   ai_accel: ({ prefix }) => (
     <>
@@ -903,31 +929,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       <Form.NumericField path={`${prefix}.r1`} label="Reference resistor" />
     </>
   ),
-  ai_thermocouple: ({ prefix }) => {
-    const cjcSource = Form.useFieldValue<CJCType>(`${prefix}.cjc.source`, {
-      optional: true,
-    });
-    const units = Form.useFieldValue<TemperatureUnits>(`${prefix}.units`, {
-      optional: true,
-    });
-    return (
-      <>
-        <ThermocoupleTypeField path={prefix} />
-        <CJCSourceField path={prefix} />
-        {cjcSource === "const_val" && (
-          <Form.NumericField path={`${prefix}.cjc.val`} label="CJC value" />
-        )}
-        {cjcSource === "chan" && (
-          <Form.NumericField path={`${prefix}.cjc.port`} label="CJC port" />
-        )}
-        <TemperatureUnitsField path={prefix} />
-        <MinMaxValueFields
-          path={prefix}
-          units={units == null ? undefined : TEMPERATURE_UNIT_SYMBOLS[units]}
-        />
-      </>
-    );
-  },
+  ai_thermocouple: ThermocoupleForm,
   ai_torque_bridge_polynomial: ({ prefix }) => (
     <>
       <MinMaxValueFields path={prefix} />

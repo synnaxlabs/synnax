@@ -21,5 +21,5 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 func TestServer(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Server Suite")
+	RunSpecs(t, "Server Suite", SuiteConfig())
 }

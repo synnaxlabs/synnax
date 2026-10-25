@@ -19,7 +19,7 @@ import (
 
 func TestSchematicV9(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Schematic v9 Suite")
+	RunSpecs(t, "Service Schematic v9 Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

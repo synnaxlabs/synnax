@@ -9,17 +9,19 @@
 
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { type ReactElement } from "react";
 
-export interface ButtonProps extends PropsWithChildren {
+import { Form } from "@/components/feedback/Form";
+
+export interface ButtonProps {
   initialVisible?: boolean;
 }
 
 /**
- * Renders the feedback button and dialog. The page renders it closed and empty, and the
- * feedback island mounts it open with the form as children.
+ * Renders the feedback button and dialog. The page renders it closed, which also puts
+ * the form's styles in the page, and the feedback island mounts it open.
  */
-export const Button = ({ initialVisible, children }: ButtonProps): ReactElement => (
+export const Button = ({ initialVisible }: ButtonProps): ReactElement => (
   <Dialog.Frame
     className="feedback-modal"
     variant="modal"
@@ -34,6 +36,8 @@ export const Button = ({ initialVisible, children }: ButtonProps): ReactElement 
       <Icon.Feedback />
       Stuck? Let us know!
     </Dialog.Trigger>
-    <Dialog.Dialog>{children}</Dialog.Dialog>
+    <Dialog.Dialog>
+      <Form />
+    </Dialog.Dialog>
   </Dialog.Frame>
 );

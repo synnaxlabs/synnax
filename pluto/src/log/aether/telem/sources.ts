@@ -208,7 +208,7 @@ export class StreamMultiChannelLog
       this.notify();
     } catch (e) {
       this.valid = false;
-      this.onStatusChange?.(cstatus.fromException(e, "failed to stream log channels"));
+      this.onStatusChange?.(cstatus.fromException(e, "Failed to stream log channels"));
     }
   }
 

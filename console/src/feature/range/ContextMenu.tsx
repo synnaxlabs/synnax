@@ -54,9 +54,6 @@ export const CreateChildRangeIcon = Icon.createComposite(Icon.Range, {
 const useDelete = () => {
   const dispatch = Session.useDispatch();
   const ranges = Range.useResolveMultiple();
-  const handleRemove = (keys: string[]): void => {
-    dispatch(Session.Range.remove({ keys }));
-  };
   const confirm = Modals.useConfirmDelete({
     type: "Range",
     description: "Deleting a range also deletes its child ranges.",
@@ -67,10 +64,10 @@ const useDelete = () => {
         const keys = array.toArray(data);
         const rng = ranges.filter((r) => keys.includes(r.key));
         if (!(await confirm(rng))) return false;
-        handleRemove(keys);
+        dispatch(Session.Range.remove({ keys }));
         return true;
       },
-      [confirm, ranges],
+      [confirm, ranges, dispatch],
     ),
   });
   return update;

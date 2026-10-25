@@ -1871,7 +1871,7 @@ ProdAPI::ProdAPI(std::unique_ptr<x::lib::Shared> &lib_): lib(std::move(lib_)) {
     );
 }
 
-ProdAPI::~ProdAPI() {}
+ProdAPI::~ProdAPI() = default;
 
 int32 ProdAPI::AddCDAQSyncConnection(const char portList[]) {
     return function_pointers_.AddCDAQSyncConnection(portList);
@@ -1975,8 +1975,8 @@ int32 ProdAPI::CfgAnlgMultiEdgeRefTrig(
     uInt32 pretriggerSamples,
     uInt32 arraySize
 ) {
-    int32 *slopeArray = const_cast<int32 *>(triggerSlopeArray);
-    float64 *levelArray = const_cast<float64 *>(triggerLevelArray);
+    auto *slopeArray = const_cast<int32 *>(triggerSlopeArray);
+    auto *levelArray = const_cast<float64 *>(triggerLevelArray);
 
     return function_pointers_.CfgAnlgMultiEdgeRefTrig(
         task,
@@ -1995,8 +1995,8 @@ int32 ProdAPI::CfgAnlgMultiEdgeStartTrig(
     const float64 triggerLevelArray[],
     uInt32 arraySize
 ) {
-    int32 *slopeArray = const_cast<int32 *>(triggerSlopeArray);
-    float64 *levelArray = const_cast<float64 *>(triggerLevelArray);
+    auto *slopeArray = const_cast<int32 *>(triggerSlopeArray);
+    auto *levelArray = const_cast<float64 *>(triggerLevelArray);
 
     return function_pointers_.CfgAnlgMultiEdgeStartTrig(
         task,
@@ -4552,7 +4552,7 @@ int32 ProdAPI::CreateWatchdogTimerTask(
     int32 expState94,
     const char lines95[],
     int32 expState95
-) {
+) const {
     return function_pointers_.CreateWatchdogTimerTask(
         deviceName,
         sessionName,
@@ -5127,7 +5127,7 @@ int32 ProdAPI::GetAnalogPowerUpStates(
     const char channelName95[],
     float64 *state95,
     int32 channelType95
-) {
+) const {
     return function_pointers_.GetAnalogPowerUpStates(
         deviceName,
         channelName,
@@ -5834,7 +5834,7 @@ int32 ProdAPI::GetDigitalPowerUpStates(
     int32 *state94,
     const char channelName95[],
     int32 *state95
-) {
+) const {
     return function_pointers_.GetDigitalPowerUpStates(
         deviceName,
         channelName,
@@ -6230,7 +6230,7 @@ int32 ProdAPI::GetDigitalPullUpPullDownStates(
     int32 *state94,
     const char channelName95[],
     int32 *state95
-) {
+) const {
     return function_pointers_.GetDigitalPullUpPullDownStates(
         deviceName,
         channelName,
@@ -8095,7 +8095,7 @@ int32 ProdAPI::SetAnalogPowerUpStates(
     const char channelNames95[],
     float64 state95,
     int32 channelType95
-) {
+) const {
     return function_pointers_.SetAnalogPowerUpStates(
         deviceName,
         channelNames,
@@ -8712,7 +8712,7 @@ int32 ProdAPI::SetDigitalPowerUpStates(
     int32 state94,
     const char channelNames95[],
     int32 state95
-) {
+) const {
     return function_pointers_.SetDigitalPowerUpStates(
         deviceName,
         channelNames,
@@ -9108,7 +9108,7 @@ int32 ProdAPI::SetDigitalPullUpPullDownStates(
     int32 state94,
     const char channelNames95[],
     int32 state95
-) {
+) const {
     return function_pointers_.SetDigitalPullUpPullDownStates(
         deviceName,
         channelNames,

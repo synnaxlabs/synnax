@@ -68,10 +68,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
             keys.push_back(key);
         auto [sy_channels, ch_err] = client->channels.retrieve(keys);
         if (ch_err) {
-            parser.field_err(
-                "channels",
-                "failed to retrieve channels: " + ch_err.message()
-            );
+            parser.field_err("channels", "failed to retrieve channels: " + ch_err.data);
             return;
         }
         for (const auto &sy_ch: sy_channels) {
@@ -80,13 +77,16 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
         }
         auto [dev, err] = client->devices.retrieve(this->device);
         if (err) {
-            parser.field_err("device", "failed to retrieve device: " + err.message());
+            parser.field_err("device", "failed to retrieve device: " + err.data);
             return;
         }
         const auto properties = x::json::Parser(dev.properties);
         this->connection = connection::Config(properties.child("connection"));
         if (properties.error())
-            parser.field_err("device", properties.error().message());
+            parser.field_err(
+                "device",
+                common::config_err_description(properties.error())
+            );
     }
 
     [[nodiscard]] std::vector<synnax::channel::Key> cmd_keys() const {

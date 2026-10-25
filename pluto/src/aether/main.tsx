@@ -18,6 +18,7 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
   useSyncExternalStore,
 } from "react";
 import { type z } from "zod";
@@ -62,13 +63,11 @@ export interface ProviderProps extends PropsWithChildren {
 const ROOT_PATH = ["root"] as const;
 
 /** Roots an Aether tree: owns a {@link Store}, spawns or wraps the worker, and supplies
- * the context that descendant {@link use} / {@link useLifecycle} / {@link Composite}
- * calls read. Re-throws worker-reported errors so the nearest React error boundary can
- * catch them. */
+ * the context that descendant {@link use} / {@link useLifecycle} /
+ * {@link Composite} calls read. Re-throws worker-reported errors so the nearest React
+ * error boundary can catch them. */
 export const Provider = ({ children, ...config }: ProviderProps): ReactElement => {
-  const storeRef = useRef<Store | null>(null);
-  storeRef.current ??= new Store(config);
-  const store = storeRef.current;
+  const [store] = useState(() => new Store(config));
   const subscribeError = useCallback(
     (listener: () => void) => {
       const unsubscribe = store.subscribeError(listener);
@@ -128,11 +127,11 @@ interface UseLifecycleProps<
 }
 
 /** Registers a component with the enclosing {@link Provider}'s {@link Store} and
- * returns the operations needed to drive it. Identity — store, enclosing path, and key —
+ * returns the operations needed to drive it. Identity (store, enclosing path, and key)
  * is fixed on the mounting render; moving a component under a different
- * {@link Composite} needs a remount. Lower-level than {@link use} — does not subscribe
- * React to state changes. Most callers want {@link use} or {@link useUnidirectional}
- * instead. */
+ * {@link Composite} needs a remount. Lower-level than {@link use}: it does
+ * not subscribe React to state changes. Most callers want {@link use} or
+ * {@link useUnidirectional} instead. */
 export const useLifecycle = <
   StateSchema extends z.ZodType<record.Unknown, record.Unknown>,
   Methods extends MethodsSchema = EmptyMethodsSchema,
@@ -151,20 +150,19 @@ export const useLifecycle = <
   const key = useUniqueKey(aetherKey);
   const ctx = useContext();
   const onReceiveRef = useSyncedRef(onAetherChange);
-  const handleRef = useRef<Handle<StateSchema, Methods> | null>(null);
   // Staging is pure: the store keeps no reference and the worker hears nothing until
-  // the attach below. A render React discards is reclaimed with this ref. `??=` short
-  // circuits, so the path array is built on the mounting render alone.
-  handleRef.current ??= ctx.store.stage({
-    type,
-    path: [...ctx.path, key],
-    schema,
-    initialState,
-    initialTransfer,
-    methodsSchema,
-    onReceiveRef,
-  });
-  const handle = handleRef.current;
+  // the attach below, so a render React discards drops its handle with its state.
+  const [handle] = useState<Handle<StateSchema, Methods>>(() =>
+    ctx.store.stage({
+      type,
+      path: [...ctx.path, key],
+      schema,
+      initialState,
+      initialTransfer,
+      methodsSchema,
+      onReceiveRef,
+    }),
+  );
 
   // The handle outlives the effect so StrictMode's cleanup-then-setup remount, which
   // does not re-render, re-attaches this same component.

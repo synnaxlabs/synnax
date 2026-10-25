@@ -1181,71 +1181,53 @@ describe("Custom.useRender", () => {
     });
   });
 
-  // The symbol editor's form mutates its value object in place rather than producing a
-  // new reference on every change, so the same spec object is passed across rerenders.
-  // The diff must detect changes by value, not by object identity.
-  describe("in-place spec mutation", () => {
-    it("should update dimensions when the internal scale is mutated in place", () => {
+  describe("spec changes", () => {
+    const renderSpec = (spec: schematic.symbol.Spec) => {
       const container = document.createElement("div");
-      const spec = createMockSpec();
-      const { result, rerender } = renderHook(() =>
-        Custom.useRender({
+      const utils = renderAttached(
+        { orientation: "top", activeState: "inactive", externalScale: 1, spec },
+        container,
+      );
+      const rerender = (next: schematic.symbol.Spec) =>
+        utils.rerender({
           orientation: "top",
           activeState: "inactive",
           externalScale: 1,
-          spec,
-        }),
-      );
-      result.current(container);
+          spec: next,
+        });
+      return { container, rerender };
+    };
 
+    it("should update dimensions when the internal scale changes", () => {
+      const spec = createMockSpec();
+      const { container, rerender } = renderSpec(spec);
       const svg = container.querySelector("svg") as SVGSVGElement;
       expect(svg.getAttribute("width")).toBe("100");
-
-      spec.scale = 2;
-      rerender();
+      rerender({ ...spec, scale: 2 });
       expect(svg.getAttribute("width")).toBe("200");
       expect(svg.getAttribute("height")).toBe("200");
     });
 
-    it("should apply region color changes when a state is mutated in place", () => {
-      const container = document.createElement("div");
+    it("should apply region color changes when a state changes", () => {
       const spec = createMockSpec();
-      const { result, rerender } = renderHook(() =>
-        Custom.useRender({
-          orientation: "top",
-          activeState: "inactive",
-          externalScale: 1,
-          spec,
-        }),
-      );
-      result.current(container);
-
+      const { container, rerender } = renderSpec(spec);
       const rect = container.querySelector(".main") as SVGRectElement;
       expect(rect.getAttribute("stroke")).toBe("#333333");
-
-      spec.states[0].regions[0].strokeColor = color.construct("#aabbcc");
-      rerender();
+      const [inactive, active] = spec.states;
+      const region = {
+        ...inactive.regions[0],
+        strokeColor: color.construct("#aabbcc"),
+      };
+      rerender({ ...spec, states: [{ ...inactive, regions: [region] }, active] });
       expect(rect.getAttribute("stroke")).toBe(color.hex(color.construct("#aabbcc")));
     });
 
-    it("should toggle stroke scaling when strokeScaled is mutated in place", () => {
-      const container = document.createElement("div");
+    it("should toggle stroke scaling when strokeScaled changes", () => {
       const spec = createMockSpec({ strokeScaled: false });
-      const { result, rerender } = renderHook(() =>
-        Custom.useRender({
-          orientation: "top",
-          activeState: "inactive",
-          externalScale: 1,
-          spec,
-        }),
-      );
-      result.current(container);
-
+      const { container, rerender } = renderSpec(spec);
       const rect = container.querySelector(".main") as SVGRectElement;
       expect(rect.getAttribute("vector-effect")).toBe("non-scaling-stroke");
-
-      spec.strokeScaled = true;
-      rerender();
+      rerender({ ...spec, strokeScaled: true });
       expect(rect.getAttribute("vector-effect")).toBeNull();
     });
   });
@@ -1338,9 +1320,7 @@ const editorInitialValues = (): SymbolValues => ({
 });
 
 // Mirrors the editor's Preview: reads the live form spec and drives useRender with the
-// currently-selected state key as activeState. The editor's form mutates its value
-// object in place, so this exercises useRender through the real Form rather than a
-// hand-mutated spec.
+// currently-selected state key as activeState.
 const PreviewLike = ({ activeState }: { activeState: string }): ReactElement => {
   const spec = Form.useFieldValue<schematic.symbol.Spec>("data");
   const setContainer = Custom.useRender({
@@ -1372,7 +1352,8 @@ describe("custom symbol editor preview", () => {
   it("should recolor a region when its color is edited through the form", () => {
     let form!: Form.ContextValue<any>;
     const Harness = (): ReactElement => {
-      form = Form.use<any>({ values: editorInitialValues() });
+      const values = editorInitialValues();
+      form = Form.use<any>({ values });
       return (
         <Form.Form {...form}>
           <PreviewLike activeState="base" />

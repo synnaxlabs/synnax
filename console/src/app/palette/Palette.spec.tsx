@@ -95,6 +95,15 @@ describe("Palette", () => {
     expect(tip.textContent).toContain("Command palette");
   });
 
+  it("should close on one Escape from the search field", async () => {
+    await renderAppPalette();
+    const input = await openPalette();
+    await act(async () => {
+      fireEvent.keyDown(input, { key: "Escape", code: "Escape" });
+    });
+    expect(document.querySelector(".console-palette__input")).toBeNull();
+  });
+
   it("should run a command selected through the command palette", async () => {
     const open = vi.spyOn(window, "open").mockReturnValue(null);
     await renderAppPalette();

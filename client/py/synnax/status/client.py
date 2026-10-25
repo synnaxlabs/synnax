@@ -113,20 +113,32 @@ class Client:
         Examples:
             Create a single status:
                 >>> status = client.statuses.set(
-                ...     Status(variant="info", message="Task started")
+                ...     Status(
+                ...         variant="warning",
+                ...         name="Tank pressure",
+                ...         message="Above 600 psi",
+                ...         description="Vent the tank before you continue.",
+                ...     )
                 ... )
 
             Create multiple statuses:
                 >>> statuses = client.statuses.set([
-                ...     Status(variant="success", message="Task 1 complete"),
-                ...     Status(variant="error", message="Task 2 failed"),
+                ...     Status(
+                ...         variant="success", name="Pump 1", message="Started pump"
+                ...     ),
+                ...     Status(
+                ...         variant="error",
+                ...         name="Pump 2",
+                ...         message="Failed to start pump",
+                ...         description="The motor controller did not respond.",
+                ...     ),
                 ... ])
 
             Create with parent:
                 >>> from synnax.status import ontology_id
                 >>> parent_id = ontology_id("parent-key")
                 >>> status = client.statuses.set(
-                ...     Status(variant="info", message="Child status"),
+                ...     Status(variant="info", name="Valve 3", message="Opened valve"),
                 ...     parent=parent_id
                 ... )
         """

@@ -19,7 +19,7 @@ import (
 
 func TestGRPC(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "GRPC Suite")
+	RunSpecs(t, "GRPC Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

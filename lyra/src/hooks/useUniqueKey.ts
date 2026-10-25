@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { id } from "@synnaxlabs/x";
-import { useRef } from "react";
+import { useState } from "react";
 
 /**
  * @returns a unique key that persists for the lifetime of the component.
@@ -16,7 +16,6 @@ import { useRef } from "react";
  * returned instead of the created key.
  * */
 export const useUniqueKey = (override?: string): string => {
-  const gen = useRef<string | null>(null);
-  if (gen.current === null) gen.current = override ?? id.create();
-  return gen.current;
+  const [key] = useState(() => override ?? id.create());
+  return key;
 };

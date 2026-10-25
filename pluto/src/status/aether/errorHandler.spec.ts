@@ -93,7 +93,7 @@ describe("errorHandler", () => {
       const handler = createErrorHandler(mockAdder, quiet);
       const func = () => {};
 
-      handler(func);
+      handler(func, "Failed to save range");
 
       expect(mockAdder).not.toHaveBeenCalled();
     });
@@ -122,7 +122,7 @@ describe("errorHandler", () => {
       const handler = createErrorHandler(mockAdder, quiet);
       const func = async () => {};
 
-      handler(func);
+      handler(func, "Failed to save range");
 
       await vi.waitFor(() => {
         expect(mockAdder).not.toHaveBeenCalled();
@@ -180,7 +180,7 @@ describe("errorHandler", () => {
       const handler = createAsyncErrorHandler(mockAdder, quiet);
       const func = () => {};
 
-      await handler(func);
+      await handler(func, "Failed to save range");
 
       expect(mockAdder).not.toHaveBeenCalled();
     });
@@ -207,7 +207,7 @@ describe("errorHandler", () => {
       const handler = createAsyncErrorHandler(mockAdder, quiet);
       const func = async () => {};
 
-      await handler(func);
+      await handler(func, "Failed to save range");
 
       expect(mockAdder).not.toHaveBeenCalled();
     });
@@ -243,7 +243,7 @@ describe("errorHandler", () => {
       const log = vi.fn<Log>();
       const handler = createAsyncErrorHandler(vi.fn(), log);
 
-      await handler(new Error("log test"));
+      await handler(new Error("log test"), "Failed to save range");
 
       expect(log).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("log test"));
     });
@@ -257,7 +257,7 @@ describe("errorHandler", () => {
         resolved = true;
       };
 
-      await handler(func);
+      await handler(func, "Failed to save range");
 
       expect(resolved).toBe(true);
       expect(mockAdder).not.toHaveBeenCalled();

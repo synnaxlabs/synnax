@@ -36,11 +36,11 @@ var _ = Describe("errors", func() {
 
 	Describe("panic", func() {
 		It(
-			"Should panic with 'memory not set' when memory is nil",
+			"Should panic before its memory is available when memory is nil",
 			func(ctx SpecContext) {
 				Expect(func() {
 					rt.Call(ctx, "error", "panic", testutil.U32(0), testutil.U32(5))
-				}).To(PanicWith(ContainSubstring("memory not set")))
+				}).To(PanicWith(ContainSubstring("before its memory was available")))
 			},
 		)
 
@@ -50,11 +50,11 @@ var _ = Describe("errors", func() {
 			mod.SetMemory(mem)
 			Expect(func() {
 				rt.Call(ctx, "error", "panic", testutil.U32(0), testutil.U32(10))
-			}).To(PanicWith(ContainSubstring("arc panic: test error")))
+			}).To(PanicWith(ContainSubstring("The program panicked: test error")))
 		})
 
 		It(
-			"Should panic with 'message unreadable' when memory read fails",
+			"Should panic with an unreadable message when memory read fails",
 			func(ctx SpecContext) {
 				mem := wazerotest.NewMemory(1)
 				mod.SetMemory(mem)
@@ -66,7 +66,9 @@ var _ = Describe("errors", func() {
 						testutil.U32(100000),
 						testutil.U32(5),
 					)
-				}).To(PanicWith(ContainSubstring("arc panic (message unreadable)")))
+				}).To(PanicWith(ContainSubstring(
+					"The program panicked with an unreadable message.",
+				)))
 			},
 		)
 
@@ -77,7 +79,7 @@ var _ = Describe("errors", func() {
 				mod.SetMemory(mem)
 				Expect(func() {
 					rt.Call(ctx, "error", "panic", testutil.U32(0), testutil.U32(0))
-				}).To(PanicWith(ContainSubstring("arc panic: ")))
+				}).To(PanicWith(ContainSubstring("The program panicked: ")))
 			},
 		)
 	})

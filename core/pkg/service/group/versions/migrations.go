@@ -10,12 +10,12 @@
 package versions
 
 import (
+	"github.com/synnaxlabs/gorp"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v0"
-	"github.com/synnaxlabs/x/migrate"
 )
 
 // Migrations is the ordered migration chain for stored groups.
-var Migrations = []migrate.Migration{
+var Migrations = []gorp.Migration{
 	v0.NormalizeKeys,
 	v0.Migration,
 	v0.NameMigration,

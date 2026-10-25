@@ -18,3 +18,4 @@ class Options(BaseModel):
     username: str = ""
     password: str = ""
     secure: bool = False
+    ca_cert: str | None = None

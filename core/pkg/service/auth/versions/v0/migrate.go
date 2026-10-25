@@ -9,10 +9,10 @@
 
 package v0
 
-import "github.com/synnaxlabs/x/gorp"
+import "github.com/synnaxlabs/gorp/migrate"
 
 // NormalizeKeys re-keys SecureCredentials rows stored under the pre-v0.54 key format.
-var NormalizeKeys = gorp.NormalizeKeysMigration[
+var NormalizeKeys = migrate.NormalizeKeys[
 	string,
 	SecureCredentials,
 ]("SecureCredentials")

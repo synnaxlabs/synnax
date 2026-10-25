@@ -12,3 +12,4 @@ export * from "@/color/Input";
 export * from "@/color/Picker";
 export * from "@/color/Provider";
 export * from "@/color/Swatch";
+export * from "@/color/Swatches";

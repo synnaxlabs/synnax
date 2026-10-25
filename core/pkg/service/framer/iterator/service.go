@@ -48,9 +48,10 @@ type Config struct {
 	//
 	// [OPTIONAL]
 	ChunkSize int64 `json:"chunk_size" msgpack:"chunk_size"`
-	// DownsampleFactor keeps every n-th sample of each series read from storage. The
-	// read is strided at the source, so the discarded samples are never read into
-	// memory. Values below 2 keep every sample.
+	// DownsampleFactor keeps the samples whose alignment is a multiple of n, so every
+	// channel that shares an index keeps the same samples. The read is strided at the
+	// source, so the discarded samples are never read into memory. Values below 2 keep
+	// every sample.
 	//
 	// [OPTIONAL]
 	DownsampleFactor uint32 `json:"downsample_factor" msgpack:"downsample_factor"`

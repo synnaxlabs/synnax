@@ -13,6 +13,7 @@
 #include <condition_variable>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <span>
 #include <thread>
 #include <vector>
@@ -42,11 +43,20 @@ struct Config {
 class Engine {
     Config config;
 
+    struct Command {
+        x::telem::SampleValue value;
+        /// @brief the order of this command across all writers.
+        uint64_t seq;
+    };
+
     struct Registration {
         size_t id;
         std::vector<pdo::Entry> entries;
         std::vector<pdo::Offset> offsets;
         x::telem::Rate rate;
+        /// @brief the last command for each entry, re-applied when the output image is
+        /// rebuilt.
+        std::vector<std::optional<Command>> commands;
     };
 
     std::atomic<size_t> next_id = 0;
@@ -79,6 +89,8 @@ class Engine {
     mutable std::mutex write_mu;
     std::vector<uint8_t> write_staging;
     std::vector<uint8_t> write_active;
+    /// @brief the seq of the latest command, guarded by write_mu.
+    uint64_t command_seq = 0;
     // Shared pointers allow writers to refresh offsets after reconfigure,
     // mirroring the reader pattern.
     std::vector<std::shared_ptr<Registration>> write_registrations;
@@ -88,30 +100,46 @@ class Engine {
     alignas(64) std::atomic<uint64_t> config_gen{0};
     x::breaker::Breaker breaker;
 
+    /// @brief false while the latest cycle failed and its inputs were dropped. Written
+    /// with the input image and read_epoch, inside the read_seq write.
+    std::atomic<bool> inputs_valid{true};
+    mutable std::mutex cycle_err_mu;
+    /// @brief why the latest cycle failed, guarded by cycle_err_mu.
+    x::errors::Error cycle_err;
+
     void run();
-    void stop();
-    [[nodiscard]] x::errors::Error reconfigure();
+    void stop_locked();
+    void stop_if_idle();
+    [[nodiscard]] x::errors::Error reconfigure_locked();
+    [[nodiscard]] x::errors::Error
+    add(const std::shared_ptr<Registration> &reg, bool is_input);
+    void remove_locked(size_t id);
     [[nodiscard]] bool should_be_running() const;
-    void update_cycle_time();
+    [[nodiscard]] x::errors::Error validate_rates_locked() const;
+    void update_cycle_time_locked();
 
     void publish_inputs(std::span<const uint8_t> src);
+    void invalidate_inputs();
+    [[nodiscard]] x::errors::Error invalid_inputs_error() const;
+    void write_outputs();
     const uint8_t *consume_outputs(size_t &out_len);
     void update_read_offsets_locked();
-    void update_read_offsets();
-    void update_write_offsets_locked(size_t total_size);
-    void update_write_offsets(size_t total_size);
+    [[nodiscard]] x::errors::Error update_write_offsets_locked(size_t total_size);
+    void rebuild_outputs_locked();
     void unregister_reader(size_t id);
     void unregister_writer(size_t id);
 
     std::shared_ptr<master::Master> master;
-    mutable std::mutex master_init_mu;
+    /// @brief serializes every call that initializes, activates, or deactivates the
+    /// master. Lock it before registration_mu and write_mu.
+    mutable std::mutex master_mu;
 
 public:
     /// @brief resolved PDO entry with offset and type information.
     struct ResolvedPDO {
         pdo::Offset offset;
         x::telem::DataType data_type;
-        uint8_t bit_length;
+        uint8_t bit_length{};
     };
 
     /// @brief proxy for reading input data from the EtherCAT cycle engine.
@@ -151,7 +179,8 @@ public:
         [[nodiscard]] size_t size() const { return this->total_size; }
     };
 
-    /// @brief proxy for writing output data to the EtherCAT cycle engine.
+    /// @brief proxy for writing output data to the EtherCAT cycle engine. Destroying
+    /// the writer returns its entries to zero.
     class Writer {
         Engine &engine;
         size_t id;
@@ -166,7 +195,7 @@ public:
         class Transaction {
             Engine &engine;
             std::unique_lock<std::mutex> lock;
-            const std::vector<ResolvedPDO> &pdos;
+            const Writer &writer;
 
         public:
             explicit Transaction(const Writer &writer);
@@ -176,7 +205,8 @@ public:
             Transaction &operator=(Transaction &&) = delete;
 
             /// @brief writes a value to a specific PDO entry by index.
-            void write(size_t pdo_index, const x::telem::SampleValue &value) const;
+            [[nodiscard]] x::errors::Error
+            write(size_t pdo_index, const x::telem::SampleValue &value) const;
         };
 
         Writer(Engine &eng, size_t id, std::shared_ptr<Registration> registration);
@@ -189,11 +219,12 @@ public:
         [[nodiscard]] Transaction open_tx() const;
 
         /// @brief writes a value to a specific PDO entry by index.
-        void write(size_t pdo_index, const x::telem::SampleValue &value) const;
+        [[nodiscard]] x::errors::Error
+        write(size_t pdo_index, const x::telem::SampleValue &value) const;
     };
 
     /// @brief constructs an Engine with the given master and configuration.
-    explicit Engine(std::shared_ptr<master::Master> master, const Config &config);
+    explicit Engine(std::shared_ptr<master::Master> master, Config config);
 
     /// @brief constructs an Engine with the given master using default configuration.
     explicit Engine(std::shared_ptr<master::Master> master);
@@ -203,11 +234,14 @@ public:
     Engine(const Engine &) = delete;
     Engine &operator=(const Engine &) = delete;
 
-    /// @brief opens a new Reader for the specified PDO entries.
+    /// @brief opens a new Reader for the specified PDO entries. Returns
+    /// errors::RATE_MISMATCH when the sample rate does not divide the bus rate.
     [[nodiscard]] std::pair<std::unique_ptr<Reader>, x::errors::Error>
     open_reader(const std::vector<pdo::Entry> &entries, x::telem::Rate sample_rate);
 
-    /// @brief opens a new Writer for the specified PDO entries.
+    /// @brief opens a new Writer for the specified PDO entries. Returns
+    /// errors::RATE_MISMATCH when the new bus rate would not be a multiple of an open
+    /// reader's sample rate.
     [[nodiscard]] std::pair<std::unique_ptr<Writer>, x::errors::Error>
     open_writer(const std::vector<pdo::Entry> &entries, x::telem::Rate execution_rate);
 
@@ -217,10 +251,12 @@ public:
     /// @brief returns the engine configuration.
     [[nodiscard]] const Config &cfg() const { return this->config; }
 
-    /// @brief returns the current engine cycle rate (thread-safe).
+    /// @brief returns the rate the bus cycles at (thread-safe). It changes only when
+    /// a reader or writer opens.
     [[nodiscard]] x::telem::Rate cycle_rate() const;
 
-    /// @brief initializes the master (thread-safe, idempotent).
+    /// @brief initializes the master unless the bus is already running (thread-safe,
+    /// idempotent).
     [[nodiscard]] x::errors::Error ensure_initialized() const;
 
     /// @brief returns discovered slaves.

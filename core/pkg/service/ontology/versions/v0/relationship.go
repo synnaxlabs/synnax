@@ -9,7 +9,7 @@
 
 package v0
 
-import "github.com/synnaxlabs/x/gorp"
+import "github.com/synnaxlabs/gorp"
 
 // RelationshipType is a string that uniquely identifies the type of a relationship
 // between two resources. For example, a relationship of type "member" could indicate

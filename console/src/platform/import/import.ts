@@ -67,7 +67,7 @@ export const use = (): ((projectKey?: string) => void) => {
               parent: project.ontologyID(activeProjectKeyAfter),
             }),
         });
-      }),
+      }, "Failed to import files"),
     [store, client, handleError, importBatch],
   );
 };

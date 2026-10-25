@@ -170,12 +170,17 @@ func FormatTS(name, doc string, indent ...int) string {
 //
 // Multi-line: "/// @brief Name line1\n/// line2\n/// line3"
 //
-// Text is wrapped to 88 characters including the comment prefix.
-func FormatCpp(name, doc string) string {
+// Text is wrapped to 88 characters including the comment prefix and the indentation the
+// comment is emitted at (clang-format re-indents continuation lines to match).
+func FormatCpp(name, doc string, indent ...int) string {
 	if doc == "" {
 		return ""
 	}
-	return renderComment(doc, "/// @brief "+name+" ", "/// ", "///", maxLineWidth)
+	width := maxLineWidth
+	if len(indent) > 0 {
+		width -= indent[0]
+	}
+	return renderComment(doc, "/// @brief "+name+" ", "/// ", "///", width)
 }
 
 // FormatProto formats documentation for Protobuf comments (same as Go style).

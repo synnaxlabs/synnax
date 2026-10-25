@@ -68,15 +68,15 @@ export const useStaticData = <
   }, [filteredData]);
   const [params, setParams] = useState<RetrieveParams>({});
   const getItem = useCallback(
-    ((key: K | K[]) => {
+    (key: K | K[]) => {
       if (Array.isArray(key)) {
         const keySet = new Set(key);
         return filteredData.filter((d) => keySet.has(d.key));
       }
       return filteredData.find((d) => d.key === key);
-    }) as GetItem<K, E>,
+    },
     [filteredData],
-  );
+  ) as GetItem<K, E>;
   const res = useMemo(() => {
     let processedData = filteredData;
     if (params.searchTerm != null && params.searchTerm.length > 0 && fuse != null) {

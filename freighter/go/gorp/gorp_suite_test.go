@@ -14,14 +14,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/gorp"
-	. "github.com/synnaxlabs/x/gorp/testutil"
+	"github.com/synnaxlabs/gorp"
+	. "github.com/synnaxlabs/gorp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestGorp(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Freighter Gorp Suite")
+	RunSpecs(t, "Freighter Gorp Suite", SuiteConfig())
 }
 
 var db *gorp.DB

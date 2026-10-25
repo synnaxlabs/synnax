@@ -68,18 +68,21 @@ Properties struct {
 
 ReadConfig struct extends bus.StreamReadConfig {
     @doc value  "configures a serial read task."
+    @go imex    body
     @go marshal
     @go migrate
 }
 
 WriteConfig struct extends bus.StreamWriteConfig {
     @doc value  "configures a serial write task."
+    @go imex    body
     @go marshal
     @go migrate
 }
 
 ScanConfig struct extends task.ScanConfig {
     @doc value  "configures the scan task that lists serial ports."
+    @go imex    body
     @go marshal
     @go migrate
 }

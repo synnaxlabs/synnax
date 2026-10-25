@@ -24,7 +24,7 @@ import (
 
 func TestControl(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Distribution Transport gRPC Control Suite")
+	RunSpecs(t, "Distribution Transport gRPC Control Suite", SuiteConfig())
 }
 
 var (

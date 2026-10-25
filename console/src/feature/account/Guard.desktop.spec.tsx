@@ -128,7 +128,7 @@ describe("Account.Guard", () => {
     const { rerender } = render(ui(createTestClient({ port: 1 })), { wrapper });
     fireEvent.click(findButton("Log in"));
     await waitFor(() =>
-      expect(statuses.map((s) => s.message)).toContain("Failed to open the login page"),
+      expect(statuses.map((s) => s.message)).toContain("Failed to open login page"),
     );
     expect(open).not.toHaveBeenCalled();
     rerender(ui(createTestClient()));

@@ -23,6 +23,7 @@
 
 #include "x/cpp/errors/errors.h"
 
+#include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/node/node.h"
 
@@ -35,6 +36,13 @@ namespace arc::runtime::scheduler {
 /// indices into Scheduler::nodes / Scheduler::scopes; the type system
 /// does not distinguish them — tests cover the mixups.
 static constexpr size_t NO_INDEX = ~size_t{0};
+
+/// @brief receives an error raised by a node, along with that node.
+using ErrorHandler = std::function<void(const ir::Node &, const x::errors::Error &)>;
+
+/// @brief an ErrorHandler that ignores every error.
+inline const ErrorHandler noop_handler = [](const ir::Node &,
+                                            const x::errors::Error &) {};
 
 namespace detail {
 class Builder;
@@ -90,6 +98,9 @@ class Scheduler {
         /// @brief marks a node with no incoming edges and no channel reads.
         /// Entry nodes fire once per activation.
         bool entry = false;
+        /// @brief marked_flags index of the node's ir::done_param pseudo-output,
+        /// NO_INDEX when no transition waits on it.
+        size_t done = NO_INDEX;
         /// @brief propagation table indexed by output ordinal.
         std::vector<OutputResolved> outputs;
     };
@@ -190,7 +201,7 @@ class Scheduler {
     /// ran this pass; next keeps running settle passes until it stays true.
     bool settled = true;
     /// @brief receives errors raised by nodes via ctx.report_error.
-    errors::Handler error_handler;
+    ErrorHandler error_handler;
     /// @brief node::Context passed to every node's next; rebound per cycle
     /// with the latest elapsed time and run reason.
     node::Context ctx;
@@ -213,7 +224,7 @@ public:
     Scheduler(
         ir::IR prog,
         std::unordered_map<std::string, std::unique_ptr<node::Node>> &node_impls,
-        errors::Handler error_handler = errors::noop_handler
+        ErrorHandler error_handler = noop_handler
     );
 
     Scheduler(Scheduler &&) = delete;
@@ -485,12 +496,18 @@ private:
         return first;
     }
 
+    /// @brief sends e to the error handler along with the node that raised it. Only
+    /// callable from inside a node's next().
     void report_error(const x::errors::Error &e) const {
+        DCHECK(this->curr_node != NO_INDEX);
+        const auto &node = this->prog.nodes[this->curr_node];
         if (e.matches(errors::WARNING))
-            LOG(WARNING) << "[arc.scheduler] node reported a warning: " << e;
+            LOG(WARNING) << "[arc.scheduler] node " << node.key
+                         << " reported a warning: " << e;
         else
-            LOG(ERROR) << "[arc.scheduler] node encountered error: " << e;
-        this->error_handler(e);
+            LOG(ERROR) << "[arc.scheduler] node " << node.key
+                       << " encountered error: " << e;
+        this->error_handler(node, e);
     }
 
     /// @brief propagates the current node's output to downstream nodes, records a fresh
@@ -523,6 +540,13 @@ private:
     void mark_self_changed() {
         DCHECK(this->curr_node != NO_INDEX);
         this->self_changed_flags[this->curr_node] = 1;
+    }
+
+    /// @brief records a fresh mark on the current node's ir::done_param pseudo-output.
+    void mark_done() {
+        DCHECK(this->curr_node != NO_INDEX);
+        const size_t done = this->nodes[this->curr_node].done;
+        if (done != NO_INDEX) this->marked_flags[done] = 1;
     }
 };
 
@@ -801,6 +825,8 @@ private:
             auto &out = on_node.outputs[out_idx];
             if (out.mark_handle_idx == NO_INDEX)
                 out.mark_handle_idx = this->next_handle_idx++;
+            if (transitions[i].on.param == ir::done_param)
+                on_node.done = out.mark_handle_idx;
             state.transition_on_node[i] = on;
             state.transition_on_output_idx[i] = out_idx;
             state.transition_on_idx[i] = out.mark_handle_idx;
@@ -892,11 +918,12 @@ inline x::errors::Error validate(const ir::Scope &root) {
 inline Scheduler::Scheduler(
     ir::IR prog,
     std::unordered_map<std::string, std::unique_ptr<node::Node>> &node_impls,
-    errors::Handler error_handler
+    ErrorHandler error_handler
 ):
     error_handler(std::move(error_handler)), prog(std::move(prog)) {
     this->ctx.mark_changed = std::bind_front(&Scheduler::mark_changed, this);
     this->ctx.mark_self_changed = std::bind_front(&Scheduler::mark_self_changed, this);
+    this->ctx.mark_done = std::bind_front(&Scheduler::mark_done, this);
     this->ctx.set_deadline =
         [this](const x::telem::TimeSpan at, const x::telem::TimeSpan span) {
             auto &min = this->min_deadline;

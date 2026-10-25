@@ -445,6 +445,7 @@ All matching is case-insensitive substring.
     parser.add_argument("--username", default="synnax", help="Synnax username")
     parser.add_argument("--password", default="seldon", help="Synnax password")
     parser.add_argument("--secure", action="store_true", help="Use secure connection")
+    parser.add_argument("--ca-cert", help="CA certificate that signs the Core's cert")
     parser.add_argument(
         "--filter",
         "-f",
@@ -499,6 +500,7 @@ All matching is case-insensitive substring.
         username=args.username,
         password=args.password,
         secure=args.secure,
+        ca_cert=args.ca_cert,
     )
 
     # Create and run test conductor

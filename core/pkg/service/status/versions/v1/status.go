@@ -13,8 +13,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // String returns a formatted string representation of the Status.

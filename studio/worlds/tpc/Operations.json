@@ -7,7 +7,7 @@
     "first": {
       "variant": "split",
       "direction": "y",
-      "size": 0.6957141579609103,
+      "size": 0.65,
       "first": {
         "variant": "leaf",
         "tabs": [
@@ -21,7 +21,7 @@
       "last": {
         "variant": "split",
         "direction": "x",
-        "size": 0.3836467287902565,
+        "size": 0.54,
         "first": {
           "variant": "leaf",
           "tabs": [

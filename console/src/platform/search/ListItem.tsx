@@ -11,7 +11,7 @@ import { type ontology } from "@synnaxlabs/client";
 import { type Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type FC, useCallback } from "react";
+import { type FC } from "react";
 
 import { Palette } from "@/platform/palette";
 import { Panel } from "@/platform/panel";
@@ -26,9 +26,8 @@ const BaseListItem = ({ icon, onSelect, ...rest }: BaseListItemProps) => {
   const item = List.useItem<string, ontology.Resource>(itemKey);
   if (item == null) return null;
   const { name } = item;
-  const handleSelect = useCallback(() => onSelect(item), [onSelect, item]);
   return (
-    <Palette.ListItem {...rest} onSelect={handleSelect}>
+    <Palette.ListItem {...rest} onSelect={() => onSelect(item)}>
       <Text.Text weight={450} gap="medium">
         {icon}
         {name}

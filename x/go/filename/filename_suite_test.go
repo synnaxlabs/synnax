@@ -19,7 +19,7 @@ import (
 
 func TestFileName(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "File Name Suite")
+	RunSpecs(t, "File Name Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

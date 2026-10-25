@@ -12,7 +12,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { List as Base } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type compare } from "@synnaxlabs/x";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { type Command } from "@/platform/command";
 import { Palette } from "@/platform/palette";
@@ -41,14 +41,14 @@ export interface ListProps extends Palette.ListProps<Command.Command> {
   commands: Command.Command[];
 }
 
-export const List = ({ commands, ...rest }: ListProps): ReactElement => {
-  // The list of commands is statically defined, which makes it safe to
-  // call these hooks using a map function.
+const useVisibleCommands = (commands: Command.Command[]): Command.Command[] => {
+  "use no memo"; // Calls a hook per command; commands is a fixed module-level list.
   const visibilities = commands.map((cmd) => cmd.useVisible?.() ?? true);
-  const data = useMemo(
-    () => commands.filter((_, i) => visibilities[i]),
-    [commands, visibilities],
-  );
+  return commands.filter((_, i) => visibilities[i]);
+};
+
+export const List = ({ commands, ...rest }: ListProps): ReactElement => {
+  const data = useVisibleCommands(commands);
   const listProps = Base.useStaticData<string, Command.Command>({ data, sort });
   return (
     <Palette.BaseList

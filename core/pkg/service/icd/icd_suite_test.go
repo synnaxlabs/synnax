@@ -19,7 +19,7 @@ import (
 
 func TestICD(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "ICD Suite")
+	RunSpecs(t, "ICD Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

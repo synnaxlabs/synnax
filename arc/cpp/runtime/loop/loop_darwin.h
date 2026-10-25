@@ -47,7 +47,7 @@ public:
         std::shared_ptr<x::thread::rt::Handle> rt_handle = nullptr,
         Arm arm = Arm{}
     ):
-        config_(std::move(config)), rt_handle_(std::move(rt_handle)), arm_(arm) {
+        config_(config), rt_handle_(std::move(rt_handle)), arm_(arm) {
         if (this->config_.memory_locked)
             LOG(WARNING) << "[arc.loop] Memory locking not fully supported on macOS";
     }
@@ -87,16 +87,18 @@ public:
         if (this->kqueue_fd_ == -1)
             return this->fail_start(
                 x::errors::Error(
+                    x::errors::INTERNAL,
                     "Failed to create kqueue: " + std::string(strerror(errno))
                 )
             );
 
         // Register user event filter for data notifications
-        struct kevent kev;
+        struct kevent kev{};
         EV_SET(&kev, USER_EVENT_IDENT, EVFILT_USER, EV_ADD | EV_CLEAR, 0, 0, nullptr);
         if (kevent(this->kqueue_fd_, &kev, 1, nullptr, 0, nullptr) == -1)
             return this->fail_start(
                 x::errors::Error(
+                    x::errors::INTERNAL,
                     "Failed to register user event: " + std::string(strerror(errno))
                 )
             );
@@ -112,7 +114,7 @@ public:
 
     void wake() override {
         if (this->kqueue_fd_ == -1) return;
-        struct kevent kev;
+        struct kevent kev{};
         EV_SET(&kev, USER_EVENT_IDENT, EVFILT_USER, 0, NOTE_TRIGGER, 0, nullptr);
         kevent(this->kqueue_fd_, &kev, 1, nullptr, 0, nullptr);
     }
@@ -121,7 +123,7 @@ public:
         const int fd = notifier.fd();
         if (fd == -1 || this->kqueue_fd_ == -1) return false;
 
-        struct kevent kev;
+        struct kevent kev{};
         EV_SET(&kev, fd, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, nullptr);
 
         if (kevent(this->kqueue_fd_, &kev, 1, nullptr, 0, nullptr) == -1) {
@@ -136,7 +138,7 @@ public:
 private:
     /// @brief closes and clears the descriptors that start opened, so a later start
     /// opens them again. Returns err.
-    x::errors::Error fail_start(x::errors::Error err) {
+    x::errors::Error fail_start(const x::errors::Error &err) {
         this->close_fds();
         return err;
     }
@@ -240,7 +242,7 @@ private:
     bool arm_deadline(const x::telem::TimeSpan max_timeout) {
         const bool deadline = max_timeout.nanoseconds() > 0;
         if (!deadline && !this->deadline_armed_) return false;
-        struct kevent kev;
+        struct kevent kev{};
         EV_SET(
             &kev,
             DEADLINE_EVENT_IDENT,

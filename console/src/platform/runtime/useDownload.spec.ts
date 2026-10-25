@@ -95,10 +95,27 @@ describe("Runtime.useDownload", () => {
       });
       expect(onDownloadStart).toHaveBeenCalledTimes(1);
       const { statuses } = result.current.notifications;
-      expect(statuses.map(({ variant, message }) => ({ variant, message }))).toEqual(
+      expect(
+        statuses.map(({ variant, name, message, description }) => ({
+          variant,
+          name,
+          message,
+          description,
+        })),
+      ).toEqual(
         expect.arrayContaining([
-          { variant: "info", message: "Downloading data to chosen.csv" },
-          { variant: "success", message: "Downloaded data to chosen.csv" },
+          {
+            variant: "info",
+            name: "data",
+            message: "Downloading file",
+            description: "Saving to chosen.csv.",
+          },
+          {
+            variant: "success",
+            name: "data",
+            message: "Downloaded file",
+            description: "Saved to chosen.csv.",
+          },
         ]),
       );
     });
@@ -175,10 +192,27 @@ describe("Runtime.useDownload", () => {
       });
       expect(writeFileMock).toHaveBeenCalledWith("/home/user/data.csv", stream);
       const { statuses } = result.current.notifications;
-      expect(statuses.map(({ variant, message }) => ({ variant, message }))).toEqual(
+      expect(
+        statuses.map(({ variant, name, message, description }) => ({
+          variant,
+          name,
+          message,
+          description,
+        })),
+      ).toEqual(
         expect.arrayContaining([
-          { variant: "info", message: "Downloading data to /home/user/data.csv" },
-          { variant: "success", message: "Downloaded data to /home/user/data.csv" },
+          {
+            variant: "info",
+            name: "data",
+            message: "Downloading file",
+            description: "Saving to /home/user/data.csv.",
+          },
+          {
+            variant: "success",
+            name: "data",
+            message: "Downloaded file",
+            description: "Saved to /home/user/data.csv.",
+          },
         ]),
       );
     });
@@ -234,10 +268,27 @@ describe("Runtime.useDownload", () => {
       expect(downloads.anchors[0].download).toBe("data.csv");
       expect(downloads.revoked).toEqual([MOCK_OBJECT_URL]);
       const { statuses } = result.current.notifications;
-      expect(statuses.map(({ variant, message }) => ({ variant, message }))).toEqual(
+      expect(
+        statuses.map(({ variant, name, message, description }) => ({
+          variant,
+          name,
+          message,
+          description,
+        })),
+      ).toEqual(
         expect.arrayContaining([
-          { variant: "info", message: "Downloading data to Downloads" },
-          { variant: "success", message: "Downloaded data to Downloads" },
+          {
+            variant: "info",
+            name: "data",
+            message: "Downloading file",
+            description: "Saving to Downloads.",
+          },
+          {
+            variant: "success",
+            name: "data",
+            message: "Downloaded file",
+            description: "Saved to Downloads.",
+          },
         ]),
       );
     });

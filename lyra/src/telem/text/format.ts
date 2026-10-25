@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type TimeSpan, type TimeStamp } from "@synnaxlabs/x";
+import { type TimeSpan, TimeStamp, type TimeZone } from "@synnaxlabs/x";
 
 const DAY_MS = 86_400_000;
 
@@ -32,6 +32,17 @@ export const describeDay = (ts: TimeStamp, now: TimeStamp): string => {
     day: "numeric",
     year: ts.localYear === now.localYear ? undefined : "numeric",
   });
+};
+
+/** @returns the first midnight in `timeZone` after `now`. */
+export const nextMidnight = (
+  now: TimeStamp,
+  timeZone: TimeZone = "local",
+): TimeStamp => {
+  const date = now.date();
+  if (timeZone === "UTC") date.setUTCHours(24, 0, 0, 0);
+  else date.setHours(24, 0, 0, 0);
+  return new TimeStamp(date);
 };
 
 /**

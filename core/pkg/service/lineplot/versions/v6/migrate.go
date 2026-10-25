@@ -12,8 +12,8 @@ package v6
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp/migrate"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v5"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 func MigrateLinePlot(ctx context.Context, old v5.LinePlot) (LinePlot, error) {
@@ -24,4 +24,4 @@ func MigrateRanges(ctx context.Context, old v5.Ranges) (Ranges, error) {
 	return autoMigrateRanges(ctx, old)
 }
 
-var Migration = gorp.NewEntryMigration("v58_custom_range", MigrateLinePlot)
+var Migration = migrate.NewEntry("v58_custom_range", MigrateLinePlot)

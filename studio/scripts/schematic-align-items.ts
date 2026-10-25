@@ -25,10 +25,11 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const ball = await capture.place(session, "Ball", { x: 830, y: 200 });
   const needle = await capture.place(session, "Needle", { x: 515, y: 160 });
   await capture.deselect(session, { x: 100, y: 290 });
-  await session.moveTo({ x: 150, y: 350 });
+  await capture.fitView(session);
+  await session.moveTo({ x: 800, y: 620 });
 
   session.startRecording();
-  await session.hold(500);
+  await session.hold(1800);
 
   await capture.selectSymbols(session, [gate, ball, needle]);
   await session.hold(1000);
@@ -40,6 +41,6 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.click(align, { zoom: false });
   await session.hold(800);
 
-  await session.moveTo({ x: 150, y: 350 });
-  await session.hold(500);
+  await session.moveTo({ x: 800, y: 620 });
+  await session.hold(2800);
 };

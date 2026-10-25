@@ -39,12 +39,7 @@ export const TextBoxForm = (): ReactElement => {
             <Select.Text.Level value={value} onChange={onChange} />
           )}
         </Base.Field>
-        <Base.Field<Flex.Alignment>
-          path="align"
-          label="Alignment"
-          padHelpText={false}
-          hideIfNull
-        >
+        <Base.Field<Flex.Alignment> path="align" label="Alignment" padHelpText={false}>
           {({ value, onChange }) => (
             <Select.Flex.Alignment value={value} onChange={onChange} />
           )}

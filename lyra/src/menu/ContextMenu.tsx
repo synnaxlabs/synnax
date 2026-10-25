@@ -185,7 +185,7 @@ export const useContextMenu = (): UseContextMenuReturn => {
       hideMenu();
       stopPropagation();
     },
-    [hideMenu],
+    [visibleRef, hideMenu],
   );
   // Outranks the dialog Escape handler (priority 100) so a menu opened inside a
   // dialog closes without also closing the dialog.

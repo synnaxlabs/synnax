@@ -19,7 +19,7 @@ import (
 
 func TestSlices(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Slices Suite")
+	RunSpecs(t, "Slices Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

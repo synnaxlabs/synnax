@@ -48,7 +48,7 @@ export const useCreateEmpty = ({
         if (!renamed || name === "") return false;
         return { ...data, key: newID.key, name };
       },
-      [tree, setNodes, setResource, expand],
+      [tree, setNodes, setResource, root, expand],
     ),
   });
   return useCallback(

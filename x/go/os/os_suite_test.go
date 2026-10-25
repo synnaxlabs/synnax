@@ -19,7 +19,7 @@ import (
 
 func TestOS(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "OS Suite")
+	RunSpecs(t, "OS Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

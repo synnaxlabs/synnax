@@ -9,8 +9,6 @@
 
 import { type Dispatch } from "@reduxjs/toolkit";
 import { type Color } from "@synnaxlabs/lyra/color";
-import { type state } from "@synnaxlabs/lyra/state";
-import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import {
@@ -27,14 +25,9 @@ const selectContext = (state: StoreState): Color.ContextState =>
 export const useSelectContext = (): Color.ContextState =>
   Select.useMemo(selectContext, []);
 
-const useState: state.PureUse<Color.ContextState> = () => {
-  const colorContext = useSelectContext();
+/** @returns props that keep the Color provider's color state in the session. */
+export const useProviderProps = (): Color.ProviderProps => {
+  const value = useSelectContext();
   const dispatch = useDispatch<Dispatch<Action>>();
-  const onColorContextChange = useCallback(
-    (state: Color.ContextState) => dispatch(setContext(state)),
-    [dispatch],
-  );
-  return [colorContext, onColorContextChange];
+  return { value, onChange: (state) => dispatch(setContext(state)) };
 };
-
-export const PROVIDER_PROPS: Color.ProviderProps = { useState };

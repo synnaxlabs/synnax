@@ -10,7 +10,7 @@ prevURL: "/reference/concepts/channels"
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -22,9 +22,7 @@ To create a range, you only need to specify a name, a starting timestamp, and an
 timestamp. While a range can be used to query the data within a channel, it is not
 necessary to specify the channels that belong within a range.
 
-<Note.Note variant="info" className="compact">
-  The interval is start-inclusive and end-exclusive.
-</Note.Note>
+<Note.Note variant="info">The interval is start-inclusive and end-exclusive.</Note.Note>
 
 <Divider.Divider x />
 

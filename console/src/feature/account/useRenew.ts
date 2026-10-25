@@ -87,7 +87,7 @@ export const useRenew = ({
           return;
         }
         await api.activate(result.key);
-      }, "Failed to renew the license");
+      }, "Failed to renew license");
     check();
     const timer = setInterval(check, interval.milliseconds);
     return () => {

@@ -126,7 +126,7 @@ class ProjectClient(ResourceClient):
         zip_path = resolve_results_path(f"{name}_export.zip")
         download_info.value.save_as(zip_path)
 
-        if not self.notifications.wait_for(f"Downloaded {name}"):
+        if not self.notifications.wait_for("Downloaded file", name=name):
             raise AssertionError(
                 f"Export of project {name!r} did not emit a success notification"
             )

@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/color"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -70,6 +71,28 @@ var _ = Describe("Ontology", func() {
 			res := MustSucceed(svc.RetrieveResource(ctx, p.Key.String(), tx))
 			Expect(res.ID).To(Equal(p.OntologyID()))
 			Expect(res.Name).To(Equal("resource"))
+		})
+
+		It("Should carry the icon and the color", func(ctx SpecContext) {
+			c := color.MustFromHex("#dc136c")
+			p := panel.Panel{
+				Name: "styled", Parent: &parentID, Icon: new("valve"), Color: &c,
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
+			res := MustSucceed(svc.RetrieveResource(ctx, p.Key.String(), tx))
+			Expect(res.Data).To(HaveKeyWithValue("icon", "valve"))
+			var got color.Color
+			Expect(color.Schema.Parse(res.Data.(map[string]any)["color"], &got)).
+				To(Succeed())
+			Expect(got).To(Equal(c))
+		})
+
+		It("Should omit an unset icon and color", func(ctx SpecContext) {
+			p := panel.Panel{Name: "plain", Parent: &parentID}
+			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
+			res := MustSucceed(svc.RetrieveResource(ctx, p.Key.String(), tx))
+			Expect(res.Data).ToNot(HaveKey("icon"))
+			Expect(res.Data).ToNot(HaveKey("color"))
 		})
 
 		It(

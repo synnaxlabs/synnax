@@ -17,8 +17,6 @@
 
 #include "client/cpp/arc/json.gen.h"
 #include "client/cpp/arc/types.gen.h"
-#include "client/cpp/status/json.gen.h"
-#include "client/cpp/status/proto.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/pb/pb.h"
 
@@ -56,20 +54,6 @@ mode_from_pb(::service::arc::pb::Mode pb) {
     }
 }
 
-inline std::pair<::service::arc::pb::StatusDetails, x::errors::Error>
-StatusDetails::to_proto() const {
-    ::service::arc::pb::StatusDetails pb;
-    pb.set_running(this->running);
-    return {pb, x::errors::NIL};
-}
-
-inline std::pair<StatusDetails, x::errors::Error>
-StatusDetails::from_proto(const ::service::arc::pb::StatusDetails &pb) {
-    StatusDetails cpp;
-    cpp.running = pb.running();
-    return {cpp, x::errors::NIL};
-}
-
 inline std::pair<::service::arc::pb::Arc, x::errors::Error> Arc::to_proto() const {
     ::service::arc::pb::Arc pb;
     pb.set_key(this->key.to_string());
@@ -93,11 +77,6 @@ inline std::pair<::service::arc::pb::Arc, x::errors::Error> Arc::to_proto() cons
         auto [v, err] = this->program->to_proto();
         if (err) return {{}, err};
         *pb.mutable_program() = v;
-    }
-    if (this->status.has_value()) {
-        auto [v, err] = this->status->to_proto();
-        if (err) return {{}, err};
-        *pb.mutable_status() = v;
     }
     return {pb, x::errors::NIL};
 }
@@ -130,11 +109,6 @@ Arc::from_proto(const ::service::arc::pb::Arc &pb) {
         auto [v, err] = ::arc::program::Program::from_proto(pb.program());
         if (err) return {{}, err};
         cpp.program = v;
-    }
-    if (pb.has_status()) {
-        auto [v, err] = Status::from_proto(pb.status());
-        if (err) return {{}, err};
-        cpp.status = v;
     }
     return {cpp, x::errors::NIL};
 }

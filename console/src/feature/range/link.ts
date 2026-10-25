@@ -27,5 +27,3 @@ export const useLink = (): Link.Handler => {
     [dispatch, openTab],
   );
 };
-
-export const LINKS: Link.Registry = { range: useLink };

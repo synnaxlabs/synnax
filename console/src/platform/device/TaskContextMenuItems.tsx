@@ -9,6 +9,7 @@
 
 import { type device, task } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
+import { type FC } from "react";
 
 import { Task } from "@/platform/task";
 import { type Tree } from "@/platform/tree";
@@ -19,53 +20,63 @@ export interface TaskContextMenuItemConfig {
   useCreate: Task.UseCreate;
 }
 
+export interface TaskContextMenuItemProps {
+  deviceKey: device.Key;
+  beforeCreate: () => void;
+}
+
+export interface TaskContextMenuItem extends FC<TaskContextMenuItemProps> {
+  itemKey: string;
+}
+
+/** Builds the menu item that creates a task of the configured type for a device. */
+export const createTaskContextMenuItem = ({
+  itemKey,
+  label,
+  useCreate,
+}: TaskContextMenuItemConfig): TaskContextMenuItem => {
+  const Item: TaskContextMenuItem = ({ deviceKey, beforeCreate }) => {
+    const createTask = useCreate();
+    const handleClick = () => {
+      beforeCreate();
+      createTask({ deviceKey });
+    };
+    return (
+      <Task.CreateMenuItem itemKey={itemKey} onClick={handleClick}>
+        {label}
+      </Task.CreateMenuItem>
+    );
+  };
+  Item.itemKey = itemKey;
+  return Item;
+};
+
 export interface TaskContextMenuItemsProps extends Pick<
   Tree.ContextMenuProps,
   "selection" | "state"
 > {
   onConfigure: (deviceKey: device.Key) => void;
-  taskContextMenuItemConfigs: TaskContextMenuItemConfig[];
+  items: TaskContextMenuItem[];
 }
-
-interface ItemProps extends TaskContextMenuItemConfig {
-  deviceKey: device.Key;
-  beforeCreate: () => void;
-}
-
-const Item = ({ itemKey, label, useCreate, deviceKey, beforeCreate }: ItemProps) => {
-  const createTask = useCreate();
-  const handleClick = () => {
-    beforeCreate();
-    createTask({ deviceKey });
-  };
-  return (
-    <Task.CreateMenuItem itemKey={itemKey} onClick={handleClick}>
-      {label}
-    </Task.CreateMenuItem>
-  );
-};
 
 export const TaskContextMenuItems = ({
   onConfigure,
   state: { getResource },
   selection: { ids },
-  taskContextMenuItemConfigs,
+  items,
 }: TaskContextMenuItemsProps) => {
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   const firstID = ids[0];
-  const first = getResource(firstID);
-  const key = first.id.key;
   const maybeConfigure = () => {
-    if (first.data?.configured !== true) onConfigure(key);
+    if (getResource(firstID).data?.configured !== true) onConfigure(firstID.key);
   };
   if (!hasCreatePermission) return null;
   return (
     <>
-      {taskContextMenuItemConfigs.map((config) => (
+      {items.map((Item) => (
         <Item
-          key={config.itemKey}
-          {...config}
-          deviceKey={key}
+          key={Item.itemKey}
+          deviceKey={firstID.key}
           beforeCreate={maybeConfigure}
         />
       ))}

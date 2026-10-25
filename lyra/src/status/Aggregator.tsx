@@ -7,18 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CrudeTimeSpan, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import {
-  type PropsWithChildren,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x";
+import { type PropsWithChildren, useCallback, useMemo, useState } from "react";
 import type z from "zod";
 
 import { context } from "@/context";
-import { useSyncedRef } from "@/hooks";
+import { useNow, useSyncedRef } from "@/hooks";
 import {
   type Adder,
   type AsyncErrorHandler,
@@ -99,7 +93,7 @@ export const Aggregator = ({
  * @returns a handler that turns a caught error into an error status on the enclosing
  * {@link Aggregator}. Use it in place of `console.error` in a UI path.
  *
- * @example handleError(err, "failed to save the range");
+ * @example handleError(err, "Failed to save range");
  */
 export const useErrorHandler = (): ErrorHandler => useHandlers().error;
 
@@ -121,6 +115,9 @@ export interface UseNotificationsReturn<Details extends z.ZodType = z.ZodNever> 
   silenceAll: () => void;
 }
 
+const identity = ({ variant, name, message, description }: Status): string =>
+  JSON.stringify([variant, name, message, description]);
+
 const DEFAULT_EXPIRATION = TimeSpan.seconds(7);
 const DEFAULT_EXPIRATION_POLL = TimeSpan.seconds(1);
 
@@ -139,14 +136,8 @@ export const useNotifications = ({
   poll = DEFAULT_EXPIRATION_POLL,
 }: UseNotificationsProps = {}): UseNotificationsReturn => {
   const statuses = useContext();
-  const [silencedKeys, setSilencedKeys] = useState<Set<string>>(new Set());
-  const [now, setNow] = useState(() => TimeStamp.now());
-  const pollMs = new TimeSpan(poll).milliseconds;
-
-  useEffect(() => {
-    const interval = setInterval(() => setNow(TimeStamp.now()), pollMs);
-    return () => clearInterval(interval);
-  }, [pollMs]);
+  const [silencedKeys, setSilencedKeys] = useState<Set<string>>(() => new Set());
+  const now = useNow((now) => now.add(poll));
 
   const filtered = useMemo(() => {
     const threshold = now.sub(expiration);
@@ -156,7 +147,7 @@ export const useNotifications = ({
     );
 
     const grouped = active.reduce((acc, status) => {
-      const key = `${status.variant}:${status.message}:${status.name}`;
+      const key = identity(status);
       if (!acc.has(key)) {
         acc.set(key, { ...status, count: 1 });
         return acc;
@@ -174,24 +165,24 @@ export const useNotifications = ({
 
   const statusesRef = useSyncedRef(statuses);
 
-  const silence = useCallback((key: string) => {
-    setSilencedKeys((prev) => {
-      const next = new Set<string>();
-      const existing = statusesRef.current.find(({ key: k }) => k === key);
-      if (!prev.has(key)) next.add(key);
-      if (existing != null) {
-        const silenced = statusesRef.current.filter(
-          ({ message, variant, name }) =>
-            message === existing.message &&
-            variant === existing.variant &&
-            name === existing.name,
-        );
-        silenced.forEach((status) => next.add(status.key));
-      }
-      if (next.size == 0) return prev;
-      return new Set([...next, ...prev]);
-    });
-  }, []);
+  const silence = useCallback(
+    (key: string) => {
+      setSilencedKeys((prev) => {
+        const next = new Set<string>();
+        const existing = statusesRef.current.find(({ key: k }) => k === key);
+        if (!prev.has(key)) next.add(key);
+        if (existing != null) {
+          const id = identity(existing);
+          statusesRef.current
+            .filter((status) => identity(status) === id)
+            .forEach((status) => next.add(status.key));
+        }
+        if (next.size == 0) return prev;
+        return new Set([...next, ...prev]);
+      });
+    },
+    [statusesRef],
+  );
 
   const silenceAll = useCallback(() => {
     setSilencedKeys((prev) => {
@@ -199,7 +190,7 @@ export const useNotifications = ({
       statusesRef.current.forEach(({ key }) => next.add(key));
       return next;
     });
-  }, []);
+  }, [statusesRef]);
 
   return { statuses: filtered, silence, silenceAll };
 };

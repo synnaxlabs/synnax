@@ -29,7 +29,7 @@ import (
 
 func TestFramer(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Framer Suite")
+	RunSpecs(t, "Service Framer Suite", SuiteConfig())
 }
 
 var (

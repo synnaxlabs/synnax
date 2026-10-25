@@ -20,6 +20,8 @@ import { type z } from "zod";
 import { Aether } from "@/aether";
 import { control } from "@/telem/control/aether";
 
+const INDICATOR_COLOR = CSS.variable("indicator-color");
+
 export interface IndicatorProps
   extends
     Omit<z.input<typeof control.indicatorStateZ>, "status" | "color">,
@@ -60,10 +62,7 @@ export const Indicator = ({
   else if (colorVal != null && !color.isZero(colorVal)) parsedColor = colorVal;
   else parsedColor = "var(--pluto-gray-l10)";
   const cssColor = color.cssString(parsedColor);
-  const style = useMemo(
-    () => ({ [CSS.variable("indicator-color")]: cssColor }),
-    [cssColor],
-  );
+  const style = useMemo(() => ({ [INDICATOR_COLOR]: cssColor }), [cssColor]);
 
   return (
     <Tooltip.Dialog location={{ x: "center", y: "bottom" }}>
