@@ -1253,6 +1253,19 @@ describe("Answers", () => {
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
+    it("admits a match with a zero offset without refetching", async () => {
+      const table = newTable();
+      const fetch = fetchOf(table, [rec("a", 5)]);
+      const answers = limitSpace(table, fetch);
+      const handler = vi.fn();
+      answers.onChange({ min: 3, limit: 2, offset: 0 }, handler);
+      await answers.retrieve({ min: 3, limit: 2, offset: 0 });
+      table.set("b", rec("b", 4));
+      expect(handler).toHaveBeenLastCalledWith([rec("a", 5), rec("b", 4)]);
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
     it("admits matches only up to the limit", async () => {
       const table = newTable();
       const fetch = fetchOf(table, [rec("a", 5)]);
@@ -1448,6 +1461,22 @@ describe("Answers", () => {
       handler.mockClear();
       table.set("z", rec("z", 9));
       expect(handler).not.toHaveBeenCalled();
+    });
+
+    it("admits a match to an empty search term without refetching", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 1));
+        return ["a"];
+      });
+      const answers = searchSpace(table, fetch);
+      const handler = vi.fn();
+      answers.onChange({ searchTerm: "" }, handler);
+      await answers.retrieve({ searchTerm: "" });
+      table.set("z", rec("z", 9));
+      expect(handler).toHaveBeenLastCalledWith([rec("a", 1), rec("z", 9)]);
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(1);
     });
 
     it("refetches wholesale after a debounced table change", async () => {
