@@ -477,7 +477,8 @@ bool Master::discover_pdos_coe(slave::DiscoveryResult &slave) {
         }
     }
 
-    if (!tx_success && !rx_success) {
+    if ((!tx_success && !rx_success) ||
+        (props.input_pdos.empty() && props.output_pdos.empty())) {
         status.pdo_discovery_error = "no PDO objects found in object dictionary";
         return false;
     }

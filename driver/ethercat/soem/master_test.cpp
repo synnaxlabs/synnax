@@ -701,6 +701,25 @@ TEST_F(SOEMMasterTest, RegistryDescribesSlaveWithoutLiveMapping) {
     EXPECT_TRUE(slave.status.pdo_discovery_error.empty());
 }
 
+/// @brief it should describe a slave from the device registry when the slave assigns a
+/// PDO whose mapping it cannot read.
+TEST_F(SOEMMasterTest, RegistryDescribesSlaveWithUnreadableMapping) {
+    auto info = coe_slave(8);
+    info.eep_man = BECKHOFF;
+    info.eep_id = EL1008;
+    this->add_slave(info);
+    this->mock->sdo_objects = {
+        {{ECT_SDO_TXPDOASSIGN, 0}, 1},
+        {{ECT_SDO_TXPDOASSIGN, 1}, 0x1A00},
+        {{ECT_SDO_RXPDOASSIGN, 0}, 0},
+    };
+    ASSERT_NIL(this->master->initialize());
+
+    const auto slave = this->master->slaves()[0];
+    EXPECT_EQ(slave.properties.input_pdos.size(), 8);
+    EXPECT_TRUE(slave.status.pdo_discovery_error.empty());
+}
+
 /// @brief it should count padding when it computes entry offsets.
 TEST_F(SOEMMasterTest, OffsetsCountPadding) {
     this->add_slave(coe_slave(24));
