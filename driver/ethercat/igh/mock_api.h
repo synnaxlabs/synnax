@@ -31,6 +31,8 @@ class MockAPI final : public API {
     ec_domain_t *sentinel_input_domain = reinterpret_cast<ec_domain_t *>(0x3);
     /// @brief tracks the number of domains created for returning alternating sentinels.
     int domain_create_count = 0;
+    /// @brief configurable return value for check_device.
+    x::errors::Error check_device_err = x::errors::NIL;
     /// @brief configurable return value for request_master.
     ec_master_t *request_master_result;
     /// @brief configurable return value for master() (get info).
@@ -116,6 +118,10 @@ public:
 
     void set_sdo_download_abort(uint16_t index, uint8_t sub_index, uint32_t code) {
         this->sdo_download_aborts[{index, sub_index}] = code;
+    }
+
+    void set_check_device_err(const x::errors::Error &err) {
+        this->check_device_err = err;
     }
 
     void set_request_master_result(ec_master_t *result) {
@@ -216,6 +222,10 @@ public:
 
     [[nodiscard]] ec_domain_t *get_input_domain() const {
         return this->sentinel_input_domain;
+    }
+
+    [[nodiscard]] x::errors::Error check_device(unsigned int) const override {
+        return this->check_device_err;
     }
 
     [[nodiscard]] ec_master_t *request_master(unsigned int) const override {

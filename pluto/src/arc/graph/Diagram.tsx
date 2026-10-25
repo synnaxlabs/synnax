@@ -10,7 +10,7 @@
 import { arc } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { type record } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { Node } from "@/arc/graph/node";
 import { useNodeConfig, useSingleDispatch } from "@/arc/queries";
@@ -68,11 +68,8 @@ const NodeRenderer = ({
 }: Base.NodeProps): ReactElement | null => {
   const config = useNodeConfig({ nodeKey });
   const dispatch = useSingleDispatch();
-  const handleChange = useCallback(
-    (config: Partial<record.Unknown>) =>
-      dispatch(arc.setNodeInputs({ key: nodeKey, inputs: config })),
-    [nodeKey, dispatch],
-  );
+  const handleChange = (config: Partial<record.Unknown>) =>
+    dispatch(arc.setNodeInputs({ key: nodeKey, inputs: config }));
   if (config == null) return null;
   const Render = Node.resolveSpec(config.type).Symbol;
   return (

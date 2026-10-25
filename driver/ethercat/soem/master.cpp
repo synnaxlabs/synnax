@@ -35,6 +35,10 @@ const int RECOVERY_TIMEOUT = static_cast<int>(
 );
 /// Timeout for one SDO (Service Data Object) read or write in microseconds.
 const int SDO_TIMEOUT = static_cast<int>((x::telem::MILLISECOND * 700).microseconds());
+
+/// The distributed clock epoch, 2000-01-01, as a Unix timestamp.
+const x::telem::TimeStamp DC_EPOCH(x::telem::SECOND * 946684800);
+
 /// SOEM group 0 addresses every slave, so enabled and disabled slaves get their own.
 constexpr uint8_t ENABLED_GROUP = 1;
 constexpr uint8_t DISABLED_GROUP = 2;
@@ -77,25 +81,39 @@ Master::~Master() {
 x::errors::Error Master::initialize() {
     if (this->initialized) return x::errors::NIL;
 
+    if (auto err = this->api->check_socket(this->iface_name.c_str())) return err;
+
     if (this->api->init(this->iface_name.c_str()) <= 0) {
         this->api->close();
         return x::errors::Error(
             errors::MASTER_INIT_ERROR,
-            "failed to initialize EtherCAT on interface: " + this->iface_name
+            "cannot open " + this->iface_name +
+                " for raw Ethernet access. Run the Driver as root (or with "
+                "CAP_NET_RAW on Linux), and install Npcap on Windows."
         );
     }
 
     if (this->api->config_init() <= 0) {
         this->api->close();
         return x::errors::Error(
-            errors::MASTER_INIT_ERROR,
-            "no EtherCAT slaves found on network"
+            errors::NO_SLAVES_FOUND,
+            "no EtherCAT slaves found on " + this->iface_name
         );
     }
 
     this->populate_slaves();
     this->initialized = true;
     return x::errors::NIL;
+}
+
+std::pair<size_t, x::errors::Error> Master::count_slaves() {
+    if (!this->initialized)
+        return {
+            0,
+            x::errors::Error(errors::MASTER_INIT_ERROR, "master not initialized")
+        };
+    const int count = this->api->count_bus_slaves();
+    return {count > 0 ? static_cast<size_t>(count) : 0, x::errors::NIL};
 }
 
 void Master::set_slave_config(const uint16_t position, slave::Config config) {
@@ -190,6 +208,9 @@ x::errors::Error Master::activate() {
         this->slave_list[pos - 1] = std::move(result);
     }
 
+    this->api->configdc();
+    this->has_dc = this->api->group_hasdc(ENABLED_GROUP);
+
     this->input_sz = this->api->group_Ibytes(ENABLED_GROUP);
     this->output_sz = this->api->group_Obytes(ENABLED_GROUP);
 
@@ -222,6 +243,7 @@ void Master::deactivate() {
         this->request_state(EC_STATE_INIT, STATE_CHANGE_TIMEOUT);
         this->activated = false;
         this->expected_wkc = 0;
+        this->has_dc = false;
         this->input_sz = 0;
         this->output_sz = 0;
         this->pdo_offsets.clear();
@@ -264,6 +286,11 @@ x::errors::Error Master::send() {
         return x::errors::Error(errors::CYCLIC_ERROR, "process data send failed");
 
     return x::errors::NIL;
+}
+
+std::optional<x::telem::TimeStamp> Master::dc_time() const {
+    if (!this->has_dc) return std::nullopt;
+    return DC_EPOCH + x::telem::TimeSpan(this->api->dc_time());
 }
 
 std::span<const uint8_t> Master::input_data() {
@@ -453,10 +480,16 @@ constexpr int MAX_SDO_FAILURES = 3;
 
 void Master::discover_slave_pdos(slave::DiscoveryResult &slave) {
     auto &props = slave.properties;
-    if (this->discover_pdos_coe(slave)) return;
+    if (this->discover_pdos_coe(slave)) {
+        esi::fill_known_entries(props);
+        return;
+    }
     slave.status.pdo_discovery_error.clear();
     this->discover_pdos_sii(slave);
-    if (!props.input_pdos.empty() || !props.output_pdos.empty()) return;
+    if (!props.input_pdos.empty() || !props.output_pdos.empty()) {
+        esi::fill_known_entries(props);
+        return;
+    }
     if (!esi::lookup_device_pdos(
             props.vendor_id,
             props.product_code,
@@ -531,7 +564,8 @@ bool Master::discover_pdos_coe(slave::DiscoveryResult &slave) {
         }
     }
 
-    if (!tx_success && !rx_success) {
+    if ((!tx_success && !rx_success) ||
+        (props.input_pdos.empty() && props.output_pdos.empty())) {
         status.pdo_discovery_error = "no PDO objects found in object dictionary";
         return false;
     }
@@ -994,13 +1028,14 @@ std::vector<master::Info> Manager::enumerate() {
     ec_adaptert *current = adapter;
 
     while (current != nullptr) {
-        if (is_physical_interface(current->name)) {
+        if (is_wired_interface(current->name, current->desc)) {
             master::Info info;
             info.key = current->name;
             info.description = current->desc;
             masters.push_back(std::move(info));
         } else {
-            VLOG(1) << "[ethercat] skipping virtual interface: " << current->name;
+            VLOG(1) << "[ethercat] skipping interface that cannot carry EtherCAT: "
+                    << current->name;
         }
         current = current->next;
     }

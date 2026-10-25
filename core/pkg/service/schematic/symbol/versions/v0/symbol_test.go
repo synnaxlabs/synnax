@@ -19,7 +19,6 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -55,7 +54,7 @@ var _ = Describe("NormalizeKeys", func() {
 			)
 			table := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Symbol]{
 				DB:         db,
-				Migrations: []migrate.Migration{v0.NormalizeKeys},
+				Migrations: []gorp.Migration{v0.NormalizeKeys},
 			}))
 			var res v0.Symbol
 			Expect(table.NewRetrieve().

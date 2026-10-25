@@ -38,6 +38,7 @@ Master::~Master() {
 x::errors::Error Master::initialize() {
     if (this->initialized) return x::errors::NIL;
 
+    if (auto err = this->api->check_device(this->master_index)) return err;
     this->ec_master = this->api->request_master(this->master_index);
     if (!this->ec_master)
         return x::errors::Error(
@@ -96,6 +97,18 @@ x::errors::Error Master::initialize() {
     VLOG(1) << "[ethercat.igh] master " << this->master_index << " initialized with "
             << this->cached_slaves.size() << " slaves";
     return x::errors::NIL;
+}
+
+std::pair<size_t, x::errors::Error> Master::count_slaves() {
+    if (!this->initialized)
+        return {0, x::errors::Error(errors::MASTER_INIT_ERROR, "not initialized")};
+    ec_master_info_t info;
+    if (this->api->master(this->ec_master, &info) < 0)
+        return {
+            0,
+            x::errors::Error(errors::MASTER_INIT_ERROR, "failed to get master info")
+        };
+    return {info.slave_count, x::errors::NIL};
 }
 
 x::errors::Error Master::add_startup_parameters(
@@ -464,7 +477,7 @@ void Master::discover_slave_pdos(slave::DiscoveryResult &slave) {
     auto &props = slave.properties;
     this->read_slave_pdos(slave);
     if (!props.input_pdos.empty() || !props.output_pdos.empty()) {
-        esi::fill_data_types(props);
+        esi::fill_known_entries(props);
         return;
     }
     if (!esi::lookup_device_pdos(

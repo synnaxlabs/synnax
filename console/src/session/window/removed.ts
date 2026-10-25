@@ -47,15 +47,12 @@ const windowKeys = (state: Drift.StoreState): string[] =>
   Object.values(state[Drift.SLICE_NAME].labelKeys);
 
 /**
- * Announces every window the action actually removed. A close asks, it does not tell:
- * Drift defers one while the window has a process registered, and the process
- * completing is what finally lands it. Watching the windows themselves rather than the
- * close means a deferred window keeps its state for as long as it is open.
+ * Announces every window a close removed. It compares the windows before and after the
+ * close, so a close that names no key is covered too.
  */
 export const removalMiddleware: Middleware<record.Unknown> =
   (store) => (next) => (action) => {
-    if (!Drift.closeWindow.match(action) && !Drift.completeProcess.match(action))
-      return next(action);
+    if (!Drift.closeWindow.match(action)) return next(action);
     const before = windowKeys(store.getState() as Drift.StoreState);
     const result = next(action);
     const after = new Set(windowKeys(store.getState() as Drift.StoreState));

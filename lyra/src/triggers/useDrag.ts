@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { box, xy } from "@synnaxlabs/x";
-import { type RefObject, useCallback, useRef } from "react";
+import { type RefObject, useRef } from "react";
 
+import { useSyncedRef } from "@/hooks";
 import { use, type UseEvent } from "@/triggers/hooks";
 import { type Stage, type Trigger } from "@/triggers/triggers";
 
@@ -47,36 +48,33 @@ export const useDrag = ({
 }: UseDragProps): void => {
   const triggerRef = useRef<UseEvent | null>(null);
   const startLoc = useRef<xy.XY>(xy.ZERO);
-  const onMove = useCallback(
-    (e: xy.Client & { buttons: number }) => {
-      const cursor = xy.construct(e);
-      if (triggerRef.current === null) return;
-      const { triggers } = triggerRef.current;
-      onDrag({
-        box: box.construct(startLoc.current, cursor),
-        cursor,
-        triggers,
-        stage: "during",
-      });
-    },
-    [onDrag],
-  );
-  const handleTrigger = useCallback(
-    (event: UseEvent): void => {
-      const { stage, cursor } = event;
-      if (stage === "start") {
-        onDrag({ box: box.construct(cursor), ...event });
-        window.addEventListener("mousemove", onMove);
-        triggerRef.current = event;
-        startLoc.current = cursor;
-      } else if (stage === "end" && triggerRef.current != null) {
-        onDrag({ box: box.construct(startLoc.current, cursor), ...event });
-        window.removeEventListener("mousemove", onMove);
-        triggerRef.current = null;
-        startLoc.current = xy.ZERO;
-      }
-    },
-    [onDrag],
-  );
+  // A move started under one onDrag must reach a later one, and release must remove the
+  // listener it added, so the listener keeps one identity.
+  const onDragRef = useSyncedRef(onDrag);
+  const onMove = (e: xy.Client & { buttons: number }) => {
+    const cursor = xy.construct(e);
+    if (triggerRef.current === null) return;
+    const { triggers } = triggerRef.current;
+    onDragRef.current({
+      box: box.construct(startLoc.current, cursor),
+      cursor,
+      triggers,
+      stage: "during",
+    });
+  };
+  const handleTrigger = (event: UseEvent): void => {
+    const { stage, cursor } = event;
+    if (stage === "start") {
+      onDrag({ box: box.construct(cursor), ...event });
+      window.addEventListener("mousemove", onMove);
+      triggerRef.current = event;
+      startLoc.current = cursor;
+    } else if (stage === "end" && triggerRef.current != null) {
+      onDrag({ box: box.construct(startLoc.current, cursor), ...event });
+      window.removeEventListener("mousemove", onMove);
+      triggerRef.current = null;
+      startLoc.current = xy.ZERO;
+    }
+  };
   use({ triggers, callback: handleTrigger, region: bound, loose });
 };

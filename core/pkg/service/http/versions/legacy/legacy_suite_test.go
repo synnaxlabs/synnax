@@ -19,7 +19,7 @@ import (
 
 func TestLegacy(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "HTTP Legacy Suite")
+	RunSpecs(t, "HTTP Legacy Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -9,7 +9,7 @@
 
 import "@/input/Input.css";
 
-import { type ReactElement, type ReactNode, useMemo, useRef, useState } from "react";
+import { type ReactElement, type ReactNode, useRef, useState } from "react";
 
 import { Button } from "@/button";
 import { SIZE_TEXT_LEVELS } from "@/component/text";
@@ -165,7 +165,7 @@ export const Text = ({
 
   const combinedRef = useCombinedRefs(ref, internalRef);
 
-  const inputStyle = useMemo(() => ({ fontWeight: weight }), [weight]);
+  const inputStyle = { fontWeight: weight };
 
   const ariaLabelledBy = useLabelledBy(rest);
 
@@ -176,7 +176,7 @@ export const Text = ({
     placeholder != null &&
     typeof placeholder !== "string";
 
-  tabIndex ??= preview ? -1 : undefined;
+  if (tabIndex == null && preview) tabIndex = -1;
 
   // A native date input formats its value for display, so a preview keeps the
   // element. Every other type renders static text: an input cannot shrink to its

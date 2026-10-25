@@ -33,6 +33,7 @@ export const linePlotStateZ = z.object({
   visible: z.boolean().default(true),
   clearOverScan: xy.crudeZ.default(xy.ZERO),
   loading: z.boolean().default(false),
+  fetching: z.boolean().default(false),
 });
 
 const axesBoundsZ = z.record(
@@ -130,6 +131,10 @@ export class LinePlot
     return this.axes.some((a) => a.loading);
   }
 
+  private get fetching(): boolean {
+    return this.axes.some((a) => a.fetching);
+  }
+
   private renderAxes(plot: box.Box, canvases: render.CanvasVariant[]): void {
     const p = { ...this.state, plot, canvases, exposure: this.exposure };
     this.axes.forEach((xAxis) => xAxis.render(p));
@@ -217,6 +222,9 @@ export class LinePlot
       removeCanvasScissor();
       removeGLScissor();
     }
+    // Lines start fetches while they render, so the state is read after it.
+    const fetching = this.fetching;
+    if (fetching !== this.state.fetching) this.setState((p) => ({ ...p, fetching }));
     ins.L.debug("rendered", { key: this.key });
     const eraseRegion = box.copy(this.state.container);
 

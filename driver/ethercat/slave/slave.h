@@ -322,7 +322,7 @@ struct Health {
     /// @brief true when the slave stopped responding.
     bool lost = false;
     /// @brief the description of the slave's AL status code, or why it rejected a
-    /// startup parameter. Empty when it reports neither.
+    /// startup parameter. Empty when it reports neither or the master cannot read it.
     std::string al_status;
 
     bool operator==(const Health &) const = default;

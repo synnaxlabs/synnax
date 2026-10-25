@@ -18,6 +18,7 @@
 
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/telem/telem.h"
 
 #include "driver/ethercat/pdo/pdo.h"
 #include "driver/ethercat/slave/slave.h"
@@ -40,6 +41,10 @@ public:
     /// @brief initializes the master and scans the EtherCAT network for slaves.
     [[nodiscard]] virtual x::errors::Error initialize() = 0;
 
+    /// @brief counts the slaves that answer on the bus now, without changing their
+    /// state. Valid between initialize() and deactivate().
+    [[nodiscard]] virtual std::pair<size_t, x::errors::Error> count_slaves() = 0;
+
     /// @brief sets whether a slave joins cyclic exchange and the CoE objects the master
     /// writes to it in PRE-OP each time it moves the slave to SAFE-OP. Takes effect at
     /// the next activate().
@@ -57,6 +62,12 @@ public:
 
     /// @brief queues output data and sends to the EtherCAT network.
     [[nodiscard]] virtual x::errors::Error send() = 0;
+
+    /// @brief returns the distributed clock system time, as a Unix timestamp, at which
+    /// the latest received frame passed the reference clock. Returns nullopt when no
+    /// enabled slave has a distributed clock or the master does not read it. The DC
+    /// clock is not aligned to the host clock. Valid after a successful receive().
+    [[nodiscard]] virtual std::optional<x::telem::TimeStamp> dc_time() const = 0;
 
     /// @brief returns the input data buffer (TxPDO, slave→master).
     [[nodiscard]] virtual std::span<const uint8_t> input_data() = 0;

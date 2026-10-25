@@ -160,6 +160,7 @@ import {
   MdPolicy,
   MdQuestionMark,
   MdRedo,
+  MdReplay,
   MdRotate90DegreesCcw,
   MdRotate90DegreesCw,
   MdRotateLeft,
@@ -267,6 +268,7 @@ import { Valve } from "@/icon/Valve";
 
 export const Pause = wrapSVGIcon(MdPause, "pause");
 export const Play = wrapSVGIcon(MdPlayArrow, "play");
+export const Replay = wrapSVGIcon(MdReplay, "replay");
 export const Stop = wrapSVGIcon(MdStop, "stop");
 export const Circle = wrapSVGIcon(MdFiberManualRecord, "circle");
 export const Square = wrapSVGIcon(MdSquare, "square");

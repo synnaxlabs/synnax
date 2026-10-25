@@ -35,6 +35,15 @@ struct Config {
     /// @brief optional RT handle from the Manager. When set, the engine calls
     /// handle->apply() instead of apply_config(rt).
     std::shared_ptr<x::thread::rt::Handle> rt_handle;
+    /// @brief how the engine retries starting the bus before open_reader or open_writer
+    /// returns the error.
+    x::breaker::Config start_retry{
+        .name = "ethercat_engine",
+        .base_interval = x::telem::MILLISECOND * 100,
+        .max_retries = 10,
+        .scale = 1.5f,
+        .max_interval = x::telem::SECOND * 5
+    };
 
     Config() = default;
 };
@@ -180,8 +189,8 @@ public:
             x::telem::Series &times
         );
 
-        /// @brief describes the samples dropped since the last call, or returns an
-        /// empty string when none were.
+        /// @brief explains, in full sentences, why samples were dropped since the last
+        /// call, or returns an empty string when none were.
         [[nodiscard]] std::string warning();
     };
 
@@ -264,9 +273,10 @@ public:
     /// @brief returns the rate the bus cycles at, or zero when it is not running.
     [[nodiscard]] x::telem::Rate cycle_rate() const;
 
-    /// @brief initializes the master unless the bus is already running (thread-safe,
-    /// idempotent).
-    [[nodiscard]] x::errors::Error ensure_initialized() const;
+    /// @brief initializes the master unless the bus is running. While the bus is
+    /// stopped, rediscovers the slaves when the number that answer has changed.
+    /// Thread-safe.
+    [[nodiscard]] x::errors::Error ensure_initialized();
 
     /// @brief returns discovered slaves.
     [[nodiscard]] std::vector<slave::DiscoveryResult> slaves() const;
