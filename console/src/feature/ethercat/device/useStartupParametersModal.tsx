@@ -112,11 +112,12 @@ const StartupParameters = ({
           </Input.TableColumn>
           <Input.TableColumn name="Subindex" />
           <Input.TableColumn name="Data type" type="string">
-            {({ value, onChange }) => (
+            {({ value, onChange, "aria-label": ariaLabel }) => (
               <Telem.SelectDataType
                 value={value}
                 onChange={onChange}
                 hideDataTypes={HIDDEN_DATA_TYPES}
+                triggerProps={{ "aria-label": ariaLabel }}
               />
             )}
           </Input.TableColumn>
@@ -127,7 +128,7 @@ const StartupParameters = ({
         </Input.Table>
         {error != null && <Text.Text status="error">{error}</Text.Text>}
       </Modal.Body>
-      <Nav.Bar location="bottom" size={48} bordered>
+      <Modal.Footer>
         <Triggers.SaveHelpText action="Save" />
         <Nav.Bar.End>
           <Button.Button
@@ -140,7 +141,7 @@ const StartupParameters = ({
             Save
           </Button.Button>
         </Nav.Bar.End>
-      </Nav.Bar>
+      </Modal.Footer>
     </Modal.Frame>
   );
 };

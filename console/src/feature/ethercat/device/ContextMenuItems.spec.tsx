@@ -139,6 +139,7 @@ describe("EtherCAT device ContextMenuItems", () => {
     await renderContextMenu([enabled, disabled]);
     await waitFor(() => expect(screen.getByText("Enable")).toBeTruthy());
     expect(screen.getByText("Disable")).toBeTruthy();
+    expect(screen.queryByText("Edit startup parameters")).toBeNull();
   });
 
   it("should create the vendor task drafts and open their resource tabs", async () => {
@@ -201,11 +202,13 @@ describe("EtherCAT device ContextMenuItems", () => {
     setCell("Index 2", "1C12");
     setCell("Subindex 2", "0");
     setCell("Value 2", "2");
+    fireEvent.click(screen.getByRole("button", { name: /^Data type 2 / }));
+    fireEvent.click(await screen.findByRole("option", { name: /uint16/ }));
     fireEvent.click(findButton("Save"));
     await waitFor(async () =>
       expect(await retrieveStartupParameters(slave.key)).toEqual([
         { ...FILTER, value: 5 },
-        { index: 0x1c12, subIndex: 0, dataType: "uint8", value: 2, name: "" },
+        { index: 0x1c12, subIndex: 0, dataType: "uint16", value: 2, name: "" },
       ]),
     );
   });

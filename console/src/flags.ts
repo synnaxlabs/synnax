@@ -10,9 +10,9 @@
 /**
  * Static build-time flags that hide unfinished work in the Console build. Vite replaces
  * `FLAGS_ON` and `import.meta.env.VITE_*` statically, so dark code tree-shakes out of
- * it. `FLAGS_ON` turns every flag on in dev, Desktop, and spec builds. Only the exact
- * string "true" enables a flag. Each entry names its owner, its Linear umbrella issue,
- * and the release that removes it:
+ * the Console build. `FLAGS_ON` turns every flag on in dev, Desktop, and spec builds.
+ * Only the exact string "true" enables a flag. Each entry names its owner, its Linear
+ * umbrella issue, and the release that removes it:
  *
  * `example: FLAGS_ON || import.meta.env.VITE_FLAG_EXAMPLE === "true", // Owner: Name.
  * Umbrella: SY-1234. Removed in 0.60.`
