@@ -109,6 +109,17 @@ describe("remove", () => {
     expect(obj.items).toEqual([{ key: "item2", value: 2 }]);
   });
 
+  it("should remove a keyed entry whose key starts with a digit", () => {
+    const obj = {
+      items: [
+        { key: "a", value: 1 },
+        { key: "0b", value: 2 },
+      ],
+    };
+    deep.remove(obj, "items.0b");
+    expect(obj.items).toEqual([{ key: "a", value: 1 }]);
+  });
+
   it("should handle empty path", () => {
     const obj = { a: 1, b: 2 };
     deep.remove(obj, "");

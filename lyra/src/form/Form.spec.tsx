@@ -686,6 +686,136 @@ describe("Form", () => {
     });
   });
 
+  describe("keyed list edits", () => {
+    it("should call onChange with the list path for an insert", () => {
+      const onChange = vi.fn();
+      const { result } = renderHook(() =>
+        Form.use<typeof basicFormSchema>({
+          values: deep.copy(initialFormValues),
+          onChange,
+        }),
+      );
+      act(() => result.current.insert("array", { key: "key2", name: "Jane" }, "key1"));
+      expect(result.current.value().array.map(({ key }) => key)).toEqual([
+        "key1",
+        "key2",
+      ]);
+      expect(onChange).toHaveBeenCalledWith(
+        expect.objectContaining({ path: "array", prev: initialFormValues.array }),
+      );
+    });
+
+    it("should move an entry", () => {
+      const { result } = renderHook(() =>
+        Form.use<typeof basicFormSchema>({ values: deep.copy(initialFormValues) }),
+      );
+      act(() => {
+        result.current.insert("array", { key: "key2", name: "Jane" });
+        result.current.move("array", "key1");
+      });
+      expect(result.current.value().array.map(({ key }) => key)).toEqual([
+        "key1",
+        "key2",
+      ]);
+    });
+
+    it("should call onChange once for each entry that a list remove drops", () => {
+      const onChange = vi.fn();
+      const { result } = renderHook(() => {
+        const form = Form.use<typeof basicFormSchema>({
+          values: deep.copy(initialFormValues),
+          onChange,
+        });
+        const utils = Form.fieldListUtils<string, record.KeyedNamed>(form, "array");
+        return { form, utils };
+      });
+      act(() => result.current.utils.push({ key: "key2", name: "Jane" }));
+      onChange.mockClear();
+      act(() => {
+        result.current.utils.remove(["key1", "key2"]);
+      });
+      expect(result.current.form.value().array).toEqual([]);
+      expect(onChange.mock.calls.map(([{ path }]) => path)).toEqual([
+        "array.key1",
+        "array.key2",
+      ]);
+    });
+
+    it("should validate once for every edit in a batch", () => {
+      let validations = 0;
+      const schema = basicFormSchema.check(() => {
+        validations++;
+      });
+      const { result } = renderHook(() =>
+        Form.use({ values: deep.copy(initialFormValues), schema }),
+      );
+      validations = 0;
+      act(() =>
+        result.current.batch(() => {
+          result.current.set("name", "Jane Doe");
+          result.current.set("age", 50);
+        }),
+      );
+      expect(validations).toBe(1);
+      expect(result.current.get("age").value).toBe(50);
+    });
+
+    it("should notify once for a batch", () => {
+      const { result } = renderHook(() =>
+        Form.use({ values: deep.copy(initialFormValues) }),
+      );
+      const listener = vi.fn();
+      result.current.bind(listener);
+      act(() =>
+        result.current.batch(() => {
+          result.current.set("name", "Jane Doe");
+          result.current.set("age", 50);
+        }),
+      );
+      expect(listener).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("store", () => {
+    const renderWithStore = () => {
+      const store = Form.createLocalStore(deep.copy(initialFormValues));
+      let renders = 0;
+      const res = renderHook(() => {
+        renders++;
+        const form = Form.use({ store, schema: basicFormSchema });
+        const age = Form.useFieldValue<number, number, typeof basicFormSchema>("age", {
+          ctx: form,
+        });
+        return { form, age };
+      });
+      return { store, res, renders: () => renders };
+    };
+
+    it("should read the values that the store holds", () => {
+      const { res } = renderWithStore();
+      expect(res.result.current.age).toBe(42);
+    });
+
+    it("should write edits to the store", () => {
+      const { store, res } = renderWithStore();
+      act(() => res.result.current.form.set("age", 50));
+      expect(store.get().age).toBe(50);
+    });
+
+    it("should re-render a field that another writer changes", () => {
+      const { store, res } = renderWithStore();
+      act(() => store.set("age", 50));
+      expect(res.result.current.age).toBe(50);
+    });
+
+    it("should not re-render for a change that no read field reaches", () => {
+      const { store, renders } = renderWithStore();
+      const before = renders();
+      act(() => store.set("nested.ssn", "000-00-0000"));
+      expect(renders()).toBe(before);
+    });
+  });
+
   describe("reset functionality", () => {
     describe("reset()", () => {
       it("should reset all form values to initial values", () => {
