@@ -16,6 +16,7 @@ import {
   ValidationError,
 } from "@synnaxlabs/client";
 import {
+  type Aggregation,
   aggregationZ,
   bounds,
   breaker,
@@ -671,14 +672,13 @@ export class TiledChannelData
     return (this.skipLoading || !this.loading_) && this.pending.size > 0;
   }
 
-  value(props?: ValueProps): [bounds.Bounds, MultiSeries] {
+  value({ view, extremesKept = false }: ValueProps = {}): [bounds.Bounds, MultiSeries] {
     if (primitive.isZero(this.props.channel))
       return [bounds.INVALID, new MultiSeries()];
     if (!this.valid) void this.resolve();
     const ch = this.channel;
     if (ch == null) return [bounds.INVALID, new MultiSeries()];
     const home = this.home();
-    const view = props?.view;
     if (view != null) this.width = view.width;
     const drawsView =
       view != null &&
@@ -689,6 +689,7 @@ export class TiledChannelData
       ch.key,
       drawsView ? viewRange(view.bounds) : home,
       drawsView,
+      extremesKept,
     );
     if (!drawsView && this.loaded(ch.key, home)) this.loading_ = false;
     return [this.bounds(ch, home, series), series];
@@ -718,8 +719,15 @@ export class TiledChannelData
     return first == null ? rawFrom : TimeStamp.min(rawFrom, first.timeRange.start);
   }
 
-  private targets(key: channel.Key, view: TimeRange): framer.TileSpec[] {
-    const aggregation = this.xy ? "decimate" : this.props.aggregation;
+  private targets(
+    key: channel.Key,
+    view: TimeRange,
+    extremesKept = false,
+  ): framer.TileSpec[] {
+    let aggregation: Aggregation = this.xy ? "decimate" : this.props.aggregation;
+    // Min-max keeps the extremes that the other aggregations drop. An xy line draws its
+    // home tiles at every zoom, so they bound it.
+    if (extremesKept && !this.xy) aggregation = "min_max";
     // Tiles are cut to [start, end): the home view for an xy line, and the start of
     // full-resolution data for a live line.
     let start: TimeStamp | undefined;
@@ -756,15 +764,25 @@ export class TiledChannelData
     });
   }
 
-  private find(p: Position, preferred: Map<string, string>): HeldTile | undefined {
+  // find returns the held tile at the position: the preferred one, then one of the
+  // aggregation, then one of another.
+  private find(
+    p: Position,
+    preferred: Map<string, string>,
+    aggregation: Aggregation,
+  ): HeldTile | undefined {
     const want = preferred.get(`${p.level}/${p.index}`);
     if (want != null) {
       const exact = this.held.get(want);
       if (exact != null) return exact;
     }
-    for (const tile of this.held.values())
-      if (tile.spec.level === p.level && tile.spec.index === p.index) return tile;
-    return undefined;
+    let other: HeldTile | undefined;
+    for (const tile of this.held.values()) {
+      if (tile.spec.level !== p.level || tile.spec.index !== p.index) continue;
+      if (tile.spec.aggregation === aggregation) return tile;
+      other ??= tile;
+    }
+    return other;
   }
 
   // A zoom that changes the view's level waits for the level to hold, so a fast zoom
@@ -782,9 +800,14 @@ export class TiledChannelData
     return false;
   }
 
-  private select(key: channel.Key, view: TimeRange, prune: boolean): MultiSeries {
+  private select(
+    key: channel.Key,
+    view: TimeRange,
+    prune: boolean,
+    extremesKept: boolean,
+  ): MultiSeries {
     if (this.live) this.window.prune();
-    const targets = this.targets(key, view);
+    const targets = this.targets(key, view, extremesKept);
     if (!prune || (targets.length > 0 && this.settled(targets[0].level)))
       targets.forEach((spec) => this.request(spec));
     const preferred = new Map(
@@ -797,23 +820,16 @@ export class TiledChannelData
             targets[0].level,
             targets.map((t) => t.index),
             [...this.held.values()].map((t) => t.spec),
-          ).map((p) => this.find(p, preferred)!);
+          ).map((p) => this.find(p, preferred, targets[0].aggregation)!);
     const out = chosen.flatMap((tile) => tile.series.series);
     if (prune) {
-      // The home view's tiles stay held, and so do the tiles that stand in for them
-      // until they arrive.
-      const home = this.targets(key, this.home());
-      const homePreferred = new Map(
-        home.map((t) => [`${t.level}/${t.index}`, framer.tileRequestKey(t)]),
-      );
+      // The tiles of the home view and of its bounds stay held, and so do the tiles
+      // that stand in for them until they arrive.
       const keep = new Set([
         ...chosen.map((t) => framer.tileRequestKey(t.spec)),
         ...preferred.values(),
-        ...homePreferred.values(),
-        ...home.flatMap((t) => {
-          const found = this.find(t, homePreferred);
-          return found == null ? [] : [framer.tileRequestKey(found.spec)];
-        }),
+        ...this.homeKeys(key, false),
+        ...this.homeKeys(key, true),
       ]);
       for (const [tileKey, tile] of this.held)
         if (!keep.has(tileKey)) {
@@ -823,6 +839,22 @@ export class TiledChannelData
     }
     if (this.live) out.push(...this.window.data.series);
     return new MultiSeries(out);
+  }
+
+  // homeKeys returns the keys of the home tiles, and of the held tiles that stand in
+  // for them.
+  private homeKeys(key: channel.Key, extremesKept: boolean): string[] {
+    const targets = this.targets(key, this.home(), extremesKept);
+    const preferred = new Map(
+      targets.map((t) => [`${t.level}/${t.index}`, framer.tileRequestKey(t)]),
+    );
+    return [
+      ...preferred.values(),
+      ...targets.flatMap((t) => {
+        const found = this.find(t, preferred, t.aggregation);
+        return found == null ? [] : [framer.tileRequestKey(found.spec)];
+      }),
+    ];
   }
 
   private loaded(key: channel.Key, home: TimeRange): boolean {

@@ -322,9 +322,10 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
    */
   yBounds(xWindow: bounds.Bounds): bounds.Bounds {
     const { xTelem, yTelem } = this.internal;
-    const [b, yData] = yTelem.value();
+    const valueProps = { extremesKept: true };
+    const [b, yData] = yTelem.value(valueProps);
     if (!bounds.isFinite(xWindow)) return b;
-    const [, xData] = xTelem.value();
+    const [, xData] = xTelem.value(valueProps);
     return windowBounds(xData, yData, xWindow, DEFAULT_OVERLAP_THRESHOLD, b);
   }
 
