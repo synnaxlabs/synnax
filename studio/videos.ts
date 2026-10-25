@@ -190,6 +190,14 @@ export default manifest.define([
     script: "scripts/sample-project-abort.ts",
   },
   {
+    id: "get-started/install-desktop",
+    script: "scripts/still-install-desktop.ts",
+    stills: {
+      regions: "../site/docs/src/components/media/stills/install-desktop.json",
+    },
+  },
+  { id: "get-started/first-run", script: "scripts/first-run.ts" },
+  {
     id: "control/authority/hand-off",
     script: "scripts/control-authority-hand-off.ts",
   },

@@ -74,7 +74,7 @@ export const addChannels = async (
   for (const channel of channels) {
     const item = page
       .locator(".pluto-list__item:not(.pluto-tree__item)")
-      .filter({ hasText: channel })
+      .filter({ has: page.getByText(channel, { exact: true }) })
       .first();
     await session.waitFor(item);
     await session.click(item.getByText(channel, { exact: true }).first(), {

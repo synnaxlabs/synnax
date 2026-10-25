@@ -47,7 +47,8 @@ to `site/docs/src/pages/`, and release notes to `site/docs/src/`.
     an Arduino on a serial port for `client/resources/build-device-driver/*`.
 - **Running driver (rack connected to the core)**: every `device-drivers/*` id.
 - **Synnax Desktop** (the script exports `desktop`): all `get-started/sample-project/*`,
-  `control/arc/get-started/first-stages`, `control/arc/get-started/abort`.
+  `get-started/first-run`, `control/arc/get-started/first-stages`,
+  `control/arc/get-started/abort`.
 
 ---
 
@@ -64,6 +65,12 @@ All on reference/get-started/sample-project.mdx.
   and give it back with the chip -> the test continues.
 - `get-started/sample-project/abort` -> click **Start**, then **Abort** -> the valves
   change and the pressure falls.
+
+## get-started/first-run
+
+- `get-started/first-run` (reference/get-started/first-run.mdx) -> the whole tutorial at
+  speed: create `ramp_time` and `ramp` -> start the Ramp Arc automation on **Node 1** ->
+  plot `ramp` on a rolling 30 s plot -> drag a selection and create the First run range.
 
 ## console/ui-overview
 

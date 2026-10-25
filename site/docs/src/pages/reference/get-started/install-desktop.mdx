@@ -8,7 +8,7 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Note } from "@/components/note";
 import { Platform } from "@/components/platform";
 import { Desktop } from "@/components/desktop";
-import Placeholder from "@/components/media/Placeholder.astro";
+import { Image } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -84,9 +84,10 @@ Earlier versions are on the
 3. Synnax Desktop shows the list of projects. Select **Sample project** to open a
    simulated tank system, or select **New project** to start with an empty project.
 
-<Placeholder
-  kind="image"
-  shot="The list of projects on first launch, with the Sample project and New project buttons. Light and dark."
+<Image
+  id="get-started/install-desktop/cc146f207711/projects"
+  extension="webp"
+  alt="The projects screen of Synnax Desktop, with the New project and Sample project buttons"
 />
 
 Each user account on the computer has its own Synnax Desktop data. Your channels,
