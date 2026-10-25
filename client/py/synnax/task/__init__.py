@@ -26,6 +26,7 @@ from synnax.task.types_gen import (
     StartConfig,
     Status,
     StatusDetails,
+    Where,
     WriteConfig,
     ontology_id,
 )
@@ -46,6 +47,7 @@ __all__ = [
     "Status",
     "StatusDetails",
     "Task",
+    "Where",
     "WriteConfig",
     "assign_keys",
     "ontology_id",

@@ -41,11 +41,9 @@ message CreateResponse {
 }
 
 message RetrieveRequest {
-  uint32 rack = 1;
-  repeated string keys = 2;
-  repeated string names = 3;
-  repeated string types = 4;
-  bool include_status = 5;
+  reserved 1 to 5;
+  reserved "rack", "keys", "names", "types", "include_status";
+  service.task.pb.RetrieveRequest request = 6;
 }
 
 message RetrieveResponse {

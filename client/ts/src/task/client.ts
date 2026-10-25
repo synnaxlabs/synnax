@@ -44,10 +44,14 @@ import {
   type Payload,
   type PayloadSchemas as Schemas,
   payloadZ,
+  type RetrieveRequest,
+  retrieveRequestZ,
   type Status,
   type StatusDetailsZodObject,
   statusZ,
+  type Where,
 } from "@/task/types.gen";
+import { type Lines, matches, serverComputed } from "@/task/where.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export type { PayloadSchemas as Schemas } from "@/task/types.gen";
@@ -282,52 +286,56 @@ export class Task<S extends Schemas = Schemas> {
   }
 }
 
-const retrieveReqZ = z.object({
-  rack: rackKeyZ.optional(),
-  keys: keyZ.array().optional(),
-  names: z.string().array().optional(),
-  types: z.string().array().optional(),
-  includeStatus: z.boolean().optional(),
-  internal: z.boolean().optional(),
-  snapshot: z.boolean().optional(),
-  searchTerm: z.string().optional(),
-  offset: z.int().optional(),
-  limit: z.int().optional(),
+/** Names one task in the cache: by key, by name, or by type and rack. */
+type SingleRequest = { key: Key } | { name: string } | { type: string; rack?: RackKey };
+
+const singleWhere = (q: SingleRequest): Where => {
+  if ("key" in q) return { key: { eq: q.key } };
+  if ("name" in q) return { name: { eq: q.name } };
+  return { type: { eq: q.type }, rack: q.rack == null ? undefined : { eq: q.rack } };
+};
+
+const keysRequest = (keys: Key[]): RetrieveRequest => ({
+  where: { key: { in: keys } },
 });
 
 const singleRetrieveParamsZ = z.union([
   z
     .object({ key: keyZ, includeStatus: z.boolean().optional() })
-    .transform(({ key, includeStatus }) => ({ keys: [key], includeStatus })),
+    .transform(({ key, includeStatus }): RetrieveRequest => ({
+      where: singleWhere({ key }),
+      includeStatus,
+    })),
   z
     .object({ name: z.string(), includeStatus: z.boolean().optional() })
-    .transform(({ name, includeStatus }) => ({ names: [name], includeStatus })),
+    .transform(({ name, includeStatus }): RetrieveRequest => ({
+      where: singleWhere({ name }),
+      includeStatus,
+    })),
   z
     .object({ type: z.string(), rack: rackKeyZ.optional() })
-    .transform(({ type, rack }) => ({ types: [type], rack })),
+    .transform(({ type, rack }): RetrieveRequest => ({
+      where: singleWhere({ type, rack }),
+    })),
 ]);
 /** Names one task: by key, by name, or by type and rack. */
 export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 
-const multiRetrieveParamsZ = retrieveReqZ;
 /** Everything a multi-task retrieval can filter on. */
-export type RetrieveMultipleParams = z.input<typeof multiRetrieveParamsZ>;
+export type RetrieveMultipleParams = RetrieveRequest;
 
-const retrieveParamsZ = z.union([singleRetrieveParamsZ, multiRetrieveParamsZ]);
+const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
 /** Params for a task retrieval, single or multiple. */
 export type RetrieveParams = z.input<typeof retrieveParamsZ>;
-
-type SingleRequest = Partial<
-  Pick<z.infer<typeof retrieveReqZ>, "keys" | "names" | "types" | "rack">
->;
 
 // includeStatus does not change a query's identity: cached fetches always
 // request it, so it is stripped before hashing.
 const normalizeSingle = (params: RetrieveSingleParams): SingleRequest => {
-  const parsed = singleRetrieveParamsZ.parse(params);
-  if (!("includeStatus" in parsed)) return parsed;
-  const { includeStatus: _, ...rest } = parsed;
-  return rest;
+  if ("key" in params) return { key: params.key };
+  if ("name" in params) return { name: params.name };
+  return params.rack == null
+    ? { type: params.type }
+    : { type: params.type, rack: params.rack };
 };
 
 const singleQueryZ = z
@@ -341,32 +349,12 @@ const singleQueryZ = z
 
 // includeStatus does not change a request's identity either: cached fetches
 // always request it, so the schema strips it before hashing.
-const cacheRetrieveReqZ = retrieveReqZ.transform(
-  ({ includeStatus: _, ...rest }) => rest,
-);
-const retrieveMultiParamsZ = cacheRetrieveReqZ.or(query.keyListZ(keyZ));
+const retrieveMultiParamsZ = z.union([
+  keyZ.array().transform(keysRequest),
+  retrieveRequestZ.transform(({ includeStatus: _, ...rest }) => rest),
+]);
 
-/**
- * Client-side matching for a request: key, name, type, rack, and flag
- * filters. Server-computed shapes (search, pagination) never reach this
- * filter; they refetch instead.
- */
-const requestFilter = (
-  req: RetrieveRequest,
-): ((t: Omit<Task, "status">) => boolean) => {
-  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  const nameSet = primitive.isNonZero(req.names) ? new Set(req.names) : undefined;
-  const typeSet = primitive.isNonZero(req.types) ? new Set(req.types) : undefined;
-  return (t) => {
-    if (keySet != null && !keySet.has(t.key)) return false;
-    if (nameSet != null && !nameSet.has(t.name)) return false;
-    if (typeSet != null && !typeSet.has(t.type)) return false;
-    if (req.rack != null && t.rack !== req.rack) return false;
-    if (req.internal != null && t.internal !== req.internal) return false;
-    if (req.snapshot != null && t.snapshot !== req.snapshot) return false;
-    return true;
-  };
-};
+const LINES: Lines = {};
 
 interface RetrieveSchemas<S extends Schemas = Schemas> {
   schemas?: S;
@@ -379,9 +367,6 @@ const retrieveResZ = <S extends Schemas = Schemas>(schemas?: S) =>
       .default(() => []),
   });
 
-/** A task retrieval on the wire. */
-export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
-
 const createReqZ = <S extends Schemas = Schemas>(schemas?: S) =>
   z.object({ tasks: payloadZ(schemas).array() });
 const createResZ = <S extends Schemas = Schemas>(schemas?: S) =>
@@ -393,13 +378,8 @@ const copyReqZ = z.object({ key: keyZ, name: z.string(), snapshot: z.boolean() }
 const copyResZ = <S extends Schemas = Schemas>(schemas?: S) =>
   z.object({ task: payloadZ(schemas) });
 
-const matchesSingle = (t: Omit<Task, "status">, query: SingleRequest): boolean => {
-  if (primitive.isNonZero(query.keys)) return t.key === query.keys[0];
-  if (primitive.isNonZero(query.names)) return t.name === query.names[0];
-  if (primitive.isNonZero(query.types))
-    return t.type === query.types[0] && (query.rack == null || t.rack === query.rack);
-  return false;
-};
+const matchesSingle = (t: Omit<Task, "status">, q: SingleRequest): boolean =>
+  matches(LINES, t, singleWhere(q));
 
 /** Config for {@link Client}. */
 export interface ClientConfig {
@@ -437,7 +417,7 @@ export class Client extends query.Retriever<
     const store = cache.createTable<Key, Omit<Task, "status">>({
       name: "tasks",
       equal: (a, b) => deep.equal(a.payload, b.payload),
-      fetch: async (keys) => await this.fetchThrough({ keys }),
+      fetch: async (keys) => await this.fetchThrough(keysRequest(keys)),
       listen: [
         {
           bind: (table) => ({
@@ -506,7 +486,7 @@ export class Client extends query.Retriever<
       table: composed,
       fetch: async (q) => [(await this.fetchSingle(q)).key],
       compose: (records) => records[0],
-      keyOf: (q) => (primitive.isNonZero(q.keys) ? q.keys[0] : null),
+      keyOf: (q) => ("key" in q ? q.key : null),
       matches: matchesSingle,
       single: true,
     });
@@ -516,7 +496,8 @@ export class Client extends query.Retriever<
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.fetchThrough(req),
-        matches: (t, req) => requestFilter(req)(t),
+        matches: (t, req) => matches(LINES, t, req.where ?? {}),
+        serverComputed: (req) => req.where != null && serverComputed(LINES, req.where),
         watch: [query.watch(statusStore, (event) => affectedKeys(event))],
       },
       compose: (record) => this.compose(record),
@@ -639,10 +620,13 @@ export class Client extends query.Retriever<
     return sugared;
   }
 
-  async list(rack?: number): Promise<Task[]> {
-    const params: RetrieveMultipleParams = { internal: false };
-    if (rack !== undefined) params.rack = rack;
-    return await this.retrieve(params);
+  async list(rack?: RackKey): Promise<Task[]> {
+    return await this.retrieve({
+      where: {
+        internal: { eq: false },
+        rack: rack == null ? undefined : { eq: rack },
+      },
+    });
   }
 
   async retrieveSnapshottedTo(taskKey: Key): Promise<ontology.Resource | null> {
@@ -786,20 +770,22 @@ export class Client extends query.Retriever<
 
   private async fetchSingle(q: SingleRequest): Promise<Task> {
     let cached: Omit<Task, "status"> | undefined;
-    if (primitive.isNonZero(q.keys)) cached = this.store.get(q.keys[0]);
-    else if (primitive.isNonZero(q.names))
-      [cached] = this.store.get((t) => t.name === q.names?.[0]);
+    if ("key" in q) cached = this.store.get(q.key);
+    else if ("name" in q) [cached] = this.store.get((t) => t.name === q.name);
     // A cached task without a cached status is ambiguous: the task may have
     // no status or the status may not have synced. Only both count as a hit.
     if (cached != null && this.cfg.statusStore.has(statusKey(cached.key)))
       return this.compose(cached);
-    if (primitive.isNonZero(q.keys)) {
+    if ("key" in q) {
       // The refresh covers a cached task whose status has not synced.
-      const tasks = await this.store.retrieve(q.keys, { refresh: true });
+      const tasks = await this.store.retrieve([q.key], { refresh: true });
       checkForMultipleOrNoResults("Task", q, tasks, true);
       return this.compose(tasks[0]);
     }
-    const tasks = await this.execRetrieve({ ...q, includeStatus: true });
+    const tasks = await this.execRetrieve({
+      where: singleWhere(q),
+      includeStatus: true,
+    });
     checkForMultipleOrNoResults("Task", q, tasks, true);
     this.hydrate(tasks[0]);
     return tasks[0];
@@ -879,7 +865,7 @@ export class Client extends query.Retriever<
     if ("commands" in params) {
       const retrieveNames = async () => {
         const { commands } = params;
-        const ts = await this.retrieve({ keys: commands.map((t) => t.task) });
+        const ts = await this.retrieve(keysRequest(commands.map((t) => t.task)));
         return ts.map((t) => t.name);
       };
       return await executeCommandsSync({

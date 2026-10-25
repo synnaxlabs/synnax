@@ -17,8 +17,9 @@ import (
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/task"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/task/pb"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -115,37 +116,28 @@ func (createResponseTranslator) Backward(
 
 func (retrieveRequestTranslator) Forward(
 	_ context.Context,
-	req task.RetrieveRequest,
+	r task.RetrieveRequest,
 ) (*RetrieveRequest, error) {
-	return &RetrieveRequest{
-		Rack: uint32(req.Rack),
-		Keys: lo.Map(
-			req.Keys,
-			func(k task.Key, _ int) string { return k.String() },
-		),
-		Names:         req.Names,
-		Types:         req.Types,
-		IncludeStatus: req.IncludeStatus,
-	}, nil
+	req, err := pb.RetrieveRequestToPB(r)
+	if err != nil {
+		return nil, err
+	}
+	return &RetrieveRequest{Request: req}, nil
 }
 
 func (retrieveRequestTranslator) Backward(
 	_ context.Context,
-	req *RetrieveRequest,
+	r *RetrieveRequest,
 ) (task.RetrieveRequest, error) {
-	keys, err := lo.MapErr(req.Keys, func(k string, _ int) (task.Key, error) {
-		return uuid.Parse(k)
-	})
-	if err != nil {
-		return task.RetrieveRequest{}, err
+	// A client older than the Core sends the reserved fields, which would otherwise
+	// select every task.
+	if len(r.ProtoReflect().GetUnknown()) > 0 {
+		return task.RetrieveRequest{}, errors.Wrap(
+			validate.ErrValidation,
+			"retrieve request has unknown fields",
+		)
 	}
-	return task.RetrieveRequest{
-		Rack:          rack.Key(req.Rack),
-		Keys:          keys,
-		Names:         req.Names,
-		Types:         req.Types,
-		IncludeStatus: req.IncludeStatus,
-	}, nil
+	return pb.RetrieveRequestFromPB(r.Request)
 }
 
 func (retrieveResponseTranslator) Forward(

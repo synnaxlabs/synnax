@@ -89,7 +89,11 @@ export type ListQuery = task.RetrieveMultipleParams;
 
 export const useList = Flux.createList<ListQuery, task.Key, task.Task>({
   name: PLURAL_RESOURCE_NAME,
-  normalizeQuery: (query) => ({ ...BASE_QUERY, internal: false, ...query }),
+  normalizeQuery: (query) => ({
+    ...BASE_QUERY,
+    ...query,
+    where: { internal: { eq: false }, ...query.where },
+  }),
   retrieve: async ({ client, query }) => await client.tasks.retrieve(query),
   retrieveByKey: async ({ client, key }) =>
     await client.tasks.retrieve({ ...BASE_QUERY, key }),
@@ -307,7 +311,7 @@ export const { useUpdate: useCommand } = Flux.createUpdate<CommandParams>({
     const commands = array.toArray(data);
     const keys = commands.map(({ task }) => task);
     // Warm the cache so command listeners can update the tasks' statuses.
-    await client.tasks.retrieve({ keys, includeStatus: true });
+    await client.tasks.retrieve({ where: { key: { in: keys } }, includeStatus: true });
     await client.tasks.executeCommand({ commands });
     return data;
   },

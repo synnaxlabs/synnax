@@ -15,6 +15,7 @@ package service.task.pb;
 
 import "core/pkg/service/status/pb/status.proto";
 import "google/protobuf/struct.proto";
+import "x/go/filter/pb/filter.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/task/pb";
 
@@ -63,6 +64,60 @@ message Task {
   // status is the current execution status of the task.
   optional .service.status.pb.Status status = 9;
 }
+message WhereList {
+  repeated Where values = 1;
+}
+message UuidList {
+  repeated string values = 1;
+}
+
+// UuidSet selects keys and enum values. A value must match every operator that is set.
+message UuidSet {
+  // eq matches a value equal to eq.
+  optional string eq = 1;
+  // in matches a value equal to an element of in.
+  UuidList in = 2;
+}
+message RackKeyList {
+  repeated uint32 values = 1;
+}
+
+// RackKeyOrdered selects numbers and times. A value must match every operator that is
+// set.
+message RackKeyOrdered {
+  // eq matches a value equal to eq.
+  optional uint32 eq = 1;
+  // in matches a value equal to an element of in.
+  RackKeyList in = 2;
+  // gt matches a value greater than gt.
+  optional uint32 gt = 3;
+  // gte matches a value greater than or equal to gte.
+  optional uint32 gte = 4;
+  // lt matches a value less than lt.
+  optional uint32 lt = 5;
+  // lte matches a value less than or equal to lte.
+  optional uint32 lte = 6;
+}
+message Where {
+  // and matches when every child matches.
+  WhereList and = 1;
+  // or matches when any child matches.
+  WhereList or = 2;
+  // not matches when the child does not match.
+  optional Where not = 3;
+  // key selects by key.
+  optional UuidSet key = 4;
+  // name selects by name.
+  optional .x.filter.pb.String name = 5;
+  // type selects by type.
+  optional .x.filter.pb.String type = 6;
+  // rack selects by rack.
+  optional RackKeyOrdered rack = 7;
+  // internal selects by internal.
+  optional .x.filter.pb.Bool internal = 8;
+  // snapshot selects by snapshot.
+  optional .x.filter.pb.Bool snapshot = 9;
+}
 
 // Command is a command to execute on a task in the Driver system.
 message Command {
@@ -78,4 +133,24 @@ message Command {
   string config_hash = 4;
   // args contains optional arguments for the command.
   google.protobuf.Struct args = 5;
+}
+
+// RetrieveRequest is a request to retrieve tasks.
+message RetrieveRequest {
+  // where selects the tasks to retrieve. An absent where selects all of them.
+  optional Where where = 1;
+  // search_term keeps the tasks that match the term, closest match first.
+  optional string search_term = 2;
+  // limit is the most tasks to return.
+  optional uint32 limit = 3;
+  // offset is the number of matching tasks to skip.
+  optional uint32 offset = 4;
+  // include_status includes the status of each record.
+  optional bool include_status = 5;
+}
+
+// RetrieveResponse holds the tasks a RetrieveRequest selects.
+message RetrieveResponse {
+  // tasks are the tasks the request selects.
+  repeated Task tasks = 1;
 }

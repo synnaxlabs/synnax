@@ -16,19 +16,31 @@ from typing import Protocol as BaseProtocol
 from typing import TypeVar, overload
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, JsonValue, ValidationError
+from pydantic import BaseModel, JsonValue, ValidationError
 from pydantic_core import to_jsonable_python
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
+from synnax import rack as rack_
 from synnax.device import Client as DeviceClient
 from synnax.device import Device
+from synnax.exceptions import NotFoundError
 from synnax.framer import Client as FrameClient
 from synnax.ontology.payload import ID
 from synnax.rack import Client as RackClient
 from synnax.rack import Rack
-from synnax.task.types_gen import Command, Key, Payload, Status, ontology_id
+from synnax.task.types_gen import (
+    Command,
+    Key,
+    Payload,
+    RetrieveRequest,
+    RetrieveResponse,
+    Status,
+    Where,
+    ontology_id,
+)
 from synnax.telem import TimeSpan, TimeStamp
+from x import filter
 from x.lists import all_none, override
 from x.timing import Timer
 
@@ -57,23 +69,6 @@ class _CopyRequest(BaseModel):
 
 class _CopyResponse(BaseModel):
     task: Payload
-
-
-class _RetrieveRequest(BaseModel):
-    rack: int | None = None
-    keys: list[Key] | None = None
-    names: list[str] | None = None
-    types: list[str] | None = None
-    include_status: bool = False
-    internal: bool | None = None
-    snapshot: bool | None = None
-    search_term: str | None = None
-    limit: int | None = None
-    offset: int | None = None
-
-
-class _RetrieveResponse(BaseModel):
-    tasks: list[Payload] = Field(default_factory=list)
 
 
 _CREATE_ENDPOINT = "/task/create"
@@ -468,6 +463,7 @@ class Client:
     def retrieve(
         self,
         *,
+        where: Where | None = None,
         keys: list[Key] | None = None,
         names: list[str] | None = None,
         types: list[str] | None = None,
@@ -486,6 +482,7 @@ class Client:
         *,
         name: str | None = None,
         type: str | None = None,
+        where: Where | None = None,
         keys: list[Key] | None = None,
         names: list[str] | None = None,
         types: list[str] | None = None,
@@ -498,8 +495,10 @@ class Client:
         include_status: bool = False,
     ) -> list[Task] | Task:
         """Retrieves tasks matching the given filters. Returns one task when a key,
-        name, or type is given, and a list otherwise.
+        name, or type is given, and a list otherwise. A filter left as None does not
+        filter.
 
+        :param where: Keeps tasks that match this filter tree.
         :param search_term: A fuzzy search term matched against task names.
         :param rack: Only return tasks on the rack with this key.
         :param internal: Only return internal tasks when true, or only user tasks when
@@ -512,34 +511,51 @@ class Client:
             back with a null status when false.
         :raises ValueError: If two singular selectors are given, or one is
             combined with a list filter.
+        :raises NotFoundError: If a single task is requested and none matches.
         """
         is_single = not all_none(key, name, type)
         if sum(v is not None for v in (key, name, type)) > 1:
             raise ValueError("only one of key, name, and type can be given")
         if is_single and not all_none(
-            keys, names, types, search_term, rack, internal, snapshot, limit, offset
+            where,
+            keys,
+            names,
+            types,
+            search_term,
+            rack,
+            internal,
+            snapshot,
+            limit,
+            offset,
         ):
             raise ValueError(
                 "key, name, and type cannot be combined with list filters; use "
                 "keys, names, or types instead"
             )
-        res = self._client.send(
-            "/task/retrieve",
-            _RetrieveRequest(
-                keys=override(key, keys),
-                names=override(name, names),
-                types=override(type, types),
-                search_term=search_term,
-                rack=rack,
-                internal=internal,
-                snapshot=snapshot,
-                limit=limit,
-                offset=offset,
-                include_status=include_status,
-            ),
-            _RetrieveResponse,
+        keys = override(key, keys)
+        names = override(name, names)
+        types = override(type, types)
+        flat = Where(
+            key=None if keys is None else filter.Set[Key](in_=keys),
+            name=None if names is None else filter.String(in_=names),
+            type=None if types is None else filter.String(in_=types),
+            rack=None if rack is None else filter.Ordered[rack_.Key](eq=rack),
+            internal=None if internal is None else filter.Bool(eq=internal),
+            snapshot=None if snapshot is None else filter.Bool(eq=snapshot),
         )
+        if where is not None and flat != Where():
+            where = Where(and_=[where, flat])
+        req = RetrieveRequest(
+            where=flat if where is None else where,
+            search_term=search_term,
+            limit=limit,
+            offset=offset,
+            include_status=include_status or None,
+        )
+        res = self._client.send(_RETRIEVE_ENDPOINT, req, RetrieveResponse)
         sug = self.sugar(res.tasks)
+        if is_single and len(sug) == 0:
+            raise NotFoundError("Task not found")
 
         # Warn if multiple tasks found when retrieving by name
         if is_single and name is not None and len(sug) > 1:
@@ -582,12 +598,7 @@ class Client:
                 self._default_rack = self._racks.retrieve_embedded_rack()
             rack = self._default_rack.key
 
-        res = self._client.send(
-            _RETRIEVE_ENDPOINT,
-            _RetrieveRequest(rack=rack, internal=False),
-            _RetrieveResponse,
-        )
-        return self.sugar(res.tasks)
+        return self.retrieve(rack=rack, internal=False)
 
     def copy(
         self,

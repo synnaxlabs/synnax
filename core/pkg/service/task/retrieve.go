@@ -26,7 +26,7 @@ import (
 type Retrieve struct {
 	baseTX  gorp.Tx
 	gorp    gorp.Retrieve[Key, Task]
-	search  *gorp.SearchIndex[Key, Task]
+	indexes indexes
 	otg     *ontology.Ontology
 	configs config.Registry
 	entry   *Task
@@ -63,7 +63,7 @@ func (r Retrieve) Search(term string) Retrieve {
 	if term == "" {
 		return r
 	}
-	r.gorp = r.gorp.Where(r.search.Filter(term))
+	r.gorp = r.gorp.Where(r.indexes.search.Filter(term))
 	return r
 }
 

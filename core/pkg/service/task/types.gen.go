@@ -12,8 +12,10 @@
 package task
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/task/versions"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/filter"
 )
 
 // Key is a unique identifier for a task.
@@ -49,6 +51,27 @@ type WriteConfig = versions.WriteConfig
 // ScanConfig carries the fields shared by every scan task configuration.
 type ScanConfig = versions.ScanConfig
 
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Name selects by name.
+	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Type selects by type.
+	Type *filter.String `json:"type,omitzero" msgpack:"type,omitempty"`
+	// Rack selects by rack.
+	Rack *filter.Ordered[rack.Key] `json:"rack,omitzero" msgpack:"rack,omitempty"`
+	// Internal selects by internal.
+	Internal *filter.Bool `json:"internal,omitzero" msgpack:"internal,omitempty"`
+	// Snapshot selects by snapshot.
+	Snapshot *filter.Bool `json:"snapshot,omitzero" msgpack:"snapshot,omitempty"`
+}
+
 // Command is a command to execute on a task in the Driver system.
 type Command struct {
 	// Task is the key of the target task.
@@ -63,4 +86,24 @@ type Command struct {
 	ConfigHash string `json:"config_hash" msgpack:"config_hash"`
 	// Args contains optional arguments for the command.
 	Args msgpack.EncodedJSON `json:"args" msgpack:"args"`
+}
+
+// RetrieveRequest is a request to retrieve tasks.
+type RetrieveRequest struct {
+	// Where selects the tasks to retrieve. An absent where selects all of them.
+	Where *Where `json:"where,omitzero" msgpack:"where,omitempty"`
+	// SearchTerm keeps the tasks that match the term, closest match first.
+	SearchTerm *string `json:"search_term,omitzero" msgpack:"search_term,omitempty"`
+	// Limit is the most tasks to return.
+	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
+	// Offset is the number of matching tasks to skip.
+	Offset *uint32 `json:"offset,omitzero" msgpack:"offset,omitempty"`
+	// IncludeStatus includes the status of each record.
+	IncludeStatus *bool `json:"include_status,omitzero" msgpack:"include_status,omitempty"`
+}
+
+// RetrieveResponse holds the tasks a RetrieveRequest selects.
+type RetrieveResponse struct {
+	// Tasks are the tasks the request selects.
+	Tasks []Task `json:"tasks" msgpack:"tasks"`
 }

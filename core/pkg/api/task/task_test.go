@@ -19,8 +19,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func createTask(ctx SpecContext) task.Task {
@@ -102,13 +104,39 @@ var _ = Describe("Retrieve", func() {
 			withStatus.OntologyID(), withoutStatus.OntologyID(),
 		)
 		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
-			Keys:          []task.Key{withoutStatus.Key, withStatus.Key},
-			IncludeStatus: true,
+			Where: &apitask.Where{Key: &filter.Set[task.Key]{
+				In: []task.Key{withoutStatus.Key, withStatus.Key},
+			}},
+			IncludeStatus: new(true),
 		}))
 		Expect(res.Tasks).To(HaveLen(2))
 		Expect(res.Tasks[0].Key).To(Equal(withoutStatus.Key))
 		Expect(res.Tasks[0].Status).To(BeNil())
 		Expect(res.Tasks[1].Key).To(Equal(withStatus.Key))
 		Expect(res.Tasks[1].Status.Key).To(Equal(withStatus.OntologyID().String()))
+	})
+
+	It("Should treat a missing key as a non-match", func(ctx SpecContext) {
+		u := createUser(ctx)
+		t := createTask(ctx)
+		grant(ctx, access.ActionRetrieve, u.OntologyID(), t.OntologyID())
+		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
+			Where: &apitask.Where{Key: &filter.Set[task.Key]{
+				In: []task.Key{t.Key, uuid.New()},
+			}},
+		}))
+		Expect(res.Tasks).To(HaveLen(1))
+		Expect(res.Tasks[0].Key).To(Equal(t.Key))
+	})
+
+	It("Should return a path error for an invalid regex", func(ctx SpecContext) {
+		u := createUser(ctx)
+		_, err := apiSvc.Retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
+			Where: &apitask.Where{Type: &filter.String{Regex: new("(a")}},
+		})
+		Expect(err).To(BeAssignableToTypeOf(validate.PathError{}))
+		Expect(err).To(MatchError(ContainSubstring(
+			"where.type.regex: error parsing regexp: missing closing ): `(a`",
+		)))
 	})
 })

@@ -122,11 +122,7 @@ func (x *CreateResponse) GetTasks() []*pb.Task {
 
 type RetrieveRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Rack          uint32                 `protobuf:"varint,1,opt,name=rack,proto3" json:"rack,omitempty"`
-	Keys          []string               `protobuf:"bytes,2,rep,name=keys,proto3" json:"keys,omitempty"`
-	Names         []string               `protobuf:"bytes,3,rep,name=names,proto3" json:"names,omitempty"`
-	Types         []string               `protobuf:"bytes,4,rep,name=types,proto3" json:"types,omitempty"`
-	IncludeStatus bool                   `protobuf:"varint,5,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
+	Request       *pb.RetrieveRequest    `protobuf:"bytes,6,opt,name=request,proto3" json:"request,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -161,39 +157,11 @@ func (*RetrieveRequest) Descriptor() ([]byte, []int) {
 	return file_core_pkg_transport_grpc_task_task_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *RetrieveRequest) GetRack() uint32 {
+func (x *RetrieveRequest) GetRequest() *pb.RetrieveRequest {
 	if x != nil {
-		return x.Rack
-	}
-	return 0
-}
-
-func (x *RetrieveRequest) GetKeys() []string {
-	if x != nil {
-		return x.Keys
+		return x.Request
 	}
 	return nil
-}
-
-func (x *RetrieveRequest) GetNames() []string {
-	if x != nil {
-		return x.Names
-	}
-	return nil
-}
-
-func (x *RetrieveRequest) GetTypes() []string {
-	if x != nil {
-		return x.Types
-	}
-	return nil
-}
-
-func (x *RetrieveRequest) GetIncludeStatus() bool {
-	if x != nil {
-		return x.IncludeStatus
-	}
-	return false
 }
 
 type RetrieveResponse struct {
@@ -396,13 +364,9 @@ const file_core_pkg_transport_grpc_task_task_proto_rawDesc = "" +
 	"\rCreateRequest\x12+\n" +
 	"\x05tasks\x18\x01 \x03(\v2\x15.service.task.pb.TaskR\x05tasks\"=\n" +
 	"\x0eCreateResponse\x12+\n" +
-	"\x05tasks\x18\x01 \x03(\v2\x15.service.task.pb.TaskR\x05tasks\"\x8c\x01\n" +
-	"\x0fRetrieveRequest\x12\x12\n" +
-	"\x04rack\x18\x01 \x01(\rR\x04rack\x12\x12\n" +
-	"\x04keys\x18\x02 \x03(\tR\x04keys\x12\x14\n" +
-	"\x05names\x18\x03 \x03(\tR\x05names\x12\x14\n" +
-	"\x05types\x18\x04 \x03(\tR\x05types\x12%\n" +
-	"\x0einclude_status\x18\x05 \x01(\bR\rincludeStatus\"?\n" +
+	"\x05tasks\x18\x01 \x03(\v2\x15.service.task.pb.TaskR\x05tasks\"}\n" +
+	"\x0fRetrieveRequest\x12:\n" +
+	"\arequest\x18\x06 \x01(\v2 .service.task.pb.RetrieveRequestR\arequestJ\x04\b\x01\x10\x06R\x04rackR\x04keysR\x05namesR\x05typesR\x0einclude_status\"?\n" +
 	"\x10RetrieveResponse\x12+\n" +
 	"\x05tasks\x18\x01 \x03(\v2\x15.service.task.pb.TaskR\x05tasks\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
@@ -438,34 +402,36 @@ func file_core_pkg_transport_grpc_task_task_proto_rawDescGZIP() []byte {
 
 var file_core_pkg_transport_grpc_task_task_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_core_pkg_transport_grpc_task_task_proto_goTypes = []any{
-	(*CreateRequest)(nil),    // 0: grpc.task.CreateRequest
-	(*CreateResponse)(nil),   // 1: grpc.task.CreateResponse
-	(*RetrieveRequest)(nil),  // 2: grpc.task.RetrieveRequest
-	(*RetrieveResponse)(nil), // 3: grpc.task.RetrieveResponse
-	(*DeleteRequest)(nil),    // 4: grpc.task.DeleteRequest
-	(*CopyRequest)(nil),      // 5: grpc.task.CopyRequest
-	(*CopyResponse)(nil),     // 6: grpc.task.CopyResponse
-	(*pb.Task)(nil),          // 7: service.task.pb.Task
-	(*emptypb.Empty)(nil),    // 8: google.protobuf.Empty
+	(*CreateRequest)(nil),      // 0: grpc.task.CreateRequest
+	(*CreateResponse)(nil),     // 1: grpc.task.CreateResponse
+	(*RetrieveRequest)(nil),    // 2: grpc.task.RetrieveRequest
+	(*RetrieveResponse)(nil),   // 3: grpc.task.RetrieveResponse
+	(*DeleteRequest)(nil),      // 4: grpc.task.DeleteRequest
+	(*CopyRequest)(nil),        // 5: grpc.task.CopyRequest
+	(*CopyResponse)(nil),       // 6: grpc.task.CopyResponse
+	(*pb.Task)(nil),            // 7: service.task.pb.Task
+	(*pb.RetrieveRequest)(nil), // 8: service.task.pb.RetrieveRequest
+	(*emptypb.Empty)(nil),      // 9: google.protobuf.Empty
 }
 var file_core_pkg_transport_grpc_task_task_proto_depIdxs = []int32{
 	7, // 0: grpc.task.CreateRequest.tasks:type_name -> service.task.pb.Task
 	7, // 1: grpc.task.CreateResponse.tasks:type_name -> service.task.pb.Task
-	7, // 2: grpc.task.RetrieveResponse.tasks:type_name -> service.task.pb.Task
-	7, // 3: grpc.task.CopyResponse.task:type_name -> service.task.pb.Task
-	0, // 4: grpc.task.TaskCreateService.Exec:input_type -> grpc.task.CreateRequest
-	2, // 5: grpc.task.TaskRetrieveService.Exec:input_type -> grpc.task.RetrieveRequest
-	4, // 6: grpc.task.TaskDeleteService.Exec:input_type -> grpc.task.DeleteRequest
-	5, // 7: grpc.task.TaskCopyService.Exec:input_type -> grpc.task.CopyRequest
-	1, // 8: grpc.task.TaskCreateService.Exec:output_type -> grpc.task.CreateResponse
-	3, // 9: grpc.task.TaskRetrieveService.Exec:output_type -> grpc.task.RetrieveResponse
-	8, // 10: grpc.task.TaskDeleteService.Exec:output_type -> google.protobuf.Empty
-	6, // 11: grpc.task.TaskCopyService.Exec:output_type -> grpc.task.CopyResponse
-	8, // [8:12] is the sub-list for method output_type
-	4, // [4:8] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	8, // 2: grpc.task.RetrieveRequest.request:type_name -> service.task.pb.RetrieveRequest
+	7, // 3: grpc.task.RetrieveResponse.tasks:type_name -> service.task.pb.Task
+	7, // 4: grpc.task.CopyResponse.task:type_name -> service.task.pb.Task
+	0, // 5: grpc.task.TaskCreateService.Exec:input_type -> grpc.task.CreateRequest
+	2, // 6: grpc.task.TaskRetrieveService.Exec:input_type -> grpc.task.RetrieveRequest
+	4, // 7: grpc.task.TaskDeleteService.Exec:input_type -> grpc.task.DeleteRequest
+	5, // 8: grpc.task.TaskCopyService.Exec:input_type -> grpc.task.CopyRequest
+	1, // 9: grpc.task.TaskCreateService.Exec:output_type -> grpc.task.CreateResponse
+	3, // 10: grpc.task.TaskRetrieveService.Exec:output_type -> grpc.task.RetrieveResponse
+	9, // 11: grpc.task.TaskDeleteService.Exec:output_type -> google.protobuf.Empty
+	6, // 12: grpc.task.TaskCopyService.Exec:output_type -> grpc.task.CopyResponse
+	9, // [9:13] is the sub-list for method output_type
+	5, // [5:9] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_transport_grpc_task_task_proto_init() }

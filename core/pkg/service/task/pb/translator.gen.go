@@ -15,14 +15,343 @@ import (
 	"encoding/json/v2"
 	"uuid"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/filter"
+	filterpb "github.com/synnaxlabs/x/filter/pb"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 )
+
+// UuidSetToPB converts filter.Set[uuid.UUID] to UuidSet.
+func UuidSetToPB(r filter.Set[uuid.UUID]) (*UuidSet, error) {
+	pb := &UuidSet{}
+	if r.Eq != nil {
+		v := r.Eq.String()
+		pb.Eq = &v
+	}
+	if r.In != nil {
+		pb.In = &UuidList{Values: lo.Map(r.In, func(u uuid.UUID, _ int) string { return uuid.UUID(u).String() })}
+	}
+	return pb, nil
+}
+
+// UuidSetFromPB converts UuidSet to filter.Set[uuid.UUID].
+func UuidSetFromPB(pb *UuidSet) (filter.Set[uuid.UUID], error) {
+	var r filter.Set[uuid.UUID]
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Eq != nil {
+		v, err := uuid.Parse(*pb.Eq)
+		if err != nil {
+			return filter.Set[uuid.UUID]{}, err
+		}
+		r.Eq = &v
+	}
+	if pb.In != nil {
+		vals, err := func() ([]uuid.UUID, error) {
+			result := make([]uuid.UUID, len(pb.In.Values))
+			for i, s := range pb.In.Values {
+				parsed, err := uuid.Parse(s)
+				if err != nil {
+					return nil, err
+				}
+				result[i] = uuid.UUID(parsed)
+			}
+			return result, nil
+		}()
+		if err != nil {
+			return filter.Set[uuid.UUID]{}, err
+		}
+		r.In = vals
+	}
+	return r, nil
+}
+
+// UuidSetsToPB converts a slice of filter.Set[uuid.UUID] to UuidSet.
+func UuidSetsToPB(rs []filter.Set[uuid.UUID]) ([]*UuidSet, error) {
+	result := make([]*UuidSet, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = UuidSetToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// UuidSetsFromPB converts a slice of UuidSet to filter.Set[uuid.UUID].
+func UuidSetsFromPB(pbs []*UuidSet) ([]filter.Set[uuid.UUID], error) {
+	result := make([]filter.Set[uuid.UUID], len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = UuidSetFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RackKeyOrderedToPB converts filter.Ordered[rack.Key] to RackKeyOrdered.
+func RackKeyOrderedToPB(r filter.Ordered[rack.Key]) (*RackKeyOrdered, error) {
+	pb := &RackKeyOrdered{}
+	if r.Eq != nil {
+		v := uint32(*r.Eq)
+		pb.Eq = &v
+	}
+	if r.In != nil {
+		pb.In = &RackKeyList{Values: lo.Map(r.In, func(v rack.Key, _ int) uint32 { return uint32(v) })}
+	}
+	if r.Gt != nil {
+		v := uint32(*r.Gt)
+		pb.Gt = &v
+	}
+	if r.Gte != nil {
+		v := uint32(*r.Gte)
+		pb.Gte = &v
+	}
+	if r.Lt != nil {
+		v := uint32(*r.Lt)
+		pb.Lt = &v
+	}
+	if r.Lte != nil {
+		v := uint32(*r.Lte)
+		pb.Lte = &v
+	}
+	return pb, nil
+}
+
+// RackKeyOrderedFromPB converts RackKeyOrdered to filter.Ordered[rack.Key].
+func RackKeyOrderedFromPB(pb *RackKeyOrdered) (filter.Ordered[rack.Key], error) {
+	var r filter.Ordered[rack.Key]
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Eq != nil {
+		v := rack.Key(*pb.Eq)
+		r.Eq = &v
+	}
+	if pb.In != nil {
+		r.In = lo.Map(pb.In.Values, func(v uint32, _ int) rack.Key { return rack.Key(v) })
+	}
+	if pb.Gt != nil {
+		v := rack.Key(*pb.Gt)
+		r.Gt = &v
+	}
+	if pb.Gte != nil {
+		v := rack.Key(*pb.Gte)
+		r.Gte = &v
+	}
+	if pb.Lt != nil {
+		v := rack.Key(*pb.Lt)
+		r.Lt = &v
+	}
+	if pb.Lte != nil {
+		v := rack.Key(*pb.Lte)
+		r.Lte = &v
+	}
+	return r, nil
+}
+
+// RackKeyOrderedsToPB converts a slice of filter.Ordered[rack.Key] to RackKeyOrdered.
+func RackKeyOrderedsToPB(rs []filter.Ordered[rack.Key]) ([]*RackKeyOrdered, error) {
+	result := make([]*RackKeyOrdered, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = RackKeyOrderedToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RackKeyOrderedsFromPB converts a slice of RackKeyOrdered to filter.Ordered[rack.Key].
+func RackKeyOrderedsFromPB(pbs []*RackKeyOrdered) ([]filter.Ordered[rack.Key], error) {
+	result := make([]filter.Ordered[rack.Key], len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = RackKeyOrderedFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// WhereToPB converts Where to Where.
+func WhereToPB(r task.Where) (*Where, error) {
+	pb := &Where{}
+	if r.And != nil {
+		vals, err := WheresToPB(r.And)
+		if err != nil {
+			return nil, err
+		}
+		pb.And = &WhereList{Values: vals}
+	}
+	if r.Or != nil {
+		vals, err := WheresToPB(r.Or)
+		if err != nil {
+			return nil, err
+		}
+		pb.Or = &WhereList{Values: vals}
+	}
+	if r.Not != nil {
+		var err error
+		pb.Not, err = WhereToPB(*r.Not)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Key != nil {
+		var err error
+		pb.Key, err = UuidSetToPB(*r.Key)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Name != nil {
+		var err error
+		pb.Name, err = filterpb.StringToPB(*r.Name)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Type != nil {
+		var err error
+		pb.Type, err = filterpb.StringToPB(*r.Type)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Rack != nil {
+		var err error
+		pb.Rack, err = RackKeyOrderedToPB(*r.Rack)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Internal != nil {
+		var err error
+		pb.Internal, err = filterpb.BoolToPB(*r.Internal)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Snapshot != nil {
+		var err error
+		pb.Snapshot, err = filterpb.BoolToPB(*r.Snapshot)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pb, nil
+}
+
+// WhereFromPB converts Where to Where.
+func WhereFromPB(pb *Where) (task.Where, error) {
+	var r task.Where
+	if pb == nil {
+		return r, nil
+	}
+	if pb.And != nil {
+		vals, err := WheresFromPB(pb.And.Values)
+		if err != nil {
+			return task.Where{}, err
+		}
+		r.And = vals
+	}
+	if pb.Or != nil {
+		vals, err := WheresFromPB(pb.Or.Values)
+		if err != nil {
+			return task.Where{}, err
+		}
+		r.Or = vals
+	}
+	if pb.Not != nil {
+		val, err := WhereFromPB(pb.Not)
+		if err != nil {
+			return task.Where{}, err
+		}
+		r.Not = &val
+	}
+	if pb.Key != nil {
+		val, err := UuidSetFromPB(pb.Key)
+		if err != nil {
+			return task.Where{}, err
+		}
+		r.Key = &val
+	}
+	if pb.Name != nil {
+		val, err := filterpb.StringFromPB(pb.Name)
+		if err != nil {
+			return task.Where{}, err
+		}
+		r.Name = &val
+	}
+	if pb.Type != nil {
+		val, err := filterpb.StringFromPB(pb.Type)
+		if err != nil {
+			return task.Where{}, err
+		}
+		r.Type = &val
+	}
+	if pb.Rack != nil {
+		val, err := RackKeyOrderedFromPB(pb.Rack)
+		if err != nil {
+			return task.Where{}, err
+		}
+		r.Rack = &val
+	}
+	if pb.Internal != nil {
+		val, err := filterpb.BoolFromPB(pb.Internal)
+		if err != nil {
+			return task.Where{}, err
+		}
+		r.Internal = &val
+	}
+	if pb.Snapshot != nil {
+		val, err := filterpb.BoolFromPB(pb.Snapshot)
+		if err != nil {
+			return task.Where{}, err
+		}
+		r.Snapshot = &val
+	}
+	return r, nil
+}
+
+// WheresToPB converts a slice of Where to Where.
+func WheresToPB(rs []task.Where) ([]*Where, error) {
+	result := make([]*Where, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = WhereToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// WheresFromPB converts a slice of Where to Where.
+func WheresFromPB(pbs []*Where) ([]task.Where, error) {
+	result := make([]task.Where, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = WhereFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
 
 // CommandToPB converts Command to Command.
 func CommandToPB(r task.Command) (*Command, error) {
@@ -77,6 +406,137 @@ func CommandsFromPB(pbs []*Command) ([]task.Command, error) {
 	for i, pb := range pbs {
 		var err error
 		result[i], err = CommandFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RetrieveRequestToPB converts RetrieveRequest to RetrieveRequest.
+func RetrieveRequestToPB(r task.RetrieveRequest) (*RetrieveRequest, error) {
+	pb := &RetrieveRequest{}
+	if r.Where != nil {
+		var err error
+		pb.Where, err = WhereToPB(*r.Where)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.SearchTerm != nil {
+		pb.SearchTerm = r.SearchTerm
+	}
+	if r.Limit != nil {
+		pb.Limit = r.Limit
+	}
+	if r.Offset != nil {
+		pb.Offset = r.Offset
+	}
+	if r.IncludeStatus != nil {
+		pb.IncludeStatus = r.IncludeStatus
+	}
+	return pb, nil
+}
+
+// RetrieveRequestFromPB converts RetrieveRequest to RetrieveRequest.
+func RetrieveRequestFromPB(pb *RetrieveRequest) (task.RetrieveRequest, error) {
+	var r task.RetrieveRequest
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Where != nil {
+		val, err := WhereFromPB(pb.Where)
+		if err != nil {
+			return task.RetrieveRequest{}, err
+		}
+		r.Where = &val
+	}
+	if pb.SearchTerm != nil {
+		r.SearchTerm = pb.SearchTerm
+	}
+	if pb.Limit != nil {
+		r.Limit = pb.Limit
+	}
+	if pb.Offset != nil {
+		r.Offset = pb.Offset
+	}
+	if pb.IncludeStatus != nil {
+		r.IncludeStatus = pb.IncludeStatus
+	}
+	return r, nil
+}
+
+// RetrieveRequestsToPB converts a slice of RetrieveRequest to RetrieveRequest.
+func RetrieveRequestsToPB(rs []task.RetrieveRequest) ([]*RetrieveRequest, error) {
+	result := make([]*RetrieveRequest, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = RetrieveRequestToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RetrieveRequestsFromPB converts a slice of RetrieveRequest to RetrieveRequest.
+func RetrieveRequestsFromPB(pbs []*RetrieveRequest) ([]task.RetrieveRequest, error) {
+	result := make([]task.RetrieveRequest, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = RetrieveRequestFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RetrieveResponseToPB converts RetrieveResponse to RetrieveResponse.
+func RetrieveResponseToPB(r task.RetrieveResponse) (*RetrieveResponse, error) {
+	tasksVal, err := TasksToPB(r.Tasks)
+	if err != nil {
+		return nil, err
+	}
+	pb := &RetrieveResponse{
+		Tasks: tasksVal,
+	}
+	return pb, nil
+}
+
+// RetrieveResponseFromPB converts RetrieveResponse to RetrieveResponse.
+func RetrieveResponseFromPB(pb *RetrieveResponse) (task.RetrieveResponse, error) {
+	var r task.RetrieveResponse
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Tasks, err = TasksFromPB(pb.Tasks)
+	if err != nil {
+		return task.RetrieveResponse{}, err
+	}
+	return r, nil
+}
+
+// RetrieveResponsesToPB converts a slice of RetrieveResponse to RetrieveResponse.
+func RetrieveResponsesToPB(rs []task.RetrieveResponse) ([]*RetrieveResponse, error) {
+	result := make([]*RetrieveResponse, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = RetrieveResponseToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RetrieveResponsesFromPB converts a slice of RetrieveResponse to RetrieveResponse.
+func RetrieveResponsesFromPB(pbs []*RetrieveResponse) ([]task.RetrieveResponse, error) {
+	result := make([]task.RetrieveResponse, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = RetrieveResponseFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

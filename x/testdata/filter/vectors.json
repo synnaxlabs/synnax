@@ -1117,5 +1117,295 @@
         "expected": []
       }
     ]
+  },
+  "tasks": {
+    "records": {
+      "a": {
+        "key": "00000000-0000-4000-8000-00000000000a",
+        "name": "Write Valve",
+        "type": "labjack_write",
+        "rack": 65538,
+        "config": {},
+        "internal": false,
+        "snapshot": false
+      },
+      "b": {
+        "key": "00000000-0000-4000-8000-00000000000b",
+        "name": "Scan",
+        "type": "labjack_scan",
+        "rack": 65538,
+        "config": {},
+        "internal": true,
+        "snapshot": false
+      },
+      "c": {
+        "key": "00000000-0000-4000-8000-00000000000c",
+        "name": "Write Heater",
+        "type": "labjack_write",
+        "rack": 131073,
+        "config": {},
+        "internal": false,
+        "snapshot": true
+      }
+    },
+    "cases": [
+      {
+        "name": "an empty where matches every task",
+        "where": {},
+        "expected": ["a", "b", "c"]
+      },
+      {
+        "name": "key eq",
+        "where": {
+          "key": {
+            "eq": "00000000-0000-4000-8000-00000000000a"
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "key in",
+        "where": {
+          "key": {
+            "in": [
+              "00000000-0000-4000-8000-00000000000a",
+              "00000000-0000-4000-8000-00000000000c"
+            ]
+          }
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "an empty key in matches nothing",
+        "where": {
+          "key": {
+            "in": []
+          }
+        },
+        "expected": []
+      },
+      {
+        "name": "a missing key matches nothing",
+        "where": {
+          "key": {
+            "eq": "00000000-0000-4000-8000-00000000000f"
+          }
+        },
+        "expected": []
+      },
+      {
+        "name": "a missing key leaves the other keys",
+        "where": {
+          "key": {
+            "in": [
+              "00000000-0000-4000-8000-00000000000a",
+              "00000000-0000-4000-8000-00000000000f"
+            ]
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "name eq",
+        "where": {
+          "name": {
+            "eq": "Scan"
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "name in",
+        "where": {
+          "name": {
+            "in": ["Write Valve", "Scan"]
+          }
+        },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "name regex",
+        "where": {
+          "name": {
+            "regex": "^Write"
+          }
+        },
+        "expected": ["a", "c"],
+        "server_computed": true
+      },
+      {
+        "name": "type eq",
+        "where": {
+          "type": {
+            "eq": "labjack_scan"
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "type in",
+        "where": {
+          "type": {
+            "in": ["labjack_write"]
+          }
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "type regex",
+        "where": {
+          "type": {
+            "regex": "_write$"
+          }
+        },
+        "expected": ["a", "c"],
+        "server_computed": true
+      },
+      {
+        "name": "rack eq",
+        "where": {
+          "rack": {
+            "eq": 65538
+          }
+        },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "rack in",
+        "where": {
+          "rack": {
+            "in": [131073]
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "rack gt",
+        "where": {
+          "rack": {
+            "gt": 65538
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "rack lte",
+        "where": {
+          "rack": {
+            "lte": 65538
+          }
+        },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "internal eq true",
+        "where": {
+          "internal": {
+            "eq": true
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "internal eq false",
+        "where": {
+          "internal": {
+            "eq": false
+          }
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "snapshot eq",
+        "where": {
+          "snapshot": {
+            "eq": true
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "the slots on one node are ANDed",
+        "where": {
+          "type": {
+            "eq": "labjack_write"
+          },
+          "rack": {
+            "eq": 65538
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "an empty and matches every task",
+        "where": {
+          "and": []
+        },
+        "expected": ["a", "b", "c"]
+      },
+      {
+        "name": "an empty or matches nothing",
+        "where": {
+          "or": []
+        },
+        "expected": []
+      },
+      {
+        "name": "and",
+        "where": {
+          "and": [
+            {
+              "type": {
+                "eq": "labjack_write"
+              }
+            },
+            {
+              "not": {
+                "snapshot": {
+                  "eq": true
+                }
+              }
+            }
+          ]
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "or",
+        "where": {
+          "or": [
+            {
+              "internal": {
+                "eq": true
+              }
+            },
+            {
+              "snapshot": {
+                "eq": true
+              }
+            }
+          ]
+        },
+        "expected": ["b", "c"]
+      },
+      {
+        "name": "not",
+        "where": {
+          "not": {
+            "rack": {
+              "eq": 65538
+            }
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "not of an empty node matches nothing",
+        "where": {
+          "not": {}
+        },
+        "expected": []
+      }
+    ]
   }
 }

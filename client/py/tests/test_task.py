@@ -16,6 +16,8 @@ import pytest
 from pydantic import BaseModel, Field
 
 import synnax as sy
+from synnax import task
+from x import filter
 from x.testutil import assert_eventually
 
 
@@ -144,6 +146,33 @@ class TestTaskClient:
         assert client.tasks.retrieve(rack=rack.key, snapshot=True) == []
         res = client.tasks.retrieve(rack=rack.key, internal=False, snapshot=False)
         assert [t.key for t in res] == [task.key]
+
+    def test_retrieve_where(self, client: sy.Synnax) -> None:
+        """Should keep tasks that match a filter tree and the other filters."""
+        rack = client.racks.create(name=str(uuid4()))
+        tasks = [
+            client.tasks.create(name=f"t{i}", type="pagerduty_alert", rack=rack.key)
+            for i in range(3)
+        ]
+        where = task.Where(
+            or_=[
+                task.Where(name=filter.String(eq="t0")),
+                task.Where(key=filter.Set[UUID](eq=tasks[1].key)),
+            ]
+        )
+        res = client.tasks.retrieve(where=where, rack=rack.key)
+        assert {t.key for t in res} == {tasks[0].key, tasks[1].key}
+
+    def test_retrieve_missing_key(self, client: sy.Synnax) -> None:
+        """Should treat a missing key as a non-match in a list retrieve."""
+        t = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
+        res = client.tasks.retrieve(keys=[t.key, uuid4()])
+        assert [x.key for x in res] == [t.key]
+
+    def test_retrieve_not_found(self, client: sy.Synnax) -> None:
+        """Should raise when a single task is requested and none matches."""
+        with pytest.raises(sy.NotFoundError):
+            client.tasks.retrieve(uuid4())
 
     def test_retrieve_with_limit_and_offset(self, client: sy.Synnax) -> None:
         """Should page through the tasks on a rack."""

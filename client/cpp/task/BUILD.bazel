@@ -29,10 +29,12 @@ cc_library(
         "//core/pkg/transport/grpc:api_grpc",
         "//freighter/cpp:freighter",
         "//x/cpp/errors",
+        "//x/cpp/filter",
         "//x/cpp/json",
         "//x/cpp/pb",
         "//x/cpp/telem",
         "//x/cpp/uuid",
+        "//x/go/filter:filter_grpc",
         "@nlohmann_json//:json",
     ],
 )
