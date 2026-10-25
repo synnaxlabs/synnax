@@ -25,6 +25,7 @@ import { type Frame } from "@/framer/frame";
 import {
   type Streamer,
   type StreamerConfig,
+  type StreamerUpdateOptions,
   type StreamOpener,
 } from "@/framer/streamer";
 
@@ -202,15 +203,19 @@ export class HardenedStreamer implements Streamer {
     await this.reconnecting;
   }
 
-  async update(channels: channel.Params): Promise<void> {
+  async update(
+    channels: channel.Params,
+    options?: StreamerUpdateOptions,
+  ): Promise<void> {
     if (this.closed) throw new EOF();
     this.config.channels = channels;
     try {
-      await this.wrapped.update(channels);
+      await this.wrapped.update(channels, options);
     } catch (e) {
-      if (this.closed || EOF.matches(e)) throw errors.fromUnknown(e);
+      if (this.closed) throw new EOF();
+      // an EOF the client did not ask for is a drop, as in read
       await this.reconnect(errors.fromUnknown(e));
-      return await this.update(channels);
+      return await this.update(channels, options);
     }
   }
 

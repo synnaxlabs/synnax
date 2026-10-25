@@ -211,6 +211,7 @@ func (db *DB) Delete(
 	}
 
 	persist := db.idx.indexPersist.prepare(startDomain)
+	db.idx.notifyHistoryChange(ctx, tr)
 	// We choose to keep the mutex locked while persisting to index.
 	return span.Error(persist())
 }

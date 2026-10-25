@@ -83,11 +83,13 @@ message StreamerRequest {
   uint32 downsample_factor = 2;
   double throttle_rate_hz = 4;
   repeated uint32 exclude_groups = 5;
+  bool ack_requested = 6;
 }
 
 message StreamerResponse {
   x.telem.pb.Frame frame = 1;
   bytes buffer = 2;
+  bool ack = 3;
 }
 
 service FrameDeleteService {
