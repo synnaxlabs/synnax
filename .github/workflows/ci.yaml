@@ -367,11 +367,12 @@ jobs:
 
   # The EtherCAT bus runs on its own thread, so its suites also run under TSan.
   driver-tsan:
-    needs: changes
+    needs: [changes, core-image]
     if: inputs.full || needs.changes.outputs.driver == 'true'
     uses: ./.github/workflows/test.cpp.yaml
     with:
       apt_packages: libsystemd-dev
+      core_image: ${{ needs.core-image.outputs.image }}
       sanitizers: false
       targets: //driver/ethercat/...
       test_flags: --config=tsan
