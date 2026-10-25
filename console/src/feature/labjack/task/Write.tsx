@@ -22,7 +22,6 @@ import { use } from "@/feature/labjack/device/queries";
 import { Select } from "@/feature/labjack/device/Select";
 import { SelectPort } from "@/feature/labjack/device/SelectPort";
 import * as Device from "@/feature/labjack/device/types";
-import { useConfigureModal } from "@/feature/labjack/device/useConfigureModal";
 import {
   convertPortTypeToWriteChannelType,
   convertWriteChannelTypeToPortType,
@@ -38,6 +37,7 @@ import {
   type WriteChannelType,
   type WriteSchemas,
 } from "@/feature/labjack/task/types";
+import { useConfigure } from "@/feature/labjack/task/useConfigure";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
@@ -166,7 +166,7 @@ const ChannelList = ({ device }: ChannelListProps) => {
 
 const Form: FC = PlatformDevice.wrapTaskForm({
   use,
-  useConfigure: useConfigureModal,
+  useConfigure,
   Content: ChannelList,
 });
 
