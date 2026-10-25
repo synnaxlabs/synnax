@@ -156,8 +156,8 @@ func (s *Service) Dispatch(
 	dispatchKey string,
 	acts []Action,
 ) error {
-	return s.state.Dispatch(ctx, key, dispatchKey, acts, func(tx gorp.Tx) error {
-		return s.table.NewUpdate().Where(gorp.MatchKeys[Key, Table](key)).
+	return s.state.Dispatch(ctx, key, dispatchKey, func(tx gorp.Tx) ([]Action, error) {
+		return acts, s.table.NewUpdate().Where(gorp.MatchKeys[Key, Table](key)).
 			ChangeErr(func(_ gorp.Context, t Table) (Table, error) {
 				return Reduce(t, acts...)
 			}).Exec(ctx, tx)

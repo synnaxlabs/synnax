@@ -176,8 +176,8 @@ func (s *Service) Dispatch(
 	dispatchKey string,
 	acts []Action,
 ) error {
-	return s.state.Dispatch(ctx, key, dispatchKey, acts, func(tx gorp.Tx) error {
-		return s.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
+	return s.state.Dispatch(ctx, key, dispatchKey, func(tx gorp.Tx) ([]Action, error) {
+		return acts, s.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
 			ChangeErr(func(_ gorp.Context, sch Schematic) (Schematic, error) {
 				if sch.Snapshot {
 					for _, a := range acts {

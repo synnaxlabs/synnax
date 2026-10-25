@@ -96,22 +96,25 @@ func NewState[K comparable, A any](db *gorp.DB) *State[K, A] {
 }
 
 // Dispatch runs stage serialized per key, each call in its own transaction, then
-// notifies the actions after the commit. Two concurrent dispatches on the same
-// key can never interleave their read-reduce-write cycles, so neither can
-// overwrite the other's committed actions. When stage or the commit fails,
-// nothing persists and no notification is emitted.
+// notifies the actions that stage returns after the commit. Two concurrent dispatches
+// on the same key can never interleave their read-reduce-write cycles, so neither can
+// overwrite the other's committed actions. When stage or the commit fails, nothing
+// persists and no notification is emitted.
 func (s *State[K, A]) Dispatch(
 	ctx context.Context,
 	key K,
 	dispatchKey string,
-	actions []A,
-	stage func(gorp.Tx) error,
+	stage func(gorp.Tx) ([]A, error),
 ) error {
 	return s.locks.Do(key, func() error {
-		if err := s.db.WithTx(ctx, stage); err != nil {
+		var applied []A
+		if err := s.db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			applied, err = stage(tx)
+			return err
+		}); err != nil {
 			return err
 		}
-		s.Dispatcher().Notify(ctx, key, dispatchKey, actions)
+		s.Dispatcher().Notify(ctx, key, dispatchKey, applied)
 		return nil
 	})
 }

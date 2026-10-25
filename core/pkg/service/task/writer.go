@@ -371,6 +371,9 @@ func (w Writer) DeleteByRacks(ctx context.Context, keys ...rack.Key) error {
 	return nil
 }
 
+// Copy stores a copy of the task with the given key under a new key and name, with its
+// config. After the transaction commits, Copy broadcasts a create action that carries
+// the copy. It returns query.ErrNotFound if no task with the key exists.
 func (w Writer) Copy(
 	ctx context.Context,
 	key Key,
@@ -397,20 +400,18 @@ func (w Writer) Copy(
 	if err := w.otgWriter.DefineResources(ctx, OntologyID(newKey)); err != nil {
 		return Task{}, err
 	}
-	store, ok := w.configs.Store(res.Type)
-	if !ok {
-		return res, nil
-	}
-	if err := store.Copy(ctx, w.tx, key, newKey); err != nil {
-		if errors.Is(err, query.ErrNotFound) {
-			return res, nil
+	if store, ok := w.configs.Store(res.Type); ok {
+		if err := store.Copy(ctx, w.tx, key, newKey); err == nil {
+			if res.Config, err = store.Read(ctx, w.tx, newKey); err != nil {
+				return Task{}, err
+			}
+		} else if !errors.Is(err, query.ErrNotFound) {
+			return Task{}, err
 		}
-		return Task{}, err
 	}
-	data, err := store.Read(ctx, w.tx, newKey)
-	if err != nil {
-		return Task{}, err
-	}
-	res.Config = data
+	copied := []Action{NewCreateAction(CreatePayload{Task: res})}
+	gorp.OnCommit(w.tx, func() {
+		w.dispatcher.Notify(ctx, newKey, w.dispatchKey, copied)
+	})
 	return res, nil
 }

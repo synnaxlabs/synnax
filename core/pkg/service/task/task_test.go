@@ -592,6 +592,38 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(w.Copy(ctx, m.Key, "", false)).Error().
 				To(MatchError(ContainSubstring("name: required")))
 		})
+
+		It(
+			"Should broadcast a create of the copy after the commit",
+			func(ctx SpecContext) {
+				m := &task.Task{
+					Type:   testType,
+					Rack:   testRack.Key,
+					Name:   "Original",
+					Config: msgpack.EncodedJSON{"routing_key": "rk-1"},
+				}
+				Expect(svc.NewWriter(db).Create(ctx, m)).To(Succeed())
+				frames := collect()
+				copied := MustSucceed(w.WithDispatchKey("dk-copy").
+					Copy(ctx, m.Key, "Copied", false))
+				Expect(*frames).To(BeEmpty())
+				Expect(tx.Commit(ctx)).To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(svc.NewWriter(db).Delete(ctx, m.Key, true)).To(Succeed())
+					Expect(
+						svc.NewWriter(db).Delete(ctx, copied.Key, true),
+					).To(Succeed())
+				})
+				Expect(*frames).To(HaveLen(1))
+				f := (*frames)[0]
+				Expect(f.Key).To(Equal(copied.Key))
+				Expect(f.DispatchKey).To(Equal("dk-copy"))
+				Expect(f.Actions).To(Equal([]task.Action{
+					task.NewCreateAction(task.CreatePayload{Task: copied}),
+				}))
+				Expect(copied.Config).To(HaveKeyWithValue("routing_key", "rk-1"))
+			},
+		)
 	})
 
 	Describe("Rename", func() {
@@ -876,18 +908,20 @@ var _ = Describe("Task", Ordered, func() {
 			})).Error().To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should broadcast the actions with the dispatch key", func(
+		It("Should broadcast the actions and the new config hash", func(
 			ctx SpecContext,
 		) {
 			frames := collect()
 			acts := []task.Action{set([]string{"config", "routing_key"}, "rk-2")}
-			MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk-1", acts))
+			hash := MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk-1", acts))
 			Expect(*frames).To(HaveLen(1))
 			f := (*frames)[0]
 			Expect(f.Key).To(Equal(alerts.Key))
 			Expect(f.DispatchKey).To(Equal("dk-1"))
 			Expect(f.Seq).To(BeNumerically(">", 0))
-			Expect(f.Actions).To(Equal(acts))
+			Expect(
+				f.Actions,
+			).To(Equal(append(acts, set([]string{"config_hash"}, hash))))
 		})
 
 		It("Should not broadcast a rejected dispatch", func(ctx SpecContext) {
