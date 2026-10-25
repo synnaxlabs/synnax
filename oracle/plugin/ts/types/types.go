@@ -2227,17 +2227,11 @@ func (p *Plugin) typeRefToTSInternal(
 	case resolution.StructForm:
 		typeName := domain.GetName(resolved, "ts")
 		if form.IsGeneric() && len(typeRef.TypeArgs) > 0 {
-			args := make([]string, len(typeRef.TypeArgs))
-			for i, arg := range typeRef.TypeArgs {
-				args[i] = p.typeRefToTSInternal(
-					&arg,
-					table,
-					data,
-					true,
-					needsTypeImports,
-				)
-			}
-			typeName = fmt.Sprintf("%s<%s>", typeName, strings.Join(args, ", "))
+			typeName = fmt.Sprintf(
+				"%s<%s>",
+				typeName,
+				p.genericArgs(form.TypeParams, typeRef.TypeArgs, table, data, needsTypeImports),
+			)
 		}
 		if resolved.Namespace != data.Namespace {
 			return fmt.Sprintf("%s.%s", resolved.Namespace, typeName)
@@ -2266,17 +2260,11 @@ func (p *Plugin) typeRefToTSInternal(
 	case resolution.AliasForm:
 		typeName := domain.GetName(resolved, "ts")
 		if form.IsGeneric() && len(typeRef.TypeArgs) > 0 {
-			args := make([]string, len(typeRef.TypeArgs))
-			for i, arg := range typeRef.TypeArgs {
-				args[i] = p.typeRefToTSInternal(
-					&arg,
-					table,
-					data,
-					true,
-					needsTypeImports,
-				)
-			}
-			typeName = fmt.Sprintf("%s<%s>", typeName, strings.Join(args, ", "))
+			typeName = fmt.Sprintf(
+				"%s<%s>",
+				typeName,
+				p.genericArgs(form.TypeParams, typeRef.TypeArgs, table, data, needsTypeImports),
+			)
 		}
 		if resolved.Namespace != data.Namespace {
 			return fmt.Sprintf("%s.%s", resolved.Namespace, typeName)
@@ -2293,6 +2281,27 @@ func (p *Plugin) typeRefToTSInternal(
 	default:
 		return "unknown"
 	}
+}
+
+// genericArgs renders the type arguments of a generic struct or alias. Its type
+// parameters take Zod types, except numeric ones, which take TypeScript types.
+func (p *Plugin) genericArgs(
+	params []resolution.TypeParam,
+	args []resolution.TypeRef,
+	table *resolution.Table,
+	data *templateData,
+	needsTypeImports bool,
+) string {
+	out := make([]string, len(args))
+	for i := range args {
+		if i < len(params) && params[i].Constraint != nil &&
+			params[i].Constraint.Name == "numeric" {
+			out[i] = p.typeRefToTSInternal(&args[i], table, data, true, needsTypeImports)
+			continue
+		}
+		out[i] = p.typeRefToZodSchemaType(&args[i], table, data)
+	}
+	return strings.Join(out, ", ")
 }
 
 var primitiveTSTypes = map[string]string{

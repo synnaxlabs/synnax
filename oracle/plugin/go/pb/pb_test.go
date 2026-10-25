@@ -1423,6 +1423,31 @@ var _ = Describe("Go PB Plugin", func() {
 					)
 				},
 			)
+
+			It("Should translate optional and list fields of a type parameter",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/test"
+					@pb
+
+					Set struct<T> {
+						eq  T?
+						all T[]
+						in  T[]?
+					}
+				`
+					resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
+					ExpectContent(resp, "translator.gen.go").ToContain(
+						"translateT(*r.Eq)",
+						"lo.MapErr(r.All, func(v T, _ int) (*anypb.Any, error) { "+
+							"return translateT(v) })",
+						"lo.MapErr(pb.All, func(v *anypb.Any, _ int) (T, error) { "+
+							"return translateT(v) })",
+						"lo.MapErr(pb.In.Values, func(v *anypb.Any, _ int) (T, error) { "+
+							"return translateT(v) })",
+					)
+				},
+			)
 		})
 
 		Context("key domain with numeric types", func() {
