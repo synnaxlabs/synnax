@@ -114,6 +114,7 @@ const createConfig = (
 const createInfo = (overrides: Partial<connection.Info> = {}): connection.Info => ({
   clusterKey: "test-cluster",
   nodeVersion: __VERSION__,
+  nodeKey: 1,
   clockSkew: TimeSpan.ZERO,
   license: "ok",
   ...overrides,

@@ -40,6 +40,8 @@ export const statusDetailsZ = z.object({
   clusterKey: z.string(),
   clientVersion: z.string(),
   nodeVersion: z.string().optional(),
+  // The key of the node the client connects to. Absent until the first check.
+  nodeKey: z.number().optional(),
   clientServerCompatible: z.boolean(),
   clockSkew: TimeSpan.z,
   clockSkewExceeded: z.boolean(),
@@ -170,6 +172,8 @@ export const awaitConnected = async (
 export interface Info {
   clusterKey: string;
   nodeVersion: string;
+  /** The key of the node that answered the check. */
+  nodeKey: number;
   /** Skew measured across the check's round trip. */
   clockSkew: TimeSpan;
   license: license.State;
@@ -270,6 +274,7 @@ const isCompatible = (nodeVersion: string, clientVersion: string): boolean =>
 const checkFacts = (info: Info, config: Config): Partial<StatusDetails> => ({
   clusterKey: info.clusterKey,
   nodeVersion: info.nodeVersion,
+  nodeKey: info.nodeKey,
   // the check traverses the auth middleware, so a response is proof of auth
   authenticated: true,
   clockSkew: info.clockSkew,
