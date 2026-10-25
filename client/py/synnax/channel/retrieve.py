@@ -9,9 +9,7 @@
 
 from __future__ import annotations
 
-from uuid import UUID
-
-from pydantic import BaseModel, Field
+import re
 
 from alamos import NOOP, Instrumentation, trace
 from freighter import UnaryClient
@@ -22,31 +20,42 @@ from synnax.channel.payload import (
     Payload,
     normalize_params,
 )
+from synnax.channel.types_gen import RetrieveRequest, RetrieveResponse, Where
 from synnax.exceptions import NotFoundError
-from x.telem import DataType
+from x import filter
+
+_NAME_LITERAL = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*")
 
 
-class Request(BaseModel):
-    """The filters for a channel retrieval. A field left as None does not filter."""
-
-    names: list[str] | None = None
-    keys: list[int] | None = None
-    search_term: str | None = None
-    data_types: list[DataType] | None = None
-    not_data_types: list[DataType] | None = None
-    virtual: bool | None = None
-    is_index: bool | None = None
-    internal: bool | None = None
-    range_key: UUID | None = None
-    node_key: int | None = None
-    limit: int | None = None
-    offset: int | None = None
-    status_included: bool = Field(default=False, serialization_alias="include_status")
+def names_where(names: list[str]) -> Where:
+    """Returns a filter that selects channels by name. A name that is not a valid
+    channel name is a regular expression, anchored when unanchored.
+    """
+    literals = [n for n in names if _NAME_LITERAL.fullmatch(n)]
+    lines = [
+        Where(name=filter.String(regex=_anchor(n)))
+        for n in names
+        if not _NAME_LITERAL.fullmatch(n)
+    ]
+    if len(literals) > 0:
+        lines.insert(0, Where(name=filter.String(in_=literals)))
+    return lines[0] if len(lines) == 1 else Where(or_=lines)
 
 
-class _Response(BaseModel):
-    channels: list[Payload] = Field(default_factory=list)
-    not_found: list[str] | None = Field(default_factory=list)
+def _anchor(pattern: str) -> str:
+    if pattern.startswith("^") or pattern.endswith("$"):
+        return pattern
+    return f"^{pattern}$"
+
+
+def params_where(channels: Params) -> Where:
+    """Returns a filter that selects the channels that channels names by key or
+    name.
+    """
+    normal = normalize_params(channels)
+    if isinstance(normal, NormalizedNameResult):
+        return names_where(normal.channels)
+    return Where(key=filter.Set[Key](in_=normal.channels))
 
 
 class Retriever:
@@ -65,33 +74,20 @@ class Retriever:
 
     @trace("debug")
     def retrieve(self, channels: Params) -> list[Payload]:
-        normal = normalize_params(channels)
-        if len(normal.channels) == 0:
+        if len(normalize_params(channels).channels) == 0:
             return []
-        if isinstance(normal, NormalizedNameResult):
-            req = Request(names=normal.channels)
-        else:
-            req = Request(keys=normal.channels)
-        return self._exec_retrieve(req)
+        return self.filter(RetrieveRequest(where=params_where(channels)))
 
     @trace("debug")
     def retrieve_one(self, param: Key | str) -> Payload:
-        req = Request()
-        if isinstance(param, Key):
-            req.keys = [param]
-        else:
-            req.names = [param]
-        channels = self._exec_retrieve(req)
+        channels = self.retrieve(param)
         if len(channels) == 0:
             raise NotFoundError(f"Could not find channel matching {param}")
         return channels[0]
 
     @trace("debug")
-    def filter(self, req: Request) -> list[Payload]:
-        return self._exec_retrieve(req)
-
-    def _exec_retrieve(self, req: Request) -> list[Payload]:
-        return self._client.send("/channel/retrieve", req, _Response).channels
+    def filter(self, req: RetrieveRequest) -> list[Payload]:
+        return self._client.send("/channel/retrieve", req, RetrieveResponse).channels
 
 
 def retrieve_required(r: Retriever, channels: Params) -> list[Payload]:

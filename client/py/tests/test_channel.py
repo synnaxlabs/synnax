@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 
 import synnax as sy
+from x import filter
 from x.strings import random_name
 from x.telem import seconds_linspace
 from x.testutil import assert_eventually
@@ -243,8 +244,7 @@ class TestChannel:
     def test_retrieve_list_of_keys_not_found(self, client: sy.Synnax) -> None:
         """Should retrieve an empty list when can't find channels"""
         fake_keys = [1234, 5781, 99123]
-        with pytest.raises(sy.NotFoundError):
-            client.channels.retrieve(fake_keys)
+        assert client.channels.retrieve(fake_keys) == []
 
     def test_retrieve_numeric_string(
         self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
@@ -305,6 +305,44 @@ class TestChannel:
         res_channels = client.channels.retrieve([f"^{prefix}.*"])
         assert len(res_channels) >= 2
 
+    def test_retrieve_where(self, client: sy.Synnax) -> None:
+        """Should retrieve the channels that a where selects"""
+        prefix = channel_name()
+        a, _, c = client.channels.create(
+            [
+                sy.Channel(name=f"{prefix}_a", virtual=True, data_type="float32"),
+                sy.Channel(name=f"{prefix}_b", virtual=True, data_type="float64"),
+                sy.Channel(name=f"{prefix}_c", virtual=True, data_type="float32"),
+            ]
+        )
+        res = client.channels.retrieve(
+            where=sy.channel.Where(
+                name=filter.String(regex=f"^{prefix}"),
+                data_type=filter.Set[sy.DataType](eq=sy.DataType.FLOAT32),
+            )
+        )
+        assert sorted(ch.key for ch in res) == sorted([a.key, c.key])
+
+    def test_retrieve_where_and_filters(self, client: sy.Synnax) -> None:
+        """Should keep the channels that the names, the where, and the filters all
+        select"""
+        prefix = channel_name()
+        a, b, c = client.channels.create(
+            [
+                sy.Channel(name=f"{prefix}_a", virtual=True, data_type="float32"),
+                sy.Channel(name=f"{prefix}_b", virtual=True, data_type="float64"),
+                sy.Channel(name=f"{prefix}_c", virtual=True, data_type="float32"),
+            ]
+        )
+        res = client.channels.retrieve(
+            [a.name, b.name, c.name],
+            where=sy.channel.Where(
+                not_=sy.channel.Where(key=filter.Set[int](eq=c.key))
+            ),
+            data_types=["float32"],
+        )
+        assert [ch.key for ch in res] == [a.key]
+
     def test_delete_by_key(self, client: sy.Synnax) -> None:
         """Should delete channels using a list of keys"""
         channels = client.channels.create(
@@ -323,8 +361,7 @@ class TestChannel:
         )
         keys = [channel.key for channel in channels]
         client.channels.delete(keys)
-        with pytest.raises(sy.QueryError):
-            client.channels.retrieve(keys)
+        assert client.channels.retrieve(keys) == []
 
     def test_delete_by_name(self, client: sy.Synnax) -> None:
         """Should delete channels using a list of names"""
@@ -457,9 +494,8 @@ class TestChannel:
             client.channels.retrieve(0)
 
     def test_retrieve_zero_key_multiple(self, client: sy.Synnax) -> None:
-        """Should retrieve a list of channels with a key of zero"""
-        with pytest.raises(sy.NotFoundError):
-            client.channels.retrieve([0, 0, 0])
+        """Should retrieve no channels for keys of zero"""
+        assert client.channels.retrieve([0, 0, 0]) == []
 
     def test_create_channel_with_avg_operation_duration(
         self, client: sy.Synnax

@@ -9,23 +9,25 @@
 
 from __future__ import annotations
 
-from typing import overload
+from collections.abc import Callable
+from typing import TypeAlias, overload
 from uuid import UUID
 
 from pydantic import PrivateAttr
 
-from synnax import framer
+from synnax import framer, node
 from synnax.channel.payload import (
     Key,
-    NormalizedNameResult,
     Params,
     normalize_params,
 )
-from synnax.channel.retrieve import Request, Retriever
+from synnax.channel.retrieve import Retriever, params_where
 from synnax.channel.types_gen import (
     Operation,
     Payload,
+    RetrieveRequest,
     Status,
+    Where,
     ontology_id,
 )
 from synnax.channel.writer import Writer
@@ -39,8 +41,11 @@ from synnax.telem import (
     MultiSeries,
     TimeRange,
 )
-from x import control
+from x import control, filter
 from x.lists import normalize
+
+AliasRetriever: TypeAlias = Callable[[UUID, list[Key]], dict[Key, str]]
+"""Returns the aliases of the given channels in a range."""
 
 
 class Channel(Payload):
@@ -210,16 +215,19 @@ class Client:
     _frame_client: framer.Client
     _retriever: Retriever
     _creator: Writer
+    _aliases: AliasRetriever
 
     def __init__(
         self,
         frame_client: framer.Client,
         retriever: Retriever,
         creator: Writer,
+        aliases: AliasRetriever,
     ):
         self._frame_client = frame_client
         self._retriever = retriever
         self._creator = creator
+        self._aliases = aliases
 
     def delete(self, channels: Params) -> None:
         """Deletes on or more channels from the cluster"""
@@ -340,6 +348,7 @@ class Client:
         self,
         channel: Key | str,
         *,
+        where: Where | None = None,
         search_term: str | None = None,
         data_types: list[CrudeDataType] | None = None,
         not_data_types: list[CrudeDataType] | None = None,
@@ -358,6 +367,7 @@ class Client:
         self,
         channel: list[Key] | tuple[Key] | list[str] | tuple[str] | None = None,
         *,
+        where: Where | None = None,
         search_term: str | None = None,
         data_types: list[CrudeDataType] | None = None,
         not_data_types: list[CrudeDataType] | None = None,
@@ -375,6 +385,7 @@ class Client:
         self,
         channel: Params | None = None,
         *,
+        where: Where | None = None,
         search_term: str | None = None,
         data_types: list[CrudeDataType] | None = None,
         not_data_types: list[CrudeDataType] | None = None,
@@ -391,15 +402,18 @@ class Client:
         does not filter.
 
         :param channel: The key or name of one channel, or a list of keys or names. A
-            single key or name returns one channel. A list, or None, returns a list.
+            single key or name returns one channel. A list, or None, returns a list. A
+            name that is not a valid channel name is a regular expression, anchored
+            when unanchored.
+        :param where: Keeps channels that match this filter tree.
         :param search_term: Fuzzy matches channel names.
         :param data_types: Keeps channels with one of these data types.
         :param not_data_types: Drops channels with one of these data types.
-        :param virtual: Keeps only virtual or only non-virtual channels.
+        :param virtual: Keeps only virtual channels that are not calculated, or only
+            the other channels.
         :param is_index: Keeps only index or only non-index channels.
         :param internal: Keeps only internal or only non-internal channels.
-        :param range_key: Sets each channel's alias from this range. With a search
-            term, also matches channels by their alias in the range.
+        :param range_key: Sets each channel's alias from this range.
         :param node_key: Keeps channels whose leaseholder is this node.
         :param limit: The maximum number of channels to return.
         :param offset: The number of matching channels to skip.
@@ -409,34 +423,49 @@ class Client:
         :raises NotFoundError: If a single channel is requested and not found.
         :raises MultipleFoundError: If a single name matches more than one channel.
         """
-        req = Request(
-            search_term=search_term,
-            data_types=_data_types(data_types),
-            not_data_types=_data_types(not_data_types),
+        flat = Where(
+            leaseholder=(
+                None if node_key is None else filter.Ordered[node.Key](eq=node_key)
+            ),
+            data_type=(
+                None
+                if data_types is None
+                else filter.Set[DataType](in_=_data_types(data_types))
+            ),
+            not_=(
+                None
+                if not_data_types is None
+                else Where(
+                    data_type=filter.Set[DataType](in_=_data_types(not_data_types))
+                )
+            ),
             virtual=virtual,
-            is_index=is_index,
-            internal=internal,
-            range_key=range_key,
-            node_key=node_key,
-            limit=limit,
-            offset=offset,
-            status_included=include_status,
+            is_index=None if is_index is None else filter.Bool(eq=is_index),
+            internal=None if internal is None else filter.Bool(eq=internal),
         )
-        if channel is None:
-            return self._sugar(self._retriever.filter(req))
-        normal = normalize_params(channel)
-        if len(req.model_dump(exclude_defaults=True)) == 0:
-            res = self._retriever.retrieve(channel)
-        elif len(normal.channels) == 0:
-            res = []
-        else:
-            if isinstance(normal, NormalizedNameResult):
-                req.names = normal.channels
-            else:
-                req.keys = normal.channels
-            res = self._retriever.filter(req)
+        lines = [w for w in (where, flat) if w is not None and w != Where()]
+        single = False
+        if channel is not None:
+            normal = normalize_params(channel)
+            if len(normal.channels) == 0:
+                return []
+            single = normal.single
+            lines.insert(0, params_where(channel))
+        res = self._retriever.filter(
+            RetrieveRequest(
+                where=_and(lines),
+                search_term=search_term,
+                limit=limit,
+                offset=offset,
+                include_status=include_status or None,
+            )
+        )
+        if range_key is not None:
+            aliases = self._aliases(range_key, [ch.key for ch in res])
+            for ch in res:
+                ch.alias = aliases.get(ch.key)
         sug = self._sugar(res)
-        if not normal.single:
+        if channel is None or not single:
             return sug
         if len(res) == 1:
             return sug[0]
@@ -484,8 +513,14 @@ class Client:
         ]
 
 
-def _data_types(data_types: list[CrudeDataType] | None) -> list[DataType] | None:
-    return None if data_types is None else [DataType(dt) for dt in data_types]
+def _data_types(data_types: list[CrudeDataType]) -> list[DataType]:
+    return [DataType(dt) for dt in data_types]
+
+
+def _and(lines: list[Where]) -> Where | None:
+    if len(lines) == 0:
+        return None
+    return lines[0] if len(lines) == 1 else Where(and_=lines)
 
 
 def _multiple_results_error(

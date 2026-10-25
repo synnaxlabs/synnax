@@ -35,6 +35,7 @@ from synnax.imex import Client as ImexClient
 from synnax.license import Client as LicenseClient
 from synnax.ontology import Client as OntologyClient
 from synnax.options import Options
+from synnax.ranger.alias import Client as AliasClient
 from synnax.ranger.retrieve import Retriever as RangeRetriever
 from synnax.signals import Registry as SignalsRegistry
 from synnax.telem import TimeSpan
@@ -164,7 +165,12 @@ class Synnax(framer.Client):
         )
         self.groups = group.Client(self._transport.unary)
         self.ontology = OntologyClient(client=self._transport.unary)
-        self.channels = channel.Client(self, ch_retriever, ch_creator)
+        self.channels = channel.Client(
+            self,
+            ch_retriever,
+            ch_creator,
+            lambda rng, keys: AliasClient(rng, self._transport.unary).retrieve(keys),
+        )
         range_retriever = RangeRetriever(self._transport.unary, instrumentation)
         range_creator = ranger.Writer(self._transport.unary, instrumentation)
         self.signals = SignalsRegistry(frame_client=self, channels=ch_retriever)

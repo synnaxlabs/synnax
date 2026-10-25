@@ -31,6 +31,15 @@ class _SetRequest(BaseModel):
     aliases: dict[channel.Key, str]
 
 
+class _RetrieveRequest(BaseModel):
+    range: uuid.UUID
+    channels: list[channel.Key]
+
+
+class _RetrieveResponse(BaseModel):
+    aliases: dict[channel.Key, str]
+
+
 class _EmptyResponse(BaseModel): ...
 
 
@@ -76,6 +85,15 @@ class Client:
         if is_single:
             return res.aliases[normalized_aliases[0]]
         return {**results, **res.aliases}
+
+    def retrieve(self, channels: list[channel.Key]) -> dict[channel.Key, str]:
+        """Returns the aliases of the given channels in the range. A channel without
+        an alias is left out.
+        """
+        req = _RetrieveRequest(range=self._rng, channels=channels)
+        return self._client.send(
+            "/range/alias/retrieve", req, _RetrieveResponse
+        ).aliases
 
     def set(self, aliases: dict[channel.Key, str]) -> None:
         req = _SetRequest(range=self._rng, aliases=aliases)
