@@ -11,7 +11,11 @@
 
 package device
 
-import "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/x/filter"
+)
 
 // Key is a unique identifier for the device
 type Key = versions.Key
@@ -28,3 +32,46 @@ type Status = versions.Status
 // Devices represent external equipment like LabJack, National Instruments, OPC UA
 // servers, or Modbus devices.
 type Device = versions.Device
+
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Name selects by name.
+	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Make selects by make.
+	Make *filter.String `json:"make,omitzero" msgpack:"make,omitempty"`
+	// Model selects by model.
+	Model *filter.String `json:"model,omitzero" msgpack:"model,omitempty"`
+	// Location selects by location.
+	Location *filter.String `json:"location,omitzero" msgpack:"location,omitempty"`
+	// Rack selects by rack.
+	Rack *filter.Ordered[rack.Key] `json:"rack,omitzero" msgpack:"rack,omitempty"`
+}
+
+// RetrieveRequest is a request to retrieve devices.
+type RetrieveRequest struct {
+	// Where selects the devices to retrieve. An absent where selects all of them.
+	Where *Where `json:"where,omitzero" msgpack:"where,omitempty"`
+	// SearchTerm keeps the devices that match the term, closest match first.
+	SearchTerm *string `json:"search_term,omitzero" msgpack:"search_term,omitempty"`
+	// Limit is the most devices to return.
+	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
+	// Offset is the number of matching devices to skip.
+	Offset *uint32 `json:"offset,omitzero" msgpack:"offset,omitempty"`
+	// IncludeStatus includes the status of each record.
+	IncludeStatus *bool `json:"include_status,omitzero" msgpack:"include_status,omitempty"`
+	// IncludeParent includes the parent of each record.
+	IncludeParent *bool `json:"include_parent,omitzero" msgpack:"include_parent,omitempty"`
+}
+
+// RetrieveResponse holds the devices a RetrieveRequest selects.
+type RetrieveResponse struct {
+	// Devices are the devices the request selects.
+	Devices []Device `json:"devices" msgpack:"devices"`
+}

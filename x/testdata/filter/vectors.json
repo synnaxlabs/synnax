@@ -849,5 +849,273 @@
         "expected": []
       }
     ]
+  },
+  "devices": {
+    "records": {
+      "a": {
+        "key": "dev-a",
+        "name": "PT 1",
+        "make": "NI",
+        "model": "cDAQ-9178",
+        "location": "Bay 1",
+        "rack": 65538,
+        "configured": false,
+        "properties": {}
+      },
+      "b": {
+        "key": "dev-b",
+        "name": "PT 2",
+        "make": "NI",
+        "model": "USB-6000",
+        "location": "Bay 2",
+        "rack": 65538,
+        "configured": false,
+        "properties": {}
+      },
+      "c": {
+        "key": "dev-c",
+        "name": "TC 1",
+        "make": "LabJack",
+        "model": "T7",
+        "location": "Bay 1",
+        "rack": 131073,
+        "configured": false,
+        "properties": {}
+      }
+    },
+    "cases": [
+      {
+        "name": "an empty where matches every device",
+        "where": {},
+        "expected": ["a", "b", "c"]
+      },
+      {
+        "name": "key eq",
+        "where": {
+          "key": {
+            "eq": "dev-a"
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "key in",
+        "where": {
+          "key": {
+            "in": ["dev-a", "dev-c"]
+          }
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "an empty key in matches nothing",
+        "where": {
+          "key": {
+            "in": []
+          }
+        },
+        "expected": []
+      },
+      {
+        "name": "a missing key matches nothing",
+        "where": {
+          "key": {
+            "eq": "dev-z"
+          }
+        },
+        "expected": []
+      },
+      {
+        "name": "a missing key leaves the other keys",
+        "where": {
+          "key": {
+            "in": ["dev-a", "dev-z"]
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "name eq",
+        "where": {
+          "name": {
+            "eq": "PT 2"
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "name in",
+        "where": {
+          "name": {
+            "in": ["PT 1", "TC 1"]
+          }
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "name regex",
+        "where": {
+          "name": {
+            "regex": "^PT"
+          }
+        },
+        "expected": ["a", "b"],
+        "server_computed": true
+      },
+      {
+        "name": "make eq",
+        "where": {
+          "make": {
+            "eq": "NI"
+          }
+        },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "make in",
+        "where": {
+          "make": {
+            "in": ["LabJack"]
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "model eq",
+        "where": {
+          "model": {
+            "eq": "T7"
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "location eq",
+        "where": {
+          "location": {
+            "eq": "Bay 1"
+          }
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "rack eq",
+        "where": {
+          "rack": {
+            "eq": 65538
+          }
+        },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "rack in",
+        "where": {
+          "rack": {
+            "in": [131073]
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "rack gt",
+        "where": {
+          "rack": {
+            "gt": 65538
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "rack lte",
+        "where": {
+          "rack": {
+            "lte": 65538
+          }
+        },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "the slots on one node are ANDed",
+        "where": {
+          "make": {
+            "eq": "NI"
+          },
+          "location": {
+            "eq": "Bay 1"
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "an empty and matches every device",
+        "where": {
+          "and": []
+        },
+        "expected": ["a", "b", "c"]
+      },
+      {
+        "name": "an empty or matches nothing",
+        "where": {
+          "or": []
+        },
+        "expected": []
+      },
+      {
+        "name": "and",
+        "where": {
+          "and": [
+            {
+              "make": {
+                "eq": "NI"
+              }
+            },
+            {
+              "not": {
+                "model": {
+                  "eq": "USB-6000"
+                }
+              }
+            }
+          ]
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "or",
+        "where": {
+          "or": [
+            {
+              "model": {
+                "eq": "T7"
+              }
+            },
+            {
+              "name": {
+                "eq": "PT 2"
+              }
+            }
+          ]
+        },
+        "expected": ["b", "c"]
+      },
+      {
+        "name": "not",
+        "where": {
+          "not": {
+            "make": {
+              "eq": "NI"
+            }
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "not of an empty node matches nothing",
+        "where": {
+          "not": {}
+        },
+        "expected": []
+      }
+    ]
   }
 }

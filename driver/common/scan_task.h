@@ -148,11 +148,14 @@ struct SynnaxClusterAPI final : ClusterAPI {
 
     std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     retrieve_devices(const synnax::rack::Key &rack, const std::string &make) override {
-        synnax::device::RetrieveRequest req;
-        req.makes = {make};
-        req.racks = {rack};
-        req.include_status = true;
-        return this->client->devices.retrieve(req);
+        return this->client->devices.retrieve({
+            .where =
+                synnax::device::Where{
+                    .make = x::filter::String{.eq = make},
+                    .rack = x::filter::Ordered<synnax::rack::Key>{.eq = rack},
+                },
+            .include_status = true,
+        });
     }
 
     std::pair<synnax::device::Device, x::errors::Error>

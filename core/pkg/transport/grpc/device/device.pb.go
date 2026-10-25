@@ -121,21 +121,10 @@ func (x *CreateResponse) GetDevices() []*pb.Device {
 }
 
 type RetrieveRequest struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	Keys           []string               `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
-	Names          []string               `protobuf:"bytes,2,rep,name=names,proto3" json:"names,omitempty"`
-	Makes          []string               `protobuf:"bytes,3,rep,name=makes,proto3" json:"makes,omitempty"`
-	Models         []string               `protobuf:"bytes,4,rep,name=models,proto3" json:"models,omitempty"`
-	Locations      []string               `protobuf:"bytes,5,rep,name=locations,proto3" json:"locations,omitempty"`
-	Racks          []uint32               `protobuf:"varint,6,rep,packed,name=racks,proto3" json:"racks,omitempty"`
-	Search         string                 `protobuf:"bytes,7,opt,name=search,proto3" json:"search,omitempty"`
-	Limit          uint32                 `protobuf:"varint,8,opt,name=limit,proto3" json:"limit,omitempty"`
-	Offset         uint32                 `protobuf:"varint,9,opt,name=offset,proto3" json:"offset,omitempty"`
-	IgnoreNotFound bool                   `protobuf:"varint,10,opt,name=ignore_not_found,json=ignoreNotFound,proto3" json:"ignore_not_found,omitempty"`
-	IncludeStatus  bool                   `protobuf:"varint,11,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
-	IncludeParent  bool                   `protobuf:"varint,12,opt,name=include_parent,json=includeParent,proto3" json:"include_parent,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Request       *pb.RetrieveRequest    `protobuf:"bytes,13,opt,name=request,proto3" json:"request,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RetrieveRequest) Reset() {
@@ -168,88 +157,11 @@ func (*RetrieveRequest) Descriptor() ([]byte, []int) {
 	return file_core_pkg_transport_grpc_device_device_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *RetrieveRequest) GetKeys() []string {
+func (x *RetrieveRequest) GetRequest() *pb.RetrieveRequest {
 	if x != nil {
-		return x.Keys
+		return x.Request
 	}
 	return nil
-}
-
-func (x *RetrieveRequest) GetNames() []string {
-	if x != nil {
-		return x.Names
-	}
-	return nil
-}
-
-func (x *RetrieveRequest) GetMakes() []string {
-	if x != nil {
-		return x.Makes
-	}
-	return nil
-}
-
-func (x *RetrieveRequest) GetModels() []string {
-	if x != nil {
-		return x.Models
-	}
-	return nil
-}
-
-func (x *RetrieveRequest) GetLocations() []string {
-	if x != nil {
-		return x.Locations
-	}
-	return nil
-}
-
-func (x *RetrieveRequest) GetRacks() []uint32 {
-	if x != nil {
-		return x.Racks
-	}
-	return nil
-}
-
-func (x *RetrieveRequest) GetSearch() string {
-	if x != nil {
-		return x.Search
-	}
-	return ""
-}
-
-func (x *RetrieveRequest) GetLimit() uint32 {
-	if x != nil {
-		return x.Limit
-	}
-	return 0
-}
-
-func (x *RetrieveRequest) GetOffset() uint32 {
-	if x != nil {
-		return x.Offset
-	}
-	return 0
-}
-
-func (x *RetrieveRequest) GetIgnoreNotFound() bool {
-	if x != nil {
-		return x.IgnoreNotFound
-	}
-	return false
-}
-
-func (x *RetrieveRequest) GetIncludeStatus() bool {
-	if x != nil {
-		return x.IncludeStatus
-	}
-	return false
-}
-
-func (x *RetrieveRequest) GetIncludeParent() bool {
-	if x != nil {
-		return x.IncludeParent
-	}
-	return false
 }
 
 type RetrieveResponse struct {
@@ -348,21 +260,9 @@ const file_core_pkg_transport_grpc_device_device_proto_rawDesc = "" +
 	"\rCreateRequest\x123\n" +
 	"\adevices\x18\x01 \x03(\v2\x19.service.device.pb.DeviceR\adevices\"E\n" +
 	"\x0eCreateResponse\x123\n" +
-	"\adevices\x18\x01 \x03(\v2\x19.service.device.pb.DeviceR\adevices\"\xdb\x02\n" +
-	"\x0fRetrieveRequest\x12\x12\n" +
-	"\x04keys\x18\x01 \x03(\tR\x04keys\x12\x14\n" +
-	"\x05names\x18\x02 \x03(\tR\x05names\x12\x14\n" +
-	"\x05makes\x18\x03 \x03(\tR\x05makes\x12\x16\n" +
-	"\x06models\x18\x04 \x03(\tR\x06models\x12\x1c\n" +
-	"\tlocations\x18\x05 \x03(\tR\tlocations\x12\x14\n" +
-	"\x05racks\x18\x06 \x03(\rR\x05racks\x12\x16\n" +
-	"\x06search\x18\a \x01(\tR\x06search\x12\x14\n" +
-	"\x05limit\x18\b \x01(\rR\x05limit\x12\x16\n" +
-	"\x06offset\x18\t \x01(\rR\x06offset\x12(\n" +
-	"\x10ignore_not_found\x18\n" +
-	" \x01(\bR\x0eignoreNotFound\x12%\n" +
-	"\x0einclude_status\x18\v \x01(\bR\rincludeStatus\x12%\n" +
-	"\x0einclude_parent\x18\f \x01(\bR\rincludeParent\"G\n" +
+	"\adevices\x18\x01 \x03(\v2\x19.service.device.pb.DeviceR\adevices\"\xcc\x01\n" +
+	"\x0fRetrieveRequest\x12<\n" +
+	"\arequest\x18\r \x01(\v2\".service.device.pb.RetrieveRequestR\arequestJ\x04\b\x01\x10\rR\x04keysR\x05namesR\x05makesR\x06modelsR\tlocationsR\x05racksR\x06searchR\x05limitR\x06offsetR\x10ignore_not_foundR\x0einclude_statusR\x0einclude_parent\"G\n" +
 	"\x10RetrieveResponse\x123\n" +
 	"\adevices\x18\x01 \x03(\v2\x19.service.device.pb.DeviceR\adevices\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
@@ -389,29 +289,31 @@ func file_core_pkg_transport_grpc_device_device_proto_rawDescGZIP() []byte {
 
 var file_core_pkg_transport_grpc_device_device_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_core_pkg_transport_grpc_device_device_proto_goTypes = []any{
-	(*CreateRequest)(nil),    // 0: grpc.device.CreateRequest
-	(*CreateResponse)(nil),   // 1: grpc.device.CreateResponse
-	(*RetrieveRequest)(nil),  // 2: grpc.device.RetrieveRequest
-	(*RetrieveResponse)(nil), // 3: grpc.device.RetrieveResponse
-	(*DeleteRequest)(nil),    // 4: grpc.device.DeleteRequest
-	(*pb.Device)(nil),        // 5: service.device.pb.Device
-	(*emptypb.Empty)(nil),    // 6: google.protobuf.Empty
+	(*CreateRequest)(nil),      // 0: grpc.device.CreateRequest
+	(*CreateResponse)(nil),     // 1: grpc.device.CreateResponse
+	(*RetrieveRequest)(nil),    // 2: grpc.device.RetrieveRequest
+	(*RetrieveResponse)(nil),   // 3: grpc.device.RetrieveResponse
+	(*DeleteRequest)(nil),      // 4: grpc.device.DeleteRequest
+	(*pb.Device)(nil),          // 5: service.device.pb.Device
+	(*pb.RetrieveRequest)(nil), // 6: service.device.pb.RetrieveRequest
+	(*emptypb.Empty)(nil),      // 7: google.protobuf.Empty
 }
 var file_core_pkg_transport_grpc_device_device_proto_depIdxs = []int32{
 	5, // 0: grpc.device.CreateRequest.devices:type_name -> service.device.pb.Device
 	5, // 1: grpc.device.CreateResponse.devices:type_name -> service.device.pb.Device
-	5, // 2: grpc.device.RetrieveResponse.devices:type_name -> service.device.pb.Device
-	0, // 3: grpc.device.DeviceCreateService.Exec:input_type -> grpc.device.CreateRequest
-	2, // 4: grpc.device.DeviceRetrieveService.Exec:input_type -> grpc.device.RetrieveRequest
-	4, // 5: grpc.device.DeviceDeleteService.Exec:input_type -> grpc.device.DeleteRequest
-	1, // 6: grpc.device.DeviceCreateService.Exec:output_type -> grpc.device.CreateResponse
-	3, // 7: grpc.device.DeviceRetrieveService.Exec:output_type -> grpc.device.RetrieveResponse
-	6, // 8: grpc.device.DeviceDeleteService.Exec:output_type -> google.protobuf.Empty
-	6, // [6:9] is the sub-list for method output_type
-	3, // [3:6] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	6, // 2: grpc.device.RetrieveRequest.request:type_name -> service.device.pb.RetrieveRequest
+	5, // 3: grpc.device.RetrieveResponse.devices:type_name -> service.device.pb.Device
+	0, // 4: grpc.device.DeviceCreateService.Exec:input_type -> grpc.device.CreateRequest
+	2, // 5: grpc.device.DeviceRetrieveService.Exec:input_type -> grpc.device.RetrieveRequest
+	4, // 6: grpc.device.DeviceDeleteService.Exec:input_type -> grpc.device.DeleteRequest
+	1, // 7: grpc.device.DeviceCreateService.Exec:output_type -> grpc.device.CreateResponse
+	3, // 8: grpc.device.DeviceRetrieveService.Exec:output_type -> grpc.device.RetrieveResponse
+	7, // 9: grpc.device.DeviceDeleteService.Exec:output_type -> google.protobuf.Empty
+	7, // [7:10] is the sub-list for method output_type
+	4, // [4:7] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_transport_grpc_device_device_proto_init() }

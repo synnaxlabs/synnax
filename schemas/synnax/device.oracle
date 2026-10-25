@@ -10,6 +10,7 @@
 import "schemas/synnax/ontology"
 import "schemas/synnax/rack"
 import "schemas/synnax/status"
+import "schemas/x/filter"
 
 @cpp output "client/cpp/device"
 @go output  "core/pkg/service/legacy/device"
@@ -98,6 +99,7 @@ Device struct<
     status     Status?      {
         @doc value  "is the current operational status of the device."
         @go marshal omit
+        @include
     }
     parent     ontology.ID? {
         @doc value  """
@@ -105,6 +107,7 @@ Device struct<
             (e.g., NI chassis containing modules).
         """
         @go marshal omit
+        @include
     }
 
     @create
@@ -118,4 +121,13 @@ Device struct<
     @ontology type     "device"
     @retrieve
     @ts concrete_types
+}
+
+Where filter Device {
+    key
+    name
+    make
+    model
+    location
+    rack
 }

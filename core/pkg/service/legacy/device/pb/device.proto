@@ -16,6 +16,7 @@ package service.device.pb;
 import "core/pkg/service/ontology/pb/ontology.proto";
 import "core/pkg/service/status/pb/status.proto";
 import "google/protobuf/struct.proto";
+import "x/go/filter/pb/filter.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/legacy/device/pb";
 
@@ -55,4 +56,81 @@ message Device {
   // parent is an optional parent resource ID for hierarchical device organization
   // (e.g., NI chassis containing modules).
   optional .service.ontology.pb.ID parent = 10;
+}
+message WhereList {
+  repeated Where values = 1;
+}
+message StringList {
+  repeated string values = 1;
+}
+
+// StringSet selects keys and enum values. A value must match every operator that is
+// set.
+message StringSet {
+  // eq matches a value equal to eq.
+  optional string eq = 1;
+  // in matches a value equal to an element of in.
+  StringList in = 2;
+}
+message RackKeyList {
+  repeated uint32 values = 1;
+}
+
+// RackKeyOrdered selects numbers and times. A value must match every operator that is
+// set.
+message RackKeyOrdered {
+  // eq matches a value equal to eq.
+  optional uint32 eq = 1;
+  // in matches a value equal to an element of in.
+  RackKeyList in = 2;
+  // gt matches a value greater than gt.
+  optional uint32 gt = 3;
+  // gte matches a value greater than or equal to gte.
+  optional uint32 gte = 4;
+  // lt matches a value less than lt.
+  optional uint32 lt = 5;
+  // lte matches a value less than or equal to lte.
+  optional uint32 lte = 6;
+}
+message Where {
+  // and matches when every child matches.
+  WhereList and = 1;
+  // or matches when any child matches.
+  WhereList or = 2;
+  // not matches when the child does not match.
+  optional Where not = 3;
+  // key selects by key.
+  optional StringSet key = 4;
+  // name selects by name.
+  optional .x.filter.pb.String name = 5;
+  // make selects by make.
+  optional .x.filter.pb.String make = 6;
+  // model selects by model.
+  optional .x.filter.pb.String model = 7;
+  // location selects by location.
+  optional .x.filter.pb.String location = 8;
+  // rack selects by rack.
+  optional RackKeyOrdered rack = 9;
+}
+
+// RetrieveRequest is a request to retrieve devices.
+message RetrieveRequest {
+  // where selects the devices to retrieve. An absent where selects all of them.
+  optional Where where = 1;
+  // search_term keeps the devices that match the term, closest match first.
+  optional string search_term = 2;
+  // limit is the most devices to return.
+  optional uint32 limit = 3;
+  // offset is the number of matching devices to skip.
+  optional uint32 offset = 4;
+  // include_status includes the status of each record.
+  optional bool include_status = 5;
+  // include_parent includes the parent of each record.
+  optional bool include_parent = 6;
+}
+
+// RetrieveResponse holds the devices a RetrieveRequest selects.
+message RetrieveResponse {
+  // devices are the devices the request selects.
+  repeated Device devices = 1;
 }

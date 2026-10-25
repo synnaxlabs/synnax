@@ -16,8 +16,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/device"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device/pb"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/x/unsafe"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -104,42 +104,28 @@ func (createResponseTranslator) Backward(
 
 func (retrieveRequestTranslator) Forward(
 	_ context.Context,
-	req device.RetrieveRequest,
+	r device.RetrieveRequest,
 ) (*RetrieveRequest, error) {
-	return &RetrieveRequest{
-		Keys:           req.Keys,
-		Names:          req.Names,
-		Makes:          req.Makes,
-		Models:         req.Models,
-		Locations:      req.Locations,
-		Search:         req.SearchTerm,
-		Racks:          unsafe.ReinterpretSlice[rack.Key, uint32](req.Racks),
-		Limit:          uint32(req.Limit),
-		Offset:         uint32(req.Offset),
-		IgnoreNotFound: req.IgnoreNotFound,
-		IncludeStatus:  req.IncludeStatus,
-		IncludeParent:  req.IncludeParent,
-	}, nil
+	req, err := pb.RetrieveRequestToPB(r)
+	if err != nil {
+		return nil, err
+	}
+	return &RetrieveRequest{Request: req}, nil
 }
 
 func (retrieveRequestTranslator) Backward(
 	_ context.Context,
-	req *RetrieveRequest,
+	r *RetrieveRequest,
 ) (device.RetrieveRequest, error) {
-	return device.RetrieveRequest{
-		Keys:           req.Keys,
-		Names:          req.Names,
-		Makes:          req.Makes,
-		Models:         req.Models,
-		Locations:      req.Locations,
-		SearchTerm:     req.Search,
-		Limit:          int(req.Limit),
-		Racks:          unsafe.ReinterpretSlice[uint32, rack.Key](req.Racks),
-		Offset:         int(req.Offset),
-		IgnoreNotFound: req.IgnoreNotFound,
-		IncludeStatus:  req.IncludeStatus,
-		IncludeParent:  req.IncludeParent,
-	}, nil
+	// A client older than the Core sends the reserved fields, which would otherwise
+	// select every device.
+	if len(r.ProtoReflect().GetUnknown()) > 0 {
+		return device.RetrieveRequest{}, errors.Wrap(
+			validate.ErrValidation,
+			"retrieve request has unknown fields",
+		)
+	}
+	return pb.RetrieveRequestFromPB(r.Request)
 }
 
 func (retrieveResponseTranslator) Forward(

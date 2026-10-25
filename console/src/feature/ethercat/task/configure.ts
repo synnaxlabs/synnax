@@ -35,7 +35,7 @@ export const retrieveAndValidateSlaves = async <C extends Channel>(
   if (slaveKeys.length === 0) throw new Error("No channels configured");
 
   const slaves = await client.devices.retrieve({
-    keys: slaveKeys,
+    where: { key: { in: slaveKeys } },
     schemas: Device.SLAVE_SCHEMAS,
   });
 

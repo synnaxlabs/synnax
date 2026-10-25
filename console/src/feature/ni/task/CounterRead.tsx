@@ -135,7 +135,7 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
   if (devices.length === 0) throw new Error("No device selected");
 
   const allDevices = await client.devices.retrieve({
-    keys: devices,
+    where: { key: { in: devices } },
     schemas: Device.SCHEMAS,
   });
   const racks = new Set(allDevices.map((d) => d.rack));

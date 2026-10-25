@@ -269,7 +269,9 @@ export const Find = ({
     (r) => r.integrations.includes(key) && (rackKey == null || r.key === rackKey),
   );
   const scanners = Task.useResultMultiple({ types: [scanType] }).data;
-  const found = (PDevice.useResultMultiple({ makes: [make] }).data ?? [])
+  const found = (
+    PDevice.useResultMultiple({ where: { make: { eq: make } } }).data ?? []
+  )
     .filter(
       (d) => racks?.some((r) => r.key === d.rack) === true && (filter?.(d) ?? true),
     )

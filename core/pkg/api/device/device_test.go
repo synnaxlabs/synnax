@@ -16,8 +16,10 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func createDevice(ctx SpecContext, key string) device.Device {
@@ -101,8 +103,10 @@ var _ = Describe("Retrieve", func() {
 		res := MustSucceed(apiSvc.Retrieve(
 			AuthedCtx(ctx, u),
 			apidevice.RetrieveRequest{
-				Keys:          []device.Key{withoutStatus.Key, withStatus.Key},
-				IncludeStatus: true,
+				Where: &apidevice.Where{Key: &filter.Set[device.Key]{
+					In: []device.Key{withoutStatus.Key, withStatus.Key},
+				}},
+				IncludeStatus: new(true),
 			},
 		))
 		Expect(res.Devices).To(HaveLen(2))
@@ -110,5 +114,32 @@ var _ = Describe("Retrieve", func() {
 		Expect(res.Devices[0].Status).To(BeNil())
 		Expect(res.Devices[1].Key).To(Equal(withStatus.Key))
 		Expect(res.Devices[1].Status.Key).To(Equal(withStatus.OntologyID().String()))
+	})
+
+	It("Should treat a missing key as a non-match", func(ctx SpecContext) {
+		u := createUser(ctx)
+		d := createDevice(ctx, "present_device")
+		grant(ctx, access.ActionRetrieve, u.OntologyID(), d.OntologyID())
+		res := MustSucceed(apiSvc.Retrieve(
+			AuthedCtx(ctx, u),
+			apidevice.RetrieveRequest{
+				Where: &apidevice.Where{Key: &filter.Set[device.Key]{
+					In: []device.Key{d.Key, "missing_device"},
+				}},
+			},
+		))
+		Expect(res.Devices).To(HaveLen(1))
+		Expect(res.Devices[0].Key).To(Equal(d.Key))
+	})
+
+	It("Should return a path error for an invalid regex", func(ctx SpecContext) {
+		u := createUser(ctx)
+		_, err := apiSvc.Retrieve(AuthedCtx(ctx, u), apidevice.RetrieveRequest{
+			Where: &apidevice.Where{Make: &filter.String{Regex: new("(a")}},
+		})
+		Expect(err).To(BeAssignableToTypeOf(validate.PathError{}))
+		Expect(err).To(MatchError(ContainSubstring(
+			"where.make.regex: error parsing regexp: missing closing ): `(a`",
+		)))
 	})
 })
