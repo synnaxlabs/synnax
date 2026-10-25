@@ -536,7 +536,7 @@ export class Points {
   }
 
   private readRaw(tr: TimeRange): void {
-    if (this.parked != null || this.rawReading || this.rawRetrying) return;
+    if (this.rawReading || this.rawRetrying) return;
     const generation = this.generation;
     this.rawReading = true;
     this.props.reader
