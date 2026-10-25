@@ -234,6 +234,7 @@ private:
         const x::json::Parser &parser,
         const std::string &path
     ) const {
+        if (!this->enabled) return;
         const double v = this->stop_value;
         const auto reject = [&](const std::string &range) {
             parser.field_err(

@@ -500,6 +500,17 @@ TEST(Output, AcceptsTheLargestExactInt64StopValue) {
     ASSERT_EQ(ch->stop_value, -9007199254740991.0);
 }
 
+/// @brief it should skip the stop value check on a disabled channel.
+TEST(Output, SkipsTheStopValueCheckOnADisabledChannel) {
+    auto j = write_entry(0x7000, 2, "float32");
+    j["stop_value"] = 1e100;
+    j["disabled"] = true;
+    auto parser = x::json::Parser(j);
+    const auto ch = output(wide_output_slave(), parser);
+    ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
+    ASSERT_FALSE(ch->enabled);
+}
+
 /// @brief it should reject a stop value outside the finite range of a float32 entry.
 TEST(Output, ReportsAFloat32StopValueOutsideItsRange) {
     auto j = write_entry(0x7000, 2, "float32");
