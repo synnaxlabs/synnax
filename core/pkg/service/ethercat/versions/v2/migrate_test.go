@@ -354,8 +354,14 @@ var _ = Describe("Migrate", func() {
 				Where(gorp.MatchKeys[uuid.UUID, v2.ReadConfig](old.Key)).
 				Entry(&cfg).
 				Exec(ctx, db)).To(Succeed())
-			Expect(cfg.Channels[0].Variant).
-				To(BeAssignableToTypeOf(v2.EntryReadChannel{}))
+			Expect(cfg.Channels[0].Variant).To(Equal(v2.EntryReadChannel{
+				Key:      "Value",
+				Device:   "mixed",
+				Channel:  12,
+				Index:    0x6000,
+				SubIndex: 0x11,
+				DataType: "int16",
+			}))
 			Expect(cfg.Channels[1]).To(Equal(unresolvedRead("el1008", "Input")))
 		})
 
@@ -381,8 +387,15 @@ var _ = Describe("Migrate", func() {
 				Where(gorp.MatchKeys[uuid.UUID, v2.WriteConfig](old.Key)).
 				Entry(&cfg).
 				Exec(ctx, db)).To(Succeed())
-			Expect(cfg.Channels[0].Variant).
-				To(BeAssignableToTypeOf(v2.EntryWriteChannel{}))
+			Expect(cfg.Channels[0].Variant).To(Equal(v2.EntryWriteChannel{
+				Key:          "Output",
+				Device:       "mixed",
+				CmdChannel:   3,
+				StateChannel: 4,
+				Index:        0x7000,
+				SubIndex:     1,
+				DataType:     "uint8",
+			}))
 			Expect(cfg.Channels[1]).To(Equal(unresolvedWrite("mixed", "Repeated")))
 		})
 

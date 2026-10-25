@@ -20,6 +20,7 @@ import {
   createIdentifier,
   createPDOs,
   createRepeatedNamePDOs,
+  createRepeatedNameSlave,
   createSlaveDevice,
   createUnresolvedWriteChannel,
 } from "@/feature/ethercat/testutil";
@@ -99,11 +100,7 @@ describe("Write", () => {
   });
 
   it("should label a selected output channel by its PDO and entry names", async () => {
-    const slave = await createSlaveDevice(client, testRack.key, {
-      identifier: createIdentifier(),
-      network: "eth0",
-      pdos: createRepeatedNamePDOs(),
-    });
+    const slave = await createRepeatedNameSlave(client, testRack.key);
     const { outputs } = createRepeatedNamePDOs();
     await renderWrite({
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
@@ -115,11 +112,7 @@ describe("Write", () => {
   });
 
   it("should create command and state channels for each of eight entries that share a name", async () => {
-    const slave = await createSlaveDevice(client, testRack.key, {
-      identifier: createIdentifier(),
-      network: "eth0",
-      pdos: createRepeatedNamePDOs(),
-    });
+    const slave = await createRepeatedNameSlave(client, testRack.key);
     const { identifier } = slave.properties;
     const { outputs } = createRepeatedNamePDOs();
     const { container, draft } = await renderWrite({
@@ -151,11 +144,7 @@ describe("Write", () => {
   });
 
   it("should block configuration of an unresolved output channel", async () => {
-    const slave = await createSlaveDevice(client, testRack.key, {
-      identifier: createIdentifier(),
-      network: "eth0",
-      pdos: createRepeatedNamePDOs(),
-    });
+    const slave = await createRepeatedNameSlave(client, testRack.key);
     const { container, statuses } = await renderWrite({
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
       channels: [createUnresolvedWriteChannel(slave.key, "Output")],
@@ -168,11 +157,7 @@ describe("Write", () => {
   });
 
   it("should block configuration when two channels use the same entry", async () => {
-    const slave = await createSlaveDevice(client, testRack.key, {
-      identifier: createIdentifier(),
-      network: "eth0",
-      pdos: createRepeatedNamePDOs(),
-    });
+    const slave = await createRepeatedNameSlave(client, testRack.key);
     const { outputs } = createRepeatedNamePDOs();
     const { container, statuses } = await renderWrite({
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
