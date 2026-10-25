@@ -15,7 +15,7 @@ import {
 } from "@synnaxlabs/drift";
 import { useSelectWindow } from "@synnaxlabs/drift/react";
 import { OS } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { Session } from "@/session";
 
@@ -30,18 +30,18 @@ export const Controls = (props: ControlsProps): ReactElement | null => {
   if (window?.focus === false && os === "macOS")
     disabled.push("close", "minimize", "maximize");
   else if (maximizedDisabled) disabled.push("maximize");
-  const handleClose = useCallback(() => {
+  const handleClose = () => {
     dispatch(Drift.closeWindow({}));
-  }, [dispatch]);
-  const handleFullscreen = useCallback(() => {
+  };
+  const handleFullscreen = () => {
     dispatch(setWindowFullscreen({}));
-  }, [dispatch]);
-  const handleMaximize = useCallback(() => {
+  };
+  const handleMaximize = () => {
     dispatch(setWindowMaximized({}));
-  }, [dispatch]);
-  const handleMinimize = useCallback(() => {
+  };
+  const handleMinimize = () => {
     dispatch(setWindowMinimized({ value: true }));
-  }, [dispatch]);
+  };
   if (Session.Runtime.ENGINE !== "tauri") return null;
   return window?.fullscreen === true ? null : (
     <OS.Controls

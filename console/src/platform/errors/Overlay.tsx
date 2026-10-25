@@ -17,13 +17,7 @@ import { Errors, OS, Synnax } from "@synnaxlabs/pluto";
 import { type record, type runtime } from "@synnaxlabs/x";
 import { getVersion } from "@tauri-apps/api/app";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import {
-  type PropsWithChildren,
-  type ReactElement,
-  useCallback,
-  useEffect,
-  useState,
-} from "react";
+import { type PropsWithChildren, type ReactElement, useEffect, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { Shell } from "@/platform/shell";
@@ -56,12 +50,12 @@ const FallbackRenderWithStore = ({ error }: Errors.FallbackProps): ReactElement 
   const dispatch = Session.useDispatch();
   const extraInfo = useExtraErrorInfo();
 
-  const handleTryAgain = useCallback((): void => {
+  const handleTryAgain = (): void => {
     dispatch(Session.Persist.revertState());
-  }, [dispatch]);
-  const handleClear = useCallback((): void => {
+  };
+  const handleClear = (): void => {
     dispatch(Session.Persist.clearState());
-  }, [dispatch]);
+  };
 
   return (
     <FallBackRenderContent<ExtraErrorInfo>
@@ -161,9 +155,9 @@ const FallBackRenderContent = <ExtraInfo extends record.Unknown = record.Unknown
     if (Session.Runtime.ENGINE === "tauri")
       getCurrentWindow().show().catch(console.error);
   }, []);
-  const resetErrorBoundary = useCallback((): void => {
+  const resetErrorBoundary = (): void => {
     onTryAgain?.();
-  }, [onTryAgain]);
+  };
 
   return (
     <Flex.Box
