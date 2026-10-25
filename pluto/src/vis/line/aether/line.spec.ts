@@ -38,7 +38,6 @@ import {
   type DrawOperation,
   Line,
   type LineProps,
-  nearestVertex,
 } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/test";
@@ -388,14 +387,7 @@ describe("line", () => {
       it(`spec ${name}`, () => {
         const xSeries = buildSeriesFromEntries(x);
         const ySeries = buildSeriesFromEntries(y);
-        const drawOperations = buildDrawOperations(
-          xSeries,
-          ySeries,
-          1,
-          0,
-          "decimate",
-          TimeSpan.ZERO,
-        );
+        const drawOperations = buildDrawOperations(xSeries, ySeries, TimeSpan.ZERO);
         expect(drawOperations.length).toBe(expected.length);
         drawOperations.forEach((drawOperation: DrawOperation, i: number) => {
           expect(drawOperation.x).toBe(xSeries.series[expected[i].xSeries]);
@@ -409,13 +401,13 @@ describe("line", () => {
   });
 
   describe("bridgeVertices", () => {
-    const op = (
-      x: Series,
-      y: Series,
-      count: number,
-      offset = 0,
-      downsample = 1,
-    ): DrawOperation => ({ x, y, xOffset: offset, yOffset: offset, count, downsample });
+    const op = (x: Series, y: Series, count: number, offset = 0): DrawOperation => ({
+      x,
+      y,
+      xOffset: offset,
+      yOffset: offset,
+      count,
+    });
     const f32 = (...data: number[]): Series => new Series(new Float32Array(data));
     const shifted = (sampleOffset: bigint, ...data: number[]): Series =>
       new Series({ data: new Float32Array(data), sampleOffset });
@@ -456,20 +448,6 @@ describe("line", () => {
       const ops = ys.map((y, x) => op(f32(x), f32(y), 1));
       const expected = ys.slice(1).flatMap((y, i) => [i, ys[i], i + 1, y]);
       expect(vertices(ops)).toEqual(expected);
-    });
-
-    describe("decimated ops", () => {
-      const ax = f32(0, 1, 2, 3, 4, 5, 6);
-      const ay = f32(10, 11, 12, 13, 14, 15, 16);
-      const b = op(f32(9), f32(1), 1);
-
-      it("should start at the last vertex the strip draws", () => {
-        expect(vertices([op(ax, ay, 7, 0, 3), b])).toEqual([3, 13, 9, 1]);
-      });
-
-      it("should start at the first sample of an op too short to draw", () => {
-        expect(vertices([op(ax, ay, 5, 0, 3), b])).toEqual([0, 10, 9, 1]);
-      });
     });
 
     it("should respect the op offsets and a uint8 y", () => {
@@ -538,41 +516,6 @@ describe("line", () => {
     });
   });
 
-  describe("nearestVertex", () => {
-    const EMPTY = new Series(new Float32Array());
-    const op = (count: number, downsample: number, xOffset = 0): DrawOperation => ({
-      x: EMPTY,
-      y: EMPTY,
-      xOffset,
-      yOffset: 0,
-      count,
-      downsample,
-    });
-
-    it("should return the index itself when nothing is decimated", () => {
-      expect(nearestVertex(op(30, 1), 17)).toBe(17);
-    });
-
-    it("should round to the nearest drawn vertex", () => {
-      expect(nearestVertex(op(30, 4), 1)).toBe(0);
-      expect(nearestVertex(op(30, 4), 3)).toBe(4);
-      expect(nearestVertex(op(30, 4), 14)).toBe(16);
-    });
-
-    it("should not pass the last vertex the strip draws", () => {
-      expect(nearestVertex(op(30, 4), 29)).toBe(24);
-    });
-
-    it("should measure from the op's x offset", () => {
-      expect(nearestVertex(op(30, 4, 2), 5)).toBe(6);
-      expect(nearestVertex(op(30, 4, 2), 3)).toBe(2);
-    });
-
-    it("should return the first sample of an op too short to draw", () => {
-      expect(nearestVertex(op(6, 4), 5)).toBe(0);
-    });
-  });
-
   describe("Line", () => {
     /** Supplies the line GL context and the render requestor, as the canvas and the
      * plot do in production. */
@@ -617,15 +560,9 @@ describe("line", () => {
     const PROPS: LineProps = {
       region: box.construct(0, 0, 800, 600),
       dataToDecimalScale: scale.XY.IDENTITY,
-      exposure: 0,
     };
 
-    const mount = (
-      x: Series[],
-      y: Series[],
-      downsample = 1,
-      downsampleMode: telem.DownsampleMode = "decimate",
-    ) => {
+    const mount = (x: Series[], y: Series[]) => {
       const { gl, calls } = canvasTest.createGL();
       const xSource = createSource(x);
       const ySource = createSource(y);
@@ -643,8 +580,6 @@ describe("line", () => {
               x: sourceSpec(xSource),
               y: sourceSpec(ySource),
               color: color.construct("#ff0000"),
-              downsample,
-              downsampleMode,
             },
           },
         },
@@ -680,6 +615,15 @@ describe("line", () => {
       values.forEach((value) => expect(value.mock.calls).toEqual([[view], [view]]));
     });
 
+    it("should read its bounds with the extremes of every sample kept", () => {
+      const m = mount([X1], [Y1]);
+      const values = [vi.spyOn(m.xSource, "value"), vi.spyOn(m.ySource, "value")];
+      expect(m.line.yBounds({ lower: 0, upper: 2 })).toEqual({ lower: 10, upper: 30 });
+      values.forEach((value) =>
+        expect(value.mock.calls).toEqual([[{ extremesKept: true }]]),
+      );
+    });
+
     describe("render", () => {
       it("should draw one strip per domain and no bridge for a single domain", () => {
         const m = mount([X1], [Y1]);
@@ -701,12 +645,8 @@ describe("line", () => {
 
       describe("non-finite samples", () => {
         const RANGE = { start: 0, end: 100 };
-        const strips = (x: number[], y: number[], downsample = 1, yAlignment = 0n) => {
-          const m = mount(
-            [series(x, 0n, RANGE)],
-            [series(y, yAlignment, RANGE)],
-            downsample,
-          );
+        const strips = (x: number[], y: number[], yAlignment = 0n) => {
+          const m = mount([series(x, 0n, RANGE)], [series(y, yAlignment, RANGE)]);
           m.line.render(PROPS);
           return m.strips();
         };
@@ -735,15 +675,11 @@ describe("line", () => {
           expect(strips([0, 1, 2], [NaN, NaN, NaN])).toEqual([]);
         });
 
-        it("should ignore a non-finite sample that the decimation skips", () => {
-          expect(strips([0, 1, 2, 3, 4], [0, NaN, 2, 3, 4], 2)).toEqual([[0, 2]]);
-        });
-
         it("should find a non-finite x sample through the x offset", () => {
           // x starts one sample before y, so the strip begins at x[1].
-          expect(
-            strips([0, 1, 2, 3, Infinity, 5], [10, 11, 12, 13, 14], 1, 1n),
-          ).toEqual([[0, 3]]);
+          expect(strips([0, 1, 2, 3, Infinity, 5], [10, 11, 12, 13, 14], 1n)).toEqual([
+            [0, 3],
+          ]);
         });
       });
 
@@ -770,7 +706,7 @@ describe("line", () => {
         { start: 0, end: 100 },
       );
 
-      it("should return the sample under the target when nothing is decimated", () => {
+      it("should return the sample under the target", () => {
         const m = mount([X], [Y]);
         expect(m.line.findByXValue(PROPS, 3).value).toEqual({ x: 3, y: 30 });
       });
@@ -799,21 +735,6 @@ describe("line", () => {
         const m = mount([X1], [y]);
         expect(m.line.findByXValue(PROPS, 1).value.y).toBeNaN();
       });
-
-      it("should snap to the nearest vertex a decimated line draws", () => {
-        const m = mount([X], [Y], 4);
-        expect(m.line.findByXValue(PROPS, 3).value).toEqual({ x: 4, y: 40 });
-        expect(m.line.findByXValue(PROPS, 29).value).toEqual({ x: 24, y: 240 });
-      });
-
-      it("should pair x and y by alignment when averaging", () => {
-        const x = series([0, 1, 2, 3, 4, 5, 6, 7], 0n, { start: 0, end: 100 });
-        const y1 = series([0, 10, 20, 30], 0n, { start: 0, end: 100 });
-        const y2 = series([40, 50, 60, 70], 4n, { start: 0, end: 100 });
-        const m = mount([x], [y1, y2], 2, "average");
-        m.line.render(PROPS);
-        expect(m.line.findByXValue(PROPS, 6.5).value).toEqual({ x: 6.5, y: 65 });
-      });
     });
   });
 
@@ -828,9 +749,11 @@ describe("line", () => {
     afterAll(async () => await feed.close());
 
     const COUNT = 10_000;
+    const SPIKE = 10;
 
-    // Writes COUNT samples one millisecond apart. Data sample i holds sin(i / 100).
-    const writeChannels = async () => {
+    // Writes COUNT samples one millisecond apart. Data sample i holds sin(i / 100), or
+    // SPIKE at spikeAt.
+    const writeChannels = async (spikeAt?: number) => {
       const time = await synnax.channels.create({
         name: id.create(),
         dataType: DataType.TIMESTAMP,
@@ -846,7 +769,9 @@ describe("line", () => {
         [time.key]: Array.from({ length: COUNT }, (_, i) =>
           start.add(TimeSpan.milliseconds(i)),
         ),
-        [data.key]: Array.from({ length: COUNT }, (_, i) => Math.sin(i / 100)),
+        [data.key]: Array.from({ length: COUNT }, (_, i) =>
+          i === spikeAt ? SPIKE : Math.sin(i / 100),
+        ),
       });
       const home = new TimeRange(start, start.add(TimeSpan.milliseconds(COUNT)));
       return { data, home };
@@ -864,7 +789,7 @@ describe("line", () => {
       await expect.poll(() => sources.every((s) => !s.loading())).toBe(true);
 
     const drawn = (x: MultiSeries, y: MultiSeries) =>
-      buildDrawOperations(x, y, 1, 1, "average", DEFAULT_OVERLAP_THRESHOLD);
+      buildDrawOperations(x, y, DEFAULT_OVERLAP_THRESHOLD);
 
     it("should pair every reduced x sample with a y sample", async () => {
       const { data, home } = await writeChannels();
@@ -884,6 +809,15 @@ describe("line", () => {
       expect(y.value()[0].upper).toBeCloseTo(1, 3);
       expect(y.value()[0].lower).toBeCloseTo(-1, 3);
       x.cleanup();
+      y.cleanup();
+    });
+
+    it("should keep a spike that an average drops inside the line's bounds", async () => {
+      const { data, home } = await writeChannels(COUNT / 2);
+      const y = create({ channel: data.key, timeRange: home, aggregation: "average" });
+      await settle(y);
+      expect(y.value()[0].upper).toBeLessThan(SPIKE / 2);
+      await expect.poll(() => y.value({ extremesKept: true })[0].upper).toBe(SPIKE);
       y.cleanup();
     });
 
