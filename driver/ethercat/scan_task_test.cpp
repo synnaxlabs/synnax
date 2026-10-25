@@ -395,6 +395,26 @@ TEST_F(EtherCATScanStatusTest, FaultedSlaveShowsItsALStatus) {
     EXPECT_EQ(this->scan_status().message, "Operational");
 }
 
+/// @brief it should tell the user where to find the error code of a faulted slave when
+/// the master cannot read its AL status, as with IgH.
+TEST_F(EtherCATScanStatusTest, FaultedSlaveWithoutALStatusPointsToTheKernelLog) {
+    const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
+    const auto reader = ASSERT_NIL_P(
+        engine->open_reader({this->entry}, x::telem::Rate(100), 1)
+    );
+    this->master->set_slave_transition_failure(0, slave::State::OP);
+    this->master->fault_slave(0, slave::State::SAFE_OP, "");
+    ASSERT_EVENTUALLY_TRUE(!engine->health().empty() && engine->health()[0].faulted);
+    const auto status = this->scan_status();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Error in SAFE-OP");
+    EXPECT_EQ(
+        status.description,
+        "The device reports an error. The IgH master writes its error code to the "
+        "kernel log (dmesg)."
+    );
+}
+
 /// @brief it should show a lost slave as not responding.
 TEST_F(EtherCATScanStatusTest, LostSlaveShowsNotResponding) {
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
