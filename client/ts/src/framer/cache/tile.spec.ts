@@ -22,6 +22,7 @@ import { describe, expect, it } from "vitest";
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import { tileRange } from "@/framer/cache/grid";
+import { Store, type StoreProps } from "@/framer/cache/store";
 import { TileReader, type TileReaderProps, type TileSpec } from "@/framer/cache/tile";
 import { Frame } from "@/framer/frame";
 
@@ -36,11 +37,12 @@ const SAMPLES = 4;
 // Returns a reader whose remote fetch records each call and answers every key with
 // samples float64 samples equal to the key.
 const createReader = (
-  props: Partial<TileReaderProps> = {},
+  { budget, staleThreshold, ...props }: Partial<TileReaderProps> & StoreProps = {},
   samples: number = SAMPLES,
 ): { reader: TileReader; calls: Call[] } => {
   const calls: Call[] = [];
   const reader = new TileReader({
+    store: new Store({ budget, staleThreshold }),
     batchDebounce: TimeSpan.milliseconds(5),
     readRemote: async (tr, keys, reduction) => {
       calls.push({ tr, keys, reduction });
@@ -132,6 +134,7 @@ describe("tile", () => {
         // The groups the Core picks follow the samples written into the tile.
         let multiple = 2n;
         const reader = new TileReader({
+          store: new Store(),
           batchDebounce: TimeSpan.milliseconds(5),
           readRemote: async (tr, keys) => {
             calls.push([...keys].sort());

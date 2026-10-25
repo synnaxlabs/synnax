@@ -23,6 +23,7 @@ import {
   Reader,
   type ReaderProps,
 } from "@/framer/cache/reader";
+import { Store } from "@/framer/cache/store";
 import {
   MultiplexedStreamer,
   type MultiplexedStreamerProps,
@@ -72,6 +73,7 @@ export class Feed {
   private readonly reader: Reader;
   private readonly streamer: MultiplexedStreamer;
   private readonly tiles: TileReader;
+  private readonly store: Store;
   private readonly latest: debounce.Batcher<channel.Key, MultiSeries>;
   private closed = false;
 
@@ -109,11 +111,14 @@ export class Feed {
       fetchTimeout,
       now,
     });
-    this.tiles = new TileReader({
-      readRemote,
-      batchDebounce,
+    this.store = new Store({
       budget: tileBudget,
       staleThreshold: staleCoverageThreshold,
+    });
+    this.tiles = new TileReader({
+      readRemote,
+      store: this.store,
+      batchDebounce,
       fetchTimeout,
     });
     this.streamer = new MultiplexedStreamer({
@@ -192,6 +197,7 @@ export class Feed {
     await this.streamer.close();
     await this.reader.close();
     this.tiles.close();
+    this.store.close();
     this.cache.close();
   }
 }
