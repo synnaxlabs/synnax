@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
@@ -80,7 +79,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			LegacyVersion:      legacy.LastVersion,
 			Ladder:             versions.ReadConfigLadder,
 			Legacy:             &legacy.Read,
-			Migrations:         []migrate.Migration{v2.ReadMigration},
+			Migrations:         []gorp.Migration{v2.ReadMigration},
 			SetEntryKey:        (*ReadConfig).SetKey,
 			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
 		},
@@ -95,7 +94,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			LegacyVersion:      legacy.LastVersion,
 			Ladder:             versions.WriteConfigLadder,
 			Legacy:             &legacy.Write,
-			Migrations:         []migrate.Migration{v2.WriteMigration},
+			Migrations:         []gorp.Migration{v2.WriteMigration},
 			SetEntryKey:        (*WriteConfig).SetKey,
 			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
 		},

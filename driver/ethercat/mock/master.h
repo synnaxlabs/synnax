@@ -10,6 +10,7 @@
 #pragma once
 
 #include <algorithm>
+#include <condition_variable>
 #include <cstring>
 #include <mutex>
 #include <set>
@@ -53,6 +54,9 @@ class Master final : public master::Master {
     std::vector<std::string> calls;
     size_t init_calls{0};
     size_t output_padding = 0;
+    std::mutex stall_mu;
+    std::condition_variable stall_cv;
+    bool stalled{false};
 
 public:
     explicit Master(std::string interface_name = "mock0"):
@@ -92,6 +96,21 @@ public:
     void inject_send_error(const x::errors::Error &err) {
         std::lock_guard lock(this->mu);
         this->inject_send_err = err;
+    }
+
+    /// @brief makes receive() block until resume(), which stalls the bus cycle.
+    void stall() {
+        std::lock_guard lock(this->stall_mu);
+        this->stalled = true;
+    }
+
+    /// @brief unblocks receive() after stall().
+    void resume() {
+        {
+            std::lock_guard lock(this->stall_mu);
+            this->stalled = false;
+        }
+        this->stall_cv.notify_all();
     }
 
     /// @brief clears all injected errors.
@@ -237,6 +256,10 @@ public:
     }
 
     x::errors::Error receive() override {
+        {
+            std::unique_lock lock(this->stall_mu);
+            this->stall_cv.wait(lock, [this] { return !this->stalled; });
+        }
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("receive");
         if (this->inject_receive_err) return this->inject_receive_err;

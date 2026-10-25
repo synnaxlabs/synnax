@@ -12,6 +12,7 @@ import {
   type InternalNode,
   type NodeChange as RFNodeChange,
   type ReactFlowInstance,
+  type ReactFlowState,
 } from "@xyflow/react";
 
 import { type diagram } from "@/vis/diagram/aether";
@@ -45,6 +46,9 @@ export const selectNodesScreenBounds = (root: HTMLElement): box.Box | null => {
   if (left === Infinity) return null;
   return box.construct({ x: left, y: top }, { x: right, y: bottom });
 };
+
+/// @returns the viewport zoom held in React Flow's store.
+export const selectZoom = ({ transform }: ReactFlowState): number => transform[2];
 
 /// @returns the box, in flow coordinates, occupied by the given react-flow internal
 /// node. Returns box.ZERO when the node is null or has not been measured yet, which is

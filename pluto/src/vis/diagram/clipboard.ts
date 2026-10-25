@@ -140,6 +140,25 @@ const centroid = (nodes: ClipboardNode[]): xy.XY => {
   );
 };
 
+// Returns null when the text is not JSON.
+const parsePayload = <N, E, C>(raw: string): Payload<N, E, C> | null => {
+  try {
+    return JSON.parse(raw) as Payload<N, E, C>;
+  } catch {
+    return null;
+  }
+};
+
+// Raises the cut flag for one copy, so the copy handler removes what it writes.
+const copyAsCut = (exec: () => void, cutPending: RefObject<boolean>): void => {
+  cutPending.current = true;
+  try {
+    exec();
+  } finally {
+    cutPending.current = false;
+  }
+};
+
 /**
  * useClipboard provides copy, cut, and paste handlers for a node/edge diagram. It
  * owns the clipboard mechanics (MIME plumbing, version gating, anchor geometry, key
@@ -149,7 +168,7 @@ export const useClipboard = <N extends ClipboardNode, E extends ClipboardEdge, C
   adapter,
   selected,
   onCut: onCutProp,
-  container,
+  container: containerRef,
 }: UseClipboardParams<N, E, C>): UseClipboardReturn => {
   const adapterRef = useSyncedRef(adapter);
   const selectedRef = useSyncedRef(selected ?? []);
@@ -195,15 +214,18 @@ export const useClipboard = <N extends ClipboardNode, E extends ClipboardEdge, C
       lastCopiedRef.current = json;
       return keys;
     },
-    [],
+    [adapterRef, selectedRef],
   );
 
   // Removes the written keys and reports the surviving selection.
-  const removeWritten = useCallback((keys: SelectionKeys) => {
-    adapterRef.current.remove(keys);
-    const removed = new Set([...keys.nodes, ...keys.edges]);
-    onCutRef.current?.(selectedRef.current.filter((k) => !removed.has(k)));
-  }, []);
+  const removeWritten = useCallback(
+    (keys: SelectionKeys) => {
+      adapterRef.current.remove(keys);
+      const removed = new Set([...keys.nodes, ...keys.edges]);
+      onCutRef.current?.(selectedRef.current.filter((k) => !removed.has(k)));
+    },
+    [adapterRef, onCutRef, selectedRef],
+  );
 
   const onCopy = useCallback<ClipboardHandler>(
     (e) => {
@@ -223,7 +245,7 @@ export const useClipboard = <N extends ClipboardNode, E extends ClipboardEdge, C
 
   const exec = useCallback(
     (command: "copy" | "paste"): boolean => {
-      const el = container?.current;
+      const el = containerRef?.current;
       if (el == null) return false;
       window.getSelection()?.removeAllRanges();
       el.focus({ preventScroll: true });
@@ -233,26 +255,19 @@ export const useClipboard = <N extends ClipboardNode, E extends ClipboardEdge, C
       // eslint-disable-next-line @typescript-eslint/no-deprecated
       return document.execCommand(command);
     },
-    [container],
+    [containerRef],
   );
 
   const copy = useCallback(() => void exec("copy"), [exec]);
 
-  const cut = useCallback(() => {
-    // Native cut events only fire in editable DOM, so cut copies, then removes.
-    cutPendingRef.current = true;
-    try {
-      exec("copy");
-    } finally {
-      cutPendingRef.current = false;
-    }
-  }, [exec]);
+  // Native cut events only fire in editable DOM, so cut copies, then removes.
+  const cut = useCallback(() => copyAsCut(() => exec("copy"), cutPendingRef), [exec]);
 
   const paste = useCallback(() => {
     // Chromium refuses execCommand("paste"). Replay the last copied payload as a
     // synthetic event so it flows through the normal handler and its cursor math.
     if (exec("paste")) return;
-    const el = container?.current;
+    const el = containerRef?.current;
     const raw = lastCopiedRef.current;
     if (el == null || raw == null) return;
     const data = new DataTransfer();
@@ -260,47 +275,45 @@ export const useClipboard = <N extends ClipboardNode, E extends ClipboardEdge, C
     el.dispatchEvent(
       new globalThis.ClipboardEvent("paste", { clipboardData: data, bubbles: true }),
     );
-  }, [exec, container]);
+  }, [exec, containerRef, adapterRef]);
 
-  const onPaste = useCallback<ClipboardHandler>((e, cursor) => {
-    const { mime, edgeKey, apply } = adapterRef.current;
-    const raw = e.clipboardData.getData(mime);
-    if (raw === "") return;
-    let payload: Payload<N, E, C>;
-    try {
-      payload = JSON.parse(raw) as Payload<N, E, C>;
-    } catch {
-      return;
-    }
-    if (payload.version !== VERSION) return;
-    e.preventDefault();
-    const offset = xy.translation(payload.anchor, cursor);
-    const remap: Record<string, string> = {};
-    const nodes: PastedNode<N, C>[] = payload.nodes.map((node) => {
-      const newKey = uuid.create();
-      remap[node.key] = newKey;
-      return {
-        node: { ...node, key: newKey, position: xy.translate(node.position, offset) },
-        config: payload.configs[node.key],
-      };
-    });
-    const edges: PastedEdge<E, C>[] = [];
-    for (const edge of payload.edges) {
-      const source = remap[edge.source.node];
-      const target = remap[edge.target.node];
-      if (source == null || target == null) continue;
-      edges.push({
-        edge: {
-          ...edge,
-          source: { ...edge.source, node: source },
-          target: { ...edge.target, node: target },
-        },
-        config: payload.configs[edgeKey(edge)],
+  const onPaste = useCallback<ClipboardHandler>(
+    (e, cursor) => {
+      const { mime, edgeKey, apply } = adapterRef.current;
+      const raw = e.clipboardData.getData(mime);
+      if (raw === "") return;
+      const payload = parsePayload<N, E, C>(raw);
+      if (payload == null || payload.version !== VERSION) return;
+      e.preventDefault();
+      const offset = xy.translation(payload.anchor, cursor);
+      const remap: Record<string, string> = {};
+      const nodes: PastedNode<N, C>[] = payload.nodes.map((node) => {
+        const newKey = uuid.create();
+        remap[node.key] = newKey;
+        return {
+          node: { ...node, key: newKey, position: xy.translate(node.position, offset) },
+          config: payload.configs[node.key],
+        };
       });
-    }
-    if (nodes.length === 0 && edges.length === 0) return;
-    apply({ nodes, edges, remap });
-  }, []);
+      const edges: PastedEdge<E, C>[] = [];
+      for (const edge of payload.edges) {
+        const source = remap[edge.source.node];
+        const target = remap[edge.target.node];
+        if (source == null || target == null) continue;
+        edges.push({
+          edge: {
+            ...edge,
+            source: { ...edge.source, node: source },
+            target: { ...edge.target, node: target },
+          },
+          config: payload.configs[edgeKey(edge)],
+        });
+      }
+      if (nodes.length === 0 && edges.length === 0) return;
+      apply({ nodes, edges, remap });
+    },
+    [adapterRef],
+  );
 
   return { onCopy, onCut, onPaste, copy, cut, paste };
 };

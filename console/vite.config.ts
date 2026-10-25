@@ -9,7 +9,7 @@
 
 /// <reference types="vitest/config" />
 
-import { layers } from "@synnaxlabs/vite-plugin";
+import { layers, reactCompiler } from "@synnaxlabs/vite-plugin";
 import react from "@vitejs/plugin-react";
 import * as fs from "node:fs/promises";
 import * as path from "path";
@@ -110,7 +110,7 @@ export default defineConfig({
   },
   envPrefix: ["VITE_", "TAURI_"],
   css: { postcss: { plugins: [layers(CSS_LAYERS)] } },
-  plugins: [react(), workspaceSourcemaps(), stripSourcesContent()],
+  plugins: [react(), reactCompiler(), workspaceSourcemaps(), stripSourcesContent()],
   build: {
     target: process.env.TAURI_PLATFORM === "windows" ? "chrome111" : "safari16.4",
     minify: !isDev,

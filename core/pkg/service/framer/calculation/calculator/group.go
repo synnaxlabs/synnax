@@ -11,7 +11,6 @@ package calculator
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -57,8 +56,9 @@ func (g Group) Next(
 		if err != nil {
 			statuses = append(statuses, Status{
 				Key:         c.Channel().Key().String(),
+				Name:        c.Channel().Name,
 				Variant:     status.VariantError,
-				Message:     fmt.Sprintf("calculation for %s failed", c.Channel()),
+				Message:     "Failed to run calculation",
 				Description: err.Error(),
 			})
 			continue

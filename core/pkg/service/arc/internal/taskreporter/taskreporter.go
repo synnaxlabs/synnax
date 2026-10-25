@@ -22,4 +22,9 @@ import (
 )
 
 // Reporter writes a task-level status update from inside an stdlib module.
-type Reporter func(ctx context.Context, variant status.Variant, message string)
+type Reporter func(
+	ctx context.Context,
+	variant status.Variant,
+	message string,
+	description string,
+)

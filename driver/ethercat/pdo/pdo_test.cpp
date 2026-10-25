@@ -203,8 +203,8 @@ TEST(FindOffset, ReturnsOffsetForExistingEntry) {
     Entry entry{.slave_position = 1, .index = 0x6000, .sub_index = 1, .is_input = true};
     const auto result = find_offset(offsets, entry);
     ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result->byte, 10);
-    EXPECT_EQ(result->bit, 3);
+    EXPECT_EQ(result.value().byte, 10);
+    EXPECT_EQ(result.value().bit, 3);
 }
 
 /// @brief it should return no offset for an entry that is not in the offsets.

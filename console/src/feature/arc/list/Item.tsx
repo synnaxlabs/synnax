@@ -24,7 +24,7 @@ export interface ItemProps extends List.ItemProps<arc.Key> {
 export const Item = ({ onRename, textIdPrefix = "text", ...props }: ItemProps) => {
   const { itemKey } = props;
   const item = List.useItem<arc.Key, arc.Arc>(itemKey);
-  const { onSelect, selected, hovered } = Select.useItemState(itemKey);
+  const { onSelect, onHover, selected, hovered } = Select.useItemState(itemKey);
   const canRename = Access.useUpdateGranted(arc.ontologyID(itemKey));
 
   if (item == null) return null;
@@ -34,6 +34,7 @@ export const Item = ({ onRename, textIdPrefix = "text", ...props }: ItemProps) =
     <List.Item
       {...props}
       hovered={hovered}
+      onHover={onHover}
       selected={selected}
       rounded={!selected}
       onSelect={onSelect}

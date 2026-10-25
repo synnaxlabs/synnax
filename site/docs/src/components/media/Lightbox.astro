@@ -1,0 +1,246 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+// The dialog that shows an expanded docs video or image. The script in
+// `@/components/media/lightbox` fills and opens it.
+
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Progress } from "@synnaxlabs/lyra/progress";
+import { Text } from "@synnaxlabs/lyra/text";
+---
+
+<dialog class="docs-lightbox" aria-label="Expanded media" tabindex="-1">
+    <Button.Button
+        variant="text"
+        textColor={9}
+        className="docs-lightbox__close"
+        square
+        aria-label="Close"
+    >
+        <Icon.Close />
+    </Button.Button>
+    <div class="docs-lightbox__stage"></div>
+    <div class="docs-lightbox__bar">
+        <Text.Text level="p" color={9} className="docs-lightbox__caption" />
+        <Flex.Box x align="center" gap="medium" className="docs-lightbox__controls">
+            <Button.Button
+                variant="outlined"
+                className="docs-lightbox__play"
+                square
+                aria-label="Play video"
+            >
+                <Icon.Play />
+            </Button.Button>
+            <Button.Button
+                variant="outlined"
+                className="docs-lightbox__pause"
+                square
+                aria-label="Pause video"
+            >
+                <Icon.Pause />
+            </Button.Button>
+            <Button.Button
+                variant="outlined"
+                className="docs-lightbox__replay"
+                square
+                aria-label="Replay video"
+            >
+                <Icon.Replay />
+            </Button.Button>
+            <div class="docs-lightbox__scrubber">
+                <Progress.Progress value={0} aria-hidden="true" />
+                <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="any"
+                    value="0"
+                    aria-label="Video position"
+                />
+            </div>
+            <Text.Text
+                level="small"
+                variant="code"
+                color={9}
+                className="docs-lightbox__time"
+            />
+            <Button.Button
+                variant="text"
+                size="small"
+                textColor={9}
+                className="docs-lightbox__speed"
+                aria-label="Speed 1×"
+            >
+                1×
+            </Button.Button>
+        </Flex.Box>
+    </div>
+</dialog>
+
+<style is:global>
+    :root:has(.docs-lightbox[open]) {
+        overflow: hidden;
+        scrollbar-gutter: stable;
+    }
+
+    .docs-lightbox__placeholder {
+        visibility: hidden;
+    }
+
+    .docs-lightbox {
+        width: 100vw;
+        max-width: none;
+        height: 100dvh;
+        max-height: none;
+        margin: 0;
+        padding: 0;
+        border: none;
+        background: transparent;
+        color: var(--pluto-text-color);
+        outline: none;
+
+        &[open] {
+            display: grid;
+            grid-template-rows: minmax(0, 1fr) auto;
+        }
+
+        &::backdrop {
+            background: color-mix(in srgb, var(--pluto-gray-l0) 94%, transparent);
+            backdrop-filter: blur(4px);
+        }
+    }
+
+    .docs-lightbox__stage {
+        display: grid;
+        grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+        place-items: center;
+        min-height: 0;
+        padding: 9rem 9rem 2rem;
+
+        & :is(video, img) {
+            display: block;
+            width: auto;
+            height: auto;
+            max-width: 100%;
+            max-height: 100%;
+            margin: 0;
+            border: var(--pluto-border);
+            border-radius: 1.5rem;
+            box-shadow: 0 2rem 8rem rgb(0 0 0 / 25%);
+            transform-origin: 0 0;
+        }
+
+        & video {
+            cursor: pointer;
+        }
+
+        & img {
+            cursor: zoom-out;
+        }
+    }
+
+    /* The picture only picks a source, so the image lays out as if unwrapped. */
+    .docs-lightbox__stage > picture {
+        display: contents;
+
+        & > source {
+            display: none;
+        }
+    }
+
+    .docs-lightbox__bar {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+        align-items: center;
+        gap: 3rem;
+        min-height: 9rem;
+        padding: 0 9rem 2.5rem;
+    }
+
+    .docs-lightbox__controls {
+        width: min(120rem, 60vw);
+    }
+
+    .docs-lightbox:not(.docs-lightbox--video) .docs-lightbox__controls {
+        display: none;
+    }
+
+    .docs-lightbox__close {
+        position: absolute;
+        top: 2.5rem;
+        right: 2.5rem;
+        z-index: 1;
+    }
+
+    .docs-lightbox__caption {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .docs-lightbox__pause,
+    .docs-lightbox--playing .docs-lightbox__play {
+        display: none;
+    }
+
+    .docs-lightbox--playing .docs-lightbox__pause {
+        display: flex;
+    }
+
+    /* A native range takes the input, so the keyboard and screen readers work, and the
+       Lyra progress bar under it draws the position. */
+    .docs-lightbox__scrubber {
+        display: grid;
+        flex: 1;
+        align-items: center;
+        min-width: 0;
+
+        & > * {
+            grid-area: 1 / 1;
+        }
+
+        & > input {
+            width: 100%;
+            height: 4rem;
+            margin: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        &:has(input:focus-visible) > .pluto-progress {
+            outline: 2px solid var(--pluto-primary-z);
+            outline-offset: 2px;
+        }
+    }
+
+    .docs-lightbox__time {
+        flex: none;
+        min-width: 11ch;
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+    }
+
+    @media (max-width: 800px) {
+        .docs-lightbox__stage {
+            padding: 9rem 2rem 2rem;
+        }
+
+        .docs-lightbox__bar {
+            grid-template-columns: minmax(0, 1fr);
+            padding: 0 2rem 2.5rem;
+        }
+
+        .docs-lightbox__controls {
+            width: 100%;
+        }
+    }
+</style>

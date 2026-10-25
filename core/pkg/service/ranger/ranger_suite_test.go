@@ -26,7 +26,7 @@ import (
 
 func TestRanger(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Ranger Suite")
+	RunSpecs(t, "Service Ranger Suite", SuiteConfig())
 }
 
 var (

@@ -30,7 +30,7 @@ const TAB: Panel.Tab = {
     await client.arcs.create(corpse);
   },
   // Only these hooks, so the bundler can drop the rest of the namespace.
-  useTombstone: Panel.createTombstoneReader({ useTombstone: Arc.useTombstone }),
+  Guard: Panel.createGuard({ useTombstone: Arc.useTombstone }),
 };
 
 export const TABS: Panel.Tabs = {

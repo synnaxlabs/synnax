@@ -16,9 +16,12 @@ import { primitive, type state } from "@synnaxlabs/x";
  * resolves or on failure.
  * @param useResult - The vendor's typed device retrieve result hook.
  */
-export const createUseFromConfig =
-  <D extends state.State>(useResult: Flux.UseResult<Device.RetrieveQuery, D>) =>
-  (): D | undefined => {
+export const createUseFromConfig = <D extends state.State>(
+  useResult: Flux.UseResult<Device.RetrieveQuery, D>,
+) => {
+  const useFromConfig = (): D | undefined => {
     const key = Form.useFieldValue<string>("config.device", { optional: true });
     return useResult(primitive.isNonZero(key) ? { key } : null).data;
   };
+  return useFromConfig;
+};
