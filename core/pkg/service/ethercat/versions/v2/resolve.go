@@ -43,7 +43,11 @@ type Slave struct {
 
 // Slaves returns the slaves among keys, read through tx. A key with no slave is absent
 // from the result.
-type Slaves func(ctx context.Context, tx gorp.Tx, keys []string) (map[string]Slave, error)
+type Slaves func(
+	ctx context.Context,
+	tx gorp.Tx,
+	keys []string,
+) (map[string]Slave, error)
 
 // ResolveReadConfig addresses each unresolved channel in cfg to the input entry its
 // slave lists under the channel's entry name. A channel stays unresolved when the name
@@ -175,8 +179,8 @@ func newMigration[I, O gorp.Entry[uuid.UUID]](
 	)
 }
 
-// resolve returns the entry in entries named name. ok is false when the name matches
-// no entry, or entries at more than one address.
+// resolve returns the entry in entries named name. ok is false when the name matches no
+// entry, or entries at more than one address.
 func resolve(entries []Entry, name string) (Entry, bool) {
 	matches := lo.UniqBy(
 		lo.Filter(entries, func(e Entry, _ int) bool { return e.Name == name }),

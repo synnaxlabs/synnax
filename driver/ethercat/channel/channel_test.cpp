@@ -390,6 +390,7 @@ TEST(Input, EnabledDefaultsToTrue) {
     ASSERT_TRUE(ch->enabled);
 }
 
+/// @brief it should copy the key, name, and data type of the Synnax channel it binds.
 TEST(Input, BindRemoteInfoCopiesChannelInformation) {
     const auto slave = padded_slave();
     const auto j = read_entry(0x6000, 0x11, "int16");
@@ -585,6 +586,7 @@ TEST(Claims, IgnoresChannelsThatBoundNoEntry) {
     ASSERT_EQ(only_error(second).first, "pdo");
 }
 
+/// @brief it should sort channels by slave position, then by entry index.
 TEST(SortByPosition, SortsBySlavePositionThenByIndex) {
     slave::Properties slave1 = repeated_name_slave();
     slave1.position = 1;

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, ethercat, NotFoundError, type Synnax } from "@synnaxlabs/client";
-import { errors, primitive } from "@synnaxlabs/x";
+import { DataType, errors, primitive } from "@synnaxlabs/x";
 
 import * as Device from "@/feature/ethercat/device/types";
 import {
@@ -32,6 +32,14 @@ export interface SlaveValidationResult<C extends Channel> {
   channelsBySlaveKey: Map<string, Extract<C, EntryChannel>[]>;
 }
 
+/** @returns the size in bytes of the number type that holds an entry. */
+const entryWidth = (bitLength: number): number => {
+  if (bitLength <= 8) return 1;
+  if (bitLength <= 16) return 2;
+  if (bitLength <= 32) return 4;
+  return 8;
+};
+
 const validateEntries = <C extends Channel>(
   slave: Device.SlaveDevice,
   channels: C[],
@@ -49,10 +57,22 @@ const validateEntries = <C extends Channel>(
           `A channel on slave ${slave.name} has no entry. Pick an entry.`,
         );
       const address = ethercat.formatAddress(ch);
-      if (entryAt(entries, ch) == null)
+      const entry = entryAt(entries, ch);
+      if (entry == null)
         throw new Error(
           `Slave ${slave.name} has no ${DIRECTIONS[pdoType]} entry at ${address}. ` +
             "Pick an entry.",
+        );
+      const dataType = new DataType(ch.dataType);
+      const width = entryWidth(entry.bitLength);
+      if (
+        !(dataType.isInteger || dataType.isFloat) ||
+        dataType.density.valueOf() !== width
+      )
+        throw new Error(
+          `Data type ${ch.dataType} does not fit entry ${address} on slave ` +
+            `${slave.name}, which holds ${entry.bitLength} bits. Pick a ${width} ` +
+            "byte number type.",
         );
       const key = addressKey(ch);
       if (used.has(key))
@@ -68,8 +88,8 @@ const validateEntries = <C extends Channel>(
 /**
  * Retrieves the slaves the channels use and checks the entries of the enabled channels.
  * @returns the slaves, their rack, and the enabled channels of each slave.
- * @throws {Error} if the slaves are on different networks, or if an enabled channel
- * has no entry, an entry its slave lacks, or an entry another channel uses.
+ * @throws {Error} if the slaves are on different networks, or if an enabled channel has
+ * no entry, an entry its slave lacks, or an entry another channel uses.
  */
 export const retrieveAndValidateSlaves = async <C extends Channel>(
   client: Synnax,

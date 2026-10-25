@@ -36,9 +36,8 @@ func MigrateReadChannel(ctx context.Context, old v1.ReadChannel) (ReadChannel, e
 	return autoMigrateReadChannel(ctx, old)
 }
 
-// MigrateWriteChannel lifts a v1 write channel: a manual channel keeps its address,
-// and an automatic channel becomes unresolved until ResolveWriteConfig matches its
-// name.
+// MigrateWriteChannel lifts a v1 write channel: a manual channel keeps its address, and
+// an automatic channel becomes unresolved until ResolveWriteConfig matches its name.
 func MigrateWriteChannel(
 	ctx context.Context,
 	old v1.WriteChannel,
