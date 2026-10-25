@@ -988,6 +988,32 @@ describe("actions.Controller", () => {
       expect(docs.get("k")).toEqual({ values: { a: 5 } });
     });
 
+    it("keeps a pending edit out of the base when another writer sets the doc", async () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0, b: 0 });
+      const { send, calls } = createHeldSend();
+      const dispatched = controller.dispatch("k", [set("a", 1)], send);
+      docs.set("k", (prev) =>
+        prev == null ? prev : { values: { ...prev.values, b: 3 } },
+      );
+      expect(docs.get("k")).toEqual({ values: { a: 1, b: 3 } });
+      calls[0].reject(new Error("boom"));
+      await expect(dispatched).rejects.toThrow("boom");
+      expect(docs.get("k")).toEqual({ values: { a: 0, b: 3 } });
+    });
+
+    it("restores the base when another writer's set that shows no change rolls back", () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const tx = controller.transaction("k", resolved());
+      tx.add(set("a", 1));
+      const rollback = docs.set("k", { values: { a: 2 } });
+      expect(docs.get("k")).toEqual({ values: { a: 1 } });
+      rollback();
+      tx.abort();
+      expect(docs.get("k")).toEqual({ values: { a: 0 } });
+    });
+
     it("applies pending dispatches again on a doc another writer replaced", async () => {
       const { docs, controller } = setupStore();
       prime(docs, "k", { a: 0 });

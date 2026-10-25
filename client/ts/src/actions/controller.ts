@@ -204,9 +204,9 @@ interface Applied<Action> {
  * stacks, echo recognition, and remote-frame application. The cached doc of a key with
  * pending dispatches is its base, as the Core holds it, with the pending dispatches
  * applied on top. A foreign frame applies to the base, and the pending dispatches apply
- * again on the result, so the doc stays in the order the Core applies them. A doc that
- * another writer puts in the table becomes the base before the table stores it. A
- * failed send removes its dispatch the same way. All dispatch bookkeeping is
+ * again on the result, so the doc stays in the order the Core applies them. Another
+ * writer to the table writes the base, and its rollback restores the base. A failed
+ * send removes its dispatch the same way. All dispatch bookkeeping is
  * session-local and dropped when a document is deleted.
  */
 export class Controller<Key extends record.Key, State extends query.Data, Action> {
@@ -253,7 +253,10 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     this.docs.subscribe((event) => {
       if (event.variant === "delete") this.drop(event.key);
     });
-    this.docs.intercept((key, doc) => this.overlay(key, doc));
+    this.docs.intercept({
+      base: (key) => (this.writing ? undefined : this.rebases.get(key)?.base),
+      apply: (key, doc) => this.overlay(key, doc),
+    });
     opts.onEpoch((epoch) => this.changeEpoch(epoch));
   }
 

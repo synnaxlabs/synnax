@@ -1534,15 +1534,35 @@ describe("intercept", () => {
   }
   const counter = (n: number): Counter => ({ key: "a", n });
 
+  // Keeps each base and shows what show returns, as the action controller does.
+  const createOverlay = (show: (base: Counter) => Counter) => {
+    const bases = new Map<string, Counter>();
+    const interceptor: query.Interceptor<string, Counter> = {
+      base: (key) => bases.get(key),
+      apply: (key, value) => {
+        bases.set(key, value);
+        return show(value);
+      },
+    };
+    return { bases, interceptor };
+  };
+
+  const newTable = (show: (base: Counter) => Counter) => {
+    const table = new query.Table<string, Counter>({ onError: noopError });
+    const overlay = createOverlay(show);
+    table.intercept(overlay.interceptor);
+    return { table, bases: overlay.bases };
+  };
+
   it.each([
     ["set", (t: query.Table<string, Counter>) => t.set("a", counter(1))],
     ["ingest", (t: query.Table<string, Counter>) => t.ingest(counter(1))],
-  ])("should store and notify the value the interceptor returns on %s", (_, write) => {
-    const table = new query.Table<string, Counter>({ onError: noopError });
-    table.intercept((_, value) => ({ ...value, n: value.n + 10 }));
+  ])("should store and notify the value the interceptor shows on %s", (_, write) => {
+    const { table, bases } = newTable((b) => ({ ...b, n: b.n + 10 }));
     const listener = vi.fn();
     table.subscribe(listener);
     write(table);
+    expect(bases.get("a")).toEqual(counter(1));
     expect(table.get("a")).toEqual(counter(11));
     expect(listener).toHaveBeenCalledExactlyOnceWith({
       variant: "set",
@@ -1551,43 +1571,63 @@ describe("intercept", () => {
     });
   });
 
-  it("should notify nothing when the interceptor returns the stored value", () => {
-    const table = new query.Table<string, Counter>({ onError: noopError });
-    table.intercept(() => counter(5));
+  it("should pass the base to a setter", () => {
+    const { table, bases } = newTable((b) => ({ ...b, n: b.n + 10 }));
+    table.set("a", counter(1));
+    table.set("a", (prev) => (prev == null ? prev : { ...prev, n: prev.n + 1 }));
+    expect(bases.get("a")).toEqual(counter(2));
+    expect(table.get("a")).toEqual(counter(12));
+  });
+
+  it("should notify nothing when the shown value does not change", () => {
+    const { table, bases } = newTable(() => counter(5));
     table.set("a", counter(1));
     const listener = vi.fn();
     table.subscribe(listener);
     table.set("a", counter(2));
     expect(listener).not.toHaveBeenCalled();
+    expect(bases.get("a")).toEqual(counter(2));
     expect(table.get("a")).toEqual(counter(5));
   });
 
-  it("should pass a value that a rollback restores through the interceptor", () => {
-    const table = new query.Table<string, Counter>({ onError: noopError });
-    let offset = 0;
-    table.intercept((_, value) => ({ ...value, n: value.n + offset }));
+  it("should restore the base when a write that shows no change rolls back", () => {
+    const { table, bases } = newTable(() => counter(5));
     table.set("a", counter(1));
     const rollback = table.set("a", counter(2));
-    offset = 10;
     rollback();
-    expect(table.get("a")).toEqual(counter(11));
+    expect(bases.get("a")).toEqual(counter(1));
+    expect(table.get("a")).toEqual(counter(5));
   });
 
-  it("should pass a value that undoing a delete restores through the interceptor", () => {
-    const table = new query.Table<string, Counter>({ onError: noopError });
-    let offset = 0;
-    table.intercept((_, value) => ({ ...value, n: value.n + offset }));
+  it("should restore the base, not the shown value, on a rollback", () => {
+    let offset = 10;
+    const { table } = newTable((b) => ({ ...b, n: b.n + offset }));
     table.set("a", counter(1));
-    const restore = table.delete("a");
-    offset = 10;
-    restore();
-    expect(table.get("a")).toEqual(counter(11));
+    const rollback = table.set("a", counter(2));
+    offset = 20;
+    rollback();
+    expect(table.get("a")).toEqual(counter(21));
   });
+
+  it.each([
+    ["key", (t: query.Table<string, Counter>) => t.delete("a")],
+    ["filter", (t: query.Table<string, Counter>) => t.delete(({ key }) => key === "a")],
+  ])(
+    "should restore the base, not the shown value, when undoing a delete by %s",
+    (_, remove) => {
+      let offset = 10;
+      const { table } = newTable((b) => ({ ...b, n: b.n + offset }));
+      table.set("a", counter(1));
+      const restore = remove(table);
+      offset = 20;
+      restore();
+      expect(table.get("a")).toEqual(counter(21));
+    },
+  );
 
   it("should throw when the table already has an interceptor", () => {
-    const table = new query.Table<string, Counter>({ onError: noopError });
-    table.intercept((_, value) => value);
-    expect(() => table.intercept((_, value) => value)).toThrow(
+    const { table } = newTable((b) => b);
+    expect(() => table.intercept(createOverlay((b) => b).interceptor)).toThrow(
       "The table already has an interceptor",
     );
   });
