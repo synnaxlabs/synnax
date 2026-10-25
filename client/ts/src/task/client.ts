@@ -326,7 +326,7 @@ export type RetrieveMultipleParams = RetrieveRequest;
 
 const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
 /** Params for a task retrieval, single or multiple. */
-export type RetrieveParams = z.input<typeof retrieveParamsZ>;
+export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
 // includeStatus does not change a query's identity: cached fetches always
 // request it, so it is stripped before hashing.

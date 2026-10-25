@@ -53,7 +53,7 @@ const singleRetrieveParamsZ = z
   .transform(({ key }): RetrieveRequest => ({ where: { key: { eq: key } } }));
 
 export const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
-export type RetrieveParams = z.input<typeof retrieveParamsZ>;
+export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 export type RetrieveMultipleParams = RetrieveRequest;
 

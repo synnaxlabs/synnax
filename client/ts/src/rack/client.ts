@@ -65,7 +65,7 @@ export type RetrieveMultipleParams = RetrieveRequest;
 
 const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
 
-export type RetrieveParams = z.input<typeof retrieveParamsZ>;
+export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
 type SingleQuery =
   { key: Key; includeStatus?: boolean } | { name: string; includeStatus?: boolean };
