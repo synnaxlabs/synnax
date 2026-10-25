@@ -40,8 +40,13 @@ const FilterContextMenu = ({ request, onRequestChange }: SelectFiltersProps) => 
   return (
     <Menu.Menu level="small" gap="small">
       <Label.SelectMultiple
-        value={request.hasLabels ?? []}
-        onChange={(labels) => handleRequestChange((r) => ({ ...r, hasLabels: labels }))}
+        value={request.where?.labels ?? []}
+        onChange={(labels) =>
+          handleRequestChange((r) => ({
+            ...r,
+            where: { ...r.where, labels: labels.length > 0 ? labels : undefined },
+          }))
+        }
         triggerProps={{ hideTags: true, variant: "text" }}
         location={{ targetCorner: location.TOP_RIGHT, dialogCorner: location.TOP_LEFT }}
       />
@@ -83,8 +88,9 @@ const Tags = ({ keys }: TagsProps) => {
   ));
 };
 
-const HasLabelsFilter = ({ request: { hasLabels } }: HasLabelsFilterProps) => {
-  if (hasLabels == null || hasLabels.length === 0) return null;
+const HasLabelsFilter = ({ request: { where } }: HasLabelsFilterProps) => {
+  const labels = where?.labels;
+  if (labels == null || labels.length === 0) return null;
   return (
     <Flex.Box x pack background={0}>
       <View.FilterChip el="span" background={0} color={9}>
@@ -92,7 +98,7 @@ const HasLabelsFilter = ({ request: { hasLabels } }: HasLabelsFilterProps) => {
         Labels
       </View.FilterChip>
       <Errors.SuspenseBoundary loading={null}>
-        <Tags keys={hasLabels} />
+        <Tags keys={labels} />
       </Errors.SuspenseBoundary>
     </Flex.Box>
   );

@@ -292,12 +292,12 @@ describe("queries", () => {
       });
       await client.labels.label(ranger.ontologyID(r.key), [label.key]);
       const { result } = renderHook(
-        () => Ranger.useList({ initialQuery: { hasLabels: [label.key] } }),
+        () => Ranger.useList({ initialQuery: { where: { labels: [label.key] } } }),
         { wrapper },
       );
       act(() => {
         result.current.retrieve(
-          { hasLabels: [label.key] },
+          { where: { labels: [label.key] } },
           { signal: controller.signal },
         );
       });
@@ -311,7 +311,7 @@ describe("queries", () => {
       });
       act(() => {
         result.current.retrieve(
-          { hasLabels: [label.key] },
+          { where: { labels: [label.key] } },
           { signal: controller.signal },
         );
       });
@@ -324,7 +324,7 @@ describe("queries", () => {
       await client.labels.label(ranger.ontologyID(r3.key), [label.key]);
       act(() => {
         result.current.retrieve(
-          { hasLabels: [label.key] },
+          { where: { labels: [label.key] } },
           { signal: controller.signal },
         );
       });

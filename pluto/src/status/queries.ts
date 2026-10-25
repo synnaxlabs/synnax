@@ -95,15 +95,15 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query: { keys } }) => {
     if (keys.length === 0) return [];
-    return await client.statuses.retrieve({ keys });
+    return await client.statuses.retrieve({ where: { key: { in: keys } } });
   },
   onChange: ({ client, query: { keys } }, handler) => {
     if (keys.length === 0) return () => {};
-    return client.statuses.onChange({ keys }, handler);
+    return client.statuses.onChange({ where: { key: { in: keys } } }, handler);
   },
   getCached: ({ client, query: { keys } }) => {
     if (keys.length === 0) return undefined;
-    return client.statuses.getCached({ keys });
+    return client.statuses.getCached({ where: { key: { in: keys } } });
   },
 });
 

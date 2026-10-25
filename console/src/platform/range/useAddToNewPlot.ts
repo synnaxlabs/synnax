@@ -22,7 +22,7 @@ export const useAddToNewPlot = (): ((keys: string[]) => void) => {
   return (keys: string[]) => {
     if (client == null) return;
     handleError(async () => {
-      const ranges = await client.ranges.retrieve({ keys });
+      const ranges = await client.ranges.retrieve(keys);
       dispatch(Session.Range.add(Session.Range.fromClient(ranges)));
       const names = ranges.map(({ name }) => name);
       create({

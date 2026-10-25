@@ -1669,10 +1669,12 @@ describe("list", () => {
       // rng3 does not exist yet, so the query is a permissive overlap window
       // and the hook-level filter narrows the answer to the test's ranges.
       const query = {
-        overlapsWith: new TimeRange({
-          start: TimeSpan.seconds(9),
-          end: TimeSpan.seconds(16),
-        }),
+        where: {
+          overlaps: new TimeRange({
+            start: TimeSpan.seconds(9),
+            end: TimeSpan.seconds(16),
+          }),
+        },
       };
 
       const { result } = renderHook(

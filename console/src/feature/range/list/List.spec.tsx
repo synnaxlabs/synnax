@@ -113,7 +113,7 @@ describe("range/list/SelectFilters", () => {
       state.SetArg<ranger.RetrieveRequest>,
     ];
     const next = state.executeSetter(setter, { offset: 25, limit: 25 });
-    expect(next.hasLabels).toEqual([label.key]);
+    expect(next.where?.labels).toEqual([label.key]);
     expect(next.offset).toBe(0);
     expect(next.limit).toBe(0);
   });
@@ -126,7 +126,7 @@ describe("range/list/SelectFilters", () => {
     const { wrapper } = await createConsoleWrapper({ client });
     await renderSuspended(
       <Range.List.Filters
-        request={{ hasLabels: [label.key] }}
+        request={{ where: { labels: [label.key] } }}
         onRequestChange={vi.fn()}
       />,
       { wrapper },
