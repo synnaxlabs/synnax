@@ -14,6 +14,9 @@ import { z } from "zod";
 import { Device } from "@/platform/device";
 
 export const MAKE = "LabJack";
+
+/** The name a rack lists in its integrations when its Driver runs this one. */
+export const INTEGRATION = "labjack";
 export const makeZ = z.literal(MAKE);
 
 export const T4_MODEL = "LJM_dtT4";
