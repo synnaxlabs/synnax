@@ -34,10 +34,6 @@
         fill: currentcolor;
     }
 
-    .pluto-handle__2 {
-        z-index: 5;
-    }
-
     /* Lines the readout text up with the trigger's label. */
     .pluto-symbol-field__readout {
         padding-left: 8px;
