@@ -185,6 +185,9 @@ func Bind(layer *api.Layer, router *http.Router) {
 		RangeSetEnd: router.NewUnaryServer[ranger.SetEndRequest, struct{}](
 			"/api/v1/range/set-end",
 		),
+		RangeDispatch: router.NewUnaryServer[ranger.DispatchRequest, struct{}](
+			"/api/v1/range/dispatch",
+		),
 
 		// KV
 		KVGet: router.NewUnaryServer[kv.GetRequest, kv.GetResponse](

@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
 	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
+	apiranger "github.com/synnaxlabs/synnax/pkg/api/ranger"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
@@ -119,6 +120,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.RackRename = noop.UnaryServer[apirack.RenameRequest, struct{}]{}
 	t.TaskRename = noop.UnaryServer[apitask.RenameRequest, struct{}]{}
 	t.TaskDispatch = noop.UnaryServer[apitask.DispatchRequest, struct{}]{}
+	t.RangeDispatch = noop.UnaryServer[apiranger.DispatchRequest, struct{}]{}
 	t.DeviceRename = noop.UnaryServer[apidevice.RenameRequest, struct{}]{}
 	t.StatusRename = noop.UnaryServer[apistatus.RenameRequest, struct{}]{}
 	t.ViewRename = noop.UnaryServer[view.RenameRequest, struct{}]{}
