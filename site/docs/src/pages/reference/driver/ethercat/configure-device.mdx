@@ -105,7 +105,9 @@ When a device is discovered, Synnax stores the following properties:
 ## Understanding PDOs
 
 **PDOs (Process Data Objects)** define the cyclic data exchanged between the master and
-devices. PDOs are configured in the device's ESI (EtherCAT Slave Information) file.
+devices. The Driver reads the PDOs a device runs from the device itself. It uses the
+device's ESI (EtherCAT Slave Information) file only when the device does not report
+them.
 
 ### TxPDO (transmit PDO)
 

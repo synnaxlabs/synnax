@@ -17,14 +17,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 )
 
-// Retrieve is used to retrieve View records from the database using a
-// builder pattern for constructing queries.
-type Retrieve struct {
-	baseTX gorp.Tx
-	gorp   gorp.Retrieve[Key, View]
-	search *gorp.SearchIndex[Key, View]
-}
-
 // Filter is a per-service filter that is bound to the Retrieve when passed to
 // Where. Pure filters ignore the Retrieve argument; service-bound filters read
 // from it (e.g. r.indexes, r.label, r.hostProvider) to evaluate. Use Match to
@@ -55,16 +47,6 @@ func Or(fs ...Filter) Filter {
 // Not returns a filter that inverts the provided filter.
 func Not(f Filter) Filter {
 	return gorp.NotBound[Retrieve, Key, View](f)
-}
-
-// Search filters the views to those whose text matches
-// term, closest match first. An empty term adds no filter.
-func (r Retrieve) Search(term string) Retrieve {
-	if term == "" {
-		return r
-	}
-	r.gorp = r.gorp.Where(r.search.Filter(term))
-	return r
 }
 
 // MatchKeys returns a filter that restricts results to

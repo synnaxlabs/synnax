@@ -881,6 +881,7 @@ Schematic struct {
     }
     name     string                     {
         @doc value         "is a human-readable name for the schematic."
+        @search
         @validate required
     }
     snapshot bool = false {

@@ -119,7 +119,6 @@ type Service struct {
 	closer  io.MultiCloser
 	group   group.Group
 	table   *gorp.Table[Key, Channel]
-	search  *gorp.SearchIndex[Key, Channel]
 	indexes indexes
 	mu      struct {
 		sync.RWMutex
@@ -138,13 +137,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, db: cfg.DB, indexes: newIndexes(), search: newSearchIndex()}
+	s = &Service{cfg: cfg, db: cfg.DB, indexes: newIndexes()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Channel]{
 		DB:              cfg.DB,
 		Migrations:      versions.Migrations,
-		Indexes:         append(s.indexes.all(), s.search),
+		Indexes:         s.indexes.all(),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
@@ -182,7 +181,6 @@ func (s *Service) newRetrieve() Retrieve {
 	return Retrieve{
 		baseTX:  s.db,
 		gorp:    s.table.NewRetrieve(),
-		search:  s.search,
 		indexes: s.indexes,
 	}
 }

@@ -20,9 +20,39 @@ import (
 // Retrieve is used to retrieve Project records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {
-	baseTX gorp.Tx
-	gorp   gorp.Retrieve[Key, Project]
+	baseTX  gorp.Tx
+	gorp    gorp.Retrieve[Key, Project]
+	indexes indexes
+}
+
+// indexes bundles the per-Service secondary indexes registered on the
+// Project table. Each index is constructed via newIndexes and threaded
+// onto the Retrieve so filter functions can resolve them off r.indexes
+// instead of relying on package-level state.
+type indexes struct {
 	search *gorp.SearchIndex[Key, Project]
+}
+
+// newIndexes constructs a fresh indexes value, allocating one instance of each
+// index. Call once per Service in OpenService and store the result on the
+// Service struct.
+func newIndexes() indexes {
+	return indexes{
+		search: gorp.NewSearchIndex[Key, Project](
+			"search",
+			func(e *Project) []string {
+				return []string{e.Name}
+			},
+		),
+	}
+}
+
+// all returns the indexes packaged as a heterogeneous slice for registration
+// via gorp.TableConfig.Indexes when opening the underlying table.
+func (i indexes) all() []gorp.Index[Key, Project] {
+	return []gorp.Index[Key, Project]{
+		i.search,
+	}
 }
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to
@@ -63,7 +93,7 @@ func (r Retrieve) Search(term string) Retrieve {
 	if term == "" {
 		return r
 	}
-	r.gorp = r.gorp.Where(r.search.Filter(term))
+	r.gorp = r.gorp.Where(r.indexes.search.Filter(term))
 	return r
 }
 

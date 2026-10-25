@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <chrono>
+#include <format>
 #include <thread>
 
 #include "absl/log/log.h"
@@ -185,6 +186,7 @@ void Master::deactivate() {
         this->input_sz = 0;
         this->output_sz = 0;
         this->pdo_offsets.clear();
+        this->layout_errors.clear();
     }
 
     if (this->initialized) {
@@ -240,8 +242,12 @@ std::span<uint8_t> Master::output_data() {
     return {this->iomap.data(), this->output_sz};
 }
 
-std::optional<pdo::Offset> Master::pdo_offset(const pdo::Entry &entry) const {
+std::pair<pdo::Offset, x::errors::Error>
+Master::pdo_offset(const pdo::Entry &entry) const {
     std::lock_guard lock(this->mu);
+    if (const auto it = this->layout_errors.find(entry.slave_position);
+        it != this->layout_errors.end())
+        return {{}, it->second};
     return pdo::find_offset(this->pdo_offsets, entry);
 }
 
@@ -321,6 +327,7 @@ void Master::populate_slaves() {
 void Master::cache_pdo_offsets() {
     std::lock_guard lock(this->mu);
     this->pdo_offsets.clear();
+    this->layout_errors.clear();
 
     for (const auto &slave: this->slave_list) {
         const auto &props = slave.properties;
@@ -346,6 +353,29 @@ void Master::cache_pdo_offsets() {
                                                   )
                                                 : this->output_sz;
         const size_t slave_input_offset = slave_input_abs_offset - this->output_sz;
+
+        const auto input_bits = pdo::total_bits(props.input_pdos);
+        const auto output_bits = pdo::total_bits(props.output_pdos);
+        const auto mapped_input_bits = this->api->slave_Ibits(props.position);
+        const auto mapped_output_bits = this->api->slave_Obits(props.position);
+        if (input_bits != mapped_input_bits || output_bits != mapped_output_bits) {
+            auto err = x::errors::Error(
+                errors::PDO_MAPPING_ERROR,
+                std::format(
+                    "slave {} ({}) maps {} input and {} output bits, but its discovered "
+                    "PDO entries hold {} and {}",
+                    props.position,
+                    props.name,
+                    mapped_input_bits,
+                    mapped_output_bits,
+                    input_bits,
+                    output_bits
+                )
+            );
+            LOG(WARNING) << err.message();
+            this->layout_errors.emplace(props.position, std::move(err));
+            continue;
+        }
 
         if (!props.coe_pdo_order_reliable) {
             LOG(WARNING) << "Slave " << props.position
@@ -375,21 +405,28 @@ constexpr int MAX_SDO_FAILURES = 3;
 
 void Master::discover_slave_pdos(slave::DiscoveryResult &slave) {
     auto &props = slave.properties;
-    if (esi::lookup_device_pdos(
+    if (this->discover_pdos_coe(slave)) {
+        esi::fill_known_entries(props);
+        return;
+    }
+    slave.status.pdo_discovery_error.clear();
+    this->discover_pdos_sii(slave);
+    if (!props.input_pdos.empty() || !props.output_pdos.empty()) {
+        esi::fill_known_entries(props);
+        return;
+    }
+    if (!esi::lookup_device_pdos(
             props.vendor_id,
             props.product_code,
             props.revision,
             props
-        )) {
-        VLOG(1) << "Slave " << props.position
-                << " PDOs discovered via ESI: " << props.input_pdos.size()
-                << " inputs, " << props.output_pdos.size() << " outputs";
-        slave.status.pdos_discovered = true;
-        props.coe_pdo_order_reliable = true;
+        ))
         return;
-    }
-
-    if (!this->discover_pdos_coe(slave)) this->discover_pdos_sii(slave);
+    VLOG(1) << "Slave " << props.position
+            << " PDOs discovered via ESI: " << props.input_pdos.size() << " inputs, "
+            << props.output_pdos.size() << " outputs";
+    slave.status.pdo_discovery_error.clear();
+    props.coe_pdo_order_reliable = true;
 }
 
 bool Master::discover_pdos_coe(slave::DiscoveryResult &slave) {
@@ -452,7 +489,8 @@ bool Master::discover_pdos_coe(slave::DiscoveryResult &slave) {
         }
     }
 
-    if (!tx_success && !rx_success) {
+    if ((!tx_success && !rx_success) ||
+        (props.input_pdos.empty() && props.output_pdos.empty())) {
         status.pdo_discovery_error = "no PDO objects found in object dictionary";
         return false;
     }
@@ -497,7 +535,12 @@ void Master::discover_pdos_sii(slave::DiscoveryResult &slave) {
             a += 2;
             c += 2;
 
-            (void) pdo_name_idx;
+            std::optional<std::string> pdo_name;
+            if (pdo_name_idx > 0) {
+                char name_buf[EC_MAXNAME + 1] = {0};
+                this->api->siistring(name_buf, props.position, pdo_name_idx);
+                if (name_buf[0] != '\0') pdo_name = name_buf;
+            }
 
             if (sync_manager >= EC_MAXSM) {
                 c += 4 * num_entries;
@@ -518,7 +561,18 @@ void Master::discover_pdos_sii(slave::DiscoveryResult &slave) {
                 const uint8_t bitlen = this->api->siigetbyte(props.position, a++);
                 a += 2;
 
-                if (obj_idx == 0 && obj_subidx == 0) continue;
+                if (obj_idx == 0) {
+                    pdo::Properties gap{
+                        .pdo_index = pdo_index,
+                        .bit_length = bitlen,
+                        .is_input = is_input,
+                    };
+                    if (is_input)
+                        props.input_pdos.push_back(gap);
+                    else
+                        props.output_pdos.push_back(gap);
+                    continue;
+                }
 
                 std::string entry_name;
                 if (obj_name_idx > 0) {
@@ -543,7 +597,8 @@ void Master::discover_pdos_sii(slave::DiscoveryResult &slave) {
                     bitlen,
                     is_input,
                     name,
-                    data_type
+                    data_type,
+                    pdo_name
                 );
 
                 if (is_input)
@@ -674,6 +729,7 @@ x::errors::Error Master::read_pdo_mapping(
     VLOG(1) << "Slave " << slave_pos << " PDO 0x" << std::hex << pdo_index << " has "
             << std::dec << static_cast<int>(num_entries) << " entries";
 
+    const auto pdo_name = this->read_object_name(slave_pos, pdo_index);
     int consecutive_failures = 0;
     for (uint8_t i = 1; i <= num_entries; ++i) {
         uint32_t mapping = 0;
@@ -704,7 +760,18 @@ x::errors::Error Master::read_pdo_mapping(
         const auto sub_index = static_cast<uint8_t>((mapping >> 8) & 0xFF);
         const auto bit_length = static_cast<uint8_t>(mapping & 0xFF);
 
-        if (index == 0 && sub_index == 0) continue;
+        if (index == 0) {
+            pdo::Properties gap{
+                .pdo_index = pdo_index,
+                .bit_length = bit_length,
+                .is_input = is_input,
+            };
+            if (is_input)
+                props.input_pdos.push_back(gap);
+            else
+                props.output_pdos.push_back(gap);
+            continue;
+        }
 
         const auto [coe_name, coe_type] = this->read_pdo_entry(
             slave_pos,
@@ -720,8 +787,16 @@ x::errors::Error Master::read_pdo_mapping(
             data_type
         );
 
-        pdo::Properties
-            entry(pdo_index, index, sub_index, bit_length, is_input, name, data_type);
+        pdo::Properties entry(
+            pdo_index,
+            index,
+            sub_index,
+            bit_length,
+            is_input,
+            name,
+            data_type,
+            pdo_name
+        );
 
         if (is_input)
             props.input_pdos.push_back(entry);
@@ -730,6 +805,17 @@ x::errors::Error Master::read_pdo_mapping(
     }
 
     return x::errors::NIL;
+}
+
+std::optional<std::string>
+Master::read_object_name(const uint16_t slave_pos, const uint16_t index) {
+    ec_ODlistt od_list{};
+    od_list.Slave = slave_pos;
+    od_list.Index[0] = index;
+    od_list.Entries = 1;
+    if (this->api->readODdescription(0, &od_list) > 0 && od_list.Name[0][0] != '\0')
+        return std::string(od_list.Name[0]);
+    return std::nullopt;
 }
 
 std::pair<std::string, telem::DataType> Master::read_pdo_entry(

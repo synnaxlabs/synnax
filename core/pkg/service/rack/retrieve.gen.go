@@ -18,6 +18,36 @@ import (
 	"github.com/synnaxlabs/gorp"
 )
 
+// indexes bundles the per-Service secondary indexes registered on the
+// Rack table. Each index is constructed via newIndexes and threaded
+// onto the Retrieve so filter functions can resolve them off r.indexes
+// instead of relying on package-level state.
+type indexes struct {
+	search *gorp.SearchIndex[Key, Rack]
+}
+
+// newIndexes constructs a fresh indexes value, allocating one instance of each
+// index. Call once per Service in OpenService and store the result on the
+// Service struct.
+func newIndexes() indexes {
+	return indexes{
+		search: gorp.NewSearchIndex[Key, Rack](
+			"search",
+			func(e *Rack) []string {
+				return []string{e.Name}
+			},
+		),
+	}
+}
+
+// all returns the indexes packaged as a heterogeneous slice for registration
+// via gorp.TableConfig.Indexes when opening the underlying table.
+func (i indexes) all() []gorp.Index[Key, Rack] {
+	return []gorp.Index[Key, Rack]{
+		i.search,
+	}
+}
+
 // Filter is a per-service filter that is bound to the Retrieve when passed to
 // Where. Pure filters ignore the Retrieve argument; service-bound filters read
 // from it (e.g. r.indexes, r.label, r.hostProvider) to evaluate. Use Match to
@@ -56,7 +86,7 @@ func (r Retrieve) Search(term string) Retrieve {
 	if term == "" {
 		return r
 	}
-	r.gorp = r.gorp.Where(r.search.Filter(term))
+	r.gorp = r.gorp.Where(r.indexes.search.Filter(term))
 	return r
 }
 

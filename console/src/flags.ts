@@ -12,13 +12,15 @@
  * the build constants statically, so dark code tree-shakes out of the Console build.
  * Every flag is on in dev and Desktop builds, and in a build that sets
  * `VITE_FLAGS_ENABLED` to the exact string "true", such as the integration build. Each
- * entry names its owner, its Linear issue, and the release that removes it.
+ * entry names its owner, its Linear umbrella issue, and the release that removes it.
  */
 const ENABLED = IS_DEV || DESKTOP || import.meta.env.VITE_FLAGS_ENABLED === "true";
 
 export const FLAGS = {
-  // Owner: Emiliano Bonilla. SY-4876. Removed in 0.61, which also links the MQTT docs
-  // from the other driver pages.
+  // Owner: Emiliano Bonilla. Umbrella: SY-2253. Removed in 0.60.
+  lineplotTiles: ENABLED,
+  // Owner: Emiliano Bonilla. Umbrella: SY-4876. Removed in 0.61, which also links the
+  // MQTT docs from the other driver pages.
   mqtt: ENABLED,
 } as const satisfies Record<string, boolean>;
 

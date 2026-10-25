@@ -18,10 +18,10 @@ import (
 
 // Retrieve is used to retrieve ranges from the cluster using a builder pattern.
 type Retrieve struct {
-	baseTX gorp.Tx
-	gorp   gorp.Retrieve[Key, Range]
-	search *gorp.SearchIndex[Key, Range]
-	label  *label.Service
+	baseTX  gorp.Tx
+	gorp    gorp.Retrieve[Key, Range]
+	indexes indexes
+	label   *label.Service
 }
 
 // MatchOverlap returns a filter that matches ranges whose TimeRange overlaps
