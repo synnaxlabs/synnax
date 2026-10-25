@@ -423,7 +423,7 @@ TEST_F(MasterCheckTest, ReportsFaultThenRecoversSlave) {
             {.position = 0,
              .state = slave::State::SAFE_OP,
              .faulted = true,
-             .al_status = "Sync manager watchdog"}
+             .fault = "Sync manager watchdog"}
         })
     );
     EXPECT_EQ(this->master.slave_state(0), slave::State::OP);

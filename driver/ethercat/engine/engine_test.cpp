@@ -717,7 +717,7 @@ TEST_F(EngineTest, FaultedSlaveReturnsToOpWhileTheBusRuns) {
         .position = 0,
         .state = slave::State::SAFE_OP,
         .faulted = true,
-        .al_status = "Sync manager watchdog",
+        .fault = "Sync manager watchdog",
     };
     ASSERT_EVENTUALLY_TRUE(
         !this->engine->health().empty() && this->engine->health()[0] == faulted
