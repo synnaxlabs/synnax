@@ -186,7 +186,10 @@ private:
             constexpr auto MAX = static_cast<int64_t>(
                 std::min<uint64_t>(EXACT, std::numeric_limits<T>::max())
             );
-            constexpr auto MIN = std::max<int64_t>(-EXACT, std::numeric_limits<T>::min());
+            constexpr auto MIN = std::max<int64_t>(
+                -EXACT,
+                std::numeric_limits<T>::min()
+            );
             if (v == std::trunc(v) && v >= MIN && v <= MAX) return "";
             return std::format("must be a whole number from {} to {}", MIN, MAX);
         }
