@@ -21,12 +21,16 @@ class SOEMMasterTest : public ::testing::Test {
 protected:
     MockAPI *mock{};
     std::unique_ptr<Master> master;
+    x::breaker::Breaker brk;
 
     void SetUp() override {
         auto api = std::make_unique<MockAPI>();
         this->mock = api.get();
         this->master = std::make_unique<Master>(std::move(api), "eth0");
+        this->brk.start();
     }
+
+    void TearDown() override { this->brk.stop(); }
 
     void add_slave(MockSlaveInfo info = {}) {
         this->mock->slave_infos.push_back(std::move(info));
@@ -57,6 +61,8 @@ protected:
         this->mock->inputs_wkc = 1;
         this->mock->receive_return = 3;
         ASSERT_NIL(this->master->activate());
+        this->mock->state_change_requests.clear();
+        this->mock->written_slaves.clear();
     }
 };
 
@@ -73,6 +79,18 @@ TEST_F(SOEMMasterTest, InitializeHappyPath) {
     EXPECT_EQ(slaves[0].properties.name, "TestSlave");
     EXPECT_EQ(slaves[0].properties.input_bits, 32);
     EXPECT_EQ(slaves[0].properties.output_bits, 16);
+}
+
+/// @brief it should return the socket check error and not start SOEM when the Driver
+/// cannot open a raw socket.
+TEST_F(SOEMMasterTest, InitializeSocketCheckFails) {
+    this->add_default_slave();
+    this->mock->check_socket_err = x::errors::Error(
+        errors::PERMISSION_DENIED,
+        "permission denied opening eth0"
+    );
+    ASSERT_OCCURRED_AS(this->master->initialize(), errors::PERMISSION_DENIED);
+    EXPECT_FALSE(this->mock->init_called);
 }
 
 TEST_F(SOEMMasterTest, InitializeInitFails) {
@@ -338,41 +356,132 @@ TEST_F(SOEMMasterTest, InputDataAfterActivation) {
 
 ////////////////////// Slave State //////////////////////
 
-TEST_F(SOEMMasterTest, SlaveStateInvalidPosition) {
+/// @brief it should report a slave in OP with one state read and no state writes.
+TEST_F(SOEMMasterTest, CheckReportsOperationalSlave) {
     this->initialize_with_slave();
-    EXPECT_EQ(this->master->slave_state(0), slave::State::UNKNOWN);
-    EXPECT_EQ(this->master->slave_state(999), slave::State::UNKNOWN);
+    this->activate_master();
+    this->mock->slave_infos[0].state = EC_STATE_OPERATIONAL;
+    const auto reads = this->mock->readstate_count;
+    EXPECT_EQ(
+        this->master->check(this->brk),
+        (std::vector<slave::Health>{{.position = 1, .state = slave::State::OP}})
+    );
+    EXPECT_EQ(this->mock->readstate_count, reads + 1);
+    EXPECT_TRUE(this->mock->written_slaves.empty());
 }
 
-TEST_F(SOEMMasterTest, SlaveStateCorrectConversion) {
+/// @brief it should report the state a slave was in before the check tries to recover
+/// it.
+TEST_F(SOEMMasterTest, CheckReportsStateBeforeRecovery) {
     this->initialize_with_slave();
-    this->mock->slave_infos[0].state = EC_STATE_OPERATIONAL;
-    EXPECT_EQ(this->master->slave_state(1), slave::State::OP);
-    this->mock->slave_infos[0].state = EC_STATE_SAFE_OP;
-    EXPECT_EQ(this->master->slave_state(1), slave::State::SAFE_OP);
+    this->activate_master();
     this->mock->slave_infos[0].state = EC_STATE_PRE_OP;
-    EXPECT_EQ(this->master->slave_state(1), slave::State::PRE_OP);
-    this->mock->slave_infos[0].state = EC_STATE_INIT;
-    EXPECT_EQ(this->master->slave_state(1), slave::State::INIT);
+    EXPECT_EQ(this->master->check(this->brk)[0].state, slave::State::PRE_OP);
+    EXPECT_EQ(this->master->check(this->brk)[0].state, slave::State::PRE_OP);
 }
 
-TEST_F(SOEMMasterTest, AllSlavesOperationalTrue) {
+/// @brief it should report a slave in SAFE_OP with an error as faulted and acknowledge
+/// the error.
+TEST_F(SOEMMasterTest, CheckAcknowledgesSafeOpError) {
     this->initialize_with_slave();
     this->activate_master();
-    this->mock->slave_infos[0].state = EC_STATE_OPERATIONAL;
-    EXPECT_TRUE(this->master->all_slaves_operational());
+    this->mock->slave_infos[0].state = EC_STATE_SAFE_OP + EC_STATE_ERROR;
+    this->mock->slave_infos[0].ALstatuscode = 0x001B;
+    const auto health = this->master->check(this->brk);
+    ASSERT_EQ(health.size(), 1);
+    EXPECT_EQ(health[0].state, slave::State::SAFE_OP);
+    EXPECT_TRUE(health[0].faulted);
+    EXPECT_EQ(health[0].al_status, ec_ALstatuscode2string(0x001B));
+    EXPECT_EQ(
+        this->mock->state_change_requests,
+        (std::vector<std::pair<uint16_t, uint16_t>>{
+            {1, EC_STATE_SAFE_OP + EC_STATE_ACK}
+        })
+    );
+    EXPECT_EQ(this->mock->written_slaves, std::vector<uint16_t>{1});
 }
 
-TEST_F(SOEMMasterTest, AllSlavesOperationalFalse) {
+/// @brief it should request OP for a slave in SAFE_OP.
+TEST_F(SOEMMasterTest, CheckRequestsOpFromSafeOp) {
     this->initialize_with_slave();
     this->activate_master();
     this->mock->slave_infos[0].state = EC_STATE_SAFE_OP;
-    EXPECT_FALSE(this->master->all_slaves_operational());
+    this->master->check(this->brk);
+    EXPECT_EQ(
+        this->mock->state_change_requests,
+        (std::vector<std::pair<uint16_t, uint16_t>>{{1, EC_STATE_OPERATIONAL}})
+    );
+    EXPECT_EQ(this->mock->written_slaves, std::vector<uint16_t>{1});
 }
 
-TEST_F(SOEMMasterTest, AllSlavesOperationalNotActivated) {
+/// @brief it should reconfigure a slave that is below SAFE_OP.
+TEST_F(SOEMMasterTest, CheckReconfiguresSlaveBelowSafeOp) {
     this->initialize_with_slave();
-    EXPECT_FALSE(this->master->all_slaves_operational());
+    this->activate_master();
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->master->check(this->brk);
+    EXPECT_EQ(this->mock->reconfigured_slaves, std::vector<uint16_t>{1});
+}
+
+/// @brief it should not reconfigure a slave after the breaker stops.
+TEST_F(SOEMMasterTest, CheckTakesNoRecoveryStepOnceBreakerStops) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->brk.stop();
+    EXPECT_EQ(this->master->check(this->brk)[0].state, slave::State::INIT);
+    EXPECT_TRUE(this->mock->reconfigured_slaves.empty());
+}
+
+/// @brief it should mark a slave that does not answer as lost after a failed recovery.
+TEST_F(SOEMMasterTest, CheckMarksSilentSlaveLost) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->slave_infos[0].state = EC_STATE_NONE;
+    this->mock->statecheck_overrides[EC_STATE_OPERATIONAL] = EC_STATE_NONE;
+    this->mock->recover_return = 0;
+    EXPECT_FALSE(this->master->check(this->brk)[0].lost);
+    EXPECT_TRUE(this->mock->slave_infos[0].lost);
+    EXPECT_TRUE(this->master->check(this->brk)[0].lost);
+    EXPECT_EQ(this->mock->recovered_slaves, (std::vector<uint16_t>{1, 1}));
+}
+
+/// @brief it should recover a lost slave and clear its lost flag.
+TEST_F(SOEMMasterTest, CheckRecoversLostSlave) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->slave_infos[0].state = EC_STATE_NONE;
+    this->mock->slave_infos[0].lost = true;
+    this->master->check(this->brk);
+    EXPECT_EQ(this->mock->recovered_slaves, std::vector<uint16_t>{1});
+    EXPECT_FALSE(this->mock->slave_infos[0].lost);
+}
+
+/// @brief it should clear the lost flag of a slave that answers again, without a
+/// recovery.
+TEST_F(SOEMMasterTest, CheckFindsLostSlaveThatAnswers) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->slave_infos[0].state = EC_STATE_OPERATIONAL;
+    this->mock->slave_infos[0].lost = true;
+    this->master->check(this->brk);
+    EXPECT_TRUE(this->mock->recovered_slaves.empty());
+    EXPECT_FALSE(this->mock->slave_infos[0].lost);
+}
+
+/// @brief it should leave a disabled slave out of the health report and not write its
+/// state.
+TEST_F(SOEMMasterTest, CheckSkipsDisabledSlave) {
+    this->add_default_slave();
+    this->add_default_slave();
+    this->master->set_slave_enabled(2, false);
+    ASSERT_NIL(this->master->initialize());
+    this->activate_master();
+    this->mock->slave_infos[1].state = EC_STATE_SAFE_OP;
+    const auto health = this->master->check(this->brk);
+    ASSERT_EQ(health.size(), 1);
+    EXPECT_EQ(health[0].position, 1);
+    EXPECT_TRUE(this->mock->written_slaves.empty());
 }
 
 ////////////////////// Deactivation //////////////////////

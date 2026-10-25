@@ -13,37 +13,32 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { transformFileAsync } from "@babel/core";
 import babel, {
   defineRolldownBabelPreset,
   type RolldownBabelPreset,
 } from "@rolldown/plugin-babel";
-import { isWorker, plugins } from "@synnaxlabs/eslint-config/compiler";
+import { plugins } from "@synnaxlabs/eslint-config/compiler";
+import { defineParallelPlugin } from "rolldown/experimental";
 import { type PluginOption, type ResolvedConfig } from "vite";
 
+import { COMPILER, DIST, OPTIONS, STRICT } from "./parallel.js";
+
 const require = createRequire(import.meta.url);
-const COMPILER = require.resolve("babel-plugin-react-compiler");
+// Worker threads import the module without Vite, so a spec run hands them the source.
+const PARALLEL = new URL(
+  import.meta.url.endsWith(".ts") ? "parallel.ts" : "parallel.js",
+  import.meta.url,
+);
 const JSX = require.resolve("@babel/plugin-transform-react-jsx");
 const MAP_COMMENT = /\n\/\/# sourceMappingURL=\S*\s*$/;
 const CACHE_KEY = createHash("sha1")
   .update(readFileSync(new URL(import.meta.url)))
+  .update(readFileSync(PARALLEL))
   .update(readFileSync(require.resolve("@synnaxlabs/eslint-config/compiler")))
   .digest("hex");
-
-const OPTIONS = {
-  // Outlining moves a callback in a hook or component nested in a factory to module
-  // scope, where the factory's bindings are unbound (facebook/react#34901).
-  environment: { enableFunctionOutlining: false },
-  // A compiled worker function throws "Invalid hook call" on the Aether worker.
-  sources: (file: string) => !isWorker(file),
-};
-
-/** Fails on any component or hook that the compiler cannot compile. */
-const STRICT = { ...OPTIONS, panicThreshold: "all_errors" };
-
-// A workspace dependency's dist is already compiled.
-const DIST = /[/\\]dist[/\\]/;
 
 // Spec files and test helpers never ship, so a spec run compiles them leniently.
 const TEST_CODE = /\.spec\.tsx?$|testutil/i;
@@ -76,7 +71,6 @@ const isBuild = (config: ResolvedConfig): boolean => config.command === "build";
 const isTest = (config: ResolvedConfig): boolean => config.mode === "test";
 
 const PRESETS = [
-  preset({ strict: true, applies: isBuild }),
   preset({ strict: true, applies: isTest, exclude: [TEST_CODE] }),
   preset({ strict: false, applies: isTest, include: [TEST_CODE] }),
   preset({ strict: false, applies: (c) => !isBuild(c) && !isTest(c) }),
@@ -87,10 +81,17 @@ const PRESETS = [
  * `@vitejs/plugin-react` ships, it applies in every environment, so specs run the same
  * compiled code that builds emit. A build or spec run fails on a component or hook that
  * the compiler cannot compile, outside spec files and test helpers; the dev server
- * skips it instead. A `"use no memo"` directive opts one out.
+ * skips it instead. A `"use no memo"` directive opts one out. Builds compile on
+ * Rolldown's worker threads.
  */
 export const reactCompiler = (): PluginOption => [
   babel({ presets: PRESETS }),
+  {
+    ...defineParallelPlugin(fileURLToPath(PARALLEL))({}),
+    name: "synnax:react-compiler-build",
+    apply: "build",
+    enforce: "pre",
+  },
   {
     name: "synnax:react-compiler",
     // Vitest keys its module cache on plugin names, not on how they transform.

@@ -224,6 +224,47 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
     EXPECT_NE(this->ctx->statuses.back().message.find("3 slaves"), std::string::npos);
 }
 
+/// @brief it should return a permission error from a scan, so the error reaches the
+/// status of the scan task.
+TEST_F(EtherCATScanTest, ScanReturnsPermissionDenied) {
+    auto mock_master = std::make_shared<mock::Master>("eth0");
+    mock_master->inject_init_error(
+        x::errors::Error(errors::PERMISSION_DENIED, "permission denied opening eth0")
+    );
+    auto manager = std::make_unique<mock::Manager>();
+    manager->configure("eth0", mock_master);
+    auto pool = std::make_shared<engine::Pool>(std::move(manager));
+    synnax::task::Task task{
+        .rack = this->rack.key,
+        .name = "EtherCAT Scanner",
+        .type = SCAN_TASK_TYPE,
+        .internal = true
+    };
+    Scanner scanner(this->ctx, task, ScanTaskConfig{}, pool);
+    ASSERT_OCCURRED_AS_P(scanner.scan({}), errors::PERMISSION_DENIED);
+}
+
+/// @brief it should skip an interface that fails to initialize for a reason other than
+/// permission, and return no devices for it.
+TEST_F(EtherCATScanTest, ScanSkipsInterfaceInitError) {
+    auto mock_master = std::make_shared<mock::Master>("eth0");
+    mock_master->inject_init_error(
+        x::errors::Error(errors::MASTER_INIT_ERROR, "no EtherCAT slaves found")
+    );
+    auto manager = std::make_unique<mock::Manager>();
+    manager->configure("eth0", mock_master);
+    auto pool = std::make_shared<engine::Pool>(std::move(manager));
+    synnax::task::Task task{
+        .rack = this->rack.key,
+        .name = "EtherCAT Scanner",
+        .type = SCAN_TASK_TYPE,
+        .internal = true
+    };
+    Scanner scanner(this->ctx, task, ScanTaskConfig{}, pool);
+    const auto devices = ASSERT_NIL_P(scanner.scan({}));
+    EXPECT_TRUE(devices.empty());
+}
+
 TEST_F(EtherCATScanTest, TestInterfaceCommandInitError) {
     auto mock_master = std::make_shared<mock::Master>("eth0");
     mock_master->inject_init_error(

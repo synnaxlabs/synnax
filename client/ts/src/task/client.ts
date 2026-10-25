@@ -11,7 +11,6 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import {
   array,
   binary,
-  caseconv,
   type CrudeTimeSpan,
   deep,
   type destructor,
@@ -1042,10 +1041,7 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutID = setTimeout(() => {
       const taskKeys = commands.map((c) => c.task);
-      formatTimeoutError("command", taskName, parsedTimeout, taskKeys).then(
-        reject,
-        reject,
-      );
+      formatTimeoutError(taskName, parsedTimeout, taskKeys).then(reject, reject);
     }, parsedTimeout.milliseconds);
   });
   try {
@@ -1069,12 +1065,10 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
 };
 
 const formatTimeoutError = async (
-  type: string,
   name: string | string[] | (() => Promise<string | string[]>),
   timeout: TimeSpan,
   key: Key | Key[],
 ): Promise<Error> => {
-  const formattedType = caseconv.capitalize(type);
   const formattedTimeout = timeout.toString();
   try {
     let names: string[];
@@ -1082,13 +1076,11 @@ const formatTimeoutError = async (
     else if (Array.isArray(name)) names = name;
     else names = array.toArray(await name());
     const formattedName = strings.naturalLanguageJoin(names);
-    return new Error(
-      `${formattedType} command to ${formattedName} timed out after ${formattedTimeout}`,
-    );
+    return new Error(`Command to ${formattedName} timed out after ${formattedTimeout}`);
   } catch (e) {
     console.error("Failed to retrieve task name for timeout error:", e);
     return new Error(
-      `${formattedType} command to task with key ${strings.naturalLanguageJoin(array.toArray(key).map((k) => k.toString()))} timed out after ${formattedTimeout}`,
+      `Command to task with key ${strings.naturalLanguageJoin(array.toArray(key).map((k) => k.toString()))} timed out after ${formattedTimeout}`,
     );
   }
 };
