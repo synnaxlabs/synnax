@@ -11,7 +11,7 @@
     "watch": "vite build --watch",
     "test": "vitest",
     "cov": "vitest --coverage",
-    "bench": "vitest bench",
+    "bench": "vitest bench --config vitest.bench.config.ts",
     "dev": "vite",
     "lint": "eslint",
     "fix": "eslint --fix",

@@ -39,7 +39,6 @@ import {
   useDownloadAsCSV,
 } from "@/feature/lineplot/useDownloadAsCSV";
 import { useTriggerHold } from "@/feature/lineplot/useTriggerHold";
-import { FLAGS } from "@/flags";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Panel } from "@/platform/panel";
@@ -314,7 +313,6 @@ const Internal = (): ReactElement => {
           onDoubleClick={handleDoubleClick}
           clearOverScan={CLEAR_OVERSCAN}
           visible={visible}
-          tiled={FLAGS.lineplotTiles}
         >
           <Controls hasAnnotations={hasAnnotations} />
         </Base.LinePlot>
