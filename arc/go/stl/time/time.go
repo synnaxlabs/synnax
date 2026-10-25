@@ -230,7 +230,7 @@ func validateSpan(inputs types.Params, name string) error {
 		return nil
 	}
 	return validate.PathedError(
-		errors.Wrapf(validate.ErrValidation, "must be positive, got %s", span),
+		errors.Wrapf(validate.ErrValidation, "must be positive, not %s", span),
 		p.Name,
 	)
 }
@@ -254,7 +254,7 @@ func (g *spanGuard) usable(ctx node.Context, span telem.TimeSpan, label string) 
 	}
 	if !g.reported {
 		ctx.ReportError(errors.Wrapf(
-			validate.ErrValidation, "%s must be positive, got %s", label, span,
+			validate.ErrValidation, "The %s must be positive, not %s", label, span,
 		))
 		g.reported = true
 	}

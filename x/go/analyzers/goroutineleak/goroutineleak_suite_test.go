@@ -19,7 +19,7 @@ import (
 
 func TestGoroutineLeak(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Analyzers Goroutine Leak Suite")
+	RunSpecs(t, "Analyzers Goroutine Leak Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

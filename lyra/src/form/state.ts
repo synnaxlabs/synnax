@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep, map, observe, zod } from "@synnaxlabs/x";
+import { deep, map, observe, type record, shallow, zod } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { type Status } from "@/status";
@@ -38,14 +38,40 @@ interface SetValueOptions {
   markTouched?: boolean;
 }
 
+/**
+ * Copies the root and every container on the way to the path's leaf, walking the path
+ * the way `deep.set` and `deep.remove` do. A write at the path then gives each ancestor
+ * a new identity and leaves every untouched subtree shared.
+ */
+const copyPath = <V>(root: V, path: string): V => {
+  const next = shallow.copy(root);
+  const parts = path.split(deep.SEPARATOR);
+  let parent = next as record.Unknown;
+  let i = 0;
+  while (i < parts.length - 1) {
+    const best = deep.findBestKey(parent, parts.slice(i, parts.length - 1));
+    if (best == null) break;
+    const [key, consumed] = best;
+    i += consumed;
+    const child = deep.defaultGetter(parent, key);
+    const copy = shallow.copy(child) as record.Unknown;
+    // An array entry found by its key field sits at an index, not at the key.
+    if (parent[key] === child) parent[key] = copy;
+    else parent[(parent as unknown as unknown[]).indexOf(child)] = copy;
+    parent = copy;
+  }
+  return next;
+};
+
 export class State<Z extends z.ZodType> extends observe.Observer<void> {
   private readonly schema?: Z;
+  /** The current values. A write copies each object on its path, never changing one. */
   values: z.infer<Z>;
   initialValues: z.infer<Z>;
 
   private readonly statuses: Map<string, Status.Crude>;
   private readonly touched: Set<string>;
-  private readonly cachedRefs: Map<string, {}>;
+  private readonly cachedRefs: Map<string, { state: FieldState; stale: boolean }>;
 
   constructor(values: z.infer<Z>, schema?: Z) {
     super();
@@ -61,10 +87,15 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     if (path == "") this.values = deep.copy(value) as z.infer<Z>;
     else {
       this.materialize(path);
-      deep.set(this.values, path, value);
+      this.write(path, value);
     }
     this.checkTouched(path, value, options);
     this.updateCachedRefs(path);
+  }
+
+  private write(path: string, value: unknown) {
+    this.values = copyPath(this.values, path);
+    deep.set(this.values, path, value);
   }
 
   /** @returns the value the schema supplies for an absent path, or undefined. */
@@ -102,7 +133,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
    */
   private materialize(path: string) {
     const ancestor = this.absentAncestor(path);
-    if (ancestor != null) deep.set(this.values, ...ancestor);
+    if (ancestor != null) this.write(...ancestor);
   }
 
   /** Reads an absent path out of the default a write would materialize. */
@@ -181,6 +212,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
   }
 
   remove(path: string) {
+    this.values = copyPath(this.values, path);
     deep.remove(this.values, path);
     this.statuses.delete(path);
     this.clearTouched(path);
@@ -286,8 +318,8 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
    */
   getState<V>(path: string, opts: GetOptions = {}): FieldState<V> | null {
     const { optional = false } = opts;
-    const cachedRef = map.getOrSetDefault(this.cachedRefs, path, {}) as FieldState<V>;
-    if (cachedRef.status != null) return cachedRef;
+    const cached = this.cachedRefs.get(path);
+    if (cached != null && !cached.stale) return cached.state as FieldState<V>;
     let value = deep.get<V, z.infer<Z>>(this.values, path, { optional: true });
     value ??= this.readAbsent(path) as V | null;
     let required = false;
@@ -312,26 +344,37 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
       if (optional) return null;
       throw new Error(`Field ${path} is not in the form`);
     }
-    cachedRef.value = value;
-    cachedRef.required = required;
-    cachedRef.status = map.getOrSetDefault(this.statuses, path, {
+    const status = map.getOrSetDefault(this.statuses, path, {
       key: path,
       variant: "success",
       message: "",
     });
-    cachedRef.touched = this.touched.has(path);
-    return cachedRef;
+    const touched = this.touched.has(path);
+    // A field whose state did not change keeps its object, so it does not re-render.
+    if (
+      cached != null &&
+      cached.state.value === value &&
+      cached.state.required === required &&
+      cached.state.status === status &&
+      cached.state.touched === touched
+    ) {
+      cached.stale = false;
+      return cached.state as FieldState<V>;
+    }
+    const state: FieldState<V> = { value, required, status, touched };
+    this.cachedRefs.set(path, { state, stale: false });
+    return state;
   }
 
   /**
-   * Drops the cached state of the path, its ancestors, and everything under its
+   * Marks stale the cached state of the path, its ancestors, and everything under its
    * parent. A sibling can be the discriminator that decides the path's schema.
    */
   private updateCachedRefs(fieldPath: string) {
     const parent = fieldPath.slice(0, Math.max(fieldPath.lastIndexOf("."), 0));
-    this.cachedRefs.forEach((_, refPath) => {
+    this.cachedRefs.forEach((cached, refPath) => {
       if (deep.pathsMatch(refPath, parent) || deep.pathsMatch(fieldPath, refPath))
-        this.cachedRefs.set(refPath, {});
+        cached.stale = true;
     });
   }
 }

@@ -11,7 +11,6 @@ package graph
 
 import (
 	"context"
-	"fmt"
 	"slices"
 	"sync"
 
@@ -220,7 +219,6 @@ func (g *Graph) hydrate(ctx context.Context, tx gorp.Tx) error {
 				statuses[ch.Key()] = calculation.StatusFromError(
 					ch.Key(),
 					ch.Name,
-					fmt.Sprintf("invalid expression for %s", ch.Name),
 					err,
 				)
 				invalidCount++
@@ -338,12 +336,7 @@ func (g *Graph) handleChanges(ctx context.Context, reader Changes) {
 					g.setNodeStatus(
 						ctx,
 						tx,
-						calculation.StatusFromError(
-							ch.Key(),
-							ch.Name,
-							fmt.Sprintf("invalid expression for %s", ch.Name),
-							err,
-						),
+						calculation.StatusFromError(ch.Key(), ch.Name, err),
 					)
 				} else {
 					g.L.Debug("calculated channel inspected",
@@ -499,12 +492,7 @@ func (g *Graph) reconcileQueued(
 				g.setNodeStatus(
 					ctx,
 					tx,
-					calculation.StatusFromError(
-						key,
-						refetched.Name,
-						fmt.Sprintf("invalid expression for %s", refetched.Name),
-						err,
-					),
+					calculation.StatusFromError(key, refetched.Name, err),
 				)
 				continue
 			}

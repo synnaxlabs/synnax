@@ -10,34 +10,52 @@
 import { compare, deep, type primitive } from "@synnaxlabs/x";
 import { type DependencyList, useRef } from "react";
 
-const arraysEqual = <T>(a: readonly T[], b: readonly T[]): boolean => {
+/** @returns whether two lists hold the same elements, as React compares deps. */
+export const compareDeps = <T>(a: readonly T[], b: readonly T[]): boolean => {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) if (!Object.is(a[i], b[i])) return false;
   return true;
 };
 
+/**
+ * Keeps the value made for a key until `areEqual` rejects the next key. Never sets
+ * state, so a caller that builds a fresh key on every call cannot loop its render.
+ */
+const useCache = <K, V>(
+  key: K,
+  areEqual: (prev: K, next: K) => boolean,
+  create: () => V,
+): V => {
+  "use no memo"; // Reads a ref in render. An entry holds for any render with its key.
+  const ref = useRef<{ key: K; value: V }>(null);
+  /* eslint-disable synnax/react-compiler */
+  if (ref.current == null || !areEqual(ref.current.key, key))
+    ref.current = { key, value: create() };
+  return ref.current.value;
+  /* eslint-enable synnax/react-compiler */
+};
+
+/**
+ * Like `useMemo`, but recomputes only when `areEqual` rejects the new deps. The factory
+ * runs once per accepted change.
+ */
 export const useMemoCompare = <V, D extends DependencyList>(
   factory: () => V,
   areEqual: (prevDeps: D, nextDeps: D) => boolean,
   deps: D,
-): V => {
-  const ref = useRef<{ deps: D; value: V }>(null);
-  if (ref.current == null) ref.current = { deps, value: factory() };
-  else if (!areEqual(ref.current.deps, deps)) ref.current = { deps, value: factory() };
-  return ref.current.value;
-};
+): V => useCache(deps, areEqual, factory);
 
 export const compareArrayDeps = <T extends primitive.Value>(
   [a]: readonly [T[]] | [T[]],
   [b]: readonly [T[]] | [T[]],
 ): boolean => compare.primitiveArrays(a, b) === 0;
 
-export const useMemoDeepEqual = <T>(value: T): T => {
-  const ref = useRef<T>(null);
-  if (ref.current == null) ref.current = value;
-  else if (!deep.equal(ref.current, value)) ref.current = value;
-  return ref.current;
-};
+/**
+ * @returns the first value it was given for as long as each new value is deeply equal
+ * to it, so the result can serve as an effect or memo dependency.
+ */
+export const useMemoDeepEqual = <T>(value: T): T =>
+  useCache(value, deep.equal, () => value);
 
 /**
  * Returns a referentially stable array as long as its contents are element-wise equal
@@ -45,8 +63,5 @@ export const useMemoDeepEqual = <T>(value: T): T => {
  * contents. Faster than {@link useMemoDeepEqual} since it short-circuits on length
  * and avoids structural traversal.
  */
-export const useMemoArray = <T>(value: readonly T[]): readonly T[] => {
-  const ref = useRef<readonly T[]>(null);
-  if (ref.current == null || !arraysEqual(ref.current, value)) ref.current = value;
-  return ref.current;
-};
+export const useMemoArray = <T>(value: readonly T[]): readonly T[] =>
+  useCache(value, compareDeps, () => value);

@@ -14,13 +14,12 @@ import { CSS } from "@synnaxlabs/lyra/css";
 import { Cursor } from "@synnaxlabs/lyra/cursor";
 import { type Triggers } from "@synnaxlabs/lyra/triggers";
 import { box, direction, xy } from "@synnaxlabs/x";
-import { useReactFlow } from "@xyflow/react";
+import { type ReactFlowState, useReactFlow, useStore } from "@xyflow/react";
 import {
   type FC,
   Fragment,
   type ReactElement,
   useCallback,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -41,7 +40,7 @@ import {
 } from "@/schematic/edge/common/segmented/connector";
 import { Form } from "@/schematic/edge/common/segmented/Form";
 import { type Edge, type Spec } from "@/schematic/edge/spec";
-import { selectNodeBox } from "@/vis/diagram/util";
+import { internalNodeBox, selectZoom } from "@/vis/diagram/util";
 
 interface CurrentlyDragging {
   segments: Segment[];
@@ -52,6 +51,15 @@ export interface PathProps extends Omit<Base.BaseProps, "path" | "points"> {
   points: xy.XY[];
   crossings: xy.XY[];
 }
+
+const useNodeBox = (key: string): box.Box =>
+  useStore(
+    useCallback(
+      ({ nodeLookup }: ReactFlowState) => internalNodeBox(nodeLookup.get(key) ?? null),
+      [key],
+    ),
+    box.equals,
+  );
 
 const create = (Path: FC<PathProps>): Edge => {
   const E: Edge = ({
@@ -65,26 +73,17 @@ const create = (Path: FC<PathProps>): Edge => {
     onChange,
   }): ReactElement | null => {
     const flow = useReactFlow();
+    const zoom = useStore(selectZoom);
     const crossings = Jumps.useCrossings(edgeKey);
-    const visualSegments = useMemo(
-      () =>
-        build({
-          source,
-          target,
-          sourceBox: selectNodeBox(flow, sourceNode),
-          targetBox: selectNodeBox(flow, targetNode),
-          middleSegments,
-        }),
-      [
-        source.position.x,
-        source.position.y,
-        target.position.x,
-        target.position.y,
-        source.orientation,
-        target.orientation,
-        middleSegments,
-      ],
-    );
+    const sourceBox = useNodeBox(sourceNode);
+    const targetBox = useNodeBox(targetNode);
+    const visualSegments = build({
+      source,
+      target,
+      sourceBox,
+      targetBox,
+      middleSegments,
+    });
 
     const persistMiddle = useCallback(
       (segs: Segment[]) => {
@@ -100,17 +99,20 @@ const create = (Path: FC<PathProps>): Edge => {
     const segments = dragOverride ?? visualSegments;
     const dragRef = useRef<CurrentlyDragging | null>(null);
 
-    const computeDragged = useCallback((b: box.Box): Segment[] | null => {
-      const drag = dragRef.current;
-      if (drag == null) return null;
-      return dragSegment({
-        segments: drag.segments,
-        index: drag.index,
-        magnitude:
-          box.dim(b, direction.swap(drag.segments[drag.index].direction), true) /
-          flow.getZoom(),
-      });
-    }, []);
+    const computeDragged = useCallback(
+      (b: box.Box): Segment[] | null => {
+        const drag = dragRef.current;
+        if (drag == null) return null;
+        return dragSegment({
+          segments: drag.segments,
+          index: drag.index,
+          magnitude:
+            box.dim(b, direction.swap(drag.segments[drag.index].direction), true) /
+            flow.getZoom(),
+        });
+      },
+      [flow],
+    );
 
     const dragStart = Cursor.useDrag({
       onStart: useCallback(
@@ -144,7 +146,7 @@ const create = (Path: FC<PathProps>): Edge => {
       ),
     });
 
-    const points = segmentsToPoints(source.position, segments, flow.getZoom(), true);
+    const points = segmentsToPoints(source.position, segments, zoom, true);
 
     if (segments.length === 0) return null;
 
@@ -155,10 +157,9 @@ const create = (Path: FC<PathProps>): Edge => {
           calcMidPoints(points).map((p, i) => {
             const dir = segments[i].direction;
             const swapped = direction.swap(dir);
-            const dims = {
-              [direction.dimension(dir)]: "18px",
-              [direction.dimension(swapped)]: "4px",
-            };
+            const dim = direction.dimension(dir);
+            const swappedDim = direction.dimension(swapped);
+            const dims = { [dim]: "18px", [swappedDim]: "4px" };
             const pos = {
               [dir]: p[dir] - 9,
               [swapped]: p[swapped] - 2,

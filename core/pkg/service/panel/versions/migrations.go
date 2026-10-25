@@ -12,14 +12,14 @@ package versions
 import (
 	"slices"
 
+	"github.com/synnaxlabs/gorp"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v2"
-	"github.com/synnaxlabs/x/migrate"
 )
 
 // Migrations is the ordered migration chain for stored panels.
-var Migrations = []migrate.Migration{v0.Migration}
+var Migrations = []gorp.Migration{v0.Migration}
 
 // CompositionMigrations is the ordered set of migrations the service layer runs after
 // every service table is open, concatenating each version's contribution. The lifts
@@ -27,7 +27,7 @@ var Migrations = []migrate.Migration{v0.Migration}
 // v0 panels.
 var CompositionMigrations = slices.Concat(
 	v0.CompositionMigrations,
-	[]migrate.Migration{v1.Migration, v2.Migration},
+	[]gorp.Migration{v1.Migration, v2.Migration},
 )
 
 // Latest is the portable schema version stamped on a panel bundle member and the

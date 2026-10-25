@@ -46,6 +46,7 @@ export const use = ({
     setState((state) => ({ ...state, ...memoProps }));
   }, [memoProps, setState]);
   // Wrap to prevent React event from being passed as argument
-  const handleToggle = useCallback(() => methods.toggle(), [methods.toggle]);
+  const { toggle: runToggle } = methods;
+  const handleToggle = useCallback(() => runToggle(), [runToggle]);
   return { toggle: handleToggle, enabled, stale };
 };

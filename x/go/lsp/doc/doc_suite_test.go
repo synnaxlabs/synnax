@@ -19,7 +19,7 @@ import (
 
 func TestDoc(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "LSP Doc Suite")
+	RunSpecs(t, "LSP Doc Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
