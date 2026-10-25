@@ -549,6 +549,53 @@ var _ = Describe("Filter definitions", func() {
 			Expect(output.Values[0].StringValue).To(Equal("service"))
 		})
 
+		It("Should take the include fields from the @response type", func(
+			ctx SpecContext,
+		) {
+			table, diag := analyzer.AnalyzeSource(ctx, `
+				import "schemas/x/filter"
+
+				Thing struct {
+					key uuid { @key }
+				}
+				Wire struct {
+					key    uuid
+					status string? { @include }
+				}
+				Where filter Thing {
+					key
+
+					@response type Wire
+				}
+			`, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			req := table.MustGet("test.RetrieveRequest").Form.(resolution.StructForm)
+			Expect(fieldNames(req)).To(Equal([]string{
+				"where", "limit", "offset", "include_status",
+			}))
+		})
+
+		It("Should reject a @response type without fields", func(ctx SpecContext) {
+			_, diag := analyzer.AnalyzeSource(ctx, `
+				import "schemas/x/filter"
+
+				Kind enum {
+					a = "a"
+				}
+				Thing struct {
+					key uuid { @key }
+				}
+				Where filter Thing {
+					key
+
+					@response type Kind
+				}
+			`, "test", loader)
+			Expect(diag.String()).To(ContainSubstring(
+				"filter Where: the response type test.Kind must be a struct or a union",
+			))
+		})
+
 		It("Should reject a derived name the schema already declares", func(
 			ctx SpecContext,
 		) {

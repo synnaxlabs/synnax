@@ -503,7 +503,11 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 			fmt.Sprintf("is the number of matching %s to skip.", words),
 		),
 	)
-	for _, f := range fields {
+	response, records, ok := retrieveResponse(c, where, target, fields, plural, words)
+	if !ok {
+		return
+	}
+	for _, f := range records {
 		if _, ok := f.Domains["include"]; ok {
 			request = append(request, optionalField(
 				"include_"+f.Name,
@@ -518,12 +522,7 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 		Domains: withDoc(domains, fmt.Sprintf(
 			"is a request to retrieve %s.", words,
 		)),
-	})
-	response, ok := retrieveResponse(c, where, target, plural, words)
-	if !ok {
-		return
-	}
-	created = append(created, response)
+	}, response)
 	for _, t := range created {
 		t.Namespace = c.namespace
 		t.QualifiedName = c.namespace + "." + t.Name
@@ -547,11 +546,15 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 	}
 }
 
-// retrieveResponse derives the response. A `@response type T` on the filter replaces
-// the target with T, and the response takes T's outputs.
+// retrieveResponse derives the response and returns it with the fields of the records
+// it holds. A `@response type T` on the filter replaces the target with T, and the
+// response takes T's outputs.
 func retrieveResponse(
-	c *analysisCtx, where, target resolution.Type, plural, words string,
-) (resolution.Type, bool) {
+	c *analysisCtx,
+	where, target resolution.Type,
+	fields []resolution.Field,
+	plural, words string,
+) (resolution.Type, []resolution.Field, bool) {
 	elem := resolution.TypeRef{Name: target.QualifiedName}
 	// A generic target's table holds records of every type argument.
 	if form, ok := target.Form.(resolution.StructForm); ok {
@@ -564,21 +567,29 @@ func retrieveResponse(
 	}
 	domains := c.fileDomains
 	if dom, ok := where.Domains["response"]; ok {
+		def := where.AST.(parser.IFilterDefContext)
 		expr, ok := dom.Expressions.Find("type")
 		if !ok || len(expr.Values) == 0 ||
 			expr.Values[0].Kind != resolution.ValueKindIdent {
 			c.report(diagnostics.Errorf(
-				where.AST.(parser.IFilterDefContext),
-				"filter %s: @response takes `type <Type>`",
-				where.Name,
+				def, "filter %s: @response takes `type <Type>`", where.Name,
 			))
-			return resolution.Type{}, false
+			return resolution.Type{}, nil, false
 		}
 		elem = resolution.TypeRef{Name: expr.Values[0].IdentValue}
 		resolveTypeRef(c, &where, &elem)
 		override, ok := c.table.Get(elem.Name)
 		if !ok {
-			return resolution.Type{}, false
+			return resolution.Type{}, nil, false
+		}
+		if fields, ok = resolution.RecordFields(override, c.table); !ok {
+			c.report(diagnostics.Errorf(
+				def,
+				"filter %s: the response type %s must be a struct or a union",
+				where.Name,
+				elem.Name,
+			))
+			return resolution.Type{}, nil, false
 		}
 		domains = outputDomains(c.fileDomains, override.Domains)
 	}
@@ -592,7 +603,7 @@ func retrieveResponse(
 		Domains: withDoc(domains, fmt.Sprintf(
 			"holds the %s a RetrieveRequest selects.", words,
 		)),
-	}, true
+	}, fields, true
 }
 
 // outputDomains returns file with the output and omit expressions of each domain in
