@@ -25,7 +25,7 @@ export interface Position {
 }
 
 /** A tile, optionally cut short at either end. */
-interface Bounds extends Position {
+export interface Bounds extends Position {
   /** Starts the range after the tile does. */
   start?: TimeStamp;
   /** Ends the range before the tile does. */
@@ -75,7 +75,7 @@ export const indexes = (tr: TimeRange, level: number): number[] => {
   return out;
 };
 
-interface PointLimitProps {
+export interface PointLimitProps {
   level: number;
   /** The range the line shows. */
   view: TimeRange;

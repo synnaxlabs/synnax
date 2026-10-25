@@ -132,6 +132,8 @@ const cut = (s: Series, tr: TimeRange): Series =>
 /**
  * Splits a fetch's series of one channel at the edges of the raw blocks first to last,
  * and cuts the time range of each part to its block.
+ * @param first - The first raw block the fetch read.
+ * @param last - The last raw block the fetch read.
  * @param timestamps - The fetch's series of the channel's index, in time order.
  * @param series - The fetch's series of the channel, in time order.
  * @returns the part of each block, from first to last.
