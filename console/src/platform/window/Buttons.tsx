@@ -7,45 +7,56 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/os/Controls/Windows.css";
+import "@/platform/window/Buttons.css";
 
 import { Button as BaseButton } from "@synnaxlabs/lyra/button";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { type ReactElement } from "react";
 
-import { type InternalControlsProps } from "@/os/Controls/types";
+import { CSS } from "@/platform/css";
 
-export const Windows = ({
+type Action = "close" | "minimize" | "maximize";
+
+export interface ButtonsProps extends Flex.BoxProps {
+  /** The buttons to leave out. */
+  disabled?: Action[];
+  maximized?: boolean;
+  onMinimize?: () => void;
+  onMaximize?: () => void;
+  onClose?: () => void;
+}
+
+/** The minimize, maximize, and close buttons a window draws for itself on Windows. */
+export const Buttons = ({
   disabled = [],
   maximized = false,
   onMinimize,
   onMaximize,
   onClose,
-  // no-ops on windows
-  onFullscreen: _,
-  focused: __,
   ...rest
-}: InternalControlsProps): ReactElement => (
+}: ButtonsProps): ReactElement => (
   <Flex.Box pack {...rest}>
     <Button
-      className={CSS.BM("windows-control", "minimize")}
+      action="minimize"
+      aria-label="Minimize"
       onClick={onMinimize}
       disabled={disabled.includes("minimize")}
     >
       <Icon.Subtract />
     </Button>
     <Button
-      className={CSS.BM("windows-control", "maximize")}
+      action="maximize"
+      aria-label={maximized ? "Restore" : "Maximize"}
       onClick={onMaximize}
       disabled={disabled.includes("maximize")}
     >
       {maximized ? <Icon.Boxes /> : <Icon.Box />}
     </Button>
     <Button
+      action="close"
+      aria-label="Close"
       onClick={onClose}
-      className={CSS.BM("windows-control", "close")}
       disabled={disabled.includes("close")}
     >
       <Icon.CloseThin />
@@ -53,14 +64,21 @@ export const Windows = ({
   </Flex.Box>
 );
 
+interface ButtonProps extends BaseButton.ButtonProps {
+  action: Action;
+}
+
 const Button = ({
+  action,
   disabled = false,
-  className,
   ...rest
-}: BaseButton.ButtonProps): ReactElement | null =>
+}: ButtonProps): ReactElement | null =>
   !disabled ? (
     <BaseButton.Button
-      className={CSS.cls(CSS.B("windows-control"), className)}
+      className={CSS.cls(
+        CSS.BE("window", "button"),
+        CSS.BEM("window", "button", action),
+      )}
       tabIndex={-1}
       variant="text"
       {...rest}
