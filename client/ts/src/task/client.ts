@@ -602,9 +602,9 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Applies actions to the cached task and sends them to the Core, recording an
-   * undoable entry. Paths and values take the snake_case form that the Core stores.
-   * Returns false without side effects when the task is not cached.
+   * Applies actions to the cached task and sends them to the Core. Paths and values
+   * take the snake_case form that the Core stores. Returns false without side effects
+   * when the task is not cached.
    * @throws {Error} if the task cannot hold an action, before any send.
    * @throws {Error} if the send fails, after the cached task drops the actions.
    */
@@ -617,32 +617,6 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Reverts the task's most recent undoable entry. Returns false when nothing is
-   * undoable.
-   */
-  async undo(key: Key): Promise<boolean> {
-    return await this.dispatcher.undo(key, this.dispatchSender(key));
-  }
-
-  /**
-   * Applies the task's most recently undone entry again. Returns false when nothing is
-   * redoable.
-   */
-  async redo(key: Key): Promise<boolean> {
-    return await this.dispatcher.redo(key, this.dispatchSender(key));
-  }
-
-  /** Whether the task has a live undo entry. */
-  hasUndo(key: Key): boolean {
-    return this.dispatcher.hasUndo(key);
-  }
-
-  /** Whether the task has a live redo entry. */
-  hasRedo(key: Key): boolean {
-    return this.dispatcher.hasRedo(key);
-  }
-
-  /**
    * Resolves once the cached task holds no dispatch that the Core has not echoed, so
    * its config hash is the one the Core holds for the edits made so far.
    */
@@ -650,17 +624,9 @@ export class Client extends query.Retriever<
     await this.dispatcher.settled(key);
   }
 
-  /**
-   * Subscribes to changes in the undo and redo stacks of the task, or of every task.
-   * Returns a destructor that unsubscribes.
-   */
-  onUndoStateChange(callback: () => void, key?: Key): destructor.Destructor {
-    return this.dispatcher.onUndoStateChange(callback, key);
-  }
-
-  /** Stages actions committed atomically as one undoable entry. */
-  beginTransaction(key: Key, kind?: string): actions.Transaction<Action> {
-    return this.dispatcher.transaction(key, this.dispatchSender(key), kind);
+  /** Stages actions that commit atomically as one dispatch. */
+  beginTransaction(key: Key): actions.Transaction<Action> {
+    return this.dispatcher.transaction(key, this.dispatchSender(key));
   }
 
   private dispatchSender(key: Key): actions.SendDispatch<Action> {

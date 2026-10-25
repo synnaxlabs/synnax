@@ -216,15 +216,6 @@ describe("dispatch", () => {
     expect(expectLive(client.labels.getCached(lbl.key)).name).toBe(lbl.name);
   });
 
-  it("should undo and redo a dispatch", async () => {
-    const lbl = await createLabel();
-    await client.labels.dispatch(lbl.key, rename("Anomaly"));
-    expect(await client.labels.undo(lbl.key)).toBe(true);
-    expect((await createTestClient().labels.retrieve(lbl.key)).name).toBe(lbl.name);
-    expect(await client.labels.redo(lbl.key)).toBe(true);
-    expect((await createTestClient().labels.retrieve(lbl.key)).name).toBe("Anomaly");
-  });
-
   it("should send a transaction as one dispatch", async () => {
     const lbl = await createLabel();
     const send = spyOnSend(client);

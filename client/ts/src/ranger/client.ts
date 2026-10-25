@@ -627,9 +627,9 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Applies actions to the cached range and sends them to the Core, recording an
-   * undoable entry. Paths and values take the snake_case form that the Core stores.
-   * Returns false without side effects when the range is not cached.
+   * Applies actions to the cached range and sends them to the Core. Paths and values
+   * take the snake_case form that the Core stores. Returns false without side effects
+   * when the range is not cached.
    * @throws {Error} if the range cannot hold an action, before any send.
    * @throws {Error} if the send fails, after the cached range drops the actions.
    */
@@ -641,25 +641,9 @@ export class Client extends query.Retriever<
     );
   }
 
-  /**
-   * Reverts the range's most recent undoable entry. Returns false when nothing is
-   * undoable.
-   */
-  async undo(key: Key): Promise<boolean> {
-    return await this.dispatcher.undo(key, this.dispatchSender(key));
-  }
-
-  /**
-   * Applies the range's most recently undone entry again. Returns false when nothing is
-   * redoable.
-   */
-  async redo(key: Key): Promise<boolean> {
-    return await this.dispatcher.redo(key, this.dispatchSender(key));
-  }
-
-  /** Stages actions committed atomically as one undoable entry. */
-  beginTransaction(key: Key, kind?: string): actions.Transaction<Action> {
-    return this.dispatcher.transaction(key, this.dispatchSender(key), kind);
+  /** Stages actions that commit atomically as one dispatch. */
+  beginTransaction(key: Key): actions.Transaction<Action> {
+    return this.dispatcher.transaction(key, this.dispatchSender(key));
   }
 
   private dispatchSender(key: Key): actions.SendDispatch<Action> {

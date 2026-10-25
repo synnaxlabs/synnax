@@ -586,26 +586,6 @@ describe("Task", async () => {
       expect(cached.type).toBe("pagerduty_alert");
       await client.tasks.settled(t.key);
     });
-
-    it("should undo and redo a dispatch", async () => {
-      const t = await testRack.createTask({
-        name: `dispatch-undo-${id.create()}`,
-        config: { routingKey: "dog" },
-        type: "pagerduty_alert",
-      });
-      await client.tasks.dispatch(t.key, routingKey("cat"));
-      expect(client.tasks.hasUndo(t.key)).toBe(true);
-      expect(await client.tasks.undo(t.key)).toBe(true);
-      const reader = createTestClient();
-      expect((await reader.tasks.retrieve(t.key)).config).toMatchObject({
-        routingKey: "dog",
-      });
-      expect(client.tasks.hasRedo(t.key)).toBe(true);
-      expect(await client.tasks.redo(t.key)).toBe(true);
-      expect((await createTestClient().tasks.retrieve(t.key)).config).toMatchObject({
-        routingKey: "cat",
-      });
-    });
   });
 
   describe("lifecycle methods", () => {

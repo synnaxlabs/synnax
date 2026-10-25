@@ -154,7 +154,6 @@ describe("createDocumentForm", () => {
     act(() => result.current.form.set("config.routingKey", "dog"));
     await act(async () => expect(await result.current.flush()).toBe(true));
     expect(countDispatches(send)).toBe(0);
-    expect(formClient.tasks.hasUndo(t.key)).toBe(false);
   });
 
   it("should hold a value that fails its schema until the value passes", async () => {
@@ -272,7 +271,7 @@ describe("createDocumentForm", () => {
     });
   });
 
-  it("should send a batch as one dispatch that one undo reverts", async () => {
+  it("should send a batch as one dispatch", async () => {
     const t = await createTask();
     const { result } = await renderForm(t.key);
     const send = spyOnSend(formClient);
@@ -287,10 +286,6 @@ describe("createDocumentForm", () => {
     const edited = await fetchStored(t.key);
     expect(edited.name).toBe("renamed");
     expect(edited.config).toMatchObject({ routingKey: "cat" });
-    await act(async () => expect(await formClient.tasks.undo(t.key)).toBe(true));
-    const reverted = await fetchStored(t.key);
-    expect(reverted.name).toBe(t.name);
-    expect(reverted.config).toMatchObject({ routingKey: "dog" });
   });
 
   it("should report an edit that the Core refuses and drop it", async () => {

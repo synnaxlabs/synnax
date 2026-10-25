@@ -1161,15 +1161,6 @@ describe("dispatch", () => {
     expect(expectLive(client.ranges.getCached(rng.key)).name).toBe(rng.name);
   });
 
-  it("should undo and redo a dispatch", async () => {
-    const rng = await createRange();
-    await client.ranges.dispatch(rng.key, rename("Cold flow"));
-    expect(await client.ranges.undo(rng.key)).toBe(true);
-    expect((await createTestClient().ranges.retrieve(rng.key)).name).toBe(rng.name);
-    expect(await client.ranges.redo(rng.key)).toBe(true);
-    expect((await createTestClient().ranges.retrieve(rng.key)).name).toBe("Cold flow");
-  });
-
   it("should send a transaction as one dispatch", async () => {
     const rng = await createRange();
     const send = spyOnSend(client);
