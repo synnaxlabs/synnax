@@ -10,6 +10,7 @@
 import { type channel } from "@synnaxlabs/client";
 import { type destructor, observe } from "@synnaxlabs/x";
 
+import { type Result, success } from "@/telem/aether/telem";
 import { registerInstance, TEST_SOURCE_TYPE } from "@/telem/aether/test/factory";
 
 import { type LogEntry, type LogSource, type LogSourceSpec } from "./types";
@@ -29,9 +30,9 @@ export class MockLogSource implements LogSource {
     this._evictedCount = count;
   }
 
-  value(): LogEntry[] {
-    if (this.activeChannels.size === 0) return this._entries;
-    return this._entries.filter((e) => this.activeChannels.has(e.channelKey));
+  value(): Result<LogEntry[]> {
+    if (this.activeChannels.size === 0) return success(this._entries);
+    return success(this._entries.filter((e) => this.activeChannels.has(e.channelKey)));
   }
 
   setChannels(channels: channel.Key[]): void {

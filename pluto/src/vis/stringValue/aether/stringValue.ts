@@ -52,7 +52,7 @@ export class StringValue
 
   /** Pushes the source's current value into aether state, where the DOM reads it. */
   private publish(): void {
-    const value = this.internal.source.value();
+    const value = this.internal.source.value().data;
     if (value === this.state.value) return;
     this.setState((p) => ({ ...p, value }));
   }

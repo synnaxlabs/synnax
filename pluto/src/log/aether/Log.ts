@@ -250,12 +250,12 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
         }));
     }
 
-    this.entries = this.internal.telem.value();
+    this.entries = this.internal.telem.value().data;
     this.checkEmpty();
     i.stopListeningTelem?.();
     i.stopListeningTelem = i.telem.onChange(() => {
       const { evictedCount } = this.internal.telem.wrapped;
-      this.entries = this.internal.telem.value();
+      this.entries = this.internal.telem.value().data;
       // When old entries are evicted, adjust scroll offset and selection indices
       // so they still point at the same logical entries.
       if (evictedCount > 0) {

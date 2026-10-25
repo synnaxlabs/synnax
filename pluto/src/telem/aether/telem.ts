@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status, ValidationError } from "@synnaxlabs/client";
+import { status, ValidationError } from "@synnaxlabs/client";
 import {
   type Aggregation,
   type bounds,
@@ -15,7 +15,7 @@ import {
   type destructor,
   type MultiSeries,
   observe,
-  type TimeStamp,
+  TimeStamp,
   zod,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -79,15 +79,41 @@ export interface Telem {
   cleanup?: () => void;
 }
 
+/** The data of a source and the facts about it. */
+export interface Result<V> {
+  data: V;
+  /**
+   * loading while data the props need is in flight, error after a failure, and success
+   * otherwise.
+   */
+  status: status.Status;
+  /** The aggregation that reduced data, when the source reduces it. */
+  aggregation?: Aggregation;
+  /** The time of the newest sample. */
+  time?: TimeStamp;
+}
+
+const statusOf = (variant: status.Variant): status.Status => ({
+  key: variant,
+  name: "",
+  variant,
+  message: "",
+  description: "",
+  time: TimeStamp.ZERO,
+});
+
+export const SUCCESS_STATUS: status.Status = statusOf("success");
+export const LOADING_STATUS: status.Status = statusOf("loading");
+
+/** @returns a result that holds data with a success status. */
+export const success = <V>(data: V, time?: TimeStamp): Result<V> => ({
+  data,
+  status: SUCCESS_STATUS,
+  time,
+});
+
 export interface Source<V> extends Telem, observe.Observable<void> {
-  value: (props?: ValueProps) => V;
-  /** @returns true while the source's initial read is in flight. */
-  loading?: () => boolean;
-  /** @returns true while the source fetches data for a view it already drew. */
-  fetching?: () => boolean;
-  /** @returns the aggregation the source reduces its data by, or null for none. */
-  aggregation?: () => Aggregation | null;
-  sampleTime?: () => TimeStamp | null;
+  value: (props?: ValueProps) => Result<V>;
 }
 
 export interface Sink<V> extends Telem {
@@ -176,20 +202,7 @@ export abstract class Base<P extends z.ZodType> extends observe.BaseObserver<voi
   cleanup(): void {}
 }
 
-export abstract class AbstractSource<P extends z.ZodType> extends Base<P> {
-  protected loading_ = false;
-
-  loading(): boolean {
-    return this.loading_;
-  }
-
-  // Idempotent and notifies so a failure still wakes observers of the loading state.
-  protected declareLoaded(): void {
-    if (!this.loading_) return;
-    this.loading_ = false;
-    this.notify();
-  }
-}
+export abstract class AbstractSource<P extends z.ZodType> extends Base<P> {}
 
 export abstract class AbstractSink<P extends z.ZodType> extends Base<P> {}
 
@@ -207,18 +220,15 @@ export abstract class UnarySourceTransformer<I, O, P extends z.ZodType>
     return this.source_;
   }
 
-  value(): O {
-    return this.transform(this.source.value());
+  value(): Result<O> {
+    const result = this.source.value();
+    return { ...result, data: this.transform(result.data) };
   }
 
   onChange(handler: () => void): destructor.Destructor {
     return this.source.onChange(() => {
-      if (this.shouldNotify(this.source.value())) handler();
+      if (this.shouldNotify(this.source.value().data)) handler();
     });
-  }
-
-  sampleTime(): TimeStamp | null {
-    return this.source.sampleTime?.() ?? null;
   }
 
   setSources(sources: Record<string, Source<I>>): void {
@@ -238,11 +248,20 @@ export abstract class MultiSourceTransformer<I, O, P extends z.ZodType>
 {
   sources: Record<string, Source<I>> = {};
 
-  value(): O {
-    const values = Object.fromEntries(
-      Object.entries(this.sources).map(([id, source]) => [id, source.value()]),
-    );
-    return this.transform(values);
+  /** Reports the worst status and the newest time of the sources. */
+  value(): Result<O> {
+    const data: Record<string, I> = {};
+    let worst = SUCCESS_STATUS;
+    let time: TimeStamp | undefined;
+    for (const [id, source] of Object.entries(this.sources)) {
+      const result = source.value();
+      data[id] = result.data;
+      if (status.moreSevere(result.status.variant, worst.variant))
+        worst = result.status;
+      if (result.time != null && (time == null || result.time.after(time)))
+        time = result.time;
+    }
+    return { data: this.transform(data), status: worst, time };
   }
 
   onChange(handler: () => void): destructor.Destructor {

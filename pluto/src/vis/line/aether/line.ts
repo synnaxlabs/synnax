@@ -304,18 +304,25 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     i.requestRender("layout");
   }
 
+  /** True while a source loads and the line has no data to draw. */
   get loading(): boolean {
-    const { xTelem, yTelem } = this.internal;
-    return (xTelem.loading?.() ?? false) || (yTelem.loading?.() ?? false);
+    return this.loadingState() === "empty";
   }
 
+  /** True while a source loads and the line draws the data it has. */
   get fetching(): boolean {
+    return this.loadingState() === "drawn";
+  }
+
+  private loadingState(): "none" | "empty" | "drawn" {
     const { xTelem, yTelem } = this.internal;
-    return (xTelem.fetching?.() ?? false) || (yTelem.fetching?.() ?? false);
+    const [x, y] = [xTelem.value(), yTelem.value()];
+    if (x.status.variant !== "loading" && y.status.variant !== "loading") return "none";
+    return x.data[1].length === 0 || y.data[1].length === 0 ? "empty" : "drawn";
   }
 
   xBounds(): bounds.Bounds {
-    return this.internal.xTelem.value()[0];
+    return this.internal.xTelem.value().data[0];
   }
 
   /**
@@ -327,16 +334,16 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   yBounds(xWindow: bounds.Bounds): bounds.Bounds {
     const { xTelem, yTelem } = this.internal;
     const valueProps = { extremesKept: true };
-    const [b, yData] = yTelem.value(valueProps);
+    const [b, yData] = yTelem.value(valueProps).data;
     if (!bounds.isFinite(xWindow)) return b;
-    const [, xData] = xTelem.value(valueProps);
+    const [, xData] = xTelem.value(valueProps).data;
     return windowBounds(xData, yData, xWindow, DEFAULT_OVERLAP_THRESHOLD, b);
   }
 
   findByXValue(props: LineProps, target: number): FindResult {
     const { xTelem, yTelem } = this.internal;
     const valueProps = { view: view(props) };
-    const [, xData] = xTelem.value(valueProps);
+    const [, xData] = xTelem.value(valueProps).data;
     let [index, series] = [-1, -1];
     xData.series.find((x, i) => {
       const v = x.binarySearch(target);
@@ -360,7 +367,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     if (index === -1 || series === -1 || !this.state.visible) return result;
 
     const xSeries = xData.series[series];
-    const [, yData] = yTelem.value(valueProps);
+    const [, yData] = yTelem.value(valueProps).data;
     const alignment = xSeries.alignment + BigInt(index) * xSeries.alignmentMultiple;
     const ySeries = yData.series.find(
       (ys) =>
@@ -385,11 +392,13 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     if (this.deleted || !this.state.visible) return;
     const { xTelem, yTelem, lineCtx: ctx, reducer } = this.internal;
     const { groupsPerColumn } = this.state;
-    // Full-resolution data reduces as the source reduces its tiles.
-    const aggregation = yTelem.aggregation?.() ?? "min_max";
     const { dataToDecimalScale } = props;
     const valueProps = { view: view(props) };
-    const [[, xData], [, yData]] = [xTelem.value(valueProps), yTelem.value(valueProps)];
+    const [, xData] = xTelem.value(valueProps).data;
+    const y = yTelem.value(valueProps);
+    const [, yData] = y.data;
+    // Full-resolution data reduces as the source reduces its tiles.
+    const aggregation = y.aggregation ?? "min_max";
     const full = buildDrawOperations(xData, yData, DEFAULT_OVERLAP_THRESHOLD);
     const size = groupSize(full, valueProps.view, groupsPerColumn);
     const ops = reducer.reduce(full, aggregation, size);

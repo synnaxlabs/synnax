@@ -65,8 +65,7 @@ const createSource = async (
 const settle = async (source: TiledChannelData, view: View): Promise<void> => {
   const deadline = TimeStamp.now().add(TimeSpan.seconds(30));
   while (TimeStamp.now().before(deadline)) {
-    source.value({ view });
-    if (!source.loading() && !source.fetching()) return;
+    if (source.value({ view }).status.variant !== "loading") return;
     await sleep.sleep(TimeSpan.milliseconds(1));
   }
   throw new Error("source did not settle");

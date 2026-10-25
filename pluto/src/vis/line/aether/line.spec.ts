@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
+import { type channel, status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import {
   bounds,
@@ -619,6 +619,26 @@ describe("line", () => {
       );
     });
 
+    describe("loading", () => {
+      it("should report loading while a source loads with no data", () => {
+        const m = mount([X1], []);
+        m.ySource.status = telem.LOADING_STATUS;
+        expect([m.line.loading, m.line.fetching]).toEqual([true, false]);
+      });
+
+      it("should report fetching while a source loads and data draws", () => {
+        const m = mount([X1], [Y1]);
+        m.xSource.status = telem.LOADING_STATUS;
+        expect([m.line.loading, m.line.fetching]).toEqual([false, true]);
+      });
+
+      it("should report neither once its sources leave loading", () => {
+        const m = mount([X1], []);
+        m.ySource.status = status.create({ variant: "error", message: "failed" });
+        expect([m.line.loading, m.line.fetching]).toEqual([false, false]);
+      });
+    });
+
     describe("render", () => {
       it("should draw one strip per domain and no bridge for a single domain", () => {
         const m = mount([X1], [Y1]);
@@ -807,7 +827,7 @@ describe("line", () => {
 
       it("should reduce by its y source's aggregation and groups per column", () => {
         const decimated = mount([ramp(N)], [waves(N)]);
-        decimated.ySource.aggregation = () => "decimate";
+        decimated.ySource.aggregation = "decimate";
         decimated.line.render(showing(0, N - 1));
         expect(decimated.strips()).toEqual([[0, N / 32]]);
         const fine = mount([ramp(N)], [waves(N)], { groupsPerColumn: 1 });
@@ -827,7 +847,7 @@ describe("line", () => {
           timeRange,
         });
         const m = mount([x], [bits]);
-        m.ySource.aggregation = () => "average";
+        m.ySource.aggregation = "average";
         m.line.render(showing(0, N - 1));
         const [xs, ys] = uploads(m).slice(-2);
         expect(xs.slice(0, 2)).toEqual([15, 47]);
@@ -936,7 +956,9 @@ describe("line", () => {
     });
 
     const settle = async (...sources: telem.TiledChannelData[]): Promise<void> =>
-      await expect.poll(() => sources.every((s) => !s.loading())).toBe(true);
+      await expect
+        .poll(() => sources.every((s) => s.value().status.variant !== "loading"))
+        .toBe(true);
 
     const drawn = (x: MultiSeries, y: MultiSeries) =>
       buildDrawOperations(x, y, DEFAULT_OVERLAP_THRESHOLD);
@@ -945,8 +967,8 @@ describe("line", () => {
       const { data, home } = await writeChannels();
       const { x, y } = createPair(data.key, home);
       await settle(x, y);
-      const [xBounds, xs] = x.value();
-      const [, ys] = y.value();
+      const [xBounds, xs] = x.value().data;
+      const [, ys] = y.value().data;
       expect(xBounds).toEqual(home.numericBounds);
       expect(xs.length).toBe(ys.length);
       expect(xs.length).toBeLessThan(COUNT);
@@ -956,8 +978,8 @@ describe("line", () => {
       expect(ys.series.every((s) => s.alignmentMultiple > 1n)).toBe(true);
       const ops = drawn(xs, ys);
       expect(ops.reduce((n, op) => n + op.count, 0)).toBe(ys.length);
-      expect(y.value()[0].upper).toBeCloseTo(1, 3);
-      expect(y.value()[0].lower).toBeCloseTo(-1, 3);
+      expect(y.value().data[0].upper).toBeCloseTo(1, 3);
+      expect(y.value().data[0].lower).toBeCloseTo(-1, 3);
       x.cleanup();
       y.cleanup();
     });
@@ -966,8 +988,10 @@ describe("line", () => {
       const { data, home } = await writeChannels(COUNT / 2);
       const y = create({ channel: data.key, timeRange: home, aggregation: "average" });
       await settle(y);
-      expect(y.value()[0].upper).toBeLessThan(SPIKE / 2);
-      await expect.poll(() => y.value({ extremesKept: true })[0].upper).toBe(SPIKE);
+      expect(y.value().data[0].upper).toBeLessThan(SPIKE / 2);
+      await expect
+        .poll(() => y.value({ extremesKept: true }).data[0].upper)
+        .toBe(SPIKE);
       y.cleanup();
     });
 
@@ -975,7 +999,7 @@ describe("line", () => {
       const { data, home } = await writeChannels();
       const { x, y } = createPair(data.key, home);
       await settle(x, y);
-      const homePoints = y.value()[1].length;
+      const homePoints = y.value().data[1].length;
       const start = Number(home.start.valueOf());
       const v: telem.View = {
         bounds: {
@@ -987,12 +1011,17 @@ describe("line", () => {
       x.value({ view: v });
       y.value({ view: v });
       await expect
-        .poll(
-          () => !x.fetching() && !y.fetching() && y.value({ view: v })[1].length > 0,
-        )
+        .poll(() => {
+          const [xr, yr] = [x.value({ view: v }), y.value({ view: v })];
+          return (
+            xr.status.variant !== "loading" &&
+            yr.status.variant !== "loading" &&
+            yr.data[1].length > 0
+          );
+        })
         .toBe(true);
-      const xs = x.value({ view: v })[1];
-      const ys = y.value({ view: v })[1];
+      const xs = x.value({ view: v }).data[1];
+      const ys = y.value({ view: v }).data[1];
       expect(ys.series.every((s) => s.alignmentMultiple === 1n)).toBe(true);
       expect(ys.length).toBeGreaterThanOrEqual(500);
       expect(ys.length).toBeLessThan(homePoints + 1024);

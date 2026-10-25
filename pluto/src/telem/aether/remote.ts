@@ -37,13 +37,17 @@ import { type status } from "@/status/aether";
 import { type CreateOptions } from "@/telem/aether/factory";
 import {
   AbstractSource,
+  LOADING_STATUS,
   type NumberSource,
   type NumberSourceSpec,
+  type Result,
   type SeriesSource,
   type SeriesSourceSpec,
   type Spec,
   type StringSource,
   type StringSourceSpec,
+  success,
+  SUCCESS_STATUS,
   type Telem,
   type ValueProps,
 } from "@/telem/aether/telem";
@@ -117,19 +121,23 @@ const newRetryBreaker = (
  * posts one status when it starts and again only when the failure changes.
  */
 class FailureReporter {
-  private last?: string;
+  /** The last failure since the last reset. */
+  status?: cstatus.Status;
   constructor(private readonly onStatusChange?: status.Adder) {}
 
   report(e: unknown, message: string): void {
-    const failure = cstatus.fromException(e, message);
-    const key = `${failure.message}: ${failure.description}`;
-    if (this.last === key) return;
-    this.last = key;
-    this.onStatusChange?.(failure);
+    const prev = this.status;
+    this.status = cstatus.fromException(e, message);
+    if (
+      prev?.message === this.status.message &&
+      prev.description === this.status.description
+    )
+      return;
+    this.onStatusChange?.(this.status);
   }
 
   reset(): void {
-    this.last = undefined;
+    this.status = undefined;
   }
 }
 
@@ -151,7 +159,7 @@ export class StreamChannelValue
   private readonly client: Client | null;
   private removeStreamHandler: destructor.Destructor | null = null;
   private leadingBuffer: Series | null = null;
-  private sampleTime_: TimeStamp | null = null;
+  private time?: TimeStamp;
   private generation = 0;
   private valid = false;
   private readonly onStatusChange?: status.Adder;
@@ -159,10 +167,6 @@ export class StreamChannelValue
     super(props);
     this.client = client;
     this.onStatusChange = options?.onStatusChange;
-  }
-
-  sampleTime(): TimeStamp | null {
-    return this.sampleTime_;
   }
 
   /** @returns the leading series buffer for testing purposes. */
@@ -182,19 +186,20 @@ export class StreamChannelValue
     this.valid = false;
     this.leadingBuffer?.release();
     this.leadingBuffer = null;
-    this.sampleTime_ = null;
+    this.time = undefined;
     this.removeStreamHandler = null;
   }
 
-  value(): number {
+  value(): Result<number> {
     // No valid channel has been set.
-    if (primitive.isZero(this.props.channel)) return NaN;
+    if (primitive.isZero(this.props.channel)) return success(NaN);
     if (!this.valid) void this.read();
     // No data has been received and no recent samples were fetched on initialization.
-    if (this.leadingBuffer == null || this.leadingBuffer.length === 0) return NaN;
+    if (this.leadingBuffer == null || this.leadingBuffer.length === 0)
+      return success(NaN);
     const v = this.leadingBuffer.at(-1, true);
     // A boolean channel reads as 0 or 1.
-    return (typeof v === "boolean" ? Number(v) : v) as number;
+    return success((typeof v === "boolean" ? Number(v) : v) as number, this.time);
   }
 
   /** Never rejects: a failure invalidates the read and reaches onStatusChange. */
@@ -218,7 +223,7 @@ export class StreamChannelValue
           first.acquire();
           this.leadingBuffer?.release();
           this.leadingBuffer = first;
-          this.sampleTime_ = null;
+          this.time = undefined;
         }
         // Just because we didn't get a new buffer doesn't mean one wasn't allocated: an
         // empty update means the leading buffer was appended to in place. A frame that
@@ -240,7 +245,7 @@ export class StreamChannelValue
       if (generation !== this.generation || this.leadingBuffer != null) return;
       latest.acquire();
       this.leadingBuffer = latest;
-      this.sampleTime_ = latest.timeRange.isZero ? null : latest.timeRange.end;
+      this.time = latest.timeRange.isZero ? undefined : latest.timeRange.end;
       this.notify();
     } catch (e) {
       this.valid = false;
@@ -449,7 +454,7 @@ export class StreamChannelStringValue
   private readonly client: Client | null;
   private removeStreamHandler: destructor.Destructor | null = null;
   private leadingBuffer: Series | null = null;
-  private sampleTime_: TimeStamp | null = null;
+  private time?: TimeStamp;
   private latest = "";
   // Buffer length the latest decode was taken at, or -1 to force a re-decode.
   private decodedAt = -1;
@@ -469,29 +474,25 @@ export class StreamChannelStringValue
     this.valid = false;
     this.leadingBuffer?.release();
     this.leadingBuffer = null;
-    this.sampleTime_ = null;
+    this.time = undefined;
     this.latest = "";
     this.decodedAt = -1;
     this.removeStreamHandler = null;
   }
 
-  sampleTime(): TimeStamp | null {
-    return this.sampleTime_;
-  }
-
-  value(): string {
+  value(): Result<string> {
     // No valid channel has been set.
-    if (primitive.isZero(this.props.channel)) return "";
+    if (primitive.isZero(this.props.channel)) return success("");
     if (!this.valid) void this.read();
     const buffer = this.leadingBuffer;
-    if (buffer == null || buffer.length === 0) return "";
+    if (buffer == null || buffer.length === 0) return success("");
     // Samples are appended into the leading buffer in place, so the length is what
     // marks new data. Decoding is gated on it because asString scans linearly.
     if (buffer.length !== this.decodedAt) {
       this.latest = buffer.asString(-1) ?? this.latest;
       this.decodedAt = buffer.length;
     }
-    return this.latest;
+    return success(this.latest, this.time);
   }
 
   /** Never rejects: a failure invalidates the read and reaches onStatusChange. */
@@ -515,7 +516,7 @@ export class StreamChannelStringValue
           leading.acquire();
           this.leadingBuffer?.release();
           this.leadingBuffer = leading;
-          this.sampleTime_ = null;
+          this.time = undefined;
           this.decodedAt = -1;
         }
         // An empty update means the leading buffer was appended to in place. A frame
@@ -537,7 +538,7 @@ export class StreamChannelStringValue
       if (generation !== this.generation || this.leadingBuffer != null) return;
       latest.acquire();
       this.leadingBuffer = latest;
-      this.sampleTime_ = latest.timeRange.isZero ? null : latest.timeRange.end;
+      this.time = latest.timeRange.isZero ? undefined : latest.timeRange.end;
       this.decodedAt = -1;
       this.notify();
     } catch (e) {
@@ -617,6 +618,8 @@ export class TiledChannelData
   // drawn is the view of the last read that drew.
   private drawn?: TimeRange;
   private rawLoaded = false;
+  // loading is true until the home view first loads or a read fails.
+  private loading = true;
   private readonly skipLoading: boolean;
   private readonly failures: FailureReporter;
   private readonly retryNotifier = new sync.Notifier();
@@ -662,30 +665,20 @@ export class TiledChannelData
     });
     const { timeSpan } = this.props;
     this.skipLoading = timeSpan != null && timeSpan.valueOf() <= LOADING_MIN_SPAN;
-    this.loading_ = true;
   }
 
   private get live(): boolean {
     return this.props.timeSpan != null;
   }
 
-  loading(): boolean {
-    if (this.skipLoading || primitive.isZero(this.props.channel) || !this.loading_)
-      return false;
-    this.value();
-    return this.loading_;
-  }
-
-  fetching(): boolean {
-    return (this.skipLoading || !this.loading_) && this.pending.size > 0;
-  }
-
-  value({ view, extremesKept = false }: ValueProps = {}): [bounds.Bounds, MultiSeries] {
+  value({ view, extremesKept = false }: ValueProps = {}): Result<
+    [bounds.Bounds, MultiSeries]
+  > {
     if (primitive.isZero(this.props.channel))
-      return [bounds.INVALID, new MultiSeries()];
+      return success([bounds.INVALID, new MultiSeries()]);
     if (!this.valid) void this.resolve();
     const ch = this.channel;
-    if (ch == null) return [bounds.INVALID, new MultiSeries()];
+    if (ch == null) return this.result([bounds.INVALID, new MultiSeries()]);
     const home = this.home();
     if (view != null) this.width = view.width;
     const drawsView =
@@ -700,8 +693,21 @@ export class TiledChannelData
       view != null,
       extremesKept,
     );
-    if (!drawsView && this.loaded(ch.key, home)) this.loading_ = false;
-    return [this.bounds(ch, home, series), series];
+    if (!drawsView && this.loaded(ch.key, home)) this.loading = false;
+    return this.result([this.bounds(ch, home, series), series]);
+  }
+
+  // A live window of a minute or less is not loading while its first read is in
+  // flight.
+  private result(
+    data: [bounds.Bounds, MultiSeries],
+  ): Result<[bounds.Bounds, MultiSeries]> {
+    const loading = (this.loading && !this.skipLoading) || this.pending.size > 0;
+    return {
+      data,
+      status: loading ? LOADING_STATUS : (this.failures.status ?? SUCCESS_STATUS),
+      aggregation: this.aggregation(),
+    };
   }
 
   private home(): TimeRange {
@@ -738,7 +744,7 @@ export class TiledChannelData
     return first == null ? boundary : TimeStamp.min(boundary, first.timeRange.start);
   }
 
-  aggregation(): Aggregation {
+  private aggregation(): Aggregation {
     return this.xy ? "decimate" : this.props.aggregation;
   }
 
@@ -1037,6 +1043,13 @@ export class TiledChannelData
     this.declareLoaded();
   }
 
+  // Notifies so a failure still wakes observers of the status.
+  private declareLoaded(): void {
+    if (!this.loading) return;
+    this.loading = false;
+    this.notify();
+  }
+
   // The data type of every series the line holds, or undefined when it holds none.
   private heldDataType(): DataType | undefined {
     for (const tile of this.held.values())
@@ -1064,7 +1077,7 @@ export class TiledChannelData
     this.parked.clear();
     this.valid = false;
     this.channel = null;
-    this.loading_ = true;
+    this.loading = true;
     this.rawLoaded = false;
     this.failures.reset();
   }

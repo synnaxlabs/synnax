@@ -174,7 +174,7 @@ export class Value
     const bWidth = box.width(b);
     const bHeight = box.height(b);
     const canvas = renderCtx.upper2d.applyScale(viewportScale);
-    let value = telem.value();
+    let value = telem.value().data;
     canvas.font = fontString;
     canvas.textAlign = "left";
     canvas.textBaseline = "alphabetic";
@@ -201,7 +201,7 @@ export class Value
       : null;
     try {
       if (this.state.backgroundTelem.type != noopColorSourceSpec.type) {
-        const colorValue = backgroundTelem.value();
+        const colorValue = backgroundTelem.value().data;
         const isZero = color.isZero(colorValue);
         if (!isZero) {
           canvas.fillStyle = color.hex(colorValue);

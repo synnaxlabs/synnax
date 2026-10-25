@@ -274,7 +274,7 @@ export class BandColor extends MultiSourceTransformer<
   }
 
   protected shouldNotify(): boolean {
-    const next = this.value();
+    const next = this.value().data;
     if (this.notified != null && color.equals(this.notified, next)) return false;
     this.notified = next;
     return true;

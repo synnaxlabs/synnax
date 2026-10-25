@@ -13,7 +13,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { aetherTest } from "@/aether/test";
 import { XAxis } from "@/lineplot/aether/XAxis";
 import { YAxis } from "@/lineplot/aether/YAxis";
-import { type telem } from "@/telem/aether";
+import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/test";
 import { buildStack } from "@/testutil/providers";
 import { Line } from "@/vis/line/aether/line";
@@ -202,15 +202,14 @@ describe("YAxis", () => {
     });
 
     it("should hold bounds only once its lines load", () => {
-      const y = telemTest.source(seriesValue([1, 2, 3]));
-      let loading = true;
-      y.loading = () => loading;
+      const y = telemTest.source(seriesValue([]));
+      y.status = telem.LOADING_STATUS;
       const m = mount({
         lines: { loading: { x: sourceSpec([0, 5, 10]), y: specOf(y) } },
       });
-      expect(m.axis.bounds(true, bounds.INFINITE)).toEqual({ lower: 1, upper: 3 });
+      m.axis.bounds(true, bounds.INFINITE);
+      y.status = telem.SUCCESS_STATUS;
       y.setValue(seriesValue([1, 200]));
-      loading = false;
       expect(m.axis.bounds(true, bounds.INFINITE)).toEqual({ lower: 1, upper: 200 });
       y.setValue(seriesValue([1, 2]));
       expect(m.axis.bounds(true, bounds.INFINITE)).toEqual({ lower: 1, upper: 200 });

@@ -64,13 +64,13 @@ describe("TestSource", () => {
   describe("value and setValue", () => {
     it("should return initial value", () => {
       const s = createSource("initial");
-      expect(s.value()).toBe("initial");
+      expect(s.value().data).toBe("initial");
     });
 
     it("should update value with setValue", () => {
       const s = createSource(10);
       s.setValue(20);
-      expect(s.value()).toBe(20);
+      expect(s.value().data).toBe(20);
     });
 
     it("should trigger observer notification on setValue", () => {
@@ -88,17 +88,17 @@ describe("TestSource", () => {
       const numSource = createSource(123);
       const strSource = createSource("hello");
 
-      expect(boolSource.value()).toBe(true);
-      expect(numSource.value()).toBe(123);
-      expect(strSource.value()).toBe("hello");
+      expect(boolSource.value().data).toBe(true);
+      expect(numSource.value().data).toBe(123);
+      expect(strSource.value().data).toBe("hello");
 
       boolSource.setValue(false);
       numSource.setValue(456);
       strSource.setValue("world");
 
-      expect(boolSource.value()).toBe(false);
-      expect(numSource.value()).toBe(456);
-      expect(strSource.value()).toBe("world");
+      expect(boolSource.value().data).toBe(false);
+      expect(numSource.value().data).toBe(456);
+      expect(strSource.value().data).toBe("world");
     });
   });
 
@@ -133,7 +133,7 @@ describe("TestSource", () => {
     it("should create TestSource with initial value", () => {
       const s = createSource(99);
       expect(s).toBeInstanceOf(TestSource);
-      expect(s.value()).toBe(99);
+      expect(s.value().data).toBe(99);
     });
   });
 

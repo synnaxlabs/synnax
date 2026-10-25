@@ -79,7 +79,7 @@ describe("boolean symbol source on a channel with no data", () => {
 
   it("should still read as empty after the stream registers", async () => {
     const { source } = await setup();
-    expect(source.value()).toBe(false);
+    expect(source.value().data).toBe(false);
   });
 
   it("should report an arrival once real data lands", async () => {
@@ -90,6 +90,6 @@ describe("boolean symbol source on a channel with no data", () => {
       ]),
     );
     expect(handler).toHaveBeenCalledTimes(1);
-    expect(source.value()).toBe(true);
+    expect(source.value().data).toBe(true);
   });
 });

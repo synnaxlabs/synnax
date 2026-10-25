@@ -51,11 +51,15 @@ const y = createSource({ channel, timeSpan: SPAN });
 
 const read = (): DrawOperation[] => {
   const v = { view: view() };
-  return buildDrawOperations(x.value(v)[1], y.value(v)[1], DEFAULT_OVERLAP_THRESHOLD);
+  return buildDrawOperations(
+    x.value(v).data[1],
+    y.value(v).data[1],
+    DEFAULT_OVERLAP_THRESHOLD,
+  );
 };
 
 const deadline = TimeStamp.now().add(TimeSpan.seconds(30));
-while (x.loading() || y.loading() || x.fetching() || y.fetching()) {
+while ([x, y].some((s) => s.value().status.variant === "loading")) {
   if (TimeStamp.now().after(deadline)) throw new Error("sources did not settle");
   read();
   await sleep.sleep(TimeSpan.milliseconds(1));

@@ -249,7 +249,7 @@ describe("control/aether/Controller", SUITE, () => {
     controller.create(setChannelValue({ channel: ch.key }));
     controller.acquire();
     controller.acquire();
-    await expect.poll(() => source.value().variant, POLL).toEqual("success");
+    await expect.poll(() => source.value().data.variant, POLL).toEqual("success");
     expect(openCount()).toEqual(1);
   });
 
@@ -258,10 +258,10 @@ describe("control/aether/Controller", SUITE, () => {
     const { controller, source } = await setup(ch.key);
     controller.create(setChannelValue({ channel: ch.key }));
     controller.acquire();
-    await expect.poll(() => source.value().variant, POLL).toEqual("success");
+    await expect.poll(() => source.value().data.variant, POLL).toEqual("success");
     controller.release();
     await expect.poll(() => controller.state.status, POLL).toEqual("released");
-    await expect.poll(() => source.value().message, POLL).toEqual("Uncontrolled");
+    await expect.poll(() => source.value().data.message, POLL).toEqual("Uncontrolled");
   });
 
   it("should release the control it holds when it is deleted", async () => {
@@ -269,9 +269,9 @@ describe("control/aether/Controller", SUITE, () => {
     const { controller, source, handle } = await setup(ch.key);
     controller.create(setChannelValue({ channel: ch.key }));
     controller.acquire();
-    await expect.poll(() => source.value().variant, POLL).toEqual("success");
+    await expect.poll(() => source.value().data.variant, POLL).toEqual("success");
     handle.deleteChild(CONTROLLER_KEY);
-    await expect.poll(() => source.value().message, POLL).toEqual("Uncontrolled");
+    await expect.poll(() => source.value().data.message, POLL).toEqual("Uncontrolled");
   });
 
   it("should need control of the channel a sink writes and its index", async () => {
@@ -311,7 +311,7 @@ describe("control/aether/Controller", SUITE, () => {
     controller.create(setChannelValue({ channel: ch.key }));
     controller.create(setChannelValue({ channel: deleted.key }));
     controller.acquire();
-    await expect.poll(() => source.value().variant, POLL).toEqual("success");
+    await expect.poll(() => source.value().data.variant, POLL).toEqual("success");
     expect([...controller.state.needsControlOf].sort()).toEqual(
       [ch.key, ch.index].sort(),
     );
@@ -338,7 +338,7 @@ describe("control/aether/Controller", SUITE, () => {
     const { controller, source } = await setup(ch.key, openWriter);
     controller.create(setChannelValue({ channel: ch.key }));
     controller.acquire();
-    await expect.poll(() => source.value().variant, POLL).toEqual("success");
+    await expect.poll(() => source.value().data.variant, POLL).toEqual("success");
     await controller.set({ [ch.key]: [1] });
     expect(writeCount()).toEqual(2);
     expect(openCount()).toEqual(2);
@@ -352,7 +352,7 @@ describe("control/aether/Controller", SUITE, () => {
     const { controller, source } = await setup(ch.key, openWriter);
     controller.create(setChannelValue({ channel: ch.key }));
     controller.acquire();
-    await expect.poll(() => source.value().variant, POLL).toEqual("success");
+    await expect.poll(() => source.value().data.variant, POLL).toEqual("success");
     await expect(controller.set({ [ch.key]: [1] })).rejects.toThrow("bad frame");
     expect(writeCount()).toEqual(1);
     expect(openCount()).toEqual(1);
@@ -363,10 +363,10 @@ describe("control/aether/Controller", SUITE, () => {
     const { controller, source, setState } = await setup(ch.key);
     controller.create(setChannelValue({ channel: ch.key }));
     controller.acquire();
-    await expect.poll(() => source.value().variant, POLL).toEqual("success");
+    await expect.poll(() => source.value().data.variant, POLL).toEqual("success");
     setState({ disabled: true });
     await expect.poll(() => controller.state.status, POLL).toEqual("released");
-    await expect.poll(() => source.value().message, POLL).toEqual("Uncontrolled");
+    await expect.poll(() => source.value().data.message, POLL).toEqual("Uncontrolled");
   });
 
   it("should take control when asked explicitly while disabled", async () => {
@@ -375,7 +375,7 @@ describe("control/aether/Controller", SUITE, () => {
     controller.create(setChannelValue({ channel: ch.key }));
     setState({ disabled: true });
     controller.acquire();
-    await expect.poll(() => source.value().variant, POLL).toEqual("success");
+    await expect.poll(() => source.value().data.variant, POLL).toEqual("success");
     expect(controller.state.status).toEqual("acquired");
   });
 
@@ -424,7 +424,7 @@ describe("control/aether/Controller", SUITE, () => {
     const { controller, source, setState } = await setup(ch.key);
     controller.create(setChannelValue({ channel: ch.key }));
     controller.acquire();
-    await expect.poll(() => source.value().variant, POLL).toEqual("success");
+    await expect.poll(() => source.value().data.variant, POLL).toEqual("success");
     setState({ disabled: false });
     expect(controller.state.status).toEqual("acquired");
   });
@@ -433,7 +433,7 @@ describe("control/aether/Controller", SUITE, () => {
 describe("control/aether/AuthoritySource", SUITE, () => {
   it("should report no channel when the source is bound to key zero", async () => {
     const { source, controller } = await setup(0);
-    const status = source.value();
+    const status = source.value().data;
     expect(status.variant).toEqual("disabled");
     expect(status.message).toEqual("No channel");
     expect(status.key).toEqual(controller.key);
@@ -443,7 +443,7 @@ describe("control/aether/AuthoritySource", SUITE, () => {
   it("should report uncontrolled when no subject holds the channel", async () => {
     const ch = await createVirtual();
     const { source } = await setup(ch.key);
-    const status = source.value();
+    const status = source.value().data;
     expect(status.variant).toEqual("disabled");
     expect(status.message).toEqual("Uncontrolled");
     expect(status.details).toEqual({ valid: true, color: undefined, authority: 0 });
@@ -454,26 +454,26 @@ describe("control/aether/AuthoritySource", SUITE, () => {
     const { source, controller } = await setup(ch.key);
     controller.create(setChannelValue({ channel: ch.key }));
     controller.acquire();
-    await expect.poll(() => source.value().variant, POLL).toEqual("success");
-    expect(source.value().message).toEqual(`Controlled by ${CONTROLLER_NAME}`);
-    expect(source.value().key).toEqual(controller.key);
+    await expect.poll(() => source.value().data.variant, POLL).toEqual("success");
+    expect(source.value().data.message).toEqual(`Controlled by ${CONTROLLER_NAME}`);
+    expect(source.value().data.key).toEqual(controller.key);
   });
 
   it("should error when another subject holds the channel", async () => {
     const ch = await createVirtual();
     const { source } = await setup(ch.key);
     const { subject } = await hold(ch.key, "another_operator");
-    await expect.poll(() => source.value().variant, POLL).toEqual("error");
-    expect(source.value().message).toEqual(`Controlled by ${subject}`);
-    expect(source.value().key).toEqual(subject);
+    await expect.poll(() => source.value().data.variant, POLL).toEqual("error");
+    expect(source.value().data.message).toEqual(`Controlled by ${subject}`);
+    expect(source.value().data.key).toEqual(subject);
   });
 
   it("should carry the holder's authority and assigned color", async () => {
     const ch = await createVirtual();
     const { source, colors } = await setup(ch.key);
     const { subject } = await hold(ch.key, "another_operator");
-    await expect.poll(() => source.value().variant, POLL).toEqual("error");
-    const { details } = source.value();
+    await expect.poll(() => source.value().data.variant, POLL).toEqual("error");
+    const { details } = source.value().data;
     expect(details.authority).toEqual(AUTHORITY);
     assert(details.color != null);
     expect(color.equals(details.color, colors.get(subject))).toBe(true);
@@ -482,13 +482,13 @@ describe("control/aether/AuthoritySource", SUITE, () => {
   it("should follow a channel from uncontrolled to held to released", async () => {
     const ch = await createVirtual();
     const { source } = await setup(ch.key);
-    expect(source.value().message).toEqual("Uncontrolled");
+    expect(source.value().data.message).toEqual("Uncontrolled");
     const holder = await hold(ch.key, "another_operator");
     await expect
-      .poll(() => source.value().message, POLL)
+      .poll(() => source.value().data.message, POLL)
       .toEqual(`Controlled by ${holder.subject}`);
     await holder.release();
-    await expect.poll(() => source.value().message, POLL).toEqual("Uncontrolled");
+    await expect.poll(() => source.value().data.message, POLL).toEqual("Uncontrolled");
   });
 
   it("should notify subscribers when control transfers", async () => {

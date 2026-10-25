@@ -26,7 +26,7 @@ import {
 import { type status } from "@/status/aether";
 import { type CreateOptions } from "@/telem/aether/factory";
 import { type Client, DISCONNECTED_STATUS } from "@/telem/aether/remote";
-import { AbstractSource } from "@/telem/aether/telem";
+import { AbstractSource, type Result, success } from "@/telem/aether/telem";
 
 const MAX_ENTRIES = 100_000;
 
@@ -86,10 +86,10 @@ export class StreamMultiChannelLog
     );
   }
 
-  value(): LogEntry[] {
-    if (this._channels.length === 0) return this.entries;
+  value(): Result<LogEntry[]> {
+    if (this._channels.length === 0) return success(this.entries);
     if (!this.valid) void this.read();
-    return this.entries;
+    return success(this.entries);
   }
 
   setChannels(channels: channel.Key[]): void {

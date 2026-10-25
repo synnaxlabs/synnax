@@ -39,7 +39,7 @@ import {
   TiledChannelData,
   type TiledChannelDataProps,
 } from "@/telem/aether/remote";
-import { type Source, type View } from "@/telem/aether/telem";
+import { type Source, type ValueProps, type View } from "@/telem/aether/telem";
 import { telemTest } from "@/telem/aether/test";
 
 const waitForResolve = async <T>(source: Source<T>): Promise<T> => {
@@ -47,8 +47,11 @@ const waitForResolve = async <T>(source: Source<T>): Promise<T> => {
   const handleChange = vi.fn();
   source.onChange(handleChange);
   await expect.poll(() => handleChange.mock.calls.length > 0).toBe(true);
-  return source.value();
+  return source.value().data;
 };
+
+const loading = (source: Source<unknown>, props?: ValueProps): boolean =>
+  source.value(props).status.variant === "loading";
 
 // A value source with nothing to report does not notify when its stream opens, so a
 // spec that only needs the read to finish waits on the stream registration. The count
@@ -60,7 +63,7 @@ const waitForStream = async <T>(
   const opens = client.streamF.mock.calls.length;
   source.value();
   await expect.poll(() => client.streamF.mock.calls.length > opens).toBe(true);
-  return source.value();
+  return source.value().data;
 };
 
 describe("remote", () => {
@@ -113,7 +116,7 @@ describe("remote", () => {
         channel: 0,
       };
       const scv = new StreamChannelValue(c, props);
-      expect(scv.value()).toBe(NaN);
+      expect(scv.value().data).toBe(NaN);
       expect(scv.testingOnlyValid).toBe(false);
     });
 
@@ -122,7 +125,7 @@ describe("remote", () => {
         channel: 0,
       };
       const scv = new StreamChannelValue(c, props);
-      expect(scv.value()).toBe(NaN);
+      expect(scv.value().data).toBe(NaN);
       expect(scv.testingOnlyLeadingBuffer).toBeNull();
     });
 
@@ -181,7 +184,7 @@ describe("remote", () => {
       c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series])]]));
       await expect.poll(() => handleChange.mock.calls.length === 1).toBe(true);
       expect(scv.testingOnlyLeadingBuffer).toBe(series);
-      expect(scv.value()).toBe(3);
+      expect(scv.value().data).toBe(3);
     });
 
     it("should return the correct value when the leading buffer is appended to", async () => {
@@ -191,7 +194,7 @@ describe("remote", () => {
       const scv = new StreamChannelValue(c, props);
       const handleChange = vi.fn();
       scv.onChange(handleChange);
-      expect(scv.value()).toBe(NaN);
+      expect(scv.value().data).toBe(NaN);
       await waitForStream(scv, c);
       const series = Series.alloc({ dataType: DataType.FLOAT32, capacity: 3 });
 
@@ -202,7 +205,7 @@ describe("remote", () => {
       series.write(new Series({ data: new Float32Array([1, 2, 5]) }));
       c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([])]]));
       await expect.poll(() => handleChange.mock.calls.length === 2).toBe(true);
-      const v = scv.value();
+      const v = scv.value().data;
       expect(v).toBe(5);
     });
 
@@ -225,11 +228,11 @@ describe("remote", () => {
       await expect.poll(() => handleChange).toHaveBeenCalledTimes(1);
       // It should increment the reference count of the buffer
       expect(newSeriesOne.refCount).toBe(1);
-      expect(scv.value()).toBe(3);
+      expect(scv.value().data).toBe(3);
       c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([newSeriesTwo])]]));
       expect(newSeriesOne.refCount).toBe(0);
       await expect.poll(() => handleChange.mock.calls.length === 2).toBe(true);
-      expect(scv.value()).toBe(6);
+      expect(scv.value().data).toBe(6);
       expect(newSeriesTwo.refCount).toBe(1);
     });
 
@@ -248,7 +251,7 @@ describe("remote", () => {
       await waitForStream(scv, c);
       c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series])]]));
       await expect.poll(() => handleChange).toHaveBeenCalledTimes(1);
-      expect(scv.value()).toBe(value);
+      expect(scv.value().data).toBe(value);
     });
 
     it("should not subscribe when cleaned up while retrieving the channel", async () => {
@@ -298,7 +301,7 @@ describe("remote", () => {
         await waitForStream(scv, c);
         await new Promise((resolve) => setTimeout(resolve, 5));
         expect(handleChange).not.toHaveBeenCalled();
-        expect(scv.value()).toBe(NaN);
+        expect(scv.value().data).toBe(NaN);
       });
 
       it("should not read the latest sample when the stream opens with data", async () => {
@@ -330,7 +333,7 @@ describe("remote", () => {
         c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
         release();
         await new Promise((resolve) => setTimeout(resolve, 5));
-        expect(scv.value()).toBe(5);
+        expect(scv.value().data).toBe(5);
         expect(scv.testingOnlyLeadingBuffer).toBe(live);
         expect(handleChange).toHaveBeenCalledTimes(1);
       });
@@ -342,7 +345,7 @@ describe("remote", () => {
         const initial = scv.testingOnlyLeadingBuffer;
         const live = new Series({ data: new Float32Array([5]) });
         c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
-        expect(scv.value()).toBe(5);
+        expect(scv.value().data).toBe(5);
         expect(initial?.refCount).toBe(0);
         expect(live.refCount).toBe(1);
       });
@@ -354,7 +357,7 @@ describe("remote", () => {
         await waitForStream(scv, c);
         await new Promise((resolve) => setTimeout(resolve, 5));
         expect(c.feed.readLatest).not.toHaveBeenCalled();
-        expect(scv.value()).toBe(NaN);
+        expect(scv.value().data).toBe(NaN);
       });
 
       it("should read the latest sample for a calculated channel", async () => {
@@ -418,31 +421,31 @@ describe("remote", () => {
         expect(scv.testingOnlyValid).toBe(true);
         const live = new Series({ data: new Float32Array([5]) });
         c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
-        expect(scv.value()).toBe(5);
+        expect(scv.value().data).toBe(5);
       });
 
-      describe("sampleTime", () => {
-        it("should be null before an initial sample lands", () => {
+      describe("time", () => {
+        it("should be undefined before an initial sample lands", () => {
           const scv = new StreamChannelValue(c, { channel: c.channel.key });
-          expect(scv.sampleTime()).toBeNull();
+          expect(scv.value().time).toBeUndefined();
         });
 
         it("should be the end of the initial series", async () => {
           c.feed.readLatest = async () => new MultiSeries([stored()]);
           const scv = new StreamChannelValue(c, { channel: c.channel.key });
           await waitForResolve(scv);
-          expect(scv.sampleTime()?.equals(SAMPLE_TIME)).toBe(true);
+          expect(scv.value().time?.equals(SAMPLE_TIME)).toBe(true);
         });
 
-        it("should be null when the initial series has no time range", async () => {
+        it("should be undefined when the initial series has no time range", async () => {
           c.feed.readLatest = async () =>
             new MultiSeries([new Series({ data: new Float32Array([7]) })]);
           const scv = new StreamChannelValue(c, { channel: c.channel.key });
           await waitForResolve(scv);
-          expect(scv.sampleTime()).toBeNull();
+          expect(scv.value().time).toBeUndefined();
         });
 
-        it("should be null once a live buffer replaces the initial buffer", async () => {
+        it("should be undefined once a live buffer replaces the initial buffer", async () => {
           c.feed.readLatest = async () => new MultiSeries([stored()]);
           const scv = new StreamChannelValue(c, { channel: c.channel.key });
           await waitForResolve(scv);
@@ -451,15 +454,15 @@ describe("remote", () => {
             timeRange: new TimeRange(SAMPLE_TIME, TimeStamp.MAX),
           });
           c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
-          expect(scv.sampleTime()).toBeNull();
+          expect(scv.value().time).toBeUndefined();
         });
 
-        it("should be null after cleanup", async () => {
+        it("should be undefined after cleanup", async () => {
           c.feed.readLatest = async () => new MultiSeries([stored()]);
           const scv = new StreamChannelValue(c, { channel: c.channel.key });
           await waitForResolve(scv);
           scv.cleanup();
-          expect(scv.sampleTime()).toBeNull();
+          expect(scv.value().time).toBeUndefined();
         });
       });
     });
@@ -511,7 +514,7 @@ describe("remote", () => {
 
     it("should return an empty string when no channel has been set", () => {
       const scsv = new StreamChannelStringValue(c, { channel: 0 });
-      expect(scsv.value()).toBe("");
+      expect(scsv.value().data).toBe("");
       expect(c.streamF).not.toHaveBeenCalled();
     });
 
@@ -544,7 +547,7 @@ describe("remote", () => {
       const series = new Series(["IDLE", "ARMED"]);
       c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series])]]));
       await expect.poll(() => handleChange.mock.calls.length === 1).toBe(true);
-      expect(scsv.value()).toBe("ARMED");
+      expect(scsv.value().data).toBe("ARMED");
       expect(series.refCount).toBe(1);
     });
 
@@ -556,7 +559,7 @@ describe("remote", () => {
           [c.channel.key, new MultiSeries([new Series(["Hello, World! (42%)"])])],
         ]),
       );
-      await expect.poll(() => scsv.value()).toBe("Hello, World! (42%)");
+      await expect.poll(() => scsv.value().data).toBe("Hello, World! (42%)");
     });
 
     // The client appends into the leading buffer in place and then delivers a
@@ -565,18 +568,18 @@ describe("remote", () => {
       const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
       const handleChange = vi.fn();
       scsv.onChange(handleChange);
-      expect(scsv.value()).toBe("");
+      expect(scsv.value().data).toBe("");
       await waitForStream(scsv, c);
       const series = Series.alloc({ dataType: DataType.STRING, capacity: 64 });
       series.write(new Series(["IDLE"]));
       c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series])]]));
       await expect.poll(() => handleChange.mock.calls.length === 1).toBe(true);
-      expect(scsv.value()).toBe("IDLE");
+      expect(scsv.value().data).toBe("IDLE");
 
       series.write(new Series(["ARMED"]));
       c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([])]]));
       await expect.poll(() => handleChange.mock.calls.length === 2).toBe(true);
-      expect(scsv.value()).toBe("ARMED");
+      expect(scsv.value().data).toBe("ARMED");
     });
 
     it("should replace and release the leading buffer when a new one arrives", async () => {
@@ -585,10 +588,10 @@ describe("remote", () => {
       const first = new Series(["FIRST"]);
       const second = new Series(["SECOND"]);
       c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([first])]]));
-      await expect.poll(() => scsv.value()).toBe("FIRST");
+      await expect.poll(() => scsv.value().data).toBe("FIRST");
       expect(first.refCount).toBe(1);
       c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([second])]]));
-      await expect.poll(() => scsv.value()).toBe("SECOND");
+      await expect.poll(() => scsv.value().data).toBe("SECOND");
       expect(first.refCount).toBe(0);
       expect(second.refCount).toBe(1);
     });
@@ -610,7 +613,7 @@ describe("remote", () => {
           ],
         ]),
       );
-      await expect.poll(() => scsv.value()).toBe("3");
+      await expect.poll(() => scsv.value().data).toBe("3");
     });
 
     it("should release the leading buffer and stop streaming on cleanup", async () => {
@@ -618,11 +621,11 @@ describe("remote", () => {
       await waitForStream(scsv, c);
       const series = new Series(["IDLE"]);
       c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series])]]));
-      await expect.poll(() => scsv.value()).toBe("IDLE");
+      await expect.poll(() => scsv.value().data).toBe("IDLE");
       scsv.cleanup();
       expect(c.streamDestructorF).toHaveBeenCalledTimes(1);
       expect(series.refCount).toBe(0);
-      expect(scsv.value()).toBe("");
+      expect(scsv.value().data).toBe("");
     });
 
     // value() runs read() synchronously up to its first await, so a cleanup() on the
@@ -676,7 +679,7 @@ describe("remote", () => {
         c.streamHandler?.(
           new Map([[c.channel.key, new MultiSeries([new Series(["ARMED"])])]]),
         );
-        await expect.poll(() => scsv.value()).toBe("ARMED");
+        await expect.poll(() => scsv.value().data).toBe("ARMED");
       });
 
       it("should not let a stale handler overwrite a later read's buffer", async () => {
@@ -687,10 +690,10 @@ describe("remote", () => {
         await waitForStream(scsv, c);
         const fresh = new Series(["ARMED"]);
         c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([fresh])]]));
-        await expect.poll(() => scsv.value()).toBe("ARMED");
+        await expect.poll(() => scsv.value().data).toBe("ARMED");
         const stale = new Series(["IDLE"]);
         staleHandler?.(new Map([[c.channel.key, new MultiSeries([stale])]]));
-        expect(scsv.value()).toBe("ARMED");
+        expect(scsv.value().data).toBe("ARMED");
         expect(stale.refCount).toBe(0);
         expect(fresh.refCount).toBe(1);
       });
@@ -718,7 +721,7 @@ describe("remote", () => {
         await waitForStream(scsv, c);
         await new Promise((resolve) => setTimeout(resolve, 5));
         expect(handleChange).not.toHaveBeenCalled();
-        expect(scsv.value()).toBe("");
+        expect(scsv.value().data).toBe("");
       });
 
       it("should keep a live buffer that arrives while the read is in flight", async () => {
@@ -734,7 +737,7 @@ describe("remote", () => {
         c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
         release();
         await new Promise((resolve) => setTimeout(resolve, 5));
-        expect(scsv.value()).toBe("LIVE");
+        expect(scsv.value().data).toBe("LIVE");
         expect(live.refCount).toBe(1);
       });
 
@@ -746,7 +749,7 @@ describe("remote", () => {
         expect(initial.refCount).toBe(1);
         const live = new Series(["LIVE"]);
         c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
-        expect(scsv.value()).toBe("LIVE");
+        expect(scsv.value().data).toBe("LIVE");
         expect(initial.refCount).toBe(0);
       });
 
@@ -757,7 +760,7 @@ describe("remote", () => {
         await waitForStream(scsv, c);
         await new Promise((resolve) => setTimeout(resolve, 5));
         expect(c.feed.readLatest).not.toHaveBeenCalled();
-        expect(scsv.value()).toBe("");
+        expect(scsv.value().data).toBe("");
       });
 
       it("should post a status and keep streaming when the read fails", async () => {
@@ -777,34 +780,34 @@ describe("remote", () => {
         c.streamHandler?.(
           new Map([[c.channel.key, new MultiSeries([new Series(["LIVE"])])]]),
         );
-        expect(scsv.value()).toBe("LIVE");
+        expect(scsv.value().data).toBe("LIVE");
       });
 
-      describe("sampleTime", () => {
+      describe("time", () => {
         it("should be the end of the initial series", async () => {
           c.feed.readLatest = async () => new MultiSeries([stored()]);
           const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
-          expect(scsv.sampleTime()).toBeNull();
+          expect(scsv.value().time).toBeUndefined();
           await waitForResolve(scsv);
-          expect(scsv.sampleTime()?.equals(SAMPLE_TIME)).toBe(true);
+          expect(scsv.value().time?.equals(SAMPLE_TIME)).toBe(true);
         });
 
-        it("should be null once a live buffer replaces the initial buffer", async () => {
+        it("should be undefined once a live buffer replaces the initial buffer", async () => {
           c.feed.readLatest = async () => new MultiSeries([stored()]);
           const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
           await waitForResolve(scsv);
           c.streamHandler?.(
             new Map([[c.channel.key, new MultiSeries([new Series(["LIVE"])])]]),
           );
-          expect(scsv.sampleTime()).toBeNull();
+          expect(scsv.value().time).toBeUndefined();
         });
 
-        it("should be null after cleanup", async () => {
+        it("should be undefined after cleanup", async () => {
           c.feed.readLatest = async () => new MultiSeries([stored()]);
           const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
           await waitForResolve(scsv);
           scsv.cleanup();
-          expect(scsv.sampleTime()).toBeNull();
+          expect(scsv.value().time).toBeUndefined();
         });
       });
     });
@@ -947,7 +950,7 @@ describe("remote", () => {
 
     // Waits for the source to settle after a value call that starts reads.
     const settle = async (source: TiledChannelData): Promise<void> =>
-      await expect.poll(() => source.loading()).toBe(false);
+      await expect.poll(() => loading(source)).toBe(false);
 
     const view = (lower: number, upper: number, width = 500): View => ({
       bounds: {
@@ -962,23 +965,23 @@ describe("remote", () => {
 
     it("should return nothing when no channel is set", () => {
       const source = create({ channel: 0 });
-      const [b, series] = source.value();
+      const [b, series] = source.value().data;
       expect(b).toEqual(bounds.INVALID);
       expect(series.length).toBe(0);
-      expect(source.loading()).toBe(false);
+      expect(loading(source)).toBe(false);
       expect(c.tiles).toHaveLength(0);
     });
 
     it("should load the tiles of the home view", async () => {
       const source = create();
-      expect(source.loading()).toBe(true);
+      expect(loading(source)).toBe(true);
       await settle(source);
       expect(c.tiles.map((t) => [t.level, t.index, t.pointLimit])).toEqual([
         [13, 0, 1024],
         [13, 1, 1024],
       ]);
       expect(c.tiles.every((t) => t.aggregation === "min_max")).toBe(true);
-      expect(positions(source.value()[1])).toEqual([
+      expect(positions(source.value().data[1])).toEqual([
         [13, 0],
         [13, 1],
       ]);
@@ -991,36 +994,36 @@ describe("remote", () => {
         [1024, "average"],
         [1024, "average"],
       ]);
-      expect(source.aggregation()).toBe("average");
+      expect(source.value().aggregation).toBe("average");
     });
 
     it("should bound an index channel by the home view", async () => {
       const source = create({ useIndexOfChannel: true });
       await settle(source);
-      expect(source.value()[0]).toEqual(HOME.numericBounds);
+      expect(source.value().data[0]).toEqual(HOME.numericBounds);
       expect(c.tiles.every((t) => t.key === INDEX_KEY)).toBe(true);
     });
 
     it("should bound a data channel by its data", async () => {
       const source = create();
       await settle(source);
-      expect(source.value()[0]).toEqual({ lower: 0, upper: 13 });
+      expect(source.value().data[0]).toEqual({ lower: 0, upper: 13 });
     });
 
     describe("extremes kept", () => {
       it("should bound an average line by min_max tiles of the home view", async () => {
         const source = create({ aggregation: "average" });
         await settle(source);
-        expect(source.value()[0]).toEqual({ lower: 6.5, upper: 7 });
+        expect(source.value().data[0]).toEqual({ lower: 6.5, upper: 7 });
         source.value({ extremesKept: true });
-        await expect.poll(() => source.fetching()).toBe(false);
+        await expect.poll(() => loading(source, { extremesKept: true })).toBe(false);
         expect(c.tiles.map((t) => [t.level, t.index, t.aggregation])).toEqual([
           [13, 0, "average"],
           [13, 1, "average"],
           [13, 0, "min_max"],
           [13, 1, "min_max"],
         ]);
-        expect(source.value({ extremesKept: true })[0]).toEqual({
+        expect(source.value({ extremesKept: true }).data[0]).toEqual({
           lower: 0,
           upper: 13,
         });
@@ -1030,7 +1033,7 @@ describe("remote", () => {
         const source = create();
         await settle(source);
         const before = c.tiles.length;
-        expect(source.value({ extremesKept: true })[0]).toEqual({
+        expect(source.value({ extremesKept: true }).data[0]).toEqual({
           lower: 0,
           upper: 13,
         });
@@ -1050,7 +1053,9 @@ describe("remote", () => {
         await settle(source);
         source.value({ extremesKept: true });
         source.value({ view: view(2000, 3000, 1000) });
-        await expect.poll(() => source.fetching()).toBe(false);
+        await expect
+          .poll(() => loading(source, { view: view(2000, 3000, 1000) }))
+          .toBe(false);
         source.value({ view: view(2000, 3000, 1000) });
         const tile = c.served.get(`13/0/${DATA_KEY}/min_max`)!;
         expect(tile.series[0].refCount).toBe(1);
@@ -1070,8 +1075,8 @@ describe("remote", () => {
           })
           .toBe(4);
         c.resolveWhere((spec) => spec.aggregation === "average");
-        await expect.poll(() => source.value()[1].length).toBe(2);
-        expect(source.loading()).toBe(true);
+        await expect.poll(() => source.value().data[1].length).toBe(2);
+        expect(loading(source)).toBe(true);
         c.resolveAll();
         await settle(source);
       });
@@ -1079,11 +1084,11 @@ describe("remote", () => {
       it("should draw an average stand-in over a min_max one", async () => {
         const source = create({ aggregation: "average" });
         await expect
-          .poll(() => source.value({ extremesKept: true })[0])
+          .poll(() => source.value({ extremesKept: true }).data[0])
           .toEqual({ lower: 0, upper: 13 });
         await settle(source);
         c.deferred = true;
-        const [, series] = source.value({ view: view(2000, 3000, 1000) });
+        const [, series] = source.value({ view: view(2000, 3000, 1000) }).data;
         expect(positions(series)).toEqual([[6.5]]);
       });
     });
@@ -1093,7 +1098,7 @@ describe("remote", () => {
       await settle(source);
       source.value({ view: view(2000, 3000) });
       await expect
-        .poll(() => positions(source.value({ view: view(2000, 3000) })[1]))
+        .poll(() => positions(source.value({ view: view(2000, 3000) }).data[1]))
         .toEqual([
           [9, 3],
           [9, 4],
@@ -1105,26 +1110,28 @@ describe("remote", () => {
       const source = create();
       await settle(source);
       c.deferred = true;
-      const [, series] = source.value({ view: view(2000, 3000) });
+      const [, series] = source.value({ view: view(2000, 3000) }).data;
       expect(positions(series)).toEqual([[13, 0]]);
-      expect(source.fetching()).toBe(true);
+      expect(loading(source)).toBe(true);
       c.resolveAll();
-      await expect.poll(() => source.fetching()).toBe(false);
-      expect(positions(source.value({ view: view(2000, 3000) })[1])).toHaveLength(3);
+      await expect.poll(() => loading(source, { view: view(2000, 3000) })).toBe(false);
+      expect(positions(source.value({ view: view(2000, 3000) }).data[1])).toHaveLength(
+        3,
+      );
     });
 
     it("should draw finer tiles until a zoomed out view's tiles arrive", async () => {
       const source = create();
       await settle(source);
       c.deferred = true;
-      const [, series] = source.value({ view: view(0, 60000) });
+      const [, series] = source.value({ view: view(0, 60000) }).data;
       expect(positions(series)).toEqual([
         [13, 0],
         [13, 1],
       ]);
       c.resolveAll();
-      await expect.poll(() => source.fetching()).toBe(false);
-      expect(positions(source.value({ view: view(0, 60000) })[1])).toEqual([
+      await expect.poll(() => loading(source, { view: view(0, 60000) })).toBe(false);
+      expect(positions(source.value({ view: view(0, 60000) }).data[1])).toEqual([
         [15, 0],
         [15, 1],
       ]);
@@ -1154,7 +1161,9 @@ describe("remote", () => {
         await settle(source);
         expect(c.tileDataTypes).toEqual([undefined, undefined]);
         source.value({ view: view(2000, 3000) });
-        await expect.poll(() => source.fetching()).toBe(false);
+        await expect
+          .poll(() => loading(source, { view: view(2000, 3000) }))
+          .toBe(false);
         expect(c.tileDataTypes.slice(2)).toEqual([
           DataType.FLOAT32,
           DataType.FLOAT32,
@@ -1172,11 +1181,11 @@ describe("remote", () => {
           .poll(() => home.every((tile) => tile.series[0].refCount === 0))
           .toBe(true);
         await settle(source);
-        expect(positions(source.value()[1])).toEqual([
+        expect(positions(source.value().data[1])).toEqual([
           [13, 0],
           [13, 1],
         ]);
-        expect(source.value()[1].dataType.equals(DataType.UINT8)).toBe(true);
+        expect(source.value().data[1].dataType.equals(DataType.UINT8)).toBe(true);
       });
     });
 
@@ -1234,7 +1243,7 @@ describe("remote", () => {
       await settle(source);
       source.value({ view: view(2000, 3000) });
       await expect
-        .poll(() => source.value({ view: view(2000, 3000) })[1].series.length)
+        .poll(() => source.value({ view: view(2000, 3000) }).data[1].series.length)
         .toBe(3);
       const fine = c.served.get(`9/3/${DATA_KEY}/min_max`)!;
       expect(fine.series[0].refCount).toBe(1);
@@ -1251,10 +1260,10 @@ describe("remote", () => {
       const home = view(1000, 10000, 1000);
       source.value({ view: home });
       c.resolveAll();
-      await expect.poll(() => source.fetching()).toBe(false);
+      await expect.poll(() => loading(source)).toBe(false);
       const late = c.served.get(`9/3/${DATA_KEY}/min_max`)!;
       expect(late.series[0].refCount).toBe(1);
-      expect(positions(source.value({ view: home })[1])).toEqual([
+      expect(positions(source.value({ view: home }).data[1])).toEqual([
         [13, 0],
         [13, 1],
       ]);
@@ -1265,7 +1274,9 @@ describe("remote", () => {
       const source = create();
       await settle(source);
       source.value({ view: view(500_000, 501_000) });
-      await expect.poll(() => source.fetching()).toBe(false);
+      await expect
+        .poll(() => loading(source, { view: view(500_000, 501_000) }))
+        .toBe(false);
       source.value({ view: view(500_000, 501_000) });
       expect(c.served.get(`13/0/${DATA_KEY}/min_max`)!.series[0].refCount).toBe(1);
     });
@@ -1284,7 +1295,7 @@ describe("remote", () => {
         [0, "decimate", HOME.start.valueOf(), undefined],
         [1, "decimate", undefined, HOME.end.valueOf()],
       ]);
-      expect(source.aggregation()).toBe("decimate");
+      expect(source.value().aggregation).toBe("decimate");
       const before = c.tiles.length;
       source.value({ view: view(2000, 3000, 1000) });
       expect(c.tiles.length).toBe(before);
@@ -1296,7 +1307,7 @@ describe("remote", () => {
       const former = [...c.served.values()];
       const wide = view(2000, 3000, 4000);
       source.value({ view: wide });
-      await expect.poll(() => source.fetching()).toBe(false);
+      await expect.poll(() => loading(source, { view: wide })).toBe(false);
       source.value({ view: wide });
       expect(c.tiles).toHaveLength(4);
       expect(former.map((s) => s.series[0].refCount)).toEqual([0, 0]);
@@ -1357,14 +1368,16 @@ describe("remote", () => {
             }),
         });
         await settle(source);
+        expect(source.value().status.variant).toBe("error");
         failing = false;
         wake();
         await expect
-          .poll(() => positions(source.value()[1]))
+          .poll(() => positions(source.value().data[1]))
           .toEqual([
             [13, 0],
             [13, 1],
           ]);
+        expect(source.value().status.variant).toBe("success");
         source.cleanup();
       });
 
@@ -1374,7 +1387,11 @@ describe("remote", () => {
         await settle(source);
         const failed = c.tiles.length;
         await sleep.sleep(TimeSpan.milliseconds(10));
-        source.value();
+        expect(source.value().status).toMatchObject({
+          variant: "error",
+          message: "Failed to read channel data",
+          description: "bad tile",
+        });
         expect(c.tiles).toHaveLength(failed);
         source.cleanup();
       });
@@ -1403,7 +1420,7 @@ describe("remote", () => {
         const source = create({}, undefined, undefined, undefined, NO_WAIT);
         source.value();
         await expect
-          .poll(() => positions(source.value()[1]))
+          .poll(() => positions(source.value().data[1]))
           .toEqual([
             [13, 0],
             [13, 1],
@@ -1428,7 +1445,10 @@ describe("remote", () => {
         );
         await settle(source);
         await sleep.sleep(TimeSpan.milliseconds(10));
-        source.value();
+        expect(source.value().status).toMatchObject({
+          variant: "error",
+          description: "channel not found",
+        });
         expect(calls).toBe(1);
         expect(statuses.map((s) => [s.message, s.description])).toEqual([
           ["Failed to read channel data", "channel not found"],
@@ -1508,7 +1528,7 @@ describe("remote", () => {
           TimeStamp.milliseconds(81_920).valueOf(),
         );
         expect(c.tiles).toHaveLength(0);
-        expect(positions(source.value()[1])).toEqual([[82, 100]]);
+        expect(positions(source.value().data[1])).toEqual([[82, 100]]);
       });
 
       it("should stream a live xy line's home view without tiles", async () => {
@@ -1517,15 +1537,15 @@ describe("remote", () => {
         await firstRead(source);
         expect(c.tiles).toHaveLength(0);
         expect(c.reads[0].start.valueOf()).toBe(TimeStamp.seconds(90).valueOf());
-        expect(positions(source.value()[1])).toEqual([[90, 100]]);
-        expect(source.aggregation()).toBe("decimate");
+        expect(positions(source.value().data[1])).toEqual([[90, 100]]);
+        expect(source.value().aggregation).toBe("decimate");
       });
 
       it("should stream new samples into the live window", async () => {
         const source = createLive();
         await firstRead(source);
         c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([raw(100, 101)])]]));
-        expect(positions(source.value()[1])).toEqual([[100, 101]]);
+        expect(positions(source.value().data[1])).toEqual([[100, 101]]);
       });
 
       it("should draw tiles before the live window and raw data after it", async () => {
@@ -1534,8 +1554,8 @@ describe("remote", () => {
         await firstRead(source);
         const v = view(75_000, 100_000, 1000);
         source.value({ view: v });
-        await expect.poll(() => source.fetching()).toBe(false);
-        expect(positions(source.value({ view: v })[1])).toEqual([
+        await expect.poll(() => loading(source, { view: v })).toBe(false);
+        expect(positions(source.value({ view: v }).data[1])).toEqual([
           [14, 4],
           [82, 100],
         ]);
@@ -1569,11 +1589,11 @@ describe("remote", () => {
         now = TimeStamp.seconds(108);
         const v = view(80_000, 108_000, 1000);
         source.value({ view: v });
-        await expect.poll(() => source.fetching()).toBe(false);
+        await expect.poll(() => loading(source, { view: v })).toBe(false);
         // The tile stops where the held raw series starts, so no span draws twice.
         const cut = c.tiles.find((t) => t.level === 14 && t.index === 5);
         expect(cut?.end?.valueOf()).toBe(TimeStamp.seconds(90).valueOf());
-        expect(positions(source.value({ view: v })[1])).toEqual([
+        expect(positions(source.value({ view: v }).data[1])).toEqual([
           [14, 4],
           [14, 5],
           [90, 100],
@@ -1589,15 +1609,15 @@ describe("remote", () => {
         now = TimeStamp.seconds(108);
         c.deferred = true;
         const v = view(80_000, 108_000, 1000);
-        expect(positions(source.value({ view: v })[1])).toEqual([
+        expect(positions(source.value({ view: v }).data[1])).toEqual([
           [82, 90],
           [90, 100],
         ]);
         c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([raw(100, 108)])]]));
         expect(left.refCount).toBe(1);
         c.resolveAll();
-        await expect.poll(() => source.fetching()).toBe(false);
-        expect(positions(source.value({ view: v })[1])).toEqual([
+        await expect.poll(() => loading(source, { view: v })).toBe(false);
+        expect(positions(source.value({ view: v }).data[1])).toEqual([
           [14, 4],
           [14, 5],
           [90, 100],
@@ -1622,7 +1642,7 @@ describe("remote", () => {
         await firstRead(source);
         const older = view(75_000, 100_000, 1000);
         source.value({ view: older });
-        await expect.poll(() => source.fetching()).toBe(false);
+        await expect.poll(() => loading(source, { view: older })).toBe(false);
         const tile = c.served.get(`14/4/${DATA_KEY}/min_max`)!;
         expect(tile.series[0].refCount).toBe(1);
         source.value({ view: view(95_000, 100_000, 1000) });
@@ -1633,7 +1653,7 @@ describe("remote", () => {
       it("should bound a live index by the span before its latest sample", async () => {
         const source = createLive({ useIndexOfChannel: true });
         await firstRead(source);
-        const [b] = source.value();
+        const [b] = source.value().data;
         expect(b.upper).toBe(Number(TimeStamp.seconds(100).valueOf()));
         expect(b.upper - b.lower).toBe(Number(SPAN.valueOf()));
       });
@@ -1652,7 +1672,7 @@ describe("remote", () => {
         const after = raw(97, 98, 0n);
         c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([before])]]));
         c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([after])]]));
-        expect(positions(source.value()[1])).toEqual([
+        expect(positions(source.value().data[1])).toEqual([
           [95, 96],
           [97, 98],
         ]);
@@ -1663,7 +1683,7 @@ describe("remote", () => {
         await firstRead(source);
         const v = view(75_000, 100_000, 1000);
         source.value({ view: v });
-        await expect.poll(() => source.fetching()).toBe(false);
+        await expect.poll(() => loading(source, { view: v })).toBe(false);
         const tile = c.served.get(`14/4/${DATA_KEY}/min_max`)!;
         const opened = c.streamHandler;
         const bytes = new Series({
@@ -1673,7 +1693,7 @@ describe("remote", () => {
         c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([bytes])]]));
         expect(tile.series[0].refCount).toBe(0);
         expect(bytes.refCount).toBe(0);
-        expect(source.value({ view: v })[1].series).toEqual([]);
+        expect(source.value({ view: v }).data[1].series).toEqual([]);
         await expect.poll(() => c.streamHandler !== opened).toBe(true);
         source.cleanup();
       });
@@ -1687,8 +1707,8 @@ describe("remote", () => {
           alignment: 100n,
         });
         c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([exact])]]));
-        expect(source.value()[1].series).toEqual([exact]);
-        expect(source.value()[1].at(0)).toBe(100.1);
+        expect(source.value().data[1].series).toEqual([exact]);
+        expect(source.value().data[1].at(0)).toBe(100.1);
       });
 
       it("should read the channel again when its data type changes", async () => {
@@ -1696,7 +1716,7 @@ describe("remote", () => {
         await firstRead(source);
         const v = view(75_000, 100_000, 1000);
         source.value({ view: v });
-        await expect.poll(() => source.fetching()).toBe(false);
+        await expect.poll(() => loading(source, { view: v })).toBe(false);
         const tile = c.served.get(`14/4/${DATA_KEY}/min_max`)!;
         const float = raw(95, 96);
         c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([float])]]));
@@ -1706,12 +1726,12 @@ describe("remote", () => {
         });
         const opened = c.streamHandler;
         c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([bytes])]]));
-        expect(source.value()[1].series).toEqual([]);
+        expect(source.value().data[1].series).toEqual([]);
         expect(float.refCount).toBe(0);
         expect(tile.series[0].refCount).toBe(0);
         await expect.poll(() => c.streamHandler !== opened).toBe(true);
         c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([bytes])]]));
-        expect(source.value()[1].series).toEqual([bytes]);
+        expect(source.value().data[1].series).toEqual([bytes]);
         source.cleanup();
       });
 
@@ -1753,12 +1773,12 @@ describe("remote", () => {
       it("should draw a live window of up to a minute while its back-fill loads", async () => {
         const release = gateReads();
         const source = createLive({ timeSpan: TimeSpan.minutes(1) });
-        expect(source.loading()).toBe(false);
+        expect(loading(source)).toBe(false);
         source.value();
         await expect.poll(() => c.streamHandler != null).toBe(true);
         c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([raw(100, 101)])]]));
-        expect(source.loading()).toBe(false);
-        expect(positions(source.value()[1])).toEqual([[100, 101]]);
+        expect(loading(source)).toBe(false);
+        expect(positions(source.value().data[1])).toEqual([[100, 101]]);
         release();
         source.cleanup();
       });
@@ -1767,22 +1787,22 @@ describe("remote", () => {
         const release = gateReads();
         now = TimeStamp.seconds(600);
         const source = createLive({ timeSpan: TimeSpan.minutes(2) });
-        expect(source.loading()).toBe(true);
+        expect(loading(source)).toBe(true);
         await expect.poll(() => c.streamHandler != null).toBe(true);
-        expect(source.loading()).toBe(true);
+        expect(loading(source)).toBe(true);
         release();
         await settle(source);
         source.cleanup();
       });
 
-      it("should report fetching for tiles in view while the back-fill loads", async () => {
+      it("should report loading for tiles in view while the back-fill loads", async () => {
         const release = gateReads();
         c.deferred = true;
         const source = createLive();
         source.value();
         await expect.poll(() => c.streamHandler != null).toBe(true);
         source.value({ view: view(75_000, 100_000, 1000) });
-        expect(source.fetching()).toBe(true);
+        expect(loading(source)).toBe(true);
         c.resolveAll();
         release();
         source.cleanup();
@@ -1804,11 +1824,11 @@ describe("remote", () => {
         { channel: 1 },
         { onStatusChange: (s) => statuses.push(s) },
       );
-      expect(scv.value()).toBe(NaN);
+      expect(scv.value().data).toBe(NaN);
       expect(statuses).toHaveLength(1);
       expect(statuses[0].variant).toEqual("warning");
       // A repeated read must not re-report: the source is rebuilt on reconnect.
-      expect(scv.value()).toBe(NaN);
+      expect(scv.value().data).toBe(NaN);
       expect(statuses).toHaveLength(1);
     });
 
@@ -1822,8 +1842,8 @@ describe("remote", () => {
         },
         { onStatusChange: (s) => statuses.push(s) },
       );
-      expect(source.loading()).toBe(false);
-      expect(source.value()[1]).toHaveLength(0);
+      expect(loading(source)).toBe(false);
+      expect(source.value().data[1]).toHaveLength(0);
       expect(statuses).toHaveLength(1);
       expect(statuses[0].variant).toEqual("warning");
     });
@@ -1835,7 +1855,7 @@ describe("remote", () => {
         { timeRange: TimeRange.MAX, channel: 1 },
         { onStatusChange: (s) => statuses.push(s) },
       );
-      const [b, data] = source.value();
+      const [b, data] = source.value().data;
       expect(b).toStrictEqual(bounds.INVALID);
       expect(data).toHaveLength(0);
       expect(statuses).toEqual([DISCONNECTED_STATUS]);
