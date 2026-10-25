@@ -172,7 +172,9 @@ describe("block", () => {
       const ts = createIndex(500n, 1, edge + 1);
       const parts = split(0, 1, [ts], [createValues(500n, [1, 2], ts.timeRange)]);
       const buffers = parts.flatMap((p) => [p.timestamps[0], p.series[0]]);
-      buffers.forEach((s) => expect(s.buffer.byteLength).toBe(s.byteCapacity.valueOf()));
+      buffers.forEach((s) =>
+        expect(s.buffer.byteLength).toBe(s.byteCapacity.valueOf()),
+      );
     });
 
     it("should keep a series in one block as it is", () => {

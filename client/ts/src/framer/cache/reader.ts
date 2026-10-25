@@ -143,7 +143,12 @@ export class Reader {
       }),
     );
     if (failure != null) throw failure;
-    return assemble(tr, blocks);
+    const series = assemble(tr, blocks);
+    // A fetch with a new data type drops the channel's blocks from the store, but this
+    // read took its blocks before the fetch, so they can hold the old data type.
+    if (new Set(series.map((s) => s.dataType.toString())).size > 1)
+      return await this.read(tr, ch);
+    return new MultiSeries(series);
   }
 
   private enqueue(block: RawBlock, end: TimeStamp): Promise<void> {
@@ -314,7 +319,7 @@ const runs = (entries: Array<debounce.Entry<Request>>): Group[] => {
 
 // Returns the series of the blocks that overlap tr in time order. The fetched form of a
 // span wins: a streamed series that overlaps a fetched one is left out.
-const assemble = (tr: TimeRange, blocks: RawBlock[]): MultiSeries => {
+const assemble = (tr: TimeRange, blocks: RawBlock[]): Series[] => {
   const fetched = blocks.flatMap((b) =>
     b.fetched
       .filter((s) => s.timeRange.overlapsWith(tr))
@@ -324,9 +329,7 @@ const assemble = (tr: TimeRange, blocks: RawBlock[]): MultiSeries => {
   const streamed = blocks
     .flatMap((b) => b.streamedIn(tr))
     .filter(({ range }) => !all.some((f) => f.timeRange.overlapsWith(range)));
-  return new MultiSeries(
-    [...fetched, ...streamed]
-      .sort((a, b) => TimeRange.sort(a.range, b.range))
-      .map(({ series }) => series),
-  );
+  return [...fetched, ...streamed]
+    .sort((a, b) => TimeRange.sort(a.range, b.range))
+    .map(({ series }) => series);
 };

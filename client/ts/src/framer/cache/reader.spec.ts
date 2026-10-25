@@ -260,6 +260,24 @@ describe("Reader", () => {
       expect(res.series.map((s) => s.alignment)).toEqual([blockAlignment(100, 0)]);
       expect(res.length).toBe(40);
     });
+
+    it("should fetch cached blocks again when a fetch in the read changes the data type", async () => {
+      const { state, answer } = createConversion();
+      const { reader, fetches } = createReader({ answer });
+      await reader.read(new TimeRange(at(0), at(30)), 2);
+      state.converted = true;
+      const res = await reader.read(new TimeRange(at(0), at(100)), 2);
+      expect(fetches.map(({ tr }) => tr)).toEqual([
+        blockRange(100),
+        blockRange(101),
+        blockRange(100),
+      ]);
+      expect(res.series.map((s) => s.dataType.toString())).toEqual([
+        "float64",
+        "float64",
+      ]);
+      expect(res.length).toBe(132);
+    });
   });
 
   describe("batching", () => {
