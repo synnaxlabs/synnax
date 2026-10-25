@@ -20,7 +20,6 @@ var _ = Describe("ServiceConfig", func() {
 		return panel.ServiceConfig{
 			DB:       node.DB,
 			Ontology: otg,
-			Search:   searchIdx,
 		}
 	}
 
@@ -42,7 +41,6 @@ var _ = Describe("ServiceConfig", func() {
 				func(c *panel.ServiceConfig) { c.Ontology = nil },
 				"ontology",
 			),
-			Entry("search", func(c *panel.ServiceConfig) { c.Search = nil }, "search"),
 		)
 
 		It("Should succeed without a Signals provider", func() {
@@ -57,7 +55,6 @@ var _ = Describe("ServiceConfig", func() {
 			merged := panel.ServiceConfig{}.Override(full())
 			Expect(merged.DB).To(BeIdenticalTo(node.DB))
 			Expect(merged.Ontology).To(BeIdenticalTo(otg))
-			Expect(merged.Search).To(BeIdenticalTo(searchIdx))
 		})
 
 		It("Should preserve the receiver's fields when other's are nil", func() {

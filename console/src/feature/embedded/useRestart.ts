@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { Status } from "@synnaxlabs/lyra/status";
-import { useCallback } from "react";
 
 import { useStatus } from "@/feature/embedded/Provider";
 import { restart } from "@/feature/embedded/supervisor";
@@ -22,20 +21,17 @@ export const useRestart = (): (() => void) => {
   const { state } = useStatus();
   const confirm = Modals.useConfirm();
   const handleError = Status.useErrorHandler();
-  return useCallback(
-    () =>
-      handleError(async () => {
-        if (state === "running") {
-          const confirmed = await confirm({
-            message: "Are you sure you want to restart Synnax?",
-            description:
-              "Running tasks and live data stop for a few seconds. No saved data is lost.",
-            confirm: { label: "Restart", variant: "warning" },
-          });
-          if (confirmed !== true) return;
-        }
-        await restart();
-      }, "Failed to restart Synnax"),
-    [state, confirm, handleError],
-  );
+  return () =>
+    handleError(async () => {
+      if (state === "running") {
+        const confirmed = await confirm({
+          message: "Are you sure you want to restart Synnax?",
+          description:
+            "Running tasks and live data stop for a few seconds. No saved data is lost.",
+          confirm: { label: "Restart", variant: "warning" },
+        });
+        if (confirmed !== true) return;
+      }
+      await restart();
+    }, "Failed to restart Synnax");
 };

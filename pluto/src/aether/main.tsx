@@ -14,9 +14,7 @@ import {
   memo,
   type PropsWithChildren,
   type ReactElement,
-  useCallback,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -68,17 +66,14 @@ const ROOT_PATH = ["root"] as const;
  * error boundary can catch them. */
 export const Provider = ({ children, ...config }: ProviderProps): ReactElement => {
   const [store] = useState(() => new Store(config));
-  const subscribeError = useCallback(
-    (listener: () => void) => {
-      const unsubscribe = store.subscribeError(listener);
-      return () => {
-        unsubscribe();
-        store.dispose();
-      };
-    },
-    [store],
-  );
-  const getError = useCallback(() => store.getError(), [store]);
+  const subscribeError = (listener: () => void) => {
+    const unsubscribe = store.subscribeError(listener);
+    return () => {
+      unsubscribe();
+      store.dispose();
+    };
+  };
+  const getError = () => store.getError();
   const error = useSyncExternalStore(subscribeError, getError);
   if (error != null) throw error;
 
@@ -87,7 +82,7 @@ export const Provider = ({ children, ...config }: ProviderProps): ReactElement =
   // load reports it without waiting for a first component.
   useLayoutEffect(() => store.connect(), [store]);
 
-  const value = useMemo<ContextValue>(() => ({ store, path: ROOT_PATH }), [store]);
+  const value: ContextValue = { store, path: ROOT_PATH };
 
   return <Context value={value}>{children}</Context>;
 };
@@ -174,16 +169,13 @@ export const useLifecycle = <
   // Every field is a closure the handle built once, so this runs on the mounting render
   // and never again. Wrapping them in `useCallback` would allocate an arrow and a
   // dependency array per render to reproduce identities that are already stable.
-  return useMemo(
-    () => ({
-      path: handle.path,
-      setState: handle.setState,
-      methods: handle.methods,
-      subscribe: handle.subscribe,
-      getSnapshot: handle.getState,
-    }),
-    [handle],
-  );
+  return {
+    path: handle.path,
+    setState: handle.setState,
+    methods: handle.methods,
+    subscribe: handle.subscribe,
+    getSnapshot: handle.getState,
+  };
 };
 
 /** Mixin for React props of components that participate in the Aether tree. */
@@ -286,7 +278,7 @@ export interface CompositeProps extends PropsWithChildren {
  * composite component identified by `path`. */
 export const Composite = memo(({ children, path }: CompositeProps): ReactElement => {
   const ctx = useContext();
-  const value = useMemo<ContextValue>(() => ({ ...ctx, path }), [ctx, path]);
+  const value: ContextValue = { ...ctx, path };
   return <Context value={value}>{children}</Context>;
 });
 Composite.displayName = "Aether.Composite";

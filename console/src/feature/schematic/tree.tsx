@@ -15,7 +15,6 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, type Flux, Mosaic, Schematic as Base } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { Symbol } from "@/feature/schematic/symbol";
 import { ContextMenu } from "@/platform/context-menu";
@@ -45,17 +44,14 @@ const useCopy = (props: Tree.ContextMenuProps): (() => void) => {
   } = props;
   const rename = Base.useRename();
   const copy = Base.useCopy({
-    afterSuccess: useCallback(
-      async ({ data }: Flux.AfterSuccessParams<schematic.Schematic>) => {
-        const id = schematic.ontologyID(data.key);
-        const [name, renamed] = await Text.asyncEdit(
-          List.itemNameID(ontology.idToString(id)),
-        );
-        if (!renamed) return;
-        await rename.updateAsync({ key: data.key, name });
-      },
-      [rename],
-    ),
+    afterSuccess: async ({ data }: Flux.AfterSuccessParams<schematic.Schematic>) => {
+      const id = schematic.ontologyID(data.key);
+      const [name, renamed] = await Text.asyncEdit(
+        List.itemNameID(ontology.idToString(id)),
+      );
+      if (!renamed) return;
+      await rename.updateAsync({ key: data.key, name });
+    },
   });
   return () =>
     ids.map((id) => {
@@ -68,24 +64,23 @@ export const useRangeSnapshot = () => {
   const addStatus = Status.useAdder();
   const rng = Range.useResolve();
   const { update } = Base.useSnapshot({
-    afterSuccess: useCallback(
-      ({ data: { schematics } }: Flux.AfterSuccessParams<Base.SnapshotParams>) => {
-        const names = array.toArray(schematics).map((s) => s.name);
-        const joined = strings.naturalLanguageJoin(names);
-        const single = names.length === 1;
-        addStatus({
-          variant: "success",
-          name: rng?.name ?? "",
-          message: single
-            ? "Snapshotted schematic"
-            : `Snapshotted ${names.length} schematics`,
-          description: single
-            ? `Created a snapshot of ${joined}.`
-            : `Created snapshots of ${joined}.`,
-        });
-      },
-      [rng, addStatus],
-    ),
+    afterSuccess: ({
+      data: { schematics },
+    }: Flux.AfterSuccessParams<Base.SnapshotParams>) => {
+      const names = array.toArray(schematics).map((s) => s.name);
+      const joined = strings.naturalLanguageJoin(names);
+      const single = names.length === 1;
+      addStatus({
+        variant: "success",
+        name: rng?.name ?? "",
+        message: single
+          ? "Snapshotted schematic"
+          : `Snapshotted ${names.length} schematics`,
+        description: single
+          ? `Created a snapshot of ${joined}.`
+          : `Created snapshots of ${joined}.`,
+      });
+    },
     afterFailure: ({ status }: Flux.AfterFailureParams<Base.SnapshotParams>) =>
       addStatus({ ...status, name: rng?.name ?? "" }),
   });
