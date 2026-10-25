@@ -29,18 +29,19 @@ const HINT = /A short prefix for every channel/;
 const onCreateTask = vi.fn();
 const onBack = vi.fn();
 
-const useConfigureModal = Modals.create<Device.ConfigureParams>(
-  ({ deviceKey, close }) => (
-    <Device.Configure
-      deviceKey={deviceKey}
-      close={close}
-      icon={<Icon.Hardware />}
-      initialProperties={{ vendor: "acme" }}
-    />
-  ),
-);
+const HARDWARE: Device.Hardware = {
+  key: "acme",
+  name: "Acme",
+  title: "Acme hardware",
+  description: "",
+  icon: <Icon.Hardware />,
+  make: "acme",
+  scanType: "acme_scan",
+  checks: [],
+  zeroProperties: { vendor: "acme" },
+};
 
-const useConfigureWithActionsModal = Modals.create<Device.ConfigureParams>(
+const useConfigureWithActionsModal = Modals.create<Device.ConfigureModalParams>(
   ({ deviceKey, close }) => (
     <Device.Configure
       deviceKey={deviceKey}
@@ -54,7 +55,7 @@ const useConfigureWithActionsModal = Modals.create<Device.ConfigureParams>(
 );
 
 const setup = async (
-  useOpen: typeof useConfigureModal = useConfigureModal,
+  useOpen: typeof Device.useConfigureModal = Device.useConfigureModal,
   analytics?: Analytics.Sink,
 ) => {
   const dev = await createTestDevice(client, {
@@ -62,10 +63,14 @@ const setup = async (
     name: uniqueName("my_sensor"),
     make: "acme",
   });
-  const handle = await renderModalOpener(useOpen, [{ deviceKey: dev.key }], {
-    client,
-    analytics,
-  });
+  const handle = await renderModalOpener(
+    useOpen,
+    [{ deviceKey: dev.key, hardware: HARDWARE }],
+    {
+      client,
+      analytics,
+    },
+  );
   await waitFor(() => expect(nameInput().value).toEqual(dev.name));
   return { dev, ...handle };
 };
@@ -146,7 +151,7 @@ describe("device Configure", () => {
 
   it("should report the make of the device it configured", async () => {
     const analytics = createTestSink();
-    await setup(useConfigureModal, analytics);
+    await setup(Device.useConfigureModal, analytics);
     fireEvent.change(identifierInput(), { target: { value: "sensor_1" } });
     await save();
     await waitFor(() =>

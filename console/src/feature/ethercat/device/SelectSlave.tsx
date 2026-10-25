@@ -18,7 +18,6 @@ import {
   SLAVE_MODEL,
   type SlaveProperties,
 } from "@/feature/ethercat/device/types";
-import { useConfigureModal } from "@/feature/ethercat/device/useConfigureModal";
 import { type Channel } from "@/feature/ethercat/task/types";
 import { Device } from "@/platform/device";
 
@@ -38,14 +37,14 @@ export const SelectSlave = ({
 }: SelectSlaveProps): ReactElement => {
   const channels = Form.useFieldValue<Channel[]>(channelsPath) ?? [];
   const network = useCommonNetwork(channels);
-  const configure = useConfigureModal();
+  const configure = Device.useConfigureModal();
   const find = Device.useFindModal();
   const filter = (d: device.Device) => filterByNetwork(d, network);
   return (
     <Device.Select
       path={path}
       label="Slave device"
-      onConfigure={(deviceKey) => configure({ deviceKey })}
+      onConfigure={(deviceKey) => configure({ deviceKey, hardware: HARDWARE })}
       emptyContent="No EtherCAT slaves discovered"
       make={MAKE}
       model={SLAVE_MODEL}

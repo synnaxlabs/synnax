@@ -29,7 +29,6 @@ import {
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
-import { Modals } from "@/platform/modals";
 
 const TEST_CONNECTION_TIMEOUT = TimeSpan.seconds(10);
 
@@ -177,10 +176,7 @@ export const Connect = ({
   );
 };
 
-export const useConnectModal = Modals.createPrompt<
-  device.Key,
-  PlatformDevice.ConnectParams
->(Connect);
+export const useConnectModal = PlatformDevice.createConnectModal(Connect, INTEGRATION);
 
 const HEADER = ["Device", "Connect", "Modbus TCP server"];
 

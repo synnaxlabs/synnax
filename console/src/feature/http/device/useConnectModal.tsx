@@ -43,7 +43,6 @@ import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Form as PlatformForm } from "@/platform/form";
-import { Modals } from "@/platform/modals";
 
 const INITIAL_VALUES: Device = {
   key: "",
@@ -492,10 +491,7 @@ export const Connect = ({
   );
 };
 
-export const useConnectModal = Modals.createPrompt<
-  device.Key,
-  PlatformDevice.ConnectParams
->(Connect);
+export const useConnectModal = PlatformDevice.createConnectModal(Connect, INTEGRATION);
 
 const HEADER = ["Device", "Connect", "HTTP server"];
 

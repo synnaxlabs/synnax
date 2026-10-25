@@ -9,7 +9,7 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type ReactElement } from "react";
+import { type ComponentType } from "react";
 import { z } from "zod";
 
 import { useConfigureModal as useConfigureHardwareModal } from "@/feature/device/Configure";
@@ -19,6 +19,7 @@ import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
+import { type Device as PlatformDevice } from "@/platform/device";
 import { type Tree } from "@/platform/tree";
 
 export const makeZ = z.enum([
@@ -73,8 +74,9 @@ export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => voi
   };
 };
 
-const CONTEXT_MENU_ITEMS: Partial<
-  Record<Make, (props: Tree.ContextMenuProps) => ReactElement | null>
+const CONTEXT_MENU_ITEMS: Record<
+  Make,
+  ComponentType<PlatformDevice.ContextMenuItemsProps>
 > = {
   [EtherCAT.Device.MAKE]: EtherCAT.Device.ContextMenuItems,
   [HTTP.Device.MAKE]: HTTP.Device.ContextMenuItems,
@@ -84,8 +86,13 @@ const CONTEXT_MENU_ITEMS: Partial<
   [OPCUA.Device.MAKE]: OPCUA.Device.ContextMenuItems,
 };
 
-export const getContextMenuItems = (make: unknown) => {
-  const m = getMake(make);
-  if (m == null) return null;
-  return CONTEXT_MENU_ITEMS[m];
+export interface ContextMenuItemsProps extends Tree.ContextMenuProps {
+  make: Make;
+}
+
+/** The context menu items of a device's integration, wired to its configure form. */
+export const ContextMenuItems = ({ make, ...rest }: ContextMenuItemsProps) => {
+  const configure = useConfigureModal();
+  const Items = CONTEXT_MENU_ITEMS[make];
+  return <Items {...rest} onConfigure={(deviceKey) => configure(make, deviceKey)} />;
 };

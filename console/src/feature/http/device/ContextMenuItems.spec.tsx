@@ -12,24 +12,18 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
 import { id } from "@synnaxlabs/x";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { HTTP } from "@/feature/http";
+import { type Device } from "@/platform/device";
 import { createDeviceResource } from "@/platform/device/testutil";
-import { Modals } from "@/platform/modals";
-import { type Tree } from "@/platform/tree";
 import {
   createBaseProps,
   createSelection,
   createState,
 } from "@/platform/tree/testutil";
 import { Session } from "@/session";
-import {
-  clickAndSettle,
-  createConsoleWrapper,
-  resolveFocusedTab,
-  uniqueName,
-} from "@/testutil";
+import { createConsoleWrapper, resolveFocusedTab, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -51,18 +45,16 @@ const renderContextMenuItems = async (configured: boolean) => {
     name: uniqueName("proj"),
   });
   store.dispatch(Session.Project.select(proj.key));
-  const props: Tree.ContextMenuProps = {
+  const props: Device.ContextMenuItemsProps = {
     ...createBaseProps({ client, store }),
     selection: createSelection({ ids: [resource.id] }),
     state: createState([resource]),
+    onConfigure: vi.fn(),
   };
   render(
-    <>
-      <PMenu.Menu>
-        <HTTP.Device.ContextMenuItems {...props} />
-      </PMenu.Menu>
-      <Modals.Stack />
-    </>,
+    <PMenu.Menu>
+      <HTTP.Device.ContextMenuItems {...props} />
+    </PMenu.Menu>,
     { wrapper },
   );
   return { store, deviceKey: resource.id.key };
@@ -88,12 +80,5 @@ describe("HTTP device ContextMenuItems", () => {
     const write = await client.tasks.retrieve({ key: writeTab.resource.key });
     expect(write.type).toBe(HTTP.Task.WRITE_TYPE);
     expect(write.config).toMatchObject({ device: deviceKey });
-  });
-
-  it("should open the connect modal from the edit connection item", async () => {
-    await renderContextMenuItems(true);
-    await clickAndSettle("Edit connection");
-    await screen.findByText("HTTP server");
-    expect(screen.getByPlaceholderText("www.example.com")).toBeTruthy();
   });
 });

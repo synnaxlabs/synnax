@@ -18,11 +18,11 @@ import { List } from "@synnaxlabs/lyra/list";
 import { deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
+import { HARDWARE } from "@/feature/labjack/device/hardware";
 import { use } from "@/feature/labjack/device/queries";
 import { Select } from "@/feature/labjack/device/Select";
 import { SelectPort } from "@/feature/labjack/device/SelectPort";
 import * as Device from "@/feature/labjack/device/types";
-import { useConfigureModal } from "@/feature/labjack/device/useConfigureModal";
 import {
   convertPortTypeToWriteChannelType,
   convertWriteChannelTypeToPortType,
@@ -164,9 +164,15 @@ const ChannelList = ({ device }: ChannelListProps) => {
   );
 };
 
+const useConfigure = () => {
+  const configure = PlatformDevice.useConfigureModal();
+  return ({ deviceKey }: PlatformDevice.ConfigureParams) =>
+    configure({ deviceKey, hardware: HARDWARE });
+};
+
 const Form: FC = PlatformDevice.wrapTaskForm({
   use,
-  useConfigure: useConfigureModal,
+  useConfigure,
   Content: ChannelList,
 });
 

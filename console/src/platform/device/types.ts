@@ -10,6 +10,7 @@
 import { channel, type device, type rack } from "@synnaxlabs/client";
 import { z } from "zod";
 
+import { type Tree } from "@/platform/tree";
 import { type Session } from "@/session";
 
 /** Configure-modal params; the key is required since it edits an existing device. */
@@ -33,6 +34,12 @@ export interface ConnectProps extends Session.Modals.ContentProps<
 > {
   /** Returns to the picker that opened the form. Absent when the form opens alone. */
   onBack?: () => void;
+}
+
+/** Props of an integration's device context menu items. */
+export interface ContextMenuItemsProps extends Tree.ContextMenuProps {
+  /** Opens the configure or connect form of a device. */
+  onConfigure: (deviceKey: device.Key) => void;
 }
 
 const IDENTIFIER_MESSAGE = "Identifier must be between 2-12 characters";

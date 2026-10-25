@@ -23,7 +23,9 @@ import { z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
-import { identifierZ, nameZ } from "@/platform/device/types";
+import { type Hardware } from "@/platform/device/integration";
+import { type ConfigureParams, identifierZ, nameZ } from "@/platform/device/types";
+import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
 interface InternalProps<
@@ -177,3 +179,19 @@ export const Configure = <
   const device = Device.use({ key: deviceKey });
   return <Internal device={device} {...rest} />;
 };
+
+export interface ConfigureModalParams extends ConfigureParams {
+  hardware: Hardware;
+}
+
+/** Opens {@link Configure} for a device of the hardware integration. */
+export const useConfigureModal = Modals.create<ConfigureModalParams>(
+  ({ deviceKey, hardware, close }) => (
+    <Configure
+      deviceKey={deviceKey}
+      close={close}
+      icon={hardware.icon}
+      initialProperties={hardware.zeroProperties}
+    />
+  ),
+);
