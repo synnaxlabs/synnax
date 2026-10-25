@@ -106,6 +106,25 @@ wrong values.
 
 <Divider.Divider x />
 
+## How the Driver runs a network
+
+- **One network per port** -> All read and write tasks on a port share one network.
+  Starting or stopping one task does not interrupt the others.
+- **Start and stop** -> The network starts when the first task on the port starts, and
+  stops when the last task stops.
+- **Cycle rate** -> The network cycles at the slowest rate that is a multiple of each
+  read task's sample rate and at least each write task's execution rate. The rate is
+  always between 100 Hz and 10 kHz. For example, read tasks at 250 Hz and 1 kHz make the
+  network cycle at 1 kHz.
+- **Outputs** -> Each output holds the last value a write task commanded. When a write
+  task stops, its outputs go to zero. An output that another running write task
+  commanded keeps the last value of that task instead.
+- **Lost modules** -> When a module stops responding, the network continues to cycle,
+  and the Driver returns the module to operation when it responds again. Until then,
+  every read task on the port drops samples and shows a warning.
+
+<Divider.Divider x />
+
 ## Configure a device
 
 <Client.Tabs>

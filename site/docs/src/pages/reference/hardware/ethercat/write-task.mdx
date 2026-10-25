@@ -35,8 +35,11 @@ Each channel writes one output PDO, in one of two modes:
 - **Manual (address)** -> enter the CoE address of the PDO. For example, the EL2004
   outputs are at `0x7000:01`, `0x7010:01`, `0x7020:01`, and `0x7030:01`, 1 bit each.
 
-All modules in a task must be on the same port. The **Execution rate** sets how often
-the Driver runs the network on that port.
+All modules in a task must be on the same port. The network cycles at least as fast as
+the **Execution rate**, so a higher rate sends new commands to the modules sooner. When
+the task stops, its outputs go to zero, unless another running write task commanded
+them. See
+[how the Driver runs a network](/reference/hardware/ethercat/configure-device#how-the-driver-runs-a-network).
 
 <Divider.Divider x />
 
@@ -155,7 +158,7 @@ the output value.
 
 | Console label     | Python field           | Default | Notes                                                     |
 | ----------------- | ---------------------- | ------- | --------------------------------------------------------- |
-| Execution rate    | `execution_rate`       | 1000 Hz | How often the Driver runs the network on the port.        |
+| Execution rate    | `execution_rate`       | 1000 Hz | The lowest rate at which the network on the port cycles.  |
 | State update rate | `state_rate`           | 25 Hz   | How often the task writes the state channels.             |
 | Data saving       | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving). |
 | Auto start        | `auto_start`           | Off     | Starts the task each time the Driver starts.              |
