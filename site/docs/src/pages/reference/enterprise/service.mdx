@@ -31,7 +31,9 @@ Core starts when the computer boots and starts again after a crash.
    sudo useradd --system --home-dir /var/lib/synnax --shell /usr/sbin/nologin synnax
    ```
 
-3. Put the license key at `/etc/synnax/license.lic`, readable by the `synnax` user:
+3. [Get the license key](/reference/enterprise/license#activate-at-start) for the
+   computer from the portal. Put the `.lic` file at `/etc/synnax/license.lic`, readable
+   by the `synnax` user:
 
    ```bash
    sudo mkdir -p /etc/synnax
@@ -155,6 +157,8 @@ Docker starts the container when the Docker daemon starts and after a crash.
 `--stop-signal SIGINT` lets the Core shut down cleanly on `docker stop`, and
 `--stop-timeout 30` gives it time to finish. The license is bound to the
 `--mac-address`, so keep the same address when you recreate or upgrade the container.
+The Core stores a key that you activate from the Console in the `synnax-data` volume. To
+give the key at start instead, add `-e SYNNAX_LICENSE_KEY="$(cat synnax.lic)"`.
 `--ulimit rtprio=99` lets Arc automations on the embedded Driver run on a real-time
 thread. The Core runs as a non-root user in the container, so `--cap-add SYS_NICE` does
 not do this.

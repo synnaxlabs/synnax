@@ -32,9 +32,10 @@ const text = (node: Element): string =>
     .trim();
 
 const RELEASES: Release[] = [
-  { tag_name: "desktop/v0.2.0-rc.3", prerelease: true, draft: false },
-  { tag_name: "desktop/v0.2.0-rc.2", prerelease: true, draft: false },
-  { tag_name: "console/v0.59.0", prerelease: false, draft: false },
+  { tag_name: "desktop/v1.1.0-rc.1", prerelease: true, draft: false },
+  { tag_name: "desktop/v1.0.0", prerelease: false, draft: false },
+  { tag_name: "desktop/v1.0.0-rc.2", prerelease: true, draft: false },
+  { tag_name: "console/v0.60.0", prerelease: false, draft: false },
 ];
 
 const DOWNLOAD = "https://github.com/synnaxlabs/synnax/releases/download/desktop";
@@ -52,15 +53,15 @@ const render = async (): Promise<Element[]> => {
 };
 
 describe("Desktop download button", () => {
-  it("should offer the installers of the latest Desktop candidate", async () => {
+  it("should offer the installers of the latest stable Desktop release", async () => {
     const buttons = await render();
     expect(buttons.map(text)).toEqual([
-      "Download v0.2.0-rc.3 for macOS",
-      "Download v0.2.0-rc.3 for Windows",
+      "Download v1.0.0 for macOS",
+      "Download v1.0.0 for Windows",
     ]);
     expect(buttons.map((button) => button.properties.href)).toEqual([
-      `${DOWNLOAD}/v0.2.0-rc.3/Synnax-Desktop_0.2.0-3_aarch64.dmg`,
-      `${DOWNLOAD}/v0.2.0-rc.3/Synnax-Desktop_0.2.0-3_x64-setup.exe`,
+      `${DOWNLOAD}/v1.0.0/Synnax-Desktop_1.0.0_aarch64.dmg`,
+      `${DOWNLOAD}/v1.0.0/Synnax-Desktop_1.0.0_x64-setup.exe`,
     ]);
   });
 

@@ -30,9 +30,11 @@ Core** button.
    from v0.47.0 or later to the current release. Upgrades from v0.46 or earlier are not
    supported.
 2. Read the [release notes](/releases) of each version after yours.
-3. Check that your license covers the new version. After the license term ends, a
-   license with a version cap covers only versions up to the cap. See
-   [expiry](/reference/enterprise/license#expiry).
+3. Check that your license covers the new version. Core 0.60 and later accept only
+   signed license keys from the portal, so get one before you upgrade from 0.59. See
+   [numeric license keys](/reference/enterprise/license#numeric-license-keys). After the
+   license term ends, a license with a version cap covers only versions up to the cap.
+   See [expiry](/reference/enterprise/license#expiry).
 4. Stop the Core. Press **Ctrl+C** in its terminal, or stop its service.
 5. Copy the data folder of the Core to a safe place. The data folder holds all data,
    metadata, and the stored license key. See
@@ -157,7 +159,8 @@ To check the version, run `synnax --version`.
 
 The Console, the client libraries, and the Driver warn when their major or minor version
 differs from the Core. They still connect. Upgrade the Core first, then the Console and
-Drivers.
+Drivers. A Console older than 0.60 shows errors instead of the activation screen when a
+Core 0.60 has no license, so upgrade the Console with the Core.
 
 <Note.Note variant="info">
   Synnax Desktop has its own Core, which updates with the app. Synnax Desktop backs up
