@@ -146,7 +146,7 @@ var _ = Describe("Streamer", Ordered, func() {
 	})
 
 	Describe("Key update acks", func() {
-		DescribeTable("Should ack a key update before frames for its keys",
+		DescribeTable("Should deliver a write issued after a key update ack",
 			func(ctx SpecContext, cfg streamer.Config) {
 				ch := &channel.Channel{
 					Name:     UniqueChannelName(),

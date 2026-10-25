@@ -378,19 +378,27 @@ var _ = Describe("Relay", func() {
 			svc = mock.NewNode(ctx)
 		})
 
-		newFreeChannels := func(ctx context.Context, n int) []channel.Channel {
+		newChannels := func(
+			ctx context.Context,
+			n int,
+			leaseholder node.Key,
+		) []channel.Channel {
 			GinkgoHelper()
 			chs := make([]channel.Channel, n)
 			ts := time.Now().UnixNano()
 			for i := range chs {
 				chs[i] = channel.Channel{
-					Name:        fmt.Sprintf("free_%d_%d", ts, i),
+					Name:        fmt.Sprintf("ch_%d_%d", ts, i),
 					Virtual:     true,
 					DataType:    telem.Int64T,
-					Leaseholder: node.KeyFree,
+					Leaseholder: leaseholder,
 				}
 			}
 			return MustSucceed(svc.Channel.Create(ctx, chs))
+		}
+		newFreeChannels := func(ctx context.Context, n int) []channel.Channel {
+			GinkgoHelper()
+			return newChannels(ctx, n, node.KeyFree)
 		}
 
 		It(
@@ -612,10 +620,10 @@ var _ = Describe("Relay", func() {
 				return req, res
 			}
 
-			It(
+			DescribeTable(
 				"Should deliver a write issued immediately after a key update ack",
-				func(ctx SpecContext) {
-					keys := channel.KeysFromChannels(newFreeChannels(ctx, 1))
+				func(ctx SpecContext, leaseholder node.Key) {
+					keys := channel.KeysFromChannels(newChannels(ctx, 1, leaseholder))
 					req, res := openStreamer()
 					req.Inlet() <- relay.Request{Keys: keys, AckRequested: true}
 					var ack relay.Response
@@ -636,6 +644,8 @@ var _ = Describe("Relay", func() {
 					Expect(got.Ack).To(BeFalse())
 					Expect(got.Frame.Count()).To(Equal(1))
 				},
+				Entry("on a free channel", node.KeyFree),
+				Entry("on a channel leased to this node", node.KeyBootstrapper),
 			)
 
 			It(

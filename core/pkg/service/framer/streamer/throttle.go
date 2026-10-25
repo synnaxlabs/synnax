@@ -56,7 +56,7 @@ func (t *throttle) Flow(sCtx signal.Context, opts ...confluence.Option) {
 					t.fr = frame.Alloc(t.fr.Count())
 				}
 			case res, ok := <-t.In.Outlet():
-				if res.Ack {
+				if ok && res.Ack {
 					if err := signal.SendUnderContext(
 						sCtx,
 						t.Out.Inlet(),

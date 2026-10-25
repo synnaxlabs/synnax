@@ -21,9 +21,9 @@ import (
 type Request struct {
 	// Keys are the channels to stream live samples from.
 	Keys channel.Keys
-	// AckRequested asks the streamer for a Response with Ack set once the relay
-	// applies Keys. A write issued after the ack is delivered, except on channels
-	// leased to another node.
+	// AckRequested asks the streamer for a Response with Ack set once the relay applies
+	// Keys. A write issued after the ack is delivered, except on channels leased to
+	// another node.
 	AckRequested bool
 }
 
