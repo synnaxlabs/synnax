@@ -116,7 +116,9 @@ var _ = Describe("Service", func() {
 			Expect(otg.NewWriter(tx).DefineResources(ctx, id)).To(Succeed())
 			var res ontology.Resource
 			Expect(func() {
-				_ = otg.NewRetrieve().WhereIDs(id).Entry(&res).Exec(ctx, tx)
+				Expect(
+					otg.NewRetrieve().WhereIDs(id).Entry(&res).Exec(ctx, tx),
+				).To(Succeed())
 			}).To(PanicWith(ContainSubstring("service user not found")))
 		},
 	)

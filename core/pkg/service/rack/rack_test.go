@@ -577,6 +577,37 @@ var _ = Describe("Rack", Ordered, func() {
 			})
 		})
 	})
+	Describe("Search", func() {
+		create := func(ctx SpecContext, name string) ontology.ID {
+			GinkgoHelper()
+			r := rack.Rack{Name: name}
+			Expect(writer.Create(ctx, &r)).To(Succeed())
+			return r.OntologyID()
+		}
+
+		It(
+			"Should return the matching racks, closest match first",
+			func(ctx SpecContext) {
+				a := create(ctx, "turbopump test")
+				b := create(ctx, "turbopump")
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 0)).Keys).
+					To(Equal([]ontology.ID{b, a}))
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 1)).Keys).
+					To(Equal([]ontology.ID{b}))
+			},
+		)
+
+		It(
+			"Should not match a staged rack outside its transaction",
+			func(ctx SpecContext) {
+				create(ctx, "injector")
+				Expect(
+					MustSucceed(svc.Search(ctx, db, "injector", 0)).Keys,
+				).To(BeEmpty())
+			},
+		)
+	})
+
 	Describe("Create with Integrations", func() {
 		It("Should persist integrations on the rack", func(ctx SpecContext) {
 			r := &rack.Rack{

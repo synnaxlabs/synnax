@@ -400,12 +400,15 @@ NodeConfig union on variant {
 
         @doc value "is the configuration for gauge symbols."
     }
-    input extends LabeledConfig {
+    input extends LabeledConfig, StalenessConfig {
         size            ComponentSize = ComponentSizeMedium {
             @doc value "is the rendered size preset of the input."
         }
         command_channel channel.Key?        {
             @doc value "is the channel submitted values are written to."
+        }
+        state_channel   channel.Key?        {
+            @doc value "is the channel that reports the value the device holds."
         }
         dimensions      spatial.Dimensions? {
             @doc value "is the rendered size of the input in pixels."
@@ -417,6 +420,11 @@ NodeConfig union on variant {
         }
         disabled        bool = false {
             @doc value "indicates whether the input rejects interaction."
+        }
+        inline_size     float64 = 150 {
+            @doc value """
+                is the width of the field in pixels, not counting the Set button.
+            """
         }
         on_click_delay  float64 = 0 {
             @doc value "is the debounce delay applied to clicks, in milliseconds."
@@ -503,12 +511,15 @@ NodeConfig union on variant {
 
         @doc value "is the configuration for polygon annotation symbols."
     }
-    select extends LabeledConfig {
+    select extends LabeledConfig, StalenessConfig {
         size            ComponentSize = ComponentSizeMedium {
             @doc value "is the rendered size preset of the select."
         }
         command_channel channel.Key?        {
             @doc value "is the channel the selected value is written to."
+        }
+        state_channel   channel.Key?        {
+            @doc value "is the channel that reports the state the device holds."
         }
         fill_color      color.Color?        {
             @doc value """
@@ -552,12 +563,15 @@ NodeConfig union on variant {
 
         @doc value "is the configuration for standalone scale symbols."
     }
-    setpoint extends LabeledConfig {
+    setpoint extends LabeledConfig, StalenessConfig {
         size            ComponentSize = ComponentSizeMedium {
             @doc value "is the rendered size preset of the setpoint."
         }
         command_channel channel.Key?        {
             @doc value "is the channel submitted setpoints are written to."
+        }
+        state_channel   channel.Key?        {
+            @doc value "is the channel that reports the value the device holds."
         }
         dimensions      spatial.Dimensions? {
             @doc value "is the rendered size of the setpoint in pixels."
@@ -572,6 +586,11 @@ NodeConfig union on variant {
         }
         disabled        bool = false {
             @doc value "indicates whether the setpoint rejects interaction."
+        }
+        inline_size     float64 = 100 {
+            @doc value """
+                is the width of the field in pixels, not counting the Set button.
+            """
         }
         on_click_delay  float64 = 0 {
             @doc value "is the debounce delay applied to clicks, in milliseconds."

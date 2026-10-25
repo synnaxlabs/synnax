@@ -117,7 +117,7 @@ var _ = Describe("SearchIndex", func() {
 		})
 
 		It("Should panic when tx is nil", func(ctx SpecContext) {
-			Expect(func() { _, _ = idx.Search(ctx, nil, "valve", 0) }).
+			Expect(func() { MustSucceed(idx.Search(ctx, nil, "valve", 0)) }).
 				To(PanicWith(ContainSubstring("nil transaction")))
 		})
 
@@ -239,6 +239,13 @@ var _ = Describe("SearchIndex", func() {
 			Expect(retrieveIDs(ctx, failing, gorp.NewRetrieve[int32, indexedEntry]().
 				Where(failed.Filter("analog")))).To(Equal([]int32{3, 1, 4}))
 		})
+
+		It("Should return the error of an entry the scan cannot decode",
+			func(ctx SpecContext) {
+				corrupt[int32, indexedEntry](ctx, failing, 1)
+				Expect(failed.Search(ctx, failing, "analog", 0)).Error().
+					To(MatchError(ContainSubstring("failed to decode")))
+			})
 
 		It("Should compose with a sibling index that falls back to a scan",
 			func(ctx SpecContext) {

@@ -19,7 +19,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -36,7 +38,12 @@ var _ = Describe("Status", Ordered, func() {
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		db = DeferClose(gorp.Wrap(memkv.New()))
+		// Like the Core on the node that leases each write, the indexes see only the
+		// writes made through their table.
+		db = DeferClose(gorp.Wrap(
+			memkv.New(),
+			gorp.WithIndexObservable(observe.Noop[kv.TxReader]{}),
+		))
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{
 			DB: db,
 		}))
@@ -649,18 +656,20 @@ var _ = Describe("Status", Ordered, func() {
 		// 3. The generic type only affects how the Details field is decoded
 
 		It(
-			"Should store and retrieve statuses with typed details",
+			"Should store and retrieve every field of a status with typed details",
 			func(ctx SpecContext) {
 				type IntDetails struct {
 					Count int
 				}
 				intWriter := svc.NewWriter(tx)
 				s := &status.Status[IntDetails]{
-					Key:     "typed-int-status",
-					Name:    "Typed Int Status",
-					Variant: "info",
-					Details: IntDetails{Count: 42},
-					Time:    telem.Now(),
+					Key:         "typed-int-status",
+					Name:        "Typed Int Status",
+					Variant:     "info",
+					Message:     "Counted",
+					Description: "The counter reached its target.",
+					Details:     IntDetails{Count: 42},
+					Time:        telem.Now(),
 				}
 				Expect(intWriter.Set(ctx, s)).To(Succeed())
 
@@ -671,7 +680,7 @@ var _ = Describe("Status", Ordered, func() {
 						Entry(&retrieved).
 						Exec(ctx, tx),
 				).To(Succeed())
-				Expect(retrieved.Details.Count).To(Equal(42))
+				Expect(retrieved).To(Equal(*s))
 			},
 		)
 
@@ -836,5 +845,14 @@ var _ = Describe("Status", Ordered, func() {
 					To(Equal([]ontology.ID{b}))
 			},
 		)
+
+		It("Should match a renamed status by its new name", func(ctx SpecContext) {
+			id := create(ctx, "c", "cryogenic")
+			Expect(svc.NewWriter(nil).Rename(ctx, "c", "hydraulic")).To(Succeed())
+			Expect(MustSucceed(svc.Search(ctx, db, "hydraulic", 0)).Keys).
+				To(Equal([]ontology.ID{id}))
+			Expect(MustSucceed(svc.Search(ctx, db, "cryogenic", 0)).Keys).
+				To(BeEmpty())
+		})
 	})
 })

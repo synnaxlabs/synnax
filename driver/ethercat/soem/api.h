@@ -58,6 +58,17 @@ public:
     /// @brief polls slave state change with timeout in microseconds.
     virtual uint16_t statecheck(uint16_t slave, uint16_t reqstate, int timeout) = 0;
 
+    /// @brief reads the AL state and status code of every slave into the slave list.
+    virtual int readstate() = 0;
+
+    /// @brief takes a slave through INIT and PRE-OP back to SAFE-OP with its stored
+    /// configuration, returning the state it reached.
+    virtual int reconfig_slave(uint16_t slave, int timeout) = 0;
+
+    /// @brief restores the address of a slave that lost power, returning a positive
+    /// value when the same slave answered at its position.
+    virtual int recover_slave(uint16_t slave, int timeout) = 0;
+
     /// @brief reads from slave object dictionary via SDO.
     virtual int SDOread(
         uint16_t slave,
@@ -137,6 +148,12 @@ public:
     /// @brief returns the AL status code for a slave.
     [[nodiscard]] virtual uint16_t slave_ALstatuscode(uint16_t pos) const = 0;
 
+    /// @brief returns whether a slave is marked as no longer responding.
+    [[nodiscard]] virtual bool slave_lost(uint16_t pos) const = 0;
+
+    /// @brief marks whether a slave no longer responds.
+    virtual void set_slave_lost(uint16_t pos, bool lost) = 0;
+
     /// @brief returns the input bytes for a group.
     [[nodiscard]] virtual uint32_t group_Ibytes(uint8_t grp) const = 0;
 
@@ -183,6 +200,16 @@ public:
 
     uint16_t statecheck(uint16_t slave, uint16_t reqstate, int timeout) override {
         return ecx_statecheck(&this->context, slave, reqstate, timeout);
+    }
+
+    int readstate() override { return ecx_readstate(&this->context); }
+
+    int reconfig_slave(uint16_t slave, int timeout) override {
+        return ecx_reconfig_slave(&this->context, slave, timeout);
+    }
+
+    int recover_slave(uint16_t slave, int timeout) override {
+        return ecx_recover_slave(&this->context, slave, timeout);
     }
 
     int SDOread(
@@ -291,6 +318,14 @@ public:
 
     [[nodiscard]] uint16_t slave_ALstatuscode(uint16_t pos) const override {
         return this->context.slavelist[pos].ALstatuscode;
+    }
+
+    [[nodiscard]] bool slave_lost(uint16_t pos) const override {
+        return this->context.slavelist[pos].islost;
+    }
+
+    void set_slave_lost(uint16_t pos, bool lost) override {
+        this->context.slavelist[pos].islost = lost;
     }
 
     [[nodiscard]] uint32_t group_Ibytes(uint8_t grp) const override {

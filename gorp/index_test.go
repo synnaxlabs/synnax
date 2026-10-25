@@ -145,6 +145,21 @@ var _ = Describe("Index", func() {
 				},
 			)
 
+			It("Should fail population when an entry does not decode",
+				func(ctx SpecContext) {
+					createIndexed(ctx, idxDB,
+						indexedEntry{ID: 1, Name: "alpha"},
+						indexedEntry{ID: 2, Name: "beta"},
+					)
+					corrupt[int32, indexedEntry](ctx, idxDB, 2)
+					nameIdx := gorp.NewLookupIndex(
+						"name", func(e *indexedEntry) string { return e.Name },
+					)
+					table := DeferClose(openIndexedTable(ctx, idxDB, nameIdx))
+					Expect(table.WaitForIndexes(ctx)).
+						To(MatchError(ContainSubstring("failed to decode")))
+				})
+
 			It("Should populate a bool-typed Lookup", func(ctx SpecContext) {
 				seed := []indexedEntry{
 					{ID: 1, Flag: true},
