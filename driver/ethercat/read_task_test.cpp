@@ -707,6 +707,32 @@ TEST_F(EtherCATReadTest, ParseConfigRejectsAMapScaleWithEqualPreScaledBounds) {
     EXPECT_EQ(errors[0]["message"], "must differ from the pre-scaled minimum");
 }
 
+/// @brief it should skip the map scale check on a disabled channel.
+TEST_F(EtherCATReadTest, ParseConfigSkipsTheMapScaleCheckOnADisabledChannel) {
+    const auto valid_ch = create_data_channel("valid", x::telem::INT16_T);
+    const auto disabled_ch = create_data_channel("disabled", x::telem::FLOAT64_T);
+
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        create_input_channel_config(valid_ch, 0x6000, 1, "int16")
+    );
+    auto disabled = create_input_channel_config(disabled_ch, 0x6000, 2, "int32", true);
+    disabled["scale"] = {
+        {"type", "map"},
+        {"pre_scaled_min", 4},
+        {"pre_scaled_max", 4},
+        {"scaled_min", 0},
+        {"scaled_max", 10},
+    };
+    cfg["channels"].push_back(disabled);
+
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(client, parser);
+    ASSERT_NIL(parser.error());
+    ASSERT_EQ(task_cfg.channels.size(), 1);
+    EXPECT_EQ(task_cfg.channels[0]->synnax_key, valid_ch.key);
+}
+
 /// @brief it should apply a linear scale to each sample it reads.
 TEST_F(EtherCATReadTest, SourceAppliesALinearScale) {
     const auto source = start_scaled_source(

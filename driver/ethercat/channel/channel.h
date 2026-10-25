@@ -173,7 +173,7 @@ struct Input final : Channel {
         scale(cfg.scale) {
         this->bind_entry(cfg.index, cfg.sub_index, cfg.data_type, slave, parser, path);
         if (const auto *m = std::get_if<::synnax::ethercat::MapScale>(&this->scale);
-            m != nullptr && m->pre_scaled_min == m->pre_scaled_max)
+            this->enabled && m != nullptr && m->pre_scaled_min == m->pre_scaled_max)
             parser.field_err(
                 path + "scale.pre_scaled_max",
                 "must differ from the pre-scaled minimum"
