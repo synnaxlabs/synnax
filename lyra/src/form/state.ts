@@ -104,7 +104,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
       const before = deep.get(prev, path, { optional: true });
       const after = deep.get(this.values, path, { optional: true });
       if (before === after || deep.equal(before, after)) return;
-      this.clearStatus(path);
+      this.deleteStatus(path);
     });
   }
 
@@ -200,13 +200,16 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
 
   /** Clears the status of the path, or of every path when it is empty. */
   clearStatus(path: string = "") {
-    if (path === "") {
-      this.statuses.clear();
-      this.external.clear();
-    } else {
-      this.statuses.delete(path);
-      this.external.delete(path);
-    }
+    if (path !== "") return this.deleteStatus(path);
+    this.statuses.clear();
+    this.external.clear();
+    this.updateCachedRefs(path);
+  }
+
+  /** Deletes the status of the path alone, even when the path is the root. */
+  private deleteStatus(path: string) {
+    this.statuses.delete(path);
+    this.external.delete(path);
     this.updateCachedRefs(path);
   }
 
@@ -320,7 +323,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     this.statuses.forEach((status, path) => {
       if (status.variant === "success" || this.external.has(path) || next.has(path))
         return;
-      this.clearStatus(path);
+      this.deleteStatus(path);
     });
     // A status that did not change keeps its object, so its field does not re-render.
     next.forEach((status, path) => {

@@ -449,6 +449,21 @@ describe("State", () => {
         expect(state.getStatuses()).toEqual([]);
       });
 
+      it("should survive the removal of a form-level validation error", () => {
+        const schema = z
+          .object({ a: z.string(), b: z.string() })
+          .refine(({ a, b }) => a !== b, "Must differ");
+        const state = new State({ a: "x", b: "x" }, schema);
+        state.validate(true);
+        expect(state.getStatuses().map(({ message }) => message)).toEqual([
+          "Must differ",
+        ]);
+        state.setStatus("a", { key: "a", variant: "error", message: "Taken" });
+        state.setValue("b", "y");
+        state.validate(true);
+        expect(state.getStatuses().map(({ message }) => message)).toEqual(["Taken"]);
+      });
+
       it("should yield to a status that validation sets at its path", () => {
         const state = new State({ ...initialValues, email: "invalid" }, basicSchema);
         state.setStatus("email", { key: "email", variant: "error", message: "Taken" });
