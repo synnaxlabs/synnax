@@ -365,7 +365,9 @@ jobs:
       windows: *full
     secrets: inherit
 
-  # The EtherCAT bus runs on its own thread, so its suites also run under TSan.
+  # The EtherCAT bus runs on its own thread, so its suites also run under TSan. The GCC
+  # TSan runtime on the build bots aborts on the kernel's address randomization, so the
+  # tests run with it off.
   driver-tsan:
     needs: [changes, core-image]
     if: inputs.full || needs.changes.outputs.driver == 'true'
@@ -375,7 +377,7 @@ jobs:
       core_image: ${{ needs.core-image.outputs.image }}
       sanitizers: false
       targets: //driver/ethercat/...
-      test_flags: --config=tsan
+      test_flags: --config=tsan --run_under="setarch -R"
       test_tags: -hardware
     secrets: inherit
 
