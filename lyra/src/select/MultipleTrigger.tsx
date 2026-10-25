@@ -10,7 +10,7 @@
 import "@/select/MultipleTrigger.css";
 
 import { array, type color, primitive, type record, unique } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, useCallback } from "react";
+import { type ReactElement, type ReactNode } from "react";
 
 import { Button } from "@/button";
 import { Caret } from "@/caret";
@@ -124,11 +124,8 @@ export const MultipleTrigger = <
   const { setSelected } = useContext<K>();
   const { getItem } = List.useUtilContext<K, E>();
   const { toggle, visible } = Dialog.useContext();
-  const canDrop = useCallback(
-    (hauled: Haul.DraggingState) =>
-      staticCanDrop(hauled, haulType, array.toArray(value), disabled),
-    [haulType, value, disabled],
-  );
+  const canDrop = (hauled: Haul.DraggingState) =>
+    staticCanDrop(hauled, haulType, array.toArray(value), disabled);
   const { startDrag, ...dropProps } = Haul.useDragAndDrop({
     type: haulType,
     canDrop,
@@ -139,26 +136,20 @@ export const MultipleTrigger = <
     },
   });
 
-  const handleSuccessfulDrop = useCallback(
-    ({ dropped }: Haul.OnSuccessfulDropProps) => {
-      const res = value.filter((key) => !dropped.some((h) => h.key === key));
-      setSelected(res);
-    },
-    [setSelected, value],
-  );
+  const handleSuccessfulDrop = ({ dropped }: Haul.OnSuccessfulDropProps) => {
+    const res = value.filter((key) => !dropped.some((h) => h.key === key));
+    setSelected(res);
+  };
 
-  const onTagDragStart = useCallback(
-    (key: K) => {
-      if (createHaulItem != null && getItem != null) {
-        const entry = getItem(key);
-        if (entry == null) return;
-        startDrag([createHaulItem(entry)], handleSuccessfulDrop);
-        return;
-      }
-      startDrag([{ key, type: haulType }], handleSuccessfulDrop);
-    },
-    [startDrag, handleSuccessfulDrop, haulType, createHaulItem, getItem],
-  );
+  const onTagDragStart = (key: K) => {
+    if (createHaulItem != null && getItem != null) {
+      const entry = getItem(key);
+      if (entry == null) return;
+      startDrag([createHaulItem(entry)], handleSuccessfulDrop);
+      return;
+    }
+    startDrag([{ key, type: haulType }], handleSuccessfulDrop);
+  };
   const dragging = Haul.useDraggingState();
   const showAddButton = variant === "text" && value.length !== 0 && preview !== true;
 

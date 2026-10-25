@@ -11,7 +11,6 @@ import { DisconnectedError, imex, project } from "@synnaxlabs/client";
 import { type UploadBody } from "@synnaxlabs/freighter";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Project as PProject, Synnax } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { Command } from "@/platform/command";
 import { Export } from "@/platform/export";
@@ -32,15 +31,12 @@ const CreateCommand = Command.create({
 const useOnImport = () => {
   const client = Synnax.use();
   const store = Session.useStore();
-  return useCallback(
-    async (bundle: UploadBody, fileName: string) => {
-      if (client == null) throw new DisconnectedError();
-      const imported = await client.projects.import(bundle, { fileName });
-      store.dispatch(Session.Project.select(imported.key));
-      return imported.name;
-    },
-    [client, store],
-  );
+  return async (bundle: UploadBody, fileName: string) => {
+    if (client == null) throw new DisconnectedError();
+    const imported = await client.projects.import(bundle, { fileName });
+    store.dispatch(Session.Project.select(imported.key));
+    return imported.name;
+  };
 };
 
 /** A modal that imports a project from a .zip export or its extracted folder. */
@@ -63,7 +59,7 @@ const useExportSelected = () => {
   const getSelected = Session.Project.useGetSelected();
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  return useCallback(() => {
+  return () => {
     handleError(async () => {
       if (client == null) throw new DisconnectedError();
       const p = await client.projects.retrieve(getSelected());
@@ -73,7 +69,7 @@ const useExportSelected = () => {
         extension: "zip",
       });
     }, "Failed to export project");
-  }, [handleError, client, getSelected, handleExport]);
+  };
 };
 
 const ExportProjectCommand = Command.create({

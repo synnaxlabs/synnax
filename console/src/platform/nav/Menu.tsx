@@ -12,13 +12,7 @@ import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { array, direction, type location, xy } from "@synnaxlabs/x";
-import {
-  type MouseEvent as ReactMouseEvent,
-  type ReactElement,
-  useCallback,
-  useMemo,
-  useRef,
-} from "react";
+import { type MouseEvent as ReactMouseEvent, type ReactElement, useRef } from "react";
 
 import { CSS } from "@/platform/css";
 import { type Toolbar, useVisibleKeys } from "@/platform/nav/toolbar";
@@ -60,60 +54,52 @@ export const useItem = ({
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const visibleRef = useSyncedRef(visible);
 
-  const triggers = useMemo(() => {
-    if (!trigger?.length) return [];
-    return [trigger, [trigger[0], trigger[0]]];
-  }, [trigger]);
+  const triggers =
+    trigger == null || trigger.length === 0 ? [] : [trigger, [trigger[0], trigger[0]]];
 
   Triggers.use({
     triggers,
     loose: false,
-    callback: useCallback(
-      (e: Triggers.UseEvent) => {
-        if (
-          !visibleRef.current ||
-          e.stage !== "start" ||
-          (e.prevTriggers.length > 0 && e.prevTriggers[0].length > 1)
-        )
-          return;
-        const isDouble = e.triggers.some((t) => t.length === 2);
-        if (isDouble) onPin();
-        else onToggle();
-      },
-      [onToggle, onPin, visibleRef],
-    ),
+    callback: (e: Triggers.UseEvent) => {
+      if (
+        !visibleRef.current ||
+        e.stage !== "start" ||
+        (e.prevTriggers.length > 0 && e.prevTriggers[0].length > 1)
+      )
+        return;
+      const isDouble = e.triggers.some((t) => t.length === 2);
+      if (isDouble) onPin();
+      else onToggle();
+    },
   });
 
-  const cancelPending = useCallback(() => {
+  const cancelPending = () => {
     if (timeoutRef.current == null) return;
     clearTimeout(timeoutRef.current);
     timeoutRef.current = null;
-  }, []);
+  };
 
-  const onMouseEnter = useCallback(
-    (e: ReactMouseEvent) => {
-      const alongAxis = direction.swap(bar);
-      const crossAxis = direction.construct(bar);
-      timeoutRef.current = setTimeout(() => {
-        timeoutRef.current = null;
-        onStartHover();
-        positionRef.current = xy.construct(e);
-        const controller = new AbortController();
-        window.addEventListener(
-          "mousemove",
-          (e: MouseEvent) => {
-            const delta = xy.translation(xy.construct(e), positionRef.current);
-            if (Math.abs(delta[alongAxis]) > 75 && Math.abs(delta[crossAxis]) < 30) {
-              onStopHover();
-              controller.abort();
-            }
-          },
-          { signal: controller.signal },
-        );
-      }, 350);
-    },
-    [onStartHover, onStopHover, bar],
-  );
+  const onMouseEnter = (e: ReactMouseEvent) => {
+    const alongAxis = direction.swap(bar);
+    const crossAxis = direction.construct(bar);
+    timeoutRef.current = setTimeout(() => {
+      timeoutRef.current = null;
+      onStartHover();
+      positionRef.current = xy.construct(e);
+      const controller = new AbortController();
+      window.addEventListener(
+        "mousemove",
+        (e: MouseEvent) => {
+          const delta = xy.translation(xy.construct(e), positionRef.current);
+          if (Math.abs(delta[alongAxis]) > 75 && Math.abs(delta[crossAxis]) < 30) {
+            onStopHover();
+            controller.abort();
+          }
+        },
+        { signal: controller.signal },
+      );
+    }, 350);
+  };
 
   return { onClick: cancelPending, onMouseEnter, onMouseLeave: cancelPending };
 };
@@ -141,10 +127,10 @@ const MenuItem = ({
   const itemProps = useItem({
     trigger,
     visible,
-    onStartHover: useCallback(() => onStartHover(key), [onStartHover, key]),
+    onStartHover: () => onStartHover(key),
     onStopHover,
-    onToggle: useCallback(() => onToggle(key), [onToggle, key]),
-    onPin: useCallback(() => onPin(key), [onPin, key]),
+    onToggle: () => onToggle(key),
+    onPin: () => onPin(key),
   });
 
   if (!visible) return null;

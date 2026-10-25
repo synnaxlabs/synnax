@@ -10,10 +10,9 @@
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { primitive } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { useResultSlave } from "@/feature/ethercat/device/queries";
-import { type PDOEntry } from "@/feature/ethercat/device/types";
 
 export interface SelectPDOFieldProps {
   path: string;
@@ -29,27 +28,23 @@ export const SelectPDOField = ({
     primitive.isZero(slaveKey) ? null : { key: slaveKey },
   );
 
-  const pdos = useMemo(
-    (): PDOEntry[] => slave?.properties?.pdos?.[pdoType] ?? [],
-    [slave, pdoType],
-  );
+  const pdos = slave?.properties?.pdos?.[pdoType] ?? [];
 
-  const selectRenderProp = useCallback(
-    (props: Pick<Select.SingleSimpleProps<string>, "value" | "onChange">) => (
-      <Select.Simple<string>
-        {...props}
-        resourceName="PDO"
-        allowNone={false}
-        emptyContent="No PDOs available. Select a slave device first."
-      >
-        {pdos.map(({ name }) => (
-          <Select.Item key={name} itemKey={name}>
-            {name}
-          </Select.Item>
-        ))}
-      </Select.Simple>
-    ),
-    [pdos],
+  const selectRenderProp = (
+    props: Pick<Select.SingleSimpleProps<string>, "value" | "onChange">,
+  ) => (
+    <Select.Simple<string>
+      {...props}
+      resourceName="PDO"
+      allowNone={false}
+      emptyContent="No PDOs available. Select a slave device first."
+    >
+      {pdos.map(({ name }) => (
+        <Select.Item key={name} itemKey={name}>
+          {name}
+        </Select.Item>
+      ))}
+    </Select.Simple>
   );
 
   return (

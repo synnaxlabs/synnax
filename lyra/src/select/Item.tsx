@@ -10,13 +10,7 @@
 import "@/select/Item.css";
 
 import { type record } from "@synnaxlabs/x";
-import {
-  type ReactNode,
-  type RefObject,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-} from "react";
+import { type ReactNode, type RefObject, useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
 import { Button } from "@/button";
@@ -109,7 +103,7 @@ const ClosedFixedItem = <K extends record.Key>({
   itemKey,
   children,
 }: Pick<ItemProps<K>, "itemKey" | "children">): ReactNode => {
-  const keys = useMemo(() => [itemKey], [itemKey]);
+  const keys = [itemKey];
   const selected = useSelectedAmong(keys) != null;
   const registry = useRegistryContext("Select.Item");
   if (!selected) return null;

@@ -11,10 +11,8 @@ import { caseconv, deep, zod } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactElement,
-  useCallback,
   useEffect,
   useLayoutEffect,
-  useMemo,
   useState,
 } from "react";
 
@@ -63,6 +61,36 @@ const OVERRIDDEN_KEYS = ["synnaxLight", "synnaxDark"];
 const pinnedKey = (theme: UseProviderProps["theme"]): string | null =>
   theme != null && OVERRIDDEN_KEYS.includes(theme.key) ? theme.key : null;
 
+const parseThemes = (
+  theme: UseProviderProps["theme"],
+  themes: Record<string, baseTheme.ThemeSpec>,
+): Record<string, baseTheme.Theme> => {
+  if (theme != null) {
+    // The override applies to both variants and each keeps its own key, since
+    // consumers tell light from dark by key. The caller's key pins a variant when it
+    // names one and is otherwise ignored.
+    const { key: _, ...override } = theme;
+    const synnaxLight = zod.parse(
+      baseTheme.themeZ,
+      deep.override(deep.copy(baseTheme.SYNNAX_LIGHT), override),
+      { label: "theme" },
+    );
+    const synnaxDark = zod.parse(
+      baseTheme.themeZ,
+      deep.override(deep.copy(baseTheme.SYNNAX_DARK), override),
+      { label: "theme" },
+    );
+    return { synnaxLight, synnaxDark };
+  }
+  return Object.entries(themes).reduce<Record<string, baseTheme.Theme>>(
+    (acc, [key, value]) => ({
+      ...acc,
+      [key]: zod.parse(baseTheme.themeZ, value, { label: "theme" }),
+    }),
+    {},
+  );
+};
+
 export const useProvider = ({
   theme,
   themes = baseTheme.SYNNAX_THEMES,
@@ -81,41 +109,16 @@ export const useProvider = ({
     if (pinned != null) setSelected(pinned);
   }
 
-  const parsedThemes = useMemo((): Record<string, baseTheme.Theme> => {
-    if (theme != null) {
-      // The override applies to both variants and each keeps its own key, since
-      // consumers tell light from dark by key. The caller's key pins a variant when it
-      // names one and is otherwise ignored.
-      const { key: _, ...override } = theme;
-      const synnaxLight = zod.parse(
-        baseTheme.themeZ,
-        deep.override(deep.copy(baseTheme.SYNNAX_LIGHT), override),
-        { label: "theme" },
-      );
-      const synnaxDark = zod.parse(
-        baseTheme.themeZ,
-        deep.override(deep.copy(baseTheme.SYNNAX_DARK), override),
-        { label: "theme" },
-      );
-      return { synnaxLight, synnaxDark };
-    }
-    return Object.entries(themes).reduce<Record<string, baseTheme.Theme>>(
-      (acc, [key, value]) => ({
-        ...acc,
-        [key]: zod.parse(baseTheme.themeZ, value, { label: "theme" }),
-      }),
-      {},
-    );
-  }, [theme, themes]);
+  const parsedThemes = parseThemes(theme, themes);
 
-  const handleToggle = useCallback((): void => {
+  const handleToggle = (): void => {
     const keys = Object.keys(themes);
     const index = keys.indexOf(selected);
     const nextIndex = (index + 1) % keys.length;
     setSelected(keys[nextIndex]);
-  }, [selected, themes]);
+  };
 
-  const parsedTheme = useMemo(() => parsedThemes[selected], [parsedThemes, selected]);
+  const parsedTheme = parsedThemes[selected];
 
   // When a caller supplies theme, they own OS-sync (or the decision to opt out of
   // it) themselves; listening here too would flip selected out from under a

@@ -11,7 +11,6 @@ import { type lineplot as client, panel, query } from "@synnaxlabs/client";
 import { LinePlot, Panel as PPanel, Synnax, type Viewport } from "@synnaxlabs/pluto";
 import { type lineplot } from "@synnaxlabs/pluto/ether";
 import { type record } from "@synnaxlabs/x";
-import { useCallback } from "react";
 import { useStore } from "react-redux";
 
 import {
@@ -45,14 +44,11 @@ const createGetter = <R>(selector: (params: KeyedSelectorParams) => R) => {
   const useGetter = (): ((args?: { key?: client.Key }) => R) => {
     const store = useStore<StoreState>();
     const scopeKey = LinePlot.Scope.useOptional();
-    return useCallback(
-      (args) =>
-        selector({
-          state: store.getState(),
-          key: LinePlot.Scope.require(args?.key ?? scopeKey),
-        }),
-      [store, scopeKey],
-    );
+    return (args) =>
+      selector({
+        state: store.getState(),
+        key: LinePlot.Scope.require(args?.key ?? scopeKey),
+      });
   };
   return useGetter;
 };
@@ -130,12 +126,12 @@ export const useGetFocusedKey = (): (() => client.Key | undefined) => {
   const getSelectedPanel = Panel.useGetSelected();
   const getFocusedTabKey = Panel.useGetFocusedTab();
   const synnax = Synnax.use();
-  return useCallback(() => {
+  return () => {
     const panelKey = getSelectedPanel();
     if (panelKey == null) return undefined;
     const cached = synnax?.panels.getCached(panelKey);
     return focusedKey(query.isLive(cached) ? cached : undefined, getFocusedTabKey());
-  }, [getSelectedPanel, getFocusedTabKey, synnax]);
+  };
 };
 
 /**
