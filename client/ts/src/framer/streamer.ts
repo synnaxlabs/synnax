@@ -29,6 +29,7 @@ const reqZ = z.object({
   throttleRate: Rate.z.optional(),
   excludeGroups: z.uint32().array().optional(),
   keepAlive: TimeSpan.z.optional(),
+  ackRequested: z.boolean().optional(),
 });
 
 /**
@@ -41,6 +42,8 @@ const resZ = z.object({
   frame: frameZ,
   /** Marks an empty response the Core emits so a dead connection is detectable. */
   keepAlive: z.boolean().optional(),
+  /** Marks the empty response that answers a request with ackRequested set. */
+  ack: z.boolean().optional(),
 });
 
 /**
@@ -73,6 +76,17 @@ export const streamerConfigZ = intermediateStreamerConfigZ.or(
 /** Config for a streamer. Pass it to `client.telem.openStreamer`. */
 export type StreamerConfig = z.input<typeof streamerConfigZ>;
 
+/** Options for {@link Streamer.update}. */
+export interface StreamerUpdateOptions {
+  /**
+   * Resolves the update only once the Core streams the new channels, so a write issued
+   * after it is delivered. Frames must be read concurrently, or the update never
+   * resolves. Cores that predate the ack never send one, so only set this against a
+   * Core that supports it.
+   */
+  waitForAck?: boolean;
+}
+
 /**
  * Streams frames of telemetry from a Synnax cluster in real time. Open one with the
  * client's openStreamer method, never directly. Read frames with `read` or by
@@ -84,7 +98,7 @@ export interface Streamer extends AsyncIterator<Frame>, AsyncIterable<Frame> {
   /** The keys of the channels currently being streamed from. */
   keys: channel.Key[];
   /** Replaces the list of channels being streamed from. */
-  update: (channels: channel.Params) => Promise<void>;
+  update: (channels: channel.Params, options?: StreamerUpdateOptions) => Promise<void>;
   /** Close the streamer and free all associated resources. */
   close: () => void;
   /**
@@ -161,6 +175,8 @@ class BaseStreamer implements Streamer {
   // Set once the Core proves keep-alive support by sending one, so the deadline never
   // arms against a Core that will not send them.
   private armed = false;
+  // Updates waiting on an ack, oldest first. The Core acks in request order.
+  private readonly pendingAcks: PromiseWithResolvers<void>[] = [];
 
   constructor(
     stream: Stream<typeof reqZ, typeof resZ>,
@@ -196,9 +212,20 @@ class BaseStreamer implements Streamer {
 
   async read(): Promise<Frame> {
     while (true) {
-      const res = await this.receiveWithDeadline();
+      let res: z.infer<typeof resZ>;
+      try {
+        res = await this.receiveWithDeadline();
+      } catch (e) {
+        const err = errors.fromUnknown(e);
+        this.pendingAcks.splice(0).forEach(({ reject }) => reject(err));
+        throw err;
+      }
       if (res.keepAlive === true) {
         if (!this.deadline.isZero) this.armed = true;
+        continue;
+      }
+      if (res.ack === true) {
+        this.pendingAcks.shift()!.resolve();
         continue;
       }
       return this.adapter.adapt(new Frame(res.frame));
@@ -218,15 +245,23 @@ class BaseStreamer implements Streamer {
     );
   }
 
-  async update(channels: channel.Params): Promise<void> {
+  async update(
+    channels: channel.Params,
+    { waitForAck = false }: StreamerUpdateOptions = {},
+  ): Promise<void> {
     const hasChanged = await this.adapter.update(channels);
-    if (!hasChanged) return;
+    if (!hasChanged && !waitForAck) return;
     this.stream.send({
       keys: Array.from(this.adapter.keys),
       downsampleFactor: this.downsampleFactor,
       throttleRate: this.throttleRate,
       excludeGroups: this.excludeGroups,
+      ackRequested: waitForAck,
     });
+    if (!waitForAck) return;
+    const ack = Promise.withResolvers<void>();
+    this.pendingAcks.push(ack);
+    await ack.promise;
   }
 
   close(): void {
