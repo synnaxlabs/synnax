@@ -1561,7 +1561,6 @@ describe("remote", () => {
         const v = view(80_000, 108_000, 1000);
         source.value({ view: v });
         await expect.poll(() => source.fetching()).toBe(false);
-        expect(left.refCount).toBe(0);
         // The tile stops where the held raw series starts, so no span draws twice.
         const cut = c.tiles.find((t) => t.level === 14 && t.index === 5);
         expect(cut?.end?.valueOf()).toBe(TimeStamp.seconds(90).valueOf());
@@ -1570,6 +1569,32 @@ describe("remote", () => {
           [14, 5],
           [90, 100],
         ]);
+        expect(left.refCount).toBe(0);
+      });
+
+      it("should draw raw series the live window moved past until their tile arrives", async () => {
+        const left = raw(82, 90);
+        c.response = new MultiSeries([left, raw(90, 100)]);
+        const source = createLive();
+        await firstRead(source);
+        now = TimeStamp.seconds(108);
+        c.deferred = true;
+        const v = view(80_000, 108_000, 1000);
+        expect(positions(source.value({ view: v })[1])).toEqual([
+          [82, 90],
+          [90, 100],
+        ]);
+        c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([raw(100, 108)])]]));
+        expect(left.refCount).toBe(1);
+        c.resolveAll();
+        await expect.poll(() => source.fetching()).toBe(false);
+        expect(positions(source.value({ view: v })[1])).toEqual([
+          [14, 4],
+          [14, 5],
+          [90, 100],
+          [100, 108],
+        ]);
+        expect(left.refCount).toBe(0);
       });
 
       it("should release older tiles when the view returns to the live window", async () => {
