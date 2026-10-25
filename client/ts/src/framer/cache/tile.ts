@@ -46,16 +46,21 @@ export interface TileReaderProps {
    * @default TimeSpan.seconds(30)
    */
   fetchTimeout?: TimeSpan;
+  /**
+   * The current time, which stamps each tile when it is fetched.
+   * @default TimeStamp.now
+   */
+  now?: () => TimeStamp;
 }
 
 /** A cached tile: one channel's reduced samples. */
 class Tile implements Block {
-  readonly fetchedAt = TimeStamp.now();
   readonly bytes: number;
 
   constructor(
     readonly channel: channel.Key,
     readonly series: MultiSeries,
+    readonly fetchedAt: TimeStamp,
   ) {
     this.bytes = series.series.reduce((sum, s) => sum + s.byteCapacity.valueOf(), 0);
   }
@@ -93,8 +98,9 @@ export class TileReader {
       store,
       batchDebounce = DEFAULT_BATCH_DEBOUNCE,
       fetchTimeout = TimeSpan.seconds(30),
+      now = () => TimeStamp.now(),
     } = props;
-    this.props = { readRemote, store, fetchTimeout };
+    this.props = { readRemote, store, fetchTimeout, now };
     this.batcher = new debounce.Batcher({
       interval: batchDebounce,
       exec: async (entries) => await this.batchRead(entries),
@@ -142,7 +148,7 @@ export class TileReader {
     reads.set(spec.key, fetched);
     try {
       const series = await fetched;
-      if (!this.closed) store.set(key, new Tile(spec.key, series));
+      if (!this.closed) store.set(key, new Tile(spec.key, series, this.props.now()));
       return series;
     } finally {
       reads.delete(spec.key);

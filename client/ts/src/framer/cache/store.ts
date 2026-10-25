@@ -33,7 +33,9 @@ export interface Block {
   readonly held: boolean;
 }
 
-export interface StoreProps extends Partial<Pick<DynamicProps, "dynamicBufferSize">> {
+export interface StoreProps extends Partial<
+  Pick<DynamicProps, "dynamicBufferSize" | "now">
+> {
   /**
    * Byte size the store evicts down to, least recently used first. Each block counts
    * its samples and a small fixed overhead. A held block is never evicted, so the store
@@ -74,6 +76,7 @@ export class Store {
   private readonly staleThreshold: TimeSpan;
   private readonly dynamicBufferSize: number | TimeSpan;
   private readonly instrumentation: alamos.Instrumentation;
+  private readonly now: () => TimeStamp;
   // Map order is recency order: a get moves its block to the end.
   private readonly blocks = new Map<string, Block>();
   // counted holds the bytes each block counted against the budget at its last set.
@@ -87,11 +90,13 @@ export class Store {
     staleThreshold = DEFAULT_STALE_THRESHOLD,
     dynamicBufferSize = tileSpan(RAW_LEVEL),
     instrumentation = alamos.NOOP,
+    now = () => TimeStamp.now(),
   }: StoreProps = {}) {
     this.budget = budget.valueOf();
     this.staleThreshold = staleThreshold;
     this.dynamicBufferSize = dynamicBufferSize;
     this.instrumentation = instrumentation;
+    this.now = now;
   }
 
   /** @returns the block cached under the key, marking it the most recently used. */
@@ -137,7 +142,7 @@ export class Store {
 
   /** @returns true when the block's fetched samples are too old to answer reads. */
   expired(block: Block): boolean {
-    return !TimeStamp.since(block.fetchedAt).lessThan(this.staleThreshold);
+    return !this.now().span(block.fetchedAt).lessThan(this.staleThreshold);
   }
 
   /**
@@ -151,7 +156,7 @@ export class Store {
       if (this.expired(cached) && cached.expire()) this.set(key, cached);
       return cached;
     }
-    const block = new RawBlock(ch, index);
+    const block = new RawBlock(ch, index, this.now);
     this.set(key, block);
     return block;
   }
@@ -167,7 +172,7 @@ export class Store {
     for (const s of series.series) {
       this.retainDataType(ch, s.dataType);
       const live = this.liveOf(ch);
-      const index = rawIndex(s.timeRange.isZero ? TimeStamp.now() : s.timeRange.start);
+      const index = rawIndex(s.timeRange.isZero ? this.now() : s.timeRange.start);
       if (live.block != null && live.block.index !== index) this.seal(live);
       let block = live.block;
       const opened = block == null;
@@ -250,6 +255,7 @@ export class Store {
         buffer: new Dynamic({
           dynamicBufferSize: this.dynamicBufferSize,
           instrumentation: this.instrumentation.child(`live-${ch}`),
+          now: this.now,
         }),
         block: null,
       };

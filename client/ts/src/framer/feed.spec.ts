@@ -28,7 +28,7 @@ import { tileSpan } from "@/framer/cache/grid";
 import { type TileSpec } from "@/framer/cache/tile";
 import { Feed, type FeedProps, type LatestReader } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
-import { createTestClient } from "@/testutil";
+import { createTestClient, ManualClock } from "@/testutil";
 
 const client = createTestClient();
 const feed = client.openFeed();
@@ -461,8 +461,10 @@ describe("feed", () => {
 
   it("should forward staleCoverageThreshold to the cache", async () => {
     let calls = 0;
+    const clock = new ManualClock();
     const direct = new Feed({
       staleCoverageThreshold: TimeSpan.milliseconds(50),
+      now: clock.now,
       retrieveChannels: retrieveIndexes,
       readRemote: async () => {
         calls++;
@@ -477,7 +479,7 @@ describe("feed", () => {
     await direct.read(tr, 1);
     await direct.read(tr, 1);
     expect(calls).toBe(1);
-    await sleep.sleep(TimeSpan.milliseconds(60));
+    clock.advance(TimeSpan.milliseconds(50));
     await direct.read(tr, 1);
     expect(calls).toBe(2);
     await direct.close();
@@ -666,13 +668,15 @@ describe("feed", () => {
     });
 
     it("should forward staleCoverageThreshold to the tile cache", async () => {
+      const clock = new ManualClock();
       const { direct, counter } = createFeed({
         staleCoverageThreshold: TimeSpan.milliseconds(50),
+        now: clock.now,
       });
       await direct.readTile(TILE);
       await direct.readTile(TILE);
       expect(counter.calls).toBe(1);
-      await sleep.sleep(TimeSpan.milliseconds(60));
+      clock.advance(TimeSpan.milliseconds(50));
       await direct.readTile(TILE);
       expect(counter.calls).toBe(2);
       await direct.close();

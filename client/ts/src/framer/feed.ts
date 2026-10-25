@@ -105,6 +105,7 @@ export class Feed {
       staleThreshold: staleCoverageThreshold,
       dynamicBufferSize,
       instrumentation: instrumentation?.child("store"),
+      now,
     });
     this.reader = new Reader({
       readRemote,
@@ -119,6 +120,7 @@ export class Feed {
       store: this.store,
       batchDebounce,
       fetchTimeout,
+      now,
     });
     this.streamer = new MultiplexedStreamer({
       store: this.store,

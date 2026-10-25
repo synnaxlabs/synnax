@@ -62,6 +62,8 @@ interface SetupProps extends Partial<ReaderProps> {
   answer?: (frame: Frame) => Frame;
   /** Runs before each channel retrieval is answered. */
   beforeRetrieve?: () => Promise<void>;
+  /** The stale threshold of the store, on the Core's clock. */
+  staleThreshold?: TimeSpan;
 }
 
 // Returns a reader over a Core with one index channel (1) and two data channels (2 and
@@ -71,6 +73,7 @@ const createReader = ({
   before,
   answer = (frame) => frame,
   beforeRetrieve,
+  staleThreshold,
   ...props
 }: SetupProps = {}): Setup => {
   const core = new SyntheticCore({
@@ -80,7 +83,7 @@ const createReader = ({
     channels: 2,
   });
   const fetches: Fetch[] = [];
-  const store = props.store ?? new Store();
+  const store = props.store ?? new Store({ staleThreshold, now: core.now });
   const reader = new Reader({
     readRemote: async (tr, keys) => {
       const fetch = { tr, keys };
@@ -182,14 +185,14 @@ describe("Reader", () => {
     });
 
     it("should refetch a block once its fetched samples expire", async () => {
-      const { reader, fetches } = createReader({
-        store: new Store({ staleThreshold: TimeSpan.milliseconds(50) }),
+      const { core, reader, fetches } = createReader({
+        staleThreshold: TimeSpan.minutes(1),
       });
       const tr = new TimeRange(at(10), at(20));
       await reader.read(tr, 2);
       await reader.read(tr, 2);
       expect(fetches).toHaveLength(1);
-      await sleep.sleep(TimeSpan.milliseconds(60));
+      core.advance(TimeSpan.minutes(1));
       expect(await reader.read(tr, 2)).toHaveLength(66);
       expect(fetches).toHaveLength(2);
     });

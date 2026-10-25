@@ -25,6 +25,7 @@ import { tileRange } from "@/framer/cache/grid";
 import { Store, type StoreProps } from "@/framer/cache/store";
 import { TileReader, type TileReaderProps, type TileSpec } from "@/framer/cache/tile";
 import { Frame } from "@/framer/frame";
+import { ManualClock } from "@/testutil";
 
 interface Call {
   tr: TimeRange;
@@ -37,12 +38,13 @@ const SAMPLES = 4;
 // Returns a reader whose remote fetch records each call and answers every key with
 // samples float64 samples equal to the key.
 const createReader = (
-  { budget, staleThreshold, ...props }: Partial<TileReaderProps> & StoreProps = {},
+  { budget, staleThreshold, now, ...props }: Partial<TileReaderProps> & StoreProps = {},
   samples: number = SAMPLES,
 ): { reader: TileReader; calls: Call[] } => {
   const calls: Call[] = [];
   const reader = new TileReader({
-    store: new Store({ budget, staleThreshold }),
+    store: new Store({ budget, staleThreshold, now }),
+    now,
     batchDebounce: TimeSpan.milliseconds(5),
     readRemote: async (tr, keys, reduction) => {
       calls.push({ tr, keys, reduction });
@@ -316,13 +318,15 @@ describe("tile", () => {
     });
 
     it("should fetch a tile again once it is stale", async () => {
+      const clock = new ManualClock();
       const { reader, calls } = createReader({
         staleThreshold: TimeSpan.milliseconds(20),
+        now: clock.now,
       });
       await reader.read(createSpec());
       await reader.read(createSpec());
       expect(calls).toHaveLength(1);
-      await sleep.sleep(TimeSpan.milliseconds(30));
+      clock.advance(TimeSpan.milliseconds(20));
       await reader.read(createSpec());
       expect(calls).toHaveLength(2);
       reader.close();

@@ -12,7 +12,6 @@ import {
   MultiSeries,
   Series,
   Size,
-  sleep,
   TimeRange,
   TimeSpan,
   TimeStamp,
@@ -20,9 +19,10 @@ import {
 import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
-import { RAW_LEVEL, rawIndex, rawKey } from "@/framer/cache/block";
+import { RAW_LEVEL, rawKey } from "@/framer/cache/block";
 import { tileRange } from "@/framer/cache/grid";
 import { type Block, Store } from "@/framer/cache/store";
+import { ManualClock } from "@/testutil";
 
 // Blocks this large make the fixed overhead of each block too small to change how many
 // fit in a budget.
@@ -151,20 +151,27 @@ describe("Store", () => {
   });
 
   describe("expired", () => {
-    it("should report a block fetched before the stale threshold", async () => {
-      const store = new Store({ staleThreshold: TimeSpan.milliseconds(20) });
-      const block = createBlock();
+    it("should report a block fetched the stale threshold ago or earlier", () => {
+      const clock = new ManualClock();
+      const store = new Store({
+        staleThreshold: TimeSpan.milliseconds(20),
+        now: clock.now,
+      });
+      const block = createBlock({ fetchedAt: clock.now() });
+      clock.advance(TimeSpan.milliseconds(19));
       expect(store.expired(block)).toBe(false);
-      await sleep.sleep(TimeSpan.milliseconds(30));
+      clock.advance(TimeSpan.milliseconds(1));
       expect(store.expired(block)).toBe(true);
     });
 
     it("should default the stale threshold to ten minutes", () => {
-      const store = new Store();
-      const fetchedAt = TimeStamp.now().sub(TimeSpan.minutes(9));
-      expect(store.expired(createBlock({ fetchedAt }))).toBe(false);
-      const old = TimeStamp.now().sub(TimeSpan.minutes(11));
-      expect(store.expired(createBlock({ fetchedAt: old }))).toBe(true);
+      const clock = new ManualClock();
+      const store = new Store({ now: clock.now });
+      const block = createBlock({ fetchedAt: clock.now() });
+      clock.advance(TimeSpan.minutes(9));
+      expect(store.expired(block)).toBe(false);
+      clock.advance(TimeSpan.minutes(1));
+      expect(store.expired(block)).toBe(true);
     });
   });
 
@@ -204,8 +211,12 @@ describe("Store", () => {
       expect(store.raw(1, 100)).toBe(block);
     });
 
-    it("should return an expired block without its fetched samples", async () => {
-      const store = new Store({ staleThreshold: TimeSpan.milliseconds(20) });
+    it("should return an expired block without its fetched samples", () => {
+      const clock = new ManualClock();
+      const store = new Store({
+        staleThreshold: TimeSpan.milliseconds(20),
+        now: clock.now,
+      });
       const block = store.raw(1, 100);
       block.fill(
         [new Series({ data: new Float32Array([1]), timeRange: BLOCK })],
@@ -213,7 +224,7 @@ describe("Store", () => {
         1,
       );
       expect(store.raw(1, 100).fetched).toHaveLength(1);
-      await sleep.sleep(TimeSpan.milliseconds(30));
+      clock.advance(TimeSpan.milliseconds(20));
       expect(store.raw(1, 100)).toBe(block);
       expect(block.fetched).toEqual([]);
       expect(block.coveredEnd).toEqual(BLOCK.start);
@@ -269,10 +280,11 @@ describe("Store", () => {
       expect(store.raw(1, 99).open).not.toBeNull();
     });
 
-    it("should write a series with no time range into the block of the wall clock", () => {
-      const store = new Store({ dynamicBufferSize: 100 });
+    it("should write a series with no time range into the block of the clock", () => {
+      const clock = new ManualClock(BLOCK.start);
+      const store = new Store({ dynamicBufferSize: 100, now: clock.now });
       store.write(1, new MultiSeries([new Series(new Float32Array([1]))]));
-      expect(store.raw(1, rawIndex(TimeStamp.now())).open).not.toBeNull();
+      expect(store.raw(1, 100).open).not.toBeNull();
     });
 
     it("should never evict an open block", () => {

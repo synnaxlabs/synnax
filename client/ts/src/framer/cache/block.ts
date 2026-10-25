@@ -205,6 +205,7 @@ export class RawBlock implements Block {
   constructor(
     readonly channel: channel.Key,
     readonly index: number,
+    private readonly now: () => TimeStamp = () => TimeStamp.now(),
   ) {
     this.range = tileRange({ level: RAW_LEVEL, index });
     this.coveredEnd = this.range.start;
@@ -273,7 +274,7 @@ export class RawBlock implements Block {
    * @param coveredCount - The index samples in the block before coveredEnd.
    */
   fill(series: Series[], coveredEnd: TimeStamp, coveredCount: number): void {
-    if (this.coveredEnd.equals(this.range.start)) this.fetchedAt = TimeStamp.now();
+    if (this.coveredEnd.equals(this.range.start)) this.fetchedAt = this.now();
     series.forEach((s) => this.insert(s));
     this.coveredEnd = coveredEnd;
     this.coveredCount = coveredCount;
