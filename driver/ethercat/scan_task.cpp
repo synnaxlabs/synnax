@@ -73,6 +73,21 @@ std::string pdo_error_description(const std::string &error) {
     );
     return sentence + ". " + get_pdo_error_guidance(error);
 }
+
+/// @brief parses slave properties, returning x::errors::VALIDATION with each invalid
+/// field when they do not parse.
+std::pair<slave::Properties, x::errors::Error>
+parse_properties(const x::json::json &json) {
+    auto parser = x::json::Parser(json);
+    auto props = slave::Properties::parse(parser);
+    if (parser.ok()) return {props, x::errors::NIL};
+    const auto report = parser.error_json();
+    std::string problems;
+    for (const auto &e: report["errors"])
+        problems += (problems.empty() ? "" : "; ") + e["path"].get<std::string>() +
+                    ": " + e["message"].get<std::string>();
+    return {props, x::errors::Error(x::errors::VALIDATION, problems)};
+}
 }
 
 Scanner::Scanner(
@@ -105,16 +120,16 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
     std::vector<synnax::device::Device> devices;
     if (this->pool == nullptr) return {devices, x::errors::NIL};
 
-    if (scan_ctx.count == 0 && scan_ctx.devices != nullptr) {
+    std::set<std::string> failures;
+    // Invalid properties show on the device status instead.
+    if (scan_ctx.count == 0 && scan_ctx.devices != nullptr)
         for (const auto &dev: *scan_ctx.devices | std::views::values) {
             if (dev.model != SLAVE_DEVICE_MODEL) continue;
-            if (const auto err = this->configure_slave(dev).second)
-                LOG(WARNING) << SCAN_LOG_PREFIX << "failed to configure " << dev.name
-                             << ": " << err;
+            if (const auto err = this->configure_slave(dev).second;
+                err && !err.matches(x::errors::VALIDATION))
+                failures.insert("failed to configure " + dev.name + ": " + err.data);
         }
-    }
 
-    std::set<std::string> failures;
     const auto masters = this->pool->enumerate();
     VLOG(1) << SCAN_LOG_PREFIX << "scanning " << masters.size() << " masters";
 
@@ -177,6 +192,7 @@ synnax::device::Device Scanner::create_slave_device(
         if (k != "enabled" || !json_props.contains("enabled")) json_props[k] = v;
 
     const bool is_enabled = json_props["enabled"].get<bool>();
+    const auto props_err = parse_properties(json_props).second;
 
     synnax::device::Device dev;
     dev.key = key;
@@ -198,7 +214,11 @@ synnax::device::Device Scanner::create_slave_device(
         props.position,
         &slave::Health::position
     );
-    if (!is_enabled) {
+    if (props_err) {
+        status.message = "Invalid device properties";
+        status.description = props_err.data;
+        status.variant = synnax::status::VARIANT_ERROR;
+    } else if (!is_enabled) {
         status.message = "Device disabled";
         status.variant = synnax::status::VARIANT_DISABLED;
     } else if (live != health.end())
@@ -251,15 +271,8 @@ std::string Scanner::generate_slave_key(
 
 std::pair<slave::Properties, x::errors::Error>
 Scanner::configure_slave(const synnax::device::Device &dev) const {
-    auto parser = x::json::Parser(dev.properties);
-    auto props = slave::Properties::parse(parser);
-    if (!parser.ok()) {
-        std::string problems;
-        for (const auto &e: parser.error_json()["errors"])
-            problems += (problems.empty() ? "" : "; ") + e["path"].get<std::string>() +
-                        ": " + e["message"].get<std::string>();
-        return {props, x::errors::Error(x::errors::VALIDATION, problems)};
-    }
+    auto [props, props_err] = parse_properties(dev.properties);
+    if (props_err) return {props, props_err};
     auto [engine, err] = this->pool->acquire(props.network);
     if (!err)
         engine->set_slave_config(

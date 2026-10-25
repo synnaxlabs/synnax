@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <format>
@@ -16,7 +17,6 @@
 #include <optional>
 #include <string>
 #include <type_traits>
-#include <utility>
 #include <vector>
 
 #include "x/cpp/json/json.h"
@@ -96,30 +96,26 @@ struct StartupParameter {
     static StartupParameter parse(x::json::Parser &parser) {
         const auto errors_before = parser.errors->size();
         StartupParameter param;
-        const auto index = parser.field<int64_t>("index");
-        const auto sub_index = parser.field<int64_t>("sub_index");
+        const auto index = parser.field<double>("index");
+        const auto sub_index = parser.field<double>("sub_index");
         param.value = parser.field<double>("value");
         param.name = parser.field<std::string>("name", "");
         const auto data_type = parser.field<std::string>("data_type");
         if (parser.errors->size() > errors_before) return param;
-        if (index < 0 || std::cmp_greater(index, std::numeric_limits<uint16_t>::max()))
-            parser.field_err("index", "must be between 0x0000 and 0xFFFF");
-        if (sub_index < 0 ||
-            std::cmp_greater(sub_index, std::numeric_limits<uint8_t>::max()))
-            parser.field_err("sub_index", "must be between 0 and 255");
+        if (!whole_in(index, std::numeric_limits<uint16_t>::max()))
+            parser.field_err("index", "must be a whole number from 0x0000 to 0xFFFF");
+        if (!whole_in(sub_index, std::numeric_limits<uint8_t>::max()))
+            parser.field_err("sub_index", "must be a whole number from 0 to 255");
         param.index = static_cast<uint16_t>(index);
         param.sub_index = static_cast<uint8_t>(sub_index);
         param.data_type = x::telem::DataType(data_type);
-        bool fits = false;
+        std::string value_err;
         if (!visit(param.data_type, [&]<typename T>() {
-                fits = fits_in<T>(param.value);
+                value_err = value_error<T>(param.value, data_type);
             }))
             parser.field_err("data_type", "unsupported data type " + data_type);
-        else if (!fits)
-            parser.field_err(
-                "value",
-                std::format("{} does not fit in {}", param.value, data_type)
-            );
+        else if (!value_err.empty())
+            parser.field_err("value", value_err);
         return param;
     }
 
@@ -171,16 +167,32 @@ private:
         return true;
     }
 
+    static bool whole_in(const double v, const double max) {
+        return v == std::trunc(v) && v >= 0 && v <= max;
+    }
+
+    /// @brief returns why v is not a value of T, or an empty string when it is.
     template<typename T>
-    static bool fits_in(const double v) {
-        if constexpr (std::is_floating_point_v<T>)
-            return std::abs(v) <= static_cast<double>(std::numeric_limits<T>::max());
-        else
-            // The maximum of a 64-bit integer has no exact double, so the bound is the
-            // power of two above it.
-            return v == std::trunc(v) &&
-                   v >= static_cast<double>(std::numeric_limits<T>::min()) &&
-                   v < std::ldexp(1.0, std::numeric_limits<T>::digits);
+    static std::string value_error(const double v, const std::string &data_type) {
+        if constexpr (std::is_floating_point_v<T>) {
+            if (std::abs(v) <= static_cast<double>(std::numeric_limits<T>::max()))
+                return "";
+            return std::format("{} does not fit in {}", v, data_type);
+        } else {
+            // A double rounds whole numbers of magnitude 2^53 and above, so a larger
+            // value may not be the one the user entered.
+            constexpr int DIGITS = std::numeric_limits<double>::digits;
+            constexpr int64_t EXACT = (int64_t{1} << DIGITS) - 1;
+            constexpr auto MAX = static_cast<int64_t>(
+                std::min<uint64_t>(EXACT, std::numeric_limits<T>::max())
+            );
+            constexpr auto MIN = std::max<int64_t>(
+                -EXACT,
+                std::numeric_limits<T>::min()
+            );
+            if (v == std::trunc(v) && v >= MIN && v <= MAX) return "";
+            return std::format("must be a whole number from {} to {}", MIN, MAX);
+        }
     }
 };
 
