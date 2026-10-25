@@ -64,12 +64,15 @@ import "schemas/x/filter"
 @cpp output "client/cpp/thing"
 @pb
 
+Key = uuid
+
 Thing struct {
-	key  uuid   { @key }
+	key  Key    { @key }
 	name string
 }
 
 Where filter Thing {
+	key
 	name
 }
 `

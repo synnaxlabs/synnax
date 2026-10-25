@@ -28,13 +28,17 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/typemap"
+	goprimitives "github.com/synnaxlabs/oracle/plugin/go/primitives"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/internal/arrays"
 	"github.com/synnaxlabs/oracle/plugin/output"
+	"github.com/synnaxlabs/oracle/plugin/pb/instance"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
+
+var primitiveMapper = goprimitives.Mapper()
 
 // Plugin generates protobuf translator functions for the pb/ subdirectory pattern.
 type Plugin struct{ Options Options }
@@ -295,6 +299,7 @@ func (p *Plugin) generateFile(
 		table:                 req.Resolutions,
 		usedEnums:             make(map[string]*resolution.Type),
 		generatedAnyHelpers:   make(set.Set[string]),
+		instances:             make(set.Set[string]),
 	}
 
 	parentImportPath, err := resolveGoImportPath(parentGoPath, req.RepoRoot)
@@ -1392,6 +1397,16 @@ func (p *Plugin) generateStructConversion(
 	}
 	typeArgs := actualRef.TypeArgs
 
+	if inst, ok := instance.Of(actualRef, data.Namespace, data.table); ok {
+		p.addInstance(inst, data)
+		deref := ""
+		if isOptional {
+			deref = "*"
+		}
+		return fmt.Sprintf("%sToPB(%s%s)", inst.Name, deref, goField),
+			fmt.Sprintf("%sFromPB(%s)", inst.Name, pbField), "", true
+	}
+
 	if actualForm.IsGeneric() && len(typeArgs) > 0 {
 		return p.generateGenericStructConversion(
 			actualStruct,
@@ -1435,6 +1450,49 @@ func (p *Plugin) generateStructConversion(
 			translatorStructName,
 			pbField,
 		), "", true
+}
+
+// addInstance adds the translators of inst to the file once.
+func (p *Plugin) addInstance(inst instance.Instance, data *templateData) {
+	if data.instances.Contains(inst.Name) {
+		return
+	}
+	data.instances.Add(inst.Name)
+	goType := lo.Must(typemap.GoTypeRefName(
+		inst.Ref,
+		data.table,
+		func(t resolution.Type) (string, error) { return p.goTypeName(t, data), nil },
+	))
+	translator := translatorData{
+		Name:        inst.Name,
+		GoType:      goType,
+		PBType:      inst.Name,
+		GoTypeShort: goType,
+		PBTypeShort: inst.Name,
+	}
+	for _, field := range inst.Fields {
+		fd := p.processFieldForTranslation(field, data, inst.Generic)
+		if fd.IsOptional {
+			translator.OptionalFields = append(translator.OptionalFields, fd)
+		} else if fd.HasError || fd.HasBackwardError {
+			translator.ErrorFields = append(translator.ErrorFields, fd)
+		} else {
+			translator.Fields = append(translator.Fields, fd)
+		}
+	}
+	data.Translators = append(data.Translators, translator)
+}
+
+// goTypeName names typ as the file's Go code refers to it.
+func (p *Plugin) goTypeName(typ resolution.Type, data *templateData) string {
+	if _, ok := typ.Form.(resolution.PrimitiveForm); !ok {
+		return p.resolveGoTypeLiteral(resolution.TypeRef{Name: typ.QualifiedName}, data)
+	}
+	mapping := primitiveMapper.Map(typ.Name)
+	for _, imp := range mapping.Imports {
+		data.AddImport(imp.Category, imp.Path, imp.Name)
+	}
+	return mapping.TargetType
 }
 
 func (p *Plugin) generateGenericStructConversion(
@@ -2213,6 +2271,7 @@ type templateData struct {
 	table     *resolution.Table
 	*imports.Manager
 	generatedAnyHelpers   set.Set[string]
+	instances             set.Set[string]
 	ParentGoPath          string
 	Package               string
 	OutputPath            string

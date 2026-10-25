@@ -66,6 +66,24 @@ var _ = Describe("Go PB Plugin", func() {
 				)
 		})
 
+		It(
+			"Should translate each generic use over a plain value through its own message",
+			func(ctx SpecContext) {
+				AddFilterSchema(loader)
+				resp := MustGenerate(ctx, ThingFilter, "thing", loader, pbPlugin)
+				ExpectContent(resp, "thing/pb/translator.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"func UuidSetToPB(r filter.Set[uuid.UUID]) (*UuidSet, error) {",
+						"func UuidSetFromPB(pb *UuidSet) (filter.Set[uuid.UUID], error) {",
+						"pb.In = &UuidList{Values: lo.Map(r.In,",
+						"pb.Key, err = UuidSetToPB(*r.Key)",
+						"val, err := UuidSetFromPB(pb.Key)",
+					).
+					ToNotContain("filterpb.SetToPB")
+			},
+		)
+
 		Context("field-level omit", func() {
 			It("Should not translate a field omitted in pb", func(ctx SpecContext) {
 				source := `

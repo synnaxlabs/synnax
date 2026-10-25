@@ -88,6 +88,20 @@ var _ = Describe("Plugin", func() {
 			)
 		})
 
+		It("Should emit a message for each generic use over a plain value", func(
+			ctx SpecContext,
+		) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, p)
+			ExpectContent(resp, "thing/pb/thing.proto").
+				ToContain(
+					"message UuidList {\n  repeated string values = 1;\n}",
+					"message UuidSet {\n  optional string eq = 1;\n  UuidList in = 2;\n}",
+					"optional UuidSet key = 4;",
+				).
+				ToNotContain(".x.filter.pb.Set")
+		})
+
 		Context("field-level omit", func() {
 			It("Should reserve the number of a field omitted in pb", func(
 				ctx SpecContext,
