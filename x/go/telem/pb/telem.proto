@@ -15,6 +15,16 @@ package x.telem.pb;
 
 option go_package = "github.com/synnaxlabs/x/telem/pb";
 
+// Aggregation selects how a limited read collapses each group of samples into points.
+// min_max keeps the lowest and highest sample of each group in the order they occurred,
+// average keeps the mean of each group, and decimate keeps the first sample of each
+// group.
+enum Aggregation {
+  AGGREGATION_MIN_MAX = 0;
+  AGGREGATION_AVERAGE = 1;
+  AGGREGATION_DECIMATE = 2;
+}
+
 // TimeRange is a time interval defined by a start and end timestamp. The range is
 // start-inclusive and end-exclusive, following standard interval conventions for
 // predictable boundary handling.
@@ -23,4 +33,22 @@ message TimeRange {
   int64 start = 1;
   // end is the exclusive end of the time range.
   int64 end = 2;
+}
+message ReductionStridePayload {
+  // factor is the stride. Values below 2 keep every sample.
+  uint32 factor = 1;
+}
+message ReductionLimitPayload {
+  // aggregation selects the points each group of samples reduces to.
+  Aggregation aggregation = 1;
+  // point_limit is the number of points each channel reduces to.
+  uint32 point_limit = 2;
+}
+
+// Reduction selects how a read reduces samples. A read without one keeps every sample.
+message Reduction {
+  oneof variant {
+    ReductionStridePayload stride = 1;
+    ReductionLimitPayload limit = 2;
+  }
 }
