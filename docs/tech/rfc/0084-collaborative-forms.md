@@ -82,9 +82,8 @@ One Oracle schema produces the Go struct, the Zod schema, and the actions, with 
 `value` open. The client parses `value` with the field's schema before it sends, and a
 value that fails stays in the field with an error. The Core applies the action to the
 JSON form, decodes it with `json.RejectUnknownMembers`, and runs the generated
-`Validate`. A failure refuses the dispatch with a path error. Code that builds actions
-by hand, such as deploy's resolve step, uses a path builder typed over keyed lists, so a
-wrong path fails `tsc`.
+`Validate`. A failure refuses the dispatch with a path error. Deploy's resolve step
+writes through the form, so no production code builds an action path by hand.
 
 ### 1.4 The form shows the record
 
@@ -97,10 +96,10 @@ list helpers (`lyra/src/form/useField.ts:144-180`) dispatch `insert`, `remove`, 
 field holds sends nothing. The controller records an undo entry for each dispatch. Forms
 bind no undo hotkey, so a focused input keeps its own undo.
 
-A remote edit re-renders only the fields it touches. The controller gives the store the
-actions it applied, and Lyra marks stale only the written path, its ancestors, and its
-siblings (`lyra/src/form/state.ts:355-379`). A full fetch marks the whole form stale
-once.
+A remote edit re-renders only the fields it touches. The store keeps the identity of
+each value that a change does not reach, and Lyra marks stale each field whose parent
+changed identity. A create that replaces the whole document re-renders only the fields
+it changes.
 
 ### 1.5 Tasks
 
@@ -123,7 +122,8 @@ client applies it, where a cached document drops it today (`controller.ts:551-56
 sends `start` with the cached hash and `pinned: true`. Both Drivers refuse it when the
 config they fetch has another hash (`driver/task/manager.cpp:571-600`,
 `core/pkg/service/driver/driver.go:257`). The status message is "Config changed", and
-the description asks the operator to review the task and start again. Arc starts stay
+the description asks the operator to review the task and start again. The live instance
+runs on, so the status keeps the stored running state and config hash. Arc starts stay
 unpinned, because the Core rewrites an Arc's task config after a debounce
 (`core/pkg/service/arc/dispatch.go:72`).
 
@@ -143,8 +143,9 @@ document. Today each copies the config, writes it back whole, and sets `sync: tr
 take remote edits (`console/src/feature/schematic/toolbar/Properties.tsx:80-86`). The
 binding removes all three. Path actions on these documents reach only `configs`,
 `cells`, and `graph.inputs`, and each targets its element for undo. Arc node inputs keep
-the case of their keys. The label and range forms drop `sync: true` too, and Lyra
-deletes the option.
+the case of their keys. A form whose element another client removes keeps its last
+values and sends no edits, as a form over a deleted document does. The label and range
+forms drop `sync: true` too, and Lyra deletes the option.
 
 ### 1.8 Controller fixes
 
@@ -154,8 +155,9 @@ Keystroke-rate dispatch makes three rare defects common.
   (`controller.ts:252`), so it drops remote actions until the new counter passes the old
   mark. The cache clears the marks on each epoch bump.
 - **A rejection restores the whole document**: Rollback (`controller.ts:386-391`) undoes
-  remote frames applied during the request. The client fetches again and replays its
-  pending dispatches.
+  remote frames applied during the request. The cache keeps the Core's document as a
+  base under the pending dispatches. A rejection removes its dispatch, and the rest
+  apply again on the base.
 - **An unknown action type is skipped**: The generated Go reducer continues past it
   (`core/pkg/service/schematic/actions.gen.go:139`). It returns a validation error.
 
@@ -205,8 +207,9 @@ No stored format changes. `sy_task_set` keeps its shape. An older Driver ignores
    one of them can revert within one round trip.
 5. **4.4 Only the task form pins a start.** Pinning every start refuses Arc's own
    pending rewrite and scripts that start with a cached hash.
-6. **4.5 A rejection fetches again.** A stored inverse overwrites a remote edit to the
-   same field.
+6. **4.5 A rejection rebuilds from the base.** A stored inverse overwrites a remote edit
+   to the same field. A fetch costs a round trip, and the base already holds what the
+   Core applied.
 7. **4.6 Text fields are whole-string last-writer-wins.** The text CRDT stays with Arc.
 
 ## 5 Open questions
