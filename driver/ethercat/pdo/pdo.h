@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <vector>
 
 #pragma once
@@ -116,12 +117,13 @@ struct Properties {
     }
 };
 
-/// @brief looks up the offset for a PDO entry in a precomputed offset map.
-inline Offset find_offset(const Offsets &offsets, const Entry &entry) {
-    Key key{entry.slave_position, entry.index, entry.sub_index, entry.is_input};
-    auto it = offsets.find(key);
-    if (it != offsets.end()) return it->second;
-    return {};
+/// @brief looks up the offset for a PDO entry in a precomputed offset map, returning
+/// nullopt when the map does not hold the entry.
+inline std::optional<Offset> find_offset(const Offsets &offsets, const Entry &entry) {
+    const Key key{entry.slave_position, entry.index, entry.sub_index, entry.is_input};
+    const auto it = offsets.find(key);
+    if (it == offsets.end()) return std::nullopt;
+    return it->second;
 }
 
 /// @brief computes bit-granularity offsets for a slave's PDO properties list,

@@ -201,17 +201,17 @@ TEST(FindOffset, ReturnsOffsetForExistingEntry) {
     Offsets offsets;
     offsets[Key{1, 0x6000, 1, true}] = {10, 3};
     Entry entry{.slave_position = 1, .index = 0x6000, .sub_index = 1, .is_input = true};
-    auto result = find_offset(offsets, entry);
-    EXPECT_EQ(result.byte, 10);
-    EXPECT_EQ(result.bit, 3);
+    const auto result = find_offset(offsets, entry);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result.value().byte, 10);
+    EXPECT_EQ(result.value().bit, 3);
 }
 
-TEST(FindOffset, ReturnsZeroOffsetForMissingEntry) {
+/// @brief it should return no offset for an entry that is not in the offsets.
+TEST(FindOffset, ReturnsNulloptForMissingEntry) {
     Offsets offsets;
     Entry entry{.slave_position = 1, .index = 0x6000, .sub_index = 1, .is_input = true};
-    auto result = find_offset(offsets, entry);
-    EXPECT_EQ(result.byte, 0);
-    EXPECT_EQ(result.bit, 0);
+    EXPECT_FALSE(find_offset(offsets, entry).has_value());
 }
 
 TEST(ComputeOffsetsProperties, ByteAlignedOffsets) {
