@@ -559,10 +559,10 @@ var _ = Describe("Driver", func() {
 				key.Store(t.Key)
 				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
 			})
-			retrieveStatus := func(ctx context.Context) task.Status {
+			retrieveStatus := func(ctx context.Context, g Gomega) task.Status {
 				GinkgoHelper()
 				var stat task.Status
-				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+				g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](
 						t.OntologyID().String(),
 					)).
@@ -595,7 +595,7 @@ var _ = Describe("Driver", func() {
 					Pinned:     true,
 				})
 				Eventually(func(g Gomega) {
-					stat := retrieveStatus(ctx)
+					stat := retrieveStatus(ctx, g)
 					g.Expect(stat.Details.Cmd).To(Equal("cmd-stale"))
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
 					g.Expect(stat.Message).To(Equal("Config changed"))
@@ -626,13 +626,39 @@ var _ = Describe("Driver", func() {
 					Pinned:     true,
 				})
 				Eventually(func(g Gomega) {
-					stat := retrieveStatus(ctx)
+					stat := retrieveStatus(ctx, g)
 					g.Expect(stat.Details.Cmd).To(Equal("cmd-stale"))
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
 					g.Expect(stat.Details.Running).To(BeTrue())
 					g.Expect(stat.Details.ConfigHash).To(Equal("deployed"))
 				}).Should(Succeed())
 			})
+
+			It(
+				"should not claim a config hash for a refused start with no status",
+				func(
+					ctx SpecContext,
+				) {
+					Expect(
+						statusSvc.NewWriter(nil).Delete(ctx, t.OntologyID().String()),
+					).
+						To(Succeed())
+					writeCommand(ctx, task.Command{
+						Task:       t.Key,
+						Type:       "start",
+						Key:        "cmd-stale",
+						ConfigHash: "stale",
+						Pinned:     true,
+					})
+					Eventually(func(g Gomega) {
+						stat := retrieveStatus(ctx, g)
+						g.Expect(stat.Details.Cmd).To(Equal("cmd-stale"))
+						g.Expect(stat.Variant).To(Equal(status.VariantWarning))
+						g.Expect(stat.Details.Running).To(BeFalse())
+						g.Expect(stat.Details.ConfigHash).To(BeEmpty())
+					}).Should(Succeed())
+				},
+			)
 
 			It("should deploy the stored config for an unpinned stale hash", func(
 				ctx SpecContext,

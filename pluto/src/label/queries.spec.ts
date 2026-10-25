@@ -466,7 +466,7 @@ describe("queries", () => {
   });
 
   describe("useEditFor", () => {
-    it("should add and remove labels and keep the labels it does not name", async () => {
+    it("should add and remove labels and keep the ones it does not name", async () => {
       const [kept, removed, added, target] = await client.labels.create([
         { name: "kept", color: "#FF0000" },
         { name: "removed", color: "#00FF00" },

@@ -133,16 +133,9 @@ export interface InitialValues<
   "key" | "rack" | "internal" | "snapshot" | "configHash"
 > {}
 
-export type FormQuery = {
-  key: task.Key;
-};
-
 const PAYLOAD_Z = task.payloadZ();
 
-/**
- * Builds the hook for a task's form. The form shows the cached task, so another
- * client's edit appears as it lands, and each edit reaches the Core as a path action.
- */
+/** Builds the hook for a task's form. */
 export const createForm = <S extends task.Schemas = task.Schemas>({
   schemas,
 }: CreateFormParams<S>) =>
@@ -152,8 +145,8 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
     docSchema: PAYLOAD_Z,
     domain: (client) => client.tasks,
     useEnsure,
-    // The cache holds every task untyped. Parsing would copy the config on each change
-    // and re-render every field, so the form's schema checks the fields instead.
+    // The cache holds every task untyped. Parsing would cost a full parse on each
+    // change, so the form's schema checks each field as it is written instead.
     toValues: ({ payload }) => ({
       key: payload.key,
       name: payload.name,

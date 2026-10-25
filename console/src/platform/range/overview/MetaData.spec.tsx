@@ -21,29 +21,35 @@ const client = createTestClient();
 
 const createRange = async (): Promise<ranger.Range> => await createTestRange(client);
 
+const renderMetaData = async (rangeKey: string): Promise<void> => {
+  const { wrapper } = await createConsoleWrapper({ client });
+  render(<Range.MetaData rangeKey={rangeKey} />, { wrapper });
+};
+
+const getAddButton = (): HTMLElement => {
+  const button = screen
+    .getAllByRole("button")
+    .find((b) => b.querySelector("svg.pluto-icon--add"));
+  if (button == null) throw new Error("add button not found");
+  return button;
+};
+
 describe("Range.MetaData", () => {
   it("should list the range's existing metadata pairs", async () => {
     const range = await createRange();
     const metaKey = id.create();
     const metaValue = id.create();
     await range.kv.set(metaKey, metaValue);
-    const { wrapper } = await createConsoleWrapper({ client });
-    render(<Range.MetaData rangeKey={range.key} />, { wrapper });
+    await renderMetaData(range.key);
     await waitFor(() => expect(screen.getByText(metaKey)).toBeTruthy());
     expect(screen.getByDisplayValue(metaValue)).toBeTruthy();
   });
 
   it("should add a new metadata pair through the create form", async () => {
     const range = await createRange();
-    const { wrapper } = await createConsoleWrapper({ client });
-    render(<Range.MetaData rangeKey={range.key} />, { wrapper });
+    await renderMetaData(range.key);
     await waitFor(() => expect(screen.getByText("Metadata")).toBeTruthy());
-
-    const addButton = screen
-      .getAllByRole("button")
-      .find((b) => b.querySelector("svg.pluto-icon--add"));
-    if (addButton == null) throw new Error("add button not found");
-    fireEvent.click(addButton);
+    fireEvent.click(getAddButton());
 
     const metaKey = id.create();
     const metaValue = id.create();
@@ -65,12 +71,20 @@ describe("Range.MetaData", () => {
     });
   });
 
+  it("should focus the create form's key only once the form shows", async () => {
+    const range = await createRange();
+    await renderMetaData(range.key);
+    const key = await screen.findByPlaceholderText("Key");
+    expect(document.activeElement).not.toBe(key);
+    fireEvent.click(getAddButton());
+    await waitFor(() => expect(document.activeElement).toBe(key));
+  });
+
   it("should store an edit to a listed value", async () => {
     const range = await createRange();
     const metaKey = id.create();
     await range.kv.set(metaKey, "before");
-    const { wrapper } = await createConsoleWrapper({ client });
-    render(<Range.MetaData rangeKey={range.key} />, { wrapper });
+    await renderMetaData(range.key);
     const input = await screen.findByDisplayValue("before");
     fireEvent.change(input, { target: { value: "after" } });
     fireEvent.blur(input);
@@ -81,8 +95,7 @@ describe("Range.MetaData", () => {
     const range = await createRange();
     const metaKey = id.create();
     await range.kv.set(metaKey, "before");
-    const { wrapper } = await createConsoleWrapper({ client });
-    render(<Range.MetaData rangeKey={range.key} />, { wrapper });
+    await renderMetaData(range.key);
     await screen.findByDisplayValue("before");
     await waitForStreamLive(client.connection);
     await act(async () => {
@@ -95,8 +108,7 @@ describe("Range.MetaData", () => {
     const range = await createRange();
     const metaKey = id.create();
     await range.kv.set(metaKey, "doomed");
-    const { wrapper } = await createConsoleWrapper({ client });
-    render(<Range.MetaData rangeKey={range.key} />, { wrapper });
+    await renderMetaData(range.key);
     await screen.findByText(metaKey);
     await waitForStreamLive(client.connection);
     await act(async () => {

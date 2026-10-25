@@ -7,20 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { array } from "@/array";
 import { equal } from "@/deep/equal";
+import { narrow } from "@/narrow";
 import { type record } from "@/record";
-
-const isPlain = (value: unknown): value is record.Unknown =>
-  value != null &&
-  typeof value === "object" &&
-  Object.getPrototypeOf(value) === Object.prototype;
-
-const isEntryList = (value: unknown[]): value is record.Keyed<string>[] =>
-  value.every((v) => isPlain(v) && typeof v.key === "string");
 
 const reuseList = (prev: unknown[], next: unknown[]): unknown[] => {
   let matched: (i: number) => unknown;
-  if (isEntryList(prev) && isEntryList(next)) {
+  if (array.isKeyed(prev) && array.isKeyed(next)) {
     const byKey = new Map(prev.map((entry) => [entry.key, entry]));
     matched = (i) => byKey.get(next[i].key);
   } else matched = (i) => prev[i];
@@ -48,6 +42,7 @@ const reuseObject = (prev: record.Unknown, next: record.Unknown): record.Unknown
 export const reuse = <T>(prev: unknown, next: T): T => {
   if (prev === next) return next;
   if (Array.isArray(prev) && Array.isArray(next)) return reuseList(prev, next) as T;
-  if (isPlain(prev) && isPlain(next)) return reuseObject(prev, next) as T;
+  if (narrow.isPlainObject(prev) && narrow.isPlainObject(next))
+    return reuseObject(prev, next) as T;
   return (equal(prev, next) ? prev : next) as T;
 };

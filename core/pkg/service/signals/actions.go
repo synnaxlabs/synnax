@@ -20,8 +20,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// ActionsConfig configures PublishActions.
-type ActionsConfig[K comparable, A any] struct {
+// ActionPublisherConfig configures PublishActions.
+type ActionPublisherConfig[K comparable, A any] struct {
 	// Observable emits the action sequences to publish, such as an actions.State.
 	//
 	// [REQUIRED]
@@ -34,8 +34,8 @@ type ActionsConfig[K comparable, A any] struct {
 }
 
 // Validate implements config.Config.
-func (c ActionsConfig[K, A]) Validate() error {
-	v := validate.New("signals.actions_config")
+func (c ActionPublisherConfig[K, A]) Validate() error {
+	v := validate.New("signals.action_publisher_config")
 	v.NotNil("observable", c.Observable)
 	v.NotEmptyString("name", c.Name)
 	return v.Error()
@@ -46,7 +46,7 @@ func (c ActionsConfig[K, A]) Validate() error {
 // shuts the pipeline down.
 func (p *Provider) PublishActions[K comparable, A any](
 	ctx context.Context,
-	cfg ActionsConfig[K, A],
+	cfg ActionPublisherConfig[K, A],
 ) (io.Closer, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err

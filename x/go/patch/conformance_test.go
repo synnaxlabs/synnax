@@ -20,8 +20,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// The vectors are shared with the TypeScript implementation so that both runtimes
-// apply an action to a document alike.
+// The vectors are shared with the TypeScript implementation so that both runtimes apply
+// an action to a document alike.
 const vectorsPath = "../../testdata/patch/vectors.json"
 
 type vectorFile struct {

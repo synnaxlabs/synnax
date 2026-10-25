@@ -32,13 +32,25 @@ var _ = Describe("Actions", func() {
 	set := func(path []string, value any) label.Action {
 		return label.NewSetAction(label.SetPayload{Path: path, Value: value})
 	}
-	expectRejected := func(acts ...label.Action) {
-		GinkgoHelper()
-		Expect(label.Reduce(base, acts...)).Error().To(SatisfyAll(
+	DescribeTable("Should reject", func(act label.Action) {
+		Expect(label.Reduce(base, act)).Error().To(SatisfyAll(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring("decoding document")),
 		))
-	}
+	},
+		Entry(
+			"a path outside the name and color",
+			set([]string{"key"}, uuid.New().String()),
+		),
+		Entry("a value the color cannot hold", set([]string{"color"}, "not a color")),
+		Entry(
+			"a list the label does not declare",
+			label.NewInsertAction(label.InsertPayload{
+				Path:  []string{"tags"},
+				Value: map[string]any{"key": "a"},
+			}),
+		),
+	)
 
 	Describe("CreatePayload", func() {
 		It("Should replace the label with the created label", func() {
@@ -64,12 +76,6 @@ var _ = Describe("Actions", func() {
 			Expect(res.Color).To(Equal(color.MustFromHex("#ff0000")))
 			Expect(res.Name).To(Equal(base.Name))
 		})
-		It("Should reject a path outside the name and color", func() {
-			expectRejected(set([]string{"key"}, uuid.New().String()))
-		})
-		It("Should reject a value the color cannot hold", func() {
-			expectRejected(set([]string{"color"}, "not a color"))
-		})
 	})
 
 	Describe("RemovePayload", func() {
@@ -78,15 +84,6 @@ var _ = Describe("Actions", func() {
 				base,
 				label.NewRemoveAction(label.RemovePayload{Key: "tags"}),
 			)).To(Equal(base))
-		})
-	})
-
-	Describe("InsertPayload", func() {
-		It("Should reject a list the label does not declare", func() {
-			expectRejected(label.NewInsertAction(label.InsertPayload{
-				Path:  []string{"tags"},
-				Value: map[string]any{"key": "a"},
-			}))
 		})
 	})
 

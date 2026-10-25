@@ -119,12 +119,15 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	// RENAME
 	t.RackRename = noop.UnaryServer[apirack.RenameRequest, struct{}]{}
 	t.TaskRename = noop.UnaryServer[apitask.RenameRequest, struct{}]{}
-	t.TaskDispatch = noop.UnaryServer[apitask.DispatchRequest, struct{}]{}
-	t.RangeDispatch = noop.UnaryServer[apiranger.DispatchRequest, struct{}]{}
-	t.LabelDispatch = noop.UnaryServer[label.DispatchRequest, struct{}]{}
 	t.DeviceRename = noop.UnaryServer[apidevice.RenameRequest, struct{}]{}
 	t.StatusRename = noop.UnaryServer[apistatus.RenameRequest, struct{}]{}
 	t.ViewRename = noop.UnaryServer[view.RenameRequest, struct{}]{}
+
+	// TASK
+	t.TaskDispatch = noop.UnaryServer[apitask.DispatchRequest, struct{}]{}
+
+	// RANGE
+	t.RangeDispatch = noop.UnaryServer[apiranger.DispatchRequest, struct{}]{}
 
 	// SCHEMATIC
 	t.SchematicCreate = noop.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]{}
@@ -178,6 +181,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.LabelDelete = noop.UnaryServer[label.DeleteRequest, struct{}]{}
 	t.LabelAdd = noop.UnaryServer[label.AddRequest, struct{}]{}
 	t.LabelRemove = noop.UnaryServer[label.RemoveRequest, struct{}]{}
+	t.LabelDispatch = noop.UnaryServer[label.DispatchRequest, struct{}]{}
 
 	// ACCESS
 	t.AccessCreatePolicy = noop.UnaryServer[access.CreatePolicyRequest, access.CreatePolicyResponse]{}

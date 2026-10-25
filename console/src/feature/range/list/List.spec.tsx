@@ -61,6 +61,16 @@ const renderList = async (as: Client = client): Promise<HTMLElement> => {
   return container;
 };
 
+const showRange = async (container: HTMLElement): Promise<ranger.Range> => {
+  const rng = await createTestRange(client);
+  const input = await waitFor(() =>
+    getInputByNodePlaceholder(container, "Search Ranges..."),
+  );
+  fireEvent.change(input, { target: { value: rng.name } });
+  await within(container).findByText(rng.name);
+  return rng;
+};
+
 describe("range/list/List", () => {
   it("narrows the list to ranges matching the search term", async () => {
     const target = await createTestRange(client);
@@ -90,6 +100,17 @@ describe("range/list/List", () => {
     await waitFor(() => getInputByNodePlaceholder(document.body, "Search Ranges..."));
     fireEvent.click(await waitFor(() => getIconButton(document.body, "add")));
     expect(await screen.findByText("Save locally")).toBeTruthy();
+  });
+
+  it("should end a range on the Core from its stage selector", async () => {
+    const container = await renderList();
+    const rng = await showRange(container);
+    fireEvent.click(getIconButton(container, "in-progress"));
+    fireEvent.click(await screen.findByText("Complete"));
+    await waitFor(async () => {
+      const { timeRange } = await client.ranges.retrieve(rng.key);
+      expect(timeRange.end.before(rng.timeRange.end)).toBe(true);
+    });
   });
 });
 
@@ -154,31 +175,6 @@ describe("range/list/List permissions", () => {
       timeout: 5000,
     });
   };
-
-  const showRange = async (container: HTMLElement): Promise<void> => {
-    const rng = await createTestRange(client);
-    const input = await waitFor(() =>
-      getInputByNodePlaceholder(container, "Search Ranges..."),
-    );
-    fireEvent.change(input, { target: { value: rng.name } });
-    await within(container).findByText(rng.name);
-  };
-
-  it("should end a range on the Core from its stage selector", async () => {
-    const container = await renderList();
-    const rng = await createTestRange(client);
-    const input = await waitFor(() =>
-      getInputByNodePlaceholder(container, "Search Ranges..."),
-    );
-    fireEvent.change(input, { target: { value: rng.name } });
-    await within(container).findByText(rng.name);
-    fireEvent.click(getIconButton(container, "in-progress"));
-    fireEvent.click(await screen.findByText("Complete"));
-    await waitFor(async () => {
-      const { timeRange } = await client.ranges.retrieve(rng.key);
-      expect(timeRange.end.before(rng.timeRange.end)).toBe(true);
-    });
-  });
 
   it("should freeze the stage selector for a viewer", async () => {
     const container = await renderList(await roles.get("Viewer"));

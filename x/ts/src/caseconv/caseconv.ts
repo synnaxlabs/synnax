@@ -9,6 +9,7 @@
 
 import { type z } from "zod";
 
+import { narrow } from "@/narrow";
 import { type record } from "@/record";
 
 /** Marks Zod schemas whose keys must not be converted. */
@@ -350,9 +351,6 @@ export interface ConvertedPath {
 
 type Converter = ReturnType<typeof createConverter>;
 
-const isArraySchema = (schema: z.ZodType | undefined): boolean =>
-  getArrayElementSchema(schema) != null;
-
 const createPathConverter =
   (f: (v: string) => string, converter: Converter) =>
   (path: string[], { schema, data }: PathOptions = {}): ConvertedPath => {
@@ -366,11 +364,11 @@ const createPathConverter =
         out.push(seg);
         continue;
       }
-      if (Array.isArray(d) || (d == null && isArraySchema(s))) {
+      if (Array.isArray(d) || (d == null && getArrayElementSchema(s) != null)) {
         out.push(seg);
         s = getArrayElementSchema(s);
         d = Array.isArray(d)
-          ? d.find((e) => isValidObject(e) && (e as record.Unknown).key === seg)
+          ? d.find((e) => narrow.isObject(e) && e.key === seg)
           : undefined;
         continue;
       }
@@ -382,7 +380,7 @@ const createPathConverter =
         const shape = getSchemaShape(s);
         s = shape != null ? (shape[seg] ?? shape[next]) : undefined;
       }
-      const obj = isValidObject(d) ? (d as record.Unknown) : undefined;
+      const obj = narrow.isObject(d) ? d : undefined;
       d = obj?.[seg] ?? obj?.[next];
     }
     const convert = <V>(value: V): V =>
@@ -409,8 +407,8 @@ const convertChild = <V>(
 
 /**
  * Converts a snake_case path into a document the way {@link snakeToCamel} converts the
- * keys of the whole document with the same schema. A segment into a list, into a
- * record with preserved keys, or under a preserved-case schema stays as it is.
+ * keys of the whole document with the same schema. A segment into a list, into a record
+ * with preserved keys, or under a preserved-case schema stays as it is.
  */
 export const snakeToCamelPath = createPathConverter(snakeToCamelStr, snakeToCamel);
 

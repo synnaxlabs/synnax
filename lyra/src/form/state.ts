@@ -50,7 +50,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
   /** The values that the cached field states were read from. */
   private observed: z.infer<Z>;
   /** How many writes are open, so the state skips the changes it makes itself. */
-  private writing = 0;
+  private depth = 0;
 
   constructor(store: Store<z.infer<Z>>, schema?: Z) {
     super();
@@ -131,18 +131,18 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
    */
   listen(): destructor.Destructor {
     const handleChange = () => {
-      if (this.writing === 0 && this.refresh()) this.notify();
+      if (this.depth === 0 && this.refresh()) this.notify();
     };
     handleChange();
     return this.store.onChange(handleChange);
   }
 
   private write(change: () => void) {
-    this.writing++;
+    this.depth++;
     try {
       change();
     } finally {
-      this.writing--;
+      this.depth--;
       this.refresh();
     }
   }
@@ -288,7 +288,6 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     if (path === "") this.touched.clear();
     else this.touched.delete(path);
     this.updateCachedRefs(path);
-    this.notify();
   }
 
   remove(path: string) {
@@ -296,6 +295,9 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     this.statuses.delete(path);
     this.clearTouched(path);
     this.cachedRefs.delete(path);
+    const parent = path.slice(0, Math.max(path.lastIndexOf("."), 0));
+    const list = deep.get(this.values, parent, { optional: true });
+    if (Array.isArray(list)) this.checkTouched(parent, list);
   }
 
   validate(validateUntouched?: boolean, path?: string): boolean {

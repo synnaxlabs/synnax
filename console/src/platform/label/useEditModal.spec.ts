@@ -79,6 +79,16 @@ describe("Label.useEditModal", () => {
     });
   });
 
+  it("should focus the create form's name only once the form shows", async () => {
+    await openEditModal();
+    const name = await waitFor(() =>
+      within(getCreateItem()).getByPlaceholderText("Name"),
+    );
+    expect(document.activeElement).not.toBe(name);
+    fireEvent.click(await findAddButton());
+    await waitFor(() => expect(document.activeElement).toBe(name));
+  });
+
   it("should keep the create form open while the color picker is open", async () => {
     await openEditModal();
     await waitFor(() =>

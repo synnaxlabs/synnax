@@ -62,7 +62,7 @@ export const applyPath = <S extends object>(
   action: patch.Action,
   schema: z.ZodType,
 ): patch.Action[] => {
-  const opts = { schema, doc: state };
+  const opts = { schema, data: state };
   const inverse = patch.apply(
     state as record.Unknown,
     patch.snakeToCamel(action, opts),

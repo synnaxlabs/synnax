@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, type ontology, query, ranger } from "@synnaxlabs/client";
+import { label, type ontology, ranger } from "@synnaxlabs/client";
 import { type List } from "@synnaxlabs/lyra/list";
 import { primitive, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
@@ -120,15 +120,6 @@ export const createFormSchema = z.object({
   timeRange: timeRangeZ,
 });
 
-const toCreateFormValues = (range: ranger.Range): z.infer<typeof createFormSchema> => ({
-  ...range.payload,
-  timeRange: range.timeRange.numeric,
-  parent: range.parent?.key,
-  labels: range.labels?.map((l) => l.key) ?? [],
-});
-
-export type FormQuery = RetrieveQuery;
-
 const ZERO_CREATE_FORM_VALUES: z.infer<typeof createFormSchema> = {
   name: "",
   labels: [],
@@ -136,20 +127,11 @@ const ZERO_CREATE_FORM_VALUES: z.infer<typeof createFormSchema> = {
   timeRange: { start: 0, end: 0 },
 };
 
-/**
- * A form that creates a range, or saves a whole range over the stored one, when the
- * caller saves it.
- */
-export const useCreateForm = Flux.createForm<FormQuery, typeof createFormSchema>({
+/** A form that creates a range when the caller saves it. */
+export const useCreateForm = Flux.createForm<null, typeof createFormSchema>({
   name: RESOURCE_NAME,
   schema: createFormSchema,
   initialValues: ZERO_CREATE_FORM_VALUES,
-  retrieve: async ({ client, query: { key } }) =>
-    toCreateFormValues(await client.ranges.retrieve(key)),
-  getCached: ({ client, query: { key } }) => {
-    const cached = client.ranges.getCached(key);
-    return query.isLive(cached) ? toCreateFormValues(cached) : undefined;
-  },
   update: async ({ client, value: getValue, reset }) => {
     const value = getValue();
     const parentKey = value.parent;
@@ -169,11 +151,6 @@ export const useCreateForm = Flux.createForm<FormQuery, typeof createFormSchema>
       parent: value.parent,
     });
   },
-  mountListeners: ({ client, query: { key }, reset, abandon }) =>
-    client.ranges.onChange(key, (result) => {
-      if (query.isLive(result)) reset(toCreateFormValues(result));
-      else if (query.Deleted.matches(result)) abandon();
-    }),
 });
 
 export const formSchema = z.object({
@@ -181,11 +158,7 @@ export const formSchema = z.object({
   timeRange: timeRangeZ,
 });
 
-/**
- * A form over a range in the client cache. Each edit to the name or time range
- * reaches the Core as a path action, and an edit from another client appears as it
- * lands.
- */
+/** A form over the name and time range of a cached range. */
 export const useForm = Flux.createDocumentForm<
   ranger.Key,
   ranger.Range,

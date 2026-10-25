@@ -58,8 +58,8 @@ interface Target {
   /** The value at the path. */
   node: unknown;
   /**
-   * The rest of the form path, below a list of entries without keys. Such a list is
-   * set whole.
+   * The rest of the form path, below a list of entries without keys. Such a list is set
+   * whole.
    */
   rest: string;
 }
@@ -129,10 +129,10 @@ interface StoreParams<
 
 /**
  * A form store over a document in the client cache. A write applies to the cached
- * document at once and reaches the Core as a path action. Writes to one field
- * coalesce into one dispatch, and a field whose value fails its schema holds its edits
- * until the value passes. Sends run in order, so the Core applies edits in the order
- * they were made.
+ * document at once and reaches the Core as a path action. Writes to one field coalesce
+ * into one dispatch, and a field whose value fails its schema holds its edits until the
+ * value passes. Sends run in order, so the Core applies edits in the order they were
+ * made.
  */
 class DocumentStore<
   Key extends record.Key,
@@ -175,8 +175,8 @@ class DocumentStore<
       this.doc = cached;
       const next = this.params.toValues(cached, this.query);
       this.removed = next === undefined;
-      // Unchanged values keep their identity, so a change re-renders only the fields
-      // it reaches, even when a create replaces the whole document.
+      // Unchanged values keep their identity, so a change re-renders only the fields it
+      // reaches, even when a create replaces the whole document.
       if (next !== undefined) this.values = deep.reuse(this.values, next);
     }
     return this.values;
@@ -196,7 +196,7 @@ class DocumentStore<
       deep.set(whole, target.rest, value);
     }
     if (deep.equal(whole, target.node)) return;
-    const guards = this.guards(target.path, values);
+    const guards = patch.guards(this.params.schema, target.path, values);
     const action = this.toWire(
       { type: "set", set: { path: target.path, value: whole, guards } },
       values,
@@ -208,7 +208,7 @@ class DocumentStore<
     const values = this.get();
     const target = locate(values, formPath);
     if (target == null || target.path.length === 0) return;
-    const guards = this.guards(target.path, values);
+    const guards = patch.guards(this.params.schema, target.path, values);
     if (target.rest !== "") {
       const whole = deep.copy(target.node);
       deep.remove(whole, target.rest);
@@ -231,7 +231,7 @@ class DocumentStore<
     const values = this.get();
     const path = this.locateList(values, formPath);
     if (path == null) return;
-    const guards = this.guards(path, values);
+    const guards = patch.guards(this.params.schema, path, values);
     this.dispatch(
       this.toWire({ type: "insert", insert: { path, value, after, guards } }, values),
     );
@@ -241,7 +241,7 @@ class DocumentStore<
     const values = this.get();
     const path = this.locateList(values, formPath);
     if (path == null) return;
-    const guards = this.guards(path, values);
+    const guards = patch.guards(this.params.schema, path, values);
     this.dispatch(
       this.toWire({ type: "move", move: { path, key, after, guards } }, values),
     );
@@ -252,7 +252,7 @@ class DocumentStore<
       fn();
       return;
     }
-    void this.commitValid();
+    void this.takeValid();
     const tx = this.params.domain.beginTransaction(this.key);
     this.batched = tx;
     try {
@@ -272,19 +272,16 @@ class DocumentStore<
    * unsent, or when one of those sends failed.
    */
   async flush(): Promise<boolean> {
-    const queued = [...this.inFlight];
-    const sent = await this.commitValid();
-    const done = await Promise.all(queued);
-    return sent && done.every(Boolean) && this.edits.length === 0;
+    const sends = [...this.inFlight, ...this.takeValid()];
+    const held = this.edits.length > 0;
+    const sent = await Promise.all(sends);
+    return !held && sent.every(Boolean);
   }
 
   /** Sends every valid edit and drops every invalid one. The store stays usable. */
   close(): void {
-    void this.commitValid();
-    this.edits.splice(0).forEach((edit) => {
-      clearTimeout(edit.timer);
-      edit.tx.abort();
-    });
+    void this.takeValid();
+    this.edits.splice(0).forEach((edit) => edit.tx.abort());
   }
 
   private locateList(values: V, formPath: string): string[] | null {
@@ -295,15 +292,10 @@ class DocumentStore<
     return target.path;
   }
 
-  /** @returns a guard for each discriminated union that the path goes into. */
-  private guards(path: string[], values: V): patch.Guard[] {
-    return patch.guards(this.params.schema, path, values);
-  }
-
   private toWire(action: patch.Action, values: V): patch.Action {
     const { docSchema, path } = this.params;
     return patch.prefix(
-      patch.camelToSnake(action, { schema: docSchema, doc: values }),
+      patch.camelToSnake(action, { schema: docSchema, data: values }),
       path,
     );
   }
@@ -327,7 +319,7 @@ class DocumentStore<
     clearTimeout(edit.timer);
     const scheduled = edit;
     edit.timer = setTimeout(
-      () => void this.commit(scheduled),
+      () => void this.take(scheduled),
       COALESCE_WINDOW.milliseconds,
     );
   }
@@ -339,27 +331,27 @@ class DocumentStore<
       this.batched.add(action);
       return;
     }
-    void this.commitValid();
+    void this.takeValid();
     const tx = this.params.domain.beginTransaction(this.key);
     tx.add(action);
     void this.send(tx);
   }
 
-  /** @returns whether every edit it sent succeeded. */
-  private async commitValid(): Promise<boolean> {
-    const sent = await Promise.all([...this.edits].map((edit) => this.commit(edit)));
-    return sent.every(Boolean);
+  /** Takes every valid edit out of the store and queues its send. */
+  private takeValid(): Promise<boolean>[] {
+    return [...this.edits].flatMap((edit) => this.take(edit) ?? []);
   }
 
   /**
-   * Sends the edit, unless it holds a value that fails its schema.
-   * @returns whether the send succeeded.
+   * Takes the edit out of the store and queues its send, unless it holds a value that
+   * fails its schema.
+   * @returns the queued send, or null when the edit stays.
    */
-  private async commit(edit: Edit): Promise<boolean> {
+  private take(edit: Edit): Promise<boolean> | null {
     clearTimeout(edit.timer);
-    if (![...edit.valid.values()].every(Boolean)) return false;
+    if (![...edit.valid.values()].every(Boolean)) return null;
     this.edits.splice(this.edits.indexOf(edit), 1);
-    return await this.send(edit.tx);
+    return this.send(edit.tx);
   }
 
   /** @returns false when the send failed. A transaction with nothing to send passes. */

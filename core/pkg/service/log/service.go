@@ -115,7 +115,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		var sig io.Closer
 		if sig, err = cfg.Signals.PublishActions(
 			ctx,
-			signals.ActionsConfig[Key, Action]{Observable: s.state, Name: "log"},
+			signals.ActionPublisherConfig[Key, Action]{
+				Observable: s.state,
+				Name:       "log",
+			},
 		); !ok(err, sig) {
 			return nil, err
 		}

@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -49,13 +50,10 @@ var _ = Describe("Dispatch", func() {
 		nominal = label.Label{Name: "Nominal", Color: color.MustFromHex("#00ff00")}
 		Expect(svc.NewWriter(nil).Create(ctx, &nominal)).To(Succeed())
 	})
-	collect := func() *[]frame {
-		GinkgoHelper()
-		var frames []frame
-		DeferCleanup(svc.ObserveActions().OnChange(func(_ context.Context, f frame) {
-			frames = append(frames, f)
-		}))
-		return &frames
+	record := func() *Recorder[label.Key, label.Action] {
+		rec := &Recorder[label.Key, label.Action]{}
+		DeferCleanup(svc.ObserveActions().OnChange(rec.Record))
+		return rec
 	}
 	set := func(path []string, value any) label.Action {
 		return label.NewSetAction(label.SetPayload{Path: path, Value: value})
@@ -83,11 +81,12 @@ var _ = Describe("Dispatch", func() {
 	})
 
 	It("Should broadcast the actions with the dispatch key", func(ctx SpecContext) {
-		frames := collect()
+		rec := record()
 		acts := []label.Action{set([]string{"name"}, "Anomaly")}
 		Expect(svc.Dispatch(ctx, nominal.Key, "dk-1", acts)).To(Succeed())
-		Expect(*frames).To(HaveLen(1))
-		f := (*frames)[0]
+		frames := rec.Snapshot()
+		Expect(frames).To(HaveLen(1))
+		f := frames[0]
 		Expect(f.Key).To(Equal(nominal.Key))
 		Expect(f.DispatchKey).To(Equal("dk-1"))
 		Expect(f.Seq).To(BeNumerically(">", 0))
@@ -95,13 +94,13 @@ var _ = Describe("Dispatch", func() {
 	})
 
 	It("Should apply none of the actions when one fails", func(ctx SpecContext) {
-		frames := collect()
+		rec := record()
 		Expect(svc.Dispatch(ctx, nominal.Key, "dk", []label.Action{
 			set([]string{"name"}, "Anomaly"),
 			set([]string{"key"}, uuid.New().String()),
 		})).To(MatchError(validate.ErrValidation))
 		Expect(retrieve(ctx)).To(Equal(nominal))
-		Expect(*frames).To(BeEmpty())
+		Expect(rec.Snapshot()).To(BeEmpty())
 	})
 
 	It("Should reject an empty name", func(ctx SpecContext) {
@@ -130,18 +129,18 @@ var _ = Describe("Dispatch", func() {
 		It("Should broadcast a create with the dispatch key after the commit", func(
 			ctx SpecContext,
 		) {
-			frames := collect()
+			rec := record()
 			l := label.Label{Name: "Anomaly", Color: color.MustFromHex("#ff0000")}
-			tx := db.OpenTx()
-			DeferCleanup(func() { Expect(tx.Close()).To(Succeed()) })
+			tx := DeferClose(db.OpenTx())
 			w := svc.NewWriter(tx).WithDispatchKey("dk-create")
 			Expect(w.Create(ctx, &l)).To(Succeed())
-			Expect(*frames).To(BeEmpty())
+			Expect(rec.Snapshot()).To(BeEmpty())
 			Expect(tx.Commit(ctx)).To(Succeed())
-			Expect(*frames).To(ConsistOf(frame{
+			frames := rec.Snapshot()
+			Expect(frames).To(ConsistOf(frame{
 				Key:         l.Key,
 				DispatchKey: "dk-create",
-				Seq:         (*frames)[0].Seq,
+				Seq:         frames[0].Seq,
 				Actions: []label.Action{
 					label.NewCreateAction(label.CreatePayload{Label: l}),
 				},
@@ -149,12 +148,12 @@ var _ = Describe("Dispatch", func() {
 		})
 
 		It("Should not broadcast a create that never commits", func(ctx SpecContext) {
-			frames := collect()
+			rec := record()
 			tx := db.OpenTx()
 			l := label.Label{Name: "Anomaly"}
 			Expect(svc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 			Expect(tx.Close()).To(Succeed())
-			Expect(*frames).To(BeEmpty())
+			Expect(rec.Snapshot()).To(BeEmpty())
 		})
 	})
 })

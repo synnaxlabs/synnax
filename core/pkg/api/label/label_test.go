@@ -10,7 +10,6 @@
 package label_test
 
 import (
-	"context"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -18,7 +17,7 @@ import (
 	apilabel "github.com/synnaxlabs/synnax/pkg/api/label"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/query"
@@ -88,13 +87,8 @@ var _ = Describe("Create", func() {
 			grant(ctx, access.ActionCreate, u.OntologyID(), ontology.ID{
 				Type: ontology.ResourceTypeLabel,
 			})
-			var keys []string
-			DeferCleanup(svc.Label.ObserveActions().OnChange(func(
-				_ context.Context,
-				f actions.Scoped[label.Key, label.Action],
-			) {
-				keys = append(keys, f.DispatchKey)
-			}))
+			rec := &Recorder[label.Key, label.Action]{}
+			DeferCleanup(svc.Label.ObserveActions().OnChange(rec.Record))
 			res := MustSucceed(
 				apiSvc.Create(AuthedCtx(ctx, u), nil, apilabel.CreateRequest{
 					Labels:      []label.Label{{Name: "Created"}},
@@ -102,7 +96,9 @@ var _ = Describe("Create", func() {
 				}),
 			)
 			Expect(res.Labels).To(HaveLen(1))
-			Expect(keys).To(Equal([]string{"dk-create"}))
+			frames := rec.Snapshot()
+			Expect(frames).To(HaveLen(1))
+			Expect(frames[0].DispatchKey).To(Equal("dk-create"))
 		},
 	)
 })

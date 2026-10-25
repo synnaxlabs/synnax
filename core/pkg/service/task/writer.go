@@ -28,23 +28,28 @@ import (
 )
 
 type Writer struct {
-	tx         gorp.Tx
-	otgWriter  ontology.Writer
-	otg        *ontology.Ontology
-	group      group.Group
-	status     status.Writer
-	table      *gorp.Table[Key, Task]
-	configs    config.Registry
-	dispatcher actions.Dispatcher[Key, Action]
-	// dispatchKey is stamped onto create broadcasts so the originator skips its echo.
+	tx          gorp.Tx
+	otgWriter   ontology.Writer
+	otg         *ontology.Ontology
+	group       group.Group
+	status      status.Writer
+	table       *gorp.Table[Key, Task]
+	configs     config.Registry
+	dispatcher  actions.Dispatcher[Key, Action]
 	dispatchKey string
 }
 
-// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the create
-// broadcasts it emits, so the client that sent the create recognizes its own echo.
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
 func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	w.dispatchKey = dispatchKey
 	return w
+}
+
+// notify broadcasts the actions on the task with the given key after the transaction
+// commits.
+func (w Writer) notify(ctx context.Context, key Key, acts ...Action) {
+	gorp.OnCommit(w.tx, func() { w.dispatcher.Notify(ctx, key, w.dispatchKey, acts) })
 }
 
 // resolveStatus returns the status to persist for t. Without a provided status, a task
@@ -189,10 +194,7 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		return err
 	}
 	t.Status = stat
-	key, created := t.Key, []Action{NewCreateAction(CreatePayload{Task: *t})}
-	gorp.OnCommit(w.tx, func() {
-		w.dispatcher.Notify(ctx, key, w.dispatchKey, created)
-	})
+	w.notify(ctx, t.Key, NewCreateAction(CreatePayload{Task: *t}))
 	exists, err := w.otg.NewRetrieve().WhereIDs(otgID).Exists(ctx, w.tx)
 	if err != nil {
 		return err
@@ -247,10 +249,7 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 	if err := w.renameStatus(ctx, key, name); err != nil {
 		return err
 	}
-	renamed := []Action{NewSetAction(SetPayload{Path: []string{"name"}, Value: name})}
-	gorp.OnCommit(w.tx, func() {
-		w.dispatcher.Notify(ctx, key, w.dispatchKey, renamed)
-	})
+	w.notify(ctx, key, NewSetAction(SetPayload{Path: []string{"name"}, Value: name}))
 	return nil
 }
 
@@ -409,9 +408,6 @@ func (w Writer) Copy(
 			return Task{}, err
 		}
 	}
-	copied := []Action{NewCreateAction(CreatePayload{Task: res})}
-	gorp.OnCommit(w.tx, func() {
-		w.dispatcher.Notify(ctx, newKey, w.dispatchKey, copied)
-	})
+	w.notify(ctx, newKey, NewCreateAction(CreatePayload{Task: res}))
 	return res, nil
 }

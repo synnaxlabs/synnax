@@ -120,10 +120,7 @@ const useDocumentNodeForm = Flux.createDocumentForm<
 
 const useNodeFormBase = (query: NodePropsParams) => useDocumentNodeForm({ query });
 
-/**
- * A form over one node's inputs in the cached Arc graph. Each edit reaches the Core as
- * a path action, and an edit from another client appears as it lands.
- */
+/** A form over one node's inputs in the cached Arc graph. */
 export const useNodeForm = Scope.bindHook(useNodeFormBase);
 
 // useMode returns the representation mode of the Arc with the given key. It

@@ -71,6 +71,33 @@ const verdictValues = {
   nested: { ssn: "1" },
 } as VerdictValues;
 
+interface Tracked {
+  channels: { key: string; port: number }[];
+  config: { type: "a"; value: number } | { type: "b"; value?: string };
+}
+
+const trackedSchema = z.object({
+  channels: z.array(z.object({ key: z.string(), port: z.number() })),
+  config: z.discriminatedUnion("type", [
+    z.object({ type: z.literal("a"), value: z.number() }),
+    z.object({ type: z.literal("b"), value: z.string().optional() }),
+  ]),
+});
+
+const buildTracked = () => {
+  const store = createLocalStore<Tracked>({
+    channels: [
+      { key: "a", port: 1 },
+      { key: "b", port: 2 },
+    ],
+    config: { type: "a", value: 1 },
+  });
+  const state = new State(store, trackedSchema);
+  const handleChange = vi.fn();
+  state.onChange(handleChange);
+  return { store, state, handleChange };
+};
+
 describe("State", () => {
   describe("constructor", () => {
     it("should initialize with values and schema", () => {
@@ -560,6 +587,13 @@ describe("State", () => {
       state.move("channels", "a");
       expect(state.getState("channels").touched).toBe(false);
     });
+
+    it("should mark the list touched when it removes an entry", () => {
+      const state = new State<z.ZodType<Keyed>>(createLocalStore(createKeyed()));
+      state.remove("channels.a");
+      expect(keysOf(state)).toEqual(["b"]);
+      expect(state.getState("channels").touched).toBe(true);
+    });
   });
 
   describe("batch", () => {
@@ -579,33 +613,8 @@ describe("State", () => {
   });
 
   describe("listen", () => {
-    interface Keyed {
-      channels: { key: string; port: number }[];
-      config: { type: "a"; value: number } | { type: "b"; value?: string };
-    }
-    const schema = z.object({
-      channels: z.array(z.object({ key: z.string(), port: z.number() })),
-      config: z.discriminatedUnion("type", [
-        z.object({ type: z.literal("a"), value: z.number() }),
-        z.object({ type: z.literal("b"), value: z.string().optional() }),
-      ]),
-    });
-    const build = () => {
-      const store = createLocalStore<Keyed>({
-        channels: [
-          { key: "a", port: 1 },
-          { key: "b", port: 2 },
-        ],
-        config: { type: "a", value: 1 },
-      });
-      const state = new State(store, schema);
-      const handleChange = vi.fn();
-      state.onChange(handleChange);
-      return { store, state, handleChange };
-    };
-
     it("should refresh a field that another writer changes", () => {
-      const { store, state, handleChange } = build();
+      const { store, state, handleChange } = buildTracked();
       state.listen();
       expect(state.getState("channels.b.port").value).toBe(2);
       store.set("channels.b.port", 3);
@@ -614,7 +623,7 @@ describe("State", () => {
     });
 
     it("should keep the state of a field that the change does not reach", () => {
-      const { store, state } = build();
+      const { store, state } = buildTracked();
       state.listen();
       const prev = state.getState("channels.a.port");
       store.set("channels.b.port", 3);
@@ -622,7 +631,7 @@ describe("State", () => {
     });
 
     it("should refresh a field whose discriminator another writer changes", () => {
-      const { store, state } = build();
+      const { store, state } = buildTracked();
       state.listen();
       expect(state.getState("config.value").required).toBe(true);
       store.set("config", { type: "b" });
@@ -630,7 +639,7 @@ describe("State", () => {
     });
 
     it("should refresh a field that another writer removes", () => {
-      const { store, state } = build();
+      const { store, state } = buildTracked();
       state.listen();
       expect(state.getState("channels.0.port").value).toBe(1);
       store.remove("channels.a");
@@ -638,14 +647,14 @@ describe("State", () => {
     });
 
     it("should not notify for its own writes", () => {
-      const { state, handleChange } = build();
+      const { state, handleChange } = buildTracked();
       state.listen();
       state.setValue("channels.a.port", 5);
       expect(handleChange).not.toHaveBeenCalled();
     });
 
     it("should catch up on a change made before it listens", () => {
-      const { store, state, handleChange } = build();
+      const { store, state, handleChange } = buildTracked();
       expect(state.getState("channels.b.port").value).toBe(2);
       store.set("channels.b.port", 3);
       state.listen();
@@ -653,10 +662,20 @@ describe("State", () => {
       expect(state.getState("channels.b.port").value).toBe(3);
     });
 
+    it("should stop following after the destructor runs", () => {
+      const { store, state, handleChange } = buildTracked();
+      const destroy = state.listen();
+      destroy();
+      store.set("channels.b.port", 3);
+      expect(handleChange).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("setStore", () => {
     it("should read another store with its values as the initial ones", () => {
-      const { state } = build();
+      const { state } = buildTracked();
       state.setValue("channels.a.port", 5);
-      const next = createLocalStore<Keyed>({
+      const next = createLocalStore<Tracked>({
         channels: [{ key: "c", port: 9 }],
         config: { type: "b" },
       });
@@ -667,16 +686,8 @@ describe("State", () => {
     });
 
     it("should report no change for the store it already reads", () => {
-      const { store, state } = build();
+      const { store, state } = buildTracked();
       expect(state.setStore(store)).toBe(false);
-    });
-
-    it("should stop following after the destructor runs", () => {
-      const { store, state, handleChange } = build();
-      const destroy = state.listen();
-      destroy();
-      store.set("channels.b.port", 3);
-      expect(handleChange).not.toHaveBeenCalled();
     });
   });
 

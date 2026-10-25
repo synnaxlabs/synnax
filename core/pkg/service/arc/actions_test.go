@@ -410,21 +410,15 @@ var _ = Describe("Path actions", func() {
 			Expect(next.Graph.Nodes).To(Equal(state.Graph.Nodes))
 		})
 
-		It("Should reject a path outside the node inputs", func() {
-			Expect(arc.Reduce(state, set([]string{"name"}, "Other"))).
-				Error().To(SatisfyAll(
+		DescribeTable("Should reject", func(path []string, value any) {
+			Expect(arc.Reduce(state, set(path, value))).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("decoding document")),
 			))
-		})
-
-		It("Should reject a path to the graph's nodes", func() {
-			Expect(arc.Reduce(state, set([]string{"graph", "nodes"}, nil))).
-				Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("decoding document")),
-			))
-		})
+		},
+			Entry("a path outside the node inputs", []string{"name"}, "Other"),
+			Entry("a path to the graph's nodes", []string{"graph", "nodes"}, nil),
+		)
 	})
 
 	Describe("RemovePayload", func() {

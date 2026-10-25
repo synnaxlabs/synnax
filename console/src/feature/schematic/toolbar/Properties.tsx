@@ -68,14 +68,17 @@ interface IndividualConfigProps {
 }
 
 const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement => {
-  const config = Schematic.useElementConfig({ elKey });
-  if (config == null) throw new Error(`Element with key ${elKey} not found`);
   const schematicKey = Schematic.useKey();
   const sessionDispatch = Session.useDispatch();
   const tab = Session.Schematic.useSelectPropertiesTab({ key: schematicKey });
   const handleTabChange = (tab: PProperties.TabKey) =>
     sessionDispatch(Session.Schematic.setPropertiesTab({ key: schematicKey, tab }));
   const { form } = Schematic.useConfigForm({ elKey });
+  const variant = Form.useFieldValue<
+    Schematic.ElementConfig["variant"],
+    Schematic.ElementConfig["variant"],
+    typeof Schematic.elementConfigZ
+  >("variant", { ctx: form });
   const specKey = Form.useFieldValue<string, string, typeof Schematic.elementConfigZ>(
     "specKey",
     { ctx: form, optional: true },
@@ -95,7 +98,7 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement => {
       </Button.Button>
     );
 
-  const C = Schematic.ELEMENT_REGISTRY[config.variant];
+  const C = Schematic.ELEMENT_REGISTRY[variant];
   const formProps: Schematic.Node.FormProps = {
     actions,
     schematicKey,

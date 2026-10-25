@@ -19,11 +19,10 @@ import (
 )
 
 type Writer struct {
-	tx         gorp.Tx
-	otg        ontology.Writer
-	table      *gorp.Table[Key, Panel]
-	dispatcher actions.Dispatcher[Key, Action]
-	// dispatchKey is stamped onto create broadcasts so the originator skips its echo.
+	tx          gorp.Tx
+	otg         ontology.Writer
+	table       *gorp.Table[Key, Panel]
+	dispatcher  actions.Dispatcher[Key, Action]
 	dispatchKey string
 }
 

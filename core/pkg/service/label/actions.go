@@ -43,8 +43,8 @@ type document struct {
 	Color color.Color `json:"color"`
 }
 
-// edit applies a path action to a copy of the label's document. A document that gains
-// a member it does not declare, such as a path to the label's key, is rejected.
+// edit applies a path action to a copy of the label's document. A document that gains a
+// member it does not declare, such as a path to the label's key, is rejected.
 func edit(l Label, apply func(map[string]any) error) (Label, error) {
 	d, err := patch.Edit(document{Name: l.Name, Color: l.Color}, apply)
 	if err != nil {

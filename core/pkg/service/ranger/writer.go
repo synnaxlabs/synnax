@@ -27,18 +27,17 @@ import (
 
 // Writer is used to create ranges within the DB.
 type Writer struct {
-	tx         gorp.Tx
-	otgWriter  ontology.Writer
-	otg        *ontology.Ontology
-	label      *label.Service
-	table      *gorp.Table[Key, Range]
-	dispatcher actions.Dispatcher[Key, Action]
-	// dispatchKey is stamped onto create broadcasts so the originator skips its echo.
+	tx          gorp.Tx
+	otgWriter   ontology.Writer
+	otg         *ontology.Ontology
+	label       *label.Service
+	table       *gorp.Table[Key, Range]
+	dispatcher  actions.Dispatcher[Key, Action]
 	dispatchKey string
 }
 
-// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the create
-// broadcasts it emits, so the client that sent the create recognizes its own echo.
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
 func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	w.dispatchKey = dispatchKey
 	return w
@@ -204,24 +203,20 @@ func (w Writer) SetEnd(ctx context.Context, key Key, end telem.TimeStamp) error 
 
 // apply applies the actions to the range with the given key and stores the result.
 func (w Writer) apply(ctx context.Context, key Key, acts []Action) error {
-	var prev Range
-	if err := w.table.NewRetrieve().
+	return w.table.
+		NewUpdate().
 		Where(gorp.MatchKeys[Key, Range](key)).
-		Entry(&prev).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	next, err := Reduce(prev, acts...)
-	if err != nil {
-		return err
-	}
-	if err = next.Validate(); err != nil {
-		return err
-	}
-	if err = w.validate(next); err != nil {
-		return err
-	}
-	return w.table.NewCreate().Entry(&next).Exec(ctx, w.tx)
+		ChangeErr(func(_ gorp.Context, r Range) (Range, error) {
+			next, err := Reduce(r, acts...)
+			if err != nil {
+				return r, err
+			}
+			if err = next.Validate(); err != nil {
+				return r, err
+			}
+			return next, w.validate(next)
+		}).
+		Exec(ctx, w.tx)
 }
 
 // Delete deletes the ranges with the given keys. Delete also recursively removes every

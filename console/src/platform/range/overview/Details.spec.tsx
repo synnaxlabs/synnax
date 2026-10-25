@@ -8,7 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { panel, ranger, type Synnax as Client } from "@synnaxlabs/client";
-import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  RoleClients,
+  waitForStreamLive,
+} from "@synnaxlabs/client/testutil";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { TimeRange } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -76,6 +80,7 @@ describe("Range.Details", () => {
     ]);
     await renderDetails(range.key);
     await screen.findByDisplayValue(range.name, {});
+    await waitForStreamLive(client.connection);
     await createTestClient().labels.label(range.ontologyID, [remote.key]);
     await screen.findByText(remote.name);
     fireEvent.click(getIconButton(screen.getByLabelText("Labels"), "add"));

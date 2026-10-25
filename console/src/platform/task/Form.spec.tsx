@@ -221,6 +221,41 @@ describe("wrapForm", () => {
       await clickDeploy(container);
       await waitFor(() => expect(configured).toBe(true));
     });
+
+    it("should not deploy while a field holds a value that fails its schema", async () => {
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...getInitialValues({}), rack: 0 });
+      const DeviceForm: FC = () => {
+        const { set } = PForm.useContext();
+        return (
+          <>
+            <button onClick={() => set("config.device", 5)}>invalid</button>
+            <button onClick={() => set("config.device", "valid")}>valid</button>
+          </>
+        );
+      };
+      DeviceForm.displayName = "DeviceForm";
+      const onConfigure = vi.fn<Task.OnConfigure<(typeof schemas)["config"]>>(
+        async (_client, config) => [config, 0],
+      );
+      const Renderer = createRenderer({
+        Form: DeviceForm,
+        deployConfigZ: z.unknown(),
+        onConfigure,
+      });
+      const { container } = await renderTaskFormTab(Renderer, {
+        client,
+        taskKey: draft.key,
+      });
+      fireEvent.click(screen.getByText("invalid"));
+      await clickDeploy(container);
+      await act(async () => {});
+      expect(onConfigure).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByText("valid"));
+      await clickDeploy(container);
+      await waitFor(() => expect(onConfigure).toHaveBeenCalledOnce());
+      expect(onConfigure.mock.calls[0][1]).toMatchObject({ device: "valid" });
+    });
   });
 
   describe("device rack sync", () => {

@@ -200,13 +200,13 @@ var _ = Describe("Task", Ordered, func() {
 			"Should not broadcast when the transaction closes without a commit",
 			func(ctx SpecContext) {
 				frames := collect()
-				Expect(w.Create(ctx, &task.Task{
+				discardTx := db.OpenTx()
+				Expect(svc.NewWriter(discardTx).Create(ctx, &task.Task{
 					Type: testType,
 					Rack: testRack.Key,
 					Name: "Discarded",
 				})).To(Succeed())
-				Expect(tx.Close()).To(Succeed())
-				tx = db.OpenTx()
+				Expect(discardTx.Close()).To(Succeed())
 				Expect(*frames).To(BeEmpty())
 			},
 		)
@@ -787,12 +787,11 @@ var _ = Describe("Task", Ordered, func() {
 		})
 
 		It("Should apply list actions to the config", func(ctx SpecContext) {
-			after := "a"
 			Expect(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
 				task.NewInsertAction(task.InsertPayload{
 					Path:  []string{"config", "alerts"},
 					Value: map[string]any{"key": "b", "status": "st-b"},
-					After: &after,
+					After: new("a"),
 				}),
 				task.NewMoveAction(task.MovePayload{
 					Path: []string{"config", "alerts"},

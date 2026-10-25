@@ -25,18 +25,17 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, type Flux, Label } from "@synnaxlabs/pluto";
 import { color } from "@synnaxlabs/x";
-import { type RefObject, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button as PlatformButton } from "@/platform/button";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 
 interface FieldsProps {
-  create?: boolean;
-  inputRef?: RefObject<HTMLInputElement | null>;
+  inputProps?: Pick<Input.TextProps, "ref" | "onlyChangeOnBlur">;
 }
 
-const Fields = ({ create = false, inputRef }: FieldsProps) => (
+const Fields = ({ inputProps }: FieldsProps) => (
   <Flex.Box x gap="small" align="center">
     <Form.Field<color.Color> path="color" padHelpText={false} showLabel={false}>
       {(p) => <Color.Swatch onlyChangeOnBlur variant="text" {...p} />}
@@ -47,13 +46,12 @@ const Fields = ({ create = false, inputRef }: FieldsProps) => (
       showHelpText={false}
       padHelpText={false}
       inputProps={{
-        ref: inputRef,
         placeholder: "Name",
         variant: "text",
         selectOnFocus: true,
-        autoFocus: create,
         resetOnBlurIfEmpty: true,
-        onlyChangeOnBlur: !create,
+        onlyChangeOnBlur: true,
+        ...inputProps,
       }}
     />
   </Flex.Box>
@@ -129,7 +127,7 @@ const CreateItem = ({ visible, onClose }: CreateItemProps) => {
       justify="between"
     >
       <Form.Form<typeof Label.createFormSchema> {...form}>
-        <Fields create inputRef={inputRef} />
+        <Fields inputProps={{ ref: inputRef, onlyChangeOnBlur: false }} />
       </Form.Form>
       <Flex.Box pack>
         <Button.Button

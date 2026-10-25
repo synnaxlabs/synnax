@@ -72,10 +72,7 @@ const useDocumentCellForm = Flux.createDocumentForm<
 
 const useCellFormBase = (query: CellParams) => useDocumentCellForm({ query });
 
-/**
- * A form over one cell's config in the cached table. Each edit reaches the Core as a
- * path action, and an edit from another client appears as it lands.
- */
+/** A form over one cell's config in the cached table. */
 export const useCellForm = Scope.bindHook(useCellFormBase);
 
 export interface CellsParams extends KeyParams {

@@ -58,7 +58,8 @@ export type UseParams<Z extends z.ZodType> = BaseUseParams<Z> &
 interface Change {
   path: string;
   prev: unknown;
-  notifyOnChange: boolean;
+  /** Whether the change skips onChange. */
+  silent: boolean;
 }
 
 export interface UseReturn<Z extends z.ZodType> extends ContextValue<Z> {}
@@ -88,8 +89,8 @@ export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => 
   const batchRef = useRef<Change[] | null>(null);
 
   const finish = (changes: Change[], prevHasTouched: boolean) => {
-    changes.forEach(({ path, prev, notifyOnChange }) => {
-      if (notifyOnChange)
+    changes.forEach(({ path, prev, silent }) => {
+      if (!silent)
         onChangeRef.current?.({ values: ref.current.values, path, prev, valid: true });
     });
     ref.current.notify();
@@ -109,11 +110,11 @@ export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => 
     finish(changes, prevHasTouched);
   };
 
-  const commit = (path: string, write: () => void, notifyOnChange = true) => {
+  const commit = (path: string, write: () => void, silent = false) => {
     const change = {
       path,
       prev: deep.get(ref.current.values, path, { optional: true }),
-      notifyOnChange,
+      silent,
     };
     const pending = batchRef.current;
     if (pending != null) {
@@ -134,15 +135,17 @@ export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => 
     const pending: Change[] = [];
     const prevHasTouched = ref.current.hasBeenTouched;
     batchRef.current = pending;
+    const close = () => {
+      batchRef.current = null;
+      if (pending.length > 0) settle(pending, prevHasTouched);
+    };
     try {
       ref.current.batch(fn);
     } catch (e) {
-      batchRef.current = null;
-      settle(pending, prevHasTouched);
+      close();
       throw errors.fromUnknown(e);
     }
-    batchRef.current = null;
-    settle(pending, prevHasTouched);
+    close();
   };
 
   const setCurrentStateAsInitialValues = () => {
@@ -201,7 +204,7 @@ export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => 
     commit(
       path,
       () => ref.current.setValue(path, value, { markTouched }),
-      notifyOnChange,
+      !notifyOnChange,
     );
   };
 

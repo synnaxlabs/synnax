@@ -21,16 +21,15 @@ import (
 
 // Writer wraps a transaction to create, update, and delete labels.
 type Writer struct {
-	tx         gorp.Tx
-	otg        ontology.Writer
-	table      *gorp.Table[Key, Label]
-	dispatcher actions.Dispatcher[Key, Action]
-	// dispatchKey is stamped onto create broadcasts so the originator skips its echo.
+	tx          gorp.Tx
+	otg         ontology.Writer
+	table       *gorp.Table[Key, Label]
+	dispatcher  actions.Dispatcher[Key, Action]
 	dispatchKey string
 }
 
-// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the create
-// broadcasts it emits, so the client that sent the create recognizes its own echo.
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
 func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	w.dispatchKey = dispatchKey
 	return w
@@ -61,21 +60,17 @@ func (w Writer) Create(ctx context.Context, l *Label) error {
 
 // apply applies the actions to the label with the given key and stores the result.
 func (w Writer) apply(ctx context.Context, key Key, acts []Action) error {
-	var prev Label
-	if err := w.table.NewRetrieve().
+	return w.table.
+		NewUpdate().
 		Where(gorp.MatchKeys[Key, Label](key)).
-		Entry(&prev).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	next, err := Reduce(prev, acts...)
-	if err != nil {
-		return err
-	}
-	if err = next.Validate(); err != nil {
-		return err
-	}
-	return w.table.NewCreate().Entry(&next).Exec(ctx, w.tx)
+		ChangeErr(func(_ gorp.Context, l Label) (Label, error) {
+			next, err := Reduce(l, acts...)
+			if err != nil {
+				return l, err
+			}
+			return next, next.Validate()
+		}).
+		Exec(ctx, w.tx)
 }
 
 // CreateMany creates multiple labels in a single transaction. If any of the labels

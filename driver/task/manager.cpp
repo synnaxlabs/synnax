@@ -303,10 +303,10 @@ void Manager::process_start(const synnax::task::Command &cmd) {
             std::lock_guard entry_lock{entry->mu};
             ours = entry->row.rack == this->rack.key;
             deployed = entry->deployed_hash;
-            // The sender's hash can force a deploy but never confirm a
-            // match: a sender that disagrees with our copy may have seen a
-            // revision whose set event has not landed here yet. A pinned start
-            // always fetches, because only the fetch can refuse it.
+            // The sender's hash can force a deploy but never confirm a match: a sender
+            // that disagrees with our copy may have seen a revision whose set event has
+            // not landed here yet. A pinned start always fetches, because only the
+            // fetch can refuse it.
             wanted = entry->row.config_hash;
             if (cmd.pinned || (!cmd.config_hash.empty() && cmd.config_hash != wanted))
                 wanted.clear();
@@ -571,31 +571,7 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                     break;
                 }
                 if (op.cmd.pinned && op.cmd.config_hash != tsk.config_hash) {
-                    LOG(INFO) << "refusing start pinned to a stale config for task "
-                              << tsk;
-                    synnax::task::Status status;
-                    status.key = synnax::task::status_key(tsk);
-                    status.name = tsk.name;
-                    status.variant = synnax::status::VARIANT_WARNING;
-                    status.message = "Config changed";
-                    status.description = "The task config changed after you saw it. "
-                                         "Review the task, then start it again.";
-                    status.details.task = op.task_key;
-                    status.details.cmd = op.cmd.key;
-                    // The live instance runs on as it was, so the status keeps the
-                    // stored running state and config hash.
-                    auto [stored, stored_err] = this->ctx->client->statuses.retrieve<
-                        synnax::task::StatusDetails>(status.key);
-                    if (stored_err && !stored_err.matches(x::errors::NOT_FOUND)) {
-                        LOG(ERROR) << "failed to retrieve status of task " << tsk
-                                   << ": " << stored_err;
-                        break;
-                    }
-                    if (!stored_err) {
-                        status.details.running = stored.details.running;
-                        status.details.config_hash = stored.details.config_hash;
-                    }
-                    this->ctx->set_status(status);
+                    this->refuse_pinned_start(tsk, op.cmd);
                     break;
                 }
                 std::string deployed;
@@ -711,6 +687,35 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
             break;
         }
     }
+}
+
+void Manager::refuse_pinned_start(
+    const synnax::task::Task &tsk,
+    const synnax::task::Command &cmd
+) {
+    LOG(INFO) << "refusing start pinned to a stale config for task " << tsk;
+    synnax::task::Status status;
+    status.key = synnax::task::status_key(tsk);
+    status.name = tsk.name;
+    status.variant = synnax::status::VARIANT_WARNING;
+    status.message = "Config changed";
+    status.description = "The task config changed after you saw it. Review the task, "
+                         "then start it again.";
+    status.details.task = tsk.key;
+    status.details.cmd = cmd.key;
+    // The live instance runs on as it was, so the status keeps the stored running state
+    // and config hash.
+    auto [stored, err] = this->ctx->client->statuses
+                             .retrieve<synnax::task::StatusDetails>(status.key);
+    if (err && !err.matches(x::errors::NOT_FOUND)) {
+        LOG(ERROR) << "failed to retrieve status of task " << tsk << ": " << err;
+        return;
+    }
+    if (!err) {
+        status.details.running = stored.details.running;
+        status.details.config_hash = stored.details.config_hash;
+    }
+    this->ctx->set_status(status);
 }
 
 void Manager::clear_deploy(const std::shared_ptr<Entry> &entry) {

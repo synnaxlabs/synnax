@@ -23,12 +23,11 @@ import (
 // all operations within the transaction provided to the Service.NewWriter method. If no
 // transaction is provided, the writer will execute operations directly on the database.
 type Writer struct {
-	tx         gorp.Tx
-	otgWriter  ontology.Writer
-	otg        *ontology.Ontology
-	table      *gorp.Table[Key, Log]
-	dispatcher actions.Dispatcher[Key, Action]
-	// dispatchKey is stamped onto create broadcasts so the originator skips its echo.
+	tx          gorp.Tx
+	otgWriter   ontology.Writer
+	otg         *ontology.Ontology
+	table       *gorp.Table[Key, Log]
+	dispatcher  actions.Dispatcher[Key, Action]
 	dispatchKey string
 }
 

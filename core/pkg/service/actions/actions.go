@@ -8,15 +8,14 @@
 // included in the file licenses/APL.txt.
 
 // Package actions provides shared runtime primitives for action-based dispatch on
-// stateful services in Synnax. The schematic, table, and line plot services all
-// implement the same shape: a discriminated union of actions reduced atomically
-// against a stored entry, then notified to subscribers so the cluster signals
-// subsystem can broadcast the sequence on a free channel. This package hosts the
-// pieces of that shape that are independent of the per-service action variant
-// set: the Scoped envelope sent to subscribers, the DispatchRequest wire body
-// accepted by the API layer, the State that owns the observer, the monotonic
-// sequence counter, and the serialized dispatch execution, and the Dispatcher that
-// stamps and forwards each notification.
+// stateful services in Synnax. Each such service implements the same shape: a
+// discriminated union of actions reduced atomically against a stored entry, then
+// notified to subscribers so the cluster signals subsystem can broadcast the sequence
+// on a free channel. This package hosts the pieces of that shape that are independent
+// of the per-service action variant set: the Scoped envelope sent to subscribers, the
+// DispatchRequest wire body accepted by the API layer, the State that owns the
+// observer, the monotonic sequence counter, the serialized dispatch execution, and the
+// Dispatcher that stamps and forwards each notification.
 package actions
 
 import (

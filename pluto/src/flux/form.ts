@@ -349,9 +349,9 @@ export const createForm = <
     };
 
     // Saves of one record run one at a time. A caller that reads the form, awaits the
-    // Core, then writes back (a task deploy resolving its rack) leaves a window an
-    // autosave fires in; concurrent writes reach the Core in either order, so the
-    // pre-write values can land last and undo the save.
+    // Core, then writes back leaves a window an autosave fires in; concurrent writes
+    // reach the Core in either order, so the pre-write values can land last and undo
+    // the save.
     const pendingSave = useRef<Promise<unknown>>(null);
     // A save that has not started reads the live form when it does, so it already
     // carries what a later caller would write. Later callers join it instead of

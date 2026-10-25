@@ -14,23 +14,15 @@ import { type Action } from "@/patch/patch";
 import { type Guard } from "@/patch/types.gen";
 import { zod } from "@/zod";
 
-/** Options for {@link snakeToCamel} and {@link camelToSnake}. */
-export interface ConvertOptions {
-  /** The schema that the document converts with. */
-  schema?: z.ZodType;
-  /** The document in its camelCase form. */
-  doc?: unknown;
-}
-
 type PathConverter = typeof caseconv.snakeToCamelPath;
 
 const convert = (
   action: Action,
   converter: PathConverter,
-  { schema, doc }: ConvertOptions,
+  opts: caseconv.PathOptions,
 ): Action => {
-  const at = (path: string[]) => converter(path, { schema, data: doc });
-  const guards = (gs: Guard[] = []): Guard[] =>
+  const at = (path: string[]) => converter(path, opts);
+  const convertGuards = (gs: Guard[]): Guard[] =>
     gs.map((g) => ({ path: at(g.path).path, value: g.value }));
   switch (action.type) {
     case "set": {
@@ -41,7 +33,7 @@ const convert = (
         set: {
           path: converted.path,
           value: converted.convert(value),
-          guards: guards(gs),
+          guards: convertGuards(gs),
         },
       };
     }
@@ -53,7 +45,7 @@ const convert = (
         remove: {
           path: converted.slice(0, -1),
           key: converted[converted.length - 1],
-          guards: guards(gs),
+          guards: convertGuards(gs),
         },
       };
     }
@@ -66,7 +58,7 @@ const convert = (
           path: converted.path,
           value: converted.convert([value])[0],
           after,
-          guards: guards(gs),
+          guards: convertGuards(gs),
         },
       };
     }
@@ -74,7 +66,7 @@ const convert = (
       const { path, key, after, guards: gs } = action.move;
       return {
         type: "move",
-        move: { path: at(path).path, key, after, guards: guards(gs) },
+        move: { path: at(path).path, key, after, guards: convertGuards(gs) },
       };
     }
   }
@@ -84,11 +76,11 @@ const convert = (
  * Converts an action from the snake_case form the wire carries into the camelCase form
  * of the document, the way the codec converts the whole document with the same schema.
  */
-export const snakeToCamel = (action: Action, opts: ConvertOptions = {}): Action =>
+export const snakeToCamel = (action: Action, opts: caseconv.PathOptions = {}): Action =>
   convert(action, caseconv.snakeToCamelPath, opts);
 
 /** Converts an action from the camelCase form of the document into its wire form. */
-export const camelToSnake = (action: Action, opts: ConvertOptions = {}): Action =>
+export const camelToSnake = (action: Action, opts: caseconv.PathOptions = {}): Action =>
   convert(action, caseconv.camelToSnakePath, opts);
 
 /**

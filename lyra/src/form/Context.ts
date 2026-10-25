@@ -70,7 +70,10 @@ export interface ContextValue<Z extends z.ZodType = z.ZodType> {
   insert: InsertFunc;
   /** Moves the entry with the key after the entry with the key `after`, as insert. */
   move: MoveFunc;
-  /** Runs the edits that the function makes as one: one validation, one change. */
+  /**
+   * Runs the edits that the function makes with one validation and one notification.
+   * `onChange` still runs once for each edit.
+   */
   batch: (fn: () => void) => void;
   /** Reads the whole value tree. It does not re-render the caller. */
   value: () => z.infer<Z>;

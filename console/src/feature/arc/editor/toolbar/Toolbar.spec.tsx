@@ -125,10 +125,9 @@ describe("arc editor toolbar", () => {
       const input = screen.getByDisplayValue("42");
       fireEvent.change(input, { target: { value: "7" } });
       fireEvent.blur(input);
+      const reader = createTestClient();
       await expect
-        .poll(
-          async () => (await createTestClient().arcs.retrieve(a.key)).graph.inputs.n1,
-        )
+        .poll(async () => (await reader.arcs.retrieve(a.key)).graph.inputs.n1)
         .toEqual({ type: "constant", value: 7 });
     });
 

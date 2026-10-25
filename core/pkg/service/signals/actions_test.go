@@ -12,7 +12,6 @@ package signals_test
 import (
 	"encoding/json/v2"
 	"fmt"
-	"io"
 	"sync/atomic"
 	"time"
 	"uuid"
@@ -38,16 +37,16 @@ type scoped = actions.Scoped[uuid.UUID, action]
 
 var actionsNameCounter atomic.Uint64
 
-// nextActionsName returns a distinct name, since the mock cluster keeps the set
-// channel of every earlier spec.
+// nextActionsName returns a distinct name, since the mock cluster keeps the set channel
+// of every earlier spec.
 func nextActionsName() string {
 	return fmt.Sprintf("signals_actions_test_%d", actionsNameCounter.Add(1))
 }
 
 var _ = Describe("Actions", func() {
-	Describe("ActionsConfig", func() {
-		full := func() signals.ActionsConfig[uuid.UUID, action] {
-			return signals.ActionsConfig[uuid.UUID, action]{
+	Describe("ActionPublisherConfig", func() {
+		full := func() signals.ActionPublisherConfig[uuid.UUID, action] {
+			return signals.ActionPublisherConfig[uuid.UUID, action]{
 				Observable: actions.NewState[uuid.UUID, action](nil),
 				Name:       "actions_validate",
 			}
@@ -60,21 +59,21 @@ var _ = Describe("Actions", func() {
 
 			DescribeTable(
 				"Should fail when a required field is missing",
-				func(clear func(*signals.ActionsConfig[uuid.UUID, action]), field string) {
+				func(clear func(*signals.ActionPublisherConfig[uuid.UUID, action]), field string) {
 					cfg := full()
 					clear(&cfg)
 					Expect(cfg.Validate()).To(MatchError(ContainSubstring(field)))
 				},
 				Entry(
 					"observable",
-					func(c *signals.ActionsConfig[uuid.UUID, action]) {
+					func(c *signals.ActionPublisherConfig[uuid.UUID, action]) {
 						c.Observable = nil
 					},
 					"observable",
 				),
 				Entry(
 					"name",
-					func(c *signals.ActionsConfig[uuid.UUID, action]) { c.Name = "" },
+					func(c *signals.ActionPublisherConfig[uuid.UUID, action]) { c.Name = "" },
 					"name",
 				),
 			)
@@ -83,13 +82,9 @@ var _ = Describe("Actions", func() {
 
 	Describe("PublishActions", func() {
 		var (
-			state         *actions.State[uuid.UUID, action]
-			name          string
-			ch            channel.Channel
-			closer        io.Closer
-			responses     confluence.Outlet[framer.StreamerResponse]
-			requests      confluence.Inlet[framer.StreamerRequest]
-			closeStreamer io.Closer
+			state     *actions.State[uuid.UUID, action]
+			ch        channel.Channel
+			responses confluence.Outlet[framer.StreamerResponse]
 		)
 		BeforeEach(func(ctx SpecContext) {
 			sigs := MustSucceed(signals.New(signals.Config{
@@ -98,10 +93,13 @@ var _ = Describe("Actions", func() {
 				Framer:  framerSvc,
 			}))
 			state = actions.NewState[uuid.UUID, action](nil)
-			name = nextActionsName()
-			closer = MustSucceed(sigs.PublishActions(
+			name := nextActionsName()
+			MustOpen(sigs.PublishActions(
 				ctx,
-				signals.ActionsConfig[uuid.UUID, action]{Observable: state, Name: name},
+				signals.ActionPublisherConfig[uuid.UUID, action]{
+					Observable: state,
+					Name:       name,
+				},
 			))
 			Expect(channelSvc.NewRetrieve().
 				Where(channel.MatchNames(fmt.Sprintf("sy_%s_set", name))).
@@ -112,24 +110,25 @@ var _ = Describe("Actions", func() {
 				Keys:        channel.Keys{ch.Key()},
 				SendOpenAck: true,
 			}))
+			var requests confluence.Inlet[framer.StreamerRequest]
 			requests, responses = confluence.Attach(streamer, 2)
 			sCtx, cancel := signal.Isolated()
-			closeStreamer = signal.NewHardShutdown(sCtx, cancel)
+			closeStreamer := signal.NewHardShutdown(sCtx, cancel)
+			DeferCleanup(func() {
+				requests.Close()
+				confluence.Drain(responses)
+				Expect(closeStreamer.Close()).To(Succeed())
+			})
 			streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			Eventually(responses.Outlet()).Should(Receive())
 		})
-		AfterEach(func() {
-			requests.Close()
-			confluence.Drain(responses)
-			Expect(closeStreamer.Close()).To(Succeed())
-			Expect(closer.Close()).To(Succeed())
-		})
 
-		decode := func(g Gomega, res framer.StreamerResponse) []scoped {
+		decode := func(res framer.StreamerResponse) []scoped {
+			GinkgoHelper()
 			var decoded []scoped
 			for sample := range res.Frame.SeriesAt(0).Samples() {
 				var sa scoped
-				g.Expect(json.Unmarshal(sample, &sa)).To(Succeed())
+				Expect(json.Unmarshal(sample, &sa)).To(Succeed())
 				decoded = append(decoded, sa)
 			}
 			return decoded
@@ -151,7 +150,7 @@ var _ = Describe("Actions", func() {
 			var res framer.StreamerResponse
 			Eventually(responses.Outlet(), 5*time.Second).Should(Receive(&res))
 			Expect(res.Frame.KeysSlice()).To(ConsistOf(ch.Key()))
-			Expect(decode(Default, res)).To(ConsistOf(scoped{
+			Expect(decode(res)).To(ConsistOf(scoped{
 				Key:         key,
 				DispatchKey: "dk-1",
 				Seq:         1,
@@ -166,14 +165,14 @@ var _ = Describe("Actions", func() {
 			d.Notify(ctx, key, "", []action{{Type: "b"}})
 			d.Notify(ctx, key, "", []action{{Type: "c"}})
 			var seqs []uint64
-			Eventually(func(g Gomega) []uint64 {
+			for len(seqs) < 3 {
 				var res framer.StreamerResponse
-				g.Eventually(responses.Outlet()).Should(Receive(&res))
-				for _, sa := range decode(g, res) {
+				Eventually(responses.Outlet(), 5*time.Second).Should(Receive(&res))
+				for _, sa := range decode(res) {
 					seqs = append(seqs, sa.Seq)
 				}
-				return seqs
-			}, 5*time.Second).Should(Equal([]uint64{1, 2, 3}))
+			}
+			Expect(seqs).To(Equal([]uint64{1, 2, 3}))
 		})
 	})
 })

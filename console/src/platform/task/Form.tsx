@@ -65,9 +65,9 @@ export interface WrapFormParams<S extends task.Schemas = task.Schemas> {
   onConfigure: OnConfigure<S["config"]>;
   schemas: S;
   /**
-   * Validates the config when the user deploys. Failures render as field errors and
-   * block the start command; warning-variant issues render but don't block. Shape
-   * schemas stay lax, because a field holds a value that fails its schema unsent.
+   * Validates the config when the user deploys. Errors show on their fields and block
+   * the start. Warnings show but do not block. Keep the shape schemas lax: a field
+   * whose value fails its shape schema stays unsent.
    */
   deployConfigZ: z.ZodType;
   showHeader?: boolean;
@@ -168,8 +168,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
           );
           form.batch(() => {
             PForm.setChanged(form, "config", newConfig);
-            if (primitive.isNonZero(newRack) && newRack !== form.value().rack)
-              form.set("rack", newRack);
+            if (primitive.isNonZero(newRack)) PForm.setChanged(form, "rack", newRack);
           });
           if (!(await flush())) return;
           await client.tasks.settled(taskKey);

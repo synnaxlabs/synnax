@@ -12,6 +12,7 @@ import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Form } from "@/form";
+import { createLocalStore } from "@/form/store";
 
 const schema = z.object({
   name: z.string(),
@@ -37,7 +38,7 @@ const createValues = (): Values => ({
 });
 
 const renderForm = () => {
-  const store = Form.createLocalStore(createValues());
+  const store = createLocalStore(createValues());
   const set = vi.spyOn(store, "set");
   const onChange = vi.fn();
   store.onChange(onChange);

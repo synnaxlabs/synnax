@@ -119,7 +119,7 @@ const CreateItem = ({ rangeKey, visible, onClose }: CreateItemProps): ReactEleme
     },
   });
   useEffect(() => {
-    inputRef.current?.focus();
+    if (visible) inputRef.current?.focus();
   }, [visible]);
   return (
     <List.Item
@@ -139,7 +139,6 @@ const CreateItem = ({ rangeKey, visible, onClose }: CreateItemProps): ReactEleme
           path="key"
           inputProps={{
             ref: inputRef,
-            autoFocus: true,
             selectOnFocus: true,
             resetOnBlurIfEmpty: true,
             placeholder: "Key",

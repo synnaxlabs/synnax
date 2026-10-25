@@ -641,7 +641,7 @@ describe("Arc queries", () => {
       expect(result.current.form.value()).toEqual(STATUS_INPUTS);
     });
 
-    it("should send an edit as a path action that keeps the case of input keys", async () => {
+    it("should send an edit as a path action that keeps input key case", async () => {
       const a = await createStatusArc();
       const { result } = await renderForm(a.key);
       const send = spyOnSend(client);

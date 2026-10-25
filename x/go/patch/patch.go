@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package patch applies path actions to the JSON form of a record. A segment of a
-// path into an object names a field, and a segment into a list names the key of an
-// entry, never an index. Actions change the document in place. An action whose guards
-// fail, or whose path goes through a missing list entry, does nothing. An action the
-// document cannot hold returns an error that wraps validate.ErrValidation.
+// Package patch applies path actions to the JSON form of a record. A segment of a path
+// into an object names a field, and a segment into a list names the key of an entry,
+// never an index. Actions change the document in place. An action whose guards fail, or
+// whose path goes through a missing list entry, does nothing. An action the document
+// cannot hold returns an error that wraps validate.ErrValidation.
 package patch
 
 import (
@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// keyField is the field that holds the key of a list entry.
 const keyField = "key"
 
 // Apply replaces the value at the path in doc.
@@ -144,9 +143,9 @@ func (m Move) Apply(doc map[string]any) error {
 	})
 }
 
-// update runs fn on the container at path inside node and stores what fn returns in
-// its place. A missing object on the path is created when create is true. A missing
-// list entry, or a missing object when create is false, leaves node unchanged.
+// update runs fn on the container at path inside node and stores what fn returns in its
+// place. A missing object on the path is created when create is true. A missing list
+// entry, or a missing object when create is false, leaves node unchanged.
 func update(
 	node any,
 	path []string,
@@ -261,8 +260,8 @@ func listAt(c map[string]any, field string, path []string) ([]any, error) {
 	return list, nil
 }
 
-// position returns the index after the entry with the key after, the first index
-// when after is nil, and the end of the list when no entry has the key.
+// position returns the index after the entry with the key after, the first index when
+// after is nil, and the end of the list when no entry has the key.
 func position(list []any, after *string) int {
 	if after == nil {
 		return 0

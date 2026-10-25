@@ -140,7 +140,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if sig, err = cfg.Signals.PublishActions(
 		ctx,
-		signals.ActionsConfig[Key, Action]{Observable: s.state, Name: "range_action"},
+		signals.ActionPublisherConfig[Key, Action]{
+			Observable: s.state,
+			Name:       "range_action",
+		},
 	); !ok(err, sig) {
 		return nil, err
 	}

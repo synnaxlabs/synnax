@@ -112,9 +112,9 @@ func (s *Service) Create(
 	return CreateResponse{Labels: req.Labels}, nil
 }
 
-// DispatchRequest carries an action sequence to apply to a single label. DispatchKey
-// is a client-generated identifier for the batch, echoed on the broadcast so the
-// sender recognizes its own echo.
+// DispatchRequest carries an action sequence to apply to a single label. DispatchKey is
+// a client-generated identifier for the batch, echoed on the broadcast so the sender
+// recognizes its own echo.
 type DispatchRequest = actions.DispatchRequest[label.Key, label.Action]
 
 // Dispatch applies the action sequence to the target label atomically. Subscribers to

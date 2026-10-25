@@ -216,10 +216,10 @@ func (d *Driver) processCommand(ctx context.Context, frame framer.Frame) {
 // startCommandType deploys the stored task row before running it.
 const startCommandType = "start"
 
-// handleStart deploys the latest stored config before running the task: when no
-// live instance exists or the stored config differs from the one the instance
-// was built from, the task is rebuilt first, then the start command executes. A
-// pinned start whose hash differs from the stored config's is refused.
+// handleStart deploys the latest stored config before running the task: when no live
+// instance exists or the stored config differs from the one the instance was built
+// from, the task is rebuilt first, then the start command executes. A pinned start
+// whose hash differs from the stored config's is refused.
 func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
 	var tsk task.Task
 	if err := d.cfg.Task.NewRetrieve().
@@ -305,8 +305,8 @@ func (d *Driver) ackFailure(
 }
 
 // refusePinnedStart answers a pinned start whose config changed after the sender saw
-// it. The live instance runs on as it was, so the status keeps the stored running
-// state and config hash.
+// it. The live instance runs on as it was, so the status keeps the stored running state
+// and config hash.
 func (d *Driver) refusePinnedStart(ctx context.Context, t task.Task, cmd task.Command) {
 	stat := task.Status{
 		Key:     t.OntologyID().String(),
@@ -315,9 +315,8 @@ func (d *Driver) refusePinnedStart(ctx context.Context, t task.Task, cmd task.Co
 		Message: "Config changed",
 		Description: "The task config changed after you saw it. Review the task, " +
 			"then start it again.",
-		Details: task.NewStatusDetails(t, false),
+		Details: task.StatusDetails{Task: t.Key, Rack: t.Rack, Cmd: cmd.Key},
 	}
-	stat.Details.Cmd = cmd.Key
 	if err := d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		var stored task.Status
 		if err := d.cfg.Status.NewRetrieve[task.StatusDetails]().

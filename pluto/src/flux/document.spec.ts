@@ -189,6 +189,89 @@ describe("createDocumentForm", () => {
     expect(keys(stored.alerts)).toEqual(["b", "a"]);
   });
 
+  it("should send nothing for edits through an entry that another client removed", async () => {
+    const t = await testRack.createTask({
+      name: `document-${id.create()}`,
+      type: "pagerduty_alert",
+      config: {
+        routingKey: "dog",
+        alerts: [
+          { key: "a", status: "st-a" },
+          { key: "b", status: "st-b" },
+        ],
+      },
+    });
+    const { result } = await renderForm(t.key);
+    await act(async () => {
+      await client.tasks.dispatch(
+        t.key,
+        task.remove({ path: ["config", "alerts"], key: "a" }),
+      );
+    });
+    await waitFor(() =>
+      expect(result.current.form.value().config.alerts).toHaveLength(1),
+    );
+    const send = spyOnSend(formClient);
+    act(() => {
+      result.current.form.set("config.alerts.a.status", "st-c");
+      result.current.form.remove("config.alerts.a");
+    });
+    await act(async () => expect(await result.current.flush()).toBe(true));
+    expect(countDispatches(send)).toBe(0);
+    expect((await fetchStored(t.key)).config).toMatchObject({
+      alerts: [{ key: "b", status: "st-b" }],
+    });
+  });
+
+  it("should guard a write inside a union on the value that picks its option", async () => {
+    const unionSchema = z.object({
+      name: z.string(),
+      config: z.discriminatedUnion("routingKey", [
+        z.object({ routingKey: z.literal("dog"), alerts: alertZ.array() }),
+        z.object({ routingKey: z.literal("cat"), alerts: alertZ.array() }),
+      ]),
+    });
+    const useUnionForm = Flux.createDocumentForm<
+      task.Key,
+      task.Task,
+      typeof unionSchema
+    >({
+      name: "Task",
+      schema: unionSchema,
+      docSchema: task.payloadZ(),
+      domain: (client) => client.tasks,
+      useEnsure,
+      toValues: ({ payload: { name, config } }) => ({
+        name,
+        config: config as z.infer<typeof unionSchema>["config"],
+      }),
+    });
+    const t = await createTask();
+    const { result } = await renderHookSuspended(
+      () => useUnionForm({ query: { key: t.key } }),
+      { wrapper },
+    );
+    const send = spyOnSend(formClient);
+    act(() => result.current.form.set("config.alerts.a.status", "st-b"));
+    await act(async () => expect(await result.current.flush()).toBe(true));
+    const [, req] =
+      send.mock.calls.find(([target]) => target === "/task/dispatch") ?? [];
+    expect(req).toMatchObject({
+      actions: [
+        {
+          type: "set",
+          set: {
+            path: ["config", "alerts", "a", "status"],
+            guards: [{ path: ["config", "routing_key"], value: "dog" }],
+          },
+        },
+      ],
+    });
+    expect((await fetchStored(t.key)).config).toMatchObject({
+      alerts: [{ key: "a", status: "st-b" }],
+    });
+  });
+
   it("should send a batch as one dispatch that one undo reverts", async () => {
     const t = await createTask();
     const { result } = await renderForm(t.key);
@@ -237,6 +320,18 @@ describe("createDocumentForm", () => {
     expect((await fetchStored(t.key)).name).toBe(t.name);
   });
 
+  it("should not fail a flush for an edit made while it waits", async () => {
+    const t = await createTask();
+    const { result } = await renderForm(t.key);
+    act(() => result.current.form.set("config.routingKey", "cat"));
+    let flushed = Promise.resolve(false);
+    act(() => {
+      flushed = result.current.flush();
+      result.current.form.set("name", "renamed");
+    });
+    await act(async () => expect(await flushed).toBe(true));
+  });
+
   it("should flush a batch that changes nothing", async () => {
     const t = await createTask();
     const { result } = await renderForm(t.key);
@@ -256,6 +351,17 @@ describe("createDocumentForm", () => {
     await waitFor(async () =>
       expect((await fetchStored(t.key)).config).toMatchObject({ routingKey: "cat" }),
     );
+  });
+
+  it("should drop an edit that fails its schema when it unmounts", async () => {
+    const t = await createTask();
+    const { result, unmount } = await renderForm(t.key);
+    act(() => result.current.form.set("config.routingKey", ""));
+    unmount();
+    await formClient.tasks.settled(t.key);
+    const cached = formClient.tasks.getCached(t.key) as task.Task;
+    expect(cached.config).toMatchObject({ routingKey: "dog" });
+    expect((await fetchStored(t.key)).config).toMatchObject({ routingKey: "dog" });
   });
 
   it("should edit the new document when the key changes", async () => {
@@ -310,7 +416,7 @@ describe("createDocumentForm", () => {
       expect((await fetchStored(t.key)).config).toMatchObject({ routingKey: "cat" });
     });
 
-    it("should keep its values and take no edits once another client removes the part", async () => {
+    it("should keep its values and take no edits after a remote removal", async () => {
       const useAlertForm = Flux.createDocumentForm<task.Key, task.Task, typeof alertZ>({
         name: "Task",
         schema: alertZ,

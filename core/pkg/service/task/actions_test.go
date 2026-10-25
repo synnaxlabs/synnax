@@ -147,13 +147,12 @@ var _ = Describe("Actions", func() {
 
 	Describe("InsertPayload", func() {
 		It("Should insert a list entry after the given entry", func() {
-			after := "a"
 			next := MustSucceed(task.Reduce(
 				base,
 				task.NewInsertAction(task.InsertPayload{
 					Path:  []string{"config", "alerts"},
 					Value: map[string]any{"key": "c", "status": "st-c"},
-					After: &after,
+					After: new("a"),
 				}),
 			))
 			Expect(alertKeys(next)).To(Equal([]string{"a", "c", "b"}))

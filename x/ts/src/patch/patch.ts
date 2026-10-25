@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { narrow } from "@/narrow";
 import {
   type Guard,
   type Insert,
@@ -26,8 +27,8 @@ export type Action =
 /** Options for {@link apply}. */
 export interface ApplyOptions {
   /**
-   * Copies a value read from the document before an action replaces or removes it.
-   * Pass Immer's `current` when the document is a draft.
+   * Copies a value read from the document before an action replaces or removes it. Pass
+   * Immer's `current` when the document is a draft.
    */
   snapshot?: <T>(value: T) => T;
 }
@@ -120,7 +121,7 @@ const applySet = (doc: record.Unknown, a: Set, snapshot: Snapshot): Action[] => 
     node[i] = structuredClone(a.value);
     return [set(a.path, prev, a.guards)];
   }
-  if (!isObject(node)) throw notContainer(parentPath);
+  if (!narrow.isObject(node)) throw notContainer(parentPath);
   if (created != null) {
     node[last] = structuredClone(a.value);
     return [undoCreate(a.path, created, a.guards)];
@@ -147,7 +148,7 @@ const applyRemove = (doc: record.Unknown, a: Remove, snapshot: Snapshot): Action
     }
     return inverse;
   }
-  if (!isObject(node)) throw notContainer(a.path);
+  if (!narrow.isObject(node)) throw notContainer(a.path);
   if (!Object.hasOwn(node, a.key)) return [];
   const prev = snapshot(node[a.key]);
   delete node[a.key];
@@ -163,7 +164,7 @@ const applyInsert = (doc: record.Unknown, a: Insert): Action[] => {
   const found = descend(doc, parentPath, true);
   if (found == null) return [];
   const { node, created } = found;
-  if (!isObject(node)) throw notList(a.path);
+  if (!narrow.isObject(node)) throw notList(a.path);
   let list = node[last];
   const listCreated = list == null;
   if (listCreated) {
@@ -194,7 +195,7 @@ const applyMove = (doc: record.Unknown, a: Move): Action[] => {
 
 interface Found {
   node: unknown;
-  /** The depth of the first object that descend created, if it created one. */
+  /** The first object that descend created, if it created one. */
   created?: Created;
 }
 
@@ -223,7 +224,7 @@ const descend = (
       node = node[i];
       continue;
     }
-    if (!isObject(node)) throw notContainer(path.slice(0, depth));
+    if (!narrow.isObject(node)) throw notContainer(path.slice(0, depth));
     if (node[seg] == null) {
       if (!create) return null;
       created ??= { depth, wasNull: node[seg] === null };
@@ -234,7 +235,7 @@ const descend = (
   return { node, created };
 };
 
-const guardsHold = (doc: record.Unknown, guards: Guard[] = []): boolean =>
+const guardsHold = (doc: record.Unknown, guards: Guard[]): boolean =>
   guards.every(({ path, value }) => {
     if (path.length === 0) throw new Error("a guard needs a path");
     let node: unknown = doc;
@@ -243,7 +244,7 @@ const guardsHold = (doc: record.Unknown, guards: Guard[] = []): boolean =>
         const i = entryIndex(node, seg);
         if (i < 0) return false;
         node = node[i];
-      } else if (isObject(node)) node = node[seg];
+      } else if (narrow.isObject(node)) node = node[seg];
       else return false;
     return node === value;
   });
@@ -265,11 +266,8 @@ const position = (list: unknown[], after: string | undefined): number => {
   return i < 0 ? list.length : i + 1;
 };
 
-const isObject = (v: unknown): v is record.Unknown =>
-  v != null && typeof v === "object" && !Array.isArray(v);
-
 const keyOf = (entry: unknown): string | undefined => {
-  if (!isObject(entry)) return undefined;
+  if (!narrow.isObject(entry)) return undefined;
   return typeof entry.key === "string" ? entry.key : undefined;
 };
 

@@ -95,7 +95,7 @@ func OpenService(
 	var sig io.Closer
 	if sig, err = cfg.Signals.PublishActions(
 		ctx,
-		signals.ActionsConfig[Key, Action]{Observable: s.state, Name: "panel"},
+		signals.ActionPublisherConfig[Key, Action]{Observable: s.state, Name: "panel"},
 	); !ok(err, sig) {
 		return nil, err
 	}

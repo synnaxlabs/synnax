@@ -21,6 +21,7 @@ const channelZ = z.discriminatedUnion("type", [
 const schema = z.object({
   sampleRate: z.number(),
   channels: z.array(channelZ),
+  outputChannels: z.array(channelZ),
   nodeProps: caseconv.preserveKeys(
     z.record(z.string(), z.object({ fillColor: z.string() })),
   ),
@@ -29,10 +30,11 @@ const schema = z.object({
 const doc = {
   sampleRate: 1,
   channels: [{ key: "ch_a", type: "ai_voltage", maxVal: 10 }],
+  outputChannels: [{ key: "ch_b", type: "ai_voltage", maxVal: 5 }],
   nodeProps: { node_a: { fillColor: "red" } },
 };
 
-const opts = { schema, doc };
+const opts = { schema, data: doc };
 
 describe("convert", () => {
   describe("camelToSnake", () => {
@@ -60,18 +62,27 @@ describe("convert", () => {
     });
 
     it("should convert the paths of the guards", () => {
-      const guards = [{ path: ["channels", "ch_a", "type"], value: "ai_voltage" }];
       expect(
         patch.camelToSnake(
           {
             type: "set",
-            set: { path: ["channels", "ch_a", "maxVal"], value: 1, guards },
+            set: {
+              path: ["outputChannels", "ch_b", "maxVal"],
+              value: 1,
+              guards: [
+                { path: ["outputChannels", "ch_b", "type"], value: "ai_voltage" },
+              ],
+            },
           },
           opts,
         ),
       ).toEqual({
         type: "set",
-        set: { path: ["channels", "ch_a", "max_val"], value: 1, guards },
+        set: {
+          path: ["output_channels", "ch_b", "max_val"],
+          value: 1,
+          guards: [{ path: ["output_channels", "ch_b", "type"], value: "ai_voltage" }],
+        },
       });
     });
 
@@ -167,9 +178,9 @@ describe("convert", () => {
       const action: patch.Action = {
         type: "set",
         set: {
-          path: ["channels", "ch_a", "maxVal"],
+          path: ["outputChannels", "ch_b", "maxVal"],
           value: 3,
-          guards: [{ path: ["channels", "ch_a", "type"], value: "ai_voltage" }],
+          guards: [{ path: ["outputChannels", "ch_b", "type"], value: "ai_voltage" }],
         },
       };
       expect(patch.snakeToCamel(patch.camelToSnake(action, opts), opts)).toEqual(

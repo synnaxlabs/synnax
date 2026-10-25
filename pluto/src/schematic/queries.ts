@@ -83,10 +83,7 @@ const useDocumentConfigForm = Flux.createDocumentForm<
 
 const useConfigFormBase = (query: ConfigParams) => useDocumentConfigForm({ query });
 
-/**
- * A form over one element's config in the cached schematic. Each edit reaches the Core
- * as a path action, and an edit from another client appears as it lands.
- */
+/** A form over one element's config in the cached schematic. */
 export const useConfigForm = Scope.bindHook(useConfigFormBase);
 
 export interface ConfigsParams extends KeyParams {

@@ -18,6 +18,7 @@ import {
 } from "zod/v4/core";
 
 import { deep } from "@/deep";
+import { narrow } from "@/narrow";
 
 export const functionOutput = <
   In extends $ZodFunctionIn,
@@ -177,9 +178,6 @@ export interface Discriminator {
   value: unknown;
 }
 
-const isObject = (v: unknown): v is Record<string, unknown> =>
-  v != null && typeof v === "object" && !Array.isArray(v);
-
 const discriminatorsAt = (
   schema: $ZodType,
   path: string[],
@@ -202,7 +200,7 @@ const discriminatorsAt = (
         field,
         path,
         index + 1,
-        isObject(values) ? values[seg] : undefined,
+        narrow.isObject(values) ? values[seg] : undefined,
       );
     }
     case "array":
@@ -211,7 +209,7 @@ const discriminatorsAt = (
         path,
         index + 1,
         Array.isArray(values)
-          ? values.find((e: unknown) => isObject(e) && e.key === seg)
+          ? values.find((e: unknown) => narrow.isObject(e) && e.key === seg)
           : undefined,
       );
     case "tuple": {
@@ -233,7 +231,7 @@ const discriminatorsAt = (
         def.valueType as $ZodType,
         path,
         index + 1,
-        isObject(values) ? values[seg] : undefined,
+        narrow.isObject(values) ? values[seg] : undefined,
       );
     case "union": {
       if (def.discriminator == null) {
@@ -244,7 +242,7 @@ const discriminatorsAt = (
         return NOT_FOUND;
       }
       const discriminator = def.discriminator as string;
-      const value = isObject(values) ? values[discriminator] : undefined;
+      const value = narrow.isObject(values) ? values[discriminator] : undefined;
       const option = getDiscriminatedOption(
         schema as z.ZodDiscriminatedUnion,
         value as never,

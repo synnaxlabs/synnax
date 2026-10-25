@@ -135,9 +135,9 @@ func (s *Service) Create(
 	return CreateResponse{Ranges: req.Ranges}, nil
 }
 
-// DispatchRequest carries an action sequence to apply to a single range. DispatchKey
-// is a client-generated identifier for the batch, echoed on the broadcast so the
-// sender recognizes its own echo.
+// DispatchRequest carries an action sequence to apply to a single range. DispatchKey is
+// a client-generated identifier for the batch, echoed on the broadcast so the sender
+// recognizes its own echo.
 type DispatchRequest = actions.DispatchRequest[ranger.Key, ranger.Action]
 
 // Dispatch applies the action sequence to the target range atomically. Subscribers to

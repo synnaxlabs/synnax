@@ -877,8 +877,8 @@ TEST_F(TaskManagerTest, PinnedStartWithStaleHashIsRefused) {
     EXPECT_EQ(f->task_states.size(), 1);
 }
 
-/// @brief a refused pinned start should keep the running state and config hash of
-/// the live instance, so the task still shows as running its deployed config.
+/// @brief a refused pinned start should keep the running state and config hash of the
+/// live instance, so the task still shows as running its deployed config.
 TEST_F(TaskManagerTest, PinnedStartWithStaleHashKeepsRunningStatus) {
     start_manager(std::make_unique<EchoTaskFactory>());
 
@@ -914,8 +914,37 @@ TEST_F(TaskManagerTest, PinnedStartWithStaleHashKeepsRunningStatus) {
     EXPECT_EQ(s.details.config_hash, deployed_hash);
 }
 
-/// @brief a pinned start should fetch the stored config even when the live instance
-/// was built from the pinned hash.
+/// @brief a refused pinned start for a task with no stored status should claim neither
+/// a running instance nor a config hash.
+TEST_F(TaskManagerTest, PinnedStartWithStaleHashAndNoStatusClaimsNothing) {
+    start_manager(std::make_unique<EchoTaskFactory>());
+
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+        .config = x::json::json{{"rate", 50}},
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    ASSERT_NIL(client->statuses.del(synnax::task::status_key(task)));
+    send_cmd(
+        client,
+        {.task = task.key,
+         .type = synnax::task::START_CMD_TYPE,
+         .key = "s1",
+         .config_hash = "stale",
+         .pinned = true}
+    );
+    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "s1";
+    });
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_FALSE(s.details.running);
+    EXPECT_TRUE(s.details.config_hash.empty());
+}
+
+/// @brief a pinned start should fetch the stored config even when the live instance was
+/// built from the pinned hash.
 TEST_F(TaskManagerTest, PinnedStartOnCurrentDeployRunsLiveInstance) {
     auto factory = std::make_unique<TrackingTaskFactory>();
     auto *f = factory.get();

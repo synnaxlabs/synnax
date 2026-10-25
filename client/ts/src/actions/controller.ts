@@ -306,7 +306,10 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     return r.written;
   }
 
-  /** Returns the cached doc with every pending entry applied. */
+  /**
+   * Returns the cached doc with every pending entry applied. When another writer
+   * replaced the doc, writes the rebuilt doc to the table, which notifies subscribers.
+   */
   private current(key: Key): State | undefined {
     const r = this.rebases.get(key);
     if (r == null || !this.sync(key, r)) return this.docs.get(key);
@@ -379,7 +382,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     if (p.epoch !== this.epoch) this.settle(key, r, dispatchKey, p.actions);
   }
 
-  private pending(dispatchKey: string, actions: Action[] = []): Pending<Action> {
+  private createPending(dispatchKey: string, actions: Action[] = []): Pending<Action> {
     return { dispatchKey, actions, epoch: this.epoch, accepted: false };
   }
 
@@ -457,9 +460,9 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   }
 
   // Applies the actions to the cached doc, runs the per-op stack mutation, adds a
-  // pending entry *before* the network send (the broadcast echo can race the
-  // response), and removes the entry and rolls back the stack when the send fails.
-  // Returns false when the doc isn't cached.
+  // pending entry *before* the network send (the broadcast echo can race the response),
+  // and removes the entry and rolls back the stack when the send fails. Returns false
+  // when the doc isn't cached.
   private async applySend(
     key: Key,
     actions: Action[],
@@ -476,16 +479,37 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     // undo/redo consume their entry instead of pinning it.
     if (next === current) return true;
     const dispatchKey = id.create();
-    this.track(key, current, this.pending(dispatchKey, processed), next);
+    this.track(key, current, this.createPending(dispatchKey, processed), next);
+    await this.sendPending(
+      [key],
+      dispatchKey,
+      async () => await send(processed, dispatchKey),
+      stackRollback,
+    );
+    return true;
+  }
+
+  /**
+   * Sends the pending entry with the dispatch key in the given docs. A failed send
+   * runs the rollback and removes the entry.
+   * @throws {Error} if the send fails.
+   */
+  private async sendPending<T>(
+    keys: Key[],
+    dispatchKey: string,
+    send: () => Promise<T>,
+    rollback: destructor.Destructor = destructor.NOOP,
+  ): Promise<T> {
+    let res: T;
     try {
-      await send(processed, dispatchKey);
+      res = await send();
     } catch (e) {
-      stackRollback();
-      this.discard(key, dispatchKey);
+      rollback();
+      keys.forEach((key) => this.discard(key, dispatchKey));
       throw errors.fromUnknown(e);
     }
-    this.accept(key, dispatchKey);
-    return true;
+    keys.forEach((key) => this.accept(key, dispatchKey));
+    return res;
   }
 
   /**
@@ -531,25 +555,22 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
    * Sends a create for the given keys. The cached docs among them hold their create as
    * pending, so its echo does not revert edits made before the echo arrives.
    * @returns what the send returns.
-   * @throws the error of the send.
+   * @throws {Error} if the send fails.
    */
   async create<T>(keys: Key[], send: (dispatchKey: string) => Promise<T>): Promise<T> {
     const dispatchKey = id.create();
-    const tracked = keys.filter((key) => {
+    const tracked: Key[] = [];
+    for (const key of keys) {
       const current = this.current(key);
-      if (current == null) return false;
-      this.track(key, current, this.pending(dispatchKey), current);
-      return true;
-    });
-    let res: T;
-    try {
-      res = await send(dispatchKey);
-    } catch (e) {
-      tracked.forEach((key) => this.discard(key, dispatchKey));
-      throw errors.fromUnknown(e);
+      if (current == null) continue;
+      this.track(key, current, this.createPending(dispatchKey), current);
+      tracked.push(key);
     }
-    tracked.forEach((key) => this.accept(key, dispatchKey));
-    return res;
+    return await this.sendPending(
+      tracked,
+      dispatchKey,
+      async () => await send(dispatchKey),
+    );
   }
 
   /**
@@ -562,7 +583,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     kind?: string,
   ): Transaction<Action> {
     const initial = this.current(key);
-    const entry = this.pending(id.create());
+    const entry = this.createPending(id.create());
     let done = false;
     return {
       add: (actions) => {
@@ -571,8 +592,9 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
         const current = this.current(key);
         if (current == null) return;
         const arr = array.toArray(actions);
+        const { next } = this.params.reduce(current, arr);
         entry.actions.push(...arr);
-        this.track(key, current, entry, this.params.reduce(current, arr).next);
+        this.track(key, current, entry, next);
       },
       commit: async () => {
         if (done) return false;
@@ -589,14 +611,12 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
           kind,
         );
         entry.epoch = this.epoch;
-        try {
-          await send(entry.actions, entry.dispatchKey);
-        } catch (e) {
-          stackRollback();
-          this.discard(key, entry.dispatchKey);
-          throw errors.fromUnknown(e);
-        }
-        this.accept(key, entry.dispatchKey);
+        await this.sendPending(
+          [key],
+          entry.dispatchKey,
+          async () => await send(entry.actions, entry.dispatchKey),
+          stackRollback,
+        );
         return true;
       },
       abort: () => {
@@ -625,7 +645,10 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     });
   }
 
-  /** Whether the cached doc holds a dispatch that the Core has not echoed. */
+  /**
+   * Whether the cached doc holds a dispatch that the Core has not echoed, a create
+   * that it has not echoed, or an open transaction.
+   */
   hasPending(key: Key): boolean {
     return this.rebases.has(key);
   }

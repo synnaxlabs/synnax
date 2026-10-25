@@ -227,7 +227,7 @@ func OpenService(
 		// channel.
 		if sig, err = cfg.Signals.PublishActions(
 			ctx,
-			signals.ActionsConfig[Key, Action]{
+			signals.ActionPublisherConfig[Key, Action]{
 				Observable: s.state,
 				Name:       "task_action",
 			},
@@ -251,11 +251,9 @@ func (s *Service) OnAction(
 // for the same task run one at a time, each in its own transaction. After the commit,
 // Dispatch broadcasts the actions and a set of the new config hash, which only the Core
 // writes. dispatchKey is carried onto the broadcast so the sender recognizes its echo.
-// The new config is stored only when it decodes into the task type's config with no
-// unknown members and passes validation. Dispatch returns an error wrapping
-// validate.ErrValidation when an action is a create, the task is a snapshot, or the
-// result fails to decode or validate, and an error wrapping query.ErrNotFound when no
-// task has the key.
+// Dispatch returns an error wrapping validate.ErrValidation when an action is a create,
+// the task is a snapshot, or the result fails to decode or validate, and an error
+// wrapping query.ErrNotFound when no task has the key.
 func (s *Service) Dispatch(
 	ctx context.Context,
 	key Key,

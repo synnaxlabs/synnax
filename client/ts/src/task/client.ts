@@ -605,7 +605,8 @@ export class Client extends query.Retriever<
    * Applies actions to the cached task and sends them to the Core, recording an
    * undoable entry. Paths and values take the snake_case form that the Core stores.
    * Returns false without side effects when the task is not cached.
-   * @throws the error of the send, after the cached task drops the actions.
+   * @throws {Error} if the task cannot hold an action, before any send.
+   * @throws {Error} if the send fails, after the cached task drops the actions.
    */
   async dispatch(key: Key, actions: Action | Action[]): Promise<boolean> {
     return await this.dispatcher.dispatch(
@@ -642,8 +643,8 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Resolves once the cached task holds no dispatch that the Core has not echoed, so its
-   * config hash is the one the Core holds for the edits made so far.
+   * Resolves once the cached task holds no dispatch that the Core has not echoed, so
+   * its config hash is the one the Core holds for the edits made so far.
    */
   async settled(key: Key): Promise<void> {
     await this.dispatcher.settled(key);
@@ -1059,9 +1060,9 @@ const executeCommands = async ({
 interface ExecuteCommandSyncInternalParams<StatusData extends z.ZodType = z.ZodNever>
   extends
     Omit<ExecuteCommandsSyncInternalParams<StatusData>, "commands">,
-    TaskExecuteCommandSyncParams {
+    TaskExecuteCommandSyncParams,
+    Pick<NewCommand, "configHash" | "pinned"> {
   task: Key;
-  configHash?: string;
 }
 
 const executeCommandSync = async <StatusData extends z.ZodType = z.ZodNever>({
@@ -1073,11 +1074,12 @@ const executeCommandSync = async <StatusData extends z.ZodType = z.ZodNever>({
   statusDataZ,
   args,
   configHash,
+  pinned,
 }: ExecuteCommandSyncInternalParams<StatusData>): Promise<Status<StatusData>> =>
   (
     await executeCommandsSync({
       frameClient,
-      commands: [{ args, task, type, configHash }],
+      commands: [{ args, task, type, configHash, pinned }],
       timeout,
       statusDataZ,
       name: taskName,

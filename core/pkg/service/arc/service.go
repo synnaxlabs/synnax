@@ -269,7 +269,10 @@ func OpenService(
 		var sig io.Closer
 		if sig, err = cfg.Signals.PublishActions(
 			ctx,
-			signals.ActionsConfig[Key, Action]{Observable: s.state, Name: "arc"},
+			signals.ActionPublisherConfig[Key, Action]{
+				Observable: s.state,
+				Name:       "arc",
+			},
 		); !ok(err, sig) {
 			return nil, err
 		}

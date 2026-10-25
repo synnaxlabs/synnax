@@ -58,8 +58,8 @@ export interface EditForParams {
 }
 
 /**
- * Adds and removes labels on a resource. Other labels on the resource stay in place,
- * so edits from other clients at the same time are kept.
+ * Adds and removes labels on a resource. Other labels on the resource stay in place, so
+ * edits from other clients at the same time are kept.
  */
 export const { useUpdate: useEditFor } = Flux.createUpdate<EditForParams>({
   name: PLURAL_RESOURCE_NAME,
@@ -110,10 +110,7 @@ export const useCreateForm = Flux.createForm<null, typeof createFormSchema>({
 
 export const formSchema = label.labelZ.pick({ name: true, color: true });
 
-/**
- * A form over a label in the client cache. Each edit to the name or color reaches the
- * Core as a path action, and an edit from another client appears as it lands.
- */
+/** A form over the name and color of a cached label. */
 export const useForm = Flux.createDocumentForm<
   label.Key,
   label.Label,

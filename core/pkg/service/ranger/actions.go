@@ -45,8 +45,8 @@ type document struct {
 	Color     *color.Color    `json:"color,omitzero"`
 }
 
-// edit applies a path action to a copy of the range's document. A document that gains
-// a member it does not declare, such as a path to the range's labels, is rejected.
+// edit applies a path action to a copy of the range's document. A document that gains a
+// member it does not declare, such as a path to the range's labels, is rejected.
 func edit(r Range, apply func(map[string]any) error) (Range, error) {
 	d, err := patch.Edit(
 		document{Name: r.Name, TimeRange: r.TimeRange, Color: r.Color},

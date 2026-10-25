@@ -12,6 +12,6 @@ export * from "@/form/Field";
 export * from "@/form/Form";
 export * from "@/form/Section";
 export * from "@/form/setChanged";
-export * from "@/form/store";
+export { type Entry, type Store } from "@/form/store";
 export * from "@/form/use";
 export * from "@/form/useField";

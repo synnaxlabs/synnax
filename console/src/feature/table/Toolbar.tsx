@@ -161,15 +161,18 @@ interface CellFormProps {
 }
 
 const CellForm = ({ cellKey }: CellFormProps): ReactElement => {
-  const cell = Table.useCell({ cellKey });
-  if (cell == null) throw new Error(`Cell with key ${cellKey} not found`);
   const key = Table.useKey();
   const sessionDispatch = Session.useDispatch();
   const tab = Session.Table.useSelectPropertiesTab({ key });
   const handleTabChange = (tab: Properties.TabKey) =>
     sessionDispatch(Session.Table.setPropertiesTab({ key, tab }));
   const { form } = Table.useCellForm({ cellKey });
-  const C = Table.Cell.REGISTRY[cell.variant];
+  const variant = Form.useFieldValue<
+    Table.Cell.Variant,
+    Table.Cell.Variant,
+    typeof Table.Cell.configZ
+  >("variant", { ctx: form });
+  const C = Table.Cell.REGISTRY[variant];
   return (
     <Form.Form<typeof Table.Cell.configZ> {...form}>
       <C.Form tab={tab} onTabChange={handleTabChange} />

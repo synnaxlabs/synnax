@@ -27,6 +27,7 @@ type Action =
   | { type: "set"; key: string; value: number }
   | { type: "tag"; key: string; tag: string }
   | { type: "create"; doc: Doc }
+  | { type: "invalid" }
   | { type: "noop" };
 
 const reducer: Reducer<Doc, Action> = (state, actions) => {
@@ -44,6 +45,7 @@ const reducer: Reducer<Doc, Action> = (state, actions) => {
       // targets without producing reversible work" branch.
       targets.add(a.key);
     else if (a.type === "create") next = a.doc;
+    else if (a.type === "invalid") throw new Error("the doc cannot hold the action");
   return { next, inverse, targets: [...targets] };
 };
 
@@ -614,6 +616,17 @@ describe("actions.Controller", () => {
       tx.add({ type: "set", key: "a", value: 1 });
       await tx.commit();
       expect(() => tx.add({ type: "set", key: "a", value: 2 })).toThrow();
+    });
+
+    it("leaves an add that the doc cannot hold out of the commit", async () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const send = resolved();
+      const tx = controller.transaction("k", send);
+      tx.add(set("a", 1));
+      expect(() => tx.add({ type: "invalid" })).toThrow("cannot hold");
+      expect(await tx.commit()).toBe(true);
+      expect(send).toHaveBeenCalledWith([set("a", 1)], expect.any(String));
     });
 
     it("abort restores the pre-transaction snapshot and pushes nothing", () => {

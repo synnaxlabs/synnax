@@ -10,7 +10,6 @@
 package ranger_test
 
 import (
-	"context"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -18,7 +17,7 @@ import (
 	apiranger "github.com/synnaxlabs/synnax/pkg/api/ranger"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/query"
@@ -89,13 +88,8 @@ var _ = Describe("Create", func() {
 			grant(ctx, access.ActionCreate, u.OntologyID(), ontology.ID{
 				Type: ontology.ResourceTypeRange,
 			})
-			var keys []string
-			DeferCleanup(svc.Ranger.OnAction(func(
-				_ context.Context,
-				f actions.Scoped[ranger.Key, ranger.Action],
-			) {
-				keys = append(keys, f.DispatchKey)
-			}))
+			rec := &Recorder[ranger.Key, ranger.Action]{}
+			DeferCleanup(svc.Ranger.OnAction(rec.Record))
 			res := MustSucceed(
 				apiSvc.Create(AuthedCtx(ctx, u), nil, apiranger.CreateRequest{
 					Ranges: []ranger.Range{{
@@ -106,7 +100,9 @@ var _ = Describe("Create", func() {
 				}),
 			)
 			Expect(res.Ranges).To(HaveLen(1))
-			Expect(keys).To(Equal([]string{"dk-create"}))
+			frames := rec.Snapshot()
+			Expect(frames).To(HaveLen(1))
+			Expect(frames[0].DispatchKey).To(Equal("dk-create"))
 		},
 	)
 })

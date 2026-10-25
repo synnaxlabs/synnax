@@ -21,6 +21,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -101,6 +102,29 @@ var _ = Describe("Service", func() {
 				Expect(res.Arcs[0].Text.Raw).To(Equal("a -> b"))
 			},
 		)
+
+		It("Should stamp the dispatch key onto the create broadcast", func(
+			ctx SpecContext,
+		) {
+			grantOn(
+				ctx,
+				author.OntologyID(),
+				access.ActionCreate,
+				ontology.ID{Type: ontology.ResourceTypeArc},
+			)
+			rec := &Recorder[arc.Key, arc.Action]{}
+			DeferCleanup(arcSvc.OnAction(rec.Record))
+			res := MustSucceed(
+				apiSvc.Create(AuthedCtx(ctx, author), db, apiarc.CreateRequest{
+					Arcs:        []apiarc.Arc{{Name: "broadcast", Mode: arc.ModeGraph}},
+					DispatchKey: "dk-create",
+				}),
+			)
+			frames := rec.Snapshot()
+			Expect(frames).To(HaveLen(1))
+			Expect(frames[0].Key).To(Equal(res.Arcs[0].Key))
+			Expect(frames[0].DispatchKey).To(Equal("dk-create"))
+		})
 	})
 
 	Describe("Dispatch", func() {

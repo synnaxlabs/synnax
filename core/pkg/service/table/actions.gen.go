@@ -199,10 +199,10 @@ type Action struct {
 	Move       *MovePayload       `json:"move,omitzero" msgpack:"move,omitempty"`
 }
 
-// Reduce applies the given actions sequentially to state by dispatching on
-// each action's Type to the matching payload's Handle method. An unknown action
-// type, or a known type with a nil payload pointer, returns an error. Returns the
-// first error encountered along with the partially-reduced state.
+// Reduce applies the given actions sequentially to state by dispatching on each
+// action's Type to the matching payload's Handle method. An unknown action type, or a
+// known type with a nil payload pointer, returns an error. Returns the first error
+// encountered along with the partially-reduced state.
 func Reduce(state Table, actions ...Action) (Table, error) {
 	var err error
 	for _, a := range actions {

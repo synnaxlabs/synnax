@@ -45,8 +45,8 @@ type document struct {
 	Config msgpack.EncodedJSON `json:"config"`
 }
 
-// edit applies a path action to a copy of the task's document. A document that gains
-// a member it does not declare, such as a path to the task's type, is rejected.
+// edit applies a path action to a copy of the task's document. A document that gains a
+// member it does not declare, such as a path to the task's type, is rejected.
 func edit(t Task, apply func(map[string]any) error) (Task, error) {
 	d, err := patch.Edit(document{Name: t.Name, Rack: t.Rack, Config: t.Config}, apply)
 	if err != nil {

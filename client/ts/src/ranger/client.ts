@@ -630,7 +630,8 @@ export class Client extends query.Retriever<
    * Applies actions to the cached range and sends them to the Core, recording an
    * undoable entry. Paths and values take the snake_case form that the Core stores.
    * Returns false without side effects when the range is not cached.
-   * @throws the error of the send, after the cached range drops the actions.
+   * @throws {Error} if the range cannot hold an action, before any send.
+   * @throws {Error} if the send fails, after the cached range drops the actions.
    */
   async dispatch(key: Key, actions: Action | Action[]): Promise<boolean> {
     return await this.dispatcher.dispatch(

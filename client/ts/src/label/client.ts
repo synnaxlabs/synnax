@@ -203,7 +203,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
   /**
    * Applies actions to the cached label and sends them to the Core, recording an
    * undoable entry. Returns false without side effects when the label is not cached.
-   * @throws the error of the send, after the cached label drops the actions.
+   * @throws {Error} if the label cannot hold an action, before any send.
+   * @throws {Error} if the send fails, after the cached label drops the actions.
    */
   async dispatch(key: Key, actions: Action | Action[]): Promise<boolean> {
     return await this.dispatcher.dispatch(
