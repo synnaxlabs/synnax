@@ -59,23 +59,8 @@ Set<T> Set<T>::parse(x::json::Parser parser) {
 template<typename T>
 x::json::json Set<T>::to_json() const {
     x::json::json j;
-    if constexpr (std::is_same_v<T, x::json::json::object_t>)
-        j["eq"] = this->eq;
-    else if constexpr (std::is_same_v<T, std::monostate>)
-        j["eq"] = nullptr;
-    else
-        j["eq"] = this->eq.to_json();
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->in)
-            if constexpr (std::is_same_v<T, x::json::json::object_t>)
-                arr.push_back(item);
-            else if constexpr (std::is_same_v<T, std::monostate>)
-                arr.push_back(nullptr);
-            else
-                arr.push_back(item.to_json());
-        j["in"] = arr;
-    }
+    if (this->eq.has_value()) j["eq"] = x::json::to_json(*this->eq);
+    if (this->in.has_value()) j["in"] = x::json::to_array(*this->in);
     return j;
 }
 
@@ -94,47 +79,12 @@ Ordered<T> Ordered<T>::parse(x::json::Parser parser) {
 template<typename T>
 x::json::json Ordered<T>::to_json() const {
     x::json::json j;
-    if constexpr (std::is_same_v<T, x::json::json::object_t>)
-        j["eq"] = this->eq;
-    else if constexpr (std::is_same_v<T, std::monostate>)
-        j["eq"] = nullptr;
-    else
-        j["eq"] = this->eq.to_json();
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->in)
-            if constexpr (std::is_same_v<T, x::json::json::object_t>)
-                arr.push_back(item);
-            else if constexpr (std::is_same_v<T, std::monostate>)
-                arr.push_back(nullptr);
-            else
-                arr.push_back(item.to_json());
-        j["in"] = arr;
-    }
-    if constexpr (std::is_same_v<T, x::json::json::object_t>)
-        j["gt"] = this->gt;
-    else if constexpr (std::is_same_v<T, std::monostate>)
-        j["gt"] = nullptr;
-    else
-        j["gt"] = this->gt.to_json();
-    if constexpr (std::is_same_v<T, x::json::json::object_t>)
-        j["gte"] = this->gte;
-    else if constexpr (std::is_same_v<T, std::monostate>)
-        j["gte"] = nullptr;
-    else
-        j["gte"] = this->gte.to_json();
-    if constexpr (std::is_same_v<T, x::json::json::object_t>)
-        j["lt"] = this->lt;
-    else if constexpr (std::is_same_v<T, std::monostate>)
-        j["lt"] = nullptr;
-    else
-        j["lt"] = this->lt.to_json();
-    if constexpr (std::is_same_v<T, x::json::json::object_t>)
-        j["lte"] = this->lte;
-    else if constexpr (std::is_same_v<T, std::monostate>)
-        j["lte"] = nullptr;
-    else
-        j["lte"] = this->lte.to_json();
+    if (this->eq.has_value()) j["eq"] = x::json::to_json(*this->eq);
+    if (this->in.has_value()) j["in"] = x::json::to_array(*this->in);
+    if (this->gt.has_value()) j["gt"] = x::json::to_json(*this->gt);
+    if (this->gte.has_value()) j["gte"] = x::json::to_json(*this->gte);
+    if (this->lt.has_value()) j["lt"] = x::json::to_json(*this->lt);
+    if (this->lte.has_value()) j["lte"] = x::json::to_json(*this->lte);
     return j;
 }
 
@@ -148,17 +98,7 @@ Contains<T> Contains<T>::parse(x::json::Parser parser) {
 template<typename T>
 x::json::json Contains<T>::to_json() const {
     x::json::json j;
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->any)
-            if constexpr (std::is_same_v<T, x::json::json::object_t>)
-                arr.push_back(item);
-            else if constexpr (std::is_same_v<T, std::monostate>)
-                arr.push_back(nullptr);
-            else
-                arr.push_back(item.to_json());
-        j["any"] = arr;
-    }
+    if (this->any.has_value()) j["any"] = x::json::to_array(*this->any);
     return j;
 }
 

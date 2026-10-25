@@ -74,6 +74,26 @@ var _ = Describe("C++ PB Plugin", func() {
 			)
 		})
 
+		It(
+			"Should translate each generic use over a plain value through free functions",
+			func(ctx SpecContext) {
+				AddFilterSchema(loader)
+				resp := MustGenerate(ctx, ThingFilter, "thing", loader, pbPlugin)
+				ExpectContent(resp, "thing/proto.gen.h").
+					ToContain(
+						"inline std::pair<::service::thing::pb::UuidSet, x::errors::Error> "+
+							"uuid_set_to_proto(const ::x::filter::Set<x::uuid::UUID>& self) {",
+						"if (self.eq.has_value()) pb.set_eq(self.eq->to_string());",
+						"for (const auto& item : *self.in) {",
+						"inline std::pair<::x::filter::Set<x::uuid::UUID>, x::errors::Error> "+
+							"uuid_set_from_proto(const ::service::thing::pb::UuidSet& pb) {",
+						"auto [v, err] = uuid_set_to_proto(*this->key);",
+						"auto [v, err] = uuid_set_from_proto(pb.key());",
+					).
+					ToNotContain("this->key->to_proto()")
+			},
+		)
+
 		Context("field-level omit", func() {
 			DescribeTable(
 				"Should leave out a field omitted in cpp or pb",
@@ -1768,7 +1788,8 @@ var _ = Describe("C++ PB Plugin", func() {
 		})
 
 		Context("generic struct instance field", func() {
-			DescribeTable("Should name the instance by its C++ type arguments",
+			DescribeTable(
+				"Should convert a use through its own message unless an Any holds it",
 				func(ctx SpecContext, arg, expected string) {
 					resp := MustGenerate(ctx, `
 					@cpp output "x/cpp/status"
@@ -1787,16 +1808,12 @@ var _ = Describe("C++ PB Plugin", func() {
 					}
 				`, "status", loader, pbPlugin)
 					ExpectContent(resp, "proto.gen.h").ToContain(
-						"auto [v, err] = " + expected + "::from_proto(pb.box());",
+						"auto [v, err] = " + expected + "(pb.box());",
 					)
 				},
-				Entry("a primitive", "string", "Box<std::string>"),
-				Entry(
-					"a map",
-					"map<string, Valve>",
-					"Box<std::unordered_map<std::string, Valve>>",
-				),
-				Entry("a struct", "Valve", "Box<Valve>"),
+				Entry("a primitive", "string", "string_box_from_proto"),
+				Entry("a map", "map<string, Valve>", "string_valve_map_box_from_proto"),
+				Entry("a struct", "Valve", "Box<Valve>::from_proto"),
 			)
 		})
 	})

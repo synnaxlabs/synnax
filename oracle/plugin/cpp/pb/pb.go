@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/internal/arrays"
 	"github.com/synnaxlabs/oracle/plugin/output"
+	"github.com/synnaxlabs/oracle/plugin/pb/instance"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
@@ -247,6 +248,13 @@ func (p *Plugin) generateProto(
 		protoPaths:       protoPaths,
 		rawNs:            namespace,
 		processedEnums:   make(set.Set[string]),
+		instances:        make(set.Set[string]),
+	}
+	if len(structs) > 0 {
+		data.pbNamespace = naming.PBNamespace(
+			output.GetPBPath(structs[0]),
+			structs[0].Namespace,
+		)
 	}
 
 	data.AddSystem("utility")
@@ -484,6 +492,15 @@ func (p *Plugin) generateUnionConversion(
 	cppFieldName, pbAccessorName string,
 ) (forward, backward string) {
 	toProto, fromProto := p.unionTranslatorNames(resolved, data)
+	return freeConversion(toProto, fromProto, isOptional, cppFieldName, pbAccessorName)
+}
+
+// freeConversion converts a field through the free functions toProto and fromProto.
+func freeConversion(
+	toProto, fromProto string,
+	isOptional bool,
+	cppFieldName, pbAccessorName string,
+) (forward, backward string) {
 	if isOptional {
 		forward = fmt.Sprintf(`if (this->%s.has_value()) {
         auto [v, err] = %s(*this->%s);
@@ -906,6 +923,16 @@ func (p *Plugin) generateStructConversion(
 	data *templateData,
 	cppFieldName, pbAccessorName string,
 ) (forward, backward string) {
+	if inst, ok := instance.Of(typeRef, data.rawNs, data.table); ok {
+		name := p.addInstance(inst, data)
+		return freeConversion(
+			name+"_to_proto",
+			name+"_from_proto",
+			isOptional,
+			cppFieldName,
+			pbAccessorName,
+		)
+	}
 	if resolved.Namespace != data.rawNs {
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
@@ -939,6 +966,31 @@ func (p *Plugin) generateStructConversion(
 	}
 
 	return forward, backward
+}
+
+// addInstance adds the translators for inst once and returns their name prefix. They
+// are snake-named free functions, not to_proto overloads: Set<Key> and Set<uint32> are
+// the same C++ type when Key is a distinct uint32.
+func (p *Plugin) addInstance(inst instance.Instance, data *templateData) string {
+	name := casing.FieldSnake(inst.Name)
+	if data.instances.Contains(inst.Name) {
+		return name
+	}
+	data.instances.Add(inst.Name)
+	t := instanceTranslatorData{
+		Name:    name,
+		CppType: p.typeRefToCppForTranslator(inst.Ref, data),
+		PBType:  fmt.Sprintf("%s::%s", data.pbNamespace, inst.Name),
+	}
+	for _, field := range inst.Fields {
+		f := p.processFieldForTranslation(field, data)
+		// Field conversions read the struct through this->. An instance translator
+		// is a free function, so it reads its self argument.
+		f.ForwardExpr = strings.ReplaceAll(f.ForwardExpr, "this->", "self.")
+		t.Fields = append(t.Fields, f)
+	}
+	data.InstanceTranslators = append(data.InstanceTranslators, t)
+	return name
 }
 
 func (p *Plugin) typeRefToCppForTranslator(
@@ -1660,16 +1712,31 @@ func deriveProtoInclude(pbOutputPath, namespace string) string {
 
 type templateData struct {
 	processedEnums set.Set[string]
+	instances      set.Set[string]
 	*includes.Manager
-	table            *resolution.Table
-	jsonPaths        set.Set[string]
-	protoPaths       set.Set[string]
-	Namespace        string
-	rawNs            string
-	Translators      []translatorData
-	UnionTranslators []unionTranslatorData
-	EnumTranslators  []enumTranslatorData
-	ArrayWrappers    []arrayWrapperTranslatorData
+	table               *resolution.Table
+	jsonPaths           set.Set[string]
+	protoPaths          set.Set[string]
+	Namespace           string
+	rawNs               string
+	pbNamespace         string
+	Translators         []translatorData
+	InstanceTranslators []instanceTranslatorData
+	UnionTranslators    []unionTranslatorData
+	EnumTranslators     []enumTranslatorData
+	ArrayWrappers       []arrayWrapperTranslatorData
+}
+
+// instanceTranslatorData is the template view of the free functions that move a use of
+// a generic struct between its C++ type and its own protobuf message.
+type instanceTranslatorData struct {
+	// Name prefixes the functions (e.g. key_set_to_proto).
+	Name string
+	// CppType is the qualified use of the generic struct (e.g. ::x::filter::Set<Key>).
+	CppType string
+	// PBType is the qualified protobuf message.
+	PBType string
+	Fields []fieldTranslatorData
 }
 
 // unionTranslatorData is the template view of the free functions that move a
