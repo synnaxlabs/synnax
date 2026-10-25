@@ -685,10 +685,11 @@ export class TiledChannelData
       !this.xy &&
       bounds.isFinite(view.bounds) &&
       bounds.span(view.bounds) > 0;
+    // Any read with a view draws, so it releases the tiles the line no longer needs.
     const series = this.select(
       ch.key,
       drawsView ? viewRange(view.bounds) : home,
-      drawsView,
+      view != null,
       extremesKept,
     );
     if (!drawsView && this.loaded(ch.key, home)) this.loading_ = false;
