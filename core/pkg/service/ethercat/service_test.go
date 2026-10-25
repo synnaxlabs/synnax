@@ -53,7 +53,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			Expect(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
 				"sample_rate": 25,
 				"channels": []any{map[string]any{
 					"type":    "automatic",
@@ -62,7 +62,7 @@ var _ = Describe("Service", func() {
 					"channel": 42,
 					"pdo":     "Inputs.Ch1",
 				}},
-			})).To(Succeed())
+			}))
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["sample_rate"]).To(BeNumerically("==", 25))
@@ -72,7 +72,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			Expect(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{})).To(Succeed())
+			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["sample_rate"]).To(BeNumerically("==", 10))
 			Expect(data["stream_rate"]).To(BeNumerically("==", 5))
@@ -82,7 +82,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			Expect(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{})).To(Succeed())
+			MustSucceed(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Write.Read(ctx, nil, key))
 			Expect(data["state_rate"]).To(BeNumerically("==", 25))
 			Expect(data["execution_rate"]).To(BeNumerically("==", 1000))
@@ -92,7 +92,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			Expect(svc.Scan.Write(ctx, nil, key, msgpack.EncodedJSON{})).To(Succeed())
+			MustSucceed(svc.Scan.Write(ctx, nil, key, msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})

@@ -31,14 +31,15 @@ type Store interface {
 	// Type returns the task type whose records the store owns.
 	Type() string
 	// Write decodes data into the store's record type, validates it, and stores it
-	// under key, creating or overwriting the record. It returns an error wrapping
-	// validate.ErrValidation when data does not decode or fails validation.
+	// under key, creating or overwriting the record. It returns the stored record as
+	// Read returns it, or an error wrapping validate.ErrValidation when data does not
+	// decode or fails validation.
 	Write(
 		ctx context.Context,
 		tx gorp.Tx,
 		key uuid.UUID,
 		data msgpack.EncodedJSON,
-	) error
+	) (msgpack.EncodedJSON, error)
 	// WriteStrict is Write, except that it also rejects data holding a member that the
 	// record type does not declare.
 	WriteStrict(
@@ -46,7 +47,7 @@ type Store interface {
 		tx gorp.Tx,
 		key uuid.UUID,
 		data msgpack.EncodedJSON,
-	) error
+	) (msgpack.EncodedJSON, error)
 	// Read returns the record stored under key, or an error wrapping
 	// query.ErrNotFound when no record exists.
 	Read(ctx context.Context, tx gorp.Tx, key uuid.UUID) (msgpack.EncodedJSON, error)
@@ -172,7 +173,7 @@ func (s *Service[E]) Write(
 	tx gorp.Tx,
 	key uuid.UUID,
 	data msgpack.EncodedJSON,
-) error {
+) (msgpack.EncodedJSON, error) {
 	return s.write(ctx, tx, key, data, json.RejectUnknownMembers(false))
 }
 
@@ -182,7 +183,7 @@ func (s *Service[E]) WriteStrict(
 	tx gorp.Tx,
 	key uuid.UUID,
 	data msgpack.EncodedJSON,
-) error {
+) (msgpack.EncodedJSON, error) {
 	return s.write(ctx, tx, key, data, json.RejectUnknownMembers(true))
 }
 
@@ -192,16 +193,16 @@ func (s *Service[E]) write(
 	key uuid.UUID,
 	data msgpack.EncodedJSON,
 	opts json.Options,
-) error {
+) (msgpack.EncodedJSON, error) {
 	b, err := json.Marshal(data)
 	if err != nil {
-		return errors.Wrapf(
+		return nil, errors.Wrapf(
 			validate.ErrValidation, "encoding %s config: %s", s.cfg.Type, err,
 		)
 	}
 	var e E
 	if err := json.Unmarshal(b, &e, opts); err != nil {
-		return errors.Wrapf(
+		return nil, errors.Wrapf(
 			validate.ErrValidation, "decoding %s config: %s", s.cfg.Type, err,
 		)
 	}
@@ -211,10 +212,13 @@ func (s *Service[E]) write(
 	s.cfg.SetEntryKey(&e, key)
 	if s.cfg.ValidateEntry != nil {
 		if err := s.cfg.ValidateEntry(&e); err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return s.create(ctx, tx, &e)
+	if err := s.create(ctx, tx, &e); err != nil {
+		return nil, err
+	}
+	return encode(e)
 }
 
 func (s *Service[E]) create(ctx context.Context, tx gorp.Tx, e *E) error {

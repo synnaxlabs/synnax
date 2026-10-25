@@ -49,14 +49,14 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			Expect(svc.Alert.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Alert.Write(ctx, nil, key, msgpack.EncodedJSON{
 				"routing_key": "rk-1",
 				"auto_start":  true,
 				"alerts": []any{map[string]any{
 					"key":    "alert-1",
 					"status": "status-1",
 				}},
-			})).To(Succeed())
+			}))
 			data := MustSucceed(svc.Alert.Read(ctx, nil, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["routing_key"]).To(Equal("rk-1"))

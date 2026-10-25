@@ -153,17 +153,12 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 			t.Config = data
 		}
 	} else {
-		if err := store.Write(ctx, w.tx, t.Key, t.Config); err != nil {
-			return err
-		}
-		// Read the record back so the returned config and its hash reflect the
-		// canonical stored shape, defaults included.
-		canonical, err := store.Read(ctx, w.tx, t.Key)
+		stored, err := store.Write(ctx, w.tx, t.Key, t.Config)
 		if err != nil {
 			return err
 		}
-		t.Config = canonical
-		if t.ConfigHash, err = hashConfig(configContent(canonical)); err != nil {
+		t.Config = stored
+		if t.ConfigHash, err = hashConfig(configContent(stored)); err != nil {
 			return err
 		}
 		// Delete the old type's record only after the new config is stored, so a
@@ -295,10 +290,7 @@ func (w Writer) apply(ctx context.Context, key Key, acts []Action) (string, erro
 	if err = next.Validate(); err != nil {
 		return "", err
 	}
-	if err = store.WriteStrict(ctx, w.tx, key, next.Config); err != nil {
-		return "", err
-	}
-	stored, err := store.Read(ctx, w.tx, key)
+	stored, err := store.WriteStrict(ctx, w.tx, key, next.Config)
 	if err != nil {
 		return "", err
 	}
