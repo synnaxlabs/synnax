@@ -513,9 +513,16 @@ func (r *reader) convert(now time.Time, msg message, b *batch) {
 }
 
 // convertEvent applies one Sparkplug B message: a birth or a death changes which edge
-// nodes are offline, and the values of the tags of the task go into b.
+// nodes are offline, a lost birth gives the edge node the time of birthGrace to publish
+// a new one, and the values of the tags of the task go into b.
 func (r *reader) convertEvent(now time.Time, msg message, b *batch) {
 	ev := msg.sparkplug
+	if ev.BirthLost {
+		if node := (tagScope{node: ev.Node}); r.reads(node) {
+			r.awaited[node] = now.Add(r.birthGrace)
+		}
+		return
+	}
 	scope := tagScope{node: ev.Node, device: ev.Device}
 	birth := false
 	switch ev.Type {

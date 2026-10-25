@@ -658,7 +658,7 @@ var _ = Describe("Host", func() {
 				Expect(handle(
 					nodeTopic(sparkplug.NData),
 					data(2, byAlias(1, doubleValue(1))),
-				)).To(Equal(sparkplug.Event{Node: node, Rebirth: true}))
+				)).To(Equal(sparkplug.Event{Node: node, Rebirth: true, BirthLost: true}))
 				Expect(born(node)).To(BeFalse())
 			})
 			It("Should drop a message that repeats a sequence number", func() {
@@ -669,7 +669,7 @@ var _ = Describe("Host", func() {
 				Expect(handle(
 					nodeTopic(sparkplug.NData),
 					data(1, byAlias(1, doubleValue(1))),
-				)).To(Equal(sparkplug.Event{Node: node, Rebirth: true}))
+				)).To(Equal(sparkplug.Event{Node: node, Rebirth: true, BirthLost: true}))
 				Expect(born(node)).To(BeFalse())
 			})
 			It("Should drop every message after a gap until a new birth", func() {
@@ -727,7 +727,12 @@ var _ = Describe("Host", func() {
 				Expect(handle(
 					deviceTopic(sparkplug.DData, "pump"),
 					data(3, byAlias(1, intValue(1))),
-				)).To(Equal(sparkplug.Event{Node: node, Device: "pump", Rebirth: true}))
+				)).To(Equal(sparkplug.Event{
+					Node:      node,
+					Device:    "pump",
+					Rebirth:   true,
+					BirthLost: true,
+				}))
 				Expect(born(node)).To(BeFalse())
 			})
 			It("Should keep one sequence for each edge node", func() {

@@ -484,7 +484,7 @@ func (c *connection) onSparkplugMessage(m sparkplug.Message, received telem.Time
 	if ev.Rebirth {
 		c.wakeRebirths()
 	}
-	if ev.Type == "" {
+	if ev.Type == "" && !ev.BirthLost {
 		return
 	}
 	decoded := message{sparkplug: &ev, received: received, session: c.mu.session}

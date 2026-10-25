@@ -48,6 +48,9 @@ type Event struct {
 	Metrics []Metric
 	// Rebirth is true when the host must ask the edge node for a new birth.
 	Rebirth bool
+	// BirthLost is true when the message ended the birth of the edge node. The host
+	// drops the data of the node until its next birth.
+	BirthLost bool
 }
 
 // Host is the session state of a Sparkplug B host application: for each edge node,
@@ -156,7 +159,7 @@ func (h *Host) handle(m Message) Event {
 	if p.Seq != nil {
 		if uint8(p.GetSeq()) != n.nextSeq {
 			n.born, n.tables = false, nil
-			dropped.Rebirth = true
+			dropped.Rebirth, dropped.BirthLost = true, true
 			return dropped
 		}
 		n.nextSeq++

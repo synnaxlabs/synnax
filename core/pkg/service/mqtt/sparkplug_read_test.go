@@ -220,6 +220,33 @@ var _ = Describe("Sparkplug B read entries", func() {
 			},
 		)
 
+		DescribeTable("Should warn about an edge node that gives no birth after a "+
+			"sequence gap",
+			func(ctx SpecContext, device string) {
+				_, data := createIndexed(ctx, telem.Float64T)
+				node.setTags(device, tagValue{
+					name: "temperature", alias: 1, value: 1.0, timestamp: 1700000000000,
+				})
+				t := start(ctx, readConfig(
+					dev, tagEntry("plant", "line1", device, "temperature", data[0]),
+				))
+				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
+					Should(BeEquivalentTo(1))
+				node.setSilent(true)
+				node.skipSeq()
+				node.data(device, tagValue{
+					alias: 1, value: 2.0, timestamp: 1700000001000,
+				})
+				Eventually(func() task.Status { return taskStatus(ctx, t) }).Should(And(
+					HaveField("Variant", status.VariantWarning),
+					HaveField("Message", Equal("Failed to read some data")),
+					HaveField("Description", Equal("edge node plant/line1 is offline")),
+				))
+			},
+			Entry("in a message of the edge node", ""),
+			Entry("in a message of a device", "pump"),
+		)
+
 		It("Should warn while an edge node is dead", func(ctx SpecContext) {
 			_, data := createIndexed(ctx, telem.Float64T)
 			node.setTags("", tagValue{
