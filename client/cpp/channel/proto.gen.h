@@ -126,8 +126,9 @@ telem_data_type_set_to_proto(const ::x::filter::Set<::x::telem::DataType> &self)
     if (self.eq.has_value()) pb.set_eq(self.eq->to_proto());
     if (self.in.has_value()) {
         auto *wrapper = pb.mutable_in();
-        for (const auto &item: *self.in)
-            wrapper->add_values(item);
+        for (const auto &item: *self.in) {
+            wrapper->add_values(item.to_proto());
+        }
     }
     return {pb, x::errors::NIL};
 }
@@ -138,8 +139,9 @@ telem_data_type_set_from_proto(const ::service::channel::pb::TelemDataTypeSet &p
     if (pb.has_eq()) cpp.eq = ::x::telem::DataType::from_proto(pb.eq());
     if (pb.has_in()) {
         cpp.in.emplace();
-        for (const auto &item: pb.in().values())
-            cpp.in->push_back(item);
+        for (const auto &item: pb.in().values()) {
+            cpp.in->push_back(::x::telem::DataType::from_proto(item));
+        }
     }
     return {cpp, x::errors::NIL};
 }

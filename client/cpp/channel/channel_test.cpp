@@ -207,14 +207,72 @@ TEST(TestChannel, testRetrieveMany) {
     }
 }
 
-/// @brief it should return the correct error when a channel cannot be found
-/// by key multiple retrieval.
+/// @brief it should return a not found error that names every missing key.
 TEST(TestChannel, testRetrieveManyNotFound) {
     const auto client = new_test_client();
-    ASSERT_OCCURRED_AS_P(
-        client.channels.retrieve(std::vector<Key>{1, 2, 3}),
-        x::errors::NOT_FOUND
+    const auto ch = create_virtual_channel(client);
+    const auto [channels, err] = client.channels.retrieve(
+        std::vector<Key>{1, ch.key, 3}
     );
+    ASSERT_MATCHES(err, x::errors::NOT_FOUND);
+    ASSERT_EQ(err.data, "channels matching keys 1, 3 not found.");
+    ASSERT_TRUE(channels.empty());
+}
+
+/// @brief it should return the channels in the order of the requested keys.
+TEST(TestChannel, testRetrieveManyOrder) {
+    const auto client = new_test_client();
+    const auto a = create_virtual_channel(client);
+    const auto b = create_virtual_channel(client);
+    const auto c = create_virtual_channel(client);
+    const auto channels = ASSERT_NIL_P(
+        client.channels.retrieve(std::vector<Key>{c.key, a.key, b.key})
+    );
+    ASSERT_EQ(keys_from_channels(channels), std::vector<Key>({c.key, a.key, b.key}));
+}
+
+/// @brief it should match names literally, not as patterns.
+TEST(TestChannel, testRetrieveManyByNamesLiteral) {
+    const auto client = new_test_client();
+    const auto ch = create_virtual_channel(client);
+    const auto channels = ASSERT_NIL_P(
+        client.channels.retrieve(std::vector<std::string>{ch.name, ".*"})
+    );
+    ASSERT_EQ(keys_from_channels(channels), std::vector<Key>({ch.key}));
+}
+
+/// @brief it should retrieve the channels that a where selects.
+TEST(TestChannel, testRetrieveWhere) {
+    const auto client = new_test_client();
+    const auto a = create_virtual_channel(client, x::telem::FLOAT64_T);
+    const auto b = create_virtual_channel(client, x::telem::FLOAT64_T);
+    const auto c = create_virtual_channel(client, x::telem::UINT8_T);
+    const auto channels = ASSERT_NIL_P(client.channels.retrieve(
+        RetrieveRequest{
+            .where = Where{
+                .or_ =
+                    std::vector<Where>{
+                        Where{.key = x::filter::Set<Key>{.eq = a.key}},
+                        Where{.name = x::filter::String{.eq = c.name}},
+                    },
+                .data_type = x::filter::Set<x::telem::DataType>{
+                    .eq = x::telem::FLOAT64_T,
+                },
+            },
+        }
+    ));
+    ASSERT_EQ(keys_from_channels(channels), std::vector<Key>({a.key}));
+    const auto limited = ASSERT_NIL_P(client.channels.retrieve(
+        RetrieveRequest{
+            .where =
+                Where{
+                    .key = x::filter::Set<
+                        Key>{.in = std::vector<Key>{a.key, b.key, c.key}},
+                },
+            .limit = 2,
+        }
+    ));
+    ASSERT_EQ(limited.size(), 2);
 }
 
 /// @brief it should convert a channel key to an ontology ID
