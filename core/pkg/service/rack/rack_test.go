@@ -571,6 +571,10 @@ var _ = Describe("Rack", Ordered, func() {
 				).To(BeTrue())
 				Expect(svc.NewRetrieve().Search("valve").Exists(ctx, tx)).To(BeFalse())
 			})
+			It("Should add no filter for an empty term", func(ctx SpecContext) {
+				Expect(svc.NewRetrieve().Search("").Count(ctx, tx)).
+					To(Equal(MustSucceed(svc.NewRetrieve().Count(ctx, tx))))
+			})
 		})
 	})
 	Describe("Create with Integrations", func() {

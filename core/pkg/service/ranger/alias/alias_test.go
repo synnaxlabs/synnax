@@ -329,6 +329,18 @@ var _ = Describe("Alias", Ordered, func() {
 				alias.OntologyID(r.Key, inlet.Key()),
 			}))
 		})
+
+		It(
+			"Should drop a deleted alias from the ontology search",
+			func(ctx SpecContext) {
+				Expect(
+					aliasSvc.NewWriter(tx).Delete(ctx, r.Key, inlet.Key()),
+				).To(Succeed())
+				Expect(tx.Commit(ctx)).To(Succeed())
+				Expect(otg.Search(ctx, nil, "turbopump inlet")).
+					ToNot(ContainElement(alias.OntologyID(r.Key, inlet.Key())))
+			},
+		)
 	})
 
 	Describe("List", func() {
