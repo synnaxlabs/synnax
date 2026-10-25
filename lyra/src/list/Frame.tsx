@@ -302,6 +302,7 @@ const VirtualFrame = <
   pinned,
 }: FrameProps<K, E>): ReactElement => {
   "use no memo"; // useVirtualizer returns one instance whose reads change in place.
+  /* eslint-disable no-restricted-syntax */
   // State, not a ref: the virtualizer adopts a remounted scroll container only when
   // this frame renders. A dialog remounts it without rendering the frame.
   const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
@@ -438,6 +439,7 @@ const VirtualFrame = <
     [refCallback, itemsRef, scrollToIndex, getItem, subscribe, itemHeight],
   );
 
+  /* eslint-enable no-restricted-syntax */
   return (
     <DataContext value={dataCtxValue}>
       <UtilContext value={utilCtxValue as unknown as UtilContextValue}>

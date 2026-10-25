@@ -59,6 +59,7 @@ export const useStaticData = <
   if (sort != null) filteredData = [...filteredData].sort(sort);
   // The compiler reads fuse.search as a write to filteredData, so without this memo it
   // rebuilds the index and getItem on every search.
+  // eslint-disable-next-line no-restricted-syntax
   const fuse = useMemo(() => {
     if (filteredData.length === 0) return null;
     return new Fuse(filteredData, {
