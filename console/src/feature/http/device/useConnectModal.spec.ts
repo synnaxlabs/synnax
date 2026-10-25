@@ -141,6 +141,29 @@ describe("useConnectModal", () => {
     await waitFor(() => expect(screen.queryByPlaceholderText("/status")).toBeNull());
   });
 
+  it("should resolve with the device it connected", async () => {
+    const rack = await createRunningRack(client, "http");
+    const scan = await rack.createTask({
+      name: uniqueName("http_scan"),
+      type: HTTP.Task.SCAN_TYPE,
+      config: {},
+    });
+    const { result } = await renderModalOpener(
+      HTTP.Device.useConnectModal,
+      [{ rack: rack.key }],
+      { client },
+    );
+    fireEvent.change(screen.getByPlaceholderText("www.example.com"), {
+      target: { value: "localhost:8080" },
+    });
+    const { answered } = await answerNextCommand(client, scan);
+    pressSaveTrigger();
+    await answered;
+    const key = await result();
+    if (key == null) throw new Error("the modal closed without a device");
+    expect((await client.devices.retrieve({ key })).rack).toBe(rack.key);
+  });
+
   it("should report a device it connected", async () => {
     const rack = await createRunningRack(client, "http");
     const scan = await rack.createTask({

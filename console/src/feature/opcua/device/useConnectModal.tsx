@@ -108,10 +108,13 @@ export const Connect = ({
     initialValues: { ...INITIAL_VALUES, rack: defaultRack ?? 0 },
     beforeValidate,
     beforeSave,
-    afterSave: useCallback(() => {
-      if (deviceKey == null) capture("device_connected", { integration: "opcua" });
-      close();
-    }, [capture, close, deviceKey]),
+    afterSave: useCallback(
+      ({ get }) => {
+        if (deviceKey == null) capture("device_connected", { integration: "opcua" });
+        close(get<device.Key>("key").value);
+      },
+      [capture, close, deviceKey],
+    ),
   });
   const rackKey = Form.useFieldValue<
     rack.Key,
@@ -207,7 +210,10 @@ export const Connect = ({
   );
 };
 
-export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(Connect);
+export const useConnectModal = Modals.createPrompt<
+  device.Key,
+  PlatformDevice.ConnectParams
+>(Connect);
 
 const clientCertField = Component.renderProp(({ value, onChange }) => (
   <FS.InputPath value={value} onChange={onChange} title="Select a client certificate" />

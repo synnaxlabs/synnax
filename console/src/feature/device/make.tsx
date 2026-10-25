@@ -62,13 +62,13 @@ export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => voi
       const openers: Record<Make, (args: { deviceKey: device.Key }) => void> = {
         [EtherCAT.Device.MAKE]: ({ deviceKey }) =>
           configure({ deviceKey, integration: EtherCAT.Device.INTEGRATION }),
-        [HTTP.Device.MAKE]: http,
+        [HTTP.Device.MAKE]: ({ deviceKey }) => void http({ deviceKey }),
         [LabJack.Device.MAKE]: ({ deviceKey }) =>
           configure({ deviceKey, integration: LabJack.Device.INTEGRATION }),
-        [Modbus.Device.MAKE]: modbus,
+        [Modbus.Device.MAKE]: ({ deviceKey }) => void modbus({ deviceKey }),
         [NI.Device.MAKE]: ({ deviceKey }) =>
           configure({ deviceKey, integration: NI.Device.INTEGRATION }),
-        [OPCUA.Device.MAKE]: opcua,
+        [OPCUA.Device.MAKE]: ({ deviceKey }) => void opcua({ deviceKey }),
       };
       openers[make]({ deviceKey });
     },

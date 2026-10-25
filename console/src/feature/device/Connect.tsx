@@ -9,7 +9,7 @@
 
 import "@/feature/device/Connect.css";
 
-import { type rack } from "@synnaxlabs/client";
+import { type device, type rack } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
@@ -19,8 +19,8 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Rack } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
-import { Find } from "@/feature/device/Find";
-import { HARDWARE, type Integration, NETWORK } from "@/feature/device/integrations";
+import { ConfigureHardware } from "@/feature/device/Configure";
+import { HARDWARE, type Hardware, NETWORK } from "@/feature/device/integrations";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Modals } from "@/platform/modals";
@@ -37,7 +37,7 @@ export interface ConnectModalParams {
 }
 
 interface EntryProps {
-  integration: Integration;
+  integration: PlatformDevice.Integration;
   reason: string | null;
   onSelect: (key: string) => void;
 }
@@ -68,8 +68,8 @@ const Entry = ({ integration, reason, onSelect }: EntryProps): ReactElement => (
 
 interface GroupProps {
   title: string;
-  integrations: Integration[];
-  getReason: (integration: Integration) => string | null;
+  integrations: PlatformDevice.Integration[];
+  getReason: (integration: PlatformDevice.Integration) => string | null;
   onSelect: (key: string) => void;
 }
 
@@ -103,7 +103,7 @@ interface PickerProps {
 }
 
 const Picker = ({ racks, rack: rackKey, onSelect }: PickerProps): ReactElement => {
-  const getReason = ({ key, name }: Integration): string | null =>
+  const getReason = ({ key, name }: PlatformDevice.Integration): string | null =>
     racks == null
       ? null
       : PlatformDevice.getBlockedReason(racks, {
@@ -132,6 +132,35 @@ const Picker = ({ racks, rack: rackKey, onSelect }: PickerProps): ReactElement =
   );
 };
 
+interface FindStepProps {
+  hardware: Hardware;
+  rack: rack.Key | undefined;
+  close: () => void;
+  onBack: () => void;
+}
+
+const FindStep = ({ hardware, rack, close, onBack }: FindStepProps): ReactElement => {
+  const [configuring, setConfiguring] = useState<device.Key | null>(null);
+  if (configuring == null)
+    return (
+      <PlatformDevice.Find
+        hardware={hardware}
+        rack={rack}
+        onBack={onBack}
+        onConfigure={setConfiguring}
+      />
+    );
+  return (
+    <ConfigureHardware
+      integration={hardware.key}
+      deviceKey={configuring}
+      close={() => setConfiguring(null)}
+      onBack={() => setConfiguring(null)}
+      onTaskCreated={close}
+    />
+  );
+};
+
 const Connect = ({
   integration,
   rack: rackKey,
@@ -147,13 +176,13 @@ const Connect = ({
     return (
       <network.Connect
         rack={rackKey ?? PlatformDevice.getDefaultRack(racks ?? [], network.key)}
-        close={close}
+        close={() => close()}
         onBack={back}
       />
     );
   const hardware = HARDWARE.find(({ key }) => key === selected);
   if (hardware == null) throw new Error(`No integration named ${selected}`);
-  return <Find integration={hardware} rack={rackKey} close={close} onBack={back} />;
+  return <FindStep hardware={hardware} rack={rackKey} close={close} onBack={back} />;
 };
 
 /** Opens a picker of every integration, each leading to its connect or find view. */

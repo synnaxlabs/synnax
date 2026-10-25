@@ -41,6 +41,29 @@ describe("Modbus.Device.useConnectModal", () => {
     expect(screen.getByDisplayValue("1502")).toBeTruthy();
   });
 
+  it("should resolve with the device it connected", async () => {
+    const rack = await createRunningRack(client, "modbus");
+    const scan = await rack.createTask({
+      name: uniqueName("modbus_scan"),
+      type: Modbus.Task.SCAN_TYPE,
+      config: {},
+    });
+    const { result } = await renderModalOpener(
+      Modbus.Device.useConnectModal,
+      [{ rack: rack.key }],
+      { client },
+    );
+    fireEvent.change(screen.getByPlaceholderText("localhost"), {
+      target: { value: "localhost" },
+    });
+    const { answered } = await answerNextCommand(client, scan);
+    pressSaveTrigger();
+    await answered;
+    const key = await result();
+    if (key == null) throw new Error("the modal closed without a device");
+    expect((await client.devices.retrieve({ key })).rack).toBe(rack.key);
+  });
+
   it("should report a device it connected", async () => {
     const rack = await createRunningRack(client, "modbus");
     const scan = await rack.createTask({

@@ -30,7 +30,7 @@ const TASK_CONTEXT_MENU_ITEMS = [
 
 export const ContextMenuItems = (props: Tree.ContextMenuProps) => {
   const connect = useConnectModal();
-  const onConfigure = (deviceKey: device.Key) => connect({ deviceKey });
+  const onConfigure = (deviceKey: device.Key) => void connect({ deviceKey });
   return (
     <>
       <PlatformDevice.EditConnectionMenuItem {...props} onConfigure={onConfigure} />

@@ -62,6 +62,29 @@ describe("OPCUA.Device.useConnectModal", () => {
     await waitFor(() => expect(screen.queryByText("Client certificate")).toBeNull());
   });
 
+  it("should resolve with the device it connected", async () => {
+    const rack = await createRunningRack(client, "opc");
+    const scan = await rack.createTask({
+      name: uniqueName("opcua_scan"),
+      type: OPCUA.Task.SCAN_TYPE,
+      config: {},
+    });
+    const { result } = await renderModalOpener(
+      OPCUA.Device.useConnectModal,
+      [{ rack: rack.key }],
+      { client },
+    );
+    fireEvent.change(screen.getByPlaceholderText("opc.tcp://localhost:4840"), {
+      target: { value: "opc.tcp://localhost:4840" },
+    });
+    const { answered } = await answerNextCommand(client, scan);
+    pressSaveTrigger();
+    await answered;
+    const key = await result();
+    if (key == null) throw new Error("the modal closed without a device");
+    expect((await client.devices.retrieve({ key })).rack).toBe(rack.key);
+  });
+
   it("should report a device it connected", async () => {
     const rack = await createRunningRack(client, "opc");
     const scan = await rack.createTask({

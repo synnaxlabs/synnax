@@ -9,18 +9,21 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
+import { HARDWARE } from "@/feature/labjack/device/hardware";
 import { MAKE } from "@/feature/labjack/device/types";
 import { useConfigureModal } from "@/feature/labjack/device/useConfigureModal";
 import { Device } from "@/platform/device";
 
 export const Select = () => {
   const configure = useConfigureModal();
+  const find = Device.useFindModal();
   return (
     <Device.Select
       onConfigure={(deviceKey) => configure({ deviceKey })}
       emptyContent="No LabJack devices connected"
       make={MAKE}
       icon={<Icon.Logo.LabJack />}
+      connect={{ title: HARDWARE.title, open: () => find({ hardware: HARDWARE }) }}
     />
   );
 };

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/device/Find.css";
+import "@/platform/device/Find.css";
 
 import {
   type device,
@@ -29,10 +29,12 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Device as PDevice, Rack, Synnax, Task } from "@synnaxlabs/pluto";
 import { type ReactElement, type ReactNode, useState } from "react";
 
-import { ConfigureHardware } from "@/feature/device/Configure";
-import { type Hardware } from "@/feature/device/integrations";
 import { CSS } from "@/platform/css";
-import { Device as PlatformDevice } from "@/platform/device";
+import { Configure } from "@/platform/device/Configure";
+import { type Hardware } from "@/platform/device/integration";
+import { isRunning } from "@/platform/device/racks";
+import { Modals } from "@/platform/modals";
+import { type Session } from "@/session";
 
 const SCAN_COMMAND = "scan";
 const SCAN_TIMEOUT = TimeSpan.seconds(15);
@@ -41,6 +43,8 @@ const scanDisabledZ = task.scanConfigZ.pick({ disabled: true });
 
 const isScanDisabled = (scanner: task.Task): boolean =>
   scanDisabledZ.safeParse(scanner.config).data?.disabled === true;
+
+const DRIVER_CHECK = "The Synnax Driver runs on the computer the hardware connects to.";
 
 const QUIET = new Set<Status.Variant>(["loading", "disabled"]);
 
@@ -81,7 +85,7 @@ const ScannerState = ({
 }: ScannerStateProps): ReactElement | null => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  if (!PlatformDevice.isRunning(r))
+  if (!isRunning(r))
     return (
       <State
         variant="warning"
@@ -134,7 +138,7 @@ const ScannerState = ({
 };
 
 const isScanning = (r: rack.Rack, scanner: task.Task | undefined): boolean =>
-  PlatformDevice.isRunning(r) && scanner != null && !isScanDisabled(scanner);
+  isRunning(r) && scanner != null && !isScanDisabled(scanner);
 
 interface DeviceItemProps {
   device: device.Device;
@@ -225,7 +229,7 @@ const Checks = ({ checks, open }: ChecksProps): ReactElement => (
     </Pane.Summary>
     <Pane.Item>
       <Steps.List level="small" className={CSS.BE("device-find", "steps")}>
-        {checks.map((check) => (
+        {[DRIVER_CHECK, ...checks].map((check) => (
           <Steps.Item key={check}>{check}</Steps.Item>
         ))}
       </Steps.List>
@@ -234,11 +238,13 @@ const Checks = ({ checks, open }: ChecksProps): ReactElement => (
 );
 
 export interface FindProps {
-  integration: Hardware;
+  hardware: Hardware;
   /** Lists only this rack. */
-  rack: rack.Key | undefined;
-  close: () => void;
-  onBack: () => void;
+  rack?: rack.Key;
+  /** Returns to the view that opened this one. Adds a "Back" action. */
+  onBack?: () => void;
+  /** Runs when the user picks a found device to configure. */
+  onConfigure: (deviceKey: device.Key) => void;
 }
 
 /**
@@ -246,10 +252,10 @@ export interface FindProps {
  * action to scan now, and what to check when the hardware is missing.
  */
 export const Find = ({
-  integration: { key, name, title, icon, make, scanType, checks },
+  hardware: { key, name, title, icon, make, scanType, checks },
   rack: rackKey,
-  close,
   onBack,
+  onConfigure,
 }: FindProps): ReactElement => {
   const allRacks = Rack.useResultMultiple({}).data;
   const scope = allRacks?.find((r) => r.key === rackKey);
@@ -260,13 +266,12 @@ export const Find = ({
   const found = (PDevice.useResultMultiple({ makes: [make] }).data ?? [])
     .filter((d) => racks?.some((r) => r.key === d.rack) === true)
     .toSorted((a, b) => Number(a.configured) - Number(b.configured));
-  const [configuring, setConfiguring] = useState<device.Key | null>(null);
   const handleError = Status.useErrorHandler();
   const [scanning, setScanning] = useState(false);
   const targets = (scanners ?? []).filter(
     (s) =>
       !isScanDisabled(s) &&
-      racks?.some((r) => r.key === s.rack && PlatformDevice.isRunning(r)) === true,
+      racks?.some((r) => r.key === s.rack && isRunning(r)) === true,
   );
   const scan = async () => {
     setScanning(true);
@@ -281,16 +286,6 @@ export const Find = ({
     }
     setScanning(false);
   };
-  if (configuring != null)
-    return (
-      <ConfigureHardware
-        integration={key}
-        deviceKey={configuring}
-        close={() => setConfiguring(null)}
-        onBack={() => setConfiguring(null)}
-        onTaskCreated={close}
-      />
-    );
   return (
     <Modal.Frame className={CSS.B("device-find")}>
       <Modal.Header icon={icon}>{["Device", "Connect", title]}</Modal.Header>
@@ -324,18 +319,20 @@ export const Find = ({
             scanner={scanners?.find((s) => s.rack === r.key)}
             devices={found.filter((d) => d.rack === r.key)}
             name={name}
-            onConfigure={setConfiguring}
+            onConfigure={onConfigure}
           />
         ))}
         <Checks checks={checks} open={found.length === 0} />
       </Modal.Body>
       <Modal.Footer>
-        <Nav.Bar.Start>
-          <Button.Button variant="text" onClick={onBack}>
-            <Icon.Arrow.Left />
-            Back
-          </Button.Button>
-        </Nav.Bar.Start>
+        {onBack != null && (
+          <Nav.Bar.Start>
+            <Button.Button variant="text" onClick={onBack}>
+              <Icon.Arrow.Left />
+              Back
+            </Button.Button>
+          </Nav.Bar.Start>
+        )}
         <Nav.Bar.End>
           <Button.Button
             variant="outlined"
@@ -351,3 +348,31 @@ export const Find = ({
     </Modal.Frame>
   );
 };
+
+export interface FindModalParams {
+  hardware: Hardware;
+}
+
+const FindModal = ({
+  hardware,
+  close,
+}: Session.Modals.ContentProps<FindModalParams, device.Key>): ReactElement => {
+  const [configuring, setConfiguring] = useState<device.Key | null>(null);
+  if (configuring == null)
+    return <Find hardware={hardware} onConfigure={setConfiguring} />;
+  return (
+    <Configure
+      deviceKey={configuring}
+      icon={hardware.icon}
+      initialProperties={hardware.zeroProperties}
+      onBack={() => setConfiguring(null)}
+      close={() => close(configuring)}
+    />
+  );
+};
+
+/**
+ * Opens {@link Find} in a modal. Resolves with the device the user configures, or null
+ * when the user closes the modal first.
+ */
+export const useFindModal = Modals.createPrompt<device.Key, FindModalParams>(FindModal);

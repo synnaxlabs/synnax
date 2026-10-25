@@ -120,10 +120,13 @@ export const Connect = ({
     query: deviceKey == null ? null : { key: deviceKey },
     initialValues: { ...INITIAL_VALUES, rack: defaultRack ?? 0 },
     beforeSave,
-    afterSave: useCallback(() => {
-      if (deviceKey == null) capture("device_connected", { integration: "http" });
-      close();
-    }, [capture, close, deviceKey]),
+    afterSave: useCallback(
+      ({ get }) => {
+        if (deviceKey == null) capture("device_connected", { integration: "http" });
+        close(get<device.Key>("key").value);
+      },
+      [capture, close, deviceKey],
+    ),
   });
   const rackKey = Form.useFieldValue<
     rack.Key,
@@ -435,7 +438,10 @@ export const Connect = ({
   );
 };
 
-export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(Connect);
+export const useConnectModal = Modals.createPrompt<
+  device.Key,
+  PlatformDevice.ConnectParams
+>(Connect);
 
 const NAME_INPUT_PROPS = {
   level: "h2",

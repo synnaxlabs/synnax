@@ -26,7 +26,11 @@ export interface ConnectParams extends Partial<ConfigureParams> {
   rack?: rack.Key;
 }
 
-export interface ConnectProps extends Session.Modals.ContentProps<ConnectParams, void> {
+/** Props of a connect form. The form closes with the key of the device it saved. */
+export interface ConnectProps extends Session.Modals.ContentProps<
+  ConnectParams,
+  device.Key
+> {
   /** Returns to the picker that opened the form. Absent when the form opens alone. */
   onBack?: () => void;
 }

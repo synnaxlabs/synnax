@@ -130,7 +130,7 @@ export const renderMenuItem = async (
 };
 
 const deviceFormSchema = z.object({
-  config: z.object({ device: z.string() }),
+  config: z.object({ device: z.string(), channels: z.array(z.unknown()) }),
   rack: z.number().optional(),
 });
 
@@ -146,7 +146,7 @@ const DeviceFormFixture = ({
 }: DeviceFormFixtureProps): ReactElement => {
   const methods = Form.use({
     schema: deviceFormSchema,
-    values: { config: { device: deviceKey } },
+    values: { config: { device: deviceKey, channels: [] } },
   });
   return (
     <Form.Form<typeof deviceFormSchema> {...methods}>
@@ -172,8 +172,8 @@ export interface RenderWithDeviceFormOptions {
 }
 
 /**
- * Renders ui inside the console provider stack and a Form context shaped the way
- * device consumers expect (config.device holding the selected device key).
+ * Renders ui inside the console provider stack and a Form context shaped like a task
+ * config: config.device holds the selected device key, and config.channels is empty.
  */
 export const renderWithDeviceForm = async (
   ui: ReactElement,
