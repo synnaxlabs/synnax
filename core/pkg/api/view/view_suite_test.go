@@ -30,7 +30,7 @@ import (
 
 func TestAPIView(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API View Suite")
+	RunSpecs(t, "API View Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

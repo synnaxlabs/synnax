@@ -27,7 +27,7 @@ import (
 
 func TestWriter(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Framer Writer Suite")
+	RunSpecs(t, "Service Framer Writer Suite", SuiteConfig())
 }
 
 var (

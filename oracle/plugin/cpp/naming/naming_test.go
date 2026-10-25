@@ -21,7 +21,7 @@ import (
 
 func TestNaming(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "CPP Naming Suite")
+	RunSpecs(t, "CPP Naming Suite", SuiteConfig())
 }
 
 var _ = Describe("VariantTypeName", func() {

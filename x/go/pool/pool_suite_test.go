@@ -19,7 +19,7 @@ import (
 
 func TestPool(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Pool Suite")
+	RunSpecs(t, "Pool Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

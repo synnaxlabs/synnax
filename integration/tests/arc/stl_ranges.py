@@ -236,10 +236,13 @@ class StlRanges(ArcCase):
             self.fail(f"RangeOneShot: expected 1 range, got {len(rows)}")
 
     def _verify_invalid_color_rejected(self) -> None:
-        if not self.wait_for_task_status(
-            self.task_key(self.arc_name), "ranges.create: invalid color"
-        ):
+        task_key = self.task_key(self.arc_name)
+        if not self.wait_for_task_status(task_key, "Failed to create range"):
             self.fail("no warning status surfaced for the invalid-color create")
+        if not self.wait_for_task_status(
+            task_key, 'The color "not-a-color" is not valid'
+        ):
+            self.fail("the invalid-color warning did not name the color")
         if self.client.ranges.retrieve(names=[BAD_COLOR_NAME]):
             self.fail(f"{BAD_COLOR_NAME} was created despite an invalid color")
 

@@ -84,7 +84,12 @@ genrule(
             mbedtls_dir="$(GENDIR)/vendor/mbedtls"
             rm -rf ./vendor/open62541/open62541/build && rm -rf ./vendor/open62541/open62541/out
             mkdir -p ./vendor/open62541/open62541/build
+            # The sandbox path, the archive dates, and the build time differ on each
+            # build. Leave them out, so the output and every action that depends on it
+            # stay cached.
+            export ZERO_AR_DATE=1 SOURCE_DATE_EPOCH=0
             cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+                 -DCMAKE_C_FLAGS="-ffile-prefix-map=$$PWD=." \
                  -DUA_NAMESPACE_ZERO=FULL \
                  -DCMAKE_INSTALL_PREFIX=./vendor/open62541/open62541/out \
                  -DUA_ENABLE_ENCRYPTION=MBEDTLS  \

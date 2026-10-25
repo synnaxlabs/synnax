@@ -168,7 +168,11 @@ genrule(
         "//conditions:default": """
             rm -rf ./vendor/mbedtls/build && rm -rf ./vendor/mbedtls/out
             mkdir -p ./vendor/mbedtls/build
+            # The sandbox path and the archive dates differ on each build. Leave both
+            # out, so the output and every action that depends on it stay cached.
+            export ZERO_AR_DATE=1
             cmake -DCMAKE_BUILD_TYPE=Release \
+                  -DCMAKE_C_FLAGS="-ffile-prefix-map=$$PWD=." \
                   -DCMAKE_INSTALL_PREFIX=./vendor/mbedtls/out \
                   -DUSE_STATIC_MBEDTLS_LIBRARY=ON \
                   -DUSE_SHARED_MBEDTLS_LIBRARY=OFF \

@@ -408,3 +408,75 @@ var _ = Describe("TypeArgMap", func() {
 		Entry("no arguments", nil, map[string]resolution.TypeRef{}),
 	)
 })
+
+var _ = Describe("MergeOverrideField", func() {
+	doc := func(value string) resolution.Domain {
+		return resolution.Domain{
+			Name: "doc",
+			Expressions: resolution.Expressions{{
+				Name:   "value",
+				Values: []resolution.ExpressionValue{{StringValue: value}},
+			}},
+		}
+	}
+	marshal := resolution.Domain{
+		Name:        "go",
+		Expressions: resolution.Expressions{{Name: "marshal"}},
+	}
+	parent := resolution.Field{
+		Name:     "x",
+		Type:     resolution.TypeRef{Name: "int32"},
+		Optional: true,
+		Default:  &resolution.ExpressionValue{IntValue: 4},
+		Domains:  map[string]resolution.Domain{"doc": doc("parent"), "go": marshal},
+	}
+
+	It("Should inherit the type, optionality, and default of a typeless child", func() {
+		merged := resolution.MergeOverrideField(parent, resolution.Field{Name: "x"})
+		Expect(merged.Type.Name).To(Equal("int32"))
+		Expect(merged.Optional).To(BeTrue())
+		Expect(merged.Default).To(Equal(&resolution.ExpressionValue{IntValue: 4}))
+	})
+
+	It("Should keep the optional marker and default of a typeless child", func() {
+		merged := resolution.MergeOverrideField(
+			resolution.Field{Name: "x", Type: resolution.TypeRef{Name: "int32"}},
+			resolution.Field{
+				Name:     "x",
+				Optional: true,
+				Default:  &resolution.ExpressionValue{IntValue: 7},
+			},
+		)
+		Expect(merged.Optional).To(BeTrue())
+		Expect(merged.Default).To(Equal(&resolution.ExpressionValue{IntValue: 7}))
+	})
+
+	It("Should keep the type, optionality, and default of a typed child", func() {
+		merged := resolution.MergeOverrideField(parent, resolution.Field{
+			Name: "x",
+			Type: resolution.TypeRef{Name: "int64"},
+		})
+		Expect(merged.Type.Name).To(Equal("int64"))
+		Expect(merged.Optional).To(BeFalse())
+		Expect(merged.Default).To(BeNil())
+	})
+
+	It("Should merge domains, with the child's expressions winning", func() {
+		merged := resolution.MergeOverrideField(parent, resolution.Field{
+			Name:    "x",
+			Domains: map[string]resolution.Domain{"doc": doc("child")},
+		})
+		Expect(merged.Domains).To(HaveLen(2))
+		Expect(merged.Domains["doc"]).To(Equal(doc("child")))
+		Expect(merged.Domains["go"]).To(Equal(marshal))
+	})
+
+	It("Should drop the domains the child removes", func() {
+		merged := resolution.MergeOverrideField(parent, resolution.Field{
+			Name:           "x",
+			OmittedDomains: []string{"doc"},
+		})
+		Expect(merged.Domains).To(HaveKey("go"))
+		Expect(merged.Domains).ToNot(HaveKey("doc"))
+	})
+})

@@ -1085,7 +1085,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(taskStatus.Variant).To(Equal(status.VariantDisabled))
 				Expect(
 					taskStatus.Message,
-				).To(Equal("Status Test Task has not been deployed"))
+				).To(Equal("Task not deployed"))
 				Expect(taskStatus.Details.Task).To(Equal(m.Key))
 			},
 		)
@@ -1174,7 +1174,7 @@ var _ = Describe("Task", Ordered, func() {
 					Exec(ctx, tx)).To(Succeed())
 				Expect(healed.Details.Task).To(Equal(t.Key))
 				Expect(healed.Variant).To(Equal(status.VariantWarning))
-				Expect(healed.Message).To(Equal("Self Heal Task status unknown"))
+				Expect(healed.Message).To(Equal("Task status unknown"))
 			},
 		)
 
@@ -1252,7 +1252,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(m.Status.Variant).To(Equal(status.VariantDisabled))
 				Expect(
 					m.Status.Message,
-				).To(Equal("Returned Status Task has not been deployed"))
+				).To(Equal("Task not deployed"))
 				Expect(m.Status.Details.Task).To(Equal(m.Key))
 			},
 		)
@@ -1302,7 +1302,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(copiedStatus.Variant).To(Equal(status.VariantDisabled))
 				Expect(
 					copiedStatus.Message,
-				).To(Equal("Copied Task has not been deployed"))
+				).To(Equal("Task not deployed"))
 				Expect(copiedStatus.Details.Task).To(Equal(copied.Key))
 			},
 		)
@@ -1329,7 +1329,7 @@ var _ = Describe("Task", Ordered, func() {
 						Entry(&taskStatus).
 						Exec(ctx, nil)).To(Succeed())
 					g.Expect(taskStatus.Variant).To(Equal(status.VariantWarning))
-					g.Expect(taskStatus.Message).To(ContainSubstring("not running"))
+					g.Expect(taskStatus.Message).To(Equal("Driver not running"))
 					g.Expect(taskStatus.Details.Task).To(Equal(t.Key))
 				}).Should(Succeed())
 			},
