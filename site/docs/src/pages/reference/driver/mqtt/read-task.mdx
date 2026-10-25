@@ -66,7 +66,7 @@ number or string.
 | `pointer`     | string  | No       | `""`        | JSON Pointer to the value (e.g., `/temperature`). `""` is the whole payload |
 | `channel`     | integer | Yes      | -           | Key of the Synnax channel to write to                                       |
 | `data_type`   | string  | No       | `"float64"` | Data type of the channel                                                    |
-| `time_format` | string  | No       | -           | [Timestamp format](#timestamp-handling). Required for `TIMESTAMP` channels  |
+| `time_format` | string  | No       | -           | [Timestamp format](#timestamp-handling). Required for `timestamp` channels  |
 | `enum_values` | array   | No       | `[]`        | Maps string labels in the payload to numbers (e.g., `"ON"` to `1`)          |
 | `disabled`    | boolean | No       | `false`     | Excludes the field from the task                                            |
 
