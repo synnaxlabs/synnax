@@ -49,6 +49,9 @@ build:linux --copt=-Wno-error=deprecated-declarations
 build:linux --copt=-Wno-sign-compare
 
 # Windows (MSVC)
+# The Windows build bots run jobs as SYSTEM but install Rust for Administrator. The
+# wasmtime genrule finds cargo there only through the host PATH.
+build:windows --action_env=PATH
 # Note: MSVC uses /std:c++latest for C++23 features (not /std:c++23)
 build:windows --enable_runfiles
 build:windows --cxxopt=/std:c++latest
