@@ -31,24 +31,23 @@ client.control.acquire(name, read, write, write_authorities=255) -> Controller
 
 <Field.List>
 
-<Field.Item name="name" type="str" id="acquire-name">
+<Field.Item name="name" type="str" required id="acquire-name">
 
-Required. Identifies the controller to other writers, such as in a schematic control
-legend.
-
-</Field.Item>
-
-<Field.Item name="read" type="channels or None" id="acquire-read">
-
-Required, and can be `None`. One channel or a list of channels to stream. The controller
-drops channels that do not exist, with no error.
+Identifies the controller to other writers, such as in a schematic control legend.
 
 </Field.Item>
 
-<Field.Item name="write" type="channels or None" id="acquire-write">
+<Field.Item name="read" type="channels or None" required id="acquire-read">
 
-Required, and can be `None`. One channel or a list of channels to command. The
-controller also writes their index channels.
+One channel or a list of channels to stream, or `None`. The controller drops channels
+that do not exist, with no error.
+
+</Field.Item>
+
+<Field.Item name="write" type="channels or None" required id="acquire-write">
+
+One channel or a list of channels to command, or `None`. The controller also writes
+their index channels.
 
 </Field.Item>
 
@@ -200,9 +199,9 @@ ctrl.wait_until(cond, timeout=None) -> bool
 
 <Field.List>
 
-<Field.Item name="cond" type="Callable[[Controller], bool]" id="wait_until-cond">
+<Field.Item name="cond" type="Callable[[Controller], bool]" required id="wait_until-cond">
 
-Required. The condition.
+The condition.
 
 </Field.Item>
 
@@ -245,17 +244,21 @@ ctrl.remains_true_for(cond, duration, percentage=1) -> bool
 
 <Field.List>
 
-<Field.Item name="cond" type="Callable[[Controller], bool]" id="remains_true_for-cond">
+<Field.Item
+  name="cond"
+  type="Callable[[Controller], bool]"
+  required
+  id="remains_true_for-cond"
+>
 
-Required. The condition.
+The condition.
 
 </Field.Item>
 
-<Field.Item name="duration" type="CrudeTimeSpan" id="remains_true_for-duration">
+<Field.Item name="duration" type="CrudeTimeSpan" required id="remains_true_for-duration">
 
-Required. How long to check: a number of seconds, a `TimeSpan`, or a
-`datetime.timedelta`. For example, `10` and `10 * sy.TimeSpan.SECOND` both mean ten
-seconds.
+How long to check: a number of seconds, a `TimeSpan`, or a `datetime.timedelta`. For
+example, `10` and `10 * sy.TimeSpan.SECOND` both mean ten seconds.
 
 </Field.Item>
 

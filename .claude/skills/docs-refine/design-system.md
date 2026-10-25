@@ -50,7 +50,11 @@ An icon in text, such as **Arcs** (`<Icon.Arc />`), is 1em and centers on the ca
 - **Gray-l4 frame** (`--pluto-border`) -> the edge of a block that has its own surface.
 - **Primary** -> links, the state that matters in a diagram, the Enterprise mark, and
   the brand accent: the rule under a page title and the landing use cases.
-- **Error and warning** -> the severity dot of a problem entry, and notes.
+- **Error and warning** -> the severity dot of a problem entry, and notes. Error also
+  marks a required field: the asterisk before **Required**.
+- **Arc code colors** (`tokens` in `@synnaxlabs/arc`) -> Arc code blocks, and the type
+  (teal) and default (green) of a field entry. Never Lyra primary for a type: primary
+  means a link.
 - **Warning (amber) and secondary (green)** -> the accents of the outer and inner group
   of a nest diagram: border, hatch, and header icon. Nothing else uses color.
 
@@ -131,8 +135,9 @@ own regions (`Diagram.Nest`, `Diagram.Handoff`) sit on the page.
 
 ### Field list
 
-- One entry per option. The name is the title. Type, default, and whether it is required
-  go in the meta line. The description is the body.
+- One entry per option. The first line holds the name (the title), then `type = default`
+  in Arc code colors, then **Required** after a red asterisk, as on a Lyra form label.
+  The description follows, then the meta line with the other values.
 - When an option has a Console label and a client field, the Console label is the title
   and the field goes in the meta line in mono. When one label sets two fields, the meta
   line lists both (**Range** -> `min_val`, `max_val`).
