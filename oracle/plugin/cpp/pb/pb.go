@@ -707,6 +707,7 @@ func (p *Plugin) generateFieldConversion(
 		return p.generateEnumConversion(
 			resolved,
 			form,
+			field.Optional,
 			cppFieldName,
 			pbAccessorName,
 			pbSetter,
@@ -1021,6 +1022,9 @@ func (p *Plugin) typeRefToCppForTranslator(
 	if !ok {
 		return typeRef.Name
 	}
+	if form, ok := resolved.Form.(resolution.EnumForm); ok && !form.IsIntEnum {
+		return "std::string"
+	}
 
 	name := resolved.Name
 	if cppDomain, ok := resolved.Domains["cpp"]; ok {
@@ -1126,6 +1130,7 @@ func (p *Plugin) generateTypeParamConversion(
 func (p *Plugin) generateEnumConversion(
 	resolved resolution.Type,
 	form resolution.EnumForm,
+	isOptional bool,
 	cppFieldName, pbAccessorName, pbSetter string,
 	data *templateData,
 ) (forward, backward string) {
@@ -1145,13 +1150,17 @@ func (p *Plugin) generateEnumConversion(
 	pbOutputPath := enum.FindPBOutputPath(resolved, data.table)
 	pbNamespace := naming.PBNamespace(pbOutputPath, resolved.Namespace)
 
+	value := "this->" + cppFieldName
+	if isOptional {
+		value = "*" + value
+	}
 	if form.IsIntEnum {
 		forward = fmt.Sprintf(
-			"%s(static_cast<%s::%s>(this->%s))",
+			"%s(static_cast<%s::%s>(%s))",
 			pbSetter,
 			pbNamespace,
 			enumName,
-			cppFieldName,
+			value,
 		)
 		backward = fmt.Sprintf(
 			"cpp.%s = static_cast<%s>(pb.%s());",
@@ -1159,20 +1168,27 @@ func (p *Plugin) generateEnumConversion(
 			cppEnumType,
 			pbAccessorName,
 		)
-	} else {
-		funcName := funcNamespace + casing.TypeSnake(enumName)
-		forward = fmt.Sprintf(`{
-        auto [v, err] = %s_to_pb(this->%s);
+		if isOptional {
+			forward = fmt.Sprintf("if (this->%s.has_value()) %s", cppFieldName, forward)
+			backward = fmt.Sprintf("if (pb.has_%s()) %s", pbAccessorName, backward)
+		}
+		return forward, backward
+	}
+	funcName := funcNamespace + casing.TypeSnake(enumName)
+	forward = fmt.Sprintf(`{
+        auto [v, err] = %s_to_pb(%s);
         if (err) return {{}, err};
         %s(v);
-    }`, funcName, cppFieldName, pbSetter)
-		backward = fmt.Sprintf(`{
+    }`, funcName, value, pbSetter)
+	backward = fmt.Sprintf(`{
         auto [v, err] = %s_from_pb(pb.%s());
         if (err) return {{}, err};
         cpp.%s = v;
     }`, funcName, pbAccessorName, cppFieldName)
+	if isOptional {
+		forward = fmt.Sprintf("if (this->%s.has_value()) %s", cppFieldName, forward)
+		backward = fmt.Sprintf("if (pb.has_%s()) %s", pbAccessorName, backward)
 	}
-
 	return forward, backward
 }
 
