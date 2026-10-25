@@ -405,7 +405,10 @@ class TestCodec:
         )
         encoded = bytearray(codec.encode(frame))
         encoded[0] |= 1 << EXTENDED_FLAG_POS
-        with pytest.raises(sy.ValidationError, match="extended flags byte"):
+        with pytest.raises(
+            sy.ValidationError,
+            match=r"^remote sent an extended flags byte, which this codec does not support$",
+        ):
             codec.decode(bytes(encoded))
 
     def test_dynamic_codec_update(self) -> None:

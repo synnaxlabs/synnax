@@ -157,7 +157,7 @@ func (i *Iterator) MoveTo(ctx context.Context, ts telem.TimeStamp) {
 }
 
 // Continue replaces the frame with the data between the end of the view and end, and
-// extends the view to end. It splits one read into consecutive pieces.
+// extends the view to end. It splits one read into consecutive chunks.
 func (i *Iterator) Continue(ctx context.Context, end telem.TimeStamp) bool {
 	start := i.view.Start
 	ok := i.Next(ctx, i.view.End.Span(end))

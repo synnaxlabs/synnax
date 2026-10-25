@@ -36,9 +36,9 @@ var _ = Describe("Options", func() {
 			"slow_consumer_timeout: must be positive",
 		),
 		Entry(
-			"a non-positive piece size",
-			cesium.WithPieceSize(0),
-			"piece_size: must be positive",
+			"a non-positive chunk size",
+			cesium.WithChunkSize(0),
+			"chunk_size: must be positive",
 		),
 	)
 })

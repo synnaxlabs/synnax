@@ -314,8 +314,7 @@ Codec::decode(const uint8_t *data, const size_t size) const {
             std::move(frame),
             x::errors::Error(
                 x::errors::VALIDATION,
-                "[framer.codec] - remote sent an extended flags byte, which this "
-                "codec does not support"
+                "remote sent an extended flags byte, which this codec does not support"
             )
         };
     if (flags.multiples_present)
@@ -323,8 +322,7 @@ Codec::decode(const uint8_t *data, const size_t size) const {
             std::move(frame),
             x::errors::Error(
                 x::errors::VALIDATION,
-                "[framer.codec] - remote sent alignment multiples, which this codec "
-                "does not support"
+                "remote sent alignment multiples, which this codec does not support"
             )
         };
 

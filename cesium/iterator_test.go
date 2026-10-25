@@ -1009,7 +1009,7 @@ var _ = Describe("Iterator Behavior", func() {
 				})
 			})
 
-			Describe("Pieces", func() {
+			Describe("Chunks", func() {
 				var (
 					idxA, dataA, idxB, dataB cesium.ChannelKey
 					opened                   int
@@ -1018,7 +1018,7 @@ var _ = Describe("Iterator Behavior", func() {
 				open := func(ctx SpecContext, opts ...cesium.Option) *cesium.DB {
 					GinkgoHelper()
 					opened++
-					sub := MustSucceed(fs.Sub("pieces_" + strconv.Itoa(opened)))
+					sub := MustSucceed(fs.Sub("chunks_" + strconv.Itoa(opened)))
 					return mustOpenDBOnFS(ctx, sub, opts...)
 				}
 				// openAB opens a DB with opts that holds two indexes with a data
@@ -1072,9 +1072,9 @@ var _ = Describe("Iterator Behavior", func() {
 					return pdb
 				}
 
-				// pieces sends seek and then cmd with span, and returns the samples of
+				// chunks sends seek and then cmd with span, and returns the samples of
 				// the data channels in each data response to cmd.
-				pieces := func(
+				chunks := func(
 					pdb *cesium.DB,
 					cfg cesium.IteratorConfig,
 					seek cesium.IteratorCommand,
@@ -1091,7 +1091,7 @@ var _ = Describe("Iterator Behavior", func() {
 					requests.Inlet() <- cesium.IteratorRequest{Command: seek}
 					Eventually(responses.Outlet()).Should(Receive())
 					requests.Inlet() <- cesium.IteratorRequest{Command: cmd, Span: span}
-					var pieces [][]int64
+					var chunks [][]int64
 					for {
 						var res cesium.IteratorResponse
 						Eventually(responses.Outlet()).Should(Receive(&res))
@@ -1099,25 +1099,25 @@ var _ = Describe("Iterator Behavior", func() {
 							Expect(res.Ack).To(BeTrue())
 							break
 						}
-						var piece []int64
+						var chunk []int64
 						for key, series := range res.Frame.Entries() {
 							if slices.Contains(data, key) {
-								piece = append(piece, series.Unmarshal[int64]()...)
+								chunk = append(chunk, series.Unmarshal[int64]()...)
 							}
 						}
-						pieces = append(pieces, piece)
+						chunks = append(chunks, chunk)
 					}
 					requests.Close()
 					Expect(sCtx.Wait()).To(Succeed())
-					return pieces
+					return chunks
 				}
 
 				DescribeTable(
-					"Should send a fixed span as one response per piece of at most "+
-						"the piece size, summed over the channels, in time order",
+					"Should send a fixed span as one response per chunk of at most "+
+						"the chunk size, summed over the channels, in time order",
 					func(ctx SpecContext, seek, cmd cesium.IteratorCommand) {
-						pdb := openAB(ctx, cesium.WithPieceSize(8))
-						Expect(pieces(
+						pdb := openAB(ctx, cesium.WithChunkSize(8))
+						Expect(chunks(
 							pdb,
 							cesium.IteratorConfig{
 								Bounds: telem.TimeRangeMax,
@@ -1152,7 +1152,7 @@ var _ = Describe("Iterator Behavior", func() {
 				)
 
 				DescribeTable(
-					"Should split a strided fixed span into pieces that keep the samples "+
+					"Should split a strided fixed span into chunks that keep the samples "+
 						"of one read",
 					func(ctx SpecContext, seek, cmd cesium.IteratorCommand) {
 						read := func(opts ...cesium.Option) [][]int64 {
@@ -1165,10 +1165,10 @@ var _ = Describe("Iterator Behavior", func() {
 									Variant: telem.StrideReduction{Factor: 2},
 								},
 							}
-							return pieces(pdb, cfg, seek, cmd, 10*telem.Second, dataA)
+							return chunks(pdb, cfg, seek, cmd, 10*telem.Second, dataA)
 						}
 						Expect(read()).To(Equal([][]int64{{10, 30, 50}}))
-						Expect(read(cesium.WithPieceSize(4))).
+						Expect(read(cesium.WithChunkSize(4))).
 							To(Equal([][]int64{{10}, {30}, {50}}))
 					},
 					Entry(
@@ -1184,9 +1184,9 @@ var _ = Describe("Iterator Behavior", func() {
 				)
 
 				DescribeTable(
-					"Should end each piece after a run of equal timestamps",
+					"Should end each chunk after a run of equal timestamps",
 					func(ctx SpecContext, seek, cmd cesium.IteratorCommand) {
-						pdb := open(ctx, cesium.WithPieceSize(2))
+						pdb := open(ctx, cesium.WithChunkSize(2))
 						idx, data := GenerateChannelKey(), GenerateChannelKey()
 						Expect(pdb.CreateChannel(
 							ctx,
@@ -1210,7 +1210,7 @@ var _ = Describe("Iterator Behavior", func() {
 								telem.NewSeriesV[int64](10, 20, 30, 40, 50),
 							},
 						))).To(Succeed())
-						read := pieces(
+						read := chunks(
 							pdb,
 							cesium.IteratorConfig{
 								Bounds:   telem.TimeRangeMax,
@@ -1238,10 +1238,10 @@ var _ = Describe("Iterator Behavior", func() {
 					),
 				)
 
-				It("Should continue from a pieced Prev across domains", func(
+				It("Should continue from a chunked Prev across domains", func(
 					ctx SpecContext,
 				) {
-					pdb := open(ctx, cesium.WithPieceSize(2))
+					pdb := open(ctx, cesium.WithChunkSize(2))
 					idx, data := GenerateChannelKey(), GenerateChannelKey()
 					Expect(pdb.CreateChannel(
 						ctx,
@@ -1297,10 +1297,10 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(i.Close()).To(Succeed())
 				})
 
-				It("Should keep the view start of a pieced Next", func(
+				It("Should keep the view start of a chunked Next", func(
 					ctx SpecContext,
 				) {
-					pdb := openAB(ctx, cesium.WithPieceSize(4))
+					pdb := openAB(ctx, cesium.WithChunkSize(4))
 					i := MustSucceed(pdb.OpenIterator(cesium.IteratorConfig{
 						Bounds:   telem.TimeRangeMax,
 						Channels: []cesium.ChannelKey{idxA, dataA},
