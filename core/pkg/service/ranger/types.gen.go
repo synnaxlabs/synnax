@@ -12,10 +12,7 @@
 package ranger
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/versions"
-	"github.com/synnaxlabs/x/filter"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"strconv"
 )
@@ -26,6 +23,7 @@ type Key = versions.Key
 // Range is a user-defined region of time in the Synnax cluster. Ranges act as a method
 // for labeling and categorizing telemetry data within specific time periods.
 type Range = versions.Range
+type Where = versions.Where
 
 // Ref is the range a visualization shows: a range saved in the Core, or an inline
 // window.
@@ -45,23 +43,6 @@ type KeyRef = versions.KeyRef
 
 // WindowRef is a window carried inline: rolling or fixed.
 type WindowRef = versions.WindowRef
-
-type Where struct {
-	// And matches when every child matches.
-	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
-	// Or matches when any child matches.
-	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
-	// Not matches when the child does not match.
-	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
-	// Key selects by key.
-	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
-	// Name selects by name.
-	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
-	// Overlaps matches ranges whose time range overlaps the given range.
-	Overlaps *telem.TimeRange `json:"overlaps,omitzero" msgpack:"overlaps,omitempty"`
-	// Labels matches ranges that have any of the given labels.
-	Labels []label.Key `json:"labels,omitzero" msgpack:"labels,omitempty"`
-}
 
 // RetrieveRequest is a request to retrieve ranges.
 type RetrieveRequest struct {

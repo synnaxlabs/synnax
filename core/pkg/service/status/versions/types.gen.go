@@ -33,3 +33,4 @@ type Key = v1.Key
 // component-specific details. A status is uniquely identified by a key and may carry a
 // human-readable name and labels for categorization and filtering.
 type Status[Details any] = v1.Status[Details]
+type Where = v1.Where

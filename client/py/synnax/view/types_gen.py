@@ -16,32 +16,10 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
-from synnax import label, status
+from synnax import ranger, status
 from synnax.ontology.payload import ID
 
 Key: TypeAlias = UUID
-
-
-class RangeQuery(BaseModel):
-    """Filters the ranges shown by a range view.
-
-    Attributes:
-        has_labels: Restricts the view to ranges carrying any of these labels.
-    """
-
-    has_labels: list[label.Key] = Field(default_factory=list)
-
-
-class StatusQuery(BaseModel):
-    """Filters the statuses shown by a status view.
-
-    Attributes:
-        has_labels: Restricts the view to statuses carrying any of these labels.
-        variants: Restricts the view to statuses of these variants.
-    """
-
-    has_labels: list[label.Key] = Field(default_factory=list)
-    variants: list[status.Variant] = Field(default_factory=list)
 
 
 class Base(BaseModel):
@@ -63,18 +41,18 @@ class RangeView(Base):
     """Is a saved view of ranges."""
 
     type: Literal["range"] = "range"
-    query: RangeQuery
+    where: ranger.Where | None = None
 
 
 class StatusView(Base):
     """Is a saved view of statuses."""
 
     type: Literal["status"] = "status"
-    query: StatusQuery
+    where: status.Where | None = None
 
 
 # Is a saved, named filter over a list of resources. The type selects the resource
-# the view lists and the shape of its query.
+# the view lists and the shape of its where.
 View = Annotated[
     RangeView | StatusView,
     Field(discriminator="type"),

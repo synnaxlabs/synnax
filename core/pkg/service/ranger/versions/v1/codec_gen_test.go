@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
+	filter "github.com/synnaxlabs/x/filter/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
 )
@@ -83,6 +84,546 @@ var _ = Describe("Codec", func() {
 			}}),
 		)
 	})
+	Describe("Where", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v1.Where) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v1.Where
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v1.Where{
+				And: []v1.Where{
+					{
+						And: []v1.Where{
+							{
+								And: []v1.Where{
+									{
+										And:      []v1.Where{{}},
+										Or:       []v1.Where{{}},
+										Not:      new(v1.Where{}),
+										Key:      new(filter.Set[v1.Key]{}),
+										Name:     new(filter.String{}),
+										Overlaps: new(telem.TimeRange{}),
+										Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a")},
+									},
+								},
+								Or: []v1.Where{
+									{
+										And:      []v1.Where{{}},
+										Or:       []v1.Where{{}},
+										Not:      new(v1.Where{}),
+										Key:      new(filter.Set[v1.Key]{}),
+										Name:     new(filter.String{}),
+										Overlaps: new(telem.TimeRange{}),
+										Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567812")},
+									},
+								},
+								Not: new(v1.Where{
+									And:      []v1.Where{{}},
+									Or:       []v1.Where{{}},
+									Not:      new(v1.Where{}),
+									Key:      new(filter.Set[v1.Key]{}),
+									Name:     new(filter.String{}),
+									Overlaps: new(telem.TimeRange{}),
+									Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781a")},
+								}),
+								Key: new(filter.Set[v1.Key]{
+									Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781c"))),
+									In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781d")},
+								}),
+								Name: new(filter.String{
+									Eq:    new(string("test_31")),
+									In:    []string{"test_32"},
+									Regex: new(string("test_33")),
+								}),
+								Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(36), End: telem.TimeStamp(37)}),
+								Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567825")},
+							},
+						},
+						Or: []v1.Where{
+							{
+								And: []v1.Where{
+									{
+										And:      []v1.Where{{}},
+										Or:       []v1.Where{{}},
+										Not:      new(v1.Where{}),
+										Key:      new(filter.Set[v1.Key]{}),
+										Name:     new(filter.String{}),
+										Overlaps: new(telem.TimeRange{}),
+										Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456782e")},
+									},
+								},
+								Or: []v1.Where{
+									{
+										And:      []v1.Where{{}},
+										Or:       []v1.Where{{}},
+										Not:      new(v1.Where{}),
+										Key:      new(filter.Set[v1.Key]{}),
+										Name:     new(filter.String{}),
+										Overlaps: new(telem.TimeRange{}),
+										Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567836")},
+									},
+								},
+								Not: new(v1.Where{
+									And:      []v1.Where{{}},
+									Or:       []v1.Where{{}},
+									Not:      new(v1.Where{}),
+									Key:      new(filter.Set[v1.Key]{}),
+									Name:     new(filter.String{}),
+									Overlaps: new(telem.TimeRange{}),
+									Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456783e")},
+								}),
+								Key: new(filter.Set[v1.Key]{
+									Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567840"))),
+									In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567841")},
+								}),
+								Name: new(filter.String{
+									Eq:    new(string("test_67")),
+									In:    []string{"test_68"},
+									Regex: new(string("test_69")),
+								}),
+								Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(72), End: telem.TimeStamp(73)}),
+								Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567849")},
+							},
+						},
+						Not: new(v1.Where{
+							And: []v1.Where{
+								{
+									And:      []v1.Where{{}},
+									Or:       []v1.Where{{}},
+									Not:      new(v1.Where{}),
+									Key:      new(filter.Set[v1.Key]{}),
+									Name:     new(filter.String{}),
+									Overlaps: new(telem.TimeRange{}),
+									Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567852")},
+								},
+							},
+							Or: []v1.Where{
+								{
+									And:      []v1.Where{{}},
+									Or:       []v1.Where{{}},
+									Not:      new(v1.Where{}),
+									Key:      new(filter.Set[v1.Key]{}),
+									Name:     new(filter.String{}),
+									Overlaps: new(telem.TimeRange{}),
+									Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456785a")},
+								},
+							},
+							Not: new(v1.Where{
+								And:      []v1.Where{{}},
+								Or:       []v1.Where{{}},
+								Not:      new(v1.Where{}),
+								Key:      new(filter.Set[v1.Key]{}),
+								Name:     new(filter.String{}),
+								Overlaps: new(telem.TimeRange{}),
+								Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567862")},
+							}),
+							Key: new(filter.Set[v1.Key]{
+								Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567864"))),
+								In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567865")},
+							}),
+							Name: new(filter.String{
+								Eq:    new(string("test_103")),
+								In:    []string{"test_104"},
+								Regex: new(string("test_105")),
+							}),
+							Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(108), End: telem.TimeStamp(109)}),
+							Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786d")},
+						}),
+						Key: new(filter.Set[v1.Key]{
+							Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786f"))),
+							In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567870")},
+						}),
+						Name: new(filter.String{
+							Eq:    new(string("test_114")),
+							In:    []string{"test_115"},
+							Regex: new(string("test_116")),
+						}),
+						Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(119), End: telem.TimeStamp(120)}),
+						Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567878")},
+					},
+				},
+				Or: []v1.Where{
+					{
+						And: []v1.Where{
+							{
+								And: []v1.Where{
+									{
+										And:      []v1.Where{{}},
+										Or:       []v1.Where{{}},
+										Not:      new(v1.Where{}),
+										Key:      new(filter.Set[v1.Key]{}),
+										Name:     new(filter.String{}),
+										Overlaps: new(telem.TimeRange{}),
+										Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567882")},
+									},
+								},
+								Or: []v1.Where{
+									{
+										And:      []v1.Where{{}},
+										Or:       []v1.Where{{}},
+										Not:      new(v1.Where{}),
+										Key:      new(filter.Set[v1.Key]{}),
+										Name:     new(filter.String{}),
+										Overlaps: new(telem.TimeRange{}),
+										Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456788a")},
+									},
+								},
+								Not: new(v1.Where{
+									And:      []v1.Where{{}},
+									Or:       []v1.Where{{}},
+									Not:      new(v1.Where{}),
+									Key:      new(filter.Set[v1.Key]{}),
+									Name:     new(filter.String{}),
+									Overlaps: new(telem.TimeRange{}),
+									Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567892")},
+								}),
+								Key: new(filter.Set[v1.Key]{
+									Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567894"))),
+									In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567895")},
+								}),
+								Name: new(filter.String{
+									Eq:    new(string("test_151")),
+									In:    []string{"test_152"},
+									Regex: new(string("test_153")),
+								}),
+								Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(156), End: telem.TimeStamp(157)}),
+								Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456789d")},
+							},
+						},
+						Or: []v1.Where{
+							{
+								And: []v1.Where{
+									{
+										And:      []v1.Where{{}},
+										Or:       []v1.Where{{}},
+										Not:      new(v1.Where{}),
+										Key:      new(filter.Set[v1.Key]{}),
+										Name:     new(filter.String{}),
+										Overlaps: new(telem.TimeRange{}),
+										Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678a6")},
+									},
+								},
+								Or: []v1.Where{
+									{
+										And:      []v1.Where{{}},
+										Or:       []v1.Where{{}},
+										Not:      new(v1.Where{}),
+										Key:      new(filter.Set[v1.Key]{}),
+										Name:     new(filter.String{}),
+										Overlaps: new(telem.TimeRange{}),
+										Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678ae")},
+									},
+								},
+								Not: new(v1.Where{
+									And:      []v1.Where{{}},
+									Or:       []v1.Where{{}},
+									Not:      new(v1.Where{}),
+									Key:      new(filter.Set[v1.Key]{}),
+									Name:     new(filter.String{}),
+									Overlaps: new(telem.TimeRange{}),
+									Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678b6")},
+								}),
+								Key: new(filter.Set[v1.Key]{
+									Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678b8"))),
+									In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678b9")},
+								}),
+								Name: new(filter.String{
+									Eq:    new(string("test_187")),
+									In:    []string{"test_188"},
+									Regex: new(string("test_189")),
+								}),
+								Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(192), End: telem.TimeStamp(193)}),
+								Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678c1")},
+							},
+						},
+						Not: new(v1.Where{
+							And: []v1.Where{
+								{
+									And:      []v1.Where{{}},
+									Or:       []v1.Where{{}},
+									Not:      new(v1.Where{}),
+									Key:      new(filter.Set[v1.Key]{}),
+									Name:     new(filter.String{}),
+									Overlaps: new(telem.TimeRange{}),
+									Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678ca")},
+								},
+							},
+							Or: []v1.Where{
+								{
+									And:      []v1.Where{{}},
+									Or:       []v1.Where{{}},
+									Not:      new(v1.Where{}),
+									Key:      new(filter.Set[v1.Key]{}),
+									Name:     new(filter.String{}),
+									Overlaps: new(telem.TimeRange{}),
+									Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678d2")},
+								},
+							},
+							Not: new(v1.Where{
+								And:      []v1.Where{{}},
+								Or:       []v1.Where{{}},
+								Not:      new(v1.Where{}),
+								Key:      new(filter.Set[v1.Key]{}),
+								Name:     new(filter.String{}),
+								Overlaps: new(telem.TimeRange{}),
+								Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678da")},
+							}),
+							Key: new(filter.Set[v1.Key]{
+								Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678dc"))),
+								In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678dd")},
+							}),
+							Name: new(filter.String{
+								Eq:    new(string("test_223")),
+								In:    []string{"test_224"},
+								Regex: new(string("test_225")),
+							}),
+							Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(228), End: telem.TimeStamp(229)}),
+							Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678e5")},
+						}),
+						Key: new(filter.Set[v1.Key]{
+							Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678e7"))),
+							In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678e8")},
+						}),
+						Name: new(filter.String{
+							Eq:    new(string("test_234")),
+							In:    []string{"test_235"},
+							Regex: new(string("test_236")),
+						}),
+						Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(239), End: telem.TimeStamp(240)}),
+						Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678f0")},
+					},
+				},
+				Not: new(v1.Where{
+					And: []v1.Where{
+						{
+							And: []v1.Where{
+								{
+									And:      []v1.Where{{}},
+									Or:       []v1.Where{{}},
+									Not:      new(v1.Where{}),
+									Key:      new(filter.Set[v1.Key]{}),
+									Name:     new(filter.String{}),
+									Overlaps: new(telem.TimeRange{}),
+									Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678fa")},
+								},
+							},
+							Or: []v1.Where{
+								{
+									And:      []v1.Where{{}},
+									Or:       []v1.Where{{}},
+									Not:      new(v1.Where{}),
+									Key:      new(filter.Set[v1.Key]{}),
+									Name:     new(filter.String{}),
+									Overlaps: new(telem.TimeRange{}),
+									Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802")},
+								},
+							},
+							Not: new(v1.Where{
+								And:      []v1.Where{{}},
+								Or:       []v1.Where{{}},
+								Not:      new(v1.Where{}),
+								Key:      new(filter.Set[v1.Key]{}),
+								Name:     new(filter.String{}),
+								Overlaps: new(telem.TimeRange{}),
+								Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a")},
+							}),
+							Key: new(filter.Set[v1.Key]{
+								Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
+								In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d")},
+							}),
+							Name: new(filter.String{
+								Eq:    new(string("test_271")),
+								In:    []string{"test_272"},
+								Regex: new(string("test_273")),
+							}),
+							Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(276), End: telem.TimeStamp(277)}),
+							Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815")},
+						},
+					},
+					Or: []v1.Where{
+						{
+							And: []v1.Where{
+								{
+									And:      []v1.Where{{}},
+									Or:       []v1.Where{{}},
+									Not:      new(v1.Where{}),
+									Key:      new(filter.Set[v1.Key]{}),
+									Name:     new(filter.String{}),
+									Overlaps: new(telem.TimeRange{}),
+									Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781e")},
+								},
+							},
+							Or: []v1.Where{
+								{
+									And:      []v1.Where{{}},
+									Or:       []v1.Where{{}},
+									Not:      new(v1.Where{}),
+									Key:      new(filter.Set[v1.Key]{}),
+									Name:     new(filter.String{}),
+									Overlaps: new(telem.TimeRange{}),
+									Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567826")},
+								},
+							},
+							Not: new(v1.Where{
+								And:      []v1.Where{{}},
+								Or:       []v1.Where{{}},
+								Not:      new(v1.Where{}),
+								Key:      new(filter.Set[v1.Key]{}),
+								Name:     new(filter.String{}),
+								Overlaps: new(telem.TimeRange{}),
+								Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456782e")},
+							}),
+							Key: new(filter.Set[v1.Key]{
+								Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567830"))),
+								In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567831")},
+							}),
+							Name: new(filter.String{
+								Eq:    new(string("test_307")),
+								In:    []string{"test_308"},
+								Regex: new(string("test_309")),
+							}),
+							Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(312), End: telem.TimeStamp(313)}),
+							Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567839")},
+						},
+					},
+					Not: new(v1.Where{
+						And: []v1.Where{
+							{
+								And:      []v1.Where{{}},
+								Or:       []v1.Where{{}},
+								Not:      new(v1.Where{}),
+								Key:      new(filter.Set[v1.Key]{}),
+								Name:     new(filter.String{}),
+								Overlaps: new(telem.TimeRange{}),
+								Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567842")},
+							},
+						},
+						Or: []v1.Where{
+							{
+								And:      []v1.Where{{}},
+								Or:       []v1.Where{{}},
+								Not:      new(v1.Where{}),
+								Key:      new(filter.Set[v1.Key]{}),
+								Name:     new(filter.String{}),
+								Overlaps: new(telem.TimeRange{}),
+								Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456784a")},
+							},
+						},
+						Not: new(v1.Where{
+							And:      []v1.Where{{}},
+							Or:       []v1.Where{{}},
+							Not:      new(v1.Where{}),
+							Key:      new(filter.Set[v1.Key]{}),
+							Name:     new(filter.String{}),
+							Overlaps: new(telem.TimeRange{}),
+							Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567852")},
+						}),
+						Key: new(filter.Set[v1.Key]{
+							Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567854"))),
+							In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567855")},
+						}),
+						Name: new(filter.String{
+							Eq:    new(string("test_343")),
+							In:    []string{"test_344"},
+							Regex: new(string("test_345")),
+						}),
+						Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(348), End: telem.TimeStamp(349)}),
+						Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456785d")},
+					}),
+					Key: new(filter.Set[v1.Key]{
+						Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456785f"))),
+						In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567860")},
+					}),
+					Name: new(filter.String{
+						Eq:    new(string("test_354")),
+						In:    []string{"test_355"},
+						Regex: new(string("test_356")),
+					}),
+					Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(359), End: telem.TimeStamp(360)}),
+					Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567868")},
+				}),
+				Key: new(filter.Set[v1.Key]{
+					Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786a"))),
+					In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786b")},
+				}),
+				Name: new(filter.String{
+					Eq:    new(string("test_365")),
+					In:    []string{"test_366"},
+					Regex: new(string("test_367")),
+				}),
+				Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(370), End: telem.TimeStamp(371)}),
+				Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567873")},
+			}),
+			Entry("zero values", v1.Where{
+				And:      []v1.Where{},
+				Or:       []v1.Where{},
+				Not:      nil,
+				Key:      nil,
+				Name:     nil,
+				Overlaps: nil,
+				Labels:   []uuid.UUID{},
+			}),
+			Entry("empty collections", v1.Where{
+				And: []v1.Where{},
+				Or:  []v1.Where{},
+				Not: new(v1.Where{
+					And: []v1.Where{},
+					Or:  []v1.Where{},
+					Not: new(v1.Where{
+						And: []v1.Where{},
+						Or:  []v1.Where{},
+						Not: new(v1.Where{
+							And:      []v1.Where{},
+							Or:       []v1.Where{},
+							Not:      new(v1.Where{}),
+							Key:      new(filter.Set[v1.Key]{}),
+							Name:     new(filter.String{}),
+							Overlaps: new(telem.TimeRange{}),
+							Labels:   []uuid.UUID{},
+						}),
+						Key: new(filter.Set[v1.Key]{
+							Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567812"))),
+							In: []uuid.UUID{},
+						}),
+						Name: new(filter.String{
+							Eq:    new(string("test_21")),
+							In:    []string{},
+							Regex: new(string("test_23")),
+						}),
+						Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(26), End: telem.TimeStamp(27)}),
+						Labels:   []uuid.UUID{},
+					}),
+					Key: new(filter.Set[v1.Key]{
+						Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781d"))),
+						In: []uuid.UUID{},
+					}),
+					Name: new(filter.String{
+						Eq:    new(string("test_32")),
+						In:    []string{},
+						Regex: new(string("test_34")),
+					}),
+					Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(37), End: telem.TimeStamp(38)}),
+					Labels:   []uuid.UUID{},
+				}),
+				Key: new(filter.Set[v1.Key]{
+					Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567828"))),
+					In: []uuid.UUID{},
+				}),
+				Name: new(filter.String{
+					Eq:    new(string("test_43")),
+					In:    []string{},
+					Regex: new(string("test_45")),
+				}),
+				Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(48), End: telem.TimeStamp(49)}),
+				Labels:   []uuid.UUID{},
+			}),
+		)
+	})
 })
 
 func BenchmarkEncodeDecodeRange(b *testing.B) {
@@ -122,6 +663,486 @@ func BenchmarkEncodeDecodeRef(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v1.Ref
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeWhere(b *testing.B) {
+	seed := v1.Where{
+		And: []v1.Where{
+			{
+				And: []v1.Where{
+					{
+						And: []v1.Where{
+							{
+								And:      []v1.Where{{}},
+								Or:       []v1.Where{{}},
+								Not:      new(v1.Where{}),
+								Key:      new(filter.Set[v1.Key]{}),
+								Name:     new(filter.String{}),
+								Overlaps: new(telem.TimeRange{}),
+								Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a")},
+							},
+						},
+						Or: []v1.Where{
+							{
+								And:      []v1.Where{{}},
+								Or:       []v1.Where{{}},
+								Not:      new(v1.Where{}),
+								Key:      new(filter.Set[v1.Key]{}),
+								Name:     new(filter.String{}),
+								Overlaps: new(telem.TimeRange{}),
+								Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567812")},
+							},
+						},
+						Not: new(v1.Where{
+							And:      []v1.Where{{}},
+							Or:       []v1.Where{{}},
+							Not:      new(v1.Where{}),
+							Key:      new(filter.Set[v1.Key]{}),
+							Name:     new(filter.String{}),
+							Overlaps: new(telem.TimeRange{}),
+							Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781a")},
+						}),
+						Key: new(filter.Set[v1.Key]{
+							Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781c"))),
+							In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781d")},
+						}),
+						Name: new(filter.String{
+							Eq:    new(string("test_31")),
+							In:    []string{"test_32"},
+							Regex: new(string("test_33")),
+						}),
+						Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(36), End: telem.TimeStamp(37)}),
+						Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567825")},
+					},
+				},
+				Or: []v1.Where{
+					{
+						And: []v1.Where{
+							{
+								And:      []v1.Where{{}},
+								Or:       []v1.Where{{}},
+								Not:      new(v1.Where{}),
+								Key:      new(filter.Set[v1.Key]{}),
+								Name:     new(filter.String{}),
+								Overlaps: new(telem.TimeRange{}),
+								Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456782e")},
+							},
+						},
+						Or: []v1.Where{
+							{
+								And:      []v1.Where{{}},
+								Or:       []v1.Where{{}},
+								Not:      new(v1.Where{}),
+								Key:      new(filter.Set[v1.Key]{}),
+								Name:     new(filter.String{}),
+								Overlaps: new(telem.TimeRange{}),
+								Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567836")},
+							},
+						},
+						Not: new(v1.Where{
+							And:      []v1.Where{{}},
+							Or:       []v1.Where{{}},
+							Not:      new(v1.Where{}),
+							Key:      new(filter.Set[v1.Key]{}),
+							Name:     new(filter.String{}),
+							Overlaps: new(telem.TimeRange{}),
+							Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456783e")},
+						}),
+						Key: new(filter.Set[v1.Key]{
+							Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567840"))),
+							In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567841")},
+						}),
+						Name: new(filter.String{
+							Eq:    new(string("test_67")),
+							In:    []string{"test_68"},
+							Regex: new(string("test_69")),
+						}),
+						Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(72), End: telem.TimeStamp(73)}),
+						Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567849")},
+					},
+				},
+				Not: new(v1.Where{
+					And: []v1.Where{
+						{
+							And:      []v1.Where{{}},
+							Or:       []v1.Where{{}},
+							Not:      new(v1.Where{}),
+							Key:      new(filter.Set[v1.Key]{}),
+							Name:     new(filter.String{}),
+							Overlaps: new(telem.TimeRange{}),
+							Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567852")},
+						},
+					},
+					Or: []v1.Where{
+						{
+							And:      []v1.Where{{}},
+							Or:       []v1.Where{{}},
+							Not:      new(v1.Where{}),
+							Key:      new(filter.Set[v1.Key]{}),
+							Name:     new(filter.String{}),
+							Overlaps: new(telem.TimeRange{}),
+							Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456785a")},
+						},
+					},
+					Not: new(v1.Where{
+						And:      []v1.Where{{}},
+						Or:       []v1.Where{{}},
+						Not:      new(v1.Where{}),
+						Key:      new(filter.Set[v1.Key]{}),
+						Name:     new(filter.String{}),
+						Overlaps: new(telem.TimeRange{}),
+						Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567862")},
+					}),
+					Key: new(filter.Set[v1.Key]{
+						Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567864"))),
+						In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567865")},
+					}),
+					Name: new(filter.String{
+						Eq:    new(string("test_103")),
+						In:    []string{"test_104"},
+						Regex: new(string("test_105")),
+					}),
+					Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(108), End: telem.TimeStamp(109)}),
+					Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786d")},
+				}),
+				Key: new(filter.Set[v1.Key]{
+					Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786f"))),
+					In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567870")},
+				}),
+				Name: new(filter.String{
+					Eq:    new(string("test_114")),
+					In:    []string{"test_115"},
+					Regex: new(string("test_116")),
+				}),
+				Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(119), End: telem.TimeStamp(120)}),
+				Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567878")},
+			},
+		},
+		Or: []v1.Where{
+			{
+				And: []v1.Where{
+					{
+						And: []v1.Where{
+							{
+								And:      []v1.Where{{}},
+								Or:       []v1.Where{{}},
+								Not:      new(v1.Where{}),
+								Key:      new(filter.Set[v1.Key]{}),
+								Name:     new(filter.String{}),
+								Overlaps: new(telem.TimeRange{}),
+								Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567882")},
+							},
+						},
+						Or: []v1.Where{
+							{
+								And:      []v1.Where{{}},
+								Or:       []v1.Where{{}},
+								Not:      new(v1.Where{}),
+								Key:      new(filter.Set[v1.Key]{}),
+								Name:     new(filter.String{}),
+								Overlaps: new(telem.TimeRange{}),
+								Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456788a")},
+							},
+						},
+						Not: new(v1.Where{
+							And:      []v1.Where{{}},
+							Or:       []v1.Where{{}},
+							Not:      new(v1.Where{}),
+							Key:      new(filter.Set[v1.Key]{}),
+							Name:     new(filter.String{}),
+							Overlaps: new(telem.TimeRange{}),
+							Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567892")},
+						}),
+						Key: new(filter.Set[v1.Key]{
+							Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567894"))),
+							In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567895")},
+						}),
+						Name: new(filter.String{
+							Eq:    new(string("test_151")),
+							In:    []string{"test_152"},
+							Regex: new(string("test_153")),
+						}),
+						Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(156), End: telem.TimeStamp(157)}),
+						Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456789d")},
+					},
+				},
+				Or: []v1.Where{
+					{
+						And: []v1.Where{
+							{
+								And:      []v1.Where{{}},
+								Or:       []v1.Where{{}},
+								Not:      new(v1.Where{}),
+								Key:      new(filter.Set[v1.Key]{}),
+								Name:     new(filter.String{}),
+								Overlaps: new(telem.TimeRange{}),
+								Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678a6")},
+							},
+						},
+						Or: []v1.Where{
+							{
+								And:      []v1.Where{{}},
+								Or:       []v1.Where{{}},
+								Not:      new(v1.Where{}),
+								Key:      new(filter.Set[v1.Key]{}),
+								Name:     new(filter.String{}),
+								Overlaps: new(telem.TimeRange{}),
+								Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678ae")},
+							},
+						},
+						Not: new(v1.Where{
+							And:      []v1.Where{{}},
+							Or:       []v1.Where{{}},
+							Not:      new(v1.Where{}),
+							Key:      new(filter.Set[v1.Key]{}),
+							Name:     new(filter.String{}),
+							Overlaps: new(telem.TimeRange{}),
+							Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678b6")},
+						}),
+						Key: new(filter.Set[v1.Key]{
+							Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678b8"))),
+							In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678b9")},
+						}),
+						Name: new(filter.String{
+							Eq:    new(string("test_187")),
+							In:    []string{"test_188"},
+							Regex: new(string("test_189")),
+						}),
+						Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(192), End: telem.TimeStamp(193)}),
+						Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678c1")},
+					},
+				},
+				Not: new(v1.Where{
+					And: []v1.Where{
+						{
+							And:      []v1.Where{{}},
+							Or:       []v1.Where{{}},
+							Not:      new(v1.Where{}),
+							Key:      new(filter.Set[v1.Key]{}),
+							Name:     new(filter.String{}),
+							Overlaps: new(telem.TimeRange{}),
+							Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678ca")},
+						},
+					},
+					Or: []v1.Where{
+						{
+							And:      []v1.Where{{}},
+							Or:       []v1.Where{{}},
+							Not:      new(v1.Where{}),
+							Key:      new(filter.Set[v1.Key]{}),
+							Name:     new(filter.String{}),
+							Overlaps: new(telem.TimeRange{}),
+							Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678d2")},
+						},
+					},
+					Not: new(v1.Where{
+						And:      []v1.Where{{}},
+						Or:       []v1.Where{{}},
+						Not:      new(v1.Where{}),
+						Key:      new(filter.Set[v1.Key]{}),
+						Name:     new(filter.String{}),
+						Overlaps: new(telem.TimeRange{}),
+						Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678da")},
+					}),
+					Key: new(filter.Set[v1.Key]{
+						Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678dc"))),
+						In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678dd")},
+					}),
+					Name: new(filter.String{
+						Eq:    new(string("test_223")),
+						In:    []string{"test_224"},
+						Regex: new(string("test_225")),
+					}),
+					Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(228), End: telem.TimeStamp(229)}),
+					Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678e5")},
+				}),
+				Key: new(filter.Set[v1.Key]{
+					Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678e7"))),
+					In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678e8")},
+				}),
+				Name: new(filter.String{
+					Eq:    new(string("test_234")),
+					In:    []string{"test_235"},
+					Regex: new(string("test_236")),
+				}),
+				Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(239), End: telem.TimeStamp(240)}),
+				Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678f0")},
+			},
+		},
+		Not: new(v1.Where{
+			And: []v1.Where{
+				{
+					And: []v1.Where{
+						{
+							And:      []v1.Where{{}},
+							Or:       []v1.Where{{}},
+							Not:      new(v1.Where{}),
+							Key:      new(filter.Set[v1.Key]{}),
+							Name:     new(filter.String{}),
+							Overlaps: new(telem.TimeRange{}),
+							Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678fa")},
+						},
+					},
+					Or: []v1.Where{
+						{
+							And:      []v1.Where{{}},
+							Or:       []v1.Where{{}},
+							Not:      new(v1.Where{}),
+							Key:      new(filter.Set[v1.Key]{}),
+							Name:     new(filter.String{}),
+							Overlaps: new(telem.TimeRange{}),
+							Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802")},
+						},
+					},
+					Not: new(v1.Where{
+						And:      []v1.Where{{}},
+						Or:       []v1.Where{{}},
+						Not:      new(v1.Where{}),
+						Key:      new(filter.Set[v1.Key]{}),
+						Name:     new(filter.String{}),
+						Overlaps: new(telem.TimeRange{}),
+						Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a")},
+					}),
+					Key: new(filter.Set[v1.Key]{
+						Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
+						In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d")},
+					}),
+					Name: new(filter.String{
+						Eq:    new(string("test_271")),
+						In:    []string{"test_272"},
+						Regex: new(string("test_273")),
+					}),
+					Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(276), End: telem.TimeStamp(277)}),
+					Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815")},
+				},
+			},
+			Or: []v1.Where{
+				{
+					And: []v1.Where{
+						{
+							And:      []v1.Where{{}},
+							Or:       []v1.Where{{}},
+							Not:      new(v1.Where{}),
+							Key:      new(filter.Set[v1.Key]{}),
+							Name:     new(filter.String{}),
+							Overlaps: new(telem.TimeRange{}),
+							Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781e")},
+						},
+					},
+					Or: []v1.Where{
+						{
+							And:      []v1.Where{{}},
+							Or:       []v1.Where{{}},
+							Not:      new(v1.Where{}),
+							Key:      new(filter.Set[v1.Key]{}),
+							Name:     new(filter.String{}),
+							Overlaps: new(telem.TimeRange{}),
+							Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567826")},
+						},
+					},
+					Not: new(v1.Where{
+						And:      []v1.Where{{}},
+						Or:       []v1.Where{{}},
+						Not:      new(v1.Where{}),
+						Key:      new(filter.Set[v1.Key]{}),
+						Name:     new(filter.String{}),
+						Overlaps: new(telem.TimeRange{}),
+						Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456782e")},
+					}),
+					Key: new(filter.Set[v1.Key]{
+						Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567830"))),
+						In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567831")},
+					}),
+					Name: new(filter.String{
+						Eq:    new(string("test_307")),
+						In:    []string{"test_308"},
+						Regex: new(string("test_309")),
+					}),
+					Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(312), End: telem.TimeStamp(313)}),
+					Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567839")},
+				},
+			},
+			Not: new(v1.Where{
+				And: []v1.Where{
+					{
+						And:      []v1.Where{{}},
+						Or:       []v1.Where{{}},
+						Not:      new(v1.Where{}),
+						Key:      new(filter.Set[v1.Key]{}),
+						Name:     new(filter.String{}),
+						Overlaps: new(telem.TimeRange{}),
+						Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567842")},
+					},
+				},
+				Or: []v1.Where{
+					{
+						And:      []v1.Where{{}},
+						Or:       []v1.Where{{}},
+						Not:      new(v1.Where{}),
+						Key:      new(filter.Set[v1.Key]{}),
+						Name:     new(filter.String{}),
+						Overlaps: new(telem.TimeRange{}),
+						Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456784a")},
+					},
+				},
+				Not: new(v1.Where{
+					And:      []v1.Where{{}},
+					Or:       []v1.Where{{}},
+					Not:      new(v1.Where{}),
+					Key:      new(filter.Set[v1.Key]{}),
+					Name:     new(filter.String{}),
+					Overlaps: new(telem.TimeRange{}),
+					Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567852")},
+				}),
+				Key: new(filter.Set[v1.Key]{
+					Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567854"))),
+					In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567855")},
+				}),
+				Name: new(filter.String{
+					Eq:    new(string("test_343")),
+					In:    []string{"test_344"},
+					Regex: new(string("test_345")),
+				}),
+				Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(348), End: telem.TimeStamp(349)}),
+				Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456785d")},
+			}),
+			Key: new(filter.Set[v1.Key]{
+				Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456785f"))),
+				In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567860")},
+			}),
+			Name: new(filter.String{
+				Eq:    new(string("test_354")),
+				In:    []string{"test_355"},
+				Regex: new(string("test_356")),
+			}),
+			Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(359), End: telem.TimeStamp(360)}),
+			Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567868")},
+		}),
+		Key: new(filter.Set[v1.Key]{
+			Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786a"))),
+			In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786b")},
+		}),
+		Name: new(filter.String{
+			Eq:    new(string("test_365")),
+			In:    []string{"test_366"},
+			Regex: new(string("test_367")),
+		}),
+		Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(370), End: telem.TimeStamp(371)}),
+		Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567873")},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v1.Where
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -232,6 +1253,577 @@ func FuzzDecodeRef(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v1.Ref
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeWhere(f *testing.F) {
+	{
+		seed := v1.Where{
+			And: []v1.Where{
+				{
+					And: []v1.Where{
+						{
+							And: []v1.Where{
+								{
+									And:      []v1.Where{{}},
+									Or:       []v1.Where{{}},
+									Not:      new(v1.Where{}),
+									Key:      new(filter.Set[v1.Key]{}),
+									Name:     new(filter.String{}),
+									Overlaps: new(telem.TimeRange{}),
+									Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a")},
+								},
+							},
+							Or: []v1.Where{
+								{
+									And:      []v1.Where{{}},
+									Or:       []v1.Where{{}},
+									Not:      new(v1.Where{}),
+									Key:      new(filter.Set[v1.Key]{}),
+									Name:     new(filter.String{}),
+									Overlaps: new(telem.TimeRange{}),
+									Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567812")},
+								},
+							},
+							Not: new(v1.Where{
+								And:      []v1.Where{{}},
+								Or:       []v1.Where{{}},
+								Not:      new(v1.Where{}),
+								Key:      new(filter.Set[v1.Key]{}),
+								Name:     new(filter.String{}),
+								Overlaps: new(telem.TimeRange{}),
+								Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781a")},
+							}),
+							Key: new(filter.Set[v1.Key]{
+								Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781c"))),
+								In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781d")},
+							}),
+							Name: new(filter.String{
+								Eq:    new(string("test_31")),
+								In:    []string{"test_32"},
+								Regex: new(string("test_33")),
+							}),
+							Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(36), End: telem.TimeStamp(37)}),
+							Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567825")},
+						},
+					},
+					Or: []v1.Where{
+						{
+							And: []v1.Where{
+								{
+									And:      []v1.Where{{}},
+									Or:       []v1.Where{{}},
+									Not:      new(v1.Where{}),
+									Key:      new(filter.Set[v1.Key]{}),
+									Name:     new(filter.String{}),
+									Overlaps: new(telem.TimeRange{}),
+									Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456782e")},
+								},
+							},
+							Or: []v1.Where{
+								{
+									And:      []v1.Where{{}},
+									Or:       []v1.Where{{}},
+									Not:      new(v1.Where{}),
+									Key:      new(filter.Set[v1.Key]{}),
+									Name:     new(filter.String{}),
+									Overlaps: new(telem.TimeRange{}),
+									Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567836")},
+								},
+							},
+							Not: new(v1.Where{
+								And:      []v1.Where{{}},
+								Or:       []v1.Where{{}},
+								Not:      new(v1.Where{}),
+								Key:      new(filter.Set[v1.Key]{}),
+								Name:     new(filter.String{}),
+								Overlaps: new(telem.TimeRange{}),
+								Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456783e")},
+							}),
+							Key: new(filter.Set[v1.Key]{
+								Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567840"))),
+								In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567841")},
+							}),
+							Name: new(filter.String{
+								Eq:    new(string("test_67")),
+								In:    []string{"test_68"},
+								Regex: new(string("test_69")),
+							}),
+							Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(72), End: telem.TimeStamp(73)}),
+							Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567849")},
+						},
+					},
+					Not: new(v1.Where{
+						And: []v1.Where{
+							{
+								And:      []v1.Where{{}},
+								Or:       []v1.Where{{}},
+								Not:      new(v1.Where{}),
+								Key:      new(filter.Set[v1.Key]{}),
+								Name:     new(filter.String{}),
+								Overlaps: new(telem.TimeRange{}),
+								Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567852")},
+							},
+						},
+						Or: []v1.Where{
+							{
+								And:      []v1.Where{{}},
+								Or:       []v1.Where{{}},
+								Not:      new(v1.Where{}),
+								Key:      new(filter.Set[v1.Key]{}),
+								Name:     new(filter.String{}),
+								Overlaps: new(telem.TimeRange{}),
+								Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456785a")},
+							},
+						},
+						Not: new(v1.Where{
+							And:      []v1.Where{{}},
+							Or:       []v1.Where{{}},
+							Not:      new(v1.Where{}),
+							Key:      new(filter.Set[v1.Key]{}),
+							Name:     new(filter.String{}),
+							Overlaps: new(telem.TimeRange{}),
+							Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567862")},
+						}),
+						Key: new(filter.Set[v1.Key]{
+							Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567864"))),
+							In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567865")},
+						}),
+						Name: new(filter.String{
+							Eq:    new(string("test_103")),
+							In:    []string{"test_104"},
+							Regex: new(string("test_105")),
+						}),
+						Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(108), End: telem.TimeStamp(109)}),
+						Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786d")},
+					}),
+					Key: new(filter.Set[v1.Key]{
+						Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786f"))),
+						In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567870")},
+					}),
+					Name: new(filter.String{
+						Eq:    new(string("test_114")),
+						In:    []string{"test_115"},
+						Regex: new(string("test_116")),
+					}),
+					Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(119), End: telem.TimeStamp(120)}),
+					Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567878")},
+				},
+			},
+			Or: []v1.Where{
+				{
+					And: []v1.Where{
+						{
+							And: []v1.Where{
+								{
+									And:      []v1.Where{{}},
+									Or:       []v1.Where{{}},
+									Not:      new(v1.Where{}),
+									Key:      new(filter.Set[v1.Key]{}),
+									Name:     new(filter.String{}),
+									Overlaps: new(telem.TimeRange{}),
+									Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567882")},
+								},
+							},
+							Or: []v1.Where{
+								{
+									And:      []v1.Where{{}},
+									Or:       []v1.Where{{}},
+									Not:      new(v1.Where{}),
+									Key:      new(filter.Set[v1.Key]{}),
+									Name:     new(filter.String{}),
+									Overlaps: new(telem.TimeRange{}),
+									Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456788a")},
+								},
+							},
+							Not: new(v1.Where{
+								And:      []v1.Where{{}},
+								Or:       []v1.Where{{}},
+								Not:      new(v1.Where{}),
+								Key:      new(filter.Set[v1.Key]{}),
+								Name:     new(filter.String{}),
+								Overlaps: new(telem.TimeRange{}),
+								Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567892")},
+							}),
+							Key: new(filter.Set[v1.Key]{
+								Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567894"))),
+								In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567895")},
+							}),
+							Name: new(filter.String{
+								Eq:    new(string("test_151")),
+								In:    []string{"test_152"},
+								Regex: new(string("test_153")),
+							}),
+							Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(156), End: telem.TimeStamp(157)}),
+							Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456789d")},
+						},
+					},
+					Or: []v1.Where{
+						{
+							And: []v1.Where{
+								{
+									And:      []v1.Where{{}},
+									Or:       []v1.Where{{}},
+									Not:      new(v1.Where{}),
+									Key:      new(filter.Set[v1.Key]{}),
+									Name:     new(filter.String{}),
+									Overlaps: new(telem.TimeRange{}),
+									Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678a6")},
+								},
+							},
+							Or: []v1.Where{
+								{
+									And:      []v1.Where{{}},
+									Or:       []v1.Where{{}},
+									Not:      new(v1.Where{}),
+									Key:      new(filter.Set[v1.Key]{}),
+									Name:     new(filter.String{}),
+									Overlaps: new(telem.TimeRange{}),
+									Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678ae")},
+								},
+							},
+							Not: new(v1.Where{
+								And:      []v1.Where{{}},
+								Or:       []v1.Where{{}},
+								Not:      new(v1.Where{}),
+								Key:      new(filter.Set[v1.Key]{}),
+								Name:     new(filter.String{}),
+								Overlaps: new(telem.TimeRange{}),
+								Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678b6")},
+							}),
+							Key: new(filter.Set[v1.Key]{
+								Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678b8"))),
+								In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678b9")},
+							}),
+							Name: new(filter.String{
+								Eq:    new(string("test_187")),
+								In:    []string{"test_188"},
+								Regex: new(string("test_189")),
+							}),
+							Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(192), End: telem.TimeStamp(193)}),
+							Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678c1")},
+						},
+					},
+					Not: new(v1.Where{
+						And: []v1.Where{
+							{
+								And:      []v1.Where{{}},
+								Or:       []v1.Where{{}},
+								Not:      new(v1.Where{}),
+								Key:      new(filter.Set[v1.Key]{}),
+								Name:     new(filter.String{}),
+								Overlaps: new(telem.TimeRange{}),
+								Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678ca")},
+							},
+						},
+						Or: []v1.Where{
+							{
+								And:      []v1.Where{{}},
+								Or:       []v1.Where{{}},
+								Not:      new(v1.Where{}),
+								Key:      new(filter.Set[v1.Key]{}),
+								Name:     new(filter.String{}),
+								Overlaps: new(telem.TimeRange{}),
+								Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678d2")},
+							},
+						},
+						Not: new(v1.Where{
+							And:      []v1.Where{{}},
+							Or:       []v1.Where{{}},
+							Not:      new(v1.Where{}),
+							Key:      new(filter.Set[v1.Key]{}),
+							Name:     new(filter.String{}),
+							Overlaps: new(telem.TimeRange{}),
+							Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678da")},
+						}),
+						Key: new(filter.Set[v1.Key]{
+							Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678dc"))),
+							In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678dd")},
+						}),
+						Name: new(filter.String{
+							Eq:    new(string("test_223")),
+							In:    []string{"test_224"},
+							Regex: new(string("test_225")),
+						}),
+						Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(228), End: telem.TimeStamp(229)}),
+						Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678e5")},
+					}),
+					Key: new(filter.Set[v1.Key]{
+						Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678e7"))),
+						In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678e8")},
+					}),
+					Name: new(filter.String{
+						Eq:    new(string("test_234")),
+						In:    []string{"test_235"},
+						Regex: new(string("test_236")),
+					}),
+					Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(239), End: telem.TimeStamp(240)}),
+					Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678f0")},
+				},
+			},
+			Not: new(v1.Where{
+				And: []v1.Where{
+					{
+						And: []v1.Where{
+							{
+								And:      []v1.Where{{}},
+								Or:       []v1.Where{{}},
+								Not:      new(v1.Where{}),
+								Key:      new(filter.Set[v1.Key]{}),
+								Name:     new(filter.String{}),
+								Overlaps: new(telem.TimeRange{}),
+								Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678fa")},
+							},
+						},
+						Or: []v1.Where{
+							{
+								And:      []v1.Where{{}},
+								Or:       []v1.Where{{}},
+								Not:      new(v1.Where{}),
+								Key:      new(filter.Set[v1.Key]{}),
+								Name:     new(filter.String{}),
+								Overlaps: new(telem.TimeRange{}),
+								Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802")},
+							},
+						},
+						Not: new(v1.Where{
+							And:      []v1.Where{{}},
+							Or:       []v1.Where{{}},
+							Not:      new(v1.Where{}),
+							Key:      new(filter.Set[v1.Key]{}),
+							Name:     new(filter.String{}),
+							Overlaps: new(telem.TimeRange{}),
+							Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a")},
+						}),
+						Key: new(filter.Set[v1.Key]{
+							Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
+							In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d")},
+						}),
+						Name: new(filter.String{
+							Eq:    new(string("test_271")),
+							In:    []string{"test_272"},
+							Regex: new(string("test_273")),
+						}),
+						Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(276), End: telem.TimeStamp(277)}),
+						Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815")},
+					},
+				},
+				Or: []v1.Where{
+					{
+						And: []v1.Where{
+							{
+								And:      []v1.Where{{}},
+								Or:       []v1.Where{{}},
+								Not:      new(v1.Where{}),
+								Key:      new(filter.Set[v1.Key]{}),
+								Name:     new(filter.String{}),
+								Overlaps: new(telem.TimeRange{}),
+								Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781e")},
+							},
+						},
+						Or: []v1.Where{
+							{
+								And:      []v1.Where{{}},
+								Or:       []v1.Where{{}},
+								Not:      new(v1.Where{}),
+								Key:      new(filter.Set[v1.Key]{}),
+								Name:     new(filter.String{}),
+								Overlaps: new(telem.TimeRange{}),
+								Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567826")},
+							},
+						},
+						Not: new(v1.Where{
+							And:      []v1.Where{{}},
+							Or:       []v1.Where{{}},
+							Not:      new(v1.Where{}),
+							Key:      new(filter.Set[v1.Key]{}),
+							Name:     new(filter.String{}),
+							Overlaps: new(telem.TimeRange{}),
+							Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456782e")},
+						}),
+						Key: new(filter.Set[v1.Key]{
+							Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567830"))),
+							In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567831")},
+						}),
+						Name: new(filter.String{
+							Eq:    new(string("test_307")),
+							In:    []string{"test_308"},
+							Regex: new(string("test_309")),
+						}),
+						Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(312), End: telem.TimeStamp(313)}),
+						Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567839")},
+					},
+				},
+				Not: new(v1.Where{
+					And: []v1.Where{
+						{
+							And:      []v1.Where{{}},
+							Or:       []v1.Where{{}},
+							Not:      new(v1.Where{}),
+							Key:      new(filter.Set[v1.Key]{}),
+							Name:     new(filter.String{}),
+							Overlaps: new(telem.TimeRange{}),
+							Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567842")},
+						},
+					},
+					Or: []v1.Where{
+						{
+							And:      []v1.Where{{}},
+							Or:       []v1.Where{{}},
+							Not:      new(v1.Where{}),
+							Key:      new(filter.Set[v1.Key]{}),
+							Name:     new(filter.String{}),
+							Overlaps: new(telem.TimeRange{}),
+							Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456784a")},
+						},
+					},
+					Not: new(v1.Where{
+						And:      []v1.Where{{}},
+						Or:       []v1.Where{{}},
+						Not:      new(v1.Where{}),
+						Key:      new(filter.Set[v1.Key]{}),
+						Name:     new(filter.String{}),
+						Overlaps: new(telem.TimeRange{}),
+						Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567852")},
+					}),
+					Key: new(filter.Set[v1.Key]{
+						Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567854"))),
+						In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567855")},
+					}),
+					Name: new(filter.String{
+						Eq:    new(string("test_343")),
+						In:    []string{"test_344"},
+						Regex: new(string("test_345")),
+					}),
+					Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(348), End: telem.TimeStamp(349)}),
+					Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456785d")},
+				}),
+				Key: new(filter.Set[v1.Key]{
+					Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456785f"))),
+					In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567860")},
+				}),
+				Name: new(filter.String{
+					Eq:    new(string("test_354")),
+					In:    []string{"test_355"},
+					Regex: new(string("test_356")),
+				}),
+				Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(359), End: telem.TimeStamp(360)}),
+				Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567868")},
+			}),
+			Key: new(filter.Set[v1.Key]{
+				Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786a"))),
+				In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786b")},
+			}),
+			Name: new(filter.String{
+				Eq:    new(string("test_365")),
+				In:    []string{"test_366"},
+				Regex: new(string("test_367")),
+			}),
+			Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(370), End: telem.TimeStamp(371)}),
+			Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567873")},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v1.Where{
+			And:      []v1.Where{},
+			Or:       []v1.Where{},
+			Not:      nil,
+			Key:      nil,
+			Name:     nil,
+			Overlaps: nil,
+			Labels:   []uuid.UUID{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v1.Where{
+			And: []v1.Where{},
+			Or:  []v1.Where{},
+			Not: new(v1.Where{
+				And: []v1.Where{},
+				Or:  []v1.Where{},
+				Not: new(v1.Where{
+					And: []v1.Where{},
+					Or:  []v1.Where{},
+					Not: new(v1.Where{
+						And:      []v1.Where{},
+						Or:       []v1.Where{},
+						Not:      new(v1.Where{}),
+						Key:      new(filter.Set[v1.Key]{}),
+						Name:     new(filter.String{}),
+						Overlaps: new(telem.TimeRange{}),
+						Labels:   []uuid.UUID{},
+					}),
+					Key: new(filter.Set[v1.Key]{
+						Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567812"))),
+						In: []uuid.UUID{},
+					}),
+					Name: new(filter.String{
+						Eq:    new(string("test_21")),
+						In:    []string{},
+						Regex: new(string("test_23")),
+					}),
+					Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(26), End: telem.TimeStamp(27)}),
+					Labels:   []uuid.UUID{},
+				}),
+				Key: new(filter.Set[v1.Key]{
+					Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781d"))),
+					In: []uuid.UUID{},
+				}),
+				Name: new(filter.String{
+					Eq:    new(string("test_32")),
+					In:    []string{},
+					Regex: new(string("test_34")),
+				}),
+				Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(37), End: telem.TimeStamp(38)}),
+				Labels:   []uuid.UUID{},
+			}),
+			Key: new(filter.Set[v1.Key]{
+				Eq: new(v1.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567828"))),
+				In: []uuid.UUID{},
+			}),
+			Name: new(filter.String{
+				Eq:    new(string("test_43")),
+				In:    []string{},
+				Regex: new(string("test_45")),
+			}),
+			Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(48), End: telem.TimeStamp(49)}),
+			Labels:   []uuid.UUID{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v1.Where
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v1.Where
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

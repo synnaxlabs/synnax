@@ -11,11 +11,7 @@
 
 package status
 
-import (
-	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/status/versions"
-	"github.com/synnaxlabs/x/filter"
-)
+import "github.com/synnaxlabs/synnax/pkg/service/status/versions"
 
 // Variant is the severity or type of a status message.
 type Variant = versions.Variant
@@ -37,21 +33,7 @@ type Key = versions.Key
 // component-specific details. A status is uniquely identified by a key and may carry a
 // human-readable name and labels for categorization and filtering.
 type Status[Details any] = versions.Status[Details]
-
-type Where struct {
-	// And matches when every child matches.
-	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
-	// Or matches when any child matches.
-	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
-	// Not matches when the child does not match.
-	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
-	// Key selects by key.
-	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
-	// Variant selects by variant.
-	Variant *filter.Set[Variant] `json:"variant,omitzero" msgpack:"variant,omitempty"`
-	// Labels matches statuses that have any of the given labels.
-	Labels []label.Key `json:"labels,omitzero" msgpack:"labels,omitempty"`
-}
+type Where = versions.Where
 
 // RetrieveRequest is a request to retrieve statuses.
 type RetrieveRequest struct {

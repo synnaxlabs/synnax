@@ -12,10 +12,10 @@
 package v1
 
 import (
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
-	"uuid"
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
@@ -38,105 +38,6 @@ func (bv *Base) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
-func (rq RangeQuery) EncodeOrc(w *orc.Writer) error {
-	w.Bool(rq.HasLabels != nil)
-	if rq.HasLabels != nil {
-		w.Uint32(uint32(len(rq.HasLabels)))
-		for i := range rq.HasLabels {
-			w.Write(rq.HasLabels[i][:])
-		}
-	}
-	return nil
-}
-
-// DecodeOrc reads the value from r in the Orc binary format.
-func (rq *RangeQuery) DecodeOrc(r *orc.Reader) error {
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			rq.HasLabels = make([]uuid.UUID, n)
-			for i := range rq.HasLabels {
-				if _, err := r.Read(rq.HasLabels[i][:]); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return nil
-}
-
-// EncodeOrc writes the value to w in the Orc binary format.
-func (sq StatusQuery) EncodeOrc(w *orc.Writer) error {
-	w.Bool(sq.HasLabels != nil)
-	if sq.HasLabels != nil {
-		w.Uint32(uint32(len(sq.HasLabels)))
-		for i := range sq.HasLabels {
-			w.Write(sq.HasLabels[i][:])
-		}
-	}
-	w.Bool(sq.Variants != nil)
-	if sq.Variants != nil {
-		w.Uint32(uint32(len(sq.Variants)))
-		for i := range sq.Variants {
-			w.String(string(sq.Variants[i]))
-		}
-	}
-	return nil
-}
-
-// DecodeOrc reads the value from r in the Orc binary format.
-func (sq *StatusQuery) DecodeOrc(r *orc.Reader) error {
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			sq.HasLabels = make([]uuid.UUID, n)
-			for i := range sq.HasLabels {
-				if _, err := r.Read(sq.HasLabels[i][:]); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			sq.Variants = make([]status.Variant, n)
-			for i := range sq.Variants {
-				{
-					rawV, err := r.String()
-					if err != nil {
-						return err
-					}
-					sq.Variants[i] = status.Variant(rawV)
-				}
-			}
-		}
-	}
-	return nil
-}
-
-// EncodeOrc writes the value to w in the Orc binary format.
 func (vv View) EncodeOrc(w *orc.Writer) error {
 	switch v := vv.Variant.(type) {
 	case RangeView:
@@ -144,16 +45,26 @@ func (vv View) EncodeOrc(w *orc.Writer) error {
 		if err := v.Base.EncodeOrc(w); err != nil {
 			return err
 		}
-		if err := v.Query.EncodeOrc(w); err != nil {
-			return err
+		if v.Where != nil {
+			w.Bool(true)
+			if err := v.Where.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
 		}
 	case StatusView:
 		w.String("status")
 		if err := v.Base.EncodeOrc(w); err != nil {
 			return err
 		}
-		if err := v.Query.EncodeOrc(w); err != nil {
-			return err
+		if v.Where != nil {
+			w.Bool(true)
+			if err := v.Where.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
 		}
 	default:
 		return errors.Newf("View: nil or unknown variant %T", vv.Variant)
@@ -173,8 +84,18 @@ func (vv *View) DecodeOrc(r *orc.Reader) error {
 		if err := v.Base.DecodeOrc(r); err != nil {
 			return err
 		}
-		if err = v.Query.DecodeOrc(r); err != nil {
-			return err
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv ranger.Where
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.Where = &hv
+			}
 		}
 		vv.Variant = v
 	case "status":
@@ -182,8 +103,18 @@ func (vv *View) DecodeOrc(r *orc.Reader) error {
 		if err := v.Base.DecodeOrc(r); err != nil {
 			return err
 		}
-		if err = v.Query.DecodeOrc(r); err != nil {
-			return err
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv status.Where
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.Where = &hv
+			}
 		}
 		vv.Variant = v
 	default:

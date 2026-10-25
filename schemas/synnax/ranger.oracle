@@ -89,6 +89,8 @@ Where filter Range {
     labels   label.Key[]     {
         @doc value "matches ranges that have any of the given labels."
     }
+
+    @go marshal
 }
 
 Ref union on variant {

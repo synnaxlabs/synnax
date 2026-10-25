@@ -100,4 +100,6 @@ Where filter Status {
     labels  label.Key[] {
         @doc value "matches statuses that have any of the given labels."
     }
+
+    @go marshal
 }
