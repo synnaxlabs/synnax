@@ -50,8 +50,8 @@ void set_live_status(const slave::Health &health, synnax::device::Status &status
         status.variant = synnax::status::VARIANT_ERROR;
         status.message = "Error in " + state;
         status.description = health.al_status.empty()
-                               ? "The device reports an error. The IgH master writes "
-                                 "its error code to the kernel log (dmesg)."
+                               ? "The device reports an error without an error "
+                                 "code. With IgH, the kernel log (dmesg) shows it."
                                : health.al_status;
         return;
     }

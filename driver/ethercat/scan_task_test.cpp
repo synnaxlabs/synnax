@@ -396,7 +396,7 @@ TEST_F(EtherCATScanStatusTest, FaultedSlaveShowsItsALStatus) {
 }
 
 /// @brief it should tell the user where to find the error code of a faulted slave when
-/// the master cannot read its AL status, as with IgH.
+/// the master reads no AL status code.
 TEST_F(EtherCATScanStatusTest, FaultedSlaveWithoutALStatusPointsToTheKernelLog) {
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
     const auto reader = ASSERT_NIL_P(
@@ -410,8 +410,8 @@ TEST_F(EtherCATScanStatusTest, FaultedSlaveWithoutALStatusPointsToTheKernelLog) 
     EXPECT_EQ(status.message, "Error in SAFE-OP");
     EXPECT_EQ(
         status.description,
-        "The device reports an error. The IgH master writes its error code to the "
-        "kernel log (dmesg)."
+        "The device reports an error without an error code. With IgH, the kernel "
+        "log (dmesg) shows it."
     );
 }
 
