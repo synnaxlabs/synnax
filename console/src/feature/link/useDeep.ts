@@ -46,11 +46,11 @@ const useWaitFor = (
       waitersRef.current.push(resolve);
     });
     if (timeout == null) return await released;
-    await sync
-      .withTimeout(released, timeout, () => new Error(timeoutMessage))
-      .finally(() => {
-        waitersRef.current = waitersRef.current.filter((w) => w !== release);
-      });
+    // A release clears every waiter, so only a timeout removes its own.
+    await sync.withTimeout(released, timeout, () => {
+      waitersRef.current = waitersRef.current.filter((w) => w !== release);
+      return new Error(timeoutMessage);
+    });
   };
 };
 
