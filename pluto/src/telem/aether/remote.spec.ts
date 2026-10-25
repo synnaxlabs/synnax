@@ -346,6 +346,19 @@ describe("remote", () => {
       expect(y.value({ bounds: zoomed }).data[1].series).toEqual(home);
     });
 
+    it("should draw its home view when its first read gives no points", async () => {
+      const core = createCore();
+      const client = connect(core);
+      const x = create(client, { channel: core.data[0].key, useIndexOfChannel: true });
+      const y = create(client, { channel: core.data[0].key });
+      const { bounds: zoomed } = view(TimeSpan.seconds(60), TimeSpan.seconds(65));
+      await settle(x);
+      await settle(y, { bounds: zoomed });
+      const alignments = (source: TiledChannelData): bounds.Bounds<bigint>[] =>
+        source.value().data[1].series.map((s) => s.alignmentBounds);
+      expect(alignments(y)).toEqual(alignments(x));
+    });
+
     it("should release the series a new view no longer draws", async () => {
       const core = createCore();
       const y = create(connect(core), { channel: core.data[0].key });

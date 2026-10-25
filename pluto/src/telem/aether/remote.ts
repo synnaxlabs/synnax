@@ -390,7 +390,8 @@ export class TiledChannelData
     view: bounds.Bounds | undefined,
     draws: boolean,
   ): framer.Snapshot {
-    const request = this.drawRequest(key, view);
+    // A read with no points draws no view, so the first reads of x and y agree.
+    const request = this.drawRequest(key, draws ? view : undefined);
     if (this.draw == null) this.draw = this.subscribe(client, request);
     else if (draws) this.draw.update(request);
     const snapshot = this.draw.value(key);
