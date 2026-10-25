@@ -16,6 +16,7 @@ import (
 	"encoding/json/v2"
 	"strconv"
 
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -54,9 +55,26 @@ func MatchWhere[Details any](w Where) (Filter[Details], error) {
 	}
 	if l := w.Variant; l != nil {
 		if l.Eq != nil {
+			if !l.Eq.IsValid() {
+				return nil, validate.PathedError(
+					errors.Wrapf(validate.ErrValidation, "invalid variant %q", *l.Eq),
+					"variant",
+					"eq",
+				)
+			}
 			fs = append(fs, MatchVariants[Details](*l.Eq))
 		}
 		if l.In != nil {
+			for i, v := range l.In {
+				if !v.IsValid() {
+					return nil, validate.PathedError(
+						errors.Wrapf(validate.ErrValidation, "invalid variant %q", v),
+						"variant",
+						"in",
+						strconv.Itoa(i),
+					)
+				}
+			}
 			fs = append(fs, MatchVariants[Details](l.In...))
 		}
 	}

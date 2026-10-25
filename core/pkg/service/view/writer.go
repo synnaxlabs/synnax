@@ -11,12 +11,13 @@ package view
 
 import (
 	"context"
-	"strconv"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -95,15 +96,19 @@ func (w Writer) validate(v View) error {
 	vld := validate.New("view.view")
 	vld.NotEmptyString("name", v.Base().Name)
 	vld.NotEmptyString("type", v.Type())
-	if status, ok := v.Variant.(StatusView); ok {
-		for i, variant := range status.Query.Variants {
-			vld.Ternaryf(
-				"query.variants."+strconv.Itoa(i),
-				!variant.IsValid(),
-				"invalid status variant %q",
-				variant,
-			)
+	if err := vld.Error(); err != nil {
+		return err
+	}
+	var err error
+	switch variant := v.Variant.(type) {
+	case RangeView:
+		if variant.Where != nil {
+			_, err = ranger.MatchWhere(*variant.Where)
+		}
+	case StatusView:
+		if variant.Where != nil {
+			_, err = status.MatchWhere[any](*variant.Where)
 		}
 	}
-	return vld.Error()
+	return validate.PathedError(err, "where")
 }
