@@ -130,7 +130,9 @@ describe("Select.Simple", () => {
       </Select.Simple>,
     );
     fireEvent.click(c.getByLabelText("Page"));
-    expect(c.getByText("No other pages").tagName).toBe("P");
+    const empty = c.getByText("No other pages");
+    expect(empty.tagName).toBe("P");
+    expect(empty.querySelector("svg")).toBeNull();
   });
 
   it("should clear the search when the dialog closes", () => {
