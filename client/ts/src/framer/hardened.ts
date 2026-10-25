@@ -212,7 +212,8 @@ export class HardenedStreamer implements Streamer {
     try {
       await this.wrapped.update(channels, options);
     } catch (e) {
-      if (this.closed || EOF.matches(e)) throw errors.fromUnknown(e);
+      if (this.closed) throw new EOF();
+      // an EOF the client did not ask for is a drop, as in read
       await this.reconnect(errors.fromUnknown(e));
       return await this.update(channels, options);
     }

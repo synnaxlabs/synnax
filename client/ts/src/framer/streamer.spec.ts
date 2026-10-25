@@ -1185,6 +1185,23 @@ describe("Streamer", () => {
       hardened.close();
     });
 
+    it("should reconnect when the Core ends the stream during an update", async () => {
+      const streamer1 = new MockStreamer();
+      streamer1.updateErrors = [new EOF()];
+      const streamer2 = new MockStreamer();
+      const update2 = vi.spyOn(streamer2, "update");
+      let opens = 0;
+      const hardened = await HardenedStreamer.open(
+        async () => (++opens === 1 ? streamer1 : streamer2),
+        { channels: [1] },
+        { breaker: FAST_RETRY, onRetry: quiet },
+      );
+      await hardened.update([1, 2], { waitForAck: true });
+      expect(update2).toHaveBeenCalledWith([1, 2], { waitForAck: true });
+      expect(opens).toBe(2);
+      hardened.close();
+    });
+
     it("should not leak a stream when an update races a reconnect", async () => {
       const streamer1 = new MockStreamer();
       const fr1 = new Frame({ 1: new Series([1]) });
