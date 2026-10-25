@@ -688,9 +688,9 @@ describe("Task", async () => {
         config: {},
         type: "pagerduty_alert",
       });
-      await expect(t.executeCommandSync({ type: "test", timeout: 0 })).rejects.toThrow(
-        "timed out",
-      );
+      await expect(
+        t.executeCommandSync({ type: "test", timeout: TimeSpan.milliseconds(1) }),
+      ).rejects.toThrow(new Error("Command to test timed out after 1ms"));
     });
   });
 
