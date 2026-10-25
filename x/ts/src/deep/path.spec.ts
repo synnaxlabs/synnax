@@ -73,6 +73,12 @@ describe("path utilities", () => {
         "a.b.c.d",
       );
     });
+
+    it("should rewrite only the parts inside arrays", () => {
+      expect(deep.resolvePath("a.b.c", { a: { b: { key: "", c: 1 } } })).toEqual(
+        "a.b.c",
+      );
+    });
   });
 
   describe("element", () => {
