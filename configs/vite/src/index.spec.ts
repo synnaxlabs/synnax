@@ -189,6 +189,14 @@ describe("lib", () => {
     const HOOK =
       'import { useState } from "react";\n' +
       "export const useCount = () => { const [n] = useState(0); return { n }; };\n";
+    const UNCOMPILABLE =
+      'import { useState } from "react";\n' +
+      "export const useCount = (n?: number) => {\n" +
+      "  const [count] = useState(0);\n" +
+      "  n ??= count;\n" +
+      "  return { n };\n" +
+      "};\n";
+    const UNCOMPILABLE_ERROR = "Handle ??= operators in AssignmentExpression";
     const COMPILED = 'from "react/compiler-runtime"';
 
     const buildBundle = async (
@@ -228,21 +236,18 @@ describe("lib", () => {
 
     it("should fail on a hook that the compiler cannot compile", async () => {
       const root = createPackage(
-        {
-          ...REACT,
-          "src/index.ts":
-            'import { useState } from "react";\n' +
-            "export const useCount = (n?: number) => {\n" +
-            "  const [count] = useState(0);\n" +
-            "  n ??= count;\n" +
-            "  return { n };\n" +
-            "};\n",
-        },
+        { ...REACT, "src/index.ts": UNCOMPILABLE },
         { transpiled: true },
       );
       await expect(
         buildPackage(root, { name: "pkg", transpiled: true, reactCompiled: true }),
-      ).rejects.toThrow("Handle ??= operators in AssignmentExpression");
+      ).rejects.toThrow(UNCOMPILABLE_ERROR);
+    });
+
+    it("should fail a bundled build on a hook that the compiler cannot compile", async () => {
+      await expect(buildBundle({ "src/index.ts": UNCOMPILABLE })).rejects.toThrow(
+        UNCOMPILABLE_ERROR,
+      );
     });
 
     it("should keep a callback inside a hook built by a factory", async () => {

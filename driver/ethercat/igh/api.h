@@ -9,9 +9,17 @@
 
 #pragma once
 
+#include <cerrno>
+#include <string>
+#include <system_error>
+
+#include <fcntl.h>
+#include <unistd.h>
+
 #include "x/cpp/lib/lib.h"
 
 #include "driver/errors/errors.h"
+#include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/igh/ecrt.h"
 
 namespace driver::ethercat::igh {
@@ -154,6 +162,33 @@ public:
         auto lib = std::make_unique<x::lib::Shared>(IGH_LIBRARY_NAME);
         if (!lib->load()) return {nullptr, LOAD_ERROR};
         return {std::make_shared<API>(std::move(lib)), x::errors::NIL};
+    }
+
+    /// @brief checks that the process can open the device of a master.
+    /// @param master_index the index of the master, whose device is
+    /// /dev/EtherCAT<master_index>.
+    /// @returns errors::PERMISSION_DENIED when the process lacks permission to open the
+    /// device, or errors::MASTER_INIT_ERROR when it fails to open for another reason.
+    [[nodiscard]] virtual x::errors::Error
+    check_device(unsigned int master_index) const {
+        const std::string path = "/dev/EtherCAT" + std::to_string(master_index);
+        const int fd = ::open(path.c_str(), O_RDWR);
+        if (fd >= 0) {
+            ::close(fd);
+            return x::errors::NIL;
+        }
+        const int err = errno;
+        if (err == EACCES)
+            return x::errors::Error(
+                errors::PERMISSION_DENIED,
+                "permission denied opening " + path +
+                    ": reinstall the Driver service with 'sudo synnax-driver install', "
+                    "or run the Core or the Driver as root"
+            );
+        return x::errors::Error(
+            errors::MASTER_INIT_ERROR,
+            "failed to open " + path + ": " + std::generic_category().message(err)
+        );
     }
 
     /// @brief requests an EtherCAT master for realtime operation.
