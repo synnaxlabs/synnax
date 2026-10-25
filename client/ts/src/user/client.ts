@@ -111,6 +111,10 @@ export class Client extends query.Retriever<
     const store = cache.createTable<Key, User>({
       name: "users",
       fetch: async (keys) => await this.execRetrieve({ keys }),
+      listen: [
+        query.createSetListener(SET_CHANNEL_NAME, userZ),
+        query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
+      ],
     });
     const single = cache.queries<SingleParams, User, Key, User>({
       name: "user",
