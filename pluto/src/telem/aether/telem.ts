@@ -12,7 +12,6 @@ import {
   type Aggregation,
   type bounds,
   type color,
-  type DataType,
   type destructor,
   type MultiSeries,
   observe,
@@ -88,11 +87,6 @@ export interface Source<V> extends Telem, observe.Observable<void> {
   fetching?: () => boolean;
   /** @returns the aggregation the source reduces its data by, or null for none. */
   aggregation?: () => Aggregation | null;
-  /**
-   * @returns the data type the source's channel stores, or null when unknown. The
-   * source may convert its series to another data type.
-   */
-  dataType?: () => DataType | null;
   sampleTime?: () => TimeStamp | null;
 }
 

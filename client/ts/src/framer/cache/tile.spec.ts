@@ -18,7 +18,7 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
@@ -29,7 +29,6 @@ import {
   tileSpan,
   type TileSpec,
 } from "@/framer/cache/tile";
-import { type Transform } from "@/framer/cache/transform";
 import { Frame } from "@/framer/frame";
 
 interface Call {
@@ -291,16 +290,6 @@ describe("tile", () => {
       });
       const series = await reader.read(createSpec());
       expect(series.length).toBe(0);
-      reader.close();
-    });
-
-    it("should apply the transform to every fetched series", async () => {
-      const convert = vi.fn((s: Series) => s.convert(DataType.FLOAT32));
-      const transform: Transform = { resolveDataType: () => DataType.FLOAT32, convert };
-      const { reader } = createReader({ transform });
-      const series = await reader.read(createSpec());
-      expect(convert).toHaveBeenCalledTimes(1);
-      expect(series.dataType.equals(DataType.FLOAT32)).toBe(true);
       reader.close();
     });
 

@@ -8,14 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { SyntheticCore } from "@synnaxlabs/client/testutil";
-import {
-  type Aggregation,
-  DataType,
-  sleep,
-  TimeRange,
-  TimeSpan,
-  TimeStamp,
-} from "@synnaxlabs/x";
+import { type Aggregation, sleep, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { afterAll, test } from "vitest";
 
 import { TiledChannelData, type TiledChannelDataProps } from "@/telem/aether/remote";
@@ -35,7 +28,6 @@ const START = TimeStamp.seconds(1_750_000_000);
 const SPAN = TimeSpan.minutes(10);
 const FRAME = TimeSpan.milliseconds(16);
 const GROUPS_PER_COLUMN = 1 / 2;
-const DATA_TYPES = { x: DataType.TIMESTAMP, y: DataType.FLOAT32 };
 
 const core = new SyntheticCore({
   rate: 1000,
@@ -73,7 +65,7 @@ let ops = read();
 const size = groupSize(ops, view(), GROUPS_PER_COLUMN);
 
 const cold = (aggregation: Aggregation) => (): void =>
-  void new Reducer().reduce(ops, aggregation, size, DATA_TYPES);
+  void new Reducer().reduce(ops, aggregation, size);
 
 const warm = new Reducer();
 
@@ -85,8 +77,8 @@ test("reduce a 10 minute live window of 1 kHz samples", async ({ bench }) => {
     bench("decimate, no reduced pairs held", cold("decimate")),
     bench(
       "min_max, every reduced pair held",
-      { beforeAll: () => void warm.reduce(ops, "min_max", size, DATA_TYPES) },
-      () => void warm.reduce(ops, "min_max", size, DATA_TYPES),
+      { beforeAll: () => void warm.reduce(ops, "min_max", size) },
+      () => void warm.reduce(ops, "min_max", size),
     ),
     // Each run reduces 16 ms of new samples, which the stream lands before it.
     bench(
@@ -98,7 +90,7 @@ test("reduce a 10 minute live window of 1 kHz samples", async ({ bench }) => {
           ops = read();
         },
       },
-      () => void warm.reduce(ops, "min_max", size, DATA_TYPES),
+      () => void warm.reduce(ops, "min_max", size),
     ),
   );
 });

@@ -2103,6 +2103,9 @@ export const typedArrayZ = z.union([
 
 export type TypedArray = z.infer<typeof typedArrayZ>;
 
+/** A typed array whose elements read as JS numbers. */
+export type NumberArray = Exclude<TypedArray, BigInt64Array | BigUint64Array>;
+
 type TypedArrayConstructor =
   | Uint8ArrayConstructor
   | Uint16ArrayConstructor

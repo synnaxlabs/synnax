@@ -9,7 +9,7 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import {
-  DataType,
+  type DataType,
   math,
   MultiSeries,
   Series,
@@ -18,8 +18,6 @@ import {
   type TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-
-import { IDENTITY_TRANSFORM, type Transform } from "@/framer/cache/transform";
 
 /** Response from a write to the {@link Dynamic} cache. */
 export interface WriteResponse {
@@ -36,8 +34,6 @@ export interface DynamicProps {
    * data out to the caller.
    */
   dynamicBufferSize: number | TimeSpan;
-  /** Applied to every series before it enters a buffer. Defaults to identity. */
-  transform?: Transform;
   /** Used for logging. */
   instrumentation?: alamos.Instrumentation;
   /** Pulls the current time. */
@@ -104,11 +100,10 @@ export class Dynamic {
   constructor(props: DynamicProps) {
     const {
       dynamicBufferSize,
-      transform = IDENTITY_TRANSFORM,
       instrumentation = alamos.NOOP,
       now = () => TimeStamp.now(),
     } = props;
-    this.props = { dynamicBufferSize, transform, instrumentation };
+    this.props = { dynamicBufferSize, instrumentation };
     this.now = now;
     this.timeOfLastWrite = this.now();
   }
@@ -163,21 +158,11 @@ export class Dynamic {
     source: Series,
   ): Series {
     this.counter++;
-    const dt = this.props.transform.resolveDataType(source.dataType);
-    // Bigint series narrowed to a non-bigint buffer store each value as a small delta
-    // off a per-buffer anchor to avoid losing precision. For timestamps, now() is
-    // close enough to the values being written. For int64 and uint64 the values can
-    // be anything, so the first sample we see is used as the anchor.
-    const narrowing = source.dataType.usesBigInt && !dt.usesBigInt;
-    let sampleOffset: math.Numeric = 0;
-    if (narrowing)
-      if (source.dataType.equals(DataType.TIMESTAMP)) sampleOffset = start.valueOf();
-      else if (source.length > 0) sampleOffset = BigInt(source.data[0].valueOf());
+    const { dataType } = source;
     return Series.alloc({
-      capacity: dt.isVariable ? capacity * VARIABLE_DT_MULTIPLIER : capacity,
-      dataType: dt,
+      capacity: dataType.isVariable ? capacity * VARIABLE_DT_MULTIPLIER : capacity,
+      dataType,
       timeRange: start.range(TimeStamp.MAX),
-      sampleOffset,
       glBufferUsage: "dynamic",
       alignment,
       key: `dynamic-${this.counter}`,
@@ -189,8 +174,7 @@ export class Dynamic {
    * the configured size, or the series' own size when that is larger.
    */
   private capacityFor(source: Series): number {
-    const dt = this.props.transform.resolveDataType(source.dataType);
-    const required = dt.isVariable
+    const required = source.dataType.isVariable
       ? Math.ceil(source.byteLength.valueOf() / VARIABLE_DT_MULTIPLIER)
       : source.length;
     return Math.max(this.nextBufferSize(), required);
@@ -242,14 +226,13 @@ export class Dynamic {
   }
 
   private _write(series: Series, res: WriteResponse): void {
-    const { transform, instrumentation: ins } = this.props;
-    if (this.curr != null) {
-      const resolved = transform.resolveDataType(series.dataType);
-      if (!this.curr.dataType.equals(resolved)) {
+    const { instrumentation: ins } = this.props;
+    if (this.curr != null)
+      if (!this.curr.dataType.equals(series.dataType)) {
         // The channel's data type changed (e.g. a calculated channel was reconfigured).
         ins.L.warn("buffer data type changed, resetting", {
           prev: this.curr.dataType.toString(),
-          next: resolved.toString(),
+          next: series.dataType.toString(),
         });
         this.flushCurr(res);
       } else if (series.alignment < this.curr.alignment) {
@@ -261,7 +244,7 @@ export class Dynamic {
         });
         this.flushCurr(res);
       }
-    }
+
     let curr = this.curr;
     let trimmed = false;
     if (curr != null) {
@@ -279,15 +262,12 @@ export class Dynamic {
         curr = null;
       }
     }
-    const convert = (buffer: Series): Series =>
-      transform.convert(series, buffer.sampleOffset);
     let rotationStart: TimeStamp | null = null;
-    if (curr != null) {
-      const converted = convert(curr);
+    if (curr != null)
       // A series never splits across two buffers. The timestamp where a split falls is
       // not in the data, so both sides would have to guess the boundary they share, and
       // a guess lands outside the data whenever samples are irregular.
-      if (fits(curr, converted)) curr.write(converted);
+      if (fits(curr, series)) curr.write(series);
       else {
         const end = this.flushCurr(res);
         // A trimmed series keeps the whole frame's start, which is earlier than the
@@ -296,10 +276,10 @@ export class Dynamic {
         if (trimmed) rotationStart = end;
         curr = null;
       }
-    }
+
     if (curr == null) {
       curr = this.allocCurr(res, series, rotationStart);
-      curr.write(convert(curr));
+      curr.write(series);
     }
     this.currDataEnd = series.timeRange.isZero ? null : series.timeRange.end;
     this.updateAvgRate(series);

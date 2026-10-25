@@ -19,8 +19,6 @@ import {
   TimeStamp,
 } from "@synnaxlabs/x";
 
-import { IDENTITY_TRANSFORM, type Transform } from "@/framer/cache/transform";
-
 export interface DirtyReadResult {
   series: MultiSeries;
   gaps: TimeRange[];
@@ -40,8 +38,6 @@ export const zeroGCMetrics = (): GCMetrics => ({
 export interface StaticProps {
   /** Used for logging */
   instrumentation?: alamos.Instrumentation;
-  /** Applied to every series before it enters the cache. Defaults to identity. */
-  transform?: Transform;
   /**
    * Sets the amount of time that a cache entry must be in the cache before it can
    * be marked as stale and subject to garbage collection.
@@ -57,13 +53,12 @@ export interface StaticProps {
 
 export const DEFAULT_STATIC_PROPS: Required<StaticProps> = {
   instrumentation: alamos.NOOP,
-  transform: IDENTITY_TRANSFORM,
   staleEntryThreshold: TimeSpan.seconds(20),
   staleCoverageThreshold: TimeSpan.minutes(10),
 };
 
 interface CacheEntry {
-  /** The cached samples, after the transform and any insertion trimming. */
+  /** The cached samples, after any insertion trimming. */
   data: Series;
   /** When the entry entered the cache, for garbage collection staleness. */
   addedAt: TimeStamp;
@@ -94,13 +89,11 @@ export class Static {
   constructor(props: StaticProps) {
     const {
       instrumentation = DEFAULT_STATIC_PROPS.instrumentation,
-      transform = DEFAULT_STATIC_PROPS.transform,
       staleEntryThreshold = DEFAULT_STATIC_PROPS.staleEntryThreshold,
       staleCoverageThreshold = DEFAULT_STATIC_PROPS.staleCoverageThreshold,
     } = props;
     this.props = {
       instrumentation,
-      transform,
       staleEntryThreshold,
       staleCoverageThreshold,
     };
@@ -114,11 +107,10 @@ export class Static {
    */
   write(series: MultiSeries, streamed: boolean = false): void {
     if (series.length === 0) return;
-    const converted = series.series.map((s) => this.props.transform.convert(s));
-    this.retainDataType(converted[0].dataType);
+    this.retainDataType(series.series[0].dataType);
     if (!streamed) this.evictStreamed(series);
     const entries = streamed ? this.streamed : this.fetched;
-    converted.forEach((s) => this.writeOne(s, entries));
+    series.series.forEach((s) => this.writeOne(s, entries));
     this.repairIntegrity(series, entries);
   }
 

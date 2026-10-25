@@ -233,6 +233,24 @@ describe("remote", () => {
       expect(newSeriesTwo.refCount).toBe(1);
     });
 
+    it.each([
+      ["float64", new Series({ data: new Float64Array([0.1]) }), 0.1],
+      [
+        "uint32 above 2^24",
+        new Series({ data: new Uint32Array([2 ** 24 + 1]) }),
+        2 ** 24 + 1,
+      ],
+      ["boolean", new Series({ data: [false, true], dataType: DataType.BOOLEAN }), 1],
+    ])("should read the exact value of a %s channel", async (_, series, value) => {
+      const scv = new StreamChannelValue(c, { channel: c.channel.key });
+      const handleChange = vi.fn();
+      scv.onChange(handleChange);
+      await waitForStream(scv, c);
+      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series])]]));
+      await expect.poll(() => handleChange).toHaveBeenCalledTimes(1);
+      expect(scv.value()).toBe(value);
+    });
+
     it("should not subscribe when cleaned up while retrieving the channel", async () => {
       let release = (): void => {};
       const gate = new Promise<void>((resolve) => (release = resolve));
@@ -976,15 +994,6 @@ describe("remote", () => {
       expect(source.aggregation()).toBe("average");
     });
 
-    it("should report the data type its channel stores", async () => {
-      c.dataType = DataType.INT16;
-      const source = create();
-      expect(source.dataType()).toBeNull();
-      await settle(source);
-      expect(source.value()[1].dataType).toEqual(DataType.FLOAT32);
-      expect(source.dataType()).toEqual(DataType.INT16);
-    });
-
     it("should bound an index channel by the home view", async () => {
       const source = create({ useIndexOfChannel: true });
       await settle(source);
@@ -1669,20 +1678,17 @@ describe("remote", () => {
         source.cleanup();
       });
 
-      it("should keep streaming series the feed converted from the channel's data type", async () => {
-        c.channels.retrieve = async (key) =>
-          new channel.Channel({
-            key,
-            name: "data",
-            dataType: DataType.FLOAT64,
-            index: INDEX_KEY,
-          });
+      it("should hold streamed float64 series exactly", async () => {
         const source = createLive();
         await firstRead(source);
-        const opened = c.streamHandler;
-        c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([raw(100, 101)])]]));
-        expect(c.streamHandler).toBe(opened);
-        expect(positions(source.value()[1])).toEqual([[100, 101]]);
+        const exact = new Series({
+          data: new Float64Array([100.1, 100.2]),
+          timeRange: new TimeRange(TimeStamp.seconds(100), TimeStamp.seconds(101)),
+          alignment: 100n,
+        });
+        c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([exact])]]));
+        expect(source.value()[1].series).toEqual([exact]);
+        expect(source.value()[1].at(0)).toBe(100.1);
       });
 
       it("should read the channel again when its data type changes", async () => {

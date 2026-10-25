@@ -192,7 +192,9 @@ export class StreamChannelValue
     if (!this.valid) void this.read();
     // No data has been received and no recent samples were fetched on initialization.
     if (this.leadingBuffer == null || this.leadingBuffer.length === 0) return NaN;
-    return this.leadingBuffer.at(-1, true) as number;
+    const v = this.leadingBuffer.at(-1, true);
+    // A boolean channel reads as 0 or 1.
+    return (typeof v === "boolean" ? Number(v) : v) as number;
   }
 
   /** Never rejects: a failure invalidates the read and reaches onStatusChange. */
@@ -738,10 +740,6 @@ export class TiledChannelData
 
   aggregation(): Aggregation {
     return this.xy ? "decimate" : this.props.aggregation;
-  }
-
-  dataType(): DataType | null {
-    return this.channel?.dataType ?? null;
   }
 
   private targets(

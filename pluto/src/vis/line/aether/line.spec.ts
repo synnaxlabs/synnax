@@ -712,10 +712,14 @@ describe("line", () => {
           scale.Scale.scale<number>(lower, upper).scale(0, 1),
         ),
       });
+      // Series upload as static draws, and the stroke and bridge buffers as dynamic.
       const uploads = (m: ReturnType<typeof mount>): number[][] =>
         m.calls
-          .filter((c) => c.op === "bufferData" && c.args[1] instanceof ArrayBuffer)
-          .map((c) => Array.from(new Float32Array(c.args[1] as ArrayBuffer)));
+          .filter(
+            (c) =>
+              c.op === "bufferData" && c.args[2] === canvasTest.GL_ENUMS.STATIC_DRAW,
+          )
+          .map((c) => Array.from(c.args[1] as Float32Array));
       const deletes = (m: ReturnType<typeof mount>): number =>
         m.calls.filter((c) => c.op === "deleteBuffer").length;
 
@@ -811,15 +815,18 @@ describe("line", () => {
         expect(fine.strips()).toEqual([[0, 2 * (N / 16)]]);
       });
 
-      it("should average by the data types its sources' channels store", () => {
-        const bits = series(
-          Array.from({ length: N }, (_, i) => i % 2),
-          0n,
-          RANGE,
-        );
-        const m = mount([ramp(N)], [bits]);
-        m.xSource.dataType = () => DataType.TIMESTAMP;
-        m.ySource.dataType = () => DataType.INT16;
+      it("should round down the averages of integer series", () => {
+        const timeRange = new TimeRange(RANGE.start, RANGE.end);
+        const x = new Series({
+          data: new BigInt64Array(Array.from({ length: N }, (_, i) => BigInt(i))),
+          dataType: DataType.TIMESTAMP,
+          timeRange,
+        });
+        const bits = new Series({
+          data: new Int16Array(Array.from({ length: N }, (_, i) => i % 2)),
+          timeRange,
+        });
+        const m = mount([x], [bits]);
         m.ySource.aggregation = () => "average";
         m.line.render(showing(0, N - 1));
         const [xs, ys] = uploads(m).slice(-2);
@@ -843,6 +850,15 @@ describe("line", () => {
       it("should return the sample under the target", () => {
         const m = mount([X], [Y]);
         expect(m.line.findByXValue(PROPS, 3).value).toEqual({ x: 3, y: 30 });
+      });
+
+      it("should return the exact value of a float64 sample", () => {
+        const y = new Series({
+          data: new Float64Array([0.1, 0.2, 0.3]),
+          timeRange: new TimeRange(0, 100),
+        });
+        const m = mount([X1], [y]);
+        expect(m.line.findByXValue(PROPS, 1).value).toEqual({ x: 1, y: 0.2 });
       });
 
       it("should return a NaN sample under the target", () => {

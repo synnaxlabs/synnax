@@ -12,7 +12,7 @@ import {
   type Aggregation,
   type DataType,
   debounce,
-  MultiSeries,
+  type MultiSeries,
   Size,
   sync,
   TimeRange,
@@ -24,7 +24,6 @@ import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import { DEFAULT_BATCH_DEBOUNCE, type RemoteReader } from "@/framer/cache/reader";
 import { DEFAULT_STATIC_PROPS } from "@/framer/cache/static";
-import { IDENTITY_TRANSFORM, type Transform } from "@/framer/cache/transform";
 
 /**
  * Identifies one tile: the samples of one channel inside a fixed span of time, reduced
@@ -63,8 +62,6 @@ export const tileRange = ({ level, index, start, end }: TileSpec): TimeRange => 
 export interface TileReaderProps {
   /** Reads reduced tiles from the Core. */
   readRemote: RemoteReader;
-  /** Applied to every series before it enters the cache. Defaults to identity. */
-  transform?: Transform;
   /**
    * Window in which tile reads with equal bounds and options merge into one request.
    * @default TimeSpan.milliseconds(50)
@@ -139,13 +136,12 @@ export class TileReader {
   constructor(props: TileReaderProps) {
     const {
       readRemote,
-      transform = IDENTITY_TRANSFORM,
       batchDebounce = DEFAULT_BATCH_DEBOUNCE,
       budget = DEFAULT_BUDGET,
       staleThreshold = DEFAULT_STATIC_PROPS.staleCoverageThreshold,
       fetchTimeout = TimeSpan.seconds(30),
     } = props;
-    this.props = { readRemote, transform, budget, staleThreshold, fetchTimeout };
+    this.props = { readRemote, budget, staleThreshold, fetchTimeout };
     this.batcher = new debounce.Batcher({
       interval: batchDebounce,
       exec: async (entries) => await this.batchRead(entries),
@@ -253,7 +249,7 @@ export class TileReader {
   private async fetch(
     group: Array<debounce.Entry<TileSpec, MultiSeries>>,
   ): Promise<void> {
-    const { readRemote, transform, fetchTimeout } = this.props;
+    const { readRemote, fetchTimeout } = this.props;
     const spec = group[0].req;
     const tr = tileRange(spec);
     const keys = [...new Set(group.map(({ req }) => req.key))];
@@ -273,9 +269,10 @@ export class TileReader {
       if (this.closed) return;
       const results = new Map(
         keys.map((key) => {
-          const series = frame.get(key).series.map((s) => transform.convert(s));
-          if (series.length > 0) this.retainDataType(key, series[0].dataType);
-          return [key, new MultiSeries(series)];
+          const series = frame.get(key);
+          if (series.series.length > 0)
+            this.retainDataType(key, series.series[0].dataType);
+          return [key, series];
         }),
       );
       group.forEach(({ req, resolve }) => resolve(results.get(req.key)!));

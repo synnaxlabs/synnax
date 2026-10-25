@@ -35,7 +35,6 @@ export class Unary {
     this.static = new Static(props);
     this.dynamic = new Dynamic({
       dynamicBufferSize: props.dynamicBufferSize,
-      transform: props.transform,
       instrumentation: props.instrumentation,
     });
   }

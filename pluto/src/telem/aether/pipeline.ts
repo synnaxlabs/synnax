@@ -10,7 +10,6 @@
 import { ValidationError } from "@synnaxlabs/client";
 import {
   type Aggregation,
-  type DataType,
   type destructor,
   type TimeStamp,
 } from "@synnaxlabs/x";
@@ -118,10 +117,6 @@ export class SourcePipeline<V>
 
   aggregation(): Aggregation | null {
     return this.outlet.aggregation?.() ?? null;
-  }
-
-  dataType(): DataType | null {
-    return this.outlet.dataType?.() ?? null;
   }
 
   onChange(handler: () => void): destructor.Destructor {

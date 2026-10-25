@@ -13,7 +13,7 @@ import { test } from "vitest";
 
 import { type channel } from "@/channel";
 import { TileReader, tileSpan, type TileSpec } from "@/framer/cache/tile";
-import { glTransform, SyntheticCore } from "@/testutil";
+import { SyntheticCore } from "@/testutil";
 
 // One week of 1kHz data. A plot 1000 pixels wide that shows the last day of it draws
 // level 26 tiles with a point limit of 1024.
@@ -28,7 +28,6 @@ const createCore = (channels: number): SyntheticCore =>
 const createReader = (core: SyntheticCore, budget?: Size): TileReader =>
   new TileReader({
     readRemote: async (tr, keys, reduction) => core.read(tr, keys, reduction),
-    transform: glTransform,
     batchDebounce: TimeSpan.ZERO,
     budget,
   });
@@ -122,7 +121,6 @@ const insertPastBudget = async (held: number): Promise<() => Promise<void>> => {
       remoteReads++;
       return core.read(tr, keys, reduction);
     },
-    transform: glTransform,
     batchDebounce: TimeSpan.ZERO,
     budget: Size.bytes(1.1 * sizes.reduce((sum, b) => sum + b, 0)),
   });

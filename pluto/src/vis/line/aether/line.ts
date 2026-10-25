@@ -130,16 +130,11 @@ export class GLProgram extends render.GLProgram {
     this.uniformXY("u_offset_aggregate", aggregateOffset);
   }
 
-  draw(
-    op: DrawOperation,
-    instances: number,
-    xDataType: DataType,
-    yDataType: DataType,
-  ): void {
+  draw(op: DrawOperation, instances: number): void {
     const { gl } = this.renderCtx;
     const { x, y, xOffset, yOffset } = op;
-    this.bindAttrBuffer("x", x.glBuffer, 1, xOffset, xDataType);
-    this.bindAttrBuffer("y", y.glBuffer, 1, yOffset, yDataType);
+    this.bindAttrBuffer("x", x.glBuffer, 1, xOffset, x.glDataType);
+    this.bindAttrBuffer("y", y.glBuffer, 1, yOffset, y.glDataType);
     for (const [first, count] of finiteRuns(op))
       gl.drawArraysInstanced(gl.LINE_STRIP, first, count, instances);
   }
@@ -397,16 +392,13 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const [[, xData], [, yData]] = [xTelem.value(valueProps), yTelem.value(valueProps)];
     const full = buildDrawOperations(xData, yData, DEFAULT_OVERLAP_THRESHOLD);
     const size = groupSize(full, valueProps.view, groupsPerColumn);
-    const ops = reducer.reduce(full, aggregation, size, {
-      x: xTelem.dataType?.() ?? null,
-      y: yTelem.dataType?.() ?? null,
-    });
+    const ops = reducer.reduce(full, aggregation, size);
     if (ops.length === 0) return;
     ops.forEach(({ x, y }) => {
       x.updateGLBuffer(ctx.gl);
       y.updateGLBuffer(ctx.gl);
     });
-    const prog = ctx.getProgram(yData.dataType);
+    const prog = ctx.getProgram(ops[0].y.glDataType);
     this.internal.instrumentation.L.debug("render", () => ({
       key: this.key,
       scale: dataToDecimalScale.transform,
@@ -419,7 +411,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     ops.forEach((op) => {
       const scaleTransform = offsetScale(dataToDecimalScale, op).transform;
       prog.bindScale(scaleTransform, regionTransform);
-      prog.draw(op, instances, xData.dataType, yData.dataType);
+      prog.draw(op, instances);
     });
     clearProg();
     const bridges = bridgeVertices(ops, dataToDecimalScale);
@@ -470,8 +462,8 @@ const replicateBuffer = (buf: Float32Array, times: number): Float32Array => {
 
 const offsetScale = (scale: scale.XY, op: DrawOperation): scale.XY =>
   scale.translate(
-    scale.x.dim(Number(op.x.sampleOffset)),
-    scale.y.dim(Number(op.y.sampleOffset)),
+    scale.x.dim(Number(op.x.glOffset)),
+    scale.y.dim(Number(op.y.glOffset)),
   );
 
 export const REGISTRY: aether.ComponentRegistry = { [Line.TYPE]: Line };

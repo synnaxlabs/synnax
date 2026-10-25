@@ -183,6 +183,18 @@ describe("StreamMultiChannelLog", () => {
     expect(entries[0].value).toBe("1.234");
   });
 
+  it("should stringify FLOAT64 values exactly", async () => {
+    const props: StreamMultiChannelLogProps = {
+      channels: [c.channelA.key],
+      timeSpan: TimeSpan.seconds(30),
+    };
+    const log = new StreamMultiChannelLog(c, props);
+    await waitForResolve(log);
+    const series = new Series({ data: new Float64Array([0.1 + 0.2]) });
+    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+    expect(log.value()[0].value).toBe("0.30000000000000004");
+  });
+
   it("should stringify INT64 bigint values", async () => {
     const props: StreamMultiChannelLogProps = {
       channels: [c.channelInt.key],
