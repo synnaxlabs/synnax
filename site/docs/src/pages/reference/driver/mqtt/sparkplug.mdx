@@ -81,6 +81,9 @@ that time to the index channel of `channel`. Tags change at different times, so 
 each tag an index channel of its own. The task drops a value whose timestamp is not
 after the last one it wrote, and shows a warning.
 
+An edge node can store values while it is offline and send them later, marked as
+historical. The task drops historical values, and shows a warning.
+
 The task converts each value to the data type of the channel. It supports the integer,
 `float`, `double`, `boolean`, `string`, `text`, `uuid`, and `date_time` data types of
 Sparkplug B. It does not support `data_set`, `bytes`, `file`, `template`, and array

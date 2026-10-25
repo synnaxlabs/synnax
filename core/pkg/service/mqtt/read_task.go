@@ -554,7 +554,15 @@ func (r *reader) convertEvent(now time.Time, msg message, b *batch) {
 	}
 	for _, m := range ev.Metrics {
 		t, ok := r.tags[tagID{tagScope: scope, name: m.Name}]
-		if !ok || m.Value == nil || m.Historical {
+		if !ok || m.Value == nil {
+			continue
+		}
+		if m.Historical {
+			r.degrade(now, errors.Newf(
+				"rejected a historical value of %s: the task does not write values "+
+					"that an edge node stored while offline",
+				t,
+			))
 			continue
 		}
 		data, err := sparkplug.AppendSample(nil, t.dataType, m.Value)

@@ -195,6 +195,34 @@ var _ = Describe("Sparkplug B read entries", func() {
 				Expect(stored(ctx, data[0]).Len()).To(BeEquivalentTo(1))
 			},
 		)
+
+		It("Should warn about a historical value and not write it",
+			func(ctx SpecContext) {
+				_, data := createIndexed(ctx, telem.Float64T)
+				node.setTags("", tagValue{
+					name: "temperature", alias: 1, value: 5.0, timestamp: 1700000002000,
+				})
+				t := start(ctx, readConfig(
+					dev, tagEntry("plant", "line1", "", "temperature", data[0]),
+				))
+				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
+					Should(BeEquivalentTo(1))
+				node.data("", tagValue{
+					alias: 1, value: 4.0, timestamp: 1700000001000, historical: true,
+				})
+				Eventually(func() task.Status { return taskStatus(ctx, t) }).Should(And(
+					HaveField("Variant", status.VariantWarning),
+					HaveField("Message", Equal("Failed to read some data")),
+					HaveField("Description", Equal(
+						"rejected a historical value of tag plant/line1/temperature: "+
+							"the task does not write values that an edge node stored "+
+							"while offline",
+					)),
+				))
+				Expect(stored(ctx, data[0])).
+					To(telem.MatchSeriesData(telem.NewSeriesV(5.0)))
+			},
+		)
 	})
 
 	Describe("Session state", func() {

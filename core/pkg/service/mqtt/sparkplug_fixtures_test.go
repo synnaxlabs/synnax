@@ -34,6 +34,8 @@ type tagValue struct {
 	alias uint64
 	// timestamp is in milliseconds. Zero leaves the timestamp out.
 	timestamp uint64
+	// historical marks a value that the edge node stored while offline.
+	historical bool
 }
 
 // metric returns the wire form of v. A data message names its tag by alias only.
@@ -45,6 +47,9 @@ func (v tagValue) metric(birth bool) *pb.Payload_Metric {
 	}
 	if v.timestamp != 0 {
 		m.Timestamp = new(v.timestamp)
+	}
+	if v.historical {
+		m.IsHistorical = new(true)
 	}
 	switch value := v.value.(type) {
 	case float64:
