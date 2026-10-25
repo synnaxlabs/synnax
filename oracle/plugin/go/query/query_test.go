@@ -229,7 +229,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 		Context("search", func() {
 			It(
-				"Should generate search methods with ontology type inferred from @ontology",
+				"Should generate a Search method backed by a search index",
 				func(ctx SpecContext) {
 					source := `
 					@go output "core/pkg/service/foo"
@@ -249,11 +249,10 @@ var _ = Describe("Go Query Plugin", func() {
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
 							"func (r Retrieve) Search(term string) Retrieve",
-							"search     *search.Index",
-							"searchTerm string",
-							"ontology.ResourceTypeFoo",
-							"func (r Retrieve) execSearch(ctx context.Context) (Retrieve, error)",
-						)
+							"search     *gorp.SearchIndex[uuid.UUID, Foo]",
+							"r.gorp = r.gorp.Where(r.search.Filter(term))",
+						).
+						ToNotContain("execSearch", "searchTerm", "KeysFromOntologyIDs")
 				},
 			)
 		})
@@ -643,55 +642,6 @@ var _ = Describe("Go Query Plugin", func() {
 			})
 		})
 
-		Context("ontology ID error handling in search", func() {
-			It(
-				"Should generate error-checked KeysFromOntologyIDs for non-string keys",
-				func(ctx SpecContext) {
-					source := `
-					@go output "core/pkg/service/task"
-
-					Task struct {
-						key uuid {
-							@key
-						}
-						name string
-						@ontology type "task"
-						@retrieve
-						@search
-					}
-				`
-					resp := MustGenerate(ctx, source, "task", loader, p)
-
-					ExpectContent(resp, "retrieve.gen.go").
-						ToContain("keys, err := KeysFromOntologyIDs(ids)")
-				},
-			)
-
-			It(
-				"Should generate direct KeysFromOntologyIDs for string keys",
-				func(ctx SpecContext) {
-					source := `
-					@go output "core/pkg/service/device"
-
-					Device struct {
-						key string {
-							@key
-						}
-						name string
-						@ontology type "device"
-						@retrieve
-						@search
-					}
-				`
-					resp := MustGenerate(ctx, source, "device", loader, p)
-
-					ExpectContent(resp, "retrieve.gen.go").
-						ToContain("keys := KeysFromOntologyIDs(ids)").
-						ToNotContain("keys, err := KeysFromOntologyIDs(ids)")
-				},
-			)
-		})
-
 		Context("imports", func() {
 			It(
 				"Should only import context and gorp for minimal structs",
@@ -762,8 +712,10 @@ var _ = Describe("Go Query Plugin", func() {
 					ToNotContain("\"slices\"")
 			})
 
-			It("Should import search and ontology for @search", func(ctx SpecContext) {
-				source := `
+			It(
+				"Should import only context and gorp for @search",
+				func(ctx SpecContext) {
+					source := `
 					@go output "core/pkg/service/foo"
 
 					Foo struct {
@@ -776,14 +728,13 @@ var _ = Describe("Go Query Plugin", func() {
 						@search
 					}
 				`
-				resp := MustGenerate(ctx, source, "foo", loader, p)
+					resp := MustGenerate(ctx, source, "foo", loader, p)
 
-				ExpectContent(resp, "retrieve.gen.go").
-					ToContain(
-						"\"github.com/synnaxlabs/synnax/core/pkg/service/search\"",
-						"\"github.com/synnaxlabs/synnax/core/pkg/service/ontology\"",
-					)
-			})
+					ExpectContent(resp, "retrieve.gen.go").
+						ToContain("\"context\"", "/gorp\"").
+						ToNotContain("service/search", "service/ontology")
+				},
+			)
 		})
 
 		Context("doc comments", func() {
@@ -813,7 +764,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 					expectedDocPrefixes := []string{
 						"// Retrieve is used to retrieve Foo records",
-						"// Search sets a fuzzy search term",
+						"// Search filters the foos to those whose text matches",
 						"// MatchKeys returns a filter that restricts results to\n// foos whose key",
 						"// MatchNames returns a filter for\n// foos whose Name",
 						"// MatchActive returns a filter for foos by their\n// Active field",

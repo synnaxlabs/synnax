@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
@@ -32,7 +31,6 @@ type ServiceConfig struct {
 	alamos.Instrumentation
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
-	Search   *search.Index
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -42,7 +40,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Search = override.Nil(c.Search, other.Search)
 	return c
 }
 
@@ -51,7 +48,6 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("group")
 	v.NotNil("db", c.DB)
 	v.NotNil("ontology", c.Ontology)
-	v.NotNil("search", c.Search)
 	return v.Error()
 }
 
@@ -59,6 +55,7 @@ type Service struct {
 	cfg     ServiceConfig
 	signals io.Closer
 	table   *gorp.Table[Key, Group]
+	search  *gorp.SearchIndex[Key, Group]
 }
 
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
@@ -66,17 +63,16 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Key, Group]{
+	s := &Service{cfg: cfg, search: newSearchIndex()}
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Group]{
 		DB:              cfg.DB,
+		Indexes:         []gorp.Index[Key, Group]{s.search},
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
-	cfg.Search.RegisterService(s)
 	return s, nil
 }
 

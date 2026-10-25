@@ -273,9 +273,10 @@ public:
     /// @brief returns the rate the bus cycles at, or zero when it is not running.
     [[nodiscard]] x::telem::Rate cycle_rate() const;
 
-    /// @brief initializes the master unless the bus is already running (thread-safe,
-    /// idempotent).
-    [[nodiscard]] x::errors::Error ensure_initialized() const;
+    /// @brief initializes the master unless the bus is running. While the bus is
+    /// stopped, rediscovers the slaves when the number that answer has changed.
+    /// Thread-safe.
+    [[nodiscard]] x::errors::Error ensure_initialized();
 
     /// @brief returns discovered slaves.
     [[nodiscard]] std::vector<slave::DiscoveryResult> slaves() const;

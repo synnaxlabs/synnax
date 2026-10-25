@@ -83,21 +83,33 @@ x::errors::Error Master::initialize() {
         this->api->close();
         return x::errors::Error(
             errors::MASTER_INIT_ERROR,
-            "failed to initialize EtherCAT on interface: " + this->iface_name
+            "cannot open " + this->iface_name +
+                " for raw Ethernet access. Run the Driver as root (or with "
+                "CAP_NET_RAW on Linux), and install Npcap on Windows."
         );
     }
 
     if (this->api->config_init() <= 0) {
         this->api->close();
         return x::errors::Error(
-            errors::MASTER_INIT_ERROR,
-            "no EtherCAT slaves found on network"
+            errors::NO_SLAVES_FOUND,
+            "no EtherCAT slaves found on " + this->iface_name
         );
     }
 
     this->populate_slaves();
     this->initialized = true;
     return x::errors::NIL;
+}
+
+std::pair<size_t, x::errors::Error> Master::count_slaves() {
+    if (!this->initialized)
+        return {
+            0,
+            x::errors::Error(errors::MASTER_INIT_ERROR, "master not initialized")
+        };
+    const int count = this->api->count_bus_slaves();
+    return {count > 0 ? static_cast<size_t>(count) : 0, x::errors::NIL};
 }
 
 void Master::set_slave_enabled(const uint16_t position, const bool enabled) {
@@ -855,13 +867,14 @@ std::vector<master::Info> Manager::enumerate() {
     ec_adaptert *current = adapter;
 
     while (current != nullptr) {
-        if (is_physical_interface(current->name)) {
+        if (is_wired_interface(current->name, current->desc)) {
             master::Info info;
             info.key = current->name;
             info.description = current->desc;
             masters.push_back(std::move(info));
         } else {
-            VLOG(1) << "[ethercat] skipping virtual interface: " << current->name;
+            VLOG(1) << "[ethercat] skipping interface that cannot carry EtherCAT: "
+                    << current->name;
         }
         current = current->next;
     }
