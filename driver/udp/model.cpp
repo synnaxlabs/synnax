@@ -187,9 +187,11 @@ public:
 
     ~Stack() override { this->close(); }
 
-    std::pair<std::vector<asio::ip::udp::endpoint>, std::error_code>
-    resolve(const std::string &host, const std::uint16_t port, x::telem::TimeSpan)
-        override {
+    std::pair<std::vector<asio::ip::udp::endpoint>, std::error_code> resolve(
+        const std::string &host,
+        const std::uint16_t port,
+        x::telem::TimeSpan
+    ) override {
         if (const auto ec = this->net->call()) return {{}, ec};
         {
             std::lock_guard lock(this->net->mu);
@@ -249,10 +251,14 @@ public:
         asio::ip::udp::endpoint &sender,
         Handler handler
     ) override {
-        if (const auto ec = this->net->call())
-            return this->post(std::move(handler), ec);
-        if (this->mailbox == nullptr)
-            return this->post(std::move(handler), asio::error::bad_descriptor);
+        if (const auto ec = this->net->call()) {
+            this->post(std::move(handler), ec);
+            return;
+        }
+        if (this->mailbox == nullptr) {
+            this->post(std::move(handler), asio::error::bad_descriptor);
+            return;
+        }
         std::lock_guard lock(this->net->mu);
         this->mailbox->receive.emplace(
             Receive{
@@ -270,10 +276,14 @@ public:
         const asio::ip::udp::endpoint &to,
         Handler handler
     ) override {
-        if (const auto ec = this->net->call())
-            return this->post(std::move(handler), ec);
-        if (this->mailbox == nullptr)
-            return this->post(std::move(handler), asio::error::bad_descriptor);
+        if (const auto ec = this->net->call()) {
+            this->post(std::move(handler), ec);
+            return;
+        }
+        if (this->mailbox == nullptr) {
+            this->post(std::move(handler), asio::error::bad_descriptor);
+            return;
+        }
         std::lock_guard lock(this->net->mu);
         this->net->deliver(std::string(data.begin(), data.end()), this->source(), to);
         this->post(std::move(handler), {}, data.size());
@@ -320,6 +330,8 @@ Peer::receive(const x::telem::TimeSpan timeout) const {
         return m->at == this->at;
     });
     if (mailbox == this->net->bound.end()) return std::nullopt;
+    // The wait releases the lock, so bound can reallocate or drop the mailbox.
+    // NOLINTNEXTLINE(performance-unnecessary-copy-initialization): keeps it alive.
     const auto box = *mailbox;
     if (!this->net->cv.wait_for(lock, timeout.chrono(), [&box] {
             return !box->queue.empty();

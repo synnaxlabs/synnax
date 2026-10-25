@@ -98,7 +98,7 @@ struct Frame {
     /// @brief the payload. Bytes past length are unspecified.
     std::array<std::uint8_t, MAX_FD_LENGTH> data{};
     /// @brief when the frame was received. Unset on frames to send.
-    x::telem::TimeStamp time;
+    x::telem::TimeStamp time{};
     /// @brief the clock time comes from.
     Clock clock = Clock::HOST;
 
@@ -141,9 +141,9 @@ constexpr std::uint8_t PROTOCOL_BIT0 = 0x08;
 constexpr std::uint8_t PROTOCOL_BIT1 = 0x10;
 constexpr std::uint8_t PROTOCOL_OVERLOAD = 0x20;
 
-/// @returns a BUS_ERROR frame of classes, with controller details, at a host time.
+/// @returns a BUS_ERROR frame of classes, with CONTROLLER_* details, at a host time.
 [[nodiscard]] Frame
-make(std::uint32_t classes, std::uint8_t controller, x::telem::TimeStamp time);
+make(std::uint32_t classes, std::uint8_t details, x::telem::TimeStamp time);
 
 /// @returns the faults a BUS_ERROR frame reports, such as "the adapter reported bus
 /// off", or nullopt when it reports only a return to error active.
@@ -307,7 +307,7 @@ template<typename Take>
 [[nodiscard]] std::pair<bool, x::errors::Error> poll_queue(
     const x::telem::TimeSpan timeout,
     const x::telem::TimeSpan interval,
-    Take &&take
+    const Take &take
 ) {
     const auto deadline = std::chrono::steady_clock::now() + timeout.chrono();
     while (true) {
@@ -343,7 +343,7 @@ class Unavailable final : public Backend {
     x::errors::Error err;
 
 public:
-    explicit Unavailable(x::errors::Error err): err(std::move(err)) {}
+    explicit Unavailable(const x::errors::Error &err): err(err) {}
 
     [[nodiscard]] std::pair<std::vector<Channel>, x::errors::Error> scan() override {
         return {{}, this->err};

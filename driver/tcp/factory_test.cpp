@@ -100,11 +100,11 @@ TEST_F(TCPFactory, ConfiguresAWriteTask) {
     // on its first send.
     this->acceptor.non_blocking(true);
     asio::ip::tcp::socket peer(this->io);
-    std::error_code ec = asio::error::would_block;
-    for (int i = 0; i < 50 && ec; i++) {
+    std::error_code ec;
+    for (int i = 0; i < 50; i++) {
         ASSERT_NIL(writer.write(x::telem::Frame(cmd.key, x::telem::Series(4.0))));
         std::this_thread::sleep_for(std::chrono::milliseconds(20));
-        this->acceptor.accept(peer, ec);
+        if (!this->acceptor.accept(peer, ec)) break;
     }
     ASSERT_FALSE(ec) << ec.message();
     peer.non_blocking(false);

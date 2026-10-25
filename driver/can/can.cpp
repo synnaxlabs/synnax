@@ -29,8 +29,8 @@ std::uint8_t dlc_to_length(const std::uint8_t dlc, const bool fd) {
 }
 
 std::optional<std::uint8_t> length_to_dlc(const std::uint8_t length) {
-    for (std::uint8_t dlc = 0; dlc < FD_LENGTHS.size(); dlc++)
-        if (FD_LENGTHS[dlc] == length) return dlc;
+    for (std::size_t dlc = 0; dlc < FD_LENGTHS.size(); dlc++)
+        if (FD_LENGTHS[dlc] == length) return static_cast<std::uint8_t>(dlc);
     return std::nullopt;
 }
 
@@ -146,11 +146,11 @@ bool append(
 
 Frame make(
     const std::uint32_t classes,
-    const std::uint8_t controller,
+    const std::uint8_t details,
     const x::telem::TimeStamp time
 ) {
     Frame frame{.id = classes, .type = Type::BUS_ERROR, .length = 8};
-    frame.data[1] = controller;
+    frame.data[1] = details;
     frame.time = time;
     frame.clock = Clock::HOST;
     return frame;

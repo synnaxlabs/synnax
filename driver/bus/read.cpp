@@ -56,7 +56,7 @@ common::ReadResult Source::read(x::breaker::Breaker &breaker, x::telem::Frame &f
         if (!err) {
             if (guard.opens() != this->opens) {
                 this->opens = guard.opens();
-                if (this->cfg.framer != nullptr) this->cfg.framer->reset();
+                if (this->cfg.framer != nullptr) (*this->cfg.framer).reset();
                 this->restart_polls();
                 this->decoder.restart();
             }
@@ -136,7 +136,7 @@ x::errors::Error Source::drain(Transport &t) {
         if (err) return err;
         if (n == 0) break;
     }
-    if (this->cfg.framer != nullptr) this->cfg.framer->reset();
+    if (this->cfg.framer != nullptr) (*this->cfg.framer).reset();
     return x::errors::NIL;
 }
 

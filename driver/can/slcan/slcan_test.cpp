@@ -17,6 +17,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -211,12 +212,12 @@ private:
     void reply(const std::string &answer) const {
         if (answer.empty()) return;
         const auto n = ::write(this->controller, answer.data(), answer.size());
-        if (n != static_cast<ssize_t>(answer.size())) { EXPECT_EQ(errno, EIO); }
+        if (std::cmp_not_equal(n, answer.size())) { EXPECT_EQ(errno, EIO); }
     }
 
 public:
-    explicit Adapter(const Profile profile): profile(profile) {
-        this->controller = ::posix_openpt(O_RDWR | O_NOCTTY);
+    explicit Adapter(const Profile profile):
+        profile(profile), controller(::posix_openpt(O_RDWR | O_NOCTTY)) {
         EXPECT_GE(this->controller, 0);
         EXPECT_EQ(::grantpt(this->controller), 0);
         EXPECT_EQ(::unlockpt(this->controller), 0);

@@ -89,8 +89,7 @@ Port::open(const synnax::serial::Properties &props) {
     auto port = std::unique_ptr<Port>(new Port(props.port));
     const auto context = "failed to open serial port " + props.port;
     std::error_code ec;
-    port->device.open(props.port, ec);
-    if (ec) return {nullptr, translate(context, ec)};
+    if (port->device.open(props.port, ec)) return {nullptr, translate(context, ec)};
     if (auto err = native::lock(port->handle(), props.port)) return {nullptr, err};
     if (auto err = native::configure(port->handle(), props)) return {nullptr, err};
     if (const auto watched = native::watch(port->handle(), port->line))
@@ -111,6 +110,7 @@ Port::read(const x::telem::TimeSpan timeout) {
         },
         [this] {
             std::error_code ignored;
+            // NOLINTNEXTLINE(bugprone-unused-return-value): it fails only when closed.
             this->device.cancel(ignored);
         }
     );
@@ -148,6 +148,7 @@ x::errors::Error Port::write(
         },
         [this] {
             std::error_code ignored;
+            // NOLINTNEXTLINE(bugprone-unused-return-value): it fails only when closed.
             this->device.cancel(ignored);
         }
     );
@@ -169,6 +170,7 @@ void Port::close(const x::telem::TimeSpan timeout) {
     }
     native::unlock(this->handle());
     std::error_code ignored;
+    // NOLINTNEXTLINE(bugprone-unused-return-value): a failed close still frees it.
     this->device.close(ignored);
 }
 }

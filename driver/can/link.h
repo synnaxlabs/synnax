@@ -73,7 +73,7 @@ private:
     /// @brief the error of the last failed open, while the link holds no bus.
     x::errors::Error failure;
     /// @brief when the link may next try to open.
-    x::telem::TimeStamp next_attempt;
+    x::telem::TimeStamp next_attempt{};
     /// @brief the wait after the next failed open.
     x::telem::TimeSpan wait = MIN_REOPEN_WAIT;
 };

@@ -101,7 +101,7 @@ std::vector<std::uint8_t> encode_frame(
     if (frame.bitrate_switched) flags |= FRAME_BRS;
     writer.uint32(echo_id);
     writer.uint32(id);
-    writer.uint8(frame.fd ? *length_to_dlc(frame.length) : frame.length);
+    writer.uint8(frame.fd ? length_to_dlc(frame.length).value() : frame.length);
     writer.uint8(channel);
     writer.uint8(flags);
     writer.uint8(0);

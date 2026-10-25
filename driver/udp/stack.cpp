@@ -40,20 +40,17 @@ std::pair<std::vector<asio::ip::udp::endpoint>, std::error_code> AsioStack::reso
 
 std::error_code AsioStack::open(const asio::ip::udp &protocol) {
     std::error_code ec;
-    this->socket.open(protocol, ec);
-    return ec;
+    return this->socket.open(protocol, ec);
 }
 
 std::error_code AsioStack::share() {
     std::error_code ec;
-    this->socket.set_option(asio::socket_base::reuse_address(true), ec);
-    return ec;
+    return this->socket.set_option(asio::socket_base::reuse_address(true), ec);
 }
 
 std::error_code AsioStack::bind(const asio::ip::udp::endpoint &local) {
     std::error_code ec;
-    this->socket.bind(local, ec);
-    return ec;
+    return this->socket.bind(local, ec);
 }
 
 std::error_code AsioStack::join(
@@ -62,18 +59,16 @@ std::error_code AsioStack::join(
 ) {
     std::error_code ec;
     if (!iface.has_value())
-        this->socket.set_option(asio::ip::multicast::join_group(group), ec);
-    else if (group.is_v4())
-        this->socket.set_option(
+        return this->socket.set_option(asio::ip::multicast::join_group(group), ec);
+    if (group.is_v4())
+        return this->socket.set_option(
             asio::ip::multicast::join_group(group.to_v4(), iface->to_v4()),
             ec
         );
-    else
-        this->socket.set_option(
-            asio::ip::multicast::join_group(group.to_v6(), iface->to_v6().scope_id()),
-            ec
-        );
-    return ec;
+    return this->socket.set_option(
+        asio::ip::multicast::join_group(group.to_v6(), iface->to_v6().scope_id()),
+        ec
+    );
 }
 
 void AsioStack::async_receive_from(
@@ -99,11 +94,13 @@ void AsioStack::async_send_to(
 
 void AsioStack::cancel() {
     std::error_code ignored;
+    // NOLINTNEXTLINE(bugprone-unused-return-value): it fails only when closed.
     this->socket.cancel(ignored);
 }
 
 void AsioStack::close() {
     std::error_code ignored;
+    // NOLINTNEXTLINE(bugprone-unused-return-value): a failed close still frees it.
     this->socket.close(ignored);
 }
 }

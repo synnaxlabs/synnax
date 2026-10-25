@@ -23,8 +23,7 @@ std::pair<Opened, x::errors::Error> Link::bus() {
     if (this->current != nullptr)
         return {{.bus = this->current, .opens = this->opens}, x::errors::NIL};
     const auto now = this->now();
-    if (this->failure && now < this->next_attempt)
-        return {{}, this->failure};
+    if (this->failure && now < this->next_attempt) return {{}, this->failure};
     auto [bus, err] = this->open();
     if (err) {
         this->failure = err;

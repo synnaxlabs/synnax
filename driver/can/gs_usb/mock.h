@@ -17,6 +17,7 @@
 #include <deque>
 #include <mutex>
 #include <optional>
+#include <ranges>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -539,8 +540,8 @@ private:
 
     /// @returns the latest attachment of an adapter, attached or not.
     Instance &find_any(const std::string &serial) {
-        for (auto it = this->instances.rbegin(); it != this->instances.rend(); ++it)
-            if (it->device.serial == serial) return *it;
+        for (auto &instance: std::views::reverse(this->instances))
+            if (instance.device.serial == serial) return instance;
         throw std::out_of_range("no adapter has serial number " + serial);
     }
 

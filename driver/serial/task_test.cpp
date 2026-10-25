@@ -199,12 +199,12 @@ TEST(Scanner, ReportsEachPortAsADevice) {
     ASSERT_EQ(devs.size(), 2);
     EXPECT_EQ(devs[0].key, "mine");
     EXPECT_EQ(devs[0].properties.at("baud_rate"), 115200);
-    EXPECT_EQ(devs[0].status->variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(devs[0].status.value().variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(devs[1].key, "serial_7__dev_ttyUSB0");
     EXPECT_EQ(devs[1].make, "Serial");
     EXPECT_EQ(devs[1].name, "ttyUSB0");
     EXPECT_EQ(devs[1].properties.at("port"), "/dev/ttyUSB0");
-    EXPECT_EQ(devs[1].status->message, "Port available");
+    EXPECT_EQ(devs[1].status.value().message, "Port available");
 }
 
 TEST(Scanner, ReturnsTheListingError) {

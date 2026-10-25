@@ -89,7 +89,7 @@ public:
     }
 
     [[nodiscard]] synnax::can::Properties props() const override {
-        return *this->target;
+        return this->target.value();
     }
 
     std::pair<std::unique_ptr<Bus>, x::errors::Error>
@@ -107,7 +107,7 @@ public:
     }
 
     bool fd() override {
-        auto p = *this->target;
+        auto p = this->target.value();
         p.fd = true;
         return !can::open(this->backends, p).second;
     }

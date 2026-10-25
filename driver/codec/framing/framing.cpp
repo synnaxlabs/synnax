@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <string>
+#include <utility>
 
 #include "client/cpp/icd/types.gen.h"
 
@@ -133,7 +134,7 @@ public:
                 this->scanned = 0;
                 continue;
             }
-            const auto n = std::min(room, chunk.size());
+            const std::size_t n = std::min(room, chunk.size());
             this->buf.insert(this->buf.end(), chunk.begin(), chunk.begin() + n);
             chunk = chunk.subspan(n);
             this->extract(handler);
@@ -189,7 +190,10 @@ public:
                 chunk = chunk.subspan(this->length);
                 continue;
             }
-            const auto n = std::min(this->length - this->buf.size(), chunk.size());
+            const std::size_t n = std::min(
+                this->length - this->buf.size(),
+                chunk.size()
+            );
             this->buf.insert(this->buf.end(), chunk.begin(), chunk.begin() + n);
             chunk = chunk.subspan(n);
             if (this->buf.size() == this->length) {
@@ -263,8 +267,7 @@ class Sync final : public Framer {
         );
         const auto size = static_cast<std::int64_t>(this->header) +
                           static_cast<std::int64_t>(value) + l.length_adjustment;
-        if (size < static_cast<std::int64_t>(this->min_size) ||
-            size > static_cast<std::int64_t>(l.max_size))
+        if (std::cmp_less(size, this->min_size) || std::cmp_greater(size, l.max_size))
             return 0;
         return static_cast<std::size_t>(size);
     }
@@ -336,7 +339,7 @@ public:
         // extract leaves fewer than MAX_SIZE bytes: an incomplete frame no longer than
         // MAX_SIZE, or a partial header or sync sequence.
         while (!chunk.empty()) {
-            const auto n = std::min(MAX_SIZE - this->buf.size(), chunk.size());
+            const std::size_t n = std::min(MAX_SIZE - this->buf.size(), chunk.size());
             this->buf.insert(this->buf.end(), chunk.begin(), chunk.begin() + n);
             chunk = chunk.subspan(n);
             this->extract(handler);
@@ -378,7 +381,7 @@ public:
         const auto start = out.size();
         out.insert(out.end(), frame.begin(), frame.end());
         auto *f = out.data() + start;
-        std::copy(l.sync.begin(), l.sync.end(), f);
+        std::ranges::copy(l.sync, f);
         write_uint(
             f + l.length_offset,
             static_cast<std::uint64_t>(value),

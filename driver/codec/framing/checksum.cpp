@@ -16,7 +16,7 @@ namespace {
 constexpr std::array<std::uint16_t, 256> ccitt_table() {
     std::array<std::uint16_t, 256> t{};
     for (std::uint32_t i = 0; i < 256; i++) {
-        std::uint16_t crc = static_cast<std::uint16_t>(i << 8);
+        auto crc = static_cast<std::uint16_t>(i << 8);
         for (int b = 0; b < 8; b++)
             crc = static_cast<std::uint16_t>(
                 crc & 0x8000 ? (crc << 1) ^ 0x1021 : crc << 1

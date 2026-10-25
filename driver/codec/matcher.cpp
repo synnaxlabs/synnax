@@ -81,7 +81,7 @@ Matcher::compile(const std::span<const icd::Message> messages) {
             m.prefixed.push_back({.prefix = text->prefix, .message = i});
             continue;
         }
-        const auto &identifier = *binary->identifier;
+        const auto &identifier = binary->identifier.value();
         if (const auto *can = std::get_if<icd::CanIdentifier>(&identifier)) {
             const auto valid = can->extended ? EXTENDED_ID_MASK : STANDARD_ID_MASK;
             const auto mask = can->mask.value_or(valid) & valid;
@@ -127,7 +127,7 @@ Matcher::compile(const std::span<const icd::Message> messages) {
             bf.byte_order
         );
         if (err) return {{}, message_error(msg, err.data)};
-        auto h = std::find_if(m.headers.begin(), m.headers.end(), [&](const Header &h) {
+        auto h = std::ranges::find_if(m.headers, [&](const Header &h) {
             return h.bits == bits && h.signed_ == bf.signed_;
         });
         if (h == m.headers.end())
@@ -147,11 +147,9 @@ Matcher::compile(const std::span<const icd::Message> messages) {
                 ),
             };
     }
-    std::stable_sort(
-        m.prefixed.begin(),
-        m.prefixed.end(),
-        [](const auto &a, const auto &b) { return a.prefix.size() > b.prefix.size(); }
-    );
+    std::ranges::stable_sort(m.prefixed, [](const auto &a, const auto &b) {
+        return a.prefix.size() > b.prefix.size();
+    });
     return {std::move(m), x::errors::NIL};
 }
 

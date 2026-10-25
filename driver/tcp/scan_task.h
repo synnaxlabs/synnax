@@ -38,7 +38,7 @@ public:
     /// @param connections the device connections that the integration's tasks hold.
     Scanner(
         synnax::task::Task task,
-        const Config &connection,
+        Config connection,
         std::shared_ptr<bus::Connections> connections
     );
 

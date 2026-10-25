@@ -229,6 +229,7 @@ std::optional<std::pair<bool, x::errors::Error>> Bus::take(Frame &frame) {
             0,
             &returned
         );
+        // NOLINTNEXTLINE(modernize-use-integer-sign-comparison): the macro is signed.
         if (status == nxErrInputQueueOverflow) {
             frame = bus_error::make(
                 bus_error::CONTROLLER,
@@ -251,11 +252,12 @@ std::optional<std::pair<bool, x::errors::Error>> Bus::take(Frame &frame) {
 x::errors::Error Bus::transmit(const Frame &frame) {
     auto raw = encode(frame, this->fd);
     const auto status = this->api->WriteFrame(
-        *this->out,
+        this->out.value(),
         raw.data(),
         static_cast<u32>(raw.size()),
         0
     );
+    // NOLINTNEXTLINE(modernize-use-integer-sign-comparison): the macro is signed.
     if (status == nxErrOutputQueueOverflow)
         return {
             TEMPORARY_HARDWARE_ERROR,
@@ -337,6 +339,7 @@ Backend::open(const synnax::can::Properties &props) {
     const auto fail = [&](const nxStatus_t status) {
         for (const auto session: sessions)
             api.Clear(session);
+        // NOLINTNEXTLINE(modernize-use-integer-sign-comparison): the macro is signed.
         if (status == nxErrInvalidInterface)
             return std::pair<std::unique_ptr<can::Bus>, x::errors::Error>{
                 nullptr,
@@ -355,7 +358,7 @@ Backend::open(const synnax::can::Properties &props) {
     };
     // A session takes its read-only I/O mode from the database cluster, so an FD bus
     // opens the in-memory database whose cluster is in CAN FD+BRS mode.
-    const auto database = props.fd ? ":can_fd_brs:" : ":memory:";
+    const auto *const database = props.fd ? ":can_fd_brs:" : ":memory:";
     // NI-XNET refuses a session on an interface that runs, so every session exists
     // before any starts.
     const auto create = [&](const u32 mode) -> nxStatus_t {

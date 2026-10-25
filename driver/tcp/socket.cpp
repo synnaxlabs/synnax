@@ -50,8 +50,7 @@ void AsioSocket::async_connect(
 
 std::error_code AsioSocket::configure() {
     std::error_code ec;
-    this->socket.set_option(asio::ip::tcp::no_delay(true), ec);
-    if (ec) return ec;
+    if (this->socket.set_option(asio::ip::tcp::no_delay(true), ec)) return ec;
     return keepalive::enable(this->socket.native_handle());
 }
 
@@ -71,11 +70,13 @@ void AsioSocket::async_write_some(std::span<const std::uint8_t> data, Handler ha
 
 void AsioSocket::cancel() {
     std::error_code ignored;
+    // NOLINTNEXTLINE(bugprone-unused-return-value): it fails only when closed.
     this->socket.cancel(ignored);
 }
 
 void AsioSocket::close() {
     std::error_code ignored;
+    // NOLINTNEXTLINE(bugprone-unused-return-value): a failed close still frees it.
     this->socket.close(ignored);
 }
 }

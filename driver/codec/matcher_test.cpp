@@ -215,7 +215,9 @@ TEST(Matcher, RejectsAFloatHeaderField) {
 namespace driver::codec {
 TEST(Matcher, RejectsAHeaderFieldThatIsNotInTheMessage) {
     auto m = header(1);
-    std::get<icd::FieldIdentifier>(*std::get<icd::BinaryPayload>(m.payload).identifier)
+    std::get<icd::FieldIdentifier>(
+        std::get<icd::BinaryPayload>(m.payload).identifier.value()
+    )
         .field = x::uuid::create();
     const std::vector messages = {m};
     const auto [_, err] = Matcher::compile(messages);

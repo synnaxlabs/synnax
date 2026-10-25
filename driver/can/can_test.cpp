@@ -214,7 +214,7 @@ TEST(Aligner, FollowsAnAdapterClockThatDrifts) {
     // The adapter clock runs 100 ppm fast, and each frame takes up to 3 ms to arrive.
     x::telem::TimeStamp host(1000 * x::telem::SECOND);
     x::telem::TimeStamp adapter(5 * x::telem::SECOND);
-    x::telem::TimeStamp last;
+    x::telem::TimeStamp last{};
     x::telem::TimeSpan error;
     for (int i = 0; i < 360000; i++) {
         host = host + step;

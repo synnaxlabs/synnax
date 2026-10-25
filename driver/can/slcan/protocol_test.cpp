@@ -183,7 +183,7 @@ TEST(SlcanBitrate, RejectsUnsupportedBitrates) {
     );
     ASSERT_OCCURRED_AS_P(bitrate_command(Firmware::CANABLE, 800000), CONFIG_ERROR);
     ASSERT_OCCURRED_AS_P(bitrate_command(Firmware::CANABLE_2_5, 750000), CONFIG_ERROR);
-    const auto [__, data_err] = data_bitrate_command(4000000);
+    const auto [data_command, data_err] = data_bitrate_command(4000000);
     ASSERT_MATCHES(data_err, CONFIG_ERROR);
     EXPECT_EQ(
         data_err.data,
@@ -244,21 +244,21 @@ TEST(SlcanDecoder, RecoversFromAnOverlongLine) {
     for (const char c: std::string(MAX_LINE_LENGTH + 10, '0') + "\r")
         msg = decoder.push(c);
     ASSERT_TRUE(msg.has_value());
-    EXPECT_EQ(msg->reply, Reply::MALFORMED);
-    EXPECT_EQ(msg->text, std::string(MAX_LINE_LENGTH, '0'));
+    EXPECT_EQ(msg.value().reply, Reply::MALFORMED);
+    EXPECT_EQ(msg.value().text, std::string(MAX_LINE_LENGTH, '0'));
     for (const char c: std::string("t123111\r"))
         msg = decoder.push(c);
     ASSERT_TRUE(msg.has_value());
-    EXPECT_EQ(msg->reply, Reply::FRAME);
-    expect_same(msg->frame, frame(0x123, {0x11}));
+    EXPECT_EQ(msg.value().reply, Reply::FRAME);
+    expect_same(msg.value().frame, frame(0x123, {0x11}));
 }
 
 TEST(SlcanDecoder, DropsAPartialLineOnBell) {
     Decoder decoder;
     for (const char c: std::string("t12"))
         EXPECT_FALSE(decoder.push(c).has_value());
-    EXPECT_EQ(decoder.push('\a')->reply, Reply::REJECTED);
-    EXPECT_EQ(decoder.push('\r')->reply, Reply::ACCEPTED);
+    EXPECT_EQ(decoder.push('\a').value().reply, Reply::REJECTED);
+    EXPECT_EQ(decoder.push('\r').value().reply, Reply::ACCEPTED);
 }
 
 namespace {
@@ -300,7 +300,7 @@ std::string random_line(std::mt19937 &rng) {
     std::string line;
     for (std::size_t i = 0; i < length; i++) {
         if (std::uniform_int_distribution(0, 15)(rng) == 0) {
-            char c;
+            char c = 0;
             do {
                 c = static_cast<char>(std::uniform_int_distribution(0, 255)(rng));
             } while (c == '\r' || c == '\a');
@@ -324,6 +324,7 @@ bool well_formed(const Frame &f) {
 
 TEST(SlcanProperty, DecodeReturnsEveryEncodedFrame) {
     // A fixed start makes every run draw the same inputs.
+    // NOLINTNEXTLINE(bugprone-random-generator-seed): a repeatable sequence.
     std::mt19937 rng(4971);
     for (std::size_t i = 0; i < DRAWS; i++) {
         SCOPED_TRACE("draw " + std::to_string(i));
@@ -336,6 +337,7 @@ TEST(SlcanProperty, DecodeReturnsEveryEncodedFrame) {
 }
 
 TEST(SlcanProperty, DecodeAcceptsOnlyWellFormedFrames) {
+    // NOLINTNEXTLINE(bugprone-random-generator-seed): a repeatable sequence.
     std::mt19937 rng(4971);
     std::size_t accepted = 0;
     for (std::size_t i = 0; i < DRAWS; i++) {
@@ -365,6 +367,7 @@ TEST(SlcanProperty, DecodeAcceptsOnlyWellFormedFrames) {
 }
 
 TEST(SlcanProperty, DecoderSplitsAStreamIntoItsLines) {
+    // NOLINTNEXTLINE(bugprone-random-generator-seed): a repeatable sequence.
     std::mt19937 rng(4971);
     Decoder decoder;
     for (std::size_t i = 0; i < DRAWS; i++) {
@@ -380,19 +383,19 @@ TEST(SlcanProperty, DecoderSplitsAStreamIntoItsLines) {
         ASSERT_TRUE(msg.has_value());
         const auto text = line.substr(0, line.size() - 1);
         if (line.back() == '\a') {
-            EXPECT_EQ(msg->reply, Reply::REJECTED);
+            EXPECT_EQ(msg.value().reply, Reply::REJECTED);
         } else if (text.size() > MAX_LINE_LENGTH) {
-            EXPECT_EQ(msg->reply, Reply::MALFORMED);
-            EXPECT_EQ(msg->text, text.substr(0, MAX_LINE_LENGTH));
+            EXPECT_EQ(msg.value().reply, Reply::MALFORMED);
+            EXPECT_EQ(msg.value().text, text.substr(0, MAX_LINE_LENGTH));
         } else if (text.empty()) {
-            EXPECT_EQ(msg->reply, Reply::ACCEPTED);
+            EXPECT_EQ(msg.value().reply, Reply::ACCEPTED);
         } else if (std::string_view("tTrRdDbB").contains(text[0])) {
             const auto [f, err] = decode(text);
-            EXPECT_EQ(msg->reply, err ? Reply::MALFORMED : Reply::FRAME);
-            if (!err) expect_same(msg->frame, f);
+            EXPECT_EQ(msg.value().reply, err ? Reply::MALFORMED : Reply::FRAME);
+            if (!err) expect_same(msg.value().frame, f);
         } else {
-            EXPECT_EQ(msg->reply, Reply::OTHER);
-            EXPECT_EQ(msg->text, text);
+            EXPECT_EQ(msg.value().reply, Reply::OTHER);
+            EXPECT_EQ(msg.value().text, text);
         }
     }
 }

@@ -67,7 +67,7 @@ struct Pipe {
     void complete_read() {
         if (!this->read.has_value()) return;
         if (!this->to_client.empty()) {
-            const auto n = std::min(
+            const std::size_t n = std::min(
                 {this->read->buffer.size(), this->read_size, this->to_client.size()}
             );
             std::copy_n(this->to_client.begin(), n, this->read->buffer.begin());
@@ -147,8 +147,10 @@ public:
 
     void
     async_connect(const asio::ip::tcp::endpoint &endpoint, Handler handler) override {
-        if (const auto ec = this->net->call())
-            return this->post(std::move(handler), ec);
+        if (const auto ec = this->net->call()) {
+            this->post(std::move(handler), ec);
+            return;
+        }
         std::lock_guard lock(this->net->mu);
         if (const auto listener = this->net->listeners.find(endpoint);
             listener != this->net->listeners.end()) {
@@ -159,7 +161,8 @@ public:
             );
             listener->second.push_back(std::make_shared<Peer>(this->pipe));
             this->net->cv.notify_all();
-            return this->post(std::move(handler), {});
+            this->post(std::move(handler), {});
+            return;
         }
         if (this->net->dropped.contains(endpoint)) {
             this->connecting.emplace(
@@ -182,10 +185,14 @@ public:
     }
 
     void async_read_some(std::span<std::uint8_t> buffer, Handler handler) override {
-        if (const auto ec = this->net->call())
-            return this->post(std::move(handler), ec);
-        if (this->pipe == nullptr)
-            return this->post(std::move(handler), asio::error::bad_descriptor);
+        if (const auto ec = this->net->call()) {
+            this->post(std::move(handler), ec);
+            return;
+        }
+        if (this->pipe == nullptr) {
+            this->post(std::move(handler), asio::error::bad_descriptor);
+            return;
+        }
         std::lock_guard lock(this->pipe->mu);
         this->pipe->read.emplace(
             Pipe::Read{
@@ -201,14 +208,20 @@ public:
 
     void
     async_write_some(std::span<const std::uint8_t> data, Handler handler) override {
-        if (const auto ec = this->net->call())
-            return this->post(std::move(handler), ec);
-        if (this->pipe == nullptr)
-            return this->post(std::move(handler), asio::error::bad_descriptor);
+        if (const auto ec = this->net->call()) {
+            this->post(std::move(handler), ec);
+            return;
+        }
+        if (this->pipe == nullptr) {
+            this->post(std::move(handler), asio::error::bad_descriptor);
+            return;
+        }
         std::lock_guard lock(this->pipe->mu);
-        if (this->pipe->peer_closed)
-            return this->post(std::move(handler), asio::error::connection_reset);
-        const auto n = std::min(data.size(), this->pipe->write_size);
+        if (this->pipe->peer_closed) {
+            this->post(std::move(handler), asio::error::connection_reset);
+            return;
+        }
+        const std::size_t n = std::min(data.size(), this->pipe->write_size);
         this->pipe->to_peer
             .insert(this->pipe->to_peer.end(), data.begin(), data.begin() + n);
         this->pipe->cv.notify_all();
@@ -259,7 +272,7 @@ std::string Peer::receive(const std::size_t n, const x::telem::TimeSpan timeout)
     this->pipe->cv.wait_for(lock, timeout.chrono(), [this, n] {
         return this->pipe->to_peer.size() >= n;
     });
-    const auto size = std::min(n, this->pipe->to_peer.size());
+    const std::size_t size = std::min(n, this->pipe->to_peer.size());
     std::string out(this->pipe->to_peer.begin(), this->pipe->to_peer.begin() + size);
     this->pipe->to_peer.erase(
         this->pipe->to_peer.begin(),

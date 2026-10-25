@@ -36,7 +36,7 @@
 /// locking that a single-threaded reader never needs.
 namespace driver::transport {
 /// @brief the largest chunk one read returns. It holds any UDP datagram.
-constexpr std::size_t BUFFER_SIZE = 64 * 1024;
+constexpr std::size_t BUFFER_SIZE = std::size_t{64} * 1024;
 
 /// @brief bytes received from a transport.
 struct Chunk {
@@ -88,13 +88,16 @@ Completion run_for(
     Cancel &&cancel
 ) {
     std::optional<Completion> done;
-    start([&done](const std::error_code &ec, const std::size_t size) {
+    std::forward<Start>(start)([&done](
+                                   const std::error_code &ec,
+                                   const std::size_t size
+                               ) {
         done = Completion{.ec = ec, .size = size, .time = x::telem::TimeStamp::now()};
     });
     ctx.restart();
     ctx.run_for(timeout.chrono());
     if (!done.has_value()) {
-        cancel();
+        std::forward<Cancel>(cancel)();
         ctx.restart();
         ctx.run();
         done->cancelled = true;

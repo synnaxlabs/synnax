@@ -35,7 +35,7 @@
 namespace driver::codec {
 namespace {
 namespace icd = synnax::icd;
-using json = nlohmann::json;
+using nlohmann::json;
 
 /// @brief Golden is one DBC file: each message as the Core's importer writes it to an
 /// ICD, and the vectors cantools decodes and encodes for each message it can.
@@ -279,7 +279,7 @@ TEST(GoldenVectors, MatchEachMessageByItsCANIdentifier) {
         if (err) continue;
         for (std::size_t i = 0; i < g.messages.size(); i++) {
             const auto &payload = std::get<icd::BinaryPayload>(g.messages[i].payload);
-            const auto &id = std::get<icd::CanIdentifier>(*payload.identifier);
+            const auto &id = std::get<icd::CanIdentifier>(payload.identifier.value());
             const auto match = matcher.match(id.id, id.extended);
             if (!match.has_value()) {
                 ADD_FAILURE() << g.file << " " << g.messages[i].name;
@@ -287,7 +287,8 @@ TEST(GoldenVectors, MatchEachMessageByItsCANIdentifier) {
             }
             EXPECT_EQ(
                 std::get<icd::CanIdentifier>(
-                    *std::get<icd::BinaryPayload>(g.messages[*match].payload).identifier
+                    std::get<icd::BinaryPayload>(g.messages[match.value()].payload)
+                        .identifier.value()
                 )
                     .id,
                 id.id

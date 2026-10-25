@@ -42,7 +42,7 @@ public:
 
         /// @returns the value of a property the backend set.
         template<typename T>
-        T property(const u32 id) const {
+        [[nodiscard]] T property(const u32 id) const {
             T value{};
             std::memcpy(&value, this->properties.at(id).data(), sizeof(T));
             return value;
@@ -303,7 +303,7 @@ private:
     }
 
     /// @returns the refs of the interfaces present.
-    std::vector<nxSessionRef_t> present() const {
+    [[nodiscard]] std::vector<nxSessionRef_t> present() const {
         std::vector<nxSessionRef_t> refs;
         for (std::size_t i = 0; i < this->interfaces.size(); i++)
             if (this->interfaces[i].present)
@@ -312,7 +312,7 @@ private:
     }
 
     /// @returns the string property of an interface or a device.
-    std::string string(const nxSessionRef_t ref, const u32 id) const {
+    [[nodiscard]] std::string string(const nxSessionRef_t ref, const u32 id) const {
         if (id == nxPropIntf_Name) return this->interfaces.at(ref - 100).intf.name;
         if (id == nxPropDev_Name) return this->interfaces.at(ref - 200).intf.device;
         return "";

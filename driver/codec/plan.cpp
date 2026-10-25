@@ -212,8 +212,7 @@ bool Plan::Limit::accepts(const std::uint64_t value) const {
     const auto v = static_cast<double>(value);
     if ((this->min && v < *this->min) || (this->max && v > *this->max)) return false;
     if (!this->integer) return true;
-    if (this->signed_)
-        return value <= static_cast<std::uint64_t>(signed_max(this->bits));
+    if (this->signed_) return std::cmp_less_equal(value, signed_max(this->bits));
     return value <= unsigned_max(this->bits);
 }
 
@@ -344,6 +343,7 @@ x::errors::Error Plan::set(
                 if constexpr (std::is_same_v<T, x::telem::TimeStamp>)
                     i = v.nanoseconds();
                 else
+                    // NOLINTNEXTLINE(bugprone-signed-char-misuse): int8_t sign-extends.
                     i = static_cast<I>(v);
                 if (!limit.accepts(i)) return refuse(std::to_string(i));
                 if (limit.exact)
@@ -421,11 +421,9 @@ x::errors::Error Plan::compile_payload(const icd::TextPayload &payload) {
         t.tag = tagged.tag;
         this->tagged.push_back(std::move(t));
     }
-    std::stable_sort(
-        this->positional.begin(),
-        this->positional.end(),
-        [](const Text &a, const Text &b) { return a.position < b.position; }
-    );
+    std::ranges::stable_sort(this->positional, [](const Text &a, const Text &b) {
+        return a.position < b.position;
+    });
     return x::errors::NIL;
 }
 
@@ -512,7 +510,7 @@ x::errors::Error Plan::compile_payload(const icd::BinaryPayload &payload) {
 
     // Encode reads multiplexors from the payload it builds, so each one must be written
     // before the fields it selects.
-    std::stable_sort(ordered.begin(), ordered.end(), [](const auto &a, const auto &b) {
+    std::ranges::stable_sort(ordered, [](const auto &a, const auto &b) {
         return a.first < b.first;
     });
     for (auto &[depth, b]: ordered) {

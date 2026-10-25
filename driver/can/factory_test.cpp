@@ -67,8 +67,8 @@ protected:
 
     /// @returns a write config that drives the first field of the ICD's message
     /// on device from a new virtual channel.
-    synnax::can::WriteConfig
-    write_config(const synnax::icd::ICD &ic, const std::string &device) {
+    [[nodiscard]] synnax::can::WriteConfig
+    write_config(const synnax::icd::ICD &ic, const std::string &device) const {
         const auto &m = ic.messages[0];
         const auto cmd = create_virtual_channel(*core.client, x::telem::FLOAT64_T);
         synnax::can::WriteConfig cfg;
@@ -152,7 +152,7 @@ TEST_F(CANFactory, RejectsAWriteTaskOnAListenOnlyDevice) {
 
 TEST_F(CANFactory, RejectsAnFDMessageOnAClassicBus) {
     auto m = can_message(0x20, 12);
-    std::get<synnax::icd::CanIdentifier>(*binary(m).identifier).fd = true;
+    std::get<synnax::icd::CanIdentifier>(binary(m).identifier.value()).fd = true;
     const auto ic = core.create_icd({m});
     const auto cfg = this->write_config(
         ic,
@@ -169,7 +169,7 @@ TEST_F(CANFactory, RejectsALengthWithNoDataLengthCode) {
     auto p = props();
     p.fd = true;
     auto m = can_message(0x20, 9);
-    std::get<synnax::icd::CanIdentifier>(*binary(m).identifier).fd = true;
+    std::get<synnax::icd::CanIdentifier>(binary(m).identifier.value()).fd = true;
     const auto ic = core.create_icd({m});
     const auto cfg = this->write_config(ic, core.create_device(MAKE, p.to_json()));
     EXPECT_EQ(this->configure(WRITE_TASK_TYPE, cfg.to_json()), nullptr);

@@ -52,11 +52,10 @@ public:
     x::breaker::Breaker breaker{x::breaker::Config{.name = "test"}};
     bool started = false;
 
-    explicit Harness(ReadConfig cfg, x::telem::NowFunc now = steady_now) {
+    explicit Harness(ReadConfig cfg, x::telem::NowFunc now = steady_now): raw(cfg.raw) {
         for (const auto &m: cfg.messages)
             for (const auto &g: m.groups)
                 if (g.index != 0) this->indexes.insert(g.index);
-        this->raw = cfg.raw;
         this->source = std::make_unique<Source>(
             std::move(cfg),
             acquire(this->wire),

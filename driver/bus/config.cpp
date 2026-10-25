@@ -458,6 +458,7 @@ std::pair<ReadConfig, x::errors::Error> ReadConfig::resolve(
     if (!parser.ok()) return {std::move(out), x::errors::NIL};
 
     std::vector<synnax::icd::Message> streamed;
+    streamed.reserve(out.streamed.size());
     for (const auto i: out.streamed)
         streamed.push_back(out.messages[i].definition);
     auto [matcher, err] = codec::Matcher::compile(streamed);

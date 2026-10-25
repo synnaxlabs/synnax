@@ -18,6 +18,7 @@
 #include <map>
 #include <mutex>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "driver/can/canlib/api.h"
@@ -145,7 +146,7 @@ public:
 
     canHandle OpenChannel(const int channel, const int flags) override {
         std::lock_guard lock(this->mu);
-        if (channel < 0 || channel >= static_cast<int>(this->numbers.size()))
+        if (channel < 0 || std::cmp_greater_equal(channel, this->numbers.size()))
             return canERR_NOTFOUND;
         const auto [card, number] = this->numbers[channel];
         if (!this->attached(card)) return canERR_NOTFOUND;
@@ -293,7 +294,7 @@ public:
         const std::size_t size
     ) override {
         std::lock_guard lock(this->mu);
-        if (channel < 0 || channel >= static_cast<int>(this->numbers.size()))
+        if (channel < 0 || std::cmp_greater_equal(channel, this->numbers.size()))
             return canERR_NOTFOUND;
         const auto [card, number] = this->numbers[channel];
         const auto &c = this->cards.at(card).card;
@@ -337,7 +338,7 @@ private:
     std::vector<Written> sent;
     unsigned long timeout = 0;
 
-    bool attached(const int card) const {
+    [[nodiscard]] bool attached(const int card) const {
         return std::ranges::find(this->present, card) != this->present.end();
     }
 };

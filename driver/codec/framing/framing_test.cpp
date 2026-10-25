@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <fstream>
 #include <functional>
 #include <memory>
@@ -223,7 +224,7 @@ TEST(Delimiter, DropsThePartialFrameOnReset) {
     const auto f = open(bus::DelimiterFraming{});
     Collector c;
     ASSERT_NIL(f->write(bytes("stale"), c.handler()));
-    f->reset();
+    (*f).reset();
     ASSERT_NIL(f->write(bytes("fresh\n"), c.handler()));
     EXPECT_EQ(c.frames, std::vector<Bytes>{bytes("fresh")});
 }
@@ -255,8 +256,10 @@ TEST(Delimiter, EncodeRejectsAnEmptyFrame) {
 }
 
 TEST(Delimiter, RoundTripsRandomFramesAcrossRandomChunks) {
+    // NOLINTNEXTLINE(bugprone-random-generator-seed): a repeatable sequence.
     std::mt19937_64 rng(1);
     std::vector<Bytes> frames;
+    frames.reserve(500);
     for (int i = 0; i < 500; i++)
         frames.push_back(
             bytes(std::to_string(rng()) + "," + std::to_string(rng() % 100))
@@ -316,6 +319,7 @@ TEST(Fixed, EncodeRejectsTheWrongSize) {
 }
 
 TEST(Fixed, RoundTripsRandomFramesAcrossRandomChunks) {
+    // NOLINTNEXTLINE(bugprone-random-generator-seed): a repeatable sequence.
     std::mt19937_64 rng(2);
     std::vector<Bytes> frames;
     for (int i = 0; i < 200; i++) {
@@ -348,8 +352,10 @@ TEST(Sync, EncodeWritesTheSyncLengthAndChecksum) {
 }
 
 TEST(Sync, RoundTripsRandomFramesAcrossRandomChunks) {
+    // NOLINTNEXTLINE(bugprone-random-generator-seed): a repeatable sequence.
     std::mt19937_64 rng(3);
     std::vector<Bytes> frames;
+    frames.reserve(500);
     for (int i = 0; i < 500; i++)
         frames.push_back(sync_frame(random_payload(rng, 40)));
     const auto f = open(SYNC_MODBUS);
@@ -439,6 +445,7 @@ TEST(Sync, RoundTripsAModbusStyleFrameWithMixedByteOrders) {
     EXPECT_EQ(trickle(*f, wire), std::vector<Bytes>{frame});
     std::swap(wire[wire.size() - 1], wire[wire.size() - 2]);
     EXPECT_TRUE(trickle(*f, wire).empty());
+    // NOLINTNEXTLINE(bugprone-random-generator-seed): a repeatable sequence.
     std::mt19937_64 rng(8);
     std::vector<Bytes> frames;
     for (int i = 0; i < 200; i++) {
@@ -468,6 +475,7 @@ TEST(Sync, RoundTripsALengthThatCountsTheWholeFrame) {
     Bytes wire;
     ASSERT_NIL(f->encode(Bytes{0, 0, 0x31, 0x32}, wire));
     EXPECT_EQ(wire[1], 6);
+    // NOLINTNEXTLINE(bugprone-random-generator-seed): a repeatable sequence.
     std::mt19937_64 rng(4);
     std::vector<Bytes> frames;
     for (int i = 0; i < 200; i++) {
@@ -546,11 +554,12 @@ TEST(COBS, EncodesAndDecodesLikeThePythonCobsPackage) {
 }
 
 TEST(COBS, RoundTripsRandomFramesAcrossRandomChunks) {
+    // NOLINTNEXTLINE(bugprone-random-generator-seed): a repeatable sequence.
     std::mt19937_64 rng(6);
     std::vector<Bytes> frames;
     for (int i = 0; i < 300; i++) {
         auto payload = random_payload(rng, i % 10 == 0 ? 600 : 40);
-        if (i % 7 == 0) std::fill(payload.begin(), payload.end(), 0x11);
+        if (i % 7 == 0) std::ranges::fill(payload, 0x11);
         frames.push_back(std::move(payload));
     }
     const auto f = open(bus::CobsFraming{});
@@ -599,6 +608,7 @@ TEST(SLIP, EncodesLikeAReferenceEncoder) {
 }
 
 TEST(SLIP, RoundTripsRandomFramesAcrossRandomChunks) {
+    // NOLINTNEXTLINE(bugprone-random-generator-seed): a repeatable sequence.
     std::mt19937_64 rng(7);
     std::vector<Bytes> frames;
     for (int i = 0; i < 300; i++) {
@@ -727,6 +737,7 @@ std::vector<Recovery> recoveries() {
 /// exactly the frames that follow, however the stream is chunked.
 TEST(Framers, RecoverAfterGarbageAndRoundTripTheFramesThatFollow) {
     for (const auto &r: recoveries()) {
+        // NOLINTNEXTLINE(bugprone-random-generator-seed): a repeatable sequence.
         std::mt19937_64 rng(4975);
         for (int round = 0; round < 50; round++) {
             const auto f = open(r.framing);

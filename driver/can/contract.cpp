@@ -100,11 +100,11 @@ TEST_P(BusContract, SendsFramesToThePeer) {
     ASSERT_NIL(bus->send(data_frame(0x1ABCDEF0, eight, true)));
     const auto standard = next(*peer, 0x123, false);
     ASSERT_TRUE(standard.has_value());
-    EXPECT_EQ(standard->type, Type::DATA);
-    expect_payload(*standard, {0xDE, 0xAD});
+    EXPECT_EQ(standard.value().type, Type::DATA);
+    expect_payload(standard.value(), {0xDE, 0xAD});
     const auto extended = next(*peer, 0x1ABCDEF0, true);
     ASSERT_TRUE(extended.has_value());
-    expect_payload(*extended, eight);
+    expect_payload(extended.value(), eight);
 }
 
 TEST_P(BusContract, ReceivesFramesFromThePeer) {
@@ -120,17 +120,18 @@ TEST_P(BusContract, ReceivesFramesFromThePeer) {
     ASSERT_NIL(peer->send(remote));
     const auto data = next(*bus, 0x2A1, false);
     ASSERT_TRUE(data.has_value());
-    EXPECT_EQ(data->type, Type::DATA);
-    expect_payload(*data, {7});
-    if (data->clock == Clock::HOST) {
-        EXPECT_GE(data->time, before);
-        EXPECT_LE(data->time, x::telem::TimeStamp::now());
+    EXPECT_EQ(data.value().type, Type::DATA);
+    expect_payload(data.value(), {7});
+    if (data.value().clock == Clock::HOST) {
+        EXPECT_GE(data.value().time, before);
+        EXPECT_LE(data.value().time, x::telem::TimeStamp::now());
     }
     const auto request = next(*bus, 0x2A2, false);
     ASSERT_TRUE(request.has_value());
-    EXPECT_EQ(request->type, Type::REMOTE);
-    EXPECT_EQ(request->length, 4);
-    if (request->clock == data->clock) EXPECT_GE(request->time, data->time);
+    EXPECT_EQ(request.value().type, Type::REMOTE);
+    EXPECT_EQ(request.value().length, 4);
+    if (request.value().clock == data.value().clock)
+        EXPECT_GE(request.value().time, data.value().time);
 }
 
 TEST_P(BusContract, NeverReceivesItsOwnFrames) {
@@ -160,7 +161,7 @@ TEST_P(BusContract, ReceivesWhileListenOnly) {
     ASSERT_NIL(peer->send(data_frame(0x3B3, {1, 2})));
     const auto frame = next(*bus, 0x3B3, false);
     ASSERT_TRUE(frame.has_value());
-    expect_payload(*frame, {1, 2});
+    expect_payload(frame.value(), {1, 2});
 }
 
 TEST_P(BusContract, CarriesCANFDFrames) {
@@ -170,25 +171,25 @@ TEST_P(BusContract, CarriesCANFDFrames) {
     auto peer = this->rig->peer(true);
     if (peer == nullptr) GTEST_SKIP() << "the rig has no peer on the wire";
     std::vector<std::uint8_t> data(MAX_FD_LENGTH);
-    std::iota(data.begin(), data.end(), 0);
+    std::ranges::iota(data, 0);
     auto sent = data_frame(0x18DAF110, data, true);
     sent.fd = true;
     sent.bitrate_switched = true;
     ASSERT_NIL(bus->send(sent));
     const auto got = next(*peer, 0x18DAF110, true);
     ASSERT_TRUE(got.has_value());
-    EXPECT_TRUE(got->fd);
-    EXPECT_TRUE(got->bitrate_switched);
-    expect_payload(*got, data);
+    EXPECT_TRUE(got.value().fd);
+    EXPECT_TRUE(got.value().bitrate_switched);
+    expect_payload(got.value(), data);
     data.resize(12);
     auto back = data_frame(0x4C4, data);
     back.fd = true;
     ASSERT_NIL(peer->send(back));
     const auto received = next(*bus, 0x4C4, false);
     ASSERT_TRUE(received.has_value());
-    EXPECT_TRUE(received->fd);
-    EXPECT_FALSE(received->bitrate_switched);
-    expect_payload(*received, data);
+    EXPECT_TRUE(received.value().fd);
+    EXPECT_FALSE(received.value().bitrate_switched);
+    expect_payload(received.value(), data);
 }
 
 TEST_P(BusContract, FailsCallsOnceTheAdapterIsUnplugged) {

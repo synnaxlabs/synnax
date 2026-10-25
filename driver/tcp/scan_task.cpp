@@ -16,11 +16,11 @@
 namespace driver::tcp {
 Scanner::Scanner(
     synnax::task::Task task,
-    const Config &connection,
+    Config connection,
     std::shared_ptr<bus::Connections> connections
 ):
     task(std::move(task)),
-    connection(connection),
+    connection(std::move(connection)),
     connections(std::move(connections)) {}
 
 x::errors::Error

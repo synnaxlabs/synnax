@@ -35,7 +35,7 @@ const x::errors::Error CONFIG_ERROR = driver::errors::CONFIGURATION_ERROR.sub(
 );
 
 /// @brief MAX_SIZE bounds a frame in bytes, including its delimiter or checksum.
-constexpr std::size_t MAX_SIZE = 64 * 1024;
+constexpr std::size_t MAX_SIZE = std::size_t{64} * 1024;
 
 /// @brief Handler receives one complete, non-empty frame. The frame is valid only
 /// during the call, and the handler must not call back into the framer.

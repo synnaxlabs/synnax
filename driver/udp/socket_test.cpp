@@ -307,19 +307,19 @@ public:
     }
 
     void send(const std::string &data) override {
-        this->peer->send_to(asio::buffer(data), local(this->port));
+        this->peer.value().send_to(asio::buffer(data), local(this->port));
     }
 
     std::string receive(const std::size_t n) override {
         std::string out;
         const auto deadline = x::telem::TimeStamp::now() + x::telem::SECOND;
         while (out.size() < n && x::telem::TimeStamp::now() < deadline) {
-            if (this->peer->available() == 0) {
+            if (this->peer.value().available() == 0) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 continue;
             }
-            std::string datagram(this->peer->available(), '\0');
-            datagram.resize(this->peer->receive(asio::buffer(datagram)));
+            std::string datagram(this->peer.value().available(), '\0');
+            datagram.resize(this->peer.value().receive(asio::buffer(datagram)));
             out += datagram;
         }
         return out;

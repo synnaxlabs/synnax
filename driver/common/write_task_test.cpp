@@ -387,7 +387,8 @@ public:
 TEST(TestCommonWriteTask, testSinkWarningOutlivesASuccessfulWrite) {
     const auto cmd_reads = std::make_shared<std::vector<x::telem::Frame>>();
     cmd_reads->emplace_back(
-        x::telem::Frame(1, x::telem::Series(static_cast<uint8_t>(1), x::telem::UINT8_T))
+        1,
+        x::telem::Series(static_cast<uint8_t>(1), x::telem::UINT8_T)
     );
     auto sink = std::make_unique<WarningSink>();
     auto *raw_sink = sink.get();

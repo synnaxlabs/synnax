@@ -92,7 +92,7 @@ x::errors::Error Sink::write(x::telem::Frame &frame) {
         if (this->fatal) return this->fatal;
         std::set<std::size_t> changed;
         for (const auto &[key, series]: frame) {
-            if (series.size() == 0) continue;
+            if (series.empty()) continue;
             const auto it = this->targets.find(key);
             if (it == this->targets.end()) continue;
             const auto value = series.at(-1);
@@ -141,7 +141,10 @@ void Sink::enqueue(const std::size_t message) {
             prefix.remove_suffix(delimiter.size());
         payload.insert(payload.begin(), prefix.begin(), prefix.end());
     }
-    if (this->cfg.framer == nullptr) return this->push(message, std::move(payload));
+    if (this->cfg.framer == nullptr) {
+        this->push(message, std::move(payload));
+        return;
+    }
     std::vector<std::uint8_t> wire;
     if (const auto err = this->cfg.framer->encode(payload, wire)) {
         this->warnings.add(m.definition.name + ": " + err.data);
@@ -221,7 +224,7 @@ void Sink::run() {
         }
         const auto message = this->queue.front();
         this->queue.pop_front();
-        auto payload = std::move(*this->states[message].pending);
+        auto payload = std::move(this->states[message].pending.value());
         this->states[message].pending.reset();
         lock.unlock();
         const auto err = this->transmitter->send(message, payload);

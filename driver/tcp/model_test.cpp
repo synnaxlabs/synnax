@@ -213,7 +213,7 @@ class ModelRig final : public bus::testutil::Rig {
         return this->peer;
     }
 
-    bus::Opener open(const std::string &host) const {
+    [[nodiscard]] bus::Opener open(const std::string &host) const {
         synnax::tcp::Properties p;
         p.host = host;
         p.port = DEVICE.port();

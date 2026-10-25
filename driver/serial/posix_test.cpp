@@ -10,6 +10,7 @@
 #include <cerrno>
 #include <cstdint>
 #include <optional>
+#include <span>
 #include <string>
 #include <system_error>
 #include <vector>
@@ -36,7 +37,8 @@ Bytes strip_all(
     Bytes out;
     for (auto chunk: chunks) {
         const auto [size, dropped] = strip(mark, chunk);
-        out.insert(out.end(), chunk.begin(), chunk.begin() + size);
+        const auto kept = std::span(chunk).first(size);
+        out.insert(out.end(), kept.begin(), kept.end());
         errors += dropped;
     }
     return out;

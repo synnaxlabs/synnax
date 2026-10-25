@@ -58,7 +58,7 @@ TEST(ICDTests, testCreateAndRetrieve) {
     ASSERT_EQ(status.name, "status");
     const auto &payload = std::get<BinaryPayload>(status.payload);
     ASSERT_TRUE(payload.identifier.has_value());
-    const auto &id = std::get<CanIdentifier>(*payload.identifier);
+    const auto &id = std::get<CanIdentifier>(payload.identifier.value());
     ASSERT_EQ(id.id, 0x123);
     ASSERT_FALSE(id.extended);
     ASSERT_EQ(payload.length, 8);

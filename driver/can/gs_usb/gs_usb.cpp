@@ -397,6 +397,7 @@ Bus::Bus(
     channel(channel),
     timestamped(timestamped) {}
 
+// NOLINTNEXTLINE(bugprone-exception-escape): close only builds error strings.
 Bus::~Bus() {
     this->close();
 }
@@ -548,11 +549,11 @@ Backend::adapter(const std::string &serial, const std::string &channel) {
     auto *handle = found.handle;
     if (const int rc = api.ClaimInterface(handle, INTERFACE); rc != LIBUSB_SUCCESS) {
         api.Close(handle);
-        const auto what = rc == LIBUSB_ERROR_BUSY ? "the adapter is in use"
-                                                  : "cannot claim the adapter";
+        const auto *const what = rc == LIBUSB_ERROR_BUSY ? "the adapter is in use"
+                                                         : "cannot claim the adapter";
         return {nullptr, translate(api, rc, channel + ": " + what)};
     }
-    const auto release = [&](x::errors::Error err) {
+    const auto release = [&](const x::errors::Error &err) {
         api.ReleaseInterface(handle, INTERFACE);
         api.Close(handle);
         return std::pair<std::shared_ptr<Adapter>, x::errors::Error>{nullptr, err};
@@ -626,7 +627,7 @@ Backend::open(const synnax::can::Properties &props) {
                 props.channel + ": the channel is in use"
             )
         };
-    const auto fail = [&](x::errors::Error err) {
+    const auto fail = [&](const x::errors::Error &err) {
         adapter->detach(channel);
         return std::pair<std::unique_ptr<can::Bus>, x::errors::Error>{nullptr, err};
     };

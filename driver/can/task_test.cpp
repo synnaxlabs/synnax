@@ -301,7 +301,7 @@ protected:
     }
 
     /// @returns the frames the peer receives within window.
-    std::vector<Frame> received(const x::telem::TimeSpan window) const {
+    [[nodiscard]] std::vector<Frame> received(const x::telem::TimeSpan window) const {
         std::vector<Frame> out;
         const auto deadline = x::telem::TimeStamp::now() + window;
         Frame frame;
@@ -322,7 +322,7 @@ protected:
 
     /// @brief waits for count frames with the identifier and payload, skipping others.
     /// @returns the time from the first match to the last, or nullopt on timeout.
-    std::optional<x::telem::TimeSpan> wait_for(
+    [[nodiscard]] std::optional<x::telem::TimeSpan> wait_for(
         const std::uint32_t id,
         const Bytes &data,
         const int count,
@@ -536,7 +536,7 @@ TEST_F(CANTask, SendsCommandsAndAPeriodicHeartbeatWithTheLatestValue) {
         ASSERT_TRUE(this->wait_for(COMMAND_ID, r.command, 1).has_value());
         const auto span = this->wait_for(HEARTBEAT_ID, r.heartbeat, 5);
         ASSERT_TRUE(span.has_value());
-        EXPECT_GE(*span, 300 * x::telem::MILLISECOND);
+        EXPECT_GE(span.value(), 300 * x::telem::MILLISECOND);
     }
     ASSERT_NIL(s->stop());
     this->drain();
@@ -879,7 +879,7 @@ TEST(CANScanner, ReportsEveryChannelAndKeepsTrackedDevices) {
     EXPECT_EQ(devs[0].key, "tracked");
     EXPECT_EQ(devs[0].name, "Engine bus");
     EXPECT_EQ(devs[0].properties.at("bitrate"), 250000);
-    EXPECT_EQ(devs[0].status->message, "Channel available");
+    EXPECT_EQ(devs[0].status.value().message, "Channel available");
     EXPECT_EQ(devs[1].key, "can_4_loopback_can_1");
     EXPECT_EQ(devs[1].make, MAKE);
     EXPECT_EQ(devs[1].model, loopback::BACKEND);
@@ -887,7 +887,7 @@ TEST(CANScanner, ReportsEveryChannelAndKeepsTrackedDevices) {
     EXPECT_EQ(devs[1].rack, 4);
     EXPECT_EQ(devs[1].properties.at("backend"), loopback::BACKEND);
     EXPECT_EQ(devs[1].properties.at("channel"), "can 1");
-    EXPECT_EQ(devs[1].status->variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(devs[1].status.value().variant, synnax::status::VARIANT_SUCCESS);
 }
 
 TEST(CANScanner, CreatesNoDeviceForASerialPort) {

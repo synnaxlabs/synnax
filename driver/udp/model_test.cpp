@@ -66,8 +66,8 @@ TEST_F(ModelTest, SendsAQueryToTheRemote) {
     ASSERT_NIL(socket->write(bytes("status?"), x::telem::SECOND));
     const auto got = this->device.receive();
     ASSERT_TRUE(got.has_value());
-    EXPECT_EQ(got->first, "status?");
-    EXPECT_EQ(got->second, HOST);
+    EXPECT_EQ(got.value().first, "status?");
+    EXPECT_EQ(got.value().second, HOST);
 }
 
 TEST_F(ModelTest, DropsDatagramsFromSendersOtherThanTheRemote) {
@@ -226,19 +226,21 @@ public:
 
     bus::Opener absent() override { return this->open("192.168.7.2"); }
 
-    void send(const std::string &data) override { this->device->send(data, HOST); }
+    void send(const std::string &data) override {
+        this->device.value().send(data, HOST);
+    }
 
     std::string receive(const std::size_t n) override {
         std::string out;
         while (out.size() < n) {
-            const auto datagram = this->device->receive();
+            const auto datagram = this->device.value().receive();
             if (!datagram.has_value()) break;
             out += datagram->first;
         }
         return out;
     }
 
-    void hang_up() override { this->device->close(); }
+    void hang_up() override { this->device.value().close(); }
 
     void restore() override { this->device.emplace(this->network.bind(DEVICE)); }
 };

@@ -198,6 +198,7 @@ TEST(Connection, SharesTheBackoffAmongTheTasksOfADevice) {
         Connection::Config{.open = opener(wire), .now = clock.func()}
     );
     std::vector<std::thread> tasks;
+    tasks.reserve(4);
     for (int i = 0; i < 4; i++)
         tasks.emplace_back([&] {
             for (int j = 0; j < 10; j++)

@@ -251,8 +251,8 @@ TEST_F(TCPTask, ScansADeviceThroughTheConnectionItsTaskHolds) {
     Scanner scanner(synnax::task::Task{.rack = 1}, Config{}, this->connections);
     const auto devs = ASSERT_NIL_P(scanner.scan({.devices = &tracked}));
     ASSERT_EQ(devs.size(), 1);
-    EXPECT_EQ(devs[0].status->variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(devs[0].status->message, "Device connected");
+    EXPECT_EQ(devs[0].status.value().variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(devs[0].status.value().message, "Device connected");
     this->acceptor.non_blocking(true);
     std::error_code ec;
     this->acceptor.accept(ec);
@@ -266,7 +266,7 @@ TEST(Scanner, ReportsWhetherEachDeviceAcceptsAConnection) {
         io,
         asio::ip::tcp::endpoint(asio::ip::address_v4::loopback(), 0)
     );
-    std::uint16_t closed_port;
+    std::uint16_t closed_port = 0;
     {
         asio::ip::tcp::acceptor closed(
             io,
@@ -295,11 +295,11 @@ TEST(Scanner, ReportsWhetherEachDeviceAcceptsAConnection) {
     ASSERT_EQ(devs.size(), 2);
     for (const auto &dev: devs)
         if (dev.key == "up") {
-            EXPECT_EQ(dev.status->variant, synnax::status::VARIANT_SUCCESS);
-            EXPECT_EQ(dev.status->message, "Device connected");
+            EXPECT_EQ(dev.status.value().variant, synnax::status::VARIANT_SUCCESS);
+            EXPECT_EQ(dev.status.value().message, "Device connected");
         } else {
-            EXPECT_EQ(dev.status->variant, synnax::status::VARIANT_WARNING);
-            EXPECT_EQ(dev.status->message, "Failed to reach device");
+            EXPECT_EQ(dev.status.value().variant, synnax::status::VARIANT_WARNING);
+            EXPECT_EQ(dev.status.value().message, "Failed to reach device");
         }
 }
 }

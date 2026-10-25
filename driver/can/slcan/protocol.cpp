@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <array>
+#include <cstddef>
 #include <format>
 #include <stdexcept>
 
@@ -171,7 +172,7 @@ std::string encode(const Frame &frame) {
     std::string line(1, kind);
     line += frame.extended ? std::format("{:08X}", frame.id)
                            : std::format("{:03X}", frame.id);
-    line += std::format("{:X}", *length_to_dlc(frame.length));
+    line += std::format("{:X}", length_to_dlc(frame.length).value());
     if (frame.type != Type::REMOTE)
         for (const auto byte: frame.payload())
             line += std::format("{:02X}", byte);
@@ -218,7 +219,7 @@ std::pair<Frame, x::errors::Error> decode(const std::string_view line) {
     frame.length = dlc_to_length(*dlc, frame.fd);
     auto rest = line.substr(2 + id_digits);
     if (frame.type != Type::REMOTE) {
-        const std::size_t data_digits = 2 * frame.length;
+        const std::size_t data_digits = std::size_t{2} * frame.length;
         if (rest.size() < data_digits)
             return {frame, malformed(line, "the data is shorter than its length")};
         for (std::size_t i = 0; i < frame.length; i++) {

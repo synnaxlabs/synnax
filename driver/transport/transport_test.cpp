@@ -33,7 +33,7 @@ TEST(RunFor, ReportsATimeoutWhenItCancelsTheOperation) {
     const auto done = run_for(
         ctx,
         10 * x::telem::MILLISECOND,
-        [&timer](Handler handler) {
+        [&timer](const Handler &handler) {
             timer.async_wait([handler](const std::error_code &ec) { handler(ec, 0); });
         },
         [&timer] { timer.cancel(); }
@@ -48,7 +48,7 @@ TEST(RunFor, ReportsAnAbortThatItDidNotCauseAsAnError) {
     const auto done = run_for(
         ctx,
         x::telem::SECOND,
-        [&ctx](Handler handler) {
+        [&ctx](const Handler &handler) {
             asio::post(ctx, [handler] { handler(asio::error::operation_aborted, 0); });
         },
         [&cancelled] { cancelled = true; }

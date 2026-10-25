@@ -161,6 +161,7 @@ Bus::Bus(
     rx(rx),
     tx(tx) {}
 
+// NOLINTNEXTLINE(bugprone-exception-escape): close only builds error strings.
 Bus::~Bus() {
     this->close();
 }
@@ -232,7 +233,7 @@ x::errors::Error Bus::transmit(const Frame &frame) {
     if (frame.bitrate_switched) flags |= canFDMSG_BRS;
     auto data = frame.data;
     const auto status = this->api->Write(
-        *this->tx,
+        this->tx.value(),
         static_cast<long>(frame.id),
         data.data(),
         frame.length,

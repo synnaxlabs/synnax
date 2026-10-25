@@ -22,7 +22,9 @@ frames(const x::json::Parser &parser, const bus::WriteConfig &cfg, const bool fd
         const auto &payload = std::get<synnax::icd::BinaryPayload>(
             m.definition.payload
         );
-        const auto &id = std::get<synnax::icd::CanIdentifier>(*payload.identifier);
+        const auto &id = std::get<synnax::icd::CanIdentifier>(
+            payload.identifier.value()
+        );
         const auto length = m.plan.length();
         if (length > std::numeric_limits<std::uint8_t>::max()) {
             parser.field_err(

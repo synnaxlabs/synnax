@@ -217,6 +217,7 @@ Bus::Bus(
     handle(handle),
     event(std::move(event)) {}
 
+// NOLINTNEXTLINE(bugprone-exception-escape): close only builds error strings.
 Bus::~Bus() {
     this->close();
 }
@@ -240,7 +241,7 @@ Bus::receive(Frame &frame, const x::telem::TimeSpan timeout) {
 
 std::optional<std::pair<bool, x::errors::Error>> Bus::take(Frame &frame) {
     while (true) {
-        TPCANStatus status;
+        TPCANStatus status = 0;
         TPCANMessageType type = 0;
         if (this->fd) {
             TPCANMsgFD msg{};
@@ -309,12 +310,12 @@ x::errors::Error Bus::fault(TPCANStatus status) {
 
 x::errors::Error Bus::transmit(const Frame &frame) {
     if (auto err = this->fault(this->api->GetStatus(this->handle))) return err;
-    TPCANStatus status;
+    TPCANStatus status = 0;
     if (this->fd) {
         TPCANMsgFD msg{};
         msg.ID = frame.id;
         msg.MSGTYPE = message_type(frame);
-        msg.DLC = *length_to_dlc(frame.length);
+        msg.DLC = length_to_dlc(frame.length).value();
         std::memcpy(msg.DATA, frame.data.data(), frame.length);
         status = this->api->WriteFD(this->handle, &msg);
     } else {
@@ -395,7 +396,7 @@ Backend::open(const synnax::can::Properties &props) {
                 translate(*this->api, status, props.channel + " cannot listen only")
             };
     }
-    TPCANStatus status;
+    TPCANStatus status = 0;
     if (props.fd) {
         auto [bitrate, err] = fd_bitrate(props.bitrate, props.data_bitrate);
         if (err) return {nullptr, err};

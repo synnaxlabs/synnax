@@ -33,6 +33,7 @@ struct Walker {
     [[nodiscard]] std::vector<std::size_t> positions() const {
         if (!big) {
             std::vector<std::size_t> out;
+            out.reserve(length);
             for (std::size_t i = 0; i < length; i++)
                 out.push_back(start + i);
             return out;
@@ -125,6 +126,7 @@ TEST(BitRange, RejectsAnUnknownByteOrder) {
 }
 
 TEST(BitRange, MatchesAReferenceExtractorOverRandomLayouts) {
+    // NOLINTNEXTLINE(bugprone-random-generator-seed): a repeatable sequence.
     std::mt19937_64 rng(4971);
     for (int trial = 0; trial < 20000; trial++) {
         const bool big = rng() % 2 == 0;

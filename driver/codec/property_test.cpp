@@ -97,9 +97,9 @@ public:
     /// value.
     [[nodiscard]] bool
     present(const std::size_t i, const std::vector<std::uint64_t> &raw) const {
-        for (auto at = i; this->parent[at].has_value(); at = *this->parent[at]) {
+        for (auto at = i; this->parent[at].has_value(); at = this->parent[at].value()) {
             const auto &values = this->fields[at].multiplex_values;
-            const auto mux = static_cast<std::int64_t>(raw[*this->parent[at]]);
+            const auto mux = static_cast<std::int64_t>(raw[this->parent[at].value()]);
             if (std::ranges::find(values, mux) == values.end()) return false;
         }
         return true;
@@ -246,6 +246,7 @@ const icd::BaseField &base(const icd::TextField &f) {
 /// @brief Decode must return an error or values for any layout the plan accepts and
 /// any payload, never read out of bounds. Run it under ASan to catch overreads.
 TEST(PlanProperty, DecodeHandlesAnyPayloadForAnyLayout) {
+    // NOLINTNEXTLINE(bugprone-random-generator-seed): a repeatable sequence.
     std::mt19937_64 rng(4971);
     std::size_t compiled = 0;
     for (int layout = 0; layout < 2000; layout++) {
@@ -287,11 +288,15 @@ TEST(PlanProperty, DecodeHandlesAnyPayloadForAnyLayout) {
 }
 
 TEST(PlanProperty, DecodeHandlesAnyTextLine) {
+    // NOLINTNEXTLINE(bugprone-random-generator-seed): a repeatable sequence.
     std::mt19937_64 rng(4972);
     const std::string alphabet = "0123456789.-+eE ,;=ABCnai\t\r";
     for (int layout = 0; layout < 300; layout++) {
         icd::TextPayload payload;
-        payload.delimiter = rng() % 2 == 0 ? "," : (rng() % 2 == 0 ? ";;" : " ");
+        if (rng() % 2 == 0)
+            payload.delimiter = ",";
+        else
+            payload.delimiter = rng() % 2 == 0 ? ";;" : " ";
         const auto count = rng() % 5 + 1;
         for (std::size_t i = 0; i < count; i++)
             payload.fields.push_back(random_text_field(rng, i));
@@ -315,6 +320,7 @@ TEST(PlanProperty, DecodeHandlesAnyTextLine) {
 /// integers, and to within one raw step for scaled fields. Fields their multiplexors do
 /// not select come back absent.
 TEST(PlanProperty, DecodeReturnsTheEncodedValue) {
+    // NOLINTNEXTLINE(bugprone-random-generator-seed): a repeatable sequence.
     std::mt19937_64 rng(4973);
     std::size_t selected = 0;
     std::size_t unselected = 0;
@@ -369,6 +375,7 @@ TEST(PlanProperty, DecodeReturnsTheEncodedValue) {
 }
 
 TEST(PlanProperty, DecodeReturnsTheEncodedTextValue) {
+    // NOLINTNEXTLINE(bugprone-random-generator-seed): a repeatable sequence.
     std::mt19937_64 rng(4974);
     for (int l = 0; l < 200; l++) {
         icd::TextPayload payload{.delimiter = ","};

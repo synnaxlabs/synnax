@@ -35,7 +35,8 @@ struct Core {
     synnax::rack::Rack rack = ASSERT_NIL_P(this->client->racks.create("bus_test"));
 
     /// @returns the ICD holding messages, created in the Core.
-    synnax::icd::ICD create_icd(std::vector<synnax::icd::Message> messages) const {
+    [[nodiscard]] synnax::icd::ICD
+    create_icd(std::vector<synnax::icd::Message> messages) const {
         synnax::icd::ICD ic{.name = "bus_test", .messages = std::move(messages)};
         const auto err = this->client->icds.create(ic);
         EXPECT_FALSE(err) << err;
@@ -44,7 +45,7 @@ struct Core {
 
     /// @returns the key of a device with the given make and properties, created in the
     /// Core.
-    std::string
+    [[nodiscard]] std::string
     create_device(const std::string &make, const x::json::json &props) const {
         synnax::device::Device dev{
             .key = x::uuid::create().to_string(),
@@ -62,7 +63,7 @@ struct Core {
 
     /// @returns a read config over every message and field in ic, with an index and a
     /// float64 channel per field created in the Core.
-    ::synnax::bus::ReadConfig
+    [[nodiscard]] ::synnax::bus::ReadConfig
     read_config(const synnax::icd::ICD &ic, const std::string &device) const {
         ::synnax::bus::ReadConfig cfg;
         cfg.device = device;

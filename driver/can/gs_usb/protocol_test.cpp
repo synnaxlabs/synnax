@@ -76,7 +76,7 @@ TEST(GsUsbDecode, DecodesAClassicExtendedFrameWithATimestamp) {
     EXPECT_EQ(hf.frame.length, 2);
     EXPECT_EQ(hf.frame.data[1], 0x22);
     ASSERT_TRUE(hf.timestamp_us.has_value());
-    EXPECT_EQ(*hf.timestamp_us, 0x12345678);
+    EXPECT_EQ(hf.timestamp_us.value(), 0x12345678);
 }
 
 TEST(GsUsbDecode, DecodesAnFDFrameWithItsTimestampAfterSixtyFourDataBytes) {
@@ -95,7 +95,7 @@ TEST(GsUsbDecode, DecodesAnFDFrameWithItsTimestampAfterSixtyFourDataBytes) {
     EXPECT_EQ(hf.frame.id, 0x123);
     EXPECT_EQ(hf.frame.length, 32);
     EXPECT_EQ(hf.frame.data[31], 0x99);
-    EXPECT_EQ(*hf.timestamp_us, 1);
+    EXPECT_EQ(hf.timestamp_us.value(), 1);
 }
 
 TEST(GsUsbDecode, DecodesAFrameWithoutATimestamp) {
