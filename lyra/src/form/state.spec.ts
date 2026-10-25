@@ -653,6 +653,24 @@ describe("State", () => {
       expect(state.getState("channels.b.port").value).toBe(3);
     });
 
+    it("should read another store with its values as the initial ones", () => {
+      const { state } = build();
+      state.setValue("channels.a.port", 5);
+      const next = createLocalStore<Keyed>({
+        channels: [{ key: "c", port: 9 }],
+        config: { type: "b" },
+      });
+      expect(state.setStore(next)).toBe(true);
+      expect(state.getState("channels.0.port").value).toBe(9);
+      expect(state.hasBeenTouched).toBe(false);
+      expect(state.initialValues).toEqual(next.get());
+    });
+
+    it("should report no change for the store it already reads", () => {
+      const { store, state } = build();
+      expect(state.setStore(store)).toBe(false);
+    });
+
     it("should stop following after the destructor runs", () => {
       const { store, state, handleChange } = build();
       const destroy = state.listen();

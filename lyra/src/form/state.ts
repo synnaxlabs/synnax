@@ -41,7 +41,7 @@ interface SetValueOptions {
 
 export class State<Z extends z.ZodType> extends observe.Observer<void> {
   private readonly schema?: Z;
-  private readonly store: Store<z.infer<Z>>;
+  private store: Store<z.infer<Z>>;
   initialValues: z.infer<Z>;
 
   private readonly statuses: Map<string, Status.Crude>;
@@ -61,6 +61,23 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     this.touched = new Set();
     this.cachedRefs = new Map();
     this.initialValues = deep.copy(this.observed);
+  }
+
+  /**
+   * Reads and writes another store from now on, taking its values as the initial ones
+   * and clearing statuses, touched paths, and cached field states.
+   *
+   * @returns whether the store changed.
+   */
+  setStore(store: Store<z.infer<Z>>): boolean {
+    if (store === this.store) return false;
+    this.store = store;
+    this.observed = store.get();
+    this.initialValues = deep.copy(this.observed);
+    this.statuses.clear();
+    this.touched.clear();
+    this.cachedRefs.clear();
+    return true;
   }
 
   /** The current values. A write gives each object on its path a new identity. */

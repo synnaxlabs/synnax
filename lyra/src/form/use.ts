@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { deep, type destructor, errors } from "@synnaxlabs/x";
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { type z } from "zod";
 
 import {
@@ -75,7 +75,14 @@ export interface UseReturn<Z extends z.ZodType> extends ContextValue<Z> {}
  * return <Form.Form {...form}><Form.TextField path="name" /></Form.Form>;
  */
 export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => {
-  const { sync = false, schema, mode = "normal", onChange, onHasTouched } = params;
+  const {
+    sync = false,
+    schema,
+    mode = "normal",
+    onChange,
+    onHasTouched,
+    store,
+  } = params;
   const initialValues = params.values;
   const ref = useInitializerRef<State<Z>>(
     () =>
@@ -229,7 +236,15 @@ export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => 
     ref.current.notify();
   }, [ref, sync, initialValues]);
 
-  useEffect(() => ref.current.listen(), [ref]);
+  // A store of another identity replaces the one the form reads, as for another record.
+  useLayoutEffect(() => {
+    const prevHasTouched = ref.current.hasBeenTouched;
+    if (store !== undefined && ref.current.setStore(store)) {
+      ref.current.notify();
+      if (prevHasTouched) onHasTouchedRef.current?.(false);
+    }
+    return ref.current.listen();
+  }, [ref, store, onHasTouchedRef]);
 
   return {
     bind,

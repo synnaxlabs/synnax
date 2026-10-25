@@ -808,6 +808,33 @@ describe("Form", () => {
       expect(res.result.current.age).toBe(50);
     });
 
+    it("should read another store that replaces the first", () => {
+      const first = Form.createLocalStore(deep.copy(initialFormValues));
+      const second = Form.createLocalStore({ ...deep.copy(initialFormValues), age: 7 });
+      const onHasTouched = vi.fn();
+      const { result, rerender } = renderHook(
+        ({ store }) => {
+          const form = Form.use({ store, schema: basicFormSchema, onHasTouched });
+          const age = Form.useFieldValue<number, number, typeof basicFormSchema>(
+            "age",
+            {
+              ctx: form,
+            },
+          );
+          return { form, age };
+        },
+        { initialProps: { store: first } },
+      );
+      act(() => result.current.form.set("name", "Jane Doe"));
+      rerender({ store: second });
+      expect(result.current.age).toBe(7);
+      expect(onHasTouched).toHaveBeenLastCalledWith(false);
+      act(() => second.set("age", 8));
+      expect(result.current.age).toBe(8);
+      act(() => first.set("age", 9));
+      expect(result.current.age).toBe(8);
+    });
+
     it("should not re-render for a change that no read field reaches", () => {
       const { store, renders } = renderWithStore();
       const before = renders();
