@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/channel"
+import "schemas/x/telem"
+
 @ts output "client/ts/src/framer"
 
 WriterCommand enum {
@@ -51,4 +54,21 @@ IteratorResponseVariant enum {
         and carries the success boolean, while Data carries a frame of telemetry
         produced by the iterator.
     """
+}
+
+HistoryChange struct {
+    key        channel.Key     {
+        @doc value "is the channel whose stored data changed."
+    }
+    time_range telem.TimeRange {
+        @doc value "holds every sample that the change added or removed."
+    }
+
+    @doc value """
+        names a time range of a channel's stored data that a delete or a write before
+        the channel's newest data changed. The Core publishes lists of history changes
+        on the sy_history_change channel.
+    """
+    @go hand
+    @go output "core/pkg/service/framer"
 }

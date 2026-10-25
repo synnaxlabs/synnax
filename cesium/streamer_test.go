@@ -103,41 +103,72 @@ var _ = Describe("Streamer Behavior", func() {
 				It(
 					"Should deliver writes issued after a subscription update is sent",
 					func(ctx SpecContext) {
-						key := GenerateChannelKey()
-						Expect(db.CreateChannel(
-							ctx,
-							cesium.Channel{
+						all := []cesium.ChannelKey{
+							GenerateChannelKey(),
+							GenerateChannelKey(),
+							GenerateChannelKey(),
+						}
+						live, b, c := all[0], all[1], all[2]
+						writers := make(map[cesium.ChannelKey]*cesium.Writer)
+						for i, key := range all {
+							Expect(db.CreateChannel(ctx, cesium.Channel{
 								Key:      key,
-								Name:     "Curie",
-								DataType: telem.TimestampT,
-								IsIndex:  true,
-							},
-						)).To(Succeed())
-						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-							Channels: []cesium.ChannelKey{key},
-							Start:    10 * telem.SecondTS,
-						}))
-						r, o, closer := openStreamer(ctx, db, cesium.StreamerConfig{})
-
-						r.Inlet() <- cesium.StreamerRequest{Channels: []cesium.ChannelKey{key}}
-
-						// The subscription update is applied asynchronously, so writes
-						// racing ahead of it are dropped. Retry with increasing
-						// timestamps
-						// until a frame comes through.
-						var res cesium.StreamerResponse
-						ts := telem.TimeStamp(10)
-						Eventually(func(g Gomega) {
-							g.Expect(w.Write(telem.MultiFrame(
+								Name:     []string{"Meitner", "Noether", "Franklin"}[i],
+								DataType: telem.Int64T,
+								Virtual:  true,
+							})).To(Succeed())
+							cfg := cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{key},
+								Start:    10 * telem.SecondTS,
+							}
+							writers[key] = MustOpen(db.OpenWriter(ctx, cfg))
+						}
+						write := func(key cesium.ChannelKey) {
+							GinkgoHelper()
+							MustSucceed(writers[key].Write(telem.MultiFrame(
 								[]cesium.ChannelKey{key},
-								[]telem.Series{telem.NewSeriesSecondsTSV(ts)},
-							))).To(BeTrue())
-							ts++
-							g.Expect(o.Outlet()).To(Receive(&res))
-						}).Should(Succeed())
-						Expect(res.Frame.KeysSlice()).To(ContainElement(key))
-						Expect(closer.Close()).To(Succeed())
-						Expect(w.Close()).To(Succeed())
+								[]telem.Series{telem.NewSeriesV[int64](1)},
+							)))
+						}
+						expectFrame := func(
+							o confluence.Outlet[cesium.StreamerResponse],
+							key cesium.ChannelKey,
+						) {
+							GinkgoHelper()
+							var res cesium.StreamerResponse
+							Eventually(o.Outlet()).Should(Receive(&res))
+							Expect(res.Frame.KeysSlice()).To(ConsistOf(key))
+						}
+						r, o, closer := openStreamer(ctx, db, cesium.StreamerConfig{
+							Channels: []cesium.ChannelKey{live},
+						})
+						DeferClose(closer)
+						// The relay hands a frame to streamers in the order they
+						// opened, so a frame the observer holds has reached o too.
+						_, observer, observerCloser := openStreamer(
+							ctx,
+							db,
+							cesium.StreamerConfig{Channels: all},
+						)
+						DeferClose(observerCloser)
+						for i := range 10 {
+							added := []cesium.ChannelKey{b, c}[i%2]
+							// Three frames fill the response buffer and block the
+							// streamer, so the update and the next frame wait together.
+							for range 3 {
+								write(live)
+								expectFrame(observer, live)
+							}
+							r.Inlet() <- cesium.StreamerRequest{
+								Channels: []cesium.ChannelKey{live, added},
+							}
+							write(added)
+							expectFrame(observer, added)
+							for range 3 {
+								expectFrame(o, live)
+							}
+							expectFrame(o, added)
+						}
 					},
 				)
 			})

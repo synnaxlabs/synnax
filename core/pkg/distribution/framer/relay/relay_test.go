@@ -378,19 +378,27 @@ var _ = Describe("Relay", func() {
 			svc = mock.NewNode(ctx)
 		})
 
-		newFreeChannels := func(ctx context.Context, n int) []channel.Channel {
+		newChannels := func(
+			ctx context.Context,
+			n int,
+			leaseholder node.Key,
+		) []channel.Channel {
 			GinkgoHelper()
 			chs := make([]channel.Channel, n)
 			ts := time.Now().UnixNano()
 			for i := range chs {
 				chs[i] = channel.Channel{
-					Name:        fmt.Sprintf("free_%d_%d", ts, i),
+					Name:        fmt.Sprintf("ch_%d_%d", ts, i),
 					Virtual:     true,
 					DataType:    telem.Int64T,
-					Leaseholder: node.KeyFree,
+					Leaseholder: leaseholder,
 				}
 			}
 			return MustSucceed(svc.Channel.Create(ctx, chs))
+		}
+		newFreeChannels := func(ctx context.Context, n int) []channel.Channel {
+			GinkgoHelper()
+			return newChannels(ctx, n, node.KeyFree)
 		}
 
 		It(
@@ -588,6 +596,91 @@ var _ = Describe("Relay", func() {
 				confluence.Drain(res)
 			},
 		)
+
+		Describe("Key update acks", func() {
+			openStreamer := func() (
+				confluence.Inlet[relay.Request],
+				confluence.Outlet[relay.Response],
+			) {
+				GinkgoHelper()
+				reader := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
+					SendOpenAck: new(true),
+				}))
+				sCtx, cancel := signal.Isolated()
+				DeferCleanup(cancel)
+				req, res := confluence.Attach(reader, 10)
+				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+				var ack relay.Response
+				Eventually(res.Outlet()).Should(Receive(&ack))
+				Expect(ack.Ack).To(BeFalse())
+				DeferCleanup(func() {
+					req.Close()
+					confluence.Drain(res)
+				})
+				return req, res
+			}
+
+			DescribeTable(
+				"Should deliver a write issued immediately after a key update ack",
+				func(ctx SpecContext, leaseholder node.Key) {
+					keys := channel.KeysFromChannels(newChannels(ctx, 1, leaseholder))
+					req, res := openStreamer()
+					req.Inlet() <- relay.Request{Keys: keys, AckRequested: true}
+					var ack relay.Response
+					Eventually(res.Outlet()).Should(Receive(&ack))
+					Expect(ack.Ack).To(BeTrue())
+					Expect(ack.Frame.Empty()).To(BeTrue())
+
+					w := MustSucceed(svc.Framer.OpenWriter(ctx, writer.Config{
+						Keys:  keys,
+						Start: 10 * telem.SecondTS,
+					}))
+					defer func() { Expect(w.Close()).To(Succeed()) }()
+					Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+						telem.NewSeriesV[int64](1, 2, 3),
+					}))).To(BeTrue())
+					var got relay.Response
+					Eventually(res.Outlet()).Should(Receive(&got))
+					Expect(got.Ack).To(BeFalse())
+					Expect(got.Frame.Count()).To(Equal(1))
+				},
+				Entry("on a free channel", node.KeyFree),
+				Entry("on a channel leased to this node", node.KeyBootstrapper),
+			)
+
+			It(
+				"Should not ack a key update that does not request one",
+				func(ctx SpecContext) {
+					keys := channel.KeysFromChannels(newFreeChannels(ctx, 1))
+					req, res := openStreamer()
+					req.Inlet() <- relay.Request{Keys: keys}
+					Consistently(
+						res.Outlet(),
+						100*time.Millisecond,
+					).ShouldNot(Receive())
+				},
+			)
+
+			It(
+				"Should ack each update that requests one exactly once",
+				func(ctx SpecContext) {
+					keys := channel.KeysFromChannels(newFreeChannels(ctx, 2))
+					req, res := openStreamer()
+					req.Inlet() <- relay.Request{Keys: keys[:1], AckRequested: true}
+					req.Inlet() <- relay.Request{Keys: keys}
+					req.Inlet() <- relay.Request{Keys: keys[1:], AckRequested: true}
+					for range 2 {
+						var ack relay.Response
+						Eventually(res.Outlet()).Should(Receive(&ack))
+						Expect(ack.Ack).To(BeTrue())
+					}
+					Consistently(
+						res.Outlet(),
+						100*time.Millisecond,
+					).ShouldNot(Receive())
+				},
+			)
+		})
 	})
 	// The relay does not validate streamer keys against storage: the service layer
 	// validates at open time, but a channel can be deleted between that check and the
