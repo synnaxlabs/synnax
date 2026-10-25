@@ -10,7 +10,6 @@
 import { type Instrumentation } from "@synnaxlabs/alamos";
 import { UnexpectedError } from "@synnaxlabs/client";
 import {
-  type Aggregation,
   aggregationZ,
   bounds,
   box,
@@ -35,6 +34,7 @@ import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
+import { POINTS_PER_GROUP } from "@/telem/aether/tiles";
 import { seriesOverlap, windowBounds } from "@/vis/line/aether/bounds";
 import FRAG_SHADER from "@/vis/line/aether/frag.glsl?raw";
 import { groupSize, Reducer, type View } from "@/vis/line/aether/reduce";
@@ -62,12 +62,6 @@ export const stateZ = z.object({
 
 // A zoom waits this long for its span to hold before the line's sources read for it.
 const ZOOM_SETTLE = TimeSpan.milliseconds(150);
-
-const POINTS_PER_GROUP: Record<Aggregation, number> = {
-  min_max: 2,
-  average: 1,
-  decimate: 1,
-};
 
 // A live window of a minute or less draws from the stream at once, so it shows no
 // first-load message.

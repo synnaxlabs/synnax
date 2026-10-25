@@ -753,6 +753,8 @@ export class TiledChannelData
       level: l,
       view,
       points: this.points,
+      drawn: this.props.aggregation,
+      aggregation,
     });
     return indexes(tiled, l).map((index) => {
       const spec: framer.TileSpec = {

@@ -58,17 +58,52 @@ describe("tiles", () => {
       [1000, 512],
       [2000, 1024],
     ])("should give a tile its share of %d points", (points, expected) => {
-      expect(pointLimit({ level: 9, view, points })).toBe(expected);
+      expect(
+        pointLimit({
+          level: 9,
+          view,
+          points,
+          drawn: "min_max",
+          aggregation: "min_max",
+        }),
+      ).toBe(expected);
     });
 
+    it.each([
+      ["min_max", "decimate", 256],
+      ["average", "min_max", 1024],
+      ["average", "average", 512],
+    ] as const)(
+      "should give a %s line's %s tile the points of its own aggregation",
+      (drawn, aggregation, expected) => {
+        expect(pointLimit({ level: 9, view, points: 1000, drawn, aggregation })).toBe(
+          expected,
+        );
+      },
+    );
+
     it("should keep the same limit across a small resize", () => {
-      expect(pointLimit({ level: 9, view, points: 900 })).toBe(
-        pointLimit({ level: 9, view, points: 1000 }),
+      const props = {
+        level: 9,
+        view,
+        drawn: "min_max",
+        aggregation: "min_max",
+      } as const;
+      expect(pointLimit({ ...props, points: 900 })).toBe(
+        pointLimit({ ...props, points: 1000 }),
       );
     });
 
     it("should never return a limit under one", () => {
-      expect(pointLimit({ level: 0, view, points: 1 })).toBe(1);
+      expect(
+        pointLimit({
+          level: 0,
+          view,
+          points: 1,
+          drawn: "min_max",
+          aggregation: "min_max",
+        }),
+      ).toBe(1);
     });
   });
 
