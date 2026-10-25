@@ -90,9 +90,11 @@ private:
     /// @brief the scan count at which to probe again each interface that had no slaves.
     std::unordered_map<std::string, size_t> next_probes;
 
-    /// @brief creates a slave device for the given slave.
+    /// @brief creates a slave device for the given slave. The status reflects the
+    /// slave's live state when health holds an entry for it.
     [[nodiscard]] synnax::device::Device create_slave_device(
         const slave::DiscoveryResult &slave,
+        const std::vector<slave::Health> &health,
         const std::string &master_key,
         const common::ScannerContext &scan_ctx
     ) const;

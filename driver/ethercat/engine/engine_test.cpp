@@ -172,6 +172,27 @@ TEST_F(EngineTest, ReadReturnsOneSamplePerPeriodWithItsCycleTime) {
     EXPECT_GE(span, x::telem::MILLISECOND * 45);
 }
 
+/// @brief it should stamp samples near the host time, spaced by the distributed clock.
+TEST_F(EngineTest, ReadStampsSamplesWithTheDistributedClockSpacing) {
+    this->master->set_dc_step(x::telem::MILLISECOND * 10);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 10)
+    );
+    const auto times = this->read_times(*reader, 10);
+    ASSERT_EQ(times.size(), 10);
+    EXPECT_LT(
+        x::telem::TimeStamp::now() - x::telem::TimeStamp(times.at<int64_t>(0)),
+        x::telem::SECOND
+    );
+    for (size_t i = 1; i < times.size(); ++i) {
+        const auto spacing = x::telem::TimeSpan(
+            times.at<int64_t>(i) - times.at<int64_t>(i - 1)
+        );
+        EXPECT_GT(spacing, x::telem::MICROSECOND * 9'900);
+        EXPECT_LT(spacing, x::telem::MICROSECOND * 10'100);
+    }
+}
+
 TEST_F(EngineTest, ReadReturnsNilWhenBreakerStopped) {
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)

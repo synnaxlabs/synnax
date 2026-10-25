@@ -60,6 +60,17 @@ bool Pool::is_active(const std::string &key) const {
     return it != this->engines.end() && it->second->running();
 }
 
+std::vector<slave::Health> Pool::health(const std::string &key) const {
+    std::shared_ptr<Engine> engine;
+    {
+        std::lock_guard lock(this->mu);
+        const auto it = this->engines.find(key);
+        if (it == this->engines.end()) return {};
+        engine = it->second;
+    }
+    return engine->health();
+}
+
 std::vector<slave::DiscoveryResult> Pool::get_slaves(const std::string &key) const {
     std::shared_ptr<Engine> engine;
     {

@@ -11,7 +11,6 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import {
   array,
   binary,
-  caseconv,
   type CrudeTimeSpan,
   deep,
   type destructor,
@@ -19,6 +18,7 @@ import {
   primitive,
   type record,
   strings,
+  sync,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
@@ -1037,20 +1037,10 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
   const streamer = await frameClient.openStreamer(status.SET_CHANNEL_NAME);
   const cmdKeys = await executeCommands({ frameClient, commands });
   const parsedTimeout = new TimeSpan(timeout);
-  let states: Status<StatusData>[] = [];
-  let timeoutID: NodeJS.Timeout | undefined;
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeoutID = setTimeout(() => {
-      const taskKeys = commands.map((c) => c.task);
-      formatTimeoutError("command", taskName, parsedTimeout, taskKeys).then(
-        reject,
-        reject,
-      );
-    }, parsedTimeout.milliseconds);
-  });
-  try {
+  const collect = async (): Promise<Status<StatusData>[]> => {
+    let states: Status<StatusData>[] = [];
     while (true) {
-      const frame = await Promise.race([streamer.read(), timeoutPromise]);
+      const frame = await streamer.read();
       // A frame can hold statuses for other tasks and racks, which have a different
       // shape and fail to parse.
       for (const str of frame.get(status.SET_CHANNEL_NAME).toStrings()) {
@@ -1062,19 +1052,28 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
         if (states.length === cmdKeys.length) return states;
       }
     }
+  };
+  try {
+    return await sync.withTimeout(
+      collect(),
+      parsedTimeout,
+      async () =>
+        await formatTimeoutError(
+          taskName,
+          parsedTimeout,
+          commands.map((c) => c.task),
+        ),
+    );
   } finally {
-    clearTimeout(timeoutID);
     streamer.close();
   }
 };
 
 const formatTimeoutError = async (
-  type: string,
   name: string | string[] | (() => Promise<string | string[]>),
   timeout: TimeSpan,
   key: Key | Key[],
 ): Promise<Error> => {
-  const formattedType = caseconv.capitalize(type);
   const formattedTimeout = timeout.toString();
   try {
     let names: string[];
@@ -1082,13 +1081,11 @@ const formatTimeoutError = async (
     else if (Array.isArray(name)) names = name;
     else names = array.toArray(await name());
     const formattedName = strings.naturalLanguageJoin(names);
-    return new Error(
-      `${formattedType} command to ${formattedName} timed out after ${formattedTimeout}`,
-    );
+    return new Error(`Command to ${formattedName} timed out after ${formattedTimeout}`);
   } catch (e) {
     console.error("Failed to retrieve task name for timeout error:", e);
     return new Error(
-      `${formattedType} command to task with key ${strings.naturalLanguageJoin(array.toArray(key).map((k) => k.toString()))} timed out after ${formattedTimeout}`,
+      `Command to task with key ${strings.naturalLanguageJoin(array.toArray(key).map((k) => k.toString()))} timed out after ${formattedTimeout}`,
     );
   }
 };

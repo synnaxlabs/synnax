@@ -30,6 +30,63 @@ protected:
     std::shared_ptr<synnax::Synnax> client;
     std::shared_ptr<task::MockContext> ctx;
     synnax::rack::Rack rack;
+
+    [[nodiscard]] synnax::task::Task scan_task() const {
+        return synnax::task::Task{
+            .rack = this->rack.key,
+            .name = "EtherCAT Scanner",
+            .type = SCAN_TASK_TYPE,
+            .internal = true
+        };
+    }
+};
+
+class EtherCATScanStatusTest : public EtherCATScanTest {
+protected:
+    const pdo::Entry entry{0, 0x6000, 1, 16, true, x::telem::INT16_T};
+    std::shared_ptr<mock::Master> master;
+    std::shared_ptr<engine::Pool> pool;
+    std::unique_ptr<Scanner> scanner;
+
+    void SetUp() override {
+        EtherCATScanTest::SetUp();
+        this->master = std::make_shared<mock::Master>("eth0");
+        this->master->add_slave(
+            slave::Properties{
+                .position = 0,
+                .vendor_id = 0x1,
+                .product_code = 0x2,
+                .serial = 12345,
+                .name = "Test Slave",
+                .input_pdos = {
+                    {.pdo_index = 0x1A00,
+                     .index = 0x6000,
+                     .sub_index = 1,
+                     .bit_length = 16,
+                     .is_input = true,
+                     .data_type = x::telem::INT16_T}
+                },
+            }
+        );
+        auto manager = std::make_unique<mock::Manager>();
+        manager->configure("eth0", this->master);
+        this->pool = std::make_shared<engine::Pool>(std::move(manager));
+        this->scanner = std::make_unique<Scanner>(
+            this->ctx,
+            this->scan_task(),
+            ScanTaskConfig{},
+            this->pool
+        );
+    }
+
+    /// @brief scans once and returns the status of the only slave device.
+    [[nodiscard]] synnax::device::Status scan_status() const {
+        const auto devices = ASSERT_NIL_P(
+            this->scanner->scan(common::ScannerContext{.count = 1})
+        );
+        EXPECT_EQ(devices.size(), 1);
+        return devices.at(0).status.value();
+    }
 };
 
 TEST_F(EtherCATScanTest, ScannerCreation) {
@@ -355,5 +412,98 @@ TEST_F(EtherCATScanTest, ScanTaskFailsToConfigureWithoutAPacketCaptureLibrary) {
         "EtherCAT is unavailable because a required packet capture library is not "
         "installed. Check the Driver logs for details."
     );
+}
+
+/// @brief it should show the discovery result in the status of a slave while the bus is
+/// stopped.
+TEST_F(EtherCATScanStatusTest, SlaveOnStoppedBusShowsDiscovery) {
+    const auto status = this->scan_status();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(status.message, "Discovered (1 inputs, 0 outputs)");
+}
+
+/// @brief it should show a slave in OP on a running bus as operational.
+TEST_F(EtherCATScanStatusTest, SlaveInOpShowsOperational) {
+    const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
+    const auto reader = ASSERT_NIL_P(
+        engine->open_reader({this->entry}, x::telem::Rate(100), 1)
+    );
+    ASSERT_EVENTUALLY_EQ(engine->health().size(), 1);
+    const auto status = this->scan_status();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(status.message, "Operational");
+}
+
+/// @brief it should show a faulted slave as an error and put its AL status in the
+/// description.
+TEST_F(EtherCATScanStatusTest, FaultedSlaveShowsItsALStatus) {
+    const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
+    const auto reader = ASSERT_NIL_P(
+        engine->open_reader({this->entry}, x::telem::Rate(100), 1)
+    );
+    this->master->set_slave_transition_failure(0, slave::State::OP);
+    this->master->fault_slave(0, slave::State::SAFE_OP, "Sync manager watchdog");
+    ASSERT_EVENTUALLY_TRUE(!engine->health().empty() && engine->health()[0].faulted);
+    const auto status = this->scan_status();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Error in SAFE-OP");
+    EXPECT_EQ(status.description, "Sync manager watchdog");
+    this->master->clear_transition_failures();
+    ASSERT_EVENTUALLY_TRUE(
+        !engine->health().empty() && engine->health()[0].operational()
+    );
+    EXPECT_EQ(this->scan_status().message, "Operational");
+}
+
+/// @brief it should tell the user where to find the error code of a faulted slave when
+/// the master reads no AL status code.
+TEST_F(EtherCATScanStatusTest, FaultedSlaveWithoutALStatusPointsToTheKernelLog) {
+    const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
+    const auto reader = ASSERT_NIL_P(
+        engine->open_reader({this->entry}, x::telem::Rate(100), 1)
+    );
+    this->master->set_slave_transition_failure(0, slave::State::OP);
+    this->master->fault_slave(0, slave::State::SAFE_OP, "");
+    ASSERT_EVENTUALLY_TRUE(!engine->health().empty() && engine->health()[0].faulted);
+    const auto status = this->scan_status();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Error in SAFE-OP");
+    EXPECT_EQ(
+        status.description,
+        "The device reports an error without an error code. With IgH, the kernel "
+        "log (dmesg) shows it."
+    );
+}
+
+/// @brief it should show a lost slave as not responding.
+TEST_F(EtherCATScanStatusTest, LostSlaveShowsNotResponding) {
+    const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
+    const auto reader = ASSERT_NIL_P(
+        engine->open_reader({this->entry}, x::telem::Rate(100), 1)
+    );
+    this->master->set_slave_lost(0, true);
+    ASSERT_EVENTUALLY_TRUE(!engine->health().empty() && engine->health()[0].lost);
+    const auto status = this->scan_status();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Not responding");
+    EXPECT_EQ(status.description, "Check the power and cabling of the device.");
+}
+
+/// @brief it should show a slave that left OP as a warning while the Driver returns it
+/// to OP.
+TEST_F(EtherCATScanStatusTest, SlaveLeavingOpShowsAWarning) {
+    const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
+    const auto reader = ASSERT_NIL_P(
+        engine->open_reader({this->entry}, x::telem::Rate(100), 1)
+    );
+    this->master->set_slave_transition_failure(0, slave::State::OP);
+    this->master->set_slave_state(0, slave::State::PRE_OP);
+    ASSERT_EVENTUALLY_TRUE(
+        !engine->health().empty() && engine->health()[0].state == slave::State::PRE_OP
+    );
+    const auto status = this->scan_status();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "In PRE-OP");
+    EXPECT_EQ(status.description, "The Driver is returning the device to OP.");
 }
 }
