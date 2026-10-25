@@ -735,6 +735,81 @@ describe("MultiplexedStreamer", () => {
     });
   });
 
+  describe("acks", () => {
+    it("should resolve a wait once the stream acks every key", async () => {
+      const ms = pendingStreamer([1]);
+      const streamer = new MultiplexedStreamer({
+        store: new Store(),
+        openStreamer: createStreamOpener([ms]),
+      });
+      const first = streamer.demand([1], () => {});
+      const waited = vi.fn();
+      void streamer.waitAcked([1, 2]).then(waited);
+      await vi.advanceTimersByTimeAsync(200);
+      expect(waited).not.toHaveBeenCalled();
+      const second = streamer.demand([2], () => {});
+      await vi.advanceTimersByTimeAsync(200);
+      expect(ms.updateVi).toHaveBeenCalledWith([1, 2]);
+      expect(waited).toHaveBeenCalled();
+      first.close();
+      second.close();
+      await streamer.close();
+    });
+
+    it("should wait again after a drop until the stream reopens", async () => {
+      const hooks: StreamHooks[] = [];
+      const streamer = new MultiplexedStreamer({
+        store: new Store(),
+        openStreamer: createStreamOpener([pendingStreamer([1])], hooks),
+      });
+      const sub = streamer.demand([1], () => {});
+      await vi.advanceTimersByTimeAsync(200);
+      hooks[0].onDrop(new Error("conn lost"));
+      const waited = vi.fn();
+      void streamer.waitAcked([1]).then(waited);
+      await vi.advanceTimersByTimeAsync(200);
+      expect(waited).not.toHaveBeenCalled();
+      hooks[0].onReopen();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(waited).toHaveBeenCalled();
+      sub.close();
+      await streamer.close();
+    });
+
+    it("should reject a wait with the Core's rejection of a key", async () => {
+      const streamer = new MultiplexedStreamer({
+        store: new Store(),
+        openStreamer: async () => {
+          throw new NotFoundError("channel 3 not found");
+        },
+        instrumentation: createErrorSpy().instrumentation,
+      });
+      const sub = streamer.demand([3], () => {});
+      const waited = streamer.waitAcked([3]);
+      const rejected = expect(waited).rejects.toThrow("channel 3 not found");
+      await vi.advanceTimersByTimeAsync(200);
+      await rejected;
+      sub.close();
+      await streamer.close();
+    });
+
+    it("should reject a wait when its signal aborts or the streamer closes", async () => {
+      const streamer = new MultiplexedStreamer({
+        store: new Store(),
+        openStreamer: createStreamOpener([pendingStreamer([1])]),
+      });
+      const abort = new AbortController();
+      const aborted = streamer.waitAcked([1], abort.signal);
+      abort.abort(new UnexpectedError("join left"));
+      await expect(aborted).rejects.toThrow("join left");
+      const closed = streamer.waitAcked([1]);
+      await streamer.close();
+      await expect(closed).rejects.toThrow(
+        new UnexpectedError("telemetry streamer is closed"),
+      );
+    });
+  });
+
   describe("buffer flushing", () => {
     const stampedSeries = (): Series =>
       new Series({

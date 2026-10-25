@@ -152,9 +152,9 @@ export class MultiplexedStreamer {
   // The key set last accepted by the stream. Kept separately from the streamer so a
   // mid-reconnect streamer cannot be consulted for it.
   private sentKeys = new Set<channel.Key>();
-  // Keys the Core rejected on their own. They stay off the stream so the rest of it
-  // keeps flowing.
-  private readonly rejected = new Set<channel.Key>();
+  // Keys the Core rejected on their own, with the rejection. They stay off the stream
+  // so the rest of it keeps flowing.
+  private readonly rejected = new Map<channel.Key, Error>();
   // Keys held back while a rejection of several new keys is narrowed down. One returns
   // to the stream per successful reconcile.
   private deferred: channel.Key[] = [];
@@ -274,7 +274,7 @@ export class MultiplexedStreamer {
       const rejected = w.keys.find((k) => this.rejected.has(k));
       if (rejected != null) {
         this.ackWaiters.delete(w);
-        return w.reject(status.toError(this.statuses.get(rejected)!));
+        return w.reject(this.rejected.get(rejected)!);
       }
       if (!w.keys.every((k) => this.acked.has(k))) return;
       this.ackWaiters.delete(w);
@@ -342,7 +342,7 @@ export class MultiplexedStreamer {
   /** @returns the demanded keys the stream should carry now. */
   private desiredKeys(): Set<channel.Key> {
     const demanded = this.demandedKeys();
-    this.rejected.forEach((k) => {
+    this.rejected.forEach((_, k) => {
       if (!demanded.has(k)) this.rejected.delete(k);
     });
     this.deferred = this.deferred.filter((k) => demanded.has(k));
@@ -450,7 +450,7 @@ export class MultiplexedStreamer {
           // One of the new keys caused the rejection. Retry with one of them, and
           // return the rest one at a time, until the culprit fails alone.
           if (fresh.length === 1) {
-            this.rejected.add(fresh[0]);
+            this.rejected.set(fresh[0], errors.fromUnknown(e));
             this.setStatus(fresh[0], failure);
             this.settleAckWaiters();
             this.releaseDeferred();
