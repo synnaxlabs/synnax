@@ -18,6 +18,36 @@ import { List } from "@/list";
 import { mockGeometry } from "@/testutil/dom";
 import { createRenderCounter } from "@/testutil/renders";
 
+const removalObservers = new Set<RemovalResizeObserver>();
+
+/** Notifies when an observed element leaves the document, as a browser does. */
+class RemovalResizeObserver implements ResizeObserver {
+  private readonly callback: ResizeObserverCallback;
+  private readonly targets = new Set<Element>();
+
+  constructor(callback: ResizeObserverCallback) {
+    this.callback = callback;
+    removalObservers.add(this);
+  }
+
+  observe(target: Element): void {
+    this.targets.add(target);
+  }
+
+  unobserve(target: Element): void {
+    this.targets.delete(target);
+  }
+
+  disconnect(): void {
+    this.targets.clear();
+  }
+
+  notifyRemoved(): void {
+    if ([...this.targets].some((target) => !target.isConnected))
+      this.callback([], this);
+  }
+}
+
 describe("List", () => {
   interface Context {
     virtual: boolean;
@@ -533,6 +563,45 @@ describe("List", () => {
         expect(rows()).toHaveLength(2);
       } finally {
         offsetTop.mockRestore();
+      }
+    });
+
+    it("should render the items again when the Scroll mounts again", () => {
+      const previous = globalThis.ResizeObserver;
+      vi.stubGlobal("ResizeObserver", RemovalResizeObserver);
+      const clientHeight = vi
+        .spyOn(Element.prototype, "clientHeight", "get")
+        .mockImplementation(function (this: Element) {
+          return this.isConnected ? 100 : 0;
+        });
+      let open: (open: boolean) => void = () => {};
+      // Mounts the Scroll from inside the frame, as a dialog does, so the frame itself
+      // does not render again.
+      const Toggle = (): ReactElement | null => {
+        const [visible, setVisible] = useState(true);
+        open = setVisible;
+        return visible ? (
+          <List.Scroll>
+            <List.Items>{item}</List.Items>
+          </List.Scroll>
+        ) : null;
+      };
+      try {
+        const result = render(
+          <List.Frame data={DATA} virtual itemHeight={ITEM_HEIGHT} overscan={0}>
+            <Toggle />
+          </List.Frame>,
+        );
+        const rows = () => result.container.querySelectorAll(".pluto-list__item");
+        expect(rows()).toHaveLength(4);
+        act(() => open(false));
+        act(() => removalObservers.forEach((observer) => observer.notifyRemoved()));
+        act(() => open(true));
+        expect(rows()).toHaveLength(4);
+      } finally {
+        clientHeight.mockRestore();
+        vi.stubGlobal("ResizeObserver", previous);
+        removalObservers.clear();
       }
     });
 

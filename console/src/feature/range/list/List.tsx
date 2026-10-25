@@ -55,6 +55,8 @@ const EmptyContent = () => {
   );
 };
 
+const EMPTY_CONTENT = <EmptyContent />;
+
 const SEARCH_PLACEHOLDER = (
   <>
     <Icon.Search />
@@ -76,7 +78,7 @@ export const List = ({
   showTimeRange = true,
   showFavorite = true,
   initialRequest = {},
-  emptyContent = <EmptyContent />,
+  emptyContent = EMPTY_CONTENT,
 }: ListProps) => {
   const [request, setRequest] = useState<ranger.RetrieveRequest>(initialRequest);
   const [selected, setSelected] = useState<ranger.Key[]>([]);

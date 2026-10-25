@@ -71,7 +71,7 @@ export const useField = (<I, O = I>(
       onChange?.(value, { ...ctx, path });
       set(path, value);
     },
-    [path, set, onChange],
+    [path, ctx, set, onChange],
   );
 
   const handleSetStatus = useCallback(

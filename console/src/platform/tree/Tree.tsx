@@ -16,11 +16,7 @@ import {
 import { Component } from "@synnaxlabs/lyra/component";
 import { context } from "@synnaxlabs/lyra/context";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import {
-  useCombinedStateAndRef,
-  useInitializerRef,
-  useSyncedRef,
-} from "@synnaxlabs/lyra/hooks";
+import { useCombinedStateAndRef, useInitializerRef } from "@synnaxlabs/lyra/hooks";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
@@ -29,6 +25,7 @@ import { Access, Ontology, Synnax } from "@synnaxlabs/pluto";
 import { array, type destructor, type observe } from "@synnaxlabs/x";
 import {
   type DragEvent,
+  type FC,
   type ReactElement,
   type ReactNode,
   useCallback,
@@ -53,6 +50,7 @@ import {
   type GetResource,
   type TreeState,
 } from "@/platform/tree/types";
+import { useResources } from "@/platform/tree/useResource";
 import { type Action, type State } from "@/session/store";
 
 interface InternalProps {
@@ -64,7 +62,8 @@ interface ContextValue {
   onDrop: (key: string, props: Haul.OnDropProps) => Haul.Item[];
   onDragStart: (itemKey: string) => void;
   onDragEnd: (e: DragEvent) => void;
-  useLoading: (key: string) => boolean;
+  subscribeLoading: (handler: () => void) => destructor.Destructor;
+  getLoading: () => string | false;
 }
 
 const [Context, useContext] = context.create<ContextValue>({
@@ -78,66 +77,79 @@ const FallbackContextMenu = (): ReactElement => (
   </ContextMenu.Menu>
 );
 
-const itemRenderProp = Component.renderProp(
-  ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
-    const { itemKey } = rest;
-    const id = ontology.parseID(itemKey);
-    const resource = List.useItem<string, ontology.Resource>(itemKey);
-    const Item = useItems()[id.type] ?? DefaultItem;
-    const { onDrop, useLoading, onDragStart, onDragEnd } =
-      useContext("Tree.itemRenderProp");
-    const handleDragStart = useCallback(
-      () => onDragStart(itemKey),
-      [onDragStart, itemKey],
-    );
-    const loading = useLoading(itemKey);
-    // A drop re-parents the dragged items, so the grant is read on them and not on the
-    // destination. The item itself carries the same grant to leave its parent.
-    const client = Synnax.use();
-    const canMove = Access.useUpdateGranted(id);
+interface SelectionContextMenuProps extends ContextMenuProps {
+  menu: FC<ContextMenuProps>;
+}
 
-    const [draggingOver, setDraggingOver] = useState(false);
+// A resource deleted while its menu is open stays in the selection. A menu reads every
+// selected resource as present.
+const SelectionContextMenu = ({ menu: M, ...props }: SelectionContextMenuProps) => {
+  const resources = useResources(props.state, props.selection.ids);
+  if (resources.length < props.selection.ids.length) return <FallbackContextMenu />;
+  return <M {...props} />;
+};
 
-    const onDropDrops = Haul.useDrop({
-      type: Base.HAUL_TYPE,
-      key: itemKey,
-      canDrop: useCallback(
-        ({ items: entities, source }) => {
-          const keys = entities.map((item) => item.key);
-          setDraggingOver(false);
-          if (source.type !== Base.HAUL_TYPE || keys.includes(itemKey)) return false;
-          return Access.updateGranted({
-            client,
-            id: Base.filterHaulItems(entities).map(({ key }) =>
-              ontology.idZ.parse(key),
-            ),
-          });
-        },
-        [itemKey, client],
-      ),
-      onDrop: useCallback((props) => onDrop(itemKey, props) ?? [], [onDrop, itemKey]),
-      onDragOver: useCallback(() => setDraggingOver(true), []),
-    });
+const TreeItem = ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
+  const { itemKey } = rest;
+  const id = ontology.parseID(itemKey);
+  const resource = List.useItem<string, ontology.Resource>(itemKey);
+  const Item = useItems()[id.type] ?? DefaultItem;
+  const { onDrop, subscribeLoading, getLoading, onDragStart, onDragEnd } =
+    useContext("Tree.itemRenderProp");
+  const handleDragStart = useCallback(
+    () => onDragStart(itemKey),
+    [onDragStart, itemKey],
+  );
+  const loading = useSyncExternalStore(
+    subscribeLoading,
+    () => getLoading() === itemKey,
+  );
+  // A drop re-parents the dragged items, so the grant is read on them and not on the
+  // destination. The item itself carries the same grant to leave its parent.
+  const client = Synnax.use();
+  const canMove = Access.useUpdateGranted(id);
 
-    // The virtualizer has already reserved this row's slot. Rendering nothing would
-    // leave a gap, so the row stays empty until the resource loads.
-    if (resource == null) return <Base.Item {...rest} />;
+  const [draggingOver, setDraggingOver] = useState(false);
 
-    return (
-      <Item
-        {...rest}
-        draggingOver={draggingOver}
-        onDragStart={handleDragStart}
-        draggable={canMove}
-        {...onDropDrops}
-        onDragLeave={() => setDraggingOver(false)}
-        onDragEnd={onDragEnd}
-        resource={resource}
-        loading={loading}
-      />
-    );
-  },
-);
+  const onDropDrops = Haul.useDrop({
+    type: Base.HAUL_TYPE,
+    key: itemKey,
+    canDrop: useCallback(
+      ({ items: entities, source }) => {
+        const keys = entities.map((item) => item.key);
+        setDraggingOver(false);
+        if (source.type !== Base.HAUL_TYPE || keys.includes(itemKey)) return false;
+        return Access.updateGranted({
+          client,
+          id: Base.filterHaulItems(entities).map(({ key }) => ontology.idZ.parse(key)),
+        });
+      },
+      [itemKey, client],
+    ),
+    onDrop: useCallback((props) => onDrop(itemKey, props) ?? [], [onDrop, itemKey]),
+    onDragOver: useCallback(() => setDraggingOver(true), []),
+  });
+
+  // The virtualizer has already reserved this row's slot. Rendering nothing would
+  // leave a gap, so the row stays empty until the resource loads.
+  if (resource == null) return <Base.Item {...rest} />;
+
+  return (
+    <Item
+      {...rest}
+      draggingOver={draggingOver}
+      onDragStart={handleDragStart}
+      draggable={canMove}
+      {...onDropDrops}
+      onDragLeave={() => setDraggingOver(false)}
+      onDragEnd={onDragEnd}
+      resource={resource}
+      loading={loading}
+    />
+  );
+};
+
+const itemRenderProp = Component.renderProp(TreeItem);
 
 // Returns the keys that sit inside another key in the same set. Depth cannot answer
 // this: two nodes at different depths are often unrelated.
@@ -213,6 +225,18 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     [client, placeholders],
   );
 
+  const subscribeResource = useCallback(
+    (handler: () => void, key: string): destructor.Destructor => {
+      const releasePlaceholder = placeholders.subscribe(handler, key);
+      const releaseCached = client?.ontology.cache.resources.subscribe(handler, key);
+      return () => {
+        releasePlaceholder();
+        releaseCached?.();
+      };
+    },
+    [client, placeholders],
+  );
+
   const applyAnswer = useCallback(
     (parent: ontology.ID, resources: ontology.Resource[]) => {
       const next = toNodes(resources, resolveItem);
@@ -251,17 +275,17 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     [resolveItem, setNodes, root, placeholders],
   );
 
-  const useLoading = useCallback(
-    (key: string) =>
-      useSyncExternalStore<boolean>(
-        useCallback((callback) => {
-          loadingListenersRef.current.add(callback);
-          return () => loadingListenersRef.current.delete(callback);
-        }, []),
-        useCallback(() => loadingRef.current === key, [key]),
-      ),
-    [],
+  const subscribeLoading = useCallback(
+    (handler: () => void) => {
+      loadingListenersRef.current.add(handler);
+      return () => {
+        loadingListenersRef.current.delete(handler);
+      };
+    },
+    [loadingListenersRef],
   );
+
+  const getLoading = useCallback(() => loadingRef.current, []);
 
   const setLoading = useCallback(
     (key: string | false) => {
@@ -275,7 +299,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const watchedRef = useInitializerRef(() => new Map<string, destructor.Destructor>());
 
   const watchChildren = useCallback(
-    (parent: ontology.ID) => {
+    async (parent: ontology.ID): Promise<void> => {
       if (client == null) return;
       const key = ontology.idToString(parent);
       // An already-watched parent has nothing to wait for, and no fetch will come
@@ -295,28 +319,30 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       // A retained answer paints before the fetch that reconfirms it.
       const cached = client.ontology.children.getCached({ ids: parent });
       if (query.isLive(cached)) applyAnswer(parent, cached);
-      handleError(async () => {
-        try {
-          const resources = await client.ontology.children.retrieve({ ids: parent });
-          // A release during the fetch means the answer is no longer wanted.
-          if (watchedRef.current.has(key)) applyAnswer(parent, resources);
-        } finally {
-          if (loadingRef.current === key) setLoading(false);
-        }
-      }, "Failed to retrieve resources");
+      try {
+        const resources = await client.ontology.children.retrieve({ ids: parent });
+        // A release during the fetch means the answer is no longer wanted.
+        if (watchedRef.current.has(key)) applyAnswer(parent, resources);
+      } catch (e) {
+        handleError(e, "Failed to retrieve resources");
+      }
+      if (loadingRef.current === key) setLoading(false);
     },
-    [client, applyAnswer, handleError, setLoading],
+    [client, applyAnswer, handleError, setLoading, watchedRef],
   );
 
-  const releaseChildren = useCallback((keys: string[]) => {
-    keys.forEach((key) => {
-      watchedRef.current.get(key)?.();
-      watchedRef.current.delete(key);
-    });
-  }, []);
+  const releaseChildren = useCallback(
+    (keys: string[]) => {
+      keys.forEach((key) => {
+        watchedRef.current.get(key)?.();
+        watchedRef.current.delete(key);
+      });
+    },
+    [watchedRef],
+  );
 
   useEffect(() => {
-    watchChildren(root);
+    void watchChildren(root);
     return () => releaseChildren([...watchedRef.current.keys()]);
   }, [client, ontology.idToString(root)]);
 
@@ -340,13 +366,13 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         return;
       }
       setLoading(clicked);
-      watchChildren(ontology.parseID(clicked));
+      void watchChildren(ontology.parseID(clicked));
     },
     [watchChildren, releaseChildren, setLoading, nodesRef],
   );
 
   const getResource = useCallback(
-    ((id: ontology.ID | ontology.ID[] | string | string[]) => {
+    (id: ontology.ID | ontology.ID[] | string | string[]) => {
       const isSingle = !Array.isArray(id);
       const ids = array.toArray(id);
       const resources = ontology
@@ -360,9 +386,9 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       }
 
       return resources;
-    }) as GetResource,
+    },
     [getResourceByKey],
-  );
+  ) as GetResource;
 
   const getItem = useMemo(
     () =>
@@ -394,7 +420,6 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     sort,
   });
   const { shape, expand, contract } = treeProps;
-  const shapeRef = useSyncedRef(shape);
   // A placeholder's row stays mounted, so its rename can start out of view. Focusing
   // the editable then scrolls the row into view.
   const pinned = useMemo(
@@ -402,25 +427,23 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     [shape.keys, placeholders],
   );
 
-  const getState = useCallback(
-    (): TreeState => ({
-      nodes: nodesRef.current,
-      shape: shapeRef.current,
-      setNodes,
-      expand,
-      contract,
-      setResource: placeholders.setItem,
-      getResource,
-      setSelection: setSelected,
-    }),
-    [expand, contract, handleError, placeholders, nodesRef, setNodes],
-  );
+  const state: TreeState = {
+    nodes,
+    shape,
+    setNodes,
+    expand,
+    contract,
+    setResource: placeholders.setItem,
+    getResource,
+    subscribeResource,
+    setSelection: setSelected,
+  };
 
   const openTab = Panel.useOpenTab();
   const addStatus = Status.useAdder();
   const store = useStore<State, Action>();
 
-  const moveChildren = Ontology.useMoveChildren({});
+  const { update: moveChildren } = Ontology.useMoveChildren({});
 
   const getBaseProps = useCallback(
     (client: Client): BaseProps => ({
@@ -461,7 +484,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       });
       contract(...moved.map(({ key }) => key));
       bySource.forEach((ids, sourceKey) =>
-        moveChildren.update({
+        moveChildren({
           source: ontology.parseID(sourceKey),
           destination,
           ids,
@@ -469,7 +492,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       );
       return moved;
     },
-    [client, contract, root],
+    [nodesRef, resolveItem, contract, root, moveChildren],
   );
 
   const { startDrag, onDragEnd } = Haul.useDrag({ type: Base.HAUL_TYPE });
@@ -490,40 +513,34 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       );
       startDrag([Base.createHaulItem(itemKey), ...haulItems]);
     },
-    [getResource, selectedRef],
+    [getResource, selectedRef, resolveItem, startDrag],
   );
 
   const renderContextMenu = useCallback(
     ({ keys }: Menu.ContextMenuMenuProps) => {
       if (client == null) return <FallbackContextMenu />;
-      if (keys.length === 0)
-        return <DefaultContextMenu root={root} state={getState()} />;
-      const rightClickedButNotSelected = keys.find(
-        (v) => !selectedRef.current.includes(v),
-      );
+      if (keys.length === 0) return <DefaultContextMenu root={root} state={state} />;
+      const rightClickedButNotSelected = keys.find((v) => !selected.includes(v));
       // In the case where we right clicked the menu, but it's not in the current
       // selection, we only display a context menu for that item.
       if (rightClickedButNotSelected != null) keys = [rightClickedButNotSelected];
       // Because we're using a virtualized tree, the keys from the context menu
       // might not actually be accurate (because we're missing DOM elements), so instead
       // we pull directly from the list selected state.
-      else keys = selectedRef.current;
-      const nodeSnapshot = nodesRef.current;
+      else keys = selected;
 
       const ids = keys.map((key) => ontology.parseID(key));
 
+      // We want to find the parent of the node with the lowest depth, since we
+      // might be selecting nodes AND their children.
+      const [shallowest] = keys.toSorted(Base.compareDepth(shape));
       // TODO: we might be selecting two nodes that are not ascendants or descendants of
       // the other ones. We need to change this function to implement recursion.
-      const parent = Base.findNodeParent({
-        tree: nodeSnapshot,
-        // We want to find the parent of the node with the lowest depth, since we
-        // might be selecting nodes AND their children.
-        key: keys.sort(Base.compareDepth(shapeRef.current))[0],
-      });
+      const parent = Base.findNodeParent({ tree: nodes, key: shallowest });
 
       const parentID = parent == null ? root : ontology.parseID(parent.key);
 
-      const firstID = ontology.parseID(keys[0]);
+      const firstID = ontology.parseID(shallowest);
 
       const props: ContextMenuProps = {
         selection: {
@@ -531,17 +548,21 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
           parentID,
           ids,
         },
-        state: getState(),
+        state,
         ...getBaseProps(client),
       };
 
       const allSameType = ids.every((id) => id.type === firstID.type);
-      if (!allSameType) return <MultipleSelectionContextMenu {...props} />;
-
-      const M = resolveItem(firstID.type).ContextMenu;
-      return M == null ? <FallbackContextMenu /> : <M {...props} />;
+      const M = allSameType
+        ? resolveItem(firstID.type).ContextMenu
+        : MultipleSelectionContextMenu;
+      return M == null ? (
+        <FallbackContextMenu />
+      ) : (
+        <SelectionContextMenu menu={M} {...props} />
+      );
     },
-    [client, setNodes, resolveItem, openTab, nodesRef, setSelected],
+    [client, root, state, selected, nodes, shape, getBaseProps, resolveItem],
   );
   const handleContextMenu = useCallback(
     (props: Menu.ContextMenuMenuProps) => (
@@ -555,11 +576,12 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const contextValue = useMemo(
     () => ({
       onDrop: handleDrop,
-      useLoading,
+      subscribeLoading,
+      getLoading,
       onDragStart: handleDragStart,
       onDragEnd,
     }),
-    [handleDrop, handleDragStart, useLoading, onDragEnd],
+    [handleDrop, handleDragStart, subscribeLoading, getLoading, onDragEnd],
   );
 
   return (
@@ -569,7 +591,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         {...treeProps}
         showRules
         shape={shape}
-        subscribe={placeholders.subscribe}
+        subscribe={subscribeResource}
         // Not getResource: it throws, and a resource may not be cached before
         // the tree attempts to render it.
         getItem={getItem}

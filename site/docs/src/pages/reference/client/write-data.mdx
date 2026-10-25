@@ -12,7 +12,7 @@ clients: ["python", "typescript"]
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
@@ -88,7 +88,7 @@ apart, and commit all writes when finished. It's typical to write and commit mil
 samples over the course of hours or days, intermittently calling commit to persist data
 to the cluster.
 
-<Note.Note variant="info" className="compact">
+<Note.Note variant="info">
   For advanced writer configuration, see
   [Auto-Commit](/reference/client/advanced/auto-commit),
   [Auto-Index](/reference/client/advanced/auto-index), and [Write
@@ -362,7 +362,7 @@ try {
 Historical writes are useful for backfilling data, ingesting data from files, or writing
 data at specific timestamps that have already passed.
 
-<Note.Note variant="warning" className="compact">
+<Note.Note variant="warning">
   These patterns should NOT be used for live writing to Synnax. Opening and closing
   transactions for each sample has severe performance implications. For live data
   writing, always use a Writer as described above.

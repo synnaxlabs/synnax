@@ -184,7 +184,7 @@ export const Provider = ({
         setResetKey((key) => key + 1);
       setState((prev) => ({ ...prev, status: connStatus }));
     },
-    [addStatus],
+    [addStatus, ref, setState],
   );
 
   useEffect(() => {

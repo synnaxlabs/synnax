@@ -36,7 +36,7 @@ export interface ListProps
 export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
   const menuProps = Menu.useContextMenu();
   const dispatch = Session.useDispatch();
-  const allCores = Session.Core.useSelectMany().sort((a, b) =>
+  const allCores = Session.Core.useSelectMany().toSorted((a, b) =>
     a.name.localeCompare(b.name),
   );
   const keys = useMemo(() => allCores.map((c) => c.key), [allCores]);
@@ -134,7 +134,15 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
         </ContextMenu.Menu>
       );
     },
-    [handleRemove, handleRetest, handleEdit, handleCopyAddress],
+    [
+      allCores,
+      handleCopyAddress,
+      handleEdit,
+      handleLink,
+      handleRemove,
+      handleRename,
+      handleRetest,
+    ],
   );
 
   return (

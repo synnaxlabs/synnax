@@ -655,13 +655,12 @@ export const Selector = ({
     }
   }, [dragging, clearPreview]);
 
+  const ghostOffsetKey = horizontal ? "left" : "top";
+  const ghostSizeKey = horizontal ? "width" : "height";
   const ghostStyle: CSSProperties | undefined =
     ghost == null
       ? undefined
-      : {
-          [horizontal ? "left" : "top"]: ghost.offset,
-          [horizontal ? "width" : "height"]: ghost.size ?? undefined,
-        };
+      : { [ghostOffsetKey]: ghost.offset, [ghostSizeKey]: ghost.size ?? undefined };
   // A passive strip registers no drop zone, so it still forwards the consumer's
   // onDragLeave rather than dropping it.
   const dropListeners =
