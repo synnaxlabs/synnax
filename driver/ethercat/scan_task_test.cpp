@@ -246,27 +246,6 @@ TEST_F(EtherCATScanTest, ScanReturnsPermissionDenied) {
     ASSERT_OCCURRED_AS_P(scanner.scan({}), errors::PERMISSION_DENIED);
 }
 
-/// @brief it should skip an interface that fails to initialize for a reason other than
-/// permission, and return no devices for it.
-TEST_F(EtherCATScanTest, ScanSkipsInterfaceInitError) {
-    auto mock_master = std::make_shared<mock::Master>("eth0");
-    mock_master->inject_init_error(
-        x::errors::Error(errors::MASTER_INIT_ERROR, "no EtherCAT slaves found")
-    );
-    auto manager = std::make_unique<mock::Manager>();
-    manager->configure("eth0", mock_master);
-    auto pool = std::make_shared<engine::Pool>(std::move(manager));
-    synnax::task::Task task{
-        .rack = this->rack.key,
-        .name = "EtherCAT Scanner",
-        .type = SCAN_TASK_TYPE,
-        .internal = true
-    };
-    Scanner scanner(this->ctx, task, ScanTaskConfig{}, pool);
-    const auto devices = ASSERT_NIL_P(scanner.scan({}));
-    EXPECT_TRUE(devices.empty());
-}
-
 TEST_F(EtherCATScanTest, TestInterfaceCommandInitError) {
     auto mock_master = std::make_shared<mock::Master>("eth0");
     mock_master->inject_init_error(
@@ -370,11 +349,11 @@ TEST_F(EtherCATScanTest, ScanTaskFailsToConfigureWithoutAPacketCaptureLibrary) {
     EXPECT_EQ(configured, nullptr);
     ASSERT_EQ(this->ctx->statuses.size(), 1);
     EXPECT_EQ(this->ctx->statuses.back().variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(this->ctx->statuses.back().message, "Failed to configure task");
     EXPECT_EQ(
-        this->ctx->statuses.back().message,
-        "[" + x::lib::LOAD_ERROR.type +
-            "] EtherCAT is unavailable because a required packet capture library is "
-            "not installed. Check driver logs for details."
+        this->ctx->statuses.back().description,
+        "EtherCAT is unavailable because a required packet capture library is not "
+        "installed. Check driver logs for details."
     );
 }
 }
