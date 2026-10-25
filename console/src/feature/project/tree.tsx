@@ -29,7 +29,7 @@ import {
   Table as PTable,
 } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { ContextMenu } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
@@ -171,19 +171,16 @@ const useOnSelect = (): ((resource: ontology.Resource) => void) => {
   const client = Synnax.use();
   const store = Session.useStore();
   const handleError = Status.useErrorHandler();
-  return useCallback(
-    (resource) => {
-      if (client == null) return;
-      handleError(
-        async () => {
-          const proj = await client.projects.retrieve(resource.id.key);
-          store.dispatch(Session.Project.select(proj.key));
-        },
-        { message: "Failed to select project", name: resource.name },
-      );
-    },
-    [client, store, handleError],
-  );
+  return (resource) => {
+    if (client == null) return;
+    handleError(
+      async () => {
+        const proj = await client.projects.retrieve(resource.id.key);
+        store.dispatch(Session.Project.select(proj.key));
+      },
+      { message: "Failed to select project", name: resource.name },
+    );
+  };
 };
 
 const VALID_CHILDREN: ontology.ResourceType[] = [

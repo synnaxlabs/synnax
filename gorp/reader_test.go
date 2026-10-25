@@ -10,9 +10,12 @@
 package gorp_test
 
 import (
+	"slices"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	. "github.com/synnaxlabs/gorp/testutil"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	. "github.com/synnaxlabs/x/testutil"
@@ -145,5 +148,39 @@ var _ = Describe("Reader", func() {
 				Expect(closer.Close()).To(Succeed())
 			},
 		)
+
+		It("Should return a decode error from Close", func(ctx SpecContext) {
+			db := DeferClose(OpenGorpMsgpackDB())
+			Expect(gorp.NewCreate[int32, entry]().
+				Entries(&[]entry{{ID: 1, Data: "data"}, {ID: 2, Data: "data"}}).
+				Exec(ctx, db)).To(Succeed())
+			corrupt[int32, entry](ctx, db, 2)
+			nexter, closer := MustSucceed2(
+				gorp.WrapReader[int32, entry](db).OpenNexter(ctx),
+			)
+			var keys []int32
+			for v := range nexter {
+				keys = append(keys, v.ID)
+			}
+			Expect(keys).To(Equal([]int32{1}))
+			Expect(closer.Close()).To(MatchError(ContainSubstring("failed to decode")))
+		})
 	})
 })
+
+// corrupt overwrites the stored bytes of the entry at key so that they no longer
+// decode.
+func corrupt[K gorp.Key, E gorp.Entry[K]](ctx SpecContext, db *gorp.DB, key K) {
+	GinkgoHelper()
+	iter := MustSucceed(gorp.WrapReader[K, E](db).OpenIterator(gorp.IterOptions{}))
+	var raw []byte
+	for iter.First(); iter.Valid(); iter.Next() {
+		if v := iter.Value(ctx); v != nil && (*v).GorpKey() == key {
+			raw = slices.Clone(iter.Key())
+			break
+		}
+	}
+	Expect(iter.Close()).To(Succeed())
+	Expect(raw).ToNot(BeNil())
+	Expect(db.Set(ctx, raw, []byte("corrupt"))).To(Succeed())
+}

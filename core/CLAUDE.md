@@ -16,8 +16,8 @@ downward only — a layer never imports one above it:
    (reads/writes routed between nodes), node membership via Aspen. Data here is
    addressable cluster-wide.
 3. **`service/`** — business logic on top of distribution: ontology (resource graph),
-   group, search, auth, access, user, ranger, hardware (task/rack/device), arc,
-   workspace items (schematic, lineplot, log, table, panel, view), label, status.
+   group, auth, access, user, ranger, hardware (task/rack/device), arc, workspace items
+   (schematic, lineplot, log, table, panel, view), label, status.
 4. **`api/`** (highest) — transport-agnostic client interface: request/response types,
    validation, freighter-compatible service definitions.
 

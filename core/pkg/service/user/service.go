@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/user/versions"
 	"github.com/synnaxlabs/x/config"
@@ -47,10 +46,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Group *group.Service
-	// Search is the search index for fuzzy searching users.
-	//
-	// [REQUIRED]
-	Search *search.Index
 	// Signals is used to propagate user changes through the Synnax signals' channel
 	// communication mechanism.
 	//
@@ -70,7 +65,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
-	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
 }
@@ -81,7 +75,6 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotNil("ontology", c.Ontology)
 	v.NotNil("group", c.Group)
-	v.NotNil("search", c.Search)
 	return v.Error()
 }
 
@@ -90,6 +83,7 @@ type Service struct {
 	cfg     ServiceConfig
 	closer  xio.MultiCloser
 	table   *gorp.Table[Key, User]
+	search  *gorp.SearchIndex[Key, User]
 	indexes indexes
 }
 
@@ -102,19 +96,18 @@ func OpenService(
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, indexes: newIndexes()}
+	s := &Service{cfg: cfg, indexes: newIndexes(), search: newSearchIndex()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, User]{
 		DB:              cfg.DB,
 		Migrations:      versions.Migrations,
-		Indexes:         s.indexes.all(),
+		Indexes:         append(s.indexes.all(), s.search),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
-	cfg.Search.RegisterService(s)
 	if cfg.Signals != nil {
 		var sig io.Closer
 		if sig, err = cfg.Signals.PublishFromGorp(

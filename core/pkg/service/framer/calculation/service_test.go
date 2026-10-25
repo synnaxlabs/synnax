@@ -30,7 +30,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -112,24 +111,20 @@ var _ = Describe("Calculation", Ordered, func() {
 		ShouldNotLeakGoroutines()
 		dist = mock.NewNode(ctx)
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: dist.DB}))
-		searchIdx := MustOpen(search.OpenIndex())
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: otg,
-			Search:   searchIdx,
 		}))
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: otg,
 			Group:    groupSvc,
-			Search:   searchIdx,
 		}))
 		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       dist.DB,
 			Group:    groupSvc,
 			Ontology: otg,
 			Label:    labelSvc,
-			Search:   searchIdx,
 		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel:      dist.Channel,
@@ -137,7 +132,6 @@ var _ = Describe("Calculation", Ordered, func() {
 			HostProvider: dist.Cluster,
 			Ontology:     otg,
 			Group:        groupSvc,
-			Search:       searchIdx,
 			Status:       statusSvc,
 		}))
 		channelWriter = channelSvc.NewWriter(nil)

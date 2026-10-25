@@ -10,7 +10,7 @@
 import { type schematic } from "@synnaxlabs/client";
 import { useInitializerRef, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { color, dimensions, direction, type location } from "@synnaxlabs/x";
-import { type RefCallback, useCallback, useLayoutEffect, useRef } from "react";
+import { type RefCallback, useLayoutEffect, useRef } from "react";
 
 import { Primitive } from "@/schematic/node/common/primitive";
 
@@ -257,18 +257,15 @@ export const useRender = (params: UseRenderParams): RefCallback<HTMLElement> => 
     currState,
   ]);
 
-  return useCallback<RefCallback<HTMLElement>>(
-    (el) => {
-      if (el == null) {
-        const { svgElement } = stateRef.current;
-        if (svgElement != null) svgElement.remove();
-        stateRef.current = createRenderState();
-        containerRef.current = null;
-        return;
-      }
-      containerRef.current = el;
-      runRender(el, paramsRef.current, stateRef.current);
-    },
-    [paramsRef, stateRef],
-  );
+  return (el) => {
+    if (el == null) {
+      const { svgElement } = stateRef.current;
+      if (svgElement != null) svgElement.remove();
+      stateRef.current = createRenderState();
+      containerRef.current = null;
+      return;
+    }
+    containerRef.current = el;
+    runRender(el, paramsRef.current, stateRef.current);
+  };
 };

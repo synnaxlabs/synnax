@@ -20,10 +20,8 @@ import {
   type Dispatch,
   type SetStateAction,
   use,
-  useCallback,
   useEffect,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -233,6 +231,14 @@ const persist = async <
   }
 };
 
+const readCached = <Query extends query.Params, Data>(
+  getCached: ((params: RetrieveParams<Query>) => Data | undefined) | undefined,
+  params: RetrieveParams<Query>,
+): Promise<Data> | undefined => {
+  const cached = getCached?.(params);
+  return cached === undefined ? undefined : fulfilled(cached);
+};
+
 export const createForm = <
   Query extends query.Params,
   Schema extends z.ZodType<query.Data>,
@@ -267,22 +273,19 @@ export const createForm = <
     const addStatus = Status.useAdder();
     const memoQuery = useMemoQuery(query, normalizeQuery);
 
-    const cached = useMemo(
-      () =>
-        memoQuery == null || client == null
-          ? undefined
-          : getCached?.({ client, query: memoQuery }),
-      [client, memoQuery],
-    );
+    // One read per query: a synced form resets when its values change identity. One
+    // call keeps the read and its promise in one memo block.
+    const cached =
+      memoQuery == null || client == null
+        ? undefined
+        : readCached(getCached, { client, query: memoQuery });
 
     const pending = usePendingFetch<Query, z.infer<Schema>>(memoQuery);
     // A replay resumes through the promise the suspended attempt holds. Reading the
     // answer from anywhere else would skip the `use` call React needs to find the
     // end of the recorded hook list, corrupting every hook below.
     let retrieved: z.infer<Schema> | undefined =
-      pending.promise == null && cached !== undefined
-        ? use(fulfilled(cached))
-        : undefined;
+      pending.promise == null && cached != null ? use(cached) : undefined;
     if (retrieved == null && memoQuery != null && client != null && retrieve != null)
       retrieved = use(
         promiseFor(
@@ -307,21 +310,15 @@ export const createForm = <
       onHasTouched,
       mode,
     });
-    const noNotifySet = useCallback(
-      (path: string, value: unknown, options?: Form.SetOptions) =>
-        form.set(path, value, { ...options, ...DEFAULT_SET_OPTIONS }),
-      [form],
-    );
+    const noNotifySet = (path: string, value: unknown, options?: Form.SetOptions) =>
+      form.set(path, value, { ...options, ...DEFAULT_SET_OPTIONS });
     // A listener carries what the Core holds, which an edit waiting on its autosave has
     // already moved past. Writing it back would revert the edit, and the save that
     // follows would persist the pre-edit value.
-    const listenerSet = useCallback(
-      (path: string, value: unknown, options?: Form.SetOptions) => {
-        if (form.get(path, { optional: true })?.touched === true) return;
-        noNotifySet(path, value, options);
-      },
-      [form, noNotifySet],
-    );
+    const listenerSet = (path: string, value: unknown, options?: Form.SetOptions) => {
+      if (form.get(path, { optional: true })?.touched === true) return;
+      noNotifySet(path, value, options);
+    };
 
     // Form state is built once, so a query pointing at a different record has
     // to replace it.
@@ -335,36 +332,24 @@ export const createForm = <
       form.reset(valuesRef.current);
     }, [memoQuery, form]);
 
-    const runSave = useCallback(
-      async (opts: query.FetchOptions = {}): Promise<boolean> => {
-        const signal = opts.signal ?? abortRef.current.signal;
-        if (client == null) {
-          setResult(nullClientResult<undefined>(`update ${name}`));
-          return false;
-        }
-        return await persist({
-          name,
-          params: { client, query: memoQuery, ...form, set: noNotifySet },
-          update,
-          beforeValidate,
-          beforeSave,
-          afterSave,
-          setResult,
-          addStatus,
-          signal,
-        });
-      },
-      [
-        client,
-        memoQuery,
-        form,
-        noNotifySet,
-        addStatus,
+    const runSave = async (opts: query.FetchOptions = {}): Promise<boolean> => {
+      const signal = opts.signal ?? abortRef.current.signal;
+      if (client == null) {
+        setResult(nullClientResult<undefined>(`update ${name}`));
+        return false;
+      }
+      return await persist({
+        name,
+        params: { client, query: memoQuery, ...form, set: noNotifySet },
+        update,
+        beforeValidate,
         beforeSave,
         afterSave,
-        beforeValidate,
-      ],
-    );
+        setResult,
+        addStatus,
+        signal,
+      });
+    };
 
     // Saves of one record run one at a time. A caller that reads the form, awaits the
     // Core, then writes back (a task deploy resolving its rack) leaves a window an
@@ -376,27 +361,21 @@ export const createForm = <
     // queueing a duplicate. Only callers under one signal join, so an abort still
     // reaches every save it was issued for.
     const queuedSave = useRef<QueuedSave>(null);
-    const saveAsync = useCallback(
-      async (opts: query.FetchOptions = {}): Promise<boolean> => {
-        const signal = opts.signal ?? abortRef.current.signal;
-        const queued = queuedSave.current;
-        if (queued != null && queued.signal === signal) return await queued.promise;
-        const issuedFor = memoQuery;
-        const save = (pendingSave.current ?? Promise.resolve()).then(async () => {
-          if (queuedSave.current?.promise === save) queuedSave.current = null;
-          // A queued save reads the live form, which now holds another record.
-          return readQuery.current === issuedFor ? await runSave(opts) : false;
-        });
-        queuedSave.current = { promise: save, signal };
-        pendingSave.current = save.catch(() => {});
-        return await save;
-      },
-      [runSave, memoQuery],
-    );
-    const save = useCallback(
-      (opts?: query.FetchOptions) => void saveAsync(opts),
-      [saveAsync],
-    );
+    const saveAsync = async (opts: query.FetchOptions = {}): Promise<boolean> => {
+      const signal = opts.signal ?? abortRef.current.signal;
+      const queued = queuedSave.current;
+      if (queued != null && queued.signal === signal) return await queued.promise;
+      const issuedFor = memoQuery;
+      const save = (pendingSave.current ?? Promise.resolve()).then(async () => {
+        if (queuedSave.current?.promise === save) queuedSave.current = null;
+        // A queued save reads the live form, which now holds another record.
+        return readQuery.current === issuedFor ? await runSave(opts) : false;
+      });
+      queuedSave.current = { promise: save, signal };
+      pendingSave.current = save.catch(() => {});
+      return await save;
+    };
+    const save = (opts?: query.FetchOptions) => void saveAsync(opts);
 
     const saveRef = useSyncedRef(save);
     const debouncedSave = useDebouncedCallback(
@@ -406,11 +385,11 @@ export const createForm = <
     );
     useEffect(() => () => debouncedSave.flush(), [debouncedSave]);
 
-    const abandon = useCallback(() => {
+    const abandon = () => {
       abandonedRef.current = true;
       debouncedSave.cancel();
       abortRef.current.abort();
-    }, [debouncedSave]);
+    };
 
     useEffect(() => {
       if (memoQuery == null || client == null || mountListeners == null) return;

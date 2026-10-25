@@ -27,7 +27,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	pdversions "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -52,24 +51,20 @@ func openStack(ctx context.Context, rackName string, excluded ...string) stack {
 	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	searchIdx := MustOpen(search.OpenIndex())
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Search:   searchIdx,
 	}))
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
-		Search:   searchIdx,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
 		Label:    labelSvc,
-		Search:   searchIdx,
 	}))
 	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:                  db,
@@ -78,7 +73,6 @@ func openStack(ctx context.Context, rackName string, excluded ...string) stack {
 		HostProvider:        mock.NewStaticHostProvider(1),
 		Status:              statusSvc,
 		HealthCheckInterval: 10 * telem.Millisecond,
-		Search:              searchIdx,
 	}))
 	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 	imexSvc := imex.NewService()
@@ -88,7 +82,6 @@ func openStack(ctx context.Context, rackName string, excluded ...string) stack {
 		Group:        groupSvc,
 		Rack:         rackSvc,
 		Status:       statusSvc,
-		Search:       searchIdx,
 		ImEx:         imexSvc,
 		Configs:      MustSucceed(config.NewRegistry(pd.Stores()...)),
 		ImExExcluded: excluded,

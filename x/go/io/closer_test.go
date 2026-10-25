@@ -69,7 +69,7 @@ var _ = Describe("Closer", func() {
 		It("should panic when Close is called on a nil NoFailCloserFunc", func() {
 			var closer io.NoFailCloserFunc
 			Expect(closer).To(BeNil())
-			Expect(func() { _ = closer.Close() }).To(Panic())
+			Expect(func() { Expect(closer.Close()).To(Succeed()) }).To(Panic())
 		})
 	})
 
@@ -163,7 +163,7 @@ var _ = Describe("Closer", func() {
 		It("should panic on nil closer", func() {
 			closer1 := io.CloserFunc(func() error { return nil })
 			multi := io.MultiCloser{closer1, nil}
-			Expect(func() { _ = multi.Close() }).To(Panic())
+			Expect(func() { Expect(multi.Close()).To(Succeed()) }).To(Panic())
 		})
 
 		Describe("Integration tests", func() {
