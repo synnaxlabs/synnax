@@ -65,11 +65,10 @@ const create = async <S extends task.Schemas = task.Schemas>({
  * editing. The returned callback creates a draft row and swaps the current
  * tab to the task's resource.
  */
-export const createUseCreate =
-  <S extends task.Schemas = task.Schemas>({
-    getInitialValues,
-  }: CreateUseCreateParams<S>): UseCreate =>
-  ({ tabKey }: UseCreateProps = {}) => {
+export const createUseCreate = <S extends task.Schemas = task.Schemas>({
+  getInitialValues,
+}: CreateUseCreateParams<S>): UseCreate => {
+  const useCreate: UseCreate = ({ tabKey }: UseCreateProps = {}) => {
     const client = PSynnax.use();
     const openTab = Panel.useOpenTab();
     const handleError = Status.useErrorHandler();
@@ -94,3 +93,5 @@ export const createUseCreate =
       [client, openTab, handleError, tabKey],
     );
   };
+  return useCreate;
+};

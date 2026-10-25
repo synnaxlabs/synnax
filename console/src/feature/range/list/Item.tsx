@@ -39,7 +39,7 @@ const Base = ({
   ...props
 }: ItemProps) => {
   const { itemKey } = props;
-  const { onSelect, selected, hovered } = Select.useItemState(itemKey);
+  const { onSelect, onHover, selected, hovered } = Select.useItemState(itemKey);
   const openTab = Panel.useOpenTab();
   const item = List.useItem<ranger.Key, ranger.Range>(itemKey);
   const initialValues = useMemo(() => {
@@ -76,6 +76,7 @@ const Base = ({
       justify="between"
       selected={selected}
       hovered={hovered}
+      onHover={onHover}
       {...props}
     >
       <Form.Form<typeof Ranger.formSchema> {...form}>

@@ -119,9 +119,6 @@ private:
     /// @brief discovers PDO entries for a slave and populates its PDO lists.
     void discover_slave_pdos(slave::DiscoveryResult &slave);
 
-    /// @brief configures the PDO mapping for a slave based on discovered PDOs.
-    void configure_slave_pdos(ec_slave_config_t *sc, const slave::Properties &slave);
-
     /// @brief reads the name of a PDO entry from the slave's object dictionary.
     std::string
     read_pdo_entry_name(uint16_t slave_pos, uint16_t index, uint8_t subindex);

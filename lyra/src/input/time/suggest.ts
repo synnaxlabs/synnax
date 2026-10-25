@@ -25,19 +25,23 @@ const createLanguage = async () => {
   return nlp.default.extend(dates.default);
 };
 
+/** The natural-language parser that reads phrases like `tomorrow at 3pm`. */
+export type Language = Awaited<ReturnType<typeof createLanguage>>;
+
 // The parser is a third of the module's weight and only the phrase fallback needs
 // it, so it loads on demand. Until then readings come from the grammar alone.
-let language: Awaited<ReturnType<typeof createLanguage>> | null = null;
-let loading: Promise<void> | null = null;
+let loaded: Language | null = null;
+let loading: Promise<Language> | null = null;
 
-/** @returns true once {@link loadLanguage} has resolved. */
-export const languageLoaded = (): boolean => language != null;
+/** @returns the parser once {@link loadLanguage} has resolved, or null. */
+export const loadedLanguage = (): Language | null => loaded;
 
-/** Loads the natural-language parser that reads phrases like `tomorrow at 3pm`. */
-export const loadLanguage = (): Promise<void> => {
+/** Loads the natural-language parser, once. */
+export const loadLanguage = (): Promise<Language> => {
   loading ??= createLanguage()
-    .then((loaded) => {
-      language = loaded;
+    .then((language) => {
+      loaded = language;
+      return language;
     })
     .catch((err: unknown) => {
       loading = null;
@@ -59,6 +63,8 @@ export interface Suggestion<V> {
 
 export interface SuggestOptions {
   anchors: Anchors;
+  /** Reads phrases the grammar cannot. Null limits readings to the grammar. */
+  language: Language | null;
   /** The value the input held when editing began. */
   current?: TimeStamp;
   bound?: Bound;
@@ -178,7 +184,7 @@ const describeReading = (reading: Reading): string => {
  */
 export const suggestTimeStamps = (
   text: string,
-  { anchors, current, bound }: SuggestOptions,
+  { anchors, language, current, bound }: SuggestOptions,
 ): Suggestion<TimeStamp>[] => {
   const out: Suggestion<TimeStamp>[] = [];
   const trimmed = text.trim();
@@ -306,7 +312,10 @@ const normalizeDurationWords = (text: string): string => {
  * reading (`2h 30m`, `1:30:00`, `90`), then natural language (`an hour and a half`,
  * `2 hours and 30 minutes`).
  */
-export const suggestTimeSpans = (text: string): Suggestion<TimeSpan>[] => {
+export const suggestTimeSpans = (
+  text: string,
+  language: Language | null,
+): Suggestion<TimeSpan>[] => {
   const out: Suggestion<TimeSpan>[] = [];
   const trimmed = text.trim();
   if (trimmed.length === 0) return [];

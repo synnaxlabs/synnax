@@ -216,8 +216,10 @@ class StlStatus(ArcCase):
         self.log("Firing set duplicate: warn and set only the first status")
         self.writer.write(TRIG_DUP_FUNC, 1)
         self.wait_for_eq(DUP_FUNC_KEY, DUP_KEYS[0])
-        if not self.wait_for_notification(f'multiple statuses named "{DUP_NAME}"'):
+        if not self.wait_for_notification("Found duplicate status names"):
             self.fail("duplicate set did not surface a multi-match warning")
+        if not self.wait_for_notification(f'Several statuses are named "{DUP_NAME}"'):
+            self.fail("the multi-match warning did not name the duplicate status")
         rows = {s.key: s for s in self._rows(DUP_NAME)}
         first = rows[DUP_KEYS[0]]
         if (first.variant, first.message) != (DUP_VARIANT, DUP_MESSAGE):

@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Unreachable } from "@synnaxlabs/freighter";
 import {
   type Aggregation,
   type DataType,
   debounce,
   MultiSeries,
   Size,
+  sync,
   TimeRange,
   TimeSpan,
   TimeStamp,
@@ -23,7 +25,6 @@ import { UnexpectedError } from "@/errors";
 import { DEFAULT_BATCH_DEBOUNCE, type RemoteReader } from "@/framer/cache/reader";
 import { DEFAULT_STATIC_PROPS } from "@/framer/cache/static";
 import { IDENTITY_TRANSFORM, type Transform } from "@/framer/cache/transform";
-import { withDeadline } from "@/framer/deadline";
 
 /**
  * Identifies one tile: the samples of one channel inside a fixed span of time, reduced
@@ -257,7 +258,7 @@ export class TileReader {
     const tr = tileRange(spec);
     const keys = [...new Set(group.map(({ req }) => req.key))];
     try {
-      const frame = await withDeadline(
+      const frame = await sync.withTimeout(
         readRemote(tr, keys, {
           variant: "limit",
           aggregation: spec.aggregation,
@@ -265,7 +266,9 @@ export class TileReader {
         }),
         fetchTimeout,
         () =>
-          `tile read for ${tr.toString()} timed out after ${fetchTimeout.toString()}`,
+          new Unreachable({
+            message: `tile read for ${tr.toString()} timed out after ${fetchTimeout.toString()}`,
+          }),
       );
       if (this.closed) return;
       const results = new Map(

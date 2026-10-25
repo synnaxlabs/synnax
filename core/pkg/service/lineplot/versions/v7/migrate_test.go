@@ -23,7 +23,6 @@ import (
 	v7 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v7"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -125,7 +124,7 @@ var _ = Describe("Storage migration", func() {
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 				DB:         db,
 				Namespace:  "LinePlot",
-				Migrations: []migrate.Migration{v7.Migration},
+				Migrations: []gorp.Migration{v7.Migration},
 			})).To(Succeed())
 			var got v7.LinePlot
 			Expect(gorp.NewRetrieve[v7.Key, v7.LinePlot]().

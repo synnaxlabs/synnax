@@ -10,7 +10,6 @@
 import { type channel, lineplot } from "@synnaxlabs/client";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { usePrevious } from "@synnaxlabs/lyra/hooks";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import {
   box,
@@ -132,11 +131,13 @@ const Line = ({
   resolved,
   visible = true,
 }: LineProps): ReactElement | null => {
-  const { key, aggregation, detail, ...line } = useLine({ key: pKey, lineKey });
+  const spec = useLine({ key: pKey, lineKey });
+  const { key, aggregation, detail, ...line } = spec;
+  // JSX takes the rest object, so the compiler counts reads from it as changing later.
+  const { xChannel, yChannel } = spec;
   const groupsPerColumn = GROUPS_PER_COLUMN[detail];
   const telemetry = useMemo(() => {
     if (resolved == null) return null;
-    const { xChannel, yChannel } = line;
     const hasX = primitive.isNonZero(xChannel);
     const props = {
       ...(resolved.variant === "dynamic"
@@ -154,7 +155,7 @@ const Line = ({
       }),
       y: telem.tiledChannelData({ ...props, channel: yChannel }),
     };
-  }, [resolved, line.xChannel, line.yChannel, aggregation, groupsPerColumn]);
+  }, [resolved, xChannel, yChannel, aggregation, groupsPerColumn]);
   if (telemetry == null) return null;
   return (
     <BaseLine
@@ -342,7 +343,7 @@ const YAxis = ({
         key,
         actions: [lineplot.setAxisLabel({ key: axisKey, label })],
       }),
-    [editable],
+    [editable, dispatch, key, axisKey],
   );
   const dropProps = useAxisDrop(axisKey, "y", handleDrop);
   const dragging = Haul.useDraggingState();
@@ -445,16 +446,16 @@ const useViewportReset = ({
   hold,
 }: UseViewportResetParams): RefObject<Viewport.UseRefValue | null> => {
   const lineCount = useLineCount({ key });
-  const prevLineCount = usePrevious(lineCount);
-  const prevHold = usePrevious(hold);
   const viewportRef = useRef<Viewport.UseRefValue | null>(null);
+  const prevLineCount = useRef(lineCount);
+  const prevHold = useRef(hold);
   useEffect(() => {
-    if (
-      (prevLineCount === 0 && lineCount !== 0) ||
-      (prevHold === true && hold === false)
-    )
-      viewportRef.current?.reset();
-  }, [lineCount, hold, prevLineCount, prevHold]);
+    const linesAppeared = prevLineCount.current === 0 && lineCount !== 0;
+    const holdReleased = prevHold.current === true && hold === false;
+    prevLineCount.current = lineCount;
+    prevHold.current = hold;
+    if (linesAppeared || holdReleased) viewportRef.current?.reset();
+  }, [lineCount, hold]);
   return viewportRef;
 };
 

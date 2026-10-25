@@ -99,7 +99,7 @@ public:
         auto series_st = std::make_shared<stl::series::State>();
         auto var_st = std::make_shared<stl::stateful::Variables>();
         state::Config state_cfg{
-            .ir = static_cast<ir::IR>(this->program),
+            .ir = static_cast<const ir::IR &>(this->program),
             .channels = digests
         };
         this->node_state = std::make_shared<state::State>(
@@ -147,7 +147,7 @@ public:
         node::MultiFactory fact(factories);
 
         std::unordered_map<std::string, std::unique_ptr<node::Node>> nodes;
-        const ir::IR prog_ir = static_cast<ir::IR>(this->program);
+        const ir::IR &prog_ir = this->program;
         for (const auto &ir_node: this->program.nodes) {
             auto [ns, ns_err] = this->node_state->node(ir_node.key);
             if (ns_err) throw std::runtime_error(ns_err.message());
@@ -159,11 +159,7 @@ public:
             nodes[ir_node.key] = std::move(n);
         }
 
-        this->sched = std::make_unique<scheduler::Scheduler>(
-            prog_ir,
-            nodes,
-            errors::noop_handler
-        );
+        this->sched = std::make_unique<scheduler::Scheduler>(prog_ir, nodes);
     }
 
     void tick(const x::telem::TimeSpan elapsed) {

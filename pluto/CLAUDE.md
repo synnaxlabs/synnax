@@ -8,8 +8,10 @@ TypeScript development rules for this package: @../docs/claude/toolchains/typesc
   use React and/or the DOM. Never import them from worker code.
 
 A feature often ships both: `LinePlot` (React components) and `lineplot` (its aether
-worker counterpart). Follow the casing when adding a module — a worker-safe package
-exported as PascalCase (or the reverse) is a defect.
+worker counterpart). Aether names worker functions like hooks, so the React Compiler and
+its lint rules skip every lowercase namespace (`configs/eslint/compiler.ts`). Follow the
+casing when adding a module: a hook in a lowercase namespace is never compiled or
+linted, and a hook-named worker function in a PascalCase one crashes the worker.
 
 ## Live-Core tests
 

@@ -1743,8 +1743,8 @@ TEST(FailedStartTest, FailsAgainOnASecondStart) {
     Windows<UncreatableTimerApi> loop(config);
     const std::string message = "Failed to create waitable timer: " +
                                 std::to_string(ERROR_NOT_ENOUGH_MEMORY);
-    EXPECT_EQ(loop.start().type, message);
-    EXPECT_EQ(loop.start().type, message);
+    EXPECT_EQ(loop.start().data, message);
+    EXPECT_EQ(loop.start().data, message);
 }
 
 /// @brief A high-resolution timer should never change the system tick.
