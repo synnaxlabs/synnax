@@ -19,7 +19,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Errors, type Flux, Mosaic, Panel, Synnax } from "@synnaxlabs/pluto";
-import { array } from "@synnaxlabs/x";
+import { array, record } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 
@@ -280,8 +280,8 @@ const Internal = (): ReactElement => {
   const [anchors, setAnchors] = useState<Record<panel.Key, HTMLElement>>({});
   const handleAnchorChange = useCallback<AnchorHandler>(
     (key, pill) =>
-      setAnchors(({ [key]: _, ...rest }) =>
-        pill == null ? rest : { ...rest, [key]: pill },
+      setAnchors((anchors) =>
+        pill == null ? record.omit(anchors, key) : { ...anchors, [key]: pill },
       ),
     [],
   );

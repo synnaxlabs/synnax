@@ -19,7 +19,7 @@ import (
 
 func TestTestutil(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Gorp Testutil Suite")
+	RunSpecs(t, "Gorp Testutil Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

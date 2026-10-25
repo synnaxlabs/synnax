@@ -18,6 +18,9 @@
 #include "driver/opcua/mock/server.h"
 
 namespace driver::opcua::connection {
+const std::string BREAKER_OPEN_TEXT = "The Driver paused new connections to the server "
+                                      "after too many failed attempts in a row.";
+
 class ConnectionPoolTest : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -679,8 +682,7 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerTripsAfterFailures) {
         << "Breaker should reject instantly, but took " << elapsed.count() << "ms";
 
     // Error message should mention circuit breaker
-    EXPECT_NE(err.message().find("circuit breaker"), std::string::npos)
-        << "Error should mention circuit breaker: " << err.message();
+    EXPECT_EQ(err.data, BREAKER_OPEN_TEXT);
 }
 
 /// @brief After the circuit breaker trips, acquire() must reject instantly
@@ -725,8 +727,7 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerSkipsCleanupWhenTripped) {
     EXPECT_LT(elapsed.count(), 500)
         << "Breaker should reject before cleanup_stale_entries, but took "
         << elapsed.count() << "ms";
-    EXPECT_NE(err.message().find("circuit breaker"), std::string::npos)
-        << "Error should mention circuit breaker: " << err.message();
+    EXPECT_EQ(err.data, BREAKER_OPEN_TEXT);
 }
 
 /// @brief After the circuit breaker trips and the cooldown expires, a
@@ -753,7 +754,7 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerResetsOnSuccess) {
     {
         auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");
         ASSERT_TRUE(err);
-        EXPECT_NE(err.message().find("circuit breaker"), std::string::npos);
+        EXPECT_EQ(err.data, BREAKER_OPEN_TEXT);
     }
 
     // Restart server

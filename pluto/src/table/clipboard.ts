@@ -102,7 +102,7 @@ export const useClipboard = ({
       e.clipboardData.setData(MIME, JSON.stringify(payload));
       e.clipboardData.setData("text/plain", describe(payload));
     },
-    [key, getTable],
+    [getTable, selectedRef],
   );
 
   const handlePaste = useCallback<ClipboardEventHandler>(
@@ -200,7 +200,7 @@ export const useClipboard = ({
       dispatch({ key, actions });
       if (actions.length > 0) onPaste?.(overwritten);
     },
-    [key, getTable, dispatch, onPaste],
+    [key, getTable, dispatch, onPaste, selectedRef],
   );
 
   return { onCopy: handleCopy, onPaste: handlePaste };

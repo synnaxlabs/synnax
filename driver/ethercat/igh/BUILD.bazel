@@ -28,6 +28,8 @@ cc_library(
     deps = [
         ":ecrt_official",
         "//driver/errors",
+        "//driver/ethercat/errors",
+        "//x/cpp/errors",
         "//x/cpp/lib",
     ],
 )

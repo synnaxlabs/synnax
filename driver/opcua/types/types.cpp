@@ -53,7 +53,7 @@ NodeId NodeId::parse(const std::string &field_name, x::json::Parser &parser) {
     if (!parser.ok()) return NodeId();
     auto [node_id, err] = parse(nodeIdStr);
     if (err) {
-        parser.field_err(field_name, err.message());
+        parser.field_err(field_name, err.data);
         return NodeId();
     }
     return std::move(node_id);

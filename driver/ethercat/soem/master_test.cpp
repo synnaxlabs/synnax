@@ -83,6 +83,18 @@ TEST_F(SOEMMasterTest, InitializeHappyPath) {
     EXPECT_EQ(slaves[0].properties.output_bits, 16);
 }
 
+/// @brief it should return the socket check error and not start SOEM when the Driver
+/// cannot open a raw socket.
+TEST_F(SOEMMasterTest, InitializeSocketCheckFails) {
+    this->add_default_slave();
+    this->mock->check_socket_err = x::errors::Error(
+        errors::PERMISSION_DENIED,
+        "permission denied opening eth0"
+    );
+    ASSERT_OCCURRED_AS(this->master->initialize(), errors::PERMISSION_DENIED);
+    EXPECT_FALSE(this->mock->init_called);
+}
+
 TEST_F(SOEMMasterTest, InitializeInitFails) {
     this->add_default_slave();
     this->mock->init_return = 0;

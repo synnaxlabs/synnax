@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type CrudeTimeSpan, debounce, TimeSpan } from "@synnaxlabs/x";
-import { type DependencyList, useCallback } from "react";
+import { type DependencyList } from "react";
+
+import { compareDeps, useMemoCompare } from "@/memo";
 
 /**
  * @returns a stable callback that defers `func` until `waitFor` passes with no further
@@ -21,7 +23,7 @@ export const useDebouncedCallback = <Args extends unknown[]>(
   deps: DependencyList,
 ): debounce.DebouncedFn<Args> => {
   const debouncePeriod = new TimeSpan(waitFor).valueOf();
-  return useCallback(debounce.debounce(func, debouncePeriod), [
+  return useMemoCompare(() => debounce.debounce(func, debouncePeriod), compareDeps, [
     debouncePeriod,
     ...deps,
   ]);

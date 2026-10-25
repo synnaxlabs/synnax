@@ -16,10 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
 	apischematic "github.com/synnaxlabs/synnax/pkg/api/schematic"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
-	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
@@ -40,7 +37,7 @@ import (
 
 func TestAPISchematic(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API Schematic Suite")
+	RunSpecs(t, "API Schematic Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
@@ -107,9 +104,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:   searchIdx,
 		ImEx:     imex.NewService(),
 	}))
-	apiSvc = MustSucceed(apischematic.NewService(apicfg.LayerConfig{
-		Distribution: &distribution.Layer{DB: db},
-		Service:      &service.Layer{Schematic: schematicSvc, RBAC: rbacSvc},
+	apiSvc = MustSucceed(apischematic.NewService(apischematic.ServiceConfig{
+		RBAC:      rbacSvc,
+		Schematic: schematicSvc,
 	}))
 	author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
 		Username: "test",

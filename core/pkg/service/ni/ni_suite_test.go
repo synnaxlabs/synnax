@@ -28,7 +28,7 @@ var _ = BeforeSuite(func() {
 
 func TestNI(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service NI Suite")
+	RunSpecs(t, "Service NI Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -26,13 +26,15 @@ const useConnParams = DESKTOP ? Embedded.useConnParams : Session.Core.useSelectS
 export const Context = memo((props: ContextProps) => {
   const connParams = useConnParams();
   const themingProps = Session.Theme.useProviderProps();
+  const haulProps = Session.Haul.useProviderProps();
+  const colorProps = Session.Color.useProviderProps();
   return (
     <Pluto.Provider
       workerEnabled
       connParams={connParams}
       triggers={Triggers.PROVIDER_PROPS}
-      haul={Session.Haul.PROVIDER_PROPS}
-      color={Session.Color.PROVIDER_PROPS}
+      haul={haulProps}
+      color={colorProps}
       alamos={ALAMOS_PROPS}
       theming={themingProps}
       {...props}

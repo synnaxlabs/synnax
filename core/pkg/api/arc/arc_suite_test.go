@@ -17,10 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
-	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
@@ -46,7 +43,7 @@ import (
 
 func TestAPIArc(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API Arc Suite")
+	RunSpecs(t, "API Arc Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
@@ -149,9 +146,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:   searchIdx,
 		User:     userSvc,
 	}))
-	apiSvc = MustSucceed(apiarc.NewService(apicfg.LayerConfig{
-		Distribution: &distribution.Layer{DB: db},
-		Service:      &service.Layer{Arc: arcSvc, Status: statusSvc, RBAC: rbacSvc},
+	apiSvc = MustSucceed(apiarc.NewService(apiarc.ServiceConfig{
+		RBAC:   rbacSvc,
+		Arc:    arcSvc,
+		Status: statusSvc,
 	}))
 	author = MustSucceed(
 		userSvc.NewWriter(nil).Create(ctx, user.User{Username: "test"}),

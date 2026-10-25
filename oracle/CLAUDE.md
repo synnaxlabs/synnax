@@ -40,6 +40,11 @@ or generator logic and schemas disagree.
   `@go marshal hand` marks hand-written codec methods: nothing generates, references
   stay valid. Generation fails when a codec's persisted graph reaches a struct or union
   carrying neither form.
+- **A full declaration can be a patch on an earlier version.** `X struct extends vK.X`
+  (or a union of the same name) copies vK's declaration, resolved in vN's scope, then
+  applies its body: an entry of the same name merges in place, `-field` removes one, and
+  a new entry follows the nearest restated parent entry above it (a bare `name` restates
+  a field), or ends the list. An `extends` of another name is a plain mixin.
 - **The live file is a generated projection, then an annotation surface.** Sync writes
   each versioned resource's live schema by merging chain resolution (version-owned
   content) with the live file's own annotations (outputs, `@ts`/`@py`/`@cpp` bindings,

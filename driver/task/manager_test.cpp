@@ -507,7 +507,7 @@ TEST_F(TaskManagerTest, Command) {
     auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
         return s.details.cmd == "cmd1";
     });
-    ASSERT_EQ((*s.details.data)["msg"], "hi");
+    ASSERT_EQ((s.details.data.value())["msg"], "hi");
 }
 
 TEST_F(TaskManagerTest, IgnoresForeignRack) {
@@ -535,6 +535,29 @@ TEST_F(TaskManagerTest, StartForNonexistentTaskStaysSilent) {
     };
     send_start(client, task);
     expect_no_driver_status(task, true);
+}
+
+/// @brief a start for a task type no integration handles should answer with an error.
+TEST_F(TaskManagerTest, StartForUnhandledTypeAnswersWithError) {
+    start_manager(std::make_unique<EchoTaskFactory>());
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = ALT_SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.variant == synnax::status::VARIANT_ERROR;
+    });
+    EXPECT_EQ(s.name, task.name);
+    EXPECT_EQ(s.message, "Failed to configure task");
+    EXPECT_EQ(
+        s.description,
+        "No integration on this Driver handles task type '" + ALT_SYNTHETIC_TASK_TYPE +
+            "'."
+    );
+    EXPECT_EQ(s.details.cmd, "start-cmd");
 }
 
 TEST_F(TaskManagerTest, StopOnShutdown) {
@@ -793,11 +816,16 @@ TEST_F(TaskManagerTest, Timeout) {
         task,
         [](const synnax::task::Status &s) {
             return s.variant == synnax::status::VARIANT_ERROR &&
-                   s.message == "operation timed out";
+                   s.message == "Failed to complete task operation";
         },
         5 * x::telem::SECOND
     );
     ASSERT_EQ(s.details.task, task.key);
+    ASSERT_EQ(
+        s.description,
+        "The operation did not finish within " +
+            (500 * x::telem::MILLISECOND).to_string() + "."
+    );
     // The timeout report is the only signal a stuck task gives, so it carries
     // everything needed to identify what hung: the command waiting on it, the task,
     // and the config the stuck operation is deploying.

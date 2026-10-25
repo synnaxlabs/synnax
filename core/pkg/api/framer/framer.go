@@ -17,21 +17,22 @@ import (
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/address"
-	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type Frame = framer.Frame
@@ -44,6 +45,50 @@ const (
 	frameWriterAddr    address.Address = "writer"
 )
 
+// ServiceConfig is the configuration for the framer API service.
+type ServiceConfig struct {
+	// Instrumentation for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
+	alamos.Instrumentation
+	// Framer reads, writes, and streams frames of telemetry.
+	//
+	// [REQUIRED]
+	Framer *framer.Service
+	// Channel stores and retrieves channels.
+	//
+	// [REQUIRED]
+	Channel *channel.Service
+	// RBAC enforces access control on every request.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
+}
+
+var (
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for the framer API service.
+	DefaultServiceConfig = ServiceConfig{}
+)
+
+// Override implements config.Config.
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.Framer = override.Nil(c.Framer, other.Framer)
+	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	return c
+}
+
+// Validate implements config.Config.
+func (c ServiceConfig) Validate() error {
+	v := validate.New("api.framer")
+	v.NotNil("framer", c.Framer)
+	v.NotNil("channel", c.Channel)
+	v.NotNil("rbac", c.RBAC)
+	return v.Error()
+}
+
 type Service struct {
 	access   *rbac.Service
 	channel  *channel.Service
@@ -51,16 +96,16 @@ type Service struct {
 	alamos.Instrumentation
 }
 
-func NewService(cfgs ...config.LayerConfig) (*Service, error) {
-	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	return &Service{
 		Instrumentation: cfg.Instrumentation,
-		internal:        cfg.Service.Framer,
-		channel:         cfg.Service.Channel,
-		access:          cfg.Service.RBAC,
+		internal:        cfg.Framer,
+		channel:         cfg.Channel,
+		access:          cfg.RBAC,
 	}, nil
 }
 
