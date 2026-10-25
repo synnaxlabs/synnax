@@ -1029,6 +1029,20 @@ describe("schematic queries", () => {
       );
     });
 
+    it("should set the first entry of an empty list without keys", async () => {
+      const schem = await client.schematics.create(proj.key, {
+        name: "test_schematic",
+        nodes: [{ key: "n1", position: { x: 0, y: 0 } }],
+        configs: { n1: { variant: "string_display" } },
+      });
+      const { result } = await renderForm(schem.key);
+      act(() => result.current.form.set("tooltip.0", "line"));
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      expect(await fetchStoredConfig(schem.key, "n1")).toMatchObject({
+        tooltip: ["line"],
+      });
+    });
+
     it("should edit the new element when the element key changes", async () => {
       const schem = await createTestSchematic(proj.key);
       const { result, rerender } = await renderForm(schem.key);

@@ -44,17 +44,17 @@ const { useEnsure } = Flux.createRetrieve<{ key: task.Key }, task.Task>({
   getCached: ({ client, query: { key } }) => client.tasks.getCached(key),
 });
 
-const useForm = Flux.createDocumentForm<task.Key, task.Task, typeof schema>({
-  name: "Task",
-  schema,
-  docSchema: task.payloadZ(),
-  domain: (client) => client.tasks,
-  useEnsure,
-  toValues: ({ payload: { name, config } }) => ({
-    name,
-    config: config as Values["config"],
-  }),
-});
+const createForm = <S extends z.ZodType<Values>>(formSchema: S) =>
+  Flux.createDocumentForm<task.Key, task.Task, S>({
+    name: "Task",
+    schema: formSchema,
+    docSchema: task.payloadZ(),
+    domain: (client) => client.tasks,
+    useEnsure,
+    toValues: ({ payload: { name, config } }) => ({ name, config }) as z.infer<S>,
+  });
+
+const useForm = createForm(schema);
 
 // Remote edits come from this client. The form reads through its own client.
 const client = createTestClient();
@@ -234,6 +234,49 @@ describe("createDocumentForm", () => {
     });
   });
 
+  // Task channels are often a union of channel types.
+  const alertUnionZ = z.discriminatedUnion("status", [
+    alertZ.extend({ status: z.literal("st-a") }),
+    alertZ.extend({ status: z.literal("st-b") }),
+  ]);
+
+  it.each([
+    ["objects", alertZ],
+    ["a union", alertUnionZ],
+  ])(
+    "should send nothing for edits through an entry after another client empties a list of %s",
+    async (_, entryZ) => {
+      const useEmptiedForm = createForm(
+        schema.extend({
+          config: schema.shape.config.extend({ alerts: entryZ.array() }),
+        }),
+      );
+      const t = await createTask();
+      const { result } = await renderHookSuspended(
+        () => useEmptiedForm({ query: { key: t.key } }),
+        { wrapper },
+      );
+      await act(async () => {
+        await client.tasks.dispatch(
+          t.key,
+          task.remove({ path: ["config", "alerts"], key: "a" }),
+        );
+      });
+      await waitFor(() =>
+        expect(result.current.form.value().config.alerts).toEqual([]),
+      );
+      const send = spyOnSend(formClient);
+      act(() => {
+        result.current.form.set("config.alerts.a.status", "st-b");
+        result.current.form.set("config.alerts.0.status", "st-b");
+        result.current.form.remove("config.alerts.a");
+      });
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      expect(countDispatches(send)).toBe(0);
+      expect((await fetchStored(t.key)).config).toMatchObject({ alerts: [] });
+    },
+  );
+
   it("should guard a write inside a union on the value that picks its option", async () => {
     const unionSchema = z.object({
       name: z.string(),
@@ -242,21 +285,7 @@ describe("createDocumentForm", () => {
         z.object({ routingKey: z.literal("cat"), alerts: alertZ.array() }),
       ]),
     });
-    const useUnionForm = Flux.createDocumentForm<
-      task.Key,
-      task.Task,
-      typeof unionSchema
-    >({
-      name: "Task",
-      schema: unionSchema,
-      docSchema: task.payloadZ(),
-      domain: (client) => client.tasks,
-      useEnsure,
-      toValues: ({ payload: { name, config } }) => ({
-        name,
-        config: config as z.infer<typeof unionSchema>["config"],
-      }),
-    });
+    const useUnionForm = createForm(unionSchema);
     const t = await createTask();
     const { result } = await renderHookSuspended(
       () => useUnionForm({ query: { key: t.key } }),

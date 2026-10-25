@@ -69,13 +69,32 @@ const isEntry = (value: unknown): value is record.Keyed<string> =>
   typeof value === "object" &&
   typeof (value as record.Unknown).key === "string";
 
+const hasKey = (schema: z.core.$ZodType): boolean => {
+  const def = zod.unwrap(schema)._zod.def as z.core.$ZodTypeDef & record.Unknown;
+  if (def.type === "object") return "key" in (def.shape as record.Unknown);
+  if (def.type === "union") return (def.options as z.core.$ZodType[]).every(hasKey);
+  return false;
+};
+
+// The schema decides, since an empty keyed list holds no entry to show its keys.
+const isKeyedList = (schema: z.ZodType, formPath: string, values: unknown): boolean => {
+  const list = zod.getFieldSchema(schema, formPath, { optional: true, values });
+  if (list == null) return false;
+  const def = zod.unwrap(list)._zod.def as z.core.$ZodTypeDef & record.Unknown;
+  return def.type === "array" && hasKey(def.element as z.core.$ZodType);
+};
+
 /**
  * Finds where a form path lands in the values.
  *
  * @returns null when the path goes through a keyed list entry that is not there, as
  * when another client removed it.
  */
-const locate = (values: unknown, formPath: string): Target | null => {
+const locate = (
+  schema: z.ZodType,
+  values: unknown,
+  formPath: string,
+): Target | null => {
   const parts = formPath.split(deep.SEPARATOR);
   const path: string[] = [];
   let node = values;
@@ -89,7 +108,8 @@ const locate = (values: unknown, formPath: string): Target | null => {
         i++;
         continue;
       }
-      if (node.some(isEntry)) return null;
+      if (isKeyedList(schema, parts.slice(0, i).join(deep.SEPARATOR), values))
+        return null;
       return { path, node, rest: parts.slice(i).join(deep.SEPARATOR) };
     }
     if (node == null || typeof node !== "object") break;
@@ -185,7 +205,7 @@ class DocumentStore<
   set = (formPath: string, value: unknown): void => {
     if (formPath === "") throw new Error("A document form cannot replace its document");
     const values = this.get();
-    const target = locate(values, formPath);
+    const target = locate(this.params.schema, values, formPath);
     if (target == null) return;
     const { schema } = this.params;
     const field = zod.getFieldSchema(schema, formPath, { optional: true, values });
@@ -206,7 +226,7 @@ class DocumentStore<
 
   remove = (formPath: string): void => {
     const values = this.get();
-    const target = locate(values, formPath);
+    const target = locate(this.params.schema, values, formPath);
     if (target == null || target.path.length === 0) return;
     const guards = patch.guards(this.params.schema, target.path, values);
     if (target.rest !== "") {
@@ -285,7 +305,7 @@ class DocumentStore<
   }
 
   private locateList(values: V, formPath: string): string[] | null {
-    const target = locate(values, formPath);
+    const target = locate(this.params.schema, values, formPath);
     if (target == null) return null;
     if (target.rest !== "")
       throw new Error(`${formPath} is inside a list of entries without keys`);
