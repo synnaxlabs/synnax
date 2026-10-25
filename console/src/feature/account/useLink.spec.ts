@@ -13,7 +13,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { scheduler } from "@synnaxlabs/x";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { act, waitFor } from "@testing-library/react";
-import { describe, expect, it, type Mock, vi } from "vitest";
+import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { Account } from "@/feature/account";
 import { Session } from "@/session";
@@ -90,6 +90,8 @@ const failed = (h: Harness): boolean =>
   h.statuses().some((s) => s.message === "Failed to log in");
 
 describe("Account.useLink", () => {
+  beforeEach(() => sessionStorage.clear());
+
   it("should apply the license key and store the link the app asked for", async () => {
     const h = await setup();
     h.store.dispatch(Session.Account.beginLogin("minted"));
@@ -139,14 +141,16 @@ describe("Account.useLink", () => {
     expect(failed(h)).toBe(false);
   });
 
-  it("should ignore the launch link once no login is pending", async () => {
-    // A reload sees the launch link again after the login it carried has finished.
+  it("should not refuse a finished login link during a later login", async () => {
+    const first = await setup({ getCurrentURLs: async () => [LINK] }, PENDING);
+    await waitFor(() => expect(first.activate).toHaveBeenCalledWith("a.b.c"));
+    // A reload during the next login reads the finished link from Tauri again.
     const getCurrentURLs = vi.fn(async () => [LINK]);
-    const h = await setup({ getCurrentURLs });
+    const next = await setup({ getCurrentURLs }, { ...PENDING, pending: "next" });
     await waitFor(() => expect(getCurrentURLs).toHaveBeenCalled());
     await act(async () => await scheduler.flushTaskQueue());
-    expect(failed(h)).toBe(false);
-    expect(h.activate).not.toHaveBeenCalled();
+    expect(failed(next)).toBe(false);
+    expect(next.activate).not.toHaveBeenCalled();
   });
 
   it("should be a no-op when the engine is not tauri", async () => {
