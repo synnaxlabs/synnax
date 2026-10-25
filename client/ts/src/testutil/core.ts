@@ -25,7 +25,7 @@ import {
 import { channel } from "@/channel";
 import { AccessDeniedError, NotFoundError, ValidationError } from "@/errors";
 import { type ChannelRetriever } from "@/framer/adapter";
-import { Feed, type FeedOptions } from "@/framer/feed";
+import { Feed, type FeedProps } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
 import {
   type Streamer,
@@ -247,16 +247,16 @@ export class SyntheticCore {
     this.disconnected = false;
   }
 
-  /** Opens a feed that reads and streams from the Core. */
-  openFeed(options: FeedOptions = {}): Feed {
+  /** Opens a feed that reads and streams from the Core, unless props replace them. */
+  openFeed(props: Partial<FeedProps> = {}): Feed {
     return new Feed({
       now: this.now,
-      ...options,
       readRemote: async (tr, keys, reduction) => this.read(tr, keys, reduction),
       retrieveChannels: this.retrieveChannels,
       openStreamer: async (config) => this.openStreamer(config),
       readLatest: async (keys, count, tr) => this.readLatest(keys, count, tr),
       node: () => this.node,
+      ...props,
     });
   }
 
