@@ -53,6 +53,15 @@ export interface HardenedOpener {
  */
 export type StreamHandler = (data: Map<channel.Key, MultiSeries>) => void;
 
+/**
+ * Receives each frame of the shared stream: the series of each channel as the Core
+ * streamed them, and the buffers the store allocated for them.
+ */
+export type FrameHandler = (
+  frame: Map<channel.Key, Series[]>,
+  allocated: Map<channel.Key, MultiSeries>,
+) => void;
+
 /** Receives per-key data-plane status transitions for subscribed channels. */
 export type StatusHandler = (key: channel.Key, status: status.Status) => void;
 
@@ -60,7 +69,7 @@ export type StatusHandler = (key: channel.Key, status: status.Status) => void;
  * A durable handle on streaming demand. Closing it releases the demand; until then
  * the streamer owns converging the underlying stream to it.
  */
-export interface Subscription {
+export interface Demand {
   /** Releases the subscription's demand. */
   close: () => void;
   /** @returns the current data-plane status for the given key. */
@@ -70,10 +79,17 @@ export interface Subscription {
 }
 
 interface Entry {
-  handler: StreamHandler;
+  handler: FrameHandler;
   keys: Set<channel.Key>;
   statusHandlers: Set<StatusHandler>;
   removed: boolean;
+}
+
+// Waits for the stream to ack a set of keys.
+interface AckWaiter {
+  keys: channel.Key[];
+  resolve: () => void;
+  reject: (e: Error) => void;
 }
 
 export interface MultiplexedStreamerProps {
@@ -141,6 +157,9 @@ export class MultiplexedStreamer {
   // Keys held back while a rejection of several new keys is narrowed down. One returns
   // to the stream per successful reconcile.
   private deferred: channel.Key[] = [];
+  // The keys the current stream acked. A drop clears them until the stream reopens.
+  private acked = new Set<channel.Key>();
+  private readonly ackWaiters = new Set<AckWaiter>();
 
   constructor(props: MultiplexedStreamerProps) {
     const {
@@ -177,11 +196,10 @@ export class MultiplexedStreamer {
    * new demand in the background.
    * @throws {UnexpectedError} if the streamer has been closed.
    */
-  stream(handler: StreamHandler, keys: channel.Key[]): Subscription {
+  stream(handler: StreamHandler, keys: channel.Key[]): Demand {
     if (this.connMu.closed)
       throw new UnexpectedError("stream() called on a closed telemetry streamer");
-    const { store, instrumentation: ins } = this.props;
-    ins.L.debug("adding stream handler", { keys });
+    const { store } = this.props;
     // Deliver existing buffers before registration so a throwing handler leaves no
     // demand behind.
     const initial: Map<channel.Key, MultiSeries> = new Map(
@@ -191,6 +209,18 @@ export class MultiplexedStreamer {
       ]),
     );
     handler(initial);
+    return this.demand(keys, (_, allocated) => handler(allocated));
+  }
+
+  /**
+   * Registers demand for the given keys, and passes each frame of the stream to the
+   * handler. The stream converges to the new demand in the background.
+   * @throws {UnexpectedError} if the streamer has been closed.
+   */
+  demand(keys: channel.Key[], handler: FrameHandler): Demand {
+    if (this.connMu.closed)
+      throw new UnexpectedError("demand() called on a closed telemetry streamer");
+    this.props.instrumentation.L.debug("adding stream demand", { keys });
     const entry: Entry = {
       handler,
       keys: new Set(keys),
@@ -212,8 +242,44 @@ export class MultiplexedStreamer {
     };
   }
 
+  /**
+   * Resolves when the stream carries the keys and the Core has acked them, so the
+   * stream delivers every sample written after it resolves.
+   * @throws {UnexpectedError} if the streamer closes first.
+   * @throws the Core's rejection of a key, if the stream leaves the key off.
+   */
+  async waitAcked(keys: channel.Key[]): Promise<void> {
+    if (this.connMu.closed) throw new UnexpectedError("telemetry streamer is closed");
+    await new Promise<void>((resolve, reject) => {
+      this.ackWaiters.add({ keys, resolve, reject });
+      this.settleAckWaiters();
+    });
+  }
+
+  private setAcked(keys: Set<channel.Key>): void {
+    this.acked = keys;
+    this.props.store.setAcked(keys);
+    this.settleAckWaiters();
+  }
+
+  private settleAckWaiters(): void {
+    this.ackWaiters.forEach((w) => {
+      const rejected = w.keys.find((k) => this.rejected.has(k));
+      if (rejected != null) {
+        this.ackWaiters.delete(w);
+        return w.reject(status.toError(this.statuses.get(rejected)!));
+      }
+      if (!w.keys.every((k) => this.acked.has(k))) return;
+      this.ackWaiters.delete(w);
+      w.resolve();
+    });
+  }
+
   async close(): Promise<void> {
     const { instrumentation: ins } = this.props;
+    const closed = new UnexpectedError("telemetry streamer is closed");
+    this.ackWaiters.forEach((w) => w.reject(closed));
+    this.ackWaiters.clear();
     if (this.reconcileTimer != null) clearTimeout(this.reconcileTimer);
     this.reconcileTimer = null;
     this.removalTimers.forEach(clearTimeout);
@@ -230,6 +296,7 @@ export class MultiplexedStreamer {
   }
 
   private async releaseStream(): Promise<void> {
+    this.setAcked(new Set());
     const prev = this.streamer;
     const prevLoop = this.runLoop;
     this.streamer = null;
@@ -337,11 +404,16 @@ export class MultiplexedStreamer {
             { channels: arrKeys, throttleRate: THROTTLE_RATE },
             {
               signal: this.streamAbort.signal,
-              onReopen: () =>
-                this.sentKeys.forEach((key) => this.setStatus(key, STREAMING)),
-              // Frames may drop until the reopen, so the open blocks close here.
+              // The reopened stream acked its keys when it opened.
+              onReopen: () => {
+                this.setAcked(new Set(this.sentKeys));
+                this.sentKeys.forEach((key) => this.setStatus(key, STREAMING));
+              },
+              // Frames may drop until the reopen, so no cached block can be trusted.
               onDrop: () => {
+                this.setAcked(new Set());
                 this.flushBuffers(this.sentKeys);
+                this.props.store.invalidate();
                 this.sentKeys.forEach((key) => this.setStatus(key, RECONNECTING));
               },
             },
@@ -353,9 +425,10 @@ export class MultiplexedStreamer {
             prev: Array.from(this.sentKeys),
             next: arrKeys,
           }));
-          await this.streamer.update(arrKeys);
+          await this.streamer.update(arrKeys, { waitForAck: true });
         }
         this.sentKeys = desired;
+        this.setAcked(new Set(desired));
         this.flushBuffers(removed);
         // Existing keys keep their status so a demand change cannot clear a per-key
         // error.
@@ -372,6 +445,7 @@ export class MultiplexedStreamer {
           if (fresh.length === 1) {
             this.rejected.add(fresh[0]);
             this.setStatus(fresh[0], failure);
+            this.settleAckWaiters();
             this.releaseDeferred();
           } else {
             this.deferred.push(...fresh.slice(1));
@@ -417,20 +491,19 @@ export class MultiplexedStreamer {
           if (existing == null) grouped.set(key, [s]);
           else existing.push(s);
         });
-        const changed: Map<channel.Key, MultiSeries> = new Map();
+        const allocated = store.write(grouped);
         const demanded = this.demandedKeys();
-        grouped.forEach((series, k) => {
-          changed.set(k, store.write(k, new MultiSeries(series)));
+        grouped.forEach((_, k) => {
           // A frame for a key with no remaining demand arrived behind the stream
           // update, so its block must not stay open.
           if (!demanded.has(k)) store.flush(k);
           this.setStatus(k, STREAMING);
         });
-        if (changed.size !== 0)
+        if (grouped.size !== 0)
           this.entries.forEach((e) => {
             if (e.removed) return;
             try {
-              e.handler(changed);
+              e.handler(grouped, allocated);
             } catch (err) {
               ins.L.error("stream handler failed", { error: err }, true);
             }
@@ -444,7 +517,9 @@ export class MultiplexedStreamer {
         this.streamer = null;
         this.runLoop = null;
         this.streamAbort = null;
+        this.setAcked(new Set());
         this.flushBuffers(this.sentKeys);
+        this.props.store.invalidate();
         this.sentKeys = new Set();
         this.scheduleReconcile(TimeSpan.ZERO);
       }

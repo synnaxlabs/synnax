@@ -87,7 +87,7 @@ describe("StreamMultiChannelLog", () => {
       stream: (
         handler: framer.StreamHandler,
         keys: channel.Key[],
-      ): framer.Subscription => {
+      ): framer.Demand => {
         this.streamHandler = handler;
         this.streamKeys = keys;
         this.streamF(handler, keys);

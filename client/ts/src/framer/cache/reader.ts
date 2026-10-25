@@ -46,10 +46,12 @@ export const DEFAULT_BATCH_DEBOUNCE = TimeSpan.milliseconds(50);
 // marks them as covered.
 const COMMIT_MARGIN = TimeSpan.seconds(1);
 
-// A request to fill a read's raw block up to at least end.
+// A request to fill a read's raw block up to at least end. A catch-up request trusts
+// every sample it reads, since the stream acked the channel before it.
 interface Request {
   block: RawBlock;
   end: TimeStamp;
+  catchUp: boolean;
 }
 
 // One Core read from start through the end of the blocks first to last, shared by every
@@ -58,6 +60,7 @@ interface Group {
   first: number;
   last: number;
   start: TimeStamp;
+  catchUp: boolean;
   entries: Array<debounce.Entry<Request>>;
 }
 
@@ -128,7 +131,7 @@ export class Reader {
     const waits: Array<Promise<void>> = [];
     for (const b of blocks) {
       if (b.covers(tr)) continue;
-      b.pending ??= this.enqueue(b, TimeStamp.min(tr.end, b.range.end));
+      b.pending ??= this.enqueue(b, TimeStamp.min(tr.end, b.range.end), false);
       waits.push(b.pending);
     }
     // The read settles after its last fetch, and its first failure wins.
@@ -146,30 +149,50 @@ export class Reader {
     return assemble(tr, blocks);
   }
 
-  private enqueue(block: RawBlock, end: TimeStamp): Promise<void> {
-    const pending = this.batcher.enqueue({ block, end }).finally(() => {
+  /**
+   * Fetches the channel's raw blocks first to last, from the end of their coverage, and
+   * trusts every sample the read returns. Call it only after the stream acked the
+   * channel and its index, so the stream delivers every sample the read misses.
+   * @throws {UnexpectedError} if the reader is closed while the read is pending.
+   * @throws {Unreachable} if the fetch exceeds the fetch timeout.
+   * @throws {NotFoundError} if the channel does not exist.
+   */
+  async catchUp(ch: channel.Key, first: number, last: number): Promise<void> {
+    if (this.closed) throw new UnexpectedError("telemetry reader is closed");
+    const waits: Array<Promise<void>> = [];
+    for (let i = first; i <= last; i++) {
+      const b = this.props.store.raw(ch, i);
+      waits.push(this.enqueue(b, b.range.end, true));
+    }
+    await Promise.all(waits);
+  }
+
+  private enqueue(block: RawBlock, end: TimeStamp, catchUp: boolean): Promise<void> {
+    const pending = this.batcher.enqueue({ block, end, catchUp }).finally(() => {
       if (block.pending === pending) block.pending = null;
     });
     return pending;
   }
 
   private async batchRead(entries: Array<debounce.Entry<Request>>): Promise<void> {
-    const byChannel = new Map<channel.Key, Array<debounce.Entry<Request>>>();
+    const byChannel = new Map<string, Array<debounce.Entry<Request>>>();
     for (const entry of entries) {
-      const { block, end } = entry.req;
-      // A fetch that landed while the request waited may have covered it.
-      if (!block.coveredEnd.before(end)) {
+      const { block, end, catchUp } = entry.req;
+      // A fetch that landed while the request waited may have covered it, and a joined
+      // block takes its samples from the stream.
+      if (block.joined || !block.coveredEnd.before(end)) {
         entry.resolve();
         continue;
       }
-      const existing = byChannel.get(block.channel);
-      if (existing == null) byChannel.set(block.channel, [entry]);
+      const key = `${block.channel}/${catchUp}`;
+      const existing = byChannel.get(key);
+      if (existing == null) byChannel.set(key, [entry]);
       else existing.push(entry);
     }
     const groups = new Map<string, Group>();
     byChannel.forEach((pending) =>
       runs(pending).forEach((run) => {
-        const key = `${run.first}/${run.last}/${run.start.valueOf()}`;
+        const key = `${run.first}/${run.last}/${run.start.valueOf()}/${run.catchUp}`;
         const group = groups.get(key);
         if (group == null) groups.set(key, run);
         else group.entries.push(...run.entries);
@@ -197,7 +220,7 @@ export class Reader {
       );
       entries.forEach(({ req, resolve }) => {
         if (!refetch.has(req)) return resolve();
-        req.block.pending = this.enqueue(req.block, req.end);
+        req.block.pending = this.enqueue(req.block, req.end, req.catchUp);
         resolve(req.block.pending);
       });
     } catch (err) {
@@ -208,9 +231,10 @@ export class Reader {
   // Reads the requested channels and their indexes over tr, splits the result at block
   // edges, and fills each block whose coverage still ends where the read starts in it.
   // A new data type resets a block, so a block that the read started after its start
-  // comes back in the result, to fetch again.
+  // comes back in the result, to fetch again. So does a catch-up block that another
+  // fetch filled first, since that fetch did not trust its newest samples.
   private async load(
-    { first, last, start, entries }: Group,
+    { first, last, start, catchUp, entries }: Group,
     tr: TimeRange,
   ): Promise<Set<Request>> {
     const { readRemote, retrieveChannels, store, now } = this.props;
@@ -231,6 +255,7 @@ export class Reader {
       const idx = p.isIndex ? p.key : p.index;
       indexOf.set(p.key, idx);
       if (idx !== 0) indexOf.set(idx, idx);
+      store.setCalculated(p.key, p.virtual && p.expression !== "");
     });
     channels.forEach((ch) => {
       if (!indexOf.has(ch)) throw new NotFoundError(`channel ${ch} not found`);
@@ -252,9 +277,15 @@ export class Reader {
       const parts = split(first, last, timestamps, series);
       const targets =
         requested.get(key) ??
-        parts.map((_, i) => ({ block: store.raw(key, first + i), end: tr.end }));
+        parts.map((_, i) => ({
+          block: store.raw(key, first + i),
+          end: tr.end,
+          catchUp,
+        }));
+      const trusted = catchUp ? newestEnd(timestamps, start) : committed;
       targets.forEach((r) => {
         const { block } = r;
+        if (block.joined) return;
         const from = block.index === first ? start : block.range.start;
         if (changed) {
           block.reset();
@@ -263,12 +294,12 @@ export class Reader {
             return;
           }
         }
-        if (!block.coveredEnd.equals(from)) return;
+        if (!block.coveredEnd.equals(from)) {
+          if (catchUp && requested.has(key)) refetch.add(r);
+          return;
+        }
         const part = parts[block.index - first];
-        const coveredEnd = TimeStamp.max(
-          from,
-          TimeStamp.min(block.range.end, committed),
-        );
+        const coveredEnd = TimeStamp.max(from, TimeStamp.min(block.range.end, trusted));
         const base = block.coveredCount;
         block.fill(
           align(block.index, base, part.timestamps, part.series),
@@ -291,6 +322,13 @@ export class Reader {
   }
 }
 
+// Returns the end of the newest index sample, or start when there is none.
+const newestEnd = (timestamps: Series[], start: TimeStamp): TimeStamp => {
+  const last = timestamps.findLast((s) => s.length > 0);
+  if (last == null) return start;
+  return new TimeStamp(BigInt(last.data[last.length - 1]) + 1n);
+};
+
 // Splits one channel's pending requests into runs of adjacent blocks that one Core read
 // can fill: a run starts at the coverage end of its first block, and every later block
 // in it has no coverage.
@@ -307,14 +345,23 @@ const runs = (entries: Array<debounce.Entry<Request>>): Group[] => {
     if (joins) {
       run.last = Math.max(run.last, index);
       run.entries.push(entry);
-    } else out.push({ first: index, last: index, start: coveredEnd, entries: [entry] });
+    } else
+      out.push({
+        first: index,
+        last: index,
+        start: coveredEnd,
+        catchUp: entry.req.catchUp,
+        entries: [entry],
+      });
   }
   return out;
 };
 
-// Returns the series of the blocks that overlap tr in time order. The fetched form of a
-// span wins: a streamed series that overlaps a fetched one is left out.
-const assemble = (tr: TimeRange, blocks: RawBlock[]): MultiSeries => {
+/**
+ * @returns the series of the blocks that overlap tr in time order. The fetched form of a
+ * span wins: a streamed series that overlaps a fetched one is left out.
+ */
+export const assemble = (tr: TimeRange, blocks: RawBlock[]): MultiSeries => {
   const fetched = blocks.flatMap((b) =>
     b.fetched
       .filter((s) => s.timeRange.overlapsWith(tr))

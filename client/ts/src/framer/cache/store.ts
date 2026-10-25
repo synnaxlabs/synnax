@@ -10,9 +10,11 @@
 import { alamos } from "@synnaxlabs/alamos";
 import {
   type DataType,
+  type destructor,
   MultiSeries,
   type Series,
   Size,
+  TimeRange,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
@@ -25,9 +27,11 @@ import {
   RawBlock,
   rawIndex,
   rawKey,
+  search,
 } from "@/framer/cache/block";
 import { Dynamic, type DynamicProps } from "@/framer/cache/dynamic";
-import { tileSpan } from "@/framer/cache/grid";
+import { tileRange, tileSpan } from "@/framer/cache/grid";
+import { Join, type Mapped, Member, type Part, piece } from "@/framer/cache/join";
 
 export interface StoreProps extends Partial<
   Pick<DynamicProps, "dynamicBufferSize" | "now">
@@ -63,9 +67,18 @@ interface Live {
 }
 
 /**
+ * Receives a span of a channel's history that changed, or of every channel's when the
+ * channel is null.
+ */
+export type InvalidateHandler = (ch: channel.Key | null, tr: TimeRange) => void;
+
+/**
  * Caches blocks of channel samples under one byte budget. The least recently used block
  * leaves first. Every block of a channel holds one data type. Streamed samples go into
- * the raw block of their time, which stays open until the stream moves past it.
+ * the raw block of their time, which stays open until the stream moves past it. A
+ * joined channel's streamed samples get block alignment and extend the block's
+ * coverage. Fetched blocks stay valid until a history change names them while the
+ * history signals stream, and expire otherwise.
  */
 export class Store {
   private readonly budget: number;
@@ -80,6 +93,16 @@ export class Store {
   private readonly dataTypes = new Map<channel.Key, DataType>();
   private readonly live = new Map<channel.Key, Live>();
   private bytes = 0;
+  // joins holds each join by its index channel, and joinOf each member's join.
+  private readonly joins = new Map<channel.Key, Join>();
+  private readonly joinOf = new Map<channel.Key, Join>();
+  // Calculated channels are computed on read, so no history change names them.
+  private readonly calculated = new Set<channel.Key>();
+  private signalKey: channel.Key | null = null;
+  // signalsSince is when the stream last acked the history signals, or null when it
+  // does not carry them.
+  private signalsSince: TimeStamp | null = null;
+  private readonly invalidateHandlers = new Set<InvalidateHandler>();
 
   constructor({
     budget = DEFAULT_BUDGET,
@@ -138,12 +161,73 @@ export class Store {
 
   /**
    * @returns true when the block's fetched samples are too old to answer reads. A held
-   * block never expires.
+   * block never expires, and neither does a block that history signals keep valid.
    */
   expired(block: Block): boolean {
+    if (block.held || this.signaled(block)) return false;
+    return !this.now().span(block.fetchedAt).lessThan(this.staleThreshold);
+  }
+
+  // A block fetched while the stream carried the history signals stays valid until a
+  // signal names it.
+  private signaled(block: Block): boolean {
     return (
-      !block.held && !this.now().span(block.fetchedAt).lessThan(this.staleThreshold)
+      this.signalsSince != null &&
+      !this.calculated.has(block.channel) &&
+      !block.fetchedAt.before(this.signalsSince)
     );
+  }
+
+  /** Records whether the channel is calculated, so its blocks keep expiring. */
+  setCalculated(ch: channel.Key, calculated: boolean): void {
+    if (calculated) this.calculated.add(ch);
+    else this.calculated.delete(ch);
+  }
+
+  /** Sets the channel that carries the history signals. */
+  setSignalKey(key: channel.Key): void {
+    this.signalKey = key;
+  }
+
+  /** Records the keys the stream has acked. */
+  setAcked(keys: Set<channel.Key>): void {
+    const flowing = this.signalKey != null && keys.has(this.signalKey);
+    if (!flowing) this.signalsSince = null;
+    else this.signalsSince ??= this.now();
+  }
+
+  /** Registers a handler for changed spans of history. */
+  onInvalidate(handler: InvalidateHandler): destructor.Destructor {
+    this.invalidateHandlers.add(handler);
+    return () => this.invalidateHandlers.delete(handler);
+  }
+
+  /**
+   * Drops the cached samples of the channel over the time range, or of every channel
+   * when the channel is null. A joined channel whose open block the span touches
+   * waits for a new catch-up read.
+   */
+  invalidate(ch: channel.Key | null = null, tr: TimeRange = TimeRange.MAX): void {
+    if (ch == null) this.joins.forEach((j) => this.waitJoin(j));
+    else {
+      const j = this.joinOf.get(ch);
+      const block = this.live.get(ch)?.block;
+      if (j != null && block?.joined === true && block.range.overlapsWith(tr))
+        if (ch === j.index) this.waitJoin(j);
+        else this.waitMember(j.members.get(ch)!);
+    }
+    const touched = [...this.blocks].filter(
+      ([, b]) => (ch == null || b.channel === ch) && b.range.overlapsWith(tr),
+    );
+    for (const [key, block] of touched)
+      if (!(block instanceof RawBlock)) this.delete(key);
+      else if (block.expire()) this.set(key, block);
+    this.invalidateHandlers.forEach((h) => h(ch, tr));
+  }
+
+  /** @returns the data type of the channel's cached samples. */
+  dataType(ch: channel.Key): DataType | undefined {
+    return this.dataTypes.get(ch);
   }
 
   /**
@@ -166,14 +250,226 @@ export class Store {
   }
 
   /**
-   * Writes streamed series of the channel into the raw blocks of their start times. A
-   * series with no time range goes into the block of the wall clock.
-   * @returns the buffers the write allocated. A write that fits the open buffer appends
-   * in place and returns none.
+   * Writes a streamed frame into the raw blocks of its samples' times. A series with no
+   * time range goes into the block of the wall clock. A joined channel's series wait
+   * while the join catches up, and take block alignment once it has.
+   * @returns the buffers the write allocated for each channel of the frame. A write
+   * that fits the open buffer appends in place and allocates none.
    */
-  write(ch: channel.Key, series: MultiSeries): MultiSeries {
+  write(frame: Map<channel.Key, Series[]>): Map<channel.Key, MultiSeries> {
+    const out = new Map<channel.Key, MultiSeries>();
+    frame.forEach((series, ch) => {
+      const j = this.joins.get(ch);
+      if (j != null) out.set(ch, this.writeIndex(j, series));
+    });
+    frame.forEach((series, ch) => {
+      if (this.joins.has(ch)) return;
+      const j = this.joinOf.get(ch);
+      out.set(ch, j == null ? this.writePlain(ch, series) : this.writeData(j, ch, series));
+    });
+    return out;
+  }
+
+  /**
+   * Adds the channel and its index to the join of the index. The channel waits for a
+   * catch-up read before its streamed samples enter its blocks.
+   */
+  join(ch: channel.Key, index: channel.Key): void {
+    let j = this.joins.get(index);
+    if (j == null) {
+      j = new Join(index);
+      this.joins.set(index, j);
+    }
+    this.addMember(j, index);
+    if (ch !== index) this.addMember(j, ch);
+  }
+
+  /** Removes the channel and its index from the join, undoing one call to join. */
+  leave(ch: channel.Key, index: channel.Key): void {
+    const j = this.joins.get(index);
+    if (j == null) return;
+    if (ch !== index) this.removeMember(j, ch);
+    this.removeMember(j, index);
+    if (j.members.size === 0) this.joins.delete(index);
+  }
+
+  /** @returns the members of the index's join that wait for a catch-up read. */
+  waiting(index: channel.Key): channel.Key[] {
+    const j = this.joins.get(index);
+    if (j == null) return [];
+    return [...j.members.values()].filter((m) => !m.joined).map((m) => m.key);
+  }
+
+  /** @returns true when the channel's join has caught up with its stream. */
+  joined(ch: channel.Key): boolean {
+    const j = this.joinOf.get(ch);
+    return j != null && j.indexMember.joined && j.members.get(ch)?.joined === true;
+  }
+
+  /** @returns the first raw block a catch-up read of the member must fetch. */
+  catchUpFrom(ch: channel.Key): number {
+    return this.live.get(ch)?.block?.index ?? rawIndex(this.now());
+  }
+
+  /**
+   * Marks the members of the index's join as caught up, and writes the series they
+   * held in the order they arrived.
+   * @param historyless - True when the members have no history to read.
+   */
+  landed(index: channel.Key, keys: channel.Key[], historyless = false): void {
+    const j = this.joins.get(index);
+    if (j == null) return;
+    keys.forEach((k) => {
+      const m = j.members.get(k);
+      if (m == null) return;
+      m.joined = true;
+      m.historyless = historyless;
+    });
+    const im = j.indexMember;
+    if (!im.joined) return;
+    this.writeIndex(j, im.held.splice(0));
+    j.members.forEach((m) => {
+      if (m !== im && m.joined) this.writeData(j, m.key, m.held.splice(0));
+    });
+  }
+
+  private addMember(j: Join, ch: channel.Key): void {
+    let m = j.members.get(ch);
+    if (m == null) {
+      m = new Member(ch);
+      j.members.set(ch, m);
+      this.joinOf.set(ch, j);
+    }
+    m.refs++;
+  }
+
+  private removeMember(j: Join, ch: channel.Key): void {
+    const m = j.members.get(ch);
+    if (m == null || --m.refs > 0) return;
+    const live = this.live.get(ch);
+    if (live != null) this.seal(live);
+    j.members.delete(ch);
+    this.joinOf.delete(ch);
+  }
+
+  // Sends every member of the join back to wait for a catch-up read.
+  private waitJoin(j: Join): void {
+    j.restart();
+    j.members.forEach((m) => this.waitMember(m));
+  }
+
+  private waitMember(m: Member): void {
+    m.joined = false;
+    const live = this.live.get(m.key);
+    if (live?.block?.joined === true) this.seal(live);
+  }
+
+  private writeIndex(j: Join, series: Series[]): MultiSeries {
     const allocated = new MultiSeries([]);
-    for (const s of series.series) {
+    const im = j.indexMember;
+    for (const s of series) {
+      if (!im.joined) {
+        im.held.push(s);
+        continue;
+      }
+      this.retainDataType(j.index, s.dataType);
+      if (!j.continues(s)) {
+        this.waitJoin(j);
+        im.held.push(s);
+        continue;
+      }
+      const parts: Part[] = [];
+      for (let lo = 0; lo < s.length; ) {
+        const b = rawIndex(new TimeStamp(s.data[lo]));
+        const hi = search(s, tileRange({ level: RAW_LEVEL, index: b }).end.valueOf(), lo);
+        const block = this.raw(j.index, b);
+        const fresh = Math.max(lo, search(s, block.coveredEnd.valueOf(), lo));
+        if (fresh > lo) parts.push({ from: lo, to: fresh, block: b, offset: null });
+        if (fresh < hi) {
+          const offset = block.coveredCount;
+          parts.push({ from: fresh, to: hi, block: b, offset });
+          allocated.push(this.append(block, piece(s, fresh, hi, s, fresh, b, offset)));
+        }
+        lo = hi;
+      }
+      j.remember({ series: s, parts });
+    }
+    return allocated;
+  }
+
+  private writeData(j: Join, ch: channel.Key, series: Series[]): MultiSeries {
+    const allocated = new MultiSeries([]);
+    const m = j.members.get(ch)!;
+    for (const s of series) {
+      if (!m.joined || !j.indexMember.joined) {
+        m.held.push(s);
+        continue;
+      }
+      this.retainDataType(ch, s.dataType);
+      const at = j.locate(s.timeRange.start);
+      if (at == null || at.pos + s.length > at.mapped.series.length) {
+        this.waitMember(m);
+        m.held.push(s);
+        continue;
+      }
+      if (!this.writeParts(m, s, at.mapped, at.pos, allocated)) {
+        this.waitMember(m);
+        m.held.push(s);
+      }
+    }
+    return allocated;
+  }
+
+  // Writes the samples of a data series into the blocks its index samples went into.
+  // Returns false on a gap: the series skips samples its blocks have not taken.
+  private writeParts(
+    m: Member,
+    s: Series,
+    { series: times, parts }: Mapped,
+    pos: number,
+    allocated: MultiSeries,
+  ): boolean {
+    const end = pos + s.length;
+    for (const part of parts) {
+      if (part.to <= pos || part.from >= end || part.offset == null) continue;
+      const block = this.raw(m.key, part.block);
+      let from = Math.max(part.from, pos);
+      const to = Math.min(part.to, end);
+      let offset = part.offset + (from - part.from);
+      const held = block.coveredCount - offset;
+      if (held >= to - from) continue;
+      if (held < 0) {
+        if (!m.historyless || block.coveredCount !== 0) return false;
+      } else {
+        from += held;
+        offset += held;
+      }
+      allocated.push(this.append(block, piece(s, from - pos, to - pos, times, from, part.block, offset)));
+    }
+    return true;
+  }
+
+  // Appends a block-aligned piece to the open buffer of its channel, opening the block
+  // when the stream moves into it.
+  private append(block: RawBlock, p: Series): MultiSeries {
+    const live = this.liveOf(block.channel);
+    if (live.block !== block) {
+      if (live.block != null) this.seal(live, live.block.index < block.index);
+      block.buffer = live.buffer;
+      block.joined = true;
+      live.block = block;
+    }
+    const res = live.buffer.write(new MultiSeries([p]));
+    if (res.flushed.series.length > 0)
+      block.fill(res.flushed.series, block.coveredEnd, block.coveredCount);
+    block.extend(p.timeRange.end, Number(p.alignment & 0xffffffffn) + p.length);
+    this.set(rawKey(block.channel, block.index), block);
+    return res.allocated;
+  }
+
+  private writePlain(ch: channel.Key, series: Series[]): MultiSeries {
+    const allocated = new MultiSeries([]);
+    for (const s of series) {
       this.retainDataType(ch, s.dataType);
       const live = this.liveOf(ch);
       const index = rawIndex(s.timeRange.isZero ? this.now() : s.timeRange.start);
@@ -197,8 +493,13 @@ export class Store {
   /**
    * Closes the channel's open block, stamping the end of its buffer. Call it when the
    * stream stops delivering the channel, so reads fetch the span it will not deliver.
+   * A joined channel waits for a new catch-up read.
    */
   flush(ch: channel.Key): void {
+    const j = this.joinOf.get(ch);
+    if (j != null)
+      if (ch === j.index) this.waitJoin(j);
+      else this.waitMember(j.members.get(ch)!);
     const live = this.live.get(ch);
     if (live != null) this.seal(live);
   }
@@ -223,30 +524,46 @@ export class Store {
       prev: held.toString(),
       next: dataType.toString(),
     });
+    const j = this.joinOf.get(ch);
+    if (j != null)
+      if (ch === j.index) this.waitJoin(j);
+      else this.waitMember(j.members.get(ch)!);
     for (const [key, block] of this.blocks) if (block.channel === ch) this.delete(key);
     const live = this.live.get(ch);
     if (live == null) return true;
     live.buffer.retainDataType(dataType);
-    if (live.block != null) live.block.buffer = null;
+    if (live.block != null) {
+      live.block.buffer = null;
+      live.block.joined = false;
+    }
     live.block = null;
     return true;
   }
 
-  /** Drops every block and stream buffer. */
+  /** Drops every block, stream buffer, and join. */
   close(): void {
     this.live.forEach(({ buffer }) => buffer.close());
     this.live.clear();
+    this.joins.clear();
+    this.joinOf.clear();
+    this.invalidateHandlers.clear();
     this.blocks.clear();
     this.counted.clear();
     this.dataTypes.clear();
     this.bytes = 0;
   }
 
-  private seal(live: Live): void {
+  // Closes the open block. A joined block keeps its streamed samples as fetched ones,
+  // and is complete when the stream moved past it.
+  private seal(live: Live, complete = false): void {
     const { block } = live;
     if (block == null) return;
     const flushed = live.buffer.flush();
-    if (flushed != null && flushed.length > 0) block.stream([flushed]);
+    if (flushed != null && flushed.length > 0)
+      if (block.joined) block.fill([flushed], block.coveredEnd, block.coveredCount);
+      else block.stream([flushed]);
+    if (block.joined && complete) block.extend(block.range.end, block.coveredCount);
+    block.joined = false;
     block.buffer = null;
     live.block = null;
     this.set(rawKey(block.channel, block.index), block);

@@ -37,7 +37,7 @@ class MockClient implements Client {
     stream: (
       handler: framer.StreamHandler,
       keys: channel.Key[],
-    ): framer.Subscription => {
+    ): framer.Demand => {
       this.streamHandler = handler;
       this.streamF(handler, keys);
       // The streamer delivers the cached leading buffers synchronously at

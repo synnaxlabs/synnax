@@ -13,7 +13,7 @@ export { type RemoteReader } from "@/framer/cache/reader";
 export {
   type StatusHandler,
   type StreamHandler,
-  type Subscription,
+  type Demand,
 } from "@/framer/cache/streamer";
 export { tileRequestKey, type TileSpec } from "@/framer/cache/tile";
 export * from "@/framer/client";

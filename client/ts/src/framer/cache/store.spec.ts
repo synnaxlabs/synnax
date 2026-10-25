@@ -46,6 +46,10 @@ const createBlock = (overrides: Partial<TestBlock> = {}): TestBlock => ({
 
 const BLOCK = tileRange({ level: RAW_LEVEL, index: 100 });
 
+// Writes one channel's series to the store as a streamed frame.
+const write = (store: Store, ch: channel.Key, series: MultiSeries): MultiSeries =>
+  store.write(new Map([[ch, series.series]])).get(ch)!;
+
 // Returns a streamed write of float32 values stamped one second apart from the start of
 // raw block 100, plus offset seconds.
 const createWrite = (offset: number, values: number[], alignment: bigint) =>
@@ -267,7 +271,7 @@ describe("Store", () => {
   describe("write", () => {
     it("should write streamed series into the open block of their time", () => {
       const store = new Store({ dynamicBufferSize: 100 });
-      store.write(1, createWrite(1, [1, 2], 0n));
+      write(store, 1, createWrite(1, [1, 2], 0n));
       const block = store.raw(1, 100);
       expect(block.buffer).not.toBeNull();
       expect(store.leadingBuffer(1)).toBe(block.buffer?.leadingBuffer);
@@ -276,19 +280,19 @@ describe("Store", () => {
 
     it("should return only the buffers a write allocates", () => {
       const store = new Store({ dynamicBufferSize: 100 });
-      const first = store.write(1, createWrite(1, [1, 2], 0n));
+      const first = write(store, 1, createWrite(1, [1, 2], 0n));
       expect(first.series).toEqual([store.leadingBuffer(1)]);
-      const second = store.write(1, createWrite(3, [3], 2n));
+      const second = write(store, 1, createWrite(3, [3], 2n));
       expect(second.series).toEqual([]);
       expect(Array.from(store.leadingBuffer(1) ?? [])).toEqual([1, 2, 3]);
     });
 
     it("should close the open block when a series starts in the next one", () => {
       const store = new Store({ dynamicBufferSize: 100 });
-      store.write(1, createWrite(60, [1, 2], 0n));
+      write(store, 1, createWrite(60, [1, 2], 0n));
       const first = store.raw(1, 100);
       const buffer = store.leadingBuffer(1);
-      const allocated = store.write(1, createWrite(70, [3], 2n));
+      const allocated = write(store, 1, createWrite(70, [3], 2n));
       expect(first.buffer).toBeNull();
       expect(first.streamed).toEqual([buffer]);
       expect(buffer?.timeRange.end).toEqual(BLOCK.start.add(TimeSpan.seconds(62)));
@@ -299,7 +303,7 @@ describe("Store", () => {
 
     it("should keep a series that crosses a block edge whole in its first block", () => {
       const store = new Store({ dynamicBufferSize: 100 });
-      store.write(1, createWrite(64, [1, 2, 3, 4], 0n));
+      write(store, 1, createWrite(64, [1, 2, 3, 4], 0n));
       expect(store.raw(1, 100).buffer).not.toBeNull();
       expect(store.raw(1, 101).buffer).toBeNull();
       expect(Array.from(store.leadingBuffer(1) ?? [])).toEqual([1, 2, 3, 4]);
@@ -307,8 +311,8 @@ describe("Store", () => {
 
     it("should move to an earlier block when a series starts before the open one", () => {
       const store = new Store({ dynamicBufferSize: 100 });
-      store.write(1, createWrite(1, [1], 0n));
-      store.write(1, createWrite(-60, [2], 1n));
+      write(store, 1, createWrite(1, [1], 0n));
+      write(store, 1, createWrite(-60, [2], 1n));
       expect(store.raw(1, 100).buffer).toBeNull();
       expect(store.raw(1, 99).buffer).not.toBeNull();
     });
@@ -316,13 +320,13 @@ describe("Store", () => {
     it("should write a series with no time range into the block of the clock", () => {
       const clock = new ManualClock(BLOCK.start);
       const store = new Store({ dynamicBufferSize: 100, now: clock.now });
-      store.write(1, new MultiSeries([new Series(new Float32Array([1]))]));
+      write(store, 1, new MultiSeries([new Series(new Float32Array([1]))]));
       expect(store.raw(1, 100).buffer).not.toBeNull();
     });
 
     it("should never evict an open block", () => {
       const store = new Store({ budget: Size.bytes(1), dynamicBufferSize: 100 });
-      store.write(1, createWrite(1, [1], 0n));
+      write(store, 1, createWrite(1, [1], 0n));
       store.set("a", createBlock());
       store.set("b", createBlock());
       expect(store.get(rawKey(1, 100))).toBeDefined();
@@ -331,9 +335,9 @@ describe("Store", () => {
 
     it("should drop a channel's buffer and blocks when its data type changes", () => {
       const store = new Store({ dynamicBufferSize: 100 });
-      store.write(1, createWrite(1, [1], 0n));
+      write(store, 1, createWrite(1, [1], 0n));
       const block = store.raw(1, 100);
-      store.write(
+      write(store, 
         1,
         new MultiSeries([
           new Series({
@@ -353,7 +357,7 @@ describe("Store", () => {
   describe("flush", () => {
     it("should close the open block and keep its buffer readable", () => {
       const store = new Store({ dynamicBufferSize: 100 });
-      store.write(1, createWrite(1, [1, 2], 0n));
+      write(store, 1, createWrite(1, [1, 2], 0n));
       const buffer = store.leadingBuffer(1);
       store.flush(1);
       const block = store.raw(1, 100);
@@ -373,7 +377,7 @@ describe("Store", () => {
   it("should drop every block and buffer when it closes", () => {
     const store = new Store({ dynamicBufferSize: 100 });
     store.set("a", createBlock({ held: true }));
-    store.write(1, createWrite(1, [1], 0n));
+    write(store, 1, createWrite(1, [1], 0n));
     store.close();
     expect(store.get("a")).toBeUndefined();
     expect(store.get(rawKey(1, 100))).toBeUndefined();

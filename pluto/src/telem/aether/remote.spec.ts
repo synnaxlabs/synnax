@@ -97,7 +97,7 @@ describe("remote", () => {
         stream: (
           handler: framer.StreamHandler,
           keys: channel.Key[],
-        ): framer.Subscription => {
+        ): framer.Demand => {
           this.streamHandler = handler;
           this.streamKeys = keys;
           this.streamF(handler, keys);
@@ -589,7 +589,7 @@ describe("remote", () => {
         stream: (
           handler: framer.StreamHandler,
           keys: channel.Key[],
-        ): framer.Subscription => {
+        ): framer.Demand => {
           this.streamHandler = handler;
           this.streamKeys = keys;
           this.streamF(handler, keys);
@@ -1043,7 +1043,7 @@ describe("remote", () => {
           this.served.set(servedKey(spec), series);
           return series;
         },
-        stream: (handler: framer.StreamHandler): framer.Subscription => {
+        stream: (handler: framer.StreamHandler): framer.Demand => {
           this.streamHandler = handler;
           return telemTest.mockSubscription(this.streamDestructorF);
         },

@@ -28,7 +28,7 @@ import {
   MultiplexedStreamer,
   type MultiplexedStreamerProps,
   type StreamHandler,
-  type Subscription,
+  type Demand,
 } from "@/framer/cache/streamer";
 import { TileReader, type TileSpec } from "@/framer/cache/tile";
 import { type Frame } from "@/framer/frame";
@@ -155,7 +155,7 @@ export class Feed {
    * subscription behind.
    * @throws {UnexpectedError} if the feed has been closed.
    */
-  stream(handler: StreamHandler, keys: channel.Key[]): Subscription {
+  stream(handler: StreamHandler, keys: channel.Key[]): Demand {
     return this.streamer.stream(handler, keys);
   }
 
