@@ -129,6 +129,18 @@ var _ = Describe("ReadTask", func() {
 		return fmt.Sprintf("[%s]<%d>", ch.Name, ch.Key())
 	}
 
+	// written returns the samples committed to ch.
+	written := func(ctx context.Context, ch channel.Channel) telem.Series {
+		GinkgoHelper()
+		iter := MustOpen(framerSvc.OpenIterator(ctx, framer.IteratorConfig{
+			Keys:   []channel.Key{ch.Key()},
+			Bounds: telem.TimeRangeMax,
+		}))
+		Expect(iter.SeekFirst()).To(BeTrue())
+		Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+		return iter.Value().Get(ch.Key()).Series[0]
+	}
+
 	samples := func(seconds ...telem.TimeStamp) readResult {
 		values := make([]float32, len(seconds))
 		for i, s := range seconds {
@@ -199,15 +211,51 @@ var _ = Describe("ReadTask", func() {
 				Expect(stopped.Details.Running).To(BeFalse())
 				Expect(stopped.Details.Cmd).To(Equal("cmd-2"))
 				Expect(src.closes.Load()).To(BeEquivalentTo(1))
-
-				iter := MustOpen(framerSvc.OpenIterator(ctx, framer.IteratorConfig{
-					Keys:   []channel.Key{dataCh.Key()},
-					Bounds: telem.TimeRangeMax,
-				}))
-				Expect(iter.SeekFirst()).To(BeTrue())
-				Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
-				Expect(iter.Value().Get(dataCh.Key()).Series[0]).
+				Expect(written(ctx, dataCh)).
 					To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](1, 2, 3)))
+			},
+		)
+
+		It("Should write a first frame whose second index starts before its first",
+			func(ctx SpecContext) {
+				w := channelSvc.NewWriter(nil)
+				earlyIdx := channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.TimestampT,
+					IsIndex:  true,
+				}
+				Expect(w.Create(ctx, &earlyIdx)).To(Succeed())
+				earlyData := channel.Channel{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Float32T,
+					LocalIndex: earlyIdx.LocalKey,
+				}
+				Expect(w.Create(ctx, &earlyData)).To(Succeed())
+				keys := channel.Keys{
+					idxCh.Key(), dataCh.Key(), earlyIdx.Key(), earlyData.Key(),
+				}
+				rt := MustSucceed(driver.NewReadTask(driver.ReadTaskConfig{
+					Source:   src,
+					DB:       db,
+					Status:   statusSvc,
+					Framer:   framerSvc,
+					Channels: keys,
+					Task:     t,
+				}))
+				DeferCleanup(func() { Expect(rt.Stop(false)).To(Succeed()) })
+				Expect(rt.Start(ctx, driver.NoCommand)).To(Succeed())
+				src.results <- readResult{frame: frame.NewMulti(keys, []telem.Series{
+					telem.NewSeriesSecondsTSV(5, 6),
+					telem.NewSeriesV[float32](5, 6),
+					telem.NewSeriesSecondsTSV(1, 2),
+					telem.NewSeriesV[float32](1, 2),
+				})}
+				Eventually(src.results).Should(BeEmpty())
+				Expect(rt.Stop(false)).To(Succeed())
+				Expect(written(ctx, dataCh)).
+					To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](5, 6)))
+				Expect(written(ctx, earlyData)).
+					To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](1, 2)))
 			},
 		)
 
@@ -314,13 +362,7 @@ var _ = Describe("ReadTask", func() {
 					g.Expect(retrieve(ctx).Variant).To(Equal(status.VariantSuccess))
 				}).Should(Succeed())
 				Expect(rt.Stop(false)).To(Succeed())
-				iter := MustOpen(framerSvc.OpenIterator(ctx, framer.IteratorConfig{
-					Keys:   []channel.Key{dataCh.Key()},
-					Bounds: telem.TimeRangeMax,
-				}))
-				Expect(iter.SeekFirst()).To(BeTrue())
-				Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
-				Expect(iter.Value().Get(dataCh.Key()).Series[0]).
+				Expect(written(ctx, dataCh)).
 					To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](1, 2)))
 			},
 		)

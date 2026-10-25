@@ -298,13 +298,18 @@ func (w *frameWriter) close() error {
 	return w.sCtx.Wait()
 }
 
-// startOf returns the first timestamp in fr, so that the writer's domain starts at
-// the first sample. It returns the current time for a frame with no timestamps.
+// startOf returns the earliest first timestamp of the series in fr, so that the
+// writer's domain holds every sample. It returns the current time for a frame with no
+// timestamps.
 func startOf(fr framer.Frame) telem.TimeStamp {
+	start := telem.TimeStampMax
 	for s := range fr.Series() {
 		if s.DataType == telem.TimestampT && s.Len() > 0 {
-			return s.ValueAt[telem.TimeStamp](0)
+			start = min(start, s.ValueAt[telem.TimeStamp](0))
 		}
 	}
-	return telem.Now()
+	if start == telem.TimeStampMax {
+		return telem.Now()
+	}
+	return start
 }
