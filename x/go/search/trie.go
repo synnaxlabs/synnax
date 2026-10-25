@@ -15,10 +15,12 @@ import (
 	"unicode/utf8"
 )
 
-// trie is a rune trie. Its nodes live in fixed-size pages and refer to each other by
-// index, so the garbage collector does not trace a pointer for each node and edge, and
-// growth never copies nodes. A token ends at a node when the node has postings.
+// trie is a rune trie whose nodes live in pages and refer to each other by index, so
+// the garbage collector does not trace them. A token ends at a node when the node has
+// postings.
 type trie struct {
+	// pages holds the nodes. The first page grows with the trie, so a small trie stays
+	// small. Every later page is allocated full and never moves.
 	pages [][]node
 	len   uint32
 	// free holds the indexes of pruned nodes, for reuse.
@@ -30,7 +32,7 @@ const (
 	root uint32 = 0
 	// none is the index that child and find return when no node exists.
 	none uint32 = math.MaxUint32
-	// pageBits sets the number of nodes in a page to 1<<pageBits.
+	// pageBits sets the maximum number of nodes in a page to 1<<pageBits.
 	pageBits = 8
 	pageMask = 1<<pageBits - 1
 )
@@ -59,7 +61,7 @@ func newTrie() trie {
 	return t
 }
 
-// node returns the node at index n. The node does not move when the trie grows.
+// node returns the node at index n. The pointer is valid until the next alloc.
 func (t *trie) node(n uint32) *node { return &t.pages[n>>pageBits][n&pageMask] }
 
 func (t *trie) child(n uint32, r rune) uint32 {
@@ -103,12 +105,17 @@ func (t *trie) alloc(parent uint32) uint32 {
 		t.node(n).parent = parent
 		return n
 	}
-	if t.len>>pageBits == uint32(len(t.pages)) {
-		t.pages = append(t.pages, make([]node, 1<<pageBits))
-	}
 	n := t.len
+	page := n >> pageBits
+	if page == uint32(len(t.pages)) {
+		capacity := 1 << pageBits
+		if page == 0 {
+			capacity = 0
+		}
+		t.pages = append(t.pages, make([]node, 0, capacity))
+	}
+	t.pages[page] = append(t.pages[page], node{parent: parent})
 	t.len++
-	t.node(n).parent = parent
 	return n
 }
 

@@ -11,6 +11,7 @@ package search_test
 
 import (
 	"cmp"
+	"fmt"
 	"maps"
 	"math/rand/v2"
 	"slices"
@@ -392,6 +393,29 @@ var _ = Describe("Index", func() {
 		Entry("seed 2", int64(2)),
 		Entry("seed 3", int64(3)),
 		Entry("seed 4", int64(4)),
+	)
+
+	It("Should agree with a brute-force search when its tokens fill several pages",
+		func() {
+			o := oracle{}
+			set := func(key int, text string) {
+				idx.Set(key, text)
+				o[key] = oracleTokens(text)
+			}
+			for i := range 600 {
+				set(i, fmt.Sprintf("w%04d", i))
+			}
+			for i := range 300 {
+				idx.Delete(i)
+				delete(o, i)
+			}
+			for i := range 300 {
+				set(1000+i, fmt.Sprintf("x%04d", i))
+			}
+			for _, term := range []string{"w0599", "w0001", "x0150", "w05", "x"} {
+				o.expectRanked(idx.Search(term, 0).Keys, term)
+			}
+		},
 	)
 
 	Describe("SearchExcept", func() {

@@ -89,6 +89,19 @@ func BenchmarkSearch(b *testing.B) {
 	}
 }
 
+// BenchmarkSmallIndex builds and searches an index of a few entries, as a caller that
+// builds an index for each search does.
+func BenchmarkSmallIndex(b *testing.B) {
+	b.ReportAllocs()
+	for b.Loop() {
+		idx := search.New[int]()
+		idx.Set(1, "Node 1")
+		idx.Set(2, "Node 2")
+		idx.Set(3, "Node 3")
+		idx.Search("node 1", 100)
+	}
+}
+
 func BenchmarkSearchAfterGC(b *testing.B) {
 	idx := newBenchIndex(makeNames(100000))
 	b.ReportAllocs()
