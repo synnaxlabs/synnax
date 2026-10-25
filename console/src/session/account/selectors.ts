@@ -20,3 +20,6 @@ export const useSelectEmail = (): string | undefined =>
 
 export const useSelectSecret = (): string | undefined =>
   Select.useMemo((state: StoreState) => selectSliceState(state).link?.secret, []);
+
+export const useSelectAnalyticsAllowed = (): boolean =>
+  Select.useMemo((state: StoreState) => selectSliceState(state).analyticsAllowed, []);

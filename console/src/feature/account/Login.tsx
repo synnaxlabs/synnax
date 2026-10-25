@@ -61,6 +61,7 @@ interface HandoffProps {
 
 const Handoff = ({ stage, onStage }: HandoffProps): ReactElement => {
   const email = Session.Account.useSelectEmail();
+  const store = Session.useStore();
   const dispatch = Session.useDispatch();
   const handleError = Status.useErrorHandler();
   const client = Synnax.use();
@@ -71,8 +72,12 @@ const Handoff = ({ stage, onStage }: HandoffProps): ReactElement => {
     handleError(async () => {
       if (client == null) return;
       const { fingerprint } = await client.license.retrieve();
-      const state = mintState();
-      dispatch(Session.Account.beginLogin(state));
+      // Each page the hub opens must finish the same login, so a pending one is reused.
+      let state = Session.Account.selectPending(store.getState());
+      if (state == null) {
+        state = mintState();
+        dispatch(Session.Account.beginLogin(state));
+      }
       const url = loginURL({
         state,
         fingerprint,

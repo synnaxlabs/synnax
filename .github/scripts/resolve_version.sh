@@ -18,7 +18,8 @@
 # from the candidates already tagged for the version, and promoting one repeats the same
 # bump. The train rule caps a product at one minor ahead of the Core's latest stable.
 # Desktop skips the train rule, takes a major bump, and bumps its first release from
-# 0.0.0. latest is true when no stable tag of the product outranks the result.
+# 0.0.0. That first release must be a major bump, so it outranks the 1.0.0 candidates.
+# latest is true when no stable tag of the product outranks the result.
 
 set -euo pipefail
 
@@ -44,6 +45,10 @@ PREVIOUS_TAG=""
 if [ -n "$BASE" ]; then
     PREVIOUS_TAG="$PRODUCT/v$BASE"
 elif [ "$PRODUCT" = desktop ]; then
+    if [ "$BUMP" != major ]; then
+        echo "no stable desktop tag exists, so bump must be major, not $BUMP" >&2
+        exit 1
+    fi
     BASE=0.0.0
 else
     echo "no stable $PRODUCT tag is reachable from HEAD" >&2

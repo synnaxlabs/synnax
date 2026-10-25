@@ -28,7 +28,7 @@ export interface LinkDeps extends Link.Deps {
 /**
  * Takes the login link the hub opens Synnax Desktop with: applies its license key to
  * the embedded Core and stores the link. A link whose state this app did not mint is
- * refused.
+ * refused. The link the app launched with is ignored while no login is pending.
  */
 export const useLink = (deps: LinkDeps = Link.DEFAULT_DEPS): void => {
   const enabled = deps.engine === "tauri";
@@ -59,7 +59,10 @@ export const useLink = (deps: LinkDeps = Link.DEFAULT_DEPS): void => {
         localStorage.setItem(Link.SHOULD_IGNORE_KEY, "false");
         return;
       }
-      if (urls == null || signal.aborted) return;
+      // Tauri returns the launch link for the life of the process, so every reload sees
+      // it again. Only a login in progress waits for it.
+      const pending = Session.Account.selectPending(store.getState());
+      if (urls == null || signal.aborted || pending == null) return;
       receive(urls);
     },
     [enabled],
@@ -78,8 +81,8 @@ export const useLink = (deps: LinkDeps = Link.DEFAULT_DEPS): void => {
       try {
         await api.activate(received.key);
         if (signal.aborted) return;
-        const { secret, email, user } = received;
-        dispatch(Session.Account.link({ secret, email, user }));
+        const { secret, email, user, analyticsAllowed } = received;
+        dispatch(Session.Account.link({ secret, email, user, analyticsAllowed }));
       } catch (e) {
         if (signal.aborted) return;
         handleError(e, FAILED_MESSAGE);

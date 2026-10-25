@@ -87,7 +87,7 @@ describe("Account.Guard", () => {
     await renderGuard({
       status: UNLICENSED_STATUS,
       account: {
-        version: 0,
+        ...Session.Account.ZERO_SLICE_STATE,
         link: { secret: "shh", email: "someone@example.com", user: "user_a" },
       },
     });
@@ -111,6 +111,37 @@ describe("Account.Guard", () => {
       Session.Account.selectPending(store.getState()),
     );
     expect(await screen.findByText("Finish in your browser")).toBeTruthy();
+  });
+
+  it("should send the same state when the page opens again", async () => {
+    // A new state would make the first page's login link fail to finish.
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const { store } = await renderGuard({ status: UNLICENSED_STATUS });
+    const login = findButton("Log in");
+    await waitFor(() => expect(login.getAttribute("aria-disabled")).toBeNull());
+    fireEvent.click(login);
+    expect(await screen.findByText("Finish in your browser")).toBeTruthy();
+    fireEvent.click(findButton("Open the page again"));
+    await waitFor(() => expect(open).toHaveBeenCalledTimes(2));
+    const states = open.mock.calls.map(([url]) =>
+      new URL(String(url)).searchParams.get("state"),
+    );
+    expect(states[1]).toBe(states[0]);
+    expect(Session.Account.selectPending(store.getState())).toBe(states[0]);
+  });
+
+  it("should finish a login left pending from before", async () => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    await renderGuard({
+      status: UNLICENSED_STATUS,
+      account: { ...Session.Account.ZERO_SLICE_STATE, pending: "minted" },
+    });
+    const login = findButton("Log in");
+    await waitFor(() => expect(login.getAttribute("aria-disabled")).toBeNull());
+    fireEvent.click(login);
+    await waitFor(() => expect(open).toHaveBeenCalled());
+    const url = new URL(String(open.mock.calls[0][0]));
+    expect(url.searchParams.get("state")).toBe("minted");
   });
 
   it("should let the user retry a log in whose fingerprint read failed", async () => {

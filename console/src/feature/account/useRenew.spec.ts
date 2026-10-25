@@ -12,15 +12,17 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { waitFor } from "@testing-library/react";
-import { describe, expect, it, type Mock, vi } from "vitest";
+import { afterEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { Account } from "@/feature/account";
+import { License } from "@/platform/license";
 import { Session } from "@/session";
 import { renderHookWithConsole, type TestStore } from "@/testutil";
 
 const LINKED: Session.Account.SliceState = {
   version: 0,
   link: { secret: "shh", email: "someone@example.com", user: "user_a" },
+  analyticsAllowed: true,
 };
 
 const DESKTOP_LICENSE: license.License = {
@@ -53,7 +55,7 @@ interface Harness {
   activate: Mock<Account.RenewDeps["license"]["activate"]>;
   deactivate: Mock<Account.RenewDeps["license"]["deactivate"]>;
   store: TestStore;
-  renew: Mock<(secret: string) => Promise<Account.RenewResult>>;
+  renew: Mock<Account.RenewDeps["renew"]>;
   onError: Mock<(error: Error) => void>;
   statuses: () => Status.NotificationSpec[];
 }
@@ -65,6 +67,8 @@ interface SetupOptions {
   interval?: TimeSpan;
   deactivateError?: Error;
   renewError?: Error;
+  /** Renews through this instead of the result or error above. */
+  renew?: Account.RenewDeps["renew"];
 }
 
 const setup = async ({
@@ -74,6 +78,7 @@ const setup = async ({
   interval,
   deactivateError,
   renewError,
+  renew: renewWith,
 }: SetupOptions = {}): Promise<Harness> => {
   const retrieve = vi.fn(async () => infoOf(lic));
   const activate = vi.fn(async () => infoOf(lic));
@@ -81,7 +86,8 @@ const setup = async ({
     if (deactivateError != null) throw deactivateError;
     return infoOf(undefined);
   });
-  const renew = vi.fn(async () => {
+  const renew = vi.fn<Account.RenewDeps["renew"]>(async (secret) => {
+    if (renewWith != null) return await renewWith(secret);
     if (renewError != null) throw renewError;
     return result;
   });
@@ -114,6 +120,8 @@ const setup = async ({
 };
 
 describe("Account.useRenew", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
   it("should renew and apply the license key while the license has weeks to run", async () => {
     const h = await setup({ license: expiringIn(TimeSpan.days(20)) });
     await waitFor(() => expect(h.activate).toHaveBeenCalledWith("x.y.z"));
@@ -209,6 +217,36 @@ describe("Account.useRenew", () => {
     expect(h.statuses().some((s) => s.message === "This machine was logged out")).toBe(
       true,
     );
+  });
+
+  it("should keep the license and the account when a proxy refuses the renewal", async () => {
+    // The test client talks to its Core through fetch too, so only the hub is stubbed.
+    const passThrough = fetch;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) =>
+        input === License.RENEW_URL
+          ? new Response("<html>Blocked</html>", {
+              status: 403,
+              statusText: "Forbidden",
+            })
+          : await passThrough(input, init),
+      ),
+    );
+    const h = await setup({
+      license: expiringIn(TimeSpan.days(20)),
+      renew: Account.renew,
+    });
+    await waitFor(() =>
+      expect(h.onError).toHaveBeenCalledWith(
+        new Error("failed to renew the license", {
+          cause: new Error("Could not renew the license: Forbidden"),
+        }),
+      ),
+    );
+    expect(h.deactivate).not.toHaveBeenCalled();
+    expect(h.activate).not.toHaveBeenCalled();
+    expect(Session.Account.selectSliceState(h.store.getState())).toEqual(LINKED);
   });
 
   it("should do nothing on a machine that is not linked", async () => {
