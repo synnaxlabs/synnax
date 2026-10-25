@@ -236,16 +236,27 @@ export class Store {
    * @throws {UnexpectedError} if the block under the raw block's key is not a raw block.
    */
   raw(ch: channel.Key, index: number): RawBlock {
+    const cached = this.findRaw(ch, index);
     const key = rawKey(ch, index);
-    const cached = this.get(key);
     if (cached == null) {
       const block = new RawBlock(ch, index, this.now);
       this.set(key, block);
       return block;
     }
+    if (this.expired(cached) && cached.expire()) this.set(key, cached);
+    return cached;
+  }
+
+  /**
+   * @returns the channel's raw block at the index, or undefined when none is cached.
+   * @throws {UnexpectedError} if the block under the raw block's key is not a raw block.
+   */
+  findRaw(ch: channel.Key, index: number): RawBlock | undefined {
+    const key = rawKey(ch, index);
+    const cached = this.get(key);
+    if (cached == null) return undefined;
     if (!(cached instanceof RawBlock))
       throw new UnexpectedError(`block ${key} is not a raw block`);
-    if (this.expired(cached) && cached.expire()) this.set(key, cached);
     return cached;
   }
 

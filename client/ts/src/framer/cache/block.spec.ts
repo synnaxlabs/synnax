@@ -167,6 +167,23 @@ describe("block", () => {
       ]);
     });
 
+    it("should give each block of a cut series its own buffer", () => {
+      const edge = Number(span.milliseconds);
+      const ts = createIndex(500n, 1, edge + 1);
+      const parts = split(0, 1, [ts], [createValues(500n, [1, 2], ts.timeRange)]);
+      const buffers = parts.flatMap((p) => [p.timestamps[0], p.series[0]]);
+      buffers.forEach((s) =>
+        expect(s.buffer.byteLength).toBe(s.byteCapacity.valueOf()),
+      );
+    });
+
+    it("should keep a series in one block as it is", () => {
+      const ts = createIndex(500n, 1, 2);
+      const values = createValues(500n, [1, 2], ts.timeRange);
+      const [part] = split(0, 0, [ts], [values]);
+      expect(part.series[0].buffer).toBe(values.buffer);
+    });
+
     it("should throw when a sample has no index sample of its Core alignment", () => {
       const ts = createIndex(500n, 1, 2);
       const split_ = () => split(0, 0, [ts], [createValues(501n, [1, 2])]);

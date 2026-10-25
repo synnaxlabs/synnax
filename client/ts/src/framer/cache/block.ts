@@ -137,7 +137,8 @@ const cut = (s: Series, tr: TimeRange): Series =>
 
 /**
  * Splits a fetch's series of one channel at the edges of the raw blocks first to last,
- * and cuts the time range of each part to its block.
+ * and cuts the time range of each part to its block. A series cut in two copies its
+ * samples, so a block never holds the buffer of samples another block holds.
  * @param first - The first raw block the fetch read.
  * @param last - The last raw block the fetch read.
  * @param timestamps - The fetch's series of the channel's index, in time order.
@@ -165,7 +166,7 @@ export const split = (
       const range = tileRange({ level: RAW_LEVEL, index });
       const hi = search(ts, range.end.valueOf(), lo);
       const part = parts[index - first];
-      part.timestamps.push(cut(ts.sub(lo, hi), range));
+      part.timestamps.push(cut(ts.slice(lo, hi), range));
       const lower = ts.alignment + BigInt(lo);
       edges.push({ part, range, lower, upper: lower + BigInt(hi - lo) });
       lo = hi;
@@ -179,7 +180,7 @@ export const split = (
       const { part, range } = edges[i];
       const from = edges[i].lower > lower ? edges[i].lower : lower;
       const to = edges[i].upper < upper ? edges[i].upper : upper;
-      part.series.push(cut(s.sub(Number(from - lower), Number(to - lower)), range));
+      part.series.push(cut(s.slice(Number(from - lower), Number(to - lower)), range));
       claimed += Number(to - from);
     }
     if (claimed < s.length)
