@@ -48,16 +48,16 @@ const retrieveSample = async (key: project.Key): Promise<Sample> => {
   const panels = await client.panels.retrieve({ parent: project.ontologyID(key) });
   expect(panels).toHaveLength(1);
   const { key: panelKey, root } = panels[0];
-  if (root.variant !== "split" || root.last.variant !== "split")
+  if (root.variant !== "split" || root.first.variant !== "split")
     throw new Error("expected a split panel");
-  const [sch] = resourceKeys(root.first);
-  const [plot] = resourceKeys(root.last.first);
+  const [sch] = resourceKeys(root.first.first);
+  const [plot] = resourceKeys(root.first.last);
   return {
     project: key,
     panel: panelKey,
     schematic: sch,
     linePlot: plot,
-    arcs: resourceKeys(root.last.last),
+    arcs: resourceKeys(root.last),
   };
 };
 

@@ -146,33 +146,40 @@ const createChannels = async (client: Synnax): Promise<Channels> => {
   return { ...keys, [INDEX]: index.key } as Channels;
 };
 
+// Handle offsets below the tops of the valve and vent symbols, measured in the Console.
+// A pipe between handles at different heights draws a small jog.
+const VALVE_HANDLE_Y = 19.296875;
+const VENT_HANDLE_Y = 14.78125;
+
+const VENT_VLV_POSITION = { x: 477, y: -35 };
+
 const createSchematic = (ch: Channels): schematic.New => ({
   key: KEYS.schematic,
   name: "Tank",
   nodes: [
-    { key: "supply", position: { x: 0, y: 28 } },
-    { key: "press_vlv", position: { x: 140, y: 80 } },
+    { key: "press_vlv", position: { x: 155, y: 180 } },
     { key: "tank", position: { x: 300, y: 0 } },
-    { key: "vent_vlv", position: { x: 500, y: 80 } },
-    { key: "vent", position: { x: 660, y: 84 } },
-    { key: "tank_pt", position: { x: 318, y: 240 } },
-    { key: "start", position: { x: 250, y: 320 } },
-    { key: "abort", position: { x: 370, y: 320 } },
+    { key: "vent_vlv", position: VENT_VLV_POSITION },
+    {
+      key: "vent",
+      position: {
+        x: 590,
+        y: VENT_VLV_POSITION.y + VALVE_HANDLE_Y - VENT_HANDLE_Y,
+      },
+    },
+    { key: "tank_pt", position: { x: 310, y: 244 } },
+    { key: "start", position: { x: 270, y: 292 } },
+    { key: "abort", position: { x: 394, y: 292 } },
   ],
   edges: [
     {
-      key: "supply_to_press_vlv",
-      source: { node: "supply", param: "4" },
-      target: { node: "press_vlv", param: "1" },
-    },
-    {
       key: "press_vlv_to_tank",
       source: { node: "press_vlv", param: "2" },
-      target: { node: "tank", param: "7" },
+      target: { node: "tank", param: "5" },
     },
     {
       key: "tank_to_vent_vlv",
-      source: { node: "tank", param: "8" },
+      source: { node: "tank", param: "3" },
       target: { node: "vent_vlv", param: "1" },
     },
     {
@@ -182,7 +189,6 @@ const createSchematic = (ch: Channels): schematic.New => ({
     },
   ],
   configs: {
-    supply: { variant: "cylinder", label: { label: "Nitrogen supply" } },
     press_vlv: {
       variant: "valve",
       label: { label: "Press valve" },
@@ -219,7 +225,6 @@ const createSchematic = (ch: Channels): schematic.New => ({
       label: { label: "Abort" },
       commandChannel: ch[ABORT_CMD],
     },
-    supply_to_press_vlv: { variant: "pipe" },
     press_vlv_to_tank: { variant: "pipe" },
     tank_to_vent_vlv: { variant: "pipe" },
     vent_vlv_to_vent: { variant: "pipe" },
@@ -295,24 +300,26 @@ const createSample = async (client: Synnax): Promise<void> => {
       direction: "x",
       size: 0.55,
       first: {
-        variant: "leaf",
-        tabs: [{ variant: "resource", resource: schematic.ontologyID(KEYS.schematic) }],
-      },
-      last: {
         variant: "split",
         direction: "y",
-        size: 0.5,
+        size: 0.55,
         first: {
           variant: "leaf",
-          tabs: [{ variant: "resource", resource: lineplot.ontologyID(KEYS.linePlot) }],
+          tabs: [
+            { variant: "resource", resource: schematic.ontologyID(KEYS.schematic) },
+          ],
         },
         last: {
           variant: "leaf",
-          tabs: [
-            { variant: "resource", resource: arc.ontologyID(KEYS.sequence) },
-            { variant: "resource", resource: arc.ontologyID(KEYS.simulator) },
-          ],
+          tabs: [{ variant: "resource", resource: lineplot.ontologyID(KEYS.linePlot) }],
         },
+      },
+      last: {
+        variant: "leaf",
+        tabs: [
+          { variant: "resource", resource: arc.ontologyID(KEYS.sequence) },
+          { variant: "resource", resource: arc.ontologyID(KEYS.simulator) },
+        ],
       },
     },
   });
