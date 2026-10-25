@@ -741,6 +741,40 @@ describe("MultiplexedStreamer", () => {
       expect(transitions).toEqual(["success", "warning", "success"]);
       sub.close();
     });
+
+    it("should run the drop handlers of open demands when the stream drops", async () => {
+      const hooks: StreamHooks[] = [];
+      const streamer = new MultiplexedStreamer({
+        ...createCache(),
+        openStreamer: createStreamOpener([pendingStreamer([1])], hooks),
+      });
+      const sub = streamer.stream(() => {}, [1]);
+      let drops = 0;
+      sub.onDrop(() => drops++);
+      await vi.advanceTimersByTimeAsync(200);
+      hooks[0].onDrop(new Error("conn lost"));
+      expect(drops).toBe(1);
+      sub.close();
+      hooks[0].onDrop(new Error("conn lost"));
+      expect(drops).toBe(1);
+      await streamer.close();
+    });
+
+    it("should run the drop handlers when the run loop dies", async () => {
+      const frame = new Frame({ 1: new Series(new Float32Array([1])) });
+      const dying = new MockStreamer([1], undefined, [frame]);
+      const streamer = new MultiplexedStreamer({
+        ...createCache(),
+        openStreamer: createStreamOpener([dying, pendingStreamer([1])]),
+      });
+      const sub = streamer.stream(() => {}, [1]);
+      let drops = 0;
+      sub.onDrop(() => drops++);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(drops).toBe(1);
+      sub.close();
+      await streamer.close();
+    });
   });
 
   describe("acks", () => {

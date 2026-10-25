@@ -50,8 +50,9 @@ export interface LatestProps {
 
 /**
  * Serves the newest samples of one channel: a read of its newest stored samples, then
- * every sample the stream delivers after them. Once loaded, the samples only grow at
- * their end and lose whole series from their front.
+ * every newer sample the stream delivers. When the stream drops, it reads the newest
+ * samples again once the Core acks the channel. Once loaded, the samples only grow at
+ * their end and lose whole series from their front, unless their data type changes.
  */
 export class Latest {
   // series holds the samples from front on, and total counts them.
@@ -86,6 +87,7 @@ export class Latest {
       this.notify();
     });
     this.demand.onStatusChange(() => this.notify());
+    this.demand.onDrop(() => this.reload());
     void this.load();
   }
 
@@ -121,6 +123,16 @@ export class Latest {
     this.demand.close();
     this.clear();
     this.held = null;
+  }
+
+  // Reads the newest samples again, since frames may have dropped. The samples held
+  // stay until the read lands.
+  private reload(): void {
+    this.stop();
+    this.held ??= [];
+    this.loading = true;
+    this.notify();
+    void this.load();
   }
 
   // Ends the running load.
@@ -170,41 +182,44 @@ export class Latest {
       }
   }
 
-  // Joins the read to the series streamed while it ran. A streamed sample at or before
-  // the newest read sample is in the read, so it leaves.
+  // Adds the read, then the series streamed while it ran.
   private land(read: Series[]): void {
     const held = this.held ?? [];
     this.held = null;
     this.loading = false;
-    this.clear();
     this.push(read);
-    const newest = read.findLast((s) => s.length > 0);
-    if (newest == null) return this.push(held);
-    const end = newest.alignment + BigInt(newest.length);
-    const domain = domainOf(newest.alignment);
-    this.push(
-      held.flatMap((s) => {
-        if (domainOf(s.alignment) === domain) {
-          const overlap = Number(end - s.alignment);
-          if (overlap >= s.length) return [];
-          return overlap > 0 ? [s.sub(overlap)] : [s];
-        }
-        return s.timeRange.end.beforeEq(newest.timeRange.end) ? [] : [s];
-      }),
-    );
+    this.push(held);
   }
 
   private push(series: Series[]): void {
     if (this.held != null) return void this.held.push(...series);
     for (const s of series) {
-      if (s.length === 0) continue;
+      const fresh = this.fresh(s);
+      if (fresh == null) continue;
       // Series of two data types cannot share a snapshot.
       const first = this.series.at(this.front);
-      if (first != null && !first.dataType.equals(s.dataType)) this.clear();
-      this.series.push(s);
-      this.total += s.length;
+      if (first != null && !first.dataType.equals(fresh.dataType)) this.clear();
+      this.series.push(fresh);
+      this.total += fresh.length;
     }
     this.trim();
+  }
+
+  // Returns the samples of s newer than the newest sample held, or null if it has none.
+  // In the newest sample's domain, alignments decide. In another domain, the ends of
+  // the time ranges decide, and a series with no time range stays.
+  private fresh(s: Series): Series | null {
+    if (s.length === 0) return null;
+    const timed = !s.timeRange.isZero;
+    const newest = this.front < this.series.length ? this.series.at(-1) : undefined;
+    if (newest == null) return s;
+    if (domainOf(s.alignment) === domainOf(newest.alignment)) {
+      const overlap = newest.alignment + BigInt(newest.length) - s.alignment;
+      if (overlap >= BigInt(s.length)) return null;
+      return overlap > 0n ? s.sub(Number(overlap)) : s;
+    }
+    if (!timed || newest.timeRange.isZero) return s;
+    return s.timeRange.end.after(newest.timeRange.end) ? s : null;
   }
 
   // Drops whole series from the front while the rest hold the count, and series that

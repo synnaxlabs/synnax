@@ -228,7 +228,12 @@ export class SyntheticCore {
       data: [[{ key, timeRange: tr }]],
       dataType: DataType.JSON,
     });
-    this.streamers.forEach((s) => s.push(new Frame(this.historyChange.key, signal)));
+    this.stream(new Frame(this.historyChange.key, signal));
+  }
+
+  /** Streams the frame to every open streamer. Reads never return its samples. */
+  stream(frame: Frame): void {
+    this.streamers.forEach((s) => s.push(frame));
   }
 
   /**

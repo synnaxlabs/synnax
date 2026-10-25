@@ -74,12 +74,15 @@ export interface Demand {
   status: (key: channel.Key) => status.Status;
   /** Registers a handler for status transitions on the subscription's keys. */
   onStatusChange: (handler: StatusHandler) => destructor.Destructor;
+  /** Registers a handler that runs when the stream drops, since frames may be lost. */
+  onDrop: (handler: () => void) => destructor.Destructor;
 }
 
 interface Entry {
   handler: FrameHandler;
   keys: Set<channel.Key>;
   statusHandlers: Set<StatusHandler>;
+  dropHandlers: Set<() => void>;
   removed: boolean;
 }
 
@@ -224,6 +227,7 @@ export class MultiplexedStreamer {
       handler,
       keys: new Set(keys),
       statusHandlers: new Set(),
+      dropHandlers: new Set(),
       removed: false,
     };
     this.entries.add(entry);
@@ -237,6 +241,10 @@ export class MultiplexedStreamer {
       onStatusChange: (statusHandler) => {
         entry.statusHandlers.add(statusHandler);
         return () => entry.statusHandlers.delete(statusHandler);
+      },
+      onDrop: (dropHandler) => {
+        entry.dropHandlers.add(dropHandler);
+        return () => entry.dropHandlers.delete(dropHandler);
       },
     };
   }
@@ -389,6 +397,20 @@ export class MultiplexedStreamer {
   // Frames may drop until the stream reopens, so no cached block can be trusted.
   private invalidate(): void {
     this.props.onWait(this.props.joins.invalidate());
+    this.entries.forEach((e) => {
+      if (e.removed) return;
+      e.dropHandlers.forEach((handler) => {
+        try {
+          handler();
+        } catch (err) {
+          this.props.instrumentation.L.error(
+            "drop handler failed",
+            { error: err },
+            true,
+          );
+        }
+      });
+    });
   }
 
   private async reconcile(): Promise<void> {
