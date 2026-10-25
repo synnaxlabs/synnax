@@ -154,10 +154,7 @@ export const ChannelList = <C extends Channel>({
   ...rest
 }: ChannelListProps<C>) => {
   const { onSelect, path, data } = rest;
-  const handleChange = useCallback(
-    (keys: string[]) => onSelect(keys),
-    [onSelect, path],
-  );
+  const handleChange = useCallback((keys: string[]) => onSelect(keys), [onSelect]);
   const menuProps = Menu.useContextMenu();
   return (
     <Flex.Box className={CSS.B("channel-list")} empty grow={grow} style={style}>

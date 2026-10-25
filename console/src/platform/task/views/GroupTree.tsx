@@ -417,14 +417,14 @@ export const GroupTree = <
             fields.push(f);
             if (!chosen.has(f.key)) continue;
             const copy = copyField(f);
-            first ??= copy.key;
+            if (first == null) first = copy.key;
             fields.push(copy);
           }
           next.push({ ...g, fields });
         }
         if (!chosen.has(g.key)) continue;
         const copy = copyGroup<F, G>(g);
-        first ??= copy.key;
+        if (first == null) first = copy.key;
         next.push(copy);
         if (isBranch<F>(copy)) expand(copy.key);
       }

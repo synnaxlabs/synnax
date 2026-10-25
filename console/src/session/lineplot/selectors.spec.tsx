@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { lineplot, type ontology, type panel, ranger } from "@synnaxlabs/client";
+import { lineplot, type ontology, panel, ranger } from "@synnaxlabs/client";
 import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
 import { LinePlot as PLinePlot } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
@@ -19,7 +19,7 @@ import { describe, expect, it } from "vitest";
 import { Session } from "@/session";
 import { LinePlot } from "@/session/lineplot";
 import { createSliceStore, inWindow } from "@/session/window/testutil";
-import { createConsoleWrapper, uniqueName } from "@/testutil";
+import { assertDefined, createConsoleWrapper, uniqueName } from "@/testutil";
 
 const KEY = "plot-1";
 
@@ -252,5 +252,20 @@ describe("focused line plot", () => {
     });
     await waitFor(() => expect(result.current.select).toBe(plot.key));
     expect(result.current.get()).toBe(plot.key);
+  });
+
+  it("should follow the focused tab when its content changes in place", async () => {
+    const tab = tabFor(ranger.ontologyID(uuid.create()));
+    const { result, pan } = await renderFocused([tab]);
+    assertDefined(pan);
+    await waitFor(() => expect(result.current.select).toBeUndefined());
+    const plot = lineplot.ontologyID(uuid.create());
+    await act(async () => {
+      await client.panels.dispatch(
+        pan.key,
+        panel.setTabResource({ key: tab.key, resource: plot }),
+      );
+    });
+    await waitFor(() => expect(result.current.select).toBe(plot.key));
   });
 });

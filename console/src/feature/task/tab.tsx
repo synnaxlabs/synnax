@@ -90,5 +90,5 @@ export const TAB: Panel.Tab = {
     await client.tasks.create({ ...corpse.payload, status: undefined });
   },
   // Only these hooks, so the bundler can drop the rest of the namespace.
-  useTombstone: Panel.createTombstoneReader({ useTombstone: Base.useTombstone }),
+  Guard: Panel.createGuard({ useTombstone: Base.useTombstone }),
 };

@@ -25,7 +25,8 @@ std::vector<master::Info> Pool::enumerate() const {
 }
 
 std::pair<std::shared_ptr<Engine>, x::errors::Error>
-Pool::acquire_unlocked(const std::string &key) {
+Pool::acquire(const std::string &key) {
+    std::lock_guard lock(this->mu);
     const auto it = this->engines.find(key);
     if (it != this->engines.end()) return {it->second, x::errors::NIL};
     if (this->manager == nullptr)
@@ -52,12 +53,6 @@ Pool::acquire_unlocked(const std::string &key) {
     return {eng, x::errors::NIL};
 }
 
-std::pair<std::shared_ptr<Engine>, x::errors::Error>
-Pool::acquire(const std::string &key) {
-    std::lock_guard lock(this->mu);
-    return this->acquire_unlocked(key);
-}
-
 bool Pool::is_active(const std::string &key) const {
     std::lock_guard lock(this->mu);
     const auto it = this->engines.find(key);
@@ -65,19 +60,21 @@ bool Pool::is_active(const std::string &key) const {
 }
 
 std::vector<slave::DiscoveryResult> Pool::get_slaves(const std::string &key) const {
-    std::lock_guard lock(this->mu);
-    const auto it = this->engines.find(key);
-    if (it != this->engines.end()) return it->second->slaves();
-    return {};
+    std::shared_ptr<Engine> engine;
+    {
+        std::lock_guard lock(this->mu);
+        const auto it = this->engines.find(key);
+        if (it == this->engines.end()) return {};
+        engine = it->second;
+    }
+    return engine->slaves();
 }
 
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
 Pool::discover_slaves(const std::string &key) {
-    std::lock_guard lock(this->mu);
-    auto [engine, err] = this->acquire_unlocked(key);
+    auto [engine, err] = this->acquire(key);
     if (err) return {{}, err};
-    if (!engine->running())
-        if (auto init_err = engine->ensure_initialized()) return {{}, init_err};
+    if (auto init_err = engine->ensure_initialized()) return {{}, init_err};
     return {engine->slaves(), x::errors::NIL};
 }
 

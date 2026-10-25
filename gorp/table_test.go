@@ -11,6 +11,7 @@ package gorp_test
 
 import (
 	"context"
+	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -133,6 +134,37 @@ var _ = Describe("Table", func() {
 				Entries(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(Equal(entries))
 		})
+	})
+
+	Describe("NewRetrieve", func() {
+		It(
+			"Should keep concurrent WherePrefix queries on their own prefixes",
+			func(ctx SpecContext) {
+				entries := make([]entry, 4)
+				for i := range entries {
+					entries[i] = entry{ID: int32(i), Data: "data"}
+				}
+				Expect(gorp.NewCreate[int32, entry]().
+					Entries(&entries).Exec(ctx, db)).To(Succeed())
+				table := MustOpen(
+					gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}),
+				)
+				var wg sync.WaitGroup
+				for _, e := range entries {
+					wg.Go(func() {
+						defer GinkgoRecover()
+						for range 100 {
+							var res []entry
+							Expect(table.NewRetrieve().
+								WherePrefix([]byte{0, 0, 0, byte(e.ID)}).
+								Entries(&res).Exec(ctx, db)).To(Succeed())
+							Expect(res).To(Equal([]entry{e}))
+						}
+					})
+				}
+				wg.Wait()
+			},
+		)
 	})
 
 	Describe("Zero-migration case", func() {

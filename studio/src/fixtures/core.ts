@@ -52,7 +52,8 @@ const findBinary = (): string => {
   );
 };
 
-const portInUse = async (port: number): Promise<boolean> =>
+/** portInUse returns true when a server accepts connections on the local port. */
+export const portInUse = async (port: number): Promise<boolean> =>
   await new Promise((resolve) => {
     const socket = net.connect({ port, host: "localhost" });
     socket.once("connect", () => {

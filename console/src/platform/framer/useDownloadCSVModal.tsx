@@ -48,96 +48,97 @@ const CHANNEL_SELECT_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
   placeholder: "Select channels to download",
 };
 
-export const useDownloadCSVModal = Modals.create<DownloadCSVModalParams>(
-  ({ timeRange, channels, name, icon, close }) => {
-    const form = Form.use<typeof formSchema>({
-      schema: formSchema,
-      values: {
-        channels,
-        timeRange: new TimeRange(timeRange).numeric,
-        downsampleFactor: 1,
-        name,
-      },
-    });
-    const range = Form.useFieldValue<
-      NumericTimeRange,
-      NumericTimeRange,
-      typeof formSchema
-    >("timeRange", { ctx: form });
-    const footer = (
-      <>
-        <Triggers.SaveHelpText action="Download" />
-        <Nav.Bar.End x align="center">
-          <DownloadButton handleFinish={close} />
-        </Nav.Bar.End>
-      </>
-    );
-    return (
-      <Form.Form<typeof formSchema> {...form}>
-        <Modal.Frame className={CSS.B("download-csv")}>
-          <Modal.Header icon={icon}>CSV.Download</Modal.Header>
-          <Modal.Body gap="huge">
-            <Text.Text level="h3" weight={450}>
-              Download data for {name} as CSV
-            </Text.Text>
-            <Flex.Box y full="x" gap="medium">
-              <Flex.Box x gap="medium">
-                <Form.DateTimeField
-                  path="timeRange.start"
-                  padHelpText={false}
-                  label="From"
-                  inputProps={{
-                    level: "h4",
-                    variant: "text",
-                    bound: "start",
-                    anchors: { end: range.end },
-                  }}
-                />
-                <Icon.Arrow.Right
-                  className={CSS.BE("download-csv", "arrow")}
-                  color={9}
-                />
-                <Form.DateTimeField
-                  padHelpText={false}
-                  path="timeRange.end"
-                  label="To"
-                  inputProps={{
-                    level: "h4",
-                    variant: "text",
-                    bound: "end",
-                    anchors: { start: range.start },
-                  }}
-                />
-              </Flex.Box>
-              <Form.Field<channel.Key[]> path="channels">
-                {({ value, onChange }) => (
-                  <Channel.SelectMultiple
-                    value={value}
-                    onChange={onChange}
-                    initialQuery={NON_VIRTUAL_CHANNEL_QUERY}
-                    triggerProps={CHANNEL_SELECT_TRIGGER_PROPS}
-                    full="x"
-                  />
-                )}
-              </Form.Field>
-              <DownsampleFactorField
-                path="downsampleFactor"
-                label="Downsample factor"
+const DownloadCSV = ({
+  timeRange,
+  channels,
+  name,
+  icon,
+  close,
+}: Modals.ContentProps<DownloadCSVModalParams, void>) => {
+  const initialRange = new TimeRange(timeRange).numeric;
+  const form = Form.use<typeof formSchema>({
+    schema: formSchema,
+    values: {
+      channels,
+      timeRange: initialRange,
+      downsampleFactor: 1,
+      name,
+    },
+  });
+  const range = Form.useFieldValue<
+    NumericTimeRange,
+    NumericTimeRange,
+    typeof formSchema
+  >("timeRange", { ctx: form });
+  const footer = (
+    <>
+      <Triggers.SaveHelpText action="Download" />
+      <Nav.Bar.End x align="center">
+        <DownloadButton handleFinish={close} />
+      </Nav.Bar.End>
+    </>
+  );
+  return (
+    <Form.Form<typeof formSchema> {...form}>
+      <Modal.Frame className={CSS.B("download-csv")}>
+        <Modal.Header icon={icon}>CSV.Download</Modal.Header>
+        <Modal.Body gap="huge">
+          <Text.Text level="h3" weight={450}>
+            Download data for {name} as CSV
+          </Text.Text>
+          <Flex.Box y full="x" gap="medium">
+            <Flex.Box x gap="medium">
+              <Form.DateTimeField
+                path="timeRange.start"
+                padHelpText={false}
+                label="From"
+                inputProps={{
+                  level: "h4",
+                  variant: "text",
+                  bound: "start",
+                  anchors: { end: range.end },
+                }}
               />
-              {runtime.getOS() !== "Windows" && (
-                <Text.Text status="warning" weight={450}>
-                  Large downloads are faster when the Console runs in Google Chrome or
-                  Microsoft Edge.
-                </Text.Text>
-              )}
+              <Icon.Arrow.Right className={CSS.BE("download-csv", "arrow")} color={9} />
+              <Form.DateTimeField
+                padHelpText={false}
+                path="timeRange.end"
+                label="To"
+                inputProps={{
+                  level: "h4",
+                  variant: "text",
+                  bound: "end",
+                  anchors: { start: range.start },
+                }}
+              />
             </Flex.Box>
-          </Modal.Body>
-          <Modal.Footer>{footer}</Modal.Footer>
-        </Modal.Frame>
-      </Form.Form>
-    );
-  },
-);
+            <Form.Field<channel.Key[]> path="channels">
+              {({ value, onChange }) => (
+                <Channel.SelectMultiple
+                  value={value}
+                  onChange={onChange}
+                  initialQuery={NON_VIRTUAL_CHANNEL_QUERY}
+                  triggerProps={CHANNEL_SELECT_TRIGGER_PROPS}
+                  full="x"
+                />
+              )}
+            </Form.Field>
+            <DownsampleFactorField path="downsampleFactor" label="Downsample factor" />
+            {runtime.getOS() !== "Windows" && (
+              <Text.Text status="warning" weight={450}>
+                Large downloads are faster when the Console runs in Google Chrome or
+                Microsoft Edge.
+              </Text.Text>
+            )}
+          </Flex.Box>
+        </Modal.Body>
+        <Modal.Footer>{footer}</Modal.Footer>
+      </Modal.Frame>
+    </Form.Form>
+  );
+};
+
+export const useDownloadCSVModal = Modals.create<DownloadCSVModalParams>(DownloadCSV);
 
 const DownsampleFactorField = Form.buildNumericField({
   inputProps: { className: CSS.BE("download-csv", "downsample-factor") },

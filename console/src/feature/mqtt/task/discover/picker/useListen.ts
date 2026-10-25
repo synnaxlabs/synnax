@@ -72,7 +72,7 @@ export const useListen = <T extends state.State>(
       await Promise.allSettled([answer]);
       return signal.aborted ? null : await answer;
     },
-    [client],
+    [client, signalRef],
   );
   return { result, listen, follow };
 };

@@ -87,161 +87,164 @@ const beforeSave = async ({
   return true;
 };
 
-export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
-  ({ deviceKey, close }) => {
-    const { capture } = Analytics.use();
-    const {
-      form,
-      save,
-      status: stat,
-      variant,
-    } = useForm({
-      query: deviceKey == null ? null : { key: deviceKey },
-      beforeSave,
-      afterSave: useCallback(() => {
-        if (deviceKey == null) capture("device_connected", { integration: "mqtt" });
-        close();
-      }, [capture, close, deviceKey]),
-    });
+const Connect = ({
+  deviceKey,
+  close,
+}: Modals.ContentProps<PlatformDevice.ConnectParams, void>) => {
+  const { capture } = Analytics.use();
+  const {
+    form,
+    save,
+    status: stat,
+    variant,
+  } = useForm({
+    query: deviceKey == null ? null : { key: deviceKey },
+    beforeSave,
+    afterSave: useCallback(() => {
+      if (deviceKey == null) capture("device_connected", { integration: "mqtt" });
+      close();
+    }, [capture, close, deviceKey]),
+  });
 
-    const secure = Form.useFieldValue<
-      boolean,
-      boolean,
-      PDevice.FormSchema<typeof SCHEMAS>
-    >("properties.secure", { ctx: form });
+  const secure = Form.useFieldValue<
+    boolean,
+    boolean,
+    PDevice.FormSchema<typeof SCHEMAS>
+  >("properties.secure", { ctx: form });
 
-    return (
-      <Modal.Frame className={CSS.B("mqtt-connect")}>
-        <Modal.Header icon={<Icon.Logo.MQTT />}>Broker.Connect</Modal.Header>
-        <Flex.Box className={CSS.B("content")} grow gap="large">
-          <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
-            <Flex.Box gap="small">
-              <Form.TextField path="name" inputProps={NAME_INPUT_PROPS} />
-              <Form.Field<rack.Key> path="rack" label="Connect from" required>
-                {selectRackRenderProp}
+  return (
+    <Modal.Frame className={CSS.B("mqtt-connect")}>
+      <Modal.Header icon={<Icon.Logo.MQTT />}>Broker.Connect</Modal.Header>
+      <Flex.Box className={CSS.B("content")} grow gap="large">
+        <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
+          <Flex.Box gap="small">
+            <Form.TextField path="name" inputProps={NAME_INPUT_PROPS} />
+            <Form.Field<rack.Key> path="rack" label="Connect from" required>
+              {selectRackRenderProp}
+            </Form.Field>
+            <Flex.Box x align="end">
+              <Form.TextField
+                grow
+                path="location"
+                label="Host"
+                inputProps={HOST_INPUT_PROPS}
+              />
+              <Form.Field<number | undefined> path="properties.port" label="Port">
+                {secure ? renderSecurePort : renderPort}
               </Form.Field>
-              <Flex.Box x align="end">
-                <Form.TextField
-                  grow
-                  path="location"
-                  label="Host"
-                  inputProps={HOST_INPUT_PROPS}
-                />
-                <Form.Field<number | undefined> path="properties.port" label="Port">
-                  {secure ? renderSecurePort : renderPort}
-                </Form.Field>
-                <Form.SwitchField path="properties.secure" label="TLS" />
-              </Flex.Box>
-              <Divider.Divider x />
+              <Form.SwitchField path="properties.secure" label="TLS" />
             </Flex.Box>
-            {secure && (
-              <Flex.Box gap="small">
-                <Form.SwitchField
-                  path="properties.verificationSkipped"
-                  label="Skip certificate verification"
-                  align="start"
-                />
-                <Text.Text level="small" color={9}>
-                  Certificate and key files are paths on the Core host. An empty CA file
-                  uses the system roots.
-                </Text.Text>
-                <Form.TextField
-                  path="properties.caFile"
-                  label="CA file"
-                  inputProps={CA_FILE_INPUT_PROPS}
-                />
-                <Flex.Box x>
-                  <Form.TextField
-                    grow
-                    path="properties.certFile"
-                    label="Client certificate"
-                    inputProps={CERT_FILE_INPUT_PROPS}
-                  />
-                  <Form.TextField
-                    grow
-                    path="properties.keyFile"
-                    label="Client key"
-                    inputProps={KEY_FILE_INPUT_PROPS}
-                  />
-                </Flex.Box>
-                <Divider.Divider x />
-              </Flex.Box>
-            )}
+            <Divider.Divider x />
+          </Flex.Box>
+          {secure && (
             <Flex.Box gap="small">
-              <Flex.Box x justify="between">
-                <Form.TextField grow path="properties.username" label="Username" />
-                <Form.TextField
-                  grow
-                  path="properties.password"
-                  label="Password"
-                  inputProps={PASSWORD_INPUT_PROPS}
-                />
-              </Flex.Box>
-              <Flex.Box x align="end">
-                <Form.TextField
-                  grow
-                  path="properties.clientId"
-                  label="Client ID"
-                  inputProps={CLIENT_ID_INPUT_PROPS}
-                />
-                <Form.Field<number | undefined>
-                  path="properties.keepAlive"
-                  label="Keep alive"
-                >
-                  {renderKeepAlive}
-                </Form.Field>
-              </Flex.Box>
-              <Divider.Divider x />
-            </Flex.Box>
-            <Flex.Box gap="small">
-              <Text.Text level="small" weight={500} color={9}>
-                Sparkplug B
-              </Text.Text>
+              <Form.SwitchField
+                path="properties.verificationSkipped"
+                label="Skip certificate verification"
+                align="start"
+              />
               <Text.Text level="small" color={9}>
-                Leave the host ID empty for a passive host. Separate groups with commas,
-                or leave them empty to browse all groups.
+                Certificate and key files are paths on the Core host. An empty CA file
+                uses the system roots.
               </Text.Text>
+              <Form.TextField
+                path="properties.caFile"
+                label="CA file"
+                inputProps={CA_FILE_INPUT_PROPS}
+              />
               <Flex.Box x>
                 <Form.TextField
                   grow
-                  path="properties.sparkplug.hostId"
-                  label="Host ID"
-                  inputProps={HOST_ID_INPUT_PROPS}
+                  path="properties.certFile"
+                  label="Client certificate"
+                  inputProps={CERT_FILE_INPUT_PROPS}
                 />
-                <Form.Field<string[]>
+                <Form.TextField
                   grow
-                  path="properties.sparkplug.groups"
-                  label="Groups"
-                >
-                  {groupsRenderProp}
-                </Form.Field>
+                  path="properties.keyFile"
+                  label="Client key"
+                  inputProps={KEY_FILE_INPUT_PROPS}
+                />
               </Flex.Box>
+              <Divider.Divider x />
             </Flex.Box>
-          </Form.Form>
-        </Flex.Box>
-        <Modal.Footer>
-          <Nav.Bar.Start gap="small">
-            {variant == "success" ? (
-              <Triggers.SaveHelpText action="Connect" noBar />
-            ) : (
-              <Status.Summary variant={variant} message={stat.description} />
-            )}
-          </Nav.Bar.Start>
-          <Nav.Bar.End>
-            <Button.Button
-              status={status.keepVariants(variant, "loading")}
-              onClick={() => save()}
-              variant="filled"
-              trigger={Triggers.SAVE}
-            >
-              Connect
-            </Button.Button>
-          </Nav.Bar.End>
-        </Modal.Footer>
-      </Modal.Frame>
-    );
-  },
-);
+          )}
+          <Flex.Box gap="small">
+            <Flex.Box x justify="between">
+              <Form.TextField grow path="properties.username" label="Username" />
+              <Form.TextField
+                grow
+                path="properties.password"
+                label="Password"
+                inputProps={PASSWORD_INPUT_PROPS}
+              />
+            </Flex.Box>
+            <Flex.Box x align="end">
+              <Form.TextField
+                grow
+                path="properties.clientId"
+                label="Client ID"
+                inputProps={CLIENT_ID_INPUT_PROPS}
+              />
+              <Form.Field<number | undefined>
+                path="properties.keepAlive"
+                label="Keep alive"
+              >
+                {renderKeepAlive}
+              </Form.Field>
+            </Flex.Box>
+            <Divider.Divider x />
+          </Flex.Box>
+          <Flex.Box gap="small">
+            <Text.Text level="small" weight={500} color={9}>
+              Sparkplug B
+            </Text.Text>
+            <Text.Text level="small" color={9}>
+              Leave the host ID empty for a passive host. Separate groups with commas,
+              or leave them empty to browse all groups.
+            </Text.Text>
+            <Flex.Box x>
+              <Form.TextField
+                grow
+                path="properties.sparkplug.hostId"
+                label="Host ID"
+                inputProps={HOST_ID_INPUT_PROPS}
+              />
+              <Form.Field<string[]>
+                grow
+                path="properties.sparkplug.groups"
+                label="Groups"
+              >
+                {groupsRenderProp}
+              </Form.Field>
+            </Flex.Box>
+          </Flex.Box>
+        </Form.Form>
+      </Flex.Box>
+      <Modal.Footer>
+        <Nav.Bar.Start gap="small">
+          {variant == "success" ? (
+            <Triggers.SaveHelpText action="Connect" noBar />
+          ) : (
+            <Status.Summary variant={variant} message={stat.description} />
+          )}
+        </Nav.Bar.Start>
+        <Nav.Bar.End>
+          <Button.Button
+            status={status.keepVariants(variant, "loading")}
+            onClick={() => save()}
+            variant="filled"
+            trigger={Triggers.SAVE}
+          >
+            Connect
+          </Button.Button>
+        </Nav.Bar.End>
+      </Modal.Footer>
+    </Modal.Frame>
+  );
+};
+
+export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(Connect);
 
 const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: MAKE };
 

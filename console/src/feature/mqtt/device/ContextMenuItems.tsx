@@ -15,22 +15,22 @@ import { Task } from "@/feature/mqtt/task";
 import { Device as PlatformDevice } from "@/platform/device";
 import { type Tree } from "@/platform/tree";
 
-const TASK_CONTEXT_MENU_ITEM_CONFIGS: PlatformDevice.TaskContextMenuItemConfig[] = [
-  {
+const TASK_CONTEXT_MENU_ITEMS = [
+  PlatformDevice.createTaskContextMenuItem({
     itemKey: "mqtt.readTask",
     label: "Create read task",
     useCreate: Task.useCreateRead,
-  },
-  {
+  }),
+  PlatformDevice.createTaskContextMenuItem({
     itemKey: "mqtt.writeTask",
     label: "Create write task",
     useCreate: Task.useCreateWrite,
-  },
-  {
+  }),
+  PlatformDevice.createTaskContextMenuItem({
     itemKey: "mqtt.sparkplugEdgeTask",
     label: "Create Sparkplug edge node",
     useCreate: Task.useCreateEdge,
-  },
+  }),
 ];
 
 export const ContextMenuItems = (props: Tree.ContextMenuProps) => {
@@ -43,7 +43,7 @@ export const ContextMenuItems = (props: Tree.ContextMenuProps) => {
       <PlatformDevice.TaskContextMenuItems
         {...props}
         onConfigure={onConfigure}
-        taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
+        items={TASK_CONTEXT_MENU_ITEMS}
       />
     </>
   );

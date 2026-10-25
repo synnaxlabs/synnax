@@ -113,26 +113,24 @@ const { useUpdate: useCreateBase } = Flux.createUpdate<CreateParams, table.Table
     }),
 });
 
+const withDefaultLayout = (data: CreateParams): CreateParams =>
+  (data.rows?.length ?? 0) === 0 && (data.columns?.length ?? 0) === 0
+    ? { ...data, ...createDefaultLayout() }
+    : data;
+
 // useCreate creates a new table. If the caller passes no rows or columns,
 // the table opens with a 2x2 grid of empty text cells so the user lands on
 // a usable starter layout instead of a blank canvas.
 export const useCreate: typeof useCreateBase = (args) => {
   const base = useCreateBase(args);
   const baseRef = useSyncedRef(base);
-  const withDefaultLayout = useCallback(
-    (data: CreateParams): CreateParams =>
-      (data.rows?.length ?? 0) === 0 && (data.columns?.length ?? 0) === 0
-        ? { ...data, ...createDefaultLayout() }
-        : data,
-    [],
-  );
   const update = useCallback<typeof base.update>(
     (data, opts) => baseRef.current.update(withDefaultLayout(data), opts),
-    [withDefaultLayout],
+    [baseRef],
   );
   const updateAsync = useCallback<typeof base.updateAsync>(
     (data, opts) => baseRef.current.updateAsync(withDefaultLayout(data), opts),
-    [withDefaultLayout],
+    [baseRef],
   );
   return { ...base, update, updateAsync };
 };
@@ -206,9 +204,9 @@ export const cellsInRegion = (rows: table.Row[], start: xy.XY, end: xy.XY): stri
     .map(({ x, y }) => rows[y]?.cells[x])
     .filter((cellKey) => cellKey != null);
 
-export const useCellPosition = Scope.bindHook(
-  ({ key, cellKey }: CellParams): xy.XY | null => {
-    const rows = useRows({ key });
-    return useMemo(() => findCellPosition(rows, cellKey), [rows, cellKey]);
-  },
-);
+const useCellPositionBase = ({ key, cellKey }: CellParams): xy.XY | null => {
+  const rows = useRows({ key });
+  return useMemo(() => findCellPosition(rows, cellKey), [rows, cellKey]);
+};
+
+export const useCellPosition = Scope.bindHook(useCellPositionBase);
