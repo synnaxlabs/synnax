@@ -121,7 +121,7 @@ interface StoreParams<
   domain: DocumentDomain<Key, Doc>;
   schema: z.ZodType;
   docSchema: z.ZodType;
-  toValues: (doc: Doc, query: Query) => V;
+  toValues: (doc: Doc, query: Query) => V | undefined;
   /** The path of the edited part in the form the Core stores. */
   path: string[];
   onError: (error: unknown) => void;
@@ -146,6 +146,8 @@ class DocumentStore<
   private readonly params: StoreParams<Key, Doc, Query, V>;
   private doc: Doc;
   private values: V;
+  /** Whether the cached document no longer holds the edited part. */
+  private removed = false;
   private readonly edits: Edit[] = [];
   private batched: actions.Transaction<patch.Action> | null = null;
   private sending: Promise<boolean> = Promise.resolve(true);
@@ -158,18 +160,24 @@ class DocumentStore<
     this.key = params.query.key;
     const cached = params.domain.getCached(this.key);
     if (!query.isLive(cached)) throw new Error(`Document ${this.key} is not cached`);
+    const values = params.toValues(cached, this.query);
+    if (values === undefined)
+      throw new Error(`Document ${this.key} holds nothing at ${params.path.join(".")}`);
     this.doc = cached;
-    this.values = params.toValues(cached, this.query);
+    this.values = values;
   }
 
   get = (): V => {
     const cached = this.params.domain.getCached(this.key);
-    // A deleted document keeps its last values, and takes no edits.
+    // A deleted document, or one whose edited part another client removed, keeps its
+    // last values and takes no edits.
     if (query.isLive(cached) && cached !== this.doc) {
       this.doc = cached;
+      const next = this.params.toValues(cached, this.query);
+      this.removed = next === undefined;
       // Unchanged values keep their identity, so a change re-renders only the fields
       // it reaches, even when a create replaces the whole document.
-      this.values = deep.reuse(this.values, this.params.toValues(cached, this.query));
+      if (next !== undefined) this.values = deep.reuse(this.values, next);
     }
     return this.values;
   };
@@ -301,6 +309,7 @@ class DocumentStore<
   }
 
   private write(at: string, action: patch.Action, valid: boolean): void {
+    if (this.removed) return;
     if (this.batched != null) {
       this.batched.add(action);
       return;
@@ -325,6 +334,7 @@ class DocumentStore<
 
   /** Sends the field's edits right after the edits before them. */
   private dispatch(action: patch.Action): void {
+    if (this.removed) return;
     if (this.batched != null) {
       this.batched.add(action);
       return;
@@ -396,8 +406,10 @@ export interface CreateDocumentFormParams<
   /**
    * Projects the edited part of the document onto the form's values. Each field keeps
    * its path in that part.
+   * @returns undefined when the document no longer holds the part, as when another
+   * client removed it. The form then keeps its last values and takes no edits.
    */
-  toValues: (doc: Doc, query: Query) => z.infer<Schema>;
+  toValues: (doc: Doc, query: Query) => z.infer<Schema> | undefined;
   /**
    * The path of the edited part in the form the Core stores, such as the key of one
    * entry in a map. The form edits the whole document when omitted.

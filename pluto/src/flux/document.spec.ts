@@ -310,6 +310,40 @@ describe("createDocumentForm", () => {
       expect((await fetchStored(t.key)).config).toMatchObject({ routingKey: "cat" });
     });
 
+    it("should keep its values and take no edits once another client removes the part", async () => {
+      const useAlertForm = Flux.createDocumentForm<task.Key, task.Task, typeof alertZ>({
+        name: "Task",
+        schema: alertZ,
+        docSchema: record.unknownZ(),
+        domain: (client) => client.tasks,
+        useEnsure,
+        toValues: ({ payload: { config } }) =>
+          (config as Values["config"]).alerts.find(({ key }) => key === "a"),
+        pathOf: () => ["config", "alerts", "a"],
+      });
+      const t = await createTask();
+      const { result } = await renderHookSuspended(
+        () => useAlertForm({ query: { key: t.key } }),
+        { wrapper },
+      );
+      await act(async () => {
+        await client.tasks.dispatch(
+          t.key,
+          task.remove({ path: ["config", "alerts"], key: "a" }),
+        );
+      });
+      await waitFor(() => {
+        const cached = formClient.tasks.getCached(t.key) as task.Task;
+        expect((cached.config as Values["config"]).alerts).toEqual([]);
+      });
+      expect(result.current.form.value()).toMatchObject({ key: "a", status: "st-a" });
+      const send = spyOnSend(formClient);
+      act(() => result.current.form.set("status", "st-b"));
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      expect(countDispatches(send)).toBe(0);
+      expect((await fetchStored(t.key)).config).toMatchObject({ alerts: [] });
+    });
+
     it("should insert a list entry below the path", async () => {
       const t = await createTask();
       const { result } = await renderConfigForm(t.key);
