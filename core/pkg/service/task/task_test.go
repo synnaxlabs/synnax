@@ -1427,4 +1427,41 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(called).To(BeTrue())
 		})
 	})
+
+	Describe("Search", func() {
+		create := func(ctx SpecContext, name string) ontology.ID {
+			GinkgoHelper()
+			t := task.Task{Type: testType, Rack: testRack.Key, Name: name}
+			Expect(w.Create(ctx, &t)).To(Succeed())
+			return task.OntologyID(t.Key)
+		}
+
+		It(
+			"Should return the matching tasks, closest match first",
+			func(ctx SpecContext) {
+				a := create(ctx, "turbopump test")
+				b := create(ctx, "turbopump")
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 0)).Keys).
+					To(Equal([]ontology.ID{b, a}))
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 1)).Keys).
+					To(Equal([]ontology.ID{b}))
+			},
+		)
+
+		It("Should match a task by its type", func(ctx SpecContext) {
+			id := create(ctx, "igniter")
+			Expect(MustSucceed(svc.Search(ctx, tx, testType, 0)).Keys).
+				To(ContainElement(id))
+		})
+
+		It(
+			"Should not match a staged task outside its transaction",
+			func(ctx SpecContext) {
+				create(ctx, "injector")
+				Expect(
+					MustSucceed(svc.Search(ctx, db, "injector", 0)).Keys,
+				).To(BeEmpty())
+			},
+		)
+	})
 })

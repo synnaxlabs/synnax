@@ -282,4 +282,35 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(labels).To(BeEmpty())
 		})
 	})
+
+	Describe("Search", func() {
+		create := func(ctx SpecContext, name string) ontology.ID {
+			GinkgoHelper()
+			l := label.Label{Name: name, Color: color.MustFromHex("#000000")}
+			Expect(w.Create(ctx, &l)).To(Succeed())
+			return l.OntologyID()
+		}
+
+		It(
+			"Should return the matching labels, closest match first",
+			func(ctx SpecContext) {
+				a := create(ctx, "turbopump test")
+				b := create(ctx, "turbopump")
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 0)).Keys).
+					To(Equal([]ontology.ID{b, a}))
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 1)).Keys).
+					To(Equal([]ontology.ID{b}))
+			},
+		)
+
+		It(
+			"Should not match a staged label outside its transaction",
+			func(ctx SpecContext) {
+				create(ctx, "injector")
+				Expect(
+					MustSucceed(svc.Search(ctx, db, "injector", 0)).Keys,
+				).To(BeEmpty())
+			},
+		)
+	})
 })

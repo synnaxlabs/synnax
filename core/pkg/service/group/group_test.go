@@ -248,4 +248,36 @@ var _ = Describe("Group", Ordered, func() {
 			Expect(called).To(BeTrue())
 		})
 	})
+
+	Describe("Search", func() {
+		var tx gorp.Tx
+		BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
+		create := func(ctx SpecContext, name string) ontology.ID {
+			GinkgoHelper()
+			return MustSucceed(svc.NewWriter(tx).Create(ctx, name, ontology.RootID)).
+				OntologyID()
+		}
+
+		It(
+			"Should return the matching groups, closest match first",
+			func(ctx SpecContext) {
+				a := create(ctx, "turbopump test")
+				b := create(ctx, "turbopump")
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 0)).Keys).
+					To(Equal([]ontology.ID{b, a}))
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 1)).Keys).
+					To(Equal([]ontology.ID{b}))
+			},
+		)
+
+		It(
+			"Should not match a staged group outside its transaction",
+			func(ctx SpecContext) {
+				create(ctx, "injector")
+				Expect(
+					MustSucceed(svc.Search(ctx, db, "injector", 0)).Keys,
+				).To(BeEmpty())
+			},
+		)
+	})
 })

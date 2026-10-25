@@ -811,4 +811,30 @@ var _ = Describe("Status", Ordered, func() {
 			Expect(called).To(BeTrue())
 		})
 	})
+
+	Describe("Search", func() {
+		create := func(ctx SpecContext, key, name string) ontology.ID {
+			GinkgoHelper()
+			s := status.Status[any]{
+				Key:     key,
+				Name:    name,
+				Variant: "success",
+				Time:    telem.Now(),
+			}
+			Expect(svc.NewWriter(nil).Set(ctx, &s)).To(Succeed())
+			return status.OntologyID(s.Key)
+		}
+
+		It(
+			"Should return the matching statuses, closest match first",
+			func(ctx SpecContext) {
+				a := create(ctx, "a", "turbopump test")
+				b := create(ctx, "b", "turbopump")
+				Expect(MustSucceed(svc.Search(ctx, db, "turbopump", 0)).Keys).
+					To(Equal([]ontology.ID{b, a}))
+				Expect(MustSucceed(svc.Search(ctx, db, "turbopump", 1)).Keys).
+					To(Equal([]ontology.ID{b}))
+			},
+		)
+	})
 })

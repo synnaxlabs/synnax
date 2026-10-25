@@ -1061,4 +1061,54 @@ var _ = Describe("Device", func() {
 			},
 		)
 	})
+
+	Describe("Search", func() {
+		create := func(ctx SpecContext, key, name string) ontology.ID {
+			GinkgoHelper()
+			d := device.Device{
+				Key:      key,
+				Rack:     rackSvc.EmbeddedKey,
+				Name:     name,
+				Make:     "acme",
+				Model:    "usb6000",
+				Location: "bay7",
+			}
+			Expect(w.Create(ctx, &d)).To(Succeed())
+			return device.OntologyID(d.Key)
+		}
+
+		It(
+			"Should return the matching devices, closest match first",
+			func(ctx SpecContext) {
+				a := create(ctx, "a", "turbopump test")
+				b := create(ctx, "b", "turbopump")
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 0)).Keys).
+					To(Equal([]ontology.ID{b, a}))
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 1)).Keys).
+					To(Equal([]ontology.ID{b}))
+			},
+		)
+
+		DescribeTable("Should match a device by its",
+			func(ctx SpecContext, term string) {
+				id := create(ctx, "igniter", "igniter")
+				Expect(MustSucceed(svc.Search(ctx, tx, term, 0)).Keys).
+					To(Equal([]ontology.ID{id}))
+			},
+			Entry("name", "igniter"),
+			Entry("make", "acme"),
+			Entry("model", "usb6000"),
+			Entry("location", "bay7"),
+		)
+
+		It(
+			"Should not match a staged device outside its transaction",
+			func(ctx SpecContext) {
+				create(ctx, "injector", "injector")
+				Expect(
+					MustSucceed(svc.Search(ctx, db, "injector", 0)).Keys,
+				).To(BeEmpty())
+			},
+		)
+	})
 })
