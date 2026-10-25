@@ -12,6 +12,7 @@
 package pb
 
 import (
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -153,15 +154,20 @@ func SetToPB[T any](
 	r filter.Set[T],
 	translateT func(T) (*anypb.Any, error),
 ) (*Set, error) {
-	eqAny, err := translateT(r.Eq)
-	if err != nil {
-		return nil, err
-	}
-	pb := &Set{
-		Eq: eqAny,
+	pb := &Set{}
+	if r.Eq != nil {
+		v, err := translateT(*r.Eq)
+		if err != nil {
+			return nil, err
+		}
+		pb.Eq = v
 	}
 	if r.In != nil {
-		pb.In = &ListWrapper{Values: r.In}
+		vals, err := lo.MapErr(r.In, func(v T, _ int) (*anypb.Any, error) { return translateT(v) })
+		if err != nil {
+			return nil, err
+		}
+		pb.In = &ListWrapper{Values: vals}
 	}
 	return pb, nil
 }
@@ -176,13 +182,19 @@ func SetFromPB[T any](
 	if pb == nil {
 		return r, nil
 	}
-	var err error
-	r.Eq, err = translateT(pb.Eq)
-	if err != nil {
-		return filter.Set[T]{}, err
+	if pb.Eq != nil {
+		v, err := translateT(pb.Eq)
+		if err != nil {
+			return filter.Set[T]{}, err
+		}
+		r.Eq = &v
 	}
 	if pb.In != nil {
-		r.In = pb.In.Values
+		vals, err := lo.MapErr(pb.In.Values, func(v *anypb.Any, _ int) (T, error) { return translateT(v) })
+		if err != nil {
+			return filter.Set[T]{}, err
+		}
+		r.In = vals
 	}
 	return r, nil
 }
@@ -225,35 +237,48 @@ func OrderedToPB[T any](
 	r filter.Ordered[T],
 	translateT func(T) (*anypb.Any, error),
 ) (*Ordered, error) {
-	eqAny, err := translateT(r.Eq)
-	if err != nil {
-		return nil, err
-	}
-	gtAny, err := translateT(r.Gt)
-	if err != nil {
-		return nil, err
-	}
-	gteAny, err := translateT(r.Gte)
-	if err != nil {
-		return nil, err
-	}
-	ltAny, err := translateT(r.Lt)
-	if err != nil {
-		return nil, err
-	}
-	lteAny, err := translateT(r.Lte)
-	if err != nil {
-		return nil, err
-	}
-	pb := &Ordered{
-		Eq:  eqAny,
-		Gt:  gtAny,
-		Gte: gteAny,
-		Lt:  ltAny,
-		Lte: lteAny,
+	pb := &Ordered{}
+	if r.Eq != nil {
+		v, err := translateT(*r.Eq)
+		if err != nil {
+			return nil, err
+		}
+		pb.Eq = v
 	}
 	if r.In != nil {
-		pb.In = &ListWrapper{Values: r.In}
+		vals, err := lo.MapErr(r.In, func(v T, _ int) (*anypb.Any, error) { return translateT(v) })
+		if err != nil {
+			return nil, err
+		}
+		pb.In = &ListWrapper{Values: vals}
+	}
+	if r.Gt != nil {
+		v, err := translateT(*r.Gt)
+		if err != nil {
+			return nil, err
+		}
+		pb.Gt = v
+	}
+	if r.Gte != nil {
+		v, err := translateT(*r.Gte)
+		if err != nil {
+			return nil, err
+		}
+		pb.Gte = v
+	}
+	if r.Lt != nil {
+		v, err := translateT(*r.Lt)
+		if err != nil {
+			return nil, err
+		}
+		pb.Lt = v
+	}
+	if r.Lte != nil {
+		v, err := translateT(*r.Lte)
+		if err != nil {
+			return nil, err
+		}
+		pb.Lte = v
 	}
 	return pb, nil
 }
@@ -268,29 +293,47 @@ func OrderedFromPB[T any](
 	if pb == nil {
 		return r, nil
 	}
-	var err error
-	r.Eq, err = translateT(pb.Eq)
-	if err != nil {
-		return filter.Ordered[T]{}, err
-	}
-	r.Gt, err = translateT(pb.Gt)
-	if err != nil {
-		return filter.Ordered[T]{}, err
-	}
-	r.Gte, err = translateT(pb.Gte)
-	if err != nil {
-		return filter.Ordered[T]{}, err
-	}
-	r.Lt, err = translateT(pb.Lt)
-	if err != nil {
-		return filter.Ordered[T]{}, err
-	}
-	r.Lte, err = translateT(pb.Lte)
-	if err != nil {
-		return filter.Ordered[T]{}, err
+	if pb.Eq != nil {
+		v, err := translateT(pb.Eq)
+		if err != nil {
+			return filter.Ordered[T]{}, err
+		}
+		r.Eq = &v
 	}
 	if pb.In != nil {
-		r.In = pb.In.Values
+		vals, err := lo.MapErr(pb.In.Values, func(v *anypb.Any, _ int) (T, error) { return translateT(v) })
+		if err != nil {
+			return filter.Ordered[T]{}, err
+		}
+		r.In = vals
+	}
+	if pb.Gt != nil {
+		v, err := translateT(pb.Gt)
+		if err != nil {
+			return filter.Ordered[T]{}, err
+		}
+		r.Gt = &v
+	}
+	if pb.Gte != nil {
+		v, err := translateT(pb.Gte)
+		if err != nil {
+			return filter.Ordered[T]{}, err
+		}
+		r.Gte = &v
+	}
+	if pb.Lt != nil {
+		v, err := translateT(pb.Lt)
+		if err != nil {
+			return filter.Ordered[T]{}, err
+		}
+		r.Lt = &v
+	}
+	if pb.Lte != nil {
+		v, err := translateT(pb.Lte)
+		if err != nil {
+			return filter.Ordered[T]{}, err
+		}
+		r.Lte = &v
 	}
 	return r, nil
 }
@@ -335,7 +378,11 @@ func ContainsToPB[T any](
 ) (*Contains, error) {
 	pb := &Contains{}
 	if r.Any != nil {
-		pb.Any = &ListWrapper{Values: r.Any}
+		vals, err := lo.MapErr(r.Any, func(v T, _ int) (*anypb.Any, error) { return translateT(v) })
+		if err != nil {
+			return nil, err
+		}
+		pb.Any = &ListWrapper{Values: vals}
 	}
 	return pb, nil
 }
@@ -351,7 +398,11 @@ func ContainsFromPB[T any](
 		return r, nil
 	}
 	if pb.Any != nil {
-		r.Any = pb.Any.Values
+		vals, err := lo.MapErr(pb.Any.Values, func(v *anypb.Any, _ int) (T, error) { return translateT(v) })
+		if err != nil {
+			return filter.Contains[T]{}, err
+		}
+		r.Any = vals
 	}
 	return r, nil
 }

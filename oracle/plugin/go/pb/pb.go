@@ -986,6 +986,20 @@ func (p *Plugin) processGenericFieldForTranslation(
 		paramName := typeRef.TypeParam.Name
 		converterFunc := fmt.Sprintf("translate%s", paramName)
 
+		// An optional value is a pointer in Go and a nullable Any in proto.
+		if isOptional {
+			return fieldTranslatorData{
+				GoName:             goName,
+				PBName:             pbName,
+				ForwardExpr:        fmt.Sprintf("%s(*%s)", converterFunc, goFieldName),
+				BackwardExpr:       fmt.Sprintf("%s(%s)", converterFunc, pbFieldName),
+				IsOptional:         true,
+				NeedsPtrConversion: true,
+				HasError:           true,
+				HasBackwardError:   true,
+			}, false
+		}
+
 		forwardExpr := fmt.Sprintf("%s(%s)", converterFunc, goFieldName)
 		backwardExpr := fmt.Sprintf("%s(%s)", converterFunc, pbFieldName)
 
@@ -1021,6 +1035,36 @@ func (p *Plugin) processGenericFieldForTranslation(
 	}
 
 	p.setPtrConversion(&fd, field, data)
+
+	// A list of a type parameter's values translates each one with its converter.
+	if elem, ok := arrays.ElementType(typeRef, data.table); ok &&
+		arrays.IsArray(typeRef, data.table) && elem.IsTypeParam() &&
+		elem.TypeParam != nil && !elem.TypeParam.HasDefault() {
+		data.AddExternal("github.com/samber/lo")
+		name := elem.TypeParam.Name
+		pbValues := "pb." + pbName
+		if isOptional {
+			fd.IsOptionalArrayWrapper = true
+			fd.WrapperName = arrays.OptionalWrapperName(typeRef, data.table)
+			pbValues += ".Values"
+		}
+		fd.ForwardExpr = fmt.Sprintf(
+			"lo.MapErr(r.%s, func(v %s, _ int) (*anypb.Any, error) { "+
+				"return translate%s(v) })",
+			goName,
+			name,
+			name,
+		)
+		fd.BackwardExpr = fmt.Sprintf(
+			"lo.MapErr(%s, func(v *anypb.Any, _ int) (%s, error) { "+
+				"return translate%s(v) })",
+			pbValues,
+			name,
+			name,
+		)
+		fd.HasError, fd.HasBackwardError = true, true
+		return fd, false
+	}
 
 	// An optional list is a nullable wrapper message in proto (see pb/types), matching
 	// the non-generic path in processFieldForTranslation.

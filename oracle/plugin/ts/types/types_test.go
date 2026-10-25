@@ -1257,6 +1257,30 @@ var _ = Describe("TS Types Plugin", func() {
 		)
 
 		It(
+			"Should pass Zod types to a generic struct in a recursive interface",
+			func(ctx SpecContext) {
+				source := `
+				@ts output "out"
+
+				Key uint32
+
+				Box struct<T extends schema> {
+					value T?
+				}
+
+				Node struct {
+					key      Box<Key>?
+					children Node[]?
+				}
+			`
+				resp := MustGenerate(ctx, source, "tree", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain("key?: Box<typeof keyZ>").
+					ToNotContain("Box<Key>")
+			},
+		)
+
+		It(
 			"Should NOT generate getter for non-recursive struct",
 			func(ctx SpecContext) {
 				source := `
