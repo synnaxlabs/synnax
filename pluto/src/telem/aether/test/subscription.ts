@@ -14,4 +14,5 @@ export const mockSubscription = (close: () => void): framer.Demand => ({
   close,
   status: () => status.create({ variant: "loading", message: "subscribing" }),
   onStatusChange: () => () => {},
+  onDrop: () => () => {},
 });
