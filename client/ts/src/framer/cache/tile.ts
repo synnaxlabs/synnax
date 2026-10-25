@@ -75,7 +75,8 @@ class Tile implements Block {
 }
 
 /** @returns true when the tile is cut short at either end, which keeps it uncached. */
-export const isCut = ({ start, end }: TileSpec): boolean => start != null || end != null;
+export const isCut = ({ start, end }: TileSpec): boolean =>
+  start != null || end != null;
 
 /**
  * @returns the store key of the tile. A tile cut short at either end is never cached.

@@ -277,7 +277,10 @@ export class SyntheticCore {
       // same alignments.
       for (const { key } of [this.calculatedIndex, this.calculated])
         this.raw(key, from, to).forEach((s) =>
-          index.push(key, new Series({ ...seriesProps(s), alignment: s.alignment * 2n })),
+          index.push(
+            key,
+            new Series({ ...seriesProps(s), alignment: s.alignment * 2n }),
+          ),
         );
     }
     if (this.virtual != null) {
