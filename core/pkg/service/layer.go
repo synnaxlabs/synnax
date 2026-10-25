@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	framersignals "github.com/synnaxlabs/synnax/pkg/service/framer/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/http"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -374,6 +375,13 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		l.Signals,
 		l.Channel.Observe(),
 	); !ok(err, closer) {
+		return nil, err
+	}
+	if closer, err := framersignals.Publish(ctx, framersignals.Config{
+		Instrumentation: cfg.Child("framer_signals"),
+		Framer:          l.Framer,
+		Signals:         l.Signals,
+	}); !ok(err, closer) {
 		return nil, err
 	}
 	if closer, err := l.Signals.PublishJSON(

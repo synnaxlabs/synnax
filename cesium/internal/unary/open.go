@@ -59,6 +59,12 @@ type Config struct {
 	// instead, set it to a very small number greater than 0.
 	// [OPTIONAL] Default: 0.2
 	GCThreshold float32
+	// OnHistoryChange receives the time range of each change to stored data that the
+	// channel's live stream does not carry: a new domain, a commit to a domain that is
+	// not the last, or a delete. It runs inline under the DB's locks, so it must not
+	// block or call back into the DB.
+	// [OPTIONAL]
+	OnHistoryChange func(context.Context, telem.TimeRange)
 }
 
 var (
@@ -85,6 +91,7 @@ func (cfg Config) Override(other Config) Config {
 	cfg.FileSize = override.Numeric(cfg.FileSize, other.FileSize)
 	cfg.GCThreshold = override.Numeric(cfg.GCThreshold, other.GCThreshold)
 	cfg.MetaCodec = override.Nil(cfg.MetaCodec, other.MetaCodec)
+	cfg.OnHistoryChange = override.Nil(cfg.OnHistoryChange, other.OnHistoryChange)
 	return cfg
 }
 
@@ -106,6 +113,7 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 		Instrumentation: cfg.Instrumentation,
 		FileSize:        cfg.FileSize,
 		GCThreshold:     cfg.GCThreshold,
+		OnHistoryChange: cfg.OnHistoryChange,
 	})
 	if err != nil {
 		return nil, err

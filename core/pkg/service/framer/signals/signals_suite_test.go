@@ -1,0 +1,95 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package signals_test
+
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	svcsignals "github.com/synnaxlabs/synnax/pkg/service/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+func TestSignals(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Service Framer Signals Suite", SuiteConfig())
+}
+
+// flushInterval is long enough that writes issued back to back in a spec always land
+// in one flush.
+const flushInterval = 500 * telem.Millisecond
+
+var (
+	channelSvc *channel.Service
+	framerSvc  *framer.Service
+)
+
+var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
+	node := mock.NewNode(ctx)
+	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
+	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+	}))
+	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Group:    groupSvc,
+	}))
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Group:    groupSvc,
+		Label:    labelSvc,
+	}))
+	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel:      node.Channel,
+		DB:           node.DB,
+		HostProvider: node.Cluster,
+		Ontology:     otg,
+		Group:        groupSvc,
+		Status:       statusSvc,
+	}))
+	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
+		DB:      node.DB,
+		Channel: channelSvc,
+		Status:  statusSvc,
+	}))
+	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
+		DB:           node.DB,
+		Framer:       node.Framer,
+		Channel:      channelSvc,
+		ChannelGraph: channelGraph,
+	}))
+	sigs := MustSucceed(svcsignals.New(svcsignals.Config{
+		DB:      node.DB,
+		Channel: channelSvc,
+		Framer:  framerSvc,
+	}))
+	MustOpen(signals.Publish(ctx, signals.Config{
+		Framer:        framerSvc,
+		Signals:       sigs,
+		FlushInterval: flushInterval,
+	}))
+})
+
+var _ = ShouldNotLeakGoroutinesPerSpec()
