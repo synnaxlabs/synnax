@@ -74,6 +74,9 @@ class Tile implements Block {
   }
 }
 
+/** @returns true when the tile is cut short at either end, which keeps it uncached. */
+export const isCut = ({ start, end }: TileSpec): boolean => start != null || end != null;
+
 /**
  * @returns the store key of the tile. A tile cut short at either end is never cached.
  */
@@ -130,7 +133,7 @@ export class TileReader {
    */
   async read(spec: TileSpec, dataType?: DataType): Promise<MultiSeries> {
     if (this.closed) throw new UnexpectedError("tile reader is closed");
-    if (spec.start != null || spec.end != null) return await this.batcher.enqueue(spec);
+    if (isCut(spec)) return await this.readFresh(spec);
     const { store } = this.props;
     const key = tileKey(spec);
     const tile = tileRequestKey(spec);
@@ -158,7 +161,7 @@ export class TileReader {
       reads = new Map();
       this.pending.set(tile, reads);
     }
-    const fetched = this.batcher.enqueue(spec);
+    const fetched = this.readFresh(spec);
     reads.set(spec.key, fetched);
     try {
       const series = await fetched;
@@ -168,6 +171,17 @@ export class TileReader {
     } finally {
       reads.delete(spec.key);
       if (reads.size === 0) this.pending.delete(tile);
+    }
+  }
+
+  // Fetches the tile again while a history change of its channel lands during the
+  // fetch, since the fetch can hold samples from before the change.
+  private async readFresh(spec: TileSpec): Promise<MultiSeries> {
+    const { store } = this.props;
+    for (;;) {
+      const version = store.version(spec.key);
+      const series = await this.batcher.enqueue(spec);
+      if (store.version(spec.key) === version) return series;
     }
   }
 

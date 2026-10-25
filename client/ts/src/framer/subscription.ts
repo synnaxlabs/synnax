@@ -37,11 +37,23 @@ export interface LatestLimit {
   count: number;
 }
 
+/** A request that draws its channels under a points limit. */
+export interface PointsRequest {
+  keys: channel.Key[];
+  window: Window;
+  limit: PointsLimit;
+}
+
+/** A request that keeps the newest samples of its channels. */
+export interface LatestRequest {
+  keys: channel.Key[];
+  /** With no window, the request keeps samples of any age. */
+  window?: Window;
+  limit: LatestLimit;
+}
+
 /** The channels, window, and limit of a subscription. */
-export type SubscribeRequest =
-  | { keys: channel.Key[]; window: Window; limit: PointsLimit }
-  /** With no window, a latest limit keeps samples of any age. */
-  | { keys: channel.Key[]; window?: Window; limit: LatestLimit };
+export type SubscribeRequest = PointsRequest | LatestRequest;
 
 /** The samples a subscription serves for one channel. */
 export interface Snapshot {

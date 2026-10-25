@@ -22,12 +22,9 @@ import {
 } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
-import {
-  AccessDeniedError,
-  NotFoundError,
-  UnexpectedError,
-  ValidationError,
-} from "@/errors";
+import { UnexpectedError } from "@/errors";
+import { type Joins } from "@/framer/cache/join";
+import { isDefinitive } from "@/framer/cache/status";
 import { type Store } from "@/framer/cache/store";
 import { type Streamer, type StreamerConfig } from "@/framer/streamer";
 import { status } from "@/status";
@@ -95,6 +92,10 @@ interface AckWaiter {
 
 export interface MultiplexedStreamerProps {
   store: Store;
+  /** Writes the stream's frames into the store. */
+  joins: Joins;
+  /** Receives the index channels of the joins that wait for a catch-up read. */
+  onWait: (indexes: Set<channel.Key>) => void;
   openStreamer: HardenedOpener;
   instrumentation?: alamos.Instrumentation;
   /**
@@ -116,13 +117,6 @@ const THROTTLE_RATE = Rate.hz(60).valueOf();
 const LOADING: status.Crude = { variant: "loading", message: "subscribing" };
 const STREAMING: status.Crude = { variant: "success", message: "streaming" };
 const RECONNECTING: status.Crude = { variant: "warning", message: "reconnecting" };
-
-// A rejection that names the stream's keys, not its connection: the same keys fail on
-// every retry.
-const isKeyRejection = (e: unknown): boolean =>
-  NotFoundError.matches(e) ||
-  AccessDeniedError.matches(e) ||
-  ValidationError.matches(e);
 
 /**
  * Multiplexes durable subscriptions onto one shared frame stream. Demand
@@ -165,6 +159,8 @@ export class MultiplexedStreamer {
   constructor(props: MultiplexedStreamerProps) {
     const {
       store,
+      joins,
+      onWait,
       openStreamer,
       instrumentation = alamos.NOOP,
       removalDelay = TimeSpan.seconds(5),
@@ -172,6 +168,8 @@ export class MultiplexedStreamer {
     this.props = {
       instrumentation,
       store,
+      joins,
+      onWait,
       openStreamer,
       removalDelay: new TimeSpan(removalDelay),
     };
@@ -254,10 +252,21 @@ export class MultiplexedStreamer {
     if (this.connMu.closed) throw new UnexpectedError("telemetry streamer is closed");
     signal?.throwIfAborted();
     await new Promise<void>((resolve, reject) => {
-      const waiter: AckWaiter = { keys, resolve, reject };
-      signal?.addEventListener("abort", () => {
-        if (this.ackWaiters.delete(waiter)) reject(errors.fromUnknown(signal.reason));
-      });
+      const abort = (): void => {
+        if (this.ackWaiters.delete(waiter)) reject(errors.fromUnknown(signal?.reason));
+      };
+      const waiter: AckWaiter = {
+        keys,
+        resolve: () => {
+          signal?.removeEventListener("abort", abort);
+          resolve();
+        },
+        reject: (e) => {
+          signal?.removeEventListener("abort", abort);
+          reject(e);
+        },
+      };
+      signal?.addEventListener("abort", abort);
       this.ackWaiters.add(waiter);
       this.settleAckWaiters();
     });
@@ -373,8 +382,13 @@ export class MultiplexedStreamer {
   // Closes the open blocks of the keys, so reads fetch the span the stream will not
   // deliver.
   private flushBuffers(keys: Iterable<channel.Key>): void {
-    const { store } = this.props;
-    for (const key of keys) store.flush(key);
+    const { joins, onWait } = this.props;
+    for (const key of keys) onWait(joins.flush(key));
+  }
+
+  // Frames may drop until the stream reopens, so no cached block can be trusted.
+  private invalidate(): void {
+    this.props.onWait(this.props.joins.invalidate());
   }
 
   private async reconcile(): Promise<void> {
@@ -416,11 +430,10 @@ export class MultiplexedStreamer {
                 this.setAcked(new Set(this.sentKeys));
                 this.sentKeys.forEach((key) => this.setStatus(key, STREAMING));
               },
-              // Frames may drop until the reopen, so no cached block can be trusted.
               onDrop: () => {
                 this.setAcked(new Set());
                 this.flushBuffers(this.sentKeys);
-                this.props.store.invalidate();
+                this.invalidate();
                 this.sentKeys.forEach((key) => this.setStatus(key, RECONNECTING));
               },
             },
@@ -446,7 +459,7 @@ export class MultiplexedStreamer {
       } catch (e) {
         ins.L.error("failed to update streamer", { error: e });
         const failure = status.fromException(e, "Failed to stream channel");
-        if (isKeyRejection(e) && !this.connMu.closed && fresh.length > 0) {
+        if (isDefinitive(e) && !this.connMu.closed && fresh.length > 0) {
           // One of the new keys caused the rejection. Retry with one of them, and
           // return the rest one at a time, until the culprit fails alone.
           if (fresh.length === 1) {
@@ -487,7 +500,7 @@ export class MultiplexedStreamer {
   }
 
   private async run(streamer: Streamer): Promise<void> {
-    const { store, instrumentation: ins } = this.props;
+    const { joins, onWait, instrumentation: ins } = this.props;
     try {
       for await (const frame of streamer) {
         // Group series by key in one pass; per-key get() scans the whole frame.
@@ -498,12 +511,13 @@ export class MultiplexedStreamer {
           if (existing == null) grouped.set(key, [s]);
           else existing.push(s);
         });
-        const allocated = store.write(grouped);
+        const { allocated, waiting } = joins.write(grouped);
+        onWait(waiting);
         const demanded = this.demandedKeys();
         grouped.forEach((_, k) => {
           // A frame for a key with no remaining demand arrived behind the stream
           // update, so its block must not stay open.
-          if (!demanded.has(k)) store.flush(k);
+          if (!demanded.has(k)) onWait(joins.flush(k));
           this.setStatus(k, STREAMING);
         });
         if (grouped.size !== 0)
@@ -526,7 +540,7 @@ export class MultiplexedStreamer {
         this.streamAbort = null;
         this.setAcked(new Set());
         this.flushBuffers(this.sentKeys);
-        this.props.store.invalidate();
+        this.invalidate();
         this.sentKeys = new Set();
         this.scheduleReconcile(TimeSpan.ZERO);
       }

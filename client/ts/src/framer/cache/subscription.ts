@@ -14,12 +14,19 @@ import { UnexpectedError } from "@/errors";
 import { Latest, type LatestProps } from "@/framer/cache/latest";
 import { Points, type PointsProps } from "@/framer/cache/points";
 import {
+  type PointsRequest,
   type Snapshot,
   type SubscribeRequest,
   type Subscription,
 } from "@/framer/subscription";
 
-export interface HandleProps extends PointsProps, LatestProps {}
+export interface HandleProps extends PointsProps, LatestProps {
+  /** Called once when the subscription closes. */
+  onClose: () => void;
+}
+
+const isPoints = (request: SubscribeRequest): request is PointsRequest =>
+  request.limit.variant === "points";
 
 /** A subscription that serves each channel through a points or latest consumer. */
 export class Handle implements Subscription {
@@ -55,11 +62,8 @@ export class Handle implements Subscription {
     });
     keys.forEach((key) => {
       const c = this.consumers.get(key);
-      if (request.limit.variant === "points") {
-        const { window, limit } = request as Extract<
-          SubscribeRequest,
-          { limit: { variant: "points" } }
-        >;
+      if (isPoints(request)) {
+        const { window, limit } = request;
         if (c instanceof Points) c.update(window, limit);
         else
           this.consumers.set(
@@ -81,7 +85,9 @@ export class Handle implements Subscription {
   }
 
   close(): void {
+    if (this.closed) return;
     this.closed = true;
+    this.props.onClose();
     this.consumers.forEach((c) => c.close());
     this.consumers.clear();
     this.handlers.clear();

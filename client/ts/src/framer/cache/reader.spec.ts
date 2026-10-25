@@ -31,10 +31,6 @@ import { Store } from "@/framer/cache/store";
 import { Frame } from "@/framer/frame";
 import { createTestClient, SyntheticCore } from "@/testutil";
 
-// Writes one channel's series to the store as a streamed frame.
-const write = (store: Store, ch: channel.Key, series: MultiSeries): MultiSeries =>
-  store.write(new Map([[ch, series.series]])).get(ch)!;
-
 const blockRange = (index: number): TimeRange => tileRange({ level: RAW_LEVEL, index });
 
 const blockAlignment = (index: number, offset: number): bigint =>
@@ -380,7 +376,7 @@ describe("Reader", () => {
 
     it("should return streamed samples the fetched ones do not overlap, in time order", async () => {
       const { reader, store, fetches } = createReader({ elapsed: 30 });
-      write(store, 2, createStreamed(40, 42));
+      store.write(2, createStreamed(40, 42));
       const res = await reader.read(new TimeRange(at(0), at(60)), 2);
       expect(fetches).toHaveLength(1);
       expect(res.series).toHaveLength(2);
@@ -389,7 +385,7 @@ describe("Reader", () => {
 
     it("should fetch a span the stream holds", async () => {
       const { reader, store, fetches } = createReader({ elapsed: 30 });
-      write(store, 2, createStreamed(40, 42));
+      store.write(2, createStreamed(40, 42));
       const tr = new TimeRange(at(40), at(42));
       await reader.read(tr, 2);
       await reader.read(tr, 2);
@@ -398,7 +394,7 @@ describe("Reader", () => {
 
     it("should leave out a streamed series that a fetched series overlaps", async () => {
       const { reader, store } = createReader({ elapsed: 30 });
-      write(store, 2, createStreamed(10, 12));
+      store.write(2, createStreamed(10, 12));
       const res = await reader.read(new TimeRange(at(0), at(20)), 2);
       expect(res.series).toHaveLength(1);
       expect(res.series[0]).not.toBe(store.leadingBuffer(2));
@@ -410,7 +406,7 @@ describe("Reader", () => {
         elapsed: 70,
         answer: () => new Frame(),
       });
-      write(store, 2, createStreamed(65, 67));
+      store.write(2, createStreamed(65, 67));
       const res = await reader.read(new TimeRange(at(66), at(68)), 2);
       expect(res.series).toEqual([store.leadingBuffer(2)]);
     });
@@ -420,7 +416,7 @@ describe("Reader", () => {
         elapsed: 30,
         answer: () => new Frame(),
       });
-      write(store, 2, new MultiSeries([new Series(new Float32Array([1, 2]))]));
+      store.write(2, new MultiSeries([new Series(new Float32Array([1, 2]))]));
       core.advance(TimeSpan.seconds(2));
       const res = await reader.read(new TimeRange(at(0), at(60)), 2);
       expect(res.series).toEqual([store.leadingBuffer(2)]);

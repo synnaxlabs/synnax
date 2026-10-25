@@ -20,7 +20,7 @@ import {
   TimeStamp,
 } from "@synnaxlabs/x";
 
-import { channel } from "@/channel";
+import { type channel } from "@/channel";
 import { NotFoundError, UnexpectedError } from "@/errors";
 import { type ChannelRetriever } from "@/framer/adapter";
 import {
@@ -242,7 +242,8 @@ export class Reader {
   // edges, and fills each block whose coverage still ends where the read starts in it.
   // A new data type resets a block, so a block that the read started after its start
   // comes back in the result, to fetch again. So does a catch-up block that another
-  // fetch filled first, since that fetch did not trust its newest samples.
+  // fetch filled first, since that fetch did not trust its newest samples, and a block
+  // of a channel whose history changed while the read ran.
   private async load(
     { first, last, start, catchUp, entries }: Group,
     tr: TimeRange,
@@ -257,6 +258,7 @@ export class Reader {
     });
     const channels = [...requested.keys()];
     const refetch = new Set<Request>();
+    const versions = new Map<channel.Key, number>();
     const payloads = await retrieveChannels(channels);
     if (this.closed) return refetch;
     // indexOf holds the index of each channel read, or 0 for a channel with none.
@@ -265,13 +267,15 @@ export class Reader {
       const idx = p.isIndex ? p.key : p.index;
       indexOf.set(p.key, idx);
       if (idx !== 0) indexOf.set(idx, idx);
-      store.setCalculated(p.key, channel.isCalculated(p));
+      store.setChannel(p);
     });
     channels.forEach((ch) => {
       if (!indexOf.has(ch)) throw new NotFoundError(`channel ${ch} not found`);
     });
+    indexOf.forEach((_, k) => versions.set(k, store.version(k)));
     const frame = await readRemote(tr, [...indexOf.keys()]);
     if (this.closed) return refetch;
+    const rewritten = (k: channel.Key): boolean => store.version(k) !== versions.get(k);
     const grouped = new Map<channel.Key, Series[]>();
     frame.forEach((k, s) => {
       const key = k as channel.Key;
@@ -293,9 +297,14 @@ export class Reader {
           catchUp,
         }));
       const trusted = catchUp ? newestEnd(timestamps, start) : committed;
+      const stale = rewritten(key) || (idx !== 0 && rewritten(idx));
       targets.forEach((r) => {
         const { block } = r;
         if (block.joined) return;
+        if (stale) {
+          if (requested.has(key)) refetch.add(r);
+          return;
+        }
         const from = block.index === first ? start : block.range.start;
         if (changed) {
           block.reset();

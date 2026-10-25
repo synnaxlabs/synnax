@@ -19,6 +19,7 @@ import {
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
+import { Joins } from "@/framer/cache/join";
 import { Joiner } from "@/framer/cache/joiner";
 import {
   DEFAULT_BATCH_DEBOUNCE,
@@ -48,7 +49,7 @@ export interface LatestReader {
 // The channel the Core publishes history changes on.
 const HISTORY_CHANGE_CHANNEL = "sy_history_change";
 
-interface LatestRequest {
+interface LatestQuery {
   key: channel.Key;
   count: number;
   tr: TimeRange;
@@ -59,9 +60,15 @@ export interface FeedProps
   extends
     Pick<StoreProps, "dynamicBufferSize" | "instrumentation">,
     Omit<ReaderProps, "store">,
-    Omit<MultiplexedStreamerProps, "store" | "openStreamer"> {
+    Omit<MultiplexedStreamerProps, "store" | "joins" | "onWait" | "openStreamer"> {
   openStreamer: StreamOpener;
   readLatest: LatestReader;
+  /**
+   * The key of the Core node the client connects to, once known. History signals keep
+   * the blocks of only the channels stored on it.
+   * @default a node that is never known
+   */
+  node?: () => number | undefined;
   /**
    * Byte size the block cache evicts down to. Blocks a caller holds and blocks the
    * stream writes into are never evicted.
@@ -81,7 +88,7 @@ export interface FeedProps
 /** The part of {@link FeedProps} a caller sets. The client supplies the rest. */
 export interface FeedOptions extends Omit<
   FeedProps,
-  "readRemote" | "retrieveChannels" | "openStreamer" | "readLatest" | "onRetry"
+  "readRemote" | "retrieveChannels" | "openStreamer" | "readLatest" | "onRetry" | "node"
 > {}
 
 /**
@@ -94,11 +101,15 @@ export class Feed {
   private readonly streamer: MultiplexedStreamer;
   private readonly tiles: TileReader;
   private readonly store: Store;
+  private readonly joins: Joins;
   private readonly joiner: Joiner;
-  private readonly latest: debounce.Batcher<LatestRequest, MultiSeries>;
+  private readonly latest: debounce.Batcher<LatestQuery, MultiSeries>;
   private readonly props: FeedProps;
-  // signals carries the history changes once a subscription asks for them.
-  private signals: Promise<Demand | null> | null = null;
+  private readonly handles = new Set<Handle>();
+  // listening is true once a subscription asked for the history changes, and signals
+  // carries them once their channel is found.
+  private listening = false;
+  private signals: Demand | null = null;
   private closed = false;
 
   constructor(props: FeedProps) {
@@ -117,6 +128,7 @@ export class Feed {
       fetchTimeout,
       now,
       onRetry,
+      node,
     } = props;
     this.props = props;
     this.store = new Store({
@@ -125,7 +137,9 @@ export class Feed {
       dynamicBufferSize,
       instrumentation: instrumentation?.child("store"),
       now,
+      node,
     });
+    this.joins = new Joins(this.store);
     this.reader = new Reader({
       readRemote,
       retrieveChannels,
@@ -143,6 +157,8 @@ export class Feed {
     });
     this.streamer = new MultiplexedStreamer({
       store: this.store,
+      joins: this.joins,
+      onWait: (indexes) => this.joiner.wake(indexes),
       openStreamer: async (config, { onReopen, onDrop, signal }) => {
         const streamer = new HardenedStreamer(openStreamer, config, {
           breaker,
@@ -160,6 +176,7 @@ export class Feed {
     });
     this.joiner = new Joiner({
       store: this.store,
+      joins: this.joins,
       reader: this.reader,
       streamer: this.streamer,
       now: this.now,
@@ -203,10 +220,11 @@ export class Feed {
    */
   subscribe(request: SubscribeRequest): Subscription {
     if (this.closed) throw new UnexpectedError("telemetry feed is closed");
-    this.signals ??= this.listen();
-    return new Handle(
+    if (!this.listening) void this.listen();
+    const handle: Handle = new Handle(
       {
         store: this.store,
+        joins: this.joins,
         reader: this.reader,
         tiles: this.tiles,
         streamer: this.streamer,
@@ -216,34 +234,39 @@ export class Feed {
           await this.latest.enqueue({ key, count, tr }),
         now: this.now,
         breaker: this.props.breaker,
+        onClose: () => this.handles.delete(handle),
       },
       request,
     );
+    this.handles.add(handle);
+    return handle;
   }
 
   // Streams the history changes, which drop the cached samples they name. A failure to
   // find the channel leaves fetched blocks to expire, and the next subscription tries
   // again.
-  private async listen(): Promise<Demand | null> {
+  private async listen(): Promise<void> {
     const { retrieveChannels, instrumentation } = this.props;
+    this.listening = true;
     try {
       const [payload] = await retrieveChannels([HISTORY_CHANGE_CHANNEL]);
       if (payload == null)
         throw new UnexpectedError(`${HISTORY_CHANGE_CHANNEL} not found`);
-      if (this.closed) return null;
+      if (this.closed) return;
       this.store.setSignalKey(payload.key);
-      return this.streamer.demand([payload.key], (frame) => {
+      this.signals = this.streamer.demand([payload.key], (frame) => {
         frame.get(payload.key)?.forEach((s) =>
           s
             .parseJSON(historyChangeZ.array())
             .flat()
-            .forEach(({ key, timeRange }) => this.store.invalidate(key, timeRange)),
+            .forEach(({ key, timeRange }) =>
+              this.joiner.wake(this.joins.invalidate(key, timeRange)),
+            ),
         );
       });
     } catch (e) {
       instrumentation?.L.warn("failed to stream history changes", { error: e });
-      this.signals = null;
-      return null;
+      this.listening = false;
     }
   }
 
@@ -294,15 +317,21 @@ export class Feed {
     return await this.latest.enqueue({ key, count: 1, tr: TimeRange.MAX });
   }
 
-  /** Closes the feed, releasing the stream and all cached buffers. */
+  /**
+   * Closes the feed and every open subscription, releasing the stream and all cached
+   * buffers.
+   */
   async close(): Promise<void> {
     this.closed = true;
+    this.handles.forEach((h) => h.close());
     this.latest.close(new UnexpectedError("telemetry feed is closed"));
     this.joiner.close();
-    (await this.signals)?.close();
+    this.signals?.close();
+    this.signals = null;
     await this.streamer.close();
     await this.reader.close();
     this.tiles.close();
+    this.joins.close();
     this.store.close();
   }
 }

@@ -44,6 +44,8 @@ export interface ClientConfig {
   retrieveChannels: ChannelRetriever;
   /** Receives each failed reconnect attempt of a feed's stream. */
   onRetry?: (error: Error) => void;
+  /** The key of the Core node the client connects to, once known. */
+  node?: () => number | undefined;
 }
 
 /**
@@ -113,6 +115,7 @@ export class Client {
     return new Feed({
       ...options,
       onRetry: this.cfg.onRetry,
+      node: this.cfg.node,
       readRemote: async (tr, keys, reduction) =>
         await this.read(tr, keys, { reduction }),
       retrieveChannels: this.cfg.retrieveChannels,

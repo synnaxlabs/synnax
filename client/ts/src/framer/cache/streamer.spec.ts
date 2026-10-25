@@ -14,9 +14,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type channel } from "@/channel";
 import { NotFoundError, UnexpectedError } from "@/errors";
 import { type framer } from "@/framer";
+import { Joins } from "@/framer/cache/join";
 import { Store } from "@/framer/cache/store";
 import { MultiplexedStreamer, type StreamHooks } from "@/framer/cache/streamer";
 import { Frame } from "@/framer/frame";
+
+// Returns the stores a streamer writes into, with no join that can wait.
+const createCache = (store: Store = new Store()) => ({
+  store,
+  joins: new Joins(store),
+  onWait: () => {},
+});
 
 const createErrorSpy = () => {
   const instrumentation = new alamos.Instrumentation({
@@ -165,7 +173,7 @@ describe("MultiplexedStreamer", () => {
     it("should stream every other key when the open rejects one", async () => {
       const opened: channel.Key[][] = [];
       const streamer = new MultiplexedStreamer({
-        store: new Store(),
+        ...createCache(),
         openStreamer: async (config) => {
           const keys = channelsOf(config);
           opened.push(keys);
@@ -187,7 +195,7 @@ describe("MultiplexedStreamer", () => {
 
     it("should stream a key opened after a rejected one", async () => {
       const streamer = new MultiplexedStreamer({
-        store: new Store(),
+        ...createCache(),
         openStreamer: async (config) => {
           const keys = channelsOf(config);
           if (keys.includes(BAD)) throw new NotFoundError(`channel ${BAD} not found`);
@@ -204,7 +212,7 @@ describe("MultiplexedStreamer", () => {
 
     it("should keep a rejected key's error when no other key is demanded", async () => {
       const streamer = new MultiplexedStreamer({
-        store: new Store(),
+        ...createCache(),
         openStreamer: async () => {
           throw new NotFoundError(`channel ${BAD} not found`);
         },
@@ -219,7 +227,7 @@ describe("MultiplexedStreamer", () => {
     it("should give each opened stream its own abort signal", async () => {
       const hooks: StreamHooks[] = [];
       const streamer = new MultiplexedStreamer({
-        store: new Store(),
+        ...createCache(),
         openStreamer: createStreamOpener(
           [pendingStreamer([1]), pendingStreamer([1])],
           hooks,
@@ -242,7 +250,7 @@ describe("MultiplexedStreamer", () => {
     it("should keep streaming when an update adds a rejected key", async () => {
       const ms = rejectingStreamer([1]);
       const streamer = new MultiplexedStreamer({
-        store: new Store(),
+        ...createCache(),
         openStreamer: createStreamOpener([ms]),
         instrumentation: createErrorSpy().instrumentation,
       });
@@ -266,7 +274,7 @@ describe("MultiplexedStreamer", () => {
         await update(next);
       };
       const streamer = new MultiplexedStreamer({
-        store: new Store(),
+        ...createCache(),
         openStreamer: createStreamOpener([ms]),
         removalDelay: TimeSpan.milliseconds(10),
         instrumentation: createErrorSpy().instrumentation,
@@ -289,7 +297,7 @@ describe("MultiplexedStreamer", () => {
   describe("construction", () => {
     it("should correctly construct a new streamer that operates", () => {
       const streamer = new MultiplexedStreamer({
-        store: new Store(),
+        ...createCache(),
         openStreamer: createStreamOpener([new MockStreamer([])]),
       });
       expect(streamer).toBeDefined();
@@ -300,7 +308,7 @@ describe("MultiplexedStreamer", () => {
     it("should allow the caller to subscribe to changes from a channel", async () => {
       let i = 0;
       const streamer = new MultiplexedStreamer({
-        store: new Store(),
+        ...createCache(),
         openStreamer: createStreamOpener([
           new MockStreamer([1], async () => {
             await sleep.sleep(TimeSpan.milliseconds(5));
@@ -366,7 +374,7 @@ describe("MultiplexedStreamer", () => {
         origClose();
       };
       const streamer = new MultiplexedStreamer({
-        store: new Store(),
+        ...createCache(),
         openStreamer: createStreamOpener([ms]),
       });
       const responses: Map<channel.Key, MultiSeries>[] = [];
@@ -396,7 +404,7 @@ describe("MultiplexedStreamer", () => {
       };
 
       const streamer = new MultiplexedStreamer({
-        store: new Store(),
+        ...createCache(),
         openStreamer: slowOpener,
       });
 
@@ -426,7 +434,7 @@ describe("MultiplexedStreamer", () => {
         return pendingStreamer([1]);
       };
       const streamer = new MultiplexedStreamer({
-        store: new Store(),
+        ...createCache(),
         openStreamer: opener,
       });
 
@@ -446,7 +454,7 @@ describe("MultiplexedStreamer", () => {
         return ms1;
       };
       const streamer = new MultiplexedStreamer({
-        store: new Store(),
+        ...createCache(),
         openStreamer: slowOpener,
       });
 
@@ -465,7 +473,7 @@ describe("MultiplexedStreamer", () => {
     it("should close the underlying streamer when the last listener disconnects", async () => {
       const ms1 = pendingStreamer([1]);
       const streamer = new MultiplexedStreamer({
-        store: new Store(),
+        ...createCache(),
         openStreamer: createStreamOpener([ms1]),
         removalDelay: TimeSpan.milliseconds(50),
       });
@@ -484,7 +492,7 @@ describe("MultiplexedStreamer", () => {
 
     it("should throw when stream() is called after close()", async () => {
       const streamer = new MultiplexedStreamer({
-        store: new Store(),
+        ...createCache(),
         openStreamer: createStreamOpener([]),
       });
       await streamer.close();
@@ -503,7 +511,7 @@ describe("MultiplexedStreamer", () => {
         return pendingStreamer([2]);
       };
       const streamer = new MultiplexedStreamer({
-        store: new Store(),
+        ...createCache(),
         openStreamer: opener,
       });
 
@@ -529,7 +537,7 @@ describe("MultiplexedStreamer", () => {
     it("should not call update again when the merged key set is unchanged", async () => {
       const ms1 = pendingStreamer([1]);
       const streamer = new MultiplexedStreamer({
-        store: new Store(),
+        ...createCache(),
         openStreamer: createStreamOpener([ms1]),
       });
 
@@ -562,7 +570,7 @@ describe("MultiplexedStreamer", () => {
       process.on("unhandledRejection", onRejection);
 
       const streamer = new MultiplexedStreamer({
-        store: new Store(),
+        ...createCache(),
         openStreamer: createStreamOpener([ms1]),
         instrumentation,
       });
@@ -597,7 +605,7 @@ describe("MultiplexedStreamer", () => {
       const dying = new MockStreamer([1], undefined, [frame]);
       const replacement = pendingStreamer([1]);
       const streamer = new MultiplexedStreamer({
-        store: new Store(),
+        ...createCache(),
         openStreamer: createStreamOpener([dying, replacement]),
       });
 
@@ -616,7 +624,7 @@ describe("MultiplexedStreamer", () => {
         Promise.withResolvers<void>();
       dying.update = async () => await updateGate;
       const streamer = new MultiplexedStreamer({
-        store: new Store(),
+        ...createCache(),
         openStreamer: createStreamOpener([dying, replacement]),
       });
 
@@ -657,7 +665,7 @@ describe("MultiplexedStreamer", () => {
       };
       const { instrumentation, errorSpy } = createErrorSpy();
       const streamer = new MultiplexedStreamer({
-        store: new Store(),
+        ...createCache(),
         openStreamer: opener,
         instrumentation,
       });
@@ -688,7 +696,7 @@ describe("MultiplexedStreamer", () => {
     it("should notify remaining status handlers when one throws", async () => {
       const { instrumentation, errorSpy } = createErrorSpy();
       const streamer = new MultiplexedStreamer({
-        store: new Store(),
+        ...createCache(),
         openStreamer: createStreamOpener([pendingStreamer([1])]),
         instrumentation,
       });
@@ -717,7 +725,7 @@ describe("MultiplexedStreamer", () => {
     it("should report reconnecting on drop and streaming on reopen", async () => {
       const hooks: StreamHooks[] = [];
       const streamer = new MultiplexedStreamer({
-        store: new Store(),
+        ...createCache(),
         openStreamer: createStreamOpener([pendingStreamer([1])], hooks),
       });
       const transitions: string[] = [];
@@ -739,7 +747,7 @@ describe("MultiplexedStreamer", () => {
     it("should resolve a wait once the stream acks every key", async () => {
       const ms = pendingStreamer([1]);
       const streamer = new MultiplexedStreamer({
-        store: new Store(),
+        ...createCache(),
         openStreamer: createStreamOpener([ms]),
       });
       const first = streamer.demand([1], () => {});
@@ -759,7 +767,7 @@ describe("MultiplexedStreamer", () => {
     it("should wait again after a drop until the stream reopens", async () => {
       const hooks: StreamHooks[] = [];
       const streamer = new MultiplexedStreamer({
-        store: new Store(),
+        ...createCache(),
         openStreamer: createStreamOpener([pendingStreamer([1])], hooks),
       });
       const sub = streamer.demand([1], () => {});
@@ -778,7 +786,7 @@ describe("MultiplexedStreamer", () => {
 
     it("should reject a wait with the Core's rejection of a key", async () => {
       const streamer = new MultiplexedStreamer({
-        store: new Store(),
+        ...createCache(),
         openStreamer: async () => {
           throw new NotFoundError("channel 3 not found");
         },
@@ -795,7 +803,7 @@ describe("MultiplexedStreamer", () => {
 
     it("should reject a wait when its signal aborts or the streamer closes", async () => {
       const streamer = new MultiplexedStreamer({
-        store: new Store(),
+        ...createCache(),
         openStreamer: createStreamOpener([pendingStreamer([1])]),
       });
       const abort = new AbortController();
@@ -821,7 +829,7 @@ describe("MultiplexedStreamer", () => {
     it("should flush a channel's buffer when its demand ends", async () => {
       const store = new Store();
       const streamer = new MultiplexedStreamer({
-        store,
+        ...createCache(store),
         openStreamer: createStreamOpener([
           oneFrameStreamer([1], new Frame({ 1: stampedSeries() })),
         ]),
@@ -849,7 +857,7 @@ describe("MultiplexedStreamer", () => {
     it("should flush only the keys that left the stream", async () => {
       const store = new Store();
       const streamer = new MultiplexedStreamer({
-        store,
+        ...createCache(store),
         openStreamer: createStreamOpener([
           oneFrameStreamer(
             [1, 2],
@@ -877,7 +885,7 @@ describe("MultiplexedStreamer", () => {
       const store = new Store();
       const hooks: StreamHooks[] = [];
       const streamer = new MultiplexedStreamer({
-        store,
+        ...createCache(store),
         openStreamer: createStreamOpener(
           [oneFrameStreamer([1], new Frame({ 1: stampedSeries() }))],
           hooks,
@@ -901,7 +909,7 @@ describe("MultiplexedStreamer", () => {
       ]);
       const replacement = pendingStreamer([1]);
       const streamer = new MultiplexedStreamer({
-        store,
+        ...createCache(store),
         openStreamer: createStreamOpener([dying, replacement]),
       });
       const sub = streamer.stream(() => {}, [1]);
@@ -919,7 +927,7 @@ describe("MultiplexedStreamer", () => {
     it("should flush a frame for a key with no demand", async () => {
       const store = new Store();
       const streamer = new MultiplexedStreamer({
-        store,
+        ...createCache(store),
         openStreamer: createStreamOpener([
           oneFrameStreamer([1], new Frame({ 2: stampedSeries() })),
         ]),
@@ -953,7 +961,7 @@ describe("MultiplexedStreamer", () => {
         return await new Promise<IteratorResult<framer.Frame>>(() => {});
       });
       const streamer = new MultiplexedStreamer({
-        store: new Store(),
+        ...createCache(),
         openStreamer: createStreamOpener([stuck, pendingStreamer([2])]),
         removalDelay: TimeSpan.milliseconds(50),
       });
@@ -978,7 +986,7 @@ describe("MultiplexedStreamer", () => {
     it("should cancel a pending removal timer on close", async () => {
       const ms1 = pendingStreamer([1]);
       const streamer = new MultiplexedStreamer({
-        store: new Store(),
+        ...createCache(),
         openStreamer: createStreamOpener([ms1]),
         removalDelay: TimeSpan.seconds(5),
       });
@@ -1005,7 +1013,7 @@ describe("MultiplexedStreamer", () => {
         return ms1;
       };
       const streamer = new MultiplexedStreamer({
-        store: new Store(),
+        ...createCache(),
         openStreamer: opener,
         instrumentation,
       });

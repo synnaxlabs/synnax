@@ -9,7 +9,7 @@
 
 import {
   type Aggregation,
-  breaker,
+  type breaker,
   deep,
   type destructor,
   MultiSeries,
@@ -27,11 +27,20 @@ import { NotFoundError, ValidationError } from "@/errors";
 import { type ChannelRetriever } from "@/framer/adapter";
 import { type Block, type RawBlock, rawIndex } from "@/framer/cache/block";
 import * as grid from "@/framer/cache/grid";
-import { isDefinitive, type Joiner } from "@/framer/cache/joiner";
+import { type Joins } from "@/framer/cache/join";
+import { type Joiner } from "@/framer/cache/joiner";
 import { assemble, COMMIT_MARGIN, type Reader } from "@/framer/cache/reader";
+import {
+  isDefinitive,
+  LOADING,
+  newBreaker,
+  READ_FAILED,
+  SUCCESS,
+} from "@/framer/cache/status";
 import { type Store } from "@/framer/cache/store";
 import { type Demand, type MultiplexedStreamer } from "@/framer/cache/streamer";
 import {
+  isCut,
   tileKey,
   type TileReader,
   tileRequestKey,
@@ -42,6 +51,7 @@ import { status } from "@/status";
 
 export interface PointsProps {
   store: Store;
+  joins: Joins;
   reader: Reader;
   tiles: TileReader;
   streamer: MultiplexedStreamer;
@@ -52,10 +62,6 @@ export interface PointsProps {
   breaker?: breaker.Config;
 }
 
-const LOADING: status.Crude = { variant: "loading", message: "Loading channel data" };
-const SUCCESS: status.Crude = { variant: "success", message: "Loaded channel data" };
-const READ_FAILED = "Failed to read channel data";
-
 interface Held {
   spec: TileSpec;
   series: MultiSeries;
@@ -63,19 +69,8 @@ interface Held {
   block?: Block;
 }
 
-const newBreaker = (
-  notifier: sync.Notifier,
-  config?: breaker.Config,
-): breaker.Breaker =>
-  new breaker.Breaker({
-    baseInterval: TimeSpan.seconds(1),
-    maxInterval: TimeSpan.seconds(30),
-    maxRetries: Infinity,
-    scale: 2,
-    jitter: 0.25,
-    sleepFn: async (span) => await notifier.wait(span),
-    ...config,
-  });
+// The number of distinct target arguments Points remembers the targets of.
+const TARGETS_KEPT = 8;
 
 const positionKey = ({ level, index }: grid.Position): string => `${level}/${index}`;
 
@@ -90,6 +85,8 @@ export class Points {
   // parked holds the failure that stops the channel for good.
   private parked: status.Status | null = null;
   private readFailure: status.Status | null = null;
+  // rejection holds the failure of the last tile a definitive failure stopped.
+  private rejection: status.Status | null = null;
   private demand: Demand | null = null;
   private leave: destructor.Destructor | null = null;
   private readonly held = new Map<string, Held>();
@@ -120,6 +117,9 @@ export class Points {
     loading: status.create(LOADING),
     success: status.create(SUCCESS),
   };
+  // targetsOf holds the targets of recent arguments, which repeat until the home, view,
+  // limit, or boundary moves.
+  private readonly targetsOf = new Map<string, TileSpec[]>();
 
   constructor(
     private readonly props: PointsProps,
@@ -147,14 +147,21 @@ export class Points {
     return this.limit.count === Infinity;
   }
 
-  /** Replaces the window and limit. Held tiles stand in until the new ones land. */
+  /**
+   * Replaces the window and limit. Held tiles stand in until the new ones land, and
+   * tiles a definitive failure stopped read again.
+   */
   update(window: Window, limit: PointsLimit): void {
     const wasLive = this.live;
     const moved = !deep.equal(window, this.window);
+    if (!moved && deep.equal(limit, this.limit)) return;
     this.window = window;
     this.limit = limit;
+    this.targetsOf.clear();
+    this.rejected.clear();
+    this.rejection = null;
     if (this.index == null) return;
-    if (wasLive !== this.live) this.stream();
+    if (wasLive !== this.live) this.stream(this.index);
     if (moved || this.rawOnly) this.boundary = this.rawFrom(this.home());
   }
 
@@ -231,9 +238,10 @@ export class Points {
       const index = payload.isIndex ? payload.key : payload.index;
       if (index === 0)
         throw new ValidationError(`channel ${payload.name} has no index to draw on`);
+      this.props.store.setChannel(payload);
       this.index = index;
       this.boundary = this.rawFrom(this.home());
-      this.stream();
+      this.stream(index);
       this.breaker.reset();
       this.readFailure = null;
     } catch (e) {
@@ -248,8 +256,7 @@ export class Points {
   }
 
   // Streams and joins the channel while the window is live.
-  private stream(): void {
-    const index = this.index!;
+  private stream(index: channel.Key): void {
     this.demand?.close();
     this.leave?.();
     this.demand = null;
@@ -294,14 +301,33 @@ export class Points {
     boundary: TimeStamp = this.boundary,
   ): TileSpec[] {
     if (this.rawOnly) return [];
+    const tilesEnd = this.live ? this.tilesEnd(boundary) : undefined;
+    const key = [view.start, view.end, home.start, home.end, tilesEnd, extremesKept]
+      .map((v) => String(v?.valueOf()))
+      .join("/");
+    let specs = this.targetsOf.get(key);
+    if (specs == null) {
+      if (this.targetsOf.size >= TARGETS_KEPT) this.targetsOf.clear();
+      specs = this.computeTargets(view, home, extremesKept, tilesEnd);
+      this.targetsOf.set(key, specs);
+    }
+    return specs;
+  }
+
+  private computeTargets(
+    view: TimeRange,
+    home: TimeRange,
+    extremesKept: boolean,
+    tilesEnd: TimeStamp | undefined,
+  ): TileSpec[] {
     const aggregation: Aggregation = extremesKept ? "min_max" : this.limit.aggregation;
     // Tiles are cut to [start, end): the window of a static window, and the start of
     // raw samples for a live one.
     let start: TimeStamp | undefined;
     let end: TimeStamp | undefined;
     let tiled = view;
-    if (this.live) {
-      end = this.tilesEnd(boundary);
+    if (tilesEnd != null) {
+      end = tilesEnd;
       if (!end.after(view.start)) return [];
       if (view.end.after(end)) tiled = new TimeRange(view.start, end);
     } else {
@@ -439,7 +465,8 @@ export class Points {
         if (generation !== this.generation) return;
         this.pending.delete(key);
         this.stale.delete(key);
-        this.held.set(key, { spec, series, block: store.get(tileKey(spec)) });
+        const block = isCut(spec) ? undefined : store.get(tileKey(spec));
+        this.held.set(key, { spec, series, block });
         this.tileBreaker.reset();
         this.readFailure = null;
         this.notify();
@@ -448,7 +475,11 @@ export class Points {
         if (generation !== this.generation) return;
         this.pending.delete(key);
         this.fail(e);
-        if (isDefinitive(e)) return void this.rejected.add(key);
+        if (isDefinitive(e)) {
+          this.rejected.add(key);
+          this.rejection = this.readFailure;
+          return;
+        }
         const waiting = this.retrying.size > 0;
         this.retrying.add(key);
         if (!waiting) void this.retryTiles(generation);
@@ -467,7 +498,7 @@ export class Points {
   // showed before.
   private rawEdge(home: TimeRange): Series[] {
     this.rawFilling = false;
-    if (!this.live && !this.rawOnly) return [];
+    if (this.parked != null || (!this.live && !this.rawOnly)) return [];
     const { store } = this.props;
     const now = this.props.now();
     if (this.live) this.cutoff(home);
@@ -479,7 +510,7 @@ export class Points {
     const blocks: RawBlock[] = [];
     for (let i = rawIndex(tr.start); i <= last; i++)
       blocks.push(store.raw(this.key, i));
-    const joined = store.joined(this.key);
+    const joined = this.props.joins.joined(this.key);
     const filling = new Set(
       blocks
         .filter((b) => (b.index < joinFrom ? !b.covers(tr) : !joined))
@@ -505,7 +536,7 @@ export class Points {
   }
 
   private readRaw(tr: TimeRange): void {
-    if (this.rawReading || this.rawRetrying) return;
+    if (this.parked != null || this.rawReading || this.rawRetrying) return;
     const generation = this.generation;
     this.rawReading = true;
     this.props.reader
@@ -574,6 +605,7 @@ export class Points {
   private status(): status.Status {
     const candidates = [
       this.parked,
+      this.rejection,
       this.readFailure,
       this.props.joiner.status(this.key),
       this.demand?.status(this.key),
@@ -604,7 +636,9 @@ export class Points {
     this.pending.clear();
     this.retrying.clear();
     this.rejected.clear();
+    this.rejection = null;
     this.stale.clear();
+    this.targetsOf.clear();
     this.rawReading = false;
     this.rawRetrying = false;
     this.loading = true;

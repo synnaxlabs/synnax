@@ -8,24 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { Unreachable } from "@synnaxlabs/freighter";
-import {
-  breaker,
-  type destructor,
-  sync,
-  TimeSpan,
-  type TimeStamp,
-} from "@synnaxlabs/x";
+import { type breaker, type destructor, sync, type TimeStamp } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
-import { AccessDeniedError, NotFoundError, ValidationError } from "@/errors";
 import { rawIndex } from "@/framer/cache/block";
+import { type Joins } from "@/framer/cache/join";
 import { COMMIT_MARGIN, type Reader } from "@/framer/cache/reader";
+import { isDefinitive, newBreaker, READ_FAILED } from "@/framer/cache/status";
 import { type Store } from "@/framer/cache/store";
 import { type MultiplexedStreamer } from "@/framer/cache/streamer";
 import { status } from "@/status";
 
 export interface JoinerProps {
   store: Store;
+  joins: Joins;
   reader: Reader;
   streamer: MultiplexedStreamer;
   now: () => TimeStamp;
@@ -33,70 +29,80 @@ export interface JoinerProps {
   breaker?: breaker.Config;
 }
 
-/** @returns true for a failure that recurs on every retry. */
-export const isDefinitive = (e: unknown): boolean =>
-  AccessDeniedError.matches(e) ||
-  ValidationError.matches(e) ||
-  NotFoundError.matches(e);
-
 const NO_HISTORY: status.Crude = {
   variant: "warning",
   message: "Failed to read calculated channel history",
   description: "The channel shows only the samples streamed since it opened.",
 };
 
-// One index channel's join and the catch-up reads that drive it.
+// The catch-up reads of one index channel's join.
 interface Driver {
   abort: AbortController;
   running: boolean;
-  landed: Set<() => void>;
+  handlers: Set<() => void>;
+  // breaker backs off failed reads, and landings that fail to join a member.
+  breaker: breaker.Breaker;
+  // landed holds the members that landed at least once.
+  landed: Set<channel.Key>;
+  // rejected holds the members a definitive failure stopped until they leave.
+  rejected: Set<channel.Key>;
 }
 
 /**
- * Joins the streams of channels to their raw blocks. After the stream acks a joined
- * channel and its index, a catch-up read fetches their open blocks, and the store then
- * writes their streamed samples into the blocks. A catch-up read runs again whenever
- * the join loses its place, as after a gap in the stream.
+ * Catches the joins of {@link Joins} up with their streams. After the stream acks a
+ * waiting member and its index, a catch-up read fetches the member's open blocks, and
+ * the member lands. A member the Core rejects stops with its error, and the rest of its
+ * join keeps going.
  */
 export class Joiner {
-  private readonly props: Required<Omit<JoinerProps, "breaker">> & {
-    breaker: breaker.Config;
-  };
   private readonly drivers = new Map<channel.Key, Driver>();
   private readonly failures = new Map<channel.Key, status.Status>();
   private readonly notifier = new sync.Notifier();
-  private readonly stopWaits: destructor.Destructor;
-  private closed = false;
 
-  constructor({ breaker: brk = {}, ...rest }: JoinerProps) {
-    this.props = { ...rest, breaker: brk };
-    this.stopWaits = rest.store.onWait((index) => void this.run(index));
-  }
+  constructor(private readonly props: JoinerProps) {}
 
   /**
    * Joins the channel and its index until the returned destructor runs.
    * @param landed - Called after each catch-up read of the join lands.
    */
   join(ch: channel.Key, index: channel.Key, landed: () => void): destructor.Destructor {
+    const { joins } = this.props;
     let driver = this.drivers.get(index);
     if (driver == null) {
-      driver = { abort: new AbortController(), running: false, landed: new Set() };
+      driver = {
+        abort: new AbortController(),
+        running: false,
+        handlers: new Set(),
+        breaker: newBreaker(this.notifier, this.props.breaker),
+        landed: new Set(),
+        rejected: new Set(),
+      };
       this.drivers.set(index, driver);
     }
-    driver.landed.add(landed);
-    this.props.store.join(ch, index);
+    driver.handlers.add(landed);
+    joins.join(ch, index);
+    this.wake([index]);
     let left = false;
     return () => {
       if (left) return;
       left = true;
-      driver.landed.delete(landed);
-      this.props.store.leave(ch, index);
-      if (this.props.store.members(index).length > 0) return;
+      driver.handlers.delete(landed);
+      joins.leave(ch, index);
+      [ch, index].forEach((k) => {
+        if (joins.has(k)) return;
+        this.failures.delete(k);
+        driver.landed.delete(k);
+        driver.rejected.delete(k);
+      });
+      if (joins.has(index)) return;
       driver.abort.abort();
       this.drivers.delete(index);
-      this.failures.delete(ch);
-      this.failures.delete(index);
     };
+  }
+
+  /** Runs the catch-up reads of the joins of the index channels. */
+  wake(indexes: Iterable<channel.Key>): void {
+    for (const index of indexes) void this.run(index);
   }
 
   /** @returns the status of the channel's last failed catch-up read, if any. */
@@ -106,8 +112,6 @@ export class Joiner {
 
   /** Stops every catch-up read. In-flight reads are dropped when they land. */
   close(): void {
-    this.closed = true;
-    this.stopWaits();
     this.drivers.forEach((d) => d.abort.abort());
     this.drivers.clear();
     this.notifier.notify();
@@ -117,58 +121,56 @@ export class Joiner {
     const driver = this.drivers.get(index);
     if (driver == null || driver.running) return;
     driver.running = true;
-    const { store, reader, streamer, now } = this.props;
-    const brk = new breaker.Breaker({
-      baseInterval: TimeSpan.seconds(1),
-      maxInterval: TimeSpan.seconds(30),
-      maxRetries: Infinity,
-      scale: 2,
-      jitter: 0.25,
-      sleepFn: async (span) => await this.notifier.wait(span),
-      ...this.props.breaker,
-    });
+    const { store, joins, reader, streamer, now } = this.props;
     const { signal } = driver.abort;
+    let failed = false;
     try {
       for (;;) {
-        const keys = store.waiting(index);
+        const keys = joins.waiting(index).filter((k) => !driver.rejected.has(k));
         if (keys.length === 0 || signal.aborted) return;
-        try {
-          await streamer.waitAcked(store.members(index), signal);
-          const at = now().sub(COMMIT_MARGIN);
-          const last = rawIndex(now());
-          await Promise.all(
-            keys.map(
-              async (k) => await reader.catchUp(k, store.catchUpFrom(k, at), last),
-            ),
-          );
-          if (signal.aborted) return;
-          store.landed(index, keys);
-          keys.forEach((k) => this.failures.delete(k));
-          brk.reset();
-        } catch (e) {
-          if (signal.aborted || this.closed) return;
-          // A calculation over virtual channels has no history, so it joins without it.
-          const historyless = keys.filter(
-            (k) => store.isCalculated(k) && !Unreachable.matches(e),
-          );
-          if (historyless.length > 0) {
-            store.landed(index, historyless, true);
-            historyless.forEach((k) => this.failures.set(k, status.create(NO_HISTORY)));
+        // A member that waits again before it placed a sample failed to join. One that
+        // placed a sample shows that the join works.
+        const back = keys.filter((k) => driver.landed.has(k));
+        if (failed || back.some((k) => joins.bounced(k))) {
+          if (!(await driver.breaker.wait()) || signal.aborted) return;
+        } else if (back.length > 0) driver.breaker.reset();
+        const acked = new Set<channel.Key>();
+        const results = await Promise.allSettled(
+          keys.map(async (k) => {
+            await streamer.waitAcked(k === index ? [k] : [k, index], signal);
+            acked.add(k);
+            const at = now().sub(COMMIT_MARGIN);
+            await reader.catchUp(k, joins.catchUpFrom(k, at), rawIndex(now()));
+          }),
+        );
+        if (signal.aborted) return;
+        const caught: channel.Key[] = [];
+        const historyless: channel.Key[] = [];
+        failed = false;
+        results.forEach((r, i) => {
+          const k = keys[i];
+          if (r.status === "fulfilled") {
+            this.failures.delete(k);
+            caught.push(k);
+          } else if (
+            // A calculation over virtual channels has no history, so it joins without
+            // it.
+            acked.has(k) &&
+            store.isCalculated(k) &&
+            !Unreachable.matches(r.reason)
+          ) {
+            this.failures.set(k, status.create(NO_HISTORY));
+            historyless.push(k);
+          } else {
+            this.failures.set(k, status.fromException(r.reason, READ_FAILED));
+            if (isDefinitive(r.reason)) driver.rejected.add(k);
+            else failed = true;
           }
-          keys
-            .filter((k) => !historyless.includes(k))
-            .forEach((k) =>
-              this.failures.set(
-                k,
-                status.fromException(e, "Failed to read channel data"),
-              ),
-            );
-          driver.landed.forEach((f) => f());
-          if (historyless.length === keys.length) continue;
-          if (isDefinitive(e) || !(await brk.wait())) return;
-          continue;
-        }
-        driver.landed.forEach((f) => f());
+        });
+        joins.landed(index, caught);
+        joins.landed(index, historyless, true);
+        [...caught, ...historyless].forEach((k) => driver.landed.add(k));
+        driver.handlers.forEach((f) => f());
       }
     } finally {
       driver.running = false;

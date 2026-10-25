@@ -12,6 +12,7 @@ import { test } from "vitest";
 
 import { type channel } from "@/channel";
 import { createKeys, createSequence } from "@/framer/benchutil";
+import { Joins } from "@/framer/cache/join";
 import { Store } from "@/framer/cache/store";
 import { MultiplexedStreamer } from "@/framer/cache/streamer";
 import { type Frame } from "@/framer/frame";
@@ -69,7 +70,12 @@ const runIngest = async (
   let drained = (): void => undefined;
   const done = new Promise<void>((res) => (drained = res));
   const stub = new StubStreamer(frames, keys, () => drained());
-  const streamer = new MultiplexedStreamer({ store, openStreamer: async () => stub });
+  const streamer = new MultiplexedStreamer({
+    store,
+    joins: new Joins(store),
+    onWait: () => {},
+    openStreamer: async () => stub,
+  });
   const perHandler = Math.ceil(keys.length / handlerCount);
   for (let i = 0; i < handlerCount; i++)
     streamer.stream(
