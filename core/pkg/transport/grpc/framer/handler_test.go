@@ -185,26 +185,37 @@ var _ = Describe("gRPC Framer Translators", func() {
 			Expect(MustSucceed(rt.Backward(ctx, pbReq)).AckRequested).To(BeTrue())
 		})
 
-		It("Should round-trip an ack through the frame", func(ctx SpecContext) {
-			st := frameStreamerResponseTranslator{}
-			pbRes := MustSucceed(st.Forward(ctx, framer.StreamerResponse{Ack: true}))
-			Expect(pbRes.Ack).To(BeTrue())
-			out := MustSucceed(st.Backward(ctx, pbRes))
-			Expect(out.Ack).To(BeTrue())
-			Expect(out.Frame.Empty()).To(BeTrue())
-		})
-
-		It("Should round-trip an ack through the codec", func(ctx SpecContext) {
-			keys := createVirtualChannels(ctx, telem.Int64T, 1)
-			cdec := codec.NewDynamic(apiChannelSvc)
-			Expect(cdec.Update(ctx, keys)).To(Succeed())
-			st := frameStreamerResponseTranslator{codec: cdec}
-			pbRes := MustSucceed(st.Forward(ctx, framer.StreamerResponse{Ack: true}))
-			Expect(pbRes.Ack).To(BeTrue())
-			out := MustSucceed(st.Backward(ctx, pbRes))
-			Expect(out.Ack).To(BeTrue())
-			Expect(out.Frame.Empty()).To(BeTrue())
-		})
+		DescribeTable(
+			"Should round-trip an ack",
+			func(
+				ctx SpecContext,
+				newTranslator func(context.Context) frameStreamerResponseTranslator,
+			) {
+				st := newTranslator(ctx)
+				res := framer.StreamerResponse{Ack: true}
+				pbRes := MustSucceed(st.Forward(ctx, res))
+				Expect(pbRes.Ack).To(BeTrue())
+				out := MustSucceed(st.Backward(ctx, pbRes))
+				Expect(out.Ack).To(BeTrue())
+				Expect(out.Frame.Empty()).To(BeTrue())
+			},
+			Entry(
+				"through the frame",
+				func(context.Context) frameStreamerResponseTranslator {
+					return frameStreamerResponseTranslator{}
+				},
+			),
+			Entry(
+				"through the codec",
+				func(ctx context.Context) frameStreamerResponseTranslator {
+					GinkgoHelper()
+					keys := createVirtualChannels(ctx, telem.Int64T, 1)
+					cdec := codec.NewDynamic(apiChannelSvc)
+					Expect(cdec.Update(ctx, keys)).To(Succeed())
+					return frameStreamerResponseTranslator{codec: cdec}
+				},
+			),
+		)
 
 		It(
 			"Should not panic when the codec is nil and the request has no keys",

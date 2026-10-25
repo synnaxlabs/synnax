@@ -121,7 +121,7 @@ var _ = Describe("Streamer Behavior", func() {
 								Channels: []cesium.ChannelKey{key},
 								Start:    10 * telem.SecondTS,
 							}
-							writers[key] = MustSucceed(db.OpenWriter(ctx, cfg))
+							writers[key] = MustOpen(db.OpenWriter(ctx, cfg))
 						}
 						write := func(key cesium.ChannelKey) {
 							GinkgoHelper()
@@ -142,6 +142,7 @@ var _ = Describe("Streamer Behavior", func() {
 						r, o, closer := openStreamer(ctx, db, cesium.StreamerConfig{
 							Channels: []cesium.ChannelKey{live},
 						})
+						DeferClose(closer)
 						// The relay hands a frame to streamers in the order they
 						// opened, so a frame the observer holds has reached o too.
 						_, observer, observerCloser := openStreamer(
@@ -149,6 +150,7 @@ var _ = Describe("Streamer Behavior", func() {
 							db,
 							cesium.StreamerConfig{Channels: all},
 						)
+						DeferClose(observerCloser)
 						for i := range 10 {
 							added := []cesium.ChannelKey{b, c}[i%2]
 							// Three frames fill the response buffer and block the
@@ -166,11 +168,6 @@ var _ = Describe("Streamer Behavior", func() {
 								expectFrame(o, live)
 							}
 							expectFrame(o, added)
-						}
-						Expect(closer.Close()).To(Succeed())
-						Expect(observerCloser.Close()).To(Succeed())
-						for _, w := range writers {
-							Expect(w.Close()).To(Succeed())
 						}
 					},
 				)
