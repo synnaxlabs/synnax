@@ -861,8 +861,14 @@ export class TiledChannelData
   private readonly held = new Map<string, HeldTile>();
   private readonly pending = new Set<string>();
   private width = DEFAULT_WIDTH;
-  // window holds a live line's full-resolution series from rawFrom() on.
+  // window holds a live line's full-resolution series from boundary on.
   private readonly window: LiveWindow;
+  // boundary is where a live line's tiles end and its full-resolution data begins. It
+  // trails rawFrom until the tiles that replace the series before rawFrom arrive, so
+  // their span never goes blank.
+  private boundary = TimeStamp.ZERO;
+  // drawn is the view of the last read that drew.
+  private drawn?: TimeRange;
   private rawLoaded = false;
   private readonly skipLoading: boolean;
   private readonly failures: FailureReporter;
@@ -900,7 +906,7 @@ export class TiledChannelData
     this.window = new LiveWindow({
       now,
       start: () => this.rawFrom(),
-      cutoff: () => this.rawFrom(),
+      cutoff: () => this.boundary,
       failures: this.failures,
       breakerConfig,
       notify: () => this.notify(),
@@ -967,15 +973,18 @@ export class TiledChannelData
     return new TimeStamp((home.start.valueOf() / span) * span);
   }
 
-  // tilesEnd is where a live line's tiles stop: rawFrom, or the start of a held raw
-  // series that crosses it, so no span draws twice.
-  private tilesEnd(): TimeStamp {
-    const first = this.window.data.series.at(0);
-    const rawFrom = this.rawFrom();
-    return first == null ? rawFrom : TimeStamp.min(rawFrom, first.timeRange.start);
+  // tilesEnd is where a live line's tiles stop for the boundary: the boundary, or the
+  // start of a held raw series that crosses it, so no span draws twice.
+  private tilesEnd(boundary: TimeStamp = this.boundary): TimeStamp {
+    const first = this.window.data.series.find((s) => s.timeRange.end.after(boundary));
+    return first == null ? boundary : TimeStamp.min(boundary, first.timeRange.start);
   }
 
-  private targets(key: channel.Key, view: TimeRange): framer.TileSpec[] {
+  private targets(
+    key: channel.Key,
+    view: TimeRange,
+    boundary?: TimeStamp,
+  ): framer.TileSpec[] {
     const aggregation = this.xy ? "decimate" : this.props.aggregation;
     // Tiles are cut to [start, end): the home view for an xy line, and the start of
     // full-resolution data for a live line.
@@ -986,7 +995,7 @@ export class TiledChannelData
       if (this.live) return [];
       [start, end] = [this.home().start, this.home().end];
     } else if (this.live) {
-      end = this.tilesEnd();
+      end = this.tilesEnd(boundary);
       if (!end.after(view.start)) return [];
       if (view.end.after(end)) tiled = new TimeRange(view.start, end);
     }
@@ -1013,13 +1022,17 @@ export class TiledChannelData
     });
   }
 
-  private find(p: Position, preferred: Map<string, string>): HeldTile | undefined {
+  private find(
+    p: Position,
+    preferred: Map<string, string>,
+    tiles: Iterable<HeldTile> = this.held.values(),
+  ): HeldTile | undefined {
     const want = preferred.get(`${p.level}/${p.index}`);
     if (want != null) {
       const exact = this.held.get(want);
       if (exact != null) return exact;
     }
-    for (const tile of this.held.values())
+    for (const tile of tiles)
       if (tile.spec.level === p.level && tile.spec.index === p.index) return tile;
     return undefined;
   }
@@ -1039,7 +1052,25 @@ export class TiledChannelData
     return false;
   }
 
+  // advance moves the boundary to rawFrom once the tiles that replace the raw series
+  // before rawFrom in the drawn view arrive. It returns the keys of those tiles while
+  // any is missing.
+  private advance(key: channel.Key): string[] {
+    const rawFrom = this.rawFrom();
+    if (!rawFrom.after(this.boundary)) return [];
+    const next = this.targets(key, this.drawn ?? this.home(), rawFrom);
+    const keys = next.map((spec) => framer.tileRequestKey(spec));
+    if (keys.every((k) => this.held.has(k))) {
+      this.boundary = rawFrom;
+      return [];
+    }
+    if (this.settled(next[0].level)) next.forEach((spec) => this.request(spec));
+    return keys;
+  }
+
   private select(key: channel.Key, view: TimeRange, prune: boolean): MultiSeries {
+    if (prune) this.drawn = view;
+    const next = this.live ? this.advance(key) : [];
     if (this.live) this.window.prune();
     const targets = this.targets(key, view);
     if (!prune || (targets.length > 0 && this.settled(targets[0].level)))
@@ -1047,14 +1078,20 @@ export class TiledChannelData
     const preferred = new Map(
       targets.map((t) => [`${t.level}/${t.index}`, framer.tileRequestKey(t)]),
     );
+    // A held tile that reaches past tilesEnd covers raw series the line still draws, so
+    // it waits until the boundary moves.
+    const end = this.live ? this.tilesEnd() : null;
+    const drawable = [...this.held.values()].filter(
+      ({ spec }) => end == null || !framer.tileRange(spec).end.after(end),
+    );
     const chosen =
       targets.length === 0
         ? []
         : choose(
             targets[0].level,
             targets.map((t) => t.index),
-            [...this.held.values()].map((t) => t.spec),
-          ).map((p) => this.find(p, preferred)!);
+            drawable.map((t) => t.spec),
+          ).map((p) => this.find(p, preferred, drawable)!);
     const out = chosen.flatMap((tile) => tile.series.series);
     if (prune) {
       // The home view's tiles stay held, and so do the tiles that stand in for them
@@ -1066,6 +1103,7 @@ export class TiledChannelData
       const keep = new Set([
         ...chosen.map((t) => framer.tileRequestKey(t.spec)),
         ...preferred.values(),
+        ...next,
         ...homePreferred.values(),
         ...home.flatMap((t) => {
           const found = this.find(t, homePreferred);
@@ -1190,6 +1228,7 @@ export class TiledChannelData
     this.channel = ch;
     this.xy = xy;
     if (this.live) {
+      this.boundary = this.rawFrom();
       await this.window.open(client, ch);
       if (generation !== this.generation) return;
       this.rawLoaded = true;
@@ -1222,6 +1261,7 @@ export class TiledChannelData
     clearTimeout(this.settleTimer);
     this.settleTimer = undefined;
     this.viewLevel = undefined;
+    this.drawn = undefined;
     this.window.clear();
     this.held.forEach((tile) => tile.series.release());
     this.held.clear();
