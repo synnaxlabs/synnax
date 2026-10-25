@@ -10,7 +10,7 @@
 import "@/input/time/Time.css";
 
 import { state } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, useState } from "react";
+import { type ReactElement, type ReactNode, useMemo, useState } from "react";
 import { flushSync } from "react-dom";
 
 import { type Component } from "@/component";
@@ -115,7 +115,13 @@ export const Editor = <V,>({
 }: EditorProps<V>): ReactElement => {
   const [draft, setDraft] = useState<Draft | null>(null);
   const text = draft?.text;
-  const suggestions = text == null ? [] : suggest(text);
+  // A reading's key holds the time that suggest resolved. Without this memo, the
+  // compiler reruns suggest on each hover, and each item remounts.
+  // eslint-disable-next-line no-restricted-syntax
+  const suggestions = useMemo(
+    () => (text == null ? [] : suggest(text)),
+    [suggest, text],
+  );
   const selected = draft?.selected ?? 0;
   const chosen = suggestions[Math.min(selected, suggestions.length - 1)];
   const blank = text == null || text.trim().length === 0;
