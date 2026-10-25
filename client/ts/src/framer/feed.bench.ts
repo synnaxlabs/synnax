@@ -93,7 +93,9 @@ const loadLatest = async (keys: channel.Key[]): Promise<void> => {
 };
 
 const suite = (title: string, keysOf: Map<number, channel.Key[]>): void => {
-  test(title, async ({ bench }) => {
+  // A subscribed run waits for the stream to ack its channels, so a suite outlasts the
+  // default timeout.
+  test(title, { timeout: 0 }, async ({ bench }) => {
     await bench.compare(
       ...SIZES.flatMap((n) => {
         const keys = keysOf.get(n) ?? [];
