@@ -186,7 +186,7 @@ func WhereToPB(r status.Where) (*Where, error) {
 		}
 	}
 	if r.Labels != nil {
-		pb.Labels = &KeyList{Values: lo.Map(r.Labels, func(u label.Key, _ int) string { return uuid.UUID(u).String() })}
+		pb.Labels = &LabelKeyList{Values: lo.Map(r.Labels, func(u label.Key, _ int) string { return uuid.UUID(u).String() })}
 	}
 	return pb, nil
 }
@@ -477,7 +477,7 @@ func StatusToPB[Details any](
 		if err != nil {
 			return nil, err
 		}
-		pb.Labels = &LabelList{Values: vals}
+		pb.Labels = &LabelLabelList{Values: vals}
 	}
 	return pb, nil
 }

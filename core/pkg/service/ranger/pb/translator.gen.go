@@ -47,7 +47,7 @@ func RangeToPB(r ranger.Range) (*Range, error) {
 		if err != nil {
 			return nil, err
 		}
-		pb.Labels = &LabelList{Values: vals}
+		pb.Labels = &LabelLabelList{Values: vals}
 	}
 	if r.Parent != nil {
 		var err error
@@ -243,7 +243,7 @@ func WhereToPB(r ranger.Where) (*Where, error) {
 		}
 	}
 	if r.Labels != nil {
-		pb.Labels = &KeyList{Values: lo.Map(r.Labels, func(u label.Key, _ int) string { return uuid.UUID(u).String() })}
+		pb.Labels = &LabelKeyList{Values: lo.Map(r.Labels, func(u label.Key, _ int) string { return uuid.UUID(u).String() })}
 	}
 	return pb, nil
 }

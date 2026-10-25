@@ -27,7 +27,7 @@ enum Variant {
   VARIANT_LOADING = 4;
   VARIANT_DISABLED = 5;
 }
-message LabelList {
+message LabelLabelList {
   repeated .service.label.pb.Label values = 1;
 }
 
@@ -56,7 +56,7 @@ message Status {
   // details contains optional component-specific custom details for the status.
   google.protobuf.Any details = 7;
   // labels contains optional labels for categorization and filtering.
-  LabelList labels = 8;
+  LabelLabelList labels = 8;
 }
 message WhereList {
   repeated Where values = 1;
@@ -85,7 +85,7 @@ message VariantSet {
   // in matches a value equal to an element of in.
   VariantList in = 2;
 }
-message KeyList {
+message LabelKeyList {
   repeated string values = 1;
 }
 message Where {
@@ -100,7 +100,7 @@ message Where {
   // variant selects by variant.
   optional VariantSet variant = 5;
   // labels matches statuses that have any of the given labels.
-  KeyList labels = 6;
+  LabelKeyList labels = 6;
 }
 
 // RetrieveRequest is a request to retrieve statuses.
