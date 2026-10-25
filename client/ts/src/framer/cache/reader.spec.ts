@@ -9,10 +9,12 @@
 
 import { Unreachable } from "@synnaxlabs/freighter";
 import {
+  DataType,
   id,
   MultiSeries,
   Rate,
   Series,
+  Size,
   sleep,
   TimeRange,
   TimeSpan,
@@ -56,11 +58,18 @@ interface SetupProps extends Partial<ReaderProps> {
   elapsed?: number;
   /** Runs before each fetch is answered. A rejection fails the fetch. */
   before?: (fetch: Fetch) => Promise<void>;
+  /** Changes each frame the Core answers with. */
+  answer?: (frame: Frame) => Frame;
 }
 
 // Returns a reader over a Core with one index channel (1) and two data channels (2 and
 // 3) on it, recording every fetch the reader makes.
-const createReader = ({ elapsed = 300, before, ...props }: SetupProps = {}): Setup => {
+const createReader = ({
+  elapsed = 300,
+  before,
+  answer = (frame) => frame,
+  ...props
+}: SetupProps = {}): Setup => {
   const core = new SyntheticCore({
     rate: Rate.hz(1),
     start: START,
@@ -74,7 +83,7 @@ const createReader = ({ elapsed = 300, before, ...props }: SetupProps = {}): Set
       const fetch = { tr, keys };
       fetches.push(fetch);
       await before?.(fetch);
-      return core.read(tr, keys);
+      return answer(core.read(tr, keys));
     },
     retrieveChannels: core.retrieveChannels,
     now: core.now,
@@ -180,6 +189,52 @@ describe("Reader", () => {
       await read;
       expect(fetches).toHaveLength(6);
       expect(most).toBe(4);
+    });
+  });
+
+  describe("budget", () => {
+    it("should return the samples of every block it read past the budget", async () => {
+      const { reader } = createReader({ store: new Store({ budget: Size.bytes(1) }) });
+      const res = await reader.read(new TimeRange(at(60), at(70)), 1);
+      expect(timestamps(res)).toEqual(expectedTimestamps(0, 132));
+    });
+  });
+
+  describe("data type", () => {
+    // Converts the series of channel 2 to float64 once the returned flag is set.
+    const createConversion = () => {
+      const state = { converted: false };
+      const answer = (frame: Frame): Frame =>
+        frame.map((k, s) => [
+          k,
+          state.converted && k === 2 ? s.convert(DataType.FLOAT64) : s,
+        ]);
+      return { state, answer };
+    };
+
+    it("should return the samples of a fetch that changes the channel's data type", async () => {
+      const { reader, store } = createReader();
+      store.retainDataType(2, DataType.FLOAT64);
+      const res = await reader.read(new TimeRange(at(10), at(20)), 2);
+      expect(res.length).toBe(66);
+      expect(res.series.map((s) => s.dataType)).toEqual([DataType.FLOAT32]);
+    });
+
+    it("should fetch a block again from its start when its data type changes", async () => {
+      const { state, answer } = createConversion();
+      const { core, reader, fetches } = createReader({ elapsed: 30, answer });
+      await reader.read(new TimeRange(at(0), at(30)), 2);
+      state.converted = true;
+      core.advance(TimeSpan.seconds(10));
+      const res = await reader.read(new TimeRange(at(0), at(40)), 2);
+      expect(fetches.map(({ tr }) => tr)).toEqual([
+        blockRange(100),
+        new TimeRange(at(29), blockRange(100).end),
+        blockRange(100),
+      ]);
+      expect(res.series.map((s) => s.dataType)).toEqual([DataType.FLOAT64]);
+      expect(res.series.map((s) => s.alignment)).toEqual([blockAlignment(100, 0)]);
+      expect(res.length).toBe(40);
     });
   });
 

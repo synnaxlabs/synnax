@@ -174,6 +174,12 @@ export class RawBlock implements Block {
     return true;
   }
 
+  /** Drops every sample and the coverage, so reads fetch the block from its start. */
+  reset(): void {
+    this.expire();
+    this.streamed = [];
+  }
+
   /**
    * Adds the series of a fetch from coveredEnd. Samples the block already holds win.
    * Streamed series that a fetched series holds in time leave the block.

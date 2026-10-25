@@ -93,10 +93,18 @@ describe("Store", () => {
       expect(store.get("c")).toBeDefined();
     });
 
+    it("should never evict the block it sets", () => {
+      const store = new Store({ budget: Size.bytes(1) });
+      const block = createBlock();
+      store.set("a", block);
+      expect(store.get("a")).toBe(block);
+    });
+
     it("should keep a held block past the budget", () => {
       const store = new Store({ budget: Size.bytes(1.5 * BYTES) });
       store.set("a", createBlock({ held: true }));
       store.set("b", createBlock());
+      store.set("c", createBlock());
       expect(store.get("a")).toBeDefined();
       expect(store.get("b")).toBeUndefined();
     });
@@ -259,6 +267,7 @@ describe("Store", () => {
       const store = new Store({ budget: Size.bytes(1), dynamicBufferSize: 100 });
       store.write(1, createWrite(1, [1], 0n));
       store.set("a", createBlock());
+      store.set("b", createBlock());
       expect(store.get(rawKey(1, 100))).toBeDefined();
       expect(store.get("a")).toBeUndefined();
     });

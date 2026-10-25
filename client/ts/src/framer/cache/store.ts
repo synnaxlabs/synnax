@@ -105,8 +105,9 @@ export class Store {
 
   /**
    * Caches the block under the key as the most recently used, replacing any block
-   * there. Call it again after the block changes, so its new size counts against the
-   * budget.
+   * there, and evicts least recently used blocks past the budget. The block it sets is
+   * never evicted. Call it again after the block changes, so its new size counts
+   * against the budget.
    */
   set(key: string, block: Block): void {
     const bytes = block.bytes + ENTRY_OVERHEAD;
@@ -115,7 +116,7 @@ export class Store {
     this.blocks.delete(key);
     this.blocks.set(key, block);
     for (const [k, b] of this.blocks) {
-      if (this.bytes <= this.budget) break;
+      if (this.bytes <= this.budget || k === key) break;
       if (!b.held) this.delete(k);
     }
   }
@@ -197,11 +198,12 @@ export class Store {
    * Records the channel's data type. A channel's data type can change, and series of
    * two data types cannot be read together, so a new data type drops every block of the
    * channel and its stream's buffer.
+   * @returns true if the data type changed.
    */
-  retainDataType(ch: channel.Key, dataType: DataType): void {
+  retainDataType(ch: channel.Key, dataType: DataType): boolean {
     const held = this.dataTypes.get(ch);
     this.dataTypes.set(ch, dataType);
-    if (held == null || held.equals(dataType)) return;
+    if (held == null || held.equals(dataType)) return false;
     this.instrumentation.L.warn("channel data type changed, dropping its blocks", {
       channel: ch,
       prev: held.toString(),
@@ -209,10 +211,11 @@ export class Store {
     });
     for (const [key, block] of this.blocks) if (block.channel === ch) this.delete(key);
     const live = this.live.get(ch);
-    if (live == null) return;
+    if (live == null) return true;
     live.buffer.retainDataType(dataType);
     if (live.block != null) live.block.open = null;
     live.block = null;
+    return true;
   }
 
   /** Drops every block and stream buffer. */

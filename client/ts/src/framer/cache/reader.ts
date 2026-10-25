@@ -48,10 +48,9 @@ const COMMIT_MARGIN = TimeSpan.seconds(1);
 // The most block fetches in flight at once.
 const MAX_FETCHES = 4;
 
-// A request to fetch one channel's raw block up to at least end.
+// A request to fill a read's raw block up to at least end.
 interface Request {
-  channel: channel.Key;
-  index: number;
+  block: RawBlock;
   end: TimeStamp;
 }
 
@@ -59,7 +58,6 @@ interface Request {
 interface Group {
   index: number;
   start: TimeStamp;
-  channels: Set<channel.Key>;
   entries: Array<debounce.Entry<Request>>;
 }
 
@@ -152,20 +150,18 @@ export class Reader {
   }
 
   private enqueue(block: RawBlock, end: TimeStamp): Promise<void> {
-    const { channel, index } = block;
-    const pending = this.batcher.enqueue({ channel, index, end }).finally(() => {
+    const pending = this.batcher.enqueue({ block, end }).finally(() => {
       if (block.pending === pending) block.pending = null;
     });
     return pending;
   }
 
   private async batchRead(entries: Array<debounce.Entry<Request>>): Promise<void> {
-    const { store } = this.props;
     const groups = new Map<string, Group>();
     for (const entry of entries) {
-      const { channel, index, end } = entry.req;
+      const { block, end } = entry.req;
+      const { index, coveredEnd } = block;
       // A fetch that landed while the request waited may have covered it.
-      const { coveredEnd } = store.raw(channel, index);
       if (!coveredEnd.before(end)) {
         entry.resolve();
         continue;
@@ -173,30 +169,34 @@ export class Reader {
       const key = `${index}/${coveredEnd.valueOf()}`;
       let group = groups.get(key);
       if (group == null) {
-        group = { index, start: coveredEnd, channels: new Set(), entries: [] };
+        group = { index, start: coveredEnd, entries: [] };
         groups.set(key, group);
       }
-      group.channels.add(channel);
       group.entries.push(entry);
     }
     await Promise.all([...groups.values()].map(async (g) => await this.fetch(g)));
   }
 
   // Never throws: every outcome settles the group's entries.
-  private async fetch({ index, start, channels, entries }: Group): Promise<void> {
+  private async fetch({ index, start, entries }: Group): Promise<void> {
     const { fetchTimeout } = this.props;
     await this.acquire();
     try {
       const tr = new TimeRange(start, tileRange({ level: RAW_LEVEL, index }).end);
-      await sync.withTimeout(
-        this.load(index, tr, channels),
+      const requests = entries.map(({ req }) => req);
+      const refetch = await sync.withTimeout(
+        this.load(index, tr, requests),
         fetchTimeout,
         () =>
           new Unreachable({
             message: `block read for ${tr.toString()} timed out after ${fetchTimeout.toString()}`,
           }),
       );
-      entries.forEach(({ resolve }) => resolve());
+      entries.forEach(({ req, resolve }) => {
+        if (!refetch.has(req)) return resolve();
+        req.block.pending = this.enqueue(req.block, req.end);
+        resolve(req.block.pending);
+      });
     } catch (err) {
       entries.forEach(({ reject }) => reject(err));
     } finally {
@@ -204,19 +204,27 @@ export class Reader {
     }
   }
 
-  // Reads the channels and their indexes over tr, and fills the block at the index of
-  // every channel read whose coverage still ends at tr's start.
+  // Reads the requested channels and their indexes over tr, and fills each block whose
+  // coverage still ends at tr's start. A new data type resets a block, so a block that
+  // the fetch started after its start comes back in the result, to fetch again.
   private async load(
     index: number,
     tr: TimeRange,
-    channels: Set<channel.Key>,
-  ): Promise<void> {
+    requests: Request[],
+  ): Promise<Set<Request>> {
     const { readRemote, retrieveChannels, store, now } = this.props;
     const coveredEnd = TimeStamp.max(
       tr.start,
       TimeStamp.min(tr.end, now().sub(COMMIT_MARGIN)),
     );
-    const payloads = await retrieveChannels([...channels]);
+    const requested = new Map<channel.Key, Request[]>();
+    requests.forEach((r) => {
+      const existing = requested.get(r.block.channel);
+      if (existing == null) requested.set(r.block.channel, [r]);
+      else existing.push(r);
+    });
+    const channels = [...requested.keys()];
+    const payloads = await retrieveChannels(channels);
     // indexOf holds the index of each channel read, or 0 for a channel with none.
     const indexOf = new Map<channel.Key, channel.Key>();
     payloads.forEach((p) => {
@@ -228,7 +236,8 @@ export class Reader {
       if (!indexOf.has(ch)) throw new NotFoundError(`channel ${ch} not found`);
     });
     const frame = await readRemote(tr, [...indexOf.keys()]);
-    if (this.closed) return;
+    const refetch = new Set<Request>();
+    if (this.closed) return refetch;
     const grouped = new Map<channel.Key, Series[]>();
     frame.forEach((k, s) => {
       const key = k as channel.Key;
@@ -238,18 +247,32 @@ export class Reader {
     });
     indexOf.forEach((idx, key) => {
       const series = grouped.get(key) ?? [];
-      if (series.length > 0) store.retainDataType(key, series[0].dataType);
-      const block = store.raw(key, index);
-      if (!block.coveredEnd.equals(tr.start)) return;
+      const changed =
+        series.length > 0 && store.retainDataType(key, series[0].dataType);
+      const targets = requested.get(key) ?? [
+        { block: store.raw(key, index), end: tr.end },
+      ];
       const timestamps = idx === 0 ? [] : (grouped.get(idx) ?? []);
-      const base = block.coveredCount;
-      block.fill(
-        align(index, base, timestamps, series),
-        coveredEnd,
-        base + countBefore(timestamps, coveredEnd),
-      );
-      store.set(rawKey(key, index), block);
+      targets.forEach((r) => {
+        const { block } = r;
+        if (changed) {
+          block.reset();
+          if (!tr.start.equals(block.range.start)) {
+            refetch.add(r);
+            return;
+          }
+        }
+        if (!block.coveredEnd.equals(tr.start)) return;
+        const base = block.coveredCount;
+        block.fill(
+          align(index, base, timestamps, series),
+          coveredEnd,
+          base + countBefore(timestamps, coveredEnd),
+        );
+        store.set(rawKey(key, index), block);
+      });
     });
+    return refetch;
   }
 
   private async acquire(): Promise<void> {
