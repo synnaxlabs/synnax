@@ -11,22 +11,17 @@ package gorp
 
 import (
 	"context"
-	"encoding/json/v2"
 	"io"
 	"iter"
-	"sort"
 	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp/internal/key"
 	"github.com/synnaxlabs/x/change"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/types"
 	"go.uber.org/zap"
@@ -38,7 +33,7 @@ type TableConfig[K Key, E Entry[K]] struct {
 	DB *DB
 	// Migrations is the ordered set of versioned migrations to run before the Table is
 	// usable. Already-applied migrations are skipped.
-	Migrations []migrate.Migration
+	Migrations []Migration
 	// Indexes is the set of secondary indexes to register on this table. Each index is
 	// populated at open time from the current table contents, then kept in sync via the
 	// table's observer pipeline for the lifetime of the table. See NewLookupIndex and
@@ -134,7 +129,7 @@ func OpenTable[K Key, E Entry[K]](
 	}); err != nil {
 		return nil, err
 	}
-	t := &Table[K, E]{db: cfg.DB, keyPrefix: newKeyPrefix[E](), indexes: cfg.Indexes}
+	t := &Table[K, E]{db: cfg.DB, keyPrefix: key.Prefix[E](), indexes: cfg.Indexes}
 	if len(cfg.Indexes) == 0 {
 		return t, nil
 	}
@@ -277,101 +272,4 @@ func (t *Table[K, E]) NewDelete() Delete[K, E] {
 // decoding.
 func (t *Table[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, error) {
 	return wrapReader[K, E](t.db, t.keyPrefix).OpenNexter(ctx)
-}
-
-// normalizeKeysMigrationKey names every key-normalization migration in the applied
-// set, which OpenTable scopes per entry type. Released stores already record it.
-const normalizeKeysMigrationKey = "normalize_keys"
-
-// NormalizeKeysMigration returns a migration that moves entries stored under the
-// pre-v0.54 key prefix msgpack(legacyTypeName) to the current prefix and key encoding,
-// decoding each row as E to recover its key. E is the frozen shape that wrote those
-// rows and legacyTypeName the name the writing release reported for it; state both,
-// never derive them from the head type. Tables first stored by v0.54 or later hold no
-// such rows and must not run it.
-func NormalizeKeysMigration[K Key, E Entry[K]](
-	legacyTypeName string,
-) migrate.Migration {
-	return NewMigration(
-		normalizeKeysMigrationKey,
-		func(ctx context.Context, tx Tx, _ alamos.Instrumentation) (err error) {
-			kc := newKeyCodec[K, E](nil)
-			oldPrefix, err := msgpack.Codec.Encode(ctx, legacyTypeName)
-			if err != nil {
-				return err
-			}
-			if string(oldPrefix) == string(kc.prefix) {
-				return nil
-			}
-			itr, err := tx.OpenIterator(kv.IterPrefix(oldPrefix))
-			if err != nil {
-				return err
-			}
-			defer func() { err = errors.Combine(err, itr.Close()) }()
-			for itr.First(); itr.Valid(); itr.Next() {
-				rawValue := itr.Value()
-				var entry E
-				if err = tx.Decode(ctx, rawValue, &entry); err != nil {
-					return errors.Wrapf(
-						err,
-						"%s: failed to decode entry at old prefix key %x",
-						normalizeKeysMigrationKey,
-						itr.Key(),
-					)
-				}
-				if err = tx.Delete(ctx, itr.Key()); err != nil {
-					return err
-				}
-				if err = tx.Set(ctx, kc.encode(entry.GorpKey()), rawValue); err != nil {
-					return err
-				}
-			}
-			return nil
-		},
-	)
-}
-
-func migrationKey(namespace string) []byte {
-	return []byte(migrationVersionPrefix + namespace)
-}
-
-// readAppliedMigrations reads the set of applied migration names from the KV store.
-// Names are stored as a newline-delimited string.
-func readAppliedMigrations(
-	ctx context.Context,
-	tx Tx,
-	namespace string,
-) (applied set.Set[string], err error) {
-	key := migrationKey(namespace)
-	b, closer, getErr := tx.Get(ctx, key)
-	if getErr != nil {
-		if errors.Is(getErr, query.ErrNotFound) {
-			return make(set.Set[string]), nil
-		}
-		return nil, getErr
-	}
-	defer func() { err = errors.Combine(err, closer.Close()) }()
-	var names []string
-	if err := json.Unmarshal(b, &names); err != nil {
-		return nil, err
-	}
-	return set.New(names...), nil
-}
-
-// writeAppliedMigrations persists the set of applied migration names as a JSON string
-// array.
-func writeAppliedMigrations(
-	ctx context.Context,
-	tx Tx,
-	namespace string,
-	applied set.Set[string],
-) error {
-	key := migrationKey(namespace)
-	names := applied.Slice()
-	sort.Strings(names)
-	b, err := json.Marshal(names)
-	if err != nil {
-		return err
-	}
-	return tx.Set(ctx, key, b)
 }

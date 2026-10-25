@@ -159,11 +159,7 @@ public:
             nodes[ir_node.key] = std::move(n);
         }
 
-        this->sched = std::make_unique<scheduler::Scheduler>(
-            prog_ir,
-            nodes,
-            errors::noop_handler
-        );
+        this->sched = std::make_unique<scheduler::Scheduler>(prog_ir, nodes);
     }
 
     void tick(const x::telem::TimeSpan elapsed) {

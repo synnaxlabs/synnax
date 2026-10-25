@@ -9,7 +9,7 @@
 
 package v2
 
-import "github.com/synnaxlabs/gorp"
+import "github.com/synnaxlabs/gorp/migrate"
 
 // Migration lifts stored panels from v1 to v2, which adds an optional icon and color.
-var Migration = gorp.NewEntryMigration("v60_add_icon_and_color", autoMigratePanel)
+var Migration = migrate.NewEntry("v60_add_icon_and_color", autoMigratePanel)

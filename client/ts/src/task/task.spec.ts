@@ -1119,7 +1119,7 @@ describe("Task", async () => {
           key,
           name: "Task Status",
           variant: "success",
-          message: "Task started successfully",
+          message: "Started task",
           description: "",
           time: TimeStamp.now().sub(TimeSpan.minutes(1)),
           details: {
@@ -1135,7 +1135,7 @@ describe("Task", async () => {
         await vi.advanceTimersByTimeAsync(COMMAND_DEADLINE.milliseconds);
         expect(client.statuses.store.get(key)).toMatchObject({
           variant: "success",
-          message: "Task started successfully",
+          message: "Started task",
           details: { running: true, cmd: cmdKey },
         });
       } finally {
@@ -1181,7 +1181,7 @@ describe("Task", async () => {
           key,
           name: "Task Status",
           variant: "success",
-          message: "Task started successfully",
+          message: "Started task",
           description: "",
           time: TimeStamp.now(),
           details,
@@ -1228,7 +1228,7 @@ describe("Task", async () => {
         key,
         name: "Task Status",
         variant: "success",
-        message: "Task started successfully",
+        message: "Started task",
         description: "",
         time: TimeStamp.now().sub(TimeSpan.minutes(1)),
         details: {
@@ -1248,7 +1248,7 @@ describe("Task", async () => {
       await fetching;
       expect(local.statuses.store.get(key)).toMatchObject({
         variant: "success",
-        message: "Task started successfully",
+        message: "Started task",
       });
     });
 

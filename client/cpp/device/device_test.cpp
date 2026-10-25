@@ -425,9 +425,9 @@ TEST(DeviceTests, testCreateDeviceWithStatus) {
     );
     ASSERT_EQ(d2.name, "device_with_status");
     ASSERT_TRUE(d.status.has_value());
-    ASSERT_EQ(d2.status->variant, synnax::status::VARIANT_SUCCESS);
-    ASSERT_EQ(d2.status->message, "Device is connected");
-    ASSERT_EQ(d2.status->details.rack, r.key);
+    ASSERT_EQ(d2.status.value().variant, synnax::status::VARIANT_SUCCESS);
+    ASSERT_EQ(d2.status.value().message, "Device is connected");
+    ASSERT_EQ(d2.status.value().details.rack, r.key);
 }
 
 /// @brief it should correctly retrieve multiple devices with statuses.
@@ -472,10 +472,10 @@ TEST(DeviceTests, testRetrieveDevicesWithStatus) {
     );
     ASSERT_EQ(devices.size(), 2);
     auto dm = map_device_keys(devices);
-    ASSERT_EQ(dm[d1.key].status->variant, synnax::status::VARIANT_SUCCESS);
-    ASSERT_EQ(dm[d1.key].status->message, "Device 1 OK");
-    ASSERT_EQ(dm[d2.key].status->variant, synnax::status::VARIANT_WARNING);
-    ASSERT_EQ(dm[d2.key].status->message, "Device 2 Warning");
+    ASSERT_EQ(dm[d1.key].status.value().variant, synnax::status::VARIANT_SUCCESS);
+    ASSERT_EQ(dm[d1.key].status.value().message, "Device 1 OK");
+    ASSERT_EQ(dm[d2.key].status.value().variant, synnax::status::VARIANT_WARNING);
+    ASSERT_EQ(dm[d2.key].status.value().message, "Device 2 Warning");
 }
 
 /// @brief it should correctly parse device::StatusDetails from JSON.

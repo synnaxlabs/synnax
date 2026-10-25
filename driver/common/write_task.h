@@ -152,7 +152,7 @@ class WriteTask final : public driver::task::Task {
 
         /// @brief implements pipeline::Sink, and pipeline:Source
         void stopped_with_err(const x::errors::Error &err) override {
-            this->p.state.error(err);
+            this->p.state.error(err, "Failed to write commands");
             this->p.stop("", true);
         }
 
@@ -170,7 +170,7 @@ class WriteTask final : public driver::task::Task {
             if (!err)
                 this->p.state.clear_warning();
             else if (err.matches(errors::TEMPORARY_HARDWARE_ERROR))
-                this->p.state.send_warning(err);
+                this->p.state.send_warning("Failed to write commands", err.data);
             return err;
         }
 
@@ -263,7 +263,8 @@ public:
         // pipe records whether the sink holds hardware.
         const auto stopped = this->cmd_write_pipe.stop();
         this->state_write_pipe.stop();
-        if (stopped) this->state.error(this->sink->internal->stop());
+        if (stopped)
+            this->state.error(this->sink->internal->stop(), "Failed to stop task");
         if (propagate_state) this->state.send_stop(cmd_key);
         return stopped;
     }
@@ -279,7 +280,10 @@ public:
             return false;
         }
         this->state.reset();
-        const auto sink_started = !this->state.error(this->sink->internal->start());
+        const auto sink_started = !this->state.error(
+            this->sink->internal->start(),
+            "Failed to start task"
+        );
         if (sink_started) {
             this->cmd_write_pipe.start();
             if (!this->sink->internal->writer_config().channels.empty())

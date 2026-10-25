@@ -36,11 +36,9 @@ type SortedQuery[K Key, E Entry[K], V cmp.Ordered] struct {
 	sorted *SortedIndex[K, E, V]
 	// dir is the walk direction.
 	dir Direction
-	// cursor is the resume value for paginated walks; meaningful only
-	// when hasCursor is true.
-	cursor V
-	// hasCursor reports whether After was called to set a resume cursor.
-	hasCursor bool
+	// after is the resume cursor for paginated walks. Nil starts the walk at the first
+	// entry.
+	after *V
 }
 
 // Ordered constructs a SortedQuery for an ordered walk of the index in the
@@ -55,8 +53,7 @@ func (s *SortedIndex[K, E, V]) Ordered(dir Direction) SortedQuery[K, E, V] {
 // previous page's last visited value. Calling After replaces any prior
 // cursor on this query.
 func (q SortedQuery[K, E, V]) After(cursor V) SortedQuery[K, E, V] {
-	q.cursor = cursor
-	q.hasCursor = true
+	q.after = &cursor
 	return q
 }
 
@@ -68,73 +65,10 @@ func (q SortedQuery[K, E, V]) After(cursor V) SortedQuery[K, E, V] {
 // write tx (stageSet / stageDelete) are invisible to ordered iteration;
 // only SortedIndex.Filter merges the per-tx delta. A Where filter combined
 // with OrderBy is applied as a post-filter against the committed
-// entries, so the same caveat extends to the combined query.
+// entries, so the same caveat extends to the combined query. A failed
+// populate leaves the index empty for the walk.
 //
 //nolint:unused
 func (q SortedQuery[K, E, V]) walkOrder(limit int) []K {
-	q.sorted.mu.RLock()
-	defer q.sorted.mu.RUnlock()
-	// Populate failure leaves entries unsorted (sortBulk runs only on
-	// success), so a binary search on q.cursor would give meaningless
-	// bounds. Treat the index as empty; execOrdered returns ErrNotFound
-	// for single-entry bindings and an empty slice otherwise.
-	if q.sorted.populateErrWrapped() != nil {
-		return nil
-	}
-	entries := q.sorted.entries
-	if len(entries) == 0 {
-		return nil
-	}
-	var start int
-	switch q.dir {
-	case DirectionAsc:
-		if !q.hasCursor {
-			start = 0
-		} else {
-			start = q.sorted.upperBound(q.cursor)
-		}
-	case DirectionDesc:
-		if !q.hasCursor {
-			start = len(entries) - 1
-		} else {
-			start = q.sorted.lowerBound(q.cursor) - 1
-		}
-	}
-	return walkSorted(entries, start, q.dir, limit)
-}
-
-// walkSorted walks the sorted entry slice from start in the given direction,
-// emitting up to limit keys. A limit of 0 means unbounded.
-//
-//nolint:unused
-func walkSorted[K Key, V cmp.Ordered](
-	entries []sortedEntry[K, V],
-	start int,
-	dir Direction,
-	limit int,
-) []K {
-	if limit < 0 {
-		return nil
-	}
-	keys := make([]K, 0, limit)
-	emitted := 0
-	switch dir {
-	case DirectionAsc:
-		for i := start; i < len(entries); i++ {
-			if limit > 0 && emitted >= limit {
-				break
-			}
-			keys = append(keys, entries[i].key)
-			emitted++
-		}
-	case DirectionDesc:
-		for i := start; i >= 0; i-- {
-			if limit > 0 && emitted >= limit {
-				break
-			}
-			keys = append(keys, entries[i].key)
-			emitted++
-		}
-	}
-	return keys
+	return q.sorted.store.Walk(q.dir == DirectionDesc, q.after, limit)
 }

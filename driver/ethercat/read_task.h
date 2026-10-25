@@ -80,13 +80,16 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             if (!slave_cache.contains(slave_key)) {
                 auto [slave_dev, slave_err] = client->devices.retrieve(slave_key);
                 if (slave_err) {
-                    ch.field_err("device", slave_err.message());
+                    ch.field_err("device", slave_err.data);
                     return;
                 }
                 auto props_parser = x::json::Parser(slave_dev.properties);
                 slave_cache.emplace(slave_key, slave::Properties::parse(props_parser));
                 if (props_parser.error()) {
-                    ch.field_err("device", props_parser.error().message());
+                    ch.field_err(
+                        "device",
+                        common::config_err_description(props_parser.error())
+                    );
                     return;
                 }
                 const auto &slave = slave_cache.at(slave_key);
@@ -121,7 +124,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 
         auto [synnax_channels, ch_err] = client->channels.retrieve(keys);
         if (ch_err) {
-            cfg.field_err("channels", ch_err.message());
+            cfg.field_err("channels", ch_err.data);
             return;
         }
 

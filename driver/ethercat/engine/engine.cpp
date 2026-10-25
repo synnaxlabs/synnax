@@ -452,10 +452,8 @@ void Engine::rebuild_outputs_locked() {
     std::vector<Applied> applied;
     for (const auto &output: this->outputs)
         for (size_t i = 0; i < output->entries.size(); ++i)
-            if (output->commands[i])
-                applied.push_back(
-                    {&output->entries[i], output->offsets[i], &*output->commands[i]}
-                );
+            if (const auto &command = output->commands[i]; command.has_value())
+                applied.push_back({&output->entries[i], output->offsets[i], &*command});
     // Two writers can command the same output, so the latest command must land last.
     std::ranges::sort(applied, {}, [](const Applied &a) { return a.command->seq; });
     std::ranges::fill(this->write_staging, 0);

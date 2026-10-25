@@ -138,6 +138,14 @@ describe("Select.Item", () => {
       fireEvent.click(c.getByText("Custom"));
       expect(onChange).toHaveBeenCalledWith("custom", { clicked: "custom" });
     });
+
+    it("should move the hover onto the fixed item under the pointer", () => {
+      const c = renderSelect({ visible: true });
+      const custom = c.getByText("Custom");
+      fireEvent.pointerMove(custom, { pointerType: "mouse", clientX: 1 });
+      fireEvent.pointerMove(custom, { pointerType: "mouse", clientX: 2 });
+      expect(hovered(c)).toBe("custom");
+    });
   });
 
   describe("search", () => {
