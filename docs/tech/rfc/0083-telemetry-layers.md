@@ -199,11 +199,13 @@ static window with exact timestamps before Pluto gets it, so Pluto knows only ti
   (`core/pkg/distribution/framer/relay/streamer.go:157`). An update now asks for the
   same ack. The relay sends it without pausing frames for keys already live. Channels
   stored on another node are not covered, as with the open ack.
-- **History change signals**: Cesium reports every delete, every new domain, and every
-  commit to a domain that is not the last, with its channel and time range, through an
-  `OnHistoryChange` handler shaped like `OnControlUpdate` (`cesium/control.go:37`). The
-  framer service merges them per channel and publishes them through the signals service
-  on a new channel, as the control service publishes `sy_control`
+- **History change signals**: Cesium reports every delete, every domain inserted before
+  the last, and every commit to a domain that is not the last, with its channel and time
+  range, through an `OnHistoryChange` handler shaped like `OnControlUpdate`
+  (`cesium/control.go:37`). Writes at the end are not reported: the stream carries them,
+  and a signal would drop the open block on every new writer. The framer service merges
+  the changes per channel and publishes them through the signals service on
+  `sy_history_change`, as the control service publishes `sy_control`
   (`core/pkg/service/control/service.go:79`). Only the node that stores a channel
   publishes its changes.
 
