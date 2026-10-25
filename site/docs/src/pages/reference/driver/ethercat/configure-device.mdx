@@ -276,13 +276,13 @@ objects. Add these settings to the `startup_parameters` property, and the Driver
 them to the device each time the bus starts, before cyclic data exchange begins. The
 Driver also writes them again when a device returns after a power loss.
 
-| Parameter   | Type   | Required | Default | Description                                                     |
-| ----------- | ------ | -------- | ------- | --------------------------------------------------------------- |
-| `index`     | number | Yes      | -       | CoE object index (`0x0000` to `0xFFFF`)                         |
-| `sub_index` | number | Yes      | -       | CoE object subindex (`0` to `255`)                              |
-| `data_type` | string | Yes      | -       | `int8` to `int64`, `uint8` to `uint64`, `float32`, or `float64` |
-| `value`     | number | Yes      | -       | The value to write. It must fit in `data_type`.                 |
-| `name`      | string | No       | `""`    | A label that error messages show                                |
+| Parameter   | Type   | Required | Default | Description                                                                                                        |
+| ----------- | ------ | -------- | ------- | ------------------------------------------------------------------------------------------------------------------ |
+| `index`     | number | Yes      | -       | CoE object index (`0x0000` to `0xFFFF`)                                                                            |
+| `sub_index` | number | Yes      | -       | CoE object subindex (`0` to `255`)                                                                                 |
+| `data_type` | string | Yes      | -       | `int8` to `int64`, `uint8` to `uint64`, `float32`, or `float64`                                                    |
+| `value`     | number | Yes      | -       | The value to write. It must fit in `data_type`. An integer must be between -9007199254740991 and 9007199254740991. |
+| `name`      | string | No       | `""`    | A label that error messages show                                                                                   |
 
 - **When changes apply** -> If the bus is running, a change applies the next time the
   bus starts. Stop all tasks on the network, then start them again.

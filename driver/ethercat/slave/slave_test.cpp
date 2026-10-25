@@ -333,7 +333,7 @@ TEST(StartupParameter, RejectsAnIndexAboveSixteenBits) {
         {{"index", 0x10000}, {"sub_index", 1}, {"data_type", "uint8"}, {"value", 1}}
     );
     EXPECT_EQ(path, "index");
-    EXPECT_EQ(message, "must be between 0x0000 and 0xFFFF");
+    EXPECT_EQ(message, "must be a whole number from 0x0000 to 0xFFFF");
 }
 
 /// @brief it should reject a sub-index that does not fit in 8 bits.
@@ -342,7 +342,7 @@ TEST(StartupParameter, RejectsASubIndexAboveEightBits) {
         {{"index", 0x8000}, {"sub_index", 256}, {"data_type", "uint8"}, {"value", 1}}
     );
     EXPECT_EQ(path, "sub_index");
-    EXPECT_EQ(message, "must be between 0 and 255");
+    EXPECT_EQ(message, "must be a whole number from 0 to 255");
 }
 
 /// @brief it should reject a data type that is not numeric.
@@ -360,7 +360,7 @@ TEST(StartupParameter, RejectsAValueOutsideTheDataType) {
         {{"index", 0x8000}, {"sub_index", 1}, {"data_type", "uint8"}, {"value", 300}}
     );
     EXPECT_EQ(path, "value");
-    EXPECT_EQ(message, "300 does not fit in uint8");
+    EXPECT_EQ(message, "must be a whole number from 0 to 255");
 }
 
 /// @brief it should reject a fractional value for an integer data type.
@@ -369,44 +369,57 @@ TEST(StartupParameter, RejectsAFractionForAnIntegerType) {
         {{"index", 0x8000}, {"sub_index", 1}, {"data_type", "int16"}, {"value", 1.5}}
     );
     EXPECT_EQ(path, "value");
-    EXPECT_EQ(message, "1.5 does not fit in int16");
+    EXPECT_EQ(message, "must be a whole number from -32768 to 32767");
 }
 
-/// @brief it should reject 2^63 for int64, which a double rounds to but int64 cannot
-/// hold.
-TEST(StartupParameter, RejectsTwoToTheSixtyThreeForInt64) {
+/// @brief it should reject a sub-index with a fraction instead of truncating it.
+TEST(StartupParameter, RejectsAFractionalSubIndex) {
+    const auto [param, path, message] = parse_parameter(
+        {{"index", 0x8000}, {"sub_index", 21.9}, {"data_type", "uint8"}, {"value", 1}}
+    );
+    EXPECT_EQ(path, "sub_index");
+    EXPECT_EQ(message, "must be a whole number from 0 to 255");
+}
+
+/// @brief it should reject an int64 value of 2^53 or more, which a double may have
+/// rounded.
+TEST(StartupParameter, RejectsAnInt64ThatADoubleRounds) {
     const auto [param, path, message] = parse_parameter(
         {{"index", 0x8000},
          {"sub_index", 1},
          {"data_type", "int64"},
-         {"value", 9223372036854775808.0}}
+         {"value", 9007199254740993}}
     );
     EXPECT_EQ(path, "value");
-    EXPECT_EQ(message, "9223372036854775808 does not fit in int64");
+    EXPECT_EQ(
+        message,
+        "must be a whole number from -9007199254740991 to 9007199254740991"
+    );
 }
 
-/// @brief it should accept the minimum int64 value.
-TEST(StartupParameter, AcceptsTheMinimumInt64) {
+/// @brief it should accept the largest int64 magnitude that a double holds exactly.
+TEST(StartupParameter, AcceptsTheLargestExactInt64) {
     const auto [param, path, message] = parse_parameter(
         {{"index", 0x8000},
          {"sub_index", 1},
          {"data_type", "int64"},
-         {"value", -9223372036854775808.0}}
+         {"value", -9007199254740991}}
     );
     EXPECT_EQ(path, "");
+    EXPECT_EQ(param.value, -9007199254740991.0);
 }
 
-/// @brief it should reject 2^64 for uint64, which a double rounds to but uint64 cannot
-/// hold.
-TEST(StartupParameter, RejectsTwoToTheSixtyFourForUint64) {
+/// @brief it should reject a uint64 value of 2^53 or more, which a double may have
+/// rounded.
+TEST(StartupParameter, RejectsAUint64ThatADoubleRounds) {
     const auto [param, path, message] = parse_parameter(
         {{"index", 0x8000},
          {"sub_index", 1},
          {"data_type", "uint64"},
-         {"value", 18446744073709551616.0}}
+         {"value", 18446744073709551615ULL}}
     );
     EXPECT_EQ(path, "value");
-    EXPECT_EQ(message, "18446744073709551616 does not fit in uint64");
+    EXPECT_EQ(message, "must be a whole number from 0 to 9007199254740991");
 }
 
 /// @brief it should reject a value above the float32 maximum.
@@ -490,7 +503,7 @@ TEST(Properties, ReportsEveryInvalidStartupParameter) {
     ASSERT_EQ(errors.size(), 2);
     EXPECT_EQ(errors[0]["path"], "startup_parameters.0.value");
     EXPECT_EQ(errors[1]["path"], "startup_parameters.1.value");
-    EXPECT_EQ(errors[1]["message"], "70000 does not fit in uint16");
+    EXPECT_EQ(errors[1]["message"], "must be a whole number from 0 to 65535");
 }
 
 /// @brief it should parse a slave that has no startup parameters field.
