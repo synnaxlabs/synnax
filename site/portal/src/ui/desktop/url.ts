@@ -25,8 +25,15 @@ export interface Linked {
   user: string;
 }
 
-/** activateURL builds the link that hands a linked machine its license key. */
-export const activateURL = (state: string, linked: Linked): string => {
+/**
+ * activateURL builds the link that hands a linked machine its license key.
+ * @param analytics - Whether the user lets the app send usage data.
+ */
+export const activateURL = (
+  state: string,
+  linked: Linked,
+  analytics: boolean,
+): string => {
   const params = new URLSearchParams({
     state,
     key: linked.key,
@@ -34,6 +41,7 @@ export const activateURL = (state: string, linked: Linked): string => {
     activation: linked.activation,
     email: linked.email,
     user: linked.user,
+    analytics: analytics ? "on" : "off",
   });
   return `${SCHEME}://activate?${params.toString()}`;
 };

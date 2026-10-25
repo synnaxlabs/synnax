@@ -65,6 +65,8 @@ interface FakeArgs {
   listed?: { id: string; fullName: string | null; primaryEmailAddress: unknown }[];
   /** unavailable are organization ids Clerk fails to read with a 500. */
   unavailable?: string[];
+  /** refusal is what Clerk throws when it creates an invitation. */
+  refusal?: Error;
 }
 
 const createClient = ({
@@ -74,6 +76,7 @@ const createClient = ({
   organizations = [],
   listed = [],
   unavailable = [],
+  refusal,
 }: FakeArgs = {}) => {
   const calls: Record<string, unknown[]> = {};
   const record = (name: string, args: unknown): void => {
@@ -114,6 +117,11 @@ const createClient = ({
         const found = organizations.find((o) => o.id === organizationId);
         if (found == null) throw Object.assign(new Error("Not Found"), { status: 404 });
         return found;
+      },
+      createOrganizationInvitation: async (args: unknown) => {
+        if (refusal != null) throw refusal;
+        record("invitations", args);
+        return {};
       },
     },
   };
@@ -416,6 +424,50 @@ describe("directory", () => {
         const { directory, calls } = createClient();
         expect(await directory.names([])).toEqual({});
         expect(calls.userList).toBeUndefined();
+      });
+    });
+
+    describe("invite", () => {
+      const INVITATION = {
+        clerkOrgID: "org_acme",
+        email: "cy@acme.com",
+        role: "org:member",
+        inviterUserID: "user_a",
+        redirectURL: "https://portal.synnaxlabs.com/sign-up",
+      };
+
+      it("should send the invitation with its redirect URL", async () => {
+        const { directory, calls } = createClient();
+        await directory.invite(INVITATION);
+        expect(calls.invitations).toEqual([
+          {
+            organizationId: "org_acme",
+            emailAddress: "cy@acme.com",
+            role: "org:member",
+            inviterUserId: "user_a",
+            redirectUrl: "https://portal.synnaxlabs.com/sign-up",
+          },
+        ]);
+      });
+
+      it("should answer Clerk's refusal as a 400 with its reason", async () => {
+        const { directory } = createClient({
+          refusal: Object.assign(new Error("Bad Request"), {
+            status: 400,
+            errors: [{ message: "duplicate", longMessage: "Already invited." }],
+          }),
+        });
+        await expect(directory.invite(INVITATION)).rejects.toMatchObject({
+          status: 400,
+          message: "Already invited.",
+        });
+      });
+
+      it("should pass on any other failure", async () => {
+        const { directory } = createClient({
+          refusal: Object.assign(new Error("Down"), { status: 500 }),
+        });
+        await expect(directory.invite(INVITATION)).rejects.toThrow("Down");
       });
     });
   });

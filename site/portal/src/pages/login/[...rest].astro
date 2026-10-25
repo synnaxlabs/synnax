@@ -15,8 +15,10 @@ import { Auth } from "@/ui/auth";
 
 const away = guest(Astro);
 if (away != null) return away;
+const ticket = Auth.readTicket(Astro.url.searchParams);
+const token = ticket?.page === "/login" ? ticket.token : null;
 ---
 
-<Guest title="Log in">
-    <Auth.Login client:load target={landing(Astro.url.searchParams)} />
+<Guest title={token == null ? "Log in" : "Join your team"}>
+    <Auth.Login client:load target={landing(Astro.url.searchParams)} ticket={token} />
 </Guest>
