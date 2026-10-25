@@ -475,15 +475,15 @@ describe("directory", () => {
       });
 
       it("should answer Clerk's refusal as a 400 with its reason", async () => {
-        const { directory } = createClient({
-          refusal: Object.assign(new Error("Bad Request"), {
-            status: 400,
-            errors: [{ message: "duplicate", longMessage: "Already invited." }],
-          }),
+        const refusal = Object.assign(new Error("Bad Request"), {
+          status: 400,
+          errors: [{ message: "duplicate", longMessage: "Already invited." }],
         });
+        const { directory } = createClient({ refusal });
         await expect(directory.invite(INVITATION)).rejects.toMatchObject({
           status: 400,
           message: "Already invited.",
+          cause: refusal,
         });
       });
 

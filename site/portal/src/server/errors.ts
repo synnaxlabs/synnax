@@ -16,8 +16,9 @@ export class HTTPError extends Error {
     readonly status: number,
     message: string,
     readonly code?: string,
+    options?: ErrorOptions,
   ) {
-    super(message);
+    super(message, options);
     this.name = "HTTPError";
   }
 }
@@ -27,7 +28,8 @@ export const notFound = (what: string): HTTPError =>
 export const forbidden = (message = "Forbidden", code?: string): HTTPError =>
   new HTTPError(403, message, code);
 export const unauthorized = (): HTTPError => new HTTPError(401, "Log in first");
-export const badRequest = (message: string): HTTPError => new HTTPError(400, message);
+export const badRequest = (message: string, options?: ErrorOptions): HTTPError =>
+  new HTTPError(400, message, undefined, options);
 export const tooMany = (): HTTPError =>
   new HTTPError(429, "Too many activations. Try again later.");
 

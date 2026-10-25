@@ -135,7 +135,12 @@ export const Link = ({
       }
     >
       <Summary name={name} email={email} />
-      <Usage consent={consent} value={shared} onChange={setShared} />
+      <Usage
+        consent={consent}
+        value={shared}
+        onChange={setShared}
+        disabled={action.loading}
+      />
       <Button.Button
         variant="filled"
         size="large"
@@ -166,10 +171,11 @@ interface UsageProps {
   consent: Mode;
   value: boolean;
   onChange: (value: boolean) => void;
+  disabled: boolean;
 }
 
 /** Usage tells the user that the app sends usage data, or asks to send it. */
-const Usage = ({ consent, value, onChange }: UsageProps): ReactElement => {
+const Usage = ({ consent, value, onChange, disabled }: UsageProps): ReactElement => {
   const id = useId();
   if (consent === "notice")
     return (
@@ -180,7 +186,13 @@ const Usage = ({ consent, value, onChange }: UsageProps): ReactElement => {
     );
   return (
     <Flex.Box x align="center" gap="small">
-      <Input.Checkbox id={id} value={value} onChange={onChange} size="small" />
+      <Input.Checkbox
+        id={id}
+        value={value}
+        onChange={onChange}
+        size="small"
+        disabled={disabled}
+      />
       <Text.Text level="small" color={10}>
         <label htmlFor={id}>Share usage data to help improve Synnax Desktop</label>{" "}
         <Text.Text

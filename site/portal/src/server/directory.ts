@@ -117,9 +117,8 @@ const refused = (e: unknown): Error => {
   const { status, errors: reasons } = (e ?? {}) as APIError;
   if (status !== 400 && status !== 422) return errors.fromUnknown(e);
   const first = reasons?.[0];
-  return badRequest(
-    first?.longMessage ?? first?.message ?? "Clerk refused the request",
-  );
+  const reason = first?.longMessage ?? first?.message ?? "Clerk refused the request";
+  return badRequest(reason, { cause: e });
 };
 
 export const clerk = (client: Client): Directory => ({
