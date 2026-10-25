@@ -162,6 +162,11 @@ func newReadTopic(
 				)
 			}
 			t.indexField = len(t.fields)
+		} else if ch.IsIndex {
+			return t, errors.Wrapf(
+				validate.ErrValidation,
+				"%s: only the index field can write to an index channel", path,
+			)
 		}
 		t.fields = append(t.fields, field)
 	}
@@ -180,8 +185,8 @@ func newReadTopic(
 	if t.index != 0 {
 		t.keys = append(t.keys, t.index)
 	}
-	for _, f := range t.fields {
-		if f.channel != t.index {
+	for i, f := range t.fields {
+		if i != t.indexField {
 			t.keys = append(t.keys, f.channel)
 		}
 	}

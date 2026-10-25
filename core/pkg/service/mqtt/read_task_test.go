@@ -649,6 +649,33 @@ var _ = Describe("Read task", func() {
 							"the index field must write to an index channel"
 				},
 			),
+			Entry("an index channel field on a topic with arrival timing",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					idx, data := createIndexed(ctx, telem.Int64T)
+					time := field("time", idx, "/ts")
+					time["time_format"] = "unix_ms"
+					entry := plainEntry("plant/x", time, field("v", data[0], "/v"))
+					return readConfig(dev, entry),
+						"field time of topic plant/x: " +
+							"only the index field can write to an index channel"
+				},
+			),
+			Entry("a second index channel field",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					idx, data := createIndexed(ctx, telem.Int64T)
+					time := field("time", idx, "/ts")
+					time["time_format"] = "unix_ms"
+					again := field("again", idx, "/ts")
+					again["time_format"] = "unix_ms"
+					entry := plainEntry(
+						"plant/x", time, again, field("v", data[0], "/v"),
+					)
+					entry["index"] = "time"
+					return readConfig(dev, entry),
+						"field again of topic plant/x: " +
+							"only the index field can write to an index channel"
+				},
+			),
 			Entry("an invalid JSON Pointer",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					_, data := createIndexed(ctx, telem.Float64T)
