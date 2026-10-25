@@ -540,6 +540,9 @@ catalogs:
     resend:
       specifier: ^6.34.1
       version: 6.34.1
+    rolldown:
+      specifier: ~1.2.14
+      version: 1.2.14
     satteri:
       specifier: ^0.10.5
       version: 0.10.5
@@ -839,6 +842,9 @@ importers:
       babel-plugin-react-compiler:
         specifier: 'catalog:'
         version: 1.0.0
+      rolldown:
+        specifier: 'catalog:'
+        version: 1.2.14
     devDependencies:
       '@synnaxlabs/tsconfig':
         specifier: 'catalog:'
