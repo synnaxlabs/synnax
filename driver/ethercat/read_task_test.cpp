@@ -573,15 +573,10 @@ TEST_F(EtherCATReadTest, SourceReadsDataFromEngine) {
 /// @brief it should report samples that failed bus cycles dropped as a warning with a
 /// message and a description.
 TEST_F(EtherCATReadTest, SourceReportsDroppedSamplesAsAWarning) {
-    auto data_ch = ASSERT_NIL_P(this->client->channels.create(
-        make_unique_channel_name("analog"),
-        x::telem::INT16_T,
-        this->index_channel.key,
-        false
-    ));
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
     auto cfg = this->create_base_config();
     cfg["channels"].push_back(
-        this->create_automatic_input_channel_config(data_ch, "status_word")
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
     );
     auto parser = x::json::Parser(cfg);
     ReadTaskConfig task_cfg(this->client, parser);
@@ -703,15 +698,10 @@ TEST_F(EtherCATReadTest, SourceReadsMultipleChannelValues) {
 /// @brief it should retry a read task without a limit while every bus cycle fails,
 /// because the bus recovers a lost device without a limit.
 TEST_F(EtherCATReadTest, ReadTaskRetriesFailedCyclesWithoutALimit) {
-    auto data_ch = ASSERT_NIL_P(this->client->channels.create(
-        make_unique_channel_name("analog"),
-        x::telem::INT16_T,
-        this->index_channel.key,
-        false
-    ));
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
     auto cfg = this->create_base_config();
     cfg["channels"].push_back(
-        this->create_automatic_input_channel_config(data_ch, "status_word")
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
     );
     auto manager = std::make_unique<mock::Manager>();
     manager->configure(NETWORK_INTERFACE, this->mock_master);
