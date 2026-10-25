@@ -1259,6 +1259,18 @@ describe("remote", () => {
       expect(c.tiles.length).toBe(before);
     });
 
+    it("should release an xy line's tiles of a former width", async () => {
+      const source = create({ xChannel: XY_KEY, channel: XY_KEY });
+      await settle(source);
+      const former = [...c.served.values()];
+      const wide = view(2000, 3000, 4000);
+      source.value({ view: wide });
+      await expect.poll(() => source.fetching()).toBe(false);
+      source.value({ view: wide });
+      expect(c.tiles).toHaveLength(4);
+      expect(former.map((s) => s.series[0].refCount)).toEqual([0, 0]);
+    });
+
     describe("failures", () => {
       const NO_WAIT: breaker.Config = { sleepFn: async () => {} };
       const FAST: breaker.Config = {
