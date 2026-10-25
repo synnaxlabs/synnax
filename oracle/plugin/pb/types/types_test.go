@@ -102,6 +102,43 @@ var _ = Describe("Plugin", func() {
 				ToNotContain(".x.filter.pb.Set")
 		})
 
+		It("Should name the list of a key from another namespace for it", func(
+			ctx SpecContext,
+		) {
+			AddFilterSchema(loader)
+			loader.Add("schemas/rk", `
+				@go output "core/pkg/service/rk"
+				@pb
+
+				Key uint32
+			`)
+			source := `
+				import "schemas/rk"
+				import "schemas/x/filter"
+
+				@go output "core/pkg/service/dev"
+				@pb
+
+				Key uint64
+
+				Device struct {
+					key Key    { @key }
+					rk  rk.Key
+				}
+
+				Where filter Device {
+					key
+					rk
+				}
+			`
+			resp := MustGenerate(ctx, source, "dev", loader, p)
+			ExpectContent(resp, "dev/pb/dev.proto").ToContain(
+				"message KeyList {\n  repeated uint64 values = 1;\n}",
+				"message RkKeyList {\n  repeated uint32 values = 1;\n}",
+				"RkKeyList in = 2;",
+			)
+		})
+
 		Context("field-level omit", func() {
 			It("Should reserve the number of a field omitted in pb", func(
 				ctx SpecContext,
