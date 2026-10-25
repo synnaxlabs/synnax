@@ -9,43 +9,18 @@
 
 import { ranger } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tag } from "@synnaxlabs/lyra/tag";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Access, Ranger } from "@synnaxlabs/pluto";
-import { type NumericTimeRange } from "@synnaxlabs/x";
 import { memo, type MouseEvent } from "react";
 
 import { CSS } from "@/platform/css";
 import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 import { Session } from "@/session";
-
-interface StageProps {
-  rangeKey: ranger.Key;
-  disabled: boolean;
-}
-
-const Stage = ({ rangeKey, disabled }: StageProps) => {
-  const { form } = Ranger.useForm({ query: { key: rangeKey } });
-  return (
-    <Form.Form<typeof Ranger.formSchema> {...form}>
-      <Form.Field<NumericTimeRange> path="timeRange" showHelpText showLabel={false}>
-        {({ value, onChange }) => (
-          <Ranger.StageButton
-            value={value}
-            onChange={onChange}
-            iconOnly
-            disabled={disabled}
-          />
-        )}
-      </Form.Field>
-    </Form.Form>
-  );
-};
 
 export interface ItemProps extends List.ItemProps<ranger.Key> {
   showParent?: boolean;
@@ -67,6 +42,7 @@ const Base = ({
   const item = List.useItem<ranger.Key, ranger.Range>(itemKey);
   const canEdit = Access.useUpdateGranted(ranger.ontologyID(itemKey));
   const { update: rename } = Session.Range.useRename();
+  const { update: setTimeRange } = Ranger.useSetTimeRange();
   if (item == null) return null;
 
   const { name, parent, labels, timeRange } = item;
@@ -97,7 +73,12 @@ const Base = ({
           aria-label="Select"
         />
         <Flex.Box x align="center" gap="tiny">
-          <Stage rangeKey={itemKey} disabled={!canEdit} />
+          <Ranger.StageButton
+            value={timeRange.numeric}
+            onChange={(next) => setTimeRange({ key: itemKey, timeRange: next })}
+            iconOnly
+            disabled={!canEdit}
+          />
           <Ranger.Breadcrumb
             name={name}
             parent={parent}

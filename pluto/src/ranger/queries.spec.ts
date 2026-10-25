@@ -743,6 +743,47 @@ describe("queries", () => {
     });
   });
 
+  describe("useSetTimeRange", () => {
+    const start = TimeStamp.seconds(1_700_000_000);
+    const createRange = async (name: string) =>
+      await client.ranges.create({
+        name,
+        timeRange: start.spanRange(TimeSpan.seconds(1)),
+      });
+
+    it("should set the time range of a range", async () => {
+      const rng = await createRange("set_time_range_hook");
+      const timeRange = start.spanRange(TimeSpan.seconds(5));
+      const { result } = renderHook(() => Ranger.useSetTimeRange(), { wrapper });
+      await act(async () => {
+        expect(
+          await result.current.updateAsync({
+            key: rng.key,
+            timeRange: timeRange.numeric,
+          }),
+        ).toBe(true);
+      });
+      expect((await client.ranges.retrieve(rng.key)).timeRange).toEqual(timeRange);
+    });
+
+    it("should reject an end before the start", async () => {
+      const rng = await createRange("set_time_range_hook_reversed");
+      const { result } = renderHook(() => Ranger.useSetTimeRange(), { wrapper });
+      await act(async () => {
+        expect(
+          await result.current.updateAsync({
+            key: rng.key,
+            timeRange: { start: rng.timeRange.end.nanoseconds, end: start.nanoseconds },
+          }),
+        ).toBe(false);
+      });
+      expect(result.current.status.description).toContain(
+        "time_range.start cannot be after time_range.end",
+      );
+      expect((await client.ranges.retrieve(rng.key)).timeRange).toEqual(rng.timeRange);
+    });
+  });
+
   describe("useUpdateKV", () => {
     it("should set a pair on the range", async () => {
       const rng = await client.ranges.create({

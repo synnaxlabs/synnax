@@ -9,7 +9,7 @@
 
 import { label, type ontology, ranger } from "@synnaxlabs/client";
 import { type List } from "@synnaxlabs/lyra/list";
-import { primitive, verbs } from "@synnaxlabs/x";
+import { type NumericTimeRange, primitive, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
@@ -288,6 +288,24 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
     await client.ranges.rename(key, name, {
       onOptimistic: async () => await onOptimisticComplete(data),
     });
+    return data;
+  },
+});
+
+export interface SetTimeRangeParams {
+  key: ranger.Key;
+  timeRange: NumericTimeRange;
+}
+
+export const { useUpdate: useSetTimeRange } = Flux.createUpdate<SetTimeRangeParams>({
+  name: RESOURCE_NAME,
+  verbs: verbs.UPDATE,
+  update: async ({ client, data }) => {
+    const { key, timeRange } = data;
+    await client.ranges.dispatch(
+      key,
+      ranger.set({ path: ["time_range"], value: timeRange }),
+    );
     return data;
   },
 });
