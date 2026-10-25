@@ -337,7 +337,8 @@ describe("Store", () => {
       const store = new Store({ dynamicBufferSize: 100 });
       write(store, 1, createWrite(1, [1], 0n));
       const block = store.raw(1, 100);
-      write(store, 
+      write(
+        store,
         1,
         new MultiSeries([
           new Series({

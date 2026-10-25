@@ -263,7 +263,9 @@ export class RawBlock implements Block {
    * block covers every span, since the stream delivers its samples.
    */
   covers(tr: TimeRange): boolean {
-    return this.joined || TimeStamp.min(tr.end, this.range.end).beforeEq(this.coveredEnd);
+    return (
+      this.joined || TimeStamp.min(tr.end, this.range.end).beforeEq(this.coveredEnd)
+    );
   }
 
   /** Moves the coverage to end, which holds count index samples of the block. */

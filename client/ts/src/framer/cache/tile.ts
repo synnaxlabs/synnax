@@ -77,8 +77,13 @@ class Tile implements Block {
 /**
  * @returns the store key of the tile. A tile cut short at either end is never cached.
  */
-export const tileKey = ({ key, level, index, pointLimit, aggregation }: TileSpec): string =>
-  `${key}/${level}/${index}/${pointLimit}/${aggregation}`;
+export const tileKey = ({
+  key,
+  level,
+  index,
+  pointLimit,
+  aggregation,
+}: TileSpec): string => `${key}/${level}/${index}/${pointLimit}/${aggregation}`;
 
 /**
  * @returns a key for the time range and reduction of the tile's read. Specs with equal
@@ -157,7 +162,8 @@ export class TileReader {
     reads.set(spec.key, fetched);
     try {
       const series = await fetched;
-      if (!this.closed) store.set(key, new Tile(spec.key, tileRange(spec), series, this.props.now()));
+      if (!this.closed)
+        store.set(key, new Tile(spec.key, tileRange(spec), series, this.props.now()));
       return series;
     } finally {
       reads.delete(spec.key);
