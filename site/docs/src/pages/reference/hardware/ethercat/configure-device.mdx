@@ -102,12 +102,12 @@ When no task uses the network, a module that you connect shows at the next scan,
 module that you remove shows **Device disconnected**. While a task uses the network, the
 list of modules does not change. To find new modules, stop the tasks on the port.
 
-The Driver gets the PDOs of a module from a built-in catalog of Beckhoff and Dewesoft
-modules, then from the module itself. If it cannot find them, the status of the module
-reads "Failed to discover PDOs", and its description gives the reason. To scan again,
+The Driver reads the PDOs of a module from the module itself. If the module does not
+report them, the Driver uses a built-in catalog of Beckhoff and Dewesoft modules. If it
+cannot find them, the status of the module reads "Failed to discover PDOs", and its
+description gives the reason. To scan again,
 [restart the Driver](/reference/hardware/troubleshooting#restart-the-driver). A module
-that the scan cannot read is not supported yet. Manual channels on that module read
-wrong values.
+that the scan cannot read is not supported yet.
 
 <Divider.Divider x />
 
@@ -272,6 +272,14 @@ Follow the [prerequisites](#prerequisites), then
 The Console shows this warning when the Driver cannot scan a port. The description gives
 the reason, such as no raw Ethernet access. See
 [network interface access](#network-interface-access).
+
+### "slave ... maps ... input and ... output bits, but its discovered PDO entries hold ... and ..."
+
+A task shows this error when the PDOs that the Driver found have a different size than
+the data that the module exchanges. The Driver does not read or write that module, so it
+does not give wrong values.
+[Restart the Driver](/reference/hardware/troubleshooting#restart-the-driver) to scan
+again. If the error stays, the module is not supported yet.
 
 ### "device ... expected at position ... not found on bus"
 

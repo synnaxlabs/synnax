@@ -20,6 +20,7 @@ export const modelZ = z.literal(SLAVE_MODEL);
 /** Schema for a single PDO entry from device scan. */
 const pdoEntryZ = z.object({
   name: z.string(),
+  pdoName: z.string().optional(),
   index: z.number(),
   subIndex: z.number(),
   bitLength: z.number(),

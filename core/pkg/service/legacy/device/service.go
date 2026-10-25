@@ -96,11 +96,11 @@ func (c ServiceConfig) Validate() error {
 // mechanisms for creating, retrieving, updating, and deleting devices. It also
 // provides mechanisms for listening to changes in devices.
 type Service struct {
-	cfg    ServiceConfig
-	closer xio.MultiCloser
-	table  *gorp.Table[Key, Device]
-	search *gorp.SearchIndex[Key, Device]
-	group  group.Group
+	cfg     ServiceConfig
+	closer  xio.MultiCloser
+	table   *gorp.Table[Key, Device]
+	indexes indexes
+	group   group.Group
 }
 
 // OpenService opens a new device service using the provided configuration. If error
@@ -111,12 +111,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, search: newSearchIndex()}
+	s = &Service{cfg: cfg, indexes: newIndexes()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Device]{
 		DB:      cfg.DB,
-		Indexes: []gorp.Index[Key, Device]{s.search},
+		Indexes: s.indexes.all(),
 		Migrations: versions.NewMigrations(
 			versions.MigrationsConfig{Status: cfg.Status},
 		),
@@ -174,9 +174,9 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 // NewRetrieve opens a new Retrieve query to fetch devices from the database.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		search: s.search,
-		baseTX: s.cfg.DB,
-		gorp:   s.table.NewRetrieve(),
+		indexes: s.indexes,
+		baseTX:  s.cfg.DB,
+		gorp:    s.table.NewRetrieve(),
 	}
 }
 

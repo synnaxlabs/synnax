@@ -98,12 +98,6 @@ func newResource(u User) ontology.Resource {
 	return ontology.NewResource(schema, u.OntologyID(), u.Username, u)
 }
 
-func newSearchIndex() *gorp.SearchIndex[Key, User] {
-	return gorp.NewSearchIndex("search", func(e *User) []string {
-		return []string{e.Username, e.FirstName, e.LastName}
-	})
-}
-
 // Search implements ontology.Service.
 func (s *Service) Search(
 	ctx context.Context,
@@ -111,5 +105,5 @@ func (s *Service) Search(
 	term string,
 	limit int,
 ) (search.Result[ontology.ID], error) {
-	return ontology.SearchIndex(ctx, tx, s.search, term, limit, OntologyID)
+	return ontology.SearchIndex(ctx, tx, s.indexes.search, term, limit, OntologyID)
 }

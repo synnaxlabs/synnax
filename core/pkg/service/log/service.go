@@ -77,11 +77,11 @@ func (c ServiceConfig) Validate() error {
 
 // Service is the primary service for retrieving and modifying logs from Synnax.
 type Service struct {
-	cfg    ServiceConfig
-	closer xio.MultiCloser
-	table  *gorp.Table[Key, Log]
-	search *gorp.SearchIndex[Key, Log]
-	state  *actions.State[Key, Action]
+	cfg     ServiceConfig
+	closer  xio.MultiCloser
+	table   *gorp.Table[Key, Log]
+	indexes indexes
+	state   *actions.State[Key, Action]
 }
 
 // OpenService instantiates a new log service using the provided configurations. Each
@@ -93,15 +93,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	s = &Service{
-		cfg:    cfg,
-		state:  actions.NewState[Key, Action](cfg.DB),
-		search: newSearchIndex(),
+		cfg:     cfg,
+		state:   actions.NewState[Key, Action](cfg.DB),
+		indexes: newIndexes(),
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Log]{
 		DB:              cfg.DB,
-		Indexes:         []gorp.Index[Key, Log]{s.search},
+		Indexes:         s.indexes.all(),
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
@@ -176,5 +176,9 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 
 // NewRetrieve opens a new query build for retrieving logs from Synnax.
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{gorp: s.table.NewRetrieve(), baseTX: s.cfg.DB}
+	return Retrieve{
+		gorp:    s.table.NewRetrieve(),
+		baseTX:  s.cfg.DB,
+		indexes: s.indexes,
+	}
 }

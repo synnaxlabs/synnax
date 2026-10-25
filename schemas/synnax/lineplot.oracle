@@ -318,6 +318,7 @@ LinePlot struct {
     }
     name     string   {
         @doc value         "is a human-readable name for the line plot."
+        @search
         @validate required
     }
     title    Title = {} {
