@@ -560,7 +560,12 @@ describe("Read", () => {
     const render = async (dataType: string) =>
       await renderRead({
         ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-        channels: [createEntryReadChannel(slave.key, STATUS_ENTRY, { dataType })],
+        channels: [
+          EtherCAT.Task.createEntryReadChannel(slave.key, {
+            ...STATUS_ENTRY,
+            dataType,
+          }),
+        ],
       });
     const first = await render("uint16");
     await deployAndAwaitTask(
