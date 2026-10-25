@@ -55,7 +55,7 @@ type Service struct {
 	cfg     ServiceConfig
 	signals io.Closer
 	table   *gorp.Table[Key, Group]
-	search  *gorp.SearchIndex[Key, Group]
+	indexes indexes
 }
 
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
@@ -63,10 +63,10 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, search: newSearchIndex()}
+	s := &Service{cfg: cfg, indexes: newIndexes()}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Group]{
 		DB:              cfg.DB,
-		Indexes:         []gorp.Index[Key, Group]{s.search},
+		Indexes:         s.indexes.all(),
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); err != nil {
@@ -118,7 +118,11 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 }
 
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{baseTX: s.cfg.DB, gorp: s.table.NewRetrieve()}
+	return Retrieve{
+		baseTX:  s.cfg.DB,
+		gorp:    s.table.NewRetrieve(),
+		indexes: s.indexes,
+	}
 }
 
 func (s *Service) Close() error {

@@ -17,7 +17,7 @@ import (
 
 type Retrieve struct {
 	baseTX       gorp.Tx
-	search       *gorp.SearchIndex[Key, Rack]
+	indexes      indexes
 	gorp         gorp.Retrieve[Key, Rack]
 	hostProvider cluster.HostProvider
 }
