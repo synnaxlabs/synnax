@@ -8,14 +8,24 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, primitive } from "@synnaxlabs/x";
+import { array, type destructor } from "@synnaxlabs/x";
 import z from "zod";
 
 import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { DELETE_CHANNEL_NAME, ontologyID, SET_CHANNEL_NAME } from "@/status/payload";
-import { type Key, keyZ, type New, type Status, statusZ } from "@/status/types.gen";
+import {
+  type Key,
+  keyZ,
+  type New,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  type Status,
+  statusZ,
+} from "@/status/types.gen";
+import { createLines } from "@/status/where";
+import { type Lines, matches, serverComputed } from "@/status/where.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 const setReqZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
@@ -32,29 +42,27 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
-const retrieveRequestZ = z.object({
-  keys: keyZ.array().optional(),
-  searchTerm: z.string().optional(),
-  offset: z.int().optional(),
-  limit: z.int().optional(),
-  includeLabels: z.boolean().optional(),
-  hasLabels: label.keyZ.array().optional(),
-  variants: z.string().array().optional(),
-  ignoreNotFoundError: z.boolean().optional(),
+const keysRequest = (keys: Key[]): RetrieveRequest => ({
+  where: { key: { in: keys } },
 });
-const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
+
+const retrieveMultiParamsZ = z.union([
+  keyZ.array().transform(keysRequest),
+  retrieveRequestZ,
+]);
 
 const singleRetrieveParamsZ = z
   .object({ key: keyZ, includeLabels: z.boolean().optional() })
-  .transform(({ key, includeLabels }) => ({ keys: [key], includeLabels }));
+  .transform(({ key, includeLabels }): RetrieveRequest => ({
+    where: { key: { eq: key } },
+    includeLabels,
+  }));
 
 const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
 
-export type RetrieveParams = z.input<typeof retrieveParamsZ>;
 export type SingleRetrieveParams = z.input<typeof singleRetrieveParamsZ>;
-export type MultiRetrieveParams = z.input<typeof retrieveRequestZ>;
-
-interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
+export type MultiRetrieveParams = RetrieveRequest;
+export type RetrieveParams = SingleRetrieveParams | MultiRetrieveParams;
 
 const retrieveResponseZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
   detailsSchema?: DetailsSchema,
@@ -88,13 +96,14 @@ export class Client extends query.Retriever<
   readonly type: string = "status";
   readonly store: query.Table<Key, Status>;
   private readonly cfg: ClientConfig;
+  private readonly lines: Lines;
 
   constructor(cfg: ClientConfig) {
     const { cache, ontology: ontologyClient, labels } = cfg;
     const { relationships } = ontologyClient.cache;
     const store = cache.createTable<Key, Status>({
       name: "statuses",
-      fetch: async (keys) => await this.fetchThrough({ keys }),
+      fetch: async (keys) => await this.fetchThrough(keysRequest(keys)),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, statusZ(), {
           value: (changed, prev) => {
@@ -130,7 +139,9 @@ export class Client extends query.Retriever<
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.fetchThrough(req),
-        matches: (status, req) => this.requestFilter(req)(status),
+        matches: (status, req) => matches(this.lines, status, req.where ?? {}),
+        serverComputed: (req) =>
+          req.where != null && serverComputed(this.lines, req.where),
         watch: [
           query.watch(relationships, (event, _: RetrieveRequest) =>
             this.affectedKeys(event),
@@ -151,6 +162,7 @@ export class Client extends query.Retriever<
     });
     this.cfg = cfg;
     this.store = store;
+    this.lines = createLines((status, labelKey) => this.isLabeledBy(status, labelKey));
   }
 
   async retrieve<DetailsSchema extends z.ZodType>(
@@ -382,27 +394,5 @@ export class Client extends query.Retriever<
           r.from.type === "status",
       )
       .map((r) => r.from.key);
-  }
-
-  /**
-   * Client-side matching for a request: key sets, variants, and label
-   * membership via the relationship table. Server-computed shapes (search,
-   * limit/offset) never reach this filter; they refetch instead.
-   */
-  private requestFilter(req: RetrieveRequest): (s: Status) => boolean {
-    const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-    const variantSet = primitive.isNonZero(req.variants)
-      ? new Set(req.variants)
-      : undefined;
-    return (s) => {
-      if (keySet != null && !keySet.has(s.key)) return false;
-      if (variantSet != null && !variantSet.has(s.variant)) return false;
-      if (
-        primitive.isNonZero(req.hasLabels) &&
-        !req.hasLabels.some((key) => this.isLabeledBy(s.key, key))
-      )
-        return false;
-      return true;
-    };
   }
 }

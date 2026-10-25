@@ -12,6 +12,7 @@ from uuid import uuid4
 import pytest
 
 import synnax as sy
+from x import filter
 from x.testutil import assert_eventually
 
 
@@ -171,8 +172,7 @@ class TestStatusClient:
 
         client.statuses.delete(keys)
 
-        with pytest.raises(sy.NotFoundError, match="not found"):
-            client.statuses.retrieve(keys=keys)
+        assert client.statuses.retrieve(keys=keys) == []
 
     def test_delete_idempotent(self, client: sy.Synnax) -> None:
         """Should be idempotent - deleting non-existent status should not error."""
@@ -252,6 +252,27 @@ class TestStatusClient:
         assert "info" in result_variants
         assert "success" in result_variants
         assert "error" not in result_variants
+
+    def test_where(self, client: sy.Synnax) -> None:
+        """Should keep statuses that match a filter tree and the other filters."""
+        created = client.statuses.set(
+            [
+                sy.Status(variant=sy.status.VARIANT_INFO, message="Where 0"),
+                sy.Status(variant=sy.status.VARIANT_ERROR, message="Where 1"),
+                sy.Status(variant=sy.status.VARIANT_SUCCESS, message="Where 2"),
+            ]
+        )
+        where = sy.status.Where(
+            not_=sy.status.Where(
+                variant=filter.Set[sy.status.Variant](eq=sy.status.VARIANT_ERROR)
+            )
+        )
+        results = client.statuses.retrieve(where=where, keys=[s.key for s in created])
+        assert {s.key for s in results} == {created[0].key, created[2].key}
+
+    def test_empty_keys(self, client: sy.Synnax) -> None:
+        """Should retrieve no statuses for an empty list of keys."""
+        assert client.statuses.retrieve(keys=[]) == []
 
     def test_retrieve_with_no_matching_variants(self, client: sy.Synnax) -> None:
         """Should return empty when no statuses match the variant filter."""

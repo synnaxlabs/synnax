@@ -329,7 +329,7 @@ describe("Status", () => {
       ]);
 
       const statuses = await client.statuses.retrieve({
-        keys: ["multi-1", "multi-2"],
+        where: { key: { in: ["multi-1", "multi-2"] } },
       });
 
       expect(statuses).toHaveLength(2);
@@ -372,13 +372,13 @@ describe("Status", () => {
       }
 
       const page1 = await client.statuses.retrieve({
-        keys,
+        where: { key: { in: keys } },
         limit: 2,
         offset: 0,
       });
 
       const page2 = await client.statuses.retrieve({
-        keys,
+        where: { key: { in: keys } },
         limit: 2,
         offset: 2,
       });
@@ -500,8 +500,9 @@ describe("Status", () => {
 
       await client.statuses.delete(keys);
 
-      const results = await client.statuses.retrieve({ keys }).catch(() => []);
-      expect(results).toHaveLength(0);
+      expect(
+        await client.statuses.retrieve({ where: { key: { in: keys } } }),
+      ).toHaveLength(0);
     });
 
     it("should be idempotent", async () => {
@@ -552,7 +553,7 @@ describe("Status", () => {
       expect(retrievedStat.labels).toHaveLength(2);
     });
 
-    it("should update a subscribed hasLabels answer when labels change", async () => {
+    it("should update a subscribed labels answer when labels change", async () => {
       const lbl = await client.labels.create({
         name: "Membership Label",
         color: color.construct("#00FF00"),
@@ -576,7 +577,7 @@ describe("Status", () => {
         },
       ]);
       await client.labels.label(status.ontologyID(member), [lbl.key]);
-      const params = { hasLabels: [lbl.key] };
+      const params = { where: { labels: [lbl.key] } };
       const off = client.statuses.onChange(params, () => {});
       try {
         const initial = await client.statuses.retrieve(params);
@@ -629,8 +630,10 @@ describe("Status", () => {
       ]);
 
       const results = await client.statuses.retrieve({
-        keys: [`${prefix}-success`, `${prefix}-error`, `${prefix}-warning`],
-        variants: ["error"],
+        where: {
+          key: { in: [`${prefix}-success`, `${prefix}-error`, `${prefix}-warning`] },
+          variant: { eq: "error" },
+        },
       });
 
       expect(results).toHaveLength(1);
@@ -664,8 +667,10 @@ describe("Status", () => {
       ]);
 
       const results = await client.statuses.retrieve({
-        keys: [`${prefix}-info`, `${prefix}-error`, `${prefix}-success`],
-        variants: ["info", "success"],
+        where: {
+          key: { in: [`${prefix}-info`, `${prefix}-error`, `${prefix}-success`] },
+          variant: { in: ["info", "success"] },
+        },
       });
 
       expect(results).toHaveLength(2);
@@ -686,11 +691,30 @@ describe("Status", () => {
       });
 
       const results = await client.statuses.retrieve({
-        keys: [`${prefix}-info`],
-        variants: ["error"],
+        where: { key: { eq: `${prefix}-info` }, variant: { eq: "error" } },
       });
 
       expect(results).toHaveLength(0);
+    });
+
+    it("should filter statuses by a tree of filters", async () => {
+      const prefix = `variant-tree-${Date.now()}`;
+      const keys = [`${prefix}-info`, `${prefix}-error`, `${prefix}-success`];
+      await client.statuses.set(
+        (["info", "error", "success"] as const).map((variant, i) => ({
+          name: variant,
+          key: keys[i],
+          variant,
+          message: variant,
+          time: TimeStamp.now(),
+        })),
+      );
+
+      const results = await client.statuses.retrieve({
+        where: { key: { in: keys }, not: { variant: { eq: "error" } } },
+      });
+
+      expect(results.map((s) => s.key).sort()).toEqual([keys[0], keys[2]].sort());
     });
   });
 

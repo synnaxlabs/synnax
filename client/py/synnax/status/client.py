@@ -10,11 +10,20 @@
 from typing import Generic, TypeVar, overload
 from uuid import UUID
 
-from pydantic import BaseModel, Field, JsonValue
+from pydantic import BaseModel, JsonValue
 
 from freighter import Empty, UnaryClient
+from synnax.exceptions import NotFoundError
 from synnax.ontology import ID
-from synnax.status.types_gen import Key, Status, Variant
+from synnax.status.types_gen import (
+    Key,
+    RetrieveRequest,
+    RetrieveResponse,
+    Status,
+    Variant,
+    Where,
+)
+from x import filter
 from x.lists import normalize
 from x.params import require_named_params
 
@@ -28,20 +37,6 @@ class _SetRequest(BaseModel, Generic[D]):
 
 class _SetResponse(BaseModel):
     statuses: list[Status[JsonValue]]
-
-
-class _RetrieveRequest(BaseModel):
-    keys: list[str] | None = None
-    search_term: str | None = None
-    offset: int | None = None
-    limit: int | None = None
-    include_labels: bool | None = None
-    has_labels: list[UUID] | None = None
-    variants: list[Variant] | None = None
-
-
-class _RetrieveResponse(BaseModel):
-    statuses: list[Status[JsonValue]] = Field(default_factory=list)
 
 
 class _RenameRequest(BaseModel):
@@ -165,6 +160,7 @@ class Client:
     def retrieve(
         self,
         *,
+        where: Where | None = None,
         keys: list[str] | None = None,
         search_term: str | None = None,
         offset: int | None = None,
@@ -179,6 +175,7 @@ class Client:
         self,
         *,
         key: str | None = None,
+        where: Where | None = None,
         keys: list[str] | None = None,
         search_term: str | None = None,
         offset: int | None = None,
@@ -191,12 +188,13 @@ class Client:
 
         Args:
             key: Retrieve a single status by key.
+            where: Keeps statuses that match this filter tree.
             keys: Retrieve multiple statuses by keys.
             search_term: Search for statuses by name or message.
             offset: Pagination offset.
             limit: Pagination limit.
             include_labels: Whether to include labels in the response.
-            has_labels: Filter statuses that have all of these labels.
+            has_labels: Filter statuses that have any of these labels.
             variants: Filter statuses by variant (e.g. "success", "error").
 
         Returns:
@@ -228,24 +226,28 @@ class Client:
         single = key is not None
         if single and key is not None:
             keys = [key]
-
+        flat = Where(
+            key=None if keys is None else filter.Set[Key](in_=keys),
+            variant=None if variants is None else filter.Set[Variant](in_=variants),
+            labels=has_labels,
+        )
+        if where is not None and flat != Where():
+            where = Where(and_=[where, flat])
         res = self.client.send(
             _RETRIEVE_ENDPOINT,
-            _RetrieveRequest(
-                keys=keys,
+            RetrieveRequest(
+                where=flat if where is None else where,
                 search_term=search_term,
                 offset=offset,
                 limit=limit,
-                include_labels=include_labels,
-                has_labels=has_labels,
-                variants=variants,
+                include_labels=include_labels or None,
             ),
-            _RetrieveResponse,
+            RetrieveResponse,
         ).statuses
 
         if single:
             if len(res) == 0:
-                raise ValueError(f"Status with key '{key}' not found")
+                raise NotFoundError(f"Status with key '{key}' not found")
             return res[0]
         return res
 

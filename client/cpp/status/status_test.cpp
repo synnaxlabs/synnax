@@ -172,7 +172,7 @@ TEST(StatusTest, DeleteMultipleStatuses) {
         "test-multi-delete-2"
     };
     ASSERT_NIL(client.statuses.del(keys));
-    ASSERT_OCCURRED_AS_P(client.statuses.retrieve(keys), x::errors::NOT_FOUND);
+    EXPECT_TRUE(ASSERT_NIL_P(client.statuses.retrieve(keys)).empty());
 }
 
 /// @brief it should round-trip status details through JSON.
