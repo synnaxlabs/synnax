@@ -16,7 +16,7 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { deep, errors, id, primitive } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC } from "react";
 
 import { use } from "@/feature/labjack/device/queries";
 import { Select } from "@/feature/labjack/device/Select";
@@ -144,25 +144,16 @@ interface ChannelListProps {
 
 const ChannelList = ({ device }: ChannelListProps) => {
   const { model } = device;
-  const createChannel = useCallback(
-    (channels: WriteChannel[]) => getOpenChannel(channels, model),
-    [model],
+  const createChannel = (channels: WriteChannel[]) => getOpenChannel(channels, model);
+  const listItem = ({ key, ...p }: Task.ChannelListItemProps) => (
+    <ChannelListItem key={key} {...p} deviceModel={model} />
   );
-  const listItem = useCallback(
-    ({ key, ...p }: Task.ChannelListItemProps) => (
-      <ChannelListItem key={key} {...p} deviceModel={model} />
-    ),
-    [model],
-  );
-  const resolve = useCallback(
-    (c: WriteChannel) => {
-      const pair =
-        device.properties[convertWriteChannelTypeToPortType(c.type)].channels[c.port] ??
-        PlatformDevice.ZERO_COMMAND_STATE_PAIR;
-      return { cmdChannel: pair.command, stateChannel: pair.state };
-    },
-    [device],
-  );
+  const resolve = (c: WriteChannel) => {
+    const pair =
+      device.properties[convertWriteChannelTypeToPortType(c.type)].channels[c.port] ??
+      PlatformDevice.ZERO_COMMAND_STATE_PAIR;
+    return { cmdChannel: pair.command, stateChannel: pair.state };
+  };
   return (
     <Task.Views.List<WriteChannel>
       createChannel={createChannel}

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Control, Schematic, User } from "@synnaxlabs/pluto";
-import { memo, type PropsWithChildren, type ReactElement, useCallback } from "react";
+import { memo, type PropsWithChildren, type ReactElement } from "react";
 
 import { Session } from "@/session";
 
@@ -22,11 +22,8 @@ export const Controller = memo(({ children }: ControllerProps): ReactElement => 
   const dispatch = Session.useDispatch();
   const username = User.useResultUsername({}).data ?? "";
   const controlName = username.length > 0 ? `${name} (${username})` : name;
-  const handleStatusChange = useCallback(
-    (status: Control.Status) =>
-      dispatch(Session.Schematic.setControlStatus({ key, status })),
-    [dispatch, key],
-  );
+  const handleStatusChange = (status: Control.Status) =>
+    dispatch(Session.Schematic.setControlStatus({ key, status }));
   return (
     <Control.Controller
       onStatusChange={handleStatusChange}

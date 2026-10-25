@@ -13,7 +13,6 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Flux, Group } from "@synnaxlabs/pluto";
 import { uuid, verbs } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { getResourcesToGroup } from "@/platform/group/getResourcesToGroup";
 import { type Tree } from "@/platform/tree";
@@ -80,9 +79,6 @@ const beforeUpdate = async ({
 
 export const useCreateFromSelection = () => {
   const { update } = base.useUpdate({ beforeUpdate });
-  return useCallback(
-    (props: Tree.ContextMenuProps) =>
-      update({ ...props, group: { key: uuid.create(), name: "" } }),
-    [update],
-  );
+  return (props: Tree.ContextMenuProps) =>
+    update({ ...props, group: { key: uuid.create(), name: "" } });
 };

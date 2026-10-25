@@ -17,7 +17,7 @@ import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { state } from "@synnaxlabs/lyra/state";
 import { Text } from "@synnaxlabs/lyra/text";
 import { box, color } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useMemo, useRef } from "react";
+import { type ReactElement, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { type z } from "zod";
 
@@ -73,13 +73,10 @@ export const Rule = ({
       lineWidth,
       lineDash,
     },
-    onAetherChange: useCallback(
-      ({ position }: z.infer<typeof rule.ruleStateZ>) => {
-        if (position == null) return;
-        onPositionChangeRef.current?.(position);
-      },
-      [onPositionChangeRef],
-    ),
+    onAetherChange: ({ position }: z.infer<typeof rule.ruleStateZ>) => {
+      if (position == null) return;
+      onPositionChangeRef.current?.(position);
+    },
   });
 
   const pixelPosRef = useSyncedRef(pixelPosition);
@@ -99,40 +96,35 @@ export const Rule = ({
   }, [propsPosition, colorVal, lineWidth, lineDash]);
 
   const handleDragStart = Cursor.useDrag({
-    onStart: useCallback(() => {
+    onStart: () => {
       onSelect?.();
       setState((p) => ({ ...p, dragging: true }));
       dragStartRef.current = pixelPosRef.current;
-    }, [onSelect, setState, pixelPosRef]),
+    },
     onMove: (b: box.Box) => {
       setState((p) => ({
         ...p,
         pixelPosition: (dragStartRef.current ?? 0) + box.signedHeight(b),
       }));
     },
-    onEnd: useCallback(() => {
+    onEnd: () => {
       setState((p) => ({ ...p, dragging: false }));
-    }, [setState]),
+    },
   });
 
   const ref = useRef<HTMLDivElement>(null);
 
-  const topStyle = useMemo(
-    () => ({ top: `calc(${pixelPosition}px - 0.5rem)` }),
-    [pixelPosition],
-  );
+  const topStyle = { top: `calc(${pixelPosition}px - 0.5rem)` };
 
-  const colorStyles = useMemo(() => {
-    const borderColor = color.cssString(colorVal);
-    return {
-      tag: {
-        borderColor,
-        backgroundColor: color.hex(color.setAlpha(colorVal, 0.75)),
-        ...style,
-      },
-      divider: { borderColor },
-    };
-  }, [colorVal, style]);
+  const borderColor = color.cssString(colorVal);
+  const colorStyles = {
+    tag: {
+      borderColor,
+      backgroundColor: color.hex(color.setAlpha(colorVal, 0.75)),
+      ...style,
+    },
+    divider: { borderColor },
+  };
 
   if (propsPosition == null || pixelPosition == null) return null;
 

@@ -11,7 +11,7 @@ import { type query, type status, type Synnax as Client } from "@synnaxlabs/clie
 import { useDebouncedCallback } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
 import { type CrudeTimeSpan, type destructor, state, type verbs } from "@synnaxlabs/x";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import type z from "zod";
 
 import {
@@ -276,37 +276,23 @@ const useObservable = <
   } = params;
   const client = Synnax.use();
   const addStatus = Status.useAdder();
-  const runUpdate = useCallback(
-    (data: Input, opts?: query.FetchOptions): Promise<boolean> =>
-      run(
-        {
-          client,
-          addStatus,
-          onChange,
-          update,
-          name,
-          verbs,
-          beforeUpdate,
-          afterOptimistic,
-          afterSuccess,
-          afterFailure,
-        },
-        data,
-        opts,
-      ),
-    [
-      client,
-      addStatus,
-      onChange,
-      update,
-      name,
-      verbs,
-      beforeUpdate,
-      afterOptimistic,
-      afterSuccess,
-      afterFailure,
-    ],
-  );
+  const runUpdate = (data: Input, opts?: query.FetchOptions): Promise<boolean> =>
+    run(
+      {
+        client,
+        addStatus,
+        onChange,
+        update,
+        name,
+        verbs,
+        beforeUpdate,
+        afterOptimistic,
+        afterSuccess,
+        afterFailure,
+      },
+      data,
+      opts,
+    );
   const handleUpdate = useDebouncedCallback(
     (data: Input, opts?: query.FetchOptions) => {
       void runUpdate(data, opts);
