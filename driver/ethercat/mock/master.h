@@ -35,6 +35,7 @@ class Master final : public master::Master {
     std::set<uint16_t> disabled_slaves;
     std::unordered_map<uint16_t, std::vector<slave::StartupParameter>>
         startup_parameters_by_slave;
+    std::optional<size_t> bus_slaves;
     std::optional<x::telem::TimeSpan> dc_step;
     x::telem::TimeStamp dc_now{};
     pdo::Offsets pdo_offset_cache;
@@ -207,6 +208,19 @@ public:
         if (this->inject_init_err) return this->inject_init_err;
         this->initialized = true;
         return x::errors::NIL;
+    }
+
+    std::pair<size_t, x::errors::Error> count_slaves() override {
+        std::lock_guard lock(this->mu);
+        this->calls.emplace_back("count_slaves");
+        return {this->bus_slaves.value_or(this->slave_list.size()), x::errors::NIL};
+    }
+
+    /// @brief makes count_slaves() report count instead of the number of added slaves,
+    /// as when a slave is plugged in or removed after discovery.
+    void set_bus_slaves(const std::optional<size_t> count) {
+        std::lock_guard lock(this->mu);
+        this->bus_slaves = count;
     }
 
     void set_slave_config(const uint16_t position, slave::Config config) override {

@@ -86,6 +86,8 @@ public:
 
     x::errors::Error initialize() override;
 
+    std::pair<size_t, x::errors::Error> count_slaves() override;
+
     void set_slave_config(uint16_t position, slave::Config config) override;
 
     x::errors::Error activate() override;

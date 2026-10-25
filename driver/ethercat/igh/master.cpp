@@ -99,6 +99,18 @@ x::errors::Error Master::initialize() {
     return x::errors::NIL;
 }
 
+std::pair<size_t, x::errors::Error> Master::count_slaves() {
+    if (!this->initialized)
+        return {0, x::errors::Error(errors::MASTER_INIT_ERROR, "not initialized")};
+    ec_master_info_t info;
+    if (this->api->master(this->ec_master, &info) < 0)
+        return {
+            0,
+            x::errors::Error(errors::MASTER_INIT_ERROR, "failed to get master info")
+        };
+    return {info.slave_count, x::errors::NIL};
+}
+
 x::errors::Error Master::add_startup_parameters(
     const slave::Properties &slave,
     ec_slave_config_t *sc,

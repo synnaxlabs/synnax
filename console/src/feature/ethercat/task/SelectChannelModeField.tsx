@@ -9,7 +9,7 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import {
   type ChannelMode,
@@ -42,26 +42,23 @@ export const SelectChannelModeField = ({
   path,
   schemas,
 }: SelectChannelModeFieldProps): ReactElement => {
-  const handleChange = useCallback(
-    (
-      value: ChannelMode,
-      { get, set, path: fieldPath }: Form.ContextValue & { path: string },
-    ) => {
-      const prevType = get(fieldPath).value;
-      if (prevType === value) return;
-      const parentPath = fieldPath.slice(0, fieldPath.lastIndexOf("."));
-      const prevParent = get<ReadChannel | WriteChannel>(parentPath).value;
-      const next = schemas[value].parse({ type: value });
-      set(parentPath, {
-        ...next,
-        key: prevParent.key,
-        device: prevParent.device,
-        name: prevParent.name,
-        disabled: prevParent.disabled,
-        type: value,
-      });
-    },
-    [schemas],
-  );
+  const handleChange = (
+    value: ChannelMode,
+    { get, set, path: fieldPath }: Form.ContextValue & { path: string },
+  ) => {
+    const prevType = get(fieldPath).value;
+    if (prevType === value) return;
+    const parentPath = fieldPath.slice(0, fieldPath.lastIndexOf("."));
+    const prevParent = get<ReadChannel | WriteChannel>(parentPath).value;
+    const next = schemas[value].parse({ type: value });
+    set(parentPath, {
+      ...next,
+      key: prevParent.key,
+      device: prevParent.device,
+      name: prevParent.name,
+      disabled: prevParent.disabled,
+      type: value,
+    });
+  };
   return <Base path={path} onChange={handleChange} />;
 };

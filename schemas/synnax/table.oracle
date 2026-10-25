@@ -175,6 +175,7 @@ Table struct {
     }
     name    string                  {
         @doc value         "is a human-readable name for the table."
+        @search
         @validate required
     }
     rows    Row[] = [] {

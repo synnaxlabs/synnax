@@ -63,6 +63,10 @@ public:
     /// @brief reads the AL state and status code of every slave into the slave list.
     virtual int readstate() = 0;
 
+    /// @brief returns the number of slaves that answer a broadcast read, or a value
+    /// below 1 when none answers.
+    virtual int count_bus_slaves() = 0;
+
     /// @brief takes a slave through INIT and PRE-OP back to SAFE-OP with its stored
     /// configuration, returning the state it reached.
     virtual int reconfig_slave(uint16_t slave, int timeout) = 0;
@@ -249,6 +253,18 @@ public:
     }
 
     int readstate() override { return ecx_readstate(&this->context); }
+
+    int count_bus_slaves() override {
+        uint16_t type = 0;
+        return ecx_BRD(
+            &this->context.port,
+            0x0000,
+            ECT_REG_TYPE,
+            sizeof(type),
+            &type,
+            EC_TIMEOUTSAFE
+        );
+    }
 
     bool configdc() override { return ecx_configdc(&this->context); }
 
