@@ -9,7 +9,7 @@
 
 package v0
 
-import "github.com/synnaxlabs/x/gorp"
+import "github.com/synnaxlabs/gorp/migrate"
 
 // Migration re-encodes stored panels from MessagePack to Orc.
-var Migration = gorp.CodecMigration[Key, Panel]("msgpack_to_orc")
+var Migration = migrate.Codec[Key, Panel]("msgpack_to_orc")

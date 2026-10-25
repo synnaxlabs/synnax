@@ -7,25 +7,37 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
+import { useEffect, useSyncExternalStore } from "react";
+
 import { Aether } from "@/aether";
 import { input } from "@/vis/input/aether";
 
-export interface UseProps extends Pick<input.State, "sink"> {
+export interface UseProps extends Pick<input.State, "sink" | "source"> {
   aetherKey: string;
 }
 
 export interface UseReturn {
   set: (value: string) => void;
+  /** value is the latest string the source holds, or null before the first sample. */
+  value: string | null;
 }
 
-export const use = ({ aetherKey, sink }: UseProps): UseReturn => {
-  const { methods } = Aether.useUnidirectional({
+export const use = ({ aetherKey, sink, source }: UseProps): UseReturn => {
+  const memoProps = useMemoDeepEqual({ sink, source });
+  const { setState, methods, subscribe, getSnapshot } = Aether.useLifecycle({
     aetherKey,
     type: input.Input.TYPE,
     schema: input.stateZ,
-    state: { sink },
+    initialState: memoProps,
     methods: input.methodsZ,
   });
+  // Reads only the value, so pushing props into the state does not re-render.
+  const value = useSyncExternalStore(subscribe, () => getSnapshot().value);
 
-  return { set: methods.set };
+  useEffect(() => {
+    setState((state) => ({ ...state, ...memoProps }));
+  }, [memoProps, setState]);
+
+  return { set: methods.set, value };
 };

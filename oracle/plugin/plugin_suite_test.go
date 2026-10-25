@@ -19,7 +19,7 @@ import (
 
 func TestPlugin(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Suite")
+	RunSpecs(t, "Plugin Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

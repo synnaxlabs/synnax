@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback } from "react";
 import { useStore } from "react-redux";
 
 import {
@@ -29,7 +28,7 @@ const selectAll = (state: StoreState): State[] => [
 
 export const useGetSliceState = (): (() => SliceState) => {
   const store = useStore<StoreState>();
-  return useCallback(() => selectSliceState(store.getState()), [store]);
+  return () => selectSliceState(store.getState());
 };
 
 export const selectSelectedKey = (state: StoreState): string | undefined =>
@@ -40,7 +39,7 @@ export const useSelectSelectedKey = (): string | undefined =>
 
 export const useGetSelectedKey = (): (() => string | undefined) => {
   const store = useStore<StoreState>();
-  return useCallback(() => selectSelectedKey(store.getState()), [store]);
+  return () => selectSelectedKey(store.getState());
 };
 
 export const selectState = (state: StoreState, key?: string): State | undefined => {
@@ -53,7 +52,7 @@ export const useSelectState = (key?: string): State | undefined =>
 
 export const useGetState = (): ((key?: string) => State | undefined) => {
   const store = useStore<StoreState>();
-  return useCallback((key?: string) => selectState(store.getState(), key), [store]);
+  return (key?: string) => selectState(store.getState(), key);
 };
 
 export const selectMultiple = (state: StoreState, keys?: string[]): State[] => {

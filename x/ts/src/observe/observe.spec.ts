@@ -90,7 +90,7 @@ describe("observe", () => {
       );
       observer.notify(1);
       observer.notify(2);
-      await expect(promise).rejects.toThrow(/timed out/);
+      await expect(promise).rejects.toThrow(new Error("timed out after 10ms"));
     });
 
     it("should reject when the timeout elapses", async () => {
@@ -102,11 +102,27 @@ describe("observe", () => {
           (v) => v > 2,
           TimeSpan.milliseconds(5),
         ),
-      ).rejects.toThrow(/timed out/);
+      ).rejects.toThrow(new Error("timed out after 5ms"));
     });
 
-    it("should unsubscribe once settled", async () => {
-      const observer = new observe.Observer<number>();
+    it("should unsubscribe once it resolves", async () => {
+      const handlers = new Map<observe.Handler<number>, null>();
+      const observer = new observe.Observer<number>(undefined, handlers);
+      const promise = observe.until(
+        observer,
+        () => 0,
+        (v) => v > 2,
+        TimeSpan.seconds(1),
+      );
+      expect(handlers.size).toEqual(1);
+      observer.notify(3);
+      await expect(promise).resolves.toBe(3);
+      expect(handlers.size).toEqual(0);
+    });
+
+    it("should unsubscribe once the timeout elapses", async () => {
+      const handlers = new Map<observe.Handler<number>, null>();
+      const observer = new observe.Observer<number>(undefined, handlers);
       await expect(
         observe.until(
           observer,
@@ -114,11 +130,8 @@ describe("observe", () => {
           (v) => v > 2,
           TimeSpan.milliseconds(5),
         ),
-      ).rejects.toThrow(/timed out/);
-      const values: number[] = [];
-      observer.onChange((value) => values.push(value));
-      observer.notify(9);
-      expect(values).toEqual([9]);
+      ).rejects.toThrow(new Error("timed out after 5ms"));
+      expect(handlers.size).toEqual(0);
     });
   });
 });

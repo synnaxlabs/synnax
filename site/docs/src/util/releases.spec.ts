@@ -11,6 +11,7 @@ import { TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  appVersion,
   assetURL,
   highest,
   manifestURL,
@@ -52,6 +53,16 @@ describe("releases", () => {
       expect(manifestURL("desktop", "1.2.0")).toEqual(
         "https://github.com/synnaxlabs/synnax/releases/download/desktop/v1.2.0/latest.json",
       );
+    });
+  });
+
+  describe("appVersion", () => {
+    it("should keep a stable version", () => {
+      expect(appVersion("1.2.0")).toEqual("1.2.0");
+    });
+
+    it("should make a candidate's pre-release numeric", () => {
+      expect(appVersion("1.0.0-rc.3")).toEqual("1.0.0-3");
     });
   });
 

@@ -40,6 +40,7 @@ cc_library(
         "//driver/ethercat/master",
         "//driver/ethercat/mock",
         "//driver/ethercat/soem",
+        "//driver/ethercat/telem",
         "//driver/ethercat/topology",
         "//driver/pipeline",
         "//driver/task",
@@ -65,20 +66,6 @@ cc_test(
         "write_task_test.cpp",
     ],
     tags = ["requires-core"],
-    visibility = ["//visibility:public"],
-    deps = [
-        "//client/cpp/testutil",
-        "//driver/ethercat",
-        "//driver/ethercat/mock",
-        "//driver/pipeline/mock",
-        "//x/cpp/test",
-        "@googletest//:gtest_main",
-    ],
-)
-
-cc_test(
-    name = "master_test",
-    srcs = ["master_test.cpp"],
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/testutil",

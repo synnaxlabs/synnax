@@ -13,7 +13,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { errors, id, primitive, unique } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC } from "react";
 
 import { useByKeys } from "@/feature/ni/device/queries";
 import * as Device from "@/feature/ni/device/types";
@@ -95,19 +95,13 @@ const detailsTitle = Component.renderProp(DetailsTitle);
 const Form: FC = () => {
   const [tare, allowTare, handleTare] = Task.useTare<CIChannel>();
   const devices = useByKeys(Task.useChannelDeviceKeys());
-  const resolve = useCallback(
-    (ch: CIChannel) => {
-      const dev = devices?.find(({ key }) => key === ch.device);
-      if (dev == null) return null;
-      return { channel: dev.properties.counterInput.channels[ch.port.toString()] ?? 0 };
-    },
-    [devices],
-  );
-  const listItem = useCallback(
-    ({ key, itemKey, ...rest }: Task.ChannelListItemProps) => (
-      <ChannelListItem key={key} itemKey={itemKey} {...rest} onTare={tare} />
-    ),
-    [tare],
+  const resolve = (ch: CIChannel) => {
+    const dev = devices?.find(({ key }) => key === ch.device);
+    if (dev == null) return null;
+    return { channel: dev.properties.counterInput.channels[ch.port.toString()] ?? 0 };
+  };
+  const listItem = ({ key, itemKey, ...rest }: Task.ChannelListItemProps) => (
+    <ChannelListItem key={key} itemKey={itemKey} {...rest} onTare={tare} />
   );
   return (
     <Task.Views.ListAndDetails<CIChannel>

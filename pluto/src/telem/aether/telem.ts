@@ -9,8 +9,10 @@
 
 import { type status, ValidationError } from "@synnaxlabs/client";
 import {
+  type Aggregation,
   type bounds,
   type color,
+  type DataType,
   type destructor,
   type MultiSeries,
   observe,
@@ -58,8 +60,20 @@ export type SinkSpec<V extends string> = z.infer<typeof sinkSpecZ> & {
   valueType: V;
 };
 
+/** The part of a line's x range on screen, and the line's width in pixels. */
+export interface View {
+  bounds: bounds.Bounds;
+  width: number;
+}
+
 export interface ValueProps {
-  onLoad: () => void;
+  /**
+   * What the caller shows. A source that fetches by view returns data for it, and
+   * returns its home data when the view is absent.
+   */
+  view?: View;
+  /** True when every sample must fall inside the bounds of the returned series. */
+  extremesKept?: boolean;
 }
 
 export interface Telem {
@@ -70,6 +84,15 @@ export interface Source<V> extends Telem, observe.Observable<void> {
   value: (props?: ValueProps) => V;
   /** @returns true while the source's initial read is in flight. */
   loading?: () => boolean;
+  /** @returns true while the source fetches data for a view it already drew. */
+  fetching?: () => boolean;
+  /** @returns the aggregation the source reduces its data by, or null for none. */
+  aggregation?: () => Aggregation | null;
+  /**
+   * @returns the data type the source's channel stores, or null when unknown. The
+   * source may convert its series to another data type.
+   */
+  dataType?: () => DataType | null;
   sampleTime?: () => TimeStamp | null;
 }
 

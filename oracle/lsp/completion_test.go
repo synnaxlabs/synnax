@@ -125,7 +125,7 @@ var _ = Describe("Completion", func() {
 			openDoc(ctx, "file:///go-domain.oracle", "  @go \n")
 			list := completionFor(ctx, "file:///go-domain.oracle", 0, 6)
 			Expect(labels(list.Items)).To(ContainElements(
-				"output", "omit", "marshal", "wire",
+				"output", "omit", "marshal", "wire", "to_any",
 			))
 		})
 	})

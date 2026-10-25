@@ -9,7 +9,7 @@
 
 import "@/input/Input.css";
 
-import { type ReactElement, type ReactNode, useMemo, useRef, useState } from "react";
+import { type ReactElement, type ReactNode, useRef, useState } from "react";
 
 import { Button } from "@/button";
 import { SIZE_TEXT_LEVELS } from "@/component/text";
@@ -60,6 +60,8 @@ export interface TextProps
  * user blurs the input or the user presses 'Enter'.
  * @param props.flush - Marks the input as its surface's sole keystroke target,
  * removing the focus ring and widening the content inset.
+ * @param props.onKeyDown - Called before the input handles Escape, which blurs the
+ * input and stops there unless `onKeyDown` prevents the default.
  */
 export const Text = ({
   size = "medium",
@@ -155,16 +157,15 @@ export const Text = ({
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
     if (onlyChangeOnBlur && e.key === "Enter") e.currentTarget.blur();
-    else if (e.key === "Escape") {
-      e.currentTarget.blur();
-      e.stopPropagation();
-    }
     onKeyDown?.(e);
+    if (e.key !== "Escape" || e.defaultPrevented) return;
+    e.currentTarget.blur();
+    e.stopPropagation();
   };
 
   const combinedRef = useCombinedRefs(ref, internalRef);
 
-  const inputStyle = useMemo(() => ({ fontWeight: weight }), [weight]);
+  const inputStyle = { fontWeight: weight };
 
   const ariaLabelledBy = useLabelledBy(rest);
 
@@ -175,7 +176,7 @@ export const Text = ({
     placeholder != null &&
     typeof placeholder !== "string";
 
-  tabIndex ??= preview ? -1 : undefined;
+  if (tabIndex == null && preview) tabIndex = -1;
 
   // A native date input formats its value for display, so a preview keeps the
   // element. Every other type renders static text: an input cannot shrink to its

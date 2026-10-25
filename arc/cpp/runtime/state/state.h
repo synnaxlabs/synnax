@@ -36,7 +36,7 @@ using Series = x::mem::local_shared<x::telem::Series>;
 
 struct AuthorityChange {
     std::optional<types::ChannelKey> channel_key;
-    uint8_t authority;
+    uint8_t authority = 0;
 };
 
 struct Value {
@@ -205,7 +205,7 @@ public:
 
     /// Reads buffered data and time series from a channel. Returns (data, index_data,
     /// ok). If the channel has an associated index, both data and time are returned.
-    std::tuple<x::telem::MultiSeries, x::telem::MultiSeries, bool>
+    [[nodiscard]] std::tuple<x::telem::MultiSeries, x::telem::MultiSeries, bool>
     read_series(types::ChannelKey key) const;
 
     /// Writes data and time series to a channel buffer.
@@ -219,7 +219,7 @@ public:
     /// @brief Checks if a series is truthy by examining its last element.
     /// Empty series are falsy. A series with a last element of zero is falsy.
     [[nodiscard]] static bool is_series_truthy(const x::telem::Series &series) {
-        if (series.size() == 0) return false;
+        if (series.empty()) return false;
         const auto last_value = series.at(-1);
         return std::visit(
             []<typename T0>(const T0 &v) -> bool {
@@ -257,7 +257,7 @@ public:
     [[nodiscard]] T numeric_input(const std::string &name) const {
         const auto [i, err] = this->resolve_input(name);
         if (err) return 0;
-        if (const auto s = this->ref_input(i); s != nullptr && s->size() > 0)
+        if (const auto s = this->ref_input(i); s != nullptr && !s->empty())
             return s->at<T>(-1);
         const auto &p = this->params[i];
         if (const auto v = types::to_sample_value(p.value, p.type))

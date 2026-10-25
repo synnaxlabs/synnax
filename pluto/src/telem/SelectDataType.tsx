@@ -9,7 +9,7 @@
 
 import { Select } from "@synnaxlabs/lyra/select";
 import { caseconv, DataType } from "@synnaxlabs/x";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { resolveDataTypeIcon } from "@/telem/resolveDataTypeIcon";
 
@@ -49,10 +49,7 @@ export const SelectDataType = ({
   ...rest
 }: SelectDataTypeProps): ReactElement => {
   const data = hideVariableDensity ? FIXED_DENSITY_DATA : DATA;
-  const filteredData = useMemo(
-    () => data.filter((d) => !hideDataTypes.some((h) => h.equals(d.key))),
-    [hideDataTypes, data],
-  );
+  const filteredData = data.filter((d) => !hideDataTypes.some((h) => h.equals(d.key)));
   return (
     <Select.Simple<string> {...rest} resourceName="data type">
       {filteredData.map(({ key, name, icon }) => (

@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 import { Context, MemoizedSource } from "@/telem/aether/context";
 import { createFactory } from "@/telem/aether/factory";
 import { fixedNumber } from "@/telem/aether/static";
-import { type Source } from "@/telem/aether/telem";
+import { type Source, type ValueProps } from "@/telem/aether/telem";
 
 describe("MemoizedSource", () => {
   const provider = (): Context => new Context(createFactory());
@@ -21,11 +21,49 @@ describe("MemoizedSource", () => {
   const stub = (
     loading?: () => boolean,
     sampleTime?: () => TimeStamp | null,
+    fetching?: () => boolean,
   ): Source<number> => ({
     value: () => 1,
     onChange: () => () => {},
     loading,
     sampleTime,
+    fetching,
+  });
+
+  describe("value", () => {
+    it("should forward the value props to the wrapped source", () => {
+      const received: (ValueProps | undefined)[] = [];
+      const wrapped: Source<number> = {
+        value: (props) => {
+          received.push(props);
+          return 1;
+        },
+        onChange: () => () => {},
+      };
+      const source = new MemoizedSource(wrapped, provider(), fixedNumber(1));
+      const props: ValueProps = {
+        view: { bounds: { lower: 1, upper: 2 }, width: 100 },
+      };
+      source.value(props);
+      source.value();
+      expect(received).toEqual([props, undefined]);
+    });
+  });
+
+  describe("fetching", () => {
+    it("should forward fetching from the wrapped source", () => {
+      const source = new MemoizedSource(
+        stub(undefined, undefined, () => true),
+        provider(),
+        fixedNumber(1),
+      );
+      expect(source.fetching()).toBe(true);
+    });
+
+    it("should default to false when the wrapped source lacks fetching", () => {
+      const source = new MemoizedSource(stub(), provider(), fixedNumber(1));
+      expect(source.fetching()).toBe(false);
+    });
   });
 
   describe("sampleTime", () => {

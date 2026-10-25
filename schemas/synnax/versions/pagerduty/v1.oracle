@@ -50,6 +50,7 @@ TaskConfig struct extends task.StartConfig {
         configures a PagerDuty alert task, which forwards Synnax status changes to
         PagerDuty as events.
     """
+    @go imex    body
     @go marshal
     @go migrate
 }

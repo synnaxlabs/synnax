@@ -31,10 +31,8 @@ import {
   type PropsWithChildren,
   type ReactElement,
   type Ref,
-  useCallback,
   useEffect,
   useImperativeHandle,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -56,17 +54,30 @@ export interface ContextValue {
   removeLine: (key: string) => void;
   lines: LineSpec[];
   setViewport: (viewport: Viewport.UseEvent) => void;
+  viewportElement: HTMLElement | null;
+  setViewportElement: (element: HTMLElement | null) => void;
   addViewportHandler: (handler: Viewport.UseHandler) => destructor.Destructor;
   setHold: (hold: boolean) => void;
-  loading: boolean;
-  loadingMessage?: string;
 }
 
 const [Context, useContext] = context.create<ContextValue>({
   displayName: "LinePlot.Context",
   providerName: "LinePlot.Frame",
 });
-export { useContext };
+
+export interface FetchContextValue {
+  loading: boolean;
+  fetching: boolean;
+  loadingMessage?: string;
+}
+
+// Fetch state changes on every pan and zoom, so it has a context of its own.
+const [FetchContext, useFetchContext] = context.create<FetchContextValue>({
+  displayName: "LinePlot.FetchContext",
+  providerName: "LinePlot.Frame",
+});
+
+export { useContext, useFetchContext };
 
 export const useViewport = (handle: Viewport.UseHandler, component: string): void => {
   const { addViewportHandler } = useContext(component);
@@ -86,13 +97,11 @@ export const useGridEntry = (meta: grid.Region, component: string): CSSPropertie
   );
   useEffect(() => () => removeGridEntry(key), []);
   const dir = direction.swap(location.direction(meta.loc));
-  return useMemo(() => {
-    const gridArea =
-      dir === "x"
-        ? `axis-start-${key} / plot-start / axis-end-${key} / plot-end`
-        : `plot-start / axis-start-${key} / plot-end / axis-end-${key}`;
-    return { gridArea };
-  }, [dir, key]);
+  const gridArea =
+    dir === "x"
+      ? `axis-start-${key} / plot-start / axis-end-${key} / plot-end`
+      : `plot-start / axis-start-${key} / plot-end / axis-end-${key}`;
+  return { gridArea };
 };
 
 export interface LineSpec {
@@ -142,10 +151,11 @@ export const Frame = ({
   ...rest
 }: FrameProps): ReactElement => {
   const [lines, setLines] = useState<LineState>([]);
+  const [viewportElement, setViewportElement] = useState<HTMLElement | null>(null);
 
   const memoProps = useMemoDeepEqual({ clearOverScan, hold, visible });
 
-  const [{ path }, { grid, loading }, setState, methods] = Aether.use({
+  const [{ path }, { grid, loading, fetching }, setState, methods] = Aether.use({
     aetherKey,
     type: lineplot.LinePlot.TYPE,
     schema: lineplot.linePlotStateZ,
@@ -161,12 +171,9 @@ export const Frame = ({
   // We use a single resize handler for both the container and plotting region because
   // the container is guaranteed to only resize if the plotting region does. This allows
   // us to save a window observer.
-  const handleResize = useCallback(
-    (container: box.Box) => {
-      if (visible) setState((prev) => ({ ...prev, container }));
-    },
-    [setState, visible],
-  );
+  const handleResize = (container: box.Box) => {
+    if (visible) setState((prev) => ({ ...prev, container }));
+  };
 
   const regionRef = Canvas.useRegion(handleResize, { debounce });
 
@@ -178,101 +185,69 @@ export const Frame = ({
 
   const viewportHandlers = useRef<Map<Viewport.UseHandler, null>>(new Map());
 
-  const addViewportHandler = useCallback(
-    (handler: Viewport.UseHandler) => {
-      viewportHandlers.current.set(handler, null);
-      return () => viewportHandlers.current.delete(handler);
-    },
-    [viewportHandlers],
-  );
+  const addViewportHandler = (handler: Viewport.UseHandler) => {
+    viewportHandlers.current.set(handler, null);
+    return () => viewportHandlers.current.delete(handler);
+  };
 
-  const setViewport: Viewport.UseHandler = useCallback(
-    (args) => {
-      const { mode, box, stage } = args;
-      if (
-        (mode === "pan" && stage !== "start") ||
-        mode === "zoom" ||
-        (mode === "zoomReset" && stage === "start")
-      )
-        setState((prev) => ({ ...prev, viewport: box }));
-      viewportHandlers.current.forEach((_, handler) => handler(args));
-    },
-    [setState],
-  );
+  const setViewport: Viewport.UseHandler = (args) => {
+    const { mode, box, stage } = args;
+    if (
+      (mode === "pan" && stage !== "start") ||
+      mode === "zoom" ||
+      (mode === "zoomReset" && stage === "start")
+    )
+      setState((prev) => ({ ...prev, viewport: box }));
+    viewportHandlers.current.forEach((_, handler) => handler(args));
+  };
 
-  const setGridEntry = useCallback(
-    (meta: grid.Region) => {
-      setState((prev) => ({
-        ...prev,
-        grid: { ...prev.grid, [meta.key]: meta },
-      }));
-    },
-    [setState],
-  );
+  const setGridEntry = (meta: grid.Region) => {
+    setState((prev) => ({
+      ...prev,
+      grid: { ...prev.grid, [meta.key]: meta },
+    }));
+  };
 
-  const removeGridEntry = useCallback(
-    (key: string) =>
-      setState((prev) => {
-        const { [key]: _, ...grid } = prev.grid;
-        return { ...prev, grid };
-      }),
-    [setState],
-  );
+  const removeGridEntry = (key: string) =>
+    setState((prev) => {
+      const grid = { ...prev.grid };
+      delete grid[key];
+      return { ...prev, grid };
+    });
 
-  const setLine = useCallback(
-    (meta: LineSpec) => {
-      setLines((prev) => [...prev.filter(({ key }) => key !== meta.key), meta]);
-    },
-    [setLines],
-  );
+  const setLine = (meta: LineSpec) => {
+    setLines((prev) => [...prev.filter(({ key }) => key !== meta.key), meta]);
+  };
 
-  const removeLine = useCallback(
-    (key: string) => setLines((prev) => prev.filter(({ key: k }) => k !== key)),
-    [setLine],
-  );
+  const removeLine = (key: string) =>
+    setLines((prev) => prev.filter(({ key: k }) => k !== key));
 
-  const cssGrid = useMemo(() => buildPlotGrid(grid), [grid]);
+  const cssGrid = buildPlotGrid(grid);
 
-  const frameStyle = useMemo(() => ({ ...style, ...cssGrid }), [style, cssGrid]);
+  const frameStyle = { ...style, ...cssGrid };
 
-  const setHold = useCallback(
-    (hold: boolean) => {
-      setState((prev) => ({ ...prev, hold }));
-      onHold?.(hold);
-    },
-    [setState, onHold],
-  );
+  const setHold = (hold: boolean) => {
+    setState((prev) => ({ ...prev, hold }));
+    onHold?.(hold);
+  };
 
   const id = `line-plot-${aetherKey}`;
 
-  const contextValue = useMemo<ContextValue>(
-    () => ({
-      lines,
-      setGridEntry,
-      removeGridEntry,
-      setLine,
-      removeLine,
-      setViewport,
-      addViewportHandler,
-      setHold,
-      id,
-      loading,
-      loadingMessage,
-    }),
-    [
-      id,
-      lines,
-      setGridEntry,
-      removeGridEntry,
-      setLine,
-      removeLine,
-      setViewport,
-      addViewportHandler,
-      setHold,
-      loading,
-      loadingMessage,
-    ],
-  );
+  const contextValue: ContextValue = {
+    lines,
+    setGridEntry,
+    removeGridEntry,
+    setLine,
+    removeLine,
+    setViewport,
+    viewportElement,
+    setViewportElement,
+    addViewportHandler,
+    setHold,
+    id,
+  };
+
+  const fetchContextValue: FetchContextValue = { loading, fetching, loadingMessage };
 
   return (
     <div
@@ -283,7 +258,9 @@ export const Frame = ({
       {...rest}
     >
       <Context value={contextValue}>
-        <Aether.Composite path={path}>{children}</Aether.Composite>
+        <FetchContext value={fetchContextValue}>
+          <Aether.Composite path={path}>{children}</Aether.Composite>
+        </FetchContext>
       </Context>
     </div>
   );

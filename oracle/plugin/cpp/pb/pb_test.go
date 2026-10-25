@@ -21,7 +21,7 @@ import (
 
 func TestCppPB(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Cpp PB Suite")
+	RunSpecs(t, "Plugin Cpp PB Suite", SuiteConfig())
 }
 
 var _ = Describe("C++ PB Plugin", func() {
@@ -382,10 +382,11 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
-							// FunctionProperties array alias fields should use add_*
-							"pb.add_inputs()",
-							"pb.add_outputs()",
-							"pb.add_config()",
+							// Optional distinct arrays go through a list wrapper
+							// message.
+							"auto* wrapper = pb.mutable_inputs();",
+							"auto* wrapper = pb.mutable_outputs();",
+							"auto* wrapper = pb.mutable_config();",
 							// Self-referential fields should use has_value() and ->
 							"if (this->elem.has_value())",
 							"if (this->constraint.has_value())",
@@ -1551,7 +1552,7 @@ var _ = Describe("C++ PB Plugin", func() {
 			})
 
 			It(
-				"Should cast through a true distinct (non-alias) primitive wrapper",
+				"Should convert a distinct primitive as its base",
 				func(ctx SpecContext) {
 					source := `
 					@cpp output "client/cpp/types"
@@ -1567,11 +1568,8 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
-							// generateDistinctConversion primitive branch routes
-							// through primitiveToProtoType — uint16 maps to uint32_t on
-							// the wire.
-							"pb.set_priority(static_cast<uint32_t>(this->priority))",
-							"cpp.priority = Priority(pb.priority())",
+							"pb.set_priority(this->priority);",
+							"cpp.priority = pb.priority();",
 						)
 				},
 			)
@@ -1756,6 +1754,39 @@ var _ = Describe("C++ PB Plugin", func() {
 				},
 			)
 		})
+
+		Context("generic struct instance field", func() {
+			DescribeTable("Should name the instance by its C++ type arguments",
+				func(ctx SpecContext, arg, expected string) {
+					resp := MustGenerate(ctx, `
+					@cpp output "x/cpp/status"
+					@pb output "x/go/status/pb"
+
+					Valve struct {
+						open bool
+					}
+
+					Box struct<T> {
+						item T
+					}
+
+					Panel struct {
+						box Box<`+arg+`>
+					}
+				`, "status", loader, pbPlugin)
+					ExpectContent(resp, "proto.gen.h").ToContain(
+						"auto [v, err] = " + expected + "::from_proto(pb.box());",
+					)
+				},
+				Entry("a primitive", "string", "Box<std::string>"),
+				Entry(
+					"a map",
+					"map<string, Valve>",
+					"Box<std::unordered_map<std::string, Valve>>",
+				),
+				Entry("a struct", "Valve", "Box<Valve>"),
+			)
+		})
 	})
 })
 
@@ -1873,6 +1904,36 @@ var _ = Describe("C++ PB Plugin unions", func() {
 					"if (this->spare.has_value()) {",
 					"if (pb.has_spare()) {",
 				)
+		},
+	)
+
+	It(
+		"Should translate a variant against its payload's own proto package",
+		func(ctx SpecContext) {
+			loader.Add("schemas/hw", `
+			@cpp output "client/cpp/hw"
+			@go output "core/pkg/service/hw"
+			@pb
+
+			Valve struct { open bool }
+			`)
+			source := `
+			import "schemas/hw"
+
+			@cpp output "arc/cpp/ir"
+			@go output "arc/go/ir"
+			@pb
+
+			Node union on variant {
+				valve hw.Valve
+			}
+			`
+			resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
+			ExpectContent(resp, "ir/proto.gen.h").ToContain(
+				"inline std::pair<::service::hw::pb::Valve, x::errors::Error> "+
+					"ValveNode::to_proto() const {",
+				"::service::hw::pb::Valve pb;",
+			)
 		},
 	)
 })

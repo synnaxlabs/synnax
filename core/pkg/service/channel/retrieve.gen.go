@@ -13,23 +13,19 @@ package channel
 
 import (
 	"context"
+	"slices"
 
-	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
 )
 
 // Retrieve is used to retrieve Channel records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {
-	baseTX     gorp.Tx
-	gorp       gorp.Retrieve[Key, Channel]
-	search     *search.Index
-	searchTerm string
-	indexes    indexes
+	baseTX  gorp.Tx
+	gorp    gorp.Retrieve[Key, Channel]
+	indexes indexes
 }
 
 // indexes bundles the per-Service secondary indexes registered on the
@@ -39,11 +35,12 @@ type Retrieve struct {
 type indexes struct {
 	name       *gorp.LookupIndex[Key, Channel, Name]
 	localIndex *gorp.LookupIndex[Key, Channel, LocalKey]
+	search     *gorp.SearchIndex[Key, Channel]
 }
 
-// newIndexes constructs a fresh indexes value, allocating one index instance
-// per registered field. Call once per Service in OpenService and store the
-// result on the Service struct.
+// newIndexes constructs a fresh indexes value, allocating one instance of each
+// index. Call once per Service in OpenService and store the result on the
+// Service struct.
 func newIndexes() indexes {
 	return indexes{
 		name: gorp.NewLookupIndex[Key, Channel, Name](
@@ -54,6 +51,12 @@ func newIndexes() indexes {
 			"local_index",
 			func(e *Channel) LocalKey { return e.LocalIndex },
 		),
+		search: gorp.NewSearchIndex[Key, Channel](
+			"search",
+			func(e *Channel) []string {
+				return []string{string(e.Name)}
+			},
+		),
 	}
 }
 
@@ -63,6 +66,7 @@ func (i indexes) all() []gorp.Index[Key, Channel] {
 	return []gorp.Index[Key, Channel]{
 		i.name,
 		i.localIndex,
+		i.search,
 	}
 }
 
@@ -98,8 +102,15 @@ func Not(f Filter) Filter {
 	return gorp.NotBound[Retrieve, Key, Channel](f)
 }
 
-// Search sets a fuzzy search term that Retrieve will use to filter results.
-func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
+// Search filters the channels to those whose text matches
+// term, closest match first. An empty term adds no filter.
+func (r Retrieve) Search(term string) Retrieve {
+	if term == "" {
+		return r
+	}
+	r.gorp = r.gorp.Where(r.indexes.search.Filter(term))
+	return r
+}
 
 // MatchKeys returns a filter that restricts results to
 // channels whose key matches any of the provided
@@ -107,7 +118,7 @@ func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 // r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing
 // inside Or / Not falls back to a full scan.
 func MatchKeys(keys ...Key) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Channel] {
+	return func(Retrieve) gorp.Filter[Key, Channel] {
 		return gorp.MatchKeys[Key, Channel](keys...)
 	}
 }
@@ -116,9 +127,9 @@ func MatchKeys(keys ...Key) Filter {
 // channels whose Leaseholder matches any of the
 // provided values.
 func MatchLeaseholders(vals ...node.Key) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Channel] {
+	return func(Retrieve) gorp.Filter[Key, Channel] {
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
-			return lo.Contains(vals, e.Leaseholder), nil
+			return slices.Contains(vals, e.Leaseholder), nil
 		})
 	}
 }
@@ -127,9 +138,9 @@ func MatchLeaseholders(vals ...node.Key) Filter {
 // channels whose DataType matches any of the
 // provided values.
 func MatchDataTypes(vals ...telem.DataType) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Channel] {
+	return func(Retrieve) gorp.Filter[Key, Channel] {
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
-			return lo.Contains(vals, e.DataType), nil
+			return slices.Contains(vals, e.DataType), nil
 		})
 	}
 }
@@ -137,7 +148,7 @@ func MatchDataTypes(vals ...telem.DataType) Filter {
 // MatchIsIndex returns a filter for channels by their
 // IsIndex field.
 func MatchIsIndex(v bool) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Channel] {
+	return func(Retrieve) gorp.Filter[Key, Channel] {
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
 			return e.IsIndex == v, nil
 		})
@@ -147,7 +158,7 @@ func MatchIsIndex(v bool) Filter {
 // MatchInternal returns a filter for channels by their
 // Internal field.
 func MatchInternal(v bool) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Channel] {
+	return func(Retrieve) gorp.Filter[Key, Channel] {
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
 			return e.Internal == v, nil
 		})
@@ -188,47 +199,17 @@ func (r Retrieve) Offset(offset int) Retrieve {
 	return r
 }
 
-func (r Retrieve) execSearch(ctx context.Context) (Retrieve, error) {
-	if r.searchTerm == "" {
-		return r, nil
-	}
-	ids, err := r.search.Search(ctx, search.Request{
-		Type: ontology.ResourceTypeChannel,
-		Term: r.searchTerm,
-	})
-	if err != nil {
-		return Retrieve{}, err
-	}
-	keys, err := KeysFromOntologyIDs(ids)
-	if err != nil {
-		return Retrieve{}, err
-	}
-	return r.Where(MatchKeys(keys...)), nil
-}
-
 // Exec executes the query against the provided transaction.
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
-	var err error
-	if r, err = r.execSearch(ctx); err != nil {
-		return err
-	}
 	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
 }
 
 // Count returns the number of channels matching the query.
 func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
-	var err error
-	if r, err = r.execSearch(ctx); err != nil {
-		return 0, err
-	}
 	return r.gorp.Count(ctx, gorp.OverrideTx(r.baseTX, tx))
 }
 
 // Exists checks whether any channels match the query.
 func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
-	var err error
-	if r, err = r.execSearch(ctx); err != nil {
-		return false, err
-	}
 	return r.gorp.Exists(ctx, gorp.OverrideTx(r.baseTX, tx))
 }

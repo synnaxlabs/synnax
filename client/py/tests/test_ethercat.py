@@ -619,8 +619,8 @@ class TestEtherCATDevice:
         created_device = client.devices.create(device)
         assert created_device.key != ""
         assert created_device.name == "Test Servo Drive"
-        assert created_device.make == "EtherCAT"
-        assert created_device.model == "Slave"
+        assert created_device.make == "ethercat"
+        assert created_device.model == "slave"
 
         # Verify properties
         props = created_device.properties
@@ -653,6 +653,34 @@ class TestEtherCATDevice:
             position=5,
         )
         assert device.location == "enp3s0:5"
+
+    def test_device_omits_unset_pdo_names(self) -> None:
+        """Test that Device leaves out the PDO name of an entry that has none."""
+        device = sy.ethercat.Device(
+            name="Test Device",
+            network="eth0",
+            position=0,
+            input_pdos=[
+                sy.ethercat.PDOEntry(
+                    name="Input",
+                    index=0x6000,
+                    sub_index=1,
+                    bit_length=1,
+                    data_type="uint8",
+                ),
+                sy.ethercat.PDOEntry(
+                    name="Input",
+                    pdo_name="Channel 2",
+                    index=0x6010,
+                    sub_index=1,
+                    bit_length=1,
+                    data_type="uint8",
+                ),
+            ],
+        )
+        inputs = arr(device.properties, "pdos", "inputs")
+        assert "pdo_name" not in obj(inputs[0])
+        assert obj(inputs[1])["pdo_name"] == "Channel 2"
 
 
 @pytest.mark.ethercat

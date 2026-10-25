@@ -20,15 +20,14 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -364,7 +363,7 @@ var _ = Describe("MigrateLog", func() {
 				Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 					DB:         db,
 					Namespace:  "Log",
-					Migrations: []migrate.Migration{v0.Migration, v2.Migration},
+					Migrations: []gorp.Migration{v0.Migration, v2.Migration},
 				})).To(Succeed())
 
 				var got v2.Log
@@ -407,7 +406,7 @@ var _ = Describe("Migration", func() {
 			Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
 			DB:              db,
 			Namespace:       "Log",
-			Migrations:      []migrate.Migration{v0.Migration, v2.Migration},
+			Migrations:      []gorp.Migration{v0.Migration, v2.Migration},
 		})).To(Succeed())
 		var got v2.Log
 		Expect(gorp.NewRetrieve[v2.Key, v2.Log]().

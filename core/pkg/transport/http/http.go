@@ -123,6 +123,18 @@ func Bind(layer *api.Layer, router *http.Router) {
 		FrameDelete: router.NewUnaryServer[framer.DeleteRequest, struct{}](
 			"/api/v1/frame/delete",
 		),
+		FrameRead: router.NewUnaryServer[framer.ReadRequest, framer.ReadResponse](
+			"/api/v1/frame/read",
+			http.WithResponseEncoders(
+				framer.FrameEncoder,
+				framer.CSVEncoder,
+				framer.TDMSEncoder,
+			),
+			// CSV is decimal text and compresses by 70% or more. Frame and TDMS
+			// bodies are binary samples: gzip shrinks them by under 10% and costs more
+			// time than the smaller body saves on all but a slow link.
+			http.WithStreamingResponse(framer.CSVEncoder),
+		),
 
 		// CONTROL
 		ControlRetrieve: router.NewUnaryServer[control.RetrieveRequest, control.RetrieveResponse](

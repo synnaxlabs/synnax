@@ -45,6 +45,27 @@ doc-comment rules in the root CLAUDE.md apply.
 [[nodiscard]] constexpr int32_t days_from_civil(const Date &date);
 ```
 
+## Linting
+
+clang-tidy (repo-root `.clang-tidy`) runs as a Bazel aspect. Each source and header is
+one cached action, and any finding fails the build. CI lints each component on Ubuntu.
+Bazel fetches the clang-tidy that `MODULE.bazel` pins, so linting needs no install. Pin
+clang-tidy and clang-format (`scripts/install_clang_format.sh`) to one LLVM version, and
+change both in one pull request that fixes the new findings.
+
+```bash
+bazel build --config=clang-tidy //driver/... # lint
+scripts/clang_tidy_fix.sh //driver/...       # apply the fixes clang-tidy offers
+```
+
+The aspect lints each header as its own file, so a header must include, and its target
+must depend on, everything it uses. Suppress one finding with
+`// NOLINTNEXTLINE(<check>): <reason>` above its line, never a bare `NOLINT`. The aspect
+skips a file whose header says `Code generated`. A target that holds vendor SDK headers,
+or embeds a large generated table, takes `tags = ["no-clang-tidy"]`. In a test, read an
+optional with `.value()`: the lint cannot see that `ASSERT_TRUE(opt.has_value())` makes
+`*opt` safe.
+
 ## Memory
 
 RAII for all resources. `std::unique_ptr` (exclusive), `std::shared_ptr` (shared),

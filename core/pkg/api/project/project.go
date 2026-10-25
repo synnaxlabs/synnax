@@ -14,34 +14,67 @@ import (
 	"encoding/json/v2"
 
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
-	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
+
+// ServiceConfig is the configuration for the project API service.
+type ServiceConfig struct {
+	// RBAC enforces access control on every request.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
+	// Project stores and retrieves projects.
+	//
+	// [REQUIRED]
+	Project *project.Service
+}
+
+var (
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for the project API service.
+	DefaultServiceConfig = ServiceConfig{}
+)
+
+// Override implements config.Config.
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	c.Project = override.Nil(c.Project, other.Project)
+	return c
+}
+
+// Validate implements config.Config.
+func (c ServiceConfig) Validate() error {
+	v := validate.New("api.project")
+	v.NotNil("rbac", c.RBAC)
+	v.NotNil("project", c.Project)
+	return v.Error()
+}
 
 type Service struct {
 	access   *rbac.Service
 	internal *project.Service
 }
 
-func NewService(cfgs ...config.LayerConfig) (*Service, error) {
-	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	return &Service{
-		access:   cfg.Service.RBAC,
-		internal: cfg.Service.Project,
+		access:   cfg.RBAC,
+		internal: cfg.Project,
 	}, nil
 }
 

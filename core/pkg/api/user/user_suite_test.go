@@ -16,25 +16,21 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
-	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
+	"github.com/synnaxlabs/gorp"
 	apiuser "github.com/synnaxlabs/synnax/pkg/api/user"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
-	svc "github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestAPIUser(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API User Suite")
+	RunSpecs(t, "API User Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
@@ -52,9 +48,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	searchIdx := MustOpen(search.OpenIndex())
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB: db, Ontology: otg, Search: searchIdx,
+		DB: db, Ontology: otg,
 	}))
 	passwordSvc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	authSvc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
@@ -67,7 +62,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
-		Search:   searchIdx,
 	}))
 	MustSucceed2(
 		user.ProvisionRoot(
@@ -82,17 +76,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
-		Search:   searchIdx,
 		User:     userSvc,
 	}))
-	apiSvc = MustSucceed(apiuser.NewService(apicfg.LayerConfig{
-		Distribution: &distribution.Layer{DB: db},
-		Service: &svc.Layer{
-			User:     userSvc,
-			RBAC:     rbacSvc,
-			Password: passwordSvc,
-			Auth:     authSvc,
-		},
+	apiSvc = MustSucceed(apiuser.NewService(apiuser.ServiceConfig{
+		RBAC:     rbacSvc,
+		User:     userSvc,
+		Password: passwordSvc,
+		Auth:     authSvc,
 	}))
 	root = findRoot(ctx, userSvc, "api-user-suite-root")
 })

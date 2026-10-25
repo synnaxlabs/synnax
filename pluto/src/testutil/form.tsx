@@ -9,7 +9,7 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { render, type RenderResult } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import { type FC, type PropsWithChildren, type ReactElement, useEffect } from "react";
 import { type z } from "zod";
 
 export interface RenderFormResult extends RenderResult {
@@ -28,9 +28,12 @@ export const renderForm = <Z extends z.ZodType>(
   wrapper?: FC<PropsWithChildren>,
 ): RenderFormResult => {
   let read: (path: string) => unknown = () => undefined;
+  const setRead = (next: typeof read): void => {
+    read = next;
+  };
   const Harness = (): ReactElement => {
     const methods = Form.use({ values, schema });
-    read = (path) => methods.get(path, { optional: true })?.value;
+    useEffect(() => setRead((path) => methods.get(path, { optional: true })?.value));
     return <Form.Form<Z> {...methods}>{ui}</Form.Form>;
   };
   const result = render(<Harness />, { wrapper });

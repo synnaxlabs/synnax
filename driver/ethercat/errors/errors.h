@@ -20,8 +20,13 @@ const x::errors::Error TEMPORARY_ERROR = driver::errors::TEMPORARY_HARDWARE_ERRO
 );
 /// @brief error returned when the EtherCAT master fails to initialize.
 const x::errors::Error MASTER_INIT_ERROR = BASE_ERROR.sub("master_init");
+/// @brief error returned when a network interface has no EtherCAT slaves.
+const x::errors::Error NO_SLAVES_FOUND = MASTER_INIT_ERROR.sub("no_slaves_found");
 /// @brief error returned when the network interface cannot be opened.
 const x::errors::Error INTERFACE_ERROR = BASE_ERROR.sub("interface");
+/// @brief error returned when the Driver lacks permission to open the network
+/// interface or the IgH master device.
+const x::errors::Error PERMISSION_DENIED = INTERFACE_ERROR.sub("permission_denied");
 /// @brief error returned when slave configuration fails.
 const x::errors::Error SLAVE_CONFIG_ERROR = BASE_ERROR.sub("slave_config");
 /// @brief error returned when PDO mapping is invalid or fails.
@@ -44,8 +49,8 @@ const x::errors::Error WORKING_COUNTER_ERROR = BASE_ERROR.sub("working_counter")
 const x::errors::Error CYCLE_OVERRUN = BASE_ERROR.sub("cycle_overrun");
 /// @brief error returned when a state machine transition fails.
 const x::errors::Error STATE_CHANGE_ERROR = BASE_ERROR.sub("state_change");
-/// @brief error returned when the cyclic engine is restarting for reconfiguration.
-const x::errors::Error ENGINE_RESTARTING = TEMPORARY_ERROR.sub("engine_restarting");
+/// @brief error returned when the latest bus cycle failed and its inputs were dropped.
+const x::errors::Error CYCLE_FAILED = TEMPORARY_ERROR.sub("cycle_failed");
 /// @brief error returned when PDO discovery fails for a slave.
 const x::errors::Error PDO_DISCOVERY_ERROR = BASE_ERROR.sub("pdo_discovery");
 /// @brief error returned when an SDO read operation fails.

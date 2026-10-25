@@ -13,7 +13,7 @@ import {
   Unreachable,
   type WebSocketClient,
 } from "@synnaxlabs/freighter";
-import { errors, Rate, TimeSpan, zod } from "@synnaxlabs/x";
+import { errors, Rate, sync, TimeSpan, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type channel } from "@/channel";
@@ -208,24 +208,14 @@ class BaseStreamer implements Streamer {
   private async receiveWithDeadline(): Promise<z.infer<typeof resZ>> {
     const received = this.stream.receive();
     if (!this.armed) return await received;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const deadline = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => {
-        const silence = this.deadline.toString();
-        const message = `streamer received no response for ${silence}`;
-        reject(new Unreachable({ message }));
-      }, this.deadline.milliseconds);
-    });
-    try {
-      return await Promise.race([received, deadline]);
-    } catch (err) {
-      // The read already failed for its caller; a late settle of the losing receive
-      // must not surface as an unhandled rejection.
-      received.catch(() => {});
-      throw errors.fromUnknown(err);
-    } finally {
-      clearTimeout(timer);
-    }
+    return await sync.withTimeout(
+      received,
+      this.deadline,
+      () =>
+        new Unreachable({
+          message: `streamer received no response for ${this.deadline.toString()}`,
+        }),
+    );
   }
 
   async update(channels: channel.Params): Promise<void> {

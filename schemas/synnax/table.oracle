@@ -135,6 +135,10 @@ Cell struct {
 }
 
 Row struct {
+    key   string = create {
+        @doc value         "is the unique identifier for this row within the table."
+        @validate required
+    }
     size  float64 = 36 {
         @doc value    "is the height of the row in pixels."
         @validate min 1
@@ -146,17 +150,21 @@ Row struct {
         """
     }
 
-    @doc value  "is a single row in a table, with height and ordered cell keys."
+    @doc value  "is a single row in a table, with a key, height, and ordered cell keys."
     @go marshal
 }
 
 Column struct {
+    key  string = create {
+        @doc value         "is the unique identifier for this column within the table."
+        @validate required
+    }
     size float64 = 72 {
         @doc value    "is the width of the column in pixels."
         @validate min 1
     }
 
-    @doc value  "is a single column in a table, with width."
+    @doc value  "is a single column in a table, with a key and width."
     @go marshal
 }
 
@@ -167,6 +175,7 @@ Table struct {
     }
     name    string                  {
         @doc value         "is a human-readable name for the table."
+        @search
         @validate required
     }
     rows    Row[] = [] {
@@ -201,12 +210,13 @@ Table struct {
 
     action AddRow {
         index         uint32
+        key           string = create
         size          float64
         cells         Cell[]
         cell_template Cell?
 
         @doc value """
-            inserts a row at the given index. Three flows:
+            inserts a row with the given key at the given index. Three flows:
 
             1. User gesture with cell_template against a non-empty table:
                replicate the template once per existing column.
@@ -219,27 +229,29 @@ Table struct {
                trigger the same column-bootstrap as flow 2.
 
             Derived replica keys come from the template's key with the last four hex
-            digits replaced by the column index. Out-of-range indices clamp to the end.
+            digits replaced by the column index. Bootstrapped columns derive their keys
+            from the row's key the same way. Out-of-range indices clamp to the end.
         """
     }
 
     action RemoveRow {
-        index uint32
+        key string
 
         @doc value """
-            removes the row at the given index. All cells referenced by the removed row
-            are also dropped from the cells map. No-op if the index is out of range.
+            removes the row with the given key. All cells referenced by the removed row
+            are also dropped from the cells map. No-op if no row has the key.
         """
     }
 
     action AddCol {
         index         uint32
+        key           string = create
         size          float64
         cells         Cell[]
         cell_template Cell?
 
         @doc value """
-            inserts a column at the given index. Three flows:
+            inserts a column with the given key at the given index. Three flows:
 
             1. User gesture with cell_template against a non-empty table:
                replicate the template once per existing row.
@@ -252,37 +264,58 @@ Table struct {
                trigger the same row-bootstrap as flow 2.
 
             Derived replica keys come from the template's key with the last four hex
-            digits replaced by the row index. Cells whose row index exceeds the row
-            count are added to the cells map but not referenced by any row. Out-of-range
+            digits replaced by the row index. Bootstrapped rows derive their keys from
+            the column's key the same way. Cells whose row index exceeds the row count
+            are added to the cells map but not referenced by any row. Out-of-range
             indices clamp to the end of every row's cells list.
         """
     }
 
     action RemoveCol {
-        index uint32
+        key string
 
         @doc value """
-            removes the column at the given index. All cells in that column (across
-            every row) are dropped from the cells map. No-op if the index is out of
-            range.
+            removes the column with the given key. All cells in that column (across
+            every row) are dropped from the cells map. No-op if no column has the key.
         """
     }
 
     action ResizeRow {
-        index uint32
-        size  float64
+        key  string
+        size float64
 
-        @doc value """
-            resizes the row at the given index. No-op if the index is out of range.
-        """
+        @doc value "resizes the row with the given key. No-op if no row has the key."
     }
 
     action ResizeCol {
-        index uint32
-        size  float64
+        key  string
+        size float64
 
         @doc value """
-            resizes the column at the given index. No-op if the index is out of range.
+            resizes the column with the given key. No-op if no column has the key.
+        """
+    }
+
+    action MoveRow {
+        key string
+        to  uint32
+
+        @doc value """
+            moves the row with the given key so that it ends up at index to, shifting
+            the rows in between by one. The row keeps its size and cells. No-op if no
+            row has the key; to clamps to the last row.
+        """
+    }
+
+    action MoveCol {
+        key string
+        to  uint32
+
+        @doc value """
+            moves the column with the given key so that it ends up at index to, shifting
+            the columns in between by one. The column keeps its size and its cell in
+            every row. No-op if no column has the key; to clamps to the last column. A
+            row missing a cell at the old or new index is left unchanged.
         """
     }
 

@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel/versions"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/spatial"
@@ -26,7 +27,9 @@ import (
 // bundleBody is the envelope body for a panel bundle member.
 type bundleBody struct {
 	// Root is the panel tree with each resource reference rewritten to a bundle path.
-	Root any `json:"root"`
+	Root  any          `json:"root"`
+	Icon  *string      `json:"icon,omitzero"`
+	Color *color.Color `json:"color,omitzero"`
 }
 
 // bundleResourceTab is the bundle wire form of a resource tab: resource holds the
@@ -70,7 +73,8 @@ func EncodeBundle(p Panel, refs map[ontology.ID]string) (imex.Envelope, error) {
 		Type:    string(ontology.ResourceTypePanel),
 		Name:    p.Name,
 	}
-	if err := env.Encode(bundleBody{Root: node}); err != nil {
+	body := bundleBody{Root: node, Icon: p.Icon, Color: p.Color}
+	if err := env.Encode(body); err != nil {
 		return imex.Envelope{}, err
 	}
 	return env, nil
@@ -107,7 +111,7 @@ func DecodeBundle(
 	if err := json.Unmarshal(data, &root); err != nil {
 		return Panel{}, errors.Wrap(validate.ErrValidation, err.Error())
 	}
-	return Panel{Name: env.Name, Root: root}, nil
+	return Panel{Name: env.Name, Root: root, Icon: body.Icon, Color: body.Color}, nil
 }
 
 // resolveBundleNode rewrites each resource tab's bundle path to the ontology.ID refs

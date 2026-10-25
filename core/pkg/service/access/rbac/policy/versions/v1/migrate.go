@@ -12,17 +12,17 @@ package v1
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp/migrate"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // Migration re-encodes stored policies from MessagePack to Orc.
-var Migration = gorp.CodecMigration[Key, Policy]("msgpack_to_orc")
+var Migration = migrate.Codec[Key, Policy]("msgpack_to_orc")
 
 // WorkspaceObjectsMigration points the policy objects that name workspaces at projects.
 // v0.57 turned every workspace into a project with the same key, but left policies
 // naming the old type, so they matched nothing.
-var WorkspaceObjectsMigration = gorp.NewEntryMigration(
+var WorkspaceObjectsMigration = migrate.NewEntry(
 	"v59_workspace_policy_objects",
 	func(_ context.Context, p Policy) (Policy, error) {
 		for i, obj := range p.Objects {
@@ -36,7 +36,7 @@ var WorkspaceObjectsMigration = gorp.NewEntryMigration(
 
 // NameMigration names each stored policy that has an empty name "Policy <key>",
 // where <key> is the first eight characters of its key.
-var NameMigration = gorp.NewEntryMigration(
+var NameMigration = migrate.NewEntry(
 	"v60_require_name",
 	func(_ context.Context, p Policy) (Policy, error) {
 		if p.Name == "" {
