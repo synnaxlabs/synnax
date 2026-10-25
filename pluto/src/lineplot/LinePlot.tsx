@@ -120,7 +120,7 @@ const createTelemetry = (
   xChannel: channel.Key,
   yChannel: channel.Key,
   aggregation: lineplot.Aggregation,
-  detail: lineplot.Detail,
+  groupsPerColumn: number,
 ) => {
   const hasX = primitive.isNonZero(xChannel);
   const props = {
@@ -129,7 +129,7 @@ const createTelemetry = (
       : { timeRange: resolved.timeRange }),
     xChannel,
     aggregation,
-    groupsPerColumn: GROUPS_PER_COLUMN[detail],
+    groupsPerColumn,
   };
   return {
     x: telem.tiledChannelData({
@@ -151,10 +151,11 @@ const Line = ({
   const { key, aggregation, detail, ...line } = spec;
   // JSX takes the rest object, so the compiler counts reads from it as changing later.
   const { xChannel, yChannel } = spec;
+  const groupsPerColumn = GROUPS_PER_COLUMN[detail];
   const telemetry =
     resolved == null
       ? null
-      : createTelemetry(resolved, xChannel, yChannel, aggregation, detail);
+      : createTelemetry(resolved, xChannel, yChannel, aggregation, groupsPerColumn);
   if (telemetry == null) return null;
   return (
     <BaseLine
@@ -163,6 +164,7 @@ const Line = ({
       x={telemetry.x}
       y={telemetry.y}
       visible={visible}
+      groupsPerColumn={groupsPerColumn}
       legendGroup={line.yAxis.toUpperCase()}
       {...line}
     />

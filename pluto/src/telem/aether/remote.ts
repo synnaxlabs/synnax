@@ -655,7 +655,7 @@ export class TiledChannelData
       failures: this.failures,
       breakerConfig,
       notify: () => this.notify(),
-      dataType: () => this.dataType(),
+      dataType: () => this.heldDataType(),
       restart: () => this.restart(),
     });
     const { timeSpan } = this.props;
@@ -736,13 +736,21 @@ export class TiledChannelData
     return first == null ? boundary : TimeStamp.min(boundary, first.timeRange.start);
   }
 
+  aggregation(): Aggregation {
+    return this.xy ? "decimate" : this.props.aggregation;
+  }
+
+  dataType(): DataType | null {
+    return this.channel?.dataType ?? null;
+  }
+
   private targets(
     key: channel.Key,
     view: TimeRange,
     extremesKept = false,
     boundary?: TimeStamp,
   ): framer.TileSpec[] {
-    let aggregation: Aggregation = this.xy ? "decimate" : this.props.aggregation;
+    let aggregation = this.aggregation();
     // Min-max keeps the extremes that the other aggregations drop. An xy line draws its
     // home tiles at every zoom, so they bound it.
     if (extremesKept && !this.xy) aggregation = "min_max";
@@ -944,11 +952,11 @@ export class TiledChannelData
     const generation = this.generation;
     this.pending.add(key);
     client.feed
-      .readTile(spec, this.dataType())
+      .readTile(spec, this.heldDataType())
       .then((series) => {
         if (generation !== this.generation) return;
         this.pending.delete(key);
-        const held = this.dataType();
+        const held = this.heldDataType();
         // Series of two data types cannot share a MultiSeries.
         if (held != null && series.series.some((s) => !s.dataType.equals(held)))
           return this.restart();
@@ -1032,7 +1040,7 @@ export class TiledChannelData
   }
 
   // The data type of every series the line holds, or undefined when it holds none.
-  private dataType(): DataType | undefined {
+  private heldDataType(): DataType | undefined {
     for (const tile of this.held.values())
       if (tile.series.series.length > 0) return tile.series.series[0].dataType;
     return this.window.data.series[0]?.dataType;
