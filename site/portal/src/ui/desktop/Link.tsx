@@ -49,11 +49,11 @@ export const Link = ({
   const clerk = useClerk();
   const [linked, setLinked] = useState<Linked | null>(null);
   const [shared, setShared] = useState(false);
-  const analyticsOn = consent === "notice" || shared;
+  const analyticsAllowed = consent === "notice" || shared;
   const action = useAction(async () => {
     const res = await post<Linked>("/api/desktop/link", { fingerprint, name });
     setLinked(res);
-    window.location.assign(activateURL(state, res, analyticsOn));
+    window.location.assign(activateURL(state, res, analyticsAllowed));
   });
   // Reloading after the log out sends the visitor through the login page and back.
   const logOut = (): void => {
@@ -110,7 +110,7 @@ export const Link = ({
           full="x"
           justify="center"
           onClick={() =>
-            window.location.assign(activateURL(state, linked, analyticsOn))
+            window.location.assign(activateURL(state, linked, analyticsAllowed))
           }
         >
           Open Synnax Desktop

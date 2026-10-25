@@ -796,7 +796,7 @@ describe("license routes", () => {
             'The Synnax license "Test rig" for Acme has been revoked.',
             "",
             "It can no longer activate a Core. A Core checks its license offline, so a " +
-              "Core that already holds it keeps running as its terms allow, also after " +
+              "Core that already holds it keeps running as its terms allow, even after " +
               "a restart.",
             "",
             "Contact Synnax Labs if you believe this is a mistake.",

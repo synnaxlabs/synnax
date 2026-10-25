@@ -15,13 +15,14 @@ export type Mode = "ask" | "notice";
 
 /**
  * ASK lists the countries that get `ask`: the EU, the rest of the EEA, the UK, and
- * Switzerland.
+ * Switzerland. Some location databases send the reserved codes EU and UK for them.
  */
 const ASK: ReadonlySet<string> = new Set(
   [
     "AT BE BG CY CZ DE DK EE ES FI FR GR HR HU IE IT LT LU LV MT NL PL PT RO SE SI SK",
     "IS LI NO",
     "GB CH",
+    "EU UK",
   ].flatMap((codes) => codes.split(" ")),
 );
 

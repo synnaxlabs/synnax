@@ -27,6 +27,11 @@ describe("consent", () => {
       expect(modeFor("BR")).toBe("notice");
     });
 
+    it("should ask for the reserved codes of the EU and the UK", () => {
+      expect(modeFor("EU")).toBe("ask");
+      expect(modeFor("UK")).toBe("ask");
+    });
+
     it("should ask when the country is missing", () => {
       expect(modeFor(null)).toBe("ask");
       expect(modeFor("")).toBe("ask");
