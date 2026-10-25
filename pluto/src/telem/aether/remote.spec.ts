@@ -94,10 +94,7 @@ describe("remote", () => {
         readLatest: async (): Promise<MultiSeries> => new MultiSeries([]),
         readTile: async (): Promise<MultiSeries> => new MultiSeries([]),
         read: async (): Promise<MultiSeries> => this.response,
-        stream: (
-          handler: framer.StreamHandler,
-          keys: channel.Key[],
-        ): framer.Demand => {
+        stream: (handler: framer.StreamHandler, keys: channel.Key[]): framer.Demand => {
           this.streamHandler = handler;
           this.streamKeys = keys;
           this.streamF(handler, keys);
@@ -586,10 +583,7 @@ describe("remote", () => {
         readLatest: async (): Promise<MultiSeries> => new MultiSeries([]),
         readTile: async (): Promise<MultiSeries> => new MultiSeries([]),
         read: async (): Promise<MultiSeries> => this.response,
-        stream: (
-          handler: framer.StreamHandler,
-          keys: channel.Key[],
-        ): framer.Demand => {
+        stream: (handler: framer.StreamHandler, keys: channel.Key[]): framer.Demand => {
           this.streamHandler = handler;
           this.streamKeys = keys;
           this.streamF(handler, keys);
