@@ -260,7 +260,7 @@ describe("block", () => {
         const block = new RawBlock(1, 0);
         const inside = createValues(9n, [1], seconds(2).range(seconds(3)));
         const across = createValues(9n, [1], seconds(4).range(seconds(8)));
-        block.streamed.push(inside, across);
+        block.stream([inside, across]);
         block.fill([fetched(0, [1, 2], seconds(1).range(seconds(5)))], seconds(5), 2);
         expect(block.streamed).toEqual([across]);
       });
@@ -279,7 +279,7 @@ describe("block", () => {
       it("should keep the streamed samples", () => {
         const block = new RawBlock(1, 0);
         const streamed = createValues(9n, [1], seconds(9).range(seconds(10)));
-        block.streamed.push(streamed);
+        block.stream([streamed]);
         block.fill([], seconds(5), 0);
         block.expire();
         expect(block.streamed).toEqual([streamed]);
@@ -295,7 +295,7 @@ describe("block", () => {
         const block = new RawBlock(1, 0);
         const early = createValues(9n, [1], seconds(1).range(seconds(2)));
         const late = createValues(10n, [2], seconds(8).range(seconds(9)));
-        block.streamed.push(early, late);
+        block.stream([early, late]);
         expect(block.streamedIn(seconds(7).range(seconds(20)))).toEqual([
           { series: late, range: late.timeRange },
         ]);
@@ -334,10 +334,22 @@ describe("block", () => {
       });
     });
 
+    it("should stop counting the bytes of the series it drops", () => {
+      const block = new RawBlock(1, 0);
+      block.stream([createValues(9n, [1], seconds(2).range(seconds(3)))]);
+      block.stream([createValues(9n, [1], seconds(9).range(seconds(10)))]);
+      block.fill([fetched(0, [1, 2], seconds(1).range(seconds(5)))], seconds(5), 2);
+      expect(block.bytes).toBe(2 * 4 + 4);
+      block.expire();
+      expect(block.bytes).toBe(4);
+      block.reset();
+      expect(block.bytes).toBe(0);
+    });
+
     it("should count the bytes of every series it holds", () => {
       const block = new RawBlock(1, 0);
       block.fill([fetched(0, [1, 2], seconds(1).range(seconds(3)))], seconds(5), 2);
-      block.streamed.push(createValues(9n, [1], seconds(9).range(seconds(10))));
+      block.stream([createValues(9n, [1], seconds(9).range(seconds(10)))]);
       const buffer = new Dynamic({ dynamicBufferSize: 10 });
       buffer.write(
         new MultiSeries([createValues(9n, [1], seconds(11).range(seconds(12)))]),

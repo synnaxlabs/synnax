@@ -109,6 +109,18 @@ describe("Store", () => {
       expect(store.get("b")).toBeUndefined();
     });
 
+    it("should make a held block it skips the most recently used", () => {
+      const store = new Store({ budget: Size.bytes(2.5 * BYTES) });
+      const held = createBlock({ held: true });
+      store.set("a", held);
+      store.set("b", createBlock());
+      store.set("c", createBlock());
+      held.held = false;
+      store.set("d", createBlock());
+      expect(store.get("a")).toBe(held);
+      expect(store.get("c")).toBeUndefined();
+    });
+
     it("should count a block's new size when it is set again", () => {
       const store = new Store({ budget: Size.bytes(2.5 * BYTES) });
       const grown = createBlock();

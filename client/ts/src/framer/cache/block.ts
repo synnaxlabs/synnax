@@ -172,6 +172,9 @@ export const split = (
   return parts;
 };
 
+const sumBytes = (series: Series[]): number =>
+  series.reduce((sum, s) => sum + s.byteCapacity.valueOf(), 0);
+
 /** A streamed series and the span its samples cover. */
 export interface Streamed {
   series: Series;
@@ -190,10 +193,10 @@ export class RawBlock implements Block {
   coveredEnd: TimeStamp;
   /** The index samples in [range.start, coveredEnd). */
   coveredCount = 0;
-  /** Fetched series in alignment order, with no overlap. */
-  fetched: Series[] = [];
-  /** Buffers the stream filled while the block was open. */
-  streamed: Series[] = [];
+  private _fetched: Series[] = [];
+  private _streamed: Series[] = [];
+  // The bytes of the fetched and streamed series.
+  private seriesBytes = 0;
   /** The channel's live buffer while a stream writes into the block. */
   open: Dynamic | null = null;
   /** Settles when the fetch that fills the block lands. */
@@ -207,12 +210,18 @@ export class RawBlock implements Block {
     this.coveredEnd = this.range.start;
   }
 
+  /** Fetched series in alignment order, with no overlap. */
+  get fetched(): readonly Series[] {
+    return this._fetched;
+  }
+
+  /** Buffers the stream filled while the block was open. */
+  get streamed(): readonly Series[] {
+    return this._streamed;
+  }
+
   get bytes(): number {
-    const live = this.open?.leadingBuffer?.byteCapacity.valueOf() ?? 0;
-    return [...this.fetched, ...this.streamed].reduce(
-      (sum, s) => sum + s.byteCapacity.valueOf(),
-      live,
-    );
+    return this.seriesBytes + (this.open?.leadingBuffer?.byteCapacity.valueOf() ?? 0);
   }
 
   get held(): boolean {
@@ -234,9 +243,10 @@ export class RawBlock implements Block {
    * @returns true if the block held fetched samples or coverage.
    */
   expire(): boolean {
-    if (this.fetched.length === 0 && this.coveredEnd.equals(this.range.start))
+    if (this._fetched.length === 0 && this.coveredEnd.equals(this.range.start))
       return false;
-    this.fetched = [];
+    this.seriesBytes -= sumBytes(this._fetched);
+    this._fetched = [];
     this.coveredEnd = this.range.start;
     this.coveredCount = 0;
     return true;
@@ -245,7 +255,14 @@ export class RawBlock implements Block {
   /** Drops every sample and the coverage, so reads fetch the block from its start. */
   reset(): void {
     this.expire();
-    this.streamed = [];
+    this.seriesBytes -= sumBytes(this._streamed);
+    this._streamed = [];
+  }
+
+  /** Adds buffers the stream filled. */
+  stream(series: Series[]): void {
+    this._streamed.push(...series);
+    this.seriesBytes += sumBytes(series);
   }
 
   /**
@@ -260,14 +277,15 @@ export class RawBlock implements Block {
     series.forEach((s) => this.insert(s));
     this.coveredEnd = coveredEnd;
     this.coveredCount = coveredCount;
-    this.streamed = this.streamed.filter(
-      (s) =>
-        !this.fetched.some(
-          (f) =>
-            f.timeRange.start.beforeEq(s.timeRange.start) &&
-            f.timeRange.end.afterEq(s.timeRange.end),
-        ),
-    );
+    this._streamed = this._streamed.filter((s) => {
+      const held = this._fetched.some(
+        (f) =>
+          f.timeRange.start.beforeEq(s.timeRange.start) &&
+          f.timeRange.end.afterEq(s.timeRange.end),
+      );
+      if (held) this.seriesBytes -= s.byteCapacity.valueOf();
+      return !held;
+    });
   }
 
   /**
@@ -275,7 +293,7 @@ export class RawBlock implements Block {
    * The live buffer's span ends at its last stamped write, not at its open end.
    */
   streamedIn(tr: TimeRange): Streamed[] {
-    const out = this.streamed
+    const out = this._streamed
       .filter((s) => s.timeRange.overlapsWith(tr))
       .map((series) => ({ series, range: series.timeRange }));
     const buffer = this.open?.leadingBuffer;
@@ -287,7 +305,7 @@ export class RawBlock implements Block {
 
   private insert(series: Series): void {
     const plan = bounds.buildInsertionPlan(
-      this.fetched.map((s) => s.alignmentBounds),
+      this._fetched.map((s) => s.alignmentBounds),
       series.alignmentBounds,
     );
     if (plan == null) return;
@@ -300,13 +318,14 @@ export class RawBlock implements Block {
       const { start, end } = s.timeRange;
       s = derive(s, {
         timeRange: new TimeRange(
-          removeBefore > 0 ? this.fetched[insertInto - 1].timeRange.end : start,
+          removeBefore > 0 ? this._fetched[insertInto - 1].timeRange.end : start,
           removeAfter > 0
-            ? this.fetched[insertInto + deleteInBetween].timeRange.start
+            ? this._fetched[insertInto + deleteInBetween].timeRange.start
             : end,
         ),
       });
     }
-    this.fetched.splice(insertInto, deleteInBetween, s);
+    const removed = this._fetched.splice(insertInto, deleteInBetween, s);
+    this.seriesBytes += s.byteCapacity.valueOf() - sumBytes(removed);
   }
 }

@@ -118,6 +118,11 @@ export class Store {
     for (const [k, b] of this.blocks) {
       if (this.bytes <= this.budget || k === key) break;
       if (!b.held) this.delete(k);
+      else {
+        // A held block is in use, so it moves behind the key as the most recently used.
+        this.blocks.delete(k);
+        this.blocks.set(k, b);
+      }
     }
   }
 
@@ -172,7 +177,7 @@ export class Store {
         live.block = block;
       }
       const res = live.buffer.write(new MultiSeries([s]));
-      block.streamed.push(...res.flushed.series);
+      block.stream(res.flushed.series);
       allocated.push(res.allocated);
       if (opened || res.flushed.series.length > 0 || res.allocated.series.length > 0)
         this.set(rawKey(ch, index), block);
@@ -232,7 +237,7 @@ export class Store {
     const { block } = live;
     if (block == null) return;
     const flushed = live.buffer.flush();
-    if (flushed != null && flushed.length > 0) block.streamed.push(flushed);
+    if (flushed != null && flushed.length > 0) block.stream([flushed]);
     block.open = null;
     live.block = null;
     this.set(rawKey(block.channel, block.index), block);

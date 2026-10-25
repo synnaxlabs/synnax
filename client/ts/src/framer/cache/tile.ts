@@ -51,14 +51,13 @@ export interface TileReaderProps {
 /** A cached tile: one channel's reduced samples. */
 class Tile implements Block {
   readonly fetchedAt = TimeStamp.now();
+  readonly bytes: number;
 
   constructor(
     readonly channel: channel.Key,
     readonly series: MultiSeries,
-  ) {}
-
-  get bytes(): number {
-    return this.series.series.reduce((sum, s) => sum + s.byteCapacity.valueOf(), 0);
+  ) {
+    this.bytes = series.series.reduce((sum, s) => sum + s.byteCapacity.valueOf(), 0);
   }
 
   get held(): boolean {
