@@ -43,7 +43,8 @@ export const Input = ({
   onClickDelay,
   inlineSize,
 }: PrimitiveProps): ReactElement => {
-  const draft = Primitive.useDraft(value);
+  // The field shows a missing value as empty, so the two compare equal.
+  const draft = Primitive.useDraft(value ?? "");
   const shown = draft.value ?? "";
   const symbolColor = color.rgbaString(fillColor);
   const style = useMemo<CSSProperties>(

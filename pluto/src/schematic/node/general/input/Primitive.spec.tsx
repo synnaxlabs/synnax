@@ -98,6 +98,18 @@ describe("input symbol", () => {
       expect(onSend.mock.calls).toEqual([["bye"], ["bye"]]);
     });
 
+    it("should settle an empty value sent over an empty target", () => {
+      const onSend = vi.fn();
+      const { container, getByText } = render(<Input value={null} onSend={onSend} />);
+      const input = container.querySelector("input");
+      if (input == null) throw new Error("expected an input");
+      fireEvent.change(input, { target: { value: "x" } });
+      fireEvent.change(input, { target: { value: "" } });
+      fireEvent.click(getByText("Set"));
+      expect(onSend).toHaveBeenCalledExactlyOnceWith("");
+      expect(isDirty(container)).toBe(false);
+    });
+
     it("should follow the target once it reports another value", () => {
       const onSend = vi.fn();
       const { container, input, rerender } = sendBye(onSend);
