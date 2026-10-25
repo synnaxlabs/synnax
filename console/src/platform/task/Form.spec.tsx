@@ -68,7 +68,6 @@ const createRenderer = ({
     schemas,
     deployConfigZ,
     type: "opc_read",
-    getInitialValues,
     onConfigure,
     showControls,
   });
@@ -123,7 +122,7 @@ describe("wrapForm", () => {
     expect(container.querySelector(".pluto-icon--play")).toBeNull();
   });
 
-  it("should keep the controls on the driver status through an autosave", async () => {
+  it("should keep the controls on the driver status through an edit", async () => {
     const client = createTestClient();
     const tsk = await createTask(client);
     const Renderer = createRenderer();
@@ -277,7 +276,7 @@ describe("wrapForm", () => {
   });
 
   describe("deploying against a live Core", () => {
-    it("should persist the configured rack and issue a start command", async () => {
+    it("should persist the configured rack and issue a pinned start", async () => {
       const client = createTestClient();
       const rack = await client.racks.create({ name: uniqueName("rack") });
       const draft = await client.tasks.create({
@@ -296,12 +295,36 @@ describe("wrapForm", () => {
         await clickDeploy(container);
         const cmd = await awaitCommand(streamer, draft.key);
         expect(cmd.type).toBe("start");
+        expect(cmd.pinned).toBe(true);
+        const updated = await createTestClient().tasks.retrieve({ key: draft.key });
+        expect(cmd.configHash).toBe(updated.configHash);
+        expect(updated.name).toBe("New Test Task");
+        expect(updated.rack).toBe(rack.key);
       } finally {
         streamer.close();
       }
-      const updated = await client.tasks.retrieve({ key: draft.key });
-      expect(updated.name).toBe("New Test Task");
-      expect(updated.rack).toBe(rack.key);
+    });
+
+    it("should write the config fields that onConfigure fills", async () => {
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...getInitialValues({}), rack: 0 });
+      const Renderer = createRenderer({
+        onConfigure: async (_client, config) => [{ ...config, device: "filled" }, 0],
+      });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      try {
+        const { container } = await renderTaskFormTab(Renderer, {
+          client,
+          taskKey: draft.key,
+        });
+        await clickDeploy(container);
+        const cmd = await awaitCommand(streamer, draft.key);
+        const updated = await createTestClient().tasks.retrieve({ key: draft.key });
+        expect(updated.config).toMatchObject({ device: "filled" });
+        expect(cmd.configHash).toBe(updated.configHash);
+      } finally {
+        streamer.close();
+      }
     });
 
     it("should report the type of the task it started", async () => {
@@ -321,7 +344,7 @@ describe("wrapForm", () => {
       );
     });
 
-    it("should start without saving for a subject who cannot update the task", async () => {
+    it("should start without writing for a subject who cannot update the task", async () => {
       const client = createTestClient();
       const operator = await createTestClientWithRole(client, "Operator");
       const rack = await client.racks.create({ name: uniqueName("rack") });

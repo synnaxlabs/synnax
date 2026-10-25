@@ -166,7 +166,6 @@ export const Read = Task.wrapForm({
   schemas: READ_SCHEMAS,
   deployConfigZ: deployReadConfigZ,
   type: "ethercat_read",
-  getInitialValues,
   onConfigure,
 });
 

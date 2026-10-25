@@ -223,7 +223,6 @@ export const Write = Task.wrapForm({
   schemas: WRITE_SCHEMAS,
   deployConfigZ: deployWriteConfigZ,
   type: "ethercat_write",
-  getInitialValues,
   onConfigure,
 });
 

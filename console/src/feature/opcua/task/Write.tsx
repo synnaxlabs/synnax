@@ -167,7 +167,6 @@ export const Write = Task.wrapForm({
   schemas: WRITE_SCHEMAS,
   deployConfigZ: deployWriteConfigZ,
   type: "opc_write",
-  getInitialValues,
   onConfigure,
 });
 

@@ -323,7 +323,6 @@ export const Read = Task.wrapForm({
   schemas: READ_SCHEMAS,
   deployConfigZ: deployReadConfigZ,
   type: "labjack_read",
-  getInitialValues,
   onConfigure,
 });
 

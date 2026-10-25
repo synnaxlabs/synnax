@@ -230,7 +230,6 @@ export const AnalogRead = Task.wrapForm({
   schemas: ANALOG_READ_SCHEMAS,
   deployConfigZ: deployAnalogReadConfigZ,
   type: "ni_analog_read",
-  getInitialValues,
   onConfigure,
 });
 
