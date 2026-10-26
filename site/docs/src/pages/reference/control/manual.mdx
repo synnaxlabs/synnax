@@ -100,17 +100,39 @@ schematic, so another Console that opens the same schematic writes at 1.
 
 <Divider.Divider x />
 
+## Set a value and read back the device state
+
+A **Setpoint**, **Text input**, or **Select** symbol writes a value when you click
+**Set**.
+
+1. Type a number or text, or select an option. The **Set** button turns blue to show an
+   edit that you did not send.
+2. Click **Set**. The schematic writes the value to the command channel. The button
+   stays blue until the command channel reports the new value.
+
+If the symbol has a color, the button uses that color, not blue. The field shows the
+last value on the command channel, from you or from a different writer. If a write
+fails, the field keeps your value and **Set** stays blue.
+
+To see the value that the device reports, set a
+[state channel](/reference/visualize/schematics#show-the-device-state-on-a-setpoint) on
+the symbol. The reported value shows under the field. A select shows the name of the
+option that matches the value. When no new sample arrives within the staleness
+**Timeout** of the symbol, the reported value shows in the staleness **Color**.
+
+<Divider.Divider x />
+
 ## What each symbol writes
 
-| Symbol                         | Writes                                                       | When                    |
-| ------------------------------ | ------------------------------------------------------------ | ----------------------- |
-| Valve, pump, and other toggles | `1` when the symbol shows inactive, `0` when it shows active | On click                |
-| Button, Fire mode              | `1`                                                          | On release              |
-| Button, Momentary mode         | `1` on press, then `0` on release                            | On press and release    |
-| Button, Pulse mode             | `1`, then `0` at once                                        | On press                |
-| Setpoint                       | The number you type                                          | When you click **Set**  |
-| Select                         | The number mapped to the option you choose, not its label    | When you click **Send** |
-| Input                          | The text you type                                            | When you click **Send** |
+| Symbol                         | Writes                                                       | When                   |
+| ------------------------------ | ------------------------------------------------------------ | ---------------------- |
+| Valve, pump, and other toggles | `1` when the symbol shows inactive, `0` when it shows active | On click               |
+| Button, Fire mode              | `1`                                                          | On release             |
+| Button, Momentary mode         | `1` on press, then `0` on release                            | On press and release   |
+| Button, Pulse mode             | `1`, then `0` at once                                        | On press               |
+| Setpoint                       | The number you type                                          | When you click **Set** |
+| Select                         | The number mapped to the option you choose, not its label    | When you click **Set** |
+| Text input                     | The text you type                                            | When you click **Set** |
 
 A toggle shows as active when its state channel has a value from 0.9 to 1.1. A toggle
 with no state channel always shows inactive, so each click writes `1`.

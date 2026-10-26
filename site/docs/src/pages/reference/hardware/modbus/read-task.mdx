@@ -45,8 +45,22 @@ The Driver timestamps each read with the computer clock. See
 ### Byte and word order
 
 By default, the Driver reads the low word of a 32-bit or 64-bit value first. Many
-devices send the high word first. If the values look wrong, set `words_swapped` on the
-channel. To swap the two bytes in each register, set `bytes_swapped`.
+devices send the high word first. The **Swap words** switch of the
+[server](/reference/hardware/modbus/connect-server#connection-options) puts the high
+word first, and **Swap bytes** swaps the two bytes in each register. The switches set
+the order for every register channel of the server.
+
+To change the order of one channel, use its **Bytes** and **Words** selects. Each select
+has three options:
+
+- **device** -> uses the switch of the server, and shows its value, such as **device
+  (swapped)**.
+- **swapped** -> swaps the order of this channel, whatever the server sets.
+- **not swapped** -> does not swap the order of this channel, whatever the server sets.
+
+The Console hides **Words** for 8-bit and 16-bit data types, because they fit in one
+register. In code, leave `bytes_swapped` and `words_swapped` unset to use the order of
+the server.
 
 <Divider.Divider x />
 
@@ -201,8 +215,8 @@ Reads a number from one or more holding registers.
 | Setting                              | Default | Notes                                                                                           |
 | ------------------------------------ | ------- | ----------------------------------------------------------------------------------------------- |
 | Data type <small>`data_type`</small> | `uint8` | `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, `float64`. |
-| <small>`words_swapped`</small>       | `false` | Reads the high word first. See [byte and word order](#byte-and-word-order).                     |
-| <small>`bytes_swapped`</small>       | `false` | Swaps the two bytes in each register.                                                           |
+| Bytes <small>`bytes_swapped`</small> | device  | `True` swaps the two bytes in each register. See [byte and word order](#byte-and-word-order).   |
+| Words <small>`words_swapped`</small> | device  | `True` reads the high word first. Only for 32-bit and 64-bit data types.                        |
 
 </Channel.Type>
 
@@ -217,8 +231,8 @@ Reads a number from one or more input registers.
 | Setting                              | Default | Notes                                                                                           |
 | ------------------------------------ | ------- | ----------------------------------------------------------------------------------------------- |
 | Data type <small>`data_type`</small> | `uint8` | `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, `float64`. |
-| <small>`words_swapped`</small>       | `false` | Reads the high word first. See [byte and word order](#byte-and-word-order).                     |
-| <small>`bytes_swapped`</small>       | `false` | Swaps the two bytes in each register.                                                           |
+| Bytes <small>`bytes_swapped`</small> | device  | `True` swaps the two bytes in each register. See [byte and word order](#byte-and-word-order).   |
+| Words <small>`words_swapped`</small> | device  | `True` reads the high word first. Only for 32-bit and 64-bit data types.                        |
 
 </Channel.Type>
 
@@ -246,8 +260,8 @@ together, or split them into two tasks.
 
 ### The values are wrong
 
-Set the [byte and word order](#byte-and-word-order) of the channel. Check that the data
-type matches the device.
+Set the [byte and word order](#byte-and-word-order) of the server or the channel. Check
+that the data type matches the device.
 
 ### The task stopped when the connection dropped
 

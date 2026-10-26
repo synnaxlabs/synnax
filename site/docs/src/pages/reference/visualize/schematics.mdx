@@ -110,6 +110,23 @@ and to see what each symbol writes, see [manual control](/reference/control/manu
 
 <Divider.Divider x />
 
+## Show the device state on a setpoint
+
+A **Setpoint**, **Text input**, or **Select** symbol shows the last value written to its
+command channel. To also show the value that the device reports, give the symbol a state
+channel:
+
+1. Select the symbol, then open the **Control** tab of its properties.
+2. Under **Command**, select the **Channel** that the Console writes to when an operator
+   clicks **Set**.
+3. Under **State**, select the **Channel** that reports the value of the device.
+
+The reported value shows under the field. For a text input, the **State** list shows
+only `string`, `json`, and `bytes` channels. To send a value, see
+[manual control](/reference/control/manual#set-a-value-and-read-back-the-device-state).
+
+<Divider.Divider x />
+
 ## Select and arrange symbols
 
 While editing is on, the controls have two modes: **Select** and **Pan**. In **Select**
@@ -130,6 +147,20 @@ select it alone.
 <Video id="console/schematics/align-items" />
 
 <Video id="console/schematics/edit-several-elements" />
+
+<Divider.Divider x />
+
+## Change the type of a symbol
+
+1. Turn on editing and select one or more symbols.
+2. In the header of the component toolbar, click **Change** next to the symbol name.
+3. On the **Symbols** tab, click the new symbol.
+
+The new symbol keeps the label, channels, and colors that it accepts. A label that still
+shows the default name of the old symbol changes to the name of the new symbol. One undo
+reverses the change for the whole selection. To stop without a change, click **Cancel**.
+
+You cannot change a group, or a symbol in a locked group.
 
 <Divider.Divider x />
 
@@ -216,7 +247,8 @@ custom symbol has **State overrides**. See
 
 ### Control tab
 
-Valves, pumps, switches, and other actuators have these fields:
+Valves, pumps, switches, setpoints, text inputs, selects, and other actuators have these
+fields:
 
 | Section   | Field          | Description                                                                   |
 | --------- | -------------- | ----------------------------------------------------------------------------- |
@@ -225,6 +257,8 @@ Valves, pumps, switches, and other actuators have these fields:
 | Command   | Delay          | The time in ms that an operator must press and hold before the symbol writes. |
 | Command   | Control chip   | Shows the chip that tells who has control of the channel.                     |
 | Staleness | Color, Timeout | The same as on the [Telemetry tab](#telemetry-tab).                           |
+
+On a setpoint, text input, or select, the state channel sets the value under the field.
 
 A button has these fields:
 

@@ -18,16 +18,33 @@ such as an NI module, a LabJack, a PLC, or an OPC UA server. Each
 
 ## How devices get into Synnax
 
+To connect a device, click <Icon.Add /> (**Connect device**) in the devices toolbar, or
+run the "Connect device" command. The dialog lists the integrations in two groups:
+
+- **Connect by address** -> OPC UA, Modbus TCP, and HTTP servers. You enter the address
+  of the server, and **Connect from** selects the Driver that talks to it.
+- **Find hardware the Driver detects** -> NI, LabJack, and EtherCAT hardware. The dialog
+  shows each Driver with the devices that it found.
+
+If no running Driver supports an integration, the dialog shows the reason, such as "No
+running Driver has Modbus enabled", and you cannot connect that device type.
+
 The Driver finds NI, LabJack, and EtherCAT hardware by itself. Within a few seconds of
 you plugging in a device, the Console shows the notification "New \<model\> connected"
 with a **Configure** button. A LabJack on the network can take about a minute to appear.
-Configure gives the device a name and an identifier. The Driver also finds simulated NI
-devices that you create in NI MAX, so you can try Synnax without hardware. It skips
-CompactRIO controllers.
+The Driver also finds simulated NI devices that you create in NI MAX, so you can try
+Synnax without hardware. It skips CompactRIO controllers.
 
-You connect Modbus, OPC UA, and HTTP servers yourself. Run the "Connect Modbus server",
-"Connect OPC UA server", or "Connect HTTP server" command, then enter the address of the
-server. The **Connect from** field picks the Driver that talks to the server.
+In the list of found hardware, click **Configure** on a device to give it a name and an
+[identifier](#identifiers). **Save and create read task** also opens a new read task for
+the device. **Scan now** makes the Drivers look again. If your device does not show,
+open **Not seeing your hardware?** for a list of checks.
+
+{/* Still to capture: hardware/devices/connect-picker -- the connect dialog and NI find view */}
+
+Each device select in a task form ends with an item that connects a new device, such as
+**Connect Modbus TCP server** or **Connect NI hardware**. The device that you connect
+there becomes the selected device.
 
 Each setup page shows the steps:
 [EtherCAT](/reference/hardware/ethercat/configure-device),
@@ -112,6 +129,7 @@ Right-click a device in the devices toolbar to open its menu.
 
 Creating a task for a device that is not configured opens **Configure** first.
 
-Right-click a Driver to open its menu. **Create Arc automation** creates an
+Right-click a Driver to open its menu. **Connect device** opens the connect dialog for
+that Driver. **Create Arc automation** creates an
 [Arc automation](/reference/control/arc) on that Driver. **Toggle NI device scanner**
 turns the search for NI hardware off or on.

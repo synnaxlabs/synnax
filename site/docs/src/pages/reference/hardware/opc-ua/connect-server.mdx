@@ -36,12 +36,12 @@ Synnax, an OPC UA server is one endpoint with its login and security settings. T
   <Fragment slot="console">
 
 1. In the [devices toolbar](/reference/hardware/devices#devices-toolbar), click
-   <Icon.Add /> and select **OPC UA server**. You can also run the "Connect OPC UA
-   server" command.
+   <Icon.Add /> (**Connect device**), then select **OPC UA server**. You can also run
+   the "Connect OPC UA server" command.
 2. Enter a name for the server.
 3. In **Endpoint**, enter the address of the server, for example
    `opc.tcp://192.168.1.50:4840`.
-4. In **Connect from**, select the Driver that connects to the server. When only one
+4. In **Connect from**, select the Driver that connects to the server. If only one
    running Driver has OPC UA enabled, the Console selects it for you.
 5. If the server needs a login, enter the **Username** and the **Password**.
 6. Set the [security](#security).
@@ -108,15 +108,19 @@ TypeScript does not test the connection.
 
 ## Security
 
-The **Mode** and the **Policy** under **Security** protect the connection between the
-Driver and the server. Set them to values that the server accepts.
+In the **Security** section, the **Mode** and the **Policy** protect the connection
+between the Driver and the server. Set them to values that the server accepts.
 
 - **Mode** -> **None**, **Sign**, or **Sign and encrypt**.
-- **Policy** -> the algorithms. The field shows when the mode is not **None**, and it
-  starts at **Basic 256-bit with SHA-256**. With the mode at **None**, the policy is
-  `"None"`.
+- **Policy** -> the algorithms. The field shows when the mode is not **None**. When you
+  change the mode from **None**, the Console selects **Basic 256-bit with SHA-256**.
+  Select a deprecated policy only when the server supports no other policy.
 - **Client certificate** and **Client private key** -> the certificate that the Driver
   sends to the server, and its key. The fields show when the mode is not **None**.
+
+In Python and TypeScript, set a policy other than `"None"` when the mode is not
+`"None"`. With the policy at `"None"`, the Driver does not load the certificates, even
+when the mode is `"Sign"`.
 
 The certificate and key are file paths on the computer that runs the Driver:
 
@@ -144,17 +148,17 @@ The Driver logs in to the server as an anonymous user, or with the **Username** 
 
 ## Connection options
 
-| Console label      | Python field         | Default                    | Notes                                        |
-| ------------------ | -------------------- | -------------------------- | -------------------------------------------- |
-| Connect from       | `rack`               |                            | The key of the rack that runs the Driver.    |
-| Endpoint           | `endpoint`           | `opc.tcp://localhost:4840` | The Python default is empty.                 |
-| Username           | `username`           | Empty                      | Empty for an anonymous login.                |
-| Password           | `password`           | Empty                      |                                              |
-| Mode               | `security_mode`      | None                       | `"None"`, `"Sign"`, or `"SignAndEncrypt"`.   |
-| Policy             | `security_policy`    | None                       | See [security policies](#security-policies). |
-| Client certificate | `client_cert`        | Empty                      | A path on the Driver computer.               |
-| Client private key | `client_private_key` | Empty                      | A path on the Driver computer. No password.  |
-| Server certificate | `server_cert`        | Empty                      | Has no effect.                               |
+| Console label      | Python field         | Default                    | Notes                                                                                   |
+| ------------------ | -------------------- | -------------------------- | --------------------------------------------------------------------------------------- |
+| Connect from       | `rack`               |                            | The key of the rack that runs the Driver.                                               |
+| Endpoint           | `endpoint`           | `opc.tcp://localhost:4840` | Required in Python.                                                                     |
+| Username           | `username`           | Empty                      | Empty for an anonymous login.                                                           |
+| Password           | `password`           | Empty                      |                                                                                         |
+| Mode               | `security_mode`      | None                       | `"None"`, `"Sign"`, or `"SignAndEncrypt"`.                                              |
+| Policy             | `security_policy`    | None                       | `"None"` goes only with the mode `"None"`. See [security policies](#security-policies). |
+| Client certificate | `client_cert`        | Empty                      | A path on the Driver computer.                                                          |
+| Client private key | `client_private_key` | Empty                      | A path on the Driver computer. No password.                                             |
+| Server certificate | `server_cert`        | Empty                      | Has no effect.                                                                          |
 
 In TypeScript, the fields are in `properties.connection` in camel case, such as
 `securityMode`, `clientCertificate`, and `serverCertificate`.
@@ -163,12 +167,11 @@ In TypeScript, the fields are in `properties.connection` in camel case, such as
 
 | Console label                  | Value                     |
 | ------------------------------ | ------------------------- |
-| None, with the mode at None    | `"None"`                  |
-| Basic 128-bit RSA (deprecated) | `"Basic128Rsa15"`         |
-| Basic 256-bit (deprecated)     | `"Basic256"`              |
 | Basic 256-bit with SHA-256     | `"Basic256Sha256"`        |
 | AES 128-bit with SHA-256       | `"Aes128_Sha256_RsaOaep"` |
 | AES 256-bit with SHA-256       | `"Aes256_Sha256_RsaPss"`  |
+| Basic 256-bit (deprecated)     | `"Basic256"`              |
+| Basic 128-bit RSA (deprecated) | `"Basic128Rsa15"`         |
 
 <Divider.Divider x />
 

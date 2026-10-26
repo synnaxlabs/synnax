@@ -49,14 +49,14 @@ To learn when a step moves on and when a sequence stops, see
 | Function call | `notify{}`                                  |
 
 A step that is not a stage or a sequence moves on when the last node of the step outputs
-a true value. A write always moves on. A wait moves on when its time is up. To learn
+a true value. When that node has no output, the step moves on after the node runs
+without an error. A write always moves on. A wait moves on when its time is up. To learn
 more, see
 [steps of a sequence](/reference/control/arc/execution-model#steps-of-a-sequence).
 
 <Note.Note variant="warning">
-  Known bug: a step that does not output a true value stalls the sequence. Examples are
-  a call to a function with no output, a function step whose output is 0, and an
-  assignment such as `x = 0.0`.
+  Known bug: a step whose output is not true stalls the sequence. Examples are a
+  function step whose output is 0 and an assignment such as `x = 0.0`.
 </Note.Note>
 
 A [stage](/reference/control/arc/reference/stages) or a nested sequence can have a name.

@@ -150,11 +150,11 @@ Writes a coil. A command of 0 turns the coil off. Any other value turns it on.
 
 Writes a number to one or more holding registers.
 
-| Setting                              | Default | Notes                                                                                                            |
-| ------------------------------------ | ------- | ---------------------------------------------------------------------------------------------------------------- |
-| Data type <small>`data_type`</small> | `uint8` | `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, `float64`.                  |
-| <small>`words_swapped`</small>       | `false` | Writes the high word first. See [byte and word order](/reference/hardware/modbus/read-task#byte-and-word-order). |
-| <small>`bytes_swapped`</small>       | `false` | Swaps the two bytes in each register.                                                                            |
+| Setting                              | Default | Notes                                                                                                                             |
+| ------------------------------------ | ------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Data type <small>`data_type`</small> | `uint8` | `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, `float64`.                                   |
+| Bytes <small>`bytes_swapped`</small> | device  | `True` swaps the two bytes in each register. See [byte and word order](/reference/hardware/modbus/read-task#byte-and-word-order). |
+| Words <small>`words_swapped`</small> | device  | `True` writes the high word first. Only for 32-bit and 64-bit data types.                                                         |
 
 </Channel.Type>
 

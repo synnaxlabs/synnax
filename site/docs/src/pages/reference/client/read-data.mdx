@@ -3,7 +3,7 @@ layout: "@/layouts/Reference.astro"
 title: "Read data"
 description:
   "Read stored samples with the Python and TypeScript clients: a time range, the latest
-  samples, a CSV export, and large time ranges with an iterator."
+  samples, fewer samples, CSV and TDMS exports, and large time ranges with an iterator."
 clients: ["python", "typescript"]
 ---
 
@@ -125,50 +125,144 @@ When a channel has fewer than `n` samples, the read returns the samples that exi
 
 <Divider.Divider x />
 
-## Export to CSV
+## Read fewer samples
+
+A reduction tells the Core to send fewer samples. Use one to load a long time range for
+a plot or a quick check.
+
+| Reduction | Keeps                                        | Accepted by                    |
+| --------- | -------------------------------------------- | ------------------------------ |
+| Stride    | Every `factor`-th sample of each channel.    | `read`, iterators, and exports |
+| Limit     | About `point_limit` points for each channel. | `read` and iterators           |
 
 <Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
-Read a frame, and write its DataFrame to a file with pandas:
-
 ```python
-frame = client.read(tr, ["time", "temperature", "pressure"])
-df = frame.to_df()[["time", "temperature", "pressure"]]
-df.to_csv("tank.csv", index=False)
-```
+# Every 10th sample.
+frame = client.read(
+    tr, ["time", "temperature"], reduction=sy.StrideReduction(factor=10)
+)
 
-`to_df` gives one column for each channel, in no fixed order, so select the columns in
-the order you want. All channels must have the same number of samples, so read only
-channels that share an index.
+# About 2,000 points: the lowest and highest sample of each group.
+frame = client.read(
+    tr,
+    ["time", "temperature"],
+    reduction=sy.LimitReduction(aggregation="min_max", point_limit=2_000),
+)
+```
 
   </Fragment>
 
   <Fragment slot="typescript">
 
-With `responseType: "csv"`, `read` returns a stream of CSV text:
+```typescript
+// Every 10th sample.
+const strided = await client.read(tr, ["time", "temperature"], {
+  reduction: { variant: "stride", factor: 10 },
+});
+
+// About 2,000 points: the lowest and highest sample of each group.
+const limited = await client.read(tr, ["time", "temperature"], {
+  reduction: { variant: "limit", aggregation: "min_max", pointLimit: 2_000 },
+});
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+A limit splits each channel into groups. The aggregation sets the points that each group
+gives:
+
+- `min_max` -> the lowest and highest sample, in the order they occurred. The Python
+  client uses it when you give no aggregation.
+- `average` -> the mean of the samples.
+- `decimate` -> the first sample.
+
+A limit does not reduce string, JSON, UUID, or bytes channels.
+
+<Divider.Divider x />
+
+## Export to CSV
+
+The Core writes the CSV file, so your code never holds the whole export in memory:
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+client.read_csv(tr, ["temperature", "pressure"], "tank.csv")
+```
+
+The file name must end in `.csv`.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+`readCSV` returns a stream of the CSV bytes:
 
 ```typescript
 import { createWriteStream } from "node:fs";
 import { Writable } from "node:stream";
 
-const stream = await client.read({
-  channels: ["temperature", "pressure"],
-  timeRange: tr,
-  responseType: "csv",
-});
-await stream.pipeTo(Writable.toWeb(createWriteStream("tank.csv")));
+const csv = await client.readCSV(tr, ["temperature", "pressure"]);
+await csv.pipeTo(Writable.toWeb(createWriteStream("tank.csv")));
 ```
-
-The CSV has a column for each channel and for each of their index channels, with one
-line for each timestamp. Channels with different indexes merge into one table sorted by
-time. Virtual channels have no index, so the CSV leaves them out. To set the column
-headers, pass `channelNames`, a record of channel name or key to header.
 
   </Fragment>
 
 </Client.Tabs>
+
+The export adds the index channel of each channel that you give. The first line holds
+the channel names. Each index channel has a column, followed by a column for each
+channel that it timestamps. Each line holds the samples of one timestamp, in time order.
+A cell is empty where its channel has no sample at that timestamp. Lines end in `\n`.
+
+To export fewer samples, give a stride as the `reduction`. An export does not take a
+limit. A channel with no index channel, such as a virtual channel, makes the export
+fail.
+
+<Divider.Divider x />
+
+## Export to TDMS
+
+Export samples to an NI TDMS file:
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+client.read_tdms(tr, ["temperature", "pressure"], "tank.tdms")
+```
+
+The file name must end in `.tdms`.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { createWriteStream } from "node:fs";
+import { Writable } from "node:stream";
+
+const tdms = await client.readTDMS(tr, ["temperature", "pressure"]);
+await tdms.pipeTo(Writable.toWeb(createWriteStream("tank.tdms")));
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+The file has a group for each index channel. The group holds the index channel, then the
+float channels that it timestamps. A float channel holds NaN where it has no sample, and
+NI tools read NaN as no value. Each channel of a different data type gets a group of its
+own, with the timestamps of its samples, then the samples. Reductions and channels with
+no index work as in a [CSV export](#export-to-csv).
 
 <Divider.Divider x />
 
@@ -300,17 +394,13 @@ TypeScript.
 <Field.List>
 
 <Field.Item name="chunk_size" id="python-chunk-size" type="int" default="100000">
-  The largest number of samples of each channel that one chunk reads, before
-  downsampling.
+  The largest number of samples of each channel that one chunk reads. With a stride, the
+  count is of the samples before the stride. With a limit, the count is of the points.
 </Field.Item>
 
-<Field.Item
-  name="downsample_factor"
-  id="python-downsample-factor"
-  type="int"
-  default="1"
->
-  Keep one of each `downsample_factor` samples. With 1, the iterator keeps all samples.
+<Field.Item name="reduction" id="python-reduction" type="Reduction" default="None">
+  Makes the Core send fewer samples, as [Read fewer samples](#read-fewer-samples) shows.
+  With no reduction, the iterator keeps all samples.
 </Field.Item>
 
 </Field.List>
@@ -322,17 +412,13 @@ TypeScript.
 <Field.List>
 
 <Field.Item name="chunkSize" id="typescript-chunk-size" type="number" default="100000">
-  The largest number of samples of each channel that one chunk reads, before
-  downsampling.
+  The largest number of samples of each channel that one chunk reads. With a stride, the
+  count is of the samples before the stride. With a limit, the count is of the points.
 </Field.Item>
 
-<Field.Item
-  name="downsampleFactor"
-  id="typescript-downsample-factor"
-  type="number"
-  default="1"
->
-  Keep one of each `downsampleFactor` samples. With 1, the iterator keeps all samples.
+<Field.Item name="reduction" id="typescript-reduction" type="Reduction">
+  Makes the Core send fewer samples, as [Read fewer samples](#read-fewer-samples) shows.
+  With no reduction, the iterator keeps all samples.
 </Field.Item>
 
 </Field.List>
