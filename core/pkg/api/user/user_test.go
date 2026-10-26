@@ -154,8 +154,13 @@ var _ = Describe("Service", func() {
 		It("Should search users by username", func(ctx SpecContext) {
 			username := "searchable-" + uuid.New().String()
 			u := MustSucceed(writer.Create(ctx, user.User{Username: username}))
+			other := MustSucceed(writer.Create(ctx, user.User{
+				Username: "hidden-" + uuid.New().String(),
+			}))
 			res := MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
-				Where:      &user.Where{Key: &filter.Set[user.Key]{Eq: &u.Key}},
+				Where: &user.Where{
+					Key: &filter.Set[user.Key]{In: []user.Key{u.Key, other.Key}},
+				},
 				SearchTerm: &username,
 			}))
 			Expect(res.Users).To(ConsistOf(u))

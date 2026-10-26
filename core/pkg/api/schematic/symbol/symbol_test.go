@@ -103,15 +103,10 @@ var _ = Describe("Retrieve", func() {
 	It("Should return the symbols the search term matches", func(ctx SpecContext) {
 		sym := createSymbol(ctx, createGroup(ctx, "searchable"), "Pyrometer")
 		grantRetrieveOn(ctx, author.OntologyID(), symbol.OntologyID(sym.Key))
-		Eventually(func(g Gomega) {
-			res, err := apiSvc.Retrieve(
-				AuthedCtx(ctx, author), apisymbol.RetrieveRequest{
-					SearchTerm: new("Pyrometer"),
-				},
-			)
-			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(res.Symbols).To(ConsistOf(HaveField("Key", sym.Key)))
-		}).Should(Succeed())
+		Eventually(apiSvc.Retrieve).WithArguments(
+			AuthedCtx(ctx, author),
+			apisymbol.RetrieveRequest{SearchTerm: new("Pyrometer")},
+		).Should(HaveField("Symbols", ConsistOf(HaveField("Key", sym.Key))))
 	})
 	It("Should return no symbols when a key names no symbol", func(ctx SpecContext) {
 		res := MustSucceed(
