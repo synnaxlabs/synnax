@@ -55,7 +55,6 @@ message RetrieveRequest {
   api.ranger.pb.RetrieveRequest request = 3;
 }
 
-
 message RenameRequest {
   string key = 1;
   string name = 2;

@@ -44,11 +44,9 @@ message SetResponse {
 
 message RetrieveRequest {
   reserved 1 to 8;
-  reserved "keys", "search_term", "offset", "limit", "include_labels", "has_labels",
-      "variants", "ignore_not_found_error";
+  reserved "keys", "search_term", "offset", "limit", "include_labels", "has_labels", "variants", "ignore_not_found_error";
   api.status.pb.RetrieveRequest request = 9;
 }
-
 
 message DeleteRequest {
   repeated string keys = 1;
