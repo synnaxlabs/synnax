@@ -10,32 +10,5 @@
  */
 
 .console-modbus-connect {
-    position: relative;
     width: 155rem;
-    height: 100rem;
-
-    .console-content {
-        width: 100%;
-        flex-grow: 1;
-        padding: 3rem 4rem;
-    }
-
-    & .console-description {
-        width: 100%;
-        max-width: 450px;
-        padding: 4rem;
-        & *:not(button) > p {
-            font-size: var(--pluto-h5-size);
-            line-height: 150%;
-        }
-    }
-
-    .pluto-navbar {
-        .pluto--start {
-            padding-left: 2rem;
-        }
-        .pluto--end {
-            padding-right: 2rem;
-        }
-    }
 }

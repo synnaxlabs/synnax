@@ -27,8 +27,8 @@ const LINE: lineplotClient.Line = {
   key: "line",
   color: color.construct("#00aaff"),
   strokeWidth: 2,
-  downsample: 1,
-  downsampleMode: "decimate",
+  aggregation: "min_max",
+  detail: "medium",
 };
 
 describe("LinePlot", () => {

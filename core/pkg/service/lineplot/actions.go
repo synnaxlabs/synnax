@@ -302,18 +302,18 @@ func (p SetLineStrokeWidthPayload) Handle(state LinePlot) (LinePlot, error) {
 	return state, nil
 }
 
-// Handle sets the downsample factor of the line identified by key.
-func (p SetLineDownsamplePayload) Handle(state LinePlot) (LinePlot, error) {
+// Handle sets how the line identified by key reduces a pixel group.
+func (p SetLineAggregationPayload) Handle(state LinePlot) (LinePlot, error) {
 	if l := linePointer(&state, p.Key); l != nil {
-		l.Downsample = p.Downsample
+		l.Aggregation = p.Aggregation
 	}
 	return state, nil
 }
 
-// Handle sets how the downsample factor is applied for the line by key.
-func (p SetLineDownsampleModePayload) Handle(state LinePlot) (LinePlot, error) {
+// Handle sets the number of sample groups per pixel column of the line by key.
+func (p SetLineDetailPayload) Handle(state LinePlot) (LinePlot, error) {
 	if l := linePointer(&state, p.Key); l != nil {
-		l.DownsampleMode = p.DownsampleMode
+		l.Detail = p.Detail
 	}
 	return state, nil
 }
@@ -466,15 +466,6 @@ func xAxisRangeSlice(r *Ranges, k XAxisKey) *[]string {
 
 const lineKeySeparator = "---"
 
-// Default styling for a newly materialized line. These mirror the Oracle schema
-// defaults on Line. Oracle does not currently emit Go-side struct defaults, so they are
-// duplicated here and must be kept in sync with schemas/synnax/lineplot.oracle.
-const (
-	defaultLineStrokeWidth    = 2
-	defaultLineDownsample     = 1
-	defaultLineDownsampleMode = DownsampleModeDecimate
-)
-
 var (
 	xAxisKeys = []XAxisKey{XAxisKeyX1, XAxisKeyX2}
 	yAxisKeys = []YAxisKey{YAxisKeyY1, YAxisKeyY2, YAxisKeyY3, YAxisKeyY4}
@@ -496,12 +487,9 @@ func lineKey(
 // zeroLine constructs a line at key with default styling. Label and color are
 // left nil so they resolve from the channel name and palette at render time.
 func zeroLine(key string) Line {
-	return Line{
-		Key:            key,
-		StrokeWidth:    defaultLineStrokeWidth,
-		Downsample:     defaultLineDownsample,
-		DownsampleMode: defaultLineDownsampleMode,
-	}
+	l := Line{Key: key}
+	l.ApplyDefaults()
+	return l
 }
 
 // xAxisChannel returns the single channel bound to the given x-axis.

@@ -32,6 +32,7 @@ const ThermocoupleTypeField = PForm.buildSelectField<ThermocoupleType>({
   fieldProps: { label: "Thermocouple type" },
   inputProps: {
     resourceName: "thermocouple type",
+    searchName: "type",
     children: (
       <>
         <Select.Item itemKey="B">B</Select.Item>
@@ -53,6 +54,7 @@ const TemperatureUnitsField = PForm.buildSelectField<TemperatureUnits>({
   fieldProps: { label: "Temperature units" },
   inputProps: {
     resourceName: "temperature units",
+    searchName: "unit",
     children: (
       <>
         <Select.Item itemKey="C">Celsius</Select.Item>
