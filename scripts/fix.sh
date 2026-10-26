@@ -56,18 +56,23 @@ skip() {
     [ "$WARNED" = "1" ] || echo "fix.sh: $1 not found; $2 files are not formatted." >&2
 }
 
+# Fixers write through a symlink to its target, so links are not fixed.
 fix() {
-    local f go=() py=() cpp=()
+    local f files=() go=() py=() cpp=()
     for f in "$@"; do
+        [ -L "$f" ] && continue
+        files+=("$f")
         case "$f" in
             *.go) go+=("$f") ;;
             *.py | *.pyi) py+=("$f") ;;
             *.cpp | *.hpp | *.h | *.cc) cpp+=("$f") ;;
         esac
     done
-    scripts/update_copyrights.sh "$@" > /dev/null
+    [ ${#files[@]} -gt 0 ] || return 0
+    scripts/update_copyrights.sh "${files[@]}" > /dev/null
     if [ -x node_modules/.bin/prettier ]; then
-        node_modules/.bin/prettier --write --ignore-unknown --log-level warn -- "$@"
+        node_modules/.bin/prettier --write --ignore-unknown --log-level warn -- \
+            "${files[@]}"
     else
         skip "Prettier (run pnpm install)" "TypeScript, Markdown, and config"
     fi
@@ -100,11 +105,12 @@ fix() {
 # The working copies of partially staged files wait in SAVED while their staged copies
 # are fixed. The trap puts them back if a fixer fails.
 PARTIAL=()
-SAVED=$(mktemp -d)
+SAVED=$(mktemp -d "$(git rev-parse --git-dir)/fix.XXXXXX")
 restore() {
     local i
     for ((i = 0; i < ${#PARTIAL[@]}; i++)); do
-        cp -p "$SAVED/$i" "${PARTIAL[i]}"
+        rm -f -- "${PARTIAL[i]}"
+        mv -- "$SAVED/$i" "${PARTIAL[i]}"
     done
     rm -r "$SAVED"
 }
@@ -113,7 +119,7 @@ trap restore EXIT
 if [ "$STAGED" = "1" ]; then
     for f in "${FILES[@]}"; do
         git diff --quiet -- "$f" && continue
-        cp -p "$f" "$SAVED/${#PARTIAL[@]}"
+        mv -- "$f" "$SAVED/${#PARTIAL[@]}"
         PARTIAL+=("$f")
         git checkout -- "$f"
     done

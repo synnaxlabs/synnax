@@ -63,7 +63,19 @@ class Repo:
 
 @pytest.fixture
 def repo(tmp_path: Path) -> Repo:
-    return Repo(tmp_path)
+    (tmp_path / "repo").mkdir()
+    return Repo(tmp_path / "repo")
+
+
+def clang_format(repo: Repo, body: str) -> None:
+    """Puts scripts/clang_format.sh and a clang-format that runs body on PATH."""
+    shutil.copy(ROOT / "scripts/clang_format.sh", repo.path / "scripts")
+    bin = repo.path.parent / "bin"
+    bin.mkdir()
+    exe = bin / "clang-format"
+    exe.write_text(f'#!/bin/bash\n[ "$1" = --version ] && exit 0\n{body}\n')
+    exe.chmod(0o755)
+    repo.env["PATH"] = f"{bin}:{repo.env['PATH']}"
 
 
 class TestFix:
@@ -133,6 +145,28 @@ class TestFix:
         assert repo.fix("--staged").returncode == 0
         assert (repo.path / "a.sh").stat().st_mode & 0o111
         assert "Copyright" in repo.git("show", ":a.sh")
+
+    def test_should_keep_unstaged_symlinks(self, repo: Repo) -> None:
+        repo.write("a.sh", "echo a\n")
+        repo.write("b.sh", "echo b\n")
+        repo.git("add", "a.sh")
+        (repo.path / "a.sh").unlink()
+        (repo.path / "a.sh").symlink_to("b.sh")
+        assert repo.fix("--staged").returncode == 0
+        assert (repo.path / "a.sh").is_symlink()
+        assert "Copyright" in repo.git("show", ":a.sh")
+        assert not repo.header("b.sh")
+
+    def test_should_pass_cpp_file_names_whole(self, repo: Repo) -> None:
+        clang_format(repo, 'for f in "${@:2}"; do echo \'// ok\' >> "$f"; done')
+        repo.write("a b.cpp", "int a;\n")
+        assert repo.fix("a b.cpp").returncode == 0
+        assert (repo.path / "a b.cpp").read_text().endswith("// ok\n")
+
+    def test_should_fail_when_clang_format_fails(self, repo: Repo) -> None:
+        clang_format(repo, "exit 1")
+        repo.write("a.cpp", "int a;\n")
+        assert repo.fix("a.cpp").returncode != 0
 
     def test_should_ignore_unstaged_files(self, repo: Repo) -> None:
         repo.write("a.sh", "echo a\n")
