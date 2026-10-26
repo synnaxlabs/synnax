@@ -47,9 +47,6 @@ type Filter[K Key, E Entry[K]] struct {
 	// resolver-backed so the per-call eval can close over the
 	// materialized child without sharing mutable state across Execs.
 	resolve resolveFilter[K, E]
-	// lenient is true when Exec treats a key with no entry as a non-match. And and Or
-	// are lenient when any child is.
-	lenient bool
 }
 
 // evalFunc is the signature of Filter.eval. Kept as a named alias so
@@ -107,12 +104,6 @@ func MatchKeys[K Key, E Entry[K]](keys ...K) Filter[K, E] {
 	return Filter[K, E]{keys: keyset.Of(keys)}
 }
 
-// MatchKeysLenient is MatchKeys, except that Exec treats a key with no entry as a
-// non-match instead of returning query.ErrNotFound.
-func MatchKeysLenient[K Key, E Entry[K]](keys ...K) Filter[K, E] {
-	return Filter[K, E]{keys: keyset.Of(keys), lenient: true}
-}
-
 // And returns a filter that matches when ALL children match. Each
 // child's keys, raw, and eval constraints are composed independently:
 // keys are intersected, raw runs as a short-circuit AND pre-screen,
@@ -120,7 +111,7 @@ func MatchKeysLenient[K Key, E Entry[K]](keys ...K) Filter[K, E] {
 // pre-screen survives composition, so MatchRaw children retain their
 // no-decode skip.
 func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
-	f := Filter[K, E]{lenient: anyLenient(filters)}
+	var f Filter[K, E]
 	f.eval = andEval(filters)
 
 	var firstRaw func(key, value []byte) (bool, error)
@@ -210,7 +201,7 @@ func andEval[K Key, E Entry[K]](filters []Filter[K, E]) evalFunc[K, E] {
 // and f.raw are left nil and matching reduces to membership in the
 // union.
 func Or[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
-	f := Filter[K, E]{lenient: anyLenient(filters)}
+	var f Filter[K, E]
 
 	if anyHasResolver(filters) {
 		// Materialize the children fresh per Exec so concurrent Execs never share
@@ -424,10 +415,6 @@ func materializeFilters[K Key, E Entry[K]](
 		}
 	}
 	return out, nil
-}
-
-func anyLenient[K Key, E Entry[K]](filters []Filter[K, E]) bool {
-	return slices.ContainsFunc(filters, func(f Filter[K, E]) bool { return f.lenient })
 }
 
 // filterKeys returns the candidate key set of each filter.

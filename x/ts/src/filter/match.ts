@@ -34,10 +34,10 @@ export const matchesSet = <T>(op: Set<z.ZodType<T>>, value: T): boolean =>
 
 /**
  * @returns whether value matches every member of op that is set.
- * @throws {Error} if op sets a regex, which only the Core can check.
+ * @throws {Error} if op sets a regex, since regex dialects differ between languages.
  */
 export const matchesString = (op: String, value: string): boolean => {
-  if (op.regex != null) throw new Error("only the Core can check a regex");
+  if (op.regex != null) throw new Error("cannot match a regex locally");
   return matchesSet(op, value);
 };
 

@@ -84,17 +84,13 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 // members are the operator members that the x/ts/src/filter functions check.
 var members = set.New("eq", "in", "regex", "gt", "gte", "lt", "lte", "any")
 
-// check returns the x/ts/src/filter function that checks an operator with the members.
-func check(ms []string) string {
-	switch {
-	case lo.Contains(ms, "regex"):
-		return "matchesString"
-	case lo.Contains(ms, "any"):
-		return "matchesContains"
-	case lo.ContainsBy(ms, func(m string) bool { return m != "eq" && m != "in" }):
-		return "matchesOrdered"
-	}
-	return "matchesSet"
+// checks maps each operator type to the x/ts/src/filter function that checks it.
+var checks = map[string]string{
+	resolution.OperatorSet:      "matchesSet",
+	resolution.OperatorBool:     "matchesSet",
+	resolution.OperatorOrdered:  "matchesOrdered",
+	resolution.OperatorContains: "matchesContains",
+	resolution.OperatorString:   "matchesString",
 }
 
 type templateData struct {
@@ -194,7 +190,14 @@ func generateFile(
 					)
 				}
 			}
-			ld.Check = check(ms)
+			ld.Check, ok = checks[op.QualifiedName]
+			if !ok {
+				return fail(
+					"line %s: ts/filter has no check for the operator %s",
+					line.Name,
+					op.QualifiedName,
+				)
+			}
 			ld.Field = tstypes.FieldName(field.Name)
 			ld.Regex = lo.Contains(ms, "regex")
 		}

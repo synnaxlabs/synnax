@@ -236,7 +236,7 @@ func reportUnusedImports(c *analysisCtx, imports []importUse) {
 	runs := defaultTokens(append([]parsedRule{c.ast}, c.copied...)...)
 	qualifiers := usedQualifiers(runs)
 	if declaresFilter(c.ast) {
-		qualifiers.Add(filterNamespace)
+		qualifiers.Add(resolution.FilterNamespace)
 	}
 	names := usedQualifiedNames(runs)
 	byNS := make(map[string][]importUse)
