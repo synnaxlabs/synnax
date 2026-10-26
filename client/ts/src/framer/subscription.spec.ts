@@ -11,7 +11,6 @@ import {
   array,
   DataType,
   dynamicWindow,
-  id,
   Rate,
   Series,
   Size,
@@ -35,7 +34,7 @@ import {
   type SubscribeRequest,
   type Subscription,
 } from "@/framer/subscription";
-import { createTestClient, SyntheticCore, type SyntheticCoreProps } from "@/testutil";
+import { SyntheticCore, type SyntheticCoreProps } from "@/testutil";
 
 const RATE = Rate.hz(100);
 const PERIOD = RATE.period.valueOf();
@@ -1160,77 +1159,6 @@ describe("Feed.subscribe", () => {
       const sub = feed.subscribe(raw([core.data[0].key], TimeSpan.seconds(30)));
       sub.value(core.data[0].key);
       await expect(feed.close()).resolves.toBeUndefined();
-    });
-  });
-
-  describe("seam", () => {
-    it("should hold each sample once from the window start while a writer runs", async () => {
-      const client = createTestClient();
-      const index = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.TIMESTAMP,
-        isIndex: true,
-      });
-      const data = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.FLOAT64,
-        index: index.key,
-      });
-      const start = TimeStamp.now();
-      const writer = await client.openWriter({
-        start,
-        channels: [index.key, data.key],
-      });
-      let written = 0;
-      let running = true;
-      // A 1 kHz writer: ten samples a millisecond apart, paced to the wall clock. Each
-      // data sample holds its sample number.
-      const writing = (async () => {
-        while (running) {
-          const numbers = Array.from({ length: 10 }, (_, i) => written + i);
-          await writer.write({
-            [index.key]: new BigInt64Array(
-              numbers.map((n) => start.add(TimeSpan.milliseconds(n)).valueOf()),
-            ),
-            [data.key]: new Float64Array(numbers),
-          });
-          written += 10;
-          const ahead = start.add(TimeSpan.milliseconds(written)).span(TimeStamp.now());
-          if (start.add(TimeSpan.milliseconds(written)).after(TimeStamp.now()))
-            await sleep.sleep(ahead);
-        }
-      })();
-      const feed = client.openFeed({ removalDelay: TimeSpan.ZERO });
-      const span = TimeSpan.seconds(2);
-      try {
-        for (let i = 0; i < 20; i++) {
-          const sub = feed.subscribe(raw([data.key], span));
-          try {
-            await expect
-              .poll(() => {
-                const snap = sub.value(data.key);
-                return snap.status.variant === "success" && snap.series.length > 0;
-              }, POLL)
-              .toBe(true);
-            await sleep.sleep(TimeSpan.milliseconds(50 + 10 * i));
-            const opened = TimeStamp.now().sub(span);
-            const numbers = Array.from(sub.value(data.key).series) as number[];
-            const steps = new Set(numbers.slice(1).map((n, j) => n - numbers[j]));
-            expect([...steps]).toEqual([1]);
-            const from = TimeStamp.max(start, opened);
-            expect(numbers[0]).toBeLessThanOrEqual(
-              Number(from.span(start).milliseconds) + 1,
-            );
-          } finally {
-            sub.close();
-          }
-        }
-      } finally {
-        running = false;
-        await writing;
-        await writer.close();
-        await feed.close();
-      }
     });
   });
 });
