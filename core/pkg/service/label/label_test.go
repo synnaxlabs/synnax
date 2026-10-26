@@ -136,6 +136,29 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(labels).To(HaveLen(1))
 			Expect(labels[0].Key).To(Equal(l.Key))
 		})
+		It("Should fail with not found for a resource that does not exist", func(
+			ctx SpecContext,
+		) {
+			missing := label.OntologyID(label.Key(uuid.New()))
+			Expect(svc.RetrieveFor(ctx, missing, tx)).Error().
+				To(MatchError(query.ErrNotFound))
+		})
+		It("Should fail with not found for a label relationship with no label", func(
+			ctx SpecContext,
+		) {
+			ls := []label.Label{
+				{Name: "dangling", Color: color.MustFromHex("#000000")},
+				{Name: "dangling-target", Color: color.MustFromHex("#000000")},
+			}
+			Expect(w.CreateMany(ctx, &ls)).To(Succeed())
+			target := ls[1].OntologyID()
+			Expect(w.Label(ctx, target, []label.Key{ls[0].Key})).To(Succeed())
+			Expect(gorp.NewDelete[label.Key, label.Label]().
+				Where(gorp.MatchKeys[label.Key, label.Label](ls[0].Key)).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(svc.RetrieveFor(ctx, target, tx)).Error().
+				To(MatchError(query.ErrNotFound))
+		})
 	})
 	Describe("MatchFor", func() {
 		It("Should match the labels staged on a resource in the transaction", func(
@@ -177,8 +200,6 @@ var _ = Describe("Label", Ordered, func() {
 				Entries(&got).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(got).To(ConsistOf(l))
-			Expect(svc.RetrieveFor(ctx, missing, tx)).Error().
-				To(MatchError(query.ErrNotFound))
 		})
 	})
 	Describe("Where", func() {
