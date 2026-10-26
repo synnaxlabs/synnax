@@ -106,9 +106,10 @@ export class StreamMultiChannelLog
   private _channels: channel.Key[] = [];
   private readGeneration = 0;
   private _detached = false;
-  // The entries streamed while the list is detached, newest last. It holds every
-  // sample from its first entry on.
+  // The entries streamed while the list is detached, newest last.
   private tail: LogEntry[] = [];
+  // The sample time from which the tail holds every sample.
+  private tailStart: bigint | null = null;
   // The sample time from which the list holds every stored sample, or null before the
   // first read. 0n means the list reaches the first stored sample.
   private start: bigint | null = null;
@@ -181,15 +182,22 @@ export class StreamMultiChannelLog
 
   /** Replaces a detached list with the newest entries. */
   resume(): void {
+    this.cancelScrollPage();
     if (!this._detached) return;
     this.attach();
     this.notify();
   }
 
+  private cancelScrollPage(): void {
+    const kind = this.pageInFlight?.kind;
+    if (kind === "older" || kind === "newer") this.pageInFlight = null;
+  }
+
   private attach(): void {
-    this.pageInFlight = null;
+    this.cancelScrollPage();
     this.entries = this.tail;
     this.tail = [];
+    this.tailStart = null;
     this._detached = false;
     this.start = this.entries[0]?.timestamp.valueOf() ?? null;
   }
@@ -198,6 +206,7 @@ export class StreamMultiChannelLog
     this.pageInFlight = null;
     this.entries = [];
     this.tail = [];
+    this.tailStart = null;
     this._detached = false;
     this.start = null;
     this.channelMeta.clear();
@@ -353,14 +362,17 @@ export class StreamMultiChannelLog
     const last = this.entries.at(-1)?.timestamp.valueOf() ?? 0n;
     // A cut between entries of one sample time leaves that time incomplete.
     this.end = evicted[0].timestamp.valueOf() === last ? last : last + 1n;
-    // The tail must hold every sample from its first entry on, so only a list that held
-    // the newest entries hands its evicted ones over.
-    if (!this._detached) this.tail = evicted;
+    // The tail must hold every sample from tailStart on, so only a list that held the
+    // newest entries hands its evicted ones over.
+    if (!this._detached) {
+      this.tail = evicted;
+      this.tailStart = evicted[0].timestamp.valueOf();
+    }
     this._detached = true;
   }
 
   private mergeNewer(incoming: LogEntry[], boundary: bigint | null): void {
-    const tailStart = this.tail[0]?.timestamp.valueOf();
+    const { tailStart } = this;
     const reached = boundary == null || (tailStart != null && boundary >= tailStart);
     const kept = incoming.filter((e) => {
       const t = e.timestamp.valueOf();
@@ -372,6 +384,7 @@ export class StreamMultiChannelLog
     if (reached) {
       this.entries = merge(this.entries, this.tail);
       this.tail = [];
+      this.tailStart = null;
       this._detached = false;
     }
     this.gcEntries();
@@ -552,7 +565,14 @@ export class StreamMultiChannelLog
   }
 
   private trimTail(): void {
-    evictOldest(this.tail, this.maxEntries);
+    const evicted = evictOldest(this.tail, this.maxEntries);
+    const first = this.tail[0]?.timestamp.valueOf();
+    if (evicted == null || first == null) return;
+    // An eviction between entries of one sample time leaves that time incomplete.
+    this.tailStart = max(
+      this.tailStart,
+      evicted.timestamp.valueOf() === first ? first + 1n : first,
+    );
   }
 
   cleanup(): void {

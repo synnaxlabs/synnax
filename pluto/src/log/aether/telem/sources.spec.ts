@@ -1360,6 +1360,41 @@ describe("StreamMultiChannelLog", () => {
         expect(values(log)).toEqual(["e", "f", "g"]);
       });
 
+      it("should drop an older page that a resume replaced", async () => {
+        store(DATA, IDX, STORED, LETTERS);
+        const log = paged(4, 2);
+        await waitForResolve(log);
+        await settle(log, () => log.loadOlder());
+        let release = (): void => {};
+        c.readGate = new Promise((resolve) => (release = resolve));
+        log.loadOlder();
+        log.resume();
+        release();
+        // A macrotask runs after every microtask of the pending read.
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(log.detached).toBe(false);
+        expect(values(log)).toEqual(["c", "d", "e", "f"]);
+      });
+
+      it("should keep a sample the tail evicts from a shared sample time", async () => {
+        store(DATA, IDX, [70, 71, 72, 73], ["a0", "a1", "a2", "a3"]);
+        store(DATA_2, IDX_2, [70, 71, 72, 73], ["b0", "b1", "b2", "b3"]);
+        const log = paged(4, 2, [DATA, DATA_2]);
+        await waitForResolve(log);
+        await settle(log, () => log.loadOlder());
+        expect(log.detached).toBe(true);
+        c.streamHandler?.(
+          new Map([
+            [IDX, new MultiSeries([times([80], 4n)])],
+            [DATA, new MultiSeries([strings(["a4"], 4n)])],
+          ]),
+        );
+        await settle(log, () => log.loadNewer());
+        expect(log.detached).toBe(false);
+        await settle(log, () => log.loadOlder());
+        expect(values(log)).toContain("a2");
+      });
+
       it("should read older pages again after a resume", async () => {
         const log = await detach();
         log.resume();
