@@ -177,8 +177,8 @@ export class TileReader {
     }
   }
 
-  // Fetches the tile again while a history change over its span lands during the
-  // fetch, since the fetch can hold samples from before the change.
+  // Fetches the tile again while a history change over its span lands during the fetch,
+  // since the fetch can hold samples from before the change.
   private async readFresh(spec: TileSpec): Promise<MultiSeries> {
     const span = tileRange(spec);
     for (;;) {
