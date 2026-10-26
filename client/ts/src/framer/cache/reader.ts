@@ -20,7 +20,7 @@ import {
 } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
-import { NotFoundError, UnexpectedError } from "@/errors";
+import { isConnectionError, NotFoundError, UnexpectedError } from "@/errors";
 import { type ChannelRetriever } from "@/framer/adapter";
 import {
   align,
@@ -169,7 +169,9 @@ export class Reader {
 
   private enqueue(block: RawBlock, end: TimeStamp, catchUp: boolean): Promise<void> {
     const pending = this.batcher.enqueue({ block, end, catchUp }).finally(() => {
-      if (block.pending === pending) block.pending = null;
+      if (block.pending !== pending) return;
+      block.pending = null;
+      this.props.store.evict();
     });
     return pending;
   }
@@ -224,7 +226,17 @@ export class Reader {
         resolve(req.block.pending);
       });
     } catch (err) {
-      entries.forEach(({ reject }) => reject(err));
+      const byChannel = Map.groupBy(entries, ({ req }) => req.block.channel);
+      // One channel's error fails a read of several, so each channel reads again alone
+      // and gets its own result.
+      if (byChannel.size > 1 && !isConnectionError(err))
+        await Promise.all(
+          [...byChannel.values()].map(
+            async (channelEntries) =>
+              await this.fetch({ ...group, entries: channelEntries }),
+          ),
+        );
+      else entries.forEach(({ reject }) => reject(err));
     }
   }
 

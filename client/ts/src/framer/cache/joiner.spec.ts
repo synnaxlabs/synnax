@@ -241,6 +241,35 @@ describe("Joiner", () => {
     }
   });
 
+  it("should land a stored member whose read shared a calculation's failure", async () => {
+    const core = createCore({ derived: true });
+    const { key: calculated, index } = core.calculated!;
+    const stored = core.data[0].key;
+    const { joins, joiner, join, close } = createJoiner(core, {
+      readRemote: async (tr, keys, reduction) => {
+        if (keys.includes(calculated) || keys.includes(index))
+          throw new Error("cannot open iterator on virtual channel");
+        return core.read(tr, keys, reduction);
+      },
+    });
+    join(stored, core.index.key);
+    join(calculated, index);
+    const stop = tick(core);
+    try {
+      await expect
+        .poll(() => joiner.status(calculated), POLL)
+        .toMatchObject({
+          variant: "warning",
+          message: "Failed to read calculated channel history",
+        });
+      await expect.poll(() => joins.joined(stored), POLL).toBe(true);
+      expect(joiner.status(stored)).toBeUndefined();
+    } finally {
+      stop();
+      await close();
+    }
+  });
+
   it("should join a calculation and its index without history when reads fail", async () => {
     const core = createCore({ derived: true });
     const { key: calculated, index } = core.calculated!;

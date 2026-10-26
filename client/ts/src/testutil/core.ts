@@ -44,6 +44,9 @@ const HISTORY_CHANGE_KEY = 1 << 20;
 const NODE = 1;
 // Moves a misaligned data series past every index sample a join remembers.
 const MISALIGNMENT = 1n << 24n;
+// The Core streams a stored channel in leading alignment domains, apart from the ones
+// its reads return.
+const LEADING = ((1n << 32n) - 1_000_001n) << 32n;
 
 export interface SyntheticCoreProps {
   /** The rate of the index channel. */
@@ -221,7 +224,7 @@ export class SyntheticCore {
     this.dataTypes.set(key, dataType);
   }
 
-  /** Rejects every stream of the channel, as the Core does for a user without access. */
+  /** Rejects each stream of the channel, as the Core does for a user without access. */
   deny(key: channel.Key): void {
     this.denied.add(key);
   }
@@ -290,7 +293,12 @@ export class SyntheticCore {
     const to = this.written();
     if (to === from || !streamed) return;
     const index = new Frame();
-    this.raw(this.index.key, from, to).forEach((s) => index.push(this.index.key, s));
+    this.raw(this.index.key, from, to).forEach((s) =>
+      index.push(
+        this.index.key,
+        new Series({ ...seriesProps(s), alignment: s.alignment + LEADING }),
+      ),
+    );
     const data = this.dataFramedApart ? new Frame() : index;
     this.data.forEach(({ key }) =>
       this.raw(key, from, to).forEach((s) =>
@@ -299,7 +307,9 @@ export class SyntheticCore {
           new Series({
             ...seriesProps(s),
             timeRange: this.dataUntimed ? TimeRange.ZERO : s.timeRange,
-            alignment: this.dataMisaligned ? s.alignment + MISALIGNMENT : s.alignment,
+            alignment:
+              (this.dataMisaligned ? s.alignment + MISALIGNMENT : s.alignment) +
+              LEADING,
           }),
         ),
       ),

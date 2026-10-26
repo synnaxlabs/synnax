@@ -283,10 +283,27 @@ describe("Reader", () => {
   });
 
   describe("budget", () => {
-    it("should fill every block it reads past the budget", async () => {
-      const { read } = createReader({ store: new Store({ budget: Size.bytes(1) }) });
-      const res = await read(new TimeRange(at(60), at(70)), 1);
+    it("should keep every block it fills past the budget while they are pinned", async () => {
+      const { store, read } = createReader({
+        store: new Store({ budget: Size.bytes(1) }),
+      });
+      const tr = new TimeRange(at(60), at(70));
+      // Points pins the blocks of its raw range before it fills them.
+      indexes(tr, RAW_LEVEL).forEach((i) => store.raw(1, i).pins++);
+      const res = await read(tr, 1);
       expect(timestamps(res)).toEqual(expectedTimestamps(0, 132));
+    });
+
+    it("should evict the blocks of a back-fill past the budget once it lands", async () => {
+      const store = new Store({ budget: Size.bytes(1) });
+      const { core, reader } = createReader({ elapsed: 600, store });
+      await reader.fill(new TimeRange(at(0), core.now()), 2);
+      const cached = [1, 2]
+        .flatMap((ch) =>
+          Array.from({ length: 12 }, (_, i) => store.findRaw(ch, 100 + i)),
+        )
+        .filter((b) => b != null);
+      expect(cached).toHaveLength(0);
     });
   });
 
@@ -484,6 +501,41 @@ describe("Reader", () => {
       expect(settled).toBe(false);
       gate.open();
       await expect(read).rejects.toThrow("read exploded");
+    });
+
+    it("should read each channel alone when a read of several fails", async () => {
+      const { read, fetches } = createReader({
+        before: async ({ keys }) => {
+          if (keys.includes(3)) throw new Error("read exploded");
+        },
+      });
+      const tr = new TimeRange(at(10), at(20));
+      const [ok, bad] = await Promise.allSettled([read(tr, 2), read(tr, 3)]);
+      expect(ok.status).toBe("fulfilled");
+      expect(bad).toEqual({ status: "rejected", reason: new Error("read exploded") });
+      expect(fetches.map(({ keys }) => [...keys].sort())).toEqual([
+        [1, 2, 3],
+        ...[
+          [1, 2],
+          [1, 3],
+        ].map((keys) => expect.arrayContaining(keys)),
+      ]);
+    });
+
+    it("should fail every channel of a read that could not reach the Core", async () => {
+      const { read, fetches } = createReader({
+        before: async () => {
+          throw new Unreachable({ message: "Core is down" });
+        },
+      });
+      const tr = new TimeRange(at(10), at(20));
+      const results = await Promise.allSettled([read(tr, 2), read(tr, 3)]);
+      const reason = new Unreachable({ message: "Core is down" });
+      expect(results).toEqual([
+        { status: "rejected", reason },
+        { status: "rejected", reason },
+      ]);
+      expect(fetches).toHaveLength(1);
     });
 
     it("should refetch a block whose fetch failed", async () => {
