@@ -140,6 +140,18 @@ describe("Points", () => {
       }
     });
 
+    it("should return the same snapshot for a channel it cannot find", async () => {
+      const core = createCore();
+      const { subscribe, close } = createPoints(core);
+      const points = subscribe(12_345, window, RAW);
+      try {
+        await expect.poll(() => points.value().status.variant, POLL).toBe("error");
+        expect(points.value()).toBe(points.value());
+      } finally {
+        await close();
+      }
+    });
+
     it("should keep the snapshot while the view moves inside its tiles", async () => {
       const core = createCore();
       let tileReads = 0;

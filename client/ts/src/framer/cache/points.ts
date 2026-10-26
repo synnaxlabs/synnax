@@ -218,6 +218,7 @@ export class Points {
     this.grown = false;
     if (this.index == null) {
       void this.resolve();
+      this.epoch = this.props.store.epoch(this.key);
       this.validUntil = TimeStamp.MAX.valueOf();
       this.snapshot = { series: new MultiSeries([]), status: this.status() };
       return this.snapshot;
