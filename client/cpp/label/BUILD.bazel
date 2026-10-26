@@ -18,17 +18,12 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//client/cpp/ontology",
         "//core/pkg/service/label:label_grpc",
-        "//core/pkg/service/ontology:ontology_grpc",
         "//x/cpp/color",
         "//x/cpp/errors",
-        "//x/cpp/filter",
         "//x/cpp/json",
-        "//x/cpp/mem",
         "//x/cpp/pb",
         "//x/cpp/uuid",
         "//x/go/color:color_grpc",
-        "//x/go/filter:filter_grpc",
     ],
 )

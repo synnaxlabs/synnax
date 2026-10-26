@@ -52,5 +52,7 @@ Where filter Label {
         @doc value "matches the labels attached to the given resource."
     }
 
+    @cpp omit
     @doc value "is a filter that selects labels."
+    @pb omit
 }
