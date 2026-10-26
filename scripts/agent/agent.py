@@ -26,17 +26,20 @@ to $GITHUB_OUTPUT when it is set. --dry-run runs the agent but pushes, comments,
 opens nothing.
 
 Environment: AGENT_DEFAULT picks the agent when --agent is absent. GH_TOKEN is the
-GitHub App installation token for `gh`. AGENT_GIT_NAME and AGENT_GIT_EMAIL are the bot
-identity for commits. CLAUDE_CODE_OAUTH_TOKEN or a Codex login authenticates the CLI.
+GitHub App installation token for `gh` and for Git pushes. AGENT_GIT_NAME and
+AGENT_GIT_EMAIL are the bot identity for commits. CLAUDE_CODE_OAUTH_TOKEN or a Codex
+login authenticates the CLI. pr and comment need a clean checkout.
 """
 
 import argparse
+import base64
 import os
 import re
 import secrets
 import subprocess
 import sys
 import tempfile
+import urllib.parse
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -108,10 +111,10 @@ def parse(argv: Sequence[str], env: dict[str, str]) -> Options:
         pr=a.pr,
         title=a.title,
         labels=split_labels(a.labels),
-        images=a.image,
+        images=[path.resolve() for path in a.image],
         draft=a.draft,
         dry_run=a.dry_run,
-        bin=a.bin,
+        bin=str(Path(a.bin).resolve()) if a.bin and os.sep in a.bin else a.bin,
     )
 
 
@@ -199,6 +202,11 @@ def render_body(template: str, issue: str, description: str, labels: list[str]) 
     return re.sub(r"\n{3,}", "\n\n", body).strip() + "\n"
 
 
+def stored_names(paths: list[Path]) -> list[str]:
+    """Names images uniquely, since two paths can share a base name."""
+    return [f"{i + 1}-{re.sub(r'[^\w.-]', '_', p.name)}" for i, p in enumerate(paths)]
+
+
 def image_markdown(urls: dict[str, str]) -> str:
     return "\n\n".join(f"![{name}]({url})" for name, url in urls.items())
 
@@ -230,7 +238,7 @@ class Runner:
 def upload_images(
     r: Runner, repo: str, prefix: str, paths: list[Path]
 ) -> dict[str, str]:
-    """Commits images to the orphan assets branch and returns raw URLs by file name.
+    """Commits images to the orphan assets branch and returns raw URLs by stored name.
 
     Uses a private index, so the working tree and the current branch stay untouched.
     """
@@ -246,16 +254,17 @@ def upload_images(
             g.run(["git", "fetch", "--quiet", "origin", ref])
             g.run(["git", "read-tree", "FETCH_HEAD"])
             parent = ["-p", "FETCH_HEAD"]
-        for path in paths:
+        names = stored_names(paths)
+        for path, name in zip(paths, names, strict=True):
             blob = g.run(["git", "hash-object", "-w", str(path)])
-            info = f"100644,{blob},{prefix}/{path.name}"
+            info = f"100644,{blob},{prefix}/{name}"
             g.run(["git", "update-index", "--add", "--cacheinfo", info])
         tree = g.run(["git", "write-tree"])
         msg = f"Add images for {prefix}"
         commit = g.run(["git", "commit-tree", tree, *parent, "-m", msg])
         if r.dry_run or g.ok(["git", "push", "origin", f"{commit}:{ref}"]):
             base = f"https://raw.githubusercontent.com/{repo}/{commit}/{prefix}"
-            return {p.name: f"{base}/{p.name}" for p in paths}
+            return {n: f"{base}/{urllib.parse.quote(n)}" for n in names}
     raise RuntimeError(f"failed to push images to {ASSETS_BRANCH} three times")
 
 
@@ -291,21 +300,40 @@ def git_identity(env: dict[str, str]) -> dict[str, str]:
     }
 
 
+def git_auth(env: dict[str, str]) -> dict[str, str]:
+    """Authenticates Git to GitHub with GH_TOKEN, through the environment only."""
+    token = env.get("GH_TOKEN")
+    if not token:
+        return env
+    basic = base64.b64encode(f"x-access-token:{token}".encode()).decode()
+    return {
+        **env,
+        "GIT_CONFIG_COUNT": "1",
+        "GIT_CONFIG_KEY_0": "http.https://github.com/.extraheader",
+        "GIT_CONFIG_VALUE_0": f"AUTHORIZATION: basic {basic}",
+    }
+
+
 def main(argv: Sequence[str]) -> int:
     env = git_identity(dict(os.environ))
     opts = parse(argv, env)
     pushes = opts.output != "report"
-    if pushes and "GIT_AUTHOR_NAME" not in env and not opts.dry_run:
-        sys.exit("AGENT_GIT_NAME and AGENT_GIT_EMAIL must name the bot identity")
+    if pushes and not opts.dry_run:
+        if not env.get("AGENT_GIT_NAME") or not env.get("AGENT_GIT_EMAIL"):
+            sys.exit("AGENT_GIT_NAME and AGENT_GIT_EMAIL must name the bot identity")
+        if not env.get("GH_TOKEN"):
+            sys.exit("GH_TOKEN must hold the GitHub App installation token")
     root = Path(
         subprocess.check_output(
             ["git", "rev-parse", "--show-toplevel"], text=True
         ).strip()
     )
     os.chdir(root)
+    if pushes and subprocess.check_output(["git", "status", "--porcelain"], text=True):
+        sys.exit("The checkout has uncommitted changes, which would ship with the PR")
     out = Path(tempfile.mkdtemp(prefix="agent-"))
     (out / "images").mkdir()
-    r = Runner(opts.dry_run, env)
+    r = Runner(opts.dry_run, git_auth(env))
     repo = env.get("GITHUB_REPOSITORY", "synnaxlabs/synnax")
 
     head = ""

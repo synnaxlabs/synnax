@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import base64
 import subprocess
 import sys
 from pathlib import Path
@@ -18,11 +19,13 @@ from agent.agent import (
     agent_command,
     branch_name,
     default_title,
+    git_auth,
     instructions,
     main,
     parse,
     render_body,
     skill_prompt,
+    stored_names,
 )
 
 TEMPLATE = """## Linear issue
@@ -154,40 +157,72 @@ print("Done.")
 """
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="fake agent is a shebang script")
-def test_dry_run_opens_nothing(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    repo = tmp_path / "repo"
-    (repo / ".github").mkdir(parents=True)
-    (repo / ".github/pull_request_template.md").write_text(TEMPLATE)
+@pytest.fixture
+def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A clean repository with the PR template, as the working directory."""
+    root = tmp_path / "repo"
+    (root / ".github").mkdir(parents=True)
+    (root / ".github/pull_request_template.md").write_text(TEMPLATE)
+    git(root, "init", "--quiet", "--initial-branch", "main")
+    git(root, "add", "--all")
+    git(root, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "i")
+    monkeypatch.chdir(root)
+    monkeypatch.setenv("AGENT_GIT_NAME", "Synnax Claude Code[bot]")
+    monkeypatch.setenv("AGENT_GIT_EMAIL", "1+bot@users.noreply.github.com")
+    monkeypatch.setenv("GH_TOKEN", "token")
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    return root
 
-    def git(*args: str) -> str:
-        cmd = ["git", "-C", str(repo), *args]
-        return subprocess.check_output(cmd, text=True).strip()
 
-    git("init", "--quiet", "--initial-branch", "main")
-    git("add", "--all")
-    git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "--quiet", "-m", "i")
+def git(root: Path, *args: str) -> str:
+    cmd = ["git", "-C", str(root), *args]
+    return subprocess.check_output(cmd, text=True).strip()
+
+
+def fake_agent(tmp_path: Path) -> list[str]:
     fake = tmp_path / "fake-agent"
     fake.write_text(FAKE_AGENT)
     fake.chmod(0o755)
-    monkeypatch.chdir(repo)
-    monkeypatch.setenv("AGENT_GIT_NAME", "Synnax Claude Code[bot]")
-    monkeypatch.setenv("AGENT_GIT_EMAIL", "1+bot@users.noreply.github.com")
-    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
-    argv = ["--prompt", "Fix the thing", "--agent", "claude", "--bin", str(fake)]
-    assert main([*argv, "--dry-run"]) == 0
+    return ["--prompt", "Fix the thing", "--agent", "claude", "--bin", str(fake)]
 
-    assert git("branch", "--show-current").startswith("agent/claude/fix-the-thing-")
-    assert (
-        git("log", "-1", "--format=%an|%s")
-        == "Synnax Claude Code[bot]|SY-1: Fix the thing"
-    )
-    err = capsys.readouterr().err
-    assert "dry run: git push origin" in err
-    assert "dry run: gh pr create" in err
-    assert "[SY-1](https://linear.app/synnax/issue/SY-1)" in err
-    assert "![shot.png](https://raw.githubusercontent.com/" in err
+
+class TestMain:
+    @pytest.mark.skipif(sys.platform == "win32", reason="fake agent is a script")
+    def test_dry_run_opens_nothing(
+        self, repo: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        assert main([*fake_agent(tmp_path), "--dry-run"]) == 0
+        branch = git(repo, "branch", "--show-current")
+        assert branch.startswith("agent/claude/fix-the-thing-")
+        author = git(repo, "log", "-1", "--format=%an|%s")
+        assert author == "Synnax Claude Code[bot]|SY-1: Fix the thing"
+        err = capsys.readouterr().err
+        assert "dry run: git push origin" in err
+        assert "dry run: gh pr create" in err
+        assert "[SY-1](https://linear.app/synnax/issue/SY-1)" in err
+        assert "![1-shot.png](https://raw.githubusercontent.com/" in err
+
+    def test_rejects_dirty_checkout(self, repo: Path, tmp_path: Path) -> None:
+        (repo / "stray.txt").write_text("not the agent's")
+        with pytest.raises(SystemExit, match="uncommitted changes"):
+            main(fake_agent(tmp_path))
+
+    def test_rejects_missing_bot_identity(
+        self, repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("GIT_AUTHOR_NAME", "A Person")
+        monkeypatch.delenv("AGENT_GIT_EMAIL")
+        with pytest.raises(SystemExit, match="bot identity"):
+            main(fake_agent(tmp_path))
+
+
+def test_stored_names_are_unique_and_url_safe() -> None:
+    paths = [Path("before/shot.png"), Path("after/shot.png"), Path("a#1 [x].png")]
+    assert stored_names(paths) == ["1-shot.png", "2-shot.png", "3-a_1__x_.png"]
+
+
+def test_git_auth_sends_the_app_token() -> None:
+    env = git_auth({"GH_TOKEN": "abc"})
+    assert env["GIT_CONFIG_KEY_0"] == "http.https://github.com/.extraheader"
+    encoded = env["GIT_CONFIG_VALUE_0"].removeprefix("AUTHORIZATION: basic ")
+    assert base64.b64decode(encoded) == b"x-access-token:abc"
