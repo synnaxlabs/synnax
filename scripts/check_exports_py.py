@@ -205,12 +205,19 @@ def signature(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.expr | Non
 
 
 def annotations(tree: ast.Module) -> Iterator[ast.expr]:
-    """Yields every annotation in tree, nested scopes included."""
+    """Yields every type expression in tree, nested scopes included: annotations,
+    type alias values, and class bases."""
     for n in ast.walk(tree):
         if isinstance(n, ast.FunctionDef | ast.AsyncFunctionDef):
             yield from (e for e in signature(n) if e is not None)
         elif isinstance(n, ast.AnnAssign):
             yield n.annotation
+            if n.value is not None and "TypeAlias" in ast.unparse(n.annotation):
+                yield n.value
+        elif isinstance(n, ast.TypeAlias):
+            yield n.value
+        elif isinstance(n, ast.ClassDef):
+            yield from n.bases
 
 
 def annotation_names(node: ast.stmt) -> set[str]:

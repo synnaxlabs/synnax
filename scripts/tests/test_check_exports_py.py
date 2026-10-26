@@ -188,6 +188,25 @@ class TestCheck:
         )
         assert names(tmp_path) == []
 
+    def test_should_keep_a_name_a_quoted_alias_or_base_reads(
+        self, tmp_path: Path
+    ) -> None:
+        write(
+            tmp_path,
+            {
+                "lib/widget/__init__.py": "",
+                "lib/widget/parts.py": "class Valve: ...\n\nclass Pump: ...\n",
+                "app/tool/__init__.py": "from tool.run import Alias, Child\n",
+                "app/tool/run.py": (
+                    "from typing import Generic, TypeAlias\n"
+                    "import widget.parts as p\n\n"
+                    "Alias: TypeAlias = 'p.Valve'\n\n"
+                    "class Child(Generic['p.Pump']): ...\n"
+                ),
+            },
+        )
+        assert names(tmp_path) == []
+
     def test_should_report_a_name_only_a_plain_string_mentions(
         self, tmp_path: Path
     ) -> None:
