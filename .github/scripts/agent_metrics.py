@@ -170,17 +170,25 @@ def gh(*args: str) -> list[str]:
     return out.stdout.splitlines()
 
 
-def fetch_prs(since: datetime) -> list[PR]:
-    # A PR created, closed, or merged after `since` was also updated after it.
+def search_prs(query: str) -> list[PR]:
     out = gh(
         "pr", "list", "--repo", REPO, "--state", "all", "--limit", str(LIMIT),
-        "--search", f"updated:>={since:%Y-%m-%d}",
+        "--search", query,
         "--json", "number,author,labels,createdAt,mergedAt,closedAt",
     )  # fmt: skip
     raw = json.loads("".join(out))
     if len(raw) >= LIMIT:
-        raise SystemExit(f"{LIMIT} PRs is the search limit; the report would be short")
+        raise SystemExit(f"{query!r} hit the search limit of {LIMIT} PRs")
     return [parse_pr(r) for r in raw]
+
+
+def fetch_prs(since: datetime, revert_since: datetime) -> list[PR]:
+    queries = [
+        f"created:>={since:%Y-%m-%d}",
+        f"closed:>={since:%Y-%m-%d}",
+        f"merged:>={revert_since:%Y-%m-%d} label:review/bot",
+    ]
+    return list({p.number: p for q in queries for p in search_prs(q)}.values())
 
 
 def fetch_reverts(since: datetime) -> set[int]:
@@ -211,7 +219,7 @@ def main() -> None:
     since = now - timedelta(days=args.days)
     revert_since = now - timedelta(days=REVERT_DAYS)
     agents = frozenset(login({"login": a}) for a in json.loads(args.agents))
-    prs = fetch_prs(min(since, revert_since))
+    prs = fetch_prs(since, revert_since)
     print(
         report(
             now, args.days, agents, prs, fetch_runs(since), fetch_reverts(revert_since)
