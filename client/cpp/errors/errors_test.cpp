@@ -7,10 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <cstdint>
-#include <string>
-#include <vector>
-
 #include "gtest/gtest.h"
 
 #include "client/cpp/errors/errors.h"
@@ -19,16 +15,6 @@
 #include "x/cpp/test/test.h"
 
 namespace synnax::errors {
-namespace {
-struct NumericEntry {
-    std::uint32_t key;
-};
-
-struct StringEntry {
-    std::string key;
-};
-}
-
 /// @brief it should create an unexpected missing error with correct type and message.
 TEST(ErrorsTest, UnexpectedMissingError) {
     const auto err = unexpected_missing_error("channel");
@@ -87,39 +73,5 @@ TEST(ErrorsTest, IsTemporarilyUnavailable) {
     EXPECT_FALSE(is_temporarily_unavailable(LICENSE));
     EXPECT_FALSE(is_temporarily_unavailable(LICENSE.sub("invalid")));
     EXPECT_FALSE(is_temporarily_unavailable(x::errors::UNKNOWN));
-}
-
-/// @brief it should return NIL when the entries hold every key.
-TEST(ErrorsTest, CheckKeysFoundAll) {
-    ASSERT_NIL(check_keys_found(
-        "channels",
-        std::vector<std::uint32_t>{1, 2},
-        std::vector<NumericEntry>{{.key = 2}, {.key = 1}}
-    ));
-}
-
-/// @brief it should name every numeric key without an entry.
-TEST(ErrorsTest, CheckKeysFoundMissingNumeric) {
-    const auto err = check_keys_found(
-        "channels",
-        std::vector<std::uint32_t>{1, 2, 3},
-        std::vector<NumericEntry>{{.key = 2}}
-    );
-    ASSERT_MATCHES(err, x::errors::NOT_FOUND);
-    EXPECT_EQ(
-        err.message(),
-        "[sy.query.not_found] channels matching keys 1, 3 not found."
-    );
-}
-
-/// @brief it should name every string key without an entry.
-TEST(ErrorsTest, CheckKeysFoundMissingString) {
-    const auto err = check_keys_found(
-        "devices",
-        std::vector<std::string>{"a", "b"},
-        std::vector<StringEntry>{{.key = "a"}}
-    );
-    ASSERT_MATCHES(err, x::errors::NOT_FOUND);
-    EXPECT_EQ(err.message(), "[sy.query.not_found] devices matching keys b not found.");
 }
 }

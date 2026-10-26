@@ -9,14 +9,8 @@
 
 #pragma once
 
-#include <string>
-#include <type_traits>
-#include <unordered_set>
-#include <vector>
-
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/strings/strings.h"
 
 namespace synnax::errors {
 /// @brief the base of every license error the Core returns.
@@ -57,31 +51,5 @@ multiple_found_error(const std::string &resource_name, const std::string &query)
         x::errors::MULTIPLE_RESULTS,
         "Multiple " + resource_name + " matching " + query + " not found."
     );
-}
-
-/// @brief checks that a retrieve by keys returned an entry for every key.
-/// @param resource_name the plural name of the resource, such as "channels".
-/// @param keys the keys that the retrieve asked for.
-/// @param entries the entries that the retrieve returned.
-/// @returns a NOT_FOUND error that names every key without an entry, or NIL.
-template<typename K, typename E>
-[[nodiscard]] x::errors::Error check_keys_found(
-    const std::string &resource_name,
-    const std::vector<K> &keys,
-    const std::vector<E> &entries
-) {
-    std::unordered_set<K> found;
-    for (const auto &entry: entries)
-        found.insert(entry.key);
-    std::vector<std::string> missing;
-    for (const auto &key: keys) {
-        if (found.contains(key)) continue;
-        if constexpr (std::is_same_v<K, std::string>)
-            missing.push_back(key);
-        else
-            missing.push_back(std::to_string(key));
-    }
-    if (missing.empty()) return x::errors::NIL;
-    return not_found_error(resource_name, "keys " + x::strings::join(missing, ", "));
 }
 }
