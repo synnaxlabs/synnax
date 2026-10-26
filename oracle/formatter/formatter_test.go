@@ -726,7 +726,9 @@ var _ = Describe("Format", func() {
 
 	Describe("Filter Definitions", func() {
 		It("should format an empty filter", func() {
-			Expect(format("Where filter Range {}\n")).To(Equal("Where filter Range {}\n"))
+			Expect(
+				format("Where filter Range {}\n"),
+			).To(Equal("Where filter Range {}\n"))
 		})
 
 		It("should align bare and typed lines", func() {
