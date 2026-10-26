@@ -129,6 +129,28 @@ var _ = Describe("Retrieve", func() {
 		Expect(res.Tasks[0].Key).To(Equal(t.Key))
 	})
 
+	It("Should return the tasks whose name matches the search term", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		match := task.Task{
+			Type:     pagerduty.AlertTaskType,
+			Rack:     svc.Rack.EmbeddedKey,
+			Name:     "Cryostat pressure",
+			Snapshot: true,
+		}
+		Expect(svc.Task.NewWriter(nil).Create(ctx, &match)).To(Succeed())
+		other := createTask(ctx)
+		grant(
+			ctx, access.ActionRetrieve, u.OntologyID(),
+			match.OntologyID(), other.OntologyID(),
+		)
+		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
+			SearchTerm: new("cryostat"),
+		}))
+		Expect(res.Tasks).To(HaveExactElements(HaveField("Key", match.Key)))
+	})
+
 	It("Should return a path error for an invalid regex", func(ctx SpecContext) {
 		u := createUser(ctx)
 		Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
