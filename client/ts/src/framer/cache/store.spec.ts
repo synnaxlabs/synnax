@@ -113,6 +113,17 @@ describe("Store", () => {
       expect(store.get("b")).toBeUndefined();
     });
 
+    it("should evict a block past the budget once it stops being held", () => {
+      const store = new Store({ budget: Size.bytes(1.5 * BYTES) });
+      const held = createBlock({ held: true });
+      store.set("a", held);
+      store.set("b", createBlock({ held: true }));
+      held.held = false;
+      store.evict();
+      expect(store.get("a")).toBeUndefined();
+      expect(store.get("b")).toBeDefined();
+    });
+
     it("should make a held block it skips the most recently used", () => {
       const store = new Store({ budget: Size.bytes(2.5 * BYTES) });
       const held = createBlock({ held: true });
