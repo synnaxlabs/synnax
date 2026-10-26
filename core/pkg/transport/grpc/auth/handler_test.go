@@ -60,6 +60,8 @@ type (
 	]
 )
 
+const errInvalidUUID = "invalid uuid"
+
 var (
 	bob     = user.User{Key: uuid.New(), Username: "bob"}
 	session = svcauth.Session{
@@ -132,7 +134,7 @@ var _ = Describe("Auth", func() {
 			Expect(login.ResponseTranslator.Backward(ctx, &grpcauth.LoginResponse{
 				User:        &grpcauth.User{Key: "bad"},
 				ClusterInfo: &grpcauth.ClusterInfo{},
-			})).Error().To(HaveOccurred())
+			})).Error().To(MatchError(errInvalidUUID))
 		})
 	})
 
@@ -194,7 +196,7 @@ var _ = Describe("Auth", func() {
 			res *grpcauth.SessionCreateResponse,
 		) {
 			Expect(create.ResponseTranslator.Backward(ctx, res)).Error().
-				To(HaveOccurred())
+				To(MatchError(errInvalidUUID))
 		},
 			Entry("session", &grpcauth.SessionCreateResponse{
 				Session: &grpcauth.Session{Key: "bad"},
@@ -245,7 +247,7 @@ var _ = Describe("Auth", func() {
 				&grpcauth.SessionRetrieveResponse{
 					Sessions: []*grpcauth.Session{{Key: "bad"}},
 				},
-			)).Error().To(HaveOccurred())
+			)).Error().To(MatchError(errInvalidUUID))
 		})
 	})
 
@@ -261,7 +263,7 @@ var _ = Describe("Auth", func() {
 			Expect(del.RequestTranslator.Backward(
 				ctx,
 				&grpcauth.SessionDeleteRequest{Keys: []string{"bad"}},
-			)).Error().To(HaveOccurred())
+			)).Error().To(MatchError(errInvalidUUID))
 		})
 	})
 })
