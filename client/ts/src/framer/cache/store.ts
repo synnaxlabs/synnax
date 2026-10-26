@@ -141,9 +141,9 @@ export class Store {
    * block never expires.
    */
   expired(block: Block): boolean {
-    return (
-      !block.held && !this.now().span(block.fetchedAt).lessThan(this.staleThreshold)
-    );
+    if (block.held) return false;
+    const age = this.now().valueOf() - block.fetchedAt.valueOf();
+    return (age < 0n ? -age : age) >= this.staleThreshold.valueOf();
   }
 
   /**
