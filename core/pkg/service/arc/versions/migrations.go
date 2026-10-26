@@ -15,6 +15,7 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v1"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
+	v4 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v4"
 	"github.com/synnaxlabs/x/migrate"
 )
 
@@ -22,5 +23,5 @@ import (
 var Migrations = slices.Concat(
 	[]migrate.Migration{v0.NormalizeKeys, v0.Migration},
 	v1.Migrations,
-	[]migrate.Migration{v3.Migration, v3.ModeMigration},
+	[]migrate.Migration{v3.Migration, v3.ModeMigration, v4.Migration},
 )
