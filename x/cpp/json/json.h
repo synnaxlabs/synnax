@@ -25,7 +25,7 @@
 /// @brief general utilities for parsing configurations.
 namespace x::json {
 
-using json = nlohmann::json;
+using nlohmann::json;
 
 /// @brief Type trait to detect std::vector types
 template<typename T>
@@ -144,7 +144,8 @@ class Parser {
     }
 
     /// @brief Helper to join path segments for error reporting
-    std::string join_path(const std::string &parent, const std::string &child) const {
+    [[nodiscard]] static std::string
+    join_path(const std::string &parent, const std::string &child) {
         return parent.empty() ? child : parent + "." + child;
     }
 
@@ -344,8 +345,14 @@ public:
     iter(const std::string &path, const std::function<void(Parser &)> &func) const {
         if (noop) return;
         const auto iter = config.find(path);
-        if (iter == config.end()) return field_err(path, "this field is required");
-        if (!iter->is_array()) return field_err(path, "expected an array");
+        if (iter == config.end()) {
+            field_err(path, "this field is required");
+            return;
+        }
+        if (!iter->is_array()) {
+            field_err(path, "expected an array");
+            return;
+        }
         for (size_t i = 0; i < iter->size(); ++i) {
             const auto child_path = path_prefix + path + "." + std::to_string(i) + ".";
             Parser childParser((*iter)[i], errors, child_path);
@@ -484,15 +491,15 @@ T Parser::parse_value(const std::string &path, const json &j) {
         return std::monostate{};
     } else if constexpr (is_optional_v<T>) {
         if (j.is_null()) return std::nullopt;
-        using U = typename is_optional<T>::value_type;
+        using U = is_optional<T>::value_type;
         return std::make_optional(parse_value<U>(path, j));
     } else if constexpr (is_indirect_v<T>) {
         // Parse the inner type and wrap in indirect
-        using U = typename is_indirect<T>::value_type;
+        using U = is_indirect<T>::value_type;
         return x::mem::indirect<U>(parse_value<U>(path, j));
     } else if constexpr (is_map_v<T>) {
-        typedef typename is_map<T>::key_type K;
-        using V = typename is_map<T>::value_type;
+        using K = is_map<T>::key_type;
+        using V = is_map<T>::value_type;
         if (!j.is_object()) {
             field_err(path, "expected an object");
             return T();
@@ -506,7 +513,7 @@ T Parser::parse_value(const std::string &path, const json &j) {
         }
         return map_result;
     } else if constexpr (is_vector_v<T>) {
-        using U = typename is_vector<T>::value_type;
+        using U = is_vector<T>::value_type;
         if (!j.is_array()) {
             field_err(path, "expected an array");
             return T();

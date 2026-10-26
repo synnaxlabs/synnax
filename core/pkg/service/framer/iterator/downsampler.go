@@ -20,8 +20,8 @@ type downsampler struct {
 	factor uint32
 }
 
-func newDownsampler(cfg Config) responseSegment {
-	d := &downsampler{factor: cfg.DownsampleFactor}
+func newDownsampler(factor uint32) responseSegment {
+	d := &downsampler{factor: factor}
 	d.Transform = d.transform
 	return d
 }
@@ -32,7 +32,9 @@ func (d *downsampler) transform(
 ) (out Response, ok bool, err error) {
 	in.Frame = in.Frame.ShallowCopy()
 	for i, s := range in.Frame.SeriesI() {
-		in.Frame.SetSeriesAt(i, s.Downsample(d.factor))
+		s = s.Downsample(d.factor)
+		s.AlignmentMultiple = d.factor
+		in.Frame.SetSeriesAt(i, s)
 	}
 	return in, true, nil
 }

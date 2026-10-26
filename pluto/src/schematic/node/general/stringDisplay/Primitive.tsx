@@ -12,71 +12,59 @@ import "@/schematic/node/general/stringDisplay/stringDisplay.css";
 import { type schematic } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { CSS } from "@synnaxlabs/lyra/css";
-import { Text } from "@synnaxlabs/lyra/text";
-import { Theming } from "@synnaxlabs/lyra/theming";
 import { color } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement, useMemo } from "react";
+import {
+  type CSSProperties,
+  type PropsWithChildren,
+  type ReactElement,
+  type Ref,
+} from "react";
 
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { LEVEL_SIZES } from "@/schematic/node/common/size";
-import { Staleness } from "@/vis/staleness";
 
-interface RenderProps extends Partial<
-  Pick<
-    schematic.StringDisplayNodeConfig,
-    | "strokeColor"
-    | "textColor"
-    | "stalenessColor"
-    | "orientation"
-    | "level"
-    | "inlineSize"
+interface RenderProps extends PropsWithChildren<
+  Partial<
+    Pick<
+      schematic.StringDisplayNodeConfig,
+      "strokeColor" | "orientation" | "level" | "inlineSize"
+    >
   >
 > {
   className?: string;
-  value?: string;
-  stale?: boolean;
+  /** contentRef receives the element the canvas draws the text into. */
+  contentRef?: Ref<HTMLDivElement>;
 }
 
 export const StringDisplay = ({
   className,
   strokeColor,
-  textColor,
-  stalenessColor,
   level = "p",
   orientation = "left",
   inlineSize,
-  value,
-  stale = false,
+  contentRef,
+  children,
 }: RenderProps): ReactElement => {
-  const style = useMemo<CSSProperties>(
-    () => ({
-      [CSS.variable("symbol-color")]: color.rgbaString(strokeColor),
-      width: inlineSize,
-      height: Component.HEIGHTS[LEVEL_SIZES[level]],
-    }),
-    [strokeColor, inlineSize, level],
-  );
-  const theme = Theming.use();
-  const resolvedTextColor = stale
-    ? Staleness.resolveColor(stalenessColor, theme)
-    : textColor;
+  const symbolColor = color.rgbaString(strokeColor);
+  const style: CSSProperties = {
+    [Primitive.SYMBOL_COLOR]: symbolColor,
+    width: inlineSize,
+    height: Component.HEIGHTS[LEVEL_SIZES[level]],
+  };
   return (
     <Primitive.Div
-      className={CSS.cls(CSS.B("string-display"), CSS.B("symbol-colored"), className)}
+      className={CSS.cls(
+        CSS.B("string-display"),
+        CSS.B("symbol-colored"),
+        CSS.B("symbol-readout"),
+        symbolColor != null && CSS.M("colored"),
+        className,
+      )}
       style={style}
     >
-      <div className={CSS.BE("string-display", "content")}>
-        <Text.Text
-          level={level}
-          color={
-            resolvedTextColor != null ? color.cssString(resolvedTextColor) : undefined
-          }
-          variant="numeric"
-          overflow="ellipsis"
-        >
-          {value}
-        </Text.Text>
+      <div ref={contentRef} className={CSS.BE("string-display", "content")}>
+        {children}
       </div>
       <Handle.Rectangle
         orientation={orientation}

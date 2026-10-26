@@ -15,7 +15,6 @@ import {
   schematic,
 } from "@synnaxlabs/client";
 import { verbs } from "@synnaxlabs/x";
-import { useMemo } from "react";
 import type z from "zod";
 
 import { Flux } from "@/flux";
@@ -54,13 +53,11 @@ export interface Resolved {
  */
 export const useResolved = (key: string | null): Resolved => {
   const res = useResult(key == null ? null : { key });
-  return useMemo(() => {
-    if (res.variant !== "error") return { symbol: res.data, missing: false };
-    const { error } = res.status.details;
-    return {
-      missing: NotFoundError.matches(error.cause) || Flux.DeletedError.matches(error),
-    };
-  }, [res]);
+  if (res.variant !== "error") return { symbol: res.data, missing: false };
+  const { error } = res.status.details;
+  return {
+    missing: NotFoundError.matches(error.cause) || Flux.DeletedError.matches(error),
+  };
 };
 
 export type ListQuery = {

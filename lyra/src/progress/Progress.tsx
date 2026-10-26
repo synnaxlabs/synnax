@@ -26,6 +26,8 @@ interface ProgressProps extends Omit<ComponentPropsWithRef<"div">, "children"> {
   thin?: boolean;
 }
 
+const DURATION_VARIABLE = CSS.variable("progress-duration");
+
 /** A bar that shows how far along some work is. */
 export const Progress = ({
   value,
@@ -48,7 +50,7 @@ export const Progress = ({
         value == null && CSS.M("indeterminate"),
         className,
       )}
-      style={{ [CSS.variable("progress-duration")]: `${ms}ms`, ...style }}
+      style={{ [DURATION_VARIABLE]: `${ms}ms`, ...style }}
       {...rest}
     >
       <div

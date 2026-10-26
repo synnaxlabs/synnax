@@ -15,18 +15,18 @@ import (
 	"encoding/json/v2"
 
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding"
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/http"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -60,6 +60,40 @@ func ResolveEncoding(name string) (encoding.FileEncoder, error) {
 	}
 }
 
+// ServiceConfig is the configuration for the import and export API service.
+type ServiceConfig struct {
+	// ImEx is the import and export registry.
+	//
+	// [REQUIRED]
+	ImEx *imex.Service
+	// RBAC enforces access control on every request.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
+}
+
+var (
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for the import and export API
+	// service.
+	DefaultServiceConfig = ServiceConfig{}
+)
+
+// Override implements config.Config.
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.ImEx = override.Nil(c.ImEx, other.ImEx)
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	return c
+}
+
+// Validate implements config.Config.
+func (c ServiceConfig) Validate() error {
+	v := validate.New("api.imex")
+	v.NotNil("imex", c.ImEx)
+	v.NotNil("rbac", c.RBAC)
+	return v.Error()
+}
+
 // Service implements the ImEx API.
 type Service struct {
 	access   *rbac.Service
@@ -67,14 +101,14 @@ type Service struct {
 }
 
 // NewService creates a new ImEx API service.
-func NewService(cfgs ...config.LayerConfig) (*Service, error) {
-	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	return &Service{
-		internal: cfg.Service.ImEx,
-		access:   cfg.Service.RBAC,
+		internal: cfg.ImEx,
+		access:   cfg.RBAC,
 	}, nil
 }
 

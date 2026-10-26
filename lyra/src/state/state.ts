@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { state } from "@synnaxlabs/x";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 
 /** A state value and a setter that accepts a value or an updater. */
 export type UseReturn<NextState extends state.State> = [
@@ -47,13 +47,10 @@ export const usePassthrough = <NextState extends state.State>({
   onChange,
 }: UsePassthroughProps<NextState>): UseReturn<NextState> => {
   const [internal, setInternal] = useState(value ?? initial);
-  const setAndNotify = useCallback(
-    (arg: state.SetArg<NextState>) => {
-      setInternal(arg);
-      onChange?.(arg);
-    },
-    [onChange],
-  );
+  const setAndNotify = (arg: state.SetArg<NextState>) => {
+    setInternal(arg);
+    onChange?.(arg);
+  };
   if (value != null && onChange != null) return [value, onChange];
   return [internal, setAndNotify];
 };
@@ -74,13 +71,10 @@ export const usePurePassthrough = <NextState extends state.State>({
   const [internal, setInternal] = useState<NextState>(
     state.executeInitialSetter(value ?? initialValue),
   );
-  const setAndNotify = useCallback(
-    (next: NextState) => {
-      setInternal(next);
-      onChange?.(next);
-    },
-    [onChange],
-  );
+  const setAndNotify = (next: NextState) => {
+    setInternal(next);
+    onChange?.(next);
+  };
   if (value != null && onChange != null) return [value, onChange];
   return [internal, setAndNotify];
 };
@@ -95,12 +89,9 @@ export const usePersisted = <S extends state.State>(
     if (stored == null) return state.executeInitialSetter(initial);
     return JSON.parse(stored);
   });
-  const set = useCallback(
-    (value: state.SetArg<S>) => {
-      setInternal(value);
-      localStorage.setItem(key, JSON.stringify(value));
-    },
-    [setInternal, key],
-  );
+  const set = (value: state.SetArg<S>) => {
+    setInternal(value);
+    localStorage.setItem(key, JSON.stringify(value));
+  };
   return [internal, set];
 };

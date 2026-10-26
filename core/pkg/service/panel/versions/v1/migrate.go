@@ -12,12 +12,12 @@ package v1
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp/migrate"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // Migration lifts stored panels from v0 to v1, dropping the args of every view tab.
-var Migration = gorp.NewEntryMigration("v60_drop_view_args", autoMigratePanel)
+var Migration = migrate.NewEntry("v60_drop_view_args", autoMigratePanel)
 
 // MigrateView lifts a v0 view into the v1 shape, dropping its args.
 func MigrateView(ctx context.Context, old v0.View) (View, error) {

@@ -9,7 +9,6 @@
 
 import { type panel, project } from "@synnaxlabs/client";
 import { type Flux, Panel } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Session } from "@/session";
@@ -18,14 +17,11 @@ export const useCreate = (): (() => void) => {
   const dispatch = useDispatch();
   const getProjectKey = Session.Project.useGetSelected();
   const { update: create } = Panel.useCreate({
-    afterOptimistic: useCallback(
-      ({ data: { key } }: Flux.AfterOptimisticParams<panel.Panel>) => {
-        dispatch(Session.Panel.select({ key }));
-      },
-      [dispatch],
-    ),
+    afterOptimistic: ({ data: { key } }: Flux.AfterOptimisticParams<panel.Panel>) => {
+      dispatch(Session.Panel.select({ key }));
+    },
   });
-  return useCallback(() => {
+  return () => {
     create({ name: "New panel", parent: project.ontologyID(getProjectKey()) });
-  }, [create, getProjectKey]);
+  };
 };

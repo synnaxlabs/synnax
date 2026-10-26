@@ -33,7 +33,7 @@ from x.telem.telem import (
     TimeStamp,
 )
 
-VARIABLE_LENGTH_PREFIX_SIZE = 4
+_VARIABLE_LENGTH_PREFIX_SIZE = 4
 
 
 def _encode_samples(samples: list[Any], data_type: DataType) -> bytes:
@@ -51,7 +51,7 @@ def _encode_samples(samples: list[Any], data_type: DataType) -> bytes:
 
 def _encode_variable(parts: list[bytes]) -> bytes:
     return b"".join(
-        len(p).to_bytes(VARIABLE_LENGTH_PREFIX_SIZE, "little") + p for p in parts
+        len(p).to_bytes(_VARIABLE_LENGTH_PREFIX_SIZE, "little") + p for p in parts
     )
 
 
@@ -83,6 +83,9 @@ class Series(ArrayOperators, BaseModel):
     """The underlying buffer"""
     alignment: Alignment = Alignment(0, 0)
     """The alignment of the Series, representing the position within an array of arrays"""
+    alignment_multiple: int = 1
+    """The number of alignment steps between consecutive samples. Above one when the
+    Core reduced the Series from a longer one."""
     _len_cache: int | None = PrivateAttr(None)
 
     def __len__(self) -> int:
@@ -92,11 +95,11 @@ class Series(ArrayOperators, BaseModel):
             count = 0
             offset = 0
             d = self.data
-            while offset + VARIABLE_LENGTH_PREFIX_SIZE <= len(d):
+            while offset + _VARIABLE_LENGTH_PREFIX_SIZE <= len(d):
                 length = int.from_bytes(
-                    d[offset : offset + VARIABLE_LENGTH_PREFIX_SIZE], "little"
+                    d[offset : offset + _VARIABLE_LENGTH_PREFIX_SIZE], "little"
                 )
-                offset += VARIABLE_LENGTH_PREFIX_SIZE + length
+                offset += _VARIABLE_LENGTH_PREFIX_SIZE + length
                 count += 1
             self._len_cache = count
         return self._len_cache
@@ -107,6 +110,7 @@ class Series(ArrayOperators, BaseModel):
         data_type: CrudeDataType | None = None,
         time_range: TimeRange | None = None,
         alignment: CrudeAlignment | None = None,
+        alignment_multiple: int | None = None,
     ):
         if data_type is not None:
             data_type = DataType(data_type)
@@ -119,6 +123,8 @@ class Series(ArrayOperators, BaseModel):
             data_ = data.data
             time_range = data.time_range if time_range is None else time_range
             align = data.alignment if align is None else align
+            if alignment_multiple is None:
+                alignment_multiple = data.alignment_multiple
         elif isinstance(data, MultiSeries):
             if len(data.series) == 1:
                 data_type = data_type or data.series[0].data_type
@@ -127,6 +133,8 @@ class Series(ArrayOperators, BaseModel):
                     data.series[0].time_range if time_range is None else time_range
                 )
                 align = data.series[0].alignment if align is None else align
+                if alignment_multiple is None:
+                    alignment_multiple = data.series[0].alignment_multiple
             else:
                 raise ValueError(
                     "[Series] - MultiSeries with more than one series cannot be converted to a Series"
@@ -159,6 +167,7 @@ class Series(ArrayOperators, BaseModel):
             data=data_,
             time_range=time_range,
             alignment=Alignment(0) if align is None else align,
+            alignment_multiple=1 if alignment_multiple is None else alignment_multiple,
         )
         self._len_cache = None
 
@@ -214,11 +223,11 @@ class Series(ArrayOperators, BaseModel):
         offset = 0
         d = self.data
         current = 0
-        while offset + VARIABLE_LENGTH_PREFIX_SIZE <= len(d):
+        while offset + _VARIABLE_LENGTH_PREFIX_SIZE <= len(d):
             length = int.from_bytes(
-                d[offset : offset + VARIABLE_LENGTH_PREFIX_SIZE], "little"
+                d[offset : offset + _VARIABLE_LENGTH_PREFIX_SIZE], "little"
             )
-            offset += VARIABLE_LENGTH_PREFIX_SIZE
+            offset += _VARIABLE_LENGTH_PREFIX_SIZE
             if current == index:
                 return d[offset : offset + length]
             offset += length
@@ -240,11 +249,11 @@ class Series(ArrayOperators, BaseModel):
     def _iter_variable(self) -> Iterator[bytes]:
         offset = 0
         d = self.data
-        while offset + VARIABLE_LENGTH_PREFIX_SIZE <= len(d):
+        while offset + _VARIABLE_LENGTH_PREFIX_SIZE <= len(d):
             length = int.from_bytes(
-                d[offset : offset + VARIABLE_LENGTH_PREFIX_SIZE], "little"
+                d[offset : offset + _VARIABLE_LENGTH_PREFIX_SIZE], "little"
             )
-            offset += VARIABLE_LENGTH_PREFIX_SIZE
+            offset += _VARIABLE_LENGTH_PREFIX_SIZE
             yield d[offset : offset + length]
             offset += length
 
@@ -262,11 +271,11 @@ class Series(ArrayOperators, BaseModel):
 
         The lower bound is the alignment of the first sample (inclusive), and the
         upper bound is the alignment just after the last sample (exclusive).
-        This represents the range [alignment, alignment + length).
+        This represents the range [alignment, alignment + length * alignment_multiple).
         """
         return Bounds(
             lower=int(self.alignment),
-            upper=int(self.alignment) + len(self),
+            upper=int(self.alignment) + len(self) * self.alignment_multiple,
         )
 
     def astype(self, data_type: DataType) -> Series:
@@ -275,6 +284,7 @@ class Series(ArrayOperators, BaseModel):
             data_type=data_type,
             time_range=self.time_range,
             alignment=self.alignment,
+            alignment_multiple=self.alignment_multiple,
         )
 
     def to_datetime(self) -> list[datetime]:

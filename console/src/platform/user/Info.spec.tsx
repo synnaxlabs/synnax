@@ -62,6 +62,7 @@ describe("User.Info", () => {
     });
     render(<User.Info />, { wrapper });
     expect(await screen.findByText("test test")).toBeTruthy();
-    expect(await screen.findByText(other.auth?.user?.username ?? "")).toBeTruthy();
+    const { username } = await other.users.current.retrieve();
+    expect(await screen.findByText(username)).toBeTruthy();
   });
 });

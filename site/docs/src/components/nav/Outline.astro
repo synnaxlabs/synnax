@@ -1,0 +1,137 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import type { MarkdownHeading } from "astro";
+import { unescape } from "html-escaper";
+
+import { type Client } from "@/components/client/choice";
+import { INFO as CLIENTS } from "@/components/client/Client";
+import { type Platform } from "@/components/platform/choice";
+import { INFO as PLATFORMS } from "@/components/platform/Platform";
+import { Picker } from "@/components/tabs/Picker";
+import { InlineCode } from "@/components/text/InlineCode";
+import { type Entry } from "@/util/outline";
+
+interface Props {
+    /** The headings to list, in page order. */
+    headings: MarkdownHeading[];
+    /** Restores the inline code and step labels the heading list drops. */
+    outline?: Record<string, Entry>;
+    /** Selects the page headings that the reading position follows. */
+    select?: string;
+    /** The clients a picker above the list chooses between. */
+    clients?: Client[];
+    /** The platforms a picker above the list chooses between. */
+    platforms?: Platform[];
+}
+
+const {
+    headings,
+    outline = {},
+    select = "article :is(h1, h2, h3)",
+    clients = [],
+    platforms = [],
+} = Astro.props;
+---
+
+{platforms.length > 0 && (
+    <Picker
+        query="platform"
+        options={PLATFORMS.filter(({ key }) => platforms.includes(key))}
+    />
+)}
+{clients.length > 0 && (
+    <Picker
+        query="client"
+        options={CLIENTS.filter(({ key }) => clients.includes(key))}
+    />
+)}
+<div class="on-this-page-menu" data-outline={select}>
+    <div class="on-this-page-indicator" data-outline-indicator></div>
+    {headings.map(({ slug, text, depth }) => (
+        <a
+            href={`#${slug}`}
+            data-item-key={slug}
+            class={`on-this-page-item depth-${depth}`}
+        >
+            {outline[text]?.step != null && (
+                <span class="on-this-page-step">{outline[text].step}</span>
+            )}
+            <span data-item-label>
+                <InlineCode text={outline[text]?.text ?? unescape(text)} />
+            </span>
+        </a>
+    ))}
+</div>
+
+<style is:global>
+    .on-this-page-menu {
+        position: relative;
+    }
+
+    .on-this-page-indicator {
+        position: absolute;
+        left: 0;
+        width: 2px;
+        background: var(--pluto-primary-z);
+        transition:
+            transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+            height 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+            opacity 0.15s ease;
+        pointer-events: none;
+    }
+
+    .on-this-page-item {
+        display: block;
+        padding: 1rem 2rem;
+        font-size: var(--pluto-small-size);
+        line-height: 130%;
+        font-family: var(--pluto-font-family);
+        color: var(--pluto-gray-l8);
+        text-decoration: none;
+        font-weight: 400;
+        box-shadow: inset 1px 0 0 0 var(--pluto-border-color);
+        /* Only the color marks the active item: a weight change would rewrap it. */
+        transition: color 0.15s ease;
+
+        &[hidden] {
+            display: none;
+        }
+
+        &.depth-3 {
+            padding-left: 4rem;
+        }
+
+        .on-this-page-step {
+            display: block;
+            margin-bottom: 0.25rem;
+            font:
+                500 10px/14px "Geist Mono",
+                monospace;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--pluto-gray-l6);
+            transition: color 0.15s ease;
+        }
+
+        &:hover .on-this-page-step,
+        &.active .on-this-page-step {
+            color: var(--pluto-gray-l8);
+        }
+
+        &:hover {
+            color: var(--pluto-text-color);
+        }
+
+        &.active {
+            color: var(--pluto-text-color);
+        }
+    }
+</style>

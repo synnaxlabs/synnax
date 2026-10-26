@@ -15,10 +15,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -76,16 +76,8 @@ var _ = Describe("Service", func() {
 				Virtual:  true,
 			}
 			Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
-			Eventually(func(g Gomega) {
-				results := MustSucceed(
-					svc.NewArcSymbolResolver(nil).Search(ctx, ch.Name),
-				)
-				names := make([]string, len(results))
-				for i, sym := range results {
-					names[i] = sym.Name
-				}
-				g.Expect(names).To(ContainElement(ch.Name))
-			}).Should(Succeed())
+			Expect(svc.NewArcSymbolResolver(nil).Search(ctx, ch.Name)).
+				To(ContainElement(HaveField("Name", ch.Name)))
 		})
 	})
 

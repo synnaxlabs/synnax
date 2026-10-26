@@ -134,7 +134,7 @@ x::errors::Error SkewTrackingReader<T>::start() {
 
 template<typename T>
 int64 SkewTrackingReader<T>::update_skew(const size_t &n_requested) {
-    uInt64 next_total_samples_acquired;
+    uInt64 next_total_samples_acquired = 0;
     if (const auto err = this->dmx->GetReadTotalSampPerChanAcquired(
             this->task_handle,
             &next_total_samples_acquired

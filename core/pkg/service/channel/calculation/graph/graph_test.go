@@ -17,6 +17,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
@@ -24,10 +25,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/change"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -45,25 +44,21 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := mock.NewNode(ctx)
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
-	searchIdx := MustOpen(search.OpenIndex())
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
-		Search:   searchIdx,
 	}))
 	db = node.DB
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
 		Group:    groupSvc,
-		Search:   searchIdx,
 	}))
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       node.DB,
 		Group:    groupSvc,
 		Ontology: otg,
 		Label:    labelSvc,
-		Search:   searchIdx,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      node.Channel,
@@ -71,7 +66,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		HostProvider: node.Cluster,
 		Ontology:     otg,
 		Group:        groupSvc,
-		Search:       searchIdx,
 		Status:       statusSvc,
 	}))
 	channelWriter = channelSvc.NewWriter(nil)
@@ -1086,7 +1080,7 @@ var _ = Describe("Graph", func() {
 
 				s := expectStatus(ctx, calc.Key())
 				Expect(s.Variant).To(Equal(status.VariantError))
-				Expect(s.Message).To(Equal("invalid expression for st_detail"))
+				Expect(s.Message).To(Equal("Failed to compile calculation"))
 				Expect(s.Description).ToNot(BeEmpty())
 				Expect(s.Key).To(Equal(channel.OntologyID(calc.Key()).String()))
 				Expect(s.Name).To(Equal("st_detail"))
@@ -1249,7 +1243,7 @@ var _ = Describe("Graph", func() {
 				Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
 					Name:    "st_expr",
 					Variant: status.VariantError,
-					Message: "calculation for st_expr failed",
+					Message: "Failed to run calculation",
 					Time:    telem.Now(),
 				})).To(Succeed())
 				expectStatus(ctx, calc.Key())
@@ -1321,12 +1315,12 @@ var _ = Describe("Graph", func() {
 			Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
 				Name:    "rt_set",
 				Variant: status.VariantError,
-				Message: "calculation for rt_set failed",
+				Message: "Failed to run calculation",
 				Time:    telem.Now(),
 			})).To(Succeed())
 
 			s := expectStatus(ctx, calc.Key())
-			Expect(s.Message).To(Equal("calculation for rt_set failed"))
+			Expect(s.Message).To(Equal("Failed to run calculation"))
 		})
 
 		It(
@@ -1378,7 +1372,7 @@ var _ = Describe("Graph", func() {
 				Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
 					Name:    "rt_gone",
 					Variant: status.VariantError,
-					Message: "calculation for rt_gone failed",
+					Message: "Failed to run calculation",
 					Time:    telem.Now(),
 				})).To(Succeed())
 
@@ -1400,7 +1394,7 @@ var _ = Describe("Graph", func() {
 			Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
 				Name:    "rt_clear",
 				Variant: status.VariantError,
-				Message: "calculation for rt_clear failed",
+				Message: "Failed to run calculation",
 				Time:    telem.Now(),
 			})).To(Succeed())
 			expectStatus(ctx, calc.Key())

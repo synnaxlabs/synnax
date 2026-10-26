@@ -24,7 +24,7 @@ import (
 
 func TestRelay(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Distribution Transport gRPC Framer Relay Suite")
+	RunSpecs(t, "Distribution Transport gRPC Framer Relay Suite", SuiteConfig())
 }
 
 var (

@@ -21,7 +21,7 @@ import (
 
 func TestGoActions(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Go Actions Suite")
+	RunSpecs(t, "Plugin Go Actions Suite", SuiteConfig())
 }
 
 var _ = Describe("Go Actions Plugin", func() {

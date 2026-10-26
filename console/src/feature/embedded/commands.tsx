@@ -34,14 +34,14 @@ const ShowLogsCommand = Command.create({
   key: "show-logs",
   name: "Show logs",
   icon: <Icon.Log />,
-  useOnSelect: () => useReveal(showLogs, "Failed to show the logs"),
+  useOnSelect: () => useReveal(showLogs, "Failed to show logs"),
 });
 
 const ShowDataCommand = Command.create({
   key: "show-data-folder",
   name: "Show data folder",
   icon: <Icon.Explore />,
-  useOnSelect: () => useReveal(showData, "Failed to show the data folder"),
+  useOnSelect: () => useReveal(showData, "Failed to show data folder"),
 });
 
 const EraseDataCommand = Command.create({

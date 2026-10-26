@@ -68,6 +68,11 @@ describe("CopyPropertiesContextMenuItem", () => {
     expect(screen.queryByText("Copy properties")).toBeNull();
   });
 
+  it("should render nothing when the tree no longer holds the resource", async () => {
+    await renderCopyItem([chID], []);
+    expect(screen.queryByText("Copy properties")).toBeNull();
+  });
+
   it("should render nothing when the selection is empty", async () => {
     await renderCopyItem([], []);
     expect(screen.queryByText("Copy properties")).toBeNull();

@@ -770,6 +770,41 @@ var _ = Describe("CollectReferenced edge cases", func() {
 		Expect(result[0].Name).To(Equal("Variant"))
 	})
 
+	It("should collect enums through an alias", func() {
+		table := resolution.NewTable()
+		Expect(table.Add(resolution.Type{
+			Name:          "Status",
+			Namespace:     "test",
+			QualifiedName: "test.Status",
+			Form: resolution.EnumForm{
+				Values: []resolution.EnumValue{{Name: "active"}},
+			},
+		})).To(Succeed())
+		Expect(table.Add(resolution.Type{
+			Name:          "State",
+			Namespace:     "test",
+			QualifiedName: "test.State",
+			Form: resolution.AliasForm{
+				Target: resolution.TypeRef{Name: "test.Status"},
+			},
+		})).To(Succeed())
+
+		structs := []resolution.Type{{
+			Name:          "Container",
+			Namespace:     "test",
+			QualifiedName: "test.Container",
+			Form: resolution.StructForm{
+				Fields: []resolution.Field{{
+					Name: "state",
+					Type: resolution.TypeRef{Name: "test.State"},
+				}},
+			},
+		}}
+		result := enum.CollectReferenced(structs, table)
+		Expect(result).To(HaveLen(1))
+		Expect(result[0].Name).To(Equal("Status"))
+	})
+
 	It("should skip non-struct types in input", func() {
 		table := resolution.NewTable()
 		types := []resolution.Type{{

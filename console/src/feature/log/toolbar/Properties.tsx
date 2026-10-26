@@ -12,7 +12,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Access, Log } from "@synnaxlabs/pluto";
 import { type bounds } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -26,23 +26,14 @@ export const Properties = (): ReactElement => {
   const timestampPrecision = Log.useTimestampPrecision();
   const hasEditPermission = Access.useUpdateGranted(log.ontologyID(key));
 
-  const handlePrecisionChange = useCallback(
-    (timestampPrecision: number) =>
-      dispatch(log.setTimestampPrecision({ timestampPrecision })),
-    [],
-  );
+  const handlePrecisionChange = (timestampPrecision: number) =>
+    dispatch(log.setTimestampPrecision({ timestampPrecision }));
 
-  const handleShowChannelNamesChange = useCallback(
-    (visible: boolean) =>
-      dispatch(log.setChannelNamesHidden({ channelNamesHidden: !visible })),
-    [dispatch],
-  );
+  const handleShowChannelNamesChange = (visible: boolean) =>
+    dispatch(log.setChannelNamesHidden({ channelNamesHidden: !visible }));
 
-  const handleShowReceiptTimestampChange = useCallback(
-    (visible: boolean) =>
-      dispatch(log.setReceiptTimestampHidden({ receiptTimestampHidden: !visible })),
-    [dispatch],
-  );
+  const handleShowReceiptTimestampChange = (visible: boolean) =>
+    dispatch(log.setReceiptTimestampHidden({ receiptTimestampHidden: !visible }));
 
   return (
     <Flex.Box x className={CSS.BE("log", "toolbar", "properties")}>

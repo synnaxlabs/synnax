@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import cfg from "@synnaxlabs/eslint-config";
+import cfg, { reactCompiled } from "@synnaxlabs/eslint-config";
 import type { Linter } from "eslint";
 
-export default [...cfg, { ignores: ["examples"] }] as Linter.Config[];
+export default [...cfg, reactCompiled, { ignores: ["examples"] }] as Linter.Config[];

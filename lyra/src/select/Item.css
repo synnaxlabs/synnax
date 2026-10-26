@@ -15,9 +15,12 @@
 }
 
 /* A fixed item's content may set an icon beside its text, so it lays out as a row
-   inside the label, which stays a block for its fade. */
+   inside the label, which stays a block for its fade. The content renders through a
+   portal, so React bubbles its clicks to the item instead of the trigger. Pointer
+   events pass through it to the trigger. */
 .pluto-select__fixed-label {
     display: inline-flex;
     align-items: center;
     gap: 1rem;
+    pointer-events: none;
 }

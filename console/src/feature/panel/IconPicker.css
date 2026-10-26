@@ -1,0 +1,22 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* The width and padding of Color.Picker, so the swatches keep its spacing. As tall as
+   its content: the frame still keeps it in the window. */
+.console-panel-icon-picker {
+    --pluto-dialog-max-height: 100vh;
+
+    width: 44rem;
+}
+
+.console-panel-icon-picker__content {
+    padding: 1.5rem;
+}

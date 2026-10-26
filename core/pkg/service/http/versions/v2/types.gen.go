@@ -249,8 +249,8 @@ type ChannelField struct {
 	Name string `json:"name" msgpack:"name"`
 	// DataType is the data type of the command channel.
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
-	// TimeFormat is the output encoding when the command channel holds timestamps.
-	// Required for timestamp channels.
+	// TimeFormat is the output encoding when the command channel holds timestamps. An
+	// unset format is ISO 8601.
 	TimeFormat *TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
 	// EnumValues maps numeric channel values to string labels. Only valid when
 	// json_type is 'string'.

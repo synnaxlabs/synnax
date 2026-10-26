@@ -10,7 +10,12 @@
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { useMemoArray } from "@/memo/useMemoCompare";
+import {
+  compareDeps,
+  useMemoArray,
+  useMemoCompare,
+  useMemoDeepEqual,
+} from "@/memo/useMemoCompare";
 
 const setup = <T>(initial: T[]) =>
   renderHook(({ value }) => useMemoArray(value), {
@@ -88,5 +93,48 @@ describe("useMemoArray", () => {
     expect(result.current).toBe(first);
     rerender({ value: [a, { id: 2 }] });
     expect(result.current).not.toBe(first);
+  });
+});
+
+describe("useMemoCompare", () => {
+  it("keeps the value while the deps are equal", () => {
+    let calls = 0;
+    const { result, rerender } = renderHook(
+      ({ dep }) => useMemoCompare(() => (calls += 1), compareDeps, [dep]),
+      { initialProps: { dep: 1 } },
+    );
+    rerender({ dep: 1 });
+    expect(result.current).toBe(1);
+    rerender({ dep: 2 });
+    expect(result.current).toBe(2);
+  });
+
+  it("recomputes without looping when the caller builds fresh deps", () => {
+    let calls = 0;
+    const { result, rerender } = renderHook(() =>
+      useMemoCompare(() => (calls += 1), compareDeps, [{}]),
+    );
+    rerender();
+    rerender();
+    expect(result.current).toBe(3);
+  });
+});
+
+describe("useMemoDeepEqual", () => {
+  it("keeps the first value while each new one is deeply equal", () => {
+    const first = { a: [1, 2] };
+    const { result, rerender } = renderHook(({ value }) => useMemoDeepEqual(value), {
+      initialProps: { value: first },
+    });
+    rerender({ value: { a: [1, 2] } });
+    expect(result.current).toBe(first);
+  });
+
+  it("returns the new value without looping when it holds a fresh function", () => {
+    const { result, rerender } = renderHook(() => useMemoDeepEqual({ fn: () => 1 }));
+    const first = result.current;
+    rerender();
+    expect(result.current).not.toBe(first);
+    expect(result.current.fn()).toBe(1);
   });
 });

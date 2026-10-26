@@ -8,14 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  assert,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
 import { User } from "@/user";
 
 describe("User queries", () => {
@@ -182,8 +191,28 @@ describe("User queries", () => {
       });
 
       expect(result.current).not.toBeNull();
-      expect(result.current?.key).toEqual(client.auth?.user?.key);
-      expect(result.current?.username).toEqual(client.auth?.user?.username);
+      const { username } = TEST_CLIENT_PARAMS;
+      const signedIn = await client.users.retrieve({ username });
+      expect(result.current?.key).toEqual(signedIn.key);
+      expect(result.current?.username).toEqual(username);
+    });
+
+    it("should update the current user on a rename from another client", async () => {
+      const username = id.create();
+      const u = await client.users.create({ username, password: "test" });
+      const roles = await client.access.roles.retrieve({});
+      const viewer = roles.find((r) => r.name === "Viewer");
+      assert(viewer != null);
+      await client.access.roles.assign({ user: u.key, role: viewer.key });
+      const userClient = createTestClient({ username, password: "test" });
+      const { result } = renderHook(() => User.useResult({}), {
+        wrapper: createSynnaxWrapper({ client: userClient }),
+      });
+      // Changes made while the stream is still opening are lost, so open it first.
+      await userClient.connect();
+      await waitFor(() => expect(result.current.data?.key).toEqual(u.key));
+      await client.users.rename(u.key, "Abigail", "Adams");
+      await waitFor(() => expect(result.current.data?.firstName).toEqual("Abigail"));
     });
 
     it("should cache retrieved users", async () => {

@@ -77,7 +77,7 @@ public:
     /// exist.
     [[nodiscard]] x::errors::Error del(const std::string &key) const;
 
-    Client scope_to_range(const x::uuid::UUID range_key_) const {
+    [[nodiscard]] Client scope_to_range(const x::uuid::UUID range_key_) const {
         auto c = *this;
         c.range_key = range_key_;
         return c;

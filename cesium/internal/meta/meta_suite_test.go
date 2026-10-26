@@ -19,7 +19,7 @@ import (
 
 func TestMeta(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Meta Suite")
+	RunSpecs(t, "Meta Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

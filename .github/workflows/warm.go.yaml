@@ -7,8 +7,8 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Pull requests restore the Go caches that main saves. Nightly alone leaves them up to a
-# day behind, so each merge refreshes the Core's.
+# Core pull requests reuse the go test results and builds that main saves. Only this
+# workflow runs go test on main, so each merge refreshes them.
 name: Warm - Go
 
 on:
@@ -22,7 +22,9 @@ on:
       - cesium/**
       - core/**
       - freighter/go/**
+      - gorp/**
       - x/go/**
+      - .github/scripts/pin_mtimes.py
       - .github/workflows/test.go.yaml
       - .github/workflows/warm.go.yaml
   workflow_dispatch:
@@ -40,9 +42,9 @@ jobs:
     name: Core
     uses: ./.github/workflows/test.go.yaml
     with:
+      cached: true
       coverage_flag: core
       directory: core
-      warm: true
     secrets: inherit
 
   # Pull requests restore only the newest cache, so the older ones only evict others.

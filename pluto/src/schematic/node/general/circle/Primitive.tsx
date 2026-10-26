@@ -10,7 +10,7 @@
 import { type schematic } from "@synnaxlabs/client";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { color } from "@synnaxlabs/x";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -33,7 +33,7 @@ export const Circle = ({
   const diameter = radius * 2;
   const width = diameter + 2 * padding;
   const height = diameter + 2 * padding;
-  const dimensions = useMemo(() => ({ width, height }), [width, height]);
+  const dimensions = { width, height };
   return (
     <Primitive.Div className={CSS.cls(className, CSS.B("circle-shape"))}>
       <Handle.Boundary orientation="left" refreshDeps={radius}>

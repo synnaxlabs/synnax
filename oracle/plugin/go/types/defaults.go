@@ -93,7 +93,7 @@ func structDefaultFills(
 	val resolution.ExpressionValue,
 	data *templateData,
 ) []defaultFillData {
-	resolved, ok := structRef.Resolve(data.table)
+	resolved, _, ok := resolution.Dealias(structRef, data.table)
 	if !ok {
 		return nil
 	}
@@ -158,7 +158,7 @@ func unionLiteral(
 	data *templateData,
 	next *int,
 ) ([]string, string, bool) {
-	resolved, ok := typeRef.Resolve(data.table)
+	resolved, unionRef, ok := resolution.Dealias(typeRef, data.table)
 	if !ok {
 		return nil, "", false
 	}
@@ -178,7 +178,7 @@ func unionLiteral(
 		return nil, "", false
 	}
 	fields := resolution.UnifiedVariantFields(resolved, variant, data.table)
-	unionType := stripPointer(data.resolver.ResolveTypeRef(typeRef, data.ctx))
+	unionType := stripPointer(data.resolver.ResolveTypeRef(unionRef, data.ctx))
 	variable := fmt.Sprintf("v%d", *next)
 	*next++
 	setup := []string{
@@ -233,14 +233,14 @@ func literalAssignments(
 			lines = append(lines, setup...)
 			return append(lines, selector+".Variant = "+variable), true
 		}
-		resolved, ok := typeRef.Resolve(data.table)
+		resolved, structRef, ok := resolution.Dealias(typeRef, data.table)
 		if !ok {
 			return nil, false
 		}
 		fields := resolution.UnifiedFields(resolved, data.table)
 		if form, ok := resolved.Form.(resolution.StructForm); ok && form.IsGeneric() {
 			fields = lo.Map(fields, func(f resolution.Field, _ int) resolution.Field {
-				f.Type = bindTypeArgs(f.Type, form.TypeParams, typeRef.TypeArgs, data)
+				f.Type = bindTypeArgs(f.Type, form.TypeParams, structRef.TypeArgs, data)
 				return f
 			})
 		}
@@ -420,8 +420,7 @@ func goLiteral(
 		if !ok {
 			return "", false
 		}
-		enumType := stripPointer(data.resolver.ResolveTypeRef(typeRef, data.ctx))
-		return enumType + naming.ToPascalCase(ev.Variant.Name), true
+		return enumConstRef(typeRef, ev, data), true
 	}
 	return "", false
 }
@@ -484,11 +483,10 @@ func scalarFill(
 			// there is nothing to fill; a non-zeroth default is an invariant violation.
 			return defaultFillData{}, false
 		}
-		enumType := stripPointer(data.resolver.ResolveTypeRef(typeRef, data.ctx))
 		return defaultFillData{
 			GoName:  goName,
 			ZeroLit: `""`,
-			Expr:    enumType + naming.ToPascalCase(ev.Variant.Name),
+			Expr:    enumConstRef(typeRef, ev, data),
 		}, true
 	}
 	return defaultFillData{}, false
@@ -506,8 +504,22 @@ func emptyVariant(
 	if !ok {
 		return "", false
 	}
-	unionType := stripPointer(data.resolver.ResolveTypeRef(typeRef, data.ctx))
+	// The variant structs live with the union, not with an alias of it.
+	_, unionRef, _ := resolution.Dealias(typeRef, data.table)
+	unionType := stripPointer(data.resolver.ResolveTypeRef(unionRef, data.ctx))
 	return casing.QualifiedVariantTypeName(unionType, uv.Variant.Name, ".") + "{}", true
+}
+
+// enumConstRef renders the Go constant of the enum member ev that a value of type
+// typeRef defaults to. The constants live with the enum, not with an alias of it.
+func enumConstRef(
+	typeRef resolution.TypeRef,
+	ev validation.EnumVariant,
+	data *templateData,
+) string {
+	_, enumRef, _ := resolution.Dealias(typeRef, data.table)
+	enumType := stripPointer(data.resolver.ResolveTypeRef(enumRef, data.ctx))
+	return enumType + naming.ToPascalCase(ev.Variant.Name)
 }
 
 // constraintCheckData describes a single @validate constraint assertion emitted by a
@@ -599,7 +611,7 @@ func goEnumCheck(field resolution.Field, data *templateData) (enumCheckData, boo
 	if field.Optional {
 		return enumCheckData{}, false
 	}
-	resolved, ok := field.Type.Resolve(data.table)
+	resolved, _, ok := resolution.Dealias(field.Type, data.table)
 	if !ok {
 		return enumCheckData{}, false
 	}
