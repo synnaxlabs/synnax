@@ -199,11 +199,11 @@ export interface SpaceConfig<
   /** Foreign tables whose events affect this space's answers. */
   watch?: Watch<P, K>[];
   /**
-   * Marks a space whose answer addresses one record and cannot compose an
-   * empty membership: rule-2 eviction of the last member flips the query to
-   * deleted (when the entry tombstoned) or invalidates it, instead of
-   * composing []. Admitting a second member invalidates it too, so the server decides
-   * between the matches. Leave unset for spaces where [] is a valid answer.
+   * Marks a space whose answer addresses one record and cannot compose an empty
+   * membership: rule-2 eviction of the last member flips the query to deleted (when the
+   * entry tombstoned) or invalidates it, instead of composing []. Admitting a second
+   * member also invalidates it, so the next read asks the Core again. Leave unset for
+   * spaces where [] is a valid answer.
    */
   single?: boolean;
 }
@@ -848,10 +848,10 @@ export class Space<
 
   /**
    * Applies membership rechecks for the given keys against the table's current entries,
-   * without notifying. Admissions append in iteration order up to the query's limit;
-   * evicting a single space's last member flips the query to deleted or unfetched.
-   * Returns whether the answer changed: membership moved, or a member's content was
-   * touched.
+   * without notifying. Admissions append in iteration order up to the query's limit. In
+   * a single space, evicting the last member flips the query to deleted or unfetched,
+   * and admitting a second member flips it to unfetched. Returns whether the answer
+   * changed: membership moved, or a member's content was touched.
    */
   private applyRechecks(query: Query<P, K, D, V>, keys: Iterable<K>): boolean {
     if (query.state.variant === "loading") {
