@@ -80,7 +80,9 @@ var _ = Describe("storage", func() {
 							Expect(
 								storage.OpenLayer(ctx, cfg),
 							).Error().
-								To(MatchError(ContainSubstring("requires the storage directory to have at least")))
+								To(MatchError(ContainSubstring(
+									"requires the storage directory to have at least",
+								)))
 						},
 					)
 				})

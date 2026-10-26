@@ -249,7 +249,9 @@ var _ = Describe("OtelProvider", func() {
 				))
 				Expect(
 					prov.VerifyCertCoreCA(foreign),
-				).To(MatchError(ContainSubstring("certificate signed by unknown authority")))
+				).To(MatchError(ContainSubstring(
+					"certificate signed by unknown authority",
+				)))
 			})
 			It("Should verify a chain through a presented intermediate", func() {
 				fs := xfs.NewMem()
@@ -321,7 +323,9 @@ var _ = Describe("OtelProvider", func() {
 				))
 				Expect(
 					prov.VerifyCertTrustAnchors(foreign),
-				).To(MatchError(ContainSubstring("certificate signed by unknown authority")))
+				).To(MatchError(ContainSubstring(
+					"certificate signed by unknown authority",
+				)))
 			})
 			It("Should verify a chain through a presented intermediate", func() {
 				fs := xfs.NewMem()

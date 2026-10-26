@@ -1051,7 +1051,9 @@ var _ = Describe("Graph", func() {
 				err := g.Update(ctx, calc1)
 				Expect(
 					err,
-				).To(MatchError(ContainSubstring("failed to recompile dependent channel")))
+				).To(MatchError(ContainSubstring(
+					"failed to recompile dependent channel",
+				)))
 			},
 		)
 		It(
@@ -1100,7 +1102,9 @@ var _ = Describe("Graph", func() {
 				err := g.Update(ctx, left)
 				Expect(
 					err,
-				).To(MatchError(ContainSubstring("failed to recompile dependent channel")))
+				).To(MatchError(ContainSubstring(
+					"failed to recompile dependent channel",
+				)))
 
 				// right should still be in the graph unchanged
 				Expect(g.CalculatedKeys().Contains(right.Key())).To(BeTrue())
@@ -1202,7 +1206,9 @@ var _ = Describe("Graph", func() {
 				err := g.Update(ctx, calc1)
 				Expect(
 					err,
-				).To(MatchError(ContainSubstring("failed to recompile dependent channel")))
+				).To(MatchError(ContainSubstring(
+					"failed to recompile dependent channel",
+				)))
 
 				// calc2's module should be rolled back to its original state
 				// since the cascade failed partway through.

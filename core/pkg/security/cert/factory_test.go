@@ -48,7 +48,9 @@ var _ = Describe("Factory", func() {
 			Expect(f.CreateCAPair()).To(Succeed())
 			Expect(
 				f.CreateCAPair(),
-			).To(MatchError(ContainSubstring("already exists, but reuse is not allowed")))
+			).To(MatchError(ContainSubstring(
+				"already exists, but reuse is not allowed",
+			)))
 		})
 		It("Should reuse the CA and key if they already exist", func() {
 			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{

@@ -147,7 +147,10 @@ var _ = Describe("Group", Ordered, func() {
 			err := w.Delete(ctx, parent.Key)
 			Expect(
 				err,
-			).To(SatisfyAll(MatchError(validate.ErrValidation), MatchError(ContainSubstring("cannot delete a group with children"))))
+			).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("cannot delete a group with children")),
+			))
 			Expect(errors.Is(err, validate.ErrValidation)).To(BeTrue())
 		})
 
