@@ -658,12 +658,20 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
       draw(pos.x, pos.y);
       return;
     }
-    this.wrapped.save();
-    this.wrapped.translate(pos.x, pos.y);
+    const { wrapped: w } = this;
+    w.save();
+    w.translate(pos.x, pos.y);
     // An inverted scale flips positions, but text never draws mirrored.
-    this.wrapped.scale(Math.abs(mag.x), Math.abs(mag.y));
+    const glyphScale = xy.construct(Math.abs(mag.x), Math.abs(mag.y));
+    w.scale(glyphScale.x, glyphScale.y);
+    if (mode === "stroke") {
+      // The stroke settings hold the x scale already, so undo it under the transform.
+      w.lineWidth /= glyphScale.x;
+      w.setLineDash(w.getLineDash().map((segment) => segment / glyphScale.x));
+      w.lineDashOffset /= glyphScale.x;
+    }
     draw(0, 0);
-    this.wrapped.restore();
+    w.restore();
   }
 
   measureText(text: string): TextMetrics {
