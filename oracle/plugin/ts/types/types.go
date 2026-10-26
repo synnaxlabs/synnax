@@ -2230,7 +2230,13 @@ func (p *Plugin) typeRefToTSInternal(
 			typeName = fmt.Sprintf(
 				"%s<%s>",
 				typeName,
-				p.genericArgs(form.TypeParams, typeRef.TypeArgs, table, data, needsTypeImports),
+				p.genericArgs(
+					form.TypeParams,
+					typeRef.TypeArgs,
+					table,
+					data,
+					needsTypeImports,
+				),
 			)
 		}
 		if resolved.Namespace != data.Namespace {
@@ -2263,7 +2269,13 @@ func (p *Plugin) typeRefToTSInternal(
 			typeName = fmt.Sprintf(
 				"%s<%s>",
 				typeName,
-				p.genericArgs(form.TypeParams, typeRef.TypeArgs, table, data, needsTypeImports),
+				p.genericArgs(
+					form.TypeParams,
+					typeRef.TypeArgs,
+					table,
+					data,
+					needsTypeImports,
+				),
 			)
 		}
 		if resolved.Namespace != data.Namespace {
@@ -2296,7 +2308,13 @@ func (p *Plugin) genericArgs(
 	for i := range args {
 		if i < len(params) && params[i].Constraint != nil &&
 			params[i].Constraint.Name == "numeric" {
-			out[i] = p.typeRefToTSInternal(&args[i], table, data, true, needsTypeImports)
+			out[i] = p.typeRefToTSInternal(
+				&args[i],
+				table,
+				data,
+				true,
+				needsTypeImports,
+			)
 			continue
 		}
 		out[i] = p.typeRefToZodSchemaType(&args[i], table, data)

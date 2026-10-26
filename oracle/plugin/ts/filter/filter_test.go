@@ -24,6 +24,8 @@ func TestTSFilter(t *testing.T) {
 	RunSpecs(t, "Plugin TS Filter Suite", SuiteConfig())
 }
 
+var _ = ShouldNotLeakGoroutinesPerSpec()
+
 var _ = Describe("TS Filter Plugin", func() {
 	var (
 		loader *MockFileLoader
