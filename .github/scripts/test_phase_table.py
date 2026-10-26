@@ -38,6 +38,11 @@ class TestParse:
             Phase(3, "Remove the old reader", ["core/pkg/old"], [1, 2]),
         ]
 
+    def test_should_keep_escaped_pipes_in_a_cell(self) -> None:
+        """Should read an escaped pipe as text and drop its escape."""
+        rfc = table(r"| 1 | Add `a \| b` support | `core` | - |")
+        assert parse(rfc)[0].scope == "Add `a | b` support"
+
     def test_should_stop_at_the_first_line_after_the_table(self) -> None:
         """Should ignore a later table with a different header."""
         rfc = table("| 1 | Add the codec | `core` | - |") + "| a | b |\n"
@@ -49,6 +54,12 @@ class TestParse:
             ("# 1 Title\n", "want one phase table, found 0"),
             (HEADER + HEADER, "want one phase table, found 2"),
             (table(), "the phase table has no rows"),
+            (
+                HEADER.replace("| ----- |", "text |", 1)
+                + "| 1 | Add the codec | `core` | - |\n",
+                "no separator row",
+            ),
+            (HEADER.split("| -----")[0], "no separator row"),
             (table("| 2 | Add the codec | `core` | - |"), "phase is '2'"),
             (table("| 1 | Add the codec | `core` |"), "want 4 cells, got 3"),
             (table("| 1 |  | `core` | - |"), "scope is empty"),

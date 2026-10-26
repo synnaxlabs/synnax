@@ -24,6 +24,8 @@ from pathlib import Path
 HEADER = ("Phase", "Scope", "Touches", "Depends on")
 MAX_SCOPE_LENGTH = 60
 _PATH = re.compile(r"`([^`]+)`")
+_CELL_SPLIT = re.compile(r"(?<!\\)\|")
+_SEPARATOR = re.compile(r":?-+:?")
 
 
 @dataclass(frozen=True)
@@ -35,7 +37,8 @@ class Phase:
 
 
 def _cells(line: str) -> list[str]:
-    return [c.strip() for c in line.strip().strip("|").split("|")]
+    inner = line.strip().removeprefix("|").removesuffix("|")
+    return [c.strip().replace(r"\|", "|") for c in _CELL_SPLIT.split(inner)]
 
 
 def _parse_row(cells: list[str], expected: int) -> tuple[Phase | None, list[str]]:
@@ -75,6 +78,10 @@ def parse(markdown: str) -> list[Phase]:
     starts = [i for i, line in enumerate(lines) if tuple(_cells(line)) == HEADER]
     if len(starts) != 1:
         raise ValueError(f"want one phase table, found {len(starts)}")
+    separator = lines[starts[0] + 1] if starts[0] + 1 < len(lines) else ""
+    cells = _cells(separator)
+    if len(cells) != len(HEADER) or not all(_SEPARATOR.fullmatch(c) for c in cells):
+        raise ValueError("the phase table header has no separator row")
     rows: list[list[str]] = []
     for line in lines[starts[0] + 2 :]:
         if not line.strip().startswith("|"):
