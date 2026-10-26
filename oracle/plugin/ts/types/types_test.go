@@ -93,8 +93,8 @@ var _ = Describe("TS Types Plugin", func() {
 				ToContain(
 					"offset: z.uint32().default(0),",
 					"import { filter, optional, zod } from \"@synnaxlabs/x\";",
-					"export interface RetrieveRequest\n  extends optional.Optional<\n"+
-						"    z.infer<typeof retrieveRequestZ>,\n",
+					"export type RetrieveRequest = optional.Optional<\n"+
+						"  z.infer<typeof retrieveRequestZ>,\n",
 					"export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}",
 				)
 		})
