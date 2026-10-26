@@ -10,5 +10,4 @@
 
 ## Review tier
 
-<!-- Add one label: review/thorough, review/light, or review/bot. CONTRIBUTING.md
-explains which one. -->
+<!-- Add one label: review/human or review/bot. CONTRIBUTING.md explains which one. -->
