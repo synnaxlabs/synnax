@@ -138,13 +138,15 @@ export class StreamMultiChannelLog
     const subscription = client.feed.subscribe(this.request());
     this.subscription = subscription;
     this.status = telem.LOADING_STATUS;
-    subscription.onChange(() => this.pull(subscription));
+    subscription.onChange(() => {
+      if (this.pull(subscription)) this.notify();
+    });
   }
 
-  // Appends the samples each channel received since the last pull. A channel's entries
-  // wait while it loads, so its history lands in one pull before its live samples and
-  // takes the time it loaded.
-  private pull(subscription: framer.Subscription): void {
+  // Appends the samples each channel received since the last pull, and returns whether
+  // the entries changed. A channel's entries wait while it loads, so its history lands
+  // in one pull before its live samples and takes the time it loaded.
+  private pull(subscription: framer.Subscription): boolean {
     const now = this.now();
     let pushed = 0;
     let worst = telem.SUCCESS_STATUS;
@@ -157,7 +159,7 @@ export class StreamMultiChannelLog
     this.status = worst;
     this.failures.observe(worst);
     this._evictedCount = this.gcEntries();
-    if (pushed > 0 || this._evictedCount > 0) this.notify();
+    return pushed > 0 || this._evictedCount > 0;
   }
 
   // Appends the samples after the key's cursor. Series only leave the front of a loaded

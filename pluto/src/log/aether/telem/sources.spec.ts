@@ -394,6 +394,22 @@ describe("StreamMultiChannelLog", () => {
       expect(evicted.reduce((sum, n) => sum + n, 0)).toBe(HISTORY);
     });
 
+    it("should report the entries a channel change evicts once", async () => {
+      const core = createCore();
+      const [a, b] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), {
+        channels: [a],
+        keepFor: TimeSpan.seconds(2),
+      });
+      await settle(log, HISTORY);
+      core.advance(TimeSpan.seconds(1));
+      await settle(log, HISTORY + 10);
+      const evicted = recordEvictions(log);
+      core.advance(TimeSpan.seconds(2), false);
+      log.setChannels([a, b]);
+      expect(evicted).toEqual([HISTORY]);
+    });
+
     it("should evict past maxEntries, never leaving a continuation first", async () => {
       const core = createCore({ text: () => "a\nb\nc" });
       const [a] = core.data.map((c) => c.key);
