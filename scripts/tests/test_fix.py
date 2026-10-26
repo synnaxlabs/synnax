@@ -67,12 +67,14 @@ def repo(tmp_path: Path) -> Repo:
 
 
 class TestFix:
-    def test_adds_headers_to_untracked_files(self, repo: Repo) -> None:
+    """Runs fix.sh in each of its modes."""
+
+    def test_should_add_headers_to_untracked_files(self, repo: Repo) -> None:
         repo.write("a.sh", "echo a\n")
         assert repo.fix().returncode == 0
         assert repo.header("a.sh")
 
-    def test_stages_fixes_to_staged_files(self, repo: Repo) -> None:
+    def test_should_stage_fixes_to_staged_files(self, repo: Repo) -> None:
         repo.write("a.sh", "echo a\n")
         repo.git("add", "a.sh")
         result = repo.fix("--staged")
@@ -81,7 +83,7 @@ class TestFix:
         assert "Copyright" in repo.git("show", ":a.sh")
         assert repo.git("diff", "--name-only") == ""
 
-    def test_fixes_staged_copy_of_partially_staged_files(self, repo: Repo) -> None:
+    def test_should_fix_staged_copy_of_partially_staged_files(self, repo: Repo) -> None:
         repo.write("a.sh", "echo a\n")
         repo.git("add", "a.sh")
         repo.write("a.sh", "echo a\necho b\n")
@@ -91,7 +93,7 @@ class TestFix:
         assert "echo b" not in staged
         assert repo.git("diff", "-U0", "a.sh").splitlines()[-1] == "+echo b"
 
-    def test_handles_quoted_file_names(self, repo: Repo) -> None:
+    def test_should_handle_quoted_file_names(self, repo: Repo) -> None:
         repo.write("é.sh", "echo a\n")
         repo.git("add", "é.sh")
         repo.write("é.sh", "echo a\necho b\n")
@@ -100,7 +102,9 @@ class TestFix:
         assert "Copyright" in staged
         assert "echo b" not in staged
 
-    def test_fixes_staged_copy_when_working_copy_is_fixed(self, repo: Repo) -> None:
+    def test_should_fix_staged_copy_when_working_copy_is_fixed(
+        self, repo: Repo
+    ) -> None:
         repo.write("a.sh", "echo a\n")
         repo.git("add", "a.sh")
         repo.fix("a.sh")
@@ -108,7 +112,7 @@ class TestFix:
         assert "Copyright" in repo.git("show", ":a.sh")
         assert repo.git("diff", "--name-only") == ""
 
-    def test_keeps_the_working_copy_when_a_fixer_fails(self, repo: Repo) -> None:
+    def test_should_keep_the_working_copy_when_a_fixer_fails(self, repo: Repo) -> None:
         (repo.path / "scripts/update_copyrights.sh").write_text("exit 1\n")
         repo.write("a.sh", "echo a\n")
         repo.git("add", "a.sh")
@@ -116,13 +120,13 @@ class TestFix:
         assert repo.fix("--staged").returncode == 1
         assert (repo.path / "a.sh").read_text() == "echo a\necho b\n"
 
-    def test_resolves_paths_from_the_caller(self, repo: Repo) -> None:
+    def test_should_resolve_paths_from_the_caller(self, repo: Repo) -> None:
         (repo.path / "sub").mkdir()
         repo.write("sub/a.sh", "echo a\n")
         assert repo.fix("a.sh", cwd=repo.path / "sub").returncode == 0
         assert repo.header("sub/a.sh")
 
-    def test_ignores_unstaged_files(self, repo: Repo) -> None:
+    def test_should_ignore_unstaged_files(self, repo: Repo) -> None:
         repo.write("a.sh", "echo a\n")
         assert repo.fix("--staged").returncode == 0
         assert not repo.header("a.sh")
