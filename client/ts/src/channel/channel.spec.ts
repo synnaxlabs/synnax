@@ -288,6 +288,19 @@ describe("Channel", () => {
       const res = await client.channels.retrieve([`${prefix}_.*`]);
       expect(res.map((ch) => ch.key).sort()).toEqual([a.key, b.key].sort());
     });
+    test("retrieve by a literal name and a name pattern", async () => {
+      const prefix = `qry_${id.create()}`;
+      const [literal, a, b] = await client.channels.create([
+        { name: `${prefix}_literal`, virtual: true, dataType: DataType.FLOAT32 },
+        { name: `${prefix}_p_a`, virtual: true, dataType: DataType.FLOAT32 },
+        { name: `${prefix}_p_b`, virtual: true, dataType: DataType.FLOAT32 },
+        { name: `${prefix}_other`, virtual: true, dataType: DataType.FLOAT32 },
+      ]);
+      const res = await client.channels.retrieve([literal.name, `${prefix}_p_.*`]);
+      expect(res.map((ch) => ch.key).sort()).toEqual(
+        [literal.key, a.key, b.key].sort(),
+      );
+    });
     test("retrieve virtual channels without calculated channels", async () => {
       const prefix = `qry_${id.create()}`;
       const virtual = await client.channels.create({

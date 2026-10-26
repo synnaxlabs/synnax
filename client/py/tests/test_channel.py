@@ -305,6 +305,20 @@ class TestChannel:
         res_channels = client.channels.retrieve([f"^{prefix}.*"])
         assert len(res_channels) >= 2
 
+    def test_retrieve_by_name_and_regex(self, client: sy.Synnax) -> None:
+        """Should retrieve the channels that a literal name or a regex selects"""
+        prefix = channel_name()
+        literal, a, b, _ = client.channels.create(
+            [
+                sy.Channel(name=f"{prefix}_literal", virtual=True, data_type="float32"),
+                sy.Channel(name=f"{prefix}_p_a", virtual=True, data_type="float32"),
+                sy.Channel(name=f"{prefix}_p_b", virtual=True, data_type="float32"),
+                sy.Channel(name=f"{prefix}_other", virtual=True, data_type="float32"),
+            ]
+        )
+        res = client.channels.retrieve([literal.name, f"{prefix}_p_.*"])
+        assert sorted(ch.key for ch in res) == sorted([literal.key, a.key, b.key])
+
     def test_retrieve_where(self, client: sy.Synnax) -> None:
         """Should retrieve the channels that a where selects"""
         prefix = channel_name()
