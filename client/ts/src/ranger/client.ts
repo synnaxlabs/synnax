@@ -38,6 +38,7 @@ import {
   ontologyID,
   type Payload,
   payloadZ,
+  type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/ranger/types.gen";
@@ -252,7 +253,10 @@ const retrieveMultipleParamsZ = retrieveRequestZ.omit({
   includeLabels: true,
   includeParent: true,
 });
-export type RetrieveMultipleParams = z.infer<typeof retrieveMultipleParamsZ>;
+export type RetrieveMultipleParams = Omit<
+  RetrieveRequest,
+  "includeLabels" | "includeParent"
+>;
 
 /**
  * Canonicalizes every retrieve shape addressing more than one range. The time range arm
