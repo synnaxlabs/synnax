@@ -73,7 +73,7 @@ func (f Finding) String() string {
 // Check skips generated files, test files, main packages, versions/vN packages, and
 // methods of unexported types. It returns validate.ErrValidation when cfg has no
 // modules or no GOOS values, and an error when a package fails to load.
-func Check(ctx context.Context, cfg Config) (_ []Finding, err error) {
+func Check(ctx context.Context, cfg Config) (findings []Finding, err error) {
 	if len(cfg.Modules) == 0 {
 		return nil, errors.Wrap(
 			validate.ErrValidation,
@@ -92,6 +92,7 @@ func Check(ctx context.Context, cfg Config) (_ []Finding, err error) {
 	}
 	defer func() {
 		if rmErr := os.RemoveAll(filepath.Dir(work)); rmErr != nil && err == nil {
+			findings = nil
 			err = errors.Wrap(rmErr, "exports: remove workspace directory")
 		}
 	}()
@@ -118,7 +119,7 @@ func Check(ctx context.Context, cfg Config) (_ []Finding, err error) {
 			}
 		}
 	}
-	findings := make([]Finding, 0, len(merged))
+	findings = make([]Finding, 0, len(merged))
 	for k, f := range merged {
 		if !kept.Contains(k) {
 			f.TestsOnly = f.TestsOnly && !internal.Contains(k)
@@ -269,7 +270,7 @@ func declare(p *packages.Package, generated set.Set[string], syms map[string]*sy
 				}
 			case *ast.GenDecl:
 				group := ""
-				if d.Tok == token.CONST && len(d.Specs) > 1 {
+				if d.Tok == token.CONST && d.Lparen.IsValid() {
 					group = fmt.Sprintf("%s:%d", file, p.Fset.Position(d.Pos()).Line)
 				}
 				for _, spec := range d.Specs {

@@ -23,12 +23,15 @@ type interfaces struct {
 	// generic holds the interfaces of generic types. A method satisfies one when its
 	// type has every method of the interface with the same arity.
 	generic map[string][]*types.Interface
+	// embedders holds, for each named type, the named struct types that embed it.
+	embedders map[*types.TypeName][]*types.Named
 }
 
 func collectInterfaces(pkgs []*packages.Package) interfaces {
 	ifaces := interfaces{
-		plain:   map[string][]*types.Interface{},
-		generic: map[string][]*types.Interface{},
+		plain:     map[string][]*types.Interface{},
+		generic:   map[string][]*types.Interface{},
+		embedders: map[*types.TypeName][]*types.Named{},
 	}
 	index := func(byName map[string][]*types.Interface, it *types.Interface) {
 		for m := range it.Methods() {
@@ -64,6 +67,7 @@ func collectInterfaces(pkgs []*packages.Package) interfaces {
 	}
 	for _, p := range pkgs {
 		walk(p.Types)
+		ifaces.indexEmbedders(p.Types)
 		for _, tv := range p.TypesInfo.Types {
 			if tv.Type == nil {
 				continue
@@ -86,17 +90,40 @@ func (ifaces interfaces) satisfied(m *types.Func) bool {
 	if !ok {
 		return false
 	}
-	if named.TypeParams().Len() > 0 {
-		return len(ifaces.plain[m.Name()])+len(ifaces.generic[m.Name()]) > 0
+	pending := []*types.Named{named.Origin()}
+	seen := set.Set[*types.TypeName]{}
+	for len(pending) > 0 {
+		t := pending[len(pending)-1]
+		pending = pending[:len(pending)-1]
+		if seen.Contains(t.Obj()) {
+			continue
+		}
+		seen.Add(t.Obj())
+		if ifaces.satisfiedBy(t, m) {
+			return true
+		}
+		pending = append(pending, ifaces.embedders[t.Obj()]...)
+	}
+	return false
+}
+
+// satisfiedBy reports whether t, through a method set that selects m, satisfies an
+// interface that has a method named like m.
+func (ifaces interfaces) satisfiedBy(t *types.Named, m *types.Func) bool {
+	ptr := types.NewPointer(t)
+	sel := types.NewMethodSet(ptr).Lookup(m.Pkg(), m.Name())
+	if sel == nil || sel.Obj().(*types.Func).Origin() != m {
+		return false
 	}
 	for _, it := range ifaces.generic[m.Name()] {
-		if coversByArity(named, it) {
+		if coversByArity(t, it) {
 			return true
 		}
 	}
-	ptr := types.NewPointer(named)
+	generic := t.TypeParams().Len() > 0
 	for _, it := range ifaces.plain[m.Name()] {
-		if types.Implements(named, it) || types.Implements(ptr, it) {
+		if generic && coversByArity(t, it) ||
+			!generic && (types.Implements(t, it) || types.Implements(ptr, it)) {
 			return true
 		}
 	}
@@ -173,5 +200,31 @@ func reach(t types.Type, seen set.Set[types.Type], f func(*types.TypeName)) {
 		}
 	case *types.TypeParam:
 		reach(t.Constraint(), seen, f)
+	}
+}
+
+func (ifaces interfaces) indexEmbedders(tp *types.Package) {
+	for _, name := range tp.Scope().Names() {
+		outer, ok := tp.Scope().Lookup(name).Type().(*types.Named)
+		if !ok {
+			continue
+		}
+		st, ok := outer.Underlying().(*types.Struct)
+		if !ok {
+			continue
+		}
+		for field := range st.Fields() {
+			if !field.Embedded() {
+				continue
+			}
+			t := field.Type()
+			if ptr, ok := t.(*types.Pointer); ok {
+				t = ptr.Elem()
+			}
+			if inner, ok := types.Unalias(t).(*types.Named); ok {
+				key := inner.Origin().Obj()
+				ifaces.embedders[key] = append(ifaces.embedders[key], outer)
+			}
+		}
 	}
 }

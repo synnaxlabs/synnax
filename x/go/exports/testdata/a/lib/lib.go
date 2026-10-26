@@ -56,6 +56,27 @@ func (hidden) Exported() {}
 
 func CalledByGenerated() {}
 
+type DoExtra interface {
+	Do()
+	Extra()
+}
+
+type Inner struct{}
+
+func (Inner) Do() {}
+
+type Outer struct{ Inner }
+
+func (Outer) Extra() {}
+
+type Box[T any] struct{}
+
+func (Box[T]) Read() {}
+
+const (
+	Big, Small = 1, 2
+)
+
 type Imports struct{}
 
 func (Imports) Has() bool { return true }

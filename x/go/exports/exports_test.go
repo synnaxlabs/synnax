@@ -57,6 +57,8 @@ var _ = Describe("Check", func() {
 				{File: "lib.go", Kind: "var", Name: "Dead"},
 				{File: "lib.go", Kind: "method", Name: "Side"},
 				{File: "lib.go", Kind: "type", Name: "Handler"},
+				{File: "lib.go", Kind: "type", Name: "Box"},
+				{File: "lib.go", Kind: "method", Name: "Read"},
 				{File: "windows.go", Kind: "func", Name: "WindowsOnly"},
 				{File: "user.go", Kind: "func", Name: "Run"},
 			}))

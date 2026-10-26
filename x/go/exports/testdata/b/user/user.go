@@ -12,6 +12,8 @@ package user
 import "example.com/a/lib"
 
 func Run() (lib.Shape, lib.Op, lib.Color) {
+	var _ lib.DoExtra = lib.Outer{}
+	_ = lib.Big
 	lib.Used()
 	lib.Open(lib.Config{})
 	return lib.Square{}, lib.Op{}, lib.Red
