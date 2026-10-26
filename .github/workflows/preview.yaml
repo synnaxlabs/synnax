@@ -43,9 +43,7 @@ jobs:
       contents: read
       pull-requests: read
     outputs:
-      changed:
-        ${{ steps.filter.outputs.core_build == 'true' ||
-        steps.filter.outputs.console_build == 'true' }}
+      changed: ${{ steps.filter.outputs.preview }}
     steps:
       - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
