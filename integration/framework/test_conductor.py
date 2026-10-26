@@ -35,7 +35,7 @@ from framework.test_case import TestCase
 from x import validate_and_sanitize_name
 
 
-class STATE(Enum):
+class _STATE(Enum):
     """Test conductor execution states."""
 
     INITIALIZING = auto()
@@ -47,7 +47,7 @@ class STATE(Enum):
     COMPLETED = auto()
 
 
-class TestConductor:
+class _TestConductor:
     """Manages execution of test sequences with timeout monitoring and result collection."""
 
     def __init__(
@@ -107,7 +107,7 @@ class TestConductor:
 
         self.config_client = ConfigClient(log=self.log)
 
-        self.state = STATE.INITIALIZING
+        self.state = _STATE.INITIALIZING
         self.test_definitions: list[TestDefinition] = []
         self.sequences: list[Sequence] = []
         self.should_stop = False
@@ -164,7 +164,7 @@ class TestConductor:
 
     def load(self, target_filter: TargetFilter) -> None:
         """Load test sequences using the config client."""
-        self.state = STATE.LOADING
+        self.state = _STATE.LOADING
         sequences, new_defs = self.config_client.load(target_filter)
         self.sequences = sequences
         self.test_definitions.clear()
@@ -176,7 +176,7 @@ class TestConductor:
         if not self.test_definitions:
             raise ValueError("No test sequence loaded. Call load() first.")
 
-        self.state = STATE.RUNNING
+        self.state = _STATE.RUNNING
         self.tests.clear()
         self.execution_client.run(self.sequences)
         self._print_summary()
@@ -184,7 +184,7 @@ class TestConductor:
 
     def wait_for_completion(self) -> None:
         """Wait for all async processes to complete."""
-        self.state = STATE.COMPLETED
+        self.state = _STATE.COMPLETED
         self.execution_client.should_stop = True
         self.should_stop = True
 
@@ -194,7 +194,7 @@ class TestConductor:
     def shutdown(self) -> None:
         """Gracefully shutdown the test conductor and all its processes."""
         self.log("\nShut down initiated...")
-        self.state = STATE.SHUTDOWN
+        self.state = _STATE.SHUTDOWN
         self.should_stop = True
 
         self.execution_client.stop()
@@ -370,7 +370,7 @@ in the repo) for the full command cheatsheet, common gotchas, and triage heurist
 """
 
 
-def monitor_test_execution(conductor: TestConductor) -> None:
+def _monitor_test_execution(conductor: _TestConductor) -> None:
     """Monitor test execution and provide status updates."""
     while conductor.is_running:
         status = conductor.get_current_status()
@@ -407,13 +407,11 @@ def main() -> None:
 -f flag — case filter (global or combined with a target):
   uv run tc -f modbus               all *_tests.json, cases matching "modbus"
   uv run tc -f channel              all *_tests.json, cases matching "channel"
-  uv run tc migration -f setup      migration_tests.json, cases matching "setup"
   uv run tc driver -f modbus        driver_tests.json, cases matching "modbus"
 
   -f matches against both the case path and the class name, so
   you can filter into individual test classes within a file:
   uv run tc driver/ni -f Scaled     only NIAnalogReadScaled from ni_read.py
-  uv run tc migration -f verify     only Verify classes across migration tests
 
 ... wildcard — means "no filter" at that position:
   uv run tc console/...             same as just "console"
@@ -494,7 +492,7 @@ All matching is case-insensitive substring.
     )
 
     # Create and run test conductor
-    conductor = TestConductor(
+    conductor = _TestConductor(
         name=args.name,
         synnax_connection=connection,
     )
