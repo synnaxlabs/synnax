@@ -18,6 +18,8 @@ from common import Channels, channel_name, warn
 from publisher import Publisher
 
 SOURCE = "events"
+# Bounds what a long Core outage holds in memory.
+MAX_PENDING = 1000
 
 
 class Events:
@@ -36,6 +38,7 @@ class Events:
         self.channels = channels
         self.start = sy.TimeStamp.now()
         self.last: dict[str, sy.TimeStamp] = {}
+        self.pending: dict[str, list[str]] = {}
         self.publisher = Publisher(client, f"runner_{SOURCE}", [], report=report)
         self.retarget(runners)
 
@@ -49,24 +52,32 @@ class Events:
             name = channel_name(SOURCE, r)
             self.channels.data(index, {name: sy.DataType.STRING})
             names += [index_name, name]
+        self.pending = {r: t for r, t in self.pending.items() if r in runners}
         self.publisher.retarget(names)
 
     def write(self, lines: dict[str, list[str]]) -> None:
+        """Writes lines after any that failed to write before. Lines past
+        MAX_PENDING per runner drop, oldest first."""
+        for runner, texts in lines.items():
+            pending = self.pending.setdefault(runner, []) + texts
+            self.pending[runner] = pending[-MAX_PENDING:]
         now = sy.TimeStamp.now()
         frame: dict[str, list] = {}
-        for runner, texts in lines.items():
+        last: dict[str, sy.TimeStamp] = {}
+        for runner, texts in self.pending.items():
             if not texts:
                 continue
-            last = self.last.get(runner, self.start)
+            stamp = self.last.get(runner, self.start)
             stamps = []
             for _ in texts:
-                last = max(now, last + 1)
-                stamps.append(last)
-            self.last[runner] = last
+                stamp = max(now, stamp + 1)
+                stamps.append(stamp)
+            last[runner] = stamp
             frame[channel_name(SOURCE, runner)] = texts
             frame[channel_name(f"{SOURCE}_time", runner)] = stamps
-        if frame:
-            self.publisher.write(frame)
+        if frame and self.publisher.write(frame):
+            self.last.update(last)
+            self.pending.clear()
 
     def close(self) -> None:
         self.publisher.close()
