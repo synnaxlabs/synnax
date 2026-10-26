@@ -17,6 +17,7 @@ classifiers = ["Private :: Do Not Upload"]
 [dependency-groups]
 dev = [
     "boto3-stubs[s3]>=1.43.114,<2",
+    "griffe>=2,<3",
     "mypy>=2.4.0,<3",
     "pytest>=9.1.1,<10",
     "ruff>=0.17.1,<1",
