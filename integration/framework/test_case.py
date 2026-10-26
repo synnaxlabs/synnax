@@ -18,6 +18,7 @@ import traceback
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Any, Literal, NoReturn, overload
 
 import synnax as sy
@@ -83,10 +84,12 @@ class TestCase(ABC):
         synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         *,
         name: str,
+        results_dir: Path,
         **params: Any,
     ) -> None:
         """Initialize test case with Synnax server connection."""
         self.synnax_connection = synnax_connection
+        self.results_dir = results_dir
         self.params = params
         self.start_time: sy.TimeStamp = sy.TimeStamp.now()
         self._manual_timeout: sy.CrudeTimeSpan | None = self.DEFAULT_MANUAL_TIMEOUT
