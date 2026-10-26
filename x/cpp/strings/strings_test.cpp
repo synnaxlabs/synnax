@@ -216,10 +216,14 @@ TEST(FormatFloat, RoundTrip) {
         const std::string t64 = x::strings::format_float(v64);
         double p64 = 0;
         std::from_chars(t64.data(), t64.data() + t64.size(), p64);
-        if (!std::isinf(v64)) ASSERT_EQ(std::memcmp(&p64, &v64, sizeof(v64)), 0) << t64;
+        if (!std::isinf(v64)) {
+            ASSERT_EQ(std::memcmp(&p64, &v64, sizeof(v64)), 0) << t64;
+        }
         const std::string t32 = x::strings::format_float(v32);
         float p32 = 0;
         std::from_chars(t32.data(), t32.data() + t32.size(), p32);
-        if (!std::isinf(v32)) ASSERT_EQ(std::memcmp(&p32, &v32, sizeof(v32)), 0) << t32;
+        if (!std::isinf(v32)) {
+            ASSERT_EQ(std::memcmp(&p32, &v32, sizeof(v32)), 0) << t32;
+        }
     }
 }
