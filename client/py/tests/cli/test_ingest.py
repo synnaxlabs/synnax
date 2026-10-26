@@ -7,11 +7,17 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from pathlib import Path
+
 import pytest
 
+import synnax as sy
 from synnax.cli.console import MockConsole
 from synnax.cli.flow import Context
 from synnax.cli.ingest import pure_ingest
+from synnax.ingest.row import RowIngestionEngine
+from synnax.io import FACTORY
+from synnax.io.csv import CSVReader
 from synnax.synnax import Synnax
 from x.strings import random_name
 
@@ -44,3 +50,56 @@ class TestIngest:
             client.channels.delete(
                 ["ingest_valid_idx", "ingest_valid_1", "ingest_valid_2"]
             )
+
+
+@pytest.mark.cli
+class TestRowIngestionEngine:
+    def test_ingest_with_index(
+        self,
+        client: Synnax,
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+        tmp_path: Path,
+    ) -> None:
+        """Should write a file that holds its index without the start it was given"""
+        idx, data = indexed_pair
+        client.write(1 * sy.TimeSpan.SECOND, {idx.key: [1 * sy.TimeSpan.SECOND]})
+        path = tmp_path / "with_index.csv"
+        path.write_text(f"{idx.name},{data.name}\n10000000000,1.5\n11000000000,2.5\n")
+        RowIngestionEngine(
+            client,
+            FACTORY.new_reader(path),
+            [idx, data],
+            sy.TimeStamp(1 * sy.TimeSpan.SECOND),
+        ).run()
+        frame = client.read(sy.TimeRange.MAX, [idx.key, data.key])
+        assert list(frame[idx.key]) == [
+            1 * sy.TimeSpan.SECOND,
+            10 * sy.TimeSpan.SECOND,
+            11 * sy.TimeSpan.SECOND,
+        ]
+        assert list(frame[data.key]) == [1.5, 2.5]
+
+    def test_ingest_without_index(
+        self,
+        client: Synnax,
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+        tmp_path: Path,
+    ) -> None:
+        """Should align a file without its index to an index written before it"""
+        idx, data = indexed_pair
+        client.write(
+            5 * sy.TimeSpan.SECOND,
+            {idx.key: [5 * sy.TimeSpan.SECOND, 6 * sy.TimeSpan.SECOND]},
+        )
+        path = tmp_path / "without_index.csv"
+        path.write_text(f"{idx.name},{data.name}\n0,1.5\n0,2.5\n")
+        RowIngestionEngine(
+            client,
+            CSVReader(path, keys=[data.name]),
+            [data],
+            sy.TimeStamp(5 * sy.TimeSpan.SECOND),
+        ).run()
+        frame = client.read(
+            sy.TimeRange(5 * sy.TimeSpan.SECOND, 7 * sy.TimeSpan.SECOND), data.key
+        )
+        assert list(frame) == [1.5, 2.5]
