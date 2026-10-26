@@ -51,11 +51,13 @@ Each caller has its own way to pick a start, and each one is wrong for some inpu
 
 ### 2.0 Each index's domain starts at its first timestamp
 
-When an index group receives its first index sample, the group opens the domain writer
-of the index, and of each data channel on it, at that timestamp (NEW). The domain writer
-checks for stored data at that timestamp when it opens
-(`cesium/internal/domain/writer.go:179`). Each group opens on its own, so one writer can
-hold an index that starts at 12:00:04 and another that starts at 12:00:05.
+When an index group receives its first index sample, the group gives that timestamp to
+the domain writer of the index, and of each data channel on it, as its start (NEW). A
+domain writer still opens with its writer, and it takes its start at its first write
+(NEW). It checks for stored data at that timestamp then, as it checks at `Start` when it
+opens today (`cesium/internal/domain/writer.go:179`). Each group starts on its own, so
+one writer can hold an index that starts at 12:00:04 and another that starts at
+12:00:05.
 
 ### 2.1 `Start` sets the control claim
 
@@ -99,11 +101,12 @@ the epoch on a channel that has data.
 
 ## 3 Implementation phases
 
-- **Phase 1: Cesium.** §2.0 and §2.1, and the `AutoIndex` default removed. The
-  distribution layer and the API pass a zero `Start` through. Specs cover two indexes on
-  skewed clocks in one writer, a first sample before a non-zero `Start`, an overlap
-  reported at open with a `Start` and on the first write without one, and a data-only
-  group with a zero `Start`.
+- **Phase 1: Cesium.** Two PRs. The first lets a domain writer take its start at its
+  first write (#3521). The second applies §2.0 and §2.1 and removes the `AutoIndex`
+  default (#3522). The distribution layer and the API pass a zero `Start` through. Specs
+  cover two indexes on skewed clocks in one writer, a first sample before a non-zero
+  `Start`, an overlap reported at open with a `Start` and on the first write without
+  one, and a data-only group with a zero `Start`.
 - **Phase 2: Go callers.** Arc drops `Start`, which closes the Go half of SY-5057. The
   Go driver read task drops its start picker and opens at task start, in #2950 after a
   backmerge.
