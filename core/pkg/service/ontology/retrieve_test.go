@@ -169,8 +169,8 @@ var _ = Describe("Retrieve", func() {
 			It(
 				"Should skip a non-existent parent when missing IDs are skipped",
 				func(ctx SpecContext) {
-					a := newSampleType("lenient-parent")
-					b := newSampleType("lenient-child")
+					a := newSampleType("skip-parent")
+					b := newSampleType("skip-child")
 					Expect(w.DefineResources(ctx, a, b)).To(Succeed())
 					Expect(w.DefineRelationships(
 						ctx,

@@ -35,8 +35,8 @@ func (s *Service) ResolveSubjects(
 	return resolveSubjects(ctx, tx, s.cfg.Ontology.NewRetrieve().WhereIDs(subjects...))
 }
 
-// MatchSubjects returns a filter that matches the policies of the roles that any of
-// the subjects hold. A subject that does not exist holds no roles.
+// MatchSubjects returns a filter that matches the policies of the roles that any of the
+// subjects hold. A subject that does not exist holds no roles.
 func MatchSubjects(subjects ...ontology.ID) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Policy] {
 		return gorp.MatchKeysFunc[Key, Policy](func(ctx gorp.Context) ([]Key, error) {
