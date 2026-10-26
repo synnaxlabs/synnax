@@ -95,9 +95,6 @@ export const IDLE_FADE_IN_S = 0.15;
 /** Raw-path movement (px/frame) below which the cursor counts as still. */
 export const IDLE_EPSILON_PX = 0.1;
 
-/** Film stage: the tilt a reveal opens at. */
-export const STAGE_TILT: Tilt = { x: 22, z: -10 };
-
 /** Film stage: the reading tilt the plane settles to between moves. */
 export const STAGE_REST: Tilt = { x: 4, z: -2 };
 

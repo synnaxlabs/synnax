@@ -95,7 +95,7 @@ subject:
 
 ## Comments
 
-The universal body-comment and doc-comment rules in the root CLAUDE.md apply. TypeScript
+The universal body-comment and doc-comment rules in the root AGENTS.md apply. TypeScript
 form: JSDoc `/** */` directly above the declaration. Tags: `@param name - Description.`,
 `@returns`, `@throws {ErrType} if ...` (see Error Handling Rule 4), `{@link Symbol}` for
 cross-references. Never put types in JSDoc; the signature carries them.
