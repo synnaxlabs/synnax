@@ -13,7 +13,7 @@ theirs.
 A free self-hosted runner takes the oldest queued job, so without this gate a group
 whose build ends first takes the test bots from the groups ahead of it. A group goes on
 when it is among the first `slots` groups that wait for checks, or when the nearest
-such group ahead of it ended this gate or runs no integration suite.
+such group ahead of it queued its test bot jobs or never will.
 
 Usage: wait_for_turn.py <head-sha> <slots>. Reads GH_TOKEN and GITHUB_REPOSITORY.
 Exits non-zero when the group leaves the merge queue.
@@ -34,9 +34,11 @@ from typing import Any
 CI = "CI"
 INTEGRATION = "integration"
 GATE = "integration / Wait for turn"
+TEST_BOT_JOBS = ("integration / Test (windows) / ", "integration / Migration / ")
 POLL_SECONDS = 30
 MAX_BACKOFF_SECONDS = 300
 REQUEST_TIMEOUT_SECONDS = 30
+API = "https://api.github.com"
 QUEUE_QUERY = """
 query($owner: String!, $name: String!) {
   repository(owner: $owner, name: $name) {
@@ -47,38 +49,35 @@ query($owner: String!, $name: String!) {
 }
 """
 
+# Sends a GET, or a POST when given a JSON body, and returns the decoded response.
+Request = Callable[[str, dict[str, Any] | None], Any]
+
 
 class Transient(Exception):
     """A rate limit or server error that a later poll can retry."""
 
 
-@dataclass(frozen=True)
-class Entry:
-    position: int
-    state: str
-    sha: str
+class Http:
+    """Sends authenticated requests to the GitHub API. Raises Transient on a rate
+    limit or server error."""
 
-
-class GitHub:
-    """Reads the merge queue and merge group CI jobs with a token."""
-
-    def __init__(self, token: str, repository: str) -> None:
+    def __init__(
+        self, token: str, urlopen: Callable[..., Any] = urllib.request.urlopen
+    ) -> None:
         self.token = token
-        self.owner, self.name = repository.split("/")
-        self.run_ids: dict[str, int] = {}
+        self.urlopen = urlopen
 
-    def _request(self, url: str, body: dict[str, Any] | None = None) -> Any:
-        data = json.dumps(body).encode() if body is not None else None
+    def __call__(self, url: str, body: dict[str, Any] | None) -> Any:
         req = urllib.request.Request(
             url,
-            data=data,
+            data=json.dumps(body).encode() if body is not None else None,
             headers={
                 "Authorization": f"Bearer {self.token}",
                 "Accept": "application/vnd.github+json",
             },
         )
         try:
-            with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT_SECONDS) as resp:
+            with self.urlopen(req, timeout=REQUEST_TIMEOUT_SECONDS) as resp:
                 return json.load(resp)
         except urllib.error.HTTPError as e:
             if e.code in (403, 429) and (
@@ -92,13 +91,27 @@ class GitHub:
         except (urllib.error.URLError, TimeoutError) as e:
             raise Transient(str(e)) from e
 
+
+@dataclass(frozen=True)
+class Entry:
+    position: int
+    state: str
+    sha: str
+
+
+class GitHub:
+    """Reads the merge queue and merge group CI jobs."""
+
+    def __init__(self, repository: str, request: Request) -> None:
+        self.repository = repository
+        self.request = request
+        self.run_ids: dict[str, int] = {}
+
     def queue(self) -> list[Entry]:
-        resp = self._request(
-            "https://api.github.com/graphql",
-            {
-                "query": QUEUE_QUERY,
-                "variables": {"owner": self.owner, "name": self.name},
-            },
+        owner, name = self.repository.split("/")
+        resp = self.request(
+            f"{API}/graphql",
+            {"query": QUEUE_QUERY, "variables": {"owner": owner, "name": name}},
         )
         if errors := resp.get("errors"):
             if any(e.get("type") == "RATE_LIMITED" for e in errors):
@@ -113,10 +126,10 @@ class GitHub:
     def jobs(self, sha: str) -> dict[str, dict[str, Any]]:
         """The jobs of the CI run of the merge group at sha, by name. Empty when the
         run does not exist yet."""
-        repo = f"https://api.github.com/repos/{self.owner}/{self.name}"
+        repo = f"{API}/repos/{self.repository}"
         if sha not in self.run_ids:
             query = urllib.parse.urlencode({"head_sha": sha, "event": "merge_group"})
-            runs = self._request(f"{repo}/actions/runs?{query}")["workflow_runs"]
+            runs = self.request(f"{repo}/actions/runs?{query}", None)["workflow_runs"]
             ids = [r["id"] for r in runs if r["name"] == CI]
             if not ids:
                 return {}
@@ -127,7 +140,7 @@ class GitHub:
             url = (
                 f"{repo}/actions/runs/{self.run_ids[sha]}/jobs?per_page=100&page={page}"
             )
-            batch = self._request(url)["jobs"]
+            batch = self.request(url, None)["jobs"]
             jobs.update((j["name"], j) for j in batch)
             if len(batch) < 100:
                 return jobs
@@ -135,12 +148,21 @@ class GitHub:
 
 
 def through(github: GitHub, sha: str) -> bool:
-    """True when the group at sha queues no more test bot jobs: its gate ended, or it
-    runs no integration suite. A gate that failed or was cancelled counts, because a
-    failed group can stay in the queue while a later group runs."""
+    """True when the group at sha queued its test bot jobs or never will. A gate
+    that failed or was cancelled counts, because a failed group can stay in the
+    queue while a later group runs."""
     jobs = github.jobs(sha)
+    if jobs.get(INTEGRATION, {}).get("status") == "completed":
+        return True
+    gate = jobs.get(GATE, {})
+    if gate.get("status") != "completed":
+        return False
+    if gate.get("conclusion") != "success":
+        return True
     return any(
-        jobs.get(name, {}).get("status") == "completed" for name in (GATE, INTEGRATION)
+        name.startswith(TEST_BOT_JOBS)
+        and job["status"] in ("queued", "in_progress", "completed")
+        for name, job in jobs.items()
     )
 
 
@@ -181,7 +203,7 @@ def wait(
 
 def main() -> None:
     sha, slots = sys.argv[1], int(sys.argv[2])
-    github = GitHub(os.environ["GH_TOKEN"], os.environ["GITHUB_REPOSITORY"])
+    github = GitHub(os.environ["GITHUB_REPOSITORY"], Http(os.environ["GH_TOKEN"]))
     wait(github, sha, max(slots, 1))
 
 
