@@ -634,9 +634,9 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
     this.drawText("fill", text, xy.construct(x, y), maxWidth, xy.ONE);
   }
 
-  // The canvas scales no glyphs, so each context passes its position and magnification
-  // down, and the bottom one applies the magnification as a transform. maxWidth is in
-  // glyph units, so the transform scales it too.
+  // Scaling a position does not scale glyphs, so each context passes its position and
+  // magnification down, and the bottom one applies the magnification as a transform.
+  // maxWidth is in glyph units, so the transform scales it too.
   private drawText(
     mode: "fill" | "stroke",
     text: string,
@@ -650,15 +650,15 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
       this.wrapped.drawText(mode, text, pos, maxWidth, mag);
       return;
     }
+    const { wrapped: w } = this;
     const draw = (x: number, y: number): void => {
-      if (mode === "fill") this.wrapped.fillText(text, x, y, maxWidth);
-      else this.wrapped.strokeText(text, x, y, maxWidth);
+      if (mode === "fill") w.fillText(text, x, y, maxWidth);
+      else w.strokeText(text, x, y, maxWidth);
     };
     if (xy.equals(mag, xy.ONE)) {
       draw(pos.x, pos.y);
       return;
     }
-    const { wrapped: w } = this;
     w.save();
     w.translate(pos.x, pos.y);
     // An inverted scale flips positions, but text never draws mirrored.
