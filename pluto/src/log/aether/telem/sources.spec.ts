@@ -185,6 +185,26 @@ describe("StreamMultiChannelLog", () => {
       await settle(log, 20);
       expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, 20));
     });
+
+    it("should show each live sample once when history changes after a failed read", async () => {
+      const core = createCore();
+      const [a] = core.data.map((c) => c.key);
+      const { client, release, reads } = gate(core, true);
+      const log = open(core, client, { channels: [a] });
+      await expect.poll(() => log.value().status.variant, POLL).toBe("error");
+      await expect.poll(() => core.streams(core.historyChange.key), POLL).toBe(true);
+      core.advance(TimeSpan.seconds(1));
+      await settle(log, 10);
+      const shown = textOf(core, a, 10);
+      await expect.poll(reads, POLL).toBe(2);
+      core.rewrite(a, new TimeRange(START, core.now()), 10);
+      await expect.poll(reads, POLL).toBe(3);
+      release();
+      await expect.poll(() => log.value().status.variant, POLL).toBe("success");
+      core.advance(TimeSpan.seconds(1));
+      await settle(log, 20);
+      expect(valuesOf(entriesOf(log), a)).toEqual([...shown, ...textOf(core, a, 10)]);
+    });
   });
 
   it("should show the samples written while its stream was down", async () => {

@@ -76,8 +76,9 @@ export class Latest {
   // unserved counts the newest samples that no value served.
   private unserved = 0;
   private appended = 0;
-  // landed is true once a read of the request lands.
-  private landed = false;
+  // taken is true once consumers may have taken the samples held: a read of the
+  // request landed, or a value served streamed samples under an error or warning.
+  private taken = false;
   private running: Load | null;
   private readonly demand: Demand;
   private readonly stopInvalidations: () => void;
@@ -130,7 +131,7 @@ export class Latest {
     if (count === this.count && deep.equal(window, this.window)) return;
     this.window = window;
     this.count = count;
-    this.landed = false;
+    this.taken = false;
     this.clear();
     this.restart(0);
   }
@@ -148,7 +149,7 @@ export class Latest {
       snapshot.status.variant !== "loading" &&
       (this.buffer.leadingBuffer != null || this.series.length > running.mark)
     )
-      this.shown = true;
+      [this.shown, this.taken] = [true, true];
     return snapshot;
   }
 
@@ -225,8 +226,8 @@ export class Latest {
     )
       return;
     const end = this.time() ?? this.running?.end;
-    const repeated = this.landed && end != null;
-    // Until a read lands, the samples dropped count again when the read returns them.
+    const repeated = this.taken && end != null;
+    // Samples no consumer took count again when the read returns them.
     if (!repeated) this.appended -= this.total;
     this.clear();
     this.restart(0, { end, repeated });
@@ -316,7 +317,7 @@ export class Latest {
   // Puts the read before the series streamed while it ran, keeping each sample once.
   // The streamed samples count again as they land after the read.
   private land(read: Series[]): void {
-    this.landed = true;
+    this.taken = true;
     if (this.shown) {
       [this.running, this.shown] = [null, false];
       return this.push(read);
