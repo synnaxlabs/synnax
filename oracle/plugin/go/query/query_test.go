@@ -1294,7 +1294,7 @@ var _ = Describe("Go Query Plugin", func() {
 			)
 
 			It(
-				"Should generate a sorted index with an Ordering closure type and OrderByX free function",
+				"Should generate a sorted index with an Order closure type and OrderByX free function",
 				func(ctx SpecContext) {
 					source := `
 					@go output "core/pkg/service/event"
@@ -1320,10 +1320,10 @@ var _ = Describe("Go Query Plugin", func() {
 							"func(e *Event) int64 { return e.CreatedAt }",
 							"func MatchCreatedAt(v int64) Filter",
 							"return r.indexes.createdAt.Filter(v)",
-							"type Ordering func(r Retrieve) gorp.OrderQuery[uuid.UUID, Event]",
-							"func (r Retrieve) OrderBy(o Ordering) Retrieve",
+							"type Order func(r Retrieve) gorp.OrderQuery[uuid.UUID, Event]",
+							"func (r Retrieve) OrderBy(o Order) Retrieve",
 							"r.gorp = r.gorp.OrderBy(o(r))",
-							"func OrderByCreatedAt(dir gorp.Direction, cursor ...int64) Ordering",
+							"func OrderByCreatedAt(dir gorp.Direction, cursor ...int64) Order",
 							"q := r.indexes.createdAt.Ordered(dir)",
 							"q = q.After(cursor[0])",
 						).

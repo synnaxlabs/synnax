@@ -57,22 +57,3 @@ type Contains[T any] struct {
 	// Any matches an array that holds an element of any.
 	Any []T `json:"any,omitzero" msgpack:"any,omitempty"`
 }
-
-// Direction is the direction of a sort.
-type Direction string
-
-const (
-	DirectionAscending  Direction = "ascending"
-	DirectionDescending Direction = "descending"
-)
-
-// IsValid reports whether d is one of the defined Direction
-// values.
-func (d Direction) IsValid() bool {
-	switch d {
-	case DirectionAscending, DirectionDescending:
-		return true
-	default:
-		return false
-	}
-}

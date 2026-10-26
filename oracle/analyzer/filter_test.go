@@ -52,11 +52,15 @@ var _ = Describe("Filter definitions", func() {
 			Span struct {
 				start int64
 			}
+			OwnerKey uint32 {
+				@key
+			}
 			Thing struct {
 				key    Key      { @key }
 				name   string
 				active bool
 				count  int32
+				owner  OwnerKey
 				kind   Kind
 				tags   string[]
 				span   Span
@@ -69,6 +73,7 @@ var _ = Describe("Filter definitions", func() {
 				}
 				active
 				count
+				owner
 				kind
 				tags
 			}
@@ -82,7 +87,7 @@ var _ = Describe("Filter definitions", func() {
 			form := table.MustGet("test.Where").Form.(resolution.StructForm)
 			Expect(fieldNames(form)).To(Equal([]string{
 				"and", "or", "not", "key", "name", "overlaps", "active", "count",
-				"kind", "tags",
+				"owner", "kind", "tags",
 			}))
 			Expect(lo.EveryBy(form.Fields, func(f resolution.Field) bool {
 				return f.Optional
@@ -112,6 +117,10 @@ var _ = Describe("Filter definitions", func() {
 			Expect(types["count"]).To(Equal(resolution.TypeRef{
 				Name:     "filter.Ordered",
 				TypeArgs: []resolution.TypeRef{{Name: "int32"}},
+			}))
+			Expect(types["owner"]).To(Equal(resolution.TypeRef{
+				Name:     "filter.Set",
+				TypeArgs: []resolution.TypeRef{{Name: "test.OwnerKey"}},
 			}))
 			Expect(types["kind"]).To(Equal(resolution.TypeRef{
 				Name:     "filter.Set",
@@ -415,22 +424,6 @@ var _ = Describe("Filter definitions", func() {
 			))
 		})
 
-		It("Should reject an order without the filter import", func(ctx SpecContext) {
-			_, diag := analyzer.AnalyzeSource(ctx, `
-				Thing struct {
-					key  uuid  { @key }
-					time int64 { @index sorted }
-				}
-				Where filter Thing {
-					labels uuid[]
-				}
-			`, "test", loader)
-			Expect(diag.Ok()).To(BeFalse())
-			Expect(diag.String()).To(ContainSubstring(
-				"filter Where: order_by needs an import of the filter schema",
-			))
-		})
-
 		It("Should reject a target in another schema", func(ctx SpecContext) {
 			loader.Add("schemas/dep", "Thing struct {\n key uuid { @key }\n}\n")
 			_, diag := analyzer.AnalyzeSource(ctx, `
@@ -477,6 +470,24 @@ var _ = Describe("Filter definitions", func() {
 			Expect(types["where"]).To(Equal(resolution.TypeRef{Name: "test.Where"}))
 			Expect(types["limit"]).To(Equal(resolution.TypeRef{Name: "uint32"}))
 			Expect(types["include_labels"]).To(Equal(resolution.TypeRef{Name: "bool"}))
+			optional := lo.FilterMap(
+				form.Fields,
+				func(f resolution.Field, _ int) (string, bool) { return f.Name, f.Optional },
+			)
+			Expect(optional).To(Equal([]string{"where", "limit"}))
+			defaults := lo.SliceToMap(
+				lo.Filter(form.Fields, func(f resolution.Field, _ int) bool {
+					return f.Default != nil
+				}),
+				func(f resolution.Field) (string, resolution.ExpressionValue) {
+					return f.Name, *f.Default
+				},
+			)
+			Expect(defaults).To(Equal(map[string]resolution.ExpressionValue{
+				"search_term":    {Kind: resolution.ValueKindString},
+				"offset":         {Kind: resolution.ValueKindInt},
+				"include_labels": {Kind: resolution.ValueKindBool},
+			}))
 			Expect(req.Domains).To(HaveKey("go"))
 			res := table.MustGet("test.RetrieveResponse").Form.(resolution.StructForm)
 			Expect(fieldTypes(res)).To(Equal(map[string]resolution.TypeRef{
@@ -498,8 +509,7 @@ var _ = Describe("Filter definitions", func() {
 				@cpp output "out"
 
 				Thing struct {
-					key  uuid  { @key }
-					time int64 { @index sorted }
+					key uuid { @key }
 				}
 				Where filter Thing {
 					key
@@ -508,9 +518,7 @@ var _ = Describe("Filter definitions", func() {
 				}
 			`, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			for _, name := range []string{
-				"RetrieveRequest", "RetrieveResponse", "Order", "OrderField",
-			} {
+			for _, name := range []string{"RetrieveRequest", "RetrieveResponse"} {
 				typ := table.MustGet("test." + name)
 				_, omitted := typ.Domains["cpp"].Expressions.Find("omit")
 				Expect(omitted).To(BeTrue(), name)
@@ -537,14 +545,13 @@ var _ = Describe("Filter definitions", func() {
 			Expect(fieldNames(form)).To(Equal([]string{"where", "limit", "offset"}))
 		})
 
-		It("Should derive an order over sorted fields", func(ctx SpecContext) {
+		It("Should derive no order from sorted fields", func(ctx SpecContext) {
 			table, diag := analyzer.AnalyzeSource(ctx, `
 				import "schemas/x/filter"
 
 				Thing struct {
-					key  uuid   { @key }
-					name string { @index sorted }
-					time int64  { @index sorted }
+					key  uuid  { @key }
+					time int64 { @index sorted }
 				}
 				Where filter Thing {
 					key
@@ -552,18 +559,9 @@ var _ = Describe("Filter definitions", func() {
 			`, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			form := table.MustGet("test.RetrieveRequest").Form.(resolution.StructForm)
-			Expect(fieldTypes(form)["order_by"]).To(Equal(
-				resolution.TypeRef{Name: "test.Order"},
-			))
-			order := table.MustGet("test.Order").Form.(resolution.StructForm)
-			Expect(fieldTypes(order)).To(Equal(map[string]resolution.TypeRef{
-				"field":     {Name: "test.OrderField"},
-				"direction": {Name: "filter.Direction"},
-			}))
-			field := table.MustGet("test.OrderField").Form.(resolution.EnumForm)
-			Expect(lo.Map(field.Values, func(v resolution.EnumValue, _ int) string {
-				return v.StringValue()
-			})).To(Equal([]string{"name", "time"}))
+			Expect(fieldNames(form)).To(Equal([]string{"where", "limit", "offset"}))
+			_, hasOrder := table.Get("test.Order")
+			Expect(hasOrder).To(BeFalse())
 		})
 
 		It("Should hold a generic target over any", func(ctx SpecContext) {

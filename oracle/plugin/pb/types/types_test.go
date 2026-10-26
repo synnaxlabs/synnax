@@ -102,6 +102,27 @@ var _ = Describe("Plugin", func() {
 				ToNotContain(".x.filter.pb.Set")
 		})
 
+		It("Should emit no shared message for a generic struct omitted in pb", func(
+			ctx SpecContext,
+		) {
+			resp := MustGenerate(
+				ctx,
+				"@go output \"x/go/filter\"\n@pb\n"+FilterSchema,
+				"filter",
+				loader,
+				p,
+			)
+			ExpectContent(resp, "x/go/filter/pb/filter.proto").
+				ToContain("message String {", "message Bool {").
+				ToNotContain(
+					"message Set {",
+					"message Ordered {",
+					"message Contains {",
+					"message ListWrapper {",
+					"google/protobuf/any.proto",
+				)
+		})
+
 		It("Should name the list of a key from another namespace for it", func(
 			ctx SpecContext,
 		) {

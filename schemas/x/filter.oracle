@@ -51,6 +51,7 @@ Set struct<T> {
         selects values that only compare for equality, such as keys, enum values, and
         UUIDs. A value must match every operator that is set.
     """
+    @pb omit
 }
 
 Ordered struct<T> {
@@ -78,6 +79,7 @@ Ordered struct<T> {
     @doc value """
         selects numbers and times. A value must match every operator that is set.
     """
+    @pb omit
 }
 
 Contains struct<T> {
@@ -88,11 +90,5 @@ Contains struct<T> {
     }
 
     @doc value "selects arrays by the elements they hold."
-}
-
-Direction enum {
-    ascending  = "ascending"
-    descending = "descending"
-
-    @doc value "is the direction of a sort."
+    @pb omit
 }
