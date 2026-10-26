@@ -18,8 +18,7 @@ import (
 )
 
 var _ = Describe("SwapBrackets", func() {
-	// The rows of RFC 0076 §1.2. Headers and bare calls are not whole programs, so
-	// only the text is checked.
+	// Headers and bare calls are not whole programs, so only the text is checked.
 	DescribeTable("Should rewrite the RFC rows byte for byte",
 		func(old, want string) {
 			Expect(v4.SwapBrackets(old)).To(Equal(want))
