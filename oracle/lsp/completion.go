@@ -189,6 +189,18 @@ var (
 			Detail: protocol.NewOptional("Index configuration for the field"),
 		},
 		{
+			Label:  "response",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("Record type of a filter's response"),
+		},
+		{
+			Label: "include",
+			Kind:  protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional(
+				"Retrieve requests can ask the Core to fill the field",
+			),
+		},
+		{
 			Label:  "go",
 			Kind:   protocol.CompletionItemKindProperty,
 			Detail: protocol.NewOptional("Go output configuration"),

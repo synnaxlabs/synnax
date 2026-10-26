@@ -27,7 +27,8 @@ type Bool struct {
 	Eq *bool `json:"eq,omitzero" msgpack:"eq,omitempty"`
 }
 
-// Set selects keys and enum values. A value must match every operator that is set.
+// Set selects values that only compare for equality, such as keys, enum values, and
+// UUIDs. A value must match every operator that is set.
 type Set[T any] struct {
 	// Eq matches a value equal to eq.
 	Eq *T `json:"eq,omitzero" msgpack:"eq,omitempty"`

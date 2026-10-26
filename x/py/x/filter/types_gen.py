@@ -52,7 +52,8 @@ class Bool(BaseModel):
 
 
 class Set(BaseModel, Generic[T]):
-    """Selects keys and enum values. A value must match every operator that is set.
+    """Selects values that only compare for equality, such as keys, enum values, and
+    UUIDs. A value must match every operator that is set.
 
     Attributes:
         eq: Matches a value equal to eq.

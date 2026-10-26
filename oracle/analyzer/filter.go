@@ -88,7 +88,7 @@ func collectFilter(c *analysisCtx, def parser.IFilterDefContext) {
 			}
 			names.Add(line.Name)
 			filter.Lines = append(filter.Lines, line)
-			if !line.Bare() {
+			if line.HasType() {
 				form.Fields = append(form.Fields, lineField(line, line.Type))
 			}
 		}
@@ -110,7 +110,7 @@ func collectFilter(c *analysisCtx, def parser.IFilterDefContext) {
 
 func collectFilterLine(
 	c *analysisCtx, filterName string, def parser.IFieldDefContext,
-) (resolution.FilterLine, bool) {
+) (resolution.Field, bool) {
 	field := collectField(def, nil)
 	var problem string
 	switch {
@@ -125,14 +125,9 @@ func collectFilterLine(
 		c.report(diagnostics.Errorf(
 			def, "filter %s: line %s %s", filterName, field.Name, problem,
 		))
-		return resolution.FilterLine{}, false
+		return resolution.Field{}, false
 	}
-	return resolution.FilterLine{
-		AST:     def,
-		Domains: field.Domains,
-		Name:    field.Name,
-		Type:    field.Type,
-	}, true
+	return field, true
 }
 
 func treeField(name string, typ resolution.TypeRef, doc string) resolution.Field {
@@ -145,7 +140,7 @@ func treeField(name string, typ resolution.TypeRef, doc string) resolution.Field
 }
 
 // lineField returns the struct field a line expands to. A line without a doc gets one.
-func lineField(line resolution.FilterLine, typ resolution.TypeRef) resolution.Field {
+func lineField(line resolution.Field, typ resolution.TypeRef) resolution.Field {
 	domains := cloneDomains(line.Domains)
 	if _, ok := domains["doc"]; !ok {
 		domains["doc"] = docValue(fmt.Sprintf("selects by %s.", line.Name))
@@ -234,8 +229,10 @@ func expandFilter(c *analysisCtx, typ resolution.Type) resolution.Type {
 	if !ok {
 		return report("the target %s must be a struct or a union")
 	}
-	if lo.SomeBy(filter.Lines, resolution.FilterLine.Bare) &&
-		!importsFilterSchema(c.ast) {
+	hasBare := lo.SomeBy(filter.Lines, func(l resolution.Field) bool {
+		return !l.HasType()
+	})
+	if hasBare && !importsFilterSchema(c.ast) {
 		c.report(diagnostics.Errorf(
 			def,
 			"filter %s: bare lines need an import of the filter schema "+
@@ -251,7 +248,7 @@ func expandFilter(c *analysisCtx, typ resolution.Type) resolution.Type {
 	}
 	expanded := slices.Clone(form.Fields[:len(treeFields)])
 	for i, line := range filter.Lines {
-		if !line.Bare() {
+		if line.HasType() {
 			f := typed[line.Name]
 			filter.Lines[i].Type = f.Type
 			expanded = append(expanded, f)
@@ -289,7 +286,7 @@ func bareLineOperator(
 	filterName string,
 	target resolution.Type,
 	fields []resolution.Field,
-	line resolution.FilterLine,
+	line resolution.Field,
 ) (resolution.TypeRef, bool) {
 	report := func(format string, args ...any) (resolution.TypeRef, bool) {
 		c.report(diagnostics.Errorf(
@@ -426,7 +423,7 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 	plural := casing.TypeSnake(pluralize.String(target.Name))
 	words := strings.ReplaceAll(plural, "_", " ")
 	// The request and order types go wherever the tree they carry goes.
-	domains := outputDomains(c.fileDomains, where.Domains)
+	domains := layDomains(c.fileDomains, where.Domains, "output", "omit")
 	request := []resolution.Field{
 		optionalField(
 			"where",
@@ -538,6 +535,7 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 			"is a request to retrieve %s.", words,
 		)),
 	}, response)
+	derived := true
 	for _, t := range created {
 		t.Namespace = c.namespace
 		t.QualifiedName = c.namespace + "." + t.Name
@@ -550,15 +548,20 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 				where.Name,
 				t.QualifiedName,
 			))
+			derived = false
 			continue
 		}
+		resolveTypeRefs(c, &t)
 		lo.Must0(c.table.Add(t))
 	}
-	for i := range created {
-		typ, _ := c.table.Get(c.namespace + "." + created[i].Name)
-		resolveTypeRefs(c, &typ)
-		replaceType(c.table, typ)
+	if !derived {
+		return
 	}
+	filter := *where.Filter
+	filter.Request = c.namespace + ".RetrieveRequest"
+	filter.Response = c.namespace + "." + response.Name
+	where.Filter = &filter
+	replaceType(c.table, where)
 }
 
 // retrieveResponse derives the response and returns it with the fields of the records
@@ -595,6 +598,12 @@ func retrieveResponse(
 		resolveTypeRef(c, &where, &elem)
 		override, ok := c.table.Get(elem.Name)
 		if !ok {
+			c.report(diagnostics.Errorf(
+				def,
+				"filter %s: unknown response type %s",
+				where.Name,
+				expr.Values[0].IdentValue,
+			))
 			return resolution.Type{}, nil, false
 		}
 		if fields, ok = resolution.RecordFields(override, c.table); !ok {
@@ -606,8 +615,10 @@ func retrieveResponse(
 			))
 			return resolution.Type{}, nil, false
 		}
-		domains = outputDomains(c.fileDomains, override.Domains)
+		domains = layDomains(c.fileDomains, override.Domains, "output", "omit")
 	}
+	// The response exists only where the request does.
+	domains = layDomains(domains, where.Domains, "omit")
 	return resolution.Type{
 		Name: "RetrieveResponse",
 		Form: resolution.StructForm{Fields: []resolution.Field{requiredField(
@@ -621,15 +632,15 @@ func retrieveResponse(
 	}, fields, true
 }
 
-// outputDomains returns file with the output and omit expressions of each domain in
-// from laid over it.
-func outputDomains(
-	file, from map[string]resolution.Domain,
+// layDomains returns file with the expressions named in names of each domain in from
+// laid over it.
+func layDomains(
+	file, from map[string]resolution.Domain, names ...string,
 ) map[string]resolution.Domain {
 	out := cloneDomains(file)
 	for name, d := range from {
 		kept := lo.Filter(d.Expressions, func(e resolution.Expression, _ int) bool {
-			return e.Name == "output" || e.Name == "omit"
+			return lo.Contains(names, e.Name)
 		})
 		if len(kept) == 0 {
 			continue

@@ -954,6 +954,9 @@ var _ = Describe("Go Query Plugin", func() {
 							"gorp.NewSearchIndex[string, Status[any]](",
 							"func(e *Status[any]) []string {",
 							"func (i indexes) all() []gorp.Index[string, Status[any]] {",
+							"func MatchSearch(term string) Filter[any] {",
+							"return func(r Retrieve[any]) gorp.Filter[string, Status[any]] {",
+							"return r.indexes.search.Filter(term)",
 						).
 						ToNotContain(
 							"type Retrieve struct",
@@ -963,6 +966,45 @@ var _ = Describe("Go Query Plugin", func() {
 						)
 				},
 			)
+
+			It("Should search a non-generic type through MatchSearch", func(
+				ctx SpecContext,
+			) {
+				source := `
+					@go output "core/pkg/service/task"
+
+					Task struct {
+						key  uint64 { @key }
+						name string { @search }
+						@retrieve indexes
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, p)
+				ExpectContent(resp, "retrieve.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"// MatchSearch matches the tasks whose text matches term.\n// The closest match comes first.",
+						"func MatchSearch(term string) Filter {",
+						"return func(r Retrieve) gorp.Filter[uint64, Task] {",
+					).
+					ToNotContain("func (r Retrieve) Search(")
+			})
+
+			It("Should leave out MatchSearch with no @search field", func(
+				ctx SpecContext,
+			) {
+				source := `
+					@go output "core/pkg/service/task"
+
+					Task struct {
+						key  uint64 { @key }
+						name string { @index }
+						@retrieve indexes
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, p)
+				ExpectContent(resp, "retrieve.gen.go").ToNotContain("MatchSearch")
+			})
 
 			It("Should reject @filter under @retrieve indexes", func(ctx SpecContext) {
 				source := `

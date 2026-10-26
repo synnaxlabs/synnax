@@ -131,10 +131,18 @@ var _ = Describe("Filter definitions", func() {
 			Expect(
 				where.Filter.Target,
 			).To(Equal(resolution.TypeRef{Name: "test.Thing"}))
-			overlaps := MustBeOk(where.Filter.Line("overlaps"))
-			Expect(overlaps.Bare()).To(BeFalse())
+			line := func(name string) resolution.Field {
+				return MustBeOk(lo.Find(
+					where.Filter.Lines,
+					func(l resolution.Field) bool { return l.Name == name },
+				))
+			}
+			overlaps := line("overlaps")
+			Expect(overlaps.HasType()).To(BeTrue())
 			Expect(overlaps.Type).To(Equal(resolution.TypeRef{Name: "test.Span"}))
-			Expect(MustBeOk(where.Filter.Line("name")).Bare()).To(BeTrue())
+			Expect(line("name").HasType()).To(BeFalse())
+			Expect(where.Filter.Request).To(Equal("test.RetrieveRequest"))
+			Expect(where.Filter.Response).To(Equal("test.RetrieveResponse"))
 		})
 
 		It("Should keep a line's doc and give a bare line one", func(ctx SpecContext) {
@@ -354,6 +362,12 @@ var _ = Describe("Filter definitions", func() {
 			Entry("a line with a default",
 				"Where filter Thing {\n flag bool = true\n}",
 				"filter Where: line flag cannot have a default"),
+			Entry("a line that removes a domain",
+				"Where filter Thing {\n name -@doc\n}",
+				"filter Where: line name cannot remove domains"),
+			Entry("a filter named like a type",
+				"Thing filter Thing {\n key\n}",
+				"duplicate type definition: test.Thing"),
 			Entry("a reserved line",
 				"Where filter Thing {\n and\n}",
 				`filter Where: "and" is reserved for the tree`),
@@ -474,7 +488,7 @@ var _ = Describe("Filter definitions", func() {
 			Expect(res.Fields[0].Optional).To(BeFalse())
 		})
 
-		It("Should omit the request wherever the filter is omitted", func(
+		It("Should omit the derived types wherever the filter is omitted", func(
 			ctx SpecContext,
 		) {
 			table, diag := analyzer.AnalyzeSource(ctx, `
@@ -494,14 +508,15 @@ var _ = Describe("Filter definitions", func() {
 				}
 			`, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			for _, name := range []string{"RetrieveRequest", "Order", "OrderField"} {
+			for _, name := range []string{
+				"RetrieveRequest", "RetrieveResponse", "Order", "OrderField",
+			} {
 				typ := table.MustGet("test." + name)
 				_, omitted := typ.Domains["cpp"].Expressions.Find("omit")
 				Expect(omitted).To(BeTrue(), name)
+				_, omitted = typ.Domains["go"].Expressions.Find("omit")
+				Expect(omitted).To(BeFalse(), name)
 			}
-			res := table.MustGet("test.RetrieveResponse")
-			_, omitted := res.Domains["cpp"].Expressions.Find("omit")
-			Expect(omitted).To(BeFalse())
 		})
 
 		It("Should leave out search_term when no field has @search", func(
@@ -661,6 +676,29 @@ var _ = Describe("Filter definitions", func() {
 				"filter Where: the response type test.Kind must be a struct or a union",
 			))
 		})
+
+		DescribeTable("Should reject an invalid @response",
+			func(ctx SpecContext, response, message string) {
+				_, diag := analyzer.AnalyzeSource(ctx, `
+					import "schemas/x/filter"
+
+					Thing struct {
+						key uuid { @key }
+					}
+					Where filter Thing {
+						key
+
+						`+response+`
+					}
+				`, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(message))
+			},
+			Entry("without a type", "@response",
+				"filter Where: @response takes `type <Type>`"),
+			Entry("with an unknown type", "@response type Missing",
+				"filter Where: unknown response type Missing"),
+		)
 
 		It("Should reject a derived name the schema already declares", func(
 			ctx SpecContext,

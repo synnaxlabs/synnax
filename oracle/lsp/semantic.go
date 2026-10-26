@@ -77,7 +77,7 @@ func extractSemanticTokens(content string) []uint32 {
 	// prevName reports whether the previous token that is not a comment is the name of
 	// a definition, so a soft keyword can follow it.
 	var prevName bool
-	for _, t := range allTokens {
+	for i, t := range allTokens {
 		typ := t.GetTokenType()
 		if typ == antlr.TokenEOF {
 			continue
@@ -91,7 +91,10 @@ func extractSemanticTokens(content string) []uint32 {
 			prev == parser.OracleLexerAT,
 			nameStart,
 		)
-		if prevName && typ == parser.OracleLexerIDENT && t.GetText() == "filter" {
+		// A field typed by the filter schema, such as `name filter.String`, also puts
+		// filter after a name.
+		if prevName && typ == parser.OracleLexerIDENT && t.GetText() == "filter" &&
+			!followedBy(allTokens, i, parser.OracleLexerDOT) {
 			keyword := uint32(SemanticTokenTypeKeyword)
 			tokenType = &keyword
 		}
@@ -111,6 +114,11 @@ func extractSemanticTokens(content string) []uint32 {
 		})
 	}
 	return lsp.EncodeSemanticTokens(tokens)
+}
+
+// followedBy reports whether the token after tokens[i] has type typ.
+func followedBy(tokens []antlr.Token, i, typ int) bool {
+	return i+1 < len(tokens) && tokens[i+1].GetTokenType() == typ
 }
 
 // mapTokenType returns the semantic token type for a lexer token, or nil when the token

@@ -18,7 +18,7 @@ export const directionZ = z.enum(DIRECTIONS);
 export type Direction = z.infer<typeof directionZ>;
 
 /** String selects string values. A value must match every operator that is set. */
-export const stringZ = z.object({
+export const stringZ = z.strictObject({
   /** eq matches a value equal to eq. */
   eq: z.string().optional(),
   /** in matches a value equal to an element of in. */
@@ -36,7 +36,7 @@ export const boolZ = z.object({
 export interface Bool extends z.infer<typeof boolZ> {}
 
 export const setZ = <T extends z.ZodType>(t: T) =>
-  z.object({
+  z.strictObject({
     eq: t.optional(),
     in: zod.nullToUndefined(t.array()),
   });

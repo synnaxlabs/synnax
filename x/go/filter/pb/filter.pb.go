@@ -278,7 +278,8 @@ func (x *ListWrapper) GetValues() []*anypb.Any {
 	return nil
 }
 
-// Set selects keys and enum values. A value must match every operator that is set.
+// Set selects values that only compare for equality, such as keys, enum values, and
+// UUIDs. A value must match every operator that is set.
 type Set struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// eq matches a value equal to eq.
