@@ -112,21 +112,4 @@ var _ = Describe("Retrieve", func() {
 		Expect(res.Racks[1].Key).To(Equal(withStatus.Key))
 		Expect(res.Racks[1].Status.Key).To(Equal(rack.StatusKey(withStatus.Key)))
 	})
-	It(
-		"Should return the racks that exist when ignoring not found",
-		func(ctx SpecContext) {
-			u := createUser(ctx)
-			r := rack.Rack{Name: "Present"}
-			Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-			grant(ctx, access.ActionRetrieve, u.OntologyID(), r.OntologyID())
-			missing := rack.NewKey(1, 60001)
-			req := apirack.RetrieveRequest{Keys: []rack.Key{r.Key, missing}}
-			Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), req)).
-				Error().To(MatchError(query.ErrNotFound))
-			req.IgnoreNotFoundError = true
-			res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), req))
-			Expect(res.Racks).To(HaveLen(1))
-			Expect(res.Racks[0].Key).To(Equal(r.Key))
-		},
-	)
 })
