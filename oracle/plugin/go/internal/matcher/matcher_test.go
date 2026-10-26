@@ -114,6 +114,13 @@ var _ = Describe("Matcher", func() {
 		})
 	})
 
+	DescribeTable("Kind.Scalar",
+		func(k matcher.Kind, scalar bool) { Expect(k.Scalar()).To(Equal(scalar)) },
+		Entry("a variadic matcher", matcher.Variadic, false),
+		Entry("a single-value matcher", matcher.Single, true),
+		Entry("an element matcher", matcher.Element, true),
+	)
+
 	DescribeTable("Plural",
 		func(name, plural string) { Expect(matcher.Plural(name)).To(Equal(plural)) },
 		Entry("a regular noun", "Name", "Names"),

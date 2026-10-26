@@ -39,13 +39,16 @@ import (
 type Options struct {
 	// FileNamePattern is the basename written next to each filter.
 	FileNamePattern string
-	// RequestFileName is the basename written next to each derived request.
-	RequestFileName string
+	// RequestFileNamePattern is the basename written next to each derived request.
+	RequestFileNamePattern string
 }
 
 // DefaultOptions returns the default plugin options.
 func DefaultOptions() Options {
-	return Options{FileNamePattern: "where.gen.go", RequestFileName: "request.gen.go"}
+	return Options{
+		FileNamePattern:        "where.gen.go",
+		RequestFileNamePattern: "request.gen.go",
+	}
 }
 
 // Plugin generates the Go interpreter of each filter definition.
@@ -99,7 +102,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			return nil, err
 		}
 		resp.Files = append(resp.Files, plugin.File{
-			Path:    requestPath + "/" + p.Options.RequestFileName,
+			Path:    requestPath + "/" + p.Options.RequestFileNamePattern,
 			Content: content,
 		})
 	}
@@ -294,7 +297,7 @@ func generateFile(
 			continue
 		}
 		ld.Func = m.Func
-		ld.Scalar = m.Kind != matcher.Variadic
+		ld.Scalar = m.Kind.Scalar()
 		ld.Field = m.Access
 		data.Lines = append(data.Lines, ld)
 	}

@@ -456,7 +456,7 @@ func extractRetrieveInfo(
 				Func:           m.Func,
 				GoType:         goType,
 				ElemGoType:     elemGoType,
-				IsScalar:       m.Kind == matcher.Single,
+				IsScalar:       m.Kind.Scalar(),
 				IsBool:         key.ResolvePrimitive(field.Type, table) == "bool",
 				IsSlice:        m.Kind == matcher.Element,
 				IndexFieldName: structField,
