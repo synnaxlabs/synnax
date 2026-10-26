@@ -49,7 +49,7 @@ export const DELETE_CHANNEL_NAME = "sy_arc_delete";
 
 // The table caches Arcs without their compiled program.
 const cachedRequestZ = retrieveRequestZ.omit({ includeProgram: true });
-export type RetrieveMultipleParams = Omit<RetrieveRequest, "includeProgram">;
+export type RetrieveMultipleParams = z.infer<typeof cachedRequestZ>;
 const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), cachedRequestZ]);
 const createReqZ = z.object({ arcs: arcZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });

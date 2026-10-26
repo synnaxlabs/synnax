@@ -41,7 +41,7 @@ export const DELETE_CHANNEL_NAME = "sy_panel_delete";
 const parentRequestZ = retrieveRequestZ.extend({
   parent: ontology.idZ.optional(),
 });
-export type RetrieveMultipleParams = RetrieveRequest & { parent?: ontology.ID };
+export type RetrieveMultipleParams = z.infer<typeof parentRequestZ>;
 const retrieveMultiParamsZ = z.union([
   keyZ.array().transform((keys): RetrieveMultipleParams => query.keysRequest(keys)),
   parentRequestZ,
