@@ -3494,13 +3494,14 @@ var _ = Describe("Writer Behavior", func() {
 								Channels: []cesium.ChannelKey{idx, data},
 								Sync:     new(true),
 							}))
-							err := writePair(
+							Expect(writePair(
 								w, idx, data, telem.NewSeriesSecondsTSV(12, 20), 3, 4,
-							)
-							Expect(err).To(MatchError(validate.ErrValidation))
-							Expect(err).To(MatchError(ContainSubstring(
-								"cannot start writer because there is already data",
-							)))
+							)).To(And(
+								MatchError(validate.ErrValidation),
+								MatchError(ContainSubstring(
+									"cannot start writer because there is already data",
+								)),
+							))
 							Expect(w.Close()).To(MatchError(validate.ErrValidation))
 						},
 					)
