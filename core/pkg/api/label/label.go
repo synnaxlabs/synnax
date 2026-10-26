@@ -11,7 +11,6 @@ package label
 
 import (
 	"context"
-	"slices"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -118,33 +117,18 @@ func (s *Service) Retrieve(
 	if err := q.Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
-	objects := []ontology.ID{}
+	objects := label.OntologyIDsFromLabels(res.Labels)
 	if req.Where != nil {
-		objects = forIDs(*req.Where, objects)
+		objects = append(objects, req.Where.ForIDs()...)
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: append(objects, label.OntologyIDsFromLabels(res.Labels)...),
+		Objects: objects,
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
 	return res, nil
-}
-
-// forIDs appends the resources that the for lines of w name, since the labels of a
-// resource tell about the resource.
-func forIDs(w label.Where, ids []ontology.ID) []ontology.ID {
-	if w.For != nil {
-		ids = append(ids, *w.For)
-	}
-	for _, c := range slices.Concat(w.And, w.Or) {
-		ids = forIDs(c, ids)
-	}
-	if w.Not != nil {
-		ids = forIDs(*w.Not, ids)
-	}
-	return ids
 }
 
 type DeleteRequest struct {

@@ -181,6 +181,26 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(err).To(MatchError(query.ErrNotFound))
 		})
 	})
+	Describe("Where", func() {
+		a := label.OntologyID(label.Key(uuid.New()))
+		b := label.OntologyID(label.Key(uuid.New()))
+		c := label.OntologyID(label.Key(uuid.New()))
+		DescribeTable("ForIDs", func(w label.Where, expected []ontology.ID) {
+			Expect(w.ForIDs()).To(Equal(expected))
+		},
+			Entry("no for line", label.Where{}, []ontology.ID(nil)),
+			Entry("a top-level for line", label.Where{For: &a}, []ontology.ID{a}),
+			Entry(
+				"for lines under and, or, and not",
+				label.Where{
+					And: []label.Where{{For: &a}},
+					Or:  []label.Where{{}, {For: &b}},
+					Not: &label.Where{For: &c},
+				},
+				[]ontology.ID{a, b, c},
+			),
+		)
+	})
 	Describe("MatchNames", func() {
 		It("Should retrieve a label by its name", func(ctx SpecContext) {
 			l := &label.Label{

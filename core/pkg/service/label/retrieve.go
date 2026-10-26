@@ -11,6 +11,7 @@ package label
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -28,6 +29,21 @@ type Retrieve struct {
 // given ID. A resource that does not exist has no labels.
 func MatchFor(id ontology.ID) Filter {
 	return matchFor(id, true)
+}
+
+// ForIDs returns the IDs that the for lines of w name, at any depth.
+func (w Where) ForIDs() []ontology.ID {
+	var ids []ontology.ID
+	if w.For != nil {
+		ids = append(ids, *w.For)
+	}
+	for _, c := range slices.Concat(w.And, w.Or) {
+		ids = append(ids, c.ForIDs()...)
+	}
+	if w.Not != nil {
+		ids = append(ids, w.Not.ForIDs()...)
+	}
+	return ids
 }
 
 func matchFor(id ontology.ID, missingSkipped bool) Filter {
