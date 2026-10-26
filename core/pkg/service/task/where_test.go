@@ -10,6 +10,7 @@
 package task_test
 
 import (
+	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"os"
 
@@ -42,22 +43,30 @@ type whereCase struct {
 	Name     string     `json:"name"`
 	Where    task.Where `json:"where"`
 	Expected []string   `json:"expected"`
+	// ServerComputed marks a case that only the Core evaluates, which the TypeScript
+	// matches checks.
+	ServerComputed bool `json:"server_computed"`
 }
 
+// vectors is the task section of the case table.
 type vectors struct {
-	Tasks struct {
-		Records map[string]task.Task `json:"records"`
-		Cases   []whereCase          `json:"cases"`
-	} `json:"tasks"`
+	Records map[string]task.Task `json:"records"`
+	Cases   []whereCase          `json:"cases"`
 }
 
 var _ = Describe("Where", Ordered, func() {
 	var (
-		v   vectors
-		svc *task.Service
+		v    vectors
+		svc  *task.Service
+		file map[string]jsontext.Value
 	)
-	Expect(json.Unmarshal(MustSucceed(os.ReadFile(vectorsPath)), &v)).To(Succeed())
-	aliases := lo.MapEntries(v.Tasks.Records, func(
+	Expect(json.Unmarshal(MustSucceed(os.ReadFile(vectorsPath)), &file)).To(Succeed())
+	Expect(json.Unmarshal(
+		file["tasks"],
+		&v,
+		json.RejectUnknownMembers(true),
+	)).To(Succeed())
+	aliases := lo.MapEntries(v.Records, func(
 		alias string,
 		t task.Task,
 	) (task.Key, string) {
@@ -102,27 +111,27 @@ var _ = Describe("Where", Ordered, func() {
 			ImEx:     imex.NewService(),
 			Configs:  MustSucceed(config.NewRegistry(lj.Stores()...)),
 		}))
-		for _, t := range v.Tasks.Records {
+		for _, t := range v.Records {
 			r := rack.Rack{Key: t.Rack, Name: "Rack"}
 			Expect(racks.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 			Expect(svc.NewWriter(nil).Create(ctx, &t)).To(Succeed())
 		}
 	})
 
-	for _, c := range v.Tasks.Cases {
-		It("Should match the case: "+c.Name, func(ctx SpecContext) {
-			f := MustSucceed(task.MatchWhere(c.Where))
-			var res []task.Task
-			// The API skips not-found, since a missing key is a non-match.
-			Expect(errors.Skip(
-				svc.NewRetrieve().Where(f).Entries(&res).Exec(ctx, nil),
-				query.ErrNotFound,
-			)).To(Succeed())
-			Expect(lo.Map(res, func(t task.Task, _ int) string {
-				return aliases[t.Key]
-			})).To(ConsistOf(c.Expected))
-		})
-	}
+	DescribeTable("Should match the case", func(ctx SpecContext, c whereCase) {
+		f := MustSucceed(task.MatchWhere(c.Where))
+		var res []task.Task
+		// The API skips not-found, since a missing key is a non-match.
+		Expect(errors.Skip(
+			svc.NewRetrieve().Where(f).Entries(&res).Exec(ctx, nil),
+			query.ErrNotFound,
+		)).To(Succeed())
+		Expect(lo.Map(res, func(t task.Task, _ int) string {
+			return aliases[t.Key]
+		})).To(ConsistOf(c.Expected))
+	}, lo.Map(v.Cases, func(c whereCase, _ int) TableEntry {
+		return Entry(c.Name, c)
+	}))
 
 	It("Should return a path error for an invalid regex", func() {
 		var w task.Where

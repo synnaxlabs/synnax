@@ -10,6 +10,7 @@
 package device_test
 
 import (
+	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"os"
 
@@ -39,22 +40,30 @@ type whereCase struct {
 	Name     string       `json:"name"`
 	Where    device.Where `json:"where"`
 	Expected []string     `json:"expected"`
+	// ServerComputed marks a case that only the Core evaluates, which the TypeScript
+	// matches checks.
+	ServerComputed bool `json:"server_computed"`
 }
 
+// vectors is the device section of the case table.
 type vectors struct {
-	Devices struct {
-		Records map[string]device.Device `json:"records"`
-		Cases   []whereCase              `json:"cases"`
-	} `json:"devices"`
+	Records map[string]device.Device `json:"records"`
+	Cases   []whereCase              `json:"cases"`
 }
 
 var _ = Describe("Where", Ordered, func() {
 	var (
-		v   vectors
-		svc *device.Service
+		v    vectors
+		svc  *device.Service
+		file map[string]jsontext.Value
 	)
-	Expect(json.Unmarshal(MustSucceed(os.ReadFile(vectorsPath)), &v)).To(Succeed())
-	aliases := lo.MapEntries(v.Devices.Records, func(
+	Expect(json.Unmarshal(MustSucceed(os.ReadFile(vectorsPath)), &file)).To(Succeed())
+	Expect(json.Unmarshal(
+		file["devices"],
+		&v,
+		json.RejectUnknownMembers(true),
+	)).To(Succeed())
+	aliases := lo.MapEntries(v.Records, func(
 		alias string,
 		d device.Device,
 	) (device.Key, string) {
@@ -94,27 +103,27 @@ var _ = Describe("Where", Ordered, func() {
 			Status:   stat,
 			Rack:     racks,
 		}))
-		for _, d := range v.Devices.Records {
+		for _, d := range v.Records {
 			r := rack.Rack{Key: d.Rack, Name: "Rack"}
 			Expect(racks.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 			Expect(svc.NewWriter(nil).Create(ctx, &d)).To(Succeed())
 		}
 	})
 
-	for _, c := range v.Devices.Cases {
-		It("Should match the case: "+c.Name, func(ctx SpecContext) {
-			f := MustSucceed(device.MatchWhere(c.Where))
-			var res []device.Device
-			// The API skips not-found, since a missing key is a non-match.
-			Expect(errors.Skip(
-				svc.NewRetrieve().Where(f).Entries(&res).Exec(ctx, nil),
-				query.ErrNotFound,
-			)).To(Succeed())
-			Expect(lo.Map(res, func(d device.Device, _ int) string {
-				return aliases[d.Key]
-			})).To(ConsistOf(c.Expected))
-		})
-	}
+	DescribeTable("Should match the case", func(ctx SpecContext, c whereCase) {
+		f := MustSucceed(device.MatchWhere(c.Where))
+		var res []device.Device
+		// The API skips not-found, since a missing key is a non-match.
+		Expect(errors.Skip(
+			svc.NewRetrieve().Where(f).Entries(&res).Exec(ctx, nil),
+			query.ErrNotFound,
+		)).To(Succeed())
+		Expect(lo.Map(res, func(d device.Device, _ int) string {
+			return aliases[d.Key]
+		})).To(ConsistOf(c.Expected))
+	}, lo.Map(v.Cases, func(c whereCase, _ int) TableEntry {
+		return Entry(c.Name, c)
+	}))
 
 	It("Should return a path error for an invalid regex", func() {
 		var w device.Where

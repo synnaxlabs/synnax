@@ -10,6 +10,7 @@
 package rack_test
 
 import (
+	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"os"
 
@@ -33,22 +34,30 @@ type whereCase struct {
 	Name     string     `json:"name"`
 	Where    rack.Where `json:"where"`
 	Expected []string   `json:"expected"`
+	// ServerComputed marks a case that only the Core evaluates, which the TypeScript
+	// matches checks.
+	ServerComputed bool `json:"server_computed"`
 }
 
+// vectors is the rack section of the case table.
 type vectors struct {
-	Racks struct {
-		Records map[string]rack.Rack `json:"records"`
-		Cases   []whereCase          `json:"cases"`
-	} `json:"racks"`
+	Records map[string]rack.Rack `json:"records"`
+	Cases   []whereCase          `json:"cases"`
 }
 
 var _ = Describe("Where", Ordered, func() {
 	var (
-		v   vectors
-		svc *rack.Service
+		v    vectors
+		svc  *rack.Service
+		file map[string]jsontext.Value
 	)
-	Expect(json.Unmarshal(MustSucceed(os.ReadFile(vectorsPath)), &v)).To(Succeed())
-	aliases := lo.MapEntries(v.Racks.Records, func(
+	Expect(json.Unmarshal(MustSucceed(os.ReadFile(vectorsPath)), &file)).To(Succeed())
+	Expect(json.Unmarshal(
+		file["racks"],
+		&v,
+		json.RejectUnknownMembers(true),
+	)).To(Succeed())
+	aliases := lo.MapEntries(v.Records, func(
 		alias string,
 		r rack.Rack,
 	) (rack.Key, string) {
@@ -60,28 +69,28 @@ var _ = Describe("Where", Ordered, func() {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		// The stack's host is node 1, so racks a and b are on the host.
 		svc = DeferClose(openStack(ctx, db, rack.ServiceConfig{})).rack
-		for _, r := range v.Racks.Records {
+		for _, r := range v.Records {
 			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 		}
 	})
 
-	for _, c := range v.Racks.Cases {
-		It("Should match the case: "+c.Name, func(ctx SpecContext) {
-			f := MustSucceed(rack.MatchWhere(c.Where))
-			var res []rack.Rack
-			// The API skips not-found, since a missing key is a non-match.
-			Expect(errors.Skip(
-				svc.NewRetrieve().Where(f).Entries(&res).Exec(ctx, nil),
-				query.ErrNotFound,
-			)).To(Succeed())
-			// The service creates its own embedded rack, which the table does not hold.
-			matched := lo.FilterMap(res, func(r rack.Rack, _ int) (string, bool) {
-				alias, ok := aliases[r.Key]
-				return alias, ok
-			})
-			Expect(matched).To(ConsistOf(c.Expected))
+	DescribeTable("Should match the case", func(ctx SpecContext, c whereCase) {
+		f := MustSucceed(rack.MatchWhere(c.Where))
+		var res []rack.Rack
+		// The API skips not-found, since a missing key is a non-match.
+		Expect(errors.Skip(
+			svc.NewRetrieve().Where(f).Entries(&res).Exec(ctx, nil),
+			query.ErrNotFound,
+		)).To(Succeed())
+		// The service creates its own embedded rack, which the table does not hold.
+		matched := lo.FilterMap(res, func(r rack.Rack, _ int) (string, bool) {
+			alias, ok := aliases[r.Key]
+			return alias, ok
 		})
-	}
+		Expect(matched).To(ConsistOf(c.Expected))
+	}, lo.Map(v.Cases, func(c whereCase, _ int) TableEntry {
+		return Entry(c.Name, c)
+	}))
 
 	It("Should return a path error for an invalid regex", func() {
 		var w rack.Where
