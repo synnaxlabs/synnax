@@ -2351,24 +2351,6 @@ var _ = Describe("Compiler", func() {
 				}
 				return acc
 			}`, float64(6+20+42)),
-			Entry("i32 operand in an i64 range bound", "i64", `{
-				n i32 := 3
-				s i64 := 1
-				acc i64 := 0
-				for i := range(0, 2 * n, s) {
-					acc = acc + i
-				}
-				return acc
-			}`, float64(15)),
-			Entry("i32 operand in an i64 range end", "i64", `{
-				a i64 := 0
-				n i32 := 3
-				acc i64 := 0
-				for i := range(a, 2 * n) {
-					acc = acc + i
-				}
-				return acc
-			}`, float64(15)),
 		)
 	})
 

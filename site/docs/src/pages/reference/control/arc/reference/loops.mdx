@@ -127,7 +127,8 @@ for i := range(0, 10, -1) {} // no iterations (start < end, step is negative)
 
 <Note.Note variant="info">
   All `range` arguments must be integer types (`i8`, `i16`, `i32`, `i64`, `u8`, `u16`,
-  `u32`, `u64`). Float values are not accepted.
+  `u32`, `u64`). Float values are not accepted. Mixing integer types, such as an `i32`
+  start with an `i64` end, is a type error. Cast one argument to match the other.
 </Note.Note>
 
 <Divider.Divider x />
