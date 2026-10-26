@@ -983,7 +983,7 @@ var _ = Describe("Go Query Plugin", func() {
 				ExpectContent(resp, "retrieve.gen.go").
 					ToBeValidGoSource().
 					ToContain(
-						"// MatchSearch matches the tasks whose text matches term, closest match first.",
+						"// MatchSearch matches the tasks whose text matches term.\n// The closest match comes first.",
 						"func MatchSearch(term string) Filter {",
 						"return func(r Retrieve) gorp.Filter[uint64, Task] {",
 					).

@@ -248,7 +248,7 @@ var _ = Describe("Go Filter Plugin", func() {
 					"fs = append(fs, MatchOverlaps(*l))",
 					"fs = append(fs, MatchLabels(l...))",
 				).
-				ToNotContain(`"regexp"`, `"github.com/synnaxlabs/synnax/gorp"`)
+				ToNotContain(`"regexp"`, `/gorp"`)
 		})
 
 		It("Should decode the retrieve request strictly", func(ctx SpecContext) {

@@ -114,6 +114,8 @@ var _ = Describe("TS Filter Plugin", func() {
 					`import { Payload, Where } from "@/thing/types.gen";`,
 					"export const matches = (record: Payload, where?: Where): boolean => {",
 					"if (where == null) return true;",
+					" * @returns whether only the Core can check where, because it holds a "+
+						"regex. An absent\n * where is not server-computed.",
 					"export const serverComputed = (where?: Where): boolean =>",
 					"where != null && (",
 					"!filter.matchesSet(where.key, record.key)",

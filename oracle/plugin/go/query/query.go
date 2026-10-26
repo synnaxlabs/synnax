@@ -641,8 +641,8 @@ func (i indexes) all() []gorp.Index[{{$ret.KeyType}}, {{$ret.GoName}}] {
 }
 {{- if and $ret.IndexesOnly $ret.HasSearch}}
 
-// MatchSearch matches the {{$ret.Name | toLower | pluralize}} whose text matches term,
-// closest match first.
+// MatchSearch matches the {{$ret.Name | toLower | pluralize}} whose text matches term.
+// The closest match comes first.
 func MatchSearch(term string) Filter{{$ret.AnyArgs}} {
 	return func(r Retrieve{{$ret.AnyArgs}}) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
 		return r.indexes.search.Filter(term)

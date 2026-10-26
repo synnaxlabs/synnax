@@ -270,8 +270,13 @@ export const matches = ({{ if .HasTyped }}lines: Lines, {{ end }}record: {{ .Rec
 };
 
 /**
- * @returns whether only the Core can check where, because it holds a regex{{ if .HasTyped }} or a
- * line whose entry in lines is null{{ end }}. An absent where is not server-computed.
+{{- if .HasTyped }}
+ * @returns whether only the Core can check where, because it holds a regex or a line
+ * whose entry in lines is null. An absent where is not server-computed.
+{{- else }}
+ * @returns whether only the Core can check where, because it holds a regex. An absent
+ * where is not server-computed.
+{{- end }}
  */
 export const serverComputed = ({{ if .HasTyped }}lines: Lines, {{ end }}where?: Where): boolean =>
   where != null && (
