@@ -243,9 +243,9 @@ class Client:
         models: list[str] | None = None,
         locations: list[str] | None = None,
         racks: list[int] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
         include_status: bool = False,
         include_parent: bool = False,
     ) -> list[Device]: ...
@@ -265,9 +265,9 @@ class Client:
         models: list[str] | None = None,
         locations: list[str] | None = None,
         racks: list[int] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
         include_status: bool = False,
         include_parent: bool = False,
         ignore_not_found: bool = False,
@@ -294,17 +294,10 @@ class Client:
             raise ValueError(
                 "only one of key, name, make, model, and location can be given"
             )
-        if is_single and not all_none(
-            where,
-            keys,
-            names,
-            makes,
-            models,
-            locations,
-            racks,
-            search_term,
-            limit,
-            offset,
+        if is_single and (
+            search_term
+            or offset
+            or not all_none(where, keys, names, makes, models, locations, racks, limit)
         ):
             raise ValueError(
                 "key, name, make, model, and location cannot be combined with list "
@@ -321,17 +314,15 @@ class Client:
             make=None if makes is None else filter.String(in_=makes),
             model=None if models is None else filter.String(in_=models),
             location=None if locations is None else filter.String(in_=locations),
-            rack=None if racks is None else filter.Ordered[rack_.Key](in_=racks),
+            rack=None if racks is None else filter.Set[rack_.Key](in_=racks),
         )
-        if where is not None and flat != Where():
-            where = Where(and_=[where, flat])
         req = RetrieveRequest(
-            where=flat if where is None else where,
+            where=filter.merge(where, flat),
             search_term=search_term,
             limit=limit,
             offset=offset,
-            include_status=include_status or None,
-            include_parent=include_parent or None,
+            include_status=include_status,
+            include_parent=include_parent,
         )
         res = self._client.send("/device/retrieve", req, RetrieveResponse)
         if is_single:
