@@ -229,6 +229,9 @@ describe("Schematic.Tooltip", () => {
       ["manual_valve", ["Clickable"]],
       ["scale", ["Stale timeout"]],
       ["tank", ["Stale timeout"]],
+      ["setpoint", ["Stale timeout"]],
+      ["input", ["Stale timeout"]],
+      ["select", ["Stale timeout"]],
     ])("should show the %s rows in order", async (variant, labels) => {
       renderTooltip(Node.createConfig({ variant }));
       const tooltip = await findTooltip();
@@ -238,8 +241,7 @@ describe("Schematic.Tooltip", () => {
       expect(rendered).toEqual(labels);
     });
 
-    // A setpoint's only field is the click delay, which is hidden at zero.
-    it.each<Node.Variant>(["cap", "circle", "group_box", "setpoint"])(
+    it.each<Node.Variant>(["cap", "circle", "group_box"])(
       "should render nothing for a %s, which has no rows",
       async (variant) => {
         renderTooltip(Node.createConfig({ variant }));

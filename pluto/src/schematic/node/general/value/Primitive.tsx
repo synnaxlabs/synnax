@@ -13,12 +13,7 @@ import { type schematic } from "@synnaxlabs/client";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Text } from "@synnaxlabs/lyra/text";
 import { color, type dimensions, type text } from "@synnaxlabs/x";
-import {
-  type CSSProperties,
-  type PropsWithChildren,
-  type ReactElement,
-  useMemo,
-} from "react";
+import { type CSSProperties, type PropsWithChildren, type ReactElement } from "react";
 
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -26,7 +21,7 @@ import { Primitive } from "@/schematic/node/common/primitive";
 interface RenderProps extends PropsWithChildren<
   Pick<
     schematic.ValueNodeConfig,
-    "strokeColor" | "textColor" | "orientation" | "units" | "inlineSize"
+    "strokeColor" | "orientation" | "units" | "inlineSize"
   >
 > {
   className?: string;
@@ -37,7 +32,6 @@ interface RenderProps extends PropsWithChildren<
 export const Value = ({
   className,
   strokeColor,
-  textColor,
   dimensions,
   orientation,
   units,
@@ -46,24 +40,24 @@ export const Value = ({
   inlineSize = 80,
 }: RenderProps): ReactElement => {
   const symbolColor = color.rgbaString(strokeColor);
-  const style = useMemo<CSSProperties>(
-    () => ({
-      [CSS.variable("symbol-color")]: symbolColor,
-      height: dimensions?.height,
-    }),
-    [symbolColor, dimensions?.height],
-  );
-  const contentStyle = useMemo<CSSProperties>(
-    () => ({
-      minWidth: dimensions?.width,
-      inlineSize,
-      maxWidth: dimensions?.width,
-    }),
-    [dimensions?.width, inlineSize],
-  );
+  const style: CSSProperties = {
+    [Primitive.SYMBOL_COLOR]: symbolColor,
+    height: dimensions?.height,
+  };
+  const contentStyle: CSSProperties = {
+    minWidth: dimensions?.width,
+    inlineSize,
+    maxWidth: dimensions?.width,
+  };
   return (
     <Primitive.Div
-      className={CSS.cls(CSS.B("value"), CSS.B("symbol-colored"), className)}
+      className={CSS.cls(
+        CSS.B("value"),
+        CSS.B("symbol-colored"),
+        CSS.B("symbol-readout"),
+        symbolColor != null && CSS.M("colored"),
+        className,
+      )}
       style={style}
     >
       <div className={CSS.BE("value", "content")} style={contentStyle}>
@@ -76,11 +70,13 @@ export const Value = ({
         right={100}
         bottom={102}
       />
-      <div className={CSS.cls(CSS.BE("value", "units"), CSS.M(unitsLevel))}>
-        <Text.Text level={unitsLevel} color={textColor ?? 11}>
-          {units}
-        </Text.Text>
-      </div>
+      {units.length > 0 && (
+        <div className={CSS.cls(CSS.BE("value", "units"), CSS.M(unitsLevel))}>
+          <Text.Text level={unitsLevel} color={9}>
+            {units}
+          </Text.Text>
+        </div>
+      )}
     </Primitive.Div>
   );
 };

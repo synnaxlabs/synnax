@@ -19,7 +19,7 @@ import (
 
 func TestArrays(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Arrays Suite")
+	RunSpecs(t, "Plugin Arrays Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

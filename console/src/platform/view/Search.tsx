@@ -10,7 +10,7 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { plural } from "pluralize";
-import { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import { useContext, useFormContext } from "@/platform/view/context";
 
@@ -18,13 +18,10 @@ export const Search = (): ReactElement | null => {
   const { search } = useFormContext("View.Search");
   const { editable, resourceType } = useContext("View.Search");
   const [value, setValue] = useState("");
-  const handleChange = useCallback(
-    (v: string) => {
-      setValue(v);
-      search(v);
-    },
-    [search],
-  );
+  const handleChange = (v: string) => {
+    setValue(v);
+    search(v);
+  };
   if (!editable) return null;
   return (
     <Input.Text

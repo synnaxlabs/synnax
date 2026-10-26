@@ -12,8 +12,17 @@ easy to get wrong by hand.
   `.cpp`/`.hpp`/`.h`/`.cc` in place, parallelized across cores. Excludes come from the
   root `.clang-format-ignore`. `check_clang_format.sh <path>` — dry run, non-zero exit
   on diffs.
-- `install_clang_format.sh` — installs the pinned LLVM 23 clang-format via apt. Always
-  use this over a plain `apt install clang-format`, so the version matches CI.
+- `install_clang_format.sh` — installs the pinned clang-format with `uv tool install`.
+  Always use this over a package manager, so the version matches CI. Bazel fetches
+  clang-tidy itself (`MODULE.bazel`).
+
+## Linting
+
+- `clang_tidy_fix.sh <bazel targets...>` — applies the fixes clang-tidy offers for the
+  C++ files in the targets, then formats the changed code. Lint without fixing through
+  `bazel build --config=clang-tidy <targets>`.
+- `clang_tidy_wrapper.sh` — the clang-tidy the Bazel aspect runs. Never call it
+  directly.
 
 Prettier (TS) and Ruff (Python) run via each toolchain's own CLI, not a repo script.
 
@@ -35,6 +44,12 @@ Neither script touches `.oracle` schema files.
 - `check_go_generate.sh <path>` — runs `go generate ./...` in `<path>` (repo-root
   relative), then `git add --intent-to-add` so new generated files show up in
   `git diff`. Verifies generated Go output is checked in and current; not a fix-up.
+
+## Agents
+
+- `dispatch_agent_task.sh [--dry-run] [--agent claude|codex] SY-####` — sends an
+  `agent-task` dispatch that asks a remote agent to fix a Linear issue, then prints the
+  run link. Used by the `bug-from-email` skill.
 
 ## Versioning and release
 

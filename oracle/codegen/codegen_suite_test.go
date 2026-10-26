@@ -19,7 +19,7 @@ import (
 
 func TestCodegen(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Codegen Suite")
+	RunSpecs(t, "Codegen Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -15,12 +15,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -32,7 +32,7 @@ var _ = Describe("MigrateRack", func() {
 		Expect(gorp.NewCreate[v0.Key, v0.Rack]().
 			Entry(&seed).Exec(ctx, db)).To(Succeed())
 		v0Chain := v0.NewMigrations(v0.MigrationConfig{})
-		v0Applied := gorp.NewMigration(
+		v0Applied := migrate.New(
 			v0Chain[0].Key(),
 			func(context.Context, gorp.Tx, alamos.Instrumentation) error { return nil },
 		)
@@ -40,7 +40,7 @@ var _ = Describe("MigrateRack", func() {
 			DB:        db,
 			Namespace: "Rack",
 			Migrations: append(
-				append([]migrate.Migration{v0Applied}, v0Chain[1:]...),
+				append([]gorp.Migration{v0Applied}, v0Chain[1:]...),
 				v1.Migration,
 				v2.Migration,
 			),

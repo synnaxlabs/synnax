@@ -46,6 +46,7 @@ Rack struct {
     name         string   {
         @doc value         "is a human-readable name for the rack."
         @filter
+        @search
         @validate required
     }
     embedded     bool = false {
@@ -76,7 +77,6 @@ Rack struct {
     @ontology type   "rack"
     @py name         "Base"
     @retrieve custom
-    @search
     @ts name         "Payload"
 }
 

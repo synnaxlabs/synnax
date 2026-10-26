@@ -172,7 +172,7 @@ struct Config {
             );
     }
 
-    Config apply_defaults(const x::telem::TimeSpan shortest_span) const {
+    [[nodiscard]] Config apply_defaults(const x::telem::TimeSpan shortest_span) const {
         Config cfg = *this;
         if (this->mode == ExecutionMode::AUTO) cfg.mode = select_mode(shortest_span);
         if (this->interval.nanoseconds() == 0 &&

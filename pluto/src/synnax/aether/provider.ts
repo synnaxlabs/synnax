@@ -45,9 +45,14 @@ export class Provider extends aether.Composite<typeof stateZ, ContextValue> {
       return;
 
     this.closeClient();
+    const handleError = useErrorHandler(ctx);
+    const heading = {
+      message: "Failed to sync with Core",
+      name: this.state.props.name ?? "",
+    };
     this.internal.client = new Synnax({
       ...this.state.props,
-      onInternalError: useErrorHandler(ctx),
+      onInternalError: (e) => handleError(e, heading),
     });
     set(ctx, this.internal);
   }

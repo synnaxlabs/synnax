@@ -220,6 +220,51 @@ describe("Schematic Slice", () => {
       expect(read(Schematic.useGet).toolbar.propertiesTab).toBe("style");
     });
 
+    it("should open the symbols tab to change the selected symbols", () => {
+      store.dispatch(Schematic.create({ key: KEY }));
+      store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
+      store.dispatch(Schematic.setChanging({ key: KEY, changing: true }));
+      expect(read(Schematic.useGet).toolbar).toMatchObject({
+        selectedTab: "symbols",
+        changing: true,
+      });
+    });
+
+    it("should return to the properties tab when a change ends", () => {
+      store.dispatch(Schematic.create({ key: KEY }));
+      store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
+      store.dispatch(Schematic.setChanging({ key: KEY, changing: true }));
+      store.dispatch(Schematic.setChanging({ key: KEY, changing: false }));
+      expect(read(Schematic.useGet).toolbar).toMatchObject({
+        selectedTab: "properties",
+        changing: false,
+      });
+    });
+
+    it("should end a change when the tab changes", () => {
+      store.dispatch(Schematic.create({ key: KEY }));
+      store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
+      store.dispatch(Schematic.setChanging({ key: KEY, changing: true }));
+      store.dispatch(Schematic.selectToolbarTab({ key: KEY, tab: "symbols" }));
+      expect(read(Schematic.useGet).toolbar.changing).toBe(false);
+    });
+
+    it("should end a change when the selection changes", () => {
+      store.dispatch(Schematic.create({ key: KEY }));
+      store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
+      store.dispatch(Schematic.setChanging({ key: KEY, changing: true }));
+      store.dispatch(Schematic.setSelected({ key: KEY, selected: ["b"] }));
+      expect(read(Schematic.useGet).toolbar.changing).toBe(false);
+    });
+
+    it("should end a change when editing is disabled", () => {
+      store.dispatch(Schematic.create({ key: KEY }));
+      store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
+      store.dispatch(Schematic.setChanging({ key: KEY, changing: true }));
+      store.dispatch(Schematic.setEditable({ key: KEY, editable: false }));
+      expect(read(Schematic.useGet).toolbar.changing).toBe(false);
+    });
+
     it("should keep the properties tab when the selection changes", () => {
       store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setPropertiesTab({ key: KEY, tab: "style" }));

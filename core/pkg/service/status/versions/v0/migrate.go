@@ -9,7 +9,7 @@
 
 package v0
 
-import "github.com/synnaxlabs/x/gorp"
+import "github.com/synnaxlabs/gorp/migrate"
 
 // NormalizeKeys re-keys Status rows stored under the pre-v0.54 key format.
-var NormalizeKeys = gorp.NormalizeKeysMigration[Key, Status[any]]("Status")
+var NormalizeKeys = migrate.NormalizeKeys[Key, Status[any]]("Status")

@@ -39,7 +39,9 @@ struct Factory final : task::Factory {
 
     std::string name() override { return INTEGRATION_NAME; }
 
-    std::shared_ptr<connection::Pool> conn_pool() const { return conn_pool_; }
+    [[nodiscard]] std::shared_ptr<connection::Pool> conn_pool() const {
+        return conn_pool_;
+    }
 
 private:
     std::shared_ptr<connection::Pool> conn_pool_;

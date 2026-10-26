@@ -103,10 +103,13 @@ interface InternalState {
 const DEFAULT_X_BOUND_PADDING = 0.01;
 const DEFAULT_Y_BOUND_PADDING = 0.1;
 
-export class BaseAxis<
+export abstract class BaseAxis<
   S extends typeof baseAxisStateZ,
   C extends aether.Component = aether.Component,
 > extends aether.Composite<S, InternalState, C> {
+  /** True while a line on the axis loads its first data. */
+  abstract get loading(): boolean;
+
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     const { location, autoBoundUpdateInterval } = this.state;
@@ -178,7 +181,8 @@ export class BaseAxis<
       err = err_ as Error;
     }
     const bounds = merge(ab);
-    this.internal.boundSnapshot = bounds;
+    // A hold keeps bounds of loaded data, never of a line still loading.
+    if (!this.loading) this.internal.boundSnapshot = bounds;
     if (
       this.state.bounds == null ||
       (autoLower && this.state.bounds.lower !== bounds.lower) ||

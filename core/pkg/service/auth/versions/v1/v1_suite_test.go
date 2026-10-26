@@ -19,7 +19,7 @@ import (
 
 func TestAuthV1(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Auth v1 Suite")
+	RunSpecs(t, "Service Auth v1 Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

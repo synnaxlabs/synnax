@@ -73,27 +73,27 @@ struct Properties {
     /// @brief network interface the slave is connected to.
     std::string network;
     /// @brief position of the slave on the EtherCAT bus (0-based index).
-    uint16_t position;
+    uint16_t position{};
     /// @brief EtherCAT vendor ID assigned by ETG.
-    uint32_t vendor_id;
+    uint32_t vendor_id{};
     /// @brief product code identifying the slave type.
-    uint32_t product_code;
+    uint32_t product_code{};
     /// @brief revision number for hardware/firmware versioning.
-    uint32_t revision;
+    uint32_t revision{};
     /// @brief serial number of the device (if available).
-    uint32_t serial;
+    uint32_t serial{};
     /// @brief human-readable name of the slave device.
     std::string name;
     /// @brief total input size in bits.
-    uint32_t input_bits;
+    uint32_t input_bits{};
     /// @brief total output size in bits.
-    uint32_t output_bits;
+    uint32_t output_bits{};
     /// @brief discovered input PDOs (TxPDO, slave→master).
     std::vector<pdo::Properties> input_pdos;
     /// @brief discovered output PDOs (RxPDO, master→slave).
     std::vector<pdo::Properties> output_pdos;
     /// @brief true if PDOs were discovered via CoE assignment objects.
-    bool coe_pdo_order_reliable;
+    bool coe_pdo_order_reliable{};
     /// @brief whether the device is enabled or not.
     bool enabled = true;
 
@@ -102,19 +102,13 @@ struct Properties {
         return this->input_pdos.size() + this->output_pdos.size();
     }
 
-    /// @brief finds an input PDO by name.
+    /// @brief returns the entry at the given address in one direction, or nullopt when
+    /// the slave has no such entry. Padding never matches.
     [[nodiscard]] std::optional<pdo::Properties>
-    find_input_pdo(const std::string &pdo_name) const {
-        for (const auto &pdo: input_pdos)
-            if (pdo.name == pdo_name) return pdo;
-        return std::nullopt;
-    }
-
-    /// @brief finds an output PDO by name.
-    [[nodiscard]] std::optional<pdo::Properties>
-    find_output_pdo(const std::string &pdo_name) const {
-        for (const auto &pdo: output_pdos)
-            if (pdo.name == pdo_name) return pdo;
+    find_pdo(const uint16_t index, const uint8_t sub_index, const bool is_input) const {
+        for (const auto &pdo: is_input ? this->input_pdos : this->output_pdos)
+            if (!pdo.is_padding() && pdo.index == index && pdo.sub_index == sub_index)
+                return pdo;
         return std::nullopt;
     }
 
@@ -141,7 +135,7 @@ struct Properties {
         return props;
     }
 
-    /// @brief serializes this slave's properties to JSON.
+    /// @brief serializes this slave's properties to JSON, leaving out padding entries.
     [[nodiscard]] nlohmann::json to_json() const {
         nlohmann::json props;
         props["vendor_id"] = this->vendor_id;
@@ -158,11 +152,11 @@ struct Properties {
 
         nlohmann::json inputs = nlohmann::json::array();
         for (const auto &pdo: this->input_pdos)
-            inputs.push_back(pdo.to_json());
+            if (!pdo.is_padding()) inputs.push_back(pdo.to_json());
 
         nlohmann::json outputs = nlohmann::json::array();
         for (const auto &pdo: this->output_pdos)
-            outputs.push_back(pdo.to_json());
+            if (!pdo.is_padding()) outputs.push_back(pdo.to_json());
 
         props["pdos"] = {{"inputs", inputs}, {"outputs", outputs}};
         return props;
@@ -177,6 +171,38 @@ struct Status {
     bool pdos_discovered;
     /// @brief error message if PDO discovery failed (empty on success).
     std::string pdo_discovery_error;
+};
+
+/// @brief the condition of a slave on a running bus.
+struct Health {
+    /// @brief position of the slave on the bus.
+    uint16_t position = 0;
+    /// @brief application layer state the slave reports.
+    State state = State::UNKNOWN;
+    /// @brief true when the slave set the error flag of its AL status.
+    bool faulted = false;
+    /// @brief true when the slave stopped responding.
+    bool lost = false;
+    /// @brief description of the slave's AL status code, empty when it reports none or
+    /// the master cannot read it.
+    std::string al_status;
+
+    bool operator==(const Health &) const = default;
+
+    /// @brief returns true when the slave is in OP with no fault.
+    [[nodiscard]] bool operational() const {
+        return this->state == State::OP && !this->faulted && !this->lost;
+    }
+
+    /// @brief returns a short description such as "SAFE-OP + ERROR: Sync manager
+    /// watchdog".
+    [[nodiscard]] std::string to_string() const {
+        if (this->lost) return "not responding";
+        std::string desc = slave_state_to_string(this->state);
+        if (this->faulted) desc += " + ERROR";
+        if (!this->al_status.empty()) desc += ": " + this->al_status;
+        return desc;
+    }
 };
 
 /// @brief combined result from slave discovery containing both static properties

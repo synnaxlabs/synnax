@@ -23,13 +23,18 @@ export const CodePanel = ({
   activeLines,
   className,
 }: CodePanelProps): ReactElement => {
-  const processedHtml = useMemo(() => {
-    let lineIndex = 0;
-    return html.replace(/<span class="line">/g, () => {
-      lineIndex++;
-      return activeLines.includes(lineIndex) ? ACTIVE_LINE_TAG : LINE_TAG;
-    });
-  }, [html, activeLines]);
+  const processedHtml = useMemo(
+    () =>
+      html
+        .split(LINE_TAG)
+        .map((part, line) =>
+          line === 0
+            ? part
+            : `${activeLines.includes(line) ? ACTIVE_LINE_TAG : LINE_TAG}${part}`,
+        )
+        .join(""),
+    [html, activeLines],
+  );
 
   return (
     <div

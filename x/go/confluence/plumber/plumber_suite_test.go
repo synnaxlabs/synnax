@@ -19,7 +19,7 @@ import (
 
 func TestPlumber(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Confluence Plumber Suite")
+	RunSpecs(t, "Confluence Plumber Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

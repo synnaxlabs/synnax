@@ -688,8 +688,28 @@ describe("Task", async () => {
         config: {},
         type: "pagerduty_alert",
       });
-      await expect(t.executeCommandSync({ type: "test", timeout: 0 })).rejects.toThrow(
-        "timed out",
+      await expect(
+        t.executeCommandSync({ type: "test", timeout: TimeSpan.milliseconds(1) }),
+      ).rejects.toThrow(new Error("Command to test timed out after 1ms"));
+    });
+    it("should name the task by key when its name lookup fails", async () => {
+      const t = await testRack.createTask({
+        name: "test",
+        config: {},
+        type: "pagerduty_alert",
+      });
+      await client.tasks.delete(t.key);
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+      onTestFinished(() => consoleError.mockRestore());
+      await expect(
+        client.tasks.executeCommandSync({
+          task: t.key,
+          type: "test",
+          timeout: TimeSpan.milliseconds(1),
+          statusDataZ: z.unknown(),
+        }),
+      ).rejects.toThrow(
+        new Error(`Command to task with key ${t.key} timed out after 1ms`),
       );
     });
   });
@@ -951,6 +971,8 @@ describe("Task", async () => {
         await setRackStatus(testRack.key, "success", "Driver is running");
         await client.tasks.executeCommand({ task: t.key, type: "stop" });
         await expect.poll(() => loading.length).toBeGreaterThan(0);
+        expect(loading[0].name).toBe(t.name);
+        expect(loading[0].message).toBe("Sending stop command");
         expect(loading[0].details.configHash).toBe("deadbeef");
         expect(loading[0].details.rack).toBe(testRack.key);
       } finally {
@@ -1117,7 +1139,7 @@ describe("Task", async () => {
           key,
           name: "Task Status",
           variant: "success",
-          message: "Task started successfully",
+          message: "Started task",
           description: "",
           time: TimeStamp.now().sub(TimeSpan.minutes(1)),
           details: {
@@ -1133,7 +1155,7 @@ describe("Task", async () => {
         await vi.advanceTimersByTimeAsync(COMMAND_DEADLINE.milliseconds);
         expect(client.statuses.store.get(key)).toMatchObject({
           variant: "success",
-          message: "Task started successfully",
+          message: "Started task",
           details: { running: true, cmd: cmdKey },
         });
       } finally {
@@ -1179,7 +1201,7 @@ describe("Task", async () => {
           key,
           name: "Task Status",
           variant: "success",
-          message: "Task started successfully",
+          message: "Started task",
           description: "",
           time: TimeStamp.now(),
           details,
@@ -1226,7 +1248,7 @@ describe("Task", async () => {
         key,
         name: "Task Status",
         variant: "success",
-        message: "Task started successfully",
+        message: "Started task",
         description: "",
         time: TimeStamp.now().sub(TimeSpan.minutes(1)),
         details: {
@@ -1246,7 +1268,7 @@ describe("Task", async () => {
       await fetching;
       expect(local.statuses.store.get(key)).toMatchObject({
         variant: "success",
-        message: "Task started successfully",
+        message: "Started task",
       });
     });
 

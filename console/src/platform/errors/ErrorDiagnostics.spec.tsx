@@ -11,7 +11,7 @@ import { NotFoundError, panel, status } from "@synnaxlabs/client";
 import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
 import { Unreachable } from "@synnaxlabs/freighter";
 import { Errors } from "@synnaxlabs/pluto";
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -116,6 +116,28 @@ describe("ErrorDiagnostics", () => {
       `"fridge_schem" (${doc.key})`,
     ].join("\n");
     expect(messageText()).toBe(expected);
+  });
+
+  it("follows a rename of the crashed panel", async () => {
+    const client = createTestClient();
+    const { wrapper } = await createConsoleWrapper({ client });
+    const doc = panel.panelZ.parse({
+      name: "fridge_schem",
+      root: { variant: "leaf", tabs: [] },
+    });
+    await client.panels.create({ ...doc, parent: await createPanelParent(client) });
+    await client.panels.retrieve(doc.key);
+    render(
+      <Boundary panelKey={doc.key}>
+        <Throw error={new Error("boom")} />
+      </Boundary>,
+      { wrapper },
+    );
+    expect(messageText()).toBe(`boom\nCore: none\n"fridge_schem" (${doc.key})`);
+    await act(async () => await client.panels.rename(doc.key, "fridge_schem_2"));
+    await waitFor(() =>
+      expect(messageText()).toBe(`boom\nCore: none\n"fridge_schem_2" (${doc.key})`),
+    );
   });
 
   it("replaces the crash page when a flux read failed on an unreachable Core", async () => {
