@@ -110,15 +110,20 @@ describe("Store", () => {
       expect(store.get("b")).toBeUndefined();
     });
 
-    it("should evict a block past the budget once it stops being held", () => {
-      const store = new Store({ budget: Size.bytes(1.5 * BYTES) });
-      const held = createBlock({ held: true });
-      store.set("a", held);
-      store.set("b", createBlock({ held: true }));
-      held.held = false;
-      store.evict();
-      expect(store.get("a")).toBeUndefined();
-      expect(store.get("b")).toBeDefined();
+    it("should evict a block past the budget once the fetch it holds for settles", async () => {
+      const store = new Store({ budget: Size.bytes(1) });
+      const block = store.raw(1, 100);
+      let settle!: () => void;
+      const fetch = store.hold(
+        block,
+        new Promise<void>((resolve) => (settle = resolve)),
+      );
+      store.raw(1, 101);
+      expect(store.findRaw(1, 100)).toBe(block);
+      settle();
+      await fetch;
+      expect(block.pending).toBeNull();
+      expect(store.findRaw(1, 100)).toBeUndefined();
     });
 
     it("should make a held block it skips the most recently used", () => {

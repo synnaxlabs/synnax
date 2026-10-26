@@ -56,6 +56,12 @@ const DEFAULT_STALE_THRESHOLD = TimeSpan.minutes(10);
 // with no samples count against the budget too.
 const ENTRY_OVERHEAD = 256;
 
+// A cached block and the bytes it counted against the budget at its last set.
+interface Entry {
+  block: Block;
+  bytes: number;
+}
+
 // The stream's buffer of one channel, and the raw block it writes into.
 interface Live {
   buffer: Dynamic;
@@ -73,10 +79,8 @@ export class Store {
   private readonly dynamicBufferSize: number | TimeSpan;
   private readonly instrumentation: alamos.Instrumentation;
   private readonly now: () => TimeStamp;
-  // Map order is recency order: a get moves its block to the end.
-  private readonly blocks = new Map<string, Block>();
-  // counted holds the bytes each block counted against the budget at its last set.
-  private readonly counted = new Map<string, number>();
+  // Map order is recency order: a get moves its entry to the end.
+  private readonly entries = new Map<string, Entry>();
   private readonly dataTypes = new Map<channel.Key, DataType>();
   private readonly live = new Map<channel.Key, Live>();
   private bytes = 0;
@@ -97,11 +101,11 @@ export class Store {
 
   /** @returns the block cached under the key, marking it the most recently used. */
   get(key: string): Block | undefined {
-    const block = this.blocks.get(key);
-    if (block == null) return undefined;
-    this.blocks.delete(key);
-    this.blocks.set(key, block);
-    return block;
+    const entry = this.entries.get(key);
+    if (entry == null) return undefined;
+    this.entries.delete(key);
+    this.entries.set(key, entry);
+    return entry.block;
   }
 
   /**
@@ -112,42 +116,49 @@ export class Store {
    */
   set(key: string, block: Block): void {
     const bytes = block.bytes + ENTRY_OVERHEAD;
-    this.bytes += bytes - (this.counted.get(key) ?? 0);
-    this.counted.set(key, bytes);
-    this.blocks.delete(key);
-    this.blocks.set(key, block);
-    this.evictExcept(key);
+    this.bytes += bytes - (this.entries.get(key)?.bytes ?? 0);
+    this.entries.delete(key);
+    this.entries.set(key, { block, bytes });
+    this.evict(key);
   }
 
   /**
-   * Evicts least recently used blocks that are not held until the store fits its
-   * budget. Call it after a block stops being held.
+   * Holds the block until the fetch settles, then evicts least recently used blocks
+   * past the budget.
+   * @returns the fetch, which the block keeps as pending until it settles.
    */
-  evict(): void {
-    this.evictExcept(null);
+  hold(block: RawBlock, fetch: Promise<void>): Promise<void> {
+    const pending = fetch.finally(() => {
+      if (block.pending !== pending) return;
+      block.pending = null;
+      this.evict(null);
+    });
+    block.pending = pending;
+    return pending;
   }
 
-  private evictExcept(kept: string | null): void {
-    let visits = this.blocks.size;
-    for (const [k, b] of this.blocks) {
+  // Evicts least recently used blocks that are not held, other than the kept one, until
+  // the store fits its budget.
+  private evict(kept: string | null): void {
+    let visits = this.entries.size;
+    for (const [k, entry] of this.entries) {
       if (this.bytes <= this.budget || visits-- === 0) break;
       if (k === kept) continue;
-      if (!b.held) this.delete(k);
+      if (!entry.block.held) this.delete(k);
       else {
         // A held block is in use, so it moves to the back as the most recently used.
-        this.blocks.delete(k);
-        this.blocks.set(k, b);
+        this.entries.delete(k);
+        this.entries.set(k, entry);
       }
     }
   }
 
   /** Removes the block cached under the key. */
   delete(key: string): void {
-    const bytes = this.counted.get(key);
-    if (bytes == null) return;
-    this.blocks.delete(key);
-    this.counted.delete(key);
-    this.bytes -= bytes;
+    const entry = this.entries.get(key);
+    if (entry == null) return;
+    this.entries.delete(key);
+    this.bytes -= entry.bytes;
   }
 
   /**
@@ -248,7 +259,8 @@ export class Store {
       prev: held.toString(),
       next: dataType.toString(),
     });
-    for (const [key, block] of this.blocks) if (block.channel === ch) this.delete(key);
+    for (const [key, { block }] of this.entries)
+      if (block.channel === ch) this.delete(key);
     const live = this.live.get(ch);
     if (live == null) return true;
     live.buffer.retainDataType(dataType);
@@ -261,8 +273,7 @@ export class Store {
   close(): void {
     this.live.forEach(({ buffer }) => buffer.close());
     this.live.clear();
-    this.blocks.clear();
-    this.counted.clear();
+    this.entries.clear();
     this.dataTypes.clear();
     this.bytes = 0;
   }
