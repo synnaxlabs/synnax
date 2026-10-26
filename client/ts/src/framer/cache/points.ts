@@ -86,7 +86,6 @@ const nextEdge = (ts: TimeStamp, level: number): bigint =>
  */
 export class Points {
   private index: channel.Key | null = null;
-  private resolving = false;
   // parked holds the failure that stops the channel for good.
   private parked: status.Status | null = null;
   private readFailure: status.Status | null = null;
@@ -147,6 +146,7 @@ export class Points {
       });
       this.changed();
     });
+    void this.resolve();
   }
 
   private get dynamic(): boolean {
@@ -217,7 +217,6 @@ export class Points {
   private rebuild(now: TimeStamp): Snapshot {
     this.grown = false;
     if (this.index == null) {
-      void this.resolve();
       this.epoch = this.props.store.epoch(this.key);
       this.validUntil = TimeStamp.MAX.valueOf();
       this.snapshot = { series: new MultiSeries([]), status: this.status() };
@@ -326,37 +325,38 @@ export class Points {
       .join();
   }
 
-  // Resolves the channel's index, then streams and joins the window's edge.
+  // Resolves the channel's index, then streams and joins the window's edge. A failure
+  // that is definitive or outlasts the breaker stops the channel for good.
   private async resolve(): Promise<void> {
-    if (this.resolving || this.parked != null) return;
-    this.resolving = true;
     const generation = this.generation;
-    try {
-      const [payload] = await this.props.retrieveChannels([this.key]);
-      if (generation !== this.generation) return;
-      if (payload == null) throw new NotFoundError(`channel ${this.key} not found`);
-      if (payload.virtual && !channel.isCalculated(payload))
-        throw new ValidationError(
-          `virtual channel ${payload.name} has no samples to draw`,
-        );
-      const index = payload.isIndex ? payload.key : payload.index;
-      if (index === 0)
-        throw new ValidationError(`channel ${payload.name} has no index to draw on`);
-      this.props.store.setChannel(payload);
-      this.index = index;
-      this.boundary = this.rawFrom(this.home());
-      this.stream(index);
-      this.breaker.reset();
-      this.readFailure = null;
-    } catch (e) {
-      if (generation !== this.generation) return;
-      this.fail(e);
-      if (isDefinitive(e)) this.parked = this.readFailure;
-      else if (!(await this.breaker.wait()) || generation !== this.generation) return;
-    } finally {
-      if (generation === this.generation) this.resolving = false;
-    }
-    this.changed();
+    while (generation === this.generation)
+      try {
+        const [payload] = await this.props.retrieveChannels([this.key]);
+        if (generation !== this.generation) return;
+        if (payload == null) throw new NotFoundError(`channel ${this.key} not found`);
+        if (payload.virtual && !channel.isCalculated(payload))
+          throw new ValidationError(
+            `virtual channel ${payload.name} has no samples to draw`,
+          );
+        const index = payload.isIndex ? payload.key : payload.index;
+        if (index === 0)
+          throw new ValidationError(`channel ${payload.name} has no index to draw on`);
+        this.props.store.setChannel(payload);
+        this.index = index;
+        this.boundary = this.rawFrom(this.home());
+        this.stream(index);
+        this.breaker.reset();
+        this.readFailure = null;
+        this.changed();
+        return;
+      } catch (e) {
+        if (generation !== this.generation) return;
+        this.fail(e);
+        if (isDefinitive(e) || !(await this.breaker.wait())) {
+          this.parked = this.readFailure;
+          return;
+        }
+      }
   }
 
   // Streams and joins the channel while the window streams, and releases both once it
