@@ -1,0 +1,99 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
+filegroup(
+    name = "clang_tidy_config",
+    srcs = [".clang-tidy"],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "linux_aarch64",
+    constraint_values = [
+        "@platforms//cpu:aarch64",
+        "@platforms//os:linux",
+    ],
+)
+
+config_setting(
+    name = "linux_x86_64",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+)
+
+config_setting(
+    name = "macos_arm64",
+    constraint_values = [
+        "@platforms//cpu:aarch64",
+        "@platforms//os:macos",
+    ],
+)
+
+CLANG_TIDY_REPOS = {
+    ":linux_aarch64": "@clang_tidy_linux_aarch64",
+    ":linux_x86_64": "@clang_tidy_linux_x86_64",
+    ":macos_arm64": "@clang_tidy_macos_arm64",
+}
+
+CLANG_TIDY_NO_MATCH = "MODULE.bazel pins no clang-tidy wheel for this platform"
+
+# The pinned clang-tidy files for the host platform, from MODULE.bazel. The lint
+# targets are manual, so a wildcard build on a platform with no wheel still works.
+[
+    alias(
+        name = name,
+        actual = select(
+            {
+                setting: repo + "//:" + target
+                for setting, repo in CLANG_TIDY_REPOS.items()
+            },
+            no_match_error = CLANG_TIDY_NO_MATCH,
+        ),
+        tags = ["manual"],
+        visibility = ["//visibility:public"],
+    )
+    for name, target in {
+        "clang_apply_replacements": "clang_apply_replacements",
+        "clang_tidy_binary": "clang_tidy",
+        "clang_resource_dir": "resource_dir",
+    }.items()
+]
+
+genrule(
+    name = "clang_tidy_wrapper",
+    srcs = [
+        "scripts/clang_tidy_wrapper.sh",
+        ":clang_tidy_binary",
+    ],
+    outs = ["clang_tidy_wrapper.sh"],
+    cmd = "sed 's|@CLANG_TIDY@|$(execpath :clang_tidy_binary)|' " +
+          "$(execpath scripts/clang_tidy_wrapper.sh) > $@",
+    tags = ["manual"],
+)
+
+sh_binary(
+    name = "clang_tidy",
+    srcs = [":clang_tidy_wrapper"],
+    tags = ["manual"],
+    visibility = ["//visibility:public"],
+)
+
+# The lint config with findings left as warnings, so each action passes and keeps the
+# fixes it exports. scripts/clang_tidy_fix.sh lints with it.
+genrule(
+    name = "clang_tidy_fix_config",
+    srcs = [".clang-tidy"],
+    outs = ["clang_tidy_fix_config.yaml"],
+    cmd = "sed '/^WarningsAsErrors:/d' $< > $@",
+    visibility = ["//visibility:public"],
+)

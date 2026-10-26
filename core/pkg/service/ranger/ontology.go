@@ -11,18 +11,17 @@ package ranger
 
 import (
 	"context"
-	"io"
 	"iter"
 	"uuid"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/zyn"
 )
@@ -58,10 +57,7 @@ func newResource(r Range) ontology.Resource {
 	return ontology.NewResource(schema, r.OntologyID(), r.Name, r)
 }
 
-var (
-	_ ontology.Service = (*Service)(nil)
-	_ search.Service   = (*Service)(nil)
-)
+var _ ontology.Service = (*Service)(nil)
 
 type change = xchange.Change[Key, Range]
 
@@ -102,13 +98,12 @@ func (s *Service) OnChange(
 	return s.table.Observe().OnChange(handleChange)
 }
 
-// OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter(
+// Search implements ontology.Service.
+func (s *Service) Search(
 	ctx context.Context,
-) (iter.Seq[ontology.Resource], io.Closer, error) {
-	n, closer, err := s.table.OpenNexter(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-	return xiter.Map(n, newResource), closer, nil
+	tx gorp.Tx,
+	term string,
+	limit int,
+) (search.Result[ontology.ID], error) {
+	return ontology.SearchIndex(ctx, tx, s.indexes.search, term, limit, OntologyID)
 }

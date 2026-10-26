@@ -9,7 +9,7 @@
 
 import { useUniqueKey } from "@synnaxlabs/lyra/hooks";
 import { box, xy } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useRef } from "react";
+import { type ReactElement, useEffect, useRef } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
@@ -22,7 +22,7 @@ export interface TooltipProps
 
 export const Tooltip = ({ aetherKey, ...rest }: TooltipProps): ReactElement | null => {
   const cKey = useUniqueKey(aetherKey);
-  const [, , setState] = Aether.use({
+  const { setState } = Aether.useLifecycle({
     aetherKey: cKey,
     type: tooltip.Tooltip.TYPE,
     schema: tooltip.tooltipStateZ,
@@ -31,17 +31,14 @@ export const Tooltip = ({ aetherKey, ...rest }: TooltipProps): ReactElement | nu
 
   const ref = useRef<HTMLSpanElement>(null);
 
-  const handleMove = useCallback(
-    (e: MouseEvent): void => {
-      const canvas = document.querySelector(".pluto-canvas-container");
-      if (canvas == null) return;
-      const topLeft = box.topLeft(canvas);
-      setState({ position: xy.translation(topLeft, xy.construct(e)) });
-    },
-    [setState],
-  );
+  const handleMove = (e: MouseEvent): void => {
+    const canvas = document.querySelector(".pluto-canvas-container");
+    if (canvas == null) return;
+    const topLeft = box.topLeft(canvas);
+    setState({ position: xy.translation(topLeft, xy.construct(e)) });
+  };
 
-  const handleLeave = useCallback((): void => setState({ position: null }), [setState]);
+  const handleLeave = (): void => setState({ position: null });
 
   useEffect(() => {
     if (ref.current === null) return;

@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { Status } from "@synnaxlabs/lyra/status";
-import { useCallback } from "react";
 
 /**
  * Returns a callback that asks the Desktop shell to open a directory in the file
@@ -19,8 +18,5 @@ export const useReveal = (
   failureMessage: string,
 ): (() => void) => {
   const handleError = Status.useErrorHandler();
-  return useCallback(
-    () => handleError(reveal, failureMessage),
-    [handleError, reveal, failureMessage],
-  );
+  return () => handleError(reveal, failureMessage);
 };

@@ -173,11 +173,14 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("adds a placeable handle at the symbol center", async () => {
-      const { picker } = await openCreateModal();
+      const { picker, handle } = await openCreateModal();
       await loadSVG(picker);
       fireEvent.click(getEditSectionHeaderButton("Handles"));
       expect(await screen.findByText("Handle 1")).toBeDefined();
       expect(screen.getByText("(50%, 50%)")).toBeDefined();
+      const [overlay] = getOverlayHandles(handle.baseElement, "left");
+      expect(overlay.style.left).toBe("50%");
+      expect(overlay.style.top).toBe("50%");
     });
 
     it("zooms the preview with keyboard shortcuts", async () => {

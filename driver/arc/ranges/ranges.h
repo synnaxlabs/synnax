@@ -32,6 +32,9 @@
 #include "driver/arc/reporter.h"
 
 namespace driver::arc::ranges {
+// Reporter text. Keep in sync with core/pkg/service/arc/ranges/ranges.go.
+const std::string CREATE_FAILURE_MSG = "Failed to create range";
+const std::string END_FAILURE_MSG = "Failed to end range";
 
 /// @brief dispatch_create creates an open range that starts now, parsing the color and
 /// parent and reporting failures as warnings. On any failure no range is created.
@@ -48,7 +51,8 @@ inline std::string dispatch_create(
         auto [parsed, err] = x::color::from_css(color_hex);
         if (err) {
             report(
-                "ranges.create: invalid color \"" + color_hex + "\": " + err.message()
+                CREATE_FAILURE_MSG,
+                "The color \"" + color_hex + "\" is not valid: " + err.data
             );
             return "";
         }
@@ -64,7 +68,10 @@ inline std::string dispatch_create(
     if (!parent.empty()) {
         auto [uid, err] = x::uuid::UUID::parse(parent);
         if (err) {
-            report("ranges.create: invalid parent key \"" + parent + "\"");
+            report(
+                CREATE_FAILURE_MSG,
+                "The parent key \"" + parent + "\" is not a valid range key."
+            );
             return "";
         }
         synnax::ranger::Range parent_range;
@@ -72,7 +79,7 @@ inline std::string dispatch_create(
         r.parent = x::mem::make_indirect<synnax::ranger::Range>(parent_range);
     }
     if (const auto err = client->ranges.create(r)) {
-        report("ranges.create: " + err.message());
+        report(CREATE_FAILURE_MSG, err.data);
         return "";
     }
     return r.key.to_string();
@@ -87,11 +94,11 @@ inline std::string dispatch_end(
 ) {
     auto [uid, parse_err] = x::uuid::UUID::parse(key);
     if (parse_err) {
-        report("ranges.end: invalid range key \"" + key + "\"");
+        report(END_FAILURE_MSG, "The key \"" + key + "\" is not a valid range key.");
         return "";
     }
     if (const auto err = client->ranges.set_end(uid, x::telem::TimeStamp::now())) {
-        report("ranges.end: " + err.message());
+        report(END_FAILURE_MSG, err.data);
         return "";
     }
     return uid.to_string();
@@ -199,7 +206,7 @@ public:
 
     [[nodiscard]] std::string module_name() const override { return "ranges"; }
 
-    bool handles(const std::string &node_type) const override {
+    [[nodiscard]] bool handles(const std::string &node_type) const override {
         return node_type == "create" || node_type == "end";
     }
 

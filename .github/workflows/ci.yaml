@@ -80,6 +80,7 @@ jobs:
       freighter_integration: ${{ steps.filter.outputs.freighter_integration }}
       freighter_py: ${{ steps.filter.outputs.freighter_py }}
       freighter_ts: ${{ steps.filter.outputs.freighter_ts }}
+      gorp: ${{ steps.filter.outputs.gorp }}
       integration: ${{ steps.filter.outputs.integration }}
       knip: ${{ steps.filter.outputs.knip }}
       lint_integration: ${{ steps.filter.outputs.lint_integration }}
@@ -148,6 +149,7 @@ jobs:
       needs.changes.outputs.core == 'true'
     uses: ./.github/workflows/test.cpp.yaml
     with:
+      clang_tidy: true
       core_image: ${{ needs.core-image.outputs.image }}
       directories: arc/cpp
       macos: *full
@@ -212,6 +214,7 @@ jobs:
       needs.changes.outputs.core == 'true'
     uses: ./.github/workflows/test.cpp.yaml
     with:
+      clang_tidy: true
       core_image: ${{ needs.core-image.outputs.image }}
       directories: client/cpp client/clib
       macos: *full
@@ -270,9 +273,11 @@ jobs:
     if: inputs.full || needs.changes.outputs.core == 'true'
     uses: ./.github/workflows/test.go.yaml
     with:
+      cached: ${{ github.event_name == 'pull_request' }}
       coverage_flag: core
       directory: core
       macos: *full
+      shards: 3
       windows: *full
     secrets: inherit
 
@@ -349,6 +354,7 @@ jobs:
     uses: ./.github/workflows/test.cpp.yaml
     with:
       apt_packages: libsystemd-dev
+      clang_tidy: true
       core_image: ${{ needs.core-image.outputs.image }}
       directories: driver
       macos: *full
@@ -357,6 +363,22 @@ jobs:
       test_flags: --spawn_strategy=local --local_test_jobs=1
       test_tags: -hardware
       windows: *full
+    secrets: inherit
+
+  # The EtherCAT bus runs on its own thread, so its suites also run under TSan. The GCC
+  # TSan runtime on the build bots aborts on the kernel's address randomization, so the
+  # tests run with it off.
+  driver-tsan:
+    needs: [changes, core-image]
+    if: inputs.full || needs.changes.outputs.driver == 'true'
+    uses: ./.github/workflows/test.cpp.yaml
+    with:
+      apt_packages: libsystemd-dev
+      core_image: ${{ needs.core-image.outputs.image }}
+      sanitizers: false
+      targets: //driver/ethercat/...
+      test_flags: --config=tsan --run_under="setarch -R"
+      test_tags: -hardware
     secrets: inherit
 
   eslint-config:
@@ -387,6 +409,7 @@ jobs:
     if: inputs.full || needs.changes.outputs.freighter_cpp == 'true'
     uses: ./.github/workflows/test.cpp.yaml
     with:
+      clang_tidy: true
       directories: freighter/cpp
       macos: *full
       targets: //freighter/cpp/...
@@ -451,6 +474,17 @@ jobs:
       directory: freighter/ts
       freighter_image: ${{ needs.freighter-image.outputs.image }}
       package: freighter
+    secrets: inherit
+
+  gorp:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.gorp == 'true'
+    uses: ./.github/workflows/test.go.yaml
+    with:
+      coverage_flag: gorp
+      directory: gorp
+      macos: *full
+      windows: *full
     secrets: inherit
 
   integration:
@@ -629,6 +663,7 @@ jobs:
     if: inputs.full || needs.changes.outputs.x_cpp == 'true'
     uses: ./.github/workflows/test.cpp.yaml
     with:
+      clang_tidy: true
       directories: x/cpp
       macos: *full
       targets: //x/cpp/...
@@ -733,6 +768,7 @@ jobs:
       - docs-site
       - drift
       - driver
+      - driver-tsan
       - eslint-config
       - format
       - foundation
@@ -742,6 +778,7 @@ jobs:
       - freighter-integration
       - freighter-py
       - freighter-ts
+      - gorp
       - integration
       - knip
       - lint-integration

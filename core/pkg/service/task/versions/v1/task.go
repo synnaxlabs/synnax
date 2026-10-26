@@ -12,9 +12,9 @@ package v1
 import (
 	"fmt"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v1"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 var _ gorp.Entry[Key] = Task{}

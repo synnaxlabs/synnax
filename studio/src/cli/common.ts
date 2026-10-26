@@ -19,7 +19,7 @@ export const THEMES = ["light", "dark"] as const;
 
 /** Stamp written beside a produced entry, recording what produced it. */
 export interface Stamp {
-  /** Hash of the script contents, entry options, and draft flag. */
+  /** Hash of the script, its modules under scripts/, entry options, and draft flag. */
   hash: string;
   draft: boolean;
   producedAt: string;

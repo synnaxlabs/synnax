@@ -25,7 +25,7 @@ import { Session } from "@/session";
 const useDelete = Tree.createUseDelete({
   type: "Line plot",
   icon: "LinePlot",
-  query: Base.useDelete,
+  useUpdate: Base.useDelete,
   convertKey: String,
   beforeUpdate: async ({ data, store }) => {
     store.dispatch(Session.LinePlot.remove({ keys: array.toArray(data) }));
@@ -34,7 +34,7 @@ const useDelete = Tree.createUseDelete({
 });
 
 const useRename = Tree.createUseRename({
-  query: Base.useRename,
+  useUpdate: Base.useRename,
   ontologyID: lineplot.ontologyID,
   convertKey: String,
 });
@@ -53,7 +53,6 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const firstID = ids[0];
   const isSingle = ids.length === 1;
-  const first = getResource(firstID);
   return (
     <ContextMenu.Menu>
       {hasUpdatePermission && (
@@ -70,9 +69,11 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       <Menu.Divider />
       {isSingle && (
         <>
-          <Export.ContextMenuItem onClick={() => handleExport(first.id)} />
+          <Export.ContextMenuItem onClick={() => handleExport(firstID)} />
           <Link.CopyContextMenuItem
-            onClick={() => handleLink({ name: first.name, ontologyID: firstID })}
+            onClick={() =>
+              handleLink({ name: getResource(firstID).name, ontologyID: firstID })
+            }
           />
           <Tree.CopyPropertiesContextMenuItem {...props} />
         </>

@@ -10,14 +10,14 @@
 import "@/schematic/edge/common/ConnectionLine.css";
 
 import { CSS } from "@synnaxlabs/lyra/css";
-import { location } from "@synnaxlabs/x";
-import { useReactFlow } from "@xyflow/react";
+import { useStore } from "@xyflow/react";
 import { type ReactElement } from "react";
 
 import { Base } from "@/schematic/edge/common/base";
 import { Path } from "@/schematic/edge/common/path";
 import { Segmented } from "@/schematic/edge/common/segmented";
 import { type Diagram } from "@/vis/diagram";
+import { selectZoom } from "@/vis/diagram/util";
 
 export const ConnectionLine = ({
   source,
@@ -26,20 +26,9 @@ export const ConnectionLine = ({
   targetBox,
   status,
 }: Diagram.ConnectionLineProps): ReactElement => {
-  const connectedHandle = document.querySelector(".react-flow__handle-connecting");
-  const toNodeHandle = connectedHandle?.className.match(/react-flow__handle-(\w+)/);
-  if (toNodeHandle != null) {
-    const res = location.outerZ.safeParse(toNodeHandle[1]);
-    if (res.success) target.orientation = res.data;
-  }
-  const flow = useReactFlow();
+  const zoom = useStore(selectZoom);
   const conn = Segmented.createConnector({ source, target, sourceBox, targetBox });
-  const points = Segmented.segmentsToPoints(
-    source.position,
-    conn,
-    flow.getZoom(),
-    false,
-  );
+  const points = Segmented.segmentsToPoints(source.position, conn, zoom, false);
   const colorVar =
     status == "invalid" ? "var(--pluto-error-z)" : "var(--pluto-gray-l11)";
   return (

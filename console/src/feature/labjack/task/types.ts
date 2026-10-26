@@ -15,6 +15,8 @@ import { Task } from "@/platform/task";
 
 export const PREFIX = "labjack";
 
+export const SCAN_TYPE = `${PREFIX}_scan`;
+
 export type Scale = labjack.Scale;
 export type ScaleType = labjack.ScaleType;
 export const SCALE_SCHEMAS = labjack.SCALE_SCHEMAS;

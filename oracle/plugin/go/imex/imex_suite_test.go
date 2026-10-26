@@ -19,7 +19,7 @@ import (
 
 func TestGoImEx(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Go ImEx Suite")
+	RunSpecs(t, "Plugin Go ImEx Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

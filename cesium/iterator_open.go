@@ -13,6 +13,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
 )
 
 func (db *DB) OpenIterator(cfg IteratorConfig) (*Iterator, error) {
@@ -53,9 +54,9 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 	for _, key := range cfg.Channels {
 		if uDB, ok := db.mu.dbs.unary[key]; ok {
 			iter, iterErr := uDB.OpenIterator(unary.IteratorConfig{
-				Bounds:           cfg.Bounds,
-				AutoChunkSize:    cfg.AutoChunkSize,
-				DownsampleFactor: cfg.DownsampleFactor,
+				Bounds:        cfg.Bounds,
+				AutoChunkSize: cfg.AutoChunkSize,
+				Reduction:     cfg.Reduction,
 			})
 			if iterErr != nil {
 				return nil, iterErr
@@ -71,5 +72,10 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 		}
 		return nil, channel.NewNotFoundError(key)
 	}
-	return &streamIterator{internal: internal}, nil
+	_, limited := cfg.Reduction.Variant.(telem.LimitReduction)
+	return &streamIterator{
+		internal:  internal,
+		limited:   limited,
+		chunkSize: db.chunkSize,
+	}, nil
 }

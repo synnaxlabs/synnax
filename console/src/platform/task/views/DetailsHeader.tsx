@@ -13,7 +13,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { binary } from "@synnaxlabs/x";
-import { type ReactNode, useCallback } from "react";
+import { type ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -33,10 +33,7 @@ export const DetailsHeader = ({
   start,
 }: DetailsHeaderProps) => {
   const { get } = Form.useContext();
-  const getText = useCallback(
-    () => binary.JSON_CODEC.encodeString(get(path).value),
-    [get, path],
-  );
+  const getText = () => binary.JSON_CODEC.encodeString(get(path).value);
   return (
     <Header.Header>
       <Flex.Box x align="center" gap="small" className={CSS.BE("panes", "title")}>

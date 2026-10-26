@@ -11,11 +11,11 @@ package calculation
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
@@ -28,7 +28,6 @@ import (
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
@@ -201,12 +200,10 @@ func (s *Service) handleChange(ctx context.Context, reader channelgraph.Changes)
 		}
 		if err := s.updateCalculation(ctx, ch); err != nil {
 			s.setStatus(ctx, calculator.Status{
-				Key:     ch.Key().String(),
-				Name:    ch.Name,
-				Variant: status.VariantError,
-				Message: fmt.Sprintf(
-					"failed to compile calculation for %s", ch.Name,
-				),
+				Key:         ch.Key().String(),
+				Name:        ch.Name,
+				Variant:     status.VariantError,
+				Message:     "Failed to compile calculation",
 				Description: err.Error(),
 			})
 		} else {
@@ -386,7 +383,7 @@ func (s *Service) updateRequests(
 				Key:         ch.Key().String(),
 				Name:        ch.Name,
 				Variant:     status.VariantError,
-				Message:     fmt.Sprintf("Failed to request calculation for %s", ch),
+				Message:     "Failed to request calculation",
 				Description: err.Error(),
 			})
 		} else {

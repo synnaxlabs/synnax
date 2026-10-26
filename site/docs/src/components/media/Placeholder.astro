@@ -1,0 +1,44 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+// Marks a video or image that is not captured yet. Replace it before the page ships.
+
+import { Text } from "@synnaxlabs/lyra/text";
+
+interface Props {
+    kind: "video" | "image";
+    /** What the capture shows. */
+    shot: string;
+}
+
+const { kind, shot } = Astro.props;
+---
+
+<div class="docs-media-placeholder">
+    <Text.Text level="small" weight={500} color={9}>
+        {kind === "video" ? "Video to record" : "Image to capture"}
+    </Text.Text>
+    <Text.Text level="small" color={8}>
+        {shot}
+    </Text.Text>
+</div>
+
+<style is:global>
+    article .docs-media-placeholder {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        margin: 4rem 0;
+        padding: 4rem;
+        border: 1px dashed var(--pluto-gray-l6);
+        border-radius: 1rem;
+        background: var(--pluto-gray-l1);
+    }
+</style>

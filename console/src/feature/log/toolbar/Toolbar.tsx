@@ -14,7 +14,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Log, Panel as PPanel } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { Channels } from "@/feature/log/toolbar/Channels";
 import { Properties } from "@/feature/log/toolbar/Properties";
@@ -30,16 +30,13 @@ const Internal = (): ReactElement => {
   const selected = Session.Log.useSelectSelectedToolbarTab();
   const name = Log.useName();
   const key = Log.useKey();
-  const handleTabSelect = useCallback(
-    (tab: string) =>
-      dispatch(
-        Session.Log.setSelectedToolbarTab({
-          key,
-          tab: tab as Session.Log.ToolbarTab,
-        }),
-      ),
-    [dispatch, key],
-  );
+  const handleTabSelect = (tab: string) =>
+    dispatch(
+      Session.Log.setSelectedToolbarTab({
+        key,
+        tab: tab as Session.Log.ToolbarTab,
+      }),
+    );
 
   return (
     <Base.Content className={CSS.B("log-toolbar")}>

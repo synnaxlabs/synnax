@@ -21,7 +21,7 @@ import (
 
 func TestTSActions(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin TS Actions Suite")
+	RunSpecs(t, "Plugin TS Actions Suite", SuiteConfig())
 }
 
 var _ = Describe("TS Actions Plugin", func() {

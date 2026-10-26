@@ -13,16 +13,17 @@ import (
 	"context"
 	"uuid"
 
-	"github.com/synnaxlabs/synnax/pkg/api/config"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/version"
-	xconfig "github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type Credentials = auth.Credentials
@@ -40,6 +41,51 @@ type ClusterInfo struct {
 	NodeTime telem.TimeStamp `json:"node_time" msgpack:"node_time"`
 }
 
+// ServiceConfig is the configuration for the auth API service.
+type ServiceConfig struct {
+	// Auth logs subjects in and checks their session tokens.
+	//
+	// [REQUIRED]
+	Auth *auth.Service
+	// Password stores passwords and checks proofs of them.
+	//
+	// [REQUIRED]
+	Password *password.Service
+	// User stores and retrieves users.
+	//
+	// [REQUIRED]
+	User *user.Service
+	// Cluster provides information about the cluster topology.
+	//
+	// [REQUIRED]
+	Cluster cluster.Cluster
+}
+
+var (
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for the auth API service.
+	DefaultServiceConfig = ServiceConfig{}
+)
+
+// Override implements config.Config.
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.Auth = override.Nil(c.Auth, other.Auth)
+	c.Password = override.Nil(c.Password, other.Password)
+	c.User = override.Nil(c.User, other.User)
+	c.Cluster = override.Nil(c.Cluster, other.Cluster)
+	return c
+}
+
+// Validate implements config.Config.
+func (c ServiceConfig) Validate() error {
+	v := validate.New("api.auth")
+	v.NotNil("auth", c.Auth)
+	v.NotNil("password", c.Password)
+	v.NotNil("user", c.User)
+	v.NotNil("cluster", c.Cluster)
+	return v.Error()
+}
+
 // Service is the core authentication service for the Synnax API.
 type Service struct {
 	auth     *auth.Service
@@ -48,16 +94,16 @@ type Service struct {
 	cluster  cluster.Cluster
 }
 
-func NewService(cfgs ...config.LayerConfig) (*Service, error) {
-	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	return &Service{
-		auth:     cfg.Service.Auth,
-		password: cfg.Service.Password,
-		user:     cfg.Service.User,
-		cluster:  cfg.Distribution.Cluster,
+		auth:     cfg.Auth,
+		password: cfg.Password,
+		user:     cfg.User,
+		cluster:  cfg.Cluster,
 	}, nil
 }
 

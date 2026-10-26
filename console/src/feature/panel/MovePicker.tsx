@@ -17,8 +17,9 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Errors, Panel } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement } from "react";
 
+import { renderIcon } from "@/feature/panel/icon";
 import {
   type TabOrigin,
   useMoveTab,
@@ -38,9 +39,11 @@ const RowFallback = (): null => null;
 
 const Row = (props: List.ItemProps<panel.Key>): ReactElement => {
   const name = Panel.useName({ key: props.itemKey });
+  const icon = Panel.useIcon({ key: props.itemKey });
+  const color = Panel.useColor({ key: props.itemKey });
   return (
     <Select.Item {...props} align="center" gap="medium" className={ROW_CLASS}>
-      <Icon.Panel />
+      {renderIcon({ icon, color })}
       <Text.Text overflow="ellipsis">{name}</Text.Text>
     </Select.Item>
   );
@@ -66,18 +69,12 @@ const Content = ({
   const keys = Session.Panel.useSelectOrderedKeys();
   const moveTab = useMoveTab();
   const moveToNewPanel = useMoveTabToNewPanel();
-  const data = useMemo(
-    () => keys.filter((key) => key !== origin.panel),
-    [keys, origin.panel],
-  );
-  const handleChange = useCallback(
-    (key: panel.Key) => {
-      if (key === NEW_PANEL_KEY) moveToNewPanel(origin);
-      else moveTab(origin, key);
-      close();
-    },
-    [moveTab, moveToNewPanel, origin, close],
-  );
+  const data = keys.filter((key) => key !== origin.panel);
+  const handleChange = (key: panel.Key) => {
+    if (key === NEW_PANEL_KEY) moveToNewPanel(origin);
+    else moveTab(origin, key);
+    close();
+  };
   return (
     <Modal.Frame className={CSS.B("panel-move-picker")}>
       <Modal.Header closeHidden icon={<Icon.Panel />}>

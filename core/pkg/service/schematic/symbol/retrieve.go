@@ -12,19 +12,16 @@ package symbol
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp"
 )
 
 // Retrieve is a query builder for retrieving symbols. It should not be instantiated
 // directly, and should instead be instantiated via the NewRetrieve method on
 // symbol.Service.
 type Retrieve struct {
-	baseTX     gorp.Tx
-	gorp       gorp.Retrieve[Key, Symbol]
-	search     *search.Index
-	searchTerm string
+	baseTX gorp.Tx
+	gorp   gorp.Retrieve[Key, Symbol]
+	search *gorp.SearchIndex[Key, Symbol]
 }
 
 // Where applies the provided filter to the query. To compose multiple filters,
@@ -40,8 +37,15 @@ func MatchKeys(keys ...Key) gorp.Filter[Key, Symbol] {
 	return gorp.MatchKeys[Key, Symbol](keys...)
 }
 
-// Search sets a fuzzy search term that Retrieve will use to filter results.
-func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
+// Search filters the symbols to those whose name matches term, closest match first. An
+// empty term adds no filter.
+func (r Retrieve) Search(term string) Retrieve {
+	if term == "" {
+		return r
+	}
+	r.gorp = r.gorp.Where(r.search.Filter(term))
+	return r
+}
 
 // Entry binds the given symbol to the query. This pointer is where the results of the
 // query will be stored after Exec is called.
@@ -60,23 +64,7 @@ func (r Retrieve) Entries(symbols *[]Symbol) Retrieve {
 // Exec executes the query against the given transaction. The results of the query will
 // be stored in the pointer given to the Entry or Entries method. If tx is nil, the
 // query will be executed directly against the underlying gorp.DB provided to the symbol
-// service. It's important to note that fuzzy search will not be aware of any writes/
-// deletes executed on the tx, and will only search the underlying database.
+// service.
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
-	tx = gorp.OverrideTx(r.baseTX, tx)
-	if r.searchTerm != "" {
-		ids, err := r.search.Search(ctx, search.Request{
-			Type: ontology.ResourceTypeSchematicSymbol,
-			Term: r.searchTerm,
-		})
-		if err != nil {
-			return err
-		}
-		keys, err := KeysFromOntologyIDs(ids)
-		if err != nil {
-			return err
-		}
-		r = r.Where(MatchKeys(keys...))
-	}
-	return r.gorp.Exec(ctx, tx)
+	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
 }

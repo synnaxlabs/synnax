@@ -194,7 +194,7 @@ public:
     std::pair<std::vector<Task>, x::errors::Error>
     list(const RetrieveOptions &options) const;
 
-    Client scope_to_rack(const rack::Key &rack_key) const {
+    [[nodiscard]] Client scope_to_rack(const rack::Key &rack_key) const {
         auto c = *this;
         c.rack = rack_key;
         return c;
@@ -202,7 +202,7 @@ public:
 
 private:
     /// @brief Key of rack that this client belongs to.
-    rack::Key rack;
+    rack::Key rack{};
     /// @brief Task creation transport.
     std::shared_ptr<CreateClient> task_create_client;
     /// @brief Task retrieval transport.
