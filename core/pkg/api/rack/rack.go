@@ -144,6 +144,9 @@ type (
 		Limit         int        `json:"limit"          msgpack:"limit"`
 		Offset        int        `json:"offset"         msgpack:"offset"`
 		IncludeStatus bool       `json:"include_status" msgpack:"include_status"`
+		// IgnoreNotFoundError returns the racks that do exist instead of an error when
+		// some keys are missing.
+		IgnoreNotFoundError bool `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {
 		Racks []rack.Rack `json:"racks" msgpack:"racks"`
@@ -188,7 +191,11 @@ func (s *Service) Retrieve(
 	if hasIntegration {
 		q = q.Where(rack.MatchIntegration(req.Integration))
 	}
-	if err := q.Entries(&resRacks).Exec(ctx, nil); err != nil {
+	err := q.Entries(&resRacks).Exec(ctx, nil)
+	if req.IgnoreNotFoundError {
+		err = errors.Skip(err, query.ErrNotFound)
+	}
+	if err != nil {
 		return RetrieveResponse{}, err
 	}
 

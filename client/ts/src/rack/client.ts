@@ -41,6 +41,7 @@ const retrieveReqZ = z.object({
   limit: z.int().optional(),
   offset: z.int().optional(),
   includeStatus: z.boolean().optional(),
+  ignoreNotFoundError: z.boolean().optional(),
 });
 const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
 const retrieveResZ = z.object({ racks: payloadZ.array().default(() => []) });
@@ -155,7 +156,8 @@ export class Client extends query.Retriever<
     const { cache, statusStore } = cfg;
     const store = cache.createTable<Key, Omit<Payload, "status">>({
       name: "racks",
-      fetch: async (keys) => (await this.fetchThrough({ keys })).map(stripStatus),
+      fetch: async (keys) =>
+        (await this.fetchThrough({ keys, ignoreNotFoundError: true })).map(stripStatus),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, payloadZ, {
           value: ({ status: _, ...rack }) => rack,
