@@ -197,6 +197,7 @@ jobs:
       test_matrix: ${{ needs.setup.outputs.TEST_MATRIX }}
       ref_run_id: ${{ needs.setup.outputs.REF_RUN_ID }}
       os: windows-test-bot
+      hosted_os: windows-2025
       flags: ${{ needs.setup.outputs.FLAGS }}
     secrets: inherit
 
