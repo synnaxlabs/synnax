@@ -53,15 +53,18 @@ var _ = Describe("Dispatch", func() {
 
 	increment := func(
 		ctx SpecContext,
-		acts []testAction,
+		added []testAction,
 	) func(gorp.Tx) ([]testAction, error) {
 		return func(tx gorp.Tx) ([]testAction, error) {
-			return acts, gorp.NewUpdate[string, counter]().
+			if err := gorp.NewUpdate[string, counter]().
 				Where(gorp.MatchKeys[string, counter]("c")).
 				Change(func(_ gorp.Context, c counter) counter {
 					c.Value++
 					return c
-				}).Exec(ctx, tx)
+				}).Exec(ctx, tx); err != nil {
+				return nil, err
+			}
+			return added, nil
 		}
 	}
 
@@ -79,7 +82,7 @@ var _ = Describe("Dispatch", func() {
 
 	It("Should apply the staged change and notify it", func(ctx SpecContext) {
 		acts := []testAction{{Type: "inc"}}
-		Expect(st.Dispatch(ctx, "c", "dk", increment(ctx, acts))).To(Succeed())
+		Expect(st.Dispatch(ctx, "c", "dk", acts, increment(ctx, nil))).To(Succeed())
 		Expect(fetch(ctx).Value).To(Equal(1))
 		seen := rec.Snapshot()
 		Expect(seen).To(HaveLen(1))
@@ -88,13 +91,24 @@ var _ = Describe("Dispatch", func() {
 		Expect(seen[0].Actions).To(Equal(acts))
 	})
 
-	It("Should notify the actions that the stage returns", func(ctx SpecContext) {
-		applied := []testAction{{Type: "inc"}, {Type: "derived"}}
-		Expect(st.Dispatch(ctx, "c", "dk", increment(ctx, applied))).To(Succeed())
-		seen := rec.Snapshot()
-		Expect(seen).To(HaveLen(1))
-		Expect(seen[0].Actions).To(Equal(applied))
-	})
+	It(
+		"Should notify the actions that the stage returns after the dispatched ones",
+		func(ctx SpecContext) {
+			Expect(st.Dispatch(
+				ctx,
+				"c",
+				"dk",
+				[]testAction{{Type: "inc"}},
+				increment(ctx, []testAction{{Type: "derived"}}),
+			)).To(Succeed())
+			seen := rec.Snapshot()
+			Expect(seen).To(HaveLen(1))
+			Expect(seen[0].Actions).To(Equal([]testAction{
+				{Type: "inc"},
+				{Type: "derived"},
+			}))
+		},
+	)
 
 	It(
 		"Should preserve every concurrent read-modify-write dispatch",
@@ -105,7 +119,11 @@ var _ = Describe("Dispatch", func() {
 				wg.Go(func() {
 					defer GinkgoRecover()
 					Expect(st.Dispatch(
-						ctx, "c", "dk", increment(ctx, []testAction{{Type: "inc"}}),
+						ctx,
+						"c",
+						"dk",
+						[]testAction{{Type: "inc"}},
+						increment(ctx, nil),
 					)).To(Succeed())
 				})
 			}
@@ -123,7 +141,7 @@ var _ = Describe("Dispatch", func() {
 			},
 		))
 		Expect(st.Dispatch(
-			ctx, "c", "dk", increment(ctx, []testAction{{Type: "inc"}}),
+			ctx, "c", "dk", []testAction{{Type: "inc"}}, increment(ctx, nil),
 		)).To(Succeed())
 		Expect(observed).To(Equal(1))
 	})
@@ -133,10 +151,8 @@ var _ = Describe("Dispatch", func() {
 		func(ctx SpecContext) {
 			stageErr := errors.New("stage failed")
 			Expect(st.Dispatch(
-				ctx, "c", "dk",
-				func(gorp.Tx) ([]testAction, error) {
-					return []testAction{{Type: "inc"}}, stageErr
-				},
+				ctx, "c", "dk", []testAction{{Type: "inc"}},
+				func(gorp.Tx) ([]testAction, error) { return nil, stageErr },
 			)).To(MatchError(stageErr))
 			Expect(fetch(ctx).Value).To(Equal(0))
 			Expect(rec.Snapshot()).To(BeEmpty())

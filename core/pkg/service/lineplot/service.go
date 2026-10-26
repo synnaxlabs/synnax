@@ -157,12 +157,18 @@ func (s *Service) Dispatch(
 	dispatchKey string,
 	acts []Action,
 ) error {
-	return s.state.Dispatch(ctx, key, dispatchKey, func(tx gorp.Tx) ([]Action, error) {
-		return acts, s.table.NewUpdate().Where(gorp.MatchKeys[Key, LinePlot](key)).
-			ChangeErr(func(_ gorp.Context, p LinePlot) (LinePlot, error) {
-				return Reduce(p, acts...)
-			}).Exec(ctx, tx)
-	})
+	return s.state.Dispatch(
+		ctx,
+		key,
+		dispatchKey,
+		acts,
+		func(tx gorp.Tx) ([]Action, error) {
+			return nil, s.table.NewUpdate().Where(gorp.MatchKeys[Key, LinePlot](key)).
+				ChangeErr(func(_ gorp.Context, p LinePlot) (LinePlot, error) {
+					return Reduce(p, acts...)
+				}).Exec(ctx, tx)
+		},
+	)
 }
 
 // NewWriter opens a new writer for creating, updating, and deleting line plots in

@@ -178,25 +178,31 @@ func (s *Service) Dispatch(
 	dispatchKey string,
 	acts []Action,
 ) error {
-	return s.state.Dispatch(ctx, key, dispatchKey, func(tx gorp.Tx) ([]Action, error) {
-		return acts, s.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
-			ChangeErr(func(_ gorp.Context, sch Schematic) (Schematic, error) {
-				if sch.Snapshot {
-					for _, a := range acts {
-						if a.Type != ActionTypeRename {
-							return sch, errors.Wrapf(
-								validate.ErrValidation,
-								"[Schematic] - cannot dispatch %s on snapshot %s:%s",
-								a.Type,
-								key,
-								sch.Name,
-							)
+	return s.state.Dispatch(
+		ctx,
+		key,
+		dispatchKey,
+		acts,
+		func(tx gorp.Tx) ([]Action, error) {
+			return nil, s.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
+				ChangeErr(func(_ gorp.Context, sch Schematic) (Schematic, error) {
+					if sch.Snapshot {
+						for _, a := range acts {
+							if a.Type != ActionTypeRename {
+								return sch, errors.Wrapf(
+									validate.ErrValidation,
+									"[Schematic] - cannot dispatch %s on snapshot %s:%s",
+									a.Type,
+									key,
+									sch.Name,
+								)
+							}
 						}
 					}
-				}
-				return Reduce(sch, acts...)
-			}).Exec(ctx, tx)
-	})
+					return Reduce(sch, acts...)
+				}).Exec(ctx, tx)
+		},
+	)
 }
 
 // NewWriter opens a new writer for creating, updating, and deleting schematics in

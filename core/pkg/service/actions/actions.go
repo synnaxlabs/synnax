@@ -20,6 +20,7 @@ package actions
 
 import (
 	"context"
+	"slices"
 	"sync/atomic"
 
 	"github.com/synnaxlabs/gorp"
@@ -101,26 +102,30 @@ func NewState[K comparable, A any](db *gorp.DB) *State[K, A] {
 	return &State[K, A]{observer: observe.New[Scoped[K, A]](), db: db}
 }
 
-// Dispatch runs stage serialized per key, each call in its own transaction, then
-// notifies the actions that stage returns after the commit. Two concurrent dispatches
-// on the same key can never interleave their read-reduce-write cycles, so neither can
-// overwrite the other's committed actions. When stage or the commit fails, nothing
-// persists and no notification is emitted.
+// Dispatch runs stage serialized per key, each call in its own transaction. After the
+// commit, it notifies acts, then the actions that stage returns, such as a set of a
+// field that only the Core computes. Two concurrent dispatches on the same key can
+// never interleave their read-reduce-write cycles, so neither can overwrite the other's
+// committed actions. When stage or the commit fails, nothing persists and no
+// notification is emitted.
 func (s *State[K, A]) Dispatch(
 	ctx context.Context,
 	key K,
 	dispatchKey string,
+	acts []A,
 	stage func(gorp.Tx) ([]A, error),
 ) error {
 	return s.locks.Do(key, func() error {
-		var applied []A
+		var added []A
 		if err := s.db.WithTx(ctx, func(tx gorp.Tx) (err error) {
-			applied, err = stage(tx)
+			added, err = stage(tx)
 			return err
 		}); err != nil {
 			return err
 		}
-		s.Dispatcher().WithDispatchKey(dispatchKey).Notify(ctx, key, applied...)
+		s.Dispatcher().
+			WithDispatchKey(dispatchKey).
+			Notify(ctx, key, slices.Concat(acts, added)...)
 		return nil
 	})
 }

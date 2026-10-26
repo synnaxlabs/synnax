@@ -129,16 +129,22 @@ func (s *Service) Dispatch(
 	dispatchKey string,
 	acts []Action,
 ) error {
-	return s.state.Dispatch(ctx, key, dispatchKey, func(tx gorp.Tx) ([]Action, error) {
-		return acts, s.table.NewUpdate().Where(gorp.MatchKeys[Key, Panel](key)).
-			ChangeErr(func(_ gorp.Context, p Panel) (Panel, error) {
-				reduced, err := Reduce(p, acts...)
-				if err != nil {
-					return reduced, err
-				}
-				return reduced, validateTree(reduced.Root)
-			}).Exec(ctx, tx)
-	})
+	return s.state.Dispatch(
+		ctx,
+		key,
+		dispatchKey,
+		acts,
+		func(tx gorp.Tx) ([]Action, error) {
+			return nil, s.table.NewUpdate().Where(gorp.MatchKeys[Key, Panel](key)).
+				ChangeErr(func(_ gorp.Context, p Panel) (Panel, error) {
+					reduced, err := Reduce(p, acts...)
+					if err != nil {
+						return reduced, err
+					}
+					return reduced, validateTree(reduced.Root)
+				}).Exec(ctx, tx)
+		},
+	)
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {

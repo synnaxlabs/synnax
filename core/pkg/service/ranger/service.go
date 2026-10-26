@@ -171,9 +171,15 @@ func (s *Service) Dispatch(
 	dispatchKey string,
 	acts []Action,
 ) error {
-	return s.state.Dispatch(ctx, key, dispatchKey, func(tx gorp.Tx) ([]Action, error) {
-		return acts, s.NewWriter(tx).apply(ctx, key, acts)
-	})
+	return s.state.Dispatch(
+		ctx,
+		key,
+		dispatchKey,
+		acts,
+		func(tx gorp.Tx) ([]Action, error) {
+			return nil, s.NewWriter(tx).apply(ctx, key, acts)
+		},
+	)
 }
 
 // Close closes the service and releases any resources that it may have acquired. Close

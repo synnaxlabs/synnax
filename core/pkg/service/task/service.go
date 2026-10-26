@@ -261,22 +261,20 @@ func (s *Service) Dispatch(
 	dispatchKey string,
 	acts []Action,
 ) ([]Action, error) {
-	var computed []Action
+	var added []Action
 	if err := s.state.Dispatch(
 		ctx,
 		key,
 		dispatchKey,
-		func(tx gorp.Tx) ([]Action, error) {
-			var err error
-			if computed, err = s.NewWriter(tx).apply(ctx, key, acts); err != nil {
-				return nil, err
-			}
-			return slices.Concat(acts, computed), nil
+		acts,
+		func(tx gorp.Tx) (_ []Action, err error) {
+			added, err = s.NewWriter(tx).apply(ctx, key, acts)
+			return added, err
 		},
 	); err != nil {
 		return nil, err
 	}
-	return computed, nil
+	return added, nil
 }
 
 func (s *Service) CommandChannelKey() channel.Key {
