@@ -162,8 +162,8 @@ class Client:
         *,
         where: Where | None = None,
         keys: list[str] | None = None,
-        search_term: str | None = None,
-        offset: int | None = None,
+        search_term: str = "",
+        offset: int = 0,
         limit: int | None = None,
         include_labels: bool = False,
         has_labels: list[UUID] | None = None,
@@ -177,8 +177,8 @@ class Client:
         key: str | None = None,
         where: Where | None = None,
         keys: list[str] | None = None,
-        search_term: str | None = None,
-        offset: int | None = None,
+        search_term: str = "",
+        offset: int = 0,
         limit: int | None = None,
         include_labels: bool = False,
         has_labels: list[UUID] | None = None,
@@ -231,16 +231,14 @@ class Client:
             variant=None if variants is None else filter.Set[Variant](in_=variants),
             labels=has_labels,
         )
-        if where is not None and flat != Where():
-            where = Where(and_=[where, flat])
         res = self.client.send(
             _RETRIEVE_ENDPOINT,
             RetrieveRequest(
-                where=flat if where is None else where,
+                where=filter.merge(where, flat),
                 search_term=search_term,
                 offset=offset,
                 limit=limit,
-                include_labels=include_labels or None,
+                include_labels=include_labels,
             ),
             RetrieveResponse,
         ).statuses
