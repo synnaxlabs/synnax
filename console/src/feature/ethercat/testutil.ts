@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
+import { type ethercat, type Synnax } from "@synnaxlabs/client";
 import { id } from "@synnaxlabs/x";
 
 import {
@@ -20,86 +20,114 @@ import {
   ZERO_SLAVE_PROPERTIES,
 } from "@/feature/ethercat/device/types";
 import {
+  type EntryReadChannel,
+  type EntryWriteChannel,
   READ_CHANNEL_SCHEMAS,
-  type ReadChannel,
   WRITE_CHANNEL_SCHEMAS,
-  type WriteChannel,
 } from "@/feature/ethercat/task/types";
-
-type AutoReadChannel = Extract<ReadChannel, { type: "automatic" }>;
-type ManualReadChannel = Extract<ReadChannel, { type: "manual" }>;
-type AutoWriteChannel = Extract<WriteChannel, { type: "automatic" }>;
-type ManualWriteChannel = Extract<WriteChannel, { type: "manual" }>;
 
 /** Builds a Core-safe device identifier (2-12 chars, letter first). */
 export const createIdentifier = (): string =>
   `s${id.create().replace(/[^a-zA-Z0-9]/g, "")}`.slice(0, 12);
 
+export const STATUS_ENTRY: ethercat.PDOEntry = {
+  name: "Status",
+  index: 0x6000,
+  subIndex: 1,
+  bitLength: 16,
+  dataType: "uint16",
+};
+
+export const CONTROL_ENTRY: ethercat.PDOEntry = {
+  name: "Control",
+  index: 0x7000,
+  subIndex: 1,
+  bitLength: 16,
+  dataType: "uint16",
+};
+
 /** Builds a PDO set with one input ("Status") and one output ("Control") entry. */
 export const createPDOs = (): PDOs => ({
-  inputs: [
-    { name: "Status", index: 0x6000, subIndex: 1, bitLength: 16, dataType: "uint16" },
-  ],
-  outputs: [
-    { name: "Control", index: 0x7000, subIndex: 1, bitLength: 16, dataType: "uint16" },
-  ],
+  inputs: [STATUS_ENTRY],
+  outputs: [CONTROL_ENTRY],
 });
 
-/** Builds an automatic (PDO-driven) input channel bound to a slave device. */
-export const createAutoReadChannel = (
+/**
+ * Builds the PDO set of an eight-channel digital terminal pair (EL1008 and EL2008):
+ * eight one-bit entries per direction that share one name, told apart by their PDO
+ * names ("Channel 1" to "Channel 8") and addresses (0x6000:01 to 0x6070:01).
+ */
+export const createRepeatedNamePDOs = (): PDOs => {
+  const channels = Array.from({ length: 8 }, (_, i) => i);
+  const entry = (name: string, base: number, i: number): ethercat.PDOEntry => ({
+    name,
+    pdoName: `Channel ${i + 1}`,
+    index: base + 0x10 * i,
+    subIndex: 1,
+    bitLength: 1,
+    dataType: "uint8",
+  });
+  return {
+    inputs: channels.map((i) => entry("Input", 0x6000, i)),
+    outputs: channels.map((i) => entry("Output", 0x7000, i)),
+  };
+};
+
+/** Builds an input channel bound to an entry on a slave device. */
+export const createEntryReadChannel = (
+  device: string,
+  { index, subIndex, dataType }: ethercat.PDOEntry,
+  overrides: Partial<EntryReadChannel> = {},
+): EntryReadChannel =>
+  READ_CHANNEL_SCHEMAS.entry.parse({
+    type: "entry",
+    device,
+    index,
+    subIndex,
+    dataType,
+    ...overrides,
+  });
+
+/** Builds an input channel whose entry name matched no single entry. */
+export const createUnresolvedReadChannel = (
   device: string,
   pdo: string,
-  overrides: Partial<AutoReadChannel> = {},
-): AutoReadChannel => ({
-  ...READ_CHANNEL_SCHEMAS.automatic.parse({ type: "automatic" }),
-  key: id.create(),
-  device,
-  pdo,
-  ...overrides,
-});
+  overrides: Partial<ethercat.UnresolvedReadChannel> = {},
+): ethercat.UnresolvedReadChannel =>
+  READ_CHANNEL_SCHEMAS.unresolved.parse({
+    type: "unresolved",
+    device,
+    pdo,
+    ...overrides,
+  });
 
-/** Builds a manual (address-driven) input channel bound to a slave device. */
-export const createManualReadChannel = (
+/** Builds an output channel bound to an entry on a slave device. */
+export const createEntryWriteChannel = (
   device: string,
-  index: number,
-  subIndex: number,
-  overrides: Partial<ManualReadChannel> = {},
-): ManualReadChannel => ({
-  ...READ_CHANNEL_SCHEMAS.manual.parse({ type: "manual" }),
-  key: id.create(),
-  device,
-  index,
-  subIndex,
-  ...overrides,
-});
+  { index, subIndex, dataType }: ethercat.PDOEntry,
+  overrides: Partial<EntryWriteChannel> = {},
+): EntryWriteChannel =>
+  WRITE_CHANNEL_SCHEMAS.entry.parse({
+    type: "entry",
+    device,
+    index,
+    subIndex,
+    dataType,
+    ...overrides,
+  });
 
-/** Builds an automatic (PDO-driven) output channel bound to a slave device. */
-export const createAutoWriteChannel = (
+/** Builds an output channel whose entry name matched no single entry. */
+export const createUnresolvedWriteChannel = (
   device: string,
   pdo: string,
-  overrides: Partial<AutoWriteChannel> = {},
-): AutoWriteChannel => ({
-  ...WRITE_CHANNEL_SCHEMAS.automatic.parse({ type: "automatic" }),
-  key: id.create(),
-  device,
-  pdo,
-  ...overrides,
-});
-
-/** Builds a manual (address-driven) output channel bound to a slave device. */
-export const createManualWriteChannel = (
-  device: string,
-  index: number,
-  subIndex: number,
-  overrides: Partial<ManualWriteChannel> = {},
-): ManualWriteChannel => ({
-  ...WRITE_CHANNEL_SCHEMAS.manual.parse({ type: "manual" }),
-  key: id.create(),
-  device,
-  index,
-  subIndex,
-  ...overrides,
-});
+  overrides: Partial<ethercat.UnresolvedWriteChannel> = {},
+): ethercat.UnresolvedWriteChannel =>
+  WRITE_CHANNEL_SCHEMAS.unresolved.parse({
+    type: "unresolved",
+    device,
+    pdo,
+    ...overrides,
+  });
 
 /**
  * Creates an EtherCAT slave device on the live Core. `properties` are merged over
@@ -126,3 +154,14 @@ export const createSlaveDevice = async (
     SLAVE_SCHEMAS,
   );
 };
+
+/** Creates a slave on eth0 whose eight channels repeat the same entry names. */
+export const createRepeatedNameSlave = async (
+  client: Synnax,
+  rackKey: number,
+): Promise<SlaveDevice> =>
+  await createSlaveDevice(client, rackKey, {
+    identifier: createIdentifier(),
+    network: "eth0",
+    pdos: createRepeatedNamePDOs(),
+  });

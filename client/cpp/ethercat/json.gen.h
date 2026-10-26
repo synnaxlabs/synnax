@@ -26,27 +26,6 @@
 
 namespace synnax::ethercat {
 
-inline PDOAddress PDOAddress::parse(x::json::Parser parser) {
-    return PDOAddress{
-        .index = parser.field<std::uint16_t>("index", 0),
-        .sub_index = parser.field<std::uint8_t>("sub_index", 0),
-        .bit_length = parser.field<std::uint8_t>("bit_length", 16),
-        .data_type = parser.field<::x::telem::DataType>(
-            "data_type",
-            ::x::telem::DataType("uint16")
-        ),
-    };
-}
-
-inline x::json::json PDOAddress::to_json() const {
-    x::json::json j;
-    j["index"] = this->index;
-    j["sub_index"] = this->sub_index;
-    j["bit_length"] = this->bit_length;
-    j["data_type"] = this->data_type;
-    return j;
-}
-
 inline BaseReadChannel BaseReadChannel::parse(x::json::Parser parser) {
     return BaseReadChannel{
         .key = parser.field<std::string>("key", x::uuid::create().to_string()),
@@ -185,15 +164,36 @@ inline x::json::json ScanConfig::to_json() const {
     return j;
 }
 
-inline AutomaticReadChannel AutomaticReadChannel::parse(x::json::Parser parser) {
-    AutomaticReadChannel result;
+inline EntryReadChannel EntryReadChannel::parse(x::json::Parser parser) {
+    EntryReadChannel result;
     static_cast<BaseReadChannel &>(result) = BaseReadChannel::parse(parser);
-    result.pdo = parser.field<std::string>("pdo", "");
+    result.index = parser.field<std::uint16_t>("index");
+    result.sub_index = parser.field<std::uint8_t>("sub_index");
+    result.data_type = parser.field<::x::telem::DataType>("data_type");
     result.type = parser.field<std::string>("type");
     return result;
 }
 
-inline x::json::json AutomaticReadChannel::to_json() const {
+inline x::json::json EntryReadChannel::to_json() const {
+    x::json::json j;
+    for (auto &[k, v]: BaseReadChannel::to_json().items())
+        j[k] = v;
+    j["index"] = this->index;
+    j["sub_index"] = this->sub_index;
+    j["data_type"] = this->data_type;
+    j["type"] = this->type;
+    return j;
+}
+
+inline UnresolvedReadChannel UnresolvedReadChannel::parse(x::json::Parser parser) {
+    UnresolvedReadChannel result;
+    static_cast<BaseReadChannel &>(result) = BaseReadChannel::parse(parser);
+    result.pdo = parser.field<std::string>("pdo");
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json UnresolvedReadChannel::to_json() const {
     x::json::json j;
     for (auto &[k, v]: BaseReadChannel::to_json().items())
         j[k] = v;
@@ -202,63 +202,48 @@ inline x::json::json AutomaticReadChannel::to_json() const {
     return j;
 }
 
-inline ManualReadChannel ManualReadChannel::parse(x::json::Parser parser) {
-    ManualReadChannel result;
-    static_cast<BaseReadChannel &>(result) = BaseReadChannel::parse(parser);
-    static_cast<PDOAddress &>(result) = PDOAddress::parse(parser);
+inline EntryWriteChannel EntryWriteChannel::parse(x::json::Parser parser) {
+    EntryWriteChannel result;
+    static_cast<BaseWriteChannel &>(result) = BaseWriteChannel::parse(parser);
+    result.index = parser.field<std::uint16_t>("index");
+    result.sub_index = parser.field<std::uint8_t>("sub_index");
+    result.data_type = parser.field<::x::telem::DataType>("data_type");
     result.type = parser.field<std::string>("type");
     return result;
 }
 
-inline x::json::json ManualReadChannel::to_json() const {
+inline x::json::json EntryWriteChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseReadChannel::to_json().items())
+    for (auto &[k, v]: BaseWriteChannel::to_json().items())
         j[k] = v;
-    for (auto &[k, v]: PDOAddress::to_json().items())
-        j[k] = v;
+    j["index"] = this->index;
+    j["sub_index"] = this->sub_index;
+    j["data_type"] = this->data_type;
     j["type"] = this->type;
     return j;
 }
 
-inline AutomaticWriteChannel AutomaticWriteChannel::parse(x::json::Parser parser) {
-    AutomaticWriteChannel result;
+inline UnresolvedWriteChannel UnresolvedWriteChannel::parse(x::json::Parser parser) {
+    UnresolvedWriteChannel result;
     static_cast<BaseWriteChannel &>(result) = BaseWriteChannel::parse(parser);
-    result.pdo = parser.field<std::string>("pdo", "");
+    result.pdo = parser.field<std::string>("pdo");
     result.type = parser.field<std::string>("type");
     return result;
 }
 
-inline x::json::json AutomaticWriteChannel::to_json() const {
+inline x::json::json UnresolvedWriteChannel::to_json() const {
     x::json::json j;
     for (auto &[k, v]: BaseWriteChannel::to_json().items())
         j[k] = v;
     j["pdo"] = this->pdo;
-    j["type"] = this->type;
-    return j;
-}
-
-inline ManualWriteChannel ManualWriteChannel::parse(x::json::Parser parser) {
-    ManualWriteChannel result;
-    static_cast<BaseWriteChannel &>(result) = BaseWriteChannel::parse(parser);
-    static_cast<PDOAddress &>(result) = PDOAddress::parse(parser);
-    result.type = parser.field<std::string>("type");
-    return result;
-}
-
-inline x::json::json ManualWriteChannel::to_json() const {
-    x::json::json j;
-    for (auto &[k, v]: BaseWriteChannel::to_json().items())
-        j[k] = v;
-    for (auto &[k, v]: PDOAddress::to_json().items())
-        j[k] = v;
     j["type"] = this->type;
     return j;
 }
 
 inline ReadChannel parse_read_channel(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("type");
-    if (discriminator == "automatic") return AutomaticReadChannel::parse(parser);
-    if (discriminator == "manual") return ManualReadChannel::parse(parser);
+    if (discriminator == "entry") return EntryReadChannel::parse(parser);
+    if (discriminator == "unresolved") return UnresolvedReadChannel::parse(parser);
     parser.field_err("type", "unknown ReadChannel type: " + discriminator);
     return {};
 }
@@ -269,8 +254,8 @@ inline x::json::json to_json(const ReadChannel &value) {
 
 inline WriteChannel parse_write_channel(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("type");
-    if (discriminator == "automatic") return AutomaticWriteChannel::parse(parser);
-    if (discriminator == "manual") return ManualWriteChannel::parse(parser);
+    if (discriminator == "entry") return EntryWriteChannel::parse(parser);
+    if (discriminator == "unresolved") return UnresolvedWriteChannel::parse(parser);
     parser.field_err("type", "unknown WriteChannel type: " + discriminator);
     return {};
 }
