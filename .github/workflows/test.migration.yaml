@@ -40,16 +40,16 @@ jobs:
   test:
     name: "Migration (${{ matrix.os }})"
     timeout-minutes: 60
-    runs-on:
-      - self-hosted
-      - ${{ matrix.os }}
+    # A merge group's other Windows suites fill the three Windows test bots, so the
+    # short migration runs on a hosted runner instead of waiting for one.
+    runs-on: ${{ matrix.os == 'windows' && 'windows-2025' || 'ubuntu-test-bot' }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-test-bot, windows-test-bot]
+        os: [ubuntu, windows]
         exclude:
-          - os: ${{ !inputs.ubuntu && 'ubuntu-test-bot' }}
-          - os: ${{ !inputs.windows && 'windows-test-bot' }}
+          - os: ${{ !inputs.ubuntu && 'ubuntu' }}
+          - os: ${{ !inputs.windows && 'windows' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
