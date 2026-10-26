@@ -66,6 +66,7 @@ export const sendCheck = async (unary: UnaryClient): Promise<Info> => {
     clusterKey: res.clusterKey,
     nodeVersion: res.nodeVersion,
     clockSkew: skew.skew,
+    roundTrip: skew.roundTrip,
     license: res.license,
   };
 };
