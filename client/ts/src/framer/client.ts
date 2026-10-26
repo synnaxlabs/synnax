@@ -117,6 +117,7 @@ export class Client {
         await this.read(tr, keys, { reduction }),
       openStreamer: async (config) => await this.openStreamer(config),
       readLatest: async (keys) => await this.readLatest(keys, 1),
+      retrieveChannels: this.cfg.retrieveChannels,
     });
   }
 

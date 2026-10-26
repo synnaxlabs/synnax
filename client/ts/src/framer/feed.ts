@@ -13,10 +13,12 @@ import {
   MultiSeries,
   type Size,
   type TimeRange,
+  type TimeStamp,
 } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
+import { type ChannelRetriever } from "@/framer/adapter";
 import { Cache, type CacheProps } from "@/framer/cache/cache";
 import {
   DEFAULT_BATCH_DEBOUNCE,
@@ -43,11 +45,13 @@ export interface LatestReader {
 /** Props for {@link Feed}, including the transport it reads and streams through. */
 export interface FeedProps
   extends
-    CacheProps,
+    Omit<CacheProps, "retrieveChannels">,
     Omit<ReaderProps, "cache">,
     Omit<MultiplexedStreamerProps, "cache" | "openStreamer"> {
   openStreamer: StreamOpener;
   readLatest: LatestReader;
+  /** Fetches channel payloads, so the cache learns each channel's index. */
+  retrieveChannels: ChannelRetriever;
   /**
    * Byte size the tile cache evicts down to. Tiles a caller holds are never evicted.
    * @default Size.megabytes(128)
@@ -60,7 +64,7 @@ export interface FeedProps
 /** The part of {@link FeedProps} a caller sets. The client supplies the rest. */
 export interface FeedOptions extends Omit<
   FeedProps,
-  "readRemote" | "openStreamer" | "readLatest" | "onRetry"
+  "readRemote" | "openStreamer" | "readLatest" | "retrieveChannels" | "onRetry"
 > {}
 
 /**
@@ -81,6 +85,7 @@ export class Feed {
       readRemote,
       openStreamer,
       readLatest,
+      retrieveChannels,
       tileBudget,
       transform = DEFAULT_STATIC_PROPS.transform,
       instrumentation,
@@ -88,6 +93,7 @@ export class Feed {
       gcInterval,
       staleEntryThreshold,
       staleCoverageThreshold,
+      writeStamps,
       removalDelay,
       breaker,
       batchDebounce,
@@ -102,6 +108,8 @@ export class Feed {
       gcInterval,
       staleEntryThreshold,
       staleCoverageThreshold,
+      retrieveChannels,
+      writeStamps,
       instrumentation: instrumentation?.child("cache"),
     });
     this.reader = new Reader({
@@ -161,11 +169,34 @@ export class Feed {
   }
 
   /**
-   * Reads the given time range for the given channel, serving from the cache and
-   * gap-filling from the cluster.
+   * Reads the given time range for the given channel and its index, serving from the
+   * cache and gap-filling from the Core.
    */
   async read(tr: TimeRange, key: channel.Key): Promise<MultiSeries> {
-    return await this.reader.read(tr, key);
+    await this.cache.resolve([key]);
+    const index = this.cache.indexOf(key);
+    const reads = [this.reader.read(tr, key)];
+    if (index != null && index !== key) reads.push(this.reader.read(tr, index));
+    const [series] = await Promise.all(reads);
+    return series;
+  }
+
+  /**
+   * @returns the Core's stamp of the newest live sample for the key, else null. A
+   * closed feed holds no sample.
+   */
+  lastWrite(key: channel.Key): TimeStamp | null {
+    if (this.closed) return null;
+    return this.cache.lastWrite(key);
+  }
+
+  /**
+   * @returns the Core's stamp of the key's sample at alignment, from its index or from
+   * the write that carried it, else null. A closed feed holds no sample.
+   */
+  timeAt(key: channel.Key, alignment: bigint): TimeStamp | null {
+    if (this.closed) return null;
+    return this.cache.timeAt(key, alignment);
   }
 
   /**

@@ -107,6 +107,10 @@ export class SyntheticCore {
       readRemote: async (tr, keys, reduction) => this.read(tr, keys, reduction),
       openStreamer: async (config) => this.openStreamer(config),
       readLatest: async (keys) => this.readLatest(keys),
+      retrieveChannels: async (keys) =>
+        [this.index, ...this.data].filter((c) =>
+          (keys as channel.Key[]).includes(c.key),
+        ),
     });
   }
 

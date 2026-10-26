@@ -57,7 +57,10 @@ import {
 
 /** The slice of a Synnax client that remote telemetry sources consume. */
 export interface Client {
-  feed: Pick<framer.Feed, "read" | "stream" | "readLatest" | "readTile">;
+  feed: Pick<
+    framer.Feed,
+    "read" | "stream" | "readLatest" | "lastWrite" | "timeAt" | "readTile"
+  >;
   channels: {
     retrieve: (ch: channel.Key | channel.Name) => Promise<channel.Channel>;
   };
@@ -70,7 +73,6 @@ const readLatestSeries = async (
   ch: channel.Channel,
   onStatusChange?: status.Adder,
 ): Promise<Series | null> => {
-  if (ch.virtual && !channel.isCalculated(ch)) return null;
   try {
     const latest = (await client.feed.readLatest(ch.key)).series.at(-1);
     if (latest == null || latest.length === 0) return null;
@@ -150,6 +152,7 @@ export class StreamChannelValue
 
   private readonly client: Client | null;
   private removeStreamHandler: destructor.Destructor | null = null;
+  private key: channel.Key = 0;
   private leadingBuffer: Series | null = null;
   private sampleTime_: TimeStamp | null = null;
   private generation = 0;
@@ -163,6 +166,12 @@ export class StreamChannelValue
 
   sampleTime(): TimeStamp | null {
     return this.sampleTime_;
+  }
+
+  /** @returns the Core's stamp of the newest sample, live from the feed or stored. */
+  lastWrite(): TimeStamp | null {
+    const live = this.key === 0 ? null : this.client?.feed.lastWrite(this.key);
+    return live ?? this.sampleTime_;
   }
 
   /** @returns the leading series buffer for testing purposes. */
@@ -183,6 +192,7 @@ export class StreamChannelValue
     this.leadingBuffer?.release();
     this.leadingBuffer = null;
     this.sampleTime_ = null;
+    this.key = 0;
     this.removeStreamHandler = null;
   }
 
@@ -226,6 +236,7 @@ export class StreamChannelValue
         this.notify();
       };
       if (generation !== this.generation) return;
+      this.key = ch.key;
       this.removeStreamHandler = client.feed.stream(handler, [ch.key]).close;
       // Opening the stream is not a sample. Notify only when a buffer already holds
       // one, so a consumer that counts arrivals does not count the open.
@@ -247,12 +258,7 @@ export class StreamChannelValue
   }
 }
 
-interface SelectedChannelProperties extends Pick<
-  channel.Payload,
-  "key" | "dataType" | "virtual"
-> {
-  isCalculated: boolean;
-}
+type SelectedChannelProperties = Pick<channel.Payload, "key" | "dataType">;
 
 const fetchChannelProperties = async (
   client: Client,
@@ -260,12 +266,10 @@ const fetchChannelProperties = async (
   fetchIndex: boolean,
 ): Promise<SelectedChannelProperties> => {
   const c = await client.channels.retrieve(ch);
-  const isCalculated = channel.isCalculated(c);
-  if (!fetchIndex || c.isIndex)
-    return { key: c.key, dataType: c.dataType, virtual: c.virtual, isCalculated };
-  if (c.virtual && !isCalculated)
+  if (!fetchIndex || c.isIndex) return { key: c.key, dataType: c.dataType };
+  if (c.virtual && !channel.isCalculated(c))
     throw new NotFoundError("cannot use virtual channels as a data source");
-  return { key: c.index, dataType: DataType.TIMESTAMP, virtual: false, isCalculated };
+  return { key: c.index, dataType: DataType.TIMESTAMP };
 };
 
 // How long a seam waits before its read, matching the margin the cache gives commits.
@@ -324,7 +328,6 @@ class LiveWindow {
     this.stopStreaming?.();
     const streamStart = this.config.now();
     this.stopStreaming = client.feed.stream(handler, [ch.key]).close;
-    if (ch.virtual && !ch.isCalculated) return;
     try {
       // The back-fill stops where live data starts: the cache can return a span in
       // both representations, and overlapping series pair into stray segments.
@@ -340,15 +343,7 @@ class LiveWindow {
       seam.backfillEnd = liveStart;
       void this.fillSeam(generation, client, ch.key, seam);
     } catch (e) {
-      // Certain calculated channels can fail to read because they need access to
-      // virtual channels that cannot be read from historically.
-      if (
-        e instanceof Error &&
-        (e.message.includes("cannot open iterator on virtual channel") ||
-          e.message.includes("cannot read from free channel"))
-      )
-        console.warn("failed to read calculated channel data", e);
-      else throw errors.fromUnknown(e);
+      throw errors.fromUnknown(e);
     }
   }
 

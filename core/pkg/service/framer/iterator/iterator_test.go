@@ -1714,40 +1714,77 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			})
 
 			Describe("Virtual Upstream Reads", func() {
-				virtualErr := MatchError(ContainSubstring(
-					"cannot open iterator on virtual channel",
-				))
 				create := func(ctx SpecContext, chs ...*channel.Channel) {
 					GinkgoHelper()
 					for _, ch := range chs {
 						Expect(channelWriter.Create(ctx, ch)).To(Succeed())
 					}
 				}
+				open := func(ctx SpecContext, keys ...channel.Key) *iterator.Iterator {
+					GinkgoHelper()
+					return MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
+						Keys:   keys,
+						Bounds: telem.TimeRangeMax,
+					}))
+				}
 
-				It("Should reject a calculation over a virtual channel alone", func(
+				It("Should compute over a virtual channel's retained sample", func(
 					ctx SpecContext,
 				) {
+					virt := &channel.Channel{
+						Name:     "virt_only",
+						DataType: telem.Float32T,
+						Virtual:  true,
+					}
 					calc := &channel.Channel{
 						Name:       "virt_only_calc",
 						DataType:   telem.Float32T,
 						Expression: "return virt_only * 2",
 					}
+					create(ctx, virt, calc)
+					w := MustSucceed(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+						Start: telem.SecondTS,
+						Keys:  []channel.Key{virt.Key()},
+					}))
+					Expect(w.Write(
+						frame.NewUnary(virt.Key(), telem.NewSeriesV[float32](3)),
+					)).To(BeTrue())
+					Expect(w.Close()).To(Succeed())
+					iter := open(ctx, calc.Key(), calc.Index())
+					Expect(iter.SeekFirst()).To(BeTrue())
+					Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+					v := iter.Value().Get(calc.Key())
+					Expect(v.Series).To(HaveLen(1))
+					Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](6))
+					Expect(iter.Value().Get(calc.Index()).Series).To(HaveLen(1))
+					Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
+					Expect(iter.Close()).To(Succeed())
+				})
+
+				It("Should read nothing before the virtual channel's first write", func(
+					ctx SpecContext,
+				) {
+					calc := &channel.Channel{
+						Name:       "virt_unwritten_calc",
+						DataType:   telem.Float32T,
+						Expression: "return virt_unwritten * 2",
+					}
 					create(
 						ctx,
 						&channel.Channel{
-							Name:     "virt_only",
+							Name:     "virt_unwritten",
 							DataType: telem.Float32T,
 							Virtual:  true,
 						},
 						calc,
 					)
-					Expect(iteratorSvc.Open(ctx, iterator.Config{
-						Keys:   []channel.Key{calc.Key(), calc.Index()},
-						Bounds: telem.TimeRangeMax,
-					})).Error().To(virtualErr)
+					iter := open(ctx, calc.Key(), calc.Index())
+					Expect(iter.SeekFirst()).To(BeFalse())
+					Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
+					Expect(iter.Close()).To(Succeed())
 				})
 
-				It("Should reject a calculation mixing virtual and stored inputs", func(
+				It("Should open a calculation mixing virtual and stored inputs", func(
 					ctx SpecContext,
 				) {
 					calc := &channel.Channel{
@@ -1764,13 +1801,10 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						},
 						calc,
 					)
-					Expect(iteratorSvc.Open(ctx, iterator.Config{
-						Keys:   []channel.Key{calc.Key(), calc.Index()},
-						Bounds: telem.TimeRangeMax,
-					})).Error().To(virtualErr)
+					Expect(open(ctx, calc.Key(), calc.Index()).Close()).To(Succeed())
 				})
 
-				It("Should reject a nested chain whose leaf is virtual", func(
+				It("Should open a nested chain whose leaf is virtual", func(
 					ctx SpecContext,
 				) {
 					outer := &channel.Channel{
@@ -1792,13 +1826,10 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						},
 						outer,
 					)
-					Expect(iteratorSvc.Open(ctx, iterator.Config{
-						Keys:   []channel.Key{outer.Key(), outer.Index()},
-						Bounds: telem.TimeRangeMax,
-					})).Error().To(virtualErr)
+					Expect(open(ctx, outer.Key(), outer.Index()).Close()).To(Succeed())
 				})
 
-				It("Should reject an index-only read of a virtual-backed chain", func(
+				It("Should open an index-only read of a virtual-backed chain", func(
 					ctx SpecContext,
 				) {
 					calc := &channel.Channel{
@@ -1815,10 +1846,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						},
 						calc,
 					)
-					Expect(iteratorSvc.Open(ctx, iterator.Config{
-						Keys:   []channel.Key{calc.Index()},
-						Bounds: telem.TimeRangeMax,
-					})).Error().To(virtualErr)
+					Expect(open(ctx, calc.Index()).Close()).To(Succeed())
 				})
 			})
 		})

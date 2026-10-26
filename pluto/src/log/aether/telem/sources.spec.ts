@@ -82,6 +82,8 @@ describe("StreamMultiChannelLog", () => {
 
     feed = {
       readLatest: async (): Promise<MultiSeries> => new MultiSeries([]),
+      lastWrite: (): TimeStamp | null => null,
+      timeAt: (): TimeStamp | null => null,
       readTile: async (): Promise<MultiSeries> => new MultiSeries([]),
       read: async (): Promise<MultiSeries> => new MultiSeries([]),
       stream: (

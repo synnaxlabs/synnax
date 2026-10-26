@@ -94,6 +94,8 @@ export interface Source<V> extends Telem, observe.Observable<void> {
    */
   dataType?: () => DataType | null;
   sampleTime?: () => TimeStamp | null;
+  /** @returns the Core's stamp of the newest sample the source holds, else null. */
+  lastWrite?: () => TimeStamp | null;
 }
 
 export interface Sink<V> extends Telem {

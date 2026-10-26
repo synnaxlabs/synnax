@@ -22,11 +22,13 @@ describe("Client", () => {
     it("should report each failed stream reconnect to onRetry", async () => {
       const transport = new Transport(new url.URL({ host: "localhost", port: 9090 }));
       const retries: Error[] = [];
+      let lookups = 0;
       const unreachable = new Client({
         stream: transport.stream,
         unary: transport.unary,
         file: transport.file,
         retrieveChannels: async () => {
+          if (lookups++ === 0) return [];
           throw new Unreachable({ message: "core down" });
         },
         onRetry: (error) => retries.push(error),

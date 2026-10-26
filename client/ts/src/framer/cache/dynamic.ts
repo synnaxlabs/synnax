@@ -15,7 +15,7 @@ import {
   Series,
   Size,
   TimeRange,
-  type TimeSpan,
+  TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
 
@@ -140,6 +140,12 @@ export class Dynamic {
   get dataTimeRange(): TimeRange | null {
     if (this.curr == null) return null;
     return new TimeRange(this.curr.timeRange.start, this.currDataEnd ?? this.now());
+  }
+
+  /** @returns the stamp of the last sample written into the buffer, else null. */
+  get lastWrite(): TimeStamp | null {
+    if (this.curr == null) return null;
+    return this.currDataEnd?.sub(TimeSpan.NANOSECOND) ?? null;
   }
 
   /**

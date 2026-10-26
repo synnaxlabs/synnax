@@ -1455,26 +1455,157 @@ var _ = Describe("Iterator Behavior", func() {
 				)
 			})
 
+			Describe("Virtual Channels", func() {
+				openIterator := func(
+					bounds telem.TimeRange,
+					keys ...cesium.ChannelKey,
+				) *cesium.Iterator {
+					GinkgoHelper()
+					return MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+						Bounds:   bounds,
+						Channels: keys,
+					}))
+				}
+
+				It("Should read the retained last sample", func(ctx SpecContext) {
+					key := GenerateChannelKey()
+					Expect(db.CreateChannel(ctx, virtualChannel(key, "retained"))).
+						To(Succeed())
+					before := telem.Now()
+					Expect(db.Write(
+						ctx,
+						10*telem.SecondTS,
+						telem.UnaryFrame(key, telem.NewSeriesV[int64](1, 2, 3)),
+					)).To(Succeed())
+					i := openIterator(telem.TimeRangeMax, key)
+					Expect(i.SeekLast()).To(BeTrue())
+					Expect(i.Prev(cesium.AutoSpan)).To(BeTrue())
+					got := i.Value().Get(key).Series[0]
+					Expect(got).To(telem.MatchSeriesDataV[int64](3))
+					Expect(got.TimeRange.Span()).To(Equal(telem.Nanosecond))
+					Expect(got.TimeRange.Start).To(BeNumerically(">=", before))
+					Expect(i.Prev(cesium.AutoSpan)).To(BeFalse())
+					Expect(i.Close()).To(Succeed())
+				})
+
+				It("Should read nothing before the first write", func(ctx SpecContext) {
+					key := GenerateChannelKey()
+					Expect(db.CreateChannel(ctx, virtualChannel(key, "unwritten"))).
+						To(Succeed())
+					i := openIterator(telem.TimeRangeMax, key)
+					Expect(i.SeekLast()).To(BeFalse())
+					Expect(i.Prev(cesium.AutoSpan)).To(BeFalse())
+					Expect(i.Error()).ToNot(HaveOccurred())
+					Expect(i.Close()).To(Succeed())
+				})
+
+				It("Should leave out a sample outside the bounds", func(
+					ctx SpecContext,
+				) {
+					key := GenerateChannelKey()
+					Expect(db.CreateChannel(ctx, virtualChannel(key, "bounded"))).
+						To(Succeed())
+					Expect(db.Write(
+						ctx,
+						10*telem.SecondTS,
+						telem.UnaryFrame(key, telem.NewSeriesV[int64](1)),
+					)).To(Succeed())
+					i := openIterator(
+						telem.TimeRange{Start: 0, End: 5 * telem.SecondTS},
+						key,
+					)
+					Expect(i.SeekLast()).To(BeFalse())
+					Expect(i.Close()).To(Succeed())
+				})
+
+				It("Should read a virtual channel beside a stored one", func(
+					ctx SpecContext,
+				) {
+					idxKey := GenerateChannelKey()
+					dataKey := GenerateChannelKey()
+					virtKey := GenerateChannelKey()
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{
+							Key:      idxKey,
+							Name:     "beside_time",
+							DataType: telem.TimestampT,
+							IsIndex:  true,
+						},
+						cesium.Channel{
+							Key:      dataKey,
+							Name:     "beside_data",
+							DataType: telem.Int64T,
+							Index:    idxKey,
+						},
+						virtualChannel(virtKey, "beside_virtual"),
+					)).To(Succeed())
+					Expect(db.Write(ctx, telem.SecondTS, telem.MultiFrame(
+						[]cesium.ChannelKey{idxKey, dataKey},
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(1, 2),
+							telem.NewSeriesV[int64](10, 20),
+						},
+					))).To(Succeed())
+					Expect(db.Write(
+						ctx,
+						10*telem.SecondTS,
+						telem.UnaryFrame(virtKey, telem.NewSeriesV[int64](30)),
+					)).To(Succeed())
+					i := openIterator(telem.TimeRangeMax, idxKey, dataKey, virtKey)
+					Expect(i.SeekFirst()).To(BeTrue())
+					Expect(i.Next(cesium.AutoSpan)).To(BeTrue())
+					f := i.Value()
+					Expect(f.Get(dataKey).Series[0]).To(
+						telem.MatchSeriesDataV[int64](10, 20),
+					)
+					Expect(f.Get(virtKey).Series[0]).To(
+						telem.MatchSeriesDataV[int64](30),
+					)
+					Expect(i.Close()).To(Succeed())
+				})
+
+				It("Should read the retained sample with an explicit span", func(
+					ctx SpecContext,
+				) {
+					key := GenerateChannelKey()
+					Expect(db.CreateChannel(ctx, virtualChannel(key, "spanned"))).
+						To(Succeed())
+					Expect(db.Write(
+						ctx,
+						10*telem.SecondTS,
+						telem.UnaryFrame(key, telem.NewSeriesV[int64](1, 2, 3)),
+					)).To(Succeed())
+					i := openIterator(telem.TimeRangeMax, key)
+					Expect(i.SeekLast()).To(BeTrue())
+					Expect(i.Prev(telem.Second)).To(BeTrue())
+					Expect(i.Value().Get(key).Series[0]).To(
+						telem.MatchSeriesDataV[int64](3),
+					)
+					Expect(i.Close()).To(Succeed())
+				})
+
+				It("Should forget the sample when the channel is deleted", func(
+					ctx SpecContext,
+				) {
+					key := GenerateChannelKey()
+					Expect(db.CreateChannel(ctx, virtualChannel(key, "deleted"))).
+						To(Succeed())
+					Expect(db.Write(
+						ctx,
+						10*telem.SecondTS,
+						telem.UnaryFrame(key, telem.NewSeriesV[int64](1)),
+					)).To(Succeed())
+					Expect(db.DeleteChannel(key)).To(Succeed())
+					Expect(db.CreateChannel(ctx, virtualChannel(key, "recreated"))).
+						To(Succeed())
+					i := openIterator(telem.TimeRangeMax, key)
+					Expect(i.SeekLast()).To(BeFalse())
+					Expect(i.Close()).To(Succeed())
+				})
+			})
+
 			Describe("Open", func() {
-				It(
-					"Should return an error when attempting to open an iterator on a virtual channel",
-					func(ctx SpecContext) {
-						key := GenerateChannelKey()
-						Expect(db.CreateChannel(ctx, cesium.Channel{
-							Key:      key,
-							Name:     "Marco",
-							DataType: telem.Float32T,
-							Virtual:  true,
-						})).To(Succeed())
-						_, err := db.OpenIterator(
-							cesium.IteratorConfig{
-								Bounds:   telem.TimeRangeMax,
-								Channels: []cesium.ChannelKey{key},
-							},
-						)
-						Expect(err).To(MatchError(ContainSubstring("virtual")))
-					},
-				)
 				It("Should reject a negative auto chunk size", func(ctx SpecContext) {
 					key := GenerateChannelKey()
 					Expect(db.CreateChannel(ctx, cesium.Channel{

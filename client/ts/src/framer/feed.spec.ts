@@ -27,10 +27,15 @@ import { type Transform } from "@/framer/cache/transform";
 import { Feed, type FeedProps, type LatestReader } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
 import { createTestClient } from "@/testutil";
+import { glTransform } from "@/testutil/telem";
 
 const client = createTestClient();
 const feed = client.openFeed();
-afterAll(async () => await feed.close());
+const glFeed = client.openFeed({ transform: glTransform });
+afterAll(async () => {
+  await feed.close();
+  await glFeed.close();
+});
 
 /**
  * Returns a source of strictly increasing timestamps. `TimeStamp.now()` resolves to the
@@ -70,6 +75,13 @@ const createChannels = async () => {
   return { time, data };
 };
 
+const createVirtualChannel = async () =>
+  await client.channels.create({
+    name: id.create(),
+    dataType: "float32",
+    virtual: true,
+  });
+
 describe("feed", () => {
   it("should read written samples through the feed cache", async () => {
     const { time, data } = await createChannels();
@@ -85,13 +97,17 @@ describe("feed", () => {
 
   it("should apply the configured transform to cached series", async () => {
     const transform: Transform = {
-      resolveDataType: () => DataType.FLOAT64,
+      resolveDataType: (dt) => (dt.equals(DataType.FLOAT32) ? DataType.FLOAT64 : dt),
       convert: (series) =>
-        new Series({
-          data: new Float64Array((Array.from(series) as number[]).map((v) => v * 2)),
-          timeRange: series.timeRange,
-          alignment: series.alignment,
-        }),
+        series.dataType.equals(DataType.FLOAT32)
+          ? new Series({
+              data: new Float64Array(
+                (Array.from(series) as number[]).map((v) => v * 2),
+              ),
+              timeRange: series.timeRange,
+              alignment: series.alignment,
+            })
+          : series,
     };
     const transformed = client.openFeed({ transform });
     const { time, data } = await createChannels();
@@ -137,6 +153,244 @@ describe("feed", () => {
       await writer.close();
     }
     expect(received).toContain(42);
+    sub.close();
+  });
+
+  it("should report no last write before a frame lands for the key", async () => {
+    const { data } = await createChannels();
+    const sub = feed.stream(() => {}, [data.key]);
+    expect(feed.lastWrite(data.key)).toBeNull();
+    sub.close();
+  });
+
+  it("should report the Core's stamp of the last sample", async () => {
+    const { time, data } = await createChannels();
+    let received = 0;
+    const sub = feed.stream(
+      (res) => {
+        received += res.get(data.key)?.length ?? 0;
+      },
+      [data.key],
+    );
+    const next = createClock();
+    const writer = await client.openWriter({
+      start: TimeStamp.now(),
+      channels: [time.key, data.key],
+    });
+    try {
+      await expect
+        .poll(
+          async () => {
+            await writer.write({ [time.key]: [next()], [data.key]: [1] });
+            return received > 0;
+          },
+          { timeout: 10000, interval: 250 },
+        )
+        .toBe(true);
+      const last = next();
+      await writer.write({ [time.key]: [last], [data.key]: [2] });
+      await expect
+        .poll(() => feed.lastWrite(data.key)?.valueOf(), { timeout: 5000 })
+        .toEqual(last.valueOf());
+    } finally {
+      await writer.close();
+    }
+    sub.close();
+  });
+
+  it("should stamp a virtual channel's last write with the Core's clock", async () => {
+    const virtual = await createVirtualChannel();
+    let received = 0;
+    const sub = feed.stream(
+      (res) => {
+        received += res.get(virtual.key)?.length ?? 0;
+      },
+      [virtual.key],
+    );
+    const before = TimeStamp.now();
+    const writer = await client.openWriter({
+      start: TimeStamp.now(),
+      channels: [virtual.key],
+    });
+    try {
+      await expect
+        .poll(
+          async () => {
+            await writer.write({ [virtual.key]: [1] });
+            return received > 0;
+          },
+          { timeout: 10000, interval: 250 },
+        )
+        .toBe(true);
+      const stamp = feed.lastWrite(virtual.key);
+      expect(stamp).not.toBeNull();
+      expect(stamp?.afterEq(before)).toBe(true);
+      expect(stamp?.beforeEq(TimeStamp.now().add(TimeSpan.seconds(1)))).toBe(true);
+    } finally {
+      await writer.close();
+    }
+    sub.close();
+  });
+
+  it("should stamp a virtual sample by the write that carried it", async () => {
+    const virtual = await createVirtualChannel();
+    let leading: Series | null = null;
+    const sub = feed.stream(
+      (res) => {
+        const buf = res.get(virtual.key)?.series.at(-1);
+        if (buf != null) leading = buf;
+      },
+      [virtual.key],
+    );
+    const before = TimeStamp.now();
+    const writer = await client.openWriter({
+      start: TimeStamp.now(),
+      channels: [virtual.key],
+    });
+    try {
+      await expect
+        .poll(
+          async () => {
+            await writer.write({ [virtual.key]: [1] });
+            return (leading?.length ?? 0) > 0;
+          },
+          { timeout: 10000, interval: 250 },
+        )
+        .toBe(true);
+      const buf = leading as Series | null;
+      expect(buf).not.toBeNull();
+      const first = feed.timeAt(virtual.key, buf?.alignment ?? 0n);
+      expect(first?.afterEq(before)).toBe(true);
+      expect(first?.beforeEq(TimeStamp.now().add(TimeSpan.seconds(1)))).toBe(true);
+      const last = (buf?.alignment ?? 0n) + BigInt((buf?.length ?? 1) - 1);
+      expect(feed.timeAt(virtual.key, last)).toEqual(feed.lastWrite(virtual.key));
+    } finally {
+      await writer.close();
+    }
+    sub.close();
+  });
+
+  it("should stamp a fetched virtual sample by the write that carried it", async () => {
+    const virtual = await createVirtualChannel();
+    const start = TimeStamp.now();
+    await client.write(start, { [virtual.key]: [1, 2] });
+    const tr = new TimeRange(start, start.add(TimeSpan.seconds(1)));
+    const res = await feed.read(tr, virtual.key);
+    const series = res.series.at(-1);
+    expect(series).toBeDefined();
+    const last = (series?.alignment ?? 0n) + BigInt((series?.length ?? 1) - 1);
+    expect(feed.timeAt(virtual.key, last)).toEqual(series?.timeRange.start);
+  });
+
+  it("should stamp a streamed sample by its alignment", async () => {
+    const { time, data } = await createChannels();
+    let leading: Series | null = null;
+    const sub = glFeed.stream(
+      (res) => {
+        const buf = res.get(data.key)?.series.at(-1);
+        if (buf != null) leading = buf;
+      },
+      [data.key],
+    );
+    const next = createClock();
+    const writer = await client.openWriter({
+      start: TimeStamp.now(),
+      channels: [time.key, data.key],
+    });
+    try {
+      let last = next();
+      await expect
+        .poll(
+          async () => {
+            last = next();
+            await writer.write({ [time.key]: [last], [data.key]: [1] });
+            return (leading?.length ?? 0) > 0;
+          },
+          { timeout: 10000, interval: 250 },
+        )
+        .toBe(true);
+      await expect
+        .poll(
+          () => {
+            const buf = leading;
+            if (buf == null || buf.length === 0) return null;
+            const a = buf.alignment + BigInt(buf.length - 1) * buf.alignmentMultiple;
+            return glFeed.timeAt(data.key, a)?.valueOf();
+          },
+          { timeout: 5000 },
+        )
+        .toEqual(last.valueOf());
+    } finally {
+      await writer.close();
+    }
+    sub.close();
+  });
+
+  it("should stamp a fetched sample by its alignment", async () => {
+    const { time, data } = await createChannels();
+    const start = TimeStamp.now().sub(TimeSpan.seconds(10));
+    const second = start.add(TimeSpan.milliseconds(1));
+    await client.write(start, { [time.key]: [start, second], [data.key]: [1, 2] });
+    const tr = new TimeRange(start, start.add(TimeSpan.seconds(1)));
+    const res = await glFeed.read(tr, data.key);
+    const s = res.series[0];
+    expect(glFeed.timeAt(data.key, s.alignment + s.alignmentMultiple)).toEqual(second);
+  });
+
+  it("should stamp an index fetched only as a dependency", async () => {
+    const { time, data } = await createChannels();
+    const start = TimeStamp.now().sub(TimeSpan.seconds(10));
+    const second = start.add(TimeSpan.milliseconds(1));
+    await client.write(start, { [time.key]: [start, second], [data.key]: [1, 2] });
+    const tr = new TimeRange(start, start.add(TimeSpan.seconds(1)));
+    const res = await glFeed.read(tr, data.key);
+    const s = res.series[0];
+    expect(glFeed.timeAt(time.key, s.alignment)).toEqual(start);
+    expect(glFeed.timeAt(time.key, s.alignment + s.alignmentMultiple)).toEqual(second);
+  });
+
+  it("should stamp an index streamed only as a dependency", async () => {
+    const { time, data } = await createChannels();
+    let leading: Series | null = null;
+    const sub = glFeed.stream(
+      (res) => {
+        const buf = res.get(data.key)?.series.at(-1);
+        if (buf != null) leading = buf;
+      },
+      [data.key],
+    );
+    const next = createClock();
+    const writer = await client.openWriter({
+      start: TimeStamp.now(),
+      channels: [time.key, data.key],
+    });
+    try {
+      let last = next();
+      await expect
+        .poll(
+          async () => {
+            last = next();
+            await writer.write({ [time.key]: [last], [data.key]: [1] });
+            return (leading?.length ?? 0) > 0;
+          },
+          { timeout: 10000, interval: 250 },
+        )
+        .toBe(true);
+      await expect
+        .poll(
+          () => {
+            const buf = leading;
+            if (buf == null || buf.length === 0) return null;
+            const a = buf.alignment + BigInt(buf.length - 1) * buf.alignmentMultiple;
+            return glFeed.timeAt(time.key, a)?.valueOf();
+          },
+          { timeout: 5000 },
+        )
+        .toEqual(last.valueOf());
+      expect(glFeed.lastWrite(time.key)?.valueOf()).toEqual(last.valueOf());
+    } finally {
+      await writer.close();
+    }
     sub.close();
   });
 
@@ -448,6 +702,7 @@ describe("feed", () => {
         throw new UnexpectedError("streamer unused");
       },
       readLatest: async () => new Frame([], []),
+      retrieveChannels: async () => [],
     });
     const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
     await direct.read(tr, 1);
@@ -467,6 +722,7 @@ describe("feed", () => {
         throw new UnexpectedError("streamer unused");
       },
       readLatest: async () => new Frame([], []),
+      retrieveChannels: async () => [],
     });
     const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
     await expect(direct.read(tr, 1)).rejects.toThrow(Unreachable);
@@ -482,6 +738,7 @@ describe("feed", () => {
         throw new Unreachable();
       },
       readLatest: async () => new Frame([], []),
+      retrieveChannels: async () => [],
       onRetry: () => {},
     });
     direct.stream(() => {}, [1]);
@@ -489,6 +746,52 @@ describe("feed", () => {
     const closed = direct.close().then(() => true);
     const timedOut = sleep.sleep(TimeSpan.seconds(1)).then(() => false);
     expect(await Promise.race([closed, timedOut])).toBe(true);
+  });
+
+  it("should answer null from the lookups after close", async () => {
+    const direct = new Feed({
+      readRemote: async () => new Frame([], []),
+      openStreamer: async () => {
+        throw new UnexpectedError("streamer unused");
+      },
+      readLatest: async () => new Frame([], []),
+      retrieveChannels: async () => [],
+    });
+    await direct.close();
+    expect(direct.lastWrite(1)).toBeNull();
+    expect(direct.timeAt(1, 0n)).toBeNull();
+  });
+
+  it("should fetch the index alongside a data read", async () => {
+    const { time, data } = await createChannels();
+    // Old enough that the fetch counts as covered, so the second read hits the cache.
+    const start = TimeStamp.now().sub(TimeSpan.seconds(10));
+    await client.write(start, {
+      [time.key]: [start, start.add(TimeSpan.milliseconds(1))],
+      [data.key]: [1, 2],
+    });
+    const requested: channel.Key[][] = [];
+    const counting = new Feed({
+      readRemote: async (tr, keys) => {
+        requested.push([...keys].sort((a, b) => a - b));
+        return await client.read(tr, keys);
+      },
+      openStreamer: async () => {
+        throw new UnexpectedError("streamer unused");
+      },
+      readLatest: async () => new Frame([], []),
+      retrieveChannels: async (keys) =>
+        await client.channels.retrieve(keys as channel.Key[]),
+    });
+    try {
+      const tr = new TimeRange(start, start.add(TimeSpan.seconds(1)));
+      expect(Array.from(await counting.read(tr, data.key))).toEqual([1, 2]);
+      expect(requested).toEqual([[time.key, data.key].sort((a, b) => a - b)]);
+      await counting.read(tr, time.key);
+      expect(requested).toHaveLength(1);
+    } finally {
+      await counting.close();
+    }
   });
 
   describe("readTile", () => {
@@ -622,6 +925,7 @@ describe("feed", () => {
           throw new UnexpectedError("streamer unused");
         },
         readLatest: async () => new Frame([], []),
+        retrieveChannels: async () => [],
         ...props,
       });
       return { direct, counter };
@@ -684,6 +988,7 @@ describe("feed", () => {
       new Feed({
         transform,
         readLatest,
+        retrieveChannels: async () => [],
         readRemote: async () => {
           throw new UnexpectedError("reader unused");
         },
@@ -706,6 +1011,15 @@ describe("feed", () => {
         [data.key]: [1, 2],
       });
       expect(Array.from(await feed.readLatest(data.key))).toEqual([2]);
+    });
+
+    it("should return a virtual channel's retained last sample", async () => {
+      const virtual = await createVirtualChannel();
+      expect((await feed.readLatest(virtual.key)).length).toBe(0);
+      await client.write(TimeStamp.now(), { [virtual.key]: [1, 2] });
+      const latest = await feed.readLatest(virtual.key);
+      expect(Array.from(latest)).toEqual([2]);
+      expect(latest.timeRange.span.valueOf()).toEqual(1n);
     });
 
     it("should coalesce concurrent reads into one request", async () => {

@@ -87,15 +87,17 @@ type freeWriter struct {
 }
 
 func (w *freeWriter) alignFrame(fr frame.Frame) frame.Frame {
-	var (
-		idx channel.Key
-		ok  bool
-	)
+	now := telem.Now()
 	for rawI, s := range fr.RawSeries() {
 		if fr.ShouldExcludeRaw(rawI) {
 			continue
 		}
-		s.Alignment = w.alignments[w.indexes[fr.RawKeyAt(rawI)]]
+		idx, ok := w.indexes[fr.RawKeyAt(rawI)]
+		// No index places these samples, so the receiving node's clock does.
+		if !ok {
+			s.TimeRange = now.SpanRange(telem.Nanosecond)
+		}
+		s.Alignment = w.alignments[idx]
 		fr.SetRawSeriesAt(rawI, s)
 	}
 
@@ -103,7 +105,7 @@ func (w *freeWriter) alignFrame(fr frame.Frame) frame.Frame {
 		if fr.ShouldExcludeRaw(rawI) {
 			continue
 		}
-		idx, ok = w.indexes[rawKey]
+		idx, ok := w.indexes[rawKey]
 		if !ok || rawKey != idx {
 			continue
 		}

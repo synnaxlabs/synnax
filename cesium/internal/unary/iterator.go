@@ -131,7 +131,8 @@ func (db *DB) OpenIterator(cfgs ...IteratorConfig) (*Iterator, error) {
 	return i, nil
 }
 
-const AutoSpan telem.TimeSpan = -1
+// AutoSpan tells Next or Prev to pick the span of each step itself.
+const AutoSpan = channel.AutoSpan
 
 // SetBounds sets the iterator's bounds. The iterator is invalidated, and will not be
 // valid until a seeking call is made.
@@ -174,6 +175,14 @@ func (i *Iterator) EndAfter(ctx context.Context, n int64) (telem.TimeStamp, erro
 func (i *Iterator) Value() channel.Frame { return i.frame }
 
 func (i *Iterator) View() telem.TimeRange { return i.view }
+
+// IndexKey returns the key of the channel's index, which is its own key for an index.
+func (i *Iterator) IndexKey() channel.Key {
+	if i.Channel.IsIndex {
+		return i.Channel.Key
+	}
+	return i.Channel.Index
+}
 
 func (i *Iterator) SeekFirst(ctx context.Context) bool {
 	if i.closed {

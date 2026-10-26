@@ -56,7 +56,9 @@ type DB struct {
 	closed           *atomic.Bool
 	leadingAlignment *atomic.Uint32
 	openWriters      *atomic.Int32
-	cfg              Config
+	// lastSample is the newest sample written to the channel, nil before the first.
+	lastSample *atomic.Pointer[telem.Series]
+	cfg        Config
 }
 
 var (
@@ -132,6 +134,7 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 		closed:           &atomic.Bool{},
 		leadingAlignment: &atomic.Uint32{},
 		openWriters:      &atomic.Int32{},
+		lastSample:       &atomic.Pointer[telem.Series]{},
 	}
 	db.leadingAlignment.Store(alignment.ZeroLeading)
 	return db, nil
