@@ -24,7 +24,6 @@ import {
   type Status,
   statusZ,
 } from "@/status/types.gen";
-import { createLines } from "@/status/where";
 import { type Lines, matches, serverComputed } from "@/status/where.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -161,7 +160,10 @@ export class Client extends query.Retriever<
     });
     this.cfg = cfg;
     this.store = store;
-    this.lines = createLines((status, labelKey) => this.isLabeledBy(status, labelKey));
+    this.lines = {
+      labels: (status, keys) =>
+        label.cachedLabeledByAny(ontologyClient.cache, ontologyID(status.key), keys),
+    };
   }
 
   async retrieve<DetailsSchema extends z.ZodType>(
@@ -357,17 +359,6 @@ export class Client extends query.Retriever<
           new Error("failed to fetch status label", { cause: exc }),
         ),
       );
-  }
-
-  /** Reports whether the status is labeled by the given label. */
-  private isLabeledBy(status: Key, labelKey: label.Key): boolean {
-    return this.cfg.ontology.cache.relationships.has(
-      ontology.relationshipToString({
-        from: ontologyID(status),
-        type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
-        to: label.ontologyID(labelKey),
-      }),
-    );
   }
 
   /** Statuses whose labels the relationship event changes; backfills the label. */

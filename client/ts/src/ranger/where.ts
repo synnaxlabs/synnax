@@ -9,17 +9,13 @@
 
 import { TimeRange } from "@synnaxlabs/x";
 
-import { type label } from "@/label";
-import { type Payload, type Where } from "@/ranger/types.gen";
+import { type Where } from "@/ranger/types.gen";
 import { type Lines } from "@/ranger/where.gen";
 
-/** @returns the typed lines of a range Where, reading labels through labelsOf. */
-export const createLines = (labelsOf: (range: Payload) => label.Label[]): Lines => ({
+/** @returns the typed lines of a range Where, with labels as its labels line. */
+export const createLines = (labels: NonNullable<Lines["labels"]>): Lines => ({
   overlaps: (range, value) => new TimeRange(value).overlapsWith(range.timeRange),
-  labels: (range, keys) => {
-    const labels = labelsOf(range);
-    return keys.some((key) => labels.some((l) => l.key === key));
-  },
+  labels,
 });
 
 /**

@@ -37,7 +37,9 @@ const { ranges } = caseconv.snakeToCamel(
 const records = Object.entries(ranges.records).map(
   ([alias, r]) => [alias, payloadZ.parse(r)] as const,
 );
-const lines = createLines((r) => r.labels ?? []);
+const lines = createLines(
+  (r, keys) => r.labels?.some((l) => keys.includes(l.key)) ?? false,
+);
 
 describe("Where", () => {
   ranges.cases.forEach((c) => {

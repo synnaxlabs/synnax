@@ -477,8 +477,8 @@ export class Client extends query.Retriever<
       single: { schema: z.string(), space: single },
     });
     this.cfg = cfg;
-    this.lines = createLines((r) =>
-      label.cachedLabelsOf(ontologyClient.cache, labels, ontologyID(r.key)),
+    this.lines = createLines((r, keys) =>
+      label.cachedLabeledByAny(ontologyClient.cache, ontologyID(r.key), keys),
     );
     this.writer = new Writer(cfg.unary);
     this.store = ranges;

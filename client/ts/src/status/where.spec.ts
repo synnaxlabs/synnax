@@ -13,8 +13,7 @@ import { caseconv } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { statusZ, whereZ } from "@/status/types.gen";
-import { createLines } from "@/status/where";
-import { matches, serverComputed } from "@/status/where.gen";
+import { type Lines, matches, serverComputed } from "@/status/where.gen";
 
 // The case table is shared with the Go interpreter, so that the Core and the client
 // cache agree on every filter.
@@ -36,12 +35,9 @@ const { statuses } = caseconv.snakeToCamel(
 const records = Object.entries(statuses.records).map(
   ([alias, s]) => [alias, statusZ().parse(s)] as const,
 );
-const lines = createLines(
-  (key, labelKey) =>
-    records
-      .find(([, s]) => s.key === key)?.[1]
-      .labels?.some((l) => l.key === labelKey) ?? false,
-);
+const lines: Lines = {
+  labels: (s, keys) => s.labels?.some((l) => keys.includes(l.key)) ?? false,
+};
 
 describe("Where", () => {
   statuses.cases.forEach((c) => {
