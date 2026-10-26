@@ -17,8 +17,13 @@ import { Link } from "@/platform/link";
 const FIRST = ["synnax://cluster/c1"];
 const SECOND = ["synnax://cluster/c2"];
 
+type Handle = (urls: string[]) => void | Promise<void>;
+
+/** STALLED never finishes, like a link that waits on the user. */
+const STALLED: Handle = async () => await new Promise<void>(() => {});
+
 interface Harness {
-  handle: Mock<(urls: string[]) => void>;
+  handle: Mock<Handle>;
   openURL: (urls: string[]) => void;
   /** reload mounts the hook again, as a reload does, holding the given link. */
   reload: (held: string[] | null) => Promise<void>;
@@ -45,8 +50,8 @@ const mount = async (
   return (urls) => openURL(urls);
 };
 
-const setup = async (held: string[] | null): Promise<Harness> => {
-  const handle = vi.fn<(urls: string[]) => void>();
+const setup = async (held: string[] | null, impl?: Handle): Promise<Harness> => {
+  const handle = vi.fn<Handle>(impl);
   let openURL = await mount(handle, held);
   return {
     handle,
@@ -77,6 +82,12 @@ describe("Link.useReceive", () => {
     expect(h.handle.mock.calls).toEqual([[FIRST], [SECOND]]);
   });
 
+  it("should pass on the held link again when a reload cut its handling short", async () => {
+    const h = await setup(FIRST, STALLED);
+    await h.reload(FIRST);
+    expect(h.handle.mock.calls).toEqual([[FIRST], [FIRST]]);
+  });
+
   it("should pass on every link opened while running, repeats included", async () => {
     const h = await setup(null);
     act(() => h.openURL(FIRST));
@@ -89,6 +100,13 @@ describe("Link.useReceive", () => {
     act(() => h.openURL(SECOND));
     await h.reload(SECOND);
     expect(h.handle.mock.calls).toEqual([[SECOND]]);
+  });
+
+  it("should pass on an opened link again when a reload cut its handling short", async () => {
+    const h = await setup(null, STALLED);
+    act(() => h.openURL(SECOND));
+    await h.reload(SECOND);
+    expect(h.handle.mock.calls).toEqual([[SECOND], [SECOND]]);
   });
 
   it("should do nothing outside Tauri", async () => {

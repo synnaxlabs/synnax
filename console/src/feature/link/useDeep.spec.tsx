@@ -655,6 +655,22 @@ describe("useDeep", () => {
     expect(h.awaitingProject()).toBe(false);
   });
 
+  it("should open a launch link that a reload cut short once a project is selected", async () => {
+    const deps = { getCurrentURLs: async () => ["synnax://cluster/c1/range/r1"] };
+    const first = await setupSettled({ projectSelected: false, deps });
+    await waitFor(() => expect(first.awaitingProject()).toBe(true));
+    const next = await setupSettled({ projectSelected: false, deps });
+    await waitFor(() => expect(next.awaitingProject()).toBe(true));
+    act(() => {
+      next.store.dispatch(Session.Project.select(next.projectKey));
+    });
+    await waitFor(() =>
+      expect(next.handlers.range).toHaveBeenCalledWith(
+        expect.objectContaining({ key: "r1" }),
+      ),
+    );
+  });
+
   it("should hold a link until a panel is selected", async () => {
     const h = await setupSettled({ panelSelected: false });
     await waitFor(() => expect(h.settled()).toBe(true));

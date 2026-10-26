@@ -118,5 +118,5 @@ export const useDeep = (
       },
     );
 
-  Link.useReceive((urls) => void urlHandler(urls), deps);
+  Link.useReceive(urlHandler, deps);
 };
