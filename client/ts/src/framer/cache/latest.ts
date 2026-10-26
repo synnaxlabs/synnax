@@ -55,6 +55,9 @@ interface Load {
   abort: AbortController;
   // mark is where the series streamed while the load runs start.
   mark: number;
+  // end is set when the load reads held samples again after a history change. It
+  // bounds the read, so every sample after it streams and counts once.
+  end?: TimeStamp;
 }
 
 /**
@@ -70,6 +73,7 @@ export class Latest {
   private buffer: Dynamic;
   // unserved counts the newest samples that no value served.
   private unserved = 0;
+  private appended = 0;
   private running: Load | null;
   private readonly demand: Demand;
   private readonly stopInvalidations: () => void;
@@ -157,7 +161,12 @@ export class Latest {
     const status = this.status();
     if (this.unserved === 0 && status === this.snapshot.status) return this.snapshot;
     this.unserved = 0;
-    this.snapshot = { series: this.snapshot.series, status, time: this.time() };
+    this.snapshot = {
+      series: this.snapshot.series,
+      status,
+      time: this.time(),
+      appended: this.appended,
+    };
     return this.snapshot;
   }
 
@@ -171,6 +180,7 @@ export class Latest {
       series: new MultiSeries(series),
       status: this.status(),
       time: this.time(),
+      appended: this.appended,
     };
     return this.snapshot;
   }
@@ -197,8 +207,9 @@ export class Latest {
     this.notify();
   }
 
-  // Drops the samples held and reads them again, since a history change can delete
-  // them. A change that ends before every sample held cannot reach the newest count.
+  // Drops the samples held and reads them again up to the newest, since a history
+  // change can delete them. A change that ends before every sample held cannot reach
+  // the newest count.
   private changed(tr: TimeRange): void {
     const first = this.series.at(0) ?? this.buffer.leadingBuffer;
     if (
@@ -208,17 +219,18 @@ export class Latest {
       !tr.end.after(first.timeRange.start)
     )
       return;
+    const end = this.time();
     this.clear();
-    this.restart(0);
+    this.restart(0, end);
     this.notify();
   }
 
   // Ends the running load, then starts one whose streamed series start at mark, unless
   // mark is null.
-  private restart(mark: number | null): void {
+  private restart(mark: number | null, end?: TimeStamp): void {
     this.running?.abort.abort();
     this.notifier.notify();
-    this.running = mark == null ? null : { abort: new AbortController(), mark };
+    this.running = mark == null ? null : { abort: new AbortController(), mark, end };
     if (this.running != null) void this.load(this.running);
   }
 
@@ -263,8 +275,10 @@ export class Latest {
         if (this.dedupe != null) {
           await streamer.waitAcked([this.key], signal);
           if (this.running !== run) return;
-          const tr =
+          let tr =
             this.window == null ? TimeRange.MAX : resolveWindow(this.window, now());
+          if (run.end != null)
+            tr = new TimeRange(tr.start, TimeStamp.min(tr.end, run.end));
           read = (await readLatest(this.key, this.count, tr)).series;
         }
         if (this.running !== run) return;
@@ -288,16 +302,23 @@ export class Latest {
   }
 
   // Puts the read before the series streamed while it ran, keeping each sample once.
+  // The streamed samples count again as they land after the read.
   private land(read: Series[]): void {
     if (this.shown) {
       [this.running, this.shown] = [null, false];
       return this.push(read);
     }
+    const again = this.running?.end != null;
     this.closeLeading();
     const streamed = this.series.splice(this.running?.mark ?? 0);
-    streamed.forEach((s) => (this.closedTotal -= s.length));
+    streamed.forEach((s) => {
+      this.closedTotal -= s.length;
+      this.appended -= s.length;
+    });
     this.running = null;
+    const { appended } = this;
     this.push(read);
+    if (again) this.appended = appended;
     this.push(streamed);
     this.unserved = this.total;
     this.snapshot = null;
@@ -311,6 +332,7 @@ export class Latest {
       const first = this.series.at(0) ?? this.buffer.leadingBuffer;
       if (first != null && !first.dataType.equals(fresh.dataType)) this.clear();
       this.unserved += fresh.length;
+      this.appended += fresh.length;
       this.append(fresh);
     }
     this.trim();

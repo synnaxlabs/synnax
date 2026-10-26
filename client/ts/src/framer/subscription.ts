@@ -63,6 +63,11 @@ export interface Snapshot {
   status: status.Status;
   /** The end of the newest sample's span, once the channel streams. */
   time?: TimeStamp;
+  /**
+   * For a latest request, the count of samples appended to the channel. Samples that a
+   * history change reads again do not count.
+   */
+  appended?: number;
 }
 
 /**

@@ -409,6 +409,87 @@ describe("Feed.subscribe", () => {
         await feed.close();
       }
     });
+
+    it("should draw a held write into an earlier span in time order", async () => {
+      const core = createCore();
+      const feed = core.openFeed({
+        ...OPTIONS,
+        readRemote: async () => {
+          throw new Error("read failed");
+        },
+      });
+      const span = TimeSpan.seconds(30);
+      const { key: index } = core.index;
+      const sub = feed.subscribe(raw([index], span));
+      const stop = tick(core);
+      try {
+        await expect
+          .poll(() => sub.value(index).series.length, POLL)
+          .toBeGreaterThan(100);
+        stop();
+        // A writer fills an earlier span in a domain of its own.
+        const at = sub.value(index).series.series[0].timeRange.start.sub(PERIOD);
+        core.stream(
+          new Frame(
+            index,
+            new Series({
+              data: new BigInt64Array([at.valueOf()]),
+              dataType: DataType.TIMESTAMP,
+              timeRange: new TimeRange(at, at.add(TimeSpan.NANOSECOND)),
+              alignment: 9n << 32n,
+            }),
+          ),
+        );
+        await expect
+          .poll(() => timesOf(sub.value(index)).includes(at.valueOf()), POLL)
+          .toBe(true);
+        expect(timesOf(sub.value(index))[0]).toBe(at.valueOf());
+        expectComplete(timesOf(sub.value(index)));
+        expect(sub.value(index).time?.valueOf()).toBe(newestOf(core) + 1n);
+      } finally {
+        stop();
+        sub.close();
+        await feed.close();
+      }
+    });
+
+    it("should read a block once while the stream holds part of it", async () => {
+      // The view opens shortly before a block edge, and the commit point passes the
+      // edge while the catch-up read waits.
+      const edge = tileRange({
+        level: RAW_LEVEL,
+        index: rawIndex(START.add(TimeSpan.minutes(10))),
+      }).end;
+      const core = createCore({ now: edge.sub(TimeSpan.seconds(5)) });
+      const { promise: released, resolve: release } = Promise.withResolvers<void>();
+      const feed = core.openFeed({
+        ...OPTIONS,
+        readRemote: async (tr, keys, reduction) => {
+          // Only a catch-up read ends after the Core's clock.
+          if (tr.end.after(core.now())) await released;
+          return core.read(tr, keys, reduction);
+        },
+      });
+      const span = TimeSpan.seconds(30);
+      const { key: index } = core.index;
+      const sub = feed.subscribe(raw([index], span));
+      const stop = tick(core);
+      try {
+        const passed = edge.add(TimeSpan.seconds(2)).valueOf();
+        await expect
+          .poll(() => timesOf(sub.value(index)).at(-1), POLL)
+          .toBeGreaterThan(passed);
+        stop();
+        await sleep.sleep(TimeSpan.milliseconds(100));
+        const times = timesOf(sub.value(index));
+        expect(times.every((t, i) => i === 0 || t > times[i - 1])).toBe(true);
+      } finally {
+        release();
+        stop();
+        sub.close();
+        await feed.close();
+      }
+    });
   });
 
   describe("duplicates", () => {
@@ -1249,6 +1330,44 @@ describe("Feed.subscribe", () => {
           .toBeCloseTo(before.at(-1)! + 10);
         expect(valuesOf()).toHaveLength(10);
       } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
+
+    it("should count only the samples streamed since a history change", async () => {
+      const core = createCore();
+      let held = false;
+      const { promise: released, resolve: release } = Promise.withResolvers<void>();
+      const feed = core.openFeed({
+        ...OPTIONS,
+        readLatest: async (keys, count, tr) => {
+          if (held) await released;
+          return core.readLatest(keys, count, tr);
+        },
+      });
+      const { key } = core.data[0];
+      const sub = feed.subscribe({
+        keys: [key],
+        limit: { variant: "latest", count: 20 },
+      });
+      try {
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        await historyStreamed(core);
+        const { appended } = sub.value(key);
+        assert(appended != null);
+        held = true;
+        core.rewrite(key, new TimeRange(START, core.now()), 10);
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("loading");
+        core.advance(TimeSpan.milliseconds(100));
+        await expect.poll(() => sub.value(key).appended, POLL).toBe(appended + 10);
+        release();
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        await expect.poll(() => sub.value(key).appended, POLL).toBe(appended + 10);
+        await sleep.sleep(TimeSpan.milliseconds(50));
+        expect(sub.value(key).appended).toBe(appended + 10);
+      } finally {
+        release();
         sub.close();
         await feed.close();
       }

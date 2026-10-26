@@ -632,7 +632,10 @@ export class Points {
     const { store } = this.props;
     const now = this.props.now();
     const last = this.lastBlock(tr);
-    const joinFrom = this.streaming ? rawIndex(now.sub(COMMIT_MARGIN)) : Infinity;
+    // A waiting join's catch-up read fills the blocks from its first held sample on.
+    const joinFrom = this.streaming
+      ? this.props.joins.catchUpFrom(this.key, now.sub(COMMIT_MARGIN))
+      : Infinity;
     const blocks: RawBlock[] = [];
     for (let i = rawIndex(tr.start); i <= last; i++)
       blocks.push(store.raw(this.key, i));
@@ -661,7 +664,9 @@ export class Points {
         ? []
         : this.props.joins
             .held(this.key)
-            .filter((s) => s.timeRange.isZero || s.timeRange.overlapsWith(tr));
+            .filter((s) => s.timeRange.isZero || s.timeRange.overlapsWith(tr))
+            // A writer can fill an earlier span after later samples streamed.
+            .sort((a, b) => TimeRange.sort(a.timeRange, b.timeRange));
     return { raw: this.raw, tail, filling: filling.size > 0 };
   }
 
