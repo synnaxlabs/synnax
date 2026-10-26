@@ -210,7 +210,7 @@ export class RollingAverage extends UnarySourceTransformer<
   // out.
   protected shouldNotify({ data, time }: Result<math.Numeric>): boolean {
     if (this.props.windowSize < 2) return true;
-    if (time != null && this.newest != null && !time.after(this.newest)) return true;
+    if (this.newest != null && (time == null || !time.after(this.newest))) return true;
     this.newest = time;
     this.window.push(Number(data));
     if (this.window.length > this.props.windowSize) this.window.shift();
