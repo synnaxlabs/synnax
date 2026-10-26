@@ -120,8 +120,8 @@ func MustContentOf(resp *plugin.Response, pathSuffix string) string {
 }
 
 // DenyDirRead revokes read permission on dir so directory listings fail, and registers
-// a DeferCleanup that restores access. It skips the calling spec when running as root
-// on Unix, where permission checks are bypassed.
+// a DeferCleanup that restores access. It skips the calling spec when permission checks
+// are bypassed: as root on Unix, or with the backup privilege enabled on Windows.
 func DenyDirRead(dir string) {
 	ginkgo.GinkgoHelper()
 	if runtime.GOOS == "windows" {
@@ -135,6 +135,11 @@ func DenyDirRead(dir string) {
 				exec.Command("icacls", dir, "/remove:d", "*S-1-1-0").Run(),
 			).To(gomega.Succeed())
 		})
+		// Git Bash enables the backup privilege for administrators, and Go opens
+		// directories with backup semantics, which skip the deny entry.
+		if _, err := os.ReadDir(dir); err == nil {
+			ginkgo.Skip("the backup privilege bypasses directory permissions")
+		}
 		return
 	}
 	if os.Geteuid() == 0 {

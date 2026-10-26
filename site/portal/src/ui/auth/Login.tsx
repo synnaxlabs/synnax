@@ -25,7 +25,7 @@ import {
   prompt,
 } from "@/ui/auth/secondFactor";
 import { start } from "@/ui/auth/session";
-import { useClerk } from "@/ui/clerk";
+import { type Clerk, useClerk } from "@/ui/clerk";
 import { useAction } from "@/ui/useAction";
 
 const schema = z.object({
@@ -35,13 +35,20 @@ const schema = z.object({
 
 const codeSchema = z.object({ code: z.string().trim().min(1, "Enter the code") });
 
+type SignIn = NonNullable<Clerk["client"]>["signIn"];
+
 export interface LoginProps {
   /** target is where to land after logging in. */
   target: string;
+  /**
+   * ticket is the token of a team invitation sent to an existing account. With one, the
+   * page logs in with the ticket and accepts the invitation.
+   */
+  ticket: string | null;
 }
 
-/** Login logs a user in with email and password, Google, or Microsoft. */
-export const Login = ({ target }: LoginProps): ReactElement => {
+/** Login logs a user in with email and password, Google, Microsoft, or a ticket. */
+export const Login = ({ target, ticket }: LoginProps): ReactElement => {
   const clerk = useClerk();
   // factor is the second step Clerk asked for, or null while on the password step.
   const [factor, setFactor] = useState<CodeFactor | null>(null);
@@ -50,12 +57,10 @@ export const Login = ({ target }: LoginProps): ReactElement => {
   const methods = Form.use({ values: { email: "", password: "" }, schema });
   const codeMethods = Form.use({ values: { code: "" }, schema: codeSchema });
 
-  const login = useAction(async () => {
-    if (clerk?.client == null || !methods.validate()) return;
-    const { email, password } = methods.value();
-    const res = await clerk.client.signIn.create({ identifier: email, password });
+  // proceed finishes a sign-in, or moves to the second step Clerk asks for.
+  const proceed = async (loaded: Clerk, res: SignIn): Promise<void> => {
     if (res.status === "complete")
-      return await start(clerk, res.createdSessionId, target);
+      return await start(loaded, res.createdSessionId, target);
     if (res.status === "needs_second_factor" || res.status === "needs_client_trust") {
       const next = choose(res.supportedSecondFactors);
       if (next == null)
@@ -66,6 +71,19 @@ export const Login = ({ target }: LoginProps): ReactElement => {
       return;
     }
     throw new Error(`Login needs ${res.status ?? "another step"}`);
+  };
+
+  const login = useAction(async () => {
+    if (clerk?.client == null || !methods.validate()) return;
+    const { email, password } = methods.value();
+    const res = await clerk.client.signIn.create({ identifier: email, password });
+    await proceed(clerk, res);
+  });
+
+  const accept = useAction(async () => {
+    if (clerk?.client == null || ticket == null) return;
+    const res = await clerk.client.signIn.create({ strategy: "ticket", ticket });
+    await proceed(clerk, res);
   });
 
   const verify = useAction(async () => {
@@ -119,6 +137,29 @@ export const Login = ({ target }: LoginProps): ReactElement => {
             Verify
           </Button.Button>
         </Form.Form>
+      </Card>
+    );
+
+  if (ticket != null)
+    return (
+      <Card
+        title="Join your team"
+        description="Log in to accept the invitation"
+        error={accept.error}
+      >
+        <Button.Button
+          variant="filled"
+          size="large"
+          full="x"
+          justify="center"
+          onClick={accept.run}
+          disabled={clerk == null}
+          status={accept.loading ? "loading" : undefined}
+          trigger={["Enter"]}
+        >
+          Accept and log in
+          <Icon.Arrow.Right />
+        </Button.Button>
       </Card>
     );
 

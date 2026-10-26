@@ -12,14 +12,9 @@
 .pluto-value {
     display: flex;
     flex-direction: row;
-    border: var(--pluto-border);
-    border-color: var(--pluto-symbol-display);
-    border-radius: var(--pluto-border-radius);
-    border-width: 2px;
     padding: 0;
     flex-grow: 0;
     align-items: center;
-    justify-content: center;
 
     & .pluto-value__content {
         padding-left: 1.5rem;
@@ -31,20 +26,15 @@
         align-items: center;
         height: 100%;
         padding: 0 1rem;
-        background: transparent;
-        border-left: 2px solid var(--pluto-symbol-display);
+        border-left: 1px solid var(--pluto-gray-l6);
         text-align: center;
 
-        &.pluto--h4 {
-            padding: 0 1.5rem;
-        }
-
-        &.pluto--h3 {
-            padding: 0 2rem;
-        }
-
         & .pluto-text {
-            font-weight: 500;
+            font-weight: 400;
         }
+    }
+
+    &.pluto--colored .pluto-value__units {
+        border-left-color: var(--pluto-symbol-display);
     }
 }

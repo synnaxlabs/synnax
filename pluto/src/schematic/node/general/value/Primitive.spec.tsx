@@ -21,29 +21,30 @@ const getUnits = (container: HTMLElement): HTMLElement => {
 
 describe("value symbol", () => {
   describe("units", () => {
-    it("should paint the units in the text color", () => {
+    it("should paint the units in the quiet gray shade", () => {
       const { container } = render(
         <Value
           strokeColor={color.construct("#00ff00")}
-          textColor={color.construct("#ff0000")}
           units="psi"
           orientation="left"
           inlineSize={80}
         />,
       );
-      expect(getUnits(container).style.color).toBe("rgb(255, 0, 0)");
+      const units = getUnits(container);
+      expect(units.classList.contains("pluto--color-9")).toBe(true);
+      expect(units.style.color).toBe("");
     });
 
-    it("should leave the units color to the theme when the text color is absent", () => {
+    it("should hide the units cell when the units are empty", () => {
       const { container } = render(
         <Value
           strokeColor={color.construct("#00ff00")}
-          units="psi"
+          units=""
           orientation="left"
           inlineSize={80}
         />,
       );
-      expect(getUnits(container).style.color).toBe("");
+      expect(container.querySelector(".pluto-value__units")).toBeNull();
     });
   });
 });

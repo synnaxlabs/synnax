@@ -122,6 +122,28 @@ export const organizationsFor = async (
   return await listForMember(store, session);
 };
 
+/** Invited is a team invitation the user has not accepted. */
+export interface Invited {
+  invitationID: string;
+  /** team is the organization the user joins by accepting. */
+  team: Organization;
+}
+
+/**
+ * invitationsFor returns the team invitations the user has not accepted, mirroring each
+ * team as {@link organizationsFor} does.
+ */
+export const invitationsFor = async (
+  store: Store,
+  directory: Directory,
+  userID: string,
+): Promise<Invited[]> => {
+  const invited: Invited[] = [];
+  for (const { invitationID, ...team } of await directory.pending(userID))
+    invited.push({ invitationID, team: await mirrorTeam(store, team) });
+  return invited;
+};
+
 /**
  * pick chooses the scope a page acts for. `requested`, from `?org=`, selects any of
  * the user's organizations and returns null when it is not one of them. Without it,

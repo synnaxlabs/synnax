@@ -49,8 +49,9 @@ export const StringDisplay = ({
   value,
   stale = false,
 }: RenderProps): ReactElement => {
+  const symbolColor = color.rgbaString(strokeColor);
   const style: CSSProperties = {
-    [Primitive.SYMBOL_COLOR]: color.rgbaString(strokeColor),
+    [Primitive.SYMBOL_COLOR]: symbolColor,
     width: inlineSize,
     height: Component.HEIGHTS[LEVEL_SIZES[level]],
   };
@@ -60,7 +61,13 @@ export const StringDisplay = ({
     : textColor;
   return (
     <Primitive.Div
-      className={CSS.cls(CSS.B("string-display"), CSS.B("symbol-colored"), className)}
+      className={CSS.cls(
+        CSS.B("string-display"),
+        CSS.B("symbol-colored"),
+        CSS.B("symbol-readout"),
+        symbolColor != null && CSS.M("colored"),
+        className,
+      )}
       style={style}
     >
       <div className={CSS.BE("string-display", "content")}>

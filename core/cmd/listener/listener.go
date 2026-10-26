@@ -159,6 +159,16 @@ func (cs Configs) advertised() Config {
 // AdvertiseAddress returns the address peers use to reach this node.
 func (cs Configs) AdvertiseAddress() address.Address { return cs.advertised().Address }
 
+// Loopback reports whether every listener binds the loopback interface only.
+func (cs Configs) Loopback() bool {
+	for _, c := range cs {
+		if !c.Loopback {
+			return false
+		}
+	}
+	return true
+}
+
 // Resolve resolves each listener config into a server.Listener, backing every secure
 // listener with a TLS config from its certificate source. fc supplies the node-wide
 // filesystem and CA authority. It fails when the advertised listener serves a

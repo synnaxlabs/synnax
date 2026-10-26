@@ -16,6 +16,8 @@ import { Task } from "@/platform/task";
 
 export const PREFIX = "ethercat";
 
+export const SCAN_TYPE = `${PREFIX}_scan`;
+
 export type ReadChannel = ethercat.ReadChannel;
 
 export const READ_CHANNEL_SCHEMAS = ethercat.READ_CHANNEL_SCHEMAS;

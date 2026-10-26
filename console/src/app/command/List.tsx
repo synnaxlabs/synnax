@@ -9,6 +9,7 @@
 
 import { type ReactElement } from "react";
 
+import { Account } from "@/feature/account";
 import { Arc } from "@/feature/arc";
 import { Channel } from "@/feature/channel";
 import { Command } from "@/feature/command";
@@ -38,6 +39,7 @@ import { type Palette } from "@/platform/palette";
 const COMMANDS: Command.Command[] = [
   ...Channel.COMMANDS,
   ...(DESKTOP ? Embedded.COMMANDS : Core.COMMANDS),
+  ...(DESKTOP ? Account.COMMANDS : []),
   ...Device.COMMANDS,
   ...Docs.COMMANDS,
   ...Framer.COMMANDS,
