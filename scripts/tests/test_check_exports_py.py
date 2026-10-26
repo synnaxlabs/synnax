@@ -172,6 +172,22 @@ class TestCheck:
         )
         assert names(tmp_path) == ["a", "b"]
 
+    def test_should_keep_a_name_a_quoted_annotation_reads_through_an_alias(
+        self, tmp_path: Path
+    ) -> None:
+        write(
+            tmp_path,
+            {
+                "lib/widget/__init__.py": "",
+                "lib/widget/parts.py": "class Valve: ...\n",
+                "app/tool/__init__.py": "from tool.run import pair\n",
+                "app/tool/run.py": (
+                    "import widget.parts as p\n\ndef pair() -> 'p.Valve': ...\n"
+                ),
+            },
+        )
+        assert names(tmp_path) == []
+
     def test_should_keep_an_entry_point(self, tmp_path: Path) -> None:
         write(
             tmp_path,

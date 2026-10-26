@@ -166,7 +166,7 @@ def imports(mod: Module, known: set[str]) -> Iterator[tuple[str, str]]:
                     mod.aliases.setdefault(local, set()).add(f"{source}.{a.name}")
                 else:
                     yield source, a.name
-    for node in ast.walk(mod.tree):
+    for node in walk(mod.tree):
         if not isinstance(node, ast.Attribute):
             continue
         chain = []
@@ -229,18 +229,21 @@ def annotation_names(node: ast.stmt) -> set[str]:
 
 def expression_names(expr: ast.expr) -> set[str]:
     """Returns the names that expr reads, including those in quoted annotations."""
-    names = set()
-    for n in ast.walk(expr):
-        if isinstance(n, ast.Name):
-            names.add(n.id)
-        elif isinstance(n, ast.Constant) and isinstance(n.value, str):
+    return {n.id for n in walk(expr) if isinstance(n, ast.Name)}
+
+
+def walk(tree: ast.AST) -> Iterator[ast.AST]:
+    """Walks tree like ast.walk, and also walks each string that parses as an
+    expression, such as a quoted annotation."""
+    for n in ast.walk(tree):
+        yield n
+        if isinstance(n, ast.Constant) and isinstance(n.value, str):
             try:
                 quoted = ast.parse(n.value, mode="eval")
             except SyntaxError:
                 # A string that is not an expression is not an annotation.
                 continue
-            names |= expression_names(quoted.body)
-    return names
+            yield from walk(quoted.body)
 
 
 def check(repo: Path, packages: tuple[Package, ...] = PACKAGES) -> list[Finding]:
