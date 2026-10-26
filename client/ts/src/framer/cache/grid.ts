@@ -105,7 +105,8 @@ export const pointLimit = ({
   return 2 ** Math.ceil(Math.log2(Math.max(share * POINTS_PER_GROUP[aggregation], 1)));
 };
 
-const positionKey = ({ level, index }: Position): string => `${level}/${index}`;
+/** @returns a key that identifies the position. */
+export const positionKey = ({ level, index }: Position): string => `${level}/${index}`;
 
 /**
  * Chooses the tiles that draw the given slots of a level, from the available ones. Each

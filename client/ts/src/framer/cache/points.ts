@@ -33,6 +33,7 @@ import {
   level as tileLevel,
   pointLimit as tilePointLimit,
   type Position,
+  positionKey,
   tileRange,
   tileSpan,
 } from "@/framer/cache/grid";
@@ -72,8 +73,6 @@ interface Held {
   // The cached tile, when the read cached one.
   block?: Block;
 }
-
-const positionKey = ({ level, index }: Position): string => `${level}/${index}`;
 
 // Returns the start of the tile of the level after the one that holds ts.
 const nextEdge = (ts: TimeStamp, level: number): bigint =>
