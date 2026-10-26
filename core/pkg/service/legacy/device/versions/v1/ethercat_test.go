@@ -21,6 +21,29 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+var _ = Describe("EtherCATMakeMigration", func() {
+	DescribeTable("Should migrate the make",
+		func(ctx SpecContext, stored, want string) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			d := v1.Device{Key: "slave", Make: stored}
+			Expect(gorp.NewCreate[v1.Key, v1.Device]().Entry(&d).Exec(ctx, db)).
+				To(Succeed())
+			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+				DB:         db,
+				Namespace:  "Device",
+				Migrations: []gorp.Migration{v1.EtherCATMakeMigration},
+			})).To(Succeed())
+			var got v1.Device
+			Expect(gorp.NewRetrieve[v1.Key, v1.Device]().
+				Where(gorp.MatchKeys[v1.Key, v1.Device](d.Key)).
+				Entry(&got).Exec(ctx, db)).To(Succeed())
+			Expect(got.Make).To(Equal(want))
+		},
+		Entry("of a slave a released Python client made", "EtherCAT", "ethercat"),
+		Entry("of another device unchanged", "NI", "NI"),
+	)
+})
+
 var _ = Describe("EtherCATChannelMapMigration", func() {
 	migrateDevice := func(ctx SpecContext, d v1.Device) v1.Device {
 		GinkgoHelper()
