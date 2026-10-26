@@ -101,6 +101,36 @@ widget.Valve!Rename.name string
 		},
 	)
 
+	It("Should write omitted fields and borrowed enums", func(ctx SpecContext) {
+		Expect(report(ctx, `
+Method enum {
+	password = "password"
+}
+
+Parent struct {
+	name string
+	age int32
+}
+
+Child struct extends Parent {
+	-age
+}
+
+Proof union on method Method {
+	password Parent
+}
+`)).To(Equal(`widget.Child struct extends widget.Parent
+widget.Child omits age
+widget.Method enum
+widget.Method.password = "password"
+widget.Parent struct
+widget.Parent.name string
+widget.Parent.age int32
+widget.Proof union on method widget.Method
+widget.Proof|password widget.Parent
+`))
+	})
+
 	It("Should ignore docs and formatting", func(ctx SpecContext) {
 		Expect(report(ctx, `
 // A thing that holds a name.

@@ -28,67 +28,78 @@ func Write(w io.Writer, table *resolution.Table) error {
 	slices.SortFunc(types, func(a, b resolution.Type) int {
 		return strings.Compare(a.QualifiedName, b.QualifiedName)
 	})
-	var b strings.Builder
+	var lines []string
 	for _, t := range types {
-		writeType(&b, t)
+		lines = append(lines, typeLines(t)...)
 	}
-	_, err := io.WriteString(w, b.String())
+	if len(lines) == 0 {
+		return nil
+	}
+	_, err := io.WriteString(w, strings.Join(lines, "\n")+"\n")
 	return err
 }
 
-func writeType(b *strings.Builder, t resolution.Type) {
+func typeLines(t resolution.Type) []string {
 	qn := t.QualifiedName
 	switch f := t.Form.(type) {
 	case resolution.PrimitiveForm, resolution.BuiltinGenericForm:
+		return nil
 	case resolution.StructForm:
-		fmt.Fprintf(
-			b,
-			"%s%s struct%s\n",
-			qn,
-			params(f.TypeParams),
-			refs(" extends ", f.Extends),
-		)
-		writeFields(b, qn+".", f.Fields)
+		lines := []string{
+			qn + params(f.TypeParams) + " struct" + refs(" extends ", f.Extends),
+		}
+		for _, name := range f.OmittedFields {
+			lines = append(lines, qn+" omits "+name)
+		}
+		lines = append(lines, fieldLines(qn+".", f.Fields)...)
 		for _, a := range f.Actions {
-			fmt.Fprintf(b, "%s action %s\n", qn, a.Name)
-			writeFields(b, qn+"!"+a.Name+".", a.Fields)
+			lines = append(lines, qn+" action "+a.Name)
+			lines = append(lines, fieldLines(qn+"!"+a.Name+".", a.Fields)...)
 		}
+		return lines
 	case resolution.EnumForm:
-		fmt.Fprintf(b, "%s enum%s\n", qn, refs(" extends ", f.Extends))
+		lines := []string{qn + " enum" + refs(" extends ", f.Extends)}
 		for _, v := range f.Values {
-			fmt.Fprintf(b, "%s.%s = %v\n", qn, v.Name, quote(v.Value))
+			lines = append(lines, fmt.Sprintf("%s.%s = %v", qn, v.Name, quote(v.Value)))
 		}
+		return lines
 	case resolution.UnionForm:
-		fmt.Fprintf(
-			b, "%s union on %s%s%s\n",
-			qn, f.Discriminator, refs(" extends ", f.Extends), refs(" of ", f.Included),
-		)
-		for _, v := range f.Variants {
-			fmt.Fprintf(b, "%s|%s %s\n", qn, v.Name, ref(v.Type))
+		header := qn + " union on " + f.Discriminator
+		if f.BorrowsEnum() {
+			header += " " + ref(f.Enum)
 		}
+		lines := []string{
+			header + refs(" extends ", f.Extends) + refs(" of ", f.Included),
+		}
+		for _, v := range f.Variants {
+			lines = append(lines, qn+"|"+v.Name+" "+ref(v.Type))
+		}
+		return lines
 	case resolution.AliasForm:
-		fmt.Fprintf(b, "%s%s = %s\n", qn, params(f.TypeParams), ref(f.Target))
+		return []string{qn + params(f.TypeParams) + " = " + ref(f.Target)}
 	case resolution.DistinctForm:
-		fmt.Fprintf(b, "%s%s distinct %s\n", qn, params(f.TypeParams), ref(f.Base))
+		return []string{qn + params(f.TypeParams) + " distinct " + ref(f.Base)}
 	default:
 		panic(fmt.Sprintf("surface: unknown form %T of %s", t.Form, qn))
 	}
 }
 
-func writeFields(b *strings.Builder, prefix string, fields []resolution.Field) {
+func fieldLines(prefix string, fields []resolution.Field) []string {
+	lines := make([]string, 0, len(fields))
 	for _, f := range fields {
-		b.WriteString(prefix + f.Name)
+		line := prefix + f.Name
 		if f.Optional {
-			b.WriteString("?")
+			line += "?"
 		}
 		if f.HasType() {
-			b.WriteString(" " + ref(f.Type))
+			line += " " + ref(f.Type)
 		}
 		if f.Default != nil {
-			b.WriteString(" = " + value(*f.Default))
+			line += " = " + value(*f.Default)
 		}
-		b.WriteString("\n")
+		lines = append(lines, line)
 	}
+	return lines
 }
 
 func ref(r resolution.TypeRef) string {

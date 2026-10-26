@@ -10,6 +10,9 @@
 package cmd
 
 import (
+	"io"
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/x/testutil"
@@ -30,8 +33,13 @@ var _ = Describe("surface command", func() {
 			"widget.oracle": "Valve struct { name string }\nValve struct { size int32 }\n",
 		})
 		DeferCleanup(cleanup)
-		out, err := executeCommand(NewRootCmd(), "surface")
-		Expect(err).To(HaveOccurred())
-		Expect(out).To(ContainSubstring("analysis failed"))
+		var stderr strings.Builder
+		root := NewRootCmd()
+		root.SetOut(io.Discard)
+		root.SetErr(&stderr)
+		root.SetArgs([]string{"surface"})
+		Expect(root.Execute()).
+			To(MatchError(ContainSubstring("duplicate type definition: widget.Valve")))
+		Expect(stderr.String()).To(ContainSubstring("analysis failed"))
 	})
 })
