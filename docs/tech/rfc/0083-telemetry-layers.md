@@ -143,9 +143,14 @@ const { series, status, time: newest } = sub.value(pressure);
   `update(request)` replaces the request and does nothing for an equal one, and old
   tiles stand in until new ones land.
 - **Join**: The `Feed` adds the keys to its stream, waits for the Core's ack (§3.6),
-  then reads, so no sample falls between the read and the stream. It removes duplicates
-  by sample time. A data type change restarts the request inside the `Feed`. Series
-  identity and buffers that grow in place stay private.
+  then reads, so no sample falls between the read and the stream. Live samples never
+  wait for that read: while it runs or fails, a live view draws the streamed samples the
+  `Feed` holds, and the read's samples replace them when it lands. The `Feed` removes
+  duplicates by sample time. A data type change restarts the request inside the `Feed`.
+  Series identity and buffers that grow in place stay private. The Core stores no
+  samples for a calculation over virtual channels, so it rejects their read as
+  unsupported, and the `Feed` serves those keys from the stream alone, with a warning
+  status.
 
 `read`, `stream`, `readLatest`, and `readTile` leave the public surface. Pluto's
 `Client.feed` (`pluto/src/telem/aether/remote.ts:60`) narrows to `subscribe`.
@@ -187,7 +192,9 @@ an exact index answers time questions with no second copy.
   the stream. No signal names a calculated channel, which the Core computes on read, or
   a channel stored on another node, which the `Feed` finds from the node key of the
   connectivity check. Their blocks, and blocks the channel's data has not passed, expire
-  after 10 minutes.
+  10 minutes after their fetch. A block that a subscription holds does not expire, so an
+  open view shows a change to these channels only after it leaves the block and reads it
+  again.
 - **Reads**: A `points` request reads reduced blocks for history and raw blocks from the
   live edge of RFC 0068 §3.8. A `latest` request reads the newest samples from the Core
   and keeps them outside the blocks (§5, decision 12).
@@ -253,14 +260,15 @@ Each phase is one pull request from `main`.
 - **Phase 4: The live request.** `Feed.subscribe` over blocks, with specs for the seam,
   duplicates, the rolling edge, and data type changes. The join gives streamed samples
   block alignment. Subscription holds replace reference counts, history change signals
-  replace the 10 minute expiry, and the size options merge into one budget. The old
-  `Feed` methods stay. Needs phases 1 and 3.
+  replace the 10 minute expiry where they apply (§3.4), and the size options merge into
+  one budget. The old `Feed` methods stay. Needs phases 1 and 3.
 - **Phase 5: The consumers.** Lines, values, and logs move onto `subscribe`.
   `LiveWindow` and the tile targets go, and the old `Feed` methods leave the public
   surface. Needs phase 4.
 
 Phase 1 changes the wire: a request flag and response field on the stream, and a new
-signal channel. No phase changes a stored format.
+signal channel. Phase 4 adds the `sy.query.unsupported` error type for a read of a
+virtual channel. No phase changes a stored format.
 
 ## 5 Resolved decisions
 
@@ -323,7 +331,8 @@ signal channel. No phase changes a stored format.
     trade is real: two paths read history, a `latest` key keeps a buffer that its count
     bounds, not the byte budget, and a series streamed with no time range, from a writer
     that does not write the channel's index, can repeat samples of the read. A stream
-    drop reads the newest samples again. Live samples show while that read fails, so a
+    drop reads the newest samples again, and so does a history change that can reach the
+    samples held, which drops them first. Live samples show while that read fails, so a
     read that lands after them drops the samples written while the stream was down.
 
 ## 6 What this RFC does not cover
