@@ -134,8 +134,8 @@ RetrieveResponse {
 ```
 
 An absent field with a default has the default value, so a caller sets only what it
-needs. The Core fills the defaults. The TypeScript and Python request types leave them
-unset, so the cache sees only the fields that a caller set.
+needs. The Core fills the defaults. The TypeScript request types leave them unset, so
+the cache sees only the fields that a caller set.
 
 The response holds the target. A generic target holds `T<any>`, since one table holds
 records of every type argument. `@response type T` on the definition replaces the target
