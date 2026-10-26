@@ -183,7 +183,7 @@ var _ = Describe("StatusHandler", func() {
 			func(ctx SpecContext) {
 				setUnreadable(ctx)
 				Expect(handler.Warn(ctx, "Broker unreachable", "dial timeout")).
-					ToNot(Succeed())
+					To(MatchError(ContainSubstring("failed to decode")))
 				deleteStored(ctx)
 				Expect(handler.Warn(ctx, "Broker unreachable", "dial timeout")).
 					To(Succeed())
@@ -231,7 +231,8 @@ var _ = Describe("StatusHandler", func() {
 				Expect(handler.Warn(ctx, "Broker unreachable", "dial timeout")).
 					To(Succeed())
 				setUnreadable(ctx)
-				Expect(handler.ClearWarning(ctx)).ToNot(Succeed())
+				Expect(handler.ClearWarning(ctx)).
+					To(MatchError(ContainSubstring("failed to decode")))
 				deleteStored(ctx)
 				Expect(handler.ClearWarning(ctx)).To(Succeed())
 				stat := retrieve(ctx)
