@@ -14,7 +14,7 @@ from typing import Any
 _CONFIG_DIR_NAME = "./synnax"
 
 
-class ConfigFile:
+class File:
     """The global synnax py configuration file."""
 
     file: pathlib.Path

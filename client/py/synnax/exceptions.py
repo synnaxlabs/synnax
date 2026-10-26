@@ -62,6 +62,12 @@ class ExpiredToken(AuthError):
     TYPE = AuthError.TYPE + ".expired_token"
 
 
+class SessionEnded(AuthError):
+    """Raised when the session a request or stream used has ended."""
+
+    TYPE = AuthError.TYPE + ".session_ended"
+
+
 class AccessDenied(AuthError):
     """Raised when a user does not have permission to perform an action."""
 
@@ -169,6 +175,8 @@ def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
             return InvalidToken(encoded.data)
         if encoded.type.startswith(ExpiredToken.TYPE):
             return ExpiredToken(encoded.data)
+        if encoded.type.startswith(SessionEnded.TYPE):
+            return SessionEnded(encoded.data)
         if encoded.type.startswith(AccessDenied.TYPE):
             return AccessDenied(encoded.data)
         return AuthError(encoded.data)

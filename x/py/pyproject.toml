@@ -29,6 +29,7 @@ Repository = "https://github.com/synnaxlabs/synnax"
 dev = [
     "mypy>=2.4.0,<3",
     "pytest-cov>=7.1.0,<8",
+    "pytest-timeout>=2.4.0,<3",
     "pandas-stubs>=3.0.5.260914,<4",
     "python-dateutil>=2.9.0.post0,<3",
     "pytest>=9.1.1,<10",
@@ -78,6 +79,8 @@ init_typed = true
 warn_required_dynamic_aliases = true
 
 [tool.pytest.ini_options]
+strict = true
+timeout = 60
 testpaths = ["tests"]
 markers = [
     "color: mark test as a color test",

@@ -4,7 +4,7 @@ The nightly CI run of Synnax failed on `main`. Find why, decide if each failure 
 flake or a regression, and act on it. Nobody watches this session, so do not ask
 questions.
 
-1. Read `CLAUDE.md`, `docs/claude/testing.md`, and the guides they name for the code you
+1. Read `AGENTS.md`, `docs/claude/testing.md`, and the guides they name for the code you
    touch. Follow them.
 2. List the failed jobs and read their logs. This session runs inside the failed run, so
    the run is still in progress and `gh run view --log-failed` gives nothing. Read each
