@@ -43,6 +43,10 @@ on:
         description: "Job time budget. pr and comment cap the agent at 50 minutes."
         type: number
         default: 60
+      setup:
+        description: "Repository script to run after checkout, before the agent"
+        type: string
+        default: ""
     outputs:
       pr-url:
         description: "URL of the PR the agent opened, pushed to, or commented on"
@@ -126,6 +130,13 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+
+      - name: Set up the task
+        if: inputs.setup != ''
+        env:
+          SETUP: ${{ inputs.setup }}
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+        run: '"./$SETUP"'
 
       - name: Run the agent
         id: agent
