@@ -336,29 +336,39 @@ describe("app/triggers", () => {
   });
 
   describe("reserved", () => {
-    const renderHint = (engine: Session.Runtime.Engine, trigger: PTriggers.Trigger) =>
+    // The props are computed once at load, so a desktop run needs a fresh module.
+    const loadDesktopProps = async (): Promise<PTriggers.ProviderProps> => {
+      mocks.engine = "tauri";
+      vi.resetModules();
+      try {
+        return (await import("@/app/triggers")).Triggers.PROVIDER_PROPS;
+      } finally {
+        mocks.engine = "web";
+      }
+    };
+
+    const renderHint = (props: PTriggers.ProviderProps, trigger: PTriggers.Trigger) =>
       render(
-        <PTriggers.Provider {...Triggers.createProviderProps(engine)}>
+        <PTriggers.Provider {...props}>
           <PTriggers.Text trigger={trigger} />
         </PTriggers.Provider>,
       ).container;
 
     it("should hide the hint for a shortcut the browser keeps", () => {
-      expect(renderHint("web", ["Control", "T"]).textContent).toBe("");
+      expect(renderHint(Triggers.PROVIDER_PROPS, ["Control", "T"]).textContent).toBe(
+        "",
+      );
     });
 
     it("should keep the hint for a shortcut the browser passes on", () => {
-      expect(renderHint("web", ["Control", "S"]).textContent).toContain("S");
+      expect(
+        renderHint(Triggers.PROVIDER_PROPS, ["Control", "S"]).textContent,
+      ).toContain("S");
     });
 
-    it("should keep every hint in the desktop app", () => {
-      expect(renderHint("tauri", ["Control", "T"]).textContent).toContain("T");
-    });
-
-    it("should reserve shortcuts for the runtime the specs run in", () => {
-      expect(Triggers.PROVIDER_PROPS.reserved).toEqual(
-        Triggers.createProviderProps("web").reserved,
-      );
+    it("should keep every hint in the desktop app", async () => {
+      const props = await loadDesktopProps();
+      expect(renderHint(props, ["Control", "T"]).textContent).toContain("T");
     });
   });
 
