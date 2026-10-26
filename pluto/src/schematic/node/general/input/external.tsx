@@ -33,10 +33,11 @@ const Preview = ({
 
 export const spec: Spec<"input", schematic.InputNodeConfig> = {
   key: "input",
-  name: "Input",
+  name: "Text input",
   Form: InputForm,
   Node: Symbol,
   Preview,
   zIndex: 4,
   colorFallbacks,
+  needsPosition: true,
 };

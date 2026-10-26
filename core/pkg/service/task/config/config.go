@@ -99,6 +99,10 @@ type ServiceConfig[E any] struct {
 	// ApplyEntryDefaults fills absent fields of a decoded entry.
 	// [OPTIONAL] - nil when the entry type has no defaults.
 	ApplyEntryDefaults func(*E)
+	// ResolveEntry fills fields of a decoded entry from other resources, read through
+	// tx, before the entry is validated and stored.
+	// [OPTIONAL] - nil when the entry depends on no other resource.
+	ResolveEntry func(ctx context.Context, tx gorp.Tx, e *E) error
 	// ValidateEntry checks a decoded entry before it is stored.
 	// [OPTIONAL] - nil when the entry type has no validation rules.
 	ValidateEntry func(*E) error
@@ -117,6 +121,7 @@ func (c ServiceConfig[E]) Override(other ServiceConfig[E]) ServiceConfig[E] {
 	c.LegacyVersion = override.Numeric(c.LegacyVersion, other.LegacyVersion)
 	c.Legacy = override.Nil(c.Legacy, other.Legacy)
 	c.ApplyEntryDefaults = override.Nil(c.ApplyEntryDefaults, other.ApplyEntryDefaults)
+	c.ResolveEntry = override.Nil(c.ResolveEntry, other.ResolveEntry)
 	c.ValidateEntry = override.Nil(c.ValidateEntry, other.ValidateEntry)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
@@ -210,6 +215,15 @@ func (s *Service[E]) write(
 		s.cfg.ApplyEntryDefaults(&e)
 	}
 	s.cfg.SetEntryKey(&e, key)
+	if s.cfg.ResolveEntry != nil {
+		if err := s.cfg.ResolveEntry(
+			ctx,
+			gorp.OverrideTx(s.cfg.DB, tx),
+			&e,
+		); err != nil {
+			return nil, err
+		}
+	}
 	if s.cfg.ValidateEntry != nil {
 		if err := s.cfg.ValidateEntry(&e); err != nil {
 			return nil, err

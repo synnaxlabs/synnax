@@ -12,6 +12,7 @@ import { type ReactElement } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { StringDisplay } from "@/schematic/node/general/stringDisplay/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
@@ -19,6 +20,7 @@ import { StringValue as BaseStringValue } from "@/vis/stringValue";
 
 export const Symbol = ({
   nodeKey,
+  position,
   onConfigChange,
   selected,
   config: {
@@ -33,10 +35,14 @@ export const Symbol = ({
     orientation,
   },
 }: NodeProps<schematic.StringDisplayNodeConfig>): ReactElement => {
-  const source = telem.streamChannelStringValue({ channel: channel ?? 0 });
-  const { value, stale } = BaseStringValue.use({
+  const content = Primitive.useCanvasBox<HTMLDivElement>(position);
+  BaseStringValue.use({
     aetherKey: nodeKey,
-    telem: source,
+    box: content.box,
+    telem: telem.streamChannelStringValue({ channel: channel ?? 0 }),
+    level,
+    color: textColor,
+    stalenessColor,
     stalenessTimeout,
   });
   const resize = Grid.useInlineResize(inlineSize, (inlineSize) =>
@@ -47,13 +53,10 @@ export const Symbol = ({
       <Label.Label config={label} onChange={onConfigChange} />
       <StringDisplay
         strokeColor={strokeColor}
-        textColor={textColor}
-        stalenessColor={stalenessColor}
         level={level}
         inlineSize={inlineSize}
         orientation={orientation}
-        value={value}
-        stale={stale}
+        contentRef={content.ref}
       />
     </Grid.Grid>
   );
