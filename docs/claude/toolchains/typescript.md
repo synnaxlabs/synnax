@@ -20,7 +20,9 @@ orchestration.
 - `pnpm lint` / `pnpm fix` (also per-pkg variants)
 - `pnpm cycles` / `pnpm cycles:console` — circular dependency check (knip)
 - `pnpm knip --production --include exports,types` — exports that only specs import.
-  Drop the `export`. A pattern in `knip.json` that ends in `!` is production code.
+  Drop the `export` and make its specs test through the public API. When the package's
+  users need the symbol, export it from the package entry instead. A pattern in
+  `knip.json` that ends in `!` is production code.
 
 ### Console dev login
 
