@@ -36,7 +36,7 @@ using CreateClient = freighter::
 
 /// @brief Type alias for the transport used to retrieve a rack.
 using RetrieveClient = freighter::
-    UnaryClient<grpc::rack::RetrieveRequest, grpc::rack::RetrieveResponse>;
+    UnaryClient<grpc::rack::RetrieveRequest, ::service::rack::pb::RetrieveResponse>;
 
 /// @brief Type alias for the transport used to delete a rack.
 using DeleteClient = freighter::

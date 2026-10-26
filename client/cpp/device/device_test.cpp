@@ -398,7 +398,7 @@ TEST(DeviceTests, testRetrieveWhere) {
                         Where{.make = x::filter::String{.eq = devs[0].make}},
                         Where{.key = x::filter::Set<Key>{.eq = devs[1].key}},
                     },
-                .rack = x::filter::Ordered<rack::Key>{.eq = r.key},
+                .rack = x::filter::Set<rack::Key>{.eq = r.key},
             },
         }
     ));

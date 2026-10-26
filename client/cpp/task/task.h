@@ -41,7 +41,7 @@ using CreateClient = freighter::
 
 /// @brief Type alias for the transport used to retrieve a task.
 using RetrieveClient = freighter::
-    UnaryClient<grpc::task::RetrieveRequest, grpc::task::RetrieveResponse>;
+    UnaryClient<grpc::task::RetrieveRequest, ::service::task::pb::RetrieveResponse>;
 
 /// @brief Type alias for the transport used to delete a task.
 using DeleteClient = freighter::

@@ -152,7 +152,7 @@ struct SynnaxClusterAPI final : ClusterAPI {
             .where =
                 synnax::device::Where{
                     .make = x::filter::String{.eq = make},
-                    .rack = x::filter::Ordered<synnax::rack::Key>{.eq = rack},
+                    .rack = x::filter::Set<synnax::rack::Key>{.eq = rack},
                 },
             .include_status = true,
         });

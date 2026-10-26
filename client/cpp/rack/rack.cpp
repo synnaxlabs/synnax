@@ -62,15 +62,11 @@ Client::retrieve(const RetrieveRequest &req) const {
     *grpc_req.mutable_request() = pb_req;
     auto [res, err] = rack_retrieve_client->send("/rack/retrieve", grpc_req);
     if (err) return {std::vector<Rack>(), err};
-    std::vector<Rack> racks;
-    racks.reserve(res.racks_size());
-    for (const auto &pb: res.racks()) {
-        auto [rack, proto_err] = Rack::from_proto(pb);
-        if (proto_err) return {std::vector<Rack>(), proto_err};
+    auto [decoded, proto_err] = RetrieveResponse::from_proto(res);
+    if (proto_err) return {std::vector<Rack>(), proto_err};
+    for (auto &rack: decoded.racks)
         rack.tasks = this->tasks.scope_to_rack(rack.key);
-        racks.push_back(std::move(rack));
-    }
-    return {racks, x::errors::NIL};
+    return {std::move(decoded.racks), x::errors::NIL};
 }
 
 std::pair<Rack, x::errors::Error>
