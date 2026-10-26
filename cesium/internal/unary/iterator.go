@@ -131,6 +131,7 @@ func (db *DB) OpenIterator(cfgs ...IteratorConfig) (*Iterator, error) {
 	return i, nil
 }
 
+// AutoSpan tells Next or Prev to pick the span of each step itself.
 const AutoSpan = channel.AutoSpan
 
 // SetBounds sets the iterator's bounds. The iterator is invalidated, and will not be
