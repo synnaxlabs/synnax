@@ -22,4 +22,6 @@ func Specs() {
 	Expect(ptr()).ToNot(BeNil())
 	Expect(pair()).ToNot(BeNil())
 	Eventually(ptr).ShouldNot(BeNil())
+	Eventually(pair).ShouldNot(BeNil())
+	Expect(ptr(), err).ToNot(BeNil())
 }

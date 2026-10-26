@@ -31,9 +31,25 @@ MatchError(ContainSubstring("...")), or both through SatisfyAll(...).`,
 var (
 	positiveAsserts = set.New("To", "Should")
 	negativeAsserts = set.New("ToNot", "NotTo", "ShouldNot")
-	expectFuncs     = set.New("Expect", "Ω", "ExpectWithOffset")
-	errorType       = types.Universe.Lookup("error").Type().Underlying().(*types.Interface)
+	asyncFuncs      = set.New(
+		"Eventually",
+		"Consistently",
+		"EventuallyWithOffset",
+		"ConsistentlyWithOffset",
+	)
+	errorType = types.Universe.Lookup("error").Type().Underlying().(*types.Interface)
 )
+
+// actualIndex maps each assertion function to the position of its actual value.
+var actualIndex = map[string]int{
+	"Expect":                 0,
+	"Ω":                      0,
+	"Eventually":             0,
+	"Consistently":           0,
+	"ExpectWithOffset":       1,
+	"EventuallyWithOffset":   1,
+	"ConsistentlyWithOffset": 1,
+}
 
 const message = "assertion only checks that an error occurred; " +
 	"identify it with MatchError(...)"
@@ -108,7 +124,7 @@ func bare(
 }
 
 // assertsError reports whether the assertion receiver holds a single error value:
-// Expect(err), or Expect(f()).Error().
+// Expect(err), Expect(f()).Error(), or Eventually(f) where f returns only an error.
 func assertsError(pass *analysis.Pass, receiver ast.Expr) bool {
 	call, ok := receiver.(*ast.CallExpr)
 	if !ok {
@@ -118,12 +134,20 @@ func assertsError(pass *analysis.Pass, receiver ast.Expr) bool {
 	if name == "Error" {
 		return true
 	}
-	if !expectFuncs.Contains(name) || len(call.Args) == 0 {
+	i, ok := actualIndex[name]
+	if !ok || len(call.Args) <= i {
 		return false
 	}
-	t := pass.TypesInfo.TypeOf(call.Args[len(call.Args)-1])
+	t := pass.TypesInfo.TypeOf(call.Args[i])
 	if t == nil {
 		return false
+	}
+	if sig, isFunc := t.Underlying().(*types.Signature); isFunc &&
+		asyncFuncs.Contains(name) {
+		if sig.Results().Len() != 1 {
+			return false
+		}
+		t = sig.Results().At(0).Type()
 	}
 	if _, isTuple := t.(*types.Tuple); isTuple {
 		return false

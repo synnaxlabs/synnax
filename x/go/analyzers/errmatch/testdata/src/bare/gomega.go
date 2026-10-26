@@ -22,6 +22,7 @@ func Expect(any, ...any) Assertion                { return Assertion{} }
 func Ω(any, ...any) Assertion                     { return Assertion{} }
 func ExpectWithOffset(int, any, ...any) Assertion { return Assertion{} }
 func Eventually(any, ...any) Assertion            { return Assertion{} }
+func Consistently(any, ...any) Assertion          { return Assertion{} }
 
 func HaveOccurred() any { return nil }
 func Succeed() any      { return nil }
