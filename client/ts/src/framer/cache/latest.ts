@@ -51,8 +51,10 @@ const MAX_BUFFER = 65_536;
  * Serves the newest samples of one channel: a read of its newest stored samples, and
  * every newer sample the stream delivers. Streamed samples serve while the read waits
  * or fails. When the stream drops, it reads the newest samples again once the Core acks
- * the channel. The samples grow at their end and lose whole series from their front,
- * unless their data type changes. A series leaves only once a value served it.
+ * the channel. A read lands before the samples streamed while it ran, unless a value
+ * served them under an error or warning. Otherwise, the samples grow at their end and
+ * lose whole series from their front, unless their data type changes. A series leaves
+ * only once a value served it.
  */
 export class Latest {
   // series holds closed series from front on. The buffer's leading buffer holds the
@@ -87,6 +89,9 @@ export class Latest {
   private validUntil = 0n;
   // grown is true when the stream grew the leading buffer since the last value.
   private grown = false;
+  // shown is true when a value served samples under an error or warning while a load
+  // runs. Consumers may have taken them, so the read must not land before them.
+  private shown = false;
 
   constructor(
     private readonly props: LatestProps,
@@ -127,6 +132,22 @@ export class Latest {
    * the newest series keeps the snapshot's series and moves its time.
    */
   value(): Snapshot {
+    const snapshot = this.current();
+    const { status, series } = snapshot;
+    if (this.loadMark != null && status.variant !== "loading" && series.length > 0)
+      this.shown = true;
+    return snapshot;
+  }
+
+  /** Releases the channel's stream. */
+  close(): void {
+    this.stop();
+    this.demand.close();
+    this.clear();
+    this.loadMark = null;
+  }
+
+  private current(): Snapshot {
     if (
       this.dirty ||
       this.snapshot == null ||
@@ -139,14 +160,6 @@ export class Latest {
     this.unserved = 0;
     this.snapshot = { series: this.snapshot.series, status, time: this.time() };
     return this.snapshot;
-  }
-
-  /** Releases the channel's stream. */
-  close(): void {
-    this.stop();
-    this.demand.close();
-    this.clear();
-    this.loadMark = null;
   }
 
   private rebuild(): Snapshot {
@@ -205,6 +218,7 @@ export class Latest {
     this.front = 0;
     this.closedTotal = 0;
     this.unserved = 0;
+    this.shown = false;
     this.dirty = true;
   }
 
@@ -255,6 +269,10 @@ export class Latest {
 
   // Puts the read before the series streamed while it ran, keeping each sample once.
   private land(read: Series[]): void {
+    if (this.shown) {
+      [this.loadMark, this.shown] = [null, false];
+      return this.push(read);
+    }
     this.closeLeading();
     const streamed = this.series.splice(Math.max(this.loadMark ?? 0, this.front));
     streamed.forEach((s) => (this.closedTotal -= s.length));
