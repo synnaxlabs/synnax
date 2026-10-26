@@ -14,7 +14,8 @@ export const components = mdxOverrides;
 
 Synnax Desktop is one free app that connects to your hardware, records and shows its
 data, and controls it. It includes the Synnax Console, a Synnax Core, and a Synnax
-Driver. You install it once, with nothing to run from a terminal.
+Driver. You install it once, with nothing to run from a terminal. It needs a free Synnax
+account.
 
 <Note.Note variant="info">
   Looking for the Enterprise install guide? See [Set up Synnax
@@ -38,6 +39,15 @@ Synnax Desktop needs, see
 
 NI devices work with Synnax Desktop only on Windows, because NI-DAQmx does not support
 macOS. For more information, see [NI devices](/reference/hardware/ni/configure-device).
+
+You also need:
+
+- **A Synnax account** -> you make one or log in at first launch.
+- **Internet access at least once every 30 days** -> Synnax Desktop renews its license
+  in the background. To learn what happens without it, see
+  [Your login has lapsed](/reference/desktop/troubleshooting#synnax-desktop-shows-your-login-has-lapsed).
+- **A firewall that allows HTTPS to `portal.synnaxlabs.com` and `us.i.posthog.com`** ->
+  for login, license renewal, and [usage data](/reference/desktop/usage-data).
 
 <Divider.Divider x />
 
@@ -80,7 +90,8 @@ Earlier versions are on the
 
 1. Synnax Desktop shows "Starting Synnax..." and then "Preparing your workspace...".
 2. On the "Log in to continue" screen, select **Log in**. Your web browser opens. Log in
-   to your Synnax account, and Synnax Desktop continues on its own.
+   to your Synnax account, or make one, then select **Continue**. When your browser
+   asks, open Synnax Desktop.
 3. Synnax Desktop shows the list of projects, which is empty on the first launch. Select
    **Open sample project** to open a simulated tank system, or select **New project** to
    start with an empty project.
@@ -91,8 +102,15 @@ Earlier versions are on the
   alt="The empty projects screen of Synnax Desktop, with Open sample project and New project"
 />
 
+In the EU, the EEA, the UK, and Switzerland, the login page in your browser asks if you
+want to share usage data. Everywhere else, it shows a notice, and sharing is on. See
+[Usage data](/reference/desktop/usage-data).
+
 Each user account on the computer has its own Synnax Desktop data. Your channels,
-recorded data, and projects stay on your computer.
+recorded data, and projects stay on your computer. For the license, the Synnax portal
+keeps the name of the computer and its fingerprint with your account. The license works
+only in Synnax Desktop. To run a Core on its own, use
+[Synnax Enterprise](/reference/enterprise).
 
 When a new version is ready, the top bar shows **Update available**. Select it, then
 select **Update and restart**.

@@ -1,0 +1,102 @@
+---
+title: "Version 0.60 release notes"
+---
+
+import { Releases } from "@/components/releases";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+<Releases.Release
+    version="0.60.0"
+    breakingChanges
+    date="Oct 26, 2026"
+    title="Licenses from the Synnax portal"
+>
+
+Synnax v0.60 gets licenses from the Synnax portal. A Core needs a license again, and the
+Core accepts only signed license keys. Get your license before you upgrade, and read the
+breaking changes first.
+
+<Divider.Divider x />
+
+### Licenses from the Synnax portal
+
+Your organization's admin gets licenses at
+[portal.synnaxlabs.com](https://portal.synnaxlabs.com). For each Core, copy the
+fingerprint from the activation screen of the Console or from the log of the Core,
+activate the license on the portal, and load the `.lic` file that it downloads. To move
+a license to a different computer, release its seat on the portal. See
+[Activate a license](/reference/enterprise/license).
+
+<Divider.Divider x />
+
+### Other changes
+
+{/* Placeholder: confirm, group, and expand these before the release. */}
+
+- Line plots aggregate data with new detail settings, instead of downsampling it.
+- Schematic symbols show read-back state, and you can change the type of a placed
+  symbol.
+- Drag to reorder the rows and columns of a table.
+- Panels take an icon and a color.
+- The Tasks toolbar shows whether each task saves data.
+- Status messages show a short message, with the reason in a description.
+- The Console uses the native window buttons on macOS.
+- EtherCAT tasks read the PDO layout from each slave, find slaves that you plug in, show
+  the live state of each slave, and keep running while a slave is lost.
+- The Modbus byte and word swap settings now work.
+- The client libraries can export a read as a TDMS file.
+- Logins are stored sessions on the Core, which expire after
+  [`--session-idle-timeout`](/reference/enterprise/cli-reference#start).
+- The Python client has type information, `retrieve` filters for channels, ranges,
+  tasks, devices, and racks, and a `rename` method on each resource client.
+- The Python client verifies the certificate of the Core.
+
+<Divider.Divider x />
+
+### Breaking changes
+
+#### A Core needs a license again
+
+A Core without a license starts, but it refuses every request except login, the
+connectivity check, and the license requests. The Console shows an activation screen.
+Core 0.59.2 let a Core without a license use up to 50 channels. Core 0.60 removes that
+allowance.
+
+#### Numeric license keys are not accepted
+
+The Core refuses the old numeric keys, such as `######-########-##########`. Get a
+signed license key from the Synnax portal.
+
+#### Get the license before you upgrade
+
+Activate the license for each Core on the portal before you upgrade it. To get the
+fingerprint of a Core 0.59, run the "Show license info" command in the Console and click
+**Copy fingerprint**. After the upgrade, you cannot go back to 0.59, because Core 0.60
+migrates the stored data. If you are not ready to change your license, stay on Core
+0.59. See [numeric license keys](/reference/enterprise/license#numeric-license-keys).
+
+#### A refused key does not stop the start
+
+When the Core refuses the key from `--license-key`, `--license-file`, or
+`SYNNAX_LICENSE_KEY`, it logs the reason and starts with the keys that it stored, or
+without a license. Before, the Core did not start. Check the log after you start the
+Core.
+
+#### Docker needs a fixed MAC address
+
+The license is bound to the MAC address of the container. Start the container with
+`--mac-address`, and keep the same address when you recreate it. Otherwise the
+fingerprint changes, and the license no longer applies. See
+[Docker](/reference/enterprise/license#docker).
+
+#### Upgrade the Console with the Core
+
+A Console older than 0.60 shows errors instead of the activation screen when it connects
+to a Core 0.60 without a license. Upgrade the Console and the Core together.
+
+{/* Placeholder: add breaking changes in the client libraries, if any. */}
+
+</Releases.Release>

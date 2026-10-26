@@ -134,25 +134,6 @@ Run `chmod u+rwx` on the folder.
 </Problem.Fix>
 </Problem.Body>
 
-### license error
-
-<Problem.Body>
-<Problem.Cause>
-
-The Core refused the key that you gave with `--license-key`, `--license-file`, or an
-environment variable. The message says why: "not issued for this machine", "invalid
-license", or "expired".
-
-</Problem.Cause>
-<Problem.Fix>
-
-Replace the key, or remove the flag to start without that key. A Core with no stored
-license can use up to 50 channels. See
-[Activate a license](/reference/enterprise/license#activate-at-start).
-
-</Problem.Fix>
-</Problem.Body>
-
 ### The disk is full
 
 <Problem.Body>
@@ -187,6 +168,8 @@ The Console cannot use the Core. Hover over the status to see the reason.
 - **Cannot reach Core at** -> check that the Core runs, the host and port are correct,
   and a firewall allows the port. For a Core with TLS, turn on **Secure**, and
   [install its certificate](/reference/enterprise/certificates) if it is self-signed.
+- **No license is active on this Core** -> log in, then
+  [activate a license](/reference/enterprise/license#activate-from-the-console).
 - **The license on this Core has expired** -> see
   [expiry](/reference/enterprise/license#expiry).
 
@@ -259,6 +242,27 @@ An Owner gives the user a role with more permissions. See
 
 ## License problems
 
+### refused the license key passed at startup
+
+<Problem.Body>
+<Problem.Cause>
+
+The Core refused the key that you gave with `--license-key`, `--license-file`, or
+`SYNNAX_LICENSE_KEY`. The log says why: "the license was not issued for this machine",
+"invalid license", "the license on this Core has expired", or "a Desktop license runs
+only on a Core that listens on loopback addresses". An old numeric key logs "numeric
+license keys are no longer accepted". The Core starts with the keys that it stored, or
+without a license.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Get a new key from the portal, and replace the key file or variable. See
+[Activate a license](/reference/enterprise/license#activate-at-start).
+
+</Problem.Fix>
+</Problem.Body>
+
 ### The license term cannot be checked
 
 <Problem.Body>
@@ -280,8 +284,9 @@ Fix the clock. The license then applies again.
 <Problem.Body>
 <Problem.Cause>
 
-The network hardware of the computer changed, so its fingerprint changed. The log says
-`skipping a stored license key issued for another machine`.
+The network hardware of the computer changed, so its fingerprint changed. A recreated
+Docker container without a fixed `--mac-address` has the same problem. The log says
+`skipping a stored license key that does not fit this Core`.
 
 </Problem.Cause>
 <Problem.Fix>

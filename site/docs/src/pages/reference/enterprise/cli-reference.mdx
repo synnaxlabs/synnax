@@ -149,14 +149,17 @@ value. See [the root user](/reference/enterprise/users#the-root-user).
 
 <Field.Item name="--license-key" type="string" env="SYNNAX_LICENSE_KEY">
 
-The license key to activate at start. See
+The license key to activate at start. It shows in the process list, so prefer
+`--license-file` or the environment variable. See
 [Activate a license](/reference/enterprise/license).
 
 </Field.Item>
 
 <Field.Item name="--license-file" type="path" env="SYNNAX_LICENSE_FILE">
 
-A file that holds the license key to activate at start.
+A file that holds the license key to activate at start, such as the `.lic` file from the
+portal. When `--license-key` is also set, the key wins. See
+[activate at start](/reference/enterprise/license#activate-at-start).
 
 </Field.Item>
 
