@@ -8,12 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { type Context } from "@synnaxlabs/freighter";
-import { url } from "@synnaxlabs/x";
+import { errors, id, url } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
 import { auth } from "@/auth";
-import { AuthError, ExpiredTokenError, InvalidTokenError } from "@/errors";
-import { TEST_CLIENT_PARAMS } from "@/testutil";
+import {
+  AuthError,
+  ExpiredTokenError,
+  InvalidTokenError,
+  SessionEndedError,
+} from "@/errors";
+import { createTestClient, TEST_CLIENT_PARAMS } from "@/testutil";
 import { Transport } from "@/transport";
 
 const DUMMY_CTX: Context = {
@@ -96,6 +101,115 @@ describe("auth", () => {
           throw new InvalidTokenError();
         }),
       ).rejects.toThrow(InvalidTokenError);
+    });
+  });
+
+  describe("sessions", () => {
+    const makeClient = (credentials: auth.Credentials = TEST_CLIENT_PARAMS) => {
+      const transport = new Transport(
+        new url.URL({
+          host: TEST_CLIENT_PARAMS.host,
+          port: Number(TEST_CLIENT_PARAMS.port),
+        }),
+      );
+      const client = new auth.Client(transport.unary, credentials);
+      transport.use(client.middleware());
+      return client;
+    };
+    const login = async (client: auth.Client) => {
+      await client.middleware()(DUMMY_CTX, async () => DUMMY_CTX);
+    };
+
+    it("should hold the session and subject after login", async () => {
+      const client = makeClient();
+      await client.middleware()(DUMMY_CTX, async () => DUMMY_CTX);
+      expect(client.session).toBeDefined();
+      expect(client.subject?.type).toEqual("user");
+    });
+
+    it("should renew, list, and end its session", async () => {
+      const client = makeClient();
+      await client.middleware()(DUMMY_CTX, async () => DUMMY_CTX);
+      const key = client.session?.key;
+      expect(key).toBeDefined();
+      await client.renew();
+      const before = await client.retrieveSessions();
+      expect(before.map((s) => s.key)).toContain(key);
+      await client.logout();
+      expect(client.authenticated).toBe(false);
+      // the next request logs in again with a fresh session
+      const after = await client.retrieveSessions();
+      expect(after.map((s) => s.key)).not.toContain(key);
+      expect(client.session?.key).toBeDefined();
+      expect(after.map((s) => s.key)).toContain(client.session?.key);
+    });
+
+    it("should not open a new session when logging out of an ended session", async () => {
+      const admin = createTestClient();
+      const credentials = { username: id.create(), password: "seldon" };
+      await admin.users.create(credentials);
+      const ending = makeClient(credentials);
+      const other = makeClient(credentials);
+      await login(ending);
+      await login(other);
+      const key = ending.session?.key;
+      if (key == null) throw new Error("expected a session");
+      await other.deleteSessions(key);
+      await ending.logout();
+      expect(ending.authenticated).toBe(false);
+      const sessions = await other.retrieveSessions();
+      expect(sessions.map((s) => s.key)).toEqual([other.session?.key]);
+      await admin.close();
+    });
+
+    it("should keep a session another request opened during the logout", async () => {
+      const client = makeClient();
+      await login(client);
+      const first = client.session?.key;
+      const logout = client.logout();
+      // A rejected token makes the middleware log in again while the delete is
+      // still in flight.
+      await expect(
+        client.middleware()(DUMMY_CTX, async () => {
+          throw new InvalidTokenError();
+        }),
+      ).rejects.toThrow(InvalidTokenError);
+      await logout;
+      expect(client.authenticated).toBe(true);
+      expect(client.session?.key).toBeDefined();
+      expect(client.session?.key).not.toEqual(first);
+      await client.logout();
+      expect(client.authenticated).toBe(false);
+    });
+
+    it("should keep a newer session when a request on an older one fails", async () => {
+      const client = makeClient();
+      await login(client);
+      let newer: string | undefined;
+      let failed = false;
+      await client.middleware()(DUMMY_CTX, async (ctx) => {
+        if (failed) return ctx;
+        failed = true;
+        let rejected = false;
+        await client.middleware()(DUMMY_CTX, async (inner) => {
+          if (rejected) return inner;
+          rejected = true;
+          throw new InvalidTokenError();
+        });
+        newer = client.token;
+        throw new SessionEndedError();
+      });
+      expect(newer).toBeDefined();
+      expect(client.token).toEqual(newer);
+      await client.logout();
+    });
+
+    it("should decode a session ended error", () => {
+      expect(
+        SessionEndedError.matches(
+          errors.decode({ type: "sy.auth.session_ended", data: "ended" }),
+        ),
+      ).toBe(true);
     });
   });
 });
