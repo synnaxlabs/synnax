@@ -277,11 +277,10 @@ const namesWhere = (names: string[]): Where => {
  * selects nothing else and no other field of the request is set. Returns null for any
  * other request.
  */
-const onlyIn = (
+const onlyIn = <F extends keyof Where & string>(
   { where, ...rest }: RetrieveRequest,
-  field: string,
-): unknown[] | null =>
-  Object.values(rest).every((v) => v == null) ? query.whereIn(where, field) : null;
+  field: F,
+) => (Object.values(rest).every((v) => v == null) ? query.whereIn(where, field) : null);
 
 const affectedChannelKeys = (
   event: query.TableEvent<status.Key, status.Status>,
@@ -742,9 +741,9 @@ export class Client extends query.Retriever<
 
   private async fetchChannels(req: RetrieveRequest): Promise<Channel[]> {
     const keys = onlyIn(req, "key");
-    if (keys != null) return await this.store.retrieve(keys as Key[]);
+    if (keys != null) return await this.store.retrieve(keys);
     const names = onlyIn(req, "name");
-    const resolved = names != null ? await this.resolveNames(names as string[]) : null;
+    const resolved = names != null ? await this.resolveNames(names) : null;
     if (resolved != null) return resolved;
     return (await this.execRetrieve(req)).map((p) => this.sugar(stripComposed(p)));
   }
