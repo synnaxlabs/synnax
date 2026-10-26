@@ -32,34 +32,34 @@ IMAGE_LINK = re.compile(r"\]\((images/[\w.-]+\.png)\)")
 
 def git(*args: str, env: dict[str, str] | None = None) -> str:
     return subprocess.run(
-        ["git", *args], check=True, capture_output=True, text=True, env=env
+        ["git", *args], check=True, stdout=subprocess.PIPE, text=True, env=env
     ).stdout.strip()
 
 
 def upload(paths: list[Path], prefix: str, repo: str) -> str:
-    """Commits paths under prefix on the assets branch and returns their base URL."""
-    env = {**os.environ, "GIT_INDEX_FILE": str(Path(tempfile.mkdtemp()) / "index")}
+    """Commits paths under prefix on the assets branch and returns their base URL.
+
+    Retries when another publisher moves the branch between the fetch and the push.
+    """
     ref = f"refs/heads/{ASSETS_BRANCH}"
-    parent: list[str] = []
-    ls = ["git", "ls-remote", "--exit-code", "origin", ref]
-    found = subprocess.run(ls, capture_output=True)
-    if found.returncode == 0:
-        git("fetch", "--quiet", "origin", ref)
-        git("read-tree", "FETCH_HEAD", env=env)
-        parent = ["-p", "FETCH_HEAD"]
-    for path in paths:
-        blob = git("hash-object", "-w", str(path))
-        git(
-            "update-index",
-            "--add",
-            "--cacheinfo",
-            f"100644,{blob},{prefix}/{path.name}",
-            env=env,
-        )
-    tree = git("write-tree", env=env)
-    commit = git("commit-tree", tree, *parent, "-m", f"Add images for {prefix}")
-    git("push", "--quiet", "origin", f"{commit}:{ref}")
-    return f"https://raw.githubusercontent.com/{repo}/{commit}/{prefix}"
+    for _ in range(3):
+        env = {**os.environ, "GIT_INDEX_FILE": str(Path(tempfile.mkdtemp()) / "i")}
+        parent: list[str] = []
+        ls = ["git", "ls-remote", "--exit-code", "origin", ref]
+        if subprocess.run(ls, stdout=subprocess.DEVNULL).returncode == 0:
+            git("fetch", "--quiet", "origin", ref)
+            git("read-tree", "FETCH_HEAD", env=env)
+            parent = ["-p", "FETCH_HEAD"]
+        for path in paths:
+            blob = git("hash-object", "-w", str(path))
+            info = f"100644,{blob},{prefix}/{path.name}"
+            git("update-index", "--add", "--cacheinfo", info, env=env)
+        tree = git("write-tree", env=env)
+        commit = git("commit-tree", tree, *parent, "-m", f"Add images for {prefix}")
+        push = ["git", "push", "--quiet", "origin", f"{commit}:{ref}"]
+        if subprocess.run(push).returncode == 0:
+            return f"https://raw.githubusercontent.com/{repo}/{commit}/{prefix}"
+    sys.exit(f"failed to push images to {ASSETS_BRANCH} three times")
 
 
 def main() -> int:
@@ -97,7 +97,7 @@ def main() -> int:
     body_file.write_text(body)
     cmd = ["gh", "issue", "create", "--title", title, "--label", a.label]
     cmd += ["--body-file", str(body_file)]
-    done = subprocess.run(cmd, check=True, capture_output=True, text=True)
+    done = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, text=True)
     print(done.stdout.strip())
     return 0
 

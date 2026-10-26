@@ -116,6 +116,19 @@ class TestPublish:
         tree = git(tmp_path / "origin.git", "ls-tree", "-r", "--name-only", commit)
         assert tree.split() == ["console-qa-42/legend.png", "console-qa-43/legend.png"]
 
+    def test_should_retry_a_rejected_push(
+        self, env: dict[str, str], report: Path, tmp_path: Path
+    ) -> None:
+        hook = tmp_path / "origin.git" / "hooks" / "pre-receive"
+        reject = tmp_path / "reject"
+        hook.write_text(f'#!/bin/sh\nif rm "{reject}" 2> /dev/null; then exit 1; fi\n')
+        hook.chmod(0o755)
+        reject.touch()
+        done = publish(env, report)
+        assert done.returncode == 0, done.stderr
+        assert not reject.exists()
+        assert git(tmp_path / "origin.git", "branch", "--list") == "agent-assets"
+
     def test_should_write_the_issue_to_a_file_in_a_dry_run(
         self, env: dict[str, str], report: Path, tmp_path: Path
     ) -> None:
