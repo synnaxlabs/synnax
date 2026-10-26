@@ -7,23 +7,23 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Calls an agent each weeknight to improve the repo on one theme. The prompts in
-# .github/agents/nightly say how many PRs to open and when to open none.
+# Calls one agent per theme each night to improve the repo. The prompts in
+# .github/agents/nightly say when to open a PR and when to open none.
 
 name: Agent - Nightly
 
 on:
   schedule:
-    - cron: "0 7 * * 1-5" # Weeknights, 7am UTC, after the Nightly CI run
+    - cron: "0 7 * * *" # 7am UTC, after the Nightly CI run
   workflow_dispatch:
     inputs:
       theme:
         description: The theme to run
         required: false
         type: choice
-        default: weekday
+        default: all
         options:
-          - weekday
+          - all
           - flake-hunt
           - slop
           - dead-code
@@ -32,52 +32,56 @@ on:
 
 permissions: {}
 
-concurrency:
-  group: agent-nightly
-  cancel-in-progress: false
-
 jobs:
   prompt:
-    name: Write the prompt
+    name: Write the prompts
     runs-on: ubuntu-latest
     permissions:
       contents: read
     outputs:
-      prompt: ${{ steps.prompt.outputs.prompt }}
-      theme: ${{ steps.prompt.outputs.theme }}
+      themes: ${{ steps.prompt.outputs.themes }}
+      flake-hunt: ${{ steps.prompt.outputs.flake-hunt }}
+      slop: ${{ steps.prompt.outputs.slop }}
+      dead-code: ${{ steps.prompt.outputs.dead-code }}
+      test-quality: ${{ steps.prompt.outputs.test-quality }}
+      docs-drift: ${{ steps.prompt.outputs.docs-drift }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
           sparse-checkout: .github/agents
 
-      - name: Write the prompt
+      - name: Write the prompts
         id: prompt
         env:
-          THEME: ${{ inputs.theme }}
+          THEME: ${{ inputs.theme || 'all' }}
         run: |
-          if [ -z "$THEME" ] || [ "$THEME" = weekday ]; then
-            THEMES=(flake-hunt slop dead-code test-quality docs-drift)
-            THEME=${THEMES[$(( $(date -u +%u) - 1 ))]}
-          fi
-          if [ ! -f ".github/agents/nightly/$THEME.md" ]; then
-            echo "::error::No theme for $(date -u +%A). Pick one by name."
-            exit 1
-          fi
-          echo "theme=$THEME" >> "$GITHUB_OUTPUT"
-          EOF=$(openssl rand -hex 16)
-          {
-            echo "prompt<<$EOF"
-            cat .github/agents/nightly/rules.md
-            echo
-            cat ".github/agents/nightly/$THEME.md"
-            printf '\nToday is %s. The theme is %s.\n' "$(date -u +%F)" "$THEME"
-            echo "$EOF"
-          } >> "$GITHUB_OUTPUT"
+          THEMES=(flake-hunt slop dead-code test-quality docs-drift)
+          [ "$THEME" = all ] || THEMES=("$THEME")
+          echo "themes=$(jq --compact-output --null-input '$ARGS.positional' \
+            --args "${THEMES[@]}")" >> "$GITHUB_OUTPUT"
+          for theme in "${THEMES[@]}"; do
+            EOF=$(openssl rand -hex 16)
+            {
+              echo "$theme<<$EOF"
+              cat .github/agents/nightly/rules.md
+              echo
+              cat ".github/agents/nightly/$theme.md"
+              printf '\nToday is %s. The theme is %s.\n' "$(date -u +%F)" "$theme"
+              echo "$EOF"
+            } >> "$GITHUB_OUTPUT"
+          done
 
   agent:
-    name: Agent (${{ needs.prompt.outputs.theme }})
+    name: Agent (${{ matrix.theme }})
     needs: prompt
+    strategy:
+      fail-fast: false
+      matrix:
+        theme: ${{ fromJSON(needs.prompt.outputs.themes) }}
+    concurrency:
+      group: agent-nightly-${{ matrix.theme }}
+      cancel-in-progress: false
     permissions:
       actions: read
       contents: write
@@ -85,7 +89,7 @@ jobs:
       pull-requests: write
     uses: ./.github/workflows/agent.yaml
     with:
-      prompt: ${{ needs.prompt.outputs.prompt }}
+      prompt: ${{ needs.prompt.outputs[matrix.theme] }}
       agent: ${{ vars.AGENT_DEFAULT || 'claude' }}
       output: report
       timeout-minutes: 180

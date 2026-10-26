@@ -1,6 +1,6 @@
 # Nightly improvement
 
-You are on a fresh clone of `main` of the Synnax monorepo. Tonight's theme follows these
+You are on a fresh clone of `main` of the Synnax monorepo. Your theme follows these
 rules. Nobody watches this session, so do not ask questions.
 
 ## Rules for every theme
