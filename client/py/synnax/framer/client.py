@@ -43,7 +43,7 @@ from synnax.telem import (
 from x.control import Authority, CrudeAuthority
 from x.fs import FilePath
 
-ontology_type = ontology.ID(type="framer")
+_ontology_type = ontology.ID(type="framer")
 
 
 class Client:

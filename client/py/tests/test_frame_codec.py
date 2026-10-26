@@ -17,17 +17,17 @@ import synnax as sy
 from freighter.websocket import Message
 from synnax.channel.payload import Key
 from synnax.framer.codec import (
-    EXTENDED_FLAG_POS,
+    _EXTENDED_FLAG_POS,
+    _MULTIPLES_PRESENT_FLAG_POS,
     LOW_PERF_SPECIAL_CHAR,
-    MULTIPLES_PRESENT_FLAG_POS,
     Codec,
 )
 from synnax.framer.frame import FramePayload
 from synnax.framer.iterator import (
-    WSIteratorCodec,
     _Command,
     _Response,
     _ResponseVariant,
+    _WSIteratorCodec,
 )
 
 
@@ -380,7 +380,7 @@ class TestCodec:
             ],
         )
         encoded = codec.encode(frame)
-        assert (encoded[0] >> MULTIPLES_PRESENT_FLAG_POS) & 1
+        assert (encoded[0] >> _MULTIPLES_PRESENT_FLAG_POS) & 1
         decoded = codec.decode(encoded)
         assert [s.alignment_multiple for s in decoded.series] == [4, 1]
         assert [int(s.alignment) for s in decoded.series] == [10, 20]
@@ -394,7 +394,7 @@ class TestCodec:
             channels=[1], series=[sy.Series(data=np.array([1, 2], dtype=np.int64))]
         )
         encoded = codec.encode(frame)
-        assert not (encoded[0] >> MULTIPLES_PRESENT_FLAG_POS) & 1
+        assert not (encoded[0] >> _MULTIPLES_PRESENT_FLAG_POS) & 1
         assert codec.decode(encoded).series[0].alignment_multiple == 1
 
     def test_rejects_extended_flags(self) -> None:
@@ -404,7 +404,7 @@ class TestCodec:
             channels=[1], series=[sy.Series(data=np.array([1, 2], dtype=np.int64))]
         )
         encoded = bytearray(codec.encode(frame))
-        encoded[0] |= 1 << EXTENDED_FLAG_POS
+        encoded[0] |= 1 << _EXTENDED_FLAG_POS
         with pytest.raises(
             sy.ValidationError,
             match=r"^remote sent an extended flags byte, which this codec does not support$",
@@ -448,7 +448,7 @@ class TestCodec:
     def test_iterator_ws_codec_data_response(self) -> None:
         """Should binary-decode a data variant response and synthesize variant=Data"""
         base = Codec([1], [sy.DataType.INT32])
-        codec = WSIteratorCodec(base)
+        codec = _WSIteratorCodec(base)
         frame = sy.Frame(
             channels=[1],
             series=[sy.Series(data=np.array([1, 2, 3], dtype=np.int32))],
@@ -464,7 +464,7 @@ class TestCodec:
     def test_iterator_ws_codec_ack_response(self) -> None:
         """Should JSON-decode an ack variant response prefixed with the low-perf char"""
         base = Codec([1], [sy.DataType.INT32])
-        codec = WSIteratorCodec(base)
+        codec = _WSIteratorCodec(base)
         ack = Message[_Response](
             type="data",
             payload=_Response(
@@ -485,7 +485,7 @@ class TestCodec:
     def test_iterator_ws_codec_request_is_json(self) -> None:
         """Should JSON-encode an iterator request without a special-char prefix"""
         base = Codec([1], [sy.DataType.INT32])
-        codec = WSIteratorCodec(base)
+        codec = _WSIteratorCodec(base)
 
         from synnax.framer.iterator import _Request
 

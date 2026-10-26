@@ -84,7 +84,7 @@ class WriterResponse(BaseModel):
     err: ExceptionPayload
 
 
-class WSWriterCodec(WSCodec):
+class _WSWriterCodec(WSCodec):
     def encode(self, data: BaseModel) -> bytes:
         if not isinstance(data, Message):
             raise TypeError(f"expected Message, got {type(data)}")
@@ -108,7 +108,7 @@ class WSWriterCodec(WSCodec):
         return cast(P, msg)
 
 
-def parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
+def _parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
     if mode == "persist_stream":
         return WriterMode.PERSIST_STREAM
     if mode == "persist":
@@ -125,10 +125,10 @@ def parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
     raise ValueError(f"invalid writer mode {mode}")
 
 
-ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = TimeSpan(-1)
+_ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = TimeSpan(-1)
 
 
-class WriterClosed(Exception): ...
+class _WriterClosed(Exception): ...
 
 
 class Writer:
@@ -195,14 +195,14 @@ class Writer:
     ) -> None:
         self.start = start
         self._adapter = adapter
-        client = client.with_codec(WSWriterCodec(adapter.codec))
+        client = client.with_codec(_WSWriterCodec(adapter.codec))
         self._stream = client.stream("/frame/write", WriterRequest, WriterResponse)
         config = WriterConfig(
             control_subject=Subject(name=name, key=str(uuid4()), group=group),
             keys=self._adapter.keys,
             start=TimeStamp(self.start),
             authorities=normalize(authorities),
-            mode=parse_writer_mode(mode),
+            mode=_parse_writer_mode(mode),
             err_on_unauthorized=err_on_unauthorized,
             enable_auto_commit=enable_auto_commit,
             auto_index_persist_interval=auto_index_persist_interval,
@@ -400,20 +400,20 @@ class Writer:
 
     def _close(self, exc: Exception | None) -> None:
         if self._close_exc is not None:
-            if isinstance(self._close_exc, WriterClosed):
+            if isinstance(self._close_exc, _WriterClosed):
                 return
             raise self._close_exc
         self._close_exc = exc
         self._stream.close_send()
         while True:
             if self._close_exc is not None:
-                if isinstance(self._close_exc, WriterClosed):
+                if isinstance(self._close_exc, _WriterClosed):
                     return
                 raise self._close_exc
             try:
                 res = self._stream.receive()
             except EOF:
-                self._close_exc = WriterClosed()
+                self._close_exc = _WriterClosed()
                 continue
             except Exception as recv_exc:
                 self._close_exc = recv_exc
