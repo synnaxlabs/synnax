@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
+import { color, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { TestSource } from "@/telem/aether/test/source";
@@ -103,6 +103,19 @@ describe("RollingAverage", () => {
     source.setValue(NaN);
     [2, 4, 6].forEach((v) => source.setValue(v));
     expect(t.value().data).toBe(4);
+  });
+
+  it("should hold its window when a change brings no newer sample", () => {
+    const t = new RollingAverage({ windowSize: 3 });
+    const source = new TestSource(0);
+    t.setSources({ in: source });
+    t.onChange(() => {});
+    source.time = TimeStamp.seconds(1);
+    source.setValue(2);
+    source.time = TimeStamp.seconds(2);
+    source.setValue(4);
+    source.setValue(10);
+    expect(t.value().data).toBe(3);
   });
 
   // Staleness counts arrivals, so a window above 1 must not stretch the countdown.

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/client";
-import { bounds, color, type math, notation } from "@synnaxlabs/x";
+import { bounds, color, type math, notation, type TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Factory } from "@/telem/aether/factory";
@@ -20,6 +20,7 @@ import {
   type ColorSourceSpec,
   MultiSourceTransformer,
   type NumberSourceSpec,
+  type Result,
   type Spec,
   type StringSourceSpec,
   type Telem,
@@ -194,6 +195,8 @@ export class RollingAverage extends UnarySourceTransformer<
   static readonly propsZ = rollingAverageProps;
   schema = rollingAverageProps;
   private readonly window: number[] = [];
+  // The time of the newest sample the window holds.
+  private newest?: TimeStamp;
 
   protected transform(value: math.Numeric): number {
     const num = Number(value);
@@ -201,13 +204,15 @@ export class RollingAverage extends UnarySourceTransformer<
     return this.window.reduce((a, b) => a + b, 0) / this.window.length;
   }
 
-  // The window advances here because this is the only hook that runs once per arriving
-  // sample. Staleness counts arrivals, so every sample must also reach the listener. A
-  // NaN sample enters the window like any other, so the average reports it until it
-  // slides out.
-  protected shouldNotify(value: math.Numeric): boolean {
+  // The window advances here, once per change that brings a newer sample. Every change
+  // notifies, so a rewritten sample redraws and staleness can count arrivals. A NaN
+  // sample enters the window like any other, so the average reports it until it slides
+  // out.
+  protected shouldNotify({ data, time }: Result<math.Numeric>): boolean {
     if (this.props.windowSize < 2) return true;
-    this.window.push(Number(value));
+    if (time != null && this.newest != null && !time.after(this.newest)) return true;
+    this.newest = time;
+    this.window.push(Number(data));
     if (this.window.length > this.props.windowSize) this.window.shift();
     return true;
   }

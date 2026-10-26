@@ -415,6 +415,17 @@ describe("staleness", () => {
       expect(leaf.transitions).toEqual([true]);
     });
 
+    it("should not count a change that brings no newer sample", () => {
+      const { leaf } = mount({ timeouts: [5] });
+      const time = TimeStamp.now();
+      leaf.source.value = () => telem.success(null, time);
+      leaf.received();
+      vi.advanceTimersByTime(4000);
+      leaf.received();
+      vi.advanceTimersByTime(1250);
+      expect(leaf.transitions).toEqual([true]);
+    });
+
     it("should read a sample without a time as arriving now", () => {
       const { leaf } = mount({ timeouts: [5] });
       leaf.source.value = () => telem.success(null);
@@ -439,6 +450,7 @@ describe("staleness", () => {
       const { leaf } = mount({ timeouts: [5] });
       stamp(leaf, TimeSpan.seconds(-10));
       leaf.received();
+      stamp(leaf, TimeSpan.seconds(-9));
       leaf.received();
       expect(leaf.transitions).toEqual([true, false]);
       expect(leaf.state.stale).toBe(false);

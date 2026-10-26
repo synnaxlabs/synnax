@@ -226,7 +226,7 @@ export abstract class UnarySourceTransformer<I, O, P extends z.ZodType>
 
   onChange(handler: () => void): destructor.Destructor {
     return this.source.onChange(() => {
-      if (this.shouldNotify(this.source.value().data)) handler();
+      if (this.shouldNotify(this.source.value())) handler();
     });
   }
 
@@ -234,7 +234,7 @@ export abstract class UnarySourceTransformer<I, O, P extends z.ZodType>
     this.source_ = Object.values(sources)[0];
   }
 
-  protected shouldNotify(_: I): boolean {
+  protected shouldNotify(_: Result<I>): boolean {
     return true;
   }
 
