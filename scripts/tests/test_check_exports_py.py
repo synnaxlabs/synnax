@@ -33,7 +33,9 @@ def names(root: Path) -> list[str]:
 class TestCheck:
     """Tests which top-level names the check reports."""
 
-    def test_reports_a_name_only_its_own_module_uses(self, tmp_path: Path) -> None:
+    def test_should_report_a_name_only_its_own_module_uses(
+        self, tmp_path: Path
+    ) -> None:
         write(
             tmp_path,
             {
@@ -46,14 +48,14 @@ class TestCheck:
             Finding("lib/widget/parts.py", 3, "twice", tests_only=False),
         ]
 
-    def test_skips_private_names(self, tmp_path: Path) -> None:
+    def test_should_skip_private_names(self, tmp_path: Path) -> None:
         write(
             tmp_path,
             {"lib/widget/__init__.py": "", "lib/widget/parts.py": "_LIMIT = 1\n"},
         )
         assert names(tmp_path) == []
 
-    def test_keeps_a_name_another_module_imports(self, tmp_path: Path) -> None:
+    def test_should_keep_a_name_another_module_imports(self, tmp_path: Path) -> None:
         write(
             tmp_path,
             {
@@ -64,7 +66,9 @@ class TestCheck:
         )
         assert names(tmp_path) == []
 
-    def test_keeps_a_name_read_through_a_module_alias(self, tmp_path: Path) -> None:
+    def test_should_keep_a_name_read_through_a_module_alias(
+        self, tmp_path: Path
+    ) -> None:
         write(
             tmp_path,
             {
@@ -76,7 +80,7 @@ class TestCheck:
         )
         assert names(tmp_path) == []
 
-    def test_keeps_a_name_a_relative_import_reads(self, tmp_path: Path) -> None:
+    def test_should_keep_a_name_a_relative_import_reads(self, tmp_path: Path) -> None:
         write(
             tmp_path,
             {
@@ -86,7 +90,9 @@ class TestCheck:
         )
         assert names(tmp_path) == []
 
-    def test_reports_a_name_only_its_own_tests_import(self, tmp_path: Path) -> None:
+    def test_should_report_a_name_only_its_own_tests_import(
+        self, tmp_path: Path
+    ) -> None:
         write(
             tmp_path,
             {
@@ -99,7 +105,7 @@ class TestCheck:
             Finding("lib/widget/parts.py", 1, "LIMIT", tests_only=True)
         ]
 
-    def test_keeps_a_name_the_tests_of_another_package_import(
+    def test_should_keep_a_name_the_tests_of_another_package_import(
         self, tmp_path: Path
     ) -> None:
         write(
@@ -112,7 +118,7 @@ class TestCheck:
         )
         assert names(tmp_path) == []
 
-    def test_keeps_a_type_in_the_signature_of_a_name_in_use(
+    def test_should_keep_a_type_in_the_signature_of_a_name_in_use(
         self, tmp_path: Path
     ) -> None:
         write(
@@ -128,7 +134,9 @@ class TestCheck:
         )
         assert names(tmp_path) == []
 
-    def test_keeps_names_in_a_quoted_tuple_annotation(self, tmp_path: Path) -> None:
+    def test_should_keep_names_in_a_quoted_tuple_annotation(
+        self, tmp_path: Path
+    ) -> None:
         write(
             tmp_path,
             {
@@ -142,7 +150,7 @@ class TestCheck:
         )
         assert names(tmp_path) == []
 
-    def test_keeps_names_read_through_one_alias_in_two_scopes(
+    def test_should_keep_names_read_through_one_alias_in_two_scopes(
         self, tmp_path: Path
     ) -> None:
         write(
@@ -164,7 +172,7 @@ class TestCheck:
         )
         assert names(tmp_path) == ["a", "b"]
 
-    def test_keeps_an_entry_point(self, tmp_path: Path) -> None:
+    def test_should_keep_an_entry_point(self, tmp_path: Path) -> None:
         write(
             tmp_path,
             {
@@ -175,14 +183,14 @@ class TestCheck:
         )
         assert names(tmp_path) == []
 
-    def test_skips_generated_files(self, tmp_path: Path) -> None:
+    def test_should_skip_generated_files(self, tmp_path: Path) -> None:
         write(
             tmp_path,
             {"lib/widget/__init__.py": "", "lib/widget/types_gen.py": "LIMIT = 1\n"},
         )
         assert names(tmp_path) == []
 
-    def test_keeps_every_name_a_star_import_reads(self, tmp_path: Path) -> None:
+    def test_should_keep_every_name_a_star_import_reads(self, tmp_path: Path) -> None:
         write(
             tmp_path,
             {
