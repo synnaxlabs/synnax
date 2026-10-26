@@ -110,8 +110,6 @@ export class Points {
   private raw: Series[] = [];
   private rawReading = false;
   private rawRetrying = false;
-  // rawFilling is true while a block of the raw edge waits for its samples.
-  private rawFilling = false;
   private loading = true;
   private pins = new Set<Block>();
   private generation = 0;
@@ -232,7 +230,7 @@ export class Points {
     const targets = this.targets(view, home, extremesKept);
     targets.forEach((spec) => this.request(spec));
     const tiles = this.select(targets, home);
-    const raw = this.rawEdge(home);
+    const { raw, filling } = this.rawEdge(home);
     this.prune(targets, tiles, next, home, extremesKept);
     let series = [...tiles.flatMap((t) => t.series.series), ...raw];
     const dataType = this.props.store.dataType(this.key);
@@ -245,7 +243,8 @@ export class Points {
       this.raw = this.raw.filter((s) => s.dataType.equals(dataType));
     }
     this.pin(home);
-    if (this.loading && this.loaded(targets)) this.loading = false;
+    const loaded = targets.every((spec) => this.held.has(tileRequestKey(spec)));
+    if (this.loading && !filling && loaded) this.loading = false;
     this.epoch = this.props.store.epoch(this.key);
     this.validUntil = this.edgeAfter(now, home);
     const snapshot = {
@@ -598,15 +597,18 @@ export class Points {
     return Math.min(end, Math.max(now, this.props.store.newestBlock(this.key)));
   }
 
-  // Returns the samples of the raw range. While the window streams, the join fills the
-  // blocks from the commit point on, and reads fill the rest. A block being filled
-  // shows the samples it showed before.
-  private rawEdge(home: TimeRange): Series[] {
-    this.rawFilling = false;
-    if (this.parked != null) return [];
+  // Returns the samples of the raw range, and whether a block of it waits for its
+  // samples. While the window streams, the join fills the blocks from the commit point
+  // on, and reads fill the rest. A block being filled shows the samples it showed
+  // before.
+  private rawEdge(home: TimeRange): { raw: Series[]; filling: boolean } {
+    if (this.parked != null) return { raw: [], filling: false };
     this.cutoff(home);
     const tr = this.rawRange(home);
-    if (!tr.start.before(tr.end)) return (this.raw = []);
+    if (!tr.start.before(tr.end)) {
+      this.raw = [];
+      return { raw: [], filling: false };
+    }
     const { store } = this.props;
     const now = this.props.now();
     const last = this.lastBlock(tr);
@@ -620,7 +622,6 @@ export class Points {
         .filter((b) => (b.index < joinFrom ? !b.covers(tr) : !joined))
         .map((b) => b.index),
     );
-    this.rawFilling = filling.size > 0;
     const unread = blocks.filter((b) => b.index < joinFrom && !b.covers(tr));
     if (unread.length > 0)
       this.readRaw(new TimeRange(unread[0].range.start, unread.at(-1)!.range.end));
@@ -636,7 +637,7 @@ export class Points {
     this.raw = [...fresh, ...standIns]
       .filter((s) => s.timeRange.overlapsWith(tr))
       .sort((a, b) => TimeRange.sort(a.timeRange, b.timeRange));
-    return this.raw;
+    return { raw: this.raw, filling: filling.size > 0 };
   }
 
   // While the window streams, the read waits for the stream's ack: a read before it can
@@ -699,11 +700,6 @@ export class Points {
       if (!this.pins.has(b)) b.pins++;
     });
     this.pins = next;
-  }
-
-  private loaded(targets: TileSpec[]): boolean {
-    if (this.rawFilling) return false;
-    return targets.every((spec) => this.held.has(tileRequestKey(spec)));
   }
 
   // Returns the end of the newest raw sample's span.
