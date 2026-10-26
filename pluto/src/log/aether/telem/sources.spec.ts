@@ -100,7 +100,7 @@ describe("StreamMultiChannelLog", () => {
     ): Promise<MultiSeries> => await this.readStored(key, n, tr, "first");
 
     // Reads n stored samples of key within tr from its first or last one, timed by the
-    // stored samples of its index. Each sample keeps its alignment.
+    // stored samples of its index. Each sample keeps its alignment and time.
     private async readStored(
       key: channel.Key,
       n: number,
@@ -119,8 +119,10 @@ describe("StreamMultiChannelLog", () => {
           const alignment = s.alignment + BigInt(i) * s.alignmentMultiple;
           const time = index?.atAlignment(alignment) as bigint | undefined;
           if (time != null && !tr.contains(new TimeStamp(time))) continue;
+          const timeRange =
+            time == null ? undefined : new TimeRange(time, new TimeStamp(time).add(1));
           samples.push(
-            new Series({ data: [s.at(i)], dataType: s.dataType, alignment }),
+            new Series({ data: [s.at(i)], dataType: s.dataType, alignment, timeRange }),
           );
         }
       return new MultiSeries(edge === "last" ? samples.slice(-n) : samples.slice(0, n));
@@ -789,8 +791,12 @@ describe("StreamMultiChannelLog", () => {
         alignment,
       });
 
-    const strings = (values: string[], alignment: bigint): Series =>
-      new Series({ data: values, dataType: DataType.STRING, alignment });
+    const strings = (
+      values: string[],
+      alignment: bigint,
+      timeRange?: TimeRange,
+    ): Series =>
+      new Series({ data: values, dataType: DataType.STRING, alignment, timeRange });
 
     const create = (
       props: Partial<StreamMultiChannelLogProps> = {},
@@ -807,6 +813,9 @@ describe("StreamMultiChannelLog", () => {
       );
       return { log, statuses };
     };
+
+    const span = (start: number, end: number): TimeRange =>
+      new TimeRange(TimeStamp.seconds(start), TimeStamp.seconds(end));
 
     const seconds = (log: StreamMultiChannelLog): number[] =>
       log.value().map((e) => e.timestamp.seconds);
@@ -1158,7 +1167,7 @@ describe("StreamMultiChannelLog", () => {
       const index = [70, 71, 72, 80];
       c.readLatest = async (key, n, tr) => {
         c.readF(tr, key, n);
-        if (key === DATA) return new MultiSeries([strings(["x"], 0n)]);
+        if (key === DATA) return new MultiSeries([strings(["x"], 0n, span(70, 81))]);
         const from = Math.max(0, index.length - n);
         return new MultiSeries([times(index.slice(from), BigInt(from))]);
       };
@@ -1185,7 +1194,7 @@ describe("StreamMultiChannelLog", () => {
       const index = [70, 71, 72, 73, 74, 75, 76, 77, 78, 80];
       c.readLatest = async (key, n, tr) => {
         c.readF(tr, key, n);
-        if (key === DATA) return new MultiSeries([strings(["x"], 0n)]);
+        if (key === DATA) return new MultiSeries([strings(["x"], 0n, span(70, 81))]);
         const from = Math.max(0, index.length - n);
         return new MultiSeries([times(index.slice(from), BigInt(from))]);
       };
@@ -1206,6 +1215,25 @@ describe("StreamMultiChannelLog", () => {
         [IDX, 4],
         [IDX, 8],
         [IDX, 16],
+      ]);
+    });
+
+    it("should read the index only within the time range of the data", async () => {
+      c.stored.set(IDX, new MultiSeries([times([70, 71, 72, 73, 74, 75], 0n)]));
+      c.stored.set(DATA, new MultiSeries([strings(["x"], 0n)]));
+      const log = new StreamMultiChannelLog(
+        c,
+        { channels: [DATA] },
+        undefined,
+        () => NOW,
+        1,
+        1,
+      );
+      await waitForResolve(log);
+      expect(seconds(log)).toEqual([70]);
+      expect(c.readF.mock.calls.map(([tr, key, n]) => [key, n, tr])).toEqual([
+        [DATA, 1, TimeRange.MAX],
+        [IDX, 1, new TimeRange(TimeStamp.seconds(70), TimeStamp.seconds(70).add(1))],
       ]);
     });
 
@@ -1335,12 +1363,9 @@ describe("StreamMultiChannelLog", () => {
         await settle(log, () => log.loadNewer());
         expect(log.detached).toBe(false);
         expect(values(log)).toEqual(["d", "e", "f", "g"]);
-        const [tr, , , edge] = c.readF.mock.calls.at(-1) as [
-          TimeRange,
-          number,
-          number,
-          string,
-        ];
+        const [tr, , , edge] = c.readF.mock.calls.findLast(
+          ([, key]) => key === DATA,
+        ) as [TimeRange, number, number, string];
         expect(edge).toEqual("first");
         expect(tr.start).toEqual(TimeStamp.seconds(73).add(1));
       });

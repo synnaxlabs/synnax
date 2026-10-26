@@ -608,8 +608,9 @@ const toEntries = (
 };
 
 // Reads n stored samples of the channel from the first or last sample within tr, and
-// index samples to time them. The index can hold more samples than the channel, so its
-// read doubles until it reaches the far end of the data or the end of tr.
+// index samples to time them. The index read stays within the time range of the data.
+// The index can hold more samples than the channel in that range, so its read doubles
+// until it reaches the far end of the data.
 const readEdge = async (
   client: Client,
   meta: ChannelMeta,
@@ -627,7 +628,7 @@ const readEdge = async (
     return sampleAlignment(i, i.length - 1) >= sampleAlignment(d, d.length - 1);
   };
   for (let m = n; ; m *= 2) {
-    const index = await read(meta.index, m, tr);
+    const index = await read(meta.index, m, data.timeRange);
     if (index.length < m || covers(index)) return { data, index };
   }
 };
