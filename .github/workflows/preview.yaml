@@ -112,6 +112,9 @@ jobs:
           INSTANCE: ${{ vars.PREVIEW_INSTANCE_ID }}
         run: .github/scripts/run_preview_command.sh
 
+      - name: Create the sample project
+        run: node console/scripts/create_sample.ts "$URL"
+
       - uses: marocchino/sticky-pull-request-comment@v2
         with:
           header: preview
@@ -122,7 +125,8 @@ jobs:
 
             Log in with username `synnax` and password `seldon`. The preview is a
             throwaway Core with in-memory storage, and a push rebuilds it from empty.
-            It has no Driver, so it has no hardware tasks.
+            It has no Driver, so it has no hardware tasks. Open the sample project
+            for a simulated tank pressurization.
 
             Built from ${{ github.event.pull_request.head.sha }}.
 
