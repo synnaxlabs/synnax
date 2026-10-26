@@ -8,10 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Project } from "@/feature/project";
+import { Modals } from "@/platform/modals";
+import { findButton, getSwitch } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import { createConsoleWrapper, renderWithConsole, uniqueName } from "@/testutil";
 
@@ -37,5 +39,30 @@ describe("project/Splash", () => {
     await screen.findByPlaceholderText("Search projects...");
     expect(screen.queryByRole("button", { name: "Sample project" })).toBeNull();
     expect(screen.queryByText("Open sample project")).toBeNull();
+  });
+
+  it("should open the usage data settings on a linked machine", async () => {
+    await renderWithConsole(
+      <>
+        <Modals.Stack />
+        <Project.Splash />
+      </>,
+      {
+        preloadedState: {
+          [Session.Account.SLICE_NAME]: {
+            ...Session.Account.ZERO_SLICE_STATE,
+            link: { secret: "shh", email: "someone@example.com", user: "user_a" },
+          },
+        },
+      },
+    );
+    fireEvent.click(findButton("Usage data"));
+    await screen.findByText("Share usage data");
+    expect(getSwitch("Share usage data").checked).toBe(false);
+  });
+
+  it("should not offer usage data on a machine not linked to an account", async () => {
+    await renderWithConsole(<Project.Splash />);
+    expect(screen.queryByText("Usage data")).toBeNull();
   });
 });

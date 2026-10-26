@@ -30,7 +30,7 @@ const Preview = ({
 
 export const spec: Spec<"string_display", schematic.StringDisplayNodeConfig> = {
   key: "string_display",
-  name: "String display",
+  name: "Text display",
   Form: StringDisplayForm,
   Node: Symbol,
   Preview,

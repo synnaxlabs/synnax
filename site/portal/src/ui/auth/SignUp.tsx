@@ -28,6 +28,8 @@ const schema = z.object({
   password: z.string().min(8, "Use at least 8 characters"),
 });
 
+const joinSchema = schema.omit({ email: true });
+
 const codeSchema = z.object({ code: z.string().trim().min(1, "Enter the code") });
 
 type Step = "details" | "verify";
@@ -123,24 +125,7 @@ export const SignUp = ({ target }: SignUpProps): ReactElement => {
     >
       <OAuth mode="sign-up" target={target} onError={setOAuthError} />
       <Form.Form<typeof schema> {...methods}>
-        <Flex.Box x gap="medium">
-          <Form.TextField
-            path="firstName"
-            label="First name"
-            required={false}
-            padHelpText={false}
-            grow
-            inputProps={{ autoComplete: "given-name", autoFocus: true }}
-          />
-          <Form.TextField
-            path="lastName"
-            label="Last name"
-            required={false}
-            padHelpText={false}
-            grow
-            inputProps={{ autoComplete: "family-name" }}
-          />
-        </Flex.Box>
+        <Names />
         <Form.TextField
           path="email"
           label="Email"
@@ -148,13 +133,7 @@ export const SignUp = ({ target }: SignUpProps): ReactElement => {
           padHelpText={false}
           inputProps={{ type: "email", autoComplete: "email" }}
         />
-        <Form.TextField
-          path="password"
-          label="Password"
-          required={false}
-          padHelpText={false}
-          inputProps={{ type: "password", autoComplete: "new-password" }}
-        />
+        <Password />
         <div id="clerk-captcha" />
         <Button.Button
           variant="filled"
@@ -172,3 +151,89 @@ export const SignUp = ({ target }: SignUpProps): ReactElement => {
     </Card>
   );
 };
+
+export interface JoinProps {
+  /** ticket is the invitation token from the link in the invitation email. */
+  ticket: string;
+  /** target is where to land after signing up. */
+  target: string;
+}
+
+/**
+ * Join creates the account a team invitation was sent to and accepts the invitation.
+ * The ticket proves the email address, so there is no code to enter.
+ */
+export const Join = ({ ticket, target }: JoinProps): ReactElement => {
+  const clerk = useClerk();
+  const methods = Form.use({
+    values: { firstName: "", lastName: "", password: "" },
+    schema: joinSchema,
+  });
+  const join = useAction(async () => {
+    if (clerk?.client == null || !methods.validate()) return;
+    const res = await clerk.client.signUp.create({
+      strategy: "ticket",
+      ticket,
+      ...methods.value(),
+    });
+    if (res.status !== "complete")
+      throw new Error("This sign-up needs a step the portal cannot do");
+    await start(clerk, res.createdSessionId, target);
+  });
+  return (
+    <Card
+      title="Join your team"
+      description="Create an account to accept the invitation"
+      error={join.error}
+    >
+      <Form.Form<typeof joinSchema> {...methods}>
+        <Names />
+        <Password />
+        <div id="clerk-captcha" />
+        <Button.Button
+          variant="filled"
+          size="large"
+          full="x"
+          justify="center"
+          onClick={join.run}
+          disabled={clerk == null}
+          status={join.loading ? "loading" : undefined}
+          trigger={["Enter"]}
+        >
+          Create account
+        </Button.Button>
+      </Form.Form>
+    </Card>
+  );
+};
+
+const Names = (): ReactElement => (
+  <Flex.Box x gap="medium">
+    <Form.TextField
+      path="firstName"
+      label="First name"
+      required={false}
+      padHelpText={false}
+      grow
+      inputProps={{ autoComplete: "given-name", autoFocus: true }}
+    />
+    <Form.TextField
+      path="lastName"
+      label="Last name"
+      required={false}
+      padHelpText={false}
+      grow
+      inputProps={{ autoComplete: "family-name" }}
+    />
+  </Flex.Box>
+);
+
+const Password = (): ReactElement => (
+  <Form.TextField
+    path="password"
+    label="Password"
+    required={false}
+    padHelpText={false}
+    inputProps={{ type: "password", autoComplete: "new-password" }}
+  />
+);

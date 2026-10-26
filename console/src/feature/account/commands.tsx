@@ -9,17 +9,14 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { ZERO_PROPERTIES } from "@/feature/ni/device/types";
-import { Device } from "@/platform/device";
-import { Modals } from "@/platform/modals";
+import { useUsageDataModal } from "@/feature/account/useUsageDataModal";
+import { Command } from "@/platform/command";
 
-export const useConfigureModal = Modals.create<Device.ConfigureParams>(
-  ({ deviceKey, close }) => (
-    <Device.Configure
-      deviceKey={deviceKey}
-      close={close}
-      icon={<Icon.Logo.NI />}
-      initialProperties={ZERO_PROPERTIES}
-    />
-  ),
-);
+const OpenUsageDataCommand = Command.create({
+  key: "open_usage_data",
+  name: "Change usage data settings",
+  icon: <Icon.Analyze />,
+  useOnSelect: useUsageDataModal,
+});
+
+export const COMMANDS = [OpenUsageDataCommand];

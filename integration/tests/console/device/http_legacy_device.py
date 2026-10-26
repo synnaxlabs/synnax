@@ -135,10 +135,10 @@ class HTTPLegacyDevice(SimulatorCase, ConsoleCase):
         self.console.devices.ctx_menu.action(item, "Edit connection")
         modal = self.page.locator(layout.MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)
+        modal.get_by_role("tab", name="Health check", exact=True).click(timeout=5000)
         modal.get_by_placeholder("/health").wait_for(state="visible", timeout=5000)
-        cap = layout.get_input_field("Max concurrent requests")
+        assert not layout.get_toggle("Validate body"), "Validate body should be off"
+        modal.get_by_role("tab", name="Advanced", exact=True).click(timeout=5000)
+        cap = layout.get_input_field("Concurrent requests")
         assert cap == "6", f"Cap should default to 6, got {cap}"
-        assert not layout.get_toggle("Validate response body"), (
-            "Validate response should be off"
-        )
         layout.close_modal(layout.MODAL_SELECTOR)
