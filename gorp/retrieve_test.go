@@ -257,6 +257,17 @@ var _ = Describe("Retrieve", func() {
 				}),
 			)
 
+			It("Should return ErrNotFound for a missing single entry", func(
+				ctx SpecContext,
+			) {
+				var res entry
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Where(gorp.MatchKeys[int32, entry](444444)).
+					SkipMissingKeys().
+					Entry(&res).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+			})
+
 			It("Should report that a match exists when any key has an entry", func(
 				ctx SpecContext,
 			) {
