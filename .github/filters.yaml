@@ -385,7 +385,6 @@ integration:
   - .github/workflows/build.synnax.yaml
   - .github/workflows/test.integration.worker.yaml
   - .github/workflows/test.integration.yaml
-  - .github/workflows/test.migration.yaml
   - integration/**
 
 core_image:

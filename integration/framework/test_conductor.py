@@ -405,13 +405,11 @@ def main() -> None:
 -f flag — case filter (global or combined with a target):
   uv run tc -f modbus               all *_tests.json, cases matching "modbus"
   uv run tc -f channel              all *_tests.json, cases matching "channel"
-  uv run tc migration -f setup      migration_tests.json, cases matching "setup"
   uv run tc driver -f modbus        driver_tests.json, cases matching "modbus"
 
   -f matches against both the case path and the class name, so
   you can filter into individual test classes within a file:
   uv run tc driver/ni -f Scaled     only NIAnalogReadScaled from ni_read.py
-  uv run tc migration -f verify     only Verify classes across migration tests
 
 ... wildcard — means "no filter" at that position:
   uv run tc console/...             same as just "console"

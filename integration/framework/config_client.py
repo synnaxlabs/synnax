@@ -204,9 +204,9 @@ class ConfigClient:
 
                 class_defs = self._expand_test_classes(test_def)
                 for class_def in class_defs:
-                    # -f matches against both the file path (e.g. "migration/channels")
-                    # and the class name (e.g. "ChannelsSetup"), so you can filter into
-                    # individual classes: `tc migration -f setup` matches *Setup classes.
+                    # -f matches against both the file path (e.g. "driver/ni_read") and
+                    # the class name (e.g. "NIAnalogReadScaled"), so you can filter into
+                    # individual classes: `tc driver/ni -f Scaled` matches one class.
                     expanded = self._expand_parameters(class_def)
                     if target_filter.case_filter is not None:
                         matches_case = target_filter.matches_case(case_path)
