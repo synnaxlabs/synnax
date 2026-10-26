@@ -3865,27 +3865,29 @@ START => main
 				srcIdx, src := createIndexed(ctx, "early_src")
 				outIdx, out := createIndexed(ctx, "early_out")
 				prog := arc.Text{Raw: fmt.Sprintf("%s -> %s\n", src.Name, out.Name)}
-				early := telem.Now().Add(-telem.Minute)
+				started := telem.Now()
 				t := newTask(ctx, newTextFactory(ctx, prog))
 				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 				defer func() { Expect(t.Stop(false)).To(Succeed()) }()
-				time.Sleep(20 * time.Millisecond)
 
 				keys := []channel.Key{srcIdx.Key(), src.Key()}
+				stamp := started.Add(-telem.Minute)
 				fw := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 					Keys:  keys,
-					Start: early,
+					Start: stamp,
 				}))
-				Expect(fw.Write(frame.NewMulti(keys, []telem.Series{
-					telem.NewSeriesV(early),
-					telem.NewSeriesV[uint8](1),
-				}))).To(BeTrue())
-				Expect(fw.Close()).To(Succeed())
-
+				defer func() { Expect(fw.Close()).To(Succeed()) }()
+				// The task subscribes to src after Exec returns, so a write can land
+				// before it listens. Each attempt writes a new stamp.
 				Eventually(func(g Gomega) {
-					values, stamps := readStored(ctx, outIdx, out)
-					g.Expect(values).To(Equal([]uint8{1}))
-					g.Expect(stamps).To(Equal([]telem.TimeStamp{early}))
+					g.Expect(fw.Write(frame.NewMulti(keys, []telem.Series{
+						telem.NewSeriesV(stamp),
+						telem.NewSeriesV[uint8](1),
+					}))).To(BeTrue())
+					stamp = stamp.Add(telem.Millisecond)
+					_, stamps := readStored(ctx, outIdx, out)
+					g.Expect(stamps).ToNot(BeEmpty())
+					g.Expect(stamps[0]).To(BeNumerically("<", started))
 				}).Should(Succeed())
 			},
 		)
