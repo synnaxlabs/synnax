@@ -28,7 +28,6 @@ Label struct {
     }
     name  string      {
         @doc value           "is a human-readable name for the label."
-        @filter
         @search
         @validate min_length 1
     }
