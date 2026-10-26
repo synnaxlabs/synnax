@@ -28,6 +28,7 @@ esac
 
 FAKE_AWS = """#!/usr/bin/env bash
 echo "aws $*" >> "$FAKE_DIR/calls"
+[[ -f "$FAKE_DIR/aws_fails" ]] && exit 254
 echo license-key
 """
 
@@ -131,6 +132,12 @@ class TestUp:
         get = next(c for c in host.calls() if c.startswith("aws "))
         assert "--name /synnax-preview/license-key" in get
         assert "--region us-east-1" in get
+
+    def test_license_failure_keeps_running_core(self, host: Host) -> None:
+        (host.path / "aws_fails").touch()
+        result = host.run("up", "12", "image")
+        assert result.returncode != 0
+        assert host.docker() == []
 
     def test_takes_lock_first(self, host: Host) -> None:
         host.ready()

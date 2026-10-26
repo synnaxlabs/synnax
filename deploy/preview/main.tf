@@ -156,7 +156,7 @@ resource "aws_iam_role_policy" "host_license" {
       Action = "ssm:GetParameter"
       Resource = join("", [
         "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}",
-        ":parameter${var.license_parameter}",
+        ":parameter/${trimprefix(var.license_parameter, "/")}",
       ])
     }]
   })

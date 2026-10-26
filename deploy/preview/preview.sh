@@ -41,13 +41,14 @@ up() {
     local pr=$1 image=$2 name
     check_pr "$pr"
     name=$(container "$pr")
-    docker pull --quiet "$image"
-    docker rm --force "$name" > /dev/null
-    # An unlicensed Core rejects every request but login.
+    # An unlicensed Core rejects every request but login. Fetched first, so a failure
+    # leaves the running Core in place.
     SYNNAX_LICENSE_KEY=$(aws ssm get-parameter --region "$PREVIEW_REGION" \
         --name "$PREVIEW_LICENSE_PARAMETER" --with-decryption \
         --query Parameter.Value --output text)
     export SYNNAX_LICENSE_KEY
+    docker pull --quiet "$image"
+    docker rm --force "$name" > /dev/null
     # In-memory storage: each deploy starts from an empty Core.
     docker run --detach --name "$name" --network preview --restart unless-stopped \
         --memory 2g --cpus 1 --env SYNNAX_LICENSE_KEY \
