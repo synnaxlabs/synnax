@@ -256,32 +256,22 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
 		Exec(ctx, nil); err != nil {
 		s.cfg.L.Error("failed to retrieve tasks on suspect rack", zap.Error(err))
 	}
-	statuses := make([]Status, len(tasks))
-	keys := make([]string, len(tasks))
-	for i, tsk := range tasks {
-		keys[i] = tsk.OntologyID().String()
-	}
 	// A silent rack does not undo the deploy the Driver reported, so its config hash
 	// and rack are carried across rather than rebuilt.
-	var reported []Status
-	if err := s.cfg.Status.NewRetrieve[StatusDetails]().
-		Where(status.MatchKeys[StatusDetails](keys...)).
-		Entries(&reported).
-		Exec(ctx, nil); err != nil {
+	reported, err := s.cfg.Status.Join[StatusDetails](ctx, OntologyIDsFromTasks(tasks))
+	if err != nil {
 		s.cfg.L.Error("failed to retrieve statuses on suspect rack", zap.Error(err))
+		return
 	}
-	deployed := make(map[string]StatusDetails, len(reported))
-	for _, stat := range reported {
-		deployed[stat.Key] = stat.Details
-	}
+	statuses := make([]Status, len(tasks))
 	for i, tsk := range tasks {
 		details := StatusDetails{Task: tsk.Key, Running: false}
-		if prev, ok := deployed[keys[i]]; ok {
-			details.ConfigHash = prev.ConfigHash
-			details.Rack = prev.Rack
+		if prev := reported[i]; prev != nil {
+			details.ConfigHash = prev.Details.ConfigHash
+			details.Rack = prev.Details.Rack
 		}
 		statuses[i] = Status{
-			Key:         keys[i],
+			Key:         tsk.OntologyID().String(),
 			Time:        telem.Now(),
 			Name:        tsk.Name,
 			Variant:     rackStat.Variant,
