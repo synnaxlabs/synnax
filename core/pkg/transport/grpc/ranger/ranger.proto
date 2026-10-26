@@ -21,7 +21,7 @@ service RangeCreateService {
 }
 
 service RangeRetrieveService {
-  rpc Exec(RetrieveRequest) returns (RetrieveResponse) {}
+  rpc Exec(RetrieveRequest) returns (service.ranger.pb.RetrieveResponse) {}
 }
 
 service RangeDeleteService {
@@ -54,9 +54,6 @@ message RetrieveRequest {
   service.ranger.pb.RetrieveRequest request = 3;
 }
 
-message RetrieveResponse {
-  repeated service.ranger.pb.Range ranges = 1;
-}
 
 message RenameRequest {
   string key = 1;

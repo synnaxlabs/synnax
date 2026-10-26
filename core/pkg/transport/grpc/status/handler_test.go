@@ -38,9 +38,9 @@ var _ = Describe("gRPC Status Translators", func() {
 						}}},
 					},
 				},
-				SearchTerm:    new("cryostat"),
+				SearchTerm:    "cryostat",
 				Limit:         new(uint32(10)),
-				IncludeLabels: new(true),
+				IncludeLabels: true,
 			}
 			fwd := MustSucceed(t.Forward(ctx, msg))
 			b := MustSucceed(proto.Marshal(fwd))

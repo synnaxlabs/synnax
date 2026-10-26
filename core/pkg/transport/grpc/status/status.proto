@@ -21,7 +21,7 @@ service StatusSetService {
 }
 
 service StatusRetrieveService {
-  rpc Exec(RetrieveRequest) returns (RetrieveResponse) {}
+  rpc Exec(RetrieveRequest) returns (service.status.pb.RetrieveResponse) {}
 }
 
 service StatusDeleteService {
@@ -48,9 +48,6 @@ message RetrieveRequest {
   service.status.pb.RetrieveRequest request = 9;
 }
 
-message RetrieveResponse {
-  repeated service.status.pb.Status statuses = 1;
-}
 
 message DeleteRequest {
   repeated string keys = 1;

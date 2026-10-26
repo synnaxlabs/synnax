@@ -110,13 +110,13 @@ message RetrieveRequest {
   // where selects the statuses to retrieve. An absent where selects all of them.
   optional Where where = 1;
   // search_term keeps the statuses that match the term, closest match first.
-  optional string search_term = 2;
+  string search_term = 2;
   // limit is the most statuses to return.
   optional uint32 limit = 3;
   // offset is the number of matching statuses to skip.
-  optional uint32 offset = 4;
+  uint32 offset = 4;
   // include_labels includes the labels of each record.
-  optional bool include_labels = 5;
+  bool include_labels = 5;
 }
 
 // RetrieveResponse holds the statuses a RetrieveRequest selects.

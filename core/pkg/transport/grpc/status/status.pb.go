@@ -172,50 +172,6 @@ func (x *RetrieveRequest) GetRequest() *pb.RetrieveRequest {
 	return nil
 }
 
-type RetrieveResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Statuses      []*pb.Status           `protobuf:"bytes,1,rep,name=statuses,proto3" json:"statuses,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RetrieveResponse) Reset() {
-	*x = RetrieveResponse{}
-	mi := &file_core_pkg_transport_grpc_status_status_proto_msgTypes[3]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RetrieveResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RetrieveResponse) ProtoMessage() {}
-
-func (x *RetrieveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_status_status_proto_msgTypes[3]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RetrieveResponse.ProtoReflect.Descriptor instead.
-func (*RetrieveResponse) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_status_status_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *RetrieveResponse) GetStatuses() []*pb.Status {
-	if x != nil {
-		return x.Statuses
-	}
-	return nil
-}
-
 type DeleteRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Keys          []string               `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
@@ -225,7 +181,7 @@ type DeleteRequest struct {
 
 func (x *DeleteRequest) Reset() {
 	*x = DeleteRequest{}
-	mi := &file_core_pkg_transport_grpc_status_status_proto_msgTypes[4]
+	mi := &file_core_pkg_transport_grpc_status_status_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -237,7 +193,7 @@ func (x *DeleteRequest) String() string {
 func (*DeleteRequest) ProtoMessage() {}
 
 func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_status_status_proto_msgTypes[4]
+	mi := &file_core_pkg_transport_grpc_status_status_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -250,7 +206,7 @@ func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRequest.ProtoReflect.Descriptor instead.
 func (*DeleteRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_status_status_proto_rawDescGZIP(), []int{4}
+	return file_core_pkg_transport_grpc_status_status_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *DeleteRequest) GetKeys() []string {
@@ -271,7 +227,7 @@ type SetByKeyOrNameRequest struct {
 
 func (x *SetByKeyOrNameRequest) Reset() {
 	*x = SetByKeyOrNameRequest{}
-	mi := &file_core_pkg_transport_grpc_status_status_proto_msgTypes[5]
+	mi := &file_core_pkg_transport_grpc_status_status_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -283,7 +239,7 @@ func (x *SetByKeyOrNameRequest) String() string {
 func (*SetByKeyOrNameRequest) ProtoMessage() {}
 
 func (x *SetByKeyOrNameRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_status_status_proto_msgTypes[5]
+	mi := &file_core_pkg_transport_grpc_status_status_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -296,7 +252,7 @@ func (x *SetByKeyOrNameRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetByKeyOrNameRequest.ProtoReflect.Descriptor instead.
 func (*SetByKeyOrNameRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_status_status_proto_rawDescGZIP(), []int{5}
+	return file_core_pkg_transport_grpc_status_status_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *SetByKeyOrNameRequest) GetKeyOrName() string {
@@ -330,7 +286,7 @@ type SetByKeyOrNameResponse struct {
 
 func (x *SetByKeyOrNameResponse) Reset() {
 	*x = SetByKeyOrNameResponse{}
-	mi := &file_core_pkg_transport_grpc_status_status_proto_msgTypes[6]
+	mi := &file_core_pkg_transport_grpc_status_status_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -342,7 +298,7 @@ func (x *SetByKeyOrNameResponse) String() string {
 func (*SetByKeyOrNameResponse) ProtoMessage() {}
 
 func (x *SetByKeyOrNameResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_status_status_proto_msgTypes[6]
+	mi := &file_core_pkg_transport_grpc_status_status_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -355,7 +311,7 @@ func (x *SetByKeyOrNameResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetByKeyOrNameResponse.ProtoReflect.Descriptor instead.
 func (*SetByKeyOrNameResponse) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_status_status_proto_rawDescGZIP(), []int{6}
+	return file_core_pkg_transport_grpc_status_status_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *SetByKeyOrNameResponse) GetKey() string {
@@ -385,9 +341,7 @@ const file_core_pkg_transport_grpc_status_status_proto_rawDesc = "" +
 	"\bstatuses\x18\x01 \x03(\v2\x19.service.status.pb.StatusR\bstatuses\"\xb5\x01\n" +
 	"\x0fRetrieveRequest\x12<\n" +
 	"\arequest\x18\t \x01(\v2\".service.status.pb.RetrieveRequestR\arequestJ\x04\b\x01\x10\tR\x04keysR\vsearch_termR\x06offsetR\x05limitR\x0einclude_labelsR\n" +
-	"has_labelsR\bvariantsR\x16ignore_not_found_error\"I\n" +
-	"\x10RetrieveResponse\x125\n" +
-	"\bstatuses\x18\x01 \x03(\v2\x19.service.status.pb.StatusR\bstatuses\"#\n" +
+	"has_labelsR\bvariantsR\x16ignore_not_found_error\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\tR\x04keys\"k\n" +
 	"\x15SetByKeyOrNameRequest\x12\x1e\n" +
@@ -398,9 +352,9 @@ const file_core_pkg_transport_grpc_status_status_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12)\n" +
 	"\x10multiple_matches\x18\x02 \x01(\bR\x0fmultipleMatches2O\n" +
 	"\x10StatusSetService\x12;\n" +
-	"\x04Exec\x12\x17.grpc.status.SetRequest\x1a\x18.grpc.status.SetResponse\"\x002^\n" +
-	"\x15StatusRetrieveService\x12E\n" +
-	"\x04Exec\x12\x1c.grpc.status.RetrieveRequest\x1a\x1d.grpc.status.RetrieveResponse\"\x002S\n" +
+	"\x04Exec\x12\x17.grpc.status.SetRequest\x1a\x18.grpc.status.SetResponse\"\x002d\n" +
+	"\x15StatusRetrieveService\x12K\n" +
+	"\x04Exec\x12\x1c.grpc.status.RetrieveRequest\x1a#.service.status.pb.RetrieveResponse\"\x002S\n" +
 	"\x13StatusDeleteService\x12<\n" +
 	"\x04Exec\x12\x1a.grpc.status.DeleteRequest\x1a\x16.google.protobuf.Empty\"\x002p\n" +
 	"\x1bStatusSetByKeyOrNameService\x12Q\n" +
@@ -419,37 +373,36 @@ func file_core_pkg_transport_grpc_status_status_proto_rawDescGZIP() []byte {
 	return file_core_pkg_transport_grpc_status_status_proto_rawDescData
 }
 
-var file_core_pkg_transport_grpc_status_status_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_core_pkg_transport_grpc_status_status_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_core_pkg_transport_grpc_status_status_proto_goTypes = []any{
 	(*SetRequest)(nil),             // 0: grpc.status.SetRequest
 	(*SetResponse)(nil),            // 1: grpc.status.SetResponse
 	(*RetrieveRequest)(nil),        // 2: grpc.status.RetrieveRequest
-	(*RetrieveResponse)(nil),       // 3: grpc.status.RetrieveResponse
-	(*DeleteRequest)(nil),          // 4: grpc.status.DeleteRequest
-	(*SetByKeyOrNameRequest)(nil),  // 5: grpc.status.SetByKeyOrNameRequest
-	(*SetByKeyOrNameResponse)(nil), // 6: grpc.status.SetByKeyOrNameResponse
-	(*pb.Status)(nil),              // 7: service.status.pb.Status
-	(*pb.RetrieveRequest)(nil),     // 8: service.status.pb.RetrieveRequest
+	(*DeleteRequest)(nil),          // 3: grpc.status.DeleteRequest
+	(*SetByKeyOrNameRequest)(nil),  // 4: grpc.status.SetByKeyOrNameRequest
+	(*SetByKeyOrNameResponse)(nil), // 5: grpc.status.SetByKeyOrNameResponse
+	(*pb.Status)(nil),              // 6: service.status.pb.Status
+	(*pb.RetrieveRequest)(nil),     // 7: service.status.pb.RetrieveRequest
+	(*pb.RetrieveResponse)(nil),    // 8: service.status.pb.RetrieveResponse
 	(*emptypb.Empty)(nil),          // 9: google.protobuf.Empty
 }
 var file_core_pkg_transport_grpc_status_status_proto_depIdxs = []int32{
-	7, // 0: grpc.status.SetRequest.statuses:type_name -> service.status.pb.Status
-	7, // 1: grpc.status.SetResponse.statuses:type_name -> service.status.pb.Status
-	8, // 2: grpc.status.RetrieveRequest.request:type_name -> service.status.pb.RetrieveRequest
-	7, // 3: grpc.status.RetrieveResponse.statuses:type_name -> service.status.pb.Status
-	0, // 4: grpc.status.StatusSetService.Exec:input_type -> grpc.status.SetRequest
-	2, // 5: grpc.status.StatusRetrieveService.Exec:input_type -> grpc.status.RetrieveRequest
-	4, // 6: grpc.status.StatusDeleteService.Exec:input_type -> grpc.status.DeleteRequest
-	5, // 7: grpc.status.StatusSetByKeyOrNameService.Exec:input_type -> grpc.status.SetByKeyOrNameRequest
-	1, // 8: grpc.status.StatusSetService.Exec:output_type -> grpc.status.SetResponse
-	3, // 9: grpc.status.StatusRetrieveService.Exec:output_type -> grpc.status.RetrieveResponse
-	9, // 10: grpc.status.StatusDeleteService.Exec:output_type -> google.protobuf.Empty
-	6, // 11: grpc.status.StatusSetByKeyOrNameService.Exec:output_type -> grpc.status.SetByKeyOrNameResponse
-	8, // [8:12] is the sub-list for method output_type
-	4, // [4:8] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	6, // 0: grpc.status.SetRequest.statuses:type_name -> service.status.pb.Status
+	6, // 1: grpc.status.SetResponse.statuses:type_name -> service.status.pb.Status
+	7, // 2: grpc.status.RetrieveRequest.request:type_name -> service.status.pb.RetrieveRequest
+	0, // 3: grpc.status.StatusSetService.Exec:input_type -> grpc.status.SetRequest
+	2, // 4: grpc.status.StatusRetrieveService.Exec:input_type -> grpc.status.RetrieveRequest
+	3, // 5: grpc.status.StatusDeleteService.Exec:input_type -> grpc.status.DeleteRequest
+	4, // 6: grpc.status.StatusSetByKeyOrNameService.Exec:input_type -> grpc.status.SetByKeyOrNameRequest
+	1, // 7: grpc.status.StatusSetService.Exec:output_type -> grpc.status.SetResponse
+	8, // 8: grpc.status.StatusRetrieveService.Exec:output_type -> service.status.pb.RetrieveResponse
+	9, // 9: grpc.status.StatusDeleteService.Exec:output_type -> google.protobuf.Empty
+	5, // 10: grpc.status.StatusSetByKeyOrNameService.Exec:output_type -> grpc.status.SetByKeyOrNameResponse
+	7, // [7:11] is the sub-list for method output_type
+	3, // [3:7] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_transport_grpc_status_status_proto_init() }
@@ -463,7 +416,7 @@ func file_core_pkg_transport_grpc_status_status_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_transport_grpc_status_status_proto_rawDesc), len(file_core_pkg_transport_grpc_status_status_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   7,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   4,
 		},

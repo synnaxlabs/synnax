@@ -85,15 +85,15 @@ message RetrieveRequest {
   // where selects the ranges to retrieve. An absent where selects all of them.
   optional Where where = 1;
   // search_term keeps the ranges that match the term, closest match first.
-  optional string search_term = 2;
+  string search_term = 2;
   // limit is the most ranges to return.
   optional uint32 limit = 3;
   // offset is the number of matching ranges to skip.
-  optional uint32 offset = 4;
+  uint32 offset = 4;
   // include_labels includes the labels of each record.
-  optional bool include_labels = 5;
+  bool include_labels = 5;
   // include_parent includes the parent of each record.
-  optional bool include_parent = 6;
+  bool include_parent = 6;
 }
 
 // RetrieveResponse holds the ranges a RetrieveRequest selects.

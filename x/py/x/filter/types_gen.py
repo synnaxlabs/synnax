@@ -11,16 +11,9 @@
 
 from __future__ import annotations
 
-from typing import Generic, Literal, TypeVar
+from typing import Generic, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
-
-DIRECTION_ASCENDING: Literal["ascending"] = "ascending"
-
-DIRECTION_DESCENDING: Literal["descending"] = "descending"
-
-
-Direction = Literal["ascending", "descending"]
 
 T = TypeVar("T")
 

@@ -151,12 +151,15 @@ export const retrieveRequestZ = z.strictObject({
   /** where selects the statuses to retrieve. An absent where selects all of them. */
   where: whereZ.optional(),
   /** searchTerm keeps the statuses that match the term, closest match first. */
-  searchTerm: z.string().optional(),
+  searchTerm: z.string().default(""),
   /** limit is the most statuses to return. */
   limit: z.uint32().optional(),
   /** offset is the number of matching statuses to skip. */
-  offset: z.uint32().optional(),
+  offset: z.uint32().default(0),
   /** includeLabels includes the labels of each record. */
-  includeLabels: z.boolean().optional(),
+  includeLabels: z.boolean().default(false),
 });
-export interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
+export interface RetrieveRequest extends optional.Optional<
+  z.infer<typeof retrieveRequestZ>,
+  "searchTerm" | "offset" | "includeLabels"
+> {}

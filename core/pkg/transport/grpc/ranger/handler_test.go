@@ -41,7 +41,7 @@ var _ = Describe("gRPC Ranger Translators", func() {
 					Overlaps: &telem.TimeRange{Start: 1, End: 2},
 				},
 				Limit:         new(uint32(10)),
-				IncludeLabels: new(true),
+				IncludeLabels: true,
 			}
 			fwd := MustSucceed(t.Forward(ctx, msg))
 			b := MustSucceed(proto.Marshal(fwd))

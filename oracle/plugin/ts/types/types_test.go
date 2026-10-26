@@ -84,6 +84,21 @@ var _ = Describe("TS Types Plugin", func() {
 				ToNotContain("boolZ = z.strictObject")
 		})
 
+		It("Should leave the defaulted fields of a filter request optional", func(
+			ctx SpecContext,
+		) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
+			ExpectContent(resp, "thing/types.gen.ts").
+				ToContain(
+					"offset: z.uint32().default(0),",
+					"import { filter, optional, zod } from \"@synnaxlabs/x\";",
+					"export interface RetrieveRequest\n  extends optional.Optional<\n"+
+						"    z.infer<typeof retrieveRequestZ>,\n",
+					"export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}",
+				)
+		})
+
 		Context("field-level omit", func() {
 			It("Should leave out an inherited field the parent omits", func(
 				ctx SpecContext,

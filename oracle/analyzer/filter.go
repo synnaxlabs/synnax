@@ -343,7 +343,9 @@ func bareLineOperator(
 		return operator("Set", ref), true
 	}
 	if resolved, _, ok := resolution.Dealias(ref, c.table); ok {
-		if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
+		_, isKeyType := resolved.Domains["key"]
+		_, isEnum := resolved.Form.(resolution.EnumForm)
+		if isKeyType || isEnum {
 			return operator("Set", ref), true
 		}
 	}
@@ -422,7 +424,7 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 	}
 	plural := casing.TypeSnake(pluralize.String(target.Name))
 	words := strings.ReplaceAll(plural, "_", " ")
-	// The request and order types go wherever the tree they carry goes.
+	// The request goes wherever the tree it carries goes.
 	domains := layDomains(c.fileDomains, where.Domains, "output", "omit")
 	request := []resolution.Field{
 		optionalField(
@@ -438,68 +440,13 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 		_, ok := f.Domains["search"]
 		return ok
 	}) {
-		request = append(request, optionalField(
+		request = append(request, defaultField(
 			"search_term",
 			resolution.TypeRef{Name: "string"},
 			fmt.Sprintf(
 				"keeps the %s that match the term, closest match first.", words,
 			),
-		))
-	}
-	var created []resolution.Type
-	sorted := lo.Filter(fields, func(f resolution.Field, _ int) bool {
-		dom, ok := f.Domains["index"]
-		if !ok {
-			return false
-		}
-		_, ok = dom.Expressions.Find("sorted")
-		return ok
-	})
-	if len(sorted) > 0 {
-		if !importsFilterSchema(c.ast) {
-			c.report(diagnostics.Errorf(
-				where.AST.(parser.IFilterDefContext),
-				"filter %s: order_by needs an import of the filter schema "+
-					"(\"schemas/x/filter\")",
-				where.Name,
-			))
-			return
-		}
-		orderField := resolution.Type{
-			Name: "OrderField",
-			Form: resolution.EnumForm{Values: lo.Map(
-				sorted,
-				func(f resolution.Field, _ int) resolution.EnumValue {
-					return resolution.EnumValue{Name: f.Name, Value: f.Name}
-				},
-			)},
-			Domains: withDoc(domains, fmt.Sprintf(
-				"is a field that %s sort by.", words,
-			)),
-		}
-		order := resolution.Type{
-			Name: "Order",
-			Form: resolution.StructForm{Fields: []resolution.Field{
-				requiredField(
-					"field",
-					resolution.TypeRef{Name: c.namespace + ".OrderField"},
-					"is the field to sort by.",
-				),
-				requiredField(
-					"direction",
-					resolution.TypeRef{Name: filterNamespace + ".Direction"},
-					"is the direction to sort in.",
-				),
-			}},
-			Domains: withDoc(domains, fmt.Sprintf(
-				"sorts %s by one sorted field.", words,
-			)),
-		}
-		created = append(created, orderField, order)
-		request = append(request, optionalField(
-			"order_by",
-			resolution.TypeRef{Name: c.namespace + ".Order"},
-			fmt.Sprintf("sorts the %s. It replaces search order.", words),
+			resolution.ExpressionValue{Kind: resolution.ValueKindString},
 		))
 	}
 	request = append(
@@ -509,10 +456,11 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 			resolution.TypeRef{Name: "uint32"},
 			fmt.Sprintf("is the most %s to return.", words),
 		),
-		optionalField(
+		defaultField(
 			"offset",
 			resolution.TypeRef{Name: "uint32"},
 			fmt.Sprintf("is the number of matching %s to skip.", words),
+			resolution.ExpressionValue{Kind: resolution.ValueKindInt},
 		),
 	)
 	response, records, ok := retrieveResponse(c, where, target, fields, plural, words)
@@ -521,20 +469,21 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 	}
 	for _, f := range records {
 		if _, ok := f.Domains["include"]; ok {
-			request = append(request, optionalField(
+			request = append(request, defaultField(
 				"include_"+f.Name,
 				resolution.TypeRef{Name: "bool"},
 				fmt.Sprintf("includes the %s of each record.", f.Name),
+				resolution.ExpressionValue{Kind: resolution.ValueKindBool},
 			))
 		}
 	}
-	created = append(created, resolution.Type{
+	created := []resolution.Type{{
 		Name: "RetrieveRequest",
 		Form: resolution.StructForm{Fields: request},
 		Domains: withDoc(domains, fmt.Sprintf(
 			"is a request to retrieve %s.", words,
 		)),
-	}, response)
+	}, response}
 	derived := true
 	for _, t := range created {
 		t.Namespace = c.namespace
@@ -661,6 +610,17 @@ func withDoc(
 func optionalField(name string, typ resolution.TypeRef, doc string) resolution.Field {
 	f := requiredField(name, typ, doc)
 	f.Optional = true
+	return f
+}
+
+func defaultField(
+	name string,
+	typ resolution.TypeRef,
+	doc string,
+	value resolution.ExpressionValue,
+) resolution.Field {
+	f := requiredField(name, typ, doc)
+	f.Default = &value
 	return f
 }
 
