@@ -6,9 +6,14 @@ build --enable_platform_specific_config
 
 # vendor/registry holds module versions the Bazel Central Registry does not have yet,
 # such as security releases. Bazel takes each module version from the first registry
-# that has it.
-common --registry=file://%workspace%/vendor/registry
-common --registry=https://bcr.bazel.build
+# that has it. A Windows workspace path starts with a drive letter, so its file URL
+# needs a third slash.
+common:linux --registry=file://%workspace%/vendor/registry
+common:linux --registry=https://bcr.bazel.build
+common:macos --registry=file://%workspace%/vendor/registry
+common:macos --registry=https://bcr.bazel.build
+common:windows --registry=file:///%workspace%/vendor/registry
+common:windows --registry=https://bcr.bazel.build
 
 # Each external repo is a symlink into the shared repo contents cache, and Bazel deletes
 # a cache entry that goes 14 days without a fetch. A repo that every build reuses is
