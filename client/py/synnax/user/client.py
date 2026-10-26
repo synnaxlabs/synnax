@@ -152,8 +152,8 @@ class Client:
         limit: int | None = None,
         offset: int | None = None,
     ) -> User | list[User]:
-        """Retrieves users. Returns one user when a key or username is given, and a
-        list otherwise.
+        """Retrieves users. Returns one user when a key or username is given, and a list
+        otherwise.
 
         :param where: Keeps users that match this filter tree.
         :param search_term: A fuzzy search term matched against user names.

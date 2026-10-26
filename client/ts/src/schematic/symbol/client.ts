@@ -44,8 +44,8 @@ const keysRequest = (keys: Key[]): RetrieveRequest => ({
   where: { key: { in: keys } },
 });
 
-// The Core knows nothing of parents, so the client resolves parent through the
-// ontology graph.
+// The Core knows nothing of parents, so the client resolves parent through the ontology
+// graph.
 const parentRequestZ = retrieveRequestZ.extend({
   parent: ontology.idZ.optional(),
 });

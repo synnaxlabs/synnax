@@ -105,8 +105,7 @@ class Client:
         offset: int | None = None,
         internal: bool | None = None,
     ) -> Role | list[Role]:
-        """Retrieves roles. Returns one role when a key is given, and a list
-        otherwise.
+        """Retrieves roles. Returns one role when a key is given, and a list otherwise.
 
         :param where: Keeps roles that match this filter tree.
         :raises NotFoundError: If a single role is requested and none matches.
