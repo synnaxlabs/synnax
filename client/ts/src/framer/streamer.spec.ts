@@ -38,6 +38,15 @@ const quiet = (): void => {};
 
 const client = createTestClient();
 
+const write = async (ch: channel.Channel, values: number[]): Promise<void> => {
+  const writer = await client.openWriter({ start: TimeStamp.now(), channels: ch.key });
+  try {
+    await writer.write(ch.key, new Float64Array(values));
+  } finally {
+    await writer.close();
+  }
+};
+
 describe("Streamer", () => {
   describe("standard", () => {
     test("happy path", async () => {
@@ -175,6 +184,33 @@ describe("Streamer", () => {
           streamer.close();
         }
         expect(EOF.matches(await pending)).toBe(true);
+      });
+
+      it("should stream samples written after an unchanged acked update", async () => {
+        const ch = await newVirtualChannel(client);
+        const streamer = await client.openStreamer(ch.key);
+        try {
+          const frame = streamer.read();
+          await streamer.update(ch.key, { waitForAck: true });
+          await write(ch, [1, 2, 3]);
+          expect(Array.from((await frame).get(ch.key))).toEqual([1, 2, 3]);
+        } finally {
+          streamer.close();
+        }
+      });
+
+      it("should stream samples after an update to no channels and back", async () => {
+        const ch = await newVirtualChannel(client);
+        const streamer = await client.openStreamer(ch.key);
+        try {
+          await streamer.update([]);
+          const frame = streamer.read();
+          await streamer.update(ch.key, { waitForAck: true });
+          await write(ch, [1, 2, 3]);
+          expect(Array.from((await frame).get(ch.key))).toEqual([1, 2, 3]);
+        } finally {
+          streamer.close();
+        }
       });
 
       it("should resolve several acked updates that wait at once", async () => {
@@ -685,18 +721,6 @@ describe("Streamer", () => {
     const ARMED = TimeSpan.milliseconds(2500);
     // Covers a full deadline trip plus the reconnect that follows it.
     const POLL = { timeout: DEADLINE.milliseconds * 2 };
-
-    const write = async (ch: channel.Channel, values: number[]): Promise<void> => {
-      const writer = await client.openWriter({
-        start: TimeStamp.now(),
-        channels: ch.key,
-      });
-      try {
-        await writer.write(ch.key, new Float64Array(values));
-      } finally {
-        await writer.close();
-      }
-    };
 
     it("should keep keep-alives out of the frames a streamer serves", async () => {
       const ch = await newVirtualChannel(client);
