@@ -73,7 +73,7 @@ export class Client {
     );
     Object.entries(res.aliases).forEach(([alias, key]) => this.cache.set(alias, key));
     if (!isSingle) return { ...cached, ...res.aliases };
-    if (!(aliases in res.aliases))
+    if (!Object.hasOwn(res.aliases, aliases))
       throw new NotFoundError(`alias not found matching ${JSON.stringify(aliases)}`);
     return res.aliases[aliases];
   }
@@ -112,7 +112,7 @@ export class Client {
       retrieveResZ,
     );
     if (!isSingle) return res.aliases;
-    if (!(alias in res.aliases))
+    if (!Object.hasOwn(res.aliases, alias))
       throw new NotFoundError(`alias not found matching channel ${alias}`);
     return res.aliases[alias];
   }

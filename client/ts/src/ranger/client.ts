@@ -21,7 +21,6 @@ import {
 import { z } from "zod";
 
 import { type channel } from "@/channel";
-import { QueryError } from "@/errors";
 import { type framer } from "@/framer";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
@@ -194,7 +193,7 @@ export class Range {
 
   async setAlias(channel: channel.Key | Name, alias: string): Promise<void> {
     const ch = await this.channels(channel);
-    if (ch.length === 0) throw new QueryError(`Channel ${channel} does not exist`);
+    checkForMultipleOrNoResults("channel", channel, ch, true);
     await this.rangeClient.setAlias(this.key, ch[0].key, alias);
   }
 

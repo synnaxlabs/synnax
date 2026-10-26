@@ -22,7 +22,7 @@ import {
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { type z } from "zod";
 
-import { NotFoundError } from "@/errors";
+import { MultipleFoundError, NotFoundError } from "@/errors";
 import { framer } from "@/framer";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
@@ -317,6 +317,42 @@ describe("range", () => {
         await rng.setAlias(ch.key, "myalias");
         const resolved = await rng.resolveAlias("myalias");
         expect(resolved).toEqual(ch.key);
+      });
+
+      it("should reject an alias named after an object member", async () => {
+        const rng = await client.ranges.create({
+          name: "My New One Second Range",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        });
+        const resolve = rng.resolveAlias("constructor");
+        await expect(resolve).rejects.toThrow(NotFoundError);
+        await expect(resolve).rejects.toThrow('alias not found matching "constructor"');
+      });
+
+      it("should reject a channel name that matches no channel", async () => {
+        const rng = await client.ranges.create({
+          name: "My New One Second Range",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        });
+        const name = id.create();
+        const set = rng.setAlias(name, "myalias");
+        await expect(set).rejects.toThrow(NotFoundError);
+        await expect(set).rejects.toThrow(`channel not found matching "${name}"`);
+      });
+
+      it("should reject a name pattern that matches two channels", async () => {
+        const prefix = `alias_${id.create()}`;
+        await client.channels.create([
+          { name: `${prefix}_a`, dataType: DataType.FLOAT32, virtual: true },
+          { name: `${prefix}_b`, dataType: DataType.FLOAT32, virtual: true },
+        ]);
+        const rng = await client.ranges.create({
+          name: "My New One Second Range",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        });
+        await expect(rng.setAlias(`${prefix}_.*`, "myalias")).rejects.toThrow(
+          MultipleFoundError,
+        );
       });
     });
     describe("deleteAlias", () => {
