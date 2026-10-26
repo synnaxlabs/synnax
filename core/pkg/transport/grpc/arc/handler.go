@@ -18,8 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/pb"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/validate"
+	xpb "github.com/synnaxlabs/x/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -128,11 +127,8 @@ func (retrieveRequestTranslator) Backward(
 ) (arc.RetrieveRequest, error) {
 	// A client older than the Core sends the reserved fields, which would otherwise
 	// select every Arc module.
-	if len(r.ProtoReflect().GetUnknown()) > 0 {
-		return arc.RetrieveRequest{}, errors.Wrap(
-			validate.ErrValidation,
-			"retrieve request has unknown fields",
-		)
+	if err := xpb.RejectUnknown(r); err != nil {
+		return arc.RetrieveRequest{}, err
 	}
 	return pb.RetrieveRequestFromPB(r.Request)
 }
