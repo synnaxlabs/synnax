@@ -110,35 +110,39 @@ def gh(tmp_path: Path) -> Harness:
 
 
 class TestShepherdWork:
-    def test_prints_nothing_for_a_done_pull_request(self, gh: Harness) -> None:
+    """Lists the work a pull request needs before it is done."""
+
+    def test_should_print_nothing_for_a_done_pull_request(self, gh: Harness) -> None:
         gh.runs("success")
         assert gh.run() == []
 
-    def test_reports_a_conflict(self, gh: Harness) -> None:
+    def test_should_report_a_conflict(self, gh: Harness) -> None:
         gh.pull(state="dirty")
         assert gh.run() == ["conflict"]
 
-    def test_reports_no_conflict_while_github_computes_it(self, gh: Harness) -> None:
+    def test_should_report_no_conflict_while_github_computes_it(
+        self, gh: Harness
+    ) -> None:
         gh.pull(state="unknown")
         assert gh.run() == []
 
-    def test_reports_a_failed_ci_run_on_the_head(self, gh: Harness) -> None:
+    def test_should_report_a_failed_ci_run_on_the_head(self, gh: Harness) -> None:
         gh.runs("failure")
         assert gh.run() == ["ci 1"]
 
-    def test_ignores_a_ci_run_still_in_progress(self, gh: Harness) -> None:
+    def test_should_ignore_a_ci_run_still_in_progress(self, gh: Harness) -> None:
         gh.runs("")
         assert gh.run() == []
 
-    def test_reports_threads_that_need_action(self, gh: Harness) -> None:
+    def test_should_report_threads_that_need_action(self, gh: Harness) -> None:
         gh.threads(count=2)
         assert gh.run() == ["threads 2"]
 
-    def test_reports_findings_outside_the_diff(self, gh: Harness) -> None:
+    def test_should_report_findings_outside_the_diff(self, gh: Harness) -> None:
         gh.comments(outside=True)
         assert gh.run() == ["outside-diff"]
 
-    def test_reports_every_kind_of_work_in_order(self, gh: Harness) -> None:
+    def test_should_report_every_kind_of_work_in_order(self, gh: Harness) -> None:
         gh.pull(state="dirty")
         gh.runs("failure")
         gh.threads(count=1)

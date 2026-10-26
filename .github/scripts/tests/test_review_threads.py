@@ -94,27 +94,29 @@ def gh(tmp_path: Path) -> Harness:
 
 
 class TestReviewThreads:
-    def test_selects_a_greptile_thread(self, gh: Harness) -> None:
+    """Selects the review threads that need action."""
+
+    def test_should_select_a_greptile_thread(self, gh: Harness) -> None:
         gh.pages([thread("a", comment("greptile-apps", "Bot"))])
         assert gh.run() == ["a"]
 
-    def test_selects_a_thread_a_person_spoke_last_in(self, gh: Harness) -> None:
+    def test_should_select_a_thread_a_person_spoke_last_in(self, gh: Harness) -> None:
         gh.pages([thread("a", comment("greptile-apps", "Bot"), comment("someone"))])
         assert gh.run() == ["a"]
 
-    def test_skips_a_resolved_thread(self, gh: Harness) -> None:
+    def test_should_skip_a_resolved_thread(self, gh: Harness) -> None:
         gh.pages([thread("a", comment("someone"), resolved=True)])
         assert gh.run() == []
 
-    def test_skips_a_thread_the_author_answered(self, gh: Harness) -> None:
+    def test_should_skip_a_thread_the_author_answered(self, gh: Harness) -> None:
         gh.pages([thread("a", comment("someone"), comment(AUTHOR, "Bot"))])
         assert gh.run() == []
 
-    def test_skips_a_thread_another_bot_answered(self, gh: Harness) -> None:
+    def test_should_skip_a_thread_another_bot_answered(self, gh: Harness) -> None:
         gh.pages([thread("a", comment("someone"), comment("synnax-codex", "Bot"))])
         assert gh.run() == []
 
-    def test_reads_every_page(self, gh: Harness) -> None:
+    def test_should_read_every_page(self, gh: Harness) -> None:
         gh.pages(
             [thread("a", comment("someone"))],
             [thread("b", comment("someone"), resolved=True)],
