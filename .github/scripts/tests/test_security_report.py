@@ -13,8 +13,7 @@ from typing import Any
 
 import pytest
 
-import security_report
-from security_report import Finding, main, read_findings
+from security_report import Finding, Send, main, read_findings
 
 
 def result(rule: str, level: str, uri: str, line: int) -> dict[str, Any]:
@@ -83,6 +82,11 @@ class TestMain:
         assert "- `x.yaml:26`" not in report
         assert "- And 5 more." in report
 
+    def test_should_reject_a_directory_with_no_scan(self, tmp_path: Path) -> None:
+        """Should not report a clean audit when no scan ran."""
+        with pytest.raises(SystemExit, match="holds no scan"):
+            main([str(tmp_path)])
+
     def test_should_fail_and_keep_the_log_when_a_scan_fails(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
@@ -98,26 +102,29 @@ class TestPublish:
 
     @pytest.fixture
     def posts(self, monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, Any]]:
-        sent: list[tuple[str, Any]] = []
+        monkeypatch.setenv("LINEAR_API_KEY", "key")
+        monkeypatch.setenv("SLACK_WEBHOOK_URL", "https://slack")
+        return []
 
-        def post(url: str, payload: dict[str, Any], _: dict[str, str]) -> bytes:
+    @staticmethod
+    def sender(sent: list[tuple[str, Any]]) -> Send:
+        """Records each post and answers as Linear does."""
+
+        def send(url: str, payload: dict[str, Any], _: dict[str, str]) -> bytes:
             sent.append((url, payload))
             if "teams" in payload.get("query", ""):
                 return b'{"data": {"teams": {"nodes": [{"id": "team"}]}}}'
             url_json = '{"url": "https://linear.app/synnax/issue/SY-1"}'
             return f'{{"data": {{"issueCreate": {{"issue": {url_json}}}}}}}'.encode()
 
-        monkeypatch.setattr(security_report, "post", post)
-        monkeypatch.setenv("LINEAR_API_KEY", "key")
-        monkeypatch.setenv("SLACK_WEBHOOK_URL", "https://slack")
-        return sent
+        return send
 
     def test_should_file_an_issue_and_post_only_the_count(
         self, tmp_path: Path, posts: list[tuple[str, Any]]
     ) -> None:
         """Should send the report to Linear and only the count and link to Slack."""
         write_scan(tmp_path, "zizmor", 0, result("unpinned-uses", "error", "a.yaml", 1))
-        assert main([str(tmp_path), "--publish"]) == 0
+        assert main([str(tmp_path), "--publish"], self.sender(posts)) == 0
         create = posts[1][1]["variables"]["input"]
         assert create["teamId"] == "team"
         assert "unpinned-uses" in create["description"]
@@ -134,7 +141,7 @@ class TestPublish:
     ) -> None:
         """Should post the zero count to Slack and file no issue."""
         write_scan(tmp_path, "zizmor", 0)
-        assert main([str(tmp_path), "--publish"]) == 0
+        assert main([str(tmp_path), "--publish"], self.sender(posts)) == 0
         assert posts == [
             (
                 "https://slack",
