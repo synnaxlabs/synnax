@@ -131,10 +131,18 @@ var _ = Describe("Filter definitions", func() {
 			Expect(
 				where.Filter.Target,
 			).To(Equal(resolution.TypeRef{Name: "test.Thing"}))
-			overlaps := MustBeOk(where.Filter.Line("overlaps"))
-			Expect(overlaps.Bare()).To(BeFalse())
+			line := func(name string) resolution.Field {
+				return MustBeOk(lo.Find(
+					where.Filter.Lines,
+					func(l resolution.Field) bool { return l.Name == name },
+				))
+			}
+			overlaps := line("overlaps")
+			Expect(overlaps.HasType()).To(BeTrue())
 			Expect(overlaps.Type).To(Equal(resolution.TypeRef{Name: "test.Span"}))
-			Expect(MustBeOk(where.Filter.Line("name")).Bare()).To(BeTrue())
+			Expect(line("name").HasType()).To(BeFalse())
+			Expect(where.Filter.Request).To(Equal("test.RetrieveRequest"))
+			Expect(where.Filter.Response).To(Equal("test.RetrieveResponse"))
 		})
 
 		It("Should keep a line's doc and give a bare line one", func(ctx SpecContext) {

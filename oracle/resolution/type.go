@@ -38,26 +38,13 @@ type Type struct {
 type Filter struct {
 	// Target is the struct or union the filter selects.
 	Target TypeRef
-	Lines  []FilterLine
+	// Lines are the lines as declared. A bare line has no type and names a field of
+	// the target. A typed line names a hand-written matcher that takes its type.
+	Lines []Field
+	// Request and Response are the qualified names of the derived retrieve request and
+	// response, or empty when the analyzer derived none.
+	Request, Response string
 }
-
-// Line returns the line named name.
-func (f Filter) Line(name string) (FilterLine, bool) {
-	return lo.Find(f.Lines, func(l FilterLine) bool { return l.Name == name })
-}
-
-// FilterLine is one line of a filter definition. A bare line names a field of the
-// target and has no Type. A typed line names a hand-written matcher that takes a value
-// of Type.
-type FilterLine struct {
-	AST     any
-	Domains map[string]Domain
-	Name    string
-	Type    TypeRef
-}
-
-// Bare reports whether the line names a field of the target.
-func (l FilterLine) Bare() bool { return l.Type.Name == "" && l.Type.TypeParam == nil }
 
 type TypeForm interface {
 	typeForm()
