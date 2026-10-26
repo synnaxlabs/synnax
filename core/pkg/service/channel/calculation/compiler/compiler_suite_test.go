@@ -19,7 +19,7 @@ import (
 
 func TestCompiler(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Channel Calculation Compiler Suite")
+	RunSpecs(t, "Service Channel Calculation Compiler Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

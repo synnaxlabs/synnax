@@ -14,7 +14,10 @@
 
 #include "driver/opcua/mock/server.h"
 
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): the signal handler
+// clears it.
 std::atomic<bool> running(true);
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 void signal_handler(const int signal) {
     std::cout << "\nReceived signal " << signal << ", shutting down..." << std::endl;

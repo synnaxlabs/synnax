@@ -15,7 +15,6 @@ import {
   type ComponentPropsWithoutRef,
   type ReactElement,
   type ReactNode,
-  useMemo,
 } from "react";
 
 import { CSS } from "@/css";
@@ -151,10 +150,7 @@ export const Text = <E extends Generic.ElementType = "p">({
   lineClamp,
   ...rest
 }: TextProps<E>): ReactElement => {
-  const formattedStyle = useMemo(
-    () => formatStyle(style, weight, lineClamp),
-    [style, weight, lineClamp],
-  );
+  const formattedStyle = formatStyle(style, weight, lineClamp);
   return (
     <Flex.Box<E>
       direction="x"

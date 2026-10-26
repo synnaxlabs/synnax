@@ -19,7 +19,7 @@ import (
 
 func TestPipeline(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Pipeline Suite")
+	RunSpecs(t, "Pipeline Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

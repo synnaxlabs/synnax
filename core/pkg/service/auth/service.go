@@ -21,11 +21,11 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"

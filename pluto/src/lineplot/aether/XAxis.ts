@@ -16,15 +16,11 @@ import { type FindResult } from "@/vis/line/aether/line";
 
 export const xAxisStateZ = baseAxisStateZ;
 
-export interface XAxisRenderProps extends AxisRenderProps {
-  exposure: number;
-}
-
 export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provider> {
   static readonly TYPE = "XAxis";
   schema = baseAxisStateZ;
 
-  render(props: XAxisRenderProps): void {
+  render(props: AxisRenderProps): void {
     if (this.deleted) return;
     const [dataToDecimal, xBounds, err] = this.dataToDecimalScale(
       props.hold,
@@ -39,7 +35,7 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
   }
 
   findByXDecimal(
-    props: Omit<XAxisRenderProps, "canvases">,
+    props: Omit<AxisRenderProps, "canvases">,
     target: number,
   ): FindResult[] {
     const [scale, , err] = this.dataToDecimalScale(
@@ -51,10 +47,7 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     return this.findByXValue(props, scale.reverse().pos(target));
   }
 
-  findByXValue(
-    props: Omit<XAxisRenderProps, "canvases">,
-    target: number,
-  ): FindResult[] {
+  findByXValue(props: Omit<AxisRenderProps, "canvases">, target: number): FindResult[] {
     const [xDataToDecimalScale, xBounds, error] = this.dataToDecimalScale(
       props.hold,
       this.dataBounds.bind(this),
@@ -66,7 +59,7 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
   }
 
   private renderYAxes(
-    props: XAxisRenderProps,
+    props: AxisRenderProps,
     xDataToDecimalScale: scale.Scale,
     xBounds: bounds.Bounds,
   ): void {
@@ -86,16 +79,17 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     return this.yAxes.some((el) => el.loading);
   }
 
+  get fetching(): boolean {
+    return this.yAxes.some((el) => el.fetching);
+  }
+
   bounds(hold: boolean): bounds.Bounds {
     const [bound, err] = this.iBounds(hold, this.dataBounds.bind(this));
     if (err != null) throw err;
     return bound;
   }
 
-  private renderRanges(
-    props: XAxisRenderProps,
-    xDataToDecimalScale: scale.Scale,
-  ): void {
+  private renderRanges(props: AxisRenderProps, xDataToDecimalScale: scale.Scale): void {
     const bound = this.bounds(props.hold);
     const clampedBounds = bounds.min([bound, TimeRange.MAX.numericBounds]);
     const timeRange = new TimeRange(clampedBounds.lower, clampedBounds.upper);

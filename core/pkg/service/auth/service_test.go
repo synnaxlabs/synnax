@@ -16,10 +16,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -164,10 +164,16 @@ var _ = Describe("Service", func() {
 				Expect(session.Credential).To(Equal(p.Key))
 			},
 		)
-		It("Should never store the token", func(ctx SpecContext) {
+		It("Should store the token's hash, never the token", func(ctx SpecContext) {
 			session, token := login(ctx)
-			Expect(string(session.Hash)).ToNot(ContainSubstring(token))
-			Expect(session.Hash).To(HaveLen(32))
+			var stored auth.Session
+			Expect(
+				svc.NewRetrieve().Where(auth.MatchKeys(session.Key)).Entry(&stored).
+					Exec(ctx, nil),
+			).To(Succeed())
+			Expect(stored.Hash).To(HaveLen(32))
+			Expect(stored.Hash).To(Equal(session.Hash))
+			Expect(string(stored.Hash)).ToNot(ContainSubstring(token))
 		})
 		It("Should return the authenticator's error", func(ctx SpecContext) {
 			Expect(svc.Login(ctx, proof(username, "wrong"))).Error().

@@ -155,6 +155,18 @@ describe("Input.Numeric", () => {
       expect(onChange).not.toHaveBeenCalled();
     });
 
+    it("should emit the empty value when the input blurs empty", () => {
+      const onChange = vi.fn();
+      const c = render(
+        <Input.Numeric value={undefined} onChange={onChange} emptyValue={-1} />,
+      );
+      const input = c.getByRole("textbox");
+      fireEvent.change(input, { target: { value: "x" } });
+      fireEvent.change(input, { target: { value: "" } });
+      fireEvent.blur(input);
+      expect(onChange).toHaveBeenCalledWith(-1);
+    });
+
     it("should emit a typed value from an absent one", () => {
       const onChange = vi.fn();
       const c = render(<Input.Numeric value={undefined} onChange={onChange} />);

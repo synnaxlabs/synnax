@@ -14,7 +14,7 @@ package user
 import (
 	"context"
 
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp"
 )
 
 // Retrieve is used to retrieve User records from the database using a
@@ -31,16 +31,23 @@ type Retrieve struct {
 // instead of relying on package-level state.
 type indexes struct {
 	username *gorp.LookupIndex[Key, User, string]
+	search   *gorp.SearchIndex[Key, User]
 }
 
-// newIndexes constructs a fresh indexes value, allocating one index instance
-// per registered field. Call once per Service in OpenService and store the
-// result on the Service struct.
+// newIndexes constructs a fresh indexes value, allocating one instance of each
+// index. Call once per Service in OpenService and store the result on the
+// Service struct.
 func newIndexes() indexes {
 	return indexes{
 		username: gorp.NewLookupIndex[Key, User, string](
 			"username",
 			func(e *User) string { return e.Username },
+		),
+		search: gorp.NewSearchIndex[Key, User](
+			"search",
+			func(e *User) []string {
+				return []string{e.Username, e.FirstName, e.LastName}
+			},
 		),
 	}
 }
@@ -50,6 +57,7 @@ func newIndexes() indexes {
 func (i indexes) all() []gorp.Index[Key, User] {
 	return []gorp.Index[Key, User]{
 		i.username,
+		i.search,
 	}
 }
 
@@ -83,6 +91,16 @@ func Or(fs ...Filter) Filter {
 // Not returns a filter that inverts the provided filter.
 func Not(f Filter) Filter {
 	return gorp.NotBound[Retrieve, Key, User](f)
+}
+
+// Search filters the users to those whose text matches
+// term, closest match first. An empty term adds no filter.
+func (r Retrieve) Search(term string) Retrieve {
+	if term == "" {
+		return r
+	}
+	r.gorp = r.gorp.Where(r.indexes.search.Filter(term))
+	return r
 }
 
 // MatchKeys returns a filter that restricts results to

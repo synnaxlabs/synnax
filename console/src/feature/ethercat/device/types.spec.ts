@@ -37,5 +37,25 @@ testPropertiesSchema(
       "properties carrying the PDOs written by a device scan",
       { identifier: "EL3004", position: 1, pdos: createPDOs() },
     ],
+    [
+      "properties carrying PDO names",
+      {
+        identifier: "EL1008",
+        position: 1,
+        pdos: {
+          inputs: [
+            {
+              name: "Input",
+              pdoName: "Channel 1",
+              index: 0x6000,
+              subIndex: 1,
+              bitLength: 1,
+              dataType: "uint8",
+            },
+          ],
+          outputs: [],
+        },
+      },
+    ],
   ],
 );

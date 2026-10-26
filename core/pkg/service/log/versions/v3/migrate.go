@@ -12,8 +12,8 @@ package v3
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp/migrate"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // MigrateLog lifts a v2 log to v3.
@@ -39,4 +39,4 @@ func MigrateChannelEntry(
 }
 
 // Migration lifts stored logs from v2 to v3.
-var Migration = gorp.NewEntryMigration("v60_optional_channel_precision", MigrateLog)
+var Migration = migrate.NewEntry("v60_optional_channel_precision", MigrateLog)

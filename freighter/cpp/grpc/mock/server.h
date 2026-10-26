@@ -27,11 +27,14 @@
 namespace freighter::grpc::mock {
 /// @brief Used to awake main thread when we are
 /// done processing messages.
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): every mock server
+// thread, and the test that stops them, share this state.
 inline std::mutex mut;
 inline std::condition_variable cond;
 inline bool end_session = false;
 /// @brief the number of servers currently accepting connections.
 inline int running = 0;
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 /// @brief Implements .proto generated interface Unary.
 class unaryServiceImpl final : public test::UnaryMessageService::Service {

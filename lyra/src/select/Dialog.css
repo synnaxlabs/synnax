@@ -9,6 +9,12 @@
  * included in the file licenses/APL.txt.
  */
 
+/* Not gated on visibility: the dialog frame reads this width to place the dialog before
+   it shows. The window width caps it, as min-width wins over max-width. */
+.pluto-select__dialog:not(.pluto--modal) {
+    min-width: min(32rem, var(--pluto-dialog-available-width, 100vw));
+}
+
 .pluto-select__dialog.pluto--visible {
     --pluto-dialog-max-height: 250px;
     min-height: 60px;

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/feature/ethercat/device/ContextMenuItems";
+export * from "@/feature/ethercat/device/hardware";
 export * from "@/feature/ethercat/device/queries";
 export * from "@/feature/ethercat/device/SelectSlave";
 export * from "@/feature/ethercat/device/types";
-export * from "@/feature/ethercat/device/useConfigureModal";

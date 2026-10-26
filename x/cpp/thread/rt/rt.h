@@ -46,7 +46,7 @@ struct Capability {
 
     [[nodiscard]] bool ok() const { return this->supported && this->permitted; }
 
-    operator bool() const { return this->ok(); }
+    explicit operator bool() const { return this->ok(); }
 
     [[nodiscard]] bool missing_permissions() const {
         return this->supported && !this->permitted;

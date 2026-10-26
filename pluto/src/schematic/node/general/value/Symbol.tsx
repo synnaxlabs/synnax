@@ -10,7 +10,7 @@
 import { type schematic } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { box, text, xy } from "@synnaxlabs/x";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
@@ -46,14 +46,8 @@ export const Symbol = ({
   },
 }: NodeProps<schematic.ValueNodeConfig>): ReactElement => {
   const valueBoxHeight = Component.HEIGHTS[LEVEL_SIZES[level]];
-  const t = useMemo(
-    () => BaseValue.stringSource({ channel, rollingAverage, precision, notation }),
-    [channel, rollingAverage, precision, notation],
-  );
-  const backgroundTelem = useMemo(
-    () => BaseValue.backgroundTelem(t, redline, fillColor),
-    [t, redline, fillColor],
-  );
+  const t = BaseValue.stringSource({ channel, rollingAverage, precision, notation });
+  const backgroundTelem = BaseValue.backgroundTelem(t, redline, fillColor);
   const { width: oWidth } = BaseValue.use({
     aetherKey: nodeKey,
     color: textColor,
@@ -72,13 +66,16 @@ export const Symbol = ({
     valueBackgroundOverScan: VALUE_BACKGROUND_OVERSCAN,
     valueBackgroundShift: VALUE_BACKGROUND_SHIFT,
   });
+  // The text can widen the box past inlineSize, so a drag starts from the drawn width.
+  const resize = Grid.useInlineResize(oWidth, (inlineSize) =>
+    onConfigChange({ inlineSize }),
+  );
 
   return (
-    <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false}>
+    <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false} {...resize}>
       <Label.Label config={label} onChange={onConfigChange} />
       <Value
         strokeColor={strokeColor}
-        textColor={textColor}
         orientation={orientation}
         dimensions={{ height: valueBoxHeight, width: oWidth }}
         inlineSize={inlineSize}

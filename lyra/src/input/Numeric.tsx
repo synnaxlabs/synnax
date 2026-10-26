@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { bounds } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect } from "react";
+import { type ReactElement, useEffect } from "react";
 
 import { CSS } from "@/css";
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
@@ -48,6 +48,12 @@ export interface NumericProps
   /** Clamps the committed value. */
   bounds?: bounds.Crude;
   onBlur?: () => void;
+  /**
+   * A stored sentinel the schema gives a meaning such as "auto". A value equal to it
+   * renders empty, and clearing the input commits it. Equality is `Object.is`, so NaN
+   * works as the sentinel.
+   */
+  emptyValue?: number;
 }
 
 /**
@@ -76,73 +82,77 @@ export const Numeric = ({
   onBlur,
   size,
   color,
+  emptyValue,
   ...rest
 }: NumericProps): ReactElement => {
   // An absent value renders empty, so the placeholder reads as the unset state.
+  const isEmpty = value == null || Object.is(value, emptyValue);
   // We need to keep the actual value as a valid number, but we need to let the user
   // input an invalid value that may eventually be valid, so we need to keep the
   // internal value as a string in state.
   const [internalValue, setInternalValue, internalValueRef] = useCombinedStateAndRef(
-    value == null ? "" : value.toString(),
+    isEmpty ? "" : value.toString(),
   );
   const [isValueValid, setIsValueValid, isValueValidRef] =
     useCombinedStateAndRef<boolean>(true);
   const valueRef = useSyncedRef(value);
   const boundsRef = useSyncedRef(propsBounds);
 
-  const updateActualValue = useCallback(() => {
+  const updateActualValue = () => {
     // This just means we never actually modified the input
     if (isValueValidRef.current) return;
     setIsValueValid(true);
     const raw = internalValueRef.current.trim();
+    if (raw === "" && emptyValue != null) {
+      onChange?.(emptyValue);
+      return;
+    }
     if (raw === "" && valueRef.current == null) return;
     const commit = (v: number | null): void => {
       if (v != null) onChange?.(bounds.clamp(boundsRef.current, v));
       else
-        setInternalValue(valueRef.current == null ? "" : valueRef.current.toString());
+        setInternalValue(
+          valueRef.current == null || Object.is(valueRef.current, emptyValue)
+            ? ""
+            : valueRef.current.toString(),
+        );
     };
     const plain = parseNumber(raw);
     if (plain != null) return commit(plain);
     void evaluateExpression(raw).then(commit);
-  }, [onChange, setInternalValue]);
+  };
 
   const updateActualValueRef = useSyncedRef(updateActualValue);
 
-  const handleBlur = useCallback(() => {
+  const handleBlur = () => {
     onBlur?.();
     updateActualValue();
-  }, [onBlur, updateActualValue]);
+  };
 
   // Sometimes we don't blur the component before it unmounts, so this makes
   // sure we try to update the actual value on unmount.
   useEffect(() => () => updateActualValueRef.current?.(), []);
 
-  const handleChange = useCallback(
-    (v: string) => {
-      setIsValueValid(false);
-      setInternalValue(v);
-    },
-    [setInternalValue, setIsValueValid],
-  );
+  const handleChange = (v: string) => {
+    setIsValueValid(false);
+    setInternalValue(v);
+  };
 
   // If the value is valid, use the actual value, otherwise use the internal value.
-  const value_ = isValueValid ? (value?.toString() ?? "") : internalValue;
+  const value_ = isValueValid ? (isEmpty ? "" : value.toString()) : internalValue;
 
-  const onDragChange = useCallback(
-    (value: number) => {
-      const next = bounds.clamp(boundsRef.current, Math.round(value));
-      // A gated input parks the drag in the internal value, so the text tracks the
-      // pointer and the release commits through the same blur path typing uses.
-      if (onlyChangeOnBlur) {
-        setIsValueValid(false);
-        setInternalValue(next.toString());
-        return;
-      }
-      setIsValueValid(true);
-      onChange?.(next);
-    },
-    [onChange, onlyChangeOnBlur, setInternalValue, setIsValueValid],
-  );
+  const onDragChange = (value: number) => {
+    const next = bounds.clamp(boundsRef.current, Math.round(value));
+    // A gated input parks the drag in the internal value, so the text tracks the
+    // pointer and the release commits through the same blur path typing uses.
+    if (onlyChangeOnBlur) {
+      setIsValueValid(false);
+      setInternalValue(next.toString());
+      return;
+    }
+    setIsValueValid(true);
+    onChange?.(next);
+  };
 
   if (dragScale == null && bounds.isFinite(propsBounds))
     dragScale = {

@@ -12,8 +12,12 @@ import { FLAG_PORTAL, VERCEL_ENV } from "astro:env/client";
 // Preview deploys show every flagged surface, so reviewers see dark work.
 const PREVIEW = VERCEL_ENV === "preview";
 
-/** Turns a `FLAG_<NAME>` value from `astro:env/client` into a registry entry. */
-export const flag = (value: boolean): boolean => value || PREVIEW;
+/**
+ * Turns a `FLAG_<NAME>` value from `astro:env/client` into a registry entry. Dev servers
+ * and preview deploys turn every flag on.
+ */
+export const flag = (value: boolean): boolean =>
+  value || PREVIEW || import.meta.env.DEV;
 
 /**
  * Static build-time flags that hide unfinished docs in production. Each entry names its

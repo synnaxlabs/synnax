@@ -19,7 +19,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Arc } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo, useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -33,12 +33,12 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
     key: "stages",
   });
   const theme = Theming.use();
-  const handleDragStart = useCallback(() => {
+  const handleDragStart = () => {
     startDrag([Arc.createHaulItem(itemKey)]);
-  }, [startDrag, itemKey]);
+  };
 
   const spec = List.useItem<string, Arc.Graph.Node.Spec>(itemKey);
-  const config = useMemo(() => spec?.defaultConfig(theme), [spec, theme]);
+  const config = spec?.defaultConfig(theme);
   if (spec == null || config == null) return null;
   const { name, Preview } = spec;
 
@@ -70,12 +70,10 @@ export interface StateListProps {
 }
 
 const StaticStageList = ({ groupKey, onSelect }: StateListProps): ReactElement => {
-  const stages = useMemo<Arc.Graph.Node.Spec[]>(() => {
-    const g = Arc.Graph.Node.GROUPS.find((g) => g.key === groupKey);
-    return Object.values(Arc.Graph.Node.REGISTRY).filter((s) =>
-      g?.symbols.includes(s.key),
-    ) as unknown as Arc.Graph.Node.Spec[];
-  }, [groupKey]);
+  const g = Arc.Graph.Node.GROUPS.find((g) => g.key === groupKey);
+  const stages: Arc.Graph.Node.Spec[] = Object.values(Arc.Graph.Node.REGISTRY).filter(
+    (s) => g?.symbols.includes(s.key),
+  ) as unknown as Arc.Graph.Node.Spec[];
   const { data, getItem } = List.useStaticData<string, Arc.Graph.Node.Spec>({
     data: stages,
   });
@@ -100,7 +98,7 @@ const StaticStageList = ({ groupKey, onSelect }: StateListProps): ReactElement =
   );
 };
 
-const groupListItem = Component.renderProp((props: List.ItemProps<string>) => {
+const GroupItem = (props: List.ItemProps<string>) => {
   const { itemKey } = props;
   const group = List.useItem<string, Arc.Graph.Node.Group>(itemKey);
   const { selected, onSelect } = Select.useItemState(itemKey);
@@ -119,7 +117,9 @@ const groupListItem = Component.renderProp((props: List.ItemProps<string>) => {
       {name}
     </Button.Toggle>
   );
-});
+};
+
+const groupListItem = Component.renderProp(GroupItem);
 
 export interface GroupListProps extends Input.Control<string> {}
 
@@ -144,10 +144,7 @@ const GroupList = ({ value, onChange }: GroupListProps) => {
 export const Stages = (): ReactElement => {
   const [selectedGroup, setSelectedGroup] = useState<string>("basic");
   const addNode = Arc.useAddNode();
-  const handleAddNode = useCallback(
-    (type: string) => addNode({ key: id.create(), type }),
-    [addNode],
-  );
+  const handleAddNode = (type: string) => addNode({ key: id.create(), type });
   return (
     <Flex.Box y empty full className={CSS.BE("arc", "stages")}>
       <Flex.Box

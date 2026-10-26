@@ -18,6 +18,9 @@
 #include "driver/opcua/mock/server.h"
 
 namespace driver::opcua::connection {
+const std::string BREAKER_OPEN_TEXT = "The Driver paused new connections to the server "
+                                      "after too many failed attempts in a row.";
+
 class ConnectionPoolTest : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -102,6 +105,7 @@ TEST_F(ConnectionPoolTest, DifferentEndpoints) {
 }
 
 /// @brief it should properly transfer ownership with move semantics.
+// NOLINTBEGIN(bugprone-use-after-move): the tests check the moved-from state.
 TEST_F(ConnectionPoolTest, MoveSemantics) {
     Pool pool;
 
@@ -117,6 +121,7 @@ TEST_F(ConnectionPoolTest, MoveSemantics) {
     EXPECT_EQ(conn3.get(), original_ptr);
     EXPECT_FALSE(conn2);
 }
+// NOLINTEND(bugprone-use-after-move)
 
 /// @brief it should handle concurrent access from multiple threads safely.
 TEST_F(ConnectionPoolTest, ThreadSafety) {
@@ -127,6 +132,7 @@ TEST_F(ConnectionPoolTest, ThreadSafety) {
     std::vector<std::thread> threads;
     std::atomic<int> success_count{0};
 
+    threads.reserve(num_threads);
     for (int i = 0; i < num_threads; ++i) {
         threads.emplace_back([&pool, &success_count, this]() {
             for (int j = 0; j < acquisitions_per_thread; ++j) {
@@ -325,8 +331,8 @@ TEST_F(ConnectionPoolTest, ServerRestartRecovery) {
     auto conn2 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
 
     // Verify connection is actually functional by checking session state
-    UA_SessionState session_state;
-    UA_SecureChannelState channel_state;
+    UA_SessionState session_state = UA_SESSIONSTATE_CLOSED;
+    UA_SecureChannelState channel_state = UA_SECURECHANNELSTATE_CLOSED;
     UA_Client_getState(conn2.get(), &channel_state, &session_state, nullptr);
     EXPECT_EQ(session_state, UA_SESSIONSTATE_ACTIVATED);
 }
@@ -377,13 +383,14 @@ TEST_F(ConnectionPoolTest, ConcurrentRecoveryAfterFailure) {
     std::vector<std::thread> threads;
     std::atomic<int> success_count{0};
 
+    threads.reserve(num_threads);
     for (int i = 0; i < num_threads; ++i) {
         threads.emplace_back([&pool, &success_count, this]() {
             auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");
             if (!err && conn) {
                 // Verify connection is functional
-                UA_SessionState session_state;
-                UA_SecureChannelState channel_state;
+                UA_SessionState session_state = UA_SESSIONSTATE_CLOSED;
+                UA_SecureChannelState channel_state = UA_SECURECHANNELSTATE_CLOSED;
                 UA_Client_getState(conn.get(), &channel_state, &session_state, nullptr);
                 if (session_state == UA_SESSIONSTATE_ACTIVATED) { success_count++; }
             }
@@ -675,8 +682,7 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerTripsAfterFailures) {
         << "Breaker should reject instantly, but took " << elapsed.count() << "ms";
 
     // Error message should mention circuit breaker
-    EXPECT_NE(err.message().find("circuit breaker"), std::string::npos)
-        << "Error should mention circuit breaker: " << err.message();
+    EXPECT_EQ(err.data, BREAKER_OPEN_TEXT);
 }
 
 /// @brief After the circuit breaker trips, acquire() must reject instantly
@@ -721,8 +727,7 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerSkipsCleanupWhenTripped) {
     EXPECT_LT(elapsed.count(), 500)
         << "Breaker should reject before cleanup_stale_entries, but took "
         << elapsed.count() << "ms";
-    EXPECT_NE(err.message().find("circuit breaker"), std::string::npos)
-        << "Error should mention circuit breaker: " << err.message();
+    EXPECT_EQ(err.data, BREAKER_OPEN_TEXT);
 }
 
 /// @brief After the circuit breaker trips and the cooldown expires, a
@@ -749,7 +754,7 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerResetsOnSuccess) {
     {
         auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");
         ASSERT_TRUE(err);
-        EXPECT_NE(err.message().find("circuit breaker"), std::string::npos);
+        EXPECT_EQ(err.data, BREAKER_OPEN_TEXT);
     }
 
     // Restart server
@@ -767,8 +772,8 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerResetsOnSuccess) {
     ASSERT_NE(conn.get(), nullptr);
 
     // Verify connection is functional
-    UA_SessionState ss;
-    UA_SecureChannelState cs;
+    UA_SessionState ss = UA_SESSIONSTATE_CLOSED;
+    UA_SecureChannelState cs = UA_SECURECHANNELSTATE_CLOSED;
     UA_Client_getState(conn.get(), &cs, &ss, nullptr);
     EXPECT_EQ(ss, UA_SESSIONSTATE_ACTIVATED);
 
@@ -812,6 +817,7 @@ TEST_F(SessionLimitPoolTest, ConcurrentChurnExhaustsSessions) {
     std::atomic<int> success_count{0};
     std::atomic<int> error_count{0};
 
+    threads.reserve(num_threads);
     for (int i = 0; i < num_threads; ++i) {
         threads.emplace_back([&pool, &success_count, &error_count, this]() {
             auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");

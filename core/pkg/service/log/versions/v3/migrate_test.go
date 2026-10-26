@@ -14,11 +14,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -79,7 +78,7 @@ var _ = Describe("Migration", func() {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  "log",
-			Migrations: []migrate.Migration{v3.Migration},
+			Migrations: []gorp.Migration{v3.Migration},
 		})).To(Succeed())
 		var got v3.Log
 		Expect(gorp.NewRetrieve[uuid.UUID, v3.Log]().

@@ -41,27 +41,14 @@ export const CAMERA_SPRING: SpringParams = { stiffness: 130, damping: 42, mass: 
 /** Camera simulation step in seconds. */
 export const CAMERA_SIM_DT = 0.008;
 
-/** Focus in the outer band of the frame pins the camera flush to that edge. */
-export const EDGE_SNAP_RATIO = 0.25;
-
-/**
- * Dead-zone box for camera follow while zoomed, as a fraction of the visible
- * viewport: the camera holds until the focus leaves this box.
- */
-export const FOLLOW_DEADZONE_W = 0.5;
-export const FOLLOW_DEADZONE_H = 0.7;
-
 /** Amounts at or below this are treated as fully zoomed out (pre-aim active). */
 export const PRE_AIM_EPSILON = 1.0005;
 
 /**
- * Margin (CSS px) kept around a focused element's rect when the camera frames
- * it: the rect plus this margin must fit inside the zoomed viewport.
+ * Margin (CSS px) kept around a focused element's rect when the camera frames or
+ * follows it: the rect plus this margin must fit inside the zoomed viewport.
  */
 export const ZOOM_RECT_MARGIN_PX = 96;
-
-/** Ceiling for zoom amounts derived from element rects (authored or auto). */
-export const RECT_ZOOM_MAX = 2.5;
 
 /**
  * Floor for rect-derived zoom during auto segments. A click whose target rect
@@ -107,9 +94,6 @@ export const IDLE_FADE_IN_S = 0.15;
 
 /** Raw-path movement (px/frame) below which the cursor counts as still. */
 export const IDLE_EPSILON_PX = 0.1;
-
-/** Film stage: the tilt a reveal opens at. */
-export const STAGE_TILT: Tilt = { x: 22, z: -10 };
 
 /** Film stage: the reading tilt the plane settles to between moves. */
 export const STAGE_REST: Tilt = { x: 4, z: -2 };

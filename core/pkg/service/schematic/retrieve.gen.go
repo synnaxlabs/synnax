@@ -14,14 +14,45 @@ package schematic
 import (
 	"context"
 
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp"
 )
 
 // Retrieve is used to retrieve Schematic records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {
-	baseTX gorp.Tx
-	gorp   gorp.Retrieve[Key, Schematic]
+	baseTX  gorp.Tx
+	gorp    gorp.Retrieve[Key, Schematic]
+	indexes indexes
+}
+
+// indexes bundles the per-Service secondary indexes registered on the
+// Schematic table. Each index is constructed via newIndexes and threaded
+// onto the Retrieve so filter functions can resolve them off r.indexes
+// instead of relying on package-level state.
+type indexes struct {
+	search *gorp.SearchIndex[Key, Schematic]
+}
+
+// newIndexes constructs a fresh indexes value, allocating one instance of each
+// index. Call once per Service in OpenService and store the result on the
+// Service struct.
+func newIndexes() indexes {
+	return indexes{
+		search: gorp.NewSearchIndex[Key, Schematic](
+			"search",
+			func(e *Schematic) []string {
+				return []string{e.Name}
+			},
+		),
+	}
+}
+
+// all returns the indexes packaged as a heterogeneous slice for registration
+// via gorp.TableConfig.Indexes when opening the underlying table.
+func (i indexes) all() []gorp.Index[Key, Schematic] {
+	return []gorp.Index[Key, Schematic]{
+		i.search,
+	}
 }
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to
@@ -54,6 +85,16 @@ func Or(fs ...Filter) Filter {
 // Not returns a filter that inverts the provided filter.
 func Not(f Filter) Filter {
 	return gorp.NotBound[Retrieve, Key, Schematic](f)
+}
+
+// Search filters the schematics to those whose text matches
+// term, closest match first. An empty term adds no filter.
+func (r Retrieve) Search(term string) Retrieve {
+	if term == "" {
+		return r
+	}
+	r.gorp = r.gorp.Where(r.indexes.search.Filter(term))
+	return r
 }
 
 // MatchKeys returns a filter that restricts results to

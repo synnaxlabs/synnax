@@ -39,7 +39,7 @@ inline types::ChannelKey bound_key(
     const size_t channel_idx,
     const types::ChannelKey configured
 ) {
-    if (const auto t = s.ref_input(channel_idx); t != nullptr && t->size() > 0)
+    if (const auto t = s.ref_input(channel_idx); t != nullptr && !t->empty())
         return t->at<uint32_t>(-1);
     return configured;
 }
@@ -69,7 +69,7 @@ class On : public runtime::node::Node {
         if (!ok || data.series.empty()) return;
         const auto &last = data.series.back();
         const auto lower = last.alignment;
-        const auto upper_val = lower.uint64() + (last.size() > 0 ? last.size() - 1 : 0);
+        const auto upper_val = lower.uint64() + (!last.empty() ? last.size() - 1 : 0);
         const auto upper = x::telem::Alignment(upper_val + 1);
         if (upper.uint64() > this->high_water_mark.uint64())
             this->high_water_mark = upper;
@@ -93,8 +93,7 @@ public:
         for (size_t i = 0; i < data.series.size(); i++) {
             auto &ser = data.series[i];
             auto lower = ser.alignment;
-            const auto upper_val = lower.uint64() +
-                                   (ser.size() > 0 ? ser.size() - 1 : 0);
+            const auto upper_val = lower.uint64() + (!ser.empty() ? ser.size() - 1 : 0);
 
             if (lower.uint64() < this->high_water_mark.uint64()) continue;
 
@@ -184,9 +183,11 @@ public:
         if (time->size() != data->size()) {
             ctx.report_error(
                 x::errors::Error(
+                    x::errors::INTERNAL,
                     "write to channel " + std::to_string(k) + ": sample count " +
-                    std::to_string(data->size()) + " does not match timestamp count " +
-                    std::to_string(time->size())
+                        std::to_string(data->size()) +
+                        " does not match timestamp count " +
+                        std::to_string(time->size())
                 )
             );
             return x::errors::NIL;
@@ -221,7 +222,7 @@ public:
     Module(std::shared_ptr<State> channel, std::shared_ptr<strings::State> str_state):
         channel(std::move(channel)), str_state(std::move(str_state)) {}
 
-    bool handles(const std::string &node_type) const override {
+    [[nodiscard]] bool handles(const std::string &node_type) const override {
         return node_type == "on" || node_type == "write";
     }
 
@@ -244,8 +245,8 @@ public:
                 nullptr,
                 x::errors::Error(
                     x::errors::VALIDATION,
-                    std::string(cfg.node.type) +
-                        " node missing required channel parameter"
+                    "The " + std::string(cfg.node.type) +
+                        " node is missing its channel parameter."
                 )
             };
         const auto channel_key = ch_sv.has_value()
@@ -289,9 +290,9 @@ private:
     void bind_ops(
         wasmtime::Linker &linker,
         const std::string &suffix,
-        x::telem::DataType dt
+        const x::telem::DataType &dt
     ) {
-        using W = typename WasmType<T>::type;
+        using W = WasmType<T>::type;
         auto ch = this->channel;
         linker
             .func_wrap(
@@ -303,7 +304,7 @@ private:
                     );
                     if (!ok || multi_series.series.empty()) return W{};
                     const auto &last = multi_series.series.back();
-                    if (last.size() == 0) return W{};
+                    if (last.empty()) return W{};
                     return static_cast<W>(last.at<T>(-1));
                 }
             )
@@ -335,7 +336,7 @@ private:
                     );
                     if (!ok || multi_series.series.empty()) return 0;
                     const auto &last = multi_series.series.back();
-                    if (last.size() == 0) return 0;
+                    if (last.empty()) return 0;
                     return last.at<uint8_t>(-1) != 0 ? 1 : 0;
                 }
             )
@@ -366,7 +367,7 @@ private:
                     auto [multi_series, ok] = ch->read_value(channel_id);
                     if (!ok || multi_series.series.empty()) return 0;
                     const auto &last = multi_series.series.back();
-                    if (last.size() == 0) return 0;
+                    if (last.empty()) return 0;
                     return ss->create(last.at<std::string>(-1));
                 }
             )

@@ -12,16 +12,15 @@ package device_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -40,24 +39,20 @@ var _ = Describe("Device", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.OpenIndex())
 		groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Search:   searchIdx,
 		}))
 		label := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
-			Search:   searchIdx,
 		}))
 		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			Ontology: otg,
 			DB:       db,
 			Group:    groupSvc,
 			Label:    label,
-			Search:   searchIdx,
 		}))
 		rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
@@ -65,7 +60,6 @@ var _ = Describe("Device", func() {
 			Group:        groupSvc,
 			HostProvider: mock.NewStaticHostProvider(1),
 			Status:       stat,
-			Search:       searchIdx,
 		}))
 		svc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 			DB:       db,
@@ -73,7 +67,6 @@ var _ = Describe("Device", func() {
 			Group:    groupSvc,
 			Status:   stat,
 			Rack:     rackSvc,
-			Search:   searchIdx,
 		}))
 		tx = db.OpenTx()
 		w = svc.NewWriter(tx)
@@ -297,7 +290,7 @@ var _ = Describe("Device", func() {
 					Entry(&deviceStatus).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(deviceStatus.Name).To(Equal("New Name"))
-				Expect(deviceStatus.Message).To(ContainSubstring("New Name"))
+				Expect(deviceStatus.Message).To(Equal("Device status unknown"))
 			},
 		)
 
@@ -1010,24 +1003,20 @@ var _ = Describe("Device", func() {
 			func(ctx SpecContext) {
 				db := DeferClose(gorp.Wrap(memkv.New()))
 				otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-				searchIdx := MustOpen(search.OpenIndex())
 				groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 					DB:       db,
 					Ontology: otg,
-					Search:   searchIdx,
 				}))
 				labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 					DB:       db,
 					Ontology: otg,
 					Group:    groupSvc,
-					Search:   searchIdx,
 				}))
 				stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 					Ontology: otg,
 					DB:       db,
 					Group:    groupSvc,
 					Label:    labelSvc,
-					Search:   searchIdx,
 				}))
 				rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 					DB:                  db,
@@ -1036,7 +1025,6 @@ var _ = Describe("Device", func() {
 					HostProvider:        mock.NewStaticHostProvider(1),
 					Status:              stat,
 					HealthCheckInterval: 10 * telem.Millisecond,
-					Search:              searchIdx,
 				}))
 				svc := MustOpen(device.OpenService(ctx, device.ServiceConfig{
 					DB:       db,
@@ -1044,7 +1032,6 @@ var _ = Describe("Device", func() {
 					Group:    groupSvc,
 					Status:   stat,
 					Rack:     rackSvc,
-					Search:   searchIdx,
 				}))
 
 				r := rack.Rack{Name: "suspect rack"}
@@ -1067,10 +1054,60 @@ var _ = Describe("Device", func() {
 						Entry(&deviceStatus).
 						Exec(ctx, nil)).To(Succeed())
 					g.Expect(deviceStatus.Variant).To(Equal(status.VariantWarning))
-					g.Expect(deviceStatus.Message).To(ContainSubstring("not running"))
+					g.Expect(deviceStatus.Message).To(Equal("Driver not running"))
 					g.Expect(deviceStatus.Details.Device).To(Equal(d.Key))
 					g.Expect(deviceStatus.Details.Rack).To(Equal(r.Key))
 				}).Should(Succeed())
+			},
+		)
+	})
+
+	Describe("Search", func() {
+		create := func(ctx SpecContext, key, name string) ontology.ID {
+			GinkgoHelper()
+			d := device.Device{
+				Key:      key,
+				Rack:     rackSvc.EmbeddedKey,
+				Name:     name,
+				Make:     "acme",
+				Model:    "usb6000",
+				Location: "bay7",
+			}
+			Expect(w.Create(ctx, &d)).To(Succeed())
+			return device.OntologyID(d.Key)
+		}
+
+		It(
+			"Should return the matching devices, closest match first",
+			func(ctx SpecContext) {
+				a := create(ctx, "a", "turbopump test")
+				b := create(ctx, "b", "turbopump")
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 0)).Keys).
+					To(Equal([]ontology.ID{b, a}))
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 1)).Keys).
+					To(Equal([]ontology.ID{b}))
+			},
+		)
+
+		DescribeTable("Should match a device by its",
+			func(ctx SpecContext, term string) {
+				id := create(ctx, "igniter", "igniter")
+				Expect(MustSucceed(svc.Search(ctx, tx, term, 0)).Keys).
+					To(Equal([]ontology.ID{id}))
+			},
+			Entry("name", "igniter"),
+			Entry("make", "acme"),
+			Entry("model", "usb6000"),
+			Entry("location", "bay7"),
+		)
+
+		It(
+			"Should not match a staged device outside its transaction",
+			func(ctx SpecContext) {
+				create(ctx, "injector", "injector")
+				Expect(
+					MustSucceed(svc.Search(ctx, db, "injector", 0)).Keys,
+				).To(BeEmpty())
 			},
 		)
 	})

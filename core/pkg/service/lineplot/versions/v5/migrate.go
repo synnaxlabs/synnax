@@ -14,10 +14,10 @@ import (
 	"math"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v0"
 	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/text"
 )
@@ -158,4 +158,4 @@ func migrateRules(in []legacy.Rule) []Rule {
 }
 
 // Migration lifts stored line plots from the v0 blob layout to the typed v5 shape.
-var Migration = gorp.NewEntryMigration("v55_lift_typed_lineplot", MigrateLinePlot)
+var Migration = migrate.NewEntry("v55_lift_typed_lineplot", MigrateLinePlot)

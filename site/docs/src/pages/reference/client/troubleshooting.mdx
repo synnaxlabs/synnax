@@ -8,7 +8,7 @@ clients: ["python", "typescript"]
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
 import { Platform } from "@/components/platform";
@@ -89,7 +89,7 @@ python3.12 --version
 The latest version of Node.js from the [official Node.js website](https://nodejs.org/)
 is recommended.
 
-<Note.Note variant="info" className="compact">
+<Note.Note variant="info">
   After installing Node.js, you can install the Synnax client with `npm install
   @synnaxlabs/client`.
 </Note.Note>
@@ -214,7 +214,7 @@ section above.
 
 If `python --version` returns `command not found`, the executable isn't on your PATH.
 
-<Note.Note variant="info" className="compact">
+<Note.Note variant="info">
   If multiple Python versions are installed, an older version may shadow the newer one
   in your PATH. Check your PATH order and remove or reorder conflicting entries.
 </Note.Note>

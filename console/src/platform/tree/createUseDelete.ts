@@ -9,7 +9,6 @@
 
 import { type Flux } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { Modals } from "@/platform/modals";
 import { type ContextMenuProps } from "@/platform/tree/types";
@@ -18,7 +17,7 @@ export interface CreateUseDeleteParams<K extends record.Key> {
   type: string;
   icon?: string;
   description?: string;
-  query: Flux.UseUpdate<K | K[]>;
+  useUpdate: Flux.UseUpdate<K | K[]>;
   convertKey: (key: string) => K;
   beforeUpdate?: (
     query: Flux.BeforeUpdateParams<K | K[]> & ContextMenuProps,
@@ -26,41 +25,33 @@ export interface CreateUseDeleteParams<K extends record.Key> {
   afterSuccess?: (query: Flux.AfterSuccessParams<K | K[]> & ContextMenuProps) => void;
 }
 
-export const createUseDelete =
-  <K extends record.Key>({
-    type,
-    icon,
-    description,
-    query,
-    convertKey,
-    beforeUpdate,
-    afterSuccess,
-  }: CreateUseDeleteParams<K>): ((props: ContextMenuProps) => () => void) =>
-  (props: ContextMenuProps) => {
+export const createUseDelete = <K extends record.Key>({
+  type,
+  icon,
+  description,
+  useUpdate,
+  convertKey,
+  beforeUpdate,
+  afterSuccess,
+}: CreateUseDeleteParams<K>): ((props: ContextMenuProps) => () => void) => {
+  const useDelete = (props: ContextMenuProps) => {
     const {
       selection: { ids },
       state: { getResource },
     } = props;
     const confirm = Modals.useConfirmDelete({ type, description, icon });
-    const { update } = query({
-      beforeUpdate: useCallback(
-        async (query: Flux.BeforeUpdateParams<K | K[]>) => {
-          const res = await confirm(getResource(ids));
-          if (!res) return false;
-          if (beforeUpdate != null) return await beforeUpdate({ ...query, ...props });
-          return true;
-        },
-        [props],
-      ),
-      afterSuccess: useCallback(
-        (query: Flux.AfterSuccessParams<K | K[]>) => {
-          afterSuccess?.({ ...query, ...props });
-        },
-        [props],
-      ),
+    const { update } = useUpdate({
+      beforeUpdate: async (query: Flux.BeforeUpdateParams<K | K[]>) => {
+        const res = await confirm(getResource(ids));
+        if (!res) return false;
+        if (beforeUpdate != null) return await beforeUpdate({ ...query, ...props });
+        return true;
+      },
+      afterSuccess: (query: Flux.AfterSuccessParams<K | K[]>) => {
+        afterSuccess?.({ ...query, ...props });
+      },
     });
-    return useCallback(
-      () => update(ids.map((id) => convertKey(id.key))),
-      [update, ids, convertKey],
-    );
+    return () => update(ids.map((id) => convertKey(id.key)));
   };
+  return useDelete;
+};

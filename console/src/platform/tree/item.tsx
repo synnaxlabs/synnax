@@ -15,7 +15,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree as Base } from "@synnaxlabs/lyra/tree";
-import { type FC, type ReactElement, useCallback } from "react";
+import { type FC, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { type ContextMenu } from "@/platform/tree/types";
@@ -98,10 +98,7 @@ export const createItem = ({
   const Row = ContentComp ?? DefaultRow;
   const Component = (props: ItemProps): ReactElement => {
     const onSelect = useOnSelect();
-    const handleDoubleClick = useCallback(
-      () => onSelect(props.resource),
-      [onSelect, props.resource],
-    );
+    const handleDoubleClick = () => onSelect(props.resource);
     const resolvedIcon = Icon.resolve(
       typeof icon === "function" ? icon(props.resource) : icon,
     );

@@ -15,8 +15,38 @@ import (
 	"context"
 	"slices"
 
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp"
 )
+
+// indexes bundles the per-Service secondary indexes registered on the
+// Policy table. Each index is constructed via newIndexes and threaded
+// onto the Retrieve so filter functions can resolve them off r.indexes
+// instead of relying on package-level state.
+type indexes struct {
+	search *gorp.SearchIndex[Key, Policy]
+}
+
+// newIndexes constructs a fresh indexes value, allocating one instance of each
+// index. Call once per Service in OpenService and store the result on the
+// Service struct.
+func newIndexes() indexes {
+	return indexes{
+		search: gorp.NewSearchIndex[Key, Policy](
+			"search",
+			func(e *Policy) []string {
+				return []string{e.Name}
+			},
+		),
+	}
+}
+
+// all returns the indexes packaged as a heterogeneous slice for registration
+// via gorp.TableConfig.Indexes when opening the underlying table.
+func (i indexes) all() []gorp.Index[Key, Policy] {
+	return []gorp.Index[Key, Policy]{
+		i.search,
+	}
+}
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to
 // Where. Pure filters ignore the Retrieve argument; service-bound filters read
@@ -48,6 +78,16 @@ func Or(fs ...Filter) Filter {
 // Not returns a filter that inverts the provided filter.
 func Not(f Filter) Filter {
 	return gorp.NotBound[Retrieve, Key, Policy](f)
+}
+
+// Search filters the policies to those whose text matches
+// term, closest match first. An empty term adds no filter.
+func (r Retrieve) Search(term string) Retrieve {
+	if term == "" {
+		return r
+	}
+	r.gorp = r.gorp.Where(r.indexes.search.Filter(term))
+	return r
 }
 
 // MatchKeys returns a filter that restricts results to

@@ -9,7 +9,7 @@
 
 import "@/avatar/Avatar.css";
 
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { type Component } from "@/component";
 import { CSS } from "@/css";
@@ -57,10 +57,7 @@ export const Avatar = ({
   className,
 }: AvatarProps): ReactElement => {
   const hue = hueOf(name);
-  const style = useMemo<CSS.VarProperties>(
-    () => ({ "--pluto-avatar-hue": hue }),
-    [hue],
-  );
+  const style: CSS.VarProperties = { "--pluto-avatar-hue": hue };
   return (
     <span
       className={CSS.cls(CSS.B("avatar"), CSS.M("height", size), className)}

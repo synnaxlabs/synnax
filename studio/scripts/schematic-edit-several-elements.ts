@@ -25,10 +25,11 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const pump = await capture.place(session, "Pump", { x: 830, y: 160 });
   const light = await capture.place(session, "Light", { x: 515, y: 160 });
   await capture.deselect(session, { x: 100, y: 290 });
-  await session.moveTo({ x: 150, y: 350 });
+  await capture.fitView(session);
+  await session.moveTo({ x: 800, y: 620 });
 
   session.startRecording();
-  await session.hold(500);
+  await session.hold(1800);
 
   await capture.selectSymbols(session, [gate, light, pump]);
   await session.hold(1000);
@@ -58,6 +59,6 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     { x: colors.x + colors.width / 2, y: colors.y + colors.height - 8 },
     { zoom: false },
   );
-  await session.moveTo({ x: 150, y: 350 });
-  await session.hold(1000);
+  await session.moveTo({ x: 800, y: 620 });
+  await session.hold(2800);
 };

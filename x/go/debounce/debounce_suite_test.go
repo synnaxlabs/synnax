@@ -19,7 +19,7 @@ import (
 
 func TestDebounce(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Debounce Suite")
+	RunSpecs(t, "Debounce Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

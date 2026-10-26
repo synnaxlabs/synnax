@@ -19,7 +19,7 @@ import (
 
 func TestTailscale(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cert Tailscale Suite")
+	RunSpecs(t, "Cert Tailscale Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

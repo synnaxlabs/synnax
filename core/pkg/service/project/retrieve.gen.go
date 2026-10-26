@@ -14,18 +14,45 @@ package project
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp"
 )
 
 // Retrieve is used to retrieve Project records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {
-	baseTX     gorp.Tx
-	gorp       gorp.Retrieve[Key, Project]
-	search     *search.Index
-	searchTerm string
+	baseTX  gorp.Tx
+	gorp    gorp.Retrieve[Key, Project]
+	indexes indexes
+}
+
+// indexes bundles the per-Service secondary indexes registered on the
+// Project table. Each index is constructed via newIndexes and threaded
+// onto the Retrieve so filter functions can resolve them off r.indexes
+// instead of relying on package-level state.
+type indexes struct {
+	search *gorp.SearchIndex[Key, Project]
+}
+
+// newIndexes constructs a fresh indexes value, allocating one instance of each
+// index. Call once per Service in OpenService and store the result on the
+// Service struct.
+func newIndexes() indexes {
+	return indexes{
+		search: gorp.NewSearchIndex[Key, Project](
+			"search",
+			func(e *Project) []string {
+				return []string{e.Name}
+			},
+		),
+	}
+}
+
+// all returns the indexes packaged as a heterogeneous slice for registration
+// via gorp.TableConfig.Indexes when opening the underlying table.
+func (i indexes) all() []gorp.Index[Key, Project] {
+	return []gorp.Index[Key, Project]{
+		i.search,
+	}
 }
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to
@@ -60,8 +87,15 @@ func Not(f Filter) Filter {
 	return gorp.NotBound[Retrieve, Key, Project](f)
 }
 
-// Search sets a fuzzy search term that Retrieve will use to filter results.
-func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
+// Search filters the projects to those whose text matches
+// term, closest match first. An empty term adds no filter.
+func (r Retrieve) Search(term string) Retrieve {
+	if term == "" {
+		return r
+	}
+	r.gorp = r.gorp.Where(r.indexes.search.Filter(term))
+	return r
+}
 
 // MatchKeys returns a filter that restricts results to
 // projects whose key matches any of the provided
@@ -108,47 +142,17 @@ func (r Retrieve) Offset(offset int) Retrieve {
 	return r
 }
 
-func (r Retrieve) execSearch(ctx context.Context) (Retrieve, error) {
-	if r.searchTerm == "" {
-		return r, nil
-	}
-	ids, err := r.search.Search(ctx, search.Request{
-		Type: ontology.ResourceTypeProject,
-		Term: r.searchTerm,
-	})
-	if err != nil {
-		return Retrieve{}, err
-	}
-	keys, err := KeysFromOntologyIDs(ids)
-	if err != nil {
-		return Retrieve{}, err
-	}
-	return r.Where(MatchKeys(keys...)), nil
-}
-
 // Exec executes the query against the provided transaction.
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
-	var err error
-	if r, err = r.execSearch(ctx); err != nil {
-		return err
-	}
 	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
 }
 
 // Count returns the number of projects matching the query.
 func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
-	var err error
-	if r, err = r.execSearch(ctx); err != nil {
-		return 0, err
-	}
 	return r.gorp.Count(ctx, gorp.OverrideTx(r.baseTX, tx))
 }
 
 // Exists checks whether any projects match the query.
 func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
-	var err error
-	if r, err = r.execSearch(ctx); err != nil {
-		return false, err
-	}
 	return r.gorp.Exists(ctx, gorp.OverrideTx(r.baseTX, tx))
 }

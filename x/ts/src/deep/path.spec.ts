@@ -73,6 +73,12 @@ describe("path utilities", () => {
         "a.b.c.d",
       );
     });
+
+    it("should rewrite only the parts inside arrays", () => {
+      expect(deep.resolvePath("a.b.c", { a: { b: { key: "", c: 1 } } })).toEqual(
+        "a.b.c",
+      );
+    });
   });
 
   describe("element", () => {
@@ -160,10 +166,10 @@ describe("path utilities", () => {
       expect(result).toBeNull();
     });
 
-    it("should prefer shorter key", () => {
+    it("should prefer the longer key", () => {
       const obj = { a: { b: 1 }, "a.b": 2 };
       const result = deep.findBestKey(obj, ["a", "b"]);
-      expect(result).toEqual(["a", 1]);
+      expect(result).toEqual(["a.b", 2]);
     });
   });
 });

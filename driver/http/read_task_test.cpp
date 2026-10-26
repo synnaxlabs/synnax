@@ -1566,8 +1566,8 @@ TEST(HTTPReadTask, MixedStatusFailuresBackOff) {
 }
 
 /// @brief a rejected endpoint beside a working one should stay a warning carrying the
-/// whole body with its line breaks escaped, and the working endpoint's data should
-/// come through.
+/// start of the body with its line breaks escaped, and the working endpoint's data
+/// should come through.
 TEST(HTTPReadTask, PartialStatusFailureWarnsWithOneLineBody) {
     std::string body = "<html>\n  <body>\n";
     for (int i = 0; i < 40; i++)
@@ -1591,14 +1591,14 @@ TEST(HTTPReadTask, PartialStatusFailureWarnsWithOneLineBody) {
     EXPECT_EQ(fr.size(), 1);
     EXPECT_NEAR(fr.at<double>(2, 0), 1.0, 0.001);
     EXPECT_NE(
-        res.warning.find("/a returned 401: <html>\\n  <body>\\n    <p>line 0</p>"),
+        res.warning.description.find(
+            "/a returned 401: <html>\\n  <body>\\n    <p>line 0</p>"
+        ),
         std::string::npos
     );
-    EXPECT_NE(
-        res.warning.find("<p>line 39</p>\\n  </body>\\n</html>"),
-        std::string::npos
-    );
-    EXPECT_EQ(res.warning.find('\n'), std::string::npos);
+    EXPECT_EQ(res.warning.description.find("line 39"), std::string::npos);
+    EXPECT_TRUE(res.warning.description.ends_with("..."));
+    EXPECT_EQ(res.warning.description.find('\n'), std::string::npos);
 }
 
 /// @brief endpoints not sent because the device was unreachable should collapse into
@@ -1631,9 +1631,9 @@ TEST(HTTPReadTask, SkippedEndpointsCollapseIntoOneLine) {
     ASSERT_OCCURRED_AS(res.error, errors::UNREACHABLE_ERROR);
     EXPECT_EQ(fr.size(), 0);
     EXPECT_NE(res.error.data.find("/slow"), std::string::npos);
-    EXPECT_NE(res.error.data.find("2 requests not sent"), std::string::npos);
+    EXPECT_NE(res.error.data.find("did not send 2 requests"), std::string::npos);
     EXPECT_EQ(res.error.data.find("/a"), std::string::npos);
-    EXPECT_EQ(res.error.data.find("polled"), std::string::npos);
+    EXPECT_EQ(res.error.data.find("at a time"), std::string::npos);
 }
 
 /// @brief more endpoints than slots overrunning the period should warn about the
@@ -1666,7 +1666,12 @@ TEST(HTTPReadTask, CapWarningWhenPollOverrunsPeriod) {
     breaker.stop();
     ASSERT_NIL(res.error);
     EXPECT_EQ(fr.size(), 3);
-    EXPECT_NE(res.warning.find("3 endpoints (polled 1 at a time)"), std::string::npos);
+    EXPECT_EQ(res.warning.message, "Falling behind poll rate");
+    EXPECT_EQ(
+        res.warning.description,
+        "Polling 3 endpoints 1 at a time takes longer than the 10ms read period. "
+        "Lower the rate or raise the max concurrent requests in the device properties."
+    );
 }
 
 /// @brief more endpoints than slots finishing within the period should not warn.
@@ -2364,8 +2369,8 @@ TEST(HTTPReadTask, TransportErrorPartialTimeout) {
     auto res = source->read(breaker, fr);
     breaker.stop();
     ASSERT_NIL(res.error);
-    EXPECT_NE(res.warning.find("/api/slow"), std::string::npos);
-    EXPECT_NE(res.warning.find("failed"), std::string::npos);
+    EXPECT_NE(res.warning.description.find("/api/slow"), std::string::npos);
+    EXPECT_NE(res.warning.description.find("failed"), std::string::npos);
     // Fast endpoint succeeded, slow endpoint timed out.
     EXPECT_EQ(fr.size(), 1);
     EXPECT_NEAR(fr.at<double>(1, 0), 42.0, 0.001);
@@ -2433,10 +2438,14 @@ TEST(HTTPReadTask, PartialFailureFirstEndpoint5xx) {
     auto res = source->read(breaker, fr);
     breaker.stop();
     ASSERT_NIL(res.error);
-    EXPECT_NE(res.warning.find("GET"), std::string::npos);
-    EXPECT_NE(res.warning.find("/api/failing"), std::string::npos);
-    EXPECT_NE(res.warning.find("500"), std::string::npos);
-    EXPECT_NE(res.warning.find(R"({"error":"internal"})"), std::string::npos);
+    EXPECT_EQ(res.warning.message, "Failed to read some data");
+    EXPECT_NE(res.warning.description.find("GET"), std::string::npos);
+    EXPECT_NE(res.warning.description.find("/api/failing"), std::string::npos);
+    EXPECT_NE(res.warning.description.find("500"), std::string::npos);
+    EXPECT_NE(
+        res.warning.description.find(R"({"error":"internal"})"),
+        std::string::npos
+    );
     // Second endpoint succeeded.
     EXPECT_EQ(fr.size(), 1);
     EXPECT_NEAR(fr.at<double>(2, 0), 42.0, 0.001);
@@ -2504,10 +2513,13 @@ TEST(HTTPReadTask, PartialFailureSecondEndpointCritical4xx) {
     auto res = source->read(breaker, fr);
     breaker.stop();
     ASSERT_NIL(res.error);
-    EXPECT_NE(res.warning.find("GET"), std::string::npos);
-    EXPECT_NE(res.warning.find("/api/failing"), std::string::npos);
-    EXPECT_NE(res.warning.find("400"), std::string::npos);
-    EXPECT_NE(res.warning.find(R"({"error":"bad request"})"), std::string::npos);
+    EXPECT_NE(res.warning.description.find("GET"), std::string::npos);
+    EXPECT_NE(res.warning.description.find("/api/failing"), std::string::npos);
+    EXPECT_NE(res.warning.description.find("400"), std::string::npos);
+    EXPECT_NE(
+        res.warning.description.find(R"({"error":"bad request"})"),
+        std::string::npos
+    );
     // First endpoint succeeded.
     EXPECT_EQ(fr.size(), 1);
     EXPECT_NEAR(fr.at<double>(1, 0), 42.0, 0.001);
@@ -3663,7 +3675,7 @@ TEST(HTTPReadTask, MissingFloatSkipsGroupByDefault) {
         false
     );
     ASSERT_NIL(res.error);
-    EXPECT_NE(res.warning.find("/p2 not found"), std::string::npos);
+    EXPECT_TRUE(res.warning.description.starts_with("Field /p2 not found"));
     EXPECT_EQ(fr.size(), 0);
 }
 
@@ -3676,7 +3688,7 @@ TEST(HTTPReadTask, MissingFloatFilledWithNaN) {
         true
     );
     ASSERT_NIL(res.error);
-    EXPECT_NE(res.warning.find("/p2 not found"), std::string::npos);
+    EXPECT_TRUE(res.warning.description.starts_with("Field /p2 not found"));
     ASSERT_EQ(fr.size(), 3);
     EXPECT_TRUE(std::isnan(fr.at<float>(2, 0)));
     EXPECT_EQ(fr.at<double>(3, 0), 1.5);
@@ -3692,7 +3704,13 @@ TEST(HTTPReadTask, UnconvertibleFloatFilledWithNaN) {
         true
     );
     ASSERT_NIL(res.error);
-    EXPECT_NE(res.warning.find("failed to convert /p2"), std::string::npos);
+    EXPECT_NE(
+        res.warning.description.find(
+            "Failed to convert /p2 for channel p2: cannot convert \"INVALID\" to "
+            "float64"
+        ),
+        std::string::npos
+    );
     ASSERT_EQ(fr.size(), 3);
     EXPECT_TRUE(std::isnan(fr.at<double>(2, 0)));
     EXPECT_EQ(fr.at<double>(3, 0), 1.5);
@@ -3707,7 +3725,7 @@ TEST(HTTPReadTask, InvalidIntegerSkipsGroupWhenFilled) {
         true
     );
     ASSERT_NIL(res.error);
-    EXPECT_NE(res.warning.find("failed to convert /p2"), std::string::npos);
+    EXPECT_TRUE(res.warning.description.starts_with("Failed to convert /p2"));
     EXPECT_EQ(fr.size(), 0);
 }
 }

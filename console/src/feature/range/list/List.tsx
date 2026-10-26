@@ -20,7 +20,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Access, type Flux } from "@synnaxlabs/pluto";
 import { type state } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, useCallback, useState } from "react";
+import { type ReactElement, type ReactNode, useState } from "react";
 
 import { ContextMenu } from "@/feature/range/list/ContextMenu";
 import { Item, type ItemProps } from "@/feature/range/list/Item";
@@ -55,6 +55,8 @@ const EmptyContent = () => {
   );
 };
 
+const EMPTY_CONTENT = <EmptyContent />;
+
 const SEARCH_PLACEHOLDER = (
   <>
     <Icon.Search />
@@ -76,27 +78,22 @@ export const List = ({
   showTimeRange = true,
   showFavorite = true,
   initialRequest = {},
-  emptyContent = <EmptyContent />,
+  emptyContent = EMPTY_CONTENT,
 }: ListProps) => {
   const [request, setRequest] = useState<ranger.RetrieveRequest>(initialRequest);
   const [selected, setSelected] = useState<ranger.Key[]>([]);
   const menuProps = Menu.useContextMenu();
-  const handleRequestChange = useCallback(
-    (setter: state.SetArg<ranger.RetrieveRequest>, opts?: Flux.AsyncListOptions) => {
-      retrieve(setter, opts);
-      setRequest(setter);
-    },
-    [retrieve],
-  );
-  const handleSearch = useCallback(
-    (term: string) =>
-      handleRequestChange((p: ranger.RetrieveRequest) => PList.search(p, term)),
-    [handleRequestChange],
-  );
-  const handleFetchMore = useCallback(
-    () => handleRequestChange((r) => PList.page(r, 25), { mode: "append" }),
-    [handleRequestChange],
-  );
+  const handleRequestChange = (
+    setter: state.SetArg<ranger.RetrieveRequest>,
+    opts?: Flux.AsyncListOptions,
+  ) => {
+    retrieve(setter, opts);
+    setRequest(setter);
+  };
+  const handleSearch = (term: string) =>
+    handleRequestChange((p: ranger.RetrieveRequest) => PList.search(p, term));
+  const handleFetchMore = () =>
+    handleRequestChange((r) => PList.page(r, 25), { mode: "append" });
   return (
     <Flex.Box full="y" empty>
       <Select.Frame<ranger.Key, ranger.Range>
