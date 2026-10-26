@@ -39,6 +39,7 @@ import secrets
 import subprocess
 import sys
 import tempfile
+import urllib.parse
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -201,6 +202,11 @@ def render_body(template: str, issue: str, description: str, labels: list[str]) 
     return re.sub(r"\n{3,}", "\n\n", body).strip() + "\n"
 
 
+def stored_names(paths: list[Path]) -> list[str]:
+    """Names images uniquely, since two paths can share a base name."""
+    return [f"{i + 1}-{re.sub(r'[^\w.-]', '_', p.name)}" for i, p in enumerate(paths)]
+
+
 def image_markdown(urls: dict[str, str]) -> str:
     return "\n\n".join(f"![{name}]({url})" for name, url in urls.items())
 
@@ -232,7 +238,7 @@ class Runner:
 def upload_images(
     r: Runner, repo: str, prefix: str, paths: list[Path]
 ) -> dict[str, str]:
-    """Commits images to the orphan assets branch and returns raw URLs by file name.
+    """Commits images to the orphan assets branch and returns raw URLs by stored name.
 
     Uses a private index, so the working tree and the current branch stay untouched.
     """
@@ -248,16 +254,17 @@ def upload_images(
             g.run(["git", "fetch", "--quiet", "origin", ref])
             g.run(["git", "read-tree", "FETCH_HEAD"])
             parent = ["-p", "FETCH_HEAD"]
-        for path in paths:
+        names = stored_names(paths)
+        for path, name in zip(paths, names, strict=True):
             blob = g.run(["git", "hash-object", "-w", str(path)])
-            info = f"100644,{blob},{prefix}/{path.name}"
+            info = f"100644,{blob},{prefix}/{name}"
             g.run(["git", "update-index", "--add", "--cacheinfo", info])
         tree = g.run(["git", "write-tree"])
         msg = f"Add images for {prefix}"
         commit = g.run(["git", "commit-tree", tree, *parent, "-m", msg])
         if r.dry_run or g.ok(["git", "push", "origin", f"{commit}:{ref}"]):
             base = f"https://raw.githubusercontent.com/{repo}/{commit}/{prefix}"
-            return {p.name: f"{base}/{p.name}" for p in paths}
+            return {n: f"{base}/{urllib.parse.quote(n)}" for n in names}
     raise RuntimeError(f"failed to push images to {ASSETS_BRANCH} three times")
 
 

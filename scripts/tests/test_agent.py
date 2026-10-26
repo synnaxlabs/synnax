@@ -25,6 +25,7 @@ from agent.agent import (
     parse,
     render_body,
     skill_prompt,
+    stored_names,
 )
 
 TEMPLATE = """## Linear issue
@@ -199,7 +200,7 @@ class TestMain:
         assert "dry run: git push origin" in err
         assert "dry run: gh pr create" in err
         assert "[SY-1](https://linear.app/synnax/issue/SY-1)" in err
-        assert "![shot.png](https://raw.githubusercontent.com/" in err
+        assert "![1-shot.png](https://raw.githubusercontent.com/" in err
 
     def test_rejects_dirty_checkout(self, repo: Path, tmp_path: Path) -> None:
         (repo / "stray.txt").write_text("not the agent's")
@@ -213,6 +214,11 @@ class TestMain:
         monkeypatch.delenv("AGENT_GIT_EMAIL")
         with pytest.raises(SystemExit, match="bot identity"):
             main(fake_agent(tmp_path))
+
+
+def test_stored_names_are_unique_and_url_safe() -> None:
+    paths = [Path("before/shot.png"), Path("after/shot.png"), Path("a#1 [x].png")]
+    assert stored_names(paths) == ["1-shot.png", "2-shot.png", "3-a_1__x_.png"]
 
 
 def test_git_auth_sends_the_app_token() -> None:
