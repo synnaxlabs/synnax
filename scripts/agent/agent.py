@@ -19,7 +19,8 @@ Outputs:
              --pr, behave as comment.
     comment  Push the agent's commits to the branch of --pr, then post its final
              message as a comment there.
-    report   Write the final message to the step summary and to stdout.
+    report   Write the final message to stdout, the step summary, and the `report`
+             step output.
 
 The last stdout line is the PR URL for pr and comment, and is also written as `pr-url`
 to $GITHUB_OUTPUT when it is set. --dry-run runs the agent but pushes, comments, and
@@ -185,6 +186,7 @@ def agent_command(opts: Options, prompt: str, out: Path) -> list[str]:
             "exec",
             "--dangerously-bypass-approvals-and-sandbox",
         ]
+        cmd += ["-c", 'project_doc_fallback_filenames=["CLAUDE.md"]']
         cmd += ["--output-last-message", str(out / "last-message.md")]
     if opts.model:
         cmd += ["--model", opts.model]
@@ -274,9 +276,11 @@ def find_images(opts: Options, out: Path) -> list[Path]:
 
 
 def write_output(env: dict[str, str], name: str, value: str) -> None:
+    """Appends a step output, in the delimited form that allows several lines."""
     if path := env.get("GITHUB_OUTPUT"):
+        delimiter = f"EOF_{secrets.token_hex(8)}"
         with open(path, "a") as f:
-            f.write(f"{name}={value}\n")
+            f.write(f"{name}<<{delimiter}\n{value}\n{delimiter}\n")
 
 
 def run_url(env: dict[str, str]) -> str:
@@ -376,6 +380,7 @@ def main(argv: Sequence[str]) -> int:
     if opts.output == "report":
         if path := env.get("GITHUB_STEP_SUMMARY"):
             Path(path).write_text(message + "\n")
+        write_output(env, "report", message)
         print(message)
         return 0
 
