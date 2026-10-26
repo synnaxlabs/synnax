@@ -43,6 +43,10 @@ export default manifest.define([
   hero("console/alarms/hero", "scripts/still-alarm-hero.ts"),
   hero("hardware/hero", "scripts/still-hardware-hero.ts"),
   hero("console/projects/hero", "scripts/still-project-hero.ts"),
+  hero("releases/0-60-0/hero", "scripts/release-0-60-hero.ts"),
+  hero("releases/0-60-0/read-back", "scripts/release-0-60-read-back.ts"),
+  hero("releases/0-60-0/connect-device", "scripts/release-0-60-connect-device.ts"),
+  hero("releases/0-60-0/panel-icons", "scripts/release-0-60-panel-icons.ts"),
   { id: "console/line-plots/toolbar", script: "scripts/line-plot-toolbar.ts" },
   { id: "console/line-plots/slope", script: "scripts/line-plot-slope.ts" },
   { id: "console/logs/example", script: "scripts/log-example.ts" },
@@ -271,5 +275,14 @@ export default manifest.define([
     id: "releases/0-57-0/panels",
     script: "scripts/release-0-57-0-panels.ts",
     themed: false,
+  },
+  { id: "releases/0-60-0/line-plots", script: "scripts/release-0-60-line-plots.ts" },
+  {
+    id: "releases/0-60-0/change-symbol",
+    script: "scripts/release-0-60-change-symbol.ts",
+  },
+  {
+    id: "releases/0-60-0/table-reorder",
+    script: "scripts/release-0-60-table-reorder.ts",
   },
 ]);

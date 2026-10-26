@@ -29,16 +29,14 @@ use a module, you configure it.
 - An Ethernet port on the computer that runs the Driver, cabled to the first module. Use
   a port for EtherCAT only, and do not connect it to a switch or to your office network.
 - Packet capture software:
-  - **Windows** -> install [Npcap](https://npcap.com/#download) with **WinPcap
-    API-compatible Mode** turned on. Without this mode, the Driver cannot find Npcap.
-  - **macOS** -> nothing to install. macOS includes libpcap.
+  - **Windows** -> install [Npcap](https://npcap.com/#download). The default install
+    options work.
+  - **Linux** and **macOS** -> nothing to install.
 
 <Edition.Enterprise>
 
-On Linux, a standalone Driver needs the file `libpcap.so`. On Debian and Ubuntu, install
-the `libpcap-dev` package. If the
-[IgH EtherCAT Master](https://etherlab.org/en_GB/ethercat) kernel module is loaded, the
-Driver uses it instead.
+On Linux, if the [IgH EtherCAT Master](https://etherlab.org/en_GB/ethercat) kernel
+module is loaded, the Driver uses it instead of its built-in master.
 
 </Edition.Enterprise>
 
@@ -120,13 +118,15 @@ that the scan cannot read is not supported yet.
 - **Cycle rate** -> The network cycles at the slowest rate that is a multiple of each
   read task's sample rate and at least each write task's execution rate. The rate is
   always between 100 Hz and 10 kHz. For example, read tasks at 250 Hz and 1 kHz make the
-  network cycle at 1 kHz.
+  network cycle at 1 kHz. If no rate in that range is a multiple of every read rate,
+  such as for 3 kHz and 4 kHz, the task fails to start.
 - **Outputs** -> Each output holds the last value a write task commanded. When a write
   task stops, its outputs go to zero. An output that another running write task
   commanded keeps the last value of that task instead.
 - **Lost modules** -> When a module stops responding, the network continues to cycle,
   and the Driver returns the module to operation when it responds again. Until then,
-  every read task on the port drops samples and shows a warning.
+  every read task on the port pauses with the warning "Failed to read data", and its
+  data starts again when the module responds.
 
 <Divider.Divider x />
 
@@ -212,8 +212,9 @@ Disable a module to leave it out of the network, for example when it is not cabl
    several modules, select them first.
 2. The status changes to "Device disabled".
 
-The change applies the next time a task on that port starts. To use the module again,
-right-click it and select **Enable**.
+The change applies the next time the network on the port starts: stop every task on the
+port, then start them again. To use the module again, right-click it and select
+**Enable**.
 
   </Fragment>
   <Fragment slot="python">
@@ -263,7 +264,8 @@ name of the PDO that holds it. TypeScript uses the same fields in camel case, su
 
 1. Check the cable from the port to the first module, and the power to the modules.
 2. Make sure that no other program uses the port.
-3. Install the packet capture software in the [prerequisites](#prerequisites), then
+3. Check the [prerequisites](#prerequisites) and the
+   [network interface access](#network-interface-access), then
    [restart the Driver](/reference/hardware/troubleshooting#restart-the-driver).
 
 ### "EtherCAT is unavailable because a required packet capture library is not installed"

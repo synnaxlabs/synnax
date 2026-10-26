@@ -2,6 +2,8 @@
 title: "Version 0.60 release notes"
 ---
 
+import { Hero } from "@/components/hero";
+import { Image, Video } from "@/components/media/Media";
 import { Releases } from "@/components/releases";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
@@ -12,18 +14,22 @@ export const components = mdxOverrides;
     version="0.60.0"
     breakingChanges
     date="Oct 26, 2026"
-    title="Synnax Desktop, line plots that keep every spike, and EtherCAT that recovers"
+    title="Synnax Desktop, tiled line plots, and EtherCAT that recovers"
 >
 
-{/* Still to capture: releases/0-60-0/hero */}
+<Hero.Hero
+  still="releases/0-60-0/hero"
+  layout="bleed"
+  tone="deep"
+  palette="violet-pink"
+/>
 
 Synnax v0.60 comes with Synnax Desktop 1.0: the Console, a Core, and a Driver in one
 free app. Install it, log in, and record, plot, and control hardware in minutes.
 
-Line plots now load only the detail on screen, so a week of 1 kHz data opens with every
-spike in view. EtherCAT networks recover lost slaves with no restart, setpoints show
-what the device reports, and one picker connects every device. Exports are up to ten
-times faster, and the Core now writes TDMS files.
+Line plots now load only the tiles on screen, like a map, so a week of 1 kHz data opens
+with every spike in view. EtherCAT networks recover on their own, and exports are up to
+ten times faster.
 
 A Core now needs a license from the Synnax portal. Read the
 [breaking changes](#breaking-changes) before you upgrade.
@@ -32,39 +38,43 @@ A Core now needs a license from the Synnax portal. Read the
 
 ### Synnax Desktop
 
-{/* Still to capture: releases/0-60-0/desktop */}
+<Image
+  id="releases/0-60-0/desktop-graphic/d3be34cf37bd"
+  extension="webp"
+  themed={false}
+/>
 
-Synnax Desktop runs on macOS and Windows, with no server to set up and nothing to run
-from a terminal. It is free with a Synnax account. Connect a LabJack, a Modbus server,
-or, on Windows, an NI device, and your data stays on your computer.
+Synnax Desktop is all of Synnax in one free app on your computer. The Console plots and
+controls your system, a Core records its data, and a Driver reads and writes your
+hardware. There is no server to set up, and your data stays on your computer.
 
-No hardware yet? Select **Open sample project**. An Arc sequence fills a simulated tank
-to 300 psi, holds it for 10 seconds, and vents it, and aborts above 450 psi. Change the
-programs and see what happens.
+Install it on macOS or Windows, log in with a free Synnax account, and connect a
+LabJack, a Modbus server, or, on Windows, an NI device. No hardware yet? Select **Open
+sample project**: an Arc sequence fills a simulated tank to 300 psi, holds it, and vents
+it.
 
-For a team or for Linux, use Synnax Enterprise. See
+Synnax Desktop is for one person on one computer. For a team or for Linux, use
+[Synnax Enterprise](/reference/get-started/editions). See
 [Install Synnax Desktop](/reference/get-started/install-desktop).
 
 <Divider.Divider x />
 
-### Line plots that keep every spike
+### Tiled line plots
 
-{/* Video to capture: releases/0-60-0/line-plots */}
+<Video id="releases/0-60-0/line-plots" />
 
 A week of 1 kHz data is 600 million samples. Before, a line plot loaded all of them,
-stayed blank until it finished, and then drew only some. A one-sample spike showed only
-by luck.
+stayed blank until it finished, and drew only some. A one-sample spike showed only by
+luck.
 
-Now the Core sends the lowest and highest sample of each group of pixel columns. Every
-spike is on screen, and each line gets a few thousand points for any range.
+Now a line plot works like a map: it loads only the tiles on screen, at the detail of
+your zoom. A tile holds the lowest and highest sample of each group of pixel columns, so
+every spike is on screen, and each line gets a few thousand points for any range.
 
-- **Zoom in** -> finer data loads for the new view. The coarse data stays until it
-  arrives, so the plot never goes blank. Zoom far enough to see single samples.
-- **Pan past the range** -> the plot loads the data there. **Reset zoom**, or
-  **Ctrl**-click, goes back.
+- **Zoom in** -> finer data loads, and the coarse data stays until it arrives. Zoom far
+  enough to see single samples.
+- **Pan past the range** -> the plot loads the data there. **Ctrl**-click to go back.
 - **Live data** -> streams at full rate and draws the same way as stored data.
-- **Go back** -> the Console keeps up to 128 MB of loaded data, so a view you saw before
-  draws at once.
 
 For 10 lines of 1 kHz data, a frame of an hour view takes 0.6 ms of CPU time instead of
 25 ms.
@@ -76,38 +86,38 @@ Two settings in the **Lines** tab replace downsampling:
 | Aggregation | **Min/max** draws the lowest and highest sample. **Average** draws the mean.     | Min/max |
 | Detail      | **Low**, **Medium**, or **High**: one group per four, two, or one pixel columns. | Medium  |
 
-Existing lines change to Min/max at Medium, or to Average if they had an averaging
-window. See [Line plots](/reference/visualize/line-plots).
+Existing lines move to Min/max at Medium, or to Average if they had an averaging window.
+See [Line plots](/reference/visualize/line-plots).
 
 <Divider.Divider x />
 
 ### Setpoints that show what the device reports
 
-{/* Still to capture: releases/0-60-0/read-back */}
+<Hero.Hero inset still="releases/0-60-0/read-back" layout="bleed" palette="blue-pink" />
 
-Setpoint, Text input, and Select symbols now show two values: the last command that
-anyone sent, and, in a tray under it, the value the device reports. You see "I asked for
-300 psi" and "the regulator reads 287.4 psi" in one place. Before, the field showed only
-what you typed, so after a reload or in a second Console it showed a value that nobody
-sent.
+Setpoint, Text input, and Select symbols now show the last command that anyone sent,
+and, in a tray under it, the value the device reports: "I asked for 300 psi" and "the
+regulator reads 287.4 psi" in one place. Before, after a reload or in a second Console,
+the field showed a value that nobody sent.
 
-An edit turns **Set** blue, and it stays blue until the command channel reports the new
-value, so a write that did not land stays visible. If the device stops reporting, the
-tray shows the staleness color. To add the tray, set **Control** > **State** >
-**Channel**.
+**Set** stays blue until the command channel reports the new value, so a write that did
+not land stays visible. To add the tray, set **Control** > **State** > **Channel**.
 
 <Divider.Divider x />
 
 ### Connect any device from one place
 
-{/* Still to capture: releases/0-60-0/connect-device */}
+<Hero.Hero
+  inset
+  still="releases/0-60-0/connect-device"
+  layout="framed"
+  palette="green-blue"
+/>
 
 Select **+** in the Devices toolbar to open one picker for every integration. Connect
 OPC UA, Modbus, and HTTP servers by address, or find the NI, LabJack, and EtherCAT
 hardware that a Driver detects. If the Driver cannot find your hardware, the picker
-tells you why and gives you a checklist. Each device list in a task form also ends with
-a connect item, so you add a device without leaving the task. See
-[Devices](/reference/hardware/devices).
+tells you why. See [Devices](/reference/hardware/devices).
 
 <Divider.Divider x />
 
@@ -116,15 +126,14 @@ a connect item, so you add a device without leaving the task. See
 Before, a slave that lost power kept recording its last values. The plot showed a flat
 line that looked real, the device stayed green, and you restarted the task.
 
-Now the plot shows a gap, and the task shows "Failed to read data" with the cause. When
-the slave answers again, data resumes on its own.
+Now the plot shows a gap, the task shows "Failed to read data", and data resumes when
+the slave answers again.
 
-- **Live slave state** -> while a task runs, each slave shows **Operational**, **In
-  PRE-OP**, **Error in SAFE-OP**, or **Not responding** in the Devices toolbar.
-- **No bus restarts** -> starting or stopping a task no longer stops the other tasks on
-  the port.
-- **The right entry** -> channels read their entry by index and sub-index. Before, the
-  eight inputs of an EL1008 all read input 1.
+- **Live slave state** -> while a task runs, each slave shows its state, such as
+  **Operational** or **Not responding**, in the Devices toolbar.
+- **No bus restarts** -> starting or stopping a task no longer stops the others on the
+  port.
+- **The right entry** -> before, the eight inputs of an EL1008 all read input 1.
 - **Better timestamps** -> each sample gets the time of its cycle, from the distributed
   clock when the slaves have one.
 - **No root on Linux** -> run `sudo synnax-driver install` again.
@@ -146,21 +155,19 @@ client.read_tdms(tr, ["time", "pressure"], "hotfire.tdms")
 const tdms = await client.readTDMS(tr, ["time", "pressure"]);
 ```
 
-With `reduction=sy.LimitReduction(point_limit=2000)`, a read returns a day of data as
-about 2,000 min/max points. CSV exports also match samples by timestamp, so a channel
-that starts late keeps its own times. See [Read data](/reference/client/read-data).
+See [Read data](/reference/client/read-data).
 
 <Divider.Divider x />
 
 ### Sessions that you can end
 
-The Core now keeps each login as a session. Delete a user, and their Consoles, scripts,
-and streams stop at once. Before, their token worked for up to 24 hours. A password
-change ends the user's other sessions. Sessions end after 7 days idle; set
-[`--session-idle-timeout`](/reference/enterprise/cli-reference#start) to change this.
+Delete a user, and their Consoles, scripts, and streams stop at once. Before, their
+token worked for up to 24 hours. A password change ends the user's other sessions, and
+idle sessions end after 7 days
+([`--session-idle-timeout`](/reference/enterprise/cli-reference#start)).
 
-New passwords use Argon2id, and the new `--fips` flag uses only PBKDF2. With `--fips`
-on, users with a password from v0.59 need a new one.
+New passwords use Argon2id. The new `--fips` flag uses only PBKDF2, so with it on, users
+with a password from v0.59 need a new one.
 
 <Divider.Divider x />
 
@@ -174,8 +181,6 @@ filters find resources without their names:
 client.channels.retrieve(search_term="pressure", data_types=[sy.DataType.FLOAT32])
 client.tasks.retrieve(rack=rack.key, search_term="pump")
 ```
-
-Ranges, tasks, devices, racks, statuses, and views also get `rename`.
 
 <Divider.Divider x />
 
@@ -191,52 +196,47 @@ the `.lic` file. See [Activate a license](/reference/enterprise/license).
 
 #### Change the type of a symbol
 
-{/* Video to capture: releases/0-60-0/change-symbol */}
+<Video id="releases/0-60-0/change-symbol" />
 
 Select a symbol, click **Change**, and pick a new one. The label, channels, colors, and
 pipes stay.
 
 #### Drag table rows and columns
 
-{/* Video to capture: releases/0-60-0/table-reorder */}
+<Video id="releases/0-60-0/table-reorder" />
 
 Drag a row or column to move it. Select several to move them together.
 
 #### Panel icons
 
-{/* Still to capture: releases/0-60-0/panel-icons */}
+<Hero.Hero
+  inset
+  still="releases/0-60-0/panel-icons"
+  layout="bleed"
+  palette="orange-yellow"
+/>
 
 Right-click a panel and select **Change icon** to give it one of 64 icons and a color.
 
 #### Data saving in the Tasks toolbar
 
-Each task shows whether it saves data, and the icon pulses while it records. Click the
-icon to switch data saving on or off.
-
-#### Status messages that say what to do
-
-Each status now has a short message and a description with the cause and the fix.
-"Synnax Driver on Rack 1 not running" is now "Driver not running", and the description
-says how long the Core has not heard from it.
+Each task shows whether it saves data. Click the icon to switch data saving on or off.
 
 #### A faster Console
 
-The Console now builds with the React Compiler. Typing 20 characters into a 40-field
-form draws 260 components instead of 14,400, and on macOS the first code editor opens in
-0.2 seconds instead of 1.3.
+Typing 20 characters into a 40-field form now draws 260 components instead of 14,400,
+and on macOS the first code editor opens in 0.2 seconds instead of 1.3.
 
 <Divider.Divider x />
 
 ### Minor improvements and bug fixes
 
+- Status messages now say what happened, and their description gives the cause and the
+  fix.
 - "Input" is now "Text input", and "String display" is now "Text display".
-- On macOS, the Console uses the native window buttons.
-- A deploy error stays on a field until you change the value of that field.
-- Opening the properties of a symbol no longer changes it.
 - Channel search finds every match. Before, it stopped at 100.
 - Long recordings no longer draw float32, int32, or string samples at the wrong times
   after a file rollover.
-- Arc no longer ignores a channel after a script opens one million writers on it.
 - A rename changes only the name. Before, it could lose the resource's settings.
 - The Modbus **Swap bytes** and **Swap words** settings now work.
 - HTTP write tasks accept timestamp command channels.
@@ -250,15 +250,13 @@ form draws 260 components instead of 14,400, and on macOS the first code editor 
 
 #### Licenses
 
-- A Core without a license starts, but it refuses every request except login and
-  licensing, and the Console shows an activation screen. The 50-channel allowance of
-  Core 0.59.2 is gone.
+- A Core without a license refuses every request except login and licensing, and the
+  Console shows an activation screen. The 50-channel allowance of Core 0.59.2 is gone.
 - The Core refuses the old numeric keys. Get a signed key from the Synnax portal.
 - Activate each license before you upgrade. To get a Core 0.59 fingerprint, run "Show
   license info" in the Console. Core 0.60 migrates stored data, so you cannot go back to
   0.59. See [numeric license keys](/reference/enterprise/license#numeric-license-keys).
-- A refused `--license-key` or `--license-file` no longer stops the Core. It logs the
-  reason and starts, so check the log.
+- A refused `--license-key` or `--license-file` no longer stops the Core. Check the log.
 - In Docker, the license is bound to the container's MAC address. Set `--mac-address`
   and keep it the same. See [Docker](/reference/enterprise/license#docker).
 
@@ -266,9 +264,8 @@ form draws 260 components instead of 14,400, and on macOS the first code editor 
 
 - Upgrade the Console with the Core. An older Console shows errors instead of the
   activation screen, and cannot change table rows or columns.
-- The Core refuses tokens from before the upgrade. The Console, the Driver, and the
-  clients log in again on their own. Scripts that call the HTTP API with a saved token
-  must log in again.
+- The Core refuses tokens from before the upgrade. Scripts that call the HTTP API with a
+  saved token must log in again.
 - Tasks, groups, roles, policies, and views need a name. The upgrade names any that have
   none.
 - Status text changed. Update scripts that match it.
