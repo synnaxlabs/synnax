@@ -24,8 +24,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// The case table is shared with the TypeScript matches, so that the Core and the
-// client cache agree on every filter.
+// The case table is shared with the TypeScript matches, so that the Core and the client
+// cache agree on every filter.
 const vectorsPath = "../../../../x/testdata/filter/vectors.json"
 
 type whereCase struct {
