@@ -209,7 +209,12 @@ export class Latest {
 
   private createBuffer(): Dynamic {
     const size = Math.min(Math.max(this.count, MIN_BUFFER), MAX_BUFFER);
-    return new Dynamic({ dynamicBufferSize: size, now: this.props.now });
+    // A value keeps every series it served, so a closed buffer stays the same object.
+    return new Dynamic({
+      dynamicBufferSize: size,
+      now: this.props.now,
+      compactionDisabled: true,
+    });
   }
 
   private get total(): number {
