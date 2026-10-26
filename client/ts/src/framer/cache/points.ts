@@ -695,7 +695,7 @@ export class Points {
   }
 
   private status(): status.Status {
-    const candidates = [
+    const worst = status.worst(
       this.parked,
       this.rejection,
       this.readFailure,
@@ -704,11 +704,7 @@ export class Points {
       this.index == null || this.index === this.key
         ? undefined
         : this.demand?.status(this.index),
-    ];
-    let worst: status.Status | undefined;
-    for (const s of candidates)
-      if (s != null && (worst == null || status.moreSevere(s.variant, worst.variant)))
-        worst = s;
+    );
     if (worst != null && worst.variant !== "success") return worst;
     const loading = this.loading || this.pending.size > 0;
     return loading ? this.statuses.loading : this.statuses.success;

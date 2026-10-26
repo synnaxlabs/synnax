@@ -306,6 +306,19 @@ const SEVERITY: Record<Variant, number> = {
 export const moreSevere = (a: Variant, b: Variant): boolean =>
   SEVERITY[a] < SEVERITY[b];
 
+/**
+ * @returns the most severe of the statuses, the first of equally severe ones, or
+ * undefined when every status is null or undefined.
+ */
+export const worst = <S extends { variant: Variant }>(
+  ...statuses: Array<S | null | undefined>
+): S | undefined => {
+  let out: S | undefined;
+  for (const s of statuses)
+    if (s != null && (out == null || moreSevere(s.variant, out.variant))) out = s;
+  return out;
+};
+
 /** Options for {@link toString}. */
 export interface ToStringOptions {
   includeTimestamp?: boolean;

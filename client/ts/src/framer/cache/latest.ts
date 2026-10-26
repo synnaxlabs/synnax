@@ -401,10 +401,8 @@ export class Latest {
   }
 
   private status(): status.Status {
-    const stream = this.demand.status(this.key);
-    if (this.failure != null && status.moreSevere(this.failure.variant, stream.variant))
-      return this.failure;
-    if (stream.variant !== "success") return stream;
+    const worst = status.worst(this.demand.status(this.key), this.failure)!;
+    if (worst.variant !== "success") return worst;
     return this.loadMark != null ? this.statuses.loading : this.statuses.success;
   }
 }
