@@ -55,9 +55,11 @@ interface Load {
   abort: AbortController;
   // mark is where the series streamed while the load runs start.
   mark: number;
-  // end is set when the load reads held samples again after a history change. It
-  // bounds the read, so every sample after it streams and counts once.
+  // end bounds a read after a history change, so every sample after it streams.
   end?: TimeStamp;
+  // repeated is true when the read returns samples that already counted as appended,
+  // so they do not count again.
+  repeated?: boolean;
 }
 
 /**
@@ -76,6 +78,8 @@ export class Latest {
   // unserved counts the newest samples that no value served.
   private unserved = 0;
   private appended = 0;
+  // landed is true once a read of the request lands.
+  private landed = false;
   private running: Load | null;
   private readonly demand: Demand;
   private readonly stopInvalidations: () => void;
@@ -124,6 +128,7 @@ export class Latest {
     if (count === this.count && deep.equal(window, this.window)) return;
     this.window = window;
     this.count = count;
+    this.landed = false;
     this.clear();
     this.restart(0);
   }
@@ -195,7 +200,7 @@ export class Latest {
 
   // Drops the samples held and reads them again up to the newest, since a history
   // change can delete them. A change that ends before every sample held cannot reach
-  // the newest count.
+  // the newest count. A change while an earlier change's read waits keeps its bound.
   private changed(tr: TimeRange): void {
     const first = this.series.at(0) ?? this.buffer.leadingBuffer;
     if (
@@ -205,18 +210,25 @@ export class Latest {
       !tr.end.after(first.timeRange.start)
     )
       return;
-    const end = this.time();
+    const end = this.time() ?? this.running?.end;
+    const repeated = this.landed && end != null;
+    // Until a read lands, the samples dropped count again when the read returns them.
+    if (!repeated) this.appended -= this.total;
     this.clear();
-    this.restart(0, end);
+    this.restart(0, { end, repeated });
     this.notify();
   }
 
   // Ends the running load, then starts one whose streamed series start at mark, unless
   // mark is null.
-  private restart(mark: number | null, end?: TimeStamp): void {
+  private restart(
+    mark: number | null,
+    read: Pick<Load, "end" | "repeated"> = {},
+  ): void {
     this.running?.abort.abort();
     this.notifier.notify();
-    this.running = mark == null ? null : { abort: new AbortController(), mark, end };
+    this.running =
+      mark == null ? null : { abort: new AbortController(), mark, ...read };
     if (this.running != null) void this.load(this.running);
   }
 
@@ -289,7 +301,8 @@ export class Latest {
   // Puts the read before the series streamed while it ran, keeping each sample once.
   // The streamed samples count again as they land after the read.
   private land(read: Series[]): void {
-    const again = this.running?.end != null;
+    const repeated = this.running?.repeated ?? false;
+    this.landed = true;
     this.closeLeading();
     const streamed = this.series.splice(this.running?.mark ?? 0);
     streamed.forEach((s) => {
@@ -299,7 +312,7 @@ export class Latest {
     this.running = null;
     const { appended } = this;
     this.push(read);
-    if (again) this.appended = appended;
+    if (repeated) this.appended = appended;
     this.push(streamed);
     this.unserved = this.total;
     this.snapshot = null;
