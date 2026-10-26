@@ -233,10 +233,11 @@ func (s *Service) Join[D any](
 	ids []ontology.ID,
 ) ([]*Status[D], error) {
 	var statuses []Status[D]
-	if err := errors.Skip(s.NewRetrieve[D]().
+	if err := s.NewRetrieve[D]().
+		SkipMissingKeys().
 		Where(MatchKeys[D](ontology.IDsToKeys(ids)...)).
 		Entries(&statuses).
-		Exec(ctx, nil), query.ErrNotFound); err != nil {
+		Exec(ctx, nil); err != nil {
 		return nil, err
 	}
 	byKey := make(map[Key]*Status[D], len(statuses))
