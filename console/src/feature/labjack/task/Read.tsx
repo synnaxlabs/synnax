@@ -14,10 +14,10 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
+import { Device } from "@/feature/labjack/device";
 import { use } from "@/feature/labjack/device/queries";
 import { Select } from "@/feature/labjack/device/Select";
 import { SelectPort } from "@/feature/labjack/device/SelectPort";
-import * as Device from "@/feature/labjack/device/types";
 import {
   convertPortTypeToReadChannelType,
   convertReadChannelTypeToPortType,

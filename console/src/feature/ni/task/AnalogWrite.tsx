@@ -15,9 +15,9 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
+import { Device } from "@/feature/ni/device";
 import { useFromConfig } from "@/feature/ni/device/queries";
 import { Select } from "@/feature/ni/device/Select";
-import * as Device from "@/feature/ni/device/types";
 import { AOChannelForm } from "@/feature/ni/task/AOChannelForm";
 import { createNextAOChannel } from "@/feature/ni/task/createChannel";
 import {

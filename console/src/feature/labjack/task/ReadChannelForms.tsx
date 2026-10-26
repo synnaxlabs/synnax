@@ -13,7 +13,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { deep, type record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import * as Device from "@/feature/labjack/device/types";
+import { Device } from "@/feature/labjack/device";
 import {
   AIR_CJC_SOURCE,
   DEVICE_CJC_SOURCE,

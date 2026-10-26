@@ -14,7 +14,7 @@ import { waitFor } from "@testing-library/react";
 import { type FC } from "react";
 import { expect } from "vitest";
 
-import * as Device from "@/feature/ni/device/types";
+import { Device } from "@/feature/ni/device";
 import { type Task } from "@/platform/task";
 import {
   awaitEditableForm,
