@@ -12,7 +12,7 @@ import { assert, beforeAll, describe, expect, it, onTestFinished, vi } from "vit
 import { z } from "zod";
 
 import { channel } from "@/channel";
-import { NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/errors";
 import { framer } from "@/framer";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
@@ -23,6 +23,7 @@ import {
   createTestClient,
   createTestClientWithPolicy,
   holdResponses,
+  recordResponses,
   spyOnSend,
   waitForStreamLive,
 } from "@/testutil";
@@ -1400,6 +1401,33 @@ describe("Task", async () => {
       } finally {
         off();
       }
+    });
+
+    it("reports no error for a set signal of a task the user cannot read", async () => {
+      const denied = await testRack.createTask({
+        name: `set-denied-${id.create()}`,
+        config: { routingKey: "cat" },
+        type: "pagerduty_alert",
+      });
+      const onError = vi.fn();
+      const remote = await createTestClientWithPolicy(
+        client,
+        {
+          name: "set-denied",
+          objects: [channel.TYPE_ONTOLOGY_ID, framer.TYPE_ONTOLOGY_ID],
+          actions: ["retrieve"],
+        },
+        onError,
+      );
+      await waitForStreamLive(remote.connection);
+      const fetches = recordResponses(remote, "/task/retrieve");
+      await client.tasks.create({ ...denied.payload, name: `${denied.name}-renamed` });
+      await expect.poll(() => fetches.length).toBe(1);
+      await expect(fetches[0]).rejects.toSatisfy(AccessDeniedError.matches);
+      // Lets the listener's rejection reach the error handler.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(onError).not.toHaveBeenCalled();
+      expect(remote.tasks.store.get(denied.key)).toBeUndefined();
     });
   });
 });

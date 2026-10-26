@@ -11,6 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type destructor, primitive } from "@synnaxlabs/x";
 import z from "zod";
 
+import { AccessDeniedError } from "@/errors";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
@@ -337,13 +338,11 @@ export class Client extends query.Retriever<
    */
   private ensureLabel(rel: ontology.Relationship): void {
     if (rel.to.type !== "label" || this.cfg.labels.store.has(rel.to.key)) return;
-    this.cfg.labels
-      .retrieve(rel.to.key)
-      .catch((exc: unknown) =>
-        this.cfg.cache.onError(
-          new Error("failed to fetch status label", { cause: exc }),
-        ),
-      );
+    this.cfg.labels.retrieve(rel.to.key).catch((exc: unknown) => {
+      // The relationship reaches callers who cannot read the label.
+      if (AccessDeniedError.matches(exc)) return;
+      this.cfg.cache.onError(new Error("failed to fetch status label", { cause: exc }));
+    });
   }
 
   /** Reports whether the status is labeled by the given label. */
