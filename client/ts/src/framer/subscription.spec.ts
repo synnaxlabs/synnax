@@ -23,7 +23,7 @@ import {
 import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
-import { UnexpectedError } from "@/errors";
+import { UnexpectedError, UnsupportedError } from "@/errors";
 import { domainOf, offsetOf, RAW_LEVEL, rawIndex } from "@/framer/cache/block";
 import { tileRange } from "@/framer/cache/grid";
 import { type Feed, type FeedOptions } from "@/framer/feed";
@@ -911,6 +911,66 @@ describe("Feed.subscribe", () => {
         core.advance(TimeSpan.milliseconds(100));
         await expect.poll(() => sub.value(key).series.length, POLL).toBe(20);
         expect(sub.value(key).series.series.map((s) => s.alignment)).toEqual([0n, 0n]);
+      } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
+
+    it("should stream a calculation the Core cannot read, with a warning", async () => {
+      const core = createCore({ derived: true });
+      const { key } = core.calculated!;
+      let rejected = 0;
+      const feed = core.openFeed({
+        ...OPTIONS,
+        readLatest: async (keys, count, tr) => {
+          if (!keys.includes(key)) return core.readLatest(keys, count, tr);
+          rejected++;
+          throw new UnsupportedError("cannot open iterator on virtual channel");
+        },
+      });
+      const sub = feed.subscribe({
+        keys: [key],
+        limit: { variant: "latest", count: 100 },
+      });
+      try {
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("warning");
+        expect(sub.value(key).status.message).toBe(
+          "Failed to read calculated channel history",
+        );
+        core.advance(TimeSpan.milliseconds(100));
+        await expect.poll(() => sub.value(key).series.length, POLL).toBe(10);
+        await sleep.sleep(TimeSpan.milliseconds(50));
+        expect(rejected).toBe(1);
+      } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
+
+    it("should give each channel of a shared read its own result", async () => {
+      const core = createCore({ derived: true });
+      const { key: calculated } = core.calculated!;
+      const { key: data } = core.data[0];
+      let shared = 0;
+      const feed = core.openFeed({
+        ...OPTIONS,
+        batchDebounce: TimeSpan.milliseconds(50),
+        readLatest: async (keys, count, tr) => {
+          if (keys.length > 1) shared++;
+          if (!keys.includes(calculated)) return core.readLatest(keys, count, tr);
+          throw new UnsupportedError("cannot open iterator on virtual channel");
+        },
+      });
+      const sub = feed.subscribe({
+        keys: [data, calculated],
+        limit: { variant: "latest", count: 1 },
+      });
+      try {
+        await expect.poll(() => sub.value(data).status.variant, POLL).toBe("success");
+        expect(sub.value(data).series.length).toBe(1);
+        expect(sub.value(calculated).status.variant).toBe("warning");
+        expect(shared).toBe(1);
       } finally {
         sub.close();
         await feed.close();

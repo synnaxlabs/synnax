@@ -20,3 +20,9 @@ export const SUCCESS: status.Crude = {
 };
 
 export const READ_FAILED = "Failed to read channel data";
+
+export const NO_HISTORY: status.Crude = {
+  variant: "warning",
+  message: "Failed to read calculated channel history",
+  description: "The channel shows only the samples streamed since it opened.",
+};

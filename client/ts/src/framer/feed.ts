@@ -17,7 +17,7 @@ import {
 } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
-import { UnexpectedError } from "@/errors";
+import { isConnectionError, UnexpectedError } from "@/errors";
 import { Joins } from "@/framer/cache/join";
 import { Joiner } from "@/framer/cache/joiner";
 import {
@@ -53,6 +53,8 @@ interface LatestQuery {
   count: number;
   tr: TimeRange;
 }
+
+type LatestEntry = debounce.Entry<LatestQuery, MultiSeries>;
 
 /** Props for {@link Feed}, including the transport it reads and streams through. */
 export interface FeedProps
@@ -110,7 +112,6 @@ export class Feed {
       readRemote,
       retrieveChannels,
       openStreamer,
-      readLatest,
       budget,
       instrumentation,
       removalDelay,
@@ -174,27 +175,34 @@ export class Feed {
       interval: batchDebounce ?? DEFAULT_BATCH_DEBOUNCE,
       exec: async (entries) => {
         // Requests of one count and range share one read.
-        const groups = new Map<string, typeof entries>();
-        entries.forEach((e) => {
-          const key = `${e.req.count}/${e.req.tr.toString()}`;
-          const group = groups.get(key);
-          if (group == null) groups.set(key, [e]);
-          else group.push(e);
-        });
+        const groups = Map.groupBy(
+          entries,
+          ({ req }) => `${req.count}/${req.tr.toString()}`,
+        );
         await Promise.all(
-          [...groups.values()].map(async (group) => {
-            const { count, tr } = group[0].req;
-            try {
-              const keys = [...new Set(group.map(({ req }) => req.key))];
-              const frame = await readLatest(keys, count, tr);
-              group.forEach(({ req, resolve }) => resolve(frame.get(req.key)));
-            } catch (e) {
-              group.forEach(({ reject }) => reject(e));
-            }
-          }),
+          [...groups.values()].map(async (group) => await this.fetchLatest(group)),
         );
       },
     });
+  }
+
+  // Never throws: every outcome settles the entries, which share a count and range.
+  private async fetchLatest(entries: LatestEntry[]): Promise<void> {
+    const { count, tr } = entries[0].req;
+    try {
+      const keys = [...new Set(entries.map(({ req }) => req.key))];
+      const frame = await this.props.readLatest(keys, count, tr);
+      entries.forEach(({ req, resolve }) => resolve(frame.get(req.key)));
+    } catch (e) {
+      const byChannel = Map.groupBy(entries, ({ req }) => req.key);
+      // One channel's error fails a read of several, so each channel reads again alone
+      // and gets its own result.
+      if (byChannel.size > 1 && !isConnectionError(e))
+        await Promise.all(
+          [...byChannel.values()].map(async (group) => await this.fetchLatest(group)),
+        );
+      else entries.forEach(({ reject }) => reject(e));
+    }
   }
 
   private get now(): () => TimeStamp {

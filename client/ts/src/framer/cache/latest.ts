@@ -20,11 +20,11 @@ import {
 } from "@synnaxlabs/x";
 
 import { channel } from "@/channel";
-import { NotFoundError } from "@/errors";
+import { NotFoundError, UnsupportedError } from "@/errors";
 import { type ChannelRetriever } from "@/framer/adapter";
 import { domainOf } from "@/framer/cache/block";
 import { Dynamic } from "@/framer/cache/dynamic";
-import { LOADING, READ_FAILED, SUCCESS } from "@/framer/cache/status";
+import { LOADING, NO_HISTORY, READ_FAILED, SUCCESS } from "@/framer/cache/status";
 import { type Demand, type MultiplexedStreamer } from "@/framer/cache/streamer";
 import { createBreaker, isDefinitive } from "@/framer/retry";
 import { type Snapshot } from "@/framer/subscription";
@@ -234,8 +234,14 @@ export class Latest {
         return this.notify();
       } catch (e) {
         if (this.running !== run) return;
-        this.failure = status.fromException(e, READ_FAILED);
         this.snapshot = null;
+        // The Core stores no samples for a calculation over virtual channels.
+        if (UnsupportedError.matches(e)) {
+          this.failure = status.create(NO_HISTORY);
+          this.land([]);
+          return this.notify();
+        }
+        this.failure = status.fromException(e, READ_FAILED);
         this.notify();
         if (isDefinitive(e)) return this.land([]);
         if (!(await brk.wait())) return;
