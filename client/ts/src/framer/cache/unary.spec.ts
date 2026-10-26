@@ -314,6 +314,13 @@ describe("Unary", () => {
       expect(data.timeAt(LEADING_ALIGNMENT + 4n)).toBeNull();
     });
 
+    it("should stamp a fetched sample from the write that carried it without an index", () => {
+      const data = newNarrowed();
+      data.stamps = new Stamps(4);
+      data.writeStatic(stamped(10, 11, [1], 100n));
+      expect(data.timeAt(100n)).toEqual(TimeStamp.seconds(10));
+    });
+
     it("should answer from the index alone when one is set", () => {
       const index = newNarrowed();
       index.writeDynamic(stamps(NS, LEADING_ALIGNMENT));

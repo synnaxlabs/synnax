@@ -110,6 +110,8 @@ export class Unary {
 
   writeStatic(series: MultiSeries): void {
     this.checkOpen("writeStatic");
+    const { stamps } = this;
+    if (stamps != null) for (const s of series.series) stamps.recordFetched(s);
     this.trackExact(series);
     this.exact?.writeStatic(series);
     this.static.write(series);

@@ -270,6 +270,18 @@ describe("feed", () => {
     sub.close();
   });
 
+  it("should stamp a fetched virtual sample by the write that carried it", async () => {
+    const virtual = await createVirtualChannel();
+    const start = TimeStamp.now();
+    await client.write(start, { [virtual.key]: [1, 2] });
+    const tr = new TimeRange(start, start.add(TimeSpan.seconds(1)));
+    const res = await feed.read(tr, virtual.key);
+    const series = res.series.at(-1);
+    expect(series).toBeDefined();
+    const last = (series?.alignment ?? 0n) + BigInt((series?.length ?? 1) - 1);
+    expect(feed.timeAt(virtual.key, last)).toEqual(series?.timeRange.start);
+  });
+
   it("should stamp a streamed sample by its alignment", async () => {
     const { time, data } = await createChannels();
     let leading: Series | null = null;

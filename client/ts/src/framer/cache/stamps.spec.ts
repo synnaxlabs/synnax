@@ -103,6 +103,24 @@ describe("Stamps", () => {
     expect(s.at(LEADING + 3n)).toBeNull();
   });
 
+  it("should record a fetched write past the last record", () => {
+    const s = new Stamps(4);
+    s.record(write(10n, 2, T0));
+    s.recordFetched(write(12n, 1, T1));
+    expect(s.at(11n)).toEqual(T0);
+    expect(s.at(12n)).toEqual(T1);
+  });
+
+  it("should keep live records when a fetched write lands behind them", () => {
+    const s = new Stamps(4);
+    s.record(write(10n, 3, T1));
+    s.recordFetched(write(5n, 1, T0));
+    s.recordFetched(write(12n, 1, T2));
+    expect(s.at(5n)).toBeNull();
+    expect(s.at(10n)).toEqual(T1);
+    expect(s.at(12n)).toEqual(T1);
+  });
+
   it("should record nothing for an empty or unstamped series", () => {
     const s = new Stamps(4);
     s.record(write(0n, 0, T0));
