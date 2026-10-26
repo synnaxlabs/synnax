@@ -21,7 +21,6 @@ import {
 } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
@@ -327,7 +326,7 @@ const createSample = async (client: Synnax): Promise<void> => {
 
 // Selecting a project loads its stored view state over the store's, so view state set
 // before the load lands is lost.
-const loadProject = async (store: Session.Store, key: project.Key): Promise<void> => {
+const load = async (store: Session.Store, key: project.Key): Promise<void> => {
   store.dispatch(Session.Project.select(key));
   const loaded = (): boolean => !Session.Persist.selectSwapping(store.getState());
   if (loaded()) return;
@@ -349,25 +348,22 @@ export const useOpenSample = (): (() => void) => {
   const store = Session.useStore();
   const confirm = Modals.useConfirm();
   const handleError = Status.useErrorHandler();
-  return useCallback(
-    () =>
-      handleError(async () => {
-        if (client == null) throw new DisconnectedError();
-        if (await exists(client)) {
-          const confirmed = await confirm({
-            message: "Are you sure you want to reset the sample project?",
-            description:
-              "Your changes to the sample project and its Arc programs are lost.",
-            confirm: { label: "Reset", variant: "warning" },
-          });
-          if (confirmed !== true) return;
-        }
-        await createSample(client);
-        await loadProject(store, KEYS.project);
-        store.dispatch(
-          Session.Schematic.setEditable({ key: KEYS.schematic, editable: false }),
-        );
-      }, "Failed to open the sample project"),
-    [client, store, confirm, handleError],
-  );
+  return () =>
+    handleError(async () => {
+      if (client == null) throw new DisconnectedError();
+      if (await exists(client)) {
+        const confirmed = await confirm({
+          message: "Are you sure you want to reset the sample project?",
+          description:
+            "Your changes to the sample project and its Arc programs are lost.",
+          confirm: { label: "Reset", variant: "warning" },
+        });
+        if (confirmed !== true) return;
+      }
+      await createSample(client);
+      await load(store, KEYS.project);
+      store.dispatch(
+        Session.Schematic.setEditable({ key: KEYS.schematic, editable: false }),
+      );
+    }, "Failed to open the sample project");
 };

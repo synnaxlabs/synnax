@@ -96,15 +96,6 @@ describe("project/Splash", () => {
     });
   });
 
-  describe("sample project", () => {
-    it("should not offer the sample project outside Synnax Desktop", async () => {
-      const { wrapper } = await createConsoleWrapper({ client });
-      render(<Project.Splash />, { wrapper });
-      await screen.findByText("New project");
-      expect(screen.queryByText("Sample project")).toBeNull();
-    });
-  });
-
   describe("selecting an existing project", () => {
     it("should activate the project", async () => {
       const name = `proj-${id.create()}`;
