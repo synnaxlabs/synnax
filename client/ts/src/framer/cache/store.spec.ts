@@ -326,6 +326,20 @@ describe("Store", () => {
       expect(Array.from(first.fetched[0])).toEqual([1, 2]);
     });
 
+    it("should move the epoch when a block's series change, not when they grow", () => {
+      const store = new Store({ dynamicBufferSize: 100 });
+      const block = store.raw(1, 100);
+      const opened = store.epoch(1);
+      store.append(block, createPiece(0, [1, 2]));
+      const grown = store.epoch(1);
+      expect(grown).toBeGreaterThan(opened);
+      store.append(block, createPiece(2, [3]));
+      expect(store.epoch(1)).toBe(grown);
+      store.flush(1);
+      expect(store.epoch(1)).toBeGreaterThan(grown);
+      expect(store.epoch(2)).toBe(0);
+    });
+
     it("should seal the open block incomplete on a flush", () => {
       const store = new Store({ dynamicBufferSize: 100 });
       const block = store.raw(1, 100);

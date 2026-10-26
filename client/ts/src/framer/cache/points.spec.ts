@@ -9,6 +9,7 @@
 
 import {
   type breaker,
+  dynamicWindow,
   Rate,
   sleep,
   staticWindow,
@@ -31,7 +32,7 @@ import { Joins } from "@/framer/cache/join";
 import { Joiner } from "@/framer/cache/joiner";
 import { Points, type PointsProps } from "@/framer/cache/points";
 import { Reader, type RemoteReader } from "@/framer/cache/reader";
-import { Store } from "@/framer/cache/store";
+import { Store, type StoreProps } from "@/framer/cache/store";
 import { MultiplexedStreamer } from "@/framer/cache/streamer";
 import { tileKey, TileReader } from "@/framer/cache/tile";
 import { type PointsLimit } from "@/framer/subscription";
@@ -60,8 +61,9 @@ const createPoints = (
   core: SyntheticCore,
   readRemote: RemoteReader = async (tr, keys, reduction) =>
     core.read(tr, keys, reduction),
+  storeProps: StoreProps = {},
 ) => {
-  const store = new Store({ now: core.now });
+  const store = new Store({ now: core.now, ...storeProps });
   const joins = new Joins(store);
   const { retrieveChannels, now } = core;
   const reader = new Reader({
@@ -116,10 +118,106 @@ const createPoints = (
     joins.close();
     store.close();
   };
-  return { store, subscribe, unsubscribe, close };
+  return { store, joins, subscribe, unsubscribe, close };
 };
 
 describe("Points", () => {
+  describe("snapshot", () => {
+    const window = dynamicWindow(TimeSpan.seconds(30));
+
+    it("should return the same snapshot while nothing changes", async () => {
+      const core = createCore();
+      const { subscribe, close } = createPoints(core);
+      const range = new TimeRange(START, START.add(TimeSpan.minutes(8)));
+      const points = subscribe(core.data[0].key, staticWindow(range), TILED);
+      try {
+        await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+        expect(points.value()).toBe(points.value());
+      } finally {
+        await close();
+      }
+    });
+
+    it("should change the series when a tile lands", async () => {
+      const core = createCore();
+      const { subscribe, close } = createPoints(core);
+      const range = new TimeRange(START, START.add(TimeSpan.minutes(8)));
+      const points = subscribe(core.data[0].key, staticWindow(range), TILED);
+      try {
+        await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+        expect(points.value().series.length).toBeGreaterThan(0);
+      } finally {
+        await close();
+      }
+    });
+
+    it("should keep the series and move the time as the stream grows", async () => {
+      const core = createCore();
+      const { store, joins, subscribe, close } = createPoints(core);
+      const key = core.index.key;
+      const points = subscribe(key, window, RAW);
+      const servesBuffer = () =>
+        points.value().series.series.at(-1) === store.leadingBuffer(key);
+      try {
+        await expect.poll(() => joins.joined(key), POLL).toBe(true);
+        core.advance(TimeSpan.milliseconds(100));
+        await expect.poll(servesBuffer, POLL).toBe(true);
+        const before = points.value();
+        const { length } = before.series;
+        core.advance(TimeSpan.milliseconds(100));
+        await expect.poll(() => points.value().series.length, POLL).toBe(length + 10);
+        const after = points.value();
+        expect(after).not.toBe(before);
+        expect(after.series).toBe(before.series);
+        expect(after.time?.valueOf()).toBe(
+          before.time!.add(TimeSpan.milliseconds(100)).valueOf(),
+        );
+      } finally {
+        await close();
+      }
+    });
+
+    it("should serve the new buffer when the stream fills one", async () => {
+      const core = createCore();
+      const { store, joins, subscribe, close } = createPoints(core, undefined, {
+        dynamicBufferSize: 20,
+      });
+      const key = core.index.key;
+      const points = subscribe(key, window, RAW);
+      const servesBuffer = () =>
+        points.value().series.series.at(-1) === store.leadingBuffer(key);
+      try {
+        await expect.poll(() => joins.joined(key), POLL).toBe(true);
+        core.advance(TimeSpan.milliseconds(100));
+        await expect.poll(servesBuffer, POLL).toBe(true);
+        const filled = store.leadingBuffer(key);
+        core.advance(TimeSpan.milliseconds(300));
+        await expect.poll(() => store.leadingBuffer(key) !== filled, POLL).toBe(true);
+        expect(servesBuffer()).toBe(true);
+      } finally {
+        await close();
+      }
+    });
+  });
+
+  it("should read raw samples again after a failed read", async () => {
+    const core = createCore();
+    let failures = 1;
+    const { subscribe, close } = createPoints(core, async (tr, keys, reduction) => {
+      if (failures-- > 0) throw new Error("stream closed unexpectedly");
+      return core.read(tr, keys, reduction);
+    });
+    const range = new TimeRange(START, START.add(TimeSpan.minutes(4)));
+    const points = subscribe(core.data[0].key, staticWindow(range), RAW);
+    try {
+      await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+      expect(failures).toBeLessThan(0);
+      expect(points.value().series.length).toBeGreaterThanOrEqual(24_000);
+    } finally {
+      await close();
+    }
+  });
+
   it("should stop reading raw samples after a definitive failure", async () => {
     const core = createCore();
     let reads = 0;
