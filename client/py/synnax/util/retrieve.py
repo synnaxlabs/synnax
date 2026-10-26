@@ -8,14 +8,11 @@
 #  included in the file licenses/APL.txt.
 
 from collections.abc import Sequence
-from typing import TypeVar
 
 from synnax.exceptions import MultipleFoundError, NotFoundError
 
-T = TypeVar("T")
 
-
-def one(name: str, query: object, results: Sequence[T]) -> T:
+def one[T](name: str, query: object, results: Sequence[T]) -> T:
     """Returns the only record that a single retrieve found.
 
     :param name: The kind of record, such as "Range", for the error message.
@@ -30,7 +27,7 @@ def one(name: str, query: object, results: Sequence[T]) -> T:
     return found
 
 
-def one_or_none(name: str, query: object, results: Sequence[T]) -> T | None:
+def one_or_none[T](name: str, query: object, results: Sequence[T]) -> T | None:
     """Returns the only record that a single retrieve found, or None if no record
     matched.
 
