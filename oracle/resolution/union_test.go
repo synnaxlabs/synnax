@@ -76,3 +76,43 @@ var _ = Describe("Table.UnionTypes", func() {
 		Expect(unions[0].Name).To(Equal("Scale"))
 	})
 })
+
+var _ = Describe("RecordFields", func() {
+	var table *resolution.Table
+	BeforeEach(func() {
+		table = resolution.NewTable()
+		Expect(table.Add(resolution.Type{
+			Name:          "Base",
+			QualifiedName: "test.Base",
+			Namespace:     "test",
+			Form: resolution.StructForm{Fields: []resolution.Field{
+				{Name: "name", Type: resolution.TypeRef{Name: "string"}},
+			}},
+		})).To(Succeed())
+	})
+	union := func(enum string) resolution.Type {
+		return resolution.Type{
+			Name: "View",
+			Form: resolution.UnionForm{
+				Discriminator: "type",
+				Enum:          resolution.TypeRef{Name: enum},
+				Extends:       []resolution.TypeRef{{Name: "test.Base"}},
+			},
+		}
+	}
+
+	It("Should hold the tag of a union that borrows its enum", func() {
+		fields := MustBeOk(resolution.RecordFields(union("test.Type"), table))
+		Expect(fields).To(Equal([]resolution.Field{
+			{Name: "name", Type: resolution.TypeRef{Name: "string"}},
+			{Name: "type", Type: resolution.TypeRef{Name: "test.Type"}},
+		}))
+	})
+
+	It("Should leave out the tag of an unnamed enum", func() {
+		fields := MustBeOk(resolution.RecordFields(union(""), table))
+		Expect(fields).To(Equal([]resolution.Field{
+			{Name: "name", Type: resolution.TypeRef{Name: "string"}},
+		}))
+	})
+})

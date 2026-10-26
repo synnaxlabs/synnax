@@ -141,6 +141,18 @@ func (u *Tab) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// TabBase returns the TabBase of the active variant, or a zero TabBase when there is
+// none.
+func (u Tab) TabBase() TabBase {
+	switch v := u.Variant.(type) {
+	case ResourceTab:
+		return v.TabBase
+	case ViewTab:
+		return v.TabBase
+	}
+	return TabBase{}
+}
+
 // Validate returns an error wrapping validate.ErrValidation if the active variant
 // violates its schema constraints.
 func (u Tab) Validate() error {

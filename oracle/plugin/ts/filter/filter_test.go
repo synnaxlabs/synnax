@@ -69,6 +69,34 @@ var _ = Describe("TS Filter Plugin", func() {
 			}
 		`
 
+		It("Should check the shared fields and tag of a union", func(ctx SpecContext) {
+			resp := MustGenerate(ctx, `
+				import "schemas/x/filter"
+
+				@ts output "client/ts/src/view"
+
+				Type enum {
+					first = "first"
+				}
+				Base struct {
+					key  uuid   { @key }
+					name string
+				}
+				View union on type Type extends Base {
+					first { size int32 }
+				}
+
+				Where filter View {
+					name
+					type
+				}
+			`, "view", loader, p)
+			ExpectContent(resp, "where.gen.ts").ToContain(
+				"!filter.matchesString(where.name, record.name)",
+				"!filter.matchesSet(where.type, record.type)",
+			)
+		})
+
 		It("Should check each bare line with its operator", func(ctx SpecContext) {
 			resp := MustGenerate(ctx, thing+`
 				Where filter Thing {

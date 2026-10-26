@@ -97,6 +97,39 @@ var _ = Describe("Go Filter Plugin", func() {
 				)
 		})
 
+		It("Should read a union's shared fields and tag through its methods", func(
+			ctx SpecContext,
+		) {
+			resp := MustGenerate(ctx, `
+				import "schemas/x/filter"
+
+				@go output "core/pkg/service/view"
+
+				Type enum {
+					first = "first"
+				}
+				Base struct {
+					key  uuid   { @key }
+					name string
+				}
+				View union on type Type extends Base {
+					first { size int32 }
+					@retrieve
+				}
+
+				Where filter View {
+					name
+					type
+				}
+			`, "view", loader, p)
+			ExpectContent(resp, "where.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					"return re.MatchString(string(e.Base().Name)), nil",
+					"fs = append(fs, MatchTypes(l.In...))",
+				)
+		})
+
 		It("Should OR one call per value for a one-value matcher", func(
 			ctx SpecContext,
 		) {
@@ -259,10 +292,12 @@ var _ = Describe("Go Filter Plugin", func() {
 				)
 		})
 
-		It("Should make the interpreter generic over the target's type parameters", func(
-			ctx SpecContext,
-		) {
-			resp := MustGenerate(ctx, `
+		It(
+			"Should make the interpreter generic over the target's type parameters",
+			func(
+				ctx SpecContext,
+			) {
+				resp := MustGenerate(ctx, `
 				import "schemas/x/filter"
 
 				@go output "core/pkg/service/status"
@@ -282,21 +317,22 @@ var _ = Describe("Go Filter Plugin", func() {
 					variant
 				}
 			`, "status", loader, p)
-			ExpectContent(resp, "where.gen.go").
-				ToBeValidGoSource().
-				ToContain(
-					"func MatchWhere[Details any](w Where) (Filter[Details], error) {",
-					"var fs []Filter[Details]",
-					"fs = append(fs, MatchKeys[Details](l.In...))",
-					"fs = append(fs, MatchVariants[Details](l.In...))",
-					"fs = append(fs, Match[Details](func(",
-					"_ Retrieve[Details],",
-					"e *Status[Details],",
-					"func matchWheres[Details any](ws []Where, path string) "+
-						"([]Filter[Details], error) {",
-					"return And[Details](fs...), nil",
-				)
-		})
+				ExpectContent(resp, "where.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"func MatchWhere[Details any](w Where) (Filter[Details], error) {",
+						"var fs []Filter[Details]",
+						"fs = append(fs, MatchKeys[Details](l.In...))",
+						"fs = append(fs, MatchVariants[Details](l.In...))",
+						"fs = append(fs, Match[Details](func(",
+						"_ Retrieve[Details],",
+						"e *Status[Details],",
+						"func matchWheres[Details any](ws []Where, path string) "+
+							"([]Filter[Details], error) {",
+						"return And[Details](fs...), nil",
+					)
+			},
+		)
 
 		It("Should skip a filter with no Go output", func(ctx SpecContext) {
 			resp := MustGenerate(ctx, `

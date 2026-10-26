@@ -20,9 +20,12 @@ import (
 )
 
 func fieldTypes(form resolution.StructForm) map[string]resolution.TypeRef {
-	return lo.SliceToMap(form.Fields, func(f resolution.Field) (string, resolution.TypeRef) {
-		return f.Name, f.Type
-	})
+	return lo.SliceToMap(
+		form.Fields,
+		func(f resolution.Field) (string, resolution.TypeRef) {
+			return f.Name, f.Type
+		},
+	)
 }
 
 func fieldNames(form resolution.StructForm) []string {
@@ -91,7 +94,9 @@ var _ = Describe("Filter definitions", func() {
 		) {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			types := fieldTypes(table.MustGet("test.Where").Form.(resolution.StructForm))
+			types := fieldTypes(
+				table.MustGet("test.Where").Form.(resolution.StructForm),
+			)
 			Expect(types["and"]).To(Equal(resolution.TypeRef{
 				Name:     "Array",
 				TypeArgs: []resolution.TypeRef{{Name: "test.Where"}},
@@ -123,7 +128,9 @@ var _ = Describe("Filter definitions", func() {
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			where := table.MustGet("test.Where")
 			Expect(where.Filter).ToNot(BeNil())
-			Expect(where.Filter.Target).To(Equal(resolution.TypeRef{Name: "test.Thing"}))
+			Expect(
+				where.Filter.Target,
+			).To(Equal(resolution.TypeRef{Name: "test.Thing"}))
 			overlaps := MustBeOk(where.Filter.Line("overlaps"))
 			Expect(overlaps.Bare()).To(BeFalse())
 			Expect(overlaps.Type).To(Equal(resolution.TypeRef{Name: "test.Span"}))
@@ -170,8 +177,63 @@ var _ = Describe("Filter definitions", func() {
 				}
 			`, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			types := fieldTypes(table.MustGet("test.Where").Form.(resolution.StructForm))
+			types := fieldTypes(
+				table.MustGet("test.Where").Form.(resolution.StructForm),
+			)
 			Expect(types["name"]).To(Equal(resolution.TypeRef{Name: "filter.String"}))
+		})
+
+		It("Should type the tag line of a union by its borrowed enum", func(
+			ctx SpecContext,
+		) {
+			table, diag := analyzer.AnalyzeSource(ctx, `
+				import "schemas/x/filter"
+
+				Kind enum {
+					a = "a"
+					b = "b"
+				}
+				Base struct {
+					key uuid { @key }
+				}
+				Thing union on kind Kind extends Base {
+					a {}
+					b {}
+				}
+				Where filter Thing {
+					kind
+				}
+			`, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			types := fieldTypes(
+				table.MustGet("test.Where").Form.(resolution.StructForm),
+			)
+			Expect(types["kind"]).To(Equal(resolution.TypeRef{
+				Name:     "filter.Set",
+				TypeArgs: []resolution.TypeRef{{Name: "test.Kind"}},
+			}))
+		})
+
+		It("Should reject the tag line of a union with an unnamed enum", func(
+			ctx SpecContext,
+		) {
+			_, diag := analyzer.AnalyzeSource(ctx, `
+				import "schemas/x/filter"
+
+				Base struct {
+					key uuid { @key }
+				}
+				Thing union on kind extends Base {
+					a {}
+				}
+				Where filter Thing {
+					kind
+				}
+			`, "test", loader)
+			Expect(diag.String()).To(ContainSubstring(
+				"filter Where: Thing takes its kind from an unnamed enum; declare an " +
+					"enum and borrow it with `union on kind <Enum>`",
+			))
 		})
 
 		It("Should type a bare line by its type parameter's default", func(
@@ -193,7 +255,9 @@ var _ = Describe("Filter definitions", func() {
 				}
 			`, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			types := fieldTypes(table.MustGet("test.Where").Form.(resolution.StructForm))
+			types := fieldTypes(
+				table.MustGet("test.Where").Form.(resolution.StructForm),
+			)
 			Expect(types["kind"]).To(Equal(resolution.TypeRef{
 				Name:     "filter.Set",
 				TypeArgs: []resolution.TypeRef{{Name: "test.Kind"}},
@@ -215,7 +279,9 @@ var _ = Describe("Filter definitions", func() {
 				}
 			`, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			types := fieldTypes(table.MustGet("test.Where").Form.(resolution.StructForm))
+			types := fieldTypes(
+				table.MustGet("test.Where").Form.(resolution.StructForm),
+			)
 			Expect(types["key"]).To(Equal(resolution.TypeRef{
 				Name:     "filter.Set",
 				TypeArgs: []resolution.TypeRef{{Name: "test.Key"}},

@@ -501,8 +501,10 @@ func NonDefaultedTypeParams(tps []TypeParam) []TypeParam {
 }
 
 // RecordFields returns the fields every record of typ holds: a struct's fields, or the
-// fields of a union's base structs. A field typed by a type parameter with a default
-// takes the default. It returns false when typ is neither a struct nor a union.
+// fields of a union's base structs and the tag of a union that borrows its enum. A
+// field
+// typed by a type parameter with a default takes the default. It returns false when typ
+// is neither a struct nor a union.
 func RecordFields(typ Type, table *Table) ([]Field, bool) {
 	var fields []Field
 	switch form := typ.Form.(type) {
@@ -513,6 +515,10 @@ func RecordFields(typ Type, table *Table) ([]Field, bool) {
 			if base, _, ok := Dealias(ext, table); ok {
 				fields = append(fields, UnifiedFields(base, table)...)
 			}
+		}
+		// The tag of an unnamed enum has no type to give the field.
+		if form.BorrowsEnum() {
+			fields = append(fields, Field{Name: form.Discriminator, Type: form.Enum})
 		}
 	default:
 		return nil, false
