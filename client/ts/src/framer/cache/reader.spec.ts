@@ -351,6 +351,20 @@ describe("Reader", () => {
       expect(res.series[0]).toBe(first.series[0]);
     });
 
+    it("should leave out samples the Core answers before their index", async () => {
+      const { reader } = createReader({
+        // The Core committed the data channel two samples past its index.
+        answer: (frame) =>
+          new Frame(frame.map((k, s) => [k, k === 1 ? s.slice(0, s.length - 2) : s])),
+      });
+      const tr = new TimeRange(at(0), at(10));
+      const [index, data] = await Promise.all([reader.read(tr, 1), reader.read(tr, 2)]);
+      expect(data.length).toBe(64);
+      expect(data.series.map((s) => s.alignmentBounds)).toEqual(
+        index.series.map((s) => s.alignmentBounds),
+      );
+    });
+
     it("should align a channel's tail with the tail of its index", async () => {
       const { core, reader } = createReader({ elapsed: 30 });
       await reader.read(new TimeRange(at(0), at(30)), 2);
