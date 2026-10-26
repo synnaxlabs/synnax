@@ -724,6 +724,7 @@ func (p *Plugin) processFieldForTranslation(
 			"r."+goName,
 			"pb."+pbName+".Values",
 		)
+		b = presentList(b, "pb."+pbName+".Values", data)
 		fd.IsOptionalArrayWrapper = true
 		fd.WrapperName = arrays.OptionalWrapperName(typeRef, data.Namespace, data.table)
 		fd.ForwardExpr = f
@@ -733,6 +734,17 @@ func (p *Plugin) processFieldForTranslation(
 	}
 
 	return fd
+}
+
+// presentList returns the backward expression of a present optional list. Protobuf
+// decodes an empty list as nil, so a direct copy of values keeps the list present
+// through xpb.ListValues.
+func presentList(backward, values string, data *templateData) string {
+	if backward != values {
+		return backward
+	}
+	data.AddInternal("xpb", "github.com/synnaxlabs/x/pb")
+	return "xpb.ListValues(" + values + ")"
 }
 
 // setPtrConversion sets an optional field to convert through its dereferenced value
@@ -1085,6 +1097,7 @@ func (p *Plugin) processGenericFieldForTranslation(
 			"r."+goName,
 			"pb."+pbName+".Values",
 		)
+		b = presentList(b, "pb."+pbName+".Values", data)
 		fd.IsOptionalArrayWrapper = true
 		fd.WrapperName = arrays.OptionalWrapperName(typeRef, data.Namespace, data.table)
 		fd.ForwardExpr = f
