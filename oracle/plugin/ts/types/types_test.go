@@ -62,10 +62,26 @@ var _ = Describe("TS Types Plugin", func() {
 				"and?: Where[];",
 				"or?: Where[];",
 				"not?: Where;",
-				"export const whereZ: z.ZodType<Where> = z.object({",
+				"export const whereZ: z.ZodType<Where> = z.strictObject({",
 				"get and() {\n    return zod.nullToUndefined(whereZ.array());",
 				"get not() {\n    return whereZ.optional();",
 			)
+		})
+
+		It("Should reject unknown keys only in a filter request", func(
+			ctx SpecContext,
+		) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
+			ExpectContent(resp, "thing/types.gen.ts").
+				ToContain("export const retrieveRequestZ = z.strictObject({").
+				ToNotContain("thingZ = z.strictObject", "retrieveResponseZ = z.strictObject")
+			ExpectContent(resp, "filter/types.gen.ts").
+				ToContain(
+					"export const stringZ = z.strictObject({",
+					"export const setZ = <T extends z.ZodType>(t: T) =>\n  z.strictObject({",
+				).
+				ToNotContain("boolZ = z.strictObject")
 		})
 
 		Context("field-level omit", func() {
