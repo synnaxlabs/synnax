@@ -465,3 +465,11 @@ var _ = Describe("Alignment", func() {
 		})
 	}
 })
+
+var _ = Describe("NewAlignmentCounter", func() {
+	It("Should hand out leading domains after ZeroLeadingAlignment", func() {
+		c := cesium.NewAlignmentCounter()
+		Expect(c.Next()).To(Equal(cesium.LeadingAlignment(1, 0)))
+		Expect(c.Next()).To(Equal(cesium.LeadingAlignment(2, 0)))
+	})
+})
