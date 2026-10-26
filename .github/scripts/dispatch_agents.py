@@ -47,8 +47,9 @@ query($after: String, $team: String!, $label: String!) {
       id identifier number title description
       state { type }
       project { name }
-      inverseRelations(first: 50) {
+      inverseRelations(first: 250) {
         nodes { type issue { identifier state { type } } }
+        pageInfo { hasNextPage }
       }
     }
     pageInfo { hasNextPage endCursor }
@@ -95,11 +96,15 @@ class Dispatch:
 
 
 def parse_issue(node: dict[str, Any]) -> Issue:
-    """Converts one Linear GraphQL issue node into an Issue."""
+    """Converts one Linear GraphQL issue node into an Issue.
+
+    Raises ValueError when the node holds only the first page of its relations.
+    """
+    relations = node["inverseRelations"]
+    if relations["pageInfo"]["hasNextPage"]:
+        raise ValueError(f"{node['identifier']} has more relations than one page")
     blockers = tuple(
-        r["issue"]["state"]["type"]
-        for r in node["inverseRelations"]["nodes"]
-        if r["type"] == "blocks"
+        r["issue"]["state"]["type"] for r in relations["nodes"] if r["type"] == "blocks"
     )
     return Issue(
         id=node["id"],
@@ -123,6 +128,13 @@ def open_pr_keys(prs: list[dict[str, str]]) -> set[str]:
     }
 
 
+def agent_fields(description: str) -> dict[str, str]:
+    """Returns the RFC and Phase items of the `## Agent` section, if any."""
+    sections = re.split(r"^## ", description, flags=re.MULTILINE)
+    agent = next((s for s in sections if s.split("\n", 1)[0].strip() == "Agent"), "")
+    return dict(_FIELD.findall(agent))
+
+
 def select(
     issues: list[Issue], open_prs: set[str], cap: int
 ) -> tuple[list[Dispatch], list[str]]:
@@ -135,7 +147,7 @@ def select(
     for issue in sorted(issues, key=lambda i: i.number):
         if issue.state == "started" or issue.key in open_prs:
             continue
-        fields = dict(_FIELD.findall(issue.description))
+        fields = agent_fields(issue.description)
         if issue.project is None:
             skipped.append(f"{issue.key}: no project")
         elif any(s != "completed" for s in issue.blocker_states):
@@ -193,21 +205,32 @@ def fetch_open_prs() -> list[dict[str, str]]:
     return prs
 
 
-def start(issues: list[Issue]) -> None:
+def start(issues: list[Issue]) -> tuple[list[Issue], list[str]]:
+    """Moves each issue to In Progress. Returns the moved issues and an error for
+    each issue that did not move, so the moved ones still get their agents."""
     states = _linear(
         "query($team: String!) { teams(filter: {key: {eq: $team}}) "
         "{ nodes { states { nodes { id name } } } } }",
         {"team": TEAM},
     )["teams"]["nodes"][0]["states"]["nodes"]
     state_id = next(s["id"] for s in states if s["name"] == STARTED_STATE)
+    moved: list[Issue] = []
+    errors: list[str] = []
     for issue in issues:
-        result = _linear(
-            "mutation($id: String!, $state: String!) "
-            "{ issueUpdate(id: $id, input: {stateId: $state}) { success } }",
-            {"id": issue.id, "state": state_id},
-        )
-        if not result["issueUpdate"]["success"]:
-            raise RuntimeError(f"failed to move {issue.key} to {STARTED_STATE}")
+        try:
+            result = _linear(
+                "mutation($id: String!, $state: String!) "
+                "{ issueUpdate(id: $id, input: {stateId: $state}) { success } }",
+                {"id": issue.id, "state": state_id},
+            )
+        except (OSError, RuntimeError) as e:
+            errors.append(f"{issue.key}: {e}")
+            continue
+        if result["issueUpdate"]["success"]:
+            moved.append(issue)
+        else:
+            errors.append(f"{issue.key}: Linear did not apply the update")
+    return moved, errors
 
 
 def main() -> None:
@@ -226,11 +249,14 @@ def main() -> None:
         print(f"{verb} {d.issue.key}: {d.issue.title} ({d.rfc} phase {d.phase})")
     if args.dry_run:
         return
-    start([d.issue for d in dispatches])
+    moved, errors = start([d.issue for d in dispatches])
+    started = [d for d in dispatches if d.issue in moved]
     if args.output:
-        matrix = {"include": [d.matrix_entry() for d in dispatches]}
+        matrix = {"include": [d.matrix_entry() for d in started]}
         with open(args.output, "a") as f:
-            f.write(f"count={len(dispatches)}\nmatrix={json.dumps(matrix)}\n")
+            f.write(f"count={len(started)}\nmatrix={json.dumps(matrix)}\n")
+    if errors:
+        sys.exit("failed to move to In Progress:\n" + "\n".join(errors))
 
 
 if __name__ == "__main__":

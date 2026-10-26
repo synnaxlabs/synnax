@@ -71,7 +71,8 @@ jobs:
   agent:
     name: Agent for ${{ matrix.issue }}
     needs: select
-    if: needs.select.outputs.count > 0
+    # A failed select step still hands off the issues it moved to In Progress.
+    if: ${{ !cancelled() && needs.select.outputs.count > 0 }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.select.outputs.matrix) }}

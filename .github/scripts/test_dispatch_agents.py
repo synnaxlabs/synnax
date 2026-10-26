@@ -9,7 +9,9 @@
 
 from typing import Any
 
-from dispatch_agents import Issue, open_pr_keys, parse_issue, select
+import pytest
+
+from dispatch_agents import Issue, agent_fields, open_pr_keys, parse_issue, select
 
 AGENT = """## Why
 
@@ -48,29 +50,54 @@ def keys(
     return [d.issue.key for d in dispatches]
 
 
+def node(more_relations: bool = False) -> dict[str, Any]:
+    return {
+        "id": "uuid",
+        "identifier": "SY-7",
+        "number": 7,
+        "title": "Add the codec",
+        "description": None,
+        "state": {"type": "backlog"},
+        "project": None,
+        "inverseRelations": {
+            "nodes": [
+                {"type": "blocks", "issue": {"state": {"type": "completed"}}},
+                {"type": "related", "issue": {"state": {"type": "started"}}},
+            ],
+            "pageInfo": {"hasNextPage": more_relations},
+        },
+    }
+
+
 class TestParseIssue:
     """Tests for reading a Linear GraphQL issue node."""
 
     def test_should_keep_only_blocking_relations(self) -> None:
         """Should read blockers from inverse relations of type blocks."""
-        node: dict[str, Any] = {
-            "id": "uuid",
-            "identifier": "SY-7",
-            "number": 7,
-            "title": "Add the codec",
-            "description": None,
-            "state": {"type": "backlog"},
-            "project": None,
-            "inverseRelations": {
-                "nodes": [
-                    {"type": "blocks", "issue": {"state": {"type": "completed"}}},
-                    {"type": "related", "issue": {"state": {"type": "started"}}},
-                ]
-            },
-        }
-        assert parse_issue(node) == Issue(
+        assert parse_issue(node()) == Issue(
             "uuid", "SY-7", 7, "Add the codec", "", "backlog", None, ("completed",)
         )
+
+    def test_should_reject_a_partial_relation_page(self) -> None:
+        """Should fail instead of judging blockers from one page of relations."""
+        with pytest.raises(ValueError, match="SY-7 has more relations"):
+            parse_issue(node(more_relations=True))
+
+
+class TestAgentFields:
+    """Tests for reading the agent block of an issue description."""
+
+    def test_should_read_only_the_agent_section(self) -> None:
+        """Should ignore RFC and Phase items under other headings."""
+        description = "## Scope\n\n- RFC: `docs/a.md`\n- Phase: 9\n\n" + AGENT
+        assert agent_fields(description) == {
+            "RFC": "docs/tech/rfc/0090-foo.md",
+            "Phase": "2",
+        }
+
+    def test_should_return_nothing_without_an_agent_section(self) -> None:
+        """Should not read items that sit outside an agent section."""
+        assert agent_fields("## Scope\n\n- RFC: `docs/a.md`\n- Phase: 9\n") == {}
 
 
 class TestOpenPRKeys:
