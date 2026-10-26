@@ -138,5 +138,6 @@ Symbol struct {
 Where filter Symbol {
     key
 
-    @doc value "is a filter that selects schematic symbols."
+    @doc value         "is a filter that selects schematic symbols."
+    @go request_output "core/pkg/api/schematic/symbol"
 }

@@ -42,5 +42,6 @@ Project struct {
 Where filter Project {
     key
 
-    @doc value "is a filter that selects projects."
+    @doc value         "is a filter that selects projects."
+    @go request_output "core/pkg/api/project"
 }

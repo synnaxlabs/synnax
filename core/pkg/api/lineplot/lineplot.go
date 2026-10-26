@@ -125,11 +125,6 @@ func (s *Service) Dispatch(
 		Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 }
 
-type (
-	RetrieveRequest  = lineplot.RetrieveRequest
-	RetrieveResponse = lineplot.RetrieveResponse
-)
-
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,

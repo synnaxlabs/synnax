@@ -53,6 +53,7 @@ Where filter Label {
     }
 
     @cpp omit
-    @doc value "is a filter that selects labels."
+    @doc value         "is a filter that selects labels."
+    @go request_output "core/pkg/api/label"
     @pb omit
 }

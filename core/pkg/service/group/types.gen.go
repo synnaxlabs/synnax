@@ -14,8 +14,6 @@ package group
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/group/versions"
 	"github.com/synnaxlabs/x/filter"
-	"github.com/synnaxlabs/x/validate"
-	"strconv"
 )
 
 // Key is a unique identifier for a group, represented as a UUID.
@@ -35,32 +33,4 @@ type Where struct {
 	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
 	// Key selects by key.
 	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
-}
-
-// RetrieveRequest is a request to retrieve groups.
-type RetrieveRequest struct {
-	// Where selects the groups to retrieve. An absent where selects all of them.
-	Where *Where `json:"where,omitzero" msgpack:"where,omitempty"`
-	// SearchTerm keeps the groups that match the term, closest match first.
-	SearchTerm string `json:"search_term" msgpack:"search_term"`
-	// Limit is the most groups to return.
-	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
-	// Offset is the number of matching groups to skip.
-	Offset uint32 `json:"offset" msgpack:"offset"`
-}
-
-// RetrieveResponse holds the groups a RetrieveRequest selects.
-type RetrieveResponse struct {
-	// Groups are the groups the request selects.
-	Groups []Group `json:"groups" msgpack:"groups"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (r RetrieveResponse) Validate() error {
-	v := validate.New("RetrieveResponse")
-	for i := range r.Groups {
-		v.Exec(func() error { return validate.PathedError(r.Groups[i].Validate(), "groups", strconv.Itoa(i)) })
-	}
-	return v.Error()
 }

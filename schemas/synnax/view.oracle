@@ -73,5 +73,6 @@ Where filter View {
     name
     type
 
-    @doc value "is a filter that selects views."
+    @doc value         "is a filter that selects views."
+    @go request_output "core/pkg/api/view"
 }

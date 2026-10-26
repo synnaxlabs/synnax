@@ -14,8 +14,6 @@ package schematic
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
 	"github.com/synnaxlabs/x/filter"
-	"github.com/synnaxlabs/x/validate"
-	"strconv"
 )
 
 // Key is a unique identifier for a schematic, represented as a UUID.
@@ -756,39 +754,4 @@ type Where struct {
 	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
 	// Key selects by key.
 	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
-}
-
-// RetrieveRequest is a request to retrieve schematics.
-type RetrieveRequest struct {
-	// Where selects the schematics to retrieve. An absent where selects all of them.
-	Where *Where `json:"where,omitzero" msgpack:"where,omitempty"`
-	// SearchTerm keeps the schematics that match the term, closest match first.
-	SearchTerm string `json:"search_term" msgpack:"search_term"`
-	// Limit is the most schematics to return.
-	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
-	// Offset is the number of matching schematics to skip.
-	Offset uint32 `json:"offset" msgpack:"offset"`
-}
-
-// RetrieveResponse holds the schematics a RetrieveRequest selects.
-type RetrieveResponse struct {
-	// Schematics are the schematics the request selects.
-	Schematics []Schematic `json:"schematics" msgpack:"schematics"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *RetrieveResponse) ApplyDefaults() {
-	for i := range r.Schematics {
-		r.Schematics[i].ApplyDefaults()
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (r RetrieveResponse) Validate() error {
-	v := validate.New("RetrieveResponse")
-	for i := range r.Schematics {
-		v.Exec(func() error { return validate.PathedError(r.Schematics[i].Validate(), "schematics", strconv.Itoa(i)) })
-	}
-	return v.Error()
 }

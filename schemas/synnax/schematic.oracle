@@ -983,7 +983,8 @@ Schematic struct {
 Where filter Schematic {
     key
 
-    @doc value "is a filter that selects schematics."
+    @doc value         "is a filter that selects schematics."
+    @go request_output "core/pkg/api/schematic"
 }
 
 ScaleIndicatorConfig struct extends NumericTelemConfig, StalenessConfig {

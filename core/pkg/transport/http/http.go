@@ -12,7 +12,8 @@ package http
 import (
 	"github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	"github.com/synnaxlabs/synnax/pkg/api/access"
+	"github.com/synnaxlabs/synnax/pkg/api/access/policy"
+	"github.com/synnaxlabs/synnax/pkg/api/access/role"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
@@ -400,28 +401,28 @@ func Bind(layer *api.Layer, router *http.Router) {
 		),
 
 		// ACCESS
-		AccessCreatePolicy: router.NewUnaryServer[access.CreatePolicyRequest, access.CreatePolicyResponse](
+		AccessCreatePolicy: router.NewUnaryServer[policy.CreateRequest, policy.CreateResponse](
 			"/api/v1/access/policy/create",
 		),
-		AccessDeletePolicy: router.NewUnaryServer[access.DeletePolicyRequest, struct{}](
+		AccessDeletePolicy: router.NewUnaryServer[policy.DeleteRequest, struct{}](
 			"/api/v1/access/policy/delete",
 		),
-		AccessRetrievePolicy: router.NewUnaryServer[access.RetrievePolicyRequest, access.RetrievePolicyResponse](
+		AccessRetrievePolicy: router.NewUnaryServer[policy.RetrieveRequest, policy.RetrieveResponse](
 			"/api/v1/access/policy/retrieve",
 		),
-		AccessCreateRole: router.NewUnaryServer[access.CreateRoleRequest, access.CreateRoleResponse](
+		AccessCreateRole: router.NewUnaryServer[role.CreateRequest, role.CreateResponse](
 			"/api/v1/access/role/create",
 		),
-		AccessDeleteRole: router.NewUnaryServer[access.DeleteRoleRequest, struct{}](
+		AccessDeleteRole: router.NewUnaryServer[role.DeleteRequest, struct{}](
 			"/api/v1/access/role/delete",
 		),
-		AccessRetrieveRole: router.NewUnaryServer[access.RetrieveRoleRequest, access.RetrieveRoleResponse](
+		AccessRetrieveRole: router.NewUnaryServer[role.RetrieveRequest, role.RetrieveResponse](
 			"/api/v1/access/role/retrieve",
 		),
-		AccessAssignRole: router.NewUnaryServer[access.AssignRoleRequest, struct{}](
+		AccessAssignRole: router.NewUnaryServer[role.AssignRequest, struct{}](
 			"/api/v1/access/role/assign",
 		),
-		AccessUnassignRole: router.NewUnaryServer[access.UnassignRoleRequest, struct{}](
+		AccessUnassignRole: router.NewUnaryServer[role.UnassignRequest, struct{}](
 			"/api/v1/access/role/unassign",
 		),
 

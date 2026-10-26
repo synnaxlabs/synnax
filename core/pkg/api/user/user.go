@@ -212,11 +212,6 @@ func (s *Service) Rename(
 		ChangeName(ctx, req.Key, req.FirstName, req.LastName)
 }
 
-type (
-	RetrieveRequest  = user.RetrieveRequest
-	RetrieveResponse = user.RetrieveResponse
-)
-
 // Retrieve returns the users that the request selects.
 func (s *Service) Retrieve(
 	ctx context.Context,

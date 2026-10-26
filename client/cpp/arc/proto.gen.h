@@ -28,6 +28,7 @@
 #include "arc/cpp/program/proto.gen.h"
 #include "arc/cpp/text/json.gen.h"
 #include "arc/cpp/text/proto.gen.h"
+#include "core/pkg/api/arc/pb/arc.pb.h"
 #include "core/pkg/service/arc/pb/arc.pb.h"
 
 namespace synnax::arc {
@@ -214,9 +215,9 @@ Where::from_proto(const ::service::arc::pb::Where &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::arc::pb::RetrieveRequest, x::errors::Error>
+inline std::pair<::api::arc::pb::RetrieveRequest, x::errors::Error>
 RetrieveRequest::to_proto() const {
-    ::service::arc::pb::RetrieveRequest pb;
+    ::api::arc::pb::RetrieveRequest pb;
     if (this->where.has_value()) {
         auto [v, err] = this->where->to_proto();
         if (err) return {{}, err};
@@ -230,7 +231,7 @@ RetrieveRequest::to_proto() const {
 }
 
 inline std::pair<RetrieveRequest, x::errors::Error>
-RetrieveRequest::from_proto(const ::service::arc::pb::RetrieveRequest &pb) {
+RetrieveRequest::from_proto(const ::api::arc::pb::RetrieveRequest &pb) {
     RetrieveRequest cpp;
     if (pb.has_where()) {
         auto [v, err] = Where::from_proto(pb.where());
@@ -244,9 +245,9 @@ RetrieveRequest::from_proto(const ::service::arc::pb::RetrieveRequest &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::arc::pb::RetrieveResponse, x::errors::Error>
+inline std::pair<::api::arc::pb::RetrieveResponse, x::errors::Error>
 RetrieveResponse::to_proto() const {
-    ::service::arc::pb::RetrieveResponse pb;
+    ::api::arc::pb::RetrieveResponse pb;
     for (const auto &item: this->arcs) {
         auto [v, err] = item.to_proto();
         if (err) return {{}, err};
@@ -256,7 +257,7 @@ RetrieveResponse::to_proto() const {
 }
 
 inline std::pair<RetrieveResponse, x::errors::Error>
-RetrieveResponse::from_proto(const ::service::arc::pb::RetrieveResponse &pb) {
+RetrieveResponse::from_proto(const ::api::arc::pb::RetrieveResponse &pb) {
     RetrieveResponse cpp;
     if (auto err = x::pb::from_proto_repeated<Arc>(cpp.arcs, pb.arcs()))
         return {{}, err};

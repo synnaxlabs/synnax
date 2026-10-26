@@ -72,23 +72,3 @@ message Where {
   // name selects by name.
   optional .x.filter.pb.String name = 5;
 }
-
-// RetrieveRequest is a request to retrieve arcs.
-message RetrieveRequest {
-  // where selects the arcs to retrieve. An absent where selects all of them.
-  optional Where where = 1;
-  // search_term keeps the arcs that match the term, closest match first.
-  string search_term = 2;
-  // limit is the most arcs to return.
-  optional uint32 limit = 3;
-  // offset is the number of matching arcs to skip.
-  uint32 offset = 4;
-  // include_program includes the program of each record.
-  bool include_program = 5;
-}
-
-// RetrieveResponse holds the arcs a RetrieveRequest selects.
-message RetrieveResponse {
-  // arcs are the arcs the request selects.
-  repeated Arc arcs = 1;
-}

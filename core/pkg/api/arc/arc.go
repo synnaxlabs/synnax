@@ -228,9 +228,7 @@ func (s *Service) UpdateTask(
 }
 
 type (
-	RetrieveRequest  = arc.RetrieveRequest
-	RetrieveResponse = arc.RetrieveResponse
-	Where            = arc.Where
+	Where = arc.Where
 )
 
 func (s *Service) Retrieve(

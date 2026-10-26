@@ -14,8 +14,6 @@ package panel
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 	"github.com/synnaxlabs/x/filter"
-	"github.com/synnaxlabs/x/validate"
-	"strconv"
 )
 
 // TabKey uniquely identifies a tab within a panel.
@@ -92,39 +90,4 @@ type Where struct {
 	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
 	// Key selects by key.
 	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
-}
-
-// RetrieveRequest is a request to retrieve panels.
-type RetrieveRequest struct {
-	// Where selects the panels to retrieve. An absent where selects all of them.
-	Where *Where `json:"where,omitzero" msgpack:"where,omitempty"`
-	// SearchTerm keeps the panels that match the term, closest match first.
-	SearchTerm string `json:"search_term" msgpack:"search_term"`
-	// Limit is the most panels to return.
-	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
-	// Offset is the number of matching panels to skip.
-	Offset uint32 `json:"offset" msgpack:"offset"`
-}
-
-// RetrieveResponse holds the panels a RetrieveRequest selects.
-type RetrieveResponse struct {
-	// Panels are the panels the request selects.
-	Panels []Panel `json:"panels" msgpack:"panels"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *RetrieveResponse) ApplyDefaults() {
-	for i := range r.Panels {
-		r.Panels[i].ApplyDefaults()
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (r RetrieveResponse) Validate() error {
-	v := validate.New("RetrieveResponse")
-	for i := range r.Panels {
-		v.Exec(func() error { return validate.PathedError(r.Panels[i].Validate(), "panels", strconv.Itoa(i)) })
-	}
-	return v.Error()
 }

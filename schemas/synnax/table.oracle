@@ -358,5 +358,6 @@ Table struct {
 Where filter Table {
     key
 
-    @doc value "is a filter that selects tables."
+    @doc value         "is a filter that selects tables."
+    @go request_output "core/pkg/api/table"
 }

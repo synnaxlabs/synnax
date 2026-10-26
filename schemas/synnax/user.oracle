@@ -59,7 +59,8 @@ Where filter User {
     key
     username
 
-    @doc value "is a filter that selects users."
+    @doc value         "is a filter that selects users."
+    @go request_output "core/pkg/api/user"
 }
 
 New struct extends User {

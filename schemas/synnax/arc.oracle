@@ -196,5 +196,6 @@ Where filter Arc {
     key
     name
 
-    @doc value "is a filter that selects Arc modules."
+    @doc value         "is a filter that selects Arc modules."
+    @go request_output "core/pkg/api/arc"
 }

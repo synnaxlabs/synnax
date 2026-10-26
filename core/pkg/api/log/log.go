@@ -126,11 +126,6 @@ func (s *Service) Dispatch(
 		Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 }
 
-type (
-	RetrieveRequest  = log.RetrieveRequest
-	RetrieveResponse = log.RetrieveResponse
-)
-
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,

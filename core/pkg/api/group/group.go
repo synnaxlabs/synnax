@@ -102,11 +102,6 @@ func (s *Service) Create(
 	return CreateResponse{Group: g}, nil
 }
 
-type (
-	RetrieveRequest  = group.RetrieveRequest
-	RetrieveResponse = group.RetrieveResponse
-)
-
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,

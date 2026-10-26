@@ -42,5 +42,6 @@ Group struct {
 Where filter Group {
     key
 
-    @doc value "is a filter that selects groups."
+    @doc value         "is a filter that selects groups."
+    @go request_output "core/pkg/api/group"
 }

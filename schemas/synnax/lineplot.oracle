@@ -644,7 +644,8 @@ LinePlot struct {
 Where filter LinePlot {
     key
 
-    @doc value "is a filter that selects line plots."
+    @doc value         "is a filter that selects line plots."
+    @go request_output "core/pkg/api/lineplot"
 }
 
 Aggregation enum {

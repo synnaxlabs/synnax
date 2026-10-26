@@ -119,11 +119,6 @@ func (s *Service) Create(
 	return res, nil
 }
 
-type (
-	RetrieveRequest  = panel.RetrieveRequest
-	RetrieveResponse = panel.RetrieveResponse
-)
-
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,

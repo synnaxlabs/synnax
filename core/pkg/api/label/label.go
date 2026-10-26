@@ -106,11 +106,6 @@ func (s *Service) Create(
 	return CreateResponse(req), nil
 }
 
-type (
-	RetrieveRequest  = label.RetrieveRequest
-	RetrieveResponse = label.RetrieveResponse
-)
-
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,

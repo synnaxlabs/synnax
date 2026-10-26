@@ -14,8 +14,6 @@ package arc
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
 	"github.com/synnaxlabs/x/filter"
-	"github.com/synnaxlabs/x/validate"
-	"strconv"
 )
 
 // Key is a unique identifier for an Arc module.
@@ -45,34 +43,4 @@ type Where struct {
 	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
 	// Name selects by name.
 	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
-}
-
-// RetrieveRequest is a request to retrieve arcs.
-type RetrieveRequest struct {
-	// Where selects the arcs to retrieve. An absent where selects all of them.
-	Where *Where `json:"where,omitzero" msgpack:"where,omitempty"`
-	// SearchTerm keeps the arcs that match the term, closest match first.
-	SearchTerm string `json:"search_term" msgpack:"search_term"`
-	// Limit is the most arcs to return.
-	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
-	// Offset is the number of matching arcs to skip.
-	Offset uint32 `json:"offset" msgpack:"offset"`
-	// IncludeProgram includes the program of each record.
-	IncludeProgram bool `json:"include_program" msgpack:"include_program"`
-}
-
-// RetrieveResponse holds the arcs a RetrieveRequest selects.
-type RetrieveResponse struct {
-	// Arcs are the arcs the request selects.
-	Arcs []Arc `json:"arcs" msgpack:"arcs"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (r RetrieveResponse) Validate() error {
-	v := validate.New("RetrieveResponse")
-	for i := range r.Arcs {
-		v.Exec(func() error { return validate.PathedError(r.Arcs[i].Validate(), "arcs", strconv.Itoa(i)) })
-	}
-	return v.Error()
 }

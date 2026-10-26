@@ -17,7 +17,8 @@ import (
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/pb"
+	"github.com/synnaxlabs/synnax/pkg/api/arc/pb"
+	arcpb "github.com/synnaxlabs/synnax/pkg/service/arc/pb"
 	xpb "github.com/synnaxlabs/x/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -70,7 +71,7 @@ func (createRequestTranslator) Forward(
 	_ context.Context,
 	msg arc.CreateRequest,
 ) (*CreateRequest, error) {
-	arcs, err := pb.ArcsToPB(msg.Arcs)
+	arcs, err := arcpb.ArcsToPB(msg.Arcs)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +82,7 @@ func (createRequestTranslator) Backward(
 	_ context.Context,
 	msg *CreateRequest,
 ) (arc.CreateRequest, error) {
-	arcs, err := pb.ArcsFromPB(msg.Arcs)
+	arcs, err := arcpb.ArcsFromPB(msg.Arcs)
 	if err != nil {
 		return arc.CreateRequest{}, err
 	}
@@ -92,7 +93,7 @@ func (createResponseTranslator) Forward(
 	_ context.Context,
 	msg arc.CreateResponse,
 ) (*CreateResponse, error) {
-	pbArcs, err := pb.ArcsToPB(msg.Arcs)
+	pbArcs, err := arcpb.ArcsToPB(msg.Arcs)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +104,7 @@ func (createResponseTranslator) Backward(
 	_ context.Context,
 	msg *CreateResponse,
 ) (arc.CreateResponse, error) {
-	arcs, err := pb.ArcsFromPB(msg.Arcs)
+	arcs, err := arcpb.ArcsFromPB(msg.Arcs)
 	if err != nil {
 		return arc.CreateResponse{}, err
 	}

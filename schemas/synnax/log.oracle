@@ -247,5 +247,6 @@ Log struct {
 Where filter Log {
     key
 
-    @doc value "is a filter that selects logs."
+    @doc value         "is a filter that selects logs."
+    @go request_output "core/pkg/api/log"
 }

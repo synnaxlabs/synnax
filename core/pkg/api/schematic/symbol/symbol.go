@@ -126,11 +126,6 @@ func (s *Service) Create(
 	return CreateResponse{Symbols: req.Symbols}, nil
 }
 
-type (
-	RetrieveRequest  = symbol.RetrieveRequest
-	RetrieveResponse = symbol.RetrieveResponse
-)
-
 // Retrieve returns the symbols that the request selects. It requires retrieve access
 // on every match.
 func (s *Service) Retrieve(

@@ -27,6 +27,7 @@
 #include "arc/cpp/graph/types.gen.h"
 #include "arc/cpp/program/types.gen.h"
 #include "arc/cpp/text/types.gen.h"
+#include "core/pkg/api/arc/pb/arc.pb.h"
 #include "core/pkg/service/arc/pb/arc.pb.h"
 
 namespace synnax::arc {
@@ -108,11 +109,11 @@ struct RetrieveRequest {
     static RetrieveRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::arc::pb::RetrieveRequest;
-    [[nodiscard]] std::pair<::service::arc::pb::RetrieveRequest, x::errors::Error>
+    using proto_type = ::api::arc::pb::RetrieveRequest;
+    [[nodiscard]] std::pair<::api::arc::pb::RetrieveRequest, x::errors::Error>
     to_proto() const;
     static std::pair<RetrieveRequest, x::errors::Error>
-    from_proto(const ::service::arc::pb::RetrieveRequest &pb);
+    from_proto(const ::api::arc::pb::RetrieveRequest &pb);
 };
 
 /// @brief RetrieveResponse holds the arcs a RetrieveRequest selects.
@@ -123,11 +124,11 @@ struct RetrieveResponse {
     static RetrieveResponse parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::arc::pb::RetrieveResponse;
-    [[nodiscard]] std::pair<::service::arc::pb::RetrieveResponse, x::errors::Error>
+    using proto_type = ::api::arc::pb::RetrieveResponse;
+    [[nodiscard]] std::pair<::api::arc::pb::RetrieveResponse, x::errors::Error>
     to_proto() const;
     static std::pair<RetrieveResponse, x::errors::Error>
-    from_proto(const ::service::arc::pb::RetrieveResponse &pb);
+    from_proto(const ::api::arc::pb::RetrieveResponse &pb);
 };
 
 const synnax::ontology::ID ONTOLOGY_TYPE("arc", "");

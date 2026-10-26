@@ -14,8 +14,6 @@ package project
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/project/versions"
 	"github.com/synnaxlabs/x/filter"
-	"github.com/synnaxlabs/x/validate"
-	"strconv"
 )
 
 // Key is a unique identifier for a project, represented as a UUID.
@@ -35,32 +33,4 @@ type Where struct {
 	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
 	// Key selects by key.
 	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
-}
-
-// RetrieveRequest is a request to retrieve projects.
-type RetrieveRequest struct {
-	// Where selects the projects to retrieve. An absent where selects all of them.
-	Where *Where `json:"where,omitzero" msgpack:"where,omitempty"`
-	// SearchTerm keeps the projects that match the term, closest match first.
-	SearchTerm string `json:"search_term" msgpack:"search_term"`
-	// Limit is the most projects to return.
-	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
-	// Offset is the number of matching projects to skip.
-	Offset uint32 `json:"offset" msgpack:"offset"`
-}
-
-// RetrieveResponse holds the projects a RetrieveRequest selects.
-type RetrieveResponse struct {
-	// Projects are the projects the request selects.
-	Projects []Project `json:"projects" msgpack:"projects"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (r RetrieveResponse) Validate() error {
-	v := validate.New("RetrieveResponse")
-	for i := range r.Projects {
-		v.Exec(func() error { return validate.PathedError(r.Projects[i].Validate(), "projects", strconv.Itoa(i)) })
-	}
-	return v.Error()
 }

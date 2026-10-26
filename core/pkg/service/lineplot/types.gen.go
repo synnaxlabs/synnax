@@ -14,8 +14,6 @@ package lineplot
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions"
 	"github.com/synnaxlabs/x/filter"
-	"github.com/synnaxlabs/x/validate"
-	"strconv"
 )
 
 // Key is a unique identifier for a line plot, represented as a UUID.
@@ -142,39 +140,4 @@ type Where struct {
 	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
 	// Key selects by key.
 	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
-}
-
-// RetrieveRequest is a request to retrieve line plots.
-type RetrieveRequest struct {
-	// Where selects the line plots to retrieve. An absent where selects all of them.
-	Where *Where `json:"where,omitzero" msgpack:"where,omitempty"`
-	// SearchTerm keeps the line plots that match the term, closest match first.
-	SearchTerm string `json:"search_term" msgpack:"search_term"`
-	// Limit is the most line plots to return.
-	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
-	// Offset is the number of matching line plots to skip.
-	Offset uint32 `json:"offset" msgpack:"offset"`
-}
-
-// RetrieveResponse holds the line plots a RetrieveRequest selects.
-type RetrieveResponse struct {
-	// LinePlots are the line plots the request selects.
-	LinePlots []LinePlot `json:"line_plots" msgpack:"line_plots"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *RetrieveResponse) ApplyDefaults() {
-	for i := range r.LinePlots {
-		r.LinePlots[i].ApplyDefaults()
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (r RetrieveResponse) Validate() error {
-	v := validate.New("RetrieveResponse")
-	for i := range r.LinePlots {
-		v.Exec(func() error { return validate.PathedError(r.LinePlots[i].Validate(), "line_plots", strconv.Itoa(i)) })
-	}
-	return v.Error()
 }

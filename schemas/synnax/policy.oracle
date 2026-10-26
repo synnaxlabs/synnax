@@ -62,5 +62,6 @@ Where filter Policy {
         """
     }
 
-    @doc value "is a filter that selects policies."
+    @doc value         "is a filter that selects policies."
+    @go request_output "core/pkg/api/access/policy"
 }

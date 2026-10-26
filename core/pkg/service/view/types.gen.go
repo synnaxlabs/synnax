@@ -56,21 +56,3 @@ type Where struct {
 	// Type selects by type.
 	Type *filter.Set[Type] `json:"type,omitzero" msgpack:"type,omitempty"`
 }
-
-// RetrieveRequest is a request to retrieve views.
-type RetrieveRequest struct {
-	// Where selects the views to retrieve. An absent where selects all of them.
-	Where *Where `json:"where,omitzero" msgpack:"where,omitempty"`
-	// SearchTerm keeps the views that match the term, closest match first.
-	SearchTerm string `json:"search_term" msgpack:"search_term"`
-	// Limit is the most views to return.
-	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
-	// Offset is the number of matching views to skip.
-	Offset uint32 `json:"offset" msgpack:"offset"`
-}
-
-// RetrieveResponse holds the views a RetrieveRequest selects.
-type RetrieveResponse struct {
-	// Views are the views the request selects.
-	Views []View `json:"views" msgpack:"views"`
-}

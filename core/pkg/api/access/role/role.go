@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package access
+package role
 
 import (
 	"context"
@@ -16,8 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	rbacrole "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/config"
@@ -25,7 +24,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// ServiceConfig is the configuration for the access API service.
+// ServiceConfig is the configuration for the role API service.
 type ServiceConfig struct {
 	// RBAC enforces access control on every request.
 	//
@@ -35,7 +34,7 @@ type ServiceConfig struct {
 
 var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultServiceConfig is the default configuration for the access API service.
+	// DefaultServiceConfig is the default configuration for the role API service.
 	DefaultServiceConfig = ServiceConfig{}
 )
 
@@ -47,13 +46,15 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
-	v := validate.New("api.access")
+	v := validate.New("api.access.role")
 	v.NotNil("rbac", c.RBAC)
 	return v.Error()
 }
 
+// Service creates, retrieves, deletes, and assigns roles.
 type Service struct{ internal *rbac.Service }
 
+// NewService opens a Service. It returns an error if the configuration is invalid.
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
@@ -65,145 +66,73 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 const allowInternal = false
 
 type (
-	CreatePolicyRequest struct {
-		Policies []policy.Policy `json:"policies" msgpack:"policies"`
+	// CreateRequest holds the roles to create.
+	CreateRequest struct {
+		Roles []rbacrole.Role `json:"roles" msgpack:"roles"`
 	}
-	CreatePolicyResponse = CreatePolicyRequest
-)
-
-func (s *Service) CreatePolicy(
-	ctx context.Context,
-	tx gorp.Tx,
-	req CreatePolicyRequest,
-) (CreatePolicyResponse, error) {
-	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Objects: []ontology.ID{{Type: ontology.ResourceTypePolicy}},
-		Action:  access.ActionCreate,
-	}); err != nil {
-		return CreatePolicyRequest{}, err
-	}
-	w := s.internal.Policy.NewWriter(tx, allowInternal)
-	if err := w.CreateMany(ctx, &req.Policies); err != nil {
-		return CreatePolicyRequest{}, err
-	}
-	return CreatePolicyResponse(req), nil
-}
-
-type (
-	RetrievePolicyRequest  = policy.RetrieveRequest
-	RetrievePolicyResponse = policy.RetrieveResponse
-)
-
-func (s *Service) RetrievePolicy(
-	ctx context.Context,
-	req RetrievePolicyRequest,
-) (RetrievePolicyResponse, error) {
-	var res RetrievePolicyResponse
-	q, err := req.Apply(s.internal.Policy.NewRetrieve().Entries(&res.Policies))
-	if err != nil {
-		return RetrievePolicyResponse{}, err
-	}
-	if err := q.Exec(ctx, nil); err != nil {
-		return RetrievePolicyResponse{}, err
-	}
-	if err := s.internal.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: policy.OntologyIDsFromPolicies(res.Policies),
-	}); err != nil {
-		return RetrievePolicyResponse{}, err
-	}
-	return res, nil
-}
-
-type DeletePolicyRequest struct {
-	Keys []policy.Key `json:"keys" msgpack:"keys"`
-}
-
-func (s *Service) DeletePolicy(
-	ctx context.Context,
-	tx gorp.Tx,
-	req DeletePolicyRequest,
-) (struct{}, error) {
-	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Objects: policy.OntologyIDs(req.Keys),
-		Action:  access.ActionDelete,
-	}); err != nil {
-		return struct{}{}, err
-	}
-	return struct{}{}, s.internal.Policy.NewWriter(tx, allowInternal).
-		Delete(ctx, req.Keys...)
-}
-
-type (
-	CreateRoleRequest struct {
-		Roles []role.Role `json:"roles" msgpack:"roles"`
-	}
-	CreateRoleResponse struct {
-		Roles []role.Role `json:"roles" msgpack:"roles"`
+	// CreateResponse holds the created roles.
+	CreateResponse struct {
+		Roles []rbacrole.Role `json:"roles" msgpack:"roles"`
 	}
 )
 
-func (s *Service) CreateRole(
+// Create creates the roles in the request.
+func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
-	req CreateRoleRequest,
-) (CreateRoleResponse, error) {
+	req CreateRequest,
+) (CreateResponse, error) {
 	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Objects: []ontology.ID{{Type: ontology.ResourceTypeRole}},
 		Action:  access.ActionCreate,
 	}); err != nil {
-		return CreateRoleResponse{}, err
+		return CreateResponse{}, err
 	}
 	w := s.internal.Role.NewWriter(tx, allowInternal)
 	if err := w.CreateMany(ctx, &req.Roles); err != nil {
-		return CreateRoleResponse{}, err
+		return CreateResponse{}, err
 	}
-	return CreateRoleResponse(req), nil
+	return CreateResponse(req), nil
 }
 
-type (
-	RetrieveRoleRequest  = role.RetrieveRequest
-	RetrieveRoleResponse = role.RetrieveResponse
-)
-
-func (s *Service) RetrieveRole(
+// Retrieve retrieves the roles that the request selects.
+func (s *Service) Retrieve(
 	ctx context.Context,
-	req RetrieveRoleRequest,
-) (RetrieveRoleResponse, error) {
-	var res RetrieveRoleResponse
+	req RetrieveRequest,
+) (RetrieveResponse, error) {
+	var res RetrieveResponse
 	q, err := req.Apply(s.internal.Role.NewRetrieve().Entries(&res.Roles))
 	if err != nil {
-		return RetrieveRoleResponse{}, err
+		return RetrieveResponse{}, err
 	}
 	if err := q.Exec(ctx, nil); err != nil {
-		return RetrieveRoleResponse{}, err
+		return RetrieveResponse{}, err
 	}
 	if err := s.internal.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: role.OntologyIDsFromRoles(res.Roles),
+		Objects: rbacrole.OntologyIDsFromRoles(res.Roles),
 	}); err != nil {
-		return RetrieveRoleResponse{}, err
+		return RetrieveResponse{}, err
 	}
 	return res, nil
 }
 
-type DeleteRoleRequest struct {
-	Keys []role.Key `json:"keys" msgpack:"keys"`
+// DeleteRequest holds the keys of the roles to delete.
+type DeleteRequest struct {
+	Keys []rbacrole.Key `json:"keys" msgpack:"keys"`
 }
 
-func (s *Service) DeleteRole(
+// Delete deletes the roles in the request.
+func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
-	req DeleteRoleRequest,
+	req DeleteRequest,
 ) (struct{}, error) {
 	roleIDs := make([]ontology.ID, len(req.Keys))
 	for i, key := range req.Keys {
-		roleIDs[i] = role.OntologyID(key)
+		roleIDs[i] = rbacrole.OntologyID(key)
 	}
 	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
@@ -221,15 +150,17 @@ func (s *Service) DeleteRole(
 	return struct{}{}, nil
 }
 
-type AssignRoleRequest struct {
-	User user.Key `json:"user" msgpack:"user"`
-	Role role.Key `json:"role" msgpack:"role"`
+// AssignRequest names a user and the role to assign to them.
+type AssignRequest struct {
+	User user.Key     `json:"user" msgpack:"user"`
+	Role rbacrole.Key `json:"role" msgpack:"role"`
 }
 
-func (s *Service) AssignRole(
+// Assign assigns the role in the request to the user in the request.
+func (s *Service) Assign(
 	ctx context.Context,
 	tx gorp.Tx,
-	req AssignRoleRequest,
+	req AssignRequest,
 ) (struct{}, error) {
 	userID := user.OntologyID(req.User)
 	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
@@ -243,15 +174,17 @@ func (s *Service) AssignRole(
 		AssignRole(ctx, userID, req.Role)
 }
 
-type UnassignRoleRequest struct {
-	User user.Key `json:"user" msgpack:"user"`
-	Role role.Key `json:"role" msgpack:"role"`
+// UnassignRequest names a user and the role to remove from them.
+type UnassignRequest struct {
+	User user.Key     `json:"user" msgpack:"user"`
+	Role rbacrole.Key `json:"role" msgpack:"role"`
 }
 
-func (s *Service) UnassignRole(
+// Unassign removes the role in the request from the user in the request.
+func (s *Service) Unassign(
 	ctx context.Context,
 	tx gorp.Tx,
-	req UnassignRoleRequest,
+	req UnassignRequest,
 ) (struct{}, error) {
 	userID := user.OntologyID(req.User)
 	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{

@@ -11,6 +11,7 @@ syntax = "proto3";
 
 package grpc.arc;
 
+import "core/pkg/api/arc/pb/arc.proto";
 import "core/pkg/service/arc/pb/arc.proto";
 import "google/protobuf/empty.proto";
 
@@ -21,7 +22,7 @@ service ArcCreateService {
 }
 
 service ArcRetrieveService {
-  rpc Exec(RetrieveRequest) returns (service.arc.pb.RetrieveResponse) {}
+  rpc Exec(RetrieveRequest) returns (api.arc.pb.RetrieveResponse) {}
 }
 
 service ArcDeleteService {
@@ -39,7 +40,7 @@ message CreateResponse {
 message RetrieveRequest {
   reserved 1, 2, 3, 4, 5, 6, 7;
   reserved "keys", "names", "search_term", "limit", "offset", "include_status", "compile";
-  service.arc.pb.RetrieveRequest request = 8;
+  api.arc.pb.RetrieveRequest request = 8;
 }
 
 message DeleteRequest {

@@ -14,8 +14,6 @@ package role
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/versions"
 	"github.com/synnaxlabs/x/filter"
-	"github.com/synnaxlabs/x/validate"
-	"strconv"
 )
 
 // Key is a unique identifier for a role, represented as a UUID.
@@ -40,32 +38,4 @@ type Where struct {
 	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
 	// Internal selects by internal.
 	Internal *filter.Bool `json:"internal,omitzero" msgpack:"internal,omitempty"`
-}
-
-// RetrieveRequest is a request to retrieve roles.
-type RetrieveRequest struct {
-	// Where selects the roles to retrieve. An absent where selects all of them.
-	Where *Where `json:"where,omitzero" msgpack:"where,omitempty"`
-	// SearchTerm keeps the roles that match the term, closest match first.
-	SearchTerm string `json:"search_term" msgpack:"search_term"`
-	// Limit is the most roles to return.
-	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
-	// Offset is the number of matching roles to skip.
-	Offset uint32 `json:"offset" msgpack:"offset"`
-}
-
-// RetrieveResponse holds the roles a RetrieveRequest selects.
-type RetrieveResponse struct {
-	// Roles are the roles the request selects.
-	Roles []Role `json:"roles" msgpack:"roles"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (r RetrieveResponse) Validate() error {
-	v := validate.New("RetrieveResponse")
-	for i := range r.Roles {
-		v.Exec(func() error { return validate.PathedError(r.Roles[i].Validate(), "roles", strconv.Itoa(i)) })
-	}
-	return v.Error()
 }

@@ -122,11 +122,6 @@ func (s *Service) Rename(
 	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
-type (
-	RetrieveRequest  = project.RetrieveRequest
-	RetrieveResponse = project.RetrieveResponse
-)
-
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,

@@ -283,5 +283,6 @@ Panel struct {
 Where filter Panel {
     key
 
-    @doc value "is a filter that selects panels."
+    @doc value         "is a filter that selects panels."
+    @go request_output "core/pkg/api/panel"
 }

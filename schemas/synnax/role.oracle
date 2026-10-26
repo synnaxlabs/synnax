@@ -57,5 +57,6 @@ Where filter Role {
     name
     internal
 
-    @doc value "is a filter that selects roles."
+    @doc value         "is a filter that selects roles."
+    @go request_output "core/pkg/api/access/role"
 }
