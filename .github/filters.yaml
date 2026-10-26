@@ -411,6 +411,8 @@ freighter_image:
 preview:
   - "{alamos/go,arc/go,aspen,cesium,core,freighter/go,gorp,x/go}/**/!(*_test).go"
   - "{alamos/go,arc/go,aspen,cesium,core,freighter/go,gorp,x/go}/go.{mod,sum}"
+  - core/Dockerfile
+  - core/docker-entrypoint.sh
   - core/pkg/console/fallback.html
   - "{alamos/ts,arc/ts,client/ts,console,drift}/src/**/!(*.spec.ts|*.spec.tsx|*.md)"
   - "{freighter/ts,lyra,pluto,x/ts}/src/**/!(*.spec.ts|*.spec.tsx|*.md)"
