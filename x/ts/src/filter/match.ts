@@ -7,28 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type z } from "zod";
+
+import { type Contains, type Ordered, type Set, type String } from "@/filter/types.gen";
 import { primitive } from "@/primitive";
 
-/** SetOperator is the shape of the Set, Bool, and String operators. */
-export interface SetOperator<T> {
-  eq?: T;
-  in?: T[];
-}
+type Ordinal = number | bigint;
 
-/** OrderedOperator is the shape of the Ordered operator. */
-export interface OrderedOperator<T> extends SetOperator<T> {
-  gt?: T;
-  gte?: T;
-  lt?: T;
-  lte?: T;
-}
-
-/** ContainsOperator is the shape of the Contains operator. */
-export interface ContainsOperator<T> {
-  any?: T[];
-}
+type Orderable = Ordinal | primitive.ValueExtension<Ordinal>;
 
 const unwrap = (value: unknown): unknown =>
+  value instanceof primitive.ValueExtension ? value.valueOf() : value;
+
+const ordinal = (value: Orderable): Ordinal =>
   value instanceof primitive.ValueExtension ? value.valueOf() : value;
 
 const equal = (a: unknown, b: unknown): boolean => unwrap(a) === unwrap(b);
@@ -37,28 +28,28 @@ const equal = (a: unknown, b: unknown): boolean => unwrap(a) === unwrap(b);
  * @returns whether value matches every member of op that is set. An empty `in` matches
  * no value.
  */
-export const matchesSet = <T>(op: SetOperator<T>, value: T): boolean =>
+export const matchesSet = <T>(op: Set<z.ZodType<T>>, value: T): boolean =>
   (op.eq === undefined || equal(op.eq, value)) &&
   (op.in == null || op.in.some((v) => equal(v, value)));
 
 /**
  * @returns whether value matches every member of op that is set.
- * @throws if op sets a regex, which only the Core can check.
+ * @throws {Error} if op sets a regex, which only the Core can check.
  */
-export const matchesString = (
-  op: SetOperator<string> & { regex?: string },
-  value: string,
-): boolean => {
+export const matchesString = (op: String, value: string): boolean => {
   if (op.regex != null) throw new Error("only the Core can check a regex");
   return matchesSet(op, value);
 };
 
 /** @returns whether value matches every member of op that is set. */
-export const matchesOrdered = <T>(op: OrderedOperator<T>, value: T): boolean => {
+export const matchesOrdered = <T extends Orderable>(
+  op: Ordered<z.ZodType<T>>,
+  value: T,
+): boolean => {
   if (!matchesSet(op, value)) return false;
-  const v = unwrap(value) as number | bigint;
-  const bound = (b: T | undefined, ok: (b: number | bigint) => boolean): boolean =>
-    b === undefined || ok(unwrap(b) as number | bigint);
+  const v = ordinal(value);
+  const bound = (b: T | undefined, ok: (b: Ordinal) => boolean): boolean =>
+    b === undefined || ok(ordinal(b));
   return (
     bound(op.gt, (b) => v > b) &&
     bound(op.gte, (b) => v >= b) &&
@@ -71,5 +62,5 @@ export const matchesOrdered = <T>(op: OrderedOperator<T>, value: T): boolean => 
  * @returns whether values holds an element of op.any. An empty `any` matches no
  * array.
  */
-export const matchesContains = <T>(op: ContainsOperator<T>, values: T[]): boolean =>
+export const matchesContains = <T>(op: Contains<z.ZodType<T>>, values: T[]): boolean =>
   op.any == null || op.any.some((v) => values.some((e) => equal(e, v)));
