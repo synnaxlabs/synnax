@@ -15,6 +15,7 @@ import {
   type MultiSeries,
   type Series,
   TimeRange,
+  TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -33,6 +34,8 @@ const MAX_ENTRIES = 100_000;
 
 // The samples of each channel that one stored read returns.
 const PAGE_SIZE = 1_000;
+
+const HISTORY_RETRY_DELAY = TimeSpan.seconds(5);
 
 // A sparse channel on a dense index needs many index samples to time its own. The index
 // read stops at this multiple of the data read, and the untimed samples are left out.
@@ -112,7 +115,8 @@ export class StreamMultiChannelLog
   // The sample time before which a detached list holds every stored sample.
   private end = 0n;
   private pageCount = 0;
-  private pageInFlight: number | null = null;
+  private pageInFlight: { id: number; kind: PageKind } | null = null;
+  private retryTimer?: ReturnType<typeof setTimeout>;
 
   get detached(): boolean {
     return this._detached;
@@ -149,6 +153,7 @@ export class StreamMultiChannelLog
     this.valid = false;
     // A read for the old channel list must not land after this change.
     this.readGeneration++;
+    clearTimeout(this.retryTimer);
     if (channels.length === 0) {
       this.stopStreaming?.();
       this.stopStreaming = undefined;
@@ -213,6 +218,7 @@ export class StreamMultiChannelLog
     // A newer read() or cleanup() bumps the generation; older reads bail after
     // awaiting.
     const generation = ++this.readGeneration;
+    clearTimeout(this.retryTimer);
     this.stopStreaming?.();
     this.stopStreaming = undefined;
     let unread: ChannelMeta[];
@@ -231,8 +237,13 @@ export class StreamMultiChannelLog
       return;
     }
     // The stream opens first, so a slow read never delays live entries.
+    await this.readHistory(client, unread);
+  }
+
+  // Reads the latest page of the indexed channels in metas.
+  private async readHistory(client: Client, metas: ChannelMeta[]): Promise<void> {
     const { start } = this;
-    const indexed = unread.filter(({ index }) => index !== 0);
+    const indexed = metas.filter(({ index }) => index !== 0);
     if (start == null) await this.readPage(client, "initial", indexed, TimeRange.MAX);
     else {
       const tr = new TimeRange(new TimeStamp(start), TimeStamp.MAX);
@@ -242,7 +253,8 @@ export class StreamMultiChannelLog
 
   /**
    * Reads a page of each channel within tr and merges it into the list. Never rejects:
-   * a failure reaches onStatusChange.
+   * a failure reaches onStatusChange. Channels whose initial or added page fails read
+   * again after HISTORY_RETRY_DELAY. A failed older or newer page merges nothing.
    */
   private async readPage(
     client: Client,
@@ -252,44 +264,69 @@ export class StreamMultiChannelLog
   ): Promise<void> {
     const generation = this.readGeneration;
     const id = ++this.pageCount;
-    this.pageInFlight = id;
+    this.pageInFlight = { id, kind };
     const stale = (): boolean =>
-      generation !== this.readGeneration || this.pageInFlight !== id;
+      generation !== this.readGeneration || this.pageInFlight?.id !== id;
     const edge = kind === "newer" ? "first" : "last";
     try {
-      const pages = await Promise.all(
-        metas.map(async (meta) => ({
-          meta,
-          ...(await readEdge(client, meta, this.pageSize, tr, edge)),
-        })),
+      const results = await Promise.allSettled(
+        metas.map(
+          async (meta) => await readEdge(client, meta, this.pageSize, tr, edge),
+        ),
       );
       if (stale()) return;
+      const failed = metas.filter((_, i) => results[i].status === "rejected");
+      const rejection = results.find((r) => r.status === "rejected");
+      const scroll = kind === "older" || kind === "newer";
+      if (rejection != null) {
+        this.onStatusChange?.(
+          cstatus.fromException(rejection.reason, "Failed to read log channels"),
+        );
+        if (!scroll) this.scheduleRetry(client, generation, failed);
+      }
+      if (failed.length === metas.length || (scroll && failed.length > 0)) return;
       // A full page stops short of the samples beyond it. The page is complete only up
       // to the boundary that the shortest reach of a full page sets.
       let boundary: bigint | null = null;
       const incoming: LogEntry[] = [];
-      for (const { meta, data, index } of pages) {
+      results.forEach((res, i) => {
+        if (res.status === "rejected") return;
+        const meta = metas[i];
+        const { data, index } = res.value;
         meta.historyRead = true;
         const entries = this.storedEntries(meta, data, index);
         incoming.push(...entries);
-        if (data.length < this.pageSize || entries.length === 0) continue;
+        if (data.length < this.pageSize || entries.length === 0) return;
         const reach = (edge === "last" ? entries[0] : entries.at(-1))?.timestamp;
         const t = reach?.valueOf();
-        if (t == null) continue;
+        if (t == null) return;
         if (boundary == null || (edge === "last" ? t > boundary : t < boundary))
           boundary = t;
-      }
+      });
       // One stable sort instead of an insert per entry.
       incoming.sort(byTime);
       if (kind === "newer") this.mergeNewer(incoming, boundary);
       else this.mergeOlder(kind, incoming, boundary);
-    } catch (e) {
-      if (stale()) return;
-      this.onStatusChange?.(cstatus.fromException(e, "Failed to read log channels"));
     } finally {
-      if (this.pageInFlight === id) this.pageInFlight = null;
+      const current = !stale();
+      if (this.pageInFlight?.id === id) this.pageInFlight = null;
+      if (current) this.notify();
     }
-    this.notify();
+  }
+
+  private scheduleRetry(
+    client: Client,
+    generation: number,
+    metas: ChannelMeta[],
+  ): void {
+    const retry = (): void => {
+      if (generation !== this.readGeneration) return;
+      // An added page assumes the list holds the newest entries.
+      if (this._detached)
+        this.retryTimer = setTimeout(retry, HISTORY_RETRY_DELAY.milliseconds);
+      else void this.readHistory(client, metas);
+    };
+    this.retryTimer = setTimeout(retry, HISTORY_RETRY_DELAY.milliseconds);
   }
 
   private mergeOlder(
@@ -520,6 +557,7 @@ export class StreamMultiChannelLog
 
   cleanup(): void {
     this.readGeneration++;
+    clearTimeout(this.retryTimer);
     this.stopStreaming?.();
     this.stopStreaming = undefined;
     this.reset();
