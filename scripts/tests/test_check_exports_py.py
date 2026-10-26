@@ -128,6 +128,42 @@ class TestCheck:
         )
         assert names(tmp_path) == []
 
+    def test_keeps_names_in_a_quoted_tuple_annotation(self, tmp_path: Path) -> None:
+        write(
+            tmp_path,
+            {
+                "lib/widget/__init__.py": "from widget.parts import pair\n",
+                "lib/widget/parts.py": (
+                    "class Valve: ...\n\n"
+                    "class Mode: ...\n\n"
+                    "def pair() -> 'tuple[Valve, Mode]': ...\n"
+                ),
+            },
+        )
+        assert names(tmp_path) == []
+
+    def test_keeps_names_read_through_one_alias_in_two_scopes(
+        self, tmp_path: Path
+    ) -> None:
+        write(
+            tmp_path,
+            {
+                "lib/widget/__init__.py": "",
+                "lib/widget/parts.py": "LIMIT = 1\n",
+                "lib/widget/other.py": "SIZE = 1\n",
+                "app/tool/__init__.py": "",
+                "app/tool/run.py": (
+                    "def a():\n"
+                    "    import widget.parts as p\n"
+                    "    return p.LIMIT\n\n"
+                    "def b():\n"
+                    "    import widget.other as p\n"
+                    "    return p.SIZE\n"
+                ),
+            },
+        )
+        assert names(tmp_path) == ["a", "b"]
+
     def test_keeps_an_entry_point(self, tmp_path: Path) -> None:
         write(
             tmp_path,

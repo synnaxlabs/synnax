@@ -60,7 +60,9 @@ class Module:
     checked: bool
     tree: ast.Module
     generated: bool
-    aliases: dict[str, str] = field(default_factory=dict)
+    aliases: dict[str, set[str]] = field(default_factory=dict)
+    """The modules each local name refers to. A name that different scopes import
+    differently refers to each of them."""
 
 
 @dataclass(frozen=True)
@@ -152,14 +154,16 @@ def imports(mod: Module, known: set[str]) -> Iterator[tuple[str, str]]:
         if isinstance(node, ast.Import):
             for a in node.names:
                 local = a.asname or a.name.split(".")[0]
-                mod.aliases[local] = a.name if a.asname else local
+                target = a.name if a.asname else local
+                mod.aliases.setdefault(local, set()).add(target)
         elif isinstance(node, ast.ImportFrom):
             source = resolve(mod, node.level, node.module)
             for a in node.names:
                 if a.name == "*":
                     yield source, "*"
                 elif f"{source}.{a.name}" in known:
-                    mod.aliases[a.asname or a.name] = f"{source}.{a.name}"
+                    local = a.asname or a.name
+                    mod.aliases.setdefault(local, set()).add(f"{source}.{a.name}")
                 else:
                     yield source, a.name
     for node in ast.walk(mod.tree):
@@ -172,12 +176,12 @@ def imports(mod: Module, known: set[str]) -> Iterator[tuple[str, str]]:
             value = value.value
         if not isinstance(value, ast.Name) or value.id not in mod.aliases:
             continue
-        source = mod.aliases[value.id]
-        for part in reversed(chain):
-            if f"{source}.{part}" not in known:
-                yield source, part
-                break
-            source = f"{source}.{part}"
+        for source in mod.aliases[value.id]:
+            for part in reversed(chain):
+                if f"{source}.{part}" not in known:
+                    yield source, part
+                    break
+                source = f"{source}.{part}"
 
 
 def entry_points(
@@ -216,15 +220,26 @@ def annotation_names(node: ast.stmt) -> set[str]:
         exprs.append(node.annotation)
     elif isinstance(node, ast.TypeAlias | ast.Assign):
         exprs.append(node.value)
-    names = set()
+    names: set[str] = set()
     for e in exprs:
-        if e is None:
-            continue
-        for n in ast.walk(e):
-            if isinstance(n, ast.Name):
-                names.add(n.id)
-            elif isinstance(n, ast.Constant) and isinstance(n.value, str):
-                names.update(n.value.replace("[", " ").replace("]", " ").split())
+        if e is not None:
+            names |= expression_names(e)
+    return names
+
+
+def expression_names(expr: ast.expr) -> set[str]:
+    """Returns the names that expr reads, including those in quoted annotations."""
+    names = set()
+    for n in ast.walk(expr):
+        if isinstance(n, ast.Name):
+            names.add(n.id)
+        elif isinstance(n, ast.Constant) and isinstance(n.value, str):
+            try:
+                quoted = ast.parse(n.value, mode="eval")
+            except SyntaxError:
+                # A string that is not an expression is not an annotation.
+                continue
+            names |= expression_names(quoted.body)
     return names
 
 
