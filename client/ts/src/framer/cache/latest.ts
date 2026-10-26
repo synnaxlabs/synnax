@@ -46,6 +46,14 @@ const UNSERVED_CAP = 100_000;
 const MIN_BUFFER = 1_024;
 const MAX_BUFFER = 65_536;
 
+// A running read of the newest stored samples.
+interface Load {
+  // abort ends the load's wait for the stream's ack.
+  abort: AbortController;
+  // mark is where the series streamed while the load runs start.
+  mark: number;
+}
+
 /**
  * Serves the newest samples of one channel: a read of its newest stored samples, and
  * every newer sample the stream delivers. Streamed samples serve while the read waits
@@ -61,18 +69,13 @@ export class Latest {
   private buffer: Dynamic;
   // unserved counts the newest samples that no value served.
   private unserved = 0;
-  // loadMark is where the series streamed during the running load start, or null when
-  // no load runs.
-  private loadMark: number | null = 0;
+  private running: Load | null;
   private readonly demand: Demand;
   // dedupe is how fresh finds repeated samples: by Core alignment for a stored channel,
   // and by time for a calculated one, whose alignments depend on how its inputs split
   // into series. A channel that only streams repeats no sample.
   private dedupe: "alignment" | "time" | null = null;
   private failure: status.Status | null = null;
-  private generation = 0;
-  // abort ends the load's wait for the stream's ack.
-  private abort = new AbortController();
   private readonly notifier = new sync.Notifier();
   private readonly statuses = {
     loading: status.create(LOADING),
@@ -98,7 +101,8 @@ export class Latest {
     });
     this.demand.onStatusChange(() => this.notify());
     this.demand.onDrop(() => this.reload());
-    void this.load();
+    this.running = { abort: new AbortController(), mark: 0 };
+    void this.load(this.running);
   }
 
   /**
@@ -109,10 +113,8 @@ export class Latest {
     if (count === this.count && deep.equal(window, this.window)) return;
     this.window = window;
     this.count = count;
-    this.stop();
     this.clear();
-    this.loadMark = 0;
-    void this.load();
+    this.restart(0);
   }
 
   /**
@@ -132,10 +134,9 @@ export class Latest {
 
   /** Releases the channel's stream. */
   close(): void {
-    this.stop();
+    this.restart(null);
     this.demand.close();
     this.clear();
-    this.loadMark = null;
   }
 
   private rebuild(): Snapshot {
@@ -168,20 +169,19 @@ export class Latest {
   // Reads the newest samples again, since frames may have dropped. The samples held
   // stay until the read lands.
   private reload(): void {
-    this.stop();
     this.closeLeading();
-    this.loadMark ??= this.series.length;
+    this.restart(this.running?.mark ?? this.series.length);
     this.snapshot = null;
     this.notify();
-    void this.load();
   }
 
-  // Ends the running load.
-  private stop(): void {
-    this.generation++;
-    this.abort.abort();
-    this.abort = new AbortController();
+  // Ends the running load, then starts one whose streamed series start at mark, unless
+  // mark is null.
+  private restart(mark: number | null): void {
+    this.running?.abort.abort();
     this.notifier.notify();
+    this.running = mark == null ? null : { abort: new AbortController(), mark };
+    if (this.running != null) void this.load(this.running);
   }
 
   private clear(): void {
@@ -210,12 +210,11 @@ export class Latest {
   // Reads the newest stored samples after the stream acks the channel, so the stream
   // delivers every sample the read misses. A virtual channel has none, so it only
   // streams.
-  private async load(): Promise<void> {
-    const generation = this.generation;
-    const { signal } = this.abort;
+  private async load(run: Load): Promise<void> {
+    const { signal } = run.abort;
     const { retrieveChannels, streamer, readLatest, now } = this.props;
     const brk = createBreaker(this.notifier, this.props.breaker);
-    while (generation === this.generation)
+    while (this.running === run)
       try {
         const [payload] = await retrieveChannels([this.key]);
         if (payload == null) throw new NotFoundError(`channel ${this.key} not found`);
@@ -224,17 +223,17 @@ export class Latest {
         else this.dedupe = channel.isCalculated(payload) ? "time" : null;
         if (this.dedupe != null) {
           await streamer.waitAcked([this.key], signal);
-          if (generation !== this.generation) return;
+          if (this.running !== run) return;
           const tr =
             this.window == null ? TimeRange.MAX : resolveWindow(this.window, now());
           read = (await readLatest(this.key, this.count, tr)).series;
         }
-        if (generation !== this.generation) return;
+        if (this.running !== run) return;
         this.land(read);
         this.failure = null;
         return this.notify();
       } catch (e) {
-        if (generation !== this.generation) return;
+        if (this.running !== run) return;
         this.failure = status.fromException(e, READ_FAILED);
         this.snapshot = null;
         this.notify();
@@ -246,9 +245,9 @@ export class Latest {
   // Puts the read before the series streamed while it ran, keeping each sample once.
   private land(read: Series[]): void {
     this.closeLeading();
-    const streamed = this.series.splice(this.loadMark ?? 0);
+    const streamed = this.series.splice(this.running?.mark ?? 0);
     streamed.forEach((s) => (this.closedTotal -= s.length));
-    this.loadMark = null;
+    this.running = null;
     this.push(read);
     this.push(streamed);
     this.unserved = this.total;
@@ -355,7 +354,7 @@ export class Latest {
 
   private drop(): void {
     const { length } = this.series.shift()!;
-    if (this.loadMark != null) this.loadMark = Math.max(0, this.loadMark - 1);
+    if (this.running != null) this.running.mark = Math.max(0, this.running.mark - 1);
     this.closedTotal -= length;
     this.unserved = Math.min(this.unserved, this.total);
     this.snapshot = null;
@@ -372,6 +371,6 @@ export class Latest {
   private status(): status.Status {
     const worst = status.worst(this.demand.status(this.key), this.failure)!;
     if (worst.variant !== "success") return worst;
-    return this.loadMark != null ? this.statuses.loading : this.statuses.success;
+    return this.running != null ? this.statuses.loading : this.statuses.success;
   }
 }
