@@ -385,6 +385,7 @@ class TestRangeClient:
                 rng.set_alias("not_found", "test")
 
         def test_resolve_missing_alias(self, client: sy.Synnax) -> None:
+            """Should raise NotFoundError when a single alias has no channel."""
             rng = client.ranges.create(
                 name="test",
                 time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
