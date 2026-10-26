@@ -28,12 +28,12 @@ constexpr size_t EMPTY_INTERFACE_PROBE_INTERVAL = 6;
 
 std::string get_pdo_error_guidance(const std::string &error) {
     if (error.contains("CoE") || error.contains("mailbox"))
-        return "Use manual channel configuration with explicit index/sub_index values.";
+        return "Check the slave's CoE mailbox and scan again. Channels can use only "
+               "the entries a scan discovers.";
     if (error.contains("SII") || error.contains("fallback"))
         return "PDO order may be unreliable. Verify data correctness after configuration.";
-    if (error.contains("empty") || error.contains("no PDO"))
-        return "Use manual channel configuration if needed.";
-    return "Use manual channel configuration if automatic discovery is insufficient.";
+    return "Channels can use only the entries a scan discovers. Scan again if entries "
+           "are missing.";
 }
 
 /// @brief sets the variant, message, and description of status from the condition of an

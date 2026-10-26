@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
 import { StringDisplayForm } from "@/schematic/node/general/stringDisplay/Form";
@@ -20,19 +21,19 @@ const Preview = ({
   textColor,
   level,
 }: schematic.StringDisplayNodeConfig): ReactElement => (
-  <StringDisplay
-    strokeColor={strokeColor}
-    textColor={textColor}
-    level={level}
-    value="Hello world!"
-  />
+  <StringDisplay strokeColor={strokeColor} level={level}>
+    <Text.Text level={level} color={textColor} variant="code" overflow="fade">
+      Hello world!
+    </Text.Text>
+  </StringDisplay>
 );
 
 export const spec: Spec<"string_display", schematic.StringDisplayNodeConfig> = {
   key: "string_display",
-  name: "String display",
+  name: "Text display",
   Form: StringDisplayForm,
   Node: Symbol,
   Preview,
   zIndex: 4,
+  needsPosition: true,
 };

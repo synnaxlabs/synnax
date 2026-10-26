@@ -10,7 +10,7 @@
 import "@/app/window/Primary.css";
 
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { OS } from "@synnaxlabs/pluto";
+import { Code, OS } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Link } from "@/app/link";
@@ -32,9 +32,11 @@ const SideEffect = (): null => {
   return null;
 };
 
-// Tear-off reads the required project selectors, so it mounts inside the guard.
+// Mounts inside the guard: tear-off reads the required project selectors, and the
+// Monaco preload waits until the workspace has started.
 const ProjectSideEffect = (): null => {
   Panel.useTearOff();
+  Code.usePreload();
   return null;
 };
 

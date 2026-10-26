@@ -12,13 +12,15 @@ import { type PropsWithChildren, type ReactElement } from "react";
 
 import { start } from "@/app/analytics/start";
 import { Analytics } from "@/platform/analytics";
+import { Session } from "@/session";
 
 /**
- * Starts analytics and provides the sink to everything below. The sink is built once
- * and never replaced, so a capture written into a callback stays live for the length of
- * the window.
+ * Starts analytics for the window's session and provides the sink to everything below.
+ * Mount it inside the session context. The sink is built once and never replaced, so a
+ * capture written into a callback stays live for the length of the window.
  */
 export const Provider = ({ children }: PropsWithChildren): ReactElement => {
-  const sink = useInitializerRef(start);
+  const store = Session.useStore();
+  const sink = useInitializerRef(() => start(store));
   return <Analytics.Provider sink={sink.current}>{children}</Analytics.Provider>;
 };

@@ -232,4 +232,17 @@ describe("Project Commands permissions", () => {
     });
     await waitFor(() => expect(result.current).toBe(true));
   });
+
+  it("should withhold Open sample project outside Synnax Desktop", async () => {
+    const gate = findCommand(Project.COMMANDS, "Open sample project").useVisible;
+    assertDefined(gate);
+    const create = findCommand(Project.COMMANDS, "Create project").useVisible;
+    assertDefined(create);
+    const { result } = await renderHookWithConsole(
+      () => ({ visible: gate(), creatable: create() }),
+      { client: await roles.get("Owner") },
+    );
+    await waitFor(() => expect(result.current.creatable).toBe(true));
+    expect(result.current.visible).toBe(false);
+  });
 });

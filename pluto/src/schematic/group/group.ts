@@ -98,10 +98,8 @@ export const createActions = ({
   }
   const key = uuid.create();
   const members = memberNodes.map((n) => n.key);
-  const config: Node.GroupBox.Config = {
-    ...Node.createConfig({ variant: Node.GroupBox.VARIANT }),
-    members,
-  };
+  // Not Node.createConfig: it reads every symbol, and this file loads at startup.
+  const config = { variant: Node.GroupBox.VARIANT, members };
   const node = {
     key,
     position: { x: minX - PADDING, y: minY - TOP_PADDING },

@@ -203,7 +203,8 @@ export interface RevokeArgs {
 }
 
 /**
- * revoke stops a license from activating. Running Cores keep it until they restart.
+ * revoke stops a license from activating. A Core checks its license offline, so a Core
+ * that already holds it keeps running as its terms allow, even after a restart.
  * @throws {HTTPError} 400 when the license is already revoked.
  */
 export const revoke = async (
