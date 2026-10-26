@@ -461,7 +461,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       async (actions) => {
         const dispatchKey = id.create();
         this.registerOutstandingDispatch(key, dispatchKey);
-        await send(actions, dispatchKey);
+        await this.sendInOrder(key, async () => await send(actions, dispatchKey));
       },
       kind,
     );
@@ -502,7 +502,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
           kind,
         );
         try {
-          await this.sendInOrder(key, async () => await send(accumulated));
+          await send(accumulated);
           return true;
         } catch (e) {
           stackRollback();

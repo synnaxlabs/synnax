@@ -548,7 +548,7 @@ describe("actions.Controller", () => {
     it("sends the next dispatch after a failed one", async () => {
       const { docs, controller } = setupStore();
       prime(docs, "k", { a: 0 });
-      const send = vi.fn<SendDispatch<Action>>(async (actions) => {
+      const send = vi.fn<SendDispatch<Action>>(async () => {
         if (send.mock.calls.length === 1) throw new Error("rejected");
       });
       const one = controller.dispatch("k", [{ type: "set", key: "a", value: 1 }], send);
@@ -556,6 +556,31 @@ describe("actions.Controller", () => {
       await expect(one).rejects.toThrow("rejected");
       expect(await two).toBe(true);
       expect(send).toHaveBeenCalledTimes(2);
+    });
+
+    it("recovers a queued transaction from a foreign frame", async () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const first = Promise.withResolvers<void>();
+      const one = controller.dispatch(
+        "k",
+        [{ type: "set", key: "a", value: 1 }],
+        async () => await first.promise,
+      );
+      const send = vi.fn<SendDispatch<Action>>(async () => {});
+      const tx = controller.transaction("k", send);
+      tx.add({ type: "set", key: "a", value: 2 });
+      const committed = tx.commit();
+      controller.applyRemote("k", 1, "foreign-1", [
+        { type: "set", key: "a", value: 5 },
+      ]);
+      expect(docs.get("k")).toEqual({ values: { a: 5 } });
+      first.resolve();
+      await one;
+      expect(await committed).toBe(true);
+      const [actions, dispatchKey] = send.mock.calls[0];
+      controller.applyRemote("k", 2, dispatchKey, actions);
+      expect(docs.get("k")).toEqual({ values: { a: 2 } });
     });
   });
 
