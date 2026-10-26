@@ -23,7 +23,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Access, Synnax } from "@synnaxlabs/pluto";
 import { type aether, eraser } from "@synnaxlabs/pluto/ether";
-import { deep, id } from "@synnaxlabs/x";
+import { deep, id, uuid } from "@synnaxlabs/x";
 import {
   act,
   render,
@@ -52,6 +52,14 @@ import {
  */
 export const uniqueName = (prefix: string = "test"): string =>
   `${prefix}_${id.create().replace(/-/g, "_")}`;
+
+/**
+ * Creates a UUID whose last six bytes repeat the given hex nibble. Gorp lists
+ * UUID-keyed records ordered by the trailing bytes of the key, so a key ending in zeros
+ * sorts first and one ending in f sorts last.
+ */
+export const createKeyEndingIn = (nibble: string): string =>
+  `${uuid.create().slice(0, 24)}${nibble.repeat(12)}`;
 
 /**
  * Throws when value is null or undefined, narrowing it for subsequent use.

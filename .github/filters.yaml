@@ -270,6 +270,11 @@ client_py: &client_py
   - *x_py
   - client/py/**
 
+py_packages:
+  - *client_py
+  - .github/scripts/pin_internal_deps.sh
+  - .github/workflows/test.py.packages.yaml
+
 lint_integration:
   - *client_py
   - *py
@@ -358,6 +363,7 @@ protobuf:
 ci_scripts:
   - *py
   - .github/scripts/**
+  - deploy/preview/**
 
 scripts:
   - *py
@@ -384,7 +390,6 @@ integration:
   - .github/workflows/build.synnax.yaml
   - .github/workflows/test.integration.worker.yaml
   - .github/workflows/test.integration.yaml
-  - .github/workflows/test.migration.yaml
   - integration/**
 
 core_image:
