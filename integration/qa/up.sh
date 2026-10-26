@@ -15,7 +15,7 @@
 #
 # Environment: SYNNAX_LICENSE_KEY (required), QA_DIR (default /tmp/console-qa),
 # QA_PORT for the Core (default 9090), QA_CDP_PORT for Chromium (default 9222).
-# Background processes stop on `kill $(cat "$QA_DIR/pids")`.
+# Background processes stop on `xargs kill < "$QA_DIR/pids"`, and on a new run.
 
 set -euo pipefail
 
@@ -24,8 +24,16 @@ QA_DIR=${QA_DIR:-/tmp/console-qa}
 QA_PORT=${QA_PORT:-9090}
 QA_CDP_PORT=${QA_CDP_PORT:-9222}
 ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
+mkdir -p -m 700 "$QA_DIR"
+if [ ! -O "$QA_DIR" ]; then
+    echo "$QA_DIR belongs to another user" >&2
+    exit 1
+fi
 mkdir -p "$QA_DIR/images"
-: > "$QA_DIR/pids"
+if [ -f "$QA_DIR/pids" ]; then xargs kill < "$QA_DIR/pids" 2> /dev/null || true; fi
+rm -rf "$QA_DIR/pids" "$QA_DIR/chromium"
+touch "$QA_DIR/pids"
+trap 'xargs kill < "$QA_DIR/pids" 2> /dev/null' ERR
 
 wait_port() {
     for _ in $(seq 60); do
@@ -40,6 +48,13 @@ pnpm install --frozen-lockfile
 pnpm build:console-vite
 cp -r console/dist/. core/pkg/console/dist/
 (cd core && go build -tags=console -o "$QA_DIR/synnax" .)
+
+for port in "$QA_PORT" "$QA_CDP_PORT"; do
+    if nc -z localhost "$port" > /dev/null 2>&1; then
+        echo "Port $port is in use" >&2
+        exit 1
+    fi
+done
 
 "$QA_DIR/synnax" start -mi -l "localhost:$QA_PORT" > "$QA_DIR/core.log" 2>&1 &
 echo $! >> "$QA_DIR/pids"
