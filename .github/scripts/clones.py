@@ -38,13 +38,6 @@ class Fragment:
     def lines(self) -> int:
         return self.end - self.start + 1
 
-    def overlaps(self, other: "Fragment") -> bool:
-        return (
-            self.path == other.path
-            and self.start <= other.end
-            and other.start <= self.end
-        )
-
 
 @dataclass(frozen=True)
 class Group:
@@ -66,8 +59,7 @@ def fragment(side: dict[str, Any]) -> Fragment:
 
 def groups(duplicates: list[dict[str, Any]], formats: set[str]) -> list[Group]:
     """Joins the clone pairs that share a fragment into groups, largest first. A group
-    whose every fragment overlaps a larger group is left out, since one fix removes
-    both."""
+    whose every line lies in a larger group is left out, since one fix removes both."""
     parent: dict[Fragment, Fragment] = {}
 
     def root(f: Fragment) -> Fragment:
@@ -84,13 +76,13 @@ def groups(duplicates: list[dict[str, Any]], formats: set[str]) -> list[Group]:
         members.setdefault(root(f), []).append(f)
     found = [Group(tuple(sorted(m))) for m in members.values()]
     ranked: list[Group] = []
-    taken: dict[str, list[Fragment]] = {}
+    taken: set[tuple[str, int]] = set()
     for g in sorted(found, key=lambda g: (-g.removable, g.fragments)):
-        if all(any(f.overlaps(t) for t in taken.get(f.path, [])) for f in g.fragments):
+        lines = {(f.path, n) for f in g.fragments for n in range(f.start, f.end + 1)}
+        if lines <= taken:
             continue
         ranked.append(g)
-        for f in g.fragments:
-            taken.setdefault(f.path, []).append(f)
+        taken |= lines
     return ranked
 
 

@@ -58,6 +58,9 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Find duplicated code
+        if:
+          inputs.theme == '' || inputs.theme == 'all' || startsWith(inputs.theme,
+          'duplication-')
         run:
           npx --yes jscpd@5.4.1 --config .github/agents/nightly/jscpd.json --output
           "$RUNNER_TEMP/jscpd" .
