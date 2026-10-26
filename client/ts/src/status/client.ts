@@ -41,19 +41,22 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
-const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
+// Every retrieve includes labels, so callers cannot set the flag.
+const callerRequestZ = retrieveRequestZ.omit({ includeLabels: true });
+export type RetrieveMultipleParams = z.infer<typeof callerRequestZ>;
+
+const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), callerRequestZ]);
 
 const singleRetrieveParamsZ = z
-  .object({ key: keyZ, includeLabels: z.boolean().optional() })
-  .transform(({ key, includeLabels }): RetrieveRequest => ({
-    where: { key: { eq: key } },
-    includeLabels,
-  }));
+  .object({ key: keyZ })
+  .transform(({ key }): RetrieveMultipleParams => ({ where: { key: { eq: key } } }));
 
-const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
+const retrieveParamsZ = z
+  .union([singleRetrieveParamsZ, callerRequestZ])
+  .transform((req): RetrieveRequest => ({ ...req, includeLabels: true }));
 
 export type SingleRetrieveParams = z.input<typeof singleRetrieveParamsZ>;
-export type RetrieveParams = SingleRetrieveParams | RetrieveRequest;
+export type RetrieveParams = SingleRetrieveParams | RetrieveMultipleParams;
 
 const retrieveResponseZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
   detailsSchema?: DetailsSchema,
@@ -67,8 +70,6 @@ const retrieveResponseZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
 export interface SetOptions extends query.WriteOptions {
   parent?: ontology.ID;
 }
-
-const BASE_REQUEST: Partial<RetrieveRequest> = { includeLabels: true };
 
 export interface ClientConfig {
   unary: UnaryClient;
@@ -133,7 +134,7 @@ export class Client extends query.Retriever<
         matches: (status, req) => matches(this.lines, status, req.where),
         serverComputed: (req) => serverComputed(this.lines, req.where),
         watch: [
-          query.watch(relationships, (event, _: RetrieveRequest) =>
+          query.watch(relationships, (event, _: RetrieveMultipleParams) =>
             this.affectedKeys(event),
           ),
           query.watch(labels.store, (event) => this.statusesLabeledBy(event.key)),
@@ -142,10 +143,7 @@ export class Client extends query.Retriever<
       compose: (record) => this.compose(record),
       single: {
         schema: z
-          .union([
-            z.strictObject({ key: keyZ, includeLabels: z.boolean().optional() }),
-            keyZ.transform((key) => ({ key })),
-          ])
+          .union([z.strictObject({ key: keyZ }), keyZ.transform((key) => ({ key }))])
           .transform(({ key }) => key),
         space: single,
       },
@@ -162,7 +160,7 @@ export class Client extends query.Retriever<
     params: SingleRetrieveParams & { detailsSchema?: DetailsSchema },
   ): Promise<Status<DetailsSchema>>;
   async retrieve(params: Key | SingleRetrieveParams): Promise<Status>;
-  async retrieve(params: Key[] | RetrieveRequest): Promise<Status[]>;
+  async retrieve(params: Key[] | RetrieveMultipleParams): Promise<Status[]>;
   async retrieve<DetailsSchema extends z.ZodType = z.ZodNever>(
     rawParams: Key | Key[] | (RetrieveParams & { detailsSchema?: DetailsSchema }),
   ): Promise<Status<DetailsSchema> | Status<DetailsSchema>[]> {
@@ -319,8 +317,8 @@ export class Client extends query.Retriever<
   }
 
   /** Fetches statuses and writes their included labels through the caches. */
-  private async fetchThrough(req: RetrieveRequest): Promise<Status[]> {
-    const statuses = await this.execRetrieve({ ...BASE_REQUEST, ...req });
+  private async fetchThrough(req: RetrieveMultipleParams): Promise<Status[]> {
+    const statuses = await this.execRetrieve(req);
     // One batch per table, so each table flushes once for the whole response.
     this.store.batch(() =>
       this.cfg.labels.store.batch(() =>

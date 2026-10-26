@@ -255,6 +255,7 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
 		Entries(&tasks).
 		Exec(ctx, nil); err != nil {
 		s.cfg.L.Error("failed to retrieve tasks on suspect rack", zap.Error(err))
+		return
 	}
 	// A silent rack does not undo the deploy the Driver reported, so its config hash
 	// and rack are carried across rather than rebuilt.

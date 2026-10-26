@@ -31,7 +31,9 @@ func (r RetrieveRequest) Apply(q serviceschematic.Retrieve) (serviceschematic.Re
 		}
 		q = q.Where(f)
 	}
-	q = q.Search(r.SearchTerm)
+	if r.SearchTerm != "" {
+		q = q.Where(serviceschematic.MatchSearch(r.SearchTerm))
+	}
 	if r.Limit != nil {
 		q = q.Limit(int(*r.Limit))
 	}

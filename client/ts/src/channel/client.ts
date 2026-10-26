@@ -44,7 +44,6 @@ import {
   type RetrieveRequest,
   retrieveRequestZ,
   statusZ,
-  type Where,
 } from "@/channel/types.gen";
 import { LINES } from "@/channel/where";
 import { matches, serverComputed } from "@/channel/where.gen";
@@ -224,7 +223,7 @@ const retrieveMultipleParamsZ = retrieveRequestZ.extend({
  */
 export type RetrieveMultipleParams = RetrieveRequest & { rangeKey?: ranger.Key };
 
-const retrieveReqZ = z.object({
+const aliasedRetrieveRequestZ = z.object({
   request: retrieveRequestZ,
   rangeKey: rangerKeyZ.optional(),
 });
@@ -257,16 +256,6 @@ const singleParamsZ = z
     z.uint32().transform((key) => ({ key })),
   ])
   .transform(normalizeSingle);
-
-/**
- * @returns the list that a request's where matches field against, when the where
- * selects nothing else and no other field of the request is set. Returns null for any
- * other request.
- */
-const onlyIn = <F extends keyof Where & string>(
-  { where, ...rest }: RetrieveRequest,
-  field: F,
-) => (Object.values(rest).every((v) => v == null) ? query.whereIn(where, field) : null);
 
 /**
  * @returns the name patterns of a request whose where selects by name patterns and
@@ -672,7 +661,7 @@ export class Client extends query.Retriever<
     const res = await this.cfg.unary.send(
       "/channel/retrieve",
       { request, rangeKey },
-      retrieveReqZ,
+      aliasedRetrieveRequestZ,
       retrieveResZ,
     );
     return res.channels;
@@ -701,30 +690,18 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Resolves names against the record store, fetching only the names it cannot
-   * resolve. A name matching two stored channels is ambiguous, which only a cluster
-   * running without name validation can produce, so the whole request falls through to
-   * the cluster. Returns null when the store cannot be trusted to answer any part of
-   * the request.
+   * Resolves names through the record store. Returns null when a name matches no
+   * stored channel or more than one, so the Core answers the whole request. Assumes
+   * the Core validates names, so a stored name holds no regular expression character.
    */
-  /**
-   * Resolves names through the record store. A stored name never holds a regular
-   * expression character, so a pattern found there is a literal name.
-   */
-  private async resolveNames(names: string[]): Promise<Channel[] | null> {
+  private resolveNames(names: string[]): Channel[] | null {
     const resolved: Channel[] = [];
-    const missing: string[] = [];
     for (const name of new Set(names)) {
       const matches = this.byName.get(name);
-      if (matches.length > 1) return null;
-      if (matches.length === 0) missing.push(name);
-      else resolved.push(matches[0]);
+      if (matches.length !== 1) return null;
+      resolved.push(matches[0]);
     }
-    if (missing.length === 0) return resolved;
-    const fetched = (await this.execRetrieve({ where: { namePatterns: missing } })).map(
-      (p) => this.sugar(stripComposed(p)),
-    );
-    return [...resolved, ...fetched];
+    return resolved;
   }
 
   private async fetchRequest({
@@ -742,10 +719,8 @@ export class Client extends query.Retriever<
   }
 
   private async fetchChannels(req: RetrieveRequest): Promise<Channel[]> {
-    const keys = onlyIn(req, "key");
-    if (keys != null) return await this.store.retrieve(keys);
     const names = onlyNamePatterns(req);
-    const resolved = names != null ? await this.resolveNames(names) : null;
+    const resolved = names != null ? this.resolveNames(names) : null;
     if (resolved != null) return resolved;
     return (await this.execRetrieve(req)).map((p) => this.sugar(stripComposed(p)));
   }

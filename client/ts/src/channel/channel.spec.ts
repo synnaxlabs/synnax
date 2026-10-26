@@ -301,6 +301,16 @@ describe("Channel", () => {
         [literal.key, a.key, b.key].sort(),
       );
     });
+    test("retrieve a cached name and a pattern that matches it once", async () => {
+      const prefix = `qry_${id.create()}`;
+      const [a, b] = await client.channels.create([
+        { name: `${prefix}_a`, virtual: true, dataType: DataType.FLOAT32 },
+        { name: `${prefix}_b`, virtual: true, dataType: DataType.FLOAT32 },
+      ]);
+      await client.channels.retrieve(a.name);
+      const res = await client.channels.retrieve([a.name, `${prefix}_.*`]);
+      expect(res.map((ch) => ch.key).sort()).toEqual([a.key, b.key].sort());
+    });
     test("retrieve virtual channels without calculated channels", async () => {
       const prefix = `qry_${id.create()}`;
       const virtual = await client.channels.create({

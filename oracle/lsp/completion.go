@@ -151,7 +151,7 @@ var (
 		{
 			Label:  "key",
 			Kind:   protocol.CompletionItemKindProperty,
-			Detail: protocol.NewOptional("Marks the field as the primary key"),
+			Detail: protocol.NewOptional("Marks the primary key field, or a key type"),
 		},
 		{
 			Label:  "validate",
@@ -294,6 +294,11 @@ var (
 			Label:  "to_any",
 			Kind:   protocol.CompletionItemKindValue,
 			Detail: protocol.NewOptional("Generate ToAny on a generic struct"),
+		},
+		protocol.CompletionItem{
+			Label:  "request_output",
+			Kind:   protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional("Output path for a filter's retrieve request"),
 		},
 	)
 

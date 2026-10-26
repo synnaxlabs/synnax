@@ -227,10 +227,6 @@ func (s *Service) UpdateTask(
 	return UpdateTaskResponse{Task: tsk}, nil
 }
 
-type (
-	Where = arc.Where
-)
-
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,

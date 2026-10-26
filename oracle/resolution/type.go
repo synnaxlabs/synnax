@@ -66,6 +66,22 @@ const (
 	OperatorBool     = FilterNamespace + ".Bool"
 )
 
+var operatorMembers = map[string][]string{
+	OperatorSet:      {"eq", "in"},
+	OperatorOrdered:  {"eq", "in", "gt", "gte", "lt", "lte"},
+	OperatorContains: {"any"},
+	OperatorString:   {"eq", "in", "regex"},
+	OperatorBool:     {"eq"},
+}
+
+// OperatorMembers returns the members that the interpreters of the operator type op
+// check, where op is a qualified name such as OperatorSet. It returns false when op is
+// not an operator type.
+func OperatorMembers(op string) ([]string, bool) {
+	members, ok := operatorMembers[op]
+	return members, ok
+}
+
 // InFilterRequest reports whether typ is part of a filter request: a filter, the
 // request derived from one, or an operator type of the filter schema. Clients decode
 // these strictly, since a tree matched with an unknown key ignores the key.
@@ -82,8 +98,8 @@ func InFilterRequest(typ Type, table *Table) bool {
 type Filter struct {
 	// Target is the struct or union the filter selects.
 	Target TypeRef
-	// Lines are the lines as declared. A bare line has no type and names a field of
-	// the target. A typed line names a hand-written matcher that takes its type.
+	// Lines are the lines as declared. A bare line has no type and names a field of the
+	// target. A typed line names a hand-written matcher that takes its type.
 	Lines []Field
 	// Request and Response are the qualified names of the derived retrieve request and
 	// response, or empty when the analyzer derived none.

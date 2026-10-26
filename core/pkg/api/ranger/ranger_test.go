@@ -59,16 +59,16 @@ var _ = Describe("Retrieve", func() {
 })
 
 var _ = Describe("RetrieveRequest", func() {
-	It("Should reject a member that the request does not declare", func() {
-		var req apiranger.RetrieveRequest
-		Expect(
-			json.Unmarshal(
-				[]byte(`{"keys":["00000000-0000-4000-8000-00000000000a"]}`),
-				&req,
-			),
-		).To(SatisfyAll(
-			MatchError(json.ErrUnknownName),
-			MatchError(ContainSubstring(`unknown object member name "keys"`)),
-		))
-	})
+	DescribeTable(
+		"Should reject a member that the request does not declare",
+		func(body string) {
+			var req apiranger.RetrieveRequest
+			Expect(json.Unmarshal([]byte(body), &req)).To(SatisfyAll(
+				MatchError(json.ErrUnknownName),
+				MatchError(ContainSubstring(`unknown object member name "keys"`)),
+			))
+		},
+		Entry("at the top", `{"keys":["00000000-0000-4000-8000-00000000000a"]}`),
+		Entry("in a nested where", `{"where":{"or":[{"keys":[]}]}}`),
+	)
 })

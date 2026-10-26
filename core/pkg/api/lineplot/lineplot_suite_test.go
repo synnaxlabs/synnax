@@ -14,6 +14,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	apilineplot "github.com/synnaxlabs/synnax/pkg/api/lineplot"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/service"
+	svcmock "github.com/synnaxlabs/synnax/pkg/service/mock"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -23,3 +28,23 @@ func TestAPILinePlot(t *testing.T) {
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+var (
+	svc    *service.Layer
+	apiSvc *apilineplot.Service
+	// author has no role assignments.
+	author user.User
+)
+
+var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
+	node := mock.NewNode(ctx)
+	svc = MustOpen(svcmock.OpenLayer(ctx, node))
+	apiSvc = MustSucceed(apilineplot.NewService(apilineplot.ServiceConfig{
+		LinePlot: svc.LinePlot,
+		RBAC:     svc.RBAC,
+	}))
+	author = MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
+		Username: "author",
+	}))
+})

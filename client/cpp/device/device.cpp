@@ -50,15 +50,11 @@ std::pair<std::vector<Device>, x::errors::Error> Client::retrieve(
     const std::vector<std::string> &keys,
     const RetrieveOptions &options
 ) const {
-    auto [devices, err] = this->retrieve({
+    return this->retrieve({
         .where = Where{.key = x::filter::Set<Key>{.in = keys}},
         .include_status = options.include_status,
         .include_parent = options.include_parent,
     });
-    if (err) return {{}, err};
-    if (auto found_err = errors::check_keys_found("devices", keys, devices))
-        return {{}, found_err};
-    return {devices, x::errors::NIL};
 }
 
 std::pair<std::vector<Device>, x::errors::Error>

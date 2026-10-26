@@ -724,9 +724,7 @@ func (p *Plugin) processFieldForTranslation(
 			"r."+goName,
 			"pb."+pbName+".Values",
 		)
-		b = presentList(b, "pb."+pbName+".Values", data)
-		fd.IsOptionalArrayWrapper = true
-		fd.WrapperName = arrays.OptionalWrapperName(typeRef, data.Namespace, data.table)
+		addOptionalList(&fd, typeRef, data)
 		fd.ForwardExpr = f
 		fd.BackwardExpr = b
 		fd.HasError = e
@@ -736,15 +734,17 @@ func (p *Plugin) processFieldForTranslation(
 	return fd
 }
 
-// presentList returns the backward expression of a present optional list. Protobuf
-// decodes an empty list as nil, so a direct copy of values keeps the list present
-// through xpb.ListValues.
-func presentList(backward, values string, data *templateData) string {
-	if backward != values {
-		return backward
-	}
+// addOptionalList marks fd as an optional list, which proto wraps in a nullable
+// message. Protobuf decodes an empty list as nil, so the backward conversion keeps a
+// present list through xpb.ListValues.
+func addOptionalList(
+	fd *fieldTranslatorData,
+	list resolution.TypeRef,
+	data *templateData,
+) {
+	fd.IsOptionalArrayWrapper = true
+	fd.WrapperName = arrays.OptionalWrapperName(list, data.Namespace, data.table)
 	data.AddInternal("xpb", "github.com/synnaxlabs/x/pb")
-	return "xpb.ListValues(" + values + ")"
 }
 
 // setPtrConversion sets an optional field to convert through its dereferenced value
@@ -1061,12 +1061,7 @@ func (p *Plugin) processGenericFieldForTranslation(
 		name := elem.TypeParam.Name
 		pbValues := "pb." + pbName
 		if isOptional {
-			fd.IsOptionalArrayWrapper = true
-			fd.WrapperName = arrays.OptionalWrapperName(
-				typeRef,
-				data.Namespace,
-				data.table,
-			)
+			addOptionalList(&fd, typeRef, data)
 			pbValues += ".Values"
 		}
 		fd.ForwardExpr = fmt.Sprintf(
@@ -1097,9 +1092,7 @@ func (p *Plugin) processGenericFieldForTranslation(
 			"r."+goName,
 			"pb."+pbName+".Values",
 		)
-		b = presentList(b, "pb."+pbName+".Values", data)
-		fd.IsOptionalArrayWrapper = true
-		fd.WrapperName = arrays.OptionalWrapperName(typeRef, data.Namespace, data.table)
+		addOptionalList(&fd, typeRef, data)
 		fd.ForwardExpr = f
 		fd.BackwardExpr = b
 		fd.HasError = e

@@ -21,6 +21,7 @@ import (
 	colorpb "github.com/synnaxlabs/x/color/pb"
 	"github.com/synnaxlabs/x/filter"
 	filterpb "github.com/synnaxlabs/x/filter/pb"
+	xpb "github.com/synnaxlabs/x/pb"
 	telempb "github.com/synnaxlabs/x/telem/pb"
 )
 
@@ -87,7 +88,7 @@ func RangeFromPB(pb *Range) (ranger.Range, error) {
 		if err != nil {
 			return ranger.Range{}, err
 		}
-		r.Labels = vals
+		r.Labels = xpb.ListValues(vals)
 	}
 	if pb.Parent != nil {
 		val, err := RangeFromPB(pb.Parent)
@@ -166,7 +167,7 @@ func UuidSetFromPB(pb *UuidSet) (filter.Set[uuid.UUID], error) {
 		if err != nil {
 			return filter.Set[uuid.UUID]{}, err
 		}
-		r.In = vals
+		r.In = xpb.ListValues(vals)
 	}
 	return r, nil
 }
@@ -259,14 +260,14 @@ func WhereFromPB(pb *Where) (ranger.Where, error) {
 		if err != nil {
 			return ranger.Where{}, err
 		}
-		r.And = vals
+		r.And = xpb.ListValues(vals)
 	}
 	if pb.Or != nil {
 		vals, err := WheresFromPB(pb.Or.Values)
 		if err != nil {
 			return ranger.Where{}, err
 		}
-		r.Or = vals
+		r.Or = xpb.ListValues(vals)
 	}
 	if pb.Not != nil {
 		val, err := WhereFromPB(pb.Not)
@@ -311,7 +312,7 @@ func WhereFromPB(pb *Where) (ranger.Where, error) {
 		if err != nil {
 			return ranger.Where{}, err
 		}
-		r.Labels = vals
+		r.Labels = xpb.ListValues(vals)
 	}
 	return r, nil
 }

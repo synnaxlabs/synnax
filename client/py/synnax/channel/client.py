@@ -418,7 +418,17 @@ class Client:
         :raises NotFoundError: If a single channel is requested and not found.
         :raises MultipleFoundError: If a single name matches more than one channel.
         """
+        single = False
+        selected = Where()
+        if channel is not None:
+            normal = normalize_params(channel)
+            if len(normal.channels) == 0:
+                return []
+            single = normal.single
+            selected = params_where(channel)
         flat = Where(
+            key=selected.key,
+            name_patterns=selected.name_patterns,
             leaseholder=(
                 None if node_key is None else filter.Set[node.Key](eq=node_key)
             ),
@@ -439,13 +449,6 @@ class Client:
             internal=None if internal is None else filter.Bool(eq=internal),
         )
         where = filter.merge(where, flat)
-        single = False
-        if channel is not None:
-            normal = normalize_params(channel)
-            if len(normal.channels) == 0:
-                return []
-            single = normal.single
-            where = filter.merge(params_where(channel), where)
         res = self._retriever.filter(
             RetrieveRequest(
                 where=where,

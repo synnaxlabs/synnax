@@ -302,7 +302,6 @@ describe("Status", () => {
 
       const retrieved = await client.statuses.retrieve({
         key: "undefined-schema-test",
-        includeLabels: true,
         detailsSchema: undefined,
       });
       expect(Array.isArray(retrieved)).toBe(false);
@@ -543,10 +542,7 @@ describe("Status", () => {
         replace: true,
       });
 
-      const retrievedStat = await client.statuses.retrieve({
-        key: stat.key,
-        includeLabels: true,
-      });
+      const retrievedStat = await client.statuses.retrieve({ key: stat.key });
       expect(retrievedStat.key).toEqual(stat.key);
       expect(retrievedStat.labels).toHaveLength(2);
     });

@@ -31,7 +31,9 @@ func (r RetrieveRequest) Apply(q servicelineplot.Retrieve) (servicelineplot.Retr
 		}
 		q = q.Where(f)
 	}
-	q = q.Search(r.SearchTerm)
+	if r.SearchTerm != "" {
+		q = q.Where(servicelineplot.MatchSearch(r.SearchTerm))
+	}
 	if r.Limit != nil {
 		q = q.Limit(int(*r.Limit))
 	}

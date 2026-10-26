@@ -158,7 +158,7 @@ func KeySetFromPB(pb *KeySet) (filter.Set[rack.Key], error) {
 		r.Eq = &v
 	}
 	if pb.In != nil {
-		r.In = lo.Map(pb.In.Values, func(v uint32, _ int) rack.Key { return rack.Key(v) })
+		r.In = xpb.ListValues(lo.Map(pb.In.Values, func(v uint32, _ int) rack.Key { return rack.Key(v) }))
 	}
 	return r, nil
 }
@@ -305,14 +305,14 @@ func WhereFromPB(pb *Where) (rack.Where, error) {
 		if err != nil {
 			return rack.Where{}, err
 		}
-		r.And = vals
+		r.And = xpb.ListValues(vals)
 	}
 	if pb.Or != nil {
 		vals, err := WheresFromPB(pb.Or.Values)
 		if err != nil {
 			return rack.Where{}, err
 		}
-		r.Or = vals
+		r.Or = xpb.ListValues(vals)
 	}
 	if pb.Not != nil {
 		val, err := WhereFromPB(pb.Not)

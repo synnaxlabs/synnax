@@ -110,7 +110,7 @@ describe("range/list/SelectFilters", () => {
     await searchAndClickNestedLabel(label.name);
     await waitFor(() => expect(onRequestChange).toHaveBeenCalled());
     const [setter] = onRequestChange.mock.calls[0] as [
-      state.SetArg<ranger.RetrieveRequest>,
+      state.SetArg<ranger.RetrieveMultipleParams>,
     ];
     const next = state.executeSetter(setter, { offset: 25, limit: 25 });
     expect(next.where?.labels).toEqual([label.key]);

@@ -175,8 +175,8 @@ func docValue(doc string) resolution.Domain {
 	}
 }
 
-// declaresFilter reports whether the file declares a filter, whose bare lines and order
-// read the types of the filter schema.
+// declaresFilter reports whether the file declares a filter, whose bare lines read the
+// types of the filter schema.
 func declaresFilter(ast parser.ISchemaContext) bool {
 	return lo.SomeBy(ast.AllDefinition(), func(def parser.IDefinitionContext) bool {
 		return def.FilterDef() != nil
@@ -395,6 +395,15 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 		))
 		return
 	}
+	if expr, ok := where.Domains["go"].Expressions.Find("request_output"); ok &&
+		(len(expr.Values) != 1 || expr.Values[0].Kind != resolution.ValueKindString) {
+		c.report(diagnostics.Errorf(
+			where.AST.(parser.IFilterDefContext),
+			"filter %s: @go request_output takes one path",
+			where.Name,
+		))
+		return
+	}
 	target, fields, ok := filterTarget(where.Filter.Target, c.table)
 	if !ok {
 		return
@@ -562,9 +571,9 @@ func retrieveResponse(
 	}, fields, true
 }
 
-// atRequestOutput returns domains with the Go output replaced by the filter's
-// `@go request_output`, which places the request and response in another package than
-// the tree.
+// atRequestOutput returns domains with the Go output replaced by the filter's `@go
+// request_output`, which places the request and response in another package than the
+// tree.
 func atRequestOutput(
 	domains map[string]resolution.Domain, where resolution.Type,
 ) map[string]resolution.Domain {

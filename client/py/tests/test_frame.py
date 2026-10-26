@@ -420,7 +420,10 @@ class TestReadFrameAdapter:
     def test_update_with_nonexistent_channel(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when updating with a nonexistent channel name."""
         adapter = ReadFrameAdapter(client.channels._retriever)
-        with pytest.raises(sy.NotFoundError, match="Could not find channels"):
+        with pytest.raises(
+            sy.NotFoundError,
+            match=r'channels not found matching \["nonexistent_channel_name_12345"\]',
+        ):
             adapter.update(["nonexistent_channel_name_12345"])
 
     def test_adapt_with_keys_no_conversion(

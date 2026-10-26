@@ -50,7 +50,8 @@ var hoverDocs = map[string]string{
 	"record":  "**record**\n\nUntyped key-value record (map of string to any).",
 	"bytes":   "**bytes**\n\nByte array / binary data.",
 
-	"@key": "**@key**\n\nMarks the field as the struct's primary key.",
+	"@key": "**@key**\n\nMarks the field as the struct's primary key. On a distinct " +
+		"type, such as `Key uint32`, marks a key type, which filters select by value.",
 	"@doc": "**@doc**\n\nDocumentation for the declaration.\n\nUse " +
 		"`@doc value \"...\"` on fields and declarations.",
 	"@validate": "**@validate**\n\nValidation constraints.\n\nExpressions: " +
@@ -67,7 +68,8 @@ var hoverDocs = map[string]string{
 		"`@ontology type \"name\"`.",
 	"@go": "**@go**\n\nGo output configuration.\n\nUse `output \"path\"` " +
 		"to set the output directory; `marshal` to generate a codec; " +
-		"`migrate` to generate migrations.",
+		"`migrate` to generate migrations; `request_output \"path\"` to place " +
+		"a filter's retrieve request.",
 	"@ts": "**@ts**\n\nTypeScript output configuration.\n\nExpressions:\n- " +
 		"`output \"path\"` - Output directory\n- `use_input` - Use `z.input` " +
 		"instead of `z.infer`\n- `name \"TypeName\"` - Override the " +
@@ -87,6 +89,8 @@ var hoverDocs = map[string]string{
 	"lookup": "**lookup**\n\nLookup index for exact-match queries.",
 	"sorted": "**sorted**\n\nSorted index for range queries.",
 	"output": "**output** *\"path\"*\n\nOutput path for generated code.",
+	"request_output": "**request_output** *\"path\"*\n\nOutput path for a " +
+		"filter's retrieve request and response.",
 }
 
 func (s *Server) Hover(
@@ -132,7 +136,8 @@ func getWordAtPosition(content string, pos protocol.Position) string {
 		end++
 	}
 
-	if start == end {
+	// A namespace, such as filter in filter.String, has no doc.
+	if start == end || (end < len(line) && line[end] == '.') {
 		return ""
 	}
 	// A domain name keeps its sigil, so @filter and the filter keyword differ.

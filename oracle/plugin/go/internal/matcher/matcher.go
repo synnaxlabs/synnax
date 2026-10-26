@@ -36,6 +36,9 @@ const (
 	Element
 )
 
+// Scalar reports whether a matcher of kind k takes one value.
+func (k Kind) Scalar() bool { return k != Variadic }
+
 // Matcher is one field matcher.
 type Matcher struct {
 	Field resolution.Field

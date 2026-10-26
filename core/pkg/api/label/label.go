@@ -118,6 +118,7 @@ func (s *Service) Retrieve(
 		return RetrieveResponse{}, err
 	}
 	objects := label.OntologyIDsFromLabels(res.Labels)
+	// The labels of a resource describe it, so a for line needs access to the resource.
 	if req.Where != nil {
 		objects = append(objects, req.Where.ForIDs()...)
 	}

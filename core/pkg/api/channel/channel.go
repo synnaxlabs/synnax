@@ -210,7 +210,8 @@ func (s *Service) Retrieve(
 		return RetrieveResponse{}, err
 	}
 	res := RetrieveResponse{Channels: translateChannelsForward(resChannels)}
-	objects := channel.OntologyIDsFromChannels(resChannels)
+	ids := channel.OntologyIDsFromChannels(resChannels)
+	objects := ids
 	if req.RangeKey != nil {
 		aliased, err := s.fillAliases(ctx, *req.RangeKey, res.Channels)
 		if err != nil {
@@ -219,10 +220,7 @@ func (s *Service) Retrieve(
 		objects = append(objects, alias.OntologyIDs(*req.RangeKey, aliased)...)
 	}
 	if req.Request.IncludeStatus {
-		statuses, err := s.status.Join[struct{}](
-			ctx,
-			channel.OntologyIDsFromChannels(resChannels),
-		)
+		statuses, err := s.status.Join[struct{}](ctx, ids)
 		if err != nil {
 			return RetrieveResponse{}, err
 		}

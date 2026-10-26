@@ -58,5 +58,20 @@ var _ = Describe("gRPC Rack Translators", func() {
 				),
 			))
 		})
+
+		It("Should reject an unknown field inside the request", func(ctx SpecContext) {
+			inner := protowire.AppendTag(nil, 99, protowire.VarintType)
+			inner = protowire.AppendVarint(inner, 1)
+			b := protowire.AppendTag(nil, 5, protowire.BytesType)
+			b = protowire.AppendBytes(b, inner)
+			var decoded RetrieveRequest
+			Expect(proto.Unmarshal(b, &decoded)).To(Succeed())
+			Expect(t.Backward(ctx, &decoded)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					"api.rack.pb.RetrieveRequest has unknown fields",
+				)),
+			))
+		})
 	})
 })

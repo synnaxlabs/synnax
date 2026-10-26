@@ -31,7 +31,9 @@ func (r RetrieveRequest) Apply(q serviceproject.Retrieve) (serviceproject.Retrie
 		}
 		q = q.Where(f)
 	}
-	q = q.Search(r.SearchTerm)
+	if r.SearchTerm != "" {
+		q = q.Where(serviceproject.MatchSearch(r.SearchTerm))
+	}
 	if r.Limit != nil {
 		q = q.Limit(int(*r.Limit))
 	}

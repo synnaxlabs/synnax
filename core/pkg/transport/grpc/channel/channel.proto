@@ -44,7 +44,6 @@ message RetrieveRequest {
   optional string range_key = 6;
 }
 
-
 message DeleteRequest {
   repeated uint32 keys = 1;
   repeated string names = 2;

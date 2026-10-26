@@ -22,9 +22,9 @@ import {
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
+  type Where,
 } from "@/label/types.gen";
-import { createLines, forIDs } from "@/label/where";
-import { matches, serverComputed } from "@/label/where.gen";
+import { type Lines, matches, serverComputed } from "@/label/where.gen";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 
@@ -48,6 +48,13 @@ const removeReqZ = setReqZ.omit({ replace: true });
 const emptyResZ = z.object({});
 
 const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
+
+/** @returns the resources that the for lines of where name. */
+const forIDs = (where: Where): ontology.ID[] => [
+  ...(where.for != null ? [where.for] : []),
+  ...[...(where.and ?? []), ...(where.or ?? [])].flatMap(forIDs),
+  ...(where.not != null ? forIDs(where.not) : []),
+];
 
 /** Names one label. */
 export type RetrieveSingleParams = { key: Key };
@@ -84,9 +91,10 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
       ],
     });
-    const lines = createLines((id, key) =>
-      relationships.has(ontology.relationshipToString(labeledByRel(id, key))),
-    );
+    const lines: Lines = {
+      for: (l, id) =>
+        relationships.has(ontology.relationshipToString(labeledByRel(id, l.key))),
+    };
     super(cache, {
       name: "label",
       table: store,
