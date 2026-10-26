@@ -84,6 +84,17 @@ var _ = Describe("TS Types Plugin", func() {
 				ToNotContain("boolZ = z.strictObject")
 		})
 
+		It("Should type a filter request by its input", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
+			ExpectContent(resp, "thing/types.gen.ts").
+				ToContain(
+					"offset: z.uint32().default(0),",
+					"export interface RetrieveRequest extends z.input<typeof retrieveRequestZ> {}",
+					"export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}",
+				)
+		})
+
 		Context("field-level omit", func() {
 			It("Should leave out an inherited field the parent omits", func(
 				ctx SpecContext,
