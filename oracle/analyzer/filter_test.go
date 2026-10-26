@@ -726,6 +726,29 @@ var _ = Describe("Filter definitions", func() {
 				"filter Where: unknown response type Missing"),
 		)
 
+		DescribeTable("Should reject an invalid @go request_output",
+			func(ctx SpecContext, output string) {
+				_, diag := analyzer.AnalyzeSource(ctx, `
+					import "schemas/x/filter"
+
+					Thing struct {
+						key uuid { @key }
+					}
+					Where filter Thing {
+						key
+
+						`+output+`
+					}
+				`, "test", loader)
+				Expect(diag.String()).To(ContainSubstring(
+					"filter Where: @go request_output takes one path",
+				))
+			},
+			Entry("without a path", "@go request_output"),
+			Entry("with an identifier", "@go request_output api"),
+			Entry("with two paths", `@go request_output "a" "b"`),
+		)
+
 		It("Should reject a derived name the schema already declares", func(
 			ctx SpecContext,
 		) {

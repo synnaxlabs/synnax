@@ -395,6 +395,15 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 		))
 		return
 	}
+	if expr, ok := where.Domains["go"].Expressions.Find("request_output"); ok &&
+		(len(expr.Values) != 1 || expr.Values[0].Kind != resolution.ValueKindString) {
+		c.report(diagnostics.Errorf(
+			where.AST.(parser.IFilterDefContext),
+			"filter %s: @go request_output takes one path",
+			where.Name,
+		))
+		return
+	}
 	target, fields, ok := filterTarget(where.Filter.Target, c.table)
 	if !ok {
 		return
