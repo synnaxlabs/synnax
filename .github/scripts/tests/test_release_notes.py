@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT = Path(__file__).resolve().parent / "release_notes.sh"
+SCRIPT = Path(__file__).resolve().parents[1] / "release_notes.sh"
 
 # Stands in for gh: records its arguments to FAKE_GH_ARGS, one per line, and serves the
 # canned generate-notes response in FAKE_GH_BODY through the requested jq expression.

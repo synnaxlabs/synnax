@@ -249,7 +249,7 @@ describe("StaticReadCache", () => {
     // Streamed data carries leading-region alignments that never match the positional
     // alignments of the same samples read back from disk, so the two forms of one
     // sample can coexist in the cache. Evicting streamed entries is what prevents that.
-    const LEADING_ALIGNMENT = (BigInt(0xffffffff) - 1_000_000n) << 32n;
+    const LEADING_ALIGNMENT = (1n << 31n) << 32n;
     const streamed = (tr: TimeRange, data: number[], offset = 0n) =>
       new MultiSeries([
         new Series({
