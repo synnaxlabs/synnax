@@ -269,12 +269,15 @@ public:
             this->state.ack(cmd_key, true);
             return false;
         }
-        auto acq_started = true;
-        if (this->acquisition) acq_started = this->acquisition->start(start);
-        auto control_started = true;
-        if (this->control) control_started = this->control->start();
+        auto started = true;
+        if (this->acquisition) started = this->acquisition->start(start);
+        if (this->control &&
+            this->state.error(this->control->start(), "Failed to start task")) {
+            this->stop("", false);
+            started = false;
+        }
         this->state.send_start(cmd_key);
-        return acq_started && control_started;
+        return started;
     }
 
     bool stop(const std::string &cmd_key, const bool propagate_state) {

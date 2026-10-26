@@ -1241,6 +1241,67 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
         << "Should have a success status with running=false after stop";
 }
 
+/// @brief a task whose control streamer fails to open should report a failed start.
+TEST(ArcStatusVerification, StreamerOpenErrorFailsStart) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto input_idx = synnax::channel::Channel{
+        .name = make_unique_channel_name("open_err_input_idx"),
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
+    ASSERT_NIL(client->channels.create(input_idx));
+    auto input_ch = synnax::channel::Channel{
+        .name = make_unique_channel_name("open_err_input"),
+        .data_type = x::telem::FLOAT32_T,
+        .index = input_idx.key,
+    };
+    ASSERT_NIL(client->channels.create(input_ch));
+    auto output_idx = synnax::channel::Channel{
+        .name = make_unique_channel_name("open_err_output_idx"),
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
+    ASSERT_NIL(client->channels.create(output_idx));
+    auto output_ch = synnax::channel::Channel{
+        .name = make_unique_channel_name("open_err_output"),
+        .data_type = x::telem::FLOAT32_T,
+        .index = output_idx.key,
+    };
+    ASSERT_NIL(client->channels.create(output_ch));
+    synnax::arc::Arc arc_prog{
+        .name = make_unique_channel_name("open_err_test"),
+        .mode = synnax::arc::MODE_TEXT
+    };
+    arc_prog.text = ::arc::text::Text{
+        .raw = "func pass(val f32) f32 { return val }\n" + input_ch.name +
+               " -> pass{} -> " + output_ch.name + "\n"
+    };
+    ASSERT_NIL(client->arcs.create(arc_prog));
+    synnax::task::Task task_meta{.name = "arc_open_err_test", .type = "arc_runtime"};
+    task_meta.config = nlohmann::json{{"arc_key", arc_prog.key.to_string()}};
+    auto parser = x::json::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+    auto ctx = std::make_shared<task::MockContext>(client);
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            std::make_shared<pipeline::mock::WriterFactory>(),
+            std::make_shared<pipeline::mock::StreamerFactory>(
+                std::vector{x::errors::UNKNOWN},
+                std::make_shared<std::vector<pipeline::mock::StreamerConfig>>()
+            )
+        )
+    );
+
+    ASSERT_FALSE(task->start("start_cmd"));
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    const auto &status = ctx->statuses[0];
+    EXPECT_EQ(status.details.cmd, "start_cmd");
+    expect_status(status, synnax::status::VARIANT_ERROR, false, "Failed to start task");
+}
+
 TEST(ArcStatusVerification, StopCommandStatusCarriesCommandKey) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 

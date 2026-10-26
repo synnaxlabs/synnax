@@ -11,6 +11,8 @@
 
 #include <optional>
 
+#include "absl/log/log.h"
+
 #include "client/cpp/task/json.gen.h"
 
 #include "driver/bypass/pipeline/factory.h"
@@ -280,17 +282,20 @@ public:
             return false;
         }
         this->state.reset();
-        const auto sink_started = !this->state.error(
+        auto started = !this->state.error(
             this->sink->internal->start(),
             "Failed to start task"
         );
-        if (sink_started) {
-            this->cmd_write_pipe.start();
-            if (!this->sink->internal->writer_config().channels.empty())
-                this->state_write_pipe.start();
+        if (started &&
+            this->state.error(this->cmd_write_pipe.start(), "Failed to start task")) {
+            if (const auto err = this->sink->internal->stop())
+                LOG(ERROR) << "[" << this->name() << "] failed to stop task: " << err;
+            started = false;
         }
+        if (started && !this->sink->internal->writer_config().channels.empty())
+            this->state_write_pipe.start();
         this->state.send_start(cmd_key);
-        return sink_started;
+        return started;
     }
 
     /// @brief implements driver::task::Task to return the task's name.

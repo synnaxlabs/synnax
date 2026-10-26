@@ -363,6 +363,44 @@ TEST(TestCommonWriteTask, testStopReleasesSinkWithoutStateChannels) {
     EXPECT_EQ(raw_sink->stop_count, 2);
 }
 
+/// @brief a task whose command streamer fails to open should report a failed start
+/// and release its sink.
+TEST(TestCommonWriteTask, testStreamerOpenErrorFailsStart) {
+    auto mock_streamer_factory = std::make_shared<pipeline::mock::StreamerFactory>(
+        std::vector{x::errors::UNKNOWN},
+        std::make_shared<std::vector<pipeline::mock::StreamerConfig>>()
+    );
+    auto sink = std::make_unique<MockSink>(
+        x::telem::Rate(0),
+        std::vector<Sink::Output>{{1, std::nullopt}},
+        false,
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::make_shared<std::vector<x::errors::Error>>()
+    );
+    auto *raw_sink = sink.get();
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    WriteTask write_task(
+        task,
+        ctx,
+        x::breaker::default_config("cat"),
+        std::move(sink),
+        std::make_shared<pipeline::mock::WriterFactory>(),
+        mock_streamer_factory
+    );
+
+    ASSERT_FALSE(write_task.start("start_cmd"));
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    const auto &status = ctx->statuses[0];
+    EXPECT_EQ(status.details.cmd, "start_cmd");
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to start task");
+    EXPECT_FALSE(status.details.running);
+    EXPECT_EQ(raw_sink->start_count, 1);
+    EXPECT_EQ(raw_sink->stop_count, 1);
+}
+
 /// @brief it should parse a device key from the config.
 TEST(BaseWriteTaskConfigTest, testParse) {
     const x::json::json j{{"device", "abc123"}, {"auto_start", true}};
