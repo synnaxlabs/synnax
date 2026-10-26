@@ -742,6 +742,54 @@ TEST_F(EtherCATReadTest, ReadTaskRetriesFailedCyclesWithoutALimit) {
     );
 }
 
+/// @brief it should pass the startup parameters saved for each slave on the task's
+/// network to the master, including a slave the task does not read.
+TEST_F(EtherCATReadTest, ConfigurePassesSavedSlaveSettingsOnTheNetworkToTheMaster) {
+    const auto save_slave =
+        [this](const std::string &network, const uint16_t position, const int value) {
+            auto dev = this->slave_device;
+            dev.key += "_" + network + "_" + std::to_string(position);
+            dev.make = DEVICE_MAKE;
+            dev.model = SLAVE_DEVICE_MODEL;
+            dev.properties["network"] = network;
+            dev.properties["position"] = position;
+            dev.properties["startup_parameters"] = {
+                {{"index", 0x8000},
+                 {"sub_index", 0x15},
+                 {"data_type", "uint16"},
+                 {"value", value}}
+            };
+            ASSERT_NIL(this->client->devices.create(dev));
+        };
+    save_slave(NETWORK_INTERFACE, 1, 3);
+    save_slave("eth1", 2, 5);
+    const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
+    );
+    auto manager = std::make_unique<mock::Manager>();
+    manager->configure(NETWORK_INTERFACE, this->mock_master);
+    Factory factory(std::move(manager));
+    auto [read_task, ok] = factory.configure_task(
+        this->ctx,
+        {.rack = this->rack.key, .name = "read", .type = READ_TASK_TYPE, .config = cfg},
+        ""
+    );
+    ASSERT_TRUE(ok);
+    ASSERT_NE(read_task, nullptr);
+    EXPECT_EQ(
+        this->mock_master->startup_parameters(1),
+        (std::vector<slave::StartupParameter>{{
+            .index = 0x8000,
+            .sub_index = 0x15,
+            .data_type = x::telem::UINT16_T,
+            .value = 3,
+        }})
+    );
+    EXPECT_TRUE(this->mock_master->startup_parameters(2).empty());
+}
+
 TEST_F(EtherCATReadTest, SourceReturnsEmptyFrameWhenBreakerStopped) {
     auto data_ch = ASSERT_NIL_P(this->client->channels.create(
         make_unique_channel_name("analog"),

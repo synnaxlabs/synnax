@@ -115,15 +115,6 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
     if (this->pool == nullptr) return {devices, x::errors::NIL};
 
     std::set<std::string> failures;
-    // Invalid properties show on the device status instead.
-    if (scan_ctx.count == 0 && scan_ctx.devices != nullptr)
-        for (const auto &dev: *scan_ctx.devices | std::views::values) {
-            if (dev.model != SLAVE_DEVICE_MODEL) continue;
-            if (const auto err = this->configure_slave(dev).second;
-                err && !err.matches(x::errors::VALIDATION))
-                failures.insert("failed to configure " + dev.name + ": " + err.data);
-        }
-
     const auto masters = this->pool->enumerate();
     VLOG(1) << SCAN_LOG_PREFIX << "scanning " << masters.size() << " masters";
 
@@ -268,11 +259,7 @@ Scanner::configure_slave(const synnax::device::Device &dev) const {
     auto [props, props_err] = parse_properties(dev.properties);
     if (props_err) return {props, props_err};
     auto [engine, err] = this->pool->acquire(props.network);
-    if (!err)
-        engine->set_slave_config(
-            props.position,
-            {.enabled = props.enabled, .startup_parameters = props.startup_parameters}
-        );
+    if (!err) engine->set_slave_config(props.position, props.config());
     return {props, err};
 }
 

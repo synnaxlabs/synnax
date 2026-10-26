@@ -238,6 +238,14 @@ struct Properties {
     /// user, so to_json leaves them out and a scan keeps them.
     std::vector<StartupParameter> startup_parameters;
 
+    /// @brief returns the settings the master applies to the slave when the bus starts.
+    [[nodiscard]] Config config() const {
+        return {
+            .enabled = this->enabled,
+            .startup_parameters = this->startup_parameters
+        };
+    }
+
     /// @brief returns the total number of discovered PDO entries.
     [[nodiscard]] size_t pdo_count() const {
         return this->input_pdos.size() + this->output_pdos.size();

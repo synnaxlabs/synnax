@@ -594,34 +594,6 @@ TEST_F(EtherCATScanDeviceSetTest, PassesStartupParametersToTheMaster) {
     EXPECT_EQ(this->status(dev).message, "Device enabled");
 }
 
-/// @brief it should pass the startup parameters of existing devices to the master on
-/// the first scan.
-TEST_F(EtherCATScanDeviceSetTest, FirstScanPassesStartupParametersToTheMaster) {
-    const auto dev = this->create_slave(
-        {{{"index", 0x8000},
-          {"sub_index", 0x15},
-          {"data_type", "uint16"},
-          {"value", 3},
-          {"name", "Filter"}}}
-    );
-    const std::unordered_map<std::string, synnax::device::Device> devices{
-        {dev.key, dev}
-    };
-    ASSERT_NIL_P(
-        this->scanner->scan(common::ScannerContext{.count = 0, .devices = &devices})
-    );
-    EXPECT_EQ(
-        this->master->startup_parameters(0),
-        (std::vector<slave::StartupParameter>{{
-            .index = 0x8000,
-            .sub_index = 0x15,
-            .data_type = x::telem::UINT16_T,
-            .value = 3,
-            .name = "Filter",
-        }})
-    );
-}
-
 /// @brief it should pass no startup parameters and report an error status that names
 /// the invalid field.
 TEST_F(EtherCATScanDeviceSetTest, ReportsAnInvalidStartupParameter) {
@@ -673,24 +645,5 @@ TEST_F(EtherCATScanDeviceSetTest, ScanReportsAnInvalidStartupParameter) {
             "startup_parameters.0.value: must be a whole number from 0 to 255"
         );
     }
-}
-
-/// @brief it should return a partial scan error when the first scan cannot pass a saved
-/// device's settings to its master.
-TEST_F(EtherCATScanDeviceSetTest, FirstScanReturnsAConfigureFailure) {
-    synnax::device::Device dev = this->create_slave(x::json::json::array());
-    dev.properties["network"] = "eth9";
-    const std::unordered_map<std::string, synnax::device::Device> devices{
-        {dev.key, dev}
-    };
-    const auto [scanned, err] = this->scanner->scan(
-        common::ScannerContext{.count = 0, .devices = &devices}
-    );
-    ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
-    EXPECT_EQ(
-        err.data,
-        "failed to configure EL3102: no mock master configured for key: eth9"
-    );
-    EXPECT_EQ(scanned.size(), 1);
 }
 }
