@@ -99,6 +99,27 @@ describe("Loop", () => {
       expect(held.render).toHaveBeenCalledOnce();
     });
 
+    it("should clean each canvas with the cleanup of the render that drew on it", () => {
+      const { loop } = create();
+      const first = vi.fn();
+      loop.set(request("plot", ["upper2d", "lower2d", "gl"], first));
+      vi.advanceTimersToNextFrame();
+      loop.glLost = true;
+      const held = request("plot", ["upper2d", "lower2d", "gl"]);
+      loop.set(held);
+      vi.advanceTimersToNextFrame();
+      const tool = vi.fn();
+      loop.set({ ...request("plot", ["upper2d"], tool), priority: "low" });
+      vi.advanceTimersToNextFrame();
+      loop.glLost = false;
+      vi.advanceTimersToNextFrame();
+      expect(first.mock.calls.map(([req]: [Request]) => req.canvases)).toEqual([
+        ["upper2d"],
+        ["lower2d", "gl"],
+      ]);
+      expect(tool).toHaveBeenCalledExactlyOnceWith({ ...held, canvases: ["upper2d"] });
+    });
+
     it("should run the cleanup and the render of each held request", () => {
       const { loop, afterRender } = create();
       const cleanup = vi.fn();

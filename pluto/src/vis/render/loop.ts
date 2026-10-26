@@ -53,11 +53,16 @@ export interface Request {
 }
 
 /**
- * A cleanup function that receives the request from the previous render. Cleanup
- * functions should clear canvases and other resources that need to be freed from
- * the previous render.
+ * Erases what a render drew. It receives the next request for the same key, narrowed to
+ * the canvases of that request that the render drew on.
  */
 export type Cleanup = (req: Request) => void;
+
+interface PendingCleanup {
+  cleanup: Cleanup;
+  /** The canvases that the cleanup has not cleaned yet. */
+  canvases: CanvasVariant[];
+}
 
 export type Priority = "high" | "low";
 
@@ -90,7 +95,7 @@ export class Loop {
   /** Stores the requests that draw on the GL canvas while the context is lost. */
   private readonly held = new Map<string, Request>();
   /** Stores render cleanup functions for clearing canvases and other resources. */
-  private readonly cleanup = new Map<string, Cleanup>();
+  private readonly cleanups = new Map<string, PendingCleanup[]>();
   /** A callback to run after each render call. */
   private readonly afterRender?: () => void;
   /** Instrumentation for logging, tracing, metrics, etc. */
@@ -148,14 +153,19 @@ export class Loop {
   }
 
   private runCleanupsSync(): void {
-    const { cleanup, requests } = this;
-    cleanup.forEach((f, k) => {
-      /** Execute all of our cleanup functions BEFORE we re-render. */
-      const req = requests.get(k);
-      if (req != null) {
-        f(req);
-        cleanup.delete(k);
-      }
+    const { cleanups, requests } = this;
+    requests.forEach((req, key) => {
+      const pending = cleanups.get(key);
+      if (pending == null) return;
+      const left: PendingCleanup[] = [];
+      pending.forEach(({ cleanup, canvases }) => {
+        const cleaned = canvases.filter((c) => req.canvases.includes(c));
+        if (cleaned.length > 0) cleanup({ ...req, canvases: cleaned });
+        const rest = canvases.filter((c) => !req.canvases.includes(c));
+        if (rest.length > 0) left.push({ cleanup, canvases: rest });
+      });
+      if (left.length > 0) cleanups.set(key, left);
+      else cleanups.delete(key);
     });
   }
 
@@ -165,9 +175,11 @@ export class Loop {
     requests.forEach((req) => {
       try {
         const cleanup = req.render();
-        // We're safe to set the cleanup function here because we know that req.key
-        // is unique in the queue.
-        if (cleanup != null) this.cleanup.set(req.key, cleanup);
+        if (cleanup != null)
+          this.cleanups.set(req.key, [
+            ...(this.cleanups.get(req.key) ?? []),
+            { cleanup, canvases: req.canvases },
+          ]);
       } catch (e) {
         this.handleError(e, "Failed to render");
       }
