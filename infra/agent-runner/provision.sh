@@ -17,8 +17,6 @@ set -euxo pipefail
 GO_VERSION=1.27.2
 NODE_MAJOR=24
 RUNNER_VERSION=2.338.2
-CLAUDE_VERSION=2.1.310
-CODEX_VERSION=0.164.0
 BAZELISK_VERSION=1.30.0
 UV_VERSION=0.13.0
 PNPM_VERSION=12.14.0
@@ -74,8 +72,9 @@ curl -fsSL -o /usr/local/bin/bazel \
 chmod +x /usr/local/bin/bazel
 curl -LsSf "https://astral.sh/uv/$UV_VERSION/install.sh" \
     | env UV_INSTALL_DIR=/usr/local/bin sh
-npm install -g "pnpm@$PNPM_VERSION" "@anthropic-ai/claude-code@$CLAUDE_VERSION" \
-    "@openai/codex@$CODEX_VERSION"
+# Each agent job updates the agent CLIs to the latest release before it runs.
+npm install -g "pnpm@$PNPM_VERSION" @anthropic-ai/claude-code@latest \
+    @openai/codex@latest
 
 # The agent builds, installs packages, and runs Docker, so the user is an admin of
 # this single-purpose machine.
