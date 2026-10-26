@@ -159,12 +159,45 @@ jobs:
       core_ref_run_id: ${{ needs.setup.outputs.CORE_REF_RUN_ID }}
     secrets: inherit
 
-  test-windows:
-    name: Test (windows)
+  # A free test bot takes the oldest queued job, so in a merge group the Windows test
+  # bot jobs wait here until the groups ahead queued theirs.
+  turn:
+    name: Wait for turn
     needs: [setup, build]
     if:
+      ${{ github.event_name == 'merge_group' && inputs.windows && !cancelled() &&
+      needs.setup.result == 'success' && (needs.build.result == 'success' ||
+      needs.build.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+
+      - name: Wait for the groups ahead
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TEST_BOTS: ${{ vars.WINDOWS_TEST_BOTS }}
+          TEST_MATRIX: ${{ needs.setup.outputs.TEST_MATRIX }}
+        run: |
+          # Migration takes a test bot too.
+          JOBS=$(jq '[.include[] | select(.hosted != true)] | length + 1' \
+            <<< "$TEST_MATRIX")
+          python3 .github/scripts/wait_for_turn.py "$GITHUB_SHA" \
+            "$((TEST_BOTS / JOBS))"
+
+  test-windows:
+    name: Test (windows)
+    needs: [setup, build, turn]
+    if:
       ${{ inputs.windows && !cancelled() && needs.setup.result == 'success' &&
-      (needs.build.result == 'success' || needs.build.result == 'skipped') }}
+      (needs.build.result == 'success' || needs.build.result == 'skipped') &&
+      (needs.turn.result == 'success' || needs.turn.result == 'skipped') }}
     uses: ./.github/workflows/test.integration.worker.yaml
     with:
       test_matrix: ${{ needs.setup.outputs.TEST_MATRIX }}
@@ -328,11 +361,12 @@ jobs:
 
   migration:
     name: Migration
-    needs: [setup, build]
+    needs: [setup, build, turn]
     if:
       ${{ !cancelled() && needs.setup.result == 'success' && (needs.build.result ==
-      'success' || needs.build.result == 'skipped') && (github.event_name ==
-      'merge_group' || github.event.inputs.RUN_MIGRATION == 'true') }}
+      'success' || needs.build.result == 'skipped') && (needs.turn.result == 'success'
+      || needs.turn.result == 'skipped') && (github.event_name == 'merge_group' ||
+      github.event.inputs.RUN_MIGRATION == 'true') }}
     uses: ./.github/workflows/test.migration.yaml
     with:
       ref_run_id: ${{ needs.setup.outputs.REF_RUN_ID }}
