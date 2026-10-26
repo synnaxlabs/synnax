@@ -76,9 +76,9 @@ class TestJobs:
     ) -> None:
         github = Responses(
             {
-                "/actions/runs?status=queued&per_page=100": runs(),
-                "/actions/runs?status=in_progress&per_page=100": runs(7),
-                "/actions/runs/7/jobs?per_page=100": {
+                "/actions/runs?status=queued&per_page=100&page=1": runs(),
+                "/actions/runs?status=in_progress&per_page=100&page=1": runs(7),
+                "/actions/runs/7/jobs?per_page=100&page=1": {
                     "jobs": [job(1, "completed"), job(2, "queued")]
                 },
             }
@@ -88,15 +88,31 @@ class TestJobs:
         assert j.queued == {2: set(LABELS)}
         assert j.counts() == {"ubuntu-test-bot": 1}
 
+    def test_should_read_every_page_of_jobs(self, client: Client) -> None:
+        first = [job(i, "completed") for i in range(100)]
+        github = Responses(
+            {
+                "/actions/runs?status=queued&per_page=100&page=1": runs(),
+                "/actions/runs?status=in_progress&per_page=100&page=1": runs(7),
+                "/actions/runs/7/jobs?per_page=100&page=1": {"jobs": first},
+                "/actions/runs/7/jobs?per_page=100&page=2": {
+                    "jobs": [job(100, "queued")]
+                },
+            }
+        )
+        j = jobs(github, client)
+        j.resync(sy.TimeStamp.now())
+        assert j.queued == {100: set(LABELS)}
+
     def test_should_restore_running_jobs_no_delivery_reported(
         self, client: Client
     ) -> None:
         running = delivery("in_progress", 3)["workflow_job"] | {"status": "in_progress"}
         github = Responses(
             {
-                "/actions/runs?status=queued&per_page=100": runs(),
-                "/actions/runs?status=in_progress&per_page=100": runs(7),
-                "/actions/runs/7/jobs?per_page=100": {"jobs": [running]},
+                "/actions/runs?status=queued&per_page=100&page=1": runs(),
+                "/actions/runs?status=in_progress&per_page=100&page=1": runs(7),
+                "/actions/runs/7/jobs?per_page=100&page=1": {"jobs": [running]},
             }
         )
         j = jobs(github, client)
