@@ -11,7 +11,12 @@ import { Hero } from "@/components/hero";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-<Hero.Hero still="ranges" layout="bleed" tone="soft" palette="orange-yellow" />
+<Hero.Hero
+  still="console/ranges/hero"
+  layout="bleed"
+  tone="soft"
+  palette="orange-yellow"
+/>
 
 A range is a named time interval that marks an important event in your data.
 [Channels](/reference/channels) group samples by their source. Ranges group samples by

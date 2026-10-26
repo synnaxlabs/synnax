@@ -12,7 +12,12 @@ import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-<Hero.Hero still="logs" layout="centered" tone="soft" palette="teal-blue" />
+<Hero.Hero
+  still="console/logs/hero"
+  layout="centered"
+  tone="soft"
+  palette="teal-blue"
+/>
 
 A log shows each new value of its channels as one line of text. Use a log to follow
 operator notes, the states of an automation, and slow sensors. A log can show channels

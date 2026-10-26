@@ -47,6 +47,11 @@ main {
     }
 }
 
+/* A legal page has no outline, so it keeps the gutter of a reference article. */
+main > section.legal-page {
+    padding: 0 3rem;
+}
+
 /* Sticky navigation */
 nav {
     position: sticky;
@@ -379,7 +384,7 @@ article {
     }
 
     /* Media shares the note and code block geometry. */
-    video,
+    video:not(.docs-hero video),
     iframe,
     img:not(
         .diagram img,
@@ -394,7 +399,7 @@ article {
     }
 
     :is(
-        video,
+        video:not(.docs-hero video),
         img:not(.diagram img, .docs-hero img, .docs-landing img, .blog-author__photo)
     ) {
         border: var(--pluto-border);

@@ -5,6 +5,7 @@ description: "Connect a web API to Synnax, with its authentication and health ch
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
 import Platforms from "@/components/hardware/Platforms.astro";
@@ -34,13 +35,18 @@ Synnax, an HTTP server is one base address with its authentication and health ch
 <Client.Tabs>
   <Fragment slot="console">
 
-1. Run the "Connect HTTP server" command.
+1. In the [devices toolbar](/reference/hardware/devices#devices-toolbar), click
+   <Icon.Add /> and select **HTTP server**. You can also run the "Connect HTTP server"
+   command.
 2. Enter a name for the server.
 3. In **Host**, enter the address and port without `http://` or `https://`, for example
    `192.168.1.40:8080`. You can add a base path, such as `api.example.com/v2`.
 4. Turn **HTTPS** off if the server uses plain HTTP. Most devices on a local network do.
-5. Set the [authentication](#authentication) and the [health check](#health-check).
-6. Click **Connect**.
+5. In **Connect from**, select the Driver that reaches the server. When only one running
+   Driver has HTTP enabled, the Console selects it for you.
+6. In the **Authentication** and **Health check** tabs, set the
+   [authentication](#authentication) and the [health check](#health-check).
+7. Click **Connect**.
 
 The Console sends a test request before it saves the server. If the test fails, the
 dialog shows the error and keeps your entries.
@@ -112,7 +118,7 @@ result as the server status in the devices toolbar. For the messages, see
 - **Path** -> the path of the request. In the Console it is empty by default, so the
   check asks for the base address. In Python it is `/health` by default. If the server
   answers the check path with an error such as 404, **Connect** fails.
-- **Validate response body** -> also checks one value in the JSON response. Set a **JSON
+- **Validate body** -> also checks one value in the JSON response. Set a **JSON
   pointer**, such as `/status`, and the **Expected value**, such as `ok`. The status is
   "Health check failed" when the value is different.
 
@@ -120,15 +126,15 @@ result as the server status in the devices toolbar. For the messages, see
 
 ## Connection options
 
-| Console label           | Python field              | Default | Notes                                                         |
-| ----------------------- | ------------------------- | ------- | ------------------------------------------------------------- |
-| Host                    | `host`                    |         | Address and port, with no scheme.                             |
-| HTTPS                   | `secure`                  | On      | Off for plain HTTP.                                           |
-| Verify SSL              | `verify_ssl`              | On      | Turn off for a server with a self-signed certificate.         |
-| Expected response time  | `timeout_ms`              | 100 ms  | The time the Driver waits for each response. Must be above 0. |
-| Max concurrent requests | `max_concurrent_requests` | 6       | The most requests open to the server at one time.             |
-| Authentication          | `auth`                    | None    | See [authentication](#authentication).                        |
-| Health check            | `health_check`            |         | See [health check](#health-check).                            |
+| Console label       | Python field              | Default | Notes                                                           |
+| ------------------- | ------------------------- | ------- | --------------------------------------------------------------- |
+| Host                | `host`                    |         | Address and port, with no scheme.                               |
+| HTTPS               | `secure`                  | On      | Off for plain HTTP.                                             |
+| Verify certificate  | `verify_ssl`              | On      | Shows when HTTPS is on. Turn off for a self-signed certificate. |
+| Timeout             | `timeout_ms`              | 100 ms  | The time the Driver waits for each response. Must be above 0.   |
+| Concurrent requests | `max_concurrent_requests` | 6       | The most requests open to the server at one time.               |
+| Authentication      | `auth`                    | None    | See [authentication](#authentication).                          |
+| Health check        | `health_check`            |         | See [health check](#health-check).                              |
 
 TypeScript uses the same fields in camel case, such as `verifySsl`.
 
@@ -140,7 +146,7 @@ TypeScript uses the same fields in camel case, such as `verifySsl`.
 | -------------- | ---------------------------------------------------------------- |
 | None           | No credentials.                                                  |
 | Bearer token   | The **Token** in the header `Authorization: Bearer <token>`.     |
-| API key        | The **API key** in a header or a query parameter that you name.  |
+| API key        | The **Key** in a header or a query parameter that you name.      |
 | Basic          | The **Username** and **Password** in the `Authorization` header. |
 
 In code, `auth` is a dictionary:
@@ -168,14 +174,14 @@ In code, `auth` is a dictionary:
 
 The server passed the test in the **Connect** dialog, but the health check or a task
 cannot reach it in time. The test request in the **Connect** dialog waits up to 5
-seconds. The health check and the tasks wait only for the **Expected response time**,
-which is 100 ms by default.
+seconds. The health check and the tasks wait only for the **Timeout**, which is 100 ms
+by default.
 
 </Problem.Cause>
 <Problem.Fix>
 
 1. Right-click the server and select **Edit connection**.
-2. Increase **Expected response time**.
+2. In the **Advanced** tab, increase **Timeout**.
 
 </Problem.Fix>
 </Problem.Item>
@@ -190,7 +196,7 @@ The Driver could not reach the address. The description shows the reason.
 
 1. Make sure that **Host** has no `http://` or `https://`.
 2. Match **HTTPS** to the server. A local device often needs **HTTPS** off.
-3. For a server with a self-signed certificate, turn off **Verify SSL**.
+3. For a server with a self-signed certificate, turn off **Verify certificate**.
 
 </Problem.Fix>
 </Problem.Item>

@@ -15,7 +15,12 @@ import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-<Hero.Hero still="schematics" layout="bleed" tone="deep" palette="violet-pink" />
+<Hero.Hero
+  still="console/schematics/hero"
+  layout="bleed"
+  tone="deep"
+  palette="violet-pink"
+/>
 
 A schematic draws your system with symbols for tanks, valves, pumps, and sensors. Each
 symbol can show the latest value of a channel, and an operator can click a valve or a

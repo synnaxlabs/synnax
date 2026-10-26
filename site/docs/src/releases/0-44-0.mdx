@@ -2,7 +2,8 @@
 title: "Version 0.44 release notes"
 ---
 
-import { Image, Video } from "@/components/media/Media";
+import { Hero } from "@/components/hero";
+import { Image } from "@/components/media/Media";
 import Release from "@/components/releases/Release.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -17,7 +18,13 @@ export const components = mdxOverrides;
     title="Embedded Console"
 >
 
-<Image id="releases/0-44-0/thumbnail" themed={false} />
+<Hero.Hero
+  image="releases/0-44-0/thumbnail"
+  themed={false}
+  layout="bleed"
+  tone="deep"
+  palette="teal-blue"
+/>
 
 Synnax v0.44 introduces an embedded Console into the Synnax Core, which can be used in
 place of the desktop Console application.

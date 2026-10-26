@@ -2,6 +2,7 @@
 title: "Version 0.58 release notes"
 ---
 
+import { Hero } from "@/components/hero";
 import Release from "@/components/releases/Release.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
@@ -15,7 +16,12 @@ export const components = mdxOverrides;
     title="Schematic grouping and Console improvements"
 >
 
-<Image id="releases/0-58-0/schematic-features" />
+<Hero.Hero
+  image="releases/0-58-0/schematic-features"
+  layout="framed"
+  tone="soft"
+  palette="pink-orange"
+/>
 
 Synnax v0.58 brings grouping, cut, copy, and paste to schematics, consistent symbol
 sizes, off-page references to any page, custom ranges for line plots, and a collection

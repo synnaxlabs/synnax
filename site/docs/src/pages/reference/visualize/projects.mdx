@@ -11,7 +11,12 @@ import { Hero } from "@/components/hero";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-<Hero.Hero still="projects" layout="bleed" tone="soft" palette="teal-violet" />
+<Hero.Hero
+  still="console/projects/hero"
+  layout="bleed"
+  tone="soft"
+  palette="teal-violet"
+/>
 
 A project holds your panels and the line plots, schematics, tables, and logs in them.
 The Console always has one project open. Make one project for each test stand, campaign,

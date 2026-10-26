@@ -104,7 +104,10 @@ Batch captures both themes, skips the render, and writes the stills to
 `out/stills/<id>/<version>/<name>-<theme>.webp`, where `<version>` hashes their content.
 It writes the version and the regions to the entry's `regions` path, and fails when the
 two themes disagree. Upload serves each still at
-`docs/<id>/<version>/<name>-<theme>.webp`, so the CDN never serves a cached old still.
+`docs/<id>/<version>/<name>-<theme>.webp`, so the CDN never serves a cached old still. A
+page or release hero is an entry made with `hero(id, script)` in `videos.ts`. It writes
+its regions to `site/docs/src/components/hero/stills/<id>.json`, where the docs `Hero`
+component finds the still by its id.
 
 ## One-off production
 

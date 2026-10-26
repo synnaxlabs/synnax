@@ -154,9 +154,12 @@ When no task uses the network, the status shows what the scan found, such as
   <Fragment slot="console">
 
 1. In the devices toolbar, right-click the module and select **Configure**. You can also
-   click **Configure** in the "New slave connected" notification.
-2. Enter a name, then click **Next**.
-3. Enter an [identifier](/reference/hardware/devices#identifiers), then click **Save**.
+   click **Configure** in the "New slave connected" notification. To list each module
+   that the Driver found, click <Icon.Add /> and select **EtherCAT network**.
+2. Enter a **Name** and an [**Identifier**](/reference/hardware/devices#identifiers), or
+   click one of the identifiers that the Console suggests.
+3. Click **Save**. To also open a read task for the module, click **Save and create read
+   task**.
 
 Configure each module that a task uses.
 
@@ -245,10 +248,12 @@ await client.devices.create(module);
 | `network`                     | The port of the module, such as `en5`. With IgH, `igh:0`.   |
 | `position`                    | The position on the network. Starts at 1, or at 0 with IgH. |
 | `enabled`                     | `false` when the module is [disabled](#disable-a-device).   |
-| `pdos.inputs`, `pdos.outputs` | The PDOs of the module. See below.                          |
+| `pdos.inputs`, `pdos.outputs` | The PDO entries of the module. See below.                   |
 
-Each PDO has a `name`, an `index` and a `sub_index` (its CoE address), a `bit_length`,
-and a `data_type`. TypeScript uses the same fields in camel case, such as `subIndex`.
+Each entry has a `name`, an `index` and a `sub_index` (its CoE address), a `bit_length`,
+and a `data_type`. When the module names its PDOs, an entry also has a `pdo_name`, the
+name of the PDO that holds it. TypeScript uses the same fields in camel case, such as
+`subIndex`.
 
 <Divider.Divider x />
 

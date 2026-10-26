@@ -5,6 +5,7 @@ description: "Connect a LabJack T4 or T7 to the Driver and configure it for task
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
 import Platforms from "@/components/hardware/Platforms.astro";
@@ -52,9 +53,12 @@ button.
   <Fragment slot="console">
 
 1. In the devices toolbar, right-click the device and select **Configure**. You can also
-   click **Configure** in the notification.
-2. Enter a name, then click **Next**.
-3. Enter an [identifier](/reference/hardware/devices#identifiers), then click **Save**.
+   click **Configure** in the "New ... connected" notification. To list each device that
+   the Driver found, click <Icon.Add /> and select **LabJack hardware**.
+2. Enter a **Name** and an [**Identifier**](/reference/hardware/devices#identifiers), or
+   click one of the identifiers that the Console suggests.
+3. Click **Save**. To also open a read task for the device, click **Save and create read
+   task**.
 
 <Video id="device-drivers/labjack/configure-device/lj-configure" />
 

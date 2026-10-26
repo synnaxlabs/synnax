@@ -2,10 +2,10 @@
 title: "Version 0.48 release notes"
 ---
 
+import { Hero } from "@/components/hero";
 import { Image } from "@/components/media/Media";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import Release from "@/components/releases/Release.astro";
-import Diagram from "@/components/diagram/Diagram.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
@@ -16,7 +16,13 @@ export const components = mdxOverrides;
     title="Login page, status toolbar, NI counter read tasks, and improved measure tool"
 >
 
-<Image id="releases/0-48-0/thumbnail" themed={false} />
+<Hero.Hero
+  image="releases/0-48-0/thumbnail"
+  themed={false}
+  layout="framed"
+  tone="deep"
+  palette="blue-pink"
+/>
 
 <Divider.Divider x />
 
@@ -34,19 +40,13 @@ username and password to log in.
 
 ### Status toolbar
 
-<Diagram preview style={{ height: "450px", padding: "3rem" }}>
-  <Image
-    id="releases/0-48-0/status-toolbar"
-    style={{
-      borderRadius: "2rem",
-      width: "90%",
-      border: "1px solid var(--pluto-gray-l5)",
-      position: "relative",
-      left: "25%",
-    }}
-    themed={false}
-  />
-</Diagram>
+<Hero.Hero
+  image="releases/0-48-0/status-toolbar"
+  themed={false}
+  layout="bleed"
+  tone="soft"
+  palette="teal-blue"
+/>
 
 We've added a new toolbar that allows you to favorite important statuses for quick
 viewing. This toolbar also has buttons to create a status and open the status explorer.

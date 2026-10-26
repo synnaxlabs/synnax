@@ -2,7 +2,7 @@
 title: "Version 0.53 release notes"
 ---
 
-import { Image } from "@/components/media/Media";
+import { Hero } from "@/components/hero";
 import Release from "@/components/releases/Release.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
@@ -14,7 +14,13 @@ export const components = mdxOverrides;
     title="HTTP write tasks"
 >
 
-<Image id="releases/0-53-0/http-write-task" themed={false} />
+<Hero.Hero
+  image="releases/0-53-0/http-write-task"
+  themed={false}
+  layout="bleed"
+  tone="soft"
+  palette="green-teal"
+/>
 
 Synnax v0.53 completes the HTTP driver with write task support and adds Python client
 integration for programmatic HTTP task configuration. This release also includes

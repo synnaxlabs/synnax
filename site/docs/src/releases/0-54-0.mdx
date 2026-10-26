@@ -2,11 +2,10 @@
 title: "Version 0.54 release notes"
 ---
 
-import { Image } from "@/components/media/Media";
+import { Hero } from "@/components/hero";
 import Release from "@/components/releases/Release.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
-import Diagram from "@/components/diagram/Diagram.astro";
 
 export const components = mdxOverrides;
 
@@ -16,9 +15,13 @@ export const components = mdxOverrides;
     title="PagerDuty integration"
 >
 
-<Diagram preview style="padding: 0rem 5rem">
-  <Image id="releases/0-54-0/pagerduty-alert-task" themed={false} />
-</Diagram>
+<Hero.Hero
+  image="releases/0-54-0/pagerduty-alert-task-trimmed"
+  themed={false}
+  layout="bleed"
+  tone="deep"
+  palette="red-orange"
+/>
 
 Synnax v0.54 introduces a PagerDuty integration for automated alerting, the ability to
 delete channel data directly from the Console, press-and-hold safety controls for

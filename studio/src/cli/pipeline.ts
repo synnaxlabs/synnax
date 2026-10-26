@@ -80,6 +80,8 @@ export const runCapture = async (opts: CaptureRunOptions): Promise<Timeline> => 
     viewport?: { width: number; height: number };
     /** Runs the Driver inside the capture's Core. */
     driver?: boolean;
+    /** The integrations the Driver enables. Every one when left out. */
+    integrations?: string[];
     /** Shows the Console as Synnax Desktop. */
     desktop?: boolean;
   };
@@ -93,6 +95,7 @@ export const runCapture = async (opts: CaptureRunOptions): Promise<Timeline> => 
       binary: opts.coreBin,
       port,
       driver: mod.driver ?? false,
+      integrations: mod.integrations,
     });
   }
   try {

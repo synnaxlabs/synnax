@@ -10,6 +10,17 @@
 import { manifest } from "@/index";
 
 /**
+ * A page or release hero: one 1280 x 800 Console still that the docs `Hero` component
+ * frames. Batch writes its regions where `Hero` finds them by id.
+ */
+const hero = (id: string, script: string): manifest.Entry => ({
+  id,
+  script,
+  dsf: 3,
+  stills: { regions: `../site/docs/src/components/hero/stills/${id}.json` },
+});
+
+/**
  * The production manifest: one entry per docs video or set of stills, keyed by the id
  * the docs site requests. `pnpm batch` produces the light and dark media for every
  * entry; `pnpm upload` pushes them to the docs CDN.
@@ -18,76 +29,20 @@ export default manifest.define([
   {
     id: "console/ui-overview/tour",
     script: "scripts/still-ui-overview.ts",
+    dsf: 3,
     stills: { regions: "../site/docs/src/components/console/tour/regions.json" },
   },
-  {
-    id: "console/line-plots/hero",
-    script: "scripts/still-line-plot-hero.ts",
-    dsf: 3,
-    stills: { regions: "../site/docs/src/components/hero/stills/line-plots.json" },
-  },
-  {
-    id: "console/schematics/hero",
-    script: "scripts/still-schematic-hero.ts",
-    dsf: 3,
-    stills: { regions: "../site/docs/src/components/hero/stills/schematics.json" },
-  },
-  {
-    id: "console/tables/hero",
-    script: "scripts/still-table-hero.ts",
-    dsf: 3,
-    stills: { regions: "../site/docs/src/components/hero/stills/tables.json" },
-  },
-  {
-    id: "console/logs/hero",
-    script: "scripts/still-log-hero.ts",
-    dsf: 3,
-    stills: { regions: "../site/docs/src/components/hero/stills/logs.json" },
-  },
-  {
-    id: "console/visualize/hero",
-    script: "scripts/still-visualize-hero.ts",
-    dsf: 3,
-    stills: { regions: "../site/docs/src/components/hero/stills/visualize.json" },
-  },
-  {
-    id: "console/ranges/hero",
-    script: "scripts/still-range-hero.ts",
-    dsf: 3,
-    stills: { regions: "../site/docs/src/components/hero/stills/ranges.json" },
-  },
-  {
-    id: "control/arc/hero",
-    script: "scripts/still-arc-hero.ts",
-    dsf: 3,
-    stills: { regions: "../site/docs/src/components/hero/stills/arc.json" },
-  },
-  {
-    id: "control/arc/graph-editor/hero",
-    script: "scripts/still-arc-graph-hero.ts",
-    dsf: 3,
-    stills: {
-      regions: "../site/docs/src/components/hero/stills/arc-graph-editor.json",
-    },
-  },
-  {
-    id: "console/alarms/hero",
-    script: "scripts/still-alarm-hero.ts",
-    dsf: 3,
-    stills: { regions: "../site/docs/src/components/hero/stills/alarms.json" },
-  },
-  {
-    id: "hardware/hero",
-    script: "scripts/still-hardware-hero.ts",
-    dsf: 3,
-    stills: { regions: "../site/docs/src/components/hero/stills/hardware.json" },
-  },
-  {
-    id: "console/projects/hero",
-    script: "scripts/still-project-hero.ts",
-    dsf: 3,
-    stills: { regions: "../site/docs/src/components/hero/stills/projects.json" },
-  },
+  hero("console/line-plots/hero", "scripts/still-line-plot-hero.ts"),
+  hero("console/schematics/hero", "scripts/still-schematic-hero.ts"),
+  hero("console/tables/hero", "scripts/still-table-hero.ts"),
+  hero("console/logs/hero", "scripts/still-log-hero.ts"),
+  hero("console/visualize/hero", "scripts/still-visualize-hero.ts"),
+  hero("console/ranges/hero", "scripts/still-range-hero.ts"),
+  hero("control/arc/hero", "scripts/still-arc-hero.ts"),
+  hero("control/arc/graph-editor/hero", "scripts/still-arc-graph-hero.ts"),
+  hero("console/alarms/hero", "scripts/still-alarm-hero.ts"),
+  hero("hardware/hero", "scripts/still-hardware-hero.ts"),
+  hero("console/projects/hero", "scripts/still-project-hero.ts"),
   {
     id: "console/ui-overview/palette-search",
     script: "scripts/ui-overview-palette-search.ts",

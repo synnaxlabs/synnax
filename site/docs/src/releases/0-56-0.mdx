@@ -3,11 +3,11 @@ title: "Version 0.56 release notes"
 ---
 
 import { Fragment } from "react";
+import { Hero } from "@/components/hero";
 import Release from "@/components/releases/Release.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Client } from "@/components/client";
-import { Video } from "@/components/media/Media";
 
 export const components = mdxOverrides;
 
@@ -17,7 +17,13 @@ export const components = mdxOverrides;
     title="Schematic, table, and Arc improvements"
 >
 
-<Video id="releases/0-56-0/schematic-collaborative-editing" themed={false} />
+<Hero.Hero
+  video="releases/0-56-0/schematic-collaborative-editing"
+  themed={false}
+  layout="framed"
+  tone="soft"
+  palette="violet-pink"
+/>
 
 Synnax v0.56 brings real-time collaborative editing to schematics and tables, a set of
 improvements to the Arc programming language, and a collection of bug fixes and

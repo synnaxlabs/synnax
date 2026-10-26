@@ -2,11 +2,10 @@
 title: "Version 0.38 release notes"
 ---
 
-import { Image } from "@/components/media/Media";
 import { Divider } from "@synnaxlabs/lyra/divider";
+import { Hero } from "@/components/hero";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import Release from "@/components/releases/Release.astro";
-import Diagram from "@/components/diagram/Diagram.astro";
 
 export const components = mdxOverrides;
 
@@ -16,9 +15,13 @@ export const components = mdxOverrides;
     title="Calculated channels"
 >
 
-<Diagram style="height: 300px" preview>
-  <Image id="console/calculated-channels/thumbnail" themed={false} />
-</Diagram>
+<Hero.Hero
+  image="console/calculated-channels/thumbnail"
+  themed={false}
+  layout="bleed"
+  tone="soft"
+  palette="teal-violet"
+/>
 
 Synnax v0.38.0 is our first release of 2025, and contains a large number of new features
 including beta calculated channels, workspace importing, and more.

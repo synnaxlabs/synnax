@@ -8,33 +8,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import ALARMS from "@/components/hero/stills/alarms.json";
-import ARC from "@/components/hero/stills/arc.json";
-import ARC_GRAPH_EDITOR from "@/components/hero/stills/arc-graph-editor.json";
-import HARDWARE from "@/components/hero/stills/hardware.json";
-import LINE_PLOTS from "@/components/hero/stills/line-plots.json";
-import LOGS from "@/components/hero/stills/logs.json";
-import PROJECTS from "@/components/hero/stills/projects.json";
-import RANGES from "@/components/hero/stills/ranges.json";
-import SCHEMATICS from "@/components/hero/stills/schematics.json";
-import TABLES from "@/components/hero/stills/tables.json";
-import VISUALIZE from "@/components/hero/stills/visualize.json";
-import { Image } from "@/components/media/Media";
-
-/** The Studio still of each hero, with the version and regions Studio recorded. */
-const STILLS = {
-    alarms: { id: "console/alarms/hero", ...ALARMS },
-    arc: { id: "control/arc/hero", ...ARC },
-    "arc-graph-editor": { id: "control/arc/graph-editor/hero", ...ARC_GRAPH_EDITOR },
-    hardware: { id: "hardware/hero", ...HARDWARE },
-    "line-plots": { id: "console/line-plots/hero", ...LINE_PLOTS },
-    logs: { id: "console/logs/hero", ...LOGS },
-    projects: { id: "console/projects/hero", ...PROJECTS },
-    ranges: { id: "console/ranges/hero", ...RANGES },
-    schematics: { id: "console/schematics/hero", ...SCHEMATICS },
-    tables: { id: "console/tables/hero", ...TABLES },
-    visualize: { id: "console/visualize/hero", ...VISUALIZE },
-};
+import { Image, type ImageProps, Video } from "@/components/media/Media";
 
 interface Rect {
     x: number;
@@ -42,6 +16,21 @@ interface Rect {
     width: number;
     height: number;
 }
+
+interface Still {
+    version: string;
+    stills: { window: Partial<Record<string, Rect>> };
+}
+
+/** The version and regions Studio recorded for each hero still, by Studio id. */
+const STILLS: Record<string, Still> = Object.fromEntries(
+    Object.entries(
+        import.meta.glob<Still>("./stills/**/*.json", {
+            eager: true,
+            import: "default",
+        }),
+    ).map(([file, still]) => [file.slice("./stills/".length, -".json".length), still]),
+);
 
 const PALETTES = {
     "blue-violet": ["#3774d0", "#a855f7"],
@@ -57,15 +46,7 @@ const PALETTES = {
     "teal-violet": ["#0fa3a3", "#a855f7"],
 } as const;
 
-export interface Props {
-    /** The Studio still of the Console window, by docs page. */
-    still: keyof typeof STILLS;
-    /**
-     * Where the window sits on the gradient. `bleed` runs it off the right and bottom
-     * edges. `layered` dims that window and lifts its bottom toolbar out in front.
-     * `centered` runs it off the bottom edge only.
-     */
-    layout: "bleed" | "layered" | "centered";
+interface BaseProps {
     /**
      * `soft` is a muted diagonal between the two colors. `deep` glows them from
      * opposite corners of a dark base.
@@ -75,14 +56,59 @@ export interface Props {
     palette: keyof typeof PALETTES;
 }
 
-const { still, layout, tone, palette } = Astro.props;
+interface StillProps extends BaseProps {
+    /** The Studio id of a hero still, from a `hero` entry in `studio/videos.ts`. */
+    still: string;
+    /**
+     * Where the window sits on the gradient. `bleed` runs it off the right and bottom
+     * edges. `layered` dims that window and lifts its bottom toolbar out in front.
+     * `centered` runs it off the bottom edge only.
+     */
+    layout: "bleed" | "layered" | "centered";
+}
+
+/**
+ * Where a picture or video that Studio did not capture sits on the gradient. `framed`
+ * shows all of it, with the gradient on every side. `bleed` runs it off the right and
+ * bottom edges, for media whose subject is at its top left.
+ */
+type MediaLayout = "framed" | "bleed";
+
+interface ImageMediaProps extends BaseProps {
+    /** A docs image id, for a picture that Studio did not capture. */
+    image: string;
+    themed?: boolean;
+    extension?: ImageProps["extension"];
+    layout: MediaLayout;
+}
+
+interface VideoMediaProps extends BaseProps {
+    /** A docs video id, for a video that Studio did not capture. */
+    video: string;
+    themed?: boolean;
+    layout: MediaLayout;
+}
+
+export type Props = StillProps | ImageMediaProps | VideoMediaProps;
+
+const props = Astro.props;
+const { layout, tone, palette } = props;
 const [from, to] = PALETTES[palette];
-const { id, version, stills } = STILLS[still];
-const image = `${id}/${version}/window`;
-const regions: Partial<Record<string, Rect>> = stills.window;
-const { toolbar } = regions;
-if (layout === "layered" && toolbar == null)
-    throw new Error(`the ${still} still records no toolbar for the layered layout`);
+let toolbar: Rect | undefined;
+let still: string | undefined;
+if ("still" in props) {
+    const recorded = STILLS[props.still];
+    if (recorded == null)
+        throw new Error(
+            `no hero still ${props.still}: add a hero entry to studio/videos.ts and run pnpm batch`,
+        );
+    still = `${props.still}/${recorded.version}/window`;
+    toolbar = recorded.stills.window.toolbar;
+    if (layout === "layered" && toolbar == null)
+        throw new Error(
+            `the ${props.still} still records no toolbar for the layered layout`,
+        );
+}
 const style = [
     `--from: ${from}`,
     `--to: ${to}`,
@@ -97,13 +123,24 @@ const style = [
 ].join("; ");
 ---
 
-<div class:list={["docs-hero", layout, tone]} style={style}>
+<div class:list={["docs-hero", layout, tone, { media: still == null }]} style={style}>
     <div class="window">
-        <Image id={image} extension="webp" loading="eager" />
+        {still != null ? (
+            <Image id={still} extension="webp" loading="eager" />
+        ) : "image" in props ? (
+            <Image
+                id={props.image}
+                themed={props.themed}
+                extension={props.extension}
+                loading="eager"
+            />
+        ) : (
+            "video" in props && <Video id={props.video} themed={props.themed} />
+        )}
     </div>
-    {layout === "layered" && (
+    {layout === "layered" && still != null && (
         <div class="toolbar">
-            <Image id={image} extension="webp" loading="eager" />
+            <Image id={still} extension="webp" loading="eager" />
         </div>
     )}
 </div>
@@ -164,7 +201,7 @@ const style = [
         position: absolute;
         overflow: hidden;
 
-        & :global(img) {
+        & :global(:is(img, video)) {
             display: block;
             width: 100%;
             height: auto;
@@ -175,6 +212,8 @@ const style = [
 
     .window {
         /* A 12 px corner at full size, scaled with the window. */
+        --scale: 0.75;
+
         border-radius: calc(12 * var(--scale) * var(--px));
         box-shadow:
             0 0 0 1px rgb(255 255 255 / 18%),
@@ -182,8 +221,6 @@ const style = [
     }
 
     :is(.bleed, .layered) .window {
-        --scale: 0.75;
-
         top: calc(50 * var(--px));
         left: calc(56 * var(--px));
         width: calc(960 * var(--px));
@@ -212,6 +249,7 @@ const style = [
         }
     }
 
+    /* The left of the window, at the scale of its corner. */
     .centered .window {
         --scale: 0.62;
 
@@ -222,6 +260,23 @@ const style = [
 
         & :global(img) {
             width: calc(794 * var(--px));
+        }
+    }
+
+    /* Media from before Studio sits nearer the corner than a still. */
+    .media.bleed .window {
+        top: calc(30 * var(--px));
+        left: calc(32 * var(--px));
+    }
+
+    /* The whole picture, with the gradient around it. */
+    .framed {
+        aspect-ratio: auto;
+
+        & .window {
+            position: relative;
+            width: calc(728 * var(--px));
+            margin: calc(30 * var(--px)) auto calc(34 * var(--px));
         }
     }
 </style>

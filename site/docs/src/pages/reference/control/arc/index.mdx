@@ -10,7 +10,12 @@ import { Hero } from "@/components/hero";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-<Hero.Hero still="arc" layout="centered" tone="deep" palette="violet-blue" />
+<Hero.Hero
+  still="control/arc/hero"
+  layout="centered"
+  tone="deep"
+  palette="violet-blue"
+/>
 
 Arc is the Synnax language for automations. An Arc automation reads channels, computes
 values, and writes channels. It runs on the Synnax Core or on a Driver, where the data

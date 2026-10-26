@@ -12,7 +12,12 @@ import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-<Hero.Hero still="tables" layout="centered" tone="soft" palette="pink-orange" />
+<Hero.Hero
+  still="console/tables/hero"
+  layout="centered"
+  tone="soft"
+  palette="pink-orange"
+/>
 
 A table shows the latest values of channels in a grid of cells. A text cell holds a
 fixed label, and a value cell shows the latest value of one channel. Use a table to

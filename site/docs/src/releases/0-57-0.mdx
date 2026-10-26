@@ -2,10 +2,11 @@
 title: "Version 0.57 release notes"
 ---
 
+import { Hero } from "@/components/hero";
 import Release from "@/components/releases/Release.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
-import { Image, Video } from "@/components/media/Media";
+import { Image } from "@/components/media/Media";
 
 export const components = mdxOverrides;
 
@@ -16,7 +17,13 @@ export const components = mdxOverrides;
     title="Projects, panels, and a redesigned Console"
 >
 
-<Video id="releases/0-57-0/panels" themed={false} />
+<Hero.Hero
+  video="releases/0-57-0/panels"
+  themed={false}
+  layout="framed"
+  tone="deep"
+  palette="blue-violet"
+/>
 
 Synnax v0.57 rebuilds how you organize work in the Console. Projects replace workspaces,
 and each project holds a set of panels you switch between instantly. We redesigned the

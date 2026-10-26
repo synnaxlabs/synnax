@@ -13,7 +13,12 @@ import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-<Hero.Hero still="line-plots" layout="layered" tone="soft" palette="blue-violet" />
+<Hero.Hero
+  still="console/line-plots/hero"
+  layout="layered"
+  tone="soft"
+  palette="blue-violet"
+/>
 
 A line plot graphs the values of channels over time. It shows live data as it arrives,
 or the data of past [ranges](/reference/ranges). Use a line plot to watch a test, to

@@ -9,8 +9,8 @@ the content means, not by how it should look. The model page is
 ### Column and rhythm
 
 - Every block sits flush with the prose column: code, tab panes, tables, lists,
-  diagrams, media, and notes. No inset, no bleed. The one exception is a cover still,
-  the framed product shot near the top of a page, which bleeds 5rem on wide screens.
+  diagrams, media, and notes. No inset, no bleed. The one exception is a hero, which
+  bleeds 5rem on wide screens.
 - A diagram never widens the column. Below 560px, a block or nest diagram switches to
   its narrow layout: block diagrams flow from top to bottom, and a rank too wide for a
   phone breaks its labels onto two lines.
@@ -74,6 +74,21 @@ An icon in text, such as **Arcs** (`<Icon.Arc />`), is 1em and centers on the ca
 A block gets a frame only when it has its own surface: code, tab panes, media, notes,
 disclosures, and the `Diagram.Block` canvas. Lists, tables, and diagrams that draw their
 own regions (`Diagram.Nest`, `Diagram.Handoff`) sit on the page.
+
+### Heroes
+
+A hero is the cover picture of a section page or a release: one Console picture on a
+two-color gradient, from `Hero.Hero`.
+
+- A section page, and each release from 0.60 on, gets a Studio still. Write a script
+  that saves one 1280 x 800 still named `window`, add it to `studio/videos.ts` with
+  `hero(id, script)`, run `pnpm batch` and `pnpm upload`, then add
+  `<Hero.Hero still="<id>" ... />`. The tag never names a version: a new capture updates
+  the page by itself.
+- A release before 0.60 frames its existing picture or video with `image` or `video`.
+  `framed` shows all of it. `bleed` cuts it at the right and bottom, for media whose
+  subject is at its top left. A video is always `framed`, so its controls show.
+- Give neighbors a different palette and tone. `layered` needs a `toolbar` region.
 
 ### Navigation
 

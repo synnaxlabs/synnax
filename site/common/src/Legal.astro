@@ -50,7 +50,7 @@ const { title, effective } = Astro.props;
         margin-bottom: 6rem;
         font-size: var(--pluto-h5-size);
         line-height: var(--pluto-h5-line-height);
-        color: var(--pluto-gray-l7);
+        color: var(--pluto-gray-l8);
     }
     .legal :global(h2) {
         margin: 6rem 0 2rem;
@@ -71,13 +71,26 @@ const { title, effective } = Astro.props;
     .legal :global(p) {
         margin: 0 0 2rem;
     }
+    /* Drawn like the docs site bullets, so the two never stack. */
     .legal :global(ul) {
         margin: 0 0 2rem;
-        padding-left: 3rem;
-        list-style-type: square;
+        padding-left: 0;
+        list-style: none;
     }
     .legal :global(li) {
+        position: relative;
         margin-bottom: 1rem;
+        padding-left: 20px;
+        &::before {
+            content: "";
+            position: absolute;
+            top: calc(0.5lh - 2.5px);
+            left: 3px;
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: var(--pluto-gray-l8);
+        }
     }
     .legal :global(a) {
         color: var(--pluto-primary-z);

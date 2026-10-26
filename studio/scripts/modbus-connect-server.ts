@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { connectServerScript, MODBUS } from "./common/server";
+import { connectServerScript, INTEGRATIONS,MODBUS } from "./common/server";
 
 export const driver = true;
+export const integrations = INTEGRATIONS;
 
 /**
  * Docs `reference/hardware/modbus/connect-server` (Connect a Modbus server): connect a

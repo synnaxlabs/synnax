@@ -11,7 +11,12 @@ import { Hero } from "@/components/hero";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-<Hero.Hero still="arc-graph-editor" layout="bleed" tone="soft" palette="green-blue" />
+<Hero.Hero
+  still="control/arc/graph-editor/hero"
+  layout="bleed"
+  tone="soft"
+  palette="green-blue"
+/>
 
 In the graph editor, you build an Arc automation from blocks instead of code. Each block
 reads a channel, holds a value, compares values, or sets a status. You connect the

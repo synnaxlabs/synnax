@@ -5,6 +5,7 @@ description: "Connect a Modbus TCP server, such as a PLC or an I/O module, to Sy
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
 import Platforms from "@/components/hardware/Platforms.astro";
@@ -34,11 +35,14 @@ Synnax, a Modbus server is one IP address and port. The
 <Client.Tabs>
   <Fragment slot="console">
 
-1. Run the "Connect Modbus server" command.
+1. In the [devices toolbar](/reference/hardware/devices#devices-toolbar), click
+   <Icon.Add /> and select **Modbus TCP server**. You can also run the "Connect Modbus
+   server" command.
 2. Enter a name for the server.
-3. In **Connect from**, select the Driver that reaches the server.
-4. In **Host**, enter the IPv4 address of the server, such as `192.168.1.20`.
-5. In **Port**, enter the port of the server, usually `502`.
+3. In **Host**, enter the IPv4 address of the server, such as `192.168.1.20`.
+4. In **Port**, enter the port of the server. It starts at `502`, the usual port.
+5. In **Connect from**, select the Driver that reaches the server. When only one running
+   Driver has Modbus enabled, the Console selects it for you.
 6. Click **Connect**.
 
 The Console connects to the server before it saves it. If the connection fails, the
