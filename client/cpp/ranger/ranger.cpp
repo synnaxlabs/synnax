@@ -24,7 +24,7 @@ Client::retrieve(const RetrieveRequest &req) const {
     if (proto_err) return {std::vector<Range>(), proto_err};
     for (auto &rng: decoded.ranges)
         rng.kv = this->kv.scope_to_range(rng.key);
-    return {decoded.ranges, x::errors::NIL};
+    return {std::move(decoded.ranges), x::errors::NIL};
 }
 
 std::pair<Range, x::errors::Error> Client::retrieve_by_key(const Key &key) const {
