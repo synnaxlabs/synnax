@@ -488,7 +488,7 @@ var _ = Describe("Filter definitions", func() {
 			Expect(res.Fields[0].Optional).To(BeFalse())
 		})
 
-		It("Should omit the request wherever the filter is omitted", func(
+		It("Should omit the derived types wherever the filter is omitted", func(
 			ctx SpecContext,
 		) {
 			table, diag := analyzer.AnalyzeSource(ctx, `
@@ -508,14 +508,15 @@ var _ = Describe("Filter definitions", func() {
 				}
 			`, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			for _, name := range []string{"RetrieveRequest", "Order", "OrderField"} {
+			for _, name := range []string{
+				"RetrieveRequest", "RetrieveResponse", "Order", "OrderField",
+			} {
 				typ := table.MustGet("test." + name)
 				_, omitted := typ.Domains["cpp"].Expressions.Find("omit")
 				Expect(omitted).To(BeTrue(), name)
+				_, omitted = typ.Domains["go"].Expressions.Find("omit")
+				Expect(omitted).To(BeFalse(), name)
 			}
-			res := table.MustGet("test.RetrieveResponse")
-			_, omitted := res.Domains["cpp"].Expressions.Find("omit")
-			Expect(omitted).To(BeFalse())
 		})
 
 		It("Should leave out search_term when no field has @search", func(

@@ -423,7 +423,7 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 	plural := casing.TypeSnake(pluralize.String(target.Name))
 	words := strings.ReplaceAll(plural, "_", " ")
 	// The request and order types go wherever the tree they carry goes.
-	domains := outputDomains(c.fileDomains, where.Domains)
+	domains := layDomains(c.fileDomains, where.Domains, "output", "omit")
 	request := []resolution.Field{
 		optionalField(
 			"where",
@@ -615,8 +615,10 @@ func retrieveResponse(
 			))
 			return resolution.Type{}, nil, false
 		}
-		domains = outputDomains(c.fileDomains, override.Domains)
+		domains = layDomains(c.fileDomains, override.Domains, "output", "omit")
 	}
+	// The response exists only where the request does.
+	domains = layDomains(domains, where.Domains, "omit")
 	return resolution.Type{
 		Name: "RetrieveResponse",
 		Form: resolution.StructForm{Fields: []resolution.Field{requiredField(
@@ -630,15 +632,15 @@ func retrieveResponse(
 	}, fields, true
 }
 
-// outputDomains returns file with the output and omit expressions of each domain in
-// from laid over it.
-func outputDomains(
-	file, from map[string]resolution.Domain,
+// layDomains returns file with the expressions named in names of each domain in from
+// laid over it.
+func layDomains(
+	file, from map[string]resolution.Domain, names ...string,
 ) map[string]resolution.Domain {
 	out := cloneDomains(file)
 	for name, d := range from {
 		kept := lo.Filter(d.Expressions, func(e resolution.Expression, _ int) bool {
-			return e.Name == "output" || e.Name == "omit"
+			return lo.Contains(names, e.Name)
 		})
 		if len(kept) == 0 {
 			continue
