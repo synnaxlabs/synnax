@@ -19,7 +19,7 @@ import { describe, expect, it } from "vitest";
 
 import { Unary } from "@/framer/cache/unary";
 
-const LEADING_ALIGNMENT = (BigInt(0xffffffff) - 1_000_000n) << 32n;
+const LEADING_ALIGNMENT = (1n << 31n) << 32n;
 
 const stamped = (
   startSec: number,
