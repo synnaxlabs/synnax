@@ -27,7 +27,7 @@ import threading
 from datetime import UTC, datetime
 from pathlib import Path
 
-RESULTS_ROOT = Path(__file__).resolve().parent.parent / "tests" / "results"
+_RESULTS_ROOT = Path(__file__).resolve().parent.parent / "tests" / "results"
 
 _thread_local = threading.local()
 _run_dir: Path | None = None
@@ -36,14 +36,14 @@ _run_dir: Path | None = None
 def init_run_dir(name: str | None = None) -> Path:
     """Create and return the bundle directory for this conductor invocation.
 
-    The path is ``RESULTS_ROOT/run-<UTC-timestamp>[-<name>]/``. The
-    ``RESULTS_ROOT/latest`` symlink is updated to point at it on filesystems
+    The path is ``_RESULTS_ROOT/run-<UTC-timestamp>[-<name>]/``. The
+    ``_RESULTS_ROOT/latest`` symlink is updated to point at it on filesystems
     that support symlinks.
     """
     global _run_dir
     ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     slug = f"run-{ts}" if not name else f"run-{ts}-{name}"
-    _run_dir = RESULTS_ROOT / slug
+    _run_dir = _RESULTS_ROOT / slug
     _run_dir.mkdir(parents=True, exist_ok=True)
     (_run_dir / "tests").mkdir(exist_ok=True)
     _update_latest_symlink(_run_dir)
@@ -51,7 +51,7 @@ def init_run_dir(name: str | None = None) -> Path:
 
 
 def _update_latest_symlink(target: Path) -> None:
-    link = RESULTS_ROOT / "latest"
+    link = _RESULTS_ROOT / "latest"
     try:
         if link.is_symlink() or link.exists():
             link.unlink()
@@ -67,7 +67,7 @@ def get_run_dir() -> Path | None:
     return _run_dir
 
 
-def get_test_dir() -> Path | None:
+def _get_test_dir() -> Path | None:
     """Return the current thread's active test bundle dir, or None."""
     return getattr(_thread_local, "test_dir", None)
 
@@ -92,6 +92,6 @@ def resolve_results_path(filename: str) -> str:
     Resolution order: active test dir → run dir → legacy flat results root.
     The chosen directory is created on demand.
     """
-    base = get_test_dir() or _run_dir or RESULTS_ROOT
+    base = _get_test_dir() or _run_dir or _RESULTS_ROOT
     base.mkdir(parents=True, exist_ok=True)
     return os.path.join(str(base), filename)

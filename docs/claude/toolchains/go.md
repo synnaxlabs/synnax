@@ -110,7 +110,7 @@ committing).
 Identified by `Code generated ... DO NOT EDIT.` headers and `.gen.` / `_gen` suffixes.
 Edit the source `.oracle` schema in `/schemas/` instead, then run `oracle sync` — always
 installing first via `./oracle/install.sh`, the only blessed install method (see
-`oracle/CLAUDE.md` Sync Workflow). If the schema language can't express the change,
+`oracle/AGENTS.md` Sync Workflow). If the schema language can't express the change,
 investigate the generator in `/oracle/` (`analyzer/`, `formatter/`, `resolution/`,
 `exec/`), describe the gap and blast radius, and wait for user approval before touching
 it.
@@ -145,7 +145,7 @@ an app-startup function) instead.
 
 ## Comments
 
-The universal body-comment and doc-comment rules in the root CLAUDE.md apply.
+The universal body-comment and doc-comment rules in the root AGENTS.md apply.
 Go-specific form:
 
 **Every exported identifier gets a doc comment.** Standard Go conventions: start with

@@ -5,7 +5,7 @@ rules. Nobody watches this session, so do not ask questions.
 
 ## Rules for every theme
 
-1. Read `CLAUDE.md`, `CONTRIBUTING.md`, and the guides they name for the code you touch.
+1. Read `AGENTS.md`, `CONTRIBUTING.md`, and the guides they name for the code you touch.
    Follow them.
 2. Fix only what you can prove. A finding you are not sure of goes in the report, not in
    a PR.

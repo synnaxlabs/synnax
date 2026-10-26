@@ -11,9 +11,9 @@ package auth
 
 import (
 	"context"
-	"uuid"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
@@ -55,6 +55,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	User *user.Service
+	// RBAC enforces access control on every request.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
 	// Cluster provides information about the cluster topology.
 	//
 	// [REQUIRED]
@@ -72,6 +76,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Auth = override.Nil(c.Auth, other.Auth)
 	c.Password = override.Nil(c.Password, other.Password)
 	c.User = override.Nil(c.User, other.User)
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Cluster = override.Nil(c.Cluster, other.Cluster)
 	return c
 }
@@ -82,6 +87,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("auth", c.Auth)
 	v.NotNil("password", c.Password)
 	v.NotNil("user", c.User)
+	v.NotNil("rbac", c.RBAC)
 	v.NotNil("cluster", c.Cluster)
 	return v.Error()
 }
@@ -91,6 +97,7 @@ type Service struct {
 	auth     *auth.Service
 	password *password.Service
 	user     *user.Service
+	access   *rbac.Service
 	cluster  cluster.Cluster
 }
 
@@ -103,6 +110,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		auth:     cfg.Auth,
 		password: cfg.Password,
 		user:     cfg.User,
+		access:   cfg.RBAC,
 		cluster:  cfg.Cluster,
 	}, nil
 }
@@ -119,39 +127,36 @@ type LoginResponse struct {
 type LoginRequest struct{ Credentials }
 
 // Login opens a session for the user with the provided credentials. If successful,
-// returns a response containing the session token along with the user's details.
+// returns a response containing the session token along with the user's details. It
+// is kept for clients built before CreateSession existed.
 func (s *Service) Login(
 	ctx context.Context,
 	req LoginRequest,
 ) (LoginResponse, error) {
-	startTime := telem.Now()
-	session, tk, err := s.auth.Login(ctx, proofOf(req.Credentials))
+	start := telem.Now()
+	res, err := s.CreateSession(
+		ctx,
+		SessionCreateRequest{Proof: proofOf(req.Credentials)},
+	)
 	if err != nil {
 		return LoginResponse{}, err
 	}
-	key, err := uuid.Parse(session.Subject.Key)
-	if err != nil {
-		return LoginResponse{}, err
-	}
-	var u user.User
-	if err := s.user.NewRetrieve().
-		Where(user.MatchKeys(key)).
-		Entry(&u).
-		Exec(ctx, nil); err != nil {
-		return LoginResponse{}, err
-	}
-	endTime := telem.Now()
-	midPoint := startTime + (endTime-startTime)/2
 	return LoginResponse{
-		User:  u,
-		Token: tk,
-		ClusterInfo: ClusterInfo{
-			ClusterKey:  s.cluster.Key().String(),
-			NodeKey:     s.cluster.HostKey(),
-			NodeVersion: version.Get(),
-			NodeTime:    midPoint,
-		},
+		User:        *res.User,
+		Token:       res.Token,
+		ClusterInfo: s.clusterInfo(start),
 	}, nil
+}
+
+// clusterInfo stamps the node time at the midpoint since start.
+func (s *Service) clusterInfo(start telem.TimeStamp) ClusterInfo {
+	end := telem.Now()
+	return ClusterInfo{
+		ClusterKey:  s.cluster.Key().String(),
+		NodeKey:     s.cluster.HostKey(),
+		NodeVersion: version.Get(),
+		NodeTime:    start + (end-start)/2,
+	}
 }
 
 type ChangePasswordRequest struct {
@@ -176,7 +181,7 @@ func (s *Service) ChangePassword(
 	}
 	return struct{}{}, s.auth.NewWriter(tx).RevokeCredential(
 		ctx,
-		[]auth.SessionKey{getSession(ctx)},
+		[]auth.SessionKey{getSession(ctx).Key},
 		identity.Credential,
 	)
 }

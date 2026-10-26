@@ -28,6 +28,9 @@ runs:
     - name: Set up pnpm and Node.js
       uses: pnpm/setup@v3
       with:
+        # Without the path, pnpm/setup finds no lockfile on Windows and skips the cache
+        # that lets pnpm install reuse a past supply-chain check.
+        cache-dependency-path: pnpm-lock.yaml
         dest: ${{ inputs.dest }}
         install: false
 
