@@ -26,6 +26,7 @@ import { type ChannelRetriever } from "@/framer/adapter";
 import {
   align,
   countBefore,
+  type Part,
   RAW_LEVEL,
   type RawBlock,
   rawIndex,
@@ -50,7 +51,8 @@ export const DEFAULT_BATCH_DEBOUNCE = TimeSpan.milliseconds(50);
 export const COMMIT_MARGIN = TimeSpan.seconds(1);
 
 // A request to fill a read's raw block up to at least end. A catch-up request trusts
-// every sample it reads, since the stream acked the channel before it.
+// the read up to the channel's newest sample, since the stream acked the channel before
+// it.
 interface Request {
   block: RawBlock;
   end: TimeStamp;
@@ -316,7 +318,7 @@ export class Reader {
         i++
       )
         targets.push({ block: store.raw(key, i), end: tr.end, catchUp });
-      const trusted = catchUp ? newestEnd(timestamps, start) : committed;
+      const trusted = catchUp ? newestEnd(parts, start) : committed;
       // The Core stamps a series with the span of its domain inside the read, so the
       // channel's samples reach seen.
       const seen = series.reduce(
@@ -375,11 +377,15 @@ const newestBlock = (timestamps: Series[]): number => {
   return rawIndex(new TimeStamp(last.data[last.length - 1]));
 };
 
-// Returns the end of the newest index sample, or start when there is none.
-const newestEnd = (timestamps: Series[], start: TimeStamp): TimeStamp => {
-  const last = timestamps.findLast((s) => s.length > 0);
-  if (last == null) return start;
-  return new TimeStamp(BigInt(last.data[last.length - 1]) + 1n);
+// Returns the end of the span of the channel's newest sample in the parts, or start when
+// they hold none.
+const newestEnd = (parts: Part[], start: TimeStamp): TimeStamp => {
+  const part = parts.findLast((p) => p.series.length > 0);
+  if (part == null) return start;
+  const last = part.series[part.series.length - 1];
+  const alignment = last.alignment + BigInt(last.length - 1);
+  const ts = part.timestamps.find((t) => alignment < t.alignment + BigInt(t.length))!;
+  return new TimeStamp(BigInt(ts.data[Number(alignment - ts.alignment)]) + 1n);
 };
 
 // Splits one channel's pending requests into runs of adjacent blocks that one Core read
