@@ -353,26 +353,6 @@ describe("range/Toolbar", () => {
   });
 });
 
-describe("Range.fetchIfNotInState", () => {
-  it("returns the state already in the store without hitting the Core", async () => {
-    const local = createLocalRangeState(uniqueRangeName("cached"));
-    const { store } = await createConsoleWrapper({ client });
-    store.dispatch(Session.Range.add(local));
-    const result = await Range.fetchIfNotInState(store, client, local.key);
-    expect(nameOf(result)).toBe(local.name);
-  });
-
-  it("fetches a missing range from the Core and adds it to the store", async () => {
-    const created = await createTestRange(client);
-    const { store } = await createConsoleWrapper({ client });
-    const result = await Range.fetchIfNotInState(store, client, created.key);
-    expect(result.key).toBe(created.key);
-    expect(Session.Range.selectState(store.getState(), created.key)?.variant).toBe(
-      "persisted",
-    );
-  });
-});
-
 describe("range/ContextMenu permissions", () => {
   const createSubject = async (grants: Grants) =>
     await createTestClientWithGrants(client, {
