@@ -350,6 +350,19 @@ describe("StreamMultiChannelLog", () => {
       expect(entriesOf(log).map((e) => e.value)).toEqual(["a", "b", "c"]);
       expect(evicted).toEqual([3 * HISTORY - 3]);
     });
+
+    it("should evict a tenth of maxEntries beyond the excess", async () => {
+      const core = createCore();
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] }, undefined, 100);
+      const evicted = recordEvictions(log);
+      await settle(log, 90);
+      core.advance(TimeSpan.seconds(1));
+      await settle(log, 100);
+      core.advance(TimeSpan.seconds(1));
+      await settle(log, 90);
+      expect(evicted).toEqual([HISTORY - 90, 0, 20]);
+    });
   });
 
   it("should clear its entries and stop on cleanup", async () => {

@@ -27,6 +27,9 @@ import { type status } from "@/status/aether";
 import { telem } from "@/telem/aether";
 
 const MAX_ENTRIES = 100_000;
+// Past maxEntries, a log evicts this share of maxEntries beyond the excess, so a full
+// log moves its entries once per share instead of on every pull.
+const EVICTION_HEADROOM = 0.1;
 // The newest stored samples of each channel a log shows when it opens.
 const PAGE_SIZE = 10_000;
 
@@ -206,7 +209,10 @@ export class StreamMultiChannelLog
       evicted += cutoff;
     }
     if (this.entries.length > this.maxEntries) {
-      let excess = this.entries.length - this.maxEntries;
+      let excess =
+        this.entries.length -
+        this.maxEntries +
+        Math.floor(this.maxEntries * EVICTION_HEADROOM);
       // Skip leading continuations so the new head isn't an orphan.
       while (excess < this.entries.length && this.entries[excess].continuation)
         excess++;
