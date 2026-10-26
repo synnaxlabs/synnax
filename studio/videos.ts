@@ -102,12 +102,6 @@ export default manifest.define([
   { id: "client/ranges/set-metadata", script: "scripts/ranges-set-metadata.ts" },
   { id: "client/ranges/labels", script: "scripts/ranges-labels.ts" },
   { id: "console/ranges/active", script: "scripts/ranges-active.ts" },
-  { id: "console/ranges/stages", script: "scripts/ranges-stages.ts" },
-  { id: "console/ranges/export", script: "scripts/ranges-export.ts" },
-  {
-    id: "console/ranges/snapshot-task",
-    script: "scripts/ranges-snapshot-task.ts",
-  },
   { id: "console/workspaces/create", script: "scripts/projects-create.ts" },
   { id: "console/workspaces/load", script: "scripts/projects-load.ts" },
   { id: "console/users/register", script: "scripts/users-register.ts" },
@@ -156,7 +150,6 @@ export default manifest.define([
     id: "control/manual/absolute-control",
     script: "scripts/control-manual-absolute-control.ts",
   },
-  { id: "control/arc/overview", script: "scripts/control-arc-overview.ts" },
   {
     id: "control/arc/start-from-schematic/start-button",
     script: "scripts/control-arc-start-button.ts",
@@ -169,7 +162,6 @@ export default manifest.define([
   { id: "console/logs/create", script: "scripts/log-create.ts" },
   { id: "console/schematics/create", script: "scripts/schematic-create.ts" },
   { id: "console/tables/create", script: "scripts/table-create.ts" },
-  { id: "console/tables/value-cell", script: "scripts/table-value-cell.ts" },
   {
     id: "console/schematics/control-tab",
     script: "scripts/schematic-control-tab.ts",
