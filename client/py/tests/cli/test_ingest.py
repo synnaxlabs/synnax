@@ -11,7 +11,7 @@ import pytest
 
 from synnax.cli.console import MockConsole
 from synnax.cli.flow import Context
-from synnax.cli.ingest import pure_ingest
+from synnax.cli.ingest import _pure_ingest
 from synnax.synnax import Synnax
 from x.strings import random_name
 
@@ -35,7 +35,7 @@ class TestIngest:
                     random_name(),
                 ]
             )
-            pure_ingest(
+            _pure_ingest(
                 path_=DATA_DIR / "ingest_valid_1.csv",
                 client=client,
                 ctx=Context(console=c),
