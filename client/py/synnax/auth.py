@@ -24,28 +24,28 @@ from synnax.util.send_required import send_required
 from x.telem import TimeStamp
 
 
-class Credentials(BaseModel):
+class _Credentials(BaseModel):
     username: str
     password: str
 
 
-class ClusterInfo(BaseModel):
+class _ClusterInfo(BaseModel):
     cluster_key: str = ""
     node_version: str = ""
     node_key: int = 0
     node_time: TimeStamp = TimeStamp(0)
 
 
-class TokenResponse(BaseModel):
+class _TokenResponse(BaseModel):
     token: str
     user: User
-    cluster_info: ClusterInfo = ClusterInfo()
+    cluster_info: _ClusterInfo = _ClusterInfo()
 
 
-AUTHORIZATION_HEADER = "Authorization"
-TOKEN_REFRESH_HEADER = "Refresh-Token"
-RETRY_ON_ERRORS = (InvalidToken, ExpiredToken)
-TOKEN_PREFIX = "Bearer "
+_AUTHORIZATION_HEADER = "Authorization"
+_TOKEN_REFRESH_HEADER = "Refresh-Token"
+_RETRY_ON_ERRORS = (InvalidToken, ExpiredToken)
+_TOKEN_PREFIX = "Bearer "
 
 
 class Client:
@@ -71,8 +71,8 @@ class Client:
         res = send_required(
             self.client,
             "/auth/login",
-            Credentials(username=self.username, password=self.password),
-            TokenResponse,
+            _Credentials(username=self.username, password=self.password),
+            _TokenResponse,
         )
         self.token = res.token
         self.user = res.user
@@ -83,10 +83,10 @@ class Client:
             if not self.authenticated:
                 self.authenticate()
 
-            ctx.set(AUTHORIZATION_HEADER, TOKEN_PREFIX + self.token)
+            ctx.set(_AUTHORIZATION_HEADER, _TOKEN_PREFIX + self.token)
             try:
                 out_ctx = _next(ctx)
-            except RETRY_ON_ERRORS:
+            except _RETRY_ON_ERRORS:
                 self.authenticated = False
                 out_ctx = mw(ctx, _next)
 
@@ -100,10 +100,10 @@ class Client:
             if not self.authenticated:
                 self.authenticate()
 
-            ctx.set(AUTHORIZATION_HEADER, TOKEN_PREFIX + self.token)
+            ctx.set(_AUTHORIZATION_HEADER, _TOKEN_PREFIX + self.token)
             try:
                 out_ctx = await _next(ctx)
-            except RETRY_ON_ERRORS:
+            except _RETRY_ON_ERRORS:
                 self.authenticated = False
                 out_ctx = await mw(ctx, _next)
 
@@ -116,6 +116,6 @@ class Client:
         self,
         ctx: Context,
     ) -> None:
-        refresh = ctx.get(TOKEN_REFRESH_HEADER, None)
+        refresh = ctx.get(_TOKEN_REFRESH_HEADER, None)
         if refresh is not None:
             self.token = refresh

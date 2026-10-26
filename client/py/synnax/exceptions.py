@@ -46,7 +46,7 @@ class AuthError(Exception):
     TYPE = _FREIGHTER_EXCEPTION_PREFIX + "auth"
 
 
-class InvalidCredentials(AuthError):
+class _InvalidCredentials(AuthError):
     """Raised when invalid credentials are provided."""
 
     TYPE = AuthError.TYPE + ".invalid-credentials"
@@ -165,8 +165,8 @@ def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
         return None
 
     if encoded.type.startswith(AuthError.TYPE):
-        if encoded.type.startswith(InvalidCredentials.TYPE):
-            return InvalidCredentials(encoded.data)
+        if encoded.type.startswith(_InvalidCredentials.TYPE):
+            return _InvalidCredentials(encoded.data)
         if encoded.type.startswith(InvalidToken.TYPE):
             return InvalidToken(encoded.data)
         if encoded.type.startswith(ExpiredToken.TYPE):

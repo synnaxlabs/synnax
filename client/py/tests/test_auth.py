@@ -51,7 +51,7 @@ class TestAuthRetry:
     def auth_setup(self) -> MockUnaryClient:
         """Fixture that provides the mock clients and auth setup for retry tests."""
         # Setup mock login client with two successful login responses
-        res = sy.auth.TokenResponse(
+        res = sy.auth._TokenResponse(
             token="abc",
             user=sy.User(
                 key=uuid4(),
@@ -77,7 +77,7 @@ class TestAuthRetry:
         ("type_", "exc"),
         [
             ("sy.auth", sy.AuthError),
-            ("sy.auth.invalid-credentials", sy.exceptions.InvalidCredentials),
+            ("sy.auth.invalid-credentials", sy.exceptions._InvalidCredentials),
             ("sy.auth.invalid_token", sy.InvalidToken),
             ("sy.auth.expired_token", sy.ExpiredToken),
             ("sy.auth.access_denied", sy.AccessDenied),
