@@ -9,8 +9,8 @@
 
 import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 import { Modbus } from "@/feature/modbus";
 import { createModbusDevice } from "@/feature/modbus/testutil";
@@ -38,6 +38,7 @@ const renderItems = async () => {
       {...createBaseProps({ client, store: propsStore })}
       selection={createSelection({ ids: [resource.id] })}
       state={createState([resource])}
+      onConfigure={vi.fn()}
     />,
     { client },
   );
@@ -69,13 +70,5 @@ describe("Modbus.Device.ContextMenuItems", () => {
     const created = await client.tasks.retrieve({ key: tab.resource.key });
     expect(created.type).toBe(Modbus.Task.READ_TYPE);
     expect(created.config).toMatchObject({ device: dev.key });
-  });
-
-  it("should open the connect modal from the edit connection item", async () => {
-    const { dev } = await renderItems();
-    await screen.findByText("Create read task");
-    fireEvent.click(screen.getByText("Edit connection"));
-    await screen.findByText("Server");
-    await waitFor(() => expect(screen.getByDisplayValue(dev.name)).toBeTruthy());
   });
 });

@@ -201,11 +201,37 @@ TEST(PDOPropertiesTest, ToJSON) {
 
 TEST(FindOffset, ReturnsOffsetForExistingEntry) {
     Offsets offsets;
-    offsets[Key{1, 0x6000, 1, true}] = {10, 3};
-    Entry entry{.slave_position = 1, .index = 0x6000, .sub_index = 1, .is_input = true};
+    offsets[Key{1, 0x6000, 1, true}] = {10, 3, 16};
+    Entry entry{
+        .slave_position = 1,
+        .index = 0x6000,
+        .sub_index = 1,
+        .bit_length = 16,
+        .is_input = true
+    };
     const auto result = ASSERT_NIL_P(find_offset(offsets, entry));
     EXPECT_EQ(result.byte, 10);
     EXPECT_EQ(result.bit, 3);
+}
+
+/// @brief it should return a mapping error when the entry in the offsets has another
+/// bit length.
+TEST(FindOffset, ReturnsMappingErrorForAnotherBitLength) {
+    Offsets offsets;
+    offsets[Key{1, 0x6000, 1, true}] = {10, 3, 16};
+    Entry entry{
+        .slave_position = 1,
+        .index = 0x6000,
+        .sub_index = 1,
+        .bit_length = 32,
+        .is_input = true
+    };
+    const auto err = find_offset(offsets, entry).second;
+    ASSERT_OCCURRED_AS(err, errors::PDO_MAPPING_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "PDO 0x6000:01 on slave 1 is 16 bits, not 32. Scan the network again"
+    );
 }
 
 /// @brief it should return a mapping error that names the entry and slave when the
@@ -230,8 +256,10 @@ TEST(ComputeOffsetsProperties, ByteAlignedOffsets) {
     const Key k2{1, 0x6000, 2, true};
     EXPECT_EQ(offsets[k1].byte, 0);
     EXPECT_EQ(offsets[k1].bit, 0);
+    EXPECT_EQ(offsets[k1].bit_length, 16);
     EXPECT_EQ(offsets[k2].byte, 2);
     EXPECT_EQ(offsets[k2].bit, 0);
+    EXPECT_EQ(offsets[k2].bit_length, 32);
 }
 
 TEST(ComputeOffsetsProperties, SubByteBitOffsets) {
