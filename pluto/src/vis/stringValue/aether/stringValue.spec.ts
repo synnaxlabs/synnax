@@ -139,6 +139,22 @@ describe("stringValue.StringValue", () => {
       expect(fillTexts(recorder)).toEqual(["ABCDE…"]);
     });
 
+    // A web font that loads after the first draw changes the text's width, but not the
+    // value, the font string, or the box.
+    it("should cut the value again when the font's metrics change", () => {
+      const { component, recorder } = setup({
+        value: "ABCDEFGHIJ",
+        state: { box: narrow },
+      });
+      recorder.upper2d.textDimensions = (label) => ({
+        width: Array.from(label).length * 12,
+        height: 12,
+      });
+      recorder.clear();
+      component.render({});
+      expect(fillTexts(recorder)).toEqual(["ABC…"]);
+    });
+
     it("should fit the value to a box that grows", () => {
       const { h, recorder } = setup({ value: "ABCDEFGHIJ", state: { box: narrow } });
       recorder.clear();

@@ -31,13 +31,6 @@ export const stateZ = staleness.configZ.extend({
 
 const CANVAS_VARIANTS: render.Canvas2DVariant[] = ["upper2d", "lower2d"];
 
-interface Fitted {
-  label: string;
-  font: string;
-  width: number;
-  result: string;
-}
-
 interface InternalState {
   theme: theme.Theme;
   renderCtx: render.Context;
@@ -47,8 +40,6 @@ interface InternalState {
   fontString: string;
   staleness: staleness.Registration;
   stale: boolean;
-  // fitted caches the last truncation, since a pan or zoom redraws the same text.
-  fitted?: Fitted;
 }
 
 /**
@@ -110,26 +101,6 @@ export class StringValue
     return c == null || color.isZero(c) ? theme.colors.text : c;
   }
 
-  private fit(
-    label: string,
-    width: number,
-    measure: (label: string) => number,
-  ): string {
-    const { internal: i } = this;
-    const { fitted } = i;
-    const font = i.fontString;
-    if (
-      fitted != null &&
-      fitted.label === label &&
-      fitted.font === font &&
-      fitted.width === width
-    )
-      return fitted.result;
-    const result = aetherText.truncate(label, width, measure);
-    i.fitted = { label, font, width, result };
-    return result;
-  }
-
   render({ viewportScale = scale.XY.IDENTITY }: { viewportScale?: scale.XY }): void {
     const { renderCtx, source, fontString, requestRender } = this.internal;
     const { box: b } = this.state;
@@ -140,7 +111,7 @@ export class StringValue
     canvas.textAlign = "left";
     canvas.textBaseline = "middle";
     canvas.fillStyle = color.hex(this.textColor);
-    const label = this.fit(
+    const label = aetherText.truncate(
       source.value(),
       box.width(b),
       (l) => canvas.textDimensions(l).width,
