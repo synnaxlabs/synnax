@@ -11,7 +11,7 @@ import { id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { assert, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 
-import { NotFoundError } from "@/errors";
+import { MultipleFoundError, NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { rack } from "@/rack";
@@ -229,6 +229,17 @@ describe("Task", async () => {
       });
       const retrieved = await client.tasks.retrieve({ name });
       expect(retrieved.key).toBe(m.key);
+    });
+
+    it("should reject a name that two tasks share", async () => {
+      const name = `test-${Date.now()}-${Math.random()}`;
+      for (let i = 0; i < 2; i++)
+        await testRack.createTask({
+          name,
+          config: { routingKey: "dog" },
+          type: "pagerduty_alert",
+        });
+      await expect(client.tasks.retrieve({ name })).rejects.toThrow(MultipleFoundError);
     });
 
     it("should retrieve tasks by search term", async () => {

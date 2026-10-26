@@ -384,6 +384,37 @@ class TestRangeClient:
             ):
                 rng.set_alias("not_found", "test")
 
+        def test_scoped_channel_multiple_found(self, client: sy.Synnax) -> None:
+            """Should raise MultipleFoundError when a scoped channel matches two
+            channels and is used as one."""
+            prefix = random_name()
+            for suffix in ("a", "b"):
+                client.channels.create(
+                    name=f"{prefix}_{suffix}", data_type=sy.DataType.INT8, virtual=True
+                )
+            rng = client.ranges.create(
+                name=random_name(),
+                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            )
+            with pytest.raises(sy.MultipleFoundError, match="Multiple channels found"):
+                rng[f"{prefix}_.*"].to_numpy()
+
+        def test_set_alias_multiple_found(self, client: sy.Synnax) -> None:
+            """Should raise MultipleFoundError when a name matches two channels."""
+            prefix = random_name()
+            for suffix in ("a", "b"):
+                client.channels.create(
+                    name=f"{prefix}_{suffix}", data_type=sy.DataType.INT8, virtual=True
+                )
+            rng = client.ranges.create(
+                name=random_name(),
+                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            )
+            with pytest.raises(
+                sy.MultipleFoundError, match=f"Expected one Channel matching {prefix}_"
+            ):
+                rng.set_alias(f"{prefix}_.*", "test")
+
         def test_resolve_missing_alias(self, client: sy.Synnax) -> None:
             """Should raise NotFoundError when a single alias has no channel."""
             rng = client.ranges.create(

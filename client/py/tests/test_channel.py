@@ -891,6 +891,18 @@ class TestChannelRetriever:
         with pytest.raises(sy.NotFoundError):
             client.channels._retriever.retrieve_one(1234)
 
+    def test_retrieve_one_multiple_found(self, client: sy.Synnax) -> None:
+        """Should raise MultipleFoundError when a pattern matches two channels."""
+        prefix = channel_name()
+        for suffix in ("a", "b"):
+            client.channels.create(
+                data_type=sy.DataType.FLOAT32, name=f"{prefix}_{suffix}", virtual=True
+            )
+        with pytest.raises(
+            sy.MultipleFoundError, match=f"Expected one Channel matching {prefix}_"
+        ):
+            client.channels._retriever.retrieve_one(f"{prefix}_.*")
+
 
 @pytest.mark.framer
 class TestChannelWriteRead:
