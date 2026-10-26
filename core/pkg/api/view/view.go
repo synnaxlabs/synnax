@@ -12,6 +12,7 @@ package view
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -19,7 +20,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -74,7 +77,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 
 type (
 	Key  = view.Key
-	Type = view.ViewType
+	Type = view.Type
 	View = view.View
 )
 
@@ -104,50 +107,45 @@ func (s *Service) Create(
 	return CreateResponse(req), nil
 }
 
-type RetrieveRequest struct {
-	SearchTerm string     `json:"search_term" msgpack:"search_term"`
-	Keys       []view.Key `json:"keys"        msgpack:"keys"`
-	Types      []Type     `json:"types"       msgpack:"types"`
-	Limit      int        `json:"limit"       msgpack:"limit"`
-	Offset     int        `json:"offset"      msgpack:"offset"`
-}
-
-type RetrieveResponse struct {
-	Views []View `json:"views" msgpack:"views"`
-}
+type (
+	RetrieveRequest  = view.RetrieveRequest
+	RetrieveResponse = view.RetrieveResponse
+)
 
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	q := s.internal.NewRetrieve()
-	if req.SearchTerm != "" {
-		q = q.Search(req.SearchTerm)
+	var res RetrieveResponse
+	q := s.internal.NewRetrieve().Entries(&res.Views)
+	if req.Where != nil {
+		f, err := view.MatchWhere(*req.Where)
+		if err != nil {
+			return RetrieveResponse{}, validate.PathedError(err, "where")
+		}
+		q = q.Where(f)
 	}
-	if req.Limit != 0 {
-		q = q.Limit(req.Limit)
+	if term := lo.FromPtr(req.SearchTerm); term != "" {
+		q = q.Search(term)
 	}
-	if req.Offset != 0 {
-		q = q.Offset(req.Offset)
+	if req.Limit != nil {
+		q = q.Limit(int(*req.Limit))
 	}
-	if len(req.Keys) != 0 {
-		q = q.Where(view.MatchKeys(req.Keys...))
+	if req.Offset != nil {
+		q = q.Offset(int(*req.Offset))
 	}
-	if len(req.Types) != 0 {
-		q = q.Where(view.MatchTypes(req.Types...))
-	}
-	var views []view.View
-	if err := q.Entries(&views).Exec(ctx, nil); err != nil {
+	// A filter is a predicate, so a key that does not exist is a non-match.
+	if err := errors.Skip(q.Exec(ctx, nil), query.ErrNotFound); err != nil {
 		return RetrieveResponse{}, err
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: view.OntologyIDsFromViews(views),
+		Objects: view.OntologyIDsFromViews(res.Views),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
-	return RetrieveResponse{Views: views}, nil
+	return res, nil
 }
 
 // RenameRequest names the view to rename and the name to give it.

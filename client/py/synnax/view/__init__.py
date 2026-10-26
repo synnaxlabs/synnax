@@ -13,7 +13,9 @@ from synnax.view.types_gen import (
     Key,
     RangeView,
     StatusView,
+    Type,
     View,
+    Where,
     ontology_id,
 )
 
@@ -23,6 +25,8 @@ __all__ = [
     "Key",
     "RangeView",
     "StatusView",
+    "Type",
     "View",
+    "Where",
     "ontology_id",
 ]

@@ -51,8 +51,8 @@ var _ = Describe("View", func() {
 
 	Describe("Type", func() {
 		It("Should return the type of each variant", func() {
-			Expect(ranges.Type()).To(Equal(v1.RangeViewType))
-			Expect(status.Type()).To(Equal(v1.StatusViewType))
+			Expect(ranges.Type()).To(Equal(v1.TypeRange))
+			Expect(status.Type()).To(Equal(v1.TypeStatus))
 		})
 		It("Should return an empty type for a view with no variant", func() {
 			Expect(v1.View{}.Type()).To(BeEmpty())
@@ -190,8 +190,10 @@ var _ = Describe("View", func() {
 			Entry("status", v1.View{Variant: v1.StatusView{
 				Base: v1.Base{Key: uuid.New(), Name: "Statuses"},
 				Where: &statusv1.Where{
-					Labels:  []uuid.UUID{uuid.New()},
-					Variant: &filter.Set[statusv1.Variant]{Eq: new(statusv1.VariantError)},
+					Labels: []uuid.UUID{uuid.New()},
+					Variant: &filter.Set[statusv1.Variant]{
+						Eq: new(statusv1.VariantError),
+					},
 				},
 			}}),
 		)

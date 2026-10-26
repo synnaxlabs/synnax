@@ -9,31 +9,11 @@
 
 package view
 
-import (
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/gorp"
-)
+import "github.com/synnaxlabs/gorp"
 
 // Retrieve is used to retrieve views from the database using a builder pattern.
 type Retrieve struct {
-	baseTX gorp.Tx
-	gorp   gorp.Retrieve[Key, View]
-	search *gorp.SearchIndex[Key, View]
-}
-
-// Search filters the views to those whose name matches term, closest match first. An
-// empty term adds no filter.
-func (r Retrieve) Search(term string) Retrieve {
-	if term == "" {
-		return r
-	}
-	r.gorp = r.gorp.Where(r.search.Filter(term))
-	return r
-}
-
-// MatchTypes returns a filter for views whose type matches any of the provided types.
-func MatchTypes(types ...ViewType) Filter {
-	return Match(func(_ gorp.Context, _ Retrieve, v *View) (bool, error) {
-		return lo.Contains(types, v.Type()), nil
-	})
+	baseTX  gorp.Tx
+	gorp    gorp.Retrieve[Key, View]
+	indexes indexes
 }

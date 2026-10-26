@@ -268,7 +268,7 @@ var _ = Describe("View", func() {
 				var resViews []view.View
 				Expect(
 					svc.NewRetrieve().
-						Where(view.MatchTypes(view.RangeViewType)).
+						Where(view.MatchTypes(view.TypeRange)).
 						Entries(&resViews).
 						Exec(ctx, tx),
 				).To(Succeed())
@@ -278,13 +278,29 @@ var _ = Describe("View", func() {
 				var resViews []view.View
 				Expect(
 					svc.NewRetrieve().
-						Where(view.MatchTypes(view.RangeViewType)).
+						Where(view.MatchTypes(view.TypeRange)).
 						Where(view.MatchKeys(views[0].GorpKey())).
 						Entries(&resViews).
 						Exec(ctx, tx),
 				).To(Succeed())
 				Expect(resViews).To(HaveLen(1))
 				Expect(resViews[0].GorpKey()).To(Equal(views[0].GorpKey()))
+			})
+		})
+
+		Describe("MatchWhere", func() {
+			It("Should match views by type and name", func(ctx SpecContext) {
+				var resViews []view.View
+				Expect(svc.NewRetrieve().
+					Where(MustSucceed(view.MatchWhere(view.Where{
+						Type: &filter.Set[view.Type]{Eq: new(view.TypeRange)},
+						Name: &filter.String{Regex: new("B$")},
+					}))).
+					Entries(&resViews).
+					Exec(ctx, tx),
+				).To(Succeed())
+				Expect(resViews).To(HaveLen(1))
+				Expect(resViews[0].GorpKey()).To(Equal(views[1].GorpKey()))
 			})
 		})
 

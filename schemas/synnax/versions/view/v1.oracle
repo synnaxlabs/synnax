@@ -25,7 +25,14 @@ Base struct {
     @go marshal
 }
 
-View union on type extends Base {
+Type enum {
+    range  = "range"
+    status = "status"
+
+    @doc value "names the resource that a view lists."
+}
+
+View union on type Type extends Base {
     range {
         where ranger.Where? {
             @doc value "selects the ranges the view shows. An absent where shows all."
