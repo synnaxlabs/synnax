@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <future>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/errors/errors.h"
@@ -132,5 +134,70 @@ TEST(ControlPipeline, testOpenRetrySuccessful) {
 /// @brief it should wait out an unlicensed Core and succeed once it is licensed.
 TEST(ControlPipeline, testOpenRetryUnlicensed) {
     assert_open_retries(synnax::errors::LICENSE_MISSING);
+}
+namespace {
+/// @brief a streamer factory whose open blocks until the test releases it.
+class GatedStreamerFactory final : public StreamerFactory {
+    std::shared_ptr<mock::StreamerFactory> inner;
+    std::shared_future<void> gate;
+
+public:
+    GatedStreamerFactory(
+        std::shared_ptr<mock::StreamerFactory> inner,
+        std::shared_future<void> gate
+    ):
+        inner(std::move(inner)), gate(std::move(gate)) {}
+
+    std::pair<std::unique_ptr<Streamer>, x::errors::Error>
+    open_streamer(const synnax::framer::StreamerConfig config) override {
+        this->gate.wait();
+        return this->inner->open_streamer(config);
+    }
+};
+}
+
+/// @brief it should block wait_until_open until the streamer is open.
+TEST(ControlPipeline, WaitUntilOpenBlocksUntilStreamerOpens) {
+    std::promise<void> release;
+    const auto factory = std::make_shared<GatedStreamerFactory>(
+        mock::simple_streamer_factory(
+            {1},
+            std::make_shared<std::vector<x::telem::Frame>>()
+        ),
+        release.get_future().share()
+    );
+    auto control = Control(
+        factory,
+        synnax::framer::StreamerConfig{.channels = {1}},
+        std::make_shared<mock::Sink>(),
+        x::breaker::Config{}
+    );
+    ASSERT_TRUE(control.start());
+    auto waited = std::async(std::launch::async, [&] { control.wait_until_open(); });
+    ASSERT_EQ(
+        waited.wait_for(std::chrono::milliseconds(50)),
+        std::future_status::timeout
+    );
+    release.set_value();
+    ASSERT_EQ(waited.wait_for(std::chrono::seconds(5)), std::future_status::ready);
+    control.stop();
+}
+
+/// @brief it should release wait_until_open when the streamer fails to open for good.
+TEST(ControlPipeline, WaitUntilOpenReturnsOnPermanentOpenFailure) {
+    const auto sink = std::make_shared<mock::Sink>();
+    auto control = Control(
+        std::make_shared<mock::StreamerFactory>(
+            std::vector{x::errors::UNKNOWN},
+            std::make_shared<std::vector<mock::StreamerConfig>>()
+        ),
+        synnax::framer::StreamerConfig{},
+        sink,
+        x::breaker::Config{}
+    );
+    ASSERT_TRUE(control.start());
+    control.wait_until_open();
+    control.stop();
+    ASSERT_MATCHES(sink->stop_err, x::errors::UNKNOWN);
 }
 }

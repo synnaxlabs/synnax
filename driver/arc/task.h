@@ -272,7 +272,11 @@ public:
         auto acq_started = true;
         if (this->acquisition) acq_started = this->acquisition->start(start);
         auto control_started = true;
-        if (this->control) control_started = this->control->start();
+        if (this->control) {
+            control_started = this->control->start();
+            // A command written after the start status must reach the program.
+            this->control->wait_until_open();
+        }
         this->state.send_start(cmd_key);
         return acq_started && control_started;
     }

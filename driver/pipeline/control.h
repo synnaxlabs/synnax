@@ -9,7 +9,9 @@
 
 #pragma once
 
+#include <condition_variable>
 #include <memory>
+#include <mutex>
 
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
@@ -133,6 +135,13 @@ class Control final : public Base {
     std::shared_ptr<Sink> sink;
     /// @brief the current open streamer reading data from the network.
     std::unique_ptr<Streamer> streamer = nullptr;
+    std::mutex open_mu;
+    std::condition_variable open_cv;
+    /// @brief false from start() until the run loop's first streamer open succeeds or
+    /// fails for good.
+    bool open_settled = true;
+
+    void settle_open();
 
 public:
     /// @brief constructs a new control pipeline that opens streamers on a Synnax Core.
@@ -170,9 +179,16 @@ public:
         std::string thread_name = ""
     );
 
+    bool start() override;
+
     /// @brief stops the control pipeline, blocking until the control thread has exited.
     /// If the pipeline has already stopped, this method will return immediately.
     bool stop() override;
+
+    /// @brief blocks until the streamer opened by the last start() is open or has
+    /// failed to open for good. Frames written to the Core after it returns reach the
+    /// sink.
+    void wait_until_open();
 
     void run() override;
 };
