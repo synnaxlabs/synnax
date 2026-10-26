@@ -54,8 +54,8 @@ class FakeGitHub(GitHub):
         page = int(params["page"][0])
         return {"jobs": jobs[(page - 1) * 100 : page * 100]}
 
-    def set_job(self, sha: str, name: str, conclusion: str | None) -> None:
-        self.job_table.setdefault(sha, {})[name] = {"conclusion": conclusion}
+    def set_job(self, sha: str, name: str, status: str) -> None:
+        self.job_table.setdefault(sha, {})[name] = {"status": status}
 
 
 class TestReady:
@@ -67,7 +67,7 @@ class TestReady:
 
     def test_should_hold_a_group_past_the_slots(self) -> None:
         github = FakeGitHub([entry(1, "a"), entry(2, "b")])
-        github.set_job("a", GATE, None)
+        github.set_job("a", GATE, "in_progress")
         assert not wait_for_turn.ready(github, "b", 1)
 
     def test_should_rank_only_groups_waiting_for_checks(self) -> None:
@@ -76,22 +76,21 @@ class TestReady:
         )
         assert wait_for_turn.ready(github, "b", 1)
 
-    def test_should_admit_a_group_once_the_group_ahead_passed_its_gate(self) -> None:
+    def test_should_admit_a_group_once_the_group_ahead_ended_its_gate(self) -> None:
         github = FakeGitHub([entry(1, "a"), entry(2, "b"), entry(3, "c")])
-        github.set_job("b", GATE, "success")
+        github.set_job("b", GATE, "completed")
         assert wait_for_turn.ready(github, "c", 1)
 
     def test_should_hold_a_group_while_the_group_ahead_waits_at_its_gate(
         self,
     ) -> None:
         github = FakeGitHub([entry(1, "a"), entry(2, "b")])
-        github.set_job("a", INTEGRATION, None)
-        github.set_job("a", GATE, None)
+        github.set_job("a", GATE, "in_progress")
         assert not wait_for_turn.ready(github, "b", 0)
 
     def test_should_admit_a_group_behind_one_with_no_integration_suite(self) -> None:
         github = FakeGitHub([entry(1, "a"), entry(2, "b")])
-        github.set_job("a", INTEGRATION, "skipped")
+        github.set_job("a", INTEGRATION, "completed")
         assert wait_for_turn.ready(github, "b", 0)
 
     def test_should_hold_a_group_behind_one_whose_run_has_not_started(self) -> None:
@@ -101,8 +100,8 @@ class TestReady:
     def test_should_read_every_page_of_jobs(self) -> None:
         github = FakeGitHub([entry(1, "a"), entry(2, "b")])
         for i in range(150):
-            github.set_job("a", f"job {i}", "success")
-        github.set_job("a", GATE, "success")
+            github.set_job("a", f"job {i}", "completed")
+        github.set_job("a", GATE, "completed")
         assert wait_for_turn.ready(github, "b", 0)
 
     def test_should_exit_when_the_group_left_the_queue(self) -> None:
@@ -114,14 +113,14 @@ class TestReady:
 class TestWait:
     """Tests for the poll loop."""
 
-    def test_should_poll_until_the_group_ahead_passed_its_gate(self) -> None:
+    def test_should_poll_until_the_group_ahead_ended_its_gate(self) -> None:
         github = FakeGitHub([entry(1, "a"), entry(2, "b")])
-        github.set_job("a", GATE, None)
+        github.set_job("a", GATE, "in_progress")
         sleeps: list[float] = []
 
         def sleep(seconds: float) -> None:
             sleeps.append(seconds)
-            github.set_job("a", GATE, "success")
+            github.set_job("a", GATE, "completed")
 
         wait_for_turn.wait(github, "b", 1, sleep)
         assert sleeps == [wait_for_turn.POLL_SECONDS]

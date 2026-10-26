@@ -13,7 +13,7 @@ theirs.
 A free self-hosted runner takes the oldest queued job, so without this gate a group
 whose build ends first takes the test bots from the groups ahead of it. A group goes on
 when it is among the first `slots` groups that wait for checks, or when the nearest
-such group ahead of it passed this gate or runs no integration suite.
+such group ahead of it ended this gate or runs no integration suite.
 
 Usage: wait_for_turn.py <head-sha> <slots>. Reads GH_TOKEN and GITHUB_REPOSITORY.
 Exits non-zero when the group leaves the merge queue.
@@ -135,12 +135,12 @@ class GitHub:
 
 
 def through(github: GitHub, sha: str) -> bool:
-    """True when the group at sha passed its gate or runs no integration suite."""
+    """True when the group at sha queues no more test bot jobs: its gate ended, or it
+    runs no integration suite. A gate that failed or was cancelled counts, because a
+    failed group can stay in the queue while a later group runs."""
     jobs = github.jobs(sha)
-    gate = jobs.get(GATE, {})
-    integration = jobs.get(INTEGRATION, {})
-    return gate.get("conclusion") == "success" or (
-        integration.get("conclusion") == "skipped"
+    return any(
+        jobs.get(name, {}).get("status") == "completed" for name in (GATE, INTEGRATION)
     )
 
 
