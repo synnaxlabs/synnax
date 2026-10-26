@@ -28,19 +28,17 @@ type Retrieve struct {
 // given ID.
 func MatchFor(id ontology.ID) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Label] {
-		return gorp.MatchKeysFunc[Key, Label](
-			func(ctx context.Context, tx gorp.Tx) ([]Key, error) {
-				var labels []ontology.Resource
-				if err := r.ontology.NewRetrieve().
-					WhereIDs(id).
-					TraverseTo(LabelsOntologyTraverser).
-					Entries(&labels).
-					Exec(ctx, tx); err != nil {
-					return nil, err
-				}
-				return KeysFromOntologyIDs(ontology.ResourceIDs(labels))
-			},
-		)
+		return gorp.MatchKeysFunc[Key, Label](func(ctx gorp.Context) ([]Key, error) {
+			var labels []ontology.Resource
+			if err := r.ontology.NewRetrieve().
+				WhereIDs(id).
+				TraverseTo(LabelsOntologyTraverser).
+				Entries(&labels).
+				Exec(ctx, ctx.Tx); err != nil {
+				return nil, err
+			}
+			return KeysFromOntologyIDs(ontology.ResourceIDs(labels))
+		})
 	}
 }
 

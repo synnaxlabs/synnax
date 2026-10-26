@@ -105,18 +105,17 @@ func MatchKeys[K Key, E Entry[K]](keys ...K) Filter[K, E] {
 }
 
 // MatchKeysFunc returns a Filter that restricts results to the keys that f returns.
-// Each Exec calls f with the open transaction, so f can read state the transaction
-// staged.
-func MatchKeysFunc[K Key, E Entry[K]](
-	f func(ctx context.Context, tx Tx) ([]K, error),
-) Filter[K, E] {
+// Exec, Count, and Exists each call f with the open transaction, so f can read state
+// the transaction staged. A key with no entry is a non-match, while a bare MatchKeys
+// fails Exec with query.ErrNotFound.
+func MatchKeysFunc[K Key, E Entry[K]](f func(ctx Context) ([]K, error)) Filter[K, E] {
 	return Filter[K, E]{
 		resolve: func(ctx context.Context, tx Tx) (resolved[K, E], error) {
-			keys, err := f(ctx, tx)
+			keys, err := f(Context{Context: ctx, Tx: tx})
 			if err != nil {
 				return resolved[K, E]{}, err
 			}
-			return resolved[K, E]{keys: keyset.Of(keys)}, nil
+			return resolved[K, E]{keys: keyset.Hashed(keys)}, nil
 		},
 	}
 }

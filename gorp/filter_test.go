@@ -165,7 +165,7 @@ var _ = Describe("Filter Combinators", func() {
 				Expect(gorp.NewRetrieve[int32, entry]().
 					Entries(&res).
 					Where(gorp.MatchKeysFunc[int32, entry](
-						func(context.Context, gorp.Tx) ([]int32, error) {
+						func(gorp.Context) ([]int32, error) {
 							return []int32{2, 5, 42}, nil
 						},
 					)).
@@ -177,8 +177,8 @@ var _ = Describe("Filter Combinators", func() {
 		It("Should call the function with the open transaction", func(ctx SpecContext) {
 			var got gorp.Tx
 			f := gorp.MatchKeysFunc[int32, entry](
-				func(_ context.Context, tx gorp.Tx) ([]int32, error) {
-					got = tx
+				func(ctx gorp.Context) ([]int32, error) {
+					got = ctx.Tx
 					return nil, nil
 				},
 			)
@@ -196,7 +196,7 @@ var _ = Describe("Filter Combinators", func() {
 				Where(gorp.And(
 					idLT(4),
 					gorp.Not(gorp.MatchKeysFunc[int32, entry](
-						func(context.Context, gorp.Tx) ([]int32, error) {
+						func(gorp.Context) ([]int32, error) {
 							return []int32{1, 2}, nil
 						},
 					)),
@@ -210,12 +210,34 @@ var _ = Describe("Filter Combinators", func() {
 			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
 				Where(gorp.MatchKeysFunc[int32, entry](
-					func(context.Context, gorp.Tx) ([]int32, error) {
+					func(gorp.Context) ([]int32, error) {
 						return nil, errFilter
 					},
 				)).
 				Exec(ctx, tx)).To(MatchError(errFilter))
 		})
+
+		It("Should count the entries whose keys the function returns",
+			func(ctx SpecContext) {
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Where(gorp.MatchKeysFunc[int32, entry](
+						func(gorp.Context) ([]int32, error) {
+							return []int32{2, 5, 42}, nil
+						},
+					)).
+					Count(ctx, tx)).To(Equal(2))
+			})
+
+		DescribeTable("Exists", func(ctx SpecContext, keys []int32, expected bool) {
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Where(gorp.MatchKeysFunc[int32, entry](
+					func(gorp.Context) ([]int32, error) { return keys, nil },
+				)).
+				Exists(ctx, tx)).To(Equal(expected))
+		},
+			Entry("one key has an entry", []int32{5, 42}, true),
+			Entry("no key has an entry", []int32{42}, false),
+		)
 	})
 
 	Describe("And", func() {

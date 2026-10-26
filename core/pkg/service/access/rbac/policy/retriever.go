@@ -37,11 +37,9 @@ func (s *Service) ResolveSubjects(
 // the subjects hold.
 func MatchSubjects(subjects ...ontology.ID) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Policy] {
-		return gorp.MatchKeysFunc[Key, Policy](
-			func(ctx context.Context, tx gorp.Tx) ([]Key, error) {
-				return resolveSubjects(ctx, r.ontology, tx, subjects)
-			},
-		)
+		return gorp.MatchKeysFunc[Key, Policy](func(ctx gorp.Context) ([]Key, error) {
+			return resolveSubjects(ctx, r.ontology, ctx.Tx, subjects)
+		})
 	}
 }
 
