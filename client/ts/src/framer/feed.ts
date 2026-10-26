@@ -13,7 +13,6 @@ import {
   type MultiSeries,
   type Size,
   TimeRange,
-  type TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
 
@@ -58,7 +57,7 @@ interface LatestQuery {
 /** Props for {@link Feed}, including the transport it reads and streams through. */
 export interface FeedProps
   extends
-    Pick<StoreProps, "dynamicBufferSize" | "instrumentation">,
+    Pick<StoreProps, "instrumentation">,
     Omit<ReaderProps, "store">,
     Omit<MultiplexedStreamerProps, "store" | "joins" | "onWait" | "openStreamer"> {
   openStreamer: StreamOpener;
@@ -75,12 +74,6 @@ export interface FeedProps
    * @default Size.megabytes(128)
    */
   budget?: Size;
-  /**
-   * How long a fetched block answers reads before it is fetched again. Bounds the
-   * refetch rate of spans that stay empty. A block a caller holds keeps answering.
-   * @default TimeSpan.minutes(10)
-   */
-  staleCoverageThreshold?: TimeSpan;
   /** Receives each failed reconnect attempt of the stream. Defaults to console.warn. */
   onRetry?: (error: Error) => void;
 }
@@ -120,8 +113,6 @@ export class Feed {
       readLatest,
       budget,
       instrumentation,
-      dynamicBufferSize,
-      staleCoverageThreshold,
       removalDelay,
       breaker,
       batchDebounce,
@@ -133,8 +124,6 @@ export class Feed {
     this.props = props;
     this.store = new Store({
       budget,
-      staleThreshold: staleCoverageThreshold,
-      dynamicBufferSize,
       instrumentation: instrumentation?.child("store"),
       now,
       node,

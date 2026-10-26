@@ -29,7 +29,7 @@ import { tileSpan } from "@/framer/cache/grid";
 import { type TileSpec } from "@/framer/cache/tile";
 import { Feed, type FeedProps, type LatestReader } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
-import { createTestClient, ManualClock } from "@/testutil";
+import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
 const feed = client.openFeed();
@@ -283,49 +283,6 @@ describe("feed", () => {
     }
   });
 
-  it("should keep reads complete across leading buffer rollovers", async () => {
-    const { time, data } = await createChannels();
-    // A small buffer forces frequent flush and realloc cycles.
-    const small = client.openFeed({ dynamicBufferSize: 50 });
-    try {
-      const start = TimeStamp.now();
-      const next = createClock();
-      const w = await client.openWriter({
-        start,
-        channels: [time.key, data.key],
-        enableAutoCommit: true,
-      });
-      try {
-        const sub = small.stream(() => {}, [time.key, data.key]);
-        let value = 0;
-        for (let i = 0; i < 10; i++) {
-          for (let j = 0; j < 30; j++)
-            await w.write({
-              [time.key]: [next(), next()],
-              [data.key]: [value++, value++],
-            });
-          const tr = new TimeRange(start, TimeStamp.now());
-          // The fresh baseline reads first: anything committed by now must also
-          // reach the later cached read, so autocommit lag cannot flake this.
-          const fresh = client.openFeed();
-          try {
-            const all = Array.from(await fresh.read(tr, data.key)) as number[];
-            const got = new Set(Array.from(await small.read(tr, data.key)) as number[]);
-            const missing = all.filter((v) => !got.has(v));
-            expect(missing).toHaveLength(0);
-          } finally {
-            await fresh.close();
-          }
-        }
-        sub.close();
-      } finally {
-        await w.close();
-      }
-    } finally {
-      await small.close();
-    }
-  });
-
   it("should refetch samples written while a channel was unstreamed", async () => {
     const { time, data } = await createChannels();
     const short = client.openFeed({ removalDelay: TimeSpan.milliseconds(100) });
@@ -458,32 +415,6 @@ describe("feed", () => {
     await closable.close();
     const tr = new TimeRange(TimeStamp.now(), TimeStamp.now().add(TimeSpan.seconds(1)));
     await expect(closable.read(tr, 123)).rejects.toThrow(UnexpectedError);
-  });
-
-  it("should forward staleCoverageThreshold to the cache", async () => {
-    let calls = 0;
-    const clock = new ManualClock();
-    const direct = new Feed({
-      staleCoverageThreshold: TimeSpan.milliseconds(50),
-      now: clock.now,
-      retrieveChannels: retrieveIndexes,
-      readRemote: async () => {
-        calls++;
-        return new Frame([], []);
-      },
-      openStreamer: async () => {
-        throw new UnexpectedError("streamer unused");
-      },
-      readLatest: async () => new Frame([], []),
-    });
-    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
-    await direct.read(tr, 1);
-    await direct.read(tr, 1);
-    expect(calls).toBe(1);
-    clock.advance(TimeSpan.milliseconds(50));
-    await direct.read(tr, 1);
-    expect(calls).toBe(2);
-    await direct.close();
   });
 
   it("should forward fetchTimeout to the reader", async () => {
@@ -665,21 +596,6 @@ describe("feed", () => {
       const read = direct.readTile(TILE);
       await expect(read).rejects.toThrow(Unreachable);
       await expect(read).rejects.toThrow("timed out after 20ms");
-      await direct.close();
-    });
-
-    it("should forward staleCoverageThreshold to the tile cache", async () => {
-      const clock = new ManualClock();
-      const { direct, counter } = createFeed({
-        staleCoverageThreshold: TimeSpan.milliseconds(50),
-        now: clock.now,
-      });
-      await direct.readTile(TILE);
-      await direct.readTile(TILE);
-      expect(counter.calls).toBe(1);
-      clock.advance(TimeSpan.milliseconds(50));
-      await direct.readTile(TILE);
-      expect(counter.calls).toBe(2);
       await direct.close();
     });
 
