@@ -43,8 +43,18 @@ runs:
       run: |
         path=$(pnpm store path)
         echo "path=${path#'\\?\'}" >> "$GITHUB_OUTPUT"
-        echo "prefix=pnpm-store-$RUNNER_OS-$RUNNER_ARCH-" >> "$GITHUB_OUTPUT"
-        echo "key=pnpm-store-$RUNNER_OS-$RUNNER_ARCH-$LOCKFILE" >> "$GITHUB_OUTPUT"
+        prefix=pnpm-store-$RUNNER_OS-$RUNNER_ARCH-
+        # A cache holds paths relative to the workspace, which is on another drive on
+        # a build bot, so a store from a hosted runner unpacks to the wrong place there.
+        if [ "$RUNNER_ENVIRONMENT" = self-hosted ]; then
+          prefix=pnpm-store-self-hosted-$RUNNER_OS-$RUNNER_ARCH-
+        fi
+        echo "prefix=$prefix" >> "$GITHUB_OUTPUT"
+        echo "key=$prefix$LOCKFILE" >> "$GITHUB_OUTPUT"
+
+    - name: Set up zstd
+      if: inputs.cache == 'true'
+      uses: ./.github/actions/setup-zstd
 
     - name: Restore the pnpm store
       id: cache
