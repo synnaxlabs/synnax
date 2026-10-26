@@ -30,7 +30,14 @@ if [ ! -O "$QA_DIR" ]; then
     exit 1
 fi
 mkdir -p "$QA_DIR/images"
-if [ -f "$QA_DIR/pids" ]; then xargs kill < "$QA_DIR/pids" 2> /dev/null || true; fi
+# Stops the processes of an earlier run, skipping PIDs the OS has since reused.
+if [ -f "$QA_DIR/pids" ]; then
+    while read -r pid; do
+        case $(ps -p "$pid" -o command= 2> /dev/null) in
+            *"$QA_DIR"* | *qa/live.py*) kill "$pid" ;;
+        esac
+    done < "$QA_DIR/pids"
+fi
 rm -rf "$QA_DIR/pids" "$QA_DIR/chromium"
 touch "$QA_DIR/pids"
 trap 'xargs kill < "$QA_DIR/pids" 2> /dev/null' ERR
