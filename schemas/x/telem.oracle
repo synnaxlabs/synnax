@@ -209,7 +209,6 @@ TimestampFormat enum {
     @cpp omit
     @doc value "is the rendered form of a timestamp displayed alongside a sample."
     @pb omit
-    @py omit
 }
 
 TimeZone enum {
@@ -219,5 +218,4 @@ TimeZone enum {
     @cpp omit
     @doc value "is the time zone used when rendering timestamps."
     @pb omit
-    @py omit
 }

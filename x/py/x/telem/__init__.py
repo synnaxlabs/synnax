@@ -46,6 +46,8 @@ from x.telem.types_gen import (
     LimitReduction,
     Reduction,
     StrideReduction,
+    TimestampFormat,
+    TimeZone,
 )
 
 __all__ = [
@@ -79,6 +81,8 @@ __all__ = [
     "TimeSpan",
     "TimeSpanUnits",
     "TimeStamp",
+    "TimeZone",
+    "TimestampFormat",
     "TypedCrudeSeries",
     "convert_time_units",
     "elapsed_seconds",

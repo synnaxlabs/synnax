@@ -24,6 +24,32 @@ AGGREGATION_DECIMATE: Literal["decimate"] = "decimate"
 
 Aggregation = Literal["min_max", "average", "decimate"]
 
+TIMESTAMP_FORMAT_ISO: Literal["ISO"] = "ISO"
+
+TIMESTAMP_FORMAT_ISODATE: Literal["ISODate"] = "ISODate"
+
+TIMESTAMP_FORMAT_TIME: Literal["time"] = "time"
+
+TIMESTAMP_FORMAT_PRECISETIME: Literal["preciseTime"] = "preciseTime"
+
+TIMESTAMP_FORMAT_DATE: Literal["date"] = "date"
+
+TIMESTAMP_FORMAT_PRECISEDATE: Literal["preciseDate"] = "preciseDate"
+
+TIMESTAMP_FORMAT_DATETIME: Literal["dateTime"] = "dateTime"
+
+
+TimestampFormat = Literal[
+    "ISO", "ISODate", "time", "preciseTime", "date", "preciseDate", "dateTime"
+]
+
+TIME_ZONE_LOCAL: Literal["local"] = "local"
+
+TIME_ZONE_UTC: Literal["UTC"] = "UTC"
+
+
+TimeZone = Literal["local", "UTC"]
+
 
 class StrideReduction(BaseModel):
     """Keeps every factor-th sample of each series read."""
