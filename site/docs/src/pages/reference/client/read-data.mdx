@@ -439,7 +439,8 @@ The returned data is an instance of the
   <Fragment slot="python">
 
 Access the `Series` object using the `[]` operator. The `Frame` can also be converted to
-a `pandas.DataFrame` by calling the `to_df` method.
+a `pandas.DataFrame` by calling the `to_df` method. The columns are the channel names,
+in the order you request the channels.
 
 ```python
 import synnax as sy

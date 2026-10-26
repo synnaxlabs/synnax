@@ -23,14 +23,18 @@ from synnax.telem import CrudeSeries, DataType, Series
 
 
 class ReadFrameAdapter:
-    _adapter: dict[channel.Key, str] | None
+    _by_name: bool
+    _names: dict[channel.Key, str]
+    _rank: dict[channel.Key | str, int]
     retriever: ChannelRetriever
     keys: list[channel.Key]
     codec: Codec
 
     def __init__(self, retriever: ChannelRetriever):
         self.retriever = retriever
-        self._adapter = None
+        self._by_name = False
+        self._names = {}
+        self._rank = {}
         self.keys = []
         self.codec = Codec()
 
@@ -40,34 +44,38 @@ class ReadFrameAdapter:
         new_keys = [ch.key for ch in fetched]
         if set(new_keys) != set(self.keys):
             self.codec.update(new_keys, [ch.data_type for ch in fetched])
-
+        self._names = {ch.key: ch.name for ch in fetched}
+        self._by_name = isinstance(normal, channel.NormalizedNameResult)
         if isinstance(normal, channel.NormalizedKeyResult):
-            self._adapter = None
             self.keys = list(normal.channels)
-            return
-
-        self._adapter = dict[int, str]()
-        for name in normal.channels:
-            ch = next((c for c in fetched if c.name == name), None)
-            if ch is None:
-                raise KeyError(f"Channel {name} not found.")
-            self._adapter[ch.key] = ch.name
-        self.keys = list(self._adapter.keys())
+        else:
+            keys_by_name = {name: key for key, name in self._names.items()}
+            for name in normal.channels:
+                if name not in keys_by_name:
+                    raise KeyError(f"Channel {name} not found.")
+            self.keys = [keys_by_name[name] for name in normal.channels]
+        self._rank = {}
+        for i, key in enumerate(self.keys):
+            self._rank[key] = i
+            if key in self._names:
+                self._rank[self._names[key]] = i
 
     def adapt(self, fr: Frame) -> Frame:
-        if self._adapter is None:
-            return fr
-
+        """Sorts the frame's series into the order of the requested channels and
+        records the channel names in the frame. When the channels were requested by
+        name, the frame is keyed by name.
+        """
         # The Core can send channels the client has not adapted yet, so purge them.
-        channels: list[channel.Key | str] = []
-        series: list[Series] = []
-        for k, s in fr.items():
-            name = k if isinstance(k, str) else self._adapter.get(k)
-            if name is not None:
-                channels.append(name)
-                series.append(s)
-        fr.channels = channels
-        fr.series = series
+        items = sorted(
+            ((k, s) for k, s in fr.items() if k in self._rank),
+            key=lambda item: self._rank[item[0]],
+        )
+        fr.channels = [
+            self._names[k] if self._by_name and isinstance(k, channel.Key) else k
+            for k, _ in items
+        ]
+        fr.series = [s for _, s in items]
+        fr.names.update(self._names)
         return fr
 
 

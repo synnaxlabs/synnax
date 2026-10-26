@@ -43,10 +43,14 @@ class Frame:
     """
     A frame is a collection of telemetry series mapped to particular channels. Frames
     can be keyed by channel name or channel key, but not both.
+
+    :ivar names: The names of channels in the frame, by channel key. Frames read from
+        the Core carry the names of the channels they read.
     """
 
     channels: list[channel.Key | str]
     series: list[Series] = Field(default_factory=list)
+    names: dict[channel.Key, str]
 
     @overload
     def __init__(
@@ -91,9 +95,11 @@ class Frame:
         ) = None,
         series: Sequence[TypedCrudeSeries] | None = None,
     ) -> None:
+        self.names = {}
         if isinstance(channels, Frame):
             self.channels = channels.channels
             self.series = channels.series
+            self.names = channels.names
         elif isinstance(channels, FramePayload):
             self.channels = list(channels.keys)
             self.series = channels.series
@@ -146,6 +152,7 @@ class Frame:
         if isinstance(col_or_frame, Frame):
             self.series.extend(col_or_frame.series)
             self.channels.extend(col_or_frame.channels)
+            self.names.update(col_or_frame.names)
         else:
             if series is None:
                 raise ValueError("series must be provided when appending a channel")
@@ -204,18 +211,18 @@ class Frame:
         return FramePayload(keys=keys, series=self.series)
 
     def to_df(self) -> DataFrame:
-        """Converts the frame to a pandas DataFrame. Each column in the DataFrame
-        corresponds to a channel in the frame.
+        """Converts the frame to a pandas DataFrame with one column per channel. The
+        columns are in the order the channels first appear in the frame. Each column
+        is the channel name, or the channel key when the frame does not know the name.
         """
         base: dict[channel.Key | str, object] = {}
-        for k in set(self.channels):
-            v = self.get(k)
-            if v is None:
-                continue
+        for k in dict.fromkeys(self.channels):
+            col = self.names.get(k, k) if isinstance(k, channel.Key) else k
+            v = self[k]
             try:
-                base[k] = v.__array__()
+                base[col] = v.__array__()
             except TypeError:
-                base[k] = list(v)
+                base[col] = list(v)
         return DataFrame(base)
 
     def __contains__(self, key: channel.Key | str) -> bool:
