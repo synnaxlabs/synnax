@@ -408,6 +408,29 @@ func (u *WriteField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// BaseWriteField returns the BaseWriteField of the active variant, or a zero
+// BaseWriteField when there is none.
+func (u WriteField) BaseWriteField() BaseWriteField {
+	switch v := u.Variant.(type) {
+	case StaticWriteField:
+		return v.BaseWriteField
+	case GeneratedWriteField:
+		return v.BaseWriteField
+	}
+	return BaseWriteField{}
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u WriteField) Type() WriteFieldType {
+	switch u.Variant.(type) {
+	case StaticWriteField:
+		return StaticWriteFieldType
+	case GeneratedWriteField:
+		return GeneratedWriteFieldType
+	}
+	return ""
+}
+
 // ApplyDefaults fills the active variant's zero-valued fields with their
 // schema-declared defaults.
 func (u *WriteField) ApplyDefaults() {

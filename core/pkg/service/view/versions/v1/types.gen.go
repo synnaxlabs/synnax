@@ -132,6 +132,28 @@ func (u *View) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// Base returns the Base of the active variant, or a zero Base when there is none.
+func (u View) Base() Base {
+	switch v := u.Variant.(type) {
+	case RangeView:
+		return v.Base
+	case StatusView:
+		return v.Base
+	}
+	return Base{}
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u View) Type() ViewType {
+	switch u.Variant.(type) {
+	case RangeView:
+		return RangeViewType
+	case StatusView:
+		return StatusViewType
+	}
+	return ""
+}
+
 // Validate returns an error wrapping validate.ErrValidation if the active variant
 // violates its schema constraints.
 func (u View) Validate() error {

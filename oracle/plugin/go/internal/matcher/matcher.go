@@ -14,6 +14,7 @@ package matcher
 import (
 	"strings"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/key"
 	plugindomain "github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
@@ -40,7 +41,9 @@ type Matcher struct {
 	Field resolution.Field
 	// Func is the name of the matcher function.
 	Func string
-	Kind Kind
+	// Access is the selector that reads the field from an entry, as Access returns it.
+	Access string
+	Kind   Kind
 }
 
 // List returns the matchers of typ in field order: one for each field with @filter or
@@ -48,7 +51,6 @@ type Matcher struct {
 // matches it.
 func List(typ resolution.Type, table *resolution.Table) ([]Matcher, error) {
 	bare := bareLines(typ, table)
-	_, isUnion := typ.Form.(resolution.UnionForm)
 	var out []Matcher
 	for _, f := range Fields(typ, table) {
 		filtered := plugindomain.HasDomainFromField(f, "filter")
@@ -65,17 +67,47 @@ func List(typ resolution.Type, table *resolution.Table) ([]Matcher, error) {
 		if !filtered && !bare.Contains(f.Name) {
 			continue
 		}
-		if isUnion {
+		access, ok := Access(typ, f, table)
+		if !ok {
 			return nil, errors.Newf(
-				"%s: a union entry holds field %s behind its variant, so no matcher "+
-					"can read it",
+				"%s: a variant drops field %s, so no matcher can read it",
 				typ.QualifiedName,
 				f.Name,
 			)
 		}
-		out = append(out, newMatcher(f, table))
+		m := newMatcher(f, table)
+		m.Access = access
+		out = append(out, m)
 	}
 	return out, nil
+}
+
+// Access returns the selector that reads field f from an entry of typ: Name on a
+// struct, and a generated method such as Base().Name or Type() on a union. It returns
+// false for a union field that no generated method reads.
+func Access(
+	typ resolution.Type,
+	f resolution.Field,
+	table *resolution.Table,
+) (string, bool) {
+	form, ok := typ.Form.(resolution.UnionForm)
+	if !ok {
+		return naming.GetFieldName(f), true
+	}
+	if f.Name == form.Discriminator {
+		method, ok := naming.UnionTagMethod(form)
+		return method + "()", ok
+	}
+	for _, b := range naming.UnionBases(form, table) {
+		base, _, ok := resolution.Dealias(b.Ref, table)
+		if ok && lo.ContainsBy(
+			resolution.UnifiedFields(base, table),
+			func(bf resolution.Field) bool { return bf.Name == f.Name },
+		) {
+			return b.Method + "()." + naming.GetFieldName(f), true
+		}
+	}
+	return "", false
 }
 
 // Fields returns the fields every record of typ holds.

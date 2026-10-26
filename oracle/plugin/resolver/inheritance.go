@@ -187,3 +187,19 @@ func VariantBases(
 	}
 	return inherited, declared
 }
+
+// SharedBases returns the bases of a union that every variant inherits whole, so each
+// variant holds the base under the base's own name.
+func SharedBases(
+	form resolution.UnionForm,
+	table *resolution.Table,
+) []resolution.TypeRef {
+	return lo.Filter(form.Extends, func(ext resolution.TypeRef, _ int) bool {
+		return lo.EveryBy(form.Variants, func(v resolution.UnionVariant) bool {
+			inherited, _ := VariantBases(form, v, table)
+			return lo.ContainsBy(inherited, func(r resolution.TypeRef) bool {
+				return r.Name == ext.Name
+			})
+		})
+	})
+}

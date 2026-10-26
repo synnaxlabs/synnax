@@ -3043,6 +3043,87 @@ var _ = Describe("Go Union Generation", func() {
 	)
 
 	It(
+		"Should generate a method for each shared base and for the tag",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			Base struct { name string }
+
+			View union on type extends Base {
+				first { size int32 }
+				second { count int32 }
+			}
+		`
+			resp := MustGenerate(ctx, source, "view", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain(
+					`// Base returns the Base of the active variant, or a zero Base when there is none.
+func (u View) Base() Base {
+	switch v := u.Variant.(type) {
+	case FirstView:
+		return v.Base
+	case SecondView:
+		return v.Base
+	}
+	return Base{}
+}`,
+					`// Type returns the type of the active variant, or an empty type when there is none.
+func (u View) Type() ViewType {
+	switch u.Variant.(type) {
+	case FirstView:
+		return FirstViewType
+	case SecondView:
+		return SecondViewType
+	}
+	return ""
+}`,
+				)
+		},
+	)
+
+	It(
+		"Should generate no method for a base that a variant drops a field from",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			Base struct {
+				name string
+				size int32
+			}
+
+			View union on type extends Base {
+				first { -size }
+			}
+		`
+			resp := MustGenerate(ctx, source, "view", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain("func (u View) Type() ViewType").
+				ToNotContain("func (u View) Base() Base")
+		},
+	)
+
+	It(
+		"Should generate no tag method that collides with the Variant field",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			Base struct { name string }
+
+			Config union on variant extends Base {
+				first { size int32 }
+			}
+		`
+			resp := MustGenerate(ctx, source, "view", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain("func (u Config) Base() Base").
+				ToNotContain("func (u Config) Variant()")
+		},
+	)
+
+	It(
 		"Should emit a single discriminator constant on one line",
 		func(ctx SpecContext) {
 			source := `
