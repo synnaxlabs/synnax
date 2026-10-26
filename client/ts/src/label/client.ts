@@ -22,9 +22,9 @@ import {
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
-  type Where,
 } from "@/label/types.gen";
-import { type Lines, matches, serverComputed } from "@/label/where.gen";
+import { createLines, forIDs } from "@/label/where";
+import { matches, serverComputed } from "@/label/where.gen";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 
@@ -63,13 +63,6 @@ export type RetrieveMultipleParams = RetrieveRequest;
 /** Params for a label retrieval, single or multiple. */
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
-/** @returns the resources that the for lines of where name. */
-const forIDs = (where: Where): ontology.ID[] => [
-  ...(where.for != null ? [where.for] : []),
-  ...[...(where.and ?? []), ...(where.or ?? [])].flatMap(forIDs),
-  ...(where.not != null ? forIDs(where.not) : []),
-];
-
 /** Config for {@link Client}. */
 export interface ClientConfig {
   unary: UnaryClient;
@@ -98,10 +91,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
       ],
     });
-    const lines: Lines = {
-      for: (l, id) =>
-        relationships.has(ontology.relationshipToString(labeledByRel(id, l.key))),
-    };
+    const lines = createLines((id, key) =>
+      relationships.has(ontology.relationshipToString(labeledByRel(id, key))),
+    );
     super(cache, {
       name: "label",
       table: store,
@@ -113,11 +105,13 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
         watch: [
           query.watch(relationships, (event, req: RetrieveRequest) => {
             if (req.where == null) return null;
+            const ids = forIDs(req.where);
+            if (ids.length === 0) return null;
             const rel =
               event.variant === "set"
                 ? event.value
                 : ontology.relationshipZ.parse(event.key);
-            if (!forIDs(req.where).some((id) => matchLabeledBy(rel, id))) return null;
+            if (!ids.some((id) => matchLabeledBy(rel, id))) return null;
             return [rel.to.key];
           }),
         ],
