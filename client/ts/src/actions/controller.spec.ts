@@ -11,7 +11,13 @@ import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import z from "zod";
 
-import { Controller, type Frame, type Reducer, type Send } from "@/actions/controller";
+import {
+  Controller,
+  type Frame,
+  type Reducer,
+  type Send,
+  type SendDispatch,
+} from "@/actions/controller";
 import { Table } from "@/query/table";
 
 interface Doc {
@@ -514,6 +520,42 @@ describe("actions.Controller", () => {
       controller.replay("k", undo2!.actions, { skipPreprocess: true });
       undo2!.commit();
       expect(docs.get("k")?.values.a).toBe(0);
+    });
+  });
+
+  describe("dispatch", () => {
+    it("sends a document's dispatches one at a time, in order", async () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const first = Promise.withResolvers<void>();
+      const sent: Action[][] = [];
+      const send = vi.fn<SendDispatch<Action>>(async (actions) => {
+        sent.push(actions);
+        if (sent.length === 1) await first.promise;
+      });
+      const one = controller.dispatch("k", [{ type: "set", key: "a", value: 1 }], send);
+      const two = controller.dispatch("k", [{ type: "set", key: "a", value: 2 }], send);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(send).toHaveBeenCalledTimes(1);
+      first.resolve();
+      expect(await Promise.all([one, two])).toEqual([true, true]);
+      expect(sent).toEqual([
+        [{ type: "set", key: "a", value: 1 }],
+        [{ type: "set", key: "a", value: 2 }],
+      ]);
+    });
+
+    it("sends the next dispatch after a failed one", async () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const send = vi.fn<SendDispatch<Action>>(async (actions) => {
+        if (send.mock.calls.length === 1) throw new Error("rejected");
+      });
+      const one = controller.dispatch("k", [{ type: "set", key: "a", value: 1 }], send);
+      const two = controller.dispatch("k", [{ type: "set", key: "a", value: 2 }], send);
+      await expect(one).rejects.toThrow("rejected");
+      expect(await two).toBe(true);
+      expect(send).toHaveBeenCalledTimes(2);
     });
   });
 

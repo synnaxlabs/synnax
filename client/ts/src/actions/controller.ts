@@ -220,6 +220,9 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   // order is the ground truth here; the wall clock ties within a millisecond
   // and steps on sleep/wake or NTP resync, so it cannot be trusted for this.
   private tick = 0;
+  // The Core applies dispatches in arrival order, so each document's sends go out one
+  // at a time.
+  private readonly sending = new Map<Key, Promise<void>>();
 
   constructor(opts: ControllerParams<Key, State, Action>) {
     this.params = {
@@ -251,6 +254,20 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     this.undos.delete(key);
     this.lastAppliedSeq.delete(key);
     this.outstandingDispatches.delete(key);
+  }
+
+  private async sendInOrder(key: Key, send: () => Promise<void>): Promise<void> {
+    const sent = (this.sending.get(key) ?? Promise.resolve()).then(send);
+    const settled = sent.then(
+      () => {},
+      () => {},
+    );
+    this.sending.set(key, settled);
+    try {
+      await sent;
+    } finally {
+      if (this.sending.get(key) === settled) this.sending.delete(key);
+    }
   }
 
   private updateUndo(
@@ -382,7 +399,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     const dispatchKey = id.create();
     this.registerOutstandingDispatch(key, dispatchKey);
     try {
-      await send(r.processed, dispatchKey);
+      await this.sendInOrder(key, async () => await send(r.processed, dispatchKey));
       return true;
     } catch (e) {
       stackRollback();
@@ -485,7 +502,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
           kind,
         );
         try {
-          await send(accumulated);
+          await this.sendInOrder(key, async () => await send(accumulated));
           return true;
         } catch (e) {
           stackRollback();
