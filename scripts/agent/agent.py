@@ -378,8 +378,8 @@ def main(argv: Sequence[str]) -> int:
             ],
         )
         head, cross = view.split()
-        if cross == "true" and opts.output != "report":
-            sys.exit(f"PR #{opts.pr} is from a fork: the agent cannot push to it")
+        if cross == "true":
+            sys.exit(f"PR #{opts.pr} is from a fork: the agent cannot run on it")
         r.run(["gh", "pr", "checkout", str(opts.pr)])
     elif opts.output == "pr":
         topic = opts.title or opts.prompt.splitlines()[0]
