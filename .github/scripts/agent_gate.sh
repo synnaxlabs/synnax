@@ -36,23 +36,23 @@ PULL=$(gh api "repos/${REPO}/pulls/${PR}")
 check() { jq -e "$@" <<< "$PULL" > /dev/null; }
 
 check '.state == "open"' || skip "the pull request is closed"
-check --arg repo "$REPO" '.head.repo.full_name == $repo' ||
-    skip "the pull request comes from a fork"
+check --arg repo "$REPO" '.head.repo.full_name == $repo' \
+    || skip "the pull request comes from a fork"
 if [ -n "$SHA" ]; then
     check --arg sha "$SHA" '.head.sha == $sha' || skip "the head moved"
 fi
 check --argjson agents "$AGENTS" \
-    '(.user.login | IN($agents[])) or any(.labels[]; .name == "agent/autofix")' ||
-    skip "an agent did not open the pull request"
+    '(.user.login | IN($agents[])) or any(.labels[]; .name == "agent/autofix")' \
+    || skip "an agent did not open the pull request"
 if check 'any(.labels[]; .name == "agent/needs-human")'; then
     skip "the pull request waits for a person"
 fi
 
-SINCE=$(gh api "repos/${REPO}/issues/${PR}/events?per_page=100" --paginate |
-    jq -rs '[add[] | select(.event == "unlabeled"
+SINCE=$(gh api "repos/${REPO}/issues/${PR}/events?per_page=100" --paginate \
+    | jq -rs '[add[] | select(.event == "unlabeled"
         and .label.name == "agent/needs-human") | .created_at] | max // ""')
-ATTEMPTS=$(gh api "repos/${REPO}/issues/${PR}/comments?per_page=100" --paginate |
-    jq -s --arg marker "<!-- agent:${KIND} -->" --arg since "$SINCE" \
+ATTEMPTS=$(gh api "repos/${REPO}/issues/${PR}/comments?per_page=100" --paginate \
+    | jq -s --arg marker "<!-- agent:${KIND} -->" --arg since "$SINCE" \
         '[add[] | select(.user.login == "github-actions[bot]"
             and (.body | contains($marker)) and .created_at > $since)] | length')
 
