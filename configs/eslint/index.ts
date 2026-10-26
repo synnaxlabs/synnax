@@ -68,11 +68,18 @@ const COMPILER_RULES: Linter.RulesRecord = {
   "synnax/named-hook-values": "error",
 };
 
+const NAMESPACE_IMPORT = {
+  selector: "ImportDeclaration[source.value=/^(@\\/|\\.)/] > ImportNamespaceSpecifier",
+  message:
+    "Import a local module's namespace from its barrel, which forms it with `export * as`.",
+};
+
 const RESTRICTED_SYNTAX = [
   {
     selector: "JSXAttribute > JSXExpressionContainer > Literal.expression[value=true]",
     message: "Write a true boolean attribute without a value.",
   },
+  NAMESPACE_IMPORT,
 ];
 
 const MEMO_MESSAGE =
@@ -285,6 +292,16 @@ const config: Linter.Config[] = [
         typescript: {}, // this loads <rootdir>/tsconfig.json to eslint
         node: { extensions: [".js", ".jsx", ".ts", ".tsx"] },
       },
+    },
+  },
+  {
+    // Oracle imports one generated module into another as a namespace.
+    files: ["**/*.gen.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        ...RESTRICTED_SYNTAX.filter((r) => r !== NAMESPACE_IMPORT),
+      ],
     },
   },
   {
