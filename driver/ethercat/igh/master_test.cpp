@@ -303,7 +303,11 @@ TEST_F(IGHMasterTest, ActivateRegistersTheEntriesAStartupParameterAssigns) {
     EXPECT_EQ(inputs[0].index, 0x6010);
     EXPECT_EQ(inputs[0].bit_length, 32);
     ASSERT_NIL_P(this->master_instance->pdo_offset(
-        {.slave_position = 0, .index = 0x6010, .sub_index = 0x01, .is_input = true}
+        {.slave_position = 0,
+         .index = 0x6010,
+         .sub_index = 0x01,
+         .bit_length = 32,
+         .is_input = true}
     ));
 }
 

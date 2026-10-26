@@ -61,7 +61,7 @@ export interface Draw2DContainerProps {
   backgroundColor?: ColorSpec;
 }
 
-export interface DrawTextProps extends FillTextOptions {
+export interface DrawTextProps extends Pick<FillTextOptions, "useAtlas"> {
   text: string;
   position: xy.XY;
   level: text.Level;

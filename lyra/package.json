@@ -186,6 +186,10 @@
       "types": "./dist/note/index.d.ts",
       "default": "./dist/note/index.js"
     },
+    "./pane": {
+      "types": "./dist/pane/index.d.ts",
+      "default": "./dist/pane/index.js"
+    },
     "./portal": {
       "types": "./dist/portal/index.d.ts",
       "default": "./dist/portal/index.js"
@@ -217,6 +221,10 @@
     "./status": {
       "types": "./dist/status/index.d.ts",
       "default": "./dist/status/index.js"
+    },
+    "./steps": {
+      "types": "./dist/steps/index.d.ts",
+      "default": "./dist/steps/index.js"
     },
     "./store": {
       "types": "./dist/store/index.d.ts",

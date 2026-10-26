@@ -163,7 +163,8 @@ private:
 
     /// @brief takes one recovery step for a slave that is not in OP, following the SOEM
     /// ecatcheck sample: acknowledge an error, request OP, reconfigure, or restore a
-    /// slave that lost power.
+    /// slave that lost power. Takes no step for a slave that rejected a startup
+    /// parameter, so it stays in PRE-OP until the next activation.
     void recover(uint16_t pos);
 
     /// @brief builds the error for enabled slaves that did not reach a state.

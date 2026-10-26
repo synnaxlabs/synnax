@@ -125,6 +125,31 @@ export const useScaleResize = (
   };
 };
 
+const INLINE_RESIZE_HANDLES: ControlLinePosition[] = ["left", "right"];
+const MIN_INLINE_SIZE = 40;
+
+// useInlineResize returns Grid resize props that change a symbol's inline size by the
+// change in dragged width, so parts outside the inline size keep their own width.
+export const useInlineResize = (
+  inlineSize: number,
+  onChange: (inlineSize: number) => void,
+): Pick<GridProps, "resizeHandles" | "onResizeStart" | "onResize"> => {
+  const start = useRef({ width: 0, inlineSize });
+  return {
+    resizeHandles: INLINE_RESIZE_HANDLES,
+    onResizeStart: ({ width }) => {
+      start.current = { width, inlineSize };
+    },
+    onResize: ({ width }) =>
+      onChange(
+        Math.max(
+          MIN_INLINE_SIZE,
+          start.current.inlineSize + width - start.current.width,
+        ),
+      ),
+  };
+};
+
 const HAUL_TYPE = "schematic_grid";
 export const DRAG_HANDLE_CLASS = CSS.B("drag-handle");
 

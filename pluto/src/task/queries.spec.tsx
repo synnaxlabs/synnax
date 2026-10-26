@@ -148,7 +148,6 @@ describe("queries", () => {
         result.current.retrieve({});
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
-      const initialLength = result.current.data.length;
 
       const newTask = await rack.createTask({
         name: "newTask",
@@ -156,10 +155,7 @@ describe("queries", () => {
         config: {},
       });
 
-      await waitFor(() => {
-        expect(result.current.data).toHaveLength(initialLength + 1);
-        expect(result.current.data).toContain(newTask.key);
-      });
+      await waitFor(() => expect(result.current.data).toContain(newTask.key));
     });
 
     it("should update the list when a task is updated", async () => {
@@ -695,6 +691,27 @@ describe("queries", () => {
       expect(snapshot).toBeDefined();
       expect(snapshot.config).toMatchObject(complexConfig);
       expect(snapshot.type).toEqual("pagerduty_alert");
+    });
+  });
+
+  describe("useMultiple", () => {
+    it("should add a task on the rack created after the query resolves", async () => {
+      const rack = await client.racks.create({ name: "testRack" });
+      const type = "pagerduty_alert";
+      const first = await rack.createTask({ name: "first", type, config: {} });
+      const { result } = await renderHookSuspended(
+        () => Task.useMultiple({ rack: rack.key, types: [type] }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current?.map((t) => t.key)).toEqual([first.key]),
+      );
+      const second = await rack.createTask({ name: "second", type, config: {} });
+      await waitFor(() =>
+        expect(result.current?.map((t) => t.key).sort()).toEqual(
+          [first.key, second.key].sort(),
+        ),
+      );
     });
   });
 

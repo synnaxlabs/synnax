@@ -367,6 +367,10 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
 }
 
 void Master::recover(const uint16_t pos) {
+    {
+        std::lock_guard lock(this->mu);
+        if (this->startup_failures.contains(pos)) return;
+    }
     const uint16_t state = this->api->slave_state(pos);
     if (state == EC_STATE_SAFE_OP + EC_STATE_ERROR) {
         this->api->set_slave_state(pos, EC_STATE_SAFE_OP + EC_STATE_ACK);

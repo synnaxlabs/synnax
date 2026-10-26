@@ -10,17 +10,17 @@
 import "@/feature/modbus/device/Connect.css";
 
 import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/lyra/button";
-import { Component } from "@synnaxlabs/lyra/component";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
-import { Nav } from "@synnaxlabs/lyra/nav";
-import { Status } from "@synnaxlabs/lyra/status";
-import { Device as PDevice, type Flux, Rack } from "@synnaxlabs/pluto";
+import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
 
-import { type Device, SCHEMAS, ZERO_PROPERTIES } from "@/feature/modbus/device/types";
+import {
+  type Device,
+  INTEGRATION,
+  SCHEMAS,
+  ZERO_PROPERTIES,
+} from "@/feature/modbus/device/types";
 import {
   SCAN_SCHEMAS,
   SCAN_TYPE,
@@ -28,9 +28,7 @@ import {
 } from "@/feature/modbus/task/types";
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
-import { type Device as PlatformDevice } from "@/platform/device";
-import { Modals } from "@/platform/modals";
-import { Triggers } from "@/platform/triggers";
+import { Device as PlatformDevice } from "@/platform/device";
 
 const TEST_CONNECTION_TIMEOUT = TimeSpan.seconds(10);
 
@@ -40,7 +38,10 @@ const INITIAL_VALUES: Device = {
   make: "Modbus",
   model: "Modbus",
   location: "",
-  properties: ZERO_PROPERTIES,
+  properties: {
+    ...ZERO_PROPERTIES,
+    connection: { ...ZERO_PROPERTIES.connection, port: 502 },
+  },
   rack: 0,
   configured: true,
 };
@@ -94,10 +95,12 @@ const beforeSave = async ({
   return true;
 };
 
-const Connect = ({
+export const Connect = ({
   deviceKey,
+  rack: defaultRack,
   close,
-}: Modals.ContentProps<PlatformDevice.ConnectParams, void>) => {
+  onBack,
+}: PlatformDevice.ConnectProps) => {
   const { capture } = Analytics.use();
   const {
     form,
@@ -106,85 +109,87 @@ const Connect = ({
     variant,
   } = useForm({
     query: deviceKey == null ? null : { key: deviceKey },
+    initialValues: { ...INITIAL_VALUES, rack: defaultRack ?? 0 },
     beforeValidate,
     beforeSave,
-    afterSave: () => {
+    afterSave: ({ get }) => {
       if (deviceKey == null) capture("device_connected", { integration: "modbus" });
-      close();
+      close(get<device.Key>("key").value);
     },
+  });
+  const rackKey = Form.useFieldValue<
+    rack.Key,
+    rack.Key,
+    PDevice.FormSchema<typeof SCHEMAS>
+  >("rack", { ctx: form });
+  const reason = PlatformDevice.useBlockedReason({
+    integration: INTEGRATION,
+    name: "Modbus",
+    rack: rackKey,
   });
 
   return (
     <Modal.Frame className={CSS.B("modbus-connect")}>
-      <Modal.Header icon={<Icon.Logo.Modbus />}>Server.Connect</Modal.Header>
-      <Flex.Box className={CSS.B("content")} grow size="small">
+      <Modal.Header icon={<Icon.Logo.Modbus />}>{HEADER}</Modal.Header>
+      <Modal.Body gap="large">
         <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
-          <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
-          <Form.Field<rack.Key> path="rack" label="Connect from" required>
-            {selectRackRenderProp}
-          </Form.Field>
-          <Flex.Box x justify="between">
-            <Form.TextField
-              grow
-              path="properties.connection.host"
-              inputProps={HOST_INPUT_PROPS}
-            />
-            <Form.NumericField
-              path="properties.connection.port"
-              inputProps={PORT_INPUT_PROPS}
-            />
-          </Flex.Box>
-          <Flex.Box x justify="start">
-            <Form.SwitchField
-              path="properties.connection.swapBytes"
-              label="Swap bytes"
-            />
-            <Form.SwitchField
-              path="properties.connection.swapWords"
-              label="Swap words"
-            />
-          </Flex.Box>
+          <Form.TextField path="name" showLabel={false} inputProps={NAME_INPUT_PROPS} />
+          <Form.Sections>
+            <Form.Section title="Connection">
+              <Form.TextField
+                path="properties.connection.host"
+                label="Host"
+                padHelpText={false}
+                inputProps={HOST_INPUT_PROPS}
+              />
+              <Form.NumericField
+                path="properties.connection.port"
+                label="Port"
+                padHelpText={false}
+                inputProps={PORT_INPUT_PROPS}
+              />
+              <PlatformDevice.RackField integration={INTEGRATION} />
+            </Form.Section>
+            <Form.Section title="Byte order">
+              <Form.SwitchField
+                path="properties.connection.swapBytes"
+                label="Swap bytes"
+                padHelpText={false}
+              />
+              <Form.SwitchField
+                path="properties.connection.swapWords"
+                label="Swap words"
+                padHelpText={false}
+              />
+            </Form.Section>
+          </Form.Sections>
         </Form.Form>
-      </Flex.Box>
-      <Modal.Footer>
-        <Nav.Bar.Start gap="small">
-          {variant == "success" ? (
-            <Triggers.SaveHelpText action="Connect" noBar />
-          ) : (
-            <Status.Summary variant={variant} message={stat.description} />
-          )}
-        </Nav.Bar.Start>
-        <Nav.Bar.End>
-          <Button.Button
-            status={status.keepVariants(variant, "loading")}
-            onClick={() => save()}
-            variant="filled"
-            trigger={Triggers.SAVE}
-          >
-            Connect
-          </Button.Button>
-        </Nav.Bar.End>
-      </Modal.Footer>
+      </Modal.Body>
+      <PlatformDevice.ConnectFooter
+        reason={reason}
+        variant={variant}
+        message={stat.description}
+        onConnect={() => save()}
+        onBack={onBack}
+      />
     </Modal.Frame>
   );
 };
 
-export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(Connect);
+export const useConnectModal = PlatformDevice.createConnectModal(Connect, INTEGRATION);
 
-const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "modbus" };
-
-const selectRackRenderProp = Component.renderProp(
-  (props: Pick<Rack.SelectSingleProps, "value" | "onChange">) => (
-    <Rack.SelectSingle {...props} initialQuery={INITIAL_RACK_QUERY} />
-  ),
-);
+const HEADER = ["Device", "Connect", "Modbus TCP server"];
 
 const NAME_INPUT_PROPS = {
   level: "h2",
   variant: "text",
   placeholder: "Modbus server",
+  "aria-label": "Name",
 } as const;
 
 const HOST_INPUT_PROPS = { autoFocus: true, placeholder: "localhost" } as const;
 
-const PORT_INPUT_PROPS = { placeholder: "502" } as const;
+const PORT_INPUT_PROPS = {
+  bounds: { lower: 1, upper: 65535 },
+  style: { width: "23rem" },
+} as const;

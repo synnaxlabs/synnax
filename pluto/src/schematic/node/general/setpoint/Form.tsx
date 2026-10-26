@@ -19,6 +19,7 @@ import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { type ColorFallbacks, type FormProps } from "@/schematic/node/spec";
 import { Properties } from "@/vis/properties";
+import { Staleness } from "@/vis/staleness";
 
 export const colorFallbacks = {
   fillColor: Form.primaryFallback,
@@ -40,6 +41,7 @@ const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
 
   return (
     <Base.Sections x>
+      <Form.StateSection />
       <Base.Section title="Command">
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
@@ -50,6 +52,9 @@ const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
         </Input.Item>
         <Form.ActivationDelayField />
         <Form.ControlChipField />
+      </Base.Section>
+      <Base.Section title="Staleness">
+        <Staleness.Fields />
       </Base.Section>
     </Base.Sections>
   );
@@ -65,6 +70,12 @@ export const SetpointForm = ({ tab, onTabChange }: FormProps): ReactElement => (
         <Base.Section title="Appearance">
           <Form.FillField fallback={colorFallbacks.fillColor} />
           <Form.SizeField />
+          <Base.NumericField
+            path="inlineSize"
+            label="Width"
+            padHelpText={false}
+            inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
+          />
           <Form.UnitsField />
         </Base.Section>
         <Orientation.Section path="" hideInner />
