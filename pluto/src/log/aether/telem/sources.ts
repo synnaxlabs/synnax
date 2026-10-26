@@ -157,7 +157,7 @@ export class StreamMultiChannelLog
     this.status = worst;
     this.failures.observe(worst);
     this._evictedCount = this.gcEntries();
-    if (pushed > 0) this.notify();
+    if (pushed > 0 || this._evictedCount > 0) this.notify();
   }
 
   // Appends the samples after the key's cursor. Series only leave the front of a loaded

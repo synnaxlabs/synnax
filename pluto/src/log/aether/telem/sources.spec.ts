@@ -376,6 +376,24 @@ describe("StreamMultiChannelLog", () => {
       expect(evicted).toEqual([0, HISTORY, 0]);
     });
 
+    it("should report the entries a pull evicts while it adds none", async () => {
+      const core = createCore();
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), {
+        channels: [a],
+        keepFor: TimeSpan.seconds(2),
+      });
+      const evicted = recordEvictions(log);
+      await settle(log, HISTORY);
+      core.advance(TimeSpan.seconds(1));
+      await settle(log, HISTORY + 10);
+      core.advance(TimeSpan.seconds(2), false);
+      // A stream drop changes only the status, so the pull it causes adds no entries.
+      core.disconnect();
+      await settle(log, 10);
+      expect(evicted.reduce((sum, n) => sum + n, 0)).toBe(HISTORY);
+    });
+
     it("should evict past maxEntries, never leaving a continuation first", async () => {
       const core = createCore({ text: () => "a\nb\nc" });
       const [a] = core.data.map((c) => c.key);
