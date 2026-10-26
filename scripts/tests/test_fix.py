@@ -88,6 +88,38 @@ class TestFix:
         assert "unstaged changes" in result.stderr
         assert "Copyright" not in repo.git("show", ":a.sh")
 
+    def test_rejects_staged_files_fixed_only_on_disk(self, repo: Repo) -> None:
+        repo.write("a.sh", "echo a\n")
+        repo.git("add", "a.sh")
+        assert repo.fix().returncode == 0
+        result = repo.fix("--staged")
+        assert result.returncode == 1
+        assert "a.sh" in result.stderr
+        assert "Copyright" not in repo.git("show", ":a.sh")
+
+    def test_rejects_partially_staged_files_with_quoted_names(self, repo: Repo) -> None:
+        repo.write("é.sh", "echo a\n")
+        repo.git("add", "é.sh")
+        repo.write("é.sh", "echo a\necho b\n")
+        result = repo.fix("--staged")
+        assert result.returncode == 1
+        assert "echo b" not in repo.git("show", ":é.sh")
+
+    def test_resolves_paths_against_the_caller_directory(self, repo: Repo) -> None:
+        (repo.path / "sub").mkdir()
+        repo.write("sub/a.sh", "echo a\n")
+        repo.write("a.sh", "echo a\n")
+        result = subprocess.run(
+            ["bash", "../scripts/fix.sh", "a.sh"],
+            cwd=repo.path / "sub",
+            env=repo.env,
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        assert repo.header("sub/a.sh")
+        assert not repo.header("a.sh")
+
     def test_ignores_unstaged_files(self, repo: Repo) -> None:
         repo.write("a.sh", "echo a\n")
         assert repo.fix("--staged").returncode == 0

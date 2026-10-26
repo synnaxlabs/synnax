@@ -16,11 +16,12 @@
 #   scripts/fix.sh --staged   staged files, then stages the fixes again
 #   scripts/fix.sh <file...>  the files given
 #
-# A missing formatter is skipped with a warning. With --staged, the script fails when it
-# changes a file that also has unstaged changes, because it cannot stage only the fix.
+# A missing formatter is skipped with a warning. With --staged, the script fails on a
+# staged file that also has unstaged changes, because it cannot check the staged copy.
 
 set -euo pipefail
 
+PREFIX=$(git rev-parse --show-prefix)
 cd "$(git rev-parse --show-toplevel)"
 
 FILES=()
@@ -37,6 +38,7 @@ if [ "${1:-}" = "--staged" ]; then
     add_files < <(git diff --cached --name-only --diff-filter=ACMR -z)
 elif [ $# -gt 0 ]; then
     for f in "$@"; do
+        case "$f" in /*) ;; *) f="$PREFIX$f" ;; esac
         [ -f "$f" ] && FILES+=("$f")
     done
 else
@@ -61,7 +63,12 @@ for f in "${FILES[@]}"; do
 done
 
 BEFORE=$(git hash-object -- "${FILES[@]}")
-UNSTAGED=$(git diff --name-only)
+PARTIAL=()
+if [ "$STAGED" = "1" ]; then
+    for f in "${FILES[@]}"; do
+        git diff --quiet -- "$f" || PARTIAL+=("$f")
+    done
+fi
 
 skip() {
     echo "fix.sh: $1 not found, so $2 files are not formatted." >&2
@@ -104,7 +111,6 @@ fi
 
 AFTER=$(git hash-object -- "${FILES[@]}")
 
-PARTIAL=()
 i=0
 while IFS=$'\t' read -r before after; do
     f="${FILES[i]}"
@@ -112,15 +118,14 @@ while IFS=$'\t' read -r before after; do
     [ "$before" = "$after" ] && continue
     echo "fix.sh: fixed $f"
     [ "$STAGED" = "1" ] || continue
-    if grep -qxF -- "$f" <<< "$UNSTAGED"; then
-        PARTIAL+=("$f")
-    else
-        git add -- "$f"
-    fi
+    for p in ${PARTIAL[@]+"${PARTIAL[@]}"}; do
+        [ "$p" = "$f" ] && continue 2
+    done
+    git add -- "$f"
 done < <(paste <(echo "$BEFORE") <(echo "$AFTER"))
 
 if [ ${#PARTIAL[@]} -gt 0 ]; then
-    echo "fix.sh: these files have unstaged changes. Stage the fixes, then commit:" >&2
+    echo "fix.sh: these files have unstaged changes. Stage them, then commit:" >&2
     printf '  %s\n' "${PARTIAL[@]}" >&2
     exit 1
 fi
