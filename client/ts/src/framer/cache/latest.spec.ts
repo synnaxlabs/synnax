@@ -319,7 +319,7 @@ describe("Latest", () => {
     const core = createCore(true);
     const { open, close } = createLatest(core);
     const key = core.virtual!.key;
-    // A buffer of 10,000 text samples is 400 KB, which a few entries leave nearly empty.
+    // 10,000 text samples make a 400 KB buffer, which a few entries leave nearly empty.
     const latest = open(10_000, undefined, key);
     const entry = (i: number): Series =>
       new Series({

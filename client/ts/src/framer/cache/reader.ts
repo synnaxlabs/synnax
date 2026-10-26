@@ -377,8 +377,8 @@ const newestBlock = (timestamps: Series[]): number => {
   return rawIndex(new TimeStamp(last.data[last.length - 1]));
 };
 
-// Returns the end of the span of the channel's newest sample in the parts, or start when
-// they hold none.
+// Returns the end of the span of the newest sample in the parts, or start when there is
+// none.
 const newestEnd = (parts: Part[], start: TimeStamp): TimeStamp => {
   const part = parts.findLast((p) => p.series.length > 0);
   if (part == null) return start;

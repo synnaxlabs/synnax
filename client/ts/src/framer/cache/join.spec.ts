@@ -170,7 +170,7 @@ describe("Joins", () => {
       expect(store.raw(INDEX, BLOCK).coveredEnd).toEqual(claimed);
     });
 
-    it("should place streamed samples a data read missed that its index read held", () => {
+    it("should place samples the data read missed and the index read held", () => {
       const { store, joins } = createJoins();
       store
         .raw(INDEX, BLOCK)
@@ -198,7 +198,7 @@ describe("Joins", () => {
       expect(store.leadingBuffer(DATA)?.alignment).toBe(alignmentOf(BLOCK, 4));
     });
 
-    it("should give fresh samples the offsets after the newest sample a block holds", () => {
+    it("should give fresh samples the offsets after a block's newest sample", () => {
       const { store, joins } = createJoins();
       // The read holds samples 5 and 6 past its coverage, which ends at sample 4.
       store
