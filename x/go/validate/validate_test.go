@@ -125,23 +125,23 @@ var _ = Describe("Validate", func() {
 
 				It("Should reject values at upper bound (exclusive)", func() {
 					Expect(v.InBounds("field", 10, 1, 10)).To(BeTrue())
-					Expect(
-						v.Error(),
-					).To(MatchError(ContainSubstring("field: must be in bounds [1, 10)")))
+					Expect(v.Error()).To(MatchError(
+						ContainSubstring("field: must be in bounds [1, 10)"),
+					))
 				})
 
 				It("Should reject values below lower bound", func() {
 					Expect(v.InBounds("field", 0, 1, 10)).To(BeTrue())
-					Expect(
-						v.Error(),
-					).To(MatchError(ContainSubstring("field: must be in bounds [1, 10)")))
+					Expect(v.Error()).To(MatchError(
+						ContainSubstring("field: must be in bounds [1, 10)"),
+					))
 				})
 
 				It("Should reject values above upper bound", func() {
 					Expect(v.InBounds("field", 11, 1, 10)).To(BeTrue())
-					Expect(
-						v.Error(),
-					).To(MatchError(ContainSubstring("field: must be in bounds [1, 10)")))
+					Expect(v.Error()).To(MatchError(
+						ContainSubstring("field: must be in bounds [1, 10)"),
+					))
 				})
 
 				It("Should work with float values", func() {
