@@ -105,7 +105,7 @@ var _ = Describe("Retrieve", func() {
 		res := MustSucceed(apiSvc.Retrieve(
 			AuthedCtx(ctx, u),
 			apidevice.RetrieveRequest{
-				Where: &apidevice.Where{Key: &filter.Set[device.Key]{
+				Where: &device.Where{Key: &filter.Set[device.Key]{
 					In: []device.Key{withoutStatus.Key, withStatus.Key},
 				}},
 				IncludeStatus: true,
@@ -125,7 +125,7 @@ var _ = Describe("Retrieve", func() {
 		res := MustSucceed(apiSvc.Retrieve(
 			AuthedCtx(ctx, u),
 			apidevice.RetrieveRequest{
-				Where: &apidevice.Where{Key: &filter.Set[device.Key]{
+				Where: &device.Where{Key: &filter.Set[device.Key]{
 					In: []device.Key{d.Key, "missing_device"},
 				}},
 			},
@@ -137,7 +137,7 @@ var _ = Describe("Retrieve", func() {
 	It("Should return a path error for an invalid regex", func(ctx SpecContext) {
 		u := createUser(ctx)
 		Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), apidevice.RetrieveRequest{
-			Where: &apidevice.Where{Make: &filter.String{Regex: new("(a")}},
+			Where: &device.Where{Make: &filter.String{Regex: new("(a")}},
 		})).Error().To(SatisfyAll(
 			BeAssignableToTypeOf(validate.PathError{}),
 			MatchError(

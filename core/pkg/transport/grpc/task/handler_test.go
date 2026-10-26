@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	svctask "github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -28,12 +29,12 @@ var _ = Describe("gRPC Task Translators", func() {
 		t := retrieveRequestTranslator{}
 		It("Should round-trip a filter tree", func(ctx SpecContext) {
 			msg := task.RetrieveRequest{
-				Where: &task.Where{
-					Or: []task.Where{
+				Where: &svctask.Where{
+					Or: []svctask.Where{
 						{Key: &filter.Set[uuid.UUID]{In: []uuid.UUID{uuid.New()}}},
 						{Type: &filter.String{Eq: new("ni_analog_read")}},
 					},
-					Not: &task.Where{
+					Not: &svctask.Where{
 						Rack: &filter.Set[rack.Key]{Eq: new(rack.Key(1))},
 					},
 					Name:     &filter.String{Regex: new("^PT")},

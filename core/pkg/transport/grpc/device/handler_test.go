@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/api/device"
+	svcdevice "github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
@@ -26,12 +27,12 @@ var _ = Describe("gRPC Device Translators", func() {
 		t := retrieveRequestTranslator{}
 		It("Should round-trip a filter tree", func(ctx SpecContext) {
 			msg := device.RetrieveRequest{
-				Where: &device.Where{
-					Or: []device.Where{
+				Where: &svcdevice.Where{
+					Or: []svcdevice.Where{
 						{Key: &filter.Set[string]{In: []string{"dev1"}}},
 						{Make: &filter.String{Eq: new("NI")}},
 					},
-					Not: &device.Where{
+					Not: &svcdevice.Where{
 						Rack: &filter.Set[rack.Key]{In: []rack.Key{1}},
 					},
 					Name: &filter.String{Regex: new("^PT")},

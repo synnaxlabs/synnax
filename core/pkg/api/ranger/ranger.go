@@ -32,8 +32,6 @@ type (
 	Key = ranger.Key
 	// Range is a user-defined region of time.
 	Range = ranger.Range
-	// Where is a filter that selects ranges.
-	Where = ranger.Where
 )
 
 func rangeAccessOntologyIDs(ranges []Range) []ontology.ID {

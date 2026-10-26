@@ -130,7 +130,7 @@ var _ = Describe("Service", func() {
 					AuthedCtx(ctx, author),
 					apichannel.AliasedRetrieveRequest{
 						Request: apichannel.RetrieveRequest{
-							Where: &apichannel.Where{
+							Where: &channel.Where{
 								Key: &filter.Set[channel.Key]{In: keys},
 							},
 							IncludeStatus: true,
@@ -171,7 +171,7 @@ var _ = Describe("Service", func() {
 				term    string
 				byName  channel.Channel
 				byAlias channel.Channel
-				both    *apichannel.Where
+				both    *channel.Where
 			)
 			BeforeEach(func(ctx SpecContext) {
 				grantOn(
@@ -195,7 +195,7 @@ var _ = Describe("Service", func() {
 				Expect(aliasSvc.NewWriter(nil).Set(
 					ctx, rng.Key, byAlias.Key(), term+" inlet",
 				)).To(Succeed())
-				both = &apichannel.Where{Key: &filter.Set[channel.Key]{
+				both = &channel.Where{Key: &filter.Set[channel.Key]{
 					In: []channel.Key{byName.Key(), byAlias.Key()},
 				}}
 			})
@@ -280,7 +280,7 @@ var _ = Describe("Service", func() {
 			res := MustSucceed(apiSvc.Retrieve(
 				AuthedCtx(ctx, author),
 				apichannel.AliasedRetrieveRequest{Request: apichannel.RetrieveRequest{
-					Where: &apichannel.Where{
+					Where: &channel.Where{
 						Key: &filter.Set[channel.Key]{
 							In: []channel.Key{ch.Key(), 999999},
 						},
@@ -295,7 +295,7 @@ var _ = Describe("Service", func() {
 			Expect(apiSvc.Retrieve(
 				AuthedCtx(ctx, author),
 				apichannel.AliasedRetrieveRequest{Request: apichannel.RetrieveRequest{
-					Where: &apichannel.Where{Name: &filter.String{Regex: new("(a")}},
+					Where: &channel.Where{Name: &filter.String{Regex: new("(a")}},
 				}},
 			)).Error().To(SatisfyAll(
 				BeAssignableToTypeOf(validate.PathError{}),

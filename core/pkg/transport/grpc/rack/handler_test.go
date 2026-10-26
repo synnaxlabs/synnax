@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/api/rack"
+	svcrack "github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -25,12 +26,12 @@ var _ = Describe("gRPC Rack Translators", func() {
 		t := retrieveRequestTranslator{}
 		It("Should round-trip a filter tree", func(ctx SpecContext) {
 			msg := rack.RetrieveRequest{
-				Where: &rack.Where{
-					Or: []rack.Where{
+				Where: &svcrack.Where{
+					Or: []svcrack.Where{
 						{Key: &filter.Set[rack.Key]{In: []rack.Key{65537}}},
 						{Integrations: &filter.Contains[string]{Any: []string{"ni"}}},
 					},
-					Not:        &rack.Where{Embedded: &filter.Bool{Eq: new(true)}},
+					Not:        &svcrack.Where{Embedded: &filter.Bool{Eq: new(true)}},
 					HostIsNode: new(false),
 				},
 				Limit:         new(uint32(10)),

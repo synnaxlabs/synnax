@@ -113,10 +113,6 @@ func (s *Service) Create(
 	return CreateResponse(req), nil
 }
 
-type (
-	Where = task.Where
-)
-
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,

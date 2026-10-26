@@ -105,7 +105,7 @@ var _ = Describe("Retrieve", func() {
 			withStatus.OntologyID(), withoutStatus.OntologyID(),
 		)
 		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
-			Where: &apitask.Where{Key: &filter.Set[task.Key]{
+			Where: &task.Where{Key: &filter.Set[task.Key]{
 				In: []task.Key{withoutStatus.Key, withStatus.Key},
 			}},
 			IncludeStatus: true,
@@ -122,7 +122,7 @@ var _ = Describe("Retrieve", func() {
 		t := createTask(ctx)
 		grant(ctx, access.ActionRetrieve, u.OntologyID(), t.OntologyID())
 		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
-			Where: &apitask.Where{Key: &filter.Set[task.Key]{
+			Where: &task.Where{Key: &filter.Set[task.Key]{
 				In: []task.Key{t.Key, uuid.New()},
 			}},
 		}))
@@ -155,7 +155,7 @@ var _ = Describe("Retrieve", func() {
 	It("Should return a path error for an invalid regex", func(ctx SpecContext) {
 		u := createUser(ctx)
 		Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
-			Where: &apitask.Where{Type: &filter.String{Regex: new("(a")}},
+			Where: &task.Where{Type: &filter.String{Regex: new("(a")}},
 		})).Error().To(SatisfyAll(
 			BeAssignableToTypeOf(validate.PathError{}),
 			MatchError(

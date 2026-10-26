@@ -26,14 +26,14 @@ var _ = Describe("gRPC Status Translators", func() {
 		t := retrieveRequestTranslator{}
 		It("Should round-trip a filter tree", func(ctx SpecContext) {
 			msg := status.RetrieveRequest{
-				Where: &status.Where{
-					Or: []status.Where{
+				Where: &svcstatus.Where{
+					Or: []svcstatus.Where{
 						{
 							Key: &filter.Set[svcstatus.Key]{
 								In: []svcstatus.Key{"a", "b"},
 							},
 						},
-						{Not: &status.Where{Variant: &filter.Set[svcstatus.Variant]{
+						{Not: &svcstatus.Where{Variant: &filter.Set[svcstatus.Variant]{
 							Eq: new(svcstatus.VariantError),
 						}}},
 					},
