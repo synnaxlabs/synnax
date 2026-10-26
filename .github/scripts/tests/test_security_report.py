@@ -244,6 +244,8 @@ class TestAgents:
         jobs = {
             "authn": {"result": "success", "outputs": {"report": armor}},
             "tls": {"result": "failure", "outputs": {}},
+            # A report gpg cannot decrypt, as after a key rotation.
+            "ci": {"result": "success", "outputs": {"report": "not a message"}},
         }
         monkeypatch.setenv("AGENT_REPORTS", json.dumps(jobs))
         monkeypatch.setenv("REPORT_PRIVATE_KEY", private)
@@ -253,3 +255,5 @@ class TestAgents:
         assert text.startswith("Findings: 1.")
         assert "## agent-authn: 1 findings\n\n### High: Token never expires" in text
         assert "## agent-tls: failed" in text
+        assert "## agent-ci: failed" in text
+        assert "## zizmor: 0 findings" in text

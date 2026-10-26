@@ -159,7 +159,11 @@ def read_agents(jobs: dict[str, Any], key: str) -> list[Scan]:
                 log = f"The agent job ended with {job['result']} and no report."
                 scans.append(Scan(name, 1, [], log))
                 continue
-            body = gpg(home, "--decrypt", text=armor).strip()
+            try:
+                body = gpg(home, "--decrypt", text=armor).strip()
+            except RuntimeError as e:
+                scans.append(Scan(name, 1, [], str(e)))
+                continue
             findings = [
                 Finding(m[1], m[1].lower(), "", m[2]) for m in SEVERITY.finditer(body)
             ]
