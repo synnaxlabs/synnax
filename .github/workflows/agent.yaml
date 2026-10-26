@@ -136,10 +136,6 @@ jobs:
       - name: Keep the wrapper
         run: cp -R scripts/agent "$RUNNER_TEMP/agent"
 
-      # Commits by the agent and the wrapper run the repository's pre-commit hook.
-      - name: Install the Git hooks
-        run: git config core.hooksPath .githooks
-
       # The setup script must come from the PR the agent works on.
       - name: Check out the pull request
         if: inputs.pr
