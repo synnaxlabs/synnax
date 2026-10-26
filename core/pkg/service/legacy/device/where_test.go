@@ -62,6 +62,7 @@ var _ = Describe("Where", Ordered, func() {
 	})
 
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		otg := DeferClose(MustOpen(ontology.Open(ctx, ontology.Config{DB: db})))
 		g := DeferClose(MustOpen(group.OpenService(ctx, group.ServiceConfig{

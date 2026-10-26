@@ -68,6 +68,7 @@ var _ = Describe("Where", Ordered, func() {
 	Expect(json.Unmarshal(MustSucceed(os.ReadFile(vectorsPath)), &v)).To(Succeed())
 
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		cfg := serviceConfig(ctx, mock.NewNode(ctx))
 		// An Aspen database leases each record to its leaseholder, and the records sit
 		// on nodes that the mock cluster does not have.

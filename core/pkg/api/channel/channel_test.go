@@ -116,7 +116,9 @@ var _ = Describe("Service", func() {
 				return MustSucceed(apiSvc.Retrieve(
 					AuthedCtx(ctx, author),
 					apichannel.RetrieveRequest{
-						Where:         &apichannel.Where{Key: &filter.Set[channel.Key]{In: keys}},
+						Where: &apichannel.Where{
+							Key: &filter.Set[channel.Key]{In: keys},
+						},
 						IncludeStatus: new(true),
 					},
 				)).Channels
