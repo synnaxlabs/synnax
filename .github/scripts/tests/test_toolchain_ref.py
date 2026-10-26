@@ -10,7 +10,7 @@
 import subprocess
 from pathlib import Path
 
-SCRIPT = Path(__file__).resolve().parent / "toolchain_ref.sh"
+SCRIPT = Path(__file__).resolve().parents[1] / "toolchain_ref.sh"
 
 WORKFLOW = """
 jobs:
