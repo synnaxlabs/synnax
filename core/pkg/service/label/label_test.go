@@ -165,6 +165,21 @@ var _ = Describe("Label", Ordered, func() {
 				Exec(ctx, tx)).To(Succeed())
 			Expect(got).To(ConsistOf(ls[1]))
 		})
+		It("Should match no labels for a resource that does not exist", func(
+			ctx SpecContext,
+		) {
+			l := label.Label{Name: "for-missing", Color: color.MustFromHex("#000000")}
+			Expect(w.Create(ctx, &l)).To(Succeed())
+			missing := label.OntologyID(label.Key(uuid.New()))
+			var got []label.Label
+			Expect(svc.NewRetrieve().
+				Where(label.Or(label.MatchFor(missing), label.MatchKeys(l.Key))).
+				Entries(&got).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(got).To(ConsistOf(l))
+			_, err := svc.RetrieveFor(ctx, missing, tx)
+			Expect(err).To(MatchError(query.ErrNotFound))
+		})
 	})
 	Describe("MatchNames", func() {
 		It("Should retrieve a label by its name", func(ctx SpecContext) {

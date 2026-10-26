@@ -166,6 +166,29 @@ var _ = Describe("Retrieve", func() {
 				},
 			)
 
+			It(
+				"Should skip a non-existent parent when traversing children leniently",
+				func(ctx SpecContext) {
+					a := newSampleType("lenient-parent")
+					b := newSampleType("lenient-child")
+					Expect(w.DefineResources(ctx, a, b)).To(Succeed())
+					Expect(w.DefineRelationships(
+						ctx,
+						a,
+						ontology.RelationshipTypeParentOf,
+						b,
+					)).To(Succeed())
+					var r []ontology.Resource
+					Expect(otg.NewRetrieve().
+						WhereIDsLenient(newSampleType("nonexistent"), a).
+						TraverseTo(ontology.ChildrenTraverser).
+						Entries(&r).
+						Exec(ctx, tx),
+					).To(Succeed())
+					Expect(ontology.ResourceIDs(r)).To(ConsistOf(b))
+				},
+			)
+
 			It("Should retrieve the grandparents of a resource", func(ctx SpecContext) {
 				a := newSampleType("A")
 				b := newSampleType("B")

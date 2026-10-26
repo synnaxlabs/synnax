@@ -74,6 +74,14 @@ func (r Retrieve) WhereIDs(ids ...ID) Retrieve {
 	return r.setCurrentClause(c)
 }
 
+// WhereIDsLenient is WhereIDs, except that Exec treats an ID with no resource as a
+// non-match instead of returning query.ErrNotFound.
+func (r Retrieve) WhereIDsLenient(ids ...ID) Retrieve {
+	c := r.currentClause()
+	c.Retrieve = c.Where(gorp.MatchKeysLenient[string, Resource](IDsToKeys(ids)...))
+	return r.setCurrentClause(c)
+}
+
 // WhereTypes filters resources by the provided types.
 func (r Retrieve) WhereTypes(types ...ResourceType) Retrieve {
 	c := r.currentClause()

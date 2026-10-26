@@ -403,6 +403,29 @@ var _ = Describe("Retriever", func() {
 			Expect(ps).To(ConsistOf(policies[0], policies[1]))
 		})
 
+		It("Should match no policies for a subject that does not exist", func(
+			ctx SpecContext,
+		) {
+			missing := ontology.ID{Type: "user", Key: uuid.New().String()}
+			var ps []policy.Policy
+			Expect(svc.NewRetrieve().
+				Where(policy.Or(
+					policy.MatchSubjects(missing),
+					policy.MatchKeys(policies[2].Key),
+				)).
+				Entries(&ps).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(ps).To(ConsistOf(policies[2]))
+		})
+
+		It("Should fail to resolve a subject that does not exist", func(
+			ctx SpecContext,
+		) {
+			missing := ontology.ID{Type: "user", Key: uuid.New().String()}
+			Expect(svc.ResolveSubjects(ctx, tx, missing)).
+				Error().To(MatchError(query.ErrNotFound))
+		})
+
 		It("Should compose MatchSubjects under Not", func(ctx SpecContext) {
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
