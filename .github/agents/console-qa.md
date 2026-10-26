@@ -76,8 +76,8 @@ a finding that is already in it as "Seen before" instead of describing it again.
 
 ## Report
 
-Stop exploring when the time budget at the end of this prompt is near. Write
-`/tmp/console-qa/report.md` in ASD-STE100 Simplified Technical English:
+Explore for 60 minutes, or for the time budget at the end of this prompt if it gives
+one. Then write `/tmp/console-qa/report.md` in ASD-STE100 Simplified Technical English:
 
 - Line 1: `# Console QA <YYYY-MM-DD>: <N> findings (<H> high)`.
 - A table: number, severity, area, one-line title. Highest severity first.
