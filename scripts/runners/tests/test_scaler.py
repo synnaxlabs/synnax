@@ -101,3 +101,21 @@ class TestScaler:
         found = {"i-0aaa": instance("running")}
         s.step({A}, {A: OFFLINE}, {A: LABELS}, {}, found, {A})
         assert client.written(channel_name("ec2_cmd", A)) == []
+
+    def test_should_clear_the_idle_timer_when_a_job_starts(
+        self, client: Client
+    ) -> None:
+        log = Log(core(client), Channels(core(client), False), "log")
+        s = Scaler(core(client), sy.TimeSpan.HOUR, sy.TimeSpan.MINUTE * 2, log)
+        found = {"i-0aaa": instance("running")}
+        s.step({A}, {A: IDLE}, {A: LABELS}, {}, found, set())
+        assert A in s.idle_since
+        s.step({A}, {A: OFFLINE}, {A: LABELS}, {}, found, {A})
+        assert A not in s.idle_since
+
+    def test_should_stop_a_runner_once_its_job_completes(self, client: Client) -> None:
+        s = scaler(client)
+        found = {"i-0aaa": instance("running")}
+        s.step({A}, {A: OFFLINE}, {A: LABELS}, {}, found, {A})
+        s.step({A}, {A: OFFLINE}, {A: LABELS}, {}, found, set())
+        assert client.written(channel_name("ec2_cmd", A)) == [False]
