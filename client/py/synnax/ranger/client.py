@@ -36,7 +36,7 @@ from synnax.ranger.types_gen import (
 )
 from synnax.ranger.writer import Writer
 from synnax.signals.signals import Registry
-from synnax.state import LatestState
+from synnax.state import Latest
 from synnax.task import Client as TaskClient
 from synnax.task import Task
 from synnax.telem import (
@@ -783,9 +783,9 @@ class Client:
             result.append(rng)
         return result
 
-    def on_create(self, f: Callable[[Range], None]) -> Callable[[LatestState], None]:
+    def on_create(self, f: Callable[[Range], None]) -> Callable[[Latest], None]:
         @functools.wraps(f)
-        def wrapper(state: LatestState) -> None:
+        def wrapper(state: Latest) -> None:
             d = state[RANGE_SET_CHANNEL]
             if not isinstance(d, dict):
                 raise TypeError(f"expected a JSON object on {RANGE_SET_CHANNEL}")

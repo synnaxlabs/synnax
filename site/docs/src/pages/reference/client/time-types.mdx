@@ -93,13 +93,13 @@ epoch. To read a string in local time, pass `"local"` as the second argument.
 
 ```python
 later = start + sy.TimeSpan.MINUTE
-print(later.span(start))  # 1m
+print(later - start)  # 1m
 print(later > start)  # True
 print(later.after_eq(start))  # True
 ```
 
-`span` returns the time between two timestamps as a `TimeSpan`. Use `span`, not
-subtraction: `later - start` returns a `TimeStamp`.
+Subtracting two timestamps returns the time between them as a `TimeSpan`. Add or
+subtract a `TimeSpan`, not a bare number: `start + 5` raises a `TypeError`.
 
   </Fragment>
 
@@ -162,6 +162,8 @@ print(timeout)  # 250ms
 print(timeout.seconds)  # 0.25
 print(sy.TimeSpan.from_seconds(1.5))  # 1s 500ms
 print(sy.TimeSpan(timedelta(minutes=2)))  # 2m
+print(timeout / 2)  # 125ms
+print(sy.TimeSpan.MINUTE / sy.TimeSpan.SECOND)  # 60.0
 ```
 
 The constants are `NANOSECOND`, `MICROSECOND`, `MILLISECOND`, `SECOND`, `MINUTE`,

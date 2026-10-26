@@ -79,9 +79,10 @@ behavior), and downstream validators.
 Before designing, assemble the governing principles for the affected area from five
 sources:
 
-1. **Written law** -> root and component CLAUDE.mds, `docs/claude/*`, and the Principles
-   and Resolved decisions sections of related RFCs. Resolved decisions especially: past
-   designs already rejected alternatives this design may be about to re-propose.
+1. **Written law** -> root and component AGENTS.md files, `docs/claude/*`, and the
+   Principles and Resolved decisions sections of related RFCs. Resolved decisions
+   especially: past designs already rejected alternatives this design may be about to
+   re-propose.
 2. **Grid placement** -> the cell(s) the change occupies on the three axes (layer ×
    domain/feature × general-purpose-vs-Synnax-specific), and the invariants each axis
    imposes there.
@@ -114,9 +115,9 @@ codified; the evidence feeding it can. Score each touched pattern on:
 4. **Deliberate arrival** -> introduced by an RFC or a sweeping refactor: declared
    invariant. Accreted from a one-off commit or copied sideways: incident. Read the
    actual code and history for the why.
-5. **Enforcement and defense** -> documented in a CLAUDE.md, guarded by lint or codegen,
-   or visibly defended in review: load-bearing by revealed preference. Violations that
-   survived review unchallenged: the pattern may already be dead.
+5. **Enforcement and defense** -> documented in an AGENTS.md, guarded by lint or
+   codegen, or visibly defended in review: load-bearing by revealed preference.
+   Violations that survived review unchallenged: the pattern may already be dead.
 6. **Conformers benefit or merely comply** -> conformance yields reuse, safety, or
    simpler reasoning: structure. Boilerplate everyone works around: friction wearing
    architecture's clothes.
@@ -228,7 +229,7 @@ Load it before the first question. Design adds these gates on top:
 
 ## Rule 9: The deliverable takes the house RFC form
 
-RFCs live in `docs/tech/rfc/`. Read `docs/tech/rfc/CLAUDE.md` before you write one: it
+RFCs live in `docs/tech/rfc/`. Read `docs/tech/rfc/AGENTS.md` before you write one: it
 holds the file name, front matter, heading, definition-list, and prose rules for the
 corpus. The spine, in order:
 
@@ -268,6 +269,9 @@ The phase list exists to prevent that, and a Claude session enforces it on the u
   phase.
 - **Lowest-risk, dependency-unblocking work first.** Migrations are first-class entries
   in the list, and a compatibility statement closes the plan.
+- **The phase list ends in the phase table.** Its format is in
+  `docs/tech/rfc/AGENTS.md`. The `plan-to-issues` skill files one Linear issue per row,
+  so a row that cannot merge alone or lists the wrong dependencies breaks the plan.
 - **The first phase opens this session.** A plan whose first PR is not open by the end
   of the session that wrote it is the failure mode in progress. When the working diff
   passes ~300 lines, the session says so and cuts the PR.
