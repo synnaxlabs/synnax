@@ -20,7 +20,7 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
 import { UnexpectedError, UnsupportedError } from "@/errors";
@@ -229,12 +229,52 @@ describe("Feed.subscribe", () => {
             s.alignment <= ys.alignment &&
             s.alignment + BigInt(s.length) >= ys.alignment + BigInt(ys.length),
         );
-        expect(xs).toBeDefined();
+        assert(xs != null);
+        const at = Number(ys.alignment - xs.alignment);
         const times = Array.from({ length: ys.length }, (_, i) =>
-          BigInt(xs!.atAlignment(ys.alignment + BigInt(i), true) as bigint),
+          BigInt(xs.data[at + i]),
         );
         return [ys, times];
       });
+
+    it("should draw streamed samples while the first history read runs", async () => {
+      const core = createCore();
+      let release = (): void => {};
+      const released = new Promise<void>((resolve) => (release = resolve));
+      const feed = core.openFeed({
+        ...OPTIONS,
+        readRemote: async (tr, keys, reduction) => {
+          await released;
+          return core.read(tr, keys, reduction);
+        },
+      });
+      const span = TimeSpan.seconds(30);
+      const { key } = core.data[0];
+      const { key: index } = core.index;
+      const sub = feed.subscribe(raw([key, index], span));
+      const stop = tick(core);
+      try {
+        await expect
+          .poll(() => sub.value(key).series.length, POLL)
+          .toBeGreaterThan(100);
+        expect(sub.value(key).status).toMatchObject({
+          variant: "loading",
+          message: "Loading channel data",
+        });
+        const pairs = pairsOf(sub.value(index), sub.value(key));
+        expect(pairs.length).toBeGreaterThan(0);
+        pairs.forEach(([ys, times]) => {
+          expect(times[0]).toBe(ys.timeRange.start.valueOf());
+          expectComplete(times);
+        });
+        release();
+        await settledData(core, sub, key, span);
+      } finally {
+        stop();
+        sub.close();
+        await feed.close();
+      }
+    });
 
     it("should draw streamed samples while every history read fails", async () => {
       const core = createCore();
@@ -272,6 +312,7 @@ describe("Feed.subscribe", () => {
         stop();
         // Each frame reaches the line before the window moves.
         for (let i = 0; i < 5; i++) {
+          const newest = sub.value(key).series.series.at(-1);
           core.advance(RATE.period);
           await expect
             .poll(() => sub.value(key).series.series.at(-1)?.timeRange.end.valueOf(), {
@@ -279,6 +320,8 @@ describe("Feed.subscribe", () => {
               timeout: 500,
             })
             .toBe(newestOf(core) + 1n);
+          // Each read returns the same series, so each uploads to the GPU once.
+          expect(sub.value(key).series.series.at(-2)).toBe(newest);
         }
         expect(sub.value(key).time?.valueOf()).toBe(newestOf(core) + 1n);
         stop = tick(core);
@@ -305,7 +348,7 @@ describe("Feed.subscribe", () => {
       });
       const span = TimeSpan.seconds(30);
       const sub = feed.subscribe(raw([key, index], span));
-      const stop = tick(core);
+      let stop = tick(core);
       try {
         await settled(core, sub, index, span);
         await expect
@@ -317,6 +360,17 @@ describe("Feed.subscribe", () => {
           expect(domainOf(ys.alignment)).toBe(BigInt(rawIndex(ys.timeRange.start)));
           expect(times[0]).toBe(ys.timeRange.start.valueOf());
         });
+        stop();
+        const newest = sub.value(key).series.series.at(-1);
+        core.advance(RATE.period);
+        await expect
+          .poll(
+            () => sub.value(key).series.series.at(-1)?.timeRange.end.valueOf(),
+            POLL,
+          )
+          .toBe(newestOf(core) + 1n);
+        expect(sub.value(key).series.series.at(-2)).toBe(newest);
+        stop = tick(core);
         failing = false;
         await settledData(core, sub, key, span);
       } finally {

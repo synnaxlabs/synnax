@@ -192,10 +192,10 @@ export class Joins {
   private readonly members = new Map<channel.Key, Member>();
   private readonly waits = new Set<channel.Key>();
   private lastWait = 0;
-  // Copies of held series in the alignments they draw at, so each read returns the
+  // Copies of held series at the alignments they draw at, so each read returns the
   // same objects.
-  private readonly lifted = new WeakMap<Series, Series>();
-  private readonly placed = new WeakMap<Series, { at: Mapped; pieces: Series[] }>();
+  private readonly copies = new WeakMap<Series, Series>();
+  private readonly pieces = new WeakMap<Series, Series[]>();
 
   constructor(private readonly store: Store) {}
 
@@ -245,9 +245,9 @@ export class Joins {
     const m = this.members.get(ch);
     if (m == null) return [];
     const j = m.join;
-    if (!j.indexMember.joined) return m.held.map((s) => this.lift(s));
+    if (!j.indexMember.joined) return m.held.map((s) => this.copy(s));
     if (m.joined) return [];
-    return m.held.flatMap((s) => this.offsets(j, s));
+    return m.held.flatMap((s) => this.cut(j, s));
   }
 
   /** @returns true when the channel's join has caught up with its stream. */
@@ -426,35 +426,39 @@ export class Joins {
     this.store.flush(m.key);
   }
 
-  private lift(s: Series): Series {
-    let lifted = this.lifted.get(s);
-    if (lifted != null) return lifted;
+  private copy(s: Series): Series {
+    let copy = this.copies.get(s);
+    if (copy != null) return copy;
     const { data, dataType, sampleOffset, timeRange } = s;
-    lifted = new Series({
+    copy = new Series({
       data,
       dataType,
       sampleOffset,
       timeRange,
       alignment: HELD_ALIGNMENT + s.alignment,
     });
-    this.lifted.set(s, lifted);
-    return lifted;
+    this.copies.set(s, copy);
+    return copy;
   }
 
-  // Returns the samples of a held data series at the block offsets of the index samples
-  // that share their Core alignment, or none before the join takes those samples.
-  private offsets(j: Join, s: Series): Series[] {
+  // Cuts a held data series into pieces at the block offsets of the index samples that
+  // share their Core alignment, or none before the join takes those samples.
+  private cut(j: Join, s: Series): Series[] {
+    const cached = this.pieces.get(s);
+    if (cached != null) return cached;
     const at = j.locate(s.alignment);
-    if (at == null || at.pos + s.length > at.mapped.series.length) return [];
-    const cached = this.placed.get(s);
-    if (cached?.at === at.mapped) return cached.pieces;
+    if (at == null || at.pos + s.length > at.mapped.series.length) {
+      // The join forgot the index series of a series that precedes the ones it keeps.
+      if (j.precedes(s)) this.pieces.set(s, []);
+      return [];
+    }
     const { series: times, runs } = at.mapped;
-    const pieces = spansOf(runs, at.pos, at.pos + s.length).map(
+    const series = spansOf(runs, at.pos, at.pos + s.length).map(
       ({ block, from, to, offset }) =>
         piece(s, from - at.pos, to - at.pos, times, from, block, offset),
     );
-    this.placed.set(s, { at: at.mapped, pieces });
-    return pieces;
+    this.pieces.set(s, series);
+    return series;
   }
 
   private writeIndex(j: Join, series: Series[]): MultiSeries {
