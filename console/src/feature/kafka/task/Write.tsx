@@ -280,6 +280,7 @@ const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
 /**
  * A cleared pointer is omitted from the record instead of placed at "". A string,
  * JSON, or UUID channel goes out as a string, whatever JSON type the form holds.
+ * Disabled rows are left alone, so a deleted channel on one cannot block the deploy.
  */
 const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
@@ -290,7 +291,10 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     schemas: SCHEMAS,
   });
   const chs = await client.channels.retrieve(
-    config.channels.map((c) => c.channel).filter((k) => k !== 0),
+    config.channels
+      .filter((c) => !c.disabled)
+      .map((c) => c.channel)
+      .filter((k) => k !== 0),
   );
   const stringOnly = new Set(chs.filter((c) => isString(c.dataType)).map((c) => c.key));
   config.channels.forEach((c) => {

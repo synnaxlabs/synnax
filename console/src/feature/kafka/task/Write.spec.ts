@@ -104,6 +104,44 @@ describe("Write", () => {
     expect(created.config.channels[0].channel).toBe(ch.key);
   });
 
+  it("should deploy when a disabled row's channel no longer exists", async () => {
+    const dev = await createKafkaDevice(client);
+    const ch = await client.channels.create({
+      name: uniqueName("kafka_out"),
+      dataType: "float64",
+      virtual: true,
+    });
+    const gone = await client.channels.create({
+      name: uniqueName("kafka_gone"),
+      dataType: "float64",
+      virtual: true,
+    });
+    await client.channels.delete(gone.key);
+    const draft = await createDraft(client, {
+      ...Kafka.Task.WRITE_SCHEMAS.config.parse({}),
+      device: dev.key,
+      topic: "samples",
+      channels: [
+        { ...kafka.writeChannelZ.parse({}), key: "c1", channel: ch.key },
+        {
+          ...kafka.writeChannelZ.parse({}),
+          key: "c2",
+          channel: gone.key,
+          disabled: true,
+        },
+      ],
+    });
+    const { container } = await renderWrite({ client, taskKey: draft.key });
+    await screen.findByText(dev.name);
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      Kafka.Task.WRITE_SCHEMAS,
+    );
+    expect(created.config.channels.map((c) => c.channel)).toEqual([ch.key, gone.key]);
+  });
+
   it("should send a string channel as a string on deploy", async () => {
     const dev = await createKafkaDevice(client);
     const ch = await client.channels.create({

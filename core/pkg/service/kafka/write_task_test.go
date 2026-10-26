@@ -200,6 +200,40 @@ var _ = Describe("Write task", func() {
 		},
 	)
 
+	It("Should produce every series a free channel carries in one frame",
+		func(ctx SpecContext) {
+			ch := channel.Channel{
+				Name:     "free_" + uuid.New().String()[:8],
+				DataType: telem.Float64T,
+				Virtual:  true,
+			}
+			Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+			dev := createDevice(ctx, clusterProperties())
+			topic := uniqueTopic()
+			startTask(ctx, kafka.WriteConfig{
+				Device:   dev.Key,
+				Topic:    topic,
+				Channels: []kafka.WriteChannel{{Key: "c1", Channel: ch.Key()}},
+			})
+			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  channel.Keys{ch.Key()},
+				Start: telem.Now(),
+			}))
+			Expect(MustSucceed(w.Write(frame.NewMulti(
+				[]channel.Key{ch.Key(), ch.Key()},
+				[]telem.Series{
+					telem.NewSeriesV[float64](1.5),
+					telem.NewSeriesV[float64](2.5),
+				},
+			)))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+			recs := consume(ctx, topic, 2)
+			Expect(recs).To(HaveLen(2))
+			Expect(decode(recs[0])).To(HaveKeyWithValue("value", 1.5))
+			Expect(decode(recs[1])).To(HaveKeyWithValue("value", 2.5))
+		},
+	)
+
 	It("Should answer start with an error status when the cluster is unreachable",
 		func(ctx SpecContext) {
 			_, data := createIndexed(ctx, telem.Float64T)

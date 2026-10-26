@@ -13,7 +13,6 @@ import (
 	"context"
 	"encoding/json/v2"
 	"io"
-	"maps"
 	"sync"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -293,19 +292,23 @@ func (t *writeTask) closeClient() error {
 
 // produce emits one record per sample of every configured channel in fr. An indexed
 // channel takes its timestamps from its index in the same frame; a free channel takes
-// the receive time.
+// the receive time. A free channel may carry several series in one frame.
 func (t *writeTask) produce(ctx context.Context, fr frame.Frame) {
-	series := maps.Collect(fr.Entries())
 	now := telem.Now()
-	for key, wc := range t.channels {
-		s, ok := series[key]
+	for key, s := range fr.Entries() {
+		wc, ok := t.channels[key]
 		if !ok {
 			continue
 		}
-		index, hasIndex := series[wc.ch.Index()]
-		if wc.ch.Index() != 0 && !hasIndex {
-			t.reportError(ctx, "Channel "+wc.ch.Name+" arrived without its index")
-			continue
+		var index telem.Series
+		hasIndex := wc.ch.Index() != 0
+		if hasIndex {
+			series := fr.Get(wc.ch.Index()).Series
+			if len(series) == 0 {
+				t.reportError(ctx, "Channel "+wc.ch.Name+" arrived without its index")
+				continue
+			}
+			index = series[0]
 		}
 		for i := range int(s.Len()) {
 			ts := now
