@@ -58,10 +58,11 @@ cycle, and the queue is rebuilt from the API every 5 minutes. Runner names persi
 in registry.json so a removed runner keeps reporting -1.
 
 Scaler (scaler.py): starts stopped runners when jobs queue in their pool, stops
-runners idle past --idle-cooldown (1 min). An offline runner on an instance up
-longer than --boot-grace (2 min) counts as idle. --scale sets the start state
-(enabled); runner_scaler_cmd switches it at runtime, runner_scaler_enabled beats
-the state, runner_scaler_log carries its log.
+runners idle past --idle-cooldown (1 min), or --windows-idle-cooldown (15 min) for the
+Windows pools, whose cold start costs each merge group minutes. An offline runner on
+an instance up longer than --boot-grace (2 min) counts as idle. --scale sets the
+start state (enabled); runner_scaler_cmd switches it at runtime,
+runner_scaler_enabled beats the state, runner_scaler_log carries its log.
 
 Gate (gate.py): fans global_gh_cmd out to every <runner>_gh_cmd, disconnecting the
 fleet from GitHub without stopping instances. --gh sets the start state (enabled);
@@ -123,7 +124,7 @@ from jobs import Jobs
 from log import Log
 from publisher import Publisher, on_change
 from registry import RunnerRegistry
-from scaler import SCALER_CMD, SCALER_ENABLED, SCALER_LOG, Scaler
+from scaler import SCALER_CMD, SCALER_ENABLED, SCALER_LOG, WINDOWS_POOLS, Scaler
 from subscription import Subscription
 from uptime import Uptime
 from webhook import Webhook
@@ -350,6 +351,12 @@ def parse_args() -> argparse.Namespace:
         help="idle seconds before the scaler stops a runner",
     )
     p.add_argument(
+        "--windows-idle-cooldown",
+        type=seconds,
+        default=15 * sy.TimeSpan.MINUTE,
+        help="idle seconds before the scaler stops a Windows build or test runner",
+    )
+    p.add_argument(
         "--boot-grace",
         type=seconds,
         default=2 * sy.TimeSpan.MINUTE,
@@ -387,6 +394,7 @@ def main() -> None:
         args.boot_grace,
         Log(client, channels, SCALER_LOG),
         enabled=args.scale == "enabled",
+        pool_cooldowns=dict.fromkeys(WINDOWS_POOLS, args.windows_idle_cooldown),
     )
     gate = Gate(
         client, channels, Log(client, channels, GATE_LOG), enabled=args.gh == "enabled"

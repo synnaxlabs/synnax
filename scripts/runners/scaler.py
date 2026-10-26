@@ -34,6 +34,7 @@ POOLS: dict[Pool, str] = {
     "windows-test-bot": "Windows Test",
     "ubuntu-test-bot": "Ubuntu Test",
 }
+WINDOWS_POOLS = ("windows-build-bot", "windows-test-bot")
 # These name a self-hosted pool outright. The rest are shared with GitHub-hosted
 # runners, so a job only counts as ours when it also carries "self-hosted".
 DEDICATED_LABELS = {
@@ -71,10 +72,13 @@ class Scaler:
         boot_grace: sy.TimeSpan,
         log: Log,
         enabled: bool = True,
+        pool_cooldowns: dict[Pool, sy.TimeSpan] | None = None,
     ) -> None:
         self.commander = Commander(client, "ec2_cmd", "EC2 Scaler", log, self.describe)
         self.log = log
         self.cooldown = cooldown
+        # Overrides cooldown per pool.
+        self.pool_cooldowns = pool_cooldowns or {}
         self.boot_grace = boot_grace
         self.enabled = enabled
         self.idle_since: dict[str, sy.TimeStamp] = {}
@@ -158,8 +162,9 @@ class Scaler:
         for pool, runners in stoppable.items():
             if queued.get(pool, 0):
                 continue
+            cooldown = self.pool_cooldowns.get(pool, self.cooldown)
             for r in runners:
-                if r in ready and now.span(self.idle_since[r]) >= self.cooldown:
+                if r in ready and now.span(self.idle_since[r]) >= cooldown:
                     commands[r] = False
         if commands:
             self.command(commands, now)
