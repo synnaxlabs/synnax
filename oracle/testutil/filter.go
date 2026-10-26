@@ -23,6 +23,7 @@ Bool struct {
 Set struct<T> {
 	eq T?
 	in T[]?
+	@pb omit
 }
 Ordered struct<T> {
 	eq  T?
@@ -31,13 +32,11 @@ Ordered struct<T> {
 	gte T?
 	lt  T?
 	lte T?
+	@pb omit
 }
 Contains struct<T> {
 	any T[]?
-}
-Direction enum {
-	ascending  = "ascending"
-	descending = "descending"
+	@pb omit
 }
 `
 

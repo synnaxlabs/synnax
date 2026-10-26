@@ -281,7 +281,7 @@ var _ = Describe("Service.Retrieve", func() {
 			s := createStatus(ctx, "cryostat pressure")
 			res := MustSucceed(apiSvc.Retrieve(
 				AuthedCtx(ctx, author),
-				apistatus.RetrieveRequest{SearchTerm: new("cryostat")},
+				apistatus.RetrieveRequest{SearchTerm: "cryostat"},
 			))
 			Expect(res.Statuses).To(HaveExactElements(HaveField("Key", s.Key)))
 		},

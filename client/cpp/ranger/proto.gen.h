@@ -227,11 +227,11 @@ RetrieveRequest::to_proto() const {
         if (err) return {{}, err};
         *pb.mutable_where() = v;
     }
-    if (this->search_term.has_value()) pb.set_search_term(*this->search_term);
+    pb.set_search_term(this->search_term);
     if (this->limit.has_value()) pb.set_limit(*this->limit);
-    if (this->offset.has_value()) pb.set_offset(*this->offset);
-    if (this->include_labels.has_value()) pb.set_include_labels(*this->include_labels);
-    if (this->include_parent.has_value()) pb.set_include_parent(*this->include_parent);
+    pb.set_offset(this->offset);
+    pb.set_include_labels(this->include_labels);
+    pb.set_include_parent(this->include_parent);
     return {pb, x::errors::NIL};
 }
 
@@ -243,11 +243,11 @@ RetrieveRequest::from_proto(const ::service::ranger::pb::RetrieveRequest &pb) {
         if (err) return {{}, err};
         cpp.where = v;
     }
-    if (pb.has_search_term()) cpp.search_term = pb.search_term();
+    cpp.search_term = pb.search_term();
     if (pb.has_limit()) cpp.limit = pb.limit();
-    if (pb.has_offset()) cpp.offset = pb.offset();
-    if (pb.has_include_labels()) cpp.include_labels = pb.include_labels();
-    if (pb.has_include_parent()) cpp.include_parent = pb.include_parent();
+    cpp.offset = pb.offset();
+    cpp.include_labels = pb.include_labels();
+    cpp.include_parent = pb.include_parent();
     return {cpp, x::errors::NIL};
 }
 

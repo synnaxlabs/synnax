@@ -13,15 +13,7 @@ syntax = "proto3";
 
 package x.filter.pb;
 
-import "google/protobuf/any.proto";
-
 option go_package = "github.com/synnaxlabs/x/filter/pb";
-
-// Direction is the direction of a sort.
-enum Direction {
-  DIRECTION_ASCENDING = 0;
-  DIRECTION_DESCENDING = 1;
-}
 message StringList {
   repeated string values = 1;
 }
@@ -40,38 +32,4 @@ message String {
 message Bool {
   // eq matches a value equal to eq.
   optional bool eq = 1;
-}
-message ListWrapper {
-  repeated google.protobuf.Any values = 1;
-}
-
-// Set selects values that only compare for equality, such as keys, enum values, and
-// UUIDs. A value must match every operator that is set.
-message Set {
-  // eq matches a value equal to eq.
-  optional google.protobuf.Any eq = 1;
-  // in matches a value equal to an element of in.
-  ListWrapper in = 2;
-}
-
-// Ordered selects numbers and times. A value must match every operator that is set.
-message Ordered {
-  // eq matches a value equal to eq.
-  optional google.protobuf.Any eq = 1;
-  // in matches a value equal to an element of in.
-  ListWrapper in = 2;
-  // gt matches a value greater than gt.
-  optional google.protobuf.Any gt = 3;
-  // gte matches a value greater than or equal to gte.
-  optional google.protobuf.Any gte = 4;
-  // lt matches a value less than lt.
-  optional google.protobuf.Any lt = 5;
-  // lte matches a value less than or equal to lte.
-  optional google.protobuf.Any lte = 6;
-}
-
-// Contains selects arrays by the elements they hold.
-message Contains {
-  // any matches an array that holds an element of any.
-  ListWrapper any = 1;
 }

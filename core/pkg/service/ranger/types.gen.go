@@ -51,15 +51,15 @@ type RetrieveRequest struct {
 	// Where selects the ranges to retrieve. An absent where selects all of them.
 	Where *Where `json:"where,omitzero" msgpack:"where,omitempty"`
 	// SearchTerm keeps the ranges that match the term, closest match first.
-	SearchTerm *string `json:"search_term,omitzero" msgpack:"search_term,omitempty"`
+	SearchTerm string `json:"search_term" msgpack:"search_term"`
 	// Limit is the most ranges to return.
 	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
 	// Offset is the number of matching ranges to skip.
-	Offset *uint32 `json:"offset,omitzero" msgpack:"offset,omitempty"`
+	Offset uint32 `json:"offset" msgpack:"offset"`
 	// IncludeLabels includes the labels of each record.
-	IncludeLabels *bool `json:"include_labels,omitzero" msgpack:"include_labels,omitempty"`
+	IncludeLabels bool `json:"include_labels" msgpack:"include_labels"`
 	// IncludeParent includes the parent of each record.
-	IncludeParent *bool `json:"include_parent,omitzero" msgpack:"include_parent,omitempty"`
+	IncludeParent bool `json:"include_parent" msgpack:"include_parent"`
 }
 
 // RetrieveResponse holds the ranges a RetrieveRequest selects.

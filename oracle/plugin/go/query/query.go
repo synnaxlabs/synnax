@@ -651,29 +651,29 @@ func MatchSearch(term string) Filter{{$ret.AnyArgs}} {
 {{- end}}
 {{- if $ret.HasSortedIndex}}
 
-// Ordering is a per-service sort handle that is bound to the Retrieve when
+// Order is a per-service sort handle that is bound to the Retrieve when
 // passed to OrderBy. Construct one via an OrderByX free function (e.g.
-// OrderByCreatedAt). Ordering mirrors the Filter pattern: a closure that
+// OrderByCreatedAt). Order mirrors the Filter pattern: a closure that
 // receives the Retrieve at evaluation time and resolves the typed
 // SortedQuery against r.indexes, so the cursor stays statically typed
 // without needing a method on Retrieve.
-type Ordering func(r Retrieve) gorp.OrderQuery[{{$ret.KeyType}}, {{$ret.GoName}}]
+type Order func(r Retrieve) gorp.OrderQuery[{{$ret.KeyType}}, {{$ret.GoName}}]
 
-// OrderBy walks the results in the order defined by the given Ordering.
-// The Ordering is invoked with this Retrieve, which lets it reach r.indexes to
+// OrderBy walks the results in the order defined by the given Order handle.
+// The Order is invoked with this Retrieve, which lets it reach r.indexes to
 // resolve the typed SortedQuery before passing it to gorp.
-func (r Retrieve) OrderBy(o Ordering) Retrieve {
+func (r Retrieve) OrderBy(o Order) Retrieve {
 	r.gorp = r.gorp.OrderBy(o(r))
 	return r
 }
 {{- range $idx := $ret.Indexes}}
 {{- if $idx.IsSorted}}
 
-// OrderBy{{$idx.GoName}} returns an Ordering that walks
+// OrderBy{{$idx.GoName}} returns an Order that walks
 // {{$ret.GoName | toLower | pluralize}} via the {{$idx.FieldName}} sorted index in
 // the given direction. Pass an optional cursor to resume pagination after a
 // previously visited value; the cursor is type-checked at the call site.
-func OrderBy{{$idx.GoName}}(dir gorp.Direction, cursor ...{{$idx.GoType}}) Ordering {
+func OrderBy{{$idx.GoName}}(dir gorp.Direction, cursor ...{{$idx.GoType}}) Order {
 	return func(r Retrieve) gorp.OrderQuery[{{$ret.KeyType}}, {{$ret.GoName}}] {
 		q := r.indexes.{{$idx.StructField}}.Ordered(dir)
 		if len(cursor) > 0 {

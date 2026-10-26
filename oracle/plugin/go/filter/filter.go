@@ -8,9 +8,8 @@
 // included in the file licenses/APL.txt.
 
 // Package filter generates the Go interpreter of a filter definition. MatchWhere turns
-// a Where into the service's Filter, OrderingOf turns an Order into the service's
-// Ordering, and RetrieveRequest.Apply narrows a Retrieve to the records a request
-// selects. The request also rejects unknown JSON members.
+// a Where into the service's Filter, and RetrieveRequest.Apply narrows a Retrieve to
+// the records a request selects. The request also rejects unknown JSON members.
 package filter
 
 import (
@@ -109,17 +108,11 @@ type templateData struct {
 	// of every type argument.
 	RequestArgs string
 	Lines       []lineData
-	// OrderFields lists the sorted fields, or nil when the request has no order_by.
-	OrderFields []orderFieldData
 	// Search is the search the request applies, or nil when it has no search_term.
 	Search *searchData
-	// OffsetOptional is true when the request's offset is a pointer.
-	OffsetOptional bool
 }
 
 type searchData struct {
-	// Optional is true when search_term is a pointer.
-	Optional bool
 	// Filter is true when the service writes its own Retrieve and searches through a
 	// hand-written MatchSearch filter instead of a Search method.
 	Filter bool
@@ -166,13 +159,6 @@ func (l lineData) Comparisons() []comparisonData {
 		}
 	}
 	return out
-}
-
-type orderFieldData struct {
-	// Const is the OrderField constant.
-	Const string
-	// Func is the go/query OrderBy function.
-	Func string
 }
 
 func generateFile(
@@ -330,21 +316,9 @@ func generateFile(
 	}
 
 	requestForm := request.Form.(resolution.StructForm)
-	if term, ok := requestForm.Field("search_term"); ok {
+	if _, ok := requestForm.Field("search_term"); ok {
 		data.Search = &searchData{
-			Optional: term.Optional,
-			Filter:   plugindomain.HasExprFromType(target, "retrieve", "indexes"),
-		}
-	}
-	data.OffsetOptional = lo.Must(requestForm.Field("offset")).Optional
-	if _, ok := requestForm.Field("order_by"); ok {
-		orderField := table.MustGet(where.Namespace + ".OrderField")
-		for _, v := range orderField.Form.(resolution.EnumForm).Values {
-			goName := naming.ToPascalCase(v.Name)
-			data.OrderFields = append(data.OrderFields, orderFieldData{
-				Const: "OrderField" + goName,
-				Func:  "OrderBy" + goName,
-			})
+			Filter: plugindomain.HasExprFromType(target, "retrieve", "indexes"),
 		}
 	}
 
@@ -384,14 +358,11 @@ func addImports(data templateData, repoRoot string) {
 		data.AddExternal("regexp")
 	}
 	needsEnum := lo.SomeBy(data.Lines, func(l lineData) bool { return l.Enum })
-	if needsRegex || needsEnum || data.OrderFields != nil {
+	if needsRegex || needsEnum {
 		internal("errors", "x/go/errors")
 	}
-	if needsMatch || data.KeyType != "" || data.OrderFields != nil {
+	if needsMatch || data.KeyType != "" {
 		internal("gorp", "gorp")
-	}
-	if data.OrderFields != nil {
-		internal("filter", "x/go/filter")
 	}
 }
 
@@ -552,35 +523,6 @@ func matchKeys{{.TypeParams}}(keys ...{{.KeyType}}) Filter{{.TypeArgs}} {
 	}
 }
 {{- end}}
-{{- if .OrderFields}}
-
-// OrderingOf returns the Ordering that o describes. It returns a validate.PathError for
-// a field or direction that Order does not declare.
-func OrderingOf{{.TypeParams}}(o Order) (Ordering{{.TypeArgs}}, error) {
-	var dir gorp.Direction
-	switch o.Direction {
-	case filter.DirectionAscending:
-		dir = gorp.DirectionAsc
-	case filter.DirectionDescending:
-		dir = gorp.DirectionDesc
-	default:
-		return nil, validate.PathedError(
-			errors.Wrapf(validate.ErrValidation, "unknown direction %q", o.Direction),
-			"direction",
-		)
-	}
-	switch o.Field {
-{{- range .OrderFields}}
-	case {{.Const}}:
-		return {{.Func}}{{$.TypeArgs}}(dir), nil
-{{- end}}
-	}
-	return nil, validate.PathedError(
-		errors.Wrapf(validate.ErrValidation, "unknown field %q", o.Field),
-		"field",
-	)
-}
-{{- end}}
 
 // Apply narrows q to the records that the request selects. It returns a
 // validate.PathError for a value that no filter can hold.
@@ -594,43 +536,17 @@ func (r RetrieveRequest) Apply(q Retrieve{{.RequestArgs}}) (Retrieve{{.RequestAr
 	}
 {{- with .Search}}
 {{- if .Filter}}
-{{- if .Optional}}
-	if r.SearchTerm != nil && *r.SearchTerm != "" {
-		q = q.Where(MatchSearch(*r.SearchTerm))
-	}
-{{- else}}
 	if r.SearchTerm != "" {
 		q = q.Where(MatchSearch(r.SearchTerm))
-	}
-{{- end}}
-{{- else if .Optional}}
-	if r.SearchTerm != nil {
-		q = q.Search(*r.SearchTerm)
 	}
 {{- else}}
 	q = q.Search(r.SearchTerm)
 {{- end}}
 {{- end}}
-{{- if .OrderFields}}
-	if r.OrderBy != nil {
-		o, err := OrderingOf{{.RequestArgs}}(*r.OrderBy)
-		if err != nil {
-			return Retrieve{{.RequestArgs}}{}, validate.PathedError(err, "order_by")
-		}
-		q = q.OrderBy(o)
-	}
-{{- end}}
 	if r.Limit != nil {
 		q = q.Limit(int(*r.Limit))
 	}
-{{- if .OffsetOptional}}
-	if r.Offset != nil {
-		q = q.Offset(int(*r.Offset))
-	}
-{{- else}}
-	q = q.Offset(int(r.Offset))
-{{- end}}
-	return q, nil
+	return q.Offset(int(r.Offset)), nil
 }
 
 // UnmarshalJSONFrom decodes the request and rejects a member that it does not declare,

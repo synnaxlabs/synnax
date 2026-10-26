@@ -13,10 +13,6 @@ import { z } from "zod";
 
 import { zod } from "@/zod";
 
-export const DIRECTIONS = ["ascending", "descending"] as const;
-export const directionZ = z.enum(DIRECTIONS);
-export type Direction = z.infer<typeof directionZ>;
-
 /** String selects string values. A value must match every operator that is set. */
 export const stringZ = z.strictObject({
   /** eq matches a value equal to eq. */

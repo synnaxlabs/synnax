@@ -117,15 +117,15 @@ struct RetrieveRequest {
     /// them.
     std::optional<Where> where;
     /// @brief search_term keeps the ranges that match the term, closest match first.
-    std::optional<std::string> search_term;
+    std::string search_term = "";
     /// @brief limit is the most ranges to return.
     std::optional<std::uint32_t> limit;
     /// @brief offset is the number of matching ranges to skip.
-    std::optional<std::uint32_t> offset;
+    std::uint32_t offset = 0;
     /// @brief include_labels includes the labels of each record.
-    std::optional<bool> include_labels;
+    bool include_labels = false;
     /// @brief include_parent includes the parent of each record.
-    std::optional<bool> include_parent;
+    bool include_parent = false;
 
     static RetrieveRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

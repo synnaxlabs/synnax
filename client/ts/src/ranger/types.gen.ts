@@ -139,15 +139,15 @@ export const retrieveRequestZ = z.strictObject({
   /** where selects the ranges to retrieve. An absent where selects all of them. */
   where: whereZ.optional(),
   /** searchTerm keeps the ranges that match the term, closest match first. */
-  searchTerm: z.string().optional(),
+  searchTerm: z.string().default(""),
   /** limit is the most ranges to return. */
   limit: z.uint32().optional(),
   /** offset is the number of matching ranges to skip. */
-  offset: z.uint32().optional(),
+  offset: z.uint32().default(0),
   /** includeLabels includes the labels of each record. */
-  includeLabels: z.boolean().optional(),
+  includeLabels: z.boolean().default(false),
   /** includeParent includes the parent of each record. */
-  includeParent: z.boolean().optional(),
+  includeParent: z.boolean().default(false),
 });
 export interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
 

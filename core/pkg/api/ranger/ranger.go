@@ -12,7 +12,6 @@ package ranger
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -150,7 +149,7 @@ func (s *Service) Retrieve(
 	if err := q.Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
-	if lo.FromPtr(req.IncludeLabels) {
+	if req.IncludeLabels {
 		for i, r := range res.Ranges {
 			labels, err := s.label.RetrieveFor(ctx, r.OntologyID(), nil)
 			if err != nil {
@@ -159,7 +158,7 @@ func (s *Service) Retrieve(
 			res.Ranges[i].Labels = labels
 		}
 	}
-	if lo.FromPtr(req.IncludeParent) {
+	if req.IncludeParent {
 		for i, r := range res.Ranges {
 			parentKey, err := s.internal.RetrieveParentKey(ctx, r.Key, nil)
 			if errors.Is(err, query.ErrNotFound) {

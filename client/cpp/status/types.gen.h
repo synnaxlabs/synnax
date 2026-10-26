@@ -130,13 +130,13 @@ struct RetrieveRequest {
     /// them.
     std::optional<Where> where;
     /// @brief search_term keeps the statuses that match the term, closest match first.
-    std::optional<std::string> search_term;
+    std::string search_term = "";
     /// @brief limit is the most statuses to return.
     std::optional<std::uint32_t> limit;
     /// @brief offset is the number of matching statuses to skip.
-    std::optional<std::uint32_t> offset;
+    std::uint32_t offset = 0;
     /// @brief include_labels includes the labels of each record.
-    std::optional<bool> include_labels;
+    bool include_labels = false;
 
     static RetrieveRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
