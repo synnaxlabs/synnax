@@ -1,6 +1,11 @@
 ---
 name: synnax-integration-debug
-description: Triage failures from the Synnax integration test suite (`uv run tc ...`). Use when a console/driver/arc test fails locally, when the user pastes a CI workflow URL for a `Test - Integration` run, or when they reference a debug bundle, `summary.json`, `trace.zip`, or a `run-TS/` directory. Walks the bundle in order: summary.json → per-test artifacts → trace inspection → server log.
+description: >-
+  Triage failures from the Synnax integration test suite (`uv run tc ...`). Use when a
+  console/driver/arc test fails locally, when the user pastes a CI workflow URL for a
+  `Test - Integration` run, or when they reference a debug bundle, `summary.json`,
+  `trace.zip`, or a `run-TS/` directory. Walks the bundle in order: summary.json →
+  per-test artifacts → trace inspection → server log.
 allowed-tools: Bash, Read
 ---
 
