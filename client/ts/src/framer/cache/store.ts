@@ -160,6 +160,20 @@ export class Store {
   }
 
   /**
+   * Moves a subscription's pins from the blocks it served to the blocks it serves now,
+   * then evicts least recently used blocks past the budget.
+   */
+  repin(prev: Set<Block>, next: Set<Block>): void {
+    prev.forEach((b) => {
+      if (!next.has(b)) b.pins--;
+    });
+    next.forEach((b) => {
+      if (!prev.has(b)) b.pins++;
+    });
+    this.evictExcept(null);
+  }
+
+  /**
    * Evicts least recently used blocks that are not held until the store fits its
    * budget. Call it after a block stops being held.
    */

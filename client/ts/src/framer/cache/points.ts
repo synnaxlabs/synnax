@@ -291,9 +291,8 @@ export class Points {
     this.abort.abort();
     this.notifier.notify();
     this.stopInvalidations();
-    this.pins.forEach((b) => b.pins--);
+    this.props.store.repin(this.pins, new Set());
     this.pins.clear();
-    this.props.store.evict();
     this.held.clear();
     this.raw = [];
     this.demand?.close();
@@ -694,14 +693,8 @@ export class Points {
         if (b != null) next.add(b);
       }
     }
-    this.pins.forEach((b) => {
-      if (!next.has(b)) b.pins--;
-    });
-    next.forEach((b) => {
-      if (!this.pins.has(b)) b.pins++;
-    });
+    this.props.store.repin(this.pins, next);
     this.pins = next;
-    this.props.store.evict();
   }
 
   // Returns the end of the newest raw sample's span.
