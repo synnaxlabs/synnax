@@ -8,11 +8,33 @@
 #  included in the file licenses/APL.txt.
 
 import pytest
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
+    InMemorySpanExporter,
+)
+from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
-from alamos import Instrumentation
-from alamos.dev import instrumentation as dev_instrumentation
+from alamos import Instrumentation, Tracer
 
 
-@pytest.fixture(scope="session")
-def instrumentation() -> Instrumentation:
-    return dev_instrumentation()
+@pytest.fixture
+def exporter() -> InMemorySpanExporter:
+    return InMemorySpanExporter()
+
+
+@pytest.fixture
+def provider(exporter: InMemorySpanExporter) -> TracerProvider:
+    provider = TracerProvider()
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+    return provider
+
+
+@pytest.fixture
+def instrumentation(provider: TracerProvider) -> Instrumentation:
+    return Instrumentation(
+        key="dev",
+        tracer=Tracer(
+            otel_provider=provider, otel_propagator=TraceContextTextMapPropagator()
+        ),
+    )
