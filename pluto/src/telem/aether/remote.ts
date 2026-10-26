@@ -288,11 +288,16 @@ export class ChannelData
   private drawStatus?: cstatus.Status;
   private bounds: framer.Subscription | null = null;
   private boundsStatus?: cstatus.Status;
+  // The view and points of the draw's last request, and the points of the bounds' last
+  // request. An equal read sends no request.
+  private drawView?: bounds.Bounds;
+  private drawPoints = 0;
+  private boundsPoints = 0;
   // boundsRead is true when a bounds read ran since the last draw.
   private boundsRead = false;
   // drawn holds the series of the last draw snapshot. The line buffers them to the GPU,
   // and releasing a series' last reference frees its buffer.
-  private drawn: Series[] = [];
+  private drawn = new MultiSeries();
   // loading is true until the channel resolves or its retrieval fails.
   private loading = true;
   private readonly failures: FailureReporter;
@@ -353,9 +358,14 @@ export class ChannelData
     draws: boolean,
   ): framer.Snapshot {
     // A read with no points draws no view, so the first reads of x and y agree.
-    const request = this.drawRequest(key, draws ? view : undefined);
-    if (this.draw == null) this.draw = this.subscribe(client, request);
-    else if (draws) this.draw.update(request);
+    const target = draws ? view : undefined;
+    if (this.draw == null || (draws && this.drawChanged(target))) {
+      const request = this.drawRequest(key, target);
+      if (this.draw == null) this.draw = this.subscribe(client, request);
+      else this.draw.update(request);
+      this.drawView = target && { ...target };
+      this.drawPoints = this.points;
+    }
     // A line that stops reading its bounds closes them at its next draw.
     if (draws) {
       if (!this.boundsRead) this.closeBounds();
@@ -363,8 +373,17 @@ export class ChannelData
     }
     const snapshot = this.draw.value(key);
     this.drawStatus = snapshot.status;
-    this.hold(snapshot.series.series);
+    this.hold(snapshot.series);
     return snapshot;
+  }
+
+  private drawChanged(view: bounds.Bounds | undefined): boolean {
+    const last = this.drawView;
+    return (
+      this.points !== this.drawPoints ||
+      view?.lower !== last?.lower ||
+      view?.upper !== last?.upper
+    );
   }
 
   private drawRequest(
@@ -395,18 +414,21 @@ export class ChannelData
   // extremes that other aggregations drop. The draw serves until the first ones load.
   private readBounds(client: Client, key: channel.Key): framer.Snapshot {
     this.boundsRead = true;
-    const request: framer.PointsRequest = {
-      keys: [key],
-      window: this.props.window,
-      limit: {
-        variant: "points",
-        count: this.points,
-        aggregation: this.props.aggregation,
-        extremesKept: true,
-      },
-    };
-    if (this.bounds == null) this.bounds = this.subscribe(client, request);
-    else this.bounds.update(request);
+    if (this.bounds == null || this.points !== this.boundsPoints) {
+      const request: framer.PointsRequest = {
+        keys: [key],
+        window: this.props.window,
+        limit: {
+          variant: "points",
+          count: this.points,
+          aggregation: this.props.aggregation,
+          extremesKept: true,
+        },
+      };
+      if (this.bounds == null) this.bounds = this.subscribe(client, request);
+      else this.bounds.update(request);
+      this.boundsPoints = this.points;
+    }
     let snapshot = this.bounds.value(key);
     if (snapshot.status.variant === "loading" && snapshot.series.length === 0)
       snapshot = this.draw?.value(key) ?? snapshot;
@@ -429,12 +451,10 @@ export class ChannelData
     return subscription;
   }
 
-  private hold(series: Series[]): void {
-    const { drawn } = this;
-    if (drawn.length === series.length && drawn.every((s, i) => s === series[i]))
-      return;
-    series.forEach((s) => s.acquire());
-    drawn.forEach((s) => s.release());
+  private hold(series: MultiSeries): void {
+    if (series === this.drawn) return;
+    series.series.forEach((s) => s.acquire());
+    this.drawn.series.forEach((s) => s.release());
     this.drawn = series;
   }
 
@@ -508,7 +528,7 @@ export class ChannelData
     this.drawStatus = undefined;
     this.closeBounds();
     this.boundsRead = false;
-    this.hold([]);
+    this.hold(new MultiSeries());
     this.valid = false;
     this.channel = null;
     this.loading = true;

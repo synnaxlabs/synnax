@@ -456,6 +456,27 @@ describe("remote", () => {
       await expect.poll(() => y.value(b).data[0].upper, POLL).toBeGreaterThan(1.5);
     });
 
+    it("should send each subscription only the requests that change", async () => {
+      const core = createCore();
+      const client = connect(core);
+      const subscribe = vi.spyOn(client.feed, "subscribe");
+      const y = create(client, { channel: core.data[0].key, aggregation: "average" });
+      const draw = { points: 1000 };
+      const b = { extremesKept: true };
+      await settle(y, draw);
+      y.value(b);
+      const updates = subscribe.mock.results.map(({ value }) =>
+        vi.spyOn(value as framer.Subscription, "update"),
+      );
+      const counts = () => updates.map((u) => u.mock.calls.length);
+      y.value(b);
+      y.value(draw);
+      expect(counts()).toEqual([0, 0]);
+      y.value({ ...b, points: 500 });
+      y.value(view(TimeSpan.seconds(60), TimeSpan.seconds(65)));
+      expect(counts()).toEqual([1, 1]);
+    });
+
     it("should close bounds that no read used since the last draw", async () => {
       const core = createCore();
       const client = connect(core, {
