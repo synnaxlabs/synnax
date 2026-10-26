@@ -29,7 +29,7 @@ import {
   Table as PTable,
 } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { ContextMenu } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
@@ -46,7 +46,7 @@ import { Session } from "@/session";
 
 const useDelete = Tree.createUseDelete({
   type: "Project",
-  query: Base.useDelete,
+  useUpdate: Base.useDelete,
   convertKey: String,
   afterSuccess: ({ data, store }) => {
     const s = store.getState();
@@ -59,7 +59,7 @@ const useDelete = Tree.createUseDelete({
 });
 
 const useRename = Tree.createUseRename({
-  query: Base.useRename,
+  useUpdate: Base.useRename,
   ontologyID: project.ontologyID,
   convertKey: String,
 });
@@ -68,7 +68,7 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
   const {
     selection,
     selection: { ids, rootID },
-    state: { getResource, shape },
+    state,
   } = props;
   const handleDelete = useDelete(props);
   const group = Group.useCreateFromSelection();
@@ -82,7 +82,7 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
   const handleLink = Core.useCopyLinkToClipboard();
   const handleExport = Export.use();
   const handleRename = useRename(props);
-  const resources = getResource(ids);
+  const resources = Tree.useResources(state, ids);
   const first = resources[0];
   const singleResource = resources.length === 1;
   const hasUpdatePermission = Access.useUpdateGranted(ids);
@@ -102,7 +102,7 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
           {singleResource && <ContextMenu.RenameItem onClick={handleRename} />}
           <Group.ContextMenuItem
             ids={ids}
-            shape={shape}
+            shape={state.shape}
             rootID={rootID}
             onClick={() => group(props)}
           />
@@ -171,16 +171,16 @@ const useOnSelect = (): ((resource: ontology.Resource) => void) => {
   const client = Synnax.use();
   const store = Session.useStore();
   const handleError = Status.useErrorHandler();
-  return useCallback(
-    (resource) => {
-      if (client == null) return;
-      handleError(async () => {
+  return (resource) => {
+    if (client == null) return;
+    handleError(
+      async () => {
         const proj = await client.projects.retrieve(resource.id.key);
         store.dispatch(Session.Project.select(proj.key));
-      }, `Failed to select ${resource.name}`);
-    },
-    [client, store, handleError],
-  );
+      },
+      { message: "Failed to select project", name: resource.name },
+    );
+  };
 };
 
 const VALID_CHILDREN: ontology.ResourceType[] = [

@@ -10,7 +10,6 @@
 #pragma once
 
 #include <memory>
-#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -75,8 +74,8 @@ class WriteTaskSink final : public common::Sink {
         x::json::json::json_pointer pointer;
         /// @brief JSON type to serialize the channel value as.
         x::json::Type json_type = x::json::Type::Number;
-        /// @brief if the channel data type is TIMESTAMP, the output format.
-        std::optional<x::json::TimeFormat> time_format;
+        /// @brief output format for TIMESTAMP channel values.
+        x::json::TimeFormat time_format = x::json::TimeFormat::ISO8601;
         /// @brief enum mapping from numeric channel values to string labels.
         x::json::ReverseEnumMap enum_values;
         /// @brief static fields with fixed values.

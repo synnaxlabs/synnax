@@ -333,7 +333,7 @@ public:
         // A racing caller may have opened the device while we waited.
         if (auto existing = this->cached(serial_number))
             return {existing, x::errors::NIL};
-        int dev_handle;
+        int dev_handle = 0;
         const int
             err = ljm->open(LJM_dtANY, LJM_ctANY, serial_number.c_str(), &dev_handle);
         if (err != 0) return {nullptr, parse_error(ljm, err)};

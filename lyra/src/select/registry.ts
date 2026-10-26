@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type destructor, type record } from "@synnaxlabs/x";
-import { useLayoutEffect, useMemo, useReducer, useRef } from "react";
+import { useLayoutEffect, useReducer, useRef, useSyncExternalStore } from "react";
 
 import { context } from "@/context";
 import { CSS } from "@/css";
@@ -73,78 +73,73 @@ const useRegistry = (): Registry => {
   const labelsRef = useInitializerRef(() => new Map<record.Key, HTMLElement>());
   const blockRef = useRef<HTMLElement | null>(null);
   const termRef = useRef("");
-  return useMemo<Registry>(
-    () => ({
-      setItem: (key, element, text) => {
-        const prev = itemsRef.current.get(key);
-        const hidden = isHidden(element, text, termRef.current);
-        if (prev?.element === element && prev?.text === text && prev?.hidden === hidden)
-          return;
-        itemsRef.current.set(key, { element, text, hidden });
-        notifyListeners(key);
-      },
-      removeItem: (key) => {
-        if (!itemsRef.current.delete(key)) return;
-        notifyListeners(key);
-      },
-      setBlock: (element) => {
-        blockRef.current = element;
-        notifyListeners([]);
-      },
-      getOrder: (data) => {
-        const mounted: [HTMLElement, record.Key | typeof BLOCK][] = [];
-        const unmounted: record.Key[] = [];
-        itemsRef.current.forEach(({ element, hidden }, key) => {
-          if (hidden) return;
-          if (element == null) unmounted.push(key);
-          else mounted.push([element, key]);
-        });
-        const block = blockRef.current;
-        if (block != null) mounted.push([block, BLOCK]);
-        mounted.sort(([a], [b]) => compareDocument(a, b));
-        const order: record.Key[] = [...unmounted];
-        mounted.forEach(([, key]) => {
-          if (key === BLOCK) order.push(...data);
-          else order.push(key);
-        });
-        if (block == null) order.push(...data);
-        return order;
-      },
-      getElement: (key) => itemsRef.current.get(key)?.element ?? null,
-      hasItem: (key) => itemsRef.current.has(key),
-      getText: (key) => itemsRef.current.get(key)?.text,
-      isHidden: (key) => itemsRef.current.get(key)?.hidden ?? false,
-      setTerm: (term) => {
-        termRef.current = term;
-        const changed: record.Key[] = [];
-        itemsRef.current.forEach((item, key) => {
-          const hidden = isHidden(item.element, item.text, term);
-          if (hidden === item.hidden) return;
-          item.hidden = hidden;
-          changed.push(key);
-        });
-        if (changed.length > 0) notifyListeners(changed);
-      },
-      countVisible: () => {
-        let count = 0;
-        itemsRef.current.forEach(({ hidden }) => {
-          if (!hidden) count++;
-        });
-        return count;
-      },
-      getLabel: (key) => {
-        let label = labelsRef.current.get(key);
-        if (label == null) {
-          label = document.createElement("span");
-          label.className = CSS.BE("select", "fixed-label");
-          labelsRef.current.set(key, label);
-        }
-        return label;
-      },
-      subscribe,
-    }),
-    [notifyListeners, subscribe],
-  );
+  return {
+    setItem: (key, element, text) => {
+      const prev = itemsRef.current.get(key);
+      const hidden = isHidden(element, text, termRef.current);
+      if (prev?.element === element && prev?.text === text && prev?.hidden === hidden)
+        return;
+      itemsRef.current.set(key, { element, text, hidden });
+      notifyListeners(key);
+    },
+    removeItem: (key) => {
+      if (!itemsRef.current.delete(key)) return;
+      notifyListeners(key);
+    },
+    setBlock: (element) => {
+      blockRef.current = element;
+      notifyListeners([]);
+    },
+    getOrder: (data) => {
+      const mounted: [HTMLElement, record.Key | typeof BLOCK][] = [];
+      const unmounted: record.Key[] = [];
+      itemsRef.current.forEach(({ element, hidden }, key) => {
+        if (hidden) return;
+        if (element == null) unmounted.push(key);
+        else mounted.push([element, key]);
+      });
+      const block = blockRef.current;
+      if (block != null) mounted.push([block, BLOCK]);
+      mounted.sort(([a], [b]) => compareDocument(a, b));
+      const order: record.Key[] = [...unmounted];
+      mounted.forEach(([, key]) => {
+        if (key === BLOCK) order.push(...data);
+        else order.push(key);
+      });
+      if (block == null) order.push(...data);
+      return order;
+    },
+    getElement: (key) => itemsRef.current.get(key)?.element ?? null,
+    hasItem: (key) => itemsRef.current.has(key),
+    getText: (key) => itemsRef.current.get(key)?.text,
+    isHidden: (key) => itemsRef.current.get(key)?.hidden ?? false,
+    setTerm: (term) => {
+      termRef.current = term;
+      const changed: record.Key[] = [];
+      itemsRef.current.forEach((item, key) => {
+        const hidden = isHidden(item.element, item.text, term);
+        if (hidden === item.hidden) return;
+        item.hidden = hidden;
+        changed.push(key);
+      });
+      if (changed.length > 0) notifyListeners(changed);
+    },
+    countVisible: () => {
+      let count = 0;
+      for (const { hidden } of itemsRef.current.values()) if (!hidden) count++;
+      return count;
+    },
+    getLabel: (key) => {
+      let label = labelsRef.current.get(key);
+      if (label == null) {
+        label = document.createElement("span");
+        label.className = CSS.BE("select", "fixed-label");
+        labelsRef.current.set(key, label);
+      }
+      return label;
+    },
+    subscribe,
+  };
 };
 
 const [RegistryContext, useRegistryContext] = context.create<Registry>({
@@ -154,27 +149,26 @@ const [RegistryContext, useRegistryContext] = context.create<Registry>({
 
 export { RegistryContext, useRegistry, useRegistryContext };
 
-// Items register in layout effects, after their readers render. useSyncExternalStore
-// subscribes after paint, so a reader would paint its stale value for one frame.
 const useRegistryValue = <T>(
   name: string,
   get: (registry: Registry, key?: record.Key) => T,
   key?: record.Key,
 ): T => {
   const registry = useRegistryContext(name);
+  const subscribe = (listener: () => void) => registry.subscribe(listener, key);
+  const getSnapshot = () => get(registry, key);
+  const value = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  // Items register in layout effects, after their readers render, and the store above
+  // subscribes only after paint. Listening from a layout effect as well re-renders the
+  // reader before it paints a stale value.
   const [, rerender] = useReducer((n: number) => n + 1, 0);
-  const value = get(registry, key);
-  const renderedRef = useRef(value);
-  useLayoutEffect(() => {
-    renderedRef.current = value;
-  });
   useLayoutEffect(() => {
     const check = (): void => {
-      if (get(registry, key) !== renderedRef.current) rerender();
+      if (getSnapshot() !== value) rerender();
     };
     check();
-    return registry.subscribe(check, key);
-  }, [registry, get, key]);
+    return subscribe(check);
+  }, [subscribe, getSnapshot, value]);
   return value;
 };
 

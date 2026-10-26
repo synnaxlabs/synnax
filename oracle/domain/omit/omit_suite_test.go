@@ -19,7 +19,7 @@ import (
 
 func TestOmit(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Domain Omit Suite")
+	RunSpecs(t, "Domain Omit Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

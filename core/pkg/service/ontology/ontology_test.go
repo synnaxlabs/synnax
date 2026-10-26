@@ -11,7 +11,7 @@ package ontology_test
 
 import (
 	"context"
-	"io"
+	"fmt"
 	"iter"
 	"slices"
 
@@ -19,12 +19,13 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/change"
-	"github.com/synnaxlabs/x/gorp"
-	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -42,10 +43,50 @@ func (*emittingService) RetrieveResource(
 	return ontology.Resource{}, nil
 }
 
-func (*emittingService) OpenNexter(
+func (*emittingService) Search(
 	context.Context,
-) (iter.Seq[ontology.Resource], io.Closer, error) {
-	return slices.Values([]ontology.Resource{}), xio.NopCloser, nil
+	gorp.Tx,
+	string,
+	int,
+) (search.Result[ontology.ID], error) {
+	return search.Result[ontology.ID]{}, nil
+}
+
+// textService is an ontology.Service whose resources are keyed by their text. It
+// records the tx that its last Search received.
+type textService struct {
+	observe.Noop[iter.Seq[ontology.Change]]
+	typ  ontology.ResourceType
+	keys []string
+	err  error
+	tx   gorp.Tx
+}
+
+func (s *textService) Type() ontology.ResourceType { return s.typ }
+
+func (*textService) RetrieveResource(
+	context.Context, string, gorp.Tx,
+) (ontology.Resource, error) {
+	return ontology.Resource{}, nil
+}
+
+func (s *textService) Search(
+	_ context.Context,
+	tx gorp.Tx,
+	term string,
+	limit int,
+) (search.Result[ontology.ID], error) {
+	s.tx = tx
+	if s.err != nil {
+		return search.Result[ontology.ID]{}, s.err
+	}
+	idx := search.New[string]()
+	for _, k := range s.keys {
+		idx.Set(k, k)
+	}
+	return search.MapKeys(idx.Search(term, limit), func(k string) ontology.ID {
+		return ontology.ID{Type: s.typ, Key: k}
+	}), nil
 }
 
 var _ = Describe("Ontology", func() {
@@ -150,6 +191,86 @@ var _ = Describe("Ontology", func() {
 				Type: ontology.RelationshipTypeParentOf,
 				To:   parent,
 			})).To(BeFalse())
+		})
+	})
+
+	Describe("Search", func() {
+		var (
+			d *gorp.DB
+			o *ontology.Ontology
+		)
+		BeforeEach(func(ctx SpecContext) {
+			d = DeferClose(gorp.Wrap(memkv.New()))
+			o = MustOpen(ontology.Open(ctx, ontology.Config{DB: d}))
+		})
+
+		valves := func(n int) []string {
+			keys := make([]string, n)
+			for i := range keys {
+				keys[i] = fmt.Sprintf("valve %d", i)
+			}
+			return keys
+		}
+
+		It("Should rank the matches of every service together", func(ctx SpecContext) {
+			o.RegisterService(&textService{
+				typ:  ontology.ResourceTypeUser,
+				keys: []string{"turbopump inlet"},
+			})
+			o.RegisterService(&textService{
+				typ:  ontology.ResourceTypeRack,
+				keys: []string{"turbopump", "valve"},
+			})
+			Expect(o.Search(ctx, nil, "turbopump")).To(Equal([]ontology.ID{
+				{Type: ontology.ResourceTypeRack, Key: "turbopump"},
+				{Type: ontology.ResourceTypeUser, Key: "turbopump inlet"},
+			}))
+		})
+
+		It("Should return at most 100 IDs", func(ctx SpecContext) {
+			o.RegisterService(
+				&textService{typ: ontology.ResourceTypeUser, keys: valves(80)},
+			)
+			o.RegisterService(
+				&textService{typ: ontology.ResourceTypeRack, keys: valves(80)},
+			)
+			Expect(o.Search(ctx, nil, "valve")).To(HaveLen(100))
+		})
+
+		It("Should match no builtin resource", func(ctx SpecContext) {
+			Expect(o.Search(ctx, nil, "root")).To(BeEmpty())
+		})
+
+		It("Should pass tx to every service, or the DB when tx is nil",
+			func(ctx SpecContext) {
+				svc := &textService{typ: ontology.ResourceTypeUser}
+				o.RegisterService(svc)
+				MustSucceed(o.Search(ctx, nil, "valve"))
+				Expect(svc.tx).To(BeIdenticalTo(d))
+				tx := DeferClose(d.OpenTx())
+				MustSucceed(o.Search(ctx, tx, "valve"))
+				Expect(svc.tx).To(BeIdenticalTo(tx))
+			})
+
+		It("Should search only the first service registered for a type",
+			func(ctx SpecContext) {
+				o.RegisterService(&textService{
+					typ:  ontology.ResourceTypeUser,
+					keys: []string{"valve"},
+				})
+				o.RegisterService(&textService{
+					typ:  ontology.ResourceTypeUser,
+					keys: []string{"valve inlet"},
+				})
+				Expect(o.Search(ctx, nil, "valve")).To(Equal([]ontology.ID{
+					{Type: ontology.ResourceTypeUser, Key: "valve"},
+				}))
+			})
+
+		It("Should return the error of a service", func(ctx SpecContext) {
+			err := errors.New("search failed")
+			o.RegisterService(&textService{typ: ontology.ResourceTypeUser, err: err})
+			Expect(o.Search(ctx, nil, "valve")).Error().To(MatchError(err))
 		})
 	})
 

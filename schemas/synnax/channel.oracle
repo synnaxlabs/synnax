@@ -97,6 +97,7 @@ Channel struct {
     name        Name                {
         @doc value    "is the human-readable channel name."
         @index lookup
+        @search
     }
     leaseholder node.Key            {
         @doc value """
@@ -166,7 +167,6 @@ Channel struct {
     @py hand
     @retrieve
     @retrieve key  "Key"
-    @search
     @ts hand
 }
 

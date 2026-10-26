@@ -9,7 +9,6 @@
 
 import { type panel, type project, schematic } from "@synnaxlabs/client";
 import { Schematic } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Analytics } from "@/platform/analytics";
@@ -32,8 +31,7 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
   const { capture } = Analytics.use();
   const { update } = Schematic.useCreate({
     afterOptimistic: ({ data: { key } }) => {
-      project ??= getActiveProject();
-      maybeChangeProject(project);
+      maybeChangeProject(project ?? getActiveProject());
       dispatch(Session.Schematic.create({ key, editable: true }));
       openTab({
         variant: "resource",
@@ -43,9 +41,6 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
     },
     afterSuccess: () => capture("schematic_created", {}),
   });
-  return useCallback(
-    (params = {}) =>
-      update({ name: "Schematic", ...params, project: project ?? getActiveProject() }),
-    [update, project],
-  );
+  return (params = {}) =>
+    update({ name: "Schematic", ...params, project: project ?? getActiveProject() });
 };

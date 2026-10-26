@@ -34,6 +34,7 @@ Config struct extends task.PersistConfig {
     }
 
     @doc value  "configures an Arc task, which runs a compiled Arc module."
+    @go imex    body
     @go marshal
     @go migrate
 }

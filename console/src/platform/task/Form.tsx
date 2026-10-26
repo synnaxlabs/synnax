@@ -23,7 +23,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Synnax as PSynnax, Task as PTask } from "@synnaxlabs/pluto";
 import { primitive, TimeSpan } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC } from "react";
 import { type z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
@@ -155,11 +155,12 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     // read-only rather than fields that revert once the save is refused.
     const canEdit = Access.useUpdateGranted(task.ontologyID(taskKey));
 
-    const handleDeploy = useCallback(() => {
+    const handleDeploy = () => {
       handleError(async () => {
         if (client == null) throw new DisconnectedError();
         if (canEdit) {
           const { config, name } = form.value();
+          form.clearStatuses();
           const result = deployConfigZ.safeParse(config);
           if (!result.success) {
             let blocked = false;
@@ -179,14 +180,14 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
         await client.tasks.executeCommand({ task: taskKey, type: "start" });
         capture("task_started", { type });
       }, "Failed to start task");
-    }, [client, form, saveAsync, taskKey, handleError, canEdit, capture]);
+    };
 
-    const handleStop = useCallback(() => {
+    const handleStop = () => {
       handleError(async () => {
         if (client == null) throw new DisconnectedError();
         await client.tasks.executeCommand({ task: taskKey, type: "stop" });
       }, "Failed to stop task");
-    }, [client, taskKey, handleError]);
+    };
 
     const isSnapshot = useIsSnapshot<PTask.FormSchema<S>>(form);
     return (

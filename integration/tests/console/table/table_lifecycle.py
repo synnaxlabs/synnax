@@ -106,6 +106,8 @@ class TableLifecycle(ConsoleCase):
             self.test_undo_redo_text_edit(interaction)
             self.test_resize_col_via_drag(interaction)
             self.test_resize_row_via_drag(interaction)
+            self.test_move_row_via_drag(interaction)
+            self.test_move_col_via_drag(interaction)
             self.test_edit_toggle_gates_editing(interaction)
             self.test_multi_cell_variant_swap(interaction)
             self.test_multi_cell_color_grouping(interaction)
@@ -510,6 +512,38 @@ class TableLifecycle(ConsoleCase):
         assert after >= initial + 30, (
             f"Row 0 should be taller after drag down: was {initial}, now {after}"
         )
+
+    def test_move_row_via_drag(self, table: Table) -> None:
+        """Test that dragging a row label past its neighbor moves the row, and undo
+        moves it back."""
+        self.log("Testing row move via drag")
+        assert table.get_row_count() >= 2, "Moving a row needs at least two rows"
+        first = table.get_cell_key(0, 0)
+        second = table.get_cell_key(1, 0)
+        # The leading edge lands past the midpoint of the next row, and short of the
+        # one after it.
+        table.drag_row_label(0, table.get_row_height(1))
+        table.wait_for_cell_key(0, 0, second)
+        table.wait_for_cell_key(1, 0, first)
+        table.select_cell(0, 0)
+        table.undo()
+        table.wait_for_cell_key(0, 0, first)
+        table.wait_for_cell_key(1, 0, second)
+
+    def test_move_col_via_drag(self, table: Table) -> None:
+        """Test that dragging a column label past its neighbor moves the column, and
+        undo moves it back."""
+        self.log("Testing column move via drag")
+        assert table.get_column_count() >= 2, "Moving a column needs at least two"
+        first = table.get_cell_key(0, 0)
+        second = table.get_cell_key(0, 1)
+        table.drag_col_label(0, table.get_column_width(1))
+        table.wait_for_cell_key(0, 0, second)
+        table.wait_for_cell_key(0, 1, first)
+        table.select_cell(0, 0)
+        table.undo()
+        table.wait_for_cell_key(0, 0, first)
+        table.wait_for_cell_key(0, 1, second)
 
     def test_edit_toggle_gates_editing(self, table: Table) -> None:
         """Test that toggling editing off hides edit affordances and re-enables them on toggle."""

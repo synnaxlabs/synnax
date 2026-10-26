@@ -48,6 +48,19 @@ describe("Theming", () => {
     expect(result.current.theme.colors.primary.z).toEqual(color.construct("#be9223"));
   });
 
+  it("should switch to the variant a new theme prop pins", () => {
+    let theme: Theming.ProviderProps["theme"] = { key: "synnaxDark" };
+    const { result, rerender } = renderHook(() => Theming.useContext(), {
+      wrapper: ({ children }: PropsWithChildren): ReactElement => (
+        <Theming.Provider theme={theme}>{children}</Theming.Provider>
+      ),
+    });
+    expect(result.current.theme.key).toBe("synnaxDark");
+    theme = { key: "synnaxLight" };
+    rerender();
+    expect(result.current.theme.key).toBe("synnaxLight");
+  });
+
   describe("OS color-scheme sync", () => {
     let matches = false;
     let listener: ((e: MediaQueryListEvent) => void) | null = null;

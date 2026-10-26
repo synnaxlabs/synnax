@@ -19,7 +19,7 @@ import (
 
 func TestSelect(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "STL Selector Suite")
+	RunSpecs(t, "STL Selector Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

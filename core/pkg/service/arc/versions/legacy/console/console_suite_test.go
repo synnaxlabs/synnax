@@ -19,7 +19,7 @@ import (
 
 func TestConsole(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Arc Legacy Console Suite")
+	RunSpecs(t, "Service Arc Legacy Console Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

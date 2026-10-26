@@ -16,12 +16,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -35,7 +35,7 @@ var _ = Describe("v0 -> v1 Range migration", func() {
 				To(Succeed())
 		}
 		v0Chain := v0.NewMigrations(v0.MigrationConfig{})
-		v0Applied := gorp.NewMigration(
+		v0Applied := migrate.New(
 			v0Chain[0].Key(),
 			func(context.Context, gorp.Tx, alamos.Instrumentation) error { return nil },
 		)
@@ -43,7 +43,7 @@ var _ = Describe("v0 -> v1 Range migration", func() {
 			DB:        db,
 			Namespace: "Range",
 			Migrations: append(
-				append([]migrate.Migration{v0Applied}, v0Chain[1:]...), v1.Migration,
+				append([]gorp.Migration{v0Applied}, v0Chain[1:]...), v1.Migration,
 			),
 		})).To(Succeed())
 		out := make(map[v1.Key]v1.Range, len(seeds))

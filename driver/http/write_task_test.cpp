@@ -276,6 +276,33 @@ TEST(HTTPWriteTask, ParseConfigHeaderMissingValueDefaultsEmpty) {
     EXPECT_EQ(cfg.endpoints[0].headers.at(0).value, "");
 }
 
+/// @brief it should accept a timestamp channel that has no time_format.
+TEST(HTTPWriteTask, ParseConfigTimestampChannelWithoutTimeFormat) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto cmd_ch = synnax::channel::Channel{
+        .name = make_unique_channel_name("cmd"),
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_virtual = true,
+    };
+    ASSERT_NIL(client->channels.create(cmd_ch));
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"},
+               {"json_type", "string"},
+               {"channel", cmd_ch.key}}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(client);
+    auto cfg = ASSERT_NIL_P(WriteTaskConfig::parse(ctx, task));
+    EXPECT_FALSE(cfg.endpoints[0].channel.time_format.has_value());
+}
+
 /// @brief it should fail when a query_params entry is missing the parameter field.
 TEST(HTTPWriteTask, ParseConfigQueryParamMissingParameterErrors) {
     synnax::task::Task task;
@@ -1201,9 +1228,9 @@ TEST(HTTPWriteTask, PATCHBooleanValue) {
     EXPECT_EQ(body["enabled"].get<bool>(), true);
 }
 
-/// @brief it should format a TIMESTAMP channel value as ISO8601 when time_format
-/// is set.
-TEST(HTTPWriteTask, TimeFormatISO8601) {
+/// @brief it should format a TIMESTAMP channel value as ISO 8601 when time_format
+/// is unset.
+TEST(HTTPWriteTask, TimeFormatDefaultsToISO8601) {
     mock::Server server(
         mock::ServerConfig{
             .routes = {{
@@ -1227,19 +1254,17 @@ TEST(HTTPWriteTask, TimeFormatISO8601) {
     ep.channel.pointer = "/timestamp";
     ep.channel.json_type = "string";
     ep.channel.channel = 1;
-    ep.channel.time_format = "iso8601";
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
 
     auto [sink, processor] = make_sink(cfg, server.base_url());
 
-    // Send a nanosecond timestamp: 2025-01-15T00:00:00Z = 1736899200000000000 ns.
-    const int64_t ts_ns = 1736899200000000000LL;
+    const auto ts = x::telem::TimeStamp(1736899200000000000LL);
     x::telem::Frame frame;
     frame.emplace(
         synnax::channel::Key(1),
-        x::telem::Series(std::vector<int64_t>{ts_ns})
+        x::telem::Series(std::vector<x::telem::TimeStamp>{ts})
     );
 
     ASSERT_NIL(sink->write(frame));
@@ -1247,8 +1272,7 @@ TEST(HTTPWriteTask, TimeFormatISO8601) {
     auto reqs = server.received_requests();
     ASSERT_EQ(reqs.size(), 1);
     auto body = x::json::json::parse(reqs[0].body);
-    const auto ts_str = body["timestamp"].get<std::string>();
-    EXPECT_TRUE(ts_str.find("2025-01-15") != std::string::npos);
+    EXPECT_EQ(body["timestamp"].get<std::string>(), ts.iso8601());
 }
 
 /// @brief it should format a TIMESTAMP channel value as unix seconds when
@@ -1284,12 +1308,12 @@ TEST(HTTPWriteTask, TimeFormatUnixSeconds) {
 
     auto [sink, processor] = make_sink(cfg, server.base_url());
 
-    // 1736899200 seconds = 2025-01-15T00:00:00Z in nanoseconds.
-    const int64_t ts_ns = 1736899200000000000LL;
     x::telem::Frame frame;
     frame.emplace(
         synnax::channel::Key(1),
-        x::telem::Series(std::vector<int64_t>{ts_ns})
+        x::telem::Series(
+            std::vector<x::telem::TimeStamp>{x::telem::TimeStamp(1736899200000000000LL)}
+        )
     );
 
     ASSERT_NIL(sink->write(frame));

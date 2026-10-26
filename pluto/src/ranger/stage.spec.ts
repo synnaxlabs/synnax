@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type NumericTimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Ranger } from "@/ranger";
@@ -140,5 +141,26 @@ describe("moveToStage", () => {
       const modified = Ranger.moveToStage(original, "in_progress");
       expect(modified.end).toEqual(TimeStamp.MAX.nanoseconds);
     });
+  });
+});
+
+describe("useClock", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ now: EXACT });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+  it("should catch up when a new range starts between its time and now", () => {
+    const start = TimeStamp.now();
+    const unset = TimeStamp.MAX.nanoseconds;
+    const { result, rerender } = renderHook(
+      ({ range }: { range: NumericTimeRange }) => Ranger.useClock(range),
+      { initialProps: { range: { start: unset, end: unset } } },
+    );
+    vi.setSystemTime(start.add(TimeSpan.HOUR).date());
+    const range = { start: start.add(TimeSpan.minutes(30)).nanoseconds, end: unset };
+    rerender({ range });
+    expect(Ranger.getStage(range, result.current)).toBe("in_progress");
   });
 });

@@ -179,6 +179,16 @@ const handlers: Handlers = {
     return { inverse: [], targets: [state.key] };
   },
 
+  setIcon: (state, payload) => {
+    state.icon = payload.icon;
+    return { inverse: [], targets: [state.key] };
+  },
+
+  setColor: (state, payload) => {
+    state.color = payload.color;
+    return { inverse: [], targets: [state.key] };
+  },
+
   // insertTabs upserts each tab in order into one destination leaf. A tab whose key is
   // already in the tree always has its content refreshed; it keeps its current position
   // unless the caller gives an explicit placement (targetTab, targetLeaf, location, or

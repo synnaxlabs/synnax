@@ -53,7 +53,7 @@ func virtualChannel(key cesium.ChannelKey, name string) cesium.Channel {
 
 func TestCesium(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cesium Suite")
+	RunSpecs(t, "Cesium Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

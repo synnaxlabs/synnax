@@ -7,24 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PageNavNode } from "@/components/nav/Page";
+import { type PageNavNode } from "@/components/nav/tree";
 
 export const MODBUS_NAV: PageNavNode = {
   key: "modbus",
   name: "Modbus",
   children: [
     {
-      key: "/reference/driver/modbus/connect-server",
       href: "/reference/driver/modbus/connect-server",
       name: "Connect to a server",
     },
     {
-      key: "/reference/driver/modbus/read-task",
       href: "/reference/driver/modbus/read-task",
       name: "Read task",
     },
     {
-      key: "/reference/driver/modbus/write-task",
       href: "/reference/driver/modbus/write-task",
       name: "Write task",
     },

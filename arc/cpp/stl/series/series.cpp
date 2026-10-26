@@ -13,6 +13,7 @@
 
 namespace arc::stl::series {
 
+// NOLINTNEXTLINE(readability-function-size): one binding macro per host function.
 void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
     auto ss = this->series_state;
 

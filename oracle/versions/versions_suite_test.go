@@ -19,7 +19,7 @@ import (
 
 func TestVersions(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Versions Suite")
+	RunSpecs(t, "Versions Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

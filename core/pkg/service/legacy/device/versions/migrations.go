@@ -12,19 +12,24 @@ package versions
 import (
 	"slices"
 
+	"github.com/synnaxlabs/gorp"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v1"
-	"github.com/synnaxlabs/x/migrate"
 )
 
 // MigrationsConfig configures the stored-device migration chain.
 type MigrationsConfig = v0.MigrationConfig
 
 // NewMigrations returns the ordered migration chain for stored devices.
-func NewMigrations(cfg MigrationsConfig) []migrate.Migration {
+func NewMigrations(cfg MigrationsConfig) []gorp.Migration {
 	return slices.Concat(
-		[]migrate.Migration{v0.NormalizeKeys},
+		[]gorp.Migration{v0.NormalizeKeys},
 		v0.NewMigrations(cfg),
-		[]migrate.Migration{v1.Migration, v1.HTTPHealthCheckMigration},
+		[]gorp.Migration{
+			v1.Migration,
+			v1.HTTPHealthCheckMigration,
+			v1.EtherCATMakeMigration,
+			v1.EtherCATChannelMapMigration,
+		},
 	)
 }

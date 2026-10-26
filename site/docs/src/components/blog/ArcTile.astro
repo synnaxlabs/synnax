@@ -23,11 +23,11 @@ import { Text } from "@synnaxlabs/lyra/text";
     <Text.Text level="small" className="tile-date" color={8}>
         Mar 4, 2026
     </Text.Text>
-    <Flex.Box direction="y" justify="between" style={{ zIndex: 2, height: "100%" }}>
+    <Flex.Box direction="y" justify="between" className="arc-tile__content">
         <Text.Text level="h3" color={10}>
             Introducing Arc
         </Text.Text>
-        <Text.Text level="p" color={9} weight={400} style={{ maxWidth: 450 }}>
+        <Text.Text level="p" color={9} weight={400} className="arc-tile__summary">
             Why we built a new programming language for automation and controls.
         </Text.Text>
     </Flex.Box>
@@ -149,6 +149,15 @@ import { Text } from "@synnaxlabs/lyra/text";
         }
     }
 
+    .arc-tile__content {
+        z-index: 2;
+        height: 100%;
+    }
+
+    .arc-tile__summary {
+        max-width: 450px;
+    }
+
     .tile-date {
         position: absolute;
         top: 3rem;
@@ -159,6 +168,25 @@ import { Text } from "@synnaxlabs/lyra/text";
         border: var(--pluto-border);
         border-radius: 1rem;
         padding: 0.75rem 1.5rem;
+    }
+
+    /* On a phone, the date sits above the title, so a long title never runs under
+       it. */
+    @media (max-width: 600px) {
+        .arc-tile {
+            flex-direction: column;
+            gap: 2rem;
+            padding: 4rem;
+
+            .tile-date {
+                position: static;
+            }
+
+            .arc-tile__content {
+                flex: 1;
+                height: auto;
+            }
+        }
     }
 
     @media (prefers-color-scheme: light) {
