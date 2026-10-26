@@ -8,12 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { Bus } from "@/feature/bus";
-import { useConnectModal } from "@/feature/udp/device/device";
 import { Task } from "@/feature/udp/task";
 
 export const ContextMenuItems = Bus.createContextMenuItems({
   integration: "udp",
-  useConnectModal,
   useCreateRead: Task.useCreateRead,
   useCreateWrite: Task.useCreateWrite,
 });

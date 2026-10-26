@@ -117,7 +117,7 @@ describe("Schematic.Node.createConfig", () => {
   it("should fill the schema defaults for the variant", () => {
     const config = createConfig({ variant: "value" });
     expect(config.variant).toBe("value");
-    expect(config.units).toBe("psi");
+    expect(config.inlineSize).toBe(70);
     expect(config.stalenessTimeout).toBe(5);
   });
 
@@ -207,7 +207,7 @@ describe("Schematic.Node.changeConfig", () => {
     const changed = changeConfig(createConfig({ variant: "valve" }), {
       variant: "value",
     });
-    expect(changed.units).toBe("psi");
+    expect(changed.inlineSize).toBe(70);
   });
 
   it("should take the spec key of the new custom symbol", () => {

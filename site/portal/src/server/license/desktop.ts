@@ -167,11 +167,17 @@ export const link = async (
   return { secret, ...linked };
 };
 
+/**
+ * UNLINKED is the code of a refusal that means the machine is logged out. The Desktop
+ * app logs out on this code alone, so a 403 from a proxy does not log a user out.
+ */
+const UNLINKED = "unlinked";
+
 const LOGGED_OUT = "This machine was logged out. Log in again.";
 
 /**
- * resolve finds the machine a renewal secret belongs to. Throws a 403 when the secret
- * is unknown or the machine was unlinked.
+ * resolve finds the machine a renewal secret belongs to. Throws a 403 with the code
+ * `unlinked` when the secret is unknown or the machine was unlinked.
  */
 export const resolve = async (store: Store, secret: string): Promise<Machine> => {
   const [row] = await store.query
@@ -179,9 +185,9 @@ export const resolve = async (store: Store, secret: string): Promise<Machine> =>
     .from(activation)
     .innerJoin(license, eq(activation.license, license.key))
     .where(eq(activation.renewalSecretHash, hashSecret(secret)));
-  if (row == null) throw forbidden("This machine is not logged in");
+  if (row == null) throw forbidden("This machine is not logged in", UNLINKED);
   if (row.activation.releasedAt != null || row.license.revokedAt != null)
-    throw forbidden(LOGGED_OUT);
+    throw forbidden(LOGGED_OUT, UNLINKED);
   return row;
 };
 
@@ -192,8 +198,8 @@ export interface RenewArgs {
 
 /**
  * renew slides the expiry of a machine's license and returns a fresh license key.
- * Throws a 403 when the machine was unlinked after `resolve` found it. Nothing is
- * stored when signing fails.
+ * Throws a 403 with the code `unlinked` when the machine was unlinked after `resolve`
+ * found it. Nothing is stored when signing fails.
  */
 export const renew = async (
   store: Store,
@@ -206,7 +212,7 @@ export const renew = async (
       .set({ expiresAt: expiryFrom(now) })
       .where(and(eq(license.key, row.license.key), isNull(license.revokedAt)))
       .returning();
-    if (lic == null) throw forbidden(LOGGED_OUT);
+    if (lic == null) throw forbidden(LOGGED_OUT, UNLINKED);
     await tx
       .update(activation)
       .set({ lastSeen: now })

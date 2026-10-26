@@ -37,9 +37,16 @@ class HardwareCase(TestCase):
         self._test_device_keys: list[str] = []
         self._test_task_keys: list[sy.task.Key] = []
 
-    def create_test_rack(self, name: str) -> sy.Rack:
-        """Create a rack that teardown deletes."""
-        rack = self.client.racks.create(name=name)
+    def create_test_rack(
+        self, name: str, integrations: list[str] | None = None
+    ) -> sy.Rack:
+        """Create a rack that teardown deletes.
+
+        :param integrations: The integrations the rack reports, such as "ni".
+        """
+        rack = self.client.racks.create(
+            sy.Rack(name=name, integrations=integrations or [])
+        )
         self._test_rack_keys.append(rack.key)
         return rack
 

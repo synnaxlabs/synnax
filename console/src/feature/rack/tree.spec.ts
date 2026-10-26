@@ -9,6 +9,7 @@
 
 import {
   arc,
+  device,
   ni,
   NotFoundError,
   type ontology,
@@ -122,6 +123,17 @@ describe("rack ontology service", () => {
     expect(await screen.findByText("Create Arc automation")).toBeTruthy();
   });
 
+  it("should open the device picker scoped to the rack", async () => {
+    const r = await createRack();
+    await renderMenu([r]);
+    fireEvent.click(await screen.findByText("Connect device"));
+    expect(await screen.findByText("Connect by address")).toBeTruthy();
+    expect(
+      (await screen.findAllByText(`${r.name} is not running`)).length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByText(/^No running Driver has/)).toBeNull();
+  });
+
   it("should hide the toggle scanner item for a rack without the NI integration", async () => {
     const r = await createRack();
     await renderMenu([r]);
@@ -158,6 +170,19 @@ describe("permission to write the rack", () => {
     await renderMenu([r], await createRackWriter(arc.TYPE_ONTOLOGY_ID));
     expect(await screen.findByText("Create Arc automation")).toBeTruthy();
     expect(screen.queryByText("Toggle NI device scanner")).toBeNull();
+  });
+
+  it("should withhold Connect device from a subject who cannot create devices", async () => {
+    const r = await createRack();
+    await renderMenu([r], await createRackWriter(arc.TYPE_ONTOLOGY_ID));
+    expect(await screen.findByText("Create Arc automation")).toBeTruthy();
+    expect(screen.queryByText("Connect device")).toBeNull();
+  });
+
+  it("should offer Connect device to a subject who may create devices", async () => {
+    const r = await createRack();
+    await renderMenu([r], await createRackWriter(device.TYPE_ONTOLOGY_ID));
+    expect(await screen.findByText("Connect device")).toBeTruthy();
   });
 
   it("should offer the scanner toggle to a subject who may create tasks", async () => {

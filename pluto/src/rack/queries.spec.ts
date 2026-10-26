@@ -9,6 +9,7 @@
 
 import { rack, status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -381,6 +382,46 @@ describe("queries", () => {
         expect(rackInList?.status?.variant).toEqual("warning");
         expect(rackInList?.status?.message).toEqual("Rack needs attention");
       });
+    });
+  });
+
+  describe("useMultiple", () => {
+    it("should retrieve only the racks with the integration", async () => {
+      const integration = id.create();
+      const match = await client.racks.create({
+        name: "match",
+        integrations: [integration],
+      });
+      await client.racks.create({ name: "other" });
+      const { result } = await renderHookSuspended(
+        () => Rack.useMultiple({ integration }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current?.map((r) => r.key)).toEqual([match.key]),
+      );
+    });
+
+    it("should add a matching rack created after the query resolves", async () => {
+      const integration = id.create();
+      const first = await client.racks.create({
+        name: "first",
+        integrations: [integration],
+      });
+      const { result } = await renderHookSuspended(
+        () => Rack.useMultiple({ integration }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current).toHaveLength(1));
+      const second = await client.racks.create({
+        name: "second",
+        integrations: [integration],
+      });
+      await waitFor(() =>
+        expect(result.current?.map((r) => r.key).sort()).toEqual(
+          [first.key, second.key].sort(),
+        ),
+      );
     });
   });
 

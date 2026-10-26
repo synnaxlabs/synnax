@@ -34,9 +34,11 @@ const Properties = (): ReactElement => (
   </Flex.Box>
 );
 
-export const { MAKE, useConnectModal, Select, COMMANDS } = Bus.createDevice({
+export const { MAKE, useConnectModal, Select, COMMANDS, NETWORK } = Bus.createDevice({
   make: "TCP",
+  name: "TCP",
   noun: "TCP device",
+  description: "Read and write ICD messages over a TCP connection.",
   icon: <Icon.Link />,
   properties: tcp.propertiesZ,
   integration: "tcp",

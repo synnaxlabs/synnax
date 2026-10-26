@@ -10,23 +10,24 @@
 import "@/feature/opcua/device/Connect.css";
 
 import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
-import { Divider } from "@synnaxlabs/lyra/divider";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
-import { Nav } from "@synnaxlabs/lyra/nav";
-import { Status } from "@synnaxlabs/lyra/status";
-import { Device as PDevice, type Flux, Rack } from "@synnaxlabs/pluto";
+import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
 
 import { retrieveScanTask } from "@/feature/opcua/device/retrieveScanTask";
-import { SelectSecurityMode } from "@/feature/opcua/device/SelectSecurityMode";
+import {
+  SelectSecurityMode,
+  type SelectSecurityModeProps,
+} from "@/feature/opcua/device/SelectSecurityMode";
 import { SelectSecurityPolicy } from "@/feature/opcua/device/SelectSecurityPolicy";
 import {
+  BASIC256_SHA256_SECURITY_POLICY,
   type Device,
+  INTEGRATION,
   NO_SECURITY_MODE,
+  NO_SECURITY_POLICY,
   SCHEMAS,
   type SecurityMode,
   type SecurityPolicy,
@@ -35,10 +36,8 @@ import {
 import { TEST_CONNECTION_COMMAND_TYPE } from "@/feature/opcua/task/types";
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
-import { type Device as PlatformDevice } from "@/platform/device";
+import { Device as PlatformDevice } from "@/platform/device";
 import { FS } from "@/platform/fs";
-import { Modals } from "@/platform/modals";
-import { Triggers } from "@/platform/triggers";
 
 const TEST_CONNECTION_TIMEOUT = TimeSpan.seconds(10);
 
@@ -93,10 +92,12 @@ const beforeSave = async ({
   return true;
 };
 
-const Connect = ({
+export const Connect = ({
   deviceKey,
+  rack: defaultRack,
   close,
-}: Modals.ContentProps<PlatformDevice.ConnectParams, void>) => {
+  onBack,
+}: PlatformDevice.ConnectProps) => {
   const { capture } = Analytics.use();
   const {
     form,
@@ -105,112 +106,136 @@ const Connect = ({
     variant,
   } = useForm({
     query: deviceKey == null ? null : { key: deviceKey },
+    initialValues: { ...INITIAL_VALUES, rack: defaultRack ?? 0 },
     beforeValidate,
     beforeSave,
-    afterSave: () => {
+    afterSave: ({ get }) => {
       if (deviceKey == null) capture("device_connected", { integration: "opcua" });
-      close();
+      close(get<device.Key>("key").value);
     },
   });
+  const rackKey = Form.useFieldValue<
+    rack.Key,
+    rack.Key,
+    PDevice.FormSchema<typeof SCHEMAS>
+  >("rack", { ctx: form });
+  const reason = PlatformDevice.useBlockedReason({
+    integration: INTEGRATION,
+    name: "OPC UA",
+    rack: rackKey,
+  });
 
+  const { get: getField, set: setField } = form;
   const hasSecurity =
     Form.useFieldValue<SecurityMode, SecurityMode, PDevice.FormSchema<typeof SCHEMAS>>(
       "properties.connection.securityMode",
       { ctx: form },
     ) != NO_SECURITY_MODE;
+
+  const renderSecurityMode = ({
+    onChange,
+    ...rest
+  }: SelectSecurityModeProps & { onChange: (v: SecurityMode) => void }) => {
+    const handleChange = (mode: SecurityMode) => {
+      onChange(mode);
+      const policyPath = "properties.connection.securityPolicy";
+      // Security mode None pairs only with policy None, and every other mode with a
+      // policy other than None.
+      if (mode === NO_SECURITY_MODE) setField(policyPath, NO_SECURITY_POLICY);
+      else if (getField<SecurityPolicy>(policyPath).value === NO_SECURITY_POLICY)
+        setField(policyPath, BASIC256_SHA256_SECURITY_POLICY);
+    };
+    return <SelectSecurityMode {...rest} onChange={handleChange} />;
+  };
+
   return (
     <Modal.Frame className={CSS.B("opc-connect")}>
-      <Modal.Header icon={<Icon.Logo.OPCUA />}>Server.Connect</Modal.Header>
-      <Modal.Body gap="small">
+      <Modal.Header icon={<Icon.Logo.OPCUA />}>{HEADER}</Modal.Header>
+      <Modal.Body gap="large">
         <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
-          <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
-          <Form.Field<rack.Key> path="rack" label="Connect from" required>
-            {selectRackRenderProp}
-          </Form.Field>
-          <Form.TextField
-            path="properties.connection.endpoint"
-            inputProps={ENDPOINT_INPUT_PROPS}
-          />
-          <Divider.Divider x padded="bottom" />
-          <Flex.Box x justify="between">
-            <Form.TextField
-              grow
-              path="properties.connection.username"
-              inputProps={USERNAME_INPUT_PROPS}
-            />
-            <Form.TextField
-              grow
-              path="properties.connection.password"
-              inputProps={PASSWORD_INPUT_PROPS}
-            />
-            <Form.Field<SecurityMode>
-              label="Security mode"
-              path="properties.connection.securityMode"
-            >
-              {({ value, onChange }) => (
-                <SelectSecurityMode value={value} onChange={onChange} />
+          <Form.TextField path="name" showLabel={false} inputProps={NAME_INPUT_PROPS} />
+          <Form.Sections>
+            <Form.Section title="Connection">
+              <Form.TextField
+                path="properties.connection.endpoint"
+                label="Endpoint"
+                padHelpText={false}
+                inputProps={ENDPOINT_INPUT_PROPS}
+              />
+              <PlatformDevice.RackField integration={INTEGRATION} />
+            </Form.Section>
+            <Form.Section title="Authentication">
+              <Form.TextField
+                path="properties.connection.username"
+                label="Username"
+                padHelpText={false}
+                inputProps={USERNAME_INPUT_PROPS}
+              />
+              <Form.TextField
+                path="properties.connection.password"
+                label="Password"
+                padHelpText={false}
+                inputProps={PASSWORD_INPUT_PROPS}
+              />
+            </Form.Section>
+            <Form.Section title="Security">
+              <Form.Field<SecurityMode>
+                path="properties.connection.securityMode"
+                label="Mode"
+                padHelpText={false}
+              >
+                {renderSecurityMode}
+              </Form.Field>
+              {hasSecurity && (
+                <>
+                  <Form.Field<SecurityPolicy>
+                    path="properties.connection.securityPolicy"
+                    label="Policy"
+                    padHelpText={false}
+                  >
+                    {({ value, onChange }) => (
+                      <SelectSecurityPolicy value={value} onChange={onChange} />
+                    )}
+                  </Form.Field>
+                  <Form.Field<string>
+                    path="properties.connection.clientCertificate"
+                    label="Client certificate"
+                    padHelpText={false}
+                  >
+                    {clientCertField}
+                  </Form.Field>
+                  <Form.Field<string>
+                    path="properties.connection.clientPrivateKey"
+                    label="Client private key"
+                    padHelpText={false}
+                  >
+                    {clientPrivateKeyField}
+                  </Form.Field>
+                  <Form.Field<string>
+                    path="properties.connection.serverCertificate"
+                    label="Server certificate"
+                    padHelpText={false}
+                  >
+                    {serverCertField}
+                  </Form.Field>
+                </>
               )}
-            </Form.Field>
-          </Flex.Box>
-          <Divider.Divider x padded="bottom" />
-          <Form.Field<SecurityPolicy>
-            grow={!hasSecurity}
-            path="properties.connection.securityPolicy"
-            label="Security policy"
-          >
-            {({ value, onChange }) => (
-              <SelectSecurityPolicy value={value} onChange={onChange} />
-            )}
-          </Form.Field>
-          {hasSecurity && (
-            <>
-              <Form.Field<string>
-                label="Client certificate"
-                path="properties.connection.clientCertificate"
-              >
-                {clientCertField}
-              </Form.Field>
-              <Form.Field<string>
-                label="Client private key"
-                path="properties.connection.clientPrivateKey"
-              >
-                {clientPrivateKeyField}
-              </Form.Field>
-              <Form.Field<string>
-                grow
-                label="Server certificate"
-                path="properties.connection.serverCertificate"
-              >
-                {serverCertField}
-              </Form.Field>
-            </>
-          )}
+            </Form.Section>
+          </Form.Sections>
         </Form.Form>
       </Modal.Body>
-      <Modal.Footer>
-        <Nav.Bar.Start gap="small">
-          {variant == "success" ? (
-            <Triggers.SaveHelpText action="Connect" noBar />
-          ) : (
-            <Status.Summary variant={variant} message={stat.description} />
-          )}
-        </Nav.Bar.Start>
-        <Nav.Bar.End>
-          <Button.Button
-            status={status.keepVariants(variant, "loading")}
-            onClick={() => save()}
-            variant="filled"
-            trigger={Triggers.SAVE}
-          >
-            Connect
-          </Button.Button>
-        </Nav.Bar.End>
-      </Modal.Footer>
+      <PlatformDevice.ConnectFooter
+        reason={reason}
+        variant={variant}
+        message={stat.description}
+        onConnect={() => save()}
+        onBack={onBack}
+      />
     </Modal.Frame>
   );
 };
 
-export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(Connect);
+export const useConnectModal = PlatformDevice.createConnectModal(Connect, INTEGRATION);
 
 const clientCertField = Component.renderProp(({ value, onChange }) => (
   <FS.InputPath value={value} onChange={onChange} title="Select a client certificate" />
@@ -224,18 +249,13 @@ const serverCertField = Component.renderProp(({ value, onChange }) => (
   <FS.InputPath value={value} onChange={onChange} title="Select a server certificate" />
 ));
 
-const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "opc" };
-
-const selectRackRenderProp = Component.renderProp(
-  (props: Pick<Rack.SelectSingleProps, "value" | "onChange">) => (
-    <Rack.SelectSingle {...props} initialQuery={INITIAL_RACK_QUERY} />
-  ),
-);
+const HEADER = ["Device", "Connect", "OPC UA server"];
 
 const NAME_INPUT_PROPS = {
   level: "h2",
   variant: "text",
   placeholder: "OPC UA server",
+  "aria-label": "Name",
 } as const;
 
 const ENDPOINT_INPUT_PROPS = {
@@ -243,6 +263,6 @@ const ENDPOINT_INPUT_PROPS = {
   autoFocus: true,
 } as const;
 
-const USERNAME_INPUT_PROPS = { placeholder: "admin" } as const;
+const USERNAME_INPUT_PROPS = { placeholder: "Anonymous" } as const;
 
 const PASSWORD_INPUT_PROPS = { type: "password" } as const;

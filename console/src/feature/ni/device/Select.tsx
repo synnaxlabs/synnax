@@ -9,24 +9,26 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
+import { HARDWARE } from "@/feature/ni/device/hardware";
 import { MAKE } from "@/feature/ni/device/types";
-import { useConfigureModal } from "@/feature/ni/device/useConfigureModal";
 import { Device } from "@/platform/device";
 
 export interface SelectProps extends Omit<
   Device.SelectProps,
-  "onConfigure" | "emptyContent" | "make"
+  "onConfigure" | "emptyContent" | "make" | "connect"
 > {}
 
 export const Select = (props: SelectProps) => {
-  const configure = useConfigureModal();
+  const configure = Device.useConfigureModal();
+  const find = Device.useFindModal();
   return (
     <Device.Select
       {...props}
-      onConfigure={(deviceKey) => configure({ deviceKey })}
+      onConfigure={(deviceKey) => configure({ deviceKey, hardware: HARDWARE })}
       emptyContent="No NI devices connected"
       make={MAKE}
       icon={<Icon.Logo.NI />}
+      connect={{ title: HARDWARE.title, open: () => find({ hardware: HARDWARE }) }}
     />
   );
 };

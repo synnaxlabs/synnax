@@ -69,9 +69,11 @@ const Properties = (): ReactElement => {
   );
 };
 
-export const { MAKE, useConnectModal, Select, COMMANDS } = Bus.createDevice({
+export const { MAKE, useConnectModal, Select, COMMANDS, NETWORK } = Bus.createDevice({
   make: "CAN",
+  name: "CAN",
   noun: "CAN device",
+  description: "Read and write ICD messages on a CAN bus.",
   icon: <Icon.Hardware />,
   properties: can.propertiesZ,
   integration: "can",

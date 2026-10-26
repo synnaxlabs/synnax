@@ -1,0 +1,115 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/task/v2"
+import "schemas/x/versions/telem/v0"
+
+BaseReadChannel = v1.BaseReadChannel
+
+ReadChannel union on type extends v1.BaseReadChannel {
+    entry {
+        index     uint16         {
+            @doc value "is the CoE object dictionary index of the PDO entry."
+        }
+        sub_index uint8          {
+            @doc value "is the CoE object dictionary sub-index of the PDO entry."
+        }
+        data_type telem.DataType {
+            @doc value "is the data type of the PDO entry."
+        }
+
+        @doc value "addresses a PDO entry by its CoE index and sub-index."
+    }
+    unresolved {
+        pdo string {
+            @doc value "is the entry name that matched no single entry on the slave."
+        }
+
+        @doc value """
+            is a channel whose PDO entry name matched no single entry on its slave. It
+            must be given an entry before the task runs.
+        """
+    }
+
+    @doc value  """
+        is a single EtherCAT read channel (TxPDO, slave to master). The type field
+        selects how the PDO entry is addressed.
+    """
+    @go marshal
+}
+
+BaseWriteChannel = v1.BaseWriteChannel
+
+WriteChannel union on type extends v1.BaseWriteChannel {
+    entry {
+        index     uint16         {
+            @doc value "is the CoE object dictionary index of the PDO entry."
+        }
+        sub_index uint8          {
+            @doc value "is the CoE object dictionary sub-index of the PDO entry."
+        }
+        data_type telem.DataType {
+            @doc value "is the data type of the PDO entry."
+        }
+
+        @doc value "addresses a PDO entry by its CoE index and sub-index."
+    }
+    unresolved {
+        pdo string {
+            @doc value "is the entry name that matched no single entry on the slave."
+        }
+
+        @doc value """
+            is a channel whose PDO entry name matched no single entry on its slave. It
+            must be given an entry before the task runs.
+        """
+    }
+
+    @doc value  """
+        is a single EtherCAT write channel (RxPDO, master to slave). The type field
+        selects how the PDO entry is addressed.
+    """
+    @go marshal
+}
+
+ReadConfig struct extends task.ReadConfig {
+    channels ReadChannel[] {
+        @doc value "are the channels the task acquires."
+    }
+
+    @doc value  """
+        configures an EtherCAT read task. Each channel addresses a PDO entry on its own
+        slave; all slaves must share one network interface.
+    """
+    @go imex    body
+    @go marshal
+    @go migrate
+}
+
+WriteConfig struct extends task.PersistConfig {
+    state_rate     telem.Rate = 25 {
+        @doc value "is the rate at which output state is reported to Synnax, in Hertz."
+    }
+    execution_rate telem.Rate = 1000 {
+        @doc value "is the rate at which commands are applied to the bus, in Hertz."
+    }
+    channels       WriteChannel[] {
+        @doc value "are the channels the task drives."
+    }
+
+    @doc value  """
+        configures an EtherCAT write task. Each channel addresses a PDO entry on its own
+        slave; all slaves must share one network interface.
+    """
+    @go imex    body
+    @go marshal
+    @go migrate
+}
+
+ScanConfig = v1.ScanConfig

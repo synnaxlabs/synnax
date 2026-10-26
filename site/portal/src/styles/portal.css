@@ -422,6 +422,11 @@ section.portal-auth-page {
     min-width: 0;
 }
 
+/* Extra space sets the usage data choice apart from the summary and buttons. */
+.portal-usage {
+    padding-block: 1.5rem;
+}
+
 .portal-auth__islands {
     position: absolute;
     top: 2rem;

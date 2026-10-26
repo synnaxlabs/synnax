@@ -52,9 +52,11 @@ const Properties = (): ReactElement => (
   </>
 );
 
-export const { MAKE, useConnectModal, Select, COMMANDS } = Bus.createDevice({
+export const { MAKE, useConnectModal, Select, COMMANDS, NETWORK } = Bus.createDevice({
   make: "UDP",
+  name: "UDP",
   noun: "UDP device",
+  description: "Read and write ICD messages over UDP.",
   icon: <Icon.Bridge />,
   properties: udp.propertiesZ,
   integration: "udp",

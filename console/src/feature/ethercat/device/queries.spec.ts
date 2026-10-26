@@ -14,7 +14,11 @@ import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { EtherCAT } from "@/feature/ethercat";
-import { createSlaveDevice as createSlave } from "@/feature/ethercat/testutil";
+import {
+  createEntryReadChannel,
+  createSlaveDevice as createSlave,
+  STATUS_ENTRY,
+} from "@/feature/ethercat/testutil";
 import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const client = createTestClient();
@@ -167,15 +171,10 @@ describe("useCommonNetwork", () => {
     });
 
     const channels: EtherCAT.Task.Channel[] = [
-      {
-        type: "automatic",
-        device: dev.key,
-        pdo: "Status",
+      createEntryReadChannel(dev.key, STATUS_ENTRY, {
         channel: 1,
-        disabled: false,
-        key: id.create(),
         name: "Test Channel",
-      },
+      }),
     ];
 
     const { result } = renderHook(() => EtherCAT.Device.useCommonNetwork(channels), {
@@ -197,15 +196,10 @@ describe("useCommonNetwork", () => {
 
   it("should return empty string when no channels have devices", async () => {
     const channels: EtherCAT.Task.Channel[] = [
-      {
-        type: "automatic",
-        device: "",
-        pdo: "Status",
+      createEntryReadChannel("", STATUS_ENTRY, {
         channel: 1,
-        disabled: false,
-        key: id.create(),
         name: "No Device Channel",
-      },
+      }),
     ];
 
     const { result } = renderHook(() => EtherCAT.Device.useCommonNetwork(channels), {
@@ -222,15 +216,10 @@ describe("useCommonNetwork", () => {
     });
 
     const channels: EtherCAT.Task.Channel[] = [
-      {
-        type: "automatic",
-        device: dev.key,
-        pdo: "Status",
+      createEntryReadChannel(dev.key, STATUS_ENTRY, {
         channel: 1,
-        disabled: false,
-        key: id.create(),
         name: "Test Channel",
-      },
+      }),
     ];
 
     const { result } = renderHook(() => EtherCAT.Device.useCommonNetwork(channels), {

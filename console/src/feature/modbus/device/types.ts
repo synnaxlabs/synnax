@@ -11,6 +11,9 @@ import { type device } from "@synnaxlabs/client";
 import { z } from "zod";
 
 export const MAKE = "Modbus";
+
+/** The name a rack lists in its integrations when its Driver runs this one. */
+export const INTEGRATION = "modbus";
 const makeZ = z.literal(MAKE);
 const modelZ = z.literal("Modbus");
 

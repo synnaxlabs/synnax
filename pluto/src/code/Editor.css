@@ -81,6 +81,7 @@
 /* Main hover container */
 .monaco-editor .monaco-hover {
     font-family: var(--pluto-font-family) !important;
+    font-variant-ligatures: none !important;
     background: var(--pluto-gray-l2) !important;
     border: var(--pluto-border-width) solid var(--pluto-gray-l6) !important;
     border-radius: var(--pluto-border-radius-small) !important;

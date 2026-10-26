@@ -11,12 +11,12 @@ import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
 import { fireEvent, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { LabJack } from "@/feature/labjack";
+import { type Device } from "@/platform/device";
 import { createDeviceResource, createTestDevice } from "@/platform/device/testutil";
 import { Errors } from "@/platform/errors";
-import { type Tree } from "@/platform/tree";
 import {
   createBaseProps,
   createSelection,
@@ -40,10 +40,11 @@ const renderItems = async () => {
   store.dispatch(Session.Project.select(proj.key));
   const dev = await createTestDevice(client, { name: uniqueName("lj_dev") });
   const resource = createDeviceResource({ ...dev, configured: true });
-  const props: Tree.ContextMenuProps = {
+  const props: Device.ContextMenuItemsProps = {
     ...createBaseProps({ client, store }),
     selection: createSelection({ ids: [resource.id] }),
     state: createState([resource]),
+    onConfigure: vi.fn(),
   };
   await renderSuspended(
     <PMenu.Menu>

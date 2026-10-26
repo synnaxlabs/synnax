@@ -9,6 +9,7 @@
 
 export * from "@/schematic/clipboard";
 export * from "@/schematic/edge";
+export * from "@/schematic/editor";
 export * from "@/schematic/element";
 export * from "@/schematic/group";
 export * from "@/schematic/haul";

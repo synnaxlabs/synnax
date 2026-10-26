@@ -46,6 +46,17 @@ export const { use, useResult, useEnsure, createSelector } = Flux.createRetrieve
   getCached: ({ client, query }) => client.racks.getCached(query),
 });
 
+export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRetrieve<
+  ListQuery,
+  rack.Rack[]
+>({
+  name: PLURAL_RESOURCE_NAME,
+  normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
+  retrieve: async ({ client, query }) => await client.racks.retrieve(query),
+  onChange: ({ client, query }, handler) => client.racks.onChange(query, handler),
+  getCached: ({ client, query }) => client.racks.getCached(query),
+});
+
 export const useName = createSelector(({ name }) => name);
 
 export const useIntegrations = createSelector(({ integrations }) => integrations);

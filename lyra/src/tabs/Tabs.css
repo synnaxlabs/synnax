@@ -410,9 +410,10 @@
     --pluto-active-border-color: var(--pluto-gray-l8);
 }
 
-/* A chip rests as a quiet outline, so only the selected chip draws the eye. */
+/* An unselected chip rests on a low fill with a quiet outline, so it reads as a
+   tab while only the selected chip draws the eye. */
 .pluto-tabs__selector--chip .pluto-tabs__tab:not(.pluto--selected) {
-    --pluto-bg: transparent;
+    --pluto-bg: var(--pluto-gray-l2);
     --pluto-border-color: var(--pluto-gray-l4);
     --pluto-hover-border-color: var(--pluto-gray-l6);
     --pluto-active-border-color: var(--pluto-gray-l6);

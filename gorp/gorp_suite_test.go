@@ -10,7 +10,6 @@
 package gorp_test
 
 import (
-	"math"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -39,13 +38,3 @@ func TestGorp(t *testing.T) {
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
-
-// leastAllocs returns the fewest allocations per run of f across several samples.
-// Other goroutines only add to a sample, so the least sample is exact.
-func leastAllocs(f func()) float64 {
-	n := math.Inf(1)
-	for range 5 {
-		n = min(n, testing.AllocsPerRun(100, f))
-	}
-	return n
-}

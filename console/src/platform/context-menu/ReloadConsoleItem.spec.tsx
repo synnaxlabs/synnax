@@ -10,10 +10,9 @@
 import { Drift } from "@synnaxlabs/drift";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { fireEvent, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { ContextMenu } from "@/platform/context-menu";
-import { Link } from "@/platform/link";
 import { renderWithConsole, type TestStore } from "@/testutil";
 
 const render = async (): Promise<TestStore> => {
@@ -26,15 +25,6 @@ const render = async (): Promise<TestStore> => {
 };
 
 describe("ContextMenu.ReloadConsoleItem", () => {
-  beforeEach(() => localStorage.removeItem(Link.SHOULD_IGNORE_KEY));
-
-  it("flags the next deep link as ignored before reloading", async () => {
-    await render();
-    expect(localStorage.getItem(Link.SHOULD_IGNORE_KEY)).toBeNull();
-    fireEvent.click(screen.getByText("Reload Console"));
-    expect(localStorage.getItem(Link.SHOULD_IGNORE_KEY)).toBe("true");
-  });
-
   it("moves the window into its reloading stage", async () => {
     const store = await render();
     expect(Drift.selectWindow(store.getState())?.stage).not.toBe("reloading");

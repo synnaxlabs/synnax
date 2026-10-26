@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, type icd, type Synnax, type task } from "@synnaxlabs/client";
+import {
+  type device,
+  type icd,
+  type rack,
+  type Synnax,
+  type task,
+} from "@synnaxlabs/client";
 import { id, type record } from "@synnaxlabs/x";
 import { screen, waitFor } from "@testing-library/react";
 import { type FC } from "react";
@@ -87,20 +93,22 @@ export const createBusICD = async (client: Synnax): Promise<BusICD> => {
 export interface CreateBusDeviceOptions {
   configured?: boolean;
   model?: string;
+  /** The device's rack. Unset, a new rack is created for it. */
+  rack?: rack.Key;
 }
 
-/** Creates a rack and a device of the given make and properties on the Core. */
+/** Creates a device of the given make and properties on the Core. */
 export const createBusDevice = async (
   client: Synnax,
   make: string,
   properties: record.Unknown,
-  { configured = true, model = make }: CreateBusDeviceOptions = {},
+  { configured = true, model = make, rack: rackKey }: CreateBusDeviceOptions = {},
 ): Promise<device.Device> => {
-  const rack = await client.racks.create({ name: uniqueName("rack") });
+  rackKey ??= (await client.racks.create({ name: uniqueName("rack") })).key;
   return await client.devices.create({
     key: id.create(),
     name: uniqueName(`${make.toLowerCase()}_device`),
-    rack: rack.key,
+    rack: rackKey,
     location: make,
     make,
     model,

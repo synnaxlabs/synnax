@@ -27,19 +27,12 @@ const renderSelect = async (client: Synnax | null) =>
   );
 
 describe("HTTP Device.Select", () => {
-  it("should open the connect modal from the empty content", async () => {
+  it("should open the connect modal from the footer", async () => {
     const client = createTestClient();
     await renderSelect(client);
     fireEvent.click(await findDialogTrigger());
-    // One word with no separators: the Core matches each word of a term on its own, by
-    // prefix and edit distance, so a short word can hit another spec's fixture.
-    fireEvent.change(await screen.findByPlaceholderText("Search devices..."), {
-      target: { value: uniqueName("nosuchdevice").replace(/_/g, "") },
-    });
-    await screen.findByText("No HTTP servers connected");
-    fireEvent.click(screen.getByText("Connect server"));
-    await screen.findByText("Server");
-    expect(screen.getByPlaceholderText("www.example.com")).toBeTruthy();
+    fireEvent.click(await screen.findByText("Connect HTTP server"));
+    expect(await screen.findByPlaceholderText("www.example.com")).toBeTruthy();
   });
 
   it("should open the connect modal when an unconfigured HTTP server is selected", async () => {
@@ -57,7 +50,7 @@ describe("HTTP Device.Select", () => {
       target: { value: dev.name },
     });
     fireEvent.click(await screen.findByText(dev.name));
-    await screen.findByText("Server");
+    await screen.findByText("HTTP server");
     const nameInput = await screen.findByDisplayValue(dev.name);
     expect(nameInput).toBeTruthy();
   });

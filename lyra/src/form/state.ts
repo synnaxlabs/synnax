@@ -70,6 +70,8 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
   initialValues: z.infer<Z>;
 
   private readonly statuses: Map<string, Status.Crude>;
+  /** Paths whose status came from `setStatus`, which validation never removes. */
+  private readonly external: Set<string>;
   private readonly touched: Set<string>;
   private readonly cachedRefs: Map<string, { state: FieldState; stale: boolean }>;
 
@@ -78,19 +80,32 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     this.schema = schema;
     this.values = deep.copy(values);
     this.statuses = new Map();
+    this.external = new Set();
     this.touched = new Set();
     this.cachedRefs = new Map();
     this.initialValues = deep.copy(this.values);
   }
 
   setValue(path: string, value: unknown, options?: SetValueOptions) {
+    const prev = this.values;
     if (path == "") this.values = deep.copy(value) as z.infer<Z>;
     else {
       this.materialize(path);
       this.write(path, value);
     }
+    this.clearChangedExternal(prev);
     this.checkTouched(path, value, options);
     this.updateCachedRefs(path);
+  }
+
+  /** Clears each external status whose value differs from its value in prev. */
+  private clearChangedExternal(prev: z.infer<Z>) {
+    this.external.forEach((path) => {
+      const before = deep.get(prev, path, { optional: true });
+      const after = deep.get(this.values, path, { optional: true });
+      if (before === after || deep.equal(before, after)) return;
+      this.deleteStatus(path);
+    });
   }
 
   private write(path: string, value: unknown) {
@@ -173,13 +188,28 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     });
   }
 
+  /**
+   * Sets the status of the path. Validation never removes it. It clears when the value
+   * at the path changes, when validation sets a status there, or through `clearStatus`.
+   */
   setStatus(path: string, status: Status.Crude) {
     this.statuses.set(path, status);
+    this.external.add(path);
     this.updateCachedRefs(path);
   }
 
+  /** Clears the status of the path, or of every path when it is empty. */
   clearStatus(path: string = "") {
+    if (path !== "") return this.deleteStatus(path);
+    this.statuses.clear();
+    this.external.clear();
+    this.updateCachedRefs(path);
+  }
+
+  /** Deletes the status of the path alone, even when the path is the root. */
+  private deleteStatus(path: string) {
     this.statuses.delete(path);
+    this.external.delete(path);
     this.updateCachedRefs(path);
   }
 
@@ -188,6 +218,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     if (initialValues != null) this.initialValues = deep.copy(initialValues);
     const nextValues = deep.copy(this.initialValues);
     this.statuses.clear();
+    this.external.clear();
     this.touched.clear();
     this.cachedRefs.clear();
     this.values = nextValues;
@@ -212,8 +243,10 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
   }
 
   remove(path: string) {
+    const prev = this.values;
     this.values = copyPath(this.values, path);
     deep.remove(this.values, path);
+    this.clearChangedExternal(prev);
     this.statuses.delete(path);
     this.clearTouched(path);
     this.cachedRefs.delete(path);
@@ -272,25 +305,33 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     validationPath?: string,
   ): boolean {
     if (this.schema == null) return true;
-    const cachedRefsToClear = new Set<string>();
-    this.statuses.forEach((status, childPath) => {
-      if (status.variant !== "success") cachedRefsToClear.add(childPath);
-    });
-    cachedRefsToClear.forEach((path) => this.clearStatus(path));
-    if (result.success) return true;
+    const next = new Map<string, Status.Crude>();
     let success = true;
-    const statuses = this.errorsToStatuses(result.error.issues, [], []);
-    statuses.forEach((status) => {
-      const { key: issuePath, message, variant } = status;
-      if (issuePath == null) return;
-      const matchesPath =
-        validationPath == null ||
-        deep.pathsMatch(issuePath, validationPath) ||
-        deep.pathsMatch(validationPath, issuePath);
-      const isTouched = validateUntouched || this.touched.has(issuePath);
-      if (!matchesPath || !isTouched) return;
-      if (variant !== "warning") success = false;
-      this.setStatus(issuePath, { key: issuePath, variant, message });
+    if (!result.success)
+      this.errorsToStatuses(result.error.issues, [], []).forEach((status) => {
+        const { key: issuePath, message, variant } = status;
+        if (issuePath == null) return;
+        const matchesPath =
+          validationPath == null ||
+          deep.pathsMatch(issuePath, validationPath) ||
+          deep.pathsMatch(validationPath, issuePath);
+        const isTouched = validateUntouched || this.touched.has(issuePath);
+        if (!matchesPath || !isTouched) return;
+        if (variant !== "warning") success = false;
+        next.set(issuePath, { key: issuePath, variant, message });
+      });
+    this.statuses.forEach((status, path) => {
+      if (status.variant === "success" || this.external.has(path) || next.has(path))
+        return;
+      this.deleteStatus(path);
+    });
+    // A status that did not change keeps its object, so its field does not re-render.
+    next.forEach((status, path) => {
+      this.external.delete(path);
+      const prev = this.statuses.get(path);
+      if (prev?.variant === status.variant && prev.message === status.message) return;
+      this.statuses.set(path, status);
+      this.updateCachedRefs(path);
     });
     return success;
   }

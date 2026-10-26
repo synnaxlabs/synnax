@@ -10,20 +10,15 @@
 import { Synnax } from "@synnaxlabs/pluto";
 import { useEffect } from "react";
 
-import { watchAccount } from "@/app/analytics/account";
 import { watchScreens } from "@/app/analytics/screen";
 import { Analytics } from "@/platform/analytics";
 import { Session } from "@/session";
 
-/**
- * Follows the account and the focused tab. Every window follows the account, since each
- * carries its own posthog.
- */
+/** Reports the focused tab. It needs the client, which mounts below the provider. */
 export const Watch = (): null => {
   const sink = Analytics.use();
   const store = Session.useStore();
   const client = Synnax.use();
-  useEffect(() => watchAccount({ store, sink }), [store, sink]);
   useEffect(() => {
     if (client == null) return;
     return watchScreens({ store, client, screen: sink.screen });

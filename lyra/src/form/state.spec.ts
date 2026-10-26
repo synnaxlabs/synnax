@@ -400,6 +400,80 @@ describe("State", () => {
       const fieldState = state.getState("name");
       expect(fieldState.status.variant).toBe("success");
     });
+
+    it("should clear every status when no path is given", () => {
+      const state = new State(initialValues, basicSchema);
+      state.setStatus("name", { key: "name", variant: "error", message: "Taken" });
+      state.setStatus("age", { key: "age", variant: "warning", message: "Old" });
+      state.clearStatus();
+      expect(state.getStatuses()).toEqual([]);
+    });
+
+    describe("external statuses", () => {
+      const taken = { key: "name", variant: "error" as const, message: "Taken" };
+
+      it("should survive validation after an edit to another field", () => {
+        const state = new State(initialValues, basicSchema);
+        state.setStatus("name", taken);
+        state.setValue("age", 30);
+        state.validate();
+        expect(state.getState("name").status).toEqual(taken);
+      });
+
+      it("should clear the status when the value at its path changes", () => {
+        const state = new State(initialValues, basicSchema);
+        state.setStatus("name", taken);
+        state.setValue("name", "Jane Doe");
+        expect(state.getState("name").status.variant).toBe("success");
+      });
+
+      it("should keep the status when a write to its parent keeps its value", () => {
+        const state = new State(initialValues, basicSchema);
+        const status = {
+          key: "profile.bio",
+          variant: "warning" as const,
+          message: "Short",
+        };
+        state.setStatus("profile.bio", status);
+        state.setValue("profile", {
+          ...initialValues.profile,
+          website: "https://x.com",
+        });
+        expect(state.getState("profile.bio").status).toEqual(status);
+      });
+
+      it("should clear the status when its path is removed", () => {
+        const state = new State(initialValues, basicSchema);
+        state.setStatus("tags.1", { key: "tags.1", variant: "error", message: "Bad" });
+        state.remove("tags.1");
+        expect(state.getStatuses()).toEqual([]);
+      });
+
+      it("should survive the removal of a form-level validation error", () => {
+        const schema = z
+          .object({ a: z.string(), b: z.string() })
+          .refine(({ a, b }) => a !== b, "Must differ");
+        const state = new State({ a: "x", b: "x" }, schema);
+        state.validate(true);
+        expect(state.getStatuses().map(({ message }) => message)).toEqual([
+          "Must differ",
+        ]);
+        state.setStatus("a", { key: "a", variant: "error", message: "Taken" });
+        state.setValue("b", "y");
+        state.validate(true);
+        expect(state.getStatuses().map(({ message }) => message)).toEqual(["Taken"]);
+      });
+
+      it("should yield to a status that validation sets at its path", () => {
+        const state = new State({ ...initialValues, email: "invalid" }, basicSchema);
+        state.setStatus("email", { key: "email", variant: "error", message: "Taken" });
+        state.validate(true);
+        expect(state.getState("email").status.message).toBe("Invalid email format");
+        state.setValue("name", "Jane Doe");
+        state.validate();
+        expect(state.getState("email").status.variant).toBe("success");
+      });
+    });
   });
 
   describe("setTouched and clearTouched", () => {
@@ -558,6 +632,16 @@ describe("State", () => {
       state.setValue("email", "valid@example.com");
       state.validate();
       expect(state.getState("email").status.variant).toBe("success");
+    });
+
+    it("should keep the status object of a field whose result did not change", () => {
+      const state = new State({ ...initialValues, email: "invalid" }, basicSchema);
+      state.setTouched("email");
+      state.validate();
+      const status = state.getState("email").status;
+      state.setValue("name", "Jane Doe");
+      state.validate();
+      expect(state.getState("email").status).toBe(status);
     });
 
     it("should return true when no schema is provided", () => {

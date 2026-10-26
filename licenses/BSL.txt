@@ -3,13 +3,13 @@ Business Source License 1.1
 Parameters
 
 Licensor:             Synnax Labs, Inc.
-Licensed Work:        Synnax version 0
+Licensed Work:        Synnax 0.60.0 and later
                       The Licensed Work is (c) 2022 Synnax Labs, Inc.
-Additional Use Grant: You may use the Licensed Work when your application
-                      uses the Licensed Work with a total of less than three
-                      server instances for any purpose.
+Additional Use Grant: You may use the Licensed Work as part of Synnax
+                      Desktop, and for development and testing that is
+                      not production use.
 
-Change Date:          2026-04-01
+Change Date:          Four years after each version's first public release
 
 Change License:       Apache License, Version 2.0
 

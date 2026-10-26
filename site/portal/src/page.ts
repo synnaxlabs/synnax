@@ -12,7 +12,12 @@ import { type APIContext } from "astro";
 import { type Portal } from "@/portal";
 import { type Organization, type OrganizationKind } from "@/server/db/schema";
 import { HTTPError } from "@/server/errors";
-import { organizationsFor, pick } from "@/server/organization";
+import {
+  invitationsFor,
+  type Invited,
+  organizationsFor,
+  pick,
+} from "@/server/organization";
 import { type Session } from "@/server/session";
 import { landing, scoped } from "@/shell";
 
@@ -45,6 +50,26 @@ export const guest = (context: APIContext): Response | null =>
   context.locals.auth().userId == null
     ? null
     : context.redirect(landing(context.url.searchParams), 303);
+
+export interface Invitee {
+  /** email is the address the visitor is logged in with. */
+  email: string;
+  invitations: Invited[];
+}
+
+/**
+ * invitee loads a logged-in visitor who opened a team invitation link, so the page can
+ * offer the invitations they have not accepted. Returns null for a logged-out visitor.
+ */
+export const invitee = async (context: APIContext): Promise<Invitee | null> => {
+  const loaded = await load(context);
+  if (loaded instanceof Response) return null;
+  const { portal, session } = loaded;
+  return {
+    email: session.email,
+    invitations: await invitationsFor(portal.store, portal.directory, session.userID),
+  };
+};
 
 export interface Scoped extends Loaded {
   /** organizations are every organization the user can act for, personal first. */

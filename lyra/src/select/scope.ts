@@ -16,7 +16,7 @@ export const [ClosedContext, useClosed] = context.create<boolean>({
 });
 
 /** How a {@link Buttons} group draws its items. */
-export type ButtonsVariant = "outlined" | "text";
+export type ButtonsVariant = "outlined" | "text" | "card";
 
 export interface ButtonsContextValue {
   preview: boolean;

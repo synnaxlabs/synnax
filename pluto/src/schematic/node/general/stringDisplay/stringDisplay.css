@@ -12,27 +12,26 @@
 .pluto-string-display {
     display: flex;
     flex-direction: row;
-    border: var(--pluto-border);
-    border-color: var(--pluto-symbol-display);
-    border-radius: var(--pluto-border-radius);
-    border-width: 2px;
     padding: 0;
     flex-grow: 0;
     align-items: center;
     justify-content: center;
 
     & .pluto-string-display__content {
-        /* No vertical padding: the root sets an explicit height per text level and
-        centers the line box, so padding here would push past it. */
+        /* The canvas centers the text in the content box, so the content fills the
+        root's height and has no vertical padding. */
+        display: flex;
+        align-items: center;
+        align-self: stretch;
         padding: 0 1.5rem;
         flex-grow: 1;
 
-        /* Lets the content shrink below the text's intrinsic width so the ellipsis
-        engages instead of the box widening. */
+        /* Lets the content shrink below the text's intrinsic width so the text fades
+        instead of the box widening. */
         min-width: 0;
 
         & .pluto-text {
-            min-height: 1lh;
+            min-width: 0;
         }
     }
 }

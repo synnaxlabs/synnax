@@ -7,36 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Dialog } from "@synnaxlabs/lyra/dialog";
-
+import { NETWORK } from "@/feature/modbus/device/network";
 import { MAKE } from "@/feature/modbus/device/types";
 import { useConnectModal } from "@/feature/modbus/device/useConnectModal";
 import { Device } from "@/platform/device";
-import { Empty } from "@/platform/empty";
-
-const EmptyContent = () => {
-  const connect = useConnectModal();
-  const { close: closeDialog } = Dialog.useContext();
-  return (
-    <Empty.Action
-      message="No Modbus servers connected"
-      action="Connect server"
-      onClick={() => {
-        connect();
-        closeDialog();
-      }}
-    />
-  );
-};
 
 export const Select = () => {
-  const connect = useConnectModal();
+  const openConnect = useConnectModal();
   return (
     <Device.Select
-      onConfigure={(deviceKey) => connect({ deviceKey })}
-      emptyContent={<EmptyContent />}
+      onConfigure={(deviceKey) => void openConnect({ deviceKey })}
+      emptyContent="No Modbus servers connected"
       label="Modbus server"
       make={MAKE}
+      connect={{ title: NETWORK.title, open: () => openConnect() }}
     />
   );
 };

@@ -50,7 +50,8 @@ export interface NumericProps
   onBlur?: () => void;
   /**
    * A stored sentinel the schema gives a meaning such as "auto". A value equal to it
-   * renders empty, and clearing the input commits it.
+   * renders empty, and clearing the input commits it. Equality is `Object.is`, so NaN
+   * works as the sentinel.
    */
   emptyValue?: number;
 }
@@ -85,7 +86,7 @@ export const Numeric = ({
   ...rest
 }: NumericProps): ReactElement => {
   // An absent value renders empty, so the placeholder reads as the unset state.
-  const isEmpty = value == null || (emptyValue != null && value === emptyValue);
+  const isEmpty = value == null || Object.is(value, emptyValue);
   // We need to keep the actual value as a valid number, but we need to let the user
   // input an invalid value that may eventually be valid, so we need to keep the
   // internal value as a string in state.
@@ -111,7 +112,7 @@ export const Numeric = ({
       if (v != null) onChange?.(bounds.clamp(boundsRef.current, v));
       else
         setInternalValue(
-          valueRef.current == null || valueRef.current === emptyValue
+          valueRef.current == null || Object.is(valueRef.current, emptyValue)
             ? ""
             : valueRef.current.toString(),
         );

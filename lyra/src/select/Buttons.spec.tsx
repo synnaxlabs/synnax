@@ -81,6 +81,21 @@ describe("Select.Item", () => {
     );
   });
 
+  it("should space outlined buttons apart for the card variant", () => {
+    const c = render(
+      <Select.Buttons value={1} onChange={vi.fn()} variant="card">
+        <Select.Item itemKey={1}>Option 1</Select.Item>
+        <Select.Item itemKey={2}>Option 2</Select.Item>
+      </Select.Buttons>,
+    );
+    const group = c.getByText("Option 1").closest(".pluto-select-btns");
+    expect(group?.classList).toContain("pluto-select-btns--card");
+    expect(group?.classList).not.toContain("pluto--pack");
+    expect(c.getByText("Option 2").closest("button")?.classList).toContain(
+      "pluto-btn--outlined",
+    );
+  });
+
   it("should forward layout and variant props to the button", () => {
     const c = render(
       <Select.Buttons value={1} onChange={vi.fn()}>

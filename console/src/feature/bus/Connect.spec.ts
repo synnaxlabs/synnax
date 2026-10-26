@@ -9,6 +9,7 @@
 
 import { can, type device, serial, tcp, udp } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { type record } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -18,9 +19,8 @@ import { Serial } from "@/feature/serial";
 import { TCP } from "@/feature/tcp";
 import { UDP } from "@/feature/udp";
 import { createTestSink } from "@/platform/analytics/testutil";
+import { createRunningRack } from "@/platform/device/testutil";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
-import { selectFromDropdown } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -28,8 +28,24 @@ const openConnect = async (
   useConnectModal: typeof CAN.Device.useConnectModal,
   deviceKey: device.Key,
 ) => {
-  await renderModalOpener(useConnectModal, [{ deviceKey }], { client });
+  const handle = await renderModalOpener(useConnectModal, [{ deviceKey }], { client });
   await screen.findByRole("dialog");
+  return handle;
+};
+
+/** Creates a device whose rack runs the integration, so the form can connect it. */
+const createConnectable = async (
+  integration: string,
+  make: string,
+  properties: record.Unknown,
+  model?: string,
+): Promise<device.Device> => {
+  const rack = await createRunningRack(client, integration);
+  return await createBusDevice(client, make, properties, {
+    configured: false,
+    model,
+    rack: rack.key,
+  });
 };
 
 const connectAndRetrieve = async (key: device.Key): Promise<device.Device> => {
@@ -43,11 +59,11 @@ const connectAndRetrieve = async (key: device.Key): Promise<device.Device> => {
 
 describe("bus device connect", () => {
   it("should finish a scanned serial device with its port as its location", async () => {
-    const dev = await createBusDevice(
-      client,
+    const dev = await createConnectable(
+      "serial",
       Serial.Device.MAKE,
       serial.propertiesZ.parse({ port: "/dev/ttyUSB3" }),
-      { configured: false, model: "Serial port" },
+      "Serial port",
     );
     await openConnect(Serial.Device.useConnectModal, dev.key);
     await screen.findByDisplayValue("/dev/ttyUSB3");
@@ -63,11 +79,10 @@ describe("bus device connect", () => {
   });
 
   it("should name a CAN device's model after its backend", async () => {
-    const dev = await createBusDevice(
-      client,
+    const dev = await createConnectable(
+      "can",
       CAN.Device.MAKE,
       can.propertiesZ.parse({}),
-      { configured: false },
     );
     await openConnect(CAN.Device.useConnectModal, dev.key);
     await enterField("Channel", "vcan0");
@@ -77,27 +92,26 @@ describe("bus device connect", () => {
     expect(can.propertiesZ.parse(saved.properties).channel).toBe("vcan0");
   });
 
-  it("should locate a TCP device at its host and port", async () => {
-    const dev = await createBusDevice(
-      client,
+  it("should locate a TCP device at its host and port and resolve with it", async () => {
+    const dev = await createConnectable(
+      "tcp",
       TCP.Device.MAKE,
       tcp.propertiesZ.parse({}),
-      { configured: false },
     );
-    await openConnect(TCP.Device.useConnectModal, dev.key);
+    const { result } = await openConnect(TCP.Device.useConnectModal, dev.key);
     await enterField("Host", "10.0.0.2");
     await enterField("Port", "5025");
     const saved = await connectAndRetrieve(dev.key);
     expect(saved.model).toBe("TCP server");
     expect(saved.location).toBe("10.0.0.2:5025");
+    expect(await result()).toBe(dev.key);
   });
 
   it("should locate a UDP device at its local port", async () => {
-    const dev = await createBusDevice(
-      client,
+    const dev = await createConnectable(
+      "udp",
       UDP.Device.MAKE,
       udp.propertiesZ.parse({}),
-      { configured: false },
     );
     await openConnect(UDP.Device.useConnectModal, dev.key);
     await enterField("Local port", "5000");
@@ -107,13 +121,12 @@ describe("bus device connect", () => {
   });
 
   it("should report a device it connected", async () => {
-    const rack = await client.racks.create({
-      name: uniqueName("udp_rack"),
-      integrations: ["udp"],
-    });
+    const rack = await createRunningRack(client, "udp");
     const analytics = createTestSink();
-    await renderModalOpener(UDP.Device.useConnectModal, [{}], { client, analytics });
-    await selectFromDropdown("Select Driver", rack.name);
+    await renderModalOpener(UDP.Device.useConnectModal, [{ rack: rack.key }], {
+      client,
+      analytics,
+    });
     await enterField("Local port", "5001");
     fireEvent.click(findButton("Connect"));
     await waitFor(() =>
@@ -124,11 +137,10 @@ describe("bus device connect", () => {
   });
 
   it("should show an empty required property on its field", async () => {
-    const dev = await createBusDevice(
-      client,
+    const dev = await createConnectable(
+      "tcp",
       TCP.Device.MAKE,
       tcp.propertiesZ.parse({}),
-      { configured: false },
     );
     await openConnect(TCP.Device.useConnectModal, dev.key);
     await screen.findByDisplayValue(dev.name);

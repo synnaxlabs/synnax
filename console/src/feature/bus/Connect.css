@@ -10,13 +10,5 @@
  */
 
 .console-bus-connect {
-    position: relative;
     width: 155rem;
-    max-height: 145rem;
-
-    .console-content {
-        width: 100%;
-        padding: 3rem 4rem;
-        overflow-y: auto;
-    }
 }

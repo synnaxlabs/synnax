@@ -7,13 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
 import { Menu } from "@synnaxlabs/lyra/menu";
 
-import { useConfigureModal } from "@/feature/ni/device/useConfigureModal";
 import { Task } from "@/feature/ni/task";
 import { Device as PlatformDevice } from "@/platform/device";
-import { type Tree } from "@/platform/tree";
 
 const TASK_CONTEXT_MENU_ITEMS = [
   PlatformDevice.createTaskContextMenuItem({
@@ -43,19 +40,11 @@ const TASK_CONTEXT_MENU_ITEMS = [
   }),
 ];
 
-export const ContextMenuItems = (props: Tree.ContextMenuProps) => {
-  const configure = useConfigureModal();
-  const onConfigure = (deviceKey: device.Key) => configure({ deviceKey });
-  return (
-    <>
-      <PlatformDevice.ConfigureMenuItem {...props} onConfigure={onConfigure} />
-      <PlatformDevice.ChangeIdentifierMenuItem {...props} icon="Logo.NI" />
-      <Menu.Divider />
-      <PlatformDevice.TaskContextMenuItems
-        {...props}
-        onConfigure={onConfigure}
-        items={TASK_CONTEXT_MENU_ITEMS}
-      />
-    </>
-  );
-};
+export const ContextMenuItems = (props: PlatformDevice.ContextMenuItemsProps) => (
+  <>
+    <PlatformDevice.ConfigureMenuItem {...props} />
+    <PlatformDevice.ChangeIdentifierMenuItem {...props} icon="Logo.NI" />
+    <Menu.Divider />
+    <PlatformDevice.TaskContextMenuItems {...props} items={TASK_CONTEXT_MENU_ITEMS} />
+  </>
+);

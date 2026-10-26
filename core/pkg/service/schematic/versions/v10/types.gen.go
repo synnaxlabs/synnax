@@ -877,9 +877,6 @@ func (g *GaugeNodeConfig) ApplyDefaults() {
 	if g.Location.Y == "" {
 		g.Location.Y = spatial.YCenterLocationCenter
 	}
-	if g.Units == "" {
-		g.Units = "RPM"
-	}
 	if g.Level == "" {
 		g.Level = text.LevelH5
 	}
@@ -911,7 +908,7 @@ type InputNodeConfig struct {
 	StateChannel *channel.Key `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
 	// Dimensions is the rendered size of the input in pixels.
 	Dimensions *spatial.Dimensions `json:"dimensions,omitzero" msgpack:"dimensions,omitempty"`
-	// FillColor is the fill color of the send button, which the input border follows.
+	// FillColor is the fill color of the Set button, which the input border follows.
 	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Disabled indicates whether the input rejects interaction.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
@@ -1095,9 +1092,9 @@ type SelectNodeConfig struct {
 	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
 	// StateChannel is the channel that reports the state the device holds.
 	StateChannel *channel.Key `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
-	// FillColor is the fill color of the send button, which the select border follows.
+	// FillColor is the fill color of the Set button, which the select border follows.
 	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
-	// InlineSize is the inline size of the select in pixels.
+	// InlineSize is the width of the field in pixels, not counting the Set button.
 	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
 	// Options is the set of selectable states.
 	Options []StateMapping `json:"options" msgpack:"options"`
@@ -1188,7 +1185,7 @@ type SetpointNodeConfig struct {
 	StateChannel *channel.Key `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
 	// Dimensions is the rendered size of the setpoint in pixels.
 	Dimensions *spatial.Dimensions `json:"dimensions,omitzero" msgpack:"dimensions,omitempty"`
-	// FillColor is the fill color of the set button, which the setpoint border follows.
+	// FillColor is the fill color of the Set button, which the setpoint border follows.
 	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
@@ -1208,9 +1205,6 @@ func (SetpointNodeConfig) isNodeConfigVariant() {}
 func (s *SetpointNodeConfig) ApplyDefaults() {
 	if s.Size == "" {
 		s.Size = ComponentSizeMedium
-	}
-	if s.Units == "" {
-		s.Units = "mV"
 	}
 	if s.InlineSize == 0 {
 		s.InlineSize = 100
@@ -1388,7 +1382,7 @@ type ValueNodeConfig struct {
 	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
 	// StrokeColor is the color of the value's border and units divider.
 	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
-	// TextColor is the color of the displayed value and its units.
+	// TextColor is the color of the displayed value.
 	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// FillColor is the fill behind the value where no redline band paints. When absent
 	// the value paints no fill.
@@ -1411,9 +1405,6 @@ func (ValueNodeConfig) isNodeConfigVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (va *ValueNodeConfig) ApplyDefaults() {
-	if va.Units == "" {
-		va.Units = "psi"
-	}
 	if va.InlineSize == 0 {
 		va.InlineSize = 70
 	}
@@ -5216,9 +5207,6 @@ func (g *GaugeElementConfig) ApplyDefaults() {
 	if g.Location.Y == "" {
 		g.Location.Y = spatial.YCenterLocationCenter
 	}
-	if g.Units == "" {
-		g.Units = "RPM"
-	}
 	if g.Level == "" {
 		g.Level = text.LevelH5
 	}
@@ -5250,7 +5238,7 @@ type InputElementConfig struct {
 	StateChannel *channel.Key `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
 	// Dimensions is the rendered size of the input in pixels.
 	Dimensions *spatial.Dimensions `json:"dimensions,omitzero" msgpack:"dimensions,omitempty"`
-	// FillColor is the fill color of the send button, which the input border follows.
+	// FillColor is the fill color of the Set button, which the input border follows.
 	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Disabled indicates whether the input rejects interaction.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
@@ -5434,9 +5422,9 @@ type SelectElementConfig struct {
 	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
 	// StateChannel is the channel that reports the state the device holds.
 	StateChannel *channel.Key `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
-	// FillColor is the fill color of the send button, which the select border follows.
+	// FillColor is the fill color of the Set button, which the select border follows.
 	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
-	// InlineSize is the inline size of the select in pixels.
+	// InlineSize is the width of the field in pixels, not counting the Set button.
 	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
 	// Options is the set of selectable states.
 	Options []StateMapping `json:"options" msgpack:"options"`
@@ -5527,7 +5515,7 @@ type SetpointElementConfig struct {
 	StateChannel *channel.Key `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
 	// Dimensions is the rendered size of the setpoint in pixels.
 	Dimensions *spatial.Dimensions `json:"dimensions,omitzero" msgpack:"dimensions,omitempty"`
-	// FillColor is the fill color of the set button, which the setpoint border follows.
+	// FillColor is the fill color of the Set button, which the setpoint border follows.
 	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
@@ -5547,9 +5535,6 @@ func (SetpointElementConfig) isElementConfigVariant() {}
 func (s *SetpointElementConfig) ApplyDefaults() {
 	if s.Size == "" {
 		s.Size = ComponentSizeMedium
-	}
-	if s.Units == "" {
-		s.Units = "mV"
 	}
 	if s.InlineSize == 0 {
 		s.InlineSize = 100
@@ -5727,7 +5712,7 @@ type ValueElementConfig struct {
 	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
 	// StrokeColor is the color of the value's border and units divider.
 	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
-	// TextColor is the color of the displayed value and its units.
+	// TextColor is the color of the displayed value.
 	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// FillColor is the fill behind the value where no redline band paints. When absent
 	// the value paints no fill.
@@ -5750,9 +5735,6 @@ func (ValueElementConfig) isElementConfigVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (va *ValueElementConfig) ApplyDefaults() {
-	if va.Units == "" {
-		va.Units = "psi"
-	}
 	if va.InlineSize == 0 {
 		va.InlineSize = 70
 	}

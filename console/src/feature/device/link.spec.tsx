@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 
 import { Device } from "@/feature/device";
 import { NI } from "@/feature/ni";
-import { createAsyncSynnaxWrapper, renderLinkHook } from "@/testutil";
+import { createConsoleWrapper, renderLinkHook } from "@/testutil";
 
 const client = createTestClient();
 
@@ -40,14 +40,14 @@ describe("Device.useLink", () => {
     await handler({ client, key: device.key });
     const [entry] = modals.getState();
     expect(entry).toBeDefined();
-    const Wrapper = await createAsyncSynnaxWrapper({ client });
+    const { wrapper } = await createConsoleWrapper({ client });
     render(
       <Dialog.Frame variant="modal" visible>
         {entry.render()}
       </Dialog.Frame>,
-      { wrapper: Wrapper },
+      { wrapper },
     );
-    expect(await screen.findByText("cDAQ Chassis")).toBeTruthy();
+    expect(await screen.findByDisplayValue("cDAQ Chassis")).toBeTruthy();
   });
 
   it("should open nothing for a device with an unrecognized make", async () => {

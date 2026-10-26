@@ -9,6 +9,7 @@
 
 import { getVersion } from "@tauri-apps/api/app";
 
+import { watchAccount } from "@/app/analytics/account";
 import { follow } from "@/app/analytics/core";
 import { type Install, retrieveInstall } from "@/app/analytics/install";
 import { create, type Params } from "@/app/analytics/posthog";
@@ -17,13 +18,16 @@ import { Session } from "@/session";
 
 /**
  * Starts analytics for this window and returns the sink the app reports through. The
- * Console build returns the sink that discards everything, and the dead branch takes
- * every vendor with it.
+ * vendor loads only while the store says the user allows analytics, and stops when the
+ * user refuses. The Console build returns the sink that discards everything, and the
+ * dead branch takes every vendor with it.
  */
-export const start = (): Analytics.Sink => {
+export const start = (store: Session.Store): Analytics.Sink => {
   if (!DESKTOP || Session.Runtime.ENGINE !== "tauri") return Analytics.NOOP;
   const install = retrieveInstall();
-  const sink = Analytics.createSink(create(identify(install)));
+  const transport = create(identify(install));
+  const sink = Analytics.createSink(transport);
+  watchAccount({ store, sink, transport });
   // Every window reports its own screens and actions, but a launch opens the app once,
   // and runs one embedded Core.
   if (Session.Runtime.isMainWindow()) {
@@ -33,7 +37,7 @@ export const start = (): Analytics.Sink => {
   return sink;
 };
 
-/** Names the install that posthog reports as. */
+/** Names the install that PostHog reports as. */
 const identify = async (install: Promise<Install>): Promise<Params> => ({
   installID: (await install).id,
 });
@@ -52,7 +56,7 @@ const open = async (sink: Analytics.Sink, install: Promise<Install>): Promise<vo
       first_launch: record.firstLaunch,
       hours_since_last_launch: record.hoursSinceLastLaunch,
     });
-    // A reset restarts the app before posthog can send, so the launch after it reports.
+    // A reset restarts the app before PostHog can send, so the launch after it reports.
     if (record.erasedBytes != null)
       sink.capture("core_reset", { data_size_bytes: record.erasedBytes });
   } catch (err) {

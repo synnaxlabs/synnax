@@ -10,6 +10,7 @@
 import { caseconv } from "@synnaxlabs/x";
 
 import { Input } from "@/input";
+import { Text } from "@/text";
 
 /**
  * @returns what an empty trigger reads. Beside a visible label the text prompts the
@@ -17,3 +18,7 @@ import { Input } from "@/input";
  */
 export const usePlaceholder = (resourceName: string): string =>
   Input.useLabelled() ? `Select ${resourceName}` : caseconv.capitalize(resourceName);
+
+/** @returns what the search field of a selection reads. */
+export const searchPlaceholder = (resourceName: string): string =>
+  `Search ${Text.plural(resourceName)}...`;

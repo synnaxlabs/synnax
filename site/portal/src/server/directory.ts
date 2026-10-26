@@ -10,6 +10,8 @@
 import { type clerkClient } from "@clerk/astro/server";
 import { errors } from "@synnaxlabs/x";
 
+import { badRequest } from "@/server/errors";
+
 /** Person is a Clerk user as the portal names and mails them. */
 export interface Person {
   email: string;
@@ -38,6 +40,22 @@ export interface Member {
   role: string;
 }
 
+/** Invitation asks someone by email to join a team. */
+export interface Invitation {
+  clerkOrgID: string;
+  email: string;
+  role: string;
+  /** inviterUserID is the admin who sends the invitation. */
+  inviterUserID: string;
+  /** redirectURL is the absolute URL the link in the email lands on. */
+  redirectURL: string;
+}
+
+/** Pending is a team invitation that its recipient has not accepted. */
+export interface Pending extends Listed {
+  invitationID: string;
+}
+
 /** ADMIN_ROLE is Clerk's role for members who manage a team. */
 export const ADMIN_ROLE = "org:admin";
 export const MEMBER_ROLE = "org:member";
@@ -55,6 +73,13 @@ export interface Directory {
   team: (clerkOrgID: string) => Promise<Listed | null>;
   /** names resolves user ids to the name each reads as, leaving out unknown ids. */
   names: (userIDs: string[]) => Promise<Record<string, string>>;
+  /**
+   * invite emails an invitation to join a team.
+   * @throws {HTTPError} 400 with Clerk's reason when Clerk refuses the invitation.
+   */
+  invite: (invitation: Invitation) => Promise<void>;
+  /** pending returns the team invitations the user has not accepted. */
+  pending: (userID: string) => Promise<Pending[]>;
 }
 
 type Client = ReturnType<typeof clerkClient>;
@@ -80,6 +105,20 @@ const displayName = (
   const full = [user.firstName, user.lastName].filter((p) => p != null && p !== "");
   if (full.length > 0) return full.join(" ");
   return user.username ?? email;
+};
+
+interface APIError {
+  status?: number;
+  errors?: { message?: string; longMessage?: string }[];
+}
+
+/** refused turns Clerk's refusal of a request into a 400 that carries its reason. */
+const refused = (e: unknown): Error => {
+  const { status, errors: reasons } = (e ?? {}) as APIError;
+  if (status !== 400 && status !== 422) return errors.fromUnknown(e);
+  const first = reasons?.[0];
+  const reason = first?.longMessage ?? first?.message ?? "Clerk refused the request";
+  return badRequest(reason, { cause: e });
 };
 
 export const clerk = (client: Client): Directory => ({
@@ -155,6 +194,34 @@ export const clerk = (client: Client): Directory => ({
     }
     return named;
   },
+  invite: async ({ clerkOrgID, email, role, inviterUserID, redirectURL }) => {
+    await client.organizations
+      .createOrganizationInvitation({
+        organizationId: clerkOrgID,
+        emailAddress: email,
+        role,
+        inviterUserId: inviterUserID,
+        redirectUrl: redirectURL,
+      })
+      .catch((e: unknown) => {
+        throw refused(e);
+      });
+  },
+  pending: async (userID) =>
+    await paged(
+      async (offset) =>
+        await client.users.getOrganizationInvitationList({
+          userId: userID,
+          status: "pending",
+          limit: PAGE,
+          offset,
+        }),
+      ({ id, organizationId, publicOrganizationData: org }) => {
+        if (org == null)
+          throw new Error(`Clerk sent invitation ${id} without its team`);
+        return { invitationID: id, clerkOrgID: organizationId, name: org.name };
+      },
+    ),
 });
 
 /** Records are what a {@link memory} directory serves. */
@@ -164,6 +231,10 @@ export interface Records {
   /** members maps a Clerk user id to the teams the user belongs to. */
   members: Record<string, Team[]>;
   organizations: Listed[];
+  /** invitations are every invitation sent, oldest first. */
+  invitations: Invitation[];
+  /** invited maps a Clerk user id to the invitations the user has not accepted. */
+  invited: Record<string, Pending[]>;
 }
 
 /** memory serves a directory from records instead of Clerk. For tests. */
@@ -171,10 +242,14 @@ export const memory = ({
   people = {},
   members = {},
   organizations = [],
+  invitations = [],
+  invited = {},
 }: Partial<Records> = {}): Directory & Records => ({
   people,
   members,
   organizations,
+  invitations,
+  invited,
   person: async (userID) => {
     const person = people[userID];
     if (person == null) throw new Error(`no Clerk user ${userID}`);
@@ -195,4 +270,8 @@ export const memory = ({
     Object.fromEntries(
       userIDs.flatMap((id) => (people[id] == null ? [] : [[id, people[id].name]])),
     ),
+  invite: async (invitation) => {
+    invitations.push(invitation);
+  },
+  pending: async (userID) => invited[userID] ?? [],
 });

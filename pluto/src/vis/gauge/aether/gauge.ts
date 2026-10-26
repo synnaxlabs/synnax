@@ -30,7 +30,7 @@ const gaugeState = staleness.configZ.extend({
   width: z.number().optional(),
   notation: notation.notationZ.default("standard"),
   location: location.xy.default({ x: "left", y: "center" }),
-  units: z.string().default("RPM"),
+  units: z.string().default(""),
   bounds: bounds.boundsZ().default(bounds.construct(0, 100)),
   // New gauge configuration properties
   barWidth: z.number().default(12), // Width of the gauge bar in pixels

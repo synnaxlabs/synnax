@@ -10,10 +10,14 @@
 import pluralize from "pluralize";
 
 const ACRONYM = /(^|\s)[A-Z\d]{2,}$/;
+const IDENTIFIER = / [A-Za-z\d]$/;
 
 /**
  * @returns the plural of a name. A name that ends in an acronym takes a lowercase "s":
- * "ICD" becomes "ICDs", where pluralize gives "ICDS".
+ * "ICD" becomes "ICDs", where pluralize gives "ICDS". A name that ends in a
+ * one-character identifier drops it: "edge 1" becomes "edges".
  */
-export const plural = (name: string): string =>
-  ACRONYM.test(name) ? `${name}s` : pluralize.plural(name);
+export const plural = (name: string): string => {
+  if (IDENTIFIER.test(name)) return plural(name.slice(0, -2));
+  return ACRONYM.test(name) ? `${name}s` : pluralize.plural(name);
+};

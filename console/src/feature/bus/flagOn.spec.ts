@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -16,6 +17,7 @@ import {
 } from "@/feature/bus/testutil";
 import { Device } from "@/feature/device";
 import { Task } from "@/feature/task";
+import { renderModalOpener } from "@/platform/modals/testutil";
 
 vi.mock("@/flags", () => ({ FLAGS: { icd: true, can: true } }));
 
@@ -31,5 +33,11 @@ describe("bus integration flag on", () => {
       expect.arrayContaining(BUS_CONNECT_COMMANDS),
     );
     expect(Task.parseType("can_read")).toBe("CAN read task");
+  });
+
+  it("should list every bus integration in the device picker when on", async () => {
+    await renderModalOpener(Device.useConnectModal, [{}]);
+    for (const title of ["CAN device", "serial device", "TCP device", "UDP device"])
+      expect(await screen.findByText(title)).toBeTruthy();
   });
 });

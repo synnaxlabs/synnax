@@ -16,6 +16,7 @@ export * from "@/schematic/node/common/form/NegatedSwitch";
 export * from "@/schematic/node/common/form/Radius";
 export * from "@/schematic/node/common/form/Scale";
 export * from "@/schematic/node/common/form/Size";
+export * from "@/schematic/node/common/form/State";
 export * from "@/schematic/node/common/form/StateMapping";
 export * from "@/schematic/node/common/form/Style";
 export * from "@/schematic/node/common/form/Text";

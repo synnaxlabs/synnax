@@ -9,24 +9,40 @@
 
 import { type destructor } from "@synnaxlabs/x";
 
+import { type Transport } from "@/app/analytics/posthog";
 import { type Analytics } from "@/platform/analytics";
 import { Session } from "@/session";
 
 interface WatchParams {
   store: Session.Store;
   sink: Pick<Analytics.Sink, "identify" | "reset">;
+  transport: Pick<Transport, "start" | "stop">;
 }
 
 /**
- * Attributes events to the account the app is signed in to until the returned
- * destructor is called. Signing out, or into another account, resets first, so no
- * event of one account lands on another.
+ * Runs the transport only while the user allows analytics, and attributes events to the
+ * account the app is signed in to until the returned destructor is called. Signing out,
+ * or into another account, resets first, so no event of one account lands on another.
  */
-export const watchAccount = ({ store, sink }: WatchParams): destructor.Destructor => {
+export const watchAccount = ({
+  store,
+  sink,
+  transport,
+}: WatchParams): destructor.Destructor => {
+  let allowed = false;
   let current: string | undefined;
   const follow = (): void => {
-    const { link } = Session.Account.selectSliceState(store.getState());
-    if (link?.user === current) return;
+    const { link, analyticsAllowed } = Session.Account.selectSliceState(
+      store.getState(),
+    );
+    if (analyticsAllowed !== allowed) {
+      allowed = analyticsAllowed;
+      // A stop resets the vendor, so the next start identifies the account again.
+      current = undefined;
+      if (allowed) transport.start();
+      else transport.stop();
+    }
+    if (!allowed || link?.user === current) return;
     if (current != null) sink.reset();
     current = link?.user;
     if (link != null) sink.identify({ id: link.user, email: link.email });

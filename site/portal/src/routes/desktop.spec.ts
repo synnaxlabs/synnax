@@ -171,7 +171,10 @@ describe("desktop routes", () => {
       const res = await postRenew("Bearer unknown");
       expect(res.status).toBe(403);
       expect(res.headers.get("access-control-allow-origin")).toBe("*");
-      expect(await body(res)).toEqual({ error: "This machine is not logged in" });
+      expect(await body(res)).toEqual({
+        error: "This machine is not logged in",
+        code: "unlinked",
+      });
     });
 
     it("should refuse a machine that was logged out", async () => {
@@ -179,7 +182,10 @@ describe("desktop routes", () => {
       expect((await postUnlink(linked.activation)).status).toBe(204);
       const res = await postRenew(`Bearer ${linked.secret}`);
       expect(res.status).toBe(403);
-      expect(await body(res)).toEqual({ error: "This machine is not logged in" });
+      expect(await body(res)).toEqual({
+        error: "This machine is not logged in",
+        code: "unlinked",
+      });
     });
   });
 

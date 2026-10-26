@@ -8,33 +8,38 @@
 // included in the file licenses/APL.txt.
 
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
-import { useEffect } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { setpoint } from "@/vis/setpoint/aether";
 
-export interface UseProps extends Pick<z.input<typeof setpoint.stateZ>, "sink"> {
+export interface UseProps extends Pick<
+  z.input<typeof setpoint.stateZ>,
+  "sink" | "source"
+> {
   aetherKey: string;
 }
 
-export interface UseReturn {
+export interface UseReturn extends Pick<z.infer<typeof setpoint.stateZ>, "value"> {
   set: (value: number) => void;
 }
 
-export const use = ({ aetherKey, sink }: UseProps): UseReturn => {
-  const memoProps = useMemoDeepEqual({ sink });
-  const { setState, methods } = Aether.useLifecycle({
+export const use = ({ aetherKey, sink, source }: UseProps): UseReturn => {
+  const memoProps = useMemoDeepEqual({ sink, source });
+  const { setState, methods, subscribe, getSnapshot } = Aether.useLifecycle({
     aetherKey,
     type: setpoint.Setpoint.TYPE,
     schema: setpoint.stateZ,
     initialState: memoProps,
     methods: setpoint.methodsZ,
   });
+  // Reads only the value, so pushing props into the state does not re-render.
+  const value = useSyncExternalStore(subscribe, () => getSnapshot().value);
 
   useEffect(() => {
     setState((state) => ({ ...state, ...memoProps }));
   }, [memoProps, setState]);
 
-  return { set: methods.set };
+  return { set: methods.set, value };
 };

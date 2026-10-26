@@ -11,11 +11,4 @@
 
 .console-arc-create-modal {
     width: 120rem;
-
-    .console-arc-create-modal__mode-select-button {
-        flex-basis: 0;
-        padding: 2rem 3rem;
-        overflow: hidden;
-        text-align: start;
-    }
 }

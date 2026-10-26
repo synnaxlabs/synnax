@@ -13,7 +13,7 @@ from console.schematic.symbol import Symbol
 
 
 class Select(Symbol):
-    """Schematic select symbol (write-only dropdown + send button)"""
+    """Schematic select symbol (dropdown, Set button, and optional read-back)"""
 
     _symbol_group = "General"
 
@@ -77,7 +77,7 @@ class Select(Symbol):
         return applied_properties
 
     def send(self, option_name: str) -> None:
-        """Select an option from the dropdown and click Send.
+        """Select an option from the dropdown and click Set.
 
         Args:
             option_name: The display name of the option to select
@@ -90,5 +90,5 @@ class Select(Symbol):
         trigger.click()
         self.layout.select_from_dropdown(option_name)
 
-        send_button = self.locator.locator("button").filter(has_text="Send")
-        send_button.click(timeout=2000)
+        set_button = self.locator.locator("button").filter(has_text="Set")
+        set_button.click(timeout=2000)

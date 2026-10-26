@@ -90,8 +90,8 @@ export interface CreateListParams<
   sort?: compare.Comparator<E>;
   retrieveByKey: (params: RetrieveByKeyParams<Query, K>) => Promise<E | undefined>;
   /**
-   * Live updates for items fetched through retrieveByKey. Page members get
-   * their updates from `onChange`; this covers lookups outside any page.
+   * Live updates for an item outside any page: a lookup through retrieveByKey, or a
+   * read item that a page let go. Page members get their updates from `onChange`.
    */
   onChangeByKey?: (
     params: RetrieveByKeyParams<Query, K>,
@@ -127,6 +127,8 @@ interface Page<K extends record.Key> {
   hash: string;
   keys: K[];
   unsubscribe: destructor.Destructor;
+  /** Set when the client cache answered the page. The next retrieve replaces it. */
+  cached?: boolean;
 }
 
 export const createList = <
@@ -210,39 +212,6 @@ export const createList = <
       return keys;
     };
 
-    /** Applies a page answer: updates items, notifies, recomputes keys. */
-    const applyPageAnswer = (page: Page<Key>, items: Data[]) => {
-      const filtered = items.filter(filterRef.current);
-      filtered.forEach((item) => {
-        const prev = dataRef.current.get(item.key);
-        if (prev === item) return;
-        dataRef.current.set(item.key, item);
-        notifyListeners(item.key);
-      });
-      const nextKeys = new Set(filtered.map((item) => item.key));
-      const dropped = page.keys.filter((k) => !nextKeys.has(k));
-      page.keys = filtered.map((item) => item.key);
-      dropped.forEach((k) => {
-        if (pagesRef.current.some((p) => p.keys.includes(k))) return;
-        // The item may only have left the query, and its own feed reports it.
-        if (itemSubsRef.current.has(k)) return;
-        dataRef.current.set(k, null);
-        notifyListeners(k);
-      });
-      setResult((p) => {
-        if (p.data == null) return p;
-        const next = recomputeKeys();
-        if (compare.primitiveArrays(p.data, next) === compare.EQUAL) return p;
-        return { ...p, data: next };
-      });
-    };
-
-    const clearPages = () => {
-      pagesRef.current.forEach((page) => page.unsubscribe());
-      pagesRef.current = [];
-    };
-    useEffect(() => clearPages, [clearPages]);
-
     const handleItemChange = (key: Key, cached: query.Cached<Data> | undefined) => {
       if (cached === undefined) return;
       if (Deleted.matches<Data>(cached)) dataRef.current.set(key, null);
@@ -250,6 +219,8 @@ export const createList = <
       notifyListeners(key);
     };
 
+    // Declared above its callers. The compiler caches neither function when a hook call
+    // sits between a caller and a callee declared below it.
     const openItemSub = (key: Key): void => {
       if (onChangeByKey == null || client == null) return;
       if (itemSubsRef.current.has(key)) return;
@@ -266,6 +237,45 @@ export const createList = <
       );
     };
 
+    /** Applies a page answer: updates items, notifies, recomputes keys. */
+    const applyPageAnswer = (page: Page<Key>, items: Data[]) => {
+      const filtered = items.filter(filterRef.current);
+      filtered.forEach((item) => {
+        const prev = dataRef.current.get(item.key);
+        if (prev === item) return;
+        dataRef.current.set(item.key, item);
+        notifyListeners(item.key);
+      });
+      const nextKeys = new Set(filtered.map((item) => item.key));
+      const dropped = page.keys.filter((k) => !nextKeys.has(k));
+      page.keys = filtered.map((item) => item.key);
+      dropped.forEach((k) => {
+        if (pagesRef.current.some((p) => p.keys.includes(k))) return;
+        // The item may only have left the query, so an item a consumer reads keeps a
+        // feed of its own, which reports a deletion.
+        if (itemSubsRef.current.has(k)) return;
+        if (listItemListenersRef.current.has(k)) return openItemSub(k);
+        dataRef.current.set(k, null);
+        notifyListeners(k);
+      });
+      setResult((p) => {
+        if (p.data == null) return p;
+        const next = recomputeKeys();
+        if (compare.primitiveArrays(p.data, next) === compare.EQUAL) return p;
+        return { ...p, data: next };
+      });
+    };
+
+    const closePages = (closes: (page: Page<Key>) => boolean) => {
+      pagesRef.current = pagesRef.current.filter((page) => {
+        if (!closes(page)) return true;
+        page.unsubscribe();
+        return false;
+      });
+    };
+    const clearPages = () => closePages(() => true);
+    useEffect(() => clearPages, [clearPages]);
+
     const clearItemSubs = () => {
       itemSubsRef.current.forEach((unsub) => unsub());
       itemSubsRef.current.clear();
@@ -277,23 +287,36 @@ export const createList = <
       itemSubsRef.current.delete(key);
     };
 
-    const openPage = (q: Query, keys: Key[]): void => {
+    /**
+     * Gives each record that no page holds its own feed while a consumer reads it, such
+     * as a selection, and drops the rest. Without a feed the copy goes stale.
+     */
+    const coverRecords = () => {
+      const paged = new Set(pagesRef.current.flatMap((page) => page.keys));
+      dataRef.current.forEach((item, key) => {
+        if (item == null || paged.has(key) || itemSubsRef.current.has(key)) return;
+        if (listItemListenersRef.current.has(key)) openItemSub(key);
+        else dataRef.current.delete(key);
+      });
+    };
+
+    const openPage = (q: Query, keys: Key[], cached = false): void => {
       const hash = query.hash(q);
       const existing = pagesRef.current.find((p) => p.hash === hash);
       if (existing != null) {
         existing.keys = keys;
         return;
       }
-      const page: Page<Key> = { hash, keys, unsubscribe: () => {} };
+      const page: Page<Key> = { hash, keys, unsubscribe: () => {}, cached };
       if (subscribeToQuery != null && client != null)
         page.unsubscribe = subscribeToQuery(
           {
             client,
             query: q,
           },
-          (cached: query.Cached<Data[]> | undefined) => {
-            if (!isLive(cached)) return;
-            applyPageAnswer(page, cached);
+          (answer: query.Cached<Data[]> | undefined) => {
+            if (!isLive(answer)) return;
+            applyPageAnswer(page, answer);
           },
         );
       pagesRef.current.push(page);
@@ -333,16 +356,12 @@ export const createList = <
         if (value.length === 0) hasMoreRef.current = false;
         const keys = value.map((v) => v.key);
 
-        if (mode === "replace") clearPages();
+        // An answer replaces a page the cache answered in either mode.
+        closePages((page) => mode === "replace" || page.cached === true);
         value.forEach((v) => dataRef.current.set(v.key, v));
         openPage(query, keys);
         keys.forEach(notifyListeners);
-        // A replaced page no longer delivers changes to the items it held, so an
-        // item a consumer still reads, such as a selection, needs its own feed.
-        if (mode === "replace")
-          listItemListenersRef.current.forEach((_, key) => {
-            if (!keys.includes(key)) openItemSub(key);
-          });
+        coverRecords();
 
         // If we've already retrieved the initial data, and it's the same as the
         // data we just retrieved, then don't notify listeners.
@@ -362,21 +381,41 @@ export const createList = <
       }
     };
 
-    // When the client is swapped, an active hook must re-point itself at the
-    // new client's cache. A non-null query means a list retrieve ran: refetch
-    // (retrieveAsync re-subscribes as it goes). Item subscriptions re-open
-    // against the new client without refetching.
+    /**
+     * Fills the list from the cached answer to the query, behind a page that keeps the
+     * answer live until a retrieve answers. Does nothing when the cache has no answer.
+     */
+    const createCachedPage = (query: Query) => {
+      const keys = readCache(query);
+      if (keys == null) return;
+      openPage(query, keys, true);
+      keys.forEach(notifyListeners);
+      setResult((p) =>
+        p.data != null && compare.primitiveArrays(p.data, keys) === compare.EQUAL
+          ? p
+          : loadingResult(`retrieving ${name}`, keys),
+      );
+    };
+
+    // The initial state fills the list from the cache in render, where no feed can
+    // open, so the mount fills it again with one. When the client is swapped, an active
+    // hook must re-point itself at the new client's cache. A non-null query means a
+    // list retrieve ran: refetch (retrieveAsync re-subscribes as it goes). Item
+    // subscriptions re-open against the new client without refetching.
     const retrieveAsyncRef = useSyncedRef(retrieveAsync);
     const firstMountRef = useRef(true);
     useEffect(() => {
       if (firstMountRef.current) {
         firstMountRef.current = false;
+        if (resultRef.current.data != null && pagesRef.current.length === 0)
+          createCachedPage(queryRef.current ?? normalized({} as Query));
         return;
       }
       clearPages();
       const itemKeys = [...itemSubsRef.current.keys()];
       clearItemSubs();
       itemKeys.forEach(openItemSub);
+      coverRecords();
       const query = queryRef.current;
       if (query != null) void retrieveAsyncRef.current(query);
     }, [client]);
@@ -449,21 +488,6 @@ export const createList = <
       };
     };
 
-    // Seeds a cold list from the cached answer for the exact query the debounced
-    // retrieve will fetch, so a remount paints before the network round trip. The
-    // fetch that follows reconciles membership. Setters must be pure: the
-    // debounced retrieve executes the setter again.
-    const seedFromCache = (paramsSetter: state.SetArg<Query, Query | {}>) => {
-      if (resultRef.current.data != null) return;
-      const query = normalized(
-        state.executeSetter(paramsSetter, queryRef.current ?? {}),
-      );
-      const keys = readCache(query);
-      if (keys == null) return;
-      keys.forEach(notifyListeners);
-      setResult(loadingResult(`retrieving ${name}`, keys));
-    };
-
     const debouncedRetrieve = useDebouncedCallback(
       (query: state.SetArg<Query, Query | {}>, options: AsyncListOptions = {}) =>
         void retrieveAsync(query, options),
@@ -475,7 +499,13 @@ export const createList = <
       query: state.SetArg<Query, Query | {}>,
       options: AsyncListOptions = {},
     ) => {
-      seedFromCache(query);
+      // A cold list fills from the cached answer to the exact query the debounced
+      // retrieve will fetch, so a remount paints before the network round trip. Setters
+      // must be pure: the debounced retrieve executes the setter again.
+      if (resultRef.current.data == null)
+        createCachedPage(
+          normalized(state.executeSetter(query, queryRef.current ?? {})),
+        );
       debouncedRetrieve(query, options);
     };
 

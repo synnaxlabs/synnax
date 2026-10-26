@@ -248,6 +248,38 @@ var _ = Describe("Service", func() {
 			Expect(resolved).To(Equal([]uuid.UUID{from, to}))
 		})
 
+		It("Should resolve the entry through a transaction before validating it", func(
+			ctx SpecContext,
+		) {
+			validating := MustOpen(config.OpenService(
+				ctx,
+				config.ServiceConfig[arctask.Config]{
+					DB:          db,
+					Type:        testType,
+					Ladder:      arcversions.ConfigLadder,
+					SetEntryKey: (*arctask.Config).SetKey,
+					ResolveEntry: func(
+						_ context.Context,
+						tx gorp.Tx,
+						_ uuid.UUID,
+						c *arctask.Config,
+					) error {
+						Expect(tx).ToNot(BeNil())
+						c.Performance = "low"
+						return nil
+					},
+					ValidateEntry: (*arctask.Config).Validate,
+				},
+			))
+			key := uuid.New()
+			Expect(validating.Write(ctx, nil, key, msgpack.EncodedJSON{
+				"arc_key":     uuid.New().String(),
+				"performance": "BOGUS",
+			})).To(Succeed())
+			Expect(MustSucceed(validating.Read(ctx, nil, key))["performance"]).
+				To(Equal("low"))
+		})
+
 		It("Should reject the write when resolution fails", func(ctx SpecContext) {
 			key := uuid.New()
 			resolveErr = errors.New("unresolved")

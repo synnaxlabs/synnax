@@ -361,7 +361,11 @@ ec_slave_config_t *Master::get_or_create_slave_config(const uint16_t position) {
                 pdo.bit_length
             );
             pdo::Key key{position, pdo.index, pdo.sub_index, false};
-            this->pdo_offsets[key] = {abs_offset, static_cast<uint8_t>(bit_pos)};
+            this->pdo_offsets[key] = {
+                abs_offset,
+                static_cast<uint8_t>(bit_pos),
+                pdo.bit_length
+            };
             this->output_sz = std::max(this->output_sz, abs_offset + byte_size);
             registered_outputs++;
         } else {
@@ -390,7 +394,11 @@ ec_slave_config_t *Master::get_or_create_slave_config(const uint16_t position) {
                 pdo.bit_length
             );
             pdo::Key key{position, pdo.index, pdo.sub_index, true};
-            this->pdo_offsets[key] = {abs_offset, static_cast<uint8_t>(bit_pos)};
+            this->pdo_offsets[key] = {
+                abs_offset,
+                static_cast<uint8_t>(bit_pos),
+                pdo.bit_length
+            };
             this->input_sz = std::max(this->input_sz, abs_offset + byte_size);
             registered_inputs++;
         } else {

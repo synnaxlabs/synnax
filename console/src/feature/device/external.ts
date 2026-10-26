@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { CAN } from "@/feature/can";
+import { CONNECT_COMMANDS } from "@/feature/device/commands";
 import { HTTP } from "@/feature/http";
 import { Modbus } from "@/feature/modbus";
 import { OPCUA } from "@/feature/opcua";
@@ -17,6 +18,7 @@ import { UDP } from "@/feature/udp";
 import { FLAGS } from "@/flags";
 import { type Command } from "@/platform/command";
 
+export * from "@/feature/device/Connect";
 export * from "@/feature/device/link";
 export * from "@/feature/device/notifications";
 export * from "@/feature/device/Toolbar";
@@ -25,6 +27,7 @@ export * from "@/feature/device/useListenForChanges";
 export * from "@/platform/device/external";
 
 export const COMMANDS: Command.Command[] = [
+  ...CONNECT_COMMANDS,
   ...HTTP.Device.COMMANDS,
   ...Modbus.Device.COMMANDS,
   ...OPCUA.Device.COMMANDS,

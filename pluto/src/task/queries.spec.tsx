@@ -698,6 +698,27 @@ describe("queries", () => {
     });
   });
 
+  describe("useMultiple", () => {
+    it("should add a task on the rack created after the query resolves", async () => {
+      const rack = await client.racks.create({ name: "testRack" });
+      const type = "pagerduty_alert";
+      const first = await rack.createTask({ name: "first", type, config: {} });
+      const { result } = await renderHookSuspended(
+        () => Task.useMultiple({ rack: rack.key, types: [type] }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current?.map((t) => t.key)).toEqual([first.key]),
+      );
+      const second = await rack.createTask({ name: "second", type, config: {} });
+      await waitFor(() =>
+        expect(result.current?.map((t) => t.key).sort()).toEqual(
+          [first.key, second.key].sort(),
+        ),
+      );
+    });
+  });
+
   describe("useDelete", () => {
     it("should delete a single task", async () => {
       const rack = await client.racks.create({

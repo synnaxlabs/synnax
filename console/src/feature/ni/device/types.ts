@@ -13,6 +13,9 @@ import { z } from "zod";
 import { Device } from "@/platform/device";
 
 export const MAKE = "NI";
+
+/** The name a rack lists in its integrations when its Driver runs this one. */
+export const INTEGRATION = "ni";
 export const makeZ = z.literal(MAKE);
 
 export const propertiesZ = z.object({

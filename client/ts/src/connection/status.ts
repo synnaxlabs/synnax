@@ -19,7 +19,12 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { AuthError, DisconnectedError, ExpiredLicenseError } from "@/errors";
+import {
+  AuthError,
+  DisconnectedError,
+  ExpiredLicenseError,
+  MissingLicenseError,
+} from "@/errors";
 import { license } from "@/license";
 import { status } from "@/status";
 
@@ -204,6 +209,11 @@ const AUTH_FAILED = "Failed to authenticate";
 const STREAM_DENIED =
   "Live updates are unavailable. This user cannot read the change channels.";
 
+const licenseError = (state: Exclude<license.State, "ok">): Error =>
+  state === "missing"
+    ? new MissingLicenseError(license.STATE_MESSAGES.missing)
+    : new ExpiredLicenseError(license.STATE_MESSAGES.expired);
+
 /** The status a freshly constructed client starts in. */
 export const createInitialStatus = (config: Config): Status => ({
   ...DEFAULT_STATUS,
@@ -303,11 +313,11 @@ const reduceCheckSuccess = (prev: Status, info: Info, config: Config): Status =>
   if (clusterKey !== "" && info.clusterKey !== clusterKey)
     return reduceClusterReplaced(prev, info, config);
   const facts = checkFacts(info, config);
-  if (info.license === "expired")
-    return enterError(prev, license.STATE_MESSAGES.expired, {
+  if (info.license !== "ok")
+    return enterError(prev, license.STATE_MESSAGES[info.license], {
       ...facts,
       reason: "unlicensed",
-      error: new ExpiredLicenseError(license.STATE_MESSAGES.expired),
+      error: licenseError(info.license),
       retry: null,
     });
   // reachable but the stream is still dark: the client re-demands it and we

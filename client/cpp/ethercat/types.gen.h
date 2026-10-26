@@ -24,27 +24,11 @@
 
 namespace synnax::ethercat {
 
-struct PDOAddress;
 struct BaseReadChannel;
 struct BaseWriteChannel;
 struct ScanConfig;
 struct ReadConfig;
 struct WriteConfig;
-
-/// @brief PDOAddress addresses a PDO entry explicitly in the CoE object dictionary.
-struct PDOAddress {
-    /// @brief index is the CoE object dictionary index of the PDO entry.
-    std::uint16_t index = 0;
-    /// @brief sub_index is the CoE object dictionary sub-index of the PDO entry.
-    std::uint8_t sub_index = 0;
-    /// @brief bit_length is the size of the PDO entry, in bits.
-    std::uint8_t bit_length = 16;
-    /// @brief data_type is the data type of the PDO entry.
-    ::x::telem::DataType data_type = ::x::telem::DataType("uint16");
-
-    static PDOAddress parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
 
 /// @brief BaseReadChannel carries the fields every EtherCAT read channel shares.
 struct BaseReadChannel {
@@ -93,54 +77,66 @@ struct ScanConfig : public ::synnax::task::ScanConfig {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief AutomaticReadChannel resolves its PDO address from the slave's discovered
-/// PDOs.
-struct AutomaticReadChannel : public BaseReadChannel {
-    std::string type = "automatic";
-    /// @brief pdo is the name of the PDO entry to resolve on the slave.
-    std::string pdo = "";
+/// @brief EntryReadChannel addresses a PDO entry by its CoE index and sub-index.
+struct EntryReadChannel : public BaseReadChannel {
+    std::string type = "entry";
+    /// @brief index is the CoE object dictionary index of the PDO entry.
+    std::uint16_t index = 0;
+    /// @brief sub_index is the CoE object dictionary sub-index of the PDO entry.
+    std::uint8_t sub_index = 0;
+    /// @brief data_type is the data type of the PDO entry.
+    ::x::telem::DataType data_type;
 
-    static AutomaticReadChannel parse(x::json::Parser parser);
+    static EntryReadChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief ManualReadChannel specifies its PDO address inline.
-struct ManualReadChannel : public BaseReadChannel, public PDOAddress {
-    std::string type = "manual";
+/// @brief UnresolvedReadChannel is a channel whose PDO entry name matched no single
+/// entry on its slave. It must be given an entry before the task runs.
+struct UnresolvedReadChannel : public BaseReadChannel {
+    std::string type = "unresolved";
+    /// @brief pdo is the entry name that matched no single entry on the slave.
+    std::string pdo;
 
-    static ManualReadChannel parse(x::json::Parser parser);
+    static UnresolvedReadChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
 /// @brief ReadChannel is a single EtherCAT read channel (TxPDO, slave to master). The
 /// type field selects how the PDO entry is addressed.
-using ReadChannel = std::variant<AutomaticReadChannel, ManualReadChannel>;
+using ReadChannel = std::variant<EntryReadChannel, UnresolvedReadChannel>;
 
 ReadChannel parse_read_channel(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const ReadChannel &value);
 
-/// @brief AutomaticWriteChannel resolves its PDO address from the slave's discovered
-/// PDOs.
-struct AutomaticWriteChannel : public BaseWriteChannel {
-    std::string type = "automatic";
-    /// @brief pdo is the name of the PDO entry to resolve on the slave.
-    std::string pdo = "";
+/// @brief EntryWriteChannel addresses a PDO entry by its CoE index and sub-index.
+struct EntryWriteChannel : public BaseWriteChannel {
+    std::string type = "entry";
+    /// @brief index is the CoE object dictionary index of the PDO entry.
+    std::uint16_t index = 0;
+    /// @brief sub_index is the CoE object dictionary sub-index of the PDO entry.
+    std::uint8_t sub_index = 0;
+    /// @brief data_type is the data type of the PDO entry.
+    ::x::telem::DataType data_type;
 
-    static AutomaticWriteChannel parse(x::json::Parser parser);
+    static EntryWriteChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief ManualWriteChannel specifies its PDO address inline.
-struct ManualWriteChannel : public BaseWriteChannel, public PDOAddress {
-    std::string type = "manual";
+/// @brief UnresolvedWriteChannel is a channel whose PDO entry name matched no single
+/// entry on its slave. It must be given an entry before the task runs.
+struct UnresolvedWriteChannel : public BaseWriteChannel {
+    std::string type = "unresolved";
+    /// @brief pdo is the entry name that matched no single entry on the slave.
+    std::string pdo;
 
-    static ManualWriteChannel parse(x::json::Parser parser);
+    static UnresolvedWriteChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
 /// @brief WriteChannel is a single EtherCAT write channel (RxPDO, master to slave). The
 /// type field selects how the PDO entry is addressed.
-using WriteChannel = std::variant<AutomaticWriteChannel, ManualWriteChannel>;
+using WriteChannel = std::variant<EntryWriteChannel, UnresolvedWriteChannel>;
 
 WriteChannel parse_write_channel(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const WriteChannel &value);

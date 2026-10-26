@@ -9,18 +9,12 @@
 
 import "@/feature/bus/Connect.css";
 
-import { device, type rack, status } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/lyra/button";
-import { Component } from "@synnaxlabs/lyra/component";
-import { Dialog } from "@synnaxlabs/lyra/dialog";
-import { Flex } from "@synnaxlabs/lyra/flex";
+import { device, type rack } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { type Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Modal } from "@synnaxlabs/lyra/modal";
-import { Nav } from "@synnaxlabs/lyra/nav";
-import { Status } from "@synnaxlabs/lyra/status";
-import { Access, Device as PDevice, type Flux, Rack } from "@synnaxlabs/pluto";
+import { Access, Device as PDevice, type Flux } from "@synnaxlabs/pluto";
 import { caseconv, type record } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 import { z } from "zod";
@@ -29,19 +23,19 @@ import { Analytics } from "@/platform/analytics";
 import { Command } from "@/platform/command";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
-import { Empty } from "@/platform/empty";
-import { Modals } from "@/platform/modals";
 import { type Task } from "@/platform/task";
-import { type Tree } from "@/platform/tree";
-import { Triggers } from "@/platform/triggers";
 
 export interface CreateDeviceParams<
   M extends string,
   P extends z.ZodType<record.Unknown>,
 > {
   make: M;
+  /** The integration's name in sentences, such as CAN. */
+  name: string;
   /** Names one device in titles, such as CAN device. */
   noun: string;
+  /** What the device picker says the integration does. */
+  description: string;
   icon: Icon.ReactElement;
   properties: P;
   /** The integration a rack must run for the device to connect from it. */
@@ -57,13 +51,16 @@ export interface CreateDeviceParams<
 }
 
 /**
- * Creates the connect modal, device select, and commands of a bus integration. An
- * integration supplies its property fields and how they name a device's model and
- * location. A scanned device opens in the same modal to finish its properties.
+ * Creates the connect form, device select, commands, and device picker entry of a bus
+ * integration. An integration supplies its property fields and how they name a
+ * device's model and location. A scanned device opens in the same form to finish its
+ * properties.
  */
 export const createDevice = <M extends string, P extends z.ZodType<record.Unknown>>({
   make,
+  name,
   noun,
+  description,
   icon,
   properties,
   integration,
@@ -113,20 +110,14 @@ export const createDevice = <M extends string, P extends z.ZodType<record.Unknow
     return true;
   };
 
-  const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration };
-
-  const renderRack = Component.renderProp(
-    (props: Pick<Rack.SelectSingleProps, "value" | "onChange">) => (
-      <Rack.SelectSingle {...props} initialQuery={INITIAL_RACK_QUERY} />
-    ),
-  );
-
   const NAME_INPUT_PROPS = { level: "h2", variant: "text", placeholder: noun } as const;
 
   const Connect = ({
     deviceKey,
+    rack: defaultRack,
     close,
-  }: Modals.ContentProps<PlatformDevice.ConnectParams, void>) => {
+    onBack,
+  }: PlatformDevice.ConnectProps) => {
     const { capture } = Analytics.use();
     const {
       form,
@@ -135,72 +126,54 @@ export const createDevice = <M extends string, P extends z.ZodType<record.Unknow
       variant,
     } = useForm({
       query: deviceKey == null ? null : { key: deviceKey },
+      initialValues: { ...INITIAL_VALUES, rack: defaultRack ?? 0 },
       beforeValidate,
-      afterSave: () => {
+      afterSave: ({ get }) => {
         if (deviceKey == null) capture("device_connected", { integration });
-        close();
+        close(get<device.Key>("key").value);
       },
+    });
+    const rackKey = Form.useFieldValue<rack.Key, rack.Key, Schema>("rack", {
+      ctx: form,
+    });
+    const reason = PlatformDevice.useBlockedReason({
+      integration,
+      name,
+      rack: rackKey,
     });
     return (
       <Modal.Frame className={CSS.B("bus-connect")}>
         <Modal.Header icon={icon}>{`${noun}.Connect`}</Modal.Header>
-        <Flex.Box className={CSS.B("content")} grow size="small">
+        <Modal.Body>
           <Form.Form<Schema> {...form}>
             <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
-            <Form.Field<rack.Key> path="rack" label="Connect from" required>
-              {renderRack}
-            </Form.Field>
+            <PlatformDevice.RackField integration={integration} />
             <Properties />
           </Form.Form>
-        </Flex.Box>
-        <Modal.Footer>
-          <Nav.Bar.Start gap="small">
-            {variant == "success" ? (
-              <Triggers.SaveHelpText action="Connect" noBar />
-            ) : (
-              <Status.Summary variant={variant} message={stat.description} />
-            )}
-          </Nav.Bar.Start>
-          <Nav.Bar.End>
-            <Button.Button
-              status={status.keepVariants(variant, "loading")}
-              onClick={() => save()}
-              variant="filled"
-              trigger={Triggers.SAVE}
-            >
-              Connect
-            </Button.Button>
-          </Nav.Bar.End>
-        </Modal.Footer>
+        </Modal.Body>
+        <PlatformDevice.ConnectFooter
+          reason={reason}
+          variant={variant}
+          message={stat.description}
+          onConnect={() => save()}
+          onBack={onBack}
+        />
       </Modal.Frame>
     );
   };
 
-  const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(Connect);
-
-  const EmptyContent = () => {
-    const connect = useConnectModal();
-    const { close } = Dialog.useContext();
-    return (
-      <Empty.Action
-        message={`No ${noun}s connected`}
-        action={`Connect ${noun}`}
-        onClick={() => {
-          connect();
-          close();
-        }}
-      />
-    );
-  };
+  const useConnectModal = PlatformDevice.createConnectModal(Connect, integration);
 
   const Select = () => {
-    const connect = useConnectModal();
+    const openConnect = useConnectModal();
     return (
       <PlatformDevice.Select
-        onConfigure={(deviceKey) => connect({ deviceKey })}
-        emptyContent={<EmptyContent />}
+        onConfigure={(deviceKey) => void openConnect({ deviceKey })}
+        emptyContent={`No ${noun}s connected`}
         label={caseconv.capitalize(noun)}
         make={make}
+        icon={icon}
+        connect={{ title: noun, open: () => openConnect() }}
       />
     );
   };
@@ -215,17 +188,26 @@ export const createDevice = <M extends string, P extends z.ZodType<record.Unknow
     }),
   ];
 
+  const NETWORK: PlatformDevice.Network = {
+    key: integration,
+    name,
+    title: noun,
+    description,
+    icon,
+    Connect,
+  };
+
   return {
     MAKE: make,
     useConnectModal,
     Select,
     COMMANDS,
+    NETWORK,
   };
 };
 
 export interface CreateContextMenuItemsParams {
   integration: string;
-  useConnectModal: () => (params?: PlatformDevice.ConnectParams) => void;
   useCreateRead: Task.UseCreate;
   useCreateWrite: Task.UseCreate;
 }
@@ -233,7 +215,6 @@ export interface CreateContextMenuItemsParams {
 /** Creates a bus device's context menu: edit its connection and create its tasks. */
 export const createContextMenuItems = ({
   integration,
-  useConnectModal,
   useCreateRead,
   useCreateWrite,
 }: CreateContextMenuItemsParams) => {
@@ -249,20 +230,14 @@ export const createContextMenuItems = ({
       useCreate: useCreateWrite,
     }),
   ];
-  const ContextMenuItems = (props: Tree.ContextMenuProps): ReactElement => {
-    const connect = useConnectModal();
-    const onConfigure = (deviceKey: device.Key) => connect({ deviceKey });
-    return (
-      <>
-        <PlatformDevice.EditConnectionMenuItem {...props} onConfigure={onConfigure} />
-        <Menu.Divider />
-        <PlatformDevice.TaskContextMenuItems
-          {...props}
-          onConfigure={onConfigure}
-          items={items}
-        />
-      </>
-    );
-  };
+  const ContextMenuItems = (
+    props: PlatformDevice.ContextMenuItemsProps,
+  ): ReactElement => (
+    <>
+      <PlatformDevice.EditConnectionMenuItem {...props} />
+      <Menu.Divider />
+      <PlatformDevice.TaskContextMenuItems {...props} items={items} />
+    </>
+  );
   return ContextMenuItems;
 };

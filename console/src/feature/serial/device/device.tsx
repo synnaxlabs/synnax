@@ -106,9 +106,11 @@ const Properties = (): ReactElement => (
   </>
 );
 
-export const { MAKE, useConnectModal, Select, COMMANDS } = Bus.createDevice({
+export const { MAKE, useConnectModal, Select, COMMANDS, NETWORK } = Bus.createDevice({
   make: "Serial",
+  name: "serial",
   noun: "serial device",
+  description: "Read and write ICD messages on a serial port.",
   icon: <Icon.Connect />,
   properties: serial.propertiesZ,
   integration: "serial",

@@ -19,11 +19,11 @@ const KEY = "phc_CaKeC8DVDWCYaiYSnUpEaWWXLrWptuXwgF7tTY3U6Q7t";
 
 const API_HOST = "https://us.i.posthog.com";
 
-/** Pinned, so a posthog release cannot change the behavior of a shipped install. */
+/** Pinned, so a PostHog release cannot change the behavior of a shipped install. */
 const DEFAULTS = "2026-08-30";
 
 /**
- * Properties posthog reads off the host page. The window title holds the project name,
+ * Properties PostHog reads off the host page. The window title holds the project name,
  * and the rest describe a `tauri://` origin that means nothing. Screens carry a
  * synthesized address instead.
  */
@@ -72,7 +72,7 @@ export interface Params {
   installID: string;
 }
 
-const init = async (installID: string) => {
+const importPostHog = async () => {
   const [{ default: posthog }] = await Promise.all([
     import("posthog-js/dist/module.no-external"),
     // Static bundles, because remote script loading stays off. All must load before
@@ -81,6 +81,29 @@ const init = async (installID: string) => {
     import("posthog-js/dist/exception-autocapture"),
     import("posthog-js/dist/posthog-recorder"),
   ]);
+  return posthog;
+};
+
+type PostHog = Awaited<ReturnType<typeof importPostHog>>;
+
+/** Tags every later event with the environment and the install. A reset clears both. */
+const attach = (posthog: PostHog, installID: string): void => {
+  // A dev run reports as an ordinary install otherwise, so every count needs this to
+  // separate the two.
+  posthog.register({
+    environment: IS_DEV ? "development" : "production",
+    install_id: installID,
+  });
+};
+
+/** Captures again after a stop. PostHog stores the opt-out, so it outlives a launch. */
+const resume = (posthog: PostHog, installID: string): void => {
+  if (posthog.has_opted_out_capturing())
+    posthog.opt_in_capturing({ captureEventName: false });
+  attach(posthog, installID);
+};
+
+const init = (posthog: PostHog, installID: string): void => {
   posthog.init(KEY, {
     api_host: API_HOST,
     defaults: DEFAULTS,
@@ -120,20 +143,7 @@ const init = async (installID: string) => {
         ? null
         : event,
   });
-  attach(posthog, installID);
-  return posthog;
-};
-
-type PostHog = Awaited<ReturnType<typeof init>>;
-
-/** Tags every later event with the environment and the install. A reset clears both. */
-const attach = (posthog: PostHog, installID: string): void => {
-  // A dev run reports as an ordinary install otherwise, so every count needs this to
-  // separate the two.
-  posthog.register({
-    environment: IS_DEV ? "development" : "production",
-    install_id: installID,
-  });
+  resume(posthog, installID);
 };
 
 interface Loaded {
@@ -141,35 +151,73 @@ interface Loaded {
   installID: string;
 }
 
+/** A transport that loads nothing and sends nothing until it starts. */
+export interface Transport extends Analytics.Transport {
+  /** Loads PostHog on the first call, then sends every call until {@link stop}. */
+  start: () => void;
+  /** Drops every later call, then resets PostHog and opts it out of all requests. */
+  stop: () => void;
+}
+
 /**
- * Returns a transport over posthog right away and loads posthog behind it. Calls made
- * while it loads run once it is there, so the first seconds of a launch report like
- * any other. The import is dynamic, so the Console build, where this module is
- * unreachable, carries no analytics code at all.
+ * Returns a transport over PostHog right away. PostHog loads on the first start, and
+ * calls made while it loads run once it is there, so the first seconds of a launch
+ * report like any other. The import is dynamic, so the Console build, where this module
+ * is unreachable, carries no analytics code at all.
  */
-export const create = (params: Promise<Params>): Analytics.Transport => {
-  let loaded: Loaded | null = null;
+export const create = (params: Promise<Params>): Transport => {
+  let started = false;
+  let loading = false;
   let failed = false;
+  let loaded: Loaded | null = null;
   let waiting: Array<(loaded: Loaded) => void> = [];
   const load = async (): Promise<void> => {
+    loading = true;
     try {
-      const { installID } = await params;
-      const next = { posthog: await init(installID), installID };
-      loaded = next;
-      waiting.forEach((run) => run(next));
+      const [{ installID }, posthog] = await Promise.all([params, importPostHog()]);
+      // PostHog sends from init on, and the user can refuse while the bundles load.
+      if (started) {
+        init(posthog, installID);
+        const next = { posthog, installID };
+        loaded = next;
+        waiting.forEach((run) => run(next));
+      }
     } catch (err) {
       failed = true;
       console.error("failed to load analytics", err);
     } finally {
+      loading = false;
       waiting = [];
     }
   };
-  void load();
   const run = (call: (loaded: Loaded) => void): void => {
+    if (!started) return;
     if (loaded != null) call(loaded);
     else if (!failed) waiting.push(call);
   };
   return {
+    start: () => {
+      if (started) return;
+      started = true;
+      if (loaded == null) {
+        if (!loading && !failed) void load();
+        return;
+      }
+      loaded.posthog.set_config({ advanced_disable_flags: false });
+      resume(loaded.posthog, loaded.installID);
+    },
+    stop: () => {
+      if (!started) return;
+      started = false;
+      waiting = [];
+      if (loaded == null) return;
+      const { posthog } = loaded;
+      // A reset reloads feature flags, which PostHog requests even while opted out.
+      posthog.set_config({ advanced_disable_flags: true });
+      // A reset clears the opt-out that PostHog stores, so the reset goes first.
+      posthog.reset();
+      posthog.opt_out_capturing();
+    },
     capture: (event, properties) =>
       run(({ posthog }) => posthog.capture(event, properties)),
     identify: ({ id, email }) => run(({ posthog }) => posthog.identify(id, { email })),

@@ -90,14 +90,14 @@ type ServiceConfig[E any] struct {
 	// ApplyEntryDefaults fills absent fields of a decoded entry.
 	// [OPTIONAL] - nil when the entry type has no defaults.
 	ApplyEntryDefaults func(*E)
+	// ResolveEntry fills fields of the entry stored under the task key from other
+	// records in tx, before the entry is validated and stored, on both writes and
+	// copies. The task's ontology resource exists when it runs.
+	// [OPTIONAL] - nil when the entry depends on no other record.
+	ResolveEntry func(ctx context.Context, tx gorp.Tx, key uuid.UUID, e *E) error
 	// ValidateEntry checks a decoded entry before it is stored.
 	// [OPTIONAL] - nil when the entry type has no validation rules.
 	ValidateEntry func(*E) error
-	// ResolveEntry completes a validated entry from other records in tx before it is
-	// stored under the task key, on both writes and copies. The task's ontology
-	// resource exists when it runs.
-	// [OPTIONAL] - nil when the entry references no other records.
-	ResolveEntry func(ctx context.Context, tx gorp.Tx, key uuid.UUID, e *E) error
 	alamos.Instrumentation
 }
 
@@ -113,8 +113,8 @@ func (c ServiceConfig[E]) Override(other ServiceConfig[E]) ServiceConfig[E] {
 	c.LegacyVersion = override.Numeric(c.LegacyVersion, other.LegacyVersion)
 	c.Legacy = override.Nil(c.Legacy, other.Legacy)
 	c.ApplyEntryDefaults = override.Nil(c.ApplyEntryDefaults, other.ApplyEntryDefaults)
-	c.ValidateEntry = override.Nil(c.ValidateEntry, other.ValidateEntry)
 	c.ResolveEntry = override.Nil(c.ResolveEntry, other.ResolveEntry)
+	c.ValidateEntry = override.Nil(c.ValidateEntry, other.ValidateEntry)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -187,26 +187,27 @@ func (s *Service[E]) Write(
 		s.cfg.ApplyEntryDefaults(&e)
 	}
 	s.cfg.SetEntryKey(&e, key)
+	if err := s.resolve(ctx, tx, key, &e); err != nil {
+		return err
+	}
 	if s.cfg.ValidateEntry != nil {
 		if err := s.cfg.ValidateEntry(&e); err != nil {
 			return err
 		}
 	}
-	return s.resolveAndCreate(ctx, tx, key, &e)
+	return s.create(ctx, tx, &e)
 }
 
-func (s *Service[E]) resolveAndCreate(
+func (s *Service[E]) resolve(
 	ctx context.Context,
 	tx gorp.Tx,
 	key uuid.UUID,
 	e *E,
 ) error {
-	if s.cfg.ResolveEntry != nil {
-		if err := s.cfg.ResolveEntry(ctx, tx, key, e); err != nil {
-			return err
-		}
+	if s.cfg.ResolveEntry == nil {
+		return nil
 	}
-	return s.create(ctx, tx, e)
+	return s.cfg.ResolveEntry(ctx, gorp.OverrideTx(s.cfg.DB, tx), key, e)
 }
 
 func (s *Service[E]) create(ctx context.Context, tx gorp.Tx, e *E) error {
@@ -295,7 +296,10 @@ func (s *Service[E]) Copy(
 		return err
 	}
 	s.cfg.SetEntryKey(&e, to)
-	return s.resolveAndCreate(ctx, tx, to, &e)
+	if err = s.resolve(ctx, tx, to, &e); err != nil {
+		return err
+	}
+	return s.create(ctx, tx, &e)
 }
 
 func (s *Service[E]) retrieve(

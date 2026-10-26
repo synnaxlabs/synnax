@@ -7,30 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
+import { type device, ethercat } from "@synnaxlabs/client";
 import { z } from "zod";
 
 export const MAKE = "ethercat";
+
+/** The name a rack lists in its integrations when its Driver runs this one. */
+export const INTEGRATION = "ethercat";
 
 export const makeZ = z.literal(MAKE);
 
 export const SLAVE_MODEL = "slave";
 export const modelZ = z.literal(SLAVE_MODEL);
 
-/** Schema for a single PDO entry from device scan. */
-const pdoEntryZ = z.object({
-  name: z.string(),
-  pdoName: z.string().optional(),
-  index: z.number(),
-  subIndex: z.number(),
-  bitLength: z.number(),
-  dataType: z.string(),
-});
-
 /** Schema for PDO collections (inputs and outputs). */
 const pdosZ = z.object({
-  inputs: z.array(pdoEntryZ).default(() => []),
-  outputs: z.array(pdoEntryZ).default(() => []),
+  inputs: z.array(ethercat.pdoEntryZ).default(() => []),
+  outputs: z.array(ethercat.pdoEntryZ).default(() => []),
 });
 export interface PDOs extends z.infer<typeof pdosZ> {}
 

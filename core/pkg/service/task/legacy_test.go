@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/modbus"
 	"github.com/synnaxlabs/synnax/pkg/service/ni"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -91,6 +92,14 @@ var legacyDiscarded = map[string]set.Set[string]{
 	"ni_digital_write": set.New("type"),
 }
 
+// legacyReimportErrors holds, for each task type whose current shape the legacy rewrite
+// cannot read, the error that normalizing an unversioned copy of its stored config
+// returns.
+var legacyReimportErrors = map[string]string{
+	"ethercat_read":  `within "/channels/0": ReadChannel: unknown type "unresolved"`,
+	"ethercat_write": `within "/channels/0": WriteChannel: unknown type "unresolved"`,
+}
+
 // legacyVariantDiscarded lists the keys a rewrite drops on purpose from one union
 // variant, keyed by the variant's type tag. It scopes a drop that legacyDiscarded
 // would apply to every variant of the task type. NI-DAQmx accepts one unit for each
@@ -113,6 +122,9 @@ var legacyVariantDiscarded = map[string]set.Set[string]{
 	"ai_voltage_with_excit": set.New("units"),
 	"ao_current":            set.New("units"),
 	"ao_voltage":            set.New("units"),
+	// An EtherCAT entry channel reads its bit length from the slave's discovered
+	// entry.
+	"manual": set.New("bit_length"),
 }
 
 // The three tables below map a legacy key to where its value lands in the stored
@@ -323,6 +335,13 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			Status:              statusSvc,
 			HealthCheckInterval: 10 * telem.Millisecond,
 		}))
+		deviceSvc := MustOpen(device.OpenService(ctx, device.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Group:    groupSvc,
+			Status:   statusSvc,
+			Rack:     rackSvc,
+		}))
 		var stores []config.Store
 		stores = append(
 			stores,
@@ -333,7 +352,8 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		stores = append(
 			stores,
 			MustOpen(ethercat.OpenService(ctx, ethercat.ServiceConfig{
-				DB: db,
+				DB:     db,
+				Device: deviceSvc,
 			})).Stores()...,
 		)
 		stores = append(stores, MustOpen(http.OpenService(ctx, http.ServiceConfig{
@@ -481,8 +501,15 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			)
 
 			// The rewrite and the ladder must leave their own output unchanged.
-			Expect(store.Normalize(ctx, 0, imported.Config)).
-				To(Equal(imported.Config))
+			if reimportErr, ok := legacyReimportErrors[env.Type]; ok {
+				Expect(store.Normalize(ctx, 0, imported.Config)).Error().
+					To(MatchError(ContainSubstring(reimportErr)))
+				Expect(store.Normalize(ctx, store.Version(), imported.Config)).
+					To(Equal(imported.Config))
+			} else {
+				Expect(store.Normalize(ctx, 0, imported.Config)).
+					To(Equal(imported.Config))
+			}
 
 			// The golden file freezes the canonical stored record independently of
 			// the rewrite under test: a rewrite edit that silently drops a released

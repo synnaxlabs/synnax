@@ -19,7 +19,7 @@ import { type ReactElement } from "react";
 import { z } from "zod";
 
 import { ADMIN_ROLE, type Member, MEMBER_ROLE } from "@/server/directory";
-import { reload } from "@/ui/api";
+import { post, reload } from "@/ui/api";
 import { type Organization, useClerk } from "@/ui/clerk";
 import { Modal } from "@/ui/modal";
 import { Page } from "@/ui/Page";
@@ -71,7 +71,7 @@ export const Members = ({
       subtitle={
         role == null ? name : `${name}. You are ${roleName(role).toLowerCase()}.`
       }
-      actions={admin && <InviteDialog name={name} team={team} />}
+      actions={admin && <InviteDialog name={name} clerkOrgID={clerkOrgID} />}
     >
       <Table columns={MEMBER_COLUMNS} head={["Name", "Email", "Role", ""]}>
         {roster.map((m) => (
@@ -158,10 +158,10 @@ const inviteSchema = z.object({
 
 interface InviteDialogProps {
   name: string;
-  team: Team;
+  clerkOrgID: string;
 }
 
-const InviteDialog = ({ name, team }: InviteDialogProps): ReactElement => (
+const InviteDialog = ({ name, clerkOrgID }: InviteDialogProps): ReactElement => (
   <Modal.Frame
     name={`${name}.Invite a member`}
     icon={<Icon.User />}
@@ -172,11 +172,11 @@ const InviteDialog = ({ name, team }: InviteDialogProps): ReactElement => (
       </Dialog.Trigger>
     }
   >
-    <InviteContent team={team} />
+    <InviteContent clerkOrgID={clerkOrgID} />
   </Modal.Frame>
 );
 
-const InviteContent = ({ team }: { team: Team }): ReactElement => {
+const InviteContent = ({ clerkOrgID }: { clerkOrgID: string }): ReactElement => {
   const methods = Form.use({
     values: { email: "", role: MEMBER_ROLE },
     schema: inviteSchema,
@@ -186,7 +186,7 @@ const InviteContent = ({ team }: { team: Team }): ReactElement => {
       methods={methods}
       submit="Send invite"
       onSubmit={async ({ email, role }) => {
-        await (await team()).inviteMember({ emailAddress: email, role });
+        await post("/api/members/invite", { organization: clerkOrgID, email, role });
         reload();
       }}
     >

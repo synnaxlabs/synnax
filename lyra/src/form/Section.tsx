@@ -48,11 +48,13 @@ export const Sections = ({
 };
 
 export interface SectionProps extends Omit<Flex.BoxProps, "title"> {
-  title: string;
+  /** Omit it when the section's container already names it, such as a tab. */
+  title?: string;
+  /** Shown in the header, so they need a title. */
   actions?: ReactNode;
 }
 
-/** A titled group of fields inside `Sections`. */
+/** A group of fields inside `Sections`, under a header when it has a title. */
 export const Section = ({
   title,
   actions,
@@ -61,12 +63,19 @@ export const Section = ({
   ...rest
 }: SectionProps): ReactElement => (
   <Flex.Box className={CSS.cls(CSS.B("form-section"), className)} empty {...rest}>
-    <Flex.Box x align="center" gap="small" className={CSS.BE("form-section", "header")}>
-      <Text.Text level="h5" weight={500} color={11}>
-        {title}
-      </Text.Text>
-      {actions}
-    </Flex.Box>
+    {title != null && (
+      <Flex.Box
+        x
+        align="center"
+        gap="small"
+        className={CSS.BE("form-section", "header")}
+      >
+        <Text.Text level="h5" weight={500} color={11}>
+          {title}
+        </Text.Text>
+        {actions}
+      </Flex.Box>
+    )}
     <div className={CSS.BE("form-section", "body")}>{children}</div>
   </Flex.Box>
 );

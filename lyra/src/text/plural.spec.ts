@@ -21,6 +21,9 @@ describe("Text.plural", () => {
     ["PDO", "PDOs"],
     ["CAN ICD", "CAN ICDs"],
     ["CAN message", "CAN messages"],
+    ["edge 1", "edges"],
+    ["input terminal A", "input terminals"],
+    ["AI 0", "AIs"],
   ])("should pluralize %s as %s", (name, expected) => {
     expect(Text.plural(name)).toBe(expected);
   });
