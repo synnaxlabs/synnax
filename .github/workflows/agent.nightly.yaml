@@ -1,0 +1,88 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Calls an agent each weeknight to improve the repo on one theme. The prompts in
+# .github/agents/nightly say how many PRs to open and when to open none.
+
+name: Agent - Nightly
+
+on:
+  schedule:
+    - cron: "0 7 * * 1-5" # Weeknights, 7am UTC, after the Nightly CI run
+  workflow_dispatch:
+    inputs:
+      theme:
+        description: The theme to run
+        required: false
+        type: choice
+        default: weekday
+        options:
+          - weekday
+          - flake-hunt
+          - slop
+          - dead-code
+          - test-quality
+          - docs-drift
+
+permissions: {}
+
+concurrency:
+  group: agent-nightly
+  cancel-in-progress: false
+
+jobs:
+  prompt:
+    name: Write the prompt
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      prompt: ${{ steps.prompt.outputs.prompt }}
+      theme: ${{ steps.prompt.outputs.theme }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/agents
+
+      - name: Write the prompt
+        id: prompt
+        env:
+          THEME: ${{ inputs.theme }}
+        run: |
+          if [ -z "$THEME" ] || [ "$THEME" = weekday ]; then
+            THEMES=(flake-hunt slop dead-code test-quality docs-drift)
+            THEME=${THEMES[$(( $(date -u +%u) - 1 ))]}
+          fi
+          echo "theme=$THEME" >> "$GITHUB_OUTPUT"
+          EOF=$(openssl rand -hex 16)
+          {
+            echo "prompt<<$EOF"
+            cat .github/agents/nightly/rules.md
+            echo
+            cat ".github/agents/nightly/$THEME.md"
+            printf '\nToday is %s. The theme is %s.\n' "$(date -u +%F)" "$THEME"
+            echo "$EOF"
+          } >> "$GITHUB_OUTPUT"
+
+  agent:
+    name: Agent (${{ needs.prompt.outputs.theme }})
+    needs: prompt
+    permissions:
+      actions: read
+      contents: write
+      issues: write
+      pull-requests: write
+    uses: ./.github/workflows/agent.yaml
+    with:
+      prompt: ${{ needs.prompt.outputs.prompt }}
+      agent: ${{ vars.AGENT_DEFAULT || 'claude' }}
+      output: report
+      timeout-minutes: 180
+    secrets: inherit
