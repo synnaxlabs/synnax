@@ -307,12 +307,13 @@ export class Client implements Handle {
   /**
    * Rejects unary requests instantly while the cluster is known unreachable or
    * unlicensed, instead of burning the transport's retry budget per call. The
-   * check, login, and license targets are exempt so the connection can heal.
+   * check, session, and license targets are exempt so the connection can heal and a
+   * session stays maintained.
    */
   middleware(): Middleware {
     const EXEMPT = [
       CHECK_ENDPOINT,
-      auth.LOGIN_ENDPOINT,
+      ...auth.SESSION_ENDPOINTS,
       license.RETRIEVE_ENDPOINT,
       license.ACTIVATE_ENDPOINT,
       license.DEACTIVATE_ENDPOINT,
