@@ -4,7 +4,7 @@ How a change gets into `main`. Setup lives in the package guides
 ([Core](core/CONTRIBUTING.md), [Console](console/CONTRIBUTING.md),
 [Pluto](pluto/CONTRIBUTING.md), [TypeScript client](client/ts/CONTRIBUTING.md),
 [Python client](client/py/CONTRIBUTING.md), [docs site](site/docs/CONTRIBUTING.md)),
-design in the [RFCs](docs/tech/rfc), and code style in [CLAUDE.md](CLAUDE.md).
+design in the [RFCs](docs/tech/rfc), and code style in [AGENTS.md](AGENTS.md).
 
 ## Branches and pull requests
 
@@ -35,7 +35,7 @@ convention between the author and the reviewer: no status enforces the human rev
 | 3    | `review/bot`      | Greptile only            | A simple bug fix. Tests, lints, renames, formatting, generated code, and other mechanical refactors.                                                                                                                                                                             |
 
 **Tier 1**: The reviewer pulls the branch, runs the feature, and reads every file and
-the code around it, against the `CLAUDE.md` principles, the tests, and the docs. **Tier
+the code around it, against the `AGENTS.md` principles, the tests, and the docs. **Tier
 2**: The reviewer reads the changed surface and its tests, and confirms a stored shape
 change carries a migration and a dark feature stays dark. **Tier 3**: Only Greptile
 reads it. A fix that turns out to change behavior gets its tier raised.
@@ -81,7 +81,7 @@ release that removes it. A flag past that release is a bug: promote or delete.
 3. **Promote** after at least one stable Desktop release, in a Tier 1 PR that only flips
    or deletes the flag and removes the dark branches. The reviewer reads the feature as
    it stands on `main`, from the umbrella issue's PR list, and holds it to the
-   enterprise bar: the `CLAUDE.md` principles, tests, docs, no dev-only path left. A
+   enterprise bar: the `AGENTS.md` principles, tests, docs, no dev-only path left. A
    feature that fails stays in Desktop until a later promotion passes.
 
 ## Issue priority

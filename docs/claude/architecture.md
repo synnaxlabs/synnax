@@ -6,7 +6,7 @@ telemetry, optimized for real-time performance and distributed reliability.
 ## Components
 
 - **Server** (`/core/`, Go) — strict 4-layer architecture, dependencies flow downward
-  only. See `core/CLAUDE.md` for the deep dive.
+  only. See `core/AGENTS.md` for the deep dive.
   - **Storage** — engine management on a single node: Cesium for telemetry frames,
     Pebble KV for metadata. No cluster awareness.
   - **Distribution** — turns per-node storage into one cluster-transparent data plane:
@@ -34,9 +34,9 @@ telemetry, optimized for real-time performance and distributed reliability.
   renders in a worker thread to hold 60fps; incremental updates. Extends lyra by adding
   Synnax-aware members under the same namespace names.
 - **Console** (`/console/`, Tauri + React) — desktop app; Redux Toolkit + Drift
-  multi-window state sync; mosaic drag-and-drop layouts. See `console/CLAUDE.md`.
+  multi-window state sync; mosaic drag-and-drop layouts. See `console/AGENTS.md`.
 - **Driver** (`/driver/`, C++) — task-based hardware integration (LabJack, NI, OPC UA,
-  Modbus). See `driver/CLAUDE.md`.
+  Modbus). See `driver/AGENTS.md`.
 - **Arc** (`/arc/`, Go) — DSL for control systems: reactive event-driven stages,
   channel-based communication, value variables (literal stateful cell, channel read,
   channel read/write), compiles to WebAssembly (runtime provides host functions). Parser
@@ -73,15 +73,15 @@ Put code in the lowest package that can hold it without gaining a forbidden depe
 - `arc` — the Arc language toolchain: parser, analyzer, compiler, LSP, runtime.
 - `oracle` — schema codegen CLI. Generators only, no runtime code.
 - `core` — the server: composes cesium + aspen under the 4-layer architecture (see
-  `core/CLAUDE.md`).
+  `core/AGENTS.md`).
 - `client/*` — cluster API clients, feature parity across languages. No UI, no hardware.
 - `drift` — multi-window Redux sync. Knows Tauri + Redux, nothing about Synnax.
 - `lyra` — Synnax-blind React primitives. Knows React and the DOM, nothing about the
   Core or Aether.
 - `pluto` — reusable Synnax-aware React/viz components. Arrangement-blind: no mosaic, no
   layout registries — that's console.
-- `console` — the desktop app: composition + arrangement (see `console/CLAUDE.md`).
-- `driver` — hardware integration (see `driver/CLAUDE.md`).
+- `console` — the desktop app: composition + arrangement (see `console/AGENTS.md`).
+- `driver` — hardware integration (see `driver/AGENTS.md`).
 - `integration` — cross-component integration tests + the tc conductor.
 
 ## Data flow

@@ -1,4 +1,4 @@
-# CLAUDE.md
+# AGENTS.md
 
 ## Project
 
@@ -12,9 +12,9 @@ telemetry. Monorepo:
 - **Python** (uv workspace): client, integration test conductor
 - **C++** (Bazel): driver for hardware (LabJack, NI, OPC UA, Modbus)
 - **Arc** (`/arc/`) spans languages: Go compiler/LSP/runtime, C++ embedded runtime (used
-  by `driver/arc`), TS grammar utilities. See `arc/CLAUDE.md`.
+  by `driver/arc`), TS grammar utilities. See `arc/AGENTS.md`.
 - **Oracle** (`/oracle/`, Go) generates Go/TS/Python/C++/proto bindings from `.oracle`
-  schemas in `/schemas/`. Never hand-edit generated code. See `oracle/CLAUDE.md`.
+  schemas in `/schemas/`. Never hand-edit generated code. See `oracle/AGENTS.md`.
 
 ## Release model
 
@@ -26,20 +26,21 @@ candidate-era formats may be dropped freely. See RFC 0058.
 
 ## Documentation
 
-Language and component rules auto-load from package-root `CLAUDE.md` stubs when you
-touch files there. Read these on demand when working outside a stubbed package or
-needing broader context:
+Language and component rules auto-load from package-root `AGENTS.md` stubs when you
+touch files there. Claude Code reads them from v2.1.277. Codex does not expand a stub's
+`@` import: read the imported file. Read these on demand when working outside a stubbed
+package or needing broader context:
 
 - `docs/claude/architecture.md` — system design, layering, data flow, gotchas
 - `docs/claude/testing.md` — cross-language testing + integration conductor (tc)
 - `docs/claude/integration-test.md` — writing integration tests (Arc gotchas)
 - `docs/claude/toolchains/{typescript,go,python,cpp}.md` — language rules
-- `scripts/CLAUDE.md` — repo scripts: formatting, copyright headers, codegen checks,
+- `scripts/AGENTS.md` — repo scripts: formatting, copyright headers, codegen checks,
   versioning (also auto-loads)
-- `docs/tech/rfc/CLAUDE.md` — RFC file names, front matter, headings, definition lists,
+- `docs/tech/rfc/AGENTS.md` — RFC file names, front matter, headings, definition lists,
   and citations (also auto-loads)
-- `core/CLAUDE.md`, `console/CLAUDE.md`, `driver/CLAUDE.md`, `pluto/CLAUDE.md`,
-  `arc/CLAUDE.md`, `oracle/CLAUDE.md` — component deep dives (also auto-load)
+- `core/AGENTS.md`, `console/AGENTS.md`, `driver/AGENTS.md`, `pluto/AGENTS.md`,
+  `arc/AGENTS.md`, `oracle/AGENTS.md` — component deep dives (also auto-load)
 
 ## Universal code style
 

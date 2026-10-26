@@ -98,7 +98,7 @@ report says what changed and why.
 Quick review is quick because of what it does not do.
 
 - **Read and grep freely.** Mandatory reading: the touched files in full, plus the
-  `CLAUDE.md` and `docs/claude/toolchains/<language>.md` for every area touched. Lens 3
+  `AGENTS.md` and `docs/claude/toolchains/<language>.md` for every area touched. Lens 3
   is worthless without them. Targeted grep for callers, prior art, and the nearest
   analog is in bounds.
 - **No subagent fan-out by default.** Full parallel inventories are `code-review`'s cost

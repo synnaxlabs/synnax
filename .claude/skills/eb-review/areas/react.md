@@ -85,7 +85,7 @@ hand.
      handler.
    - Every effect cleans up. It unsubscribes, clears timers, and aborts or ignores a
      fetch that is no longer current. An effect that only has to be mounted follows the
-     Console `SideEffect` rule in `console/CLAUDE.md`.
+     Console `SideEffect` rule in `console/AGENTS.md`.
 7. **Duplicated state.** Does each piece of state have one owner?
    - Flux, Redux, form state, and local `useState` each own different data. A value
      copied from one of them into another needs code to keep the two copies the same.

@@ -44,7 +44,7 @@ Always prefix with `uv run`. Client CLI: `uv run sy --help`.
 
 ## Docstrings
 
-The universal body-comment and doc-comment rules in the root CLAUDE.md apply. Python
+The universal body-comment and doc-comment rules in the root AGENTS.md apply. Python
 form: Sphinx/reST field style in triple-quoted docstrings. Fields: `:param name:`,
 `:returns:` (not `:return:`), `:raises Type:`. Never Google `Args:`/`Returns:` style.
 Never put types in docstrings; signatures carry them.

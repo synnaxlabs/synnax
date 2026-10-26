@@ -79,9 +79,10 @@ behavior), and downstream validators.
 Before designing, assemble the governing principles for the affected area from five
 sources:
 
-1. **Written law** -> root and component CLAUDE.mds, `docs/claude/*`, and the Principles
-   and Resolved decisions sections of related RFCs. Resolved decisions especially: past
-   designs already rejected alternatives this design may be about to re-propose.
+1. **Written law** -> root and component AGENTS.md files, `docs/claude/*`, and the
+   Principles and Resolved decisions sections of related RFCs. Resolved decisions
+   especially: past designs already rejected alternatives this design may be about to
+   re-propose.
 2. **Grid placement** -> the cell(s) the change occupies on the three axes (layer ×
    domain/feature × general-purpose-vs-Synnax-specific), and the invariants each axis
    imposes there.
@@ -114,7 +115,7 @@ codified; the evidence feeding it can. Score each touched pattern on:
 4. **Deliberate arrival** -> introduced by an RFC or a sweeping refactor: declared
    invariant. Accreted from a one-off commit or copied sideways: incident. Read the
    actual code and history for the why.
-5. **Enforcement and defense** -> documented in a CLAUDE.md, guarded by lint or codegen,
+5. **Enforcement and defense** -> documented in a AGENTS.md, guarded by lint or codegen,
    or visibly defended in review: load-bearing by revealed preference. Violations that
    survived review unchallenged: the pattern may already be dead.
 6. **Conformers benefit or merely comply** -> conformance yields reuse, safety, or
@@ -228,7 +229,7 @@ Load it before the first question. Design adds these gates on top:
 
 ## Rule 9: The deliverable takes the house RFC form
 
-RFCs live in `docs/tech/rfc/`. Read `docs/tech/rfc/CLAUDE.md` before you write one: it
+RFCs live in `docs/tech/rfc/`. Read `docs/tech/rfc/AGENTS.md` before you write one: it
 holds the file name, front matter, heading, definition-list, and prose rules for the
 corpus. The spine, in order:
 

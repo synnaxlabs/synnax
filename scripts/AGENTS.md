@@ -75,7 +75,7 @@ Neither script touches `.oracle` schema files.
 
 - `install_antlr4.sh` — installs a pinned, checksum-verified antlr4 4.13.2 onto PATH,
   bypassing `antlr4-tools`' unreliable "latest version" lookup. Used by Arc grammar
-  codegen (`arc/CLAUDE.md`).
+  codegen (`arc/AGENTS.md`).
 
 ## Sanitizers (`sanitizers/`)
 
