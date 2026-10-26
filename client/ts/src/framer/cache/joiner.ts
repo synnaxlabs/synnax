@@ -13,7 +13,7 @@ import { type channel } from "@/channel";
 import { UnsupportedError } from "@/errors";
 import { type Joins, type Wait } from "@/framer/cache/join";
 import { COMMIT_MARGIN, type Reader } from "@/framer/cache/reader";
-import { READ_FAILED } from "@/framer/cache/status";
+import { NO_HISTORY, READ_FAILED } from "@/framer/cache/status";
 import { type MultiplexedStreamer } from "@/framer/cache/streamer";
 import { createBreaker, isDefinitive } from "@/framer/retry";
 import { status } from "@/status";
@@ -26,12 +26,6 @@ export interface JoinerProps {
   /** Retry behavior for failed catch-up reads. */
   breaker?: breaker.Config;
 }
-
-const NO_HISTORY: status.Crude = {
-  variant: "warning",
-  message: "Failed to read calculated channel history",
-  description: "The channel shows only the samples streamed since it opened.",
-};
 
 // The catch-up reads of one index channel's join.
 interface Driver {

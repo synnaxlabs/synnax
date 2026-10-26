@@ -20,18 +20,20 @@ import {
 } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
-import { NotFoundError } from "@/errors";
+import { NotFoundError, UnsupportedError } from "@/errors";
 import { type ChannelRetriever } from "@/framer/adapter";
 import { domainOf } from "@/framer/cache/block";
 import { Dynamic } from "@/framer/cache/dynamic";
-import { LOADING, READ_FAILED, SUCCESS } from "@/framer/cache/status";
-import { calculated } from "@/framer/cache/store";
+import { LOADING, NO_HISTORY, READ_FAILED, SUCCESS } from "@/framer/cache/status";
+import { calculated, type Store } from "@/framer/cache/store";
 import { type Demand, type MultiplexedStreamer } from "@/framer/cache/streamer";
 import { createBreaker, isDefinitive } from "@/framer/retry";
 import { type Snapshot } from "@/framer/subscription";
 import { status } from "@/status";
 
 export interface LatestProps {
+  /** Reports the history changes that make the samples read go out of date. */
+  store: Store;
   streamer: MultiplexedStreamer;
   /** Reads the newest count stored samples of the channel in the time range. */
   readLatest: (key: channel.Key, count: number, tr: TimeRange) => Promise<MultiSeries>;
@@ -70,6 +72,7 @@ export class Latest {
   private unserved = 0;
   private running: Load | null;
   private readonly demand: Demand;
+  private readonly stopInvalidations: () => void;
   // dedupe is how fresh finds repeated samples: by Core alignment for a stored channel,
   // and by time for one a calculation writes, whose alignments depend on how its inputs
   // split into series. A channel that only streams repeats no sample.
@@ -104,6 +107,9 @@ export class Latest {
     });
     this.demand.onStatusChange(() => this.notify());
     this.demand.onDrop(() => this.reload());
+    this.stopInvalidations = props.store.onInvalidate((ch, tr) => {
+      if (ch === key) this.changed(tr);
+    });
     this.running = { abort: new AbortController(), mark: 0 };
     void this.load(this.running);
   }
@@ -140,6 +146,7 @@ export class Latest {
   /** Releases the channel's stream. */
   close(): void {
     this.restart(null);
+    this.stopInvalidations();
     this.demand.close();
     this.clear();
   }
@@ -187,6 +194,22 @@ export class Latest {
     this.closeLeading();
     this.restart(this.running?.mark ?? this.series.length);
     this.snapshot = null;
+    this.notify();
+  }
+
+  // Drops the samples held and reads them again, since a history change can delete
+  // them. A change that ends before every sample held cannot reach the newest count.
+  private changed(tr: TimeRange): void {
+    const first = this.series.at(0) ?? this.buffer.leadingBuffer;
+    if (
+      this.total >= this.count &&
+      first != null &&
+      !first.timeRange.isZero &&
+      !tr.end.after(first.timeRange.start)
+    )
+      return;
+    this.clear();
+    this.restart(0);
     this.notify();
   }
 
@@ -250,8 +273,14 @@ export class Latest {
         return this.notify();
       } catch (e) {
         if (this.running !== run) return;
-        this.failure = status.fromException(e, READ_FAILED);
         this.snapshot = null;
+        // The Core stores no samples for a calculation over virtual channels.
+        if (UnsupportedError.matches(e)) {
+          this.failure = status.create(NO_HISTORY);
+          this.land([]);
+          return this.notify();
+        }
+        this.failure = status.fromException(e, READ_FAILED);
         this.notify();
         if (isDefinitive(e)) return this.land([]);
         if (!(await brk.wait())) return;

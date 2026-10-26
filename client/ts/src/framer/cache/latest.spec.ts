@@ -47,6 +47,7 @@ const createLatest = (
   });
   let reads = 0;
   const props: LatestProps = {
+    store,
     streamer,
     retrieveChannels: core.retrieveChannels,
     now: core.now,
