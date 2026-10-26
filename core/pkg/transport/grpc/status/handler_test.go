@@ -28,7 +28,11 @@ var _ = Describe("gRPC Status Translators", func() {
 			msg := status.RetrieveRequest{
 				Where: &svcstatus.Where{
 					Or: []svcstatus.Where{
-						{Key: &filter.Set[svcstatus.Key]{In: []svcstatus.Key{"a", "b"}}},
+						{
+							Key: &filter.Set[svcstatus.Key]{
+								In: []svcstatus.Key{"a", "b"},
+							},
+						},
 						{Not: &svcstatus.Where{Variant: &filter.Set[svcstatus.Variant]{
 							Eq: new(svcstatus.VariantError),
 						}}},
