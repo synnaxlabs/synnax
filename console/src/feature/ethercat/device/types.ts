@@ -37,9 +37,9 @@ const startupParameterZ = z.object({
 });
 export interface StartupParameter extends z.infer<typeof startupParameterZ> {}
 
-/** Formats a CoE object index as four hexadecimal digits, such as 0x8000. */
+/** Formats a CoE object index as four hexadecimal digits, such as 0x1C12. */
 export const formatIndex = (index: number): string =>
-  `0x${index.toString(16).padStart(4, "0")}`;
+  `0x${index.toString(16).toUpperCase().padStart(4, "0")}`;
 
 const ZERO_PDOS: PDOs = {
   inputs: [],
