@@ -23,6 +23,7 @@ import { Access, Project as PProject } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect, useState } from "react";
 
 import { Account } from "@/feature/account";
+import { useOpenSample } from "@/feature/project/sample";
 import { ContextMenu, listItem } from "@/feature/project/Selector";
 import { Shell } from "@/feature/shell";
 import { Button } from "@/platform/button";
@@ -69,6 +70,8 @@ export const Splash = (): ReactElement => {
   const hasRetrievePermission = Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID);
   const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
   const openCreate = PlatformProject.useCreateModal();
+  const openSample = useOpenSample();
+  const sampleVisible = Session.Runtime.CORE_EMBEDDED && hasCreatePermission;
   const { data, retrieve, getItem, subscribe, answered, status } = PProject.useList();
   const { fetchMore, search } = List.usePager({ retrieve, pageSize: 20 });
   const [searchTerm, setSearchTerm] = useState("");
@@ -160,6 +163,10 @@ export const Splash = (): ReactElement => {
             <Empty.Action
               grow
               message={searchTerm === "" ? "No projects" : "No matching projects"}
+              action={
+                sampleVisible && searchTerm === "" ? "Open sample project" : undefined
+              }
+              onClick={openSample}
             />
           ) : (
             <Flex.Box grow center>
