@@ -77,7 +77,6 @@ class Scaler:
         self.commander = Commander(client, "ec2_cmd", "EC2 Scaler", log, self.describe)
         self.log = log
         self.cooldown = cooldown
-        # Overrides cooldown per pool.
         self.pool_cooldowns = pool_cooldowns or {}
         self.boot_grace = boot_grace
         self.enabled = enabled
