@@ -60,13 +60,7 @@ export const useResolved = (key: string | null): Resolved => {
   };
 };
 
-export type ListQuery = {
-  keys?: string[];
-  parent?: ontology.ID;
-  searchTerm?: string;
-  offset?: number;
-  limit?: number;
-};
+export type ListQuery = schematic.symbol.RetrieveMultipleParams;
 
 export const useList = Flux.createList<ListQuery, string, schematic.symbol.Symbol>({
   sort: (a, b) => a.name.localeCompare(b.name),

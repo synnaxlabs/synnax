@@ -14,22 +14,15 @@ from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
 from synnax.exceptions import NotFoundError
-from synnax.group.types_gen import Group
+from synnax.group.types_gen import Group, RetrieveRequest, RetrieveResponse, Where
 from synnax.ontology.payload import ID, CrudeID
+from x import filter
 
 
 class CreateReq(BaseModel):
     parent: ID
     key: UUID | None = None
     name: str
-
-
-class RetrieveReq(BaseModel):
-    keys: list[UUID] | None = None
-
-
-class RetrieveRes(BaseModel):
-    groups: list[Group] = []
 
 
 class CreateRes(BaseModel):
@@ -62,19 +55,44 @@ class Client:
     def retrieve(self, key: UUID) -> Group: ...
 
     @overload
-    def retrieve(self, *, keys: list[UUID]) -> list[Group]: ...
+    def retrieve(
+        self,
+        *,
+        where: Where | None = None,
+        keys: list[UUID] | None = None,
+        search_term: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> list[Group]: ...
 
     def retrieve(
         self,
         key: UUID | None = None,
         *,
+        where: Where | None = None,
         keys: list[UUID] | None = None,
+        search_term: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
     ) -> Group | list[Group]:
+        """Retrieves groups. Returns one group when a key is given, and a list
+        otherwise.
+
+        :param where: Keeps groups that match this filter tree.
+        :raises NotFoundError: If a single group is requested and none matches.
+        """
         is_single = key is not None
         if key is not None:
             keys = [key]
+        if keys is not None:
+            flat = Where(key=filter.Set[UUID](in_=keys))
+            where = flat if where is None else Where(and_=[where, flat])
         res = self._client.send(
-            "/ontology/retrieve-group", RetrieveReq(keys=keys), RetrieveRes
+            "/ontology/retrieve-group",
+            RetrieveRequest(
+                where=where, search_term=search_term, limit=limit, offset=offset
+            ),
+            RetrieveResponse,
         )
         if not is_single:
             return res.groups

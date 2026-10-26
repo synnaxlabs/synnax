@@ -12,6 +12,7 @@ package symbol
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
@@ -22,7 +23,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding/zip"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -127,36 +130,36 @@ func (s *Service) Create(
 }
 
 type (
-	// RetrieveRequest filters symbols by key, by search term, or by both. An empty
-	// request matches every symbol.
-	RetrieveRequest struct {
-		// SearchTerm fuzzy-matches symbol names. Empty applies no name filter.
-		SearchTerm string `json:"search_term" msgpack:"search_term"`
-		// Keys narrows the query to these symbols. Empty applies no key filter.
-		Keys []symbol.Key `json:"keys" msgpack:"keys"`
-	}
-	// RetrieveResponse carries the matched symbols.
-	RetrieveResponse struct {
-		// Symbols are the matched symbols.
-		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
-	}
+	RetrieveRequest  = symbol.RetrieveRequest
+	RetrieveResponse = symbol.RetrieveResponse
 )
 
-// Retrieve returns the symbols matching req. It requires retrieve access on every
-// match.
+// Retrieve returns the symbols that the request selects. It requires retrieve access
+// on every match.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	q := s.internal.NewRetrieve()
-	if len(req.Keys) > 0 {
-		q = q.Where(symbol.MatchKeys(req.Keys...))
-	}
-	if req.SearchTerm != "" {
-		q = q.Search(req.SearchTerm)
-	}
 	var res RetrieveResponse
-	if err := q.Entries(&res.Symbols).Exec(ctx, nil); err != nil {
+	q := s.internal.NewRetrieve().Entries(&res.Symbols)
+	if req.Where != nil {
+		f, err := symbol.MatchWhere(*req.Where)
+		if err != nil {
+			return RetrieveResponse{}, validate.PathedError(err, "where")
+		}
+		q = q.Where(f)
+	}
+	if term := lo.FromPtr(req.SearchTerm); term != "" {
+		q = q.Search(term)
+	}
+	if req.Limit != nil {
+		q = q.Limit(int(*req.Limit))
+	}
+	if req.Offset != nil {
+		q = q.Offset(int(*req.Offset))
+	}
+	// A filter is a predicate, so a key that does not exist is a non-match.
+	if err := errors.Skip(q.Exec(ctx, nil), query.ErrNotFound); err != nil {
 		return RetrieveResponse{}, err
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{

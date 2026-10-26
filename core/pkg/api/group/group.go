@@ -12,6 +12,7 @@ package group
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -19,7 +20,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -103,12 +106,8 @@ func (s *Service) Create(
 }
 
 type (
-	RetrieveRequest struct {
-		Keys []group.Key `json:"keys" msgpack:"keys"`
-	}
-	RetrieveResponse struct {
-		Groups []group.Group `json:"groups" msgpack:"groups"`
-	}
+	RetrieveRequest  = group.RetrieveRequest
+	RetrieveResponse = group.RetrieveResponse
 )
 
 func (s *Service) Retrieve(
@@ -116,10 +115,25 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	if err := s.internal.NewRetrieve().
-		Where(group.MatchKeys(req.Keys...)).
-		Entries(&res.Groups).
-		Exec(ctx, nil); err != nil {
+	q := s.internal.NewRetrieve().Entries(&res.Groups)
+	if req.Where != nil {
+		f, err := group.MatchWhere(*req.Where)
+		if err != nil {
+			return RetrieveResponse{}, validate.PathedError(err, "where")
+		}
+		q = q.Where(f)
+	}
+	if term := lo.FromPtr(req.SearchTerm); term != "" {
+		q = q.Search(term)
+	}
+	if req.Limit != nil {
+		q = q.Limit(int(*req.Limit))
+	}
+	if req.Offset != nil {
+		q = q.Offset(int(*req.Offset))
+	}
+	// A filter is a predicate, so a key that does not exist is a non-match.
+	if err := errors.Skip(q.Exec(ctx, nil), query.ErrNotFound); err != nil {
 		return RetrieveResponse{}, err
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{

@@ -106,9 +106,9 @@ describe("Symbol Client", () => {
         parent: group.ontologyID(symbolGroup.key),
       });
 
-      const retrieved = await client.schematics.symbols.retrieve({
-        keys: created.map((s) => s.key),
-      });
+      const retrieved = await client.schematics.symbols.retrieve(
+        created.map((s) => s.key),
+      );
       expect(retrieved).toHaveLength(2);
     });
 
@@ -130,6 +130,26 @@ describe("Symbol Client", () => {
           return results.map((s) => s.name).sort();
         })
         .toEqual(names);
+    });
+
+    it("should retrieve symbols by where", async () => {
+      const prefix = `where-symbol-${id.create()}`;
+      const [first] = await client.schematics.symbols.create({
+        symbols: [
+          { name: `${prefix}-1`, data: SYMBOL_DATA },
+          { name: `${prefix}-2`, data: SYMBOL_DATA },
+        ],
+        parent: group.ontologyID(symbolGroup.key),
+      });
+      await expect
+        .poll(async () => {
+          const results = await client.schematics.symbols.retrieve({
+            searchTerm: prefix,
+            where: { not: { key: { eq: first.key } } },
+          });
+          return results.map((s) => s.name);
+        })
+        .toEqual([`${prefix}-2`]);
     });
   });
 

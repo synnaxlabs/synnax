@@ -45,7 +45,9 @@ func (w Writer) Create(
 	if s.Key == uuid.Nil() {
 		s.Key = uuid.New()
 	} else {
-		exists, err = w.table.NewRetrieve().Where(MatchKeys(s.Key)).Exists(ctx, w.tx)
+		exists, err = w.table.NewRetrieve().
+			Where(gorp.MatchKeys[Key, Symbol](s.Key)).
+			Exists(ctx, w.tx)
 		if err != nil {
 			return err
 		}
@@ -92,7 +94,7 @@ func (w Writer) CreateMany(
 // Rename renames the symbol with the given key to the provided name.
 func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 	return w.table.NewUpdate().
-		Where(MatchKeys(key)).
+		Where(gorp.MatchKeys[Key, Symbol](key)).
 		Change(func(_ gorp.Context, s Symbol) Symbol {
 			s.Name = name
 			return s
@@ -103,7 +105,7 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 // Delete deletes the symbols with the given keys.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	if err := w.table.NewDelete().
-		Where(MatchKeys(keys...)).
+		Where(gorp.MatchKeys[Key, Symbol](keys...)).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
