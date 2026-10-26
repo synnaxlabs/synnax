@@ -12,6 +12,7 @@
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/test/test.h"
 
+#include "driver/ethercat/ethercat.h"
 #include "driver/ethercat/mock/master.h"
 #include "driver/ethercat/write_task.h"
 #include "driver/pipeline/mock/pipeline.h"
@@ -208,6 +209,47 @@ TEST_F(EtherCATWriteTest, ParseConfigWithEntryChannel) {
     EXPECT_EQ(task_cfg.outputs[0]->sub_index, 1);
     EXPECT_EQ(task_cfg.outputs[0]->bit_length, 16);
     EXPECT_EQ(task_cfg.outputs[0]->data_type, x::telem::INT16_T);
+}
+
+/// @brief it should pass the startup parameters saved for each slave on the task's
+/// network to the master.
+TEST_F(EtherCATWriteTest, ConfigurePassesSavedSlaveSettingsOnTheNetworkToTheMaster) {
+    auto saved = this->slave_device;
+    saved.key += "_saved";
+    saved.make = DEVICE_MAKE;
+    saved.model = SLAVE_DEVICE_MODEL;
+    saved.properties["position"] = 1;
+    saved.properties["startup_parameters"] = {
+        {{"index", 0x8000}, {"sub_index", 0x15}, {"data_type", "uint16"}, {"value", 3}}
+    };
+    ASSERT_NIL(this->client->devices.create(saved));
+    const auto cmd_ch = this->create_command_channel("cmd", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        this->create_output_channel_config(cmd_ch.key, 0x7000, 1, "int16")
+    );
+    auto manager = std::make_unique<mock::Manager>();
+    manager->configure(NETWORK_INTERFACE, this->mock_master);
+    Factory factory(std::move(manager));
+    auto [write_task, ok] = factory.configure_task(
+        this->ctx,
+        {.rack = this->rack.key,
+         .name = "write",
+         .type = WRITE_TASK_TYPE,
+         .config = cfg},
+        ""
+    );
+    ASSERT_TRUE(ok);
+    ASSERT_NE(write_task, nullptr);
+    EXPECT_EQ(
+        this->mock_master->startup_parameters(1),
+        (std::vector<slave::StartupParameter>{{
+            .index = 0x8000,
+            .sub_index = 0x15,
+            .data_type = x::telem::UINT16_T,
+            .value = 3,
+        }})
+    );
 }
 
 /// @brief it should take the bit length of a write channel from the slave.
