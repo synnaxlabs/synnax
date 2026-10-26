@@ -20,7 +20,7 @@ Outputs:
     comment  Push the agent's commits to the branch of --pr, then post its final
              message as a comment there.
     report   Write the final message to stdout, the step summary, and the `report`
-             step output.
+             step output. The agent may push and open PRs itself, as the App.
 
 The last stdout line is the PR URL for pr and comment, and is also written as `pr-url`
 to $GITHUB_OUTPUT when it is set. --dry-run runs the agent but pushes, comments, and
@@ -37,6 +37,7 @@ import base64
 import os
 import re
 import secrets
+import signal
 import subprocess
 import sys
 import tempfile
@@ -150,11 +151,12 @@ def skill_prompt(prompt: str, root: Path) -> str:
 
 
 def instructions(opts: Options, out: Path) -> str:
-    lines = [
-        "You run headless in CI. Nobody answers questions: decide and proceed.",
-        "Never push, open a PR, or comment on GitHub: the wrapper does that.",
-        f"Save screenshots worth showing (PNG, JPEG, GIF) to `{out}/images/`.",
-    ]
+    lines = ["You run headless in CI. Nobody answers questions: decide and proceed."]
+    if opts.output != "report":
+        lines += [
+            "Never push, open a PR, or comment on GitHub: the wrapper does that.",
+            f"Save screenshots worth showing (PNG, JPEG, GIF) to `{out}/images/`.",
+        ]
     if opts.pr is not None and opts.output != "report":
         lines += [
             "Commit your work on the current branch: it is pushed to the PR.",
@@ -170,7 +172,7 @@ def instructions(opts: Options, out: Path) -> str:
             f"Write one review tier label (see CONTRIBUTING.md) to `{out}/labels.txt`.",
         ]
     else:
-        lines.append("Your final message is the deliverable. Keep it short.")
+        lines.append("Your final message is the report. Keep it short.")
     return "\n".join(f"- {line}" for line in lines)
 
 
@@ -234,6 +236,28 @@ class Runner:
 
     def ok(self, cmd: list[str]) -> bool:
         return subprocess.run(cmd, env=self.env, capture_output=True).returncode == 0
+
+
+def run_agent(cmd: list[str], env: dict[str, str], seconds: float) -> str:
+    """Runs the agent in its own process group and returns its stdout.
+
+    On timeout, kills the whole group, so no build or server it started outlives it.
+    """
+    proc = subprocess.Popen(
+        cmd, env=env, text=True, stdout=subprocess.PIPE, start_new_session=True
+    )
+    try:
+        stdout, _ = proc.communicate(timeout=seconds)
+    except subprocess.TimeoutExpired:
+        if sys.platform == "win32":
+            proc.kill()
+        else:
+            os.killpg(proc.pid, signal.SIGKILL)
+        proc.communicate()
+        raise
+    if proc.returncode != 0:
+        raise subprocess.CalledProcessError(proc.returncode, cmd[:1])
+    return stdout
 
 
 def upload_images(
@@ -366,15 +390,11 @@ def main(argv: Sequence[str]) -> int:
     prompt = opts.prompt if opts.agent == "claude" else skill_prompt(opts.prompt, root)
     prompt = f"{prompt}\n\nHow to deliver:\n{instructions(opts, out)}"
     cmd = agent_command(opts, prompt, out)
-    done = subprocess.run(
-        cmd,
-        env={**env, "AGENT_OUT_DIR": str(out)},
-        text=True,
-        stdout=subprocess.PIPE,
-        timeout=opts.timeout_minutes * 60,
-        check=True,
-    )
-    message = read(out / "last-message.md") or done.stdout.strip()
+    # A report agent delivers its own work, so it gets Git push access as the App.
+    agent_env = git_auth(env) if opts.output == "report" else env
+    agent_env = {**agent_env, "AGENT_OUT_DIR": str(out)}
+    stdout = run_agent(cmd, agent_env, opts.timeout_minutes * 60)
+    message = read(out / "last-message.md") or stdout.strip()
 
     images = find_images(opts, out)
     if opts.output == "report":
