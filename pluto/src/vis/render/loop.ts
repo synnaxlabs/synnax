@@ -63,6 +63,17 @@ export type Priority = "high" | "low";
 
 const PRIORITY_ORDER: Record<Priority, number> = { high: 1, low: 0 };
 
+const add = (requests: Map<string, Request>, req: Request): void => {
+  const existing = requests.get(req.key);
+  if (existing == null) requests.set(req.key, req);
+  else {
+    const priorityOK =
+      PRIORITY_ORDER[req.priority] >= PRIORITY_ORDER[existing.priority];
+    const canvasesOK = req.canvases.length >= existing.canvases.length;
+    if (priorityOK && canvasesOK) requests.set(req.key, req);
+  }
+};
+
 interface LoopParams {
   handleError: status.ErrorHandler;
   afterRender?: () => void;
@@ -75,7 +86,9 @@ interface LoopParams {
  */
 export class Loop {
   /** Stores the current requests for rendering. */
-  private requests = new Map<string, Request>();
+  private readonly requests = new Map<string, Request>();
+  /** Stores the requests that draw on the GL canvas while the context is lost. */
+  private readonly held = new Map<string, Request>();
   /** Stores render cleanup functions for clearing canvases and other resources. */
   private readonly cleanup = new Map<string, Cleanup>();
   /** A callback to run after each render call. */
@@ -110,28 +123,27 @@ export class Loop {
    * being rendered to.
    */
   set(req: Request): void {
-    const existing = this.requests.get(req.key);
-    if (existing == null) this.requests.set(req.key, req);
-    else {
-      const priorityOK =
-        PRIORITY_ORDER[req.priority] >= PRIORITY_ORDER[existing.priority];
-      const canvasesOK = req.canvases.length >= existing.canvases.length;
-      if (priorityOK && canvasesOK) this.requests.set(req.key, req);
-    }
+    add(this.requests, req);
   }
 
   /** Execute the render. */
   private render(): void {
-    if (this.requests.size === 0) return;
-    const held = new Map<string, Request>();
+    const { requests, held } = this;
     if (this.glLost)
-      this.requests.forEach((req, key) => {
-        if (req.canvases.includes("gl")) held.set(key, req);
+      requests.forEach((req, key) => {
+        if (!req.canvases.includes("gl")) return;
+        add(held, req);
+        requests.delete(key);
       });
-    held.forEach((_, key) => this.requests.delete(key));
+    else if (held.size > 0) {
+      requests.forEach((req) => add(held, req));
+      held.forEach((req, key) => requests.set(key, req));
+      held.clear();
+    }
+    if (requests.size === 0) return;
     this.runCleanupsSync();
     this.renderSync();
-    this.requests = held;
+    requests.clear();
     if (!this.glLost) this.afterRender?.();
   }
 

@@ -69,9 +69,36 @@ describe("Loop", () => {
       vi.advanceTimersToNextFrame();
       expect(cleanup).not.toHaveBeenCalled();
     });
+
+    it("should render a 2D request for the key of a held request", () => {
+      const { loop } = create();
+      loop.glLost = true;
+      const held = request("plot", ["upper2d", "lower2d", "gl"]);
+      loop.set(held);
+      vi.advanceTimersToNextFrame();
+      const tool = { ...request("plot", ["upper2d"]), priority: "low" as const };
+      loop.set(tool);
+      vi.advanceTimersToNextFrame();
+      expect(tool.render).toHaveBeenCalledOnce();
+      expect(held.render).not.toHaveBeenCalled();
+    });
   });
 
   describe("once the GL context is restored", () => {
+    it("should render a held request after a 2D request for its key", () => {
+      const { loop } = create();
+      loop.glLost = true;
+      const held = request("plot", ["upper2d", "lower2d", "gl"]);
+      loop.set(held);
+      vi.advanceTimersToNextFrame();
+      loop.set({ ...request("plot", ["upper2d"]), priority: "low" });
+      vi.advanceTimersToNextFrame();
+      expect(held.render).not.toHaveBeenCalled();
+      loop.glLost = false;
+      vi.advanceTimersToNextFrame();
+      expect(held.render).toHaveBeenCalledOnce();
+    });
+
     it("should run the cleanup and the render of each held request", () => {
       const { loop, afterRender } = create();
       const cleanup = vi.fn();

@@ -28,11 +28,12 @@ const WorkerBridge = ({ children }: PropsWithChildren): ReactElement => {
   // trimming that tail never replays one.
   const forwarded = useRef(new Map<string, Base.Status>());
   useEffect(() => {
+    const next = new Map<string, Base.Status>();
     for (const stat of statuses) {
-      if (deep.equal(forwarded.current.get(stat.key), stat)) continue;
-      forwarded.current.set(stat.key, stat);
-      add(stat);
+      next.set(stat.key, stat);
+      if (!deep.equal(forwarded.current.get(stat.key), stat)) add(stat);
     }
+    forwarded.current = next;
     if (statuses.length > WORKER_HISTORY)
       setState((s) => ({ ...s, statuses: s.statuses.slice(-WORKER_HISTORY) }));
   }, [statuses]);
