@@ -12,7 +12,7 @@ from pathlib import Path
 
 import click
 
-from synnax.cli.connect import connect_from_options, prompt_client_options
+from synnax.cli import connect
 from synnax.cli.console.rich import RichConsole
 from synnax.cli.flow import Context
 from synnax.config import ClusterConfig, ClustersConfig, ConfigFile
@@ -24,8 +24,8 @@ def login() -> None:
     file.
     """
     flow_ctx = Context(console=RichConsole())
-    options = prompt_client_options(flow_ctx)
-    synnax = connect_from_options(flow_ctx, options)
+    options = connect.prompt_client_options(flow_ctx)
+    synnax = connect.from_context(flow_ctx, options)
     if synnax is None:
         return
     cfg = ClustersConfig(ConfigFile(Path(os.path.expanduser("~/.synnax"))))
