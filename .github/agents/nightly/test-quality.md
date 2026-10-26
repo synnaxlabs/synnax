@@ -10,7 +10,7 @@ Look for:
   not throw, when it can check the value itself. A test with no assertion. An error
   check with no check of the result.
 - **Mocks where a real thing works**: `vi.mock` of a Synnax module, a hand-written fake
-  of a Synnax interface, or a patched internal. `CLAUDE.md` wants the real thing with
+  of a Synnax interface, or a patched internal. `AGENTS.md` wants the real thing with
   test config (an in-memory DB, a fake cluster). Mock only at the external boundary.
 - **Tests of style, not behavior**: assertions on CSS class names.
 - **Shape faults**: a `Describe` with a single child, a test that depends on another

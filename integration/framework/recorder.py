@@ -29,10 +29,10 @@ import synnax as sy
 from framework.streamer import Source
 from synnax.status import SET_CHANNEL
 
-OPEN_TIMEOUT = 5.0
-CLOSE_TIMEOUT = 3.0
-DEFAULT_WAIT_TIMEOUT = 5.0
-READ_TIMEOUT = 250 * sy.TimeSpan.MILLISECOND
+_OPEN_TIMEOUT = 5.0
+_CLOSE_TIMEOUT = 3.0
+_DEFAULT_WAIT_TIMEOUT = 5.0
+_READ_TIMEOUT = 250 * sy.TimeSpan.MILLISECOND
 
 
 class Recorder:
@@ -71,7 +71,7 @@ class Recorder:
         """
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
-        if not self._ready.wait(timeout=OPEN_TIMEOUT):
+        if not self._ready.wait(timeout=_OPEN_TIMEOUT):
             raise TimeoutError(f"{self._label} stream did not open in time")
         self.check()
 
@@ -88,7 +88,7 @@ class Recorder:
         """Stop recording and tear down the subscription."""
         self._stop.set()
         if self._thread is not None:
-            self._thread.join(timeout=CLOSE_TIMEOUT)
+            self._thread.join(timeout=_CLOSE_TIMEOUT)
 
     def _record(self, raw: Any) -> bool:
         """Decode raw and store it, returning True if stored. Runs under _cond."""
@@ -112,7 +112,7 @@ class Recorder:
             streamer = self._client.open_streamer([SET_CHANNEL])
             self._ready.set()
             while not self._stop.is_set():
-                frame = streamer.read(READ_TIMEOUT)
+                frame = streamer.read(_READ_TIMEOUT)
                 if frame is None or SET_CHANNEL not in frame:
                     continue
                 for raw in frame[SET_CHANNEL]:
@@ -146,7 +146,7 @@ class Notifications(Recorder):
         super().__init__(client)
         self._texts: list[str] = []
 
-    def wait_for(self, text: str, timeout: float = DEFAULT_WAIT_TIMEOUT) -> bool:
+    def wait_for(self, text: str, timeout: float = _DEFAULT_WAIT_TIMEOUT) -> bool:
         """Return True if a recorded status contains text within timeout.
 
         Matches the message or the description.
@@ -177,7 +177,7 @@ class TaskStatus(Recorder):
         self._texts: dict[sy.task.Key, list[str]] = {}
 
     def wait_for(
-        self, task_key: sy.task.Key, text: str, timeout: float = DEFAULT_WAIT_TIMEOUT
+        self, task_key: sy.task.Key, text: str, timeout: float = _DEFAULT_WAIT_TIMEOUT
     ) -> bool:
         """Return True if a status for task_key contains text within timeout.
 
