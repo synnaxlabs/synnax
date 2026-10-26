@@ -249,6 +249,114 @@ describe("Feed.subscribe", () => {
     });
   });
 
+  describe("history read failure", () => {
+    // Returns the x series of the snapshot that holds each y series' alignments, with
+    // the timestamps the y series pairs with.
+    const pairsOf = (x: Snapshot, y: Snapshot): Array<[Series, bigint[]]> =>
+      y.series.series.map((ys) => {
+        const xs = x.series.series.find(
+          (s) =>
+            s.alignment <= ys.alignment &&
+            s.alignment + BigInt(s.length) >= ys.alignment + BigInt(ys.length),
+        );
+        expect(xs).toBeDefined();
+        const times = Array.from({ length: ys.length }, (_, i) =>
+          BigInt(xs!.atAlignment(ys.alignment + BigInt(i), true) as bigint),
+        );
+        return [ys, times];
+      });
+
+    it("should draw streamed samples while every history read fails", async () => {
+      const core = createCore();
+      let failing = true;
+      // A retry redraws the line too, so retries wait out the checks of single frames.
+      const interval = TimeSpan.seconds(2);
+      const feed = core.openFeed({
+        ...OPTIONS,
+        breaker: { baseInterval: interval, maxInterval: interval },
+        readRemote: async (tr, keys, reduction) => {
+          if (failing) throw new Error("read failed");
+          return core.read(tr, keys, reduction);
+        },
+      });
+      const span = TimeSpan.seconds(30);
+      const { key } = core.data[0];
+      const { key: index } = core.index;
+      const sub = feed.subscribe(raw([key, index], span));
+      let stop = tick(core);
+      try {
+        await expect
+          .poll(() => sub.value(key).series.length, POLL)
+          .toBeGreaterThan(100);
+        expect(sub.value(key).status).toMatchObject({
+          variant: "error",
+          message: "Failed to read channel data",
+          description: "read failed",
+        });
+        const pairs = pairsOf(sub.value(index), sub.value(key));
+        expect(pairs.length).toBeGreaterThan(0);
+        pairs.forEach(([ys, times]) => {
+          expect(times[0]).toBe(ys.timeRange.start.valueOf());
+          expectComplete(times);
+        });
+        stop();
+        // Each frame reaches the line before the window moves.
+        for (let i = 0; i < 5; i++) {
+          core.advance(RATE.period);
+          await expect
+            .poll(() => sub.value(key).series.series.at(-1)?.timeRange.end.valueOf(), {
+              ...POLL,
+              timeout: 500,
+            })
+            .toBe(newestOf(core) + 1n);
+        }
+        expect(sub.value(key).time?.valueOf()).toBe(newestOf(core) + 1n);
+        stop = tick(core);
+        failing = false;
+        await settledData(core, sub, key, span);
+      } finally {
+        stop();
+        sub.close();
+        await feed.close();
+      }
+    });
+
+    it("should place a channel's held samples by its joined index", async () => {
+      const core = createCore();
+      const { key } = core.data[0];
+      const { key: index } = core.index;
+      let failing = true;
+      const feed = core.openFeed({
+        ...OPTIONS,
+        readRemote: async (tr, keys, reduction) => {
+          if (failing && keys.includes(key)) throw new Error("read failed");
+          return core.read(tr, keys, reduction);
+        },
+      });
+      const span = TimeSpan.seconds(30);
+      const sub = feed.subscribe(raw([key, index], span));
+      const stop = tick(core);
+      try {
+        await settled(core, sub, index, span);
+        await expect
+          .poll(() => sub.value(key).series.length, POLL)
+          .toBeGreaterThan(100);
+        const pairs = pairsOf(sub.value(index), sub.value(key));
+        expect(pairs.length).toBeGreaterThan(0);
+        pairs.forEach(([ys, times]) => {
+          expect(domainOf(ys.alignment)).toBe(BigInt(rawIndex(ys.timeRange.start)));
+          expect(times[0]).toBe(ys.timeRange.start.valueOf());
+        });
+        failing = false;
+        await settledData(core, sub, key, span);
+      } finally {
+        stop();
+        sub.close();
+        await feed.close();
+      }
+    });
+  });
+
   describe("duplicates", () => {
     it("should show a sample that both the read and the stream hold once", async () => {
       const core = createCore();
