@@ -76,7 +76,7 @@ func validateOmitRefs(
 					diag.Report(t.Namespace+".oracle", d)
 					return
 				}
-				if !hasOutput(resolved, lang) {
+				if !hasOutput(resolved, lang, table) {
 					d := diagnostics.Errorf(
 						nil,
 						"%s generates for %s but %s references %s, which has no %s "+
@@ -97,6 +97,10 @@ func validateOmitRefs(
 			if form.BorrowsEnum() {
 				check(form.Enum, "its discriminator enum")
 			}
+		case resolution.AliasForm:
+			check(form.Target, "its alias target")
+		case resolution.DistinctForm:
+			check(form.Base, "its base type")
 		case resolution.StructForm:
 			for _, ext := range form.Extends {
 				check(ext, "its extends clause")
@@ -354,9 +358,10 @@ func getFieldString(f resolution.Field, lang, expr string) string {
 	return e.Values[0].IdentValue
 }
 
-// hasOutput reports whether the type exists in the language at some output path.
+// hasOutput reports whether the type exists in the language at some output path. An
+// enum without its own path takes the path of a struct in the same schema file.
 // Built-in and version-file types have no declared path, since plugins place them.
-func hasOutput(t resolution.Type, lang string) bool {
+func hasOutput(t resolution.Type, lang string, table *resolution.Table) bool {
 	switch t.Form.(type) {
 	case resolution.PrimitiveForm, resolution.BuiltinGenericForm:
 		return true
@@ -367,7 +372,13 @@ func hasOutput(t resolution.Type, lang string) bool {
 	if _, _, ok := paths.VersionFile(t.FilePath); ok {
 		return true
 	}
-	return false
+	if _, ok := t.Form.(resolution.EnumForm); !ok {
+		return false
+	}
+	return slices.ContainsFunc(table.StructTypes(), func(s resolution.Type) bool {
+		return s.Namespace == t.Namespace && s.FilePath == t.FilePath &&
+			getPath(s, lang) != ""
+	})
 }
 
 // getPath returns the type's output path for the language, or "".
