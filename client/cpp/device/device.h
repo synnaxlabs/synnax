@@ -103,8 +103,8 @@ public:
 
     /// @brief Retrieves multiple devices by their keys.
     /// @param keys The keys of the devices to retrieve.
-    /// @returns A pair containing the retrieved devices and an error if one
-    /// occurred.
+    /// @returns the devices, and a NOT_FOUND error that names every key without a
+    /// device.
     [[nodiscard]]
     std::pair<std::vector<Device>, x::errors::Error>
     retrieve(const std::vector<std::string> &keys) const;
@@ -112,8 +112,8 @@ public:
     /// @brief Retrieves multiple devices by their keys with options.
     /// @param keys The keys of the devices to retrieve.
     /// @param options Options for the retrieval.
-    /// @returns A pair containing the retrieved devices and an error if one
-    /// occurred.
+    /// @returns the devices, and a NOT_FOUND error that names every key without a
+    /// device.
     [[nodiscard]]
     std::pair<std::vector<Device>, x::errors::Error> retrieve(
         const std::vector<std::string> &keys,
