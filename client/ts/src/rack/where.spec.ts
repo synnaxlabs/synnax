@@ -7,28 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it } from "vitest";
+import { describe } from "vitest";
 
 import { payloadZ, whereZ } from "@/rack/types.gen";
 import { LINES } from "@/rack/where";
 import { matches, serverComputed } from "@/rack/where.gen";
-import { readVectors } from "@/testutil/vectors";
-
-const { records, cases } = readVectors("racks", payloadZ, whereZ);
+import { itMatchesVectors, readVectors } from "@/testutil/vectors";
 
 describe("Where", () => {
-  cases.forEach(({ name, where, expected, serverComputed: computed }) => {
-    if (computed === true)
-      it(`should mark the case as server-computed: ${name}`, () => {
-        expect(serverComputed(LINES, where)).toBe(true);
-      });
-    else
-      it(`should match the case: ${name}`, () => {
-        expect(serverComputed(LINES, where)).toBe(false);
-        const matched = records
-          .filter(([, r]) => matches(LINES, r, where))
-          .map(([alias]) => alias);
-        expect(matched.sort()).toEqual([...expected].sort());
-      });
-  });
+  itMatchesVectors(
+    readVectors("racks", payloadZ, whereZ),
+    (r, where) => matches(LINES, r, where),
+    (where) => serverComputed(LINES, where),
+  );
 });
