@@ -7,47 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { readFileSync } from "node:fs";
-
-import { caseconv } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { statusZ, whereZ } from "@/status/types.gen";
 import { type Lines, matches, serverComputed } from "@/status/where.gen";
+import { readVectors } from "@/testutil/vectors";
 
-// The case table is shared with the Go interpreter, so that the Core and the client
-// cache agree on every filter.
-const VECTORS_URL = new URL(
-  "../../../../x/testdata/filter/vectors.json",
-  import.meta.url,
-);
-
-interface Case {
-  name: string;
-  where: unknown;
-  expected: string[];
-}
-
-const { statuses } = caseconv.snakeToCamel(
-  JSON.parse(readFileSync(VECTORS_URL, "utf-8")),
-) as { statuses: { records: Record<string, unknown>; cases: Case[] } };
-
-const records = Object.entries(statuses.records).map(
-  ([alias, s]) => [alias, statusZ().parse(s)] as const,
-);
+const { records, cases } = readVectors("statuses", statusZ(), whereZ);
 const lines: Lines = {
   labels: (s, keys) => s.labels?.some((l) => keys.includes(l.key)) ?? false,
 };
 
 describe("Where", () => {
-  statuses.cases.forEach((c) => {
-    it(`should match the case: ${c.name}`, () => {
-      const where = whereZ.parse(c.where);
+  cases.forEach(({ name, where, expected }) => {
+    it(`should match the case: ${name}`, () => {
       expect(serverComputed(lines, where)).toBe(false);
       const matched = records
         .filter(([, s]) => matches(lines, s, where))
         .map(([alias]) => alias);
-      expect(matched.sort()).toEqual([...c.expected].sort());
+      expect(matched.sort()).toEqual([...expected].sort());
     });
   });
 });
