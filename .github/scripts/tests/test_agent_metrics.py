@@ -74,9 +74,10 @@ class TestReverted:
         messages = [
             'Revert "SY-1: Add a thing (#120)" (#130)\n\nThis reverts commit abc.',
             "Revert something\n\nReverts synnaxlabs/synnax#121",
+            "Revert the broken change (#132)\n\nReverts synnaxlabs/synnax#123",
             "SY-2: Fix #122 in a normal commit (#131)",
         ]
-        assert reverted(messages) == {120, 121}
+        assert reverted(messages) == {120, 121, 123}
 
 
 class TestReport:

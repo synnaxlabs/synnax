@@ -88,15 +88,15 @@ def percentile(values: Iterable[float], q: float) -> float:
 
 
 def reverted(messages: Iterable[str]) -> set[int]:
-    """Returns the PR numbers that revert commits reference. A squash-merged revert
-    ends its subject with its own number, which is left out."""
+    """Returns the PR numbers that revert commits reference. A squash merge
+    ends its subject with its own PR number, which is left out."""
     numbers: set[int] = set()
     for message in messages:
         subject = message.split("\n", 1)[0]
         if not subject.startswith("Revert"):
             continue
         refs = {int(n) for n in re.findall(r"#(\d+)", message)}
-        own = re.search(r'"\s*\(#(\d+)\)$', subject)
+        own = re.search(r"\(#(\d+)\)$", subject)
         numbers |= refs - ({int(own.group(1))} if own else set())
     return numbers
 
