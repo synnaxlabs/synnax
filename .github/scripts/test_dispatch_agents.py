@@ -19,7 +19,6 @@ Phase 2 of the RFC.
 
 - RFC: `docs/tech/rfc/0090-foo.md`
 - Phase: 2
-- Tier: review/light
 """
 
 
@@ -130,7 +129,7 @@ class TestSelect:
         """Should report an issue whose description lacks the agent fields."""
         dispatches, skipped = select([issue(1, description="## Why\n")], set(), 3)
         assert dispatches == []
-        assert skipped == ["SY-1: no RFC, Phase, and Tier under ## Agent"]
+        assert skipped == ["SY-1: no RFC and Phase under ## Agent"]
 
     def test_should_build_the_agent_workflow_inputs(self) -> None:
         """Should name the issue and the RFC in the prompt and title the PR."""
@@ -138,7 +137,6 @@ class TestSelect:
         entry = dispatches[0].matrix_entry()
         assert entry["issue"] == "SY-1"
         assert entry["title"] == "SY-1: Add part 1"
-        assert entry["labels"] == "review/light"
         assert "Implement Linear issue SY-1: Add part 1" in entry["prompt"]
         assert "phase 2 of the RFC at `docs/tech/rfc/0090-foo.md`" in entry["prompt"]
 

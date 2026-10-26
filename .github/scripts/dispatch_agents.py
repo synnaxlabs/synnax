@@ -34,7 +34,7 @@ TEAM = "SY"
 LABEL = "agent-ready"
 STARTED_STATE = "In Progress"
 _KEY = re.compile(r"\bSY-(\d+)\b", re.IGNORECASE)
-_FIELD = re.compile(r"^[-*]?\s*(RFC|Phase|Tier):\s*`?([^`\s]+)`?\s*$", re.MULTILINE)
+_FIELD = re.compile(r"^[-*]?\s*(RFC|Phase):\s*`?([^`\s]+)`?\s*$", re.MULTILINE)
 
 ISSUES_QUERY = """
 query($after: String, $team: String!, $label: String!) {
@@ -82,14 +82,12 @@ class Dispatch:
     issue: Issue
     rfc: str
     phase: str
-    tier: str
 
     def matrix_entry(self) -> dict[str, str]:
         key, title = self.issue.key, self.issue.title
         return {
             "issue": key,
             "title": f"{key}: {title}",
-            "labels": self.tier,
             "prompt": PROMPT.format(
                 key=key, title=title, phase=self.phase, rfc=self.rfc
             ),
@@ -142,15 +140,13 @@ def select(
             skipped.append(f"{issue.key}: no project")
         elif any(s != "completed" for s in issue.blocker_states):
             skipped.append(f"{issue.key}: blocked")
-        elif not {"RFC", "Phase", "Tier"} <= fields.keys():
-            skipped.append(f"{issue.key}: no RFC, Phase, and Tier under ## Agent")
+        elif not {"RFC", "Phase"} <= fields.keys():
+            skipped.append(f"{issue.key}: no RFC and Phase under ## Agent")
         elif in_flight[issue.project] >= cap:
             skipped.append(f"{issue.key}: {issue.project} has {cap} in flight")
         else:
             in_flight[issue.project] += 1
-            dispatches.append(
-                Dispatch(issue, fields["RFC"], fields["Phase"], fields["Tier"])
-            )
+            dispatches.append(Dispatch(issue, fields["RFC"], fields["Phase"]))
     return dispatches, skipped
 
 

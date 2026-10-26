@@ -85,6 +85,5 @@ jobs:
       agent: claude
       output: pr
       title: ${{ matrix.title }}
-      labels: ${{ matrix.labels }}
       timeout-minutes: 90
     secrets: inherit
