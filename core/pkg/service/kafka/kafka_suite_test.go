@@ -51,7 +51,7 @@ var (
 
 func TestKafka(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Kafka Suite")
+	RunSpecs(t, "Service Kafka Suite", SuiteConfig())
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {

@@ -177,7 +177,10 @@ func writeConfigFailure(ctx context.Context, t task.Task, cmdKey string, err err
 func (f *mockFactory) Name() string { return f.name }
 
 func (f *mockFactory) InitialTasks(context.Context, rack.Key) ([]task.Task, error) {
-	return f.initialTasks, f.initialErr
+	if f.initialErr != nil {
+		return nil, f.initialErr
+	}
+	return f.initialTasks, nil
 }
 
 // mockTask is a test implementation of driver.Task.

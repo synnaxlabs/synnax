@@ -10,25 +10,25 @@
 import { Menu } from "@synnaxlabs/lyra/menu";
 
 import { Task } from "@/feature/kafka/task";
-import { Device as PlatformDevice } from "@/platform/device";
+import { Device } from "@/platform/device";
 
 const TASK_CONTEXT_MENU_ITEMS = [
-  PlatformDevice.createTaskContextMenuItem({
+  Device.createTaskContextMenuItem({
     itemKey: "kafka.readTask",
     label: "Create read task",
     useCreate: Task.useCreateRead,
   }),
-  PlatformDevice.createTaskContextMenuItem({
+  Device.createTaskContextMenuItem({
     itemKey: "kafka.writeTask",
     label: "Create write task",
     useCreate: Task.useCreateWrite,
   }),
 ];
 
-export const ContextMenuItems = (props: PlatformDevice.ContextMenuItemsProps) => (
+export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => (
   <>
-    <PlatformDevice.EditConnectionMenuItem {...props} />
+    <Device.EditConnectionMenuItem {...props} />
     <Menu.Divider />
-    <PlatformDevice.TaskContextMenuItems {...props} items={TASK_CONTEXT_MENU_ITEMS} />
+    <Device.TaskContextMenuItems {...props} items={TASK_CONTEXT_MENU_ITEMS} />
   </>
 );

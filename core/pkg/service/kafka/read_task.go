@@ -453,7 +453,11 @@ func (t *readTask) lastStored(
 	if err != nil {
 		return 0, err
 	}
-	defer func() { err = errors.Join(err, it.Close()) }()
+	defer func() {
+		if cErr := it.Close(); cErr != nil {
+			last, err = 0, errors.Join(err, cErr)
+		}
+	}()
 	if !it.SeekLast() || !it.Prev(iterator.AutoSpan) {
 		return 0, it.Error()
 	}

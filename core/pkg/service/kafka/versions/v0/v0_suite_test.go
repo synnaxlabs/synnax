@@ -19,7 +19,7 @@ import (
 
 func TestKafkaV0(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Kafka v0 Suite")
+	RunSpecs(t, "Service Kafka v0 Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

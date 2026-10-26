@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Component } from "@synnaxlabs/lyra/component";
-import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { type FC } from "react";
 
@@ -43,7 +43,7 @@ export interface TimeFormatFieldProps {
  * without one fails validation.
  */
 export const TimeFormatField: FC<TimeFormatFieldProps> = ({ path, label }) => (
-  <PForm.Field<TimeFormat> path={path} label={label}>
+  <Form.Field<TimeFormat> path={path} label={label}>
     {renderSelect}
-  </PForm.Field>
+  </Form.Field>
 );
