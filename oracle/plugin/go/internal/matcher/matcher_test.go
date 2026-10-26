@@ -99,6 +99,30 @@ var _ = Describe("Matcher", func() {
 			}))
 		})
 
+		It("Should reject a line over a field that a variant drops", func(
+			ctx SpecContext,
+		) {
+			t := table(ctx, `
+				Type enum {
+					first = "first"
+				}
+				Base struct {
+					key  uuid   { @key }
+					name string
+					size int32
+				}
+				View union on type Type extends Base {
+					first { -size }
+				}
+				Where filter View {
+					name
+				}
+			`)
+			Expect(matcher.List(t.MustGet("thing.View"), t)).Error().To(MatchError(
+				"thing.View: a variant drops field name, so no matcher can read it",
+			))
+		})
+
 		It("Should reject @filter on the @key field", func(ctx SpecContext) {
 			t := table(ctx, `
 				Thing struct {
@@ -111,6 +135,69 @@ var _ = Describe("Matcher", func() {
 			Expect(matcher.List(t.MustGet("thing.Thing"), t)).Error().To(MatchError(
 				"thing.Thing: @filter on the @key field key duplicates MatchKeys",
 			))
+		})
+	})
+
+	Describe("Access", func() {
+		const source = `
+			Type enum {
+				first = "first"
+			}
+			Base struct {
+				key  uuid   { @key }
+				name string
+				size int32
+			}
+			Thing struct {
+				key  uuid { @key }
+				name string
+			}
+			View union on type Type extends Base {
+				first { color string }
+			}
+			Dropped union on type Type extends Base {
+				first { -size }
+			}
+			Where filter Thing {
+				key
+			}
+		`
+		field := func(t *resolution.Table, typ, name string) resolution.Field {
+			GinkgoHelper()
+			fields := MustBeOk(resolution.RecordFields(t.MustGet(typ), t))
+			return MustBeOk(lo.Find(fields, func(f resolution.Field) bool {
+				return f.Name == name
+			}))
+		}
+
+		DescribeTable(
+			"Should return the selector that reads a field",
+			func(ctx SpecContext, typ, name, access string) {
+				t := table(ctx, source)
+				Expect(MustBeOk(
+					matcher.Access(t.MustGet(typ), field(t, typ, name), t),
+				)).To(Equal(access))
+			},
+			Entry("a struct field", "thing.Thing", "name", "Name"),
+			Entry("the tag of a union", "thing.View", "type", "Type()"),
+			Entry(
+				"a field of a union's shared base",
+				"thing.View",
+				"name",
+				"Base().Name",
+			),
+		)
+
+		It("Should return false for a field that a variant drops", func(
+			ctx SpecContext,
+		) {
+			t := table(ctx, source)
+			_, ok := matcher.Access(
+				t.MustGet("thing.Dropped"),
+				field(t, "thing.Dropped", "name"),
+				t,
+			)
+			Expect(ok).To(BeFalse())
 		})
 	})
 
