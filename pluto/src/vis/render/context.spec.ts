@@ -8,12 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { box, type runtime } from "@synnaxlabs/x";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { aetherTest } from "@/aether/test";
 import { buildStack } from "@/testutil/providers";
 import { canvas } from "@/vis/canvas/aether";
-import { type Context } from "@/vis/render/context";
 import { canvasTest } from "@/vis/render/test";
 
 const { GL_ENUMS } = canvasTest;
@@ -53,7 +52,8 @@ const mount = (os: runtime.OS = "macOS") => {
     dpr: 1,
     os,
   });
-  const renderCtx = stack.driver.find<canvas.Canvas>(path).renderCtx as Context;
+  const { renderCtx } = stack.driver.find<canvas.Canvas>(path);
+  assert(renderCtx != null);
   const statuses = () => stack.providers.status?.state.statuses ?? [];
   const count = (op: string) => calls.filter((c) => c.op === op).length;
   const lose = (): Event => {

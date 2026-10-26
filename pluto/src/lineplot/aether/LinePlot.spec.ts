@@ -62,6 +62,7 @@ interface Mount {
   setLineLoading: (loading: boolean) => void;
   setLineFetching: (fetching: boolean) => void;
   pump: () => void;
+  hide: () => void;
   remove: () => void;
 }
 
@@ -114,6 +115,13 @@ describe("LinePlot", () => {
           fetching,
         }),
       pump,
+      hide: () =>
+        stack.driver.update(base, LinePlot.TYPE, {
+          container: box.DECIMAL,
+          viewport: box.DECIMAL,
+          grid: {},
+          visible: false,
+        }),
       remove: () => stack.driver.delete(base),
     };
   };
@@ -174,6 +182,14 @@ describe("LinePlot", () => {
         }),
       ]);
       m.remove();
+      m.recorder.clear();
+      m.recorder.restore();
+      expect(m.recorder.loopCalls).toEqual([]);
+    });
+
+    it("should not request a render while hidden", () => {
+      const m = mount(false);
+      m.hide();
       m.recorder.clear();
       m.recorder.restore();
       expect(m.recorder.loopCalls).toEqual([]);

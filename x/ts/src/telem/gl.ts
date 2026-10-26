@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-/** The WebGL context a series buffers its data in. */
+/** The WebGL context that a series buffers its data in, and its generation. */
 export interface GLBufferController {
   readonly gl: {
     createBuffer: () => WebGLBuffer | null;
