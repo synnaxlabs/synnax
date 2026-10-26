@@ -145,24 +145,19 @@ resource "aws_iam_role_policy_attachment" "host_ecr" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 }
 
-# A human writes the key with put-parameter --overwrite, so it never enters the state.
-resource "aws_ssm_parameter" "license" {
-  name  = var.license_parameter
-  type  = "SecureString"
-  value = "unset"
-  lifecycle {
-    ignore_changes = [value]
-  }
-}
+data "aws_caller_identity" "current" {}
 
 resource "aws_iam_role_policy" "host_license" {
   role = aws_iam_role.host.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Effect   = "Allow"
-      Action   = "ssm:GetParameter"
-      Resource = aws_ssm_parameter.license.arn
+      Effect = "Allow"
+      Action = "ssm:GetParameter"
+      Resource = join("", [
+        "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}",
+        ":parameter${var.license_parameter}",
+      ])
     }]
   })
 }

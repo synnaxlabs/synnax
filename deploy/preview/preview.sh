@@ -22,6 +22,10 @@ source "${PREVIEW_ENV:-/etc/synnax-preview.env}"
 : "${PREVIEW_DOMAIN:?}" "${PREVIEW_SITES:?}" "${PREVIEW_TTL_DAYS:?}"
 : "${PREVIEW_LICENSE_PARAMETER:?}" "${PREVIEW_REGION:?}"
 
+# One command at a time, so a sweep never removes a preview that up just replaced.
+exec 9> "$PREVIEW_SITES/.lock"
+flock 9
+
 container() { echo "synnax-pr-$1"; }
 
 reload_caddy() { docker exec caddy caddy reload --config /etc/caddy/Caddyfile; }
