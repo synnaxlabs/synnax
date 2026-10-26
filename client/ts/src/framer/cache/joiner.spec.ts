@@ -219,6 +219,23 @@ describe("Joiner", () => {
     }
   });
 
+  it("should land the rest of a join when a member leaves before its ack", async () => {
+    const core = createCore({ channels: 2 });
+    const index = core.index.key;
+    const [left, kept] = core.data.map((c) => c.key);
+    const { joins, join, close } = createJoiner(core);
+    // The stream never acks the member that leaves, since it leaves before the stream
+    // opens.
+    const leave = join(left, index);
+    join(kept, index);
+    leave();
+    try {
+      await expect.poll(() => joins.joined(kept), POLL).toBe(true);
+    } finally {
+      await close();
+    }
+  });
+
   it("should clear the failure of a member when it leaves", async () => {
     const core = createCore();
     const [index, data] = [core.index.key, core.data[0].key];
