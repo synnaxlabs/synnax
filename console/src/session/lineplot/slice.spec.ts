@@ -345,8 +345,8 @@ describe("persistence", () => {
       version: 0,
       windows: inWindow({ [KEY]: { ...LinePlot.ZERO_STATE, ...doc } }),
     };
-    const state = deep.copy(storeWith(slice).getState());
-    LinePlot.PERSIST_EXCLUDE.forEach((exclude) => exclude(state));
+    let state = deep.copy(storeWith(slice).getState());
+    LinePlot.PERSIST_EXCLUDE.forEach((exclude) => (state = exclude(state)));
     return documentIn(state[LinePlot.SLICE_NAME], KEY);
   };
 
