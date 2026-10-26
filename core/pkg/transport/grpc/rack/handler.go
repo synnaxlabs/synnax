@@ -16,9 +16,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/rack/pb"
-	"github.com/synnaxlabs/x/errors"
+	xpb "github.com/synnaxlabs/x/pb"
 	"github.com/synnaxlabs/x/unsafe"
-	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -120,11 +119,8 @@ func (retrieveRequestTranslator) Backward(
 ) (rack.RetrieveRequest, error) {
 	// A client older than the Core sends the reserved fields, which would otherwise
 	// select every rack.
-	if len(r.ProtoReflect().GetUnknown()) > 0 {
-		return rack.RetrieveRequest{}, errors.Wrap(
-			validate.ErrValidation,
-			"retrieve request has unknown fields",
-		)
+	if err := xpb.RejectUnknown(r); err != nil {
+		return rack.RetrieveRequest{}, err
 	}
 	return pb.RetrieveRequestFromPB(r.Request)
 }

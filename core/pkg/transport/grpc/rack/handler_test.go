@@ -52,7 +52,9 @@ var _ = Describe("gRPC Rack Translators", func() {
 			Expect(proto.Unmarshal(b, &decoded)).To(Succeed())
 			Expect(t.Backward(ctx, &decoded)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("retrieve request has unknown fields")),
+				MatchError(
+					ContainSubstring("grpc.rack.RetrieveRequest has unknown fields"),
+				),
 			))
 		})
 	})

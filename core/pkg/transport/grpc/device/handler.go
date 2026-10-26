@@ -16,8 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/device"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device/pb"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/validate"
+	xpb "github.com/synnaxlabs/x/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -119,11 +118,8 @@ func (retrieveRequestTranslator) Backward(
 ) (device.RetrieveRequest, error) {
 	// A client older than the Core sends the reserved fields, which would otherwise
 	// select every device.
-	if len(r.ProtoReflect().GetUnknown()) > 0 {
-		return device.RetrieveRequest{}, errors.Wrap(
-			validate.ErrValidation,
-			"retrieve request has unknown fields",
-		)
+	if err := xpb.RejectUnknown(r); err != nil {
+		return device.RetrieveRequest{}, err
 	}
 	return pb.RetrieveRequestFromPB(r.Request)
 }

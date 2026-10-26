@@ -58,7 +58,9 @@ var _ = Describe("gRPC Task Translators", func() {
 			Expect(proto.Unmarshal(b, &decoded)).To(Succeed())
 			Expect(t.Backward(ctx, &decoded)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("retrieve request has unknown fields")),
+				MatchError(
+					ContainSubstring("grpc.task.RetrieveRequest has unknown fields"),
+				),
 			))
 		})
 	})
