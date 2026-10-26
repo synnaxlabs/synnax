@@ -95,11 +95,10 @@ var _ = Describe("Where", func() {
 			[]byte(`{"or":[{"key":{"in":[]}},{"name":{"regex":"(a"}}]}`),
 			&w,
 		)).To(Succeed())
-		_, err := ranger.MatchWhere(w)
-		var pathErr validate.PathError
-		Expect(err).To(BeAssignableToTypeOf(pathErr))
-		Expect(err).To(MatchError(ContainSubstring(
-			"or.1.name.regex: error parsing regexp: missing closing ): `(a`",
-		)))
+		Expect(ranger.MatchWhere(w)).Error().To(SatisfyAll(
+			BeAssignableToTypeOf(validate.PathError{}),
+			MatchError("or.1.name.regex: error parsing regexp: missing closing ): "+
+				"`(a`: validation error"),
+		))
 	})
 })

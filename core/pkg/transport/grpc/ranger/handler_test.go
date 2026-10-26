@@ -57,11 +57,10 @@ var _ = Describe("gRPC Ranger Translators", func() {
 			b = protowire.AppendString(b, uuid.New().String())
 			var decoded RetrieveRequest
 			Expect(proto.Unmarshal(b, &decoded)).To(Succeed())
-			_, err := t.Backward(ctx, &decoded)
-			Expect(err).To(MatchError(validate.ErrValidation))
-			Expect(err).To(MatchError(ContainSubstring(
-				"retrieve request has unknown fields",
-			)))
+			Expect(t.Backward(ctx, &decoded)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("retrieve request has unknown fields")),
+			))
 		})
 	})
 })
