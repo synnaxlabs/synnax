@@ -10,7 +10,7 @@
 import { type channel, type schematic } from "@synnaxlabs/client";
 import { type Component } from "@synnaxlabs/lyra/component";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { type color } from "@synnaxlabs/x";
+import { type color, type xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Control } from "@/schematic/node/common/control";
@@ -22,11 +22,11 @@ import { Input } from "@/schematic/node/general/input/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
 import { Input as InputTelem } from "@/vis/input";
-import { Staleness } from "@/vis/staleness";
 import { StringValue } from "@/vis/stringValue";
 
 interface ReadbackProps {
   nodeKey: string;
+  position?: xy.XY;
   channel: channel.Key;
   size: Component.Size;
   stalenessColor?: color.Color;
@@ -35,29 +35,29 @@ interface ReadbackProps {
 
 const Readback = ({
   nodeKey,
+  position,
   channel,
   size,
   stalenessColor,
   stalenessTimeout,
 }: ReadbackProps): ReactElement => {
   const theme = Theming.use();
-  const source = telem.streamChannelStringValue({ channel });
-  const { value, stale } = StringValue.use({
+  const cell = Primitive.useCanvasBox<HTMLParagraphElement>(position);
+  StringValue.use({
     aetherKey: `${nodeKey}-readback`,
-    telem: source,
+    box: cell.box,
+    telem: telem.streamChannelStringValue({ channel }),
+    level: Primitive.readoutLevel(size),
+    color: theme.colors.gray.l10,
+    stalenessColor,
     stalenessTimeout,
   });
-  return (
-    <Primitive.Readout
-      size={size}
-      value={value}
-      color={stale ? Staleness.resolveColor(stalenessColor, theme) : undefined}
-    />
-  );
+  return <Primitive.Readout size={size} valueRef={cell.ref} />;
 };
 
 export const Symbol = ({
   nodeKey,
+  position,
   onConfigChange,
   selected,
   config: {
@@ -96,6 +96,7 @@ export const Symbol = ({
           stateChannel !== 0 && (
             <Readback
               nodeKey={nodeKey}
+              position={position}
               channel={stateChannel}
               size={size}
               stalenessColor={stalenessColor}

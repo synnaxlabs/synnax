@@ -39,4 +39,5 @@ export const spec: Spec<"input", schematic.InputNodeConfig> = {
   Preview,
   zIndex: 4,
   colorFallbacks,
+  needsPosition: true,
 };
