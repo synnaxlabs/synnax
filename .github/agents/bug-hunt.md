@@ -12,11 +12,22 @@ questions.
 ## What counts
 
 A real bug is code that does the wrong thing on an input or an order of events that can
-occur: a wrong result, a crash, lost or corrupt data, a race, a leak, a security hole,
-or a wrong or swallowed error. You must have evidence: a spec that fails on `main`.
+occur: a wrong result, a crash, lost or corrupt data, a race, a leak, or a wrong or
+swallowed error. You must have evidence: a spec that fails on `main`. A security issue
+follows the next section instead.
 
 Never report style, naming, comments, structure, or speed with no wrong result. "Could
 be cleaner" is not a bug.
+
+## Security issues
+
+This repository is public. Never write about a possible security issue in a public
+place: no branch, commit, PR, comment, or issue text. This covers injection, cross-site
+scripting, a way past authentication or access control, unsafe deserialization, path
+traversal, an exposed secret, weak or missing TLS verification, and any other fault an
+attacker can use. When you suspect one, stop work on it and push nothing for it. In your
+report, write only `Possible security issue in <area>, see the private security audit`,
+with no details.
 
 ## For each bug
 
