@@ -274,6 +274,14 @@ Phase 1 changes the wire: a request flag and response field on the stream, and a
 signal channel. Phase 4 adds the `sy.query.unsupported` error type for a read of a
 virtual channel. No phase changes a stored format.
 
+| Phase | Scope                                                  | Touches                                        | Depends on |
+| ----- | ------------------------------------------------------ | ---------------------------------------------- | ---------- |
+| 1     | Ack stream key updates and publish history changes     | `cesium`, `core`, `client/ts`, `schemas`       | -          |
+| 2     | Move Pluto sources to exact data, results, and windows | `client/ts`, `pluto`, `console`, `x/ts`        | -          |
+| 3     | Cache raw and reduced telemetry in client blocks       | `client/ts`, `pluto`, `x/ts`                   | 2          |
+| 4     | Join history and live data in `Feed.subscribe`         | `client/ts`, `pluto`, `cesium`, `core`, `x/go` | 1, 3       |
+| 5     | Serve lines, values, and logs from `Feed.subscribe`    | `client/ts`, `pluto`, `console`                | 4          |
+
 ## 5 Resolved decisions
 
 1. **Exact data in the `Feed`**: An exact copy beside narrowed data (PR #3387) or a
