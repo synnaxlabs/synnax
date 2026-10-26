@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
+	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -27,8 +28,8 @@ var _ = Describe("gRPC Arc Translators", func() {
 		t := retrieveRequestTranslator{}
 		It("Should round-trip a filter tree", func(ctx SpecContext) {
 			msg := arc.RetrieveRequest{
-				Where: &arc.Where{
-					Or: []arc.Where{
+				Where: &svcarc.Where{
+					Or: []svcarc.Where{
 						{Key: &filter.Set[arc.Key]{In: []arc.Key{uuid.New()}}},
 						{Name: &filter.String{Regex: new("^pump")}},
 					},
