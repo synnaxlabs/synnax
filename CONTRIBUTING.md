@@ -45,11 +45,12 @@ review. `OK` is the CI workflow's last job: it fails when any check the PR's pat
 select failed. A merge into `main` goes through a merge queue, which reruns CI on the
 merged result with the integration suite added before the branch moves. GitHub refuses a
 queue on a wildcard branch pattern, so a `release/**` merge goes in directly, and CI
-runs again on the pushed commit. A release runs the integration suite itself. Admins
-bypass when Greptile is down. The gate script is `.github/scripts/check_review.sh`, the
-rulesets `.github/rulesets/main.json` and `.github/rulesets/release.json`. An admin
-applies a changed ruleset file by hand; the `Check - Rulesets` workflow fails each day
-until GitHub matches the files.
+runs again on the pushed commit. The queue also runs the gate again; with no queue, a
+`release/**` merge needs an approval of its last push, whatever its tier. A release runs
+the integration suite itself. Admins bypass when Greptile is down. The gate script is
+`.github/scripts/check_review.sh`, the rulesets `.github/rulesets/main.json` and
+`.github/rulesets/release.json`. An admin applies a changed ruleset file by hand; the
+`Check - Rulesets` workflow fails each day until GitHub matches the files.
 
 ## Size
 
