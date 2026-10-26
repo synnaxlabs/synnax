@@ -77,7 +77,7 @@ public:
 }
 
 /// @brief it should deliver a frame written right after start returns.
-TEST(ControlPipeline, testStartWaitsForStreamerToOpen) {
+TEST(ControlPipeline, StartWaitsForStreamerToOpen) {
     const auto factory = std::make_shared<LiveStreamerFactory>();
     const auto sink = std::make_shared<mock::Sink>();
     auto control = Control(

@@ -1241,7 +1241,8 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
         << "Should have a success status with running=false after stop";
 }
 
-/// @brief a task whose control streamer fails to open should report a failed start.
+/// @brief a task whose control streamer fails to open should report a failed start,
+/// and a later start that opens it should report a clean start.
 TEST(ArcStatusVerification, StreamerOpenErrorFailsStart) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto input_idx = synnax::channel::Channel{
@@ -1290,16 +1291,36 @@ TEST(ArcStatusVerification, StreamerOpenErrorFailsStart) {
             std::make_shared<pipeline::mock::WriterFactory>(),
             std::make_shared<pipeline::mock::StreamerFactory>(
                 std::vector{x::errors::UNKNOWN},
-                std::make_shared<std::vector<pipeline::mock::StreamerConfig>>()
+                std::make_shared<std::vector<pipeline::mock::StreamerConfig>>(
+                    std::vector{pipeline::mock::StreamerConfig{
+                        std::make_shared<std::vector<x::telem::Frame>>(),
+                        nullptr,
+                        x::errors::NIL,
+                    }}
+                )
             )
         )
     );
 
     ASSERT_FALSE(task->start("start_cmd"));
     ASSERT_EQ(ctx->statuses.size(), 1);
-    const auto &status = ctx->statuses[0];
-    EXPECT_EQ(status.details.cmd, "start_cmd");
-    expect_status(status, synnax::status::VARIANT_ERROR, false, "Failed to start task");
+    EXPECT_EQ(ctx->statuses[0].details.cmd, "start_cmd");
+    expect_status(
+        ctx->statuses[0],
+        synnax::status::VARIANT_ERROR,
+        false,
+        "Failed to start task"
+    );
+
+    ASSERT_TRUE(task->start("restart_cmd"));
+    ASSERT_EQ(ctx->statuses.size(), 2);
+    expect_status(
+        ctx->statuses[1],
+        synnax::status::VARIANT_SUCCESS,
+        true,
+        "Started task"
+    );
+    task->stop("stop_cmd", true);
 }
 
 TEST(ArcStatusVerification, StopCommandStatusCarriesCommandKey) {

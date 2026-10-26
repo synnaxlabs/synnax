@@ -269,6 +269,7 @@ public:
             this->state.ack(cmd_key, true);
             return false;
         }
+        this->state.reset();
         auto started = true;
         if (this->acquisition) started = this->acquisition->start(start);
         if (this->control &&

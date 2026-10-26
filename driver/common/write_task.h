@@ -11,8 +11,6 @@
 
 #include <optional>
 
-#include "absl/log/log.h"
-
 #include "client/cpp/task/json.gen.h"
 
 #include "driver/bypass/pipeline/factory.h"
@@ -288,8 +286,7 @@ public:
         );
         if (started &&
             this->state.error(this->cmd_write_pipe.start(), "Failed to start task")) {
-            if (const auto err = this->sink->internal->stop())
-                LOG(ERROR) << "[" << this->name() << "] failed to stop task: " << err;
+            this->state.error(this->sink->internal->stop(), "Failed to stop task");
             started = false;
         }
         if (started && !this->sink->internal->writer_config().channels.empty())

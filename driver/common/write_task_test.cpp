@@ -365,7 +365,7 @@ TEST(TestCommonWriteTask, testStopReleasesSinkWithoutStateChannels) {
 
 /// @brief a task whose command streamer fails to open should report a failed start
 /// and release its sink.
-TEST(TestCommonWriteTask, testStreamerOpenErrorFailsStart) {
+TEST(TestCommonWriteTask, StreamerOpenErrorFailsStart) {
     auto mock_streamer_factory = std::make_shared<pipeline::mock::StreamerFactory>(
         std::vector{x::errors::UNKNOWN},
         std::make_shared<std::vector<pipeline::mock::StreamerConfig>>()
