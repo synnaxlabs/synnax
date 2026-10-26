@@ -69,10 +69,45 @@ export interface CaptureOptions {
    * via its dev-connection port override before the app boots.
    */
   corePort?: number;
+  /**
+   * Shows the Console as Synnax Desktop: the page stands in for the Desktop shell and
+   * reports the capture core as the embedded one. Needs a Console dev server started
+   * with VITE_DESKTOP=true.
+   */
+  desktop?: boolean;
 }
+
+/** Credentials of the user every capture connects as: the capture core's defaults. */
+export const CREDENTIALS = { username: "synnax", password: "seldon" };
 
 /** Mirrors DEV_PORT_KEY in console/src/platform/core/detectConnection.ts. */
 const DEV_PORT_KEY = "synnax-dev-connection-port";
+
+/**
+ * Stands in for the Synnax Desktop shell, which tells a Desktop build of the Console
+ * how to reach its embedded Core. It answers that the core at `connection` runs, and
+ * records every other command so that the capture fails on it.
+ */
+const desktopShell = (connection: Record<string, string | number>): string => `(() => {
+  const unanswered = [];
+  window.__studioDesktop = { asked: false, unanswered };
+  window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
+  let callbacks = 0;
+  window.__TAURI_INTERNALS__ = {
+    transformCallback: () => ++callbacks,
+    unregisterCallback: () => {},
+    invoke: async (cmd, args) => {
+      if (cmd === "supervisor_status") {
+        window.__studioDesktop.asked = true;
+        return { state: "running", connection: ${JSON.stringify(connection)} };
+      }
+      if (cmd === "plugin:event|listen") return args.handler;
+      if (cmd === "plugin:event|unlisten") return null;
+      unanswered.push(cmd);
+      throw new Error("Studio's Desktop shell cannot answer " + cmd);
+    },
+  };
+})()`;
 
 /** WebP quality of a still, from 0 to 100. */
 const STILL_QUALITY = 92;
@@ -242,6 +277,7 @@ export class CaptureSession {
       hideCaret: false,
       hideNotifications: true,
       corePort: 9090,
+      desktop: false,
       ...options,
     };
     const browser = await chromium.launch({
@@ -276,6 +312,10 @@ export class CaptureSession {
     await page.addInitScript(
       `localStorage.setItem(${JSON.stringify(DEV_PORT_KEY)}, ${JSON.stringify(String(opts.corePort))});`,
     );
+    if (opts.desktop)
+      await page.addInitScript(
+        desktopShell({ host: "localhost", port: opts.corePort, ...CREDENTIALS }),
+      );
     const hideRules = [
       // The renderer blinks the caret on wall time, ~6x fast against the
       // stepped virtual clock; a solid caret reads normally at any rate.
@@ -294,7 +334,25 @@ export class CaptureSession {
     await page.goto(opts.url, { timeout: 30_000 });
     const cdp = await context.newCDPSession(page);
     await mkdir(path.join(opts.outDir, "frames"), { recursive: true });
-    return new CaptureSession(browser, page, cdp, opts, origin, workers);
+    const session = new CaptureSession(browser, page, cdp, opts, origin, workers);
+    if (opts.desktop) await session.awaitDesktop();
+    return session;
+  }
+
+  /**
+   * awaitDesktop waits for the Console to ask the Desktop shell for its Core, which
+   * only a Desktop build does. Closes the browser and throws when it never asks.
+   */
+  private async awaitDesktop(): Promise<void> {
+    for (let i = 0; i < 600; i++) {
+      if (await this.page.evaluate(() => (window as any).__studioDesktop.asked)) return;
+      await this.settle(this.tickMs);
+    }
+    await this.browser.close();
+    throw new Error(
+      `the Console at ${this.opts.url} is not a Desktop build: serve it with ` +
+        "VITE_DESKTOP=true",
+    );
   }
 
   /** now returns the virtual clock's time, which the page and its workers read. */
@@ -797,6 +855,25 @@ export class CaptureSession {
   }
 
   /**
+   * paste gives text to the focused element as a paste from the clipboard, so an editor
+   * takes it whole instead of indenting or closing brackets as it would for typed keys.
+   */
+  async paste(text: string): Promise<void> {
+    this.events.push({ type: "key", tick: this.frame, key: "ControlOrMeta+v" });
+    await this.page.evaluate((t) => {
+      const clipboardData = new DataTransfer();
+      clipboardData.setData("text/plain", t);
+      const event = new ClipboardEvent("paste", {
+        clipboardData,
+        bubbles: true,
+        cancelable: true,
+      });
+      document.activeElement?.dispatchEvent(event);
+    }, text);
+    await this.tick();
+  }
+
+  /**
    * waitFor advances virtual time until the locator is visible or the condition holds,
    * so app timers keep firing while the rig waits.
    */
@@ -850,7 +927,15 @@ export class CaptureSession {
       path.join(this.opts.outDir, "timeline.json"),
       JSON.stringify(timeline, null, 2),
     );
+    const unanswered: string[] = this.opts.desktop
+      ? await this.page.evaluate(() => (window as any).__studioDesktop.unanswered)
+      : [];
     await this.browser.close();
+    if (unanswered.length > 0)
+      throw new Error(
+        `the Console asked the Desktop shell for ${unanswered.join(", ")}, which ` +
+          "Studio does not answer",
+      );
     return timeline;
   }
 }

@@ -8,6 +8,7 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Note } from "@/components/note";
 import { Platform } from "@/components/platform";
 import { Desktop } from "@/components/desktop";
+import { Image } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -91,8 +92,15 @@ Earlier versions are on the
 2. On the "Log in to continue" screen, select **Log in**. Your web browser opens. Log in
    to your Synnax account, or make one, then select **Continue**. When your browser
    asks, open Synnax Desktop.
-3. Synnax Desktop shows the list of projects. Select **New project** to start with an
-   empty project.
+3. Synnax Desktop shows the list of projects, which is empty on the first launch. Select
+   **Open sample project** to open a simulated tank system, or select **New project** to
+   start with an empty project.
+
+<Image
+  id="get-started/install-desktop/cc146f207711/projects"
+  extension="webp"
+  alt="The empty projects screen of Synnax Desktop, with Open sample project and New project"
+/>
 
 In the EU, the EEA, the UK, and Switzerland, the login page in your browser asks if you
 want to share usage data. Everywhere else, it shows a notice, and sharing is on. See
@@ -111,5 +119,7 @@ select **Update and restart**.
 
 ## Next steps
 
+- [Explore the sample project](/reference/get-started/sample-project) -> run a simulated
+  test.
 - [Your first run](/reference/get-started/first-run) -> record and plot your first data.
 - [UI overview](/reference/get-started/ui-overview) -> learn the parts of the Console.

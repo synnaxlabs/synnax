@@ -22,6 +22,7 @@ export const ARC_NAV: PageNavNode = {
     {
       href: "/reference/control/arc/get-started",
       name: "Get started",
+      edition: "desktop",
     },
     {
       href: "/reference/control/arc/execution-model",
