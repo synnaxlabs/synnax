@@ -61,20 +61,30 @@ class Transport:
         ssl_context = ssl.create_default_context(cafile=ca_cert) if secure else None
         self.url = url.child("/api/v1/")
         codec = JSONCodec()
-        ws_args = {
-            "base_url": self.url,
-            "encoder": codec,
-            "registry": registry,
-            "max_message_size": int(Size.MB * 5),
-            "ssl_context": ssl_context,
+        max_message_size = int(Size.MB * 5)
+        timeouts = {
             "open_timeout": open_timeout.seconds,
             "close_timeout": read_timeout.seconds,
         }
-        self.stream = WebsocketClient(**ws_args)
+        self.stream = WebsocketClient(
+            encoder=codec,
+            registry=registry,
+            base_url=self.url,
+            max_message_size=max_message_size,
+            ssl_context=ssl_context,
+            **timeouts,
+        )
         # The sync client keeps the websockets keep-alive defaults.
-        ws_args["ping_interval"] = keep_alive.seconds
-        ws_args["ping_timeout"] = 180
-        self.stream_async = AsyncWebsocketClient(**ws_args)
+        self.stream_async = AsyncWebsocketClient(
+            encoder=codec,
+            registry=registry,
+            base_url=self.url,
+            max_message_size=max_message_size,
+            ssl_context=ssl_context,
+            ping_interval=keep_alive.seconds,
+            ping_timeout=180,
+            **timeouts,
+        )
         http = HTTPClient(
             url=self.url,
             codec=codec,

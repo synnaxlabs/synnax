@@ -338,18 +338,34 @@ class _Base:
 class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
     """An implementation of AsyncStreamClient that is backed by a websocket"""
 
-    def __init__(self, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        encoder: Codec,
+        registry: Registry,
+        base_url: URL,
+        max_message_size: int = DEFAULT_MAX_SIZE,
+        ssl_context: ssl.SSLContext | None = None,
+        **kwargs: Any,
+    ) -> None:
         """
         :param encoder: The encoder to use for this client.
         :param registry: Decodes the errors that the server sends.
         :param base_url: A base url to use as a prefix for all requests.
-        :param max_message_size: The maximum size of a message to receive. Defaults to
-        DEFAULT_MAX_SIZE.
+        :param max_message_size: The maximum size of a message to receive.
         :param ssl_context: The TLS context that verifies the server. The client uses
             TLS when set and a plain connection when None.
+        :param kwargs: Options for the websockets connect function.
         """
         AsyncMiddlewareCollector.__init__(self)
-        _Base.__init__(self, **kwargs)
+        _Base.__init__(
+            self,
+            encoder=encoder,
+            registry=registry,
+            base_url=base_url,
+            max_message_size=max_message_size,
+            ssl_context=ssl_context,
+            **kwargs,
+        )
 
     async def stream(
         self,
@@ -407,9 +423,34 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
 
 
 class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
-    def __init__(self, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        encoder: Codec,
+        registry: Registry,
+        base_url: URL,
+        max_message_size: int = DEFAULT_MAX_SIZE,
+        ssl_context: ssl.SSLContext | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """
+        :param encoder: The encoder to use for this client.
+        :param registry: Decodes the errors that the server sends.
+        :param base_url: A base url to use as a prefix for all requests.
+        :param max_message_size: The maximum size of a message to receive.
+        :param ssl_context: The TLS context that verifies the server. The client uses
+            TLS when set and a plain connection when None.
+        :param kwargs: Options for the websockets connect function.
+        """
         MiddlewareCollector.__init__(self)
-        _Base.__init__(self, **kwargs)
+        _Base.__init__(
+            self,
+            encoder=encoder,
+            registry=registry,
+            base_url=base_url,
+            max_message_size=max_message_size,
+            ssl_context=ssl_context,
+            **kwargs,
+        )
 
     def stream(
         self,
