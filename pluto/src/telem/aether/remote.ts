@@ -392,7 +392,7 @@ export class ChannelData
   }
 
   // Reads the samples that bound the home view, reduced with min_max so they keep the
-  // extremes that other aggregations drop.
+  // extremes that other aggregations drop. The draw serves until the first ones load.
   private readBounds(client: Client, key: channel.Key): framer.Snapshot {
     this.boundsRead = true;
     const request: framer.PointsRequest = {
@@ -407,7 +407,9 @@ export class ChannelData
     };
     if (this.bounds == null) this.bounds = this.subscribe(client, request);
     else this.bounds.update(request);
-    const snapshot = this.bounds.value(key);
+    let snapshot = this.bounds.value(key);
+    if (snapshot.status.variant === "loading" && snapshot.series.length === 0)
+      snapshot = this.draw?.value(key) ?? snapshot;
     this.boundsStatus = snapshot.status;
     return snapshot;
   }

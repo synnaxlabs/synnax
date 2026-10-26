@@ -399,7 +399,11 @@ describe("remote", () => {
       await settle(y);
       // The Core's min_max groups span each value plus and minus one.
       expect(y.value().data[0].upper).toBeCloseTo(1, 1);
-      await settle(y, { extremesKept: true });
+      // The draw bounds the line until the min_max samples load.
+      expect(y.value({ extremesKept: true }).data[0].upper).toBeCloseTo(1, 1);
+      await expect
+        .poll(() => y.value({ extremesKept: true }).data[0].upper, POLL)
+        .toBeGreaterThan(1.5);
       const [kept, series] = y.value({ extremesKept: true }).data;
       expect(kept.upper).toBeCloseTo(2, 1);
       expect(kept.lower).toBeCloseTo(-2, 1);
@@ -431,6 +435,25 @@ describe("remote", () => {
       });
       expect(statuses).toHaveLength(1);
       expect(statuses[0]).toMatchObject({ variant: "error" });
+    });
+
+    it("should bound a line by its draw while reopened bounds load", async () => {
+      const core = createCore();
+      const y = create(connect(core), {
+        channel: core.data[0].key,
+        aggregation: "average",
+      });
+      const b = { extremesKept: true };
+      const draw = { points: 1000 };
+      await settle(y, draw);
+      await expect.poll(() => y.value(b).data[0].upper, POLL).toBeGreaterThan(1.5);
+      // Draws with no bounds read between them close the bounds.
+      y.value(draw);
+      y.value(draw);
+      const { data, status } = y.value(b);
+      expect(status.variant).toBe("success");
+      expect(data[0].upper).toBeCloseTo(1, 1);
+      await expect.poll(() => y.value(b).data[0].upper, POLL).toBeGreaterThan(1.5);
     });
 
     it("should close bounds that no read used since the last draw", async () => {
