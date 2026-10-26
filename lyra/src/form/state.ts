@@ -45,6 +45,8 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
   initialValues: z.infer<Z>;
 
   private readonly statuses: Map<string, Status.Crude>;
+  /** Paths whose status came from `setStatus`, which validation never removes. */
+  private readonly external: Set<string>;
   private readonly touched: Set<string>;
   private readonly cachedRefs: Map<string, { state: FieldState; stale: boolean }>;
   /** The values that the cached field states were read from. */
@@ -58,6 +60,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     this.store = store;
     this.observed = store.get();
     this.statuses = new Map();
+    this.external = new Set();
     this.touched = new Set();
     this.cachedRefs = new Map();
     this.initialValues = deep.copy(this.observed);
@@ -75,6 +78,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     this.observed = store.get();
     this.initialValues = deep.copy(this.observed);
     this.statuses.clear();
+    this.external.clear();
     this.touched.clear();
     this.cachedRefs.clear();
     return true;
@@ -147,7 +151,8 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
   /**
    * Marks stale each field whose parent changed identity since the last refresh. A
    * changed parent holds a changed field or sibling, and a sibling can be the
-   * discriminator that decides the field's schema.
+   * discriminator that decides the field's schema. Clears each status from `setStatus`
+   * whose value changed, whoever changed it.
    *
    * @returns whether the values changed.
    */
@@ -156,6 +161,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     const next = this.store.get();
     if (prev === next) return false;
     this.observed = next;
+    this.clearChangedExternal(prev, next);
     const changed = new Map<string, boolean>();
     const parentChanged = (parent: string): boolean => {
       let c = changed.get(parent);
@@ -173,6 +179,16 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
       if (parentChanged(parent)) cached.stale = true;
     });
     return true;
+  }
+
+  /** Clears each external status whose value differs between prev and next. */
+  private clearChangedExternal(prev: z.infer<Z>, next: z.infer<Z>) {
+    this.external.forEach((path) => {
+      const before = deep.get(prev, path, { optional: true });
+      const after = deep.get(next, path, { optional: true });
+      if (before === after || deep.equal(before, after)) return;
+      this.deleteStatus(path);
+    });
   }
 
   /** @returns the value the schema supplies for an absent path, or undefined. */
@@ -250,15 +266,28 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     });
   }
 
+  /**
+   * Sets the status of the path. Validation never removes it. It clears when the value
+   * at the path changes, when validation sets a status there, or through `clearStatus`.
+   */
   setStatus(path: string, status: Status.Crude) {
     this.statuses.set(path, status);
+    this.external.add(path);
     this.markStale(path);
   }
 
   /** Clears the status of the path, or of every path when it is empty. */
   clearStatus(path: string = "") {
-    if (path === "") this.statuses.clear();
-    else this.statuses.delete(path);
+    if (path !== "") return this.deleteStatus(path);
+    this.statuses.clear();
+    this.external.clear();
+    this.markStale(path);
+  }
+
+  /** Deletes the status of the path alone, even when the path is the root. */
+  private deleteStatus(path: string) {
+    this.statuses.delete(path);
+    this.external.delete(path);
     this.markStale(path);
   }
 
@@ -267,6 +296,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     if (initialValues != null) this.initialValues = deep.copy(initialValues);
     const nextValues = deep.copy(this.initialValues);
     this.statuses.clear();
+    this.external.clear();
     this.touched.clear();
     this.cachedRefs.clear();
     this.write(() => this.store.set("", nextValues));
@@ -368,15 +398,17 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
         next.set(issuePath, { key: issuePath, variant, message });
       });
     this.statuses.forEach((status, path) => {
-      if (status.variant === "success" || next.has(path)) return;
-      this.statuses.delete(path);
-      this.markStale(path);
+      if (status.variant === "success" || this.external.has(path) || next.has(path))
+        return;
+      this.deleteStatus(path);
     });
     // A status that did not change keeps its object, so its field does not re-render.
     next.forEach((status, path) => {
+      this.external.delete(path);
       const prev = this.statuses.get(path);
-      if (prev?.variant !== status.variant || prev.message !== status.message)
-        this.setStatus(path, status);
+      if (prev?.variant === status.variant && prev.message === status.message) return;
+      this.statuses.set(path, status);
+      this.markStale(path);
     });
     return success;
   }

@@ -439,6 +439,75 @@ describe("State", () => {
       expect(state.getState("name").status.variant).toBe("success");
       expect(state.getState("email").status.variant).toBe("success");
     });
+
+    describe("external statuses", () => {
+      const taken = { key: "name", variant: "error" as const, message: "Taken" };
+
+      it("should survive validation after an edit to another field", () => {
+        const state = new State(createLocalStore(initialValues), basicSchema);
+        state.setStatus("name", taken);
+        state.setValue("age", 30);
+        state.validate();
+        expect(state.getState("name").status).toEqual(taken);
+      });
+
+      it("should clear the status when the value at its path changes", () => {
+        const state = new State(createLocalStore(initialValues), basicSchema);
+        state.setStatus("name", taken);
+        state.setValue("name", "Jane Doe");
+        expect(state.getState("name").status.variant).toBe("success");
+      });
+
+      it("should keep the status when a write to its parent keeps its value", () => {
+        const state = new State(createLocalStore(initialValues), basicSchema);
+        const status = {
+          key: "profile.bio",
+          variant: "warning" as const,
+          message: "Short",
+        };
+        state.setStatus("profile.bio", status);
+        state.setValue("profile", {
+          ...initialValues.profile,
+          website: "https://x.com",
+        });
+        expect(state.getState("profile.bio").status).toEqual(status);
+      });
+
+      it("should clear the status when its path is removed", () => {
+        const state = new State(createLocalStore(initialValues), basicSchema);
+        state.setStatus("tags.1", { key: "tags.1", variant: "error", message: "Bad" });
+        state.remove("tags.1");
+        expect(state.getStatuses()).toEqual([]);
+      });
+
+      it("should survive the removal of a form-level validation error", () => {
+        const schema = z
+          .object({ a: z.string(), b: z.string() })
+          .refine(({ a, b }) => a !== b, "Must differ");
+        const state = new State(createLocalStore({ a: "x", b: "x" }), schema);
+        state.validate(true);
+        expect(state.getStatuses().map(({ message }) => message)).toEqual([
+          "Must differ",
+        ]);
+        state.setStatus("a", { key: "a", variant: "error", message: "Taken" });
+        state.setValue("b", "y");
+        state.validate(true);
+        expect(state.getStatuses().map(({ message }) => message)).toEqual(["Taken"]);
+      });
+
+      it("should yield to a status that validation sets at its path", () => {
+        const state = new State(
+          createLocalStore({ ...initialValues, email: "invalid" }),
+          basicSchema,
+        );
+        state.setStatus("email", { key: "email", variant: "error", message: "Taken" });
+        state.validate(true);
+        expect(state.getState("email").status.message).toBe("Invalid email format");
+        state.setValue("name", "Jane Doe");
+        state.validate();
+        expect(state.getState("email").status.variant).toBe("success");
+      });
+    });
   });
 
   describe("setTouched and clearTouched", () => {
@@ -629,6 +698,19 @@ describe("State", () => {
       store.set("channels.b.port", 3);
       expect(state.getState("channels.b.port").value).toBe(3);
       expect(handleChange).toHaveBeenCalledTimes(1);
+    });
+
+    it("should clear a status from setStatus when another writer changes its value", () => {
+      const { store, state } = buildTracked();
+      state.listen();
+      const taken = {
+        key: "channels.b.port",
+        variant: "error" as const,
+        message: "Taken",
+      };
+      state.setStatus("channels.b.port", taken);
+      store.set("channels.b.port", 3);
+      expect(state.getState("channels.b.port").status.variant).toBe("success");
     });
 
     it("should keep the state of a field that the change does not reach", () => {

@@ -149,6 +149,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
         if (canEdit) {
           if (!(await flush())) return;
           const { config, name, rack } = form.value();
+          form.clearStatuses();
           const result = deployConfigZ.safeParse(config);
           if (!result.success) {
             let blocked = false;
