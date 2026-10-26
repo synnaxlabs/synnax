@@ -38,6 +38,8 @@ export interface DynamicProps {
   instrumentation?: alamos.Instrumentation;
   /** Pulls the current time. */
   now?: () => TimeStamp;
+  /** Flushes every buffer as the same object, never as a right-sized copy. */
+  compactionDisabled?: boolean;
 }
 
 // Bounds for dynamically calculated buffer sizes.
@@ -102,8 +104,9 @@ export class Dynamic {
       dynamicBufferSize,
       instrumentation = alamos.NOOP,
       now = () => TimeStamp.now(),
+      compactionDisabled = false,
     } = props;
-    this.props = { dynamicBufferSize, instrumentation };
+    this.props = { dynamicBufferSize, instrumentation, compactionDisabled };
     this.now = now;
     this.timeOfLastWrite = this.now();
   }
@@ -221,7 +224,12 @@ export class Dynamic {
   private compacted(buffer: Series, res: WriteResponse): Series {
     // A buffer allocated during this same write has not reached its holders yet, so its
     // reference count cannot yet report who is about to hold it.
-    if (!shouldCompact(buffer) || res.allocated.series.includes(buffer)) return buffer;
+    if (
+      this.props.compactionDisabled ||
+      !shouldCompact(buffer) ||
+      res.allocated.series.includes(buffer)
+    )
+      return buffer;
     return buffer.compact();
   }
 

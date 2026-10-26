@@ -102,7 +102,8 @@ export class Store {
   private readonly counted = new Map<string, number>();
   private readonly dataTypes = new Map<channel.Key, DataType>();
   private readonly live = new Map<channel.Key, Live>();
-  // newest holds the newest raw block of each channel that holds samples.
+  // newest holds the newest raw block that held samples of each channel. A block that
+  // leaves stays its newest, until the channel's data type changes.
   private readonly newest = new Map<channel.Key, number>();
   // epochs counts the changes to the series of each channel's raw blocks.
   private readonly epochs = new Map<channel.Key, number>();
@@ -188,8 +189,10 @@ export class Store {
    * block never expires, nor does a sealed block that history signals keep valid.
    */
   expired(block: Block): boolean {
-    if (block.held || this.signaled(block)) return false;
-    return !this.now().span(block.fetchedAt).lessThan(this.staleThreshold);
+    if (block.held) return false;
+    const age = this.now().valueOf() - block.fetchedAt.valueOf();
+    if ((age < 0n ? -age : age) < this.staleThreshold.valueOf()) return false;
+    return !this.signaled(block);
   }
 
   // A sealed block fetched while the stream carried the history signals stays valid

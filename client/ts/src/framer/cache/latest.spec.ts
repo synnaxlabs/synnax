@@ -346,6 +346,38 @@ describe("Latest", () => {
     }
   });
 
+  it("should keep serving a buffer it served after the buffer closes", async () => {
+    const core = createCore(true);
+    const { open, close } = createLatest(core);
+    const key = core.virtual!.key;
+    // 10,000 text samples make a 400 KB buffer, which a few entries leave nearly empty.
+    const latest = open(10_000, undefined, key);
+    const entry = (i: number): Series =>
+      new Series({
+        data: [`entry ${i}`],
+        dataType: DataType.STRING,
+        alignment: BigInt(i),
+        timeRange: new TimeRange(
+          START.add(TimeSpan.seconds(i)),
+          START.add(TimeSpan.seconds(i + 1)),
+        ),
+      });
+    try {
+      await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+      core.stream(new Frame(key, entry(0)));
+      core.stream(new Frame(key, entry(1)));
+      await expect.poll(() => latest.value().series.length, POLL).toBe(2);
+      const served = latest.value().series.series[1];
+      // A gap in the alignments closes the buffer.
+      core.stream(new Frame(key, entry(5)));
+      await expect.poll(() => latest.value().series.length, POLL).toBe(3);
+      expect(latest.value().series.series[1]).toBe(served);
+    } finally {
+      latest.close();
+      await close();
+    }
+  });
+
   it("should end the load's wait for the stream's ack on close", async () => {
     const core = createCore();
     const { streamer, open, close } = createLatest(core);

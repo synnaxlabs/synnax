@@ -23,12 +23,14 @@ import { tileRange } from "@/framer/cache/grid";
 import { type Store } from "@/framer/cache/store";
 
 // A run of a streamed index series' samples that falls in one raw block. The offset is
-// the block offset of the run's first sample, or null when the block held the run.
+// the block offset of the run's first sample. The samples from fresh on are new to the
+// block.
 interface Run {
   from: number;
   to: number;
   block: number;
-  offset: number | null;
+  offset: number;
+  fresh: number;
 }
 
 // A streamed index series and the blocks its samples went into.
@@ -67,12 +69,13 @@ class Member {
   from: number | null = null;
   // fresh is true from a landing until the member places a streamed sample.
   fresh = false;
-  // wait numbers the member's waits, so a landing knows the wait its read began in.
-  wait = 0;
 
   constructor(
     readonly key: channel.Key,
     readonly join: Join,
+    // wait numbers the member's wait among the waits of every member, so a landing
+    // knows the wait its read began in.
+    public wait: number,
   ) {}
 
   take(): Series[] {
@@ -92,8 +95,11 @@ class Join {
   private recent: Mapped[] = [];
   private last: Series | null = null;
 
-  constructor(readonly index: channel.Key) {
-    this.indexMember = new Member(index, this);
+  constructor(
+    readonly index: channel.Key,
+    wait: number,
+  ) {
+    this.indexMember = new Member(index, this, wait);
     this.members.set(index, this.indexMember);
   }
 
@@ -150,6 +156,7 @@ export class Joins {
   private readonly joins = new Map<channel.Key, Join>();
   private readonly members = new Map<channel.Key, Member>();
   private readonly waits = new Set<channel.Key>();
+  private lastWait = 0;
 
   constructor(private readonly store: Store) {}
 
@@ -160,7 +167,7 @@ export class Joins {
   join(ch: channel.Key, index: channel.Key): void {
     let j = this.joins.get(index);
     if (j == null) {
-      j = new Join(index);
+      j = new Join(index, ++this.lastWait);
       this.joins.set(index, j);
     }
     this.addMember(j, index);
@@ -323,7 +330,7 @@ export class Joins {
   private addMember(j: Join, ch: channel.Key): void {
     let m = j.members.get(ch);
     if (m == null) {
-      m = new Member(ch, j);
+      m = new Member(ch, j, ++this.lastWait);
       j.members.set(ch, m);
     }
     this.members.set(ch, m);
@@ -355,7 +362,7 @@ export class Joins {
 
   private unjoin(m: Member): void {
     m.joined = false;
-    m.wait++;
+    m.wait = ++this.lastWait;
     const open = this.store.open(m.key);
     if (open?.joined !== true) return;
     m.from = Math.min(m.from ?? open.index, open.index);
@@ -377,16 +384,16 @@ export class Joins {
         continue;
       }
       const runs = this.runs(j.index, s);
-      const fresh = runs.filter((r): r is Run & { offset: number } => r.offset != null);
+      const fresh = runs.filter((r) => r.fresh < r.to);
       if (fresh.length > 0 && this.store.retainDataType(j.index, s.dataType)) {
         this.waitJoin(j);
         im.hold(s);
         continue;
       }
-      for (const { from, to, block, offset } of fresh)
+      for (const { from, fresh: at, to, block, offset } of fresh)
         this.store.append(
           this.store.raw(j.index, block),
-          piece(s, from, to, s, from, block, offset),
+          piece(s, at, to, s, at, block, offset + at - from),
         );
       if (fresh.length > 0) im.fresh = false;
       j.remember({ series: s, runs });
@@ -401,11 +408,15 @@ export class Joins {
       const b = rawIndex(new TimeStamp(s.data[lo]));
       const end = tileRange({ level: RAW_LEVEL, index: b }).end.valueOf();
       const hi = search(s, end, lo);
-      const block = this.store.raw(index, b);
-      const fresh = Math.max(lo, search(s, newestEnd(block), lo));
-      if (fresh > lo) runs.push({ from: lo, to: fresh, block: b, offset: null });
-      if (fresh < hi)
-        runs.push({ from: fresh, to: hi, block: b, offset: block.coveredCount });
+      const newest = newestOf(this.store.raw(index, b));
+      const fresh = Math.max(lo, search(s, newest.end, lo));
+      runs.push({
+        from: lo,
+        to: hi,
+        block: b,
+        offset: newest.count - fresh + lo,
+        fresh,
+      });
       lo = hi;
     }
     return runs;
@@ -445,7 +456,7 @@ export class Joins {
     const end = pos + s.length;
     const pieces: Array<{ block: RawBlock; p: Series }> = [];
     for (const run of runs) {
-      if (run.to <= pos || run.from >= end || run.offset == null) continue;
+      if (run.to <= pos || run.from >= end) continue;
       const block = this.store.raw(m.key, run.block);
       let from = Math.max(run.from, pos);
       const to = Math.min(run.to, end);
@@ -472,13 +483,17 @@ export class Joins {
   }
 }
 
-// Returns the end of the span of the newest sample of an index channel's block, or the
-// block's start when it holds none.
-const newestEnd = (block: RawBlock): bigint => {
+// Returns the end of the span of the newest sample of an index channel's block, and the
+// block offset after it. A block that holds none gives its start and offset 0.
+const newestOf = (block: RawBlock): { end: bigint; count: number } => {
   const live = block.buffer?.leadingBuffer;
   const newest = live != null && live.length > 0 ? live : block.fetched.at(-1);
-  if (newest == null || newest.length === 0) return block.range.start.valueOf();
-  return BigInt(newest.data[newest.length - 1]) + 1n;
+  if (newest == null || newest.length === 0)
+    return { end: block.range.start.valueOf(), count: 0 };
+  return {
+    end: BigInt(newest.data[newest.length - 1]) + 1n,
+    count: offsetOf(newest.alignment) + newest.length,
+  };
 };
 
 // Returns the samples [from, to) of the series with block alignment and the time range

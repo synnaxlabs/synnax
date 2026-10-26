@@ -27,7 +27,7 @@ import { RAW_LEVEL, rawIndex } from "@/framer/cache/block";
 import { indexes, tileRange } from "@/framer/cache/grid";
 import { Reader, type ReaderProps } from "@/framer/cache/reader";
 import { Store } from "@/framer/cache/store";
-import { type Frame } from "@/framer/frame";
+import { Frame } from "@/framer/frame";
 import { createTestClient, SyntheticCore } from "@/testutil";
 
 const blockRange = (index: number): TimeRange => tileRange({ level: RAW_LEVEL, index });
@@ -211,6 +211,21 @@ describe("Reader", () => {
       core.advance(TimeSpan.minutes(1));
       expect(await read(tr, 2)).toHaveLength(66);
       expect(fetches).toHaveLength(2);
+    });
+  });
+
+  describe("catch-up", () => {
+    it("should cover a channel up to its own newest sample", async () => {
+      const { reader, store } = createReader({
+        elapsed: 20,
+        // The Core committed the index two samples past its data channel.
+        answer: (frame) =>
+          new Frame(frame.map((k, s) => [k, k === 2 ? s.slice(0, s.length - 2) : s])),
+      });
+      await Promise.all([reader.catchUp(1, 100), reader.catchUp(2, 100)]);
+      expect(store.raw(1, 100).coveredCount).toBe(20);
+      expect(store.raw(2, 100).coveredCount).toBe(18);
+      expect(store.raw(2, 100).coveredEnd).toEqual(at(17).add(1));
     });
   });
 
@@ -403,6 +418,20 @@ describe("Reader", () => {
         blockAlignment(100, 30),
       ]);
       expect(res.series[0]).toBe(first.series[0]);
+    });
+
+    it("should leave out samples the Core answers before their index", async () => {
+      const { read } = createReader({
+        // The Core committed the data channel two samples past its index.
+        answer: (frame) =>
+          new Frame(frame.map((k, s) => [k, k === 1 ? s.slice(0, s.length - 2) : s])),
+      });
+      const tr = new TimeRange(at(0), at(10));
+      const [index, data] = await Promise.all([read(tr, 1), read(tr, 2)]);
+      expect(data.length).toBe(64);
+      expect(data.series.map((s) => s.alignmentBounds)).toEqual(
+        index.series.map((s) => s.alignmentBounds),
+      );
     });
 
     it("should align a channel's tail with the tail of its index", async () => {

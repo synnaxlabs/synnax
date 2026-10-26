@@ -195,11 +195,11 @@ describe("block", () => {
       expect(part.series[0].buffer).toBe(values.buffer);
     });
 
-    it("should throw when a sample has no index sample of its Core alignment", () => {
+    it("should leave out samples with no index sample of their Core alignment", () => {
       const ts = createIndex(500n, 1, 2);
-      const split_ = () => split([ts], [createValues(501n, [1, 2])]);
-      expect(split_).toThrow(UnexpectedError);
-      expect(split_).toThrow("no index samples share alignment 501");
+      const [part] = split([ts], [createValues(501n, [1, 2])]).values();
+      expect(part.series.map((s) => Array.from(s))).toEqual([[1]]);
+      expect(part.series[0].alignment).toBe(501n);
     });
   });
 
