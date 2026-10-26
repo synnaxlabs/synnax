@@ -51,6 +51,7 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
+      actionlint: ${{ steps.filter.outputs.actionlint }}
       alamos_go: ${{ steps.filter.outputs.alamos_go }}
       alamos_py: ${{ steps.filter.outputs.alamos_py }}
       alamos_ts: ${{ steps.filter.outputs.alamos_ts }}
@@ -106,6 +107,11 @@ jobs:
         id: filter
         with:
           filters: .github/filters.yaml
+
+  actionlint:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.actionlint == 'true'
+    uses: ./.github/workflows/lint.actionlint.yaml
 
   alamos-go:
     needs: changes
@@ -746,6 +752,7 @@ jobs:
     name: OK
     if: always()
     needs:
+      - actionlint
       - alamos-go
       - alamos-py
       - alamos-ts
