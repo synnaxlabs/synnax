@@ -23,7 +23,7 @@ import {
   retrieveRequestZ,
   statusZ,
 } from "@/device/types.gen";
-import { type Lines, matches, serverComputed } from "@/device/where.gen";
+import { matches, serverComputed } from "@/device/where.gen";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { type status } from "@/status";
@@ -54,14 +54,7 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
-const keysRequest = (keys: Key[]): RetrieveRequest => ({
-  where: { key: { in: keys } },
-});
-
-const retrieveMultiParamsZ = z.union([
-  keyZ.array().transform(keysRequest),
-  retrieveRequestZ,
-]);
+const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
 
 const retrieveResZ = <
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
@@ -88,7 +81,7 @@ export type RetrieveMultipleParams = RetrieveRequest;
 
 const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
 
-export type RetrieveParams = z.input<typeof retrieveParamsZ>;
+export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
 type SingleQuery = { key: Key; includeStatus?: boolean };
 
@@ -100,8 +93,6 @@ type RetrieveSchemas<
 
 /** Query fields only the server can evaluate. */
 const SERVER_FIELDS = ["searchTerm", "limit", "offset", "includeParent"] as const;
-
-const LINES: Lines = {};
 
 /** Drops includeStatus when unset so equivalent queries hash identically. */
 const normalizeSingle = ({ key, includeStatus }: RetrieveSingleParams): SingleQuery =>
@@ -156,7 +147,7 @@ export class Client extends query.Retriever<
     // storing two copies of the statuses in the store.
     const store = cache.createTable<Key, Omit<Device, "status">>({
       name: "devices",
-      fetch: async (keys) => await this.fetchThrough(keysRequest(keys)),
+      fetch: async (keys) => await this.fetchThrough(query.keysRequest(keys)),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, genericDeviceZ, {
           value: ({ status: _, ...device }) => device,
@@ -188,8 +179,8 @@ export class Client extends query.Retriever<
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => (await this.fetchThrough(req)).map(stripStatus),
-        matches: (d, req) => matches(LINES, d, req.where ?? {}),
-        serverComputed: (req) => req.where != null && serverComputed(LINES, req.where),
+        matches: (d, req) => matches(d, req.where),
+        serverComputed: (req) => serverComputed(req.where),
         serverFields: SERVER_FIELDS,
         watch: [
           query.watch(statusStore, (event, q: RetrieveRequest) => {

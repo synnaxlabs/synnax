@@ -335,7 +335,7 @@ export class Client extends query.Retriever<
       name: "channels",
       equal: (a, b) => deep.equal(a.payload, b.payload),
       fetch: async (keys) =>
-        (await this.execRetrieve({ where: { key: { in: keys } } })).map((p) =>
+        (await this.execRetrieve(query.keysRequest(keys))).map((p) =>
           sugar(stripComposed(p)),
         ),
       listen: [
@@ -378,9 +378,8 @@ export class Client extends query.Retriever<
       request: {
         schema: retrieveMultipleParamsZ,
         fetch: async (query) => await this.fetchRequest(query),
-        matches: (ch, query) => matches(LINES, ch, query.where ?? {}),
-        serverComputed: (query) =>
-          query.where != null && serverComputed(LINES, query.where),
+        matches: (ch, query) => matches(LINES, ch, query.where),
+        serverComputed: (query) => serverComputed(LINES, query.where),
         watch: [
           query.watch(aliasStore, (event, query: RetrieveMultipleParams) => {
             if (query.rangeKey == null) return null;
