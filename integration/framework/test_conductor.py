@@ -277,6 +277,7 @@ class TestConductor:
                 "ended_at": _iso(t.ended_at),
                 "duration_s": _duration(t.started_at, t.ended_at),
                 "error_message": t.error_message,
+                "skip_reason": t.skip_reason,
                 "bundle_dir": (
                     os.path.relpath(t.bundle_dir, str(self.run_dir))
                     if t.bundle_dir
@@ -302,6 +303,7 @@ class TestConductor:
                         "passed",
                         "failed",
                         "flaky",
+                        "skipped",
                         "timeout",
                         "killed",
                     )
@@ -341,7 +343,7 @@ The layout and inspection workflow are identical between local dev and CI.
    This is the LLM-friendly entry point. Read it first.
 2. **Cross-reference `summary.json`** for run-level stats and per-test paths.
    ```bash
-   jq '.tests[] | select(.status != "PASSED" and .status != "FLAKY")' summary.json
+   jq '.tests[] | select(.status | IN("FAILED", "TIMEOUT", "KILLED"))' summary.json
    ```
 3. **Drill into `tests/<name>/`** for the raw artifacts behind a section:
    - `trace.zip` -> full Playwright trace (only on FAILED/TIMEOUT/KILLED)

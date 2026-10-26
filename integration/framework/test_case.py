@@ -36,6 +36,11 @@ from framework.writer import Writer
 from x import validate_and_sanitize_name
 
 
+class Skip(BaseException):
+    """Raised by TestCase.skip. It is not an Exception, so a test's own `except
+    Exception` cannot swallow it."""
+
+
 def _numeric(value: int | float | str) -> float:
     """:raises TypeError: If value comes from a string channel."""
     if isinstance(value, str):
@@ -96,6 +101,7 @@ class TestCase(ABC):
         self._status: STATUS = STATUS.INITIALIZING
         self._error_message: str | None = None
         self._error_traceback: str | None = None
+        self.skip_reason: str | None = None
 
         # Cache channel name strings
         self._ch_time = f"{self.name}_time"
@@ -125,7 +131,6 @@ class TestCase(ABC):
             log=self.log,
             set_failed=lambda: setattr(self, "STATUS", STATUS.FAILED),
         )
-        self._auto_pass: bool = False
         self._should_stop = False
         self.is_running = True
 
@@ -211,6 +216,8 @@ class TestCase(ABC):
 
         if self._status == STATUS.PASSED:
             self.log(f"PASSED ({status_symbol})")
+        elif self._status == STATUS.SKIPPED:
+            self.log(f"SKIPPED ({status_symbol}): {self.skip_reason}")
         elif self._status == STATUS.FAILED:
             self.log(f"FAILED ({status_symbol})")
         elif self._status == STATUS.KILLED:
@@ -258,10 +265,13 @@ class TestCase(ABC):
     def setup(self) -> None:
         """Load configs, add channels, subscribe to channels, etc."""
 
-    def auto_pass(self, msg: str) -> None:
-        """Set the auto pass flag. Include reason for passing."""
-        self.log(f"AUTO PASS Enabled: {msg}")
-        self._auto_pass = True
+    def skip(self, reason: str) -> NoReturn:
+        """Stop the test and mark it SKIPPED, such as when the host lacks the
+        platform or hardware the test needs. Teardown still runs.
+
+        :param reason: Why the test cannot run here. The summary shows it.
+        """
+        raise Skip(reason)
 
     @abstractmethod
     def run(self) -> None:
@@ -600,8 +610,7 @@ class TestCase(ABC):
             self._start_client_threads()
 
             self.STATUS = STATUS.RUNNING
-            if not self._auto_pass:
-                self.run()
+            self.run()
             log_phase("run")
 
             # Set to PENDING only if not in final state
@@ -610,6 +619,9 @@ class TestCase(ABC):
 
             # PASSED set in _check_expectation()
 
+        except Skip as e:
+            self.skip_reason = str(e)
+            self.STATUS = STATUS.SKIPPED
         except Exception as e:
             tb = traceback.format_exc()
             self.STATUS = STATUS.FAILED

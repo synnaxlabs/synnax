@@ -14,13 +14,15 @@ import synnax as sy
 
 
 class STATUS(Enum):
-    """Enum representing the status of a test."""
+    """Enum representing the status of a test. A test only moves to a later status."""
 
     INITIALIZING = auto()
     RUNNING = auto()
     PENDING = auto()
     PASSED = auto()
     FLAKY = auto()
+    # Neither passes nor fails the run. A later failure, such as in teardown, wins.
+    SKIPPED = auto()
     FAILED = auto()
     TIMEOUT = auto()
     KILLED = auto()
@@ -29,6 +31,7 @@ class STATUS(Enum):
 class SYMBOLS(Enum):
     PASSED = "\u2705"
     FLAKY = "\u26a0\ufe0f"
+    SKIPPED = "\u23ed\ufe0f"
     FAILED = "\u274c"
     KILLED = "\U0001f480"
     TIMEOUT = "\u23f0"
@@ -77,6 +80,7 @@ class Test:
     name: str | None = None
     error_message: str | None = None
     error_traceback: str | None = None
+    skip_reason: str | None = None
     range: sy.Range | None = None
     # Unix-timestamp seconds bounding the test's wall-clock execution. Populated
     # by ExecutionClient; used by summary.json and by per-test server-log slicing.

@@ -126,11 +126,10 @@ class ReadTaskConsoleVerify(ConsoleCase):
             self.requires_platform is not None
             and platform.system().lower() != self.requires_platform
         ):
-            self.auto_pass(
-                msg=f"Requires {self.requires_platform}, "
+            self.skip(
+                f"Requires {self.requires_platform}, "
                 f"running on {platform.system().lower()}"
             )
-            return
         super().setup()
 
     def run(self) -> None:
