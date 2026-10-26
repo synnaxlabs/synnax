@@ -50,7 +50,8 @@ const START = TimeStamp.seconds(1_000_000);
 const NOW = START.add(TimeSpan.minutes(10));
 // The newest sample the Core holds at NOW.
 const NEWEST = 59_999;
-const HOME = new TimeRange(START, NOW);
+// A historical window: it ends before the samples the Core can still commit.
+const HOME = new TimeRange(START, NOW.sub(TimeSpan.seconds(2)));
 const POLL = { timeout: 5000, interval: 5 };
 const BREAKER: breaker.Config = {
   baseInterval: TimeSpan.milliseconds(10),
@@ -307,9 +308,9 @@ describe("remote", () => {
       expect(series.length / 2).toBeGreaterThan(900);
       expect(series.length / 2).toBeLessThan(1100);
       expect(series.series[0].timeRange.start).toEqual(START);
-      expect(series.series.at(-1)?.timeRange.end.afterEq(NOW.sub(RATE.period))).toBe(
-        true,
-      );
+      expect(
+        series.series.at(-1)?.timeRange.end.afterEq(HOME.end.sub(RATE.period)),
+      ).toBe(true);
       expect(reductions.every((r) => r?.variant === "limit")).toBe(true);
     });
 
