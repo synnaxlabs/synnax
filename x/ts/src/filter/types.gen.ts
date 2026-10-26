@@ -14,7 +14,7 @@ import { z } from "zod";
 import { zod } from "@/zod";
 
 /** String selects string values. A value must match every operator that is set. */
-export const stringZ = z.object({
+export const stringZ = z.strictObject({
   /** eq matches a value equal to eq. */
   eq: z.string().optional(),
   /** in matches a value equal to an element of in. */
@@ -25,21 +25,21 @@ export const stringZ = z.object({
 export interface String extends z.infer<typeof stringZ> {}
 
 /** Bool selects boolean values. */
-export const boolZ = z.object({
+export const boolZ = z.strictObject({
   /** eq matches a value equal to eq. */
   eq: z.boolean().optional(),
 });
 export interface Bool extends z.infer<typeof boolZ> {}
 
 export const setZ = <T extends z.ZodType>(t: T) =>
-  z.object({
+  z.strictObject({
     eq: t.optional(),
     in: zod.nullToUndefined(t.array()),
   });
 export type Set<T extends z.ZodType> = z.infer<ReturnType<typeof setZ<T>>>;
 
 export const orderedZ = <T extends z.ZodType>(t: T) =>
-  z.object({
+  z.strictObject({
     eq: t.optional(),
     in: zod.nullToUndefined(t.array()),
     gt: t.optional(),
@@ -50,7 +50,7 @@ export const orderedZ = <T extends z.ZodType>(t: T) =>
 export type Ordered<T extends z.ZodType> = z.infer<ReturnType<typeof orderedZ<T>>>;
 
 export const containsZ = <T extends z.ZodType>(t: T) =>
-  z.object({
+  z.strictObject({
     any: zod.nullToUndefined(t.array()),
   });
 export type Contains<T extends z.ZodType> = z.infer<ReturnType<typeof containsZ<T>>>;

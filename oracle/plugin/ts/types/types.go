@@ -694,25 +694,6 @@ func (p *Plugin) typeDefBaseToTS(
 	return p.typeRefToTS(typeRef, data.Request.Resolutions, data, false)
 }
 
-// filterRequestTypes returns the qualified names of the types a filter request holds:
-// each filter, its derived request, and the operators of its bare lines.
-func filterRequestTypes(table *resolution.Table) set.Set[string] {
-	names := make(set.Set[string])
-	for _, typ := range table.StructTypes() {
-		if typ.Filter == nil {
-			continue
-		}
-		names.Add(typ.QualifiedName, typ.Filter.Request)
-		form := typ.Form.(resolution.StructForm)
-		for _, line := range typ.Filter.Lines {
-			if !line.HasType() {
-				names.Add(lo.Must(form.Field(line.Name)).Type.Name)
-			}
-		}
-	}
-	return names
-}
-
 // filterRequests returns the qualified names of the requests derived from filters.
 func filterRequests(table *resolution.Table) set.Set[string] {
 	names := make(set.Set[string])
@@ -838,19 +819,9 @@ func (p *Plugin) processStruct(
 		// z.ZodType, which has no .extend. Their inference cycles are broken
 		// by annotated forward-reference getters instead.
 		IsRecursive: form.IsRecursive && !isExtendBase(entry, table),
-		Strict:      filterRequestTypes(table).Contains(entry.QualifiedName),
-	}
-	// Callers build a request, so its type leaves defaulted fields optional. It is a
-	// type alias, since query caches key on it and an interface has no index signature.
-	if filterRequests(table).Contains(entry.QualifiedName) {
-		for _, f := range form.Fields {
-			if f.Default != nil {
-				sd.DefaultedFields = append(sd.DefaultedFields, FieldName(f.Name))
-			}
-		}
-		if len(sd.DefaultedFields) > 0 {
-			addXImport(data, xImport{name: "optional", submodule: "optional"})
-		}
+		Strict:      resolution.InFilterRequest(entry, table),
+		// Query caches key on a request, and an interface has no index signature.
+		TypeAlias: filterRequests(table).Contains(entry.QualifiedName),
 	}
 	if tsDomain, ok := entry.Domains["ts"]; ok {
 		for _, expr := range tsDomain.Expressions {
@@ -1121,6 +1092,12 @@ func (p *Plugin) processStruct(
 	}
 
 	for _, field := range allFields {
+		// The Core fills a request's defaults, so a client leaves them out. A schema
+		// default would make a request with every default look like one that sets them.
+		if sd.TypeAlias && field.Default != nil {
+			field.Default = nil
+			field.Optional = true
+		}
 		fd := p.processField(field, entry, table, data, sd.ConcreteTypes)
 		sd.Fields = append(sd.Fields, fd)
 
@@ -3122,9 +3099,9 @@ type structData struct {
 	ExtendFields      []fieldData
 	PartialFields     []fieldData
 	OmittedFields     []string
-	// DefaultedFields names the fields that an optional.Optional wrapper of the output
-	// type leaves optional.
-	DefaultedFields []string
+	// TypeAlias is true when the type is a type alias of the schema's output instead
+	// of an interface.
+	TypeAlias bool
 	// ConditionalOmittedFields names the conditional (type-param-typed) base fields a
 	// synthesized @create New strips from its inner optional.Optional base before
 	// re-appending them as z.input conditionals. The New's template wraps the base in
@@ -3607,11 +3584,8 @@ export const {{ camelCase .TSName }}Z = z.{{ if .Strict }}strictObject{{ else }}
 {{- end }}
 });
 {{- if $.GenerateTypes }}
-{{- if .DefaultedFields }}
-export type {{ .TSName }} = optional.Optional<
-  z.infer<typeof {{ camelCase .TSName }}Z>,
-  {{ range $i, $f := .DefaultedFields }}{{ if $i }} | {{ end }}"{{ $f }}"{{ end }}
->;
+{{- if .TypeAlias }}
+export type {{ .TSName }} = z.infer<typeof {{ camelCase .TSName }}Z>;
 {{- else }}
 export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{{ end }}<typeof {{ camelCase .TSName }}Z> {}
 {{- end }}

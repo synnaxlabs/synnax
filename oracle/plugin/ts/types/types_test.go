@@ -76,27 +76,34 @@ var _ = Describe("TS Types Plugin", func() {
 			ExpectContent(resp, "thing/types.gen.ts").
 				ToContain("export const retrieveRequestZ = z.strictObject({").
 				ToNotContain("thingZ = z.strictObject", "retrieveResponseZ = z.strictObject")
-			ExpectContent(resp, "filter/types.gen.ts").
-				ToContain(
-					"export const stringZ = z.strictObject({",
-					"export const setZ = <T extends z.ZodType>(t: T) =>\n  z.strictObject({",
-				).
-				ToNotContain("boolZ = z.strictObject")
 		})
 
-		It("Should leave the defaulted fields of a filter request optional", func(
+		It("Should make every operator type strict, used or not", func(
+			ctx SpecContext,
+		) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
+			ExpectContent(resp, "filter/types.gen.ts").ToContain(
+				"export const stringZ = z.strictObject({",
+				"export const boolZ = z.strictObject({",
+				"export const setZ = <T extends z.ZodType>(t: T) =>\n  z.strictObject({",
+				"export const orderedZ = <T extends z.ZodType>(t: T) =>\n  z.strictObject({",
+				"export const containsZ = <T extends z.ZodType>(t: T) =>\n  z.strictObject({",
+			)
+		})
+
+		It("Should leave the defaulted fields of a filter request to the Core", func(
 			ctx SpecContext,
 		) {
 			AddFilterSchema(loader)
 			resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
 			ExpectContent(resp, "thing/types.gen.ts").
 				ToContain(
-					"offset: z.uint32().default(0),",
-					"import { filter, optional, zod } from \"@synnaxlabs/x\";",
-					"export type RetrieveRequest = optional.Optional<\n"+
-						"  z.infer<typeof retrieveRequestZ>,\n",
+					"offset: z.uint32().optional(),",
+					"export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;",
 					"export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}",
-				)
+				).
+				ToNotContain(".default(0)", "optional.Optional")
 		})
 
 		Context("field-level omit", func() {
