@@ -100,9 +100,10 @@ var _ = Describe("DecodeImExEnvelope", func() {
 				HaveKeyWithValue("variant", "warning"),
 				HaveKeyWithValue("message", "hi"),
 			))
-			// The CRDT document is seeded by the writer, so decode carries the raw
-			// source alone.
-			Expect(a.Text.Raw).To(Equal("a = b"))
+			// Console-era text lifts through the bracket swap, which seeds the
+			// document.
+			Expect(a.Text.Materialize().Raw).To(Equal("a = b"))
+			Expect(a.Text.Raw).To(BeEmpty())
 		},
 	)
 
@@ -135,6 +136,30 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(a.Mode).To(Equal(versions.ModeText))
 		Expect(a.Text.Materialize().Raw).To(BeEmpty())
 		Expect(a.Graph.Nodes).To(BeEmpty())
+	})
+
+	It("Should rewrite the text of a Console export written before the swap", func(
+		ctx SpecContext,
+	) {
+		a := decode(ctx, "testdata/import_console_v0_text_source.json")
+		Expect(a.Mode).To(Equal(versions.ModeText))
+		Expect(a.Text.Materialize().Raw).To(Equal("sensor -> scale(factor=2.0) -> out"))
+	})
+
+	It("Should rewrite the text of a v3 export", func(ctx SpecContext) {
+		a := decode(ctx, "testdata/import_v3_text.json")
+		Expect(a.Mode).To(Equal(versions.ModeText))
+		Expect(a.Text.Materialize().Raw).To(Equal("sensor -> scale(factor=2.0) -> out"))
+		Expect(a.Text.Raw).To(BeEmpty())
+	})
+
+	// The writer seeds the document of a current export, so decode carries the raw
+	// source alone.
+	It("Should decode a v4 export as written", func(ctx SpecContext) {
+		a := decode(ctx, "testdata/import_v4.json")
+		Expect(a.Mode).To(Equal(versions.ModeText))
+		Expect(a.Text.Raw).To(Equal("sensor -> scale(factor=2.0) -> out"))
+		Expect(a.Text.Doc.Inserts).To(BeEmpty())
 	})
 
 	It("Should lift the Console state that added graph selection", func(

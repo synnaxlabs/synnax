@@ -135,8 +135,8 @@ func (e *editor) apply() string {
 }
 
 // isCallBrace reports whether the brace at i opens the input values of a flow call: it
-// follows a name that is not a stage or sequence name. `stable.for` is the one dotted
-// name whose last segment lexes as a keyword.
+// follows a name that is not being declared as a function, stage or sequence.
+// `stable.for` is the one dotted name whose last segment lexes as a keyword.
 func isCallBrace(tokens []antlr.Token, i int) bool {
 	if i < 1 {
 		return false
@@ -146,8 +146,11 @@ func isCallBrace(tokens []antlr.Token, i int) bool {
 		if i < 2 {
 			return true
 		}
-		before := tokens[i-2].GetTokenType()
-		return before != parser.ArcLexerSTAGE && before != parser.ArcLexerSEQUENCE
+		switch tokens[i-2].GetTokenType() {
+		case parser.ArcLexerFUNC, parser.ArcLexerSTAGE, parser.ArcLexerSEQUENCE:
+			return false
+		}
+		return true
 	case parser.ArcLexerFOR:
 		return i >= 2 && tokens[i-2].GetTokenType() == parser.ArcLexerDOT
 	}
