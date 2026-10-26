@@ -24,6 +24,8 @@ def gate(client: Client) -> Gate:
 
 
 class TestGate:
+    """Tests for fanning the GitHub gate out to each runner."""
+
     def test_should_fan_out_once_per_change(self, client: Client) -> None:
         g = gate(client)
         g.step({RUNNER})

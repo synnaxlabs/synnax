@@ -13,6 +13,8 @@ from registry import RunnerRegistry, known_runners
 
 
 class TestRunnerRegistry:
+    """Tests for the persisted runner names."""
+
     def test_should_persist_names_across_instances(self, tmp_path: Path) -> None:
         path = tmp_path / "registry.json"
         RunnerRegistry(path).add({"a", "b"})

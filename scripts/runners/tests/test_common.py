@@ -13,6 +13,8 @@ from common import instance_for, instance_prefix
 
 
 class TestInstanceFor:
+    """Tests for matching a runner to its EC2 instance."""
+
     def test_should_return_the_instance_the_suffix_names(self) -> None:
         found: dict[str, dict] = {"i-0f44aa": {}, "i-0b12cc": {}}
         assert instance_for("ubuntu-build-bot-i-0f44", found) == "i-0f44aa"

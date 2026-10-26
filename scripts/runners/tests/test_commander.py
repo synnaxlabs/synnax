@@ -26,6 +26,8 @@ def commander(client: Client) -> Commander:
 
 
 class TestCommander:
+    """Tests for writing a command to a runner and logging it."""
+
     def test_should_write_and_record_a_command(self, client: Client) -> None:
         c = commander(client)
         now = sy.TimeStamp.now()

@@ -49,6 +49,8 @@ def signed(body: bytes) -> dict[str, str]:
 
 
 class TestWebhook:
+    """Tests for the GitHub webhook receiver."""
+
     def test_should_queue_signed_deliveries(self, hook: Webhook) -> None:
         body = json.dumps({"action": "queued"}).encode()
         assert post(hook, body, signed(body)) == 204

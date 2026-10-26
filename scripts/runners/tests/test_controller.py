@@ -19,6 +19,8 @@ from subscription import Subscription
 
 
 class TestWaitForCmds:
+    """Tests for reading the switches between polls."""
+
     def test_should_read_switches_when_no_time_remains(self, client: Client) -> None:
         channels = Channels(core(client), False)
         scaler = Scaler(

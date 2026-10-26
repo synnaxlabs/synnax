@@ -59,6 +59,8 @@ def jobs(github: GitHub, client: Client) -> Jobs:
 
 
 class TestJobs:
+    """Tests for the job queue built from deliveries and runs."""
+
     def test_should_count_queued_deliveries_per_pool(self, client: Client) -> None:
         j = jobs(Responses({}), client)
         j.apply(

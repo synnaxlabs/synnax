@@ -40,6 +40,8 @@ def started(client: Client) -> list[str]:
 
 
 class TestPools:
+    """Tests for mapping runner labels to pools."""
+
     def test_should_map_runner_labels_to_a_pool(self) -> None:
         assert pool_of({"self-hosted", "Linux", POOL}) == POOL
         assert pool_of({"self-hosted", "Linux"}) is None
@@ -50,6 +52,8 @@ class TestPools:
 
 
 class TestScaler:
+    """Tests for starting and stopping instances to meet demand."""
+
     def test_should_start_one_instance_per_queued_job(self, client: Client) -> None:
         s = scaler(client)
         found = {"i-0aaa": instance("stopped"), "i-0bbb": instance("stopped")}
