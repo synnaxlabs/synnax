@@ -170,6 +170,7 @@ class Synnax(framer.Client):
             ch_retriever,
             ch_creator,
             lambda rng, keys: AliasClient(rng, self._transport.unary).retrieve(keys),
+            lambda rng, term: AliasClient(rng, self._transport.unary).search(term),
         )
         range_retriever = RangeRetriever(self._transport.unary, instrumentation)
         range_creator = ranger.Writer(self._transport.unary, instrumentation)

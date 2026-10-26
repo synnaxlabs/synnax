@@ -725,20 +725,52 @@ export class Client extends query.Retriever<
     rangeKey,
     ...req
   }: RetrieveMultipleParams): Promise<Channel[]> {
-    let channels: Channel[] | null = null;
-    const keys = onlyIn(req, "key");
-    const names = onlyIn(req, "name");
-    if (keys != null) channels = await this.store.retrieve(keys as Key[]);
-    else if (names != null) channels = await this.resolveNames(names as string[]);
-    channels ??= (await this.execRetrieve(req)).map((p) =>
-      this.sugar(stripComposed(p)),
+    const { searchTerm } = req;
+    const searchesAliases = rangeKey != null && searchTerm != null && searchTerm !== "";
+    const [channels, aliasMatches] = await Promise.all([
+      this.fetchChannels(req),
+      searchesAliases ? this.cfg.ranges.searchAliases(rangeKey, searchTerm) : [],
+    ]);
+    if (rangeKey == null) return channels;
+    const merged = await this.prependAliasMatches(aliasMatches, req.where, channels);
+    await this.ensureAliases(
+      rangeKey,
+      merged.map((ch) => ch.key),
     );
-    if (rangeKey != null)
-      await this.ensureAliases(
-        rangeKey,
-        channels.map((ch) => ch.key),
-      );
-    return channels;
+    return merged;
+  }
+
+  private async fetchChannels(req: RetrieveRequest): Promise<Channel[]> {
+    const keys = onlyIn(req, "key");
+    if (keys != null) return await this.store.retrieve(keys as Key[]);
+    const names = onlyIn(req, "name");
+    const resolved = names != null ? await this.resolveNames(names as string[]) : null;
+    if (resolved != null) return resolved;
+    return (await this.execRetrieve(req)).map((p) => this.sugar(stripComposed(p)));
+  }
+
+  /**
+   * @returns channels with the channels of keys in front, in key order. A key that
+   * channels does not hold must also match where.
+   */
+  private async prependAliasMatches(
+    keys: Key[],
+    where: Where | undefined,
+    channels: Channel[],
+  ): Promise<Channel[]> {
+    if (keys.length === 0) return channels;
+    const byKey = new Map(channels.map((ch) => [ch.key, ch]));
+    const missing = keys.filter((key) => !byKey.has(key));
+    if (missing.length > 0) {
+      const inMissing: Where = { key: { in: missing } };
+      const fetched = await this.execRetrieve({
+        where: where == null ? inMissing : { and: [where, inMissing] },
+      });
+      fetched.forEach((p) => byKey.set(p.key, this.sugar(stripComposed(p))));
+    }
+    const matched = keys.flatMap((key) => byKey.get(key) ?? []);
+    const matchedKeys = new Set(matched.map((ch) => ch.key));
+    return [...matched, ...channels.filter((ch) => !matchedKeys.has(ch.key))];
   }
 }
 

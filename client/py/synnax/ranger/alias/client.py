@@ -10,7 +10,7 @@
 import uuid
 from typing import overload
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 import synnax.channel.payload as channel
 from freighter import UnaryClient
@@ -38,6 +38,15 @@ class _RetrieveRequest(BaseModel):
 
 class _RetrieveResponse(BaseModel):
     aliases: dict[channel.Key, str]
+
+
+class _SearchRequest(BaseModel):
+    range: uuid.UUID
+    term: str
+
+
+class _SearchResponse(BaseModel):
+    channels: list[channel.Key] = Field(default_factory=list)
 
 
 class _EmptyResponse(BaseModel): ...
@@ -94,6 +103,13 @@ class Client:
         return self._client.send(
             "/range/alias/retrieve", req, _RetrieveResponse
         ).aliases
+
+    def search(self, term: str) -> list[channel.Key]:
+        """Returns the channels whose alias in the range matches term, closest match
+        first. The aliases of parent ranges are not searched.
+        """
+        req = _SearchRequest(range=self._rng, term=term)
+        return self._client.send("/range/alias/search", req, _SearchResponse).channels
 
     def set(self, aliases: dict[channel.Key, str]) -> None:
         req = _SetRequest(range=self._rng, aliases=aliases)
