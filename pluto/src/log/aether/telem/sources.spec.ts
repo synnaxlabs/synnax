@@ -1045,6 +1045,40 @@ describe("StreamMultiChannelLog", () => {
       expect(log.value().map((e) => e.value)).toEqual(["a"]);
     });
 
+    it("should read the stored samples again after a failed read", async () => {
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      try {
+        c.readGate = Promise.reject(new Error("read failed"));
+        c.readGate.catch(() => {});
+        c.stored.set(IDX, new MultiSeries([times([80], 0n)]));
+        c.stored.set(DATA, new MultiSeries([strings(["x"], 0n)]));
+        const { log, statuses } = create();
+        await waitForResolve(log);
+        expect(statuses.map((s) => s.message)).toEqual(["Failed to read log channels"]);
+        c.readGate = Promise.resolve();
+        vi.advanceTimersByTime(5_000);
+        await expect.poll(() => log.value().map((e) => e.value)).toEqual(["x"]);
+        expect(c.streamF).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("should keep the stored samples of channels whose reads succeed", async () => {
+      c.stored.set(IDX, new MultiSeries([times([80], 0n)]));
+      c.stored.set(DATA, new MultiSeries([strings(["x"], 0n)]));
+      const readLatest = c.readLatest;
+      c.readLatest = async (key, n, tr) => {
+        if (key === DATA_2) throw new Error("read failed");
+        return await readLatest(key, n, tr);
+      };
+      const { log, statuses } = create({ channels: [DATA, DATA_2] });
+      await waitForResolve(log);
+      expect(log.value().map((e) => e.value)).toEqual(["x"]);
+      expect(statuses.map((s) => s.message)).toEqual(["Failed to read log channels"]);
+      log.cleanup();
+    });
+
     it("should drop a stored read that finishes after all channels are removed", async () => {
       let release = (): void => {};
       c.readGate = new Promise((resolve) => (release = resolve));
