@@ -32,7 +32,7 @@ jobs:
       - name: Build the report
         env:
           GH_TOKEN: ${{ github.token }}
-          AGENTS: ${{ vars.REPORT_AGENT_LOGINS }}
+          AGENTS: ${{ vars.AGENT_LOGINS }}
         run: |
           python3 -I .github/scripts/agent_metrics.py ${AGENTS:+--agents "$AGENTS"} \
             > "$RUNNER_TEMP/report.txt"

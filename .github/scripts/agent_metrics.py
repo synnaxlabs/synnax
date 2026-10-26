@@ -9,7 +9,7 @@
 
 """Prints a report on agent and human pull requests as Slack mrkdwn.
 
-Usage: agent_metrics.py [--days 7] [--agents synnax-claude-code,synnax-codex]
+Usage: agent_metrics.py [--days 7] [--agents '["synnax-codex[bot]"]']
 
 Reads GitHub through the gh CLI, which needs GH_TOKEN in CI.
 """
@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 REPO = "synnaxlabs/synnax"
-AGENTS = "synnax-claude-code,synnax-codex"
+AGENTS = '["synnax-claude-code[bot]", "synnax-codex[bot]"]'
 # A revert lands days after the merge, so the revert rate looks further back.
 REVERT_DAYS = 30
 # GitHub search returns no more than this many results.
@@ -205,12 +205,12 @@ def fetch_runs(since: datetime) -> list[Run]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--days", type=int, default=7)
-    parser.add_argument("--agents", default=AGENTS, help="comma-separated app slugs")
+    parser.add_argument("--agents", default=AGENTS, help="JSON array of bot logins")
     args = parser.parse_args()
     now = datetime.now(UTC).replace(microsecond=0)
     since = now - timedelta(days=args.days)
     revert_since = now - timedelta(days=REVERT_DAYS)
-    agents = frozenset(a.strip() for a in args.agents.split(",") if a.strip())
+    agents = frozenset(login({"login": a}) for a in json.loads(args.agents))
     prs = fetch_prs(min(since, revert_since))
     print(
         report(
