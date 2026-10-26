@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import json
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -93,5 +94,5 @@ def retrieve_required(r: Retriever, channels: Params) -> list[Payload]:
         found = {c.key for c in results}
     not_found: list[Key | str] = [p for p in normal.channels if p not in found]
     if len(not_found) > 0:
-        raise NotFoundError(f"Could not find channels: {not_found}")
+        raise NotFoundError(f"channels not found matching {json.dumps(not_found)}")
     return results
