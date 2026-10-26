@@ -18,6 +18,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/pb"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -111,39 +113,28 @@ func (createResponseTranslator) Backward(
 
 func (retrieveRequestTranslator) Forward(
 	_ context.Context,
-	msg arc.RetrieveRequest,
+	r arc.RetrieveRequest,
 ) (*RetrieveRequest, error) {
-	keys := lo.Map(msg.Keys, func(k arc.Key, _ int) string { return k.String() })
-	return &RetrieveRequest{
-		Keys:       keys,
-		Names:      msg.Names,
-		SearchTerm: msg.SearchTerm,
-		Limit:      int32(msg.Limit),
-		Offset:     int32(msg.Offset),
-		Compile:    msg.Compile,
-	}, nil
+	req, err := pb.RetrieveRequestToPB(r)
+	if err != nil {
+		return nil, err
+	}
+	return &RetrieveRequest{Request: req}, nil
 }
 
 func (retrieveRequestTranslator) Backward(
 	_ context.Context,
-	msg *RetrieveRequest,
+	r *RetrieveRequest,
 ) (arc.RetrieveRequest, error) {
-	keys := make([]arc.Key, 0, len(msg.Keys))
-	for _, keyStr := range msg.Keys {
-		key, err := uuid.Parse(keyStr)
-		if err != nil {
-			return arc.RetrieveRequest{}, err
-		}
-		keys = append(keys, key)
+	// A client older than the Core sends the reserved fields, which would otherwise
+	// select every Arc module.
+	if len(r.ProtoReflect().GetUnknown()) > 0 {
+		return arc.RetrieveRequest{}, errors.Wrap(
+			validate.ErrValidation,
+			"retrieve request has unknown fields",
+		)
 	}
-	return arc.RetrieveRequest{
-		Keys:       keys,
-		Names:      msg.Names,
-		SearchTerm: msg.SearchTerm,
-		Limit:      int(msg.Limit),
-		Offset:     int(msg.Offset),
-		Compile:    msg.Compile,
-	}, nil
+	return pb.RetrieveRequestFromPB(r.Request)
 }
 
 func (retrieveResponseTranslator) Forward(

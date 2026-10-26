@@ -12,6 +12,7 @@ package arc
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	arctransport "github.com/synnaxlabs/arc/lsp/transport"
 	"github.com/synnaxlabs/arc/parser"
@@ -230,85 +231,57 @@ func (s *Service) UpdateTask(
 }
 
 type (
-	RetrieveRequest struct {
-		SearchTerm          string    `json:"search_term"            msgpack:"search_term"`
-		Keys                []arc.Key `json:"keys"                   msgpack:"keys"`
-		Names               []string  `json:"names"                  msgpack:"names"`
-		Limit               int       `json:"limit"                  msgpack:"limit"`
-		Offset              int       `json:"offset"                 msgpack:"offset"`
-		Compile             bool      `json:"compile"                msgpack:"compile"`
-		IgnoreNotFoundError bool      `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
-	}
-	RetrieveResponse struct {
-		Arcs []Arc `json:"arcs" msgpack:"arcs"`
-	}
+	RetrieveRequest  = arc.RetrieveRequest
+	RetrieveResponse = arc.RetrieveResponse
+	Where            = arc.Where
 )
 
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	var arcs []arc.Arc
-	var (
-		q         = s.internal.NewRetrieve().Entries(&arcs)
-		hasKeys   = len(req.Keys) > 0
-		hasNames  = len(req.Names) > 0
-		hasSearch = req.SearchTerm != ""
-	)
-	if hasKeys {
-		q = q.Where(arc.MatchKeys(req.Keys...))
+	var res RetrieveResponse
+	q := s.internal.NewRetrieve().Entries(&res.Arcs)
+	if req.Where != nil {
+		f, err := arc.MatchWhere(*req.Where)
+		if err != nil {
+			return RetrieveResponse{}, validate.PathedError(err, "where")
+		}
+		q = q.Where(f)
 	}
-	if hasNames {
-		q = q.Where(arc.MatchNames(req.Names...))
+	if term := lo.FromPtr(req.SearchTerm); term != "" {
+		q = q.Search(term)
 	}
-	if hasSearch {
-		q = q.Search(req.SearchTerm)
+	if req.Limit != nil {
+		q = q.Limit(int(*req.Limit))
 	}
-	if req.Limit > 0 {
-		q = q.Limit(req.Limit)
+	if req.Offset != nil {
+		q = q.Offset(int(*req.Offset))
 	}
-	if req.Offset > 0 {
-		q = q.Offset(req.Offset)
-	}
-	err := q.Exec(ctx, nil)
-	if req.IgnoreNotFoundError && err != nil {
-		err = errors.Skip(err, query.ErrNotFound)
-	}
-	if err != nil {
+	// A filter is a predicate, so a key that does not exist is a non-match.
+	if err := errors.Skip(q.Exec(ctx, nil), query.ErrNotFound); err != nil {
 		return RetrieveResponse{}, err
 	}
-
-	res := RetrieveResponse{Arcs: arcs}
-
 	// Raw is derived from the replicated document and not stored, so materialize it
 	// before compilation and for clients that read the source text directly rather than
 	// reconstructing the document.
 	for i := range res.Arcs {
 		res.Arcs[i].Text = res.Arcs[i].Text.Materialize()
 	}
-
-	// Compile Arcs to modules if requested
-	if req.Compile {
-		for i := range res.Arcs {
-			if err := s.compile(ctx, &res.Arcs[i]); err != nil {
-				return RetrieveResponse{}, err
-			}
-		}
-	} else {
-		// Reset the program to zero value just in case it was there
-		for i := range res.Arcs {
+	for i := range res.Arcs {
+		if !lo.FromPtr(req.IncludeProgram) {
 			res.Arcs[i].Program = nil
+		} else if err := s.compile(ctx, &res.Arcs[i]); err != nil {
+			return RetrieveResponse{}, err
 		}
 	}
-
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: arc.OntologyIDsFromArcs(arcs),
+		Objects: arc.OntologyIDsFromArcs(res.Arcs),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
-
 	return res, nil
 }
 

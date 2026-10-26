@@ -39,6 +39,24 @@ describe("arc", () => {
         })
         .toEqual(names);
     });
+
+    it("should retrieve arcs by where", async () => {
+      const prefix = `where-arc-${id.create()}`;
+      const [a, b] = await client.arcs.create([
+        newTextArc(`${prefix}-a`),
+        newTextArc(`${prefix}-b`),
+      ]);
+      const res = await client.arcs.retrieve({
+        where: { name: { regex: `^${prefix}` }, not: { key: { eq: a.key } } },
+      });
+      expect(res.map(({ key }) => key)).toEqual([b.key]);
+    });
+
+    it("should omit missing keys", async () => {
+      const created = await client.arcs.create(newTextArc(`missing-${id.create()}`));
+      const res = await client.arcs.retrieve([created.key, uuid.create()]);
+      expect(res.map(({ key }) => key)).toEqual([created.key]);
+    });
   });
 
   // A dispatch posts its ops to the Core, and the materialized text reaches this

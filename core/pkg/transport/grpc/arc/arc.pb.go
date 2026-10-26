@@ -122,12 +122,7 @@ func (x *CreateResponse) GetArcs() []*pb.Arc {
 
 type RetrieveRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Keys          []string               `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
-	Names         []string               `protobuf:"bytes,2,rep,name=names,proto3" json:"names,omitempty"`
-	SearchTerm    string                 `protobuf:"bytes,3,opt,name=search_term,json=searchTerm,proto3" json:"search_term,omitempty"`
-	Limit         int32                  `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
-	Offset        int32                  `protobuf:"varint,5,opt,name=offset,proto3" json:"offset,omitempty"`
-	Compile       bool                   `protobuf:"varint,7,opt,name=compile,proto3" json:"compile,omitempty"`
+	Request       *pb.RetrieveRequest    `protobuf:"bytes,8,opt,name=request,proto3" json:"request,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -162,46 +157,11 @@ func (*RetrieveRequest) Descriptor() ([]byte, []int) {
 	return file_core_pkg_transport_grpc_arc_arc_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *RetrieveRequest) GetKeys() []string {
+func (x *RetrieveRequest) GetRequest() *pb.RetrieveRequest {
 	if x != nil {
-		return x.Keys
+		return x.Request
 	}
 	return nil
-}
-
-func (x *RetrieveRequest) GetNames() []string {
-	if x != nil {
-		return x.Names
-	}
-	return nil
-}
-
-func (x *RetrieveRequest) GetSearchTerm() string {
-	if x != nil {
-		return x.SearchTerm
-	}
-	return ""
-}
-
-func (x *RetrieveRequest) GetLimit() int32 {
-	if x != nil {
-		return x.Limit
-	}
-	return 0
-}
-
-func (x *RetrieveRequest) GetOffset() int32 {
-	if x != nil {
-		return x.Offset
-	}
-	return 0
-}
-
-func (x *RetrieveRequest) GetCompile() bool {
-	if x != nil {
-		return x.Compile
-	}
-	return false
 }
 
 type RetrieveResponse struct {
@@ -300,15 +260,9 @@ const file_core_pkg_transport_grpc_arc_arc_proto_rawDesc = "" +
 	"\rCreateRequest\x12'\n" +
 	"\x04arcs\x18\x01 \x03(\v2\x13.service.arc.pb.ArcR\x04arcs\"9\n" +
 	"\x0eCreateResponse\x12'\n" +
-	"\x04arcs\x18\x01 \x03(\v2\x13.service.arc.pb.ArcR\x04arcs\"\xba\x01\n" +
-	"\x0fRetrieveRequest\x12\x12\n" +
-	"\x04keys\x18\x01 \x03(\tR\x04keys\x12\x14\n" +
-	"\x05names\x18\x02 \x03(\tR\x05names\x12\x1f\n" +
-	"\vsearch_term\x18\x03 \x01(\tR\n" +
-	"searchTerm\x12\x14\n" +
-	"\x05limit\x18\x04 \x01(\x05R\x05limit\x12\x16\n" +
-	"\x06offset\x18\x05 \x01(\x05R\x06offset\x12\x18\n" +
-	"\acompile\x18\a \x01(\bR\acompileJ\x04\b\x06\x10\aR\x0einclude_status\";\n" +
+	"\x04arcs\x18\x01 \x03(\v2\x13.service.arc.pb.ArcR\x04arcs\"\xb8\x01\n" +
+	"\x0fRetrieveRequest\x129\n" +
+	"\arequest\x18\b \x01(\v2\x1f.service.arc.pb.RetrieveRequestR\arequestJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05J\x04\b\x05\x10\x06J\x04\b\x06\x10\aJ\x04\b\a\x10\bR\x04keysR\x05namesR\vsearch_termR\x05limitR\x06offsetR\x0einclude_statusR\acompile\";\n" +
 	"\x10RetrieveResponse\x12'\n" +
 	"\x04arcs\x18\x01 \x03(\v2\x13.service.arc.pb.ArcR\x04arcs\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
@@ -335,29 +289,31 @@ func file_core_pkg_transport_grpc_arc_arc_proto_rawDescGZIP() []byte {
 
 var file_core_pkg_transport_grpc_arc_arc_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_core_pkg_transport_grpc_arc_arc_proto_goTypes = []any{
-	(*CreateRequest)(nil),    // 0: grpc.arc.CreateRequest
-	(*CreateResponse)(nil),   // 1: grpc.arc.CreateResponse
-	(*RetrieveRequest)(nil),  // 2: grpc.arc.RetrieveRequest
-	(*RetrieveResponse)(nil), // 3: grpc.arc.RetrieveResponse
-	(*DeleteRequest)(nil),    // 4: grpc.arc.DeleteRequest
-	(*pb.Arc)(nil),           // 5: service.arc.pb.Arc
-	(*emptypb.Empty)(nil),    // 6: google.protobuf.Empty
+	(*CreateRequest)(nil),      // 0: grpc.arc.CreateRequest
+	(*CreateResponse)(nil),     // 1: grpc.arc.CreateResponse
+	(*RetrieveRequest)(nil),    // 2: grpc.arc.RetrieveRequest
+	(*RetrieveResponse)(nil),   // 3: grpc.arc.RetrieveResponse
+	(*DeleteRequest)(nil),      // 4: grpc.arc.DeleteRequest
+	(*pb.Arc)(nil),             // 5: service.arc.pb.Arc
+	(*pb.RetrieveRequest)(nil), // 6: service.arc.pb.RetrieveRequest
+	(*emptypb.Empty)(nil),      // 7: google.protobuf.Empty
 }
 var file_core_pkg_transport_grpc_arc_arc_proto_depIdxs = []int32{
 	5, // 0: grpc.arc.CreateRequest.arcs:type_name -> service.arc.pb.Arc
 	5, // 1: grpc.arc.CreateResponse.arcs:type_name -> service.arc.pb.Arc
-	5, // 2: grpc.arc.RetrieveResponse.arcs:type_name -> service.arc.pb.Arc
-	0, // 3: grpc.arc.ArcCreateService.Exec:input_type -> grpc.arc.CreateRequest
-	2, // 4: grpc.arc.ArcRetrieveService.Exec:input_type -> grpc.arc.RetrieveRequest
-	4, // 5: grpc.arc.ArcDeleteService.Exec:input_type -> grpc.arc.DeleteRequest
-	1, // 6: grpc.arc.ArcCreateService.Exec:output_type -> grpc.arc.CreateResponse
-	3, // 7: grpc.arc.ArcRetrieveService.Exec:output_type -> grpc.arc.RetrieveResponse
-	6, // 8: grpc.arc.ArcDeleteService.Exec:output_type -> google.protobuf.Empty
-	6, // [6:9] is the sub-list for method output_type
-	3, // [3:6] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	6, // 2: grpc.arc.RetrieveRequest.request:type_name -> service.arc.pb.RetrieveRequest
+	5, // 3: grpc.arc.RetrieveResponse.arcs:type_name -> service.arc.pb.Arc
+	0, // 4: grpc.arc.ArcCreateService.Exec:input_type -> grpc.arc.CreateRequest
+	2, // 5: grpc.arc.ArcRetrieveService.Exec:input_type -> grpc.arc.RetrieveRequest
+	4, // 6: grpc.arc.ArcDeleteService.Exec:input_type -> grpc.arc.DeleteRequest
+	1, // 7: grpc.arc.ArcCreateService.Exec:output_type -> grpc.arc.CreateResponse
+	3, // 8: grpc.arc.ArcRetrieveService.Exec:output_type -> grpc.arc.RetrieveResponse
+	7, // 9: grpc.arc.ArcDeleteService.Exec:output_type -> google.protobuf.Empty
+	7, // [7:10] is the sub-list for method output_type
+	4, // [4:7] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_transport_grpc_arc_arc_proto_init() }

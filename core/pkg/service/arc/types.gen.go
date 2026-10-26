@@ -11,7 +11,12 @@
 
 package arc
 
-import "github.com/synnaxlabs/synnax/pkg/service/arc/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
+	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/validate"
+	"strconv"
+)
 
 // Key is a unique identifier for an Arc module.
 type Key = versions.Key
@@ -27,3 +32,47 @@ const (
 // Arc is an Arc module combining visual graph representation and text-based source code
 // for reactive control systems. Compiles to WebAssembly for sandboxed execution.
 type Arc = versions.Arc
+
+// Where is a filter that selects Arc modules.
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Name selects by name.
+	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
+}
+
+// RetrieveRequest is a request to retrieve arcs.
+type RetrieveRequest struct {
+	// Where selects the arcs to retrieve. An absent where selects all of them.
+	Where *Where `json:"where,omitzero" msgpack:"where,omitempty"`
+	// SearchTerm keeps the arcs that match the term, closest match first.
+	SearchTerm *string `json:"search_term,omitzero" msgpack:"search_term,omitempty"`
+	// Limit is the most arcs to return.
+	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
+	// Offset is the number of matching arcs to skip.
+	Offset *uint32 `json:"offset,omitzero" msgpack:"offset,omitempty"`
+	// IncludeProgram includes the program of each record.
+	IncludeProgram *bool `json:"include_program,omitzero" msgpack:"include_program,omitempty"`
+}
+
+// RetrieveResponse holds the arcs a RetrieveRequest selects.
+type RetrieveResponse struct {
+	// Arcs are the arcs the request selects.
+	Arcs []Arc `json:"arcs" msgpack:"arcs"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RetrieveResponse) Validate() error {
+	v := validate.New("RetrieveResponse")
+	for i := range r.Arcs {
+		v.Exec(func() error { return validate.PathedError(r.Arcs[i].Validate(), "arcs", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}

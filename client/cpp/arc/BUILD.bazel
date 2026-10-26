@@ -33,7 +33,9 @@ cc_library(
         "//core/pkg/transport/grpc:api_grpc",
         "//freighter/cpp:freighter",
         "//freighter/cpp/grpc",
+        "//x/cpp/filter",
         "//x/cpp/pb",
+        "//x/go/filter:filter_grpc",
         "@grpc//:grpc++",
     ],
 )
