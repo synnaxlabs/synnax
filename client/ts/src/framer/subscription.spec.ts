@@ -66,6 +66,18 @@ const raw = (keys: channel.Key[], span: TimeSpan): SubscribeRequest => ({
 
 const timesOf = (snap: Snapshot): bigint[] => Array.from(snap.series) as bigint[];
 
+// Waits for the stream of history changes that the feed opens for its first
+// subscription.
+const historyStreamed = async (core: SyntheticCore): Promise<void> =>
+  await expect.poll(() => core.streams(core.historyChange.key), POLL).toBe(true);
+
+// Opens the feed's stream of history changes, so reads after it fetch blocks that the
+// changes can keep valid.
+const listen = async (core: SyntheticCore, feed: Feed): Promise<void> => {
+  feed.subscribe(raw([], TimeSpan.seconds(1))).close();
+  await historyStreamed(core);
+};
+
 // Returns the time of the Core's newest sample.
 const newestOf = (core: SyntheticCore): bigint =>
   START.valueOf() +
@@ -469,7 +481,6 @@ describe("Feed.subscribe", () => {
         await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
         await expect.poll(newest, POLL).toBe(newestOf(core));
         const reads = core.reads;
-        await sleep.sleep(TimeSpan.milliseconds(150));
         core.advance(TimeSpan.seconds(2));
         await expect.poll(newest, POLL).toBe(newestOf(core));
         expect(sub.value(key).status.variant).toBe("success");
@@ -529,7 +540,6 @@ describe("Feed.subscribe", () => {
       });
       try {
         await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
-        await sleep.sleep(TimeSpan.milliseconds(150));
         core.advance(TimeSpan.seconds(10));
         await expect
           .poll(() => timesOf(sub.value(key)).at(-1), POLL)
@@ -559,15 +569,17 @@ describe("Feed.subscribe", () => {
       try {
         await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
         core.retype(key, DataType.FLOAT64);
+        let mixed = false;
         await expect
           .poll(() => {
             const types = new Set(
               sub.value(key).series.series.map((s) => s.dataType.toString()),
             );
-            expect(types.size).toBeLessThanOrEqual(1);
+            mixed ||= types.size > 1;
             return [...types];
           }, POLL)
           .toEqual([DataType.FLOAT64.toString()]);
+        expect(mixed).toBe(false);
       } finally {
         stop();
         sub.close();
@@ -875,7 +887,6 @@ describe("Feed.subscribe", () => {
         await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
         expect(sub.value(key).series.length).toBe(0);
         const reads = core.reads;
-        await sleep.sleep(TimeSpan.milliseconds(150));
         core.advance(TimeSpan.milliseconds(100));
         await expect.poll(() => sub.value(key).series.length, POLL).toBe(10);
         expect(core.reads).toBe(reads);
@@ -895,7 +906,6 @@ describe("Feed.subscribe", () => {
       });
       try {
         await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
-        await sleep.sleep(TimeSpan.milliseconds(150));
         core.advance(TimeSpan.milliseconds(100));
         await expect.poll(() => sub.value(key).series.length, POLL).toBe(10);
         core.advance(TimeSpan.milliseconds(100));
@@ -1059,7 +1069,7 @@ describe("Feed.subscribe", () => {
       try {
         await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
         const before = Array.from(sub.value(key).series) as number[];
-        await sleep.sleep(TimeSpan.milliseconds(150));
+        await historyStreamed(core);
         const changed = new TimeRange(
           START.add(TimeSpan.minutes(2)),
           START.add(TimeSpan.minutes(3)),
@@ -1101,8 +1111,8 @@ describe("Feed.subscribe", () => {
         return core.reads - reads;
       };
       try {
+        await listen(core, feed);
         expect(await load()).toBe(1);
-        await sleep.sleep(TimeSpan.milliseconds(150));
         core.advance(TimeSpan.minutes(20));
         expect(await load()).toBe(1);
       } finally {
@@ -1135,7 +1145,7 @@ describe("Feed.subscribe", () => {
       try {
         // Blocks fetched while history changes stream stay valid until one names them.
         await load(data);
-        await sleep.sleep(TimeSpan.milliseconds(150));
+        await historyStreamed(core);
         core.rewrite(data, tr, 0);
         core.rewrite(calculated, tr, 0);
         await sleep.sleep(TimeSpan.milliseconds(50));
@@ -1183,8 +1193,8 @@ describe("Feed.subscribe", () => {
         };
         const fresh = core.openFeed(OPTIONS);
         try {
+          await listen(core, feed);
           expect(await load(feed)).toEqual([]);
-          await sleep.sleep(TimeSpan.milliseconds(150));
           core.advance(TimeSpan.minutes(20));
           const drawn = await load(fresh);
           expect(drawn.length).toBeGreaterThan(0);
@@ -1234,7 +1244,7 @@ describe("Feed.subscribe", () => {
           }, POLL)
           .toBe(1);
         const before = core.read(changed, [key]).get(key).at(0) as number;
-        await sleep.sleep(TimeSpan.milliseconds(150));
+        await historyStreamed(core);
         core.rewrite(key, changed, 10);
         await sleep.sleep(TimeSpan.milliseconds(50));
         release();
@@ -1295,7 +1305,7 @@ describe("Feed.subscribe", () => {
             return reads();
           }, POLL)
           .toBeGreaterThan(0);
-        await sleep.sleep(TimeSpan.milliseconds(150));
+        await historyStreamed(core);
         core.rewrite(key, changed, 10);
         await sleep.sleep(TimeSpan.milliseconds(50));
         release();
