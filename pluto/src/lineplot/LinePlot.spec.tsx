@@ -152,10 +152,12 @@ describe("LinePlot", () => {
         if (el == null) throw new Error("the plot area did not render");
         return el;
       });
-      const drop = (): void => {
-        fireEvent.dragStart(result.getByTestId("source"));
-        fireEvent.dragOver(viewport);
-        fireEvent.drop(viewport);
+      const drop = async (): Promise<void> => {
+        await act(async () => {
+          fireEvent.dragStart(result.getByTestId("source"));
+          fireEvent.dragOver(viewport);
+          fireEvent.drop(viewport);
+        });
       };
       return { ...result, drop };
     };
@@ -163,7 +165,7 @@ describe("LinePlot", () => {
     it("should add a dropped channel to the first Y axis", async () => {
       const keys = channels.map(({ key }) => key);
       const { drop, getByTestId } = await renderPlot(keys.map(Channel.createHaulItem));
-      drop();
+      await drop();
       await waitFor(() => expect(getByTestId("y1").textContent).toBe(keys.join(",")));
     });
 
@@ -172,11 +174,11 @@ describe("LinePlot", () => {
       const { drop, getByTestId } = await renderPlot([
         Channel.createHaulItem(first.key),
       ]);
-      drop();
+      await drop();
       await waitFor(() =>
         expect(getByTestId("y1").textContent).toBe(String(first.key)),
       );
-      drop();
+      await drop();
       await expect(
         waitFor(
           () => expect(getByTestId("y1").textContent).not.toBe(String(first.key)),
@@ -191,7 +193,7 @@ describe("LinePlot", () => {
         [Channel.createHaulItem(first.key)],
         false,
       );
-      drop();
+      await drop();
       await expect(
         waitFor(() => expect(getByTestId("y1").textContent).not.toBe(""), {
           timeout: 300,
