@@ -169,6 +169,35 @@ export default manifest.define([
     script: "scripts/arc-create-automation.ts",
   },
   {
+    id: "control/arc/get-started/first-stages",
+    script: "scripts/arc-first-stages.ts",
+  },
+  { id: "control/arc/get-started/abort", script: "scripts/arc-abort.ts" },
+  {
+    id: "get-started/sample-project/open",
+    script: "scripts/sample-project-open.ts",
+  },
+  {
+    id: "get-started/sample-project/run-test",
+    script: "scripts/sample-project-run-test.ts",
+  },
+  {
+    id: "get-started/sample-project/take-control",
+    script: "scripts/sample-project-take-control.ts",
+  },
+  {
+    id: "get-started/sample-project/abort",
+    script: "scripts/sample-project-abort.ts",
+  },
+  {
+    id: "get-started/install-desktop",
+    script: "scripts/still-install-desktop.ts",
+    stills: {
+      regions: "../site/docs/src/components/media/stills/install-desktop.json",
+    },
+  },
+  { id: "get-started/first-run", script: "scripts/first-run.ts" },
+  {
     id: "control/authority/hand-off",
     script: "scripts/control-authority-hand-off.ts",
   },

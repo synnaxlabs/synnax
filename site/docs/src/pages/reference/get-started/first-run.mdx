@@ -8,7 +8,7 @@ layout: "@/layouts/Reference.astro"
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Note } from "@/components/note";
-import Placeholder from "@/components/media/Placeholder.astro";
+import { Video } from "@/components/media/Media";
 import Step from "@/components/text/Step.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -26,10 +26,7 @@ Most steps run a command from the
 [command palette](/reference/get-started/ui-overview#search-and-command-palette). To
 open it, press **Ctrl+Shift+P** (**Cmd+Shift+P** on macOS).
 
-<Placeholder
-  kind="video"
-  shot="The whole tutorial at speed: create ramp_time and ramp, start the Ramp Arc automation, plot ramp on a rolling 30 s plot, and drag a selection to create the First run range."
-/>
+<Video id="get-started/first-run" />
 
 <Divider.Divider x />
 
@@ -81,8 +78,8 @@ gets to 100, it goes back to 0.
    - `ramp = value` writes the value to the `ramp` channel. Synnax writes the timestamp
      to `ramp_time`.
 
-4. In the bar at the bottom of the editor, open the **Driver** list and select a Driver.
-   In Synnax Desktop, select **Node 1 Embedded Driver**.
+4. In the bar at the bottom of the editor, select **Node 1** from the **Driver** list.
+   This entry runs the automation inside the Core.
 5. Select the start <Icon.Play /> button.
 
 The automation is now running. To stop it, select the stop <Icon.Stop /> button.
@@ -95,7 +92,8 @@ The automation is now running. To stop it, select the stop <Icon.Stop /> button.
 2. Select the component <Icon.Component /> button in the bottom-left corner, or press
    **V**, to open the component toolbar.
 3. In **Y1**, select `ramp`.
-4. In **Ranges**, select **Rolling 30s**.
+4. Check that **Ranges** shows **Rolling 30s**. If it shows a different range, remove
+   that range and select **Rolling 30s**.
 
 The plot shows a line that climbs from 0 to 100 every ten seconds. For more about plots,
 see [line plots](/reference/visualize/line-plots).

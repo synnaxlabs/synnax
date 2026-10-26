@@ -7,7 +7,7 @@ description:
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import Placeholder from "@/components/media/Placeholder.astro";
+import { Video } from "@/components/media/Media";
 import Step from "@/components/text/Step.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -17,8 +17,11 @@ In this tutorial, you write your own copy of the Press sequence from the
 and you run the sequence from the Tank schematic after each step. You need no hardware,
 and the tutorial takes about 15 minutes.
 
-You need the sample project open. To open it, see
+You need [Synnax Desktop](/reference/get-started/install-desktop) with the sample
+project open. To open it, see
 [explore the sample project](/reference/get-started/sample-project#open-the-sample-project).
+If you use Synnax Enterprise, you can follow this tutorial in Synnax Desktop, which is
+free.
 
 The tutorial uses these channels from the sample project:
 
@@ -84,20 +87,17 @@ The status shows "Task not deployed".
      starts.
 
 2. Click **Start** (<Icon.Play />) in the controls bar. The status shows "Started task".
-3. On the Tank schematic, click **Start**.
+3. Select the **Tank** tab, and click **Start** on the schematic.
 
 The press valve opens, and the pressure climbs on the Tank pressure line plot. The
 sequence stays in `pressurize`, because the stage has no way out yet. The control legend
 on the schematic shows `My press sequence`.
 
-Your automation writes at authority 255, the default, so it keeps control of the valves
-while the schematic is in control. See
+Your automation writes at authority 255, the default. The schematic writes at 1, so a
+click on a valve has no effect while your automation runs. See
 [control authority](/reference/control/authority).
 
-<Placeholder
-  kind="video"
-  shot="Paste the two-stage program, choose Node 1, click Start, then click Start on the Tank schematic and watch the press valve open and the pressure climb."
-/>
+<Video id="control/arc/get-started/first-stages" />
 
 <Divider.Divider x />
 
@@ -193,15 +193,12 @@ To change timing precision and CPU use, see
    the safety checks first.
 
 2. Click **Redeploy**.
-3. On the Tank schematic, click **Start**. While the pressure climbs, click **Abort**.
+3. On the Tank schematic, click **Start**. Before the hold ends, click **Abort**.
 
 The press valve closes, the vent valve opens, and the pressure falls. To run the test
 again, click **Start**.
 
-<Placeholder
-  kind="video"
-  shot="Redeploy the abort version, click Start, click Abort while the pressure climbs, and show the valves change and the pressure fall."
-/>
+<Video id="control/arc/get-started/abort" />
 
 <Divider.Divider x />
 

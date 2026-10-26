@@ -8,7 +8,7 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Note } from "@/components/note";
 import { Platform } from "@/components/platform";
 import { Desktop } from "@/components/desktop";
-import Placeholder from "@/components/media/Placeholder.astro";
+import { Image } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -81,12 +81,14 @@ Earlier versions are on the
 1. Synnax Desktop shows "Starting Synnax..." and then "Preparing your workspace...".
 2. On the "Log in to continue" screen, select **Log in**. Your web browser opens. Log in
    to your Synnax account, and Synnax Desktop continues on its own.
-3. Synnax Desktop shows the list of projects. Select **Sample project** to open a
-   simulated tank system, or select **New project** to start with an empty project.
+3. Synnax Desktop shows the list of projects, which is empty on the first launch. Select
+   **Open sample project** to open a simulated tank system, or select **New project** to
+   start with an empty project.
 
-<Placeholder
-  kind="image"
-  shot="The list of projects on first launch, with the Sample project and New project buttons. Light and dark."
+<Image
+  id="get-started/install-desktop/cc146f207711/projects"
+  extension="webp"
+  alt="The empty projects screen of Synnax Desktop, with Open sample project and New project"
 />
 
 Each user account on the computer has its own Synnax Desktop data. Your channels,

@@ -14,9 +14,8 @@ to `site/docs/src/pages/`, and release notes to `site/docs/src/`.
   writer): `console/ranges/plot-create`, all `console/line-plots/*`,
   `console/logs/example`, `console/calculated-channels/create`,
   `console/calculated-channels/edit`, `console/schematics/value`,
-  `console/schematics/valve`, `control/arc/get-started/deploy-automation`, all
-  `client/resources/build-device-driver/*`, every `device-drivers/*/read-task/*` and
-  `device-drivers/task/task-basic`.
+  `console/schematics/valve`, all `client/resources/build-device-driver/*`, every
+  `device-drivers/*/read-task/*` and `device-drivers/task/task-basic`.
 - **Pre-seeded ranges**: `console/ui-overview/palette-search`,
   `console/ranges/resources`, `console/ranges/palette`, `console/ranges/create-child`,
   `console/ranges/add-meta-data`, `console/ranges/add-label`, `console/channels/alias`,
@@ -46,10 +45,32 @@ to `site/docs/src/pages/`, and release notes to `site/docs/src/`.
     `device-drivers/labjack/*`; an EtherCAT network for `device-drivers/ethercat/*`; a
     PagerDuty account + Events API key for `device-drivers/pagerduty/alert-task/create`;
     an Arduino on a serial port for `client/resources/build-device-driver/*`.
-- **Running driver (rack connected to the core)**: every `device-drivers/*` id and
-  `control/arc/get-started/deploy-automation`.
+- **Running driver (rack connected to the core)**: every `device-drivers/*` id.
+- **Synnax Desktop** (the script exports `desktop`): all `get-started/sample-project/*`,
+  `get-started/first-run`, `control/arc/get-started/first-stages`,
+  `control/arc/get-started/abort`.
 
 ---
+
+## get-started/sample-project
+
+All on reference/get-started/sample-project.mdx.
+
+- `get-started/sample-project/open` -> select **Sample project** on the projects screen
+  -> the Tank schematic, the Tank pressure line plot, and the Press sequence open.
+- `get-started/sample-project/run-test` -> click **Start** -> the pressure climbs to 300
+  psi, holds, and vents.
+- `get-started/sample-project/take-control` -> take the Vent valve with its control chip
+  and open it -> click **Start** -> the pressure stops near 140 psi -> close the valve
+  and give it back with the chip -> the test continues.
+- `get-started/sample-project/abort` -> click **Start**, then **Abort** -> the valves
+  change and the pressure falls.
+
+## get-started/first-run
+
+- `get-started/first-run` (reference/get-started/first-run.mdx) -> the whole tutorial at
+  speed: create `ramp_time` and `ramp` -> start the Ramp Arc automation on **Node 1** ->
+  plot `ramp` on a rolling 30 s plot -> drag a selection and create the First run range.
 
 ## console/ui-overview
 
@@ -216,12 +237,14 @@ All shots require channels with data (live streaming for the rolling-range ones)
 - `control/arc/get-started/create-automation` (reference/control/arc/automations.mdx) ->
   click "+" on an empty panel and pick **Arc automation** in the component selector ->
   name it and select **Text** editor mode -> the Arc text editor opens.
-- `control/arc/get-started/deploy-automation` (reference/control/arc/get-started.mdx) ->
-  with the tutorial program in the editor (and `tank_pressure`/`pressure_scaled` virtual
-  channels created so no red squiggles remain), select a driver from the editor-toolbar
-  dropdown -> click **Configure** to upload -> click **Play** -> the status indicator
-  shows running; optionally show the Pause button stopping it -> requires a running
-  driver.
+- `control/arc/get-started/first-stages` (reference/control/arc/get-started.mdx) -> with
+  the Press sequence stopped, paste the two-stage program into "My press sequence" ->
+  click **Start** in the controls bar -> click **Start** on the Tank schematic -> the
+  press valve opens and the pressure climbs.
+- `control/arc/get-started/abort` (reference/control/arc/get-started.mdx) -> with the
+  hold and vent version running, paste the abort version -> click **Redeploy** -> click
+  **Start** on the Tank schematic, then **Abort** -> the valves change and the pressure
+  falls.
 
 ## client/resources (build-device-driver tutorial)
 
