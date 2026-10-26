@@ -21,7 +21,7 @@ class STATUS(Enum):
     PENDING = auto()
     PASSED = auto()
     FLAKY = auto()
-    # Neither passes nor fails the run. A later failure, such as in teardown, wins.
+    # Neither passes nor fails the run. A later FAILED, as from `_try_to`, wins.
     SKIPPED = auto()
     FAILED = auto()
     TIMEOUT = auto()
