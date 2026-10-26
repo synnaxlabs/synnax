@@ -12,8 +12,16 @@ name: Audit - Migration
 on:
   workflow_call:
     inputs: &inputs
-      stable:
-        description: "Stable Core tag to upgrade from (default: the newest)"
+      core:
+        description: "Stable Core tag (default: the newest the candidate contains)"
+        type: string
+        default: ""
+      console:
+        description: "Stable Console tag (default: the newest the candidate contains)"
+        type: string
+        default: ""
+      driver:
+        description: "Stable Driver tag (default: the newest the candidate contains)"
         type: string
         default: ""
       agent:
@@ -41,23 +49,30 @@ jobs:
       - name: Write the prompt
         id: prompt
         env:
-          STABLE: ${{ inputs.stable }}
+          CORE: ${{ inputs.core }}
+          CONSOLE: ${{ inputs.console }}
+          DRIVER: ${{ inputs.driver }}
           CANDIDATE: ${{ github.sha }}
         run: |
-          if [ -z "$STABLE" ]; then
-            STABLE=$(git tag --list 'core/v*' | grep -E '^core/v[0-9]+\.[0-9]+\.[0-9]+$' |
-              sort -V | tail -1)
-          fi
-          if [ -z "$STABLE" ]; then
-            echo "no stable Core tag" >&2
+          # The release notes use the same baseline: the newest stable tag of the
+          # product that the candidate contains.
+          stable() {
+            git tag --list "$1/v*" --merged HEAD |
+              grep -E "^$1/v[0-9]+\.[0-9]+\.[0-9]+$" | sort -V | tail -1
+          }
+          CORE=${CORE:-$(stable core)}
+          CONSOLE=${CONSOLE:-$(stable console)}
+          DRIVER=${DRIVER:-$(stable driver)}
+          if [ -z "$CORE" ] || [ -z "$CONSOLE" ] || [ -z "$DRIVER" ]; then
+            echo "a product has no stable tag in $CANDIDATE" >&2
             exit 1
           fi
           EOF=$(openssl rand -hex 16)
           {
             echo "prompt<<$EOF"
             cat .github/agents/migration-audit.md
-            printf '\nThe stable tag is %s. The candidate is commit %s.\n' \
-              "$STABLE" "$CANDIDATE"
+            printf '\nThe stable tags are %s, %s, and %s. The candidate is %s.\n' \
+              "$CORE" "$CONSOLE" "$DRIVER" "$CANDIDATE"
             echo "$EOF"
           } >> "$GITHUB_OUTPUT"
 

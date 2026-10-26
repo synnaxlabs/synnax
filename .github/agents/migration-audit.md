@@ -15,7 +15,10 @@ rules on version files and on when to mint a version are the main contract here.
 
 ## 2. Find each stored-shape change
 
-Diff the stable tag against the candidate (`git diff <stable>..<candidate>`). Look at:
+The Core, the Console, and the Driver release apart, so each has its own stable tag.
+Diff each product's code from its stable tag to the candidate
+(`git diff <stable>..<candidate>`). The Core tag covers the Core, Oracle, Gorp, Cesium,
+and Aspen. Look at:
 
 - **Oracle schemas** in `schemas/`. A version file that exists at the stable tag is
   frozen: any change to its stored bytes is a problem. A stored-shape change in a live
@@ -47,14 +50,15 @@ For each change, confirm all of these:
 ## 4. Upgrade real data
 
 1. Download the stable Core:
-   `gh release download <stable tag> --pattern 'synnax-v<version>-<linux|macos>'`.
+   `gh release download <stable Core tag> --pattern 'synnax-v<version>-<linux|macos>'`.
 2. Start it on an empty directory: `<binary> start -i -d <dir>`. Pass the license from
    `SYNNAX_LICENSE_KEY` when the environment has it.
 3. In a new virtual environment, install the client of the stable minor
    (`uv pip install 'synnax==<major>.<minor>.*'`). Create at least one record of each
    shape from step 2.
 4. Stop the stable Core. Start the candidate on the same directory:
-   `go run -tags driver main.go start -i -d <dir>` in `core/`.
+   `go run main.go start -i -d <dir>` in `core/`. Leave out the `driver` build tag: it
+   needs a built Driver in `core/pkg/driver/assets/`.
 5. Read each record back with the candidate client in `client/py`, and read the Core log
    for migration errors.
 
