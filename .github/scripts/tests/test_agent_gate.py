@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT = Path(__file__).resolve().parent / "agent_gate.sh"
+SCRIPT = Path(__file__).resolve().parents[1] / "agent_gate.sh"
 
 # Stands in for gh: serves the canned JSON file named after the endpoint's last path
 # segment from FAKE_GH_DIR.
