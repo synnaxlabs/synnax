@@ -43,6 +43,6 @@ failure.
 4. When you pushed, comment `@greptileai review` on the pull request.
 
 Your last message becomes a comment on the pull request. It also answers the findings
-outside the diff, so name each one with its fix or the reason you left it. Keep it
-short: the findings you fixed, the findings you answered, and the decisions a person
-must make.
+outside the diff, so name each one with its fix or the reason you left it, and start the
+message with the line `<!-- agent:outside-diff -->`. Keep it short: the findings you
+fixed, the findings you answered, and the decisions a person must make.

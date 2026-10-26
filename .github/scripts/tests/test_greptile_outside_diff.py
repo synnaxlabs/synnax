@@ -26,6 +26,7 @@ GREPTILE = "greptile-apps[bot]"
 MARKER = "<!-- greptile_outside_diff -->\n\n<h3>Comments Outside Diff</h3>\n\n"
 FINDINGS = MARKER + "These findings could not be posted inline.\n\n- **Bug** `a.go:1`\n"
 CLEARED = MARKER + "No findings outside the diff remain.\n"
+ANSWER = "<!-- agent:outside-diff -->\nFixed the bug."
 
 
 def comment(
@@ -88,21 +89,21 @@ class TestGreptileOutsideDiff:
     def test_prints_nothing_after_an_agent_answers(self, gh: Harness) -> None:
         gh.comments(
             comment(GREPTILE, FINDINGS, "2026-01-01T00:00:00Z"),
-            comment("synnax-codex[bot]", "Answer", "2026-01-02T00:00:00Z"),
+            comment("synnax-codex[bot]", ANSWER, "2026-01-02T00:00:00Z"),
         )
         assert gh.run() == ""
 
     def test_prints_findings_greptile_edits_after_an_answer(self, gh: Harness) -> None:
         gh.comments(
             comment(GREPTILE, FINDINGS, "2026-01-01T00:00:00Z", "2026-01-03T00:00:00Z"),
-            comment("synnax-codex[bot]", "Answer", "2026-01-02T00:00:00Z"),
+            comment("synnax-codex[bot]", ANSWER, "2026-01-02T00:00:00Z"),
         )
         assert gh.run() == FINDINGS.strip()
 
-    def test_ignores_answers_from_people_and_github_actions(self, gh: Harness) -> None:
+    def test_ignores_comments_that_do_not_answer(self, gh: Harness) -> None:
         gh.comments(
             comment(GREPTILE, FINDINGS, "2026-01-01T00:00:00Z"),
-            comment("someone", "Thanks", "2026-01-02T00:00:00Z", kind="User"),
-            comment("github-actions[bot]", "Attempt", "2026-01-02T00:00:00Z"),
+            comment("synnax-codex[bot]", "Fixed CI", "2026-01-02T00:00:00Z"),
+            comment("someone", ANSWER, "2026-01-02T00:00:00Z", kind="User"),
         )
         assert gh.run() == FINDINGS.strip()

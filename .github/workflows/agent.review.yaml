@@ -62,9 +62,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           THREADS=$(.github/scripts/review_threads.sh "$PR" | wc -l)
-          OUTSIDE=$(.github/scripts/greptile_outside_diff.sh "$PR" | grep -c . || true)
-          COUNT=$((THREADS + (OUTSIDE > 0)))
-          echo "$THREADS threads and $OUTSIDE outside-diff lines need action"
+          OUTSIDE=$(.github/scripts/greptile_outside_diff.sh "$PR")
+          COUNT=$((THREADS + (${#OUTSIDE} > 0)))
+          echo "$THREADS threads need action"
+          echo "Findings outside the diff: ${OUTSIDE:-none}"
           echo "count=$COUNT" >> "$GITHUB_OUTPUT"
 
       - name: Gate the round
