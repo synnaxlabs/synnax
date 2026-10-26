@@ -254,7 +254,9 @@ var _ = Describe("Service.Retrieve", func() {
 		res := MustSucceed(apiSvc.Retrieve(
 			AuthedCtx(ctx, author),
 			apistatus.RetrieveRequest{Where: &status.Where{
-				Key: &filter.Set[status.Key]{In: []status.Key{s.Key, uuid.New().String()}},
+				Key: &filter.Set[status.Key]{
+					In: []status.Key{s.Key, uuid.New().String()},
+				},
 			}},
 		))
 		Expect(res.Statuses).To(HaveExactElements(HaveField("Key", s.Key)))

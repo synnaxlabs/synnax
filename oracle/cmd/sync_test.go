@@ -25,7 +25,11 @@ import (
 // diskFormatter reads the file from disk, as ESLint's TypeScript project service does.
 type diskFormatter struct{}
 
-func (diskFormatter) Format(_ context.Context, content []byte, path string) ([]byte, error) {
+func (diskFormatter) Format(
+	_ context.Context,
+	content []byte,
+	path string,
+) ([]byte, error) {
 	if _, err := os.Stat(path); err != nil {
 		return nil, err
 	}

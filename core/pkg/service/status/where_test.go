@@ -59,6 +59,7 @@ var _ = Describe("Where", Ordered, func() {
 		return s.Key, alias
 	})
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		g := MustOpen(group.OpenService(

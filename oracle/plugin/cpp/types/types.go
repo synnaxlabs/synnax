@@ -865,7 +865,11 @@ func isIntEnum(typeRef resolution.TypeRef, table *resolution.Table) bool {
 // Indirect reports whether field is an x::mem::indirect: an optional field whose value
 // holds parent, which std::optional cannot hold before parent is complete. A
 // std::vector accepts an incomplete element, so a list field is never indirect.
-func Indirect(field resolution.Field, parent resolution.Type, table *resolution.Table) bool {
+func Indirect(
+	field resolution.Field,
+	parent resolution.Type,
+	table *resolution.Table,
+) bool {
 	return field.Optional && field.Type.Name != "Array" &&
 		resolution.RefersTo(field.Type, parent.QualifiedName, table)
 }

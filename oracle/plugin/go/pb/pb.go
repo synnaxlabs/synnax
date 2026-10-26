@@ -1050,7 +1050,11 @@ func (p *Plugin) processGenericFieldForTranslation(
 		pbValues := "pb." + pbName
 		if isOptional {
 			fd.IsOptionalArrayWrapper = true
-			fd.WrapperName = arrays.OptionalWrapperName(typeRef, data.Namespace, data.table)
+			fd.WrapperName = arrays.OptionalWrapperName(
+				typeRef,
+				data.Namespace,
+				data.table,
+			)
 			pbValues += ".Values"
 		}
 		fd.ForwardExpr = fmt.Sprintf(

@@ -36,9 +36,11 @@ var (
 			Detail: protocol.NewOptional("Declare a discriminated union"),
 		},
 		{
-			Label:  "filter",
-			Kind:   protocol.CompletionItemKindKeyword,
-			Detail: protocol.NewOptional("Declare the filter tree of a struct or union"),
+			Label: "filter",
+			Kind:  protocol.CompletionItemKindKeyword,
+			Detail: protocol.NewOptional(
+				"Declare the filter tree of a struct or union",
+			),
 		},
 		{
 			Label:  "import",

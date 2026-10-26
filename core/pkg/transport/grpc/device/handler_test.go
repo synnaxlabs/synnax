@@ -31,7 +31,9 @@ var _ = Describe("gRPC Device Translators", func() {
 						{Key: &filter.Set[string]{In: []string{"dev1"}}},
 						{Make: &filter.String{Eq: new("NI")}},
 					},
-					Not:  &device.Where{Rack: &filter.Ordered[rack.Key]{In: []rack.Key{1}}},
+					Not: &device.Where{
+						Rack: &filter.Ordered[rack.Key]{In: []rack.Key{1}},
+					},
 					Name: &filter.String{Regex: new("^PT")},
 				},
 				SearchTerm:    new("cDAQ"),
