@@ -469,6 +469,12 @@ var _ = Describe("FS", func() {
 					Expect(fs.Exists("a")).To(BeFalse())
 					Expect(fs.Exists("b")).To(BeTrue())
 				})
+				It(
+					"Should return a not-exist error when the source is missing",
+					func() {
+						Expect(fs.Rename("missing", "b")).To(MatchError(os.ErrNotExist))
+					},
+				)
 			})
 			Describe("Truncate", func() {
 				It(
