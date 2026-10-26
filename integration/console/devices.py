@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import json
+import re
 from typing import ClassVar
 
 from playwright.sync_api import Locator
@@ -15,6 +16,22 @@ from playwright.sync_api import Locator
 import synnax as sy
 from console.base import ResourceClient
 from console.layout import LayoutClient
+
+
+def fill_configure(
+    modal: Locator, *, name: str, identifier: str, action: str = "Save"
+) -> None:
+    """Fill the open configure form of a device and submit it.
+
+    :param modal: The modal that shows the form.
+    :param name: Name of the device.
+    :param identifier: Prefix for the channels of the device.
+    :param action: The submit button, "Save" or "Save and create read task".
+    """
+    # A required field's label ends in an asterisk.
+    modal.get_by_label(re.compile(r"^Name\b")).fill(name)
+    modal.get_by_label(re.compile(r"^Identifier\b")).fill(identifier)
+    modal.get_by_role("button", name=action, exact=True).click()
 
 
 class DevicesClient(ResourceClient):
@@ -350,20 +367,71 @@ class DevicesClient(ResourceClient):
         return self.tree.has_expand_arrow(self.get(name))
 
     def configure(self, name: str, *, device_name: str, identifier: str) -> None:
-        """Configure an unconfigured device via the two-step modal flow.
-
-        Step 1: Enter a device name and click "Next".
-        Step 2: Enter an identifier and click "Save".
+        """Configure an unconfigured device from its context menu.
 
         :param name: Current display name of the device in the tree.
-        :param device_name: Name to enter in the first modal step.
-        :param identifier: Identifier to enter in the second modal step.
+        :param device_name: New name of the device.
+        :param identifier: Prefix for the channels of the device.
         """
         self.show_toolbar()
-        self._modal_fill_and_submit(
-            "Configure",
-            self.get(name),
-            [(device_name, "Next"), (identifier, "Save")],
+        self.ctx_menu.action(self.get(name), "Configure")
+        self.modal.wait_for(state="visible", timeout=5000)
+        fill_configure(self.modal, name=device_name, identifier=identifier)
+        self.modal.wait_for(state="hidden", timeout=5000)
+
+    @property
+    def modal(self) -> Locator:
+        return self.layout.page.locator(self.layout.MODAL_SELECTOR)
+
+    def open_connect(self) -> None:
+        """Open the connect picker from the "+" action of the toolbar."""
+        self.show_toolbar()
+        self.layout.page.locator(
+            ".console-nav__drawer.pluto--visible "
+            ".console-toolbar__action:has(.pluto-icon--add)"
+        ).click(timeout=5000)
+        self.modal.wait_for(state="visible", timeout=5000)
+
+    def connect_from_rack(self, name: str) -> None:
+        """Open the connect picker from the "Connect device" action of a rack."""
+        self.wait_for_rack(name)
+        self.ctx_menu.action(self._get_item(self.RACK_PREFIX, name), "Connect device")
+        self.modal.wait_for(state="visible", timeout=5000)
+
+    def pick_integration(self, title: str) -> None:
+        """Pick an integration, such as "NI hardware", in the open connect picker."""
+        self.modal.locator(".pluto-pane__button").filter(
+            has_text=re.compile(f"^{re.escape(title)}")
+        ).click(timeout=5000)
+
+    def fill_connect(self, *, name: str, host: str, port: int) -> None:
+        """Fill the open connect form of a network device and click Connect."""
+        self.modal.get_by_label("Name", exact=True).fill(name)
+        self.modal.get_by_label(re.compile(r"^Host\b")).fill(host)
+        self.modal.get_by_label(re.compile(r"^Port\b")).fill(str(port))
+        # Toasts stack over the modal footer and swallow the click.
+        self.layout.notifications.close_all()
+        self.modal.get_by_role("button", name="Connect", exact=True).click(timeout=5000)
+
+    def found(self, name: str) -> Locator:
+        """The item of a device in the open find view."""
+        return self.modal.locator(".pluto-pane__item").filter(has_text=name)
+
+    def configure_found(
+        self, name: str, *, device_name: str, identifier: str, action: str = "Save"
+    ) -> None:
+        """Configure a device the open find view lists.
+
+        :param name: Current name of the device.
+        :param device_name: New name of the device.
+        :param identifier: Prefix for the channels of the device.
+        :param action: The submit button, "Save" or "Save and create read task".
+        """
+        self.found(name).get_by_role("button", name="Configure", exact=True).click(
+            timeout=5000
+        )
+        fill_configure(
+            self.modal, name=device_name, identifier=identifier, action=action
         )
 
     def copy_properties(self, name: str) -> dict[str, object]:

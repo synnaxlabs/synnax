@@ -13,7 +13,6 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Ranger, Synnax } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { CreateChildRangeIcon } from "@/feature/range/ContextMenu";
 import { ContextMenu } from "@/platform/context-menu";
@@ -29,17 +28,17 @@ const useOnSelect = (): ((resource: ontology.Resource) => void) => {
   const store = Session.useStore();
   const openTab = Panel.useOpenTab();
   const handleError = Status.useErrorHandler();
-  return useCallback(
-    (resource) => {
-      if (client == null) return;
-      handleError(async () => {
+  return (resource) => {
+    if (client == null) return;
+    handleError(
+      async () => {
         const ranges = await client.ranges.retrieve([resource.id.key]);
         store.dispatch(Session.Range.add(Session.Range.fromClient(ranges)));
         openTab({ variant: "resource", resource: resource.id });
-      }, `Failed to select ${resource.name}`);
-    },
-    [client, store, openTab, handleError],
-  );
+      },
+      { message: "Failed to select range", name: resource.name },
+    );
+  };
 };
 
 const haulItems = (resource: ontology.Resource): Haul.Item[] => {
@@ -49,7 +48,7 @@ const haulItems = (resource: ontology.Resource): Haul.Item[] => {
 };
 
 const useRename = Tree.createUseRename({
-  query: Ranger.useRename,
+  useUpdate: Ranger.useRename,
   ontologyID: ranger.ontologyID,
   convertKey: String,
 });
@@ -57,7 +56,7 @@ const useRename = Tree.createUseRename({
 const useDelete = Tree.createUseDelete({
   type: "Range",
   description: "Deleting a range also deletes its child ranges.",
-  query: Session.Range.useDelete,
+  useUpdate: Session.Range.useDelete,
   convertKey: String,
 });
 
@@ -82,7 +81,6 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const handleDelete = useDelete(props);
   const handleLink = Core.useCopyLinkToClipboard();
   const firstID = ids[0];
-  const first = getResource(firstID);
   const singleResource = ids.length === 1;
   const handleFavorite = () => {
     handleError(async () => {
@@ -129,7 +127,9 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       <Menu.Divider />
       {singleResource && (
         <Link.CopyContextMenuItem
-          onClick={() => handleLink({ name: first.name, ontologyID: firstID })}
+          onClick={() =>
+            handleLink({ name: getResource(firstID).name, ontologyID: firstID })
+          }
         />
       )}
       <Menu.Divider />

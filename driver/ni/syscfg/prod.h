@@ -101,7 +101,7 @@ private:
     using FreeDetailedStringWPtr = decltype(&NISysCfgFreeDetailedStringW);
 
     // Function pointers struct
-    typedef struct FunctionPointers {
+    using FunctionPointers = struct FunctionPointers {
         InitializeSessionPtr InitializeSession;
         CreateFilterPtr CreateFilter;
         SetFilterPropertyVPtr SetFilterPropertyV;
@@ -112,9 +112,9 @@ private:
         GetResourceIndexedPropertyPtr GetResourceIndexedProperty;
         GetStatusDescriptionWPtr GetStatusDescriptionW;
         FreeDetailedStringWPtr FreeDetailedStringW;
-    } FunctionPointers;
+    };
 
     std::unique_ptr<x::lib::Shared> lib;
-    FunctionPointers function_pointers_;
+    FunctionPointers function_pointers_{};
 };
 }

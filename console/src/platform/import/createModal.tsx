@@ -15,7 +15,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { FS } from "@/platform/fs";
@@ -42,24 +42,20 @@ export interface CreateModalArgs {
  * button for a directory picker. The Core owns the bundle format, so a folder's files
  * are zipped with their relative paths and uploaded untouched.
  */
-export const createModal = ({ header, resourceName, useOnImport }: CreateModalArgs) =>
-  Modals.create(({ close }): ReactElement => {
+export const createModal = ({ header, resourceName, useOnImport }: CreateModalArgs) => {
+  const Import = ({
+    close,
+  }: Modals.ContentProps<Record<never, never>, void>): ReactElement => {
     const onImport = useOnImport();
     const handleError = Status.useErrorHandler();
     const addStatus = Status.useAdder();
     const errorMessage = `Failed to import ${resourceName}`;
 
-    const importZip = useCallback(
-      async (bundle: UploadBody, fileName: string): Promise<void> => {
-        const name = await onImport(bundle, fileName);
-        addStatus({
-          variant: "success",
-          message: `Imported ${resourceName} "${name}"`,
-        });
-        close();
-      },
-      [onImport, addStatus, close],
-    );
+    const importZip = async (bundle: UploadBody, fileName: string): Promise<void> => {
+      const name = await onImport(bundle, fileName);
+      addStatus({ variant: "success", name, message: `Imported ${resourceName}` });
+      close();
+    };
 
     const handlePickZip = (): void =>
       handleError(async () => {
@@ -80,24 +76,20 @@ export const createModal = ({ header, resourceName, useOnImport }: CreateModalAr
         await importZip(zipFiles(directory.files), directory.name);
       }, errorMessage);
 
-    const handleDrop = useCallback(
-      (entries: FileSystemEntry[]): void =>
-        handleError(async () => {
-          if (entries.length !== 1)
-            throw new Error("drop a single .zip file or folder");
-          const [entry] = entries;
-          if (FS.isDirectoryEntry(entry)) {
-            await importZip(zipFiles(await FS.readDirectoryFiles(entry)), entry.name);
-            return;
-          }
-          if (!FS.isFileEntry(entry))
-            throw new Error("dropped item is not a file or folder");
-          const file = await FS.readEntryFile(entry);
-          if (!isZipFile(file.name)) throw new Error(`${file.name} is not a .zip file`);
-          await importZip(file, file.name);
-        }, errorMessage),
-      [handleError, importZip],
-    );
+    const handleDrop = (entries: FileSystemEntry[]): void =>
+      handleError(async () => {
+        if (entries.length !== 1) throw new Error("Drop a single .zip file or folder.");
+        const [entry] = entries;
+        if (FS.isDirectoryEntry(entry)) {
+          await importZip(zipFiles(await FS.readDirectoryFiles(entry)), entry.name);
+          return;
+        }
+        if (!FS.isFileEntry(entry))
+          throw new Error("The dropped item is not a file or folder.");
+        const file = await FS.readEntryFile(entry);
+        if (!isZipFile(file.name)) throw new Error(`${file.name} is not a .zip file.`);
+        await importZip(file, file.name);
+      }, errorMessage);
 
     return (
       <Modal.Frame className={CSS.B("import-modal")}>
@@ -126,4 +118,6 @@ export const createModal = ({ header, resourceName, useOnImport }: CreateModalAr
         </Modal.Body>
       </Modal.Frame>
     );
-  });
+  };
+  return Modals.create(Import);
+};

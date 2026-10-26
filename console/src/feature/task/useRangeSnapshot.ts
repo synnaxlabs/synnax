@@ -11,32 +11,30 @@ import { ranger } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { type Flux, Task } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { Range } from "@/platform/range";
 
 export const useRangeSnapshot = () => {
   const addStatus = Status.useAdder();
   const rng = Range.useResolve();
-  const buildMessage = useCallback(
-    ({ tasks }: Task.SnapshotParams) =>
-      `${strings.naturalLanguageJoin(
-        array.toArray(tasks).map((s) => s.name),
-        "schematic",
-      )} to ${rng?.name ?? "active range"}`,
-    [rng],
-  );
   const { update } = Task.useCreateSnapshot({
-    afterSuccess: useCallback(
-      ({ data }: Flux.AfterSuccessParams<Task.SnapshotParams>) =>
-        addStatus({
-          variant: "success",
-          message: `Snapshotted ${buildMessage(data)}`,
-        }),
-      [buildMessage, addStatus],
-    ),
-    afterFailure: ({ status, data }: Flux.AfterFailureParams<Task.SnapshotParams>) =>
-      addStatus({ ...status, message: `Failed to snapshot ${buildMessage(data)}` }),
+    afterSuccess: ({
+      data: { tasks },
+    }: Flux.AfterSuccessParams<Task.SnapshotParams>) => {
+      const names = array.toArray(tasks).map((t) => t.name);
+      const joined = strings.naturalLanguageJoin(names);
+      const single = names.length === 1;
+      addStatus({
+        variant: "success",
+        name: rng?.name ?? "",
+        message: single ? "Snapshotted task" : `Snapshotted ${names.length} tasks`,
+        description: single
+          ? `Created a snapshot of ${joined}.`
+          : `Created snapshots of ${joined}.`,
+      });
+    },
+    afterFailure: ({ status }: Flux.AfterFailureParams<Task.SnapshotParams>) =>
+      addStatus({ ...status, name: rng?.name ?? "" }),
   });
   return ({ tasks }: Omit<Task.SnapshotParams, "parentID">) => {
     if (rng == null)

@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { Status } from "@synnaxlabs/lyra/status";
-import { useCallback } from "react";
 
 import { Runtime } from "@/platform/runtime";
 
@@ -17,9 +16,6 @@ export const URL = "https://docs.synnaxlabs.com/reference/console/get-started";
 /** Opens the Synnax documentation in the user's browser. */
 export const useOpen = (): (() => void) => {
   const handleError = Status.useErrorHandler();
-  return useCallback(
-    () =>
-      handleError(async () => await Runtime.openExternal(URL), "Failed to open docs"),
-    [handleError],
-  );
+  return () =>
+    handleError(async () => await Runtime.openExternal(URL), "Failed to open docs");
 };

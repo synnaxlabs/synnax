@@ -18,10 +18,8 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { type BenchRunOptions, test, vi } from "vitest";
-import { z } from "zod";
+import { type BenchRunOptions, test } from "vitest";
 
-import { aether } from "@/aether/aether";
 import { type telem } from "@/telem/aether";
 import { GL_TRANSFORM } from "@/telem/aether/convertSeries";
 import { telemTest } from "@/telem/aether/test";
@@ -29,12 +27,11 @@ import { renderAether } from "@/testutil/renderAether";
 import { windowBounds } from "@/vis/line/aether/bounds";
 import {
   buildDrawOperations,
-  Context,
   DEFAULT_OVERLAP_THRESHOLD,
   Line,
   type LineProps,
 } from "@/vis/line/aether/line";
-import { render } from "@/vis/render";
+import { lineTest } from "@/vis/line/aether/test";
 import { canvasTest } from "@/vis/render/test";
 
 // Measures back-fill fetch speed under render-loop contention and the per-frame cost
@@ -147,7 +144,7 @@ const buildChunks = ({ rate, span, channels }: Spec): Chunks => {
 // One data-path frame per line, omitting GL upload, so slowdowns are a lower bound.
 const frame = (x: MultiSeries, y: MultiSeries): void => {
   windowBounds(x, y, x.bounds, DEFAULT_OVERLAP_THRESHOLD, y.bounds);
-  buildDrawOperations(x, y, 1, 0, "decimate", DEFAULT_OVERLAP_THRESHOLD);
+  buildDrawOperations(x, y, DEFAULT_OVERLAP_THRESHOLD);
 };
 
 // Drain frames walk only the short live window that is on screen during back-fill.
@@ -218,10 +215,14 @@ const opts = (spec: Spec): BenchRunOptions | undefined => {
   return undefined;
 };
 
+// The largest cases load for a minute or more.
+const LOAD_TIMEOUT = TimeSpan.minutes(5).milliseconds;
+
 for (const spec of [...MATRIX, ...CHANNEL_SPECS]) {
   const chunks = buildChunks(spec);
   const o = opts(spec);
-  test(`${spec.name} (${chunkCount(spec)} chunks)`, async ({ bench }) => {
+  const name = `${spec.name} (${chunkCount(spec)} chunks)`;
+  test(name, { timeout: LOAD_TIMEOUT }, async ({ bench }) => {
     // The drain benches keep their landed result so frame after load reuses it.
     // bench.compare would interleave them, so they run in order.
     let landed: Landed | null = null;
@@ -246,24 +247,10 @@ for (const spec of [...MATRIX, ...CHANNEL_SPECS]) {
   });
 }
 
-// Renders a 1M-sample line through a recording GL context, so the timings cover the
-// CPU side of a frame and leave out the GPU.
-class Host extends aether.Composite<typeof Host.stateZ> {
-  static readonly TYPE = "line-bench-host";
-  static readonly stateZ = z.object({});
-  schema = Host.stateZ;
-
-  afterUpdate(ctx: aether.Context): void {
-    Context.create(ctx, render.Context.use(ctx));
-    render.control(ctx, () => {});
-  }
-}
-
 const RENDER_SAMPLES = 1e6;
 const RENDER_PROPS: LineProps = {
   region: box.construct(0, 0, 800, 600),
   dataToDecimalScale: scale.XY.IDENTITY,
-  exposure: 0,
 };
 
 const renderSource = (series: Series[]): telem.SeriesSourceSpec => {
@@ -297,7 +284,7 @@ const mountLine = (y: (i: number) => number): (() => void) => {
   const recorder = canvasTest.record();
   (recorder as { gl: unknown }).gl = gl;
   recorder.resize(RENDER_PROPS.region, 1);
-  const h = renderAether(Host, {
+  const h = renderAether(lineTest.Host, {
     state: {},
     render: recorder,
     registry: { [Line.TYPE]: Line },
@@ -323,9 +310,6 @@ const mountLine = (y: (i: number) => number): (() => void) => {
 };
 
 test("render 1M samples", async ({ bench }) => {
-  // Line reads x through the module runner's export getters, and Vitest warns that
-  // they add overhead. Every case pays the same overhead.
-  vi.spyOn(console, "warn").mockImplementation(() => {});
   const finite = mountLine((i) => Math.sin(i / 100));
   // 5000 NaN bursts of 50 samples each.
   const bursts = mountLine((i) => (i % 200 >= 150 ? NaN : Math.sin(i / 100)));

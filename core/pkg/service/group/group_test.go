@@ -15,11 +15,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -38,11 +37,9 @@ var _ = Describe("Group", Ordered, func() {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		src := MustOpen(search.OpenIndex())
 		svc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Search:   src,
 		}))
 		w = svc.NewWriter(nil)
 	})
@@ -250,5 +247,37 @@ var _ = Describe("Group", Ordered, func() {
 			Expect(tx.Commit(ctx)).To(Succeed())
 			Expect(called).To(BeTrue())
 		})
+	})
+
+	Describe("Search", func() {
+		var tx gorp.Tx
+		BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
+		create := func(ctx SpecContext, name string) ontology.ID {
+			GinkgoHelper()
+			return MustSucceed(svc.NewWriter(tx).Create(ctx, name, ontology.RootID)).
+				OntologyID()
+		}
+
+		It(
+			"Should return the matching groups, closest match first",
+			func(ctx SpecContext) {
+				a := create(ctx, "turbopump test")
+				b := create(ctx, "turbopump")
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 0)).Keys).
+					To(Equal([]ontology.ID{b, a}))
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 1)).Keys).
+					To(Equal([]ontology.ID{b}))
+			},
+		)
+
+		It(
+			"Should not match a staged group outside its transaction",
+			func(ctx SpecContext) {
+				create(ctx, "injector")
+				Expect(
+					MustSucceed(svc.Search(ctx, db, "injector", 0)).Keys,
+				).To(BeEmpty())
+			},
+		)
 	})
 })

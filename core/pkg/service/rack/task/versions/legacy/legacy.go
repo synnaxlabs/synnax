@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package legacy marks the rack status config shape released Drivers stored, never
-// exported to a file. It needs only era normalization.
+// Package legacy marks the rack status config shape released Cores stored and
+// exported. It needs only era normalization.
 package legacy
 
 import "github.com/synnaxlabs/synnax/pkg/service/imex"
 
-// LastVersion is the newest legacy rack status shape. The typed shape sits directly
-// above it.
-const LastVersion imex.Version = 0
+// LastVersion is the newest version whose blobs need the rewrite. Released Cores
+// stamped the v0 shape at 1, and era normalization leaves it unchanged.
+const LastVersion imex.Version = 1

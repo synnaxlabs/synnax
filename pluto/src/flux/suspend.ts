@@ -9,7 +9,8 @@
 
 import { query, type Synnax as Client } from "@synnaxlabs/client";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
-import { use, useLayoutEffect, useRef } from "react";
+import { type destructor } from "@synnaxlabs/x";
+import { useLayoutEffect, useRef } from "react";
 
 export interface RetrieveParams<Query extends query.Params> {
   client: Client;
@@ -31,6 +32,9 @@ export const useMemoQuery = (<Query extends query.Params>(
 ): Query | null =>
   useMemoDeepEqual(q == null || normalize == null ? q : normalize(q))) as UseMemoQuery;
 
+/** The answer a fetch settled to: its data, or the error it failed with. */
+export type Settled<Data> = { data: Data } | { error: Error };
+
 /**
  * Fetch dedup and settled answers for queries the domain client does not cache. Entries
  * persist until the next fetch of the same query replaces them; an answer the cache
@@ -42,7 +46,9 @@ export const useMemoQuery = (<Query extends query.Params>(
 export interface LocalCache<Data> {
   epoch: number;
   inFlight: Map<string, Promise<Data>>;
-  settled: Map<string, { data: Data } | { error: Error }>;
+  settled: Map<string, Settled<Data>>;
+  /** Readers by query hash. Write through {@link subscribeReader}. */
+  listeners: Map<string, Set<() => void>>;
 }
 
 const SETTLED_CAP = 256;
@@ -56,15 +62,40 @@ const SETTLED_CAP = 256;
 export const setSettled = <Data>(
   local: LocalCache<Data>,
   hash: string,
-  entry: { data: Data } | { error: Error },
+  entry: Settled<Data>,
 ): void => {
   const { settled } = local;
   settled.delete(hash);
   settled.set(hash, entry);
-  if (settled.size <= SETTLED_CAP) return;
-  const oldest = settled.keys().next().value;
-  if (oldest != null) settled.delete(oldest);
+  if (settled.size > SETTLED_CAP) {
+    const oldest = settled.keys().next().value;
+    if (oldest != null) settled.delete(oldest);
+  }
+  notifyReaders(local, hash);
 };
+
+/**
+ * Calls `notify` after each fetched answer and each {@link setSettled} for the query
+ * hash.
+ */
+export const subscribeReader = <Data>(
+  local: LocalCache<Data>,
+  hash: string,
+  notify: () => void,
+): destructor.Destructor => {
+  const readers = local.listeners.get(hash) ?? new Set<() => void>();
+  local.listeners.set(hash, readers);
+  readers.add(notify);
+  return () => {
+    readers.delete(notify);
+    if (readers.size === 0 && local.listeners.get(hash) === readers)
+      local.listeners.delete(hash);
+  };
+};
+
+/** Tells the query's readers to re-read the domain cache and the settled entry. */
+export const notifyReaders = <Data>(local: LocalCache<Data>, hash: string): void =>
+  local.listeners.get(hash)?.forEach((l) => l());
 
 export const localFor = <Data>(
   locals: WeakMap<Client, LocalCache<Data>>,
@@ -73,7 +104,12 @@ export const localFor = <Data>(
   const { epoch } = client.connection.status.details;
   const existing = locals.get(client);
   if (existing == null) {
-    const local = { epoch, inFlight: new Map(), settled: new Map() };
+    const local: LocalCache<Data> = {
+      epoch,
+      inFlight: new Map(),
+      settled: new Map(),
+      listeners: new Map(),
+    };
     locals.set(client, local);
     return local;
   }
@@ -125,9 +161,10 @@ export const ensureFetch = <Query extends query.Params, Data>(
     const epoch = local.epoch;
     promise = retrieve(params).then(
       (data) => {
-        // An answer the domain cache serves is read from there on the next
-        // render; one that never reaches it is kept locally instead.
+        // An answer the domain cache serves is read from there; one that never
+        // reaches it is kept locally instead.
         if (getCached?.(params) === undefined) setSettled(local, hash, { data });
+        else notifyReaders(local, hash);
         local.inFlight.delete(hash);
         return data;
       },
@@ -161,14 +198,20 @@ export interface PendingFetch<Data> {
  * a replayed component's recorded hook list at its `use` call, so an attempt that
  * suspended has to resume through the same promise. Reaching the answer any other
  * way leaves every hook after the read reading a list that has already run out.
+ * @returns a new object on each render, so a compiled caller runs again any call that
+ * takes it, such as {@link promiseFor}.
  */
 export const usePendingFetch = <Query extends query.Params, Data>(
   q: Query | null,
 ): PendingFetch<Data> => {
+  // A replay must read the promise its suspended attempt wrote, which only a ref holds
+  // across the replay.
+  "use no memo";
   const pending = useRef<{ query: Query | null; promise: Promise<Data> } | null>(null);
   useLayoutEffect(() => {
     pending.current = null;
   });
+  /* eslint-disable synnax/react-compiler */
   const held = pending.current;
   return {
     promise: held != null && held.query === q ? held.promise : null,
@@ -176,33 +219,35 @@ export const usePendingFetch = <Query extends query.Params, Data>(
       pending.current = { query: q, promise };
     },
   };
+  /* eslint-enable synnax/react-compiler */
 };
 
 /**
- * Returns a value the cache already holds through `use`. A component that suspended on
- * mount must call `use` again when it finishes, or React flags the read as a
- * conditional `use`.
+ * @returns a promise already fulfilled with the value, so `use` reads it without
+ * suspending. A hook that suspended must call `use` again when it finishes, or React
+ * flags the read as a conditional `use`. Call `use` in the hook itself: the compiler
+ * caches a call to a plain function, which would skip a `use` inside it.
  */
-export const readCached = <Data>(value: Data): Data =>
-  use(
-    Object.assign(new Promise<Data>((resolve) => resolve(value)), {
-      status: "fulfilled" as const,
-      value,
-    }),
-  );
+export const fulfilled = <Data>(value: Data): Promise<Data> =>
+  Object.assign(Promise.resolve(value), { status: "fulfilled" as const, value });
 
-export const suspendOnFetch = <Query extends query.Params, Data>(
+/**
+ * @returns the promise a suspending read passes to `use`: the one the replayed attempt
+ * suspended on, the settled answer, or a new fetch.
+ * @throws the error the query last settled to.
+ */
+export const promiseFor = <Query extends query.Params, Data>(
   params: RetrieveParams<Query>,
   fetchParams: EnsureFetchParams<Query, Data>,
   pending: PendingFetch<Data>,
-): Data => {
-  if (pending.promise != null) return use(pending.promise);
+): Promise<Data> => {
+  if (pending.promise != null) return pending.promise;
   const settled = fetchParams.local.settled.get(query.hash(params.query));
   if (settled != null) {
     if ("error" in settled) throw settled.error;
-    return readCached(settled.data);
+    return fulfilled(settled.data);
   }
   const promise = ensureFetch(params, fetchParams);
   pending.set(promise);
-  return use(promise);
+  return promise;
 };

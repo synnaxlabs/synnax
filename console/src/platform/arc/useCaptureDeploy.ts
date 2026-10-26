@@ -9,7 +9,6 @@
 
 import { type Flux, type Task } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { Analytics } from "@/platform/analytics";
 
@@ -18,12 +17,9 @@ export const useCaptureDeploy = (): ((
   params: Flux.AfterSuccessParams<Task.CommandParams>,
 ) => void) => {
   const { capture } = Analytics.use();
-  return useCallback(
-    ({ data }) =>
-      array
-        .toArray(data)
-        .filter(({ type }) => type === "start")
-        .forEach(() => capture("automation_deployed", {})),
-    [capture],
-  );
+  return ({ data }) =>
+    array
+      .toArray(data)
+      .filter(({ type }) => type === "start")
+      .forEach(() => capture("automation_deployed", {}));
 };

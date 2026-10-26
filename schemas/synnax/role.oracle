@@ -25,6 +25,7 @@ Role struct {
             is a human-readable name for the role (e.g., 'Administrator', 'Engineer').
         """
         @filter
+        @search
         @validate required
     }
     description string = "" {
@@ -47,5 +48,4 @@ Role struct {
     @go migrate
     @ontology type "role"
     @retrieve
-    @search
 }

@@ -35,8 +35,7 @@ import {
   type PropsWithChildren,
   type ReactElement,
   type ReactNode,
-  useCallback,
-  useMemo,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -126,6 +125,31 @@ export const useScaleResize = (
   };
 };
 
+const INLINE_RESIZE_HANDLES: ControlLinePosition[] = ["left", "right"];
+const MIN_INLINE_SIZE = 40;
+
+// useInlineResize returns Grid resize props that change a symbol's inline size by the
+// change in dragged width, so parts outside the inline size keep their own width.
+export const useInlineResize = (
+  inlineSize: number,
+  onChange: (inlineSize: number) => void,
+): Pick<GridProps, "resizeHandles" | "onResizeStart" | "onResize"> => {
+  const start = useRef({ width: 0, inlineSize });
+  return {
+    resizeHandles: INLINE_RESIZE_HANDLES,
+    onResizeStart: ({ width }) => {
+      start.current = { width, inlineSize };
+    },
+    onResize: ({ width }) =>
+      onChange(
+        Math.max(
+          MIN_INLINE_SIZE,
+          start.current.inlineSize + width - start.current.width,
+        ),
+      ),
+  };
+};
+
 const HAUL_TYPE = "schematic_grid";
 export const DRAG_HANDLE_CLASS = CSS.B("drag-handle");
 
@@ -168,35 +192,29 @@ interface SlotProps {
 const EditableSlot = ({ loc, nodeKey, items }: SlotProps) => {
   const haulType = `${nodeKey}_${HAUL_TYPE}`;
   const [draggingOver, setDraggingOver] = useState(false);
-  const canDrop = useMemo(() => Haul.canDropOfType(haulType), [haulType]);
+  const canDrop = Haul.canDropOfType(haulType);
   const itemsRef = useSyncedRef(items);
   const { startDrag, onDragEnd, ...dropProps } = Haul.useDragAndDrop({
     type: haulType,
     canDrop,
-    onDrop: useCallback(({ items }) => {
+    onDrop: ({ items }) => {
       setDraggingOver(false);
       return items;
-    }, []),
-    onDragOver: useCallback(
-      (props: Haul.OnDragOverProps) => {
-        setDraggingOver(canDrop(props));
-        props.items.forEach(({ key }) => {
-          const item = itemsRef.current.find((i) => i.itemKey === key);
-          item?.onLocationChange?.(loc);
-        });
-      },
-      [canDrop, loc],
-    ),
-  });
-  const onDragStart = useCallback(
-    (_: DragEvent<HTMLElement>, itemKey: string) => {
-      startDrag([{ key: itemKey, type: haulType }]);
-      // The onDragEnd handler will not fire if the element is dragged into a
-      // different grid slot before being released; this listener cleans up.
-      document.addEventListener("mousemove", onDragEnd, { once: true });
     },
-    [startDrag, haulType, onDragEnd],
-  );
+    onDragOver: (props: Haul.OnDragOverProps) => {
+      setDraggingOver(canDrop(props));
+      props.items.forEach(({ key }) => {
+        const item = itemsRef.current.find((i) => i.itemKey === key);
+        item?.onLocationChange?.(loc);
+      });
+    },
+  });
+  const onDragStart = (_: DragEvent<HTMLElement>, itemKey: string) => {
+    startDrag([{ key: itemKey, type: haulType }]);
+    // The onDragEnd handler will not fire if the element is dragged into a
+    // different grid slot before being released; this listener cleans up.
+    document.addEventListener("mousemove", onDragEnd, { once: true });
+  };
   const isDragging = canDrop(Haul.useDraggingState());
   const filtered = items.filter((i) => i.location === loc);
   return (
@@ -260,41 +278,41 @@ export const Grid: FC<GridProps> = ({
   orientation = "left",
 }) => {
   const prevEditable = useRef(editable);
-  if (editable !== prevEditable.current) {
-    reflowPane(nodeKey);
+  useLayoutEffect(() => {
+    if (editable === prevEditable.current) return;
     prevEditable.current = editable;
-  }
+    reflowPane(nodeKey);
+  }, [editable, nodeKey]);
   // Non-draggable symbols are grouped; their rotate and resize affordances hide too.
   const locked = useStore((s) => s.nodeLookup.get(nodeKey)?.draggable === false);
   const [resizeCursor, setResizeCursor] = useState<string | null>(null);
-  const resizeOverlayStyle = useMemo<CSSProperties>(
-    () => ({ cursor: resizeCursor ?? undefined }),
-    [resizeCursor],
-  );
+  const resizeOverlayStyle: CSSProperties = { cursor: resizeCursor ?? undefined };
   const { items, body } = splitChildren(children);
   const handleRotate = () =>
     onRotate?.({ orientation: location.rotate(orientation, "clockwise") });
-  const resizeControls = useMemo(() => {
-    if (!editable || locked || onResize == null) return null;
+  let resizeControls: ReactElement[] | null = null;
+  if (editable && !locked && onResize != null) {
     const controls =
       resizeHandles == null
         ? RESIZE_CONTROLS
         : RESIZE_CONTROLS.filter(({ position }) => resizeHandles.includes(position));
-    return controls.map(({ position, variant, keepAspectRatio: corner, cursor }) => (
-      <NodeResizeControl
-        key={position}
-        position={position}
-        variant={variant}
-        keepAspectRatio={keepAspectRatio || corner}
-        onResizeStart={(_, { width, height }) => {
-          setResizeCursor(cursor);
-          onResizeStart?.(roundDimensions(width, height));
-        }}
-        onResizeEnd={() => setResizeCursor(null)}
-        onResize={(_, { width, height }) => onResize(roundDimensions(width, height))}
-      />
-    ));
-  }, [editable, locked, onResize, onResizeStart, keepAspectRatio, resizeHandles]);
+    resizeControls = controls.map(
+      ({ position, variant, keepAspectRatio: corner, cursor }) => (
+        <NodeResizeControl
+          key={position}
+          position={position}
+          variant={variant}
+          keepAspectRatio={keepAspectRatio || corner}
+          onResizeStart={(_, { width, height }) => {
+            setResizeCursor(cursor);
+            onResizeStart?.(roundDimensions(width, height));
+          }}
+          onResizeEnd={() => setResizeCursor(null)}
+          onResize={(_, { width, height }) => onResize(roundDimensions(width, height))}
+        />
+      ),
+    );
+  }
   return (
     <>
       <Zone key="top" loc="top" editable={editable} nodeKey={nodeKey} items={items} />

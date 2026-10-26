@@ -9,6 +9,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import AbstractContextManager
 from typing import Protocol
 
 from freighter.transport import RQ, RS, Transport
@@ -59,6 +61,23 @@ class FileTransport(Transport, Protocol):
         :param target: the target address of the server.
         :param req: the typed request payload.
         :param dest: file path to stream the response body into.
+        :raises Unreachable: when the target cannot be reached.
+        :raises Exception: any error returned by the server.
+        """
+        ...
+
+    def stream(
+        self, target: str, req: RQ, accept: str
+    ) -> AbstractContextManager[Iterator[bytes]]:
+        """Sends req to target on entering the returned context, which yields the
+        response body in chunks as it arrives. Leaving the context releases the
+        connection, whether or not the body was read.
+
+        :param target: the target address of the server.
+        :param req: the typed request payload.
+        :param accept: the content type to ask the server to encode the body in.
+        :returns: a context manager over the response body, in arbitrarily sized
+            chunks.
         :raises Unreachable: when the target cannot be reached.
         :raises Exception: any error returned by the server.
         """

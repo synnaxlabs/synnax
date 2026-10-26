@@ -39,14 +39,18 @@ type Key = v0.Key
 type Status[Details any] struct {
 	// Key is a unique identifier for this status, auto-generated if not provided.
 	Key Key `json:"key" msgpack:"key"`
-	// Name is an optional human-readable name for the status.
+	// Name is the name of what the status is about, such as a task, device, or rack.
+	// Empty when the status is not about a named thing.
 	Name string `json:"name" msgpack:"name"`
 	// Variant indicates the severity of the status. One of success, info, warning,
 	// error, loading, or disabled.
 	Variant Variant `json:"variant" msgpack:"variant"`
-	// Message is the main message text describing the status.
+	// Message says what happened in one short line, such as "Failed to start task" or
+	// "Started task". A status that reports a state names the state instead, such as
+	// "Driver not running".
 	Message string `json:"message" msgpack:"message"`
-	// Description is an optional detailed description providing additional context.
+	// Description says why it happened and what to do now, in full sentences. Raw error
+	// text goes here, never in the message. Empty when the message says enough.
 	Description string `json:"description" msgpack:"description"`
 	// Time is the timestamp when the status was created.
 	Time telem.TimeStamp `json:"time" msgpack:"time"`
@@ -54,4 +58,18 @@ type Status[Details any] struct {
 	Details Details `json:"details" msgpack:"details"`
 	// Labels contains optional labels for categorization and filtering.
 	Labels []label.Label `json:"labels,omitzero" msgpack:"labels,omitempty"`
+}
+
+// ToAny converts s to a Status[any].
+func (s Status[Details]) ToAny() Status[any] {
+	return Status[any]{
+		Key:         s.Key,
+		Name:        s.Name,
+		Variant:     s.Variant,
+		Message:     s.Message,
+		Description: s.Description,
+		Time:        s.Time,
+		Details:     s.Details,
+		Labels:      s.Labels,
+	}
 }

@@ -13,15 +13,15 @@ import (
 	"context"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v0"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
 // Migration lifts stored symbols out of the untyped v0 shape into the typed v2 shape.
-var Migration = gorp.NewEntryMigration("v2_typed_symbol", migrateSymbol)
+var Migration = migrate.NewEntry("v2_typed_symbol", migrateSymbol)
 
 func migrateSymbol(ctx context.Context, old v0.Symbol) (Symbol, error) {
 	out, err := autoMigrateSymbol(ctx, old)

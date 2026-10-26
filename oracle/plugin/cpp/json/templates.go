@@ -93,8 +93,20 @@ inline x::json::json {{.Name}}::to_json() const {
 
 inline {{.Name}} {{.Name}}::parse(x::json::Parser parser) {
     {{.Name}} result;
+{{- if .IsFixedSizeArray}}
+    auto items = parser.field<std::vector<{{.ElementType}}>>();
+    if (items.size() != result.size()) {
+        parser.field_err(
+            "",
+            "expected {{.ArraySize}} elements, got " + std::to_string(items.size())
+        );
+        return result;
+    }
+    std::move(items.begin(), items.end(), result.begin());
+{{- else}}
     for (auto& item : parser.field<std::vector<{{.ElementType}}>>())
         result.push_back(std::move(item));
+{{- end}}
     return result;
 }
 

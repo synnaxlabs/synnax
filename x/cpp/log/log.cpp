@@ -26,9 +26,11 @@
 
 namespace x::log {
 namespace {
-// Global by necessity: absl's LOG macros and sink registry are process-wide, leaving no
-// construction seam to inject this through. Set once by init.
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): absl's LOG macros
+// and sink registry are process-wide, leaving no construction seam to inject this
+// through. Set once by init.
 std::atomic<bool> enabled(false);
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 }
 
 StderrSink::StderrSink(const bool enable_color): color(enable_color) {}

@@ -78,6 +78,23 @@ export const createProxiedTestClient = async (
 export const spyOnSend = (client: Synnax, field: "transport" = "transport") =>
   vi.spyOn(client[field].unary, "send");
 
+/** Records each response to target from now on, as the promise the caller awaits. */
+export const recordResponses = (
+  client: Synnax,
+  target: string,
+  field: "transport" = "transport",
+): Promise<unknown>[] => {
+  const { unary } = client[field];
+  const send = unary.send.bind(unary);
+  const responses: Promise<unknown>[] = [];
+  vi.spyOn(unary, "send").mockImplementation(async (...args) => {
+    const res = send(...args);
+    if (args[0] === target) responses.push(res);
+    return await res;
+  });
+  return responses;
+};
+
 /**
  * Holds each response to target until release is called. responded resolves when the
  * first held response arrives.

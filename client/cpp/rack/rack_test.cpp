@@ -16,7 +16,10 @@
 #include "x/cpp/test/test.h"
 
 namespace synnax::rack {
-std::mt19937 gen_rand = random_generator(std::move("Ranger Tests"));
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): one seed per suite,
+// printed so that a failing run can be replayed.
+std::mt19937 gen_rand = random_generator("Rack Tests");
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 /// @brief it should correctly create a rack in the cluster.
 TEST(RackTests, testCreateRack) {
@@ -48,7 +51,7 @@ TEST(RackTests, testDeleteRack) {
 TEST(RackTests, testRetrieveRackByName) {
     const auto client = new_test_client();
 
-    const auto unique_name = "test_rack_by_name_unique" + std::to_string(rand());
+    const auto unique_name = "test_rack_by_name_unique" + std::to_string(gen_rand());
     auto r = Rack{.name = unique_name};
     ASSERT_NIL(client.racks.create(r));
     const auto r2 = ASSERT_NIL_P(client.racks.retrieve(unique_name));
@@ -125,8 +128,8 @@ TEST(RackTests, testCreateRackWithStatusIncluded) {
     );
     ASSERT_EQ(r2.name, "test_rack_with_status");
     ASSERT_TRUE(r2.status.has_value());
-    ASSERT_EQ(r2.status->variant, synnax::status::VARIANT_SUCCESS);
-    ASSERT_EQ(r2.status->message, "Rack is healthy");
+    ASSERT_EQ(r2.status.value().variant, synnax::status::VARIANT_SUCCESS);
+    ASSERT_EQ(r2.status.value().message, "Rack is healthy");
 }
 
 /// @brief it should create a rack with integrations and retrieve them.

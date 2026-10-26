@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
@@ -23,7 +23,7 @@ export const Symbol = ({
   onConfigChange,
   config: { label, orientation = "left", commandChannel, control, mode, ...rest },
 }: NodeProps<schematic.ButtonNodeConfig>): ReactElement => {
-  const sink = useMemo(() => Telem.booleanSink(commandChannel), [commandChannel]);
+  const sink = Telem.booleanSink(commandChannel);
   const { onClick, onMouseDown, onMouseUp } = BaseButton.use({
     aetherKey: nodeKey,
     sink,

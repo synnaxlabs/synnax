@@ -9,7 +9,6 @@
 
 import { type ontology, type panel } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
-import { useCallback } from "react";
 
 import { Panel } from "@/platform/panel";
 
@@ -33,6 +32,21 @@ export interface ImportBatch {
   <I extends { name: string }>(params: ImportBatchParams<I>): Promise<void>;
 }
 
+const importOne = async <I extends { name: string }>(
+  item: I,
+  importItem: ImportBatchParams<I>["importItem"],
+  handleError: Status.ErrorHandler,
+  onSuccess?: ImportBatchParams<I>["onSuccess"],
+): Promise<void | ontology.ID> => {
+  try {
+    const id = await importItem(item);
+    onSuccess?.(item);
+    return id;
+  } catch (e) {
+    handleError(e, { message: "Failed to import", name: item.name });
+  }
+};
+
 /**
  * Returns a batch importer: it imports every item concurrently, then opens the
  * resources they created as one batch of tabs. An item that fails is reported on its
@@ -41,26 +55,15 @@ export interface ImportBatch {
 export const useImportBatch = (): ImportBatch => {
   const handleError = Status.useErrorHandler();
   const openTabs = Panel.useOpenTabs();
-  return useCallback(
-    async <I extends { name: string }>({
-      items,
-      importItem,
-      placement,
-      onSuccess,
-    }: ImportBatchParams<I>): Promise<void> => {
-      const ids = await Promise.all(
-        items.map(async (item) => {
-          try {
-            const id = await importItem(item);
-            onSuccess?.(item);
-            return id;
-          } catch (e) {
-            handleError(e, `Failed to import ${item.name}`);
-          }
-        }),
-      );
-      openTabs(resourceTabs(ids), { placement });
-    },
-    [handleError, openTabs],
-  );
+  return async <I extends { name: string }>({
+    items,
+    importItem,
+    placement,
+    onSuccess,
+  }: ImportBatchParams<I>): Promise<void> => {
+    const ids = await Promise.all(
+      items.map((item) => importOne(item, importItem, handleError, onSuccess)),
+    );
+    openTabs(resourceTabs(ids), { placement });
+  };
 };

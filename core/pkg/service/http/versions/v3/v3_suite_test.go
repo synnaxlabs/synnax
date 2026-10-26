@@ -19,7 +19,7 @@ import (
 
 func TestHTTPV3(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service HTTP v3 Suite")
+	RunSpecs(t, "Service HTTP v3 Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

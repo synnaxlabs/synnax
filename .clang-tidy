@@ -1,0 +1,127 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Lint with bazel build --config=clang-tidy <targets>. The aspect lints every header as
+# its own file, so a header must compile without the file that includes it.
+#
+# Checks that are off, and why:
+# - clang-analyzer-*: takes minutes on a large test file. The sanitizers in CI find the
+#   same class of bug.
+# - Arrays, casts, varargs, pointer math, and signed bitwise operands: the Driver
+#   speaks C SDKs and binary wire formats.
+# - throwing-static-initialization: every GoogleTest TEST registers a static.
+# - avoid-c-style-cast: it flags harmless casts such as uint8_t(7). pro-type-cstyle-cast
+#   flags the risky ones.
+# - avoid-endl: a tool that prints to a pipe needs the flush that std::endl does.
+# - use-string-view: it changes return types and leaves callers that append to them.
+# - use-std-numbers: it swaps a literal near pi or e, such as 3.14159, which changes the
+#   value a test checks.
+# - convert-member-functions-to-static and static-accessed-through-instance: we call
+#   members through this->, and a method that does not use its object yet still
+#   belongs to the object's interface.
+# - inefficient-string-concatenation and use-anyofallof: style only, and the rewrite
+#   reads no better. Frame is not a range, so it cannot take std::ranges::all_of.
+# - include-cleaner and inconsistent-declaration-parameter-name: the result differs
+#   between libc++ and libstdc++.
+# - Brace, parameter, literal, and declaration style: clang-format and review own it.
+---
+Checks: |
+    -*,
+    bugprone-*,
+    -bugprone-derived-method-shadowing-base-method,
+    -bugprone-easily-swappable-parameters,
+    -bugprone-signed-bitwise,
+    -bugprone-throwing-static-initialization,
+    cppcoreguidelines-avoid-non-const-global-variables,
+    cppcoreguidelines-init-variables,
+    cppcoreguidelines-missing-std-forward,
+    cppcoreguidelines-prefer-member-initializer,
+    cppcoreguidelines-pro-type-cstyle-cast,
+    cppcoreguidelines-pro-type-member-init,
+    cppcoreguidelines-rvalue-reference-param-not-moved,
+    cppcoreguidelines-slicing,
+    cppcoreguidelines-virtual-class-destructor,
+    misc-*,
+    -misc-const-correctness,
+    -misc-include-cleaner,
+    -misc-multiple-inheritance,
+    -misc-no-recursion,
+    -misc-non-private-member-variables-in-classes,
+    -misc-unused-parameters,
+    -misc-use-anonymous-namespace,
+    -misc-use-internal-linkage,
+    modernize-*,
+    -modernize-avoid-c-arrays,
+    -modernize-avoid-c-style-cast,
+    -modernize-avoid-variadic-functions,
+    -modernize-return-braced-init-list,
+    -modernize-use-designated-initializers,
+    -modernize-use-std-numbers,
+    -modernize-use-std-print,
+    -modernize-use-string-view,
+    -modernize-use-trailing-return-type,
+    performance-*,
+    -performance-avoid-endl,
+    -performance-enum-size,
+    -performance-inefficient-string-concatenation,
+    -performance-no-int-to-ptr,
+    portability-*,
+    -portability-avoid-pragma-once,
+    -portability-template-virtual-member-function,
+    readability-*,
+    -readability-braces-around-statements,
+    -readability-convert-member-functions-to-static,
+    -readability-function-cognitive-complexity,
+    -readability-identifier-length,
+    -readability-implicit-bool-conversion,
+    -readability-inconsistent-declaration-parameter-name,
+    -readability-inconsistent-ifelse-braces,
+    -readability-isolate-declaration,
+    -readability-magic-numbers,
+    -readability-math-missing-parentheses,
+    -readability-named-parameter,
+    -readability-redundant-lambda-parameter-list,
+    -readability-static-accessed-through-instance,
+    -readability-trailing-comma,
+    -readability-uppercase-literal-suffix,
+    -readability-use-anyofallof,
+    -readability-use-concise-preprocessor-directives
+WarningsAsErrors: "*"
+# Each header is linted as its own file, so report only the file being linted.
+HeaderFilterRegex: "^$"
+# The build checks compiler warnings on each platform's own compiler. A header linted
+# alone also raises false ones, such as #pragma once in a main file.
+ExtraArgs: ["-w"]
+FormatStyle: file
+CheckOptions:
+    # GoogleTest macros declare globals, use old type traits, and override TestBody.
+    cppcoreguidelines-avoid-non-const-global-variables.IgnoreMacros: true
+    modernize-type-traits.IgnoreMacros: true
+    misc-override-with-different-visibility.IgnoredFunctions: ::testing::Test::TestBody
+    # A private override only hides a method that the base class makes public.
+    misc-override-with-different-visibility.DisallowedVisibilityChange: widening
+    cppcoreguidelines-init-variables.MathHeader: <cmath>
+    # Containers index with size_t, and Series indexes with int.
+    bugprone-narrowing-conversions.IgnoreConversionFromTypes: size_t;size_type;difference_type
+    bugprone-narrowing-conversions.WarnOnIntegerToFloatingPointNarrowingConversion: false
+    # A factory moves the parts of its config that it keeps.
+    cppcoreguidelines-rvalue-reference-param-not-moved.AllowPartialMove: true
+    cppcoreguidelines-rvalue-reference-param-not-moved.IgnoreUnnamedParams: true
+    # These come from a size past max_size or a call to an empty std::function. Each
+    # ends the process, which is the right result.
+    bugprone-exception-escape.IgnoredExceptions: bad_array_new_length,length_error,bad_function_call
+    # value() throws on an empty optional, which a test reports as a failure. The check
+    # still flags * and ->, which are undefined behavior on an empty optional.
+    bugprone-unchecked-optional-access.IgnoreValueCalls: true
+    # std::lock_guard is fine for one mutex.
+    modernize-use-scoped-lock.WarnOnSingleLocks: false
+    # Vendor headers include each other.
+    misc-header-include-cycle.IgnoredFilesList: /curl/curl\.h$;(^|/)vendor/
+    # std::from_chars takes the end of the range.
+    bugprone-suspicious-stringview-data-usage.AllowedCallees: ::std::from_chars

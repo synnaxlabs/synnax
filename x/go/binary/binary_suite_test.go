@@ -19,7 +19,7 @@ import (
 
 func TestBinary(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Binary Suite")
+	RunSpecs(t, "Binary Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

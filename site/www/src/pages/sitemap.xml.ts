@@ -11,8 +11,11 @@ import { sitemap } from "@synnaxlabs/site-common/sitemap";
 
 export const prerender = true;
 
-const ROUTES = Object.keys(import.meta.glob("/src/pages/**/*.astro")).map(
-  (file) => file.replace(/^\/src\/pages/, "").replace(/(index)?\.astro$/, "") || "/",
-);
+// The 404 page answers every path that has no page, so it has no address of its own.
+const ROUTES = Object.keys(import.meta.glob("/src/pages/**/*.astro"))
+  .map(
+    (file) => file.replace(/^\/src\/pages/, "").replace(/(index)?\.astro$/, "") || "/",
+  )
+  .filter((route) => route !== "/404");
 
 export const GET = sitemap(ROUTES);

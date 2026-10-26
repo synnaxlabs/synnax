@@ -194,6 +194,7 @@ func (n *nodeImpl) runBatch(
 		copy(outTime.Data, inputTime.Data)
 	}
 	n.offsets[0] = int(count)
+	ctx.MarkDone()
 	return true
 }
 

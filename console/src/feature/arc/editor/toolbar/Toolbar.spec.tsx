@@ -145,7 +145,7 @@ describe("arc editor toolbar", () => {
     expect(screen.getByText("Align")).toBeTruthy();
     await waitFor(() =>
       expect(statuses().map(({ message }) => message)).toContain(
-        "failed to calculate Arc node layout",
+        "Failed to align nodes",
       ),
     );
   });
