@@ -16,11 +16,12 @@
 #   scripts/fix.sh --staged   staged files, then stages the fixes again
 #   scripts/fix.sh <file...>  the files given
 #
-# A missing formatter is skipped with a warning. With --staged, the script fails when it
-# changes a file that also has unstaged changes, because it cannot stage only the fix.
+# A missing formatter is skipped with a warning. With --staged, a partially staged file
+# has its staged copy fixed and staged, and its working copy fixed but not staged.
 
 set -euo pipefail
 
+PREFIX=$(git rev-parse --show-prefix)
 cd "$(git rev-parse --show-toplevel)"
 
 FILES=()
@@ -37,6 +38,7 @@ if [ "${1:-}" = "--staged" ]; then
     add_files < <(git diff --cached --name-only --diff-filter=ACMR -z)
 elif [ $# -gt 0 ]; then
     for f in "$@"; do
+        [[ $f == /* ]] || f="$PREFIX$f"
         [ -f "$f" ] && FILES+=("$f")
     done
 else
@@ -49,78 +51,91 @@ if [ ${#FILES[@]} -eq 0 ]; then
     exit 0
 fi
 
-GO=()
-PY=()
-CPP=()
-for f in "${FILES[@]}"; do
-    case "$f" in
-        *.go) GO+=("$f") ;;
-        *.py | *.pyi) PY+=("$f") ;;
-        *.cpp | *.hpp | *.h | *.cc) CPP+=("$f") ;;
-    esac
-done
-
-BEFORE=$(git hash-object -- "${FILES[@]}")
-UNSTAGED=$(git diff --name-only)
-
+WARNED=0
 skip() {
-    echo "fix.sh: $1 not found, so $2 files are not formatted." >&2
+    [ "$WARNED" = "1" ] || echo "fix.sh: $1 not found; $2 files are not formatted." >&2
 }
 
-scripts/update_copyrights.sh "${FILES[@]}" > /dev/null
-
-if [ -x node_modules/.bin/prettier ]; then
-    node_modules/.bin/prettier --write --ignore-unknown --log-level warn \
-        -- "${FILES[@]}"
-else
-    skip "Prettier (run pnpm install)" "TypeScript, Markdown, and config"
-fi
-
-if [ ${#GO[@]} -gt 0 ]; then
-    if command -v golangci-lint > /dev/null; then
-        golangci-lint fmt "${GO[@]}"
+fix() {
+    local f go=() py=() cpp=()
+    for f in "$@"; do
+        case "$f" in
+            *.go) go+=("$f") ;;
+            *.py | *.pyi) py+=("$f") ;;
+            *.cpp | *.hpp | *.h | *.cc) cpp+=("$f") ;;
+        esac
+    done
+    scripts/update_copyrights.sh "$@" > /dev/null
+    if [ -x node_modules/.bin/prettier ]; then
+        node_modules/.bin/prettier --write --ignore-unknown --log-level warn -- "$@"
     else
-        skip "golangci-lint" "Go"
+        skip "Prettier (run pnpm install)" "TypeScript, Markdown, and config"
     fi
+    if [ ${#go[@]} -gt 0 ]; then
+        if command -v golangci-lint > /dev/null; then
+            golangci-lint fmt "${go[@]}"
+        else
+            skip "golangci-lint" "Go"
+        fi
+    fi
+    if [ ${#py[@]} -gt 0 ]; then
+        if command -v uv > /dev/null; then
+            local ruff=(uv run --quiet --frozen --package synnax-scripts ruff)
+            "${ruff[@]}" check --quiet --select I --fix --exit-zero -- "${py[@]}"
+            "${ruff[@]}" format --quiet -- "${py[@]}"
+        else
+            skip "uv" "Python"
+        fi
+    fi
+    if [ ${#cpp[@]} -gt 0 ]; then
+        if command -v clang-format > /dev/null; then
+            scripts/clang_format.sh --files "${cpp[@]}" > /dev/null
+        else
+            skip "clang-format (run scripts/install_clang_format.sh)" "C++"
+        fi
+    fi
+    WARNED=1
+}
+
+# The working copies of partially staged files wait in SAVED while their staged copies
+# are fixed. The trap puts them back if a fixer fails.
+PARTIAL=()
+SAVED=$(mktemp -d)
+restore() {
+    local i
+    for ((i = 0; i < ${#PARTIAL[@]}; i++)); do
+        cp "$SAVED/$i" "${PARTIAL[i]}"
+    done
+    rm -r "$SAVED"
+}
+trap restore EXIT
+
+if [ "$STAGED" = "1" ]; then
+    for f in "${FILES[@]}"; do
+        git diff --quiet -- "$f" && continue
+        cp "$f" "$SAVED/${#PARTIAL[@]}"
+        PARTIAL+=("$f")
+        git checkout -- "$f"
+    done
 fi
 
-if [ ${#PY[@]} -gt 0 ]; then
-    if command -v uv > /dev/null; then
-        ruff=(uv run --quiet --frozen --package synnax-scripts ruff)
-        "${ruff[@]}" check --quiet --select I --fix --exit-zero -- "${PY[@]}"
-        "${ruff[@]}" format --quiet -- "${PY[@]}"
-    else
-        skip "uv" "Python"
-    fi
-fi
-
-if [ ${#CPP[@]} -gt 0 ]; then
-    if command -v clang-format > /dev/null; then
-        scripts/clang_format.sh --files "${CPP[@]}" > /dev/null
-    else
-        skip "clang-format (run scripts/install_clang_format.sh)" "C++"
-    fi
-fi
-
+BEFORE=$(git hash-object -- "${FILES[@]}")
+fix "${FILES[@]}"
 AFTER=$(git hash-object -- "${FILES[@]}")
 
-PARTIAL=()
 i=0
 while IFS=$'\t' read -r before after; do
     f="${FILES[i]}"
     i=$((i + 1))
     [ "$before" = "$after" ] && continue
     echo "fix.sh: fixed $f"
-    [ "$STAGED" = "1" ] || continue
-    if grep -qxF -- "$f" <<< "$UNSTAGED"; then
-        PARTIAL+=("$f")
-    else
+    if [ "$STAGED" = "1" ]; then
         git add -- "$f"
     fi
 done < <(paste <(echo "$BEFORE") <(echo "$AFTER"))
 
 if [ ${#PARTIAL[@]} -gt 0 ]; then
-    echo "fix.sh: these files have unstaged changes. Stage the fixes, then commit:" >&2
-    printf '  %s\n' "${PARTIAL[@]}" >&2
-    exit 1
+    trap - EXIT
+    restore
+    fix "${PARTIAL[@]}"
 fi
