@@ -12,7 +12,7 @@ import pluralize from "pluralize";
 import { type ReactElement, type ReactNode } from "react";
 
 import { Dialog } from "@/dialog";
-import { DefaultEmptyContent } from "@/select/Body";
+import { EmptyContent } from "@/select/Body";
 import { Dialog as SelectDialog } from "@/select/Dialog";
 import { Frame, type MultipleFrameProps, type SingleFrameProps } from "@/select/Frame";
 import { List } from "@/select/List";
@@ -78,7 +78,7 @@ type EmptyProps = Pick<BaseSimpleProps, "resourceName" | "emptyContent">;
 const OpenEmpty = ({ resourceName, emptyContent }: EmptyProps): ReactNode => {
   const count = useVisibleCount();
   if (count > 0) return null;
-  return emptyContent ?? <DefaultEmptyContent resourceName={resourceName} />;
+  return <EmptyContent resourceName={resourceName} emptyContent={emptyContent} />;
 };
 
 const Empty = (props: EmptyProps): ReactNode =>
