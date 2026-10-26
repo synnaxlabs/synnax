@@ -38,6 +38,7 @@ _SMALL_SPAN = st.integers(min_value=-(2**61), max_value=2**61)
 _SMALL_STAMP = st.integers(min_value=0, max_value=2**61)
 _FACTOR = st.floats(min_value=-1000, max_value=1000, allow_nan=False)
 _BARE_NUMBERS: list[object] = [5, 5.0, np.int64(5), np.float64(5)]
+_BARE_NUMBER_IDS = ["int", "float", "int64", "float64"]
 
 
 @pytest.mark.telem
@@ -638,6 +639,7 @@ class TestTimeArithmetic:
             lambda: -sy.TimeStamp(1),
             lambda: sy.TimeSpan(1) - sy.TimeStamp(1),
         ],
+        ids=["add", "mul", "rmul", "neg", "rsub"],
     )
     def test_invalid_stamp_operations(self, operation: Callable[[], object]) -> None:
         """Should reject operations that have no meaning for a timestamp"""
@@ -645,7 +647,7 @@ class TestTimeArithmetic:
             operation()
 
     @pytest.mark.parametrize("op", [operator.add, operator.sub])
-    @pytest.mark.parametrize("number", _BARE_NUMBERS)
+    @pytest.mark.parametrize("number", _BARE_NUMBERS, ids=_BARE_NUMBER_IDS)
     @pytest.mark.parametrize("value", [sy.TimeStamp(10), sy.TimeSpan(10)])
     def test_bare_number_rejected(
         self, op: Callable[[object, object], object], value: int, number: object
@@ -663,7 +665,7 @@ class TestTimeArithmetic:
         with pytest.raises(TypeError):
             op(5, value)
 
-    @pytest.mark.parametrize("number", _BARE_NUMBERS)
+    @pytest.mark.parametrize("number", _BARE_NUMBERS, ids=_BARE_NUMBER_IDS)
     def test_bare_number_mod_rejected(self, number: object) -> None:
         """Should reject a bare number as the modulus of a span"""
         with pytest.raises(TypeError):
@@ -751,7 +753,7 @@ class TestRate:
         assert result == 100.0
 
     @pytest.mark.parametrize("op", [operator.add, operator.sub])
-    @pytest.mark.parametrize("number", _BARE_NUMBERS)
+    @pytest.mark.parametrize("number", _BARE_NUMBERS, ids=_BARE_NUMBER_IDS)
     def test_bare_number_rejected(
         self, op: Callable[[object, object], object], number: object
     ) -> None:

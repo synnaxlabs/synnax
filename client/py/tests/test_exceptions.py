@@ -16,7 +16,7 @@ import synnax as sy
 
 
 class TestError:
-    """Tests for the base of every error that the client raises."""
+    """Tests for the base of the exception classes that Synnax defines."""
 
     @pytest.mark.parametrize(
         "type_",
@@ -80,5 +80,5 @@ class TestError:
         ],
     )
     def test_local(self, exc: type[Exception]) -> None:
-        """Should make each error that the client raises without the Core an Error."""
+        """Should make each Synnax exception that the client raises locally an Error."""
         assert issubclass(exc, sy.Error)

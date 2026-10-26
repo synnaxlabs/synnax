@@ -18,8 +18,8 @@ _TYPE_NONE = "nil"
 
 
 class Error(Exception):
-    """The base of every exception that Synnax defines. Catch it to handle any error
-    from Synnax.
+    """The base of every exception class that Synnax defines, and of every error that
+    the Core sends. Built-in exceptions such as TimeoutError do not inherit it.
     """
 
 
