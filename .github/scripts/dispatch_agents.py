@@ -75,7 +75,8 @@ class Issue:
     description: str
     state: str
     project: str | None
-    blocker_states: tuple[str, ...]
+    # None when the issue has more relations than one page holds.
+    blocker_states: tuple[str, ...] | None
 
 
 @dataclass(frozen=True)
@@ -96,15 +97,16 @@ class Dispatch:
 
 
 def parse_issue(node: dict[str, Any]) -> Issue:
-    """Converts one Linear GraphQL issue node into an Issue.
-
-    Raises ValueError when the node holds only the first page of its relations.
-    """
+    """Converts one Linear GraphQL issue node into an Issue."""
     relations = node["inverseRelations"]
-    if relations["pageInfo"]["hasNextPage"]:
-        raise ValueError(f"{node['identifier']} has more relations than one page")
-    blockers = tuple(
-        r["issue"]["state"]["type"] for r in relations["nodes"] if r["type"] == "blocks"
+    blockers = (
+        None
+        if relations["pageInfo"]["hasNextPage"]
+        else tuple(
+            r["issue"]["state"]["type"]
+            for r in relations["nodes"]
+            if r["type"] == "blocks"
+        )
     )
     return Issue(
         id=node["id"],
@@ -150,6 +152,8 @@ def select(
         fields = agent_fields(issue.description)
         if issue.project is None:
             skipped.append(f"{issue.key}: no project")
+        elif issue.blocker_states is None:
+            skipped.append(f"{issue.key}: too many relations to check its blockers")
         elif any(s != "completed" for s in issue.blocker_states):
             skipped.append(f"{issue.key}: blocked")
         elif not {"RFC", "Phase"} <= fields.keys():

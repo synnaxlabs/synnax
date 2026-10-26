@@ -9,8 +9,6 @@
 
 from typing import Any
 
-import pytest
-
 from dispatch_agents import Issue, agent_fields, open_pr_keys, parse_issue, select
 
 AGENT = """## Why
@@ -28,7 +26,7 @@ def issue(
     number: int,
     state: str = "unstarted",
     project: str | None = "Foo",
-    blockers: tuple[str, ...] = (),
+    blockers: tuple[str, ...] | None = (),
     description: str = AGENT,
 ) -> Issue:
     return Issue(
@@ -78,10 +76,9 @@ class TestParseIssue:
             "uuid", "SY-7", 7, "Add the codec", "", "backlog", None, ("completed",)
         )
 
-    def test_should_reject_a_partial_relation_page(self) -> None:
-        """Should fail instead of judging blockers from one page of relations."""
-        with pytest.raises(ValueError, match="SY-7 has more relations"):
-            parse_issue(node(more_relations=True))
+    def test_should_mark_blockers_unknown_on_a_partial_page(self) -> None:
+        """Should not judge blockers from one page of relations."""
+        assert parse_issue(node(more_relations=True)).blocker_states is None
 
 
 class TestAgentFields:
@@ -130,6 +127,12 @@ class TestSelect:
         dispatches, skipped = select(issues, set(), 3)
         assert dispatches == []
         assert skipped == ["SY-1: blocked", "SY-2: blocked"]
+
+    def test_should_skip_only_the_issue_with_unknown_blockers(self) -> None:
+        """Should skip an issue whose blockers are unknown and dispatch the rest."""
+        dispatches, skipped = select([issue(1, blockers=None), issue(2)], set(), 3)
+        assert [d.issue.key for d in dispatches] == ["SY-2"]
+        assert skipped == ["SY-1: too many relations to check its blockers"]
 
     def test_should_skip_issues_already_in_flight(self) -> None:
         """Should never dispatch a started issue or one an open PR names."""
