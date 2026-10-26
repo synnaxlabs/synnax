@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import ErrorStackParser from "error-stack-parser";
-import { type RawSourceMap, SourceMapConsumer } from "source-map-js";
+import { type RawSourceMap, type SourceMapConsumer } from "source-map-js";
 
 type StackFrame = ReturnType<typeof ErrorStackParser.parse>[number];
 
@@ -55,7 +55,9 @@ const loadConsumer = async (scriptURL: string): Promise<SourceMapConsumer | null
   const raw = await readRawMap(new URL(mappingURL, scriptURL).toString());
   // Yield a macrotask so the crash screen paints before the one-time decode below.
   await new Promise((resolve) => setTimeout(resolve, 0));
-  const consumer = new SourceMapConsumer(JSON.parse(raw) as RawSourceMap);
+  // Imported here so source-map-js loads on a crash, not at startup.
+  const sourceMap = await import("source-map-js");
+  const consumer = new sourceMap.SourceMapConsumer(JSON.parse(raw) as RawSourceMap);
   // The mappings decode is lazy; pay it here, inside the cached promise, so every
   // per-frame query afterward is a sub-millisecond lookup.
   consumer.originalPositionFor({ line: 1, column: 0 });

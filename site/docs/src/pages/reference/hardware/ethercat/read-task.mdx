@@ -23,17 +23,14 @@ Before you start, you need
 
 ## PDO channels
 
-Each channel reads one input PDO. A channel has one of two modes:
+Each channel reads one entry of an input PDO, such as the value of one analog input. The
+channel selects the entry by its CoE address: an index and a sub-index, such as
+`0x3101:02`. The Console lists the entries of a module with their addresses. The entries
+come from the scan and depend on the revision of the module. For example, an EL3102 can
+show a `Value` entry at `0x3101:02` and another at `0x3102:02`, one for each input.
 
-- **Automatic (PDO)** -> select the PDO by its name. Use this mode only when the name is
-  unique on the module. Many modules repeat a name for each channel, such as `Value` on
-  an EL3102. For a repeated name, automatic mode always reads the first PDO.
-- **Manual (address)** -> enter the CoE address of the PDO: its **Index (hex)**,
-  **Subindex**, **Bit length**, and **Data type**. Use this mode for repeated names.
-  Copy the address from the PDOs in the
-  [device properties](/reference/hardware/ethercat/configure-device#device-properties).
-  They come from the scan and depend on the revision of the module. For example, an
-  EL3102 can show its inputs at `0x3101:02` and `0x3102:02`, 16 bits, `int16`.
+The data type of a channel must be a number type of the same size as its entry, in whole
+bytes. For example, a 16-bit entry takes `int16` or `uint16`.
 
 All modules in a task must be on the same port. The **Sample rate** sets how often the
 task takes a sample from the network. See
@@ -55,12 +52,16 @@ computer is busy, a cycle can still run late, and its timestamp shows the delay.
 
 1. In the devices toolbar, right-click a module and select **Create read task**.
 2. Set **Sample rate** and **Stream rate**.
-3. Click **Add channel**, then select the module in **Slave device**.
-4. Select a **Mode**, then select the **PDO** or enter its address.
+3. Click **Add channel**, then select the module in **Slave device**. A new channel
+   starts with the module of the last channel.
+4. Select an entry in **Entry**. **Data type** then shows the type of the entry.
 5. Click <Icon.Play /> (**Start**).
 
-The Console creates the channels. For a module with the identifier `ai1`, a channel for
-the PDO at `0x3101:02` is `ai1_0x3101_2`, with the index channel `ai1_time`.
+The Console creates the channels and names them after the identifier of the module and
+the name of the entry, such as `ai1_Value` for a module with the identifier `ai1`. If
+the module has more than one entry with that name, the Console adds the PDO name, or the
+address when the module gives no PDO name, such as `ai1_Value_3101_02`. The index
+channel is `ai1_time`.
 
 Starting a task restarts the network on that port. Other tasks on the port pause for a
 moment.
@@ -92,20 +93,18 @@ task = ethercat.ReadTask(
     sample_rate=1000,
     stream_rate=25,
     channels=[
-        ethercat.ManualReadChannel(
+        ethercat.EntryReadChannel(
             device=module.key,
             index=0x3101,
             sub_index=0x02,
-            bit_length=16,
-            data_type="int16",
+            data_type=sy.DataType.INT16,
             channel=ch1.key,
         ),
-        ethercat.ManualReadChannel(
+        ethercat.EntryReadChannel(
             device=module.key,
             index=0x3102,
             sub_index=0x02,
-            bit_length=16,
-            data_type="int16",
+            data_type=sy.DataType.INT16,
             channel=ch2.key,
         ),
     ],
@@ -114,8 +113,11 @@ client.tasks.configure(task)
 task.start()
 ```
 
-For a PDO with a unique name, use
-`ethercat.AutomaticReadChannel(device=module.key, pdo="<name>", channel=...)`.
+To find an entry by its name, use `ethercat.find_entry(module, "<name>")`. It returns
+the `index`, `sub_index`, and `data_type` of the entry. It raises `sy.NotFoundError` if
+no entry has the name, and `sy.MultipleFoundError` if entries at more than one address
+have it. To select one of them, also pass `pdo_name`, the name of the PDO that holds the
+entry, such as `"Channel 1"`.
 
   </Fragment>
   <Fragment slot="typescript">
@@ -146,11 +148,10 @@ const task = await client.tasks.create({
     streamRate: 25,
     channels: [
       {
-        type: "manual",
+        type: "entry",
         device: module.key,
         index: 0x3101,
         subIndex: 0x02,
-        bitLength: 16,
         dataType: "int16",
         channel: ch1.key,
       },
@@ -159,6 +160,11 @@ const task = await client.tasks.create({
 });
 await task.start();
 ```
+
+To find an entry by its name, use `ethercat.findEntry(inputs, "<name>")`, where `inputs`
+is `pdos.inputs` of the device properties. It throws `NotFoundError` if no entry has the
+name, and `MultipleFoundError` if entries at more than one address have it. To select
+one of them, pass the name of the PDO that holds the entry as the third argument.
 
   </Fragment>
 </Client.Tabs>
@@ -185,46 +191,39 @@ setting, with its Python field under it.
 <Channel.Types>
 
 <Channel.Type
-  name="Automatic (PDO)"
-  type="automatic"
-  python="AutomaticReadChannel"
+  name="Entry"
+  type="entry"
+  python="EntryReadChannel"
 >
 
-Reads a PDO entry by its name.
+Reads one input entry at its CoE address.
 
-| Setting                  | Default | Notes                                     |
-| ------------------------ | ------- | ----------------------------------------- |
-| PDO <small>`pdo`</small> |         | The PDO name, from the device properties. |
-
-</Channel.Type>
-
-<Channel.Type
-  name="Manual (address)"
-  type="manual"
-  python="ManualReadChannel"
->
-
-Reads a PDO entry by its CoE address.
-
-| Setting                                | Default  | Notes                                      |
-| -------------------------------------- | -------- | ------------------------------------------ |
-| Index (hex) <small>`index`</small>     | `0`      | The CoE index, such as `0x6000`.           |
-| Subindex <small>`sub_index`</small>    | `0`      | The CoE subindex, from 0 to 255.           |
-| Bit length <small>`bit_length`</small> | `16`     | The size of the value, from 1 to 255 bits. |
-| Data type <small>`data_type`</small>   | `uint16` | The data type of the channel.              |
+| Setting                                   | Default | Notes                                        |
+| ----------------------------------------- | ------- | -------------------------------------------- |
+| Entry <small>`index`, `sub_index`</small> |         | The CoE address, such as `0x3101:02`.        |
+| Data type <small>`data_type`</small>      |         | A number type of the same size as the entry. |
 
 </Channel.Type>
 
 </Channel.Types>
 
+A task from an earlier release can also hold an `unresolved` channel
+(`UnresolvedReadChannel`). It has the name of an entry, but no address. See
+[troubleshooting](#a-channel-from-an-earlier-release-has-no-entry).
+
 <Divider.Divider x />
 
 ## Troubleshooting
 
-### Two channels show the same values
+### A channel from an earlier release has no entry
 
-Both channels use automatic mode with a repeated PDO name, so both read the first PDO.
-Change the channels to manual mode with the address of each PDO.
+Earlier releases could select an entry by its name. If the module has more than one
+entry with that name, or none, the upgrade cannot find the address of the entry. The
+Console marks the channel with an error, and the task does not start. The error reads
+"... matches more than one input entry ..." or "... matches no input entry ...".
+
+Select an entry for the channel in **Entry**. The first entry in the list with that name
+is the one that the task read before, and it keeps the old channel.
 
 ### "All slaves must be on the same network"
 
@@ -235,10 +234,22 @@ The task uses modules on two ports. Create one task for each port.
 Set a sample rate that is a whole multiple of the stream rate, such as 1000 Hz and 25
 Hz.
 
-### "PDO ... not found in slave"
+### "Slave ... has no input entry at ..."
 
-The module has no PDO with that name. Select a PDO from the list again, or use manual
-mode.
+The module has no input entry at the address of the channel. Select an entry from the
+list again. In code, use an address that the Console lists, or find the entry by its
+name.
+
+### "Data type ... does not fit entry ..."
+
+The data type of the channel has a different size from the entry. Select a number type
+of the same size, such as `int16` for a 16-bit entry. From code, the Driver reports
+"data type ... is ... but entry ... holds ...".
+
+### "More than one channel uses entry ..."
+
+Two channels of the task use the same entry. Select a different entry for one of them.
+From code, the Driver reports "another channel already uses entry ...".
 
 For other problems, see
 [Configure an EtherCAT device](/reference/hardware/ethercat/configure-device#troubleshooting)

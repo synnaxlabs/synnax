@@ -15,9 +15,11 @@ import { type ReactElement } from "react";
 
 import { type Organization } from "@/server/db/schema";
 import { type Held } from "@/server/license/list";
+import { type Invited } from "@/server/organization";
 import { scoped } from "@/shell";
 import { Fact, Facts } from "@/ui/Facts";
 import { date, standing, statusOf } from "@/ui/format";
+import { Invitations } from "@/ui/invitations";
 import { Licenses } from "@/ui/licenses";
 import { Empty, Page, Section } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
@@ -31,6 +33,8 @@ export interface TeamProps {
   organization: Organization;
   /** licenses are the team's licenses, newest first. */
   licenses: Held[];
+  /** invitations are the team invitations the user has not accepted. */
+  invitations: Invited[];
   now: Date;
 }
 
@@ -38,7 +42,12 @@ export interface TeamProps {
  * Team is the overview of a team: its license standing, its newest licenses, and the
  * way to its members.
  */
-export const Team = ({ organization, licenses, now }: TeamProps): ReactElement => {
+export const Team = ({
+  organization,
+  licenses,
+  invitations,
+  now,
+}: TeamProps): ReactElement => {
   const { active, seats, capacity, nextExpiry } = standing(licenses, now);
   return (
     <Page
@@ -56,6 +65,7 @@ export const Team = ({ organization, licenses, now }: TeamProps): ReactElement =
         )
       }
     >
+      <Invitations.Section invitations={invitations} />
       <Facts>
         <Fact label="Active licenses" value={String(active)} />
         <Fact label="Machines" value={`${seats} of ${capacity} seats in use`} />
