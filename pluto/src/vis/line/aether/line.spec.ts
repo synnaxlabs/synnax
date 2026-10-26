@@ -15,7 +15,6 @@ import {
   color,
   type CrudeTimeRange,
   DataType,
-  dynamicWindow,
   id,
   MultiSeries,
   scale,
@@ -730,22 +729,11 @@ describe("line", () => {
         expect([m.line.loading, m.line.fetching]).toEqual([false, true]);
       });
 
-      it("should show no first-load message for a live window of a minute or less", () => {
-        const m = mount([X1], [], {
-          window: dynamicWindow(TimeSpan.minutes(1)),
-        });
+      it("should report neither while it has no data and hides loading", () => {
+        const m = mount([X1], [], { loadingHidden: true });
         m.ySource.status = telem.LOADING_STATUS;
         m.line.render(PROPS);
         expect([m.line.loading, m.line.fetching]).toEqual([false, false]);
-      });
-
-      it("should show a first-load message for a longer live window", () => {
-        const m = mount([X1], [], {
-          window: dynamicWindow(TimeSpan.minutes(2)),
-        });
-        m.ySource.status = telem.LOADING_STATUS;
-        m.line.render(PROPS);
-        expect(m.line.loading).toBe(true);
       });
 
       it("should report neither once its sources leave loading", () => {

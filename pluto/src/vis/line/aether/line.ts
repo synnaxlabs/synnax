@@ -25,8 +25,6 @@ import {
   TimeRange,
   TimeSpan,
   TimeStamp,
-  type Window,
-  windowZ,
   xy,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -54,16 +52,12 @@ export const stateZ = z.object({
     .number()
     .positive()
     .default(1 / 2),
-  /** The window the line draws: a fixed range, or a span that ends now. */
-  window: windowZ.optional(),
+  /** True when the line reports no loading while it has no data. */
+  loadingHidden: z.boolean().default(false),
 });
 
 // A zoom waits this long for its span to hold before the line's sources read for it.
 const ZOOM_SETTLE = TimeSpan.milliseconds(150);
-
-// A live window of a minute or less draws from the stream at once, so it shows no
-// first-load message.
-const LOADING_MIN_SPAN = Number(TimeSpan.minutes(1).valueOf());
 
 // The line reduces data by this when its y source reports no aggregation.
 const DEFAULT_AGGREGATION: Aggregation = "min_max";
@@ -74,12 +68,10 @@ const isLoading = ({ status }: Result): boolean => status.variant === "loading";
 
 type LoadingState = "none" | "empty" | "drawn";
 
-const loadingState = (x: Result, y: Result, window?: Window): LoadingState => {
+const loadingState = (x: Result, y: Result, hidden: boolean): LoadingState => {
   if (!isLoading(x) && !isLoading(y)) return "none";
   if (x.data[1].length > 0 && y.data[1].length > 0) return "drawn";
-  return window?.variant === "dynamic" && window.timeSpan <= LOADING_MIN_SPAN
-    ? "none"
-    : "empty";
+  return hidden ? "none" : "empty";
 };
 
 const safelyGetDataValue = (
@@ -460,14 +452,14 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       return;
     }
     const { xTelem, yTelem, lineCtx: ctx, reducer } = i;
-    const { groupsPerColumn, window } = this.state;
+    const { groupsPerColumn, loadingHidden } = this.state;
     const { dataToDecimalScale } = props;
     const v = view(props);
     const valueProps = this.read(v);
     const x = xTelem.value(valueProps);
     const y = yTelem.value(valueProps);
-    i.loadingState = loadingState(x, y, window);
-    // Full-resolution data reduces as the source reduces its tiles.
+    i.loadingState = loadingState(x, y, loadingHidden);
+    // Full-resolution data reduces with the aggregation of the source's reduced reads.
     i.aggregation = y.aggregation ?? DEFAULT_AGGREGATION;
     const full = buildDrawOperations(x.data[1], y.data[1], DEFAULT_OVERLAP_THRESHOLD);
     const size = groupSize(full, v, groupsPerColumn);

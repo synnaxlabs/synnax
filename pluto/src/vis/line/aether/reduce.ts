@@ -322,7 +322,7 @@ const chainOf = (
 };
 
 /**
- * Reduces the full-resolution ops of a line with the rules the Core uses for tiles.
+ * Reduces the full-resolution ops of a line with the rules of the Core's reduced reads.
  * Groups of groupSize samples sit at sample index multiples of groupSize within each
  * alignment domain. The x and y series of an op reduce as a pair: min_max keeps the
  * samples where y is lowest and highest in a group, in time order, decimate keeps the
