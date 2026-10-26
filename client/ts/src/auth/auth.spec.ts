@@ -125,7 +125,6 @@ describe("auth", () => {
       await client.middleware()(DUMMY_CTX, async () => DUMMY_CTX);
       expect(client.session).toBeDefined();
       expect(client.subject?.type).toEqual("user");
-      expect(client.user?.username).toEqual(TEST_CLIENT_PARAMS.username);
     });
 
     it("should renew, list, and end its session", async () => {

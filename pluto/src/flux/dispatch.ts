@@ -10,7 +10,7 @@
 import { type actions, type query, type Synnax as Client } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { type record } from "@synnaxlabs/x";
-import { useCallback, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 
 import { errorResult } from "@/flux/result";
 import { Synnax } from "@/synnax";
@@ -93,18 +93,15 @@ export const createDispatch = <
     side: "undo" | "redo";
   }): boolean => {
     const client = Synnax.use();
-    const subscribe = useCallback(
-      (onStoreChange: () => void) => {
-        if (client == null) return () => {};
-        return domain(client).onUndoStateChange(onStoreChange, key);
-      },
-      [client, key],
-    );
-    const getSnapshot = useCallback(() => {
+    const subscribe = (onStoreChange: () => void) => {
+      if (client == null) return () => {};
+      return domain(client).onUndoStateChange(onStoreChange, key);
+    };
+    const getSnapshot = () => {
       if (client == null) return false;
       const d = domain(client);
       return side === "undo" ? d.hasUndo(key) : d.hasRedo(key);
-    }, [client, key, side]);
+    };
     return useSyncExternalStore(subscribe, getSnapshot);
   };
 
@@ -112,46 +109,42 @@ export const createDispatch = <
     const client = Synnax.use();
     const addStatus = Status.useAdder();
 
-    const dispatchAsync = useCallback(
-      async (input: DispatchInput<Key, Action>): Promise<boolean> => {
-        if (client == null) return false;
-        try {
-          return await domain(client).dispatch(input.key, input.actions, {
-            preprocess,
-          });
-        } catch (e) {
-          addStatus(errorResult("dispatch action", e).status);
-          return false;
-        }
-      },
-      [client, addStatus],
-    );
+    const dispatchAsync = async (
+      input: DispatchInput<Key, Action>,
+    ): Promise<boolean> => {
+      if (client == null) return false;
+      try {
+        return await domain(client).dispatch(input.key, input.actions, {
+          preprocess,
+        });
+      } catch (e) {
+        addStatus(errorResult("apply changes", e).status);
+        return false;
+      }
+    };
 
-    const dispatch = useCallback(
-      (input: DispatchInput<Key, Action>) => void dispatchAsync(input),
-      [dispatchAsync],
-    );
+    const dispatch = (input: DispatchInput<Key, Action>) => void dispatchAsync(input);
 
-    const beginTransaction = useCallback(
-      (input: { key: Key; kind?: string }): actions.Transaction<Action> => {
-        if (client == null) return INERT_TX;
-        const tx = domain(client).beginTransaction(input.key, input.kind);
-        return {
-          ...tx,
-          // The substrate rolls back before rethrowing; surface the error to
-          // the user and preserve the resolve-false contract for callers.
-          commit: async () => {
-            try {
-              return await tx.commit();
-            } catch (e) {
-              addStatus(errorResult("commit transaction", e).status);
-              return false;
-            }
-          },
-        };
-      },
-      [client, addStatus],
-    );
+    const beginTransaction = (input: {
+      key: Key;
+      kind?: string;
+    }): actions.Transaction<Action> => {
+      if (client == null) return INERT_TX;
+      const tx = domain(client).beginTransaction(input.key, input.kind);
+      return {
+        ...tx,
+        // The substrate rolls back before rethrowing; surface the error to
+        // the user and preserve the resolve-false contract for callers.
+        commit: async () => {
+          try {
+            return await tx.commit();
+          } catch (e) {
+            addStatus(errorResult("apply changes", e).status);
+            return false;
+          }
+        },
+      };
+    };
 
     return { dispatch, dispatchAsync, beginTransaction };
   };
@@ -160,12 +153,12 @@ export const createDispatch = <
     const client = Synnax.use();
     const addStatus = Status.useAdder();
     const canUndo = useCanReverse({ key, side: "undo" });
-    const undo = useCallback(() => {
+    const undo = () => {
       if (client == null) return;
       domain(client)
         .undo(key)
-        .catch((e: unknown) => addStatus(errorResult("undo action", e).status));
-    }, [client, key, addStatus]);
+        .catch((e: unknown) => addStatus(errorResult("undo change", e).status));
+    };
     return { undo, canUndo };
   };
 
@@ -173,12 +166,12 @@ export const createDispatch = <
     const client = Synnax.use();
     const addStatus = Status.useAdder();
     const canRedo = useCanReverse({ key, side: "redo" });
-    const redo = useCallback(() => {
+    const redo = () => {
       if (client == null) return;
       domain(client)
         .redo(key)
-        .catch((e: unknown) => addStatus(errorResult("redo action", e).status));
-    }, [client, key, addStatus]);
+        .catch((e: unknown) => addStatus(errorResult("redo change", e).status));
+    };
     return { redo, canRedo };
   };
 
@@ -186,10 +179,7 @@ export const createDispatch = <
     key,
   }: record.Keyed<Key>): ((action: Action | Action[]) => void) => {
     const { dispatch } = useDispatch();
-    return useCallback(
-      (actions: Action | Action[]) => dispatch({ key, actions }),
-      [key, dispatch],
-    );
+    return (actions: Action | Action[]) => dispatch({ key, actions });
   };
 
   return { useDispatch, useUndo, useRedo, useSingleDispatch };

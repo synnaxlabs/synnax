@@ -17,9 +17,10 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 )
 
@@ -36,7 +37,7 @@ type LegacyUserMapping struct {
 // persists the user-to-policy mapping in KV, and deletes the legacy entries. This runs
 // before any oracle schema migrations that could re-encode entries and lose the
 // Subjects field.
-var Migration = gorp.NewMigration(
+var Migration = migrate.New(
 	"v0.policy_conversion",
 	func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
 		migrated, err := AlreadyMigrated(ctx, tx)
@@ -149,4 +150,4 @@ func DeleteLegacyMappings(ctx context.Context, tx gorp.Tx) error {
 }
 
 // NormalizeKeys re-keys Policy rows stored under the pre-v0.54 key format.
-var NormalizeKeys = gorp.NormalizeKeysMigration[Key, Policy]("Policy")
+var NormalizeKeys = migrate.NormalizeKeys[Key, Policy]("Policy")

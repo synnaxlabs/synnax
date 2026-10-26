@@ -46,7 +46,6 @@ import (
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
 	xservice "github.com/synnaxlabs/x/service"
-	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -270,8 +269,9 @@ func BootupCore(
 		FIPS:               cfg.fips,
 		SessionIdleTimeout: cfg.sessionIdleTimeout,
 		License: license.ServiceConfig{
-			Key:     cfg.licenseKey,
-			Version: version.Get(),
+			Key:      cfg.licenseKey,
+			Version:  version.Get(),
+			Loopback: new(cfg.listeners.Loopback()),
 		},
 		ValidateChannelNames: cfg.validateChannelNames,
 	})
@@ -343,19 +343,6 @@ func BootupCore(
 		return err
 	}
 
-	// We run startup searching indexing after all services have been registered within
-	// the ontology. We used to fork a new goroutine for every service at registration
-	// time, but this caused a race condition where bleve would concurrently read and
-	// write to a map. See
-	// https://linear.app/synnax/issue/SY-1116/race-condition-on-server-startup for more
-	// details on this issue.
-	if stopSearchIndexing := runStartupSearchIndexing(
-		ctx,
-		serviceLayer,
-	); !ok(nil, stopSearchIndexing) {
-		return nil
-	}
-
 	// The embedded Driver dials the advertised listener, which does not always serve
 	// the node certificate.
 	driverTrustAnchors, err := DriverTrustAnchors(
@@ -367,15 +354,15 @@ func BootupCore(
 	}
 
 	licenseInfo := serviceLayer.License.Retrieve()
-	expired := licenseInfo.State == license.StateExpired
+	covered := licenseInfo.State == license.StateOk
 	if embeddedDriver, err := driver.Open(
 		ctx,
 		driver.Config{
 			Enabled:  new(!*cfg.noDriver),
 			Insecure: cfg.insecure,
-			// An expired Core refuses the Driver's rack, so the Driver retries in the
-			// background.
-			Detached: new(expired),
+			// An unlicensed Core refuses the Driver's rack, so the Driver retries in
+			// the background.
+			Detached: new(!covered),
 			Integrations: parseIntegrations(
 				cfg.enabledIntegrations,
 				cfg.disabledIntegrations,
@@ -401,7 +388,7 @@ func BootupCore(
 		"\033[32mSynnax is running and available at %v \033[0m",
 		cfg.listeners.AdvertiseAddress(),
 	)
-	if licenseInfo.State != license.StateOk {
+	if !covered {
 		scheme := "https"
 		if *cfg.insecure {
 			scheme = "http"
@@ -437,18 +424,6 @@ func openWorkDir() (string, io.Closer, error) {
 		return "", nil, err
 	}
 	return dir, xio.CloserFunc(func() error { return os.RemoveAll(dir) }), nil
-}
-
-func runStartupSearchIndexing(ctx context.Context, svc *service.Layer) io.Closer {
-	// Run indexing inside an isolated signal context, so that if we receive an early
-	// cancellation signal, we can ensure that we exit indexing before we close any
-	// resources that it depends on (notably storage KV).
-	searchIndexCtx, cancelIndexing := signal.WithCancel(ctx)
-	searchIndexCtx.Go(
-		svc.Search.Initialize,
-		signal.WithKey("startup_search_indexing"),
-	)
-	return signal.NewHardShutdown(searchIndexCtx, cancelIndexing)
 }
 
 func parseIntegrations(enabled, disabled []string) []string {

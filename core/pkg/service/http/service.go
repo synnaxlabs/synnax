@@ -13,11 +13,11 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions/legacy"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
@@ -76,7 +76,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Instrumentation:    cfg.Instrumentation,
 			Type:               "http_read",
 			Migrations:         versions.ReadMigrations,
-			Version:            legacy.LastVersion + 1,
+			LegacyVersion:      legacy.LastVersion,
+			Ladder:             versions.ReadConfigLadder,
 			Legacy:             &legacy.Read,
 			SetEntryKey:        (*ReadConfig).SetKey,
 			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
@@ -90,7 +91,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			DB:                 cfg.DB,
 			Instrumentation:    cfg.Instrumentation,
 			Type:               "http_write",
-			Version:            legacy.LastVersion + 1,
+			LegacyVersion:      legacy.LastVersion,
+			Ladder:             versions.WriteConfigLadder,
 			Legacy:             &legacy.Write,
 			SetEntryKey:        (*WriteConfig).SetKey,
 			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
@@ -104,7 +106,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			DB:                 cfg.DB,
 			Instrumentation:    cfg.Instrumentation,
 			Type:               "http_scan",
-			Version:            legacy.LastVersion + 1,
+			LegacyVersion:      legacy.LastVersion,
+			Ladder:             versions.ScanConfigLadder,
 			Legacy:             &legacy.Scan,
 			SetEntryKey:        (*ScanConfig).SetKey,
 			ApplyEntryDefaults: (*ScanConfig).ApplyDefaults,

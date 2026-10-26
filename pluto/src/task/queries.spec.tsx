@@ -308,7 +308,7 @@ describe("queries", () => {
       await waitFor(() => {
         const taskInList = result.current.getItem(testTask.key);
         expect(taskInList?.status?.variant).toEqual("loading");
-        expect(taskInList?.status?.message).toEqual("Running start command...");
+        expect(taskInList?.status?.message).toEqual("Sending start command");
         expect(taskInList?.status?.details.running).toBe(true);
       });
     });
@@ -695,6 +695,27 @@ describe("queries", () => {
       expect(snapshot).toBeDefined();
       expect(snapshot.config).toMatchObject(complexConfig);
       expect(snapshot.type).toEqual("pagerduty_alert");
+    });
+  });
+
+  describe("useMultiple", () => {
+    it("should add a task on the rack created after the query resolves", async () => {
+      const rack = await client.racks.create({ name: "testRack" });
+      const type = "pagerduty_alert";
+      const first = await rack.createTask({ name: "first", type, config: {} });
+      const { result } = await renderHookSuspended(
+        () => Task.useMultiple({ rack: rack.key, types: [type] }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current?.map((t) => t.key)).toEqual([first.key]),
+      );
+      const second = await rack.createTask({ name: "second", type, config: {} });
+      await waitFor(() =>
+        expect(result.current?.map((t) => t.key).sort()).toEqual(
+          [first.key, second.key].sort(),
+        ),
+      );
     });
   });
 
@@ -1744,6 +1765,7 @@ describe("queries", () => {
       streamer.close();
       await waitFor(async () => {
         expect(result.current.variant).toEqual("success");
+        expect(result.current.status.message).toEqual("Sent task commands");
         expect(result.current.data).toHaveLength(1);
       });
     });

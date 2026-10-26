@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <format>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -36,26 +37,37 @@ namespace driver::ethercat::topology {
             if (slave.vendor_id != props.vendor_id)
                 return x::errors::Error(
                     errors::TOPOLOGY_MISMATCH,
-                    "device " + device_key + " at position " +
-                        std::to_string(props.position) + ": expected vendor_id 0x" +
-                        std::to_string(props.vendor_id) + ", found 0x" +
-                        std::to_string(slave.vendor_id)
+                    std::format(
+                        "device {} at position {}: expected vendor_id {:#010x}, "
+                        "found {:#010x}",
+                        device_key,
+                        props.position,
+                        props.vendor_id,
+                        slave.vendor_id
+                    )
                 );
             if (slave.product_code != props.product_code)
                 return x::errors::Error(
                     errors::TOPOLOGY_MISMATCH,
-                    "device " + device_key + " at position " +
-                        std::to_string(props.position) + ": expected product_code 0x" +
-                        std::to_string(props.product_code) + ", found 0x" +
-                        std::to_string(slave.product_code)
+                    std::format(
+                        "device {} at position {}: expected product_code {:#010x}, "
+                        "found {:#010x}",
+                        device_key,
+                        props.position,
+                        props.product_code,
+                        slave.product_code
+                    )
                 );
             break;
         }
         if (!found)
             return x::errors::Error(
                 errors::TOPOLOGY_MISMATCH,
-                "device " + device_key + " expected at position " +
-                    std::to_string(props.position) + " not found on bus"
+                std::format(
+                    "device {} expected at position {} not found on bus",
+                    device_key,
+                    props.position
+                )
             );
     }
     return x::errors::NIL;

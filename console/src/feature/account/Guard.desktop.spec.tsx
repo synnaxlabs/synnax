@@ -17,7 +17,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Account } from "@/feature/account";
 import { License } from "@/platform/license";
-import { findButton } from "@/platform/modals/testutil";
+import { Modals } from "@/platform/modals";
+import { findButton, getSwitch } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import {
   CaptureStatuses,
@@ -44,9 +45,12 @@ const renderGuard = async ({ status, account }: RenderOptions = {}): Promise<{
       account == null ? undefined : { [Session.Account.SLICE_NAME]: account },
   });
   render(
-    <Account.Guard>
-      <span>licensed content</span>
-    </Account.Guard>,
+    <>
+      <Modals.Stack />
+      <Account.Guard>
+        <span>licensed content</span>
+      </Account.Guard>
+    </>,
     { wrapper },
   );
   return { client, store };
@@ -87,12 +91,31 @@ describe("Account.Guard", () => {
     await renderGuard({
       status: UNLICENSED_STATUS,
       account: {
-        version: 0,
+        ...Session.Account.ZERO_SLICE_STATE,
         link: { secret: "shh", email: "someone@example.com", user: "user_a" },
       },
     });
     expect(screen.getByText("Your login has lapsed")).toBeTruthy();
     expect(screen.getByText(/someone@example\.com/)).toBeTruthy();
+  });
+
+  it("should open the usage data settings on a machine that was linked", async () => {
+    await renderGuard({
+      status: UNLICENSED_STATUS,
+      account: {
+        ...Session.Account.ZERO_SLICE_STATE,
+        link: { secret: "shh", email: "someone@example.com", user: "user_a" },
+        analyticsAllowed: true,
+      },
+    });
+    fireEvent.click(findButton("Usage data"));
+    await screen.findByText("Share usage data");
+    expect(getSwitch("Share usage data").checked).toBe(true);
+  });
+
+  it("should not offer usage data on a machine that was never linked", async () => {
+    await renderGuard({ status: UNLICENSED_STATUS });
+    expect(screen.queryByText("Usage data")).toBeNull();
   });
 
   it("should open the hub with the state it minted", async () => {
@@ -113,6 +136,37 @@ describe("Account.Guard", () => {
     expect(await screen.findByText("Finish in your browser")).toBeTruthy();
   });
 
+  it("should send the same state when the page opens again", async () => {
+    // A new state would make the first page's login link fail to finish.
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const { store } = await renderGuard({ status: UNLICENSED_STATUS });
+    const login = findButton("Log in");
+    await waitFor(() => expect(login.getAttribute("aria-disabled")).toBeNull());
+    fireEvent.click(login);
+    expect(await screen.findByText("Finish in your browser")).toBeTruthy();
+    fireEvent.click(findButton("Open the page again"));
+    await waitFor(() => expect(open).toHaveBeenCalledTimes(2));
+    const states = open.mock.calls.map(([url]) =>
+      new URL(String(url)).searchParams.get("state"),
+    );
+    expect(states[1]).toBe(states[0]);
+    expect(Session.Account.selectPending(store.getState())).toBe(states[0]);
+  });
+
+  it("should finish a login left pending from before", async () => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    await renderGuard({
+      status: UNLICENSED_STATUS,
+      account: { ...Session.Account.ZERO_SLICE_STATE, pending: "minted" },
+    });
+    const login = findButton("Log in");
+    await waitFor(() => expect(login.getAttribute("aria-disabled")).toBeNull());
+    fireEvent.click(login);
+    await waitFor(() => expect(open).toHaveBeenCalled());
+    const url = new URL(String(open.mock.calls[0][0]));
+    expect(url.searchParams.get("state")).toBe("minted");
+  });
+
   it("should let the user retry a log in whose fingerprint read failed", async () => {
     const open = vi.spyOn(window, "open").mockReturnValue(null);
     let statuses: Status.NotificationSpec[] = [];
@@ -128,7 +182,7 @@ describe("Account.Guard", () => {
     const { rerender } = render(ui(createTestClient({ port: 1 })), { wrapper });
     fireEvent.click(findButton("Log in"));
     await waitFor(() =>
-      expect(statuses.map((s) => s.message)).toContain("Failed to open the login page"),
+      expect(statuses.map((s) => s.message)).toContain("Failed to open login page"),
     );
     expect(open).not.toHaveBeenCalled();
     rerender(ui(createTestClient()));

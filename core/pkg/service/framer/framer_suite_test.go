@@ -22,14 +22,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestFramer(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Framer Suite")
+	RunSpecs(t, "Service Framer Suite", SuiteConfig())
 }
 
 var (
@@ -49,24 +48,20 @@ var (
 func newFramerConfig(ctx context.Context, n mock.Node) framer.ServiceConfig {
 	GinkgoHelper()
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: n.DB}))
-	searchIdx := MustOpen(search.OpenIndex())
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       n.DB,
 		Ontology: otg,
-		Search:   searchIdx,
 	}))
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       n.DB,
 		Ontology: otg,
 		Group:    groupSvc,
-		Search:   searchIdx,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       n.DB,
 		Label:    labelSvc,
 		Ontology: otg,
 		Group:    groupSvc,
-		Search:   searchIdx,
 	}))
 	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      n.Channel,
@@ -74,7 +69,6 @@ func newFramerConfig(ctx context.Context, n mock.Node) framer.ServiceConfig {
 		HostProvider: n.Cluster,
 		Ontology:     otg,
 		Group:        groupSvc,
-		Search:       searchIdx,
 		Status:       statusSvc,
 	}))
 	graph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{

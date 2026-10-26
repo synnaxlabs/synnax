@@ -23,7 +23,7 @@ import (
 
 func TestFramework(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Framework Suite")
+	RunSpecs(t, "Plugin Framework Suite", SuiteConfig())
 }
 
 var _ = Describe("MergeTypes", func() {

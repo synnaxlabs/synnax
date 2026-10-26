@@ -15,7 +15,11 @@ import { useSelector } from "react-redux";
 export const useMemo = <S extends object, R>(
   selector: (state: S) => R,
   deps: unknown[],
-): R => useSelector(useCallback(memoize(selector), deps));
+): R => {
+  "use no memo"; // Forwards the caller's deps, which the compiler cannot check.
+  // eslint-disable-next-line synnax/react-compiler, no-restricted-syntax
+  return useSelector(useCallback(memoize(selector), deps));
+};
 
 export const byKeys = <K extends record.Key, S extends record.Keyed<K>>(
   state: S[] | Record<K, S>,

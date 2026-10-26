@@ -13,9 +13,9 @@ import (
 	"context"
 	"math"
 
+	"github.com/synnaxlabs/gorp/migrate"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // MigrateSchematic lifts a v7 schematic into the v8 shape, dropping each node's
@@ -30,7 +30,7 @@ func MigrateNode(ctx context.Context, old v7.Node) (Node, error) {
 }
 
 // Migration lifts stored schematics from v7 to v8.
-var Migration = gorp.NewEntryMigration("v57_drop_node_measured", MigrateSchematic)
+var Migration = migrate.NewEntry("v57_drop_node_measured", MigrateSchematic)
 
 // A v0.57 scale draws as a vertical bar whatever orientation it stores, and sizes the
 // bar together with the tick gutter beside it.
@@ -81,7 +81,7 @@ func narrowScaleBar(cfg msgpack.EncodedJSON) {
 }
 
 // ScaleMigration restates the axis and bar width of every stored v0.57 scale.
-var ScaleMigration = gorp.NewEntryMigration(
+var ScaleMigration = migrate.NewEntry(
 	"v58_scale_geometry",
 	func(_ context.Context, s Schematic) (Schematic, error) {
 		for _, cfg := range s.Configs {

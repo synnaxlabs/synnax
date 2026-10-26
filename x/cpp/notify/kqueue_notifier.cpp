@@ -73,7 +73,7 @@ public:
                                  : static_cast<int>(timeout.milliseconds());
 
         if (::poll(&pfd, 1, timeout_ms) > 0) {
-            this->drain();
+            static_cast<void>(this->drain());
             return true;
         }
         return false;
@@ -86,7 +86,7 @@ public:
     [[nodiscard]] void *native_handle() const override { return nullptr; }
 
 private:
-    bool drain() {
+    [[nodiscard]] bool drain() const {
         char buf[64];
         bool drained = false;
         while (read(this->read_fd, buf, sizeof(buf)) > 0)

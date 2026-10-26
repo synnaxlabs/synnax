@@ -20,14 +20,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestWriter(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Framer Writer Suite")
+	RunSpecs(t, "Service Framer Writer Suite", SuiteConfig())
 }
 
 var (
@@ -40,7 +39,6 @@ var (
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	mockNode = mock.NewNode(ctx)
-	searchIdx := MustOpen(search.OpenIndex())
 
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{
 		DB: mockNode.DB,
@@ -48,20 +46,17 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       mockNode.DB,
 		Ontology: otg,
-		Search:   searchIdx,
 	}))
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       mockNode.DB,
 		Ontology: otg,
 		Group:    groupSvc,
-		Search:   searchIdx,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       mockNode.DB,
 		Label:    labelSvc,
 		Ontology: otg,
 		Group:    groupSvc,
-		Search:   searchIdx,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      mockNode.Channel,
@@ -69,7 +64,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		HostProvider: mockNode.Cluster,
 		Ontology:     otg,
 		Group:        groupSvc,
-		Search:       searchIdx,
 		Status:       statusSvc,
 	}))
 	channelWriter = channelSvc.NewWriter(nil)

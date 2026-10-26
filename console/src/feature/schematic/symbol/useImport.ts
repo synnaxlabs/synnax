@@ -10,7 +10,6 @@
 import { DisconnectedError, group, imex } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { Import } from "@/platform/import";
 import { Runtime } from "@/platform/runtime";
@@ -20,32 +19,29 @@ export const useImport = (): ((parentGroup: group.Key) => void) => {
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
   const importBatch = Import.useImportBatch();
-  return useCallback(
-    (parentGroup: group.Key) => {
-      handleError(async () => {
-        if (client == null) throw new DisconnectedError();
-        const files = await Runtime.pickFiles({
-          title: "Import symbol",
-          extension: "json",
-          multiple: true,
-        });
-        if (files == null) return;
-        const parent = group.ontologyID(parentGroup);
-        await importBatch({
-          items: files.map((file) => ({ name: file.path, read: file.read })),
-          // The created ID is swallowed: symbols live in the symbol tree, not tabs.
-          importItem: async (file) => {
-            await client.imex.import(await file.read(), {
-              ...imex.JSON_OPTIONS,
-              fileName: file.name,
-              parent,
-            });
-          },
-          onSuccess: ({ name }) =>
-            addStatus({ variant: "success", message: `Imported ${name}` }),
-        });
-      }, "Failed to import symbols");
-    },
-    [client, handleError, addStatus, importBatch],
-  );
+  return (parentGroup: group.Key) => {
+    handleError(async () => {
+      if (client == null) throw new DisconnectedError();
+      const files = await Runtime.pickFiles({
+        title: "Import symbol",
+        extension: "json",
+        multiple: true,
+      });
+      if (files == null) return;
+      const parent = group.ontologyID(parentGroup);
+      await importBatch({
+        items: files.map((file) => ({ name: file.path, read: file.read })),
+        // The created ID is swallowed: symbols live in the symbol tree, not tabs.
+        importItem: async (file) => {
+          await client.imex.import(await file.read(), {
+            ...imex.JSON_OPTIONS,
+            fileName: file.name,
+            parent,
+          });
+        },
+        onSuccess: ({ name }) =>
+          addStatus({ variant: "success", name, message: "Imported symbol" }),
+      });
+    }, "Failed to import symbols");
+  };
 };

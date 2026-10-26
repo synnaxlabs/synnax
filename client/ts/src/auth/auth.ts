@@ -72,11 +72,15 @@ const changePasswordResZ = z.object({});
 const RETRY_ON = [InvalidTokenError, ExpiredTokenError, SessionEndedError] as const;
 
 type AuthState =
-  | { authenticated: false }
-  | { authenticated: true; session: Session; user?: user.User; token: string };
+  { authenticated: false } | { authenticated: true; session: Session; token: string };
 
-/** Login outcome hooks. The connection machine is the sole consumer. */
+/** Login outcome hooks. */
 export interface Observer {
+  /**
+   * Fires with the user after every successful login, before onSuccess, and with
+   * undefined when setCredentials drops the user.
+   */
+  onUser?: (user: user.User | undefined) => void;
   /** Fires after every successful login. */
   onSuccess?: () => void;
   /** Fires on a definitive credential rejection, never on token self-heal. */
@@ -105,15 +109,11 @@ export class Client {
     this.authState = { authenticated: false };
     this.authenticating = undefined;
     this.generation += 1;
+    this.observer.onUser?.(undefined);
   }
 
   get authenticated(): boolean {
     return this.authState.authenticated;
-  }
-
-  /** The user record of the logged-in subject, when it is a user. */
-  get user(): user.User | undefined {
-    return this.authState.authenticated ? this.authState.user : undefined;
   }
 
   /** The session the client holds, once logged in. */
@@ -128,14 +128,6 @@ export class Client {
 
   get token(): string | undefined {
     return this.authState.authenticated ? this.authState.token : undefined;
-  }
-
-  async retrieveUser(): Promise<user.User> {
-    if (!this.authState.authenticated) await this.authenticating;
-    const { authState } = this;
-    if (!authState.authenticated || authState.user == null)
-      throw new Error("Authentication failed: user not available");
-    return authState.user;
   }
 
   async changePassword(newPassword: string): Promise<void> {
@@ -243,9 +235,9 @@ export class Client {
             this.authState = {
               authenticated: true,
               session: res.session,
-              user: res.user,
               token: res.token,
             };
+            this.observer.onUser?.(res.user);
             this.observer.onSuccess?.();
             return null;
           } catch (err) {

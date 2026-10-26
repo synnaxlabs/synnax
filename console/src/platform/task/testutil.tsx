@@ -24,7 +24,7 @@ import { Drift } from "@synnaxlabs/drift";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
-import { id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { id, sync, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import {
   act,
   fireEvent,
@@ -34,7 +34,12 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import {
+  type FC,
+  type PropsWithChildren,
+  type ReactElement,
+  useImperativeHandle,
+} from "react";
 import { onTestFinished } from "vitest";
 import { type z } from "zod";
 
@@ -58,23 +63,32 @@ import {
 
 const defaultClient = createTestClient();
 
+const TASK_FORM_READS = [
+  task.TYPE_ONTOLOGY_ID,
+  device.TYPE_ONTOLOGY_ID,
+  rack.TYPE_ONTOLOGY_ID,
+  channel.TYPE_ONTOLOGY_ID,
+  panel.TYPE_ONTOLOGY_ID,
+  project.TYPE_ONTOLOGY_ID,
+  group.TYPE_ONTOLOGY_ID,
+];
+
 /**
  * Creates a client that may read and update tasks but only read channels, so specs can
  * check the channel-rename gates on task context menus.
  */
 export const createChannelReadOnlyClient = async (client: Client): Promise<Client> =>
   await createTestClientWithGrants(client, {
-    retrieve: [
-      task.TYPE_ONTOLOGY_ID,
-      device.TYPE_ONTOLOGY_ID,
-      rack.TYPE_ONTOLOGY_ID,
-      channel.TYPE_ONTOLOGY_ID,
-      panel.TYPE_ONTOLOGY_ID,
-      project.TYPE_ONTOLOGY_ID,
-      group.TYPE_ONTOLOGY_ID,
-    ],
+    retrieve: TASK_FORM_READS,
     update: [task.TYPE_ONTOLOGY_ID],
   });
+
+/**
+ * Creates a client that may read but not update tasks, so a task form stays in
+ * preview mode.
+ */
+export const createTaskReadOnlyClient = async (client: Client): Promise<Client> =>
+  await createTestClientWithGrants(client, { retrieve: TASK_FORM_READS });
 
 export type TaskFormValues = Record<string, unknown>;
 
@@ -88,11 +102,13 @@ export type FormRef = { current: PForm.ContextValue<z.ZodType> | null };
 export const renderTaskFormHook = async <R,>(
   values: TaskFormValues,
   useValue: (ctx: PForm.ContextValue<z.ZodType>) => R,
-) =>
-  await renderHookWithConsole(() => {
+) => {
+  const useHarness = () => {
     const ctx = PForm.use<z.ZodType>({ values });
     return { ctx, value: useValue(ctx) };
-  });
+  };
+  return await renderHookWithConsole(useHarness);
+};
 
 export interface TaskFormProviderProps extends PropsWithChildren {
   values: TaskFormValues;
@@ -113,7 +129,7 @@ export const TaskFormProvider = ({
   children,
 }: TaskFormProviderProps): ReactElement => {
   const ctx = PForm.use<z.ZodType>({ values, mode });
-  if (formRef != null) formRef.current = ctx;
+  useImperativeHandle(formRef, () => ctx, [ctx]);
   return <PForm.Form {...ctx}>{children}</PForm.Form>;
 };
 TaskFormProvider.displayName = "TaskFormProvider";
@@ -161,7 +177,7 @@ const DEFAULT_TASK_FORM_VALUES: TaskFormValues = {
   configHash: "",
   status: createTaskStatus({
     variant: "disabled",
-    message: "Test Task has not been deployed",
+    message: "Task not deployed",
   }),
   config: { channels: [] },
 };
@@ -474,18 +490,11 @@ export const awaitCommand = async (
       }
     }
   };
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const deadline = new Promise<never>((_, reject) => {
-    timer = setTimeout(
-      () => reject(new Error(`no command for task ${taskKey} received within 10s`)),
-      TimeSpan.seconds(10).milliseconds,
-    );
-  });
-  try {
-    return await Promise.race([read(), deadline]);
-  } finally {
-    clearTimeout(timer);
-  }
+  return await sync.withTimeout(
+    read(),
+    TimeSpan.seconds(10),
+    () => new Error(`no command for task ${taskKey} received within 10s`),
+  );
 };
 
 /**
@@ -510,6 +519,23 @@ export const deployAndAwaitTask = async <S extends task.Schemas = task.Schemas>(
 };
 
 /**
+ * Writes the status a Driver reports while a task runs the config with the given hash.
+ * A hash other than the task's own marks the task as drifted.
+ */
+export const reportTaskRunning = async (
+  client: Client,
+  tsk: task.Task,
+  configHash: string = tsk.configHash,
+): Promise<void> => {
+  await client.statuses.set(
+    createTaskStatus({
+      key: task.statusKey(tsk.key),
+      details: { task: tsk.key, running: true, configHash, rack: tsk.rack },
+    }),
+  );
+};
+
+/**
  * Writes the status a driver reports once a task has stopped. Specs run without a
  * driver, so a start command otherwise leaves the task mid-start forever and the
  * form offers no way to deploy again.
@@ -528,21 +554,24 @@ export const reportTaskStopped = async (
 };
 
 /**
- * Answers the next command sent to the task with a success status, as a Driver does.
- * Specs run without a Driver, so a caller that waits for the answer otherwise times out.
- * Resolves once it listens, with a promise that settles after the answer is written.
+ * Answers the next command sent to the task as a Driver does, with a success status
+ * unless answer overrides its fields. Specs run without a Driver, so a caller that
+ * waits for the answer otherwise times out. Resolves once it listens, with a promise
+ * that settles after the answer is written.
  */
 export const answerNextCommand = async (
   client: Client,
   tsk: task.Task,
+  answer: Omit<CreateTaskStatusOverrides, "details"> = {},
 ): Promise<{ answered: Promise<void> }> => {
   const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-  const answer = async (): Promise<void> => {
+  const respond = async (): Promise<void> => {
     try {
       const cmd = await awaitCommand(streamer, tsk.key);
       await client.tasks.create({
         ...tsk.payload,
         status: createTaskStatus({
+          ...answer,
           details: { task: tsk.key, cmd: cmd.key, rack: tsk.rack },
         }),
       });
@@ -550,7 +579,7 @@ export const answerNextCommand = async (
       streamer.close();
     }
   };
-  return { answered: answer() };
+  return { answered: respond() };
 };
 
 /** Finds the single text input rendered by a task form field. */

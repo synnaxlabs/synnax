@@ -14,7 +14,6 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, type Flux, Ranger, Synnax } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { Analytics } from "@/platform/analytics";
 import { ContextMenu as Base } from "@/platform/context-menu";
@@ -54,24 +53,18 @@ export const CreateChildRangeIcon = Icon.createComposite(Icon.Range, {
 const useDelete = () => {
   const dispatch = Session.useDispatch();
   const ranges = Range.useResolveMultiple();
-  const handleRemove = (keys: string[]): void => {
-    dispatch(Session.Range.remove({ keys }));
-  };
   const confirm = Modals.useConfirmDelete({
     type: "Range",
     description: "Deleting a range also deletes its child ranges.",
   });
   const { update } = Ranger.useDelete({
-    beforeUpdate: useCallback(
-      async ({ data }: Flux.BeforeUpdateParams<Ranger.DeleteParams>) => {
-        const keys = array.toArray(data);
-        const rng = ranges.filter((r) => keys.includes(r.key));
-        if (!(await confirm(rng))) return false;
-        handleRemove(keys);
-        return true;
-      },
-      [confirm, ranges],
-    ),
+    beforeUpdate: async ({ data }: Flux.BeforeUpdateParams<Ranger.DeleteParams>) => {
+      const keys = array.toArray(data);
+      const rng = ranges.filter((r) => keys.includes(r.key));
+      if (!(await confirm(rng))) return false;
+      dispatch(Session.Range.remove({ keys }));
+      return true;
+    },
   });
   return update;
 };
@@ -81,27 +74,21 @@ const usePersist = () => {
   const ranges = Range.useResolveMultiple();
   const { capture } = Analytics.use();
   const { update } = Ranger.useCreate({
-    beforeUpdate: useCallback(
-      ({ data, rollbacks }: Flux.BeforeUpdateParams<ranger.New>) => {
-        const range = ranges.find((r) => r.key === data.key);
-        if (range?.variant !== "static") return true;
-        dispatch(Session.Range.add({ variant: "persisted", key: range.key }));
-        rollbacks.push(() => dispatch(Session.Range.add(range)));
-        return true;
-      },
-      [dispatch, ranges],
-    ),
-    afterSuccess: useCallback(() => capture("range_created", {}), [capture]),
-  });
-  return useCallback(
-    (key: string) => {
-      const range = ranges.find((r) => r.key === key);
-      if (range?.variant !== "static") return;
-      const { name, timeRange } = range;
-      update({ key: range.key, name, timeRange });
+    beforeUpdate: ({ data, rollbacks }: Flux.BeforeUpdateParams<ranger.New>) => {
+      const range = ranges.find((r) => r.key === data.key);
+      if (range?.variant !== "static") return true;
+      dispatch(Session.Range.add({ variant: "persisted", key: range.key }));
+      rollbacks.push(() => dispatch(Session.Range.add(range)));
+      return true;
     },
-    [ranges, update],
-  );
+    afterSuccess: () => capture("range_created", {}),
+  });
+  return (key: string) => {
+    const range = ranges.find((r) => r.key === key);
+    if (range?.variant !== "static") return;
+    const { name, timeRange } = range;
+    update({ key: range.key, name, timeRange });
+  };
 };
 
 export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {

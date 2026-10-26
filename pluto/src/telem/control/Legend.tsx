@@ -16,7 +16,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type color, type state, unique } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 
 import { Aether } from "@/aether";
 import { control } from "@/telem/control/aether";
@@ -66,13 +66,12 @@ export const Legend = (props: LegendProps): ReactElement | null => {
     ...rest
   } = restProps;
 
-  const handleColorChange = useCallback(
-    (key: string, c?: color.Color) => {
-      const { [key]: _removed, ...rest } = colors;
-      onColorsChange?.(c == null ? rest : { ...rest, [key]: c });
-    },
-    [colors, onColorsChange],
-  );
+  const handleColorChange = (key: string, c?: color.Color) => {
+    const next = { ...colors };
+    if (c == null) delete next[key];
+    else next[key] = c;
+    onColorsChange?.(next);
+  };
 
   const subjects = unique.unique(states.map((s) => s.subject.key));
   const data = subjects.map((s) => {
@@ -142,10 +141,7 @@ const LegendEntry = ({
   onColorPickerVisibleChange,
 }: LegendEntryProps): ReactElement => {
   const parsed = parseSubjectName(name);
-  const handleColorChange = useCallback(
-    (c?: color.Color) => onColorChange(itemKey, c),
-    [itemKey, onColorChange],
-  );
+  const handleColorChange = (c?: color.Color) => onColorChange(itemKey, c);
   return (
     <Flex.Box
       align="center"

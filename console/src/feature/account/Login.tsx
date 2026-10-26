@@ -19,6 +19,7 @@ import { type ReactElement, useEffect, useState } from "react";
 
 import { loginURL, mintState } from "@/feature/account/handoff";
 import { readMachineName } from "@/feature/account/machine";
+import { useUsageDataModal } from "@/feature/account/useUsageDataModal";
 import { License } from "@/feature/license";
 import { Shell } from "@/feature/shell";
 import { CSS } from "@/platform/css";
@@ -61,18 +62,24 @@ interface HandoffProps {
 
 const Handoff = ({ stage, onStage }: HandoffProps): ReactElement => {
   const email = Session.Account.useSelectEmail();
+  const store = Session.useStore();
   const dispatch = Session.useDispatch();
   const handleError = Status.useErrorHandler();
   const client = Synnax.use();
   const version = Session.Version.use();
   const online = useOnline();
+  const openUsageData = useUsageDataModal();
 
   const start = (): void =>
     handleError(async () => {
       if (client == null) return;
       const { fingerprint } = await client.license.retrieve();
-      const state = mintState();
-      dispatch(Session.Account.beginLogin(state));
+      // A page opened before must still finish the login, so reuse the pending state.
+      let state = Session.Account.selectPending(store.getState());
+      if (state == null) {
+        state = mintState();
+        dispatch(Session.Account.beginLogin(state));
+      }
       const url = loginURL({
         state,
         fingerprint,
@@ -81,7 +88,7 @@ const Handoff = ({ stage, onStage }: HandoffProps): ReactElement => {
       });
       await Runtime.openExternal(url);
       onStage("waiting");
-    }, "Failed to open the login page");
+    }, "Failed to open login page");
 
   const lapsed = email != null;
   let title: string;
@@ -168,14 +175,26 @@ const Handoff = ({ stage, onStage }: HandoffProps): ReactElement => {
           </Flex.Box>
           {action}
         </Flex.Box>
-        <Button.Button
-          variant="text"
-          size="small"
-          textColor={9}
-          onClick={() => onStage("file")}
-        >
-          Use a license file
-        </Button.Button>
+        <Flex.Box x justify="center" gap="small">
+          <Button.Button
+            variant="text"
+            size="small"
+            textColor={9}
+            onClick={() => onStage("file")}
+          >
+            Use a license file
+          </Button.Button>
+          {lapsed && (
+            <Button.Button
+              variant="text"
+              size="small"
+              textColor={9}
+              onClick={() => openUsageData()}
+            >
+              Usage data
+            </Button.Button>
+          )}
+        </Flex.Box>
       </Flex.Box>
     </Shell.Frame>
   );

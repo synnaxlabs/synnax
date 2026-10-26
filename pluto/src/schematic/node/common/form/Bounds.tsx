@@ -10,7 +10,7 @@
 import { Form } from "@synnaxlabs/lyra/form";
 import { type Input } from "@synnaxlabs/lyra/input";
 import { bounds } from "@synnaxlabs/x";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
 const STEP = 10;
 
@@ -29,14 +29,14 @@ export interface BoundsFieldsProps extends Pick<
 export const BoundsFields = ({ path, ...rest }: BoundsFieldsProps): ReactElement => {
   const value = Form.useField<bounds.Bounds>(path, { optional: true })?.value;
   const { lower, upper } = value ?? bounds.INFINITE;
-  const lowerProps = useMemo<Partial<Input.NumericProps>>(
-    () => ({ step: STEP, bounds: { ...bounds.INFINITE, upper } }),
-    [upper],
-  );
-  const upperProps = useMemo<Partial<Input.NumericProps>>(
-    () => ({ step: STEP, bounds: { ...bounds.INFINITE, lower } }),
-    [lower],
-  );
+  const lowerProps: Partial<Input.NumericProps> = {
+    step: STEP,
+    bounds: { ...bounds.INFINITE, upper },
+  };
+  const upperProps: Partial<Input.NumericProps> = {
+    step: STEP,
+    bounds: { ...bounds.INFINITE, lower },
+  };
   return (
     <>
       <Form.NumericField

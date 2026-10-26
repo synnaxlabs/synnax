@@ -15,12 +15,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -38,19 +37,15 @@ var _ = Describe("Label", Ordered, func() {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.OpenIndex())
 		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Search:   searchIdx,
 		}))
 		svc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
-			Search:   searchIdx,
 		}))
-		Expect(searchIdx.Initialize(ctx)).To(Succeed())
 	})
 	BeforeEach(func(ctx SpecContext) {
 		tx = db.OpenTx()
@@ -286,5 +281,36 @@ var _ = Describe("Label", Ordered, func() {
 			labels := MustSucceed(svc.RetrieveFor(ctx, labeled.OntologyID(), tx))
 			Expect(labels).To(BeEmpty())
 		})
+	})
+
+	Describe("Search", func() {
+		create := func(ctx SpecContext, name string) ontology.ID {
+			GinkgoHelper()
+			l := label.Label{Name: name, Color: color.MustFromHex("#000000")}
+			Expect(w.Create(ctx, &l)).To(Succeed())
+			return l.OntologyID()
+		}
+
+		It(
+			"Should return the matching labels, closest match first",
+			func(ctx SpecContext) {
+				a := create(ctx, "turbopump test")
+				b := create(ctx, "turbopump")
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 0)).Keys).
+					To(Equal([]ontology.ID{b, a}))
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 1)).Keys).
+					To(Equal([]ontology.ID{b}))
+			},
+		)
+
+		It(
+			"Should not match a staged label outside its transaction",
+			func(ctx SpecContext) {
+				create(ctx, "injector")
+				Expect(
+					MustSucceed(svc.Search(ctx, db, "injector", 0)).Keys,
+				).To(BeEmpty())
+			},
+		)
 	})
 })

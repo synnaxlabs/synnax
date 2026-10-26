@@ -11,6 +11,7 @@ import {
   array,
   breaker,
   type CrudeTimeSpan,
+  observe,
   sleep,
   TimeSpan,
   TimeStamp,
@@ -168,6 +169,7 @@ export default class Synnax extends framer.Client {
     super({
       stream: transport.stream,
       unary: transport.unary,
+      file: transport.file,
       retrieveChannels,
       onRetry: parsedParams.onRetry,
     });
@@ -200,12 +202,14 @@ export default class Synnax extends framer.Client {
     this.connection = this.conn;
     cache.onEpoch((epoch) => this.conn.notify({ type: "epoch.advanced", epoch }));
     transport.unary.use(this.conn.middleware());
+    const identity = new observe.Observer<user.User | undefined>();
     // The auth client fails fast: login retries belong to the request that triggered
     // them (the breaker-wrapped unary or the check loop), never stacked beneath it.
     this.auth = new auth.Client(
       transport.unaryNoRetry,
       { username, password },
       {
+        onUser: (u) => identity.notify(u),
         onSuccess: () => this.conn.notify({ type: "auth.success" }),
         onFailure: (error) => this.conn.notify({ type: "auth.failure", error }),
       },
@@ -245,7 +249,13 @@ export default class Synnax extends framer.Client {
     });
     this.control = new control.Client({ unary, cache });
     this.access = new access.Client({ unary, cache, ontology: this.ontology });
-    this.users = new user.Client({ unary, cache, ontology: this.ontology });
+    this.users = new user.Client({
+      unary,
+      cache,
+      ontology: this.ontology,
+      connection: this.conn,
+      identity,
+    });
     this.projects = new project.Client({
       unary,
       file: this.transport.file,

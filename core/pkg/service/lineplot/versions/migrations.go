@@ -10,16 +10,18 @@
 package versions
 
 import (
+	"github.com/synnaxlabs/gorp"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v0"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v5"
 	v6 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v6"
-	"github.com/synnaxlabs/x/migrate"
+	v7 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v7"
 )
 
 // Migrations is the ordered migration chain for stored line plots.
-var Migrations = []migrate.Migration{
+var Migrations = []gorp.Migration{
 	v0.NormalizeKeys,
 	v0.Migration,
 	v5.Migration,
 	v6.Migration,
+	v7.Migration,
 }

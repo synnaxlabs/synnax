@@ -21,6 +21,7 @@ import { renderHookWithConsole, type TestStore } from "@/testutil";
 const LINKED: Session.Account.SliceState = {
   version: 0,
   link: { secret: "shh", email: "someone@example.com", user: "user_a" },
+  analyticsAllowed: true,
 };
 
 const DESKTOP_LICENSE: license.License = {
@@ -152,9 +153,9 @@ describe("Account.useRenew", () => {
       renewError: new Error("Failed to fetch"),
     });
     await waitFor(() =>
-      expect(
-        h.statuses().some((s) => s.message === "Failed to renew the license"),
-      ).toBe(true),
+      expect(h.statuses().some((s) => s.message === "Failed to renew license")).toBe(
+        true,
+      ),
     );
   });
 
@@ -209,6 +210,17 @@ describe("Account.useRenew", () => {
     expect(h.statuses().some((s) => s.message === "This machine was logged out")).toBe(
       true,
     );
+  });
+
+  it("should keep the license and the account when renewal fails", async () => {
+    const h = await setup({
+      license: expiringIn(TimeSpan.days(20)),
+      renewError: new Error("Could not renew the license: Forbidden"),
+    });
+    await waitFor(() => expect(h.onError).toHaveBeenCalled());
+    expect(h.deactivate).not.toHaveBeenCalled();
+    expect(h.activate).not.toHaveBeenCalled();
+    expect(Session.Account.selectSliceState(h.store.getState())).toEqual(LINKED);
   });
 
   it("should do nothing on a machine that is not linked", async () => {

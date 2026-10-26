@@ -13,22 +13,26 @@ import (
 	"context"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // Retrieve is a builder for querying labels.
 type Retrieve struct {
-	baseTx     gorp.Tx
-	gorp       gorp.Retrieve[Key, Label]
-	search     *search.Index
-	searchTerm string
+	baseTx gorp.Tx
+	gorp   gorp.Retrieve[Key, Label]
+	search *gorp.SearchIndex[Key, Label]
 }
 
-// Search executes a fuzzy search for labels whose Name attribute matches the provided
-// term.
-func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
+// Search filters the labels to those whose name matches term, closest match first. An
+// empty term adds no filter.
+func (r Retrieve) Search(term string) Retrieve {
+	if term == "" {
+		return r
+	}
+	r.gorp = r.gorp.Where(r.search.Filter(term))
+	return r
+}
 
 // Limit limits the number of results that Retrieve will return.
 func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
@@ -79,26 +83,9 @@ func MatchNames(names ...string) gorp.Filter[Key, Label] {
 }
 
 // Exec executes the Retrieve query. If a tx is provided, Exec will use it to execute
-// the query. Otherwise, it will execute against the underlying gorp.DB. It's important
-// to note that fuzzy search will not be aware of any writes/deletes executed on the tx,
-// and will only search the underlying database.
+// the query. Otherwise, it will execute against the underlying gorp.DB.
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
-	tx = gorp.OverrideTx(r.baseTx, tx)
-	if r.searchTerm != "" {
-		ids, err := r.search.Search(ctx, search.Request{
-			Type: ontology.ResourceTypeLabel,
-			Term: r.searchTerm,
-		})
-		if err != nil {
-			return err
-		}
-		keys, err := KeysFromOntologyIDs(ids)
-		if err != nil {
-			return err
-		}
-		r.gorp = r.gorp.Where(MatchKeys(keys...))
-	}
-	return r.gorp.Exec(ctx, tx)
+	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTx, tx))
 }
 
 // RetrieveFor retrieves all labels that are associated with the provided ontology ID.

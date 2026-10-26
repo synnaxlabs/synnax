@@ -16,19 +16,6 @@ import { channel } from "@/channel";
 import { device } from "@/device";
 import { task } from "@/task";
 
-/** PDOAddress addresses a PDO entry explicitly in the CoE object dictionary. */
-export const pdoAddressZ = z.object({
-  /** index is the CoE object dictionary index of the PDO entry. */
-  index: zod.uint16.default(0),
-  /** subIndex is the CoE object dictionary sub-index of the PDO entry. */
-  subIndex: zod.uint8.default(0),
-  /** bitLength is the size of the PDO entry, in bits. */
-  bitLength: zod.uint8.default(16),
-  /** dataType is the data type of the PDO entry. */
-  dataType: z.string().default("uint16"),
-});
-export interface PDOAddress extends z.infer<typeof pdoAddressZ> {}
-
 /** BaseReadChannel carries the fields every EtherCAT read channel shares. */
 export const baseReadChannelZ = z.object({
   /** key uniquely identifies the channel within the task. */
@@ -68,21 +55,30 @@ export interface BaseWriteChannel extends z.infer<typeof baseWriteChannelZ> {}
 export const scanConfigZ = task.scanConfigZ;
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
-/** AutomaticReadChannel resolves its PDO address from the slave's discovered PDOs. */
-export const automaticReadChannelZ = baseReadChannelZ.extend({
-  type: z.literal("automatic"),
-  /** pdo is the name of the PDO entry to resolve on the slave. */
-  pdo: z.string().default(""),
+/** EntryReadChannel addresses a PDO entry by its CoE index and sub-index. */
+export const entryReadChannelZ = baseReadChannelZ.extend({
+  type: z.literal("entry"),
+  /** index is the CoE object dictionary index of the PDO entry. */
+  index: zod.uint16,
+  /** subIndex is the CoE object dictionary sub-index of the PDO entry. */
+  subIndex: zod.uint8,
+  /** dataType is the data type of the PDO entry. */
+  dataType: z.string(),
 });
-export interface AutomaticReadChannel extends z.infer<typeof automaticReadChannelZ> {}
+export interface EntryReadChannel extends z.infer<typeof entryReadChannelZ> {}
 
-/** ManualReadChannel specifies its PDO address inline. */
-export const manualReadChannelZ = baseReadChannelZ.extend(pdoAddressZ.shape).extend({
-  type: z.literal("manual"),
+/**
+ * UnresolvedReadChannel is a channel whose PDO entry name matched no single entry on
+ * its slave. It must be given an entry before the task runs.
+ */
+export const unresolvedReadChannelZ = baseReadChannelZ.extend({
+  type: z.literal("unresolved"),
+  /** pdo is the entry name that matched no single entry on the slave. */
+  pdo: z.string(),
 });
-export interface ManualReadChannel extends z.infer<typeof manualReadChannelZ> {}
+export interface UnresolvedReadChannel extends z.infer<typeof unresolvedReadChannelZ> {}
 
-export const READ_CHANNEL_TYPES = ["automatic", "manual"] as const;
+export const READ_CHANNEL_TYPES = ["entry", "unresolved"] as const;
 export const readChannelTypeZ = z.enum(READ_CHANNEL_TYPES);
 export type ReadChannelType = z.infer<typeof readChannelTypeZ>;
 
@@ -91,33 +87,44 @@ export type ReadChannelType = z.infer<typeof readChannelTypeZ>;
  * field selects how the PDO entry is addressed.
  */
 export const readChannelZ = z.discriminatedUnion("type", [
-  automaticReadChannelZ,
-  manualReadChannelZ,
+  entryReadChannelZ,
+  unresolvedReadChannelZ,
 ]);
-export type ReadChannel = AutomaticReadChannel | ManualReadChannel;
+export type ReadChannel = EntryReadChannel | UnresolvedReadChannel;
 
 export const READ_CHANNEL_SCHEMAS: {
   [K in ReadChannelType]: z.ZodType<Extract<ReadChannel, { type: K }>>;
 } = {
-  automatic: automaticReadChannelZ,
-  manual: manualReadChannelZ,
+  entry: entryReadChannelZ,
+  unresolved: unresolvedReadChannelZ,
 };
 
-/** AutomaticWriteChannel resolves its PDO address from the slave's discovered PDOs. */
-export const automaticWriteChannelZ = baseWriteChannelZ.extend({
-  type: z.literal("automatic"),
-  /** pdo is the name of the PDO entry to resolve on the slave. */
-  pdo: z.string().default(""),
+/** EntryWriteChannel addresses a PDO entry by its CoE index and sub-index. */
+export const entryWriteChannelZ = baseWriteChannelZ.extend({
+  type: z.literal("entry"),
+  /** index is the CoE object dictionary index of the PDO entry. */
+  index: zod.uint16,
+  /** subIndex is the CoE object dictionary sub-index of the PDO entry. */
+  subIndex: zod.uint8,
+  /** dataType is the data type of the PDO entry. */
+  dataType: z.string(),
 });
-export interface AutomaticWriteChannel extends z.infer<typeof automaticWriteChannelZ> {}
+export interface EntryWriteChannel extends z.infer<typeof entryWriteChannelZ> {}
 
-/** ManualWriteChannel specifies its PDO address inline. */
-export const manualWriteChannelZ = baseWriteChannelZ.extend(pdoAddressZ.shape).extend({
-  type: z.literal("manual"),
+/**
+ * UnresolvedWriteChannel is a channel whose PDO entry name matched no single entry on
+ * its slave. It must be given an entry before the task runs.
+ */
+export const unresolvedWriteChannelZ = baseWriteChannelZ.extend({
+  type: z.literal("unresolved"),
+  /** pdo is the entry name that matched no single entry on the slave. */
+  pdo: z.string(),
 });
-export interface ManualWriteChannel extends z.infer<typeof manualWriteChannelZ> {}
+export interface UnresolvedWriteChannel extends z.infer<
+  typeof unresolvedWriteChannelZ
+> {}
 
-export const WRITE_CHANNEL_TYPES = ["automatic", "manual"] as const;
+export const WRITE_CHANNEL_TYPES = ["entry", "unresolved"] as const;
 export const writeChannelTypeZ = z.enum(WRITE_CHANNEL_TYPES);
 export type WriteChannelType = z.infer<typeof writeChannelTypeZ>;
 
@@ -126,16 +133,16 @@ export type WriteChannelType = z.infer<typeof writeChannelTypeZ>;
  * field selects how the PDO entry is addressed.
  */
 export const writeChannelZ = z.discriminatedUnion("type", [
-  automaticWriteChannelZ,
-  manualWriteChannelZ,
+  entryWriteChannelZ,
+  unresolvedWriteChannelZ,
 ]);
-export type WriteChannel = AutomaticWriteChannel | ManualWriteChannel;
+export type WriteChannel = EntryWriteChannel | UnresolvedWriteChannel;
 
 export const WRITE_CHANNEL_SCHEMAS: {
   [K in WriteChannelType]: z.ZodType<Extract<WriteChannel, { type: K }>>;
 } = {
-  automatic: automaticWriteChannelZ,
-  manual: manualWriteChannelZ,
+  entry: entryWriteChannelZ,
+  unresolved: unresolvedWriteChannelZ,
 };
 
 export const readConfigZ = task.readConfigZ.extend({

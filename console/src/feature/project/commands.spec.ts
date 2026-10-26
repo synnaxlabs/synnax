@@ -121,7 +121,9 @@ describe("Project Commands", () => {
       expect(
         statuses.some(
           (st) =>
-            st.variant === "success" && st.message === `Imported project "${name}"`,
+            st.variant === "success" &&
+            st.name === name &&
+            st.message === "Imported project",
         ),
       ).toBe(true),
     );
@@ -229,5 +231,18 @@ describe("Project Commands permissions", () => {
       client: await roles.get("Viewer"),
     });
     await waitFor(() => expect(result.current).toBe(true));
+  });
+
+  it("should withhold Open sample project outside Synnax Desktop", async () => {
+    const gate = findCommand(Project.COMMANDS, "Open sample project").useVisible;
+    assertDefined(gate);
+    const create = findCommand(Project.COMMANDS, "Create project").useVisible;
+    assertDefined(create);
+    const { result } = await renderHookWithConsole(
+      () => ({ visible: gate(), creatable: create() }),
+      { client: await roles.get("Owner") },
+    );
+    await waitFor(() => expect(result.current.creatable).toBe(true));
+    expect(result.current.visible).toBe(false);
   });
 });

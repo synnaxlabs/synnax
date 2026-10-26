@@ -33,7 +33,7 @@ enum TransportVariant { UNARY, STREAM };
 class Context {
 public:
     /// @brief unique hash used to retrieve sent data.
-    int id;
+    int id{0};
     /// @brief The protocol used to send the request. Should be set by the
     /// underlying transport implementation.
     std::string protocol;
@@ -49,10 +49,7 @@ public:
 
     /// @brief Constructs the context with an empty set of parameters.
     Context(std::string protocol, x::url::URL target, const TransportVariant variant):
-        id(0),
-        protocol(std::move(protocol)),
-        target(std::move(target)),
-        variant(variant) {
+        protocol(std::move(protocol)), target(std::move(target)), variant(variant) {
         params = std::unordered_map<std::string, std::string>();
     }
 
@@ -74,7 +71,7 @@ public:
         id = other.id;
         variant = other.variant;
         deadline = other.deadline;
-        for (auto &[k, v]: other.params)
+        for (const auto &[k, v]: other.params)
             params[k] = v;
         return *this;
     }
@@ -82,7 +79,9 @@ public:
     /// @brief Gets the parameter with the given key.
     std::string get(const std::string &key) { return params[key]; }
 
-    bool has(const std::string &key) { return params.find(key) != params.end(); }
+    [[nodiscard]] bool has(const std::string &key) const {
+        return params.contains(key);
+    }
 
     /// @brief Sets the given parameter to the given value.
     void set(const std::string &key, const std::string &value) { params[key] = value; }
@@ -185,7 +184,7 @@ public:
         RQ &req
     ) const {
         class NextImpl : public Next {
-            std::size_t index;
+            std::size_t index{0};
             const MiddlewareCollector &collector;
             RQ req;
             Finalizer<RQ, RS> *finalizer;
@@ -198,7 +197,7 @@ public:
                 Finalizer<RQ, RS> *finalizer,
                 RQ &req
             ):
-                index(0), collector(collector), req(req), finalizer(finalizer) {}
+                collector(collector), req(req), finalizer(finalizer) {}
 
             std::pair<Context, x::errors::Error>
             operator()(freighter::Context context) override {
@@ -207,7 +206,7 @@ public:
                     this->res = std::move(f_res.response);
                     return {f_res.context, f_res.error};
                 }
-                auto mw = this->collector.middlewares[this->index].get();
+                auto *mw = this->collector.middlewares[this->index].get();
                 ++this->index;
                 return mw->operator()(context, *this);
             }

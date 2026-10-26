@@ -16,7 +16,10 @@ import {
   Tuple,
 } from "@reduxjs/toolkit";
 import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
-import { useDispatch as baseUseDispatch, useStore as baseUseStore } from "react-redux";
+import {
+  useDispatch as useReduxDispatch,
+  useStore as useReduxStore,
+} from "react-redux";
 
 import { Account } from "@/session/account";
 import { Arc } from "@/session/arc";
@@ -227,7 +230,7 @@ export interface CreateStoreOptions extends Partial<
 
 export const createStore = async (opts: CreateStoreOptions = {}): Promise<Store> => {
   const {
-    runtime = new Runtime.Drift<State, Action>(),
+    runtime = Runtime.createDrift<State, Action>(),
     enablePrerender = !IS_DEV,
     debug = false,
     enablePersistence = true,
@@ -262,5 +265,5 @@ export const createStore = async (opts: CreateStoreOptions = {}): Promise<Store>
   });
 };
 
-export const useStore = baseUseStore.withTypes<Store>();
-export const useDispatch = baseUseDispatch.withTypes<Dispatch<Action>>();
+export const useStore = useReduxStore.withTypes<Store>();
+export const useDispatch = useReduxDispatch.withTypes<Dispatch<Action>>();

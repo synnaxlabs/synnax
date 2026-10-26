@@ -16,9 +16,8 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Access, Device } from "@synnaxlabs/pluto";
-import { useMemo } from "react";
 
-import { getContextMenuItems, getIcon, getMake } from "@/feature/device/make";
+import { ContextMenuItems, getIcon, getMake } from "@/feature/device/make";
 import { ContextMenu } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
@@ -28,12 +27,12 @@ import { Tree } from "@/platform/tree";
 
 const useDelete = Tree.createUseDelete({
   type: "Device",
-  query: Device.useDelete,
+  useUpdate: Device.useDelete,
   convertKey: String,
 });
 
 const useRename = Tree.createUseRename({
-  query: Device.useRename,
+  useUpdate: Device.useRename,
   ontologyID: device.ontologyID,
   convertKey: String,
 });
@@ -41,20 +40,21 @@ const useRename = Tree.createUseRename({
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection: { ids, rootID },
-    state: { getResource, shape },
+    state,
   } = props;
-  const ontologyIDs = useMemo(() => ids.map((id) => device.ontologyID(id.key)), [ids]);
+  const ontologyIDs = ids.map((id) => device.ontologyID(id.key));
   const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
   const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
   const singleResource = ids.length === 1;
-  const first = getResource(ids[0]);
+  const first = Tree.useResource(state, ids[0]);
   const handleDelete = useDelete(props);
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
   const handleLink = Core.useCopyLinkToClipboard();
   if (ids.length === 0) return null;
-  const C = singleResource ? getContextMenuItems(first.data?.make) : null;
-  const customMenuItems = C ? <C {...props} /> : null;
+  const make = singleResource ? getMake(first?.data?.make) : null;
+  const customMenuItems =
+    make == null ? null : <ContextMenuItems {...props} make={make} />;
   return (
     <ContextMenu.Menu>
       {hasUpdatePermission && singleResource && (
@@ -63,7 +63,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       {hasUpdatePermission && (
         <Group.ContextMenuItem
           ids={ids}
-          shape={shape}
+          shape={state.shape}
           rootID={rootID}
           onClick={() => group(props)}
         />
@@ -77,14 +77,16 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       <Menu.Divider />
       {singleResource && (
         <>
-          <Link.CopyContextMenuItem
-            onClick={() =>
-              handleLink({
-                name: first.name,
-                ontologyID: device.ontologyID(first.id.key),
-              })
-            }
-          />
+          {first != null && (
+            <Link.CopyContextMenuItem
+              onClick={() =>
+                handleLink({
+                  name: first.name,
+                  ontologyID: device.ontologyID(first.id.key),
+                })
+              }
+            />
+          )}
           <Tree.CopyPropertiesContextMenuItem {...props} />
         </>
       )}

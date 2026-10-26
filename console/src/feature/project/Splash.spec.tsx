@@ -51,10 +51,9 @@ describe("project/Splash", () => {
       });
       const { wrapper } = await createConsoleWrapper({ client: denied });
       render(<Project.Splash />, { wrapper });
+      expect(await screen.findByText("Failed to retrieve projects")).toBeDefined();
       expect(
-        await screen.findByText(
-          "Failed to retrieve projects: You do not have permission to do that",
-        ),
+        screen.getByText(/^You do not have permission to do that\. /),
       ).toBeDefined();
       expect(screen.queryByText("No projects created.")).toBeNull();
     });
@@ -170,7 +169,9 @@ describe("project/Splash", () => {
 
       const search = await screen.findByPlaceholderText("Search projects...");
       fireEvent.change(search, { target: { value: name } });
-      await screen.findByText(name);
+      // The unfiltered list can show the project before the search answers.
+      await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(1));
+      screen.getByText(name);
 
       fireEvent.keyDown(search, { code: "ArrowDown" });
       fireEvent.keyUp(search, { code: "ArrowDown" });
@@ -195,8 +196,9 @@ describe("project/Splash", () => {
 
       const search = await screen.findByPlaceholderText("Search projects...");
       fireEvent.change(search, { target: { value: prefix } });
-      const elA = await screen.findByText(a.name);
-      const elB = await screen.findByText(b.name);
+      await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(2));
+      const elA = screen.getByText(a.name);
+      const elB = screen.getByText(b.name);
       const aIsFirst =
         (elA.compareDocumentPosition(elB) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
       const second = aIsFirst ? b : a;

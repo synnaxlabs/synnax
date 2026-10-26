@@ -19,13 +19,14 @@ import (
 
 	"github.com/cespare/xxhash/v2"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/zyn"
 )
 
@@ -43,7 +44,7 @@ func LegacyKeyKVKey(legacy v1.Key) []byte {
 }
 
 // Migration re-keys stored tasks from legacy composite uint64 keys to UUIDs.
-var Migration = gorp.NewMigration("v56_task_uuid_key", migrateKeysToUUID)
+var Migration = migrate.New("v56_task_uuid_key", migrateKeysToUUID)
 
 // ontologyID returns the ontology identifier for the task with the given key.
 func ontologyID(key Key) ontology.ID {
@@ -342,7 +343,7 @@ func collectEntries[K gorp.Key, E gorp.Entry[K]](
 
 // NameMigration names each stored task that has an empty name "<type> <key>", where
 // <key> is the first eight characters of its key. A task with no type uses "Task".
-var NameMigration = gorp.NewEntryMigration(
+var NameMigration = migrate.NewEntry(
 	"v60_require_name",
 	func(_ context.Context, t Task) (Task, error) {
 		if t.Name != "" {

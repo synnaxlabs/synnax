@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
@@ -23,18 +24,16 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestArc(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Arc Suite")
+	RunSpecs(t, "Service Arc Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
@@ -60,24 +59,20 @@ var (
 		node := mock.NewNode(ctx)
 		db = node.DB
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.OpenIndex())
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Search:   searchIdx,
 		}))
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
-			Search:   searchIdx,
 		}))
 		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
 			Label:    labelSvc,
-			Search:   searchIdx,
 		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel:      node.Channel,
@@ -85,7 +80,6 @@ var (
 			HostProvider: node.Cluster,
 			Ontology:     otg,
 			Group:        groupSvc,
-			Search:       searchIdx,
 			Status:       statusSvc,
 		}))
 		rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
@@ -95,7 +89,6 @@ var (
 			HostProvider:        mock.NewStaticHostProvider(1),
 			Status:              statusSvc,
 			HealthCheckInterval: 10 * telem.Millisecond,
-			Search:              searchIdx,
 		}))
 		imexSvc = imex.NewService()
 		arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{
@@ -108,7 +101,6 @@ var (
 			Group:        groupSvc,
 			Rack:         rackSvc,
 			Status:       statusSvc,
-			Search:       searchIdx,
 			ImEx:         imexSvc,
 			Configs:      configs,
 			ImExExcluded: []string{arctask.Type},
@@ -121,7 +113,6 @@ var (
 			Channel:             channelSvc,
 			Task:                taskSvc,
 			Status:              statusSvc,
-			Search:              searchIdx,
 			ImEx:                imexSvc,
 			TextSweepQuiescence: 5 * telem.Second,
 			TextSweepThreshold:  1,

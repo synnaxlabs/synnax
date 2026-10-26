@@ -9,10 +9,10 @@
 
 package v0
 
-import "github.com/synnaxlabs/x/gorp"
+import "github.com/synnaxlabs/gorp/migrate"
 
 // Migration re-encodes stored tables from MessagePack to Orc.
-var Migration = gorp.CodecMigration[Key, Table]("msgpack_to_orc")
+var Migration = migrate.Codec[Key, Table]("msgpack_to_orc")
 
 // NormalizeKeys re-keys Table rows stored under the pre-v0.54 key format.
-var NormalizeKeys = gorp.NormalizeKeysMigration[Key, Table]("Table")
+var NormalizeKeys = migrate.NormalizeKeys[Key, Table]("Table")
