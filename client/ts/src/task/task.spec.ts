@@ -11,7 +11,9 @@ import { id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { assert, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 
+import { channel } from "@/channel";
 import { NotFoundError } from "@/errors";
+import { framer } from "@/framer";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { rack } from "@/rack";
@@ -19,6 +21,7 @@ import { type status } from "@/status";
 import { task } from "@/task";
 import {
   createTestClient,
+  createTestClientWithPolicy,
   holdResponses,
   spyOnSend,
   waitForStreamLive,
@@ -1353,6 +1356,47 @@ describe("Task", async () => {
             return cached.find((v) => v.key === t.key)?.config;
           })
           .toMatchObject({ routingKey: "dog" });
+      } finally {
+        off();
+      }
+    });
+
+    it("fetches only the uncached tasks the user can read", async () => {
+      const readable = await testRack.createTask({
+        name: `set-readable-${id.create()}`,
+        config: { routingKey: "dog" },
+        type: "pagerduty_alert",
+      });
+      const denied = await testRack.createTask({
+        name: `set-denied-${id.create()}`,
+        config: { routingKey: "cat" },
+        type: "pagerduty_alert",
+      });
+      const remote = await createTestClientWithPolicy(client, {
+        name: "set-readable",
+        objects: [
+          channel.TYPE_ONTOLOGY_ID,
+          framer.TYPE_ONTOLOGY_ID,
+          task.ontologyID(readable.key),
+        ],
+        actions: ["retrieve"],
+      });
+      await waitForStreamLive(remote.connection);
+      const params = { key: readable.key };
+      const off = remote.tasks.onChange(params, vi.fn());
+      try {
+        const name = `set-readable-renamed-${id.create()}`;
+        await Promise.all([
+          client.tasks.create({ ...denied.payload, name: `${denied.name}-renamed` }),
+          client.tasks.create({ ...readable.payload, name }),
+        ]);
+        await expect
+          .poll(() => {
+            const cached = remote.tasks.getCached(params);
+            return query.isLive(cached) ? cached.name : undefined;
+          })
+          .toBe(name);
+        expect(remote.tasks.store.get(denied.key)).toBeUndefined();
       } finally {
         off();
       }
