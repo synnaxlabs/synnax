@@ -83,6 +83,16 @@ foreach ($name in $Tasks.Keys) {
     Start-ScheduledTask -TaskName $name
 }
 
+# A loaded box can take minutes to run a task's first launch, so the 45 s that
+# shows a crash loop counts from the last first launch.
+$deadline = (Get-Date).AddMinutes(5)
+while ((Get-Date) -lt $deadline) {
+    $pending = $Tasks.Keys | Where-Object {
+        -not (Test-Path (Join-Path $Dir ('run_' + ($_ -split ' ')[1] + '.launches')))
+    }
+    if (-not $pending) { break }
+    Start-Sleep -Seconds 5
+}
 Start-Sleep -Seconds 45
 $failed = @()
 foreach ($name in $Tasks.Keys) {
