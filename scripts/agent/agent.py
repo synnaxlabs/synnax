@@ -152,7 +152,9 @@ def skill_prompt(prompt: str, root: Path) -> str:
 
 def instructions(opts: Options, out: Path) -> str:
     lines = ["You run headless in CI. Nobody answers questions: decide and proceed."]
-    if opts.output != "report":
+    if opts.dry_run:
+        lines.append("This is a dry run: never push, open a PR, or comment on GitHub.")
+    elif opts.output != "report":
         lines += [
             "Never push, open a PR, or comment on GitHub: the wrapper does that.",
             f"Save screenshots worth showing (PNG, JPEG, GIF) to `{out}/images/`.",
@@ -391,7 +393,8 @@ def main(argv: Sequence[str]) -> int:
     prompt = f"{prompt}\n\nHow to deliver:\n{instructions(opts, out)}"
     cmd = agent_command(opts, prompt, out)
     # A report agent delivers its own work, so it gets Git push access as the App.
-    agent_env = git_auth(env) if opts.output == "report" else env
+    report = opts.output == "report" and not opts.dry_run
+    agent_env = git_auth(env) if report else env
     agent_env = {**agent_env, "AGENT_OUT_DIR": str(out)}
     stdout = run_agent(cmd, agent_env, opts.timeout_minutes * 60)
     message = read(out / "last-message.md") or stdout.strip()

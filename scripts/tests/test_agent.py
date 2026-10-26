@@ -8,9 +8,9 @@
 #  included in the file licenses/APL.txt.
 
 import base64
-import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -249,6 +249,10 @@ class TestMain:
         assert "auth=http.https://github.com/.extraheader" in capsys.readouterr().out
         text = instructions(Options("p", "claude", "report"), tmp_path)
         assert "Never push" not in text
+        assert main([*argv, "--output", "report", "--dry-run"]) == 0
+        assert "auth=\n" in capsys.readouterr().out
+        dry = instructions(Options("p", "claude", "report", dry_run=True), tmp_path)
+        assert "never push" in dry
 
     def test_rejects_dirty_checkout(self, repo: Path, tmp_path: Path) -> None:
         (repo / "stray.txt").write_text("not the agent's")
@@ -275,9 +279,15 @@ def test_timeout_kills_the_agent_and_its_children(tmp_path: Path) -> None:
     script = f"sleep 60 & echo $! > {pid_file}; wait"
     with pytest.raises(subprocess.TimeoutExpired):
         run_agent(["sh", "-c", script], {"PATH": "/usr/bin:/bin"}, 1)
-    child = int(pid_file.read_text())
-    with pytest.raises(ProcessLookupError):
-        os.kill(child, 0)
+    child = pid_file.read_text().strip()
+    # The orphaned child may linger as a zombie until init reaps it.
+    for _ in range(50):
+        ps = subprocess.run(["ps", "-o", "stat=", "-p", child], capture_output=True)
+        if not ps.stdout.strip() or ps.stdout.startswith(b"Z"):
+            break
+        time.sleep(0.1)
+    else:
+        pytest.fail(f"process {child} still runs")
 
 
 def test_git_auth_sends_the_app_token() -> None:
