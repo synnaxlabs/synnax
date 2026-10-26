@@ -18,6 +18,7 @@ import {
   type SynnaxParams,
 } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Access, Synnax } from "@synnaxlabs/pluto";
@@ -161,6 +162,11 @@ export const CaptureStatuses = ({ onStatuses }: CaptureStatusesProps): null => {
   return null;
 };
 
+/** The haul provider the app mounts through `Pluto.Context`, kept in the session. */
+export const HaulProvider = ({ children }: PropsWithChildren): ReactElement => (
+  <Haul.Provider {...Session.Haul.useProviderProps()}>{children}</Haul.Provider>
+);
+
 export type ConsolePreloadedState = Partial<Session.State>;
 
 // withSelectedProject seeds the selected project for surfaces that production mounts
@@ -277,10 +283,11 @@ export const renderLinkHook = async <H,>(
     createSynnaxWrapper({ client, additionalRegistry: ADDITIONAL_REGISTRY }),
     store,
   );
-  const { result } = renderHook(
-    () => ({ handler: useHook(), modals: Session.Modals.useStore("renderLinkHook") }),
-    { wrapper: Wrapper },
-  );
+  const useHandle = () => ({
+    handler: useHook(),
+    modals: Session.Modals.useStore("renderLinkHook"),
+  });
+  const { result } = renderHook(useHandle, { wrapper: Wrapper });
   return { handler: result.current.handler, store, modals: result.current.modals };
 };
 
@@ -342,9 +349,8 @@ export const awaitGranted = async (
   action: access.Action = "create",
 ): Promise<void> => {
   const { wrapper } = await createConsoleWrapper({ client });
-  const { result } = renderHook(() => Access.useGranted({ objects: id, action }), {
-    wrapper,
-  });
+  const useGrant = () => Access.useGranted({ objects: id, action });
+  const { result } = renderHook(useGrant, { wrapper });
   await waitFor(() => {
     if (!result.current) throw new Error(`${action} grant did not resolve`);
   });

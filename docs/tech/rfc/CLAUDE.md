@@ -21,6 +21,33 @@ Rules for writing and editing RFCs in this directory.
   heading below the H1 carries a number — appendix and working-notes sections too.
 - Implementation stages are labeled `Phase N` — never `Part N`.
 
+## Phase table
+
+The `Implementation phases` section of an RFC that plans work ends in one phase table.
+Tools read it, so the format is strict:
+
+```markdown
+| Phase | Scope                     | Touches                  | Depends on |
+| ----- | ------------------------- | ------------------------ | ---------- |
+| 1     | Add the `foo` codec       | `core/pkg/foo`           | -          |
+| 2     | Read `foo` in the clients | `client/ts`, `client/py` | 1          |
+```
+
+- **Phase**: `1` to `N`, in order. Each phase is one PR that merges into `main` alone.
+- **Scope**: The Linear issue title. Imperative, sentence case, no period, 60 characters
+  at most.
+- **Touches**: The packages or files the PR changes, as comma-separated backticked
+  paths.
+- **Depends on**: Earlier phase numbers, comma-separated, or `-` for none.
+
+The table has no review tier: the tier comes from each PR's real diff.
+
+Check a table with `.github/scripts/phase_table.py`:
+
+```sh
+uv run --project .github/scripts .github/scripts/phase_table.py <rfc.md>
+```
+
 ## Headings
 
 - Sentence case: capitalize only the first word, proper nouns, and acronyms. Text after

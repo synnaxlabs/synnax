@@ -61,13 +61,13 @@ func NewHost(ctx context.Context, rt wazero.Runtime, memory api.Memory) (*Host, 
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, ptr, length uint32) {
 			if h.memory == nil {
-				panic("arc panic (memory not set)")
+				panic("The program panicked before its memory was available.")
 			}
 			msg, ok := h.memory.Read(ptr, length)
 			if !ok {
-				panic("arc panic (message unreadable)")
+				panic("The program panicked with an unreadable message.")
 			}
-			panic("arc panic: " + string(msg))
+			panic("The program panicked: " + string(msg))
 		}).Export("panic")
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err

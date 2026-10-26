@@ -17,39 +17,36 @@ person dispatches every release ([RFC 0058](docs/tech/rfc/0058-release-workflow.
   issue.
 - Description: what changed and why, leading with the effect on a user or the
   architecture. Never a file-by-file walk.
-- One review tier label. The author merges once the tier's review is done and the gate
-  passes, after answering every Greptile comment with a fix or a reason.
+- One review tier label. The author merges once the gate passes, after answering every
+  Greptile comment with a fix or a reason.
 - A version bump rides the PR that ships the change. Test-only and docs-only changes
   bump nothing.
 
 ## Review tiers
 
-A tier measures what a PR can change in a shipped enterprise product, not how large it
-is. The author picks; a reviewer can raise it by swapping the label. The tier is a
-convention between the author and the reviewer: no status enforces the human review.
+A tier says if a human must read the PR. A reviewer can raise it by swapping the label.
 
-| Tier | Label             | Review                   | Covers                                                                                                                                                                                                                                                                           |
-| ---- | ----------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | `review/thorough` | One human, plus Greptile | A flag turning on for the Console or being deleted (a feature promotion). A change to the telemetry pipeline (Cesium, the framer, the Driver pipeline) or a metadata system (Aspen, Gorp, the ontology, Oracle, the schemas' semantics). A refactor that moves a layer boundary. |
-| 2    | `review/light`    | One human, plus Greptile | A user-facing surface changes: CLI commands or flags, a client API, how the Console looks or behaves. A stored shape changes: anything under `schemas/`, a migration. A feature lands dark behind a flag. Code that ships only in Synnax Desktop.                                |
-| 3    | `review/bot`      | Greptile only            | A simple bug fix. Tests, lints, renames, formatting, generated code, and other mechanical refactors.                                                                                                                                                                             |
+| Label          | Review                   | Covers                                                                                                                                                                                                                                               |
+| -------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `review/human` | One human, plus Greptile | A change to a user-facing interface: a new field or data structure (anything under `schemas/`, a stored shape, a migration), a Python or TypeScript client interface, a Core or Driver config (flags, config files), or a Console design or feature. |
+| `review/bot`   | Greptile only            | Everything else: bug fixes, internals, tests, lints, renames, formatting, and generated code.                                                                                                                                                        |
 
-**Tier 1**: The reviewer pulls the branch, runs the feature, and reads every file and
-the code around it, against the `CLAUDE.md` principles, the tests, and the docs. **Tier
-2**: The reviewer reads the changed surface and its tests, and confirms a stored shape
-change carries a migration and a dark feature stays dark. **Tier 3**: Only Greptile
-reads it. A fix that turns out to change behavior gets its tier raised.
+A `review/human` reviewer reads the changed interface and its tests, approves or
+requests changes, and confirms a stored shape change carries a migration.
 
 Two statuses gate a merge into `main` or a `release/**` branch. `Review gate` stays
-pending until the PR has a finished Greptile review of the head. A Greptile confidence
-score below 5/5 fails it: push a fix, or retrigger the review after answering the
-comments. Greptile skips Dependabot, so a pull request Dependabot opened and wrote every
-commit of passes the gate without a review. `OK` is the CI workflow's last job: it fails
-when any check the PR's paths select failed. A merge into `main` goes through a merge
-queue, which reruns CI on the merged result with the integration suite added before the
-branch moves. GitHub refuses a queue on a wildcard branch pattern, so a `release/**`
-merge goes in directly, and CI runs again on the pushed commit. A release runs the
-integration suite itself. Admins bypass when Greptile is down. The gate script is
+pending until the PR has one tier label and a finished Greptile review of the head. A
+Greptile confidence score below 5/5 fails it: push a fix, or retrigger the review after
+answering the comments. On a `review/human` PR, the gate also waits for a member of the
+repository to approve, and fails while one requests changes. Greptile skips Dependabot,
+so a pull request Dependabot opened and wrote every commit of passes the gate without a
+review. `OK` is the CI workflow's last job: it fails when any check the PR's paths
+select failed. A merge into `main` goes through a merge queue, which reruns CI on the
+merged result with the integration suite added before the branch moves. GitHub refuses a
+queue on a wildcard branch pattern, so a `release/**` merge goes in directly, and CI
+runs again on the pushed commit. The queue also runs the gate again; with no queue, a
+`release/**` merge needs an approval of its last push, whatever its tier. A release runs
+the integration suite itself. Admins bypass when Greptile is down. The gate script is
 `.github/scripts/check_review.sh`, the rulesets `.github/rulesets/main.json` and
 `.github/rulesets/release.json`. An admin applies a changed ruleset file by hand; the
 `Check - Rulesets` workflow fails each day until GitHub matches the files.
@@ -63,7 +60,7 @@ failure to avoid is a branch that grows for days and lands as one PR nobody can 
   the PR and start the next piece as a separate branch off `main`.
 - Prefer separate branches off `main` over a stack. A stack is fine when a piece truly
   cannot land alone, but most pieces can.
-- Unfinished work ships dark behind a flag as small Tier 2 PRs, not on a branch.
+- Unfinished work ships dark behind a flag as small PRs, not on a branch.
 - Mechanical changes (renames, formatting, lint, regenerated code) ship alone as
   `review/bot` PRs. A fix and the refactor it needed are two PRs; the refactor first.
 
@@ -75,13 +72,13 @@ enterprise edition and gets it once it has proved itself. A static flag in
 off in the Console build; its entry names the owner, the Linear umbrella issue, and the
 release that removes it. A flag past that release is a bug: promote or delete.
 
-1. **Land dark** in Tier 2 PRs. The reviewer confirms the Console build tree-shakes the
-   code out.
+1. **Land dark** in `review/human` PRs. The reviewer confirms the Console build
+   tree-shakes the code out.
 2. **Ship in Desktop.** Field use and bug reports are the promotion evidence.
-3. **Promote** after at least one stable Desktop release, in a Tier 1 PR that only flips
-   or deletes the flag and removes the dark branches. The reviewer reads the feature as
-   it stands on `main`, from the umbrella issue's PR list, and holds it to the
-   enterprise bar: the `CLAUDE.md` principles, tests, docs, no dev-only path left. A
+3. **Promote** after at least one stable Desktop release, in a `review/human` PR that
+   only flips or deletes the flag and removes the dark branches. The reviewer reads the
+   feature as it stands on `main`, from the umbrella issue's PR list, and holds it to
+   the enterprise bar: the `CLAUDE.md` principles, tests, docs, no dev-only path left. A
    feature that fails stays in Desktop until a later promotion passes.
 
 ## Issue priority

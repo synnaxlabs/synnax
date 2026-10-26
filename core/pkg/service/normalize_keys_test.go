@@ -12,6 +12,7 @@ package service_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	policyversions "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions"
 	roleversions "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/versions"
 	arcversions "github.com/synnaxlabs/synnax/pkg/service/arc/versions"
@@ -35,14 +36,13 @@ import (
 	taskversions "github.com/synnaxlabs/synnax/pkg/service/task/versions"
 	userversions "github.com/synnaxlabs/synnax/pkg/service/user/versions"
 	viewversions "github.com/synnaxlabs/synnax/pkg/service/view/versions"
-	"github.com/synnaxlabs/x/migrate"
 )
 
 // Every table first stored by v0.53 or earlier holds rows under the old key prefix, and
 // only the first migration in its chain moves them. Dropping that step orphans the rows
 // with no other spec failing.
 var _ = DescribeTable("Pre-v0.54 key normalization",
-	func(chain []migrate.Migration) {
+	func(chain []gorp.Migration) {
 		Expect(chain).ToNot(BeEmpty())
 		Expect(chain[0].Key()).To(Equal("normalize_keys"))
 	},

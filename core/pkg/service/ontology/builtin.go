@@ -13,10 +13,11 @@ import (
 	"context"
 	"iter"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/search"
 )
 
 var (
@@ -31,6 +32,16 @@ type builtinService struct{ observe.Noop[iter.Seq[Change]] }
 var _ Service = (*builtinService)(nil)
 
 func (*builtinService) Type() ResourceType { return ResourceTypeBuiltin }
+
+// Search implements Service. No builtin resource is searchable.
+func (*builtinService) Search(
+	context.Context,
+	gorp.Tx,
+	string,
+	int,
+) (search.Result[ID], error) {
+	return search.Result[ID]{}, nil
+}
 
 // RetrieveResource implements Service.
 func (*builtinService) RetrieveResource(

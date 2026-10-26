@@ -20,6 +20,8 @@ export const tableStateZ = z.object({
   clearOverScan: xy.crudeZ.default(0),
   visible: z.boolean().default(true),
   autoRenderInterval: z.number().default(1000),
+  /** Keys of cells that draw nothing, such as the ones a row or column move slides. */
+  hidden: z.array(z.string()).default([]),
 });
 
 interface CellProps {
@@ -83,9 +85,13 @@ export class Table extends aether.Composite<typeof tableStateZ, InternalState, C
     );
 
     const visible = box.construct(this.state.scroll, box.dims(this.state.region));
+    const hidden = new Set(this.state.hidden);
     try {
       for (const child of this.children)
-        if (!box.areaIsZero(box.intersection(child.box, visible)))
+        if (
+          !hidden.has(child.key) &&
+          !box.areaIsZero(box.intersection(child.box, visible))
+        )
           child.render({ viewportScale });
     } catch (e) {
       handleError(e, "Failed to render table");

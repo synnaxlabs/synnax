@@ -257,7 +257,7 @@ func expectSeriesLiteralWithHint(
 
 func TestExpression(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Compiler Expression Suite")
+	RunSpecs(t, "Compiler Expression Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

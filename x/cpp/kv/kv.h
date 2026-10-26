@@ -13,7 +13,7 @@
 
 #include "x/cpp/errors/errors.h"
 
-using json = nlohmann::json;
+using nlohmann::json;
 
 namespace x::kv {
 class KV {
@@ -40,7 +40,7 @@ struct JSONFileConfig {
 /// @brief a KV implementation backed by a JSOn file on-disk.
 class JSONFile final : public KV {
     std::filesystem::path path;
-    json data_{};
+    json data_;
 
 public:
     /// @brief opens the key-value store using the provided configuration. If the
@@ -57,6 +57,6 @@ public:
     /// @brief implements KV.
     errors::Error del(const std::string &key) override;
 
-    JSONFile(const std::string &path, const json &data);
+    JSONFile(const std::string &path, json data);
 };
 }

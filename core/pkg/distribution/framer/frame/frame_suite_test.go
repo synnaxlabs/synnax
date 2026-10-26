@@ -19,7 +19,7 @@ import (
 
 func TestFrame(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Distribution Framer Frame Suite")
+	RunSpecs(t, "Distribution Framer Frame Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

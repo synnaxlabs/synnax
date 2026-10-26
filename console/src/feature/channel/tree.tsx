@@ -25,7 +25,6 @@ import {
   Schematic as PSchematic,
 } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
-import { useCallback, useMemo } from "react";
 
 import { useOpen } from "@/feature/channel/useOpen";
 import { Channel } from "@/platform/channel";
@@ -53,7 +52,7 @@ const allowRename: Tree.AllowRename = ({ data }) => data?.internal !== true;
 
 const useDelete = Tree.createUseDelete({
   type: "Channel",
-  query: PChannel.useDelete,
+  useUpdate: PChannel.useDelete,
   convertKey: Number,
 });
 
@@ -75,19 +74,16 @@ const useSetAlias = ({
 }: Tree.ContextMenuProps): (() => void) => {
   const activeRange = Session.Range.useSelectSelectedKey();
   const { update } = PChannel.useUpdateAlias({ beforeUpdate: beforeSetAlias });
-  return useCallback(
-    () =>
-      update({
-        range: activeRange ?? undefined,
-        channel: Number(firstID.key),
-        alias: "",
-      }),
-    [update, activeRange, firstID],
-  );
+  return () =>
+    update({
+      range: activeRange ?? undefined,
+      channel: Number(firstID.key),
+      alias: "",
+    });
 };
 
 const useRename = Tree.createUseRename({
-  query: PChannel.useRename,
+  useUpdate: PChannel.useRename,
   ontologyID: channel.ontologyID,
   convertKey: Number,
 });
@@ -97,14 +93,11 @@ const useDeleteAlias = ({
 }: Tree.ContextMenuProps): (() => void) => {
   const activeRange = Session.Range.useSelectSelectedKey();
   const { update } = PChannel.useDeleteAlias();
-  return useCallback(
-    () =>
-      update({
-        range: activeRange ?? undefined,
-        channels: ids.map((id) => Number(id.key)),
-      }),
-    [update, ids],
-  );
+  return () =>
+    update({
+      range: activeRange ?? undefined,
+      channels: ids.map((id) => Number(id.key)),
+    });
 };
 
 const useEditCalculated = () => {
@@ -119,13 +112,13 @@ const useEditCalculated = () => {
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection: { ids, rootID },
-    state: { getResource, shape },
+    state,
   } = props;
   const activeRange = Range.useResolve();
   const groupFromSelection = Group.useCreateFromSelection();
   const handleSetAlias = useSetAlias(props);
-  const resources = getResource(ids);
-  const channelKeys = useMemo(() => ids.map((r) => Number(r.key)), [ids]);
+  const resources = Tree.useResources(state, ids);
+  const channelKeys = ids.map((r) => Number(r.key));
   const channels = PChannel.useMultiple({
     rangeKey: activeRange?.key,
     keys: channelKeys,
@@ -170,7 +163,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       {hasUpdatePermission && (
         <Group.ContextMenuItem
           ids={ids}
-          shape={shape}
+          shape={state.shape}
           rootID={rootID}
           onClick={() => groupFromSelection(props)}
         />

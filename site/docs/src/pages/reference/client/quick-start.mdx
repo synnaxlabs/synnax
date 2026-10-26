@@ -11,7 +11,7 @@ clients: ["python", "typescript"]
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
@@ -258,7 +258,7 @@ const data = Array.from(series);
   </Fragment>
 </Client.Tabs>
 
-<Note.Note variant="info" className="compact">
+<Note.Note variant="info">
   Data can also be read in chunks with [iterators](/reference/client/advanced/iterators)
   or live-streamed with [streamers](/reference/client/read-data#streaming-data). Data
   can also be read from a specific time range with [ranges](/reference/client/ranges).

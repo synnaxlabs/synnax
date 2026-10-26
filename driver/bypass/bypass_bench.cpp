@@ -88,6 +88,7 @@ static void BM_BusPublish_NSubs(benchmark::State &state) {
     for (uint32_t i = 0; i < w.channels; i++)
         keys[i] = i + 1;
     std::vector<std::shared_ptr<driver::bypass::Subscription>> subs;
+    subs.reserve(num_subs);
     for (int i = 0; i < num_subs; i++)
         subs.push_back(bus.subscribe(keys));
     auto frame = make_frame(w.channels, w.samples);

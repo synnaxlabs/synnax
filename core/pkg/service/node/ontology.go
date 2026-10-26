@@ -12,18 +12,17 @@ package node
 import (
 	"context"
 	"fmt"
-	"io"
 	"iter"
+	"maps"
 	"slices"
 	"strconv"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
-	"github.com/synnaxlabs/x/gorp"
-	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/zyn"
 )
 
@@ -38,10 +37,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"state":   zyn.Uint32().Coerce(),
 })
 
-var (
-	_ ontology.Service = (*Service)(nil)
-	_ search.Service   = (*Service)(nil)
-)
+var _ ontology.Service = (*Service)(nil)
 
 // Type implements ontology.Service.
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeNode }
@@ -67,15 +63,20 @@ func (s *Service) RetrieveResource(
 	return newResource(n), nil
 }
 
-// OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter(
-	context.Context,
-) (iter.Seq[ontology.Resource], io.Closer, error) {
-	return slices.Values(lo.MapToSlice(s.cfg.Cluster.CopyState().Nodes,
-		func(_ Key, n Node) ontology.Resource {
-			return newResource(n)
-		},
-	)), xio.NopCloser, nil
+// Search implements ontology.Service. It searches the nodes that the cluster holds
+// when Search is called.
+func (s *Service) Search(
+	_ context.Context,
+	_ gorp.Tx,
+	term string,
+	limit int,
+) (search.Result[ontology.ID], error) {
+	nodes := s.cfg.Cluster.CopyState().Nodes
+	idx := search.New[Key]()
+	for _, key := range slices.Sorted(maps.Keys(nodes)) {
+		idx.Set(key, name(key))
+	}
+	return search.MapKeys(idx.Search(term, limit), OntologyID), nil
 }
 
 // OnChange implements ontology.Service.
@@ -96,11 +97,8 @@ func translateChange(ch Change, _ int) ontology.Change {
 	}
 }
 
+func name(key Key) string { return fmt.Sprintf("Node %v", key) }
+
 func newResource(n Node) ontology.Resource {
-	return ontology.NewResource(
-		schema,
-		OntologyID(n.Key),
-		fmt.Sprintf("Node %v", n.Key),
-		n,
-	)
+	return ontology.NewResource(schema, OntologyID(n.Key), name(n.Key), n)
 }

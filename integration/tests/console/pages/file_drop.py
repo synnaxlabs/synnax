@@ -108,7 +108,7 @@ class FileDrop(ConsoleCase):
         with open(path, "w", encoding="utf-8") as f:
             f.write("not an envelope")
         self.console.layout.drop_files([path])
-        if not self.console.notifications.wait_for(f"Failed to import {file_name}"):
+        if not self.console.notifications.wait_for("Failed to import", name=file_name):
             raise AssertionError(
                 "Dropping a non-JSON file did not surface a failure notification"
             )

@@ -19,7 +19,7 @@ import (
 
 func TestTableVersions(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Table Versions Suite")
+	RunSpecs(t, "Service Table Versions Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

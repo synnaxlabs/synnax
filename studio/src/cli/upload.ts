@@ -8,17 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { parseArgs } from "node:util";
 
 import { OUT_ROOT, readStamp, ROOT, run, select, THEMES } from "@/cli/common";
-import { cdnKey, videoName } from "@/manifest";
+import { cdnKey, stillKey, stillsDir, videoName } from "@/manifest";
 
 const usage = `usage: pnpm upload [filter] [options]
-Uploads produced videos for manifest entries whose id contains [filter] to the
-docs CDN bucket (synnax/docs on DigitalOcean Spaces), where the docs site's
-Video component serves them. Requires credentials in the environment:
+Uploads produced videos and stills for manifest entries whose id contains [filter]
+to the docs CDN bucket (synnax/docs on DigitalOcean Spaces), where the docs site's
+Video and Image components serve them. Requires credentials in the environment:
   DO_SPACES_KEY     Spaces access key id
   DO_SPACES_SECRET  Spaces secret key
 Options:
@@ -32,6 +32,7 @@ const BUCKET = "synnax";
 interface Upload {
   file: string;
   key: string;
+  contentType: string;
 }
 
 const main = async (): Promise<void> => {
@@ -60,17 +61,32 @@ const main = async (): Promise<void> => {
       );
       process.exit(1);
     }
+    if (entry.stills != null) {
+      const dir = path.join(OUT_ROOT, stillsDir(entry.id));
+      if (!existsSync(dir)) {
+        missing.push(stillsDir(entry.id));
+        continue;
+      }
+      for (const file of await readdir(dir, { recursive: true }))
+        if (file.endsWith(".webp"))
+          uploads.push({
+            file: path.join(dir, file),
+            key: stillKey(entry.id, file),
+            contentType: "image/webp",
+          });
+      continue;
+    }
     // An unthemed page requests one file, so only the dark render ships.
     const themes = entry.themed === false ? (["dark"] as const) : THEMES;
     for (const theme of themes) {
       const file = path.join(OUT_ROOT, videoName(entry.id, theme));
       const key = cdnKey(entry.id, entry.themed === false ? null : theme);
-      if (existsSync(file)) uploads.push({ file, key });
+      if (existsSync(file)) uploads.push({ file, key, contentType: "video/mp4" });
       else missing.push(videoName(entry.id, theme));
     }
   }
   if (missing.length > 0) {
-    console.error(`missing videos (run pnpm batch first):\n  ${missing.join("\n  ")}`);
+    console.error(`missing media (run pnpm batch first):\n  ${missing.join("\n  ")}`);
     process.exit(1);
   }
 
@@ -101,7 +117,7 @@ const main = async (): Promise<void> => {
         Key: u.key,
         Body: await readFile(u.file),
         ACL: "public-read",
-        ContentType: "video/mp4",
+        ContentType: u.contentType,
         CacheControl: "public, max-age=86400",
       }),
     );

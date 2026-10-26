@@ -36,5 +36,5 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 func TestStart(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Start Suite")
+	RunSpecs(t, "Start Suite", SuiteConfig())
 }

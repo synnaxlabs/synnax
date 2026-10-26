@@ -24,7 +24,7 @@ import (
 
 func TestIterator(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Distribution Transport gRPC Framer Iterator Suite")
+	RunSpecs(t, "Distribution Transport gRPC Framer Iterator Suite", SuiteConfig())
 }
 
 var (

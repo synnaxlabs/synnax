@@ -11,7 +11,7 @@ import { type log } from "@synnaxlabs/client";
 import { type Menu } from "@synnaxlabs/lyra/menu";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { primitive, TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { streamMultiChannelLog } from "@/log/aether/telem/sources";
 import { Base, type BaseProps } from "@/log/Base";
@@ -28,10 +28,7 @@ const useUndoRedo = (
   const { undo, canUndo } = useUndo({ key });
   const { redo, canRedo } = useRedo({ key });
   Triggers.useUndoRedo({ undo, redo, enabled });
-  return useMemo(
-    () => ({ undo, redo, canUndo, canRedo }),
-    [undo, redo, canUndo, canRedo],
-  );
+  return { undo, redo, canUndo, canRedo };
 };
 
 export interface LogProps extends Omit<

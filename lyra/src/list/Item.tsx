@@ -13,10 +13,9 @@ import { type optional, type record } from "@synnaxlabs/x";
 import {
   type MouseEvent,
   type MouseEventHandler,
+  type PointerEventHandler,
   type ReactElement,
-  useCallback,
   useLayoutEffect,
-  useMemo,
   useRef,
 } from "react";
 
@@ -50,14 +49,20 @@ export interface ItemRenderProps<K extends record.Key = record.Key> {
 export type ItemProps<
   K extends record.Key,
   E extends Button.ElementType = "div",
-> = Omit<Button.ButtonProps<E>, "key" | "onSelect" | "translate" | "onClick"> &
+> = Omit<
+  Button.ButtonProps<E>,
+  "key" | "onSelect" | "translate" | "onClick" | "onPointerMove"
+> &
   optional.Optional<ItemRenderProps<K>, "index" | "key"> & {
     draggingOver?: boolean;
     rightAligned?: boolean;
     onClick?: MouseEventHandler<HTMLElement>;
+    onPointerMove?: PointerEventHandler<HTMLElement>;
     onSelect?: (key: K, e: MouseEvent<HTMLElement>) => void;
     selected?: boolean;
     hovered?: boolean;
+    /** Called when a mouse or pen moves over the item. */
+    onHover?: () => void;
   };
 
 export type ItemRenderProp<K extends record.Key> = RenderProp<ItemRenderProps<K>>;
@@ -81,7 +86,9 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
   translate,
   onSelect,
   onClick,
+  onPointerMove,
   hovered,
+  onHover,
   style,
   role,
   ref,
@@ -91,14 +98,16 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
   // top of the list, and the browser snapshots that box for the drag preview, so every
   // row but the first dragged with no image. The offset is the row's place in the whole
   // list, so it is written once at mount rather than on every scroll frame.
-  const itemStyle = useMemo(() => ({ top: translate, ...style }), [translate, style]);
-  const handleClick = useCallback<MouseEventHandler<HTMLElement>>(
-    (e) => {
-      onSelect?.(itemKey, e);
-      onClick?.(e);
-    },
-    [onSelect, onClick, itemKey],
-  );
+  const itemStyle = { top: translate, ...style };
+  const handleClick: MouseEventHandler<HTMLElement> = (e) => {
+    onSelect?.(itemKey, e);
+    onClick?.(e);
+  };
+  // A touch drag scrolls the list rather than pointing at an item.
+  const handlePointerMove: PointerEventHandler<HTMLElement> = (e) => {
+    if (e.pointerType !== "touch") onHover?.();
+    onPointerMove?.(e);
+  };
   const elementRef = useRef<HTMLElement>(null);
   const combinedRef = useCombinedRefs<HTMLElement>(ref, elementRef);
   const setElement = useItemsContext();
@@ -115,6 +124,7 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
       id={itemKey.toString()}
       variant="text"
       onClick={handleClick}
+      onPointerMove={handlePointerMove}
       className={CSS.cls(
         className,
         CONTEXT_TARGET,

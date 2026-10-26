@@ -35,6 +35,7 @@
     --pluto-table-indicator-size: 4.5rem;
     --pluto-table-add-control-size: 10rem;
 
+    position: relative;
     display: grid;
     width: fit-content;
 
@@ -58,6 +59,21 @@
     &.pluto--editable .pluto-table__resizer,
     &.pluto--editable .pluto-table__select-all {
         cursor: pointer;
+    }
+
+    &.pluto--editable .pluto-table__label {
+        cursor: grab;
+    }
+
+    & .pluto-table-frame__move-source {
+        position: absolute;
+        z-index: 1;
+        pointer-events: none;
+        background: var(--pluto-primary-z-15);
+        border-radius: var(--pluto-border-radius-small);
+        box-shadow:
+            inset 0 0 0 1px var(--pluto-primary-z),
+            var(--pluto-shadow-overlay);
     }
 
     & .pluto-table-frame__add-col {
@@ -135,6 +151,11 @@
         position: relative;
         background: var(--pluto-gray-l2);
         z-index: 6;
+
+        & .pluto-table__label {
+            position: absolute;
+            inset: 0;
+        }
         &.pluto--selected {
             background: var(--pluto-primary-z-15);
         }
@@ -258,4 +279,13 @@
             background: var(--pluto-primary-z-15);
         }
     }
+}
+
+/*
+ * Cells only ease while a move previews, so the drop lands without sliding back from
+ * the old layout.
+ */
+.pluto-table-frame--moving
+    :is(.pluto-table__cell, .pluto-table__resizer, .pluto-table-frame__move-source) {
+    transition: transform 0.15s cubic-bezier(0.33, 1, 0.68, 1);
 }

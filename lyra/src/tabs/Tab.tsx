@@ -11,7 +11,6 @@ import {
   type KeyboardEventHandler,
   type MouseEventHandler,
   type ReactElement,
-  useCallback,
 } from "react";
 
 import { Button } from "@/button";
@@ -19,7 +18,7 @@ import { CSS } from "@/css";
 import { Menu } from "@/menu";
 import { Select } from "@/select";
 import { KEY_ATTRIBUTE, panelID, tabID, useFrameID } from "@/tabs/Frame";
-import { useSelectorContext } from "@/tabs/Selector";
+import { useSelectorContext, type Variant } from "@/tabs/Selector";
 import { Triggers } from "@/triggers";
 
 const PILL_BUTTON_PROPS = {
@@ -34,6 +33,17 @@ const DEFAULT_BUTTON_PROPS = {
   bordered: false,
   sharp: true,
 } as const satisfies Partial<Button.ButtonProps<"div">>;
+
+const CHIP_BUTTON_PROPS = {
+  variant: "outlined",
+  rounded: true,
+} as const satisfies Partial<Button.ButtonProps<"div">>;
+
+const BUTTON_PROPS = {
+  default: DEFAULT_BUTTON_PROPS,
+  pill: PILL_BUTTON_PROPS,
+  chip: CHIP_BUTTON_PROPS,
+} as const satisfies Record<Variant, Partial<Button.ButtonProps<"div">>>;
 
 export interface TabProps extends Omit<Button.ButtonProps<"div">, "el" | "id"> {
   /** itemKey identifies the tab within its Frame's selection and content panels. */
@@ -61,27 +71,19 @@ export const Tab = ({
   const frameID = useFrameID("Tabs.Tab");
   const { size, variant } = useSelectorContext("Tabs.Tab");
   const { selected, focused, head, onSelect } = Select.useItemState(itemKey);
-  const handleClick = useCallback<MouseEventHandler<HTMLDivElement>>(
-    (e) => {
-      onClick?.(e);
-      onSelect();
-    },
-    [onClick, onSelect],
-  );
-  const handleKeyDown = useCallback<KeyboardEventHandler<HTMLDivElement>>(
-    (e) => {
-      onKeyDown?.(e);
-      if (e.target !== e.currentTarget || e.defaultPrevented) return;
-      const key = Triggers.eventKey(e);
-      if (onClose != null && (key === "Delete" || key === "Backspace")) {
-        e.preventDefault();
-        onClose();
-      }
-    },
-    [onKeyDown, onClose],
-  );
-  const isPill = variant === "pill";
-  const variantProps = isPill ? PILL_BUTTON_PROPS : DEFAULT_BUTTON_PROPS;
+  const handleClick: MouseEventHandler<HTMLDivElement> = (e) => {
+    onClick?.(e);
+    onSelect();
+  };
+  const handleKeyDown: KeyboardEventHandler<HTMLDivElement> = (e) => {
+    onKeyDown?.(e);
+    if (e.target !== e.currentTarget || e.defaultPrevented) return;
+    const key = Triggers.eventKey(e);
+    if (onClose != null && (key === "Delete" || key === "Backspace")) {
+      e.preventDefault();
+      onClose();
+    }
+  };
   return (
     <Button.Button
       el="div"
@@ -108,8 +110,8 @@ export const Tab = ({
       preventClick={head}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
-      {...variantProps}
-      borderColor={isPill ? (selected ? 7 : 5) : undefined}
+      {...BUTTON_PROPS[variant]}
+      borderColor={variant === "pill" ? (selected ? 7 : 5) : undefined}
       {...rest}
     >
       {children}

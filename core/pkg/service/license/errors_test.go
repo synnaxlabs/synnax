@@ -26,8 +26,10 @@ var _ = Describe("Errors", func() {
 			Expect(decoded).To(MatchError(err))
 			Expect(decoded).To(MatchError(license.ErrLicense))
 		},
+		Entry("missing", license.ErrMissing, "sy.license.missing"),
 		Entry("expired", license.ErrExpired, "sy.license.expired"),
 		Entry("invalid", license.ErrInvalid, "sy.license.invalid"),
+		Entry("edition", license.ErrEdition, "sy.license.edition"),
 		Entry("fingerprint", license.ErrFingerprint, "sy.license.fingerprint"),
 		Entry("too many", license.ErrTooMany, "sy.license.too_many"),
 		Entry("base", license.ErrLicense, "sy.license"),
@@ -40,7 +42,7 @@ var _ = Describe("Errors", func() {
 				Data: "revoked",
 			})
 			Expect(decoded).To(MatchError(license.ErrLicense))
-			Expect(decoded).ToNot(MatchError(license.ErrExpired))
+			Expect(decoded).ToNot(MatchError(license.ErrMissing))
 		},
 	)
 	It("should defer other errors to other encoders", func(ctx SpecContext) {

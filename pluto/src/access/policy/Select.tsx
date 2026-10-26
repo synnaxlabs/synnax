@@ -18,21 +18,21 @@ import { type ListParams, useList } from "@/access/policy/queries";
 import { HAUL_TYPE } from "@/access/policy/types";
 import { type Flux } from "@/flux";
 
-const listItemRenderProp = Component.renderProp(
-  ({
-    itemKey,
-    ...rest
-  }: List.ItemRenderProps<access.policy.Key>): ReactElement | null => {
-    const item = List.useItem<access.policy.Key, access.policy.Policy>(itemKey);
-    if (item == null) return null;
-    const { name } = item;
-    return (
-      <Select.Item itemKey={itemKey} y gap="small" {...rest}>
-        {name}
-      </Select.Item>
-    );
-  },
-);
+const ListItem = ({
+  itemKey,
+  ...rest
+}: List.ItemRenderProps<access.policy.Key>): ReactElement | null => {
+  const item = List.useItem<access.policy.Key, access.policy.Policy>(itemKey);
+  if (item == null) return null;
+  const { name } = item;
+  return (
+    <Select.Item itemKey={itemKey} y gap="small" {...rest}>
+      {name}
+    </Select.Item>
+  );
+};
+
+const listItemRenderProp = Component.renderProp(ListItem);
 
 export interface SelectMultipleProps
   extends

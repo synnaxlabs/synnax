@@ -36,8 +36,8 @@ std::pair<Writer, x::errors::Error> Client::open_writer(const WriterConfig &cfg)
     return {std::move(writer), res_exc};
 }
 
-Writer::Writer(std::unique_ptr<WriterStream> s, WriterConfig cfg, const Codec &codec):
-    cfg(std::move(cfg)), codec(codec), stream(std::move(s)) {}
+Writer::Writer(std::unique_ptr<WriterStream> s, WriterConfig cfg, Codec codec):
+    cfg(std::move(cfg)), codec(std::move(codec)), stream(std::move(s)) {}
 
 x::errors::Error WriterConfig::to_proto(grpc::framer::WriterConfig *f) const {
     auto [pb, pb_err] = this->subject.to_proto();

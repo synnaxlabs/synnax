@@ -14,7 +14,7 @@ package user
 import (
 	"context"
 
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp"
 )
 
 // Retrieve is used to retrieve User records from the database using a
@@ -31,16 +31,23 @@ type Retrieve struct {
 // instead of relying on package-level state.
 type indexes struct {
 	username *gorp.LookupIndex[Key, User, string]
+	search   *gorp.SearchIndex[Key, User]
 }
 
-// newIndexes constructs a fresh indexes value, allocating one index instance
-// per registered field. Call once per Service in OpenService and store the
-// result on the Service struct.
+// newIndexes constructs a fresh indexes value, allocating one instance of each
+// index. Call once per Service in OpenService and store the result on the
+// Service struct.
 func newIndexes() indexes {
 	return indexes{
 		username: gorp.NewLookupIndex[Key, User, string](
 			"username",
 			func(e *User) string { return e.Username },
+		),
+		search: gorp.NewSearchIndex[Key, User](
+			"search",
+			func(e *User) []string {
+				return []string{e.Username, e.FirstName, e.LastName}
+			},
 		),
 	}
 }
@@ -50,6 +57,7 @@ func newIndexes() indexes {
 func (i indexes) all() []gorp.Index[Key, User] {
 	return []gorp.Index[Key, User]{
 		i.username,
+		i.search,
 	}
 }
 
@@ -85,13 +93,23 @@ func Not(f Filter) Filter {
 	return gorp.NotBound[Retrieve, Key, User](f)
 }
 
+// Search filters the users to those whose text matches
+// term, closest match first. An empty term adds no filter.
+func (r Retrieve) Search(term string) Retrieve {
+	if term == "" {
+		return r
+	}
+	r.gorp = r.gorp.Where(r.indexes.search.Filter(term))
+	return r
+}
+
 // MatchKeys returns a filter that restricts results to
 // users whose key matches any of the provided
 // values. Composing MatchKeys at the top level of a Where clause (i.e.
 // r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing
 // inside Or / Not falls back to a full scan.
 func MatchKeys(keys ...Key) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, User] {
+	return func(Retrieve) gorp.Filter[Key, User] {
 		return gorp.MatchKeys[Key, User](keys...)
 	}
 }
@@ -108,7 +126,7 @@ func MatchUsernames(vals ...string) Filter {
 // MatchRootUser returns a filter for users by their
 // RootUser field.
 func MatchRootUser(v bool) Filter {
-	return func(r Retrieve) gorp.Filter[Key, User] {
+	return func(Retrieve) gorp.Filter[Key, User] {
 		return gorp.Match(func(_ gorp.Context, e *User) (bool, error) {
 			return e.RootUser == v, nil
 		})
