@@ -22,8 +22,8 @@ import {
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import { type Joins } from "@/framer/cache/join";
-import { isDefinitive } from "@/framer/cache/status";
 import { type Store } from "@/framer/cache/store";
+import { isDefinitive } from "@/framer/retry";
 import { type Streamer, type StreamerConfig } from "@/framer/streamer";
 import { status } from "@/status";
 
@@ -49,7 +49,7 @@ export interface HardenedOpener {
  */
 export type FrameHandler = (frame: Map<channel.Key, Series[]>) => void;
 
-/** Receives per-key data-plane status transitions for subscribed channels. */
+/** Receives per-key data-plane status transitions for demanded channels. */
 export type StatusHandler = (key: channel.Key, status: status.Status) => void;
 
 /**
@@ -57,11 +57,11 @@ export type StatusHandler = (key: channel.Key, status: status.Status) => void;
  * the streamer owns converging the underlying stream to it.
  */
 export interface Demand {
-  /** Releases the subscription's demand. */
+  /** Releases the demand. */
   close: () => void;
   /** @returns the current data-plane status for the given key. */
   status: (key: channel.Key) => status.Status;
-  /** Registers a handler for status transitions on the subscription's keys. */
+  /** Registers a handler for status transitions on the demand's keys. */
   onStatusChange: (handler: StatusHandler) => destructor.Destructor;
   /** Registers a handler that runs when the stream drops, since frames may be lost. */
   onDrop: (handler: () => void) => destructor.Destructor;
@@ -91,8 +91,8 @@ export interface MultiplexedStreamerProps {
   openStreamer: HardenedOpener;
   instrumentation?: alamos.Instrumentation;
   /**
-   * How long a closed subscription's keys stay on the stream, damping churn from
-   * rapid unsubscribe and resubscribe cycles.
+   * How long the keys of a released demand stay on the stream, damping churn from rapid
+   * release and demand cycles.
    * @default TimeSpan.seconds(5)
    */
   removalDelay?: CrudeTimeSpan;
@@ -101,7 +101,7 @@ export interface MultiplexedStreamerProps {
 }
 
 // Coalesces rapid demand changes into one stream update. The timer is not reset by
-// later calls, so sustained subscribing cannot starve the update.
+// later calls, so sustained demand changes cannot starve the update.
 const RECONCILE_DELAY = TimeSpan.milliseconds(100);
 
 const THROTTLE_RATE = Rate.hz(60).valueOf();
@@ -111,9 +111,9 @@ const STREAMING: status.Crude = { variant: "success", message: "streaming" };
 const RECONNECTING: status.Crude = { variant: "warning", message: "reconnecting" };
 
 /**
- * Multiplexes durable subscriptions onto one shared frame stream. Demand
- * registration is synchronous and cannot fail per key; all convergence work
- * surfaces as per-key statuses instead of thrown errors.
+ * Multiplexes durable stream demands onto one shared frame stream. Demand registration
+ * is synchronous and cannot fail per key; all convergence work surfaces as per-key
+ * statuses instead of thrown errors.
  */
 export class MultiplexedStreamer {
   private readonly props: Required<

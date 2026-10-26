@@ -12,7 +12,6 @@ import {
   type MultiSeries,
   type Size,
   type TimeRange,
-  type TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
 
@@ -40,7 +39,7 @@ import { type SubscribeRequest, type Subscription } from "@/framer/subscription"
 import { historyChangeZ } from "@/framer/types.gen";
 
 /** Reads the newest count stored samples of each channel in the time range. */
-export interface LatestReader {
+export interface RemoteLatestReader {
   (keys: channel.Key[], count: number, tr: TimeRange): Promise<Frame>;
 }
 
@@ -56,11 +55,11 @@ interface LatestQuery {
 /** Props for {@link Feed}, including the transport it reads and streams through. */
 export interface FeedProps
   extends
-    Pick<StoreProps, "dynamicBufferSize" | "instrumentation">,
+    Pick<StoreProps, "instrumentation">,
     Omit<ReaderProps, "store">,
     Omit<MultiplexedStreamerProps, "store" | "joins" | "onWait" | "openStreamer"> {
   openStreamer: StreamOpener;
-  readLatest: LatestReader;
+  readLatest: RemoteLatestReader;
   /**
    * The key of the Core node the client connects to, once known. History signals keep
    * the blocks of only the channels stored on it.
@@ -73,13 +72,6 @@ export interface FeedProps
    * @default Size.megabytes(128)
    */
   budget?: Size;
-  /**
-   * How long a fetched block answers reads before it is fetched again. Bounds the
-   * refetch rate of spans that stay empty. A block a subscription serves keeps
-   * answering.
-   * @default TimeSpan.minutes(10)
-   */
-  staleCoverageThreshold?: TimeSpan;
   /** Receives each failed reconnect attempt of the stream. Defaults to console.warn. */
   onRetry?: (error: Error) => void;
 }
@@ -119,8 +111,6 @@ export class Feed {
       readLatest,
       budget,
       instrumentation,
-      dynamicBufferSize,
-      staleCoverageThreshold,
       removalDelay,
       breaker,
       batchDebounce,
@@ -132,8 +122,6 @@ export class Feed {
     this.props = props;
     this.store = new Store({
       budget,
-      staleThreshold: staleCoverageThreshold,
-      dynamicBufferSize,
       instrumentation: instrumentation?.child("store"),
       now,
       node,
@@ -233,6 +221,7 @@ export class Feed {
         now: this.now,
         breaker: this.props.breaker,
         onClose: () => this.handles.delete(handle),
+        instrumentation: this.props.instrumentation?.child("subscription"),
       },
       request,
     );

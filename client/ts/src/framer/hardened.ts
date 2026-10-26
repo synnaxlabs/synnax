@@ -16,8 +16,8 @@ import { breaker, errors, observe, sync, TimeSpan, TimeStamp } from "@synnaxlabs
 
 import { type channel } from "@/channel";
 import { LicenseError } from "@/errors";
-import { isDefinitive } from "@/framer/cache/status";
 import { type Frame } from "@/framer/frame";
+import { isDefinitive } from "@/framer/retry";
 import {
   type Streamer,
   type StreamerConfig,

@@ -33,19 +33,14 @@ import {
   level as tileLevel,
   pointLimit as tilePointLimit,
   type Position,
+  positionKey,
   tileRange,
   tileSpan,
 } from "@/framer/cache/grid";
 import { type Joins } from "@/framer/cache/join";
 import { type Joiner } from "@/framer/cache/joiner";
 import { assemble, COMMIT_MARGIN, type Reader } from "@/framer/cache/reader";
-import {
-  isDefinitive,
-  LOADING,
-  newBreaker,
-  READ_FAILED,
-  SUCCESS,
-} from "@/framer/cache/status";
+import { LOADING, READ_FAILED, SUCCESS } from "@/framer/cache/status";
 import { calculated, type Store } from "@/framer/cache/store";
 import { type Demand, type MultiplexedStreamer } from "@/framer/cache/streamer";
 import {
@@ -55,6 +50,7 @@ import {
   tileRequestKey,
   type TileSpec,
 } from "@/framer/cache/tile";
+import { createBreaker, isDefinitive } from "@/framer/retry";
 import { type PointsLimit, type Snapshot } from "@/framer/subscription";
 import { status } from "@/status";
 
@@ -78,10 +74,9 @@ interface Held {
   block?: Block;
 }
 
-// The number of distinct target arguments Points remembers the targets of.
-const TARGETS_KEPT = 8;
-
-const positionKey = ({ level, index }: Position): string => `${level}/${index}`;
+// Returns the start of the tile of the level after the one that holds ts.
+const nextEdge = (ts: TimeStamp, level: number): bigint =>
+  tileRange({ level, index: tileIndex(ts, level) + 1 }).start.valueOf();
 
 /**
  * Serves one channel under a points limit: reduced tiles across the window, and raw
@@ -119,6 +114,8 @@ export class Points {
   private loading = true;
   private pins = new Set<Block>();
   private generation = 0;
+  // abort ends the wait of a raw read for the stream's ack.
+  private abort = new AbortController();
   private readonly notifier = new sync.Notifier();
   private readonly breaker: breaker.Breaker;
   private readonly tileBreaker: breaker.Breaker;
@@ -126,9 +123,15 @@ export class Points {
     loading: status.create(LOADING),
     success: status.create(SUCCESS),
   };
-  // targetsOf holds the targets of recent arguments, which repeat until the home, view,
-  // limit, or boundary moves.
-  private readonly targetsOf = new Map<string, TileSpec[]>();
+  // snapshot is the value last served. It holds until a change marks the channel dirty,
+  // the store changes the series of the channel's raw blocks, or the clock reaches
+  // validUntil, where the window crosses a grid edge.
+  private snapshot: Snapshot | null = null;
+  private dirty = true;
+  private epoch = -1;
+  private validUntil = 0n;
+  // grown is true when the stream grew the newest raw series since the last value.
+  private grown = false;
 
   constructor(
     private readonly props: PointsProps,
@@ -137,14 +140,14 @@ export class Points {
     private limit: PointsLimit,
     private readonly notify: () => void,
   ) {
-    this.breaker = newBreaker(this.notifier, props.breaker);
-    this.tileBreaker = newBreaker(this.notifier, props.breaker);
+    this.breaker = createBreaker(this.notifier, props.breaker);
+    this.tileBreaker = createBreaker(this.notifier, props.breaker);
     this.stopInvalidations = props.store.onInvalidate((ch, tr) => {
       if (ch != null && ch !== this.key) return;
       this.held.forEach(({ spec }, key) => {
         if (tileRange(spec).overlapsWith(tr)) this.stale.add(key);
       });
-      this.notify();
+      this.changed();
     });
   }
 
@@ -164,27 +167,60 @@ export class Points {
   }
 
   /**
-   * Replaces the window and limit. Held tiles stand in until the new ones land, and
-   * tiles a definitive failure stopped read again.
+   * Replaces the window and limit. Held tiles stand in until the new ones land. Tiles a
+   * definitive failure stopped read again only under a new aggregation or point count.
    */
   update(window: Window, limit: PointsLimit): void {
     const moved = !deep.equal(window, this.window);
     if (!moved && deep.equal(limit, this.limit)) return;
+    const prev = this.limit;
     this.window = window;
     this.limit = limit;
-    this.targetsOf.clear();
-    this.rejected.clear();
-    this.rejection = null;
+    this.dirty = true;
+    if (
+      limit.count !== prev.count ||
+      limit.aggregation !== prev.aggregation ||
+      limit.extremesKept !== prev.extremesKept
+    ) {
+      this.rejected.clear();
+      this.rejection = null;
+    }
     if (this.index == null) return;
     this.stream(this.index);
     if (moved || this.rawOnly) this.boundary = this.rawFrom(this.home());
   }
 
-  /** @returns the samples to draw for the current window and limit. */
+  /**
+   * @returns the samples to draw for the current window and limit. The snapshot stays
+   * the same object until its samples or status change. A stream that only grows the
+   * newest series keeps the snapshot's series and moves its time.
+   */
   value(): Snapshot {
+    const now = this.props.now();
+    if (
+      this.dirty ||
+      this.snapshot == null ||
+      this.epoch !== this.props.store.epoch(this.key) ||
+      now.valueOf() >= this.validUntil
+    )
+      return this.rebuild(now);
+    const status = this.status();
+    if (!this.grown && status === this.snapshot.status) return this.snapshot;
+    this.grown = false;
+    this.snapshot = { series: this.snapshot.series, status, time: this.time() };
+    return this.snapshot;
+  }
+
+  // Reconciles the tiles, raw samples, reads, and pins with the window as of now, and
+  // caches the snapshot they make.
+  private rebuild(now: TimeStamp): Snapshot {
+    this.dirty = false;
+    this.grown = false;
     if (this.index == null) {
       void this.resolve();
-      return { series: new MultiSeries([]), status: this.status() };
+      this.validUntil = TimeStamp.MAX.valueOf();
+      this.snapshot = { series: new MultiSeries([]), status: this.status() };
+      return this.snapshot;
     }
     this.stream(this.index);
     const home = this.home();
@@ -206,16 +242,48 @@ export class Points {
     }
     this.pin(home);
     if (this.loading && this.loaded(targets)) this.loading = false;
-    return {
+    this.epoch = this.props.store.epoch(this.key);
+    this.validUntil = this.edgeAfter(now, home);
+    this.snapshot = {
       series: new MultiSeries(series),
       status: this.status(),
       time: this.time(),
     };
+    return this.snapshot;
+  }
+
+  // Returns when the clock next moves the window across a grid edge that changes its
+  // raw blocks, its tiles, or the commit point.
+  private edgeAfter(now: TimeStamp, home: TimeRange): bigint {
+    const margin = COMMIT_MARGIN.valueOf();
+    const committed = now.sub(COMMIT_MARGIN);
+    let until = nextEdge(now, RAW_LEVEL);
+    const commit = nextEdge(committed, RAW_LEVEL) + margin;
+    if (commit < until) until = commit;
+    if (!this.dynamic) {
+      const end = home.end.valueOf() + margin;
+      return home.end.after(committed) && end < until ? end : until;
+    }
+    const span = home.span.valueOf();
+    const level = this.rawOnly ? RAW_LEVEL : tileLevel(home);
+    const start = nextEdge(home.start, level) + span;
+    if (start < until) until = start;
+    // A raw window drops its first series once the window starts after it.
+    const first = this.raw[0]?.timeRange.end.valueOf();
+    if (this.rawOnly && first != null && first + span < until) until = first + span;
+    return until;
+  }
+
+  // Marks the snapshot out of date and tells the consumer.
+  private changed(): void {
+    this.dirty = true;
+    this.notify();
   }
 
   /** Releases every tile, block, and stream the channel holds. */
   close(): void {
     this.generation++;
+    this.abort.abort();
     this.notifier.notify();
     this.stopInvalidations();
     this.pins.forEach((b) => b.pins--);
@@ -268,7 +336,7 @@ export class Points {
     } finally {
       if (generation === this.generation) this.resolving = false;
     }
-    this.notify();
+    this.changed();
   }
 
   // Streams and joins the channel while the window streams, and releases both once it
@@ -284,10 +352,12 @@ export class Points {
     }
     const keys = [...new Set([this.key, index])];
     this.demand = this.props.streamer.demand(keys, (frame) => {
-      if (frame.has(this.key)) this.notify();
+      if (!frame.has(this.key)) return;
+      this.grown = true;
+      this.notify();
     });
     this.demand.onStatusChange(() => this.notify());
-    this.leave = this.props.joiner.join(this.key, index, () => this.notify());
+    this.leave = this.props.joiner.join(this.key, index, () => this.changed());
   }
 
   // rawFrom is where raw samples start. In a dynamic window, it sits on a tile edge of
@@ -334,25 +404,7 @@ export class Points {
     boundary: TimeStamp = this.boundary,
   ): TileSpec[] {
     if (this.rawOnly) return [];
-    const tilesEnd = this.tilesEnd(boundary);
-    const key = [view.start, view.end, home.start, home.end, tilesEnd, extremesKept]
-      .map((v) => String(v?.valueOf()))
-      .join("/");
-    let specs = this.targetsOf.get(key);
-    if (specs == null) {
-      if (this.targetsOf.size >= TARGETS_KEPT) this.targetsOf.clear();
-      specs = this.computeTargets(view, home, extremesKept, tilesEnd);
-      this.targetsOf.set(key, specs);
-    }
-    return specs;
-  }
-
-  private computeTargets(
-    view: TimeRange,
-    home: TimeRange,
-    extremesKept: boolean,
-    end: TimeStamp,
-  ): TileSpec[] {
+    const end = this.tilesEnd(boundary);
     const aggregation: Aggregation = extremesKept ? "min_max" : this.limit.aggregation;
     // Tiles are cut to [start, end): from the start of a static window to the start of
     // raw samples.
@@ -492,7 +544,7 @@ export class Points {
         this.held.set(key, { spec, series, block });
         this.tileBreaker.reset();
         this.readFailure = null;
-        this.notify();
+        this.changed();
       })
       .catch((e: unknown) => {
         if (generation !== this.generation) return;
@@ -512,7 +564,16 @@ export class Points {
   private async retryTiles(generation: number): Promise<void> {
     if (!(await this.tileBreaker.wait()) || generation !== this.generation) return;
     this.retrying.clear();
-    this.notify();
+    this.changed();
+  }
+
+  // Returns the last raw block of the raw range tr: the block of now, or of the newest
+  // stored sample in a static window that ends later.
+  private lastBlock(tr: TimeRange): number {
+    const now = rawIndex(this.props.now());
+    if (this.dynamic) return now;
+    const end = rawIndex(tr.end.sub(TimeSpan.nanoseconds(1)));
+    return Math.min(end, Math.max(now, this.props.store.newestBlock(this.key)));
   }
 
   // Returns the samples of the raw range. While the window streams, the join fills the
@@ -526,7 +587,7 @@ export class Points {
     if (!tr.start.before(tr.end)) return (this.raw = []);
     const { store } = this.props;
     const now = this.props.now();
-    const last = rawIndex(TimeStamp.min(now, tr.end.sub(TimeSpan.nanoseconds(1))));
+    const last = this.lastBlock(tr);
     const joinFrom = this.streaming ? rawIndex(now.sub(COMMIT_MARGIN)) : Infinity;
     const blocks: RawBlock[] = [];
     for (let i = rawIndex(tr.start); i <= last; i++)
@@ -556,12 +617,20 @@ export class Points {
     return this.raw;
   }
 
+  // While the window streams, the read waits for the stream's ack: a read before it can
+  // miss samples that a lagging writer stamps before the commit point.
   private readRaw(tr: TimeRange): void {
     if (this.rawReading || this.rawRetrying) return;
     const generation = this.generation;
+    const { reader, streamer } = this.props;
+    const { demand, index, abort } = this;
     this.rawReading = true;
-    this.props.reader
-      .read(tr, this.key)
+    const read = async (): Promise<void> => {
+      if (demand != null && index != null)
+        await streamer.waitAcked([...new Set([this.key, index])], abort.signal);
+      await reader.read(tr, this.key);
+    };
+    read()
       .then(() => {
         if (generation !== this.generation) return;
         this.breaker.reset();
@@ -578,7 +647,7 @@ export class Points {
       .finally(() => {
         if (generation !== this.generation) return;
         this.rawReading = false;
-        this.notify();
+        this.changed();
       });
   }
 
@@ -591,8 +660,7 @@ export class Points {
     const raw = this.rawRange(home);
     if (raw.start.before(raw.end)) {
       const { store } = this.props;
-      const end = TimeStamp.min(this.props.now(), raw.end);
-      for (let i = rawIndex(raw.start); i <= rawIndex(end); i++) {
+      for (let i = rawIndex(raw.start), last = this.lastBlock(raw); i <= last; i++) {
         const b = store.findRaw(this.key, i);
         if (b != null) next.add(b);
       }
@@ -615,14 +683,13 @@ export class Points {
   private time(): TimeStamp | undefined {
     const last = this.raw.at(-1);
     if (last == null) return undefined;
-    const live = this.props.store.leadingBuffer(this.key);
-    if (last !== live) return last.timeRange.end;
-    return this.props.store.findRaw(this.key, rawIndex(last.timeRange.start))
-      ?.coveredEnd;
+    const buffer = this.props.store.open(this.key)?.buffer;
+    if (last !== buffer?.leadingBuffer) return last.timeRange.end;
+    return buffer.dataTimeRange?.end;
   }
 
   private status(): status.Status {
-    const candidates = [
+    const worst = status.worst(
       this.parked,
       this.rejection,
       this.readFailure,
@@ -631,11 +698,7 @@ export class Points {
       this.index == null || this.index === this.key
         ? undefined
         : this.demand?.status(this.index),
-    ];
-    let worst: status.Status | undefined;
-    for (const s of candidates)
-      if (s != null && (worst == null || status.moreSevere(s.variant, worst.variant)))
-        worst = s;
+    );
     if (worst != null && worst.variant !== "success") return worst;
     const loading = this.loading || this.pending.size > 0;
     return loading ? this.statuses.loading : this.statuses.success;
@@ -644,12 +707,14 @@ export class Points {
   private fail(e: unknown): void {
     this.readFailure = status.fromException(e, READ_FAILED);
     this.loading = false;
-    this.notify();
+    this.changed();
   }
 
   // Drops every tile and raw sample the channel holds, as when its data type changes.
   private restart(): void {
     this.generation++;
+    this.abort.abort();
+    this.abort = new AbortController();
     this.notifier.notify();
     this.held.clear();
     this.pending.clear();
@@ -657,11 +722,10 @@ export class Points {
     this.rejected.clear();
     this.rejection = null;
     this.stale.clear();
-    this.targetsOf.clear();
     this.rawReading = false;
     this.rawRetrying = false;
     this.loading = true;
     if (this.index != null) this.boundary = this.rawFrom(this.home());
-    this.notify();
+    this.changed();
   }
 }

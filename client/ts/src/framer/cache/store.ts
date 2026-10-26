@@ -103,6 +103,10 @@ export class Store {
   private readonly counted = new Map<string, number>();
   private readonly dataTypes = new Map<channel.Key, DataType>();
   private readonly live = new Map<channel.Key, Live>();
+  // newest holds the newest raw block of each channel that holds samples.
+  private readonly newest = new Map<channel.Key, number>();
+  // epochs counts the changes to the series of each channel's raw blocks.
+  private readonly epochs = new Map<channel.Key, number>();
   private bytes = 0;
   private readonly calculated = new Set<channel.Key>();
   // leaseholders holds the node of each stored channel.
@@ -111,8 +115,6 @@ export class Store {
   // signalsSince is when the stream last acked the history signals, or null when it
   // does not carry them.
   private signalsSince: TimeStamp | null = null;
-  // versions counts the invalidations of each channel, and of every channel under null.
-  private readonly versions = new Map<channel.Key | null, number>();
   private readonly invalidateHandlers = new Set<InvalidateHandler>();
 
   constructor({
@@ -147,6 +149,14 @@ export class Store {
    * against the budget.
    */
   set(key: string, block: Block): void {
+    if (block instanceof RawBlock) {
+      this.changed(block.channel);
+      if (block.coveredCount > 0)
+        this.newest.set(
+          block.channel,
+          Math.max(block.index, this.newest.get(block.channel) ?? -Infinity),
+        );
+    }
     const bytes = block.bytes + ENTRY_OVERHEAD;
     this.bytes += bytes - (this.counted.get(key) ?? 0);
     this.counted.set(key, bytes);
@@ -167,6 +177,8 @@ export class Store {
   delete(key: string): void {
     const bytes = this.counted.get(key);
     if (bytes == null) return;
+    const block = this.blocks.get(key);
+    if (block instanceof RawBlock) this.changed(block.channel);
     this.blocks.delete(key);
     this.counted.delete(key);
     this.bytes -= bytes;
@@ -227,19 +239,10 @@ export class Store {
   }
 
   /**
-   * @returns a count that grows with each invalidation of the channel's samples. A
-   * fetch that spans a change of it may hold samples from before the change.
-   */
-  version(ch: channel.Key): number {
-    return (this.versions.get(null) ?? 0) + (this.versions.get(ch) ?? 0);
-  }
-
-  /**
    * Drops the cached samples of the channel over the time range, or of every channel
    * when the channel is null.
    */
   invalidate(ch: channel.Key | null = null, tr: TimeRange = TimeRange.MAX): void {
-    this.versions.set(ch, (this.versions.get(ch) ?? 0) + 1);
     const touched = [...this.blocks].filter(
       ([, b]) => (ch == null || b.channel === ch) && b.range.overlapsWith(tr),
     );
@@ -284,6 +287,22 @@ export class Store {
     return cached;
   }
 
+  /**
+   * @returns the index of the newest raw block of the channel that a read or the stream
+   * filled with samples, or -Infinity when none did.
+   */
+  newestBlock(ch: channel.Key): number {
+    return this.newest.get(ch) ?? -Infinity;
+  }
+
+  /**
+   * @returns a count that moves each time a raw block of the channel gains or loses a
+   * series. A stream that grows the open block's buffer in place leaves it alone.
+   */
+  epoch(ch: channel.Key): number {
+    return this.epochs.get(ch) ?? 0;
+  }
+
   /** @returns the block the stream is writing the channel's samples into, if any. */
   open(ch: channel.Key): RawBlock | null {
     return this.live.get(ch)?.block ?? null;
@@ -296,17 +315,19 @@ export class Store {
    */
   append(block: RawBlock, p: Series): void {
     const live = this.liveOf(block.channel);
-    if (live.block !== block || !block.joined) {
+    const opened = live.block !== block || !block.joined;
+    if (opened) {
       if (live.block != null) this.seal(live, live.block.index < block.index);
       block.buffer = live.buffer;
       block.joined = true;
       live.block = block;
     }
     const res = live.buffer.write(new MultiSeries([p]));
-    if (res.flushed.series.length > 0)
-      block.fill(res.flushed.series, block.coveredEnd, block.coveredCount);
+    const flushed = res.flushed.series.length > 0;
+    if (flushed) block.fill(res.flushed.series, block.coveredEnd, block.coveredCount);
     block.extend(p.timeRange.end, offsetOf(p.alignment) + p.length);
-    this.set(rawKey(block.channel, block.index), block);
+    if (opened || flushed || res.allocated.series.length > 0)
+      this.set(rawKey(block.channel, block.index), block);
   }
 
   /**
@@ -363,6 +384,7 @@ export class Store {
       next: dataType.toString(),
     });
     for (const [key, block] of this.blocks) if (block.channel === ch) this.delete(key);
+    this.newest.delete(ch);
     const live = this.live.get(ch);
     if (live == null) return true;
     live.buffer.retainDataType(dataType);
@@ -382,6 +404,7 @@ export class Store {
     this.blocks.clear();
     this.counted.clear();
     this.dataTypes.clear();
+    this.newest.clear();
     this.bytes = 0;
   }
 
@@ -399,6 +422,10 @@ export class Store {
     block.buffer = null;
     live.block = null;
     this.set(rawKey(block.channel, block.index), block);
+  }
+
+  private changed(ch: channel.Key): void {
+    this.epochs.set(ch, this.epoch(ch) + 1);
   }
 
   private liveOf(ch: channel.Key): Live {

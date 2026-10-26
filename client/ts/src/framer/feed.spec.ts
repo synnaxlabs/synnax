@@ -153,34 +153,61 @@ describe("Feed", () => {
     }
   });
 
-  it("should hold every written sample across leading buffer rollovers", async () => {
+  it("should hold each sample once while a writer runs", async () => {
     const { time, data } = await createChannels();
-    // A small buffer forces frequent flush and realloc cycles.
-    const small = client.openFeed({ dynamicBufferSize: 50 });
     const start = TimeStamp.now();
-    const next = createClock();
-    const w = await client.openWriter({
-      start,
-      channels: [time.key, data.key],
-      enableAutoCommit: true,
-    });
-    const sub = small.subscribe(raw([data.key], dynamicWindow(TimeSpan.minutes(1))));
+    const writer = await client.openWriter({ start, channels: [time.key, data.key] });
+    let written = 0;
+    let running = true;
+    // A 1 kHz writer: ten samples a millisecond apart, paced to the wall clock. Each data
+    // sample holds its sample number.
+    const writing = (async () => {
+      while (running) {
+        const numbers = Array.from({ length: 10 }, (_, i) => written + i);
+        await writer.write({
+          [time.key]: new BigInt64Array(
+            numbers.map((n) => start.add(TimeSpan.milliseconds(n)).valueOf()),
+          ),
+          [data.key]: new Float32Array(numbers),
+        });
+        written += 10;
+        const next = start.add(TimeSpan.milliseconds(written));
+        if (next.after(TimeStamp.now())) await sleep.sleep(next.span(TimeStamp.now()));
+      }
+    })();
+    const seamFeed = client.openFeed({ removalDelay: TimeSpan.ZERO });
+    const span = TimeSpan.seconds(2);
     try {
-      let value = 0;
-      for (let i = 0; i < 10; i++) {
-        for (let j = 0; j < 30; j++)
-          await w.write({
-            [time.key]: [next(), next()],
-            [data.key]: [value++, value++],
-          });
-        await expect
-          .poll(() => holdsWritten(valuesOf(sub, data.key), value), POLL)
-          .toBe(true);
+      for (let i = 0; i < 20; i++) {
+        const sub = seamFeed.subscribe(raw([data.key], dynamicWindow(span)));
+        try {
+          await expect
+            .poll(
+              () => {
+                const snap = sub.value(data.key);
+                return snap.status.variant === "success" && snap.series.length > 0;
+              },
+              { timeout: 5000, interval: 5 },
+            )
+            .toBe(true);
+          await sleep.sleep(TimeSpan.milliseconds(50 + 10 * i));
+          const opened = TimeStamp.now().sub(span);
+          const numbers = valuesOf(sub, data.key);
+          const steps = new Set(numbers.slice(1).map((n, j) => n - numbers[j]));
+          expect([...steps]).toEqual([1]);
+          const from = TimeStamp.max(start, opened);
+          expect(numbers[0]).toBeLessThanOrEqual(
+            Number(from.span(start).milliseconds) + 1,
+          );
+        } finally {
+          sub.close();
+        }
       }
     } finally {
-      sub.close();
-      await w.close();
-      await small.close();
+      running = false;
+      await writing;
+      await writer.close();
+      await seamFeed.close();
     }
   });
 
@@ -312,40 +339,6 @@ describe("Feed", () => {
     expect(() => closed.subscribe(latest([1]))).toThrow(
       new UnexpectedError("telemetry feed is closed"),
     );
-  });
-
-  it("should forward staleCoverageThreshold to the cache", async () => {
-    const core = createCore();
-    const direct = core.openFeed({
-      ...OPTIONS,
-      staleCoverageThreshold: TimeSpan.milliseconds(50),
-      // With no node known, no history signal keeps a block valid, so blocks expire.
-      node: () => undefined,
-    });
-    const key = core.index.key;
-    const tr = new TimeRange(
-      START.add(TimeSpan.seconds(1)),
-      START.add(TimeSpan.seconds(3)),
-    );
-    const load = async (): Promise<void> => {
-      const sub = direct.subscribe(raw([key], staticWindow(tr)));
-      try {
-        await loaded(sub, key);
-      } finally {
-        sub.close();
-      }
-    };
-    try {
-      await load();
-      const reads = core.reads;
-      await load();
-      expect(core.reads).toBe(reads);
-      core.advance(TimeSpan.milliseconds(50));
-      await load();
-      expect(core.reads).toBe(reads + 1);
-    } finally {
-      await direct.close();
-    }
   });
 
   it("should forward fetchTimeout to the reader", async () => {

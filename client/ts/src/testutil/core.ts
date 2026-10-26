@@ -253,11 +253,6 @@ export class SyntheticCore {
     this.drop();
   }
 
-  /** Ends every open stream, as a dropped connection does. */
-  drop(): void {
-    [...this.streamers].forEach((s) => s.close());
-  }
-
   /** Ends every open stream, and fails every read and stream open until reconnect. */
   disconnect(): void {
     this.disconnected = true;
@@ -396,6 +391,11 @@ export class SyntheticCore {
     );
     this.streamers.add(streamer);
     return streamer;
+  }
+
+  // Ends every open stream, as a dropped connection does.
+  private drop(): void {
+    [...this.streamers].forEach((s) => s.close());
   }
 
   private time(i: number): bigint {

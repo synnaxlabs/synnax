@@ -177,14 +177,21 @@ export class TileReader {
     }
   }
 
-  // Fetches the tile again while a history change of its channel lands during the
-  // fetch, since the fetch can hold samples from before the change.
+  // Fetches the tile again while a history change over its span lands during the fetch,
+  // since the fetch can hold samples from before the change.
   private async readFresh(spec: TileSpec): Promise<MultiSeries> {
-    const { store } = this.props;
+    const span = tileRange(spec);
     for (;;) {
-      const version = store.version(spec.key);
-      const series = await this.batcher.enqueue(spec);
-      if (store.version(spec.key) === version) return series;
+      let changed = false;
+      const stopWatching = this.props.store.onInvalidate((ch, tr) => {
+        if ((ch == null || ch === spec.key) && tr.overlapsWith(span)) changed = true;
+      });
+      try {
+        const series = await this.batcher.enqueue(spec);
+        if (!changed) return series;
+      } finally {
+        stopWatching();
+      }
     }
   }
 

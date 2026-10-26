@@ -1545,6 +1545,29 @@ describe("Series", () => {
       });
       expect(a.alignmentBounds).toEqual({ lower: 1n, upper: 4n });
     });
+
+    it("should return the same bounds while the length holds", () => {
+      const s = new Series({ data: new Float32Array([1, 2, 3]), alignment: 1n });
+      expect(s.alignmentBounds).toBe(s.alignmentBounds);
+    });
+
+    it("should return new bounds once the series grows", () => {
+      const s = Series.alloc({
+        capacity: 10,
+        dataType: DataType.FLOAT32,
+        alignment: 5n,
+      });
+      expect(s.alignmentBounds).toEqual({ lower: 5n, upper: 5n });
+      s.write(new Series({ data: new Float32Array([1, 2]) }));
+      expect(s.alignmentBounds).toEqual({ lower: 5n, upper: 7n });
+    });
+
+    it("should not let a caller change the bounds", () => {
+      const s = new Series({ data: new Float32Array([1, 2, 3]), alignment: 1n });
+      expect(() => {
+        s.alignmentBounds.upper = 0n;
+      }).toThrow(TypeError);
+    });
   });
 
   describe("alignmentMultiple", () => {
