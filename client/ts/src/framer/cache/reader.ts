@@ -174,20 +174,18 @@ export class Reader {
   }
 
   private async batchRead(entries: Array<debounce.Entry<Request>>): Promise<void> {
-    const byChannel = new Map<string, Array<debounce.Entry<Request>>>();
-    for (const entry of entries) {
-      const { block, end, catchUp } = entry.req;
+    const pending = entries.filter((entry) => {
+      const { block, end } = entry.req;
       // A fetch that landed while the request waited may have covered it, and a joined
       // block takes its samples from the stream.
-      if (block.joined || !block.coveredEnd.before(end)) {
-        entry.resolve();
-        continue;
-      }
-      const key = `${block.channel}/${catchUp}`;
-      const existing = byChannel.get(key);
-      if (existing == null) byChannel.set(key, [entry]);
-      else existing.push(entry);
-    }
+      if (!block.joined && block.coveredEnd.before(end)) return true;
+      entry.resolve();
+      return false;
+    });
+    const byChannel = Map.groupBy(
+      pending,
+      ({ req }) => `${req.block.channel}/${req.catchUp}`,
+    );
     const groups = new Map<string, Group>();
     byChannel.forEach((pending) =>
       runs(pending).forEach((run) => {
@@ -248,12 +246,10 @@ export class Reader {
   ): Promise<Set<Request>> {
     const { readRemote, retrieveChannels, store, now } = this.props;
     const committed = now().sub(COMMIT_MARGIN);
-    const requested = new Map<channel.Key, Request[]>();
-    entries.forEach(({ req }) => {
-      const existing = requested.get(req.block.channel);
-      if (existing == null) requested.set(req.block.channel, [req]);
-      else existing.push(req);
-    });
+    const requested = Map.groupBy(
+      entries.map(({ req }) => req),
+      (req) => req.block.channel,
+    );
     const channels = [...requested.keys()];
     const refetch = new Set<Request>();
     const payloads = await retrieveChannels(channels);
