@@ -34,7 +34,6 @@ type eslint struct {
 	Args []string
 }
 
-// newESLint returns an ESLint formatter using `pnpm exec eslint`.
 func newESLint() *eslint {
 	return &eslint{Bin: "pnpm", Args: []string{"exec", "eslint"}}
 }

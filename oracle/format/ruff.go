@@ -24,7 +24,6 @@ type Ruff struct {
 	Args []string
 }
 
-// newRuff returns a Ruff formatter using `uv run ruff`.
 func newRuff() *Ruff { return &Ruff{Bin: "uv", Args: []string{"run", "ruff"}} }
 
 // Format runs `ruff check --fix` then `ruff format` with content on stdin, so the

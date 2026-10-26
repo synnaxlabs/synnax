@@ -26,7 +26,6 @@ type prettier struct {
 	Args []string
 }
 
-// newPrettier returns a Prettier formatter using `pnpm exec prettier`.
 func newPrettier() *prettier {
 	return &prettier{Bin: "pnpm", Args: []string{"exec", "prettier"}}
 }
