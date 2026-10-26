@@ -170,13 +170,17 @@ export class Points {
   /**
    * Replaces the window and limit. Held tiles stand in until the new ones land. Tiles a
    * definitive failure stopped read again only under a new aggregation or point count.
+   * A view that moves inside the tiles it draws keeps the snapshot.
    */
   update(window: Window, limit: PointsLimit): void {
     const moved = !deep.equal(window, this.window);
     if (!moved && deep.equal(limit, this.limit)) return;
     const prev = this.limit;
+    const slid = !moved && deep.equal({ ...prev, view: limit.view }, limit);
+    const tiles = slid ? this.tilesOf(prev) : null;
     this.window = window;
     this.limit = limit;
+    if (tiles != null && tiles === this.tilesOf(limit)) return;
     this.dirty = true;
     if (
       limit.count !== prev.count ||
@@ -301,10 +305,24 @@ export class Points {
     return resolveWindow(this.window, this.props.now());
   }
 
-  private view(home: TimeRange): TimeRange {
-    const { view } = this.limit;
+  private view(home: TimeRange, limit: PointsLimit = this.limit): TimeRange {
+    const { view } = limit;
     if (view == null || !view.start.before(view.end)) return home;
     return view;
+  }
+
+  // Returns the keys of the tiles a rebuild draws and advances to under the view of the
+  // limit, which is all a rebuild takes from the view.
+  private tilesOf(limit: PointsLimit): string {
+    const home = this.home();
+    const view = this.view(home, limit);
+    const extremesKept = this.limit.extremesKept === true;
+    return [
+      ...this.targets(view, home, extremesKept),
+      ...this.targets(view, home, false, this.rawFrom(home)),
+    ]
+      .map((spec) => tileRequestKey(spec))
+      .join();
   }
 
   // Resolves the channel's index, then streams and joins the window's edge.

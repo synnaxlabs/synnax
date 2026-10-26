@@ -139,6 +139,45 @@ describe("Points", () => {
       }
     });
 
+    it("should keep the snapshot while the view moves inside its tiles", async () => {
+      const core = createCore();
+      let tileReads = 0;
+      const { subscribe, close } = createPoints(core, async (tr, keys, reduction) => {
+        if (reduction != null) tileReads++;
+        return core.read(tr, keys, reduction);
+      });
+      const range = new TimeRange(START, START.add(TimeSpan.minutes(8)));
+      const span = TimeSpan.minutes(2);
+      const level = tileLevel(new TimeRange(START, START.add(span)));
+      const tile = tileRange({
+        level,
+        index: tileIndex(START.add(span.mult(2)), level),
+      });
+      const limitAt = (end: TimeStamp): PointsLimit => ({
+        ...TILED,
+        view: new TimeRange(end.sub(span), end),
+      });
+      let end = tile.start.add(TimeSpan.seconds(10));
+      const points = subscribe(core.data[0].key, staticWindow(range), limitAt(end));
+      try {
+        await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+        const before = points.value();
+        const reads = tileReads;
+        for (let i = 0; i < 10; i++) {
+          end = end.add(TimeSpan.milliseconds(1));
+          points.update(staticWindow(range), limitAt(end));
+          expect(points.value()).toBe(before);
+        }
+        await sleep.sleep(TimeSpan.milliseconds(50));
+        expect(tileReads).toBe(reads);
+        points.update(staticWindow(range), limitAt(tile.end.add(TimeSpan.seconds(1))));
+        expect(points.value()).not.toBe(before);
+        await expect.poll(() => tileReads, POLL).toBeGreaterThan(reads);
+      } finally {
+        await close();
+      }
+    });
+
     it("should change the series when a tile lands", async () => {
       const core = createCore();
       const { subscribe, close } = createPoints(core);
