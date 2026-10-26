@@ -85,19 +85,19 @@ var _ = Describe("Pipeline", func() {
 
 	Describe("GetSink", func() {
 		It("Should return an error if the sink is not found", func() {
-			_, err := pipe.GetSink[int]("sink")
-			Expect(err).To(HaveOccurred())
+			Expect(pipe.GetSink[int]("sink")).Error().
+				To(MatchError(ContainSubstring("at address sink not found")))
 		})
 		It("Should return an error if the sink is of the wrong type", func() {
 			pipe.SetSink[int]("sink", &confluence.UnarySink[int]{})
-			_, err := pipe.GetSink[[]int]("sink")
-			Expect(err).To(HaveOccurred())
+			Expect(pipe.GetSink[[]int]("sink")).Error().
+				To(MatchError(ContainSubstring("at address sink to have")))
 		})
 	})
 	Describe("GetSource", func() {
 		It("Should return an error if the source is not found", func() {
-			_, err := pipe.GetSource[int]("source")
-			Expect(err).To(HaveOccurred())
+			Expect(pipe.GetSource[int]("source")).Error().
+				To(MatchError(ContainSubstring("at address source not found")))
 		})
 		It("Should return an error if the sink is of the wrong type", func() {
 			pipe.SetSource[int]("sink", &confluence.Emitter[int]{})
