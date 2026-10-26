@@ -49,7 +49,9 @@ jobs:
       prompt: |
         ${{ github.event.client_payload.prompt || inputs.prompt }}
 
-        ${{ (github.event.client_payload.issue || inputs.issue) && format('The Linear issue is {0}.', github.event.client_payload.issue || inputs.issue) || '' }}
+        ${{ (github.event.client_payload.issue || inputs.issue) &&
+        format('The Linear issue is {0}.',
+        github.event.client_payload.issue || inputs.issue) || '' }}
       agent:
         ${{ github.event.client_payload.agent || inputs.agent != 'default' &&
         inputs.agent || '' }}

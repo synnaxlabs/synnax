@@ -40,7 +40,7 @@ on:
         type: string
         default: ""
       timeout-minutes:
-        description: "Job time budget. The agent gets at most 50 minutes of it."
+        description: "Job time budget. pr and comment cap the agent at 50 minutes."
         type: number
         default: 60
     outputs:
@@ -139,10 +139,11 @@ jobs:
           BUDGET: ${{ inputs.timeout-minutes }}
         run: |
           args=(--agent "$AGENT" --output "$OUTPUT" --prompt "$PROMPT")
-          # Leave ten minutes for setup and delivery, and deliver before the App token
-          # expires an hour after it was minted.
+          # Leave ten minutes for setup and delivery. Deliver to GitHub before the App
+          # token expires, an hour after it was minted.
           minutes=$((BUDGET > 20 ? BUDGET - 10 : BUDGET / 2))
-          args+=(--timeout-minutes "$((minutes > 50 ? 50 : minutes))")
+          if [ "$OUTPUT" != report ] && [ "$minutes" -gt 50 ]; then minutes=50; fi
+          args+=(--timeout-minutes "$minutes")
           if [ -n "$PR" ] && [ "$PR" != "0" ]; then args+=(--pr "$PR"); fi
           if [ -n "$TITLE" ]; then args+=(--title "$TITLE"); fi
           if [ -n "$LABELS" ]; then args+=(--labels "$LABELS"); fi
