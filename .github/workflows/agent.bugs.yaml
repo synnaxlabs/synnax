@@ -7,14 +7,14 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Calls one agent per code area each week to find and fix real bugs. Each area holds at
-# most about 40,000 source lines, so one agent run can read all of it.
+# Calls one agent per code area twice a week to find and fix real bugs. Each area holds
+# at most about 40,000 source lines, so one agent run can read all of it.
 
 name: Agent - Bug hunt
 
 on:
   schedule:
-    - cron: "0 6 * * 6" # Saturdays, 6am UTC
+    - cron: "0 6 * * 1,4" # Mondays and Thursdays, 6am UTC
   workflow_dispatch:
 
 permissions: {}
