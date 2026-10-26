@@ -36,7 +36,7 @@ class ReadFrameAdapter:
 
     def update(self, channels: channel.Params) -> None:
         normal = channel.normalize_params(channels)
-        fetched = self.retriever.retrieve(normal.channels)
+        fetched = retrieve_required_channel(self.retriever, normal.channels)
         new_keys = [ch.key for ch in fetched]
         if set(new_keys) != set(self.keys):
             self.codec.update(new_keys, [ch.data_type for ch in fetched])
@@ -48,9 +48,7 @@ class ReadFrameAdapter:
 
         self._adapter = dict[int, str]()
         for name in normal.channels:
-            ch = next((c for c in fetched if c.name == name), None)
-            if ch is None:
-                raise KeyError(f"Channel {name} not found.")
+            ch = next(c for c in fetched if c.name == name)
             self._adapter[ch.key] = ch.name
         self.keys = list(self._adapter.keys())
 
