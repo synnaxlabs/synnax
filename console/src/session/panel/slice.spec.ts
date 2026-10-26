@@ -38,8 +38,15 @@ const run = (...actions: Panel.Action[]): TestState => {
   return store.getState();
 };
 
-const overlaid = (state: TestState): boolean =>
-  Panel.selectWindowState(state).isOverlaid;
+const activeWindow = (state: TestState): Panel.WindowState => {
+  const win = Panel.selectActiveWindow(state)?.state;
+  if (win == null) throw new Error("no active window");
+  return win;
+};
+
+const mounted = (state: TestState): panel.Key[] => activeWindow(state).mounted;
+
+const overlaid = (state: TestState): boolean => activeWindow(state).isOverlaid;
 
 const PANEL = uuid.create();
 const OTHER_PANEL = uuid.create();
@@ -55,7 +62,7 @@ describe("Panel Slice", () => {
     });
 
     it("should default a window to no selection, no panels, and nothing mounted", () => {
-      expect(Panel.windowStateZ.parse({})).toEqual({
+      expect(Panel.ZERO_WINDOW_STATE).toEqual({
         selected: undefined,
         isOverlaid: false,
         panels: {},
@@ -64,7 +71,7 @@ describe("Panel Slice", () => {
     });
 
     it("should default a panel to no selected tabs", () => {
-      expect(Panel.stateZ.parse({})).toEqual({ selectedTabs: [] });
+      expect(Panel.ZERO_STATE).toEqual({ selectedTabs: [] });
     });
   });
 
@@ -85,7 +92,7 @@ describe("Panel Slice", () => {
     // mounted so selecting one again is still instant.
     it("should leave the mounted set intact", () => {
       const state = run(Panel.select({ key: PANEL }), Panel.clearSelected({}));
-      expect(Panel.selectMounted(state)).toEqual([PANEL]);
+      expect(mounted(state)).toEqual([PANEL]);
     });
   });
 
@@ -97,19 +104,19 @@ describe("Panel Slice", () => {
 
     it("should record selected panels most recently selected first", () => {
       const state = selectAll(KEYS[0], KEYS[1], KEYS[2]);
-      expect(Panel.selectMounted(state)).toEqual([KEYS[2], KEYS[1], KEYS[0]]);
+      expect(mounted(state)).toEqual([KEYS[2], KEYS[1], KEYS[0]]);
     });
 
     it("should move a reselected panel back to the front without duplicating it", () => {
       const state = selectAll(KEYS[0], KEYS[1], KEYS[0]);
-      expect(Panel.selectMounted(state)).toEqual([KEYS[0], KEYS[1]]);
+      expect(mounted(state)).toEqual([KEYS[0], KEYS[1]]);
     });
 
     it("should evict the least recently selected panel past the cap", () => {
-      const mounted = Panel.selectMounted(selectAll(...KEYS));
-      expect(mounted).toHaveLength(5);
-      expect(mounted[0]).toEqual(KEYS[5]);
-      expect(mounted).not.toContain(KEYS[0]);
+      const keys = mounted(selectAll(...KEYS));
+      expect(keys).toHaveLength(5);
+      expect(keys[0]).toEqual(KEYS[5]);
+      expect(keys).not.toContain(KEYS[0]);
     });
 
     // The selected panel is the head, so the cap can never evict what the window
@@ -118,7 +125,7 @@ describe("Panel Slice", () => {
       const state = selectAll(...KEYS);
       const selected = Panel.selectSelected(state);
       expect(selected).toEqual(KEYS[5]);
-      expect(Panel.selectMounted(state)[0]).toEqual(selected);
+      expect(mounted(state)[0]).toEqual(selected);
     });
 
     it("should track each window's mounted panels separately", () => {
@@ -126,7 +133,7 @@ describe("Panel Slice", () => {
         Panel.select({ key: KEYS[0] }),
         Panel.select({ windowKey: "other", key: KEYS[1] }),
       );
-      expect(Panel.selectMounted(state)).toEqual([KEYS[0]]);
+      expect(mounted(state)).toEqual([KEYS[0]]);
       expect(state[Panel.SLICE_NAME].windows.other.mounted).toEqual([KEYS[1]]);
     });
 
@@ -136,7 +143,7 @@ describe("Panel Slice", () => {
         Panel.select({ windowKey: "other", key: KEYS[0] }),
         Panel.remove({ keys: KEYS[0] }),
       );
-      expect(Panel.selectMounted(state)).toEqual([]);
+      expect(mounted(state)).toEqual([]);
       expect(state[Panel.SLICE_NAME].windows.other.mounted).toEqual([]);
     });
 
@@ -150,7 +157,7 @@ describe("Panel Slice", () => {
         Panel.remove({ keys: KEYS[2] }),
       );
       expect(Panel.selectSelected(state)).toEqual(KEYS[1]);
-      expect(Panel.selectMounted(state)).toEqual([KEYS[1], KEYS[0]]);
+      expect(mounted(state)).toEqual([KEYS[1], KEYS[0]]);
     });
   });
 
@@ -696,15 +703,18 @@ describe("Panel Slice", () => {
     });
   });
 
-  describe("purgeSliceState", () => {
+  describe("PERSIST_EXCLUDE", () => {
     // The persist driver purges a copy of the store state, never the frozen state
     // itself, so the copy is part of the call contract being exercised here.
-    const purge = (...actions: Panel.Action[]): TestState =>
-      Panel.purgeSliceState(deep.copy(run(...actions)));
+    const purge = (...actions: Panel.Action[]): TestState => {
+      const state = deep.copy(run(...actions));
+      Panel.PERSIST_EXCLUDE.forEach((exclude) => exclude(state));
+      return state;
+    };
 
     // A project swap hydrates the stored slice wholesale, so clearing the mounted
     // set on write is what stops one project's panels staying mounted into the next.
-    // The stored field is what the assertion reads: selectMounted answers for the
+    // The stored field is what the assertion reads: useSelectMounted answers for the
     // hydrated window, where the selection alone puts a panel back on screen.
     it("should clear every window's mounted panels", () => {
       const { windows } = purge(
@@ -733,7 +743,7 @@ describe("Panel Slice", () => {
         Panel.startOverlaying({}),
         Panel.reset(),
       );
-      expect(Panel.selectSliceState(state)).toEqual(Panel.ZERO_SLICE_STATE);
+      expect(state[Panel.SLICE_NAME]).toEqual(Panel.ZERO_SLICE_STATE);
     });
   });
 

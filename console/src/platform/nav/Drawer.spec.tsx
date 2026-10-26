@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { act, fireEvent, screen } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -63,7 +64,7 @@ const moveMouse = (init: MouseEventInit): void =>
   });
 
 const leftState = (store: TestStore) =>
-  Session.Nav.selectWindowState(store.getState()).left;
+  store.getState()[Session.Nav.SLICE_NAME].windows[MAIN_WINDOW]?.left;
 
 describe("Nav.Drawer", () => {
   it("should show content when an item is selected and hide it when toggled off", async () => {
@@ -71,10 +72,10 @@ describe("Nav.Drawer", () => {
     expect(screen.queryByText(CONTENT)).toBeNull();
     selectItem(store);
     expect(screen.getByText(CONTENT)).toBeTruthy();
-    expect(Session.Nav.selectLeftSelected(store.getState())).toBe(ITEM_KEY);
+    expect(leftState(store)?.selected).toBe(ITEM_KEY);
     selectItem(store);
     expect(screen.queryByText(CONTENT)).toBeNull();
-    expect(Session.Nav.selectLeftSelected(store.getState())).toBeUndefined();
+    expect(leftState(store)?.selected).toBeUndefined();
   });
 
   it("should size the drawer from the nav state after a resize action", async () => {
@@ -101,7 +102,7 @@ describe("Nav.Drawer", () => {
     expect(leftState(store).hover).toBe(true);
     moveMouse({ clientX: 300, clientY: 300 });
     expect(leftState(store).hover).toBe(false);
-    expect(Session.Nav.selectLeftSelected(store.getState())).toBeUndefined();
+    expect(leftState(store)?.selected).toBeUndefined();
     expect(screen.queryByText(CONTENT)).toBeNull();
   });
 
