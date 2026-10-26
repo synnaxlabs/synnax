@@ -2905,7 +2905,7 @@ TEST(ArcTests, testWriterOpensEagerlyBeforeFirstFrame) {
 }
 
 /// @brief it should store an output stamped before the task started.
-TEST(ArcTests, testForwardsStampFromBeforeStart) {
+TEST(ArcTests, ForwardsStampFromBeforeStart) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
     auto input_idx = synnax::channel::Channel{
