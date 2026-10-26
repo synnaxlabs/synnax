@@ -40,7 +40,7 @@ transactions and how writes work in Synnax, see the
 ### Opening a writer
 
 To open a writer, use the <Client.Var py="open_writer" ts="openWriter" /> method with a
-starting timestamp and a list of channels to write to.
+list of channels to write to. Each index starts at the first timestamp written to it.
 
 <Client.Tabs exclude={["cpp","console"]}>
 
@@ -49,7 +49,6 @@ starting timestamp and a list of channels to write to.
 ```python
 # Python's context manager is recommended
 with client.open_writer(
-    start=sy.TimeStamp.now(),
     channels=["time", "temperature"],
 ) as writer:
     for i in range(100):
@@ -67,7 +66,6 @@ with client.open_writer(
 
 ```typescript
 const writer = await client.openWriter({
-  start: TimeStamp.now(),
   channels: ["time", "temperature"],
 });
 
@@ -114,7 +112,6 @@ For example, to open a writer that only persists data:
 
 ```python
 writer = client.open_writer(
-    start=sy.TimeStamp.now(),
     channels=["time", "temperature"],
     mode="persist",
 )
@@ -126,7 +123,6 @@ writer = client.open_writer(
 
 ```typescript
 const writer = await client.openWriter({
-  start: TimeStamp.now(),
   channels: ["time", "temperature"],
   mode: "persist",
 });
@@ -241,7 +237,6 @@ The channel's data type determines how the writer encodes each value.
 
 ```python
 with client.open_writer(
-    start=sy.TimeStamp.now(),
     channels=["event_time", "event_log"],
 ) as writer:
     writer.write({
@@ -257,7 +252,6 @@ with client.open_writer(
 
 ```typescript
 const writer = await client.openWriter({
-  start: TimeStamp.now(),
   channels: ["event_time", "event_log"],
 });
 try {
@@ -314,14 +308,12 @@ exception is thrown.
 ```python
 # Python's context manager is the recommended approach
 with client.open_writer(
-    start=sy.TimeStamp.now(),
     channels=["time", "temperature"],
 ) as writer:
     # Write data here
 
 # Alternatively, use a try/finally block
 writer = client.open_writer(
-    start=sy.TimeStamp.now(),
     channels=["time", "temperature"],
 )
 try:
@@ -338,7 +330,6 @@ finally:
 // TypeScript's try/finally block is the recommended approach
 
 const writer = await client.openWriter({
-  start: TimeStamp.now(),
   channels: ["time", "temperature"],
 });
 
@@ -598,8 +589,7 @@ a writer for every write:
 for i in range(100):
     # Open/close writer each iteration
     with client.open_writer(
-        start=sy.TimeStamp.now(),
-        channels=["time", "temperature"],
+            channels=["time", "temperature"],
     ) as writer:
         sy.sleep(0.1)
         writer.write({
@@ -615,7 +605,6 @@ for i in range(100):
 ```typescript
 for (let i = 0; i < 100; i++) {
   const writer = await client.openWriter({
-    start: TimeStamp.now(),
     channels: ["time", "temperature"],
   });
   await writer.write({
@@ -639,7 +628,6 @@ for (let i = 0; i < 100; i++) {
 ```python
 # Open/close the writer once
 with client.open_writer(
-    start=sy.TimeStamp.now(),
     channels=["time", "temperature"],
 ) as writer:
     sy.sleep(0.1)
@@ -656,7 +644,6 @@ with client.open_writer(
 
 ```typescript
 const writer = await client.openWriter({
-  start: TimeStamp.now(),
   channels: ["time", "temperature"],
 });
 try {

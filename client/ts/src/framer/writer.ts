@@ -60,7 +60,11 @@ const writerModeZ = z.enum(WriterMode).or(
 export type CrudeWriterMode = z.input<typeof writerModeZ>;
 
 const baseWriterConfigZ = z.object({
-  /** start sets the starting timestamp for the first sample in the writer. */
+  /**
+   * start sets where the writer's control region begins. It defaults to the time the
+   * writer opens on the Core. A writer that writes data channels without their index
+   * needs a start, and it must be a sample of that index.
+   */
   start: TimeStamp.z.optional(),
   /** controlSubject sets the control subject of the writer. */
   controlSubject: control.subjectZ.optional(),
@@ -113,9 +117,7 @@ const intermediateWriterConfigZ = baseWriterConfigZ.extend({
 
 /** Zod schema for {@link WriterConfig}. A bare channel list parses as a config. */
 export const writerConfigZ = intermediateWriterConfigZ.or(
-  paramsZ.transform((channels) =>
-    intermediateWriterConfigZ.parse({ channels, start: TimeStamp.now() }),
-  ),
+  paramsZ.transform((channels) => intermediateWriterConfigZ.parse({ channels })),
 );
 
 /** Config for a writer. Pass it to `client.telem.openWriter`. */

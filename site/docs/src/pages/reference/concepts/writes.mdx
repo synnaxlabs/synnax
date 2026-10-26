@@ -68,33 +68,11 @@ releases all write-related resources and the transaction is complete.
 
 ### Open phase
 
-To start a new transaction, we need to provide the following information.
+To start a new transaction, we need to provide the channels we're interested in writing
+to. Synnax checks that all of them exist in the Core before it opens the writer.
 
-<table>
-  <thead>
-    <tr>
-      <th>Argument</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Channels</td>
-      <td>The channels we're interested in writing to.</td>
-    </tr>
-    <tr>
-      <td>Timestamp</td>
-      {/* prettier-ignore */}
-      <td>The timestamp marking the time at or just before the first written
-                sample was recorded.</td>
-    </tr>
-  </tbody>
-</table>
-
-Synnax will use these arguments to validate two things before opening the writer:
-
-1. That all channels exist in the Synnax Core.
-2. That no existing data overlaps with the provided timestamp.
+Each index starts at the first timestamp written to it, so one writer can hold indexes
+that start at different times. A write that overlaps existing data on a channel fails.
 
 #### Optional arguments
 
@@ -109,6 +87,14 @@ There are also a few optional arguments we can provide when opening a writer:
     </tr>
   </thead>
   <tbody>
+    <tr>
+      <td>Start</td>
+      {/* prettier-ignore */}
+      <td>Where the writer's control region begins. The writer fails to open when
+          existing data holds it. A writer on data channels without their index needs
+          a start, and it must be a sample of that index.</td>
+      <td>the time the writer opens</td>
+    </tr>
     <tr>
       <td>
         <a href="#writer-modes">Mode</a>
@@ -178,10 +164,10 @@ by adding frames. It's common for writers to be open for many hours or even days
 
 Once we're ready to persist the transaction and make it available for reads, we call the
 `commit` method on our writer. During this phase, the Core identifies the time range of
-the writer based on the provided starting timestamp and the samples written. The commit
-process succeeds and the write is now available for reads. After this phase completes,
-the transaction is moved back into the write phase. At this point, we can either write
-more frames to the Core and commit again, or we can close the writer.
+the writer based on the timestamps written. The commit process succeeds and the write is
+now available for reads. After this phase completes, the transaction is moved back into
+the write phase. At this point, we can either write more frames to the Core and commit
+again, or we can close the writer.
 
 #### Auto-commit
 
