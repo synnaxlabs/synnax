@@ -157,7 +157,7 @@ describe("range/Toolbar", () => {
     // detaching a match held across an await before the click lands.
     fireEvent.click(screen.getByText(rng.name));
     await waitFor(() =>
-      expect(Session.Range.selectSelectedKey(store.getState())).toBe(rng.key),
+      expect(store.getState()[Session.Range.SLICE_NAME].selected).toBe(rng.key),
     );
   });
 
@@ -183,7 +183,7 @@ describe("range/Toolbar", () => {
       await openContextMenu(rng.name);
       fireEvent.click(await screen.findByText("Set as active range"));
       await waitFor(() =>
-        expect(Session.Range.selectSelectedKey(store.getState())).toBe(rng.key),
+        expect(store.getState()[Session.Range.SLICE_NAME].selected).toBe(rng.key),
       );
     });
 
@@ -203,7 +203,7 @@ describe("range/Toolbar", () => {
       await openContextMenu(rng.name);
       fireEvent.click(await screen.findByText("Clear active range"));
       await waitFor(() =>
-        expect(Session.Range.selectSelectedKey(store.getState())).toBeUndefined(),
+        expect(store.getState()[Session.Range.SLICE_NAME].selected).toBeUndefined(),
       );
     });
 
