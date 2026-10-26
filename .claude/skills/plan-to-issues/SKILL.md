@@ -22,8 +22,10 @@ every issue here. Use the Linear MCP tools or the Linear API.
    `uv run --project .github/scripts .github/scripts/phase_table.py <rfc.md>`. On an
    error, fix the table in an RFC PR first. Never hand-copy rows.
 3. **Find existing work.** Search team `SY` for the RFC path. A phase that already has
-   an issue keeps it: reuse it for relations and do not file a copy. Reuse the RFC's
-   Linear project if it has one.
+   an issue keeps it: reuse it for relations and do not file a copy. A reused issue that
+   gets `agent-ready` also gets the project, the blockers, and the `## Agent` block.
+   Leave `agent-ready` off a reused issue that is In Progress or In Review, since its
+   body must not change. Reuse the RFC's Linear project if it has one.
 4. **Show the plan and wait.** One line per phase: title, labels, estimate, blockers,
    and if it gets `agent-ready`. Name the project to use or create. Ask once; the user
    can drop `agent-ready` from a phase that a person must do.
@@ -39,8 +41,9 @@ every issue here. Use the Linear MCP tools or the Linear API.
    - **State**: Todo. **Project**: The RFC's project. **Blocked by**: The issues of the
      phases in the depends-on cell.
    - **Description**: The template below.
-7. **Verify.** Read each issue back. Check the labels, project, state, and blockers.
-   Save again when a field is stale.
+7. **Verify.** Read each issue back, reused ones too. Check the labels, project, state,
+   blockers, and on each `agent-ready` issue the `## Agent` block. Save again when a
+   field is stale.
 8. **Report** one line per phase: phase number, `SY-####`, title.
 
 ## Description template
