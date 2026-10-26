@@ -116,7 +116,7 @@ func VariantSetFromPB(pb *VariantSet) (filter.Set[status.Variant], error) {
 		if err != nil {
 			return filter.Set[status.Variant]{}, err
 		}
-		r.In = vals
+		r.In = xpb.ListValues(vals)
 	}
 	return r, nil
 }
@@ -202,14 +202,14 @@ func WhereFromPB(pb *Where) (status.Where, error) {
 		if err != nil {
 			return status.Where{}, err
 		}
-		r.And = vals
+		r.And = xpb.ListValues(vals)
 	}
 	if pb.Or != nil {
 		vals, err := WheresFromPB(pb.Or.Values)
 		if err != nil {
 			return status.Where{}, err
 		}
-		r.Or = vals
+		r.Or = xpb.ListValues(vals)
 	}
 	if pb.Not != nil {
 		val, err := WhereFromPB(pb.Not)
@@ -247,7 +247,7 @@ func WhereFromPB(pb *Where) (status.Where, error) {
 		if err != nil {
 			return status.Where{}, err
 		}
-		r.Labels = vals
+		r.Labels = xpb.ListValues(vals)
 	}
 	return r, nil
 }
@@ -380,7 +380,7 @@ func StatusFromPB[Details any](
 		if err != nil {
 			return status.Status[Details]{}, err
 		}
-		r.Labels = vals
+		r.Labels = xpb.ListValues(vals)
 	}
 	return r, nil
 }
