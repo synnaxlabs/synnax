@@ -253,7 +253,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	return resp, nil
 }
 
-// codecEntry describes a type for which a codec should be generated.
 type codecEntry struct {
 	GoName string
 	Type   resolution.Type

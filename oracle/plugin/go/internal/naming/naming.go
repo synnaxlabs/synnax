@@ -24,8 +24,6 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// isScreamingCase returns true if s is all uppercase letters (possibly with
-// underscores).
 func isScreamingCase(s string) bool {
 	if s == "" {
 		return false
