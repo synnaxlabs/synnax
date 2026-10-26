@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { Toolbars } from "@/app/toolbars";
 import { Nav } from "@/platform/nav";
@@ -20,18 +20,9 @@ export const Left = (): ReactElement => {
   // which is where a session that changes users leaves it.
   const visible = Nav.useVisibleKeys(Toolbars.LEFT);
   const item = Toolbars.LEFT.find((i) => i.key === selected && visible.has(i.key));
-  const handleResizeEnd = useCallback(
-    (size: number) => dispatch(Session.Nav.resizeLeft({ size })),
-    [dispatch],
-  );
-  const handleCollapse = useCallback(
-    () => dispatch(Session.Nav.collapseLeft({})),
-    [dispatch],
-  );
-  const handleStopHover = useCallback(
-    () => dispatch(Session.Nav.stopLeftHover({})),
-    [dispatch],
-  );
+  const handleResizeEnd = (size: number) => dispatch(Session.Nav.resizeLeft({ size }));
+  const handleCollapse = () => dispatch(Session.Nav.collapseLeft({}));
+  const handleStopHover = () => dispatch(Session.Nav.stopLeftHover({}));
   const { initialSize = Toolbars.DEFAULT_SIZE, sizeBounds, content } = item ?? {};
   return (
     <Nav.Drawer

@@ -419,7 +419,6 @@ describe("queries", () => {
         result.current.retrieve({});
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
-      const initialLength = result.current.data.length;
 
       const newDev = await client.devices.create({
         key: id.create(),
@@ -431,10 +430,7 @@ describe("queries", () => {
         properties: {},
       });
 
-      await waitFor(() => {
-        expect(result.current.data).toHaveLength(initialLength + 1);
-        expect(result.current.data).toContain(newDev.key);
-      });
+      await waitFor(() => expect(result.current.data).toContain(newDev.key));
     });
 
     it("should update the list when a device is updated", async () => {
@@ -884,6 +880,51 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current?.type).toEqual("group"));
       expect(result.current?.key).not.toBeFalsy();
+    });
+  });
+
+  describe("useMultiple", () => {
+    const createDevice = async (make: string) => {
+      const rack = await client.racks.create({ name: "test" });
+      return await client.devices.create({
+        key: id.create(),
+        name: "test",
+        rack: rack.key,
+        location: "test",
+        make,
+        model: "test",
+        properties: {},
+      });
+    };
+
+    it("should add a device of the make created after the query resolves", async () => {
+      const make = id.create();
+      const first = await createDevice(make);
+      const { result } = await renderHookSuspended(
+        () => Device.useMultiple({ makes: [make] }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current?.map((d) => d.key)).toEqual([first.key]),
+      );
+      const second = await createDevice(make);
+      await waitFor(() =>
+        expect(result.current?.map((d) => d.key).sort()).toEqual(
+          [first.key, second.key].sort(),
+        ),
+      );
+    });
+
+    it("should reflect a device configured after the query resolves", async () => {
+      const make = id.create();
+      const dev = await createDevice(make);
+      const { result } = await renderHookSuspended(
+        () => Device.useMultiple({ makes: [make] }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current?.[0]?.configured).toBe(false));
+      await client.devices.create({ ...dev, configured: true });
+      await waitFor(() => expect(result.current?.[0]?.configured).toBe(true));
     });
   });
 

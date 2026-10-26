@@ -39,7 +39,7 @@ public:
     }
 
     /// Gets a const series by handle. Returns nullptr if not found.
-    const x::telem::Series *get(uint32_t handle) const {
+    [[nodiscard]] const x::telem::Series *get(uint32_t handle) const {
         const auto it = this->handles.find(handle);
         if (it == this->handles.end()) return nullptr;
         return &it->second;

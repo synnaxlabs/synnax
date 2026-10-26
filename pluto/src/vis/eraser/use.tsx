@@ -10,7 +10,7 @@
 import { CSS } from "@synnaxlabs/lyra/css";
 import { useResize, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { box } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement, useCallback } from "react";
+import { type PropsWithChildren, type ReactElement } from "react";
 
 import { Aether } from "@/aether";
 import { eraser } from "@/vis/eraser/aether";
@@ -32,12 +32,9 @@ export const use = ({ aetherKey, enabled = true }: UseProps): UseReturn => {
     initialState: { region: box.ZERO, enabled },
   });
   const enabledRef = useSyncedRef(enabled);
-  const erase = useCallback(
-    (b: box.Box) => {
-      setState({ enabled: enabledRef.current, region: b });
-    },
-    [setState, enabledRef],
-  );
+  const erase = (b: box.Box) => {
+    setState({ enabled: enabledRef.current, region: b });
+  };
   return { erase };
 };
 

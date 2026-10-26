@@ -118,20 +118,15 @@ describe("Errors.Overlay", () => {
 
     it("should route the window controls to the tauri window under tauri", async () => {
       mocks.engine = "tauri";
-      const { container } = await renderWithConsole(
+      await renderWithConsole(
         <Errors.OverlayWithStore>
           <Boom />
         </Errors.OverlayWithStore>,
       );
       await screen.findByText(BOOM);
-      const click = (suffix: string) => {
-        const el = container.querySelector(`.pluto-windows-control--${suffix}`);
-        expect(el).not.toBeNull();
-        fireEvent.click(el!);
-      };
-      click("close");
-      click("minimize");
-      click("maximize");
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
+      fireEvent.click(screen.getByRole("button", { name: "Minimize" }));
+      fireEvent.click(screen.getByRole("button", { name: "Maximize" }));
       await waitFor(() => expect(windowControls.close).toHaveBeenCalled());
       expect(windowControls.minimize).toHaveBeenCalled();
       expect(windowControls.maximize).toHaveBeenCalled();

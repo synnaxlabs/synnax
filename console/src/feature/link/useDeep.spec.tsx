@@ -18,14 +18,14 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
-import { TimeSpan, uuid } from "@synnaxlabs/x";
+import { scheduler, TimeSpan, uuid } from "@synnaxlabs/x";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { Link } from "@/feature/link";
-import { Link as PlatformLink } from "@/platform/link";
+import { type Link as PlatformLink } from "@/platform/link";
 import { Session } from "@/session";
 import {
   assertDefined,
@@ -243,7 +243,7 @@ const setupSettled = async (
 };
 
 describe("useDeep", () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => sessionStorage.clear());
   afterEach(() => vi.useRealTimers());
 
   it("should open a resource link the app was launched from", async () => {
@@ -297,23 +297,11 @@ describe("useDeep", () => {
     expect(handlers.range).not.toHaveBeenCalled();
   });
 
-  it("should ignore the next launch link once when the ignore flag is set", async () => {
-    PlatformLink.markNextIgnored();
-    const first = await setup({
-      getCurrentURLs: async () => ["synnax://cluster/c1/schematic/s1"],
-    });
-    await act(async () => {});
-    expect(first.connect).not.toHaveBeenCalled();
-    // The flag is single-use: the hook clears it, so a later launch is handled normally.
-    const second = await setup({
-      getCurrentURLs: async () => ["synnax://cluster/c1/schematic/s1"],
-    });
-    await waitFor(() => expect(second.connect).toHaveBeenCalledWith("c1"));
-  });
-
   it("should be a no-op when the engine is not tauri", async () => {
     const getCurrentURLs = vi.fn(async () => ["synnax://cluster/c1/schematic/s1"]);
     const { connect } = await setup({ engine: "web", getCurrentURLs });
+    // Async effects start after a task queue flush, so wait one out before asserting.
+    await act(async () => await scheduler.flushTaskQueue());
     expect(getCurrentURLs).not.toHaveBeenCalled();
     expect(connect).not.toHaveBeenCalled();
   });
@@ -572,7 +560,14 @@ describe("useDeep", () => {
     });
     vi.useRealTimers();
     await waitFor(() =>
-      expect(h.statuses().some((s) => s.message.includes("Failed to open"))).toBe(true),
+      expect(h.statuses()).toContainEqual(
+        expect.objectContaining({
+          variant: "error",
+          name: "synnax://cluster/c1/range/r1",
+          message: "Failed to open link",
+          description: "Timed out waiting for the workspace to settle.",
+        }),
+      ),
     );
     expect(h.handlers.range).not.toHaveBeenCalled();
   });
@@ -658,6 +653,22 @@ describe("useDeep", () => {
     });
     await waitFor(() => expect(h.handlers.range).toHaveBeenCalled());
     expect(h.awaitingProject()).toBe(false);
+  });
+
+  it("should open a launch link that a reload cut short once a project is selected", async () => {
+    const deps = { getCurrentURLs: async () => ["synnax://cluster/c1/range/r1"] };
+    const first = await setupSettled({ projectSelected: false, deps });
+    await waitFor(() => expect(first.awaitingProject()).toBe(true));
+    const next = await setupSettled({ projectSelected: false, deps });
+    await waitFor(() => expect(next.awaitingProject()).toBe(true));
+    act(() => {
+      next.store.dispatch(Session.Project.select(next.projectKey));
+    });
+    await waitFor(() =>
+      expect(next.handlers.range).toHaveBeenCalledWith(
+        expect.objectContaining({ key: "r1" }),
+      ),
+    );
   });
 
   it("should hold a link until a panel is selected", async () => {

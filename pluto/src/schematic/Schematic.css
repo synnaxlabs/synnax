@@ -16,6 +16,8 @@
 }
 
 .pluto-schematic {
+    --xy-resize-background-color: var(--pluto-primary-z);
+
     .react-flow__node.selected .pluto-symbol-primitive {
         /* make an inset box shadow to simulate a background */
         box-shadow: 0 0 0 1000px var(--pluto-primary-z-20) inset !important;
@@ -27,6 +29,21 @@
 
     .react-flow__node.selected .react-flow__resize-control {
         display: block;
+    }
+
+    /* The node draws the ring, so the lines are clear grab zones that cover it. */
+    .react-flow__resize-control.line {
+        border-color: transparent;
+
+        &.left,
+        &.right {
+            width: 8px;
+        }
+
+        &.top,
+        &.bottom {
+            height: 8px;
+        }
     }
 
     .react-flow__handle {
@@ -83,9 +100,24 @@
             border-radius: 50%;
             z-index: 1;
         }
+
+        /* Lyra controls set their own z-index, which paints them over the handles.
+           Isolating each part of a symbol keeps the handles on top. */
+        & .pluto-symbol-primitive > :not(.react-flow__handle) {
+            isolation: isolate;
+        }
+
         .react-flow__node:focus {
             outline: none;
         }
+
+        /* After the focus rule, so a focused node keeps its ring. */
+        .react-flow__node.selected {
+            border-radius: var(--pluto-border-radius);
+            outline: 1px solid var(--pluto-primary-z-60);
+            outline-offset: 2px;
+        }
+
         & .react-flow__node.draggable:hover {
             .react-flow__handle {
                 border-color: var(--pluto-primary-z) !important;

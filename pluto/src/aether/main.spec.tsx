@@ -534,7 +534,7 @@ describe("Aether Main", () => {
       await waitFor(() => expect(leaf.fireAndForgetSpy).toHaveBeenCalledTimes(3));
     });
   });
-  describe("use hook", () => {
+  describe("use", () => {
     it("should call onAetherChange when worker updates state", async () => {
       const [Provider, root] = await newProvider();
       const onAetherChange = vi.fn();

@@ -81,7 +81,10 @@ describe("Version.use", () => {
         connParams: TEST_CLIENT_PARAMS,
       });
       const { result } = renderHook(
-        () => ({ version: Version.use(), connection: Synnax.useConnectionStatus() }),
+        () => ({
+          version: Version.use(),
+          connection: Synnax.useConnectionStatus(),
+        }),
         { wrapper },
       );
       await waitFor(() => expect(result.current.connection.variant).toBe("success"));

@@ -15,15 +15,14 @@ import (
 	"fmt"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
@@ -68,10 +67,6 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL - defaults to telem.Now]
 	Now func() telem.TimeStamp
-	// Search is the search index for fuzzy searching racks.
-	//
-	// [REQUIRED]
-	Search *search.Index
 	// AlertEveryNChecks controls dampening for dead rack alerts. After the initial
 	// alert when a rack goes down, subsequent alerts are only fired every N consecutive
 	// dead checks. Set to 1 to alert on every check (no dampening).
@@ -100,7 +95,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
 	c.Status = override.Nil(c.Status, other.Status)
-	c.Search = override.Nil(c.Search, other.Search)
 	c.HealthCheckInterval = override.Numeric(
 		c.HealthCheckInterval,
 		other.HealthCheckInterval,
@@ -118,7 +112,6 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("group", c.Group)
 	v.NotNil("host", c.HostProvider)
 	v.NotNil("status", c.Status)
-	v.NotNil("search", c.Search)
 	v.Positive("health", c.HealthCheckInterval)
 	return v.Error()
 }
@@ -129,6 +122,7 @@ type Service struct {
 	group           group.Group
 	monitor         *monitor
 	table           *gorp.Table[Key, Rack]
+	indexes         indexes
 	ServiceConfig
 	EmbeddedKey Key
 }
@@ -141,11 +135,12 @@ func OpenService(
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{ServiceConfig: cfg}
+	s = &Service{ServiceConfig: cfg, indexes: newIndexes()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Rack]{
-		DB: cfg.DB,
+		DB:      cfg.DB,
+		Indexes: s.indexes.all(),
 		Migrations: versions.NewMigrations(versions.MigrationsConfig{
 			HostProvider: cfg.HostProvider,
 			Status:       cfg.Status,
@@ -172,7 +167,6 @@ func OpenService(
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
-	cfg.Search.RegisterService(s)
 	if s.monitor, err = openMonitor(ctx, s.Child("monitor"), s); !ok(err, s.monitor) {
 		return nil, err
 	}
@@ -284,7 +278,7 @@ func (s *Service) newKey(ctx context.Context) (Key, error) {
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		search:       s.Search,
+		indexes:      s.indexes,
 		baseTX:       s.DB,
 		gorp:         s.table.NewRetrieve(),
 		hostProvider: s.HostProvider,

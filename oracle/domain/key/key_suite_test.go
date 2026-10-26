@@ -19,7 +19,7 @@ import (
 
 func TestKey(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Domain Key Suite")
+	RunSpecs(t, "Domain Key Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

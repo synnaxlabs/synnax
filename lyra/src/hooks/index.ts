@@ -13,6 +13,7 @@ export * from "@/hooks/useDebouncedCallback";
 export * from "@/hooks/useDestructors";
 export * from "@/hooks/useEffectCompare";
 export * from "@/hooks/useHold";
+export * from "@/hooks/useNow";
 export * from "@/hooks/useResize";
 export * from "@/hooks/useUniqueKey";
 export * from "@/hooks/useWheelScrollX";

@@ -7,21 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, DataType, type ranger } from "@synnaxlabs/client";
+import {
+  type channel,
+  DataType,
+  lineplot as lineplotClient,
+  type ranger,
+} from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { fireEvent, render, waitFor } from "@testing-library/react";
-import { type ReactElement, Suspense } from "react";
-import { beforeAll, describe, expect, it } from "vitest";
+import { color, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { act, fireEvent, render, renderHook, waitFor } from "@testing-library/react";
+import { type FC, type PropsWithChildren, type ReactElement, Suspense } from "react";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Channel } from "@/channel";
+import { LinePlot } from "@/lineplot";
 import { lineplot } from "@/lineplot/aether";
-import { LinePlot } from "@/lineplot/LinePlot";
-import { useRanges, useUndo, useYAxis } from "@/lineplot/queries";
 import { range } from "@/lineplot/range/aether";
-import { Suspended } from "@/lineplot/Suspended";
 import { Ranger } from "@/ranger";
+import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 import { canvasTest } from "@/vis/render/test";
 
@@ -44,9 +48,9 @@ const Source = ({ items }: SourceProps): ReactElement => {
 };
 
 const Probe = ({ plotKey }: { plotKey: string }): ReactElement => {
-  const { channels } = useYAxis({ key: plotKey, axisKey: "y1" });
-  const ranges = useRanges({ key: plotKey });
-  const { undo } = useUndo({ key: plotKey });
+  const { channels } = LinePlot.useYAxis({ key: plotKey, axisKey: "y1" });
+  const ranges = LinePlot.useRanges({ key: plotKey });
+  const { undo } = LinePlot.useUndo({ key: plotKey });
   return (
     <>
       <button onClick={undo}>Undo</button>
@@ -56,7 +60,16 @@ const Probe = ({ plotKey }: { plotKey: string }): ReactElement => {
   );
 };
 
+const LINE: lineplotClient.Line = {
+  key: "line",
+  color: color.construct("#00aaff"),
+  strokeWidth: 2,
+  aggregation: "min_max",
+  detail: "medium",
+};
+
 describe("LinePlot", () => {
+  let wrapper: FC<PropsWithChildren>;
   let projectKey: string;
   let channels: channel.Channel[];
   let rng: ranger.Range;
@@ -78,21 +91,24 @@ describe("LinePlot", () => {
     ]);
   });
 
+  beforeEach(async () => {
+    wrapper = await createAsyncSynnaxWrapper({
+      client,
+      additionalRegistry: { ...lineplot.REGISTRY, ...range.REGISTRY },
+      renderContext: canvasTest.record(),
+    });
+  });
+
   const renderPlot = async (items: Haul.Item[], editable = true) => {
     const plot = await client.lineplots.create(projectKey, { name: id.create() });
-    const wrapper = await createAsyncSynnaxWrapper({
-      client,
-      renderContext: canvasTest.record(),
-      additionalRegistry: { ...lineplot.REGISTRY, ...range.REGISTRY },
-    });
     const result = render(
       <Haul.Provider>
         <Source items={items} />
         <Suspense fallback={null}>
-          <Suspended linePlotKey={plot.key}>
-            <LinePlot aetherKey="plot" editable={editable} />
+          <LinePlot.Suspended linePlotKey={plot.key}>
+            <LinePlot.LinePlot aetherKey="plot" editable={editable} />
             <Probe plotKey={plot.key} />
-          </Suspended>
+          </LinePlot.Suspended>
         </Suspense>
       </Haul.Provider>,
       { wrapper },
@@ -114,6 +130,33 @@ describe("LinePlot", () => {
     };
     return { ...result, drop, xAxis };
   };
+
+  const createPlot = async (lines: lineplotClient.Line[] = []): Promise<string> => {
+    const { key } = await client.lineplots.create(projectKey, { name: id.create() });
+    await renderHookSuspended(() => LinePlot.use({ key }), { wrapper });
+    if (lines.length === 0) return key;
+    const { result } = renderHook(() => LinePlot.useDispatch(), { wrapper });
+    await act(async () => {
+      await result.current.dispatchAsync({
+        key,
+        actions: lines.map((line) => lineplotClient.setLine({ line })),
+      });
+    });
+    return key;
+  };
+
+  const plot = (
+    key: string,
+    hold: boolean,
+    onViewportChange: LinePlot.LinePlotProps["onViewportChange"],
+  ): ReactElement => (
+    <LinePlot.Scope.Provider value={key}>
+      <LinePlot.LinePlot hold={hold} onViewportChange={onViewportChange} />
+    </LinePlot.Scope.Provider>
+  );
+
+  const resets = (onViewportChange: ReturnType<typeof vi.fn>): number =>
+    onViewportChange.mock.calls.filter(([e]) => e.mode === "zoomReset").length;
 
   describe("range drop", () => {
     it("should add a range dropped on the plot area to the first X axis", async () => {
@@ -212,6 +255,31 @@ describe("LinePlot", () => {
           timeout: 300,
         }),
       ).rejects.toThrow();
+    });
+  });
+
+  describe("viewport", () => {
+    it("should reset the viewport once when the first line is added", async () => {
+      const key = await createPlot();
+      const onViewportChange = vi.fn();
+      render(plot(key, false, onViewportChange), { wrapper });
+      const { result } = renderHook(() => LinePlot.useDispatch(), { wrapper });
+      await act(async () => {
+        await result.current.dispatchAsync({
+          key,
+          actions: [lineplotClient.setLine({ line: LINE })],
+        });
+      });
+      await waitFor(() => expect(resets(onViewportChange)).toEqual(1));
+    });
+
+    it("should reset the viewport once when hold is released", async () => {
+      const key = await createPlot([LINE]);
+      const onViewportChange = vi.fn();
+      const { rerender } = render(plot(key, false, onViewportChange), { wrapper });
+      rerender(plot(key, true, onViewportChange));
+      rerender(plot(key, false, onViewportChange));
+      await waitFor(() => expect(resets(onViewportChange)).toEqual(1));
     });
   });
 });

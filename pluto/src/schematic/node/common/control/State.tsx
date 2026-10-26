@@ -11,7 +11,6 @@ import { type channel, schematic } from "@synnaxlabs/client";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { direction, primitive } from "@synnaxlabs/x";
-import { useMemo } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";
 import { Telem } from "@/schematic/node/common/telem";
@@ -41,17 +40,11 @@ const Internal = ({
   channel = 0,
   ...rest
 }: InternalProps) => {
-  const chip = useMemo(
-    () => ({
-      source: control.authoritySource({ channel }),
-      sink: Telem.chipSink({ channel, authority }),
-    }),
-    [channel, authority],
-  );
-  const indicator = useMemo(
-    () => ({ statusSource: control.authoritySource({ channel }) }),
-    [channel],
-  );
+  const chip = {
+    source: control.authoritySource({ channel }),
+    sink: Telem.chipSink({ channel, authority }),
+  };
+  const indicator = { statusSource: control.authoritySource({ channel }) };
   return (
     <Flex.Box
       direction={direction.swap(orientation)}

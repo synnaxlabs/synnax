@@ -23,7 +23,8 @@
     flex-grow: 1;
     min-height: 0;
 
-    &[hidden] {
+    /* Find in page can still reach the text of a panel hidden until found. */
+    &[hidden]:not([hidden="until-found"]) {
         display: none !important;
     }
 }
@@ -45,7 +46,7 @@
         display: none;
     }
 
-    &.pluto--direction-x {
+    &.pluto--direction-x:not(.pluto--wrap) {
         height: 0 !important;
     }
 }
@@ -125,6 +126,12 @@
     &.pluto-tabs__selector--clipped-end {
         --pluto-tabs-fade-end: var(--pluto-tabs-fade-width, 6rem);
     }
+}
+
+/* A wrapping strip grows to hold every tab, so it never scrolls or fades. */
+.pluto-tabs__selector.pluto--wrap {
+    overflow: visible;
+    mask-image: none;
 }
 
 .pluto-tabs__selector--align-center .pluto-tabs__tab {
@@ -301,18 +308,12 @@
             }
         }
 
-        /* Subtle tier, outranking the control-tier default. */
+        /* A borderless tab draws its selected border as a ring. */
         &.pluto--selected {
-            --pluto-bg: var(--pluto-selected-subtle-bg);
-            --pluto-hover-bg: var(--pluto-selected-subtle-hover-bg);
-            --pluto-active-bg: var(--pluto-selected-subtle-active-bg);
             box-shadow: inset 0 0 0 var(--pluto-border-width)
                 var(--pluto-selected-subtle-border-color);
 
             &.pluto--alt-color {
-                --pluto-bg: var(--pluto-selected-bg);
-                --pluto-hover-bg: var(--pluto-selected-hover-bg);
-                --pluto-active-bg: var(--pluto-selected-active-bg);
                 box-shadow: inset 0 0 0 var(--pluto-border-width)
                     var(--pluto-selected-border-color);
             }
@@ -357,12 +358,27 @@
     }
 }
 
+/* A selected default tab or chip fills in the subtle tier, outranking the control-tier
+   default. A focused one keeps the control tier. */
+:is(.pluto-tabs__selector--default, .pluto-tabs__selector--chip)
+    .pluto-tabs__tab.pluto--selected {
+    --pluto-bg: var(--pluto-selected-subtle-bg);
+    --pluto-hover-bg: var(--pluto-selected-subtle-hover-bg);
+    --pluto-active-bg: var(--pluto-selected-subtle-active-bg);
+
+    &.pluto--alt-color {
+        --pluto-bg: var(--pluto-selected-bg);
+        --pluto-hover-bg: var(--pluto-selected-hover-bg);
+        --pluto-active-bg: var(--pluto-selected-active-bg);
+    }
+}
+
 /* Pills rest at a fixed width, so a wider selected floor never pads a short label. */
 .pluto-tabs__selector--pill {
     --pluto-tabs-selected-min-width: 20rem;
 }
 
-.pluto-tabs__selector--pill .pluto-tabs__tab {
+:is(.pluto-tabs__selector--pill, .pluto-tabs__selector--chip) .pluto-tabs__tab {
     padding: 0 2rem;
     transition:
         background 0.15s ease-in-out,
@@ -392,6 +408,27 @@
     --pluto-border-color: var(--pluto-gray-l7);
     --pluto-hover-border-color: var(--pluto-gray-l8);
     --pluto-active-border-color: var(--pluto-gray-l8);
+}
+
+/* An unselected chip rests on a low fill with a quiet outline, so it reads as a
+   tab while only the selected chip draws the eye. */
+.pluto-tabs__selector--chip .pluto-tabs__tab:not(.pluto--selected) {
+    --pluto-bg: var(--pluto-gray-l2);
+    --pluto-border-color: var(--pluto-gray-l4);
+    --pluto-hover-border-color: var(--pluto-gray-l6);
+    --pluto-active-border-color: var(--pluto-gray-l6);
+}
+
+.pluto-tabs__selector--chip .pluto-tabs__tab.pluto--selected {
+    --pluto-border-color: var(--pluto-selected-subtle-border-color);
+    --pluto-hover-border-color: var(--pluto-selected-subtle-border-color);
+    --pluto-active-border-color: var(--pluto-selected-subtle-border-color);
+
+    &.pluto--alt-color {
+        --pluto-border-color: var(--pluto-selected-border-color);
+        --pluto-hover-border-color: var(--pluto-selected-border-color);
+        --pluto-active-border-color: var(--pluto-selected-border-color);
+    }
 }
 
 .pluto-tabs__tab .pluto-tabs__unsaved {

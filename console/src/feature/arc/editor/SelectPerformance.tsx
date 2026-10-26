@@ -25,39 +25,41 @@ const FILLED: Record<ManualPerformance, number> = { low: 1, medium: 2, high: 3 }
 const BAR_HEIGHTS = [6, 10, 14];
 const BAR_CLASS = CSS.BE("performance-select", "bar");
 
-interface MeterProps {
-  level: ManualPerformance;
-}
+/** Creates an icon that shows a level as three rising bars, filled up to the level. */
+const createMeter = (level: ManualPerformance): Icon.FC =>
+  Icon.wrapSVGIcon(
+    (props) => (
+      <svg viewBox="0 0 16 16" {...props}>
+        {BAR_HEIGHTS.map((height, i) => (
+          <rect
+            key={height}
+            className={CSS.cls(BAR_CLASS, i < FILLED[level] && CSS.M("filled"))}
+            x={1.5 + i * 5}
+            y={15 - height}
+            width={3}
+            height={height}
+            rx={1}
+          />
+        ))}
+      </svg>
+    ),
+    `performance-${level}`,
+    { className: CSS.BM("performance-select-meter", level) },
+  );
 
-/** Shows a level as three rising bars, filled up to the level. */
-const Meter = ({ level }: MeterProps): ReactElement => (
-  <svg
-    className={CSS.cls(
-      CSS.BE("performance-select", "meter"),
-      CSS.BM("performance-select-meter", level),
-    )}
-    viewBox="0 0 16 16"
-    aria-hidden
-  >
-    {BAR_HEIGHTS.map((height, i) => (
-      <rect
-        key={height}
-        className={CSS.cls(BAR_CLASS, i < FILLED[level] && CSS.M("filled"))}
-        x={1.5 + i * 5}
-        y={15 - height}
-        width={3}
-        height={height}
-        rx={1}
-      />
-    ))}
-  </svg>
-);
+const LowMeter = createMeter("low");
+const MediumMeter = createMeter("medium");
+const HighMeter = createMeter("high");
 
-const AUTO_CLASS = CSS.BE("performance-select", "auto");
+const GLYPHS: Record<arc.task.Performance, Icon.ReactElement> = {
+  auto: <Icon.Auto className={CSS.BE("performance-select", "auto")} />,
+  low: <LowMeter />,
+  medium: <MediumMeter />,
+  high: <HighMeter />,
+};
 
 interface Level {
   key: arc.task.Performance;
-  glyph: ReactElement;
   name: string;
   description: string;
 }
@@ -65,25 +67,21 @@ interface Level {
 const LEVELS: Level[] = [
   {
     key: "auto",
-    glyph: <Icon.Auto className={AUTO_CLASS} />,
     name: "Auto",
     description: "Picks a strategy from the program's timers.",
   },
   {
     key: "low",
-    glyph: <Meter level="low" />,
     name: "Low",
     description: "Least CPU. A fire can come a millisecond or more late.",
   },
   {
     key: "medium",
-    glyph: <Meter level="medium" />,
     name: "Medium",
     description: "Some CPU. Holds timing closely for most control loops.",
   },
   {
     key: "high",
-    glyph: <Meter level="high" />,
     name: "High",
     description: "Up to a full CPU core. The most precise timing.",
   },
@@ -93,7 +91,7 @@ const ITEM_CLASS = CSS.BE("performance-select", "item");
 const NAME_CLASS = CSS.BE("performance-select", "name");
 const DESCRIPTION_CLASS = CSS.BE("performance-select", "description");
 
-const ITEMS = LEVELS.map(({ key, glyph, name, description }) => (
+const ITEMS = LEVELS.map(({ key, name, description }) => (
   <Select.Item<arc.task.Performance>
     key={key}
     itemKey={key}
@@ -103,7 +101,7 @@ const ITEMS = LEVELS.map(({ key, glyph, name, description }) => (
     align="start"
   >
     <Text.Text>
-      {glyph}
+      {GLYPHS[key]}
       <span className={NAME_CLASS}>{name}</span>
     </Text.Text>
     <Text.Text className={DESCRIPTION_CLASS} color={9} level="small" wrap>
@@ -112,24 +110,42 @@ const ITEMS = LEVELS.map(({ key, glyph, name, description }) => (
   </Select.Item>
 ));
 
-const TRIGGER_PROPS = { className: CSS.BE("performance-select", "trigger") };
+const TRIGGER_PROPS = {
+  className: CSS.BE("performance-select", "trigger"),
+  collapsible: true,
+};
 const DIALOG_PROPS = { className: CSS.BE("performance-select", "dialog") };
 
 export interface SelectPerformanceProps extends Omit<
   Select.SingleSimpleProps<arc.task.Performance>,
-  "children" | "resourceName" | "allowNone" | "variant" | "triggerProps" | "dialogProps"
-> {}
+  | "children"
+  | "resourceName"
+  | "allowNone"
+  | "variant"
+  | "value"
+  | "icon"
+  | "triggerProps"
+  | "dialogProps"
+> {
+  value: arc.task.Performance;
+}
 
-/** Selects the performance level of an Arc task. */
+/**
+ * Selects the performance level of an Arc task. The caller sets its width; when narrow
+ * it shows only the glyph of the selected level.
+ */
 export const SelectPerformance = ({
   className,
+  value,
   ...rest
 }: SelectPerformanceProps): ReactElement => (
   <Select.Simple<arc.task.Performance>
     {...rest}
+    value={value}
     className={CSS.cls(CSS.B("performance-select"), className)}
     allowNone={false}
     variant="floating"
+    icon={GLYPHS[value]}
     triggerProps={TRIGGER_PROPS}
     dialogProps={DIALOG_PROPS}
     resourceName="performance"

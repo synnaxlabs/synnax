@@ -21,6 +21,7 @@ import path from "node:path";
 
 import { type Plugin } from "vite";
 
+import { compileEmitted } from "./compiler.js";
 import { tscBin, TSCONFIG } from "./declarations.js";
 import { discoverModules } from "./modules.js";
 
@@ -104,9 +105,10 @@ const checkEntries = (outDir: string, modules: string[]): void => {
 /**
  * Builds one JavaScript file and declaration per source file, with fully specified
  * imports and stylesheets beside their modules. When `modules` is set, rejects module
- * entries that import for side effects.
+ * entries that import for side effects. When `reactCompiled` is set, runs the React
+ * Compiler over every emitted file.
  */
-export const transpile = (modules: boolean): Plugin => {
+export const transpile = (modules: boolean, reactCompiled: boolean): Plugin => {
   let root = "";
   let outDir = "";
   let entries: string[] = [];
@@ -126,12 +128,19 @@ export const transpile = (modules: boolean): Plugin => {
       this.addWatchFile(src);
       for (const file of files(src, () => true)) this.addWatchFile(file);
     },
-    closeBundle: () => {
+    closeBundle: async () => {
       const start = performance.now();
-      execFileSync(process.execPath, [tscBin(), "-p", TSCONFIG, "--outDir", outDir], {
+      const args = ["-p", TSCONFIG, "--outDir", outDir];
+      // The compiler finds components by their JSX, so tsc must leave it in place.
+      if (reactCompiled) args.push("--jsx", "preserve");
+      execFileSync(process.execPath, [tscBin(), ...args], {
         cwd: root,
         stdio: "inherit",
       });
+      if (reactCompiled)
+        await Promise.all(
+          files(outDir, (name) => /\.jsx?$/.test(name)).map(compileEmitted),
+        );
       fullySpecify(outDir);
       copyStylesheets(path.join(root, "src"), outDir);
       checkEntries(outDir, entries);

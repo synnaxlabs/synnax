@@ -11,15 +11,17 @@ import "@/feature/schematic/toolbar/Toolbar.css";
 
 import { schematic } from "@synnaxlabs/client";
 import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
+import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Panel as PlutoPanel, Schematic } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { Control } from "@/feature/schematic/toolbar/Control";
 import { Properties } from "@/feature/schematic/toolbar/Properties";
-import { Symbols } from "@/feature/schematic/toolbar/Symbols";
+import { Symbols, type SymbolsChangeProps } from "@/feature/schematic/toolbar/Symbols";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -51,6 +53,102 @@ const NotEditableContent = (): ReactElement => {
   );
 };
 
+// Group boxes come only from grouping, and a locked group shields its members.
+const useChangeableSymbols = (
+  selected: string[],
+): Map<string, Schematic.Node.Config> => {
+  const configs = Schematic.useConfigs({ keys: selected });
+  const parentOf = Schematic.useParentOf();
+  const shielded = Schematic.Group.shielded(
+    [...configs.keys()],
+    parentOf,
+    Object.fromEntries(configs),
+  );
+  const out = new Map<string, Schematic.Node.Config>();
+  configs.forEach((config, key) => {
+    if (
+      Schematic.Node.isConfig(config) &&
+      config.variant !== Schematic.Node.GroupBox.VARIANT &&
+      !shielded.has(key)
+    )
+      out.set(key, config);
+  });
+  return out;
+};
+
+interface SymbolName {
+  /** The symbol that every config draws, if they all draw the same one. */
+  symbol?: string;
+  name: string;
+}
+
+const useSymbolName = (configs: Map<string, Schematic.Node.Config>): SymbolName => {
+  const symbolKeys = new Set(Array.from(configs.values(), Schematic.Node.symbolKey));
+  const shared = symbolKeys.size === 1 ? configs.values().next().value : undefined;
+  const specKey =
+    shared != null && Schematic.Node.isCustomConfig(shared) ? shared.specKey : null;
+  const { symbol: custom } = Schematic.Symbol.useResolved(specKey);
+  if (shared == null) return { name: "Mixed" };
+  if (specKey != null) return { symbol: specKey, name: custom?.name ?? "" };
+  const spec = Schematic.Node.resolveSpec(shared.variant);
+  return { symbol: shared.variant, name: spec.label ?? spec.name };
+};
+
+interface SymbolSummaryProps {
+  name: string;
+  changing: boolean;
+  onChangingChange: (changing: boolean) => void;
+}
+
+const SymbolSummary = ({
+  name,
+  changing,
+  onChangingChange,
+}: SymbolSummaryProps): ReactElement => (
+  <Flex.Box x align="center" gap="small" className={CSS.BE("schematic", "symbol")}>
+    {changing ? (
+      <>
+        <Flex.Box
+          x
+          align="center"
+          gap="small"
+          className={CSS.BE("schematic", "change")}
+        >
+          <Text.Text level="small" weight={500} color={11}>
+            Changing {name}
+          </Text.Text>
+          <Text.Text level="small" color={9}>
+            Click a symbol to change to it
+          </Text.Text>
+        </Flex.Box>
+        <Button.Button
+          variant="outlined"
+          size="small"
+          aria-label="Cancel symbol change"
+          onClick={() => onChangingChange(false)}
+        >
+          Cancel
+        </Button.Button>
+      </>
+    ) : (
+      <>
+        <Text.Text level="p" weight={500} color={10}>
+          {name}
+        </Text.Text>
+        <Button.Button
+          variant="text"
+          size="small"
+          textColor="var(--pluto-primary-p1)"
+          aria-label="Change symbol"
+          onClick={() => onChangingChange(true)}
+        >
+          Change
+        </Button.Button>
+      </>
+    )}
+  </Flex.Box>
+);
+
 const Internal = (): ReactElement => {
   const key = Schematic.useKey();
   const dispatch = Session.useDispatch();
@@ -58,41 +156,62 @@ const Internal = (): ReactElement => {
   const name = Schematic.useName();
   const { isCurrentlyEditable, canEdit } = Session.Schematic.useSelectEditable();
   const selected = Session.Schematic.useSelectSelected();
+  const changeable = useChangeableSymbols(selected);
+  const current = useSymbolName(changeable);
+  const changing = Session.Schematic.useSelectChanging();
+  const changeSymbol = Schematic.useChangeSymbol();
+  const setChanging = (changing: boolean) =>
+    dispatch(Session.Schematic.setChanging({ key, changing }));
   const singleSelectedConfig = Schematic.useElementConfig({
     elKey: selected.length === 1 ? selected[0] : "",
   });
+  const change: SymbolsChangeProps | undefined = changing
+    ? {
+        value: current.symbol,
+        onChange: (input) => {
+          changeSymbol([...changeable.keys()], input);
+          setChanging(false);
+        },
+      }
+    : undefined;
   const singleSelectedName =
     selected.length === 1 &&
     singleSelectedConfig != null &&
     "label" in singleSelectedConfig
       ? (singleSelectedConfig.label?.label ?? null)
       : null;
-  const handleTabSelect = useCallback(
-    (tabKey: string): void => {
-      dispatch(
-        Session.Schematic.selectToolbarTab({
-          key,
-          tab: tabKey as Session.Schematic.ToolbarTab,
-        }),
-      );
-    },
-    [dispatch],
-  );
+  const handleTabSelect = (tabKey: string): void => {
+    dispatch(
+      Session.Schematic.selectToolbarTab({
+        key,
+        tab: tabKey as Session.Schematic.ToolbarTab,
+      }),
+    );
+  };
   return (
     <Base.Content>
       <Tabs.Frame value={activeTab} onChange={handleTabSelect} grow>
         <Base.Header>
-          <Breadcrumb.Breadcrumb level="h5">
-            <Breadcrumb.Segment weight={500} color={10} level="h5">
-              <Icon.Schematic />
-              {name}
-            </Breadcrumb.Segment>
-            {singleSelectedName !== null && (
-              <Breadcrumb.Segment weight={400} color={9} level="small">
-                {singleSelectedName}
+          <Flex.Box x align="center">
+            <Breadcrumb.Breadcrumb level="h5">
+              <Breadcrumb.Segment weight={500} color={10} level="h5">
+                <Icon.Schematic />
+                {name}
               </Breadcrumb.Segment>
+              {singleSelectedName !== null && (
+                <Breadcrumb.Segment weight={400} color={9} level="small">
+                  {singleSelectedName}
+                </Breadcrumb.Segment>
+              )}
+            </Breadcrumb.Breadcrumb>
+            {isCurrentlyEditable && changeable.size > 0 && (
+              <SymbolSummary
+                name={current.name}
+                changing={changing}
+                onChangingChange={setChanging}
+              />
             )}
-          </Breadcrumb.Breadcrumb>
+          </Flex.Box>
           <Flex.Box x align="center" empty>
             <Flex.Box
               x
@@ -118,7 +237,7 @@ const Internal = (): ReactElement => {
           <>
             <Tabs.Content itemKey="symbols">
               <Errors.SuspenseBoundary>
-                <Symbols />
+                <Symbols change={change} />
               </Errors.SuspenseBoundary>
             </Tabs.Content>
             <Tabs.Content itemKey="properties">

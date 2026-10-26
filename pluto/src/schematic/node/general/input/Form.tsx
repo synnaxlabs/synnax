@@ -18,6 +18,7 @@ import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { type ColorFallbacks, type FormProps } from "@/schematic/node/spec";
 import { Properties } from "@/vis/properties";
+import { Staleness } from "@/vis/staleness";
 interface InputTelemFormProps {
   path: string;
 }
@@ -32,16 +33,17 @@ const InputTelemForm = ({ path }: InputTelemFormProps): ReactElement => {
       Pick<schematic.InputNodeConfig, "commandChannel" | "control" | "disabled">
     >(path);
   const handleSinkChange = (v: channel.Key | null): void => {
-    v ??= 0;
+    const commandChannel = v ?? 0;
     onChange({
       ...value,
-      commandChannel: v,
-      disabled: v === 0,
+      commandChannel,
+      disabled: commandChannel === 0,
     });
   };
 
   return (
     <Base.Sections x>
+      <Form.StateSection filter={(ch) => ch.dataType.isVariable} />
       <Base.Section title="Command">
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
@@ -52,6 +54,9 @@ const InputTelemForm = ({ path }: InputTelemFormProps): ReactElement => {
         </Input.Item>
         <Form.ActivationDelayField />
         <Form.ControlChipField />
+      </Base.Section>
+      <Base.Section title="Staleness">
+        <Staleness.Fields />
       </Base.Section>
     </Base.Sections>
   );
@@ -67,6 +72,12 @@ export const InputForm = ({ tab, onTabChange }: FormProps): ReactElement => (
         <Base.Section title="Appearance">
           <Form.FillField fallback={colorFallbacks.fillColor} />
           <Form.SizeField />
+          <Base.NumericField
+            path="inlineSize"
+            label="Width"
+            padHelpText={false}
+            inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
+          />
         </Base.Section>
       </Base.Sections>
     </Tabs.Content>

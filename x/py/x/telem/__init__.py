@@ -40,8 +40,15 @@ from x.telem.telem import (
     convert_time_units,
     seconds_linspace,
 )
+from x.telem.types_gen import (
+    Aggregation,
+    LimitReduction,
+    Reduction,
+    StrideReduction,
+)
 
 __all__ = [
+    "Aggregation",
     "Alignment",
     "Authority",
     "Bounds",
@@ -57,11 +64,14 @@ __all__ = [
     "CrudeTimeStamp",
     "DataType",
     "Density",
+    "LimitReduction",
     "MultiSeries",
     "Rate",
+    "Reduction",
     "SampleValue",
     "Series",
     "Size",
+    "StrideReduction",
     "Subject",
     "TimeRange",
     "TimeSpan",

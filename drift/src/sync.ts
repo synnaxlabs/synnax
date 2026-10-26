@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
-import { dimensions, unique, xy } from "@synnaxlabs/x";
+import { dimensions, unique } from "@synnaxlabs/x";
 
 import { group, groupEnd, log } from "@/debug";
 import { type MainChecker, type Manager, type Properties } from "@/runtime";
@@ -31,7 +31,6 @@ const purgeWinStateToProps = (
 ): Omit<WindowProps, "key"> => {
   const {
     centerCount,
-    processCount,
     focusCount,
     stage,
     key,
@@ -135,18 +134,7 @@ const syncCurrent = async (
     changes.push([
       "visible",
       { prev: prevWin.visible, next },
-      async () => {
-        await runtime.setVisible(next);
-        if (!next) return;
-        let position = nextPosition;
-        position ??= (await runtime.getProps()).position;
-        if (position == null) return;
-        // This is very much a hack - some runtimes (tauri) won't emit window-created
-        // events, so we move the window a bit to emit events in order to do things like
-        // hide traffic lights
-        await runtime.setPosition(xy.translate(position, { x: 1, y: 1 }));
-        await runtime.setPosition(position);
-      },
+      async () => await runtime.setVisible(next),
     ]);
 
   // If we're making the window invisible, we should make other changes AFTER

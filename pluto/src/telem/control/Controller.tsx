@@ -10,7 +10,7 @@
 import { type channel } from "@synnaxlabs/client";
 import { context } from "@synnaxlabs/lyra/context";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
-import { type PropsWithChildren, type ReactElement, useEffect, useMemo } from "react";
+import { type PropsWithChildren, type ReactElement, useEffect } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
@@ -65,16 +65,13 @@ export const Controller = ({
   }, [memoProps, setState]);
   useEffect(() => () => onStatusChange?.("released"), []);
   const key = path[path.length - 1];
-  const value = useMemo(
-    () => ({
-      key,
-      needsControlOf,
-      acquire: methods.acquire,
-      release: methods.release,
-      status: status ?? "released",
-    }),
-    [key, needsControlOf, methods.acquire, methods.release, status],
-  );
+  const value = {
+    key,
+    needsControlOf,
+    acquire: methods.acquire,
+    release: methods.release,
+    status: status ?? "released",
+  };
   return (
     <Context value={value}>
       <Aether.Composite path={path}>{children}</Aether.Composite>

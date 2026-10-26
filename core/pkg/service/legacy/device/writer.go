@@ -11,13 +11,12 @@ package device
 
 import (
 	"context"
-	"fmt"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -41,7 +40,7 @@ func resolveStatus(d *Device, provided *Status) *Status {
 			Name:    d.Name,
 			Time:    telem.Now(),
 			Variant: status.VariantWarning,
-			Message: fmt.Sprintf("%s state unknown", d.Name),
+			Message: "Device status unknown",
 			Details: StatusDetails{Rack: d.Rack, Device: d.Key},
 		}
 	}

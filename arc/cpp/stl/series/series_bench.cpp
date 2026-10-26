@@ -64,14 +64,13 @@ struct Fixture {
         instance(setup()) {}
 
     wasmtime::Func get(const std::string &name) {
-        return std::get<wasmtime::Func>(*instance.get(store, name));
+        return std::get<wasmtime::Func>(instance.get(store, name).value());
     }
 
 private:
     wasmtime::Instance setup() {
         mod.bind_to(linker, store);
-        auto wasm_mod = wasmtime::Module::compile(engine, std::string(LOGICAL_WAT))
-                            .unwrap();
+        auto wasm_mod = wasmtime::Module::compile(engine, LOGICAL_WAT).unwrap();
         return linker.instantiate(store, wasm_mod).unwrap();
     }
 };

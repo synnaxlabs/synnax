@@ -129,14 +129,16 @@ jobs:
             '$base | .version = $version | .plugins.updater.endpoints = [$endpoint]
               | .build.beforeBuildCommand = $build' \
             > src-tauri/release.tauri.conf.json
-          echo "release=${RELEASE}" >> $GITHUB_OUTPUT
-          echo "app_version=${APP_VERSION}" >> $GITHUB_OUTPUT
+          echo "release=${RELEASE}" >> "$GITHUB_OUTPUT"
+          echo "app_version=${APP_VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Install Rust
         uses: actions-rust-lang/setup-rust-toolchain@v2
         with:
           cache-workspaces: console/src-tauri -> target
           cache-shared-key: ${{ runner.os }}-${{ env.PRODUCT }}
+          # A cache save deletes rustup from ~/.cargo/bin, which the build bots keep.
+          cache-bin: false
 
       - name: Download Core binary
         if: inputs.desktop

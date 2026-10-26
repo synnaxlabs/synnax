@@ -14,11 +14,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -43,7 +42,7 @@ var _ = Describe("WorkspaceObjectsMigration", func() {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  "Policy",
-			Migrations: []migrate.Migration{v1.WorkspaceObjectsMigration},
+			Migrations: []gorp.Migration{v1.WorkspaceObjectsMigration},
 		})).To(Succeed())
 		var got v1.Policy
 		Expect(gorp.NewRetrieve[v1.Key, v1.Policy]().
@@ -66,7 +65,7 @@ var _ = Describe("NameMigration", func() {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  "Policy",
-			Migrations: []migrate.Migration{v1.NameMigration},
+			Migrations: []gorp.Migration{v1.NameMigration},
 		})).To(Succeed())
 		var out v1.Policy
 		Expect(gorp.NewRetrieve[v1.Key, v1.Policy]().

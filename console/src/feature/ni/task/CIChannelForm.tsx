@@ -104,6 +104,7 @@ const EdgeField = Form.buildSelectField<CIEdge>({
   fieldProps: { label: "Starting edge" },
   inputProps: {
     resourceName: "starting edge",
+    searchName: "edge",
     children: Task.selectItems(CI_EDGE_NAMES),
   },
 });
@@ -113,6 +114,7 @@ const StartingEdgeField = Form.buildSelectField<CIEdge>({
   fieldProps: { label: "Starting edge" },
   inputProps: {
     resourceName: "starting edge",
+    searchName: "edge",
     children: Task.selectItems(CI_EDGE_NAMES),
   },
 });
@@ -137,6 +139,7 @@ const CountDirectionField = Form.buildSelectField<CICountDirection>({
   fieldProps: { label: "Count direction" },
   inputProps: {
     resourceName: "count direction",
+    searchName: "direction",
     children: Task.selectItems(CI_COUNT_DIRECTION_NAMES),
   },
 });
@@ -159,6 +162,7 @@ const MeasMethodField = Form.buildSelectField<CIMeasMethod>({
   fieldProps: { label: "Measurement method" },
   inputProps: {
     resourceName: "measurement method",
+    searchName: "method",
     children: Task.selectItems(CI_MEAS_METHOD_NAMES),
   },
 });
@@ -205,6 +209,7 @@ const TerminalField = Form.buildSelectField<string>({
   fieldProps: { label: "Input terminal" },
   inputProps: {
     resourceName: "input terminal",
+    searchName: "terminal",
     allowNone: true,
     children: COUNTER_TERMINAL_ITEMS,
   },
@@ -233,6 +238,7 @@ const TerminalAField = Form.buildSelectField<string>({
   fieldProps: { label: "Input terminal A" },
   inputProps: {
     resourceName: "input terminal A",
+    searchName: "terminal",
     allowNone: true,
     children: COUNTER_TERMINAL_ITEMS,
   },
@@ -243,6 +249,7 @@ const TerminalBField = Form.buildSelectField<string>({
   fieldProps: { label: "Input terminal B" },
   inputProps: {
     resourceName: "input terminal B",
+    searchName: "terminal",
     allowNone: true,
     children: COUNTER_TERMINAL_ITEMS,
   },
@@ -260,6 +267,7 @@ const DecodingTypeField = Form.buildSelectField<CIDecodingType>({
   fieldProps: { label: "Decoding type" },
   inputProps: {
     resourceName: "decoding type",
+    searchName: "type",
     children: Task.selectItems(CI_DECODING_TYPE_NAMES),
   },
 });
@@ -367,6 +375,7 @@ const TerminalZField: FC<{ path: string; disabled?: boolean }> = ({
         allowNone
         disabled={disabled}
         resourceName="input terminal Z"
+        searchName="terminal"
       >
         {COUNTER_TERMINAL_ITEMS}
       </Select.Simple>
@@ -421,21 +430,74 @@ const useZIndexFieldsDisabled = (prefix: string) => {
   return !zIndexEnabled;
 };
 
+const FrequencyForm: FC<FormProps> = ({ prefix }) => {
+  const { showMeasTime, showDivisor } = useMeasMethodVisibility(prefix);
+  return (
+    <>
+      <MinMaxValueFields path={prefix} />
+      <EdgeField path={prefix} />
+      <UnitsField path={prefix} />
+      <TerminalField path={prefix} />
+      <MeasMethodField path={prefix} />
+      {showMeasTime && <MeasTimeField path={prefix} />}
+      {showDivisor && <DivisorField path={prefix} />}
+    </>
+  );
+};
+
+const PeriodForm: FC<FormProps> = ({ prefix }) => {
+  const { showMeasTime, showDivisor } = useMeasMethodVisibility(prefix);
+  return (
+    <>
+      <MinMaxValueFields path={prefix} />
+      <StartingEdgeField path={prefix} />
+      <PeriodUnitsField path={prefix} />
+      <TerminalField path={prefix} />
+      <MeasMethodField path={prefix} />
+      {showMeasTime && <MeasTimeField path={prefix} />}
+      {showDivisor && <DivisorField path={prefix} />}
+    </>
+  );
+};
+
+const LinearPositionForm: FC<FormProps> = ({ prefix }) => {
+  const zIndexFieldsDisabled = useZIndexFieldsDisabled(prefix);
+  return (
+    <>
+      <InitialPosField path={prefix} />
+      <DistPerPulseField path={prefix} />
+      <LinearPositionUnitsField path={prefix} />
+      <TerminalAField path={prefix} />
+      <TerminalBField path={prefix} />
+      <DecodingTypeField path={prefix} />
+      <ZIndexEnabledField path={prefix} />
+      <ZIndexValField path={prefix} disabled={zIndexFieldsDisabled} />
+      <ZIndexPhaseField path={prefix} disabled={zIndexFieldsDisabled} />
+      <TerminalZField path={prefix} disabled={zIndexFieldsDisabled} />
+    </>
+  );
+};
+
+const AngularPositionForm: FC<FormProps> = ({ prefix }) => {
+  const zIndexFieldsDisabled = useZIndexFieldsDisabled(prefix);
+  return (
+    <>
+      <PulsesPerRevField path={prefix} />
+      <InitialAngleField path={prefix} />
+      <AngularPositionUnitsField path={prefix} />
+      <TerminalAField path={prefix} />
+      <TerminalBField path={prefix} />
+      <DecodingTypeField path={prefix} />
+      <ZIndexEnabledField path={prefix} />
+      <ZIndexValField path={prefix} disabled={zIndexFieldsDisabled} />
+      <ZIndexPhaseField path={prefix} disabled={zIndexFieldsDisabled} />
+      <TerminalZField path={prefix} disabled={zIndexFieldsDisabled} />
+    </>
+  );
+};
+
 const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
-  ci_frequency: ({ prefix }) => {
-    const { showMeasTime, showDivisor } = useMeasMethodVisibility(prefix);
-    return (
-      <>
-        <MinMaxValueFields path={prefix} />
-        <EdgeField path={prefix} />
-        <UnitsField path={prefix} />
-        <TerminalField path={prefix} />
-        <MeasMethodField path={prefix} />
-        {showMeasTime && <MeasTimeField path={prefix} />}
-        {showDivisor && <DivisorField path={prefix} />}
-      </>
-    );
-  },
+  ci_frequency: FrequencyForm,
   ci_edge_count: ({ prefix }: FormProps) => (
     <>
       <ActiveEdgeField path={prefix} />
@@ -444,20 +506,7 @@ const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
       <InitialCountField path={prefix} />
     </>
   ),
-  ci_period: ({ prefix }: FormProps) => {
-    const { showMeasTime, showDivisor } = useMeasMethodVisibility(prefix);
-    return (
-      <>
-        <MinMaxValueFields path={prefix} />
-        <StartingEdgeField path={prefix} />
-        <PeriodUnitsField path={prefix} />
-        <TerminalField path={prefix} />
-        <MeasMethodField path={prefix} />
-        {showMeasTime && <MeasTimeField path={prefix} />}
-        {showDivisor && <DivisorField path={prefix} />}
-      </>
-    );
-  },
+  ci_period: PeriodForm,
   ci_pulse_width: ({ prefix }: FormProps) => (
     <>
       <MinMaxValueFields path={prefix} />
@@ -500,40 +549,8 @@ const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
       <TerminalBField path={prefix} />
     </>
   ),
-  ci_position_linear: ({ prefix }: FormProps) => {
-    const zIndexFieldsDisabled = useZIndexFieldsDisabled(prefix);
-    return (
-      <>
-        <InitialPosField path={prefix} />
-        <DistPerPulseField path={prefix} />
-        <LinearPositionUnitsField path={prefix} />
-        <TerminalAField path={prefix} />
-        <TerminalBField path={prefix} />
-        <DecodingTypeField path={prefix} />
-        <ZIndexEnabledField path={prefix} />
-        <ZIndexValField path={prefix} disabled={zIndexFieldsDisabled} />
-        <ZIndexPhaseField path={prefix} disabled={zIndexFieldsDisabled} />
-        <TerminalZField path={prefix} disabled={zIndexFieldsDisabled} />
-      </>
-    );
-  },
-  ci_position_angular: ({ prefix }: FormProps) => {
-    const zIndexFieldsDisabled = useZIndexFieldsDisabled(prefix);
-    return (
-      <>
-        <PulsesPerRevField path={prefix} />
-        <InitialAngleField path={prefix} />
-        <AngularPositionUnitsField path={prefix} />
-        <TerminalAField path={prefix} />
-        <TerminalBField path={prefix} />
-        <DecodingTypeField path={prefix} />
-        <ZIndexEnabledField path={prefix} />
-        <ZIndexValField path={prefix} disabled={zIndexFieldsDisabled} />
-        <ZIndexPhaseField path={prefix} disabled={zIndexFieldsDisabled} />
-        <TerminalZField path={prefix} disabled={zIndexFieldsDisabled} />
-      </>
-    );
-  },
+  ci_position_linear: LinearPositionForm,
+  ci_position_angular: AngularPositionForm,
   ci_duty_cycle: ({ prefix }: FormProps) => (
     <>
       <MinMaxValueFields path={prefix} />

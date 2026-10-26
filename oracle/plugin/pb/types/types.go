@@ -645,13 +645,14 @@ func (p *Plugin) processUnion(
 
 	fieldNumber := 1
 	for _, baseRef := range form.Extends {
-		base, ok := baseRef.Resolve(data.table)
+		target, _, ok := resolution.Dealias(baseRef, data.table)
 		if !ok {
 			continue
 		}
-		if _, isStruct := base.Form.(resolution.StructForm); !isStruct {
+		if _, isStruct := target.Form.(resolution.StructForm); !isStruct {
 			continue
 		}
+		base, _ := baseRef.Resolve(data.table)
 		protoType, err := p.typeToProto(baseRef, data)
 		if err != nil {
 			return messageData{}, errors.Wrapf(err, "union %q base", entry.Name)
@@ -668,7 +669,7 @@ func (p *Plugin) processUnion(
 	for _, v := range form.Variants {
 		// The union's bases are one shared message field, not per-variant, so a
 		// variant cannot drop a field from them.
-		if payload, ok := v.Type.Resolve(data.table); ok {
+		if payload, _, ok := resolution.Dealias(v.Type, data.table); ok {
 			if pform, ok := payload.Form.(resolution.StructForm); ok &&
 				len(pform.OmittedFields) > 0 {
 				return messageData{}, errors.Newf(

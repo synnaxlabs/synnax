@@ -17,7 +17,7 @@ import { type Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { type Triggers } from "@synnaxlabs/lyra/triggers";
 import { Synnax } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useState } from "react";
 import { z } from "zod";
 
 import { Shell } from "@/feature/shell";
@@ -82,17 +82,14 @@ export const Login = (): ReactElement => {
     dispatch(Session.Core.select(key));
   };
 
-  const handleSelectedCoreChange = useCallback(
-    (key?: string) => {
-      if (key == null) return;
-      const next = cores.find((c) => c.key === key);
-      if (next == null) return;
-      methods.reset({ username: next.username ?? "", password: "" });
-      setSelectedKey(key);
-      setStep("login");
-    },
-    [methods, cores],
-  );
+  const handleSelectedCoreChange = (key?: string) => {
+    if (key == null) return;
+    const next = cores.find((c) => c.key === key);
+    if (next == null) return;
+    methods.reset({ username: next.username ?? "", password: "" });
+    setSelectedKey(key);
+    setStep("login");
+  };
 
   return (
     <Shell.Frame
@@ -138,6 +135,7 @@ export const Login = (): ReactElement => {
                       <Status.Summary
                         variant={connStatus.variant}
                         message={connStatus.message}
+                        description={connStatus.description}
                       />
                     )}
                   </Flex.Box>

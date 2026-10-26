@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { Unreachable } from "@synnaxlabs/freighter";
-import { id, TimeSpan, TimeStamp, url } from "@synnaxlabs/x";
+import { id, TimeRange, TimeSpan, TimeStamp, url } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { Client } from "@/framer/client";
-import { createTestClient } from "@/testutil";
+import { createTestClient, secondsLinspace } from "@/testutil";
 import { Transport } from "@/transport";
 
 const client = createTestClient();
@@ -25,6 +25,7 @@ describe("Client", () => {
       const unreachable = new Client({
         stream: transport.stream,
         unary: transport.unary,
+        file: transport.file,
         retrieveChannels: async () => {
           throw new Unreachable({ message: "core down" });
         },
@@ -61,6 +62,29 @@ describe("Client", () => {
       ]);
       expect(Array.from(frame.get(time.key))).toEqual([start.valueOf()]);
       expect(Array.from(frame.get(data.key))).toEqual([1]);
+    });
+    it("should read under a reduction", async () => {
+      const time = await client.channels.create({
+        name: id.create(),
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      const data = await client.channels.create({
+        name: id.create(),
+        dataType: "float64",
+        index: time.key,
+      });
+      await client.write(TimeStamp.SECOND, {
+        [time.key]: secondsLinspace(1, 8),
+        [data.key]: new Float64Array([4, 1, 3, 8, 5, 2, 6, 7]),
+      });
+      const frame = await client.read(TimeRange.MAX, [time.key, data.key], {
+        reduction: { variant: "limit", aggregation: "min_max", pointLimit: 4 },
+      });
+      const series = frame.get(data.key).series[0];
+      expect(Array.from(series)).toEqual([1, 8, 2, 7]);
+      expect(series.alignmentMultiple).toEqual(2n);
+      expect(frame.get(time.key).series[0].alignment).toEqual(series.alignment);
     });
     it("should correctly write a single series of data", async () => {
       const time = await client.channels.create({

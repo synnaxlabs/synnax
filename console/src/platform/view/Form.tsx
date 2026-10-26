@@ -13,13 +13,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { type Flux, View as PView } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
-import {
-  type PropsWithChildren,
-  type ReactElement,
-  useCallback,
-  useMemo,
-  useState,
-} from "react";
+import { type PropsWithChildren, type ReactElement, useState } from "react";
 
 import { FormContext, useContext } from "@/platform/view/context";
 
@@ -48,40 +42,32 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>, Q extends 
     retrieve: pagerRetrieve,
     pageSize: 50,
   });
-  const updateQuery = useCallback(
-    (query: view.View["query"]) => {
-      pagerRetrieve((p) => ({ ...p, ...query, offset: 0, limit: 50, searchTerm: "" }));
-    },
-    [pagerRetrieve],
-  );
+  const updateQuery = (query: view.View["query"]) => {
+    pagerRetrieve((p) => ({ ...p, ...query, offset: 0, limit: 50, searchTerm: "" }));
+  };
   const { form } = PView.useForm({
     query: null,
     initialValues: getInitialView(),
     autoSave: true,
-    beforeSave: useCallback(
-      async ({
-        value,
-      }: Flux.FormBeforeSaveParams<PView.FormQuery, typeof PView.formSchema>) => {
-        const { key, query } = value();
-        // if this is a static view we need to handle it here. Otherwise, the
-        // useSetSynchronizer will handle it as it also needs to handle remote updates.
-        if (key == null || !staticViews.includes(key)) return true;
-        updateQuery(query);
-        return false;
-      },
-      [staticViews, updateQuery],
-    ),
-  });
-  const handleSet = useCallback(
-    (view: view.View) => {
-      if (view.key !== form.get<string>("key").value) return;
-      updateQuery(view.query);
+    beforeSave: async ({
+      value,
+    }: Flux.FormBeforeSaveParams<PView.FormQuery, typeof PView.formSchema>) => {
+      const { key, query } = value();
+      // if this is a static view we need to handle it here. Otherwise, the
+      // useSetSynchronizer will handle it as it also needs to handle remote updates.
+      if (key == null || !staticViews.includes(key)) return true;
+      updateQuery(query);
+      return false;
     },
-    [form.get, updateQuery],
-  );
+  });
+  const { get: getField } = form;
+  const handleSet = (view: view.View) => {
+    if (view.key !== getField<string>("key").value) return;
+    updateQuery(view.query);
+  };
   PView.useSetSynchronizer(handleSet);
   const [selected, setSelected] = useState<K[]>([]);
-  const contextValue = useMemo(() => ({ search, answered }), [search, answered]);
+  const contextValue = { search, answered };
   return (
     <PForm.Form<typeof PView.formSchema> {...form}>
       <Select.Frame

@@ -35,7 +35,7 @@ import {
 const client = createTestClient();
 
 const useRename = Tree.createUseRename({
-  query: PChannel.useRename,
+  useUpdate: PChannel.useRename,
   ontologyID: channel.ontologyID,
   convertKey: Number,
 });

@@ -7,13 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  access,
-  ontology,
-  type Synnax,
-  UnexpectedError,
-  user,
-} from "@synnaxlabs/client";
+import { access, ontology, user } from "@synnaxlabs/client";
 import { array, uuid, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -105,38 +99,21 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   },
 });
 
-const retrieveCurrent = async (client: Synnax): Promise<user.User> => {
-  const user = client.auth?.user;
-  if (user == null) {
-    await client.connect();
-    if (client.auth?.user == null)
-      throw new UnexpectedError(
-        "Expected user to be available after successfully connecting to cluster",
-      );
-    return client.auth.user;
-  }
-  return user;
-};
-
 export const { use, useResult, createResultSelector } = Flux.createRetrieve<
   Partial<RetrieveQuery>,
   user.User
 >({
   name: RESOURCE_NAME,
-  retrieve: async ({ client, query: { key } }) => {
-    if (key == null) return await retrieveCurrent(client);
-    return await client.users.retrieve(key);
-  },
-  onChange: ({ client, query: { key } }, handler) => {
-    key ??= client.auth?.user?.key;
-    if (key == null) return () => {};
-    return client.users.onChange(key, handler);
-  },
-  getCached: ({ client, query: { key } }) => {
-    key ??= client.auth?.user?.key;
-    if (key == null) return undefined;
-    return client.users.getCached(key);
-  },
+  retrieve: async ({ client, query: { key } }) =>
+    key == null
+      ? await client.users.current.retrieve()
+      : await client.users.retrieve(key),
+  onChange: ({ client, query: { key } }, handler) =>
+    key == null
+      ? client.users.current.onChange(handler)
+      : client.users.onChange(key, handler),
+  getCached: ({ client, query: { key } }) =>
+    key == null ? client.users.current.getCached() : client.users.getCached(key),
 });
 
 export const useResultKey = createResultSelector(({ key }) => key);

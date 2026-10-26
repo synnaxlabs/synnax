@@ -16,7 +16,7 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
 
 from alamos import Instrumentation, Tracer
 from alamos.log import NOOP_LOGGER
-from alamos.trace import NOOP_TRACER, NoopSpan
+from alamos.trace import NOOP_TRACER, _NoopSpan
 
 
 @pytest.fixture
@@ -46,7 +46,7 @@ class TestChild:
         tracer = Tracer(otel_provider=provider, filter_=lambda env: env == "prod")
         child = Instrumentation("root", tracer=tracer).child("a")
         with child.T.debug("span") as span:
-            assert isinstance(span, NoopSpan)
+            assert isinstance(span, _NoopSpan)
 
 
 class TestConstruction:

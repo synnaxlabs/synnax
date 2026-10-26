@@ -10,7 +10,7 @@
 import "@/header/Header.css";
 
 import { type text } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, useMemo } from "react";
+import { type ReactElement, type ReactNode } from "react";
 
 import { context } from "@/context";
 import { CSS } from "@/css";
@@ -58,7 +58,7 @@ export const Header = ({
   bordered = true,
   ...rest
 }: HeaderProps): ReactElement => {
-  const value = useMemo(() => ({ level, divided }), [level, divided]);
+  const value = { level, divided };
   return (
     <Context value={value}>
       <Flex.Box

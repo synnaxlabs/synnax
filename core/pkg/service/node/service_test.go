@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 )
 
 var _ = Describe("Service", func() {
@@ -23,7 +22,6 @@ var _ = Describe("Service", func() {
 			cfg := node.ServiceConfig{
 				Cluster:  testCluster.Nodes[1].Cluster,
 				Ontology: &ontology.Ontology{},
-				Search:   &search.Index{},
 			}
 			Expect(cfg.Validate()).To(Succeed())
 		})
@@ -34,7 +32,6 @@ var _ = Describe("Service", func() {
 				cfg := node.ServiceConfig{
 					Cluster:  testCluster.Nodes[1].Cluster,
 					Ontology: &ontology.Ontology{},
-					Search:   &search.Index{},
 				}
 				mutate(&cfg)
 				Expect(cfg.Validate()).To(SatisfyAll(
@@ -52,7 +49,6 @@ var _ = Describe("Service", func() {
 				"ontology",
 				func(c *node.ServiceConfig) { c.Ontology = nil },
 			),
-			Entry("search", "search", func(c *node.ServiceConfig) { c.Search = nil }),
 		)
 	})
 

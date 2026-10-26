@@ -9,15 +9,16 @@
 
 import pytest
 
-from synnax.cli.console.mock import MockConsole, Output
+from synnax.cli import console
+from synnax.cli.console.mock import Output
 
 
 @pytest.mark.cli
-class TestMockConsole:
+class TestMock:
     def test_default_outputs_separate(self) -> None:
         """Should give each console its own output when none is supplied."""
-        first = MockConsole()
-        second = MockConsole()
+        first = console.Mock()
+        second = console.Mock()
         first.info("hello")
         assert len(first.output.entries) == 1
         assert second.output.entries == []
@@ -25,5 +26,5 @@ class TestMockConsole:
     def test_supplied_output(self) -> None:
         """Should write to the output the caller supplies."""
         output = Output()
-        MockConsole(output=output).info("hello")
+        console.Mock(output=output).info("hello")
         assert [e.message for e in output.entries] == ["hello"]
