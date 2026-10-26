@@ -409,8 +409,8 @@ export class Joins {
     return allocated;
   }
 
-  // Splits an index series into the runs of each raw block, from the end of each
-  // block's coverage.
+  // Splits an index series into the runs of each raw block. Samples stamped after the
+  // newest one a block holds are fresh, even when a read claimed coverage past them.
   private runs(index: channel.Key, s: Series): Run[] {
     const runs: Run[] = [];
     for (let lo = 0; lo < s.length;) {
@@ -418,7 +418,7 @@ export class Joins {
       const end = tileRange({ level: RAW_LEVEL, index: b }).end.valueOf();
       const hi = search(s, end, lo);
       const block = this.store.raw(index, b);
-      const fresh = Math.max(lo, search(s, block.coveredEnd.valueOf(), lo));
+      const fresh = Math.max(lo, search(s, newestEnd(block), lo));
       if (fresh > lo) runs.push({ from: lo, to: fresh, block: b, offset: null });
       if (fresh < hi)
         runs.push({ from: fresh, to: hi, block: b, offset: block.coveredCount });
@@ -490,6 +490,15 @@ export class Joins {
     return true;
   }
 }
+
+// Returns the end of the span of the newest sample of an index channel's block, or the
+// block's start when it holds none.
+const newestEnd = (block: RawBlock): bigint => {
+  const live = block.buffer?.leadingBuffer;
+  const newest = live != null && live.length > 0 ? live : block.fetched.at(-1);
+  if (newest == null || newest.length === 0) return block.range.start.valueOf();
+  return BigInt(newest.data[newest.length - 1]) + 1n;
+};
 
 // Returns the samples [from, to) of the series with block alignment and the time range
 // of the index samples in times at the same positions.

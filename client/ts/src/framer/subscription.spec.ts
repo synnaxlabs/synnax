@@ -24,7 +24,7 @@ import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
-import { domainOf, offsetOf, rawIndex } from "@/framer/cache/block";
+import { domainOf, offsetOf, RAW_LEVEL, rawIndex } from "@/framer/cache/block";
 import { tileRange } from "@/framer/cache/grid";
 import { type Feed, type FeedOptions } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
@@ -88,18 +88,19 @@ const expectComplete = (times: bigint[]): void => {
 };
 
 // Returns the timestamps once they hold each sample from the window start to the newest
-// frames once.
+// frames once. Lag is how far the newest written sample trails the Core's clock.
 const settled = async (
   core: SyntheticCore,
   sub: Subscription,
   key: channel.Key,
   span: TimeSpan,
+  lag: TimeSpan = TimeSpan.ZERO,
 ): Promise<bigint[]> => {
   let times: bigint[] = [];
   await expect
     .poll(() => {
       const start = core.now().sub(span).valueOf();
-      const recent = core.now().sub(TimeSpan.milliseconds(500)).valueOf();
+      const recent = core.now().sub(lag).sub(TimeSpan.milliseconds(500)).valueOf();
       const snap = sub.value(key);
       times = timesOf(snap);
       if (snap.status.variant !== "success" || times.length < 2) return false;
@@ -117,6 +118,7 @@ const settledData = async (
   sub: Subscription,
   key: channel.Key,
   span: TimeSpan,
+  lag: TimeSpan = TimeSpan.ZERO,
 ): Promise<Series[]> => {
   let series: Series[] = [];
   await expect
@@ -125,7 +127,7 @@ const settledData = async (
       series = snap.series.series;
       if (snap.status.variant !== "success" || series.length === 0) return false;
       const start = core.now().sub(span).add(RATE.period);
-      const recent = core.now().sub(TimeSpan.milliseconds(500));
+      const recent = core.now().sub(lag).sub(TimeSpan.milliseconds(500));
       const contiguous = series.every((s, i) => {
         const prev = series[i - 1];
         if (prev == null) return true;
@@ -216,6 +218,29 @@ describe("Feed.subscribe", () => {
         await settled(core, sub, core.index.key, span);
         await sleep.sleep(TimeSpan.milliseconds(100));
         expectComplete(timesOf(sub.value(core.index.key)));
+      } finally {
+        stop();
+        sub.close();
+        await feed.close();
+      }
+    });
+
+    it("should hold the samples a lagging writer stamps before the commit point", async () => {
+      // The newest written sample trails a block edge that the commit point passed.
+      const edge = tileRange({
+        level: RAW_LEVEL,
+        index: rawIndex(START.add(TimeSpan.minutes(10))),
+      }).start;
+      const lag = TimeSpan.seconds(3);
+      const core = createCore({ now: edge.add(TimeSpan.milliseconds(1500)), lag });
+      const feed = core.openFeed(OPTIONS);
+      const span = TimeSpan.minutes(1);
+      const [index, data] = [core.index.key, core.data[0].key];
+      const sub = feed.subscribe(raw([index, data], span));
+      const stop = tick(core, TimeSpan.milliseconds(10));
+      try {
+        await settled(core, sub, index, span, lag);
+        await settledData(core, sub, data, span, lag);
       } finally {
         stop();
         sub.close();

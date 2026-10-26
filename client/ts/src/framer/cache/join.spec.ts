@@ -132,6 +132,33 @@ describe("Joins", () => {
       expect(store.raw(DATA, BLOCK).coveredCount).toBe(6);
     });
 
+    it("should place streamed samples that a read's coverage claimed", () => {
+      const { store, joins } = createJoins();
+      // A read claims coverage past its newest sample when a writer lags.
+      const claimed = at(10);
+      const fetched = spanOf([1, 2, 3, 4]);
+      store
+        .raw(INDEX, BLOCK)
+        .fill([createIndex([1, 2, 3, 4], alignmentOf(BLOCK, 0))], claimed, 4);
+      store
+        .raw(DATA, BLOCK)
+        .fill(
+          [createData([10, 20, 30, 40], alignmentOf(BLOCK, 0), fetched)],
+          claimed,
+          4,
+        );
+      joins.write(
+        createFrame(
+          [INDEX, createIndex([4, 5, 6], 10n)],
+          [DATA, createData([40, 50, 60], 10n)],
+        ),
+      );
+      expect(joins.landed(INDEX, waitsOf(joins, INDEX, DATA)).size).toBe(0);
+      expect(streamed(store, DATA)).toEqual([50, 60]);
+      expect(store.leadingBuffer(DATA)?.alignment).toBe(alignmentOf(BLOCK, 4));
+      expect(store.raw(INDEX, BLOCK).coveredEnd).toEqual(claimed);
+    });
+
     it("should send back a member whose read missed samples before the stream", () => {
       const { store, joins } = createJoins();
       const fetched = spanOf([1, 2, 3, 4]);

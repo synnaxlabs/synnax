@@ -119,6 +119,8 @@ export class Points {
   private loading = true;
   private pins = new Set<Block>();
   private generation = 0;
+  // abort ends the wait of a raw read for the stream's ack.
+  private abort = new AbortController();
   private readonly notifier = new sync.Notifier();
   private readonly breaker: breaker.Breaker;
   private readonly tileBreaker: breaker.Breaker;
@@ -216,6 +218,7 @@ export class Points {
   /** Releases every tile, block, and stream the channel holds. */
   close(): void {
     this.generation++;
+    this.abort.abort();
     this.notifier.notify();
     this.stopInvalidations();
     this.pins.forEach((b) => b.pins--);
@@ -556,12 +559,20 @@ export class Points {
     return this.raw;
   }
 
+  // While the window streams, the read waits for the stream's ack: a read before it can
+  // miss samples that a lagging writer stamps before the commit point.
   private readRaw(tr: TimeRange): void {
     if (this.rawReading || this.rawRetrying) return;
     const generation = this.generation;
+    const { reader, streamer } = this.props;
+    const { demand, index, abort } = this;
     this.rawReading = true;
-    this.props.reader
-      .read(tr, this.key)
+    const read = async (): Promise<void> => {
+      if (demand != null && index != null)
+        await streamer.waitAcked([...new Set([this.key, index])], abort.signal);
+      await reader.read(tr, this.key);
+    };
+    read()
       .then(() => {
         if (generation !== this.generation) return;
         this.breaker.reset();
@@ -615,10 +626,9 @@ export class Points {
   private time(): TimeStamp | undefined {
     const last = this.raw.at(-1);
     if (last == null) return undefined;
-    const live = this.props.store.leadingBuffer(this.key);
-    if (last !== live) return last.timeRange.end;
-    return this.props.store.findRaw(this.key, rawIndex(last.timeRange.start))
-      ?.coveredEnd;
+    const buffer = this.props.store.open(this.key)?.buffer;
+    if (last !== buffer?.leadingBuffer) return last.timeRange.end;
+    return buffer.dataTimeRange?.end;
   }
 
   private status(): status.Status {
@@ -650,6 +660,8 @@ export class Points {
   // Drops every tile and raw sample the channel holds, as when its data type changes.
   private restart(): void {
     this.generation++;
+    this.abort.abort();
+    this.abort = new AbortController();
     this.notifier.notify();
     this.held.clear();
     this.pending.clear();

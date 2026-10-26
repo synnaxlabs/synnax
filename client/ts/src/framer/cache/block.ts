@@ -286,12 +286,12 @@ export class RawBlock implements Block {
   }
 
   /**
-   * Moves the coverage to end, which holds count index samples of the block, and seals
-   * the block. Call it only when the channel's samples reach end.
+   * Moves the coverage to at least end, sets the count of index samples it holds, and
+   * seals the block. Call it only when the channel's samples reach end.
    */
   extend(end: TimeStamp, count: number): void {
     if (this.coveredEnd.equals(this.range.start)) this.fetchedAt = this.now();
-    this.coveredEnd = end;
+    this.coveredEnd = TimeStamp.max(this.coveredEnd, end);
     this.coveredCount = count;
     this.sealed = true;
   }
