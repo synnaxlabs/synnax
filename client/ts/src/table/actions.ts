@@ -14,6 +14,8 @@ import {
   addRow,
   createReduceAll,
   type Handlers,
+  moveCol,
+  moveRow,
   removeCol,
   removeRow,
   rename,
@@ -26,22 +28,30 @@ import { type Cell, columnZ, rowZ } from "@/table/types.gen";
 const MIN_CELL_DIM = 32;
 // baseRow and baseCol are the entries an action gives the opposing axis when it
 // bootstraps that axis on an empty table. Both take their size from the schema.
-const baseRow = () => rowZ.parse({});
-const baseCol = () => columnZ.parse({});
+const baseRow = (key: string) => rowZ.parse({ key });
+const baseCol = (key: string) => columnZ.parse({ key });
 
-// deriveCellKey returns the key for the index-th replica of template. Both reducers run
-// the same scheme so optimistic client state agrees with the server.
-const deriveCellKey = (templateKey: string, index: number): string => {
+// deriveKey returns the index-th key derived from base. Both reducers run the same
+// scheme so optimistic client state agrees with the server.
+const deriveKey = (base: string, index: number): string => {
   const suffix = index.toString(16).padStart(4, "0");
-  if (templateKey.length < 36) return `${templateKey}-${suffix}`;
-  return templateKey.slice(0, 32) + suffix;
+  if (base.length < 36) return `${base}-${suffix}`;
+  return base.slice(0, 32) + suffix;
 };
 
-// expandTemplate returns count replicas of template with keys derived via
-// deriveCellKey.
+const findIndex = (items: Array<{ key: string }>, key: string): number =>
+  items.findIndex((item) => item.key === key);
+
+// move relocates the element at from to index to, shifting the elements between them by
+// one.
+const move = <T>(items: T[], from: number, to: number): void => {
+  items.splice(to, 0, ...items.splice(from, 1));
+};
+
+// expandTemplate returns count replicas of template with keys derived via deriveKey.
 const expandTemplate = (template: Cell, count: number): Cell[] =>
   Array.from({ length: count }, (_, i) => ({
-    key: deriveCellKey(template.key, i),
+    key: deriveKey(template.key, i),
     config: template.config,
   }));
 
@@ -70,33 +80,36 @@ const handlers: Handlers = {
         )
       : payload.cells;
     if (state.columns.length === 0 && cells.length > 0)
-      for (let i = 0; i < cells.length; i++) state.columns.push(baseCol());
+      for (let i = 0; i < cells.length; i++)
+        state.columns.push(baseCol(deriveKey(payload.key, i)));
     const index = Math.min(payload.index, state.rows.length);
     const keys = cells.map((c) => c.key);
     state.rows.splice(index, 0, {
+      key: payload.key,
       size: Math.max(payload.size, MIN_CELL_DIM),
       cells: keys,
     });
     for (const c of cells) state.cells[c.key] = c.config;
     return {
-      inverse: [removeRow({ index })],
-      targets: keys,
+      inverse: [removeRow({ key: payload.key })],
+      targets: [payload.key, ...keys],
     };
   },
 
-  removeRow: (state, payload) => {
-    if (payload.index >= state.rows.length) return actions.NO_OP_RESULT;
-    const removed = actions.snapshotDraft(state.rows[payload.index]);
+  removeRow: (state, { key }) => {
+    const index = findIndex(state.rows, key);
+    if (index === -1) return actions.NO_OP_RESULT;
+    const removed = actions.snapshotDraft(state.rows[index]);
     const cells: Cell[] = [];
-    for (const key of removed.cells) {
-      const c = state.cells[key];
-      if (c != null) cells.push({ key, config: actions.snapshotDraft(c) });
+    for (const k of removed.cells) {
+      const c = state.cells[k];
+      if (c != null) cells.push({ key: k, config: actions.snapshotDraft(c) });
     }
-    state.rows.splice(payload.index, 1);
+    state.rows.splice(index, 1);
     for (const k of removed.cells) delete state.cells[k];
     return {
-      inverse: [addRow({ index: payload.index, size: removed.size, cells })],
-      targets: removed.cells,
+      inverse: [addRow({ index, key, size: removed.size, cells })],
+      targets: [key, ...removed.cells],
     };
   },
 
@@ -108,9 +121,13 @@ const handlers: Handlers = {
         )
       : payload.cells;
     if (state.rows.length === 0 && cells.length > 0)
-      for (let i = 0; i < cells.length; i++) state.rows.push(baseRow());
+      for (let i = 0; i < cells.length; i++)
+        state.rows.push(baseRow(deriveKey(payload.key, i)));
     const idx = Math.min(payload.index, state.columns.length);
-    state.columns.splice(idx, 0, { size: Math.max(payload.size, MIN_CELL_DIM) });
+    state.columns.splice(idx, 0, {
+      key: payload.key,
+      size: Math.max(payload.size, MIN_CELL_DIM),
+    });
     for (let i = 0; i < state.rows.length; i++) {
       if (i >= cells.length) break;
       const rowIdx = Math.min(idx, state.rows[i].cells.length);
@@ -118,54 +135,65 @@ const handlers: Handlers = {
     }
     for (const c of cells) state.cells[c.key] = c.config;
     return {
-      inverse: [removeCol({ index: idx })],
-      targets: cells.map((c) => c.key),
+      inverse: [removeCol({ key: payload.key })],
+      targets: [payload.key, ...cells.map((c) => c.key)],
     };
   },
 
-  removeCol: (state, payload) => {
-    if (payload.index >= state.columns.length) return actions.NO_OP_RESULT;
-    const oldSize = state.columns[payload.index].size;
+  removeCol: (state, { key }) => {
+    const index = findIndex(state.columns, key);
+    if (index === -1) return actions.NO_OP_RESULT;
+    const oldSize = state.columns[index].size;
     const removedCells: Cell[] = [];
-    state.columns.splice(payload.index, 1);
+    state.columns.splice(index, 1);
     // Rows missing a cell at this column are skipped, not padded. Go AddCol
     // short-circuits when len(cells) < len(rows), so the inverse repopulates
     // only the rows we captured.
     for (let i = 0; i < state.rows.length; i++) {
-      if (payload.index >= state.rows[i].cells.length) continue;
-      const key = state.rows[i].cells[payload.index];
-      const c = state.cells[key];
-      if (c != null) removedCells.push({ key, config: actions.snapshotDraft(c) });
-      delete state.cells[key];
-      state.rows[i].cells.splice(payload.index, 1);
+      if (index >= state.rows[i].cells.length) continue;
+      const k = state.rows[i].cells[index];
+      const c = state.cells[k];
+      if (c != null) removedCells.push({ key: k, config: actions.snapshotDraft(c) });
+      delete state.cells[k];
+      state.rows[i].cells.splice(index, 1);
     }
     return {
-      inverse: [addCol({ index: payload.index, size: oldSize, cells: removedCells })],
-      targets: removedCells.map((c) => c.key),
+      inverse: [addCol({ index, key, size: oldSize, cells: removedCells })],
+      targets: [key, ...removedCells.map((c) => c.key)],
     };
   },
 
-  resizeRow: (state, payload) => {
-    if (payload.index >= state.rows.length) return actions.NO_OP_RESULT;
-    const oldSize = state.rows[payload.index].size;
-    state.rows[payload.index].size = Math.max(payload.size, MIN_CELL_DIM);
-    return {
-      inverse: [resizeRow({ index: payload.index, size: oldSize })],
-      targets: [...state.rows[payload.index].cells],
-    };
+  resizeRow: (state, { key, size }) => {
+    const index = findIndex(state.rows, key);
+    if (index === -1) return actions.NO_OP_RESULT;
+    const oldSize = state.rows[index].size;
+    state.rows[index].size = Math.max(size, MIN_CELL_DIM);
+    return { inverse: [resizeRow({ key, size: oldSize })], targets: [key] };
   },
 
-  resizeCol: (state, payload) => {
-    if (payload.index >= state.columns.length) return actions.NO_OP_RESULT;
-    const oldSize = state.columns[payload.index].size;
-    state.columns[payload.index].size = Math.max(payload.size, MIN_CELL_DIM);
-    const targets = state.rows
-      .map((r) => r.cells[payload.index])
-      .filter((k): k is string => k != null);
-    return {
-      inverse: [resizeCol({ index: payload.index, size: oldSize })],
-      targets,
-    };
+  resizeCol: (state, { key, size }) => {
+    const index = findIndex(state.columns, key);
+    if (index === -1) return actions.NO_OP_RESULT;
+    const oldSize = state.columns[index].size;
+    state.columns[index].size = Math.max(size, MIN_CELL_DIM);
+    return { inverse: [resizeCol({ key, size: oldSize })], targets: [key] };
+  },
+
+  moveRow: (state, { key, to }) => {
+    const from = findIndex(state.rows, key);
+    if (from === -1) return actions.NO_OP_RESULT;
+    move(state.rows, from, Math.min(to, state.rows.length - 1));
+    return { inverse: [moveRow({ key, to: from })], targets: [key] };
+  },
+
+  moveCol: (state, { key, to }) => {
+    const from = findIndex(state.columns, key);
+    if (from === -1) return actions.NO_OP_RESULT;
+    const clamped = Math.min(to, state.columns.length - 1);
+    move(state.columns, from, clamped);
+    for (const row of state.rows)
+      if (Math.max(from, clamped) < row.cells.length) move(row.cells, from, clamped);
+    return { inverse: [moveCol({ key, to: from })], targets: [key] };
   },
 
   setCell: (state, { cell: { key, config } }) => {
@@ -218,12 +246,12 @@ const handlers: Handlers = {
       }
       state.rows.splice(index, 1);
       for (const k of removed.cells) delete state.cells[k];
-      inverse.unshift(addRow({ index, size: removed.size, cells }));
-      targets.push(...removed.cells);
+      inverse.unshift(addRow({ index, key: removed.key, size: removed.size, cells }));
+      targets.push(removed.key, ...removed.cells);
     }
     for (let i = fullColIdx.length - 1; i >= 0; i--) {
       const index = fullColIdx[i];
-      const oldSize = state.columns[index].size;
+      const { key, size: oldSize } = state.columns[index];
       const removedCells: Cell[] = [];
       state.columns.splice(index, 1);
       for (let r = 0; r < state.rows.length; r++) {
@@ -234,8 +262,8 @@ const handlers: Handlers = {
         delete state.cells[k];
         state.rows[r].cells.splice(index, 1);
       }
-      inverse.unshift(addCol({ index, size: oldSize, cells: removedCells }));
-      targets.push(...removedCells.map((c) => c.key));
+      inverse.unshift(addCol({ index, key, size: oldSize, cells: removedCells }));
+      targets.push(key, ...removedCells.map((c) => c.key));
     }
     for (const key of selected) {
       const existing = state.cells[key];

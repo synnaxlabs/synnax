@@ -40,6 +40,11 @@ or generator logic and schemas disagree.
   `@go marshal hand` marks hand-written codec methods: nothing generates, references
   stay valid. Generation fails when a codec's persisted graph reaches a struct or union
   carrying neither form.
+- **A full declaration can be a patch on an earlier version.** `X struct extends vK.X`
+  (or a union of the same name) copies vK's declaration, resolved in vN's scope, then
+  applies its body: an entry of the same name merges in place, `-field` removes one, and
+  a new entry follows the nearest restated parent entry above it (a bare `name` restates
+  a field), or ends the list. An `extends` of another name is a plain mixin.
 - **The live file is a generated projection, then an annotation surface.** Sync writes
   each versioned resource's live schema by merging chain resolution (version-owned
   content) with the live file's own annotations (outputs, `@ts`/`@py`/`@cpp` bindings,
@@ -81,12 +86,13 @@ or generator logic and schemas disagree.
   files. In current and frozen packages alike, a stored reference resolves to the
   dependency version that the declaring version file imports, so a freeze never moves a
   generated import. A frozen type that the current version aliases also gets the live
-  `@validate` rules, since the current package's alias runs its `Validate`. Hand-written
-  frozen definer files are marked `@go hand` in their version file; hand-ness is
-  version-local — an aliased member whose definer is an older version still generates in
-  the current package as a backward alias. `migrate.gen.go` is a pure function of the
-  two adjacent version files; hand-written transforms live in `migrate.go` (renames and
-  cross-resource moves have no generated counterpart).
+  `@validate` rules and `@go to_any` marker (a generated `ToAny` that copies a generic
+  struct into its `any` instantiation), since the current package's alias runs the
+  frozen methods. Hand-written frozen definer files are marked `@go hand` in their
+  version file; hand-ness is version-local — an aliased member whose definer is an older
+  version still generates in the current package as a backward alias. `migrate.gen.go`
+  is a pure function of the two adjacent version files; hand-written transforms live in
+  `migrate.go` (renames and cross-resource moves have no generated counterpart).
 - Omit-transient members — types reachable from a file's `@go marshal` declarations only
   through omitted fields, e.g. task's StatusDetails — track the live shape: they always
   declare fully, may match their predecessor (exempt from the minimality gate), and
@@ -101,7 +107,12 @@ or generator logic and schemas disagree.
   history. Earlier version packages predate Core export and get no constant. The
   envelope version and migration chain are never hand-maintained; hand
   `versions/imex.go` files route `> legacy.LastVersion` envelopes to the ladder and keep
-  only frozen Console-era decoding.
+  only frozen Console-era decoding, which builds the first exported shape and enters the
+  ladder through the generated `liftFirst`, so a version bump never edits it.
+  `@go imex body` marks a type another resource exports, such as a task config inside a
+  task file: no `Export`, several types may share a package, and each gets an exported
+  `<Type>Ladder` (`imex.Ladder`) over body blobs. A version that redeclares a marked
+  type must declare its exported `Migrate<Type>` step.
 
 ## Field optionality
 

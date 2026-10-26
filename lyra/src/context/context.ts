@@ -48,7 +48,8 @@ export const create: Creator = (<T>(
     const { defaultValue, displayName } = params;
     const ctx = createContext(defaultValue);
     ctx.displayName = displayName;
-    return [ctx, () => use(ctx)];
+    const useValue = () => use(ctx);
+    return [ctx, useValue];
   }
   const ctx = createContext<T | undefined>(undefined);
   const { displayName, providerName } = params;

@@ -11,7 +11,7 @@ nextURL: "/reference/driver/modbus/read-task"
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
@@ -23,7 +23,7 @@ export const components = mdxOverrides;
 The Synnax Driver connects to [Modbus TCP/IP](https://modbus.org) servers such as PLCs,
 variable-frequency drives, power meters, and industrial I/O modules.
 
-<Note.Note variant="warning" className="compact">
+<Note.Note variant="warning">
   Modbus RTU and Modbus ASCII (serial) are not supported.
 </Note.Note>
 
@@ -54,7 +54,7 @@ following:
 | <Icon.Logo.Apple /> macOS           | ✓ Supported     |
 | <Icon.Logo.Docker /> Docker         | ✓ Supported     |
 
-<Note.Note variant="info" className="compact">
+<Note.Note variant="info">
   When running in a Docker container, ensure [the container has network
   access](https://docs.docker.com/get-started/docker-concepts/running-containers/publishing-ports/)
   to the Modbus server.

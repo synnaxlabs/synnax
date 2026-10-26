@@ -12,18 +12,18 @@ package v0
 import (
 	"context"
 
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 )
 
 // Migration re-encodes stored roles from MessagePack to Orc.
-var Migration = gorp.CodecMigration[Key, Role]("msgpack_to_orc")
+var Migration = migrate.Codec[Key, Role]("msgpack_to_orc")
 
 // NormalizeKeys re-keys Role rows stored under the pre-v0.54 key format.
-var NormalizeKeys = gorp.NormalizeKeysMigration[Key, Role]("Role")
+var NormalizeKeys = migrate.NormalizeKeys[Key, Role]("Role")
 
 // NameMigration names each stored role that has an empty name "Role <key>",
 // where <key> is the first eight characters of its key.
-var NameMigration = gorp.NewEntryMigration(
+var NameMigration = migrate.NewEntry(
 	"v60_require_name",
 	func(_ context.Context, r Role) (Role, error) {
 		if r.Name == "" {

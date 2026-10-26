@@ -83,7 +83,7 @@ public:
 
     x::errors::Error initialize() override;
 
-    x::errors::Error register_pdos(const std::vector<pdo::Entry> &entries) override;
+    std::pair<size_t, x::errors::Error> count_slaves() override;
 
     void set_slave_enabled(uint16_t position, bool enabled) override;
 
@@ -99,28 +99,30 @@ public:
 
     std::span<uint8_t> output_data() override;
 
-    pdo::Offset pdo_offset(const pdo::Entry &entry) const override;
+    std::pair<pdo::Offset, x::errors::Error>
+    pdo_offset(const pdo::Entry &entry) const override;
 
     std::vector<slave::DiscoveryResult> slaves() const override;
 
-    slave::State slave_state(uint16_t position) const override;
+    /// @brief reports each configured slave. The IgH master returns slaves that leave
+    /// OP to it on its own, so this takes no recovery step.
+    std::vector<slave::Health> check(const x::breaker::Breaker &breaker) override;
 
-    bool all_slaves_operational() const override;
+    /// @brief returns nullopt, since this master does not read the distributed clock.
+    std::optional<x::telem::TimeStamp> dc_time() const override { return std::nullopt; }
 
     std::string interface_name() const override;
 
-    /// @brief returns or creates a slave configuration for the given position.
+private:
+    /// @brief returns or creates the configuration of the slave at a position,
+    /// registering every PDO entry the slave maps.
     ec_slave_config_t *get_or_create_slave_config(uint16_t position);
 
-    /// @brief registers a PDO entry for cyclic exchange.
-    std::pair<size_t, x::errors::Error> register_pdo(const pdo::Entry &entry);
-
-private:
     /// @brief discovers PDO entries for a slave and populates its PDO lists.
     void discover_slave_pdos(slave::DiscoveryResult &slave);
 
-    /// @brief configures the PDO mapping for a slave based on discovered PDOs.
-    void configure_slave_pdos(ec_slave_config_t *sc, const slave::Properties &slave);
+    /// @brief reads the PDO entries the slave's sync managers carry.
+    void read_slave_pdos(slave::DiscoveryResult &slave);
 
     /// @brief reads the name of a PDO entry from the slave's object dictionary.
     std::string
@@ -149,7 +151,7 @@ public:
     /// @brief opens the IgH manager, checking device availability and loading the API.
     /// @return pair of manager instance and error (nil on success).
     static std::pair<std::unique_ptr<Manager>, x::errors::Error> open() {
-        struct stat st;
+        struct stat st{};
         if (stat(IGH_DEVICE_PATH.c_str(), &st) != 0)
             return {
                 nullptr,
@@ -186,7 +188,7 @@ public:
 
     [[nodiscard]] std::pair<std::shared_ptr<master::Master>, x::errors::Error>
     create(const std::string &key) override {
-        if (key.size() < 5 || key.substr(0, 4) != "igh:")
+        if (key.size() < 5 || !key.starts_with("igh:"))
             return {
                 nullptr,
                 x::errors::Error(

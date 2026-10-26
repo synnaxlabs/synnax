@@ -13,7 +13,6 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { type Flux, Group } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { type Tree } from "@/platform/tree";
 
@@ -29,30 +28,27 @@ export const useCreateEmpty = ({
   state: { nodes: tree, setNodes, setResource, expand },
 }: UseCreateEmptyProps): (() => void) => {
   const { update } = Group.useCreate({
-    beforeUpdate: useCallback(
-      async ({ data, rollbacks }: Flux.BeforeUpdateParams<Group.CreateParams>) => {
-        const newID = group.ontologyID(uuid.create());
-        const newIDString = ontology.idToString(newID);
-        const res: ontology.Resource = { key: newIDString, id: newID, name: "" };
-        const node: PTree.Node<string> = { key: newIDString, children: [] };
-        setResource(res);
-        const destination = ontology.idsEqual(data.parent, root)
-          ? null
-          : ontology.idToString(data.parent);
-        if (destination != null) expand(destination);
-        setNodes([...PTree.setNode({ tree, destination, additions: node })]);
-        rollbacks.push(() =>
-          setNodes([...PTree.removeNode({ tree, keys: newIDString })]),
-        );
-        const [name, renamed] = await Text.asyncEdit(List.itemNameID(newIDString));
-        if (!renamed || name === "") return false;
-        return { ...data, key: newID.key, name };
-      },
-      [tree, setNodes, setResource, expand],
-    ),
+    beforeUpdate: async ({
+      data,
+      rollbacks,
+    }: Flux.BeforeUpdateParams<Group.CreateParams>) => {
+      const newID = group.ontologyID(uuid.create());
+      const newIDString = ontology.idToString(newID);
+      const res: ontology.Resource = { key: newIDString, id: newID, name: "" };
+      const node: PTree.Node<string> = { key: newIDString, children: [] };
+      setResource(res);
+      const destination = ontology.idsEqual(data.parent, root)
+        ? null
+        : ontology.idToString(data.parent);
+      if (destination != null) expand(destination);
+      setNodes([...PTree.setNode({ tree, destination, additions: node })]);
+      rollbacks.push(() =>
+        setNodes([...PTree.removeNode({ tree, keys: newIDString })]),
+      );
+      const [name, renamed] = await Text.asyncEdit(List.itemNameID(newIDString));
+      if (!renamed || name === "") return false;
+      return { ...data, key: newID.key, name };
+    },
   });
-  return useCallback(
-    () => update({ key: uuid.create(), name: "", parent }),
-    [parent, update],
-  );
+  return () => update({ key: uuid.create(), name: "", parent });
 };

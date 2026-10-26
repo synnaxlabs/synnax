@@ -297,10 +297,10 @@ State::flush_into(x::telem::Frame &out, const x::telem::TimeStamp now) {
 }
 
 void State::reset() {
-    this->channel->reset();
-    this->strings->reset();
+    (*this->channel).reset();
+    (*this->strings).reset();
     this->series->clear();
-    this->vars->reset();
+    (*this->vars).reset();
     this->authority_changes.clear();
 }
 
@@ -308,7 +308,7 @@ void State::set_authority(
     std::optional<types::ChannelKey> channel_key,
     const uint8_t authority
 ) {
-    authority_changes.push_back({std::move(channel_key), authority});
+    authority_changes.push_back({channel_key, authority});
 }
 
 std::vector<AuthorityChange> State::flush_authority_changes() {
@@ -337,7 +337,7 @@ void Node::mark_fresh(const size_t param_index) const {
 bool Node::has_time(const size_t param_index) const {
     if (this->is_reference[param_index] || this->literal[param_index]) return false;
     const auto &t = this->aligned_time[param_index];
-    return t != nullptr && t->size() > 0;
+    return t != nullptr && !t->empty();
 }
 
 int Node::time_source_idx() const {
@@ -423,7 +423,7 @@ Series Node::ref_input(const size_t param_index) const {
 std::string Node::string_input(const std::string &name) const {
     const auto [i, err] = this->resolve_input(name);
     if (err) return "";
-    if (const auto s = this->ref_input(i); s != nullptr && s->size() > 0)
+    if (const auto s = this->ref_input(i); s != nullptr && !s->empty())
         return x::telem::cast<std::string>(s->at(-1));
     const auto &p = this->params[i];
     if (p.value.is_string()) return p.value.get<std::string>();

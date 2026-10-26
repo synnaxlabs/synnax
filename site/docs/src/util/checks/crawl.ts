@@ -59,13 +59,46 @@ export const locate = (route: string, needle: string): string => {
   return route;
 };
 
-/** Derives every route from the src/pages file tree. */
+/** Returns true if Astro routes the page file: its name has no leading underscore. */
+export const routed = (f: string): boolean => !path.basename(f).startsWith("_");
+
+/** Returns the route of a page file, given relative to src/pages. */
+export const toRoute = (f: string): string =>
+  `/${f.replace(/\.(mdx|astro)$/, "").replace(/(^|\/)index$/, "$1")}`;
+
+/**
+ * Derives every route from the src/pages file tree. Dynamic routes are left out, since
+ * they serve pages that have files of their own.
+ */
 export const enumerateRoutes = (): string[] => {
   const routes = pageFiles()
-    .filter((f) => /\.(mdx|astro)$/.test(f))
-    .map((f) => `/${f.replace(/\.(mdx|astro)$/, "").replace(/(^|\/)index$/, "$1")}`);
+    .filter((f) => /\.(mdx|astro)$/.test(f) && routed(f) && !f.includes("["))
+    .map(toRoute);
   return [...new Set(routes)];
 };
+
+/** A link and where it came from. */
+export interface Ref {
+  source: string;
+  base: string;
+  href: string;
+}
+
+/**
+ * Lists every href in the nav definitions. Deep nav entries only render after
+ * hydration, so the crawl cannot see them.
+ */
+export const navRefs = (): Ref[] =>
+  pageFiles()
+    .filter((f) => f.endsWith("_nav.ts"))
+    .flatMap((f) => {
+      const text = fs.readFileSync(path.join(PAGES_DIR, f), "utf8");
+      return [...text.matchAll(/href:\s*"([^"]+)"/g)].map((m) => ({
+        source: `src/pages/${f}:${text.slice(0, m.index).split("\n").length}`,
+        base: "/",
+        href: m[1],
+      }));
+    });
 
 export interface CrawlResult {
   pages: Page[];

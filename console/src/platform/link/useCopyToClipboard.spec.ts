@@ -51,11 +51,14 @@ describe("Link.useCopyToClipboard", () => {
     act(() => result.current.copy({ clusterKey: undefined, name: "My Core" }));
     await waitFor(() =>
       expect(
-        result.current.notifications.statuses.map(({ variant, message }) => ({
+        result.current.notifications.statuses.map(({ variant, name, message }) => ({
           variant,
+          name,
           message,
         })),
-      ).toEqual([{ variant: "error", message: "Failed to copy link to My Core" }]),
+      ).toEqual([
+        { variant: "error", name: "My Core", message: "Failed to copy link" },
+      ]),
     );
     expect(writeText).not.toHaveBeenCalled();
   });

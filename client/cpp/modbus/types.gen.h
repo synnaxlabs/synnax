@@ -12,6 +12,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -37,11 +38,11 @@ struct RegisterValue {
     /// @brief data_type is the data type the register contents are interpreted as.
     ::x::telem::DataType data_type = ::x::telem::DataType("uint8");
     /// @brief bytes_swapped is true when the byte order within each 16-bit word is
-    /// swapped.
-    bool bytes_swapped = false;
+    /// swapped. When absent, the device's byte order applies.
+    std::optional<bool> bytes_swapped;
     /// @brief words_swapped is true when the word order of multi-register values is
-    /// swapped.
-    bool words_swapped = false;
+    /// swapped. When absent, the device's word order applies.
+    std::optional<bool> words_swapped;
 
     static RegisterValue parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

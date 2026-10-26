@@ -19,7 +19,7 @@ import (
 
 func TestLinePlotV0(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Line Plot v0 Suite")
+	RunSpecs(t, "Service Line Plot v0 Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

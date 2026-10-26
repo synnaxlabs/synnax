@@ -12,7 +12,7 @@ import "@/schematic/node/common/primitive/primitive.css";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { useHold } from "@synnaxlabs/lyra/hooks";
 import { type CrudeTimeSpan } from "@synnaxlabs/x";
-import { type ComponentPropsWithRef, type ReactElement, useMemo } from "react";
+import { type ComponentPropsWithRef, type ReactElement } from "react";
 
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type OrientableProps } from "@/schematic/node/common/primitive/orientable";
@@ -49,13 +49,9 @@ export const Button = ({
   });
   const delayed = !hold.delay.isZero;
 
-  const pStyle = useMemo(() => {
-    if (!delayed) return style;
-    return {
-      ...style,
-      [CSS.variable("toggle-delay")]: `${hold.delay.seconds.toString()}s`,
-    };
-  }, [hold.delay, style]);
+  const pStyle = delayed
+    ? { ...style, [Primitive.TOGGLE_DELAY]: `${hold.delay.seconds.toString()}s` }
+    : style;
 
   return (
     <button

@@ -19,7 +19,7 @@ import (
 
 func TestHumanize(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Analyzer Humanize Suite")
+	RunSpecs(t, "Analyzer Humanize Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

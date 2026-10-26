@@ -9,7 +9,7 @@
 
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { type location } from "@synnaxlabs/x";
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent, render, renderHook } from "@testing-library/react";
 import { type Node, ReactFlowProvider, ResizeControlVariant } from "@xyflow/react";
 import {
   type PropsWithChildren,
@@ -611,5 +611,24 @@ describe("Grid resize controls", () => {
         ).toBe(true);
       });
     });
+  });
+});
+
+describe("Grid inline resize", () => {
+  it("should change the inline size by the change in dragged width", () => {
+    const onChange = vi.fn();
+    const { result } = renderHook(() => Grid.useInlineResize(100, onChange));
+    expect(result.current.resizeHandles).toEqual(["left", "right"]);
+    result.current.onResizeStart?.({ width: 150, height: 40 });
+    result.current.onResize?.({ width: 210, height: 40 });
+    expect(onChange).toHaveBeenLastCalledWith(160);
+  });
+
+  it("should not shrink the inline size below the minimum", () => {
+    const onChange = vi.fn();
+    const { result } = renderHook(() => Grid.useInlineResize(100, onChange));
+    result.current.onResizeStart?.({ width: 150, height: 40 });
+    result.current.onResize?.({ width: 10, height: 40 });
+    expect(onChange).toHaveBeenLastCalledWith(40);
   });
 });

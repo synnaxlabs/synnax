@@ -8,7 +8,7 @@ next: "`time`"
 nextURL: "/reference/control/arc/reference/standard-library/time"
 ---
 
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 import { Arc } from "@/components/arc";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import Params from "@/components/params/Params.astro";
@@ -50,7 +50,7 @@ addressing it by name or by key, and outputs the resolved status key.
   output={{ type: "str", description: "The resolved status key that was set." }}
 />
 
-<Note.Note variant="info" className="compact">
+<Note.Note variant="info">
   If several statuses share a name, the first match is updated. If a `status.set` fails
   (for example, an empty `key_or_name` or a database error), it reports a `warning` and
   the automation keeps running.

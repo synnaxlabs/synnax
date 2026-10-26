@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { box, compare, unique, type xy } from "@synnaxlabs/x";
-import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 
 import { useStateRef, useSyncedRef } from "@/hooks/ref";
 import { useMemoCompare } from "@/memo";
@@ -37,9 +37,9 @@ export interface UseEvent {
   stage: Stage;
   cursor: xy.XY;
   /**
-   * Prevents the event from being dispatched to any remaining Triggers.use
-   * subscribers with a lower priority than the current one. Subscribers at the
-   * same priority that have not yet been notified still receive the event.
+   * Prevents the event from being dispatched to any remaining {@link use}
+   * subscribers with a lower priority than the current one. Subscribers at the same
+   * priority that have not yet been notified still receive the event.
    */
   stopPropagation: () => void;
 }
@@ -53,9 +53,10 @@ export interface UseProps extends MatchOptions {
   /** Whether the event target must be the region itself, not a descendant. */
   regionMustBeElement?: boolean;
   /**
-   * Withholds events from this subscriber while it resolves false. Use it for conditions
-   * the subscriber itself owns, such as whether its content is editable. Whether the
-   * surrounding view is the one the user is working in belongs in a {@link Scope}.
+   * Withholds events from this subscriber while it resolves false. Use it for
+   * conditions the subscriber itself owns, such as whether its content is editable.
+   * Whether the surrounding view is the one the user is working in belongs in a
+   * {@link Scope}.
    */
   enabled?: Condition;
   /**
@@ -72,7 +73,10 @@ export interface UseProps extends MatchOptions {
  * the active one.
  *
  * @example
- * Triggers.use({ triggers: [["Control", "S"]], callback: ({ stage }) => save(stage) });
+ * Triggers.use({
+ *   triggers: [["Control", "S"]],
+ *   callback: ({ stage }) => save(stage),
+ * });
  */
 export const use = ({
   triggers,
@@ -178,15 +182,12 @@ export const useUndoRedo = ({ undo, redo, enabled }: UseUndoRedoProps): void => 
     triggers: UNDO_REDO_TRIGGERS,
     loose: true,
     enabled,
-    callback: useCallback(
-      ({ triggers, stage }: UseEvent) => {
-        if (stage !== "start") return;
-        const mode = determineMode(UNDO_REDO_CONFIG, triggers);
-        if (mode === "undo") undo();
-        else if (mode === "redo") redo();
-      },
-      [undo, redo],
-    ),
+    callback: ({ triggers, stage }: UseEvent) => {
+      if (stage !== "start") return;
+      const mode = determineMode(UNDO_REDO_CONFIG, triggers);
+      if (mode === "undo") undo();
+      else if (mode === "redo") redo();
+    },
   });
 };
 
@@ -217,7 +218,7 @@ export const useHeldRef = ({
   });
   use({
     triggers,
-    callback: useCallback((e: UseEvent) => {
+    callback: (e: UseEvent) => {
       setRef((prev) => {
         let next: Trigger[];
         if (e.stage === "start")
@@ -225,7 +226,7 @@ export const useHeldRef = ({
         else next = purge(prev.triggers, e.triggers);
         return { triggers: next, held: next.length > 0 };
       });
-    }, []),
+    },
     loose,
   });
   return ref;
@@ -239,7 +240,7 @@ export const useHeld = ({ triggers, loose }: UseHeldProps): UseHeldReturn => {
   const [held, setHeld] = useState<UseHeldReturn>({ triggers: [], held: false });
   use({
     triggers,
-    callback: useCallback((e: UseEvent) => {
+    callback: (e: UseEvent) => {
       setHeld((prev) => {
         let next: Trigger[];
         if (e.stage === "start")
@@ -247,7 +248,7 @@ export const useHeld = ({ triggers, loose }: UseHeldProps): UseHeldReturn => {
         else next = purge(prev.triggers, e.triggers);
         return { triggers: next, held: next.length > 0 };
       });
-    }, []),
+    },
     loose,
   });
   return held;

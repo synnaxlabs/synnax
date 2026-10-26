@@ -13,24 +13,25 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
 )
 
 // Migration re-encodes stored entries from MessagePack to Orc.
-var Migration = gorp.CodecMigration[string, Pair]("msgpack_to_orc")
+var Migration = migrate.Codec[string, Pair]("msgpack_to_orc")
 
 // NormalizeKeys re-keys Pair rows that v0.52 and v0.53 stored under the pre-v0.54 key
 // format with the type name "Pair".
-var NormalizeKeys = gorp.NormalizeKeysMigration[string, Pair]("Pair")
+var NormalizeKeys = migrate.NormalizeKeys[string, Pair]("Pair")
 
 // RecoverKVPairKeys re-keys Pair rows that v0.51 and earlier stored under the pre-v0.54
 // key format with the type name "KVPair". A pair whose key already holds a value keeps
 // that newer value.
-var RecoverKVPairKeys = gorp.NewMigration(
+var RecoverKVPairKeys = migrate.New(
 	"v59_recover_kvpair_keys",
 	func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) (err error) {
 		prefix, err := msgpack.Codec.Encode(ctx, "KVPair")

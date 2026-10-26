@@ -26,7 +26,7 @@ func CanEmbed(form resolution.StructForm, table *resolution.Table) bool {
 	}
 	promoted := make(set.Set[string])
 	for _, ext := range form.Extends {
-		parent, ok := ext.Resolve(table)
+		parent, _, ok := resolution.Dealias(ext, table)
 		if !ok {
 			continue
 		}

@@ -208,7 +208,7 @@ TEST(RuntimeLifecycleTest, WriteReturnsClosedErrorAfterStop) {
     auto series = x::telem::Series(x::telem::FLOAT32_T, 1);
     series.write(1.0f);
     auto err = runtime->write(x::telem::Frame(1, std::move(series)));
-    EXPECT_TRUE(err.matches("runtime closed"));
+    EXPECT_TRUE(err.matches(arc::runtime::errors::CLOSED));
 }
 
 /// @brief Test that rapid start/stop cycles work without issues.
@@ -238,7 +238,8 @@ TEST(RuntimeLifecycleTest, WriteSucceedsAfterRestart) {
     auto series = x::telem::Series(x::telem::FLOAT32_T, 1);
     series.write(1.0f);
     auto err = runtime->write(x::telem::Frame(1, std::move(series)));
-    EXPECT_TRUE(err.matches("runtime closed")) << "Write should fail when stopped";
+    EXPECT_TRUE(err.matches(arc::runtime::errors::CLOSED))
+        << "Write should fail when stopped";
 
     ASSERT_TRUE(runtime->start());
 

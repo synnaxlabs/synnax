@@ -11,7 +11,6 @@ import { arc, type rack, status, task } from "@synnaxlabs/client";
 import { type List } from "@synnaxlabs/lyra/list";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { compare, type record, verbs, xy } from "@synnaxlabs/x";
-import { useCallback } from "react";
 import z from "zod";
 
 import { Node } from "@/arc/graph/node";
@@ -128,25 +127,22 @@ export const useAddNode = (keyOverride?: arc.Key) => {
   const key = Scope.use(keyOverride);
   const theme = Theming.use();
   const { dispatch } = useDispatch();
-  return useCallback(
-    ({ key: nodeKey, type, position }: AddNodeProps) => {
-      const spec = (Node.REGISTRY as Record<string, Node.Spec>)[type];
-      if (spec == null) return;
-      dispatch({
-        key,
-        actions: [
-          arc.setNode({
-            node: { key: nodeKey, position: xy.construct(position ?? xy.ZERO) },
-          }),
-          arc.setNodeInputs({
-            key: nodeKey,
-            inputs: spec.defaultConfig(theme) as record.Unknown,
-          }),
-        ],
-      });
-    },
-    [key, dispatch, theme],
-  );
+  return ({ key: nodeKey, type, position }: AddNodeProps) => {
+    const spec = (Node.REGISTRY as Record<string, Node.Spec>)[type];
+    if (spec == null) return;
+    dispatch({
+      key,
+      actions: [
+        arc.setNode({
+          node: { key: nodeKey, position: xy.construct(position ?? xy.ZERO) },
+        }),
+        arc.setNodeInputs({
+          key: nodeKey,
+          inputs: spec.defaultConfig(theme) as record.Unknown,
+        }),
+      ],
+    });
+  };
 };
 
 export type ListQuery = List.PagerParams & {
@@ -278,8 +274,8 @@ export interface UseTaskControlsReturn {
   taskStatus: status.Status;
 }
 
-const notDeployedYet = (name: string) =>
-  status.create({ name, variant: "disabled", message: "Not deployed yet" });
+const notDeployed = (name: string) =>
+  status.create({ name, variant: "disabled", message: "Task not deployed" });
 
 /**
  * Running state and start/stop controls for the arc's task. The params hook into the
@@ -297,19 +293,13 @@ export const useTaskControls = (
   const taskRack = tsk?.rack ?? 0;
   const taskPerformance =
     tsk == null ? "auto" : arc.task.performanceZ.parse(tsk.config.performance);
-  const exec = useCallback(
-    (type: "start" | "stop") => {
-      if (taskKey === "") return;
-      cmd.update([{ task: taskKey, type }]);
-    },
-    [cmd, taskKey],
-  );
-  const onStart = useCallback(() => exec("start"), [exec]);
-  const onStop = useCallback(() => exec("stop"), [exec]);
-  const onStartStop = useCallback(
-    () => (isRunning ? onStop() : onStart()),
-    [isRunning, onStop, onStart],
-  );
+  const exec = (type: "start" | "stop") => {
+    if (taskKey === "") return;
+    cmd.update([{ task: taskKey, type }]);
+  };
+  const onStart = () => exec("start");
+  const onStop = () => exec("stop");
+  const onStartStop = () => (isRunning ? onStop() : onStart());
   return {
     running: isRunning,
     taskKey,
@@ -318,7 +308,6 @@ export const useTaskControls = (
     onStart,
     onStop,
     onStartStop,
-    taskStatus:
-      variant !== "success" ? readStatus : (tsk?.status ?? notDeployedYet(name)),
+    taskStatus: variant !== "success" ? readStatus : (tsk?.status ?? notDeployed(name)),
   };
 };

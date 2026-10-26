@@ -12,7 +12,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { errors, type optional, primitive } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/ni/device/queries";
 import { Select } from "@/feature/ni/device/Select";
@@ -68,16 +68,13 @@ const name = Component.renderProp(NameComponent);
 
 const Form: FC = () => {
   const dev = useFromConfig();
-  const resolve = useCallback(
-    (ch: DOChannel) => {
-      if (dev == null) return null;
-      const pair =
-        dev.properties.digitalOutput.channels[getDigitalChannelDeviceKey(ch)] ??
-        PlatformDevice.ZERO_COMMAND_STATE_PAIR;
-      return { cmdChannel: pair.command, stateChannel: pair.state };
-    },
-    [dev],
-  );
+  const resolve = (ch: DOChannel) => {
+    if (dev == null) return null;
+    const pair =
+      dev.properties.digitalOutput.channels[getDigitalChannelDeviceKey(ch)] ??
+      PlatformDevice.ZERO_COMMAND_STATE_PAIR;
+    return { cmdChannel: pair.command, stateChannel: pair.state };
+  };
   return (
     <DigitalChannelList
       createChannel={createNextDOChannel}

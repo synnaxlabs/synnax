@@ -28,7 +28,7 @@ package = false
 
 [tool.ruff]
 extend = "../pyproject.toml"
-src = ["."]
+src = [".", "tests"]
 
 [tool.ruff.lint.per-file-ignores]
 # Log.error(context, exception) is this package's logger, not the stdlib's.

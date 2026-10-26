@@ -10,14 +10,7 @@
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { box, type optional } from "@synnaxlabs/x";
-import {
-  type Dispatch,
-  type SetStateAction,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-} from "react";
+import { type Dispatch, type SetStateAction, useEffect, useRef } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
@@ -77,28 +70,20 @@ export const use = ({
   onHold,
 }: UseProps): UseReturn => {
   const channels = rawChannels ?? [];
-  const numericChannels = useMemo(
-    () =>
-      channels
-        .map((e) => e.channel)
-        .filter((ch): ch is number => typeof ch === "number" && ch > 0),
-    [channels],
-  );
+  const numericChannels = channels
+    .map((e) => e.channel)
+    .filter((ch): ch is number => typeof ch === "number" && ch > 0);
   const { data: retrievedChannels } = Channel.useResultMultiple({
     keys: numericChannels,
   });
-  const channelNames = useMemo(() => {
-    const names: Record<string, string> = {};
-    if (retrievedChannels != null)
-      for (const ch of retrievedChannels) names[String(ch.key)] = ch.name;
-    return names;
-  }, [retrievedChannels]);
-  const channelDataTypes = useMemo(() => {
-    const types: Record<string, string> = {};
-    if (retrievedChannels != null)
-      for (const ch of retrievedChannels) types[String(ch.key)] = String(ch.dataType);
-    return types;
-  }, [retrievedChannels]);
+  const names: Record<string, string> = {};
+  if (retrievedChannels != null)
+    for (const ch of retrievedChannels) names[String(ch.key)] = ch.name;
+  const channelNames = names;
+  const types: Record<string, string> = {};
+  if (retrievedChannels != null)
+    for (const ch of retrievedChannels) types[String(ch.key)] = String(ch.dataType);
+  const channelDataTypes = types;
 
   const memoProps = useMemoDeepEqual({
     font,
@@ -118,14 +103,11 @@ export const use = ({
   const resumedAtRef = useRef(0);
   // The worker stamps resumedAt when it resumes on its own. Its pushes can still echo
   // a stale scrolling value after a hold change, so the stamp is the only signal.
-  const handleAetherChange = useCallback(
-    ({ resumedAt }: LogState) => {
-      if (resumedAt <= resumedAtRef.current) return;
-      resumedAtRef.current = resumedAt;
-      if (holdRef.current != null) onHold?.(false);
-    },
-    [onHold],
-  );
+  const handleAetherChange = ({ resumedAt }: LogState) => {
+    if (resumedAt <= resumedAtRef.current) return;
+    resumedAtRef.current = resumedAt;
+    if (holdRef.current != null) onHold?.(false);
+  };
 
   const [, state, setState] = Aether.use({
     aetherKey,

@@ -200,6 +200,16 @@ var _ = Describe("FormatCpp", func() {
 		// Verify that "functions, mapping" is not on its own short line
 		Expect(result).NotTo(ContainSubstring("/// functions, mapping\n"))
 	})
+	It("should account for indentation when wrapping", func() {
+		longDoc := "indicates the severity of the status. One of success, info, warning, error, loading, or disabled."
+		result := doc.FormatCpp("variant", longDoc, 4)
+		lines := strings.SplitSeq(result, "\n")
+		for line := range lines {
+			Expect(
+				4+len(line),
+			).To(BeNumerically("<=", 88), "indented line exceeds 88 chars: %s", line)
+		}
+	})
 	It("should preserve paragraph breaks (double newline)", func() {
 		docWithParagraphs := "First paragraph text.\n\nSecond paragraph text."
 		result := doc.FormatCpp("Name", docWithParagraphs)

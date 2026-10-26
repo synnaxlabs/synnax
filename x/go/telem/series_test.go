@@ -260,6 +260,13 @@ var _ = Describe("Series", func() {
 			Expect(last.TimeRange).To(Equal(s.TimeRange))
 		})
 
+		It("Should advance the alignment by the alignment multiple", func() {
+			s := telem.NewSeriesV[int32](1, 2, 3)
+			s.Alignment = telem.NewAlignment(2, 5)
+			s.AlignmentMultiple = 4
+			Expect(s.Last().Alignment).To(Equal(telem.NewAlignment(2, 13)))
+		})
+
 		It("Should return the last sample of a variable density series", func() {
 			s := telem.NewSeriesV("a", "bc", "def")
 			last := s.Last()
@@ -870,6 +877,29 @@ var _ = Describe("Series", func() {
 		})
 	})
 
+	Describe("AlignmentBounds", func() {
+		It("Should span every alignment step of a series with a multiple", func() {
+			s := telem.NewSeriesV[float64](1, 2, 3)
+			s.Alignment = telem.NewAlignment(1, 10)
+			s.AlignmentMultiple = 5
+			Expect(s.AlignmentBounds()).To(Equal(telem.AlignmentBounds{
+				Lower: telem.NewAlignment(1, 10),
+				Upper: telem.NewAlignment(1, 25),
+			}))
+		})
+	})
+
+	Describe("Multiple", func() {
+		DescribeTable("returns the alignment steps per sample",
+			func(multiple, expected uint32) {
+				s := telem.Series{AlignmentMultiple: multiple}
+				Expect(s.Multiple()).To(Equal(expected))
+			},
+			Entry("zero means one", uint32(0), uint32(1)),
+			Entry("set", uint32(4), uint32(4)),
+		)
+	})
+
 	Describe("MultiSeries", func() {
 		Describe("NewMultiSeries", func() {
 			It("Should construct a multi-series from a slice of series", func() {
@@ -1074,9 +1104,32 @@ var _ = Describe("Series", func() {
 					ms := telem.NewMultiSeriesV(s1)
 					Expect(func() {
 						ms.AtAlignment[uint8](5000)
-					}).To(Panic())
+					}).To(PanicWith(ContainSubstring("no sample at alignment")))
 				},
 			)
+
+			Describe("A series with an alignment multiple", func() {
+				var ms telem.MultiSeries
+				BeforeEach(func() {
+					s := telem.NewSeriesV[uint8](1, 2, 3)
+					s.Alignment = telem.NewAlignment(1, 0)
+					s.AlignmentMultiple = 2
+					ms = telem.NewMultiSeriesV(s)
+				})
+
+				It("Should return the sample at each multiple", func() {
+					Expect(ms.AtAlignment[uint8](telem.NewAlignment(1, 2))).
+						To(Equal(uint8(2)))
+					Expect(ms.AtAlignment[uint8](telem.NewAlignment(1, 4))).
+						To(Equal(uint8(3)))
+				})
+
+				It("Should panic for an alignment between two samples", func() {
+					Expect(func() {
+						ms.AtAlignment[uint8](telem.NewAlignment(1, 3))
+					}).To(PanicWith(ContainSubstring("no sample at alignment")))
+				})
+			})
 		})
 	})
 
@@ -1214,6 +1267,7 @@ var _ = Describe("Series", func() {
 			original := telem.NewSeriesV[int64](1, 2, 3, 4, 5)
 			original.TimeRange = telem.TimeRange{Start: 100, End: 200}
 			original.Alignment = telem.NewAlignment(1, 5)
+			original.AlignmentMultiple = 3
 
 			copied := original.DeepCopy()
 
@@ -1221,6 +1275,7 @@ var _ = Describe("Series", func() {
 			Expect(copied.Len()).To(Equal(original.Len()))
 			Expect(copied.TimeRange).To(Equal(original.TimeRange))
 			Expect(copied.Alignment).To(Equal(original.Alignment))
+			Expect(copied.AlignmentMultiple).To(Equal(uint32(3)))
 			Expect(
 				copied.Unmarshal[int64](),
 			).To(Equal([]int64{1, 2, 3, 4, 5}))
@@ -1309,11 +1364,13 @@ var _ = Describe("Series", func() {
 			src := telem.NewSeriesV[int64](1, 2, 3)
 			src.TimeRange = telem.TimeRange{Start: 100, End: 200}
 			src.Alignment = telem.NewAlignment(1, 5)
+			src.AlignmentMultiple = 3
 			var dst telem.Series
 			dst.CopyFrom(src)
 			Expect(dst.DataType).To(Equal(telem.Int64T))
 			Expect(dst.TimeRange).To(Equal(src.TimeRange))
 			Expect(dst.Alignment).To(Equal(src.Alignment))
+			Expect(dst.AlignmentMultiple).To(Equal(uint32(3)))
 			Expect(dst.Unmarshal[int64]()).To(Equal([]int64{1, 2, 3}))
 		})
 

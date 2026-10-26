@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type RefCallback, useCallback, useRef } from "react";
+import { type RefCallback, useRef } from "react";
 
 const LINE_HEIGHT = 16;
 
@@ -39,7 +39,7 @@ const scrollsY = (el: Element, delta: number): boolean => {
  */
 export const useWheelScrollX = <E extends HTMLElement>(): RefCallback<E> => {
   const detachRef = useRef<(() => void) | null>(null);
-  return useCallback((el: E | null) => {
+  return (el: E | null) => {
     detachRef.current?.();
     detachRef.current = null;
     if (el == null) return;
@@ -61,5 +61,5 @@ export const useWheelScrollX = <E extends HTMLElement>(): RefCallback<E> => {
     // React registers wheel listeners passively, so onWheel can't preventDefault.
     el.addEventListener("wheel", handleWheel, { passive: false });
     detachRef.current = () => el.removeEventListener("wheel", handleWheel);
-  }, []);
+  };
 };

@@ -226,7 +226,7 @@ public:
             if (it == this->alignment_counters.end()) continue;
             auto &counter = *it->second;
             const auto &s = frame.series->at(i);
-            const auto target = s.alignment.uint64() + (s.size() > 0 ? s.size() : 1);
+            const auto target = s.alignment.uint64() + (!s.empty() ? s.size() : 1);
             auto current = counter.load(std::memory_order_relaxed);
             while (current < target) {
                 if (counter.compare_exchange_weak(

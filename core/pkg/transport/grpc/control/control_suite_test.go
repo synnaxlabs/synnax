@@ -19,7 +19,7 @@ import (
 
 func TestControl(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Transport gRPC Control Suite")
+	RunSpecs(t, "Transport gRPC Control Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
