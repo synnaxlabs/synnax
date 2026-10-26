@@ -17,18 +17,16 @@ export const components = mdxOverrides;
 
 {/* Still to capture: releases/0-60-0/hero */}
 
-Synnax v0.60 comes with Synnax Desktop 1.0, a free app that puts the Console, a Core,
-and a Driver on your computer. Install it, log in, and you can record, plot, and control
-hardware in minutes.
+Synnax v0.60 comes with Synnax Desktop 1.0: the Console, a Core, and a Driver in one
+free app. Install it, log in, and record, plot, and control hardware in minutes.
 
-Line plots now load the detail that you look at. Open a week of 1 kHz data, and every
-spike is on screen. Zoom in until you see single samples, then pan past the end of the
-range to see what came before. EtherCAT networks recover lost slaves with no restart,
-setpoints show the value that the device reports, and one picker connects every kind of
-device. Exports run up to ten times faster, and the Core now writes TDMS files.
+Line plots now load only the detail on screen, so a week of 1 kHz data opens with every
+spike in view. EtherCAT networks recover lost slaves with no restart, setpoints show
+what the device reports, and one picker connects every device. Exports are up to ten
+times faster, and the Core now writes TDMS files.
 
-A Core now needs a license from the Synnax portal, and the client libraries have
-breaking changes. Read the [breaking changes](#breaking-changes) before you upgrade.
+A Core now needs a license from the Synnax portal. Read the
+[breaking changes](#breaking-changes) before you upgrade.
 
 <Divider.Divider x />
 
@@ -36,24 +34,16 @@ breaking changes. Read the [breaking changes](#breaking-changes) before you upgr
 
 {/* Still to capture: releases/0-60-0/desktop */}
 
-Synnax Desktop is one app for macOS and Windows. It holds the Console, a Core, and a
-Driver, so there is no server to set up and nothing to run from a terminal. It is free,
-and it needs a Synnax account.
+Synnax Desktop runs on macOS and Windows, with no server to set up and nothing to run
+from a terminal. It is free with a Synnax account. Connect a LabJack, a Modbus server,
+or, on Windows, an NI device, and your data stays on your computer.
 
-Connect a LabJack, a Modbus server, or, on Windows, an NI device. Then record and plot
-its data on your own computer. Your channels, recordings, and projects stay on your
-computer. When a new version is ready, the top bar shows **Update available**.
+No hardware yet? Select **Open sample project**. An Arc sequence fills a simulated tank
+to 300 psi, holds it for 10 seconds, and vents it, and aborts above 450 psi. Change the
+programs and see what happens.
 
-No hardware yet? Select **Open sample project** on the projects screen. Synnax Desktop
-builds a tank with two valves, a pressure plot, and two Arc programs. Select **Start**,
-and an Arc sequence fills the tank to 300 psi, holds it for 10 seconds, and vents it. If
-the pressure goes above 450 psi, the sequence aborts. A simulator in Arc plays the part
-of the hardware, so you can change the programs and see what happens.
-
-Synnax Desktop is for one person on one computer. For a team, for Linux, or for Drivers
-on other computers, use Synnax Enterprise. See
-[Install Synnax Desktop](/reference/get-started/install-desktop) and
-[Synnax editions](/reference/get-started/editions).
+For a team or for Linux, use Synnax Enterprise. See
+[Install Synnax Desktop](/reference/get-started/install-desktop).
 
 <Divider.Divider x />
 
@@ -61,38 +51,33 @@ on other computers, use Synnax Enterprise. See
 
 {/* Video to capture: releases/0-60-0/line-plots */}
 
-A week of 1 kHz data is 600 million samples. Before v0.60, a line plot loaded all of
-them, stayed blank until the load finished, and then drew only some of them. A spike one
-sample wide showed only if it was one of the samples that the plot kept.
+A week of 1 kHz data is 600 million samples. Before, a line plot loaded all of them,
+stayed blank until it finished, and then drew only some. A one-sample spike showed only
+by luck.
 
-Now the Core reduces the data before it sends it. For each group of pixel columns, the
-plot gets the lowest and the highest sample, so every spike is on screen. Each line gets
-a few thousand points, for a range of ten minutes or of a week.
+Now the Core sends the lowest and highest sample of each group of pixel columns. Every
+spike is on screen, and each line gets a few thousand points for any range.
 
-- **Zoom in, and the detail comes in** -> the plot loads finer data for the new view.
-  The coarse data stays on screen until the fine data arrives, so the plot never goes
-  blank. Zoom far enough, and you see the single samples.
-- **Pan past the range** -> the range is now the home view, not a wall. Pan past either
-  end, and the plot loads the data there. To go back to the home view, select **Reset
-  zoom**, or **Ctrl**-click (**Cmd**-click on macOS).
-- **Live data looks like history** -> the newest samples stream in at full rate, and the
-  plot reduces them the same way as the stored data.
-- **Go back without a reload** -> the Console keeps up to 128 MB of loaded data, so a
-  view that you saw before draws at once.
+- **Zoom in** -> finer data loads for the new view. The coarse data stays until it
+  arrives, so the plot never goes blank. Zoom far enough to see single samples.
+- **Pan past the range** -> the plot loads the data there. **Reset zoom**, or
+  **Ctrl**-click, goes back.
+- **Live data** -> streams at full rate and draws the same way as stored data.
+- **Go back** -> the Console keeps up to 128 MB of loaded data, so a view you saw before
+  draws at once.
 
-The plot also does less work. For 10 lines of 1 kHz data, one frame of an hour view into
-a week takes 0.6 ms of CPU time. Before, it took 25 ms.
+For 10 lines of 1 kHz data, a frame of an hour view takes 0.6 ms of CPU time instead of
+25 ms.
 
-Two new settings for each line, in the **Lines** tab, replace the old downsampling
-settings:
+Two settings in the **Lines** tab replace downsampling:
 
-| Setting     | Options                                                                                    | Default |
-| ----------- | ------------------------------------------------------------------------------------------ | ------- |
-| Aggregation | **Min/max** draws the lowest and highest sample of each group. **Average** draws the mean. | Min/max |
-| Detail      | **Low**, **Medium**, or **High**: one group for each four, two, or one pixel columns.      | Medium  |
+| Setting     | Options                                                                          | Default |
+| ----------- | -------------------------------------------------------------------------------- | ------- |
+| Aggregation | **Min/max** draws the lowest and highest sample. **Average** draws the mean.     | Min/max |
+| Detail      | **Low**, **Medium**, or **High**: one group per four, two, or one pixel columns. | Medium  |
 
-Your line plots change to Min/max at Medium when you upgrade. A line that had an
-averaging window changes to Average. See [Line plots](/reference/visualize/line-plots).
+Existing lines change to Min/max at Medium, or to Average if they had an averaging
+window. See [Line plots](/reference/visualize/line-plots).
 
 <Divider.Divider x />
 
@@ -100,22 +85,16 @@ averaging window changes to Average. See [Line plots](/reference/visualize/line-
 
 {/* Still to capture: releases/0-60-0/read-back */}
 
-The Setpoint, Text input, and Select symbols now show two values. The field shows the
-last command that anyone sent: you, an operator in another Console, or an Arc program.
-Under the field, a new tray shows the value that the device reports, with its units.
+Setpoint, Text input, and Select symbols now show two values: the last command that
+anyone sent, and, in a tray under it, the value the device reports. You see "I asked for
+300 psi" and "the regulator reads 287.4 psi" in one place. Before, the field showed only
+what you typed, so after a reload or in a second Console it showed a value that nobody
+sent.
 
-So you see "I asked for 300 psi" and "the regulator reads 287.4 psi" in one place. When
-you edit the field, **Set** turns blue. It stays blue until the command channel reports
-the new value, so a write that did not land stays visible. If the device stops
-reporting, the tray changes to the staleness color.
-
-Before, the field showed only what you typed, and a new setpoint started at 0. After a
-reload, or in a second Console, it showed a value that nobody had sent.
-
-To add the tray, select the symbol and set **Properties** > **Control** > **State** >
-**Channel**. The Value, Text display, and State indicator symbols also share a new
-frame. "Input" is now "Text input", and "String display" is now "Text display". The Text
-display draws on the canvas, so a fast string channel no longer slows the Console.
+An edit turns **Set** blue, and it stays blue until the command channel reports the new
+value, so a write that did not land stays visible. If the device stops reporting, the
+tray shows the staleness color. To add the tray, set **Control** > **State** >
+**Channel**.
 
 <Divider.Divider x />
 
@@ -123,42 +102,32 @@ display draws on the canvas, so a fast string channel no longer slows the Consol
 
 {/* Still to capture: releases/0-60-0/connect-device */}
 
-Select **+** in the Devices toolbar, or run the **Connect device** command. One picker
-lists every integration. Connect OPC UA, Modbus, and HTTP servers by address. Find the
-NI, LabJack, and EtherCAT hardware that a Driver detects, and configure it in place with
-**Save and create read task**.
-
-When the Driver cannot find your hardware, the picker tells you why, for example "No
-running Driver has NI enabled", and gives you a checklist. Each device list in a task
-form now ends with a connect item, so you can add a device without leaving the task. See
+Select **+** in the Devices toolbar to open one picker for every integration. Connect
+OPC UA, Modbus, and HTTP servers by address, or find the NI, LabJack, and EtherCAT
+hardware that a Driver detects. If the Driver cannot find your hardware, the picker
+tells you why and gives you a checklist. Each device list in a task form also ends with
+a connect item, so you add a device without leaving the task. See
 [Devices](/reference/hardware/devices).
 
 <Divider.Divider x />
 
 ### EtherCAT that recovers on its own
 
-Before, when a slave lost power, its read task kept recording the last values with new
-timestamps. The plot showed a flat line that looked like real data, and the device still
-showed green. When the power came back, you restarted the task.
+Before, a slave that lost power kept recording its last values. The plot showed a flat
+line that looked real, the device stayed green, and you restarted the task.
 
-Now a lost slave stops the recording, and the plot shows a gap. The read tasks on that
-port show "Failed to read data" with the cause. When the slave answers again, the Driver
-returns it to OP, and data resumes. You do not restart anything.
+Now the plot shows a gap, and the task shows "Failed to read data" with the cause. When
+the slave answers again, data resumes on its own.
 
-- **Live slave state** -> while a task runs, each slave in the Devices toolbar shows
-  **Operational**, **In PRE-OP**, **Error in SAFE-OP**, or **Not responding**, with the
-  cause.
-- **No restarts of the bus** -> a task that starts or stops no longer restarts the bus,
-  so the other tasks on the port keep running.
-- **The entry that you picked** -> each channel now reads its entry by index and
-  sub-index. Before, the eight inputs of an EL1008, all named "Input", gave eight copies
-  of input 1.
-- **Better timestamps** -> each sample gets the time of the cycle that read it. With a
-  distributed clock on SOEM, that time comes from the clock of the slaves.
-- **Plug and find** -> plug in a slave while no task uses the port, and it shows up.
-  Scans skip Wi-Fi, VPN, and loopback adapters.
-- **No root on Linux** -> the Driver service now has raw socket access. Run
-  `sudo synnax-driver install` again to get it.
+- **Live slave state** -> while a task runs, each slave shows **Operational**, **In
+  PRE-OP**, **Error in SAFE-OP**, or **Not responding** in the Devices toolbar.
+- **No bus restarts** -> starting or stopping a task no longer stops the other tasks on
+  the port.
+- **The right entry** -> channels read their entry by index and sub-index. Before, the
+  eight inputs of an EL1008 all read input 1.
+- **Better timestamps** -> each sample gets the time of its cycle, from the distributed
+  clock when the slaves have one.
+- **No root on Linux** -> run `sudo synnax-driver install` again.
 
 See [EtherCAT](/reference/hardware/ethercat/configure-device).
 
@@ -166,72 +135,55 @@ See [EtherCAT](/reference/hardware/ethercat/configure-device).
 
 ### Faster exports, and TDMS files
 
-Reads and exports now go to the Core as one request, and the Core writes the file. On a
-test with 10 million samples, a CSV export took 1.8 seconds instead of 17.9 seconds.
-
-The clients can also export TDMS files, for NI DIAdem and LabVIEW:
+Exports now run in the Core as one request. A CSV export of 10 million samples takes 1.8
+seconds instead of 17.9. The clients also export TDMS files for NI DIAdem and LabVIEW:
 
 ```python
-client.read_tdms(tr, ["time", "pressure", "temperature"], "hotfire.tdms")
+client.read_tdms(tr, ["time", "pressure"], "hotfire.tdms")
 ```
 
 ```typescript
-const stream = await client.readTDMS(tr, ["time", "pressure", "temperature"]);
+const tdms = await client.readTDMS(tr, ["time", "pressure"]);
 ```
 
-A read can also come back reduced. With `reduction`, a day of data comes back as about
-2,000 min/max points, so a notebook can plot it at once:
-
-```python
-frame = client.read(tr, "pressure", reduction=sy.LimitReduction(point_limit=2000))
-```
-
-CSV exports now match samples by timestamp, so a channel that starts late keeps its own
-times. See [Read data](/reference/client/read-data).
+With `reduction=sy.LimitReduction(point_limit=2000)`, a read returns a day of data as
+about 2,000 min/max points. CSV exports also match samples by timestamp, so a channel
+that starts late keeps its own times. See [Read data](/reference/client/read-data).
 
 <Divider.Divider x />
 
 ### Sessions that you can end
 
-A login now opens a session that the Core keeps. Delete a user, and every Console,
-script, and stream that the user has open stops at once. Before, the token of a deleted
-user worked for up to 24 hours. A password change ends the other sessions of that user.
+The Core now keeps each login as a session. Delete a user, and their Consoles, scripts,
+and streams stop at once. Before, their token worked for up to 24 hours. A password
+change ends the user's other sessions. Sessions end after 7 days idle; set
+[`--session-idle-timeout`](/reference/enterprise/cli-reference#start) to change this.
 
-A session ends after 7 days with no requests. To change this, set
-[`--session-idle-timeout`](/reference/enterprise/cli-reference#start). New passwords are
-stored with Argon2id. The new `--fips` flag uses only PBKDF2. With `--fips` on, a user
-whose password comes from v0.59 cannot log in until the user gets a new password.
+New passwords use Argon2id, and the new `--fips` flag uses only PBKDF2. With `--fips`
+on, users with a password from v0.59 need a new one.
 
 <Divider.Divider x />
 
 ### A typed Python client
 
-The Python client now ships type information. Your editor shows the real types of the
-client, and `mypy --strict` checks your scripts against it. Before, mypy skipped the
-client and took everything in it as `Any`.
-
-New filters find resources without their names:
+The Python client ships type information, so your editor shows real types and
+`mypy --strict` checks your scripts against it. Before, mypy skipped the client. New
+filters find resources without their names:
 
 ```python
 client.channels.retrieve(search_term="pressure", data_types=[sy.DataType.FLOAT32])
-client.ranges.retrieve(overlaps_with=sy.TimeRange(start, end), has_labels=[label.key])
 client.tasks.retrieve(rack=rack.key, search_term="pump")
 ```
 
-Ranges, tasks, devices, racks, statuses, and views get `rename`, which changes only the
-name. The client also checks the certificate of the Core, which can need a change to
-your connection. See [Python client](#python-client).
+Ranges, tasks, devices, racks, statuses, and views also get `rename`.
 
 <Divider.Divider x />
 
 ### Licenses from the Synnax portal
 
-Your organization's admin gets licenses at
-[portal.synnaxlabs.com](https://portal.synnaxlabs.com). For each Core, copy the
-fingerprint from the activation screen of the Console or from the log of the Core,
-activate the license on the portal, and load the `.lic` file that it downloads. To move
-a license to a different computer, release its seat on the portal. See
-[Activate a license](/reference/enterprise/license).
+Admins get licenses at [portal.synnaxlabs.com](https://portal.synnaxlabs.com). Copy each
+Core's fingerprint from the Console or the Core log, activate it on the portal, and load
+the `.lic` file. See [Activate a license](/reference/enterprise/license).
 
 <Divider.Divider x />
 
@@ -241,206 +193,124 @@ a license to a different computer, release its seat on the portal. See
 
 {/* Video to capture: releases/0-60-0/change-symbol */}
 
-Select a symbol in edit mode, select **Change** in the toolbar, and pick a new symbol.
-The label, channels, colors, and pipes stay. Swap a manual valve for a solenoid valve
-without a new pipe or a new channel.
+Select a symbol, click **Change**, and pick a new one. The label, channels, colors, and
+pipes stay.
 
-#### Drag rows and columns of a table
+#### Drag table rows and columns
 
 {/* Video to capture: releases/0-60-0/table-reorder */}
 
-Drag a row or a column to a new position. Select several, and they move together. One
-undo moves them back.
+Drag a row or column to move it. Select several to move them together.
 
-#### Panel icons and colors
+#### Panel icons
 
 {/* Still to capture: releases/0-60-0/panel-icons */}
 
-Right-click a panel and select **Change icon**. Pick one of 64 icons and a color, and
-find the panel in one look. The icon shows on the panel, in the resource tree, and in
-**Move to panel**.
+Right-click a panel and select **Change icon** to give it one of 64 icons and a color.
 
 #### Data saving in the Tasks toolbar
 
-Each task in the Tasks toolbar shows if it saves data. The icon pulses while the task
-records. Click it to turn data saving on or off.
+Each task shows whether it saves data, and the icon pulses while it records. Click the
+icon to switch data saving on or off.
 
 #### Status messages that say what to do
 
-Each status now has a short message and a separate description that gives the cause and
-what to do. "Synnax Driver on Rack 1 not running" is now "Driver not running", and the
-description says how long the Core has not heard from it. The task footer shows the
-description under the message, and two different causes no longer merge into one toast.
+Each status now has a short message and a description with the cause and the fix.
+"Synnax Driver on Rack 1 not running" is now "Driver not running", and the description
+says how long the Core has not heard from it.
 
 #### A faster Console
 
-The Console now compiles with the React Compiler, so a component draws again only when
-its inputs change. In a test form with 40 fields, 20 typed characters caused 14,400
-component draws in v0.59. Now they cause 260. On macOS, the first code editor now opens
-in less than 0.2 seconds instead of 1.3 seconds.
+The Console now builds with the React Compiler. Typing 20 characters into a 40-field
+form draws 260 components instead of 14,400, and on macOS the first code editor opens in
+0.2 seconds instead of 1.3.
 
 <Divider.Divider x />
 
 ### Minor improvements and bug fixes
 
-#### Console
-
+- "Input" is now "Text input", and "String display" is now "Text display".
 - On macOS, the Console uses the native window buttons.
-- New icons for devices, racks, and NI channel types.
-- To clear a select, point to its icon and click, or press `Delete`.
 - A deploy error stays on a field until you change the value of that field.
 - Opening the properties of a symbol no longer changes it.
-- The Arc task controls fit in a narrow editor.
-- A range moves to `Completed` at its end.
-- Selects show the new name of a renamed device, and the user menu shows a new user name
-  at once.
-- Channel search now pages through every match. Before, it stopped at 100, and other
-  resources with the same name could hide channels.
-
-#### Core
-
-- On long recordings, float32, int32, and string samples after a file rollover showed at
-  the wrong times or did not draw. They now draw at their correct times.
-- After one million writer opens on one channel in one run of the Core, Arc ignored new
-  data on that channel. A script that calls `client.write` 10 times a second got there
-  in 28 hours. The limit is now more than two billion.
-- A rename of a task, device, rack, status, or view now changes only the name. Before,
-  the rename made the resource again and could lose its settings.
-- A failed read returns its error. Before, the client stopped and waited.
-
-#### Driver and Arc
-
-- The Modbus **Swap bytes** and **Swap words** settings now work. Each channel can
-  follow the device or set its own order.
+- Channel search finds every match. Before, it stopped at 100.
+- Long recordings no longer draw float32, int32, or string samples at the wrong times
+  after a file rollover.
+- Arc no longer ignores a channel after a script opens one million writers on it.
+- A rename changes only the name. Before, it could lose the resource's settings.
+- The Modbus **Swap bytes** and **Swap words** settings now work.
 - HTTP write tasks accept timestamp command channels.
-- An Arc sequence step whose last node has no outputs now moves to the next step.
-- A renamed rack keeps its new name.
+- An Arc step whose last node has no outputs moves to the next step.
+- The Python client refreshes expired tokens, and `ctrl.valve = 1` now writes.
 - Security updates for wasmtime, open62541, and SOEM.
-
-#### Clients
-
-- The Python client refreshes an expired token, and a dead connection raises
-  `Unreachable` instead of waiting forever.
-- `ctrl.valve = 1` writes the channel. Before, it did nothing and raised no error.
-- The Python streamer now uses `throttle_rate`.
-- `TimeStamp`, `TimeSpan`, and `Series` keep all of their precision.
 
 <Divider.Divider x />
 
 ### Breaking changes
 
-#### A Core needs a license again
+#### Licenses
 
-A Core without a license starts, but it refuses every request except login, the
-connectivity check, and the license requests. The Console shows an activation screen.
-Core 0.59.2 let a Core without a license use up to 50 channels. Core 0.60 removes that
-allowance.
+- A Core without a license starts, but it refuses every request except login and
+  licensing, and the Console shows an activation screen. The 50-channel allowance of
+  Core 0.59.2 is gone.
+- The Core refuses the old numeric keys. Get a signed key from the Synnax portal.
+- Activate each license before you upgrade. To get a Core 0.59 fingerprint, run "Show
+  license info" in the Console. Core 0.60 migrates stored data, so you cannot go back to
+  0.59. See [numeric license keys](/reference/enterprise/license#numeric-license-keys).
+- A refused `--license-key` or `--license-file` no longer stops the Core. It logs the
+  reason and starts, so check the log.
+- In Docker, the license is bound to the container's MAC address. Set `--mac-address`
+  and keep it the same. See [Docker](/reference/enterprise/license#docker).
 
-#### Numeric license keys are not accepted
+#### Core and Console
 
-The Core refuses the old numeric keys, such as `######-########-##########`. Get a
-signed license key from the Synnax portal.
+- Upgrade the Console with the Core. An older Console shows errors instead of the
+  activation screen, and cannot change table rows or columns.
+- The Core refuses tokens from before the upgrade. The Console, the Driver, and the
+  clients log in again on their own. Scripts that call the HTTP API with a saved token
+  must log in again.
+- Tasks, groups, roles, policies, and views need a name. The upgrade names any that have
+  none.
+- Status text changed. Update scripts that match it.
 
-#### Get the license before you upgrade
+#### Hardware
 
-Activate the license for each Core on the portal before you upgrade it. To get the
-fingerprint of a Core 0.59, run the "Show license info" command in the Console and click
-**Copy fingerprint**. After the upgrade, you cannot go back to 0.59, because Core 0.60
-migrates the stored data. If you are not ready to change your license, stay on Core
-0.59. See [numeric license keys](/reference/enterprise/license#numeric-license-keys).
-
-#### A refused key does not stop the start
-
-When the Core refuses the key from `--license-key`, `--license-file`, or
-`SYNNAX_LICENSE_KEY`, it logs the reason and starts with the keys that it stored, or
-without a license. Before, the Core did not start. Check the log after you start the
-Core.
-
-#### Docker needs a fixed MAC address
-
-The license is bound to the MAC address of the container. Start the container with
-`--mac-address`, and keep the same address when you recreate it. Otherwise the
-fingerprint changes, and the license no longer applies. See
-[Docker](/reference/enterprise/license#docker).
-
-#### Upgrade the Console with the Core
-
-A Console older than 0.60 shows errors instead of the activation screen when it connects
-to a Core 0.60 without a license. It also cannot add, remove, or move the rows and
-columns of a table. Upgrade the Console and the Core together.
-
-#### Old tokens are refused
-
-The Core refuses the tokens that it issued before the upgrade. The Console, the Driver,
-and the clients log in again on their own. A script that calls the HTTP API with a saved
-token must log in again.
-
-#### EtherCAT tasks
-
-- A channel whose entry name matches more than one entry, such as "Input" on an EL1008,
-  stops its task with "Failed to configure task". Open the task and pick the entry for
-  each such channel. These channels read the wrong data before.
-- When a write task stops, its outputs go to zero. Before, the last values stayed on the
-  bus.
-- Read rates that have no common multiple between 100 Hz and 10 kHz now fail when the
-  task starts.
-
-#### Modbus byte and word order
-
-A task on a device with **Swap bytes** or **Swap words** turned on now reads in the
-swapped order, because the settings work. Check the values of these tasks after the
-upgrade.
-
-#### Names are required
-
-The Core refuses a task, group, role, policy, or view with an empty name. The upgrade
-gives a name to each one that has none.
-
-#### Status text
-
-Status messages are now short, with the cause in the description. A script that matches
-the text of a status must change.
+- EtherCAT: a channel whose name matches several entries, such as "Input", stops its
+  task with "Failed to configure task". Pick its entry in the task. Write task outputs
+  go to zero when the task stops.
+- Modbus: devices with **Swap bytes** or **Swap words** on now read in swapped order.
+  Check their values after the upgrade.
 
 #### Python client
 
-- The client checks the certificate of the Core and its host name. Before, `secure=True`
-  accepted any certificate. For a Core with `--auto-cert` or your own CA, pass
-  `ca_cert="/path/to/ca.crt"`, or run `sy login` again and enter the CA path. Connect
-  with a host name that the certificate covers.
-- The names that 0.59 marked as deprecated are removed. `*Chan` is now `*Channel`, such
-  as `ni.AIVoltageChannel`. Names drop the prefix of their module, such as `channel.Key`
-  for `channel.ChannelKey`. `synnax.hardware` is removed: import from `synnax.ni` and
-  the other modules. `client.user` is now `client.users`.
-- `retrieve()` on tasks, devices, and racks with no arguments returns a list. Pass
-  `key=` or `name=` to get one.
-- `tasks.create()` needs a name.
-- `Synnax(cache_channels=...)` is removed.
+- The client checks the Core's certificate and host name. For `--auto-cert` or your own
+  CA, pass `ca_cert="/path/to/ca.crt"` or run `sy login` again.
+- Names deprecated in 0.59 are removed: `*Chan` is now `*Channel`, names drop their
+  module prefix (`channel.ChannelKey` is `channel.Key`), `synnax.hardware` moves to
+  `synnax.ni` and its siblings, and `client.user` is `client.users`.
+- `retrieve()` with no arguments on tasks, devices, and racks returns a list.
+- `tasks.create()` needs a name, and `Synnax(cache_channels=...)` is removed.
 - `open_iterator(downsample_factor=N)` is now `reduction=sy.StrideReduction(factor=N)`.
-- `views.create()` takes a `sy.view.RangeView` or a `sy.view.StatusView`.
-- `arc.Status`, `arc.StatusDetails`, and `Arc.status` are removed. Read the status of
-  the Arc's task.
-- EtherCAT: `AutomaticReadChannel`, `ManualReadChannel`, `AutomaticWriteChannel`,
-  `ManualWriteChannel`, and `PDOAddress` are removed. Use `EntryReadChannel` and
-  `EntryWriteChannel` with `ethercat.find_entry`.
-- `synnax.io.tdms.TDMSReader` and the `nptdms` dependency are removed.
-- A naive `pd.Timestamp` is read as UTC. Bare numbers in `remains_true_for(duration=)`
+- `views.create()` takes a `sy.view.RangeView` or `sy.view.StatusView`.
+- `Arc.status` is removed. Read the status of the Arc's task.
+- EtherCAT `Automatic*Channel`, `Manual*Channel`, and `PDOAddress` are now
+  `EntryReadChannel` and `EntryWriteChannel` with `ethercat.find_entry`.
+- `TDMSReader` and the `nptdms` dependency are removed.
+- Naive `pd.Timestamp` values are UTC, and bare numbers in `remains_true_for(duration=)`
   and `ScheduledCommand(delay=)` are seconds.
-- `Bounds.contains` includes the lower bound and excludes the upper bound. `TimeRange`
-  is frozen, and time ranges that only touch no longer overlap.
+- `Bounds.contains` is half-open, `TimeRange` is frozen, and touching ranges no longer
+  overlap.
 
 #### TypeScript client
 
-- `client.auth.user` and `client.auth.retrieveUser()` are removed. Use
-  `client.users.current`.
-- `client.read({ responseType: "csv" })` is removed. Use `client.readCSV(tr, channels)`.
-  The `channelNames` option has no replacement, and lines end in `\n` on every operating
-  system.
-- `openIterator(tr, channels, { downsampleFactor: N })` is now
+- `client.auth.user` and `retrieveUser()` are now `client.users.current`.
+- `client.read({ responseType: "csv" })` is now `client.readCSV(tr, channels)`, with no
+  `channelNames`.
+- `openIterator(..., { downsampleFactor: N })` is now
   `{ reduction: { variant: "stride", factor: N } }`.
-- `client.arcs.retrieve` no longer takes `includeStatus`, and `Arc.status` is removed.
+- `Arc.status` and the `includeStatus` option of `arcs.retrieve` are removed.
 - `status.fromException(error, heading)` needs the heading.
-- `lineplot.setLineDownsample` and `setLineDownsampleMode` are now `setLineAggregation`
-  and `setLineDetail`.
-- `TimeSpan.toString()` prints `min` instead of `m`.
+- `setLineDownsample` and `setLineDownsampleMode` are now `setLineAggregation` and
+  `setLineDetail`.
 
 </Releases.Release>
