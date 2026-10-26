@@ -18,7 +18,7 @@ set -euo pipefail
 
 id=$(aws ssm send-command --instance-ids "$INSTANCE" \
     --document-name AWS-RunShellScript \
-    --parameters "$(jq -n --arg c "$COMMAND" '{commands: [$c]}')" \
+    --parameters "$(jq -nc --arg c "$COMMAND" '{commands: [$c]}')" \
     --timeout-seconds 600 --query Command.CommandId --output text)
 
 for _ in $(seq 120); do

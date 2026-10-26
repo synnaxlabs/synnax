@@ -18,8 +18,12 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, labeled, closed]
 
+# A new push or the close cancels the run it replaces. Any other label gets a group of
+# its own, so it skips without cancelling a deploy or a teardown.
 concurrency:
-  group: preview-${{ github.event.pull_request.number }}
+  group:
+    preview-${{ github.event.pull_request.number }}${{ github.event.action == 'labeled'
+    && github.event.label.name != 'preview' && format('-{0}', github.run_id) || '' }}
   cancel-in-progress: true
 
 permissions: {}
