@@ -435,11 +435,10 @@ describe("staleness", () => {
       expect(leaf.transitions).toEqual([true]);
     });
 
-    it("should clear staleness when a live sample follows an old one", () => {
+    it("should read every arrival after the first as live", () => {
       const { leaf } = mount({ timeouts: [5] });
       stamp(leaf, TimeSpan.seconds(-10));
       leaf.received();
-      leaf.source.value = () => telem.success(null);
       leaf.received();
       expect(leaf.transitions).toEqual([true, false]);
       expect(leaf.state.stale).toBe(false);

@@ -87,14 +87,15 @@ const providerStateZ = z.object({
 
 /**
  * Provider turns a registered source stale when no sample arrives within its timeout.
- * Staleness measures arrival, not sample time. It answers "is this source still
- * sending", not "is the newest sample recent". A source that delivers old data keeps
- * reading live, and a source that sends more slowly than its timeout reads stale even
- * while it is healthy. Give a source that sends on change a timeout longer than the
- * longest gap you expect between changes. One periodic sweep serves every source below
- * the Provider, so the cost stays flat as sources and sample rates grow. The sweep
- * compares against the monotonic clock, so a throttled or suspended worker resolves to
- * the correct state when it wakes.
+ * Staleness measures arrival. It answers "is this source still sending", not "is the
+ * newest sample recent". Only the first value ages by its sample time, since a read of
+ * stored samples can serve it. A source that streams old data keeps reading live, and a
+ * source that sends more slowly than its timeout reads stale even while it is healthy.
+ * Give a source that sends on change a timeout longer than the longest gap you expect
+ * between changes. One periodic sweep serves every source below the Provider, so the
+ * cost stays flat as sources and sample rates grow. The sweep compares against the
+ * monotonic clock, so a throttled or suspended worker resolves to the correct state
+ * when it wakes.
  */
 export class Provider extends aether.Composite<typeof providerStateZ> {
   static readonly TYPE = "staleness.Provider";
@@ -127,7 +128,7 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
     return {
       source,
       received: () => {
-        const at = source.value().time;
+        const at = entry.lastReceived == null ? source.value().time : undefined;
         const elapsed = at == null ? 0n : TimeStamp.now().valueOf() - at.valueOf();
         const age = Math.max(0, new TimeSpan(elapsed).milliseconds);
         entry.lastReceived = performance.now() - age;
