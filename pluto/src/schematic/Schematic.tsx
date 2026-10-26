@@ -25,11 +25,11 @@ import {
   edgeChangesToActions,
   nodeChangesToActions,
 } from "@/schematic/Diagram";
+import { useAddNode } from "@/schematic/editor";
 import { Group } from "@/schematic/group";
 import { canDropHaulItem, filterHaulItems } from "@/schematic/haul";
 import { Node } from "@/schematic/node";
 import {
-  useAddNode,
   useAllConfigs,
   useAllEdges,
   useAllNodes,

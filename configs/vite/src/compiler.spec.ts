@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -49,7 +49,8 @@ const transform = async (
   file: string,
   source: string,
 ): Promise<string | undefined> => {
-  const root = mkdtempSync(path.join(tmpdir(), "react-compiler-"));
+  // Windows runners give tmpdir() an 8.3 short name, which Vite refuses to load from.
+  const root = realpathSync.native(mkdtempSync(path.join(tmpdir(), "react-compiler-")));
   roots.push(root);
   const files = { ...REACT_STUB, [file]: source };
   for (const [name, content] of Object.entries(files)) {

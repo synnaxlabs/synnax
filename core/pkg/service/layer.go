@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/history"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/http"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -376,6 +377,13 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, closer) {
 		return nil, err
 	}
+	if closer, err := history.Publish(ctx, history.Config{
+		Instrumentation: cfg.Child("framer_history"),
+		Framer:          cfg.Distribution.Framer,
+		Signals:         l.Signals,
+	}); !ok(err, closer) {
+		return nil, err
+	}
 	if closer, err := l.Signals.PublishJSON(
 		ctx,
 		signals.JSONPublisherConfig[string]{
@@ -619,6 +627,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.EtherCAT, err = ethercat.OpenService(ctx, ethercat.ServiceConfig{
 		Instrumentation: cfg.Child("ethercat"),
 		DB:              cfg.Distribution.DB,
+		Device:          l.Device,
 	}); !ok(err, l.EtherCAT) {
 		return nil, err
 	}

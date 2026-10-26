@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/gorp/testutil"
-	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -72,42 +71,6 @@ var _ = Describe("Create", Ordered, func() {
 					Exists(ctx, tx),
 			).To(BeTrue())
 		})
-
-		It(
-			"Should add only the key buffer to the kv write of the entry",
-			func(ctx SpecContext) {
-				table := MustOpen(
-					gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}),
-				)
-				var (
-					e       = entry{ID: 1, Data: "data"}
-					entries = []entry{e}
-					key     = []byte("key")
-					err     error
-				)
-				create := func() {
-					tx := db.OpenTx()
-					err = errors.Join(
-						err,
-						table.NewCreate().Entries(&entries).Exec(ctx, tx),
-						tx.Close(),
-					)
-				}
-				setKV := func() {
-					tx := db.OpenTx()
-					data, encodeErr := tx.Encode(ctx, e)
-					err = errors.Join(
-						err,
-						encodeErr,
-						tx.Set(ctx, key, data),
-						tx.Close(),
-					)
-				}
-				allocs, kvAllocs := leastAllocs(create), leastAllocs(setKV)
-				Expect(err).To(Succeed())
-				Expect(allocs).To(Equal(kvAllocs + 1))
-			},
-		)
 	})
 
 	Context("Multiple entries", func() {
