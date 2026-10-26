@@ -56,6 +56,9 @@ dev = [
 [tool.hatch.build.targets.wheel]
 packages = ["synnax"]
 
+[tool.hatch.build.targets.sdist]
+exclude = ["examples"]
+
 [tool.ruff]
 line-length = 88
 target-version = "py312"

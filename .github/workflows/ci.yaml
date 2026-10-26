@@ -91,6 +91,7 @@ jobs:
       pluto: ${{ steps.filter.outputs.pluto }}
       portal: ${{ steps.filter.outputs.portal }}
       protobuf: ${{ steps.filter.outputs.protobuf }}
+      py_packages: ${{ steps.filter.outputs.py_packages }}
       scripts: ${{ steps.filter.outputs.scripts }}
       site_common: ${{ steps.filter.outputs.site_common }}
       soem: ${{ steps.filter.outputs.soem }}
@@ -601,6 +602,11 @@ jobs:
     uses: ./.github/workflows/test.protobuf.yaml
     secrets: inherit
 
+  py-packages:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.py_packages == 'true'
+    uses: ./.github/workflows/test.py.packages.yaml
+
   scripts:
     needs: changes
     if: inputs.full || needs.changes.outputs.scripts == 'true'
@@ -789,6 +795,7 @@ jobs:
       - pluto
       - portal
       - protobuf
+      - py-packages
       - scripts
       - site-common
       - soem
