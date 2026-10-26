@@ -64,6 +64,7 @@ data "aws_subnets" "default" {
 }
 
 locals {
+  account = data.aws_caller_identity.current.account_id
   subnets = data.aws_subnets.default.ids
   runner_subnets = [
     for i in range(var.instances) : local.subnets[i % length(local.subnets)]
@@ -99,6 +100,32 @@ resource "aws_iam_role_policy_attachment" "ssm" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
+data "aws_caller_identity" "current" {}
+
+# Agents run pull request content, so they must not read the fleet controller's
+# secrets under /runners.
+resource "aws_iam_role_policy" "deny_runner_secrets" {
+  name = "DenyRunnerSecrets"
+  role = aws_iam_role.runner.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid    = "DenyRunnerSecrets"
+      Effect = "Deny"
+      Action = [
+        "ssm:GetParameter",
+        "ssm:GetParameters",
+        "ssm:GetParametersByPath",
+        "ssm:GetParameterHistory",
+      ]
+      Resource = [
+        "arn:aws:ssm:*:${local.account}:parameter/runners",
+        "arn:aws:ssm:*:${local.account}:parameter/runners/*",
+      ]
+    }]
+  })
+}
+
 resource "aws_iam_instance_profile" "runner" {
   name = "synnax-agent-runner"
   role = aws_iam_role.runner.name
@@ -111,7 +138,6 @@ resource "aws_instance" "runner" {
   subnet_id                            = local.runner_subnets[count.index]
   vpc_security_group_ids               = [aws_security_group.runner.id]
   iam_instance_profile                 = aws_iam_instance_profile.runner.name
-  associate_public_ip_address          = true
   instance_initiated_shutdown_behavior = "stop"
   user_data = templatefile("${path.module}/provision.sh", {
     idle_minutes = var.idle_minutes
