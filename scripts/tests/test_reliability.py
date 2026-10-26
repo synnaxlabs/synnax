@@ -231,6 +231,14 @@ class TestPlatformSkip:
         assert isinstance(node, ast.If)
         assert platform_skip(node, "linux") == reason
 
+    def test_should_read_an_auto_pass_from_an_older_source(self) -> None:
+        node = ast.parse(
+            'if platform.system().lower() != "windows":\n'
+            '    self.auto_pass(msg="Windows only")\n'
+        ).body[0]
+        assert isinstance(node, ast.If)
+        assert platform_skip(node, "linux") == "Windows only"
+
 
 class TestOsOf:
     """Runner labels to operating systems."""

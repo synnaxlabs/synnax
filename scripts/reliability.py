@@ -369,7 +369,8 @@ class Cases:
 def platform_skip(node: ast.If, system: str) -> str | None:
     """Returns the skip reason when node gates a skip on the platform and the gate
     holds for system, as in
-    `if platform.system().lower() != "windows": self.skip(...)`."""
+    `if platform.system().lower() != "windows": self.skip(...)`, or the same with
+    the older `auto_pass`."""
     test = node.test
     if not (
         isinstance(test, ast.Compare)
@@ -386,7 +387,8 @@ def platform_skip(node: ast.If, system: str) -> str | None:
             if (
                 isinstance(call, ast.Call)
                 and isinstance(call.func, ast.Attribute)
-                and call.func.attr == "skip"
+                # Sources before skip() gate the case with auto_pass().
+                and call.func.attr in ("skip", "auto_pass")
             ):
                 msg = call.keywords[0].value if call.keywords else call.args[0]
                 if isinstance(msg, ast.Constant) and isinstance(msg.value, str):
@@ -548,6 +550,9 @@ def main() -> None:
                 message = t.get(
                     "skip_reason" if state == "skipped" else "error_message"
                 )
+                # Runs before SKIPPED existed report an auto-passed case as PASSED.
+                if state == "passed" and runner_os in case.skipped:
+                    state, message = "skipped", case.skipped[runner_os]
                 tests.append(
                     [
                         s,
