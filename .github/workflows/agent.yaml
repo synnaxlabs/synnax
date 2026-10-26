@@ -82,7 +82,8 @@ jobs:
               Name=tag:pool,Values=agent Name=instance-state-name,Values=stopped \
               --query 'Reservations[].Instances[].InstanceId')
             if [ -z "$ids" ]; then exit 0; fi
-            id=$(printf '%s\n' $ids | shuf -n 1)
+            read -ra stopped <<< "$ids"
+            id=$(shuf -n 1 -e "${stopped[@]}")
             previous=$(aws ec2 start-instances --instance-ids "$id" --output text \
               --query 'StartingInstances[0].PreviousState.Name')
             if [ "$previous" = stopped ]; then exit 0; fi
