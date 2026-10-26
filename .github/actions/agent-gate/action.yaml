@@ -69,8 +69,8 @@ runs:
           stop)
             gh api "repos/$GITHUB_REPOSITORY/issues/$PR/labels" > /dev/null \
               -f 'labels[]=agent/needs-human'
-            gh api "$COMMENTS" > /dev/null -f body="Agents stopped after ${CAP} \
-        attempts to ${TASK}. A person must look. Remove the \`agent/needs-human\` label to \
-        let agents try again."
+            gh api "$COMMENTS" > /dev/null -f body="Agents stopped trying to ${TASK} \
+        after attempt ${CAP} of ${CAP}. A person must look. Remove the \
+        \`agent/needs-human\` label to let agents try again."
             ;;
         esac
