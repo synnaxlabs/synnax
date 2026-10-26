@@ -262,7 +262,8 @@ def run_agent(
     """Runs the agent in its own process group and returns its stdout. quiet discards
     its stderr.
 
-    On timeout, kills the whole group, so no build or server it started outlives it.
+    On a timeout or an interrupt, kills the whole group, so no build or server it
+    started outlives it.
     """
     proc = subprocess.Popen(
         cmd,
@@ -274,7 +275,7 @@ def run_agent(
     )
     try:
         stdout, _ = proc.communicate(timeout=seconds)
-    except subprocess.TimeoutExpired:
+    except BaseException:
         if sys.platform == "win32":
             proc.kill()
         else:
@@ -287,15 +288,15 @@ def run_agent(
 
 
 def private_env(env: dict[str, str], out: Path) -> dict[str, str]:
-    """Returns env with no GitHub token, and with the CLI state of the agent in out, so
-    no later job on the runner can read the session."""
+    """Returns env with no GitHub token or step output files, and with the CLI state
+    of the agent in out, so no later job on the runner can read the session."""
     codex = out / "codex"
     codex.mkdir()
     home = Path(env.get("CODEX_HOME") or Path.home() / ".codex")
     for name in ("auth.json", "config.toml"):
         if (home / name).is_file():
             shutil.copy(home / name, codex / name)
-    hidden = {"GH_TOKEN", "GITHUB_TOKEN"}
+    hidden = {"GH_TOKEN", "GITHUB_TOKEN", "GITHUB_OUTPUT", "GITHUB_STEP_SUMMARY"}
     kept = {k: v for k, v in env.items() if k not in hidden}
     return {**kept, "CLAUDE_CONFIG_DIR": str(out / "claude"), "CODEX_HOME": str(codex)}
 
@@ -409,7 +410,8 @@ def main(argv: Sequence[str]) -> int:
     os.chdir(root)
     if pushes and subprocess.check_output(["git", "status", "--porcelain"], text=True):
         sys.exit("The checkout has uncommitted changes, which would ship with the PR")
-    out = Path(tempfile.mkdtemp(prefix="agent-"))
+    # The runner deletes RUNNER_TEMP after each job, even a cancelled one.
+    out = Path(tempfile.mkdtemp(prefix="agent-", dir=env.get("RUNNER_TEMP")))
     (out / "images").mkdir()
     r = Runner(opts.dry_run, git_auth(env))
     repo = env.get("GITHUB_REPOSITORY", "synnaxlabs/synnax")
