@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Rate, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { Rate, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { Joins } from "@/framer/cache/join";
@@ -19,8 +19,9 @@ import { SyntheticCore } from "@/testutil";
 const START = TimeStamp.seconds(1_000_000);
 const POLL = { timeout: 5000, interval: 5 };
 
-// Wires a latest to the Core as a feed does, counting its reads.
-const createLatest = (core: SyntheticCore) => {
+// Wires a latest to the Core as a feed does, counting its reads. onRead runs before
+// each read.
+const createLatest = (core: SyntheticCore, onRead: () => void = () => {}) => {
   const store = new Store({ now: core.now });
   const streamer = new MultiplexedStreamer({
     store,
@@ -35,12 +36,17 @@ const createLatest = (core: SyntheticCore) => {
     retrieveChannels: core.retrieveChannels,
     now: core.now,
     readLatest: async (key, count, tr) => {
+      onRead();
       reads++;
       return core.readLatest([key], count, tr).get(key);
     },
   };
-  const open = (count: number, notify: (l: Latest) => void = () => {}): Latest => {
-    const latest: Latest = new Latest(props, core.data[0].key, undefined, count, () =>
+  const open = (
+    count: number,
+    notify: (l: Latest) => void = () => {},
+    key = core.data[0].key,
+  ): Latest => {
+    const latest: Latest = new Latest(props, key, undefined, count, () =>
       notify(latest),
     );
     return latest;
@@ -53,11 +59,12 @@ const createLatest = (core: SyntheticCore) => {
   };
 };
 
-const createCore = (): SyntheticCore =>
+const createCore = (derived = false): SyntheticCore =>
   new SyntheticCore({
     rate: Rate.hz(100),
     start: START,
     now: START.add(TimeSpan.minutes(10)),
+    derived,
   });
 
 describe("Latest", () => {
@@ -93,6 +100,27 @@ describe("Latest", () => {
       expect(updated).toBe(true);
       expect(reads()).toBe(1);
       expect(latest.value().series.length).toBe(50);
+    } finally {
+      latest.close();
+      await close();
+    }
+  });
+
+  it("should leave a calculated channel's streamed samples the read holds out by time", async () => {
+    const core = createCore(true);
+    let written = false;
+    // The Core writes, and streams, samples the read then holds.
+    const { open, close } = createLatest(core, () => {
+      if (written) return;
+      written = true;
+      core.advance(TimeSpan.milliseconds(100));
+    });
+    const latest = open(100, undefined, core.calculated!.key);
+    try {
+      await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+      await sleep.sleep(TimeSpan.milliseconds(50));
+      expect(written).toBe(true);
+      expect(latest.value().series.length).toBe(100);
     } finally {
       latest.close();
       await close();

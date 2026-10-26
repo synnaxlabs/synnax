@@ -470,6 +470,76 @@ describe("Feed.subscribe", () => {
     });
   });
 
+  describe("static window that ends after now", () => {
+    it("should stream the window's edge without reads until its end commits", async () => {
+      const core = createCore();
+      const feed = core.openFeed(OPTIONS);
+      const key = core.index.key;
+      const start = core.now().sub(TimeSpan.seconds(10));
+      const end = core.now().add(TimeSpan.seconds(5));
+      const sub = feed.subscribe({
+        keys: [key],
+        window: staticWindow(new TimeRange(start, end)),
+        limit: { variant: "points", count: Infinity, aggregation: "min_max" },
+      });
+      const newest = (): bigint | undefined => timesOf(sub.value(key)).at(-1);
+      try {
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        await expect.poll(newest, POLL).toBe(newestOf(core));
+        const reads = core.reads;
+        await sleep.sleep(TimeSpan.milliseconds(150));
+        core.advance(TimeSpan.seconds(2));
+        await expect.poll(newest, POLL).toBe(newestOf(core));
+        expect(sub.value(key).status.variant).toBe("success");
+        expect(core.reads).toBe(reads);
+        core.advance(TimeSpan.seconds(3));
+        await expect.poll(newest, POLL).toBe(end.valueOf() - PERIOD);
+        core.advance(TimeSpan.seconds(2));
+        await expect.poll(() => (sub.value(key), core.streams(key)), POLL).toBe(false);
+        const times = timesOf(sub.value(key));
+        expect(times[0] <= start.valueOf()).toBe(true);
+        expectComplete(times);
+        core.advance(TimeSpan.seconds(2));
+        await sleep.sleep(TimeSpan.milliseconds(50));
+        expect(timesOf(sub.value(key))).toEqual(times);
+      } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
+
+    it("should draw tiles up to the raw samples at the window's edge", async () => {
+      const core = createCore({ now: START.add(TimeSpan.hours(1)) });
+      const feed = core.openFeed(OPTIONS);
+      const key = core.index.key;
+      const start = START.add(TimeSpan.minutes(10));
+      const sub = feed.subscribe({
+        keys: [key],
+        window: staticWindow(new TimeRange(start, core.now().add(TimeSpan.minutes(1)))),
+        limit: { variant: "points", count: 200, aggregation: "min_max" },
+      });
+      try {
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        await sleep.sleep(TimeSpan.milliseconds(150));
+        core.advance(TimeSpan.seconds(10));
+        await expect
+          .poll(() => timesOf(sub.value(key)).at(-1), POLL)
+          .toBe(newestOf(core));
+        const { series } = sub.value(key);
+        // Raw samples of the whole window would be 300,000.
+        expect(series.length).toBeLessThan(15_000);
+        const ranges = series.series.map((s) => s.timeRange);
+        expect(ranges[0].start.valueOf()).toBe(start.valueOf());
+        ranges.slice(1).forEach((r, i) => {
+          expect(r.start.valueOf() - ranges[i].end.valueOf()).toBeLessThan(PERIOD);
+        });
+      } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
+  });
+
   describe("data type change", () => {
     it("should restart a channel whose data type changes, never mixing types", async () => {
       const core = createCore();
@@ -747,6 +817,28 @@ describe("Feed.subscribe", () => {
         core.advance(TimeSpan.milliseconds(100));
         await expect.poll(() => sub.value(key).series.length, POLL).toBe(10);
         expect(core.reads).toBe(reads);
+      } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
+
+    it("should keep every frame of a virtual channel with no index", async () => {
+      const core = createCore({ derived: true });
+      const feed = core.openFeed(OPTIONS);
+      const key = core.virtual!.key;
+      const sub = feed.subscribe({
+        keys: [key],
+        limit: { variant: "latest", count: 100 },
+      });
+      try {
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        await sleep.sleep(TimeSpan.milliseconds(150));
+        core.advance(TimeSpan.milliseconds(100));
+        await expect.poll(() => sub.value(key).series.length, POLL).toBe(10);
+        core.advance(TimeSpan.milliseconds(100));
+        await expect.poll(() => sub.value(key).series.length, POLL).toBe(20);
+        expect(sub.value(key).series.series.map((s) => s.alignment)).toEqual([0n, 0n]);
       } finally {
         sub.close();
         await feed.close();
