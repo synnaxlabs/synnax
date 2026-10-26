@@ -53,8 +53,6 @@ last place where Synnax saves whole records.
 
 ### 2.0 Two people, two fields
 
-The same edits under this design:
-
 1. Ana types `1000` in the sample rate field. When she stops typing for 200 ms, her form
    sends one action:
 
@@ -62,16 +60,9 @@ The same edits under this design:
    { "type": "set", "set": { "path": ["config", "sample_rate"], "value": 1000 } }
    ```
 
-2. Ben sets the port of channel `c3`. His form sends:
-
-   ```json
-   {
-     "type": "set",
-     "set": { "path": ["config", "channels", "c3", "port"], "value": 4 }
-   }
-   ```
-
-   The path names the channel by its key, `c3`, not by its position in the list.
+2. Ben sets the port of channel `c3`. His form sends a `set` of
+   `["config", "channels", "c3", "port"]` to 4. The path names the channel by its key,
+   `c3`, not by its position in the list.
 
 3. The Core applies each action to the stored task, in the order they arrive.
 4. The Core sends both actions to every client that has the task open. Ana's form now
@@ -84,9 +75,7 @@ Both edits survive, and no form sends the whole config.
 Ana sets the sample rate to 1000, and Ben sets it to 500 in the same second. The Core
 receives Ana's action first and Ben's second, so it stores 500. Both forms show 500
 within one round trip. Ana sees her value change, so the loss is visible, not silent.
-
-This rule is last-writer-wins for each field. Figma, Linear, and Sanity Studio resolve
-concurrent edits the same way.
+This rule is last-writer-wins for each field.
 
 ### 2.2 Two people, one type change
 
@@ -95,8 +84,10 @@ sets the maximum of `c3` to 10, which means 10 V. If her action applied after Be
 change, the thermocouple would get a maximum of 10 °C.
 
 To stop that, Ana's action carries a guard: "apply only while `c3` is `ai_voltage`". The
-Core sees that `c3` is now `ai_thermocouple` and skips her action. §10.1 has the
-details.
+Core sees that `c3` is now `ai_thermocouple` and skips her action without an error
+(`x/go/patch/patch.go:203`). Ben's type change is one `set` of the whole channel, which
+keeps the fields that both variants share. Each action carries one guard for each
+discriminated union that its path enters (`zod.getDiscriminators`).
 
 ## 3 Vocabulary
 
@@ -104,8 +95,8 @@ details.
   label, a schematic, a table, or an Arc program.
 - **Action**: One change to a document, such as "set this field to 4". The Core stores
   the result and broadcasts the action itself.
-- **Path action**: One of the four generic actions, `set`, `remove`, `insert`, and
-  `move`. Every form uses only these four.
+- **Path action**: One of the four generic actions that every form uses: `set`,
+  `remove`, `insert`, and `move`.
 - **Path**: The names that lead from the root of a document to one value, as an array:
   `["config", "channels", "c3", "port"]`.
 - **Entry key**: The `key` field of an object in a list. A path names a list entry by
@@ -117,23 +108,17 @@ details.
   has not arrived.
 - **Guard**: A condition on an action that names the variant of a union that the action
   was written for. An action whose guard fails does nothing.
-- **Coalescing**: Joining the keystrokes in one field into one dispatch.
-- **Deploy**: The step that makes the Driver run the stored config of a task.
-- **Config hash**: A hash of the stored config of a task. Equal hashes mean equal
-  configs.
-- **Pinned start**: A start command that carries the config hash that the operator saw.
-  The Driver refuses it when the stored config has a different hash.
+- **Pinned start**: A start command that carries the hash of the config that the
+  operator saw. The Driver refuses it when the stored config has a different hash.
 
 ## 4 Principles
 
-1. **The Core orders every edit**: Clients send actions, and the Core applies them one
-   at a time for each document. The Core's order is the truth. No client merges edits on
-   its own.
+1. **The Core orders every edit**: The Core applies actions one at a time for each
+   document, and its order is the truth. No client merges edits on its own.
 2. **Edits are small**: An action changes one value. Two edits conflict only when they
    change the same value.
-3. **A form shows the shared record**: A form keeps no private copy of its values. It
-   reads the client cache, which holds the stored document with the user's pending
-   dispatches on top.
+3. **A form shows the shared record**: A form has no private copy of its values. It
+   reads the client cache: the stored document with the user's pending edits on top.
 4. **One schema checks every edit**: The Oracle schema that defines a record also checks
    each action, in the client and in the Core.
 5. **Only a deploy reaches hardware**: An edit changes the stored config. A running task
@@ -159,21 +144,13 @@ every other screen.
    <---------------- echo ---------- sy_task_action_set            dispatches
 ```
 
-| Layer             | Code                                   | What it does                                              |
-| ----------------- | -------------------------------------- | --------------------------------------------------------- |
-| Form              | `lyra/src/form`                        | Keeps field state: touched, validation, and statuses      |
-| Document store    | `pluto/src/flux/document.ts`           | Turns form paths into wire paths, checks, and coalesces   |
-| Action controller | `client/ts/src/actions`                | Applies at once, sends, and recognizes its own echoes     |
-| Path apply        | `x/ts/src/patch`, `x/go/patch`         | Applies one path action, in TypeScript and in Go          |
-| Dispatch          | `core/pkg/service/actions`             | Runs one dispatch per document at a time, then broadcasts |
-| Record service    | `core/pkg/service/{task,ranger,label}` | Applies actions to its record, decodes, and validates     |
-| Driver            | `driver/task`                          | Ignores edits, and runs a stored config only on deploy    |
-
 A form path and a wire path name the same field in two ways. A form shows a list by
 position, so its paths can use an index: `config.channels.0.port`. The wire uses entry
 keys: `["config", "channels", "c3", "port"]`. A position changes when another user
 inserts or removes an entry, but a key does not. The document store converts one to the
-other (`locate` in `pluto/src/flux/document.ts`). §7.2 explains the choice.
+other (`locate` in `pluto/src/flux/document.ts`). §7.2 explains the choice. The cache
+also holds camelCase keys where the Core stores snake_case, so the client converts each
+action with the record's schema (`x/ts/src/patch/convert.ts`).
 
 ## 6 Consistency model
 
@@ -185,25 +162,20 @@ its actions, decodes and validates the result, and stores it, all in one transac
 waits for the lock. So every dispatch applies to the latest stored state.
 
 Text editors such as Google Docs need transforms, because a position like "character 40"
-moves when another user types before it. A path in this design names fields and entry
-keys, which do not move. An action means the same thing after any other action, so the
-Core needs no transforms. It also needs no version vectors and no CRDT, because one
-place, the Core, orders the edits.
+moves when another user types before it. A path here names fields and entry keys, which
+do not move, so the Core needs no transforms. It needs no version vectors or CRDT
+either, because one place, the Core, orders the edits.
 
 ### 6.1 What each client shows
 
 A client applies its own dispatch at once, so typing feels instant. For a document with
-pending dispatches, the client keeps two values
-(`client/ts/src/actions/controller.ts:226-234`):
-
-- **The base**: The document as the Core holds it.
-- **The shown document**: The base with the pending dispatches applied on top.
-
-A remote action applies to the base, and then the pending dispatches apply again on top.
-An echo moves its dispatch into the base. So the shown document always follows the
-Core's order: remote edits first, then the user's own pending edits. A remote edit never
-moves text under the cursor, because the user's own pending edit stays on top. A fetch
-of the whole document, such as after a reconnect, replaces the base the same way.
+pending dispatches, the client keeps a base, the document as the Core holds it, and
+shows the base with the pending dispatches on top
+(`client/ts/src/actions/controller.ts:226-234`). A remote action applies to the base,
+and then the pending dispatches apply again on top. An echo moves its dispatch into the
+base. So the shown document always follows the Core's order: remote edits first, then
+the user's own pending edits. A remote edit never moves text under the cursor, because
+the user's own pending edit stays on top.
 
 ### 6.2 Conflict rules
 
@@ -212,10 +184,8 @@ of the whole document, such as after a reconnect, replaces the base the same way
 | Two different fields                            | Both apply                             |
 | One field                                       | The later arrival at the Core wins     |
 | An edit inside a removed list entry             | Does nothing                           |
-| An edit for a variant that another user swapped | Does nothing (§10.1)                   |
+| An edit for a variant that another user swapped | Does nothing (§2.2)                    |
 | Two inserts after one entry                     | Both stay, in Core order               |
-| An insert of a key that the list holds          | Does nothing                           |
-| A move of a removed entry                       | Does nothing                           |
 | Two first writes under one absent object        | The later one replaces the earlier one |
 
 "Does nothing" means the action has no effect and shows no error. The other actions in
@@ -237,15 +207,11 @@ These checks close the gap:
 | Strict decode          | Core                | A member the record does not declare, or a wrong type |
 | `Validate`             | Core                | A rule across fields that the schema states           |
 
-The strict decode uses `json.RejectUnknownMembers`, so a path to a field that does not
-exist fails instead of being dropped. Shared test vectors (`x/testdata/patch`) make the
-Go and TypeScript apply give the same result, as `x/go/crdt/conformance_test.go` does
-for the text CRDT.
-
-A typed value that fails its field schema stays in the field with an error, and the form
-does not send it. A dispatch that the Core refuses changes nothing. The client drops it,
-the field shows the stored value again, and a notification shows the Core's error with
-the path.
+The strict decode uses `json.RejectUnknownMembers`, so a path to a missing field fails
+instead of being dropped. Shared test vectors (`x/testdata/patch`) keep the Go and
+TypeScript apply equal. A typed value that fails its field schema stays in the field,
+unsent, with an error. A dispatch that the Core refuses changes nothing: the field shows
+the stored value again, and a notification shows the error with the path.
 
 ### 7.1 What the compiler does not check
 
@@ -254,15 +220,13 @@ A path is an array of strings at compile time, so a typo such as
 The client throws when it computes guards for a path that the schema does not hold, and
 the Core refuses a member that the record does not declare.
 
-Hand-built paths are rare. Form fields build their paths from the form, and the deploy
-resolve step writes through the form too. One query builds a path by hand:
-`useSetTimeRange` sets `["timeRange"]` (`pluto/src/ranger/queries.ts:299-309`).
+Forms and the deploy resolve step build paths from form fields. One query builds a path
+by hand: `useSetTimeRange` (`pluto/src/ranger/queries.ts:299-309`).
 
 ### 7.2 Why wire paths are arrays of keys
 
-- **An array needs no escape rule**: A string path must escape a key that holds its
-  separator. JSON Pointer writes `/` as `~1`, and Firestore quotes a dotted field name
-  in backticks. Sanity and Automerge use arrays of segments.
+- **An array needs no escape rule**: JSON Pointer writes `/` as `~1`, and Firestore
+  quotes a dotted field name in backticks. Sanity and Automerge use arrays of segments.
 - **A key does not move**: A position shifts when another user inserts or removes an
   entry. Automerge names list elements by ID for that reason. Sanity addresses array
   items by `_key`, and Kubernetes strategic merge patch matches list entries by a merge
@@ -278,9 +242,8 @@ resolve step writes through the form too. One query builds a path by hand:
 
 An edit changes only the stored config. Task actions broadcast on a new channel,
 `sy_task_action_set`, because the Driver parses `sy_task_set` as task metadata
-(`driver/task/manager.cpp:242`). Clients read only the action channel. A write never
-reconfigures the Driver, so a running task keeps the config it was deployed with (RFC
-0056 §4.1).
+(`driver/task/manager.cpp:242`). A write never reconfigures the Driver, so a running
+task keeps the config it was deployed with (RFC 0056 §4.1).
 
 ### 8.1 Deploy pins the start
 
@@ -295,53 +258,42 @@ The play button deploys the task. It runs these steps
 5. Send `start` with the config hash that the form shows, and `pinned: true`.
 
 The Driver fetches the stored config before it starts a pinned task. If the hash
-differs, another user changed the config after the operator last saw it. The Driver
-refuses the start with the status message "Config changed", and the description asks the
-operator to review the task and start again. A running instance keeps running, so the
-status keeps the stored running state and config hash. Both Drivers refuse
-(`driver/task/manager.cpp:692-720`, `core/pkg/service/driver/driver.go:310`).
+differs, another user changed the config after the operator last saw it. Both Drivers
+then refuse with the status "Config changed", which asks the operator to review the task
+and start again (`driver/task/manager.cpp:692-720`,
+`core/pkg/service/driver/driver.go:310`). A running instance keeps running.
 
 Example: Ana presses play while Ben changes the range of a channel. Without the pin, Ana
 starts a config with Ben's change, which she never saw. With the pin, the Driver
 refuses, and Ana's form already shows Ben's change.
 
-Only the task form pins a start. Arc starts stay unpinned, because the Core rewrites the
-task config of an Arc program after a debounce (`core/pkg/service/arc/dispatch.go:76`).
+Only the task form pins a start. Arc starts and scripts stay unpinned, because the Core
+rewrites the task config of an Arc program after a debounce
+(`core/pkg/service/arc/dispatch.go:76`), and a script may start with a cached hash.
 
 ## 9 Key risks
-
-Each risk is a trade that the design accepts.
 
 1. **A same-field race loses one value**: The later arrival wins. Both users see the
    result within one round trip, so the loss is visible. Locks and version checks stop
    this loss, but they also stop shared editing (§13.0).
 2. **Two first writes under one absent object can lose one**: A write under an absent
-   object first sets the whole object to its schema default, so the form shows the other
-   fields of the object at once. When two users write different fields of the same
-   absent object within one round trip, the second default replaces the first write. The
-   only optional section with defaults that a form edits is the schematic control
-   section, and its form has one field.
+   object first sets the whole object to its default. When two users write different
+   fields of one absent object in the same round trip, the second default replaces the
+   first write. The only such object that a form edits is the schematic control section,
+   and its form has one field.
 3. **A type change can revert a concurrent edit to a kept field**: A type change copies
    the fields that both variants share, such as `port`, from the copy of the user who
    swapped. An edit to `port` from another user in the same round trip reverts (§13.3).
-4. **A path typo fails at run time**: It fails before anything is stored, with an error
-   that names the path (§7.1).
-5. **Each edit costs a Core transaction**: The Core decodes and validates the whole
-   record on every dispatch, so the cost of an edit grows with the record. Coalescing
-   sends one dispatch per field after 200 ms without a keystroke. On the client, an edit
-   re-renders only the fields it changes. A keystroke in a top-level field of a
-   200-channel task form costs about 1.5 ms of form work.
-6. **A lost echo leaves a dispatch pending**: After a reconnect or a Core restart, the
-   client starts a new epoch. It clears its sequence marks and settles each dispatch
-   that the Core already applied (§10.6).
+4. **Each edit costs a Core transaction**: The Core decodes and validates the whole
+   record on every dispatch, at most once per field per 200 ms of typing. A keystroke on
+   a 200-channel task form costs the client about 1.5 ms.
 
 ## 10 Detailed design
 
 ### 10.0 Path actions
 
-`schemas/x/patch.oracle` declares the four payloads. Each document type reuses them as
-its own actions, as Arc reuses the text CRDT payloads
-(`schemas/synnax/arc.oracle:149-163`).
+`schemas/x/patch.oracle` declares the four payloads, and each document type reuses them
+as its own actions.
 
 | Action   | Payload                            | Effect                                         |
 | -------- | ---------------------------------- | ---------------------------------------------- |
@@ -350,108 +302,57 @@ its own actions, as Arc reuses the text CRDT payloads
 | `insert` | `path`, `value`, `after`, `guards` | Inserts an entry after the entry `after`       |
 | `move`   | `path`, `key`, `after`, `guards`   | Moves an entry after the entry `after`         |
 
-- An entry goes first when `after` is absent, and last when no entry has that key.
-- An action whose path goes through a missing list entry does nothing.
-- An `insert` of a key that the list holds does nothing.
-- A list without entry keys, such as a list of numbers, has no stable address for an
-  entry. A write inside it sets the whole list.
-- Typed actions stay where they mean more than a field write: node moves, group
-  cascades, and Arc text.
+An entry goes first when `after` is absent, and last when no entry has that key. A list
+without entry keys, such as a list of numbers, is set whole. Typed actions stay where
+they mean more than a field write: node moves, group cascades, and Arc text.
 
-`x/go/patch` applies actions to the JSON form of a record in the Core, and
-`x/ts/src/patch` applies them in the client.
+### 10.1 The form store
 
-### 10.1 Variant guards
-
-A type change stays one `set` of the whole channel. The client builds the new value with
-`deep.overrideValidItems`, which keeps the fields that both variants share. Each action
-carries one guard for each discriminated union that its path enters: the path of the
-discriminator, and the value that the action was written for. The document store
-computes guards with the schema walk that finds the schema of a field
-(`zod.getDiscriminators`). A failed guard skips the action without an error
-(`x/go/patch/patch.go:203`), because the user who changed the type meant to replace the
-old fields.
-
-### 10.2 The form store
-
-Lyra's form gets a store seam (`lyra/src/form/store.ts`). The store holds the values,
-and the form keeps the field state. Create modals use `createLocalStore`, which holds a
-copy in memory, so they fill and save once as before. Edit forms use `DocumentStore`,
-which reads the client cache and writes through the action controller
-(`pluto/src/flux/document.ts`).
+Lyra's form gets a store seam (`lyra/src/form/store.ts`): the store holds the values,
+and the form keeps the field state. Create modals use `createLocalStore`, a copy in
+memory, and save once as before. Edit forms use `DocumentStore`, which reads the client
+cache and writes through the action controller.
 
 - **Writes**: A field write dispatches `set`, and the list helpers dispatch `insert`,
   `remove`, and `move`. A write of the value that a field holds sends nothing.
-- **Coalescing**: Keystrokes in one field join one dispatch, sent after 200 ms without
-  another write to that field. Code builds the values of a batch or a list edit, so
-  those send at once. Before a deploy, `flush` sends every valid edit and reports
-  whether an invalid one stays.
 - **Re-renders**: The store keeps the identity of each value that a change does not
-  reach (`deep.reuse`). Lyra marks a field stale only when its parent gets a new
-  identity, so even a create that replaces the whole document re-renders only the
-  changed fields.
-- **Undo**: Task, range, and label forms have no undo of their own, and a focused input
-  keeps its own text undo. Property form edits are actions on their schematic, table, or
-  Arc document, so the undo of that document reverts them.
+  reach (`deep.reuse`), and Lyra marks a field stale only when its parent gets a new
+  identity. So a remote edit re-renders only the fields it changes.
+- **Undo**: Task, range, and label forms have no undo of their own. Property form edits
+  are actions on their schematic, table, or Arc document, so its undo reverts them.
 
-### 10.3 Case conversion
+### 10.2 Tasks in the Core
 
-The client cache holds camelCase keys, and the Core stores snake_case. Forms write paths
-in camelCase, and the domain client converts each action with its own schema before it
-sends (`x/ts/src/patch/convert.ts:83`). Each action converts against the document that
-the earlier actions of its batch produce, and remote actions convert back the same way.
-Keys under a field that preserves case, such as the inputs of an Arc node, stay as they
-are.
+The task dispatch writes the config through `config.Store.WriteStrict`, which decodes
+strictly, fills defaults, resolves, validates, and stores
+(`core/pkg/service/task/writer.go:236-296`). Path actions reach only the `name`, `rack`,
+and `config` of a task, and a snapshot accepts only a `set` of its name. The Core adds a
+`set` of `config_hash`, which only it computes (RFC 0056 §4.3), and a `set` of the
+stored config when storing changed it. The broadcast and the dispatch response carry
+both, so the sender's cache holds the hash of the config it shows. `Writer.Create`
+serves Python's `configure` and imports, and its broadcast `create` carries a dispatch
+key, so every client but the sender applies it.
 
-### 10.4 Tasks in the Core
-
-- **Strict write**: The task dispatch applies the actions and writes the config through
-  `config.Store.WriteStrict`, which decodes strictly, fills defaults, resolves,
-  validates, and stores (`core/pkg/service/task/writer.go:236-296`).
-- **Reach**: Path actions reach only the `name`, `rack`, and `config` of a task. A
-  snapshot task accepts only a `set` of its name. Renames go through the dispatch too,
-  under the same lock.
-- **Core-added sets**: The Core adds a `set` of `config_hash`, because only the Core
-  computes the hash (RFC 0056 §4.3). When storing changes the config, such as to fill a
-  default, it also adds a `set` of the stored config. The broadcast and the dispatch
-  response both carry these, so the sender's cache holds the hash of the config it
-  shows.
-- **Creates**: `Writer.Create` serves Python's `configure` and imports. It broadcasts a
-  `create` that carries the writer's dispatch key, so the sender skips its own echo and
-  every other client applies it.
-
-### 10.5 Other forms
+### 10.3 Other forms
 
 - **Ranges and labels**: These forms use the same binding, each with its own dispatch
-  endpoint and action channel. The Core keeps publishing `sy_range_set` and
-  `sy_label_set`. Path actions on a range reach its name, time range, and color.
-- **Labels on a resource**: Labels are relationships, so the range and status label
-  pickers add and remove labels instead of replacing the whole set.
-- **Range metadata**: Each metadata pair sets its key and value on blur.
-- **Property forms**: Schematic, table, and Arc property forms bind to the config of one
-  element in the cached document. Today each one copies the config, writes it back
-  whole, and sets `sync: true` to take remote edits
-  (`console/src/feature/schematic/toolbar/Properties.tsx:81-87`). The binding removes
-  all three, and Lyra deletes the `sync` option. The Core validates only the entry that
-  an action names. A form whose element another client removes keeps its last values and
-  sends no edits.
+  endpoint and action channel. Path actions on a range reach its name, time range, and
+  color. The label pickers add and remove labels instead of replacing the whole set.
+- **Property forms**: Schematic, table, and Arc property forms bind to one element's
+  config in the cached document, instead of copying it, writing it back whole, and
+  setting `sync: true` (`console/src/feature/schematic/toolbar/Properties.tsx:81-87`).
+  Lyra deletes the `sync` option. A form whose element is removed keeps its last values.
 - **Forms that stay local**: Create forms, the device connect modals, and the status
-  create modal keep a local copy and one save. A connect modal tests the connection
-  before it saves.
+  create modal keep a local copy and one save.
 
-### 10.6 Controller fixes
+### 10.4 Controller fixes
 
-Dispatch at keystroke rate makes rare defects common. The design fixes four:
-
-- **Sequence marks survived a Core restart**: The client dropped remote actions until
-  the new counter passed the old mark. It now clears every mark on a new epoch
-  (`client/ts/src/actions/controller.ts:294-310`).
-- **A rejection restored the whole document**: It undid remote actions that arrived
-  during the request. It now removes only its own dispatch (§6.1).
-- **An unknown action type was skipped**: The generated Go reducer now returns a
-  validation error.
-- **A dispatched `create` replaced a document**: Any client could overwrite a document
-  under its key. The Core now refuses a `create` from every client.
+Dispatch at keystroke rate makes rare defects common, so the design fixes four. The
+client now clears its sequence marks on a new epoch, so it no longer drops remote
+actions after a Core restart. A rejection removes only its own dispatch (§6.1) instead
+of rolling back remote actions. The generated Go reducer returns an error for an unknown
+action type instead of skipping it. The Core refuses a `create` from every client, which
+could replace any document.
 
 ## 11 What this RFC does not cover
 
@@ -476,11 +377,9 @@ One pull request delivers the whole design, with no flag. No stored format chang
 ## 13 Resolved decisions
 
 1. **13.0 Live per-field last-writer-wins.** A version check on save (Grafana, Ignition
-   8, Kubernetes) stops lost edits but not shared editing: the second user gets an error
-   and must enter the edit again. Locks (AVEVA, TIA Portal) stick when a user walks
-   away, and Ignition removed them in version 8. Figma, Linear, and Sanity Studio
-   resolve each field on its own. The trade is real: a same-field race loses one value
-   (§9).
+   8, Kubernetes) stops lost edits but makes the second user enter the edit again. Locks
+   (AVEVA, TIA Portal) stick, and Ignition removed them in version 8. Figma, Linear, and
+   Sanity Studio resolve each field on its own. The trade is real (§9).
 2. **13.1 Generic path actions, not typed actions per field.** Sixteen task types and
    about 30 NI channel types would need hundreds of action variants. Sanity Studio
    patches forms with key-addressed paths too.
@@ -488,18 +387,12 @@ One pull request delivers the whole design, with no flag. No stored format chang
    type check. Reflection setters and generated per-field setters add code for no gain.
 4. **13.3 A stale variant edit does nothing.** A refusal shows an error the user cannot
    explain, and a Core-side rule to keep shared fields needs a Go copy of
-   `overrideValidItems`. The trade: a concurrent edit to a kept field can revert within
-   one round trip (§9).
-5. **13.4 Wire paths are arrays of entry keys.** Index paths break under concurrent
-   inserts, and string paths need escape rules (§7.2).
-6. **13.5 Only the task form pins a start.** Pinning every start refuses the pending
-   rewrite of an Arc program and scripts that start with a cached hash.
-7. **13.6 A rejection rebuilds from the base.** A stored inverse overwrites a remote
+   `overrideValidItems`. The trade is real (§9).
+5. **13.4 A rejection rebuilds from the base.** A stored inverse overwrites a remote
    edit to the same field. A fetch costs a round trip, and the base already holds what
    the Core applied.
-8. **13.7 Text fields are whole-string last-writer-wins.** Names and descriptions are
-   short, so a text CRDT per field costs more than it saves. The text CRDT stays with
-   Arc.
+6. **13.5 Text fields are whole-string last-writer-wins.** Names are short, so a text
+   CRDT per field costs more than it saves.
 
 ## 14 Open questions
 
