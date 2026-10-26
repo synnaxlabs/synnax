@@ -10,9 +10,7 @@
 package device_test
 
 import (
-	"encoding/json/jsontext"
 	"encoding/json/v2"
-	"os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -25,42 +23,18 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// The case table is shared with the TypeScript matches, so that the Core and the
-// client cache agree on every filter.
-const vectorsPath = "../../../../testdata/filter/vectors.json"
-
-type whereCase struct {
-	Name     string       `json:"name"`
-	Where    device.Where `json:"where"`
-	Expected []string     `json:"expected"`
-	// ServerComputed marks a case that only the Core evaluates, which the TypeScript
-	// matches checks.
-	ServerComputed bool `json:"server_computed"`
-}
-
-// vectors is the device section of the case table.
-type vectors struct {
-	Records map[string]device.Device `json:"records"`
-	Cases   []whereCase              `json:"cases"`
-}
-
 var _ = Describe("Where", Ordered, func() {
 	var (
-		v    vectors
-		svc  *device.Service
-		file map[string]jsontext.Value
+		v   testutil.Vectors[device.Device, device.Where]
+		svc *device.Service
 	)
-	Expect(json.Unmarshal(MustSucceed(os.ReadFile(vectorsPath)), &file)).To(Succeed())
-	Expect(json.Unmarshal(
-		file["devices"],
-		&v,
-		json.RejectUnknownMembers(true),
-	)).To(Succeed())
+	v = MustSucceed(testutil.ReadVectors[device.Device, device.Where]("devices"))
 	aliases := lo.MapEntries(v.Records, func(
 		alias string,
 		d device.Device,
@@ -108,20 +82,24 @@ var _ = Describe("Where", Ordered, func() {
 		}
 	})
 
-	DescribeTable("Should match the case", func(ctx SpecContext, c whereCase) {
-		f := MustSucceed(device.MatchWhere(c.Where))
-		var res []device.Device
-		Expect(svc.NewRetrieve().
-			SkipMissingKeys().
-			Where(f).
-			Entries(&res).
-			Exec(ctx, nil)).To(Succeed())
-		Expect(lo.Map(res, func(d device.Device, _ int) string {
-			return aliases[d.Key]
-		})).To(ConsistOf(c.Expected))
-	}, lo.Map(v.Cases, func(c whereCase, _ int) TableEntry {
-		return Entry(c.Name, c)
-	}))
+	DescribeTable(
+		"Should match the case",
+		func(ctx SpecContext, c testutil.Case[device.Where]) {
+			f := MustSucceed(device.MatchWhere(c.Where))
+			var res []device.Device
+			Expect(svc.NewRetrieve().
+				SkipMissingKeys().
+				Where(f).
+				Entries(&res).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(lo.Map(res, func(d device.Device, _ int) string {
+				return aliases[d.Key]
+			})).To(ConsistOf(c.Expected))
+		},
+		lo.Map(v.Cases, func(c testutil.Case[device.Where], _ int) TableEntry {
+			return Entry(c.Name, c)
+		}),
+	)
 
 	It("Should return a path error for an invalid regex", func() {
 		var w device.Where
