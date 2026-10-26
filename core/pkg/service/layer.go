@@ -627,6 +627,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.EtherCAT, err = ethercat.OpenService(ctx, ethercat.ServiceConfig{
 		Instrumentation: cfg.Child("ethercat"),
 		DB:              cfg.Distribution.DB,
+		Device:          l.Device,
 	}); !ok(err, l.EtherCAT) {
 		return nil, err
 	}

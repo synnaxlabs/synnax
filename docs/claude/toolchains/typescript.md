@@ -152,6 +152,10 @@ errors.
   compiler builds. The compiler caches each value and function on its inputs. A function
   named like a hook, and a `memo` or `forwardRef` component, compiles even when it calls
   no hook.
+- Declare a function above each function that calls it when a hook call comes between
+  them. If you do not, the compiler caches neither function, and no lint rule reports
+  it. Each value made from them, such as a callback that a hook returns, then changes on
+  every render, and an effect that depends on it runs on every render.
 - The compiler reads a call it cannot see into, such as a library method or a plain
   helper, as a change to the values it receives. When a hook comes between the code that
   makes a value and such a call, the compiler drops the value's cache. Call hooks first,

@@ -130,10 +130,9 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 		controller:       c,
 		wrapError:        wrapError,
 		closed:           &atomic.Bool{},
-		leadingAlignment: &atomic.Uint32{},
+		leadingAlignment: alignment.NewCounter(alignment.ZeroLeading),
 		resolver:         newOffsetResolver(cfg.Channel.DataType, cfg.Instrumentation),
 	}
-	db.leadingAlignment.Store(alignment.ZeroLeading)
 	if cfg.Channel.IsIndex {
 		db.idx = &index.Domain{
 			DB:              domainDB,

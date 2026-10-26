@@ -63,10 +63,18 @@ PageType = v9.PageType
 Page = v9.Page
 
 NodeConfig union on variant extends v9.NodeConfig {
+    gauge {
+        units = ""
+    }
     input extends LabeledConfig, StalenessConfig {
         command_channel
         state_channel   channel.Key? {
             @doc value "is the channel that reports the value the device holds."
+        }
+        fill_color      {
+            @doc value """
+                is the fill color of the Set button, which the input border follows.
+            """
         }
         disabled
         inline_size     float64 = 150 {
@@ -80,18 +88,40 @@ NodeConfig union on variant extends v9.NodeConfig {
         state_channel   channel.Key? {
             @doc value "is the channel that reports the state the device holds."
         }
+        fill_color      {
+            @doc value """
+                is the fill color of the Set button, which the select border follows.
+            """
+        }
+        inline_size     {
+            @doc value """
+                is the width of the field in pixels, not counting the Set button.
+            """
+        }
     }
     setpoint extends LabeledConfig, StalenessConfig {
         command_channel
         state_channel   channel.Key? {
             @doc value "is the channel that reports the value the device holds."
         }
+        fill_color      {
+            @doc value """
+                is the fill color of the Set button, which the setpoint border follows.
+            """
+        }
+        units           = ""
         disabled
         inline_size     float64 = 100 {
             @doc value """
                 is the width of the field in pixels, not counting the Set button.
             """
         }
+    }
+    value {
+        text_color {
+            @doc value "is the color of the displayed value."
+        }
+        units      = ""
     }
 }
 

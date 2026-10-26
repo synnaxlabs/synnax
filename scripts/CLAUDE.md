@@ -45,6 +45,12 @@ Neither script touches `.oracle` schema files.
   relative), then `git add --intent-to-add` so new generated files show up in
   `git diff`. Verifies generated Go output is checked in and current; not a fix-up.
 
+## Agents
+
+- `dispatch_agent_task.sh [--dry-run] [--agent claude|codex] SY-####` — sends an
+  `agent-task` dispatch that asks a remote agent to fix a Linear issue, then prints the
+  run link. Used by the `bug-from-email` skill.
+
 ## Versioning and release
 
 - `check_versions.sh` — verifies every npm and PyPI package manifest and the C++
