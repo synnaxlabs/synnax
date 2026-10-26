@@ -10,8 +10,6 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/pipeline"
@@ -31,7 +29,7 @@ to see if a pull request changes a stored shape or a wire type.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			err := runSurface(cmd)
 			if err != nil {
-				fmt.Fprintln(cmd.ErrOrStderr(), err)
+				cmd.PrintErrln(err)
 			}
 			return err
 		},

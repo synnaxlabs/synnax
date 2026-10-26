@@ -64,6 +64,43 @@ widget.Valve.size widget.Size
 `))
 	})
 
+	It(
+		"Should write aliases, distinct types, actions, and defaults",
+		func(ctx SpecContext) {
+			Expect(report(ctx, `
+Key uint32
+
+ID = Key
+
+Level enum {
+	low = 1
+}
+
+Valve struct {
+	key Key
+	tags string[] = []
+	ratio float64 = 0.0
+	open bool = false
+
+	action Rename {
+		name string
+	}
+}
+`)).To(Equal(`widget.ID = widget.Key
+widget.Key distinct uint32
+widget.Level enum
+widget.Level.low = 1
+widget.Valve struct
+widget.Valve.key widget.Key
+widget.Valve.tags Array<string> = []
+widget.Valve.ratio float64 = 0
+widget.Valve.open bool = false
+widget.Valve action Rename
+widget.Valve!Rename.name string
+`))
+		},
+	)
+
 	It("Should ignore docs and formatting", func(ctx SpecContext) {
 		Expect(report(ctx, `
 // A thing that holds a name.
