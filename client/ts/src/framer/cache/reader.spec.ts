@@ -232,6 +232,41 @@ describe("Reader", () => {
     );
   });
 
+  describe("catch-up", () => {
+    it("should fill only the blocks that hold samples from a block long before now", async () => {
+      const now = at(300).add(TimeSpan.days(7));
+      const { reader, store, fetches, read } = createReader({ now: () => now });
+      await reader.catchUp(2, 100);
+      const held = (ch: channel.Key) =>
+        indexes(new TimeRange(START, now), RAW_LEVEL).filter(
+          (i) => store.findRaw(ch, i) != null,
+        );
+      expect(held(2)).toEqual([100, 101, 102, 103, 104]);
+      expect(held(1)).toEqual([100, 101, 102, 103, 104]);
+      expect(await read(new TimeRange(START, at(299)), 2)).toHaveLength(300);
+      expect(fetches.map(({ tr }) => tr)).toEqual([
+        new TimeRange(START, TimeStamp.MAX),
+      ]);
+    });
+
+    it("should merge into a later block that a read filled first", async () => {
+      const { core, reader, store, read } = createReader({ elapsed: 100 });
+      await read(new TimeRange(at(70), at(80)), 1);
+      core.advance(TimeSpan.seconds(200));
+      await reader.catchUp(1, 100);
+      const range = blockRange(101);
+      const expected = expectedTimestamps(0, 300).filter(
+        (t) => t >= range.start.valueOf() && t < range.end.valueOf(),
+      );
+      const block = store.findRaw(1, 101);
+      expect(timestamps(new MultiSeries([...(block?.fetched ?? [])]))).toEqual(
+        expected,
+      );
+      expect(block?.coveredCount).toBe(expected.length);
+      expect(block?.coveredEnd).toEqual(range.end);
+    });
+  });
+
   describe("budget", () => {
     it("should fill every block it reads past the budget", async () => {
       const { read } = createReader({ store: new Store({ budget: Size.bytes(1) }) });

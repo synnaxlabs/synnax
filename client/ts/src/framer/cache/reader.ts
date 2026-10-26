@@ -27,7 +27,6 @@ import {
   countBefore,
   RAW_LEVEL,
   type RawBlock,
-  rawIndex,
   rawKey,
   split,
 } from "@/framer/cache/block";
@@ -152,8 +151,9 @@ export class Reader {
   }
 
   /**
-   * Fetches the channel's raw blocks from first through its newest sample, from the end
-   * of their coverage, and trusts every sample the read returns. Call it only after the
+   * Fetches the channel's samples from the coverage end of raw block first onward into
+   * the blocks that hold them, and trusts every sample the read returns. Its cost grows
+   * with the blocks that hold samples, not with the span to now. Call it only after the
    * stream acked the channel and its index, so the stream delivers every sample the
    * read misses.
    * @throws {UnexpectedError} if the reader is closed while the read is pending.
@@ -162,13 +162,7 @@ export class Reader {
    */
   async catchUp(ch: channel.Key, first: number): Promise<void> {
     if (this.closed) throw new UnexpectedError("telemetry reader is closed");
-    const last = Math.max(first, rawIndex(this.props.now()));
-    const waits: Array<Promise<void>> = [];
-    for (let i = first; i <= last; i++) {
-      const b = this.props.store.raw(ch, i);
-      waits.push(this.enqueue(b, i === last ? TimeStamp.MAX : b.range.end, true));
-    }
-    await Promise.all(waits);
+    await this.enqueue(this.props.store.raw(ch, first), TimeStamp.MAX, true);
   }
 
   private enqueue(block: RawBlock, end: TimeStamp, catchUp: boolean): Promise<void> {
@@ -233,16 +227,16 @@ export class Reader {
   }
 
   // Reads the requested channels and their indexes over tr, splits the result at block
-  // edges, and fills each block whose coverage still ends where the read starts in it.
-  // A new data type resets a block, so a block that the read started after its start
-  // comes back in the result, to fetch again. So does a catch-up block that another
-  // fetch filled first, since that fetch did not trust its newest samples, and a block
-  // of a channel whose history changed while the read ran.
+  // edges, and fills the blocks. The read holds every sample of a block after the first,
+  // so such a block merges them with the ones it holds. The first block takes them only
+  // while its coverage still ends at the read's start. The result holds the requests to
+  // fetch again: a first block that a new data type reset after its start, a first
+  // catch-up block that another fetch filled first, since that fetch did not trust its
+  // newest samples, and a block of a channel whose history changed while the read ran.
   private async load(
     { first, last, start, catchUp, entries }: Group,
     tr: TimeRange,
   ): Promise<Set<Request>> {
-    const open = tr.end.equals(TimeStamp.MAX);
     const { readRemote, retrieveChannels, store, now } = this.props;
     const committed = now().sub(COMMIT_MARGIN);
     const requested = new Map<channel.Key, Request[]>();
@@ -296,15 +290,15 @@ export class Reader {
       const changed =
         series.length > 0 && store.retainDataType(key, series[0].dataType);
       const timestamps = idx === 0 ? [] : (grouped.get(idx) ?? []);
-      const newest = open ? newestBlock(timestamps) : last;
-      const parts = split(first, Math.max(last, newest), timestamps, series);
+      const parts = split(timestamps, series);
       const targets = [...(requested.get(key) ?? [])];
-      for (
-        let i = targets.length === 0 ? first : last + 1;
-        i < first + parts.length;
-        i++
-      )
-        targets.push({ block: store.raw(key, i), end: tr.end, catchUp });
+      // A read fills the blocks of the index it reads along with a channel, and a
+      // catch-up fills the blocks of the newer samples it read.
+      const extra = [...parts.keys()].filter((i) => i > last);
+      if (targets.length === 0) for (let i = first; i <= last; i++) extra.push(i);
+      extra.forEach((i) =>
+        targets.push({ block: store.raw(key, i), end: tr.end, catchUp }),
+      );
       const trusted = catchUp ? newestEnd(timestamps, start) : committed;
       // The Core stamps a series with the span of its domain inside the read, so the
       // channel's samples reach seen.
@@ -328,13 +322,18 @@ export class Reader {
             return;
           }
         }
-        if (!block.coveredEnd.equals(from)) {
+        const merged = block.index !== first;
+        if (!merged && !block.coveredEnd.equals(from)) {
           if (catchUp && requested.has(key)) refetch.add(r);
           return;
         }
-        const part = parts[block.index - first];
-        const coveredEnd = TimeStamp.max(from, TimeStamp.min(block.range.end, trusted));
-        const base = block.coveredCount;
+        const part = parts.get(block.index) ?? { timestamps: [], series: [] };
+        const coveredEnd = TimeStamp.max(
+          block.coveredEnd,
+          from,
+          TimeStamp.min(block.range.end, trusted),
+        );
+        const base = merged ? 0 : block.coveredCount;
         block.fill(
           align(block.index, base, part.timestamps, part.series),
           coveredEnd,
@@ -356,13 +355,6 @@ export class Reader {
     this.batcher.close(new UnexpectedError("telemetry reader is closed"));
   }
 }
-
-// Returns the raw block of the newest index sample, or -Infinity when there is none.
-const newestBlock = (timestamps: Series[]): number => {
-  const last = timestamps.findLast((s) => s.length > 0);
-  if (last == null) return -Infinity;
-  return rawIndex(new TimeStamp(last.data[last.length - 1]));
-};
 
 // Returns the end of the newest index sample, or start when there is none.
 const newestEnd = (timestamps: Series[], start: TimeStamp): TimeStamp => {

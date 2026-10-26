@@ -143,7 +143,7 @@ describe("block", () => {
       const edge = Number(span.milliseconds);
       const ts = createIndex(500n, 1, edge - 1, edge, 2 * edge + 1);
       const values = createValues(500n, [1, 2, 3, 4], ts.timeRange);
-      const parts = split(0, 2, [ts], [values]);
+      const parts = [...split([ts], [values]).values()];
       expect(parts.map((p) => p.series.map((s) => Array.from(s)))).toEqual([
         [[1, 2]],
         [[3]],
@@ -160,7 +160,9 @@ describe("block", () => {
     it("should split a series that spans index series of two blocks", () => {
       const edge = Number(span.milliseconds);
       const ts = [createIndex(500n, 1, 2), createIndex(502n, edge + 1)];
-      const parts = split(0, 1, ts, [createValues(501n, [2, 3], ts[0].timeRange)]);
+      const parts = [
+        ...split(ts, [createValues(501n, [2, 3], ts[0].timeRange)]).values(),
+      ];
       expect(parts.map((p) => p.series.map((s) => s.alignmentBounds))).toEqual([
         [{ lower: 501n, upper: 502n }],
         [{ lower: 502n, upper: 503n }],
@@ -170,27 +172,34 @@ describe("block", () => {
     it("should give each block of a cut series its own buffer", () => {
       const edge = Number(span.milliseconds);
       const ts = createIndex(500n, 1, edge + 1);
-      const parts = split(0, 1, [ts], [createValues(500n, [1, 2], ts.timeRange)]);
+      const parts = [
+        ...split([ts], [createValues(500n, [1, 2], ts.timeRange)]).values(),
+      ];
       const buffers = parts.flatMap((p) => [p.timestamps[0], p.series[0]]);
       buffers.forEach((s) =>
         expect(s.buffer.byteLength).toBe(s.byteCapacity.valueOf()),
       );
     });
 
+    it("should make parts only for the blocks that hold index samples", () => {
+      const edge = Number(span.milliseconds);
+      const ts = createIndex(500n, 1, 2 * edge + 1);
+      const parts = split([ts], [createValues(500n, [1, 2], ts.timeRange)]);
+      expect([...parts.keys()]).toEqual([0, 2]);
+    });
+
     it("should keep a series in one block as it is", () => {
       const ts = createIndex(500n, 1, 2);
       const values = createValues(500n, [1, 2], ts.timeRange);
-      const [part] = split(0, 0, [ts], [values]);
+      const [part] = split([ts], [values]).values();
       expect(part.series[0].buffer).toBe(values.buffer);
     });
 
     it("should throw when a sample has no index sample of its Core alignment", () => {
       const ts = createIndex(500n, 1, 2);
-      const split_ = () => split(0, 0, [ts], [createValues(501n, [1, 2])]);
+      const split_ = () => split([ts], [createValues(501n, [1, 2])]);
       expect(split_).toThrow(UnexpectedError);
-      expect(split_).toThrow(
-        "no index samples share alignment 501 in raw blocks 0 to 0",
-      );
+      expect(split_).toThrow("no index samples share alignment 501");
     });
   });
 

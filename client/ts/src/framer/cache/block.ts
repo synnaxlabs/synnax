@@ -152,27 +152,18 @@ const cut = (s: Series, tr: TimeRange): Series =>
   });
 
 /**
- * Splits a fetch's series of one channel at the edges of the raw blocks first to last,
- * and cuts the time range of each part to its block. A series cut in two copies its
- * samples, so a block never holds the buffer of samples another block holds.
- * @param first - The first raw block the fetch read.
- * @param last - The last raw block the fetch read.
+ * Splits a fetch's series of one channel at raw block edges, and cuts the time range of
+ * each part to its block. A series cut in two copies its samples, so a block never holds
+ * the buffer of samples another block holds.
  * @param timestamps - The fetch's series of the channel's index, in time order.
  * @param series - The fetch's series of the channel, in time order.
- * @returns the part of each block, from first to last.
+ * @returns the part of each raw block that holds index samples, by block index, in
+ * block order.
  * @throws {UnexpectedError} if a series has samples with no index sample of the same
  * Core alignment.
  */
-export const split = (
-  first: number,
-  last: number,
-  timestamps: Series[],
-  series: Series[],
-): Part[] => {
-  const parts: Part[] = Array.from({ length: last - first + 1 }, () => ({
-    timestamps: [],
-    series: [],
-  }));
+export const split = (timestamps: Series[], series: Series[]): Map<number, Part> => {
+  const parts = new Map<number, Part>();
   // edges holds the Core alignment bounds of the index samples of each part, in order.
   const edges: Array<{ part: Part; range: TimeRange; lower: bigint; upper: bigint }> =
     [];
@@ -181,7 +172,11 @@ export const split = (
       const index = rawIndex(new TimeStamp(ts.data[lo]));
       const range = tileRange({ level: RAW_LEVEL, index });
       const hi = search(ts, range.end.valueOf(), lo);
-      const part = parts[index - first];
+      let part = parts.get(index);
+      if (part == null) {
+        part = { timestamps: [], series: [] };
+        parts.set(index, part);
+      }
       part.timestamps.push(cut(ts.slice(lo, hi), range));
       const lower = ts.alignment + BigInt(lo);
       edges.push({ part, range, lower, upper: lower + BigInt(hi - lo) });
@@ -200,9 +195,7 @@ export const split = (
       claimed += Number(to - from);
     }
     if (claimed < s.length)
-      throw new UnexpectedError(
-        `no index samples share alignment ${lower} in raw blocks ${first} to ${last}`,
-      );
+      throw new UnexpectedError(`no index samples share alignment ${lower}`);
   }
   return parts;
 };
