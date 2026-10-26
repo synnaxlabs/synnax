@@ -112,16 +112,17 @@ var _ = Describe("TS Filter Plugin", func() {
 				ToContain(
 					`import { filter } from "@synnaxlabs/x";`,
 					`import { Payload, Where } from "@/thing/types.gen";`,
-					"export type Lines = Record<never, never>;",
-					"export const matches = (lines: Lines, record: Payload, where: "+
-						"Where): boolean => {",
+					"export const matches = (record: Payload, where?: Where): boolean => {",
+					"if (where == null) return true;",
+					"export const serverComputed = (where?: Where): boolean =>",
+					"where != null && (",
 					"!filter.matchesSet(where.key, record.key)",
 					"!filter.matchesString(where.name, record.name)",
 					"!filter.matchesOrdered(where.createdAt, record.createdAt)",
 					"!filter.matchesContains(where.tags, record.tags)",
 					"where.name?.regex != null",
 				).
-				ToNotContain("where.key?.regex", "lines.key")
+				ToNotContain("where.key?.regex", "lines", "Lines", "@throws")
 		})
 
 		It("Should walk the tree", func(ctx SpecContext) {
@@ -132,12 +133,12 @@ var _ = Describe("TS Filter Plugin", func() {
 			`, "thing", loader, p)
 			ExpectContent(resp, "where.gen.ts").
 				ToContain(
-					"!where.and.every((w) => matches(lines, record, w))",
-					"!where.or.some((w) => matches(lines, record, w))",
-					"where.not != null && matches(lines, record, where.not)",
-					"where.and?.some((w) => serverComputed(lines, w)) === true",
-					"where.or?.some((w) => serverComputed(lines, w)) === true",
-					"(where.not != null && serverComputed(lines, where.not));",
+					"!where.and.every((w) => matches(record, w))",
+					"!where.or.some((w) => matches(record, w))",
+					"where.not != null && matches(record, where.not)",
+					"where.and?.some((w) => serverComputed(w)) === true",
+					"where.or?.some((w) => serverComputed(w)) === true",
+					"(where.not != null && serverComputed(where.not)));",
 				)
 		})
 
@@ -151,6 +152,13 @@ var _ = Describe("TS Filter Plugin", func() {
 			ExpectContent(resp, "where.gen.ts").
 				ToContain(
 					"export interface Lines {",
+					"export const matches = (lines: Lines, record: Payload, where?: "+
+						"Where): boolean => {",
+					"!where.and.every((w) => matches(lines, record, w))",
+					" * @throws {Error} if where is server-computed",
+					"export const serverComputed = (lines: Lines, where?: Where): "+
+						"boolean =>",
+					"where.and?.some((w) => serverComputed(lines, w)) === true",
 					`overlaps: ((record: Payload, value: NonNullable<Where["overlaps"]>)`+
 						` => boolean) | null;`,
 					`if (lines.overlaps == null) throw new Error("only the Core can `+
