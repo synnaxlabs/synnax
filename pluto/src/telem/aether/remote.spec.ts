@@ -88,6 +88,7 @@ describe("remote", () => {
       feed = {
         readLatest: async (): Promise<MultiSeries> => new MultiSeries([]),
         lastWrite: (): TimeStamp | null => null,
+        timeAt: (): TimeStamp | null => null,
         readTile: async (): Promise<MultiSeries> => new MultiSeries([]),
         read: async (): Promise<MultiSeries> => this.response,
         stream: (
@@ -516,6 +517,7 @@ describe("remote", () => {
       feed = {
         readLatest: async (): Promise<MultiSeries> => new MultiSeries([]),
         lastWrite: (): TimeStamp | null => null,
+        timeAt: (): TimeStamp | null => null,
         readTile: async (): Promise<MultiSeries> => new MultiSeries([]),
         read: async (): Promise<MultiSeries> => this.response,
         stream: (
@@ -910,6 +912,7 @@ describe("remote", () => {
       feed = {
         readLatest: async (): Promise<MultiSeries> => new MultiSeries([]),
         lastWrite: (): TimeStamp | null => null,
+        timeAt: (): TimeStamp | null => null,
         read: async (tr: TimeRange): Promise<MultiSeries> => {
           this.reads.push(tr);
           return this.response;

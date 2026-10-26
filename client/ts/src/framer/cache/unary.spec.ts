@@ -18,6 +18,7 @@ import {
 import { describe, expect, it } from "vitest";
 
 import { UnexpectedError } from "@/errors";
+import { Stamps } from "@/framer/cache/stamps";
 import { Unary } from "@/framer/cache/unary";
 import { glTransform } from "@/testutil/telem";
 
@@ -301,6 +302,27 @@ describe("Unary", () => {
     it("should be null without an index", () => {
       const data = newNarrowed();
       expect(data.timeAt(LEADING_ALIGNMENT)).toBeNull();
+    });
+
+    it("should stamp a sample from the write that carried it without an index", () => {
+      const data = newNarrowed();
+      data.stamps = new Stamps(4);
+      data.writeDynamic(stamped(10, 11, [1, 2, 3], LEADING_ALIGNMENT));
+      data.writeDynamic(stamped(12, 13, [4], LEADING_ALIGNMENT + 3n));
+      expect(data.timeAt(LEADING_ALIGNMENT + 2n)).toEqual(TimeStamp.seconds(10));
+      expect(data.timeAt(LEADING_ALIGNMENT + 3n)).toEqual(TimeStamp.seconds(12));
+      expect(data.timeAt(LEADING_ALIGNMENT + 4n)).toBeNull();
+    });
+
+    it("should answer from the index alone when one is set", () => {
+      const index = newNarrowed();
+      index.writeDynamic(stamps(NS, LEADING_ALIGNMENT));
+      const data = newNarrowed();
+      data.index = index;
+      data.stamps = new Stamps(4);
+      data.writeDynamic(stamped(10, 11, [1, 2, 3, 4], LEADING_ALIGNMENT));
+      expect(data.timeAt(LEADING_ALIGNMENT + 1n)).toEqual(new TimeStamp(NS[1]));
+      expect(data.timeAt(LEADING_ALIGNMENT + 3n)).toBeNull();
     });
 
     it("should be null for an alignment the index does not hold", () => {

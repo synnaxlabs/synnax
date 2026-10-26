@@ -121,6 +121,58 @@ describe("Cache", () => {
       cache.close();
     });
 
+    it("should give only a channel with no index write stamps", async () => {
+      const { cache } = createCache([INDEX, DATA, VIRTUAL]);
+      await cache.resolve([1, 2, 3]);
+      expect(cache.get(1).stamps).toBeNull();
+      expect(cache.get(2).stamps).toBeNull();
+      expect(cache.get(3).stamps).not.toBeNull();
+      cache.close();
+    });
+
+    it("should time a virtual sample through the write that carried it", async () => {
+      const { cache } = createCache([VIRTUAL]);
+      await cache.resolve([3]);
+      const t0 = TimeStamp.seconds(1_700_000_000);
+      cache.get(3).writeDynamic(
+        new MultiSeries([
+          new Series({
+            data: new Float32Array([1, 2]),
+            dataType: DataType.FLOAT32,
+            timeRange: t0.range(t0.add(TimeSpan.NANOSECOND)),
+            alignment: 10n,
+          }),
+        ]),
+      );
+      expect(cache.timeAt(3, 11n)).toEqual(t0);
+      expect(cache.lastWrite(3)).toEqual(t0);
+      cache.close();
+    });
+
+    it("should keep as many write stamps as configured", async () => {
+      const cache = new Cache({
+        retrieveChannels: async () => [VIRTUAL],
+        writeStamps: 1,
+      });
+      await cache.resolve([3]);
+      const t0 = TimeStamp.seconds(1_700_000_000);
+      const t1 = t0.add(TimeSpan.seconds(1));
+      const write = (alignment: bigint, stamp: TimeStamp): MultiSeries =>
+        new MultiSeries([
+          new Series({
+            data: new Float32Array([1]),
+            dataType: DataType.FLOAT32,
+            timeRange: stamp.range(stamp.add(TimeSpan.NANOSECOND)),
+            alignment,
+          }),
+        ]);
+      cache.get(3).writeDynamic(write(10n, t0));
+      cache.get(3).writeDynamic(write(11n, t1));
+      expect(cache.timeAt(3, 10n)).toBeNull();
+      expect(cache.timeAt(3, 11n)).toEqual(t1);
+      cache.close();
+    });
+
     it("should give a calculated channel its index", async () => {
       const { cache } = createCache([INDEX, CALCULATED]);
       await cache.resolve([4]);

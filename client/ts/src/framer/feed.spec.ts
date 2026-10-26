@@ -232,7 +232,7 @@ describe("feed", () => {
     sub.close();
   });
 
-  it("should not stamp a virtual sample by its alignment", async () => {
+  it("should stamp a virtual sample by the write that carried it", async () => {
     const virtual = await createVirtualChannel();
     let leading: Series | null = null;
     const sub = feed.stream(
@@ -242,6 +242,7 @@ describe("feed", () => {
       },
       [virtual.key],
     );
+    const before = TimeStamp.now();
     const writer = await client.openWriter({
       start: TimeStamp.now(),
       channels: [virtual.key],
@@ -258,7 +259,11 @@ describe("feed", () => {
         .toBe(true);
       const buf = leading as Series | null;
       expect(buf).not.toBeNull();
-      expect(feed.timeAt(virtual.key, buf?.alignment ?? 0n)).toBeNull();
+      const first = feed.timeAt(virtual.key, buf?.alignment ?? 0n);
+      expect(first?.afterEq(before)).toBe(true);
+      expect(first?.beforeEq(TimeStamp.now().add(TimeSpan.seconds(1)))).toBe(true);
+      const last = (buf?.alignment ?? 0n) + BigInt((buf?.length ?? 1) - 1);
+      expect(feed.timeAt(virtual.key, last)).toEqual(feed.lastWrite(virtual.key));
     } finally {
       await writer.close();
     }

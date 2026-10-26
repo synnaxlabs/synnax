@@ -93,6 +93,7 @@ export class Feed {
       gcInterval,
       staleEntryThreshold,
       staleCoverageThreshold,
+      writeStamps,
       removalDelay,
       breaker,
       batchDebounce,
@@ -108,6 +109,7 @@ export class Feed {
       staleEntryThreshold,
       staleCoverageThreshold,
       retrieveChannels,
+      writeStamps,
       instrumentation: instrumentation?.child("cache"),
     });
     this.reader = new Reader({
@@ -189,8 +191,8 @@ export class Feed {
   }
 
   /**
-   * @returns the Core's stamp of the key's sample at alignment, else null. A closed
-   * feed holds no sample.
+   * @returns the Core's stamp of the key's sample at alignment, from its index or from
+   * the write that carried it, else null. A closed feed holds no sample.
    */
   timeAt(key: channel.Key, alignment: bigint): TimeStamp | null {
     if (this.closed) return null;

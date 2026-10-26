@@ -18,6 +18,7 @@ import {
 
 import { UnexpectedError } from "@/errors";
 import { Dynamic, type DynamicProps } from "@/framer/cache/dynamic";
+import { type Stamps } from "@/framer/cache/stamps";
 import {
   type DirtyReadResult,
   type GCMetrics,
@@ -44,6 +45,8 @@ export class Unary {
   private exact: Unary | null = null;
   /** The entry of this channel's index channel. An index channel points at itself. */
   index: Unary | null = null;
+  /** The write stamps of a channel with no index, else null. */
+  stamps: Stamps | null = null;
 
   constructor(props: UnaryProps) {
     const { transform = IDENTITY_TRANSFORM } = props;
@@ -61,6 +64,8 @@ export class Unary {
 
   writeDynamic(series: MultiSeries): MultiSeries {
     this.checkOpen("writeDynamic");
+    const { stamps } = this;
+    if (stamps != null) for (const s of series.series) stamps.record(s);
     this.trackExact(series);
     this.exact?.writeDynamic(series);
     const { flushed, allocated } = this.dynamic.write(series);
@@ -82,10 +87,12 @@ export class Unary {
     return this.dynamic.lastWrite;
   }
 
-  /** @returns the stamp of the sample at alignment, else null. */
+  /** @returns the stamp of the sample at alignment, from the index or from the write
+   * that carried it, else null. */
   timeAt(alignment: bigint): TimeStamp | null {
     this.checkOpen("timeAt");
-    return this.index?.exactAt(alignment) ?? null;
+    if (this.index != null) return this.index.exactAt(alignment);
+    return this.stamps?.at(alignment) ?? null;
   }
 
   /**

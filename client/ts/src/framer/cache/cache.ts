@@ -18,9 +18,11 @@ import {
   type StaticProps,
   zeroGCMetrics,
 } from "@/framer/cache/static";
+import { Stamps } from "@/framer/cache/stamps";
 import { Unary } from "@/framer/cache/unary";
 
 const DEFAULT_DYNAMIC_BUFFER_SIZE: TimeSpan = TimeSpan.seconds(60);
+const DEFAULT_WRITE_STAMPS = 1024;
 
 /** Props for instantiating a {@link Cache} */
 export interface CacheProps
@@ -36,6 +38,12 @@ export interface CacheProps
    * with stamps. Defaults to a retriever that finds no channel.
    */
   retrieveChannels?: ChannelRetriever;
+  /**
+   * How many write stamps a channel with no index keeps, so timeAt can stamp its
+   * samples from the writes that carried them.
+   * @default 1024
+   */
+  writeStamps?: number;
 }
 
 /**
@@ -60,6 +68,7 @@ export class Cache {
       staleEntryThreshold = DEFAULT_STATIC_PROPS.staleEntryThreshold,
       staleCoverageThreshold = DEFAULT_STATIC_PROPS.staleCoverageThreshold,
       retrieveChannels = async () => [],
+      writeStamps = DEFAULT_WRITE_STAMPS,
     } = props;
     this.props = {
       dynamicBufferSize,
@@ -69,6 +78,7 @@ export class Cache {
       staleEntryThreshold,
       staleCoverageThreshold,
       retrieveChannels,
+      writeStamps,
     };
     this.gcInterval = setInterval(() => this.gc(), gcInterval.milliseconds);
   }
@@ -93,7 +103,10 @@ export class Cache {
       const ch = found.get(key);
       const index = ch == null || ch.index === 0 ? null : ch.index;
       this.indexes.set(key, index);
-      if (index == null) return;
+      if (index == null) {
+        this.get(key).stamps = new Stamps(this.props.writeStamps);
+        return;
+      }
       const entry = this.get(index);
       entry.index = entry;
       this.indexes.set(index, index);
@@ -111,7 +124,7 @@ export class Cache {
     return this.get(key).timeAt(alignment);
   }
 
-  /** @returns the end of the channel's last stamped live write, else null. */
+  /** @returns the stamp of the channel's last live write, else null. */
   lastWrite(key: channel.Key): TimeStamp | null {
     return this.get(key).lastWrite;
   }
