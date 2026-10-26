@@ -40,8 +40,10 @@ class EditorScrollbar(ConsoleCase):
     def run(self) -> None:
         self.console.arc.open(self.arc_name)
         page = self.page
-        slider = page.locator(
-            "[data-mode-id='arc'] .editor-scrollable > .scrollbar.horizontal > .slider"
+        # Monaco hides its scrollbars from the accessibility tree, so no role or label
+        # reaches the slider.
+        slider = page.locator("[data-mode-id='arc']").locator(
+            ".scrollbar.horizontal .slider"
         )
         slider.wait_for(state="attached", timeout=5000)
         start = slider.bounding_box()
