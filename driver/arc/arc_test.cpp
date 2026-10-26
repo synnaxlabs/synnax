@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <future>
+#include <thread>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
@@ -1206,6 +1209,9 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
         input_frames
     );
 
+    std::promise<void> open;
+    mock_streamer->open_gate = open.get_future().share();
+
     auto ctx = std::make_shared<task::MockContext>(client);
 
     auto task = ASSERT_NIL_P(
@@ -1213,6 +1219,13 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
     );
 
     task->start("verify_start");
+    // A client that waits for the start status must be able to send commands at once.
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    EXPECT_EQ(
+        find_status_by_variant(ctx->statuses, synnax::status::VARIANT_SUCCESS),
+        nullptr
+    );
+    open.set_value();
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
 
     auto *start_status = find_status_by_variant(

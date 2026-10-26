@@ -136,98 +136,46 @@ TEST(ControlPipeline, testOpenRetrySuccessful) {
 TEST(ControlPipeline, testOpenRetryUnlicensed) {
     assert_open_retries(synnax::errors::LICENSE_MISSING);
 }
-namespace {
-/// @brief a streamer factory whose open blocks until the test releases it.
-class GatedStreamerFactory final : public StreamerFactory {
-    std::shared_ptr<mock::StreamerFactory> inner;
-    std::shared_future<void> gate;
-
-public:
-    GatedStreamerFactory(
-        std::shared_ptr<mock::StreamerFactory> inner,
-        std::shared_future<void> gate
-    ):
-        inner(std::move(inner)), gate(std::move(gate)) {}
-
-    std::pair<std::unique_ptr<Streamer>, x::errors::Error>
-    open_streamer(const synnax::framer::StreamerConfig config) override {
-        this->gate.wait();
-        return this->inner->open_streamer(config);
-    }
-};
-}
-
-/// @brief it should block wait_until_open until the streamer is open.
-TEST(ControlPipeline, WaitUntilOpenBlocksUntilStreamerOpens) {
-    auto release = std::make_shared<std::promise<void>>();
-    auto control = std::make_shared<Control>(
-        std::make_shared<GatedStreamerFactory>(
-            mock::simple_streamer_factory(
-                {1},
-                std::make_shared<std::vector<x::telem::Frame>>()
-            ),
-            release->get_future().share()
-        ),
+/// @brief it should tell the sink once the streamer is open.
+TEST(ControlPipeline, OpenedFollowsStreamerOpen) {
+    const auto factory = mock::simple_streamer_factory(
+        {1},
+        std::make_shared<std::vector<x::telem::Frame>>()
+    );
+    std::promise<void> release;
+    factory->open_gate = release.get_future().share();
+    const auto sink = std::make_shared<mock::Sink>();
+    auto control = Control(
+        factory,
         synnax::framer::StreamerConfig{.channels = {1}},
-        std::make_shared<mock::Sink>(),
+        sink,
         x::breaker::Config{}
     );
-    ASSERT_TRUE(control->start());
-    // The waiter owns what it touches, so a wait that never wakes cannot hang the
-    // test.
-    auto opened = std::make_shared<std::promise<void>>();
-    auto waited = opened->get_future();
-    std::thread([control, opened] {
-        control->wait_until_open();
-        opened->set_value();
-    }).detach();
-    EXPECT_EQ(
-        waited.wait_for(std::chrono::milliseconds(50)),
-        std::future_status::timeout
-    );
-    release->set_value();
-    ASSERT_EQ(waited.wait_for(std::chrono::seconds(5)), std::future_status::ready);
-    control->stop();
-}
-
-/// @brief it should release wait_until_open when a temporary open failure leaves the
-/// pipeline retrying.
-TEST(ControlPipeline, WaitUntilOpenReturnsWhileOpenRetries) {
-    auto control = Control(
-        std::make_shared<mock::StreamerFactory>(
-            std::vector{freighter::UNREACHABLE},
-            std::make_shared<std::vector<mock::StreamerConfig>>(
-                std::vector{mock::StreamerConfig{
-                    std::make_shared<std::vector<x::telem::Frame>>(),
-                    {},
-                    x::errors::NIL
-                }}
-            )
-        ),
-        synnax::framer::StreamerConfig{},
-        std::make_shared<mock::Sink>(),
-        x::breaker::Config{.base_interval = x::telem::SECOND * 3600, .max_retries = 1}
-    );
     ASSERT_TRUE(control.start());
-    control.wait_until_open();
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    EXPECT_EQ(sink->opens.load(), 0);
+    release.set_value();
+    ASSERT_EVENTUALLY_EQ(sink->opens.load(), 1);
     control.stop();
 }
 
-/// @brief it should release wait_until_open when the streamer fails to open for good.
-TEST(ControlPipeline, WaitUntilOpenReturnsOnPermanentOpenFailure) {
+/// @brief it should not tell the sink the streamer is open when it fails to open.
+TEST(ControlPipeline, OpenedSkippedOnOpenFailure) {
+    const auto factory = std::make_shared<mock::StreamerFactory>(
+        std::vector{x::errors::UNKNOWN},
+        std::make_shared<std::vector<mock::StreamerConfig>>()
+    );
     const auto sink = std::make_shared<mock::Sink>();
     auto control = Control(
-        std::make_shared<mock::StreamerFactory>(
-            std::vector{x::errors::UNKNOWN},
-            std::make_shared<std::vector<mock::StreamerConfig>>()
-        ),
+        factory,
         synnax::framer::StreamerConfig{},
         sink,
         x::breaker::Config{}
     );
     ASSERT_TRUE(control.start());
-    control.wait_until_open();
+    ASSERT_EVENTUALLY_EQ(factory->streamer_opens.load(), 1);
     control.stop();
     ASSERT_MATCHES(sink->stop_err, x::errors::UNKNOWN);
+    ASSERT_EQ(sink->opens.load(), 0);
 }
 }

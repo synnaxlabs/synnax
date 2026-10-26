@@ -9,9 +9,7 @@
 
 #pragma once
 
-#include <condition_variable>
 #include <memory>
-#include <mutex>
 
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
@@ -37,6 +35,10 @@ public:
     ///
     /// This method may be called even if stop() was called on the pipeline.
     virtual void stopped_with_err(const x::errors::Error &_) {}
+
+    /// @brief called on the pipeline thread each time the streamer opens. Frames
+    /// written to the Core after it is called reach write().
+    virtual void opened() {}
 
     virtual ~Sink() = default;
 };
@@ -135,13 +137,6 @@ class Control final : public Base {
     std::shared_ptr<Sink> sink;
     /// @brief the current open streamer reading data from the network.
     std::unique_ptr<Streamer> streamer = nullptr;
-    std::mutex open_mu;
-    std::condition_variable open_cv;
-    /// @brief false from start() until the run loop's first streamer open attempt
-    /// returns.
-    bool open_settled = true;
-
-    void settle_open();
 
 public:
     /// @brief constructs a new control pipeline that opens streamers on a Synnax Core.
@@ -179,16 +174,9 @@ public:
         std::string thread_name = ""
     );
 
-    bool start() override;
-
     /// @brief stops the control pipeline, blocking until the control thread has exited.
     /// If the pipeline has already stopped, this method will return immediately.
     bool stop() override;
-
-    /// @brief blocks until the first streamer open attempt since the last start()
-    /// returns. When that attempt succeeds, frames written to the Core after this call
-    /// returns reach the sink. Retries after a failed attempt run in the background.
-    void wait_until_open();
 
     void run() override;
 };

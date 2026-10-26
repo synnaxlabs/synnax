@@ -42,28 +42,6 @@ Control::Control(
     config(std::move(streamer_config)),
     sink(std::move(sink)) {}
 
-bool Control::start() {
-    if (this->running()) return false;
-    {
-        std::lock_guard lock(this->open_mu);
-        this->open_settled = false;
-    }
-    return Base::start();
-}
-
-void Control::settle_open() {
-    {
-        std::lock_guard lock(this->open_mu);
-        this->open_settled = true;
-    }
-    this->open_cv.notify_all();
-}
-
-void Control::wait_until_open() {
-    std::unique_lock lock(this->open_mu);
-    this->open_cv.wait(lock, [this] { return this->open_settled; });
-}
-
 bool Control::stop() {
     if (this->streamer != nullptr) this->streamer->close_send();
     const bool was_running = Base::stop();
@@ -73,7 +51,6 @@ bool Control::stop() {
 void Control::run() {
     auto [s, open_err] = this->factory->open_streamer(this->config);
     this->streamer = std::move(s);
-    this->settle_open();
     if (open_err) {
         if (synnax::errors::is_temporarily_unavailable(open_err) &&
             breaker.wait(open_err.message())) {
@@ -83,6 +60,7 @@ void Control::run() {
         this->sink->stopped_with_err(open_err);
         return;
     }
+    this->sink->opened();
 
     x::errors::Error sink_err = x::errors::NIL;
     while (breaker.running()) {
