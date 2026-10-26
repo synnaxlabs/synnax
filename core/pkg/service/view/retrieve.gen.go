@@ -18,6 +18,14 @@ import (
 	"github.com/synnaxlabs/gorp"
 )
 
+// Retrieve is used to retrieve View records from the database using a
+// builder pattern for constructing queries.
+type Retrieve struct {
+	baseTX  gorp.Tx
+	gorp    gorp.Retrieve[Key, View]
+	indexes indexes
+}
+
 // indexes bundles the per-Service secondary indexes registered on the
 // View table. Each index is constructed via newIndexes and threaded
 // onto the Retrieve so filter functions can resolve them off r.indexes
