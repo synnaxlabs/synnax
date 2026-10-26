@@ -48,8 +48,9 @@ class ConnectNetwork(ModbusCase):
         devices.open_connect()
         devices.pick_integration(NETWORK)
         connect_from = self.console.layout.get_dropdown_value("Connect from")
-        assert connect_from == self.RACK_NAME, (
-            f"The form should connect from '{self.RACK_NAME}', got '{connect_from}'"
+        rack_name = self.options.driver_rack
+        assert connect_from == rack_name, (
+            f"The form should connect from '{rack_name}', got '{connect_from}'"
         )
 
         name = f"Toolbar server {random_name()}"
@@ -65,8 +66,10 @@ class ConnectNetwork(ModbusCase):
         devices.modal.wait_for(state="hidden", timeout=15000)
         devices.get(name)
         dev = self._retrieve_connected(name)
-        rack = self.client.racks.retrieve(name=self.RACK_NAME)
-        assert dev.rack == rack.key, f"'{name}' should be on '{self.RACK_NAME}'"
+        rack = self.client.racks.retrieve(name=self.options.driver_rack)
+        assert dev.rack == rack.key, (
+            f"'{name}' should be on '{self.options.driver_rack}'"
+        )
 
     def test_connect_from_task_form(self) -> None:
         """The "Connect Modbus TCP server" action of the server dropdown opens the

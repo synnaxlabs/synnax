@@ -22,7 +22,6 @@ Usage:
         sim_classes = [OPCUASim, ModbusSim]
 """
 
-import os
 import subprocess
 from multiprocessing.process import BaseProcess
 
@@ -68,7 +67,6 @@ class SimulatorCase(HardwareCase):
     sim: DeviceSim | None = None
     sims: dict[str, DeviceSim | None]
     SAMPLE_RATE: sy.Rate = 50 * sy.Rate.HZ
-    RACK_NAME: str = os.environ.get("SYNNAX_DRIVER_RACK", "Node 1 Embedded Driver")
 
     def __init__(
         self,
@@ -162,7 +160,7 @@ class SimulatorCase(HardwareCase):
 
     def _connect_device_for(self, sim_cls: type[DeviceSim]) -> None:
         """Get or create the hardware device for a given simulator class."""
-        rack = self.client.racks.retrieve(name=self.RACK_NAME)
+        rack = self.client.racks.retrieve(name=self.options.driver_rack)
         device_instance = sim_cls.create_device(rack.key)
         try:
             existing = self.client.devices.retrieve(name=device_instance.name)

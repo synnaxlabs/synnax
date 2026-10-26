@@ -18,7 +18,7 @@ from pathlib import Path
 import synnax as sy
 from framework import run_dir, server_log
 from framework.config_client import ConfigClient, Sequence, TestDefinition
-from framework.models import STATUS, SynnaxConnection, Test
+from framework.models import STATUS, RunOptions, SynnaxConnection, Test
 from framework.test_case import TestCase
 from framework.watchdog import Slots, Timeout, Watchdog, interrupt
 
@@ -50,6 +50,8 @@ class ExecutionClient:
         self,
         config_client: ConfigClient,
         synnax_connection: SynnaxConnection,
+        options: RunOptions,
+        server_log_path: Path,
         client: sy.Synnax,
         conductor_range: sy.Range | None,
         tests: list[Test],
@@ -64,6 +66,8 @@ class ExecutionClient:
     ) -> None:
         self._config_client = config_client
         self._synnax_connection = synnax_connection
+        self._options = options
+        self._server_log_path = server_log_path
         self._client = client
         self._conductor_range = conductor_range
         self._tests = tests
@@ -335,7 +339,7 @@ class ExecutionClient:
         # so that helpers like `resolve_results_path` route artifacts (trace,
         # screenshots, exports) into it transparently.
         bundle_dir = self._setup_bundle_dir(test)
-        log_start_offset = server_log.current_offset()
+        log_start_offset = server_log.current_offset(self._server_log_path)
         test.started_at = time.time()
 
         test_instance: TestCase | None = None
@@ -344,6 +348,7 @@ class ExecutionClient:
             test_instance = test_class(
                 synnax_connection=self._synnax_connection,
                 name=test_def.display_name,
+                options=self._options,
                 **test_def.parameters,
             )
 
@@ -441,8 +446,10 @@ class ExecutionClient:
             return
         if test.status not in (STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED):
             return
-        end_offset = server_log.current_offset()
-        server_log.slice_to(bundle / "server.log", start_offset, end_offset)
+        end_offset = server_log.current_offset(self._server_log_path)
+        server_log.slice_to(
+            self._server_log_path, bundle / "server.log", start_offset, end_offset
+        )
 
     def _finalize_range(self, test_range: sy.Range) -> sy.Range:
         return self._client.ranges.create(
