@@ -116,6 +116,22 @@ class TestReady:
         api.set_job("a", INTEGRATION, "completed", "skipped")
         assert wait_for_turn.ready(github(api), "b", 0)
 
+    def test_should_check_the_group_past_one_with_no_integration_suite(
+        self,
+    ) -> None:
+        api = FakeAPI([entry(1, "a"), entry(2, "b"), entry(3, "c")])
+        api.set_job("a", GATE, "in_progress")
+        api.set_job("b", INTEGRATION, "completed", "skipped")
+        assert not wait_for_turn.ready(github(api), "c", 1)
+        api.pass_gate("a")
+        assert wait_for_turn.ready(github(api), "c", 1)
+
+    def test_should_admit_a_group_when_no_group_ahead_runs_the_suite(self) -> None:
+        api = FakeAPI([entry(1, "a"), entry(2, "b"), entry(3, "c")])
+        api.set_job("a", INTEGRATION, "completed", "skipped")
+        api.set_job("b", INTEGRATION, "completed", "skipped")
+        assert wait_for_turn.ready(github(api), "c", 0)
+
     def test_should_hold_a_group_behind_one_whose_run_has_not_started(self) -> None:
         api = FakeAPI([entry(1, "a"), entry(2, "b")])
         assert not wait_for_turn.ready(github(api), "b", 0)

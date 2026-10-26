@@ -13,7 +13,8 @@ theirs.
 A free self-hosted runner takes the oldest queued job, so without this gate a group
 whose build ends first takes the test bots from the groups ahead of it. A group goes on
 when it is among the first `slots` groups that wait for checks, or when the nearest
-such group ahead of it queued its test bot jobs or never will.
+group ahead of it that runs the integration suite queued its test bot jobs or never
+will.
 
 Usage: wait_for_turn.py <head-sha> <slots>. Reads GH_TOKEN and GITHUB_REPOSITORY.
 Exits non-zero when the group leaves the merge queue.
@@ -147,13 +148,10 @@ class GitHub:
             page += 1
 
 
-def through(github: GitHub, sha: str) -> bool:
-    """True when the group at sha queued its test bot jobs or never will. A gate
-    that failed or was cancelled counts, because a failed group can stay in the
-    queue while a later group runs."""
-    jobs = github.jobs(sha)
-    if jobs.get(INTEGRATION, {}).get("status") == "completed":
-        return True
+def through(jobs: dict[str, dict[str, Any]]) -> bool:
+    """True when a group that runs the integration suite queued its test bot jobs or
+    never will. A gate that failed or was cancelled counts, because a failed group can
+    stay in the queue while a later group runs."""
     gate = jobs.get(GATE, {})
     if gate.get("status") != "completed":
         return False
@@ -167,7 +165,9 @@ def through(github: GitHub, sha: str) -> bool:
 
 
 def ready(github: GitHub, sha: str, slots: int) -> bool:
-    """True when the group at sha may queue its test bot jobs."""
+    """True when the group at sha may queue its test bot jobs. A group's path filter
+    sees only its own pull request, so a group that skips the integration suite can
+    sit between two that run it: the check skips past such groups."""
     waiting = sorted(
         (e for e in github.queue() if e.state == "AWAITING_CHECKS"),
         key=lambda e: e.position,
@@ -179,7 +179,13 @@ def ready(github: GitHub, sha: str, slots: int) -> bool:
         )
     rank = shas.index(sha) + 1
     print(f"{rank} of {len(shas)} groups waiting for checks, {slots} slots")
-    return rank <= slots or through(github, shas[rank - 2])
+    if rank <= slots:
+        return True
+    for ahead in reversed(shas[: rank - 1]):
+        jobs = github.jobs(ahead)
+        if jobs.get(INTEGRATION, {}).get("status") != "completed":
+            return through(jobs)
+    return True
 
 
 def wait(
