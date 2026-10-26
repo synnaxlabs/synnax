@@ -1,0 +1,140 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Runs Claude Code or Codex on an agent runner through scripts/agent/run. Each agent
+# writes to GitHub as its own GitHub App, never as a person. Callers must grant
+# `id-token: write`, which starts a stopped runner through AWS.
+name: Agent
+
+on:
+  workflow_call:
+    inputs:
+      prompt:
+        description: "Task for the agent, or a skill such as /flake-hunt"
+        type: string
+        required: true
+      agent:
+        description: "claude or codex. Empty uses the AGENT_DEFAULT variable."
+        type: string
+        default: ""
+      output:
+        description: "pr, comment, or report"
+        type: string
+        default: pr
+      pr:
+        description: "PR to check out, push to, and comment on"
+        type: number
+        required: false
+      title:
+        description: "PR title. Empty lets the agent pick one."
+        type: string
+        default: ""
+      labels:
+        description: "Comma-separated labels for a new PR"
+        type: string
+        default: ""
+      timeout-minutes:
+        description: "Time budget for the job, setup and delivery included"
+        type: number
+        default: 60
+    outputs:
+      pr-url:
+        description: "URL of the PR the agent opened, pushed to, or commented on"
+        value: ${{ jobs.run.outputs.pr-url }}
+
+permissions:
+  contents: read
+
+jobs:
+  start:
+    name: Start a runner
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - name: Assume the runner start role
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AGENT_RUNNER_ROLE_ARN }}
+          aws-region: us-east-1
+
+      # Idle runners stop themselves, so a job starts one stopped runner. The job waits
+      # for any runner when none is stopped.
+      - name: Start a stopped runner
+        run: |
+          id=$(aws ec2 describe-instances --output text \
+            --filters Name=tag:project,Values=synnax-agents Name=tag:pool,Values=agent \
+            Name=instance-state-name,Values=stopped \
+            --query 'Reservations[].Instances[0].InstanceId | [0]')
+          if [ "$id" != "None" ]; then
+            aws ec2 start-instances --instance-ids "$id" --output text
+          fi
+
+  run:
+    name: Run (${{ inputs.agent || vars.AGENT_DEFAULT || 'claude' }})
+    runs-on: [self-hosted, ubuntu-agent-bot]
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    outputs:
+      pr-url: ${{ steps.agent.outputs.pr-url }}
+    env:
+      AGENT: ${{ inputs.agent || vars.AGENT_DEFAULT || 'claude' }}
+    steps:
+      - name: Mint the GitHub App token
+        id: app
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id:
+            ${{ env.AGENT == 'codex' && secrets.CODEX_APP_ID || secrets.AGENT_APP_ID }}
+          private-key:
+            ${{ env.AGENT == 'codex' && secrets.CODEX_APP_PRIVATE_KEY ||
+            secrets.AGENT_APP_PRIVATE_KEY }}
+          permission-actions: read
+          permission-checks: read
+          permission-contents: write
+          permission-issues: write
+          permission-pull-requests: write
+
+      - name: Resolve the bot identity
+        id: bot
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          SLUG: ${{ steps.app.outputs.app-slug }}
+        run: |
+          id=$(gh api "/users/${SLUG}[bot]" --jq .id)
+          echo "name=${SLUG}[bot]" >> "$GITHUB_OUTPUT"
+          echo "email=${id}+${SLUG}[bot]@users.noreply.github.com" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          token: ${{ steps.app.outputs.token }}
+          fetch-depth: 0
+
+      - name: Run the agent
+        id: agent
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          AGENT_GIT_NAME: ${{ steps.bot.outputs.name }}
+          AGENT_GIT_EMAIL: ${{ steps.bot.outputs.email }}
+          CLAUDE_CODE_OAUTH_TOKEN:
+            ${{ env.AGENT == 'claude' && secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
+          PROMPT: ${{ inputs.prompt }}
+          OUTPUT: ${{ inputs.output }}
+          PR: ${{ inputs.pr }}
+          TITLE: ${{ inputs.title }}
+          LABELS: ${{ inputs.labels }}
+          BUDGET: ${{ inputs.timeout-minutes }}
+        run: |
+          args=(--agent "$AGENT" --output "$OUTPUT" --prompt "$PROMPT")
+          # Leave ten minutes of the job's budget for setup and delivery.
+          args+=(--timeout-minutes "$((BUDGET > 20 ? BUDGET - 10 : BUDGET / 2))")
+          if [ -n "$PR" ] && [ "$PR" != "0" ]; then args+=(--pr "$PR"); fi
+          if [ -n "$TITLE" ]; then args+=(--title "$TITLE"); fi
+          if [ -n "$LABELS" ]; then args+=(--labels "$LABELS"); fi
+          scripts/agent/run "${args[@]}"
