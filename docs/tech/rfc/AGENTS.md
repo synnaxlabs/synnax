@@ -92,7 +92,7 @@ uv run --project .github/scripts .github/scripts/phase_table.py <rfc.md>
   Use the micro sign µ (U+00B5), never Greek mu (μ).
 - Backtick type names and code identifiers in prose: `uint8`, `float64`, `domain.DB`,
   channel names like `sy_task_set`. CLI commands too: `oracle migrate`.
-- Proper nouns follow the root `CLAUDE.md` Prose rules. Package and import paths stay
+- Proper nouns follow the root `AGENTS.md` Prose rules. Package and import paths stay
   lowercase in backticks, and so do commands (`git log`) even when the tool is a proper
   noun (Git).
 - "Driver" is the Synnax program that runs tasks: `the Driver validates the task`. A

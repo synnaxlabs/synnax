@@ -8,8 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { act, fireEvent, screen } from "@testing-library/react";
-import { type ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  Suspense,
+  use,
+  useLayoutEffect,
+} from "react";
+import { describe, expect, it, vi } from "vitest";
 
 import { Nav } from "@/platform/nav";
 import { Session } from "@/session";
@@ -17,9 +23,10 @@ import { createTestStore, renderWithConsole, type TestStore } from "@/testutil";
 
 const ITEM_KEY = "alpha";
 const CONTENT = "alpha content";
+const SIBLING = "sibling";
 const DRAWER_SELECTOR = ".console-nav__drawer";
 
-const Harness = (): ReactElement => {
+const Harness = ({ children }: PropsWithChildren): ReactElement => {
   const { selected, hover, size } = Session.Nav.useSelectLeft();
   const dispatch = Session.useDispatch();
   return (
@@ -32,18 +39,38 @@ const Harness = (): ReactElement => {
       onCollapse={() => dispatch(Session.Nav.collapseLeft({}))}
       onStopHover={() => dispatch(Session.Nav.stopLeftHover({}))}
     >
-      <div>{CONTENT}</div>
+      {children}
     </Nav.Drawer>
   );
 };
 Harness.displayName = "DrawerHarness";
+
+interface SiblingProps {
+  onMount: () => void;
+}
+
+const Sibling = ({ onMount }: SiblingProps): ReactElement => {
+  useLayoutEffect(onMount, [onMount]);
+  return <div>{SIBLING}</div>;
+};
+
+interface PendingProps {
+  content: Promise<string>;
+}
+
+const Pending = ({ content }: PendingProps): ReactElement => <div>{use(content)}</div>;
 
 const renderDrawer = async (): Promise<{
   store: TestStore;
   container: HTMLElement;
 }> => {
   const store = await createTestStore();
-  const { container } = await renderWithConsole(<Harness />, { store });
+  const { container } = await renderWithConsole(
+    <Harness>
+      <div>{CONTENT}</div>
+    </Harness>,
+    { store },
+  );
   return { store, container };
 };
 
@@ -114,5 +141,31 @@ describe("Nav.Drawer", () => {
     moveMouse({ clientX: 300, clientY: 300 });
     expect(leftState(store).hover).toBe(true);
     expect(screen.getByText(CONTENT)).toBeTruthy();
+  });
+
+  it("should not restart content beside the drawer while its content waits for data", async () => {
+    const onMount = vi.fn();
+    let resolve: (content: string) => void = () => {};
+    const content = new Promise<string>((r) => (resolve = r));
+    const store = await createTestStore();
+    // Stands in for the boundary that wraps the whole workspace.
+    await renderWithConsole(
+      <Suspense fallback={null}>
+        <Sibling onMount={onMount} />
+        <Harness>
+          <Pending content={content} />
+        </Harness>
+      </Suspense>,
+      { store },
+    );
+    await act(async () => {
+      store.dispatch(Session.Nav.selectLeft({ key: ITEM_KEY }));
+    });
+    await act(async () => {
+      resolve(CONTENT);
+      await content;
+    });
+    expect(screen.getByText(CONTENT)).toBeTruthy();
+    expect(onMount).toHaveBeenCalledTimes(1);
   });
 });
