@@ -81,8 +81,10 @@ var _ = Describe("MatchOpcodes", func() {
 
 	Describe("Error handling", func() {
 		It("should handle invalid input types gracefully", func() {
-			_, err := MatchOpcodes(wasm.OpI32Add).Match("invalid")
-			Expect(err).To(HaveOccurred())
+			Expect(
+				MatchOpcodes(wasm.OpI32Add).Match("invalid"),
+			).Error().
+				To(MatchError(ContainSubstring("MatchOpcodes expects []byte or wasm.OPCodes")))
 		})
 
 		It("should provide clear failure messages", func() {

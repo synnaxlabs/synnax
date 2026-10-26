@@ -570,7 +570,7 @@ var _ = Describe("ResolveLeafPrimitive", func() {
 		}
 		Expect(table.Add(structType)).To(Succeed())
 		_, _, err := typemap.ResolveLeafPrimitive(structType, table, goTypeName)
-		Expect(err).To(HaveOccurred())
+		Expect(err).To(MatchError(ContainSubstring("unsupported type form for leaf")))
 		Expect(err).To(MatchError(ContainSubstring("unsupported type form")))
 	})
 
