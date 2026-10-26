@@ -322,7 +322,9 @@ signal channel. No phase changes a stored format.
     is all in the read or all after it. A calculated channel decides by time alone. The
     trade is real: two paths read history, a `latest` key keeps a buffer that its count
     bounds, not the byte budget, and a series streamed with no time range, from a writer
-    that does not write the channel's index, can repeat samples of the read.
+    that does not write the channel's index, can repeat samples of the read. A stream
+    drop reads the newest samples again. Live samples show while that read fails, so a
+    read that lands after them drops the samples written while the stream was down.
 
 ## 6 What this RFC does not cover
 
