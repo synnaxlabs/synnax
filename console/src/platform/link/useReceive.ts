@@ -18,6 +18,7 @@ const RECEIVED_KEY = "link.received";
 /**
  * useReceive calls handle with each link the app receives: the link it holds on load,
  * then every link opened while it runs. A reload never passes on the same link again.
+ * Mount one per window: callers share one record, so a second would miss the held link.
  */
 export const useReceive = (
   handle: (urls: string[]) => void,

@@ -10,7 +10,7 @@
 import { scheduler } from "@synnaxlabs/x";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { Link } from "@/platform/link";
 
@@ -18,7 +18,7 @@ const FIRST = ["synnax://cluster/c1"];
 const SECOND = ["synnax://cluster/c2"];
 
 interface Harness {
-  handle: ReturnType<typeof vi.fn<(urls: string[]) => void>>;
+  handle: Mock<(urls: string[]) => void>;
   openURL: (urls: string[]) => void;
   /** reload mounts the hook again, as a reload does, holding the given link. */
   reload: (held: string[] | null) => Promise<void>;
