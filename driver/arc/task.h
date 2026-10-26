@@ -84,12 +84,22 @@ class Task final : public task::Task {
     std::shared_ptr<::arc::runtime::Runtime> runtime;
     std::unique_ptr<pipeline::Acquisition> acquisition;
     std::unique_ptr<pipeline::Control> control;
-    /// @brief guards state and pending_start, which the command, pipeline, and runtime
-    /// threads all touch.
+    /// @brief guards state, opening, and pending_starts, which the command, pipeline,
+    /// and runtime threads all touch.
     std::mutex state_mu;
     common::StatusHandler state;
-    /// @brief the start command to answer once the command streamer opens.
-    std::string pending_start;
+    /// @brief true from a start until the command streamer opens or fails to open.
+    bool opening = false;
+    /// @brief the start commands to answer once the command streamer opens.
+    std::vector<std::string> pending_starts;
+
+    /// @brief answers every pending start with the current status. Requires state_mu.
+    void answer_pending_starts() {
+        for (const auto &key: this->pending_starts)
+            this->state.send_start(key);
+        this->pending_starts.clear();
+        this->opening = false;
+    }
 
     /// @brief source that reads output data from the arc runtime.
     class Source final : public pipeline::Source {
@@ -139,21 +149,18 @@ class Task final : public task::Task {
         // send commands at once.
         void opened() override {
             std::lock_guard lock(this->task.state_mu);
-            if (this->task.pending_start.empty()) return;
-            this->task.state.send_start(this->task.pending_start);
-            this->task.pending_start.clear();
+            if (this->task.opening) this->task.answer_pending_starts();
         }
 
         void stopped_with_err(const x::errors::Error &err) override {
             std::lock_guard lock(this->task.state_mu);
             const std::string message = "Failed to stream commands to the Arc program";
-            if (this->task.pending_start.empty()) {
+            if (!this->task.opening) {
                 this->task.state.send_error(err, message);
                 return;
             }
             this->task.state.error(err, message);
-            this->task.state.send_start(this->task.pending_start);
-            this->task.pending_start.clear();
+            this->task.answer_pending_starts();
         }
     };
 
@@ -307,7 +314,10 @@ public:
         const auto start = x::telem::TimeStamp::now();
         if (!this->runtime->start()) {
             std::lock_guard lock(this->state_mu);
-            this->state.ack(cmd_key, true);
+            if (this->opening)
+                this->pending_starts.push_back(cmd_key);
+            else
+                this->state.ack(cmd_key, true);
             return false;
         }
         auto acq_started = true;
@@ -319,7 +329,8 @@ public:
         }
         {
             std::lock_guard lock(this->state_mu);
-            this->pending_start = cmd_key;
+            this->opening = true;
+            this->pending_starts = {cmd_key};
         }
         return this->control->start() && acq_started;
     }
@@ -333,10 +344,10 @@ public:
         const auto runtime_stopped = this->runtime->stop();
         std::lock_guard lock(this->state_mu);
         // A start the streamer never answered still needs its reply.
-        if (!this->pending_start.empty()) {
-            this->state.ack(this->pending_start, false);
-            this->pending_start.clear();
-        }
+        for (const auto &key: this->pending_starts)
+            this->state.ack(key, false);
+        this->pending_starts.clear();
+        this->opening = false;
         if (propagate_state) this->state.send_stop(cmd_key);
         return control_stopped && acq_stopped && runtime_stopped;
     }
