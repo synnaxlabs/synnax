@@ -38,7 +38,7 @@ type (
 		arc.RetrieveRequest,
 		*RetrieveRequest,
 		arc.RetrieveResponse,
-		*RetrieveResponse,
+		*pb.RetrieveResponse,
 	]
 	deleteServer = grpc.UnaryServer[
 		arc.DeleteRequest,
@@ -58,7 +58,7 @@ var (
 	_ grpc.Translator[arc.RetrieveRequest, *RetrieveRequest] = (*retrieveRequestTranslator)(
 		nil,
 	)
-	_ grpc.Translator[arc.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(
+	_ grpc.Translator[arc.RetrieveResponse, *pb.RetrieveResponse] = (*retrieveResponseTranslator)(
 		nil,
 	)
 	_ grpc.Translator[arc.DeleteRequest, *DeleteRequest] = (*deleteRequestTranslator)(
@@ -135,24 +135,16 @@ func (retrieveRequestTranslator) Backward(
 
 func (retrieveResponseTranslator) Forward(
 	_ context.Context,
-	msg arc.RetrieveResponse,
-) (*RetrieveResponse, error) {
-	arcs, err := pb.ArcsToPB(msg.Arcs)
-	if err != nil {
-		return nil, err
-	}
-	return &RetrieveResponse{Arcs: arcs}, nil
+	res arc.RetrieveResponse,
+) (*pb.RetrieveResponse, error) {
+	return pb.RetrieveResponseToPB(res)
 }
 
 func (retrieveResponseTranslator) Backward(
 	_ context.Context,
-	msg *RetrieveResponse,
+	res *pb.RetrieveResponse,
 ) (arc.RetrieveResponse, error) {
-	arcs, err := pb.ArcsFromPB(msg.Arcs)
-	if err != nil {
-		return arc.RetrieveResponse{}, err
-	}
-	return arc.RetrieveResponse{Arcs: arcs}, nil
+	return pb.RetrieveResponseFromPB(res)
 }
 
 func (deleteRequestTranslator) Forward(

@@ -408,13 +408,13 @@ type RetrieveRequest struct {
 	// where selects the arcs to retrieve. An absent where selects all of them.
 	Where *Where `protobuf:"bytes,1,opt,name=where,proto3,oneof" json:"where,omitempty"`
 	// search_term keeps the arcs that match the term, closest match first.
-	SearchTerm *string `protobuf:"bytes,2,opt,name=search_term,json=searchTerm,proto3,oneof" json:"search_term,omitempty"`
+	SearchTerm string `protobuf:"bytes,2,opt,name=search_term,json=searchTerm,proto3" json:"search_term,omitempty"`
 	// limit is the most arcs to return.
 	Limit *uint32 `protobuf:"varint,3,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
 	// offset is the number of matching arcs to skip.
-	Offset *uint32 `protobuf:"varint,4,opt,name=offset,proto3,oneof" json:"offset,omitempty"`
+	Offset uint32 `protobuf:"varint,4,opt,name=offset,proto3" json:"offset,omitempty"`
 	// include_program includes the program of each record.
-	IncludeProgram *bool `protobuf:"varint,5,opt,name=include_program,json=includeProgram,proto3,oneof" json:"include_program,omitempty"`
+	IncludeProgram bool `protobuf:"varint,5,opt,name=include_program,json=includeProgram,proto3" json:"include_program,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -457,8 +457,8 @@ func (x *RetrieveRequest) GetWhere() *Where {
 }
 
 func (x *RetrieveRequest) GetSearchTerm() string {
-	if x != nil && x.SearchTerm != nil {
-		return *x.SearchTerm
+	if x != nil {
+		return x.SearchTerm
 	}
 	return ""
 }
@@ -471,15 +471,15 @@ func (x *RetrieveRequest) GetLimit() uint32 {
 }
 
 func (x *RetrieveRequest) GetOffset() uint32 {
-	if x != nil && x.Offset != nil {
-		return *x.Offset
+	if x != nil {
+		return x.Offset
 	}
 	return 0
 }
 
 func (x *RetrieveRequest) GetIncludeProgram() bool {
-	if x != nil && x.IncludeProgram != nil {
-		return *x.IncludeProgram
+	if x != nil {
+		return x.IncludeProgram
 	}
 	return false
 }
@@ -560,19 +560,16 @@ const file_core_pkg_service_arc_pb_arc_proto_rawDesc = "" +
 	"\x04name\x18\x05 \x01(\v2\x13.x.filter.pb.StringH\x02R\x04name\x88\x01\x01B\x06\n" +
 	"\x04_notB\x06\n" +
 	"\x04_keyB\a\n" +
-	"\x05_name\"\x92\x02\n" +
+	"\x05_name\"\xd4\x01\n" +
 	"\x0fRetrieveRequest\x120\n" +
-	"\x05where\x18\x01 \x01(\v2\x15.service.arc.pb.WhereH\x00R\x05where\x88\x01\x01\x12$\n" +
-	"\vsearch_term\x18\x02 \x01(\tH\x01R\n" +
-	"searchTerm\x88\x01\x01\x12\x19\n" +
-	"\x05limit\x18\x03 \x01(\rH\x02R\x05limit\x88\x01\x01\x12\x1b\n" +
-	"\x06offset\x18\x04 \x01(\rH\x03R\x06offset\x88\x01\x01\x12,\n" +
-	"\x0finclude_program\x18\x05 \x01(\bH\x04R\x0eincludeProgram\x88\x01\x01B\b\n" +
-	"\x06_whereB\x0e\n" +
-	"\f_search_termB\b\n" +
-	"\x06_limitB\t\n" +
-	"\a_offsetB\x12\n" +
-	"\x10_include_program\";\n" +
+	"\x05where\x18\x01 \x01(\v2\x15.service.arc.pb.WhereH\x00R\x05where\x88\x01\x01\x12\x1f\n" +
+	"\vsearch_term\x18\x02 \x01(\tR\n" +
+	"searchTerm\x12\x19\n" +
+	"\x05limit\x18\x03 \x01(\rH\x01R\x05limit\x88\x01\x01\x12\x16\n" +
+	"\x06offset\x18\x04 \x01(\rR\x06offset\x12'\n" +
+	"\x0finclude_program\x18\x05 \x01(\bR\x0eincludeProgramB\b\n" +
+	"\x06_whereB\b\n" +
+	"\x06_limit\";\n" +
 	"\x10RetrieveResponse\x12'\n" +
 	"\x04arcs\x18\x01 \x03(\v2\x13.service.arc.pb.ArcR\x04arcs*%\n" +
 	"\x04Mode\x12\r\n" +

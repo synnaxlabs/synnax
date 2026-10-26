@@ -105,7 +105,7 @@ var _ = Describe("Retrieve", func() {
 		grantRetrieveOn(ctx, author.OntologyID(), symbol.OntologyID(sym.Key))
 		Eventually(apiSvc.Retrieve).WithArguments(
 			AuthedCtx(ctx, author),
-			apisymbol.RetrieveRequest{SearchTerm: new("Pyrometer")},
+			apisymbol.RetrieveRequest{SearchTerm: "Pyrometer"},
 		).Should(HaveField("Symbols", ConsistOf(HaveField("Key", sym.Key))))
 	})
 	It("Should return no symbols when a key names no symbol", func(ctx SpecContext) {

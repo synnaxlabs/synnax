@@ -15,6 +15,7 @@ import {
   color,
   filter,
   notation,
+  type optional,
   spatial,
   text,
   uuid,
@@ -370,13 +371,16 @@ export const retrieveRequestZ = z.strictObject({
   /** where selects the schematics to retrieve. An absent where selects all of them. */
   where: whereZ.optional(),
   /** searchTerm keeps the schematics that match the term, closest match first. */
-  searchTerm: z.string().optional(),
+  searchTerm: z.string().default(""),
   /** limit is the most schematics to return. */
   limit: z.uint32().optional(),
   /** offset is the number of matching schematics to skip. */
-  offset: z.uint32().optional(),
+  offset: z.uint32().default(0),
 });
-export interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
+export type RetrieveRequest = optional.Optional<
+  z.infer<typeof retrieveRequestZ>,
+  "searchTerm" | "offset"
+>;
 
 export const toggleSymbolConfigZ = toggleConfigZ.extend({
   strokeColor: color.colorZ.optional(),

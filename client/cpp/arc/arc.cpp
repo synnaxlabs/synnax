@@ -126,14 +126,9 @@ Client::retrieve(const RetrieveRequest &req) const {
     *grpc_req.mutable_request() = pb_req;
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, grpc_req);
     if (err) return {std::vector<Arc>(), err};
-    std::vector<Arc> arcs;
-    arcs.reserve(res.arcs_size());
-    for (const auto &pb: res.arcs()) {
-        auto [arc, from_err] = Arc::from_proto(pb);
-        if (from_err) return {std::vector<Arc>(), from_err};
-        arcs.push_back(std::move(arc));
-    }
-    return {arcs, x::errors::NIL};
+    auto [decoded, proto_err] = RetrieveResponse::from_proto(res);
+    if (proto_err) return {std::vector<Arc>(), proto_err};
+    return {std::move(decoded.arcs), x::errors::NIL};
 }
 
 std::pair<Arc, x::errors::Error>

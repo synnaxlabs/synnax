@@ -86,16 +86,11 @@ func (r RetrieveRequest) Apply(q Retrieve) (Retrieve, error) {
 		}
 		q = q.Where(f)
 	}
-	if r.SearchTerm != nil {
-		q = q.Search(*r.SearchTerm)
-	}
+	q = q.Search(r.SearchTerm)
 	if r.Limit != nil {
 		q = q.Limit(int(*r.Limit))
 	}
-	if r.Offset != nil {
-		q = q.Offset(int(*r.Offset))
-	}
-	return q, nil
+	return q.Offset(int(r.Offset)), nil
 }
 
 // UnmarshalJSONFrom decodes the request and rejects a member that it does not declare,

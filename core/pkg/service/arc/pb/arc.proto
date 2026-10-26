@@ -78,13 +78,13 @@ message RetrieveRequest {
   // where selects the arcs to retrieve. An absent where selects all of them.
   optional Where where = 1;
   // search_term keeps the arcs that match the term, closest match first.
-  optional string search_term = 2;
+  string search_term = 2;
   // limit is the most arcs to return.
   optional uint32 limit = 3;
   // offset is the number of matching arcs to skip.
-  optional uint32 offset = 4;
+  uint32 offset = 4;
   // include_program includes the program of each record.
-  optional bool include_program = 5;
+  bool include_program = 5;
 }
 
 // RetrieveResponse holds the arcs a RetrieveRequest selects.

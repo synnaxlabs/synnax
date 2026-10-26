@@ -90,7 +90,7 @@ var _ = Describe("Service", func() {
 				Expect(arcSvc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
 				Expect(apiSvc.Retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
 					Where:          &arc.Where{Key: &filter.Set[arc.Key]{Eq: &a.Key}},
-					IncludeProgram: new(true),
+					IncludeProgram: true,
 				})).Error().To(MatchError(access.ErrDenied))
 			},
 		)

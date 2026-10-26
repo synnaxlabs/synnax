@@ -164,50 +164,6 @@ func (x *RetrieveRequest) GetRequest() *pb.RetrieveRequest {
 	return nil
 }
 
-type RetrieveResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Arcs          []*pb.Arc              `protobuf:"bytes,1,rep,name=arcs,proto3" json:"arcs,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RetrieveResponse) Reset() {
-	*x = RetrieveResponse{}
-	mi := &file_core_pkg_transport_grpc_arc_arc_proto_msgTypes[3]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RetrieveResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RetrieveResponse) ProtoMessage() {}
-
-func (x *RetrieveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_arc_arc_proto_msgTypes[3]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RetrieveResponse.ProtoReflect.Descriptor instead.
-func (*RetrieveResponse) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_arc_arc_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *RetrieveResponse) GetArcs() []*pb.Arc {
-	if x != nil {
-		return x.Arcs
-	}
-	return nil
-}
-
 type DeleteRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Keys          []string               `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
@@ -217,7 +173,7 @@ type DeleteRequest struct {
 
 func (x *DeleteRequest) Reset() {
 	*x = DeleteRequest{}
-	mi := &file_core_pkg_transport_grpc_arc_arc_proto_msgTypes[4]
+	mi := &file_core_pkg_transport_grpc_arc_arc_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -229,7 +185,7 @@ func (x *DeleteRequest) String() string {
 func (*DeleteRequest) ProtoMessage() {}
 
 func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_arc_arc_proto_msgTypes[4]
+	mi := &file_core_pkg_transport_grpc_arc_arc_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -242,7 +198,7 @@ func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRequest.ProtoReflect.Descriptor instead.
 func (*DeleteRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_arc_arc_proto_rawDescGZIP(), []int{4}
+	return file_core_pkg_transport_grpc_arc_arc_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *DeleteRequest) GetKeys() []string {
@@ -262,15 +218,13 @@ const file_core_pkg_transport_grpc_arc_arc_proto_rawDesc = "" +
 	"\x0eCreateResponse\x12'\n" +
 	"\x04arcs\x18\x01 \x03(\v2\x13.service.arc.pb.ArcR\x04arcs\"\xb8\x01\n" +
 	"\x0fRetrieveRequest\x129\n" +
-	"\arequest\x18\b \x01(\v2\x1f.service.arc.pb.RetrieveRequestR\arequestJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05J\x04\b\x05\x10\x06J\x04\b\x06\x10\aJ\x04\b\a\x10\bR\x04keysR\x05namesR\vsearch_termR\x05limitR\x06offsetR\x0einclude_statusR\acompile\";\n" +
-	"\x10RetrieveResponse\x12'\n" +
-	"\x04arcs\x18\x01 \x03(\v2\x13.service.arc.pb.ArcR\x04arcs\"#\n" +
+	"\arequest\x18\b \x01(\v2\x1f.service.arc.pb.RetrieveRequestR\arequestJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05J\x04\b\x05\x10\x06J\x04\b\x06\x10\aJ\x04\b\a\x10\bR\x04keysR\x05namesR\vsearch_termR\x05limitR\x06offsetR\x0einclude_statusR\acompile\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\tR\x04keys2O\n" +
 	"\x10ArcCreateService\x12;\n" +
-	"\x04Exec\x12\x17.grpc.arc.CreateRequest\x1a\x18.grpc.arc.CreateResponse\"\x002U\n" +
-	"\x12ArcRetrieveService\x12?\n" +
-	"\x04Exec\x12\x19.grpc.arc.RetrieveRequest\x1a\x1a.grpc.arc.RetrieveResponse\"\x002M\n" +
+	"\x04Exec\x12\x17.grpc.arc.CreateRequest\x1a\x18.grpc.arc.CreateResponse\"\x002[\n" +
+	"\x12ArcRetrieveService\x12E\n" +
+	"\x04Exec\x12\x19.grpc.arc.RetrieveRequest\x1a .service.arc.pb.RetrieveResponse\"\x002M\n" +
 	"\x10ArcDeleteService\x129\n" +
 	"\x04Exec\x12\x17.grpc.arc.DeleteRequest\x1a\x16.google.protobuf.Empty\"\x00B\x8e\x01\n" +
 	"\fcom.grpc.arcB\bArcProtoP\x01Z3github.com/synnaxlabs/synnax/pkg/transport/grpc/arc\xa2\x02\x03GAX\xaa\x02\bGrpc.Arc\xca\x02\bGrpc\\Arc\xe2\x02\x14Grpc\\Arc\\GPBMetadata\xea\x02\tGrpc::Arcb\x06proto3"
@@ -287,33 +241,32 @@ func file_core_pkg_transport_grpc_arc_arc_proto_rawDescGZIP() []byte {
 	return file_core_pkg_transport_grpc_arc_arc_proto_rawDescData
 }
 
-var file_core_pkg_transport_grpc_arc_arc_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_core_pkg_transport_grpc_arc_arc_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_core_pkg_transport_grpc_arc_arc_proto_goTypes = []any{
-	(*CreateRequest)(nil),      // 0: grpc.arc.CreateRequest
-	(*CreateResponse)(nil),     // 1: grpc.arc.CreateResponse
-	(*RetrieveRequest)(nil),    // 2: grpc.arc.RetrieveRequest
-	(*RetrieveResponse)(nil),   // 3: grpc.arc.RetrieveResponse
-	(*DeleteRequest)(nil),      // 4: grpc.arc.DeleteRequest
-	(*pb.Arc)(nil),             // 5: service.arc.pb.Arc
-	(*pb.RetrieveRequest)(nil), // 6: service.arc.pb.RetrieveRequest
-	(*emptypb.Empty)(nil),      // 7: google.protobuf.Empty
+	(*CreateRequest)(nil),       // 0: grpc.arc.CreateRequest
+	(*CreateResponse)(nil),      // 1: grpc.arc.CreateResponse
+	(*RetrieveRequest)(nil),     // 2: grpc.arc.RetrieveRequest
+	(*DeleteRequest)(nil),       // 3: grpc.arc.DeleteRequest
+	(*pb.Arc)(nil),              // 4: service.arc.pb.Arc
+	(*pb.RetrieveRequest)(nil),  // 5: service.arc.pb.RetrieveRequest
+	(*pb.RetrieveResponse)(nil), // 6: service.arc.pb.RetrieveResponse
+	(*emptypb.Empty)(nil),       // 7: google.protobuf.Empty
 }
 var file_core_pkg_transport_grpc_arc_arc_proto_depIdxs = []int32{
-	5, // 0: grpc.arc.CreateRequest.arcs:type_name -> service.arc.pb.Arc
-	5, // 1: grpc.arc.CreateResponse.arcs:type_name -> service.arc.pb.Arc
-	6, // 2: grpc.arc.RetrieveRequest.request:type_name -> service.arc.pb.RetrieveRequest
-	5, // 3: grpc.arc.RetrieveResponse.arcs:type_name -> service.arc.pb.Arc
-	0, // 4: grpc.arc.ArcCreateService.Exec:input_type -> grpc.arc.CreateRequest
-	2, // 5: grpc.arc.ArcRetrieveService.Exec:input_type -> grpc.arc.RetrieveRequest
-	4, // 6: grpc.arc.ArcDeleteService.Exec:input_type -> grpc.arc.DeleteRequest
-	1, // 7: grpc.arc.ArcCreateService.Exec:output_type -> grpc.arc.CreateResponse
-	3, // 8: grpc.arc.ArcRetrieveService.Exec:output_type -> grpc.arc.RetrieveResponse
-	7, // 9: grpc.arc.ArcDeleteService.Exec:output_type -> google.protobuf.Empty
-	7, // [7:10] is the sub-list for method output_type
-	4, // [4:7] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	4, // 0: grpc.arc.CreateRequest.arcs:type_name -> service.arc.pb.Arc
+	4, // 1: grpc.arc.CreateResponse.arcs:type_name -> service.arc.pb.Arc
+	5, // 2: grpc.arc.RetrieveRequest.request:type_name -> service.arc.pb.RetrieveRequest
+	0, // 3: grpc.arc.ArcCreateService.Exec:input_type -> grpc.arc.CreateRequest
+	2, // 4: grpc.arc.ArcRetrieveService.Exec:input_type -> grpc.arc.RetrieveRequest
+	3, // 5: grpc.arc.ArcDeleteService.Exec:input_type -> grpc.arc.DeleteRequest
+	1, // 6: grpc.arc.ArcCreateService.Exec:output_type -> grpc.arc.CreateResponse
+	6, // 7: grpc.arc.ArcRetrieveService.Exec:output_type -> service.arc.pb.RetrieveResponse
+	7, // 8: grpc.arc.ArcDeleteService.Exec:output_type -> google.protobuf.Empty
+	6, // [6:9] is the sub-list for method output_type
+	3, // [3:6] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_transport_grpc_arc_arc_proto_init() }
@@ -327,7 +280,7 @@ func file_core_pkg_transport_grpc_arc_arc_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_transport_grpc_arc_arc_proto_rawDesc), len(file_core_pkg_transport_grpc_arc_arc_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   3,
 		},

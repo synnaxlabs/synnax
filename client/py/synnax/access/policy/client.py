@@ -75,9 +75,9 @@ class Client:
         keys: list[UUID] | None = None,
         subjects: list[ID] | None = None,
         internal: bool | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
     ) -> list[Policy]:
         """Retrieves the policies that match every given filter.
 
@@ -90,12 +90,10 @@ class Client:
             subjects=subjects,
             internal=None if internal is None else filter.Bool(eq=internal),
         )
-        if where is not None and flat != Where():
-            where = Where(and_=[where, flat])
         res = self._client.send(
             "/access/policy/retrieve",
             RetrieveRequest(
-                where=flat if where is None else where,
+                where=filter.merge(where, flat),
                 search_term=search_term,
                 limit=limit,
                 offset=offset,

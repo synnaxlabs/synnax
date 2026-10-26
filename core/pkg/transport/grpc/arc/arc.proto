@@ -21,7 +21,7 @@ service ArcCreateService {
 }
 
 service ArcRetrieveService {
-  rpc Exec(RetrieveRequest) returns (RetrieveResponse) {}
+  rpc Exec(RetrieveRequest) returns (service.arc.pb.RetrieveResponse) {}
 }
 
 service ArcDeleteService {
@@ -40,10 +40,6 @@ message RetrieveRequest {
   reserved 1, 2, 3, 4, 5, 6, 7;
   reserved "keys", "names", "search_term", "limit", "offset", "include_status", "compile";
   service.arc.pb.RetrieveRequest request = 8;
-}
-
-message RetrieveResponse {
-  repeated service.arc.pb.Arc arcs = 1;
 }
 
 message DeleteRequest {

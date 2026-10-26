@@ -88,9 +88,9 @@ class Client:
         *,
         where: Where | None = None,
         keys: list[UUID] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
         internal: bool | None = None,
     ) -> list[Role]: ...
 
@@ -100,9 +100,9 @@ class Client:
         *,
         where: Where | None = None,
         keys: list[UUID] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
         internal: bool | None = None,
     ) -> Role | list[Role]:
         """Retrieves roles. Returns one role when a key is given, and a list otherwise.
@@ -117,10 +117,8 @@ class Client:
             key=None if keys is None else filter.Set[UUID](in_=keys),
             internal=None if internal is None else filter.Bool(eq=internal),
         )
-        if where is not None and flat != Where():
-            where = Where(and_=[where, flat])
         req = RetrieveRequest(
-            where=flat if where is None else where,
+            where=filter.merge(where, flat),
             search_term=search_term,
             limit=limit,
             offset=offset,

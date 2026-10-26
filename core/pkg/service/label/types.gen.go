@@ -66,11 +66,11 @@ type RetrieveRequest struct {
 	// Where selects the labels to retrieve. An absent where selects all of them.
 	Where *Where `json:"where,omitzero" msgpack:"where,omitempty"`
 	// SearchTerm keeps the labels that match the term, closest match first.
-	SearchTerm *string `json:"search_term,omitzero" msgpack:"search_term,omitempty"`
+	SearchTerm string `json:"search_term" msgpack:"search_term"`
 	// Limit is the most labels to return.
 	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
 	// Offset is the number of matching labels to skip.
-	Offset *uint32 `json:"offset,omitzero" msgpack:"offset,omitempty"`
+	Offset uint32 `json:"offset" msgpack:"offset"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

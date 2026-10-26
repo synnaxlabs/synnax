@@ -168,7 +168,7 @@ var _ = Describe("Service", func() {
 						Key: &filter.Set[panel.Key]{In: []panel.Key{a.Key, b.Key}},
 					},
 					Limit:  new(uint32(1)),
-					Offset: new(uint32(1)),
+					Offset: 1,
 				}),
 			)
 			Expect(res.Panels).To(HaveLen(1))

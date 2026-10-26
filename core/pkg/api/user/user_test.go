@@ -161,7 +161,7 @@ var _ = Describe("Service", func() {
 				Where: &user.Where{
 					Key: &filter.Set[user.Key]{In: []user.Key{u.Key, other.Key}},
 				},
-				SearchTerm: &username,
+				SearchTerm: username,
 			}))
 			Expect(res.Users).To(ConsistOf(u))
 		})

@@ -19,6 +19,7 @@
 #include "client/cpp/arc/types.gen.h"
 #include "freighter/cpp/freighter.h"
 
+#include "core/pkg/service/arc/pb/arc.pb.h"
 #include "core/pkg/transport/grpc/arc/arc.pb.h"
 
 namespace synnax::arc {
@@ -29,7 +30,7 @@ using CreateClient = freighter::
 
 /// @brief Freighter client for retrieving Arc programs.
 using RetrieveClient = freighter::
-    UnaryClient<grpc::arc::RetrieveRequest, grpc::arc::RetrieveResponse>;
+    UnaryClient<grpc::arc::RetrieveRequest, ::service::arc::pb::RetrieveResponse>;
 
 /// @brief Freighter client for deleting Arc programs.
 using DeleteClient = freighter::

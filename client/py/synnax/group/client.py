@@ -60,9 +60,9 @@ class Client:
         *,
         where: Where | None = None,
         keys: list[UUID] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
     ) -> list[Group]: ...
 
     def retrieve(
@@ -71,9 +71,9 @@ class Client:
         *,
         where: Where | None = None,
         keys: list[UUID] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
     ) -> Group | list[Group]:
         """Retrieves groups. Returns one group when a key is given, and a list
         otherwise.
@@ -84,13 +84,14 @@ class Client:
         is_single = key is not None
         if key is not None:
             keys = [key]
-        if keys is not None:
-            flat = Where(key=filter.Set[UUID](in_=keys))
-            where = flat if where is None else Where(and_=[where, flat])
+        flat = Where(key=None if keys is None else filter.Set[UUID](in_=keys))
         res = self._client.send(
             "/ontology/retrieve-group",
             RetrieveRequest(
-                where=where, search_term=search_term, limit=limit, offset=offset
+                where=filter.merge(where, flat),
+                search_term=search_term,
+                limit=limit,
+                offset=offset,
             ),
             RetrieveResponse,
         )

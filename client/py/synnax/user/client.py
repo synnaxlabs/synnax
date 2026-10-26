@@ -134,9 +134,9 @@ class Client:
         where: Where | None = None,
         keys: list[UUID] | None = None,
         usernames: list[str] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
     ) -> list[User]: ...
 
     @require_named_params(example_params=("username", "synnax"))
@@ -148,9 +148,9 @@ class Client:
         where: Where | None = None,
         keys: list[UUID] | None = None,
         usernames: list[str] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
     ) -> User | list[User]:
         """Retrieves users. Returns one user when a key or username is given, and a list
         otherwise.
@@ -167,13 +167,11 @@ class Client:
             key=None if keys is None else filter.Set[UUID](in_=keys),
             username=None if usernames is None else filter.String(in_=usernames),
         )
-        if where is not None and flat != Where():
-            where = Where(and_=[where, flat])
         single = key is not None or username is not None
         res = self.client.send(
             "/user/retrieve",
             RetrieveRequest(
-                where=flat if where is None else where,
+                where=filter.merge(where, flat),
                 search_term=search_term,
                 limit=limit,
                 offset=offset,

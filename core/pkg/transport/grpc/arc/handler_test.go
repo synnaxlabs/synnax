@@ -33,9 +33,9 @@ var _ = Describe("gRPC Arc Translators", func() {
 						{Name: &filter.String{Regex: new("^pump")}},
 					},
 				},
-				SearchTerm:     new("pump"),
+				SearchTerm:     "pump",
 				Limit:          new(uint32(10)),
-				IncludeProgram: new(true),
+				IncludeProgram: true,
 			}
 			fwd := MustSucceed(t.Forward(ctx, msg))
 			b := MustSucceed(proto.Marshal(fwd))

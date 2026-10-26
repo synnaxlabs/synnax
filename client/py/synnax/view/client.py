@@ -92,9 +92,9 @@ class Client:
         *,
         where: Where | None = None,
         keys: list[Key] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
     ) -> list[View]: ...
 
     def retrieve(
@@ -103,20 +103,21 @@ class Client:
         key: Key | None = None,
         where: Where | None = None,
         keys: list[Key] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
     ) -> View | list[View]:
         is_single = key is not None
         if key is not None:
             keys = [key]
-        if keys is not None:
-            flat = Where(key=filter.Set[Key](in_=keys))
-            where = flat if where is None else Where(and_=[where, flat])
+        flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
         res = self._client.send(
             "/view/retrieve",
             RetrieveRequest(
-                where=where, search_term=search_term, limit=limit, offset=offset
+                where=filter.merge(where, flat),
+                search_term=search_term,
+                limit=limit,
+                offset=offset,
             ),
             RetrieveResponse,
         )

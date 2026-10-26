@@ -160,9 +160,9 @@ class Client:
         where: Where | None = None,
         keys: list[Key] | None = None,
         names: list[str] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
         include_program: bool = False,
     ) -> list[Arc]: ...
 
@@ -174,9 +174,9 @@ class Client:
         where: Where | None = None,
         keys: list[Key] | None = None,
         names: list[str] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
         include_program: bool = False,
     ) -> Arc | list[Arc]:
         """Retrieve Arcs. Returns one Arc when a key or name is given, and a list
@@ -197,17 +197,15 @@ class Client:
             key=None if keys is None else filter.Set[Key](in_=keys),
             name=None if names is None else filter.String(in_=names),
         )
-        if where is not None and flat != Where():
-            where = Where(and_=[where, flat])
         is_single = key is not None or name is not None
         res = self._client.send(
             "/arc/retrieve",
             RetrieveRequest(
-                where=flat if where is None else where,
+                where=filter.merge(where, flat),
                 search_term=search_term,
                 limit=limit,
                 offset=offset,
-                include_program=include_program or None,
+                include_program=include_program,
             ),
             RetrieveResponse,
         )

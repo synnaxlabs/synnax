@@ -12,7 +12,6 @@ package arc
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	arctransport "github.com/synnaxlabs/arc/lsp/transport"
 	"github.com/synnaxlabs/arc/parser"
@@ -253,13 +252,12 @@ func (s *Service) Retrieve(
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
-	includeProgram := lo.FromPtr(req.IncludeProgram)
 	// Raw is derived from the replicated document and not stored, so materialize it
 	// before compilation and for clients that read the source text directly rather than
 	// reconstructing the document.
 	for i := range res.Arcs {
 		res.Arcs[i].Text = res.Arcs[i].Text.Materialize()
-		if includeProgram {
+		if req.IncludeProgram {
 			if err := s.compile(ctx, &res.Arcs[i]); err != nil {
 				return RetrieveResponse{}, err
 			}

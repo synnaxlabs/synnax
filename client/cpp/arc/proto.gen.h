@@ -222,11 +222,10 @@ RetrieveRequest::to_proto() const {
         if (err) return {{}, err};
         *pb.mutable_where() = v;
     }
-    if (this->search_term.has_value()) pb.set_search_term(*this->search_term);
+    pb.set_search_term(this->search_term);
     if (this->limit.has_value()) pb.set_limit(*this->limit);
-    if (this->offset.has_value()) pb.set_offset(*this->offset);
-    if (this->include_program.has_value())
-        pb.set_include_program(*this->include_program);
+    pb.set_offset(this->offset);
+    pb.set_include_program(this->include_program);
     return {pb, x::errors::NIL};
 }
 
@@ -238,10 +237,10 @@ RetrieveRequest::from_proto(const ::service::arc::pb::RetrieveRequest &pb) {
         if (err) return {{}, err};
         cpp.where = v;
     }
-    if (pb.has_search_term()) cpp.search_term = pb.search_term();
+    cpp.search_term = pb.search_term();
     if (pb.has_limit()) cpp.limit = pb.limit();
-    if (pb.has_offset()) cpp.offset = pb.offset();
-    if (pb.has_include_program()) cpp.include_program = pb.include_program();
+    cpp.offset = pb.offset();
+    cpp.include_program = pb.include_program();
     return {cpp, x::errors::NIL};
 }
 
