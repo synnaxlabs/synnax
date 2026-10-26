@@ -110,7 +110,7 @@ class TestTaskClient:
         assert [t.key for t in res] == [task.key]
 
     def test_retrieve_single_with_status(self, client: sy.Synnax) -> None:
-        """Should return one task when a key, name, or type is given."""
+        """Should return one task when a key or name is given."""
         name = str(uuid4())
         task = client.tasks.create(name=name, type="pagerduty_alert")
         by_key = client.tasks.retrieve(key=task.key, include_status=True)
