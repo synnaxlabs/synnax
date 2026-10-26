@@ -47,32 +47,34 @@ TEMPLATE = """## Linear issue
 
 
 class TestParse:
-    def test_agent_defaults_from_environment(self) -> None:
+    """Tests for parsing the command line."""
+
+    def test_should_take_the_agent_from_the_environment(self) -> None:
         opts = parse(["--prompt", "fix it"], {"AGENT_DEFAULT": "codex"})
         assert opts.agent == "codex"
         assert opts.output == "pr"
 
-    def test_flag_overrides_environment(self) -> None:
+    def test_should_prefer_the_flag_to_the_environment(self) -> None:
         opts = parse(["--prompt", "x", "--agent", "claude"], {"AGENT_DEFAULT": "codex"})
         assert opts.agent == "claude"
 
-    def test_rejects_missing_agent(self) -> None:
+    def test_should_reject_a_missing_agent(self) -> None:
         with pytest.raises(SystemExit):
             parse(["--prompt", "x"], {})
 
-    def test_rejects_comment_without_pr(self) -> None:
+    def test_should_reject_a_comment_without_a_pr(self) -> None:
         with pytest.raises(SystemExit):
             parse(["--prompt", "x", "--agent", "claude", "--output", "comment"], {})
 
-    def test_rejects_turn_limit_for_codex(self) -> None:
+    def test_should_reject_a_turn_limit_for_codex(self) -> None:
         with pytest.raises(SystemExit):
             parse(["--prompt", "x", "--agent", "codex", "--max-turns", "5"], {})
 
-    def test_splits_labels(self) -> None:
+    def test_should_split_labels(self) -> None:
         argv = ["--prompt", "x", "--agent", "claude", "--labels", "a, b,,c"]
         assert parse(argv, {}).labels == ["a", "b", "c"]
 
-    def test_reads_prompt_file(self, tmp_path: Path) -> None:
+    def test_should_read_a_prompt_file(self, tmp_path: Path) -> None:
         f = tmp_path / "prompt.md"
         f.write_text("  do the thing\n")
         opts = parse(["--prompt-file", str(f), "--agent", "claude"], {})
@@ -80,17 +82,21 @@ class TestParse:
 
 
 class TestNames:
-    def test_branch_name(self) -> None:
+    """Tests for branch names and default titles."""
+
+    def test_should_name_the_branch_after_agent_and_title(self) -> None:
         name = branch_name("claude", "SY-12: Fix the flaky Timer spec!", "a1b2c3")
         assert name == "agent/claude/sy-12-fix-the-flaky-timer-a1b2c3"
 
-    def test_default_title_strips_slash_and_truncates(self) -> None:
+    def test_should_strip_the_slash_and_truncate_the_title(self) -> None:
         assert default_title("/flake-hunt core\nmore") == "[agent] flake-hunt core"
         assert len(default_title("x" * 200)) == 72
 
 
 class TestSkillPrompt:
-    def test_spells_out_known_skill(self, tmp_path: Path) -> None:
+    """Tests for spelling out slash skills for Codex."""
+
+    def test_should_spell_out_a_known_skill(self, tmp_path: Path) -> None:
         skill = tmp_path / ".claude/skills/flake-hunt/SKILL.md"
         skill.parent.mkdir(parents=True)
         skill.write_text("x")
@@ -100,13 +106,15 @@ class TestSkillPrompt:
             " Arguments: core"
         )
 
-    def test_keeps_unknown_skill_and_plain_prompts(self, tmp_path: Path) -> None:
+    def test_should_keep_unknown_skills_and_plain_prompts(self, tmp_path: Path) -> None:
         assert skill_prompt("/nope", tmp_path) == "/nope"
         assert skill_prompt("fix it", tmp_path) == "fix it"
 
 
 class TestAgentCommand:
-    def test_claude(self, tmp_path: Path) -> None:
+    """Tests for the command line each agent CLI gets."""
+
+    def test_should_build_a_claude_command(self, tmp_path: Path) -> None:
         opts = Options("p", "claude", "pr", model="opus", max_turns=40)
         cmd = agent_command(opts, "p", tmp_path)
         assert cmd[:2] == ["claude", "-p"]
@@ -115,7 +123,7 @@ class TestAgentCommand:
         assert cmd[cmd.index("--max-turns") + 1] == "40"
         assert cmd[cmd.index("--model") + 1] == "opus"
 
-    def test_codex(self, tmp_path: Path) -> None:
+    def test_should_build_a_codex_command(self, tmp_path: Path) -> None:
         cmd = agent_command(Options("p", "codex", "report"), "p", tmp_path)
         assert cmd[:2] == ["codex", "exec"]
         assert cmd[-1] == "p"
@@ -124,26 +132,30 @@ class TestAgentCommand:
 
 
 class TestInstructions:
-    def test_comment_on_pr_commits_to_it(self, tmp_path: Path) -> None:
+    """Tests for the delivery instructions given to the agent."""
+
+    def test_should_commit_to_the_pr_when_commenting(self, tmp_path: Path) -> None:
         text = instructions(Options("p", "claude", "comment", pr=12), tmp_path)
         assert "it is pushed to the PR" in text
         assert "title.txt" not in text
 
-    def test_new_pr_asks_for_title_and_description(self, tmp_path: Path) -> None:
+    def test_should_ask_for_a_title_and_description(self, tmp_path: Path) -> None:
         text = instructions(Options("p", "claude", "pr"), tmp_path)
         assert "title.txt" in text
         assert "description.md" in text
 
 
 class TestRenderBody:
-    def test_fills_template(self) -> None:
+    """Tests for filling the pull request template."""
+
+    def test_should_fill_the_template(self) -> None:
         body = render_body(TEMPLATE, "SY-12", "Fixed it.", ["bug", "review/bot"])
         assert "<!--" not in body
         assert "[SY-12](https://linear.app/synnax/issue/SY-12)" in body
         assert "## Description\n\nFixed it.\n" in body
         assert body.endswith("## Review tier\n\n`review/bot`\n")
 
-    def test_no_issue(self) -> None:
+    def test_should_write_none_without_an_issue(self) -> None:
         assert "## Linear issue\n\nNone\n" in render_body(TEMPLATE, "", "d", [])
 
 
@@ -189,8 +201,10 @@ def fake_agent(tmp_path: Path) -> list[str]:
 
 
 class TestMain:
+    """Tests for whole runs against a fake agent."""
+
     @pytest.mark.skipif(sys.platform == "win32", reason="fake agent is a script")
-    def test_dry_run_opens_nothing(
+    def test_should_open_nothing_in_a_dry_run(
         self, repo: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         assert main([*fake_agent(tmp_path), "--dry-run"]) == 0
@@ -205,7 +219,7 @@ class TestMain:
         assert "![1-shot.png](https://raw.githubusercontent.com/" in err
 
     @pytest.mark.skipif(sys.platform == "win32", reason="fake agent is a script")
-    def test_report_is_a_step_output(
+    def test_should_write_the_report_as_a_step_output(
         self, repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         output = tmp_path / "github_output"
@@ -216,7 +230,7 @@ class TestMain:
         assert lines[1:] == ["Done.", lines[0].removeprefix("report<<")]
 
     @pytest.mark.skipif(sys.platform == "win32", reason="fake agent is a script")
-    def test_no_commit_opens_no_pr(
+    def test_should_open_no_pr_without_a_commit(
         self,
         repo: Path,
         tmp_path: Path,
@@ -235,7 +249,7 @@ class TestMain:
         assert git(repo, "rev-list", "--count", "HEAD") == "1"
 
     @pytest.mark.skipif(sys.platform == "win32", reason="fake agent is a script")
-    def test_report_agent_may_push_its_own_work(
+    def test_should_let_a_report_agent_push(
         self,
         repo: Path,
         tmp_path: Path,
@@ -254,12 +268,12 @@ class TestMain:
         dry = instructions(Options("p", "claude", "report", dry_run=True), tmp_path)
         assert "never push" in dry
 
-    def test_rejects_dirty_checkout(self, repo: Path, tmp_path: Path) -> None:
+    def test_should_reject_a_dirty_checkout(self, repo: Path, tmp_path: Path) -> None:
         (repo / "stray.txt").write_text("not the agent's")
         with pytest.raises(SystemExit, match="uncommitted changes"):
             main(fake_agent(tmp_path))
 
-    def test_rejects_missing_bot_identity(
+    def test_should_reject_a_missing_bot_identity(
         self, repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setenv("GIT_AUTHOR_NAME", "A Person")
@@ -268,30 +282,34 @@ class TestMain:
             main(fake_agent(tmp_path))
 
 
-def test_stored_names_are_unique_and_url_safe() -> None:
-    paths = [Path("before/shot.png"), Path("after/shot.png"), Path("a#1 [x].png")]
-    assert stored_names(paths) == ["1-shot.png", "2-shot.png", "3-a_1__x_.png"]
+class TestDelivery:
+    """Tests for image storage, timeouts, and Git authentication."""
 
+    def test_should_name_stored_images_uniquely_and_url_safe(self) -> None:
+        paths = [Path("before/shot.png"), Path("after/shot.png"), Path("a#1 [x].png")]
+        assert stored_names(paths) == ["1-shot.png", "2-shot.png", "3-a_1__x_.png"]
 
-@pytest.mark.skipif(sys.platform == "win32", reason="uses a POSIX shell")
-def test_timeout_kills_the_agent_and_its_children(tmp_path: Path) -> None:
-    pid_file = tmp_path / "pid"
-    script = f"sleep 60 & echo $! > {pid_file}; wait"
-    with pytest.raises(subprocess.TimeoutExpired):
-        run_agent(["sh", "-c", script], {"PATH": "/usr/bin:/bin"}, 1)
-    child = pid_file.read_text().strip()
-    # The orphaned child may linger as a zombie until init reaps it.
-    for _ in range(50):
-        ps = subprocess.run(["ps", "-o", "stat=", "-p", child], capture_output=True)
-        if not ps.stdout.strip() or ps.stdout.startswith(b"Z"):
-            break
-        time.sleep(0.1)
-    else:
-        pytest.fail(f"process {child} still runs")
+    @pytest.mark.skipif(sys.platform == "win32", reason="uses a POSIX shell")
+    @pytest.mark.skipif(sys.platform == "win32", reason="uses a POSIX shell")
+    def test_should_kill_the_agent_and_its_children_on_timeout(
+        self, tmp_path: Path
+    ) -> None:
+        pid_file = tmp_path / "pid"
+        script = f"sleep 60 & echo $! > {pid_file}; wait"
+        with pytest.raises(subprocess.TimeoutExpired):
+            run_agent(["sh", "-c", script], {"PATH": "/usr/bin:/bin"}, 1)
+        child = pid_file.read_text().strip()
+        # The orphaned child may linger as a zombie until init reaps it.
+        for _ in range(50):
+            ps = subprocess.run(["ps", "-o", "stat=", "-p", child], capture_output=True)
+            if not ps.stdout.strip() or ps.stdout.startswith(b"Z"):
+                break
+            time.sleep(0.1)
+        else:
+            pytest.fail(f"process {child} still runs")
 
-
-def test_git_auth_sends_the_app_token() -> None:
-    env = git_auth({"GH_TOKEN": "abc"})
-    assert env["GIT_CONFIG_KEY_0"] == "http.https://github.com/.extraheader"
-    encoded = env["GIT_CONFIG_VALUE_0"].removeprefix("AUTHORIZATION: basic ")
-    assert base64.b64decode(encoded) == b"x-access-token:abc"
+    def test_should_send_the_app_token_to_git(self) -> None:
+        env = git_auth({"GH_TOKEN": "abc"})
+        assert env["GIT_CONFIG_KEY_0"] == "http.https://github.com/.extraheader"
+        encoded = env["GIT_CONFIG_VALUE_0"].removeprefix("AUTHORIZATION: basic ")
+        assert base64.b64decode(encoded) == b"x-access-token:abc"
