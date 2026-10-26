@@ -10,6 +10,9 @@
 package v4_test
 
 import (
+	"strings"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/parser"
@@ -200,5 +203,18 @@ time.interval(1s) -> valve`),
 		Entry("declaration with no closing trigger paren", "func f(x f64"),
 		Entry("declaration with no name", "func"),
 		Entry("declaration with only a name", "func f"),
+	)
+
+	// A document mid-edit can hold many open brackets. The rewrite must stay linear in
+	// the token count, so a broken program cannot stall the upgrade.
+	DescribeTable("Should stay linear on brackets that never close",
+		func(ctx SpecContext, src, want string) {
+			Expect(v4.SwapBrackets(src)).To(Equal(want))
+		},
+		Entry("open braces", SpecTimeout(5*time.Second),
+			strings.Repeat("{", 100_000), strings.Repeat("{", 100_000)),
+		Entry("declarations with no body", SpecTimeout(5*time.Second),
+			strings.Repeat("func f() ", 50_000),
+			strings.Repeat("func f() {} ", 50_000)),
 	)
 })

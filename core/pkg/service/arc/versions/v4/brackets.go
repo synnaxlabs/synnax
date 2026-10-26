@@ -25,25 +25,78 @@ import (
 // kept. A bracket with no match leaves its construct unchanged. Text already in the
 // current grammar is not valid input.
 func SwapBrackets(src string) string {
-	tokens := visibleTokens(src)
+	s := newStream(src)
 	e := editor{
 		src:     []rune(src),
 		replace: map[int]rune{},
 		insert:  map[int]string{},
 		drop:    make(set.Set[int]),
 	}
-	for i := 0; i < len(tokens); i++ {
-		switch tokens[i].GetTokenType() {
+	for i := 0; i < len(s.tokens); i++ {
+		switch s.tokens[i].GetTokenType() {
 		case parser.ArcLexerFUNC:
-			i = e.rewriteDeclaration(tokens, i)
+			i = e.rewriteDeclaration(s, i)
 		case parser.ArcLexerLBRACE:
-			if end := matchIdx(tokens, i); end != -1 && isCallBrace(tokens, i) {
-				e.swapPair(tokens, i, end, '(', ')')
-				e.dropGap(tokens[i-1], tokens[i])
+			if end := s.match[i]; end != -1 && isCallBrace(s.tokens, i) {
+				e.swapPair(s.tokens, i, end, '(', ')')
+				e.dropGap(s.tokens[i-1], s.tokens[i])
 			}
 		}
 	}
 	return e.apply()
+}
+
+// stream is the visible token stream with every bracket resolved up front, so a
+// program full of open brackets costs one pass rather than one scan per bracket.
+type stream struct {
+	tokens []antlr.Token
+	// match holds the index of the bracket closing the one at i, or -1.
+	match []int
+	// nextBrace holds the index of the first `{` at or after i, or -1. It has one
+	// extra slot so a lookup just past the last token is valid.
+	nextBrace []int
+}
+
+func newStream(src string) stream {
+	tokens := visibleTokens(src)
+	s := stream{
+		tokens:    tokens,
+		match:     make([]int, len(tokens)),
+		nextBrace: make([]int, len(tokens)+1),
+	}
+	var braces, parens []int
+	for i, tok := range tokens {
+		s.match[i] = -1
+		switch tok.GetTokenType() {
+		case parser.ArcLexerLBRACE:
+			braces = append(braces, i)
+		case parser.ArcLexerRBRACE:
+			braces = closeBracket(braces, s.match, i)
+		case parser.ArcLexerLPAREN:
+			parens = append(parens, i)
+		case parser.ArcLexerRPAREN:
+			parens = closeBracket(parens, s.match, i)
+		}
+	}
+	s.nextBrace[len(tokens)] = -1
+	for i := len(tokens) - 1; i >= 0; i-- {
+		s.nextBrace[i] = s.nextBrace[i+1]
+		if tokens[i].GetTokenType() == parser.ArcLexerLBRACE {
+			s.nextBrace[i] = i
+		}
+	}
+	return s
+}
+
+// closeBracket pairs the closer at i with the innermost open bracket on the stack. A
+// closer with no opener is left unpaired.
+func closeBracket(open, match []int, i int) []int {
+	n := len(open)
+	if n == 0 {
+		return open
+	}
+	match[open[n-1]] = i
+	return open[:n-1]
 }
 
 // editor accumulates single-rune replacements, insertions and drops keyed by rune
@@ -59,7 +112,8 @@ type editor struct {
 // returns the index to resume from. Braces inside a function body are never a call, so
 // the body is skipped whole. A header that does not reach its trigger parens is left
 // unchanged.
-func (e *editor) rewriteDeclaration(tokens []antlr.Token, i int) int {
+func (e *editor) rewriteDeclaration(s stream, i int) int {
+	tokens := s.tokens
 	name := i + 1
 	if name >= len(tokens) ||
 		tokens[name].GetTokenType() != parser.ArcLexerIDENTIFIER {
@@ -69,7 +123,7 @@ func (e *editor) rewriteDeclaration(tokens []antlr.Token, i int) int {
 	if triggers < len(tokens) &&
 		tokens[triggers].GetTokenType() == parser.ArcLexerLBRACE {
 		inputs = triggers
-		if inputsEnd = matchIdx(tokens, inputs); inputsEnd == -1 {
+		if inputsEnd = s.match[inputs]; inputsEnd == -1 {
 			return i
 		}
 		triggers = inputsEnd + 1
@@ -78,7 +132,7 @@ func (e *editor) rewriteDeclaration(tokens []antlr.Token, i int) int {
 		tokens[triggers].GetTokenType() != parser.ArcLexerLPAREN {
 		return i
 	}
-	triggersEnd := matchIdx(tokens, triggers)
+	triggersEnd := s.match[triggers]
 	if triggersEnd == -1 {
 		return i
 	}
@@ -92,11 +146,11 @@ func (e *editor) rewriteDeclaration(tokens []antlr.Token, i int) int {
 		e.insert[tokens[name].GetStop()+1] = insertion
 	}
 	e.swapPair(tokens, triggers, triggersEnd, '{', '}')
-	body := indexOf(tokens, triggersEnd+1, parser.ArcLexerLBRACE)
+	body := s.nextBrace[triggersEnd+1]
 	if body == -1 {
 		return triggersEnd
 	}
-	if bodyEnd := matchIdx(tokens, body); bodyEnd != -1 {
+	if bodyEnd := s.match[body]; bodyEnd != -1 {
 		return bodyEnd
 	}
 	return len(tokens)
@@ -155,35 +209,6 @@ func isCallBrace(tokens []antlr.Token, i int) bool {
 		return i >= 2 && tokens[i-2].GetTokenType() == parser.ArcLexerDOT
 	}
 	return false
-}
-
-// matchIdx returns the index of the bracket closing the one at open, or -1.
-func matchIdx(tokens []antlr.Token, open int) int {
-	l, r := parser.ArcLexerLBRACE, parser.ArcLexerRBRACE
-	if tokens[open].GetTokenType() == parser.ArcLexerLPAREN {
-		l, r = parser.ArcLexerLPAREN, parser.ArcLexerRPAREN
-	}
-	depth := 0
-	for i := open; i < len(tokens); i++ {
-		switch tokens[i].GetTokenType() {
-		case l:
-			depth++
-		case r:
-			if depth--; depth == 0 {
-				return i
-			}
-		}
-	}
-	return -1
-}
-
-func indexOf(tokens []antlr.Token, from, tokType int) int {
-	for i := from; i < len(tokens); i++ {
-		if tokens[i].GetTokenType() == tokType {
-			return i
-		}
-	}
-	return -1
 }
 
 func adjacent(prev, next antlr.Token) bool {
