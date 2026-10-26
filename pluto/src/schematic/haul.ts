@@ -9,8 +9,8 @@
 
 import { Haul } from "@synnaxlabs/lyra/haul";
 
+import { type AddNodeProps } from "@/schematic/editor";
 import { type Node } from "@/schematic/node";
-import { type AddNodeProps } from "@/schematic/queries";
 
 export const HAUL_TYPE = "schematic-element";
 

@@ -16,6 +16,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Device } from "@/platform/device";
 import { createTestDevice, renderWithDeviceForm } from "@/platform/device/testutil";
+import { Modals } from "@/platform/modals";
 import { findDialogTrigger, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -33,6 +34,7 @@ const renderSelect = async (
     <>
       <Device.Select {...props} />
       <RackProbe />
+      <Modals.Stack />
     </>,
     { deviceKey: "", client },
   );
@@ -83,6 +85,21 @@ describe("Device.Select", () => {
     fireEvent.click(await findDialogTrigger());
     await screen.findByText(included.name);
     expect(screen.queryByText(excluded.name)).toBeNull();
+  });
+
+  it("should select the device its connect action resolves with", async () => {
+    const make = uniqueName("make");
+    const dev = await createTestDevice(client, { make });
+    const open = vi.fn(async () => await Promise.resolve(dev.key));
+    await renderSelect({
+      make,
+      onConfigure: vi.fn(),
+      connect: { title: "test hardware", open },
+    });
+    await openAndClick("Connect test hardware");
+    await waitFor(() => expect(screen.getByText(`rack:${dev.rack}`)).toBeTruthy());
+    const trigger = await findDialogTrigger();
+    await waitFor(() => expect(trigger.textContent).toContain(dev.name));
   });
 
   it("should show the empty content when no devices match the make", async () => {

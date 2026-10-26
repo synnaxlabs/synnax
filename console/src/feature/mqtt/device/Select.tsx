@@ -7,37 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Dialog } from "@synnaxlabs/lyra/dialog";
-
 import { MAKE } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
 import { Device } from "@/platform/device";
-import { Empty } from "@/platform/empty";
-
-const EmptyContent = () => {
-  const connect = useConnectModal();
-  const { close } = Dialog.useContext();
-  const handleClick = () => {
-    connect();
-    close();
-  };
-  return (
-    <Empty.Action
-      message="No MQTT brokers connected"
-      action="Connect broker"
-      onClick={handleClick}
-    />
-  );
-};
-
-const emptyContent = <EmptyContent />;
 
 export const Select = () => {
   const connect = useConnectModal();
   return (
     <Device.Select
       onConfigure={(deviceKey) => connect({ deviceKey })}
-      emptyContent={emptyContent}
+      emptyContent="No MQTT brokers connected"
       label="MQTT broker"
       make={MAKE}
     />

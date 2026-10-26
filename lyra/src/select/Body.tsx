@@ -16,9 +16,9 @@ import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Items, type ItemsProps } from "@/select/Items";
 import { List as SelectList } from "@/select/List";
+import { searchPlaceholder } from "@/select/placeholder";
 import { Search, type SearchProps } from "@/select/Search";
 import { Status } from "@/status";
-import { Text } from "@/text";
 
 /** Props for {@link Body}. */
 export interface BodyProps<K extends record.Key>
@@ -33,11 +33,25 @@ export interface BodyProps<K extends record.Key>
   fixedItems?: ReactNode;
 }
 
-export const DefaultEmptyContent = ({ resourceName }: { resourceName: string }) => (
-  <Text.Text center status="disabled">
-    No {pluralize.plural(resourceName)} found
-  </Text.Text>
-);
+/** Props for {@link EmptyContent}. */
+export interface EmptyContentProps {
+  resourceName: string;
+  /** A string renders as gray text. Unset, it says no items were found. */
+  emptyContent?: ReactNode;
+}
+
+/** The content a selection shows when it has no options to list. */
+export const EmptyContent = ({
+  resourceName,
+  emptyContent,
+}: EmptyContentProps): ReactNode => {
+  if (emptyContent != null && typeof emptyContent !== "string") return emptyContent;
+  return (
+    <Status.Summary center variant="disabled" hideIcon>
+      {emptyContent ?? `No ${pluralize.plural(resourceName)} found`}
+    </Status.Summary>
+  );
+};
 
 /**
  * The search field, list, and empty and error content of a data-driven selection. Use
@@ -55,7 +69,7 @@ export const Body = <K extends record.Key>({
 }: BodyProps<K>): ReactElement => {
   const loading = status?.variant === "loading";
   const hasSearch = onSearch != null;
-  let empty: ReactNode = emptyContent;
+  let empty: ReactNode;
   if (loading) empty = hasSearch ? null : <Status.Loading />;
   else if (status != null && status.variant !== "success")
     empty = (
@@ -63,20 +77,13 @@ export const Body = <K extends record.Key>({
         {status.message}
       </Status.Summary>
     );
-  else if (typeof emptyContent === "string")
-    empty = (
-      <Status.Summary center variant="disabled">
-        {emptyContent}
-      </Status.Summary>
-    );
-  else if (emptyContent == null)
-    empty = <DefaultEmptyContent resourceName={resourceName} />;
+  else empty = <EmptyContent resourceName={resourceName} emptyContent={emptyContent} />;
   return (
     <>
       {hasSearch && (
         <Search
           onSearch={onSearch}
-          placeholder={`Search ${pluralize.plural(resourceName)}...`}
+          placeholder={searchPlaceholder(resourceName)}
           actions={actions}
           loading={loading}
         />

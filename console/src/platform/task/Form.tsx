@@ -160,6 +160,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
         if (client == null) throw new DisconnectedError();
         if (canEdit) {
           const { config, name } = form.value();
+          form.clearStatuses();
           const result = deployConfigZ.safeParse(config);
           if (!result.success) {
             let blocked = false;

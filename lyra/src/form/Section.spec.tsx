@@ -134,6 +134,18 @@ describe("Form.Section", () => {
     expect(header?.parentElement).toBe(body?.parentElement);
   });
 
+  it("should render no header without a title", () => {
+    const c = render(
+      <Form.Section>
+        <input aria-label="Host" />
+      </Form.Section>,
+    );
+    expect(c.container.querySelector(".pluto-form-section__header")).toBeNull();
+    expect(
+      c.getByLabelText("Host").closest(".pluto-form-section__body"),
+    ).not.toBeNull();
+  });
+
   it("should render its actions in the header", () => {
     const c = render(
       <Form.Section title="Channels" actions={<button>Add</button>}>
