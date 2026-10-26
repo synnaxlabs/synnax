@@ -7,19 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  AccessDeniedError,
-  channel,
-  type framer,
-  NotFoundError,
-  status as cstatus,
-  ValidationError,
-} from "@synnaxlabs/client";
+import { type channel, framer, status as cstatus } from "@synnaxlabs/client";
 import {
   type Aggregation,
   aggregationZ,
   bounds,
-  breaker,
+  type breaker,
   DataType,
   MultiSeries,
   primitive,
@@ -27,7 +20,6 @@ import {
   type Series,
   sync,
   TimeRange,
-  TimeSpan,
   TimeStamp,
   windowZ,
 } from "@synnaxlabs/x";
@@ -66,31 +58,6 @@ export const DISCONNECTED_STATUS: cstatus.Crude = {
   variant: "warning",
   message: "Core disconnected",
 };
-
-// Retrying only fixes connectivity; a definitive rejection recurs on every attempt.
-const isDefinitive = (e: unknown): boolean =>
-  AccessDeniedError.matches(e) ||
-  ValidationError.matches(e) ||
-  NotFoundError.matches(e);
-
-/**
- * Backs off a source's read retries. A tall interval cap suits a source whose retries
- * only refresh history. Notifying the notifier interrupts a pending backoff, so a
- * retired source's retry loop ends promptly.
- */
-const newRetryBreaker = (
-  notifier: sync.Notifier,
-  config?: breaker.Config,
-): breaker.Breaker =>
-  new breaker.Breaker({
-    baseInterval: TimeSpan.seconds(1),
-    maxInterval: TimeSpan.seconds(30),
-    maxRetries: Infinity,
-    scale: 2,
-    jitter: 0.25,
-    sleepFn: async (duration) => await notifier.wait(duration),
-    ...config,
-  });
 
 /**
  * Posts a source's failures. Retries repeat at the breaker's pace, so an incident
@@ -262,25 +229,18 @@ class ChannelValue<V>
   }
 }
 
-interface SelectedChannelProperties extends Pick<
-  channel.Payload,
-  "key" | "dataType" | "virtual"
-> {
-  isCalculated: boolean;
-}
+type SelectedChannelProperties = Pick<channel.Payload, "key" | "dataType">;
 
+// A channel with no index draws itself, so the cache reports why it cannot draw.
 const fetchChannelProperties = async (
   client: Client,
   ch: channel.Key | channel.Name,
   fetchIndex: boolean,
 ): Promise<SelectedChannelProperties> => {
   const c = await client.channels.retrieve(ch);
-  const isCalculated = channel.isCalculated(c);
-  if (!fetchIndex || c.isIndex)
-    return { key: c.key, dataType: c.dataType, virtual: c.virtual, isCalculated };
-  if (c.virtual && !isCalculated)
-    throw new NotFoundError("cannot use virtual channels as a data source");
-  return { key: c.index, dataType: DataType.TIMESTAMP, virtual: false, isCalculated };
+  if (!fetchIndex || c.isIndex || c.index === 0)
+    return { key: c.key, dataType: c.dataType };
+  return { key: c.index, dataType: DataType.TIMESTAMP };
 };
 
 const channelDataPropsZ = z.object({
@@ -328,6 +288,8 @@ export class ChannelData
   private drawStatus?: cstatus.Status;
   private bounds: framer.Subscription | null = null;
   private boundsStatus?: cstatus.Status;
+  // boundsRead is true when a bounds read ran since the last draw.
+  private boundsRead = false;
   // drawn holds the series of the last draw snapshot. The line buffers them to the GPU,
   // and releasing a series' last reference frees its buffer.
   private drawn: Series[] = [];
@@ -349,7 +311,7 @@ export class ChannelData
     this.now = now;
     this.onStatusChange = options?.onStatusChange;
     this.failures = new FailureReporter(options?.onStatusChange);
-    this.breaker = newRetryBreaker(this.retryNotifier, breakerConfig);
+    this.breaker = framer.retry.createBreaker(this.retryNotifier, breakerConfig);
   }
 
   private get live(): boolean {
@@ -394,10 +356,13 @@ export class ChannelData
     const request = this.drawRequest(key, draws ? view : undefined);
     if (this.draw == null) this.draw = this.subscribe(client, request);
     else if (draws) this.draw.update(request);
+    // A line that stops reading its bounds closes them at its next draw.
+    if (draws) {
+      if (!this.boundsRead) this.closeBounds();
+      this.boundsRead = false;
+    }
     const snapshot = this.draw.value(key);
     this.drawStatus = snapshot.status;
-    // A line can stop reading its bounds, so each draw pulls their status.
-    if (this.bounds != null) this.boundsStatus = this.bounds.value(key).status;
     this.hold(snapshot.series.series);
     return snapshot;
   }
@@ -429,6 +394,7 @@ export class ChannelData
   // Reads the samples that bound the home view, reduced with min_max so they keep the
   // extremes that other aggregations drop.
   private readBounds(client: Client, key: channel.Key): framer.Snapshot {
+    this.boundsRead = true;
     const request: framer.PointsRequest = {
       keys: [key],
       window: this.props.window,
@@ -444,6 +410,12 @@ export class ChannelData
     const snapshot = this.bounds.value(key);
     this.boundsStatus = snapshot.status;
     return snapshot;
+  }
+
+  private closeBounds(): void {
+    this.bounds?.close();
+    this.bounds = null;
+    this.boundsStatus = undefined;
   }
 
   private subscribe(
@@ -522,7 +494,7 @@ export class ChannelData
           this.loading = false;
           this.notify();
         }
-        if (isDefinitive(e) || !(await this.breaker.wait())) return;
+        if (framer.retry.isDefinitive(e) || !(await this.breaker.wait())) return;
       }
   }
 
@@ -530,9 +502,10 @@ export class ChannelData
     this.generation++;
     this.retryNotifier.notify();
     this.draw?.close();
-    this.bounds?.close();
-    [this.draw, this.bounds] = [null, null];
-    [this.drawStatus, this.boundsStatus] = [undefined, undefined];
+    this.draw = null;
+    this.drawStatus = undefined;
+    this.closeBounds();
+    this.boundsRead = false;
     this.hold([]);
     this.valid = false;
     this.channel = null;

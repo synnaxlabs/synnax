@@ -403,14 +403,47 @@ describe("remote", () => {
         { onStatusChange: (s) => statuses.push(s) },
       );
       await settle(y);
-      y.value({ extremesKept: true });
-      await expect.poll(() => y.value().status.variant, POLL).toBe("error");
+      await expect
+        .poll(() => y.value({ extremesKept: true }).status.variant, POLL)
+        .toBe("error");
       expect(y.value().status).toMatchObject({
         message: "Failed to read channel data",
         description: "min_max reads are down",
       });
       expect(statuses).toHaveLength(1);
       expect(statuses[0]).toMatchObject({ variant: "error" });
+    });
+
+    it("should close its bounds at a draw with no bounds read since the last one", async () => {
+      const core = createCore();
+      const client = connect(core, {
+        readRemote: async (tr, keys, reduction) => {
+          if (reduction?.variant === "limit" && reduction.aggregation === "min_max")
+            throw new ValidationError("min_max reads are down");
+          return core.read(tr, keys, reduction);
+        },
+      });
+      const y = create(client, { channel: core.data[0].key, aggregation: "average" });
+      await settle(y);
+      const readBounds = () => y.value({ extremesKept: true }).status.variant;
+      await expect.poll(readBounds, POLL).toBe("error");
+      const draw = { points: 1000 };
+      expect(y.value(draw).status.variant).toBe("error");
+      expect(y.value(draw).status.variant).toBe("success");
+      await expect.poll(readBounds, POLL).toBe("error");
+    });
+
+    it("should report the cache's error for the index of a virtual channel", async () => {
+      const core = createCore({ derived: true });
+      const x = create(connect(core), {
+        channel: core.virtual!.key,
+        useIndexOfChannel: true,
+      });
+      await expect.poll(() => x.value().status.variant, POLL).toBe("error");
+      expect(x.value().status).toMatchObject({
+        message: "Failed to read channel data",
+        description: "virtual channel virtual has no samples to draw",
+      });
     });
 
     it("should draw an xy line's home view with decimate at every zoom", async () => {
