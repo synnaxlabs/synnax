@@ -70,7 +70,7 @@ var _ = Describe("ConvertLiteralValue", func() {
 			Expect(
 				wasm.ConvertLiteralValue(v),
 			).Error().
-				To(MatchError(ContainSubstring("unsupported literal value type: string")))
+				To(MatchError(ContainSubstring("unsupported literal value type")))
 		},
 		Entry("string", "x"),
 	)

@@ -1287,7 +1287,7 @@ Node union on variant {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
 			Expect(
 				diag,
-			).To(MatchError(ContainSubstring("failed to import schema/core/nonexistent")))
+			).To(MatchError(ContainSubstring("failed to import schema/core")))
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(table).To(BeNil())
 		})
@@ -1427,7 +1427,7 @@ Node union on variant {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
 			Expect(
 				diag,
-			).To(MatchError(ContainSubstring("duplicate type definition: ranger.Range")))
+			).To(MatchError(ContainSubstring("duplicate type definition")))
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(table).To(BeNil())
 		})

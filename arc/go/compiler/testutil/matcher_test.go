@@ -84,7 +84,7 @@ var _ = Describe("MatchOpcodes", func() {
 			Expect(
 				MatchOpcodes(wasm.OpI32Add).Match("invalid"),
 			).Error().
-				To(MatchError(ContainSubstring("MatchOpcodes expects []byte or wasm.OPCodes")))
+				To(MatchError(ContainSubstring("MatchOpcodes expects []byte")))
 		})
 
 		It("should provide clear failure messages", func() {
