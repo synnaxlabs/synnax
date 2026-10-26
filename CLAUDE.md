@@ -243,9 +243,9 @@ user alone; Claude's involvement is a tool detail, not an authorship claim.
 4. **Fill the template** at `.github/pull_request_template.md`: Linear issue number and
    link (both `####` placeholders), a description of **what changed and why** (lead with
    user-facing/architectural impact, not a diff restatement).
-5. **Add one review tier label**: `review/thorough`, `review/light`, or `review/bot`,
-   chosen by what the change can affect in a shipped enterprise product. The tiers and
-   the gate are in `CONTRIBUTING.md`. Never lower a tier a reviewer raised.
+5. **Add one review tier label**: `review/human` when the change alters a user-facing
+   interface, else `review/bot`. The tiers and the gate are in `CONTRIBUTING.md`. Never
+   lower a tier a reviewer raised.
 
 ### 🚨 Rule 3: Cut small PRs into `main`, early and often 🚨
 
