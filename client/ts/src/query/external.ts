@@ -33,7 +33,6 @@ export {
   keysRequestZ,
   Retriever,
   type RetrieverParams,
-  whereIn,
 } from "@/query/retriever";
 export { type Listener } from "@/query/streamer";
 export {
