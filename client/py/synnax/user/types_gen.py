@@ -14,9 +14,10 @@ from __future__ import annotations
 from typing import TypeAlias
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from synnax.ontology.payload import ID
+from x import filter
 
 Key: TypeAlias = UUID
 
@@ -42,6 +43,55 @@ class User(BaseModel):
 
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class Where(BaseModel):
+    """Is a filter that selects users.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+        username: Selects by username.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
+    username: filter.String | None = None
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the users a RetrieveRequest selects.
+
+    Attributes:
+        users: Are the users the request selects.
+    """
+
+    users: list[User] = Field(default_factory=list)
+
+
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve users.
+
+    Attributes:
+        where: Selects the users to retrieve. An absent where selects all of them.
+        search_term: Keeps the users that match the term, closest match first.
+        limit: Is the most users to return.
+        offset: Is the number of matching users to skip.
+    """
+
+    where: Where | None = None
+    search_term: str | None = None
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    offset: int | None = Field(default=None, ge=0, le=4294967295)
+
+
+Where.model_rebuild()
 
 
 ONTOLOGY_TYPE = ID(type="user")

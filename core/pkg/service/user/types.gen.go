@@ -11,7 +11,12 @@
 
 package user
 
-import "github.com/synnaxlabs/synnax/pkg/service/user/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/user/versions"
+	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/validate"
+	"strconv"
+)
 
 // Key is a unique identifier for a user, represented as a UUID.
 type Key = versions.Key
@@ -19,3 +24,45 @@ type Key = versions.Key
 // User is an account entity representing a person accessing the Synnax system. Users
 // can have roles assigned for permission management.
 type User = versions.User
+
+// Where is a filter that selects users.
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Username selects by username.
+	Username *filter.String `json:"username,omitzero" msgpack:"username,omitempty"`
+}
+
+// RetrieveRequest is a request to retrieve users.
+type RetrieveRequest struct {
+	// Where selects the users to retrieve. An absent where selects all of them.
+	Where *Where `json:"where,omitzero" msgpack:"where,omitempty"`
+	// SearchTerm keeps the users that match the term, closest match first.
+	SearchTerm *string `json:"search_term,omitzero" msgpack:"search_term,omitempty"`
+	// Limit is the most users to return.
+	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
+	// Offset is the number of matching users to skip.
+	Offset *uint32 `json:"offset,omitzero" msgpack:"offset,omitempty"`
+}
+
+// RetrieveResponse holds the users a RetrieveRequest selects.
+type RetrieveResponse struct {
+	// Users are the users the request selects.
+	Users []User `json:"users" msgpack:"users"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RetrieveResponse) Validate() error {
+	v := validate.New("RetrieveResponse")
+	for i := range r.Users {
+		v.Exec(func() error { return validate.PathedError(r.Users[i].Validate(), "users", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}

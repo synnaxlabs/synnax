@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -108,7 +108,7 @@ var _ = Describe("Service", func() {
 				}))
 				res := MustSucceed(
 					apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
-						Keys: []user.Key{u.Key},
+						Where: &user.Where{Key: &filter.Set[user.Key]{In: []user.Key{u.Key}}},
 					}),
 				)
 				Expect(res.Users).To(ConsistOf(u))
@@ -120,7 +120,7 @@ var _ = Describe("Service", func() {
 				Username: username,
 			}))
 			res := MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
-				Usernames: []string{username},
+				Where: &user.Where{Username: &filter.String{Eq: &username}},
 			}))
 			Expect(res.Users).To(ConsistOf(u))
 		})
@@ -132,18 +132,25 @@ var _ = Describe("Service", func() {
 				}))
 				fctx, _ := nonRootCtx(ctx)
 				Expect(apiSvc.Retrieve(fctx, apiuser.RetrieveRequest{
-					Keys: []user.Key{u.Key},
+					Where: &user.Where{Key: &filter.Set[user.Key]{Eq: &u.Key}},
 				})).Error().To(MatchError(access.ErrDenied))
 			},
 		)
-		It(
-			"Should return query.ErrNotFound when any requested key does not exist",
-			func(ctx SpecContext) {
-				Expect(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
-					Keys: []user.Key{uuid.New()},
-				})).Error().To(MatchError(query.ErrNotFound))
-			},
-		)
+		It("Should return no users for a key that does not exist", func(ctx SpecContext) {
+			res := MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
+				Where: &user.Where{Key: &filter.Set[user.Key]{Eq: new(uuid.New())}},
+			}))
+			Expect(res.Users).To(BeEmpty())
+		})
+		It("Should search users by username", func(ctx SpecContext) {
+			username := "searchable-" + uuid.New().String()
+			u := MustSucceed(writer.Create(ctx, user.User{Username: username}))
+			res := MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
+				Where:      &user.Where{Key: &filter.Set[user.Key]{Eq: &u.Key}},
+				SearchTerm: &username,
+			}))
+			Expect(res.Users).To(ConsistOf(u))
+		})
 	})
 
 	Describe("Rename", func() {

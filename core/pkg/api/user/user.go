@@ -12,6 +12,7 @@ package user
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -23,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -213,39 +215,45 @@ func (s *Service) Rename(
 }
 
 type (
-	RetrieveRequest struct {
-		Keys      []user.Key `json:"keys"      msgpack:"keys"`
-		Usernames []string   `json:"usernames" msgpack:"usernames"`
-	}
-	RetrieveResponse struct {
-		Users []user.User `json:"users" msgpack:"users"`
-	}
+	RetrieveRequest  = user.RetrieveRequest
+	RetrieveResponse = user.RetrieveResponse
 )
 
-// Retrieve returns the users with the provided keys or usernames.
+// Retrieve returns the users that the request selects.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	q := s.internal.NewRetrieve()
-	if len(req.Keys) > 0 {
-		q = q.Where(user.MatchKeys(req.Keys...))
+	var res RetrieveResponse
+	q := s.internal.NewRetrieve().Entries(&res.Users)
+	if req.Where != nil {
+		f, err := user.MatchWhere(*req.Where)
+		if err != nil {
+			return RetrieveResponse{}, validate.PathedError(err, "where")
+		}
+		q = q.Where(f)
 	}
-	if len(req.Usernames) > 0 {
-		q = q.Where(user.MatchUsernames(req.Usernames...))
+	if term := lo.FromPtr(req.SearchTerm); term != "" {
+		q = q.Search(term)
 	}
-	var users []user.User
-	if err := q.Entries(&users).Exec(ctx, nil); err != nil {
+	if req.Limit != nil {
+		q = q.Limit(int(*req.Limit))
+	}
+	if req.Offset != nil {
+		q = q.Offset(int(*req.Offset))
+	}
+	// A filter is a predicate, so a key that does not exist is a non-match.
+	if err := errors.Skip(q.Exec(ctx, nil), query.ErrNotFound); err != nil {
 		return RetrieveResponse{}, err
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: user.OntologyIDsFromUsers(users),
+		Objects: user.OntologyIDsFromUsers(res.Users),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
-	return RetrieveResponse{Users: users}, nil
+	return res, nil
 }
 
 type DeleteRequest struct {
