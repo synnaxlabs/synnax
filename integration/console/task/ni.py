@@ -21,7 +21,7 @@ from console.task_page import TaskPage
 
 # Union type for all NI channel types
 NIChannel = Analog | Counter
-NIChannelT = TypeVar("NIChannelT", bound=NIChannel)
+_NIChannelT = TypeVar("_NIChannelT", bound=NIChannel)
 
 
 class NITask(TaskPage):
@@ -95,9 +95,9 @@ class NITask(TaskPage):
         name: str,
         device: str,
         dev_name: str | None,
-        channel_class: type[NIChannelT],
+        channel_class: type[_NIChannelT],
         **kwargs: Any,
-    ) -> NIChannelT:
+    ) -> _NIChannelT:
         """
         Helper method for adding a channel with common UI automation logic.
 
