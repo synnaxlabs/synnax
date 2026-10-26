@@ -202,8 +202,6 @@ export class RawBlock implements Block {
   coveredCount = 0;
   private _fetched: Series[] = [];
   private _streamed: Series[] = [];
-  // The bytes of the fetched and streamed series.
-  private seriesBytes = 0;
   /** The channel's live buffer while a stream writes into the block. */
   buffer: Dynamic | null = null;
   /** Settles when the fetch that fills the block lands. */
@@ -229,7 +227,8 @@ export class RawBlock implements Block {
   }
 
   get bytes(): number {
-    return this.seriesBytes + (this.buffer?.leadingBuffer?.byteCapacity.valueOf() ?? 0);
+    const live = this.buffer?.leadingBuffer?.byteCapacity.valueOf() ?? 0;
+    return sumBytes(this._fetched) + sumBytes(this._streamed) + live;
   }
 
   get held(): boolean {
@@ -253,7 +252,6 @@ export class RawBlock implements Block {
   expire(): boolean {
     if (this._fetched.length === 0 && this.coveredEnd.equals(this.range.start))
       return false;
-    this.seriesBytes -= sumBytes(this._fetched);
     this._fetched = [];
     this.coveredEnd = this.range.start;
     this.coveredCount = 0;
@@ -263,14 +261,12 @@ export class RawBlock implements Block {
   /** Drops every sample and the coverage, so reads fetch the block from its start. */
   reset(): void {
     this.expire();
-    this.seriesBytes -= sumBytes(this._streamed);
     this._streamed = [];
   }
 
   /** Adds buffers the stream filled. */
   stream(series: Series[]): void {
     this._streamed.push(...series);
-    this.seriesBytes += sumBytes(series);
   }
 
   /**
@@ -285,15 +281,14 @@ export class RawBlock implements Block {
     series.forEach((s) => this.insert(s));
     this.coveredEnd = coveredEnd;
     this.coveredCount = coveredCount;
-    this._streamed = this._streamed.filter((s) => {
-      const held = this._fetched.some(
-        (f) =>
-          f.timeRange.start.beforeEq(s.timeRange.start) &&
-          f.timeRange.end.afterEq(s.timeRange.end),
-      );
-      if (held) this.seriesBytes -= s.byteCapacity.valueOf();
-      return !held;
-    });
+    this._streamed = this._streamed.filter(
+      (s) =>
+        !this._fetched.some(
+          (f) =>
+            f.timeRange.start.beforeEq(s.timeRange.start) &&
+            f.timeRange.end.afterEq(s.timeRange.end),
+        ),
+    );
   }
 
   /**
@@ -333,7 +328,6 @@ export class RawBlock implements Block {
         ),
       });
     }
-    const removed = this._fetched.splice(insertInto, deleteInBetween, s);
-    this.seriesBytes += s.byteCapacity.valueOf() - sumBytes(removed);
+    this._fetched.splice(insertInto, deleteInBetween, s);
   }
 }
