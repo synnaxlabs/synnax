@@ -10,7 +10,6 @@
 import pytest
 from botocore.exceptions import ClientError
 
-import common
 from common import instance_for, instance_prefix, secret
 
 
@@ -38,23 +37,20 @@ class SSM:
 
     def __init__(self, parameters: dict[str, str]) -> None:
         self.parameters = parameters
-        self.requests: list[dict] = []
+        self.requests: list[tuple[str, bool]] = []
 
-    def get_parameter(self, **request: str | bool) -> dict:
-        self.requests.append(request)
-        name = request["Name"]
-        if not isinstance(name, str) or name not in self.parameters:
+    def get_parameter(self, *, Name: str, WithDecryption: bool = False) -> dict:
+        self.requests.append((Name, WithDecryption))
+        if Name not in self.parameters:
             raise ClientError({"Error": {"Code": "ParameterNotFound"}}, "GetParameter")
-        return {"Parameter": {"Value": self.parameters[name]}}
+        return {"Parameter": {"Value": self.parameters[Name]}}
 
 
 @pytest.fixture
 def ssm(monkeypatch: pytest.MonkeyPatch) -> SSM:
-    client = SSM({"/runners/gh-token": "stored"})
-    monkeypatch.setattr(common.boto3, "client", lambda *_, **__: client)
     monkeypatch.delenv("GH_TOKEN", raising=False)
     monkeypatch.delenv("SYNNAX_PASSWORD", raising=False)
-    return client
+    return SSM({"/runners/gh-token": "stored"})
 
 
 class TestSecret:
@@ -64,13 +60,13 @@ class TestSecret:
         self, ssm: SSM, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setenv("GH_TOKEN", "from-env")
-        assert secret("GH_TOKEN") == "from-env"
+        assert secret("GH_TOKEN", ssm) == "from-env"
         assert ssm.requests == []
 
     def test_should_read_the_decrypted_parameter(self, ssm: SSM) -> None:
-        assert secret("GH_TOKEN") == "stored"
-        assert ssm.requests == [{"Name": "/runners/gh-token", "WithDecryption": True}]
+        assert secret("GH_TOKEN", ssm) == "stored"
+        assert ssm.requests == [("/runners/gh-token", True)]
 
     def test_should_raise_when_the_parameter_is_missing(self, ssm: SSM) -> None:
         with pytest.raises(ClientError):
-            secret("SYNNAX_PASSWORD")
+            secret("SYNNAX_PASSWORD", ssm)

@@ -14,7 +14,8 @@ import argparse
 import os
 import re
 import signal
-from typing import Protocol
+from collections.abc import Mapping
+from typing import Any, Protocol
 
 import boto3
 import numpy as np
@@ -274,15 +275,27 @@ def seconds(raw: str) -> sy.TimeSpan:
     return sy.TimeSpan.from_seconds(float(raw))
 
 
-def secret(name: str) -> str:
-    """The environment variable name, else the SecureString parameter /runners/<name> in
-    us-east-1, lowercased with dashes (GH_TOKEN reads /runners/gh-token). Raises when
+class ParameterStore(Protocol):
+    def get_parameter(
+        self, *, Name: str, WithDecryption: bool = ...
+    ) -> Mapping[str, Any]: ...
+
+
+def parameter_store() -> ParameterStore:
+    """The us-east-1 Parameter Store, from the boto3 credential chain."""
+    return boto3.client("ssm", region_name="us-east-1")
+
+
+def secret(name: str, store: ParameterStore) -> str:
+    """The environment variable name, else the SecureString parameter /runners/<name>
+    in store, lowercased with dashes (GH_TOKEN reads /runners/gh-token). Raises when
     the parameter does not exist."""
     if value := os.environ.get(name):
         return value
     path = "/runners/" + name.lower().replace("_", "-")
-    ssm = boto3.client("ssm", region_name="us-east-1")
-    return ssm.get_parameter(Name=path, WithDecryption=True)["Parameter"]["Value"]
+    return str(
+        store.get_parameter(Name=path, WithDecryption=True)["Parameter"]["Value"]
+    )
 
 
 def add_connection_args(p: argparse.ArgumentParser) -> None:
@@ -298,11 +311,11 @@ def add_connection_args(p: argparse.ArgumentParser) -> None:
     )
 
 
-def connect(args: argparse.Namespace) -> sy.Synnax:
+def connect(args: argparse.Namespace, store: ParameterStore) -> sy.Synnax:
     return sy.Synnax(
         host=args.host,
         port=args.port,
         username=args.username,
-        password=args.password or secret("SYNNAX_PASSWORD"),
+        password=args.password or secret("SYNNAX_PASSWORD", store),
         secure=args.secure,
     )

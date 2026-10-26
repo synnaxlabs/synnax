@@ -101,8 +101,10 @@ from common import (
     ec2_channels,
     gh_channels,
     instance_status,
+    parameter_store,
     patch_client,
     seconds,
+    secret,
     shield,
 )
 from cost import QUERY_TIME, Cost
@@ -115,7 +117,7 @@ from gate import (
     GATE_LOG,
     Gate,
 )
-from github import GitHub, github_token, webhook_secret
+from github import GitHub
 from heartbeat import Heartbeat
 from jobs import Jobs
 from log import Log
@@ -370,9 +372,10 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    github = GitHub(github_token())
+    store = parameter_store()
+    github = GitHub(secret("GH_TOKEN", store))
     patch_client()
-    client = connect(args)
+    client = connect(args, store)
     channels = Channels(client, args.create_channels)
     log = Log(client, channels, LOG)
     alive = Heartbeat(client, channels, HEARTBEAT)
@@ -406,7 +409,11 @@ def main() -> None:
             "gate",
         ),
     }
-    webhook = Webhook(webhook_secret(), args.webhook_port, report=log.error)
+    # Required, so a misconfigured deploy fails at startup instead of serving a
+    # listener that accepts unsigned posts.
+    webhook = Webhook(
+        secret("GH_WEBHOOK_SECRET", store), args.webhook_port, report=log.error
+    )
     aws = AWS()
     runners = RunnerRegistry()
     runners.add(set(github.runner_status()[0]))

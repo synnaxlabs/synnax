@@ -7,8 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Read-only GitHub Actions API access: the credentials, runner status, and the two
-job reads jobs.py builds on."""
+"""Read-only GitHub Actions API access: runner status and the two job reads jobs.py
+builds on."""
 
 import json
 import ssl
@@ -16,20 +16,10 @@ import urllib.request
 
 import certifi
 
-from common import BUSY, IDLE, OFFLINE, secret
+from common import BUSY, IDLE, OFFLINE
 
 REPO = "synnaxlabs/synnax"
 SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
-
-
-def github_token() -> str:
-    return secret("GH_TOKEN")
-
-
-def webhook_secret() -> str:
-    """Required, so a misconfigured deploy fails at startup rather than serving a
-    listener that accepts unsigned posts."""
-    return secret("GH_WEBHOOK_SECRET")
 
 
 class GitHub:

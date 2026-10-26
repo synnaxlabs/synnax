@@ -37,6 +37,7 @@ from common import (
     close_quietly,
     command_channels,
     connect,
+    parameter_store,
     patch_client,
     shield,
 )
@@ -101,7 +102,7 @@ def main() -> None:
     add_connection_args(p)
     args = p.parse_args()
     patch_client()
-    client = connect(args)
+    client = connect(args, parameter_store())
     creator = Channels(client, args.create_channels)
     log = Log(client, creator, LOG)
     aws = AWS()
