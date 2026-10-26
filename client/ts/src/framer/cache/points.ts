@@ -73,6 +73,23 @@ interface Held {
   series: MultiSeries;
   // The cached tile, when the read cached one.
   block?: Block;
+  // True once a history change named the tile. It draws until it reads again.
+  stale: boolean;
+}
+
+interface Memo {
+  snapshot: Snapshot;
+  // The store's epoch of the channel when the snapshot was built.
+  epoch: number;
+  // When the clock moves the window across a grid edge.
+  validUntil: bigint;
+}
+
+// The stream and join of a window that reaches past the commit point.
+interface Live {
+  demand: Demand;
+  leave: destructor.Destructor;
+  keys: channel.Key[];
 }
 
 // Returns the start of the tile of the level after the one that holds ts.
@@ -86,30 +103,27 @@ const nextEdge = (ts: TimeStamp, level: number): bigint =>
  */
 export class Points {
   private index: channel.Key | null = null;
-  private resolving = false;
   // parked holds the failure that stops the channel for good.
   private parked: status.Status | null = null;
   private readFailure: status.Status | null = null;
   // rejection holds the failure of the last tile a definitive failure stopped.
   private rejection: status.Status | null = null;
-  private demand: Demand | null = null;
-  private leave: destructor.Destructor | null = null;
+  private live: Live | null = null;
   private readonly held = new Map<string, Held>();
   private readonly pending = new Set<string>();
   // retrying holds failed tiles that wait out the breaker. rejected holds tiles that a
   // definitive failure stopped.
   private readonly retrying = new Set<string>();
   private readonly rejected = new Set<string>();
-  // stale holds the held tiles a history change named. They draw until they read again.
-  private readonly stale = new Set<string>();
   private readonly stopInvalidations: destructor.Destructor;
   // boundary is where tiles end and raw samples begin. It trails rawFrom until the
   // tiles that replace the samples before it land, so no span goes blank.
   private boundary = TimeStamp.ZERO;
   // raw holds the raw samples last served, which stand in for blocks being read again.
   private raw: Series[] = [];
-  private rawReading = false;
-  private rawRetrying = false;
+  // rawRead is reading while a raw read or its backoff runs, and stopped once the read
+  // outlasts the breaker.
+  private rawRead: "idle" | "reading" | "stopped" = "idle";
   private loading = true;
   private pins = new Set<Block>();
   private generation = 0;
@@ -122,12 +136,10 @@ export class Points {
     loading: status.create(LOADING),
     success: status.create(SUCCESS),
   };
-  // snapshot is the value last served, or null after a change. It also goes out of date
+  // memo holds the value last served, or null after a change. It also goes out of date
   // when the store changes the series of the channel's raw blocks, or when the clock
-  // reaches validUntil, where the window crosses a grid edge.
-  private snapshot: Snapshot | null = null;
-  private epoch = -1;
-  private validUntil = 0n;
+  // reaches its validUntil.
+  private memo: Memo | null = null;
   // grown is true when the stream grew the newest raw series since the last value.
   private grown = false;
 
@@ -142,11 +154,12 @@ export class Points {
     this.tileBreaker = createBreaker(this.notifier, props.breaker);
     this.stopInvalidations = props.store.onInvalidate((ch, tr) => {
       if (ch != null && ch !== this.key) return;
-      this.held.forEach(({ spec }, key) => {
-        if (tileRange(spec).overlapsWith(tr)) this.stale.add(key);
+      this.held.forEach((h) => {
+        if (tileRange(h.spec).overlapsWith(tr)) h.stale = true;
       });
       this.changed();
     });
+    void this.resolve();
   }
 
   private get dynamic(): boolean {
@@ -178,7 +191,7 @@ export class Points {
     this.window = window;
     this.limit = limit;
     if (tiles != null && tiles === this.tilesOf(limit)) return;
-    this.snapshot = null;
+    this.memo = null;
     if (
       limit.count !== prev.count ||
       limit.aggregation !== prev.aggregation ||
@@ -199,28 +212,29 @@ export class Points {
    */
   value(): Snapshot {
     const now = this.props.now();
+    const { memo } = this;
     if (
-      this.snapshot == null ||
-      this.epoch !== this.props.store.epoch(this.key) ||
-      now.valueOf() >= this.validUntil
+      memo == null ||
+      memo.epoch !== this.props.store.epoch(this.key) ||
+      now.valueOf() >= memo.validUntil
     )
       return this.rebuild(now);
     const status = this.status();
-    if (!this.grown && status === this.snapshot.status) return this.snapshot;
+    if (!this.grown && status === memo.snapshot.status) return memo.snapshot;
     this.grown = false;
-    this.snapshot = { series: this.snapshot.series, status, time: this.time() };
-    return this.snapshot;
+    memo.snapshot = { series: memo.snapshot.series, status, time: this.time() };
+    return memo.snapshot;
   }
 
   // Reconciles the tiles, raw samples, reads, and pins with the window as of now, and
   // caches the snapshot they make.
   private rebuild(now: TimeStamp): Snapshot {
     this.grown = false;
+    const epoch = this.props.store.epoch(this.key);
     if (this.index == null) {
-      void this.resolve();
-      this.validUntil = TimeStamp.MAX.valueOf();
-      this.snapshot = { series: new MultiSeries([]), status: this.status() };
-      return this.snapshot;
+      const snapshot = { series: new MultiSeries([]), status: this.status() };
+      this.memo = { snapshot, epoch, validUntil: TimeStamp.MAX.valueOf() };
+      return snapshot;
     }
     this.stream(this.index);
     const home = this.home();
@@ -245,15 +259,19 @@ export class Points {
     this.pin(home);
     const loaded = targets.every((spec) => this.held.has(tileRequestKey(spec)));
     if (this.loading && !filling && loaded) this.loading = false;
-    this.epoch = this.props.store.epoch(this.key);
-    this.validUntil = this.edgeAfter(now, home);
     const snapshot = {
       series: new MultiSeries(series),
       status: this.status(),
       time: this.time(),
     };
     // A restart reads every tile again, so the next value rebuilds.
-    this.snapshot = retyped ? null : snapshot;
+    this.memo = retyped
+      ? null
+      : {
+          snapshot,
+          epoch: this.props.store.epoch(this.key),
+          validUntil: this.edgeAfter(now, home),
+        };
     return snapshot;
   }
 
@@ -281,7 +299,7 @@ export class Points {
 
   // Marks the snapshot out of date and tells the consumer.
   private changed(): void {
-    this.snapshot = null;
+    this.memo = null;
     this.notify();
   }
 
@@ -291,15 +309,13 @@ export class Points {
     this.abort.abort();
     this.notifier.notify();
     this.stopInvalidations();
-    this.pins.forEach((b) => b.pins--);
+    this.props.store.repin(this.pins, new Set());
     this.pins.clear();
-    this.props.store.evict();
     this.held.clear();
     this.raw = [];
-    this.demand?.close();
-    this.demand = null;
-    this.leave?.();
-    this.leave = null;
+    this.live?.demand.close();
+    this.live?.leave();
+    this.live = null;
   }
 
   private home(): TimeRange {
@@ -326,60 +342,61 @@ export class Points {
       .join();
   }
 
-  // Resolves the channel's index, then streams and joins the window's edge.
+  // Resolves the channel's index, then streams and joins the window's edge. A failure
+  // that is definitive or outlasts the breaker stops the channel for good.
   private async resolve(): Promise<void> {
-    if (this.resolving || this.parked != null) return;
-    this.resolving = true;
     const generation = this.generation;
-    try {
-      const [payload] = await this.props.retrieveChannels([this.key]);
-      if (generation !== this.generation) return;
-      if (payload == null) throw new NotFoundError(`channel ${this.key} not found`);
-      if (payload.virtual && !calculated(payload))
-        throw new ValidationError(
-          `virtual channel ${payload.name} has no samples to draw`,
-        );
-      const index = payload.isIndex ? payload.key : payload.index;
-      if (index === 0)
-        throw new ValidationError(`channel ${payload.name} has no index to draw on`);
-      this.props.store.setChannel(payload);
-      this.index = index;
-      this.boundary = this.rawFrom(this.home());
-      this.stream(index);
-      this.breaker.reset();
-      this.readFailure = null;
-    } catch (e) {
-      if (generation !== this.generation) return;
-      this.fail(e);
-      if (isDefinitive(e)) this.parked = this.readFailure;
-      else if (!(await this.breaker.wait()) || generation !== this.generation) return;
-    } finally {
-      if (generation === this.generation) this.resolving = false;
-    }
-    this.changed();
+    while (generation === this.generation)
+      try {
+        const [payload] = await this.props.retrieveChannels([this.key]);
+        if (generation !== this.generation) return;
+        if (payload == null) throw new NotFoundError(`channel ${this.key} not found`);
+        if (payload.virtual && !calculated(payload))
+          throw new ValidationError(
+            `virtual channel ${payload.name} has no samples to draw`,
+          );
+        const index = payload.isIndex ? payload.key : payload.index;
+        if (index === 0)
+          throw new ValidationError(`channel ${payload.name} has no index to draw on`);
+        this.props.store.setChannel(payload);
+        this.index = index;
+        this.boundary = this.rawFrom(this.home());
+        this.stream(index);
+        this.breaker.reset();
+        this.readFailure = null;
+        this.changed();
+        return;
+      } catch (e) {
+        if (generation !== this.generation) return;
+        this.fail(e);
+        if (isDefinitive(e) || !(await this.breaker.wait())) {
+          this.parked = this.readFailure;
+          return;
+        }
+      }
   }
 
   // Streams and joins the channel while the window streams, and releases both once it
   // does not.
   private stream(index: channel.Key): void {
-    if (this.streaming === (this.demand != null)) return;
-    if (this.demand != null) {
-      this.demand.close();
-      this.leave?.();
-      this.demand = null;
-      this.leave = null;
+    if (this.streaming === (this.live != null)) return;
+    if (this.live != null) {
+      this.live.demand.close();
+      this.live.leave();
+      this.live = null;
       this.abort.abort();
       this.abort = new AbortController();
       return;
     }
     const keys = [...new Set([this.key, index])];
-    this.demand = this.props.streamer.demand(keys, (frame) => {
+    const demand = this.props.streamer.demand(keys, (frame) => {
       if (!frame.has(this.key)) return;
       this.grown = true;
       this.notify();
     });
-    this.demand.onStatusChange(() => this.notify());
-    this.leave = this.props.joiner.join(this.key, index, () => this.changed());
+    demand.onStatusChange(() => this.notify());
+    const leave = this.props.joiner.join(this.key, index, () => this.changed());
+    this.live = { demand, leave, keys };
   }
 
   // rawFrom is where raw samples start. In a dynamic window, it sits on a tile edge of
@@ -522,11 +539,7 @@ export class Points {
       ...next,
       ...this.homeKeys(home, extremesKept),
     ]);
-    for (const key of this.held.keys())
-      if (!keep.has(key)) {
-        this.held.delete(key);
-        this.stale.delete(key);
-      }
+    for (const key of this.held.keys()) if (!keep.has(key)) this.held.delete(key);
   }
 
   // Returns the keys of the window's tiles and of the held tiles standing in for them.
@@ -547,7 +560,7 @@ export class Points {
   private request(spec: TileSpec): void {
     const key = tileRequestKey(spec);
     if (
-      (this.held.has(key) && !this.stale.has(key)) ||
+      this.held.get(key)?.stale === false ||
       this.pending.has(key) ||
       this.retrying.has(key) ||
       this.rejected.has(key)
@@ -561,9 +574,8 @@ export class Points {
       .then((series) => {
         if (generation !== this.generation) return;
         this.pending.delete(key);
-        this.stale.delete(key);
         const block = isCut(spec) ? undefined : store.get(tileKey(spec));
-        this.held.set(key, { spec, series, block });
+        this.held.set(key, { spec, series, block, stale: false });
         this.tileBreaker.reset();
         this.readFailure = null;
         this.changed();
@@ -644,15 +656,16 @@ export class Points {
   // miss samples that a lagging writer stamps before the commit point. Once the window
   // stops streaming, its samples are committed, so the read stops waiting.
   private readRaw(tr: TimeRange): void {
-    if (this.rawReading || this.rawRetrying) return;
+    if (this.rawRead !== "idle") return;
     const generation = this.generation;
     const { reader, streamer } = this.props;
-    const { demand, index, abort } = this;
-    this.rawReading = true;
+    const { live, abort } = this;
+    this.rawRead = "reading";
+    let after: "idle" | "stopped" = "idle";
     const read = async (): Promise<void> => {
-      if (demand != null && index != null)
+      if (live != null)
         try {
-          await streamer.waitAcked([...new Set([this.key, index])], abort.signal);
+          await streamer.waitAcked(live.keys, abort.signal);
         } catch (e) {
           if (!abort.signal.aborted) throw errors.fromUnknown(e);
         }
@@ -668,13 +681,11 @@ export class Points {
         if (generation !== this.generation) return;
         this.fail(e);
         if (isDefinitive(e)) return void (this.parked = this.readFailure);
-        this.rawRetrying = true;
-        if (!(await this.breaker.wait()) || generation !== this.generation) return;
-        this.rawRetrying = false;
+        if (!(await this.breaker.wait())) after = "stopped";
       })
       .finally(() => {
         if (generation !== this.generation) return;
-        this.rawReading = false;
+        this.rawRead = after;
         this.changed();
       });
   }
@@ -693,14 +704,8 @@ export class Points {
         if (b != null) next.add(b);
       }
     }
-    this.pins.forEach((b) => {
-      if (!next.has(b)) b.pins--;
-    });
-    next.forEach((b) => {
-      if (!this.pins.has(b)) b.pins++;
-    });
+    this.props.store.repin(this.pins, next);
     this.pins = next;
-    this.props.store.evict();
   }
 
   // Returns the end of the newest raw sample's span.
@@ -713,15 +718,13 @@ export class Points {
   }
 
   private status(): status.Status {
+    const { live } = this;
     const worst = status.worst(
       this.parked,
       this.rejection,
       this.readFailure,
       this.props.joiner.status(this.key),
-      this.demand?.status(this.key),
-      this.index == null || this.index === this.key
-        ? undefined
-        : this.demand?.status(this.index),
+      ...(live?.keys.map((k) => live.demand.status(k)) ?? []),
     );
     if (worst != null && worst.variant !== "success") return worst;
     const loading = this.loading || this.pending.size > 0;
@@ -745,9 +748,7 @@ export class Points {
     this.retrying.clear();
     this.rejected.clear();
     this.rejection = null;
-    this.stale.clear();
-    this.rawReading = false;
-    this.rawRetrying = false;
+    this.rawRead = "idle";
     this.loading = true;
     if (this.index != null) this.boundary = this.rawFrom(this.home());
     this.changed();

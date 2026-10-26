@@ -238,6 +238,34 @@ describe("Latest", () => {
     }
   });
 
+  it("should keep samples streamed before a drop after the read the drop restarts", async () => {
+    const core = createCore();
+    let release: () => void = () => {};
+    const released = new Promise<void>((resolve) => (release = resolve));
+    let waiting = 0;
+    const { open, close } = createLatest(core, async () => {
+      waiting++;
+      await released;
+    });
+    const latest = open(1000, undefined, core.index.key);
+    try {
+      await expect.poll(() => waiting, POLL).toBe(1);
+      core.advance(TimeSpan.milliseconds(100));
+      await expect.poll(() => latest.value().series.length, POLL).toBe(10);
+      core.restart();
+      await expect.poll(() => waiting, POLL).toBe(2);
+      release();
+      await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+      const times = timesOf(latest);
+      expect(times).toHaveLength(1000);
+      const steps = new Set(times.slice(1).map((t, i) => t - times[i]));
+      expect([...steps]).toEqual([Rate.hz(100).period.valueOf()]);
+    } finally {
+      latest.close();
+      await close();
+    }
+  });
+
   it("should serve streamed samples while the read fails", async () => {
     const core = createCore();
     const { open, close } = createLatest(core, () => {

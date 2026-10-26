@@ -69,6 +69,7 @@ const createPoints = (
   readRemote: RemoteReader = async (tr, keys, reduction) =>
     core.read(tr, keys, reduction),
   storeProps: StoreProps = {},
+  pointsBreaker: breaker.Config = BREAKER,
 ) => {
   const store = new Store({ now: core.now, ...storeProps });
   const joins = new Joins(store);
@@ -99,7 +100,7 @@ const createPoints = (
     joiner,
     retrieveChannels,
     now,
-    breaker: BREAKER,
+    breaker: pointsBreaker,
   };
   const open = new Set<Points>();
   const subscribe = (key: channel.Key, window: Window, limit: PointsLimit): Points => {
@@ -139,6 +140,18 @@ describe("Points", () => {
       const points = subscribe(core.data[0].key, staticWindow(range), TILED);
       try {
         await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+        expect(points.value()).toBe(points.value());
+      } finally {
+        await close();
+      }
+    });
+
+    it("should return the same snapshot for a channel it cannot find", async () => {
+      const core = createCore();
+      const { subscribe, close } = createPoints(core);
+      const points = subscribe(12_345, window, RAW);
+      try {
+        await expect.poll(() => points.value().status.variant, POLL).toBe("error");
         expect(points.value()).toBe(points.value());
       } finally {
         await close();
@@ -278,6 +291,39 @@ describe("Points", () => {
       await expect.poll(() => points.value().status.variant, POLL).toBe("success");
       expect(failures).toBeLessThan(0);
       expect(points.value().series.length).toBeGreaterThanOrEqual(24_000);
+    } finally {
+      await close();
+    }
+  });
+
+  it("should stop finding a channel once its retries run out", async () => {
+    const core = createCore();
+    let retrieves = 0;
+    core.retrieveChannels = async () => {
+      retrieves++;
+      throw new Error("stream closed unexpectedly");
+    };
+    const { subscribe, close } = createPoints(
+      core,
+      undefined,
+      {},
+      {
+        ...BREAKER,
+        maxRetries: 1,
+      },
+    );
+    const points = subscribe(
+      core.data[0].key,
+      dynamicWindow(TimeSpan.seconds(30)),
+      RAW,
+    );
+    try {
+      await expect
+        .poll(() => points.value().status, POLL)
+        .toMatchObject({ variant: "error", description: "stream closed unexpectedly" });
+      await sleep.sleep(TimeSpan.milliseconds(100));
+      points.value();
+      expect(retrieves).toBe(2);
     } finally {
       await close();
     }

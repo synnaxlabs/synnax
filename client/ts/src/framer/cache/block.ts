@@ -213,8 +213,6 @@ export class RawBlock implements Block {
   /** The index samples in [range.start, coveredEnd). */
   coveredCount = 0;
   private _fetched: Series[] = [];
-  // The bytes of the fetched series.
-  private seriesBytes = 0;
   /** The channel's live buffer while a stream writes into the block. */
   buffer: Dynamic | null = null;
   /** Settles when the fetch that fills the block lands. */
@@ -235,7 +233,8 @@ export class RawBlock implements Block {
   }
 
   get bytes(): number {
-    return this.seriesBytes + (this.buffer?.leadingBuffer?.byteCapacity.valueOf() ?? 0);
+    const live = this.buffer?.leadingBuffer?.byteCapacity.valueOf() ?? 0;
+    return sumBytes(this._fetched) + live;
   }
 
   /** True while a join writes the stream's samples into the block. */
@@ -275,7 +274,6 @@ export class RawBlock implements Block {
   expire(): boolean {
     if (this._fetched.length === 0 && this.coveredEnd.equals(this.range.start))
       return false;
-    this.seriesBytes -= sumBytes(this._fetched);
     this._fetched = [];
     this.coveredEnd = this.range.start;
     this.coveredCount = 0;
@@ -331,7 +329,6 @@ export class RawBlock implements Block {
         ),
       });
     }
-    const removed = this._fetched.splice(insertInto, deleteInBetween, s);
-    this.seriesBytes += s.byteCapacity.valueOf() - sumBytes(removed);
+    this._fetched.splice(insertInto, deleteInBetween, s);
   }
 }

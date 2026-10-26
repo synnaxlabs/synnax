@@ -135,8 +135,9 @@ export class Reader {
     const waits: Array<Promise<void>> = [];
     for (const b of blocks) {
       if (b.covers(tr)) continue;
-      b.pending ??= this.enqueue(b, TimeStamp.min(tr.end, b.range.end), false);
-      waits.push(b.pending);
+      waits.push(
+        b.pending ?? this.enqueue(b, TimeStamp.min(tr.end, b.range.end), false),
+      );
     }
     // The fill settles after its last fetch, and its first failure wins.
     let failure: Error | undefined;
@@ -164,16 +165,12 @@ export class Reader {
    */
   async catchUp(ch: channel.Key, first: number): Promise<void> {
     if (this.closed) throw new UnexpectedError("telemetry reader is closed");
-    await this.enqueue(this.props.store.raw(ch, first), TimeStamp.MAX, true);
+    const block = this.props.store.raw(ch, first);
+    await this.batcher.enqueue({ block, end: TimeStamp.MAX, catchUp: true });
   }
 
   private enqueue(block: RawBlock, end: TimeStamp, catchUp: boolean): Promise<void> {
-    const pending = this.batcher.enqueue({ block, end, catchUp }).finally(() => {
-      if (block.pending !== pending) return;
-      block.pending = null;
-      this.props.store.evict();
-    });
-    return pending;
+    return this.props.store.hold(block, this.batcher.enqueue({ block, end, catchUp }));
   }
 
   private async batchRead(entries: Array<debounce.Entry<Request>>): Promise<void> {
@@ -222,8 +219,7 @@ export class Reader {
       );
       entries.forEach(({ req, resolve }) => {
         if (!refetch.has(req)) return resolve();
-        req.block.pending = this.enqueue(req.block, req.end, req.catchUp);
-        resolve(req.block.pending);
+        resolve(this.enqueue(req.block, req.end, req.catchUp));
       });
     } catch (err) {
       const byChannel = Map.groupBy(entries, ({ req }) => req.block.channel);

@@ -47,6 +47,14 @@ const UNSERVED_CAP = 100_000;
 const MIN_BUFFER = 1_024;
 const MAX_BUFFER = 65_536;
 
+// A running read of the newest stored samples.
+interface Load {
+  // abort ends the load's wait for the stream's ack.
+  abort: AbortController;
+  // mark is where the series streamed while the load runs start.
+  mark: number;
+}
+
 /**
  * Serves the newest samples of one channel: a read of its newest stored samples, and
  * every newer sample the stream delivers. Streamed samples serve while the read waits
@@ -60,29 +68,21 @@ export class Latest {
   private buffer: Dynamic;
   // unserved counts the newest samples that no value served.
   private unserved = 0;
-  // loadMark is where the series streamed during the running load start, or null when
-  // no load runs.
-  private loadMark: number | null = 0;
+  private running: Load | null;
   private readonly demand: Demand;
   // dedupe is how fresh finds repeated samples: by Core alignment for a stored channel,
   // and by time for one a calculation writes, whose alignments depend on how its inputs
   // split into series. A channel that only streams repeats no sample.
   private dedupe: "alignment" | "time" | null = null;
   private failure: status.Status | null = null;
-  private generation = 0;
-  // abort ends the load's wait for the stream's ack.
-  private abort = new AbortController();
   private readonly notifier = new sync.Notifier();
   private readonly statuses = {
     loading: status.create(LOADING),
     success: status.create(SUCCESS),
   };
   // snapshot is the value last served, or null after a change. It also goes out of date
-  // when the clock reaches validUntil, where a series leaves the window.
+  // when a series leaves the window. A growing leading buffer leaves it in date.
   private snapshot: Snapshot | null = null;
-  private validUntil = 0n;
-  // grown is true when the stream grew the leading buffer since the last value.
-  private grown = false;
   // shown is true when a value served samples streamed since the running load began,
   // under an error or warning. Consumers may have taken them, so the read must not land
   // before them.
@@ -104,7 +104,8 @@ export class Latest {
     });
     this.demand.onStatusChange(() => this.notify());
     this.demand.onDrop(() => this.reload());
-    void this.load();
+    this.running = { abort: new AbortController(), mark: 0 };
+    void this.load(this.running);
   }
 
   /**
@@ -115,10 +116,8 @@ export class Latest {
     if (count === this.count && deep.equal(window, this.window)) return;
     this.window = window;
     this.count = count;
-    this.stop();
     this.clear();
-    this.loadMark = 0;
-    void this.load();
+    this.restart(0);
   }
 
   /**
@@ -128,10 +127,11 @@ export class Latest {
    */
   value(): Snapshot {
     const snapshot = this.current();
+    const { running } = this;
     if (
-      this.loadMark != null &&
+      running != null &&
       snapshot.status.variant !== "loading" &&
-      (this.buffer.leadingBuffer != null || this.series.length > this.loadMark)
+      (this.buffer.leadingBuffer != null || this.series.length > running.mark)
     )
       this.shown = true;
     return snapshot;
@@ -139,18 +139,16 @@ export class Latest {
 
   /** Releases the channel's stream. */
   close(): void {
-    this.stop();
+    this.restart(null);
     this.demand.close();
     this.clear();
-    this.loadMark = null;
   }
 
   private current(): Snapshot {
-    if (this.snapshot == null || this.props.now().valueOf() >= this.validUntil)
+    if (this.snapshot == null || this.props.now().valueOf() >= this.leavesAt())
       return this.rebuild();
     const status = this.status();
-    if (!this.grown && status === this.snapshot.status) return this.snapshot;
-    this.grown = false;
+    if (this.unserved === 0 && status === this.snapshot.status) return this.snapshot;
     this.unserved = 0;
     this.snapshot = { series: this.snapshot.series, status, time: this.time() };
     return this.snapshot;
@@ -158,12 +156,10 @@ export class Latest {
 
   private rebuild(): Snapshot {
     this.trim();
-    this.grown = false;
     this.unserved = 0;
     const series = [...this.series];
     const leading = this.buffer.leadingBuffer;
     if (leading != null) series.push(leading);
-    this.validUntil = this.leavesAt();
     this.snapshot = {
       series: new MultiSeries(series),
       status: this.status(),
@@ -188,20 +184,19 @@ export class Latest {
   // Reads the newest samples again, since frames may have dropped. The samples held
   // stay until the read lands.
   private reload(): void {
-    this.stop();
     this.closeLeading();
-    this.loadMark ??= this.series.length;
+    this.restart(this.running?.mark ?? this.series.length);
     this.snapshot = null;
     this.notify();
-    void this.load();
   }
 
-  // Ends the running load.
-  private stop(): void {
-    this.generation++;
-    this.abort.abort();
-    this.abort = new AbortController();
+  // Ends the running load, then starts one whose streamed series start at mark, unless
+  // mark is null.
+  private restart(mark: number | null): void {
+    this.running?.abort.abort();
     this.notifier.notify();
+    this.running = mark == null ? null : { abort: new AbortController(), mark };
+    if (this.running != null) void this.load(this.running);
   }
 
   private clear(): void {
@@ -231,12 +226,11 @@ export class Latest {
   // Reads the newest stored samples after the stream acks the channel, so the stream
   // delivers every sample the read misses. A virtual channel has none, so it only
   // streams.
-  private async load(): Promise<void> {
-    const generation = this.generation;
-    const { signal } = this.abort;
+  private async load(run: Load): Promise<void> {
+    const { signal } = run.abort;
     const { retrieveChannels, streamer, readLatest, now } = this.props;
     const brk = createBreaker(this.notifier, this.props.breaker);
-    while (generation === this.generation)
+    while (this.running === run)
       try {
         const [payload] = await retrieveChannels([this.key]);
         if (payload == null) throw new NotFoundError(`channel ${this.key} not found`);
@@ -245,17 +239,17 @@ export class Latest {
         else this.dedupe = calculated(payload) ? "time" : null;
         if (this.dedupe != null) {
           await streamer.waitAcked([this.key], signal);
-          if (generation !== this.generation) return;
+          if (this.running !== run) return;
           const tr =
             this.window == null ? TimeRange.MAX : resolveWindow(this.window, now());
           read = (await readLatest(this.key, this.count, tr)).series;
         }
-        if (generation !== this.generation) return;
+        if (this.running !== run) return;
         this.land(read);
         this.failure = null;
         return this.notify();
       } catch (e) {
-        if (generation !== this.generation) return;
+        if (this.running !== run) return;
         this.failure = status.fromException(e, READ_FAILED);
         this.snapshot = null;
         this.notify();
@@ -267,13 +261,13 @@ export class Latest {
   // Puts the read before the series streamed while it ran, keeping each sample once.
   private land(read: Series[]): void {
     if (this.shown) {
-      [this.loadMark, this.shown] = [null, false];
+      [this.running, this.shown] = [null, false];
       return this.push(read);
     }
     this.closeLeading();
-    const streamed = this.series.splice(this.loadMark ?? 0);
+    const streamed = this.series.splice(this.running?.mark ?? 0);
     streamed.forEach((s) => (this.closedTotal -= s.length));
-    this.loadMark = null;
+    this.running = null;
     this.push(read);
     this.push(streamed);
     this.unserved = this.total;
@@ -308,7 +302,6 @@ export class Latest {
     const { flushed, allocated } = this.buffer.write(new MultiSeries([s]));
     flushed.series.forEach((f) => this.closeSeries(f));
     if (flushed.series.length > 0 || allocated.series.length > 0) this.snapshot = null;
-    else this.grown = true;
   }
 
   private closeLeading(): void {
@@ -324,12 +317,6 @@ export class Latest {
 
   private newest(): Series | undefined {
     return this.buffer.leadingBuffer ?? this.series.at(-1);
-  }
-
-  // Returns the end of the series' samples, or undefined when it has no time range.
-  private endOf(s: Series): TimeStamp | undefined {
-    if (s === this.buffer.leadingBuffer) return this.buffer.dataTimeRange?.end;
-    return s.timeRange.isZero ? undefined : s.timeRange.end;
   }
 
   // Returns the samples of s newer than the newest sample held, or null if it has none.
@@ -355,7 +342,7 @@ export class Latest {
       if (overlap >= BigInt(s.length)) return null;
       return overlap > 0n ? s.sub(Number(overlap)) : s;
     }
-    const end = this.endOf(newest);
+    const end = this.time();
     if (!timed || end == null) return s;
     return s.timeRange.end.after(end) ? s : null;
   }
@@ -387,21 +374,23 @@ export class Latest {
 
   private drop(): void {
     const { length } = this.series.shift()!;
-    if (this.loadMark != null) this.loadMark = Math.max(0, this.loadMark - 1);
+    if (this.running != null) this.running.mark = Math.max(0, this.running.mark - 1);
     this.closedTotal -= length;
     this.unserved = Math.min(this.unserved, this.total);
     this.snapshot = null;
   }
 
-  // Returns the end of the newest sample's span.
+  // Returns the end of the newest sample's span, or undefined when it has no time range.
   private time(): TimeStamp | undefined {
     const newest = this.newest();
-    return newest == null ? undefined : this.endOf(newest);
+    if (newest == null) return undefined;
+    if (newest === this.buffer.leadingBuffer) return this.buffer.dataTimeRange?.end;
+    return newest.timeRange.isZero ? undefined : newest.timeRange.end;
   }
 
   private status(): status.Status {
     const worst = status.worst(this.demand.status(this.key), this.failure)!;
     if (worst.variant !== "success") return worst;
-    return this.loadMark != null ? this.statuses.loading : this.statuses.success;
+    return this.running != null ? this.statuses.loading : this.statuses.success;
   }
 }
