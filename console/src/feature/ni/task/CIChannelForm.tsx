@@ -104,6 +104,7 @@ const EdgeField = Form.buildSelectField<CIEdge>({
   fieldProps: { label: "Starting edge" },
   inputProps: {
     resourceName: "starting edge",
+    searchName: "edge",
     children: Task.selectItems(CI_EDGE_NAMES),
   },
 });
@@ -113,6 +114,7 @@ const StartingEdgeField = Form.buildSelectField<CIEdge>({
   fieldProps: { label: "Starting edge" },
   inputProps: {
     resourceName: "starting edge",
+    searchName: "edge",
     children: Task.selectItems(CI_EDGE_NAMES),
   },
 });
@@ -137,6 +139,7 @@ const CountDirectionField = Form.buildSelectField<CICountDirection>({
   fieldProps: { label: "Count direction" },
   inputProps: {
     resourceName: "count direction",
+    searchName: "direction",
     children: Task.selectItems(CI_COUNT_DIRECTION_NAMES),
   },
 });
@@ -159,6 +162,7 @@ const MeasMethodField = Form.buildSelectField<CIMeasMethod>({
   fieldProps: { label: "Measurement method" },
   inputProps: {
     resourceName: "measurement method",
+    searchName: "method",
     children: Task.selectItems(CI_MEAS_METHOD_NAMES),
   },
 });
@@ -205,6 +209,7 @@ const TerminalField = Form.buildSelectField<string>({
   fieldProps: { label: "Input terminal" },
   inputProps: {
     resourceName: "input terminal",
+    searchName: "terminal",
     allowNone: true,
     children: COUNTER_TERMINAL_ITEMS,
   },
@@ -233,6 +238,7 @@ const TerminalAField = Form.buildSelectField<string>({
   fieldProps: { label: "Input terminal A" },
   inputProps: {
     resourceName: "input terminal A",
+    searchName: "terminal",
     allowNone: true,
     children: COUNTER_TERMINAL_ITEMS,
   },
@@ -243,6 +249,7 @@ const TerminalBField = Form.buildSelectField<string>({
   fieldProps: { label: "Input terminal B" },
   inputProps: {
     resourceName: "input terminal B",
+    searchName: "terminal",
     allowNone: true,
     children: COUNTER_TERMINAL_ITEMS,
   },
@@ -260,6 +267,7 @@ const DecodingTypeField = Form.buildSelectField<CIDecodingType>({
   fieldProps: { label: "Decoding type" },
   inputProps: {
     resourceName: "decoding type",
+    searchName: "type",
     children: Task.selectItems(CI_DECODING_TYPE_NAMES),
   },
 });
@@ -367,6 +375,7 @@ const TerminalZField: FC<{ path: string; disabled?: boolean }> = ({
         allowNone
         disabled={disabled}
         resourceName="input terminal Z"
+        searchName="terminal"
       >
         {COUNTER_TERMINAL_ITEMS}
       </Select.Simple>

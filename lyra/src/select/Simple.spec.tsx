@@ -118,6 +118,21 @@ describe("Select.Simple", () => {
     expect(c.getByText("No Test Items found")).toBeTruthy();
   });
 
+  it("should name the search by searchName and the trigger by resourceName", () => {
+    const c = render(
+      <Select.Simple<string>
+        value=""
+        onChange={vi.fn()}
+        resourceName="resistance configuration"
+        searchName="configuration"
+      >
+        <Select.Item itemKey="1">First Item</Select.Item>
+      </Select.Simple>,
+    );
+    fireEvent.click(c.getByLabelText("Resistance configuration"));
+    expect(c.getByPlaceholderText("Search configurations...")).toBeTruthy();
+  });
+
   it("should render string empty content as text", () => {
     const c = render(
       <Select.Simple<string>
