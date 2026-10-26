@@ -25,8 +25,8 @@ export interface JoinerProps {
   breaker?: breaker.Config;
 }
 
-// The Core rejects a read of a calculation over virtual channels, and of its index, with
-// this error. They store no samples, so they join without history.
+// The Core rejects a read of a calculation over virtual channels, and of its index,
+// with this error. They store no samples, so they join without history.
 const NO_HISTORY_ERROR = "cannot open iterator on virtual channel";
 
 const isHistoryless = (e: unknown): boolean =>

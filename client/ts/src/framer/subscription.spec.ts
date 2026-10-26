@@ -225,7 +225,7 @@ describe("Feed.subscribe", () => {
       }
     });
 
-    it("should hold the samples a lagging writer stamps before the commit point", async () => {
+    it("should hold the samples of a writer that lags the commit point", async () => {
       // The newest written sample trails a block edge that the commit point passed.
       const edge = tileRange({
         level: RAW_LEVEL,
