@@ -2773,7 +2773,7 @@ var _ = Describe("Statement", func() {
 			)
 
 			DescribeTable("mixed integer types",
-				func(bCtx SpecContext, code string, expected string) {
+				func(bCtx SpecContext, code, expected string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.NewRoot(bCtx, block, NewRoot(nil))
 					statement.AnalyzeBlock(ctx)

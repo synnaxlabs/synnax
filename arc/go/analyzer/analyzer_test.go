@@ -373,31 +373,35 @@ var _ = Describe("Analyzer Integration", func() {
 			},
 		)
 
-		It("Should type a range() literal from the typed argument", func(bCtx SpecContext) {
-			ctx := analyzeAndExpect(bCtx, `
-			func test(n i32) i32 {
-				acc i32 := 0
-				for i := range(7, n) {
-					acc = acc + i
+		It(
+			"Should type a range() literal from the typed argument",
+			func(bCtx SpecContext) {
+				ctx := analyzeAndExpect(bCtx, `
+				func test(n i32) i32 {
+					acc i32 := 0
+					for i := range(7, n) {
+						acc = acc + i
+					}
+					return acc
 				}
-				return acc
-			}
-			`)
-			var lit parser.ILiteralContext
-			var find func(node antlr.Tree)
-			find = func(node antlr.Tree) {
-				if l, ok := node.(parser.ILiteralContext); ok && l.GetText() == "7" {
-					lit = l
-					return
+				`)
+				var lit parser.ILiteralContext
+				var find func(node antlr.Tree)
+				find = func(node antlr.Tree) {
+					l, ok := node.(parser.ILiteralContext)
+					if ok && l.GetText() == "7" {
+						lit = l
+						return
+					}
+					for _, child := range node.GetChildren() {
+						find(child)
+					}
 				}
-				for _, child := range node.GetChildren() {
-					find(child)
-				}
-			}
-			find(ctx.AST)
-			Expect(lit).ToNot(BeNil())
-			Expect(ctx.TypeMap[lit]).To(Equal(types.I32()))
-		})
+				find(ctx.AST)
+				Expect(lit).ToNot(BeNil())
+				Expect(ctx.TypeMap[lit]).To(Equal(types.I32()))
+			},
+		)
 
 		It(
 			"Should handle type unification in statement analysis",
