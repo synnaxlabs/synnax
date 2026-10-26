@@ -666,6 +666,34 @@ var _ = Describe("Delete", Ordered, func() {
 							).To(Succeed())
 						},
 					)
+					It(
+						"Should delete data after the preset end of an open writer",
+						func(ctx SpecContext) {
+							Expect(domain.Write(
+								ctx,
+								db,
+								(30 * telem.SecondTS).Range(35*telem.SecondTS),
+								[]byte{30, 31, 32, 33, 34},
+							)).To(Succeed())
+							w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+								Start: 10 * telem.SecondTS,
+								End:   20 * telem.SecondTS,
+							}))
+							Expect(db.Delete(
+								ctx,
+								(15 * telem.SecondTS).Range(25*telem.SecondTS),
+								fixedOffset(0),
+								fixedOffset(0),
+							)).To(MatchError(domain.ErrDeleteOverlapsWriter))
+							Expect(db.Delete(
+								ctx,
+								(30 * telem.SecondTS).Range(40*telem.SecondTS),
+								fixedOffset(0),
+								fixedOffset(0),
+							)).To(Succeed())
+							Expect(w.Close()).To(Succeed())
+						},
+					)
 				})
 
 				Context("Without Data", func() {

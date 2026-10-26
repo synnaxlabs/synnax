@@ -147,9 +147,8 @@ func Write(ctx context.Context, db *DB, tr telem.TimeRange, data []byte) (err er
 type Writer struct {
 	// internal is a TrackedWriteCloser used to write telemetry to FS.
 	internal io.TrackedWriteCloser
-	// starts holds the start of the domain the writer is writing, so that Delete cannot
-	// remove it.
-	starts *writerStarts
+	// domains holds the domain the writer is writing, so that Delete cannot remove it.
+	domains *writerDomains
 	// onClose is called when the writer is closed.
 	onClose func()
 	// idx is the underlying index for the database that stores locations of domains in
@@ -214,7 +213,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error)
 		fileSize:         telem.Size(size),
 		internal:         internal,
 		idx:              db.idx,
-		starts:           db.writerStarts,
+		domains:          db.writerDomains,
 		presetEnd:        !cfg.End.IsZero(),
 		started:          started,
 		lastIndexPersist: telem.Now(),
@@ -223,7 +222,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error)
 		},
 	}
 	if started {
-		w.starts.set(w, cfg.Start)
+		w.domains.set(w)
 	}
 	return w, nil
 }
@@ -251,17 +250,17 @@ func (w *Writer) SetStart(start telem.TimeStamp) error {
 	cfg := w.WriterConfig
 	cfg.Start = start
 	// Waits for a running Delete, which did not check this domain.
-	w.starts.Lock()
-	defer w.starts.Unlock()
+	w.domains.Lock()
+	defer w.domains.Unlock()
 	if w.idx.overlap(cfg.Domain()) {
 		return errors.Wrap(
 			NewRangeWriteConflictError(cfg.Domain(), w.idx.timeRange()),
 			"cannot start writer because there is already data in the writer's time range",
 		)
 	}
-	w.starts.starts[w] = start
 	w.Start = start
 	w.started = true
+	w.domains.unprotectedSet(w)
 	return nil
 }
 
@@ -366,7 +365,7 @@ func (w *Writer) commit(
 		w.internal = newInternalWriter
 		w.fileSize = telem.Size(newFileSize)
 		w.Start = commitEnd
-		w.starts.set(w, commitEnd)
+		w.domains.set(w)
 		w.prevCommit = 0
 		if w.OnRollover != nil {
 			w.OnRollover(commitEnd)
@@ -401,7 +400,7 @@ func (w *Writer) Close() error {
 	}
 	defer w.onClose()
 	w.closed = true
-	w.starts.remove(w)
+	w.domains.remove(w)
 	if err := w.internal.Close(); err != nil {
 		return err
 	}
@@ -436,30 +435,40 @@ func (w *Writer) validateCommitRange(end telem.TimeStamp, switchingFile bool) er
 	return nil
 }
 
-// writerStarts holds the start of the domain each open writer is writing. Delete holds
-// its lock while it runs.
-type writerStarts struct {
-	starts map[*Writer]telem.TimeStamp
+// writerDomains holds the domain each open writer can commit to. Delete holds its lock
+// while it runs.
+type writerDomains struct {
+	domains map[*Writer]telem.TimeRange
 	sync.Mutex
 }
 
-func (s *writerStarts) set(w *Writer, start telem.TimeStamp) {
-	s.Lock()
-	defer s.Unlock()
-	s.starts[w] = start
+func (d *writerDomains) set(w *Writer) {
+	d.Lock()
+	defer d.Unlock()
+	d.unprotectedSet(w)
 }
 
-func (s *writerStarts) remove(w *Writer) {
-	s.Lock()
-	defer s.Unlock()
-	delete(s.starts, w)
+// unprotectedSet records the domain from w's start to its preset end, or to the end of
+// time when w has none. The caller must hold the lock.
+func (d *writerDomains) unprotectedSet(w *Writer) {
+	end := telem.TimeStampMax
+	if w.presetEnd {
+		end = w.End
+	}
+	d.domains[w] = telem.TimeRange{Start: w.Start, End: end}
+}
+
+func (d *writerDomains) remove(w *Writer) {
+	d.Lock()
+	defer d.Unlock()
+	delete(d.domains, w)
 }
 
 // unprotectedOverlap returns whether tr reaches the domain of an open writer. The
 // caller must hold the lock.
-func (s *writerStarts) unprotectedOverlap(tr telem.TimeRange) bool {
-	for _, start := range s.starts {
-		if tr.End.After(start) {
+func (d *writerDomains) unprotectedOverlap(tr telem.TimeRange) bool {
+	for _, domain := range d.domains {
+		if tr.End.After(domain.Start) && tr.Start.Before(domain.End) {
 			return true
 		}
 	}
