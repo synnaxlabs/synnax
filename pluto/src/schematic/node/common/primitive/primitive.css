@@ -336,6 +336,10 @@
     .pluto-symbol-field__readout-value {
         flex: 1;
         min-width: 0;
+
+        /* The canvas draws the value into an empty cell, so the cell keeps one line of
+           height to center the text in. */
+        min-height: 1lh;
         color: var(--pluto-gray-l10);
         font-family: var(--pluto-code-font-family);
         font-variant-numeric: tabular-nums;
