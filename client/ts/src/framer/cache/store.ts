@@ -116,11 +116,25 @@ export class Store {
     this.counted.set(key, bytes);
     this.blocks.delete(key);
     this.blocks.set(key, block);
+    this.evictExcept(key);
+  }
+
+  /**
+   * Evicts least recently used blocks that are not held until the store fits its
+   * budget. Call it after a block stops being held.
+   */
+  evict(): void {
+    this.evictExcept(null);
+  }
+
+  private evictExcept(kept: string | null): void {
+    let visits = this.blocks.size;
     for (const [k, b] of this.blocks) {
-      if (this.bytes <= this.budget || k === key) break;
+      if (this.bytes <= this.budget || visits-- === 0) break;
+      if (k === kept) continue;
       if (!b.held) this.delete(k);
       else {
-        // A held block is in use, so it moves behind the key as the most recently used.
+        // A held block is in use, so it moves to the back as the most recently used.
         this.blocks.delete(k);
         this.blocks.set(k, b);
       }
