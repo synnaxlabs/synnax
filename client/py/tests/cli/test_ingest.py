@@ -20,6 +20,7 @@ from synnax.io import FACTORY
 from synnax.io.csv import CSVReader
 from synnax.synnax import Synnax
 from x.strings import random_name
+from x.telem import seconds_linspace
 
 from .data import DATA_DIR
 
@@ -62,7 +63,7 @@ class TestRowIngestionEngine:
     ) -> None:
         """Should write a file that holds its index without the start it was given"""
         idx, data = indexed_pair
-        client.write(1 * sy.TimeSpan.SECOND, {idx.key: [1 * sy.TimeSpan.SECOND]})
+        client.write(1 * sy.TimeSpan.SECOND, {idx.key: seconds_linspace(1, 1)})
         path = tmp_path / "with_index.csv"
         path.write_text(f"{idx.name},{data.name}\n10000000000,1.5\n11000000000,2.5\n")
         RowIngestionEngine(
@@ -87,12 +88,9 @@ class TestRowIngestionEngine:
     ) -> None:
         """Should align a file without its index to an index written before it"""
         idx, data = indexed_pair
-        client.write(
-            5 * sy.TimeSpan.SECOND,
-            {idx.key: [5 * sy.TimeSpan.SECOND, 6 * sy.TimeSpan.SECOND]},
-        )
+        client.write(5 * sy.TimeSpan.SECOND, {idx.key: seconds_linspace(5, 2)})
         path = tmp_path / "without_index.csv"
-        path.write_text(f"{idx.name},{data.name}\n0,1.5\n0,2.5\n")
+        path.write_text(f"{idx.name},{data.name}\n5000000000,1.5\n6000000000,2.5\n")
         RowIngestionEngine(
             client,
             CSVReader(path, keys=[data.name]),
