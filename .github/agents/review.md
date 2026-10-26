@@ -6,26 +6,9 @@ questions. Read `CLAUDE.md` and the guides it names for the code you touch.
 
 ## Find the threads
 
-Resolution state exists only in GraphQL:
-
-```bash
-gh api graphql -F p=<number> -f query='
-query($p: Int!) {
-  repository(owner: "synnaxlabs", name: "synnax") {
-    pullRequest(number: $p) {
-      author { login }
-      reviewThreads(first: 100) { nodes {
-        id isResolved isOutdated path line
-        comments(first: 100) { nodes { author { login __typename } body url } }
-      } }
-    }
-  }
-}'
-```
-
-A thread needs action when it is unresolved and its last comment is from Greptile
-(`greptile-apps`) or a person other than the pull request author. Skip threads where a
-bot already had the last word. An outdated thread may already be moot.
+Run `.github/scripts/review_threads.sh <number>`. It prints each thread that needs
+action as one JSON line: unresolved, with the last word from Greptile or a person other
+than the author. An outdated thread may already be moot.
 
 ## Decide each thread
 
@@ -43,13 +26,14 @@ failure.
 
 ## Land the work
 
-Write to GitHub only after the fixes are committed and pushed.
-
-1. Commit with a subject under 72 characters and push to the branch.
-2. Resolve a thread only when your code fixed it and its author is Greptile. Never
-   resolve a person's thread: reply with the commit that fixed it and leave it open.
-3. Post each reply with `addPullRequestReviewThreadReply`. Open every reply with
-   `*Agent reply.*` Keep it to a few sentences, with no em dashes.
+1. When you changed code, commit with a subject under 72 characters and push to the
+   branch before you write anything to GitHub. A round with only replies needs no
+   commit.
+2. Resolve a thread only when your pushed code fixed it and its author is Greptile.
+   Never resolve a person's thread: reply with the commit that fixed it and leave it
+   open.
+3. Reply to every other thread with `addPullRequestReviewThreadReply`. Open every reply
+   with `*Agent reply.*` Keep it to a few sentences, with no em dashes.
 4. When you pushed, comment `@greptileai review` on the pull request.
 
 Your last message becomes a comment on the pull request. Keep it short: the threads you

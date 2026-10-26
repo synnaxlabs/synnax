@@ -23,6 +23,17 @@ on:
 
 permissions: {}
 
+# Shared with the other agent workflows, so the gate and the agent of one run finish
+# before another agent run on the pull request starts. A newer queued run replaces an
+# older one, and sees every thread the older one would have. A run that will skip gets
+# its own group, so it never replaces a queued real one.
+concurrency:
+  group:
+    ${{ github.event.workflow_run.conclusion == 'success' &&
+    github.event.workflow_run.pull_requests[0] && format('agent-pr-{0}',
+    github.event.workflow_run.pull_requests[0].number) || github.run_id }}
+  cancel-in-progress: false
+
 jobs:
   gate:
     name: Gate
@@ -44,31 +55,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      # A thread needs action when it is open and its last word belongs to Greptile or
-      # a person other than the author. Agent replies come from other bots.
       - name: Count the threads that need action
         id: threads
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          COUNT=$(gh api graphql -F p="$PR" -f o="$GITHUB_REPOSITORY_OWNER" \
-            -f r="${GITHUB_REPOSITORY#*/}" -f query='
-            query($o: String!, $r: String!, $p: Int!) {
-              repository(owner: $o, name: $r) {
-                pullRequest(number: $p) {
-                  author { login }
-                  reviewThreads(first: 100) { nodes {
-                    isResolved
-                    comments(last: 1) { nodes { author { login __typename } } }
-                  } }
-                }
-              }
-            }' --jq '.data.repository.pullRequest as $pr
-              | [$pr.reviewThreads.nodes[] | select(.isResolved | not)
-                | .comments.nodes[0].author
-                | select(.login != $pr.author.login
-                  and (.__typename == "User" or .login == "greptile-apps"))]
-              | length')
+          COUNT=$(.github/scripts/review_threads.sh "$PR" | wc -l | tr -d ' ')
           echo "$COUNT threads need action"
           echo "count=$COUNT" >> "$GITHUB_OUTPUT"
 
@@ -99,10 +91,6 @@ jobs:
     name: Agent
     needs: gate
     if: needs.gate.outputs.run == 'true'
-    # Shared with the other agent workflows, so one agent at a time pushes to a branch.
-    concurrency:
-      group: agent-pr-${{ github.event.workflow_run.pull_requests[0].number }}
-      cancel-in-progress: false
     permissions:
       contents: write
       issues: write
