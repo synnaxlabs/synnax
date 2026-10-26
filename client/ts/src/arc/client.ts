@@ -52,11 +52,11 @@ const keysRequest = (keys: Key[]): RetrieveRequest => ({
 });
 
 // The table caches Arcs without their compiled program.
-const retrieveMultipleParamsZ = retrieveRequestZ.omit({ includeProgram: true });
-export type RetrieveMultipleParams = z.infer<typeof retrieveMultipleParamsZ>;
+const cachedRequestZ = retrieveRequestZ.omit({ includeProgram: true });
+export type RetrieveMultipleParams = z.infer<typeof cachedRequestZ>;
 const retrieveMultiParamsZ = z.union([
   keyZ.array().transform((keys): RetrieveMultipleParams => keysRequest(keys)),
-  retrieveMultipleParamsZ,
+  cachedRequestZ,
 ]);
 const createReqZ = z.object({ arcs: arcZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });

@@ -44,13 +44,13 @@ const keysRequest = (keys: Key[]): RetrieveRequest => ({
 
 // The Core knows nothing of parents, so the client resolves parent through the
 // ontology graph.
-const retrieveMultipleParamsZ = retrieveRequestZ.extend({
+const parentRequestZ = retrieveRequestZ.extend({
   parent: ontology.idZ.optional(),
 });
-export type RetrieveMultipleParams = z.infer<typeof retrieveMultipleParamsZ>;
+export type RetrieveMultipleParams = z.infer<typeof parentRequestZ>;
 const retrieveMultiParamsZ = z.union([
   keyZ.array().transform((keys): RetrieveMultipleParams => keysRequest(keys)),
-  retrieveMultipleParamsZ,
+  parentRequestZ,
 ]);
 const createReqZ = z.object({ panels: panelZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
