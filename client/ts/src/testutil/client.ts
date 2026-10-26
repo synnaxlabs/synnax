@@ -11,11 +11,11 @@ import { TimeSpan } from "@synnaxlabs/x";
 import { afterAll, onTestFinished, vi } from "vitest";
 
 import Synnax, { type SynnaxParams } from "@/client";
+import { TEST_CORE_ADDRESS } from "@/testutil/address";
 import { createSeverableProxy, type SeverableProxy } from "@/testutil/proxy";
 
 export const TEST_CLIENT_PARAMS: SynnaxParams = {
-  host: "localhost",
-  port: 9090,
+  ...TEST_CORE_ADDRESS,
   username: "synnax",
   password: "seldon",
   retry: {
