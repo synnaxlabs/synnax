@@ -70,7 +70,13 @@ export const createProvider = (
         // Opens its stream only on demand, so it costs nothing until a source uses it.
         const exactFeed = core.openFeed({ instrumentation: i.instrumentation, now });
         this.feeds = [feed, exactFeed];
-        client = { feed, exactFeed, channels: core.channels, now };
+        client = {
+          feed,
+          exactFeed,
+          channels: core.channels,
+          now,
+          readLatest: async (ch, n, tr) => await core.readLatest(ch, n, tr),
+        };
       }
       setContext(ctx, new Context(createFactory(client)));
     }

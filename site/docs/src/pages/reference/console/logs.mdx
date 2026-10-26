@@ -55,10 +55,12 @@ needs.
 
 ### Timestamps
 
-The log shows each sample with the time from the channel's index and sorts the samples
-of all channels by that time. A
-[virtual channel](/reference/concepts/channels#virtual-channels) has no index, so the
-log shows its samples with the time the Console received them.
+When you open a log, it shows the latest stored samples of its channels, then shows new
+samples as they arrive. The log shows each sample with the time from the channel's index
+and sorts the samples of all channels by that time. A
+[virtual channel](/reference/concepts/channels#virtual-channels) has no index and stores
+no samples, so the log shows only its new samples, with the time the Console received
+them.
 
 <Divider.Divider x />
 

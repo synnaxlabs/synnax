@@ -13,7 +13,7 @@ import {
   type framer,
   type status as cstatus,
 } from "@synnaxlabs/client";
-import { id, MultiSeries, Series, TimeStamp } from "@synnaxlabs/x";
+import { id, MultiSeries, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -71,6 +71,9 @@ describe("StreamMultiChannelLog", () => {
     });
 
     indexed: channel.Channel[] = [];
+    stored = new Map<channel.Key, MultiSeries>();
+    readF = vi.fn();
+    readGate: Promise<void> = Promise.resolve();
 
     channels = {
       retrieve: async (key: channel.Key | channel.Name): Promise<channel.Channel> => {
@@ -82,6 +85,16 @@ describe("StreamMultiChannelLog", () => {
         if (key === this.channelJSON.key) return this.channelJSON;
         throw new Error(`Channel ${key} not found`);
       },
+    };
+
+    readLatest = async (
+      key: channel.Key,
+      n: number,
+      tr: TimeRange,
+    ): Promise<MultiSeries> => {
+      this.readF(tr, key, n);
+      await this.readGate;
+      return this.stored.get(key) ?? new MultiSeries([]);
     };
 
     feed = {
@@ -937,6 +950,196 @@ describe("StreamMultiChannelLog", () => {
         ]),
       );
       expect(log.value().map((e) => e.value)).toEqual(["x", "y", "z"]);
+    });
+
+    it("should not repeat stored samples the stream delivers with leading alignments", async () => {
+      c.stored.set(IDX, new MultiSeries([times([80, 81], 0n)]));
+      c.stored.set(DATA, new MultiSeries([strings(["x", "y"], 0n)]));
+      const { log } = create();
+      await waitForResolve(log);
+      // Cesium streams unpersisted samples in a reserved domain past every stored one.
+      const leading = (BigInt(2 ** 32 - 1 - 1e6) << 32n) | 0n;
+      c.streamHandler?.(
+        new Map([
+          [IDX, new MultiSeries([times([80, 81, 82], leading)])],
+          [DATA, new MultiSeries([strings(["x", "y", "z"], leading)])],
+        ]),
+      );
+      expect(log.value().map((e) => e.value)).toEqual(["x", "y", "z"]);
+    });
+
+    it("should read the latest stored samples", async () => {
+      c.stored.set(IDX, new MultiSeries([times([80, 81], 0n)]));
+      c.stored.set(DATA, new MultiSeries([strings(["x", "y"], 0n)]));
+      const { log } = create();
+      await waitForResolve(log);
+      expect(log.value().map((e) => e.value)).toEqual(["x", "y"]);
+      expect(seconds(log)).toEqual([80, 81]);
+      const [tr] = c.readF.mock.calls[0] as [TimeRange];
+      expect(tr).toEqual(TimeRange.MAX);
+    });
+
+    it("should not repeat samples the stream delivered before the read finished", async () => {
+      let release = (): void => {};
+      c.readGate = new Promise((resolve) => (release = resolve));
+      c.stored.set(IDX, new MultiSeries([times([80, 81], 0n)]));
+      c.stored.set(DATA, new MultiSeries([strings(["x", "y"], 0n)]));
+      const { log } = create();
+      log.value();
+      await expect.poll(() => c.streamHandler != null).toBe(true);
+      c.streamHandler?.(
+        new Map([
+          [IDX, new MultiSeries([times([81, 82], 1n)])],
+          [DATA, new MultiSeries([strings(["y", "z"], 1n)])],
+        ]),
+      );
+      const handleChange = vi.fn();
+      log.onChange(handleChange);
+      release();
+      await expect.poll(() => handleChange.mock.calls.length > 0).toBe(true);
+      expect(log.value().map((e) => e.value)).toEqual(["x", "y", "z"]);
+    });
+
+    it("should not repeat stored samples the stream replays", async () => {
+      c.stored.set(IDX, new MultiSeries([times([80, 81], 0n)]));
+      c.stored.set(DATA, new MultiSeries([strings(["x", "y"], 0n)]));
+      const { log } = create();
+      await waitForResolve(log);
+      c.streamHandler?.(
+        new Map([
+          [IDX, new MultiSeries([times([80, 81, 82], 0n)])],
+          [DATA, new MultiSeries([strings(["x", "y", "z"], 0n)])],
+        ]),
+      );
+      expect(log.value().map((e) => e.value)).toEqual(["x", "y", "z"]);
+    });
+
+    it("should read stored samples only for a channel added later", async () => {
+      const { log } = create();
+      await waitForResolve(log);
+      expect(c.readF.mock.calls.map(([, key]) => key)).toEqual([DATA]);
+      c.readF.mockClear();
+      log.setChannels([DATA, DATA_2]);
+      await waitForResolve(log);
+      expect(c.readF.mock.calls.map(([, key]) => key)).toEqual([DATA_2]);
+    });
+
+    it("should not read stored samples for a channel without an index", async () => {
+      const { log } = create({ channels: [c.channelA.key] });
+      await waitForResolve(log);
+      expect(c.readF).not.toHaveBeenCalled();
+    });
+
+    it("should report a failed read and keep streaming", async () => {
+      c.readGate = Promise.reject(new Error("read failed"));
+      c.readGate.catch(() => {});
+      const { log, statuses } = create();
+      await waitForResolve(log);
+      expect(statuses.map((s) => s.message)).toEqual(["Failed to read log channels"]);
+      c.streamHandler?.(
+        new Map([
+          [IDX, new MultiSeries([times([90], 0n)])],
+          [DATA, new MultiSeries([strings(["a"], 0n)])],
+        ]),
+      );
+      expect(log.value().map((e) => e.value)).toEqual(["a"]);
+    });
+
+    it("should drop a stored read that finishes after all channels are removed", async () => {
+      let release = (): void => {};
+      c.readGate = new Promise((resolve) => (release = resolve));
+      c.stored.set(IDX, new MultiSeries([times([80], 0n)]));
+      c.stored.set(DATA, new MultiSeries([strings(["x"], 0n)]));
+      const { log } = create();
+      log.value();
+      await expect.poll(() => c.readF.mock.calls.length).toBe(1);
+      log.setChannels([]);
+      release();
+      // A macrotask runs after every microtask of the pending read.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(log.value()).toEqual([]);
+    });
+
+    it("should not report the failure of a read a channel change replaced", async () => {
+      let reject = (_: Error): void => {};
+      c.readGate = new Promise((_, rej) => (reject = rej));
+      c.readGate.catch(() => {});
+      const { log, statuses } = create();
+      log.value();
+      await expect.poll(() => c.readF.mock.calls.length).toBe(1);
+      c.readGate = Promise.resolve();
+      log.setChannels([DATA, DATA_2]);
+      log.value();
+      await expect.poll(() => c.readF.mock.calls.length).toBe(3);
+      reject(new Error("read failed"));
+      // A macrotask runs after every microtask of the rejected read.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(statuses).toEqual([]);
+    });
+
+    it("should read a kept channel's history when the channels change mid-read", async () => {
+      let release = (): void => {};
+      c.readGate = new Promise((resolve) => (release = resolve));
+      c.stored.set(IDX, new MultiSeries([times([80], 0n)]));
+      c.stored.set(DATA, new MultiSeries([strings(["x"], 0n)]));
+      const { log } = create();
+      log.value();
+      await expect.poll(() => c.readF.mock.calls.length).toBe(1);
+      log.setChannels([DATA, DATA_2]);
+      log.value();
+      release();
+      await expect.poll(() => log.value().map((e) => e.value)).toEqual(["x"]);
+    });
+
+    it("should read at most the entry limit with the index samples to time it", async () => {
+      const index = [70, 71, 72, 80];
+      c.readLatest = async (key, n, tr) => {
+        c.readF(tr, key, n);
+        if (key === DATA) return new MultiSeries([strings(["x"], 0n)]);
+        const from = Math.max(0, index.length - n);
+        return new MultiSeries([times(index.slice(from), BigInt(from))]);
+      };
+      const log = new StreamMultiChannelLog(
+        c,
+        { channels: [DATA] },
+        undefined,
+        () => NOW,
+        1,
+      );
+      await waitForResolve(log);
+      expect(log.value().map((e) => e.value)).toEqual(["x"]);
+      expect(seconds(log)).toEqual([70]);
+      expect(c.readF.mock.calls.map(([, key, n]) => [key, n])).toEqual([
+        [DATA, 1],
+        [IDX, 1],
+        [IDX, 2],
+        [IDX, 4],
+      ]);
+    });
+
+    it("should stop reading the index at four times the data read", async () => {
+      const index = [70, 71, 72, 73, 74, 75, 76, 77, 78, 80];
+      c.readLatest = async (key, n, tr) => {
+        c.readF(tr, key, n);
+        if (key === DATA) return new MultiSeries([strings(["x"], 0n)]);
+        const from = Math.max(0, index.length - n);
+        return new MultiSeries([times(index.slice(from), BigInt(from))]);
+      };
+      const log = new StreamMultiChannelLog(
+        c,
+        { channels: [DATA] },
+        undefined,
+        () => NOW,
+        1,
+      );
+      await waitForResolve(log);
+      expect(log.value()).toEqual([]);
+      expect(c.readF.mock.calls.map(([, key, n]) => [key, n])).toEqual([
+        [DATA, 1],
+        [IDX, 1],
+        [IDX, 2],
+        [IDX, 4],
+      ]);
     });
 
     it("should sort the entries of several channels by sample time", async () => {

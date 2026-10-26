@@ -63,6 +63,8 @@ export interface Client {
    * sources that need exact sample times.
    */
   exactFeed: Pick<framer.Feed, "stream">;
+  /** Reads the latest n samples of the channel within tr, bypassing the feed. */
+  readLatest: (ch: channel.Key, n: number, tr: TimeRange) => Promise<MultiSeries>;
   channels: {
     retrieve: (ch: channel.Key | channel.Name) => Promise<channel.Channel>;
   };

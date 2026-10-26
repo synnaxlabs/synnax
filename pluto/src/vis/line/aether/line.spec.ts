@@ -878,6 +878,7 @@ describe("line", () => {
     const client: telem.Client = {
       feed,
       exactFeed: feed,
+      readLatest: async (ch, n, tr) => await synnax.readLatest(ch, n, tr),
       channels: synnax.channels,
       now: () => TimeStamp.now(),
     };

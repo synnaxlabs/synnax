@@ -100,6 +100,7 @@ describe("telem.Provider", () => {
       feed: core.openFeed.mock.results[0].value,
       exactFeed: core.openFeed.mock.results[1].value,
       channels: core.channels,
+      readLatest: expect.any(Function),
       now: expect.any(Function),
     });
   });
@@ -140,6 +141,7 @@ describe("telem.Provider", () => {
       feed: core.openFeed.mock.results[0].value,
       exactFeed: core.openFeed.mock.results[1].value,
       channels: core.channels,
+      readLatest: expect.any(Function),
       now: expect.any(Function),
     });
   });

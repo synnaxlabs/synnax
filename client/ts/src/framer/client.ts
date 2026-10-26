@@ -253,30 +253,41 @@ export class Client {
   async readLatest(
     channel: channel.Key | channel.Name,
     n: number,
+    tr?: CrudeTimeRange,
   ): Promise<MultiSeries>;
 
-  async readLatest(channels: channel.Params, n: number): Promise<Frame>;
+  async readLatest(
+    channels: channel.Params,
+    n: number,
+    tr?: CrudeTimeRange,
+  ): Promise<Frame>;
 
   /**
    * Reads the latest n samples from the given channel(s). If fewer than n samples are
    * available, returns only the samples that exist.
    * @param channels - A single channel key/name or an array of channel keys/names.
    * @param n - The maximum number of samples to read. Defaults to 1.
+   * @param tr - The time range to read from. Defaults to all time.
    * @returns A MultiSeries when a single channel is provided, or a Frame when multiple
    * channels are provided.
    */
   async readLatest(
     channels: channel.Params,
     n: number = 1,
+    tr: CrudeTimeRange = TimeRange.MAX,
   ): Promise<MultiSeries | Frame> {
     const { single } = analyzeParams(channels);
-    const fr = await this.readLatestNFrame(channels, n);
+    const fr = await this.readLatestNFrame(channels, n, tr);
     if (single) return fr.get(channels as channel.Key | channel.Name);
     return fr;
   }
 
-  private async readLatestNFrame(channels: channel.Params, n: number): Promise<Frame> {
-    const i = await this.openIterator(TimeRange.MAX, channels, { chunkSize: n });
+  private async readLatestNFrame(
+    channels: channel.Params,
+    n: number,
+    tr: CrudeTimeRange,
+  ): Promise<Frame> {
+    const i = await this.openIterator(tr, channels, { chunkSize: n });
     const frame = new Frame();
     if (n > 0)
       try {

@@ -12,7 +12,9 @@ import {
   compare,
   DataType,
   type destructor,
+  type MultiSeries,
   type Series,
+  TimeRange,
   TimeStamp,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -28,6 +30,10 @@ import { type Client, DISCONNECTED_STATUS } from "@/telem/aether/remote";
 import { AbstractSource } from "@/telem/aether/telem";
 
 const MAX_ENTRIES = 100_000;
+
+// A sparse channel on a dense index needs many index samples to time its own. The index
+// read stops at this multiple of the data read, and the untimed samples are left out.
+const MAX_INDEX_READ_FACTOR = 4;
 
 // A data allocation and its index allocation can arrive in different stream callbacks,
 // so a few recent index allocations stay in reach.
@@ -50,10 +56,15 @@ interface ChannelMeta {
   pending: Series[];
   readCursor: number;
   skipInitialBatch: boolean;
+  // Whether the log holds the channel's stored samples.
+  historyRead: boolean;
   indexBuffers: Series[];
   // The latest sample time in the log. A streamed sample at or before it is a
-  // duplicate that a restarted stream replays.
+  // duplicate. Sample time is the one identity the stream and stored reads share.
   highWater: bigint | null;
+  // The first sample time the stream delivered. A stored sample at or after it is a
+  // duplicate.
+  streamStart: bigint | null;
   // Whether the log has reported dropping samples whose index samples never arrived.
   untimedDropReported: boolean;
 }
@@ -64,8 +75,9 @@ interface PushResult {
 }
 
 /**
- * Streams the samples of several channels into one list, sorted by sample time. The
- * list keeps the newest maxEntries entries.
+ * Shows the samples of several channels in one list, sorted by sample time. It reads the
+ * latest stored samples, then streams new ones. The list keeps the newest maxEntries
+ * entries.
  */
 export class StreamMultiChannelLog
   extends AbstractSource<typeof streamMultiChannelLogPropsZ>
@@ -136,12 +148,13 @@ export class StreamMultiChannelLog
     const generation = ++this.readGeneration;
     this.stopStreaming?.();
     this.stopStreaming = undefined;
+    let unread: ChannelMeta[];
     try {
       const channels = await Promise.all(
         this._channels.map(async (ch) => await client.channels.retrieve(ch)),
       );
       if (generation !== this.readGeneration) return;
-      this.updateChannelMeta(channels);
+      unread = this.updateChannelMeta(channels);
       this.stream(client);
     } catch (e) {
       if (generation !== this.readGeneration) return;
@@ -149,11 +162,34 @@ export class StreamMultiChannelLog
       this.onStatusChange?.(cstatus.fromException(e, "Failed to stream log channels"));
       return;
     }
+    // The stream opens first, so a slow read never delays live entries.
+    try {
+      const stored = await Promise.all(
+        unread
+          .filter(({ index }) => index !== 0)
+          .map(async (meta) => ({
+            meta,
+            ...(await readLatest(client, meta, this.maxEntries)),
+          })),
+      );
+      if (generation !== this.readGeneration) return;
+      const entries = stored.flatMap(({ meta, data, index }) => {
+        meta.historyRead = true;
+        return this.storedEntries(meta, data, index);
+      });
+      // One stable sort instead of an insert per entry.
+      if (entries.length > 0) this.entries = [...this.entries, ...entries].sort(byTime);
+      this.gcEntries();
+    } catch (e) {
+      if (generation !== this.readGeneration) return;
+      this.onStatusChange?.(cstatus.fromException(e, "Failed to read log channels"));
+    }
     this.notify();
   }
 
-  // Keeps the state of the channels the log already shows.
-  private updateChannelMeta(channels: channel.Channel[]): void {
+  // Keeps the state of the channels the log already shows, and returns the channels
+  // whose stored samples it has not read.
+  private updateChannelMeta(channels: channel.Channel[]): ChannelMeta[] {
     const prev = this.channelMeta;
     const newKeys = new Set(channels.map((ch) => ch.key));
     const removedKeys = new Set([...prev.keys()].filter((k) => !newKeys.has(k)));
@@ -163,21 +199,27 @@ export class StreamMultiChannelLog
     // an index cannot detect the replay by sample time, so it skips the first batch.
     const isRestart = prev.size > 0;
     this.channelMeta = new Map();
+    const unread: ChannelMeta[] = [];
     for (const ch of channels) {
       const existing = prev.get(ch.key);
       const index = channelIndex(ch);
-      this.channelMeta.set(ch.key, {
+      const meta: ChannelMeta = {
         key: ch.key,
         dataType: new DataType(ch.dataType),
         index,
         pending: [],
         readCursor: 0,
         skipInitialBatch: isRestart && index === 0,
+        historyRead: existing?.historyRead ?? false,
         indexBuffers: [],
         highWater: existing?.highWater ?? null,
+        streamStart: existing?.streamStart ?? null,
         untimedDropReported: existing?.untimedDropReported ?? false,
-      });
+      };
+      this.channelMeta.set(ch.key, meta);
+      if (!meta.historyRead) unread.push(meta);
     }
+    return unread;
   }
 
   private stream(client: Client): void {
@@ -272,9 +314,28 @@ export class StreamMultiChannelLog
       }
       if (meta.highWater != null && time <= meta.highWater) continue;
       meta.highWater = time;
+      meta.streamStart ??= time;
       pushed += this.insert(meta, buf, i, time);
     }
     return { pushed, cursor: buf.length };
+  }
+
+  // Returns the entries of the stored samples the stream has not delivered.
+  private storedEntries(
+    meta: ChannelMeta,
+    data: MultiSeries,
+    index: MultiSeries,
+  ): LogEntry[] {
+    const entries: LogEntry[] = [];
+    for (const s of data.series)
+      for (let i = 0; i < s.length; i++) {
+        const time = index.atAlignment(sampleAlignment(s, i)) as bigint | undefined;
+        if (time == null) continue;
+        if (meta.streamStart != null && time >= meta.streamStart) continue;
+        entries.push(...toEntries(meta, s, i, time));
+        if (meta.highWater == null || time > meta.highWater) meta.highWater = time;
+      }
+    return entries;
   }
 
   // Inserts sample i of buf at its place in time order. Returns the number of entries
@@ -330,6 +391,33 @@ const toEntries = (
     value: line,
     continuation: j > 0,
   }));
+};
+
+// Reads the latest n stored samples of the channel, and index samples to time them. The
+// index can hold more samples than the channel, so its read doubles until it reaches
+// the first data sample or MAX_INDEX_READ_FACTOR times n.
+const readLatest = async (
+  client: Client,
+  meta: ChannelMeta,
+  n: number,
+): Promise<{ data: MultiSeries; index: MultiSeries }> => {
+  const data = await client.readLatest(meta.key, n, TimeRange.MAX);
+  if (meta.index === meta.key || data.series.length === 0) return { data, index: data };
+  const first = data.series[0].alignment;
+  for (let m = n; ; m *= 2) {
+    const index = await client.readLatest(meta.index, m, TimeRange.MAX);
+    if (
+      index.length < m ||
+      index.series[0].alignment <= first ||
+      m >= n * MAX_INDEX_READ_FACTOR
+    )
+      return { data, index };
+  }
+};
+
+const byTime = (a: LogEntry, b: LogEntry): number => {
+  const [ta, tb] = [a.timestamp.valueOf(), b.timestamp.valueOf()];
+  return ta < tb ? -1 : ta > tb ? 1 : 0;
 };
 
 const sampleAlignment = (s: Series, i: number): bigint =>

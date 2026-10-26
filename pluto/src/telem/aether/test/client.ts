@@ -9,6 +9,7 @@
 
 import { type framer } from "@synnaxlabs/client";
 import { type SyntheticCore } from "@synnaxlabs/client/testutil";
+import { MultiSeries } from "@synnaxlabs/x";
 
 import { GL_TRANSFORM } from "@/telem/aether/convertSeries";
 import { type Client } from "@/telem/aether/remote";
@@ -20,6 +21,7 @@ import { type Client } from "@/telem/aether/remote";
 export const createClient = (core: SyntheticCore): Client & { feed: framer.Feed } => ({
   feed: core.openFeed({ transform: GL_TRANSFORM }),
   exactFeed: core.openFeed(),
+  readLatest: async () => new MultiSeries([]),
   channels: core.channels,
   now: core.now,
 });
