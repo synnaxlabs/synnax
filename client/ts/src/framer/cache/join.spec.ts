@@ -159,6 +159,50 @@ describe("Joins", () => {
       expect(store.raw(INDEX, BLOCK).coveredEnd).toEqual(claimed);
     });
 
+    it("should place streamed samples a data read missed that its index read held", () => {
+      const { store, joins } = createJoins();
+      store
+        .raw(INDEX, BLOCK)
+        .fill(
+          [createIndex([1, 2, 3, 4, 5, 6], alignmentOf(BLOCK, 0))],
+          at(6).add(1),
+          6,
+        );
+      store
+        .raw(DATA, BLOCK)
+        .fill(
+          [createData([10, 20, 30, 40], alignmentOf(BLOCK, 0), spanOf([1, 2, 3, 4]))],
+          at(4).add(1),
+          4,
+        );
+      joins.write(
+        createFrame(
+          [INDEX, createIndex([5, 6, 7, 8], 10n)],
+          [DATA, createData([50, 60, 70, 80], 10n)],
+        ),
+      );
+      expect(joins.landed(INDEX, waitsOf(joins, INDEX, DATA)).size).toBe(0);
+      expect(joins.bounced(DATA)).toBe(false);
+      expect(streamed(store, DATA)).toEqual([50, 60, 70, 80]);
+      expect(store.leadingBuffer(DATA)?.alignment).toBe(alignmentOf(BLOCK, 4));
+    });
+
+    it("should give fresh samples the offsets after the newest sample a block holds", () => {
+      const { store, joins } = createJoins();
+      // The read holds samples 5 and 6 past its coverage, which ends at sample 4.
+      store
+        .raw(INDEX, BLOCK)
+        .fill(
+          [createIndex([1, 2, 3, 4, 5, 6], alignmentOf(BLOCK, 0))],
+          at(4).add(1),
+          4,
+        );
+      joins.write(createFrame([INDEX, createIndex([5, 6, 7, 8], 10n)]));
+      joins.landed(INDEX, waitsOf(joins, INDEX));
+      expect(store.leadingBuffer(INDEX)?.length).toBe(2);
+      expect(store.leadingBuffer(INDEX)?.alignment).toBe(alignmentOf(BLOCK, 6));
+    });
+
     it("should send back a member whose read missed samples before the stream", () => {
       const { store, joins } = createJoins();
       const fetched = spanOf([1, 2, 3, 4]);
