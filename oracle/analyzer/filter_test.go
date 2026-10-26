@@ -362,6 +362,12 @@ var _ = Describe("Filter definitions", func() {
 			Entry("a line with a default",
 				"Where filter Thing {\n flag bool = true\n}",
 				"filter Where: line flag cannot have a default"),
+			Entry("a line that removes a domain",
+				"Where filter Thing {\n name -@doc\n}",
+				"filter Where: line name cannot remove domains"),
+			Entry("a filter named like a type",
+				"Thing filter Thing {\n key\n}",
+				"duplicate type definition: test.Thing"),
 			Entry("a reserved line",
 				"Where filter Thing {\n and\n}",
 				`filter Where: "and" is reserved for the tree`),
@@ -669,6 +675,29 @@ var _ = Describe("Filter definitions", func() {
 				"filter Where: the response type test.Kind must be a struct or a union",
 			))
 		})
+
+		DescribeTable("Should reject an invalid @response",
+			func(ctx SpecContext, response, message string) {
+				_, diag := analyzer.AnalyzeSource(ctx, `
+					import "schemas/x/filter"
+
+					Thing struct {
+						key uuid { @key }
+					}
+					Where filter Thing {
+						key
+
+						`+response+`
+					}
+				`, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(message))
+			},
+			Entry("without a type", "@response",
+				"filter Where: @response takes `type <Type>`"),
+			Entry("with an unknown type", "@response type Missing",
+				"filter Where: unknown response type Missing"),
+		)
 
 		It("Should reject a derived name the schema already declares", func(
 			ctx SpecContext,
