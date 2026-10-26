@@ -20,7 +20,9 @@ from alamos.noop import noop as noopd
 class Logger:
     """
     Logger wraps Python's logging implementation to provide an opinionated formatter and
-    no-op logging functionality.
+    no-op logging functionality. Each child logger extends the name of its base logger
+    with its instrumentation key, so a record's logger name carries the instrumentation
+    path.
     """
 
     noop: bool = True
@@ -59,7 +61,8 @@ class Logger:
             self.base.error(msg, *args, **kwargs)
 
     def child_(self, /, meta: InstrumentationMeta) -> Logger:
-        logger = Logger(noop=self.noop, base=self.base)
+        base = None if self.base is None else self.base.getChild(meta.key)
+        logger = Logger(noop=self.noop, base=base)
         logger.meta = meta
         return logger
 
