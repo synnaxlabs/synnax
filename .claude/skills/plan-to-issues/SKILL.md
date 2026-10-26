@@ -45,7 +45,7 @@ every issue here. Use the Linear MCP tools or the Linear API.
 
 ## Description template
 
-The dispatcher parses the three items under `## Agent`. Keep their form exactly.
+The dispatcher parses the two items under `## Agent`. Keep their form exactly.
 
 ```markdown
 ## Why
@@ -66,7 +66,6 @@ Phase N of
 
 - RFC: `docs/tech/rfc/NNNN-slug.md`
 - Phase: N
-- Tier: review/<tier>
 ```
 
 ## Rules
