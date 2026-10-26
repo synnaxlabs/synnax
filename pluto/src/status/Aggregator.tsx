@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Status as Base } from "@synnaxlabs/lyra/status";
+import { deep } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useEffect, useRef } from "react";
 
 import { Aether } from "@/aether";
@@ -22,13 +23,14 @@ const WorkerBridge = ({ children }: PropsWithChildren): ReactElement => {
     schema: status.aggregatorStateZ,
     initialState: { statuses: [] },
   });
-  // The worker keeps a short tail of what it reported. Only keys not seen before are
-  // forwarded, so trimming that tail never replays a status.
-  const seen = useRef(new Set<string>());
+  // The worker keeps a short tail of what it reported, one status per key. Each status
+  // is forwarded once, even when it replaces an earlier status with the same key, so
+  // trimming that tail never replays one.
+  const forwarded = useRef(new Map<string, Base.Status>());
   useEffect(() => {
     for (const stat of statuses) {
-      if (seen.current.has(stat.key)) continue;
-      seen.current.add(stat.key);
+      if (deep.equal(forwarded.current.get(stat.key), stat)) continue;
+      forwarded.current.set(stat.key, stat);
       add(stat);
     }
     if (statuses.length > WORKER_HISTORY)

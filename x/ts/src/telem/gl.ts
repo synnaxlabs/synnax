@@ -9,20 +9,32 @@
 
 import { z } from "zod";
 
+/** The WebGL context a series buffers its data in. */
 export interface GLBufferController {
-  createBuffer: () => WebGLBuffer | null;
-  bufferData: ((target: number, data: AllowSharedBufferSource, usage: number) => void) &
-    ((target: number, size: number, usage: number) => void);
-  bufferSubData: (
-    target: number,
-    offset: number,
-    data: AllowSharedBufferSource,
-  ) => void;
-  bindBuffer: (target: number, buffer: WebGLBuffer | null) => void;
-  deleteBuffer: (buffer: WebGLBuffer | null) => void;
-  ARRAY_BUFFER: number;
-  STATIC_DRAW: number;
-  DYNAMIC_DRAW: number;
+  readonly gl: {
+    createBuffer: () => WebGLBuffer | null;
+    bufferData: ((
+      target: number,
+      data: AllowSharedBufferSource,
+      usage: number,
+    ) => void) &
+      ((target: number, size: number, usage: number) => void);
+    bufferSubData: (
+      target: number,
+      offset: number,
+      data: AllowSharedBufferSource,
+    ) => void;
+    bindBuffer: (target: number, buffer: WebGLBuffer | null) => void;
+    deleteBuffer: (buffer: WebGLBuffer | null) => void;
+    ARRAY_BUFFER: number;
+    STATIC_DRAW: number;
+    DYNAMIC_DRAW: number;
+  };
+  /**
+   * Increments each time the context is restored after a loss. A restore destroys every
+   * buffer made in an earlier generation.
+   */
+  readonly generation: number;
 }
 
 export type GLBufferUsage = "static" | "dynamic";

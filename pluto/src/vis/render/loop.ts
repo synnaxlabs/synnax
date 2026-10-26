@@ -75,7 +75,7 @@ interface LoopParams {
  */
 export class Loop {
   /** Stores the current requests for rendering. */
-  private readonly requests = new Map<string, Request>();
+  private requests = new Map<string, Request>();
   /** Stores render cleanup functions for clearing canvases and other resources. */
   private readonly cleanup = new Map<string, Cleanup>();
   /** A callback to run after each render call. */
@@ -84,6 +84,11 @@ export class Loop {
   private readonly instrumentation: alamos.Instrumentation;
   /** A function to add status to the status bar. */
   private readonly handleError: status.ErrorHandler;
+  /**
+   * While true, the loop holds back afterRender and every request that draws on the GL
+   * canvas. Set it while the WebGL context is lost.
+   */
+  glLost = false;
 
   constructor({
     afterRender,
@@ -117,12 +122,17 @@ export class Loop {
 
   /** Execute the render. */
   private render(): void {
-    const { requests } = this;
-    if (requests.size === 0) return;
+    if (this.requests.size === 0) return;
+    const held = new Map<string, Request>();
+    if (this.glLost)
+      this.requests.forEach((req, key) => {
+        if (req.canvases.includes("gl")) held.set(key, req);
+      });
+    held.forEach((_, key) => this.requests.delete(key));
     this.runCleanupsSync();
     this.renderSync();
-    this.requests.clear();
-    this.afterRender?.();
+    this.requests = held;
+    if (!this.glLost) this.afterRender?.();
   }
 
   private runCleanupsSync(): void {
