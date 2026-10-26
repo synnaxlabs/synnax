@@ -1201,6 +1201,36 @@ describe("Feed.subscribe", () => {
       }
     });
 
+    it.each([
+      ["raw samples", Infinity],
+      ["tiles", 100],
+    ])("should land %s while changes elsewhere in history land", async (_, count) => {
+      const core = createCore({ now: START.add(TimeSpan.hours(10)) });
+      const key = core.data[0].key;
+      const feed = core.openFeed({
+        ...OPTIONS,
+        readRemote: async (tr, keys, reduction) => {
+          await sleep.sleep(TimeSpan.milliseconds(20));
+          return core.read(tr, keys, reduction);
+        },
+      });
+      const sub = feed.subscribe({
+        keys: [key],
+        window,
+        limit: { variant: "points", count, aggregation: "min_max" },
+      });
+      const far = START.add(TimeSpan.hours(9)).spanRange(TimeSpan.seconds(1));
+      await expect.poll(() => core.streams(core.historyChange.key), POLL).toBe(true);
+      const churn = setInterval(() => core.rewrite(key, far, 0), 10);
+      try {
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+      } finally {
+        clearInterval(churn);
+        sub.close();
+        await feed.close();
+      }
+    });
+
     it("should read a tile again when a change lands during its fetch", async () => {
       const core = createCore();
       const key = core.data[0].key;

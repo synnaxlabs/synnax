@@ -32,7 +32,7 @@ import {
   rawKey,
   split,
 } from "@/framer/cache/block";
-import { indexes } from "@/framer/cache/grid";
+import { indexes, tileRange } from "@/framer/cache/grid";
 import { type Store } from "@/framer/cache/store";
 import { type Frame } from "@/framer/frame";
 
@@ -264,7 +264,6 @@ export class Reader {
     });
     const channels = [...requested.keys()];
     const refetch = new Set<Request>();
-    const versions = new Map<channel.Key, number>();
     const payloads = await retrieveChannels(channels);
     if (this.closed) return refetch;
     // indexOf holds the index of each channel read, or 0 for a channel with none.
@@ -278,10 +277,24 @@ export class Reader {
     channels.forEach((ch) => {
       if (!indexOf.has(ch)) throw new NotFoundError(`channel ${ch} not found`);
     });
-    indexOf.forEach((_, k) => versions.set(k, store.version(k)));
-    const frame = await readRemote(tr, [...indexOf.keys()]);
+    // rewritten holds the channels whose history changed over the read's blocks while
+    // it ran, and null when every channel's did.
+    const rewritten = new Set<channel.Key | null>();
+    const span = new TimeRange(
+      tileRange({ level: RAW_LEVEL, index: first }).start,
+      tr.end,
+    );
+    const stopWatching = store.onInvalidate((ch, changed) => {
+      if (changed.overlapsWith(span)) rewritten.add(ch);
+    });
+    let frame: Frame;
+    try {
+      frame = await readRemote(tr, [...indexOf.keys()]);
+    } finally {
+      stopWatching();
+    }
     if (this.closed) return refetch;
-    const rewritten = (k: channel.Key): boolean => store.version(k) !== versions.get(k);
+    const stale = (k: channel.Key): boolean => rewritten.has(null) || rewritten.has(k);
     const grouped = new Map<channel.Key, Series[]>();
     frame.forEach((k, s) => {
       const key = k as channel.Key;
@@ -310,11 +323,11 @@ export class Reader {
         (end, s) => TimeStamp.max(end, s.timeRange.end),
         TimeStamp.ZERO,
       );
-      const stale = rewritten(key) || (idx !== 0 && rewritten(idx));
+      const rewrote = stale(key) || (idx !== 0 && stale(idx));
       targets.forEach((r) => {
         const { block } = r;
         if (block.joined) return;
-        if (stale) {
+        if (rewrote) {
           if (requested.has(key)) refetch.add(r);
           return;
         }

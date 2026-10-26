@@ -106,8 +106,6 @@ export class Store {
   // signalsSince is when the stream last acked the history signals, or null when it
   // does not carry them.
   private signalsSince: TimeStamp | null = null;
-  // versions counts the invalidations of each channel, and of every channel under null.
-  private readonly versions = new Map<channel.Key | null, number>();
   private readonly invalidateHandlers = new Set<InvalidateHandler>();
 
   constructor({
@@ -227,19 +225,10 @@ export class Store {
   }
 
   /**
-   * @returns a count that grows with each invalidation of the channel's samples. A
-   * fetch that spans a change of it may hold samples from before the change.
-   */
-  version(ch: channel.Key): number {
-    return (this.versions.get(null) ?? 0) + (this.versions.get(ch) ?? 0);
-  }
-
-  /**
    * Drops the cached samples of the channel over the time range, or of every channel
    * when the channel is null.
    */
   invalidate(ch: channel.Key | null = null, tr: TimeRange = TimeRange.MAX): void {
-    this.versions.set(ch, (this.versions.get(ch) ?? 0) + 1);
     const touched = [...this.blocks].filter(
       ([, b]) => (ch == null || b.channel === ch) && b.range.overlapsWith(tr),
     );
