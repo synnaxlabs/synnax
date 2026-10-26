@@ -1658,6 +1658,53 @@ var _ = Describe("Python Types Plugin", func() {
 			)
 		})
 
+		Context("same-namespace hand-written reference", func() {
+			It("Should import a referenced hand-written struct from its module",
+				func(ctx SpecContext) {
+					source := `
+						@py output "x/py/x/color"
+
+						Color struct {
+							r uint8
+							@py hand
+							@py include "x/py/x/color/color"
+						}
+
+						Band struct {
+							threshold float64
+							color Color
+						}
+					`
+					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(`from x.color.color import Color`, `color: Color`).
+						ToNotContain("class Color(")
+				})
+
+			It("Should fail when a referenced hand-written struct declares no module",
+				func(ctx SpecContext) {
+					source := `
+						@py output "x/py/x/color"
+
+						Color struct {
+							r uint8
+							@py hand
+						}
+
+						Band struct {
+							color Color
+						}
+					`
+					req := MustGenerateRequest(ctx, source, "color", loader)
+					Expect(typesPlugin.Generate(req)).Error().To(MatchError(
+						ContainSubstring(
+							"types with no generated Python declaration need a " +
+								"@py include module: color.Color",
+						),
+					))
+				})
+		})
+
 		Context("cross-namespace references", func() {
 			BeforeEach(func() {
 				loader.Add("schemas/status", `
