@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import json
 import os
 import shutil
 import subprocess
@@ -46,6 +47,26 @@ class Repo:
     def fix(self, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             ["bash", "scripts/fix.sh", *args],
+            cwd=self.path,
+            env=self.env,
+            capture_output=True,
+            text=True,
+        )
+
+    def install_hooks(self) -> None:
+        shutil.copytree(ROOT / ".githooks", self.path / ".githooks")
+        package = json.loads((ROOT / "package.json").read_text())
+        subprocess.run(
+            package["scripts"]["prepare"],
+            shell=True,
+            cwd=self.path,
+            env=self.env,
+            check=True,
+        )
+
+    def commit(self) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "c"],
             cwd=self.path,
             env=self.env,
             capture_output=True,
@@ -92,3 +113,23 @@ class TestFix:
         repo.write("a.sh", "echo a\n")
         assert repo.fix("--staged").returncode == 0
         assert not repo.header("a.sh")
+
+
+class TestPreCommitHook:
+    def test_commits_fixes(self, repo: Repo) -> None:
+        repo.install_hooks()
+        repo.write("a.sh", "echo a\n")
+        repo.git("add", "a.sh")
+        assert repo.commit().returncode == 0
+        assert "Copyright" in repo.git("show", "HEAD:a.sh")
+        assert repo.git("status", "--porcelain", "a.sh") == ""
+
+    def test_blocks_partially_staged_files(self, repo: Repo) -> None:
+        repo.install_hooks()
+        repo.write("a.sh", "echo a\n")
+        repo.git("add", "a.sh")
+        repo.write("a.sh", "echo a\necho b\n")
+        result = repo.commit()
+        assert result.returncode != 0
+        assert "unstaged changes" in result.stderr
+        assert "a.sh" not in repo.git("ls-tree", "--name-only", "HEAD")
