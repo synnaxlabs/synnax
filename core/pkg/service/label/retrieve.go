@@ -76,8 +76,11 @@ func (s *Service) RetrieveFor(
 	tx gorp.Tx,
 ) ([]Label, error) {
 	labels := []Label{}
-	return labels, s.NewRetrieve().
+	if err := s.NewRetrieve().
 		Where(matchFor(id, false)).
 		Entries(&labels).
-		Exec(ctx, tx)
+		Exec(ctx, tx); err != nil {
+		return nil, err
+	}
+	return labels, nil
 }

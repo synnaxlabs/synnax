@@ -177,8 +177,8 @@ var _ = Describe("Label", Ordered, func() {
 				Entries(&got).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(got).To(ConsistOf(l))
-			_, err := svc.RetrieveFor(ctx, missing, tx)
-			Expect(err).To(MatchError(query.ErrNotFound))
+			Expect(svc.RetrieveFor(ctx, missing, tx)).Error().
+				To(MatchError(query.ErrNotFound))
 		})
 	})
 	Describe("Where", func() {
