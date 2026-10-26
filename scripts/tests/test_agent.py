@@ -202,6 +202,17 @@ class TestMain:
         assert "[SY-1](https://linear.app/synnax/issue/SY-1)" in err
         assert "![1-shot.png](https://raw.githubusercontent.com/" in err
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="fake agent is a script")
+    def test_report_is_a_step_output(
+        self, repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        output = tmp_path / "github_output"
+        monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+        assert main([*fake_agent(tmp_path), "--output", "report"]) == 0
+        lines = output.read_text().splitlines()
+        assert lines[0].startswith("report<<EOF_")
+        assert lines[1:] == ["Done.", lines[0].removeprefix("report<<")]
+
     def test_rejects_dirty_checkout(self, repo: Path, tmp_path: Path) -> None:
         (repo / "stray.txt").write_text("not the agent's")
         with pytest.raises(SystemExit, match="uncommitted changes"):
