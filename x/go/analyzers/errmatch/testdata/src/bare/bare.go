@@ -33,4 +33,5 @@ func Specs() {
 	Expect(err, nil).ToNot(BeNil())                      // want "assertion only checks that an error occurred"
 	Eventually(fails).ShouldNot(BeNil())                 // want "assertion only checks that an error occurred"
 	Consistently(fails).ShouldNot(BeNil())               // want "assertion only checks that an error occurred"
+	Eventually(fails).WithTimeout(1).ShouldNot(BeNil())  // want "assertion only checks that an error occurred"
 }
