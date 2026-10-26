@@ -54,6 +54,19 @@ type unionData struct {
 	// NeedsValidate reports that at least one variant carries a Validate method, so the
 	// wrapper emits one that dispatches on the active variant.
 	NeedsValidate bool
+	// Bases are the methods that return a base of the active variant.
+	Bases []unionBaseData
+	// TagMethod is the method that returns the tag of the active variant, or empty
+	// when the union has none.
+	TagMethod string
+}
+
+// unionBaseData is the template view of a base that every variant of a union holds.
+type unionBaseData struct {
+	// Method is the method name, which is also the base's field on each variant.
+	Method string
+	// Type is the rendered Go type of the base.
+	Type string
 }
 
 // unionVariantData is the template view of one variant of a discriminated union.
@@ -154,6 +167,15 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 		return out
 	}
 	baseEmbeds := embedBases(form.Extends)
+	for _, b := range naming.UnionBases(form, data.table) {
+		ud.Bases = append(ud.Bases, unionBaseData{
+			Method: b.Method,
+			Type:   resolveExtendsType(b.Ref, b.Type, data),
+		})
+	}
+	if method, ok := naming.UnionTagMethod(form); ok {
+		ud.TagMethod = method
+	}
 
 	for _, v := range form.Variants {
 		vd := unionVariantData{

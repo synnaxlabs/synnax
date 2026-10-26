@@ -153,6 +153,29 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// BaseReadChannel returns the BaseReadChannel of the active variant, or a zero
+// BaseReadChannel when there is none.
+func (u ReadChannel) BaseReadChannel() BaseReadChannel {
+	switch v := u.Variant.(type) {
+	case AutomaticReadChannel:
+		return v.BaseReadChannel
+	case ManualReadChannel:
+		return v.BaseReadChannel
+	}
+	return BaseReadChannel{}
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u ReadChannel) Type() ReadChannelType {
+	switch u.Variant.(type) {
+	case AutomaticReadChannel:
+		return AutomaticReadChannelType
+	case ManualReadChannel:
+		return ManualReadChannelType
+	}
+	return ""
+}
+
 // ApplyDefaults fills the active variant's zero-valued fields with their
 // schema-declared defaults.
 func (u *ReadChannel) ApplyDefaults() {
@@ -276,6 +299,29 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return errors.Newf("WriteChannel: unknown type %q", disc.Type)
 	}
 	return nil
+}
+
+// BaseWriteChannel returns the BaseWriteChannel of the active variant, or a zero
+// BaseWriteChannel when there is none.
+func (u WriteChannel) BaseWriteChannel() BaseWriteChannel {
+	switch v := u.Variant.(type) {
+	case AutomaticWriteChannel:
+		return v.BaseWriteChannel
+	case ManualWriteChannel:
+		return v.BaseWriteChannel
+	}
+	return BaseWriteChannel{}
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u WriteChannel) Type() WriteChannelType {
+	switch u.Variant.(type) {
+	case AutomaticWriteChannel:
+		return AutomaticWriteChannelType
+	case ManualWriteChannel:
+		return ManualWriteChannelType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their

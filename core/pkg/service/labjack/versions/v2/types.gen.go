@@ -201,6 +201,19 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Scale) Type() ScaleType {
+	switch u.Variant.(type) {
+	case LinearScale:
+		return LinearScaleType
+	case MapScale:
+		return MapScaleType
+	case NoneScale:
+		return NoneScaleType
+	}
+	return ""
+}
+
 // ApplyDefaults fills the active variant's zero-valued fields with their
 // schema-declared defaults.
 func (u *Scale) ApplyDefaults() {
@@ -417,6 +430,33 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// BaseReadChannel returns the BaseReadChannel of the active variant, or a zero
+// BaseReadChannel when there is none.
+func (u ReadChannel) BaseReadChannel() BaseReadChannel {
+	switch v := u.Variant.(type) {
+	case AnalogReadChannel:
+		return v.BaseReadChannel
+	case DigitalReadChannel:
+		return v.BaseReadChannel
+	case ThermocoupleReadChannel:
+		return v.BaseReadChannel
+	}
+	return BaseReadChannel{}
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u ReadChannel) Type() ReadChannelType {
+	switch u.Variant.(type) {
+	case AnalogReadChannel:
+		return AnalogReadChannelType
+	case DigitalReadChannel:
+		return DigitalReadChannelType
+	case ThermocoupleReadChannel:
+		return ThermocoupleReadChannelType
+	}
+	return ""
+}
+
 // ApplyDefaults fills the active variant's zero-valued fields with their
 // schema-declared defaults.
 func (u *ReadChannel) ApplyDefaults() {
@@ -560,6 +600,29 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return errors.Newf("WriteChannel: unknown type %q", disc.Type)
 	}
 	return nil
+}
+
+// BaseWriteChannel returns the BaseWriteChannel of the active variant, or a zero
+// BaseWriteChannel when there is none.
+func (u WriteChannel) BaseWriteChannel() BaseWriteChannel {
+	switch v := u.Variant.(type) {
+	case AnalogWriteChannel:
+		return v.BaseWriteChannel
+	case DigitalWriteChannel:
+		return v.BaseWriteChannel
+	}
+	return BaseWriteChannel{}
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u WriteChannel) Type() WriteChannelType {
+	switch u.Variant.(type) {
+	case AnalogWriteChannel:
+		return AnalogWriteChannelType
+	case DigitalWriteChannel:
+		return DigitalWriteChannelType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their

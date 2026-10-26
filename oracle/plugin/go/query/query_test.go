@@ -174,8 +174,8 @@ var _ = Describe("Go Query Plugin", func() {
 			)
 
 			DescribeTable(
-				"Should reject a generated query tag on a union field",
-				func(ctx SpecContext, tag string) {
+				"Should read a shared field through the base method",
+				func(ctx SpecContext, tag, read string) {
 					source := `
 					@go output "core/pkg/service/view"
 
@@ -191,15 +191,75 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
+					resp := MustGenerate(ctx, source, "view", loader, p)
+					ExpectContent(resp, "retrieve.gen.go").ToContain(read)
+				},
+				Entry("filter", "@filter", "slices.Contains(vals, e.Base().Name)"),
+				Entry("index", "@index lookup", "return e.Base().Name"),
+				Entry("search", "@search", "[]string{e.Base().Name}"),
+			)
+
+			It("Should read the tag through the tag method", func(ctx SpecContext) {
+				loader.Add("schemas/x/filter", FilterSchema)
+				source := `
+					import "schemas/x/filter"
+
+					@go output "core/pkg/service/view"
+
+					Type enum {
+						first = "first"
+					}
+
+					Base struct {
+						key uuid @key
+					}
+
+					View union on type Type extends Base {
+						first {
+							size int32
+						}
+						@retrieve
+					}
+
+					Where filter View {
+						type
+					}
+				`
+				resp := MustGenerate(ctx, source, "view", loader, p)
+				ExpectContent(resp, "retrieve.gen.go").ToContain(
+					"func MatchTypes(vals ...Type) Filter",
+					"slices.Contains(vals, e.Type())",
+				)
+			})
+
+			DescribeTable(
+				"Should reject a field that a variant drops",
+				func(ctx SpecContext, tag, reader string) {
+					source := `
+					@go output "core/pkg/service/view"
+
+					Base struct {
+						key uuid @key
+						name string ` + tag + `
+					}
+
+					View union on type extends Base {
+						first {
+							-name
+							size int32
+						}
+						@retrieve
+					}
+				`
 					req := MustGenerateRequest(ctx, source, "view", loader)
 					Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
-						"view.View: @filter, @index, and @search are not supported " +
-							"on union fields (name)",
+						"view.View: a variant drops field name, so no " + reader +
+							" can read it",
 					)))
 				},
-				Entry("filter", "@filter"),
-				Entry("index", "@index lookup"),
-				Entry("search", "@search"),
+				Entry("filter", "@filter", "matcher"),
+				Entry("index", "@index lookup", "index"),
+				Entry("search", "@search", "index"),
 			)
 		})
 

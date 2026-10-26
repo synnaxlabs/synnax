@@ -510,6 +510,20 @@ func (u *CJC) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// Source returns the source of the active variant, or an empty source when there is
+// none.
+func (u CJC) Source() CJCType {
+	switch u.Variant.(type) {
+	case BuiltInCJC:
+		return BuiltInCJCType
+	case ConstValCJC:
+		return ConstValCJCType
+	case ChanCJC:
+		return ChanCJCType
+	}
+	return ""
+}
+
 // VelocityUnits are the engineering units for a velocity measurement.
 type VelocityUnits string
 
@@ -821,6 +835,23 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return errors.Newf("Scale: unknown type %q", disc.Type)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Scale) Type() ScaleType {
+	switch u.Variant.(type) {
+	case LinearScale:
+		return LinearScaleType
+	case MapScale:
+		return MapScaleType
+	case TableScale:
+		return TableScaleType
+	case PolynomialScale:
+		return PolynomialScaleType
+	case NoneScale:
+		return NoneScaleType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
@@ -2686,6 +2717,73 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u AIChannel) Type() AIChannelType {
+	switch u.Variant.(type) {
+	case AIVoltageChannel:
+		return AIVoltageChannelType
+	case AIAccelChannel:
+		return AIAccelChannelType
+	case AIBridgeChannel:
+		return AIBridgeChannelType
+	case AICurrentChannel:
+		return AICurrentChannelType
+	case AIForceBridgeTableChannel:
+		return AIForceBridgeTableChannelType
+	case AIForceBridgeTwoPointLinChannel:
+		return AIForceBridgeTwoPointLinChannelType
+	case AIForceIEPEChannel:
+		return AIForceIEPEChannelType
+	case AIMicrophoneChannel:
+		return AIMicrophoneChannelType
+	case AIPressureBridgeTableChannel:
+		return AIPressureBridgeTableChannelType
+	case AIPressureBridgeTwoPointLinChannel:
+		return AIPressureBridgeTwoPointLinChannelType
+	case AIResistanceChannel:
+		return AIResistanceChannelType
+	case AIRTDChannel:
+		return AIRTDChannelType
+	case AIStrainGaugeChannel:
+		return AIStrainGaugeChannelType
+	case AITempBuiltinChannel:
+		return AITempBuiltinChannelType
+	case AIThermocoupleChannel:
+		return AIThermocoupleChannelType
+	case AITorqueBridgeTableChannel:
+		return AITorqueBridgeTableChannelType
+	case AITorqueBridgeTwoPointLinChannel:
+		return AITorqueBridgeTwoPointLinChannelType
+	case AIVelocityIEPEChannel:
+		return AIVelocityIEPEChannelType
+	case AIAccel4WireDCVoltageChannel:
+		return AIAccel4WireDCVoltageChannelType
+	case AIAccelChargeChannel:
+		return AIAccelChargeChannelType
+	case AIChargeChannel:
+		return AIChargeChannelType
+	case AICurrentRMSChannel:
+		return AICurrentRMSChannelType
+	case AIForceBridgePolynomialChannel:
+		return AIForceBridgePolynomialChannelType
+	case AIFreqVoltageChannel:
+		return AIFreqVoltageChannelType
+	case AIPressureBridgePolynomialChannel:
+		return AIPressureBridgePolynomialChannelType
+	case AIThermistorIexChannel:
+		return AIThermistorIexChannelType
+	case AIThermistorVexChannel:
+		return AIThermistorVexChannelType
+	case AITorqueBridgePolynomialChannel:
+		return AITorqueBridgePolynomialChannelType
+	case AIVoltageRMSChannel:
+		return AIVoltageRMSChannelType
+	case AIVoltageWithExcitChannel:
+		return AIVoltageWithExcitChannelType
+	}
+	return ""
+}
+
 // ApplyDefaults fills the active variant's zero-valued fields with their
 // schema-declared defaults.
 func (u *AIChannel) ApplyDefaults() {
@@ -3790,6 +3888,65 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// BaseCIChannel returns the BaseCIChannel of the active variant, or a zero
+// BaseCIChannel when there is none.
+func (u CIChannel) BaseCIChannel() BaseCIChannel {
+	switch v := u.Variant.(type) {
+	case CIFrequencyChannel:
+		return v.BaseCIChannel
+	case CIEdgeCountChannel:
+		return v.BaseCIChannel
+	case CIPeriodChannel:
+		return v.BaseCIChannel
+	case CIPulseWidthChannel:
+		return v.BaseCIChannel
+	case CISemiPeriodChannel:
+		return v.BaseCIChannel
+	case CITwoEdgeSepChannel:
+		return v.BaseCIChannel
+	case CIVelocityLinearChannel:
+		return v.BaseCIChannel
+	case CIVelocityAngularChannel:
+		return v.BaseCIChannel
+	case CIPositionLinearChannel:
+		return v.BaseCIChannel
+	case CIPositionAngularChannel:
+		return v.BaseCIChannel
+	case CIDutyCycleChannel:
+		return v.BaseCIChannel
+	}
+	return BaseCIChannel{}
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u CIChannel) Type() CIChannelType {
+	switch u.Variant.(type) {
+	case CIFrequencyChannel:
+		return CIFrequencyChannelType
+	case CIEdgeCountChannel:
+		return CIEdgeCountChannelType
+	case CIPeriodChannel:
+		return CIPeriodChannelType
+	case CIPulseWidthChannel:
+		return CIPulseWidthChannelType
+	case CISemiPeriodChannel:
+		return CISemiPeriodChannelType
+	case CITwoEdgeSepChannel:
+		return CITwoEdgeSepChannelType
+	case CIVelocityLinearChannel:
+		return CIVelocityLinearChannelType
+	case CIVelocityAngularChannel:
+		return CIVelocityAngularChannelType
+	case CIPositionLinearChannel:
+		return CIPositionLinearChannelType
+	case CIPositionAngularChannel:
+		return CIPositionAngularChannelType
+	case CIDutyCycleChannel:
+		return CIDutyCycleChannelType
+	}
+	return ""
+}
+
 // ApplyDefaults fills the active variant's zero-valued fields with their
 // schema-declared defaults.
 func (u *CIChannel) ApplyDefaults() {
@@ -4058,6 +4215,33 @@ func (u *AOChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return errors.Newf("AOChannel: unknown type %q", disc.Type)
 	}
 	return nil
+}
+
+// BaseAOChannel returns the BaseAOChannel of the active variant, or a zero
+// BaseAOChannel when there is none.
+func (u AOChannel) BaseAOChannel() BaseAOChannel {
+	switch v := u.Variant.(type) {
+	case AOCurrentChannel:
+		return v.BaseAOChannel
+	case AOFuncGenChannel:
+		return v.BaseAOChannel
+	case AOVoltageChannel:
+		return v.BaseAOChannel
+	}
+	return BaseAOChannel{}
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u AOChannel) Type() AOChannelType {
+	switch u.Variant.(type) {
+	case AOCurrentChannel:
+		return AOCurrentChannelType
+	case AOFuncGenChannel:
+		return AOFuncGenChannelType
+	case AOVoltageChannel:
+		return AOVoltageChannelType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
