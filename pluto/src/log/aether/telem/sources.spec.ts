@@ -1181,7 +1181,7 @@ describe("StreamMultiChannelLog", () => {
       ]);
     });
 
-    it("should stop reading the index at four times the data read", async () => {
+    it("should double the index read until it reaches the data", async () => {
       const index = [70, 71, 72, 73, 74, 75, 76, 77, 78, 80];
       c.readLatest = async (key, n, tr) => {
         c.readF(tr, key, n);
@@ -1198,12 +1198,14 @@ describe("StreamMultiChannelLog", () => {
         1,
       );
       await waitForResolve(log);
-      expect(log.value()).toEqual([]);
+      expect(log.value().map((e) => e.timestamp.seconds)).toEqual([70]);
       expect(c.readF.mock.calls.map(([, key, n]) => [key, n])).toEqual([
         [DATA, 1],
         [IDX, 1],
         [IDX, 2],
         [IDX, 4],
+        [IDX, 8],
+        [IDX, 16],
       ]);
     });
 

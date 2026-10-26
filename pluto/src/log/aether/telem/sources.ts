@@ -37,10 +37,6 @@ const PAGE_SIZE = 1_000;
 
 const HISTORY_RETRY_DELAY = TimeSpan.seconds(5);
 
-// A sparse channel on a dense index needs many index samples to time its own. The index
-// read stops at this multiple of the data read, and the untimed samples are left out.
-const MAX_INDEX_READ_FACTOR = 4;
-
 // A data allocation and its index allocation can arrive in different stream callbacks,
 // so a few recent index allocations stay in reach.
 const MAX_INDEX_BUFFERS = 4;
@@ -613,8 +609,7 @@ const toEntries = (
 
 // Reads n stored samples of the channel from the first or last sample within tr, and
 // index samples to time them. The index can hold more samples than the channel, so its
-// read doubles until it reaches the far end of the data or MAX_INDEX_READ_FACTOR times
-// n.
+// read doubles until it reaches the far end of the data or the end of tr.
 const readEdge = async (
   client: Client,
   meta: ChannelMeta,
@@ -633,8 +628,7 @@ const readEdge = async (
   };
   for (let m = n; ; m *= 2) {
     const index = await read(meta.index, m, tr);
-    if (index.length < m || covers(index) || m >= n * MAX_INDEX_READ_FACTOR)
-      return { data, index };
+    if (index.length < m || covers(index)) return { data, index };
   }
 };
 
