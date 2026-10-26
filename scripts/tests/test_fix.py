@@ -44,10 +44,12 @@ class Repo:
             text=True,
         ).stdout
 
-    def fix(self, *args: str) -> subprocess.CompletedProcess[str]:
+    def fix(
+        self, *args: str, cwd: Path | None = None
+    ) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            ["bash", "scripts/fix.sh", *args],
-            cwd=self.path,
+            ["bash", str(self.path / "scripts/fix.sh"), *args],
+            cwd=cwd or self.path,
             env=self.env,
             capture_output=True,
             text=True,
@@ -100,14 +102,46 @@ class TestFix:
         assert "Copyright" in repo.git("show", ":a.sh")
         assert repo.git("diff", "--name-only") == ""
 
-    def test_rejects_partially_staged_files(self, repo: Repo) -> None:
+    def test_fixes_staged_copy_of_partially_staged_files(self, repo: Repo) -> None:
         repo.write("a.sh", "echo a\n")
         repo.git("add", "a.sh")
         repo.write("a.sh", "echo a\necho b\n")
-        result = repo.fix("--staged")
-        assert result.returncode == 1
-        assert "unstaged changes" in result.stderr
-        assert "Copyright" not in repo.git("show", ":a.sh")
+        assert repo.fix("--staged").returncode == 0
+        staged = repo.git("show", ":a.sh")
+        assert "Copyright" in staged
+        assert "echo b" not in staged
+        assert repo.git("diff", "-U0", "a.sh").splitlines()[-1] == "+echo b"
+
+    def test_handles_quoted_file_names(self, repo: Repo) -> None:
+        repo.write("é.sh", "echo a\n")
+        repo.git("add", "é.sh")
+        repo.write("é.sh", "echo a\necho b\n")
+        assert repo.fix("--staged").returncode == 0
+        staged = repo.git("show", ":é.sh")
+        assert "Copyright" in staged
+        assert "echo b" not in staged
+
+    def test_fixes_staged_copy_when_working_copy_is_fixed(self, repo: Repo) -> None:
+        repo.write("a.sh", "echo a\n")
+        repo.git("add", "a.sh")
+        repo.fix("a.sh")
+        assert repo.fix("--staged").returncode == 0
+        assert "Copyright" in repo.git("show", ":a.sh")
+        assert repo.git("diff", "--name-only") == ""
+
+    def test_keeps_the_working_copy_when_a_fixer_fails(self, repo: Repo) -> None:
+        (repo.path / "scripts/update_copyrights.sh").write_text("exit 1\n")
+        repo.write("a.sh", "echo a\n")
+        repo.git("add", "a.sh")
+        repo.write("a.sh", "echo a\necho b\n")
+        assert repo.fix("--staged").returncode == 1
+        assert (repo.path / "a.sh").read_text() == "echo a\necho b\n"
+
+    def test_resolves_paths_from_the_caller(self, repo: Repo) -> None:
+        (repo.path / "sub").mkdir()
+        repo.write("sub/a.sh", "echo a\n")
+        assert repo.fix("a.sh", cwd=repo.path / "sub").returncode == 0
+        assert repo.header("sub/a.sh")
 
     def test_ignores_unstaged_files(self, repo: Repo) -> None:
         repo.write("a.sh", "echo a\n")
