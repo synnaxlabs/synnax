@@ -169,16 +169,17 @@ var _ = Describe("Service", func() {
 		})
 
 		It("Should return a path error for an invalid regex", func(ctx SpecContext) {
-			_, err := apiSvc.Retrieve(
+			Expect(apiSvc.Retrieve(
 				AuthedCtx(ctx, author),
 				apichannel.RetrieveRequest{Where: &apichannel.Where{
 					Name: &filter.String{Regex: new("(a")},
 				}},
-			)
-			Expect(err).To(BeAssignableToTypeOf(validate.PathError{}))
-			Expect(err).To(MatchError(ContainSubstring(
-				"where.name.regex: error parsing regexp: missing closing ): `(a`",
-			)))
+			)).Error().To(SatisfyAll(
+				BeAssignableToTypeOf(validate.PathError{}),
+				MatchError(
+					"where.name.regex: error parsing regexp: missing closing ): `(a`: validation error",
+				),
+			))
 		})
 	})
 })

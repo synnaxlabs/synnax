@@ -131,12 +131,13 @@ var _ = Describe("Retrieve", func() {
 
 	It("Should return a path error for an invalid regex", func(ctx SpecContext) {
 		u := createUser(ctx)
-		_, err := apiSvc.Retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
+		Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
 			Where: &apitask.Where{Type: &filter.String{Regex: new("(a")}},
-		})
-		Expect(err).To(BeAssignableToTypeOf(validate.PathError{}))
-		Expect(err).To(MatchError(ContainSubstring(
-			"where.type.regex: error parsing regexp: missing closing ): `(a`",
-		)))
+		})).Error().To(SatisfyAll(
+			BeAssignableToTypeOf(validate.PathError{}),
+			MatchError(
+				"where.type.regex: error parsing regexp: missing closing ): `(a`: validation error",
+			),
+		))
 	})
 })

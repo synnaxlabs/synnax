@@ -122,11 +122,11 @@ var _ = Describe("Where", Ordered, func() {
 			[]byte(`{"or":[{"key":{"in":[]}},{"model":{"regex":"(a"}}]}`),
 			&w,
 		)).To(Succeed())
-		_, err := device.MatchWhere(w)
-		var pathErr validate.PathError
-		Expect(err).To(BeAssignableToTypeOf(pathErr))
-		Expect(err).To(MatchError(ContainSubstring(
-			"or.1.model.regex: error parsing regexp: missing closing ): `(a`",
-		)))
+		Expect(device.MatchWhere(w)).Error().To(SatisfyAll(
+			BeAssignableToTypeOf(validate.PathError{}),
+			MatchError(
+				"or.1.model.regex: error parsing regexp: missing closing ): `(a`: validation error",
+			),
+		))
 	})
 })

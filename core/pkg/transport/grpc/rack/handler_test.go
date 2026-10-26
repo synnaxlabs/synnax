@@ -50,11 +50,10 @@ var _ = Describe("gRPC Rack Translators", func() {
 			b = protowire.AppendVarint(b, 65537)
 			var decoded RetrieveRequest
 			Expect(proto.Unmarshal(b, &decoded)).To(Succeed())
-			_, err := t.Backward(ctx, &decoded)
-			Expect(err).To(MatchError(validate.ErrValidation))
-			Expect(err).To(MatchError(ContainSubstring(
-				"retrieve request has unknown fields",
-			)))
+			Expect(t.Backward(ctx, &decoded)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("retrieve request has unknown fields")),
+			))
 		})
 	})
 })
