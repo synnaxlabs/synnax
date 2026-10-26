@@ -1,0 +1,93 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+name: Audit - Migration
+
+on:
+  workflow_call:
+    inputs: &inputs
+      stable:
+        description: "Stable Core tag to upgrade from (default: the newest)"
+        type: string
+        default: ""
+      agent:
+        description: "Agent to run, claude or codex (default: AGENT_DEFAULT)"
+        type: string
+        default: ""
+
+  workflow_dispatch:
+    inputs: *inputs
+
+jobs:
+  prompt:
+    name: Write the audit prompt
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      prompt: ${{ steps.prompt.outputs.prompt }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Write the prompt
+        id: prompt
+        env:
+          STABLE: ${{ inputs.stable }}
+          CANDIDATE: ${{ github.sha }}
+        run: |
+          if [ -z "$STABLE" ]; then
+            STABLE=$(git tag --list 'core/v*' | grep -E '^core/v[0-9]+\.[0-9]+\.[0-9]+$' |
+              sort -V | tail -1)
+          fi
+          if [ -z "$STABLE" ]; then
+            echo "no stable Core tag" >&2
+            exit 1
+          fi
+          EOF=$(openssl rand -hex 16)
+          {
+            echo "prompt<<$EOF"
+            cat .github/agents/migration-audit.md
+            printf '\nThe stable tag is %s. The candidate is commit %s.\n' \
+              "$STABLE" "$CANDIDATE"
+            echo "$EOF"
+          } >> "$GITHUB_OUTPUT"
+
+  audit:
+    name: Audit
+    needs: prompt
+    permissions:
+      actions: read
+      contents: read
+    uses: ./.github/workflows/agent.yaml
+    with:
+      prompt: ${{ needs.prompt.outputs.prompt }}
+      agent: ${{ inputs.agent || vars.AGENT_DEFAULT || 'claude' }}
+      output: report
+      timeout-minutes: 120
+    secrets: inherit
+
+  verdict:
+    name: Verdict
+    needs: audit
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Check the verdict
+        env:
+          REPORT: ${{ needs.audit.outputs.report }}
+        run: |
+          printf '%s\n' "$REPORT" >> "$GITHUB_STEP_SUMMARY"
+          LAST=$(printf '%s\n' "$REPORT" | sed '/^[[:space:]]*$/d' | tail -1)
+          if [ "$LAST" != "Verdict: pass" ]; then
+            echo "the migration audit did not pass" >&2
+            exit 1
+          fi
