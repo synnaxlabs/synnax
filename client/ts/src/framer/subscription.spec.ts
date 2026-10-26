@@ -1248,6 +1248,44 @@ describe("Feed.subscribe", () => {
         await feed.close();
       }
     });
+
+    it("should count only the samples streamed since a history change", async () => {
+      const core = createCore();
+      let held = false;
+      const { promise: released, resolve: release } = Promise.withResolvers<void>();
+      const feed = core.openFeed({
+        ...OPTIONS,
+        readLatest: async (keys, count, tr) => {
+          if (held) await released;
+          return core.readLatest(keys, count, tr);
+        },
+      });
+      const { key } = core.data[0];
+      const sub = feed.subscribe({
+        keys: [key],
+        limit: { variant: "latest", count: 20 },
+      });
+      try {
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        await historyStreamed(core);
+        const { appended } = sub.value(key);
+        assert(appended != null);
+        held = true;
+        core.rewrite(key, new TimeRange(START, core.now()), 10);
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("loading");
+        core.advance(TimeSpan.milliseconds(100));
+        await expect.poll(() => sub.value(key).appended, POLL).toBe(appended + 10);
+        release();
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        await expect.poll(() => sub.value(key).appended, POLL).toBe(appended + 10);
+        await sleep.sleep(TimeSpan.milliseconds(50));
+        expect(sub.value(key).appended).toBe(appended + 10);
+      } finally {
+        release();
+        sub.close();
+        await feed.close();
+      }
+    });
   });
 
   describe("update and status", () => {
