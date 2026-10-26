@@ -28,6 +28,22 @@ describe("Panel Client", () => {
   const createPanel = async (): Promise<panel.Panel> =>
     await client.panels.create({ name: `panel-${id.create()}`, parent });
 
+  describe("retrieve", () => {
+    it("should combine a parent scope with a where", async () => {
+      const scope = await createPanelParent(client);
+      const [kept] = await client.panels.create([
+        { name: `panel-${id.create()}`, parent: scope },
+        { name: `panel-${id.create()}`, parent: scope },
+      ]);
+      const outsider = await createPanel();
+      const retrieved = await client.panels.retrieve({
+        parent: scope,
+        where: { key: { in: [kept.key, outsider.key] } },
+      });
+      expect(retrieved.map((p) => p.key)).toEqual([kept.key]);
+    });
+  });
+
   describe("optimistic rename", () => {
     const WRITE_FAILED = new Error("write failed");
     const fail = () => {

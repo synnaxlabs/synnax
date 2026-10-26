@@ -175,6 +175,33 @@ describe("cached reads", () => {
       off();
     }
   });
+
+  it("tracks remote attachment and removal on a subscribed not for query", async () => {
+    const item = await client.labels.create({
+      name: `qry-item-${id.create()}`,
+      color: "#E774D0",
+    });
+    const lbl = await remote.labels.create({
+      name: `qry-attached-${id.create()}`,
+      color: "#E774D0",
+    });
+    const params = { where: { not: { for: label.ontologyID(item.key) } } };
+    const has = () => {
+      const cached = client.labels.getCached(params);
+      return query.isLive(cached) && cached.some((l) => l.key === lbl.key);
+    };
+    const off = client.labels.onChange(params, vi.fn());
+    try {
+      await client.labels.retrieve(params);
+      await expect.poll(has).toBe(true);
+      await remote.labels.label(label.ontologyID(item.key), [lbl.key]);
+      await expect.poll(has).toBe(false);
+      await remote.labels.remove(label.ontologyID(item.key), [lbl.key]);
+      await expect.poll(has).toBe(true);
+    } finally {
+      off();
+    }
+  });
 });
 
 describe("store", () => {

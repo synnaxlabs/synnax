@@ -197,6 +197,27 @@ describe("Symbol Client", () => {
         .toEqual([`${prefix}-valve`]);
     });
 
+    it("should combine a parent scope with a where", async () => {
+      const parent = await createParent();
+      const [kept] = await client.schematics.symbols.create({
+        symbols: [
+          { name: "valve", data: SYMBOL_DATA },
+          { name: "pump", data: SYMBOL_DATA },
+        ],
+        parent,
+      });
+      const outsider = await client.schematics.symbols.create({
+        name: "valve",
+        data: SYMBOL_DATA,
+        parent: await createParent(),
+      });
+      const retrieved = await client.schematics.symbols.retrieve({
+        parent,
+        where: { key: { in: [kept.key, outsider.key] } },
+      });
+      expect(retrieved.map((s) => s.key)).toEqual([kept.key]);
+    });
+
     it("should return an empty list for a childless parent", async () => {
       const parent = await createParent();
       expect(await client.schematics.symbols.retrieve({ parent })).toEqual([]);
