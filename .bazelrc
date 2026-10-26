@@ -4,6 +4,12 @@ build --define=SYNNAX_DRIVER_VERSION=0.0.0
 # Enable platform-specific configs
 build --enable_platform_specific_config
 
+# vendor/registry holds module versions the Bazel Central Registry does not have yet,
+# such as security releases. Bazel takes each module version from the first registry
+# that has it.
+common --registry=file://%workspace%/vendor/registry
+common --registry=https://bcr.bazel.build
+
 # Each external repo is a symlink into the shared repo contents cache, and Bazel deletes
 # a cache entry that goes 14 days without a fetch. A repo that every build reuses is
 # never re-fetched, so the collector can delete the target of a live symlink and leave
