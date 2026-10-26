@@ -26,6 +26,7 @@ import { z } from "zod";
 
 import {
   analyzeParams,
+  isCalculated,
   type Params,
   type PrimitiveParams,
   statusKey,
@@ -772,7 +773,3 @@ export class Client extends query.Retriever<
     return [...matched, ...channels.filter((ch) => !matchedKeys.has(ch.key))];
   }
 }
-
-/** @returns whether the channel computes its samples from an expression. */
-export const isCalculated = ({ virtual, expression }: Payload): boolean =>
-  virtual && expression !== "";
