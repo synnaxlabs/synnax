@@ -637,6 +637,37 @@ var _ = Describe("Delete", Ordered, func() {
 					)
 				})
 
+				Context("Open writer", func() {
+					It(
+						"Should not delete the domain of an open writer until it closes",
+						func(ctx SpecContext) {
+							w := MustSucceed(db.OpenWriter(
+								ctx,
+								domain.WriterConfig{Start: 10 * telem.SecondTS},
+							))
+							Expect(w.Write([]byte{10, 11, 12, 13, 14})).To(Equal(5))
+							Expect(w.Commit(ctx, 15*telem.SecondTS)).To(Succeed())
+							tr := (12 * telem.SecondTS).Range(30 * telem.SecondTS)
+							Expect(
+								db.Delete(ctx, tr, fixedOffset(2), fixedOffset(0)),
+							).To(And(
+								MatchError(domain.ErrDeleteOverlapsWriter),
+								MatchError(ContainSubstring("cannot delete %s", tr)),
+							))
+							Expect(db.Delete(
+								ctx,
+								(1 * telem.SecondTS).Range(5*telem.SecondTS),
+								fixedOffset(0),
+								fixedOffset(0),
+							)).To(Succeed())
+							Expect(w.Close()).To(Succeed())
+							Expect(
+								db.Delete(ctx, tr, fixedOffset(2), fixedOffset(0)),
+							).To(Succeed())
+						},
+					)
+				})
+
 				Context("Without Data", func() {
 					It("Should not delete anything", func(ctx SpecContext) {
 						Expect(db.Delete(

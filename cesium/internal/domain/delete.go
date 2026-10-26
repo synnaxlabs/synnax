@@ -73,6 +73,11 @@ func (db *DB) Delete(
 	// domain, which is problematic if this channel is an index channel.
 	db.idx.deleteLock.Lock()
 	defer db.idx.deleteLock.Unlock()
+	db.writerStarts.Lock()
+	defer db.writerStarts.Unlock()
+	if db.writerStarts.unprotectedOverlap(tr) {
+		return errors.Wrapf(ErrDeleteOverlapsWriter, "cannot delete %s", tr)
+	}
 
 	var (
 		startDomain, endDomain int

@@ -3459,6 +3459,40 @@ var _ = Describe("Writer Behavior", func() {
 						))
 					},
 				)
+				It(
+					"Should not delete the domain of an open writer before its Start",
+					func(ctx SpecContext) {
+						idx, data := createPair(ctx, "Franklin")
+						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels: []cesium.ChannelKey{idx, data},
+							Start:    10 * telem.SecondTS,
+						}))
+						Expect(writePair(
+							w, idx, data, telem.NewSeriesSecondsTSV(1, 2), 1, 2,
+						)).To(Succeed())
+						MustSucceed(w.Commit())
+						Expect(db.DeleteTimeRange(
+							ctx,
+							[]cesium.ChannelKey{data},
+							(0 * telem.SecondTS).Range(3*telem.SecondTS),
+						)).To(And(
+							MatchError(control.ErrUnauthorized),
+							MatchError(ContainSubstring(
+								"deletion overlaps the domain of an open writer",
+							)),
+						))
+						Expect(writePair(
+							w, idx, data, telem.NewSeriesSecondsTSV(4), 3,
+						)).To(Succeed())
+						Expect(MustSucceed(w.Commit())).To(Equal(4*telem.SecondTS + 1))
+						Expect(w.Close()).To(Succeed())
+						Expect(db.DeleteTimeRange(
+							ctx,
+							[]cesium.ChannelKey{data},
+							(0 * telem.SecondTS).Range(3*telem.SecondTS),
+						)).To(Succeed())
+					},
+				)
 				Describe("Stored data", func() {
 					var idx, data cesium.ChannelKey
 					BeforeEach(func(ctx SpecContext) {
