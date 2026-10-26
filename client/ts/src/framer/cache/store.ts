@@ -96,7 +96,8 @@ export class Store {
   private readonly counted = new Map<string, number>();
   private readonly dataTypes = new Map<channel.Key, DataType>();
   private readonly live = new Map<channel.Key, Live>();
-  // newest holds the newest raw block of each channel that holds samples.
+  // newest holds the newest raw block that held samples of each channel. A block that
+  // leaves stays its newest, until the channel's data type changes.
   private readonly newest = new Map<channel.Key, number>();
   // epochs counts the changes to the series of each channel's raw blocks.
   private readonly epochs = new Map<channel.Key, number>();
