@@ -15,7 +15,7 @@ import type z from "zod";
 // The case table is shared with the Go interpreter, so that the Core and the client
 // cache agree on every filter.
 const VECTORS_URL = new URL(
-  "../../../../x/testdata/filter/vectors.json",
+  "../../../../core/testdata/filter/vectors.json",
   import.meta.url,
 );
 
