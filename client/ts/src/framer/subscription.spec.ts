@@ -999,6 +999,51 @@ describe("Feed.subscribe", () => {
     });
   });
 
+  describe("onChange", () => {
+    it("should call a handler once for a frame of several channels", async () => {
+      const core = createCore();
+      const feed = core.openFeed(OPTIONS);
+      const span = TimeSpan.seconds(30);
+      const [index, data] = [core.index.key, core.data[0].key];
+      const sub = feed.subscribe(raw([index, data], span));
+      try {
+        await settled(core, sub, index, span);
+        await settledData(core, sub, data, span);
+        let calls = 0;
+        sub.onChange(() => calls++);
+        core.advance(TimeSpan.seconds(1));
+        await expect.poll(() => calls, POLL).toBeGreaterThan(0);
+        await sleep.sleep(TimeSpan.milliseconds(50));
+        expect(calls).toBe(1);
+      } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
+
+    it("should keep the join and later handlers going when one throws", async () => {
+      const core = createCore();
+      const feed = core.openFeed(OPTIONS);
+      const span = TimeSpan.seconds(30);
+      const key = core.index.key;
+      const sub = feed.subscribe(raw([key], span));
+      let calls = 0;
+      sub.onChange(() => {
+        throw new Error("render failed");
+      });
+      sub.onChange(() => calls++);
+      const stop = tick(core);
+      try {
+        expectComplete(await settled(core, sub, key, span));
+        expect(calls).toBeGreaterThan(0);
+      } finally {
+        stop();
+        sub.close();
+        await feed.close();
+      }
+    });
+  });
+
   describe("validity", () => {
     it("should drop the samples a history change names, and keep the rest", async () => {
       const core = createCore();

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { alamos } from "@synnaxlabs/alamos";
 import { deep, type destructor } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
@@ -23,16 +24,22 @@ import {
 export interface HandleProps extends PointsProps, LatestProps {
   /** Called once when the subscription closes. */
   onClose: () => void;
+  /** Logs the errors that change handlers throw. */
+  instrumentation?: alamos.Instrumentation;
 }
 
 const isPoints = (request: SubscribeRequest): request is PointsRequest =>
   request.limit.variant === "points";
 
-/** A subscription that serves each channel through a points or latest consumer. */
+/**
+ * A subscription that serves each channel through a points or latest consumer. Its
+ * change handlers run once per microtask, however many changes it holds.
+ */
 export class Handle implements Subscription {
   private request: SubscribeRequest | null = null;
   private readonly consumers = new Map<channel.Key, Points | Latest>();
   private readonly handlers = new Set<() => void>();
+  private notifying = false;
   private closed = false;
 
   constructor(
@@ -94,6 +101,19 @@ export class Handle implements Subscription {
   }
 
   private readonly notify = (): void => {
-    if (!this.closed) this.handlers.forEach((h) => h());
+    if (this.notifying || this.closed) return;
+    this.notifying = true;
+    queueMicrotask(() => {
+      this.notifying = false;
+      if (this.closed) return;
+      const { instrumentation = alamos.NOOP } = this.props;
+      this.handlers.forEach((h) => {
+        try {
+          h();
+        } catch (e) {
+          instrumentation.L.error("subscription change handler failed", { error: e });
+        }
+      });
+    });
   };
 }

@@ -815,7 +815,7 @@ describe("feed", () => {
   });
 
   describe("subscribe", () => {
-    it("should hold each sample once from the window start while a writer runs", async () => {
+    it("should hold each sample once while a writer runs", async () => {
       const index = await client.channels.create({
         name: id.create(),
         dataType: DataType.TIMESTAMP,

@@ -234,6 +234,7 @@ export class Feed {
         now: this.now,
         breaker: this.props.breaker,
         onClose: () => this.handles.delete(handle),
+        instrumentation: this.props.instrumentation?.child("subscription"),
       },
       request,
     );
