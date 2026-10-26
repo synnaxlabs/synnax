@@ -234,6 +234,30 @@ describe("Sample project", () => {
     );
   });
 
+  it("should restart a running test on a reset", async () => {
+    const { open } = await openFromPalette();
+    const writer = await client.openWriter({
+      start: TimeStamp.now(),
+      channels: ["sample_start_cmd"],
+      authorities: 1,
+    });
+    const streamer = await client.openStreamer(["sample_tank_pt"]);
+    const readPressure = async (): Promise<number> =>
+      Number((await streamer.read()).get("sample_tank_pt").at(-1));
+    try {
+      await writer.write("sample_start_cmd", 1);
+      let pressure = 0;
+      while (pressure < 50) pressure = await readPressure();
+      await open();
+      fireEvent.click(await screen.findByRole("button", { name: "Reset" }));
+      // The simulator starts with an empty tank.
+      while (pressure !== 0) pressure = await readPressure();
+    } finally {
+      streamer.close();
+      await writer.close();
+    }
+  });
+
   it("should relink the schematic and plot after a project delete", async () => {
     const { sample, open } = await openFromPalette();
     await client.projects.delete(sample.project);

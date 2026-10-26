@@ -250,6 +250,8 @@ const deploy = async (client: Synnax, key: arc.Key): Promise<void> => {
   if (racks.length === 0) throw new NotFoundError("No rack can run Arc programs");
   const task = await client.arcs.updateTask(key, { rack: racks[0].key });
   if (task == null) throw new UnexpectedError(`Arc ${key} has no task`);
+  // A start leaves a running Arc alone, so the stop resets its stage and state.
+  await task.stop();
   await task.start();
 };
 
