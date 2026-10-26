@@ -110,7 +110,6 @@ var _ = Describe("ReadTask", func() {
 			DB:     db, Status: statusSvc,
 			Framer:   framerSvc,
 			Channels: channel.Keys{idxCh.Key(), dataCh.Key()},
-			Indexes:  channel.Keys{idxCh.Key()},
 			Task:     t,
 			Breaker:  brk,
 		}))
@@ -188,20 +187,6 @@ var _ = Describe("ReadTask", func() {
 				Channels: channel.Keys{idxCh.Key()},
 			})).Error().To(MatchError(ContainSubstring("task: must have a key")))
 		})
-		It("Should reject an index that is not one of its channels", func() {
-			Expect(driver.NewReadTask(driver.ReadTaskConfig{
-				Source:   src,
-				DB:       db,
-				Status:   statusSvc,
-				Framer:   framerSvc,
-				Channels: channel.Keys{dataCh.Key()},
-				Indexes:  channel.Keys{idxCh.Key()},
-				Task:     t,
-			})).Error().To(MatchError(ContainSubstring(
-				fmt.Sprintf("indexes: %d is not in channels", idxCh.Key()),
-			)))
-		})
-
 		It("Should reject a breaker whose base interval exceeds its maximum", func() {
 			Expect(driver.NewReadTask(driver.ReadTaskConfig{
 				Source: src,
@@ -280,13 +265,21 @@ var _ = Describe("ReadTask", func() {
 				}
 				Expect(w.Create(ctx, &peerData)).To(Succeed())
 				keys := channel.Keys{peerIdx.Key(), peerData.Key()}
+				// Channels leased by the peer reach the local Core by gossip.
+				Eventually(func(g Gomega) {
+					var res []channel.Channel
+					g.Expect(svc.Channel.NewRetrieve().
+						Where(channel.MatchKeys(keys...)).
+						Entries(&res).
+						Exec(ctx, nil)).To(Succeed())
+					g.Expect(res).To(HaveLen(len(keys)))
+				}).Should(Succeed())
 				rt := MustSucceed(driver.NewReadTask(driver.ReadTaskConfig{
 					Source:   src,
 					DB:       local.DB,
 					Status:   svc.Status,
 					Framer:   svc.Framer,
 					Channels: keys,
-					Indexes:  channel.Keys{peerIdx.Key()},
 					Task:     t,
 				}))
 				Expect(rt.Start(ctx, driver.NoCommand)).To(Succeed())
@@ -328,7 +321,6 @@ var _ = Describe("ReadTask", func() {
 					Status:   statusSvc,
 					Framer:   framerSvc,
 					Channels: keys,
-					Indexes:  channel.Keys{idxCh.Key(), earlyIdx.Key()},
 					Task:     t,
 				}))
 				DeferCleanup(func() { Expect(rt.Stop(false)).To(Succeed()) })
@@ -348,42 +340,52 @@ var _ = Describe("ReadTask", func() {
 			},
 		)
 
-		It("Should start the writer at an index rather than at a timestamp value",
+		It("Should write an index that starts inside the stored data of another index",
 			func(ctx SpecContext) {
 				w := channelSvc.NewWriter(nil)
-				stampCh := channel.Channel{
-					Name:       UniqueChannelName(),
-					DataType:   telem.TimestampT,
-					LocalIndex: idxCh.LocalKey,
+				behindIdx := channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.TimestampT,
+					IsIndex:  true,
 				}
-				Expect(w.Create(ctx, &stampCh)).To(Succeed())
-				keys := channel.Keys{idxCh.Key(), dataCh.Key(), stampCh.Key()}
+				Expect(w.Create(ctx, &behindIdx)).To(Succeed())
+				behindData := channel.Channel{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Float32T,
+					LocalIndex: behindIdx.LocalKey,
+				}
+				Expect(w.Create(ctx, &behindData)).To(Succeed())
+				stored := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  channel.Keys{idxCh.Key(), dataCh.Key()},
+					Start: telem.SecondTS,
+				}))
+				Expect(stored.Write(samples(1, 10).frame)).To(BeTrue())
+				Expect(stored.Close()).To(Succeed())
+				keys := channel.Keys{
+					idxCh.Key(), dataCh.Key(), behindIdx.Key(), behindData.Key(),
+				}
 				rt := MustSucceed(driver.NewReadTask(driver.ReadTaskConfig{
 					Source:   src,
 					DB:       db,
 					Status:   statusSvc,
 					Framer:   framerSvc,
 					Channels: keys,
-					Indexes:  channel.Keys{idxCh.Key()},
 					Task:     t,
 				}))
 				DeferCleanup(func() { Expect(rt.Stop(false)).To(Succeed()) })
-				run := func(seconds, stamp telem.TimeStamp) {
-					GinkgoHelper()
-					Expect(rt.Start(ctx, driver.NoCommand)).To(Succeed())
-					src.results <- readResult{frame: frame.NewMulti(keys, []telem.Series{
-						telem.NewSeriesSecondsTSV(seconds, seconds+1),
-						telem.NewSeriesV(float32(seconds), float32(seconds+1)),
-						telem.NewSeriesSecondsTSV(stamp, stamp),
-					})}
-					Eventually(src.results).Should(BeEmpty())
-					Expect(rt.Stop(false)).To(Succeed())
-				}
-				run(10, 10)
-				// An old timestamp value must not start the writer over the first run.
-				run(20, 1)
+				Expect(rt.Start(ctx, driver.NoCommand)).To(Succeed())
+				src.results <- readResult{frame: frame.NewMulti(keys, []telem.Series{
+					telem.NewSeriesSecondsTSV(20, 21),
+					telem.NewSeriesV[float32](20, 21),
+					telem.NewSeriesSecondsTSV(5, 6),
+					telem.NewSeriesV[float32](5, 6),
+				})}
+				Eventually(src.results).Should(BeEmpty())
+				Expect(rt.Stop(false)).To(Succeed())
 				Expect(written(ctx, framerSvc, dataCh)).
-					To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](10, 11, 20, 21)))
+					To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](1, 10, 20, 21)))
+				Expect(written(ctx, framerSvc, behindData)).
+					To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](5, 6)))
 			},
 		)
 

@@ -11,7 +11,6 @@ package driver
 
 import (
 	"context"
-	"slices"
 	"time"
 	"uuid"
 
@@ -28,7 +27,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
-	"github.com/synnaxlabs/x/telem"
 	xtime "github.com/synnaxlabs/x/time"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -75,11 +73,6 @@ type ReadTaskConfig struct {
 	//
 	// [REQUIRED]
 	Channels channel.Keys
-	// Indexes are the index channels among Channels. The writer starts at the earliest
-	// timestamp that the first frame writes to one of them.
-	//
-	// [OPTIONAL] - Without them, the writer starts at the current time.
-	Indexes channel.Keys
 	// Task is the stored task this instance runs.
 	//
 	// [REQUIRED]
@@ -116,7 +109,6 @@ func (c ReadTaskConfig) Override(other ReadTaskConfig) ReadTaskConfig {
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channels = override.Slice(c.Channels, other.Channels)
-	c.Indexes = override.Slice(c.Indexes, other.Indexes)
 	if other.Task.Key != uuid.Nil() {
 		c.Task = other.Task
 	}
@@ -133,20 +125,15 @@ func (c ReadTaskConfig) Validate() error {
 	v.NotNil("status", c.Status)
 	v.NotNil("framer", c.Framer)
 	v.NotEmptySlice("channels", c.Channels)
-	for _, key := range c.Indexes {
-		v.Ternaryf(
-			"indexes", !slices.Contains(c.Channels, key), "%d is not in channels", key,
-		)
-	}
 	v.Ternary("task", c.Task.Key == uuid.Nil(), "must have a key")
 	v.Exec(c.Breaker.Validate)
 	return v.Error()
 }
 
 // ReadTask runs a Source and writes its frames to the Core. It handles the start and
-// stop commands, opens its writer on the first frame, and reports the health of the
-// source through the task status. A failed write stops the task, also while the source
-// waits for its next frame. Safe for concurrent use.
+// stop commands, opens its writer when it starts, and reports the health of the source
+// through the task status. A failed write stops the task, also while the source waits
+// for its next frame. Safe for concurrent use.
 type ReadTask struct {
 	*Runner
 	cfg ReadTaskConfig
@@ -208,6 +195,9 @@ func (t *ReadTask) run(ctx context.Context, r Reader) (err error) {
 	if err != nil {
 		return err
 	}
+	if w, err = t.openWriter(ctx, fail); err != nil {
+		return err
+	}
 	for {
 		fr, err := r.Read(readCtx)
 		if fr.Empty() && readCtx.Err() != nil {
@@ -231,12 +221,6 @@ func (t *ReadTask) run(ctx context.Context, r Reader) (err error) {
 		if fr.Empty() {
 			continue
 		}
-		if w == nil {
-			start := startOf(fr, t.cfg.Indexes)
-			if w, err = t.openWriter(ctx, start, fail); err != nil {
-				return err
-			}
-		}
 		if !w.write(fr) {
 			return stopped()
 		}
@@ -253,7 +237,6 @@ type frameWriter struct {
 // openWriter opens a writer that calls fail with its first error.
 func (t *ReadTask) openWriter(
 	ctx context.Context,
-	start telem.TimeStamp,
 	fail context.CancelCauseFunc,
 ) (*frameWriter, error) {
 	// A stop cancels ctx, but the writer must still write its last frames and commit.
@@ -264,7 +247,6 @@ func (t *ReadTask) openWriter(
 			Name: t.cfg.Task.Name,
 		},
 		Keys:              t.cfg.Channels,
-		Start:             start,
 		Mode:              t.cfg.Mode,
 		ErrOnUnauthorized: new(true),
 	})
@@ -314,20 +296,4 @@ func (w *frameWriter) close() error {
 	defer w.cancel()
 	w.requests.Close()
 	return w.sCtx.Wait()
-}
-
-// startOf returns the earliest timestamp that fr writes to one of indexes, so that the
-// writer's domain holds every sample. It returns the current time for a frame that
-// writes to no index.
-func startOf(fr framer.Frame, indexes channel.Keys) telem.TimeStamp {
-	start := telem.TimeStampMax
-	for key, s := range fr.Entries() {
-		if s.Len() > 0 && slices.Contains(indexes, key) {
-			start = min(start, s.ValueAt[telem.TimeStamp](0))
-		}
-	}
-	if start == telem.TimeStampMax {
-		return telem.Now()
-	}
-	return start
 }

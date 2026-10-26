@@ -447,7 +447,6 @@ func (f *Factory) configureRead(
 		Status:          f.cfg.Status,
 		Framer:          f.cfg.Framer,
 		Channels:        writerKeys,
-		Indexes:         indexes,
 		Task:            t,
 		Mode:            mode,
 	})
