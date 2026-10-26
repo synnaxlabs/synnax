@@ -59,7 +59,7 @@ jobs:
         id: token
         uses: actions/create-github-app-token@v3
         with:
-          client-id: ${{ secrets.AGENT_APP_ID }}
+          app-id: ${{ secrets.AGENT_APP_ID }}
           private-key: ${{ secrets.AGENT_APP_PRIVATE_KEY }}
 
       - name: Install the agent
