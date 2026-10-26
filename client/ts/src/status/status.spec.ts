@@ -328,9 +328,7 @@ describe("Status", () => {
         },
       ]);
 
-      const statuses = await client.statuses.retrieve({
-        where: { key: { in: ["multi-1", "multi-2"] } },
-      });
+      const statuses = await client.statuses.retrieve(["multi-1", "multi-2"]);
 
       expect(statuses).toHaveLength(2);
       const keys = statuses.map((s) => s.key);
