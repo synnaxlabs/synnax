@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 @go output "x/go/notation"
+@py output "x/py/x/notation"
 @ts output "x/ts/src/notation"
 
 Notation enum {

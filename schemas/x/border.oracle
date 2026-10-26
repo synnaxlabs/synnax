@@ -10,6 +10,7 @@
 import "schemas/x/spatial"
 
 @go output "x/go/border"
+@py output "x/py/x/border"
 @ts output "x/ts/src/border"
 
 Radius struct {

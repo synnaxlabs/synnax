@@ -14,6 +14,7 @@ import "schemas/x/telem"
 import "schemas/x/text"
 
 @go output "core/pkg/service/lineplot"
+@py output "client/py/synnax/lineplot"
 @ts output "client/ts/src/lineplot"
 
 Key = uuid {

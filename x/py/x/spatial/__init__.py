@@ -20,6 +20,7 @@ from x.spatial.types_gen import (
     Dimensions,
     Direction,
     Location,
+    LocationXY,
     Order,
     OuterLocation,
     SignedDimension,
@@ -28,7 +29,9 @@ from x.spatial.types_gen import (
     StickyUnits,
     StickyXY,
     Viewport,
+    XCenterLocation,
     XLocation,
+    YCenterLocation,
     YLocation,
 )
 
@@ -45,6 +48,7 @@ __all__ = [
     "Dimensions",
     "Direction",
     "Location",
+    "LocationXY",
     "Order",
     "OuterLocation",
     "SignedDimension",
@@ -53,6 +57,8 @@ __all__ = [
     "StickyUnits",
     "StickyXY",
     "Viewport",
+    "XCenterLocation",
     "XLocation",
+    "YCenterLocation",
     "YLocation",
 ]
