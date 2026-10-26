@@ -129,6 +129,16 @@ func (u *Proof) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// Method returns the method of the active variant, or an empty method when there is
+// none.
+func (u Proof) Method() Method {
+	switch u.Variant.(type) {
+	case PasswordProof:
+		return MethodPassword
+	}
+	return ""
+}
+
 // Validate returns an error wrapping validate.ErrValidation if the active variant
 // violates its schema constraints.
 func (u Proof) Validate() error {

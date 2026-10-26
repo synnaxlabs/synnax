@@ -306,6 +306,16 @@ func bareLineOperator(
 		if key, ok := retrieveKey(target); ok && line.Name == "key" {
 			return operator("Set", key), true
 		}
+		if form, ok := target.Form.(resolution.UnionForm); ok &&
+			line.Name == form.Discriminator {
+			return report(
+				"%s takes its %s from an unnamed enum; declare an enum and borrow it "+
+					"with `union on %s <Enum>`",
+				target.Name,
+				line.Name,
+				line.Name,
+			)
+		}
 		return report(
 			"%s has no field %s; give the line a type to make it a typed line",
 			target.Name,
@@ -418,9 +428,14 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 	// The request and order types go wherever the tree they carry goes.
 	domains := outputDomains(c.fileDomains, where.Domains)
 	request := []resolution.Field{
-		optionalField("where", resolution.TypeRef{Name: where.QualifiedName}, fmt.Sprintf(
-			"selects the %s to retrieve. An absent where selects all of them.", words,
-		)),
+		optionalField(
+			"where",
+			resolution.TypeRef{Name: where.QualifiedName},
+			fmt.Sprintf(
+				"selects the %s to retrieve. An absent where selects all of them.",
+				words,
+			),
+		),
 	}
 	if lo.SomeBy(fields, func(f resolution.Field) bool {
 		_, ok := f.Domains["search"]
