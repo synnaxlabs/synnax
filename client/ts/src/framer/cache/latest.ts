@@ -300,12 +300,6 @@ export class Latest {
     return this.buffer.leadingBuffer ?? this.series.at(-1);
   }
 
-  // Returns the end of the series' samples, or undefined when it has no time range.
-  private endOf(s: Series): TimeStamp | undefined {
-    if (s === this.buffer.leadingBuffer) return this.buffer.dataTimeRange?.end;
-    return s.timeRange.isZero ? undefined : s.timeRange.end;
-  }
-
   // Returns the samples of s newer than the newest sample held, or null if it has none.
   // Under alignment dedupe, alignments decide in the newest sample's domain. Otherwise,
   // the ends of the time ranges decide, and a series with no time range stays. A series
@@ -329,7 +323,7 @@ export class Latest {
       if (overlap >= BigInt(s.length)) return null;
       return overlap > 0n ? s.sub(Number(overlap)) : s;
     }
-    const end = this.endOf(newest);
+    const end = this.time();
     if (!timed || end == null) return s;
     return s.timeRange.end.after(end) ? s : null;
   }
@@ -367,10 +361,12 @@ export class Latest {
     this.snapshot = null;
   }
 
-  // Returns the end of the newest sample's span.
+  // Returns the end of the newest sample's span, or undefined when it has no time range.
   private time(): TimeStamp | undefined {
     const newest = this.newest();
-    return newest == null ? undefined : this.endOf(newest);
+    if (newest == null) return undefined;
+    if (newest === this.buffer.leadingBuffer) return this.buffer.dataTimeRange?.end;
+    return newest.timeRange.isZero ? undefined : newest.timeRange.end;
   }
 
   private status(): status.Status {
