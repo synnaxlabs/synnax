@@ -22,6 +22,7 @@ export const createClient = (core: SyntheticCore): Client & { feed: framer.Feed 
   feed: core.openFeed({ transform: GL_TRANSFORM }),
   exactFeed: core.openFeed(),
   readLatest: async () => new MultiSeries([]),
+  readEarliest: async () => new MultiSeries([]),
   channels: core.channels,
   now: core.now,
 });

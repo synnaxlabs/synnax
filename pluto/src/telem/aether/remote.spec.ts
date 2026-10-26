@@ -67,6 +67,7 @@ describe("remote", () => {
   describe("StreamChannelValue", () => {
     class MockClient implements Client {
       readLatest = async (): Promise<MultiSeries> => new MultiSeries([]);
+      readEarliest = async (): Promise<MultiSeries> => new MultiSeries([]);
       now = (): TimeStamp => TimeStamp.now();
       key: string = id.create();
 
@@ -453,6 +454,7 @@ describe("remote", () => {
   describe("StreamChannelStringValue", () => {
     class MockClient implements Client {
       readLatest = async (): Promise<MultiSeries> => new MultiSeries([]);
+      readEarliest = async (): Promise<MultiSeries> => new MultiSeries([]);
       now = (): TimeStamp => TimeStamp.now();
       key: string = id.create();
 
@@ -840,6 +842,7 @@ describe("remote", () => {
 
     class MockClient implements Client {
       readLatest = async (): Promise<MultiSeries> => new MultiSeries([]);
+      readEarliest = async (): Promise<MultiSeries> => new MultiSeries([]);
       now = (): TimeStamp => TimeStamp.now();
       dataType = DataType.FLOAT32;
       tiles: framer.TileSpec[] = [];

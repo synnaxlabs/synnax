@@ -214,6 +214,33 @@ describe("Client", () => {
       expect(Array.from(result)).toEqual([4, 5, 6]);
     });
 
+    it("should read the earliest N samples within a time range", async () => {
+      const time = await client.channels.create({
+        name: id.create(),
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      const data = await client.channels.create({
+        name: id.create(),
+        dataType: "float32",
+        index: time.key,
+      });
+      const start = TimeStamp.now();
+      const timeData = Array.from({ length: 10 }, (_, i) =>
+        start.add(TimeSpan.seconds(i)),
+      );
+      await client.write(start, {
+        [time.key]: timeData,
+        [data.key]: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      });
+      const result = await client.readEarliest(
+        data.key,
+        3,
+        start.add(TimeSpan.seconds(4)).spanRange(TimeSpan.seconds(6)),
+      );
+      expect(Array.from(result)).toEqual([5, 6, 7]);
+    });
+
     it("should return empty series when no data exists", async () => {
       const time = await client.channels.create({
         name: id.create(),

@@ -91,11 +91,40 @@ describe("StreamMultiChannelLog", () => {
       key: channel.Key,
       n: number,
       tr: TimeRange,
-    ): Promise<MultiSeries> => {
-      this.readF(tr, key, n);
+    ): Promise<MultiSeries> => await this.readStored(key, n, tr, "last");
+
+    readEarliest = async (
+      key: channel.Key,
+      n: number,
+      tr: TimeRange,
+    ): Promise<MultiSeries> => await this.readStored(key, n, tr, "first");
+
+    // Reads n stored samples of key within tr from its first or last one, timed by the
+    // stored samples of its index. Each sample keeps its alignment.
+    private async readStored(
+      key: channel.Key,
+      n: number,
+      tr: TimeRange,
+      edge: "first" | "last",
+    ): Promise<MultiSeries> {
+      this.readF(tr, key, n, edge);
       await this.readGate;
-      return this.stored.get(key) ?? new MultiSeries([]);
-    };
+      const stored = this.stored.get(key);
+      if (stored == null) return new MultiSeries([]);
+      const ch = this.indexed.find((c) => c.key === key);
+      const index = this.stored.get(ch == null || ch.isIndex ? key : ch.index);
+      const samples: Series[] = [];
+      for (const s of stored.series)
+        for (let i = 0; i < s.length; i++) {
+          const alignment = s.alignment + BigInt(i) * s.alignmentMultiple;
+          const time = index?.atAlignment(alignment) as bigint | undefined;
+          if (time != null && !tr.contains(new TimeStamp(time))) continue;
+          samples.push(
+            new Series({ data: [s.at(i)], dataType: s.dataType, alignment }),
+          );
+        }
+      return new MultiSeries(edge === "last" ? samples.slice(-n) : samples.slice(0, n));
+    }
 
     feed = {
       readLatest: async (): Promise<MultiSeries> => new MultiSeries([]),
@@ -1105,6 +1134,7 @@ describe("StreamMultiChannelLog", () => {
         undefined,
         () => NOW,
         1,
+        1,
       );
       await waitForResolve(log);
       expect(log.value().map((e) => e.value)).toEqual(["x"]);
@@ -1131,6 +1161,7 @@ describe("StreamMultiChannelLog", () => {
         undefined,
         () => NOW,
         1,
+        1,
       );
       await waitForResolve(log);
       expect(log.value()).toEqual([]);
@@ -1140,6 +1171,167 @@ describe("StreamMultiChannelLog", () => {
         [IDX, 2],
         [IDX, 4],
       ]);
+    });
+
+    describe("paging", () => {
+      const paged = (
+        maxEntries: number,
+        pageSize: number,
+        channels: channel.Key[] = [DATA],
+      ): StreamMultiChannelLog =>
+        new StreamMultiChannelLog(
+          c,
+          { channels },
+          undefined,
+          () => NOW,
+          maxEntries,
+          pageSize,
+        );
+
+      const store = (
+        data: channel.Key,
+        index: channel.Key,
+        secs: number[],
+        values: string[],
+      ): void => {
+        c.stored.set(index, new MultiSeries([times(secs, 0n)]));
+        c.stored.set(data, new MultiSeries([strings(values, 0n)]));
+      };
+
+      const values = (log: StreamMultiChannelLog): string[] =>
+        log.value().map((e) => e.value);
+
+      const settle = async (
+        log: StreamMultiChannelLog,
+        act: () => void,
+      ): Promise<void> => {
+        const handleChange = vi.fn();
+        log.onChange(handleChange);
+        act();
+        await expect.poll(() => handleChange.mock.calls.length > 0).toBe(true);
+      };
+
+      const STORED = [70, 71, 72, 73, 74, 75];
+      const LETTERS = ["a", "b", "c", "d", "e", "f"];
+
+      it("should read the latest page when the log opens", async () => {
+        store(DATA, IDX, STORED, LETTERS);
+        const log = paged(10, 2);
+        await waitForResolve(log);
+        expect(values(log)).toEqual(["e", "f"]);
+      });
+
+      it("should keep the newest entries when the first page passes the limit", async () => {
+        let release = (): void => {};
+        c.readGate = new Promise((resolve) => (release = resolve));
+        store(DATA, IDX, STORED, LETTERS);
+        const log = paged(2, 2);
+        log.value();
+        await expect.poll(() => c.streamHandler != null).toBe(true);
+        c.streamHandler?.(
+          new Map([
+            [IDX, new MultiSeries([times([76, 77], 6n)])],
+            [DATA, new MultiSeries([strings(["g", "h"], 6n)])],
+          ]),
+        );
+        await settle(log, release);
+        expect(log.detached).toBe(false);
+        expect(values(log)).toEqual(["g", "h"]);
+      });
+
+      it("should read the page before the oldest entry", async () => {
+        store(DATA, IDX, STORED, LETTERS);
+        const log = paged(10, 2);
+        await waitForResolve(log);
+        await settle(log, () => log.loadOlder());
+        expect(values(log)).toEqual(["c", "d", "e", "f"]);
+      });
+
+      it("should stop reading older pages at the first stored sample", async () => {
+        store(DATA, IDX, [70, 71, 72], ["a", "b", "c"]);
+        const log = paged(10, 2);
+        await waitForResolve(log);
+        await settle(log, () => log.loadOlder());
+        expect(values(log)).toEqual(["a", "b", "c"]);
+        c.readF.mockClear();
+        log.loadOlder();
+        expect(c.readF).not.toHaveBeenCalled();
+      });
+
+      it("should leave out samples past the reach of another channel's full page", async () => {
+        store(DATA, IDX, [70, 80, 90], ["a1", "a2", "a3"]);
+        store(DATA_2, IDX_2, [85, 88, 89], ["b1", "b2", "b3"]);
+        const log = paged(10, 2, [DATA, DATA_2]);
+        await waitForResolve(log);
+        expect(values(log)).toEqual(["b2", "b3", "a3"]);
+        await settle(log, () => log.loadOlder());
+        expect(values(log)).toEqual(["a1", "a2", "b1", "b2", "b3", "a3"]);
+      });
+
+      const detach = async (): Promise<StreamMultiChannelLog> => {
+        store(DATA, IDX, STORED, LETTERS);
+        const log = paged(4, 2);
+        await waitForResolve(log);
+        await settle(log, () => log.loadOlder());
+        await settle(log, () => log.loadOlder());
+        return log;
+      };
+
+      const streamG = (): void =>
+        c.streamHandler?.(
+          new Map([
+            [IDX, new MultiSeries([times([76], 6n)])],
+            [DATA, new MultiSeries([strings(["g"], 6n)])],
+          ]),
+        );
+
+      it("should detach when an older page passes the entry limit", async () => {
+        const log = await detach();
+        expect(log.detached).toBe(true);
+        expect(values(log)).toEqual(["a", "b", "c", "d"]);
+        streamG();
+        expect(values(log)).toEqual(["a", "b", "c", "d"]);
+      });
+
+      it("should rejoin the newest entries when a newer page reaches them", async () => {
+        const log = await detach();
+        streamG();
+        await settle(log, () => log.loadNewer());
+        expect(log.detached).toBe(false);
+        expect(values(log)).toEqual(["d", "e", "f", "g"]);
+        const [tr, , , edge] = c.readF.mock.calls.at(-1) as [
+          TimeRange,
+          number,
+          number,
+          string,
+        ];
+        expect(edge).toEqual("first");
+        expect(tr.start).toEqual(TimeStamp.seconds(73).add(1));
+      });
+
+      it("should not read newer pages while attached", async () => {
+        store(DATA, IDX, STORED, LETTERS);
+        const log = paged(10, 2);
+        await waitForResolve(log);
+        c.readF.mockClear();
+        log.loadNewer();
+        expect(c.readF).not.toHaveBeenCalled();
+      });
+
+      it("should replace a detached list with the newest entries on resume", async () => {
+        const log = await detach();
+        streamG();
+        log.resume();
+        expect(log.detached).toBe(false);
+        expect(values(log)).toEqual(["e", "f", "g"]);
+      });
+
+      it("should read older pages again after a resume", async () => {
+        const log = await detach();
+        log.resume();
+        await settle(log, () => log.loadOlder());
+        expect(values(log)).toEqual(["c", "d", "e", "f"]);
+      });
     });
 
     it("should sort the entries of several channels by sample time", async () => {

@@ -582,6 +582,77 @@ describe("log/aether/Log", () => {
     });
   });
 
+  describe("paging", () => {
+    const pause = (updateState: (o: Record<string, unknown>) => void): void => {
+      updateState({
+        region: REGION_500,
+        wheelPos: 0,
+        scrolling: false,
+        empty: true,
+        visible: true,
+      });
+      updateState({
+        region: REGION_500,
+        wheelPos: 0,
+        scrolling: true,
+        empty: false,
+        visible: true,
+      });
+    };
+
+    const scrollTo = (
+      updateState: (o: Record<string, unknown>) => void,
+      wheelPos: number,
+    ): void =>
+      updateState({
+        region: REGION_500,
+        wheelPos,
+        scrolling: true,
+        empty: false,
+        visible: true,
+      });
+
+    it("should load older entries when the view nears the oldest one", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { source, updateState } = setup(entries);
+      pause(updateState);
+      scrollTo(updateState, 100);
+      expect(source.olderLoads).toBeGreaterThan(0);
+    });
+
+    it("should not load older entries far from the oldest one", () => {
+      const entries = Array.from({ length: 1_000 }, (_, i) => makeEntry(i));
+      const { source, updateState } = setup(entries);
+      pause(updateState);
+      scrollTo(updateState, 100);
+      expect(source.olderLoads).toBe(0);
+    });
+
+    it("should load newer entries at the end of a detached list", () => {
+      const entries = Array.from({ length: 1_000 }, (_, i) => makeEntry(i));
+      const { log, source, updateState } = setup(entries);
+      source.detached = true;
+      pause(updateState);
+      scrollTo(updateState, -100);
+      expect(source.newerLoads).toBeGreaterThan(0);
+      expect(log.state.scrolling).toBe(true);
+    });
+
+    it("should resume the source when the log resumes live mode", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { source, updateState } = setup(entries);
+      pause(updateState);
+      updateState({
+        region: REGION_500,
+        wheelPos: 0,
+        scrolling: false,
+        empty: false,
+        visible: true,
+      });
+      expect(source.resumes).toBe(1);
+    });
+  });
+
   describe("scrolling after an insert", () => {
     it("should scroll from the anchored entry, not from the old index", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));

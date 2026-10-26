@@ -31,6 +31,9 @@ import { AbstractSource } from "@/telem/aether/telem";
 
 const MAX_ENTRIES = 100_000;
 
+// The samples of each channel that one stored read returns.
+const PAGE_SIZE = 1_000;
+
 // A sparse channel on a dense index needs many index samples to time its own. The index
 // read stops at this multiple of the data read, and the untimed samples are left out.
 const MAX_INDEX_READ_FACTOR = 4;
@@ -62,12 +65,13 @@ interface ChannelMeta {
   // The latest sample time in the log. A streamed sample at or before it is a
   // duplicate. Sample time is the one identity the stream and stored reads share.
   highWater: bigint | null;
-  // The first sample time the stream delivered. A stored sample at or after it is a
-  // duplicate.
-  streamStart: bigint | null;
   // Whether the log has reported dropping samples whose index samples never arrived.
   untimedDropReported: boolean;
 }
+
+// How a stored read places its page: the first page of a channel set, the latest page
+// of channels added to it, or a page past either end of the list.
+type PageKind = "initial" | "added" | "older" | "newer";
 
 interface PushResult {
   pushed: number;
@@ -76,8 +80,9 @@ interface PushResult {
 
 /**
  * Shows the samples of several channels in one list, sorted by sample time. It reads the
- * latest stored samples, then streams new ones. The list keeps the newest maxEntries
- * entries.
+ * latest stored samples, then streams new ones. The list holds at most maxEntries
+ * entries, and loadOlder and loadNewer move it through the stored samples. A list that
+ * moves off the newest entries is detached until loadNewer reaches them again.
  */
 export class StreamMultiChannelLog
   extends AbstractSource<typeof streamMultiChannelLogPropsZ>
@@ -90,12 +95,28 @@ export class StreamMultiChannelLog
   private readonly onStatusChange?: status.Adder;
   private readonly now: () => TimeStamp;
   private readonly maxEntries: number;
+  private readonly pageSize: number;
   private channelMeta: Map<channel.Key, ChannelMeta> = new Map();
   private entries: LogEntry[] = [];
   private stopStreaming?: destructor.Destructor;
   private valid = false;
   private _channels: channel.Key[] = [];
   private readGeneration = 0;
+  private _detached = false;
+  // The entries streamed while the list is detached, newest last. It holds every
+  // sample from its first entry on.
+  private tail: LogEntry[] = [];
+  // The sample time from which the list holds every stored sample, or null before the
+  // first read. 0n means the list reaches the first stored sample.
+  private start: bigint | null = null;
+  // The sample time before which a detached list holds every stored sample.
+  private end = 0n;
+  private pageCount = 0;
+  private pageInFlight: number | null = null;
+
+  get detached(): boolean {
+    return this._detached;
+  }
 
   constructor(
     client: Client | null,
@@ -103,12 +124,14 @@ export class StreamMultiChannelLog
     options?: CreateOptions,
     now: () => TimeStamp = () => client?.now() ?? TimeStamp.now(),
     maxEntries: number = MAX_ENTRIES,
+    pageSize: number = PAGE_SIZE,
   ) {
     super(props);
     this.client = client;
     this.onStatusChange = options?.onStatusChange;
     this.now = now;
     this.maxEntries = maxEntries;
+    this.pageSize = pageSize;
     this._channels = this.props.channels.filter(
       (ch): ch is number => typeof ch === "number",
     );
@@ -129,10 +152,54 @@ export class StreamMultiChannelLog
     if (channels.length === 0) {
       this.stopStreaming?.();
       this.stopStreaming = undefined;
-      this.entries = [];
-      this.channelMeta.clear();
+      this.reset();
     }
     this.notify();
+  }
+
+  /** Reads the page of stored entries before the oldest entry in the list. */
+  loadOlder(): void {
+    const { client, start } = this;
+    if (client == null || start == null || start === 0n || this.pageInFlight != null)
+      return;
+    const tr = new TimeRange(TimeStamp.MIN, new TimeStamp(start));
+    void this.readPage(client, "older", this.indexedMeta(), tr);
+  }
+
+  /** Reads the page of stored entries after the newest entry of a detached list. */
+  loadNewer(): void {
+    const { client } = this;
+    if (client == null || !this._detached || this.pageInFlight != null) return;
+    const tr = new TimeRange(new TimeStamp(this.end), TimeStamp.MAX);
+    void this.readPage(client, "newer", this.indexedMeta(), tr);
+  }
+
+  /** Replaces a detached list with the newest entries. */
+  resume(): void {
+    if (!this._detached) return;
+    this.attach();
+    this.notify();
+  }
+
+  private attach(): void {
+    this.pageInFlight = null;
+    this.entries = this.tail;
+    this.tail = [];
+    this._detached = false;
+    this.start = this.entries[0]?.timestamp.valueOf() ?? null;
+  }
+
+  private reset(): void {
+    this.pageInFlight = null;
+    this.entries = [];
+    this.tail = [];
+    this._detached = false;
+    this.start = null;
+    this.channelMeta.clear();
+  }
+
+  private indexedMeta(): ChannelMeta[] {
+    return [...this.channelMeta.values()].filter(({ index }) => index !== 0);
   }
 
   /** Never rejects: a failure invalidates the read and reaches onStatusChange. */
@@ -155,6 +222,7 @@ export class StreamMultiChannelLog
       );
       if (generation !== this.readGeneration) return;
       unread = this.updateChannelMeta(channels);
+      if (this._detached) this.attach();
       this.stream(client);
     } catch (e) {
       if (generation !== this.readGeneration) return;
@@ -163,28 +231,113 @@ export class StreamMultiChannelLog
       return;
     }
     // The stream opens first, so a slow read never delays live entries.
+    const { start } = this;
+    const indexed = unread.filter(({ index }) => index !== 0);
+    if (start == null) await this.readPage(client, "initial", indexed, TimeRange.MAX);
+    else {
+      const tr = new TimeRange(new TimeStamp(start), TimeStamp.MAX);
+      await this.readPage(client, "added", indexed, tr);
+    }
+  }
+
+  /**
+   * Reads a page of each channel within tr and merges it into the list. Never rejects:
+   * a failure reaches onStatusChange.
+   */
+  private async readPage(
+    client: Client,
+    kind: PageKind,
+    metas: ChannelMeta[],
+    tr: TimeRange,
+  ): Promise<void> {
+    const generation = this.readGeneration;
+    const id = ++this.pageCount;
+    this.pageInFlight = id;
+    const stale = (): boolean =>
+      generation !== this.readGeneration || this.pageInFlight !== id;
+    const edge = kind === "newer" ? "first" : "last";
     try {
-      const stored = await Promise.all(
-        unread
-          .filter(({ index }) => index !== 0)
-          .map(async (meta) => ({
-            meta,
-            ...(await readLatest(client, meta, this.maxEntries)),
-          })),
+      const pages = await Promise.all(
+        metas.map(async (meta) => ({
+          meta,
+          ...(await readEdge(client, meta, this.pageSize, tr, edge)),
+        })),
       );
-      if (generation !== this.readGeneration) return;
-      const entries = stored.flatMap(({ meta, data, index }) => {
+      if (stale()) return;
+      // A full page stops short of the samples beyond it. The page is complete only up
+      // to the boundary that the shortest reach of a full page sets.
+      let boundary: bigint | null = null;
+      const incoming: LogEntry[] = [];
+      for (const { meta, data, index } of pages) {
         meta.historyRead = true;
-        return this.storedEntries(meta, data, index);
-      });
+        const entries = this.storedEntries(meta, data, index);
+        incoming.push(...entries);
+        if (data.length < this.pageSize || entries.length === 0) continue;
+        const reach = (edge === "last" ? entries[0] : entries.at(-1))?.timestamp;
+        const t = reach?.valueOf();
+        if (t == null) continue;
+        if (boundary == null || (edge === "last" ? t > boundary : t < boundary))
+          boundary = t;
+      }
       // One stable sort instead of an insert per entry.
-      if (entries.length > 0) this.entries = [...this.entries, ...entries].sort(byTime);
-      this.gcEntries();
+      incoming.sort(byTime);
+      if (kind === "newer") this.mergeNewer(incoming, boundary);
+      else this.mergeOlder(kind, incoming, boundary);
     } catch (e) {
-      if (generation !== this.readGeneration) return;
+      if (stale()) return;
       this.onStatusChange?.(cstatus.fromException(e, "Failed to read log channels"));
+    } finally {
+      if (this.pageInFlight === id) this.pageInFlight = null;
     }
     this.notify();
+  }
+
+  private mergeOlder(
+    kind: PageKind,
+    incoming: LogEntry[],
+    boundary: bigint | null,
+  ): void {
+    this.entries = merge(this.entries, incoming);
+    if (boundary != null) this.entries.splice(0, lowerBound(this.entries, boundary));
+    // An added channel can only narrow the times the list holds in full.
+    if (boundary != null)
+      this.start = kind === "added" ? max(this.start, boundary) : boundary;
+    else if (kind !== "added") this.start = 0n;
+    // Only a page the user scrolled to gives up the newest entries for older ones.
+    if (kind !== "older") {
+      this.gcEntries();
+      return;
+    }
+    if (this.entries.length <= this.maxEntries) return;
+    let cut = this.maxEntries;
+    // Keeps a multi-line sample whole.
+    while (cut > 0 && this.entries[cut].continuation) cut--;
+    const evicted = this.entries.splice(cut);
+    const last = this.entries.at(-1)?.timestamp.valueOf() ?? 0n;
+    // A cut between entries of one sample time leaves that time incomplete.
+    this.end = evicted[0].timestamp.valueOf() === last ? last : last + 1n;
+    // The tail must hold every sample from its first entry on, so only a list that held
+    // the newest entries hands its evicted ones over.
+    if (!this._detached) this.tail = evicted;
+    this._detached = true;
+  }
+
+  private mergeNewer(incoming: LogEntry[], boundary: bigint | null): void {
+    const tailStart = this.tail[0]?.timestamp.valueOf();
+    const reached = boundary == null || (tailStart != null && boundary >= tailStart);
+    const kept = incoming.filter((e) => {
+      const t = e.timestamp.valueOf();
+      if (boundary != null && t > boundary) return false;
+      return !reached || tailStart == null || t < tailStart;
+    });
+    this.entries = merge(this.entries, kept);
+    if (boundary != null) this.end = boundary + 1n;
+    if (reached) {
+      this.entries = merge(this.entries, this.tail);
+      this.tail = [];
+      this._detached = false;
+    }
+    this.gcEntries();
   }
 
   // Keeps the state of the channels the log already shows, and returns the channels
@@ -193,8 +346,10 @@ export class StreamMultiChannelLog
     const prev = this.channelMeta;
     const newKeys = new Set(channels.map((ch) => ch.key));
     const removedKeys = new Set([...prev.keys()].filter((k) => !newKeys.has(k)));
-    if (removedKeys.size > 0)
+    if (removedKeys.size > 0) {
       this.entries = this.entries.filter((e) => !removedKeys.has(e.channelKey));
+      this.tail = this.tail.filter((e) => !removedKeys.has(e.channelKey));
+    }
     // A restarted stream replays the buffered data of every channel. A channel without
     // an index cannot detect the replay by sample time, so it skips the first batch.
     const isRestart = prev.size > 0;
@@ -213,7 +368,6 @@ export class StreamMultiChannelLog
         historyRead: existing?.historyRead ?? false,
         indexBuffers: [],
         highWater: existing?.highWater ?? null,
-        streamStart: existing?.streamStart ?? null,
         untimedDropReported: existing?.untimedDropReported ?? false,
       };
       this.channelMeta.set(ch.key, meta);
@@ -246,8 +400,9 @@ export class StreamMultiChannelLog
         // After the drain, so every index buffer of this callback times its data.
         meta.indexBuffers.splice(0, meta.indexBuffers.length - MAX_INDEX_BUFFERS);
       }
-      this.gcEntries();
-      if (pushed > 0) this.notify();
+      if (this._detached) this.trimTail();
+      else this.gcEntries();
+      if (pushed > 0 && !this._detached) this.notify();
     };
     // The exact feed, since the feed rounds sample times to float32.
     this.stopStreaming = client.exactFeed.stream(handler, [...keys]).close;
@@ -314,13 +469,12 @@ export class StreamMultiChannelLog
       }
       if (meta.highWater != null && time <= meta.highWater) continue;
       meta.highWater = time;
-      meta.streamStart ??= time;
       pushed += this.insert(meta, buf, i, time);
     }
     return { pushed, cursor: buf.length };
   }
 
-  // Returns the entries of the stored samples the stream has not delivered.
+  // Returns the entries of the stored samples that index samples time.
   private storedEntries(
     meta: ChannelMeta,
     data: MultiSeries,
@@ -331,7 +485,6 @@ export class StreamMultiChannelLog
       for (let i = 0; i < s.length; i++) {
         const time = index.atAlignment(sampleAlignment(s, i)) as bigint | undefined;
         if (time == null) continue;
-        if (meta.streamStart != null && time >= meta.streamStart) continue;
         entries.push(...toEntries(meta, s, i, time));
         if (meta.highWater == null || time > meta.highWater) meta.highWater = time;
       }
@@ -342,27 +495,34 @@ export class StreamMultiChannelLog
   // added.
   private insert(meta: ChannelMeta, buf: Series, i: number, time: bigint): number {
     const group = toEntries(meta, buf, i, time);
-    const last = this.entries.at(-1);
-    if (last == null || last.timestamp.valueOf() <= time) this.entries.push(...group);
-    else this.entries.splice(upperBound(this.entries, time), 0, ...group);
+    const list = this._detached ? this.tail : this.entries;
+    const last = list.at(-1);
+    if (last == null || last.timestamp.valueOf() <= time) list.push(...group);
+    else list.splice(upperBound(list, time), 0, ...group);
     return group.length;
   }
 
   // Evicts the oldest entries past maxEntries.
   private gcEntries(): void {
-    if (this.entries.length <= this.maxEntries) return;
-    let excess = this.entries.length - this.maxEntries;
-    // Skip leading continuations so the new head isn't an orphan.
-    while (excess < this.entries.length && this.entries[excess].continuation) excess++;
-    this.entries.splice(0, excess);
+    const evicted = evictOldest(this.entries, this.maxEntries);
+    const first = this.entries[0]?.timestamp.valueOf();
+    if (evicted == null || first == null) return;
+    // An eviction between entries of one sample time leaves that time incomplete.
+    this.start = max(
+      this.start,
+      evicted.timestamp.valueOf() === first ? first + 1n : first,
+    );
+  }
+
+  private trimTail(): void {
+    evictOldest(this.tail, this.maxEntries);
   }
 
   cleanup(): void {
     this.readGeneration++;
     this.stopStreaming?.();
     this.stopStreaming = undefined;
-    this.entries = [];
-    this.channelMeta.clear();
+    this.reset();
     this.valid = false;
   }
 }
@@ -393,24 +553,29 @@ const toEntries = (
   }));
 };
 
-// Reads the latest n stored samples of the channel, and index samples to time them. The
-// index can hold more samples than the channel, so its read doubles until it reaches
-// the first data sample or MAX_INDEX_READ_FACTOR times n.
-const readLatest = async (
+// Reads n stored samples of the channel from the first or last sample within tr, and
+// index samples to time them. The index can hold more samples than the channel, so its
+// read doubles until it reaches the far end of the data or MAX_INDEX_READ_FACTOR times
+// n.
+const readEdge = async (
   client: Client,
   meta: ChannelMeta,
   n: number,
+  tr: TimeRange,
+  edge: "first" | "last",
 ): Promise<{ data: MultiSeries; index: MultiSeries }> => {
-  const data = await client.readLatest(meta.key, n, TimeRange.MAX);
+  const read = edge === "first" ? client.readEarliest : client.readLatest;
+  const data = await read(meta.key, n, tr);
   if (meta.index === meta.key || data.series.length === 0) return { data, index: data };
-  const first = data.series[0].alignment;
+  const covers = (index: MultiSeries): boolean => {
+    if (edge === "last") return index.series[0].alignment <= data.series[0].alignment;
+    const [i, d] = [index.series.at(-1), data.series.at(-1)];
+    if (i == null || d == null) return false;
+    return sampleAlignment(i, i.length - 1) >= sampleAlignment(d, d.length - 1);
+  };
   for (let m = n; ; m *= 2) {
-    const index = await client.readLatest(meta.index, m, TimeRange.MAX);
-    if (
-      index.length < m ||
-      index.series[0].alignment <= first ||
-      m >= n * MAX_INDEX_READ_FACTOR
-    )
+    const index = await read(meta.index, m, tr);
+    if (index.length < m || covers(index) || m >= n * MAX_INDEX_READ_FACTOR)
       return { data, index };
   }
 };
@@ -429,6 +594,51 @@ const findTime = (buffers: Series[], alignment: bigint): bigint | null => {
     if (time != null) return time;
   }
   return null;
+};
+
+// Merges sorted incoming entries into the sorted list, leaving out samples the list
+// already holds.
+const merge = (list: LogEntry[], incoming: LogEntry[]): LogEntry[] => {
+  if (incoming.length === 0) return list;
+  const from = lowerBound(list, incoming[0].timestamp.valueOf());
+  const to = upperBound(list, incoming[incoming.length - 1].timestamp.valueOf());
+  const held = new Set(list.slice(from, to).map(sampleKey));
+  const fresh = incoming.filter((e) => !held.has(sampleKey(e)));
+  if (fresh.length === 0) return list;
+  const [first, last] = [list[0], list.at(-1)];
+  if (
+    first == null ||
+    fresh[fresh.length - 1].timestamp.valueOf() < first.timestamp.valueOf()
+  )
+    return [...fresh, ...list];
+  if (last != null && fresh[0].timestamp.valueOf() >= last.timestamp.valueOf())
+    return [...list, ...fresh];
+  return [...list, ...fresh].sort(byTime);
+};
+
+// The lines of a multi-line sample share its key.
+const sampleKey = (e: LogEntry): string => `${e.channelKey}:${e.timestamp.valueOf()}`;
+
+// Evicts the oldest entries past max, keeping multi-line samples whole. Returns the
+// newest evicted entry, or undefined when none was evicted.
+const evictOldest = (list: LogEntry[], max: number): LogEntry | undefined => {
+  if (list.length <= max) return undefined;
+  let excess = list.length - max;
+  while (excess < list.length && list[excess].continuation) excess++;
+  return list.splice(0, excess).at(-1);
+};
+
+const max = (a: bigint | null, b: bigint): bigint => (a == null || b > a ? b : a);
+
+// Returns the position of the first entry at or after time.
+const lowerBound = (entries: LogEntry[], time: bigint): number => {
+  let [lo, hi] = [0, entries.length];
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (entries[mid].timestamp.valueOf() < time) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
 };
 
 // Returns the position after the last entry at or before time.

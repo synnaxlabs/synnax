@@ -20,6 +20,7 @@ import { withinBounds } from "@/telem/aether/transformers";
 
 class MockClient implements Client {
   readLatest = async (): Promise<MultiSeries> => new MultiSeries([]);
+  readEarliest = async (): Promise<MultiSeries> => new MultiSeries([]);
   now = (): TimeStamp => TimeStamp.now();
   key = id.create();
   streamHandler: framer.StreamHandler | null = null;

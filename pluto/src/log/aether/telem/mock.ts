@@ -19,10 +19,26 @@ export class MockLogSource implements LogSource {
   private _entries: LogEntry[] = [];
   private activeChannels: Set<channel.Key> = new Set();
   private readonly observable = new observe.BaseObserver<void>();
+  detached = false;
+  olderLoads = 0;
+  newerLoads = 0;
+  resumes = 0;
 
   value(): LogEntry[] {
     if (this.activeChannels.size === 0) return this._entries;
     return this._entries.filter((e) => this.activeChannels.has(e.channelKey));
+  }
+
+  loadOlder(): void {
+    this.olderLoads++;
+  }
+
+  loadNewer(): void {
+    this.newerLoads++;
+  }
+
+  resume(): void {
+    this.resumes++;
   }
 
   setChannels(channels: channel.Key[]): void {

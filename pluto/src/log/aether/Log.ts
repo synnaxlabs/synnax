@@ -72,6 +72,9 @@ const SCROLLBAR_WIDTH = 6;
 const SCROLLBAR_MIN_HEIGHT = 32;
 const CANVAS: render.Canvas2DVariant = "lower2d";
 const CONTENT_PADDING = 6;
+// The source loads the next page once the view comes within this many lines of either
+// end of the list.
+const PAGE_MARGIN = 200;
 
 // Per-theme prefix color muting — multiplied with the base color's HSLA.
 const DARK_PREFIX = { hue: 1, saturation: 0.8, lightness: 0.85, alpha: 0.95 };
@@ -249,9 +252,14 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
         scrollState.offset = visCount;
         this.setState((s) => ({ ...s, wheelPos: this.prevState.wheelPos }));
       }
+      const source = i.telem.wrapped;
+      if (scrollState.offset - visCount < PAGE_MARGIN) source.loadOlder();
+      if (this.entries.length - scrollState.offset < PAGE_MARGIN) source.loadNewer();
       // Auto-resume live mode when the viewport is back on the newest entry. A pause
-      // taken at the bottom starts there, so it takes a return or a downward scroll.
+      // taken at the bottom starts there, so it takes a return or a downward scroll. A
+      // detached list ends before the newest entry, so it never resumes.
       if (scrollState.offset < this.entries.length) scrollState.awayFromEnd = true;
+      else if (source.detached) scrollState.awayFromEnd = true;
       else if (scrollState.awayFromEnd || dist < 0)
         this.setState((s) => ({
           ...s,
@@ -260,6 +268,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
         }));
     }
 
+    if (!scrolling && this.prevState.scrolling) i.telem.wrapped.resume();
     this.entries = this.internal.telem.value();
     this.setAnchors(this.state.selectionStart, this.state.selectionEnd);
     this.checkEmpty();

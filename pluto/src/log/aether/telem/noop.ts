@@ -13,10 +13,17 @@ import { type LogEntry, type LogSource, type LogSourceSpec } from "./types";
 
 export class NoopLogSource implements LogSource {
   static readonly TYPE = "noop-log-source";
+  readonly detached = false;
 
   value(): LogEntry[] {
     return [];
   }
+
+  loadOlder(): void {}
+
+  loadNewer(): void {}
+
+  resume(): void {}
 
   cleanup(): void {}
 

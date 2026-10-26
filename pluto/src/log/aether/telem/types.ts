@@ -22,6 +22,14 @@ export interface LogEntry {
 
 export interface LogSource extends Source<LogEntry[]> {
   setChannels?: (channels: channel.Key[]) => void;
+  /** Whether the list has moved off the newest entries. */
+  readonly detached: boolean;
+  /** Loads the entries before the oldest one in the list. */
+  loadOlder: () => void;
+  /** Loads the entries after the newest one in a detached list. */
+  loadNewer: () => void;
+  /** Replaces a detached list with the newest entries. */
+  resume: () => void;
 }
 
 export const logSourceSpecZ = sourceSpecZ.extend({ valueType: z.literal("log") });

@@ -277,22 +277,61 @@ export class Client {
     tr: CrudeTimeRange = TimeRange.MAX,
   ): Promise<MultiSeries | Frame> {
     const { single } = analyzeParams(channels);
-    const fr = await this.readLatestNFrame(channels, n, tr);
+    const fr = await this.readEdge(channels, n, tr, "last");
     if (single) return fr.get(channels as channel.Key | channel.Name);
     return fr;
   }
 
-  private async readLatestNFrame(
+  async readEarliest(
+    channel: channel.Key | channel.Name,
+    n: number,
+    tr?: CrudeTimeRange,
+  ): Promise<MultiSeries>;
+
+  async readEarliest(
+    channels: channel.Params,
+    n: number,
+    tr?: CrudeTimeRange,
+  ): Promise<Frame>;
+
+  /**
+   * Reads the earliest n samples from the given channel(s). If fewer than n samples are
+   * available, returns only the samples that exist.
+   * @param channels - A single channel key/name or an array of channel keys/names.
+   * @param n - The maximum number of samples to read. Defaults to 1.
+   * @param tr - The time range to read from. Defaults to all time.
+   * @returns A MultiSeries when a single channel is provided, or a Frame when multiple
+   * channels are provided.
+   */
+  async readEarliest(
+    channels: channel.Params,
+    n: number = 1,
+    tr: CrudeTimeRange = TimeRange.MAX,
+  ): Promise<MultiSeries | Frame> {
+    const { single } = analyzeParams(channels);
+    const fr = await this.readEdge(channels, n, tr, "first");
+    if (single) return fr.get(channels as channel.Key | channel.Name);
+    return fr;
+  }
+
+  // Reads n samples of each channel from the first or last sample within tr.
+  private async readEdge(
     channels: channel.Params,
     n: number,
     tr: CrudeTimeRange,
+    edge: "first" | "last",
   ): Promise<Frame> {
     const i = await this.openIterator(tr, channels, { chunkSize: n });
     const frame = new Frame();
     if (n > 0)
       try {
-        await i.seekLast();
-        await i.prev(AUTO_SPAN);
+        if (edge === "first") {
+          await i.seekFirst();
+          await i.next(AUTO_SPAN);
+        } else {
+          await i.seekLast();
+          await i.prev(AUTO_SPAN);
+        }
         frame.push(i.value);
       } finally {
         await i.close();

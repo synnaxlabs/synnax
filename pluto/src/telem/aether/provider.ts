@@ -76,6 +76,7 @@ export const createProvider = (
           channels: core.channels,
           now,
           readLatest: async (ch, n, tr) => await core.readLatest(ch, n, tr),
+          readEarliest: async (ch, n, tr) => await core.readEarliest(ch, n, tr),
         };
       }
       setContext(ctx, new Context(createFactory(client)));
