@@ -417,8 +417,8 @@ export const createStatusConsoleWrapper = async ({
 };
 
 const SessionSynnaxProvider = ({ children }: PropsWithChildren): ReactElement => {
-  const core = Session.Core.useSelectSelected();
-  return <Synnax.Provider connParams={core}>{children}</Synnax.Provider>;
+  const connParams = Session.Core.useSelectConnParams();
+  return <Synnax.Provider connParams={connParams}>{children}</Synnax.Provider>;
 };
 SessionSynnaxProvider.displayName = "SessionSynnaxProvider";
 

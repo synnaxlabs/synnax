@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type SynnaxParams } from "@synnaxlabs/client";
 import { useStore } from "react-redux";
 
 import {
@@ -52,6 +53,21 @@ export const selectSelected = (state: StoreState): Core | undefined =>
 
 export const useSelectSelected = (): Core | undefined =>
   Select.useMemo(selectSelected, []);
+
+/**
+ * The parameters a client needs to reach the selected Core. Leaves out the record's
+ * key and cached cluster key, so caching the cluster key after the first connection
+ * does not replace the client.
+ */
+export const selectConnParams = (state: StoreState): SynnaxParams | undefined => {
+  const core = selectSelected(state);
+  if (core == null) return undefined;
+  const { host, port, username, password, secure, name } = core;
+  return { host, port, username, password, secure, name };
+};
+
+export const useSelectConnParams = (): SynnaxParams | undefined =>
+  Select.useMemo(selectConnParams, []);
 
 /** The cluster the selected Core last connected to. */
 export const selectClusterKey = (state: StoreState): string | undefined =>
