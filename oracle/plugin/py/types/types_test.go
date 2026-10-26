@@ -64,6 +64,24 @@ var _ = Describe("Python Types Plugin", func() {
 			)
 		})
 
+		It("Should forbid unknown keys only in a filter request", func(
+			ctx SpecContext,
+		) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
+			strict := `model_config = ConfigDict(populate_by_name=True, extra="forbid")`
+			ExpectContent(resp, "thing/types_gen.py").
+				ToContain(
+					"class Where(BaseModel):",
+					strict,
+					"class RetrieveRequest(BaseModel):",
+					`model_config = ConfigDict(extra="forbid")`,
+					"class Thing(BaseModel):\n    key: ",
+				).
+				ToPreserveOrder("class Where(BaseModel):", strict)
+			ExpectContent(resp, "filter/types_gen.py").ToContain(strict)
+		})
+
 		Context("field-level omit", func() {
 			It("Should leave out a field omitted in py", func(ctx SpecContext) {
 				source := `

@@ -82,9 +82,33 @@ var _ = Describe("Go Query Plugin", func() {
 							"Search(",
 							"execSearch",
 							"\"slices\"",
+							"SkipMissingKeys",
 						)
 				},
 			)
+
+			It("Should skip missing keys when a filter targets the table", func(
+				ctx SpecContext,
+			) {
+				loader.Add("schemas/x/filter", FilterSchema)
+				resp := MustGenerate(ctx, `
+					import "schemas/x/filter"
+
+					@go output "core/pkg/service/foo"
+
+					Foo struct {
+						key uuid { @key }
+						@retrieve
+					}
+					Where filter Foo {
+						key
+					}
+				`, "foo", loader, p)
+				ExpectContent(resp, "retrieve.gen.go").ToContain(
+					"func (r Retrieve) SkipMissingKeys() Retrieve {",
+					"r.gorp = r.gorp.SkipMissingKeys()",
+				)
+			})
 		})
 
 		Context("union entry", func() {

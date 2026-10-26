@@ -201,9 +201,12 @@ type retrieveInfo struct {
 	// IndexesOnly is true under @retrieve indexes: the service writes its own Retrieve
 	// and matchers, so only the indexes are generated.
 	IndexesOnly bool
-	Filters     []filterInfo
-	Indexes     []indexInfo
-	Search      []searchInfo
+	// Filtered is true when a filter definition targets the table, whose generated
+	// Apply skips missing keys.
+	Filtered bool
+	Filters  []filterInfo
+	Indexes  []indexInfo
+	Search   []searchInfo
 }
 
 // HasSearch reports whether the retrieve declared any @search fields.
@@ -326,16 +329,7 @@ func extractRetrieveInfo(
 	// stored as a field on the struct (e.g. channel.Channel). Otherwise, fall back to
 	// the first field carrying `@key`.
 	var keyType string
-	if keyTypeName := plugindomain.GetStringFromType(
-		typ,
-		"retrieve",
-		"key",
-	); keyTypeName != "" {
-		qualified := keyTypeName
-		if typ.Namespace != "" && !strings.Contains(keyTypeName, ".") {
-			qualified = typ.Namespace + "." + keyTypeName
-		}
-		keyRef := resolution.TypeRef{Name: qualified}
+	if keyRef, ok := resolution.RetrieveKey(typ); ok {
 		keyType = r.ResolveTypeRef(keyRef, ctx)
 	} else {
 		var keyField *resolution.Field
@@ -489,10 +483,22 @@ func extractRetrieveInfo(
 		KeyType:     keyType,
 		IsCustom:    isCustom,
 		IndexesOnly: indexesOnly,
+		Filtered:    isFilterTarget(typ, table),
 		Filters:     filters,
 		Indexes:     indexes,
 		Search:      search,
 	}, nil
+}
+
+// isFilterTarget reports whether a filter definition targets typ.
+func isFilterTarget(typ resolution.Type, table *resolution.Table) bool {
+	return lo.SomeBy(table.StructTypes(), func(t resolution.Type) bool {
+		if t.Filter == nil {
+			return false
+		}
+		target, _, ok := resolution.Dealias(t.Filter.Target, table)
+		return ok && target.QualifiedName == typ.QualifiedName
+	})
 }
 
 // searchDecl names a field that declares @search on a struct.
@@ -829,6 +835,15 @@ func (r Retrieve) Offset(offset int) Retrieve {
 	r.gorp = r.gorp.Offset(offset)
 	return r
 }
+{{- if $ret.Filtered}}
+
+// SkipMissingKeys makes Exec treat a key with no {{$ret.GoName | toLower}} as a
+// non-match instead of returning query.ErrNotFound.
+func (r Retrieve) SkipMissingKeys() Retrieve {
+	r.gorp = r.gorp.SkipMissingKeys()
+	return r
+}
+{{- end}}
 // Exec executes the query against the provided transaction.
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))

@@ -27,7 +27,7 @@ class String(BaseModel):
         regex: Matches a value that the RE2 pattern regex matches.
     """
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     eq: str | None = None
     in_: list[str] | None = Field(default=None, alias="in")
@@ -41,6 +41,8 @@ class Bool(BaseModel):
         eq: Matches a value equal to eq.
     """
 
+    model_config = ConfigDict(extra="forbid")
+
     eq: bool | None = None
 
 
@@ -53,7 +55,7 @@ class Set(BaseModel, Generic[T]):
         in_: Matches a value equal to an element of in.
     """
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     eq: T | None = None
     in_: list[T] | None = Field(default=None, alias="in")
@@ -71,7 +73,7 @@ class Ordered(BaseModel, Generic[T]):
         lte: Matches a value less than or equal to lte.
     """
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     eq: T | None = None
     in_: list[T] | None = Field(default=None, alias="in")
@@ -87,5 +89,7 @@ class Contains(BaseModel, Generic[T]):
     Attributes:
         any: Matches an array that holds an element of any.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     any: list[T] | None = None

@@ -92,6 +92,13 @@ func (r Retrieve[D]) Offset(offset int) Retrieve[D] {
 	return r
 }
 
+// SkipMissingKeys makes Exec treat a key with no status as a non-match instead of
+// returning query.ErrNotFound.
+func (r Retrieve[D]) SkipMissingKeys() Retrieve[D] {
+	r.gorp = r.gorp.SkipMissingKeys()
+	return r
+}
+
 // Entries binds a slice that Retrieve will fill results into.
 func (r Retrieve[D]) Entries(s *[]Status[D]) Retrieve[D] {
 	r.gorp = r.gorp.Entries(s)

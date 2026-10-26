@@ -27,7 +27,7 @@ import (
 
 // The case table is shared with the TypeScript matches, so that the Core and the client
 // cache agree on every filter.
-const vectorsPath = "../../../../x/testdata/filter/vectors.json"
+const vectorsPath = "../../../testdata/filter/vectors.json"
 
 type whereCase struct {
 	Name     string       `json:"name"`
@@ -111,21 +111,6 @@ var _ = Describe("Where", func() {
 			BeAssignableToTypeOf(validate.PathError{}),
 			MatchError("or.1.name.regex: error parsing regexp: missing closing ): "+
 				"`(a`: validation error"),
-		))
-	})
-})
-
-var _ = Describe("RetrieveRequest", func() {
-	It("Should reject a member that the request does not declare", func() {
-		var req ranger.RetrieveRequest
-		Expect(
-			json.Unmarshal(
-				[]byte(`{"keys":["00000000-0000-4000-8000-00000000000a"]}`),
-				&req,
-			),
-		).To(SatisfyAll(
-			MatchError(json.ErrUnknownName),
-			MatchError(ContainSubstring(`unknown object member name "keys"`)),
 		))
 	})
 })

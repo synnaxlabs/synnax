@@ -16,6 +16,7 @@
 package status
 
 import (
+	pb1 "github.com/synnaxlabs/synnax/pkg/api/status/pb"
 	pb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -130,7 +131,7 @@ func (x *SetResponse) GetStatuses() []*pb.Status {
 
 type RetrieveRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Request       *pb.RetrieveRequest    `protobuf:"bytes,9,opt,name=request,proto3" json:"request,omitempty"`
+	Request       *pb1.RetrieveRequest   `protobuf:"bytes,9,opt,name=request,proto3" json:"request,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -165,7 +166,7 @@ func (*RetrieveRequest) Descriptor() ([]byte, []int) {
 	return file_core_pkg_transport_grpc_status_status_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *RetrieveRequest) GetRequest() *pb.RetrieveRequest {
+func (x *RetrieveRequest) GetRequest() *pb1.RetrieveRequest {
 	if x != nil {
 		return x.Request
 	}
@@ -332,15 +333,15 @@ var File_core_pkg_transport_grpc_status_status_proto protoreflect.FileDescriptor
 
 const file_core_pkg_transport_grpc_status_status_proto_rawDesc = "" +
 	"\n" +
-	"+core/pkg/transport/grpc/status/status.proto\x12\vgrpc.status\x1a'core/pkg/service/status/pb/status.proto\x1a\x1bgoogle/protobuf/empty.proto\"[\n" +
+	"+core/pkg/transport/grpc/status/status.proto\x12\vgrpc.status\x1a#core/pkg/api/status/pb/status.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1bgoogle/protobuf/empty.proto\"[\n" +
 	"\n" +
 	"SetRequest\x12\x16\n" +
 	"\x06parent\x18\x01 \x01(\tR\x06parent\x125\n" +
 	"\bstatuses\x18\x02 \x03(\v2\x19.service.status.pb.StatusR\bstatuses\"D\n" +
 	"\vSetResponse\x125\n" +
-	"\bstatuses\x18\x01 \x03(\v2\x19.service.status.pb.StatusR\bstatuses\"\xb5\x01\n" +
-	"\x0fRetrieveRequest\x12<\n" +
-	"\arequest\x18\t \x01(\v2\".service.status.pb.RetrieveRequestR\arequestJ\x04\b\x01\x10\tR\x04keysR\vsearch_termR\x06offsetR\x05limitR\x0einclude_labelsR\n" +
+	"\bstatuses\x18\x01 \x03(\v2\x19.service.status.pb.StatusR\bstatuses\"\xb1\x01\n" +
+	"\x0fRetrieveRequest\x128\n" +
+	"\arequest\x18\t \x01(\v2\x1e.api.status.pb.RetrieveRequestR\arequestJ\x04\b\x01\x10\tR\x04keysR\vsearch_termR\x06offsetR\x05limitR\x0einclude_labelsR\n" +
 	"has_labelsR\bvariantsR\x16ignore_not_found_error\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\tR\x04keys\"k\n" +
@@ -352,9 +353,9 @@ const file_core_pkg_transport_grpc_status_status_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12)\n" +
 	"\x10multiple_matches\x18\x02 \x01(\bR\x0fmultipleMatches2O\n" +
 	"\x10StatusSetService\x12;\n" +
-	"\x04Exec\x12\x17.grpc.status.SetRequest\x1a\x18.grpc.status.SetResponse\"\x002d\n" +
-	"\x15StatusRetrieveService\x12K\n" +
-	"\x04Exec\x12\x1c.grpc.status.RetrieveRequest\x1a#.service.status.pb.RetrieveResponse\"\x002S\n" +
+	"\x04Exec\x12\x17.grpc.status.SetRequest\x1a\x18.grpc.status.SetResponse\"\x002`\n" +
+	"\x15StatusRetrieveService\x12G\n" +
+	"\x04Exec\x12\x1c.grpc.status.RetrieveRequest\x1a\x1f.api.status.pb.RetrieveResponse\"\x002S\n" +
 	"\x13StatusDeleteService\x12<\n" +
 	"\x04Exec\x12\x1a.grpc.status.DeleteRequest\x1a\x16.google.protobuf.Empty\"\x002p\n" +
 	"\x1bStatusSetByKeyOrNameService\x12Q\n" +
@@ -382,20 +383,20 @@ var file_core_pkg_transport_grpc_status_status_proto_goTypes = []any{
 	(*SetByKeyOrNameRequest)(nil),  // 4: grpc.status.SetByKeyOrNameRequest
 	(*SetByKeyOrNameResponse)(nil), // 5: grpc.status.SetByKeyOrNameResponse
 	(*pb.Status)(nil),              // 6: service.status.pb.Status
-	(*pb.RetrieveRequest)(nil),     // 7: service.status.pb.RetrieveRequest
-	(*pb.RetrieveResponse)(nil),    // 8: service.status.pb.RetrieveResponse
+	(*pb1.RetrieveRequest)(nil),    // 7: api.status.pb.RetrieveRequest
+	(*pb1.RetrieveResponse)(nil),   // 8: api.status.pb.RetrieveResponse
 	(*emptypb.Empty)(nil),          // 9: google.protobuf.Empty
 }
 var file_core_pkg_transport_grpc_status_status_proto_depIdxs = []int32{
 	6, // 0: grpc.status.SetRequest.statuses:type_name -> service.status.pb.Status
 	6, // 1: grpc.status.SetResponse.statuses:type_name -> service.status.pb.Status
-	7, // 2: grpc.status.RetrieveRequest.request:type_name -> service.status.pb.RetrieveRequest
+	7, // 2: grpc.status.RetrieveRequest.request:type_name -> api.status.pb.RetrieveRequest
 	0, // 3: grpc.status.StatusSetService.Exec:input_type -> grpc.status.SetRequest
 	2, // 4: grpc.status.StatusRetrieveService.Exec:input_type -> grpc.status.RetrieveRequest
 	3, // 5: grpc.status.StatusDeleteService.Exec:input_type -> grpc.status.DeleteRequest
 	4, // 6: grpc.status.StatusSetByKeyOrNameService.Exec:input_type -> grpc.status.SetByKeyOrNameRequest
 	1, // 7: grpc.status.StatusSetService.Exec:output_type -> grpc.status.SetResponse
-	8, // 8: grpc.status.StatusRetrieveService.Exec:output_type -> service.status.pb.RetrieveResponse
+	8, // 8: grpc.status.StatusRetrieveService.Exec:output_type -> api.status.pb.RetrieveResponse
 	9, // 9: grpc.status.StatusDeleteService.Exec:output_type -> google.protobuf.Empty
 	5, // 10: grpc.status.StatusSetByKeyOrNameService.Exec:output_type -> grpc.status.SetByKeyOrNameResponse
 	7, // [7:11] is the sub-list for method output_type

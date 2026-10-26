@@ -17,7 +17,7 @@ package ranger
 
 import (
 	context "context"
-	pb "github.com/synnaxlabs/synnax/pkg/service/ranger/pb"
+	pb "github.com/synnaxlabs/synnax/pkg/api/ranger/pb"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"

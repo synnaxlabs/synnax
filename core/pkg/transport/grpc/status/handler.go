@@ -15,9 +15,10 @@ import (
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/status"
+	"github.com/synnaxlabs/synnax/pkg/api/status/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/status/pb"
+	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	xpb "github.com/synnaxlabs/x/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -84,7 +85,7 @@ func (setRequestTranslator) Forward(
 	_ context.Context,
 	msg status.SetRequest,
 ) (*SetRequest, error) {
-	statuses, err := pb.StatusesToPB(msg.Statuses, xpb.AnyToPBAny)
+	statuses, err := statuspb.StatusesToPB(msg.Statuses, xpb.AnyToPBAny)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +104,7 @@ func (setRequestTranslator) Backward(
 			return status.SetRequest{}, err
 		}
 	}
-	statuses, err := pb.StatusesFromPB(msg.Statuses, xpb.AnyFromPBAny)
+	statuses, err := statuspb.StatusesFromPB(msg.Statuses, xpb.AnyFromPBAny)
 	if err != nil {
 		return status.SetRequest{}, err
 	}
@@ -114,7 +115,7 @@ func (setResponseTranslator) Forward(
 	_ context.Context,
 	msg status.SetResponse,
 ) (*SetResponse, error) {
-	statuses, err := pb.StatusesToPB(msg.Statuses, xpb.AnyToPBAny)
+	statuses, err := statuspb.StatusesToPB(msg.Statuses, xpb.AnyToPBAny)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +126,7 @@ func (setResponseTranslator) Backward(
 	_ context.Context,
 	msg *SetResponse,
 ) (status.SetResponse, error) {
-	statuses, err := pb.StatusesFromPB(msg.Statuses, xpb.AnyFromPBAny)
+	statuses, err := statuspb.StatusesFromPB(msg.Statuses, xpb.AnyFromPBAny)
 	if err != nil {
 		return status.SetResponse{}, err
 	}

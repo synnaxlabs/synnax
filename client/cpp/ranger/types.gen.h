@@ -27,6 +27,7 @@
 #include "x/cpp/mem/indirect.h"
 #include "x/cpp/uuid/uuid.h"
 
+#include "core/pkg/api/ranger/pb/ranger.pb.h"
 #include "core/pkg/service/ranger/pb/ranger.pb.h"
 
 namespace synnax::ranger {
@@ -104,11 +105,11 @@ struct RetrieveResponse {
     static RetrieveResponse parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::ranger::pb::RetrieveResponse;
-    [[nodiscard]] std::pair<::service::ranger::pb::RetrieveResponse, x::errors::Error>
+    using proto_type = ::api::ranger::pb::RetrieveResponse;
+    [[nodiscard]] std::pair<::api::ranger::pb::RetrieveResponse, x::errors::Error>
     to_proto() const;
     static std::pair<RetrieveResponse, x::errors::Error>
-    from_proto(const ::service::ranger::pb::RetrieveResponse &pb);
+    from_proto(const ::api::ranger::pb::RetrieveResponse &pb);
 };
 
 /// @brief RetrieveRequest is a request to retrieve ranges.
@@ -130,11 +131,11 @@ struct RetrieveRequest {
     static RetrieveRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::ranger::pb::RetrieveRequest;
-    [[nodiscard]] std::pair<::service::ranger::pb::RetrieveRequest, x::errors::Error>
+    using proto_type = ::api::ranger::pb::RetrieveRequest;
+    [[nodiscard]] std::pair<::api::ranger::pb::RetrieveRequest, x::errors::Error>
     to_proto() const;
     static std::pair<RetrieveRequest, x::errors::Error>
-    from_proto(const ::service::ranger::pb::RetrieveRequest &pb);
+    from_proto(const ::api::ranger::pb::RetrieveRequest &pb);
 };
 
 const synnax::ontology::ID ONTOLOGY_TYPE("range", "");

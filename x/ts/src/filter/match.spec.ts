@@ -53,7 +53,7 @@ describe("filter", () => {
 
     it("should throw on a regex", () => {
       expect(() => filter.matchesString({ regex: "a" }, "a")).toThrow(
-        "only the Core can check a regex",
+        "cannot match a regex locally",
       );
     });
   });

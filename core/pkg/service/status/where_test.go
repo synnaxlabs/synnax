@@ -32,7 +32,7 @@ import (
 
 // The case table is shared with the TypeScript matches, so that the Core and the client
 // cache agree on every filter.
-const vectorsPath = "../../../../x/testdata/filter/vectors.json"
+const vectorsPath = "../../../testdata/filter/vectors.json"
 
 type whereCase struct {
 	Name     string       `json:"name"`
@@ -149,14 +149,4 @@ var _ = Describe("Where", Ordered, func() {
 			`variant.in.1: invalid variant "bogus": validation error`,
 		),
 	)
-})
-
-var _ = Describe("RetrieveRequest", func() {
-	It("Should reject a member that the request does not declare", func() {
-		var req status.RetrieveRequest
-		Expect(json.Unmarshal([]byte(`{"keys":["status-a"]}`), &req)).To(SatisfyAll(
-			MatchError(json.ErrUnknownName),
-			MatchError(ContainSubstring(`unknown object member name "keys"`)),
-		))
-	})
 })
