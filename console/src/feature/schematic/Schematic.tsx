@@ -15,7 +15,7 @@ import {
   Schematic as Base,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { Controller } from "@/feature/schematic/Controller";
 import { Controls } from "@/feature/schematic/Controls";
@@ -30,11 +30,11 @@ const EmptyContent = (): ReactElement => {
   const key = Base.useKey();
   const dispatch = Session.useDispatch();
   const { canEdit } = Session.Schematic.useSelectEditable();
-  const handleStartEditing = useCallback(() => {
+  const handleStartEditing = () => {
     dispatch(Session.Schematic.setEditable({ key, editable: true }));
     dispatch(Session.Schematic.selectToolbarTab({ key, tab: "symbols" }));
     dispatch(Session.Nav.showBottom({}));
-  }, [dispatch, key]);
+  };
   return (
     <Empty.Action
       message="No symbols in this schematic"
@@ -55,65 +55,42 @@ const Internal = (): ReactElement => {
   const visible = Session.Panel.useSelectIsTabVisible();
   const { isCurrentlyEditable, canEdit } = Session.Schematic.useSelectEditable();
 
-  const handleSelectionChange = useCallback(
-    (selected: string[]) => dispatch(Session.Schematic.setSelected({ key, selected })),
-    [dispatch, key],
-  );
+  const handleSelectionChange = (selected: string[]) =>
+    dispatch(Session.Schematic.setSelected({ key, selected }));
 
-  const handleViewportChange = useCallback(
-    (viewport: Diagram.Viewport) =>
-      dispatch(Session.Schematic.setViewport({ key, viewport })),
-    [dispatch, key],
-  );
+  const handleViewportChange = (viewport: Diagram.Viewport) =>
+    dispatch(Session.Schematic.setViewport({ key, viewport }));
 
-  const handleEditableChange = useCallback(
-    (editable: boolean) => dispatch(Session.Schematic.setEditable({ key, editable })),
-    [dispatch, key],
-  );
+  const handleEditableChange = (editable: boolean) =>
+    dispatch(Session.Schematic.setEditable({ key, editable }));
 
-  const handleFitViewOnResizeChange = useCallback(
-    (fitViewOnResize: boolean) =>
-      dispatch(Session.Schematic.setFitViewOnResize({ key, fitViewOnResize })),
-    [dispatch, key],
-  );
+  const handleFitViewOnResizeChange = (fitViewOnResize: boolean) =>
+    dispatch(Session.Schematic.setFitViewOnResize({ key, fitViewOnResize }));
 
-  const handleViewportModeChange = useCallback(
-    (mode: Viewport.Mode) => dispatch(Session.Schematic.setViewportMode({ key, mode })),
-    [dispatch, key],
-  );
+  const handleViewportModeChange = (mode: Viewport.Mode) =>
+    dispatch(Session.Schematic.setViewportMode({ key, mode }));
 
-  const triggers = useMemo(
-    () => Viewport.DEFAULT_TRIGGERS[viewport.mode],
-    [viewport.mode],
-  );
+  const triggers = Viewport.DEFAULT_TRIGGERS[viewport.mode];
 
-  const handleDoubleClick = useCallback(() => {
+  const handleDoubleClick = () => {
     if (isCurrentlyEditable) dispatch(Session.Nav.showBottom({}));
-  }, [isCurrentlyEditable, dispatch]);
+  };
 
   const handleNodeClickAction = useHandleNodeClickAction(key);
 
-  const handleNodeClick = useCallback(
-    (_: React.MouseEvent, node: { id: string }) =>
-      handleNodeClickAction(node.id, false),
-    [handleNodeClickAction],
-  );
+  const handleNodeClick = (_: React.MouseEvent, node: { id: string }) =>
+    handleNodeClickAction(node.id, false);
 
-  const handleNodeDoubleClick = useCallback(
-    (_: React.MouseEvent, node: { id: string }) => handleNodeClickAction(node.id, true),
-    [handleNodeClickAction],
-  );
+  const handleNodeDoubleClick = (_: React.MouseEvent, node: { id: string }) =>
+    handleNodeClickAction(node.id, true);
 
-  const renderExtraMenuItems = useCallback(
-    (): ReactElement => (
-      <>
-        {canEdit && <Diagram.Menu.ToggleEditItem />}
-        {!isSnapshot && <Control.Menu.ToggleItem />}
-        <Menu.Divider />
-        <ContextMenu.ReloadConsoleItem />
-      </>
-    ),
-    [canEdit, isSnapshot],
+  const renderExtraMenuItems = (): ReactElement => (
+    <>
+      {canEdit && <Diagram.Menu.ToggleEditItem />}
+      {!isSnapshot && <Control.Menu.ToggleItem />}
+      <Menu.Divider />
+      <ContextMenu.ReloadConsoleItem />
+    </>
   );
 
   return (

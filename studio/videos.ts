@@ -10,11 +10,16 @@
 import { manifest } from "@/index";
 
 /**
- * The production manifest: one entry per docs video, keyed by the id the docs
- * site's Video component uses. `pnpm batch` produces the light/dark pair for
- * every entry; `pnpm upload` pushes them to the docs CDN.
+ * The production manifest: one entry per docs video or set of stills, keyed by the id
+ * the docs site requests. `pnpm batch` produces the light and dark media for every
+ * entry; `pnpm upload` pushes them to the docs CDN.
  */
 export default manifest.define([
+  {
+    id: "console/ui-overview/tour",
+    script: "scripts/still-ui-overview.ts",
+    stills: { regions: "../site/docs/src/components/console/tour/regions.json" },
+  },
   {
     id: "console/ui-overview/palette-search",
     script: "scripts/ui-overview-palette-search.ts",
@@ -55,16 +60,35 @@ export default manifest.define([
     script: "scripts/clusters-connect.ts",
     port: 9090,
   },
-  { id: "console/channels/create_new", script: "scripts/channels-create.ts" },
+  { id: "client/channels/create", script: "scripts/channels-create.ts" },
+  {
+    id: "client/channels/create-virtual",
+    script: "scripts/channels-create-virtual.ts",
+  },
+  { id: "client/channels/find", script: "scripts/channels-find.ts" },
+  { id: "client/channels/toolbar", script: "scripts/channels-toolbar.ts" },
+  { id: "client/channels/rename", script: "scripts/channels-rename.ts" },
+  { id: "client/channels/delete", script: "scripts/channels-delete.ts" },
   { id: "console/channels/alias", script: "scripts/channels-alias.ts" },
   {
-    id: "console/calculated-channels/create-and-edit",
-    script: "scripts/calculated-channels-create-and-edit.ts",
+    id: "client/calculated-channels/create",
+    script: "scripts/calculated-channels-create.ts",
+  },
+  {
+    id: "client/calculated-channels/edit",
+    script: "scripts/calculated-channels-edit.ts",
   },
   { id: "client/ranges/create", script: "scripts/ranges-create.ts" },
   { id: "client/ranges/create-child", script: "scripts/ranges-create-child.ts" },
   { id: "client/ranges/set-metadata", script: "scripts/ranges-set-metadata.ts" },
   { id: "client/ranges/labels", script: "scripts/ranges-labels.ts" },
+  { id: "console/ranges/active", script: "scripts/ranges-active.ts" },
+  { id: "console/ranges/stages", script: "scripts/ranges-stages.ts" },
+  { id: "console/ranges/export", script: "scripts/ranges-export.ts" },
+  {
+    id: "console/ranges/snapshot-task",
+    script: "scripts/ranges-snapshot-task.ts",
+  },
   { id: "console/workspaces/create", script: "scripts/projects-create.ts" },
   { id: "console/workspaces/load", script: "scripts/projects-load.ts" },
   { id: "console/users/register", script: "scripts/users-register.ts" },
@@ -77,6 +101,23 @@ export default manifest.define([
     script: "scripts/arc-create-automation.ts",
   },
   {
+    id: "control/authority/hand-off",
+    script: "scripts/control-authority-hand-off.ts",
+  },
+  {
+    id: "control/manual/absolute-control",
+    script: "scripts/control-manual-absolute-control.ts",
+  },
+  { id: "control/arc/overview", script: "scripts/control-arc-overview.ts" },
+  {
+    id: "control/arc/start-from-schematic/start-button",
+    script: "scripts/control-arc-start-button.ts",
+  },
+  {
+    id: "control/arc/graph-editor/build-alarm",
+    script: "scripts/control-arc-build-alarm.ts",
+  },
+  {
     id: "device-drivers/task/command-palette",
     script: "scripts/task-command-palette.ts",
   },
@@ -84,9 +125,111 @@ export default manifest.define([
   { id: "console/logs/create", script: "scripts/log-create.ts" },
   { id: "console/schematics/create", script: "scripts/schematic-create.ts" },
   { id: "console/tables/create", script: "scripts/table-create.ts" },
+  { id: "console/tables/value-cell", script: "scripts/table-value-cell.ts" },
+  {
+    id: "console/schematics/control-tab",
+    script: "scripts/schematic-control-tab.ts",
+  },
+  { id: "console/panels/create", script: "scripts/panels-create.ts" },
+  {
+    id: "console/panels/rename-and-delete",
+    script: "scripts/panels-rename-and-delete.ts",
+  },
+  { id: "console/panels/open-tab", script: "scripts/panels-open-tab.ts" },
+  { id: "console/panels/split", script: "scripts/panels-split.ts" },
+  { id: "console/panels/move", script: "scripts/panels-move.ts" },
+  { id: "console/panels/focus", script: "scripts/panels-focus.ts" },
   {
     id: "device-drivers/task/layout-selector",
     script: "scripts/task-layout-selector.ts",
+  },
+  // Hardware shots run against the simulated Driver in fixtures/hardware.ts.
+  { id: "device-drivers/task/task-basic", script: "scripts/tasks-start.ts" },
+  { id: "hardware/devices/toolbar", script: "scripts/devices-toolbar.ts" },
+  {
+    id: "device-drivers/ni/configure-device/ni-configure-device",
+    script: "scripts/ni-configure-device.ts",
+  },
+  {
+    id: "device-drivers/labjack/configure-device/lj-configure",
+    script: "scripts/labjack-configure-device.ts",
+  },
+  {
+    id: "device-drivers/ethercat/configure-device/ethercat-configure",
+    script: "scripts/ethercat-configure-device.ts",
+  },
+  { id: "hardware/ni/analog-read-task", script: "scripts/ni-analog-read-task.ts" },
+  { id: "hardware/ni/analog-write-task", script: "scripts/ni-analog-write-task.ts" },
+  { id: "hardware/ni/counter-read-task", script: "scripts/ni-counter-read-task.ts" },
+  { id: "hardware/ni/digital-read-task", script: "scripts/ni-digital-read-task.ts" },
+  { id: "hardware/ni/digital-write-task", script: "scripts/ni-digital-write-task.ts" },
+  { id: "hardware/labjack/read-task", script: "scripts/labjack-read-task.ts" },
+  { id: "hardware/labjack/write-task", script: "scripts/labjack-write-task.ts" },
+  { id: "hardware/ethercat/read-task", script: "scripts/ethercat-read-task.ts" },
+  { id: "hardware/ethercat/write-task", script: "scripts/ethercat-write-task.ts" },
+  // The custom devices tutorial runs against fixtures/arduino.ts.
+  {
+    id: "client/resources/build-device-driver/line-plot",
+    script: "scripts/custom-devices-line-plot.ts",
+  },
+  {
+    id: "client/resources/build-device-driver/schematic",
+    script: "scripts/custom-devices-schematic.ts",
+  },
+  {
+    id: "client/resources/build-device-driver/console-setup",
+    script: "scripts/custom-devices-console-setup.ts",
+  },
+  // These run the real Driver against a server from fixtures/simulator.ts, on the port
+  // the form shows.
+  {
+    id: "device-drivers/modbus/connect-server/modbus-connect",
+    script: "scripts/modbus-connect-server.ts",
+    serial: true,
+  },
+  {
+    id: "device-drivers/opc-ua/connect-server/connect-server",
+    script: "scripts/opcua-connect-server.ts",
+    serial: true,
+  },
+  {
+    id: "hardware/opc-ua/read-task",
+    script: "scripts/opcua-read-task.ts",
+    serial: true,
+  },
+  {
+    id: "hardware/opc-ua/write-task",
+    script: "scripts/opcua-write-task.ts",
+    serial: true,
+  },
+  {
+    id: "device-drivers/http/connect-server/connect-server",
+    script: "scripts/http-connect-server.ts",
+    serial: true,
+  },
+  {
+    id: "hardware/http/read-task",
+    script: "scripts/http-read-task.ts",
+    serial: true,
+  },
+  {
+    id: "hardware/http/write-task",
+    script: "scripts/http-write-task.ts",
+    serial: true,
+  },
+  {
+    id: "hardware/modbus/read-task",
+    script: "scripts/modbus-read-task.ts",
+    serial: true,
+  },
+  {
+    id: "hardware/modbus/write-task",
+    script: "scripts/modbus-write-task.ts",
+    serial: true,
+  },
+  {
+    id: "device-drivers/pagerduty/alert-task/create",
+    script: "scripts/pagerduty-alert-create.ts",
   },
   {
     id: "releases/0-57-0/panels",

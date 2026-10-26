@@ -11,7 +11,6 @@ import { type Haul } from "@synnaxlabs/lyra/haul";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Mosaic, Panel } from "@synnaxlabs/pluto";
 import { xy } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { isPillHaulItem } from "@/feature/panel/haul";
 import { type TabOrigin, useMintPanelForTab } from "@/feature/panel/useMoveTab";
@@ -34,14 +33,11 @@ export const useTearOffTab = (): TearOffTab => {
   const openWindow = useOpenWindow();
   const mint = useMintPanelForTab();
   const handleError = Status.useErrorHandler();
-  return useCallback(
-    (origin, position) =>
-      handleError(async () => {
-        const key = await mint(origin);
-        if (key != null) openWindow(key, { position });
-      }, "Failed to move the component to a new window"),
-    [openWindow, mint, handleError],
-  );
+  return (origin, position) =>
+    handleError(async () => {
+      const key = await mint(origin);
+      if (key != null) openWindow(key, { position });
+    }, "Failed to move component to a new window");
 };
 
 const canDrop: Haul.CanDrop = ({ items }) =>
@@ -56,14 +52,11 @@ const canDrop: Haul.CanDrop = ({ items }) =>
 export const useTearOff = (): void => {
   const openWindow = useOpenWindow();
   const tearOffTab = useTearOffTab();
-  const handleDrop = useCallback<Window.OnDropOutside>(
-    ({ items: [item] }, cursor) => {
-      const position = xy.translate(cursor, OFFSET);
-      if (isPillHaulItem(item)) return openWindow(item.key, { position });
-      const dragged = Panel.parseTabDragPayload(item.data);
-      if (dragged != null) tearOffTab(dragged, position);
-    },
-    [openWindow, tearOffTab],
-  );
+  const handleDrop: Window.OnDropOutside = ({ items: [item] }, cursor) => {
+    const position = xy.translate(cursor, OFFSET);
+    if (isPillHaulItem(item)) return openWindow(item.key, { position });
+    const dragged = Panel.parseTabDragPayload(item.data);
+    if (dragged != null) tearOffTab(dragged, position);
+  };
   Window.useDropOutside({ canDrop, onDrop: handleDrop });
 };

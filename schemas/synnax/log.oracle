@@ -67,6 +67,7 @@ Log struct {
     }
     name                     string         {
         @doc value         "is a human-readable name for the log."
+        @search
         @validate required
     }
     channels                 ChannelEntry[] = [] {

@@ -19,7 +19,7 @@ import (
 
 func TestKVV0(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Ranger KV v0 Suite")
+	RunSpecs(t, "Service Ranger KV v0 Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

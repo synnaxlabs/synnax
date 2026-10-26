@@ -7,10 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { act, renderHook } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { act, render, renderHook } from "@testing-library/react";
+import { createElement, type RefObject, useLayoutEffect } from "react";
+import { assert, describe, expect, it, vi } from "vitest";
 
-import { useCombinedStateAndRef } from "@/hooks/ref";
+import { useCombinedRefs, useCombinedStateAndRef, useSyncedRef } from "@/hooks/ref";
+
+describe("useSyncedRef", () => {
+  it("should update the ref before a child's layout effect reads it", () => {
+    const seen: number[] = [];
+    interface ChildProps {
+      synced: RefObject<number>;
+      value: number;
+    }
+    const Child = ({ synced, value }: ChildProps) => {
+      useLayoutEffect(() => {
+        seen.push(synced.current);
+      }, [synced, value]);
+      return null;
+    };
+    const Parent = ({ value }: { value: number }) =>
+      createElement(Child, { synced: useSyncedRef(value), value });
+    const { rerender } = render(createElement(Parent, { value: 1 }));
+    rerender(createElement(Parent, { value: 2 }));
+    expect(seen).toEqual([1, 2]);
+  });
+});
 
 describe("useCombinedStateAndRef", () => {
   it("should seed both the state and the ref from the initial value", () => {
@@ -68,5 +90,34 @@ describe("useCombinedStateAndRef", () => {
       });
       expect(result.current[0]).toEqual(3);
     });
+  });
+});
+
+describe("useCombinedRefs", () => {
+  it("should set every ref, then clear each one when the element detaches", () => {
+    const objectRef = { current: null as HTMLElement | null };
+    const callbackRef = vi.fn();
+    const { result } = renderHook(() =>
+      useCombinedRefs<HTMLElement>(objectRef, callbackRef),
+    );
+    const el = document.createElement("div");
+    const cleanup = result.current(el);
+    expect(objectRef.current).toBe(el);
+    expect(callbackRef).toHaveBeenCalledExactlyOnceWith(el);
+    assert(typeof cleanup === "function");
+    cleanup();
+    expect(objectRef.current).toBeNull();
+    expect(callbackRef).toHaveBeenLastCalledWith(null);
+  });
+
+  it("should run a callback ref's own cleanup instead of calling it with null", () => {
+    const release = vi.fn();
+    const callbackRef = vi.fn(() => release);
+    const { result } = renderHook(() => useCombinedRefs<HTMLElement>(callbackRef));
+    const cleanup = result.current(document.createElement("div"));
+    assert(typeof cleanup === "function");
+    cleanup();
+    expect(release).toHaveBeenCalledOnce();
+    expect(callbackRef).toHaveBeenCalledOnce();
   });
 });

@@ -33,9 +33,9 @@ ClientDeleter client_deleter() {
 /// inserts a prefix for each message that is extracted from the log context. This
 /// function will fail silently if the log context is not a string.
 void custom_logger(
-    void *_,
+    void *,
     const UA_LogLevel level,
-    UA_LogCategory __,
+    UA_LogCategory,
     const char *msg,
     va_list args
 ) {
@@ -147,8 +147,7 @@ std::string app_uri_from_cert(const std::string &certPath) {
     return applicationUri;
 }
 
-UA_StatusCode
-priv_key_pass_callback(UA_ClientConfig *_, [[maybe_unused]] UA_ByteString *__) {
+UA_StatusCode priv_key_pass_callback(UA_ClientConfig *, UA_ByteString *) {
     return UA_STATUSCODE_BADSECURITYCHECKSFAILED;
 }
 
@@ -156,7 +155,7 @@ const std::string SECURITY_URI_BASE = "http://opcfoundation.org/UA/SecurityPolic
 
 x::errors::Error
 configure_encryption(const Config &cfg, const std::shared_ptr<UA_Client> &client) {
-    const auto client_config = UA_Client_getConfig(client.get());
+    auto *const client_config = UA_Client_getConfig(client.get());
     if (cfg.security_mode == "Sign")
         client_config->securityMode = UA_MESSAGESECURITYMODE_SIGN;
     else if (cfg.security_mode == "SignAndEncrypt")
@@ -203,7 +202,7 @@ configure_encryption(const Config &cfg, const std::shared_ptr<UA_Client> &client
 
         LOG(ERROR) << "[opc.scanner] Failed to configure encryption: "
                    << UA_StatusCode_name(e_err);
-        const auto status_name = UA_StatusCode_name(e_err);
+        const auto *const status_name = UA_StatusCode_name(e_err);
         return {
             errors::ENCRYPTION_CONFIG_FAILED,
             "Failed to configure encryption: " + std::string(status_name)

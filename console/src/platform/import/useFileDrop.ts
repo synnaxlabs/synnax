@@ -17,7 +17,6 @@ import {
 } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { type Mosaic, Synnax } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { FS } from "@/platform/fs";
 import { type BundleImporter } from "@/platform/import/import";
@@ -47,7 +46,8 @@ const importEntry = async (
   const file = await FS.readEntryFile(entry);
   if (isZipFile(file.name))
     return await importBundle(file.name, file, { client, store });
-  if (!file.name.toLowerCase().endsWith(".json")) throw new Error("not a JSON file");
+  if (!file.name.toLowerCase().endsWith(".json"))
+    throw new Error("The file is not JSON.");
   if (client == null) throw new DisconnectedError();
   return await client.imex.import(file, {
     ...imex.JSON_OPTIONS,
@@ -75,23 +75,21 @@ export const useFileDrop = ({ importBundle }: UseFileDropParams): FileDrop => {
   const store = Session.useStore();
   const handleError = Status.useErrorHandler();
   const importBatch = useImportBatch();
-  return useCallback(
-    ({ nodeKey, location, event }: Mosaic.OnFileDropProps) => {
-      const entries = FS.captureEntries(event.dataTransfer);
-      // A dropped project selects itself once imported, so every file in the drop takes
-      // the project open when it landed instead of whichever one wins the race.
-      const projectKey = Session.Project.selectSelected(store.getState());
-      const placement = { leaf: nodeKey, location };
-      handleError(
-        async () =>
-          await importBatch({
-            items: entries,
-            importItem: async (entry) =>
-              await importEntry(entry, { client, importBundle, projectKey, store }),
-            placement,
-          }),
-      );
-    },
-    [client, importBundle, importBatch, store, handleError],
-  );
+  return ({ nodeKey, location, event }: Mosaic.OnFileDropProps) => {
+    const entries = FS.captureEntries(event.dataTransfer);
+    // A dropped project selects itself once imported, so every file in the drop takes
+    // the project open when it landed instead of whichever one wins the race.
+    const projectKey = Session.Project.selectSelected(store.getState());
+    const placement = { leaf: nodeKey, location };
+    handleError(
+      async () =>
+        await importBatch({
+          items: entries,
+          importItem: async (entry) =>
+            await importEntry(entry, { client, importBundle, projectKey, store }),
+          placement,
+        }),
+      "Failed to import files",
+    );
+  };
 };

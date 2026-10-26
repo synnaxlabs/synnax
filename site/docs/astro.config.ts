@@ -15,9 +15,12 @@ import { grammar as arcGrammar } from "@synnaxlabs/arc";
 import { integration } from "@synnaxlabs/site-common/integration";
 import { symbols, theme } from "@synnaxlabs/site-common/shiki";
 import { layers } from "@synnaxlabs/vite-plugin";
-import { defineConfig, envField } from "astro/config";
+import { defineConfig } from "astro/config";
 
+import { schema } from "./src/util/env";
+import { inlineCode } from "./src/util/inlineCode";
 import { outline } from "./src/util/outline";
+import { quantities } from "./src/util/quantities";
 import { listReleaseNotes } from "./src/util/releaseNotes";
 
 // Each version's notes render only inside /releases, so their old routes point at the
@@ -33,21 +36,7 @@ const RELEASE_REDIRECTS = Object.fromEntries(
 export default defineConfig({
   integrations: [integration(), react(), mdx()],
   output: "server",
-  env: {
-    schema: {
-      // Vercel sets this at build time; flags read it to light up preview deploys.
-      VERCEL_ENV: envField.string({
-        context: "client",
-        access: "public",
-        optional: true,
-      }),
-      FLAG_PORTAL: envField.boolean({
-        context: "client",
-        access: "public",
-        default: false,
-      }),
-    },
-  },
+  env: { schema },
   adapter: vercel({
     // Misses read Vercel's shared page cache, not the function, and pages refresh
     // with the release listing. The updater feeds stay uncached so a failed lookup
@@ -68,7 +57,7 @@ export default defineConfig({
     },
   },
   markdown: {
-    processor: satteri({ hastPlugins: [outline] }),
+    processor: satteri({ hastPlugins: [outline, inlineCode, quantities] }),
     shikiConfig: {
       theme,
       langs: [arcGrammar],

@@ -132,7 +132,7 @@ private:
     /// information needed to validate the response and update the device status.
     struct PreparedHealthCheck {
         /// @brief index into the devices_out vector.
-        std::size_t device_index;
+        std::size_t device_index = 0;
         /// @brief optional expected response validation config.
         std::optional<ExpectedResponseConfig> expected_response;
         /// @brief the built HTTP request.

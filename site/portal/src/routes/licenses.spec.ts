@@ -792,9 +792,15 @@ describe("license routes", () => {
         {
           to: ["user_admin@example.com"],
           subject: 'Your Synnax license "Test rig" was revoked',
-          text: expect.stringContaining(
+          text: [
             'The Synnax license "Test rig" for Acme has been revoked.',
-          ),
+            "",
+            "It can no longer activate a Core. A Core checks its license offline, so a " +
+              "Core that already holds it keeps running as its terms allow, even after " +
+              "a restart.",
+            "",
+            "Contact Synnax Labs if you believe this is a mistake.",
+          ].join("\n"),
         },
       ]);
     });

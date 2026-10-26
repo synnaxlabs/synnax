@@ -19,7 +19,7 @@ import (
 
 func TestRecovery(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Recovery Suite")
+	RunSpecs(t, "Recovery Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

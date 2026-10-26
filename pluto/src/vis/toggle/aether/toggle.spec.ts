@@ -191,8 +191,8 @@ describe("toggle/aether/Toggle", () => {
     });
   });
 
-  // The aether Toggle carries the behavior above; Toggle.use is a thin React adapter
-  // over its RPC method. This test covers only that adapter wiring.
+  // The aether Toggle carries the behavior above; Toggle.use is a thin React
+  // adapter over its RPC method. This test covers only that adapter wiring.
   describe("Toggle.use (React adapter)", () => {
     const TestWrapper = TelemTest.createTestWrapper({ registry: toggle.REGISTRY });
 

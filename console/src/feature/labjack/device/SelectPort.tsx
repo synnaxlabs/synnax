@@ -37,7 +37,7 @@ export interface SelectPortProps
   children?: ReactNode;
 }
 
-const listItem = Component.renderProp((props: List.ItemProps<string>) => {
+const ListItem = (props: List.ItemProps<string>) => {
   const port = List.useItem<string, Port>(props.itemKey);
   if (port == null) return null;
   const { alias, key } = port;
@@ -53,7 +53,9 @@ const listItem = Component.renderProp((props: List.ItemProps<string>) => {
       )}
     </Select.Item>
   );
-});
+};
+
+const listItem = Component.renderProp(ListItem);
 
 export const SelectPort = ({
   model,

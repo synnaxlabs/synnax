@@ -11,7 +11,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { useUniqueKey } from "@synnaxlabs/lyra/hooks";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type optional } from "@synnaxlabs/x";
-import { memo, type ReactElement, useMemo } from "react";
+import { memo, type ReactElement } from "react";
 
 import { type LineSpec, useContext, useGridEntry } from "@/lineplot/Frame";
 import { Legend as Base } from "@/vis/legend";
@@ -37,6 +37,22 @@ export const Legend = ({ variant = "floating", ...rest }: LegendProps): ReactEle
 
 interface FloatingProps extends Omit<LegendProps, "variant"> {}
 
+const groupLines = (lines: LineSpec[]): Base.GroupData[] => {
+  const groupInfo: Record<string, LineSpec[]> = {};
+  for (const line of lines) {
+    const group = groupInfo[line.legendGroup];
+    if (group != null) group.push(line);
+    else groupInfo[line.legendGroup] = [line];
+  }
+  const groups = Object.entries(groupInfo).map(([key, data]) => ({
+    key,
+    name: key,
+    data,
+  }));
+  groups.sort((a, b) => a.name.localeCompare(b.name));
+  return groups;
+};
+
 const Floating = memo(
   ({
     onLineColorChange,
@@ -45,7 +61,7 @@ const Floating = memo(
     ...rest
   }: FloatingProps): ReactElement => {
     const { lines } = useContext("LinePlot.Legend");
-    const groups: Base.GroupData[] = useGroupData(lines);
+    const groups = groupLines(lines);
     const handlers: LineHandlers = {
       onColorChange: onLineColorChange,
       onLabelChange: onLineLabelChange,
@@ -63,32 +79,13 @@ interface FixedProps extends Pick<
   "onLineColorChange" | "onLineLabelChange" | "onLineVisibleChange"
 > {}
 
-const useGroupData = (lines: LineSpec[]): Base.GroupData[] => {
-  const groups: Base.GroupData[] = useMemo(() => {
-    const groupInfo: Record<string, LineSpec[]> = {};
-    for (const line of lines) {
-      const group = groupInfo[line.legendGroup];
-      if (group != null) group.push(line);
-      else groupInfo[line.legendGroup] = [line];
-    }
-    const groups = Object.entries(groupInfo).map(([key, data]) => ({
-      key,
-      name: key,
-      data,
-    }));
-    groups.sort((a, b) => a.name.localeCompare(b.name));
-    return groups;
-  }, [lines]);
-  return groups;
-};
-
 const Fixed = ({
   onLineColorChange,
   onLineLabelChange,
   onLineVisibleChange,
 }: FixedProps): ReactElement | null => {
   const { lines } = useContext("LinePlot.Legend");
-  const groups: Base.GroupData[] = useGroupData(lines);
+  const groups = groupLines(lines);
   const key = useUniqueKey();
   const gridStyle = useGridEntry(
     { key, size: lines.length > 0 ? 36 : 0, loc: "top", order: 5 },

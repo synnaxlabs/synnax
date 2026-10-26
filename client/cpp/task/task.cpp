@@ -71,7 +71,7 @@ std::pair<std::vector<Task>, x::errors::Error> Client::retrieve(
     for (const auto &t: res.tasks()) {
         auto [payload, proto_err] = Task::from_proto(t);
         if (proto_err) return {std::vector<Task>(), proto_err};
-        tasks.push_back(Task(std::move(payload)));
+        tasks.emplace_back(std::move(payload));
     }
     return {tasks, x::errors::NIL};
 }
@@ -118,7 +118,7 @@ std::pair<std::vector<Task>, x::errors::Error> Client::retrieve_by_type(
     for (const auto &t: res.tasks()) {
         auto [payload, proto_err] = Task::from_proto(t);
         if (proto_err) return {std::vector<Task>(), proto_err};
-        tasks.push_back(Task(std::move(payload)));
+        tasks.emplace_back(std::move(payload));
     }
     return {tasks, x::errors::NIL};
 }
@@ -162,7 +162,7 @@ Client::list(const RetrieveOptions &options) const {
     for (const auto &t: res.tasks()) {
         auto [payload, proto_err] = Task::from_proto(t);
         if (proto_err) return {std::vector<Task>(), proto_err};
-        tasks.push_back(Task(std::move(payload)));
+        tasks.emplace_back(std::move(payload));
     }
     return {tasks, x::errors::NIL};
 }

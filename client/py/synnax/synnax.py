@@ -12,6 +12,7 @@ from importlib.metadata import version as _version
 
 from alamos import NOOP, Instrumentation
 from freighter import URL
+from freighter.exceptions import Unreachable
 from synnax import (
     arc,
     auth,
@@ -157,6 +158,7 @@ class Synnax(framer.Client):
             stream_client=self._transport.stream,
             async_client=self._transport.stream_async,
             unary_client=self._transport.unary,
+            file_transport=self._transport.file_transport,
             retriever=ch_retriever,
             deleter=deleter,
             instrumentation=instrumentation,
@@ -196,10 +198,17 @@ class Synnax(framer.Client):
         self.access = AccessClient(self._transport.unary)
 
     def close(self) -> None:
-        """Shuts down the client and closes all connections. All open iterators or
-        writers must be closed before calling this method.
+        """Logs out, shuts down the client, and closes all connections. All open
+        iterators or writers must be closed before calling this method. When the Core
+        cannot be reached the session is left to idle out.
         """
+        # The connectivity thread stops first: a check during the logout would log in
+        # again and leave that session open.
         self._finalizer()
+        try:
+            self.auth.logout()
+        except Unreachable:
+            pass
 
 
 def _configure_transport(

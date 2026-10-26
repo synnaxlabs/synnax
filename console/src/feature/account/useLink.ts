@@ -12,9 +12,8 @@ import { Drift } from "@synnaxlabs/drift";
 import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
-import { useState } from "react";
 
-import { type Linked, parseLink } from "@/feature/account/handoff";
+import { parseLink } from "@/feature/account/handoff";
 import { Link } from "@/platform/link";
 import { Session } from "@/session";
 
@@ -28,60 +27,45 @@ export interface LinkDeps extends Link.Deps {
 /**
  * Takes the login link the hub opens Synnax Desktop with: applies its license key to
  * the embedded Core and stores the link. A link whose state this app did not mint is
- * refused.
+ * refused. The session store holds the link until its license applies, so a reload or a
+ * restart does not lose the login.
  */
 export const useLink = (deps: LinkDeps = Link.DEFAULT_DEPS): void => {
-  // The engine is fixed per runtime, so this early return never changes the hook order.
-  if (deps.engine !== "tauri") return;
   const handleError = Status.useErrorHandler();
   const dispatch = Session.useDispatch();
   const store = Session.useStore();
   const client = Synnax.use();
   const api = deps.license ?? client?.license;
-  const [received, setReceived] = useState<Linked | null>(null);
+  const received = Session.Account.useSelectReceived();
 
-  const receive = (urls: string[]): void => {
-    try {
+  const receive = (urls: string[]): void =>
+    handleError(() => {
       dispatch(Drift.focusWindow({}));
       if (urls.length === 0) throw new Error("The login link is empty");
-      const linked = parseLink(urls[0]);
+      const { state, key, secret, email, user, analyticsAllowed } = parseLink(urls[0]);
       const pending = Session.Account.selectPending(store.getState());
-      if (pending == null || linked.state !== pending)
+      if (pending == null || state !== pending)
         throw new Error("This login link was not requested by this app");
-      setReceived(linked);
-    } catch (e) {
-      handleError(e, FAILED_MESSAGE);
-    }
-  };
+      dispatch(Session.Account.receive({ key, secret, email, user, analyticsAllowed }));
+    }, FAILED_MESSAGE);
 
-  useAsyncEffect(async (signal) => {
-    const urls = await deps.getCurrentURLs();
-    // A hard reload re-runs this effect with the same launch link; skip it once.
-    if (localStorage.getItem(Link.SHOULD_IGNORE_KEY) === "true") {
-      localStorage.setItem(Link.SHOULD_IGNORE_KEY, "false");
-      return;
-    }
-    if (urls == null || signal.aborted) return;
-    receive(urls);
-  }, []);
-
-  useAsyncEffect(async () => await deps.onOpenURL(receive), []);
+  Link.useReceive(receive, deps);
 
   // A launch link can land before the embedded Core answers, so the license key waits
   // for a client.
   useAsyncEffect(
     async (signal) => {
       if (api == null || received == null) return;
+      const { key, ...next } = received;
       try {
-        await api.activate(received.key);
+        await api.activate(key);
         if (signal.aborted) return;
-        const { secret, email, user } = received;
-        dispatch(Session.Account.link({ secret, email, user }));
+        dispatch(Session.Account.link(next));
       } catch (e) {
         if (signal.aborted) return;
         handleError(e, FAILED_MESSAGE);
+        dispatch(Session.Account.discardReceived());
       }
-      setReceived(null);
     },
     [api, received],
   );

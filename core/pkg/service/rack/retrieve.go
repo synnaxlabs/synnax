@@ -10,18 +10,16 @@
 package rack
 
 import (
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 type Retrieve struct {
 	baseTX       gorp.Tx
-	search       *search.Index
+	indexes      indexes
 	gorp         gorp.Retrieve[Key, Rack]
 	hostProvider cluster.HostProvider
-	searchTerm   string
 }
 
 // MatchNodeIsHost returns a filter that matches racks whose node is (or is

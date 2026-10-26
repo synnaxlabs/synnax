@@ -27,13 +27,12 @@ const Preview = ({
 }: schematic.ValueNodeConfig): ReactElement => (
   <Value
     strokeColor={strokeColor}
-    textColor={textColor}
     orientation={orientation}
     units={units}
     inlineSize={inlineSize}
     dimensions={PREVIEW_DIMENSIONS}
   >
-    <Text.Text>50.00</Text.Text>
+    <Text.Text color={textColor}>50.00</Text.Text>
   </Value>
 );
 

@@ -80,7 +80,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
   // No zoom: the dialog opens over the button.
   await session.click(addCore, { zoom: false });
-  const modal = page.locator(".console-modal").first();
+  const modal = page.locator(capture.MODAL).first();
   await session.waitFor(modal);
   await session.hold(600);
   await session.zoom(modal);

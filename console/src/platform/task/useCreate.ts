@@ -17,7 +17,6 @@ import {
 } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { Panel } from "@/platform/panel";
 import { type GetInitialValues } from "@/platform/task/Form";
@@ -65,32 +64,30 @@ const create = async <S extends task.Schemas = task.Schemas>({
  * editing. The returned callback creates a draft row and swaps the current
  * tab to the task's resource.
  */
-export const createUseCreate =
-  <S extends task.Schemas = task.Schemas>({
-    getInitialValues,
-  }: CreateUseCreateParams<S>): UseCreate =>
-  ({ tabKey }: UseCreateProps = {}) => {
+export const createUseCreate = <S extends task.Schemas = task.Schemas>({
+  getInitialValues,
+}: CreateUseCreateParams<S>): UseCreate => {
+  const useCreate: UseCreate = ({ tabKey }: UseCreateProps = {}) => {
     const client = PSynnax.use();
     const openTab = Panel.useOpenTab();
     const handleError = Status.useErrorHandler();
-    return useCallback(
-      ({ deviceKey, rackKey, config }: CreateParams = {}) => {
-        handleError(async () => {
-          if (client == null) throw new DisconnectedError();
-          const created = await create({
-            client,
-            getInitialValues,
-            deviceKey,
-            rackKey,
-            config,
-          });
-          openTab({
-            variant: "resource",
-            resource: task.ontologyID(created.key),
-            key: tabKey,
-          });
-        }, "Failed to create task");
-      },
-      [client, openTab, handleError, tabKey],
-    );
+    return ({ deviceKey, rackKey, config }: CreateParams = {}) => {
+      handleError(async () => {
+        if (client == null) throw new DisconnectedError();
+        const created = await create({
+          client,
+          getInitialValues,
+          deviceKey,
+          rackKey,
+          config,
+        });
+        openTab({
+          variant: "resource",
+          resource: task.ontologyID(created.key),
+          key: tabKey,
+        });
+      }, "Failed to create task");
+    };
   };
+  return useCreate;
+};

@@ -9,15 +9,8 @@
 
 import { describe, expect, it } from "vitest";
 
-import {
-  type CameraSample,
-  crop,
-  focusToCenter,
-  frameRect,
-  motionBlur,
-  simulate,
-} from "@/director/camera";
-import { BLUR_MAX_PX } from "@/director/constants";
+import { type CameraSample, crop, motionBlur, simulate } from "@/director/camera";
+import { BLUR_MAX_PX, ZOOM_RECT_MARGIN_PX } from "@/director/constants";
 import { fitAmount, plan } from "@/director/zoom";
 import { type Event, type Rect, type Timeline } from "@/timeline";
 
@@ -36,19 +29,6 @@ const click = (tick: number, x: number, y: number): Event[] => [
   { type: "pointerdown", tick, x, y, button: "left" },
   { type: "pointerup", tick: tick + 6, x, y, button: "left" },
 ];
-
-describe("focusToCenter", () => {
-  it("should center a mid-frame focus", () => {
-    const c = focusToCenter({ x: W / 2, y: H / 2 }, 2, W, H);
-    expect(c.x).toBeCloseTo(0.5, 5);
-    expect(c.y).toBeCloseTo(0.5, 5);
-  });
-
-  it("should pin edge-band focus flush to the edge", () => {
-    expect(focusToCenter({ x: 10, y: H / 2 }, 2, W, H).x).toEqual(0);
-    expect(focusToCenter({ x: W - 10, y: H / 2 }, 2, W, H).x).toEqual(1);
-  });
-});
 
 describe("motionBlur", () => {
   const sample = (amount: number, cx: number, cy: number): CameraSample => ({
@@ -82,41 +62,64 @@ describe("motionBlur", () => {
   });
 });
 
-describe("frameRect", () => {
-  const contains = (rect: Rect, amount: number, center: { x: number; y: number }) => {
-    const c = crop({ amount, cx: center.x, cy: center.y }, W, H);
-    expect(rect.x).toBeGreaterThanOrEqual(c.x - 1e-6);
-    expect(rect.y).toBeGreaterThanOrEqual(c.y - 1e-6);
-    expect(rect.x + rect.width).toBeLessThanOrEqual(c.x + c.width + 1e-6);
-    expect(rect.y + rect.height).toBeLessThanOrEqual(c.y + c.height + 1e-6);
-  };
-
-  it("should keep a centered rect centered", () => {
-    const rect: Rect = { x: W / 2 - 200, y: H / 2 - 100, width: 400, height: 200 };
-    const c = frameRect(rect, 2, W, H);
-    expect(c.x).toBeCloseTo(0.5, 5);
-    expect(c.y).toBeCloseTo(0.5, 5);
-    contains(rect, 2, c);
-  });
-
-  it("should keep an edge-hugging rect fully visible at its fit amount", () => {
-    const rect: Rect = { x: W - 500, y: 100, width: 480, height: 300 };
-    const amount = fitAmount(rect, W, H);
-    contains(rect, amount, frameRect(rect, amount, W, H));
-  });
-
-  it("should keep a wide dialog rect fully visible at its fit amount", () => {
-    const rect: Rect = { x: 500, y: 380, width: 1250, height: 190 };
-    const amount = fitAmount(rect, W, H);
-    contains(rect, amount, frameRect(rect, amount, W, H));
-  });
+const zoom = (tick: number, endTick: number, rect: Rect): Event => ({
+  type: "zoom",
+  tick,
+  endTick,
+  x: rect.x + rect.width / 2,
+  y: rect.y + rect.height / 2,
+  rect,
 });
 
+const pointZoom = (tick: number, endTick: number, x: number, y: number): Event => ({
+  type: "zoom",
+  tick,
+  endTick,
+  amount: 1.5,
+  x,
+  y,
+});
+
+const move = (tick: number, x: number, y: number, rect?: Rect): Event => ({
+  type: "move",
+  tick,
+  x,
+  y,
+  duration: 20,
+  rect,
+});
+
+const contains = (s: CameraSample, rect: Rect): void => {
+  const c = crop(s, W, H);
+  expect(rect.x).toBeGreaterThanOrEqual(c.x - 2);
+  expect(rect.y).toBeGreaterThanOrEqual(c.y - 2);
+  expect(rect.x + rect.width).toBeLessThanOrEqual(c.x + c.width + 2);
+  expect(rect.y + rect.height).toBeLessThanOrEqual(c.y + c.height + 2);
+};
+
 describe("camera.simulate", () => {
-  it("should keep the crop inside the source frame at all times", () => {
+  const dialog: Rect = { x: 560, y: 240, width: 800, height: 500 };
+
+  it("should hold the full frame without an authored zoom", () => {
     const tl = timeline([...click(120, 100, 100), ...click(600, 1800, 1000)]);
-    const track = simulate(tl, plan(tl));
-    for (const s of track) {
+    for (const s of simulate(tl, plan(tl, W))) expect(s.amount).toBe(1);
+  });
+
+  it("should frame the authored rect and return to 1x after the zoom", () => {
+    const tl = timeline([zoom(60, 400, dialog)]);
+    const track = simulate(tl, plan(tl, W));
+    expect(track[300].amount).toBeCloseTo(fitAmount(dialog, W, H), 2);
+    contains(track[300], dialog);
+    expect(track.at(-1)!.amount).toBeLessThan(1.01);
+  });
+
+  it("should keep the crop inside the source frame at all times", () => {
+    const tl = timeline([
+      zoom(60, 600, { x: 0, y: 0, width: 300, height: 200 }),
+      move(200, 1900, 1070),
+      move(400, 10, 10),
+    ]);
+    for (const s of simulate(tl, plan(tl, W))) {
       const c = crop(s, W, H);
       expect(c.x).toBeGreaterThanOrEqual(-1e-6);
       expect(c.y).toBeGreaterThanOrEqual(-1e-6);
@@ -125,61 +128,96 @@ describe("camera.simulate", () => {
     }
   });
 
-  it("should reach the segment zoom amount and return to 1x", () => {
-    const tl = timeline(click(120, 960, 540));
-    const track = simulate(tl, plan(tl));
-    const during = track[120 + 60];
-    expect(during.amount).toBeGreaterThan(1.85);
-    const after = track.at(-1);
-    expect(after!.amount).toBeLessThan(1.1);
+  it("should hold the framing for cursor targets inside the crop", () => {
+    const button: Rect = { x: 1200, y: 680, width: 120, height: 32 };
+    const tl = timeline([zoom(60, 600, dialog), move(300, 1260, 696, button)]);
+    const track = simulate(tl, plan(tl, W));
+    expect(track[400].cx).toBeCloseTo(track[260].cx, 3);
+    expect(track[400].cy).toBeCloseTo(track[260].cy, 3);
   });
 
-  it("should hold the camera for focus moves inside the dead zone", () => {
-    const events = [
-      ...click(120, 960, 540),
-      ...click(180, 1000, 560), // 40px away: inside the dead zone
-    ];
-    const tl = timeline(events);
-    const track = simulate(tl, plan(tl));
-    const a = track[170];
-    const b = track[240];
-    expect(Math.abs(a.cx - b.cx)).toBeLessThan(0.02);
-    expect(Math.abs(a.cy - b.cy)).toBeLessThan(0.02);
+  it("should pan to a cursor target outside the crop and keep it in frame", () => {
+    const panel: Rect = { x: 100, y: 300, width: 400, height: 300 };
+    const button: Rect = { x: 1700, y: 400, width: 120, height: 32 };
+    const tl = timeline([zoom(60, 600, panel), move(300, 1760, 416, button)]);
+    const track = simulate(tl, plan(tl, W));
+    expect(track[450].amount).toBeCloseTo(track[260].amount, 3);
+    expect(track[450].cx).toBeGreaterThan(track[260].cx + 0.2);
+    contains(track[450], button);
   });
 
-  it("should retarget when focus leaves the dead zone", () => {
-    const events = [
-      ...click(120, 300, 300),
-      ...click(200, 1700, 900), // far jump within the merged segment
+  it("should pan without a jump", () => {
+    const panel: Rect = { x: 100, y: 300, width: 400, height: 300 };
+    const tl = timeline([zoom(60, 600, panel), move(300, 1760, 416)]);
+    const track = simulate(tl, plan(tl, W));
+    for (let f = 261; f < 600; f++) {
+      const a = crop(track[f - 1], W, H);
+      const b = crop(track[f], W, H);
+      expect(Math.abs(b.x - a.x)).toBeLessThan(40);
+    }
+  });
+
+  it("should start the pan when the cursor departs", () => {
+    const panel: Rect = { x: 100, y: 300, width: 400, height: 300 };
+    const tl = timeline([zoom(60, 600, panel), move(300, 1760, 416)]);
+    const track = simulate(tl, plan(tl, W));
+    expect(track[279].cx).toBeCloseTo(track[260].cx, 4);
+    expect(track[300].cx).toBeGreaterThan(track[260].cx);
+  });
+
+  it("should put a point zoom's point at the middle of the crop", () => {
+    const point = { x: 0.48 * W, y: 0.56 * H };
+    const tl = timeline([pointZoom(60, 600, point.x, point.y)]);
+    const c = crop(simulate(tl, plan(tl, W))[400], W, H);
+    expect(c.x + c.width / 2).toBeCloseTo(point.x, 1);
+    expect(c.y + c.height / 2).toBeCloseTo(point.y, 1);
+  });
+
+  it("should pin a point zoom too near an edge to center flush to the edge", () => {
+    const left = timeline([pointZoom(60, 600, 10, H / 2)]);
+    const right = timeline([pointZoom(60, 600, W - 10, H / 2)]);
+    expect(simulate(left, plan(left, W))[400].cx).toBeCloseTo(0, 3);
+    expect(simulate(right, plan(right, W))[400].cx).toBeCloseTo(1, 3);
+  });
+
+  it("should keep a centered rect centered", () => {
+    const rect: Rect = { x: W / 2 - 200, y: H / 2 - 100, width: 400, height: 200 };
+    const tl = timeline([zoom(60, 600, rect)]);
+    const s = simulate(tl, plan(tl, W))[400];
+    expect(s.cx).toBeCloseTo(0.5, 3);
+    expect(s.cy).toBeCloseTo(0.5, 3);
+    contains(s, rect);
+  });
+
+  it("should keep edge-hugging and wide rects fully visible", () => {
+    const rects: Rect[] = [
+      { x: W - 500, y: 100, width: 480, height: 300 },
+      { x: 500, y: 380, width: 1250, height: 190 },
     ];
-    const tl = timeline(events);
-    const track = simulate(tl, plan(tl));
-    const before = track[190];
-    const after = track[380];
-    expect(after.cx).toBeGreaterThan(before.cx + 0.2);
+    for (const rect of rects) {
+      const tl = timeline([zoom(60, 600, rect)]);
+      const s = simulate(tl, plan(tl, W / 2))[400];
+      expect(s.amount).toBeCloseTo(fitAmount(rect, W, H), 2);
+      contains(s, rect);
+    }
+  });
+
+  it("should pan only far enough to bring a cursor target and its margin in frame", () => {
+    const tl = timeline([pointZoom(60, 900, W / 2, H / 2), move(300, 1600, 540)]);
+    const c = crop(simulate(tl, plan(tl, W))[800], W, H);
+    expect(c.x + c.width).toBeCloseTo(1600 + ZOOM_RECT_MARGIN_PX, 0);
+  });
+
+  it("should pan to the point of a cursor target wider than the crop", () => {
+    const panel: Rect = { x: 100, y: 300, width: 400, height: 300 };
+    const bar: Rect = { x: 0, y: 500, width: 1920, height: 40 };
+    const tl = timeline([zoom(60, 900, panel), move(300, 1500, 520, bar)]);
+    const c = crop(simulate(tl, plan(tl, W))[800], W, H);
+    expect(c.x + c.width).toBeCloseTo(1500 + ZOOM_RECT_MARGIN_PX, 0);
   });
 
   it("should be deterministic", () => {
-    const tl = timeline(click(120, 500, 400));
-    const a = simulate(tl, plan(tl));
-    const b = simulate(tl, plan(tl));
-    expect(a).toEqual(b);
-  });
-
-  it("should contain a clicked element's rect once the camera settles", () => {
-    const rect: Rect = { x: 1500, y: 60, width: 360, height: 120 };
-    const tl = timeline([
-      { type: "move", tick: 90, x: 1680, y: 120, duration: 20, rect },
-      { type: "pointerdown", tick: 120, x: 1680, y: 120, button: "left", rect },
-      { type: "pointerup", tick: 126, x: 1680, y: 120, button: "left" },
-    ]);
-    const track = simulate(tl, plan(tl));
-    const settled = track[120 + 60];
-    expect(settled.amount).toBeGreaterThan(1.5);
-    const c = crop(settled, W, H);
-    expect(rect.x).toBeGreaterThanOrEqual(c.x - 2);
-    expect(rect.y).toBeGreaterThanOrEqual(c.y - 2);
-    expect(rect.x + rect.width).toBeLessThanOrEqual(c.x + c.width + 2);
-    expect(rect.y + rect.height).toBeLessThanOrEqual(c.y + c.height + 2);
+    const tl = timeline([zoom(60, 400, dialog), move(200, 1700, 900)]);
+    expect(simulate(tl, plan(tl, W))).toEqual(simulate(tl, plan(tl, W)));
   });
 });

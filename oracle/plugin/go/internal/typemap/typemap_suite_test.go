@@ -19,7 +19,7 @@ import (
 
 func TestTypemap(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Go TypeMap Suite")
+	RunSpecs(t, "Plugin Go TypeMap Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
