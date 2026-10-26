@@ -60,13 +60,13 @@ type (
 )
 
 var (
-	_ grpc.Translator[task.CreateRequest, *CreateRequest]       = createRequestTranslator{}
-	_ grpc.Translator[task.CreateResponse, *CreateResponse]     = createResponseTranslator{}
-	_ grpc.Translator[task.RetrieveRequest, *RetrieveRequest]   = retrieveRequestTranslator{}
+	_ grpc.Translator[task.CreateRequest, *CreateRequest]          = createRequestTranslator{}
+	_ grpc.Translator[task.CreateResponse, *CreateResponse]        = createResponseTranslator{}
+	_ grpc.Translator[task.RetrieveRequest, *RetrieveRequest]      = retrieveRequestTranslator{}
 	_ grpc.Translator[task.RetrieveResponse, *pb.RetrieveResponse] = retrieveResponseTranslator{}
-	_ grpc.Translator[task.DeleteRequest, *DeleteRequest]       = deleteRequestTranslator{}
-	_ grpc.Translator[task.CopyRequest, *CopyRequest]           = copyRequestTranslator{}
-	_ grpc.Translator[task.CopyResponse, *CopyResponse]         = copyResponseTranslator{}
+	_ grpc.Translator[task.DeleteRequest, *DeleteRequest]          = deleteRequestTranslator{}
+	_ grpc.Translator[task.CopyRequest, *CopyRequest]              = copyRequestTranslator{}
+	_ grpc.Translator[task.CopyResponse, *CopyResponse]            = copyResponseTranslator{}
 )
 
 func (createRequestTranslator) Forward(

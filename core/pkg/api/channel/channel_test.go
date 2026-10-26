@@ -179,7 +179,7 @@ var _ = Describe("Service", func() {
 					ontology.ID{Type: ontology.ResourceTypeRangeAlias},
 				)
 				rng = ranger.Range{
-					Name:      "range",
+					Name: "range",
 					TimeRange: telem.TimeRange{
 						Start: telem.TimeStamp(5 * telem.Second),
 						End:   telem.TimeStamp(10 * telem.Second),
