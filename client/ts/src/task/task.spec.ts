@@ -232,7 +232,7 @@ describe("Task", async () => {
     });
 
     it("should reject a name that two tasks share", async () => {
-      const name = `test-${Date.now()}-${Math.random()}`;
+      const name = `test-${id.create()}`;
       for (let i = 0; i < 2; i++)
         await testRack.createTask({
           name,
