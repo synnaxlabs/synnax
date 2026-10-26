@@ -19,7 +19,7 @@ import {
 import { allocSuite } from "@synnaxlabs/x/bench";
 import { afterAll, test } from "vitest";
 
-import { ChannelData, type ChannelDataProps,type Client } from "@/telem/aether/remote";
+import { ChannelData, type ChannelDataProps, type Client } from "@/telem/aether/remote";
 import { type ValueProps } from "@/telem/aether/telem";
 import { telemTest } from "@/telem/aether/test";
 
@@ -70,7 +70,7 @@ const settle = async (source: ChannelData, view: ValueProps): Promise<void> => {
   throw new Error("source did not settle");
 };
 
-// yieldTask lets the tile reads and streamed frames that land between frames land.
+// yieldTask lets the tile reads and streamed frames that arrive between frames land.
 const yieldTask = async (): Promise<void> =>
   await new Promise((resolve) => setImmediate(resolve));
 

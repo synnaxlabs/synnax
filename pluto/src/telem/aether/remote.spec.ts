@@ -433,7 +433,7 @@ describe("remote", () => {
       expect(statuses[0]).toMatchObject({ variant: "error" });
     });
 
-    it("should close its bounds at a draw with no bounds read since the last one", async () => {
+    it("should close bounds that no read used since the last draw", async () => {
       const core = createCore();
       const client = connect(core, {
         readRemote: async (tr, keys, reduction) => {
@@ -452,7 +452,7 @@ describe("remote", () => {
       await expect.poll(readBounds, POLL).toBe("error");
     });
 
-    it("should report the cache's error for the index of a virtual channel", async () => {
+    it("should report the cache's error for a virtual channel's index", async () => {
       const core = createCore({ derived: true });
       const x = create(connect(core), {
         channel: core.virtual!.key,
@@ -577,6 +577,59 @@ describe("remote", () => {
       await expect
         .poll(() => witness.value().data[1].at(-1), POLL)
         .toBe(newest(core, props.channel).at(-1));
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    // Returns the client with its channel retrievals run through retrieve.
+    const withRetrieve = (
+      client: Client,
+      retrieve: Client["channels"]["retrieve"],
+    ): Client => ({ ...client, channels: { retrieve } });
+
+    it("should retry a channel retrieval that fails to connect", async () => {
+      const core = createCore();
+      const client = connect(core);
+      let failures = 2;
+      const flaky = withRetrieve(client, async (ch) => {
+        if (failures-- > 0) throw new Error("connection refused");
+        return await client.channels.retrieve(ch);
+      });
+      const statuses: cstatus.Crude[] = [];
+      const y = create(
+        flaky,
+        { channel: core.data[0].key },
+        { onStatusChange: (s) => statuses.push(s) },
+      );
+      await settle(y);
+      expect(statuses).toHaveLength(1);
+      expect(statuses[0]).toMatchObject({
+        variant: "error",
+        message: "Failed to read channel data",
+        description: "connection refused",
+      });
+    });
+
+    it("should drop a channel retrieval that lands after cleanup", async () => {
+      const core = createCore();
+      const client = connect(core);
+      let release: () => void = () => {};
+      const released = new Promise<void>((resolve) => (release = resolve));
+      let [started, landed] = [false, false];
+      const gated = withRetrieve(client, async (ch) => {
+        started = true;
+        await released;
+        const retrieved = await client.channels.retrieve(ch);
+        landed = true;
+        return retrieved;
+      });
+      const y = create(gated, { channel: core.data[0].key });
+      const handler = vi.fn();
+      y.onChange(handler);
+      y.value();
+      await expect.poll(() => started, POLL).toBe(true);
+      y.cleanup();
+      release();
+      await expect.poll(() => landed, POLL).toBe(true);
       expect(handler).not.toHaveBeenCalled();
     });
 
