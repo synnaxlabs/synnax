@@ -8,13 +8,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// DRAFT FOR COUNSEL REVIEW. Not yet approved. Fill every [BRACKETED] placeholder
-// before this policy is final.
-
 import Legal from "./Legal.astro";
 ---
 
-<Legal title="Privacy policy" updated="October 26, 2026">
+<Legal title="Privacy policy" effective="October 27, 2026">
     <p>
         This privacy policy tells how Synnax Labs, Inc. ("Synnax Labs", "we", "us")
         collects, uses, shares, and protects personal information. It applies when you:
@@ -34,13 +31,15 @@ import Legal from "./Legal.astro";
         <li>Contact us, or deal with us in sales, support, or events.</li>
     </ul>
     <p>
-        Synnax Labs is responsible for this information. If you have questions, email
+        Synnax Labs controls this information. This is also true when your organization
+        gives you access to our services. If you have questions, email
         <a href="mailto:privacy@synnaxlabs.com">privacy@synnaxlabs.com</a>.
     </p>
     <p>
         The Synnax Core, Console, and Driver that you run on your own computers do not
         send us the data that you record. A Synnax Core checks its license on its own,
-        with no connection to us. The Console app checks our website for updates.
+        with no connection to us. The Console and Synnax Desktop check for updates, as
+        section 1 tells.
     </p>
 
     <h2>1. Information we collect</h2>
@@ -50,15 +49,18 @@ import Legal from "./Legal.astro";
             <strong>Portal account</strong>: your name, email address, and password. If
             you log in with Google or Microsoft, we get your name, email address, and
             profile image from that account. We do not get your Google or Microsoft
-            password.
+            password. If you turn on two-step login by text message, we keep your phone
+            number.
         </li>
         <li>
             <strong>Organization</strong>: the name of your organization, its members,
-            their roles, and the email addresses of the people you invite.
+            and their roles. When a person invites you to an organization, we get your
+            email address from that person.
         </li>
         <li>
             <strong>Messages</strong>: what you send us in a contact form, a feedback
-            form, or an email, such as your name, email address, company, and message.
+            form, or an email, such as your name, email address, phone number, company,
+            and message.
         </li>
     </ul>
 
@@ -66,17 +68,18 @@ import Legal from "./Legal.astro";
     <ul>
         <li>
             <strong>License records</strong>: the licenses of your organization, their
-            terms and seats, and a log of license actions, with who did each action and
-            when.
+            terms and seats, and a log of license actions. The log records who did each
+            action and when, and the machine names, fingerprints, and email addresses
+            that the action used.
         </li>
         <li>
             <strong>Machine names</strong>: the name that you give a machine when you
             activate a license. For Synnax Desktop, the host name of the computer.
         </li>
         <li>
-            <strong>Host fingerprints</strong>: one-way hashes of the hardware (MAC)
-            addresses of the network interfaces of a computer. We get the hashes, not
-            the addresses.
+            <strong>Host fingerprints</strong>: salted, slow hashes of the hardware
+            (MAC) addresses of the network interfaces of a computer. We get the hashes,
+            not the addresses.
         </li>
         <li>
             <strong>Renewals</strong>: when each Synnax Desktop computer first logged in
@@ -87,34 +90,49 @@ import Legal from "./Legal.astro";
     <h3>Synnax Desktop usage data</h3>
     <p>
         After you log in, Synnax Desktop can send usage data: launches, the type of each
-        screen, clicks and recordings of the app window with all text masked, actions
-        such as creating a channel, how long the built-in Core takes to start and how
-        long it runs, why it stops, the size of the data that a reset erases, crash
-        reports, and survey answers. Crash reports include the error message, which can
-        name a channel or a device. Usage data is linked to the email address and ID of
-        your account. Synnax Desktop does not send recorded data, channel values, or
-        files. For the full list, see{" "}
+        screen, clicks, actions such as creating a channel, how long the built-in Core
+        takes to start and how long it runs, why it stops, the size of the data that a
+        reset erases, crash reports, and survey answers. Crash reports include the error
+        message, which can name a channel or a device. Usage data is linked to the email
+        address and ID of your account. Synnax Desktop does not send recorded data,
+        channel values, or files. For the full list, see{" "}
         <a href="https://docs.synnaxlabs.com/reference/desktop/usage-data">
             Synnax Desktop usage data
         </a>
         .
     </p>
     <p>
-        In the EU, the EEA, the UK, and Switzerland, Synnax Desktop asks for your
-        consent at login, and sends usage data only if you agree. Everywhere else, it
-        shows a notice at login, and usage data is on. You can turn it off at any time
-        with the "Share usage data" switch in the app.
+        Usage data also includes recordings of the app window, which show what you click
+        and how the screen changes. A recording hides all text and inputs, and shows
+        plots, logs, and values as blank. We use recordings to find bugs and to make the
+        app better.
+    </p>
+    <p>
+        We use the country of your IP address to choose how the login page asks about
+        usage data. In the EU, the EEA, the UK, Switzerland, and countries that we
+        cannot identify, it asks for your consent, and Synnax Desktop sends usage data
+        only if you agree. Everywhere else, it shows a notice, and usage data is on. You
+        can turn usage data off at any time with the "Share usage data" switch in the
+        app.
     </p>
 
     <h3>Information we collect automatically</h3>
     <ul>
         <li>
-            <strong>Website analytics</strong>: on docs.synnaxlabs.com, the pages you
-            visit, your clicks, your browser and device type, and an identifier stored
-            in your browser.
+            <strong>Website analytics</strong>: on docs.synnaxlabs.com, the pages that
+            you visit, your clicks, the page that sent you, your browser and device
+            type, and your approximate location from your IP address. We do not store an
+            analytics cookie or identifier in your browser, so each visit gets a new
+            random ID.
         </li>
         <li>
             <strong>Search</strong>: the words that you search for in the documentation.
+        </li>
+        <li>
+            <strong>Updates</strong>: while they are open, the Console and Synnax
+            Desktop ask our website for updates every 30 seconds, also before you log
+            in. Our website sends the request on to GitHub, which serves the updates.
+            Both get your IP address.
         </li>
         <li>
             <strong>Logs</strong>: our servers and service providers record the IP
@@ -122,135 +140,182 @@ import Legal from "./Legal.astro";
             problems.
         </li>
         <li>
-            <strong>Cookies</strong>: the portal uses cookies to keep you logged in.
+            <strong>Cookies and browser storage</strong>: the portal uses cookies to
+            keep you logged in and to remember the organization that you chose last. The
+            documentation stores your display choices in your browser, such as the
+            programming language of code examples. We do not use cookies for analytics
+            or advertising.
         </li>
     </ul>
 
-    <h2>2. How we use information</h2>
-    <ul>
-        <li>To make and run your account and organization.</li>
-        <li>To issue, renew, and check licenses, and to count seats.</li>
-        <li>
-            To send service emails, such as invitations and warnings that a license will
-            expire.
-        </li>
-        <li>To answer your messages and give support.</li>
-        <li>To find and fix bugs, and to learn which features people use.</li>
-        <li>To prevent abuse, such as too many license requests in a short time.</li>
-        <li>To obey the law, and to protect our rights and the rights of others.</li>
-    </ul>
+    <h2>2. How we use information, and our legal bases</h2>
     <p>
-        We do not sell personal information. We do not share it for targeted
-        advertising.
-    </p>
-
-    <h2>3. Legal bases</h2>
-    <p>
-        If the law of the EU, the EEA, the UK, or Switzerland applies to you, we process
-        personal information on these bases:
+        We use personal information for these purposes. If the law of the EU, the EEA,
+        the UK, or Switzerland applies to you, the legal basis of each purpose is in
+        parentheses.
     </p>
     <ul>
         <li>
-            <strong>Contract</strong>: to give you an account, licenses, and Synnax
-            Desktop.
+            To make and run your account and organization, to issue, renew, and check
+            licenses, to count seats, and to send service emails, such as invitations
+            and warnings that a license will expire (contract).
         </li>
         <li>
-            <strong>Consent</strong>: for Synnax Desktop usage data. You can withdraw
-            consent at any time.
+            To find bugs in Synnax Desktop and to learn which features people use, with
+            usage data and recordings (consent).
         </li>
         <li>
-            <strong>Legitimate interests</strong>: for security, abuse prevention,
-            website analytics, and to improve our products.
+            To keep our services and your account safe, to prevent abuse, such as too
+            many license requests in a short time, and to keep logs (legitimate
+            interests: to protect our services and our users).
         </li>
         <li>
-            <strong>Legal obligation</strong>: when the law requires it.
+            To learn which pages of our websites help people (legitimate interests: to
+            make our documentation better).
+        </li>
+        <li>
+            To answer your messages and give support (legitimate interests: to answer
+            you).
+        </li>
+        <li>
+            To keep records for tax, contracts, and disputes, and to obey the law (legal
+            obligation, and legitimate interests: to protect our rights).
         </li>
     </ul>
+    <p>
+        To get our assessment of a legitimate interest, email
+        <a href="mailto:privacy@synnaxlabs.com">privacy@synnaxlabs.com</a>. We do not
+        sell personal information. We do not share it for targeted advertising.
+    </p>
 
-    <h2>4. Who we share information with</h2>
+    <h2>3. Who we share information with</h2>
     <p>
         These service providers process personal information for us, under contracts
         that limit how they use it:
     </p>
     <ul>
         <li>
-            <strong>Clerk</strong>: portal accounts, login, and organizations.
+            <strong>Clerk</strong>: portal accounts, login, and organizations. Clerk
+            also sends login, invitation, and password emails and text messages. When
+            you make an account, Clerk can use Cloudflare Turnstile to check that you
+            are not a bot.
         </li>
         <li>
             <strong>PostHog</strong> (US cloud): Synnax Desktop usage data and website
             analytics.
         </li>
         <li>
-            <strong>Resend</strong>: sends portal emails.
-        </li>
-        <li>
-            <strong>Vercel</strong>: hosts our websites and the portal.
+            <strong>Vercel</strong>: hosts our websites and the portal. It finds your
+            country from your IP address, so that the login page knows how to ask about
+            usage data.
         </li>
         <li>
             <strong>Neon</strong>: stores portal records in a database.
         </li>
         <li>
+            <strong>Resend</strong>: sends emails that a license will expire.
+        </li>
+        <li>
             <strong>Amazon Web Services</strong>: signs license keys. The signed data
-            includes host fingerprints.
+            includes host fingerprints and the ID of your organization.
         </li>
         <li>
             <strong>Formspree</strong>: receives contact and feedback forms.
         </li>
         <li>
-            <strong>Algolia</strong>: runs the documentation search.
+            <strong>Algolia</strong>: runs the documentation search, and gets the words
+            that you search for and your IP address.
+        </li>
+        <li>
+            <strong>DigitalOcean</strong>: serves the images and videos on our websites.
+        </li>
+        <li>
+            <strong>GitHub</strong>: serves updates for the Console and Synnax Desktop.
         </li>
     </ul>
     <p>
-        Google and Microsoft get information only if you choose to log in with them. We
-        can also share information when the law requires it, to protect our rights, or
-        as part of a merger, sale, or similar change of our company.
+        Google and Microsoft get information only if you log in with them. We can also
+        share information when the law requires it, to protect our rights, or as part of
+        a merger, sale, or similar change of our company. No other company collects
+        information about your activity across other websites through our services.
     </p>
 
-    <h2>5. International transfers</h2>
+    <h2>4. International transfers</h2>
     <p>
-        We are in the United States, and our service providers store information in the
-        United States. When we transfer personal information from the EU, the EEA, the
-        UK, or Switzerland, we use [TRANSFER MECHANISM, such as the standard contractual
-        clauses or the Data Privacy Framework].
+        We are in the United States. When you use our services from the EU, the EEA, the
+        UK, or Switzerland, you send your information to us in the United States. We are
+        not certified under the Data Privacy Framework.
+    </p>
+    <p>
+        Our service providers in the United States get your information under one of
+        these safeguards:
+    </p>
+    <ul>
+        <li>
+            Their certification under the EU-U.S. Data Privacy Framework, its UK
+            Extension, or the Swiss-U.S. Data Privacy Framework.
+        </li>
+        <li>
+            The standard contractual clauses of the European Commission (Decision (EU)
+            2021/914), with the UK Addendum and the Swiss changes.
+        </li>
+    </ul>
+    <p>
+        To get a copy of a safeguard, email
+        <a href="mailto:privacy@synnaxlabs.com">privacy@synnaxlabs.com</a>.
     </p>
 
-    <h2>6. How long we keep information</h2>
+    <h2>5. How long we keep information</h2>
     <ul>
         <li>
             <strong>Account and organization information</strong>: while your account is
-            open. We delete it within [NUMBER] days after you ask us to.
+            open. When you ask us to delete it, we delete it within 30 days, with the
+            Synnax Desktop usage data and recordings linked to it. Copies in backups
+            expire within 30 days after that. We keep license records as the next item
+            tells.
         </li>
         <li>
-            <strong>License records and fingerprints</strong>: for the life of the
-            license and [NUMBER] years after it ends, for contracts, tax, and disputes.
+            <strong>License records</strong>, with their machine names and fingerprints:
+            for the life of the license and 7 years after it ends, for contracts, tax,
+            and disputes.
         </li>
         <li>
-            <strong>Synnax Desktop usage data</strong>: [NUMBER] months. Recordings of
-            the app window: [NUMBER] days.
+            <strong>Synnax Desktop usage data</strong>: 25 months after you last use
+            Synnax Desktop. Recordings of the app window: 30 days.
         </li>
         <li>
-            <strong>Website analytics</strong>: [NUMBER] months.
+            <strong>Website analytics</strong>: 25 months.
         </li>
         <li>
-            <strong>Server logs</strong>: [NUMBER] days.
+            <strong>Server logs</strong>: 30 days.
         </li>
         <li>
-            <strong>Messages</strong>: as long as we need them to answer you, and
-            [NUMBER] years after.
+            <strong>Messages</strong>: as long as we need them to answer you, and 3
+            years after.
         </li>
     </ul>
 
-    <h2>7. How we protect information</h2>
+    <h2>6. How we protect information</h2>
     <p>
         We encrypt connections to our services, limit who can get access to personal
         information, and keep the license signing key in a hardware key service. The
         portal gets only hashes of network addresses, never the addresses. No system is
         completely secure, so we cannot promise that information will never be lost or
-        stolen.
+        stolen. If a security incident puts your information at risk, we tell you and
+        the authorities as the law requires.
     </p>
 
-    <h2>8. Your rights</h2>
-    <p>Depending on where you live, you can have the right to:</p>
+    <h2>7. Your rights</h2>
+    <h3>Your right to object</h3>
+    <p>
+        You can object at any time to our use of your information based on legitimate
+        interests. Email{" "}
+        <a href="mailto:privacy@synnaxlabs.com">privacy@synnaxlabs.com</a>. We then
+        stop, unless we have strong legal grounds to continue, or we need the
+        information for legal claims.
+    </p>
+    <h3>Your other rights</h3>
+    <p>Depending on where you live, you can also have the right to:</p>
     <ul>
         <li>Get a copy of the personal information we have about you.</li>
         <li>Correct information that is wrong.</li>
@@ -258,7 +323,7 @@ import Legal from "./Legal.astro";
         <li>
             Get your information in a format that you can move to a different service.
         </li>
-        <li>Object to, or limit, how we use your information.</li>
+        <li>Limit how we use your information.</li>
         <li>Withdraw your consent, with no effect on what we did before.</li>
         <li>Complain to your data protection authority.</li>
     </ul>
@@ -268,12 +333,16 @@ import Legal from "./Legal.astro";
         sell or share personal information. We do not treat you differently when you use
         these rights.
     </p>
-    <p>To use your rights:</p>
+    <h3>How to use your rights</h3>
     <ul>
         <li>
             Email <a href="mailto:privacy@synnaxlabs.com">privacy@synnaxlabs.com</a>. We
-            can ask you to confirm who you are. We answer within one month, or within
-            the time that your local law sets.
+            can ask you to confirm who you are. Another person can make a request for
+            you, and we can ask for proof of your permission.
+        </li>
+        <li>
+            We answer within one month. For a complex request, we can take two more
+            months, and we tell you if we need them.
         </li>
         <li>
             To stop Synnax Desktop usage data, turn off "Share usage data" in the app.
@@ -283,6 +352,18 @@ import Legal from "./Legal.astro";
             Devices page of the portal.
         </li>
     </ul>
+    <p>
+        If you are in the UK, you can complain to us first. We confirm that we got your
+        complaint within 30 days.
+    </p>
+
+    <h2>8. Information you must give</h2>
+    <p>
+        You must give an email address to make an account or to get a license. Without
+        it, we cannot give you an account. All other information is optional. We do not
+        make decisions about you based only on automated processing that have legal or
+        similarly significant effects.
+    </p>
 
     <h2>9. Children</h2>
     <p>
@@ -299,8 +380,8 @@ import Legal from "./Legal.astro";
 
     <h2>11. Changes to this policy</h2>
     <p>
-        When we change this policy, we change the date at the top. If a change is
-        important, we tell account holders by email before it applies.
+        When we change this policy, we change the effective date at the top. If a change
+        is important, we tell account holders by email before it applies.
     </p>
 
     <h2>12. Contact us</h2>

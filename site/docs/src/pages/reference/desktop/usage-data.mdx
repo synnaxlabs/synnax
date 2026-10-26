@@ -11,15 +11,18 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 Synnax Desktop sends usage data to Synnax Labs. We use it to find bugs and to learn
-which features people use. Synnax Desktop sends nothing before you log in. The data goes
-to PostHog, which stores it in its US cloud for Synnax Labs.
+which features people use. Synnax Desktop sends no usage data before you log in. The
+data goes to PostHog, which stores it in its US cloud for Synnax Labs.
 
 <Divider.Divider x />
 
 ## When sharing is on
 
-- **EU, EEA, UK, and Switzerland** -> the login page in your browser asks if you want to
-  share usage data. Synnax Desktop sends usage data only if you agree.
+The login page uses the country of your IP address to choose how it asks:
+
+- **EU, EEA, UK, Switzerland, and countries that we cannot identify** -> the login page
+  in your browser asks if you want to share usage data. Synnax Desktop sends usage data
+  only if you agree.
 - **Everywhere else** -> the login page in your browser shows a notice, and sharing is
   on.
 

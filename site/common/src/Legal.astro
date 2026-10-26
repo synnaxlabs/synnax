@@ -10,16 +10,16 @@
 
 interface Props {
     title: string;
-    /** The date of the last change, such as "October 26, 2026". */
-    updated: string;
+    /** The date the current text took effect, such as "October 27, 2026". */
+    effective: string;
 }
 
-const { title, updated } = Astro.props;
+const { title, effective } = Astro.props;
 ---
 
 <article class="legal">
     <h1 class="legal-title">{title}</h1>
-    <p class="legal-updated">Last updated {updated}</p>
+    <p class="legal-effective">Effective {effective}</p>
     <slot />
 </article>
 
@@ -46,7 +46,7 @@ const { title, updated } = Astro.props;
             background: var(--pluto-primary-z);
         }
     }
-    .legal-updated {
+    .legal-effective {
         margin-bottom: 6rem;
         font-size: var(--pluto-h5-size);
         line-height: var(--pluto-h5-line-height);
