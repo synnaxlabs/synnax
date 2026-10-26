@@ -40,9 +40,9 @@ List conventions that are:
 3. not checked by any linter or script today.
 
 Rank them by how often the code breaks the rule today (count the violations) and how
-often reviewers flag it. To measure review signal, read the review comments of the PRs
-merged in the last 30 days, Greptile's included:
-`gh api "repos/{owner}/{repo}/pulls/comments?sort=created&direction=desc&per_page=100"`.
+often reviewers flag it. To measure review signal, read all review comments of the last
+30 days, Greptile's included, page by page:
+`gh api --paginate "repos/{owner}/{repo}/pulls/comments?since=<date 30 days ago>&per_page=100"`.
 Skip a candidate that already has an open PR or Linear issue.
 
 ## Step 3: add a rule
