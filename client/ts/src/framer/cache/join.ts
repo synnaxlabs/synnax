@@ -213,8 +213,8 @@ export class Joins {
     return m != null && !m.joined && m.fresh;
   }
 
-  /** @returns true when the join of the index holds a calculated channel. */
-  calculated(index: channel.Key): boolean {
+  // Returns true when the join of the index holds a calculated channel.
+  private calculated(index: channel.Key): boolean {
     const j = this.joins.get(index);
     if (j == null) return false;
     for (const k of j.members.keys()) if (this.store.isCalculated(k)) return true;

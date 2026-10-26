@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Unreachable } from "@synnaxlabs/freighter";
 import { type breaker, type destructor, sync, type TimeStamp } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
@@ -25,6 +24,13 @@ export interface JoinerProps {
   /** Retry behavior for failed catch-up reads. */
   breaker?: breaker.Config;
 }
+
+// The Core rejects a read of a calculation over virtual channels, and of its index, with
+// this error. They store no samples, so they join without history.
+const NO_HISTORY_ERROR = "cannot open iterator on virtual channel";
+
+const isHistoryless = (e: unknown): boolean =>
+  e instanceof Error && e.message.startsWith(NO_HISTORY_ERROR);
 
 const NO_HISTORY: status.Crude = {
   variant: "warning",
@@ -132,11 +138,9 @@ export class Joiner {
         if (failed || back.some((k) => joins.bounced(k))) {
           if (!(await driver.breaker.wait()) || signal.aborted) return;
         } else if (back.length > 0) driver.breaker.reset();
-        const acked = new Set<channel.Key>();
         const results = await Promise.allSettled(
           keys.map(async (k) => {
             await streamer.waitAcked(k === index ? [k] : [k, index], signal);
-            acked.add(k);
             await reader.catchUp(k, joins.catchUpFrom(k, now().sub(COMMIT_MARGIN)));
           }),
         );
@@ -149,13 +153,7 @@ export class Joiner {
           if (r.status === "fulfilled") {
             this.failures.delete(k);
             caught.push(waits[i]);
-          } else if (
-            // A calculation over virtual channels and its index have no history, so
-            // they join without it.
-            acked.has(k) &&
-            joins.calculated(index) &&
-            !Unreachable.matches(r.reason)
-          ) {
+          } else if (isHistoryless(r.reason)) {
             this.failures.set(k, status.create(NO_HISTORY));
             historyless.push(waits[i]);
           } else {

@@ -218,6 +218,29 @@ describe("Joiner", () => {
     }
   });
 
+  it("should retry a calculation's read that fails for another reason", async () => {
+    const core = createCore({ derived: true });
+    const { key: calculated, index } = core.calculated!;
+    let failures = 1;
+    const { joins, joiner, join, close } = createJoiner(core, {
+      readRemote: async (tr, keys, reduction) => {
+        if (keys.includes(calculated) && failures-- > 0)
+          throw new Error("stream closed unexpectedly");
+        return core.read(tr, keys, reduction);
+      },
+    });
+    join(calculated, index);
+    const stop = tick(core);
+    try {
+      await expect.poll(() => joins.joined(calculated), POLL).toBe(true);
+      expect(failures).toBeLessThan(0);
+      expect(joiner.status(calculated)).toBeUndefined();
+    } finally {
+      stop();
+      await close();
+    }
+  });
+
   it("should join a calculation and its index without history when reads fail", async () => {
     const core = createCore({ derived: true });
     const { key: calculated, index } = core.calculated!;
