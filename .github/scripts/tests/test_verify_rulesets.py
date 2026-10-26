@@ -15,7 +15,7 @@ from typing import Any
 
 import pytest
 
-SCRIPT = Path(__file__).resolve().parent / "verify_rulesets.sh"
+SCRIPT = Path(__file__).resolve().parents[1] / "verify_rulesets.sh"
 
 # Stands in for gh: serves the canned rulesets from FAKE_GH_DIR and applies the
 # requested jq expression.

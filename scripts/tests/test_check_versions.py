@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT = Path(__file__).resolve().parent / "check_versions.sh"
+SCRIPT = Path(__file__).resolve().parents[1] / "check_versions.sh"
 
 PYTHON_DIRS = ["alamos/py", "freighter/py", "client/py", "x/py"]
 NODE_DIRS = [
