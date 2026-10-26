@@ -62,9 +62,11 @@ class Transport:
         self.url = url.child("/api/v1/")
         codec = JSONCodec()
         max_message_size = int(Size.MB * 5)
-        timeouts = {
+        ws_options = {
             "open_timeout": open_timeout.seconds,
             "close_timeout": read_timeout.seconds,
+            "ping_interval": keep_alive.seconds,
+            "ping_timeout": 180,
         }
         self.stream = WebsocketClient(
             encoder=codec,
@@ -72,18 +74,15 @@ class Transport:
             base_url=self.url,
             max_message_size=max_message_size,
             ssl_context=ssl_context,
-            **timeouts,
+            **ws_options,
         )
-        # The sync client keeps the websockets keep-alive defaults.
         self.stream_async = AsyncWebsocketClient(
             encoder=codec,
             registry=registry,
             base_url=self.url,
             max_message_size=max_message_size,
             ssl_context=ssl_context,
-            ping_interval=keep_alive.seconds,
-            ping_timeout=180,
-            **timeouts,
+            **ws_options,
         )
         http = HTTPClient(
             url=self.url,
