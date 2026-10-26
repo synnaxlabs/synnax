@@ -290,7 +290,6 @@ class TestDelivery:
         assert stored_names(paths) == ["1-shot.png", "2-shot.png", "3-a_1__x_.png"]
 
     @pytest.mark.skipif(sys.platform == "win32", reason="uses a POSIX shell")
-    @pytest.mark.skipif(sys.platform == "win32", reason="uses a POSIX shell")
     def test_should_kill_the_agent_and_its_children_on_timeout(
         self, tmp_path: Path
     ) -> None:
