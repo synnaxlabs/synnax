@@ -71,7 +71,7 @@ export const SelectFilters = ({ request, onRequestChange }: SelectFiltersProps) 
   </Dialog.Frame>
 );
 
-interface HasLabelsFilterProps {
+interface LabelsFilterProps {
   request: ranger.RetrieveRequest;
 }
 
@@ -88,7 +88,7 @@ const Tags = ({ keys }: TagsProps) => {
   ));
 };
 
-const HasLabelsFilter = ({ request: { where } }: HasLabelsFilterProps) => {
+const LabelsFilter = ({ request: { where } }: LabelsFilterProps) => {
   const labels = where?.labels;
   if (labels == null || labels.length === 0) return null;
   return (
@@ -106,6 +106,6 @@ const HasLabelsFilter = ({ request: { where } }: HasLabelsFilterProps) => {
 
 export const Filters = ({ request }: SelectFiltersProps) => (
   <Flex.Box x>
-    <HasLabelsFilter request={request} />
+    <LabelsFilter request={request} />
   </Flex.Box>
 );
