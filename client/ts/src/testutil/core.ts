@@ -372,6 +372,11 @@ export class SyntheticCore {
     return frame;
   }
 
+  /** @returns true when an open stream carries the channel. */
+  streams(key: channel.Key): boolean {
+    return [...this.streamers].some((s) => s.keys.includes(key));
+  }
+
   /** Opens a stream of the channels in the config, as the Core's streamer. */
   openStreamer(config: StreamerConfig): Streamer {
     this.checkConnected();
