@@ -208,8 +208,6 @@ export class RawBlock implements Block {
   fetchedAt = TimeStamp.ZERO;
   sealed = false;
   pins = 0;
-  /** True while a join writes the stream's samples into the block. */
-  joined = false;
   /** Fetched samples cover [range.start, coveredEnd). */
   coveredEnd: TimeStamp;
   /** The index samples in [range.start, coveredEnd). */
@@ -238,6 +236,11 @@ export class RawBlock implements Block {
 
   get bytes(): number {
     return this.seriesBytes + (this.buffer?.leadingBuffer?.byteCapacity.valueOf() ?? 0);
+  }
+
+  /** True while a join writes the stream's samples into the block. */
+  get joined(): boolean {
+    return this.buffer != null;
   }
 
   get held(): boolean {

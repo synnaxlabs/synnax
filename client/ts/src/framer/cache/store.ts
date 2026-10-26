@@ -317,11 +317,10 @@ export class Store {
    */
   append(block: RawBlock, p: Series): void {
     const live = this.liveOf(block.channel);
-    const opened = live.block !== block || !block.joined;
+    const opened = live.block !== block;
     if (opened) {
       if (live.block != null) this.seal(live, live.block.index < block.index);
       block.buffer = live.buffer;
-      block.joined = true;
       live.block = block;
     }
     const res = live.buffer.write(new MultiSeries([p]));
@@ -361,10 +360,7 @@ export class Store {
     const live = this.live.get(ch);
     if (live == null) return true;
     live.buffer.retainDataType(dataType);
-    if (live.block != null) {
-      live.block.buffer = null;
-      live.block.joined = false;
-    }
+    if (live.block != null) live.block.buffer = null;
     live.block = null;
     return true;
   }
@@ -390,7 +386,6 @@ export class Store {
     if (flushed != null && flushed.length > 0)
       block.fill([flushed], block.coveredEnd, block.coveredCount);
     if (complete) block.extend(block.range.end, block.coveredCount);
-    block.joined = false;
     block.buffer = null;
     live.block = null;
     this.set(rawKey(block.channel, block.index), block);
