@@ -316,7 +316,6 @@ func Not[K Key, E Entry[K]](f Filter[K, E]) Filter[K, E] {
 	// concurrent eval reads.
 	if f.resolve != nil {
 		return Filter[K, E]{
-			eval: notEval(f),
 			resolve: func(ctx context.Context, tx Tx) (resolved[K, E], error) {
 				res, err := f.resolve(ctx, tx)
 				if err != nil {
