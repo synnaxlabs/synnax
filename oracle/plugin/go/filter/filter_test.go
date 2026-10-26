@@ -330,7 +330,8 @@ var _ = Describe("Go Filter Plugin", func() {
 					"q = q.SkipMissingKeys()",
 					"f, err := MatchWhere(*r.Where)",
 					`return Retrieve{}, validate.PathedError(err, "where")`,
-					"q = q.Search(r.SearchTerm)",
+					`if r.SearchTerm != "" {`,
+					"q = q.Where(MatchSearch(r.SearchTerm))",
 					"q = q.Limit(int(*r.Limit))",
 					"return q.Offset(int(r.Offset)), nil",
 				).
@@ -370,12 +371,10 @@ var _ = Describe("Go Filter Plugin", func() {
 				)
 		})
 
-		It(
-			"Should search through MatchSearch when the service writes its Retrieve",
-			func(
-				ctx SpecContext,
-			) {
-				resp := MustGenerate(ctx, `
+		It("Should apply a request over a generic target to every type argument", func(
+			ctx SpecContext,
+		) {
+			resp := MustGenerate(ctx, `
 				import "schemas/x/filter"
 
 				@go output "core/pkg/service/status"
@@ -390,17 +389,14 @@ var _ = Describe("Go Filter Plugin", func() {
 					key
 				}
 			`, "status", loader, p)
-				ExpectContent(resp, "request.gen.go").
-					ToBeValidGoSource().
-					ToContain(
-						"func (r RetrieveRequest) Apply(q Retrieve[any]) (Retrieve[any], error) {",
-						"f, err := MatchWhere[any](*r.Where)",
-						`if r.SearchTerm != "" {`,
-						"q = q.Where(MatchSearch(r.SearchTerm))",
-					).
-					ToNotContain("q.Search(")
-			},
-		)
+			ExpectContent(resp, "request.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					"func (r RetrieveRequest) Apply(q Retrieve[any]) (Retrieve[any], error) {",
+					"f, err := MatchWhere[any](*r.Where)",
+					"q = q.Where(MatchSearch(r.SearchTerm))",
+				)
+		})
 
 		It("Should reject a target with no @retrieve", func(ctx SpecContext) {
 			req := MustGenerateRequest(ctx, `
@@ -455,8 +451,9 @@ String struct {
 			Expect(resp.Files).To(BeEmpty())
 		})
 
-		It("Should reject a typed line that calls a generated matcher", func(
+		DescribeTable("Should reject a typed line that calls a generated matcher", func(
 			ctx SpecContext,
+			line, function string,
 		) {
 			req := MustGenerateRequest(ctx, `
 				import "schemas/x/filter"
@@ -464,19 +461,23 @@ String struct {
 				@go output "core/pkg/service/thing"
 
 				Thing struct {
-					key    uuid { @key }
-					active bool { @filter }
+					key    uuid   { @key }
+					name   string { @search }
+					active bool   { @filter }
 					@retrieve
 				}
 				Where filter Thing {
-					active bool
+					`+line+` bool
 				}
 			`, "thing", loader)
 			Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
-				"filter thing.Where: typed line active calls MatchActive, which the " +
-					"generated code already declares; rename the line",
+				"filter thing.Where: typed line " + line + " calls " + function +
+					", which the generated code already declares; rename the line",
 			)))
-		})
+		},
+			Entry("for a field matcher", "active", "MatchActive"),
+			Entry("for the search filter", "search", "MatchSearch"),
+		)
 
 		It("Should reject a constrained type parameter", func(ctx SpecContext) {
 			req := MustGenerateRequest(ctx, `

@@ -125,14 +125,6 @@ type templateData struct {
 	// TypeArgs passes the target's type parameters, such as [Details].
 	TypeArgs string
 	Lines    []lineData
-	// Search is the search the request applies, or nil when it has no search_term.
-	Search *searchData
-}
-
-type searchData struct {
-	// Filter is true when the service writes its own Retrieve and searches through a
-	// hand-written MatchSearch filter instead of a Search method.
-	Filter bool
 }
 
 type lineData struct {
@@ -221,6 +213,9 @@ func generateFile(
 	})
 	funcs["MatchKeys"] = struct{}{}
 	funcs["MatchWhere"] = struct{}{}
+	if hasSearch(target, table) {
+		funcs["MatchSearch"] = struct{}{}
+	}
 
 	data := templateData{
 		Manager: imports.NewManager(),
@@ -324,8 +319,8 @@ type requestData struct {
 	// Args passes any for each type parameter of the target, since a request selects
 	// records of every type argument.
 	Args string
-	// Search is the search the request applies, or nil when it has no search_term.
-	Search *searchData
+	// Search is true when the request has a search_term.
+	Search bool
 }
 
 func generateRequestFile(
@@ -356,22 +351,29 @@ func generateRequestFile(
 	)); n > 0 {
 		data.Args = "[" + strings.Join(slices.Repeat([]string{"any"}, n), ", ") + "]"
 	}
-	if _, ok := request.Form.(resolution.StructForm).Field("search_term"); ok {
-		data.Search = &searchData{
-			Filter: plugindomain.HasExprFromType(target, "retrieve", "indexes"),
-		}
-	}
+	_, data.Search = request.Form.(resolution.StructForm).Field("search_term")
 	data.AddExternal("encoding/json/jsontext")
 	data.AddExternal("encoding/json/v2")
 	data.AddInternal(
 		"validate",
-		gomod.ResolveImportPath("x/go/validate", req.RepoRoot, gomod.DefaultModulePrefix),
+		gomod.ResolveImportPath(
+			"x/go/validate",
+			req.RepoRoot,
+			gomod.DefaultModulePrefix,
+		),
 	)
 	var buf bytes.Buffer
 	if err := requestTemplate.Execute(&buf, data); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+func hasSearch(target resolution.Type, table *resolution.Table) bool {
+	fields, _ := resolution.RecordFields(target, table)
+	return lo.SomeBy(fields, func(f resolution.Field) bool {
+		return plugindomain.HasDomainFromField(f, "search")
+	})
 }
 
 func isStringEnum(ref resolution.TypeRef, table *resolution.Table) bool {
@@ -590,14 +592,10 @@ func (r RetrieveRequest) Apply(q {{$.Service}}Retrieve{{$.Args}}) ({{$.Service}}
 		}
 		q = q.Where(f)
 	}
-{{- with .Search}}
-{{- if .Filter}}
+{{- if .Search}}
 	if r.SearchTerm != "" {
-		q = q.Where({{$.Service}}MatchSearch(r.SearchTerm))
+		q = q.Where({{.Service}}MatchSearch(r.SearchTerm))
 	}
-{{- else}}
-	q = q.Search(r.SearchTerm)
-{{- end}}
 {{- end}}
 	if r.Limit != nil {
 		q = q.Limit(int(*r.Limit))
