@@ -131,6 +131,37 @@ widget.Proof|password widget.Parent
 `))
 	})
 
+	It("Should write type parameters and struct defaults", func(ctx SpecContext) {
+		Expect(report(ctx, `
+Kind enum {
+	a = "a"
+}
+
+Point struct {
+	x int32
+	y int32
+}
+
+Box struct<T?, K extends Kind = Kind> {
+	item T
+	kind K
+	at Point = {x = 0, y = 0}
+}
+
+Boxes = Box<string>[]
+`)).To(Equal(`widget.Box<T?, K extends widget.Kind = widget.Kind> struct
+widget.Box.item T
+widget.Box.kind K
+widget.Box.at widget.Point = {x = 0, y = 0}
+widget.Boxes = Array<widget.Box<string>>
+widget.Kind enum
+widget.Kind.a = "a"
+widget.Point struct
+widget.Point.x int32
+widget.Point.y int32
+`))
+	})
+
 	It("Should ignore docs and formatting", func(ctx SpecContext) {
 		Expect(report(ctx, `
 // A thing that holds a name.
