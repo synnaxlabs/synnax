@@ -238,13 +238,8 @@ var _ = Describe("Binary Opcodes", func() {
 
 		It("Should error on float modulo", func() {
 			writer := wasm.NewWriter()
-			err := writer.WriteBinaryOpInferred("%", types.F32())
-			Expect(
-				err,
-			).To(MatchError(ContainSubstring("float modulo not yet implemented")))
-			Expect(
-				err,
-			).To(MatchError(ContainSubstring("float modulo not yet implemented")))
+			Expect(writer.WriteBinaryOpInferred("%", types.F32())).
+				To(MatchError(ContainSubstring("float modulo not yet implemented")))
 		})
 	})
 
@@ -421,9 +416,8 @@ var _ = Describe("Binary Opcodes", func() {
 	Describe("Error Cases", func() {
 		It("Should error on unknown operator", func() {
 			writer := wasm.NewWriter()
-			err := writer.WriteBinaryOpInferred("@", types.I32())
-			Expect(err).To(MatchError(ContainSubstring("unknown operator: @")))
-			Expect(err).To(MatchError(ContainSubstring("unknown operator")))
+			Expect(writer.WriteBinaryOpInferred("@", types.I32())).
+				To(MatchError(ContainSubstring("unknown operator: @")))
 		})
 	})
 })

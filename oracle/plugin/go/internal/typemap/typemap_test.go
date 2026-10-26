@@ -571,7 +571,6 @@ var _ = Describe("ResolveLeafPrimitive", func() {
 		Expect(table.Add(structType)).To(Succeed())
 		_, _, err := typemap.ResolveLeafPrimitive(structType, table, goTypeName)
 		Expect(err).To(MatchError(ContainSubstring("unsupported type form for leaf")))
-		Expect(err).To(MatchError(ContainSubstring("unsupported type form")))
 	})
 
 	It("should error when distinct base is unresolvable", func() {
