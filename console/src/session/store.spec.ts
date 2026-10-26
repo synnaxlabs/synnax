@@ -14,7 +14,7 @@ import { waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Session } from "@/session";
-import { createTestStore, type TestStore } from "@/testutil";
+import { createTestStore, MemoryKV, type TestStore } from "@/testutil";
 
 const HAULED: Haul.DraggingState = {
   source: { key: "file", type: "file" },
@@ -32,13 +32,13 @@ const withoutDrift = (state: Session.State): Partial<Session.State> => {
  * Partitioning is the engine's business, so this asserts over all of them rather
  * than naming keys.
  */
-const readPersisted = (db: Session.Persist.MemoryKV): Array<Partial<Session.State>> =>
+const readPersisted = (db: MemoryKV): Array<Partial<Session.State>> =>
   [...db.store.entries()]
     .filter(([key]) => !key.endsWith(".slot"))
     .map(([, value]) => value as Partial<Session.State>);
 
 const waitForPersisted = async (
-  db: Session.Persist.MemoryKV,
+  db: MemoryKV,
   predicate: (payload: Partial<Session.State>) => boolean,
   message: string,
 ): Promise<void> =>
@@ -53,10 +53,10 @@ const CLUSTER_KEY = "9a1f7b2c-0d3e-4f56-8a9b-0c1d2e3f4a5b";
 const PANEL = { key: "0c9d1a3b-6f8e-4d21-9b77-2f5e8c4a1d60", name: "Overview" };
 
 describe("createStore", () => {
-  let db: Session.Persist.MemoryKV;
+  let db: MemoryKV;
 
   beforeEach(() => {
-    db = new Session.Persist.MemoryKV();
+    db = new MemoryKV();
   });
 
   const createStore = async (opts: Session.CreateStoreOptions = {}) =>
@@ -227,7 +227,7 @@ describe("createStore", () => {
       Session.ZERO_STATE,
     );
     expect(rest).toStrictEqual(zero);
-    expect(Session.Persist.selectStoreUnavailable(store.getState())).toBe(true);
+    expect(store.getState()[Session.Persist.SLICE_NAME].storeUnavailable).toBe(true);
     await waitFor(() =>
       expect(onPersistError).toHaveBeenCalledWith(
         expect.objectContaining({ message: "failed to persist state" }),
