@@ -19,7 +19,7 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { z } from "zod";
+import { type z } from "zod";
 
 import { type query } from "@/query";
 import { Table } from "@/query/table";
@@ -100,14 +100,13 @@ export interface Transaction<Action> {
 /**
  * Network send used by the dispatch/undo/redo loops. Receives the
  * controller-generated dispatch key, held as pending before the call, so the broadcast
- * echo is recognized as own.
+ * echo is recognized as own. Resolves to the actions the Core added to the dispatch,
+ * which its echo carries after the sent actions.
  */
 export type SendDispatch<Action> = (
   actions: Action[],
   dispatchKey: string,
-) => Promise<void>;
-
-const emptyResZ = z.object({});
+) => Promise<Action[]>;
 
 /**
  * Builds the sends for a domain's dispatch endpoint. The result takes a document's key
@@ -118,11 +117,11 @@ export const sender =
     unary: UnaryClient,
     target: string,
     reqZ: z.ZodType<{ key: Key; dispatchKey: string; actions: Action[] }>,
+    resZ: z.ZodType<{ actions: Action[] }>,
   ) =>
   (key: Key): SendDispatch<Action> =>
-  async (actions, dispatchKey) => {
-    await unary.send(target, { key, dispatchKey, actions }, reqZ, emptyResZ);
-  };
+  async (actions, dispatchKey) =>
+    (await unary.send(target, { key, dispatchKey, actions }, reqZ, resZ)).actions;
 
 /** Rewrites an action batch against the current document before replay. */
 export type Preprocess<State, Action> = (state: State, actions: Action[]) => Action[];
@@ -206,8 +205,8 @@ interface Pending<Action> {
   actions: Action[];
   /** The epoch in which the send started. */
   epoch: number;
-  /** Whether the Core applied the dispatch. */
-  accepted: boolean;
+  /** The actions the Core broadcasts for the dispatch. Undefined until it applies it. */
+  echo?: Action[];
 }
 
 /** The dispatch state of a doc that has pending entries. */
@@ -301,10 +300,10 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       this.undos.delete(() => true);
       return;
     }
-    // The echoes of accepted dispatches may have been lost in the gap.
+    // The echoes of applied dispatches may have been lost in the gap.
     for (const [key, r] of [...this.rebases])
-      for (const p of r.pending.filter(({ accepted }) => accepted))
-        this.settle(key, r, p.dispatchKey, p.actions);
+      for (const { dispatchKey, echo } of [...r.pending])
+        if (echo != null) this.settle(key, r, dispatchKey, echo);
   }
 
   private updateUndo(
@@ -400,18 +399,18 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     if (r.pending.length === 0) this.release(key);
   }
 
-  /** Marks a pending entry as applied by the Core. */
-  private accept(key: Key, dispatchKey: string): void {
+  /** Marks a pending entry as applied by the Core, which added the given actions. */
+  private accept(key: Key, dispatchKey: string, added: Action[]): void {
     const r = this.rebases.get(key);
     const p = r?.pending.find((p) => p.dispatchKey === dispatchKey);
     if (r == null || p == null) return;
-    p.accepted = true;
+    p.echo = [...p.actions, ...added];
     // The echo may have been lost when the epoch changed during the send.
-    if (p.epoch !== this.epoch) this.settle(key, r, dispatchKey, p.actions);
+    if (p.epoch !== this.epoch) this.settle(key, r, dispatchKey, p.echo);
   }
 
   private createPending(dispatchKey: string, actions: Action[] = []): Pending<Action> {
-    return { dispatchKey, actions, epoch: this.epoch, accepted: false };
+    return { dispatchKey, actions, epoch: this.epoch };
   }
 
   /**
@@ -512,20 +511,23 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       [key],
       dispatchKey,
       async () => await send(processed, dispatchKey),
+      (added) => added,
       stackRollback,
     );
     return true;
   }
 
   /**
-   * Sends the pending entry with the dispatch key in the given docs. A failed send
-   * runs the rollback and removes the entry.
+   * Sends the pending entry with the dispatch key in the given docs. added returns the
+   * actions the Core added to the dispatch from the send's result. A failed send runs
+   * the rollback and removes the entry.
    * @throws {Error} if the send fails.
    */
   private async sendPending<T>(
     keys: Key[],
     dispatchKey: string,
     send: () => Promise<T>,
+    added: (res: T) => Action[],
     rollback: destructor.Destructor = destructor.NOOP,
   ): Promise<T> {
     let res: T;
@@ -536,7 +538,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       keys.forEach((key) => this.discard(key, dispatchKey));
       throw errors.fromUnknown(e);
     }
-    keys.forEach((key) => this.accept(key, dispatchKey));
+    keys.forEach((key) => this.accept(key, dispatchKey, added(res)));
     return res;
   }
 
@@ -612,6 +614,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       tracked,
       dispatchKey,
       async () => await send(dispatchKey),
+      () => [],
     );
   }
 
@@ -657,6 +660,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
           [key],
           entry.dispatchKey,
           async () => await send(entry.actions, entry.dispatchKey),
+          (added) => added,
           stackRollback,
         );
         return true;

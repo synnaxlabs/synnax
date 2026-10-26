@@ -159,3 +159,11 @@ export const dispatchReqZ = <K extends z.ZodType, A extends z.ZodType>(
     dispatchKey: z.string(),
     actions: actionZ.array(),
   });
+
+/**
+ * dispatchResZ builds the response body schema for the per-service dispatch endpoint:
+ * the actions the Core added after the dispatched ones, such as a set of a field that
+ * only the Core computes. A service that adds none sends an empty body.
+ */
+export const dispatchResZ = <A extends z.ZodType>(actionZ: A) =>
+  z.object({ actions: actionZ.array().default([]) });

@@ -52,7 +52,7 @@ describe("setChanged", () => {
     const next = createValues().config;
     next.rate = 20;
     next.channels[1].port = 3;
-    act(() => Form.setChanged(form, "config", next));
+    act(() => Form.setChanged(form, "config", createValues().config, next));
     expect(set.mock.calls).toEqual([
       ["config.rate", 20],
       ["config.channels.b.port", 3],
@@ -60,9 +60,23 @@ describe("setChanged", () => {
     expect(form.value().config).toEqual(next);
   });
 
+  it("should keep a form value that changed after the base", () => {
+    const { form, set } = renderForm();
+    const base = form.value().config;
+    act(() => form.set("config.rate", 30));
+    set.mockClear();
+    const next = createValues().config;
+    next.channels[0].port = 4;
+    act(() => Form.setChanged(form, "config", base, next));
+    expect(set.mock.calls).toEqual([["config.channels.a.port", 4]]);
+    expect(form.value().config.rate).toBe(30);
+  });
+
   it("should write nothing for an equal value", () => {
     const { form, set, onChange } = renderForm();
-    act(() => Form.setChanged(form, "config", createValues().config));
+    act(() =>
+      Form.setChanged(form, "config", createValues().config, createValues().config),
+    );
     expect(set).not.toHaveBeenCalled();
     expect(onChange).not.toHaveBeenCalled();
   });
@@ -70,27 +84,34 @@ describe("setChanged", () => {
   it("should set a keyed list whole when its keys change", () => {
     const { form, set } = renderForm();
     const channels = [{ key: "b", port: 2 }];
-    act(() => Form.setChanged(form, "config.channels", channels));
+    act(() =>
+      Form.setChanged(
+        form,
+        "config.channels",
+        createValues().config.channels,
+        channels,
+      ),
+    );
     expect(set.mock.calls).toEqual([["config.channels", channels]]);
   });
 
   it("should set an object whole when its fields change", () => {
     const { form, set } = renderForm();
     const config = { rate: 10, channels: [], tags: ["x"], extra: true };
-    act(() => Form.setChanged(form, "config", config));
+    act(() => Form.setChanged(form, "config", createValues().config, config));
     expect(set.mock.calls).toEqual([["config", config]]);
   });
 
   it("should set a list without keys whole", () => {
     const { form, set } = renderForm();
-    act(() => Form.setChanged(form, "config.tags", ["x", "y"]));
+    act(() => Form.setChanged(form, "config.tags", ["x"], ["x", "y"]));
     expect(set.mock.calls).toEqual([["config.tags", ["x", "y"]]]);
   });
 
   it("should make every write in one change", () => {
     const { form, onChange } = renderForm();
     act(() =>
-      Form.setChanged(form, "", {
+      Form.setChanged(form, "", createValues(), {
         ...createValues(),
         name: "renamed",
         config: { ...createValues().config, rate: 20 },

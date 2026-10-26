@@ -16,6 +16,7 @@ import { createOf, kindOf, reduceAll } from "@/lineplot/actions";
 import {
   type Action,
   dispatchReqZ,
+  dispatchResZ,
   rename as renameAction,
   scopedActionZ,
 } from "@/lineplot/actions.gen";
@@ -120,7 +121,12 @@ export class Client extends query.Retriever<
     this.cfg = cfg;
     this.store = store;
     this.dispatcher = dispatcher;
-    this.dispatchSender = actions.sender(cfg.unary, "/lineplot/dispatch", dispatchReqZ);
+    this.dispatchSender = actions.sender(
+      cfg.unary,
+      "/lineplot/dispatch",
+      dispatchReqZ,
+      dispatchResZ,
+    );
   }
 
   async create(

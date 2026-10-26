@@ -36,7 +36,12 @@ import {
 import { type ranger } from "@/ranger";
 import { status } from "@/status";
 import { createOf, encode, reduceAll } from "@/task/actions";
-import { type Action, dispatchReqZ, scopedActionZ } from "@/task/actions.gen";
+import {
+  type Action,
+  dispatchReqZ,
+  dispatchResZ,
+  scopedActionZ,
+} from "@/task/actions.gen";
 import {
   type Command,
   commandZ,
@@ -520,7 +525,12 @@ export class Client extends query.Retriever<
     this.cfg = cfg;
     this.store = store;
     this.dispatcher = dispatcher;
-    this.dispatchSender = actions.sender(cfg.unary, "/task/dispatch", dispatchReqZ);
+    this.dispatchSender = actions.sender(
+      cfg.unary,
+      "/task/dispatch",
+      dispatchReqZ,
+      dispatchResZ,
+    );
     this.statusesByTask = statusesByTask;
   }
 

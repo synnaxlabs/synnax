@@ -74,6 +74,18 @@ var _ = Describe("DispatchRequest", func() {
 	})
 })
 
+var _ = Describe("DispatchResponse", func() {
+	It("Should marshal its actions under the actions key", func() {
+		res := actions.DispatchResponse[testAction]{
+			Actions: []testAction{{Type: "x", Payload: "y"}},
+		}
+		b := MustSucceed(json.Marshal(res))
+		var decoded map[string]any
+		Expect(json.Unmarshal(b, &decoded)).To(Succeed())
+		Expect(decoded).To(HaveKeyWithValue("actions", HaveLen(1)))
+	})
+})
+
 var _ = Describe("State", func() {
 	It("Should hand out a usable Dispatcher", func(ctx SpecContext) {
 		state := actions.NewState[uuid.UUID, testAction](nil)

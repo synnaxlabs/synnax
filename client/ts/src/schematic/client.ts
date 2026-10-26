@@ -20,6 +20,7 @@ import { createOf, encode, kindOf, reduceAll } from "@/schematic/actions";
 import {
   type Action,
   dispatchReqZ,
+  dispatchResZ,
   rename as renameAction,
   scopedActionZ,
 } from "@/schematic/actions.gen";
@@ -139,6 +140,7 @@ export class Client extends query.Retriever<
       cfg.unary,
       "/schematic/dispatch",
       dispatchReqZ,
+      dispatchResZ,
     );
   }
 

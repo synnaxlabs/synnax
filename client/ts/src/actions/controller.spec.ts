@@ -101,12 +101,13 @@ const setupStore = (
 const set = (key: string, value: number): Action => ({ type: "set", key, value });
 
 const resolved = (): Mock<SendDispatch<Action>> =>
-  vi.fn<SendDispatch<Action>>(async () => {});
+  vi.fn<SendDispatch<Action>>(async () => []);
 
 interface HeldCall {
   actions: Action[];
   dispatchKey: string;
-  resolve: () => void;
+  /** Resolves the send with the actions the Core added to the dispatch. */
+  resolve: (added?: Action[]) => void;
   reject: (error: Error) => void;
 }
 
@@ -114,8 +115,13 @@ interface HeldCall {
 const createHeldSend = () => {
   const calls: HeldCall[] = [];
   const send: SendDispatch<Action> = async (actions, dispatchKey) =>
-    await new Promise<void>((resolve, reject) =>
-      calls.push({ actions, dispatchKey, resolve, reject }),
+    await new Promise<Action[]>((resolve, reject) =>
+      calls.push({
+        actions,
+        dispatchKey,
+        resolve: (added = []) => resolve(added),
+        reject,
+      }),
     );
   return { send, calls };
 };
@@ -1118,11 +1124,13 @@ describe("actions.Controller", () => {
     it("settles accepted dispatches whose echoes the gap may have lost", async () => {
       const { docs, epochs, controller } = setupStore();
       prime(docs, "k", { a: 0 });
-      await controller.dispatch("k", [set("a", 1)], resolved());
+      const send = vi.fn<SendDispatch<Action>>(async () => [set("h", 9)]);
+      await controller.dispatch("k", [set("a", 1)], send);
       epochs.notify(2);
       expect(controller.hasPending("k")).toBe(false);
+      expect(docs.get("k")).toEqual({ values: { a: 1, h: 9 } });
       controller.applyRemote("k", 1, "foreign", [set("b", 2)]);
-      expect(docs.get("k")).toEqual({ values: { a: 1, b: 2 } });
+      expect(docs.get("k")).toEqual({ values: { a: 1, b: 2, h: 9 } });
     });
 
     it("settles a dispatch sent before the epoch changed when its send resolves", async () => {
@@ -1132,10 +1140,10 @@ describe("actions.Controller", () => {
       const dispatched = controller.dispatch("k", [set("a", 1)], send);
       epochs.notify(2);
       expect(controller.hasPending("k")).toBe(true);
-      calls[0].resolve();
+      calls[0].resolve([set("h", 9)]);
       await dispatched;
       expect(controller.hasPending("k")).toBe(false);
-      expect(docs.get("k")).toEqual({ values: { a: 1 } });
+      expect(docs.get("k")).toEqual({ values: { a: 1, h: 9 } });
     });
 
     it("keeps a staged transaction pending across an epoch change", () => {

@@ -271,7 +271,9 @@ func (s *Service) Rename(
 	}); err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
+	return struct{}{}, s.internal.Dispatch(ctx, req.Key, "", []ranger.Action{
+		ranger.NewSetAction(ranger.SetPayload{Path: []string{"name"}, Value: req.Name}),
+	})
 }
 
 type SetEndRequest struct {
@@ -291,7 +293,12 @@ func (s *Service) SetEnd(
 	}); err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.internal.NewWriter(tx).SetEnd(ctx, req.Key, req.End)
+	return struct{}{}, s.internal.Dispatch(ctx, req.Key, "", []ranger.Action{
+		ranger.NewSetAction(ranger.SetPayload{
+			Path:  []string{"time_range", "end"},
+			Value: req.End,
+		}),
+	})
 }
 
 type DeleteRequest struct {

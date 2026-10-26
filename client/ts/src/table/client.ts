@@ -19,6 +19,7 @@ import { createOf, encode, kindOf, reduceAll } from "@/table/actions";
 import {
   type Action,
   dispatchReqZ,
+  dispatchResZ,
   rename as renameAction,
   scopedActionZ,
 } from "@/table/actions.gen";
@@ -117,7 +118,12 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
     this.cfg = cfg;
     this.store = store;
     this.dispatcher = dispatcher;
-    this.dispatchSender = actions.sender(cfg.unary, "/table/dispatch", dispatchReqZ);
+    this.dispatchSender = actions.sender(
+      cfg.unary,
+      "/table/dispatch",
+      dispatchReqZ,
+      dispatchResZ,
+    );
   }
 
   async create(

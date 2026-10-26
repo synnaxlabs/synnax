@@ -13,7 +13,12 @@ import z from "zod";
 
 import { actions } from "@/actions";
 import { createOf, encode, reduceAll } from "@/label/actions";
-import { type Action, dispatchReqZ, scopedActionZ } from "@/label/actions.gen";
+import {
+  type Action,
+  dispatchReqZ,
+  dispatchResZ,
+  scopedActionZ,
+} from "@/label/actions.gen";
 import { LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE } from "@/label/payload";
 import { matchLabeledBy } from "@/label/store";
 import { type Key, keyZ, type Label, labelZ, type New } from "@/label/types.gen";
@@ -120,7 +125,12 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
     this.cfg = cfg;
     this.store = store;
     this.dispatcher = dispatcher;
-    this.dispatchSender = actions.sender(cfg.unary, "/label/dispatch", dispatchReqZ);
+    this.dispatchSender = actions.sender(
+      cfg.unary,
+      "/label/dispatch",
+      dispatchReqZ,
+      dispatchResZ,
+    );
   }
 
   async label(

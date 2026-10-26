@@ -11,6 +11,8 @@ package task
 
 import (
 	"context"
+	"reflect"
+	"slices"
 	"uuid"
 
 	"github.com/samber/lo"
@@ -220,37 +222,6 @@ func (w Writer) CreateMany(ctx context.Context, tasks *[]Task) error {
 	return nil
 }
 
-// Rename renames the task with the given key and its status, keeping every other field,
-// including its config. After the transaction commits, Rename broadcasts a set of the
-// task's name. It returns query.ErrNotFound if no task with the key exists and a
-// validation error if name is empty.
-func (w Writer) Rename(ctx context.Context, key Key, name string) error {
-	v := validate.New("task.task")
-	v.NotEmptyString("name", name)
-	if err := v.Error(); err != nil {
-		return err
-	}
-	if err := w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, Task](key)).
-		Change(func(_ gorp.Context, t Task) Task {
-			t.Name = name
-			return t
-		}).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	if err := w.renameStatus(ctx, key, name); err != nil {
-		return err
-	}
-	w.dispatcher.NotifyOnCommit(
-		ctx,
-		w.tx,
-		key,
-		NewSetAction(SetPayload{Path: []string{"name"}, Value: name}),
-	)
-	return nil
-}
-
 func (w Writer) renameStatus(ctx context.Context, key Key, name string) error {
 	// A missing status row is valid: the next Create heals it.
 	return errors.Skip(
@@ -259,24 +230,27 @@ func (w Writer) renameStatus(ctx context.Context, key Key, name string) error {
 	)
 }
 
-// apply applies the actions to the task with the given key, stores the result, and
-// returns the hash of the task's new config.
-func (w Writer) apply(ctx context.Context, key Key, acts []Action) (string, error) {
+// apply applies the actions to the task with the given key and stores the result. It
+// returns the actions that only the Core computes: a set of the stored config when
+// storing changed it, such as by filling a default, then a set of the new config hash.
+func (w Writer) apply(ctx context.Context, key Key, acts []Action) ([]Action, error) {
 	var prev Task
 	if err := w.table.NewRetrieve().
 		Where(gorp.MatchKeys[Key, Task](key)).
 		Entry(&prev).
 		Exec(ctx, w.tx); err != nil {
-		return "", err
+		return nil, err
 	}
-	if prev.Snapshot {
-		return "", errors.Wrapf(
-			validate.ErrValidation, "task %s is a snapshot and cannot change", key,
+	if prev.Snapshot && !renamesOnly(acts) {
+		return nil, errors.Wrapf(
+			validate.ErrValidation,
+			"task %s is a snapshot, so only its name can change",
+			key,
 		)
 	}
 	store, ok := w.configs.Store(prev.Type)
 	if !ok {
-		return "", errors.Wrapf(
+		return nil, errors.Wrapf(
 			validate.ErrValidation,
 			"unknown task type %q",
 			prev.Type,
@@ -284,32 +258,50 @@ func (w Writer) apply(ctx context.Context, key Key, acts []Action) (string, erro
 	}
 	var err error
 	if prev.Config, err = store.Read(ctx, w.tx, key); err != nil {
-		return "", err
+		return nil, err
 	}
 	next, err := Reduce(prev, acts...)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if err = next.Validate(); err != nil {
-		return "", err
+		return nil, err
 	}
 	stored, err := store.WriteStrict(ctx, w.tx, key, next.Config)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if next.ConfigHash, err = hashConfig(configContent(stored)); err != nil {
-		return "", err
+		return nil, err
+	}
+	computed := []Action{NewSetAction(SetPayload{
+		Path:  []string{"config_hash"},
+		Value: next.ConfigHash,
+	})}
+	if !reflect.DeepEqual(stored, next.Config) {
+		computed = slices.Insert(computed, 0, NewSetAction(SetPayload{
+			Path:  []string{"config"},
+			Value: stored,
+		}))
 	}
 	next.Config = nil
 	if err = w.table.NewCreate().Entry(&next).Exec(ctx, w.tx); err != nil {
-		return "", err
+		return nil, err
 	}
 	if next.Name != prev.Name {
 		if err = w.renameStatus(ctx, key, next.Name); err != nil {
-			return "", err
+			return nil, err
 		}
 	}
-	return next.ConfigHash, nil
+	return computed, nil
+}
+
+func renamesOnly(acts []Action) bool {
+	return lo.EveryBy(acts, func(a Action) bool {
+		return a.Type == ActionTypeSet &&
+			a.Set != nil &&
+			slices.Equal(a.Set.Path, []string{"name"})
+	})
 }
 
 // Delete deletes the task with the given key, its config record, and its associated

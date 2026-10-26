@@ -148,7 +148,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
         if (client == null) throw new DisconnectedError();
         if (canEdit) {
           if (!(await flush())) return;
-          const { config, name } = form.value();
+          const { config, name, rack } = form.value();
           const result = deployConfigZ.safeParse(config);
           if (!result.success) {
             let blocked = false;
@@ -166,9 +166,12 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
             deep.copy(config),
             name,
           );
+          // Another client can edit the task while onConfigure runs, so only the
+          // values onConfigure changed are written.
           form.batch(() => {
-            PForm.setChanged(form, "config", newConfig);
-            if (primitive.isNonZero(newRack)) PForm.setChanged(form, "rack", newRack);
+            PForm.setChanged(form, "config", config, newConfig);
+            if (primitive.isNonZero(newRack))
+              PForm.setChanged(form, "rack", rack, newRack);
           });
           if (!(await flush())) return;
           await client.tasks.settled(taskKey);

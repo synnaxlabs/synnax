@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -147,60 +146,6 @@ func (w Writer) CreateMany(ctx context.Context, ranges *[]Range) error {
 			return err
 		}
 	}
-	return nil
-}
-
-// Rename renames the range with the given key. After the transaction commits, Rename
-// broadcasts a set of the range's name. It returns query.ErrNotFound if no range with
-// the key exists and a validation error if name is empty.
-func (w Writer) Rename(ctx context.Context, key Key, name string) error {
-	v := validate.New("ranger.range")
-	v.NotEmptyString("name", name)
-	if err := v.Error(); err != nil {
-		return err
-	}
-	if err := w.table.
-		NewUpdate().
-		Where(gorp.MatchKeys[Key, Range](key)).
-		Change(func(_ gorp.Context, r Range) Range { r.Name = name; return r }).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	w.dispatcher.NotifyOnCommit(
-		ctx,
-		w.tx,
-		key,
-		NewSetAction(SetPayload{Path: []string{"name"}, Value: name}),
-	)
-	return nil
-}
-
-// SetEnd sets the end bound of the range with the given key, preserving all other
-// fields. After the transaction commits, SetEnd broadcasts a set of the range's end.
-// Returns query.ErrNotFound if no range with the key exists.
-func (w Writer) SetEnd(ctx context.Context, key Key, end telem.TimeStamp) error {
-	if err := w.table.
-		NewUpdate().
-		Where(gorp.MatchKeys[Key, Range](key)).
-		ChangeErr(func(_ gorp.Context, r Range) (Range, error) {
-			if end.Before(r.TimeRange.Start) {
-				return r, errors.Wrapf(
-					validate.ErrValidation,
-					"range end %v cannot precede its start %v",
-					end,
-					r.TimeRange.Start,
-				)
-			}
-			r.TimeRange.End = end
-			return r, nil
-		}).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	w.dispatcher.NotifyOnCommit(ctx, w.tx, key, NewSetAction(SetPayload{
-		Path:  []string{"time_range", "end"},
-		Value: end,
-	}))
 	return nil
 }
 

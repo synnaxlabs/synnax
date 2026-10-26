@@ -28,6 +28,7 @@ import { createOf, encode, isUndoable, kindOf, reduceAll } from "@/arc/actions";
 import {
   type Action,
   dispatchReqZ,
+  dispatchResZ,
   rename as renameAction,
   scopedActionZ,
 } from "@/arc/actions.gen";
@@ -198,7 +199,12 @@ export class Client extends query.Retriever<
     this.cfg = cfg;
     this.store = store;
     this.dispatcher = dispatcher;
-    this.dispatchSender = actions.sender(cfg.unary, "/arc/dispatch", dispatchReqZ);
+    this.dispatchSender = actions.sender(
+      cfg.unary,
+      "/arc/dispatch",
+      dispatchReqZ,
+      dispatchResZ,
+    );
     const composedTasks = cache.derive<task.Key, Omit<task.Task, "status">, task.Task>({
       name: "arc.task.composed",
       source: this.cfg.tasks.store,

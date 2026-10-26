@@ -17,7 +17,7 @@ const sameKeys = (a: string[], b: string[]): boolean =>
 const child = (path: string, key: string): string =>
   path === "" ? key : `${path}.${key}`;
 
-type Target = Pick<ContextValue, "batch" | "set" | "value">;
+type Target = Pick<ContextValue, "batch" | "set">;
 
 const write = (ctx: Target, path: string, prev: unknown, next: unknown): void => {
   if (prev === next) return;
@@ -44,12 +44,15 @@ const write = (ctx: Target, path: string, prev: unknown, next: unknown): void =>
 };
 
 /**
- * Sets the value at the path as one batch, writing only the values that differ from the
- * form's. Lists of keyed entries with the same keys in the same order compare entry by
- * entry, and objects with the same fields compare field by field. Other values that
- * differ are set whole.
+ * Sets at the path, as one batch, only the values in next that differ from base. A form
+ * value that changed after base was read keeps its change unless next changes it too.
+ * Lists of keyed entries with the same keys in the same order compare entry by entry,
+ * and objects with the same fields compare field by field. Other values that differ are
+ * set whole.
  */
-export const setChanged = (ctx: Target, path: string, value: unknown): void => {
-  const prev = deep.get(ctx.value(), path, { optional: true });
-  ctx.batch(() => write(ctx, path, prev, value));
-};
+export const setChanged = (
+  ctx: Target,
+  path: string,
+  base: unknown,
+  next: unknown,
+): void => ctx.batch(() => write(ctx, path, base, next));

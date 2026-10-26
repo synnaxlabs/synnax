@@ -51,8 +51,10 @@ const createHarness = (send: SendFn): Harness => {
     reduce: schematic.reduceAll,
     kindOf: schematic.kindOf,
   });
-  const sendDispatch: actions.SendDispatch<schematic.Action> = async (actions) =>
+  const sendDispatch: actions.SendDispatch<schematic.Action> = async (actions) => {
     await send(actions);
+    return [];
+  };
   const domain: Domain = {
     dispatch: async (key, actions, opts) =>
       await controller.dispatch(key, array.toArray(actions), sendDispatch, opts),

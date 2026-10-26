@@ -206,7 +206,7 @@ var _ = Describe("TS Actions Plugin", func() {
 			)
 
 			It(
-				"Should emit scopedActionZ and dispatchReqZ bound to keyZ and actionZ",
+				"Should emit scopedActionZ, dispatchReqZ, and dispatchResZ bound to actionZ",
 				func(ctx SpecContext) {
 					source := `
 					@ts output "client/ts/src/counter"
@@ -224,6 +224,7 @@ var _ = Describe("TS Actions Plugin", func() {
 							`import { Counter, keyZ } from "@/counter/types.gen";`,
 							"export const scopedActionZ = actions.scopedZ(keyZ, actionZ);",
 							"export const dispatchReqZ = actions.dispatchReqZ(keyZ, actionZ);",
+							"export const dispatchResZ = actions.dispatchResZ(actionZ);",
 						)
 				},
 			)

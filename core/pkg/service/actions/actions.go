@@ -70,6 +70,14 @@ type DispatchRequest[K comparable, A any] struct {
 	Actions []A `json:"actions" msgpack:"actions"`
 }
 
+// DispatchResponse is the wire-format response body for a dispatch endpoint whose
+// service adds actions to a dispatch, such as a set of a field that only the Core
+// computes.
+type DispatchResponse[A any] struct {
+	// Actions are the actions the Core added after the dispatched ones.
+	Actions []A `json:"actions" msgpack:"actions"`
+}
+
 // State owns the per-service observer, monotonic sequence counter, and dispatch
 // execution. Construct it once in OpenService, hand Dispatcher() to each Writer,
 // expose subscriptions via OnChange, and execute dispatches through Dispatch. The

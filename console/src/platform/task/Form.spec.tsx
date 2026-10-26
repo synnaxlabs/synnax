@@ -44,6 +44,11 @@ ChildForm.displayName = "TestChildForm";
 const RackProbe: FC = () => <div>{`rack:${PForm.useFieldValue<number>("rack")}`}</div>;
 RackProbe.displayName = "RackProbe";
 
+const DeviceProbe: FC = () => (
+  <div>{`device:${PForm.useFieldValue<string>("config.device")}`}</div>
+);
+DeviceProbe.displayName = "DeviceProbe";
+
 interface MakeRendererParams {
   showControls?: boolean;
   onConfigure?: Task.OnConfigure<(typeof schemas)["config"]>;
@@ -356,6 +361,40 @@ describe("wrapForm", () => {
         const cmd = await awaitCommand(streamer, draft.key);
         const updated = await createTestClient().tasks.retrieve({ key: draft.key });
         expect(updated.config).toMatchObject({ device: "filled" });
+        expect(cmd.configHash).toBe(updated.configHash);
+      } finally {
+        streamer.close();
+      }
+    });
+
+    it("should keep a field another client edits while onConfigure runs", async () => {
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...getInitialValues({}), rack: 0 });
+      const other = createTestClient();
+      await other.tasks.retrieve({ key: draft.key });
+      const Renderer = createRenderer({
+        Form: DeviceProbe,
+        onConfigure: async (_client, config) => {
+          expect(
+            await other.tasks.dispatch(
+              draft.key,
+              task.set({ path: ["config", "device"], value: "remote" }),
+            ),
+          ).toBe(true);
+          await screen.findByText("device:remote");
+          return [config, 0];
+        },
+      });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      try {
+        const { container } = await renderTaskFormTab(Renderer, {
+          client,
+          taskKey: draft.key,
+        });
+        await clickDeploy(container);
+        const cmd = await awaitCommand(streamer, draft.key);
+        const updated = await createTestClient().tasks.retrieve({ key: draft.key });
+        expect(updated.config).toMatchObject({ device: "remote" });
         expect(cmd.configHash).toBe(updated.configHash);
       } finally {
         streamer.close();

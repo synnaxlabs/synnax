@@ -17,6 +17,7 @@ import { createOf, kindOf, reduceAll } from "@/panel/actions";
 import {
   type Action,
   dispatchReqZ,
+  dispatchResZ,
   rename as renameAction,
   scopedActionZ,
 } from "@/panel/actions.gen";
@@ -128,7 +129,12 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
     this.cfg = cfg;
     this.store = store;
     this.dispatcher = dispatcher;
-    this.dispatchSender = actions.sender(cfg.unary, "/panel/dispatch", dispatchReqZ);
+    this.dispatchSender = actions.sender(
+      cfg.unary,
+      "/panel/dispatch",
+      dispatchReqZ,
+      dispatchResZ,
+    );
   }
 
   /** All panels currently in the cache. */

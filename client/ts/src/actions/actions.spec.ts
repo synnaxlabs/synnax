@@ -348,3 +348,17 @@ describe("dispatchReqZ", () => {
     expect(() => schema.parse({ key: "abc", actions: [] })).toThrow();
   });
 });
+
+describe("dispatchResZ", () => {
+  const schema = actions.dispatchResZ(z.object({ kind: z.string() }));
+
+  it("Should parse the actions the Core added", () => {
+    expect(schema.parse({ actions: [{ kind: "x" }] })).toEqual({
+      actions: [{ kind: "x" }],
+    });
+  });
+
+  it("Should parse an empty body as no actions", () => {
+    expect(schema.parse({})).toEqual({ actions: [] });
+  });
+});

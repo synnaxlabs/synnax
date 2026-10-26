@@ -248,27 +248,35 @@ func (s *Service) OnAction(
 
 // Dispatch applies the actions atomically to the task with the given key. Dispatches
 // for the same task run one at a time, each in its own transaction. After the commit,
-// Dispatch broadcasts the actions and a set of the new config hash, which only the Core
-// writes. dispatchKey is carried onto the broadcast so the sender recognizes its echo.
-// Dispatch returns an error wrapping validate.ErrValidation when an action is a create,
-// the task is a snapshot, or the result fails to decode or validate, and an error
-// wrapping query.ErrNotFound when no task has the key.
+// Dispatch broadcasts the actions, then a set of the stored config when storing changed
+// it, such as by filling a default, then a set of the new config hash. Dispatch returns
+// the sets it added. dispatchKey is carried onto the broadcast so the sender recognizes
+// its echo. Dispatch returns an error wrapping validate.ErrValidation when an action is
+// a create, an action other than a set of the name targets a snapshot, or the result
+// fails to decode or validate, and an error wrapping query.ErrNotFound when no task has
+// the key.
 func (s *Service) Dispatch(
 	ctx context.Context,
 	key Key,
 	dispatchKey string,
 	acts []Action,
-) error {
-	return s.state.Dispatch(ctx, key, dispatchKey, func(tx gorp.Tx) ([]Action, error) {
-		hash, err := s.NewWriter(tx).apply(ctx, key, acts)
-		if err != nil {
-			return nil, err
-		}
-		return slices.Concat(acts, []Action{NewSetAction(SetPayload{
-			Path:  []string{"config_hash"},
-			Value: hash,
-		})}), nil
-	})
+) ([]Action, error) {
+	var computed []Action
+	if err := s.state.Dispatch(
+		ctx,
+		key,
+		dispatchKey,
+		func(tx gorp.Tx) ([]Action, error) {
+			var err error
+			if computed, err = s.NewWriter(tx).apply(ctx, key, acts); err != nil {
+				return nil, err
+			}
+			return slices.Concat(acts, computed), nil
+		},
+	); err != nil {
+		return nil, err
+	}
+	return computed, nil
 }
 
 func (s *Service) CommandChannelKey() channel.Key {

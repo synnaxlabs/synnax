@@ -29,7 +29,12 @@ import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { createOf, encode, reduceAll } from "@/ranger/actions";
-import { type Action, dispatchReqZ, scopedActionZ } from "@/ranger/actions.gen";
+import {
+  type Action,
+  dispatchReqZ,
+  dispatchResZ,
+  scopedActionZ,
+} from "@/ranger/actions.gen";
 import { alias } from "@/ranger/alias";
 import { Client as AliasClient } from "@/ranger/alias/client";
 import { kv } from "@/ranger/kv";
@@ -525,7 +530,12 @@ export class Client extends query.Retriever<
     this.writer = new Writer(cfg.unary);
     this.store = ranges;
     this.dispatcher = dispatcher;
-    this.dispatchSender = actions.sender(cfg.unary, "/range/dispatch", dispatchReqZ);
+    this.dispatchSender = actions.sender(
+      cfg.unary,
+      "/range/dispatch",
+      dispatchReqZ,
+      dispatchResZ,
+    );
     this.kvPairs = kvPairs;
     this.aliases = aliases;
     const children = cache.queries<ChildrenRequest, Range[], Key, Range>({

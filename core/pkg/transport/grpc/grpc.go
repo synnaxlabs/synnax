@@ -124,7 +124,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.ViewRename = noop.UnaryServer[view.RenameRequest, struct{}]{}
 
 	// TASK
-	t.TaskDispatch = noop.UnaryServer[apitask.DispatchRequest, struct{}]{}
+	t.TaskDispatch = noop.UnaryServer[apitask.DispatchRequest, apitask.DispatchResponse]{}
 
 	// RANGE
 	t.RangeDispatch = noop.UnaryServer[apiranger.DispatchRequest, struct{}]{}

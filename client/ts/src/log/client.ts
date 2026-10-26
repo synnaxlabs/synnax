@@ -16,6 +16,7 @@ import { createOf, kindOf, reduceAll } from "@/log/actions";
 import {
   type Action,
   dispatchReqZ,
+  dispatchResZ,
   rename as renameAction,
   scopedActionZ,
 } from "@/log/actions.gen";
@@ -109,7 +110,12 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
     this.cfg = cfg;
     this.store = store;
     this.dispatcher = dispatcher;
-    this.dispatchSender = actions.sender(cfg.unary, "/log/dispatch", dispatchReqZ);
+    this.dispatchSender = actions.sender(
+      cfg.unary,
+      "/log/dispatch",
+      dispatchReqZ,
+      dispatchResZ,
+    );
   }
 
   async create(

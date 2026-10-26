@@ -573,6 +573,27 @@ describe("Task", async () => {
       expect(send).not.toHaveBeenCalled();
     });
 
+    it("should adopt the config the Core stores when it fills a default", async () => {
+      await waitForStreamLive(client.connection);
+      const t = await testRack.createTask({
+        name: `dispatch-default-${id.create()}`,
+        config: { arcKey: uuid.create(), performance: "high" },
+        type: "arc",
+      });
+      expect(
+        await client.tasks.dispatch(
+          t.key,
+          task.set({ path: ["config", "performance"], value: "" }),
+        ),
+      ).toBe(true);
+      await client.tasks.settled(t.key);
+      const stored = await createTestClient().tasks.retrieve(t.key);
+      expect(stored.config).toMatchObject({ performance: "auto" });
+      const cached = await client.tasks.retrieve(t.key);
+      expect(cached.config).toEqual(stored.config);
+      expect(cached.configHash).toBe(stored.configHash);
+    });
+
     it("should drop actions the Core refuses from the cached task", async () => {
       const t = await testRack.createTask({
         name: `dispatch-refused-${id.create()}`,

@@ -390,7 +390,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 		TaskRename: router.NewUnaryServer[task.RenameRequest, struct{}](
 			"/api/v1/task/rename",
 		),
-		TaskDispatch: router.NewUnaryServer[task.DispatchRequest, struct{}](
+		TaskDispatch: router.NewUnaryServer[task.DispatchRequest, task.DispatchResponse](
 			"/api/v1/task/dispatch",
 		),
 

@@ -127,21 +127,26 @@ func (s *Service) Create(
 // recognizes its own echo.
 type DispatchRequest = actions.DispatchRequest[task.Key, task.Action]
 
+// DispatchResponse carries the actions the Core added to a dispatch: a set of the new
+// config hash, after a set of the stored config when storing changed it.
+type DispatchResponse = actions.DispatchResponse[task.Action]
+
 // Dispatch applies the action sequence to the target task atomically. Subscribers to
 // the task action signals receive the sequence after the transaction commits.
 func (s *Service) Dispatch(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DispatchRequest,
-) (struct{}, error) {
+) (DispatchResponse, error) {
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{task.OntologyID(req.Key)},
 	}); err != nil {
-		return struct{}{}, err
+		return DispatchResponse{}, err
 	}
-	return struct{}{}, s.task.Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
+	computed, err := s.task.Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
+	return DispatchResponse{Actions: computed}, err
 }
 
 type (
@@ -261,7 +266,10 @@ func (s *Service) Rename(
 	}); err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.task.NewWriter(tx).Rename(ctx, req.Key, req.Name)
+	_, err := s.task.Dispatch(ctx, req.Key, "", []task.Action{
+		task.NewSetAction(task.SetPayload{Path: []string{"name"}, Value: req.Name}),
+	})
+	return struct{}{}, err
 }
 
 type DeleteRequest struct {
