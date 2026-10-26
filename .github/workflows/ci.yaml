@@ -519,6 +519,11 @@ jobs:
       - name: Check unused code
         run: pnpm knip
 
+      - name: Check exports that only tests use
+        # Report-only until the current findings are fixed.
+        continue-on-error: true
+        run: pnpm knip --production --include exports,types
+
   lint-integration:
     needs: changes
     if: inputs.full || needs.changes.outputs.lint_integration == 'true'
