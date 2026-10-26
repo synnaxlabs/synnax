@@ -141,6 +141,7 @@ var _ = Describe("Filter definitions", func() {
 				where.Filter.Target,
 			).To(Equal(resolution.TypeRef{Name: "test.Thing"}))
 			line := func(name string) resolution.Field {
+				GinkgoHelper()
 				return MustBeOk(lo.Find(
 					where.Filter.Lines,
 					func(l resolution.Field) bool { return l.Name == name },
@@ -512,10 +513,13 @@ var _ = Describe("Filter definitions", func() {
 			Expect(res.Fields[0].Optional).To(BeFalse())
 		})
 
-		It("Should omit the derived types wherever the filter is omitted", func(
-			ctx SpecContext,
-		) {
-			table, diag := analyzer.AnalyzeSource(ctx, `
+		DescribeTable(
+			"Should omit the derived types wherever the filter is omitted",
+			func(
+				ctx SpecContext,
+				name string,
+			) {
+				table, diag := analyzer.AnalyzeSource(ctx, `
 				import "schemas/x/filter"
 
 				@go output "out"
@@ -530,15 +534,15 @@ var _ = Describe("Filter definitions", func() {
 					@cpp omit
 				}
 			`, "test", loader)
-			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			for _, name := range []string{"RetrieveRequest", "RetrieveResponse"} {
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
 				typ := table.MustGet("test." + name)
-				_, omitted := typ.Domains["cpp"].Expressions.Find("omit")
-				Expect(omitted).To(BeTrue(), name)
-				_, omitted = typ.Domains["go"].Expressions.Find("omit")
-				Expect(omitted).To(BeFalse(), name)
-			}
-		})
+				MustBeOk(typ.Domains["cpp"].Expressions.Find("omit"))
+				_, omitted := typ.Domains["go"].Expressions.Find("omit")
+				Expect(omitted).To(BeFalse())
+			},
+			Entry("the request", "RetrieveRequest"),
+			Entry("the response", "RetrieveResponse"),
+		)
 
 		It("Should leave out search_term when no field has @search", func(
 			ctx SpecContext,
@@ -660,6 +664,7 @@ var _ = Describe("Filter definitions", func() {
 			`, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			goOutput := func(name string) string {
+				GinkgoHelper()
 				typ := table.MustGet("test." + name)
 				expr := MustBeOk(typ.Domains["go"].Expressions.Find("output"))
 				return expr.Values[0].StringValue
