@@ -14,7 +14,7 @@ import { test } from "vitest";
 import { type channel } from "@/channel";
 import { tileSpan } from "@/framer/cache/grid";
 import { Store } from "@/framer/cache/store";
-import { TileReader, type TileSpec } from "@/framer/cache/tile";
+import { tileKey, TileReader, type TileSpec } from "@/framer/cache/tile";
 import { SyntheticCore } from "@/testutil";
 
 // One week of 1kHz data. A plot 1000 pixels wide that shows the last day of it draws
@@ -118,18 +118,19 @@ const insertPastBudget = async (held: number): Promise<() => Promise<void>> => {
   sizer.close();
   let remoteReads = 0;
   // The budget fits the held tiles, with a tenth to spare for each tile's overhead.
+  const store = new Store({
+    budget: Size.bytes(1.1 * sizes.reduce((sum, b) => sum + b, 0)),
+  });
   const reader = new TileReader({
     readRemote: async (tr, keys, reduction) => {
       remoteReads++;
       return core.read(tr, keys, reduction);
     },
     batchDebounce: TimeSpan.ZERO,
-    store: new Store({
-      budget: Size.bytes(1.1 * sizes.reduce((sum, b) => sum + b, 0)),
-    }),
+    store,
   });
-  const heldTiles = await Promise.all(heldSpecs.map(async (s) => await reader.read(s)));
-  heldTiles.forEach((t) => t.acquire());
+  await readAll(reader, heldSpecs);
+  heldSpecs.forEach((s) => store.get(tileKey(s))!.pins++);
   let n = 0;
   const insert = async (): Promise<void> => {
     const batch = Array.from({ length: INSERTS }, () =>
