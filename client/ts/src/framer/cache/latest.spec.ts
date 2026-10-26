@@ -237,7 +237,7 @@ describe("Latest", () => {
     }
   });
 
-  it("should keep samples streamed before a drop after the read the drop restarts", async () => {
+  it("should keep samples streamed before a drop after the new read", async () => {
     const core = createCore();
     let release: () => void = () => {};
     const released = new Promise<void>((resolve) => (release = resolve));

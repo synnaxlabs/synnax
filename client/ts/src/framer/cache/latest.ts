@@ -360,7 +360,7 @@ export class Latest {
     this.snapshot = null;
   }
 
-  // Returns the end of the newest sample's span, or undefined when it has no time range.
+  // Returns the end of the newest sample's span, or undefined without a time range.
   private time(): TimeStamp | undefined {
     const newest = this.newest();
     if (newest == null) return undefined;
