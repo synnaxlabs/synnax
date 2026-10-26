@@ -116,10 +116,10 @@ export const retrieveRequestZ = z.strictObject({
   /** includeStatus includes the status of each record. */
   includeStatus: z.boolean().default(false),
 });
-export interface RetrieveRequest extends optional.Optional<
+export type RetrieveRequest = optional.Optional<
   z.infer<typeof retrieveRequestZ>,
   "searchTerm" | "offset" | "includeStatus"
-> {}
+>;
 
 /**
  * Payload is a logical collection of samples emitted by or representing values from a

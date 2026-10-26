@@ -153,10 +153,10 @@ export const retrieveRequestZ = z.strictObject({
   /** includeStatus includes the status of each record. */
   includeStatus: z.boolean().default(false),
 });
-export interface RetrieveRequest extends optional.Optional<
+export type RetrieveRequest = optional.Optional<
   z.infer<typeof retrieveRequestZ>,
   "searchTerm" | "offset" | "includeStatus"
-> {}
+>;
 
 export const readConfigZ = persistConfigZ.extend({
   sampleRate: z.number().default(10),

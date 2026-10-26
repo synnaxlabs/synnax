@@ -88,10 +88,10 @@ export const retrieveRequestZ = z.strictObject({
   /** includeParent includes the parent of each record. */
   includeParent: z.boolean().default(false),
 });
-export interface RetrieveRequest extends optional.Optional<
+export type RetrieveRequest = optional.Optional<
   z.infer<typeof retrieveRequestZ>,
   "searchTerm" | "offset" | "includeStatus" | "includeParent"
-> {}
+>;
 
 export interface DeviceSchemas<
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
