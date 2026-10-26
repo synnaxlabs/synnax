@@ -41,14 +41,7 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
-const keysRequest = (keys: Key[]): RetrieveRequest => ({
-  where: { key: { in: keys } },
-});
-
-const retrieveMultiParamsZ = z.union([
-  keyZ.array().transform(keysRequest),
-  retrieveRequestZ,
-]);
+const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
 
 const singleRetrieveParamsZ = z
   .object({ key: keyZ, includeLabels: z.boolean().optional() })
@@ -101,7 +94,7 @@ export class Client extends query.Retriever<
     const { relationships } = ontologyClient.cache;
     const store = cache.createTable<Key, Status>({
       name: "statuses",
-      fetch: async (keys) => await this.fetchThrough(keysRequest(keys)),
+      fetch: async (keys) => await this.fetchThrough(query.keysRequest(keys)),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, statusZ(), {
           value: (changed, prev) => {
@@ -137,9 +130,8 @@ export class Client extends query.Retriever<
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.fetchThrough(req),
-        matches: (status, req) => matches(this.lines, status, req.where ?? {}),
-        serverComputed: (req) =>
-          req.where != null && serverComputed(this.lines, req.where),
+        matches: (status, req) => matches(this.lines, status, req.where),
+        serverComputed: (req) => serverComputed(this.lines, req.where),
         watch: [
           query.watch(relationships, (event, _: RetrieveRequest) =>
             this.affectedKeys(event),

@@ -259,9 +259,7 @@ export type RetrieveMultipleParams = z.infer<typeof retrieveMultipleParamsZ>;
  * comes before the request, which would read a time range as an empty request.
  */
 const retrieveMultiParamsZ = z.union([
-  keyZ
-    .array()
-    .transform((keys): RetrieveMultipleParams => ({ where: { key: { in: keys } } })),
+  query.keysRequestZ(keyZ),
   z
     .string()
     .array()
@@ -465,9 +463,8 @@ export class Client extends query.Retriever<
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (query) => await this.fetchRequest(query),
-        matches: (r, query) => matches(this.lines, r.payload, query.where ?? {}),
-        serverComputed: (query) =>
-          query.where != null && serverComputed(this.lines, query.where),
+        matches: (r, query) => matches(this.lines, r.payload, query.where),
+        serverComputed: (query) => serverComputed(this.lines, query.where),
         watch: [
           watchRequestRelationships(relationships, ranges),
           watchLabels(labels, ontologyClient.cache, ranges),
@@ -709,7 +706,7 @@ export class Client extends query.Retriever<
    * their relationships through. Powers the table's fetch primitive.
    */
   private async fetchThrough(keys: Key[]): Promise<Range[]> {
-    const ranges = await this.execRetrieve({ where: { key: { in: keys } } });
+    const ranges = await this.execRetrieve(query.keysRequest(keys));
     this.hydrateMany(ranges);
     return ranges;
   }

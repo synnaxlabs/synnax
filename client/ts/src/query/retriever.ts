@@ -82,6 +82,18 @@ const isBareKey = (params: unknown): params is record.Key =>
 export const keyListZ = <K extends z.ZodType<record.Key>>(key: K) =>
   z.array(key).transform((keys) => ({ keys }));
 
+/** @returns a request whose `where` matches the records with the given keys. */
+export const keysRequest = <K extends record.Key>(keys: K[]) => ({
+  where: { key: { in: keys } },
+});
+
+/**
+ * Request schema arm reading a bare key list as a `where` on the keys. Union it onto a
+ * domain's request schema: `z.union([keysRequestZ(keyZ), retrieveRequestZ])`.
+ */
+export const keysRequestZ = <K extends z.ZodType<record.Key>>(key: K) =>
+  z.array(key).transform(keysRequest);
+
 interface ComposeProp<V, D> {
   /**
    * Per-record enrichment applied to every answer, receiving the normalized query the
@@ -297,7 +309,7 @@ export abstract class Retriever<
    * Reads the record the params address, or every record matching them. Serves the
    * cache when the answer is fresh, fetching otherwise. A bare key is shorthand for `{
    * key }`; a bare key list is accepted by domains whose request schema unions in
-   * {@link keyListZ}.
+   * {@link keysRequestZ} or {@link keyListZ}.
    * @throws {NotFoundError} if a single-record query matches nothing or the record was
    * deleted.
    * @throws {ValidationError} if params contain `key` (or are a bare key) but fail the
