@@ -1,0 +1,139 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Calls an agent to resolve merge conflicts on agent pull requests. GitHub sends no event
+# when a pull request becomes conflicted, so a push to main and an hourly schedule scan
+# for them, and the scan dispatches this workflow once per pull request. Every run uses
+# this file from main, so no pull request code runs with secrets outside the agent
+# workflow. The gate allows one attempt per head commit.
+
+name: Agent - Resolve conflicts
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Pull request number; empty scans every open pull request
+        required: false
+        type: string
+      sha:
+        description: The head commit the scan saw conflicted
+        required: false
+        type: string
+
+permissions: {}
+
+jobs:
+  scan:
+    name: Scan
+    if: inputs.pr == ''
+    # A burst of pushes to main queues one pending scan instead of one per push.
+    concurrency:
+      group: agent-rebase-scan
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+      issues: read
+      pull-requests: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      # GitHub computes mergeable lazily, so a pull request still UNKNOWN right after a
+      # push to main waits for the next scan.
+      - name: Dispatch a run per conflicted agent pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AGENT_LOGINS: ${{ vars.AGENT_LOGINS }}
+        run: |
+          gh api graphql -f o="$GITHUB_REPOSITORY_OWNER" -f r="${GITHUB_REPOSITORY#*/}" \
+            -f query='query($o: String!, $r: String!) {
+              repository(owner: $o, name: $r) {
+                pullRequests(states: OPEN, first: 100) { nodes {
+                  number headRefOid mergeable isCrossRepository
+                } }
+              }
+            }' --jq '.data.repository.pullRequests.nodes[]
+              | select(.mergeable == "CONFLICTING" and (.isCrossRepository | not))
+              | "\(.number) \(.headRefOid)"' |
+          while read -r pr sha; do
+            verdict=$(.github/scripts/agent_gate.sh "$pr" "rebase-$sha" 1 "$sha")
+            echo "#$pr: $verdict"
+            if [ "${verdict%% *}" != skip ]; then
+              gh workflow run agent.rebase.yaml --ref main -f pr="$pr" -f sha="$sha"
+            fi
+          done
+
+  gate:
+    name: Gate
+    if: inputs.pr != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    outputs:
+      run: ${{ steps.gate.outputs.run }}
+      prompt: ${{ steps.prompt.outputs.prompt }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Gate the attempt
+        id: gate
+        uses: ./.github/actions/agent-gate
+        with:
+          pr: ${{ inputs.pr }}
+          sha: ${{ inputs.sha }}
+          kind: rebase-${{ inputs.sha }}
+          cap: 1
+          task: resolve merge conflicts
+          agents: ${{ vars.AGENT_LOGINS }}
+
+      - name: Write the prompt
+        id: prompt
+        if: steps.gate.outputs.run == 'true'
+        env:
+          PR: ${{ inputs.pr }}
+        run: |
+          EOF=$(openssl rand -hex 16)
+          {
+            echo "prompt<<$EOF"
+            cat .github/agents/rebase.md
+            printf '\nThe pull request is #%s.\n' "$PR"
+            echo "$EOF"
+          } >> "$GITHUB_OUTPUT"
+
+  agent:
+    name: Agent
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    # Shared with the other agent workflows, so one agent at a time pushes to a branch.
+    concurrency:
+      group: agent-pr-${{ inputs.pr }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    uses: ./.github/workflows/agent.yaml
+    with:
+      prompt: ${{ needs.gate.outputs.prompt }}
+      agent: ${{ vars.AGENT_DEFAULT || 'claude' }}
+      output: comment
+      pr: ${{ fromJSON(inputs.pr) }}
+      timeout-minutes: 60
+    secrets: inherit
