@@ -302,5 +302,14 @@ describe("Swatch", () => {
       const [, target] = renderPair(<Color.Swatch value={`#${BLUE}`} />);
       expect(target.className).not.toContain(CSS.B("haul-drop-region"));
     });
+
+    it("should call onChange with the dropped color", () => {
+      const onChange = vi.fn();
+      const [, target] = renderPair(
+        <Color.Swatch value={`#${BLUE}`} onChange={onChange} />,
+      );
+      fireEvent.drop(target);
+      expect(onChange).toHaveBeenCalledWith(color.construct(RED));
+    });
   });
 });
