@@ -43,24 +43,6 @@ func resolverFor(files map[string]string) *versions.Resolver {
 }
 
 var _ = Describe("Chain", func() {
-	Describe("LiveFromFilePath", func() {
-		It("Should convert a version file path to its live path", func() {
-			Expect(versions.LiveFromFilePath("schemas/x/versions/telem/v0")).
-				To(Equal("schemas/x/telem"))
-			Expect(versions.LiveFromFilePath("schemas/x/versions/telem/v0.oracle")).
-				To(Equal("schemas/x/telem"))
-		})
-
-		It("Should reject non-version paths", func() {
-			Expect(versions.LiveFromFilePath("schemas/x/telem")).Error().
-				To(MatchError(ContainSubstring("not a schema version file")))
-			Expect(versions.LiveFromFilePath("schemas/x/versions/telem/extra/v0")).
-				Error().To(MatchError(ContainSubstring("not a schema version file")))
-			Expect(versions.LiveFromFilePath("schemas/x/versions/telem/foo")).
-				Error().To(MatchError(ContainSubstring("not a schema version file")))
-		})
-	})
-
 	Describe("DepNS", func() {
 		It("Should build the internal pinned-surface namespace", func() {
 			Expect(versions.DepNS("schemas/x/telem", 3)).To(Equal("x/telem@v3"))

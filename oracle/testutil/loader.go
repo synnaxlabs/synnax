@@ -51,7 +51,7 @@ func (m *MockFileLoader) Load(importPath string) (string, string, error) {
 	if content, ok := m.Files[stem+".oracle"]; ok {
 		return content, stem + ".oracle", nil
 	}
-	return "", "", &FileNotFoundError{Path: importPath}
+	return "", "", &fileNotFoundError{Path: importPath}
 }
 
 // RepoRoot implements analyzer.FileLoader.
@@ -72,9 +72,9 @@ func (m *MockFileLoader) Versioned(importPath string) bool {
 	return false
 }
 
-// FileNotFoundError is returned when MockFileLoader cannot find a requested file.
-type FileNotFoundError struct {
+// fileNotFoundError is returned when MockFileLoader cannot find a requested file.
+type fileNotFoundError struct {
 	Path string
 }
 
-func (e *FileNotFoundError) Error() string { return "file not found: " + e.Path }
+func (e *fileNotFoundError) Error() string { return "file not found: " + e.Path }
