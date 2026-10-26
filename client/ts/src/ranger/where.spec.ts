@@ -21,8 +21,7 @@ const lines = createLines(
 describe("Where", () => {
   itMatchesVectors(
     readVectors("ranges", payloadZ, whereZ),
-    lines,
-    matches,
-    serverComputed,
+    (r, where) => matches(lines, r, where),
+    (where) => serverComputed(lines, where),
   );
 });

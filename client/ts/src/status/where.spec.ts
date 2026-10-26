@@ -20,8 +20,7 @@ const lines: Lines = {
 describe("Where", () => {
   itMatchesVectors(
     readVectors("statuses", statusZ(), whereZ),
-    lines,
-    matches,
-    serverComputed,
+    (s, where) => matches(lines, s, where),
+    (where) => serverComputed(lines, where),
   );
 });
