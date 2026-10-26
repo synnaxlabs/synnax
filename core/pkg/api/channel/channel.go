@@ -293,7 +293,8 @@ func (s *Service) retrieve(
 		lo.Reject(termMatches, func(ch channel.Channel, _ int) bool {
 			_, ok := matched[ch.Key()]
 			return ok
-		})...)
+		})...,
+	)
 	length := uint(len(merged))
 	if r.Limit != nil && *r.Limit > 0 {
 		length = uint(*r.Limit)

@@ -50,11 +50,11 @@ type (
 )
 
 var (
-	_ grpc.Translator[device.CreateRequest, *CreateRequest]       = createRequestTranslator{}
-	_ grpc.Translator[device.CreateResponse, *CreateResponse]     = createResponseTranslator{}
-	_ grpc.Translator[device.RetrieveRequest, *RetrieveRequest]   = retrieveRequestTranslator{}
+	_ grpc.Translator[device.CreateRequest, *CreateRequest]          = createRequestTranslator{}
+	_ grpc.Translator[device.CreateResponse, *CreateResponse]        = createResponseTranslator{}
+	_ grpc.Translator[device.RetrieveRequest, *RetrieveRequest]      = retrieveRequestTranslator{}
 	_ grpc.Translator[device.RetrieveResponse, *pb.RetrieveResponse] = retrieveResponseTranslator{}
-	_ grpc.Translator[device.DeleteRequest, *DeleteRequest]       = deleteRequestTranslator{}
+	_ grpc.Translator[device.DeleteRequest, *DeleteRequest]          = deleteRequestTranslator{}
 )
 
 func (createRequestTranslator) Forward(

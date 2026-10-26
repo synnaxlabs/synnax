@@ -51,11 +51,11 @@ type (
 )
 
 var (
-	_ grpc.Translator[rack.CreateRequest, *CreateRequest]       = createRequestTranslator{}
-	_ grpc.Translator[rack.CreateResponse, *CreateResponse]     = createResponseTranslator{}
-	_ grpc.Translator[rack.RetrieveRequest, *RetrieveRequest]   = retrieveRequestTranslator{}
+	_ grpc.Translator[rack.CreateRequest, *CreateRequest]          = createRequestTranslator{}
+	_ grpc.Translator[rack.CreateResponse, *CreateResponse]        = createResponseTranslator{}
+	_ grpc.Translator[rack.RetrieveRequest, *RetrieveRequest]      = retrieveRequestTranslator{}
 	_ grpc.Translator[rack.RetrieveResponse, *pb.RetrieveResponse] = retrieveResponseTranslator{}
-	_ grpc.Translator[rack.DeleteRequest, *DeleteRequest]       = deleteRequestTranslator{}
+	_ grpc.Translator[rack.DeleteRequest, *DeleteRequest]          = deleteRequestTranslator{}
 )
 
 func (createRequestTranslator) Forward(
