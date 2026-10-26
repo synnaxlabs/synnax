@@ -104,7 +104,7 @@ SAVED=$(mktemp -d)
 restore() {
     local i
     for ((i = 0; i < ${#PARTIAL[@]}; i++)); do
-        cp "$SAVED/$i" "${PARTIAL[i]}"
+        cp -p "$SAVED/$i" "${PARTIAL[i]}"
     done
     rm -r "$SAVED"
 }
@@ -113,7 +113,7 @@ trap restore EXIT
 if [ "$STAGED" = "1" ]; then
     for f in "${FILES[@]}"; do
         git diff --quiet -- "$f" && continue
-        cp "$f" "$SAVED/${#PARTIAL[@]}"
+        cp -p "$f" "$SAVED/${#PARTIAL[@]}"
         PARTIAL+=("$f")
         git checkout -- "$f"
     done

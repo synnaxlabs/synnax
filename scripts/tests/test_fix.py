@@ -147,6 +147,14 @@ class TestFix:
         assert repo.fix("a.sh", cwd=repo.path / "sub").returncode == 0
         assert repo.header("sub/a.sh")
 
+    def test_should_keep_unstaged_mode_changes(self, repo: Repo) -> None:
+        repo.write("a.sh", "echo a\n")
+        repo.git("add", "a.sh")
+        (repo.path / "a.sh").chmod(0o755)
+        assert repo.fix("--staged").returncode == 0
+        assert (repo.path / "a.sh").stat().st_mode & 0o111
+        assert "Copyright" in repo.git("show", ":a.sh")
+
     def test_should_ignore_unstaged_files(self, repo: Repo) -> None:
         repo.write("a.sh", "echo a\n")
         assert repo.fix("--staged").returncode == 0
