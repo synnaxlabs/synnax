@@ -99,10 +99,10 @@ jobs:
         env:
           FLAGS: ${{ github.event.inputs.FLAGS || '' }}
         run: |
-          echo "FLAGS=${FLAGS}" >> $GITHUB_OUTPUT
+          echo "FLAGS=${FLAGS}" >> "$GITHUB_OUTPUT"
           if [ -n "${FLAGS}" ]; then
-            SAFE_NAME=$(echo "${FLAGS}" | sed 's/[^a-zA-Z0-9_-]/_/g')
-            echo "CUSTOM_MATRIX={\"include\":[{\"name\":\"${SAFE_NAME}\",\"target\":\"\"}]}" >> $GITHUB_OUTPUT
+            SAFE_NAME=${FLAGS//[^a-zA-Z0-9_-]/_}
+            echo "CUSTOM_MATRIX={\"include\":[{\"name\":\"${SAFE_NAME}\",\"target\":\"\"}]}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Check for cached artifacts
@@ -136,7 +136,7 @@ jobs:
             if $windows then {os: "windows-2025", "os-name": "windows",
               display: "windows", executable: ".exe"} else empty end
           ]')
-          echo "MATRIX=${MATRIX}" >> $GITHUB_OUTPUT
+          echo "MATRIX=${MATRIX}" >> "$GITHUB_OUTPUT"
 
   build:
     needs: setup
