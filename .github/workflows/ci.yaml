@@ -73,6 +73,7 @@ jobs:
       driver: ${{ steps.filter.outputs.driver }}
       driver_build: ${{ steps.filter.outputs.driver_build }}
       eslint_config: ${{ steps.filter.outputs.eslint_config }}
+      exports_py: ${{ steps.filter.outputs.exports_py }}
       foundation: ${{ steps.filter.outputs.foundation }}
       freighter_cpp: ${{ steps.filter.outputs.freighter_cpp }}
       freighter_go: ${{ steps.filter.outputs.freighter_go }}
@@ -389,6 +390,24 @@ jobs:
       directory: configs/eslint
       package: eslint-config
     secrets: inherit
+
+  exports-py:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.exports_py == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version: latest-known
+
+      - name: Check names that are public without need
+        # Report-only until the current findings are fixed.
+        continue-on-error: true
+        run: uv run --project scripts scripts/check_exports_py.py
 
   format:
     uses: ./.github/workflows/test.format.yaml
@@ -770,6 +789,7 @@ jobs:
       - driver
       - driver-tsan
       - eslint-config
+      - exports-py
       - format
       - foundation
       - freighter-cpp

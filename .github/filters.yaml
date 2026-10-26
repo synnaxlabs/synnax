@@ -270,6 +270,12 @@ client_py: &client_py
   - *x_py
   - client/py/**
 
+exports_py:
+  - *client_py
+  - *py
+  - integration/**
+  - scripts/check_exports_py.py
+
 lint_integration:
   - *client_py
   - *py
