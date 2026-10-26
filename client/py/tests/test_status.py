@@ -12,7 +12,6 @@ from uuid import uuid4
 import pytest
 
 import synnax as sy
-from x import filter
 from x.testutil import assert_eventually
 
 
@@ -264,7 +263,7 @@ class TestStatusClient:
         )
         where = sy.status.Where(
             not_=sy.status.Where(
-                variant=filter.Set[sy.status.Variant](eq=sy.status.VARIANT_ERROR)
+                variant=sy.filter.Set[sy.status.Variant](eq=sy.status.VARIANT_ERROR)
             )
         )
         results = client.statuses.retrieve(where=where, keys=[s.key for s in created])

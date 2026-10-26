@@ -104,7 +104,7 @@ from synnax.telem import (
 from synnax.timing import Loop, Timer, poll, sleep
 from synnax.user.payload import User
 from synnax.view import View
-from x import color
+from x import color, filter
 from x.color import Color
 from x.exceptions import ContiguityError
 
@@ -192,6 +192,7 @@ __all__ = [
     "convert_time_units",
     "elapsed_seconds",
     "ethercat",
+    "filter",
     "group",
     "http",
     "labjack",
