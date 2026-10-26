@@ -740,6 +740,21 @@ any(ox_pt_1, ox_pt_2) -> average() -> ox_pt_avg`)
 			Expect(parser.Parse(`sensor -> scale{factor=2.0} -> out`)).Error().
 				To(MatchError(ContainSubstring("1:22 error: mismatched input '=' expecting ':'")))
 		})
+
+		DescribeTable("CalleeTouchesParen",
+			func(code string, want bool) {
+				stream := antlr.NewCommonTokenStream(
+					parser.NewLexer(code, parser.Config{}),
+					antlr.TokenDefaultChannel,
+				)
+				Expect(parser.NewArcParser(stream).CalleeTouchesParen()).To(Equal(want))
+			},
+			Entry("bare name touching", "filter(50.0)", true),
+			Entry("bare name apart", "filter (50.0)", false),
+			Entry("dotted name touching", "time.interval(1s)", true),
+			Entry("dotted name apart", "time.interval (1s)", false),
+			Entry("no paren", "filter -> out", false),
+		)
 	})
 
 	Describe("Statements", func() {
