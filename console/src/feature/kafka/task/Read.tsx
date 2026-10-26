@@ -26,7 +26,9 @@ import { Access, Channel as PChannel, Telem } from "@synnaxlabs/pluto";
 import { DataType, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { Device } from "@/feature/kafka/device";
+import { useFromConfig } from "@/feature/kafka/device/queries";
+import { Select as SelectDevice } from "@/feature/kafka/device/Select";
+import { SCHEMAS } from "@/feature/kafka/device/types";
 import { TimeFormatField } from "@/feature/kafka/task/TimeFormatField";
 import {
   deployReadConfigZ,
@@ -66,7 +68,7 @@ const renderStartOffsetSelect = Component.renderProp(
 
 const Properties = () => (
   <>
-    <Device.Select />
+    <SelectDevice />
     <Flex.Box x grow wrap>
       <PForm.TextField
         className={TEXT_FIELD_CLASS}
@@ -175,7 +177,7 @@ const TimestampFields = ({ path }: { path: string }) => {
   const { set } = PForm.useContext();
   const { index, fields, recordKey } = PForm.useFieldValue<ReadRecord>(path);
   const indexField = fields.find((f) => f.key === index);
-  const dev = Device.useFromConfig();
+  const dev = useFromConfig();
   const handleChange = (mode: TimingMode) => {
     if (mode === "value" && indexField == null) {
       const field: ReadField = {
@@ -249,7 +251,7 @@ const RECORD_KEY_INPUT_PROPS = { placeholder: "Any key" } as const;
 const FieldDetails = ({ groupKey, path }: Task.Views.FieldProps) => {
   const { channel: key, dataType, pointer } = PForm.useFieldValue<ReadField>(path);
   const recordKey = PForm.useFieldValue<string>(`config.records.${groupKey}.recordKey`);
-  const dev = Device.useFromConfig();
+  const dev = useFromConfig();
   const bound = key !== 0;
   const isTimestamp = DataType.TIMESTAMP.equals(dataType);
   // Labels map to numbers, so only a numeric field takes an enum mapping.
@@ -349,7 +351,7 @@ const retrieveChannel = async (
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: Device.SCHEMAS,
+    schemas: SCHEMAS,
   });
   for (const rec of config.records) {
     const fields = rec.fields.filter((f) => !f.disabled);

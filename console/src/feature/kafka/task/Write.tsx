@@ -20,7 +20,8 @@ import { Channel as PChannel } from "@synnaxlabs/pluto";
 import { DataType, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { Device } from "@/feature/kafka/device";
+import { Select as SelectDevice } from "@/feature/kafka/device/Select";
+import { SCHEMAS } from "@/feature/kafka/device/types";
 import {
   TIME_FORMAT_ITEMS,
   TimeFormatField,
@@ -75,7 +76,7 @@ const renderTimeFormatSelect = Component.renderProp(
 
 const Properties = () => (
   <>
-    <Device.Select />
+    <SelectDevice />
     <Flex.Box x grow wrap>
       <PForm.TextField
         className={TEXT_FIELD_CLASS}
@@ -286,7 +287,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
 ) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: Device.SCHEMAS,
+    schemas: SCHEMAS,
   });
   const chs = await client.channels.retrieve(
     config.channels.map((c) => c.channel).filter((k) => k !== 0),
