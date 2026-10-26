@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 import { channel } from "@/channel";
 import { alignmentOf, RAW_LEVEL } from "@/framer/cache/block";
 import { tileRange } from "@/framer/cache/grid";
-import { Joins } from "@/framer/cache/join";
+import { Joins, type Wait } from "@/framer/cache/join";
 import { Store } from "@/framer/cache/store";
 
 const INDEX = 1;
@@ -53,12 +53,18 @@ const createJoins = () => {
 // Lands an empty catch-up read for both members and writes one placed frame.
 const createJoined = () => {
   const { store, joins } = createJoins();
-  joins.landed(INDEX, [INDEX, DATA]);
+  joins.landed(INDEX, waitsOf(joins, INDEX, DATA));
   joins.write(
     createFrame([INDEX, createIndex([1, 2], 0n)], [DATA, createData([10, 20], 0n)]),
   );
   return { store, joins };
 };
+
+// Returns the waits of the given members, as a catch-up read of them begins.
+const waitsOf = (joins: Joins, ...keys: channel.Key[]): Wait[] =>
+  joins.waiting(INDEX).filter((w) => keys.includes(w.key));
+
+const keysOf = (joins: Joins): channel.Key[] => joins.waiting(INDEX).map((w) => w.key);
 
 const streamed = (store: Store, ch: channel.Key): number[] =>
   Array.from(store.leadingBuffer(ch) ?? []).map(Number);
@@ -75,20 +81,29 @@ describe("Joins", () => {
       );
       expect(waiting.size).toBe(0);
       expect(store.leadingBuffer(DATA)).toBeNull();
-      expect(joins.waiting(INDEX)).toEqual([INDEX, DATA]);
-      expect(joins.landed(INDEX, [INDEX, DATA]).size).toBe(0);
-      expect(joins.waiting(INDEX)).toEqual([]);
+      expect(keysOf(joins)).toEqual([INDEX, DATA]);
+      expect(joins.landed(INDEX, waitsOf(joins, INDEX, DATA)).size).toBe(0);
+      expect(keysOf(joins)).toEqual([]);
       expect(joins.joined(DATA)).toBe(true);
       expect(streamed(store, DATA)).toEqual([10, 20, 30]);
       expect(store.leadingBuffer(DATA)?.alignment).toBe(alignmentOf(BLOCK, 0));
       expect(store.raw(DATA, BLOCK).coveredEnd).toEqual(at(3).add(1));
     });
 
+    it("should keep a member waiting that waited again since its read began", () => {
+      const { joins } = createJoins();
+      const waits = joins.waiting(INDEX);
+      joins.flush(DATA);
+      joins.landed(INDEX, waits);
+      expect(joins.joined(DATA)).toBe(false);
+      expect(keysOf(joins)).toEqual([DATA]);
+    });
+
     it("should keep a data member waiting until its index lands", () => {
       const { joins } = createJoins();
-      joins.landed(INDEX, [DATA]);
+      joins.landed(INDEX, waitsOf(joins, DATA));
       expect(joins.joined(DATA)).toBe(false);
-      expect(joins.waiting(INDEX)).toEqual([INDEX]);
+      expect(keysOf(joins)).toEqual([INDEX]);
     });
 
     it("should give streamed samples the block offsets after the read's samples", () => {
@@ -110,7 +125,7 @@ describe("Joins", () => {
           [DATA, createData([30, 40, 50, 60], 10n)],
         ),
       );
-      expect(joins.landed(INDEX, [INDEX, DATA]).size).toBe(0);
+      expect(joins.landed(INDEX, waitsOf(joins, INDEX, DATA)).size).toBe(0);
       expect(streamed(store, DATA)).toEqual([50, 60]);
       expect(store.leadingBuffer(DATA)?.alignment).toBe(alignmentOf(BLOCK, 4));
       expect(store.raw(INDEX, BLOCK).coveredCount).toBe(6);
@@ -129,8 +144,10 @@ describe("Joins", () => {
           [DATA, createData([50, 60], 10n)],
         ),
       );
-      expect(joins.landed(INDEX, [INDEX, DATA])).toEqual(new Set([INDEX]));
-      expect(joins.waiting(INDEX)).toEqual([DATA]);
+      expect(joins.landed(INDEX, waitsOf(joins, INDEX, DATA))).toEqual(
+        new Set([INDEX]),
+      );
+      expect(keysOf(joins)).toEqual([DATA]);
       expect(joins.bounced(DATA)).toBe(true);
       expect(joins.catchUpFrom(DATA, at(1000))).toBe(BLOCK);
       expect(store.leadingBuffer(DATA)).toBeNull();
@@ -142,14 +159,14 @@ describe("Joins", () => {
       store
         .raw(INDEX, BLOCK)
         .fill([createIndex([1, 2, 3, 4], alignmentOf(BLOCK, 0))], fetched.end, 4);
-      joins.landed(INDEX, [INDEX]);
+      joins.landed(INDEX, waitsOf(joins, INDEX));
       joins.write(
         createFrame(
           [INDEX, createIndex([5, 6], 10n)],
           [DATA, createData([50, 60], 10n)],
         ),
       );
-      expect(joins.landed(INDEX, [DATA], true).size).toBe(0);
+      expect(joins.landed(INDEX, waitsOf(joins, DATA), true).size).toBe(0);
       expect(streamed(store, DATA)).toEqual([50, 60]);
       expect(store.leadingBuffer(DATA)?.alignment).toBe(alignmentOf(BLOCK, 4));
     });
@@ -195,7 +212,7 @@ describe("Joins", () => {
       joins.write(
         createFrame([INDEX, createIndex([3, 4], 2n)], [DATA, createData([30, 40], 2n)]),
       );
-      expect(joins.landed(INDEX, [INDEX, DATA]).size).toBe(0);
+      expect(joins.landed(INDEX, waitsOf(joins, INDEX, DATA)).size).toBe(0);
       expect(joins.joined(DATA)).toBe(true);
       expect(streamed(store, DATA)).toEqual([30, 40]);
     });
@@ -206,7 +223,7 @@ describe("Joins", () => {
         createFrame([INDEX, createIndex([4, 5], 5n)], [DATA, createData([40, 50], 5n)]),
       );
       expect(waiting).toEqual(new Set([INDEX]));
-      expect(joins.waiting(INDEX)).toEqual([INDEX, DATA]);
+      expect(keysOf(joins)).toEqual([INDEX, DATA]);
       expect(store.raw(INDEX, BLOCK).coveredCount).toBe(2);
       expect(joins.catchUpFrom(INDEX, at(1000))).toBe(BLOCK);
     });
@@ -234,7 +251,7 @@ describe("Joins", () => {
           expression: "return a + b",
         }).payload,
       );
-      joins.landed(INDEX, [INDEX, DATA]);
+      joins.landed(INDEX, waitsOf(joins, INDEX, DATA));
       joins.write(
         createFrame([INDEX, createIndex([1, 2], 0n)], [DATA, createData([10, 20], 0n)]),
       );
@@ -249,7 +266,7 @@ describe("Joins", () => {
       const { store, joins } = createJoined();
       const { waiting } = joins.write(createFrame([DATA, createData([90], 50n)]));
       expect(waiting).toEqual(new Set([INDEX]));
-      expect(joins.waiting(INDEX)).toEqual([DATA]);
+      expect(keysOf(joins)).toEqual([DATA]);
       expect(joins.joined(INDEX)).toBe(true);
       expect(store.open(DATA)).toBeNull();
     });
@@ -263,7 +280,7 @@ describe("Joins", () => {
         ),
       );
       expect(waiting).toEqual(new Set([INDEX]));
-      expect(joins.waiting(INDEX)).toEqual([DATA]);
+      expect(keysOf(joins)).toEqual([DATA]);
       expect(store.dataType(DATA)).toEqual(DataType.FLOAT64);
     });
 
@@ -277,7 +294,7 @@ describe("Joins", () => {
         ),
       );
       expect(waiting).toEqual(new Set([INDEX]));
-      expect(joins.waiting(INDEX)).toEqual([DATA]);
+      expect(keysOf(joins)).toEqual([DATA]);
     });
 
     it("should write the series of a channel in no join into the store", () => {
@@ -296,7 +313,7 @@ describe("Joins", () => {
       expect(joins.invalidate(DATA, new TimeRange(at(1), at(2)))).toEqual(
         new Set([INDEX]),
       );
-      expect(joins.waiting(INDEX)).toEqual([DATA]);
+      expect(keysOf(joins)).toEqual([DATA]);
     });
 
     it("should keep a member joined when the change misses its open block", () => {
@@ -309,7 +326,7 @@ describe("Joins", () => {
     it("should send back every join on a change to every channel", () => {
       const { joins } = createJoined();
       expect(joins.invalidate()).toEqual(new Set([INDEX]));
-      expect(joins.waiting(INDEX)).toEqual([INDEX, DATA]);
+      expect(keysOf(joins)).toEqual([INDEX, DATA]);
     });
   });
 
@@ -317,7 +334,7 @@ describe("Joins", () => {
     it("should send back the member and fetch from its open block", () => {
       const { store, joins } = createJoined();
       expect(joins.flush(DATA)).toEqual(new Set([INDEX]));
-      expect(joins.waiting(INDEX)).toEqual([DATA]);
+      expect(keysOf(joins)).toEqual([DATA]);
       expect(store.open(DATA)).toBeNull();
       expect(joins.catchUpFrom(DATA, at(1000))).toBe(BLOCK);
     });
@@ -326,7 +343,7 @@ describe("Joins", () => {
   describe("bounced", () => {
     it("should be true for a member that waits again before it placed a sample", () => {
       const { joins } = createJoins();
-      joins.landed(INDEX, [INDEX, DATA]);
+      joins.landed(INDEX, waitsOf(joins, INDEX, DATA));
       joins.flush(DATA);
       expect(joins.bounced(DATA)).toBe(true);
     });
@@ -371,7 +388,7 @@ describe("Joins", () => {
       expect(joins.has(DATA)).toBe(false);
       expect(joins.has(INDEX)).toBe(false);
       expect(store.open(DATA)).toBeNull();
-      expect(joins.waiting(INDEX)).toEqual([]);
+      expect(keysOf(joins)).toEqual([]);
     });
   });
 });

@@ -12,7 +12,7 @@ import { type breaker, type destructor, sync, type TimeStamp } from "@synnaxlabs
 
 import { type channel } from "@/channel";
 import { rawIndex } from "@/framer/cache/block";
-import { type Joins } from "@/framer/cache/join";
+import { type Joins, type Wait } from "@/framer/cache/join";
 import { COMMIT_MARGIN, type Reader } from "@/framer/cache/reader";
 import { isDefinitive, newBreaker, READ_FAILED } from "@/framer/cache/status";
 import { type MultiplexedStreamer } from "@/framer/cache/streamer";
@@ -124,7 +124,8 @@ export class Joiner {
     let failed = false;
     try {
       for (;;) {
-        const keys = joins.waiting(index).filter((k) => !driver.rejected.has(k));
+        const waits = joins.waiting(index).filter((w) => !driver.rejected.has(w.key));
+        const keys = waits.map((w) => w.key);
         if (keys.length === 0 || signal.aborted) return;
         // A member that waits again before it placed a sample failed to join. One that
         // placed a sample shows that the join works.
@@ -142,14 +143,14 @@ export class Joiner {
           }),
         );
         if (signal.aborted) return;
-        const caught: channel.Key[] = [];
-        const historyless: channel.Key[] = [];
+        const caught: Wait[] = [];
+        const historyless: Wait[] = [];
         failed = false;
         results.forEach((r, i) => {
           const k = keys[i];
           if (r.status === "fulfilled") {
             this.failures.delete(k);
-            caught.push(k);
+            caught.push(waits[i]);
           } else if (
             // A calculation over virtual channels and its index have no history, so
             // they join without it.
@@ -158,7 +159,7 @@ export class Joiner {
             !Unreachable.matches(r.reason)
           ) {
             this.failures.set(k, status.create(NO_HISTORY));
-            historyless.push(k);
+            historyless.push(waits[i]);
           } else {
             this.failures.set(k, status.fromException(r.reason, READ_FAILED));
             if (isDefinitive(r.reason)) driver.rejected.add(k);
@@ -167,7 +168,7 @@ export class Joiner {
         });
         joins.landed(index, caught);
         joins.landed(index, historyless, true);
-        [...caught, ...historyless].forEach((k) => driver.landed.add(k));
+        [...caught, ...historyless].forEach(({ key }) => driver.landed.add(key));
         driver.handlers.forEach((f) => f());
       }
     } finally {

@@ -37,6 +37,12 @@ interface Mapped {
   runs: Run[];
 }
 
+/** A member of a join that waits for a catch-up read, and the wait it is in. */
+export interface Wait {
+  key: channel.Key;
+  wait: number;
+}
+
 // The streamed series a join keeps: index series, so the data series of later frames
 // find their block offsets, and the series a member holds while it waits.
 const RECENT = 1024;
@@ -61,6 +67,8 @@ class Member {
   from: number | null = null;
   // fresh is true from a landing until the member places a streamed sample.
   fresh = false;
+  // wait numbers the member's waits, so a landing knows the wait its read began in.
+  wait = 0;
 
   constructor(
     readonly key: channel.Key,
@@ -182,10 +190,12 @@ export class Joins {
   }
 
   /** @returns the members of the index's join that wait for a catch-up read. */
-  waiting(index: channel.Key): channel.Key[] {
+  waiting(index: channel.Key): Wait[] {
     const j = this.joins.get(index);
     if (j == null) return [];
-    return [...j.members.values()].filter((m) => !m.joined).map((m) => m.key);
+    return [...j.members.values()]
+      .filter((m) => !m.joined)
+      .map((m) => ({ key: m.key, wait: m.wait }));
   }
 
   /** @returns true when the channel's join has caught up with its stream. */
@@ -230,20 +240,18 @@ export class Joins {
 
   /**
    * Marks the members of the index's join as caught up, and writes the series they held
-   * in the order they arrived.
+   * in the order they arrived. A member that waited again since its wait began stays
+   * waiting, since its read can miss samples the stream skipped.
+   * @param waits - The waits the catch-up reads began in.
    * @param historyless - True when the members have no history to read.
    * @returns the index channels of the joins that wait.
    */
-  landed(
-    index: channel.Key,
-    keys: channel.Key[],
-    historyless = false,
-  ): Set<channel.Key> {
+  landed(index: channel.Key, waits: Wait[], historyless = false): Set<channel.Key> {
     const j = this.joins.get(index);
     if (j == null) return this.drain();
-    keys.forEach((k) => {
-      const m = j.members.get(k);
-      if (m == null) return;
+    waits.forEach(({ key, wait }) => {
+      const m = j.members.get(key);
+      if (m == null || m.wait !== wait) return;
       m.joined = true;
       m.historyless = historyless;
       m.from = null;
@@ -359,6 +367,7 @@ export class Joins {
 
   private unjoin(m: Member): void {
     m.joined = false;
+    m.wait++;
     const open = this.store.open(m.key);
     if (open?.joined !== true) return;
     m.from = Math.min(m.from ?? open.index, open.index);

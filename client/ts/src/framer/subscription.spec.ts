@@ -566,6 +566,58 @@ describe("Feed.subscribe", () => {
         await feed.close();
       }
     });
+
+    it("should read the span an outage skips while a catch-up read runs", async () => {
+      const core = createCore();
+      const key = core.index.key;
+      let held = true;
+      let entered = false;
+      let release = (): void => {};
+      const released = new Promise<void>((resolve) => (release = resolve));
+      let read = false;
+      let opens = 0;
+      let reopen = (): void => {};
+      const reopened = new Promise<void>((resolve) => (reopen = resolve));
+      const feed = core.openFeed({
+        ...OPTIONS,
+        readRemote: async (tr, keys, reduction) => {
+          // Only a catch-up read ends after the Core's clock.
+          if (!held || !tr.end.after(core.now())) return core.read(tr, keys, reduction);
+          held = false;
+          entered = true;
+          await released;
+          const frame = core.read(tr, keys, reduction);
+          read = true;
+          return frame;
+        },
+        openStreamer: async (config) => {
+          if (++opens > 1) await reopened;
+          return core.openStreamer(config);
+        },
+      });
+      const span = TimeSpan.minutes(2);
+      const sub = feed.subscribe(raw([key], span));
+      try {
+        await expect.poll(() => (sub.value(key), entered), POLL).toBe(true);
+        core.disconnect();
+        core.reconnect();
+        await expect.poll(() => opens, POLL).toBe(2);
+        core.advance(TimeSpan.seconds(2));
+        release();
+        await expect.poll(() => read, POLL).toBe(true);
+        core.advance(TimeSpan.seconds(2));
+        reopen();
+        const stop = tick(core, TimeSpan.milliseconds(10));
+        try {
+          await settled(core, sub, key, span);
+        } finally {
+          stop();
+        }
+      } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
   });
 
   describe("latest", () => {
