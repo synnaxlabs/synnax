@@ -39,6 +39,7 @@ export class ReadAdapter {
   private readonly retrieveChannels: ChannelRetriever;
   keys: Set<channel.Key>;
   codec: Codec;
+  private fetched: channel.Payload[] = [];
 
   private constructor(retrieveChannels: ChannelRetriever) {
     this.retrieveChannels = retrieveChannels;
@@ -53,9 +54,14 @@ export class ReadAdapter {
   ): Promise<ReadAdapter> {
     const adapter = new ReadAdapter(retrieveChannels);
     await adapter.update(channels);
+    adapter.advance();
     return adapter;
   }
 
+  /**
+   * Resolves the channels into the keys of the next request.
+   * @returns true when the keys changed.
+   */
   async update(channels: channel.Params): Promise<boolean> {
     const { variant, normalized } = analyzeParams(channels);
     const fetched = await this.retrieveChannels(normalized);
@@ -63,10 +69,7 @@ export class ReadAdapter {
     const newKeySet = new Set(newKeys);
     if (newKeySet.size === this.keys.size && newKeySet.isSubsetOf(this.keys))
       return false;
-    this.codec.update(
-      newKeys,
-      fetched.map((c) => c.dataType),
-    );
+    this.fetched = fetched;
     if (variant === "keys") {
       this.adapter = null;
       this.keys = new Set(normalized);
@@ -81,6 +84,19 @@ export class ReadAdapter {
     });
     this.keys = new Set(this.adapter.keys());
     return true;
+  }
+
+  /**
+   * Advances the codec to the keys, as the Core does for every request that names
+   * channels. Call it once before each such request, or frames after it decode as
+   * empty.
+   */
+  advance(): void {
+    if (this.fetched.length === 0) return;
+    this.codec.update(
+      this.fetched.map((c) => c.key),
+      this.fetched.map((c) => c.dataType),
+    );
   }
 
   adapt(frm: Frame): Frame {

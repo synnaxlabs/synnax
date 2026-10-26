@@ -38,6 +38,8 @@ interface Driver {
   landed: Set<channel.Key>;
   // rejected holds the members a definitive failure stopped until they leave.
   rejected: Set<channel.Key>;
+  // members holds an abort per joined channel, which stops its wait when it leaves.
+  members: Map<channel.Key, AbortController>;
 }
 
 /**
@@ -68,10 +70,12 @@ export class Joiner {
         breaker: createBreaker(this.notifier, this.props.breaker),
         landed: new Set(),
         rejected: new Set(),
+        members: new Map(),
       };
       this.drivers.set(index, driver);
     }
     driver.handlers.add(landed);
+    if (!driver.members.has(ch)) driver.members.set(ch, new AbortController());
     joins.join(ch, index);
     this.wake([index]);
     let left = false;
@@ -85,6 +89,8 @@ export class Joiner {
         this.failures.delete(k);
         driver.landed.delete(k);
         driver.rejected.delete(k);
+        driver.members.get(k)?.abort();
+        driver.members.delete(k);
       });
       if (joins.has(index)) return;
       driver.abort.abort();
@@ -127,11 +133,15 @@ export class Joiner {
         if (failed || back.some((k) => joins.bounced(k))) {
           if (!(await driver.breaker.wait()) || signal.aborted) return;
         } else if (back.length > 0) driver.breaker.reset();
+        // A member that leaves stops its own wait, so the rest of the join lands.
+        const left = keys.map((k) => driver.members.get(k)?.signal);
         const releases: destructor.Destructor[] = [];
         try {
           const results = await Promise.allSettled(
-            keys.map(async (k) => {
-              await streamer.waitAcked(k === index ? [k] : [k, index], signal);
+            keys.map(async (k, i) => {
+              const stop =
+                left[i] == null ? signal : AbortSignal.any([signal, left[i]]);
+              await streamer.waitAcked(k === index ? [k] : [k, index], stop);
               const from = joins.catchUpFrom(k, now().sub(COMMIT_MARGIN));
               releases.push(await reader.catchUp(k, from));
             }),
@@ -142,6 +152,7 @@ export class Joiner {
           failed = false;
           results.forEach((r, i) => {
             const k = keys[i];
+            if (left[i]?.aborted === true) return;
             if (r.status === "fulfilled") {
               this.failures.delete(k);
               caught.push(waits[i]);
