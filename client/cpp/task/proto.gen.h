@@ -59,35 +59,27 @@ uuid_set_from_proto(const ::service::task::pb::UuidSet &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::task::pb::RackKeyOrdered, x::errors::Error>
-rack_key_ordered_to_proto(const ::x::filter::Ordered<::synnax::rack::Key> &self) {
-    ::service::task::pb::RackKeyOrdered pb;
+inline std::pair<::service::task::pb::RackKeySet, x::errors::Error>
+rack_key_set_to_proto(const ::x::filter::Set<::synnax::rack::Key> &self) {
+    ::service::task::pb::RackKeySet pb;
     if (self.eq.has_value()) pb.set_eq(*self.eq);
     if (self.in.has_value()) {
         auto *wrapper = pb.mutable_in();
         for (const auto &item: *self.in)
             wrapper->add_values(item);
     }
-    if (self.gt.has_value()) pb.set_gt(*self.gt);
-    if (self.gte.has_value()) pb.set_gte(*self.gte);
-    if (self.lt.has_value()) pb.set_lt(*self.lt);
-    if (self.lte.has_value()) pb.set_lte(*self.lte);
     return {pb, x::errors::NIL};
 }
 
-inline std::pair<::x::filter::Ordered<::synnax::rack::Key>, x::errors::Error>
-rack_key_ordered_from_proto(const ::service::task::pb::RackKeyOrdered &pb) {
-    ::x::filter::Ordered<::synnax::rack::Key> cpp;
+inline std::pair<::x::filter::Set<::synnax::rack::Key>, x::errors::Error>
+rack_key_set_from_proto(const ::service::task::pb::RackKeySet &pb) {
+    ::x::filter::Set<::synnax::rack::Key> cpp;
     if (pb.has_eq()) cpp.eq = pb.eq();
     if (pb.has_in()) {
         cpp.in.emplace();
         for (const auto &item: pb.in().values())
             cpp.in->push_back(item);
     }
-    if (pb.has_gt()) cpp.gt = pb.gt();
-    if (pb.has_gte()) cpp.gte = pb.gte();
-    if (pb.has_lt()) cpp.lt = pb.lt();
-    if (pb.has_lte()) cpp.lte = pb.lte();
     return {cpp, x::errors::NIL};
 }
 
@@ -215,7 +207,7 @@ inline std::pair<::service::task::pb::Where, x::errors::Error> Where::to_proto()
         *pb.mutable_type() = v;
     }
     if (this->rack.has_value()) {
-        auto [v, err] = rack_key_ordered_to_proto(*this->rack);
+        auto [v, err] = rack_key_set_to_proto(*this->rack);
         if (err) return {{}, err};
         *pb.mutable_rack() = v;
     }
@@ -266,7 +258,7 @@ Where::from_proto(const ::service::task::pb::Where &pb) {
         cpp.type = v;
     }
     if (pb.has_rack()) {
-        auto [v, err] = rack_key_ordered_from_proto(pb.rack());
+        auto [v, err] = rack_key_set_from_proto(pb.rack());
         if (err) return {{}, err};
         cpp.rack = v;
     }
@@ -325,10 +317,10 @@ RetrieveRequest::to_proto() const {
         if (err) return {{}, err};
         *pb.mutable_where() = v;
     }
-    if (this->search_term.has_value()) pb.set_search_term(*this->search_term);
+    pb.set_search_term(this->search_term);
     if (this->limit.has_value()) pb.set_limit(*this->limit);
-    if (this->offset.has_value()) pb.set_offset(*this->offset);
-    if (this->include_status.has_value()) pb.set_include_status(*this->include_status);
+    pb.set_offset(this->offset);
+    pb.set_include_status(this->include_status);
     return {pb, x::errors::NIL};
 }
 
@@ -340,10 +332,10 @@ RetrieveRequest::from_proto(const ::service::task::pb::RetrieveRequest &pb) {
         if (err) return {{}, err};
         cpp.where = v;
     }
-    if (pb.has_search_term()) cpp.search_term = pb.search_term();
+    cpp.search_term = pb.search_term();
     if (pb.has_limit()) cpp.limit = pb.limit();
-    if (pb.has_offset()) cpp.offset = pb.offset();
-    if (pb.has_include_status()) cpp.include_status = pb.include_status();
+    cpp.offset = pb.offset();
+    cpp.include_status = pb.include_status();
     return {cpp, x::errors::NIL};
 }
 

@@ -29,8 +29,7 @@ export const matches = (record: Device, where?: Where): boolean => {
     return false;
   if (where.location != null && !filter.matchesString(where.location, record.location))
     return false;
-  if (where.rack != null && !filter.matchesOrdered(where.rack, record.rack))
-    return false;
+  if (where.rack != null && !filter.matchesSet(where.rack, record.rack)) return false;
   return true;
 };
 

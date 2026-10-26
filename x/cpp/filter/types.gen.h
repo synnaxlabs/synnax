@@ -27,9 +27,6 @@ namespace x::filter {
 struct String;
 struct Bool;
 
-constexpr const char *DIRECTION_ASCENDING = "ascending";
-constexpr const char *DIRECTION_DESCENDING = "descending";
-
 /// @brief String selects string values. A value must match every operator that is set.
 struct String {
     /// @brief eq matches a value equal to eq.
@@ -73,10 +70,6 @@ struct Set {
 
     static Set parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::x::filter::pb::Set;
-    [[nodiscard]] std::pair<::x::filter::pb::Set, x::errors::Error> to_proto() const;
-    static std::pair<Set, x::errors::Error> from_proto(const ::x::filter::pb::Set &pb);
 };
 
 /// @brief Ordered selects numbers and times. A value must match every operator that is
@@ -98,12 +91,6 @@ struct Ordered {
 
     static Ordered parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::x::filter::pb::Ordered;
-    [[nodiscard]] std::pair<::x::filter::pb::Ordered, x::errors::Error>
-    to_proto() const;
-    static std::pair<Ordered, x::errors::Error>
-    from_proto(const ::x::filter::pb::Ordered &pb);
 };
 
 /// @brief Contains selects arrays by the elements they hold.
@@ -114,11 +101,5 @@ struct Contains {
 
     static Contains parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::x::filter::pb::Contains;
-    [[nodiscard]] std::pair<::x::filter::pb::Contains, x::errors::Error>
-    to_proto() const;
-    static std::pair<Contains, x::errors::Error>
-    from_proto(const ::x::filter::pb::Contains &pb);
 };
 }

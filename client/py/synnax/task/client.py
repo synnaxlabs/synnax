@@ -467,12 +467,12 @@ class Client:
         keys: list[Key] | None = None,
         names: list[str] | None = None,
         types: list[str] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         rack: int | None = None,
         internal: bool | None = None,
         snapshot: bool | None = None,
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
         include_status: bool = False,
     ) -> list[Task]: ...
 
@@ -486,12 +486,12 @@ class Client:
         keys: list[Key] | None = None,
         names: list[str] | None = None,
         types: list[str] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         rack: int | None = None,
         internal: bool | None = None,
         snapshot: bool | None = None,
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
         include_status: bool = False,
     ) -> list[Task] | Task:
         """Retrieves tasks matching the given filters. Returns one task when a key,
@@ -516,17 +516,10 @@ class Client:
         is_single = not all_none(key, name, type)
         if sum(v is not None for v in (key, name, type)) > 1:
             raise ValueError("only one of key, name, and type can be given")
-        if is_single and not all_none(
-            where,
-            keys,
-            names,
-            types,
-            search_term,
-            rack,
-            internal,
-            snapshot,
-            limit,
-            offset,
+        if is_single and (
+            search_term
+            or offset
+            or not all_none(where, keys, names, types, rack, internal, snapshot, limit)
         ):
             raise ValueError(
                 "key, name, and type cannot be combined with list filters; use "
@@ -539,18 +532,16 @@ class Client:
             key=None if keys is None else filter.Set[Key](in_=keys),
             name=None if names is None else filter.String(in_=names),
             type=None if types is None else filter.String(in_=types),
-            rack=None if rack is None else filter.Ordered[rack_.Key](eq=rack),
+            rack=None if rack is None else filter.Set[rack_.Key](eq=rack),
             internal=None if internal is None else filter.Bool(eq=internal),
             snapshot=None if snapshot is None else filter.Bool(eq=snapshot),
         )
-        if where is not None and flat != Where():
-            where = Where(and_=[where, flat])
         req = RetrieveRequest(
-            where=flat if where is None else where,
+            where=filter.merge(where, flat),
             search_term=search_term,
             limit=limit,
             offset=offset,
-            include_status=include_status or None,
+            include_status=include_status,
         )
         res = self._client.send(_RETRIEVE_ENDPOINT, req, RetrieveResponse)
         sug = self.sugar(res.tasks)

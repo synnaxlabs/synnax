@@ -60,13 +60,13 @@ type RetrieveRequest struct {
 	// Where selects the racks to retrieve. An absent where selects all of them.
 	Where *Where `json:"where,omitzero" msgpack:"where,omitempty"`
 	// SearchTerm keeps the racks that match the term, closest match first.
-	SearchTerm *string `json:"search_term,omitzero" msgpack:"search_term,omitempty"`
+	SearchTerm string `json:"search_term" msgpack:"search_term"`
 	// Limit is the most racks to return.
 	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
 	// Offset is the number of matching racks to skip.
-	Offset *uint32 `json:"offset,omitzero" msgpack:"offset,omitempty"`
+	Offset uint32 `json:"offset" msgpack:"offset"`
 	// IncludeStatus includes the status of each record.
-	IncludeStatus *bool `json:"include_status,omitzero" msgpack:"include_status,omitempty"`
+	IncludeStatus bool `json:"include_status" msgpack:"include_status"`
 }
 
 // RetrieveResponse holds the racks a RetrieveRequest selects.

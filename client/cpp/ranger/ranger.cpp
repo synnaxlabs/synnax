@@ -20,15 +20,11 @@ Client::retrieve(const RetrieveRequest &req) const {
     *grpc_req.mutable_request() = pb_req;
     auto [res, err] = retrieve_client->send("/range/retrieve", grpc_req);
     if (err) return {std::vector<Range>(), err};
-    std::vector<Range> ranges;
-    ranges.reserve(res.ranges_size());
-    for (int i = 0; i < res.ranges_size(); i++) {
-        auto [rng, proto_err] = Range::from_proto(res.ranges(i));
-        if (proto_err) return {std::vector<Range>(), proto_err};
+    auto [decoded, proto_err] = RetrieveResponse::from_proto(res);
+    if (proto_err) return {std::vector<Range>(), proto_err};
+    for (auto &rng: decoded.ranges)
         rng.kv = this->kv.scope_to_range(rng.key);
-        ranges.push_back(rng);
-    }
-    return {ranges, x::errors::NIL};
+    return {decoded.ranges, x::errors::NIL};
 }
 
 std::pair<Range, x::errors::Error> Client::retrieve_by_key(const Key &key) const {

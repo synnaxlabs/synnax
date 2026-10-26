@@ -92,8 +92,10 @@ inline Where Where::parse(x::json::Parser parser) {
         .not_ = parser.field<x::mem::indirect<Where>>("not"),
         .key = parser.field<std::optional<::x::filter::Set<Key>>>("key"),
         .name = parser.field<std::optional<::x::filter::String>>("name"),
-        .leaseholder = parser.field<
-            std::optional<::x::filter::Ordered<::synnax::node::Key>>>("leaseholder"),
+        .leaseholder = parser
+                           .field<std::optional<::x::filter::Set<::synnax::node::Key>>>(
+                               "leaseholder"
+                           ),
         .data_type = parser
                          .field<std::optional<::x::filter::Set<::x::telem::DataType>>>(
                              "data_type"
@@ -122,10 +124,10 @@ inline x::json::json Where::to_json() const {
 inline RetrieveRequest RetrieveRequest::parse(x::json::Parser parser) {
     return RetrieveRequest{
         .where = parser.field<std::optional<Where>>("where"),
-        .search_term = parser.field<std::optional<std::string>>("search_term"),
+        .search_term = parser.field<std::string>("search_term", ""),
         .limit = parser.field<std::optional<std::uint32_t>>("limit"),
-        .offset = parser.field<std::optional<std::uint32_t>>("offset"),
-        .include_status = parser.field<std::optional<bool>>("include_status"),
+        .offset = parser.field<std::uint32_t>("offset", 0),
+        .include_status = parser.field<bool>("include_status", false),
     };
 }
 

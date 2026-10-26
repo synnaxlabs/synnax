@@ -88,35 +88,27 @@ key_set_from_proto(const ::service::channel::pb::KeySet &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::channel::pb::NodeKeyOrdered, x::errors::Error>
-node_key_ordered_to_proto(const ::x::filter::Ordered<::synnax::node::Key> &self) {
-    ::service::channel::pb::NodeKeyOrdered pb;
+inline std::pair<::service::channel::pb::NodeKeySet, x::errors::Error>
+node_key_set_to_proto(const ::x::filter::Set<::synnax::node::Key> &self) {
+    ::service::channel::pb::NodeKeySet pb;
     if (self.eq.has_value()) pb.set_eq(*self.eq);
     if (self.in.has_value()) {
         auto *wrapper = pb.mutable_in();
         for (const auto &item: *self.in)
             wrapper->add_values(item);
     }
-    if (self.gt.has_value()) pb.set_gt(*self.gt);
-    if (self.gte.has_value()) pb.set_gte(*self.gte);
-    if (self.lt.has_value()) pb.set_lt(*self.lt);
-    if (self.lte.has_value()) pb.set_lte(*self.lte);
     return {pb, x::errors::NIL};
 }
 
-inline std::pair<::x::filter::Ordered<::synnax::node::Key>, x::errors::Error>
-node_key_ordered_from_proto(const ::service::channel::pb::NodeKeyOrdered &pb) {
-    ::x::filter::Ordered<::synnax::node::Key> cpp;
+inline std::pair<::x::filter::Set<::synnax::node::Key>, x::errors::Error>
+node_key_set_from_proto(const ::service::channel::pb::NodeKeySet &pb) {
+    ::x::filter::Set<::synnax::node::Key> cpp;
     if (pb.has_eq()) cpp.eq = pb.eq();
     if (pb.has_in()) {
         cpp.in.emplace();
         for (const auto &item: pb.in().values())
             cpp.in->push_back(item);
     }
-    if (pb.has_gt()) cpp.gt = pb.gt();
-    if (pb.has_gte()) cpp.gte = pb.gte();
-    if (pb.has_lt()) cpp.lt = pb.lt();
-    if (pb.has_lte()) cpp.lte = pb.lte();
     return {cpp, x::errors::NIL};
 }
 
@@ -261,7 +253,7 @@ Where::to_proto() const {
         *pb.mutable_name() = v;
     }
     if (this->leaseholder.has_value()) {
-        auto [v, err] = node_key_ordered_to_proto(*this->leaseholder);
+        auto [v, err] = node_key_set_to_proto(*this->leaseholder);
         if (err) return {{}, err};
         *pb.mutable_leaseholder() = v;
     }
@@ -313,7 +305,7 @@ Where::from_proto(const ::service::channel::pb::Where &pb) {
         cpp.name = v;
     }
     if (pb.has_leaseholder()) {
-        auto [v, err] = node_key_ordered_from_proto(pb.leaseholder());
+        auto [v, err] = node_key_set_from_proto(pb.leaseholder());
         if (err) return {{}, err};
         cpp.leaseholder = v;
     }
@@ -344,10 +336,10 @@ RetrieveRequest::to_proto() const {
         if (err) return {{}, err};
         *pb.mutable_where() = v;
     }
-    if (this->search_term.has_value()) pb.set_search_term(*this->search_term);
+    pb.set_search_term(this->search_term);
     if (this->limit.has_value()) pb.set_limit(*this->limit);
-    if (this->offset.has_value()) pb.set_offset(*this->offset);
-    if (this->include_status.has_value()) pb.set_include_status(*this->include_status);
+    pb.set_offset(this->offset);
+    pb.set_include_status(this->include_status);
     return {pb, x::errors::NIL};
 }
 
@@ -359,10 +351,10 @@ RetrieveRequest::from_proto(const ::service::channel::pb::RetrieveRequest &pb) {
         if (err) return {{}, err};
         cpp.where = v;
     }
-    if (pb.has_search_term()) cpp.search_term = pb.search_term();
+    cpp.search_term = pb.search_term();
     if (pb.has_limit()) cpp.limit = pb.limit();
-    if (pb.has_offset()) cpp.offset = pb.offset();
-    if (pb.has_include_status()) cpp.include_status = pb.include_status();
+    cpp.offset = pb.offset();
+    cpp.include_status = pb.include_status();
     return {cpp, x::errors::NIL};
 }
 

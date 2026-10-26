@@ -10,7 +10,7 @@
 import uuid
 from typing import overload
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 import synnax.channel.payload as channel
 from freighter import UnaryClient
@@ -29,24 +29,6 @@ class _ResolveResponse(BaseModel):
 class _SetRequest(BaseModel):
     range: uuid.UUID
     aliases: dict[channel.Key, str]
-
-
-class _RetrieveRequest(BaseModel):
-    range: uuid.UUID
-    channels: list[channel.Key]
-
-
-class _RetrieveResponse(BaseModel):
-    aliases: dict[channel.Key, str]
-
-
-class _SearchRequest(BaseModel):
-    range: uuid.UUID
-    term: str
-
-
-class _SearchResponse(BaseModel):
-    channels: list[channel.Key] = Field(default_factory=list)
 
 
 class _EmptyResponse(BaseModel): ...
@@ -94,22 +76,6 @@ class Client:
         if is_single:
             return res.aliases[normalized_aliases[0]]
         return {**results, **res.aliases}
-
-    def retrieve(self, channels: list[channel.Key]) -> dict[channel.Key, str]:
-        """Returns the aliases of the given channels in the range. A channel without
-        an alias is left out.
-        """
-        req = _RetrieveRequest(range=self._rng, channels=channels)
-        return self._client.send(
-            "/range/alias/retrieve", req, _RetrieveResponse
-        ).aliases
-
-    def search(self, term: str) -> list[channel.Key]:
-        """Returns the channels whose alias in the range matches term, closest match
-        first. The aliases of parent ranges are not searched.
-        """
-        req = _SearchRequest(range=self._rng, term=term)
-        return self._client.send("/range/alias/search", req, _SearchResponse).channels
 
     def set(self, aliases: dict[channel.Key, str]) -> None:
         req = _SetRequest(range=self._rng, aliases=aliases)

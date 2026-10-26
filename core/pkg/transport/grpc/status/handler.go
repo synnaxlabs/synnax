@@ -40,7 +40,7 @@ type (
 		status.RetrieveRequest,
 		*RetrieveRequest,
 		status.RetrieveResponse,
-		*RetrieveResponse,
+		*pb.RetrieveResponse,
 	]
 	deleteServer = grpc.UnaryServer[
 		status.DeleteRequest,
@@ -66,7 +66,7 @@ var (
 	_ grpc.Translator[status.RetrieveRequest, *RetrieveRequest] = (*retrieveRequestTranslator)(
 		nil,
 	)
-	_ grpc.Translator[status.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(
+	_ grpc.Translator[status.RetrieveResponse, *pb.RetrieveResponse] = (*retrieveResponseTranslator)(
 		nil,
 	)
 	_ grpc.Translator[status.DeleteRequest, *DeleteRequest] = (*deleteRequestTranslator)(
@@ -158,23 +158,15 @@ func (retrieveRequestTranslator) Backward(
 func (retrieveResponseTranslator) Forward(
 	_ context.Context,
 	msg status.RetrieveResponse,
-) (*RetrieveResponse, error) {
-	statuses, err := pb.StatusesToPB(msg.Statuses, xpb.AnyToPBAny)
-	if err != nil {
-		return nil, err
-	}
-	return &RetrieveResponse{Statuses: statuses}, nil
+) (*pb.RetrieveResponse, error) {
+	return pb.RetrieveResponseToPB(msg)
 }
 
 func (retrieveResponseTranslator) Backward(
 	_ context.Context,
-	msg *RetrieveResponse,
+	msg *pb.RetrieveResponse,
 ) (status.RetrieveResponse, error) {
-	statuses, err := pb.StatusesFromPB(msg.Statuses, xpb.AnyFromPBAny)
-	if err != nil {
-		return status.RetrieveResponse{}, err
-	}
-	return status.RetrieveResponse{Statuses: statuses}, nil
+	return pb.RetrieveResponseFromPB(msg)
 }
 
 func (deleteRequestTranslator) Forward(

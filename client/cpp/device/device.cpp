@@ -69,14 +69,9 @@ Client::retrieve(const RetrieveRequest &req) const {
     *grpc_req.mutable_request() = pb_req;
     auto [res, err] = device_retrieve_client->send("/device/retrieve", grpc_req);
     if (err) return {std::vector<Device>(), err};
-    std::vector<Device> devices;
-    devices.reserve(res.devices_size());
-    for (const auto &pb: res.devices()) {
-        auto [device, proto_err] = Device::from_proto(pb);
-        if (proto_err) return {std::vector<Device>(), proto_err};
-        devices.push_back(std::move(device));
-    }
-    return {devices, x::errors::NIL};
+    auto [decoded, proto_err] = RetrieveResponse::from_proto(res);
+    if (proto_err) return {std::vector<Device>(), proto_err};
+    return {std::move(decoded.devices), x::errors::NIL};
 }
 
 std::pair<Device, x::errors::Error>

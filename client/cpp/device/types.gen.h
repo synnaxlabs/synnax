@@ -74,7 +74,7 @@ struct Where {
     /// @brief location selects by location.
     std::optional<::x::filter::String> location;
     /// @brief rack selects by rack.
-    std::optional<::x::filter::Ordered<::synnax::rack::Key>> rack;
+    std::optional<::x::filter::Set<::synnax::rack::Key>> rack;
 
     static Where parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -94,15 +94,15 @@ struct RetrieveRequest {
     /// them.
     std::optional<Where> where;
     /// @brief search_term keeps the devices that match the term, closest match first.
-    std::optional<std::string> search_term;
+    std::string search_term = "";
     /// @brief limit is the most devices to return.
     std::optional<std::uint32_t> limit;
     /// @brief offset is the number of matching devices to skip.
-    std::optional<std::uint32_t> offset;
+    std::uint32_t offset = 0;
     /// @brief include_status includes the status of each record.
-    std::optional<bool> include_status;
+    bool include_status = false;
     /// @brief include_parent includes the parent of each record.
-    std::optional<bool> include_parent;
+    bool include_parent = false;
 
     static RetrieveRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

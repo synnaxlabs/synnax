@@ -96,7 +96,7 @@ Client::retrieve(const RetrieveRequest &req) const {
     auto scoped = req;
     if (this->rack != 0) {
         const auto on_rack = Where{
-            .rack = x::filter::Ordered<rack::Key>{.eq = this->rack},
+            .rack = x::filter::Set<rack::Key>{.eq = this->rack},
         };
         scoped.where = scoped.where.has_value()
                          ? Where{.and_ = std::vector<Where>{*scoped.where, on_rack}}
@@ -108,14 +108,9 @@ Client::retrieve(const RetrieveRequest &req) const {
     *grpc_req.mutable_request() = pb_req;
     auto [res, err] = task_retrieve_client->send("/task/retrieve", grpc_req);
     if (err) return {std::vector<Task>(), err};
-    std::vector<Task> tasks;
-    tasks.reserve(res.tasks_size());
-    for (const auto &pb: res.tasks()) {
-        auto [task, proto_err] = Task::from_proto(pb);
-        if (proto_err) return {std::vector<Task>(), proto_err};
-        tasks.push_back(std::move(task));
-    }
-    return {tasks, x::errors::NIL};
+    auto [decoded, proto_err] = RetrieveResponse::from_proto(res);
+    if (proto_err) return {std::vector<Task>(), proto_err};
+    return {std::move(decoded.tasks), x::errors::NIL};
 }
 
 std::pair<Task, x::errors::Error>

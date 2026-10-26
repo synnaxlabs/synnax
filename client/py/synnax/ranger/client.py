@@ -675,11 +675,11 @@ class Client:
         where: Where | None = None,
         names: list[str] | tuple[str, ...] | None = None,
         keys: list[Key] | tuple[Key, ...] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         overlaps_with: TimeRange | None = None,
         has_labels: list[label.Key] | None = None,
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
         include_labels: bool = False,
         include_parent: bool = False,
     ) -> list[Range]: ...
@@ -693,11 +693,11 @@ class Client:
         where: Where | None = None,
         names: list[str] | tuple[str, ...] | None = None,
         keys: list[Key] | tuple[Key, ...] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         overlaps_with: TimeRange | None = None,
         has_labels: list[label.Key] | None = None,
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
         include_labels: bool = False,
         include_parent: bool = False,
     ) -> Range | list[Range]:
@@ -724,8 +724,10 @@ class Client:
         is_single = key is not None or name is not None
         if key is not None and name is not None:
             raise ValueError("key and name cannot be combined; use keys or names")
-        if is_single and not all_none(
-            where, keys, names, search_term, overlaps_with, has_labels, limit, offset
+        if is_single and (
+            search_term
+            or offset
+            or not all_none(where, keys, names, overlaps_with, has_labels, limit)
         ):
             raise ValueError(
                 "key and name cannot be combined with list filters; use keys or names"
@@ -738,15 +740,13 @@ class Client:
             overlaps=overlaps_with,
             labels=has_labels,
         )
-        if where is not None and flat != Where():
-            where = Where(and_=[where, flat])
         req = RetrieveRequest(
-            where=flat if where is None else where,
+            where=filter.merge(where, flat),
             search_term=search_term,
             limit=limit,
             offset=offset,
-            include_labels=include_labels or None,
-            include_parent=include_parent or None,
+            include_labels=include_labels,
+            include_parent=include_parent,
         )
         sug = self._sugar(self._retriever.retrieve(req))
         if not is_single:

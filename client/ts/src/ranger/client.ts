@@ -38,6 +38,7 @@ import {
   ontologyID,
   type Payload,
   payloadZ,
+  type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/ranger/types.gen";
@@ -252,7 +253,10 @@ const retrieveMultipleParamsZ = retrieveRequestZ.omit({
   includeLabels: true,
   includeParent: true,
 });
-export type RetrieveMultipleParams = z.infer<typeof retrieveMultipleParamsZ>;
+export type RetrieveMultipleParams = Omit<
+  RetrieveRequest,
+  "includeLabels" | "includeParent"
+>;
 
 /**
  * Canonicalizes every retrieve shape addressing more than one range. The time range arm
@@ -801,14 +805,6 @@ export class Client extends query.Retriever<
     channels: channel.Key[],
   ): Promise<Record<channel.Key, string>> {
     return await this.createAliasClient(range).retrieve(channels);
-  }
-
-  /**
-   * @returns the channels whose alias in the range matches term, closest match first.
-   * The aliases of parent ranges are not searched.
-   */
-  async searchAliases(range: Key, term: string): Promise<channel.Key[]> {
-    return await this.createAliasClient(range).search(term);
   }
 
   async listAliases(range: Key): Promise<Record<channel.Key, string>> {

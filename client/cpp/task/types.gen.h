@@ -97,7 +97,7 @@ struct Where {
     /// @brief type selects by type.
     std::optional<::x::filter::String> type;
     /// @brief rack selects by rack.
-    std::optional<::x::filter::Ordered<::synnax::rack::Key>> rack;
+    std::optional<::x::filter::Set<::synnax::rack::Key>> rack;
     /// @brief internal selects by internal.
     std::optional<::x::filter::Bool> internal;
     /// @brief snapshot selects by snapshot.
@@ -166,13 +166,13 @@ struct RetrieveRequest {
     /// @brief where selects the tasks to retrieve. An absent where selects all of them.
     std::optional<Where> where;
     /// @brief search_term keeps the tasks that match the term, closest match first.
-    std::optional<std::string> search_term;
+    std::string search_term = "";
     /// @brief limit is the most tasks to return.
     std::optional<std::uint32_t> limit;
     /// @brief offset is the number of matching tasks to skip.
-    std::optional<std::uint32_t> offset;
+    std::uint32_t offset = 0;
     /// @brief include_status includes the status of each record.
-    std::optional<bool> include_status;
+    bool include_status = false;
 
     static RetrieveRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

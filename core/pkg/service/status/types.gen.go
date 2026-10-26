@@ -42,13 +42,13 @@ type RetrieveRequest struct {
 	// Where selects the statuses to retrieve. An absent where selects all of them.
 	Where *Where `json:"where,omitzero" msgpack:"where,omitempty"`
 	// SearchTerm keeps the statuses that match the term, closest match first.
-	SearchTerm *string `json:"search_term,omitzero" msgpack:"search_term,omitempty"`
+	SearchTerm string `json:"search_term" msgpack:"search_term"`
 	// Limit is the most statuses to return.
 	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
 	// Offset is the number of matching statuses to skip.
-	Offset *uint32 `json:"offset,omitzero" msgpack:"offset,omitempty"`
+	Offset uint32 `json:"offset" msgpack:"offset"`
 	// IncludeLabels includes the labels of each record.
-	IncludeLabels *bool `json:"include_labels,omitzero" msgpack:"include_labels,omitempty"`
+	IncludeLabels bool `json:"include_labels" msgpack:"include_labels"`
 }
 
 // RetrieveResponse holds the statuses a RetrieveRequest selects.

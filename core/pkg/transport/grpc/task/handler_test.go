@@ -34,13 +34,13 @@ var _ = Describe("gRPC Task Translators", func() {
 						{Type: &filter.String{Eq: new("ni_analog_read")}},
 					},
 					Not: &task.Where{
-						Rack: &filter.Ordered[rack.Key]{Gt: new(rack.Key(1))},
+						Rack: &filter.Set[rack.Key]{Eq: new(rack.Key(1))},
 					},
 					Name:     &filter.String{Regex: new("^PT")},
 					Internal: &filter.Bool{Eq: new(false)},
 				},
-				SearchTerm:    new("read"),
-				IncludeStatus: new(true),
+				SearchTerm:    "read",
+				IncludeStatus: true,
 			}
 			fwd := MustSucceed(t.Forward(ctx, msg))
 			b := MustSucceed(proto.Marshal(fwd))

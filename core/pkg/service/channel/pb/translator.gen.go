@@ -212,9 +212,9 @@ func KeySetsFromPB(pbs []*KeySet) ([]filter.Set[channel.Key], error) {
 	return result, nil
 }
 
-// NodeKeyOrderedToPB converts filter.Ordered[node.Key] to NodeKeyOrdered.
-func NodeKeyOrderedToPB(r filter.Ordered[node.Key]) (*NodeKeyOrdered, error) {
-	pb := &NodeKeyOrdered{}
+// NodeKeySetToPB converts filter.Set[node.Key] to NodeKeySet.
+func NodeKeySetToPB(r filter.Set[node.Key]) (*NodeKeySet, error) {
+	pb := &NodeKeySet{}
 	if r.Eq != nil {
 		v := uint32(*r.Eq)
 		pb.Eq = &v
@@ -222,28 +222,12 @@ func NodeKeyOrderedToPB(r filter.Ordered[node.Key]) (*NodeKeyOrdered, error) {
 	if r.In != nil {
 		pb.In = &NodeKeyList{Values: lo.Map(r.In, func(v node.Key, _ int) uint32 { return uint32(v) })}
 	}
-	if r.Gt != nil {
-		v := uint32(*r.Gt)
-		pb.Gt = &v
-	}
-	if r.Gte != nil {
-		v := uint32(*r.Gte)
-		pb.Gte = &v
-	}
-	if r.Lt != nil {
-		v := uint32(*r.Lt)
-		pb.Lt = &v
-	}
-	if r.Lte != nil {
-		v := uint32(*r.Lte)
-		pb.Lte = &v
-	}
 	return pb, nil
 }
 
-// NodeKeyOrderedFromPB converts NodeKeyOrdered to filter.Ordered[node.Key].
-func NodeKeyOrderedFromPB(pb *NodeKeyOrdered) (filter.Ordered[node.Key], error) {
-	var r filter.Ordered[node.Key]
+// NodeKeySetFromPB converts NodeKeySet to filter.Set[node.Key].
+func NodeKeySetFromPB(pb *NodeKeySet) (filter.Set[node.Key], error) {
+	var r filter.Set[node.Key]
 	if pb == nil {
 		return r, nil
 	}
@@ -254,31 +238,15 @@ func NodeKeyOrderedFromPB(pb *NodeKeyOrdered) (filter.Ordered[node.Key], error) 
 	if pb.In != nil {
 		r.In = lo.Map(pb.In.Values, func(v uint32, _ int) node.Key { return node.Key(v) })
 	}
-	if pb.Gt != nil {
-		v := node.Key(*pb.Gt)
-		r.Gt = &v
-	}
-	if pb.Gte != nil {
-		v := node.Key(*pb.Gte)
-		r.Gte = &v
-	}
-	if pb.Lt != nil {
-		v := node.Key(*pb.Lt)
-		r.Lt = &v
-	}
-	if pb.Lte != nil {
-		v := node.Key(*pb.Lte)
-		r.Lte = &v
-	}
 	return r, nil
 }
 
-// NodeKeyOrderedsToPB converts a slice of filter.Ordered[node.Key] to NodeKeyOrdered.
-func NodeKeyOrderedsToPB(rs []filter.Ordered[node.Key]) ([]*NodeKeyOrdered, error) {
-	result := make([]*NodeKeyOrdered, len(rs))
+// NodeKeySetsToPB converts a slice of filter.Set[node.Key] to NodeKeySet.
+func NodeKeySetsToPB(rs []filter.Set[node.Key]) ([]*NodeKeySet, error) {
+	result := make([]*NodeKeySet, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = NodeKeyOrderedToPB(rs[i])
+		result[i], err = NodeKeySetToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -286,12 +254,12 @@ func NodeKeyOrderedsToPB(rs []filter.Ordered[node.Key]) ([]*NodeKeyOrdered, erro
 	return result, nil
 }
 
-// NodeKeyOrderedsFromPB converts a slice of NodeKeyOrdered to filter.Ordered[node.Key].
-func NodeKeyOrderedsFromPB(pbs []*NodeKeyOrdered) ([]filter.Ordered[node.Key], error) {
-	result := make([]filter.Ordered[node.Key], len(pbs))
+// NodeKeySetsFromPB converts a slice of NodeKeySet to filter.Set[node.Key].
+func NodeKeySetsFromPB(pbs []*NodeKeySet) ([]filter.Set[node.Key], error) {
+	result := make([]filter.Set[node.Key], len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = NodeKeyOrderedFromPB(pb)
+		result[i], err = NodeKeySetFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -394,7 +362,7 @@ func WhereToPB(r channel.Where) (*Where, error) {
 	}
 	if r.Leaseholder != nil {
 		var err error
-		pb.Leaseholder, err = NodeKeyOrderedToPB(*r.Leaseholder)
+		pb.Leaseholder, err = NodeKeySetToPB(*r.Leaseholder)
 		if err != nil {
 			return nil, err
 		}
@@ -468,7 +436,7 @@ func WhereFromPB(pb *Where) (channel.Where, error) {
 		r.Name = &val
 	}
 	if pb.Leaseholder != nil {
-		val, err := NodeKeyOrderedFromPB(pb.Leaseholder)
+		val, err := NodeKeySetFromPB(pb.Leaseholder)
 		if err != nil {
 			return channel.Where{}, err
 		}
@@ -529,7 +497,11 @@ func WheresFromPB(pbs []*Where) ([]channel.Where, error) {
 
 // RetrieveRequestToPB converts RetrieveRequest to RetrieveRequest.
 func RetrieveRequestToPB(r channel.RetrieveRequest) (*RetrieveRequest, error) {
-	pb := &RetrieveRequest{}
+	pb := &RetrieveRequest{
+		SearchTerm:    r.SearchTerm,
+		Offset:        r.Offset,
+		IncludeStatus: r.IncludeStatus,
+	}
 	if r.Where != nil {
 		var err error
 		pb.Where, err = WhereToPB(*r.Where)
@@ -537,17 +509,8 @@ func RetrieveRequestToPB(r channel.RetrieveRequest) (*RetrieveRequest, error) {
 			return nil, err
 		}
 	}
-	if r.SearchTerm != nil {
-		pb.SearchTerm = r.SearchTerm
-	}
 	if r.Limit != nil {
 		pb.Limit = r.Limit
-	}
-	if r.Offset != nil {
-		pb.Offset = r.Offset
-	}
-	if r.IncludeStatus != nil {
-		pb.IncludeStatus = r.IncludeStatus
 	}
 	return pb, nil
 }
@@ -558,6 +521,9 @@ func RetrieveRequestFromPB(pb *RetrieveRequest) (channel.RetrieveRequest, error)
 	if pb == nil {
 		return r, nil
 	}
+	r.SearchTerm = pb.SearchTerm
+	r.Offset = pb.Offset
+	r.IncludeStatus = pb.IncludeStatus
 	if pb.Where != nil {
 		val, err := WhereFromPB(pb.Where)
 		if err != nil {
@@ -565,17 +531,8 @@ func RetrieveRequestFromPB(pb *RetrieveRequest) (channel.RetrieveRequest, error)
 		}
 		r.Where = &val
 	}
-	if pb.SearchTerm != nil {
-		r.SearchTerm = pb.SearchTerm
-	}
 	if pb.Limit != nil {
 		r.Limit = pb.Limit
-	}
-	if pb.Offset != nil {
-		r.Offset = pb.Offset
-	}
-	if pb.IncludeStatus != nil {
-		r.IncludeStatus = pb.IncludeStatus
 	}
 	return r, nil
 }

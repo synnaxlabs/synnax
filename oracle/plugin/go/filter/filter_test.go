@@ -262,37 +262,6 @@ var _ = Describe("Go Filter Plugin", func() {
 					"func (r *RetrieveRequest) UnmarshalJSONFrom(dec *jsontext.Decoder) error {",
 					"type plain RetrieveRequest",
 					"json.UnmarshalDecode(dec, (*plain)(r), json.RejectUnknownMembers(true))",
-				).
-				ToNotContain("func OrderingOf")
-		})
-
-		It("Should map an order to the go/query ordering", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, `
-				import "schemas/x/filter"
-
-				@go output "core/pkg/service/thing"
-
-				Thing struct {
-					key        uuid  { @key }
-					created_at int64 { @index sorted }
-					@retrieve
-				}
-				Where filter Thing {
-					key
-				}
-			`, "thing", loader, p)
-			ExpectContent(resp, "where.gen.go").
-				ToBeValidGoSource().
-				ToContain(
-					"func OrderingOf(o Order) (Ordering, error) {",
-					"case filter.DirectionAscending:",
-					"dir = gorp.DirectionAsc",
-					"case filter.DirectionDescending:",
-					"dir = gorp.DirectionDesc",
-					"case OrderFieldCreatedAt:",
-					"return OrderByCreatedAt(dir), nil",
-					`"unknown direction %q", o.Direction`,
-					`"unknown field %q", o.Field`,
 				)
 		})
 
@@ -348,9 +317,8 @@ var _ = Describe("Go Filter Plugin", func() {
 				@go output "core/pkg/service/thing"
 
 				Thing struct {
-					key        uuid   { @key }
-					name       string { @search }
-					created_at int64  { @index sorted }
+					key  uuid   { @key }
+					name string { @search }
 					@retrieve
 				}
 				Where filter Thing {
@@ -363,13 +331,11 @@ var _ = Describe("Go Filter Plugin", func() {
 					"func (r RetrieveRequest) Apply(q Retrieve) (Retrieve, error) {",
 					"f, err := MatchWhere(*r.Where)",
 					`return Retrieve{}, validate.PathedError(err, "where")`,
-					"q = q.Search(*r.SearchTerm)",
-					"o, err := OrderingOf(*r.OrderBy)",
-					`return Retrieve{}, validate.PathedError(err, "order_by")`,
+					"q = q.Search(r.SearchTerm)",
 					"q = q.Limit(int(*r.Limit))",
-					"q = q.Offset(int(*r.Offset))",
+					"return q.Offset(int(r.Offset)), nil",
 				).
-				ToPreserveOrder("r.Where", "r.SearchTerm", "r.OrderBy", "r.Limit", "r.Offset")
+				ToPreserveOrder("r.Where", "r.SearchTerm", "r.Limit", "r.Offset")
 		})
 
 		It(
@@ -397,8 +363,8 @@ var _ = Describe("Go Filter Plugin", func() {
 					ToContain(
 						"func (r RetrieveRequest) Apply(q Retrieve[any]) (Retrieve[any], error) {",
 						"f, err := MatchWhere[any](*r.Where)",
-						`if r.SearchTerm != nil && *r.SearchTerm != "" {`,
-						"q = q.Where(MatchSearch(*r.SearchTerm))",
+						`if r.SearchTerm != "" {`,
+						"q = q.Where(MatchSearch(r.SearchTerm))",
 					).
 					ToNotContain("q.Search(")
 			},

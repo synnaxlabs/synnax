@@ -21,7 +21,7 @@ service DeviceCreateService {
 }
 
 service DeviceRetrieveService {
-  rpc Exec(RetrieveRequest) returns (RetrieveResponse);
+  rpc Exec(RetrieveRequest) returns (service.device.pb.RetrieveResponse);
 }
 
 service DeviceDeleteService {
@@ -43,9 +43,6 @@ message RetrieveRequest {
   service.device.pb.RetrieveRequest request = 13;
 }
 
-message RetrieveResponse {
-  repeated service.device.pb.Device devices = 1;
-}
 
 message DeleteRequest {
   repeated string keys = 1;

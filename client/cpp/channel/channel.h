@@ -21,7 +21,7 @@
 namespace synnax::channel {
 /// @brief freighter retrieve transport.
 using RetrieveClient = freighter::
-    UnaryClient<grpc::channel::RetrieveRequest, grpc::channel::RetrieveResponse>;
+    UnaryClient<grpc::channel::RetrieveRequest, ::api::channel::pb::RetrieveResponse>;
 
 /// @brief freighter create transport.
 using CreateClient = freighter::

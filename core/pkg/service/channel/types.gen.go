@@ -67,7 +67,7 @@ type Where struct {
 	// Name selects by name.
 	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
 	// Leaseholder selects by leaseholder.
-	Leaseholder *filter.Ordered[node.Key] `json:"leaseholder,omitzero" msgpack:"leaseholder,omitempty"`
+	Leaseholder *filter.Set[node.Key] `json:"leaseholder,omitzero" msgpack:"leaseholder,omitempty"`
 	// DataType selects by data_type.
 	DataType *filter.Set[telem.DataType] `json:"data_type,omitzero" msgpack:"data_type,omitempty"`
 	// IsIndex selects by is_index.
@@ -84,11 +84,11 @@ type RetrieveRequest struct {
 	// Where selects the channels to retrieve. An absent where selects all of them.
 	Where *Where `json:"where,omitzero" msgpack:"where,omitempty"`
 	// SearchTerm keeps the channels that match the term, closest match first.
-	SearchTerm *string `json:"search_term,omitzero" msgpack:"search_term,omitempty"`
+	SearchTerm string `json:"search_term" msgpack:"search_term"`
 	// Limit is the most channels to return.
 	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
 	// Offset is the number of matching channels to skip.
-	Offset *uint32 `json:"offset,omitzero" msgpack:"offset,omitempty"`
+	Offset uint32 `json:"offset" msgpack:"offset"`
 	// IncludeStatus includes the status of each record.
-	IncludeStatus *bool `json:"include_status,omitzero" msgpack:"include_status,omitempty"`
+	IncludeStatus bool `json:"include_status" msgpack:"include_status"`
 }

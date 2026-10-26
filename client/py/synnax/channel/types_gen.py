@@ -84,7 +84,7 @@ class Where(BaseModel):
     not_: Where | None = Field(default=None, alias="not")
     key: filter.Set[Key] | None = None
     name: filter.String | None = None
-    leaseholder: filter.Ordered[node.Key] | None = None
+    leaseholder: filter.Set[node.Key] | None = None
     data_type: filter.Set[telem.DataType] | None = None
     is_index: filter.Bool | None = None
     internal: filter.Bool | None = None
@@ -152,10 +152,10 @@ class RetrieveRequest(BaseModel):
     """
 
     where: Where | None = None
-    search_term: str | None = None
+    search_term: str = ""
     limit: int | None = Field(default=None, ge=0, le=4294967295)
-    offset: int | None = Field(default=None, ge=0, le=4294967295)
-    include_status: bool | None = None
+    offset: int = Field(default=0, ge=0, le=4294967295)
+    include_status: bool = False
 
 
 class RetrieveResponse(BaseModel):

@@ -110,12 +110,12 @@ class Client:
         where: Where | None = None,
         keys: list[int] | None = None,
         names: list[str] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         integration: str | None = None,
         embedded: bool | None = None,
         host_is_node: bool | None = None,
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
         include_status: bool = False,
     ) -> list[Rack]: ...
 
@@ -127,12 +127,12 @@ class Client:
         where: Where | None = None,
         keys: list[int] | None = None,
         names: list[str] | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         integration: str | None = None,
         embedded: bool | None = None,
         host_is_node: bool | None = None,
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
         include_status: bool = False,
     ) -> Rack | list[Rack]:
         """Retrieves racks matching the given filters. Returns one rack when a key or
@@ -156,16 +156,12 @@ class Client:
         is_single = not all_none(key, name)
         if sum(v is not None for v in (key, name)) > 1:
             raise ValueError("only one of key and name can be given")
-        if is_single and not all_none(
-            where,
-            keys,
-            names,
-            search_term,
-            integration,
-            embedded,
-            host_is_node,
-            limit,
-            offset,
+        if is_single and (
+            search_term
+            or offset
+            or not all_none(
+                where, keys, names, integration, embedded, host_is_node, limit
+            )
         ):
             raise ValueError(
                 "key and name cannot be combined with list filters; use keys or "
@@ -182,14 +178,12 @@ class Client:
             embedded=None if embedded is None else filter.Bool(eq=embedded),
             host_is_node=host_is_node,
         )
-        if where is not None and flat != Where():
-            where = Where(and_=[where, flat])
         req = RetrieveRequest(
-            where=flat if where is None else where,
+            where=filter.merge(where, flat),
             search_term=search_term,
             limit=limit,
             offset=offset,
-            include_status=include_status or None,
+            include_status=include_status,
         )
         res = self._client.send("/rack/retrieve", req, _RetrieveResponse)
         if is_single:

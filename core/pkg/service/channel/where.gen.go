@@ -87,46 +87,6 @@ func MatchWhere(w Where) (Filter, error) {
 		if l.In != nil {
 			fs = append(fs, MatchLeaseholders(l.In...))
 		}
-		if l.Gt != nil {
-			v := *l.Gt
-			fs = append(fs, Match(func(
-				_ gorp.Context,
-				_ Retrieve,
-				e *Channel,
-			) (bool, error) {
-				return e.Leaseholder > v, nil
-			}))
-		}
-		if l.Gte != nil {
-			v := *l.Gte
-			fs = append(fs, Match(func(
-				_ gorp.Context,
-				_ Retrieve,
-				e *Channel,
-			) (bool, error) {
-				return e.Leaseholder >= v, nil
-			}))
-		}
-		if l.Lt != nil {
-			v := *l.Lt
-			fs = append(fs, Match(func(
-				_ gorp.Context,
-				_ Retrieve,
-				e *Channel,
-			) (bool, error) {
-				return e.Leaseholder < v, nil
-			}))
-		}
-		if l.Lte != nil {
-			v := *l.Lte
-			fs = append(fs, Match(func(
-				_ gorp.Context,
-				_ Retrieve,
-				e *Channel,
-			) (bool, error) {
-				return e.Leaseholder <= v, nil
-			}))
-		}
 	}
 	if l := w.DataType; l != nil {
 		if l.Eq != nil {
@@ -182,16 +142,11 @@ func (r RetrieveRequest) Apply(q Retrieve) (Retrieve, error) {
 		}
 		q = q.Where(f)
 	}
-	if r.SearchTerm != nil {
-		q = q.Search(*r.SearchTerm)
-	}
+	q = q.Search(r.SearchTerm)
 	if r.Limit != nil {
 		q = q.Limit(int(*r.Limit))
 	}
-	if r.Offset != nil {
-		q = q.Offset(int(*r.Offset))
-	}
-	return q, nil
+	return q.Offset(int(r.Offset)), nil
 }
 
 // UnmarshalJSONFrom decodes the request and rejects a member that it does not declare,

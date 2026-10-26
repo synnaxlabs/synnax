@@ -32,13 +32,13 @@ var _ = Describe("gRPC Device Translators", func() {
 						{Make: &filter.String{Eq: new("NI")}},
 					},
 					Not: &device.Where{
-						Rack: &filter.Ordered[rack.Key]{In: []rack.Key{1}},
+						Rack: &filter.Set[rack.Key]{In: []rack.Key{1}},
 					},
 					Name: &filter.String{Regex: new("^PT")},
 				},
-				SearchTerm:    new("cDAQ"),
-				IncludeStatus: new(true),
-				IncludeParent: new(true),
+				SearchTerm:    "cDAQ",
+				IncludeStatus: true,
+				IncludeParent: true,
 			}
 			fwd := MustSucceed(t.Forward(ctx, msg))
 			b := MustSucceed(proto.Marshal(fwd))

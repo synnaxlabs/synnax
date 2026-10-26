@@ -52,7 +52,7 @@ type Where struct {
 	// Location selects by location.
 	Location *filter.String `json:"location,omitzero" msgpack:"location,omitempty"`
 	// Rack selects by rack.
-	Rack *filter.Ordered[rack.Key] `json:"rack,omitzero" msgpack:"rack,omitempty"`
+	Rack *filter.Set[rack.Key] `json:"rack,omitzero" msgpack:"rack,omitempty"`
 }
 
 // RetrieveRequest is a request to retrieve devices.
@@ -60,15 +60,15 @@ type RetrieveRequest struct {
 	// Where selects the devices to retrieve. An absent where selects all of them.
 	Where *Where `json:"where,omitzero" msgpack:"where,omitempty"`
 	// SearchTerm keeps the devices that match the term, closest match first.
-	SearchTerm *string `json:"search_term,omitzero" msgpack:"search_term,omitempty"`
+	SearchTerm string `json:"search_term" msgpack:"search_term"`
 	// Limit is the most devices to return.
 	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
 	// Offset is the number of matching devices to skip.
-	Offset *uint32 `json:"offset,omitzero" msgpack:"offset,omitempty"`
+	Offset uint32 `json:"offset" msgpack:"offset"`
 	// IncludeStatus includes the status of each record.
-	IncludeStatus *bool `json:"include_status,omitzero" msgpack:"include_status,omitempty"`
+	IncludeStatus bool `json:"include_status" msgpack:"include_status"`
 	// IncludeParent includes the parent of each record.
-	IncludeParent *bool `json:"include_parent,omitzero" msgpack:"include_parent,omitempty"`
+	IncludeParent bool `json:"include_parent" msgpack:"include_parent"`
 }
 
 // RetrieveResponse holds the devices a RetrieveRequest selects.

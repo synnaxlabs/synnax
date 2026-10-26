@@ -11,6 +11,8 @@ package channel
 
 import (
 	"context"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
@@ -22,9 +24,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -45,6 +52,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
+	// Alias stores and retrieves channel aliases on ranges.
+	//
+	// [REQUIRED]
+	Alias *alias.Service
 }
 
 var (
@@ -58,6 +69,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Status = override.Nil(c.Status, other.Status)
+	c.Alias = override.Nil(c.Alias, other.Alias)
 	return c
 }
 
@@ -67,6 +79,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("rbac", c.RBAC)
 	v.NotNil("channel", c.Channel)
 	v.NotNil("status", c.Status)
+	v.NotNil("alias", c.Alias)
 	return v.Error()
 }
 
@@ -75,6 +88,7 @@ type Service struct {
 	access   *rbac.Service
 	internal *channel.Service
 	status   *status.Service
+	alias    *alias.Service
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -86,6 +100,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		access:   cfg.RBAC,
 		internal: cfg.Channel,
 		status:   cfg.Status,
+		alias:    cfg.Alias,
 	}, nil
 }
 
@@ -168,26 +183,45 @@ func (s *Service) Create(
 	return CreateResponse{Channels: translateChannelsForward(translated)}, nil
 }
 
-type (
-	RetrieveRequest = channel.RetrieveRequest
-	Where           = channel.Where
-)
+// Where is a filter that selects channels.
+type Where = channel.Where
 
-// Retrieve retrieves the channels that the request selects.
+// RetrieveRequest selects channels. A RangeKey fills the alias of each channel on that
+// range, and a search term then also matches those aliases, ranked first.
+type RetrieveRequest struct {
+	// Request selects the channels.
+	Request channel.RetrieveRequest `json:"request" msgpack:"request"`
+	// RangeKey is the range whose aliases to fill and search.
+	RangeKey *ranger.Key `json:"range_key,omitzero" msgpack:"range_key,omitempty"`
+}
+
+// UnmarshalJSONFrom decodes the request and rejects a member that it does not declare,
+// so a client that sends a bare channel request fails.
+func (r *RetrieveRequest) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain RetrieveRequest
+	return json.UnmarshalDecode(dec, (*plain)(r), json.RejectUnknownMembers(true))
+}
+
+// Retrieve retrieves the channels that the request selects. It requires retrieve access
+// on every channel and on every alias it fills.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	var resChannels []channel.Channel
-	q, err := req.Apply(s.internal.NewRetrieve().Entries(&resChannels))
+	resChannels, err := s.retrieve(ctx, req)
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := q.Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
 	res := RetrieveResponse{Channels: translateChannelsForward(resChannels)}
-	if lo.FromPtr(req.IncludeStatus) {
+	objects := channel.OntologyIDsFromChannels(resChannels)
+	if req.RangeKey != nil {
+		aliased, err := s.fillAliases(ctx, *req.RangeKey, res.Channels)
+		if err != nil {
+			return RetrieveResponse{}, err
+		}
+		objects = append(objects, alias.OntologyIDs(*req.RangeKey, aliased)...)
+	}
+	if req.Request.IncludeStatus {
 		statuses, err := s.status.Join[struct{}](
 			ctx,
 			channel.OntologyIDsFromChannels(resChannels),
@@ -202,11 +236,104 @@ func (s *Service) Retrieve(
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: channel.OntologyIDsFromChannels(resChannels),
+		Objects: objects,
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
 	return res, nil
+}
+
+// retrieve returns the channels req selects. With a range and a search term, the
+// channels whose alias on the range matches the term come first, closest match first,
+// and the page applies to the merged list.
+func (s *Service) retrieve(
+	ctx context.Context,
+	req RetrieveRequest,
+) ([]channel.Channel, error) {
+	r := req.Request
+	if req.RangeKey == nil || r.SearchTerm == "" {
+		return s.exec(ctx, r)
+	}
+	keys, err := s.alias.NewReader(nil).Search(ctx, *req.RangeKey, r.SearchTerm)
+	if err != nil {
+		return nil, err
+	}
+	if len(keys) == 0 {
+		return s.exec(ctx, r)
+	}
+	inKeys := Where{Key: &filter.Set[channel.Key]{In: keys}}
+	byAlias := channel.RetrieveRequest{Where: &inKeys}
+	if r.Where != nil {
+		byAlias.Where = &Where{And: []Where{*r.Where, inKeys}}
+	}
+	aliasMatches, err := s.exec(ctx, byAlias)
+	if err != nil {
+		return nil, err
+	}
+	matched := lo.KeyBy(aliasMatches, func(ch channel.Channel) channel.Key {
+		return ch.Key()
+	})
+	// The search runs from the first match, far enough to fill the page once the alias
+	// matches it holds are dropped.
+	searched := r
+	searched.Offset = 0
+	if r.Limit != nil && *r.Limit > 0 {
+		searched.Limit = new(*r.Limit + r.Offset + uint32(len(matched)))
+	}
+	termMatches, err := s.exec(ctx, searched)
+	if err != nil {
+		return nil, err
+	}
+	merged := lo.FilterMap(keys, func(k channel.Key, _ int) (channel.Channel, bool) {
+		ch, ok := matched[k]
+		return ch, ok
+	})
+	merged = append(
+		merged,
+		lo.Reject(termMatches, func(ch channel.Channel, _ int) bool {
+			_, ok := matched[ch.Key()]
+			return ok
+		})...)
+	length := uint(len(merged))
+	if r.Limit != nil && *r.Limit > 0 {
+		length = uint(*r.Limit)
+	}
+	return lo.Subset(merged, int(r.Offset), length), nil
+}
+
+func (s *Service) exec(
+	ctx context.Context,
+	req channel.RetrieveRequest,
+) ([]channel.Channel, error) {
+	var res []channel.Channel
+	q, err := req.Apply(s.internal.NewRetrieve().Entries(&res))
+	if err != nil {
+		return nil, err
+	}
+	return res, q.Exec(ctx, nil)
+}
+
+// fillAliases sets the alias on the range of each channel that has one, and returns the
+// keys of those channels.
+func (s *Service) fillAliases(
+	ctx context.Context,
+	rng ranger.Key,
+	channels []Channel,
+) ([]channel.Key, error) {
+	reader := s.alias.NewReader(nil)
+	var aliased []channel.Key
+	for i, ch := range channels {
+		al, err := reader.Retrieve(ctx, rng, ch.Key)
+		if errors.Is(err, query.ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		channels[i].Alias = &al
+		aliased = append(aliased, ch.Key)
+	}
+	return aliased, nil
 }
 
 func translateChannelsForward(channels []channel.Channel) []Channel {

@@ -164,50 +164,6 @@ func (x *RetrieveRequest) GetRequest() *pb.RetrieveRequest {
 	return nil
 }
 
-type RetrieveResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Devices       []*pb.Device           `protobuf:"bytes,1,rep,name=devices,proto3" json:"devices,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RetrieveResponse) Reset() {
-	*x = RetrieveResponse{}
-	mi := &file_core_pkg_transport_grpc_device_device_proto_msgTypes[3]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RetrieveResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RetrieveResponse) ProtoMessage() {}
-
-func (x *RetrieveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_device_device_proto_msgTypes[3]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RetrieveResponse.ProtoReflect.Descriptor instead.
-func (*RetrieveResponse) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_device_device_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *RetrieveResponse) GetDevices() []*pb.Device {
-	if x != nil {
-		return x.Devices
-	}
-	return nil
-}
-
 type DeleteRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Keys          []string               `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
@@ -217,7 +173,7 @@ type DeleteRequest struct {
 
 func (x *DeleteRequest) Reset() {
 	*x = DeleteRequest{}
-	mi := &file_core_pkg_transport_grpc_device_device_proto_msgTypes[4]
+	mi := &file_core_pkg_transport_grpc_device_device_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -229,7 +185,7 @@ func (x *DeleteRequest) String() string {
 func (*DeleteRequest) ProtoMessage() {}
 
 func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_device_device_proto_msgTypes[4]
+	mi := &file_core_pkg_transport_grpc_device_device_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -242,7 +198,7 @@ func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRequest.ProtoReflect.Descriptor instead.
 func (*DeleteRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_device_device_proto_rawDescGZIP(), []int{4}
+	return file_core_pkg_transport_grpc_device_device_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *DeleteRequest) GetKeys() []string {
@@ -262,15 +218,13 @@ const file_core_pkg_transport_grpc_device_device_proto_rawDesc = "" +
 	"\x0eCreateResponse\x123\n" +
 	"\adevices\x18\x01 \x03(\v2\x19.service.device.pb.DeviceR\adevices\"\xcc\x01\n" +
 	"\x0fRetrieveRequest\x12<\n" +
-	"\arequest\x18\r \x01(\v2\".service.device.pb.RetrieveRequestR\arequestJ\x04\b\x01\x10\rR\x04keysR\x05namesR\x05makesR\x06modelsR\tlocationsR\x05racksR\x06searchR\x05limitR\x06offsetR\x10ignore_not_foundR\x0einclude_statusR\x0einclude_parent\"G\n" +
-	"\x10RetrieveResponse\x123\n" +
-	"\adevices\x18\x01 \x03(\v2\x19.service.device.pb.DeviceR\adevices\"#\n" +
+	"\arequest\x18\r \x01(\v2\".service.device.pb.RetrieveRequestR\arequestJ\x04\b\x01\x10\rR\x04keysR\x05namesR\x05makesR\x06modelsR\tlocationsR\x05racksR\x06searchR\x05limitR\x06offsetR\x10ignore_not_foundR\x0einclude_statusR\x0einclude_parent\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\tR\x04keys2V\n" +
 	"\x13DeviceCreateService\x12?\n" +
-	"\x04Exec\x12\x1a.grpc.device.CreateRequest\x1a\x1b.grpc.device.CreateResponse2\\\n" +
-	"\x15DeviceRetrieveService\x12C\n" +
-	"\x04Exec\x12\x1c.grpc.device.RetrieveRequest\x1a\x1d.grpc.device.RetrieveResponse2Q\n" +
+	"\x04Exec\x12\x1a.grpc.device.CreateRequest\x1a\x1b.grpc.device.CreateResponse2b\n" +
+	"\x15DeviceRetrieveService\x12I\n" +
+	"\x04Exec\x12\x1c.grpc.device.RetrieveRequest\x1a#.service.device.pb.RetrieveResponse2Q\n" +
 	"\x13DeviceDeleteService\x12:\n" +
 	"\x04Exec\x12\x1a.grpc.device.DeleteRequest\x1a\x16.google.protobuf.EmptyB\xa3\x01\n" +
 	"\x0fcom.grpc.deviceB\vDeviceProtoP\x01Z6github.com/synnaxlabs/synnax/pkg/transport/grpc/device\xa2\x02\x03GDX\xaa\x02\vGrpc.Device\xca\x02\vGrpc\\Device\xe2\x02\x17Grpc\\Device\\GPBMetadata\xea\x02\fGrpc::Deviceb\x06proto3"
@@ -287,33 +241,32 @@ func file_core_pkg_transport_grpc_device_device_proto_rawDescGZIP() []byte {
 	return file_core_pkg_transport_grpc_device_device_proto_rawDescData
 }
 
-var file_core_pkg_transport_grpc_device_device_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_core_pkg_transport_grpc_device_device_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_core_pkg_transport_grpc_device_device_proto_goTypes = []any{
-	(*CreateRequest)(nil),      // 0: grpc.device.CreateRequest
-	(*CreateResponse)(nil),     // 1: grpc.device.CreateResponse
-	(*RetrieveRequest)(nil),    // 2: grpc.device.RetrieveRequest
-	(*RetrieveResponse)(nil),   // 3: grpc.device.RetrieveResponse
-	(*DeleteRequest)(nil),      // 4: grpc.device.DeleteRequest
-	(*pb.Device)(nil),          // 5: service.device.pb.Device
-	(*pb.RetrieveRequest)(nil), // 6: service.device.pb.RetrieveRequest
-	(*emptypb.Empty)(nil),      // 7: google.protobuf.Empty
+	(*CreateRequest)(nil),       // 0: grpc.device.CreateRequest
+	(*CreateResponse)(nil),      // 1: grpc.device.CreateResponse
+	(*RetrieveRequest)(nil),     // 2: grpc.device.RetrieveRequest
+	(*DeleteRequest)(nil),       // 3: grpc.device.DeleteRequest
+	(*pb.Device)(nil),           // 4: service.device.pb.Device
+	(*pb.RetrieveRequest)(nil),  // 5: service.device.pb.RetrieveRequest
+	(*pb.RetrieveResponse)(nil), // 6: service.device.pb.RetrieveResponse
+	(*emptypb.Empty)(nil),       // 7: google.protobuf.Empty
 }
 var file_core_pkg_transport_grpc_device_device_proto_depIdxs = []int32{
-	5, // 0: grpc.device.CreateRequest.devices:type_name -> service.device.pb.Device
-	5, // 1: grpc.device.CreateResponse.devices:type_name -> service.device.pb.Device
-	6, // 2: grpc.device.RetrieveRequest.request:type_name -> service.device.pb.RetrieveRequest
-	5, // 3: grpc.device.RetrieveResponse.devices:type_name -> service.device.pb.Device
-	0, // 4: grpc.device.DeviceCreateService.Exec:input_type -> grpc.device.CreateRequest
-	2, // 5: grpc.device.DeviceRetrieveService.Exec:input_type -> grpc.device.RetrieveRequest
-	4, // 6: grpc.device.DeviceDeleteService.Exec:input_type -> grpc.device.DeleteRequest
-	1, // 7: grpc.device.DeviceCreateService.Exec:output_type -> grpc.device.CreateResponse
-	3, // 8: grpc.device.DeviceRetrieveService.Exec:output_type -> grpc.device.RetrieveResponse
-	7, // 9: grpc.device.DeviceDeleteService.Exec:output_type -> google.protobuf.Empty
-	7, // [7:10] is the sub-list for method output_type
-	4, // [4:7] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	4, // 0: grpc.device.CreateRequest.devices:type_name -> service.device.pb.Device
+	4, // 1: grpc.device.CreateResponse.devices:type_name -> service.device.pb.Device
+	5, // 2: grpc.device.RetrieveRequest.request:type_name -> service.device.pb.RetrieveRequest
+	0, // 3: grpc.device.DeviceCreateService.Exec:input_type -> grpc.device.CreateRequest
+	2, // 4: grpc.device.DeviceRetrieveService.Exec:input_type -> grpc.device.RetrieveRequest
+	3, // 5: grpc.device.DeviceDeleteService.Exec:input_type -> grpc.device.DeleteRequest
+	1, // 6: grpc.device.DeviceCreateService.Exec:output_type -> grpc.device.CreateResponse
+	6, // 7: grpc.device.DeviceRetrieveService.Exec:output_type -> service.device.pb.RetrieveResponse
+	7, // 8: grpc.device.DeviceDeleteService.Exec:output_type -> google.protobuf.Empty
+	6, // [6:9] is the sub-list for method output_type
+	3, // [3:6] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_transport_grpc_device_device_proto_init() }
@@ -327,7 +280,7 @@ func file_core_pkg_transport_grpc_device_device_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_transport_grpc_device_device_proto_rawDesc), len(file_core_pkg_transport_grpc_device_device_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   3,
 		},

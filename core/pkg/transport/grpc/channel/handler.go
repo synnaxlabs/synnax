@@ -11,6 +11,7 @@ package channel
 
 import (
 	"context"
+	"uuid"
 
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
@@ -38,7 +39,7 @@ type (
 		channel.RetrieveRequest,
 		*RetrieveRequest,
 		channel.RetrieveResponse,
-		*RetrieveResponse,
+		*pb.RetrieveResponse,
 	]
 	deleteServer = grpc.UnaryServer[
 		channel.DeleteRequest,
@@ -58,7 +59,7 @@ var (
 	_ grpc.Translator[channel.RetrieveRequest, *RetrieveRequest] = (*retrieveRequestTranslator)(
 		nil,
 	)
-	_ grpc.Translator[channel.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(
+	_ grpc.Translator[channel.RetrieveResponse, *pb.RetrieveResponse] = (*retrieveResponseTranslator)(
 		nil,
 	)
 	_ grpc.Translator[channel.DeleteRequest, *DeleteRequest] = (*deleteRequestTranslator)(
@@ -120,11 +121,15 @@ func (retrieveRequestTranslator) Forward(
 	_ context.Context,
 	msg channel.RetrieveRequest,
 ) (*RetrieveRequest, error) {
-	req, err := channelpb.RetrieveRequestToPB(msg)
+	req, err := channelpb.RetrieveRequestToPB(msg.Request)
 	if err != nil {
 		return nil, err
 	}
-	return &RetrieveRequest{Request: req}, nil
+	res := &RetrieveRequest{Request: req}
+	if msg.RangeKey != nil {
+		res.RangeKey = new(msg.RangeKey.String())
+	}
+	return res, nil
 }
 
 func (retrieveRequestTranslator) Backward(
@@ -136,29 +141,33 @@ func (retrieveRequestTranslator) Backward(
 	if err := xpb.RejectUnknown(msg); err != nil {
 		return channel.RetrieveRequest{}, err
 	}
-	return channelpb.RetrieveRequestFromPB(msg.Request)
+	req, err := channelpb.RetrieveRequestFromPB(msg.Request)
+	if err != nil {
+		return channel.RetrieveRequest{}, err
+	}
+	res := channel.RetrieveRequest{Request: req}
+	if msg.RangeKey != nil {
+		key, err := uuid.Parse(*msg.RangeKey)
+		if err != nil {
+			return channel.RetrieveRequest{}, err
+		}
+		res.RangeKey = &key
+	}
+	return res, nil
 }
 
 func (retrieveResponseTranslator) Forward(
 	_ context.Context,
 	msg channel.RetrieveResponse,
-) (*RetrieveResponse, error) {
-	channels, err := pb.ChannelsToPB(msg.Channels)
-	if err != nil {
-		return nil, err
-	}
-	return &RetrieveResponse{Channels: channels}, nil
+) (*pb.RetrieveResponse, error) {
+	return pb.RetrieveResponseToPB(msg)
 }
 
 func (retrieveResponseTranslator) Backward(
 	_ context.Context,
-	msg *RetrieveResponse,
+	msg *pb.RetrieveResponse,
 ) (channel.RetrieveResponse, error) {
-	channels, err := pb.ChannelsFromPB(msg.Channels)
-	if err != nil {
-		return channel.RetrieveResponse{}, err
-	}
-	return channel.RetrieveResponse{Channels: channels}, nil
+	return pb.RetrieveResponseFromPB(msg)
 }
 
 func (deleteRequestTranslator) Forward(

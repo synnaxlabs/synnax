@@ -12,7 +12,6 @@ package device
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -137,7 +136,7 @@ func (s *Service) Retrieve(
 	if err := q.Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
-	if lo.FromPtr(req.IncludeStatus) {
+	if req.IncludeStatus {
 		statuses, err := s.status.Join[device.StatusDetails](
 			ctx,
 			device.OntologyIDsFromDevices(res.Devices),
@@ -156,7 +155,7 @@ func (s *Service) Retrieve(
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
-	if lo.FromPtr(req.IncludeParent) {
+	if req.IncludeParent {
 		for i, d := range res.Devices {
 			var parent ontology.Resource
 			err := s.ontology.NewRetrieve().

@@ -36,7 +36,7 @@ export const matches = (lines: Lines, record: Payload, where?: Where): boolean =
     return false;
   if (
     where.leaseholder != null &&
-    !filter.matchesOrdered(where.leaseholder, record.leaseholder)
+    !filter.matchesSet(where.leaseholder, record.leaseholder)
   )
     return false;
   if (where.dataType != null && !filter.matchesSet(where.dataType, record.dataType))

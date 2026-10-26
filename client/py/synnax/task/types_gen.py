@@ -82,7 +82,7 @@ class Where(BaseModel):
     key: filter.Set[Key] | None = None
     name: filter.String | None = None
     type: filter.String | None = None
-    rack: filter.Ordered[rack_.Key] | None = None
+    rack: filter.Set[rack_.Key] | None = None
     internal: filter.Bool | None = None
     snapshot: filter.Bool | None = None
 
@@ -150,10 +150,10 @@ class RetrieveRequest(BaseModel):
     """
 
     where: Where | None = None
-    search_term: str | None = None
+    search_term: str = ""
     limit: int | None = Field(default=None, ge=0, le=4294967295)
-    offset: int | None = Field(default=None, ge=0, le=4294967295)
-    include_status: bool | None = None
+    offset: int = Field(default=0, ge=0, le=4294967295)
+    include_status: bool = False
 
 
 class PersistConfig(StartConfig):

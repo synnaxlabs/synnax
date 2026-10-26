@@ -9,8 +9,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import TypeAlias, overload
+from typing import overload
 from uuid import UUID
 
 from pydantic import PrivateAttr
@@ -43,12 +42,6 @@ from synnax.telem import (
 )
 from x import control, filter
 from x.lists import normalize
-
-AliasRetriever: TypeAlias = Callable[[UUID, list[Key]], dict[Key, str]]
-"""Returns the aliases of the given channels in a range."""
-
-AliasSearcher: TypeAlias = Callable[[UUID, str], list[Key]]
-"""Returns the channels whose alias in a range matches a term, closest match first."""
 
 
 class Channel(Payload):
@@ -218,22 +211,16 @@ class Client:
     _frame_client: framer.Client
     _retriever: Retriever
     _creator: Writer
-    _aliases: AliasRetriever
-    _alias_search: AliasSearcher
 
     def __init__(
         self,
         frame_client: framer.Client,
         retriever: Retriever,
         creator: Writer,
-        aliases: AliasRetriever,
-        alias_search: AliasSearcher,
     ):
         self._frame_client = frame_client
         self._retriever = retriever
         self._creator = creator
-        self._aliases = aliases
-        self._alias_search = alias_search
 
     def delete(self, channels: Params) -> None:
         """Deletes on or more channels from the cluster"""
@@ -355,7 +342,7 @@ class Client:
         channel: Key | str,
         *,
         where: Where | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         data_types: list[CrudeDataType] | None = None,
         not_data_types: list[CrudeDataType] | None = None,
         virtual: bool | None = None,
@@ -364,7 +351,7 @@ class Client:
         range_key: UUID | None = None,
         node_key: int | None = None,
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
         include_status: bool = False,
     ) -> Channel: ...
 
@@ -374,7 +361,7 @@ class Client:
         channel: list[Key] | tuple[Key] | list[str] | tuple[str] | None = None,
         *,
         where: Where | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         data_types: list[CrudeDataType] | None = None,
         not_data_types: list[CrudeDataType] | None = None,
         virtual: bool | None = None,
@@ -383,7 +370,7 @@ class Client:
         range_key: UUID | None = None,
         node_key: int | None = None,
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
         include_status: bool = False,
     ) -> list[Channel]: ...
 
@@ -392,7 +379,7 @@ class Client:
         channel: Params | None = None,
         *,
         where: Where | None = None,
-        search_term: str | None = None,
+        search_term: str = "",
         data_types: list[CrudeDataType] | None = None,
         not_data_types: list[CrudeDataType] | None = None,
         virtual: bool | None = None,
@@ -401,7 +388,7 @@ class Client:
         range_key: UUID | None = None,
         node_key: int | None = None,
         limit: int | None = None,
-        offset: int | None = None,
+        offset: int = 0,
         include_status: bool = False,
     ) -> Channel | list[Channel]:
         """Retrieves a channel or set of channels from the Core. A filter left as None
@@ -432,7 +419,7 @@ class Client:
         """
         flat = Where(
             leaseholder=(
-                None if node_key is None else filter.Ordered[node.Key](eq=node_key)
+                None if node_key is None else filter.Set[node.Key](eq=node_key)
             ),
             data_type=(
                 None
@@ -450,32 +437,24 @@ class Client:
             is_index=None if is_index is None else filter.Bool(eq=is_index),
             internal=None if internal is None else filter.Bool(eq=internal),
         )
-        lines = [w for w in (where, flat) if w is not None and w != Where()]
+        where = filter.merge(where, flat)
         single = False
         if channel is not None:
             normal = normalize_params(channel)
             if len(normal.channels) == 0:
                 return []
             single = normal.single
-            lines.insert(0, params_where(channel))
-        where = _and(lines)
+            where = filter.merge(params_where(channel), where)
         res = self._retriever.filter(
             RetrieveRequest(
                 where=where,
                 search_term=search_term,
                 limit=limit,
                 offset=offset,
-                include_status=include_status or None,
-            )
+                include_status=include_status,
+            ),
+            range_key,
         )
-        if range_key is not None:
-            if search_term:
-                res = self._prepend_alias_matches(
-                    range_key, search_term, where, include_status, res
-                )
-            aliases = self._aliases(range_key, [ch.key for ch in res])
-            for ch in res:
-                ch.alias = aliases.get(ch.key)
         sug = self._sugar(res)
         if channel is None or not single:
             return sug
@@ -518,34 +497,6 @@ class Client:
         """
         self._creator.rename(normalize(keys), normalize(names))
 
-    def _prepend_alias_matches(
-        self,
-        range_key: UUID,
-        term: str,
-        where: Where | None,
-        include_status: bool,
-        channels: list[Payload],
-    ) -> list[Payload]:
-        """Returns channels with the channels whose alias in the range matches term in
-        front, closest match first. An alias match must also match where.
-        """
-        keys = self._alias_search(range_key, term)
-        by_key = {ch.key: ch for ch in channels}
-        missing = [k for k in keys if k not in by_key]
-        if len(missing) > 0:
-            lines = [Where(key=filter.Set[Key](in_=missing))]
-            if where is not None:
-                lines.insert(0, where)
-            for ch in self._retriever.filter(
-                RetrieveRequest(
-                    where=_and(lines), include_status=include_status or None
-                )
-            ):
-                by_key[ch.key] = ch
-        matched = [by_key[k] for k in keys if k in by_key]
-        matched_keys = {ch.key for ch in matched}
-        return matched + [ch for ch in channels if ch.key not in matched_keys]
-
     def _sugar(self, channels: list[Payload]) -> list[Channel]:
         return [
             Channel(**c.model_dump(), _frame_client=self._frame_client)
@@ -555,12 +506,6 @@ class Client:
 
 def _data_types(data_types: list[CrudeDataType]) -> list[DataType]:
     return [DataType(dt) for dt in data_types]
-
-
-def _and(lines: list[Where]) -> Where | None:
-    if len(lines) == 0:
-        return None
-    return lines[0] if len(lines) == 1 else Where(and_=lines)
 
 
 def _multiple_results_error(

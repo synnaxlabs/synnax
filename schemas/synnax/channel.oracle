@@ -26,6 +26,7 @@ Key uint32 {
     """
     @go hand
     @go output    "core/pkg/service/channel"
+    @key
     @ts to_number
 }
 

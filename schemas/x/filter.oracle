@@ -50,6 +50,7 @@ Set struct<T> {
         UUIDs. A value must match every operator that is set.
     """
     @go marshal
+    @pb omit
 }
 
 Ordered struct<T> {
@@ -76,6 +77,7 @@ Ordered struct<T> {
         selects numbers and times. A value must match every operator that is set.
     """
     @go marshal
+    @pb omit
 }
 
 Contains struct<T> {
@@ -85,11 +87,5 @@ Contains struct<T> {
 
     @doc value  "selects arrays by the elements they hold."
     @go marshal
-}
-
-Direction enum {
-    ascending  = "ascending"
-    descending = "descending"
-
-    @doc value "is the direction of a sort."
+    @pb omit
 }

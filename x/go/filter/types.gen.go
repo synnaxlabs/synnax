@@ -28,22 +28,3 @@ type Ordered[T any] = versions.Ordered[T]
 
 // Contains selects arrays by the elements they hold.
 type Contains[T any] = versions.Contains[T]
-
-// Direction is the direction of a sort.
-type Direction string
-
-const (
-	DirectionAscending  Direction = "ascending"
-	DirectionDescending Direction = "descending"
-)
-
-// IsValid reports whether d is one of the defined Direction
-// values.
-func (d Direction) IsValid() bool {
-	switch d {
-	case DirectionAscending, DirectionDescending:
-		return true
-	default:
-		return false
-	}
-}

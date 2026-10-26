@@ -124,10 +124,10 @@ class RetrieveRequest(BaseModel):
     """
 
     where: Where | None = None
-    search_term: str | None = None
+    search_term: str = ""
     limit: int | None = Field(default=None, ge=0, le=4294967295)
-    offset: int | None = Field(default=None, ge=0, le=4294967295)
-    include_labels: bool | None = None
+    offset: int = Field(default=0, ge=0, le=4294967295)
+    include_labels: bool = False
 
 
 Where.model_rebuild()

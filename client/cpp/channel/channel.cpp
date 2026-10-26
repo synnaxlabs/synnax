@@ -86,14 +86,9 @@ Client::retrieve(const RetrieveRequest &req) const {
     *grpc_req.mutable_request() = pb_req;
     auto [res, err] = this->retrieve_client->send("/channel/retrieve", grpc_req);
     if (err) return {{}, err};
-    std::vector<Channel> channels;
-    channels.reserve(res.channels_size());
-    for (const auto &pb: res.channels()) {
-        auto [ch, parse_err] = Channel::from_proto(pb);
-        if (parse_err) return {{}, parse_err};
-        channels.push_back(std::move(ch));
-    }
-    return {channels, x::errors::NIL};
+    auto [decoded, proto_err] = RetrieveResponse::from_proto(res);
+    if (proto_err) return {{}, proto_err};
+    return {std::move(decoded.channels), x::errors::NIL};
 }
 
 std::pair<Channel, x::errors::Error> Client::retrieve(const Key key) const {

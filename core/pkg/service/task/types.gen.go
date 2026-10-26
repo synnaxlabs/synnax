@@ -66,7 +66,7 @@ type Where struct {
 	// Type selects by type.
 	Type *filter.String `json:"type,omitzero" msgpack:"type,omitempty"`
 	// Rack selects by rack.
-	Rack *filter.Ordered[rack.Key] `json:"rack,omitzero" msgpack:"rack,omitempty"`
+	Rack *filter.Set[rack.Key] `json:"rack,omitzero" msgpack:"rack,omitempty"`
 	// Internal selects by internal.
 	Internal *filter.Bool `json:"internal,omitzero" msgpack:"internal,omitempty"`
 	// Snapshot selects by snapshot.
@@ -94,13 +94,13 @@ type RetrieveRequest struct {
 	// Where selects the tasks to retrieve. An absent where selects all of them.
 	Where *Where `json:"where,omitzero" msgpack:"where,omitempty"`
 	// SearchTerm keeps the tasks that match the term, closest match first.
-	SearchTerm *string `json:"search_term,omitzero" msgpack:"search_term,omitempty"`
+	SearchTerm string `json:"search_term" msgpack:"search_term"`
 	// Limit is the most tasks to return.
 	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
 	// Offset is the number of matching tasks to skip.
-	Offset *uint32 `json:"offset,omitzero" msgpack:"offset,omitempty"`
+	Offset uint32 `json:"offset" msgpack:"offset"`
 	// IncludeStatus includes the status of each record.
-	IncludeStatus *bool `json:"include_status,omitzero" msgpack:"include_status,omitempty"`
+	IncludeStatus bool `json:"include_status" msgpack:"include_status"`
 }
 
 // RetrieveResponse holds the tasks a RetrieveRequest selects.

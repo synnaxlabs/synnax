@@ -10,6 +10,9 @@
 from __future__ import annotations
 
 import re
+from uuid import UUID
+
+from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation, trace
 from freighter import UnaryClient
@@ -25,6 +28,11 @@ from synnax.exceptions import NotFoundError
 from x import filter
 
 _NAME_LITERAL = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*")
+
+
+class _RetrieveRequest(BaseModel):
+    request: RetrieveRequest
+    range_key: UUID | None = None
 
 
 def names_where(names: list[str]) -> Where:
@@ -86,8 +94,17 @@ class Retriever:
         return channels[0]
 
     @trace("debug")
-    def filter(self, req: RetrieveRequest) -> list[Payload]:
-        return self._client.send("/channel/retrieve", req, RetrieveResponse).channels
+    def filter(
+        self, req: RetrieveRequest, range_key: UUID | None = None
+    ) -> list[Payload]:
+        """Returns the channels req selects. A range_key sets each channel's alias in
+        the range, and a search term then also matches those aliases, ranked first.
+        """
+        return self._client.send(
+            "/channel/retrieve",
+            _RetrieveRequest(request=req, range_key=range_key),
+            RetrieveResponse,
+        ).channels
 
 
 def retrieve_required(r: Retriever, channels: Params) -> list[Payload]:

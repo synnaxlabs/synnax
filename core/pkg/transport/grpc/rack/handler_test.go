@@ -34,7 +34,7 @@ var _ = Describe("gRPC Rack Translators", func() {
 					HostIsNode: new(false),
 				},
 				Limit:         new(uint32(10)),
-				IncludeStatus: new(true),
+				IncludeStatus: true,
 			}
 			fwd := MustSucceed(t.Forward(ctx, msg))
 			b := MustSucceed(proto.Marshal(fwd))
