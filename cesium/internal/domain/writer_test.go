@@ -155,9 +155,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					"Should not write until a writer opened without a start has one",
 					func(ctx SpecContext) {
 						w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{}))
-						Expect(w.Write([]byte{1, 2, 3})).Error().To(MatchError(
-							"cannot write to a domain writer that has no start",
-						))
+						Expect(w.Write([]byte{1, 2, 3})).Error().
+							To(MatchError(domain.ErrNoStart))
 						Expect(w.SetStart(10 * telem.SecondTS)).To(Succeed())
 						MustSucceed(w.Write([]byte{1, 2, 3}))
 						Expect(w.Commit(ctx, 13*telem.SecondTS)).To(Succeed())
@@ -192,11 +191,12 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							[]byte{1, 2, 3},
 						)).To(Succeed())
 						w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{}))
-						err := w.SetStart(15 * telem.SecondTS)
-						Expect(err).To(MatchError(domain.ErrWriteConflict))
-						Expect(err).To(MatchError(ContainSubstring(
-							"cannot start writer because there is already data",
-						)))
+						Expect(w.SetStart(15 * telem.SecondTS)).To(And(
+							MatchError(domain.ErrWriteConflict),
+							MatchError(ContainSubstring(
+								"cannot start writer because there is already data",
+							)),
+						))
 						Expect(w.SetStart(20 * telem.SecondTS)).To(Succeed())
 						Expect(w.Close()).To(Succeed())
 					},
@@ -206,20 +206,21 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Start: 10 * telem.SecondTS,
 					}))
 					MustSucceed(w.Write([]byte{1, 2, 3}))
-					Expect(w.SetStart(5 * telem.SecondTS)).To(MatchError(
-						"cannot set the start of a domain writer that has written data",
-					))
+					Expect(
+						w.SetStart(5 * telem.SecondTS),
+					).To(MatchError(domain.ErrStartAfterWrite))
 					Expect(w.Close()).To(Succeed())
 				})
 				It("Should not set a start after a preset end", func(ctx SpecContext) {
 					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
 						End: 10 * telem.SecondTS,
 					}))
-					err := w.SetStart(15 * telem.SecondTS)
-					Expect(err).To(MatchError(validate.ErrValidation))
-					Expect(err).To(MatchError(ContainSubstring(
-						"must not be after the preset end timestamp",
-					)))
+					Expect(w.SetStart(15 * telem.SecondTS)).To(And(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring(
+							"must not be after the preset end timestamp",
+						)),
+					))
 					Expect(w.Close()).To(Succeed())
 				})
 			})
