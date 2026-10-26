@@ -106,25 +106,3 @@ message Where {
   // rack selects by rack.
   optional RackKeySet rack = 9;
 }
-
-// RetrieveRequest is a request to retrieve devices.
-message RetrieveRequest {
-  // where selects the devices to retrieve. An absent where selects all of them.
-  optional Where where = 1;
-  // search_term keeps the devices that match the term, closest match first.
-  string search_term = 2;
-  // limit is the most devices to return.
-  optional uint32 limit = 3;
-  // offset is the number of matching devices to skip.
-  uint32 offset = 4;
-  // include_status includes the status of each record.
-  bool include_status = 5;
-  // include_parent includes the parent of each record.
-  bool include_parent = 6;
-}
-
-// RetrieveResponse holds the devices a RetrieveRequest selects.
-message RetrieveResponse {
-  // devices are the devices the request selects.
-  repeated Device devices = 1;
-}

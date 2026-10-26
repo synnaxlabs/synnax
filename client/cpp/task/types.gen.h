@@ -29,6 +29,7 @@
 #include "x/cpp/telem/types.gen.h"
 #include "x/cpp/uuid/uuid.h"
 
+#include "core/pkg/api/task/pb/task.pb.h"
 #include "core/pkg/service/task/pb/task.pb.h"
 
 namespace synnax::task {
@@ -177,11 +178,11 @@ struct RetrieveRequest {
     static RetrieveRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::task::pb::RetrieveRequest;
-    [[nodiscard]] std::pair<::service::task::pb::RetrieveRequest, x::errors::Error>
+    using proto_type = ::api::task::pb::RetrieveRequest;
+    [[nodiscard]] std::pair<::api::task::pb::RetrieveRequest, x::errors::Error>
     to_proto() const;
     static std::pair<RetrieveRequest, x::errors::Error>
-    from_proto(const ::service::task::pb::RetrieveRequest &pb);
+    from_proto(const ::api::task::pb::RetrieveRequest &pb);
 };
 
 /// @brief PersistConfig carries the configuration fields shared by tasks that write
@@ -265,11 +266,11 @@ struct RetrieveResponse {
     static RetrieveResponse parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::task::pb::RetrieveResponse;
-    [[nodiscard]] std::pair<::service::task::pb::RetrieveResponse, x::errors::Error>
+    using proto_type = ::api::task::pb::RetrieveResponse;
+    [[nodiscard]] std::pair<::api::task::pb::RetrieveResponse, x::errors::Error>
     to_proto() const;
     static std::pair<RetrieveResponse, x::errors::Error>
-    from_proto(const ::service::task::pb::RetrieveResponse &pb);
+    from_proto(const ::api::task::pb::RetrieveResponse &pb);
 };
 
 const synnax::ontology::ID ONTOLOGY_TYPE("task", "");

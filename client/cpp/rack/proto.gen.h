@@ -22,6 +22,7 @@
 #include "x/cpp/filter/proto.gen.h"
 #include "x/cpp/pb/pb.h"
 
+#include "core/pkg/api/rack/pb/rack.pb.h"
 #include "core/pkg/service/rack/pb/rack.pb.h"
 
 namespace synnax::rack {
@@ -206,9 +207,9 @@ Where::from_proto(const ::service::rack::pb::Where &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::rack::pb::RetrieveRequest, x::errors::Error>
+inline std::pair<::api::rack::pb::RetrieveRequest, x::errors::Error>
 RetrieveRequest::to_proto() const {
-    ::service::rack::pb::RetrieveRequest pb;
+    ::api::rack::pb::RetrieveRequest pb;
     if (this->where.has_value()) {
         auto [v, err] = this->where->to_proto();
         if (err) return {{}, err};
@@ -222,7 +223,7 @@ RetrieveRequest::to_proto() const {
 }
 
 inline std::pair<RetrieveRequest, x::errors::Error>
-RetrieveRequest::from_proto(const ::service::rack::pb::RetrieveRequest &pb) {
+RetrieveRequest::from_proto(const ::api::rack::pb::RetrieveRequest &pb) {
     RetrieveRequest cpp;
     if (pb.has_where()) {
         auto [v, err] = Where::from_proto(pb.where());
@@ -236,9 +237,9 @@ RetrieveRequest::from_proto(const ::service::rack::pb::RetrieveRequest &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::rack::pb::RetrieveResponse, x::errors::Error>
+inline std::pair<::api::rack::pb::RetrieveResponse, x::errors::Error>
 RetrieveResponse::to_proto() const {
-    ::service::rack::pb::RetrieveResponse pb;
+    ::api::rack::pb::RetrieveResponse pb;
     for (const auto &item: this->racks) {
         auto [v, err] = item.to_proto();
         if (err) return {{}, err};
@@ -248,7 +249,7 @@ RetrieveResponse::to_proto() const {
 }
 
 inline std::pair<RetrieveResponse, x::errors::Error>
-RetrieveResponse::from_proto(const ::service::rack::pb::RetrieveResponse &pb) {
+RetrieveResponse::from_proto(const ::api::rack::pb::RetrieveResponse &pb) {
     RetrieveResponse cpp;
     if (auto err = x::pb::from_proto_repeated<Rack>(cpp.racks, pb.racks()))
         return {{}, err};

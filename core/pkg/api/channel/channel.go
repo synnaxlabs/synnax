@@ -29,7 +29,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -186,19 +185,20 @@ func (s *Service) Create(
 // Where is a filter that selects channels.
 type Where = channel.Where
 
-// RetrieveRequest selects channels. A RangeKey fills the alias of each channel on that
-// range, and a search term then also matches those aliases, ranked first.
-type RetrieveRequest struct {
+// AliasedRetrieveRequest is a RetrieveRequest with an optional range. With a range, the
+// Core fills the alias of each channel on it, and a search term also matches those
+// aliases, ranked first.
+type AliasedRetrieveRequest struct {
 	// Request selects the channels.
-	Request channel.RetrieveRequest `json:"request" msgpack:"request"`
+	Request RetrieveRequest `json:"request" msgpack:"request"`
 	// RangeKey is the range whose aliases to fill and search.
 	RangeKey *ranger.Key `json:"range_key,omitzero" msgpack:"range_key,omitempty"`
 }
 
 // UnmarshalJSONFrom decodes the request and rejects a member that it does not declare,
 // so a client that sends a bare channel request fails.
-func (r *RetrieveRequest) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	type plain RetrieveRequest
+func (r *AliasedRetrieveRequest) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain AliasedRetrieveRequest
 	return json.UnmarshalDecode(dec, (*plain)(r), json.RejectUnknownMembers(true))
 }
 
@@ -206,7 +206,7 @@ func (r *RetrieveRequest) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 // on every channel and on every alias it fills.
 func (s *Service) Retrieve(
 	ctx context.Context,
-	req RetrieveRequest,
+	req AliasedRetrieveRequest,
 ) (RetrieveResponse, error) {
 	resChannels, err := s.retrieve(ctx, req)
 	if err != nil {
@@ -243,75 +243,31 @@ func (s *Service) Retrieve(
 	return res, nil
 }
 
-// retrieve returns the channels req selects. With a range and a search term, the
-// channels whose alias on the range matches the term come first, closest match first,
-// and the page applies to the merged list.
 func (s *Service) retrieve(
 	ctx context.Context,
-	req RetrieveRequest,
+	req AliasedRetrieveRequest,
 ) ([]channel.Channel, error) {
 	r := req.Request
 	if req.RangeKey == nil || r.SearchTerm == "" {
-		return s.exec(ctx, r)
+		var res []channel.Channel
+		q, err := r.Apply(s.internal.NewRetrieve().Entries(&res))
+		if err != nil {
+			return nil, err
+		}
+		return res, q.Exec(ctx, nil)
 	}
-	keys, err := s.alias.NewReader(nil).Search(ctx, *req.RangeKey, r.SearchTerm)
+	// The alias search pages the merged list, so the query carries only the where.
+	q, err := RetrieveRequest{Where: r.Where}.Apply(s.internal.NewRetrieve())
 	if err != nil {
 		return nil, err
 	}
-	if len(keys) == 0 {
-		return s.exec(ctx, r)
+	var limit int
+	if r.Limit != nil {
+		limit = int(*r.Limit)
 	}
-	inKeys := Where{Key: &filter.Set[channel.Key]{In: keys}}
-	byAlias := channel.RetrieveRequest{Where: &inKeys}
-	if r.Where != nil {
-		byAlias.Where = &Where{And: []Where{*r.Where, inKeys}}
-	}
-	aliasMatches, err := s.exec(ctx, byAlias)
-	if err != nil {
-		return nil, err
-	}
-	matched := lo.KeyBy(aliasMatches, func(ch channel.Channel) channel.Key {
-		return ch.Key()
-	})
-	// The search runs from the first match, far enough to fill the page once the alias
-	// matches it holds are dropped.
-	searched := r
-	searched.Offset = 0
-	if r.Limit != nil && *r.Limit > 0 {
-		searched.Limit = new(*r.Limit + r.Offset + uint32(len(matched)))
-	}
-	termMatches, err := s.exec(ctx, searched)
-	if err != nil {
-		return nil, err
-	}
-	merged := lo.FilterMap(keys, func(k channel.Key, _ int) (channel.Channel, bool) {
-		ch, ok := matched[k]
-		return ch, ok
-	})
-	merged = append(
-		merged,
-		lo.Reject(termMatches, func(ch channel.Channel, _ int) bool {
-			_, ok := matched[ch.Key()]
-			return ok
-		})...,
+	return s.alias.NewReader(nil).SearchChannels(
+		ctx, q, *req.RangeKey, r.SearchTerm, limit, int(r.Offset),
 	)
-	length := uint(len(merged))
-	if r.Limit != nil && *r.Limit > 0 {
-		length = uint(*r.Limit)
-	}
-	return lo.Subset(merged, int(r.Offset), length), nil
-}
-
-func (s *Service) exec(
-	ctx context.Context,
-	req channel.RetrieveRequest,
-) ([]channel.Channel, error) {
-	var res []channel.Channel
-	q, err := req.Apply(s.internal.NewRetrieve().Entries(&res))
-	if err != nil {
-		return nil, err
-	}
-	return res, q.Exec(ctx, nil)
 }
 
 // fillAliases sets the alias on the range of each channel that has one, and returns the

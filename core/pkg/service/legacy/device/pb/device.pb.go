@@ -586,143 +586,6 @@ func (x *Where) GetRack() *RackKeySet {
 	return nil
 }
 
-// RetrieveRequest is a request to retrieve devices.
-type RetrieveRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// where selects the devices to retrieve. An absent where selects all of them.
-	Where *Where `protobuf:"bytes,1,opt,name=where,proto3,oneof" json:"where,omitempty"`
-	// search_term keeps the devices that match the term, closest match first.
-	SearchTerm string `protobuf:"bytes,2,opt,name=search_term,json=searchTerm,proto3" json:"search_term,omitempty"`
-	// limit is the most devices to return.
-	Limit *uint32 `protobuf:"varint,3,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
-	// offset is the number of matching devices to skip.
-	Offset uint32 `protobuf:"varint,4,opt,name=offset,proto3" json:"offset,omitempty"`
-	// include_status includes the status of each record.
-	IncludeStatus bool `protobuf:"varint,5,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
-	// include_parent includes the parent of each record.
-	IncludeParent bool `protobuf:"varint,6,opt,name=include_parent,json=includeParent,proto3" json:"include_parent,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RetrieveRequest) Reset() {
-	*x = RetrieveRequest{}
-	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[8]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RetrieveRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RetrieveRequest) ProtoMessage() {}
-
-func (x *RetrieveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[8]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RetrieveRequest.ProtoReflect.Descriptor instead.
-func (*RetrieveRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_legacy_device_pb_device_proto_rawDescGZIP(), []int{8}
-}
-
-func (x *RetrieveRequest) GetWhere() *Where {
-	if x != nil {
-		return x.Where
-	}
-	return nil
-}
-
-func (x *RetrieveRequest) GetSearchTerm() string {
-	if x != nil {
-		return x.SearchTerm
-	}
-	return ""
-}
-
-func (x *RetrieveRequest) GetLimit() uint32 {
-	if x != nil && x.Limit != nil {
-		return *x.Limit
-	}
-	return 0
-}
-
-func (x *RetrieveRequest) GetOffset() uint32 {
-	if x != nil {
-		return x.Offset
-	}
-	return 0
-}
-
-func (x *RetrieveRequest) GetIncludeStatus() bool {
-	if x != nil {
-		return x.IncludeStatus
-	}
-	return false
-}
-
-func (x *RetrieveRequest) GetIncludeParent() bool {
-	if x != nil {
-		return x.IncludeParent
-	}
-	return false
-}
-
-// RetrieveResponse holds the devices a RetrieveRequest selects.
-type RetrieveResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// devices are the devices the request selects.
-	Devices       []*Device `protobuf:"bytes,1,rep,name=devices,proto3" json:"devices,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RetrieveResponse) Reset() {
-	*x = RetrieveResponse{}
-	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[9]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RetrieveResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RetrieveResponse) ProtoMessage() {}
-
-func (x *RetrieveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[9]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RetrieveResponse.ProtoReflect.Descriptor instead.
-func (*RetrieveResponse) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_legacy_device_pb_device_proto_rawDescGZIP(), []int{9}
-}
-
-func (x *RetrieveResponse) GetDevices() []*Device {
-	if x != nil {
-		return x.Devices
-	}
-	return nil
-}
-
 var File_core_pkg_service_legacy_device_pb_device_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_legacy_device_pb_device_proto_rawDesc = "" +
@@ -781,19 +644,7 @@ const file_core_pkg_service_legacy_device_pb_device_proto_rawDesc = "" +
 	"\x05_makeB\b\n" +
 	"\x06_modelB\v\n" +
 	"\t_locationB\a\n" +
-	"\x05_rack\"\xfc\x01\n" +
-	"\x0fRetrieveRequest\x123\n" +
-	"\x05where\x18\x01 \x01(\v2\x18.service.device.pb.WhereH\x00R\x05where\x88\x01\x01\x12\x1f\n" +
-	"\vsearch_term\x18\x02 \x01(\tR\n" +
-	"searchTerm\x12\x19\n" +
-	"\x05limit\x18\x03 \x01(\rH\x01R\x05limit\x88\x01\x01\x12\x16\n" +
-	"\x06offset\x18\x04 \x01(\rR\x06offset\x12%\n" +
-	"\x0einclude_status\x18\x05 \x01(\bR\rincludeStatus\x12%\n" +
-	"\x0einclude_parent\x18\x06 \x01(\bR\rincludeParentB\b\n" +
-	"\x06_whereB\b\n" +
-	"\x06_limit\"G\n" +
-	"\x10RetrieveResponse\x123\n" +
-	"\adevices\x18\x01 \x03(\v2\x19.service.device.pb.DeviceR\adevicesB\xc5\x01\n" +
+	"\x05_rackB\xc5\x01\n" +
 	"\x15com.service.device.pbB\vDeviceProtoP\x01Z9github.com/synnaxlabs/synnax/pkg/service/legacy/device/pb\xa2\x02\x03SDP\xaa\x02\x11Service.Device.Pb\xca\x02\x11Service\\Device\\Pb\xe2\x02\x1dService\\Device\\Pb\\GPBMetadata\xea\x02\x13Service::Device::Pbb\x06proto3"
 
 var (
@@ -808,27 +659,25 @@ func file_core_pkg_service_legacy_device_pb_device_proto_rawDescGZIP() []byte {
 	return file_core_pkg_service_legacy_device_pb_device_proto_rawDescData
 }
 
-var file_core_pkg_service_legacy_device_pb_device_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_core_pkg_service_legacy_device_pb_device_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_core_pkg_service_legacy_device_pb_device_proto_goTypes = []any{
-	(*StatusDetails)(nil),    // 0: service.device.pb.StatusDetails
-	(*Device)(nil),           // 1: service.device.pb.Device
-	(*WhereList)(nil),        // 2: service.device.pb.WhereList
-	(*StringList)(nil),       // 3: service.device.pb.StringList
-	(*StringSet)(nil),        // 4: service.device.pb.StringSet
-	(*RackKeyList)(nil),      // 5: service.device.pb.RackKeyList
-	(*RackKeySet)(nil),       // 6: service.device.pb.RackKeySet
-	(*Where)(nil),            // 7: service.device.pb.Where
-	(*RetrieveRequest)(nil),  // 8: service.device.pb.RetrieveRequest
-	(*RetrieveResponse)(nil), // 9: service.device.pb.RetrieveResponse
-	(*structpb.Struct)(nil),  // 10: google.protobuf.Struct
-	(*pb.Status)(nil),        // 11: service.status.pb.Status
-	(*pb1.ID)(nil),           // 12: service.ontology.pb.ID
-	(*pb2.String)(nil),       // 13: x.filter.pb.String
+	(*StatusDetails)(nil),   // 0: service.device.pb.StatusDetails
+	(*Device)(nil),          // 1: service.device.pb.Device
+	(*WhereList)(nil),       // 2: service.device.pb.WhereList
+	(*StringList)(nil),      // 3: service.device.pb.StringList
+	(*StringSet)(nil),       // 4: service.device.pb.StringSet
+	(*RackKeyList)(nil),     // 5: service.device.pb.RackKeyList
+	(*RackKeySet)(nil),      // 6: service.device.pb.RackKeySet
+	(*Where)(nil),           // 7: service.device.pb.Where
+	(*structpb.Struct)(nil), // 8: google.protobuf.Struct
+	(*pb.Status)(nil),       // 9: service.status.pb.Status
+	(*pb1.ID)(nil),          // 10: service.ontology.pb.ID
+	(*pb2.String)(nil),      // 11: x.filter.pb.String
 }
 var file_core_pkg_service_legacy_device_pb_device_proto_depIdxs = []int32{
-	10, // 0: service.device.pb.Device.properties:type_name -> google.protobuf.Struct
-	11, // 1: service.device.pb.Device.status:type_name -> service.status.pb.Status
-	12, // 2: service.device.pb.Device.parent:type_name -> service.ontology.pb.ID
+	8,  // 0: service.device.pb.Device.properties:type_name -> google.protobuf.Struct
+	9,  // 1: service.device.pb.Device.status:type_name -> service.status.pb.Status
+	10, // 2: service.device.pb.Device.parent:type_name -> service.ontology.pb.ID
 	7,  // 3: service.device.pb.WhereList.values:type_name -> service.device.pb.Where
 	3,  // 4: service.device.pb.StringSet.in:type_name -> service.device.pb.StringList
 	5,  // 5: service.device.pb.RackKeySet.in:type_name -> service.device.pb.RackKeyList
@@ -836,18 +685,16 @@ var file_core_pkg_service_legacy_device_pb_device_proto_depIdxs = []int32{
 	2,  // 7: service.device.pb.Where.or:type_name -> service.device.pb.WhereList
 	7,  // 8: service.device.pb.Where.not:type_name -> service.device.pb.Where
 	4,  // 9: service.device.pb.Where.key:type_name -> service.device.pb.StringSet
-	13, // 10: service.device.pb.Where.name:type_name -> x.filter.pb.String
-	13, // 11: service.device.pb.Where.make:type_name -> x.filter.pb.String
-	13, // 12: service.device.pb.Where.model:type_name -> x.filter.pb.String
-	13, // 13: service.device.pb.Where.location:type_name -> x.filter.pb.String
+	11, // 10: service.device.pb.Where.name:type_name -> x.filter.pb.String
+	11, // 11: service.device.pb.Where.make:type_name -> x.filter.pb.String
+	11, // 12: service.device.pb.Where.model:type_name -> x.filter.pb.String
+	11, // 13: service.device.pb.Where.location:type_name -> x.filter.pb.String
 	6,  // 14: service.device.pb.Where.rack:type_name -> service.device.pb.RackKeySet
-	7,  // 15: service.device.pb.RetrieveRequest.where:type_name -> service.device.pb.Where
-	1,  // 16: service.device.pb.RetrieveResponse.devices:type_name -> service.device.pb.Device
-	17, // [17:17] is the sub-list for method output_type
-	17, // [17:17] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	15, // [15:15] is the sub-list for method output_type
+	15, // [15:15] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_legacy_device_pb_device_proto_init() }
@@ -859,14 +706,13 @@ func file_core_pkg_service_legacy_device_pb_device_proto_init() {
 	file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[4].OneofWrappers = []any{}
 	file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[6].OneofWrappers = []any{}
 	file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[7].OneofWrappers = []any{}
-	file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[8].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_legacy_device_pb_device_proto_rawDesc), len(file_core_pkg_service_legacy_device_pb_device_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

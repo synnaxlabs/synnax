@@ -77,6 +77,10 @@ struct Where {
     /// @brief virtual_ matches virtual channels that are not calculated, or every other
     /// channel when false.
     std::optional<bool> virtual_;
+    /// @brief name_patterns matches channels whose name matches any of the given
+    /// patterns. A valid channel name matches exactly, and any other pattern is a
+    /// regular expression, anchored when unanchored.
+    std::optional<std::vector<std::string>> name_patterns;
 
     static Where parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -129,11 +133,11 @@ struct RetrieveRequest {
     static RetrieveRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::channel::pb::RetrieveRequest;
-    [[nodiscard]] std::pair<::service::channel::pb::RetrieveRequest, x::errors::Error>
+    using proto_type = ::api::channel::pb::RetrieveRequest;
+    [[nodiscard]] std::pair<::api::channel::pb::RetrieveRequest, x::errors::Error>
     to_proto() const;
     static std::pair<RetrieveRequest, x::errors::Error>
-    from_proto(const ::service::channel::pb::RetrieveRequest &pb);
+    from_proto(const ::api::channel::pb::RetrieveRequest &pb);
 };
 
 /// @brief Channel is a logical collection of samples emitted by or representing values

@@ -95,7 +95,8 @@ Where filter Rack {
         """
     }
 
-    @doc value "is a filter that selects racks."
+    @doc value         "is a filter that selects racks."
+    @go request_output "core/pkg/api/rack"
 }
 
 New struct extends Rack {

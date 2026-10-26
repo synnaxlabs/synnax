@@ -273,6 +273,11 @@ Where::to_proto() const {
         *pb.mutable_internal() = v;
     }
     if (this->virtual_.has_value()) pb.set_virtual_(*this->virtual_);
+    if (this->name_patterns.has_value()) {
+        auto *wrapper = pb.mutable_name_patterns();
+        for (const auto &item: *this->name_patterns)
+            wrapper->add_values(item);
+    }
     return {pb, x::errors::NIL};
 }
 
@@ -325,12 +330,17 @@ Where::from_proto(const ::service::channel::pb::Where &pb) {
         cpp.internal = v;
     }
     if (pb.has_virtual_()) cpp.virtual_ = pb.virtual_();
+    if (pb.has_name_patterns()) {
+        cpp.name_patterns.emplace();
+        for (const auto &item: pb.name_patterns().values())
+            cpp.name_patterns->push_back(item);
+    }
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::channel::pb::RetrieveRequest, x::errors::Error>
+inline std::pair<::api::channel::pb::RetrieveRequest, x::errors::Error>
 RetrieveRequest::to_proto() const {
-    ::service::channel::pb::RetrieveRequest pb;
+    ::api::channel::pb::RetrieveRequest pb;
     if (this->where.has_value()) {
         auto [v, err] = this->where->to_proto();
         if (err) return {{}, err};
@@ -344,7 +354,7 @@ RetrieveRequest::to_proto() const {
 }
 
 inline std::pair<RetrieveRequest, x::errors::Error>
-RetrieveRequest::from_proto(const ::service::channel::pb::RetrieveRequest &pb) {
+RetrieveRequest::from_proto(const ::api::channel::pb::RetrieveRequest &pb) {
     RetrieveRequest cpp;
     if (pb.has_where()) {
         auto [v, err] = Where::from_proto(pb.where());

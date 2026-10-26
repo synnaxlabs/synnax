@@ -28,11 +28,9 @@ import (
 )
 
 type (
-	Key              = rack.Key
-	Rack             = rack.Rack
-	RetrieveRequest  = rack.RetrieveRequest
-	RetrieveResponse = rack.RetrieveResponse
-	Where            = rack.Where
+	Key   = rack.Key
+	Rack  = rack.Rack
+	Where = rack.Where
 )
 
 // ServiceConfig is the configuration for the rack API service.

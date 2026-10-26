@@ -17,7 +17,7 @@ package rack
 
 import (
 	context "context"
-	pb "github.com/synnaxlabs/synnax/pkg/service/rack/pb"
+	pb "github.com/synnaxlabs/synnax/pkg/api/rack/pb"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"

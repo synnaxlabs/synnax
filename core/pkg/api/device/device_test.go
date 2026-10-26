@@ -10,6 +10,8 @@
 package device_test
 
 import (
+	"encoding/json/v2"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apidevice "github.com/synnaxlabs/synnax/pkg/api/device"
@@ -141,6 +143,16 @@ var _ = Describe("Retrieve", func() {
 			MatchError(
 				"where.make.regex: error parsing regexp: missing closing ): `(a`: validation error",
 			),
+		))
+	})
+})
+
+var _ = Describe("RetrieveRequest", func() {
+	It("Should reject a request member that it does not declare", func() {
+		var req apidevice.RetrieveRequest
+		Expect(json.Unmarshal([]byte(`{"keys":["dev1"]}`), &req)).To(SatisfyAll(
+			BeAssignableToTypeOf(&json.SemanticError{}),
+			MatchError(ContainSubstring(`unknown object member name "keys"`)),
 		))
 	})
 })

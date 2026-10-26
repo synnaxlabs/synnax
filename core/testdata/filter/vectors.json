@@ -1501,6 +1501,24 @@
         "server_computed": true
       },
       {
+        "name": "name_patterns matches a valid name exactly",
+        "where": { "name_patterns": ["pressure_1", "pressure"] },
+        "expected": ["a"],
+        "server_computed": true
+      },
+      {
+        "name": "name_patterns anchors an unanchored pattern",
+        "where": { "name_patterns": ["pressure_.*", "valve"] },
+        "expected": ["a", "c"],
+        "server_computed": true
+      },
+      {
+        "name": "name_patterns keeps an anchored pattern as given",
+        "where": { "name_patterns": ["^valve"] },
+        "expected": ["d"],
+        "server_computed": true
+      },
+      {
         "name": "leaseholder eq",
         "where": {
           "leaseholder": {

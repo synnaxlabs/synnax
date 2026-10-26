@@ -17,7 +17,8 @@ import (
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/task"
-	"github.com/synnaxlabs/synnax/pkg/service/task/pb"
+	"github.com/synnaxlabs/synnax/pkg/api/task/pb"
+	taskpb "github.com/synnaxlabs/synnax/pkg/service/task/pb"
 	xpb "github.com/synnaxlabs/x/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -73,7 +74,7 @@ func (createRequestTranslator) Forward(
 	_ context.Context,
 	req task.CreateRequest,
 ) (*CreateRequest, error) {
-	tasks, err := pb.TasksToPB(req.Tasks)
+	tasks, err := taskpb.TasksToPB(req.Tasks)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +85,7 @@ func (createRequestTranslator) Backward(
 	_ context.Context,
 	req *CreateRequest,
 ) (task.CreateRequest, error) {
-	tasks, err := pb.TasksFromPB(req.Tasks)
+	tasks, err := taskpb.TasksFromPB(req.Tasks)
 	if err != nil {
 		return task.CreateRequest{}, err
 	}
@@ -95,7 +96,7 @@ func (createResponseTranslator) Forward(
 	_ context.Context,
 	res task.CreateResponse,
 ) (*CreateResponse, error) {
-	tasks, err := pb.TasksToPB(res.Tasks)
+	tasks, err := taskpb.TasksToPB(res.Tasks)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +107,7 @@ func (createResponseTranslator) Backward(
 	_ context.Context,
 	res *CreateResponse,
 ) (task.CreateResponse, error) {
-	tasks, err := pb.TasksFromPB(res.Tasks)
+	tasks, err := taskpb.TasksFromPB(res.Tasks)
 	if err != nil {
 		return task.CreateResponse{}, err
 	}
@@ -202,7 +203,7 @@ func (copyResponseTranslator) Forward(
 	_ context.Context,
 	res task.CopyResponse,
 ) (*CopyResponse, error) {
-	t, err := pb.TaskToPB(res.Task)
+	t, err := taskpb.TaskToPB(res.Task)
 	if err != nil {
 		return nil, err
 	}
@@ -213,7 +214,7 @@ func (copyResponseTranslator) Backward(
 	_ context.Context,
 	res *CopyResponse,
 ) (task.CopyResponse, error) {
-	t, err := pb.TaskFromPB(res.Task)
+	t, err := taskpb.TaskFromPB(res.Task)
 	if err != nil {
 		return task.CopyResponse{}, err
 	}

@@ -144,6 +144,13 @@ func (r Retrieve) Offset(offset int) Retrieve {
 	return r
 }
 
+// SkipMissingKeys makes Exec treat a key with no task as a non-match instead of
+// returning query.ErrNotFound.
+func (r Retrieve) SkipMissingKeys() Retrieve {
+	r.gorp = r.gorp.SkipMissingKeys()
+	return r
+}
+
 // results returns pointers to the tasks the executed query populated.
 func (r Retrieve) results() []*Task {
 	if r.entries != nil {

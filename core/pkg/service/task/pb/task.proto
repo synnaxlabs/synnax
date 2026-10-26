@@ -129,23 +129,3 @@ message Command {
   // args contains optional arguments for the command.
   google.protobuf.Struct args = 5;
 }
-
-// RetrieveRequest is a request to retrieve tasks.
-message RetrieveRequest {
-  // where selects the tasks to retrieve. An absent where selects all of them.
-  optional Where where = 1;
-  // search_term keeps the tasks that match the term, closest match first.
-  string search_term = 2;
-  // limit is the most tasks to return.
-  optional uint32 limit = 3;
-  // offset is the number of matching tasks to skip.
-  uint32 offset = 4;
-  // include_status includes the status of each record.
-  bool include_status = 5;
-}
-
-// RetrieveResponse holds the tasks a RetrieveRequest selects.
-message RetrieveResponse {
-  // tasks are the tasks the request selects.
-  repeated Task tasks = 1;
-}

@@ -24,6 +24,7 @@
 #include "x/cpp/json/struct.h"
 #include "x/cpp/pb/pb.h"
 
+#include "core/pkg/api/device/pb/device.pb.h"
 #include "core/pkg/service/legacy/device/pb/device.pb.h"
 
 namespace synnax::device {
@@ -256,9 +257,9 @@ Where::from_proto(const ::service::device::pb::Where &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::device::pb::RetrieveRequest, x::errors::Error>
+inline std::pair<::api::device::pb::RetrieveRequest, x::errors::Error>
 RetrieveRequest::to_proto() const {
-    ::service::device::pb::RetrieveRequest pb;
+    ::api::device::pb::RetrieveRequest pb;
     if (this->where.has_value()) {
         auto [v, err] = this->where->to_proto();
         if (err) return {{}, err};
@@ -273,7 +274,7 @@ RetrieveRequest::to_proto() const {
 }
 
 inline std::pair<RetrieveRequest, x::errors::Error>
-RetrieveRequest::from_proto(const ::service::device::pb::RetrieveRequest &pb) {
+RetrieveRequest::from_proto(const ::api::device::pb::RetrieveRequest &pb) {
     RetrieveRequest cpp;
     if (pb.has_where()) {
         auto [v, err] = Where::from_proto(pb.where());
@@ -288,9 +289,9 @@ RetrieveRequest::from_proto(const ::service::device::pb::RetrieveRequest &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::device::pb::RetrieveResponse, x::errors::Error>
+inline std::pair<::api::device::pb::RetrieveResponse, x::errors::Error>
 RetrieveResponse::to_proto() const {
-    ::service::device::pb::RetrieveResponse pb;
+    ::api::device::pb::RetrieveResponse pb;
     for (const auto &item: this->devices) {
         auto [v, err] = item.to_proto();
         if (err) return {{}, err};
@@ -300,7 +301,7 @@ RetrieveResponse::to_proto() const {
 }
 
 inline std::pair<RetrieveResponse, x::errors::Error>
-RetrieveResponse::from_proto(const ::service::device::pb::RetrieveResponse &pb) {
+RetrieveResponse::from_proto(const ::api::device::pb::RetrieveResponse &pb) {
     RetrieveResponse cpp;
     if (auto err = x::pb::from_proto_repeated<Device>(cpp.devices, pb.devices()))
         return {{}, err};

@@ -21,9 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -31,7 +29,7 @@ import (
 
 // The case table is shared with the TypeScript matches, so that the Core and the
 // client cache agree on every filter.
-const vectorsPath = "../../../../x/testdata/filter/vectors.json"
+const vectorsPath = "../../../testdata/filter/vectors.json"
 
 // record is a channel as the client sees it, since the TypeScript matches reads the
 // same records.
@@ -106,11 +104,11 @@ var _ = Describe("Where", Ordered, func() {
 	DescribeTable("Should match the case", func(ctx SpecContext, c whereCase) {
 		f := MustSucceed(channel.MatchWhere(c.Where))
 		var res []channel.Channel
-		// The API skips not-found, since a missing key is a non-match.
-		Expect(errors.Skip(
-			chSvc.NewRetrieve().Where(f).Entries(&res).Exec(ctx, nil),
-			query.ErrNotFound,
-		)).To(Succeed())
+		Expect(chSvc.NewRetrieve().
+			SkipMissingKeys().
+			Where(f).
+			Entries(&res).
+			Exec(ctx, nil)).To(Succeed())
 		Expect(lo.Map(res, func(ch channel.Channel, _ int) string {
 			return byName[ch.Name]
 		})).To(ConsistOf(c.Expected))
@@ -129,14 +127,6 @@ var _ = Describe("Where", Ordered, func() {
 			MatchError(
 				"or.1.name.regex: error parsing regexp: missing closing ): `(a`: validation error",
 			),
-		))
-	})
-
-	It("Should reject a request member that it does not declare", func() {
-		var req channel.RetrieveRequest
-		Expect(json.Unmarshal([]byte(`{"keys":[1]}`), &req)).To(SatisfyAll(
-			BeAssignableToTypeOf(&json.SemanticError{}),
-			MatchError(ContainSubstring(`unknown object member name "keys"`)),
 		))
 	})
 })

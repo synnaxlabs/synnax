@@ -52,7 +52,7 @@ class Where(BaseModel):
         rack: Selects by rack.
     """
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     and_: list[Where] | None = Field(default=None, alias="and")
     or_: list[Where] | None = Field(default=None, alias="or")
@@ -79,6 +79,8 @@ class RetrieveRequest(BaseModel):
         include_status: Includes the status of each record.
         include_parent: Includes the parent of each record.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     where: Where | None = None
     search_term: str = ""

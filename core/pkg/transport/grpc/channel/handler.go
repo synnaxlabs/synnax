@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/channel/pb"
-	channelpb "github.com/synnaxlabs/synnax/pkg/service/channel/pb"
 	xpb "github.com/synnaxlabs/x/pb"
 	"github.com/synnaxlabs/x/unsafe"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -36,7 +35,7 @@ type (
 		*CreateResponse,
 	]
 	retrieveServer = grpc.UnaryServer[
-		channel.RetrieveRequest,
+		channel.AliasedRetrieveRequest,
 		*RetrieveRequest,
 		channel.RetrieveResponse,
 		*pb.RetrieveResponse,
@@ -56,7 +55,7 @@ var (
 	_ grpc.Translator[channel.CreateResponse, *CreateResponse] = (*createResponseTranslator)(
 		nil,
 	)
-	_ grpc.Translator[channel.RetrieveRequest, *RetrieveRequest] = (*retrieveRequestTranslator)(
+	_ grpc.Translator[channel.AliasedRetrieveRequest, *RetrieveRequest] = (*retrieveRequestTranslator)(
 		nil,
 	)
 	_ grpc.Translator[channel.RetrieveResponse, *pb.RetrieveResponse] = (*retrieveResponseTranslator)(
@@ -119,9 +118,9 @@ func (createResponseTranslator) Backward(
 
 func (retrieveRequestTranslator) Forward(
 	_ context.Context,
-	msg channel.RetrieveRequest,
+	msg channel.AliasedRetrieveRequest,
 ) (*RetrieveRequest, error) {
-	req, err := channelpb.RetrieveRequestToPB(msg.Request)
+	req, err := pb.RetrieveRequestToPB(msg.Request)
 	if err != nil {
 		return nil, err
 	}
@@ -135,21 +134,21 @@ func (retrieveRequestTranslator) Forward(
 func (retrieveRequestTranslator) Backward(
 	_ context.Context,
 	msg *RetrieveRequest,
-) (channel.RetrieveRequest, error) {
+) (channel.AliasedRetrieveRequest, error) {
 	// A client older than the Core sends the reserved fields, which would otherwise
 	// select every channel.
 	if err := xpb.RejectUnknown(msg); err != nil {
-		return channel.RetrieveRequest{}, err
+		return channel.AliasedRetrieveRequest{}, err
 	}
-	req, err := channelpb.RetrieveRequestFromPB(msg.Request)
+	req, err := pb.RetrieveRequestFromPB(msg.Request)
 	if err != nil {
-		return channel.RetrieveRequest{}, err
+		return channel.AliasedRetrieveRequest{}, err
 	}
-	res := channel.RetrieveRequest{Request: req}
+	res := channel.AliasedRetrieveRequest{Request: req}
 	if msg.RangeKey != nil {
 		key, err := uuid.Parse(*msg.RangeKey)
 		if err != nil {
-			return channel.RetrieveRequest{}, err
+			return channel.AliasedRetrieveRequest{}, err
 		}
 		res.RangeKey = &key
 	}

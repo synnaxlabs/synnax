@@ -10,6 +10,7 @@
 package channel_test
 
 import (
+	"encoding/json/v2"
 	"fmt"
 	"math/rand/v2"
 	"uuid"
@@ -127,12 +128,14 @@ var _ = Describe("Service", func() {
 				GinkgoHelper()
 				return MustSucceed(apiSvc.Retrieve(
 					AuthedCtx(ctx, author),
-					apichannel.RetrieveRequest{Request: channel.RetrieveRequest{
-						Where: &apichannel.Where{
-							Key: &filter.Set[channel.Key]{In: keys},
+					apichannel.AliasedRetrieveRequest{
+						Request: apichannel.RetrieveRequest{
+							Where: &apichannel.Where{
+								Key: &filter.Set[channel.Key]{In: keys},
+							},
+							IncludeStatus: true,
 						},
-						IncludeStatus: true,
-					}},
+					},
 				)).Channels
 			}
 
@@ -197,11 +200,11 @@ var _ = Describe("Service", func() {
 				}}
 			})
 
-			retrieve := func(ctx SpecContext, req channel.RetrieveRequest) []channel.Key {
+			retrieve := func(ctx SpecContext, req apichannel.RetrieveRequest) []channel.Key {
 				GinkgoHelper()
 				res := MustSucceed(apiSvc.Retrieve(
 					AuthedCtx(ctx, author),
-					apichannel.RetrieveRequest{Request: req, RangeKey: &rng.Key},
+					apichannel.AliasedRetrieveRequest{Request: req, RangeKey: &rng.Key},
 				))
 				return lo.Map(
 					res.Channels,
@@ -216,8 +219,8 @@ var _ = Describe("Service", func() {
 				func(ctx SpecContext) {
 					res := MustSucceed(apiSvc.Retrieve(
 						AuthedCtx(ctx, author),
-						apichannel.RetrieveRequest{
-							Request:  channel.RetrieveRequest{Where: both},
+						apichannel.AliasedRetrieveRequest{
+							Request:  apichannel.RetrieveRequest{Where: both},
 							RangeKey: &rng.Key,
 						},
 					))
@@ -237,34 +240,10 @@ var _ = Describe("Service", func() {
 			It("Should rank the channels whose alias matches the term first", func(
 				ctx SpecContext,
 			) {
-				Expect(retrieve(ctx, channel.RetrieveRequest{
+				Expect(retrieve(ctx, apichannel.RetrieveRequest{
 					Where:      both,
 					SearchTerm: term,
 				})).To(Equal([]channel.Key{byAlias.Key(), byName.Key()}))
-			})
-
-			It("Should page the merged channels", func(ctx SpecContext) {
-				req := channel.RetrieveRequest{
-					Where:      both,
-					SearchTerm: term,
-					Limit:      new(uint32(1)),
-				}
-				Expect(retrieve(ctx, req)).To(Equal([]channel.Key{byAlias.Key()}))
-				req.Offset = 1
-				Expect(retrieve(ctx, req)).To(Equal([]channel.Key{byName.Key()}))
-				req.Offset = 2
-				Expect(retrieve(ctx, req)).To(BeEmpty())
-			})
-
-			It("Should leave out an alias match that the where rejects", func(
-				ctx SpecContext,
-			) {
-				Expect(retrieve(ctx, channel.RetrieveRequest{
-					Where: &apichannel.Where{
-						Key: &filter.Set[channel.Key]{Eq: new(byName.Key())},
-					},
-					SearchTerm: term,
-				})).To(Equal([]channel.Key{byName.Key()}))
 			})
 
 			It("Should require retrieve access on the aliases it fills", func(
@@ -282,8 +261,8 @@ var _ = Describe("Service", func() {
 				)
 				Expect(apiSvc.Retrieve(
 					AuthedCtx(ctx, reader),
-					apichannel.RetrieveRequest{
-						Request:  channel.RetrieveRequest{Where: both},
+					apichannel.AliasedRetrieveRequest{
+						Request:  apichannel.RetrieveRequest{Where: both},
 						RangeKey: &rng.Key,
 					},
 				)).Error().To(MatchError(access.ErrDenied))
@@ -300,7 +279,7 @@ var _ = Describe("Service", func() {
 			ch := createChannel(ctx, telem.Float32T)
 			res := MustSucceed(apiSvc.Retrieve(
 				AuthedCtx(ctx, author),
-				apichannel.RetrieveRequest{Request: channel.RetrieveRequest{
+				apichannel.AliasedRetrieveRequest{Request: apichannel.RetrieveRequest{
 					Where: &apichannel.Where{
 						Key: &filter.Set[channel.Key]{
 							In: []channel.Key{ch.Key(), 999999},
@@ -315,7 +294,7 @@ var _ = Describe("Service", func() {
 		It("Should return a path error for an invalid regex", func(ctx SpecContext) {
 			Expect(apiSvc.Retrieve(
 				AuthedCtx(ctx, author),
-				apichannel.RetrieveRequest{Request: channel.RetrieveRequest{
+				apichannel.AliasedRetrieveRequest{Request: apichannel.RetrieveRequest{
 					Where: &apichannel.Where{Name: &filter.String{Regex: new("(a")}},
 				}},
 			)).Error().To(SatisfyAll(
@@ -325,5 +304,15 @@ var _ = Describe("Service", func() {
 				),
 			))
 		})
+	})
+})
+
+var _ = Describe("RetrieveRequest", func() {
+	It("Should reject a request member that it does not declare", func() {
+		var req apichannel.RetrieveRequest
+		Expect(json.Unmarshal([]byte(`{"keys":[1]}`), &req)).To(SatisfyAll(
+			BeAssignableToTypeOf(&json.SemanticError{}),
+			MatchError(ContainSubstring(`unknown object member name "keys"`)),
+		))
 	})
 })

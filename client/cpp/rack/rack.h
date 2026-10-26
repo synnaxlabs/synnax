@@ -23,7 +23,7 @@
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/json/json.h"
 
-#include "core/pkg/service/rack/pb/rack.pb.h"
+#include "core/pkg/api/rack/pb/rack.pb.h"
 #include "core/pkg/transport/grpc/rack/rack.pb.h"
 
 namespace synnax::rack {
@@ -36,7 +36,7 @@ using CreateClient = freighter::
 
 /// @brief Type alias for the transport used to retrieve a rack.
 using RetrieveClient = freighter::
-    UnaryClient<grpc::rack::RetrieveRequest, ::service::rack::pb::RetrieveResponse>;
+    UnaryClient<grpc::rack::RetrieveRequest, ::api::rack::pb::RetrieveResponse>;
 
 /// @brief Type alias for the transport used to delete a rack.
 using DeleteClient = freighter::

@@ -134,7 +134,8 @@ Where filter Task {
     internal
     snapshot
 
-    @doc value "is a filter that selects tasks."
+    @doc value         "is a filter that selects tasks."
+    @go request_output "core/pkg/api/task"
 }
 
 Command struct {

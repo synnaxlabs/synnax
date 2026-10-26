@@ -145,18 +145,15 @@ export const retrieveRequestZ = z.strictObject({
   /** where selects the tasks to retrieve. An absent where selects all of them. */
   where: whereZ.optional(),
   /** searchTerm keeps the tasks that match the term, closest match first. */
-  searchTerm: z.string().default(""),
+  searchTerm: z.string().optional(),
   /** limit is the most tasks to return. */
   limit: z.uint32().optional(),
   /** offset is the number of matching tasks to skip. */
-  offset: z.uint32().default(0),
+  offset: z.uint32().optional(),
   /** includeStatus includes the status of each record. */
-  includeStatus: z.boolean().default(false),
+  includeStatus: z.boolean().optional(),
 });
-export type RetrieveRequest = optional.Optional<
-  z.infer<typeof retrieveRequestZ>,
-  "searchTerm" | "offset" | "includeStatus"
->;
+export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 
 export const readConfigZ = persistConfigZ.extend({
   sampleRate: z.number().default(10),

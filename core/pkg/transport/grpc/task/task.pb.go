@@ -16,6 +16,7 @@
 package task
 
 import (
+	pb1 "github.com/synnaxlabs/synnax/pkg/api/task/pb"
 	pb "github.com/synnaxlabs/synnax/pkg/service/task/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -122,7 +123,7 @@ func (x *CreateResponse) GetTasks() []*pb.Task {
 
 type RetrieveRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Request       *pb.RetrieveRequest    `protobuf:"bytes,6,opt,name=request,proto3" json:"request,omitempty"`
+	Request       *pb1.RetrieveRequest   `protobuf:"bytes,6,opt,name=request,proto3" json:"request,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -157,7 +158,7 @@ func (*RetrieveRequest) Descriptor() ([]byte, []int) {
 	return file_core_pkg_transport_grpc_task_task_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *RetrieveRequest) GetRequest() *pb.RetrieveRequest {
+func (x *RetrieveRequest) GetRequest() *pb1.RetrieveRequest {
 	if x != nil {
 		return x.Request
 	}
@@ -316,13 +317,13 @@ var File_core_pkg_transport_grpc_task_task_proto protoreflect.FileDescriptor
 
 const file_core_pkg_transport_grpc_task_task_proto_rawDesc = "" +
 	"\n" +
-	"'core/pkg/transport/grpc/task/task.proto\x12\tgrpc.task\x1a#core/pkg/service/task/pb/task.proto\x1a\x1bgoogle/protobuf/empty.proto\"<\n" +
+	"'core/pkg/transport/grpc/task/task.proto\x12\tgrpc.task\x1a\x1fcore/pkg/api/task/pb/task.proto\x1a#core/pkg/service/task/pb/task.proto\x1a\x1bgoogle/protobuf/empty.proto\"<\n" +
 	"\rCreateRequest\x12+\n" +
 	"\x05tasks\x18\x01 \x03(\v2\x15.service.task.pb.TaskR\x05tasks\"=\n" +
 	"\x0eCreateResponse\x12+\n" +
-	"\x05tasks\x18\x01 \x03(\v2\x15.service.task.pb.TaskR\x05tasks\"}\n" +
-	"\x0fRetrieveRequest\x12:\n" +
-	"\arequest\x18\x06 \x01(\v2 .service.task.pb.RetrieveRequestR\arequestJ\x04\b\x01\x10\x06R\x04rackR\x04keysR\x05namesR\x05typesR\x0einclude_status\"#\n" +
+	"\x05tasks\x18\x01 \x03(\v2\x15.service.task.pb.TaskR\x05tasks\"y\n" +
+	"\x0fRetrieveRequest\x126\n" +
+	"\arequest\x18\x06 \x01(\v2\x1c.api.task.pb.RetrieveRequestR\arequestJ\x04\b\x01\x10\x06R\x04rackR\x04keysR\x05namesR\x05typesR\x0einclude_status\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\tR\x04keys\"O\n" +
 	"\vCopyRequest\x12\x10\n" +
@@ -332,9 +333,9 @@ const file_core_pkg_transport_grpc_task_task_proto_rawDesc = "" +
 	"\fCopyResponse\x12)\n" +
 	"\x04task\x18\x01 \x01(\v2\x15.service.task.pb.TaskR\x04task2P\n" +
 	"\x11TaskCreateService\x12;\n" +
-	"\x04Exec\x12\x18.grpc.task.CreateRequest\x1a\x19.grpc.task.CreateResponse2\\\n" +
-	"\x13TaskRetrieveService\x12E\n" +
-	"\x04Exec\x12\x1a.grpc.task.RetrieveRequest\x1a!.service.task.pb.RetrieveResponse2M\n" +
+	"\x04Exec\x12\x18.grpc.task.CreateRequest\x1a\x19.grpc.task.CreateResponse2X\n" +
+	"\x13TaskRetrieveService\x12A\n" +
+	"\x04Exec\x12\x1a.grpc.task.RetrieveRequest\x1a\x1d.api.task.pb.RetrieveResponse2M\n" +
 	"\x11TaskDeleteService\x128\n" +
 	"\x04Exec\x12\x18.grpc.task.DeleteRequest\x1a\x16.google.protobuf.Empty2J\n" +
 	"\x0fTaskCopyService\x127\n" +
@@ -356,28 +357,28 @@ func file_core_pkg_transport_grpc_task_task_proto_rawDescGZIP() []byte {
 
 var file_core_pkg_transport_grpc_task_task_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_core_pkg_transport_grpc_task_task_proto_goTypes = []any{
-	(*CreateRequest)(nil),       // 0: grpc.task.CreateRequest
-	(*CreateResponse)(nil),      // 1: grpc.task.CreateResponse
-	(*RetrieveRequest)(nil),     // 2: grpc.task.RetrieveRequest
-	(*DeleteRequest)(nil),       // 3: grpc.task.DeleteRequest
-	(*CopyRequest)(nil),         // 4: grpc.task.CopyRequest
-	(*CopyResponse)(nil),        // 5: grpc.task.CopyResponse
-	(*pb.Task)(nil),             // 6: service.task.pb.Task
-	(*pb.RetrieveRequest)(nil),  // 7: service.task.pb.RetrieveRequest
-	(*pb.RetrieveResponse)(nil), // 8: service.task.pb.RetrieveResponse
-	(*emptypb.Empty)(nil),       // 9: google.protobuf.Empty
+	(*CreateRequest)(nil),        // 0: grpc.task.CreateRequest
+	(*CreateResponse)(nil),       // 1: grpc.task.CreateResponse
+	(*RetrieveRequest)(nil),      // 2: grpc.task.RetrieveRequest
+	(*DeleteRequest)(nil),        // 3: grpc.task.DeleteRequest
+	(*CopyRequest)(nil),          // 4: grpc.task.CopyRequest
+	(*CopyResponse)(nil),         // 5: grpc.task.CopyResponse
+	(*pb.Task)(nil),              // 6: service.task.pb.Task
+	(*pb1.RetrieveRequest)(nil),  // 7: api.task.pb.RetrieveRequest
+	(*pb1.RetrieveResponse)(nil), // 8: api.task.pb.RetrieveResponse
+	(*emptypb.Empty)(nil),        // 9: google.protobuf.Empty
 }
 var file_core_pkg_transport_grpc_task_task_proto_depIdxs = []int32{
 	6, // 0: grpc.task.CreateRequest.tasks:type_name -> service.task.pb.Task
 	6, // 1: grpc.task.CreateResponse.tasks:type_name -> service.task.pb.Task
-	7, // 2: grpc.task.RetrieveRequest.request:type_name -> service.task.pb.RetrieveRequest
+	7, // 2: grpc.task.RetrieveRequest.request:type_name -> api.task.pb.RetrieveRequest
 	6, // 3: grpc.task.CopyResponse.task:type_name -> service.task.pb.Task
 	0, // 4: grpc.task.TaskCreateService.Exec:input_type -> grpc.task.CreateRequest
 	2, // 5: grpc.task.TaskRetrieveService.Exec:input_type -> grpc.task.RetrieveRequest
 	3, // 6: grpc.task.TaskDeleteService.Exec:input_type -> grpc.task.DeleteRequest
 	4, // 7: grpc.task.TaskCopyService.Exec:input_type -> grpc.task.CopyRequest
 	1, // 8: grpc.task.TaskCreateService.Exec:output_type -> grpc.task.CreateResponse
-	8, // 9: grpc.task.TaskRetrieveService.Exec:output_type -> service.task.pb.RetrieveResponse
+	8, // 9: grpc.task.TaskRetrieveService.Exec:output_type -> api.task.pb.RetrieveResponse
 	9, // 10: grpc.task.TaskDeleteService.Exec:output_type -> google.protobuf.Empty
 	5, // 11: grpc.task.TaskCopyService.Exec:output_type -> grpc.task.CopyResponse
 	8, // [8:12] is the sub-list for method output_type

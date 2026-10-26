@@ -114,9 +114,7 @@ func (s *Service) Create(
 }
 
 type (
-	RetrieveRequest  = task.RetrieveRequest
-	RetrieveResponse = task.RetrieveResponse
-	Where            = task.Where
+	Where = task.Where
 )
 
 func (s *Service) Retrieve(

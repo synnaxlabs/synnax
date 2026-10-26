@@ -14,8 +14,6 @@ package rack
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack/versions"
 	"github.com/synnaxlabs/x/filter"
-	"github.com/synnaxlabs/x/validate"
-	"strconv"
 )
 
 // Key is a composite identifier for a rack. The high 16 bits contain the Core key, and
@@ -53,34 +51,4 @@ type Where struct {
 	// HostIsNode matches racks on the Core that serves the request, or racks on other
 	// Cores when false.
 	HostIsNode *bool `json:"host_is_node,omitzero" msgpack:"host_is_node,omitempty"`
-}
-
-// RetrieveRequest is a request to retrieve racks.
-type RetrieveRequest struct {
-	// Where selects the racks to retrieve. An absent where selects all of them.
-	Where *Where `json:"where,omitzero" msgpack:"where,omitempty"`
-	// SearchTerm keeps the racks that match the term, closest match first.
-	SearchTerm string `json:"search_term" msgpack:"search_term"`
-	// Limit is the most racks to return.
-	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
-	// Offset is the number of matching racks to skip.
-	Offset uint32 `json:"offset" msgpack:"offset"`
-	// IncludeStatus includes the status of each record.
-	IncludeStatus bool `json:"include_status" msgpack:"include_status"`
-}
-
-// RetrieveResponse holds the racks a RetrieveRequest selects.
-type RetrieveResponse struct {
-	// Racks are the racks the request selects.
-	Racks []Rack `json:"racks" msgpack:"racks"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (r RetrieveResponse) Validate() error {
-	v := validate.New("RetrieveResponse")
-	for i := range r.Racks {
-		v.Exec(func() error { return validate.PathedError(r.Racks[i].Validate(), "racks", strconv.Itoa(i)) })
-	}
-	return v.Error()
 }

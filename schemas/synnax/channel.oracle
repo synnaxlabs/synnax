@@ -269,14 +269,22 @@ Where filter Channel {
     data_type
     is_index
     internal
-    virtual     bool {
+    virtual       bool     {
         @doc value """
             matches virtual channels that are not calculated, or every other channel
             when false.
         """
     }
+    name_patterns string[] {
+        @doc value """
+            matches channels whose name matches any of the given patterns. A valid
+            channel name matches exactly, and any other pattern is a regular expression,
+            anchored when unanchored.
+        """
+    }
 
-    @doc value     "is a filter that selects channels."
-    @go output     "core/pkg/service/channel"
-    @response type APIChannel
+    @doc value         "is a filter that selects channels."
+    @go output         "core/pkg/service/channel"
+    @go request_output "core/pkg/api/channel"
+    @response type     APIChannel
 }

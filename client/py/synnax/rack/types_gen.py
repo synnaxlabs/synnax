@@ -47,7 +47,7 @@ class Where(BaseModel):
             other Cores when false.
     """
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     and_: list[Where] | None = Field(default=None, alias="and")
     or_: list[Where] | None = Field(default=None, alias="or")
@@ -72,6 +72,8 @@ class RetrieveRequest(BaseModel):
         offset: Is the number of matching racks to skip.
         include_status: Includes the status of each record.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     where: Where | None = None
     search_term: str = ""
