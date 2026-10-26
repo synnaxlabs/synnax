@@ -137,14 +137,14 @@ class Loop:
 
     def __next__(self) -> None:
         interval = self.interval.nanoseconds
-        late = time.perf_counter_ns() - self._deadline
-        if late < 0:
+        if time.perf_counter_ns() < self._deadline:
             _sleep_until(self._deadline, self.precise)
-        elif late >= interval:
-            self._deadline += late
+        now = time.perf_counter_ns()
+        if now - self._deadline >= interval:
+            self._deadline = now
         self._deadline += interval
         self.counter += 1
-        self._last = time.perf_counter_ns()
+        self._last = now
 
     def __call__(self) -> None:
         return self.__next__()
