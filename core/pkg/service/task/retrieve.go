@@ -57,16 +57,6 @@ func Or(fs ...Filter) Filter { return gorp.OrBound(fs...) }
 // Not returns a filter that inverts the provided filter.
 func Not(f Filter) Filter { return gorp.NotBound(f) }
 
-// Search filters the tasks to those whose name or type matches term, closest match
-// first. An empty term adds no filter.
-func (r Retrieve) Search(term string) Retrieve {
-	if term == "" {
-		return r
-	}
-	r.gorp = r.gorp.Where(r.indexes.search.Filter(term))
-	return r
-}
-
 // MatchKeys returns a filter that restricts results to tasks whose key matches any of
 // the provided values. Composing MatchKeys at the top level of a Where clause (i.e.
 // r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing

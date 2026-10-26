@@ -21,9 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -127,25 +125,11 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	q := s.task.NewRetrieve().Entries(&res.Tasks)
-	if req.Where != nil {
-		f, err := task.MatchWhere(*req.Where)
-		if err != nil {
-			return RetrieveResponse{}, validate.PathedError(err, "where")
-		}
-		q = q.Where(f)
+	q, err := req.Apply(s.task.NewRetrieve().Entries(&res.Tasks))
+	if err != nil {
+		return RetrieveResponse{}, err
 	}
-	if term := lo.FromPtr(req.SearchTerm); term != "" {
-		q = q.Search(term)
-	}
-	if req.Limit != nil {
-		q = q.Limit(int(*req.Limit))
-	}
-	if req.Offset != nil {
-		q = q.Offset(int(*req.Offset))
-	}
-	// A filter is a predicate, so a key that does not exist is a non-match.
-	if err := errors.Skip(q.Exec(ctx, nil), query.ErrNotFound); err != nil {
+	if err := q.Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
 	if lo.FromPtr(req.IncludeStatus) {
