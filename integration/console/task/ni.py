@@ -13,6 +13,7 @@ from typing import Any, TypeVar
 from playwright.sync_api import Locator
 
 import synnax as sy
+from console.devices import fill_configure
 from console.layout import LayoutClient
 from console.task.channels.analog import Analog
 from console.task.channels.counter import Counter
@@ -70,6 +71,25 @@ class NITask(TaskPage):
         """
         ...
 
+    def _open_new_device_dropdown(self) -> None:
+        """Add a channel row, select it, and open its device dropdown."""
+        idx = len(self.channels)
+        self.add_channel_row()
+        self.layout.page.locator(".pluto-list__item").nth(idx).click()
+        self.layout.click_btn("Device")
+
+    def connect_device(self) -> None:
+        """Add a channel row and open the find view from the "Connect NI hardware"
+        action of its device dropdown. The device configured there becomes the device
+        of the row. The page does not track the row as a channel."""
+        self._open_new_device_dropdown()
+        self.layout.dialog.get_by_text("Connect NI hardware", exact=True).click(
+            timeout=5000
+        )
+        self.layout.page.locator(self.layout.MODAL_SELECTOR).wait_for(
+            state="visible", timeout=5000
+        )
+
     def _add_channel_helper(
         self,
         name: str,
@@ -93,12 +113,7 @@ class NITask(TaskPage):
         """
         layout = self.layout
 
-        idx = len(self.channels)
-        self.add_channel_row()
-        layout.page.locator(".pluto-list__item").nth(idx).click()
-
-        # Configure device
-        layout.click_btn("Device")
+        self._open_new_device_dropdown()
         layout.select_from_dropdown(device)
 
         if dev_name is None:
@@ -107,18 +122,10 @@ class NITask(TaskPage):
         sy.sleep(0.2)  # Give modal time to appear
         configured = layout.is_modal_open()
         if configured:
-            sy.sleep(0.2)
-            layout.fill_input_field("Name", dev_name)
-            layout.click_btn("Next")
-            sy.sleep(0.2)
-            layout.fill_input_field("Identifier", dev_name)
-            layout.click_btn("Save")
-            sy.sleep(0.2)
-
-        if layout.is_modal_open():
-            raise RuntimeError("Blocking modal is still open")
-        # Configuring renames the device, and the field shows the new name late.
-        if configured:
+            modal = layout.page.locator(layout.MODAL_SELECTOR)
+            fill_configure(modal, name=dev_name, identifier=dev_name)
+            modal.wait_for(state="hidden", timeout=5000)
+            # Configuring renames the device, and the field shows the new name late.
             layout.wait_for_dropdown_value("Device", dev_name)
 
         # Create channel using provided class

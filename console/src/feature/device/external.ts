@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { CONNECT_COMMANDS } from "@/feature/device/commands";
 import { HTTP } from "@/feature/http";
 import { Modbus } from "@/feature/modbus";
 import { OPCUA } from "@/feature/opcua";
 import { type Command } from "@/platform/command";
 
+export * from "@/feature/device/Connect";
 export * from "@/feature/device/link";
 export * from "@/feature/device/notifications";
 export * from "@/feature/device/Toolbar";
@@ -20,6 +22,7 @@ export * from "@/feature/device/useListenForChanges";
 export * from "@/platform/device/external";
 
 export const COMMANDS: Command.Command[] = [
+  ...CONNECT_COMMANDS,
   ...HTTP.Device.COMMANDS,
   ...Modbus.Device.COMMANDS,
   ...OPCUA.Device.COMMANDS,

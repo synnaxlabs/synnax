@@ -9,17 +9,15 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { ZERO_PROPERTIES } from "@/feature/ni/device/types";
-import { Device } from "@/platform/device";
-import { Modals } from "@/platform/modals";
+import { INTEGRATION } from "@/feature/modbus/device/types";
+import { Connect } from "@/feature/modbus/device/useConnectModal";
+import { type Device } from "@/platform/device";
 
-export const useConfigureModal = Modals.create<Device.ConfigureParams>(
-  ({ deviceKey, close }) => (
-    <Device.Configure
-      deviceKey={deviceKey}
-      close={close}
-      icon={<Icon.Logo.NI />}
-      initialProperties={ZERO_PROPERTIES}
-    />
-  ),
-);
+export const NETWORK: Device.Network = {
+  key: INTEGRATION,
+  name: "Modbus",
+  title: "Modbus TCP server",
+  description: "Read and write registers and coils on a Modbus TCP server.",
+  icon: <Icon.Logo.Modbus />,
+  Connect,
+};
