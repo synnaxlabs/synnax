@@ -51,7 +51,7 @@ ASSETS_BRANCH = "agent-assets"
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
 TEMPLATE = Path(".github/pull_request_template.md")
 LINEAR_URL = "https://linear.app/synnax/issue/"
-# Claude Code otherwise appends a co-author trailer, which CLAUDE.md forbids.
+# Claude Code otherwise appends a co-author trailer, which the repository rules forbid.
 CLAUDE_SETTINGS = '{"attribution":{"commit":"","pr":""}}'
 
 
@@ -185,7 +185,6 @@ def agent_command(opts: Options, prompt: str, out: Path) -> list[str]:
             "exec",
             "--dangerously-bypass-approvals-and-sandbox",
         ]
-        cmd += ["-c", 'project_doc_fallback_filenames=["CLAUDE.md"]']
         cmd += ["--output-last-message", str(out / "last-message.md")]
     if opts.model:
         cmd += ["--model", opts.model]
