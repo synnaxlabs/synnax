@@ -97,3 +97,31 @@ class TestReport:
         out = write(tmp_path)
         assert "driver/rack/rack.h resolve .port = 9090\n" in out
         assert 'driver/rack/rack.h resolve .host = "localhost"\n' in out
+
+    def test_lists_default_integrations_and_their_conditions(
+        self, tmp_path: Path
+    ) -> None:
+        rack = tmp_path / "driver" / "rack"
+        rack.mkdir(parents=True)
+        src = (
+            "inline std::vector<std::string> default_integrations() {\n"
+            "    std::vector<std::string> integrations = {\n"
+            "        opcua::INTEGRATION_NAME,\n"
+            "        http::INTEGRATION_NAME\n"
+            "    };\n"
+            "#ifndef SYNNAX_NILINUXRT\n"
+            "    integrations.push_back(modbus::INTEGRATION_NAME);\n"
+            "#endif\n"
+            "    return integrations;\n"
+            "}\n"
+        )
+        (rack / "rack.h").write_text(src)
+        before = write(tmp_path)
+        assert [line for line in before.splitlines() if "rack.h" in line] == [
+            "driver/rack/rack.h default_integrations http::INTEGRATION_NAME",
+            "driver/rack/rack.h default_integrations modbus::INTEGRATION_NAME"
+            " #ifndef SYNNAX_NILINUXRT",
+            "driver/rack/rack.h default_integrations opcua::INTEGRATION_NAME",
+        ]
+        (rack / "rack.h").write_text(src.replace(" integrations", " names"))
+        assert write(tmp_path) == before

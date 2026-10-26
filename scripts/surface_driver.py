@@ -16,7 +16,8 @@ reads the C++ source as text, so it needs no build. It reports:
 - each key a parser reads in the files that load the Driver config (config file,
   environment, and arguments);
 - each member, with its default, of a config struct that has an `override` method;
-- the defaults that `resolve` and `default_integrations` set.
+- the defaults that `resolve` sets;
+- each default integration, with the preprocessor conditions that build it.
 
     uv run --project scripts scripts/surface_driver.py .
 """
@@ -45,6 +46,8 @@ READ = re.compile(
 STRUCT = re.compile(r"\bstruct\s+(\w+)\s*(?::[^{;]*)?\{")
 DEFAULTS = re.compile(r"\b(resolve|default_integrations)\s*\([^)]*\)[^;{]*\{")
 INIT = re.compile(r"\.(\w+)\s*=\s*([^,{}]+?)\s*(?=[,}])")
+INTEGRATION = re.compile(r"\b\w+::INTEGRATION_NAME\b")
+DIRECTIVE = re.compile(r"^\s*#\s*(if|ifdef|ifndef|elif|else|endif)\b\s*(.*)$")
 
 
 def files(root: Path) -> list[Path]:
@@ -99,7 +102,26 @@ def defaults(src: str) -> list[str]:
         if name == "resolve":
             out += [f"{name} .{k} = {v}" for k, v in INIT.findall(fn_body)]
         else:
-            out.append(f"{name} {' '.join(fn_body.split())}")
+            out += [f"{name} {entry}" for entry in integrations(fn_body)]
+    return out
+
+
+def integrations(fn_body: str) -> list[str]:
+    out = []
+    conditions: list[str] = []
+    for line in fn_body.splitlines():
+        directive = DIRECTIVE.match(line)
+        if directive is None:
+            suffix = "".join(f" #{c}" for c in conditions)
+            out += [f"{entry}{suffix}" for entry in INTEGRATION.findall(line)]
+            continue
+        kind, arg = directive.group(1), " ".join(directive.group(2).split())
+        if kind in ("if", "ifdef", "ifndef"):
+            conditions.append(f"{kind} {arg}")
+        elif kind == "endif":
+            conditions.pop()
+        else:
+            conditions[-1] = f"{kind} {arg}".rstrip() + f" (after {conditions[-1]})"
     return out
 
 
