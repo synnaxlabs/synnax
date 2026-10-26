@@ -786,22 +786,6 @@ class Client:
     def on_create(self, f: Callable[[Range], None]) -> Callable[[Latest], None]:
         @functools.wraps(f)
         def wrapper(state: Latest) -> None:
-            d = state[RANGE_SET_CHANNEL]
-            if not isinstance(d, dict):
-                raise TypeError(f"expected a JSON object on {RANGE_SET_CHANNEL}")
-            f(
-                Range(
-                    name=d["name"],
-                    key=d["key"],
-                    time_range=TimeRange(
-                        start=d["time_range"]["start"],
-                        end=d["time_range"]["end"],
-                    ),
-                    _frame_client=self._frame_client,
-                    _channel_retriever=self._channels,
-                    _kv=kv.Client(d["key"], self._unary_client),
-                    _aliaser=alias_.Client(d["key"], self._unary_client),
-                )
-            )
+            f(self._sugar([Payload.model_validate(state[RANGE_SET_CHANNEL])])[0])
 
         return self._signals.on([RANGE_SET_CHANNEL], lambda s: True)(wrapper)
