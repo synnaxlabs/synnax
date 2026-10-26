@@ -8,18 +8,21 @@
 // included in the file licenses/APL.txt.
 
 import { CSS } from "@synnaxlabs/lyra/css";
-import { useResize } from "@synnaxlabs/lyra/hooks";
 import { box, xy } from "@synnaxlabs/x";
-import { type RefCallback, useState } from "react";
+import { type RefCallback, useRef, useState } from "react";
 
 const ROOT_SELECTOR = `.${CSS.B("symbol-primitive")}`;
 
-// The diagram zooms with a transform. Layout sizes such as offsetWidth ignore it and
-// client rects include it, so their ratio is the zoom.
-const measure = (el: HTMLElement): box.Box => {
+const rootOf = (el: HTMLElement): HTMLElement => {
   const root = el.closest(ROOT_SELECTOR);
   if (!(root instanceof HTMLElement))
     throw new Error("useCanvasBox needs an element inside a symbol primitive");
+  return root;
+};
+
+// The diagram zooms with a transform. Layout sizes such as offsetWidth ignore it and
+// client rects include it, so their ratio is the zoom.
+const measure = (el: HTMLElement, root: HTMLElement): box.Box => {
   // A hidden symbol has no layout to draw into.
   if (root.offsetWidth === 0) return box.ZERO;
   const rootRect = root.getBoundingClientRect();
@@ -49,7 +52,7 @@ export interface UseCanvasBoxReturn<E extends HTMLElement> {
 
 /**
  * useCanvasBox measures where an element sits in a symbol, so the worker can draw into
- * it. It measures again when the element resizes.
+ * it. It measures again when the element or the symbol resizes.
  * @param position - The node's position. The symbol's root must sit at it.
  * @throws {Error} if the element is not inside a symbol primitive.
  */
@@ -57,6 +60,20 @@ export const useCanvasBox = <E extends HTMLElement>(
   position: xy.XY = xy.ZERO,
 ): UseCanvasBoxReturn<E> => {
   const [offset, setOffset] = useState<box.Box>(box.ZERO);
-  const ref = useResize<E>((_, el) => setOffset(measure(el)));
+  const disconnectRef = useRef<(() => void) | null>(null);
+  const ref = (el: E | null): void => {
+    disconnectRef.current?.();
+    disconnectRef.current = null;
+    if (el == null) return;
+    const root = rootOf(el);
+    const observer = new ResizeObserver(() => {
+      const next = measure(el, root);
+      setOffset((prev) => (box.equals(prev, next) ? prev : next));
+    });
+    // A sibling that grows moves the element without resizing it, but resizes the root.
+    observer.observe(el);
+    observer.observe(root);
+    disconnectRef.current = () => observer.disconnect();
+  };
   return { ref, box: box.translate(offset, position) };
 };

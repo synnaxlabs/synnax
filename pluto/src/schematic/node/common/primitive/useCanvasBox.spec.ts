@@ -122,6 +122,30 @@ describe("Primitive.useCanvasBox", () => {
     await waitFor(() => expect(result.current.box).toEqual(box.ZERO));
   });
 
+  // A field above a readout can grow without resizing the readout's cell.
+  it("should measure again when the element moves without resizing", async () => {
+    const el = createSymbol(LAYOUT);
+    const { result } = renderHook(() => Primitive.useCanvasBox());
+    act(() => {
+      result.current.ref(el);
+    });
+    await waitFor(() => expect(result.current.box).toEqual(CONTENT));
+    const shift = xy.construct(0, 4);
+    const moved = xy.translate(xy.translate(ROOT_SCREEN, LAYOUT.offset), shift);
+    el.getBoundingClientRect = () => rect(moved, WIDTH, HEIGHT);
+    (el.parentElement as HTMLElement).style.height = "54px";
+    await waitFor(() =>
+      expect(result.current.box).toEqual(box.translate(CONTENT, shift)),
+    );
+  });
+
+  it("should throw for an element outside a symbol", () => {
+    const { result } = renderHook(() => Primitive.useCanvasBox());
+    expect(() => result.current.ref(document.createElement("div"))).toThrow(
+      "useCanvasBox needs an element inside a symbol primitive",
+    );
+  });
+
   it("should place the box at the node's position", async () => {
     const position = xy.construct(400, -50);
     expect(await measure(createSymbol(LAYOUT), position)).toEqual(
