@@ -178,11 +178,14 @@ Channel struct {
 			Expect(f.Defined[0].QualifiedName).To(Equal("v1.Channel"))
 		})
 
-		It("Should record dependency pins from imports", func(ctx SpecContext) {
+		DescribeTable("Should record dependency pins from imports", func(
+			ctx SpecContext,
+			importPath string,
+		) {
 			r := resolverFor(map[string]string{
 				"schemas/x/versions/telem/v0.oracle": "TimeStamp = int64\n",
 				"schemas/synnax/versions/channel/v0.oracle": `
-import "schemas/x/versions/telem/v0"
+import "` + importPath + `"
 
 Channel struct {
 	key uuid @key
@@ -194,7 +197,10 @@ Channel struct {
 			Expect(f.Pins).To(HaveKeyWithValue("schemas/x/telem", 0))
 			ch := MustBeOk(f.Table.Get("v0.Channel"))
 			Expect(ch.Namespace).To(Equal("v0"))
-		})
+		},
+			Entry("without an extension", "schemas/x/versions/telem/v0"),
+			Entry("with an extension", "schemas/x/versions/telem/v0.oracle"),
+		)
 
 		It("Should resolve the live schema of a versioned resource", func(
 			ctx SpecContext,

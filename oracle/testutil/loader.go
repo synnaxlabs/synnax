@@ -72,7 +72,6 @@ func (m *MockFileLoader) Versioned(importPath string) bool {
 	return false
 }
 
-// fileNotFoundError is returned when MockFileLoader cannot find a requested file.
 type fileNotFoundError struct {
 	Path string
 }

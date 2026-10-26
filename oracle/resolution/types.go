@@ -36,10 +36,8 @@ var primitives = set.New(
 // IsPrimitive returns true if the name is a built-in primitive type.
 func IsPrimitive(name string) bool { return primitives.Contains(name) }
 
-// stringPrimitives identifies primitives that map to string-like types.
 var stringPrimitives = set.New("string", "uuid")
 
-// numberPrimitives identifies primitives that map to number types.
 var numberPrimitives = set.New(
 	"int8", "int16", "int32", "int64",
 	"uint8", "uint12", "uint16", "uint20", "uint32", "uint64",
