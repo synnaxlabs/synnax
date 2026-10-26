@@ -45,9 +45,10 @@ type WriterConfig struct {
 	// [REQUIRED]
 	Subject xcontrol.Subject
 	// Start marks the start of the writer's control region and, unless
-	// Writer.SetDomainStart sets another, of the domain it writes. A non-zero Start
-	// fails the open when stored data holds it.
-	// [REQUIRED]
+	// Writer.SetDomainStart sets another, of the domain it writes. A zero Start means
+	// the time the writer opens. A non-zero Start fails the open when stored data holds
+	// it.
+	// [OPTIONAL]
 	Start telem.TimeStamp
 	// End is an optional parameter that marks the ending bound of the domain. Defining
 	// this parameter will allow the writer to write data to the domain without needing
@@ -121,10 +122,10 @@ func (c WriterConfig) domain() domain.WriterConfig {
 	}
 }
 
-func (c WriterConfig) controlTimeRange() telem.TimeRange {
+func (c WriterConfig) controlTimeRange(start telem.TimeStamp) telem.TimeRange {
 	// The automatic controlTimeRange is until the end of time, but we are not sure if
 	// we should use this or the start of next domain.
-	return c.Start.Range(lo.Ternary(c.End.IsZero(), telem.TimeStampMax, c.End))
+	return start.Range(lo.Ternary(c.End.IsZero(), telem.TimeStampMax, c.End))
 }
 
 // controlledWriter is used for exchanging control between multiple unary writers. When
@@ -190,7 +191,7 @@ type Writer struct {
 	Channel channel.Channel
 	cfg     WriterConfig
 	// domainStart is where the domain starts if this writer persists its first
-	// sample. Defaults to cfg.Start.
+	// sample. Defaults to cfg.Start, or to the open time when cfg.Start is zero.
 	domainStart telem.TimeStamp
 	// highWaterMark is a hot-path optimization when writing to an index channel. We can
 	// avoid unnecessary index lookups by keeping track of the highest timestamp
@@ -213,25 +214,29 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 	if err != nil {
 		return nil, transfer, err
 	}
+	start := cfg.Start
+	if start.IsZero() {
+		start = telem.Now()
+	}
 	w = &Writer{
 		cfg:         cfg,
 		Channel:     db.cfg.Channel,
 		idx:         db.index(),
 		wrapError:   db.wrapError,
-		domainStart: cfg.Start,
+		domainStart: start,
 	}
 	if w.control, transfer, err = db.controller.OpenGate(
 		control.GateConfig[*controlledWriter]{
 			ErrIfControlled:       new(false),
 			ErrOnUnauthorizedOpen: cfg.ErrOnUnauthorizedOpen,
-			TimeRange:             cfg.controlTimeRange(),
+			TimeRange:             cfg.controlTimeRange(start),
 			Authority:             cfg.Authority,
 			Subject:               cfg.Subject,
 			OpenResource: func() (*controlledWriter, error) {
 				cw := &controlledWriter{
 					channelKey:   db.cfg.Channel.Key,
 					tracker:      db.resolver.newTracker(),
-					sessionStart: cfg.Start,
+					sessionStart: start,
 				}
 				domainCfg := cfg.domain()
 				domainCfg.OnRollover = cw.tracker.rollover
@@ -247,6 +252,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 	return w, transfer, w.wrapError(err)
 }
 
+// Write writes series to db in a domain that starts at start.
 func Write(
 	ctx context.Context,
 	db *DB,
@@ -261,6 +267,7 @@ func Write(
 	if err != nil {
 		return db.wrapError(err)
 	}
+	w.SetDomainStart(start)
 	defer func() {
 		_, errClose := w.Close()
 		err = db.wrapError(errors.Combine(err, errClose))
