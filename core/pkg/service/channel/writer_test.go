@@ -1241,6 +1241,31 @@ var _ = Describe("Writer", func() {
 				},
 			)
 		})
+		Context("Name Patterns", func() {
+			It(
+				"Should delete every channel whose name matches a pattern",
+				func(ctx SpecContext) {
+					prefix := UniqueChannelName()
+					chs := []channel.Channel{
+						{Name: prefix + "_a", DataType: telem.Float32T, Virtual: true},
+						{Name: prefix + "_b", DataType: telem.Float32T, Virtual: true},
+						{Name: prefix + "_c", DataType: telem.Float32T, Virtual: true},
+					}
+					Expect(channelWriter.CreateMany(ctx, &chs)).To(Succeed())
+					Expect(channelWriter.DeleteManyByNamePatterns(
+						ctx,
+						[]string{prefix + "_[ab]"},
+						false,
+					)).To(Succeed())
+					var remaining []channel.Channel
+					Expect(svc.NewRetrieve().
+						Where(channel.MatchNamePatterns(prefix+"_.*")).
+						Entries(&remaining).
+						Exec(ctx, nil)).To(Succeed())
+					Expect(remaining).To(ConsistOf(HaveField("Name", prefix+"_c")))
+				},
+			)
+		})
 		Context("Internal Channels", func() {
 			var internalCh channel.Channel
 			JustBeforeEach(func(ctx SpecContext) {

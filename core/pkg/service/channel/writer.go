@@ -154,8 +154,8 @@ func (w Writer) DeleteMany(ctx context.Context, keys []Key, allowInternal bool) 
 }
 
 // DeleteManyByNamePatterns deletes the channels whose names match any of the given
-// patterns. Unless allowInternal is true, deleting any internal channel returns an
-// error and no channels are deleted.
+// patterns, as MatchNamePatterns matches them. Unless allowInternal is true, deleting
+// any internal channel returns an error and no channels are deleted.
 func (w Writer) DeleteManyByNamePatterns(
 	ctx context.Context, patterns []string, allowInternal bool,
 ) error {
