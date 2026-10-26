@@ -17,6 +17,7 @@ linters:
     - set
     - goroutineleak
     - suiteconfig
+    - errmatch
   settings:
     ginkgolinter:
       forbid-focus-container: true
@@ -60,6 +61,11 @@ linters:
         description: >
           Enforces the shared Ginkgo configuration in Ginkgo suites: every RunSpecs call
           must pass SuiteConfig().
+      errmatch:
+        type: "module"
+        description: >
+          Forbids error assertions that do not identify the error: HaveOccurred(),
+          Not(Succeed()), and Not(BeNil()) on an error.
 formatters:
   enable:
     - gci
