@@ -30,7 +30,7 @@ import {
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/log/types.gen";
-import { type Lines, matches, serverComputed } from "@/log/where.gen";
+import { matches, serverComputed } from "@/log/where.gen";
 import { type ontology } from "@/ontology";
 import { project } from "@/project";
 import { query } from "@/query";
@@ -40,20 +40,11 @@ export const DELETE_CHANNEL_NAME = "sy_log_delete";
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const keysRequest = (keys: Key[]): RetrieveRequest => ({
-  where: { key: { in: keys } },
-});
-
-const retrieveMultiParamsZ = z.union([
-  keyZ.array().transform(keysRequest),
-  retrieveRequestZ,
-]);
+const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
 
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 export type RetrieveSingleParams = { key: Key };
 export type RetrieveMultipleParams = RetrieveRequest;
-
-const LINES: Lines = {};
 
 const createReqZ = z.object({ project: project.keyZ, logs: logZ.array() });
 const createResZ = z.object({ logs: logZ.array() });
@@ -78,7 +69,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
     const store = cache.createTable<Key, Log>({
       name: "logs",
       hydrate: "if-absent",
-      fetch: async (keys) => await this.execRetrieve(keysRequest(keys)),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
     const dispatcher = new actions.Controller<Key, Log, Action>({
@@ -95,8 +86,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (log, req) => matches(LINES, log, req.where ?? {}),
-        serverComputed: (req) => req.where != null && serverComputed(LINES, req.where),
+        matches: (log, req) => matches(log, req.where),
+        serverComputed: (req) => serverComputed(req.where),
       },
     });
     this.cfg = cfg;

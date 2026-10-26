@@ -29,14 +29,7 @@ import { query } from "@/query";
 export const SET_CHANNEL_NAME = "sy_policy_set";
 export const DELETE_CHANNEL_NAME = "sy_policy_delete";
 
-const keysRequest = (keys: Key[]): RetrieveRequest => ({
-  where: { key: { in: keys } },
-});
-
-const retrieveMultiParamsZ = z.union([
-  keyZ.array().transform(keysRequest),
-  retrieveRequestZ,
-]);
+const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
 
 export type RetrieveSingleParams = { key: Key };
 export type RetrieveMultipleParams = RetrieveRequest;
@@ -72,7 +65,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Po
     const { cache } = cfg;
     const store = cache.createTable<Key, Policy>({
       name: "policies",
-      fetch: async (keys) => await this.execRetrieve(keysRequest(keys)),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, policyZ),
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
@@ -84,8 +77,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Po
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (policy, req) => matches(LINES, policy, req.where ?? {}),
-        serverComputed: (req) => req.where != null && serverComputed(LINES, req.where),
+        matches: (policy, req) => matches(LINES, policy, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
       },
     });
     this.cfg = cfg;

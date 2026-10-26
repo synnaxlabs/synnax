@@ -47,14 +47,7 @@ export interface SetOptions extends Pick<SetReq, "replace"> {}
 const removeReqZ = setReqZ.omit({ replace: true });
 const emptyResZ = z.object({});
 
-const keysRequest = (keys: Key[]): RetrieveRequest => ({
-  where: { key: { in: keys } },
-});
-
-const retrieveMultiParamsZ = z.union([
-  keyZ.array().transform(keysRequest),
-  retrieveRequestZ,
-]);
+const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
 
 /** Names one label. */
 export type RetrieveSingleParams = { key: Key };
@@ -85,7 +78,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
     const { relationships } = ontologyClient.cache;
     const store = cache.createTable<Key, Label>({
       name: "labels",
-      fetch: async (keys) => await this.execRetrieve(keysRequest(keys)),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, labelZ),
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
@@ -100,8 +93,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (l, req) => matches(lines, l, req.where ?? {}),
-        serverComputed: (req) => req.where != null && serverComputed(lines, req.where),
+        matches: (l, req) => matches(lines, l, req.where),
+        serverComputed: (req) => serverComputed(lines, req.where),
         watch: [
           query.watch(relationships, (event, req: RetrieveRequest) => {
             if (req.where == null) return null;

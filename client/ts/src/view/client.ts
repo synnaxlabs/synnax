@@ -24,7 +24,7 @@ import {
   type View,
   viewZ,
 } from "@/view/types.gen";
-import { type Lines, matches, serverComputed } from "@/view/where.gen";
+import { matches, serverComputed } from "@/view/where.gen";
 
 export const SET_CHANNEL_NAME = "sy_view_set";
 export const DELETE_CHANNEL_NAME = "sy_view_delete";
@@ -35,19 +35,10 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
-const keysRequest = (keys: Key[]): RetrieveRequest => ({
-  where: { key: { in: keys } },
-});
-
-const retrieveMultiParamsZ = z.union([
-  keyZ.array().transform(keysRequest),
-  retrieveRequestZ,
-]);
+const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
 
 export type RetrieveSingleParams = { key: Key };
 export type RetrieveMultipleParams = RetrieveRequest;
-
-const LINES: Lines = {};
 
 export interface ClientConfig {
   unary: UnaryClient;
@@ -63,7 +54,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Vi
     const { cache } = cfg;
     const store = cache.createTable<Key, View>({
       name: "views",
-      fetch: async (keys) => await this.execRetrieve(keysRequest(keys)),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, viewZ),
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
@@ -75,8 +66,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Vi
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (view, req) => matches(LINES, view, req.where ?? {}),
-        serverComputed: (req) => req.where != null && serverComputed(LINES, req.where),
+        matches: (view, req) => matches(view, req.where),
+        serverComputed: (req) => serverComputed(req.where),
       },
     });
     this.cfg = cfg;

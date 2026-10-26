@@ -33,27 +33,18 @@ import {
   type Table,
   tableZ,
 } from "@/table/types.gen";
-import { type Lines, matches, serverComputed } from "@/table/where.gen";
+import { matches, serverComputed } from "@/table/where.gen";
 
 export const SET_CHANNEL_NAME = "sy_table_set";
 export const DELETE_CHANNEL_NAME = "sy_table_delete";
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const keysRequest = (keys: Key[]): RetrieveRequest => ({
-  where: { key: { in: keys } },
-});
-
-const retrieveMultiParamsZ = z.union([
-  keyZ.array().transform(keysRequest),
-  retrieveRequestZ,
-]);
+const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
 
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 export type RetrieveSingleParams = { key: Key };
 export type RetrieveMultipleParams = RetrieveRequest;
-
-const LINES: Lines = {};
 
 const createReqZ = z.object({ project: project.keyZ, tables: tableZ.array() });
 const createResZ = z.object({ tables: tableZ.array() });
@@ -78,7 +69,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
     const store = cache.createTable<Key, Table>({
       name: "tables",
       hydrate: "if-absent",
-      fetch: async (keys) => await this.execRetrieve(keysRequest(keys)),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
     const dispatcher = new actions.Controller<Key, Table, Action>({
@@ -95,8 +86,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (table, req) => matches(LINES, table, req.where ?? {}),
-        serverComputed: (req) => req.where != null && serverComputed(LINES, req.where),
+        matches: (table, req) => matches(table, req.where),
+        serverComputed: (req) => serverComputed(req.where),
       },
     });
     this.cfg = cfg;

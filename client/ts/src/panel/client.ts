@@ -32,22 +32,18 @@ import {
   retrieveResponseZ,
   type Where,
 } from "@/panel/types.gen";
-import { type Lines, matches, serverComputed } from "@/panel/where.gen";
+import { matches, serverComputed } from "@/panel/where.gen";
 import { query } from "@/query";
 
 export const SET_CHANNEL_NAME = "sy_panel_set";
 export const DELETE_CHANNEL_NAME = "sy_panel_delete";
-
-const keysRequest = (keys: Key[]): RetrieveRequest => ({
-  where: { key: { in: keys } },
-});
 
 const parentRequestZ = retrieveRequestZ.extend({
   parent: ontology.idZ.optional(),
 });
 export type RetrieveMultipleParams = z.infer<typeof parentRequestZ>;
 const retrieveMultiParamsZ = z.union([
-  keyZ.array().transform((keys): RetrieveMultipleParams => keysRequest(keys)),
+  keyZ.array().transform((keys): RetrieveMultipleParams => query.keysRequest(keys)),
   parentRequestZ,
 ]);
 const createReqZ = z.object({ panels: panelZ.array() });
@@ -62,8 +58,6 @@ const isChildOf = (rel: ontology.Relationship, parent: ontology.ID): boolean =>
     type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
     to: { type: "panel" },
   });
-
-const LINES: Lines = {};
 
 export interface ClientConfig {
   unary: UnaryClient;
@@ -83,7 +77,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
     const store = cache.createTable<Key, Panel>({
       name: "panels",
       hydrate: "if-absent",
-      fetch: async (keys) => await this.execRetrieve(keysRequest(keys)),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
     const dispatcher = new actions.Controller<Key, Panel, Action>({
@@ -101,9 +95,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.fetchRequest(req),
         matches: (panel, req) =>
-          matches(LINES, panel, req.where ?? {}) &&
+          matches(panel, req.where) &&
           (req.parent == null || this.isCachedChild(req.parent, panel.key)),
-        serverComputed: (req) => req.where != null && serverComputed(LINES, req.where),
+        serverComputed: (req) => serverComputed(req.where),
         watch: [
           query.watch(
             ontologyClient.cache.relationships,

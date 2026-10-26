@@ -28,20 +28,13 @@ import {
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/project/types.gen";
-import { type Lines, matches, serverComputed } from "@/project/where.gen";
+import { matches, serverComputed } from "@/project/where.gen";
 import { query } from "@/query";
 
 export const SET_CHANNEL_NAME = "sy_project_set";
 export const DELETE_CHANNEL_NAME = "sy_project_delete";
 
-const keysRequest = (keys: Key[]): RetrieveRequest => ({
-  where: { key: { in: keys } },
-});
-
-const retrieveMultiParamsZ = z.union([
-  keyZ.array().transform(keysRequest),
-  retrieveRequestZ,
-]);
+const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
 export type RetrieveMultipleParams = RetrieveRequest;
 const createReqZ = z.object({ projects: projectZ.array() });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
@@ -63,8 +56,6 @@ export interface ImportOptions {
   fileName: string;
 }
 
-const LINES: Lines = {};
-
 export interface ClientConfig {
   unary: UnaryClient;
   file: FileTransport;
@@ -80,7 +71,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
     const { cache } = cfg;
     const store = cache.createTable<Key, Project>({
       name: "projects",
-      fetch: async (keys) => await this.execRetrieve(keysRequest(keys)),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, projectZ),
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
@@ -92,8 +83,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (project, req) => matches(LINES, project, req.where ?? {}),
-        serverComputed: (req) => req.where != null && serverComputed(LINES, req.where),
+        matches: (project, req) => matches(project, req.where),
+        serverComputed: (req) => serverComputed(req.where),
       },
     });
     this.cfg = cfg;

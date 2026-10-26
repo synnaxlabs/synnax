@@ -35,7 +35,7 @@ import {
   type Schematic,
   schematicZ,
 } from "@/schematic/types.gen";
-import { type Lines, matches, serverComputed } from "@/schematic/where.gen";
+import { matches, serverComputed } from "@/schematic/where.gen";
 
 export const SET_CHANNEL_NAME = "sy_schematic_set";
 export const DELETE_CHANNEL_NAME = "sy_schematic_delete";
@@ -48,21 +48,12 @@ const copyReqZ = z.object({
   snapshot: z.boolean(),
 });
 
-const keysRequest = (keys: Key[]): RetrieveRequest => ({
-  where: { key: { in: keys } },
-});
-
-const retrieveMultiParamsZ = z.union([
-  keyZ.array().transform(keysRequest),
-  retrieveRequestZ,
-]);
+const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
 
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 export type RetrieveSingleParams = { key: Key };
 export type RetrieveMultipleParams = RetrieveRequest;
 export type CopyParams = z.input<typeof copyReqZ>;
-
-const LINES: Lines = {};
 
 const createReqZ = z.object({
   project: project.keyZ,
@@ -98,7 +89,7 @@ export class Client extends query.Retriever<
     const store = cache.createTable<Key, Schematic>({
       name: "schematics",
       hydrate: "if-absent",
-      fetch: async (keys) => await this.execRetrieve(keysRequest(keys)),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
     const dispatcher = new actions.Controller<Key, Schematic, Action>({
@@ -115,8 +106,8 @@ export class Client extends query.Retriever<
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (schematic, req) => matches(LINES, schematic, req.where ?? {}),
-        serverComputed: (req) => req.where != null && serverComputed(LINES, req.where),
+        matches: (schematic, req) => matches(schematic, req.where),
+        serverComputed: (req) => serverComputed(req.where),
       },
     });
     this.cfg = cfg;

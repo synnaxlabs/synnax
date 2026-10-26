@@ -35,7 +35,7 @@ import {
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/arc/types.gen";
-import { type Lines, matches, serverComputed } from "@/arc/where.gen";
+import { matches, serverComputed } from "@/arc/where.gen";
 import { NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
@@ -47,17 +47,10 @@ import { checkForMultipleOrNoResults } from "@/util/retrieve";
 export const SET_CHANNEL_NAME = "sy_arc_set";
 export const DELETE_CHANNEL_NAME = "sy_arc_delete";
 
-const keysRequest = (keys: Key[]): RetrieveRequest => ({
-  where: { key: { in: keys } },
-});
-
 // The table caches Arcs without their compiled program.
 const cachedRequestZ = retrieveRequestZ.omit({ includeProgram: true });
 export type RetrieveMultipleParams = z.infer<typeof cachedRequestZ>;
-const retrieveMultiParamsZ = z.union([
-  keyZ.array().transform((keys): RetrieveMultipleParams => keysRequest(keys)),
-  cachedRequestZ,
-]);
+const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), cachedRequestZ]);
 const createReqZ = z.object({ arcs: arcZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
@@ -110,8 +103,6 @@ export interface UpdateTaskParams {
   performance?: Performance;
 }
 
-const LINES: Lines = {};
-
 const isTaskChild = (rel: ontology.Relationship, arcKey: Key): boolean =>
   ontology.matchRelationship(rel, {
     from: ontologyID(arcKey),
@@ -149,7 +140,7 @@ export class Client extends query.Retriever<
     const store = cache.createTable<Key, Arc>({
       name: "Arcs",
       hydrate: "if-absent",
-      fetch: async (keys) => await this.execRetrieve(keysRequest(keys)),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
     const dispatcher = new actions.Controller<Key, Arc, Action>({
@@ -177,8 +168,8 @@ export class Client extends query.Retriever<
         schema: retrieveMultiParamsZ,
         fetch: async (req) =>
           (await this.execRetrieve(req)).map((a) => this.hydrate(a)),
-        matches: (a, req) => matches(LINES, a, req.where ?? {}),
-        serverComputed: (req) => req.where != null && serverComputed(LINES, req.where),
+        matches: (a, req) => matches(a, req.where),
+        serverComputed: (req) => serverComputed(req.where),
       },
       single: { schema: singleQueryZ, space: single },
     });

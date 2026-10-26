@@ -27,16 +27,9 @@ import {
   type User,
   userZ,
 } from "@/user/types.gen";
-import { type Lines, matches, serverComputed } from "@/user/where.gen";
+import { matches, serverComputed } from "@/user/where.gen";
 
-const keysRequest = (keys: Key[]): RetrieveRequest => ({
-  where: { key: { in: keys } },
-});
-
-const retrieveMultiParamsZ = z.union([
-  keyZ.array().transform(keysRequest),
-  retrieveRequestZ,
-]);
+const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
 
 const keyRetrieveRequestZ = z
   .object({ key: keyZ })
@@ -87,8 +80,6 @@ const singleParamsZ = z.union([
 const singleIdentifier = (params: SingleParams): string =>
   "key" in params ? `key ${params.key}` : `username ${params.username}`;
 
-const LINES: Lines = {};
-
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
@@ -115,7 +106,7 @@ export class Client extends query.Retriever<
     const { cache } = cfg;
     const store = cache.createTable<Key, User>({
       name: "users",
-      fetch: async (keys) => await this.execRetrieve(keysRequest(keys)),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, userZ),
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
@@ -146,8 +137,8 @@ export class Client extends query.Retriever<
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (u, req) => matches(LINES, u, req.where ?? {}),
-        serverComputed: (req) => req.where != null && serverComputed(LINES, req.where),
+        matches: (u, req) => matches(u, req.where),
+        serverComputed: (req) => serverComputed(req.where),
       },
       single: { schema: singleParamsZ, space: single },
     });

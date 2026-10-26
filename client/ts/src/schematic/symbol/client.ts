@@ -31,7 +31,7 @@ import {
   symbolZ,
   type Where,
 } from "@/schematic/symbol/types.gen";
-import { type Lines, matches, serverComputed } from "@/schematic/symbol/where.gen";
+import { matches, serverComputed } from "@/schematic/symbol/where.gen";
 
 export const SET_CHANNEL_NAME = "sy_schematic_symbol_set";
 export const DELETE_CHANNEL_NAME = "sy_schematic_symbol_delete";
@@ -40,10 +40,6 @@ const createReqZ = z.object({ symbols: symbolZ.array(), parent: ontology.idZ });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const keysRequest = (keys: Key[]): RetrieveRequest => ({
-  where: { key: { in: keys } },
-});
-
 // The Core knows nothing of parents, so the client resolves parent through the ontology
 // graph.
 const parentRequestZ = retrieveRequestZ.extend({
@@ -51,14 +47,12 @@ const parentRequestZ = retrieveRequestZ.extend({
 });
 export type RetrieveMultipleParams = z.infer<typeof parentRequestZ>;
 const retrieveMultiParamsZ = z.union([
-  keyZ.array().transform((keys): RetrieveMultipleParams => keysRequest(keys)),
+  keyZ.array().transform((keys): RetrieveMultipleParams => query.keysRequest(keys)),
   parentRequestZ,
 ]);
 
 export type RetrieveSingleParams = { key: Key };
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
-
-const LINES: Lines = {};
 
 const createResZ = z.object({ symbols: symbolZ.array() });
 const emptyResZ = z.object({});
@@ -106,7 +100,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
     const { cache, ontology: ontologyClient } = cfg;
     const store = cache.createTable<Key, Symbol>({
       name: "schematicSymbols",
-      fetch: async (keys) => await this.execRetrieve(keysRequest(keys)),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, symbolZ),
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
@@ -119,9 +113,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.fetchRequest(req),
         matches: (sym, req) =>
-          matches(LINES, sym, req.where ?? {}) &&
+          matches(sym, req.where) &&
           (req.parent == null || this.isChildOf(req.parent, sym.key)),
-        serverComputed: (req) => req.where != null && serverComputed(LINES, req.where),
+        serverComputed: (req) => serverComputed(req.where),
         watch: [
           query.watch(
             ontologyClient.cache.relationships,

@@ -22,7 +22,7 @@ import {
   type Role,
   roleZ,
 } from "@/access/role/types.gen";
-import { type Lines, matches, serverComputed } from "@/access/role/where.gen";
+import { matches, serverComputed } from "@/access/role/where.gen";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { user } from "@/user";
@@ -30,14 +30,7 @@ import { user } from "@/user";
 export const SET_CHANNEL_NAME = "sy_role_set";
 export const DELETE_CHANNEL_NAME = "sy_role_delete";
 
-const keysRequest = (keys: Key[]): RetrieveRequest => ({
-  where: { key: { in: keys } },
-});
-
-const retrieveMultiParamsZ = z.union([
-  keyZ.array().transform(keysRequest),
-  retrieveRequestZ,
-]);
+const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
 
 const singleCreateParamsZ = roleZ.transform((r) => ({ roles: [r] }));
 export type SingleCreateParams = z.input<typeof singleCreateParamsZ>;
@@ -52,8 +45,6 @@ const createResZ = z.object({ roles: roleZ.array() });
 export type RetrieveSingleParams = { key: Key };
 export type RetrieveMultipleParams = RetrieveRequest;
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
-
-const LINES: Lines = {};
 
 const deleteResZ = z.object({});
 
@@ -98,7 +89,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ro
     const { cache } = cfg;
     const store = cache.createTable<Key, Role>({
       name: "roles",
-      fetch: async (keys) => await this.execRetrieve(keysRequest(keys)),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, roleZ),
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
@@ -110,8 +101,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ro
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (role, req) => matches(LINES, role, req.where ?? {}),
-        serverComputed: (req) => req.where != null && serverComputed(LINES, req.where),
+        matches: (role, req) => matches(role, req.where),
+        serverComputed: (req) => serverComputed(req.where),
       },
     });
     this.cfg = cfg;
