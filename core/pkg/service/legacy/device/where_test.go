@@ -64,36 +64,36 @@ var _ = Describe("Where", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		otg := DeferClose(MustOpen(ontology.Open(ctx, ontology.Config{DB: db})))
-		g := DeferClose(MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-		})))
-		lbl := DeferClose(MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		}))
+		lbl := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
-		})))
-		stat := DeferClose(MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		}))
+		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
 			Label:    lbl,
-		})))
-		racks := DeferClose(MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+		}))
+		racks := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
 			Ontology:     otg,
 			Group:        g,
 			HostProvider: mock.NewStaticHostProvider(1),
 			Status:       stat,
-		})))
-		svc = DeferClose(MustOpen(device.OpenService(ctx, device.ServiceConfig{
+		}))
+		svc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
 			Status:   stat,
 			Rack:     racks,
-		})))
+		}))
 		for _, d := range v.Devices.Records {
 			r := rack.Rack{Key: d.Rack, Name: "Rack"}
 			Expect(racks.NewWriter(nil).Create(ctx, &r)).To(Succeed())
