@@ -23,7 +23,6 @@ _ONTOLOGY_TYPE = ontology.ID(type="channel")
 
 
 def _ontology_id(key: Key) -> ontology.ID:
-    """Returns the ontology ID for the Channel entity."""
     return ontology.ID(type=_ONTOLOGY_TYPE.type, key=str(key))
 
 

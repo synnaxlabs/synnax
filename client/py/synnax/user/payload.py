@@ -37,12 +37,4 @@ _ONTOLOGY_TYPE = ontology.ID(type="user")
 
 
 def _ontology_id(key: UUID) -> ontology.ID:
-    """Create an ontology ID for a user.
-
-    Args:
-        key: The user key.
-
-    Returns:
-        An ontology ID dictionary with type "user" and the given key.
-    """
     return ontology.ID(type=_ONTOLOGY_TYPE.type, key=str(key))

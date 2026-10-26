@@ -47,8 +47,6 @@ class AuthError(Exception):
 
 
 class _InvalidCredentials(AuthError):
-    """Raised when invalid credentials are provided."""
-
     TYPE = AuthError.TYPE + ".invalid-credentials"
 
 
