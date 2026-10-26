@@ -47,6 +47,9 @@ from x.lists import normalize
 AliasRetriever: TypeAlias = Callable[[UUID, list[Key]], dict[Key, str]]
 """Returns the aliases of the given channels in a range."""
 
+AliasSearcher: TypeAlias = Callable[[UUID, str], list[Key]]
+"""Returns the channels whose alias in a range matches a term, closest match first."""
+
 
 class Channel(Payload):
     """A channel is a logical collection of samples emitted by or representing the
@@ -216,6 +219,7 @@ class Client:
     _retriever: Retriever
     _creator: Writer
     _aliases: AliasRetriever
+    _alias_search: AliasSearcher
 
     def __init__(
         self,
@@ -223,11 +227,13 @@ class Client:
         retriever: Retriever,
         creator: Writer,
         aliases: AliasRetriever,
+        alias_search: AliasSearcher,
     ):
         self._frame_client = frame_client
         self._retriever = retriever
         self._creator = creator
         self._aliases = aliases
+        self._alias_search = alias_search
 
     def delete(self, channels: Params) -> None:
         """Deletes on or more channels from the cluster"""
@@ -406,7 +412,8 @@ class Client:
             name that is not a valid channel name is a regular expression, anchored
             when unanchored.
         :param where: Keeps channels that match this filter tree.
-        :param search_term: Fuzzy matches channel names.
+        :param search_term: Fuzzy matches channel names. With range_key, the channels
+            whose alias in the range matches come first.
         :param data_types: Keeps channels with one of these data types.
         :param not_data_types: Drops channels with one of these data types.
         :param virtual: Keeps only virtual channels that are not calculated, or only
@@ -451,9 +458,10 @@ class Client:
                 return []
             single = normal.single
             lines.insert(0, params_where(channel))
+        where = _and(lines)
         res = self._retriever.filter(
             RetrieveRequest(
-                where=_and(lines),
+                where=where,
                 search_term=search_term,
                 limit=limit,
                 offset=offset,
@@ -461,6 +469,10 @@ class Client:
             )
         )
         if range_key is not None:
+            if search_term:
+                res = self._prepend_alias_matches(
+                    range_key, search_term, where, include_status, res
+                )
             aliases = self._aliases(range_key, [ch.key for ch in res])
             for ch in res:
                 ch.alias = aliases.get(ch.key)
@@ -505,6 +517,34 @@ class Client:
         :returns: None.
         """
         self._creator.rename(normalize(keys), normalize(names))
+
+    def _prepend_alias_matches(
+        self,
+        range_key: UUID,
+        term: str,
+        where: Where | None,
+        include_status: bool,
+        channels: list[Payload],
+    ) -> list[Payload]:
+        """Returns channels with the channels whose alias in the range matches term in
+        front, closest match first. An alias match must also match where.
+        """
+        keys = self._alias_search(range_key, term)
+        by_key = {ch.key: ch for ch in channels}
+        missing = [k for k in keys if k not in by_key]
+        if len(missing) > 0:
+            lines = [Where(key=filter.Set[Key](in_=missing))]
+            if where is not None:
+                lines.insert(0, where)
+            for ch in self._retriever.filter(
+                RetrieveRequest(
+                    where=_and(lines), include_status=include_status or None
+                )
+            ):
+                by_key[ch.key] = ch
+        matched = [by_key[k] for k in keys if k in by_key]
+        matched_keys = {ch.key for ch in matched}
+        return matched + [ch for ch in channels if ch.key not in matched_keys]
 
     def _sugar(self, channels: list[Payload]) -> list[Channel]:
         return [

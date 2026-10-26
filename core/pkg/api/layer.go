@@ -104,6 +104,7 @@ type Transport struct {
 	AliasDelete   freighter.UnaryServer[alias.DeleteRequest, struct{}]
 	AliasList     freighter.UnaryServer[alias.ListRequest, alias.ListResponse]
 	AliasRetrieve freighter.UnaryServer[alias.RetrieveRequest, alias.RetrieveResponse]
+	AliasSearch   freighter.UnaryServer[alias.SearchRequest, alias.SearchResponse]
 	// ONTOLOGY
 	OntologyRetrieve       freighter.UnaryServer[ontology.RetrieveRequest, ontology.RetrieveResponse]
 	OntologyAddChildren    freighter.UnaryServer[ontology.AddChildrenRequest, struct{}]
@@ -336,6 +337,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.AliasResolve,
 		t.AliasRetrieve,
 		t.AliasList,
+		t.AliasSearch,
 		t.AliasDelete,
 
 		// PROJECT
@@ -524,6 +526,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.AliasResolve.BindHandler(l.Alias.Resolve)
 	t.AliasRetrieve.BindHandler(l.Alias.Retrieve)
 	t.AliasList.BindHandler(l.Alias.List)
+	t.AliasSearch.BindHandler(l.Alias.Search)
 	t.AliasDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Alias.Delete))
 
 	// PROJECT

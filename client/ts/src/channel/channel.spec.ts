@@ -815,6 +815,37 @@ describe("cached reads", () => {
       expect(res.find((c) => c.key === b.key)?.alias).toBeUndefined();
     });
 
+    it("puts the channels whose alias matches a search first", async () => {
+      const term = id.create();
+      const named = await client.channels.create({
+        name: `${term}_named`,
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      const aliased = await createVirtual();
+      const excluded = await client.channels.create({
+        name: `qry_${id.create()}`,
+        dataType: DataType.FLOAT64,
+        virtual: true,
+      });
+      const rng = await createRange();
+      await client.ranges.setAlias(rng.key, aliased.key, `${term}_alias`);
+      await client.ranges.setAlias(rng.key, excluded.key, `${term}_excluded`);
+      await expect
+        .poll(async () => {
+          const res = await client.channels.retrieve({
+            searchTerm: term,
+            rangeKey: rng.key,
+            where: { dataType: { eq: DataType.FLOAT32 } },
+          });
+          return res.map((ch) => [ch.key, ch.alias]);
+        })
+        .toEqual([
+          [aliased.key, `${term}_alias`],
+          [named.key, undefined],
+        ]);
+    });
+
     it("does not serve an unfetched keys request under a range", async () => {
       const ch = await createVirtual();
       const rng = await createRange();
