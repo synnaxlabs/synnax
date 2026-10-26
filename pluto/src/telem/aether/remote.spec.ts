@@ -214,6 +214,25 @@ describe("remote", () => {
       await expect.poll(() => source.value().data, POLL).toBe(latest);
     });
 
+    it("should show live samples while its history read fails", async () => {
+      const core = createCore();
+      const { key } = core.data[0];
+      const client = connect(core, {
+        readLatest: async () => {
+          throw new Error("history unavailable");
+        },
+      });
+      const source = createNumber(client, key);
+      await expect
+        .poll(() => source.value().status.description, POLL)
+        .toBe("history unavailable");
+      expect(source.value().data).toBeNaN();
+      core.advance(RATE.period);
+      const latest = newest(core, key).at(-1);
+      await expect.poll(() => source.value().data, POLL).toBe(latest);
+      expect(source.value().status.variant).toBe("error");
+    });
+
     it("should post an error when the channel cannot be retrieved", async () => {
       const statuses: cstatus.Crude[] = [];
       const source = createNumber(connect(createCore()), 999, {

@@ -38,8 +38,9 @@ const streamMultiChannelLogPropsZ = z.object({
 
 export type StreamMultiChannelLogProps = z.input<typeof streamMultiChannelLogPropsZ>;
 
-// The series and sample a channel's entries were last read up to.
+// The snapshot, series, and sample a channel's entries were last read up to.
 interface Cursor {
+  snapshot: framer.Snapshot;
   series: Series;
   index: number;
 }
@@ -59,6 +60,8 @@ export class StreamMultiChannelLog
   private subscription: framer.Subscription | null = null;
   private readonly cursors = new Map<channel.Key, Cursor>();
   private entries: LogEntry[] = [];
+  // status is the worst status of the channels' snapshots at the last pull.
+  private status = telem.SUCCESS_STATUS;
   private valid = false;
   private _evictedCount: number = 0;
   private _channels: channel.Key[] = [];
@@ -88,9 +91,7 @@ export class StreamMultiChannelLog
   /** @returns the entries, with the worst status of the channels' snapshots. */
   value(): telem.Result<LogEntry[]> {
     if (this._channels.length > 0 && !this.valid) this.subscribe();
-    const { subscription } = this;
-    if (subscription == null) return telem.success(this.entries);
-    return { data: this.entries, status: this.status(subscription) };
+    return { data: this.entries, status: this.status };
   }
 
   /** Channels that stay keep their entries and samples, so none show twice. */
@@ -102,12 +103,16 @@ export class StreamMultiChannelLog
     this.cursors.forEach((_, key) => {
       if (!kept.has(key)) this.cursors.delete(key);
     });
-    if (channels.length > 0) this.subscription?.update(this.request());
-    else {
-      this.subscription?.close();
+    const { subscription } = this;
+    if (channels.length === 0) {
+      subscription?.close();
       this.subscription = null;
+      this.status = telem.SUCCESS_STATUS;
       this.valid = false;
       this._evictedCount = 0;
+    } else if (subscription != null) {
+      subscription.update(this.request());
+      this.pull(subscription);
     }
     this.notify();
   }
@@ -129,42 +134,44 @@ export class StreamMultiChannelLog
     }
     const subscription = client.feed.subscribe(this.request());
     this.subscription = subscription;
+    this.status = telem.LOADING_STATUS;
     subscription.onChange(() => this.pull(subscription));
   }
 
-  // Appends the samples each channel received since the last pull. History lands in one
-  // pull, so its entries take the time it loaded.
+  // Appends the samples each channel received since the last pull. A channel's entries
+  // wait while it loads, so its history lands in one pull before its live samples and
+  // takes the time it loaded.
   private pull(subscription: framer.Subscription): void {
     const now = this.now();
     let pushed = 0;
-    for (const key of this._channels)
-      pushed += this.append(key, subscription.value(key).series.series, now);
-    this.failures.observe(this.status(subscription));
+    let worst = telem.SUCCESS_STATUS;
+    for (const key of this._channels) {
+      const snapshot = subscription.value(key);
+      const { variant } = snapshot.status;
+      if (cstatus.moreSevere(variant, worst.variant)) worst = snapshot.status;
+      if (variant !== "loading") pushed += this.append(key, snapshot, now);
+    }
+    this.status = worst;
+    this.failures.observe(worst);
     this._evictedCount = this.gcEntries();
     if (pushed > 0) this.notify();
   }
 
-  private status(subscription: framer.Subscription): cstatus.Status {
-    let worst = telem.SUCCESS_STATUS;
-    for (const key of this._channels) {
-      const { status } = subscription.value(key);
-      if (cstatus.moreSevere(status.variant, worst.variant)) worst = status;
-    }
-    return worst;
-  }
-
-  // Appends the samples after the key's cursor. Series only leave the front of a
+  // Appends the samples after the key's cursor. Series only leave the front of a loaded
   // snapshot, so when the cursor's series is gone, every series is new.
-  private append(key: channel.Key, series: Series[], now: TimeStamp): number {
-    let [from, index, pushed] = [0, 0, 0];
+  private append(key: channel.Key, snapshot: framer.Snapshot, now: TimeStamp): number {
     const cursor = this.cursors.get(key);
+    if (cursor?.snapshot === snapshot) return 0;
+    const { series } = snapshot.series;
+    let [from, index, pushed] = [0, 0, 0];
     const at = cursor == null ? -1 : series.lastIndexOf(cursor.series);
     if (cursor != null && at !== -1) [from, index] = [at, cursor.index];
     for (let i = from; i < series.length; i++, index = 0)
       for (let j = index; j < series[i].length; j++)
         pushed += this.push(key, series[i], j, now);
     const last = series.at(-1);
-    if (last != null) this.cursors.set(key, { series: last, index: last.length });
+    if (last != null)
+      this.cursors.set(key, { snapshot, series: last, index: last.length });
     return pushed;
   }
 
@@ -214,6 +221,7 @@ export class StreamMultiChannelLog
     this.subscription = null;
     this.cursors.clear();
     this.entries = [];
+    this.status = telem.SUCCESS_STATUS;
     this.valid = false;
     this.failures.reset();
   }

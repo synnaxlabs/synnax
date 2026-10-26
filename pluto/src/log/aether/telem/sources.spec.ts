@@ -14,7 +14,7 @@ import {
   type status as cstatus,
 } from "@synnaxlabs/client";
 import { SyntheticCore, type SyntheticCoreProps } from "@synnaxlabs/client/testutil";
-import { Rate, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { Rate, Series, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -31,10 +31,13 @@ const NOW = START.add(TimeSpan.minutes(10));
 const SPAN = TimeSpan.seconds(30);
 // The samples a log shows from the span before NOW.
 const HISTORY = 300;
+// The newest stored samples of each channel a log shows when it opens.
+const PAGE = 10_000;
 const POLL = { timeout: 5000, interval: 5 };
 const OPTIONS: Partial<framer.FeedProps> = {
   batchDebounce: TimeSpan.milliseconds(5),
   removalDelay: TimeSpan.ZERO,
+  breaker: { baseInterval: TimeSpan.milliseconds(10) },
 };
 
 const createCore = (props: Partial<SyntheticCoreProps> = {}): SyntheticCore =>
@@ -122,6 +125,91 @@ describe("StreamMultiChannelLog", () => {
     core.advance(TimeSpan.seconds(1));
     await settle(log, HISTORY + 10);
     expect(handler).toHaveBeenCalledTimes(loaded + 1);
+  });
+
+  describe("history", () => {
+    // Returns a client whose history reads wait for release, and whose first fails when
+    // failed is true.
+    const gate = (core: SyntheticCore, failed: boolean) => {
+      let release: () => void = () => {};
+      const released = new Promise<void>((resolve) => (release = resolve));
+      let reads = 0;
+      const client = connect(core, {
+        readLatest: async (keys, count, tr) => {
+          if (reads++ === 0 && failed) throw new Error("history unavailable");
+          await released;
+          return core.readLatest(keys, count, tr);
+        },
+      });
+      return { client, release, reads: () => reads };
+    };
+
+    it("should show history before the samples streamed while it loads", async () => {
+      const core = createCore();
+      const [a] = core.data.map((c) => c.key);
+      const { client, release, reads } = gate(core, false);
+      const log = open(core, client, { channels: [a] });
+      log.value();
+      await expect.poll(reads, POLL).toBe(1);
+      const witness = client.feed.subscribe({
+        keys: [a],
+        limit: { variant: "latest", count: 10 },
+      });
+      closers.push(() => witness.close());
+      core.advance(TimeSpan.seconds(1));
+      await expect.poll(() => witness.value(a).series.length, POLL).toBe(10);
+      expect(entriesOf(log)).toEqual([]);
+      release();
+      await settle(log, HISTORY + 10);
+      expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, HISTORY + 10));
+    });
+
+    it("should show live samples while its history read fails, each once", async () => {
+      const core = createCore();
+      const [a] = core.data.map((c) => c.key);
+      const { client, release } = gate(core, true);
+      const log = open(core, client, { channels: [a] });
+      await expect
+        .poll(() => log.value().status, POLL)
+        .toMatchObject({
+          variant: "error",
+          message: "Failed to read channel data",
+          description: "history unavailable",
+        });
+      core.advance(TimeSpan.seconds(1));
+      await settle(log, 10);
+      expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, 10));
+      release();
+      await expect.poll(() => log.value().status.variant, POLL).toBe("success");
+      core.advance(TimeSpan.seconds(1));
+      await settle(log, 20);
+      expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, 20));
+    });
+  });
+
+  it("should show every sample of a frame larger than its page", async () => {
+    const core = createCore();
+    const [a] = core.data.map((c) => c.key);
+    const log = open(core, connect(core), { channels: [a] });
+    await settle(log, HISTORY);
+    const [last] = core.readLatest([a], 1).get(a).series;
+    const start = core.now();
+    const series = [0, 1].map(
+      (i) =>
+        new Series({
+          data: new Float32Array(PAGE).fill(i),
+          timeRange: new TimeRange(
+            start.add(TimeSpan.milliseconds(i)),
+            start.add(TimeSpan.milliseconds(i + 1)),
+          ),
+          alignment: last.alignment + 1n + BigInt(i * PAGE),
+        }),
+    );
+    core.stream(new framer.Frame([a, a], series));
+    await settle(log, HISTORY + 2 * PAGE);
+    const live = valuesOf(entriesOf(log), a).slice(HISTORY);
+    expect(live.filter((v) => v === "0")).toHaveLength(PAGE);
+    expect(live.filter((v) => v === "1")).toHaveLength(PAGE);
   });
 
   describe("setChannels", () => {
