@@ -96,6 +96,8 @@ export class Store {
   private readonly counted = new Map<string, number>();
   private readonly dataTypes = new Map<channel.Key, DataType>();
   private readonly live = new Map<channel.Key, Live>();
+  // newest holds the newest raw block of each channel that holds samples.
+  private readonly newest = new Map<channel.Key, number>();
   private bytes = 0;
   private readonly calculated = new Set<channel.Key>();
   // leaseholders holds the node of each stored channel.
@@ -140,6 +142,11 @@ export class Store {
    * against the budget.
    */
   set(key: string, block: Block): void {
+    if (block instanceof RawBlock && block.coveredCount > 0)
+      this.newest.set(
+        block.channel,
+        Math.max(block.index, this.newest.get(block.channel) ?? -Infinity),
+      );
     const bytes = block.bytes + ENTRY_OVERHEAD;
     this.bytes += bytes - (this.counted.get(key) ?? 0);
     this.counted.set(key, bytes);
@@ -277,6 +284,14 @@ export class Store {
     return cached;
   }
 
+  /**
+   * @returns the index of the newest raw block of the channel that a read or the stream
+   * filled with samples, or -Infinity when none did.
+   */
+  newestBlock(ch: channel.Key): number {
+    return this.newest.get(ch) ?? -Infinity;
+  }
+
   /** @returns the block the stream is writing the channel's samples into, if any. */
   open(ch: channel.Key): RawBlock | null {
     return this.live.get(ch)?.block ?? null;
@@ -363,6 +378,7 @@ export class Store {
       next: dataType.toString(),
     });
     for (const [key, block] of this.blocks) if (block.channel === ch) this.delete(key);
+    this.newest.delete(ch);
     const live = this.live.get(ch);
     if (live == null) return true;
     live.buffer.retainDataType(dataType);
@@ -382,6 +398,7 @@ export class Store {
     this.blocks.clear();
     this.counted.clear();
     this.dataTypes.clear();
+    this.newest.clear();
     this.bytes = 0;
   }
 

@@ -490,6 +490,33 @@ describe("Feed.subscribe", () => {
       }
     });
 
+    it("should serve the stored samples stamped after now", async () => {
+      // The writer's clock runs two minutes ahead of the Core's.
+      const core = createCore({ lag: TimeSpan.minutes(-2) });
+      const feed = core.openFeed(OPTIONS);
+      const key = core.index.key;
+      const window = new TimeRange(
+        core.now().sub(TimeSpan.minutes(1)),
+        core.now().add(TimeSpan.minutes(5)),
+      );
+      const sub = feed.subscribe({
+        keys: [key],
+        window: staticWindow(window),
+        limit: { variant: "points", count: Infinity, aggregation: "min_max" },
+      });
+      const newest = Array.from(core.readLatest([key], 1).get(key)).at(-1);
+      try {
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        await expect.poll(() => timesOf(sub.value(key)).at(-1), POLL).toBe(newest);
+        const times = timesOf(sub.value(key));
+        expect(times[0] <= window.start.valueOf()).toBe(true);
+        expectComplete(times);
+      } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
+
     it("should draw tiles up to the raw samples at the window's edge", async () => {
       const core = createCore({ now: START.add(TimeSpan.hours(1)) });
       const feed = core.openFeed(OPTIONS);

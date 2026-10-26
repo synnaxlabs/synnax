@@ -28,10 +28,11 @@ import {
   countBefore,
   RAW_LEVEL,
   type RawBlock,
+  rawIndex,
   rawKey,
   split,
 } from "@/framer/cache/block";
-import { indexes, tileRange } from "@/framer/cache/grid";
+import { indexes } from "@/framer/cache/grid";
 import { type Store } from "@/framer/cache/store";
 import { type Frame } from "@/framer/frame";
 
@@ -56,12 +57,14 @@ interface Request {
   catchUp: boolean;
 }
 
-// One Core read from start through the end of the blocks first to last, shared by every
-// channel whose blocks need that span.
+// One Core read from start to end over the blocks first to last, shared by every
+// channel whose blocks need that span. A catch-up read ends at TimeStamp.MAX, and fills
+// the blocks after last that hold the channel's newer samples.
 interface Group {
   first: number;
   last: number;
   start: TimeStamp;
+  end: TimeStamp;
   catchUp: boolean;
   entries: Array<debounce.Entry<Request>>;
 }
@@ -160,19 +163,21 @@ export class Reader {
   }
 
   /**
-   * Fetches the channel's raw blocks first to last, from the end of their coverage, and
-   * trusts every sample the read returns. Call it only after the stream acked the
-   * channel and its index, so the stream delivers every sample the read misses.
+   * Fetches the channel's raw blocks from first through its newest sample, from the end
+   * of their coverage, and trusts every sample the read returns. Call it only after the
+   * stream acked the channel and its index, so the stream delivers every sample the
+   * read misses.
    * @throws {UnexpectedError} if the reader is closed while the read is pending.
    * @throws {Unreachable} if the fetch exceeds the fetch timeout.
    * @throws {NotFoundError} if the channel does not exist.
    */
-  async catchUp(ch: channel.Key, first: number, last: number): Promise<void> {
+  async catchUp(ch: channel.Key, first: number): Promise<void> {
     if (this.closed) throw new UnexpectedError("telemetry reader is closed");
+    const last = Math.max(first, rawIndex(this.props.now()));
     const waits: Array<Promise<void>> = [];
     for (let i = first; i <= last; i++) {
       const b = this.props.store.raw(ch, i);
-      waits.push(this.enqueue(b, b.range.end, true));
+      waits.push(this.enqueue(b, i === last ? TimeStamp.MAX : b.range.end, true));
     }
     await Promise.all(waits);
   }
@@ -205,7 +210,10 @@ export class Reader {
         const key = `${run.first}/${run.last}/${run.start.valueOf()}/${run.catchUp}`;
         const group = groups.get(key);
         if (group == null) groups.set(key, run);
-        else group.entries.push(...run.entries);
+        else {
+          group.entries.push(...run.entries);
+          group.end = TimeStamp.max(group.end, run.end);
+        }
       }),
     );
     await Promise.all([...groups.values()].map(async (g) => await this.fetch(g)));
@@ -215,10 +223,7 @@ export class Reader {
   private async fetch(group: Group): Promise<void> {
     const { fetchTimeout } = this.props;
     const { entries } = group;
-    const tr = new TimeRange(
-      group.start,
-      tileRange({ level: RAW_LEVEL, index: group.last }).end,
-    );
+    const tr = new TimeRange(group.start, group.end);
     try {
       const refetch = await sync.withTimeout(
         this.load(group, tr),
@@ -248,6 +253,7 @@ export class Reader {
     { first, last, start, catchUp, entries }: Group,
     tr: TimeRange,
   ): Promise<Set<Request>> {
+    const open = tr.end.equals(TimeStamp.MAX);
     const { readRemote, retrieveChannels, store, now } = this.props;
     const committed = now().sub(COMMIT_MARGIN);
     const requested = new Map<channel.Key, Request[]>();
@@ -288,14 +294,15 @@ export class Reader {
       const changed =
         series.length > 0 && store.retainDataType(key, series[0].dataType);
       const timestamps = idx === 0 ? [] : (grouped.get(idx) ?? []);
-      const parts = split(first, last, timestamps, series);
-      const targets =
-        requested.get(key) ??
-        parts.map((_, i) => ({
-          block: store.raw(key, first + i),
-          end: tr.end,
-          catchUp,
-        }));
+      const newest = open ? newestBlock(timestamps) : last;
+      const parts = split(first, Math.max(last, newest), timestamps, series);
+      const targets = [...(requested.get(key) ?? [])];
+      for (
+        let i = targets.length === 0 ? first : last + 1;
+        i < first + parts.length;
+        i++
+      )
+        targets.push({ block: store.raw(key, i), end: tr.end, catchUp });
       const trusted = catchUp ? newestEnd(timestamps, start) : committed;
       // The Core stamps a series with the span of its domain inside the read, so the
       // channel's samples reach seen.
@@ -348,6 +355,13 @@ export class Reader {
   }
 }
 
+// Returns the raw block of the newest index sample, or -Infinity when there is none.
+const newestBlock = (timestamps: Series[]): number => {
+  const last = timestamps.findLast((s) => s.length > 0);
+  if (last == null) return -Infinity;
+  return rawIndex(new TimeStamp(last.data[last.length - 1]));
+};
+
 // Returns the end of the newest index sample, or start when there is none.
 const newestEnd = (timestamps: Series[], start: TimeStamp): TimeStamp => {
   const last = timestamps.findLast((s) => s.length > 0);
@@ -370,12 +384,14 @@ const runs = (entries: Array<debounce.Entry<Request>>): Group[] => {
       coveredEnd.equals(index === run.first ? run.start : range.start);
     if (joins) {
       run.last = Math.max(run.last, index);
+      run.end = TimeStamp.max(run.end, entry.req.end, range.end);
       run.entries.push(entry);
     } else
       out.push({
         first: index,
         last: index,
         start: coveredEnd,
+        end: TimeStamp.max(entry.req.end, range.end),
         catchUp: entry.req.catchUp,
         entries: [entry],
       });

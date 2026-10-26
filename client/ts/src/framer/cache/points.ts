@@ -518,6 +518,15 @@ export class Points {
     this.notify();
   }
 
+  // Returns the last raw block of the raw range tr: the block of now, or of the newest
+  // stored sample in a static window that ends later.
+  private lastBlock(tr: TimeRange): number {
+    const now = rawIndex(this.props.now());
+    if (this.dynamic) return now;
+    const end = rawIndex(tr.end.sub(TimeSpan.nanoseconds(1)));
+    return Math.min(end, Math.max(now, this.props.store.newestBlock(this.key)));
+  }
+
   // Returns the samples of the raw range. While the window streams, the join fills the
   // blocks from the commit point on, and reads fill the rest. A block being filled
   // shows the samples it showed before.
@@ -529,7 +538,7 @@ export class Points {
     if (!tr.start.before(tr.end)) return (this.raw = []);
     const { store } = this.props;
     const now = this.props.now();
-    const last = rawIndex(TimeStamp.min(now, tr.end.sub(TimeSpan.nanoseconds(1))));
+    const last = this.lastBlock(tr);
     const joinFrom = this.streaming ? rawIndex(now.sub(COMMIT_MARGIN)) : Infinity;
     const blocks: RawBlock[] = [];
     for (let i = rawIndex(tr.start); i <= last; i++)
@@ -602,8 +611,7 @@ export class Points {
     const raw = this.rawRange(home);
     if (raw.start.before(raw.end)) {
       const { store } = this.props;
-      const end = TimeStamp.min(this.props.now(), raw.end);
-      for (let i = rawIndex(raw.start); i <= rawIndex(end); i++) {
+      for (let i = rawIndex(raw.start), last = this.lastBlock(raw); i <= last; i++) {
         const b = store.findRaw(this.key, i);
         if (b != null) next.add(b);
       }

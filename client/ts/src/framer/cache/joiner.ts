@@ -11,7 +11,6 @@ import { Unreachable } from "@synnaxlabs/freighter";
 import { type breaker, type destructor, sync, type TimeStamp } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
-import { rawIndex } from "@/framer/cache/block";
 import { type Joins, type Wait } from "@/framer/cache/join";
 import { COMMIT_MARGIN, type Reader } from "@/framer/cache/reader";
 import { isDefinitive, newBreaker, READ_FAILED } from "@/framer/cache/status";
@@ -138,8 +137,7 @@ export class Joiner {
           keys.map(async (k) => {
             await streamer.waitAcked(k === index ? [k] : [k, index], signal);
             acked.add(k);
-            const at = now().sub(COMMIT_MARGIN);
-            await reader.catchUp(k, joins.catchUpFrom(k, at), rawIndex(now()));
+            await reader.catchUp(k, joins.catchUpFrom(k, now().sub(COMMIT_MARGIN)));
           }),
         );
         if (signal.aborted) return;
