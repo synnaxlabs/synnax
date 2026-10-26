@@ -313,9 +313,14 @@ signal channel. No phase changes a stored format.
 12. **Values and logs read outside the join**: A value needs one sample and a log one
     page, but a join reads whole open blocks. At 1 kHz, 300 values would read about 20
     million samples to show 300. A `latest` request reads the newest samples from the
-    Core and removes duplicates with the stream by alignment, or by time for calculated
-    channels. The trade is real: two paths read history, and a `latest` key keeps a
-    buffer that its count bounds, not the byte budget.
+    Core and removes the samples the stream repeats. The Core streams in alignment
+    domains apart from the ones it reads, so alignment decides only between streamed
+    series. Between the read and the stream, a series enters when it ends after the
+    newest sample held. The Core commits each written series whole, so a streamed series
+    is all in the read or all after it. A calculated channel decides by time alone. The
+    trade is real: two paths read history, a `latest` key keeps a buffer that its count
+    bounds, not the byte budget, and a series streamed with no time range, from a writer
+    that does not write the channel's index, can repeat samples of the read.
 
 ## 6 What this RFC does not cover
 
