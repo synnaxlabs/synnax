@@ -10,6 +10,7 @@
 import { Unreachable } from "@synnaxlabs/freighter";
 import {
   debounce,
+  type destructor,
   errors,
   MultiSeries,
   type Reduction,
@@ -169,21 +170,34 @@ export class Reader {
    * Fetches the channel's raw blocks from first through its newest sample, from the end
    * of their coverage, and trusts every sample the read returns. Call it only after the
    * stream acked the channel and its index, so the stream delivers every sample the
-   * read misses.
+   * read misses. The store keeps the blocks until the returned destructor runs, so the
+   * join finds the samples it numbers the stream's samples after.
    * @throws {UnexpectedError} if the reader is closed while the read is pending.
    * @throws {Unreachable} if the fetch exceeds the fetch timeout.
    * @throws {NotFoundError} if the channel does not exist.
    */
-  async catchUp(ch: channel.Key, first: number): Promise<void> {
+  async catchUp(ch: channel.Key, first: number): Promise<destructor.Destructor> {
     if (this.closed) throw new UnexpectedError("telemetry reader is closed");
-    const last = Math.max(first, rawIndex(this.props.now()));
+    const { store, now } = this.props;
+    const last = Math.max(first, rawIndex(now()));
+    const pinned = new Set<RawBlock>();
+    const release = (): void => store.repin(pinned, new Set());
     const waits: Array<Promise<void>> = [];
     for (let i = first; i <= last; i++) {
-      const b = this.props.store.raw(ch, i);
+      const b = store.raw(ch, i);
+      // Pinned one at a time, since the next block can evict an unpinned one.
+      store.repin(new Set(), new Set([b]));
+      pinned.add(b);
       const end = i === last ? TimeStamp.MAX : b.range.end;
       waits.push(this.batcher.enqueue({ block: b, end, catchUp: true }));
     }
-    await Promise.all(waits);
+    try {
+      await Promise.all(waits);
+    } catch (e) {
+      release();
+      throw errors.fromUnknown(e);
+    }
+    return release;
   }
 
   private enqueue(block: RawBlock, end: TimeStamp, catchUp: boolean): Promise<void> {

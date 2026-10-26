@@ -343,20 +343,30 @@ export class Store {
   }
 
   /**
+   * Opens the block for the stream's block-aligned samples of its channel. The block it
+   * replaces closes, complete when the stream moved past it. The store keeps an open
+   * block.
+   */
+  join(block: RawBlock): void {
+    const live = this.liveOf(block.channel);
+    if (live.block === block && block.joined) return;
+    if (live.block != null) this.seal(live, live.block.index < block.index);
+    block.buffer = live.buffer;
+    block.joined = true;
+    live.block = block;
+    this.set(rawKey(block.channel, block.index), block);
+  }
+
+  /**
    * Appends a block-aligned piece to the stream's buffer of the block's channel, and
-   * extends the block's coverage to the end of the piece. The block becomes the open
-   * one, and the block it replaces closes, complete when the stream moved past it.
+   * extends the block's coverage to the end of the piece. The block opens as by
+   * {@link join}.
    * @returns the buffers the append allocated.
    */
   append(block: RawBlock, p: Series): MultiSeries {
     const live = this.liveOf(block.channel);
     const opened = live.block !== block || !block.joined;
-    if (opened) {
-      if (live.block != null) this.seal(live, live.block.index < block.index);
-      block.buffer = live.buffer;
-      block.joined = true;
-      live.block = block;
-    }
+    if (opened) this.join(block);
     const res = live.buffer.write(new MultiSeries([p]));
     const flushed = res.flushed.series.length > 0;
     if (flushed) block.fill(res.flushed.series, block.coveredEnd, block.coveredCount);

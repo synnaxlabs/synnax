@@ -127,37 +127,43 @@ export class Joiner {
         if (failed || back.some((k) => joins.bounced(k))) {
           if (!(await driver.breaker.wait()) || signal.aborted) return;
         } else if (back.length > 0) driver.breaker.reset();
-        const results = await Promise.allSettled(
-          keys.map(async (k) => {
-            await streamer.waitAcked(k === index ? [k] : [k, index], signal);
-            await reader.catchUp(k, joins.catchUpFrom(k, now().sub(COMMIT_MARGIN)));
-          }),
-        );
-        if (signal.aborted) return;
-        const caught: Wait[] = [];
-        const historyless: Wait[] = [];
-        failed = false;
-        results.forEach((r, i) => {
-          const k = keys[i];
-          if (r.status === "fulfilled") {
-            this.failures.delete(k);
-            caught.push(waits[i]);
-          } else if (UnsupportedError.matches(r.reason)) {
-            // The Core rejects a read of a calculation over virtual channels, and of
-            // its index, as unsupported. They store no samples, so they join without
-            // history.
-            this.failures.set(k, status.create(NO_HISTORY));
-            historyless.push(waits[i]);
-          } else {
-            this.failures.set(k, status.fromException(r.reason, READ_FAILED));
-            if (isDefinitive(r.reason)) driver.rejected.add(k);
-            else failed = true;
-          }
-        });
-        joins.landed(index, caught);
-        joins.landed(index, historyless, true);
-        [...caught, ...historyless].forEach(({ key }) => driver.landed.add(key));
-        driver.handlers.forEach((f) => f());
+        const releases: destructor.Destructor[] = [];
+        try {
+          const results = await Promise.allSettled(
+            keys.map(async (k) => {
+              await streamer.waitAcked(k === index ? [k] : [k, index], signal);
+              const from = joins.catchUpFrom(k, now().sub(COMMIT_MARGIN));
+              releases.push(await reader.catchUp(k, from));
+            }),
+          );
+          if (signal.aborted) return;
+          const caught: Wait[] = [];
+          const historyless: Wait[] = [];
+          failed = false;
+          results.forEach((r, i) => {
+            const k = keys[i];
+            if (r.status === "fulfilled") {
+              this.failures.delete(k);
+              caught.push(waits[i]);
+            } else if (UnsupportedError.matches(r.reason)) {
+              // The Core rejects a read of a calculation over virtual channels, and of
+              // its index, as unsupported. They store no samples, so they join without
+              // history.
+              this.failures.set(k, status.create(NO_HISTORY));
+              historyless.push(waits[i]);
+            } else {
+              this.failures.set(k, status.fromException(r.reason, READ_FAILED));
+              if (isDefinitive(r.reason)) driver.rejected.add(k);
+              else failed = true;
+            }
+          });
+          joins.landed(index, caught);
+          joins.landed(index, historyless, true);
+          [...caught, ...historyless].forEach(({ key }) => driver.landed.add(key));
+          driver.handlers.forEach((f) => f());
+        } finally {
+          releases.forEach((release) => release());
+        }
       }
     } finally {
       driver.running = false;
