@@ -258,26 +258,6 @@ const singleParamsZ = z
   ])
   .transform(normalizeSingle);
 
-const NAME_LITERAL_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
-
-/**
- * @returns a filter that selects channels by name. A name that is not a valid channel
- * name is a regular expression, anchored when unanchored.
- */
-const namesWhere = (names: string[]): Where => {
-  const literals = names.filter((name) => NAME_LITERAL_PATTERN.test(name));
-  const lines: Where[] = names
-    .filter((name) => !NAME_LITERAL_PATTERN.test(name))
-    .map((pattern) => ({
-      name: {
-        regex:
-          pattern.startsWith("^") || pattern.endsWith("$") ? pattern : `^${pattern}$`,
-      },
-    }));
-  if (literals.length > 0) lines.unshift({ name: { in: literals } });
-  return lines.length === 1 ? lines[0] : { or: lines };
-};
-
 /**
  * @returns the list that a request's where matches field against, when the where
  * selects nothing else and no other field of the request is set. Returns null for any
@@ -287,6 +267,18 @@ const onlyIn = <F extends keyof Where & string>(
   { where, ...rest }: RetrieveRequest,
   field: F,
 ) => (Object.values(rest).every((v) => v == null) ? query.whereIn(where, field) : null);
+
+/**
+ * @returns the name patterns of a request whose where selects by name patterns and
+ * nothing else, with no other field of the request set. Returns null for any other
+ * request.
+ */
+const onlyNamePatterns = ({ where, ...rest }: RetrieveRequest): string[] | null => {
+  if (!Object.values(rest).every((v) => v == null) || where == null) return null;
+  const { namePatterns, ...others } = where;
+  if (namePatterns == null || Object.values(others).some((v) => v != null)) return null;
+  return namePatterns;
+};
 
 const affectedChannelKeys = (
   event: query.TableEvent<status.Key, status.Status>,
@@ -546,7 +538,7 @@ export class Client extends query.Retriever<
     const where =
       variant === "keys"
         ? { key: { in: normalized as Key[] } }
-        : namesWhere(normalized as string[]);
+        : { namePatterns: normalized as string[] };
     const res = await super.retrieve(
       rangeKey == null ? { where } : { where, rangeKey },
     );
@@ -715,6 +707,10 @@ export class Client extends query.Retriever<
    * the cluster. Returns null when the store cannot be trusted to answer any part of
    * the request.
    */
+  /**
+   * Resolves names through the record store. A stored name never holds a regular
+   * expression character, so a pattern found there is a literal name.
+   */
   private async resolveNames(names: string[]): Promise<Channel[] | null> {
     const resolved: Channel[] = [];
     const missing: string[] = [];
@@ -725,7 +721,7 @@ export class Client extends query.Retriever<
       else resolved.push(matches[0]);
     }
     if (missing.length === 0) return resolved;
-    const fetched = (await this.execRetrieve({ where: { name: { in: missing } } })).map(
+    const fetched = (await this.execRetrieve({ where: { namePatterns: missing } })).map(
       (p) => this.sugar(stripComposed(p)),
     );
     return [...resolved, ...fetched];
@@ -748,7 +744,7 @@ export class Client extends query.Retriever<
   private async fetchChannels(req: RetrieveRequest): Promise<Channel[]> {
     const keys = onlyIn(req, "key");
     if (keys != null) return await this.store.retrieve(keys);
-    const names = onlyIn(req, "name");
+    const names = onlyNamePatterns(req);
     const resolved = names != null ? await this.resolveNames(names) : null;
     if (resolved != null) return resolved;
     return (await this.execRetrieve(req)).map((p) => this.sugar(stripComposed(p)));
