@@ -118,18 +118,15 @@ describe("RollingAverage", () => {
     expect(t.value().data).toBe(3);
   });
 
-  it("should leave a sample its input loses out of the window", () => {
+  it("should add samples with no time that follow a timed one", () => {
     const t = new RollingAverage({ windowSize: 3 });
     const source = new TestSource(0);
     t.setSources({ in: source });
     t.onChange(() => {});
     source.time = TimeStamp.seconds(1);
     source.setValue(2);
-    source.time = TimeStamp.seconds(2);
-    source.setValue(4);
     source.time = undefined;
-    source.setValue(NaN);
-    source.time = TimeStamp.seconds(3);
+    source.setValue(4);
     source.setValue(6);
     expect(t.value().data).toBe(4);
   });

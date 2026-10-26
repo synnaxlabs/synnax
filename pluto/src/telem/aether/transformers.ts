@@ -204,14 +204,16 @@ export class RollingAverage extends UnarySourceTransformer<
     return this.window.reduce((a, b) => a + b, 0) / this.window.length;
   }
 
-  // The window advances here, once per change that brings a newer sample. Every change
-  // notifies, so a rewritten sample redraws and staleness can count arrivals. A NaN
-  // sample enters the window like any other, so the average reports it until it slides
-  // out.
+  // The window advances here, once per change that brings a sample with no time or a
+  // newer one. Every change notifies, so a rewritten sample redraws and staleness can
+  // count arrivals. A NaN sample enters the window like any other, so the average
+  // reports it until it slides out.
   protected shouldNotify({ data, time }: Result<math.Numeric>): boolean {
     if (this.props.windowSize < 2) return true;
-    if (this.newest != null && (time == null || !time.after(this.newest))) return true;
-    this.newest = time;
+    if (time != null) {
+      if (this.newest != null && !time.after(this.newest)) return true;
+      this.newest = time;
+    }
     this.window.push(Number(data));
     if (this.window.length > this.props.windowSize) this.window.shift();
     return true;

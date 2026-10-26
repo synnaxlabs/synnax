@@ -50,9 +50,9 @@ export interface EntryProps {
 
 export interface Registration {
   /**
-   * Records a change of the source. A change whose newest sample is newer than the last
-   * one recorded is an arrival: it clears staleness and restarts the countdown. Every
-   * change of a source with no sample times is an arrival.
+   * Records a change of the source. A change whose newest sample has no time, or is
+   * newer than the last one recorded, is an arrival: it clears staleness and restarts
+   * the countdown.
    */
   received: () => void;
   /** Releases the registration. */
@@ -135,9 +135,11 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
       source,
       received: () => {
         const { time } = source.value();
-        // A history change that rewrites or deletes the newest sample is no arrival.
-        if (entry.newest != null && (time == null || !time.after(entry.newest))) return;
-        entry.newest = time;
+        if (time != null) {
+          // A history change that rewrites the newest sample is no arrival.
+          if (entry.newest != null && !time.after(entry.newest)) return;
+          entry.newest = time;
+        }
         const at = entry.lastReceived == null ? time : undefined;
         const elapsed = at == null ? 0n : TimeStamp.now().valueOf() - at.valueOf();
         const age = Math.max(0, new TimeSpan(elapsed).milliseconds);

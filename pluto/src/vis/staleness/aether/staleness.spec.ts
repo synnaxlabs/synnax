@@ -426,16 +426,18 @@ describe("staleness", () => {
       expect(leaf.transitions).toEqual([true]);
     });
 
-    it("should not count a change that removes every sample", () => {
+    it("should count a sample without a time that follows a timed one", () => {
       const { leaf } = mount({ timeouts: [5] });
-      const time = TimeStamp.now();
-      leaf.source.value = () => telem.success(null, time);
+      leaf.source.value = () => telem.success(null, TimeStamp.now());
       leaf.received();
       vi.advanceTimersByTime(4000);
+      // A data channel written apart from its index streams samples with no time.
       leaf.source.value = () => telem.success(null);
       leaf.received();
-      vi.advanceTimersByTime(1250);
-      expect(leaf.transitions).toEqual([true]);
+      vi.advanceTimersByTime(4000);
+      leaf.received();
+      vi.advanceTimersByTime(4000);
+      expect(leaf.transitions).toEqual([]);
     });
 
     it("should read a sample without a time as arriving now", () => {
