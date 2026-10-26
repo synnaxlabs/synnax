@@ -25,7 +25,7 @@ import {
   NotFoundError,
 } from "@/errors";
 import { Deleted } from "@/query/deleted";
-import { type Table, type TableEvent } from "@/query/table";
+import { fetchSurvivors, type Table, type TableEvent } from "@/query/table";
 import { type Data, type FetchOptions, type Params } from "@/query/types";
 
 const hashes = new WeakMap<object, string>();
@@ -908,9 +908,10 @@ export class Space<
     const missing = keys.filter((key) => table.status(key) === "unknown");
     if (missing.length === 0) return;
     // Backfill through the table's fetch so membership can be rechecked;
-    // fetch-less tables serve cached entries only and the recheck is a no-op.
+    // fetch-less tables serve cached entries only and the recheck is a no-op. A key
+    // deleted before the backfill lands has no membership, so it is skipped.
     try {
-      await table.retrieve(missing);
+      await fetchSurvivors(async (keys) => await table.retrieve(keys), missing);
       this.recheckKeys(query, missing);
     } catch (exc) {
       this.report(exc, `failed to hydrate ${this.config.name} answers`);

@@ -1602,6 +1602,39 @@ describe("Answers", () => {
         .toEqual([rec("b", 10)]);
     });
 
+    it("backfills the survivors when a watched key was deleted first", async () => {
+      const onError = vi.fn();
+      const primary = new query.Table<string, Rec>({
+        onError: () => {},
+        fetch: async (keys) => {
+          if (keys.includes("gone")) throw new NotFoundError("Recs [gone] not found");
+          return keys.map((k) => rec(k, 10));
+        },
+      });
+      const foreign = new query.Table<string, Rel>({ onError: () => {} });
+      const answers = new Space<{ tag: string }, Rec[], string, Rec>(
+        {
+          name: "things",
+          table: primary,
+          fetch: async () => [],
+          compose: (records) => records,
+          matches: (r) => foreign.has(r.key),
+          watch: [query.watch(foreign, (event) => [event.key])],
+        },
+        { onError },
+      );
+      answers.onChange({ tag: "t" }, vi.fn());
+      await answers.retrieve({ tag: "t" });
+      foreign.set([{ key: "b" }, { key: "gone" }]);
+      await expect
+        .poll(() => {
+          const cached = answers.getCached({ tag: "t" });
+          return cached != null && !Deleted.matches(cached) ? cached : [];
+        })
+        .toEqual([rec("b", 10)]);
+      expect(onError).not.toHaveBeenCalled();
+    });
+
     it("schedules a wholesale refetch when a watch projects refetch", async () => {
       const table = newTable();
       const foreign = new query.Table<string, Rel>({ onError: () => {} });

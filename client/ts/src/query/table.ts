@@ -118,15 +118,16 @@ export interface TableParams<
 }
 
 /**
- * Retrieves by key are strict: a batch containing any vanished key rejects with
- * NotFound instead of returning the survivors. Splits a rejected batch in halves until
- * each vanished key stands alone, so a few vanished keys cost a few requests, not one
- * per cached key.
+ * Fetches the keys that still exist through a strict fetch, which rejects a whole batch
+ * with NotFound when any key in it has vanished. Splits a rejected batch in halves
+ * until each vanished key stands alone, so a few vanished keys cost a few requests,
+ * not one per key.
+ * @throws the first error that is not a NotFoundError.
  */
-const fetchSurvivors = async <Key extends record.Key, Value extends state.State>(
-  fetch: NonNullable<TableParams<Key, Value>["fetch"]>,
+export const fetchSurvivors = async <Key extends record.Key, Result>(
+  fetch: (keys: Key[]) => Promise<Result[]>,
   keys: Key[],
-): Promise<Array<Keyed<Key, Value>>> => {
+): Promise<Result[]> => {
   try {
     return await fetch(keys);
   } catch (exc) {
