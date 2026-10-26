@@ -10,10 +10,6 @@
 package status_test
 
 import (
-	"encoding/json/jsontext"
-	"encoding/json/v2"
-	"os"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -22,44 +18,22 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// The case table is shared with the TypeScript matches, so that the Core and the client
-// cache agree on every filter.
-const vectorsPath = "../../../testdata/filter/vectors.json"
-
-type whereCase struct {
-	Name     string       `json:"name"`
-	Where    status.Where `json:"where"`
-	Expected []string     `json:"expected"`
-	// ServerComputed is for the TypeScript matches. The Core computes every case.
-	ServerComputed bool `json:"server_computed"`
-}
-
-type vectors struct {
-	Records map[string]status.Status[any] `json:"records"`
-	Cases   []whereCase                   `json:"cases"`
-}
-
 var _ = Describe("Where", Ordered, func() {
 	var (
-		v        vectors
 		svc      *status.Service
 		labelSvc *label.Service
 		tx       gorp.Tx
 	)
-	var entities map[string]jsontext.Value
-	Expect(json.Unmarshal(MustSucceed(os.ReadFile(vectorsPath)), &entities)).
-		To(Succeed())
-	Expect(json.Unmarshal(
-		entities["statuses"],
-		&v,
-		json.RejectUnknownMembers(true),
-	)).To(Succeed())
+	v := MustSucceed(
+		testutil.ReadVectors[status.Status[any], status.Where]("statuses"),
+	)
 	keys := lo.MapEntries(v.Records, func(
 		alias string,
 		s status.Status[any],
@@ -120,7 +94,7 @@ var _ = Describe("Where", Ordered, func() {
 				return keys[s.Key]
 			})).To(ConsistOf(expected))
 		},
-		lo.Map(v.Cases, func(c whereCase, _ int) TableEntry {
+		lo.Map(v.Cases, func(c testutil.Case[status.Where], _ int) TableEntry {
 			return Entry(c.Name, c.Where, c.Expected)
 		}),
 	)
