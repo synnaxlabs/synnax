@@ -79,11 +79,8 @@ export class Latest {
     success: status.create(SUCCESS),
   };
   // snapshot is the value last served, or null after a change. It also goes out of date
-  // when the clock reaches validUntil, where a series leaves the window.
+  // when a series leaves the window. A growing leading buffer leaves it in date.
   private snapshot: Snapshot | null = null;
-  private validUntil = 0n;
-  // grown is true when the stream grew the leading buffer since the last value.
-  private grown = false;
 
   constructor(
     private readonly props: LatestProps,
@@ -124,11 +121,10 @@ export class Latest {
    * the newest series keeps the snapshot's series and moves its time.
    */
   value(): Snapshot {
-    if (this.snapshot == null || this.props.now().valueOf() >= this.validUntil)
+    if (this.snapshot == null || this.props.now().valueOf() >= this.leavesAt())
       return this.rebuild();
     const status = this.status();
-    if (!this.grown && status === this.snapshot.status) return this.snapshot;
-    this.grown = false;
+    if (this.unserved === 0 && status === this.snapshot.status) return this.snapshot;
     this.unserved = 0;
     this.snapshot = { series: this.snapshot.series, status, time: this.time() };
     return this.snapshot;
@@ -144,12 +140,10 @@ export class Latest {
 
   private rebuild(): Snapshot {
     this.trim();
-    this.grown = false;
     this.unserved = 0;
     const series = [...this.series];
     const leading = this.buffer.leadingBuffer;
     if (leading != null) series.push(leading);
-    this.validUntil = this.leavesAt();
     this.snapshot = {
       series: new MultiSeries(series),
       status: this.status(),
@@ -289,7 +283,6 @@ export class Latest {
     const { flushed, allocated } = this.buffer.write(new MultiSeries([s]));
     flushed.series.forEach((f) => this.closeSeries(f));
     if (flushed.series.length > 0 || allocated.series.length > 0) this.snapshot = null;
-    else this.grown = true;
   }
 
   private closeLeading(): void {
