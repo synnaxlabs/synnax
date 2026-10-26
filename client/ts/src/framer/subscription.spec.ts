@@ -605,6 +605,53 @@ describe("Feed.subscribe", () => {
         await feed.close();
       }
     });
+
+    it("should pair a channel added after its index streams", async () => {
+      const core = createCore();
+      const feed = core.openFeed(OPTIONS);
+      const span = TimeSpan.minutes(2);
+      const { key: index } = core.index;
+      const { key: data } = core.data[0];
+      const x = feed.subscribe(raw([index], span));
+      const stop = tick(core, TimeSpan.milliseconds(500));
+      const y = feed.subscribe(raw([], span));
+      try {
+        await settled(core, x, index, span);
+        const opened = core.now();
+        await expect
+          .poll(() => core.now().sub(opened).seconds, POLL)
+          .toBeGreaterThan(30);
+        y.update(raw([data], span));
+        await expect.poll(() => y.value(data).status.variant, POLL).toBe("success");
+        stop();
+        await sleep.sleep(TimeSpan.milliseconds(100));
+        const times = new Map<bigint, bigint>();
+        x.value(index).series.series.forEach((s) => {
+          for (let i = 0; i < s.length; i++)
+            times.set(s.alignment + BigInt(i), BigInt(s.data[i]));
+        });
+        const ys = y.value(data).series;
+        // The y samples span the history read before y opened and the stream after.
+        expect(ys.length).toBeGreaterThan(RATE.sampleCount(span) / 2);
+        // The Core writes sample n of the data channel as sin(n / 1000 + key).
+        const unpaired = ys.series.flatMap((s) =>
+          Array.from({ length: s.length }, (_, i) => s.alignment + BigInt(i)).filter(
+            (a, i) => {
+              const t = times.get(a);
+              if (t == null) return true;
+              const n = Number((t - START.valueOf()) / PERIOD);
+              return Math.abs(Number(s.data[i]) - Math.sin(n / 1000 + data)) > 1e-5;
+            },
+          ),
+        );
+        expect(unpaired).toEqual([]);
+      } finally {
+        stop();
+        x.close();
+        y.close();
+        await feed.close();
+      }
+    });
   });
 
   describe("gap", () => {
