@@ -15,11 +15,6 @@ from alamos import Instrumentation, Logger
 from alamos.log import NOOP_LOGGER
 
 
-@pytest.fixture
-def base() -> logging.Logger:
-    return logging.getLogger("alamos_test")
-
-
 class TestLog:
     def test_noop(self, caplog: pytest.LogCaptureFixture) -> None:
         """Should not emit any records."""
@@ -63,17 +58,39 @@ class TestLog:
         assert record.getMessage() == "value 1"
 
 
+class Records(logging.Handler):
+    def __init__(self) -> None:
+        super().__init__()
+        self.records: list[logging.LogRecord] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.records.append(record)
+
+
 class TestInstrumentationLogger:
-    def test_path(self, base: logging.Logger, caplog: pytest.LogCaptureFixture) -> None:
-        """Should name each record with the instrumentation path."""
+    def test_meta_fields(
+        self, base: logging.Logger, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Should add the instrumentation key and path to each record."""
         ins = Instrumentation("root", logger=Logger(noop=False, base=base))
         with caplog.at_level(logging.INFO):
             ins.L.info("root")
-            ins.child("a").child("b").L.info("child")
-        assert [r.name for r in caplog.records] == [
-            "alamos_test.root",
-            "alamos_test.root.a.b",
-        ]
+            ins.child("a").child("b").L.info("child", extra={"user": "x"})
+        root, child = caplog.records
+        assert (root.__dict__["key"], root.__dict__["path"]) == ("root", "root")
+        assert (child.__dict__["key"], child.__dict__["path"]) == ("b", "root.a.b")
+        assert child.__dict__["user"] == "x"
+
+    def test_supplied_base(self) -> None:
+        """Should send records to the handlers of the supplied base logger."""
+        handler = Records()
+        base = logging.Logger("app")
+        base.addHandler(handler)
+        ins = Instrumentation("root", logger=Logger(noop=False, base=base))
+        ins.child("a").L.warn("child")
+        (record,) = handler.records
+        assert record.name == "app"
+        assert record.__dict__["path"] == "root.a"
 
     def test_meta(self, base: logging.Logger) -> None:
         """Should set the instrumentation meta on the logger."""

@@ -20,14 +20,15 @@ from alamos.noop import noop as noopd
 class Logger:
     """
     Logger wraps Python's logging implementation to provide an opinionated formatter and
-    no-op logging functionality. Each child logger extends the name of its base logger
-    with its instrumentation key, so a record's logger name carries the instrumentation
-    path.
+    no-op logging functionality. A child logger adds the key and path of its
+    instrumentation to the extra fields of each record, so a formatter can show them
+    with %(key)s and %(path)s.
     """
 
     noop: bool = True
     base: BaseLogger | None = None
     meta: InstrumentationMeta
+    _fields: dict[str, str]
 
     def _(self) -> Noop:
         return self
@@ -35,35 +36,40 @@ class Logger:
     def __init__(self, noop: bool = True, base: BaseLogger | None = None):
         self.noop = noop
         self.base = base
+        self._fields = {}
 
     @noopd
     def debug(self, /, msg: str, *args: Any, **kwargs: Any) -> None:
         """Logs a message at the Debug level"""
         if self.base is not None:
-            self.base.debug(msg, *args, **kwargs)
+            extra = {**kwargs.pop("extra", {}), **self._fields}
+            self.base.debug(msg, *args, extra=extra, **kwargs)
 
     @noopd
     def info(self, /, msg: str, *args: Any, **kwargs: Any) -> None:
         """Logs a message at the Info level"""
         if self.base is not None:
-            self.base.info(msg, *args, **kwargs)
+            extra = {**kwargs.pop("extra", {}), **self._fields}
+            self.base.info(msg, *args, extra=extra, **kwargs)
 
     @noopd
     def warn(self, /, msg: str, *args: Any, **kwargs: Any) -> None:
         """Logs a message at the Warn level"""
         if self.base is not None:
-            self.base.warning(msg, *args, **kwargs)
+            extra = {**kwargs.pop("extra", {}), **self._fields}
+            self.base.warning(msg, *args, extra=extra, **kwargs)
 
     @noopd
     def error(self, /, msg: str, *args: Any, **kwargs: Any) -> None:
         """Logs a message at the Error level"""
         if self.base is not None:
-            self.base.error(msg, *args, **kwargs)
+            extra = {**kwargs.pop("extra", {}), **self._fields}
+            self.base.error(msg, *args, extra=extra, **kwargs)
 
     def child_(self, /, meta: InstrumentationMeta) -> Logger:
-        base = None if self.base is None else self.base.getChild(meta.key)
-        logger = Logger(noop=self.noop, base=base)
+        logger = Logger(noop=self.noop, base=self.base)
         logger.meta = meta
+        logger._fields = {"key": meta.key, "path": meta.path}
         return logger
 
 
