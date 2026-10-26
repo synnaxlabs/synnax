@@ -179,13 +179,16 @@ const Usage = ({ consent, value, onChange, disabled }: UsageProps): ReactElement
   const id = useId();
   if (consent === "notice")
     return (
-      <Text.Text level="small" color={9}>
-        Synnax Desktop sends usage data to help us improve it. You can turn it off in
-        the app.
-      </Text.Text>
+      <Flex.Box y gap={0.5} className="portal-usage">
+        <Text.Text level="small" color={9}>
+          Synnax Desktop sends usage data to help us improve it. You can turn it off in
+          the app.
+        </Text.Text>
+        <Privacy />
+      </Flex.Box>
     );
   return (
-    <Flex.Box x align="center" gap="small">
+    <Flex.Box x align="center" gap="medium" className="portal-usage">
       <Input.Checkbox
         id={id}
         value={value}
@@ -193,22 +196,28 @@ const Usage = ({ consent, value, onChange, disabled }: UsageProps): ReactElement
         size="small"
         disabled={disabled}
       />
-      <Text.Text level="small" color={10}>
-        <label htmlFor={id}>Share usage data to help improve Synnax Desktop</label>{" "}
-        <Text.Text
-          el="a"
-          level="small"
-          variant="link"
-          href={PRIVACY_URL}
-          target="_blank"
-          rel="noreferrer"
-        >
-          Privacy policy
+      <Flex.Box y gap={0.5}>
+        <Text.Text el="label" htmlFor={id} level="small" color={10}>
+          Share usage data to improve Synnax Desktop
         </Text.Text>
-      </Text.Text>
+        <Privacy />
+      </Flex.Box>
     </Flex.Box>
   );
 };
+
+const Privacy = (): ReactElement => (
+  <Text.Text
+    el="a"
+    level="small"
+    variant="link"
+    href={PRIVACY_URL}
+    target="_blank"
+    rel="noreferrer"
+  >
+    Privacy policy
+  </Text.Text>
+);
 
 interface SummaryProps {
   name: string;
