@@ -7,19 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package crypto_test
-
-import (
-	"testing"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	. "github.com/synnaxlabs/x/testutil"
-)
-
-func TestCrypto(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Crypto Suite", SuiteConfig())
-}
-
-var _ = ShouldNotLeakGoroutinesPerSpec()
+export * from "@/ui/invitations/Invitations";
