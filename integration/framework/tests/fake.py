@@ -13,10 +13,12 @@ import synnax as sy
 
 
 class Stream:
-    """A stream that returns pushed frames and raises pushed errors."""
+    """A stream that returns pushed frames and raises pushed errors, and raises
+    close_error on close when set."""
 
     def __init__(self) -> None:
         self.closed = False
+        self.close_error: Exception | None = None
         self._items: queue.Queue[sy.Frame | Exception] = queue.Queue()
 
     def push(self, item: sy.Frame | Exception) -> None:
@@ -33,6 +35,8 @@ class Stream:
 
     def close(self) -> None:
         self.closed = True
+        if self.close_error is not None:
+            raise self.close_error
 
 
 class Channels:

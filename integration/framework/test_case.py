@@ -602,11 +602,6 @@ class TestCase(ABC):
             if not self._auto_pass:
                 self.run()
             log_phase("run")
-            self.streamer.check()
-            if self._notifications is not None:
-                self._notifications.check()
-            if self._task_status is not None:
-                self._task_status.check()
 
             # Set to PENDING only if not in final state
             if self._status not in [STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED]:
@@ -635,6 +630,14 @@ class TestCase(ABC):
                     self._notifications.close()
                 if self._task_status is not None:
                     self._task_status.close()
+                self.streamer.stop()
+                self.streamer.join()
+                with self._try_to("stream telemetry"):
+                    self.streamer.check()
+                    if self._notifications is not None:
+                        self._notifications.check()
+                    if self._task_status is not None:
+                        self._task_status.check()
                 self._check_expectation()
             finally:
                 self._stop_client()

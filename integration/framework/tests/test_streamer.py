@@ -55,12 +55,6 @@ class TestStreamer:
         assert isinstance(info.value.__cause__, ValueError)
         stop(streamer)
         assert client.stream.closed
-
-    def test_read_raises_read_error(self, client: Client, streamer: Streamer) -> None:
-        """Should raise the error that stopped the stream from read and check."""
-        streamer.start()
-        client.stream.push(ValueError("decode failed"))
-        stop(streamer)
         with pytest.raises(RuntimeError, match="decode failed"):
             streamer.read(CHANNEL)
         with pytest.raises(RuntimeError, match="decode failed"):
@@ -72,6 +66,14 @@ class TestStreamer:
         streamer.start()
         with pytest.raises(RuntimeError, match="refused"):
             streamer.wait_for(CHANNEL, lambda v: v == 1.0, WAIT)
+
+    def test_raises_close_error(self, client: Client, streamer: Streamer) -> None:
+        """Should raise an error from closing the stream after a stop."""
+        client.stream.close_error = ConnectionError("reset")
+        streamer.start()
+        stop(streamer)
+        with pytest.raises(RuntimeError, match="reset"):
+            streamer.check()
 
     def test_stop_without_error(self, client: Client, streamer: Streamer) -> None:
         """Should not report an error after a clean stop."""

@@ -46,6 +46,16 @@ class TestRecorder:
                 notifications.check()
         assert client.stream.closed
 
+    def test_check_raises_close_error(self) -> None:
+        """Should raise an error from closing the stream after a stop."""
+        client = Client()
+        client.stream.close_error = ConnectionError("reset")
+        notifications = Notifications(client)
+        notifications.open()
+        notifications.close()
+        with pytest.raises(RuntimeError, match="reset"):
+            notifications.check()
+
     def test_open_raises_open_error(self) -> None:
         """Should raise an error from opening the stream."""
         client = Client()

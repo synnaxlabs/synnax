@@ -107,9 +107,17 @@ class Recorder:
                 self._cond.wait(remaining)
 
     def _run(self) -> None:
-        streamer = None
         try:
-            streamer = self._client.open_streamer([SET_CHANNEL])
+            self._stream()
+        except Exception as e:
+            with self._cond:
+                self._error = e
+                self._cond.notify_all()
+            self._ready.set()
+
+    def _stream(self) -> None:
+        streamer = self._client.open_streamer([SET_CHANNEL])
+        try:
             self._ready.set()
             while not self._stop.is_set():
                 frame = streamer.read(READ_TIMEOUT)
@@ -119,14 +127,8 @@ class Recorder:
                     with self._cond:
                         if self._record(raw):
                             self._cond.notify_all()
-        except Exception as e:
-            with self._cond:
-                self._error = e
-                self._cond.notify_all()
-            self._ready.set()
         finally:
-            if streamer is not None:
-                streamer.close()
+            streamer.close()
 
 
 class Notifications(Recorder):

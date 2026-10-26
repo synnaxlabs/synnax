@@ -190,9 +190,17 @@ class Streamer:
         for ch in self._channels:
             self._frame[ch] = 0
 
-        streamer = None
         try:
-            streamer = self._client.open_streamer(list(self._channels))
+            self._stream()
+        except Exception as e:
+            self._log(f"Streamer failed: {e}")
+            with self._cond:
+                self._error = e
+                self._cond.notify_all()
+
+    def _stream(self) -> None:
+        streamer = self._client.open_streamer(list(self._channels))
+        try:
             while not self._should_stop:
                 frame = streamer.read(self._read_timeout)
                 if frame is None:
@@ -203,12 +211,6 @@ class Streamer:
                         if series is not None and len(series) > 0:
                             self._frame[name] = _scalar(series[-1])
                     self._cond.notify_all()
-        except Exception as e:
-            self._log(f"Streamer failed: {e}")
-            with self._cond:
-                self._error = e
-                self._cond.notify_all()
         finally:
-            if streamer is not None:
-                with suppress_websocket_errors():
-                    streamer.close()
+            with suppress_websocket_errors():
+                streamer.close()
