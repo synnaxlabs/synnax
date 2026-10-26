@@ -487,9 +487,8 @@ func NonDefaultedTypeParams(tps []TypeParam) []TypeParam {
 	return out
 }
 
-// RecordFields returns the fields every record of typ holds: a struct's fields, or the
-// fields of a union's base structs and the tag of a union that borrows its enum. A
-// field
+// RecordFields returns the fields every record of typ holds: the fields of a struct, or
+// the fields of a union's bases and the tag of a union that borrows its enum. A field
 // typed by a type parameter with a default takes the default. It returns false when typ
 // is neither a struct nor a union.
 func RecordFields(typ Type, table *Table) ([]Field, bool) {

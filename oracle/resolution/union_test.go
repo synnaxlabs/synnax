@@ -109,6 +109,35 @@ var _ = Describe("RecordFields", func() {
 		}))
 	})
 
+	It("Should hold the fields of a struct with defaults for its parameters", func() {
+		def := resolution.TypeRef{Name: "int32"}
+		thing := resolution.Type{
+			Name: "Thing",
+			Form: resolution.StructForm{
+				TypeParams: []resolution.TypeParam{{Name: "T", Default: &def}},
+				Fields: []resolution.Field{
+					{Name: "key", Type: resolution.TypeRef{Name: "uuid"}},
+					{Name: "value", Type: resolution.TypeRef{
+						TypeParam: &resolution.TypeParam{Name: "T"},
+					}},
+				},
+			},
+		}
+		fields := MustBeOk(resolution.RecordFields(thing, table))
+		Expect(fields).To(Equal([]resolution.Field{
+			{Name: "key", Type: resolution.TypeRef{Name: "uuid"}},
+			{Name: "value", Type: def},
+		}))
+	})
+
+	It("Should report a type that is neither a struct nor a union", func() {
+		_, ok := resolution.RecordFields(
+			resolution.Type{Name: "Kind", Form: resolution.EnumForm{}},
+			table,
+		)
+		Expect(ok).To(BeFalse())
+	})
+
 	It("Should leave out the tag of an unnamed enum", func() {
 		fields := MustBeOk(resolution.RecordFields(union(""), table))
 		Expect(fields).To(Equal([]resolution.Field{
