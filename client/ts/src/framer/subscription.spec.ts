@@ -854,6 +854,50 @@ describe("Feed.subscribe", () => {
       }
     });
 
+    it("should land a read before the samples streamed after a stream drop", async () => {
+      const core = createCore();
+      let held = false;
+      let waiting = false;
+      const { promise: released, resolve: release } = Promise.withResolvers<void>();
+      const feed = core.openFeed({
+        ...OPTIONS,
+        readLatest: async (keys, count, tr) => {
+          if (held) {
+            waiting = true;
+            await released;
+          }
+          return core.readLatest(keys, count, tr);
+        },
+      });
+      const key = core.index.key;
+      const sub = feed.subscribe({
+        keys: [key],
+        limit: { variant: "latest", count: 1000 },
+      });
+      // A consumer reads a value on every change, as Pluto does.
+      sub.onChange(() => sub.value(key));
+      try {
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        held = true;
+        core.disconnect();
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("warning");
+        // The stream never delivers the samples written while it is down.
+        core.advance(TimeSpan.seconds(1));
+        core.reconnect();
+        await expect.poll(() => waiting, POLL).toBe(true);
+        core.advance(TimeSpan.milliseconds(100));
+        await expect
+          .poll(() => timesOf(sub.value(key)).at(-1), POLL)
+          .toBe(newestOf(core));
+        release();
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        expectComplete(timesOf(sub.value(key)));
+      } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
+
     it("should leave out a streamed write older than the newest sample", async () => {
       const core = createCore();
       const feed = core.openFeed(OPTIONS);

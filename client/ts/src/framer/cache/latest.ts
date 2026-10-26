@@ -50,11 +50,7 @@ const MAX_BUFFER = 65_536;
 /**
  * Serves the newest samples of one channel: a read of its newest stored samples, and
  * every newer sample the stream delivers. Streamed samples serve while the read waits
- * or fails. When the stream drops, it reads the newest samples again once the Core acks
- * the channel. A read lands before the samples streamed while it ran, unless a value
- * served them under an error or warning. Otherwise, the samples grow at their end and
- * lose whole series from their front, unless their data type changes. A series leaves
- * only once a value served it.
+ * or fails, and a stream drop reads the newest samples again.
  */
 export class Latest {
   // series holds the closed series, oldest first. The buffer's leading buffer holds the
@@ -87,8 +83,9 @@ export class Latest {
   private validUntil = 0n;
   // grown is true when the stream grew the leading buffer since the last value.
   private grown = false;
-  // shown is true when a value served samples under an error or warning while a load
-  // runs. Consumers may have taken them, so the read must not land before them.
+  // shown is true when a value served samples streamed since the running load began,
+  // under an error or warning. Consumers may have taken them, so the read must not land
+  // before them.
   private shown = false;
 
   constructor(
@@ -131,8 +128,11 @@ export class Latest {
    */
   value(): Snapshot {
     const snapshot = this.current();
-    const { status, series } = snapshot;
-    if (this.loadMark != null && status.variant !== "loading" && series.length > 0)
+    if (
+      this.loadMark != null &&
+      snapshot.status.variant !== "loading" &&
+      (this.buffer.leadingBuffer != null || this.series.length > this.loadMark)
+    )
       this.shown = true;
     return snapshot;
   }

@@ -187,6 +187,42 @@ describe("StreamMultiChannelLog", () => {
     });
   });
 
+  it("should show the samples written while its stream was down", async () => {
+    const core = createCore();
+    const [a] = core.data.map((c) => c.key);
+    let held = false;
+    let waiting = false;
+    const { promise: released, resolve: release } = Promise.withResolvers<void>();
+    const client = connect(core, {
+      readLatest: async (keys, count, tr) => {
+        if (held) {
+          waiting = true;
+          await released;
+        }
+        return core.readLatest(keys, count, tr);
+      },
+    });
+    const log = open(core, client, { channels: [a] });
+    await settle(log, HISTORY);
+    held = true;
+    core.disconnect();
+    await expect.poll(() => log.value().status.variant, POLL).toBe("warning");
+    // The stream never delivers the samples written while it is down.
+    core.advance(TimeSpan.seconds(1));
+    core.reconnect();
+    await expect.poll(() => waiting, POLL).toBe(true);
+    const witness = client.feed.subscribe({
+      keys: [a],
+      limit: { variant: "latest", count: 10 },
+    });
+    closers.push(() => witness.close());
+    core.advance(TimeSpan.seconds(1));
+    await expect.poll(() => witness.value(a).series.length, POLL).toBe(10);
+    release();
+    await settle(log, HISTORY + 20);
+    expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, HISTORY + 20));
+  });
+
   it("should show every sample of a frame larger than its page", async () => {
     const core = createCore();
     const [a] = core.data.map((c) => c.key);
