@@ -19,7 +19,7 @@ import { Synnax } from "@/synnax";
 const RESOURCE_NAME = "status";
 const PLURAL_RESOURCE_NAME = "statuses";
 
-export type ListParams = status.MultiRetrieveParams;
+export type ListParams = status.RetrieveRequest;
 
 export const useList = Flux.createList<ListParams, status.Key, status.Status>({
   name: PLURAL_RESOURCE_NAME,

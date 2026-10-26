@@ -61,8 +61,7 @@ const singleRetrieveParamsZ = z
 const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
 
 export type SingleRetrieveParams = z.input<typeof singleRetrieveParamsZ>;
-export type MultiRetrieveParams = RetrieveRequest;
-export type RetrieveParams = SingleRetrieveParams | MultiRetrieveParams;
+export type RetrieveParams = SingleRetrieveParams | RetrieveRequest;
 
 const retrieveResponseZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
   detailsSchema?: DetailsSchema,
@@ -169,7 +168,7 @@ export class Client extends query.Retriever<
     params: SingleRetrieveParams & { detailsSchema?: DetailsSchema },
   ): Promise<Status<DetailsSchema>>;
   async retrieve(params: Key | SingleRetrieveParams): Promise<Status>;
-  async retrieve(params: Key[] | MultiRetrieveParams): Promise<Status[]>;
+  async retrieve(params: Key[] | RetrieveRequest): Promise<Status[]>;
   async retrieve<DetailsSchema extends z.ZodType = z.ZodNever>(
     rawParams: Key | Key[] | (RetrieveParams & { detailsSchema?: DetailsSchema }),
   ): Promise<Status<DetailsSchema> | Status<DetailsSchema>[]> {
