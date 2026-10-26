@@ -26,6 +26,18 @@ import { License } from "@/platform/license";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 
+interface Standing {
+  label: string;
+  variant: status.Variant;
+}
+
+const standingOf = ({ state, warning }: license.Info): Standing => {
+  if (state === "expired") return { label: "Expired", variant: "error" };
+  if (state === "missing") return { label: "Inactive", variant: "warning" };
+  if (warning !== "") return { label: "Expiring", variant: "warning" };
+  return { label: "Active", variant: "success" };
+};
+
 const BINDINGS: Record<License.Binding, string> = {
   floating: "Runs on any machine",
   host: "Bound to this machine",
@@ -97,7 +109,7 @@ interface HeadlineProps {
 }
 
 const Headline = ({ info }: HeadlineProps): ReactElement => {
-  const { label, variant } = License.standing(info);
+  const { label, variant } = standingOf(info);
   const lic = info.license;
   const description =
     info.warning !== ""

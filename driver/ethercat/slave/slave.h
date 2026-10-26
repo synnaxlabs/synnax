@@ -243,19 +243,13 @@ struct Properties {
         return this->input_pdos.size() + this->output_pdos.size();
     }
 
-    /// @brief finds an input PDO by name.
+    /// @brief returns the entry at the given address in one direction, or nullopt when
+    /// the slave has no such entry. Padding never matches.
     [[nodiscard]] std::optional<pdo::Properties>
-    find_input_pdo(const std::string &pdo_name) const {
-        for (const auto &pdo: input_pdos)
-            if (pdo.name == pdo_name) return pdo;
-        return std::nullopt;
-    }
-
-    /// @brief finds an output PDO by name.
-    [[nodiscard]] std::optional<pdo::Properties>
-    find_output_pdo(const std::string &pdo_name) const {
-        for (const auto &pdo: output_pdos)
-            if (pdo.name == pdo_name) return pdo;
+    find_pdo(const uint16_t index, const uint8_t sub_index, const bool is_input) const {
+        for (const auto &pdo: is_input ? this->input_pdos : this->output_pdos)
+            if (!pdo.is_padding() && pdo.index == index && pdo.sub_index == sub_index)
+                return pdo;
         return std::nullopt;
     }
 

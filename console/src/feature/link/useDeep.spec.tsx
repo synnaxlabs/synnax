@@ -25,7 +25,7 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { Link } from "@/feature/link";
-import { Link as PlatformLink } from "@/platform/link";
+import { type Link as PlatformLink } from "@/platform/link";
 import { Session } from "@/session";
 import {
   assertDefined,
@@ -243,7 +243,7 @@ const setupSettled = async (
 };
 
 describe("useDeep", () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => sessionStorage.clear());
   afterEach(() => vi.useRealTimers());
 
   it("should open a resource link the app was launched from", async () => {
@@ -295,20 +295,6 @@ describe("useDeep", () => {
     await waitFor(() => expect(connect).toHaveBeenCalledWith("c1"));
     expect(handlers.schematic).not.toHaveBeenCalled();
     expect(handlers.range).not.toHaveBeenCalled();
-  });
-
-  it("should ignore the next launch link once when the ignore flag is set", async () => {
-    PlatformLink.markNextIgnored();
-    const first = await setup({
-      getCurrentURLs: async () => ["synnax://cluster/c1/schematic/s1"],
-    });
-    await act(async () => {});
-    expect(first.connect).not.toHaveBeenCalled();
-    // The flag is single-use: the hook clears it, so a later launch is handled normally.
-    const second = await setup({
-      getCurrentURLs: async () => ["synnax://cluster/c1/schematic/s1"],
-    });
-    await waitFor(() => expect(second.connect).toHaveBeenCalledWith("c1"));
   });
 
   it("should be a no-op when the engine is not tauri", async () => {
@@ -667,6 +653,22 @@ describe("useDeep", () => {
     });
     await waitFor(() => expect(h.handlers.range).toHaveBeenCalled());
     expect(h.awaitingProject()).toBe(false);
+  });
+
+  it("should open a launch link that a reload cut short once a project is selected", async () => {
+    const deps = { getCurrentURLs: async () => ["synnax://cluster/c1/range/r1"] };
+    const first = await setupSettled({ projectSelected: false, deps });
+    await waitFor(() => expect(first.awaitingProject()).toBe(true));
+    const next = await setupSettled({ projectSelected: false, deps });
+    await waitFor(() => expect(next.awaitingProject()).toBe(true));
+    act(() => {
+      next.store.dispatch(Session.Project.select(next.projectKey));
+    });
+    await waitFor(() =>
+      expect(next.handlers.range).toHaveBeenCalledWith(
+        expect.objectContaining({ key: "r1" }),
+      ),
+    );
   });
 
   it("should hold a link until a panel is selected", async () => {

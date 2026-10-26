@@ -13,10 +13,8 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto";
 
 import { useEnabledState, useToggleEnabled } from "@/feature/ethercat/device/queries";
-import { useConfigureModal } from "@/feature/ethercat/device/useConfigureModal";
 import { Task } from "@/feature/ethercat/task";
 import { Device } from "@/platform/device";
-import { type Tree } from "@/platform/tree";
 
 const TASK_CONTEXT_MENU_ITEMS = [
   Device.createTaskContextMenuItem({
@@ -31,12 +29,10 @@ const TASK_CONTEXT_MENU_ITEMS = [
   }),
 ];
 
-export const ContextMenuItems = (props: Tree.ContextMenuProps) => {
+export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
   const keys = props.selection.ids.map((id) => id.key);
   const hasUpdatePermission = Access.useUpdateGranted(device.ontologyID(keys));
   const { update: toggleEnabled } = useToggleEnabled();
-  const configure = useConfigureModal();
-  const onConfigure = (deviceKey: device.Key) => configure({ deviceKey });
 
   const { allDisabled, allEnabled } = useEnabledState({ keys });
 
@@ -50,14 +46,10 @@ export const ContextMenuItems = (props: Tree.ContextMenuProps) => {
 
   return (
     <>
-      <Device.ConfigureMenuItem {...props} onConfigure={onConfigure} />
+      <Device.ConfigureMenuItem {...props} />
       <Device.ChangeIdentifierMenuItem {...props} icon="Logo.EtherCAT" />
       <Menu.Divider />
-      <Device.TaskContextMenuItems
-        {...props}
-        onConfigure={onConfigure}
-        items={TASK_CONTEXT_MENU_ITEMS}
-      />
+      <Device.TaskContextMenuItems {...props} items={TASK_CONTEXT_MENU_ITEMS} />
       <Menu.Divider />
       {hasUpdatePermission && !allDisabled && (
         <Menu.Item itemKey="ethercat.disable" onClick={handleDisable}>
