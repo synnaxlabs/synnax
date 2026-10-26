@@ -10,6 +10,7 @@
 import { type breaker, type destructor, sync, type TimeStamp } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
+import { UnsupportedError } from "@/errors";
 import { type Joins, type Wait } from "@/framer/cache/join";
 import { COMMIT_MARGIN, type Reader } from "@/framer/cache/reader";
 import { READ_FAILED } from "@/framer/cache/status";
@@ -25,13 +26,6 @@ export interface JoinerProps {
   /** Retry behavior for failed catch-up reads. */
   breaker?: breaker.Config;
 }
-
-// The Core rejects a read of a calculation over virtual channels, and of its index,
-// with this error. They store no samples, so they join without history.
-const NO_HISTORY_ERROR = "cannot open iterator on virtual channel";
-
-const isHistoryless = (e: unknown): boolean =>
-  e instanceof Error && e.message.startsWith(NO_HISTORY_ERROR);
 
 const NO_HISTORY: status.Crude = {
   variant: "warning",
@@ -154,7 +148,10 @@ export class Joiner {
           if (r.status === "fulfilled") {
             this.failures.delete(k);
             caught.push(waits[i]);
-          } else if (isHistoryless(r.reason)) {
+          } else if (UnsupportedError.matches(r.reason)) {
+            // The Core rejects a read of a calculation over virtual channels, and of
+            // its index, as unsupported. They store no samples, so they join without
+            // history.
             this.failures.set(k, status.create(NO_HISTORY));
             historyless.push(waits[i]);
           } else {

@@ -31,6 +31,7 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -1714,9 +1715,12 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			})
 
 			Describe("Virtual Upstream Reads", func() {
-				virtualErr := MatchError(ContainSubstring(
-					"cannot open iterator on virtual channel",
-				))
+				virtualErr := SatisfyAll(
+					MatchError(query.ErrUnsupported),
+					MatchError(
+						ContainSubstring("cannot open iterator on virtual channel"),
+					),
+				)
 				create := func(ctx SpecContext, chs ...*channel.Channel) {
 					GinkgoHelper()
 					for _, ch := range chs {

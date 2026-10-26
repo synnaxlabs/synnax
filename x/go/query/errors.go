@@ -25,6 +25,8 @@ var (
 	ErrUniqueViolation = errors.Wrap(ErrQuery, "unique violation")
 	// ErrInvalidParameters is returned when a query has invalid parameters.
 	ErrInvalidParameters = errors.Wrap(ErrQuery, "invalid parameters")
+	// ErrUnsupported is returned when a query targets an entity that cannot answer it.
+	ErrUnsupported = errors.Wrap(ErrQuery, "unsupported")
 )
 
 const (
@@ -32,6 +34,7 @@ const (
 	uniqueViolation   = typePrefix + ".unique_violation"
 	notFound          = typePrefix + ".not_found"
 	invalidParameters = typePrefix + ".invalid_parameters"
+	unsupported       = typePrefix + ".unsupported"
 )
 
 func encode(_ context.Context, err error) (errors.Payload, bool) {
@@ -43,6 +46,9 @@ func encode(_ context.Context, err error) (errors.Payload, bool) {
 	}
 	if errors.CheapIs(err, ErrInvalidParameters) {
 		return errors.Payload{Type: invalidParameters, Data: err.Error()}, true
+	}
+	if errors.CheapIs(err, ErrUnsupported) {
+		return errors.Payload{Type: unsupported, Data: err.Error()}, true
 	}
 	if errors.CheapIs(err, ErrQuery) {
 		return errors.Payload{Type: typePrefix, Data: err.Error()}, true
@@ -58,6 +64,8 @@ func decode(_ context.Context, pld errors.Payload) (error, bool) {
 		return errors.Wrap(ErrUniqueViolation, pld.Data), true
 	case invalidParameters:
 		return errors.Wrap(ErrInvalidParameters, pld.Data), true
+	case unsupported:
+		return errors.Wrap(ErrUnsupported, pld.Data), true
 	}
 	if strings.HasPrefix(pld.Type, typePrefix) {
 		return errors.Wrap(ErrQuery, pld.Data), true
