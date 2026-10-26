@@ -30,14 +30,10 @@ import { createBreaker, isDefinitive } from "@/framer/retry";
 import { type Snapshot } from "@/framer/subscription";
 import { status } from "@/status";
 
-/** Reads the newest count stored samples of a channel in the time range. */
-export interface LatestRead {
-  (key: channel.Key, count: number, tr: TimeRange): Promise<MultiSeries>;
-}
-
 export interface LatestProps {
   streamer: MultiplexedStreamer;
-  readLatest: LatestRead;
+  /** Reads the newest count stored samples of the channel in the time range. */
+  readLatest: (key: channel.Key, count: number, tr: TimeRange) => Promise<MultiSeries>;
   retrieveChannels: ChannelRetriever;
   now: () => TimeStamp;
   /** Retry behavior for failed reads. */

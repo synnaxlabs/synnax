@@ -41,7 +41,7 @@ import { type SubscribeRequest, type Subscription } from "@/framer/subscription"
 import { historyChangeZ } from "@/framer/types.gen";
 
 /** Reads the newest count stored samples of each channel in the time range. */
-export interface LatestReader {
+export interface RemoteLatestReader {
   (keys: channel.Key[], count: number, tr: TimeRange): Promise<Frame>;
 }
 
@@ -61,7 +61,7 @@ export interface FeedProps
     Omit<ReaderProps, "store">,
     Omit<MultiplexedStreamerProps, "store" | "joins" | "onWait" | "openStreamer"> {
   openStreamer: StreamOpener;
-  readLatest: LatestReader;
+  readLatest: RemoteLatestReader;
   /**
    * The key of the Core node the client connects to, once known. History signals keep
    * the blocks of only the channels stored on it.

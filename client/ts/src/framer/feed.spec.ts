@@ -27,7 +27,7 @@ import { UnexpectedError } from "@/errors";
 import { type ChannelRetriever } from "@/framer/adapter";
 import { tileSpan } from "@/framer/cache/grid";
 import { type TileSpec } from "@/framer/cache/tile";
-import { Feed, type FeedProps, type LatestReader } from "@/framer/feed";
+import { Feed, type FeedProps, type RemoteLatestReader } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
 import { createTestClient } from "@/testutil";
 
@@ -616,7 +616,7 @@ describe("feed", () => {
   });
 
   describe("readLatest", () => {
-    const createFeed = (readLatest: LatestReader): Feed =>
+    const createFeed = (readLatest: RemoteLatestReader): Feed =>
       new Feed({
         readLatest,
         retrieveChannels: retrieveIndexes,
