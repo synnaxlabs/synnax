@@ -31,7 +31,9 @@ func (r RetrieveRequest) Apply(q service.Retrieve) (service.Retrieve, error) {
 		}
 		q = q.Where(f)
 	}
-	q = q.Search(r.SearchTerm)
+	if r.SearchTerm != "" {
+		q = q.Where(service.MatchSearch(r.SearchTerm))
+	}
 	if r.Limit != nil {
 		q = q.Limit(int(*r.Limit))
 	}

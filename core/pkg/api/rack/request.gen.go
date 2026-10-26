@@ -31,7 +31,9 @@ func (r RetrieveRequest) Apply(q servicerack.Retrieve) (servicerack.Retrieve, er
 		}
 		q = q.Where(f)
 	}
-	q = q.Search(r.SearchTerm)
+	if r.SearchTerm != "" {
+		q = q.Where(servicerack.MatchSearch(r.SearchTerm))
+	}
 	if r.Limit != nil {
 		q = q.Limit(int(*r.Limit))
 	}

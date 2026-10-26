@@ -182,7 +182,7 @@ func KeySetFromPB(pb *KeySet) (filter.Set[channel.Key], error) {
 		r.Eq = &v
 	}
 	if pb.In != nil {
-		r.In = lo.Map(pb.In.Values, func(v uint32, _ int) channel.Key { return channel.Key(v) })
+		r.In = xpb.ListValues(lo.Map(pb.In.Values, func(v uint32, _ int) channel.Key { return channel.Key(v) }))
 	}
 	return r, nil
 }
@@ -237,7 +237,7 @@ func NodeKeySetFromPB(pb *NodeKeySet) (filter.Set[node.Key], error) {
 		r.Eq = &v
 	}
 	if pb.In != nil {
-		r.In = lo.Map(pb.In.Values, func(v uint32, _ int) node.Key { return node.Key(v) })
+		r.In = xpb.ListValues(lo.Map(pb.In.Values, func(v uint32, _ int) node.Key { return node.Key(v) }))
 	}
 	return r, nil
 }
@@ -292,7 +292,7 @@ func TelemDataTypeSetFromPB(pb *TelemDataTypeSet) (filter.Set[telem.DataType], e
 		r.Eq = &v
 	}
 	if pb.In != nil {
-		r.In = lo.Map(pb.In.Values, func(v string, _ int) telem.DataType { return telem.DataType(v) })
+		r.In = xpb.ListValues(lo.Map(pb.In.Values, func(v string, _ int) telem.DataType { return telem.DataType(v) }))
 	}
 	return r, nil
 }
@@ -409,14 +409,14 @@ func WhereFromPB(pb *Where) (channel.Where, error) {
 		if err != nil {
 			return channel.Where{}, err
 		}
-		r.And = vals
+		r.And = xpb.ListValues(vals)
 	}
 	if pb.Or != nil {
 		vals, err := WheresFromPB(pb.Or.Values)
 		if err != nil {
 			return channel.Where{}, err
 		}
-		r.Or = vals
+		r.Or = xpb.ListValues(vals)
 	}
 	if pb.Not != nil {
 		val, err := WhereFromPB(pb.Not)

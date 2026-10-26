@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/filter"
 	filterpb "github.com/synnaxlabs/x/filter/pb"
+	xpb "github.com/synnaxlabs/x/pb"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -68,7 +69,7 @@ func UuidSetFromPB(pb *UuidSet) (filter.Set[uuid.UUID], error) {
 		if err != nil {
 			return filter.Set[uuid.UUID]{}, err
 		}
-		r.In = vals
+		r.In = xpb.ListValues(vals)
 	}
 	return r, nil
 }
@@ -123,7 +124,7 @@ func RackKeySetFromPB(pb *RackKeySet) (filter.Set[rack.Key], error) {
 		r.Eq = &v
 	}
 	if pb.In != nil {
-		r.In = lo.Map(pb.In.Values, func(v uint32, _ int) rack.Key { return rack.Key(v) })
+		r.In = xpb.ListValues(lo.Map(pb.In.Values, func(v uint32, _ int) rack.Key { return rack.Key(v) }))
 	}
 	return r, nil
 }
@@ -234,14 +235,14 @@ func WhereFromPB(pb *Where) (task.Where, error) {
 		if err != nil {
 			return task.Where{}, err
 		}
-		r.And = vals
+		r.And = xpb.ListValues(vals)
 	}
 	if pb.Or != nil {
 		vals, err := WheresFromPB(pb.Or.Values)
 		if err != nil {
 			return task.Where{}, err
 		}
-		r.Or = vals
+		r.Or = xpb.ListValues(vals)
 	}
 	if pb.Not != nil {
 		val, err := WhereFromPB(pb.Not)
