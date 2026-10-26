@@ -71,8 +71,7 @@ The change goes out before the writes of the same cycle. A value of 0 does not r
 the channel. The automation keeps control at authority 0 until a writer with a higher
 authority, or a writer with an equal authority that opened earlier, takes it.
 
-As a step of its own in a sequence, it has no output, so the sequence never moves on to
-the next step.
+As a step of its own in a sequence, it moves on to the next step after it runs.
 
 ```arc channels="start_cmd, press_vlv_cmd, vent_vlv_cmd, tank_pt" bodies="fill, pressurize, hold"
 import control

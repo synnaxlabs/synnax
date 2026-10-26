@@ -62,7 +62,8 @@ cannot change your own username.
 1. In the **Users** toolbar, select one or more users.
 2. Right-click and select **Delete**, then click **Delete** to confirm.
 
-The root user cannot be deleted.
+The root user cannot be deleted. Deleting a user ends all of that user's sessions at
+once.
 
 <Divider.Divider x />
 
@@ -75,8 +76,11 @@ TypeScript client:
 await client.auth.changePassword("new-password");
 ```
 
+A password change ends the user's other sessions. The session that changed the password
+stays open. A password cannot be empty, and it has no maximum length.
+
 An Owner cannot set the password of another user. To reset a forgotten password, delete
-the user and register them again. A password can have up to 72 bytes.
+the user and register them again.
 
 <Divider.Divider x />
 

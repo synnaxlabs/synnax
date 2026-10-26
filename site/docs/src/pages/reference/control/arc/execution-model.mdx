@@ -41,8 +41,8 @@ A sequence runs its steps in order:
 | Stage          | `stage pressurize { }`    | When one of its transitions is true. |
 
 A step that calls a function moves on when the first output of the function is true. A
-known bug stops the sequence at a call to a function with no output, and at a function
-or an assignment step whose value is 0.
+function with no output moves on after it runs without an error. A known bug stops the
+sequence at a function or an assignment step whose value is 0.
 
 Only the active step of a sequence runs. While a gate or a wait holds, nothing else in
 that sequence runs:

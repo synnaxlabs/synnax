@@ -90,9 +90,9 @@ Password:
 Secure Connection? [y/n] (n):
 ```
 
-When you answer `y` to the secure prompt, the command also asks for the path to the CA
-certificate of the Core. Leave it empty when the Core has a certificate from a public
-authority.
+When you answer `y` to the secure prompt, the command also asks for the "CA certificate
+path". Enter the path to the `ca.crt` file of the Core. Leave it empty when the Core has
+a certificate from a public authority.
 
 The command connects to the Core, then prints "Connection successful!". In your scripts,
 create the client with no arguments:
@@ -132,9 +132,10 @@ client = sy.Synnax(
 )
 ```
 
-The Python client checks the certificate of the Core. A certificate from a public
-authority, such as Let's Encrypt, needs no setup. When the Core uses a self-signed
-certificate, give the path to its CA certificate in `ca_cert`:
+The Python client checks the certificate of the Core, and checks that the certificate is
+for the host that you connect to. A certificate from a public authority, such as Let's
+Encrypt, needs no setup. When the Core uses a self-signed certificate, give the path to
+its CA certificate in `ca_cert`:
 
 ```python
 client = sy.Synnax(
@@ -147,7 +148,10 @@ client = sy.Synnax(
 )
 ```
 
-The CA certificate is `ca.crt` in the certificate folder of the Core.
+A Core that you start with `--auto-cert` makes its own CA certificate. Give its path in
+`ca_cert`, or save it with [`sy login`](#log-in-once-with-sy-login). To find the file,
+see
+[Copy the CA certificate](/reference/enterprise/certificates#copy-the-ca-certificate).
 
   </Fragment>
 
@@ -164,7 +168,8 @@ const client = new Synnax({
 ```
 
 The TypeScript client checks the certificate of the Core. When the Core uses a
-self-signed certificate, the computer must trust its CA certificate. In a browser,
+self-signed certificate, the computer must trust its CA certificate. The TypeScript
+client has no CA certificate option. In a browser,
 [install the CA certificate](/reference/enterprise/certificates) on the computer. For
 Node.js, see [Node.js](/reference/enterprise/certificates#nodejs).
 
@@ -234,8 +239,9 @@ A Node.js script does not exit until you close the client.
 </Field.Item>
 
 <Field.Item name="ca_cert" id="python-ca-cert" type="str">
-  The path to the CA certificate that signs the certificate of the Core. It requires
-  `secure`. With no path, the client trusts the CA certificates of the computer.
+  The path to the CA certificate that signs the certificate of the Core. With `ca_cert`
+  and no `secure`, the client raises `ValueError`. With no path, the client trusts the
+  CA certificates of the computer.
 </Field.Item>
 
 <Field.Item name="open_timeout" id="python-open-timeout" type="TimeSpan" default="5 s">

@@ -33,7 +33,9 @@ The data type of a channel must be a number type of the same size as its entry, 
 bytes. For example, a 16-bit entry takes `int16` or `uint16`.
 
 All modules in a task must be on the same port. The **Sample rate** sets how often the
-task takes a sample from the network. See
+task takes a sample from the network. The network on a port cycles at a multiple of the
+sample rate of each read task, from 100 Hz to 10 kHz. If no such rate exists, for
+example for read tasks at 3 kHz and 4 kHz, the task does not start. See
 [how the Driver runs a network](/reference/hardware/ethercat/configure-device#how-the-driver-runs-a-network).
 
 Each sample has the time of the network cycle that read it. Without IgH, if a module on
@@ -63,8 +65,8 @@ the module has more than one entry with that name, the Console adds the PDO name
 address when the module gives no PDO name, such as `ai1_Value_3101_02`. The index
 channel is `ai1_time`.
 
-Starting a task restarts the network on that port. Other tasks on the port pause for a
-moment.
+Starting or stopping a task does not restart the network. The other tasks on the port
+keep running.
 
 <Video id="hardware/ethercat/read-task" />
 
@@ -175,7 +177,7 @@ one of them, pass the name of the PDO that holds the entry as the third argument
 
 | Console label | Python field           | Default | Notes                                                     |
 | ------------- | ---------------------- | ------- | --------------------------------------------------------- |
-| Sample rate   | `sample_rate`          | 10 Hz   | Must be a whole multiple of the stream rate.              |
+| Sample rate   | `sample_rate`          | 10 Hz   | Up to 10 kHz. A whole multiple of the stream rate.        |
 | Stream rate   | `stream_rate`          | 5 Hz    | See [read tasks](/reference/hardware/tasks#read-tasks).   |
 | Data saving   | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving). |
 | Auto start    | `auto_start`           | Off     | Starts the task each time the Driver starts.              |
@@ -233,6 +235,21 @@ The task uses modules on two ports. Create one task for each port.
 
 Set a sample rate that is a whole multiple of the stream rate, such as 1000 Hz and 25
 Hz.
+
+### "no bus rate at or below 10000 Hz ..."
+
+The sample rates of the read tasks on the port have no common multiple at or below 10
+kHz. Use sample rates with a small common multiple, such as 250 Hz and 1 kHz.
+
+### "Failed to read data"
+
+A module on the port stopped responding, so every network cycle fails. Every read task
+on the port shows this warning and pauses. The
+[module status](/reference/hardware/ethercat/configure-device#module-status) shows which
+module is lost. Check its power and its cable.
+
+The task keeps trying, at most 5 seconds apart, and its data starts again when the
+module responds. You do not need to restart the task.
 
 ### "Slave ... has no input entry at ..."
 

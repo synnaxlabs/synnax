@@ -107,6 +107,21 @@ hover** (<Icon.Tooltip />). It is on by default.
 
 <Divider.Divider x />
 
+## How the plot loads data
+
+A line plot does not draw each sample of a long time range. It loads groups of samples
+that fit the width of the plot. The **Aggregation** and **Detail** of each line set how
+the plot draws the groups. See [lines](#lines).
+
+- **Zoom in** -> the plot loads finer data for the new view. The coarse data stays on
+  the plot until the finer data arrives.
+- **Pan past the time range** -> the plot loads the data there. To go back to the time
+  range, click <Icon.Expand /> or **Ctrl+click** the plot.
+- **First load** -> while the plot loads a range, or a rolling span longer than one
+  minute, it shows a message such as **Fetching 1h of data**.
+
+<Divider.Divider x />
+
 ## Select a region
 
 1. Hold **Alt** (**Option** on macOS) and drag across the plot.
@@ -189,7 +204,8 @@ Each line has one row. The fields have tooltips, not labels.
 | Detail       | Medium       | **Low**, **Medium**, or **High**: one group per four, two, or one pixel columns.           |
 | Color        | Automatic    | The color of the line.                                                                     |
 
-Aggregation shows only for a line whose X1 is time or an index channel.
+Aggregation shows only for a line whose X1 is time or an index channel. A line whose X1
+is a different channel draws the first sample of each group.
 
 ### Axes
 
