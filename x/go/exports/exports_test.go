@@ -11,12 +11,14 @@ package exports_test
 
 import (
 	"go/token"
+	"os"
 	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/exports"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type finding struct {
@@ -82,10 +84,33 @@ var _ = Describe("Check", func() {
 		})).Error().To(MatchError(ContainSubstring("exports: load packages")))
 	})
 
-	It("Should return an error when the config has no modules", func(ctx SpecContext) {
-		Expect(exports.Check(ctx, exports.Config{GOOS: []string{"linux"}})).
-			Error().To(MatchError(ContainSubstring("at least one module")))
+	It("Should load modules under a path with a space", func(ctx SpecContext) {
+		dir := filepath.Join(GinkgoT().TempDir(), "with space")
+		for _, m := range modules {
+			Expect(os.CopyFS(filepath.Join(dir, m), os.DirFS(m))).To(Succeed())
+		}
+		findings := MustSucceed(exports.Check(ctx, exports.Config{
+			Modules: []string{
+				filepath.Join(dir, "testdata/a"),
+				filepath.Join(dir, "testdata/b"),
+			},
+			GOOS: []string{"linux"},
+		}))
+		Expect(summarize(findings)).To(ContainElement(
+			finding{File: "lib.go", Kind: "func", Name: "Internal"},
+		))
 	})
+
+	DescribeTable("Should return a validation error for an incomplete config",
+		func(ctx SpecContext, cfg exports.Config, field string) {
+			Expect(exports.Check(ctx, cfg)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(field)),
+			))
+		},
+		Entry("no modules", exports.Config{GOOS: []string{"linux"}}, "modules"),
+		Entry("no GOOS", exports.Config{Modules: modules}, "goos"),
+	)
 })
 
 var _ = Describe("Finding", func() {

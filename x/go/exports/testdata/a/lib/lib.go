@@ -55,3 +55,7 @@ type hidden struct{}
 func (hidden) Exported() {}
 
 func CalledByGenerated() {}
+
+type Imports struct{}
+
+func (Imports) Has() bool { return true }

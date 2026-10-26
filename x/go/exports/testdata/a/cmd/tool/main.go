@@ -9,6 +9,21 @@
 
 package main
 
+import (
+	"os"
+	"text/template"
+
+	"example.com/a/lib"
+)
+
 func Exported() {}
 
-func main() { Exported() }
+type data struct{ Imports lib.Imports }
+
+func main() {
+	Exported()
+	t := template.Must(template.New("t").Parse("{{.Imports.Has}}"))
+	if err := t.Execute(os.Stdout, data{}); err != nil {
+		panic(err)
+	}
+}

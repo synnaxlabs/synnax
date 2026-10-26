@@ -23,16 +23,12 @@ type interfaces struct {
 	// generic holds the interfaces of generic types. A method satisfies one when its
 	// type has every method of the interface with the same arity.
 	generic map[string][]*types.Interface
-	// templated holds the packages that import a template package, whose templates
-	// can call any exported method.
-	templated set.Set[string]
 }
 
 func collectInterfaces(pkgs []*packages.Package) interfaces {
 	ifaces := interfaces{
-		plain:     map[string][]*types.Interface{},
-		generic:   map[string][]*types.Interface{},
-		templated: set.Set[string]{},
+		plain:   map[string][]*types.Interface{},
+		generic: map[string][]*types.Interface{},
 	}
 	index := func(byName map[string][]*types.Interface, it *types.Interface) {
 		for m := range it.Methods() {
@@ -68,11 +64,6 @@ func collectInterfaces(pkgs []*packages.Package) interfaces {
 	}
 	for _, p := range pkgs {
 		walk(p.Types)
-		for path := range p.Imports {
-			if path == "text/template" || path == "html/template" {
-				ifaces.templated.Add(p.PkgPath)
-			}
-		}
 		for _, tv := range p.TypesInfo.Types {
 			if tv.Type == nil {
 				continue
@@ -85,12 +76,8 @@ func collectInterfaces(pkgs []*packages.Package) interfaces {
 	return ifaces
 }
 
-// satisfied reports whether the method m must stay exported for an interface or a
-// template.
+// satisfied reports whether the method m must stay exported for an interface.
 func (ifaces interfaces) satisfied(m *types.Func) bool {
-	if ifaces.templated.Contains(m.Pkg().Path()) {
-		return true
-	}
 	recv := m.Signature().Recv().Type()
 	if ptr, ok := recv.(*types.Pointer); ok {
 		recv = ptr.Elem()

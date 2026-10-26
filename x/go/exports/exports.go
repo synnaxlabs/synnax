@@ -25,6 +25,7 @@ import (
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/validate"
 	"golang.org/x/tools/go/packages"
 )
 
@@ -65,15 +66,25 @@ func (f Finding) String() string {
 // that only one GOOS builds is judged on that GOOS alone. Check keeps exported:
 //
 //   - an identifier that another package, or generated code, uses;
-//   - a method that satisfies an interface;
+//   - a method that satisfies an interface or that template data can reach;
 //   - a type that the API of a kept identifier carries;
 //   - every constant of a const block when one of them is kept.
 //
 // Check skips generated files, test files, main packages, versions/vN packages, and
-// methods of unexported types. It returns an error when a package fails to load.
+// methods of unexported types. It returns validate.ErrValidation when cfg has no
+// modules or no GOOS values, and an error when a package fails to load.
 func Check(ctx context.Context, cfg Config) (_ []Finding, err error) {
-	if len(cfg.Modules) == 0 || len(cfg.GOOS) == 0 {
-		return nil, errors.New("exports: Config needs at least one module and GOOS")
+	if len(cfg.Modules) == 0 {
+		return nil, errors.Wrap(
+			validate.ErrValidation,
+			"exports: modules must be non-empty",
+		)
+	}
+	if len(cfg.GOOS) == 0 {
+		return nil, errors.Wrap(
+			validate.ErrValidation,
+			"exports: goos must be non-empty",
+		)
 	}
 	work, err := writeWorkspace(cfg.Modules)
 	if err != nil {
@@ -136,7 +147,7 @@ func writeWorkspace(modules []string) (string, error) {
 		if err != nil {
 			return "", errors.Wrapf(err, "exports: resolve module %s", m)
 		}
-		fmt.Fprintf(&b, "\t%s\n", abs)
+		fmt.Fprintf(&b, "\t%q\n", abs)
 	}
 	b.WriteString(")\n")
 	work := filepath.Join(dir, "go.work")
@@ -277,12 +288,20 @@ func declare(p *packages.Package, generated set.Set[string], syms map[string]*sy
 }
 
 func receiverExported(fn *types.Func) bool {
+	tn := receiver(fn)
+	return tn != nil && tn.Exported()
+}
+
+// receiver returns the named type that declares the method fn, or nil.
+func receiver(fn *types.Func) *types.TypeName {
 	recv := fn.Signature().Recv().Type()
 	if ptr, ok := recv.(*types.Pointer); ok {
 		recv = ptr.Elem()
 	}
-	named, ok := types.Unalias(recv).(*types.Named)
-	return ok && named.Obj().Exported()
+	if named, ok := types.Unalias(recv).(*types.Named); ok {
+		return named.Origin().Obj()
+	}
+	return nil
 }
 
 func key(pos token.Position, obj types.Object) string {
@@ -328,6 +347,7 @@ func origin(obj types.Object) types.Object {
 // exported: interface methods, const block siblings, and types that kept API carries.
 func keepRest(fset *token.FileSet, pkgs []*packages.Package, syms map[string]*symbol) {
 	ifaces := collectInterfaces(pkgs)
+	templated := templateTypes(pkgs)
 	groups := set.Set[string]{}
 	for _, s := range syms {
 		if s.kept && s.group != "" {
@@ -338,7 +358,8 @@ func keepRest(fset *token.FileSet, pkgs []*packages.Package, syms map[string]*sy
 		switch {
 		case groups.Contains(s.group):
 			s.kept = true
-		case s.kind == "method" && ifaces.satisfied(s.obj.(*types.Func)):
+		case s.kind == "method" && (ifaces.satisfied(s.obj.(*types.Func)) ||
+			templated.Contains(receiver(s.obj.(*types.Func)))):
 			s.kept = true
 		}
 	}
