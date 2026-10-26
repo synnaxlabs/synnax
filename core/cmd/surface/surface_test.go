@@ -26,6 +26,7 @@ func report(root *cobra.Command) string {
 }
 
 func tree(dataHelp string) *cobra.Command {
+	GinkgoHelper()
 	root := &cobra.Command{Use: "synnax"}
 	root.PersistentFlags().Bool("verbose", false, "Verbose output")
 	start := &cobra.Command{Use: "start", Aliases: []string{"run"}}
@@ -40,7 +41,7 @@ var _ = Describe("Write", func() {
 	It("Should write every command and flag, sorted", func() {
 		Expect(
 			report(tree("Data directory")),
-		).To(Equal(`synnax --verbose bool default="false"
+		).To(Equal(`synnax --verbose bool default="false" persistent
 synnax command
 synnax start --data -d string default="synnax-data"
 synnax start --workers int default="4" hidden
@@ -50,5 +51,13 @@ synnax start command aliases=run
 
 	It("Should ignore help text", func() {
 		Expect(report(tree("Where data lives"))).To(Equal(report(tree("Data"))))
+	})
+
+	It("Should tell persistent flags from local ones", func() {
+		local := &cobra.Command{Use: "synnax"}
+		local.Flags().Bool("verbose", false, "Verbose output")
+		persistent := &cobra.Command{Use: "synnax"}
+		persistent.PersistentFlags().Bool("verbose", false, "Verbose output")
+		Expect(report(local)).ToNot(Equal(report(persistent)))
 	})
 })

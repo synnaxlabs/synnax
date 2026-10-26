@@ -23,7 +23,9 @@ import (
 
 func main() {
 	if err := surface.Write(os.Stdout, cmd.Cmd); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		if _, printErr := fmt.Fprintln(os.Stderr, err); printErr != nil {
+			os.Exit(2)
+		}
 		os.Exit(1)
 	}
 }

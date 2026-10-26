@@ -43,20 +43,23 @@ func collect(c *cobra.Command, lines *[]string) {
 		line += " aliases=" + strings.Join(c.Aliases, ",")
 	}
 	*lines = append(*lines, line+"\n")
-	c.NonInheritedFlags().VisitAll(func(f *pflag.Flag) {
-		*lines = append(*lines, flag(path, f))
+	c.LocalNonPersistentFlags().VisitAll(func(f *pflag.Flag) {
+		*lines = append(*lines, flag(path, f, ""))
+	})
+	c.PersistentFlags().VisitAll(func(f *pflag.Flag) {
+		*lines = append(*lines, flag(path, f, " persistent"))
 	})
 	for _, sub := range c.Commands() {
 		collect(sub, lines)
 	}
 }
 
-func flag(path string, f *pflag.Flag) string {
+func flag(path string, f *pflag.Flag, scope string) string {
 	line := fmt.Sprintf("%s --%s", path, f.Name)
 	if f.Shorthand != "" {
 		line += " -" + f.Shorthand
 	}
-	line += fmt.Sprintf(" %s default=%q", f.Value.Type(), f.DefValue)
+	line += fmt.Sprintf(" %s default=%q%s", f.Value.Type(), f.DefValue, scope)
 	if f.Hidden {
 		line += " hidden"
 	}
