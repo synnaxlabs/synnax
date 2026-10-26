@@ -178,6 +178,33 @@ describe("Points", () => {
     }
   });
 
+  it("should keep a rejected tile stopped while the view moves", async () => {
+    const core = createCore();
+    let rejected = 0;
+    const { subscribe, close } = createPoints(core, async (tr, keys, reduction) => {
+      if (reduction != null && rejected++ === 0)
+        throw new ValidationError("reduction rejected");
+      return core.read(tr, keys, reduction);
+    });
+    const range = new TimeRange(START, START.add(TimeSpan.minutes(8)));
+    const window = staticWindow(range);
+    const points = subscribe(core.data[0].key, window, TILED);
+    try {
+      await expect
+        .poll(() => points.value().status.description, POLL)
+        .toBe("reduction rejected");
+      points.update(window, { ...TILED, view: range });
+      await sleep.sleep(TimeSpan.milliseconds(50));
+      expect(points.value().status).toMatchObject({
+        variant: "error",
+        message: "Failed to read channel data",
+        description: "reduction rejected",
+      });
+    } finally {
+      await close();
+    }
+  });
+
   it.each([
     ["a zoomed view", { view: new TimeRange(START, START.add(TimeSpan.minutes(1))) }],
     ["kept extremes", { aggregation: "average", extremesKept: true }],

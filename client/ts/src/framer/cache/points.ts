@@ -166,17 +166,24 @@ export class Points {
   }
 
   /**
-   * Replaces the window and limit. Held tiles stand in until the new ones land, and
-   * tiles a definitive failure stopped read again.
+   * Replaces the window and limit. Held tiles stand in until the new ones land. Tiles a
+   * definitive failure stopped read again only under a new aggregation or point count.
    */
   update(window: Window, limit: PointsLimit): void {
     const moved = !deep.equal(window, this.window);
     if (!moved && deep.equal(limit, this.limit)) return;
+    const prev = this.limit;
     this.window = window;
     this.limit = limit;
     this.targetsOf.clear();
-    this.rejected.clear();
-    this.rejection = null;
+    if (
+      limit.count !== prev.count ||
+      limit.aggregation !== prev.aggregation ||
+      limit.extremesKept !== prev.extremesKept
+    ) {
+      this.rejected.clear();
+      this.rejection = null;
+    }
     if (this.index == null) return;
     this.stream(this.index);
     if (moved || this.rawOnly) this.boundary = this.rawFrom(this.home());
