@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
 	filterpb "github.com/synnaxlabs/x/filter/pb"
+	xpb "github.com/synnaxlabs/x/pb"
 )
 
 // ArcToPB converts Arc to Arc.
@@ -156,7 +157,7 @@ func UuidSetFromPB(pb *UuidSet) (filter.Set[uuid.UUID], error) {
 		if err != nil {
 			return filter.Set[uuid.UUID]{}, err
 		}
-		r.In = vals
+		r.In = xpb.ListValues(vals)
 	}
 	return r, nil
 }
@@ -239,14 +240,14 @@ func WhereFromPB(pb *Where) (arc.Where, error) {
 		if err != nil {
 			return arc.Where{}, err
 		}
-		r.And = vals
+		r.And = xpb.ListValues(vals)
 	}
 	if pb.Or != nil {
 		vals, err := WheresFromPB(pb.Or.Values)
 		if err != nil {
 			return arc.Where{}, err
 		}
-		r.Or = vals
+		r.Or = xpb.ListValues(vals)
 	}
 	if pb.Not != nil {
 		val, err := WhereFromPB(pb.Not)
