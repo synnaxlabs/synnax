@@ -404,3 +404,23 @@ freighter_image:
   - *freighter_py
   - *freighter_ts
   - .github/workflows/build.docker.yaml
+
+# Source that changes what a reviewer sees in a preview Core or Console. Tests, docs,
+# and CI or tool config deploy no preview.
+preview:
+  - alamos/go/**/!(*_test.go|*.md)
+  - arc/go/**/!(*_test.go|*.md)
+  - aspen/**/!(*_test.go|*.md)
+  - cesium/**/!(*_test.go|*.md)
+  - core/**/!(*_test.go|*.md)
+  - freighter/go/**/!(*_test.go|*.md)
+  - gorp/**/!(*_test.go|*.md)
+  - x/go/**/!(*_test.go|*.md)
+  - arc/ts/**/!(*.spec.ts|*.spec.tsx|*.md)
+  - client/ts/**/!(*.spec.ts|*.spec.tsx|*.md)
+  - console/**/!(*.spec.ts|*.spec.tsx|*.md)
+  - drift/**/!(*.spec.ts|*.spec.tsx|*.md)
+  - freighter/ts/**/!(*.spec.ts|*.spec.tsx|*.md)
+  - lyra/**/!(*.spec.ts|*.spec.tsx|*.md)
+  - pluto/**/!(*.spec.ts|*.spec.tsx|*.md)
+  - x/ts/**/!(*.spec.ts|*.spec.tsx|*.md)
