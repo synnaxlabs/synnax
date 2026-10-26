@@ -976,6 +976,35 @@ describe("Feed.subscribe", () => {
         await feed.close();
       }
     });
+
+    it("should read the newest samples again when a history change reaches them", async () => {
+      const core = createCore();
+      const feed = core.openFeed(OPTIONS);
+      const { key } = core.data[0];
+      const sub = feed.subscribe({
+        keys: [key],
+        limit: { variant: "latest", count: 10 },
+      });
+      const valuesOf = (): number[] => Array.from(sub.value(key).series) as number[];
+      try {
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        const before = valuesOf();
+        await historyStreamed(core);
+        const reads = core.reads;
+        // A change before every sample held cannot reach the newest ten.
+        core.rewrite(key, new TimeRange(START, START.add(TimeSpan.minutes(1))), 10);
+        await sleep.sleep(TimeSpan.milliseconds(50));
+        expect(core.reads).toBe(reads);
+        core.rewrite(key, new TimeRange(START, core.now()), 10);
+        await expect
+          .poll(() => valuesOf().at(-1), POLL)
+          .toBeCloseTo(before.at(-1)! + 10);
+        expect(valuesOf()).toHaveLength(10);
+      } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
   });
 
   describe("update and status", () => {
