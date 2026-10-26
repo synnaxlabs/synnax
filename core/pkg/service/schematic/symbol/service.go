@@ -83,9 +83,9 @@ func (c ServiceConfig) Validate() error {
 
 // Service is the primary service for retrieving and modifying symbols from Synnax.
 type Service struct {
-	cfg    ServiceConfig
-	closer xio.MultiCloser
-	group  group.Group
+	cfg     ServiceConfig
+	closer  xio.MultiCloser
+	group   group.Group
 	table   *gorp.Table[Key, Symbol]
 	indexes indexes
 }

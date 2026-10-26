@@ -108,7 +108,9 @@ var _ = Describe("Service", func() {
 				}))
 				res := MustSucceed(
 					apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
-						Where: &user.Where{Key: &filter.Set[user.Key]{In: []user.Key{u.Key}}},
+						Where: &user.Where{
+							Key: &filter.Set[user.Key]{In: []user.Key{u.Key}},
+						},
 					}),
 				)
 				Expect(res.Users).To(ConsistOf(u))
@@ -136,12 +138,19 @@ var _ = Describe("Service", func() {
 				})).Error().To(MatchError(access.ErrDenied))
 			},
 		)
-		It("Should return no users for a key that does not exist", func(ctx SpecContext) {
-			res := MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
-				Where: &user.Where{Key: &filter.Set[user.Key]{Eq: new(uuid.New())}},
-			}))
-			Expect(res.Users).To(BeEmpty())
-		})
+		It(
+			"Should return no users for a key that does not exist",
+			func(ctx SpecContext) {
+				res := MustSucceed(
+					apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
+						Where: &user.Where{
+							Key: &filter.Set[user.Key]{Eq: new(uuid.New())},
+						},
+					}),
+				)
+				Expect(res.Users).To(BeEmpty())
+			},
+		)
 		It("Should search users by username", func(ctx SpecContext) {
 			username := "searchable-" + uuid.New().String()
 			u := MustSucceed(writer.Create(ctx, user.User{Username: username}))

@@ -71,8 +71,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Service is the main entry point for managing labels within Synnax. It provides
 // mechanisms for creating, deleting, retrieving, and listening to changes on labels.
 type Service struct {
-	cfg    ServiceConfig
-	closer xio.MultiCloser
+	cfg     ServiceConfig
+	closer  xio.MultiCloser
 	table   *gorp.Table[Key, Label]
 	indexes indexes
 }

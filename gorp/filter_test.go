@@ -158,18 +158,21 @@ var _ = Describe("Filter Combinators", func() {
 	})
 
 	Describe("MatchKeysFunc", func() {
-		It("Should keep the entries whose keys the function returns", func(ctx SpecContext) {
-			var res []entry
-			Expect(gorp.NewRetrieve[int32, entry]().
-				Entries(&res).
-				Where(gorp.MatchKeysFunc[int32, entry](
-					func(context.Context, gorp.Tx) ([]int32, error) {
-						return []int32{2, 5, 42}, nil
-					},
-				)).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(res).To(Equal([]entry{entries[2], entries[5]}))
-		})
+		It(
+			"Should keep the entries whose keys the function returns",
+			func(ctx SpecContext) {
+				var res []entry
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Entries(&res).
+					Where(gorp.MatchKeysFunc[int32, entry](
+						func(context.Context, gorp.Tx) ([]int32, error) {
+							return []int32{2, 5, 42}, nil
+						},
+					)).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(Equal([]entry{entries[2], entries[5]}))
+			},
+		)
 
 		It("Should call the function with the open transaction", func(ctx SpecContext) {
 			var got gorp.Tx

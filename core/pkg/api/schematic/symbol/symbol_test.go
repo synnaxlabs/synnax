@@ -90,7 +90,9 @@ var _ = Describe("Retrieve", func() {
 		res := MustSucceed(apiSvc.Retrieve(
 			AuthedCtx(ctx, author), apisymbol.RetrieveRequest{
 				Where: &symbol.Where{
-					Key: &filter.Set[symbol.Key]{In: []symbol.Key{first.Key, second.Key}},
+					Key: &filter.Set[symbol.Key]{
+						In: []symbol.Key{first.Key, second.Key},
+					},
 				},
 			},
 		))
@@ -112,9 +114,11 @@ var _ = Describe("Retrieve", func() {
 		}).Should(Succeed())
 	})
 	It("Should return no symbols when a key names no symbol", func(ctx SpecContext) {
-		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, author), apisymbol.RetrieveRequest{
-			Where: &symbol.Where{Key: &filter.Set[symbol.Key]{Eq: new(uuid.New())}},
-		}))
+		res := MustSucceed(
+			apiSvc.Retrieve(AuthedCtx(ctx, author), apisymbol.RetrieveRequest{
+				Where: &symbol.Where{Key: &filter.Set[symbol.Key]{Eq: new(uuid.New())}},
+			}),
+		)
 		Expect(res.Symbols).To(BeEmpty())
 	})
 	It("Should reject the request when retrieve is not granted on a match", func(
