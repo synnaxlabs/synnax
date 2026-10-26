@@ -8,12 +8,14 @@
 // included in the file licenses/APL.txt.
 
 // Package filter generates the Go interpreter of a filter definition. MatchWhere turns
-// a Where into the service's Filter, and RetrieveRequest.Apply narrows a Retrieve to
-// the records a request selects. The request also rejects unknown JSON members.
+// a Where into the service's Filter, and RetrieveRequest.Apply, generated wherever the
+// request is, narrows a Retrieve to the records a request selects. The request also
+// rejects unknown JSON members.
 package filter
 
 import (
 	"bytes"
+	"slices"
 	"strings"
 	"text/template"
 
@@ -25,12 +27,9 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/go/internal/matcher"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/typemap"
-	goprimitives "github.com/synnaxlabs/oracle/plugin/go/primitives"
-	"github.com/synnaxlabs/oracle/plugin/go/types"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/internal/arrays"
 	"github.com/synnaxlabs/oracle/plugin/output"
-	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -38,12 +37,16 @@ import (
 
 // Options configures the go/filter plugin.
 type Options struct {
-	// FileNamePattern is the basename written for each output package.
+	// FileNamePattern is the basename written next to each filter.
 	FileNamePattern string
+	// RequestFileName is the basename written next to each derived request.
+	RequestFileName string
 }
 
 // DefaultOptions returns the default plugin options.
-func DefaultOptions() Options { return Options{FileNamePattern: "where.gen.go"} }
+func DefaultOptions() Options {
+	return Options{FileNamePattern: "where.gen.go", RequestFileName: "request.gen.go"}
+}
 
 // Plugin generates the Go interpreter of each filter definition.
 type Plugin struct{ Options Options }
@@ -58,10 +61,11 @@ func (p *Plugin) Name() string { return "go/filter" }
 func (p *Plugin) Domains() []string { return []string{"go"} }
 
 // Requires returns plugin dependencies.
-func (p *Plugin) Requires() []string { return []string{"go/types"} }
+func (p *Plugin) Requires() []string { return []string{"go/types", "go/query"} }
 
-// Generate emits a where.gen.go next to each filter definition with a Go output. A
-// filter in a version file gets none, since the service reads only the live one.
+// Generate emits a where.gen.go next to each filter definition with a Go output, and a
+// request.gen.go next to its derived request. A filter in a version file gets neither,
+// since the service reads only the live one.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{}
 	for _, typ := range req.Resolutions.StructTypes() {
@@ -83,6 +87,24 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			Path:    outputPath + "/" + p.Options.FileNamePattern,
 			Content: content,
 		})
+		request, ok := req.Resolutions.Get(typ.Filter.Request)
+		if !ok {
+			return nil, errors.Newf(
+				"filter %s: has no derived retrieve request", typ.QualifiedName,
+			)
+		}
+		if output.IsOmitted(request, "go") {
+			continue
+		}
+		requestPath := output.GetPath(request, "go")
+		content, err = generateRequestFile(typ, request, outputPath, requestPath, req)
+		if err != nil {
+			return nil, err
+		}
+		resp.Files = append(resp.Files, plugin.File{
+			Path:    requestPath + "/" + p.Options.RequestFileName,
+			Content: content,
+		})
 	}
 	return resp, nil
 }
@@ -98,16 +120,11 @@ type templateData struct {
 	Package string
 	// Target is the Go type of a target record, such as Status[Details].
 	Target string
-	// KeyType is the Go type of the target's key, or empty when no line matches keys.
-	KeyType string
 	// TypeParams declares the target's type parameters, such as [Details any].
 	TypeParams string
 	// TypeArgs passes the target's type parameters, such as [Details].
 	TypeArgs string
-	// RequestArgs passes any for each type parameter, since a request selects records
-	// of every type argument.
-	RequestArgs string
-	Lines       []lineData
+	Lines    []lineData
 	// Search is the search the request applies, or nil when it has no search_term.
 	Search *searchData
 }
@@ -191,10 +208,6 @@ func generateFile(
 			outputPath,
 		)
 	}
-	request, ok := table.Get(where.Filter.Request)
-	if !ok {
-		return fail("has no derived retrieve request")
-	}
 	matchers, err := matcher.List(target, table)
 	if err != nil {
 		return nil, err
@@ -209,29 +222,11 @@ func generateFile(
 	funcs["MatchKeys"] = struct{}{}
 	funcs["MatchWhere"] = struct{}{}
 
-	pkg := naming.DerivePackageName(outputPath)
 	data := templateData{
 		Manager: imports.NewManager(),
-		Package: pkg,
+		Package: naming.DerivePackageName(outputPath),
 	}
-	ctx := &resolver.Context{
-		Table:                         table,
-		OutputPath:                    outputPath,
-		Namespace:                     where.Namespace,
-		RepoRoot:                      req.RepoRoot,
-		DomainName:                    "go",
-		SubstituteDefaultedTypeParams: true,
-	}
-	r := &resolver.Resolver{
-		Formatter: types.GoFormatter(),
-		ImportResolver: &types.GoImportResolver{
-			RepoRoot:       req.RepoRoot,
-			CurrentPackage: pkg,
-		},
-		ImportAdder:     data.Manager,
-		PrimitiveMapper: goprimitives.Mapper(),
-	}
-	var params, anys []string
+	var params []string
 	for _, tp := range resolution.NonDefaultedTypeParams(
 		resolution.TypeParams(target.Form),
 	) {
@@ -244,13 +239,11 @@ func generateFile(
 			)
 		}
 		params = append(params, tp.Name)
-		anys = append(anys, "any")
 	}
 	data.Target = naming.GetGoName(target)
 	if len(params) > 0 {
 		data.TypeParams = "[" + strings.Join(params, ", ") + " any]"
 		data.TypeArgs = "[" + strings.Join(params, ", ") + "]"
-		data.RequestArgs = "[" + strings.Join(anys, ", ") + "]"
 		data.Target += data.TypeArgs
 	}
 
@@ -301,11 +294,10 @@ func generateFile(
 		}
 		ld.Enum = len(field.Type.TypeArgs) == 1 &&
 			isStringEnum(field.Type.TypeArgs[0], table)
-		// The matcher list leaves out the key, which matchKeys matches.
+		// The matcher list leaves out the key, which the service's MatchKeys matches.
 		m, ok := byField[line.Name]
 		if !ok {
-			ld.Func = "matchKeys"
-			data.KeyType = r.ResolveTypeRef(field.Type.TypeArgs[0], ctx)
+			ld.Func = "MatchKeys"
 			data.Lines = append(data.Lines, ld)
 			continue
 		}
@@ -315,16 +307,68 @@ func generateFile(
 		data.Lines = append(data.Lines, ld)
 	}
 
-	requestForm := request.Form.(resolution.StructForm)
-	if _, ok := requestForm.Field("search_term"); ok {
+	addImports(data, req.RepoRoot)
+	var buf bytes.Buffer
+	if err := fileTemplate.Execute(&buf, data); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+type requestData struct {
+	*imports.Manager
+	Package string
+	// Service qualifies the identifiers of the filter's package, such as "rack.", and
+	// is empty when the request is in the same package.
+	Service string
+	// Args passes any for each type parameter of the target, since a request selects
+	// records of every type argument.
+	Args string
+	// Search is the search the request applies, or nil when it has no search_term.
+	Search *searchData
+}
+
+func generateRequestFile(
+	where, request resolution.Type,
+	wherePath, requestPath string,
+	req *plugin.Request,
+) ([]byte, error) {
+	target, _, ok := resolution.Dealias(where.Filter.Target, req.Resolutions)
+	if !ok {
+		return nil, errors.Newf(
+			"filter %s: unknown target %s",
+			where.QualifiedName,
+			where.Filter.Target.Name,
+		)
+	}
+	pkg := naming.DerivePackageName(requestPath)
+	data := requestData{Manager: imports.NewManager(), Package: pkg}
+	if requestPath != wherePath {
+		alias := naming.DerivePackageAlias(wherePath, pkg)
+		data.AddInternal(
+			alias,
+			gomod.ResolveImportPath(wherePath, req.RepoRoot, gomod.DefaultModulePrefix),
+		)
+		data.Service = alias + "."
+	}
+	if n := len(resolution.NonDefaultedTypeParams(
+		resolution.TypeParams(target.Form),
+	)); n > 0 {
+		data.Args = "[" + strings.Join(slices.Repeat([]string{"any"}, n), ", ") + "]"
+	}
+	if _, ok := request.Form.(resolution.StructForm).Field("search_term"); ok {
 		data.Search = &searchData{
 			Filter: plugindomain.HasExprFromType(target, "retrieve", "indexes"),
 		}
 	}
-
-	addImports(data, req.RepoRoot)
+	data.AddExternal("encoding/json/jsontext")
+	data.AddExternal("encoding/json/v2")
+	data.AddInternal(
+		"validate",
+		gomod.ResolveImportPath("x/go/validate", req.RepoRoot, gomod.DefaultModulePrefix),
+	)
 	var buf bytes.Buffer
-	if err := fileTemplate.Execute(&buf, data); err != nil {
+	if err := requestTemplate.Execute(&buf, data); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
@@ -346,8 +390,6 @@ func addImports(data templateData, repoRoot string) {
 			gomod.ResolveImportPath(path, repoRoot, gomod.DefaultModulePrefix),
 		)
 	}
-	data.AddExternal("encoding/json/jsontext")
-	data.AddExternal("encoding/json/v2")
 	data.AddExternal("strconv")
 	internal("validate", "x/go/validate")
 	needsRegex := lo.SomeBy(data.Lines, func(l lineData) bool { return l.Has("regex") })
@@ -361,7 +403,7 @@ func addImports(data templateData, repoRoot string) {
 	if needsRegex || needsEnum {
 		internal("errors", "x/go/errors")
 	}
-	if needsMatch || data.KeyType != "" {
+	if needsMatch {
 		internal("gorp", "gorp")
 	}
 }
@@ -513,31 +555,45 @@ func matchWheres{{.TypeParams}}(ws []Where, path string) ([]Filter{{.TypeArgs}},
 	}
 	return fs, nil
 }
-{{- if .KeyType}}
+`),
+)
 
-// matchKeys matches the records whose key is one of keys. A key with no record is a
-// non-match, as for every other line.
-func matchKeys{{.TypeParams}}(keys ...{{.KeyType}}) Filter{{.TypeArgs}} {
-	return func(Retrieve{{.TypeArgs}}) gorp.Filter[{{.KeyType}}, {{.Target}}] {
-		return gorp.MatchKeysLenient[{{.KeyType}}, {{.Target}}](keys...)
-	}
-}
+var requestTemplate = template.Must(
+	template.New("go-filter-request").Parse(`// Code generated by oracle. DO NOT EDIT.
+
+package {{.Package}}
+
+import (
+{{- range .StdImports}}
+	"{{.}}"
 {{- end}}
+{{- if and .StdImports .NonStdImports}}
+{{end}}
+{{- range .NonStdImports}}
+{{- if .NeedsAlias}}
+	{{.Alias}} "{{.Path}}"
+{{- else}}
+	"{{.Path}}"
+{{- end}}
+{{- end}}
+)
 
-// Apply narrows q to the records that the request selects. It returns a
-// validate.PathError for a value that no filter can hold.
-func (r RetrieveRequest) Apply(q Retrieve{{.RequestArgs}}) (Retrieve{{.RequestArgs}}, error) {
+// Apply narrows q to the records that the request selects. A key with no record is a
+// non-match, as for every other line. It returns a validate.PathError for a value that
+// no filter can hold.
+func (r RetrieveRequest) Apply(q {{$.Service}}Retrieve{{$.Args}}) ({{$.Service}}Retrieve{{$.Args}}, error) {
+	q = q.SkipMissingKeys()
 	if r.Where != nil {
-		f, err := MatchWhere{{.RequestArgs}}(*r.Where)
+		f, err := {{$.Service}}MatchWhere{{$.Args}}(*r.Where)
 		if err != nil {
-			return Retrieve{{.RequestArgs}}{}, validate.PathedError(err, "where")
+			return {{$.Service}}Retrieve{{$.Args}}{}, validate.PathedError(err, "where")
 		}
 		q = q.Where(f)
 	}
 {{- with .Search}}
 {{- if .Filter}}
 	if r.SearchTerm != "" {
-		q = q.Where(MatchSearch(r.SearchTerm))
+		q = q.Where({{$.Service}}MatchSearch(r.SearchTerm))
 	}
 {{- else}}
 	q = q.Search(r.SearchTerm)

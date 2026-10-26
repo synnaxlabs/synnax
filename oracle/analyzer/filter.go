@@ -28,8 +28,6 @@ import (
 const (
 	// filterKeyword separates a filter definition's name from its target.
 	filterKeyword = "filter"
-	// filterNamespace holds the operator types that bare lines expand to.
-	filterNamespace = "filter"
 )
 
 // treeFields are the fields every expanded filter starts with.
@@ -190,7 +188,7 @@ func declaresFilter(ast parser.ISchemaContext) bool {
 func importsFilterSchema(ast parser.ISchemaContext) bool {
 	for _, imp := range ast.AllImportStmt() {
 		path := imp.STRING_LIT().GetText()
-		if paths.DeriveNamespace(path[1:len(path)-1]) == filterNamespace {
+		if paths.DeriveNamespace(path[1:len(path)-1]) == resolution.FilterNamespace {
 			return true
 		}
 	}
@@ -300,8 +298,8 @@ func bareLineOperator(
 		return f.Name == line.Name
 	})
 	if !ok {
-		if key, ok := retrieveKey(target); ok && line.Name == "key" {
-			return operator("Set", key), true
+		if key, ok := resolution.RetrieveKey(target); ok && line.Name == "key" {
+			return operator(resolution.OperatorSet, key), true
 		}
 		if form, ok := target.Form.(resolution.UnionForm); ok &&
 			line.Name == form.Discriminator {
@@ -337,29 +335,29 @@ func bareLineOperator(
 		)
 	}
 	if ref.Name == "Array" && len(ref.TypeArgs) == 1 {
-		return operator("Contains", ref.TypeArgs[0]), true
+		return operator(resolution.OperatorContains, ref.TypeArgs[0]), true
 	}
 	if _, isKey := field.Domains["key"]; isKey {
-		return operator("Set", ref), true
+		return operator(resolution.OperatorSet, ref), true
 	}
 	if resolved, _, ok := resolution.Dealias(ref, c.table); ok {
 		_, isKeyType := resolved.Domains["key"]
 		_, isEnum := resolved.Form.(resolution.EnumForm)
 		if isKeyType || isEnum {
-			return operator("Set", ref), true
+			return operator(resolution.OperatorSet, ref), true
 		}
 	}
 	base := resolution.PrimitiveBase(ref, c.table)
 	distinct := resolution.IsDistinct(ref, c.table)
 	switch {
 	case base == "string" && !distinct:
-		return resolution.TypeRef{Name: filterNamespace + ".String"}, true
+		return resolution.TypeRef{Name: resolution.OperatorString}, true
 	case base == "bool" && !distinct:
-		return resolution.TypeRef{Name: filterNamespace + ".Bool"}, true
+		return resolution.TypeRef{Name: resolution.OperatorBool}, true
 	case base == "uuid" || base == "string" || base == "bool":
-		return operator("Set", ref), true
+		return operator(resolution.OperatorSet, ref), true
 	case resolution.IsNumberPrimitive(base):
-		return operator("Ordered", ref), true
+		return operator(resolution.OperatorOrdered, ref), true
 	}
 	return report(
 		"%s.%s has no operators for its type; give the line a type to make it a "+
@@ -370,28 +368,7 @@ func bareLineOperator(
 }
 
 func operator(name string, arg resolution.TypeRef) resolution.TypeRef {
-	return resolution.TypeRef{
-		Name:     filterNamespace + "." + name,
-		TypeArgs: []resolution.TypeRef{arg},
-	}
-}
-
-// retrieveKey returns the key type that a `@retrieve key` expression declares on typ,
-// whose key is computed instead of stored in a field.
-func retrieveKey(typ resolution.Type) (resolution.TypeRef, bool) {
-	dom, ok := typ.Domains["retrieve"]
-	if !ok {
-		return resolution.TypeRef{}, false
-	}
-	expr, ok := dom.Expressions.Find("key")
-	if !ok || len(expr.Values) == 0 {
-		return resolution.TypeRef{}, false
-	}
-	name := expr.Values[0].StringValue
-	if !strings.Contains(name, ".") {
-		name = typ.Namespace + "." + name
-	}
-	return resolution.TypeRef{Name: name}, true
+	return resolution.TypeRef{Name: name, TypeArgs: []resolution.TypeRef{arg}}
 }
 
 // synthesizeRetrieveTypes derives the retrieve request and response of a live schema's
@@ -424,8 +401,12 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 	}
 	plural := casing.TypeSnake(pluralize.String(target.Name))
 	words := strings.ReplaceAll(plural, "_", " ")
-	// The request goes wherever the tree it carries goes.
-	domains := layDomains(c.fileDomains, where.Domains, "output", "omit")
+	// The request goes wherever the tree it carries goes, unless the filter names a
+	// request output.
+	domains := atRequestOutput(
+		layDomains(c.fileDomains, where.Domains, "output", "omit"),
+		where,
+	)
 	request := []resolution.Field{
 		optionalField(
 			"where",
@@ -567,7 +548,7 @@ func retrieveResponse(
 		domains = layDomains(c.fileDomains, override.Domains, "output", "omit")
 	}
 	// The response exists only where the request does.
-	domains = layDomains(domains, where.Domains, "omit")
+	domains = atRequestOutput(layDomains(domains, where.Domains, "omit"), where)
 	return resolution.Type{
 		Name: "RetrieveResponse",
 		Form: resolution.StructForm{Fields: []resolution.Field{requiredField(
@@ -579,6 +560,22 @@ func retrieveResponse(
 			"holds the %s a RetrieveRequest selects.", words,
 		)),
 	}, fields, true
+}
+
+// atRequestOutput returns domains with the Go output replaced by the filter's
+// `@go request_output`, which places the request and response in another package than
+// the tree.
+func atRequestOutput(
+	domains map[string]resolution.Domain, where resolution.Type,
+) map[string]resolution.Domain {
+	expr, ok := where.Domains["go"].Expressions.Find("request_output")
+	if !ok {
+		return domains
+	}
+	return layDomains(domains, map[string]resolution.Domain{"go": {
+		Name:        "go",
+		Expressions: resolution.Expressions{{Name: "output", Values: expr.Values}},
+	}}, "output")
 }
 
 // layDomains returns file with the expressions named in names of each domain in from
