@@ -27,7 +27,7 @@
 namespace synnax::ranger {
 /// @brief type alias for the transport used to retrieve ranges.
 using RetrieveClient = freighter::
-    UnaryClient<grpc::ranger::RetrieveRequest, grpc::ranger::RetrieveResponse>;
+    UnaryClient<grpc::ranger::RetrieveRequest, ::service::ranger::pb::RetrieveResponse>;
 
 /// @brief type alias for the transport used to create ranges.
 using CreateClient = freighter::

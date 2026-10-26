@@ -29,7 +29,7 @@ const std::string STATUS_SET_CHANNEL_NAME = "sy_status_set";
 
 /// @brief Freighter retrieve transport.
 using RetrieveClient = freighter::
-    UnaryClient<grpc::status::RetrieveRequest, grpc::status::RetrieveResponse>;
+    UnaryClient<grpc::status::RetrieveRequest, ::service::status::pb::RetrieveResponse>;
 
 /// @brief Freighter set transport.
 using SetClient = freighter::

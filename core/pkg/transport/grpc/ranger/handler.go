@@ -34,7 +34,7 @@ type (
 		ranger.RetrieveRequest,
 		*RetrieveRequest,
 		ranger.RetrieveResponse,
-		*RetrieveResponse,
+		*pb.RetrieveResponse,
 	]
 	deleteServer = grpc.UnaryServer[
 		ranger.DeleteRequest,
@@ -76,7 +76,7 @@ var (
 	_ grpc.Translator[ranger.RetrieveRequest, *RetrieveRequest] = (*retrieveRequestTranslator)(
 		nil,
 	)
-	_ grpc.Translator[ranger.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(
+	_ grpc.Translator[ranger.RetrieveResponse, *pb.RetrieveResponse] = (*retrieveResponseTranslator)(
 		nil,
 	)
 	_ grpc.Translator[ranger.DeleteRequest, *DeleteRequest] = (*deleteRequestTranslator)(
@@ -160,23 +160,15 @@ func (retrieveRequestTranslator) Backward(
 func (retrieveResponseTranslator) Forward(
 	_ context.Context,
 	r ranger.RetrieveResponse,
-) (*RetrieveResponse, error) {
-	ranges, err := pb.RangesToPB(r.Ranges)
-	if err != nil {
-		return nil, err
-	}
-	return &RetrieveResponse{Ranges: ranges}, nil
+) (*pb.RetrieveResponse, error) {
+	return pb.RetrieveResponseToPB(r)
 }
 
 func (retrieveResponseTranslator) Backward(
 	_ context.Context,
-	r *RetrieveResponse,
+	r *pb.RetrieveResponse,
 ) (ranger.RetrieveResponse, error) {
-	ranges, err := pb.RangesFromPB(r.Ranges)
-	if err != nil {
-		return ranger.RetrieveResponse{}, err
-	}
-	return ranger.RetrieveResponse{Ranges: ranges}, nil
+	return pb.RetrieveResponseFromPB(r)
 }
 
 func (deleteRequestTranslator) Forward(
