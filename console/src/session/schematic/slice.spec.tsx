@@ -382,22 +382,28 @@ describe("Schematic Slice", () => {
 });
 
 describe("persistence", () => {
-  const ACQUIRED: Schematic.State = {
-    ...Schematic.ZERO_STATE,
+  const createAcquired = (): Schematic.State => ({
+    ...structuredClone(Schematic.ZERO_STATE),
     control: { ...Schematic.ZERO_STATE.control, status: "acquired" },
-  };
+  });
 
   const persist = (documents: Record<string, Schematic.State>) => {
     const stored = {
       ...DRIFT_STATE,
-      [Schematic.SLICE_NAME]: { version: 0 as const, windows: inWindow(documents) },
+      [Schematic.SLICE_NAME]: {
+        version: 0 as const,
+        windows: inWindow(structuredClone(documents)),
+      },
     };
     Schematic.PERSIST_EXCLUDE.forEach((exclude) => exclude(stored));
     return (key: string = KEY) => documentIn(stored[Schematic.SLICE_NAME], key);
   };
 
   it("should release control on every schematic", () => {
-    const purged = persist({ "schematic-1": ACQUIRED, "schematic-2": ACQUIRED });
+    const purged = persist({
+      "schematic-1": createAcquired(),
+      "schematic-2": createAcquired(),
+    });
     expect(purged("schematic-1")?.control.status).toBe("released");
     expect(purged("schematic-2")?.control.status).toBe("released");
   });
@@ -423,7 +429,7 @@ describe("persistence", () => {
   });
 
   it("should leave other fields untouched", () => {
-    const purged = persist({ [KEY]: { ...ACQUIRED, tooltipsDisabled: true } });
+    const purged = persist({ [KEY]: { ...createAcquired(), tooltipsDisabled: true } });
     expect(purged()?.tooltipsDisabled).toBe(true);
   });
 });
