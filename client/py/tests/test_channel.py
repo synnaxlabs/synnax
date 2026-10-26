@@ -221,8 +221,8 @@ class TestChannel:
             assert isinstance(indexed_pair[i].data_type.density, sy.Density)
 
     def test_retrieve_by_key_not_found(self, client: sy.Synnax) -> None:
-        """Should raise QueryError when key not found"""
-        with pytest.raises(sy.NotFoundError):
+        """Should raise NotFoundError when key not found"""
+        with pytest.raises(sy.NotFoundError, match="Channel matching 1234 not found"):
             client.channels.retrieve(1234)
 
     def test_retrieve_by_list_of_names(
