@@ -27,21 +27,20 @@ on:
         description: Pull request number; empty scans every open pull request
         required: false
         type: string
-      sha:
-        description: The head commit the scan saw conflicted
-        required: false
-        type: string
 
 permissions: {}
+
+# A run for one pull request shares a group with the other agent workflows, so its gate
+# and agent finish before another agent run on the pull request starts. Scans share one
+# group, so a burst of pushes to main queues one pending scan instead of one per push.
+concurrency:
+  group: ${{ inputs.pr && format('agent-pr-{0}', inputs.pr) || 'agent-rebase-scan' }}
+  cancel-in-progress: false
 
 jobs:
   scan:
     name: Scan
     if: inputs.pr == ''
-    # A burst of pushes to main queues one pending scan instead of one per push.
-    concurrency:
-      group: agent-rebase-scan
-      cancel-in-progress: false
     runs-on: ubuntu-latest
     permissions:
       actions: write
@@ -59,12 +58,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           AGENT_LOGINS: ${{ vars.AGENT_LOGINS }}
         run: |
-          gh api graphql -f o="$GITHUB_REPOSITORY_OWNER" -f r="${GITHUB_REPOSITORY#*/}" \
-            -f query='query($o: String!, $r: String!) {
+          gh api graphql --paginate -f o="$GITHUB_REPOSITORY_OWNER" \
+            -f r="${GITHUB_REPOSITORY#*/}" \
+            -f query='query($o: String!, $r: String!, $endCursor: String) {
               repository(owner: $o, name: $r) {
-                pullRequests(states: OPEN, first: 100) { nodes {
-                  number headRefOid mergeable isCrossRepository
-                } }
+                pullRequests(states: OPEN, first: 100, after: $endCursor) {
+                  pageInfo { hasNextPage endCursor }
+                  nodes { number headRefOid mergeable isCrossRepository }
+                }
               }
             }' --jq '.data.repository.pullRequests.nodes[]
               | select(.mergeable == "CONFLICTING" and (.isCrossRepository | not))
@@ -73,7 +74,7 @@ jobs:
             verdict=$(.github/scripts/agent_gate.sh "$pr" "rebase-$sha" 1 "$sha")
             echo "#$pr: $verdict"
             if [ "${verdict%% *}" != skip ]; then
-              gh workflow run agent.rebase.yaml --ref main -f pr="$pr" -f sha="$sha"
+              gh workflow run agent.rebase.yaml --ref main -f pr="$pr"
             fi
           done
 
@@ -92,13 +93,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      # The head may have changed or merged cleanly since the scan. A mergeable state
+      # GitHub has not computed yet waits for the next scan.
+      - name: Resolve the head
+        id: head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" \
+            --jq '"sha=\(.head.sha)", "conflicted=\(.mergeable_state == "dirty")"' \
+            >> "$GITHUB_OUTPUT"
+
       - name: Gate the attempt
         id: gate
+        if: steps.head.outputs.conflicted == 'true'
         uses: ./.github/actions/agent-gate
         with:
           pr: ${{ inputs.pr }}
-          sha: ${{ inputs.sha }}
-          kind: rebase-${{ inputs.sha }}
+          sha: ${{ steps.head.outputs.sha }}
+          kind: rebase-${{ steps.head.outputs.sha }}
           cap: 1
           task: resolve merge conflicts
           agents: ${{ vars.AGENT_LOGINS }}
@@ -121,10 +135,6 @@ jobs:
     name: Agent
     needs: gate
     if: needs.gate.outputs.run == 'true'
-    # Shared with the other agent workflows, so one agent at a time pushes to a branch.
-    concurrency:
-      group: agent-pr-${{ inputs.pr }}
-      cancel-in-progress: false
     permissions:
       contents: write
       issues: write
