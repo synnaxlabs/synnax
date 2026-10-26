@@ -60,7 +60,14 @@ type WriterConfig struct {
 }
 
 var (
-	ErrWriterClosed     = resource.NewClosedError("domain.writer")
+	ErrWriterClosed = resource.NewClosedError("domain.writer")
+	// ErrNoStart is returned by Writer.Write when the writer has no start.
+	ErrNoStart = errors.New("domain writer has no start")
+	// ErrStartAfterWrite is returned by Writer.SetStart once the writer has written
+	// data.
+	ErrStartAfterWrite = errors.New(
+		"cannot set the start of a domain writer after it writes",
+	)
 	DefaultWriterConfig = WriterConfig{
 		EnableAutoCommit:         new(true),
 		AutoIndexPersistInterval: 1 * telem.Second,
@@ -223,9 +230,7 @@ func (w *Writer) SetStart(start telem.TimeStamp) error {
 		return ErrWriterClosed
 	}
 	if w.len > 0 {
-		return errors.New(
-			"cannot set the start of a domain writer that has written data",
-		)
+		return ErrStartAfterWrite
 	}
 	if w.presetEnd && w.End.Before(start) {
 		return errors.Wrapf(
@@ -256,7 +261,7 @@ func (w *Writer) Write(p []byte) (int, error) {
 		return 0, ErrWriterClosed
 	}
 	if !w.started {
-		return 0, errors.New("cannot write to a domain writer that has no start")
+		return 0, ErrNoStart
 	}
 	n, err := w.internal.Write(p)
 	w.fileSize += telem.Size(n)
