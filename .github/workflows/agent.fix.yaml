@@ -23,6 +23,18 @@ on:
 
 permissions: {}
 
+# Shared with the other agent workflows, so the gate and the agent of one run finish
+# before another agent run on the pull request starts. A newer queued run replaces an
+# older one; the next push or review starts the work again. A run that will skip gets
+# its own group, so it never replaces a queued real one.
+concurrency:
+  group:
+    ${{ github.event.workflow_run.conclusion == 'failure' &&
+    github.event.workflow_run.event == 'pull_request' &&
+    github.event.workflow_run.pull_requests[0] && format('agent-pr-{0}',
+    github.event.workflow_run.pull_requests[0].number) || github.run_id }}
+  cancel-in-progress: false
+
 jobs:
   gate:
     name: Gate
@@ -73,10 +85,6 @@ jobs:
     name: Agent
     needs: gate
     if: needs.gate.outputs.run == 'true'
-    # Shared with the other agent workflows, so one agent at a time pushes to a branch.
-    concurrency:
-      group: agent-pr-${{ github.event.workflow_run.pull_requests[0].number }}
-      cancel-in-progress: false
     permissions:
       actions: write
       contents: write
