@@ -35,6 +35,13 @@ New-Item -ItemType Directory -Force $Staging | Out-Null
 foreach ($f in $Files) {
     Invoke-WebRequest "$Base/$f" -OutFile (Join-Path $Staging $f) -UseBasicParsing
 }
+# Resolves each script's PEP 723 dependencies and imports, so a broken commit fails
+# here while the old scripts still run.
+foreach ($name in $Tasks.Keys) {
+    $script = ($Tasks[$name].Args -split ' ')[0]
+    & $Uv run (Join-Path $Staging $script) --help | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "$script --help failed" }
+}
 
 foreach ($name in $Tasks.Keys) {
     if (Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue) {
@@ -51,6 +58,8 @@ Get-CimInstance Win32_Process |
 Copy-Item (Join-Path $Staging '*.py') $Dir -Force
 Remove-Item (Join-Path $Dir 'gh_token.txt') -ErrorAction SilentlyContinue
 Remove-Item $Staging -Recurse -Force
+
+$Started = Get-Date
 
 foreach ($name in $Tasks.Keys) {
     $task = $Tasks[$name]
@@ -75,7 +84,17 @@ foreach ($name in $Tasks.Keys) {
 }
 
 Start-Sleep -Seconds 45
+$failed = @()
 foreach ($name in $Tasks.Keys) {
     "=== $name ($((Get-ScheduledTask -TaskName $name).State))"
     Get-Content (Join-Path $Dir $Tasks[$name].Log) -Tail 10 -ErrorAction Ignore
+    # The launcher waits 10 s before it relaunches a script that exits, so only the
+    # first launch starts within 5 s of $Started.
+    $script = [regex]::Escape(($Tasks[$name].Args -split ' ')[0])
+    $up = Get-CimInstance Win32_Process | Where-Object {
+        $_.Name -eq 'uv.exe' -and $_.CommandLine -match $script -and
+        $_.CreationDate -lt $Started.AddSeconds(5)
+    }
+    if (-not $up) { $failed += $name }
 }
+if ($failed) { throw "Exited after start: $($failed -join ', ')" }
