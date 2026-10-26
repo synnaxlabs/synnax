@@ -270,6 +270,11 @@ client_py: &client_py
   - *x_py
   - client/py/**
 
+exports_go:
+  - *core
+  - *freighter_integration
+  - *oracle
+
 lint_integration:
   - *client_py
   - *py

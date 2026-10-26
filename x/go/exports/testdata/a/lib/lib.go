@@ -1,0 +1,57 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package lib
+
+func Used() {}
+
+func Internal() {}
+
+func Tested() {}
+
+func OtherTests() {}
+
+var Dead = 1
+
+func Open(cfg Config) { Internal() }
+
+type Config struct{ Mode Mode }
+
+type Mode int
+
+type Shape interface{ Area() int }
+
+type Square struct{}
+
+func (Square) Area() int { return 1 }
+
+func (Square) Side() int { return 1 }
+
+func useSide() int { return Square{}.Side() }
+
+type Handler[S any] interface {
+	Handle(S) (S, error)
+}
+
+type Op struct{}
+
+func (Op) Handle(s int) (int, error) { return s, nil }
+
+type Color int
+
+const (
+	Red Color = iota
+	Green
+)
+
+type hidden struct{}
+
+func (hidden) Exported() {}
+
+func CalledByGenerated() {}

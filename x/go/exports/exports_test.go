@@ -1,0 +1,116 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package exports_test
+
+import (
+	"go/token"
+	"path/filepath"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/exports"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+type finding struct {
+	File      string
+	Kind      string
+	Name      string
+	TestsOnly bool
+}
+
+func summarize(findings []exports.Finding) []finding {
+	out := make([]finding, len(findings))
+	for i, f := range findings {
+		out[i] = finding{
+			File:      filepath.Base(f.Position.Filename),
+			Kind:      f.Kind,
+			Name:      f.Name,
+			TestsOnly: f.TestsOnly,
+		}
+	}
+	return out
+}
+
+var modules = []string{"testdata/a", "testdata/b"}
+
+var _ = Describe("Check", func() {
+	It(
+		"Should report exported identifiers no other package uses",
+		func(ctx SpecContext) {
+			findings := MustSucceed(exports.Check(ctx, exports.Config{
+				Modules: modules,
+				GOOS:    []string{"linux", "windows"},
+			}))
+			Expect(summarize(findings)).To(Equal([]finding{
+				{File: "lib.go", Kind: "func", Name: "Internal"},
+				{File: "lib.go", Kind: "func", Name: "Tested", TestsOnly: true},
+				{File: "lib.go", Kind: "var", Name: "Dead"},
+				{File: "lib.go", Kind: "method", Name: "Side"},
+				{File: "lib.go", Kind: "type", Name: "Handler"},
+				{File: "windows.go", Kind: "func", Name: "WindowsOnly"},
+				{File: "user.go", Kind: "func", Name: "Run"},
+			}))
+		},
+	)
+
+	It(
+		"Should judge an identifier only on the GOOS values given",
+		func(ctx SpecContext) {
+			findings := summarize(MustSucceed(exports.Check(ctx, exports.Config{
+				Modules: modules,
+				GOOS:    []string{"linux"},
+			})))
+			Expect(findings).To(ContainElement(
+				finding{File: "shared.go", Kind: "func", Name: "UsedOnWindows"},
+			))
+			Expect(findings).ToNot(ContainElement(HaveField("Name", "WindowsOnly")))
+		},
+	)
+
+	It("Should return an error when a package fails to load", func(ctx SpecContext) {
+		Expect(exports.Check(ctx, exports.Config{
+			Modules: []string{"testdata/missing"},
+			GOOS:    []string{"linux"},
+		})).Error().To(MatchError(ContainSubstring("exports: load packages")))
+	})
+
+	It("Should return an error when the config has no modules", func(ctx SpecContext) {
+		Expect(exports.Check(ctx, exports.Config{GOOS: []string{"linux"}})).
+			Error().To(MatchError(ContainSubstring("at least one module")))
+	})
+})
+
+var _ = Describe("Finding", func() {
+	Describe("String", func() {
+		It("Should say when only the package's own tests use it", func() {
+			f := exports.Finding{
+				Position:  token.Position{Filename: "a.go", Line: 3},
+				Kind:      "func",
+				Name:      "Do",
+				TestsOnly: true,
+			}
+			Expect(f.String()).To(Equal(
+				"a.go:3: func Do is exported but only its own tests use it",
+			))
+		})
+
+		It("Should say when no other package uses it", func() {
+			f := exports.Finding{
+				Position: token.Position{Filename: "a.go", Line: 3},
+				Kind:     "var",
+				Name:     "X",
+			}
+			Expect(f.String()).To(Equal(
+				"a.go:3: var X is exported but no other package uses it",
+			))
+		})
+	})
+})
