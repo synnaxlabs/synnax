@@ -261,7 +261,7 @@ jobs:
       coverage_flag: console
       directory: console
       package: console
-      shards: 3
+      shards: 4
       test_args: --no-file-parallelism
     secrets: inherit
 
@@ -580,6 +580,7 @@ jobs:
       coverage_flag: pluto
       directory: pluto
       package: pluto
+      shards: 2
       test_args: --no-file-parallelism
     secrets: inherit
 
