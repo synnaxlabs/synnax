@@ -1,0 +1,92 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Calls an agent to fix a failed CI run on an agent pull request. workflow_run runs this
+# file and the gate from the default branch, so no pull request code runs with secrets
+# outside the agent workflow. The agent's push starts CI again, so the gate caps the
+# attempts per pull request.
+
+name: Agent - Fix CI
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+
+permissions: {}
+
+jobs:
+  gate:
+    name: Gate
+    if:
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.pull_requests[0]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    outputs:
+      run: ${{ steps.gate.outputs.run }}
+      prompt: ${{ steps.prompt.outputs.prompt }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Gate the attempt
+        id: gate
+        uses: ./.github/actions/agent-gate
+        with:
+          pr: ${{ github.event.workflow_run.pull_requests[0].number }}
+          sha: ${{ github.event.workflow_run.head_sha }}
+          kind: fix
+          cap: 3
+          task: fix failed CI
+          agents: ${{ vars.AGENT_LOGINS }}
+
+      - name: Write the prompt
+        id: prompt
+        if: steps.gate.outputs.run == 'true'
+        env:
+          PR: ${{ github.event.workflow_run.pull_requests[0].number }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          EOF=$(openssl rand -hex 16)
+          {
+            echo "prompt<<$EOF"
+            cat .github/agents/fix.md
+            printf '\nThe pull request is #%s. The failed CI run is %s.\n' "$PR" "$RUN_ID"
+            echo "$EOF"
+          } >> "$GITHUB_OUTPUT"
+
+  agent:
+    name: Agent
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    # Shared with the other agent workflows, so one agent at a time pushes to a branch.
+    concurrency:
+      group: agent-pr-${{ github.event.workflow_run.pull_requests[0].number }}
+      cancel-in-progress: false
+    permissions:
+      actions: write
+      contents: write
+      issues: write
+      pull-requests: write
+    uses: ./.github/workflows/agent.yaml
+    with:
+      prompt: ${{ needs.gate.outputs.prompt }}
+      agent: ${{ vars.AGENT_DEFAULT || 'claude' }}
+      output: comment
+      pr: ${{ github.event.workflow_run.pull_requests[0].number }}
+      timeout-minutes: 60
+    secrets: inherit
