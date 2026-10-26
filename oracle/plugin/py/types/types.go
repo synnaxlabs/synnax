@@ -35,6 +35,7 @@ import (
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // primitiveMapper is the Python-specific primitive type mapper.
@@ -246,7 +247,8 @@ func generatePyFile(
 	if len(data.missingIncludes) > 0 {
 		missing := data.missingIncludes.Slice()
 		slices.Sort(missing)
-		return nil, errors.Newf(
+		return nil, errors.Wrapf(
+			validate.ErrValidation,
 			"types with no generated Python declaration need a @py include "+
 				"module: %s",
 			strings.Join(missing, ", "),
@@ -1656,6 +1658,7 @@ func typeRefToPythonAlias(
 	// Get the base type name with proper import handling
 	// Use getPyName to respect @py name directives (e.g., GoStatus -> Status)
 	pyName := getPyName(resolved)
+	importLocalHand(resolved, pyName, data)
 	var baseName string
 	if resolved.Namespace != data.Namespace {
 		outputPath := output.GetPath(resolved, "py")

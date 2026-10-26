@@ -1681,6 +1681,24 @@ var _ = Describe("Python Types Plugin", func() {
 						ToNotContain("class Color(")
 				})
 
+			It("Should import a hand-written struct that an alias names",
+				func(ctx SpecContext) {
+					source := `
+						@py output "x/py/x/color"
+
+						Color struct {
+							r uint8
+							@py hand
+							@py include "x/py/x/color/color"
+						}
+
+						Shade = Color
+					`
+					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(`from x.color.color import Color`, `Shade`)
+				})
+
 			It("Should fail when a referenced hand-written struct declares no module",
 				func(ctx SpecContext) {
 					source := `
