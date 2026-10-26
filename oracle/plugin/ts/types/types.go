@@ -839,8 +839,17 @@ func (p *Plugin) processStruct(
 		// by annotated forward-reference getters instead.
 		IsRecursive: form.IsRecursive && !isExtendBase(entry, table),
 		Strict:      filterRequestTypes(table).Contains(entry.QualifiedName),
-		// Callers build a request, so its type keeps defaulted fields optional.
-		UseInput: filterRequests(table).Contains(entry.QualifiedName),
+	}
+	// Callers build a request, so its type leaves defaulted fields optional.
+	if filterRequests(table).Contains(entry.QualifiedName) {
+		for _, f := range form.Fields {
+			if f.Default != nil {
+				sd.DefaultedFields = append(sd.DefaultedFields, FieldName(f.Name))
+			}
+		}
+		if len(sd.DefaultedFields) > 0 {
+			addXImport(data, xImport{name: "optional", submodule: "optional"})
+		}
 	}
 	if tsDomain, ok := entry.Domains["ts"]; ok {
 		for _, expr := range tsDomain.Expressions {
@@ -3112,6 +3121,9 @@ type structData struct {
 	ExtendFields      []fieldData
 	PartialFields     []fieldData
 	OmittedFields     []string
+	// DefaultedFields names the fields that an optional.Optional wrapper of the output
+	// type leaves optional.
+	DefaultedFields []string
 	// ConditionalOmittedFields names the conditional (type-param-typed) base fields a
 	// synthesized @create New strips from its inner optional.Optional base before
 	// re-appending them as z.input conditionals. The New's template wraps the base in
@@ -3594,7 +3606,15 @@ export const {{ camelCase .TSName }}Z = z.{{ if .Strict }}strictObject{{ else }}
 {{- end }}
 });
 {{- if $.GenerateTypes }}
+{{- if .DefaultedFields }}
+export interface {{ .TSName }}
+  extends optional.Optional<
+    z.infer<typeof {{ camelCase .TSName }}Z>,
+    {{ range $i, $f := .DefaultedFields }}{{ if $i }} | {{ end }}"{{ $f }}"{{ end }}
+  > {}
+{{- else }}
 export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{{ end }}<typeof {{ camelCase .TSName }}Z> {}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}
