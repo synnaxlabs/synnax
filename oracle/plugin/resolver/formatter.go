@@ -35,24 +35,24 @@ type FormatterConfig struct {
 	SkipGenerics bool
 }
 
-// ConfigurableFormatter implements TypeFormatter using a FormatterConfig.
-type ConfigurableFormatter struct {
+// configurableFormatter implements TypeFormatter using a FormatterConfig.
+type configurableFormatter struct {
 	config FormatterConfig
 }
 
 // NewFormatter creates a TypeFormatter from the given configuration.
 func NewFormatter(config FormatterConfig) TypeFormatter {
-	return &ConfigurableFormatter{config: config}
+	return &configurableFormatter{config: config}
 }
 
-func (f *ConfigurableFormatter) FormatQualified(qualifier, typeName string) string {
+func (f *configurableFormatter) FormatQualified(qualifier, typeName string) string {
 	if qualifier == "" {
 		return typeName
 	}
 	return qualifier + f.config.QualifiedSep + typeName
 }
 
-func (f *ConfigurableFormatter) FormatGeneric(
+func (f *configurableFormatter) FormatGeneric(
 	baseName string,
 	typeArgs []string,
 ) string {
@@ -63,14 +63,14 @@ func (f *ConfigurableFormatter) FormatGeneric(
 		strings.Join(typeArgs, ", "), f.config.GenericClose)
 }
 
-func (f *ConfigurableFormatter) FormatArray(elemType string) string {
+func (f *configurableFormatter) FormatArray(elemType string) string {
 	if f.config.ArrayFormat != nil {
 		return f.config.ArrayFormat(elemType)
 	}
 	return "[]" + elemType
 }
 
-func (f *ConfigurableFormatter) FormatFixedArray(elemType string, size int64) string {
+func (f *configurableFormatter) FormatFixedArray(elemType string, size int64) string {
 	if f.config.FixedArrayFormat != nil {
 		return f.config.FixedArrayFormat(elemType, size)
 	}
@@ -78,14 +78,14 @@ func (f *ConfigurableFormatter) FormatFixedArray(elemType string, size int64) st
 	return f.FormatArray(elemType)
 }
 
-func (f *ConfigurableFormatter) FormatMap(keyType, valType string) string {
+func (f *configurableFormatter) FormatMap(keyType, valType string) string {
 	if f.config.MapFormat != nil {
 		return f.config.MapFormat(keyType, valType)
 	}
 	return fmt.Sprintf("map[%s]%s", keyType, valType)
 }
 
-func (f *ConfigurableFormatter) FallbackType() string {
+func (f *configurableFormatter) FallbackType() string {
 	return f.config.FallbackTypeName
 }
 

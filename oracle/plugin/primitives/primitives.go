@@ -12,44 +12,43 @@
 // language-specific type conversions.
 package primitives
 
-// Category represents the semantic category of a primitive type.
-type Category int
+type category int
 
 const (
-	CategoryOther Category = iota
-	CategoryString
-	CategoryNumber
-	CategoryBoolean
-	CategoryBinary
+	categoryOther category = iota
+	categoryString
+	categoryNumber
+	categoryBoolean
+	categoryBinary
 )
 
-// Primitive represents an Oracle primitive type with its semantic properties.
-type Primitive struct {
+// primitive represents an Oracle primitive type with its semantic properties.
+type primitive struct {
 	Name     string   // Oracle type name (e.g., "uuid", "timestamp")
-	Category Category // Semantic category
+	Category category // Semantic category
 }
 
 // All primitives supported by Oracle.
-var all = []Primitive{
-	{Name: "uuid", Category: CategoryString},
-	{Name: "string", Category: CategoryString},
-	{Name: "bool", Category: CategoryBoolean},
-	{Name: "int8", Category: CategoryNumber},
-	{Name: "int16", Category: CategoryNumber},
-	{Name: "int32", Category: CategoryNumber},
-	{Name: "int64", Category: CategoryNumber},
-	{Name: "uint8", Category: CategoryNumber},
-	{Name: "uint12", Category: CategoryNumber},
-	{Name: "uint16", Category: CategoryNumber},
-	{Name: "uint20", Category: CategoryNumber},
-	{Name: "uint32", Category: CategoryNumber},
-	{Name: "uint64", Category: CategoryNumber},
-	{Name: "float32", Category: CategoryNumber},
-	{Name: "float64", Category: CategoryNumber},
-	{Name: "record", Category: CategoryOther},
-	{Name: "bytes", Category: CategoryBinary},
-	{Name: "any", Category: CategoryOther},
-	{Name: "nil", Category: CategoryOther},
+var all = []primitive{
+	{Name: "uuid", Category: categoryString},
+	{Name: "string", Category: categoryString},
+	{Name: "bool", Category: categoryBoolean},
+	{Name: "int8", Category: categoryNumber},
+	{Name: "int16", Category: categoryNumber},
+	{Name: "int32", Category: categoryNumber},
+	{Name: "int64", Category: categoryNumber},
+	{Name: "uint8", Category: categoryNumber},
+	{Name: "uint12", Category: categoryNumber},
+	{Name: "uint16", Category: categoryNumber},
+	{Name: "uint20", Category: categoryNumber},
+	{Name: "uint32", Category: categoryNumber},
+	{Name: "uint64", Category: categoryNumber},
+	{Name: "float32", Category: categoryNumber},
+	{Name: "float64", Category: categoryNumber},
+	{Name: "record", Category: categoryOther},
+	{Name: "bytes", Category: categoryBinary},
+	{Name: "any", Category: categoryOther},
+	{Name: "nil", Category: categoryOther},
 }
 
 func IsPrimitive(name string) bool {

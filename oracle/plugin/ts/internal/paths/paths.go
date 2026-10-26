@@ -19,8 +19,8 @@ import (
 	"strings"
 )
 
-// PackageMapping describes one workspace package known to the generator.
-type PackageMapping struct {
+// packageMapping describes one workspace package known to the generator.
+type packageMapping struct {
 	// PathPrefix is the source-tree prefix for files in this package
 	// (e.g. "client/ts/src").
 	PathPrefix string
@@ -30,10 +30,7 @@ type PackageMapping struct {
 	InternalPrefix string
 }
 
-// KnownPackages enumerates the workspace packages the generator can target.
-// It is intentionally exported so callers can extend or override the list in
-// tests; production code should treat it as constant.
-var KnownPackages = []PackageMapping{
+var knownPackages = []packageMapping{
 	{
 		PathPrefix:     "client/ts/src",
 		PackageName:    "@synnaxlabs/client",
@@ -54,12 +51,12 @@ var KnownPackages = []PackageMapping{
 	{PathPrefix: "drift/src", PackageName: "@synnaxlabs/drift", InternalPrefix: "@/"},
 }
 
-// FindPackage returns the workspace mapping that owns outputPath, or nil if
+// findPackage returns the workspace mapping that owns outputPath, or nil if
 // outputPath is not inside any known workspace.
-func FindPackage(outputPath string) *PackageMapping {
-	for i := range KnownPackages {
-		if strings.HasPrefix(outputPath, KnownPackages[i].PathPrefix) {
-			return &KnownPackages[i]
+func findPackage(outputPath string) *packageMapping {
+	for i := range knownPackages {
+		if strings.HasPrefix(outputPath, knownPackages[i].PathPrefix) {
+			return &knownPackages[i]
 		}
 	}
 	return nil
@@ -70,7 +67,7 @@ func FindPackage(outputPath string) *PackageMapping {
 // the destination workspace's npm package name; unknown paths yield a relative
 // path.
 func CalculateImport(fromPath, toPath string) string {
-	fromPkg, toPkg := FindPackage(fromPath), FindPackage(toPath)
+	fromPkg, toPkg := findPackage(fromPath), findPackage(toPath)
 	if fromPkg == nil || toPkg == nil {
 		return calculateRelative(fromPath, toPath)
 	}

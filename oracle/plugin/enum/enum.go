@@ -106,8 +106,8 @@ func FindOutputPath(
 	return ""
 }
 
-// MakePathFunc creates a PathFunc for a given domain name.
-func MakePathFunc(domainName string) PathFunc {
+// makePathFunc creates a PathFunc for a given domain name.
+func makePathFunc(domainName string) PathFunc {
 	return func(typ resolution.Type, table *resolution.Table) string {
 		return FindOutputPath(typ, table, domainName)
 	}
@@ -169,7 +169,7 @@ func CollectNamespaceEnums(
 	pathFunc PathFunc,
 ) []resolution.Type {
 	if pathFunc == nil {
-		pathFunc = MakePathFunc(domainName)
+		pathFunc = makePathFunc(domainName)
 	}
 	var result []resolution.Type
 	seen := make(set.Set[string])

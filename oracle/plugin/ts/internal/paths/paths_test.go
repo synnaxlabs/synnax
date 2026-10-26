@@ -23,22 +23,6 @@ func TestPaths(t *testing.T) {
 	RunSpecs(t, "Plugin TS Paths Suite", SuiteConfig())
 }
 
-var _ = Describe("FindPackage", func() {
-	It("Should return nil for paths outside any known workspace", func() {
-		Expect(paths.FindPackage("vendor/foo")).To(BeNil())
-	})
-	It("Should return the matching mapping for a client/ts path", func() {
-		pkg := paths.FindPackage("client/ts/src/schematic")
-		Expect(pkg).ToNot(BeNil())
-		Expect(pkg.PackageName).To(Equal("@synnaxlabs/client"))
-	})
-	It("Should match the longest applicable prefix", func() {
-		pkg := paths.FindPackage("pluto/src/vis/diagram")
-		Expect(pkg).ToNot(BeNil())
-		Expect(pkg.PackageName).To(Equal("@synnaxlabs/pluto"))
-	})
-})
-
 var _ = Describe("CalculateImport", func() {
 	It("Should produce an internal alias when both paths share a workspace", func() {
 		got := paths.CalculateImport(
