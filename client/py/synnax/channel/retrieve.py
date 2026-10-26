@@ -28,7 +28,7 @@ from synnax.exceptions import NotFoundError
 from x import filter
 
 
-class _RetrieveRequest(BaseModel):
+class _AliasedRetrieveRequest(BaseModel):
     request: RetrieveRequest
     range_key: UUID | None = None
 
@@ -79,7 +79,7 @@ class Retriever:
         """
         return self._client.send(
             "/channel/retrieve",
-            _RetrieveRequest(request=req, range_key=range_key),
+            _AliasedRetrieveRequest(request=req, range_key=range_key),
             RetrieveResponse,
         ).channels
 

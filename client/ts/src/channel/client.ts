@@ -223,7 +223,7 @@ const retrieveMultipleParamsZ = retrieveRequestZ.extend({
  */
 export type RetrieveMultipleParams = RetrieveRequest & { rangeKey?: ranger.Key };
 
-const retrieveReqZ = z.object({
+const aliasedRetrieveRequestZ = z.object({
   request: retrieveRequestZ,
   rangeKey: rangerKeyZ.optional(),
 });
@@ -661,7 +661,7 @@ export class Client extends query.Retriever<
     const res = await this.cfg.unary.send(
       "/channel/retrieve",
       { request, rangeKey },
-      retrieveReqZ,
+      aliasedRetrieveRequestZ,
       retrieveResZ,
     );
     return res.channels;
