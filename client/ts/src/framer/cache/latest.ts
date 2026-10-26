@@ -79,10 +79,9 @@ export class Latest {
     loading: status.create(LOADING),
     success: status.create(SUCCESS),
   };
-  // snapshot is the value last served. It holds until a change marks it dirty, or the
-  // clock reaches validUntil, where a series leaves the window.
+  // snapshot is the value last served, or null after a change. It also goes out of date
+  // when the clock reaches validUntil, where a series leaves the window.
   private snapshot: Snapshot | null = null;
-  private dirty = true;
   private validUntil = 0n;
   // grown is true when the stream grew the leading buffer since the last value.
   private grown = false;
@@ -126,11 +125,7 @@ export class Latest {
    * the newest series keeps the snapshot's series and moves its time.
    */
   value(): Snapshot {
-    if (
-      this.dirty ||
-      this.snapshot == null ||
-      this.props.now().valueOf() >= this.validUntil
-    )
+    if (this.snapshot == null || this.props.now().valueOf() >= this.validUntil)
       return this.rebuild();
     const status = this.status();
     if (!this.grown && status === this.snapshot.status) return this.snapshot;
@@ -150,7 +145,6 @@ export class Latest {
 
   private rebuild(): Snapshot {
     this.trim();
-    this.dirty = false;
     this.grown = false;
     this.unserved = 0;
     const series = this.series.slice(this.front);
@@ -184,7 +178,7 @@ export class Latest {
     this.stop();
     this.closeLeading();
     this.loadMark ??= this.series.length;
-    this.dirty = true;
+    this.snapshot = null;
     this.notify();
     void this.load();
   }
@@ -204,7 +198,7 @@ export class Latest {
     this.front = 0;
     this.closedTotal = 0;
     this.unserved = 0;
-    this.dirty = true;
+    this.snapshot = null;
   }
 
   private createBuffer(): Dynamic {
@@ -250,7 +244,7 @@ export class Latest {
       } catch (e) {
         if (generation !== this.generation) return;
         this.failure = status.fromException(e, READ_FAILED);
-        this.dirty = true;
+        this.snapshot = null;
         this.notify();
         if (isDefinitive(e)) return this.land([]);
         if (!(await brk.wait())) return;
@@ -266,7 +260,7 @@ export class Latest {
     this.push(read);
     this.push(streamed);
     this.unserved = this.total;
-    this.dirty = true;
+    this.snapshot = null;
   }
 
   private push(series: Series[]): void {
@@ -296,7 +290,7 @@ export class Latest {
     }
     const { flushed, allocated } = this.buffer.write(new MultiSeries([s]));
     flushed.series.forEach((f) => this.closeSeries(f));
-    if (flushed.series.length > 0 || allocated.series.length > 0) this.dirty = true;
+    if (flushed.series.length > 0 || allocated.series.length > 0) this.snapshot = null;
     else this.grown = true;
   }
 
@@ -308,7 +302,7 @@ export class Latest {
   private closeSeries(s: Series): void {
     this.series.push(s);
     this.closedTotal += s.length;
-    this.dirty = true;
+    this.snapshot = null;
   }
 
   private newest(): Series | undefined {
@@ -387,7 +381,7 @@ export class Latest {
     const { length } = this.series[this.front++];
     this.closedTotal -= length;
     this.unserved = Math.min(this.unserved, this.total);
-    this.dirty = true;
+    this.snapshot = null;
   }
 
   // Returns the end of the newest sample's span.

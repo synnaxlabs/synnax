@@ -124,11 +124,10 @@ export class Points {
     loading: status.create(LOADING),
     success: status.create(SUCCESS),
   };
-  // snapshot is the value last served. It holds until a change marks the channel dirty,
-  // the store changes the series of the channel's raw blocks, or the clock reaches
-  // validUntil, where the window crosses a grid edge.
+  // snapshot is the value last served, or null after a change. It also goes out of date
+  // when the store changes the series of the channel's raw blocks, or when the clock
+  // reaches validUntil, where the window crosses a grid edge.
   private snapshot: Snapshot | null = null;
-  private dirty = true;
   private epoch = -1;
   private validUntil = 0n;
   // grown is true when the stream grew the newest raw series since the last value.
@@ -181,7 +180,7 @@ export class Points {
     this.window = window;
     this.limit = limit;
     if (tiles != null && tiles === this.tilesOf(limit)) return;
-    this.dirty = true;
+    this.snapshot = null;
     if (
       limit.count !== prev.count ||
       limit.aggregation !== prev.aggregation ||
@@ -203,7 +202,6 @@ export class Points {
   value(): Snapshot {
     const now = this.props.now();
     if (
-      this.dirty ||
       this.snapshot == null ||
       this.epoch !== this.props.store.epoch(this.key) ||
       now.valueOf() >= this.validUntil
@@ -219,7 +217,6 @@ export class Points {
   // Reconciles the tiles, raw samples, reads, and pins with the window as of now, and
   // caches the snapshot they make.
   private rebuild(now: TimeStamp): Snapshot {
-    this.dirty = false;
     this.grown = false;
     if (this.index == null) {
       void this.resolve();
@@ -239,7 +236,9 @@ export class Points {
     this.prune(targets, tiles, next, home, extremesKept);
     let series = [...tiles.flatMap((t) => t.series.series), ...raw];
     const dataType = this.props.store.dataType(this.key);
-    if (dataType != null && series.some((s) => !s.dataType.equals(dataType))) {
+    const retyped =
+      dataType != null && series.some((s) => !s.dataType.equals(dataType));
+    if (retyped) {
       // Series of two data types cannot share a snapshot.
       this.restart();
       series = series.filter((s) => s.dataType.equals(dataType));
@@ -249,12 +248,14 @@ export class Points {
     if (this.loading && this.loaded(targets)) this.loading = false;
     this.epoch = this.props.store.epoch(this.key);
     this.validUntil = this.edgeAfter(now, home);
-    this.snapshot = {
+    const snapshot = {
       series: new MultiSeries(series),
       status: this.status(),
       time: this.time(),
     };
-    return this.snapshot;
+    // A restart reads every tile again, so the next value rebuilds.
+    this.snapshot = retyped ? null : snapshot;
+    return snapshot;
   }
 
   // Returns when the clock next moves the window across a grid edge that changes its
@@ -281,7 +282,7 @@ export class Points {
 
   // Marks the snapshot out of date and tells the consumer.
   private changed(): void {
-    this.dirty = true;
+    this.snapshot = null;
     this.notify();
   }
 
