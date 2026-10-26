@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type record } from "@synnaxlabs/x";
-import pluralize from "pluralize";
 import { type ReactElement, type ReactNode } from "react";
 import { type z } from "zod";
 
@@ -16,7 +15,7 @@ import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Items, type ItemsProps } from "@/select/Items";
 import { List as SelectList } from "@/select/List";
-import { searchPlaceholder } from "@/select/placeholder";
+import { plural, searchPlaceholder } from "@/select/placeholder";
 import { Search, type SearchProps } from "@/select/Search";
 import { Status } from "@/status";
 
@@ -48,7 +47,7 @@ export const EmptyContent = ({
   if (emptyContent != null && typeof emptyContent !== "string") return emptyContent;
   return (
     <Status.Summary center variant="disabled" hideIcon>
-      {emptyContent ?? `No ${pluralize.plural(resourceName)} found`}
+      {emptyContent ?? `No ${plural(resourceName)} found`}
     </Status.Summary>
   );
 };
