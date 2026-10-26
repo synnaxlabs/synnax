@@ -28,7 +28,7 @@ query($o: String!, $r: String!, $p: Int!, $endCursor: String) {
         pageInfo { hasNextPage endCursor }
         nodes {
           id isResolved isOutdated path line
-          comments(first: 100) { nodes { author { login __typename } body url } }
+          comments(last: 100) { nodes { author { login __typename } body url } }
         }
       }
     }
