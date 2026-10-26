@@ -13,7 +13,9 @@ syntax = "proto3";
 
 package service.label.pb;
 
+import "core/pkg/service/ontology/pb/ontology.proto";
 import "x/go/color/pb/color.proto";
+import "x/go/filter/pb/filter.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/label/pb";
 
@@ -26,4 +28,52 @@ message Label {
   string name = 2;
   // color is the display color for visual identification of the label.
   .x.color.pb.Color color = 3;
+}
+message WhereList {
+  repeated Where values = 1;
+}
+message UuidList {
+  repeated string values = 1;
+}
+
+// UuidSet selects keys and enum values. A value must match every operator that is set.
+message UuidSet {
+  // eq matches a value equal to eq.
+  optional string eq = 1;
+  // in matches a value equal to an element of in.
+  UuidList in = 2;
+}
+
+// Where is a filter that selects labels.
+message Where {
+  // and matches when every child matches.
+  WhereList and = 1;
+  // or matches when any child matches.
+  WhereList or = 2;
+  // not matches when the child does not match.
+  optional Where not = 3;
+  // key selects by key.
+  optional UuidSet key = 4;
+  // name selects by name.
+  optional .x.filter.pb.String name = 5;
+  // for matches the labels attached to the given resource.
+  optional .service.ontology.pb.ID for = 6;
+}
+
+// RetrieveRequest is a request to retrieve labels.
+message RetrieveRequest {
+  // where selects the labels to retrieve. An absent where selects all of them.
+  optional Where where = 1;
+  // search_term keeps the labels that match the term, closest match first.
+  optional string search_term = 2;
+  // limit is the most labels to return.
+  optional uint32 limit = 3;
+  // offset is the number of matching labels to skip.
+  optional uint32 offset = 4;
+}
+
+// RetrieveResponse holds the labels a RetrieveRequest selects.
+message RetrieveResponse {
+  // labels are the labels the request selects.
+  repeated Label labels = 1;
 }

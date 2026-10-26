@@ -14,8 +14,12 @@ package pb
 import (
 	"uuid"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	ontologypb "github.com/synnaxlabs/synnax/pkg/service/ontology/pb"
 	colorpb "github.com/synnaxlabs/x/color/pb"
+	"github.com/synnaxlabs/x/filter"
+	filterpb "github.com/synnaxlabs/x/filter/pb"
 )
 
 // LabelToPB converts Label to Label.
@@ -70,6 +74,328 @@ func LabelsFromPB(pbs []*Label) ([]label.Label, error) {
 	for i, pb := range pbs {
 		var err error
 		result[i], err = LabelFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// UuidSetToPB converts filter.Set[uuid.UUID] to UuidSet.
+func UuidSetToPB(r filter.Set[uuid.UUID]) (*UuidSet, error) {
+	pb := &UuidSet{}
+	if r.Eq != nil {
+		v := r.Eq.String()
+		pb.Eq = &v
+	}
+	if r.In != nil {
+		pb.In = &UuidList{Values: lo.Map(r.In, func(u uuid.UUID, _ int) string { return uuid.UUID(u).String() })}
+	}
+	return pb, nil
+}
+
+// UuidSetFromPB converts UuidSet to filter.Set[uuid.UUID].
+func UuidSetFromPB(pb *UuidSet) (filter.Set[uuid.UUID], error) {
+	var r filter.Set[uuid.UUID]
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Eq != nil {
+		v, err := uuid.Parse(*pb.Eq)
+		if err != nil {
+			return filter.Set[uuid.UUID]{}, err
+		}
+		r.Eq = &v
+	}
+	if pb.In != nil {
+		vals, err := func() ([]uuid.UUID, error) {
+			result := make([]uuid.UUID, len(pb.In.Values))
+			for i, s := range pb.In.Values {
+				parsed, err := uuid.Parse(s)
+				if err != nil {
+					return nil, err
+				}
+				result[i] = uuid.UUID(parsed)
+			}
+			return result, nil
+		}()
+		if err != nil {
+			return filter.Set[uuid.UUID]{}, err
+		}
+		r.In = vals
+	}
+	return r, nil
+}
+
+// UuidSetsToPB converts a slice of filter.Set[uuid.UUID] to UuidSet.
+func UuidSetsToPB(rs []filter.Set[uuid.UUID]) ([]*UuidSet, error) {
+	result := make([]*UuidSet, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = UuidSetToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// UuidSetsFromPB converts a slice of UuidSet to filter.Set[uuid.UUID].
+func UuidSetsFromPB(pbs []*UuidSet) ([]filter.Set[uuid.UUID], error) {
+	result := make([]filter.Set[uuid.UUID], len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = UuidSetFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// WhereToPB converts Where to Where.
+func WhereToPB(r label.Where) (*Where, error) {
+	pb := &Where{}
+	if r.And != nil {
+		vals, err := WheresToPB(r.And)
+		if err != nil {
+			return nil, err
+		}
+		pb.And = &WhereList{Values: vals}
+	}
+	if r.Or != nil {
+		vals, err := WheresToPB(r.Or)
+		if err != nil {
+			return nil, err
+		}
+		pb.Or = &WhereList{Values: vals}
+	}
+	if r.Not != nil {
+		var err error
+		pb.Not, err = WhereToPB(*r.Not)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Key != nil {
+		var err error
+		pb.Key, err = UuidSetToPB(*r.Key)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Name != nil {
+		var err error
+		pb.Name, err = filterpb.StringToPB(*r.Name)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.For != nil {
+		var err error
+		pb.For, err = ontologypb.IDToPB(*r.For)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pb, nil
+}
+
+// WhereFromPB converts Where to Where.
+func WhereFromPB(pb *Where) (label.Where, error) {
+	var r label.Where
+	if pb == nil {
+		return r, nil
+	}
+	if pb.And != nil {
+		vals, err := WheresFromPB(pb.And.Values)
+		if err != nil {
+			return label.Where{}, err
+		}
+		r.And = vals
+	}
+	if pb.Or != nil {
+		vals, err := WheresFromPB(pb.Or.Values)
+		if err != nil {
+			return label.Where{}, err
+		}
+		r.Or = vals
+	}
+	if pb.Not != nil {
+		val, err := WhereFromPB(pb.Not)
+		if err != nil {
+			return label.Where{}, err
+		}
+		r.Not = &val
+	}
+	if pb.Key != nil {
+		val, err := UuidSetFromPB(pb.Key)
+		if err != nil {
+			return label.Where{}, err
+		}
+		r.Key = &val
+	}
+	if pb.Name != nil {
+		val, err := filterpb.StringFromPB(pb.Name)
+		if err != nil {
+			return label.Where{}, err
+		}
+		r.Name = &val
+	}
+	if pb.For != nil {
+		val, err := ontologypb.IDFromPB(pb.For)
+		if err != nil {
+			return label.Where{}, err
+		}
+		r.For = &val
+	}
+	return r, nil
+}
+
+// WheresToPB converts a slice of Where to Where.
+func WheresToPB(rs []label.Where) ([]*Where, error) {
+	result := make([]*Where, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = WhereToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// WheresFromPB converts a slice of Where to Where.
+func WheresFromPB(pbs []*Where) ([]label.Where, error) {
+	result := make([]label.Where, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = WhereFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RetrieveRequestToPB converts RetrieveRequest to RetrieveRequest.
+func RetrieveRequestToPB(r label.RetrieveRequest) (*RetrieveRequest, error) {
+	pb := &RetrieveRequest{}
+	if r.Where != nil {
+		var err error
+		pb.Where, err = WhereToPB(*r.Where)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.SearchTerm != nil {
+		pb.SearchTerm = r.SearchTerm
+	}
+	if r.Limit != nil {
+		pb.Limit = r.Limit
+	}
+	if r.Offset != nil {
+		pb.Offset = r.Offset
+	}
+	return pb, nil
+}
+
+// RetrieveRequestFromPB converts RetrieveRequest to RetrieveRequest.
+func RetrieveRequestFromPB(pb *RetrieveRequest) (label.RetrieveRequest, error) {
+	var r label.RetrieveRequest
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Where != nil {
+		val, err := WhereFromPB(pb.Where)
+		if err != nil {
+			return label.RetrieveRequest{}, err
+		}
+		r.Where = &val
+	}
+	if pb.SearchTerm != nil {
+		r.SearchTerm = pb.SearchTerm
+	}
+	if pb.Limit != nil {
+		r.Limit = pb.Limit
+	}
+	if pb.Offset != nil {
+		r.Offset = pb.Offset
+	}
+	return r, nil
+}
+
+// RetrieveRequestsToPB converts a slice of RetrieveRequest to RetrieveRequest.
+func RetrieveRequestsToPB(rs []label.RetrieveRequest) ([]*RetrieveRequest, error) {
+	result := make([]*RetrieveRequest, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = RetrieveRequestToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RetrieveRequestsFromPB converts a slice of RetrieveRequest to RetrieveRequest.
+func RetrieveRequestsFromPB(pbs []*RetrieveRequest) ([]label.RetrieveRequest, error) {
+	result := make([]label.RetrieveRequest, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = RetrieveRequestFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RetrieveResponseToPB converts RetrieveResponse to RetrieveResponse.
+func RetrieveResponseToPB(r label.RetrieveResponse) (*RetrieveResponse, error) {
+	labelsVal, err := LabelsToPB(r.Labels)
+	if err != nil {
+		return nil, err
+	}
+	pb := &RetrieveResponse{
+		Labels: labelsVal,
+	}
+	return pb, nil
+}
+
+// RetrieveResponseFromPB converts RetrieveResponse to RetrieveResponse.
+func RetrieveResponseFromPB(pb *RetrieveResponse) (label.RetrieveResponse, error) {
+	var r label.RetrieveResponse
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Labels, err = LabelsFromPB(pb.Labels)
+	if err != nil {
+		return label.RetrieveResponse{}, err
+	}
+	return r, nil
+}
+
+// RetrieveResponsesToPB converts a slice of RetrieveResponse to RetrieveResponse.
+func RetrieveResponsesToPB(rs []label.RetrieveResponse) ([]*RetrieveResponse, error) {
+	result := make([]*RetrieveResponse, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = RetrieveResponseToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RetrieveResponsesFromPB converts a slice of RetrieveResponse to RetrieveResponse.
+func RetrieveResponsesFromPB(pbs []*RetrieveResponse) ([]label.RetrieveResponse, error) {
+	result := make([]label.RetrieveResponse, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = RetrieveResponseFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

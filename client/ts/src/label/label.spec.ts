@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { label } from "@/label";
@@ -47,6 +47,26 @@ describe("Label", () => {
         })
         .toEqual(names);
     });
+    it("should retrieve labels by where", async () => {
+      const prefix = `where-label-${id.create()}`;
+      const [item, attached] = await client.labels.create([
+        { name: `${prefix}-item`, color: "#E774D0" },
+        { name: `${prefix}-attached`, color: "#E774D0" },
+      ]);
+      await client.labels.label(label.ontologyID(item.key), [attached.key]);
+      const labels = await client.labels.retrieve({
+        where: {
+          name: { regex: `^${prefix}` },
+          not: { for: label.ontologyID(item.key) },
+        },
+      });
+      expect(labels.map((l) => l.key)).toEqual([item.key]);
+    });
+    it("should drop the keys that do not exist from a list retrieve", async () => {
+      const lbl = await client.labels.create({ name: "Label", color: "#E774D0" });
+      const labels = await client.labels.retrieve([lbl.key, uuid.create()]);
+      expect(labels.map((l) => l.key)).toEqual([lbl.key]);
+    });
   });
 
   describe("delete", () => {
@@ -65,7 +85,9 @@ describe("Label", () => {
       const l1 = await client.labels.create({ name: "Label One", color: "#E774D0" });
       const l2 = await client.labels.create({ name: "Label Two", color: "#E774D0" });
       await client.labels.label(label.ontologyID(l1.key), [l2.key]);
-      const labels = await client.labels.retrieve({ for: label.ontologyID(l1.key) });
+      const labels = await client.labels.retrieve({
+        where: { for: label.ontologyID(l1.key) },
+      });
       expect(labels).toHaveLength(1);
       expect(labels[0].key).toEqual(l2.key);
     });
@@ -74,7 +96,9 @@ describe("Label", () => {
       const l2 = await client.labels.create({ name: "Label Two", color: "#E774D0" });
       await client.labels.label(label.ontologyID(l1.key), [l2.key]);
       await client.labels.label(label.ontologyID(l1.key), [l1.key], { replace: true });
-      const labels = await client.labels.retrieve({ for: label.ontologyID(l1.key) });
+      const labels = await client.labels.retrieve({
+        where: { for: label.ontologyID(l1.key) },
+      });
       expect(labels).toHaveLength(1);
       expect(labels[0].key).toEqual(l1.key);
     });
@@ -120,7 +144,7 @@ describe("cached reads", () => {
     }
   });
 
-  it("tracks remote label attachment and removal on a subscribed for: query", async () => {
+  it("tracks remote label attachment and removal on a subscribed for query", async () => {
     const item = await client.labels.create({
       name: `qry-item-${id.create()}`,
       color: "#E774D0",
@@ -129,7 +153,7 @@ describe("cached reads", () => {
       name: `qry-attached-${id.create()}`,
       color: "#E774D0",
     });
-    const params = { for: label.ontologyID(item.key) };
+    const params = { where: { for: label.ontologyID(item.key) } };
     const off = client.labels.onChange(params, vi.fn());
     try {
       await client.labels.retrieve(params);

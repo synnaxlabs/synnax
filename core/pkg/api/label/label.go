@@ -11,7 +11,9 @@ package label
 
 import (
 	"context"
+	"slices"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -107,69 +109,62 @@ func (s *Service) Create(
 	return CreateResponse(req), nil
 }
 
-type RetrieveRequest struct {
-	For                 ontology.ID `json:"for"                    msgpack:"for"`
-	SearchTerm          string      `json:"search_term"            msgpack:"search_term"`
-	Keys                []label.Key `json:"keys"                   msgpack:"keys"`
-	Names               []string    `json:"names"                  msgpack:"names"`
-	Limit               int         `json:"limit"                  msgpack:"limit"`
-	Offset              int         `json:"offset"                 msgpack:"offset"`
-	IgnoreNotFoundError bool        `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
-}
-
-type RetrieveResponse struct {
-	// Labels are the labels that were retrieved.
-	Labels []Label `json:"labels" msgpack:"labels"`
-}
+type (
+	RetrieveRequest  = label.RetrieveRequest
+	RetrieveResponse = label.RetrieveResponse
+)
 
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	if !req.For.IsZero() {
-		labels, err := s.internal.RetrieveFor(ctx, req.For, nil)
+	q := s.internal.NewRetrieve().Entries(&res.Labels)
+	objects := []ontology.ID{}
+	if req.Where != nil {
+		f, err := label.MatchWhere(*req.Where)
 		if err != nil {
-			return RetrieveResponse{}, err
+			return RetrieveResponse{}, validate.PathedError(err, "where")
 		}
-		res.Labels = labels
-	} else {
-		q := s.internal.NewRetrieve()
-		if req.SearchTerm != "" {
-			q = q.Search(req.SearchTerm)
-		}
-		if req.Limit > 0 {
-			q = q.Limit(req.Limit)
-		}
-		if req.Offset > 0 {
-			q = q.Offset(req.Offset)
-		}
-		if len(req.Keys) != 0 {
-			q = q.Where(label.MatchKeys(req.Keys...))
-		}
-		if len(req.Names) != 0 {
-			q = q.Where(label.MatchNames(req.Names...))
-		}
-		err := q.Entries(&res.Labels).Exec(ctx, nil)
-		if req.IgnoreNotFoundError && err != nil {
-			err = errors.Skip(err, query.ErrNotFound)
-		}
-		if err != nil {
-			return RetrieveResponse{}, err
-		}
+		q = q.Where(f)
+		objects = forIDs(*req.Where, objects)
 	}
-	objects := label.OntologyIDsFromLabels(res.Labels)
-	if !req.For.IsZero() {
-		objects = append(objects, req.For)
+	if term := lo.FromPtr(req.SearchTerm); term != "" {
+		q = q.Search(term)
+	}
+	if req.Limit != nil {
+		q = q.Limit(int(*req.Limit))
+	}
+	if req.Offset != nil {
+		q = q.Offset(int(*req.Offset))
+	}
+	// A filter is a predicate, so a key that does not exist is a non-match.
+	if err := errors.Skip(q.Exec(ctx, nil), query.ErrNotFound); err != nil {
+		return RetrieveResponse{}, err
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: objects,
+		Objects: append(objects, label.OntologyIDsFromLabels(res.Labels)...),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
 	return res, nil
+}
+
+// forIDs appends the resources that the for lines of w name, since the labels of a
+// resource tell about the resource.
+func forIDs(w label.Where, ids []ontology.ID) []ontology.ID {
+	if w.For != nil {
+		ids = append(ids, *w.For)
+	}
+	for _, c := range slices.Concat(w.And, w.Or) {
+		ids = forIDs(c, ids)
+	}
+	if w.Not != nil {
+		ids = forIDs(*w.Not, ids)
+	}
+	return ids
 }
 
 type DeleteRequest struct {

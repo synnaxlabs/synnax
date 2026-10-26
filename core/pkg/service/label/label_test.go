@@ -137,6 +137,35 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(labels[0].Key).To(Equal(l.Key))
 		})
 	})
+	Describe("MatchFor", func() {
+		It("Should match the labels staged on a resource in the transaction", func(
+			ctx SpecContext,
+		) {
+			ls := []label.Label{
+				{Name: "for-a", Color: color.MustFromHex("#000000")},
+				{Name: "for-b", Color: color.MustFromHex("#000000")},
+				{Name: "for-target", Color: color.MustFromHex("#000000")},
+			}
+			Expect(w.CreateMany(ctx, &ls)).To(Succeed())
+			target := ls[2].OntologyID()
+			Expect(w.Label(ctx, target, []label.Key{ls[0].Key})).To(Succeed())
+			var got []label.Label
+			Expect(svc.NewRetrieve().
+				Where(label.MatchFor(target)).
+				Entries(&got).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(got).To(ConsistOf(ls[0]))
+			got = nil
+			Expect(svc.NewRetrieve().
+				Where(label.And(
+					label.MatchKeys(ls[0].Key, ls[1].Key),
+					label.Not(label.MatchFor(target)),
+				)).
+				Entries(&got).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(got).To(ConsistOf(ls[1]))
+		})
+	})
 	Describe("MatchNames", func() {
 		It("Should retrieve a label by its name", func(ctx SpecContext) {
 			l := &label.Label{
