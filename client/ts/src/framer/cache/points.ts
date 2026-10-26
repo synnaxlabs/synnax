@@ -293,6 +293,7 @@ export class Points {
     this.stopInvalidations();
     this.pins.forEach((b) => b.pins--);
     this.pins.clear();
+    this.props.store.evict();
     this.held.clear();
     this.raw = [];
     this.demand?.close();
@@ -700,6 +701,7 @@ export class Points {
       if (!this.pins.has(b)) b.pins++;
     });
     this.pins = next;
+    this.props.store.evict();
   }
 
   // Returns the end of the newest raw sample's span.

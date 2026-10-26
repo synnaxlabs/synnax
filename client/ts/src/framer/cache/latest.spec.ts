@@ -106,11 +106,14 @@ describe("Latest", () => {
       const latest = open(100, undefined, core.index.key);
       try {
         await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        // The Core streams in a domain apart from the read's, so the first streamed
+        // series stays apart and the next one starts the buffer.
         core.advance(TimeSpan.milliseconds(100));
-        await expect.poll(() => latest.value().series.series.length, POLL).toBe(2);
+        core.advance(TimeSpan.milliseconds(100));
+        await expect.poll(() => latest.value().series.series.length, POLL).toBe(3);
         const before = latest.value();
         core.advance(TimeSpan.milliseconds(100));
-        await expect.poll(() => latest.value().series.length, POLL).toBe(120);
+        await expect.poll(() => latest.value().series.length, POLL).toBe(130);
         const after = latest.value();
         expect(after.series).toBe(before.series);
         expect(after.time?.valueOf()).toBe(

@@ -11,6 +11,7 @@ import {
   type breaker,
   dynamicWindow,
   Rate,
+  Size,
   sleep,
   staticWindow,
   TimeRange,
@@ -398,6 +399,42 @@ describe("Points", () => {
     try {
       await expect.poll(() => points.value().status.variant, POLL).toBe("success");
       expect(points.value().series.length).toBeGreaterThan(0);
+    } finally {
+      await close();
+    }
+  });
+
+  it("should evict the tiles it unpins past the budget", async () => {
+    const core = createCore();
+    const { store, subscribe, unsubscribe, close } = createPoints(core, undefined, {
+      budget: Size.bytes(1),
+    });
+    const key = core.data[0].key;
+    const span = TimeSpan.minutes(4);
+    const level = tileLevel(new TimeRange(START, START.add(span)));
+    const index = tileIndex(START, level) + 1;
+    const { start } = tileRange({ level, index });
+    const home = new TimeRange(start, start.add(span));
+    const pointLimit = tilePointLimit({
+      level,
+      view: home,
+      points: TILED.count,
+      drawn: TILED.aggregation,
+      aggregation: TILED.aggregation,
+    });
+    const tile = tileKey({
+      key,
+      level,
+      index,
+      pointLimit,
+      aggregation: TILED.aggregation,
+    });
+    try {
+      const points = subscribe(key, staticWindow(home), TILED);
+      await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+      expect(store.get(tile)?.pins).toBe(1);
+      unsubscribe(points);
+      expect(store.get(tile)).toBeUndefined();
     } finally {
       await close();
     }
