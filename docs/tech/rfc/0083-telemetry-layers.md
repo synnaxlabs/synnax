@@ -305,7 +305,9 @@ signal channel. No phase changes a stored format.
     publishes its changes on a signal channel that client caches follow. A third kind of
     stream message would make history the streamer's job. The trade is real: changes
     reach only clients connected to the node that stores the channel, and anyone who
-    reads the signal channel sees which channels changed.
+    reads the signal channel sees which channels changed. The relay drops a signal for a
+    stream that falls 20 ms behind, and the blocks it names stay out of date until they
+    leave the cache.
 11. **A pulled handle, not a pushed result**: Pluto reads each source on every frame, so
     a pushed result needs a copy in each source to answer that read. A dynamic window
     moves with the clock, so a push needs a timer in the `Feed` and sends results that
