@@ -21,9 +21,9 @@ cd "$(dirname "$0")/.."
 out=$(mktemp -d)
 trap 'rm -rf "$out"' EXIT
 pnpm exec tsc -p tsconfig.build.json --outDir "$out" --removeComments \
-  --declarationMap false >&2
+    --declarationMap false >&2
 cd "$out"
 find . -name '*.d.ts' | LC_ALL=C sort | while read -r file; do
-  echo "# ${file#./}"
-  grep -Ev '^import |^export \{\};$|^ +private ' "$file" || true
+    echo "# ${file#./}"
+    grep -Ev '^import |^export \{\};$|^ +private ' "$file" || true
 done
