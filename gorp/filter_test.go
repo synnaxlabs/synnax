@@ -157,6 +157,64 @@ var _ = Describe("Filter Combinators", func() {
 		})
 	})
 
+	Describe("MatchKeysFunc", func() {
+		It("Should keep the entries whose keys the function returns", func(ctx SpecContext) {
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				Where(gorp.MatchKeysFunc[int32, entry](
+					func(context.Context, gorp.Tx) ([]int32, error) {
+						return []int32{2, 5, 42}, nil
+					},
+				)).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(Equal([]entry{entries[2], entries[5]}))
+		})
+
+		It("Should call the function with the open transaction", func(ctx SpecContext) {
+			var got gorp.Tx
+			f := gorp.MatchKeysFunc[int32, entry](
+				func(_ context.Context, tx gorp.Tx) ([]int32, error) {
+					got = tx
+					return nil, nil
+				},
+			)
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Entries(&res).Where(f).Exec(ctx, tx)).To(Succeed())
+			Expect(got).To(BeIdenticalTo(tx))
+			Expect(res).To(BeEmpty())
+		})
+
+		It("Should compose under Not", func(ctx SpecContext) {
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				Where(gorp.And(
+					idLT(4),
+					gorp.Not(gorp.MatchKeysFunc[int32, entry](
+						func(context.Context, gorp.Tx) ([]int32, error) {
+							return []int32{1, 2}, nil
+						},
+					)),
+				)).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(Equal([]entry{entries[0], entries[3]}))
+		})
+
+		It("Should propagate errors from the function", func(ctx SpecContext) {
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				Where(gorp.MatchKeysFunc[int32, entry](
+					func(context.Context, gorp.Tx) ([]int32, error) {
+						return nil, errFilter
+					},
+				)).
+				Exec(ctx, tx)).To(MatchError(errFilter))
+		})
+	})
+
 	Describe("And", func() {
 		It("Should match entries satisfying all filters", func(ctx SpecContext) {
 			var res []entry

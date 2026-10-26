@@ -22,7 +22,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -91,46 +93,35 @@ func (s *Service) CreatePolicy(
 	return CreatePolicyResponse(req), nil
 }
 
-type RetrievePolicyRequest struct {
-	Internal *bool         `json:"internal" msgpack:"internal"`
-	Subjects []ontology.ID `json:"subjects" msgpack:"subjects"`
-	Keys     []policy.Key  `json:"keys"     msgpack:"keys"`
-	Limit    int           `json:"limit"    msgpack:"limit"`
-	Offset   int           `json:"offset"   msgpack:"offset"`
-}
-
-type RetrievePolicyResponse struct {
-	Policies []policy.Policy `json:"policies" msgpack:"policies"`
-}
+type (
+	RetrievePolicyRequest  = policy.RetrieveRequest
+	RetrievePolicyResponse = policy.RetrieveResponse
+)
 
 func (s *Service) RetrievePolicy(
 	ctx context.Context,
 	req RetrievePolicyRequest,
 ) (RetrievePolicyResponse, error) {
-	q := s.internal.Policy.NewRetrieve()
-	if len(req.Subjects) > 0 {
-		subjectKeys, err := s.internal.Policy.ResolveSubjects(ctx, nil, req.Subjects...)
-		if err != nil {
-			return RetrievePolicyResponse{}, err
-		}
-		if len(req.Keys) > 0 {
-			subjectKeys = lo.Intersect(subjectKeys, req.Keys)
-		}
-		q = q.Where(policy.MatchKeys(subjectKeys...))
-	} else if len(req.Keys) > 0 {
-		q = q.Where(policy.MatchKeys(req.Keys...))
-	}
-	if req.Limit > 0 {
-		q = q.Limit(req.Limit)
-	}
-	if req.Offset > 0 {
-		q = q.Offset(req.Offset)
-	}
-	if req.Internal != nil {
-		q = q.Where(policy.MatchInternal(*req.Internal))
-	}
 	var res RetrievePolicyResponse
-	if err := q.Entries(&res.Policies).Exec(ctx, nil); err != nil {
+	q := s.internal.Policy.NewRetrieve().Entries(&res.Policies)
+	if req.Where != nil {
+		f, err := policy.MatchWhere(*req.Where)
+		if err != nil {
+			return RetrievePolicyResponse{}, validate.PathedError(err, "where")
+		}
+		q = q.Where(f)
+	}
+	if term := lo.FromPtr(req.SearchTerm); term != "" {
+		q = q.Search(term)
+	}
+	if req.Limit != nil {
+		q = q.Limit(int(*req.Limit))
+	}
+	if req.Offset != nil {
+		q = q.Offset(int(*req.Offset))
+	}
+	// A filter is a predicate, so a key that does not exist is a non-match.
+	if err := errors.Skip(q.Exec(ctx, nil), query.ErrNotFound); err != nil {
 		return RetrievePolicyResponse{}, err
 	}
 	if err := s.internal.NewEnforcer(nil).Enforce(ctx, access.Request{
@@ -192,40 +183,34 @@ func (s *Service) CreateRole(
 }
 
 type (
-	RetrieveRoleRequest struct {
-		Internal   *bool      `json:"internal"    msgpack:"internal"`
-		Keys       []role.Key `json:"keys"        msgpack:"keys"`
-		SearchTerm string     `json:"search_term" msgpack:"search_term"`
-		Limit      int        `json:"limit"       msgpack:"limit"`
-		Offset     int        `json:"offset"      msgpack:"offset"`
-	}
-	RetrieveRoleResponse struct {
-		Roles []role.Role `json:"roles" msgpack:"roles"`
-	}
+	RetrieveRoleRequest  = role.RetrieveRequest
+	RetrieveRoleResponse = role.RetrieveResponse
 )
 
 func (s *Service) RetrieveRole(
 	ctx context.Context,
 	req RetrieveRoleRequest,
 ) (RetrieveRoleResponse, error) {
-	q := s.internal.Role.NewRetrieve()
-	if req.SearchTerm != "" {
-		q = q.Search(req.SearchTerm)
-	}
-	if len(req.Keys) > 0 {
-		q = q.Where(role.MatchKeys(req.Keys...))
-	}
-	if req.Limit > 0 {
-		q = q.Limit(req.Limit)
-	}
-	if req.Offset > 0 {
-		q = q.Offset(req.Offset)
-	}
-	if req.Internal != nil {
-		q = q.Where(role.MatchInternal(*req.Internal))
-	}
 	var res RetrieveRoleResponse
-	if err := q.Entries(&res.Roles).Exec(ctx, nil); err != nil {
+	q := s.internal.Role.NewRetrieve().Entries(&res.Roles)
+	if req.Where != nil {
+		f, err := role.MatchWhere(*req.Where)
+		if err != nil {
+			return RetrieveRoleResponse{}, validate.PathedError(err, "where")
+		}
+		q = q.Where(f)
+	}
+	if term := lo.FromPtr(req.SearchTerm); term != "" {
+		q = q.Search(term)
+	}
+	if req.Limit != nil {
+		q = q.Limit(int(*req.Limit))
+	}
+	if req.Offset != nil {
+		q = q.Offset(int(*req.Offset))
+	}
+	// A filter is a predicate, so a key that does not exist is a non-match.
+	if err := errors.Skip(q.Exec(ctx, nil), query.ErrNotFound); err != nil {
 		return RetrieveRoleResponse{}, err
 	}
 	if err := s.internal.NewEnforcer(nil).Enforce(ctx, access.Request{

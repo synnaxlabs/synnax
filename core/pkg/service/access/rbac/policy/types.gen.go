@@ -11,7 +11,13 @@
 
 package policy
 
-import "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/validate"
+	"strconv"
+)
 
 // Key is a unique identifier for a policy, represented as a UUID.
 type Key = versions.Key
@@ -20,3 +26,76 @@ type Key = versions.Key
 // resources. Policies are attached to roles, and roles are assigned to users via
 // ontology relationships.
 type Policy = versions.Policy
+
+// Where is a filter that selects policies.
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Internal selects by internal.
+	Internal *filter.Bool `json:"internal,omitzero" msgpack:"internal,omitempty"`
+	// Subjects matches the policies of the roles that any of the given subjects hold.
+	Subjects []ontology.ID `json:"subjects,omitzero" msgpack:"subjects,omitempty"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (w Where) Validate() error {
+	v := validate.New("Where")
+	for i := range w.And {
+		v.Exec(func() error { return validate.PathedError(w.And[i].Validate(), "and", strconv.Itoa(i)) })
+	}
+	for i := range w.Or {
+		v.Exec(func() error { return validate.PathedError(w.Or[i].Validate(), "or", strconv.Itoa(i)) })
+	}
+	if w.Not != nil {
+		v.Exec(func() error { return validate.PathedError(w.Not.Validate(), "not") })
+	}
+	for i := range w.Subjects {
+		v.Exec(func() error { return validate.PathedError(w.Subjects[i].Validate(), "subjects", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
+
+// RetrieveRequest is a request to retrieve policies.
+type RetrieveRequest struct {
+	// Where selects the policies to retrieve. An absent where selects all of them.
+	Where *Where `json:"where,omitzero" msgpack:"where,omitempty"`
+	// SearchTerm keeps the policies that match the term, closest match first.
+	SearchTerm *string `json:"search_term,omitzero" msgpack:"search_term,omitempty"`
+	// Limit is the most policies to return.
+	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
+	// Offset is the number of matching policies to skip.
+	Offset *uint32 `json:"offset,omitzero" msgpack:"offset,omitempty"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RetrieveRequest) Validate() error {
+	v := validate.New("RetrieveRequest")
+	if r.Where != nil {
+		v.Exec(func() error { return validate.PathedError(r.Where.Validate(), "where") })
+	}
+	return v.Error()
+}
+
+// RetrieveResponse holds the policies a RetrieveRequest selects.
+type RetrieveResponse struct {
+	// Policies are the policies the request selects.
+	Policies []Policy `json:"policies" msgpack:"policies"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RetrieveResponse) Validate() error {
+	v := validate.New("RetrieveResponse")
+	for i := range r.Policies {
+		v.Exec(func() error { return validate.PathedError(r.Policies[i].Validate(), "policies", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}

@@ -104,6 +104,23 @@ func MatchKeys[K Key, E Entry[K]](keys ...K) Filter[K, E] {
 	return Filter[K, E]{keys: keyset.Of(keys)}
 }
 
+// MatchKeysFunc returns a Filter that restricts results to the keys that f returns.
+// Each Exec calls f with the open transaction, so f can read state the transaction
+// staged.
+func MatchKeysFunc[K Key, E Entry[K]](
+	f func(ctx context.Context, tx Tx) ([]K, error),
+) Filter[K, E] {
+	return Filter[K, E]{
+		resolve: func(ctx context.Context, tx Tx) (resolved[K, E], error) {
+			keys, err := f(ctx, tx)
+			if err != nil {
+				return resolved[K, E]{}, err
+			}
+			return resolved[K, E]{keys: keyset.Of(keys)}, nil
+		},
+	}
+}
+
 // And returns a filter that matches when ALL children match. Each
 // child's keys, raw, and eval constraints are composed independently:
 // keys are intersected, raw runs as a short-circuit AND pre-screen,

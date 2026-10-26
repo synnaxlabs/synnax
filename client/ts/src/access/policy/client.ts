@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, primitive } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -18,38 +18,31 @@ import {
   ontologyID,
   type Policy,
   policyZ,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  retrieveResponseZ,
 } from "@/access/policy/types.gen";
+import { type Lines, matches, serverComputed } from "@/access/policy/where.gen";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 
 export const SET_CHANNEL_NAME = "sy_policy_set";
 export const DELETE_CHANNEL_NAME = "sy_policy_delete";
 
-const retrieveRequestZ = z.object({
-  keys: keyZ.array().optional(),
-  subjects: ontology.idZ.array().optional(),
-  limit: z.number().optional(),
-  offset: z.number().optional(),
-  internal: z.boolean().optional(),
+const keysRequest = (keys: Key[]): RetrieveRequest => ({
+  where: { key: { in: keys } },
 });
 
-const listRetrieveParamsZ = z.union([
-  z
-    .object({ for: ontology.idZ })
-    .transform(({ for: forId }) => ({ subjects: [forId] })),
-  z
-    .object({ for: ontology.idZ.array() })
-    .transform(({ for: forIds }) => ({ subjects: forIds })),
+const retrieveMultiParamsZ = z.union([
+  keyZ.array().transform(keysRequest),
   retrieveRequestZ,
 ]);
-const retrieveMultiParamsZ = listRetrieveParamsZ.or(query.keyListZ(keyZ));
 
 export type RetrieveSingleParams = { key: Key };
-export type RetrieveMultipleParams = z.input<typeof listRetrieveParamsZ>;
+export type RetrieveMultipleParams = RetrieveRequest;
 
-interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
-
-const retrieveResZ = z.object({ policies: policyZ.array().default(() => []) });
+// Policies do not carry their subjects, so only the Core can check them.
+const LINES: Lines = { subjects: null };
 
 const singleCreateParamsZ = policyZ.transform((p) => ({ policies: [p] }));
 export type SingleCreateParams = z.input<typeof singleCreateParamsZ>;
@@ -65,25 +58,6 @@ const createResZ = z.object({ policies: policyZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
 
-/**
- * Query fields only the server can evaluate: policy records do not carry
- * their subjects, so subject membership cannot be checked locally.
- */
-const SERVER_FIELDS = ["subjects", "limit", "offset"] as const;
-
-/**
- * Client-side matching for a request: key sets and the internal flag. Server-computed
- * shapes (subjects, pagination) never reach this filter; they refetch instead.
- */
-const requestFilter = (req: RetrieveRequest): ((p: Policy) => boolean) => {
-  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  return (p) => {
-    if (keySet != null && !keySet.has(p.key)) return false;
-    if (req.internal != null && p.internal !== req.internal) return false;
-    return true;
-  };
-};
-
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
@@ -98,7 +72,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Po
     const { cache } = cfg;
     const store = cache.createTable<Key, Policy>({
       name: "policies",
-      fetch: async (keys) => await this.execRetrieve({ keys }),
+      fetch: async (keys) => await this.execRetrieve(keysRequest(keys)),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, policyZ),
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
@@ -110,8 +84,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Po
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (policy, req) => requestFilter(req)(policy),
-        serverFields: SERVER_FIELDS,
+        matches: (policy, req) => matches(LINES, policy, req.where ?? {}),
+        serverComputed: (req) => req.where != null && serverComputed(LINES, req.where),
       },
     });
     this.cfg = cfg;
@@ -177,7 +151,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Po
    * the subject and its policies so role reads resolve from the cache.
    */
   async retrieveForSubject(subject: ontology.ID): Promise<Policy[]> {
-    const policies = await this.retrieve({ for: subject });
+    const policies = await this.retrieve({ where: { subjects: [subject] } });
     const { parents } = this.cfg.ontology;
     const warms = [parents.retrieve({ ids: subject, types: ["role"] })];
     if (policies.length > 0)
@@ -196,7 +170,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Po
       "/access/policy/retrieve",
       params,
       retrieveRequestZ,
-      retrieveResZ,
+      retrieveResponseZ,
     );
     return res.policies;
   }
