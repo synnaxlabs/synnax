@@ -332,7 +332,14 @@ describe("range", () => {
         });
         await rng.setAlias(ch.key, "myalias");
         await rng.deleteAlias(ch.key);
-        expect(await rng.resolveAlias("myalias")).toBeUndefined();
+        const resolve = rng.resolveAlias("myalias");
+        await expect(resolve).rejects.toThrow(NotFoundError);
+        await expect(resolve).rejects.toThrow('alias not found matching "myalias"');
+        const retrieve = client.ranges.retrieveAlias(rng.key, ch.key);
+        await expect(retrieve).rejects.toThrow(NotFoundError);
+        await expect(retrieve).rejects.toThrow(
+          `alias not found matching channel ${ch.key}`,
+        );
       });
     });
     describe("list", () => {

@@ -202,7 +202,8 @@ export interface SpaceConfig<
    * Marks a space whose answer addresses one record and cannot compose an
    * empty membership: rule-2 eviction of the last member flips the query to
    * deleted (when the entry tombstoned) or invalidates it, instead of
-   * composing []. Leave unset for spaces where [] is a valid answer.
+   * composing []. Admitting a second member invalidates it too, so the server decides
+   * between the matches. Leave unset for spaces where [] is a valid answer.
    */
   single?: boolean;
 }
@@ -899,6 +900,7 @@ export class Space<
         table.status(lastEvicted) === "tombstoned"
           ? { variant: "deleted", key: lastEvicted }
           : { variant: "unfetched" };
+    else if (single === true && next.length > 1) query.state = { variant: "unfetched" };
     else query.state = { variant: "ready", keys: next };
     return true;
   }

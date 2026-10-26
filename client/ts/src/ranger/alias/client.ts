@@ -12,6 +12,7 @@ import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { channel } from "@/channel";
+import { NotFoundError } from "@/errors";
 import { type Key, keyZ } from "@/ranger/types.gen";
 
 const resolveReqZ = z.object({ range: keyZ, aliases: z.string().array() });
@@ -71,7 +72,10 @@ export class Client {
       resolveResZ,
     );
     Object.entries(res.aliases).forEach(([alias, key]) => this.cache.set(alias, key));
-    return isSingle ? res.aliases[toFetch[0]] : { ...cached, ...res.aliases };
+    if (!isSingle) return { ...cached, ...res.aliases };
+    if (!(aliases in res.aliases))
+      throw new NotFoundError(`alias not found matching ${JSON.stringify(aliases)}`);
+    return res.aliases[aliases];
   }
 
   async set(aliases: Record<channel.Key, string>): Promise<void> {
@@ -107,7 +111,10 @@ export class Client {
       retrieveReqZ,
       retrieveResZ,
     );
-    return isSingle ? res.aliases[alias] : res.aliases;
+    if (!isSingle) return res.aliases;
+    if (!(alias in res.aliases))
+      throw new NotFoundError(`alias not found matching channel ${alias}`);
+    return res.aliases[alias];
   }
 
   async delete(aliases: channel.Key | channel.Key[]): Promise<void> {

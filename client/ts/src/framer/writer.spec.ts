@@ -10,7 +10,7 @@
 import { DataType, id, Series, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
-import { UnauthorizedError, ValidationError } from "@/errors";
+import { NotFoundError, UnauthorizedError, ValidationError } from "@/errors";
 import { ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT, WriterMode } from "@/framer/writer";
 import {
   createTestClient,
@@ -66,9 +66,14 @@ describe("Writer", () => {
     test("write to unknown channel key", async () => {
       const channels = await newIndexedPair(client);
       const writer = await client.openWriter({ start: TimeStamp.now(), channels });
-      await expect(
-        writer.write("nonexistent_channel", randomSeries(10, DataType.FLOAT64)),
-      ).rejects.toThrow('Channel "nonexistent_channel" not found');
+      const write = writer.write(
+        "nonexistent_channel",
+        randomSeries(10, DataType.FLOAT64),
+      );
+      await expect(write).rejects.toThrow(NotFoundError);
+      await expect(write).rejects.toThrow(
+        'channel not found matching "nonexistent_channel"',
+      );
       await writer.close();
     });
 

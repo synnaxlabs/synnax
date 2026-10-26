@@ -14,6 +14,7 @@ import { analyzeParams, paramsZ } from "@/channel/payload";
 import { QueryError, ValidationError } from "@/errors";
 import { Codec } from "@/framer/codec";
 import { type CrudeFrame, Frame } from "@/framer/frame";
+import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 /** Fetches channel payloads. Missing channels are omitted, not thrown. */
 export type ChannelRetriever = (channels: channel.Params) => Promise<channel.Payload[]>;
@@ -163,7 +164,7 @@ export class WriteAdapter {
     else cached = this.byKey.get(ch.key);
     if (cached != null) return cached;
     const res = await this.retrieveChannels(ch);
-    if (res.length === 0) throw new Error(`Channel ${JSON.stringify(ch)} not found`);
+    checkForMultipleOrNoResults("channel", ch, res, true);
     return res[0];
   }
 
