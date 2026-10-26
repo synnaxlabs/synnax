@@ -41,6 +41,10 @@ var _ = Describe("CalculateImport", func() {
 			Expect(got).To(Equal("@synnaxlabs/x"))
 		},
 	)
+	It("Should produce the Pluto package name for a Pluto target", func() {
+		got := paths.CalculateImport("client/ts/src/schematic", "pluto/src/vis/diagram")
+		Expect(got).To(Equal("@synnaxlabs/pluto"))
+	})
 	It("Should fall back to a relative import when the source is unknown", func() {
 		got := paths.CalculateImport("vendor/foo", "vendor/bar")
 		Expect(got).To(Equal("../bar"))

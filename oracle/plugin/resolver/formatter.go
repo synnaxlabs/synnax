@@ -35,7 +35,6 @@ type FormatterConfig struct {
 	SkipGenerics bool
 }
 
-// configurableFormatter implements TypeFormatter using a FormatterConfig.
 type configurableFormatter struct {
 	config FormatterConfig
 }

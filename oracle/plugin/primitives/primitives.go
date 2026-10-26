@@ -22,7 +22,6 @@ const (
 	categoryBinary
 )
 
-// primitive represents an Oracle primitive type with its semantic properties.
 type primitive struct {
 	Name     string   // Oracle type name (e.g., "uuid", "timestamp")
 	Category category // Semantic category

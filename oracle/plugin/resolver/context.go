@@ -80,8 +80,6 @@ func (c *Context) pinnedPath(resolved resolution.Type) (string, bool) {
 	return c.PinnedPath(resolved)
 }
 
-// getNameOverride returns the language-specific name override for a type, if any.
-// For example, @go name "CustomName" would return "CustomName".
 func (c *Context) getNameOverride(t resolution.Type) string {
 	if domain, ok := t.Domains[c.DomainName]; ok {
 		for _, expr := range domain.Expressions {

@@ -94,8 +94,6 @@ func (r *Registry) All() []Plugin {
 	return lo.MapToSlice(r.plugins, func(_ string, p Plugin) Plugin { return p })
 }
 
-// duplicatePluginError is returned when attempting to register a plugin with a name
-// that is already registered.
 type duplicatePluginError struct {
 	// Name is the duplicate plugin name.
 	Name string

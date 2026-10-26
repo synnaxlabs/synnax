@@ -19,7 +19,6 @@ import (
 	"strings"
 )
 
-// packageMapping describes one workspace package known to the generator.
 type packageMapping struct {
 	// PathPrefix is the source-tree prefix for files in this package
 	// (e.g. "client/ts/src").

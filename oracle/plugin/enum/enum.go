@@ -106,7 +106,6 @@ func FindOutputPath(
 	return ""
 }
 
-// makePathFunc creates a PathFunc for a given domain name.
 func makePathFunc(domainName string) PathFunc {
 	return func(typ resolution.Type, table *resolution.Table) string {
 		return FindOutputPath(typ, table, domainName)
