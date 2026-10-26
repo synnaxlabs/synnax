@@ -37,6 +37,7 @@ class TestLicenseClient:
             ("sy.license.missing", sy.MissingLicense),
             ("sy.license.expired", sy.ExpiredLicense),
             ("sy.license.invalid", sy.InvalidLicense),
+            ("sy.license.edition", sy.LicenseEditionMismatch),
             ("sy.license.fingerprint", sy.LicenseFingerprintMismatch),
             ("sy.license.too_many", sy.LicenseLimitExceeded),
             ("sy.license.unknown", sy.LicenseError),

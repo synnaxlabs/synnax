@@ -35,6 +35,7 @@ from synnax.framer.codec import (
 from synnax.framer.frame import CrudeFrame, FramePayload, K
 from synnax.telem import CrudeSeries, CrudeTimeStamp, TimeSpan, TimeStamp
 from x.control import Authority, CrudeAuthority, Subject
+from x.exceptions import Error
 from x.lists import normalize
 
 
@@ -128,7 +129,7 @@ def parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
 ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = TimeSpan(-1)
 
 
-class WriterClosed(Exception): ...
+class WriterClosed(Error): ...
 
 
 class Writer:

@@ -1,0 +1,84 @@
+#  Copyright 2026 Synnax Labs, Inc.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
+
+import json
+
+import pytest
+
+import freighter
+import synnax as sy
+
+
+class TestError:
+    """Tests for the base of every error that the client raises."""
+
+    @pytest.mark.parametrize(
+        "type_",
+        [
+            "sy.auth",
+            "sy.auth.invalid-credentials",
+            "sy.auth.invalid_token",
+            "sy.auth.expired_token",
+            "sy.auth.session_ended",
+            "sy.auth.access_denied",
+            "sy.control",
+            "sy.control.unauthorized",
+            "sy.license",
+            "sy.license.missing",
+            "sy.license.expired",
+            "sy.license.invalid",
+            "sy.license.edition",
+            "sy.license.fingerprint",
+            "sy.license.too_many",
+            "sy.query",
+            "sy.query.not_found",
+            "sy.query.multiple_results",
+            "sy.route",
+            "sy.unexpected",
+            "sy.validation",
+            "sy.unknown",
+            "freighter.unreachable",
+            "freighter.stream_closed",
+            "freighter.eof",
+            "arc",
+            "unknown",
+        ],
+    )
+    def test_decode(self, type_: str) -> None:
+        """Should decode each error type that the Core sends into an Error."""
+        err = freighter.decode_exception(
+            freighter.ExceptionPayload(type=type_, data="refused")
+        )
+        assert isinstance(err, sy.Error)
+
+    def test_decode_path(self) -> None:
+        """Should decode a path error and its cause into Errors."""
+        cause = {"type": "sy.validation", "data": "required"}
+        err = freighter.decode_exception(
+            freighter.ExceptionPayload(
+                type="sy.validation.path",
+                data=json.dumps({"path": ["name"], "error": cause}),
+            )
+        )
+        assert isinstance(err, sy.PathError)
+        assert isinstance(err.error, sy.Error)
+
+    @pytest.mark.parametrize(
+        "exc",
+        [
+            sy.ConfigurationError,
+            sy.ContiguityError,
+            freighter.EOF,
+            freighter.StreamClosed,
+            freighter.Unreachable,
+        ],
+    )
+    def test_local(self, exc: type[Exception]) -> None:
+        """Should make each error that the client raises without the Core an Error."""
+        assert issubclass(exc, sy.Error)

@@ -17,6 +17,12 @@ from pydantic import BaseModel
 _TYPE_NONE = "nil"
 
 
+class Error(Exception):
+    """The base of every exception that Synnax defines. Catch it to handle any error
+    from Synnax.
+    """
+
+
 class ExceptionPayload(BaseModel):
     """A payload that can be sent between a Freighter client and server, so that
     it can be decoded into a proper exception by the implementing language.
@@ -86,7 +92,7 @@ class _Registry:
             decoded = provider.decode(pld)
             if decoded is not None:
                 return decoded
-        return Exception(pld.data)
+        return Error(pld.data)
 
 
 _REGISTRY = _Registry()
@@ -107,7 +113,7 @@ def decode_exception(encoded: ExceptionPayload | None) -> Exception | None:
     return None if encoded is None else _REGISTRY.decode(encoded)
 
 
-class ContiguityError(Exception):
+class ContiguityError(Error):
     """Raised when time-series data is not contiguous."""
 
     TYPE = "sy.contiguity"

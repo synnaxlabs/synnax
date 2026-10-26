@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import freighter
-from x.exceptions import ExceptionPayload, decode_exception
+from x.exceptions import Error, ExceptionPayload, decode_exception
 
 
 class TestDecode:
@@ -18,8 +18,8 @@ class TestDecode:
         assert isinstance(decode_exception(pld), freighter.EOF)
 
     def test_unknown_type(self) -> None:
-        """Should decode an unknown freighter type into a generic exception."""
+        """Should decode an unknown freighter type into a generic Synnax error."""
         pld = ExceptionPayload(type="freighter.unknown", data="unknown error")
         exc = decode_exception(pld)
-        assert type(exc) is Exception
+        assert type(exc) is Error
         assert str(exc) == "unknown error"
