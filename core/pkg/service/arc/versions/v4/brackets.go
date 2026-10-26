@@ -11,7 +11,6 @@ package v4
 
 import (
 	"strings"
-	"unicode"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/parser"
@@ -20,10 +19,10 @@ import (
 
 // SwapBrackets rewrites src from the grammar that wrote function inputs in braces and
 // triggers in parens. A declaration becomes `func name(inputs) {triggers}`, with an
-// empty `()` added when the old text had no input block, and a flow call `name{...}`
-// becomes `name(...)` with no gap before the paren. Comments, strings and layout are
-// kept. A bracket with no match leaves its construct unchanged. Text already in the
-// current grammar is not valid input.
+// empty `()` added when the old text had no input block. A flow call `name{...}`
+// becomes `name(...)`. Comments, strings and layout are kept. A bracket with no match
+// leaves its construct unchanged. Text already in the current grammar is not valid
+// input.
 func SwapBrackets(src string) string {
 	s := newStream(src)
 	e := editor{
@@ -39,7 +38,7 @@ func SwapBrackets(src string) string {
 		case parser.ArcLexerLBRACE:
 			if end := s.match[i]; end != -1 && isCallBrace(s.tokens, i) {
 				e.swapPair(s.tokens, i, end, '(', ')')
-				e.dropGap(s.tokens[i-1], s.tokens[i])
+				e.moveGap(s.tokens[i-1], s.tokens[i], s.tokens[end])
 			}
 		}
 	}
@@ -161,13 +160,17 @@ func (e *editor) swapPair(tokens []antlr.Token, open, closing int, l, r rune) {
 	e.replace[tokens[closing].GetStart()] = r
 }
 
-// dropGap drops the whitespace between a call's name and its bracket: a flow call's
-// paren must touch the name.
-func (e *editor) dropGap(name, bracket antlr.Token) {
-	for i := name.GetStop() + 1; i < bracket.GetStart(); i++ {
-		if unicode.IsSpace(e.src[i]) {
-			e.drop.Add(i)
-		}
+// moveGap moves what sits between a call's name and its bracket to just after the
+// closing bracket, since a flow call's paren must touch the name. Whitespace alone is
+// dropped; a comment keeps its text and its line ending.
+func (e *editor) moveGap(name, open, closing antlr.Token) {
+	start, end := name.GetStop()+1, open.GetStart()
+	gap := string(e.src[start:end])
+	for i := start; i < end; i++ {
+		e.drop.Add(i)
+	}
+	if strings.TrimSpace(gap) != "" {
+		e.insert[closing.GetStop()+1] += gap
 	}
 }
 
