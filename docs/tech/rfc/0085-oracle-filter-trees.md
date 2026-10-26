@@ -134,19 +134,27 @@ RetrieveResponse {
 ```
 
 An absent field with a default has the default value, so a caller sets only what it
-needs. The TypeScript request type leaves those fields optional.
+needs. The Core fills the defaults. The TypeScript and Python request types leave them
+unset, so the cache sees only the fields that a caller set.
 
 The response holds the target. A generic target holds `T<any>`, since one table holds
 records of every type argument. `@response type T` on the definition replaces the target
 with T, and the `include_*` fields then come from the fields of T. Channels return the
 wire-only `APIChannel`. The request and the response go wherever the definition goes, so
-an `omit` on the definition omits them too.
+an `omit` on the definition omits them too. In Go, `@go request_output` on the
+definition puts them in the API package (`core/pkg/api/ranger`).
 
 The gRPC services return the generated `RetrieveResponse`. Their requests keep a
 transport message that holds the generated request, since the generated field numbers
-would reuse the reserved numbers of the old flat fields.
+would reuse the reserved numbers of the old flat fields. Protobuf wraps each list in a
+message, so an empty `in` arrives as an empty list and matches no record, as it does
+over JSON.
 
 ### 2.3 The Core
+
+The service owns what a filter means: the `Where` type, its interpreter, its validation,
+and the typed-line matchers. The API owns the request, the response, and the access
+checks. Clients only build trees.
 
 A new Go plugin generates the interpreter. `MatchWhere` walks a `Where` and returns the
 service's bound filter, built from `And`, `Or`, `Not`, and the matchers.
@@ -159,18 +167,23 @@ helper.
 
 The generated request decodes strictly. An unknown key anywhere in the request is an
 error, so a stale client that sends `keys` fails instead of matching every record. Go
-rejects unknown JSON members at any depth, and TypeScript uses `z.strictObject`. The
-gRPC translators call `pb.RejectUnknown` (`x/go/pb/unknown.go`), which walks nested
-messages. A bad filter, such as an invalid regex, returns a `validate.PathError`
+rejects unknown JSON members at any depth. Every filter, operator, and request is a
+`z.strictObject` in TypeScript and has `extra="forbid"` in Python. A saved view decodes
+leniently in the Core, since stored data is not validated on read. The gRPC translators
+call `pb.RejectUnknown` (`x/go/pb/unknown.go`), which walks nested messages. A bad
+filter, such as an invalid regex, returns a `validate.PathError`
 (`x/go/validate/errors.go:33`) with the path to the bad value (`where.or.1.name.regex`).
 The TypeScript client receives it as a `PathError`.
 
-A filter never returns `ErrNotFound`. The generated `key` line uses Gorp's
-`MatchKeysLenient`, which drops a key with no record. A typed line that names another
-resource, such as `subjects` on policies or `for` on labels, matches nothing when that
-resource does not exist. Lookups that the Core does for itself stay strict. The
-`ignore_not_found_error` field goes away. Client methods that return one record still
-raise not-found.
+A filter never returns `ErrNotFound`. `Apply` sets Gorp's `SkipMissingKeys` option on
+the retrieve, so a key with no record is a non-match anywhere in the tree. A typed line
+that names another resource, such as `subjects` on policies or `for` on labels, matches
+nothing when that resource does not exist. Lookups that the Core does for itself stay
+strict. The `ignore_not_found_error` field goes away.
+
+The channel filter has a `name_patterns` line. A valid channel name matches exactly, and
+any other pattern is a regular expression, anchored when unanchored. Clients send names
+as the caller gives them.
 
 ### 2.4 The TypeScript cache
 
@@ -181,8 +194,9 @@ table. An entry is a function or an explicit `null` for a line only the Core can
 a missing entry is a type error. A filter with a `null` line or a regex is
 server-computed and refetches (RFC 0047 §5.1). An absent `where` matches every record.
 
-One case table, `x/testdata/filter/vectors.json`, runs against the Go interpreter and
-the TypeScript `matches`, as `x/testdata/crdt/vectors.json` does for CRDTs.
+One case table, `core/testdata/filter/vectors.json`, runs against the Go interpreter and
+the TypeScript `matches`, as `x/testdata/crdt/vectors.json` does for CRDTs. It lives in
+the Core, since it holds Synnax entities.
 
 The list pager sends `searchTerm: ""` and `offset: 0` on the first page
 (`lyra/src/list/pager.ts:51-71`). The cache counts any non-null server field as set
@@ -202,9 +216,20 @@ target's chain, where the target itself stays an alias line (`Range = v1.Range`)
 stored ranges do not migrate. The pin check then makes the view follow. Version files
 accept `filter` definitions; they still reject actions.
 
+The view writer checks a stored `where` with the target's `MatchWhere`, and rejects a
+view of an unknown variant.
+
 View v1 (#3306) is in no stable release. The change edits v1 in place if it lands before
 the next stable release, and mints v2 otherwise. `has_labels` maps to the `labels` line
 with the same meaning.
+
+### 2.6 Single-record retrieves
+
+A client method that returns one record raises not-found when no record matches, and
+multiple-found when more than one matches. This is true in every client and language, as
+in Django `get`, SQLAlchemy `one`, and Entity Framework `Single`. In Python,
+`ignore_not_found=True` returns `None` when no record matches, and still raises when
+more than one matches.
 
 ## 3 Implementation phases
 
@@ -228,7 +253,8 @@ and its flat fields go away together, since a client must match the Core's versi
   - The `@key` mark on type declarations.
   - Version files that accept `filter` definitions, and `oracle migrate` support.
   - The Go interpreter plugin with `Apply`, strict decoding, and path errors, Gorp's
-    `MatchKeysLenient`, and the TypeScript `matches` plugin.
+    `SkipMissingKeys` option, and the TypeScript `matches` plugin.
+  - `@go request_output`, and protobuf list messages that keep an empty list present.
 - **Phase 3: Ranges and statuses.** The two entities with saved views move to `where` in
   every language:
   - Schemas, handlers, and behavior specs for AND, OR, NOT, and each operator.
@@ -243,10 +269,17 @@ and its flat fields go away together, since a client must match the Core's versi
     away. Old protobuf field numbers are reserved.
 - **Phase 4: Channels, devices, racks, and tasks.** The same move, plus the shared
   status-join helper that all four use. A channel retrieve takes an optional range next
-  to the request. The Core fills each channel's alias in that range, puts the channels
-  whose alias matches the search term first, and pages the merged list.
+  to the request (`AliasedRetrieveRequest` in Go). The Core fills each channel's alias
+  in that range. The range alias service puts the channels whose alias matches the
+  search term first, and pages the merged list. Clients send channel names as
+  `name_patterns`.
 - **Phase 5: Every other entity with an API retrieve.** The same move. Control, license,
-  ontology, and range alias retrieves keep their requests.
+  ontology, and range alias retrieves keep their requests. The access API splits into
+  policy and role packages, since each generates its own `RetrieveRequest`.
+- **Phase 6: Single-record retrieves.** Every client follows §2.6, with specs. Python
+  gets one shared helper. The TypeScript cache sends a single answer back to the Core
+  when a second record matches it. The Driver checks for tasks of a type with a list
+  retrieve, since more than one is not an error there.
 
 ## 4 What this RFC does not cover
 
@@ -283,6 +316,13 @@ and its flat fields go away together, since a client must match the Core's versi
 8. **A handler that skips `ErrNotFound`, rejected**: The skip also hides a not-found
    from a lookup inside a matcher, which is a real fault. The `key` line drops missing
    keys instead.
+9. **Requests in the service package, rejected**: Only the API uses them, and the API
+   owns envelopes (`core/CLAUDE.md`).
+10. **A lenient key matcher, rejected**: A flag on one matcher spreads through `and` and
+    `or`, so a strict sibling drops its missing keys too. One retrieve option states the
+    rule once.
+11. **Name patterns in the clients, rejected**: Each client would hold its own copy of
+    the rule, and the C++ client had none.
 
 ## 6 Open questions
 
