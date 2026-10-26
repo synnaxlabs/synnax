@@ -10,6 +10,7 @@
 import { readFileSync } from "node:fs";
 
 import { caseconv } from "@synnaxlabs/x";
+import { expect, it } from "vitest";
 import type z from "zod";
 
 // The case table is shared with the Go interpreter, so that the Core and the client
@@ -56,3 +57,28 @@ export const readVectors = <R, W>(
     cases: cases.map((c) => ({ ...c, where: whereZ.parse(c.where) })),
   };
 };
+
+/**
+ * Adds a spec for each case: the client matches the case, or a case the vectors mark as
+ * server-computed is one the client leaves to the Core.
+ */
+export const itMatchesVectors = <R, W, L>(
+  { records, cases }: Vectors<R, W>,
+  lines: L,
+  matches: (lines: L, record: R, where: W) => boolean,
+  serverComputed: (lines: L, where: W) => boolean,
+): void =>
+  cases.forEach(({ name, where, expected, serverComputed: computed }) => {
+    if (computed === true)
+      it(`should mark the case as server-computed: ${name}`, () => {
+        expect(serverComputed(lines, where)).toBe(true);
+      });
+    else
+      it(`should match the case: ${name}`, () => {
+        expect(serverComputed(lines, where)).toBe(false);
+        const matched = records
+          .filter(([, r]) => matches(lines, r, where))
+          .map(([alias]) => alias);
+        expect(matched.sort()).toEqual([...expected].sort());
+      });
+  });
