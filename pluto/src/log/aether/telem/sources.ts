@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, type framer, status as cstatus } from "@synnaxlabs/client";
+import {
+  channel,
+  type framer,
+  status as cstatus,
+  UnexpectedError,
+} from "@synnaxlabs/client";
 import {
   compare,
   DataType,
@@ -41,11 +46,11 @@ const streamMultiChannelLogPropsZ = z.object({
 
 export type StreamMultiChannelLogProps = z.input<typeof streamMultiChannelLogPropsZ>;
 
-// The snapshot, series, and sample a channel's entries were last read up to.
+// The snapshot and the count of appended samples a channel's entries were last read
+// up to.
 interface Cursor {
   snapshot: framer.Snapshot;
-  series: Series;
-  index: number;
+  appended: number;
 }
 
 export class StreamMultiChannelLog
@@ -162,21 +167,21 @@ export class StreamMultiChannelLog
     return pushed > 0 || this._evictedCount > 0;
   }
 
-  // Appends the samples after the key's cursor. Series only leave the front of a loaded
-  // snapshot, so when the cursor's series is gone, every series is new.
+  // Appends the samples the channel appended since the key's cursor, which are the
+  // newest samples of the snapshot.
   private append(key: channel.Key, snapshot: framer.Snapshot, now: TimeStamp): number {
     const cursor = this.cursors.get(key);
     if (cursor?.snapshot === snapshot) return 0;
-    const { series } = snapshot.series;
-    let [from, index, pushed] = [0, 0, 0];
-    const at = cursor == null ? -1 : series.lastIndexOf(cursor.series);
-    if (cursor != null && at !== -1) [from, index] = [at, cursor.index];
-    for (let i = from; i < series.length; i++, index = 0)
-      for (let j = index; j < series[i].length; j++)
-        pushed += this.push(key, series[i], j, now);
-    const last = series.at(-1);
-    if (last != null)
-      this.cursors.set(key, { snapshot, series: last, index: last.length });
+    const { series, appended } = snapshot;
+    if (appended == null)
+      throw new UnexpectedError(`snapshot of channel ${key} has no appended count`);
+    let skip = Math.max(0, series.length - appended + (cursor?.appended ?? 0));
+    let pushed = 0;
+    for (const s of series.series) {
+      for (let j = skip; j < s.length; j++) pushed += this.push(key, s, j, now);
+      skip = Math.max(0, skip - s.length);
+    }
+    this.cursors.set(key, { snapshot, appended });
     return pushed;
   }
 

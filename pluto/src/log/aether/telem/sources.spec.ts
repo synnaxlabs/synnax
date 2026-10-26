@@ -223,6 +223,28 @@ describe("StreamMultiChannelLog", () => {
     expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, HISTORY + 20));
   });
 
+  it("should show each sample once across a history change", async () => {
+    const core = createCore();
+    const [a] = core.data.map((c) => c.key);
+    let reads = 0;
+    const client = connect(core, {
+      readLatest: async (keys, count, tr) => {
+        reads++;
+        return core.readLatest(keys, count, tr);
+      },
+    });
+    const log = open(core, client, { channels: [a] });
+    await settle(log, HISTORY);
+    await expect.poll(() => core.streams(core.historyChange.key), POLL).toBe(true);
+    const shown = textOf(core, a, HISTORY);
+    core.rewrite(a, new TimeRange(START, core.now()), 10);
+    await expect.poll(() => reads, POLL).toBe(2);
+    await expect.poll(() => log.value().status.variant, POLL).toBe("success");
+    core.advance(TimeSpan.seconds(1));
+    await settle(log, HISTORY + 10);
+    expect(valuesOf(entriesOf(log), a)).toEqual([...shown, ...textOf(core, a, 10)]);
+  });
+
   it("should show every sample of a frame larger than its page", async () => {
     const core = createCore();
     const [a] = core.data.map((c) => c.key);
