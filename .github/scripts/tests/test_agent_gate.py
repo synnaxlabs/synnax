@@ -109,51 +109,57 @@ def gh(tmp_path: Path) -> Harness:
 
 
 class TestAgentGate:
-    def test_runs_the_first_attempt_on_an_agent_pull_request(self, gh: Harness) -> None:
+    """Decides whether an agent may act on a pull request."""
+
+    def test_should_run_the_first_attempt_on_an_agent_pull_request(
+        self, gh: Harness
+    ) -> None:
         assert gh.run() == "run 1"
 
-    def test_runs_on_a_person_pull_request_with_the_autofix_label(
+    def test_should_run_on_a_person_pull_request_with_the_autofix_label(
         self, gh: Harness
     ) -> None:
         gh.pull(author="someone", labels=("agent/autofix",))
         assert gh.run() == "run 1"
 
-    def test_skips_a_person_pull_request(self, gh: Harness) -> None:
+    def test_should_skip_a_person_pull_request(self, gh: Harness) -> None:
         gh.pull(author="someone")
         assert gh.run().startswith("skip")
 
-    def test_skips_a_fork(self, gh: Harness) -> None:
+    def test_should_skip_a_fork(self, gh: Harness) -> None:
         gh.pull(repo="someone/synnax")
         assert gh.run().startswith("skip")
 
-    def test_skips_a_closed_pull_request(self, gh: Harness) -> None:
+    def test_should_skip_a_closed_pull_request(self, gh: Harness) -> None:
         gh.pull(state="closed")
         assert gh.run().startswith("skip")
 
-    def test_skips_a_pull_request_that_waits_for_a_person(self, gh: Harness) -> None:
+    def test_should_skip_a_pull_request_that_waits_for_a_person(
+        self, gh: Harness
+    ) -> None:
         gh.pull(labels=("agent/needs-human",))
         assert gh.run().startswith("skip")
 
-    def test_skips_when_the_head_moved(self, gh: Harness) -> None:
+    def test_should_skip_when_the_head_moved(self, gh: Harness) -> None:
         assert gh.run(sha="old").startswith("skip")
         assert gh.run(sha="head") == "run 1"
 
-    def test_counts_earlier_attempts(self, gh: Harness) -> None:
+    def test_should_count_earlier_attempts(self, gh: Harness) -> None:
         gh.comments(attempt("2026-01-01T00:00:00Z"))
         assert gh.run() == "run 2"
 
-    def test_stops_at_the_cap(self, gh: Harness) -> None:
+    def test_should_stop_at_the_cap(self, gh: Harness) -> None:
         gh.comments(attempt("2026-01-01T00:00:00Z"), attempt("2026-01-02T00:00:00Z"))
         assert gh.run() == "stop"
 
-    def test_ignores_markers_other_users_post(self, gh: Harness) -> None:
+    def test_should_ignore_markers_other_users_post(self, gh: Harness) -> None:
         gh.comments(
             attempt("2026-01-01T00:00:00Z", user="someone"),
             attempt("2026-01-02T00:00:00Z", user="someone"),
         )
         assert gh.run() == "run 1"
 
-    def test_restarts_the_count_when_a_person_removes_the_label(
+    def test_should_restart_the_count_when_a_person_removes_the_label(
         self, gh: Harness
     ) -> None:
         gh.comments(attempt("2026-01-01T00:00:00Z"), attempt("2026-01-02T00:00:00Z"))

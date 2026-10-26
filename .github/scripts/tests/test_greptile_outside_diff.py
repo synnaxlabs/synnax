@@ -75,32 +75,36 @@ def gh(tmp_path: Path) -> Harness:
 
 
 class TestGreptileOutsideDiff:
-    def test_prints_nothing_without_the_comment(self, gh: Harness) -> None:
+    """Prints Greptile findings outside the diff that need action."""
+
+    def test_should_print_nothing_without_the_comment(self, gh: Harness) -> None:
         assert gh.run() == ""
 
-    def test_prints_open_findings(self, gh: Harness) -> None:
+    def test_should_print_open_findings(self, gh: Harness) -> None:
         gh.comments(comment(GREPTILE, FINDINGS, "2026-01-01T00:00:00Z"))
         assert gh.run() == FINDINGS.strip()
 
-    def test_prints_nothing_once_greptile_clears_them(self, gh: Harness) -> None:
+    def test_should_print_nothing_once_greptile_clears_them(self, gh: Harness) -> None:
         gh.comments(comment(GREPTILE, CLEARED, "2026-01-01T00:00:00Z"))
         assert gh.run() == ""
 
-    def test_prints_nothing_after_an_agent_answers(self, gh: Harness) -> None:
+    def test_should_print_nothing_after_an_agent_answers(self, gh: Harness) -> None:
         gh.comments(
             comment(GREPTILE, FINDINGS, "2026-01-01T00:00:00Z"),
             comment("synnax-codex[bot]", ANSWER, "2026-01-02T00:00:00Z"),
         )
         assert gh.run() == ""
 
-    def test_prints_findings_greptile_edits_after_an_answer(self, gh: Harness) -> None:
+    def test_should_print_findings_greptile_edits_after_an_answer(
+        self, gh: Harness
+    ) -> None:
         gh.comments(
             comment(GREPTILE, FINDINGS, "2026-01-01T00:00:00Z", "2026-01-03T00:00:00Z"),
             comment("synnax-codex[bot]", ANSWER, "2026-01-02T00:00:00Z"),
         )
         assert gh.run() == FINDINGS.strip()
 
-    def test_ignores_comments_that_do_not_answer(self, gh: Harness) -> None:
+    def test_should_ignore_comments_that_do_not_answer(self, gh: Harness) -> None:
         gh.comments(
             comment(GREPTILE, FINDINGS, "2026-01-01T00:00:00Z"),
             comment("synnax-codex[bot]", "Fixed CI", "2026-01-02T00:00:00Z"),
