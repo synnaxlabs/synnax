@@ -16,6 +16,7 @@ import {
   NotFoundError,
   project,
   schematic,
+  status,
   type Synnax,
   UnexpectedError,
 } from "@synnaxlabs/client";
@@ -250,9 +251,12 @@ const deploy = async (client: Synnax, key: arc.Key): Promise<void> => {
   if (racks.length === 0) throw new NotFoundError("No rack can run Arc programs");
   const task = await client.arcs.updateTask(key, { rack: racks[0].key });
   if (task == null) throw new UnexpectedError(`Arc ${key} has no task`);
-  // A start leaves a running Arc alone, so the stop resets its stage and state.
+  // A start leaves a running Arc alone, so the stop resets its stage and state. The
+  // Driver does not answer a stop for a new task, but it runs commands in order, so the
+  // start's status also means the stop ran.
   await task.stop();
-  await task.start();
+  const state = await task.executeCommandSync({ type: "start" });
+  if (state.variant === "error") throw status.toError(state);
 };
 
 const exists = async (client: Synnax): Promise<boolean> => {
