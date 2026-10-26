@@ -19,10 +19,43 @@ NODE_MAJOR=24
 RUNNER_VERSION=2.338.2
 CLAUDE_VERSION=2.1.310
 CODEX_VERSION=0.164.0
+BAZELISK_VERSION=1.30.0
+UV_VERSION=0.13.0
+PNPM_VERSION=12.14.0
 REPO=synnaxlabs/synnax
 HOME_DIR=/home/runner
 IDLE_MINUTES=${idle_minutes}
 export DEBIAN_FRONTEND=noninteractive
+
+# Stops the instance once no job has run for the idle period. It goes first, so a
+# failed bootstrap still stops. The first hour of bootstrap counts as busy.
+cat > /usr/local/bin/agent-idle-stop << EOF
+#!/bin/bash
+stamp=/run/agent-last-busy
+booting() {
+    cloud-init status | grep -q running && [ "\$(cut -d. -f1 /proc/uptime)" -lt 3600 ]
+}
+if pgrep -f Runner.Worker > /dev/null || booting || [ ! -e \$stamp ]; then
+    touch \$stamp
+elif [ \$((\$(date +%s) - \$(stat -c %Y \$stamp))) -ge $((IDLE_MINUTES * 60)) ]; then
+    shutdown -h now
+fi
+EOF
+chmod +x /usr/local/bin/agent-idle-stop
+cat > /etc/systemd/system/agent-idle-stop.service << EOF
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/agent-idle-stop
+EOF
+cat > /etc/systemd/system/agent-idle-stop.timer << EOF
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+[Install]
+WantedBy=timers.target
+EOF
+systemctl daemon-reload
+systemctl enable --now agent-idle-stop.timer
 
 apt-get update
 apt-get install -y build-essential git curl unzip jq docker.io python3 \
@@ -35,11 +68,13 @@ curl -fsSL "https://deb.nodesource.com/setup_$NODE_MAJOR.x" | bash -
 apt-get install -y gh nodejs
 
 curl -fsSL "https://go.dev/dl/go$GO_VERSION.linux-amd64.tar.gz" | tar -C /usr/local -xz
+BAZELISK_URL=https://github.com/bazelbuild/bazelisk/releases/download
 curl -fsSL -o /usr/local/bin/bazel \
-    https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64
+    "$BAZELISK_URL/v$BAZELISK_VERSION/bazelisk-linux-amd64"
 chmod +x /usr/local/bin/bazel
-curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
-npm install -g pnpm "@anthropic-ai/claude-code@$CLAUDE_VERSION" \
+curl -LsSf "https://astral.sh/uv/$UV_VERSION/install.sh" \
+    | env UV_INSTALL_DIR=/usr/local/bin sh
+npm install -g "pnpm@$PNPM_VERSION" "@anthropic-ai/claude-code@$CLAUDE_VERSION" \
     "@openai/codex@$CODEX_VERSION"
 
 # The agent builds, installs packages, and runs Docker, so the user is an admin of
@@ -72,10 +107,11 @@ sudo -u runner ./config.sh --unattended --replace --url https://github.com/$REPO
 ./svc.sh install runner
 ./svc.sh start
 EOF
+chmod +x /usr/local/bin/register-agent-runner
 
 # Warms the Go build cache and the pnpm store before the first job. A failed warm only
 # makes the first job slower, so it must not stop the idle timer from being installed.
-if ! sudo -H -u runner bash -euxc "
+if ! timeout 30m sudo -H -u runner bash -euxc "
     cd $HOME_DIR
     git clone --depth 1 https://github.com/$REPO warm
     cd warm/core && /usr/local/go/bin/go build ./...
@@ -84,29 +120,3 @@ if ! sudo -H -u runner bash -euxc "
     echo "Warming the caches failed" >&2
 fi
 rm -rf "$HOME_DIR/warm"
-
-# Stops the instance once no job has run for the idle period.
-cat > /usr/local/bin/agent-idle-stop << EOF
-#!/bin/bash
-stamp=/run/agent-last-busy
-if pgrep -f Runner.Worker > /dev/null || [ ! -e \$stamp ]; then
-    touch \$stamp
-elif [ \$((\$(date +%s) - \$(stat -c %Y \$stamp))) -ge $((IDLE_MINUTES * 60)) ]; then
-    shutdown -h now
-fi
-EOF
-chmod +x /usr/local/bin/register-agent-runner /usr/local/bin/agent-idle-stop
-cat > /etc/systemd/system/agent-idle-stop.service << EOF
-[Service]
-Type=oneshot
-ExecStart=/usr/local/bin/agent-idle-stop
-EOF
-cat > /etc/systemd/system/agent-idle-stop.timer << EOF
-[Timer]
-OnBootSec=1min
-OnUnitActiveSec=1min
-[Install]
-WantedBy=timers.target
-EOF
-systemctl daemon-reload
-systemctl enable --now agent-idle-stop.timer

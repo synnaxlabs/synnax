@@ -38,7 +38,10 @@ provider "aws" {
 }
 
 data "aws_ssm_parameter" "ubuntu" {
-  name = "/aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id"
+  name = join("/", [
+    "/aws/service/canonical/ubuntu/server/24.04/stable/current",
+    "amd64/hvm/ebs-gp3/ami-id",
+  ])
 }
 
 data "aws_vpc" "default" {
@@ -62,6 +65,9 @@ data "aws_subnets" "default" {
 
 locals {
   subnets = data.aws_subnets.default.ids
+  runner_subnets = [
+    for i in range(var.instances) : local.subnets[i % length(local.subnets)]
+  ]
 }
 
 resource "aws_security_group" "runner" {
@@ -102,7 +108,7 @@ resource "aws_instance" "runner" {
   count                                = var.instances
   ami                                  = data.aws_ssm_parameter.ubuntu.value
   instance_type                        = var.instance_type
-  subnet_id                            = local.subnets[count.index % length(local.subnets)]
+  subnet_id                            = local.runner_subnets[count.index]
   vpc_security_group_ids               = [aws_security_group.runner.id]
   iam_instance_profile                 = aws_iam_instance_profile.runner.name
   associate_public_ip_address          = true
