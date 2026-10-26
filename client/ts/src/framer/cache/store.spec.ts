@@ -103,7 +103,7 @@ describe("Store", () => {
       expect(store.get("b")).toBeUndefined();
     });
 
-    it("should evict a block past the budget once the fetch it holds for settles", async () => {
+    it("should evict a block past the budget once its fetch settles", async () => {
       const store = new Store({ budget: Size.bytes(1) });
       const block = store.raw(1, 100);
       let settle!: () => void;
