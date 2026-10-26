@@ -20,6 +20,7 @@ entry point names it. The check skips generated files and `__init__.py` definiti
 
 import argparse
 import ast
+import itertools
 import sys
 import tomllib
 import warnings
@@ -166,7 +167,8 @@ def imports(mod: Module, known: set[str]) -> Iterator[tuple[str, str]]:
                     mod.aliases.setdefault(local, set()).add(f"{source}.{a.name}")
                 else:
                     yield source, a.name
-    for node in walk(mod.tree):
+    quoted = (n for a in annotations(mod.tree) for n in walk(a))
+    for node in itertools.chain(ast.walk(mod.tree), quoted):
         if not isinstance(node, ast.Attribute):
             continue
         chain = []
@@ -200,6 +202,15 @@ def signature(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.expr | Non
     params = [*args.posonlyargs, *args.args, *args.kwonlyargs]
     params += [a for a in (args.vararg, args.kwarg) if a is not None]
     return [a.annotation for a in params] + [fn.returns]
+
+
+def annotations(tree: ast.Module) -> Iterator[ast.expr]:
+    """Yields every annotation in tree, nested scopes included."""
+    for n in ast.walk(tree):
+        if isinstance(n, ast.FunctionDef | ast.AsyncFunctionDef):
+            yield from (e for e in signature(n) if e is not None)
+        elif isinstance(n, ast.AnnAssign):
+            yield n.annotation
 
 
 def annotation_names(node: ast.stmt) -> set[str]:

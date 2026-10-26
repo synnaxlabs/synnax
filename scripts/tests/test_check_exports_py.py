@@ -188,6 +188,20 @@ class TestCheck:
         )
         assert names(tmp_path) == []
 
+    def test_should_report_a_name_only_a_plain_string_mentions(
+        self, tmp_path: Path
+    ) -> None:
+        write(
+            tmp_path,
+            {
+                "lib/widget/__init__.py": "",
+                "lib/widget/parts.py": "class Valve: ...\n",
+                "app/tool/__init__.py": "from tool.run import LABEL\n",
+                "app/tool/run.py": "import widget.parts as p\n\nLABEL = 'p.Valve'\n",
+            },
+        )
+        assert names(tmp_path) == ["Valve"]
+
     def test_should_keep_an_entry_point(self, tmp_path: Path) -> None:
         write(
             tmp_path,
