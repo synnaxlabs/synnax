@@ -12,6 +12,7 @@ package resolution
 import (
 	"maps"
 	"slices"
+	"strings"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/set"
@@ -32,6 +33,49 @@ type Type struct {
 	// Filter is the filter definition the type was declared as, or nil. Form holds
 	// the struct the definition expands into.
 	Filter *Filter
+}
+
+// RetrieveKey returns the key type that a `@retrieve key` expression declares on typ,
+// whose key is computed instead of stored in a field.
+func RetrieveKey(typ Type) (TypeRef, bool) {
+	dom, ok := typ.Domains["retrieve"]
+	if !ok {
+		return TypeRef{}, false
+	}
+	expr, ok := dom.Expressions.Find("key")
+	if !ok || len(expr.Values) == 0 {
+		return TypeRef{}, false
+	}
+	name := expr.Values[0].StringValue
+	if !strings.Contains(name, ".") {
+		name = typ.Namespace + "." + name
+	}
+	return TypeRef{Name: name}, true
+}
+
+// FilterNamespace is the namespace of the operator types that a filter's bare lines
+// expand to.
+const FilterNamespace = "filter"
+
+// The qualified names of the operator types that a filter's bare lines expand to.
+const (
+	OperatorSet      = FilterNamespace + ".Set"
+	OperatorOrdered  = FilterNamespace + ".Ordered"
+	OperatorContains = FilterNamespace + ".Contains"
+	OperatorString   = FilterNamespace + ".String"
+	OperatorBool     = FilterNamespace + ".Bool"
+)
+
+// InFilterRequest reports whether typ is part of a filter request: a filter, the
+// request derived from one, or an operator type of the filter schema. Clients decode
+// these strictly, since a tree matched with an unknown key ignores the key.
+func InFilterRequest(typ Type, table *Table) bool {
+	if typ.Filter != nil || typ.Namespace == FilterNamespace {
+		return true
+	}
+	return slices.ContainsFunc(table.StructTypes(), func(t Type) bool {
+		return t.Filter != nil && t.Filter.Request == typ.QualifiedName
+	})
 }
 
 // Filter is a filter definition: the lines a filter tree over Target can set.

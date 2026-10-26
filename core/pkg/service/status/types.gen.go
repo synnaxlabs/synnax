@@ -36,23 +36,3 @@ type Status[Details any] = versions.Status[Details]
 
 // Where is a filter that selects statuses.
 type Where = versions.Where
-
-// RetrieveRequest is a request to retrieve statuses.
-type RetrieveRequest struct {
-	// Where selects the statuses to retrieve. An absent where selects all of them.
-	Where *Where `json:"where,omitzero" msgpack:"where,omitempty"`
-	// SearchTerm keeps the statuses that match the term, closest match first.
-	SearchTerm string `json:"search_term" msgpack:"search_term"`
-	// Limit is the most statuses to return.
-	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
-	// Offset is the number of matching statuses to skip.
-	Offset uint32 `json:"offset" msgpack:"offset"`
-	// IncludeLabels includes the labels of each record.
-	IncludeLabels bool `json:"include_labels" msgpack:"include_labels"`
-}
-
-// RetrieveResponse holds the statuses a RetrieveRequest selects.
-type RetrieveResponse struct {
-	// Statuses are the statuses the request selects.
-	Statuses []Status[any] `json:"statuses" msgpack:"statuses"`
-}

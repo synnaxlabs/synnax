@@ -70,7 +70,7 @@ type Transport struct {
 	UserRetrieve       freighter.UnaryServer[user.RetrieveRequest, user.RetrieveResponse]
 	// CHANNEL
 	ChannelCreate        freighter.UnaryServer[channel.CreateRequest, channel.CreateResponse]
-	ChannelRetrieve      freighter.UnaryServer[channel.RetrieveRequest, channel.RetrieveResponse]
+	ChannelRetrieve      freighter.UnaryServer[channel.AliasedRetrieveRequest, channel.RetrieveResponse]
 	ChannelDelete        freighter.UnaryServer[channel.DeleteRequest, struct{}]
 	ChannelRename        freighter.UnaryServer[channel.RenameRequest, struct{}]
 	ChannelRetrieveGroup freighter.UnaryServer[channel.RetrieveGroupRequest, channel.RetrieveGroupResponse]

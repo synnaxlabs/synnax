@@ -78,7 +78,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 		ChannelCreate: router.NewUnaryServer[channel.CreateRequest, channel.CreateResponse](
 			"/api/v1/channel/create",
 		),
-		ChannelRetrieve: router.NewUnaryServer[channel.RetrieveRequest, channel.RetrieveResponse](
+		ChannelRetrieve: router.NewUnaryServer[channel.AliasedRetrieveRequest, channel.RetrieveResponse](
 			"/api/v1/channel/retrieve",
 		),
 		ChannelDelete: router.NewUnaryServer[channel.DeleteRequest, struct{}](

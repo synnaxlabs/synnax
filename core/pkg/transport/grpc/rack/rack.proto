@@ -11,6 +11,7 @@ syntax = "proto3";
 
 package grpc.rack;
 
+import "core/pkg/api/rack/pb/rack.proto";
 import "core/pkg/service/rack/pb/rack.proto";
 import "google/protobuf/empty.proto";
 
@@ -21,7 +22,7 @@ service RackCreateService {
 }
 
 service RackRetrieveService {
-  rpc Exec(RetrieveRequest) returns (service.rack.pb.RetrieveResponse);
+  rpc Exec(RetrieveRequest) returns (api.rack.pb.RetrieveResponse);
 }
 
 service RackDeleteService {
@@ -39,7 +40,7 @@ message CreateResponse {
 message RetrieveRequest {
   reserved 1, 2, 3, 4;
   reserved "keys", "names", "integration", "include_status";
-  service.rack.pb.RetrieveRequest request = 5;
+  api.rack.pb.RetrieveRequest request = 5;
 }
 
 

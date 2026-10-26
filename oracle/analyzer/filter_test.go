@@ -628,6 +628,34 @@ var _ = Describe("Filter definitions", func() {
 			Expect(output.Values[0].StringValue).To(Equal("service"))
 		})
 
+		It("Should place the request and response at the request output", func(
+			ctx SpecContext,
+		) {
+			table, diag := analyzer.AnalyzeSource(ctx, `
+				import "schemas/x/filter"
+
+				@go output "service"
+
+				Thing struct {
+					key uuid { @key }
+				}
+				Where filter Thing {
+					key
+
+					@go request_output "api"
+				}
+			`, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			goOutput := func(name string) string {
+				typ := table.MustGet("test." + name)
+				expr := MustBeOk(typ.Domains["go"].Expressions.Find("output"))
+				return expr.Values[0].StringValue
+			}
+			Expect(goOutput("RetrieveRequest")).To(Equal("api"))
+			Expect(goOutput("RetrieveResponse")).To(Equal("api"))
+			Expect(goOutput("Where")).To(Equal("service"))
+		})
+
 		It("Should take the include fields from the @response type", func(
 			ctx SpecContext,
 		) {

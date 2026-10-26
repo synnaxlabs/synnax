@@ -88,23 +88,3 @@ type Command struct {
 	// Args contains optional arguments for the command.
 	Args msgpack.EncodedJSON `json:"args" msgpack:"args"`
 }
-
-// RetrieveRequest is a request to retrieve tasks.
-type RetrieveRequest struct {
-	// Where selects the tasks to retrieve. An absent where selects all of them.
-	Where *Where `json:"where,omitzero" msgpack:"where,omitempty"`
-	// SearchTerm keeps the tasks that match the term, closest match first.
-	SearchTerm string `json:"search_term" msgpack:"search_term"`
-	// Limit is the most tasks to return.
-	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
-	// Offset is the number of matching tasks to skip.
-	Offset uint32 `json:"offset" msgpack:"offset"`
-	// IncludeStatus includes the status of each record.
-	IncludeStatus bool `json:"include_status" msgpack:"include_status"`
-}
-
-// RetrieveResponse holds the tasks a RetrieveRequest selects.
-type RetrieveResponse struct {
-	// Tasks are the tasks the request selects.
-	Tasks []Task `json:"tasks" msgpack:"tasks"`
-}

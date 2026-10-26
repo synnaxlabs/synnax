@@ -32,10 +32,6 @@ type (
 	Key = ranger.Key
 	// Range is a user-defined region of time.
 	Range = ranger.Range
-	// RetrieveRequest is a request to retrieve ranges.
-	RetrieveRequest = ranger.RetrieveRequest
-	// RetrieveResponse holds the ranges a RetrieveRequest selects.
-	RetrieveResponse = ranger.RetrieveResponse
 	// Where is a filter that selects ranges.
 	Where = ranger.Where
 )

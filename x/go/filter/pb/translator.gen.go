@@ -11,7 +11,10 @@
 
 package pb
 
-import "github.com/synnaxlabs/x/filter"
+import (
+	"github.com/synnaxlabs/x/filter"
+	xpb "github.com/synnaxlabs/x/pb"
+)
 
 // StringToPB converts String to String.
 func StringToPB(r filter.String) (*String, error) {
@@ -38,7 +41,7 @@ func StringFromPB(pb *String) (filter.String, error) {
 		r.Eq = pb.Eq
 	}
 	if pb.In != nil {
-		r.In = pb.In.Values
+		r.In = xpb.ListValues(pb.In.Values)
 	}
 	if pb.Regex != nil {
 		r.Regex = pb.Regex

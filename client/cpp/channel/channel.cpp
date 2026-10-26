@@ -106,7 +106,7 @@ std::pair<Channel, x::errors::Error> Client::retrieve(const Key key) const {
 
 std::pair<Channel, x::errors::Error> Client::retrieve(const std::string &name) const {
     auto [channels, err] = this->retrieve(
-        RetrieveRequest{.where = Where{.name = x::filter::String{.eq = name}}}
+        RetrieveRequest{.where = Where{.name_patterns = std::vector{name}}}
     );
     if (err) return {Channel{}, err};
     if (channels.empty())
@@ -129,8 +129,6 @@ Client::retrieve(const std::vector<Key> &keys) const {
 
 std::pair<std::vector<Channel>, x::errors::Error>
 Client::retrieve(const std::vector<std::string> &names) const {
-    return this->retrieve(
-        RetrieveRequest{.where = Where{.name = x::filter::String{.in = names}}}
-    );
+    return this->retrieve(RetrieveRequest{.where = Where{.name_patterns = names}});
 }
 }

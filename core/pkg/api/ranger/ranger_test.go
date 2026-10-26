@@ -10,6 +10,7 @@
 package ranger_test
 
 import (
+	"encoding/json/v2"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -52,6 +53,21 @@ var _ = Describe("Retrieve", func() {
 			BeAssignableToTypeOf(validate.PathError{}),
 			MatchError("where.name.regex: error parsing regexp: missing closing ): "+
 				"`(a`: validation error"),
+		))
+	})
+})
+
+var _ = Describe("RetrieveRequest", func() {
+	It("Should reject a member that the request does not declare", func() {
+		var req apiranger.RetrieveRequest
+		Expect(
+			json.Unmarshal(
+				[]byte(`{"keys":["00000000-0000-4000-8000-00000000000a"]}`),
+				&req,
+			),
+		).To(SatisfyAll(
+			MatchError(json.ErrUnknownName),
+			MatchError(ContainSubstring(`unknown object member name "keys"`)),
 		))
 	})
 })

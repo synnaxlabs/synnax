@@ -19,16 +19,14 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // The case table is shared with the TypeScript matches, so that the Core and the
 // client cache agree on every filter.
-const vectorsPath = "../../../../x/testdata/filter/vectors.json"
+const vectorsPath = "../../../testdata/filter/vectors.json"
 
 type whereCase struct {
 	Name     string     `json:"name"`
@@ -77,11 +75,11 @@ var _ = Describe("Where", Ordered, func() {
 	DescribeTable("Should match the case", func(ctx SpecContext, c whereCase) {
 		f := MustSucceed(rack.MatchWhere(c.Where))
 		var res []rack.Rack
-		// The API skips not-found, since a missing key is a non-match.
-		Expect(errors.Skip(
-			svc.NewRetrieve().Where(f).Entries(&res).Exec(ctx, nil),
-			query.ErrNotFound,
-		)).To(Succeed())
+		Expect(svc.NewRetrieve().
+			SkipMissingKeys().
+			Where(f).
+			Entries(&res).
+			Exec(ctx, nil)).To(Succeed())
 		// The service creates its own embedded rack, which the table does not hold.
 		matched := lo.FilterMap(res, func(r rack.Rack, _ int) (string, bool) {
 			alias, ok := aliases[r.Key]
@@ -103,14 +101,6 @@ var _ = Describe("Where", Ordered, func() {
 			MatchError(
 				"or.1.name.regex: error parsing regexp: missing closing ): `(a`: validation error",
 			),
-		))
-	})
-
-	It("Should reject a request member that it does not declare", func() {
-		var req rack.RetrieveRequest
-		Expect(json.Unmarshal([]byte(`{"keys":[1]}`), &req)).To(SatisfyAll(
-			BeAssignableToTypeOf(&json.SemanticError{}),
-			MatchError(ContainSubstring(`unknown object member name "keys"`)),
 		))
 	})
 })

@@ -19,6 +19,7 @@ import (
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	"github.com/synnaxlabs/x/filter"
 	filterpb "github.com/synnaxlabs/x/filter/pb"
+	xpb "github.com/synnaxlabs/x/pb"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -204,7 +205,7 @@ func StringContainsFromPB(pb *StringContains) (filter.Contains[string], error) {
 		return r, nil
 	}
 	if pb.Any != nil {
-		r.Any = pb.Any.Values
+		r.Any = xpb.ListValues(pb.Any.Values)
 	}
 	return r, nil
 }
@@ -373,126 +374,6 @@ func WheresFromPB(pbs []*Where) ([]rack.Where, error) {
 	for i, pb := range pbs {
 		var err error
 		result[i], err = WhereFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// RetrieveRequestToPB converts RetrieveRequest to RetrieveRequest.
-func RetrieveRequestToPB(r rack.RetrieveRequest) (*RetrieveRequest, error) {
-	pb := &RetrieveRequest{
-		SearchTerm:    r.SearchTerm,
-		Offset:        r.Offset,
-		IncludeStatus: r.IncludeStatus,
-	}
-	if r.Where != nil {
-		var err error
-		pb.Where, err = WhereToPB(*r.Where)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if r.Limit != nil {
-		pb.Limit = r.Limit
-	}
-	return pb, nil
-}
-
-// RetrieveRequestFromPB converts RetrieveRequest to RetrieveRequest.
-func RetrieveRequestFromPB(pb *RetrieveRequest) (rack.RetrieveRequest, error) {
-	var r rack.RetrieveRequest
-	if pb == nil {
-		return r, nil
-	}
-	r.SearchTerm = pb.SearchTerm
-	r.Offset = pb.Offset
-	r.IncludeStatus = pb.IncludeStatus
-	if pb.Where != nil {
-		val, err := WhereFromPB(pb.Where)
-		if err != nil {
-			return rack.RetrieveRequest{}, err
-		}
-		r.Where = &val
-	}
-	if pb.Limit != nil {
-		r.Limit = pb.Limit
-	}
-	return r, nil
-}
-
-// RetrieveRequestsToPB converts a slice of RetrieveRequest to RetrieveRequest.
-func RetrieveRequestsToPB(rs []rack.RetrieveRequest) ([]*RetrieveRequest, error) {
-	result := make([]*RetrieveRequest, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = RetrieveRequestToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// RetrieveRequestsFromPB converts a slice of RetrieveRequest to RetrieveRequest.
-func RetrieveRequestsFromPB(pbs []*RetrieveRequest) ([]rack.RetrieveRequest, error) {
-	result := make([]rack.RetrieveRequest, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = RetrieveRequestFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// RetrieveResponseToPB converts RetrieveResponse to RetrieveResponse.
-func RetrieveResponseToPB(r rack.RetrieveResponse) (*RetrieveResponse, error) {
-	racksVal, err := RacksToPB(r.Racks)
-	if err != nil {
-		return nil, err
-	}
-	pb := &RetrieveResponse{
-		Racks: racksVal,
-	}
-	return pb, nil
-}
-
-// RetrieveResponseFromPB converts RetrieveResponse to RetrieveResponse.
-func RetrieveResponseFromPB(pb *RetrieveResponse) (rack.RetrieveResponse, error) {
-	var r rack.RetrieveResponse
-	if pb == nil {
-		return r, nil
-	}
-	var err error
-	r.Racks, err = RacksFromPB(pb.Racks)
-	if err != nil {
-		return rack.RetrieveResponse{}, err
-	}
-	return r, nil
-}
-
-// RetrieveResponsesToPB converts a slice of RetrieveResponse to RetrieveResponse.
-func RetrieveResponsesToPB(rs []rack.RetrieveResponse) ([]*RetrieveResponse, error) {
-	result := make([]*RetrieveResponse, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = RetrieveResponseToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// RetrieveResponsesFromPB converts a slice of RetrieveResponse to RetrieveResponse.
-func RetrieveResponsesFromPB(pbs []*RetrieveResponse) ([]rack.RetrieveResponse, error) {
-	result := make([]rack.RetrieveResponse, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = RetrieveResponseFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

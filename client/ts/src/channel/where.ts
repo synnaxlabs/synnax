@@ -13,4 +13,5 @@ import { type Lines } from "@/channel/where.gen";
 /** The typed lines of a channel Where. */
 export const LINES: Lines = {
   virtual: (ch, value) => (ch.virtual && !isCalculated(ch)) === value,
+  namePatterns: null,
 };

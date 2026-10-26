@@ -47,7 +47,7 @@ func StringSetFromPB(pb *StringSet) (filter.Set[string], error) {
 		r.Eq = pb.Eq
 	}
 	if pb.In != nil {
-		r.In = pb.In.Values
+		r.In = xpb.ListValues(pb.In.Values)
 	}
 	return r, nil
 }
@@ -271,126 +271,6 @@ func WheresFromPB(pbs []*Where) ([]status.Where, error) {
 	for i, pb := range pbs {
 		var err error
 		result[i], err = WhereFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// RetrieveRequestToPB converts RetrieveRequest to RetrieveRequest.
-func RetrieveRequestToPB(r status.RetrieveRequest) (*RetrieveRequest, error) {
-	pb := &RetrieveRequest{
-		SearchTerm:    r.SearchTerm,
-		Offset:        r.Offset,
-		IncludeLabels: r.IncludeLabels,
-	}
-	if r.Where != nil {
-		var err error
-		pb.Where, err = WhereToPB(*r.Where)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if r.Limit != nil {
-		pb.Limit = r.Limit
-	}
-	return pb, nil
-}
-
-// RetrieveRequestFromPB converts RetrieveRequest to RetrieveRequest.
-func RetrieveRequestFromPB(pb *RetrieveRequest) (status.RetrieveRequest, error) {
-	var r status.RetrieveRequest
-	if pb == nil {
-		return r, nil
-	}
-	r.SearchTerm = pb.SearchTerm
-	r.Offset = pb.Offset
-	r.IncludeLabels = pb.IncludeLabels
-	if pb.Where != nil {
-		val, err := WhereFromPB(pb.Where)
-		if err != nil {
-			return status.RetrieveRequest{}, err
-		}
-		r.Where = &val
-	}
-	if pb.Limit != nil {
-		r.Limit = pb.Limit
-	}
-	return r, nil
-}
-
-// RetrieveRequestsToPB converts a slice of RetrieveRequest to RetrieveRequest.
-func RetrieveRequestsToPB(rs []status.RetrieveRequest) ([]*RetrieveRequest, error) {
-	result := make([]*RetrieveRequest, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = RetrieveRequestToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// RetrieveRequestsFromPB converts a slice of RetrieveRequest to RetrieveRequest.
-func RetrieveRequestsFromPB(pbs []*RetrieveRequest) ([]status.RetrieveRequest, error) {
-	result := make([]status.RetrieveRequest, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = RetrieveRequestFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// RetrieveResponseToPB converts RetrieveResponse to RetrieveResponse.
-func RetrieveResponseToPB(r status.RetrieveResponse) (*RetrieveResponse, error) {
-	statusesVal, err := StatusesToPB[any](r.Statuses, xpb.AnyToPBAny)
-	if err != nil {
-		return nil, err
-	}
-	pb := &RetrieveResponse{
-		Statuses: statusesVal,
-	}
-	return pb, nil
-}
-
-// RetrieveResponseFromPB converts RetrieveResponse to RetrieveResponse.
-func RetrieveResponseFromPB(pb *RetrieveResponse) (status.RetrieveResponse, error) {
-	var r status.RetrieveResponse
-	if pb == nil {
-		return r, nil
-	}
-	var err error
-	r.Statuses, err = StatusesFromPB[any](pb.Statuses, xpb.AnyFromPBAny)
-	if err != nil {
-		return status.RetrieveResponse{}, err
-	}
-	return r, nil
-}
-
-// RetrieveResponsesToPB converts a slice of RetrieveResponse to RetrieveResponse.
-func RetrieveResponsesToPB(rs []status.RetrieveResponse) ([]*RetrieveResponse, error) {
-	result := make([]*RetrieveResponse, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = RetrieveResponseToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// RetrieveResponsesFromPB converts a slice of RetrieveResponse to RetrieveResponse.
-func RetrieveResponsesFromPB(pbs []*RetrieveResponse) ([]status.RetrieveResponse, error) {
-	result := make([]status.RetrieveResponse, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = RetrieveResponseFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

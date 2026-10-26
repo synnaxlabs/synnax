@@ -10,6 +10,7 @@
 package status_test
 
 import (
+	"encoding/json/v2"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -360,5 +361,15 @@ var _ = Describe("Service.Rename", func() {
 			apistatus.RenameRequest{Key: s.Key, Name: "After"},
 		)).Error().To(MatchError(access.ErrDenied))
 		Expect(retrieveStatus(ctx, s.Key).Name).To(Equal("Before"))
+	})
+})
+
+var _ = Describe("RetrieveRequest", func() {
+	It("Should reject a member that the request does not declare", func() {
+		var req apistatus.RetrieveRequest
+		Expect(json.Unmarshal([]byte(`{"keys":["status-a"]}`), &req)).To(SatisfyAll(
+			MatchError(json.ErrUnknownName),
+			MatchError(ContainSubstring(`unknown object member name "keys"`)),
+		))
 	})
 })

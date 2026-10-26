@@ -30,6 +30,7 @@ cc_library(
         "//driver/pipeline",
         "//driver/task",
         "//driver/transform",
+        "//x/cpp/filter",
         "//x/cpp/json",
         "//x/cpp/loop",
         "//x/cpp/strings",

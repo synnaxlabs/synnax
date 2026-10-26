@@ -119,9 +119,7 @@ func (s *Service) Create(
 }
 
 type (
-	RetrieveRequest  = device.RetrieveRequest
-	RetrieveResponse = device.RetrieveResponse
-	Where            = device.Where
+	Where = device.Where
 )
 
 func (s *Service) Retrieve(

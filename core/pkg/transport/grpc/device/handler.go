@@ -15,7 +15,8 @@ import (
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/device"
-	"github.com/synnaxlabs/synnax/pkg/service/legacy/device/pb"
+	"github.com/synnaxlabs/synnax/pkg/api/device/pb"
+	devicepb "github.com/synnaxlabs/synnax/pkg/service/legacy/device/pb"
 	xpb "github.com/synnaxlabs/x/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -61,7 +62,7 @@ func (createRequestTranslator) Forward(
 	_ context.Context,
 	req device.CreateRequest,
 ) (*CreateRequest, error) {
-	devices, err := pb.DevicesToPB(req.Devices)
+	devices, err := devicepb.DevicesToPB(req.Devices)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +73,7 @@ func (createRequestTranslator) Backward(
 	_ context.Context,
 	req *CreateRequest,
 ) (device.CreateRequest, error) {
-	devices, err := pb.DevicesFromPB(req.Devices)
+	devices, err := devicepb.DevicesFromPB(req.Devices)
 	if err != nil {
 		return device.CreateRequest{}, err
 	}
@@ -83,7 +84,7 @@ func (createResponseTranslator) Forward(
 	_ context.Context,
 	res device.CreateResponse,
 ) (*CreateResponse, error) {
-	devices, err := pb.DevicesToPB(res.Devices)
+	devices, err := devicepb.DevicesToPB(res.Devices)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +95,7 @@ func (createResponseTranslator) Backward(
 	_ context.Context,
 	res *CreateResponse,
 ) (device.CreateResponse, error) {
-	devices, err := pb.DevicesFromPB(res.Devices)
+	devices, err := devicepb.DevicesFromPB(res.Devices)
 	if err != nil {
 		return device.CreateResponse{}, err
 	}

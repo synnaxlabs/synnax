@@ -57,7 +57,7 @@ class Where(BaseModel):
         type: Selects by type.
     """
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     and_: list[Where] | None = Field(default=None, alias="and")
     or_: list[Where] | None = Field(default=None, alias="or")
@@ -98,6 +98,8 @@ class RetrieveRequest(BaseModel):
         limit: Is the most views to return.
         offset: Is the number of matching views to skip.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     where: Where | None = None
     search_term: str = ""

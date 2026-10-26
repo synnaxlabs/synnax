@@ -25,6 +25,7 @@ cc_library(
         "//client/cpp/label",
         "//client/cpp/ontology",
         "//client/cpp/ranger/kv",
+        "//core/pkg/api/ranger:range_grpc",
         "//core/pkg/service/ranger:range_grpc",
         "//core/pkg/transport/grpc:api_grpc",
         "//freighter/cpp:freighter",

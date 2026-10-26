@@ -114,6 +114,9 @@ message TelemDataTypeSet {
   // in matches a value equal to an element of in.
   TelemDataTypeList in = 2;
 }
+message StringList {
+  repeated string values = 1;
+}
 
 // Where is a filter that selects channels.
 message Where {
@@ -138,18 +141,8 @@ message Where {
   // virtual matches virtual channels that are not calculated, or every other channel
   // when false.
   optional bool virtual = 10;
-}
-
-// RetrieveRequest is a request to retrieve channels.
-message RetrieveRequest {
-  // where selects the channels to retrieve. An absent where selects all of them.
-  optional Where where = 1;
-  // search_term keeps the channels that match the term, closest match first.
-  string search_term = 2;
-  // limit is the most channels to return.
-  optional uint32 limit = 3;
-  // offset is the number of matching channels to skip.
-  uint32 offset = 4;
-  // include_status includes the status of each record.
-  bool include_status = 5;
+  // name_patterns matches channels whose name matches any of the given patterns. A
+  // valid channel name matches exactly, and any other pattern is a regular expression,
+  // anchored when unanchored.
+  StringList name_patterns = 11;
 }

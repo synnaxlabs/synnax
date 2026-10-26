@@ -40,7 +40,7 @@ func (s *Service) ResolveSubjects(
 func MatchSubjects(subjects ...ontology.ID) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Policy] {
 		return gorp.MatchKeysFunc[Key, Policy](func(ctx gorp.Context) ([]Key, error) {
-			start := r.ontology.NewRetrieve().WhereIDsLenient(subjects...)
+			start := r.ontology.NewRetrieve().WhereIDs(subjects...).SkipMissingIDs()
 			return resolveSubjects(ctx, ctx.Tx, start)
 		})
 	}

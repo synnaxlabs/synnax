@@ -27,17 +27,18 @@ type Retrieve struct {
 // MatchFor returns a filter that matches the labels attached to the resource with the
 // given ID. A resource that does not exist has no labels.
 func MatchFor(id ontology.ID) Filter {
-	return matchFor(id, ontology.Retrieve.WhereIDsLenient)
+	return matchFor(id, true)
 }
 
-func matchFor(
-	id ontology.ID,
-	where func(ontology.Retrieve, ...ontology.ID) ontology.Retrieve,
-) Filter {
+func matchFor(id ontology.ID, missingSkipped bool) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Label] {
 		return gorp.MatchKeysFunc[Key, Label](func(ctx gorp.Context) ([]Key, error) {
 			var labels []ontology.Resource
-			if err := where(r.ontology.NewRetrieve(), id).
+			resource := r.ontology.NewRetrieve().WhereIDs(id)
+			if missingSkipped {
+				resource = resource.SkipMissingIDs()
+			}
+			if err := resource.
 				TraverseTo(LabelsOntologyTraverser).
 				ExcludeFieldData(true).
 				Entries(&labels).
@@ -60,7 +61,7 @@ func (s *Service) RetrieveFor(
 ) ([]Label, error) {
 	labels := []Label{}
 	return labels, s.NewRetrieve().
-		Where(matchFor(id, ontology.Retrieve.WhereIDs)).
+		Where(matchFor(id, false)).
 		Entries(&labels).
 		Exec(ctx, tx)
 }

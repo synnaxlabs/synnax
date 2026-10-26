@@ -106,7 +106,8 @@ public:
     ) const;
 
     /// @brief retrieves a channel with the given name.
-    /// @param name the name of the channel to retrieve.
+    /// @param name the name of the channel to retrieve. A name that is not a valid
+    /// channel name is a regular expression, anchored when unanchored.
     /// @throws QueryError if the channel does not exist or multiple channels with
     /// the same name exist.
     /// @returns the retrieved channel.
@@ -129,8 +130,9 @@ public:
     retrieve(std::uint32_t key) const;
 
     /// @brief retrieves channels with the given names.
-    /// @param names the names of the channels to retrieve. A name matches only a
-    /// channel with that exact name.
+    /// @param names the names of the channels to retrieve. A valid channel name
+    /// matches exactly, and any other name is a regular expression, anchored when
+    /// unanchored.
     /// @returns all channels matching the given names. If a channel matching a
     /// name, does not exist, it will not be in the returned vector.
     /// @returns a pair containing the retrieved channels and an error where ok() is

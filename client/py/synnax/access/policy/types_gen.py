@@ -59,7 +59,7 @@ class Where(BaseModel):
         subjects: Matches the policies of the roles that any of the given subjects hold.
     """
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     and_: list[Where] | None = Field(default=None, alias="and")
     or_: list[Where] | None = Field(default=None, alias="or")
@@ -88,6 +88,8 @@ class RetrieveRequest(BaseModel):
         limit: Is the most policies to return.
         offset: Is the number of matching policies to skip.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     where: Where | None = None
     search_term: str = ""

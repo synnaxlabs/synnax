@@ -16,6 +16,7 @@
 package rack
 
 import (
+	pb1 "github.com/synnaxlabs/synnax/pkg/api/rack/pb"
 	pb "github.com/synnaxlabs/synnax/pkg/service/rack/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -122,7 +123,7 @@ func (x *CreateResponse) GetRacks() []*pb.Rack {
 
 type RetrieveRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Request       *pb.RetrieveRequest    `protobuf:"bytes,5,opt,name=request,proto3" json:"request,omitempty"`
+	Request       *pb1.RetrieveRequest   `protobuf:"bytes,5,opt,name=request,proto3" json:"request,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -157,7 +158,7 @@ func (*RetrieveRequest) Descriptor() ([]byte, []int) {
 	return file_core_pkg_transport_grpc_rack_rack_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *RetrieveRequest) GetRequest() *pb.RetrieveRequest {
+func (x *RetrieveRequest) GetRequest() *pb1.RetrieveRequest {
 	if x != nil {
 		return x.Request
 	}
@@ -212,19 +213,19 @@ var File_core_pkg_transport_grpc_rack_rack_proto protoreflect.FileDescriptor
 
 const file_core_pkg_transport_grpc_rack_rack_proto_rawDesc = "" +
 	"\n" +
-	"'core/pkg/transport/grpc/rack/rack.proto\x12\tgrpc.rack\x1a#core/pkg/service/rack/pb/rack.proto\x1a\x1bgoogle/protobuf/empty.proto\"<\n" +
+	"'core/pkg/transport/grpc/rack/rack.proto\x12\tgrpc.rack\x1a\x1fcore/pkg/api/rack/pb/rack.proto\x1a#core/pkg/service/rack/pb/rack.proto\x1a\x1bgoogle/protobuf/empty.proto\"<\n" +
 	"\rCreateRequest\x12+\n" +
 	"\x05racks\x18\x01 \x03(\v2\x15.service.rack.pb.RackR\x05racks\"=\n" +
 	"\x0eCreateResponse\x12+\n" +
-	"\x05racks\x18\x01 \x03(\v2\x15.service.rack.pb.RackR\x05racks\"\x8f\x01\n" +
-	"\x0fRetrieveRequest\x12:\n" +
-	"\arequest\x18\x05 \x01(\v2 .service.rack.pb.RetrieveRequestR\arequestJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05R\x04keysR\x05namesR\vintegrationR\x0einclude_status\"#\n" +
+	"\x05racks\x18\x01 \x03(\v2\x15.service.rack.pb.RackR\x05racks\"\x8b\x01\n" +
+	"\x0fRetrieveRequest\x126\n" +
+	"\arequest\x18\x05 \x01(\v2\x1c.api.rack.pb.RetrieveRequestR\arequestJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05R\x04keysR\x05namesR\vintegrationR\x0einclude_status\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys2P\n" +
 	"\x11RackCreateService\x12;\n" +
-	"\x04Exec\x12\x18.grpc.rack.CreateRequest\x1a\x19.grpc.rack.CreateResponse2\\\n" +
-	"\x13RackRetrieveService\x12E\n" +
-	"\x04Exec\x12\x1a.grpc.rack.RetrieveRequest\x1a!.service.rack.pb.RetrieveResponse2M\n" +
+	"\x04Exec\x12\x18.grpc.rack.CreateRequest\x1a\x19.grpc.rack.CreateResponse2X\n" +
+	"\x13RackRetrieveService\x12A\n" +
+	"\x04Exec\x12\x1a.grpc.rack.RetrieveRequest\x1a\x1d.api.rack.pb.RetrieveResponse2M\n" +
 	"\x11RackDeleteService\x128\n" +
 	"\x04Exec\x12\x18.grpc.rack.DeleteRequest\x1a\x16.google.protobuf.EmptyB\x95\x01\n" +
 	"\rcom.grpc.rackB\tRackProtoP\x01Z4github.com/synnaxlabs/synnax/pkg/transport/grpc/rack\xa2\x02\x03GRX\xaa\x02\tGrpc.Rack\xca\x02\tGrpc\\Rack\xe2\x02\x15Grpc\\Rack\\GPBMetadata\xea\x02\n" +
@@ -244,24 +245,24 @@ func file_core_pkg_transport_grpc_rack_rack_proto_rawDescGZIP() []byte {
 
 var file_core_pkg_transport_grpc_rack_rack_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_core_pkg_transport_grpc_rack_rack_proto_goTypes = []any{
-	(*CreateRequest)(nil),       // 0: grpc.rack.CreateRequest
-	(*CreateResponse)(nil),      // 1: grpc.rack.CreateResponse
-	(*RetrieveRequest)(nil),     // 2: grpc.rack.RetrieveRequest
-	(*DeleteRequest)(nil),       // 3: grpc.rack.DeleteRequest
-	(*pb.Rack)(nil),             // 4: service.rack.pb.Rack
-	(*pb.RetrieveRequest)(nil),  // 5: service.rack.pb.RetrieveRequest
-	(*pb.RetrieveResponse)(nil), // 6: service.rack.pb.RetrieveResponse
-	(*emptypb.Empty)(nil),       // 7: google.protobuf.Empty
+	(*CreateRequest)(nil),        // 0: grpc.rack.CreateRequest
+	(*CreateResponse)(nil),       // 1: grpc.rack.CreateResponse
+	(*RetrieveRequest)(nil),      // 2: grpc.rack.RetrieveRequest
+	(*DeleteRequest)(nil),        // 3: grpc.rack.DeleteRequest
+	(*pb.Rack)(nil),              // 4: service.rack.pb.Rack
+	(*pb1.RetrieveRequest)(nil),  // 5: api.rack.pb.RetrieveRequest
+	(*pb1.RetrieveResponse)(nil), // 6: api.rack.pb.RetrieveResponse
+	(*emptypb.Empty)(nil),        // 7: google.protobuf.Empty
 }
 var file_core_pkg_transport_grpc_rack_rack_proto_depIdxs = []int32{
 	4, // 0: grpc.rack.CreateRequest.racks:type_name -> service.rack.pb.Rack
 	4, // 1: grpc.rack.CreateResponse.racks:type_name -> service.rack.pb.Rack
-	5, // 2: grpc.rack.RetrieveRequest.request:type_name -> service.rack.pb.RetrieveRequest
+	5, // 2: grpc.rack.RetrieveRequest.request:type_name -> api.rack.pb.RetrieveRequest
 	0, // 3: grpc.rack.RackCreateService.Exec:input_type -> grpc.rack.CreateRequest
 	2, // 4: grpc.rack.RackRetrieveService.Exec:input_type -> grpc.rack.RetrieveRequest
 	3, // 5: grpc.rack.RackDeleteService.Exec:input_type -> grpc.rack.DeleteRequest
 	1, // 6: grpc.rack.RackCreateService.Exec:output_type -> grpc.rack.CreateResponse
-	6, // 7: grpc.rack.RackRetrieveService.Exec:output_type -> service.rack.pb.RetrieveResponse
+	6, // 7: grpc.rack.RackRetrieveService.Exec:output_type -> api.rack.pb.RetrieveResponse
 	7, // 8: grpc.rack.RackDeleteService.Exec:output_type -> google.protobuf.Empty
 	6, // [6:9] is the sub-list for method output_type
 	3, // [3:6] is the sub-list for method input_type

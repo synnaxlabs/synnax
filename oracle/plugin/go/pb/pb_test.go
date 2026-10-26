@@ -66,6 +66,24 @@ var _ = Describe("Go PB Plugin", func() {
 				)
 		})
 
+		It("Should keep an empty optional list present", func(ctx SpecContext) {
+			resp := MustGenerate(ctx, `
+				@go output "core/pkg/service/thing"
+				@pb
+
+				Thing struct {
+					key   uuid
+					names string[]?
+				}
+			`, "thing", loader, pbPlugin)
+			ExpectContent(resp, "translator.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					`xpb "github.com/synnaxlabs/x/pb"`,
+					"r.Names = xpb.ListValues(pb.Names.Values)",
+				)
+		})
+
 		It(
 			"Should translate each generic use over a plain value through its own message",
 			func(ctx SpecContext) {

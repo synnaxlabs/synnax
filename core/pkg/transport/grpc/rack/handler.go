@@ -15,7 +15,8 @@ import (
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/rack/pb"
+	"github.com/synnaxlabs/synnax/pkg/api/rack/pb"
+	rackpb "github.com/synnaxlabs/synnax/pkg/service/rack/pb"
 	xpb "github.com/synnaxlabs/x/pb"
 	"github.com/synnaxlabs/x/unsafe"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -62,7 +63,7 @@ func (createRequestTranslator) Forward(
 	_ context.Context,
 	req rack.CreateRequest,
 ) (*CreateRequest, error) {
-	racks, err := pb.RacksToPB(req.Racks)
+	racks, err := rackpb.RacksToPB(req.Racks)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +74,7 @@ func (createRequestTranslator) Backward(
 	_ context.Context,
 	req *CreateRequest,
 ) (rack.CreateRequest, error) {
-	racks, err := pb.RacksFromPB(req.Racks)
+	racks, err := rackpb.RacksFromPB(req.Racks)
 	if err != nil {
 		return rack.CreateRequest{}, err
 	}
@@ -84,7 +85,7 @@ func (createResponseTranslator) Forward(
 	_ context.Context,
 	res rack.CreateResponse,
 ) (*CreateResponse, error) {
-	racks, err := pb.RacksToPB(res.Racks)
+	racks, err := rackpb.RacksToPB(res.Racks)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +96,7 @@ func (createResponseTranslator) Backward(
 	_ context.Context,
 	res *CreateResponse,
 ) (rack.CreateResponse, error) {
-	racks, err := pb.RacksFromPB(res.Racks)
+	racks, err := rackpb.RacksFromPB(res.Racks)
 	if err != nil {
 		return rack.CreateResponse{}, err
 	}

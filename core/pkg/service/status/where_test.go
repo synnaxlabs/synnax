@@ -22,17 +22,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // The case table is shared with the TypeScript matches, so that the Core and the client
 // cache agree on every filter.
-const vectorsPath = "../../../../x/testdata/filter/vectors.json"
+const vectorsPath = "../../../testdata/filter/vectors.json"
 
 type whereCase struct {
 	Name     string       `json:"name"`
@@ -113,11 +111,11 @@ var _ = Describe("Where", Ordered, func() {
 		func(ctx SpecContext, w status.Where, expected []string) {
 			f := MustSucceed(status.MatchWhere[any](w))
 			var res []status.Status[any]
-			// The API skips not-found, since a missing key is a non-match.
-			Expect(errors.Skip(
-				svc.NewRetrieve[any]().Where(f).Entries(&res).Exec(ctx, tx),
-				query.ErrNotFound,
-			)).To(Succeed())
+			Expect(svc.NewRetrieve[any]().
+				SkipMissingKeys().
+				Where(f).
+				Entries(&res).
+				Exec(ctx, tx)).To(Succeed())
 			Expect(lo.Map(res, func(s status.Status[any], _ int) string {
 				return keys[s.Key]
 			})).To(ConsistOf(expected))
@@ -149,14 +147,4 @@ var _ = Describe("Where", Ordered, func() {
 			`variant.in.1: invalid variant "bogus": validation error`,
 		),
 	)
-})
-
-var _ = Describe("RetrieveRequest", func() {
-	It("Should reject a member that the request does not declare", func() {
-		var req status.RetrieveRequest
-		Expect(json.Unmarshal([]byte(`{"keys":["status-a"]}`), &req)).To(SatisfyAll(
-			MatchError(json.ErrUnknownName),
-			MatchError(ContainSubstring(`unknown object member name "keys"`)),
-		))
-	})
 })

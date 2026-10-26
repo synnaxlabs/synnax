@@ -26,6 +26,7 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
 
+#include "core/pkg/api/device/pb/device.pb.h"
 #include "core/pkg/service/legacy/device/pb/device.pb.h"
 
 namespace synnax::device {
@@ -107,11 +108,11 @@ struct RetrieveRequest {
     static RetrieveRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::device::pb::RetrieveRequest;
-    [[nodiscard]] std::pair<::service::device::pb::RetrieveRequest, x::errors::Error>
+    using proto_type = ::api::device::pb::RetrieveRequest;
+    [[nodiscard]] std::pair<::api::device::pb::RetrieveRequest, x::errors::Error>
     to_proto() const;
     static std::pair<RetrieveRequest, x::errors::Error>
-    from_proto(const ::service::device::pb::RetrieveRequest &pb);
+    from_proto(const ::api::device::pb::RetrieveRequest &pb);
 };
 
 /// @brief Device is a physical piece of hardware connected to Synnax through the Driver
@@ -161,11 +162,11 @@ struct RetrieveResponse {
     static RetrieveResponse parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::device::pb::RetrieveResponse;
-    [[nodiscard]] std::pair<::service::device::pb::RetrieveResponse, x::errors::Error>
+    using proto_type = ::api::device::pb::RetrieveResponse;
+    [[nodiscard]] std::pair<::api::device::pb::RetrieveResponse, x::errors::Error>
     to_proto() const;
     static std::pair<RetrieveResponse, x::errors::Error>
-    from_proto(const ::service::device::pb::RetrieveResponse &pb);
+    from_proto(const ::api::device::pb::RetrieveResponse &pb);
 };
 
 const synnax::ontology::ID ONTOLOGY_TYPE("device", "");

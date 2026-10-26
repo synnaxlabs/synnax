@@ -23,7 +23,7 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 
-#include "core/pkg/service/task/pb/task.pb.h"
+#include "core/pkg/api/task/pb/task.pb.h"
 #include "core/pkg/transport/grpc/task/task.pb.h"
 
 namespace synnax::task {
@@ -41,7 +41,7 @@ using CreateClient = freighter::
 
 /// @brief Type alias for the transport used to retrieve a task.
 using RetrieveClient = freighter::
-    UnaryClient<grpc::task::RetrieveRequest, ::service::task::pb::RetrieveResponse>;
+    UnaryClient<grpc::task::RetrieveRequest, ::api::task::pb::RetrieveResponse>;
 
 /// @brief Type alias for the transport used to delete a task.
 using DeleteClient = freighter::

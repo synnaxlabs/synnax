@@ -39,7 +39,7 @@ export const setZ = <T extends z.ZodType>(t: T) =>
 export type Set<T extends z.ZodType> = z.infer<ReturnType<typeof setZ<T>>>;
 
 export const orderedZ = <T extends z.ZodType>(t: T) =>
-  z.object({
+  z.strictObject({
     eq: t.optional(),
     in: zod.nullToUndefined(t.array()),
     gt: t.optional(),

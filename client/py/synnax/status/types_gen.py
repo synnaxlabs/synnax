@@ -92,7 +92,7 @@ class Where(BaseModel):
         labels: Matches statuses that have any of the given labels.
     """
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     and_: list[Where] | None = Field(default=None, alias="and")
     or_: list[Where] | None = Field(default=None, alias="or")
@@ -122,6 +122,8 @@ class RetrieveRequest(BaseModel):
         offset: Is the number of matching statuses to skip.
         include_labels: Includes the labels of each record.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     where: Where | None = None
     search_term: str = ""

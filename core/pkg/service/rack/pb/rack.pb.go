@@ -509,134 +509,6 @@ func (x *Where) GetHostIsNode() bool {
 	return false
 }
 
-// RetrieveRequest is a request to retrieve racks.
-type RetrieveRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// where selects the racks to retrieve. An absent where selects all of them.
-	Where *Where `protobuf:"bytes,1,opt,name=where,proto3,oneof" json:"where,omitempty"`
-	// search_term keeps the racks that match the term, closest match first.
-	SearchTerm string `protobuf:"bytes,2,opt,name=search_term,json=searchTerm,proto3" json:"search_term,omitempty"`
-	// limit is the most racks to return.
-	Limit *uint32 `protobuf:"varint,3,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
-	// offset is the number of matching racks to skip.
-	Offset uint32 `protobuf:"varint,4,opt,name=offset,proto3" json:"offset,omitempty"`
-	// include_status includes the status of each record.
-	IncludeStatus bool `protobuf:"varint,5,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RetrieveRequest) Reset() {
-	*x = RetrieveRequest{}
-	mi := &file_core_pkg_service_rack_pb_rack_proto_msgTypes[8]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RetrieveRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RetrieveRequest) ProtoMessage() {}
-
-func (x *RetrieveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_rack_pb_rack_proto_msgTypes[8]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RetrieveRequest.ProtoReflect.Descriptor instead.
-func (*RetrieveRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_rack_pb_rack_proto_rawDescGZIP(), []int{8}
-}
-
-func (x *RetrieveRequest) GetWhere() *Where {
-	if x != nil {
-		return x.Where
-	}
-	return nil
-}
-
-func (x *RetrieveRequest) GetSearchTerm() string {
-	if x != nil {
-		return x.SearchTerm
-	}
-	return ""
-}
-
-func (x *RetrieveRequest) GetLimit() uint32 {
-	if x != nil && x.Limit != nil {
-		return *x.Limit
-	}
-	return 0
-}
-
-func (x *RetrieveRequest) GetOffset() uint32 {
-	if x != nil {
-		return x.Offset
-	}
-	return 0
-}
-
-func (x *RetrieveRequest) GetIncludeStatus() bool {
-	if x != nil {
-		return x.IncludeStatus
-	}
-	return false
-}
-
-// RetrieveResponse holds the racks a RetrieveRequest selects.
-type RetrieveResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// racks are the racks the request selects.
-	Racks         []*Rack `protobuf:"bytes,1,rep,name=racks,proto3" json:"racks,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RetrieveResponse) Reset() {
-	*x = RetrieveResponse{}
-	mi := &file_core_pkg_service_rack_pb_rack_proto_msgTypes[9]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RetrieveResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RetrieveResponse) ProtoMessage() {}
-
-func (x *RetrieveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_rack_pb_rack_proto_msgTypes[9]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RetrieveResponse.ProtoReflect.Descriptor instead.
-func (*RetrieveResponse) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_rack_pb_rack_proto_rawDescGZIP(), []int{9}
-}
-
-func (x *RetrieveResponse) GetRacks() []*Rack {
-	if x != nil {
-		return x.Racks
-	}
-	return nil
-}
-
 var File_core_pkg_service_rack_pb_rack_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_rack_pb_rack_proto_rawDesc = "" +
@@ -679,18 +551,7 @@ const file_core_pkg_service_rack_pb_rack_proto_rawDesc = "" +
 	"\x05_nameB\v\n" +
 	"\t_embeddedB\x0f\n" +
 	"\r_integrationsB\x0f\n" +
-	"\r_host_is_node\"\xd3\x01\n" +
-	"\x0fRetrieveRequest\x121\n" +
-	"\x05where\x18\x01 \x01(\v2\x16.service.rack.pb.WhereH\x00R\x05where\x88\x01\x01\x12\x1f\n" +
-	"\vsearch_term\x18\x02 \x01(\tR\n" +
-	"searchTerm\x12\x19\n" +
-	"\x05limit\x18\x03 \x01(\rH\x01R\x05limit\x88\x01\x01\x12\x16\n" +
-	"\x06offset\x18\x04 \x01(\rR\x06offset\x12%\n" +
-	"\x0einclude_status\x18\x05 \x01(\bR\rincludeStatusB\b\n" +
-	"\x06_whereB\b\n" +
-	"\x06_limit\"?\n" +
-	"\x10RetrieveResponse\x12+\n" +
-	"\x05racks\x18\x01 \x03(\v2\x15.service.rack.pb.RackR\x05racksB\xb0\x01\n" +
+	"\r_host_is_nodeB\xb0\x01\n" +
 	"\x13com.service.rack.pbB\tRackProtoP\x01Z0github.com/synnaxlabs/synnax/pkg/service/rack/pb\xa2\x02\x03SRP\xaa\x02\x0fService.Rack.Pb\xca\x02\x0fService\\Rack\\Pb\xe2\x02\x1bService\\Rack\\Pb\\GPBMetadata\xea\x02\x11Service::Rack::Pbb\x06proto3"
 
 var (
@@ -705,24 +566,22 @@ func file_core_pkg_service_rack_pb_rack_proto_rawDescGZIP() []byte {
 	return file_core_pkg_service_rack_pb_rack_proto_rawDescData
 }
 
-var file_core_pkg_service_rack_pb_rack_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_core_pkg_service_rack_pb_rack_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_core_pkg_service_rack_pb_rack_proto_goTypes = []any{
-	(*StatusDetails)(nil),    // 0: service.rack.pb.StatusDetails
-	(*Rack)(nil),             // 1: service.rack.pb.Rack
-	(*WhereList)(nil),        // 2: service.rack.pb.WhereList
-	(*KeyList)(nil),          // 3: service.rack.pb.KeyList
-	(*KeySet)(nil),           // 4: service.rack.pb.KeySet
-	(*StringList)(nil),       // 5: service.rack.pb.StringList
-	(*StringContains)(nil),   // 6: service.rack.pb.StringContains
-	(*Where)(nil),            // 7: service.rack.pb.Where
-	(*RetrieveRequest)(nil),  // 8: service.rack.pb.RetrieveRequest
-	(*RetrieveResponse)(nil), // 9: service.rack.pb.RetrieveResponse
-	(*pb.Status)(nil),        // 10: service.status.pb.Status
-	(*pb1.String)(nil),       // 11: x.filter.pb.String
-	(*pb1.Bool)(nil),         // 12: x.filter.pb.Bool
+	(*StatusDetails)(nil),  // 0: service.rack.pb.StatusDetails
+	(*Rack)(nil),           // 1: service.rack.pb.Rack
+	(*WhereList)(nil),      // 2: service.rack.pb.WhereList
+	(*KeyList)(nil),        // 3: service.rack.pb.KeyList
+	(*KeySet)(nil),         // 4: service.rack.pb.KeySet
+	(*StringList)(nil),     // 5: service.rack.pb.StringList
+	(*StringContains)(nil), // 6: service.rack.pb.StringContains
+	(*Where)(nil),          // 7: service.rack.pb.Where
+	(*pb.Status)(nil),      // 8: service.status.pb.Status
+	(*pb1.String)(nil),     // 9: x.filter.pb.String
+	(*pb1.Bool)(nil),       // 10: x.filter.pb.Bool
 }
 var file_core_pkg_service_rack_pb_rack_proto_depIdxs = []int32{
-	10, // 0: service.rack.pb.Rack.status:type_name -> service.status.pb.Status
+	8,  // 0: service.rack.pb.Rack.status:type_name -> service.status.pb.Status
 	7,  // 1: service.rack.pb.WhereList.values:type_name -> service.rack.pb.Where
 	3,  // 2: service.rack.pb.KeySet.in:type_name -> service.rack.pb.KeyList
 	5,  // 3: service.rack.pb.StringContains.any:type_name -> service.rack.pb.StringList
@@ -730,16 +589,14 @@ var file_core_pkg_service_rack_pb_rack_proto_depIdxs = []int32{
 	2,  // 5: service.rack.pb.Where.or:type_name -> service.rack.pb.WhereList
 	7,  // 6: service.rack.pb.Where.not:type_name -> service.rack.pb.Where
 	4,  // 7: service.rack.pb.Where.key:type_name -> service.rack.pb.KeySet
-	11, // 8: service.rack.pb.Where.name:type_name -> x.filter.pb.String
-	12, // 9: service.rack.pb.Where.embedded:type_name -> x.filter.pb.Bool
+	9,  // 8: service.rack.pb.Where.name:type_name -> x.filter.pb.String
+	10, // 9: service.rack.pb.Where.embedded:type_name -> x.filter.pb.Bool
 	6,  // 10: service.rack.pb.Where.integrations:type_name -> service.rack.pb.StringContains
-	7,  // 11: service.rack.pb.RetrieveRequest.where:type_name -> service.rack.pb.Where
-	1,  // 12: service.rack.pb.RetrieveResponse.racks:type_name -> service.rack.pb.Rack
-	13, // [13:13] is the sub-list for method output_type
-	13, // [13:13] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	11, // [11:11] is the sub-list for method output_type
+	11, // [11:11] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_rack_pb_rack_proto_init() }
@@ -750,14 +607,13 @@ func file_core_pkg_service_rack_pb_rack_proto_init() {
 	file_core_pkg_service_rack_pb_rack_proto_msgTypes[1].OneofWrappers = []any{}
 	file_core_pkg_service_rack_pb_rack_proto_msgTypes[4].OneofWrappers = []any{}
 	file_core_pkg_service_rack_pb_rack_proto_msgTypes[7].OneofWrappers = []any{}
-	file_core_pkg_service_rack_pb_rack_proto_msgTypes[8].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_rack_pb_rack_proto_rawDesc), len(file_core_pkg_service_rack_pb_rack_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

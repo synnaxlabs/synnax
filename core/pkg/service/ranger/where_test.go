@@ -19,15 +19,13 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // The case table is shared with the TypeScript matches, so that the Core and the client
 // cache agree on every filter.
-const vectorsPath = "../../../../x/testdata/filter/vectors.json"
+const vectorsPath = "../../../testdata/filter/vectors.json"
 
 type whereCase struct {
 	Name     string       `json:"name"`
@@ -87,11 +85,11 @@ var _ = Describe("Where", func() {
 		func(ctx SpecContext, w ranger.Where, expected []string) {
 			f := MustSucceed(ranger.MatchWhere(w))
 			var res []ranger.Range
-			// The API skips not-found, since a missing key is a non-match.
-			Expect(errors.Skip(
-				svc.NewRetrieve().Where(f).Entries(&res).Exec(ctx, tx),
-				query.ErrNotFound,
-			)).To(Succeed())
+			Expect(svc.NewRetrieve().
+				SkipMissingKeys().
+				Where(f).
+				Entries(&res).
+				Exec(ctx, tx)).To(Succeed())
 			Expect(lo.Map(res, func(r ranger.Range, _ int) string {
 				return keys[r.Key]
 			})).To(ConsistOf(expected))
@@ -111,21 +109,6 @@ var _ = Describe("Where", func() {
 			BeAssignableToTypeOf(validate.PathError{}),
 			MatchError("or.1.name.regex: error parsing regexp: missing closing ): "+
 				"`(a`: validation error"),
-		))
-	})
-})
-
-var _ = Describe("RetrieveRequest", func() {
-	It("Should reject a member that the request does not declare", func() {
-		var req ranger.RetrieveRequest
-		Expect(
-			json.Unmarshal(
-				[]byte(`{"keys":["00000000-0000-4000-8000-00000000000a"]}`),
-				&req,
-			),
-		).To(SatisfyAll(
-			MatchError(json.ErrUnknownName),
-			MatchError(ContainSubstring(`unknown object member name "keys"`)),
 		))
 	})
 })

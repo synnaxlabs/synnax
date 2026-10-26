@@ -68,7 +68,7 @@ class Where(BaseModel):
         name: Selects by name.
     """
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     and_: list[Where] | None = Field(default=None, alias="and")
     or_: list[Where] | None = Field(default=None, alias="or")
@@ -97,6 +97,8 @@ class RetrieveRequest(BaseModel):
         offset: Is the number of matching arcs to skip.
         include_program: Includes the program of each record.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     where: Where | None = None
     search_term: str = ""

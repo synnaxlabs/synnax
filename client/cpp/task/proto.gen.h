@@ -23,6 +23,7 @@
 #include "x/cpp/json/struct.h"
 #include "x/cpp/pb/pb.h"
 
+#include "core/pkg/api/task/pb/task.pb.h"
 #include "core/pkg/service/task/pb/task.pb.h"
 
 namespace synnax::task {
@@ -309,9 +310,9 @@ Command::from_proto(const ::service::task::pb::Command &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::task::pb::RetrieveRequest, x::errors::Error>
+inline std::pair<::api::task::pb::RetrieveRequest, x::errors::Error>
 RetrieveRequest::to_proto() const {
-    ::service::task::pb::RetrieveRequest pb;
+    ::api::task::pb::RetrieveRequest pb;
     if (this->where.has_value()) {
         auto [v, err] = this->where->to_proto();
         if (err) return {{}, err};
@@ -325,7 +326,7 @@ RetrieveRequest::to_proto() const {
 }
 
 inline std::pair<RetrieveRequest, x::errors::Error>
-RetrieveRequest::from_proto(const ::service::task::pb::RetrieveRequest &pb) {
+RetrieveRequest::from_proto(const ::api::task::pb::RetrieveRequest &pb) {
     RetrieveRequest cpp;
     if (pb.has_where()) {
         auto [v, err] = Where::from_proto(pb.where());
@@ -339,9 +340,9 @@ RetrieveRequest::from_proto(const ::service::task::pb::RetrieveRequest &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::task::pb::RetrieveResponse, x::errors::Error>
+inline std::pair<::api::task::pb::RetrieveResponse, x::errors::Error>
 RetrieveResponse::to_proto() const {
-    ::service::task::pb::RetrieveResponse pb;
+    ::api::task::pb::RetrieveResponse pb;
     for (const auto &item: this->tasks) {
         auto [v, err] = item.to_proto();
         if (err) return {{}, err};
@@ -351,7 +352,7 @@ RetrieveResponse::to_proto() const {
 }
 
 inline std::pair<RetrieveResponse, x::errors::Error>
-RetrieveResponse::from_proto(const ::service::task::pb::RetrieveResponse &pb) {
+RetrieveResponse::from_proto(const ::api::task::pb::RetrieveResponse &pb) {
     RetrieveResponse cpp;
     if (auto err = x::pb::from_proto_repeated<Task>(cpp.tasks, pb.tasks()))
         return {{}, err};

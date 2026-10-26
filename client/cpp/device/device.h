@@ -27,7 +27,7 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/json/struct.h"
 
-#include "core/pkg/service/legacy/device/pb/device.pb.h"
+#include "core/pkg/api/device/pb/device.pb.h"
 #include "core/pkg/transport/grpc/device/device.pb.h"
 
 namespace synnax::device {
@@ -40,7 +40,7 @@ using CreateClient = freighter::
 
 /// @brief Type alias for the transport used to retrieve a device.
 using RetrieveClient = freighter::
-    UnaryClient<grpc::device::RetrieveRequest, ::service::device::pb::RetrieveResponse>;
+    UnaryClient<grpc::device::RetrieveRequest, ::api::device::pb::RetrieveResponse>;
 
 /// @brief Type alias for the transport used to delete a device.
 using DeleteClient = freighter::

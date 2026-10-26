@@ -19,6 +19,7 @@
 
 #include "client/cpp/task/json.gen.h"
 #include "x/cpp/breaker/breaker.h"
+#include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/thread/thread.h"

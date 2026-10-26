@@ -12,7 +12,6 @@ syntax = "proto3";
 package grpc.channel;
 
 import "core/pkg/api/channel/pb/channel.proto";
-import "core/pkg/service/channel/pb/channel.proto";
 import "google/protobuf/empty.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/transport/grpc/channel";
@@ -41,7 +40,7 @@ message CreateResponse {
 message RetrieveRequest {
   reserved 1 to 4;
   reserved "node_key", "keys", "names", "search";
-  service.channel.pb.RetrieveRequest request = 5;
+  api.channel.pb.RetrieveRequest request = 5;
   optional string range_key = 6;
 }
 

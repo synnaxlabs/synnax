@@ -77,18 +77,8 @@ type Where struct {
 	// Virtual matches virtual channels that are not calculated, or every other channel
 	// when false.
 	Virtual *bool `json:"virtual,omitzero" msgpack:"virtual,omitempty"`
-}
-
-// RetrieveRequest is a request to retrieve channels.
-type RetrieveRequest struct {
-	// Where selects the channels to retrieve. An absent where selects all of them.
-	Where *Where `json:"where,omitzero" msgpack:"where,omitempty"`
-	// SearchTerm keeps the channels that match the term, closest match first.
-	SearchTerm string `json:"search_term" msgpack:"search_term"`
-	// Limit is the most channels to return.
-	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
-	// Offset is the number of matching channels to skip.
-	Offset uint32 `json:"offset" msgpack:"offset"`
-	// IncludeStatus includes the status of each record.
-	IncludeStatus bool `json:"include_status" msgpack:"include_status"`
+	// NamePatterns matches channels whose name matches any of the given patterns. A
+	// valid channel name matches exactly, and any other pattern is a regular
+	// expression, anchored when unanchored.
+	NamePatterns []string `json:"name_patterns,omitzero" msgpack:"name_patterns,omitempty"`
 }

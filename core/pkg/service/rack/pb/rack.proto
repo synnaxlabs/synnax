@@ -85,23 +85,3 @@ message Where {
   // Cores when false.
   optional bool host_is_node = 8;
 }
-
-// RetrieveRequest is a request to retrieve racks.
-message RetrieveRequest {
-  // where selects the racks to retrieve. An absent where selects all of them.
-  optional Where where = 1;
-  // search_term keeps the racks that match the term, closest match first.
-  string search_term = 2;
-  // limit is the most racks to return.
-  optional uint32 limit = 3;
-  // offset is the number of matching racks to skip.
-  uint32 offset = 4;
-  // include_status includes the status of each record.
-  bool include_status = 5;
-}
-
-// RetrieveResponse holds the racks a RetrieveRequest selects.
-message RetrieveResponse {
-  // racks are the racks the request selects.
-  repeated Rack racks = 1;
-}

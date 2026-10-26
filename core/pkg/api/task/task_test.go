@@ -10,6 +10,7 @@
 package task_test
 
 import (
+	"encoding/json/v2"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -160,6 +161,16 @@ var _ = Describe("Retrieve", func() {
 			MatchError(
 				"where.type.regex: error parsing regexp: missing closing ): `(a`: validation error",
 			),
+		))
+	})
+})
+
+var _ = Describe("RetrieveRequest", func() {
+	It("Should reject a request member that it does not declare", func() {
+		var req apitask.RetrieveRequest
+		Expect(json.Unmarshal([]byte(`{"names":["Task"]}`), &req)).To(SatisfyAll(
+			BeAssignableToTypeOf(&json.SemanticError{}),
+			MatchError(ContainSubstring(`unknown object member name "names"`)),
 		))
 	})
 })

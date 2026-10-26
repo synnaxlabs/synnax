@@ -52,6 +52,8 @@ type Retrieve[K Key, E Entry[K]] struct {
 	validators []Validator[K, E]
 	// keyPrefix is the gorp key prefix for entry type E.
 	keyPrefix []byte
+	// missingKeysSkipped is true when Exec treats a key with no entry as a non-match.
+	missingKeysSkipped bool
 }
 
 // NewRetrieve opens a new Retrieve query.
@@ -123,6 +125,13 @@ func (r Retrieve[K, E]) Offset(offset int) Retrieve[K, E] {
 	return r
 }
 
+// SkipMissingKeys makes Exec treat a key with no entry as a non-match, as for every
+// other filter, instead of returning query.ErrNotFound.
+func (r Retrieve[K, E]) SkipMissingKeys() Retrieve[K, E] {
+	r.missingKeysSkipped = true
+	return r
+}
+
 // WhereRaw adds a raw byte filter that runs against each entry's pebble key
 // and encoded value before decoding. Returning false skips the entry without
 // allocating a decoded value, so a key-shaped predicate can drop most rows
@@ -187,7 +196,7 @@ func (r Retrieve[K, E]) isBareKeys() bool {
 		r.filter.eval == nil &&
 		r.filter.raw == nil &&
 		r.filter.resolve == nil &&
-		!r.filter.lenient
+		!r.missingKeysSkipped
 }
 
 // Exec executes the query against the provided transaction.

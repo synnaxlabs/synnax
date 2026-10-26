@@ -9,7 +9,6 @@
 
 from __future__ import annotations
 
-import re
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -27,33 +26,10 @@ from synnax.channel.types_gen import RetrieveRequest, RetrieveResponse, Where
 from synnax.exceptions import NotFoundError
 from x import filter
 
-_NAME_LITERAL = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*")
-
 
 class _RetrieveRequest(BaseModel):
     request: RetrieveRequest
     range_key: UUID | None = None
-
-
-def names_where(names: list[str]) -> Where:
-    """Returns a filter that selects channels by name. A name that is not a valid
-    channel name is a regular expression, anchored when unanchored.
-    """
-    literals = [n for n in names if _NAME_LITERAL.fullmatch(n)]
-    lines = [
-        Where(name=filter.String(regex=_anchor(n)))
-        for n in names
-        if not _NAME_LITERAL.fullmatch(n)
-    ]
-    if len(literals) > 0:
-        lines.insert(0, Where(name=filter.String(in_=literals)))
-    return lines[0] if len(lines) == 1 else Where(or_=lines)
-
-
-def _anchor(pattern: str) -> str:
-    if pattern.startswith("^") or pattern.endswith("$"):
-        return pattern
-    return f"^{pattern}$"
 
 
 def params_where(channels: Params) -> Where:
@@ -62,7 +38,7 @@ def params_where(channels: Params) -> Where:
     """
     normal = normalize_params(channels)
     if isinstance(normal, NormalizedNameResult):
-        return names_where(normal.channels)
+        return Where(name_patterns=normal.channels)
     return Where(key=filter.Set[Key](in_=normal.channels))
 
 

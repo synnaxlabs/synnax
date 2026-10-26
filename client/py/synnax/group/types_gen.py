@@ -48,7 +48,7 @@ class Where(BaseModel):
         key: Selects by key.
     """
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     and_: list[Where] | None = Field(default=None, alias="and")
     or_: list[Where] | None = Field(default=None, alias="or")
@@ -75,6 +75,8 @@ class RetrieveRequest(BaseModel):
         limit: Is the most groups to return.
         offset: Is the number of matching groups to skip.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     where: Where | None = None
     search_term: str = ""

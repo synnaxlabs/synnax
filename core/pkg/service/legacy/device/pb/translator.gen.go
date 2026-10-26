@@ -21,6 +21,7 @@ import (
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	"github.com/synnaxlabs/x/filter"
 	filterpb "github.com/synnaxlabs/x/filter/pb"
+	xpb "github.com/synnaxlabs/x/pb"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -95,7 +96,7 @@ func StringSetFromPB(pb *StringSet) (filter.Set[string], error) {
 		r.Eq = pb.Eq
 	}
 	if pb.In != nil {
-		r.In = pb.In.Values
+		r.In = xpb.ListValues(pb.In.Values)
 	}
 	return r, nil
 }
@@ -341,128 +342,6 @@ func WheresFromPB(pbs []*Where) ([]device.Where, error) {
 	for i, pb := range pbs {
 		var err error
 		result[i], err = WhereFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// RetrieveRequestToPB converts RetrieveRequest to RetrieveRequest.
-func RetrieveRequestToPB(r device.RetrieveRequest) (*RetrieveRequest, error) {
-	pb := &RetrieveRequest{
-		SearchTerm:    r.SearchTerm,
-		Offset:        r.Offset,
-		IncludeStatus: r.IncludeStatus,
-		IncludeParent: r.IncludeParent,
-	}
-	if r.Where != nil {
-		var err error
-		pb.Where, err = WhereToPB(*r.Where)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if r.Limit != nil {
-		pb.Limit = r.Limit
-	}
-	return pb, nil
-}
-
-// RetrieveRequestFromPB converts RetrieveRequest to RetrieveRequest.
-func RetrieveRequestFromPB(pb *RetrieveRequest) (device.RetrieveRequest, error) {
-	var r device.RetrieveRequest
-	if pb == nil {
-		return r, nil
-	}
-	r.SearchTerm = pb.SearchTerm
-	r.Offset = pb.Offset
-	r.IncludeStatus = pb.IncludeStatus
-	r.IncludeParent = pb.IncludeParent
-	if pb.Where != nil {
-		val, err := WhereFromPB(pb.Where)
-		if err != nil {
-			return device.RetrieveRequest{}, err
-		}
-		r.Where = &val
-	}
-	if pb.Limit != nil {
-		r.Limit = pb.Limit
-	}
-	return r, nil
-}
-
-// RetrieveRequestsToPB converts a slice of RetrieveRequest to RetrieveRequest.
-func RetrieveRequestsToPB(rs []device.RetrieveRequest) ([]*RetrieveRequest, error) {
-	result := make([]*RetrieveRequest, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = RetrieveRequestToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// RetrieveRequestsFromPB converts a slice of RetrieveRequest to RetrieveRequest.
-func RetrieveRequestsFromPB(pbs []*RetrieveRequest) ([]device.RetrieveRequest, error) {
-	result := make([]device.RetrieveRequest, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = RetrieveRequestFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// RetrieveResponseToPB converts RetrieveResponse to RetrieveResponse.
-func RetrieveResponseToPB(r device.RetrieveResponse) (*RetrieveResponse, error) {
-	devicesVal, err := DevicesToPB(r.Devices)
-	if err != nil {
-		return nil, err
-	}
-	pb := &RetrieveResponse{
-		Devices: devicesVal,
-	}
-	return pb, nil
-}
-
-// RetrieveResponseFromPB converts RetrieveResponse to RetrieveResponse.
-func RetrieveResponseFromPB(pb *RetrieveResponse) (device.RetrieveResponse, error) {
-	var r device.RetrieveResponse
-	if pb == nil {
-		return r, nil
-	}
-	var err error
-	r.Devices, err = DevicesFromPB(pb.Devices)
-	if err != nil {
-		return device.RetrieveResponse{}, err
-	}
-	return r, nil
-}
-
-// RetrieveResponsesToPB converts a slice of RetrieveResponse to RetrieveResponse.
-func RetrieveResponsesToPB(rs []device.RetrieveResponse) ([]*RetrieveResponse, error) {
-	result := make([]*RetrieveResponse, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = RetrieveResponseToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// RetrieveResponsesFromPB converts a slice of RetrieveResponse to RetrieveResponse.
-func RetrieveResponsesFromPB(pbs []*RetrieveResponse) ([]device.RetrieveResponse, error) {
-	result := make([]device.RetrieveResponse, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = RetrieveResponseFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

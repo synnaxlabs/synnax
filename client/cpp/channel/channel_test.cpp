@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <string>
 
 #include <include/gtest/gtest.h>
@@ -231,14 +232,32 @@ TEST(TestChannel, testRetrieveManyOrder) {
     ASSERT_EQ(keys_from_channels(channels), std::vector<Key>({c.key, a.key, b.key}));
 }
 
-/// @brief it should match names literally, not as patterns.
-TEST(TestChannel, testRetrieveManyByNamesLiteral) {
+/// @brief it should treat a name that is not a valid channel name as a pattern.
+TEST(TestChannel, testRetrieveManyByNamePattern) {
     const auto client = new_test_client();
-    const auto ch = create_virtual_channel(client);
-    const auto channels = ASSERT_NIL_P(
-        client.channels.retrieve(std::vector<std::string>{ch.name, ".*"})
+    const auto prefix = make_unique_channel_name("pattern");
+    const auto a = ASSERT_NIL_P(
+        client.channels.create(prefix + "_a", x::telem::FLOAT32_T, true)
     );
-    ASSERT_EQ(keys_from_channels(channels), std::vector<Key>({ch.key}));
+    const auto b = ASSERT_NIL_P(
+        client.channels.create(prefix + "_b", x::telem::FLOAT32_T, true)
+    );
+    auto channels = ASSERT_NIL_P(
+        client.channels.retrieve(std::vector<std::string>{prefix + "_.*"})
+    );
+    auto keys = keys_from_channels(channels);
+    std::sort(keys.begin(), keys.end());
+    ASSERT_EQ(keys, std::vector<Key>({a.key, b.key}));
+}
+
+/// @brief it should match a valid channel name exactly.
+TEST(TestChannel, testRetrieveManyByNameExact) {
+    const auto client = new_test_client();
+    const auto a = create_virtual_channel(client);
+    const auto channels = ASSERT_NIL_P(
+        client.channels.retrieve(std::vector<std::string>{a.name, a.name + "_missing"})
+    );
+    ASSERT_EQ(keys_from_channels(channels), std::vector<Key>({a.key}));
 }
 
 /// @brief it should retrieve the channels that a where selects.

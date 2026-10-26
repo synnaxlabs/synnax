@@ -25,6 +25,7 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
 
+#include "core/pkg/api/rack/pb/rack.pb.h"
 #include "core/pkg/service/rack/pb/rack.pb.h"
 
 namespace synnax::rack {
@@ -103,11 +104,11 @@ struct RetrieveRequest {
     static RetrieveRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::rack::pb::RetrieveRequest;
-    [[nodiscard]] std::pair<::service::rack::pb::RetrieveRequest, x::errors::Error>
+    using proto_type = ::api::rack::pb::RetrieveRequest;
+    [[nodiscard]] std::pair<::api::rack::pb::RetrieveRequest, x::errors::Error>
     to_proto() const;
     static std::pair<RetrieveRequest, x::errors::Error>
-    from_proto(const ::service::rack::pb::RetrieveRequest &pb);
+    from_proto(const ::api::rack::pb::RetrieveRequest &pb);
 };
 
 /// @brief Rack is a collection container for hardware devices and tasks running on a
@@ -147,11 +148,11 @@ struct RetrieveResponse {
     static RetrieveResponse parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::rack::pb::RetrieveResponse;
-    [[nodiscard]] std::pair<::service::rack::pb::RetrieveResponse, x::errors::Error>
+    using proto_type = ::api::rack::pb::RetrieveResponse;
+    [[nodiscard]] std::pair<::api::rack::pb::RetrieveResponse, x::errors::Error>
     to_proto() const;
     static std::pair<RetrieveResponse, x::errors::Error>
-    from_proto(const ::service::rack::pb::RetrieveResponse &pb);
+    from_proto(const ::api::rack::pb::RetrieveResponse &pb);
 };
 
 const synnax::ontology::ID ONTOLOGY_TYPE("rack", "");

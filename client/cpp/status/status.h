@@ -21,6 +21,7 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
 
+#include "core/pkg/api/status/pb/status.pb.h"
 #include "core/pkg/transport/grpc/status/status.pb.h"
 
 namespace synnax::status {
@@ -29,7 +30,7 @@ const std::string STATUS_SET_CHANNEL_NAME = "sy_status_set";
 
 /// @brief Freighter retrieve transport.
 using RetrieveClient = freighter::
-    UnaryClient<grpc::status::RetrieveRequest, ::service::status::pb::RetrieveResponse>;
+    UnaryClient<grpc::status::RetrieveRequest, ::api::status::pb::RetrieveResponse>;
 
 /// @brief Freighter set transport.
 using SetClient = freighter::

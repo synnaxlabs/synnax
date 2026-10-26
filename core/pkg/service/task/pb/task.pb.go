@@ -698,134 +698,6 @@ func (x *Command) GetArgs() *structpb.Struct {
 	return nil
 }
 
-// RetrieveRequest is a request to retrieve tasks.
-type RetrieveRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// where selects the tasks to retrieve. An absent where selects all of them.
-	Where *Where `protobuf:"bytes,1,opt,name=where,proto3,oneof" json:"where,omitempty"`
-	// search_term keeps the tasks that match the term, closest match first.
-	SearchTerm string `protobuf:"bytes,2,opt,name=search_term,json=searchTerm,proto3" json:"search_term,omitempty"`
-	// limit is the most tasks to return.
-	Limit *uint32 `protobuf:"varint,3,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
-	// offset is the number of matching tasks to skip.
-	Offset uint32 `protobuf:"varint,4,opt,name=offset,proto3" json:"offset,omitempty"`
-	// include_status includes the status of each record.
-	IncludeStatus bool `protobuf:"varint,5,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RetrieveRequest) Reset() {
-	*x = RetrieveRequest{}
-	mi := &file_core_pkg_service_task_pb_task_proto_msgTypes[9]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RetrieveRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RetrieveRequest) ProtoMessage() {}
-
-func (x *RetrieveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_task_pb_task_proto_msgTypes[9]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RetrieveRequest.ProtoReflect.Descriptor instead.
-func (*RetrieveRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_task_pb_task_proto_rawDescGZIP(), []int{9}
-}
-
-func (x *RetrieveRequest) GetWhere() *Where {
-	if x != nil {
-		return x.Where
-	}
-	return nil
-}
-
-func (x *RetrieveRequest) GetSearchTerm() string {
-	if x != nil {
-		return x.SearchTerm
-	}
-	return ""
-}
-
-func (x *RetrieveRequest) GetLimit() uint32 {
-	if x != nil && x.Limit != nil {
-		return *x.Limit
-	}
-	return 0
-}
-
-func (x *RetrieveRequest) GetOffset() uint32 {
-	if x != nil {
-		return x.Offset
-	}
-	return 0
-}
-
-func (x *RetrieveRequest) GetIncludeStatus() bool {
-	if x != nil {
-		return x.IncludeStatus
-	}
-	return false
-}
-
-// RetrieveResponse holds the tasks a RetrieveRequest selects.
-type RetrieveResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// tasks are the tasks the request selects.
-	Tasks         []*Task `protobuf:"bytes,1,rep,name=tasks,proto3" json:"tasks,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RetrieveResponse) Reset() {
-	*x = RetrieveResponse{}
-	mi := &file_core_pkg_service_task_pb_task_proto_msgTypes[10]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RetrieveResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RetrieveResponse) ProtoMessage() {}
-
-func (x *RetrieveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_task_pb_task_proto_msgTypes[10]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RetrieveResponse.ProtoReflect.Descriptor instead.
-func (*RetrieveResponse) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_task_pb_task_proto_rawDescGZIP(), []int{10}
-}
-
-func (x *RetrieveResponse) GetTasks() []*Task {
-	if x != nil {
-		return x.Tasks
-	}
-	return nil
-}
-
 var File_core_pkg_service_task_pb_task_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_task_pb_task_proto_rawDesc = "" +
@@ -890,18 +762,7 @@ const file_core_pkg_service_task_pb_task_proto_rawDesc = "" +
 	"\x03key\x18\x03 \x01(\tR\x03key\x12\x1f\n" +
 	"\vconfig_hash\x18\x04 \x01(\tR\n" +
 	"configHash\x12+\n" +
-	"\x04args\x18\x05 \x01(\v2\x17.google.protobuf.StructR\x04args\"\xd3\x01\n" +
-	"\x0fRetrieveRequest\x121\n" +
-	"\x05where\x18\x01 \x01(\v2\x16.service.task.pb.WhereH\x00R\x05where\x88\x01\x01\x12\x1f\n" +
-	"\vsearch_term\x18\x02 \x01(\tR\n" +
-	"searchTerm\x12\x19\n" +
-	"\x05limit\x18\x03 \x01(\rH\x01R\x05limit\x88\x01\x01\x12\x16\n" +
-	"\x06offset\x18\x04 \x01(\rR\x06offset\x12%\n" +
-	"\x0einclude_status\x18\x05 \x01(\bR\rincludeStatusB\b\n" +
-	"\x06_whereB\b\n" +
-	"\x06_limit\"?\n" +
-	"\x10RetrieveResponse\x12+\n" +
-	"\x05tasks\x18\x01 \x03(\v2\x15.service.task.pb.TaskR\x05tasksB\xb0\x01\n" +
+	"\x04args\x18\x05 \x01(\v2\x17.google.protobuf.StructR\x04argsB\xb0\x01\n" +
 	"\x13com.service.task.pbB\tTaskProtoP\x01Z0github.com/synnaxlabs/synnax/pkg/service/task/pb\xa2\x02\x03STP\xaa\x02\x0fService.Task.Pb\xca\x02\x0fService\\Task\\Pb\xe2\x02\x1bService\\Task\\Pb\\GPBMetadata\xea\x02\x11Service::Task::Pbb\x06proto3"
 
 var (
@@ -916,28 +777,26 @@ func file_core_pkg_service_task_pb_task_proto_rawDescGZIP() []byte {
 	return file_core_pkg_service_task_pb_task_proto_rawDescData
 }
 
-var file_core_pkg_service_task_pb_task_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_core_pkg_service_task_pb_task_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_core_pkg_service_task_pb_task_proto_goTypes = []any{
-	(*StatusDetails)(nil),    // 0: service.task.pb.StatusDetails
-	(*Task)(nil),             // 1: service.task.pb.Task
-	(*WhereList)(nil),        // 2: service.task.pb.WhereList
-	(*UuidList)(nil),         // 3: service.task.pb.UuidList
-	(*UuidSet)(nil),          // 4: service.task.pb.UuidSet
-	(*RackKeyList)(nil),      // 5: service.task.pb.RackKeyList
-	(*RackKeySet)(nil),       // 6: service.task.pb.RackKeySet
-	(*Where)(nil),            // 7: service.task.pb.Where
-	(*Command)(nil),          // 8: service.task.pb.Command
-	(*RetrieveRequest)(nil),  // 9: service.task.pb.RetrieveRequest
-	(*RetrieveResponse)(nil), // 10: service.task.pb.RetrieveResponse
-	(*structpb.Struct)(nil),  // 11: google.protobuf.Struct
-	(*pb.Status)(nil),        // 12: service.status.pb.Status
-	(*pb1.String)(nil),       // 13: x.filter.pb.String
-	(*pb1.Bool)(nil),         // 14: x.filter.pb.Bool
+	(*StatusDetails)(nil),   // 0: service.task.pb.StatusDetails
+	(*Task)(nil),            // 1: service.task.pb.Task
+	(*WhereList)(nil),       // 2: service.task.pb.WhereList
+	(*UuidList)(nil),        // 3: service.task.pb.UuidList
+	(*UuidSet)(nil),         // 4: service.task.pb.UuidSet
+	(*RackKeyList)(nil),     // 5: service.task.pb.RackKeyList
+	(*RackKeySet)(nil),      // 6: service.task.pb.RackKeySet
+	(*Where)(nil),           // 7: service.task.pb.Where
+	(*Command)(nil),         // 8: service.task.pb.Command
+	(*structpb.Struct)(nil), // 9: google.protobuf.Struct
+	(*pb.Status)(nil),       // 10: service.status.pb.Status
+	(*pb1.String)(nil),      // 11: x.filter.pb.String
+	(*pb1.Bool)(nil),        // 12: x.filter.pb.Bool
 }
 var file_core_pkg_service_task_pb_task_proto_depIdxs = []int32{
-	11, // 0: service.task.pb.StatusDetails.data:type_name -> google.protobuf.Struct
-	11, // 1: service.task.pb.Task.config:type_name -> google.protobuf.Struct
-	12, // 2: service.task.pb.Task.status:type_name -> service.status.pb.Status
+	9,  // 0: service.task.pb.StatusDetails.data:type_name -> google.protobuf.Struct
+	9,  // 1: service.task.pb.Task.config:type_name -> google.protobuf.Struct
+	10, // 2: service.task.pb.Task.status:type_name -> service.status.pb.Status
 	7,  // 3: service.task.pb.WhereList.values:type_name -> service.task.pb.Where
 	3,  // 4: service.task.pb.UuidSet.in:type_name -> service.task.pb.UuidList
 	5,  // 5: service.task.pb.RackKeySet.in:type_name -> service.task.pb.RackKeyList
@@ -945,19 +804,17 @@ var file_core_pkg_service_task_pb_task_proto_depIdxs = []int32{
 	2,  // 7: service.task.pb.Where.or:type_name -> service.task.pb.WhereList
 	7,  // 8: service.task.pb.Where.not:type_name -> service.task.pb.Where
 	4,  // 9: service.task.pb.Where.key:type_name -> service.task.pb.UuidSet
-	13, // 10: service.task.pb.Where.name:type_name -> x.filter.pb.String
-	13, // 11: service.task.pb.Where.type:type_name -> x.filter.pb.String
+	11, // 10: service.task.pb.Where.name:type_name -> x.filter.pb.String
+	11, // 11: service.task.pb.Where.type:type_name -> x.filter.pb.String
 	6,  // 12: service.task.pb.Where.rack:type_name -> service.task.pb.RackKeySet
-	14, // 13: service.task.pb.Where.internal:type_name -> x.filter.pb.Bool
-	14, // 14: service.task.pb.Where.snapshot:type_name -> x.filter.pb.Bool
-	11, // 15: service.task.pb.Command.args:type_name -> google.protobuf.Struct
-	7,  // 16: service.task.pb.RetrieveRequest.where:type_name -> service.task.pb.Where
-	1,  // 17: service.task.pb.RetrieveResponse.tasks:type_name -> service.task.pb.Task
-	18, // [18:18] is the sub-list for method output_type
-	18, // [18:18] is the sub-list for method input_type
-	18, // [18:18] is the sub-list for extension type_name
-	18, // [18:18] is the sub-list for extension extendee
-	0,  // [0:18] is the sub-list for field type_name
+	12, // 13: service.task.pb.Where.internal:type_name -> x.filter.pb.Bool
+	12, // 14: service.task.pb.Where.snapshot:type_name -> x.filter.pb.Bool
+	9,  // 15: service.task.pb.Command.args:type_name -> google.protobuf.Struct
+	16, // [16:16] is the sub-list for method output_type
+	16, // [16:16] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_task_pb_task_proto_init() }
@@ -970,14 +827,13 @@ func file_core_pkg_service_task_pb_task_proto_init() {
 	file_core_pkg_service_task_pb_task_proto_msgTypes[4].OneofWrappers = []any{}
 	file_core_pkg_service_task_pb_task_proto_msgTypes[6].OneofWrappers = []any{}
 	file_core_pkg_service_task_pb_task_proto_msgTypes[7].OneofWrappers = []any{}
-	file_core_pkg_service_task_pb_task_proto_msgTypes[9].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_task_pb_task_proto_rawDesc), len(file_core_pkg_service_task_pb_task_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   11,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

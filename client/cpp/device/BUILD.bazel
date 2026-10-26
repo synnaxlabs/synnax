@@ -32,6 +32,7 @@ cc_library(
         "//client/cpp/rack",
         "//client/cpp/rack:key",
         "//client/cpp/status",
+        "//core/pkg/api/device:device_grpc",
         "//core/pkg/transport/grpc:api_grpc",
         "//freighter/cpp:freighter",
         "//x/cpp/errors",
