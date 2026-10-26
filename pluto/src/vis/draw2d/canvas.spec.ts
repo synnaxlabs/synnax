@@ -62,6 +62,7 @@ interface FakeContext {
   lineTo: Mock<(x: number, y: number) => void>;
   arc: Mock<(...args: number[]) => void>;
   setLineDash: Mock<(segments: number[]) => void>;
+  getLineDash: Mock<() => number[]>;
   beginPath: Mock<() => void>;
   save: Mock<() => void>;
   restore: Mock<() => void>;
@@ -71,6 +72,7 @@ interface FakeContext {
   fillStyle: string | CanvasGradient | CanvasPattern;
   strokeStyle: string | CanvasGradient | CanvasPattern;
   lineWidth: number;
+  lineDashOffset: number;
   globalAlpha: number;
 }
 
@@ -90,6 +92,8 @@ const METRICS: TextMetrics = {
  */
 const createFakeContext = (): FakeContext => {
   const writes: Write[] = [];
+  let lineDash: number[] = [];
+  const saved: { values: Record<string, unknown>; lineDash: number[] }[] = [];
   const values: Record<string, unknown> = {
     font: "10px sans-serif",
     fillStyle: "#000000",
@@ -121,10 +125,18 @@ const createFakeContext = (): FakeContext => {
     moveTo: vi.fn(),
     lineTo: vi.fn(),
     arc: vi.fn(),
-    setLineDash: vi.fn(),
+    setLineDash: vi.fn((segments: number[]) => {
+      lineDash = [...segments];
+    }),
+    getLineDash: vi.fn(() => [...lineDash]),
     beginPath: vi.fn(),
-    save: vi.fn(),
-    restore: vi.fn(),
+    save: vi.fn(() => saved.push({ values: { ...values }, lineDash })),
+    restore: vi.fn(() => {
+      const state = saved.pop();
+      if (state == null) return;
+      Object.assign(values, state.values);
+      lineDash = state.lineDash;
+    }),
     translate: vi.fn(),
     scale: vi.fn(),
   } as unknown as FakeContext;
@@ -373,6 +385,36 @@ describe("SugaredOffscreenCanvasRenderingContext2D", () => {
       expect(fake.translate).toHaveBeenCalledWith(2, 6);
       expect(fake.scale).toHaveBeenCalledWith(2, 3);
       expect(fake.strokeText).toHaveBeenCalledWith("hello", 0, 0, undefined);
+    });
+
+    // The wrapper scales the stroke settings when they are set, and the transform would
+    // scale them a second time.
+    it("should stroke text outlines with the stroke settings scaled once", () => {
+      const [ctx, fake] = create(scale.XY.magnify(xy.construct(2, 2)));
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 2]);
+      ctx.lineDashOffset = 3;
+      let atStroke: unknown;
+      fake.strokeText.mockImplementation(() => {
+        atStroke = {
+          lineWidth: fake.lineWidth,
+          lineDash: fake.getLineDash(),
+          lineDashOffset: fake.lineDashOffset,
+        };
+      });
+      ctx.strokeText("hello", 1, 2);
+      expect(atStroke).toEqual({ lineWidth: 1, lineDash: [4, 2], lineDashOffset: 3 });
+    });
+
+    it("should restore the stroke settings after stroked text", () => {
+      const [ctx, fake] = create(scale.XY.magnify(xy.construct(2, 2)));
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 2]);
+      ctx.lineDashOffset = 3;
+      ctx.strokeText("hello", 1, 2);
+      expect(fake.lineWidth).toBe(2);
+      expect(fake.getLineDash()).toEqual([8, 4]);
+      expect(fake.lineDashOffset).toBe(6);
     });
 
     it("should never mirror text under an inverted scale", () => {

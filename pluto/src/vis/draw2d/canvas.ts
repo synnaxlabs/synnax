@@ -634,9 +634,9 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
     this.drawText("fill", text, xy.construct(x, y), maxWidth, xy.ONE);
   }
 
-  // The canvas scales no glyphs, so each context passes its position and magnification
-  // down, and the bottom one applies the magnification as a transform. maxWidth is in
-  // glyph units, so the transform scales it too.
+  // Scaling a position does not scale glyphs, so each context passes its position and
+  // magnification down, and the bottom one applies the magnification as a transform.
+  // maxWidth is in glyph units, so the transform scales it too.
   private drawText(
     mode: "fill" | "stroke",
     text: string,
@@ -650,20 +650,28 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
       this.wrapped.drawText(mode, text, pos, maxWidth, mag);
       return;
     }
+    const { wrapped: w } = this;
     const draw = (x: number, y: number): void => {
-      if (mode === "fill") this.wrapped.fillText(text, x, y, maxWidth);
-      else this.wrapped.strokeText(text, x, y, maxWidth);
+      if (mode === "fill") w.fillText(text, x, y, maxWidth);
+      else w.strokeText(text, x, y, maxWidth);
     };
     if (xy.equals(mag, xy.ONE)) {
       draw(pos.x, pos.y);
       return;
     }
-    this.wrapped.save();
-    this.wrapped.translate(pos.x, pos.y);
+    w.save();
+    w.translate(pos.x, pos.y);
     // An inverted scale flips positions, but text never draws mirrored.
-    this.wrapped.scale(Math.abs(mag.x), Math.abs(mag.y));
+    const glyphScale = xy.construct(Math.abs(mag.x), Math.abs(mag.y));
+    w.scale(glyphScale.x, glyphScale.y);
+    if (mode === "stroke") {
+      // The stroke settings hold the x scale already, so undo it under the transform.
+      w.lineWidth /= glyphScale.x;
+      w.setLineDash(w.getLineDash().map((segment) => segment / glyphScale.x));
+      w.lineDashOffset /= glyphScale.x;
+    }
     draw(0, 0);
-    this.wrapped.restore();
+    w.restore();
   }
 
   measureText(text: string): TextMetrics {
