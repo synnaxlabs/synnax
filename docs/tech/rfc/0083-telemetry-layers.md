@@ -136,9 +136,11 @@ const { series, status, time: newest } = sub.value(pressure);
 - **`latest` limit**: The newest `count` raw samples in the window, or across all time
   when the request has no window. A value asks for 1, and a log asks for its page size.
 - **Snapshot**: `value(key)` returns exact series over the window, a status, and the
-  time of the newest sample. Statuses stay per key (RFC 0055 §3, principle 2). Every
-  series carries its block alignment (§3.4), so the x and y sources of a line pair
-  across requests. Series stay valid until the next `value` or `close`.
+  time of the newest sample. A `latest` snapshot also counts the samples appended to the
+  key, so a log appends only the samples past its last count. Statuses stay per key (RFC
+  0055 §3, principle 2). Every series carries its block alignment (§3.4), so the x and y
+  sources of a line pair across requests. Series stay valid until the next `value` or
+  `close`.
 - **Changes**: `onChange` carries no data. It tells the caller to pull again.
   `update(request)` replaces the request and does nothing for an equal one, and old
   tiles stand in until new ones land.
@@ -174,12 +176,14 @@ an exact index answers time questions with no second copy.
 - **Alignment**: At ingest the `Feed` sets each series' alignment to
   `(block << 32) | offset`, where `offset` counts index samples from the block start. A
   fetched block counts from 0. The open block continues the count of the join's history
-  read, which starts at the block start because raw reads fetch whole blocks, so the
-  `Feed` places streamed frames only after that read returns. A data series takes the
-  offsets of the index samples that share its Core alignment, in any frame. A gap in the
-  Core's sample index means the relay dropped frames, and marks the block out of date.
-  Fetched and streamed copies of a sample then get one alignment, and a block's
-  alignments change only when its content does. Streamed series split at block edges.
+  read, which starts at the block start because raw reads fetch whole blocks, so
+  streamed frames take block offsets only after that read returns. Until the index
+  joins, a series the join holds draws at 2^62 plus its Core alignment, above every
+  block alignment. A data series takes the offsets of the index samples that share its
+  Core alignment, in any frame. A gap in the Core's sample index means the relay dropped
+  frames, and marks the block out of date. Fetched and streamed copies of a sample then
+  get one alignment, and a block's alignments change only when its content does.
+  Streamed series split at block edges.
 - **Budget**: One byte budget covers all blocks. The least recently used block leaves
   first, and a block that a subscription holds never leaves.
 - **Live writes**: A streamed write goes into the newest raw block, which stays open,
@@ -332,8 +336,10 @@ virtual channel. No phase changes a stored format.
     bounds, not the byte budget, and a series streamed with no time range, from a writer
     that does not write the channel's index, can repeat samples of the read. A stream
     drop reads the newest samples again, and so does a history change that can reach the
-    samples held, which drops them first. Live samples show while that read fails, so a
-    read that lands after them drops the samples written while the stream was down.
+    samples held. The change drops them first and reads only up to the newest one, so
+    later samples stream, and the samples it reads again do not count as appended. Live
+    samples show while that read fails, so a read that lands after them drops the
+    samples written while the stream was down.
 
 ## 6 What this RFC does not cover
 
