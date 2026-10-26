@@ -50,6 +50,18 @@ class TestLog:
             (logging.ERROR, "error"),
         ]
 
+    def test_none_extra(
+        self, base: logging.Logger, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Should accept None as the extra fields at every level."""
+        logger = Logger(noop=False, base=base)
+        with caplog.at_level(logging.DEBUG):
+            logger.debug("debug", extra=None)
+            logger.info("info", extra=None)
+            logger.warn("warn", extra=None)
+            logger.error("error", extra=None)
+        assert len(caplog.records) == 4
+
     def test_args(self, base: logging.Logger, caplog: pytest.LogCaptureFixture) -> None:
         """Should format the message with the given arguments."""
         with caplog.at_level(logging.INFO):

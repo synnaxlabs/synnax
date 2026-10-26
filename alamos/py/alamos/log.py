@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from logging import Logger as BaseLogger
 from typing import Any
 
@@ -38,32 +39,35 @@ class Logger:
         self.base = base
         self._fields = {}
 
+    def _extra(self, extra: Mapping[str, object] | None) -> dict[str, object]:
+        return {**(extra or {}), **self._fields}
+
     @noopd
     def debug(self, /, msg: str, *args: Any, **kwargs: Any) -> None:
         """Logs a message at the Debug level"""
         if self.base is not None:
-            extra = {**kwargs.pop("extra", {}), **self._fields}
+            extra = self._extra(kwargs.pop("extra", None))
             self.base.debug(msg, *args, extra=extra, **kwargs)
 
     @noopd
     def info(self, /, msg: str, *args: Any, **kwargs: Any) -> None:
         """Logs a message at the Info level"""
         if self.base is not None:
-            extra = {**kwargs.pop("extra", {}), **self._fields}
+            extra = self._extra(kwargs.pop("extra", None))
             self.base.info(msg, *args, extra=extra, **kwargs)
 
     @noopd
     def warn(self, /, msg: str, *args: Any, **kwargs: Any) -> None:
         """Logs a message at the Warn level"""
         if self.base is not None:
-            extra = {**kwargs.pop("extra", {}), **self._fields}
+            extra = self._extra(kwargs.pop("extra", None))
             self.base.warning(msg, *args, extra=extra, **kwargs)
 
     @noopd
     def error(self, /, msg: str, *args: Any, **kwargs: Any) -> None:
         """Logs a message at the Error level"""
         if self.base is not None:
-            extra = {**kwargs.pop("extra", {}), **self._fields}
+            extra = self._extra(kwargs.pop("extra", None))
             self.base.error(msg, *args, extra=extra, **kwargs)
 
     def child_(self, /, meta: InstrumentationMeta) -> Logger:
