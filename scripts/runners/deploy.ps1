@@ -59,16 +59,16 @@ Copy-Item (Join-Path $Staging '*.py') $Dir -Force
 Remove-Item (Join-Path $Dir 'gh_token.txt') -ErrorAction SilentlyContinue
 Remove-Item $Staging -Recurse -Force
 
-$Started = Get-Date
-
 foreach ($name in $Tasks.Keys) {
     $task = $Tasks[$name]
     $launcher = Join-Path $Dir ('run_' + ($name -split ' ')[1] + '.cmd')
+    Remove-Item ($launcher -replace '\.cmd$', '.launches') -ErrorAction Ignore
     # ping is the sleep: timeout.exe fails without a console, as under SYSTEM.
     Set-Content -Path $launcher -Encoding ascii -Value @(
         '@echo off'
         'cd /d "%~dp0"'
         ':loop'
+        'echo launch>> "%~n0.launches"'
         "`"$Uv`" run $($task.Args) > $($task.Log) 2>&1"
         'ping -n 11 127.0.0.1 > nul'
         'goto loop'
@@ -88,13 +88,14 @@ $failed = @()
 foreach ($name in $Tasks.Keys) {
     "=== $name ($((Get-ScheduledTask -TaskName $name).State))"
     Get-Content (Join-Path $Dir $Tasks[$name].Log) -Tail 10 -ErrorAction Ignore
-    # The launcher waits 10 s before it relaunches a script that exits, so only the
-    # first launch starts within 5 s of $Started.
+    # The launcher logs a line per launch, so a script that exited and relaunched
+    # shows more than one, and one waiting to relaunch has no process.
+    $launches = Join-Path $Dir ('run_' + ($name -split ' ')[1] + '.launches')
+    $count = @(Get-Content $launches -ErrorAction Ignore).Count
     $script = [regex]::Escape(($Tasks[$name].Args -split ' ')[0])
     $up = Get-CimInstance Win32_Process | Where-Object {
-        $_.Name -eq 'uv.exe' -and $_.CommandLine -match $script -and
-        $_.CreationDate -lt $Started.AddSeconds(5)
+        $_.Name -eq 'uv.exe' -and $_.CommandLine -match $script
     }
-    if (-not $up) { $failed += $name }
+    if ($count -ne 1 -or -not $up) { $failed += $name }
 }
 if ($failed) { throw "Exited after start: $($failed -join ', ')" }
