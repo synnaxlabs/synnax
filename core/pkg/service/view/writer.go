@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -109,6 +110,8 @@ func (w Writer) validate(v View) error {
 		if variant.Where != nil {
 			_, err = status.MatchWhere[any](*variant.Where)
 		}
+	default:
+		return errors.Newf("view %s has the unknown variant %T", v.Base().Key, variant)
 	}
 	return validate.PathedError(err, "where")
 }
