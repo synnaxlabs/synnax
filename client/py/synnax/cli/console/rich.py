@@ -17,7 +17,7 @@ from synnax.cli.console.protocol import Console, R
 _SYNNAX_PRIMARY_Z = "#3774D0"
 
 
-class RichConsole:
+class Rich:
     """A Console implementation using Rich."""
 
     info_color: str

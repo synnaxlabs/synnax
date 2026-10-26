@@ -18,10 +18,16 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/encoding"
+	"github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func request(username, pwd string) apiauth.LoginRequest {
@@ -31,6 +37,37 @@ func request(username, pwd string) apiauth.LoginRequest {
 
 func requestCtx(ctx context.Context) freighter.Context {
 	return freighter.Context{Context: ctx, Params: freighter.Params{}}
+}
+
+func authed(ctx context.Context, token string) freighter.Context {
+	GinkgoHelper()
+	fctx := requestCtx(ctx)
+	fctx.Variant = freighter.VariantUnary
+	fctx.Set(fiber.HeaderAuthorization, "Bearer "+token)
+	var seen freighter.Context
+	MustSucceed(apiauth.Middleware(authSvc).Exec(fctx, freighter.FinalizerFunc(
+		func(c freighter.Context) (freighter.Context, error) {
+			seen = c
+			return c, nil
+		},
+	)))
+	return seen
+}
+
+func createUser(ctx context.Context, username, pwd string) user.User {
+	GinkgoHelper()
+	u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{Username: username}))
+	Expect(passwordSvc.NewWriter(nil).Set(ctx, u.OntologyID(), auth.Credentials{
+		Username: username,
+		Password: pwd,
+	})).To(Succeed())
+	return u
+}
+
+func passwordProof(username, pwd string) auth.Proof {
+	return auth.Proof{Variant: auth.PasswordProof{
+		Credentials: auth.Credentials{Username: username, Password: pwd},
+	}}
 }
 
 var _ = Describe("NewService", func() {
@@ -122,7 +159,7 @@ var _ = Describe("ChangePassword", func() {
 				apiSvc.Login(requestCtx(ctx), request(own.Username, own.Password)),
 			)
 			fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
-			fctx.Set("Session", MustSucceed(authSvc.Authenticate(ctx, kept.Token)).Key)
+			fctx.Set("Session", MustSucceed(authSvc.Authenticate(ctx, kept.Token)))
 			Expect(apiSvc.ChangePassword(fctx, nil, apiauth.ChangePasswordRequest{
 				Credentials: own,
 				NewPassword: "new",
@@ -159,7 +196,7 @@ var _ = Describe("Middleware", func() {
 	passthrough := freighter.FinalizerFunc(
 		func(c freighter.Context) (freighter.Context, error) { return c, nil },
 	)
-	It("Should put the session on a unary request", func(ctx SpecContext) {
+	It("Should put the subject on a unary request", func(ctx SpecContext) {
 		var seen freighter.Context
 		MustSucceed(mw.Exec(
 			withToken(ctx, freighter.VariantUnary),
@@ -171,7 +208,6 @@ var _ = Describe("Middleware", func() {
 			),
 		))
 		Expect(apiauth.GetSubject(seen)).To(Equal(root.OntologyID()))
-		Expect(apiauth.GetCredential(seen)).ToNot(Equal(uuid.Nil()))
 	})
 	It("Should reject a request without a token", func(ctx SpecContext) {
 		Expect(mw.Exec(requestCtx(ctx), passthrough)).Error().
@@ -210,5 +246,169 @@ var _ = Describe("Middleware", func() {
 				},
 			),
 		)).To(MatchError(errBoom))
+	})
+})
+
+var _ = Describe("CreateSession", func() {
+	It("Should open a session for a password proof", func(ctx SpecContext) {
+		res := MustSucceed(apiSvc.CreateSession(
+			requestCtx(ctx),
+			apiauth.SessionCreateRequest{Proof: passwordProof(
+				creds.Username,
+				creds.Password,
+			)},
+		))
+		session := MustSucceed(authSvc.Authenticate(ctx, res.Token))
+		Expect(session.Key).To(Equal(res.Session.Key))
+		Expect(res.Session.Subject).To(Equal(root.OntologyID()))
+		Expect(res.Session.Credential).To(Equal(session.Credential))
+		Expect(res.User).To(HaveValue(Equal(root)))
+	})
+	DescribeTable("Should leave the hash off the wire", func(
+		ctx SpecContext,
+		codec encoding.Codec,
+	) {
+		res := MustSucceed(apiSvc.CreateSession(
+			requestCtx(ctx),
+			apiauth.SessionCreateRequest{Proof: passwordProof(
+				creds.Username,
+				creds.Password,
+			)},
+		))
+		Expect(res.Session.Hash).To(HaveLen(32))
+		var decoded map[string]any
+		Expect(codec.Decode(
+			ctx,
+			MustSucceed(codec.Encode(ctx, res.Session)),
+			&decoded,
+		)).To(Succeed())
+		Expect(decoded).To(HaveKey("key"))
+		Expect(decoded).ToNot(HaveKey("hash"))
+	},
+		Entry("JSON", json.Codec),
+		Entry("msgpack", msgpack.Codec),
+	)
+	It("Should reject a wrong password", func(ctx SpecContext) {
+		Expect(apiSvc.CreateSession(
+			requestCtx(ctx),
+			apiauth.SessionCreateRequest{Proof: passwordProof(creds.Username, "wrong")},
+		)).Error().To(MatchError(auth.ErrInvalidCredentials))
+	})
+	It("Should reject a proof with no method", func(ctx SpecContext) {
+		Expect(apiSvc.CreateSession(
+			requestCtx(ctx),
+			apiauth.SessionCreateRequest{},
+		)).Error().To(MatchError(validate.ErrValidation))
+	})
+})
+
+var _ = Describe("RenewSession", func() {
+	It("Should succeed for a live session", func(ctx SpecContext) {
+		Expect(apiSvc.RenewSession(ctx, struct{}{})).Error().ToNot(HaveOccurred())
+	})
+})
+
+var _ = Describe("Sessions", func() {
+	var (
+		bob       user.User
+		bobToken  string
+		rootToken string
+	)
+	login := func(ctx context.Context, username, pwd string) apiauth.SessionCreateResponse {
+		GinkgoHelper()
+		return MustSucceed(apiSvc.CreateSession(
+			requestCtx(ctx),
+			apiauth.SessionCreateRequest{Proof: passwordProof(username, pwd)},
+		))
+	}
+	BeforeEach(func(ctx SpecContext) {
+		bob = createUser(ctx, "bob-"+uuid.New().String(), "p")
+		bobToken = login(ctx, bob.Username, "p").Token
+		rootToken = login(ctx, creds.Username, creds.Password).Token
+	})
+	Describe("RetrieveSessions", func() {
+		It("Should list the caller's own sessions by default", func(ctx SpecContext) {
+			res := MustSucceed(apiSvc.RetrieveSessions(
+				authed(ctx, bobToken),
+				apiauth.SessionRetrieveRequest{},
+			))
+			Expect(res.Sessions).To(HaveLen(1))
+			Expect(res.Sessions[0].Subject).To(Equal(bob.OntologyID()))
+		})
+		It(
+			"Should let the owner list another subject's sessions",
+			func(ctx SpecContext) {
+				res := MustSucceed(apiSvc.RetrieveSessions(
+					authed(ctx, rootToken),
+					apiauth.SessionRetrieveRequest{
+						Subjects: []ontology.ID{bob.OntologyID()},
+					},
+				))
+				Expect(res.Sessions).To(HaveLen(1))
+				Expect(res.Sessions[0].Subject).To(Equal(bob.OntologyID()))
+			},
+		)
+		It(
+			"Should return an empty list for a subject with no sessions",
+			func(ctx SpecContext) {
+				idle := createUser(ctx, "idle-"+uuid.New().String(), "p")
+				res := MustSucceed(apiSvc.RetrieveSessions(
+					authed(ctx, rootToken),
+					apiauth.SessionRetrieveRequest{
+						Subjects: []ontology.ID{idle.OntologyID()},
+					},
+				))
+				Expect(res.Sessions).ToNot(BeNil())
+				Expect(res.Sessions).To(BeEmpty())
+			},
+		)
+		It(
+			"Should deny a user listing another subject's sessions",
+			func(ctx SpecContext) {
+				Expect(apiSvc.RetrieveSessions(
+					authed(ctx, bobToken),
+					apiauth.SessionRetrieveRequest{
+						Subjects: []ontology.ID{root.OntologyID()},
+					},
+				)).Error().To(MatchError(access.ErrDenied))
+			},
+		)
+	})
+	Describe("DeleteSessions", func() {
+		It("Should end the caller's own session", func(ctx SpecContext) {
+			key := MustSucceed(authSvc.Authenticate(ctx, bobToken)).Key
+			Expect(apiSvc.DeleteSessions(
+				authed(ctx, bobToken),
+				apiauth.SessionDeleteRequest{Keys: []auth.SessionKey{key}},
+			)).Error().ToNot(HaveOccurred())
+			Expect(authSvc.Authenticate(ctx, bobToken)).Error().
+				To(MatchError(auth.ErrInvalidToken))
+		})
+		It(
+			"Should deny a user ending another subject's session",
+			func(ctx SpecContext) {
+				key := MustSucceed(authSvc.Authenticate(ctx, rootToken)).Key
+				Expect(apiSvc.DeleteSessions(
+					authed(ctx, bobToken),
+					apiauth.SessionDeleteRequest{Keys: []auth.SessionKey{key}},
+				)).Error().To(MatchError(access.ErrDenied))
+				MustSucceed(authSvc.Authenticate(ctx, rootToken))
+			},
+		)
+		It("Should let the owner end another subject's session", func(ctx SpecContext) {
+			key := MustSucceed(authSvc.Authenticate(ctx, bobToken)).Key
+			Expect(apiSvc.DeleteSessions(
+				authed(ctx, rootToken),
+				apiauth.SessionDeleteRequest{Keys: []auth.SessionKey{key}},
+			)).Error().ToNot(HaveOccurred())
+			Expect(authSvc.Authenticate(ctx, bobToken)).Error().
+				To(MatchError(auth.ErrInvalidToken))
+		})
+		It("Should ignore unknown keys", func(ctx SpecContext) {
+			Expect(apiSvc.DeleteSessions(
+				authed(ctx, bobToken),
+				apiauth.SessionDeleteRequest{Keys: []auth.SessionKey{uuid.New()}},
+			)).Error().ToNot(HaveOccurred())
+		})
 	})
 })

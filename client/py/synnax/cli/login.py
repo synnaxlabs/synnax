@@ -12,10 +12,10 @@ from pathlib import Path
 
 import click
 
+from synnax import config
+from synnax.cli import console
 from synnax.cli.connect import connect_from_options, prompt_client_options
-from synnax.cli.console.rich import RichConsole
 from synnax.cli.flow import Context
-from synnax.config import ClusterConfig, ClustersConfig, ConfigFile
 
 
 @click.command()
@@ -23,13 +23,13 @@ def login() -> None:
     """Logs the user into a Synnax cluster and saves the parameters to the configuration
     file.
     """
-    flow_ctx = Context(console=RichConsole())
+    flow_ctx = Context(console=console.Rich())
     options = prompt_client_options(flow_ctx)
     synnax = connect_from_options(flow_ctx, options)
     if synnax is None:
         return
-    cfg = ClustersConfig(ConfigFile(Path(os.path.expanduser("~/.synnax"))))
-    cfg.set(ClusterConfig(options=options))
+    cfg = config.Clusters(config.File(Path(os.path.expanduser("~/.synnax"))))
+    cfg.set(config.Cluster(options=options))
     flow_ctx.console.info(_SUCCESSFUL_LOGIN)
 
 

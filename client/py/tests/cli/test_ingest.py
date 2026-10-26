@@ -9,7 +9,7 @@
 
 import pytest
 
-from synnax.cli.console import MockConsole
+from synnax.cli import console
 from synnax.cli.flow import Context
 from synnax.cli.ingest import _pure_ingest
 from synnax.synnax import Synnax
@@ -22,7 +22,7 @@ from .data import DATA_DIR
 class TestIngest:
     def test_valid_ingest(self, client: Synnax) -> None:
         try:
-            c = MockConsole(
+            c = console.Mock(
                 responses=[
                     True,  # Ingest all channels?
                     True,  # Channels not found, create them?

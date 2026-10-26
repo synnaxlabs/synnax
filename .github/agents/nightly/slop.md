@@ -1,6 +1,6 @@
 # Theme: slop
 
-Remove code and comments that break the `CLAUDE.md` rules. Start with the files that
+Remove code and comments that break the `AGENTS.md` rules. Start with the files that
 changed on `main` in the last 7 days (`git log --since=7.days --name-only main`), since
 new code is where slop lands.
 
