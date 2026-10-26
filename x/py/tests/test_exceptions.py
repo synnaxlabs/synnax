@@ -78,7 +78,8 @@ class TestDecode:
         assert isinstance(exc, _Error)
         assert str(exc) == "cat"
 
-    def test_isolated(self) -> None:
+    def test_isolated(self, registry: Registry) -> None:
         """Should not decode through the providers of another registry."""
-        exc = Registry().decode(ExceptionPayload(type=_TYPE, data="cat"))
-        assert type(exc) is Exception
+        pld = ExceptionPayload(type=_TYPE, data="cat")
+        assert isinstance(registry.decode(pld), _Error)
+        assert type(Registry().decode(pld)) is Exception
