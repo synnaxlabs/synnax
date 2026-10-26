@@ -13,7 +13,7 @@ from x import filter
 
 
 class Where(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     and_: list["Where"] | None = Field(default=None, alias="and")
     key: filter.Set[str] | None = None

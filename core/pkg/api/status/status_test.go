@@ -287,6 +287,19 @@ var _ = Describe("Service.Retrieve", func() {
 			Expect(res.Statuses).To(HaveExactElements(HaveField("Key", s.Key)))
 		},
 	)
+
+	It("Should return a path error under where for an invalid where", func(
+		ctx SpecContext,
+	) {
+		Expect(apiSvc.Retrieve(AuthedCtx(ctx, author), apistatus.RetrieveRequest{
+			Where: &status.Where{
+				Variant: &filter.Set[status.Variant]{Eq: new(status.Variant("bogus"))},
+			},
+		})).Error().To(SatisfyAll(
+			BeAssignableToTypeOf(validate.PathError{}),
+			MatchError(`where.variant.eq: invalid variant "bogus": validation error`),
+		))
+	})
 })
 
 var _ = Describe("Service.Rename", func() {
@@ -365,11 +378,16 @@ var _ = Describe("Service.Rename", func() {
 })
 
 var _ = Describe("RetrieveRequest", func() {
-	It("Should reject a member that the request does not declare", func() {
-		var req apistatus.RetrieveRequest
-		Expect(json.Unmarshal([]byte(`{"keys":["status-a"]}`), &req)).To(SatisfyAll(
-			MatchError(json.ErrUnknownName),
-			MatchError(ContainSubstring(`unknown object member name "keys"`)),
-		))
-	})
+	DescribeTable(
+		"Should reject a member that the request does not declare",
+		func(body string) {
+			var req apistatus.RetrieveRequest
+			Expect(json.Unmarshal([]byte(body), &req)).To(SatisfyAll(
+				MatchError(json.ErrUnknownName),
+				MatchError(ContainSubstring(`unknown object member name "keys"`)),
+			))
+		},
+		Entry("at the top", `{"keys":["status-a"]}`),
+		Entry("in a nested where", `{"where":{"or":[{"keys":[]}]}}`),
+	)
 })

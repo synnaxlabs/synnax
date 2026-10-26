@@ -246,6 +246,17 @@ var _ = Describe("Service", func() {
 				})).To(Equal([]channel.Key{byAlias.Key(), byName.Key()}))
 			})
 
+			It("Should page the merged list of alias and name matches", func(
+				ctx SpecContext,
+			) {
+				Expect(retrieve(ctx, apichannel.RetrieveRequest{
+					Where:      both,
+					SearchTerm: term,
+					Limit:      new(uint32(1)),
+					Offset:     1,
+				})).To(Equal([]channel.Key{byName.Key()}))
+			})
+
 			It("Should require retrieve access on the aliases it fills", func(
 				ctx SpecContext,
 			) {
@@ -304,6 +315,16 @@ var _ = Describe("Service", func() {
 				),
 			))
 		})
+	})
+})
+
+var _ = Describe("AliasedRetrieveRequest", func() {
+	It("Should reject a bare channel request", func() {
+		var req apichannel.AliasedRetrieveRequest
+		Expect(json.Unmarshal([]byte(`{"where":{}}`), &req)).To(SatisfyAll(
+			BeAssignableToTypeOf(&json.SemanticError{}),
+			MatchError(ContainSubstring(`unknown object member name "where"`)),
+		))
 	})
 })
 

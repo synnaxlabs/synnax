@@ -16,13 +16,14 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/resolution"
 	. "github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("UnionTagMethod", func() {
 	It("Should name the tag method after the discriminator", func() {
-		method, ok := naming.UnionTagMethod(resolution.UnionForm{Discriminator: "type"})
-		Expect(ok).To(BeTrue())
-		Expect(method).To(Equal("Type"))
+		Expect(MustBeOk(naming.UnionTagMethod(
+			resolution.UnionForm{Discriminator: "type"},
+		))).To(Equal("Type"))
 	})
 
 	It("Should report a discriminator that collides with the Variant field", func() {

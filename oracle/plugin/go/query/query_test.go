@@ -350,8 +350,10 @@ var _ = Describe("Go Query Plugin", func() {
 			},
 		),`,
 							"i.search,",
+							"func MatchSearch(term string) Filter {",
+							"return r.indexes.search.Filter(term)",
 							"func (r Retrieve) Search(term string) Retrieve",
-							"r.gorp = r.gorp.Where(r.indexes.search.Filter(term))",
+							"return r.Where(MatchSearch(term))",
 						).
 						ToNotContain("execSearch", "searchTerm", "KeysFromOntologyIDs")
 				},

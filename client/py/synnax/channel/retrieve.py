@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import json
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -27,7 +28,7 @@ from synnax.exceptions import NotFoundError
 from x import filter
 
 
-class _RetrieveRequest(BaseModel):
+class _AliasedRetrieveRequest(BaseModel):
     request: RetrieveRequest
     range_key: UUID | None = None
 
@@ -78,7 +79,7 @@ class Retriever:
         """
         return self._client.send(
             "/channel/retrieve",
-            _RetrieveRequest(request=req, range_key=range_key),
+            _AliasedRetrieveRequest(request=req, range_key=range_key),
             RetrieveResponse,
         ).channels
 
@@ -93,5 +94,5 @@ def retrieve_required(r: Retriever, channels: Params) -> list[Payload]:
         found = {c.key for c in results}
     not_found: list[Key | str] = [p for p in normal.channels if p not in found]
     if len(not_found) > 0:
-        raise NotFoundError(f"Could not find channels: {not_found}")
+        raise NotFoundError(f"channels not found matching {json.dumps(not_found)}")
     return results

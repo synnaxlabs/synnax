@@ -702,7 +702,7 @@ class Client:
         include_parent: bool = False,
     ) -> Range | list[Range]:
         """Retrieves one range by key or name, or a list of ranges that match the
-        given filters. A filter left as None does not filter.
+        given filters. A filter left at its default does not filter.
 
         :param key: The key of one range to retrieve.
         :param name: The name of one range to retrieve.

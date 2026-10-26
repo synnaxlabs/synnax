@@ -1962,8 +1962,8 @@ type structData struct {
 	ModelConfig string
 }
 
-// modelConfig returns the model_config of a class whose fields have keyword aliases
-// and that decodes strictly.
+// modelConfig returns the model_config of a class whose fields have keyword aliases and
+// that decodes strictly.
 func modelConfig(hasAlias, strict bool) string {
 	var opts []string
 	if hasAlias {

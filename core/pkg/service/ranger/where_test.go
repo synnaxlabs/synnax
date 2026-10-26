@@ -10,46 +10,20 @@
 package ranger_test
 
 import (
-	"encoding/json/jsontext"
 	"encoding/json/v2"
-	"os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// The case table is shared with the TypeScript matches, so that the Core and the client
-// cache agree on every filter.
-const vectorsPath = "../../../testdata/filter/vectors.json"
-
-type whereCase struct {
-	Name     string       `json:"name"`
-	Where    ranger.Where `json:"where"`
-	Expected []string     `json:"expected"`
-	// ServerComputed is for the TypeScript matches. The Core computes every case.
-	ServerComputed bool `json:"server_computed"`
-}
-
-type vectors struct {
-	Records map[string]ranger.Range `json:"records"`
-	Cases   []whereCase             `json:"cases"`
-}
-
 var _ = Describe("Where", func() {
-	var v vectors
-	var entities map[string]jsontext.Value
-	Expect(json.Unmarshal(MustSucceed(os.ReadFile(vectorsPath)), &entities)).
-		To(Succeed())
-	Expect(json.Unmarshal(
-		entities["ranges"],
-		&v,
-		json.RejectUnknownMembers(true),
-	)).To(Succeed())
+	v := MustSucceed(testutil.ReadVectors[ranger.Range, ranger.Where]("ranges"))
 	keys := lo.MapEntries(v.Records, func(
 		alias string,
 		r ranger.Range,
@@ -94,7 +68,7 @@ var _ = Describe("Where", func() {
 				return keys[r.Key]
 			})).To(ConsistOf(expected))
 		},
-		lo.Map(v.Cases, func(c whereCase, _ int) TableEntry {
+		lo.Map(v.Cases, func(c testutil.Case[ranger.Where], _ int) TableEntry {
 			return Entry(c.Name, c.Where, c.Expected)
 		}),
 	)

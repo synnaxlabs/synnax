@@ -47,7 +47,6 @@ message RetrieveRequest {
   api.task.pb.RetrieveRequest request = 6;
 }
 
-
 message DeleteRequest {
   repeated string keys = 1;
 }

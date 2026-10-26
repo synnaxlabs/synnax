@@ -21,14 +21,12 @@ export type ChannelRetriever = (channels: channel.Params) => Promise<channel.Pay
 /** Fetches channel payloads, throwing a {@link NotFoundError} when any is missing. */
 const retrieveRequired = async (
   retrieve: ChannelRetriever,
-  channels: channel.Params,
+  channels: ReturnType<typeof analyzeParams>["normalized"],
 ): Promise<channel.Payload[]> => {
-  const { normalized } = analyzeParams(channels);
-  const results = await retrieve(normalized);
-  const notFound: (channel.Key | channel.Name)[] = [];
-  normalized.forEach((v) => {
-    if (results.find((c) => c.name === v || c.key === v) == null) notFound.push(v);
-  });
+  const results = await retrieve(channels);
+  const found = new Set<channel.Key | channel.Name>();
+  results.forEach(({ key, name }) => found.add(key).add(name));
+  const notFound = channels.filter((v) => !found.has(v));
   if (notFound.length > 0)
     throw new NotFoundError(`channels not found matching ${JSON.stringify(notFound)}`);
   return results;
@@ -72,13 +70,7 @@ export class ReadAdapter {
       this.keys = new Set(normalized);
       return true;
     }
-    const a = new Map<channel.Key, string>();
-    this.adapter = a;
-    normalized.forEach((name) => {
-      const channel = fetched.find((channel) => channel.name === name);
-      if (channel == null) throw new Error(`Channel ${name} not found`);
-      a.set(channel.key, channel.name);
-    });
+    this.adapter = new Map(fetched.map((c) => [c.key, c.name]));
     this.keys = new Set(this.adapter.keys());
     return true;
   }
@@ -137,7 +129,8 @@ export class WriteAdapter {
   }
 
   async update(channels: channel.Params): Promise<boolean> {
-    const results = await retrieveRequired(this.retrieveChannels, channels);
+    const { normalized } = analyzeParams(channels);
+    const results = await retrieveRequired(this.retrieveChannels, normalized);
     const newKeys = results.map((c) => c.key);
     const previousKeySet = new Set(this.keys);
     const newKeySet = new Set(newKeys);

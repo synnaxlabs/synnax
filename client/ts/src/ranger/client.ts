@@ -38,7 +38,6 @@ import {
   ontologyID,
   type Payload,
   payloadZ,
-  type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/ranger/types.gen";
@@ -249,14 +248,11 @@ export class Range {
 }
 
 // Every retrieve includes labels and parents, so callers cannot set either flag.
-const retrieveMultipleParamsZ = retrieveRequestZ.omit({
+const callerRequestZ = retrieveRequestZ.omit({
   includeLabels: true,
   includeParent: true,
 });
-export type RetrieveMultipleParams = Omit<
-  RetrieveRequest,
-  "includeLabels" | "includeParent"
->;
+export type RetrieveMultipleParams = z.infer<typeof callerRequestZ>;
 
 /**
  * Canonicalizes every retrieve shape addressing more than one range. The time range arm
@@ -271,7 +267,7 @@ const retrieveMultiParamsZ = z.union([
   TimeRange.z.transform((overlaps): RetrieveMultipleParams => ({
     where: { overlaps },
   })),
-  retrieveMultipleParamsZ,
+  callerRequestZ,
 ]);
 
 /**

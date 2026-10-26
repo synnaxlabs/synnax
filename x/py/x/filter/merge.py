@@ -11,9 +11,12 @@ from pydantic import BaseModel
 
 
 def merge[W: BaseModel](where: W | None, flat: W) -> W:
-    """Returns where and flat joined by and. A flat tree with no lines adds nothing.
+    """Joins where and flat with an and. A flat tree with no lines adds nothing.
 
-    Clients build flat from the keyword arguments of a retrieve.
+    :param where: The tree the caller passed, or None.
+    :param flat: The tree a client builds from the keyword arguments of a retrieve.
+        Its type must declare an ``and_`` field.
+    :returns: The joined tree.
     """
     if where is None:
         return flat

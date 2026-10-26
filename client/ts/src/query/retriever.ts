@@ -33,22 +33,13 @@ const soleMember = (value: Record<string, unknown>): [string, unknown] | null =>
   return set.length === 1 ? set[0] : null;
 };
 
-/** The element type of the `in` list on the field line of a filter W. */
-type InElement<W, F extends string> =
-  NonNullable<W> extends { [P in F]?: { in?: Array<infer E> } } ? E : unknown;
-
 /** @returns the list of a filter that only matches field against a list, or null. */
-export const whereIn = <W, F extends string>(
-  where: W,
-  field: F,
-): Array<InElement<W, F>> | null => {
+const whereIn = (where: unknown, field: string): unknown[] | null => {
   if (!isObject(where)) return null;
   const line = soleMember(where);
   if (line?.[0] !== field || !isObject(line[1])) return null;
   const op = soleMember(line[1]);
-  return op?.[0] === "in" && Array.isArray(op[1])
-    ? (op[1] as Array<InElement<W, F>>)
-    : null;
+  return op?.[0] === "in" && Array.isArray(op[1]) ? op[1] : null;
 };
 
 /**

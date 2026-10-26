@@ -82,6 +82,15 @@ var _ = Describe("Python Types Plugin", func() {
 			ExpectContent(resp, "filter/types_gen.py").ToContain(strict)
 		})
 
+		It("Should keep the defaults of a filter request", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
+			ExpectContent(resp, "thing/types_gen.py").ToContain(
+				"limit: int | None = Field(default=None, ge=0, le=4294967295)",
+				"offset: int = Field(default=0, ge=0, le=4294967295)",
+			)
+		})
+
 		Context("field-level omit", func() {
 			It("Should leave out a field omitted in py", func(ctx SpecContext) {
 				source := `

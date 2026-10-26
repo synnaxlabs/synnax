@@ -407,6 +407,27 @@ var _ = Describe("Alias", Ordered, func() {
 			Expect(search(ctx, both(), 1, 2)).To(BeEmpty())
 		})
 
+		It("Should list a channel that matches by alias and by name once", func(
+			ctx SpecContext,
+		) {
+			Expect(
+				aliasSvc.NewWriter(tx).Set(ctx, r.Key, byName.Key(), term+" outlet"),
+			).To(Succeed())
+			second := channel.Channel{
+				DataType: telem.Float32T,
+				Name:     term + "_second",
+				Virtual:  true,
+			}
+			Expect(channelSvc.NewWriter(nil).Create(ctx, &second)).To(Succeed())
+			q := func() channel.Retrieve {
+				return channelSvc.NewRetrieve().
+					Where(channel.MatchKeys(byName.Key(), second.Key()))
+			}
+			Expect(search(ctx, q(), 0, 0)).
+				To(Equal([]channel.Key{byName.Key(), second.Key()}))
+			Expect(search(ctx, q(), 1, 1)).To(Equal([]channel.Key{second.Key()}))
+		})
+
 		It("Should leave out an alias match that the query rejects", func(
 			ctx SpecContext,
 		) {

@@ -10,6 +10,7 @@
 package filter_test
 
 import (
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -223,6 +224,26 @@ var _ = Describe("TS Filter Plugin", func() {
 				"filter thing.Where: the bare line name names no field of Wire, " +
 					"which the cache holds",
 			)))
+		})
+
+		It("Should reject an operator member it cannot check", func(ctx SpecContext) {
+			loader.Add(
+				"schemas/x/filter",
+				`@ts output "x/ts/src/filter"`+strings.Replace(
+					FilterSchema,
+					"in T[]?\n\t@pb omit\n}\nOrdered",
+					"in T[]?\n\tgt T?\n\t@pb omit\n}\nOrdered",
+					1,
+				),
+			)
+			req := MustGenerateRequest(ctx, thing+`
+				Where filter Thing {
+					key
+				}
+			`, "thing", loader)
+			Expect(p.Generate(req)).Error().To(MatchError(
+				"filter thing.Where: line key: ts/filter cannot check the member gt of Set",
+			))
 		})
 
 		It("Should skip a filter with no TypeScript output", func(ctx SpecContext) {

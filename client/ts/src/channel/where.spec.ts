@@ -7,28 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it } from "vitest";
+import { describe } from "vitest";
 
 import { payloadZ, whereZ } from "@/channel/types.gen";
 import { LINES } from "@/channel/where";
 import { matches, serverComputed } from "@/channel/where.gen";
-import { readVectors } from "@/testutil/vectors";
-
-const { records, cases } = readVectors("channels", payloadZ, whereZ);
+import { itMatchesVectors, readVectors } from "@/testutil/vectors";
 
 describe("Where", () => {
-  cases.forEach(({ name, where, expected, serverComputed: computed }) => {
-    if (computed === true)
-      it(`should mark the case as server-computed: ${name}`, () => {
-        expect(serverComputed(LINES, where)).toBe(true);
-      });
-    else
-      it(`should match the case: ${name}`, () => {
-        expect(serverComputed(LINES, where)).toBe(false);
-        const matched = records
-          .filter(([, r]) => matches(LINES, r, where))
-          .map(([alias]) => alias);
-        expect(matched.sort()).toEqual([...expected].sort());
-      });
-  });
+  itMatchesVectors(
+    readVectors("channels", payloadZ, whereZ),
+    (c, where) => matches(LINES, c, where),
+    (where) => serverComputed(LINES, where),
+  );
 });

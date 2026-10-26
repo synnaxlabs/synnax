@@ -308,7 +308,7 @@ TEST(DeviceTests, testDeleteDevices) {
     const std::vector keys = {d1.key, d2.key};
     ASSERT_NIL(client.devices.del(keys));
 
-    ASSERT_OCCURRED_AS_P(client.devices.retrieve(keys), x::errors::NOT_FOUND);
+    ASSERT_TRUE(ASSERT_NIL_P(client.devices.retrieve(keys)).empty());
 }
 
 /// @brief it should retrieve devices using a device::RetrieveRequest with keys and
@@ -408,7 +408,7 @@ TEST(DeviceTests, testRetrieveWhere) {
     ASSERT_EQ(keys, (std::set<Key>{devs[0].key, devs[1].key}));
 }
 
-/// @brief it should return a not found error that names every missing key.
+/// @brief it should treat a missing key as a non-match in a list retrieve.
 TEST(DeviceTests, testRetrieveMissingKey) {
     const auto client = new_test_client();
     auto r = rack::Rack{.name = "test_rack"};
@@ -422,12 +422,11 @@ TEST(DeviceTests, testRetrieveMissingKey) {
         .name = "missing_device",
     };
     ASSERT_NIL(client.devices.create(d));
-    const auto [devices, err] = client.devices.retrieve(
-        std::vector<std::string>{d.key, "missing_d_none"}
+    const auto devices = ASSERT_NIL_P(
+        client.devices.retrieve(std::vector<std::string>{d.key, "missing_d_none"})
     );
-    ASSERT_MATCHES(err, x::errors::NOT_FOUND);
-    ASSERT_EQ(err.data, "devices matching keys missing_d_none not found.");
-    ASSERT_TRUE(devices.empty());
+    ASSERT_EQ(devices.size(), 1);
+    ASSERT_EQ(devices[0].key, d.key);
 }
 /// @brief it should retrieve devices with limit and offset pagination.
 TEST(DeviceTests, testRetrieveWithLimitOffset) {
