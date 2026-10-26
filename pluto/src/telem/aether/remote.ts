@@ -16,6 +16,7 @@ import {
   ValidationError,
 } from "@synnaxlabs/client";
 import {
+  type Aggregation,
   aggregationZ,
   bounds,
   breaker,
@@ -267,123 +268,6 @@ const fetchChannelProperties = async (
   return { key: c.index, dataType: DataType.TIMESTAMP, virtual: false, isCalculated };
 };
 
-// Spans within the live buffer draw immediately and skip the loading state.
-const LOADING_MIN_SPAN = TimeSpan.minutes(1).valueOf();
-
-const channelDataSourcePropsZ = z.object({
-  timeRange: TimeRange.z,
-  channel: z.number().or(z.string()),
-  useIndexOfChannel: z.boolean().default(false),
-});
-
-export type ChannelDataProps = z.input<typeof channelDataSourcePropsZ>;
-
-export class ChannelData
-  extends AbstractSource<typeof channelDataSourcePropsZ>
-  implements SeriesSource
-{
-  static readonly TYPE = "series-source";
-  private readonly client: Client | null;
-  schema = channelDataSourcePropsZ;
-
-  private data: MultiSeries = new MultiSeries();
-  private valid: boolean = false;
-  private generation = 0;
-  private channel: SelectedChannelProperties | null = null;
-  private readonly onStatusChange?: status.Adder;
-  private readonly skipLoading: boolean;
-  private readonly retryNotifier = new sync.Notifier();
-  private readonly breaker: breaker.Breaker;
-  private readonly failures: FailureReporter;
-
-  constructor(
-    client: Client | null,
-    props: unknown,
-    options?: CreateOptions,
-    breakerConfig?: breaker.Config,
-  ) {
-    super(props);
-    this.client = client;
-    this.onStatusChange = options?.onStatusChange;
-    this.breaker = newRetryBreaker(this.retryNotifier, breakerConfig);
-    this.failures = new FailureReporter(options?.onStatusChange);
-    const { channel, timeRange } = this.props;
-    this.skipLoading = channel === 0 || timeRange.span.isZero;
-    this.loading_ = true;
-  }
-
-  cleanup(): void {
-    this.generation++;
-    this.retryNotifier.notify();
-    this.data.release();
-    this.valid = false;
-    this.loading_ = false;
-    this.channel = null;
-  }
-
-  loading(): boolean {
-    if (this.skipLoading || !this.loading_) return false;
-    if (!this.valid) void this.read();
-    return this.loading_;
-  }
-
-  value(): [bounds.Bounds, MultiSeries] {
-    const { channel, timeRange } = this.props;
-    // If either of these conditions is true, leave the telem invalid
-    // and return an empty array.
-    if (timeRange.span.isZero || channel === 0) return [bounds.INVALID, this.data];
-    if (!this.valid) void this.read();
-    const { channel: ch, data } = this;
-    if (ch == null) return [bounds.INVALID, this.data];
-    let b = data.bounds;
-    if (ch.dataType.equals(DataType.TIMESTAMP)) {
-      b = bounds.min([b, timeRange.numericBounds]);
-      // A reversed intersection means the data lies outside the requested range.
-      if (b.lower > b.upper) b = bounds.INVALID;
-    }
-    return [b, data];
-  }
-
-  /**
-   * Never rejects. A connectivity failure retries under the breaker; a definitive
-   * rejection parks the source. Every distinct failure reaches onStatusChange.
-   */
-  private async read(): Promise<void> {
-    const generation = this.generation;
-    this.valid = true;
-    const { client } = this;
-    if (client == null) {
-      this.declareLoaded();
-      this.onStatusChange?.(DISCONNECTED_STATUS);
-      return;
-    }
-    while (generation === this.generation)
-      try {
-        await this.attempt(generation, client);
-        this.declareLoaded();
-        this.breaker.reset();
-        this.failures.reset();
-        return;
-      } catch (e) {
-        this.declareLoaded();
-        this.failures.report(e, "Failed to read channel data");
-        if (isDefinitive(e) || !(await this.breaker.wait())) return;
-      }
-  }
-
-  private async attempt(generation: number, client: Client): Promise<void> {
-    const { timeRange, channel, useIndexOfChannel } = this.props;
-    const ch = await fetchChannelProperties(client, channel, useIndexOfChannel);
-    if (generation !== this.generation) return;
-    this.channel = ch;
-    const series = await client.feed.read(timeRange, ch.key);
-    if (generation !== this.generation) return;
-    series.acquire();
-    this.data = series;
-    this.notify();
-  }
-}
-
 // How long a seam waits before its read, matching the margin the cache gives commits.
 const SEAM_SETTLE = TimeSpan.seconds(1);
 
@@ -551,148 +435,6 @@ class LiveWindow {
   }
 }
 
-const streamChannelDataPropsZ = z.object({
-  channel: z.number().or(z.string()),
-  useIndexOfChannel: z.boolean().default(false),
-  timeSpan: TimeSpan.z,
-  keepFor: TimeSpan.z.optional(),
-});
-
-export type StreamChannelDataProps = z.input<typeof streamChannelDataPropsZ>;
-
-export class StreamChannelData
-  extends AbstractSource<typeof streamChannelDataPropsZ>
-  implements SeriesSource
-{
-  static readonly TYPE = "dynamic-series-source";
-  private readonly client: Client | null;
-  private readonly now: () => TimeStamp;
-  private readonly onStatusChange?: status.Adder;
-
-  private channel: SelectedChannelProperties | null = null;
-  private valid: boolean = false;
-  private readonly skipLoading: boolean;
-  private generation = 0;
-  private readonly breaker: breaker.Breaker;
-  private readonly retryNotifier = new sync.Notifier();
-  private readonly failures: FailureReporter;
-  private readonly window: LiveWindow;
-  schema = streamChannelDataPropsZ;
-
-  constructor(
-    client: Client | null,
-    props: unknown,
-    options?: CreateOptions,
-    now: () => TimeStamp = client?.now ?? (() => TimeStamp.now()),
-    breakerConfig?: breaker.Config,
-  ) {
-    super(props);
-    this.client = client;
-    this.now = now;
-    this.onStatusChange = options?.onStatusChange;
-    const { channel, timeSpan, keepFor } = this.props;
-    this.skipLoading = channel === 0 || timeSpan.valueOf() <= LOADING_MIN_SPAN;
-    this.loading_ = true;
-    this.breaker = newRetryBreaker(this.retryNotifier, breakerConfig);
-    this.failures = new FailureReporter(options?.onStatusChange);
-    this.window = new LiveWindow({
-      now,
-      start: () => now().sub(timeSpan),
-      cutoff: () => now().sub(keepFor ?? timeSpan),
-      failures: this.failures,
-      breakerConfig,
-      notify: () => this.notify(),
-      dataType: () => this.window.data.series[0]?.dataType,
-      restart: () => {
-        this.cleanup();
-        this.notify();
-      },
-    });
-  }
-
-  loading(): boolean {
-    if (this.skipLoading || !this.loading_) return false;
-    if (!this.valid) void this.read();
-    return this.loading_;
-  }
-
-  value(): [bounds.Bounds, MultiSeries] {
-    const { channel, timeSpan } = this.props;
-    const { data } = this.window;
-    if (channel === 0) return [bounds.INVALID, data];
-    if (!this.valid) void this.read();
-    const { channel: ch } = this;
-    const now = this.now();
-    if (ch != null && ch.dataType.isVariable) return [bounds.INVALID, data];
-    const filtered = data.series
-      .filter((d) => d.timeRange.end.after(now.sub(timeSpan)))
-      .map((d) => d.bounds);
-    const b = bounds.max(filtered);
-    if (ch != null && ch.dataType.equals(DataType.TIMESTAMP))
-      b.lower = Math.max(b.lower, b.upper - Number(timeSpan.valueOf()));
-    return [b, data];
-  }
-
-  /**
-   * Never rejects. A connectivity failure retries under the breaker; a definitive
-   * rejection parks the source. Every distinct failure reaches onStatusChange.
-   */
-  private async read(): Promise<void> {
-    const generation = this.generation;
-    this.valid = true;
-    const { client } = this;
-    if (client == null) {
-      this.declareLoaded();
-      this.onStatusChange?.(DISCONNECTED_STATUS);
-      return;
-    }
-    while (generation === this.generation)
-      try {
-        await this.attempt(generation, client);
-        this.declareLoaded();
-        this.breaker.reset();
-        this.failures.reset();
-        return;
-      } catch (e) {
-        // Declare loaded on the first failure so retries never hold loading forever.
-        this.declareLoaded();
-        if (isDefinitive(e) || !(await this.breaker.wait())) return;
-      }
-  }
-
-  // One full read attempt: it resolves the channel, then opens the live window. Throws
-  // the failure after posting its status.
-  private async attempt(generation: number, client: Client): Promise<void> {
-    const { channel, useIndexOfChannel } = this.props;
-    let ch: SelectedChannelProperties;
-    try {
-      ch = await fetchChannelProperties(client, channel, useIndexOfChannel);
-    } catch (e) {
-      this.failures.report(e, "Failed to stream channel data");
-      throw errors.fromUnknown(e);
-    }
-    if (generation !== this.generation) return;
-    this.channel = ch;
-    try {
-      await this.window.open(client, ch);
-    } catch (e) {
-      this.failures.report(e, "Failed to read channel data");
-      throw errors.fromUnknown(e);
-    }
-    if (generation !== this.generation) return;
-    this.notify();
-  }
-
-  cleanup(): void {
-    this.generation++;
-    this.retryNotifier.notify();
-    this.window.clear();
-    this.valid = false;
-    // No notify so a read settling after cleanup cannot wake stale observers.
-    this.loading_ = false;
-  }
-}
-
 // StreamChannelStringValue reads the most recent value of a channel in real-time as
 // text, preserving variable density data types rather than coercing to a number.
 export class StreamChannelStringValue
@@ -835,6 +577,9 @@ const DEFAULT_WIDTH = 1000;
 // How long a view must hold a new level before its tiles are requested.
 const DEFAULT_LEVEL_SETTLE = TimeSpan.milliseconds(150);
 
+// Spans within the live buffer draw immediately and skip the loading state.
+const LOADING_MIN_SPAN = TimeSpan.minutes(1).valueOf();
+
 const viewRange = ({ lower, upper }: bounds.Bounds): TimeRange =>
   new TimeRange(BigInt(Math.max(Math.floor(lower), 0)), BigInt(Math.ceil(upper)));
 
@@ -910,7 +655,7 @@ export class TiledChannelData
       failures: this.failures,
       breakerConfig,
       notify: () => this.notify(),
-      dataType: () => this.dataType(),
+      dataType: () => this.heldDataType(),
       restart: () => this.restart(),
     });
     const { timeSpan } = this.props;
@@ -933,14 +678,13 @@ export class TiledChannelData
     return (this.skipLoading || !this.loading_) && this.pending.size > 0;
   }
 
-  value(props?: ValueProps): [bounds.Bounds, MultiSeries] {
+  value({ view, extremesKept = false }: ValueProps = {}): [bounds.Bounds, MultiSeries] {
     if (primitive.isZero(this.props.channel))
       return [bounds.INVALID, new MultiSeries()];
     if (!this.valid) void this.resolve();
     const ch = this.channel;
     if (ch == null) return [bounds.INVALID, new MultiSeries()];
     const home = this.home();
-    const view = props?.view;
     if (view != null) this.width = view.width;
     const drawsView =
       view != null &&
@@ -952,6 +696,7 @@ export class TiledChannelData
       ch.key,
       drawsView ? viewRange(view.bounds) : home,
       view != null,
+      extremesKept,
     );
     if (!drawsView && this.loaded(ch.key, home)) this.loading_ = false;
     return [this.bounds(ch, home, series), series];
@@ -991,12 +736,24 @@ export class TiledChannelData
     return first == null ? boundary : TimeStamp.min(boundary, first.timeRange.start);
   }
 
+  aggregation(): Aggregation {
+    return this.xy ? "decimate" : this.props.aggregation;
+  }
+
+  dataType(): DataType | null {
+    return this.channel?.dataType ?? null;
+  }
+
   private targets(
     key: channel.Key,
     view: TimeRange,
+    extremesKept = false,
     boundary?: TimeStamp,
   ): framer.TileSpec[] {
-    const aggregation = this.xy ? "decimate" : this.props.aggregation;
+    let aggregation = this.aggregation();
+    // Min-max keeps the extremes that the other aggregations drop. An xy line draws its
+    // home tiles at every zoom, so they bound it.
+    if (extremesKept && !this.xy) aggregation = "min_max";
     // Tiles are cut to [start, end): the home view for an xy line, and the start of
     // full-resolution data for a live line.
     let start: TimeStamp | undefined;
@@ -1033,9 +790,12 @@ export class TiledChannelData
     });
   }
 
+  // find returns the held tile at the position: the preferred one, then one of the
+  // aggregation, then one of another.
   private find(
     p: Position,
     preferred: Map<string, string>,
+    aggregation: Aggregation,
     tiles: Iterable<HeldTile> = this.held.values(),
   ): HeldTile | undefined {
     const want = preferred.get(`${p.level}/${p.index}`);
@@ -1043,9 +803,13 @@ export class TiledChannelData
       const exact = this.held.get(want);
       if (exact != null) return exact;
     }
-    for (const tile of tiles)
-      if (tile.spec.level === p.level && tile.spec.index === p.index) return tile;
-    return undefined;
+    let other: HeldTile | undefined;
+    for (const tile of tiles) {
+      if (tile.spec.level !== p.level || tile.spec.index !== p.index) continue;
+      if (tile.spec.aggregation === aggregation) return tile;
+      other ??= tile;
+    }
+    return other;
   }
 
   // A zoom that changes the view's level waits for the level to hold, so a fast zoom
@@ -1069,7 +833,7 @@ export class TiledChannelData
   private advance(key: channel.Key): string[] {
     const rawFrom = this.rawFrom();
     if (!rawFrom.after(this.boundary)) return [];
-    const next = this.targets(key, this.drawn ?? this.home(), rawFrom);
+    const next = this.targets(key, this.drawn ?? this.home(), false, rawFrom);
     const keys = next.map((spec) => framer.tileRequestKey(spec));
     if (keys.every((k) => this.held.has(k))) {
       this.boundary = rawFrom;
@@ -1079,11 +843,16 @@ export class TiledChannelData
     return keys;
   }
 
-  private select(key: channel.Key, view: TimeRange, prune: boolean): MultiSeries {
+  private select(
+    key: channel.Key,
+    view: TimeRange,
+    prune: boolean,
+    extremesKept: boolean,
+  ): MultiSeries {
     if (prune) this.drawn = view;
     const next = this.live ? this.advance(key) : [];
     if (this.live) this.window.prune();
-    const targets = this.targets(key, view);
+    const targets = this.targets(key, view, extremesKept);
     if (!prune || (targets.length > 0 && this.settled(targets[0].level)))
       targets.forEach((spec) => this.request(spec));
     const preferred = new Map(
@@ -1102,24 +871,17 @@ export class TiledChannelData
             targets[0].level,
             targets.map((t) => t.index),
             drawable.map((t) => t.spec),
-          ).map((p) => this.find(p, preferred, drawable)!);
+          ).map((p) => this.find(p, preferred, targets[0].aggregation, drawable)!);
     const out = chosen.flatMap((tile) => tile.series.series);
     if (prune) {
-      // The home view's tiles stay held, and so do the tiles that stand in for them
-      // until they arrive.
-      const home = this.targets(key, this.home());
-      const homePreferred = new Map(
-        home.map((t) => [`${t.level}/${t.index}`, framer.tileRequestKey(t)]),
-      );
+      // The tiles of the home view and of its bounds stay held, and so do the tiles
+      // that stand in for them until they arrive.
       const keep = new Set([
         ...chosen.map((t) => framer.tileRequestKey(t.spec)),
         ...preferred.values(),
         ...next,
-        ...homePreferred.values(),
-        ...home.flatMap((t) => {
-          const found = this.find(t, homePreferred);
-          return found == null ? [] : [framer.tileRequestKey(found.spec)];
-        }),
+        ...this.homeKeys(key, false),
+        ...this.homeKeys(key, true),
       ]);
       for (const [tileKey, tile] of this.held)
         if (!keep.has(tileKey)) {
@@ -1131,10 +893,33 @@ export class TiledChannelData
     return new MultiSeries(out);
   }
 
+  // homeKeys returns the keys of the home tiles, and of the held tiles that stand in
+  // for them.
+  private homeKeys(key: channel.Key, extremesKept: boolean): string[] {
+    const targets = this.targets(key, this.home(), extremesKept);
+    const preferred = new Map(
+      targets.map((t) => [`${t.level}/${t.index}`, framer.tileRequestKey(t)]),
+    );
+    return [
+      ...preferred.values(),
+      ...targets.flatMap((t) => {
+        const found = this.find(t, preferred, t.aggregation);
+        return found == null ? [] : [framer.tileRequestKey(found.spec)];
+      }),
+    ];
+  }
+
   private loaded(key: channel.Key, home: TimeRange): boolean {
     if (this.live && !this.rawLoaded) return false;
-    return this.targets(key, home).every((spec) =>
-      this.held.has(framer.tileRequestKey(spec)),
+    // Loading also waits for the min_max tiles that a bounds read has in flight.
+    const bounding = this.targets(key, home, true).some((spec) =>
+      this.pending.has(framer.tileRequestKey(spec)),
+    );
+    return (
+      !bounding &&
+      this.targets(key, home).every((spec) =>
+        this.held.has(framer.tileRequestKey(spec)),
+      )
     );
   }
 
@@ -1167,11 +952,11 @@ export class TiledChannelData
     const generation = this.generation;
     this.pending.add(key);
     client.feed
-      .readTile(spec, this.dataType())
+      .readTile(spec, this.heldDataType())
       .then((series) => {
         if (generation !== this.generation) return;
         this.pending.delete(key);
-        const held = this.dataType();
+        const held = this.heldDataType();
         // Series of two data types cannot share a MultiSeries.
         if (held != null && series.series.some((s) => !s.dataType.equals(held)))
           return this.restart();
@@ -1255,7 +1040,7 @@ export class TiledChannelData
   }
 
   // The data type of every series the line holds, or undefined when it holds none.
-  private dataType(): DataType | undefined {
+  private heldDataType(): DataType | undefined {
     for (const tile of this.held.values())
       if (tile.series.series.length > 0) return tile.series.series[0].dataType;
     return this.window.data.series[0]?.dataType;
@@ -1294,8 +1079,6 @@ type Constructor = new (
 ) => Telem;
 
 const REGISTRY: Record<string, Constructor> = {
-  [ChannelData.TYPE]: ChannelData,
-  [StreamChannelData.TYPE]: StreamChannelData,
   [TiledChannelData.TYPE]: TiledChannelData,
   [StreamChannelValue.TYPE]: StreamChannelValue,
   [StreamChannelStringValue.TYPE]: StreamChannelStringValue,
@@ -1314,20 +1097,6 @@ export class RemoteFactory {
     return new V(this.client, spec.props, options);
   }
 }
-
-export const channelData = (props: ChannelDataProps): SeriesSourceSpec => ({
-  type: ChannelData.TYPE,
-  props,
-  variant: "source",
-  valueType: "series",
-});
-
-export const streamChannelData = (props: StreamChannelDataProps): SeriesSourceSpec => ({
-  type: StreamChannelData.TYPE,
-  props,
-  variant: "source",
-  valueType: "series",
-});
 
 export const tiledChannelData = (props: TiledChannelDataProps): SeriesSourceSpec => ({
   type: TiledChannelData.TYPE,

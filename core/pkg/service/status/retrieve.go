@@ -24,9 +24,8 @@ type Retrieve[D any] struct {
 	baseTX gorp.Tx
 	gorp   gorp.Retrieve[Key, Status[D]]
 	// search indexes the table, whose entries hold details of any type.
-	search     *gorp.SearchIndex[Key, Status[any]]
-	label      *label.Service
-	searchTerm string
+	search *gorp.SearchIndex[Key, Status[any]]
+	label  *label.Service
 }
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to Where.
@@ -73,10 +72,6 @@ func Not[D any](f Filter[D]) Filter[D] {
 		return gorp.Not(f(r))
 	}
 }
-
-// Search filters the statuses to those whose name matches term, closest match first.
-// An empty term adds no filter.
-func (r Retrieve[D]) Search(term string) Retrieve[D] { r.searchTerm = term; return r }
 
 // Entry binds the Status that Retrieve will fill results into. If multiple results
 // match the query, only the first result will be filled into the provided Status.
@@ -139,6 +134,15 @@ func MatchNames[D any](names ...string) Filter[D] {
 	}
 }
 
+// MatchSearch returns a filter for statuses whose name matches term, closest match
+// first. An empty term matches no status. Only a Retrieve[any] can search, because the
+// search index holds details of any type.
+func MatchSearch(term string) Filter[any] {
+	return func(r Retrieve[any]) gorp.Filter[Key, Status[any]] {
+		return r.search.Filter(term)
+	}
+}
+
 // MatchVariants returns a filter for statuses with the given variants.
 func MatchVariants[D any](variants ...Variant) Filter[D] {
 	return func(_ Retrieve[D]) gorp.Filter[Key, Status[D]] {
@@ -168,13 +172,5 @@ func MatchLabels[D any](matchLabels ...label.Key) Filter[D] {
 // Exec executes the query and fills the results into the provided Status or slice of
 // Statuses.
 func (r Retrieve[D]) Exec(ctx context.Context, tx gorp.Tx) error {
-	tx = gorp.OverrideTx(r.baseTX, tx)
-	if r.searchTerm != "" {
-		res, err := r.search.Search(ctx, tx, r.searchTerm, 0)
-		if err != nil {
-			return err
-		}
-		r = r.Where(MatchKeys[D](res.Keys...))
-	}
-	return r.gorp.Exec(ctx, tx)
+	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
 }

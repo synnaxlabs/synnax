@@ -14,29 +14,24 @@ import { type z } from "zod";
 import { Aether } from "@/aether";
 import { stringValue } from "@/vis/stringValue/aether";
 
-export interface UseProps extends Pick<
-  z.input<typeof stringValue.stateZ>,
-  "telem" | "stalenessTimeout"
-> {
+export interface UseProps extends z.input<typeof stringValue.stateZ> {
   aetherKey: string;
 }
 
-export interface UseReturn extends Pick<
-  z.infer<typeof stringValue.stateZ>,
-  "value" | "stale"
-> {}
-
-export const use = ({ aetherKey, telem, stalenessTimeout }: UseProps): UseReturn => {
-  const memoProps = useMemoDeepEqual({ telem, stalenessTimeout });
-  const [, { value, stale }, setState] = Aether.use({
+/**
+ * use draws the latest value of a string source into a box on the canvas. The worker
+ * draws each sample, so a sample never re-renders the calling component.
+ */
+export const use = ({ aetherKey, ...rest }: UseProps): void => {
+  const memoProps = useMemoDeepEqual(rest);
+  const { setState } = Aether.useLifecycle({
     aetherKey,
     type: stringValue.StringValue.TYPE,
     schema: stringValue.stateZ,
-    initialState: { value: "", stale: false, ...memoProps },
+    initialState: memoProps,
   });
   useEffect(
     () => setState((state) => ({ ...state, ...memoProps })),
     [memoProps, setState],
   );
-  return { value, stale };
 };

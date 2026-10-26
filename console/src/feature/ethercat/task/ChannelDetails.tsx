@@ -7,46 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ethercat } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Telem } from "@synnaxlabs/pluto";
+import { primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
+import { type z } from "zod";
 
+import { useResultSlave } from "@/feature/ethercat/device/queries";
 import { SelectSlave } from "@/feature/ethercat/device/SelectSlave";
-import { SelectChannelModeField } from "@/feature/ethercat/task/SelectChannelModeField";
-import { SelectPDOField } from "@/feature/ethercat/task/SelectPDOField";
+import { SelectEntryField } from "@/feature/ethercat/task/SelectEntryField";
 import {
-  type ChannelMode,
-  type ChannelSchemas,
+  type Channel,
+  entryAt,
+  type EntryChannel,
+  getEntryLabel,
+  getPortLabel,
+  hasEntry,
+  type PDOType,
   READ_CHANNEL_SCHEMAS,
   WRITE_CHANNEL_SCHEMAS,
 } from "@/feature/ethercat/task/types";
-import { type Task } from "@/platform/task";
-
-const INPUT_PROPS = { showDragHandle: false };
-
-const ManualChannelFields: FC<{ path: string }> = ({ path }) => (
-  <>
-    <PForm.NumericField
-      path={`${path}.index`}
-      label="Index (hex)"
-      inputProps={INPUT_PROPS}
-    />
-    <PForm.NumericField
-      path={`${path}.subIndex`}
-      label="Subindex"
-      inputProps={INPUT_PROPS}
-    />
-    <PForm.NumericField
-      path={`${path}.bitLength`}
-      label="Bit length"
-      inputProps={INPUT_PROPS}
-    />
-    <PForm.Field<string> path={`${path}.dataType`} label="Data type">
-      {renderSelectDataType}
-    </PForm.Field>
-  </>
-);
+import { Task } from "@/platform/task";
 
 const renderSelectDataType = Component.renderProp(
   (props: Telem.SelectDataTypeProps) => (
@@ -55,23 +38,23 @@ const renderSelectDataType = Component.renderProp(
 );
 
 export interface ChannelDetailsProps extends Task.Views.DetailsProps {
-  pdoType: "inputs" | "outputs";
-  schemas: ChannelSchemas;
+  pdoType: PDOType;
+  schema: z.ZodType<EntryChannel>;
 }
 
-const ChannelDetails: FC<ChannelDetailsProps> = ({ path, pdoType, schemas }) => {
-  const channelMode = PForm.useFieldValue<ChannelMode>(`${path}.type`);
+const ChannelDetails: FC<ChannelDetailsProps> = ({ path, pdoType, schema }) => {
+  const ch = PForm.useFieldValue<Channel>(path);
   return (
     <PForm.Sections>
       <PForm.Section title="Source">
         <SelectSlave path={`${path}.device`} />
-        <SelectChannelModeField path={path} schemas={schemas} />
       </PForm.Section>
       <PForm.Section title="Entry">
-        {channelMode === "automatic" ? (
-          <SelectPDOField path={path} pdoType={pdoType} />
-        ) : (
-          <ManualChannelFields path={path} />
+        <SelectEntryField path={path} pdoType={pdoType} schema={schema} />
+        {hasEntry(ch) && (
+          <PForm.Field<string> path={`${path}.dataType`} label="Data type">
+            {renderSelectDataType}
+          </PForm.Field>
         )}
       </PForm.Section>
     </PForm.Sections>
@@ -79,9 +62,35 @@ const ChannelDetails: FC<ChannelDetailsProps> = ({ path, pdoType, schemas }) => 
 };
 
 export const ReadChannelDetails: FC<Task.Views.DetailsProps> = (props) => (
-  <ChannelDetails {...props} pdoType="inputs" schemas={READ_CHANNEL_SCHEMAS} />
+  <ChannelDetails {...props} pdoType="inputs" schema={READ_CHANNEL_SCHEMAS.entry} />
 );
 
 export const WriteChannelDetails: FC<Task.Views.DetailsProps> = (props) => (
-  <ChannelDetails {...props} pdoType="outputs" schemas={WRITE_CHANNEL_SCHEMAS} />
+  <ChannelDetails {...props} pdoType="outputs" schema={WRITE_CHANNEL_SCHEMAS.entry} />
+);
+
+interface DetailsTitleProps extends Task.Views.DetailsProps {
+  pdoType: PDOType;
+}
+
+const DetailsTitle: FC<DetailsTitleProps> = ({ path, pdoType }) => {
+  const ch = PForm.useFieldValue<Channel>(path);
+  const { data: slave } = useResultSlave(
+    primitive.isZero(ch.device) ? null : { key: ch.device },
+  );
+  let title = getPortLabel(ch);
+  if (hasEntry(ch)) {
+    const entry = entryAt(slave?.properties.pdos[pdoType] ?? [], ch);
+    if (entry != null)
+      title = `${getEntryLabel(entry)} · ${ethercat.formatAddress(ch)}`;
+  }
+  return <Task.Views.ItemLabel kind="PDO">{title}</Task.Views.ItemLabel>;
+};
+
+export const ReadDetailsTitle: FC<Task.Views.DetailsProps> = (props) => (
+  <DetailsTitle {...props} pdoType="inputs" />
+);
+
+export const WriteDetailsTitle: FC<Task.Views.DetailsProps> = (props) => (
+  <DetailsTitle {...props} pdoType="outputs" />
 );

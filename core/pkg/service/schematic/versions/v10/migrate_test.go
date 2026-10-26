@@ -74,6 +74,13 @@ var _ = Describe("MigrateSchematic", func() {
 		Expect(sel.InlineSize).To(BeEquivalentTo(240))
 	})
 
+	It("Should keep the units a v9 symbol showed by default", func(ctx SpecContext) {
+		value := lifted(ctx, msgpack.EncodedJSON{
+			"variant": "value",
+		}).(v10.ValueElementConfig)
+		Expect(value.Units).To(Equal("psi"))
+	})
+
 	It("Should keep the schematic's identity", func(ctx SpecContext) {
 		key := uuid.New()
 		out := MustSucceed(v10.MigrateSchematic(ctx, v9.Schematic{
