@@ -46,7 +46,7 @@ const NODE = 1;
 const MISALIGNMENT = 1n << 24n;
 // The Core streams a stored channel in leading alignment domains, apart from the ones
 // its reads return.
-const LEADING = ((1n << 32n) - 1_000_001n) << 32n;
+const LEADING = (1n << 31n) << 32n;
 
 export interface SyntheticCoreProps {
   /** The rate of the index channel. */

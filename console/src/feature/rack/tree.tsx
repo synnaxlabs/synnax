@@ -9,7 +9,7 @@
 
 import "@/feature/rack/tree.css";
 
-import { arc, rack, task } from "@synnaxlabs/client";
+import { arc, device, rack, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -19,6 +19,7 @@ import { Access, Rack } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Arc } from "@/feature/arc";
+import { Device } from "@/feature/device";
 import { NI } from "@/feature/ni";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
@@ -28,6 +29,10 @@ import { Tree } from "@/platform/tree";
 const NI_INTEGRATION_NAME = "ni";
 
 const CreateArcIcon = Icon.createComposite(Icon.Arc, {
+  topRight: Icon.Add,
+});
+
+const ConnectDeviceIcon = Icon.createComposite(Icon.Device, {
   topRight: Icon.Add,
 });
 
@@ -92,10 +97,12 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const hasArcCreatePermission = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
   const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
   const hasTaskCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
+  const hasDeviceCreatePermission = Access.useCreateGranted(device.TYPE_ONTOLOGY_ID);
   const handleDelete = useDelete(props);
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
   const create = Arc.useCreate();
+  const openConnectDevice = Device.useConnectModal();
   const isSingle = ids.length === 1;
   const rackKey = Number(ids[0]?.key ?? 0);
   const handleCreate = () => create();
@@ -111,6 +118,15 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         />
       )}
       <Menu.Divider />
+      {hasDeviceCreatePermission && isSingle && (
+        <Menu.Item
+          itemKey="connectDevice"
+          onClick={() => openConnectDevice({ rack: rackKey })}
+        >
+          <ConnectDeviceIcon />
+          Connect device
+        </Menu.Item>
+      )}
       {hasUpdatePermission && isSingle && (
         <>
           {hasArcCreatePermission && (

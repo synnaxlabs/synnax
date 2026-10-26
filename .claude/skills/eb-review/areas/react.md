@@ -1,16 +1,19 @@
 # React lenses
 
 Run on every change that adds or modifies a component or hook. Run these in addition to
-the nine base lenses. The repo does not use the React Compiler. Memoization is manual,
-so every identity a hook or a prop creates is a decision.
+the nine base lenses. The React Compiler builds the Console, Pluto, Lyra, and Drift, and
+caches each value and function on its inputs. Check a change there against its rules in
+`docs/claude/toolchains/typescript.md`. Other packages, such as the sites, memoize by
+hand.
 
 1. **Hook discipline.** Is each new or changed component as lean in hooks as it can be?
    - Count the hooks before and after. Each one needs a job that nothing else can do.
    - Subscribe narrowly. Select the smallest slice of a store or context the component
      reads. Do not subscribe to a whole object to read one field.
-   - `useMemo` and `useCallback` must protect a real consumer: a memoized child, a hook
-     dependency, or an expensive computation. Otherwise they cost a hook and give
-     nothing.
+   - In the four compiled packages, no `useMemo` or `useCallback`. The compiler caches
+     values, and lint bans both. A manual memo there needs the one-line reason the
+     TypeScript guide asks for. Elsewhere, a memo must protect a real consumer: a
+     memoized child, a hook dependency, or an expensive computation.
    - Lifecycle bookkeeping (a `useRef` flag, a `useEffect` cleanup, start and end
      branches) inside a consumer means the substrate is the wrong shape. The substrate
      should expose a hook that owns it.
@@ -48,9 +51,12 @@ so every identity a hook or a prop creates is a decision.
    - Find the frequent paths the change touches: each keystroke, each drag frame, each
      scroll, each streamed frame, each hover. For each one, say which components render
      again and how many.
-   - Context values, inline objects, inline arrays, and inline `style={{...}}` make a
-     new identity on each render. Each consumer and each memoized child then renders
-     again.
+   - In the four compiled packages, the compiler caches context values, inline objects,
+     and inline `style={{...}}` on their inputs. Look for what it skips or defeats: a
+     `"use no memo"` function, a hook in a lowercase Pluto namespace, or a hook between
+     a value and a library call that takes it (see the TypeScript guide). There, and in
+     every other package, a new identity on each render makes each consumer and each
+     memoized child render again.
    - In a list or a tree, a change to one item must not render all items again. Look for
      a render-count spec built on `createRenderCounter`
      (`lyra/src/testutil/renders.tsx`). If the change affects a large collection and has

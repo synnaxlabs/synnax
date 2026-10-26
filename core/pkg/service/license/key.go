@@ -13,6 +13,7 @@ import (
 	"crypto/mldsa"
 	"encoding/base64"
 	"encoding/json"
+	"regexp"
 	"strings"
 
 	"github.com/samber/lo"
@@ -84,6 +85,9 @@ var understood = set.New(
 	"required",
 )
 
+// numericFormat matches an unsigned numeric license key.
+var numericFormat = regexp.MustCompile(`^\d{6}-\d{8}-\d{10}$`)
+
 // header is the JWS protected header of a license key.
 type header struct {
 	Alg string `json:"alg"`
@@ -113,11 +117,18 @@ func Sign(priv *mldsa.PrivateKey, kid string, lic License) (string, error) {
 
 // Verify checks key's signature against the anchor its header names and returns the
 // license it carries. It does not check the license's term; the service does. Returns
-// ErrInvalid on a malformed key, a bad signature, an unknown key, an unsupported
-// claim set version, a required claim this Core does not understand, a missing or
-// unparseable version ceiling on a license without an expiry, or an unparseable
-// ceiling on any license.
+// ErrInvalid on a numeric key, a malformed key, a bad signature, an unknown key, an
+// unsupported claim set version, a required claim this Core does not understand, a
+// missing or unparseable version ceiling on a license without an expiry, or an
+// unparseable ceiling on any license.
 func Verify(anchors Anchors, key string) (License, error) {
+	if numericFormat.MatchString(key) {
+		return License{}, errors.Wrap(
+			ErrInvalid,
+			"numeric license keys are no longer accepted, get a new key from your "+
+				"Synnax account",
+		)
+	}
 	parts := strings.Split(key, ".")
 	if len(parts) != 3 {
 		return License{}, errors.Wrap(ErrInvalid, "a license key has three parts")

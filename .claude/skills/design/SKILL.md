@@ -268,6 +268,9 @@ The phase list exists to prevent that, and a Claude session enforces it on the u
   phase.
 - **Lowest-risk, dependency-unblocking work first.** Migrations are first-class entries
   in the list, and a compatibility statement closes the plan.
+- **The phase list ends in the phase table.** Its format is in
+  `docs/tech/rfc/CLAUDE.md`. The `plan-to-issues` skill files one Linear issue per row,
+  so a row that cannot merge alone or lists the wrong dependencies breaks the plan.
 - **The first phase opens this session.** A plan whose first PR is not open by the end
   of the session that wrote it is the failure mode in progress. When the working diff
   passes ~300 lines, the session says so and cuts the PR.
