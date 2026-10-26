@@ -1372,6 +1372,120 @@ describe("Feed.subscribe", () => {
         await feed.close();
       }
     });
+
+    it("should keep the bound of a waiting read across a second history change", async () => {
+      const core = createCore();
+      let held = false;
+      let reads = 0;
+      const { promise: released, resolve: release } = Promise.withResolvers<void>();
+      const feed = core.openFeed({
+        ...OPTIONS,
+        readLatest: async (keys, count, tr) => {
+          reads++;
+          if (held) await released;
+          return core.readLatest(keys, count, tr);
+        },
+      });
+      const { key } = core.data[0];
+      const sub = feed.subscribe({
+        keys: [key],
+        limit: { variant: "latest", count: 20 },
+      });
+      try {
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        await historyStreamed(core);
+        const { appended } = sub.value(key);
+        assert(appended != null);
+        held = true;
+        const tr = new TimeRange(START, core.now());
+        core.rewrite(key, tr, 10);
+        await expect.poll(() => reads, POLL).toBe(2);
+        core.rewrite(key, tr, 10);
+        await expect.poll(() => reads, POLL).toBe(3);
+        release();
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        expect(sub.value(key).appended).toBe(appended);
+      } finally {
+        release();
+        sub.close();
+        await feed.close();
+      }
+    });
+
+    it("should count its first read when a history change interrupts it", async () => {
+      const core = createCore();
+      let reads = 0;
+      const { promise: released, resolve: release } = Promise.withResolvers<void>();
+      const feed = core.openFeed({
+        ...OPTIONS,
+        readLatest: async (keys, count, tr) => {
+          reads++;
+          await released;
+          return core.readLatest(keys, count, tr);
+        },
+      });
+      const { key } = core.data[0];
+      const sub = feed.subscribe({
+        keys: [key],
+        limit: { variant: "latest", count: 20 },
+      });
+      try {
+        await expect.poll(() => reads, POLL).toBe(1);
+        await historyStreamed(core);
+        core.advance(TimeSpan.milliseconds(100));
+        await expect.poll(() => sub.value(key).appended, POLL).toBe(10);
+        core.rewrite(key, new TimeRange(START, core.now()), 10);
+        await expect.poll(() => reads, POLL).toBe(2);
+        release();
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        expect(sub.value(key).appended).toBe(20);
+      } finally {
+        release();
+        sub.close();
+        await feed.close();
+      }
+    });
+
+    it("should count the read of an update when a history change interrupts it", async () => {
+      const core = createCore();
+      let held = false;
+      let reads = 0;
+      const { promise: released, resolve: release } = Promise.withResolvers<void>();
+      const feed = core.openFeed({
+        ...OPTIONS,
+        readLatest: async (keys, count, tr) => {
+          reads++;
+          if (held) await released;
+          return core.readLatest(keys, count, tr);
+        },
+      });
+      const { key } = core.data[0];
+      const request = (count: number): SubscribeRequest => ({
+        keys: [key],
+        limit: { variant: "latest", count },
+      });
+      const sub = feed.subscribe(request(10));
+      try {
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        await historyStreamed(core);
+        const { appended } = sub.value(key);
+        assert(appended != null);
+        held = true;
+        sub.update(request(20));
+        await expect.poll(() => reads, POLL).toBe(2);
+        core.advance(TimeSpan.milliseconds(100));
+        await expect.poll(() => sub.value(key).appended, POLL).toBe(appended + 10);
+        core.rewrite(key, new TimeRange(START, core.now()), 10);
+        await expect.poll(() => reads, POLL).toBe(3);
+        release();
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        expect(sub.value(key).appended).toBe(appended + 20);
+      } finally {
+        release();
+        sub.close();
+        await feed.close();
+      }
+    });
   });
 
   describe("update and status", () => {
