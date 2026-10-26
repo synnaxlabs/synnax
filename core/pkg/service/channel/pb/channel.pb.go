@@ -491,40 +491,32 @@ func (x *NodeKeyList) GetValues() []uint32 {
 	return nil
 }
 
-// NodeKeyOrdered selects numbers and times. A value must match every operator that is
-// set.
-type NodeKeyOrdered struct {
+// NodeKeySet selects values that only compare for equality, such as keys, enum values,
+// and UUIDs. A value must match every operator that is set.
+type NodeKeySet struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// eq matches a value equal to eq.
 	Eq *uint32 `protobuf:"varint,1,opt,name=eq,proto3,oneof" json:"eq,omitempty"`
 	// in matches a value equal to an element of in.
-	In *NodeKeyList `protobuf:"bytes,2,opt,name=in,proto3" json:"in,omitempty"`
-	// gt matches a value greater than gt.
-	Gt *uint32 `protobuf:"varint,3,opt,name=gt,proto3,oneof" json:"gt,omitempty"`
-	// gte matches a value greater than or equal to gte.
-	Gte *uint32 `protobuf:"varint,4,opt,name=gte,proto3,oneof" json:"gte,omitempty"`
-	// lt matches a value less than lt.
-	Lt *uint32 `protobuf:"varint,5,opt,name=lt,proto3,oneof" json:"lt,omitempty"`
-	// lte matches a value less than or equal to lte.
-	Lte           *uint32 `protobuf:"varint,6,opt,name=lte,proto3,oneof" json:"lte,omitempty"`
+	In            *NodeKeyList `protobuf:"bytes,2,opt,name=in,proto3" json:"in,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *NodeKeyOrdered) Reset() {
-	*x = NodeKeyOrdered{}
+func (x *NodeKeySet) Reset() {
+	*x = NodeKeySet{}
 	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *NodeKeyOrdered) String() string {
+func (x *NodeKeySet) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*NodeKeyOrdered) ProtoMessage() {}
+func (*NodeKeySet) ProtoMessage() {}
 
-func (x *NodeKeyOrdered) ProtoReflect() protoreflect.Message {
+func (x *NodeKeySet) ProtoReflect() protoreflect.Message {
 	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -536,51 +528,23 @@ func (x *NodeKeyOrdered) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use NodeKeyOrdered.ProtoReflect.Descriptor instead.
-func (*NodeKeyOrdered) Descriptor() ([]byte, []int) {
+// Deprecated: Use NodeKeySet.ProtoReflect.Descriptor instead.
+func (*NodeKeySet) Descriptor() ([]byte, []int) {
 	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *NodeKeyOrdered) GetEq() uint32 {
+func (x *NodeKeySet) GetEq() uint32 {
 	if x != nil && x.Eq != nil {
 		return *x.Eq
 	}
 	return 0
 }
 
-func (x *NodeKeyOrdered) GetIn() *NodeKeyList {
+func (x *NodeKeySet) GetIn() *NodeKeyList {
 	if x != nil {
 		return x.In
 	}
 	return nil
-}
-
-func (x *NodeKeyOrdered) GetGt() uint32 {
-	if x != nil && x.Gt != nil {
-		return *x.Gt
-	}
-	return 0
-}
-
-func (x *NodeKeyOrdered) GetGte() uint32 {
-	if x != nil && x.Gte != nil {
-		return *x.Gte
-	}
-	return 0
-}
-
-func (x *NodeKeyOrdered) GetLt() uint32 {
-	if x != nil && x.Lt != nil {
-		return *x.Lt
-	}
-	return 0
-}
-
-func (x *NodeKeyOrdered) GetLte() uint32 {
-	if x != nil && x.Lte != nil {
-		return *x.Lte
-	}
-	return 0
 }
 
 type TelemDataTypeList struct {
@@ -697,7 +661,7 @@ type Where struct {
 	// name selects by name.
 	Name *pb1.String `protobuf:"bytes,5,opt,name=name,proto3,oneof" json:"name,omitempty"`
 	// leaseholder selects by leaseholder.
-	Leaseholder *NodeKeyOrdered `protobuf:"bytes,6,opt,name=leaseholder,proto3,oneof" json:"leaseholder,omitempty"`
+	Leaseholder *NodeKeySet `protobuf:"bytes,6,opt,name=leaseholder,proto3,oneof" json:"leaseholder,omitempty"`
 	// data_type selects by data_type.
 	DataType *TelemDataTypeSet `protobuf:"bytes,7,opt,name=data_type,json=dataType,proto3,oneof" json:"data_type,omitempty"`
 	// is_index selects by is_index.
@@ -776,7 +740,7 @@ func (x *Where) GetName() *pb1.String {
 	return nil
 }
 
-func (x *Where) GetLeaseholder() *NodeKeyOrdered {
+func (x *Where) GetLeaseholder() *NodeKeySet {
 	if x != nil {
 		return x.Leaseholder
 	}
@@ -817,13 +781,13 @@ type RetrieveRequest struct {
 	// where selects the channels to retrieve. An absent where selects all of them.
 	Where *Where `protobuf:"bytes,1,opt,name=where,proto3,oneof" json:"where,omitempty"`
 	// search_term keeps the channels that match the term, closest match first.
-	SearchTerm *string `protobuf:"bytes,2,opt,name=search_term,json=searchTerm,proto3,oneof" json:"search_term,omitempty"`
+	SearchTerm string `protobuf:"bytes,2,opt,name=search_term,json=searchTerm,proto3" json:"search_term,omitempty"`
 	// limit is the most channels to return.
 	Limit *uint32 `protobuf:"varint,3,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
 	// offset is the number of matching channels to skip.
-	Offset *uint32 `protobuf:"varint,4,opt,name=offset,proto3,oneof" json:"offset,omitempty"`
+	Offset uint32 `protobuf:"varint,4,opt,name=offset,proto3" json:"offset,omitempty"`
 	// include_status includes the status of each record.
-	IncludeStatus *bool `protobuf:"varint,5,opt,name=include_status,json=includeStatus,proto3,oneof" json:"include_status,omitempty"`
+	IncludeStatus bool `protobuf:"varint,5,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -866,8 +830,8 @@ func (x *RetrieveRequest) GetWhere() *Where {
 }
 
 func (x *RetrieveRequest) GetSearchTerm() string {
-	if x != nil && x.SearchTerm != nil {
-		return *x.SearchTerm
+	if x != nil {
+		return x.SearchTerm
 	}
 	return ""
 }
@@ -880,15 +844,15 @@ func (x *RetrieveRequest) GetLimit() uint32 {
 }
 
 func (x *RetrieveRequest) GetOffset() uint32 {
-	if x != nil && x.Offset != nil {
-		return *x.Offset
+	if x != nil {
+		return x.Offset
 	}
 	return 0
 }
 
 func (x *RetrieveRequest) GetIncludeStatus() bool {
-	if x != nil && x.IncludeStatus != nil {
-		return *x.IncludeStatus
+	if x != nil {
+		return x.IncludeStatus
 	}
 	return false
 }
@@ -929,32 +893,25 @@ const file_core_pkg_service_channel_pb_channel_proto_rawDesc = "" +
 	"\x02in\x18\x02 \x01(\v2\x1b.service.channel.pb.KeyListR\x02inB\x05\n" +
 	"\x03_eq\"%\n" +
 	"\vNodeKeyList\x12\x16\n" +
-	"\x06values\x18\x01 \x03(\rR\x06values\"\xd3\x01\n" +
-	"\x0eNodeKeyOrdered\x12\x13\n" +
+	"\x06values\x18\x01 \x03(\rR\x06values\"Y\n" +
+	"\n" +
+	"NodeKeySet\x12\x13\n" +
 	"\x02eq\x18\x01 \x01(\rH\x00R\x02eq\x88\x01\x01\x12/\n" +
-	"\x02in\x18\x02 \x01(\v2\x1f.service.channel.pb.NodeKeyListR\x02in\x12\x13\n" +
-	"\x02gt\x18\x03 \x01(\rH\x01R\x02gt\x88\x01\x01\x12\x15\n" +
-	"\x03gte\x18\x04 \x01(\rH\x02R\x03gte\x88\x01\x01\x12\x13\n" +
-	"\x02lt\x18\x05 \x01(\rH\x03R\x02lt\x88\x01\x01\x12\x15\n" +
-	"\x03lte\x18\x06 \x01(\rH\x04R\x03lte\x88\x01\x01B\x05\n" +
-	"\x03_eqB\x05\n" +
-	"\x03_gtB\x06\n" +
-	"\x04_gteB\x05\n" +
-	"\x03_ltB\x06\n" +
-	"\x04_lte\"+\n" +
+	"\x02in\x18\x02 \x01(\v2\x1f.service.channel.pb.NodeKeyListR\x02inB\x05\n" +
+	"\x03_eq\"+\n" +
 	"\x11TelemDataTypeList\x12\x16\n" +
 	"\x06values\x18\x01 \x03(\tR\x06values\"e\n" +
 	"\x10TelemDataTypeSet\x12\x13\n" +
 	"\x02eq\x18\x01 \x01(\tH\x00R\x02eq\x88\x01\x01\x125\n" +
 	"\x02in\x18\x02 \x01(\v2%.service.channel.pb.TelemDataTypeListR\x02inB\x05\n" +
-	"\x03_eq\"\xf0\x04\n" +
+	"\x03_eq\"\xec\x04\n" +
 	"\x05Where\x12/\n" +
 	"\x03and\x18\x01 \x01(\v2\x1d.service.channel.pb.WhereListR\x03and\x12-\n" +
 	"\x02or\x18\x02 \x01(\v2\x1d.service.channel.pb.WhereListR\x02or\x120\n" +
 	"\x03not\x18\x03 \x01(\v2\x19.service.channel.pb.WhereH\x00R\x03not\x88\x01\x01\x121\n" +
 	"\x03key\x18\x04 \x01(\v2\x1a.service.channel.pb.KeySetH\x01R\x03key\x88\x01\x01\x12,\n" +
-	"\x04name\x18\x05 \x01(\v2\x13.x.filter.pb.StringH\x02R\x04name\x88\x01\x01\x12I\n" +
-	"\vleaseholder\x18\x06 \x01(\v2\".service.channel.pb.NodeKeyOrderedH\x03R\vleaseholder\x88\x01\x01\x12F\n" +
+	"\x04name\x18\x05 \x01(\v2\x13.x.filter.pb.StringH\x02R\x04name\x88\x01\x01\x12E\n" +
+	"\vleaseholder\x18\x06 \x01(\v2\x1e.service.channel.pb.NodeKeySetH\x03R\vleaseholder\x88\x01\x01\x12F\n" +
 	"\tdata_type\x18\a \x01(\v2$.service.channel.pb.TelemDataTypeSetH\x04R\bdataType\x88\x01\x01\x121\n" +
 	"\bis_index\x18\b \x01(\v2\x11.x.filter.pb.BoolH\x05R\aisIndex\x88\x01\x01\x122\n" +
 	"\binternal\x18\t \x01(\v2\x11.x.filter.pb.BoolH\x06R\binternal\x88\x01\x01\x12\x1d\n" +
@@ -969,19 +926,16 @@ const file_core_pkg_service_channel_pb_channel_proto_rawDesc = "" +
 	"\t_is_indexB\v\n" +
 	"\t_internalB\n" +
 	"\n" +
-	"\b_virtual\"\x93\x02\n" +
+	"\b_virtual\"\xd6\x01\n" +
 	"\x0fRetrieveRequest\x124\n" +
-	"\x05where\x18\x01 \x01(\v2\x19.service.channel.pb.WhereH\x00R\x05where\x88\x01\x01\x12$\n" +
-	"\vsearch_term\x18\x02 \x01(\tH\x01R\n" +
-	"searchTerm\x88\x01\x01\x12\x19\n" +
-	"\x05limit\x18\x03 \x01(\rH\x02R\x05limit\x88\x01\x01\x12\x1b\n" +
-	"\x06offset\x18\x04 \x01(\rH\x03R\x06offset\x88\x01\x01\x12*\n" +
-	"\x0einclude_status\x18\x05 \x01(\bH\x04R\rincludeStatus\x88\x01\x01B\b\n" +
-	"\x06_whereB\x0e\n" +
-	"\f_search_termB\b\n" +
-	"\x06_limitB\t\n" +
-	"\a_offsetB\x11\n" +
-	"\x0f_include_status*\x8f\x01\n" +
+	"\x05where\x18\x01 \x01(\v2\x19.service.channel.pb.WhereH\x00R\x05where\x88\x01\x01\x12\x1f\n" +
+	"\vsearch_term\x18\x02 \x01(\tR\n" +
+	"searchTerm\x12\x19\n" +
+	"\x05limit\x18\x03 \x01(\rH\x01R\x05limit\x88\x01\x01\x12\x16\n" +
+	"\x06offset\x18\x04 \x01(\rR\x06offset\x12%\n" +
+	"\x0einclude_status\x18\x05 \x01(\bR\rincludeStatusB\b\n" +
+	"\x06_whereB\b\n" +
+	"\x06_limit*\x8f\x01\n" +
 	"\rOperationType\x12\x16\n" +
 	"\x12OPERATION_TYPE_MIN\x10\x00\x12\x16\n" +
 	"\x12OPERATION_TYPE_MAX\x10\x01\x12\x16\n" +
@@ -1012,7 +966,7 @@ var file_core_pkg_service_channel_pb_channel_proto_goTypes = []any{
 	(*KeyList)(nil),           // 4: service.channel.pb.KeyList
 	(*KeySet)(nil),            // 5: service.channel.pb.KeySet
 	(*NodeKeyList)(nil),       // 6: service.channel.pb.NodeKeyList
-	(*NodeKeyOrdered)(nil),    // 7: service.channel.pb.NodeKeyOrdered
+	(*NodeKeySet)(nil),        // 7: service.channel.pb.NodeKeySet
 	(*TelemDataTypeList)(nil), // 8: service.channel.pb.TelemDataTypeList
 	(*TelemDataTypeSet)(nil),  // 9: service.channel.pb.TelemDataTypeSet
 	(*Where)(nil),             // 10: service.channel.pb.Where
@@ -1027,14 +981,14 @@ var file_core_pkg_service_channel_pb_channel_proto_depIdxs = []int32{
 	1,  // 2: service.channel.pb.Channel.operations:type_name -> service.channel.pb.Operation
 	10, // 3: service.channel.pb.WhereList.values:type_name -> service.channel.pb.Where
 	4,  // 4: service.channel.pb.KeySet.in:type_name -> service.channel.pb.KeyList
-	6,  // 5: service.channel.pb.NodeKeyOrdered.in:type_name -> service.channel.pb.NodeKeyList
+	6,  // 5: service.channel.pb.NodeKeySet.in:type_name -> service.channel.pb.NodeKeyList
 	8,  // 6: service.channel.pb.TelemDataTypeSet.in:type_name -> service.channel.pb.TelemDataTypeList
 	3,  // 7: service.channel.pb.Where.and:type_name -> service.channel.pb.WhereList
 	3,  // 8: service.channel.pb.Where.or:type_name -> service.channel.pb.WhereList
 	10, // 9: service.channel.pb.Where.not:type_name -> service.channel.pb.Where
 	5,  // 10: service.channel.pb.Where.key:type_name -> service.channel.pb.KeySet
 	13, // 11: service.channel.pb.Where.name:type_name -> x.filter.pb.String
-	7,  // 12: service.channel.pb.Where.leaseholder:type_name -> service.channel.pb.NodeKeyOrdered
+	7,  // 12: service.channel.pb.Where.leaseholder:type_name -> service.channel.pb.NodeKeySet
 	9,  // 13: service.channel.pb.Where.data_type:type_name -> service.channel.pb.TelemDataTypeSet
 	14, // 14: service.channel.pb.Where.is_index:type_name -> x.filter.pb.Bool
 	14, // 15: service.channel.pb.Where.internal:type_name -> x.filter.pb.Bool

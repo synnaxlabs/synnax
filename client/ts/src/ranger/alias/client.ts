@@ -32,9 +32,6 @@ const listResZ = z.object({ aliases: z.record(z.string(), z.string()) });
 const retrieveReqZ = z.object({ range: keyZ, channels: channel.keyZ.array() });
 const retrieveResZ = z.object({ aliases: z.record(z.string(), z.string()) });
 
-const searchReqZ = z.object({ range: keyZ, term: z.string() });
-const searchResZ = z.object({ channels: channel.keyZ.array().default(() => []) });
-
 export class Client {
   private readonly cache = new Map<string, channel.Key>();
   private readonly client: UnaryClient;
@@ -111,20 +108,6 @@ export class Client {
       retrieveResZ,
     );
     return isSingle ? res.aliases[alias] : res.aliases;
-  }
-
-  /**
-   * @returns the channels whose alias in the range matches term, closest match first.
-   * The aliases of parent ranges are not searched.
-   */
-  async search(term: string): Promise<channel.Key[]> {
-    const res = await this.client.send(
-      "/range/alias/search",
-      { range: this.rangeKey, term },
-      searchReqZ,
-      searchResZ,
-    );
-    return res.channels;
   }
 
   async delete(aliases: channel.Key | channel.Key[]): Promise<void> {

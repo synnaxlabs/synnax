@@ -67,7 +67,7 @@ struct Where {
     /// @brief name selects by name.
     std::optional<::x::filter::String> name;
     /// @brief leaseholder selects by leaseholder.
-    std::optional<::x::filter::Ordered<::synnax::node::Key>> leaseholder;
+    std::optional<::x::filter::Set<::synnax::node::Key>> leaseholder;
     /// @brief data_type selects by data_type.
     std::optional<::x::filter::Set<::x::telem::DataType>> data_type;
     /// @brief is_index selects by is_index.
@@ -118,13 +118,13 @@ struct RetrieveRequest {
     /// them.
     std::optional<Where> where;
     /// @brief search_term keeps the channels that match the term, closest match first.
-    std::optional<std::string> search_term;
+    std::string search_term = "";
     /// @brief limit is the most channels to return.
     std::optional<std::uint32_t> limit;
     /// @brief offset is the number of matching channels to skip.
-    std::optional<std::uint32_t> offset;
+    std::uint32_t offset = 0;
     /// @brief include_status includes the status of each record.
-    std::optional<bool> include_status;
+    bool include_status = false;
 
     static RetrieveRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

@@ -412,40 +412,32 @@ func (x *RackKeyList) GetValues() []uint32 {
 	return nil
 }
 
-// RackKeyOrdered selects numbers and times. A value must match every operator that is
-// set.
-type RackKeyOrdered struct {
+// RackKeySet selects values that only compare for equality, such as keys, enum values,
+// and UUIDs. A value must match every operator that is set.
+type RackKeySet struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// eq matches a value equal to eq.
 	Eq *uint32 `protobuf:"varint,1,opt,name=eq,proto3,oneof" json:"eq,omitempty"`
 	// in matches a value equal to an element of in.
-	In *RackKeyList `protobuf:"bytes,2,opt,name=in,proto3" json:"in,omitempty"`
-	// gt matches a value greater than gt.
-	Gt *uint32 `protobuf:"varint,3,opt,name=gt,proto3,oneof" json:"gt,omitempty"`
-	// gte matches a value greater than or equal to gte.
-	Gte *uint32 `protobuf:"varint,4,opt,name=gte,proto3,oneof" json:"gte,omitempty"`
-	// lt matches a value less than lt.
-	Lt *uint32 `protobuf:"varint,5,opt,name=lt,proto3,oneof" json:"lt,omitempty"`
-	// lte matches a value less than or equal to lte.
-	Lte           *uint32 `protobuf:"varint,6,opt,name=lte,proto3,oneof" json:"lte,omitempty"`
+	In            *RackKeyList `protobuf:"bytes,2,opt,name=in,proto3" json:"in,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *RackKeyOrdered) Reset() {
-	*x = RackKeyOrdered{}
+func (x *RackKeySet) Reset() {
+	*x = RackKeySet{}
 	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *RackKeyOrdered) String() string {
+func (x *RackKeySet) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*RackKeyOrdered) ProtoMessage() {}
+func (*RackKeySet) ProtoMessage() {}
 
-func (x *RackKeyOrdered) ProtoReflect() protoreflect.Message {
+func (x *RackKeySet) ProtoReflect() protoreflect.Message {
 	mi := &file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -457,51 +449,23 @@ func (x *RackKeyOrdered) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use RackKeyOrdered.ProtoReflect.Descriptor instead.
-func (*RackKeyOrdered) Descriptor() ([]byte, []int) {
+// Deprecated: Use RackKeySet.ProtoReflect.Descriptor instead.
+func (*RackKeySet) Descriptor() ([]byte, []int) {
 	return file_core_pkg_service_legacy_device_pb_device_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *RackKeyOrdered) GetEq() uint32 {
+func (x *RackKeySet) GetEq() uint32 {
 	if x != nil && x.Eq != nil {
 		return *x.Eq
 	}
 	return 0
 }
 
-func (x *RackKeyOrdered) GetIn() *RackKeyList {
+func (x *RackKeySet) GetIn() *RackKeyList {
 	if x != nil {
 		return x.In
 	}
 	return nil
-}
-
-func (x *RackKeyOrdered) GetGt() uint32 {
-	if x != nil && x.Gt != nil {
-		return *x.Gt
-	}
-	return 0
-}
-
-func (x *RackKeyOrdered) GetGte() uint32 {
-	if x != nil && x.Gte != nil {
-		return *x.Gte
-	}
-	return 0
-}
-
-func (x *RackKeyOrdered) GetLt() uint32 {
-	if x != nil && x.Lt != nil {
-		return *x.Lt
-	}
-	return 0
-}
-
-func (x *RackKeyOrdered) GetLte() uint32 {
-	if x != nil && x.Lte != nil {
-		return *x.Lte
-	}
-	return 0
 }
 
 // Where is a filter that selects devices.
@@ -524,7 +488,7 @@ type Where struct {
 	// location selects by location.
 	Location *pb2.String `protobuf:"bytes,8,opt,name=location,proto3,oneof" json:"location,omitempty"`
 	// rack selects by rack.
-	Rack          *RackKeyOrdered `protobuf:"bytes,9,opt,name=rack,proto3,oneof" json:"rack,omitempty"`
+	Rack          *RackKeySet `protobuf:"bytes,9,opt,name=rack,proto3,oneof" json:"rack,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -615,7 +579,7 @@ func (x *Where) GetLocation() *pb2.String {
 	return nil
 }
 
-func (x *Where) GetRack() *RackKeyOrdered {
+func (x *Where) GetRack() *RackKeySet {
 	if x != nil {
 		return x.Rack
 	}
@@ -628,15 +592,15 @@ type RetrieveRequest struct {
 	// where selects the devices to retrieve. An absent where selects all of them.
 	Where *Where `protobuf:"bytes,1,opt,name=where,proto3,oneof" json:"where,omitempty"`
 	// search_term keeps the devices that match the term, closest match first.
-	SearchTerm *string `protobuf:"bytes,2,opt,name=search_term,json=searchTerm,proto3,oneof" json:"search_term,omitempty"`
+	SearchTerm string `protobuf:"bytes,2,opt,name=search_term,json=searchTerm,proto3" json:"search_term,omitempty"`
 	// limit is the most devices to return.
 	Limit *uint32 `protobuf:"varint,3,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
 	// offset is the number of matching devices to skip.
-	Offset *uint32 `protobuf:"varint,4,opt,name=offset,proto3,oneof" json:"offset,omitempty"`
+	Offset uint32 `protobuf:"varint,4,opt,name=offset,proto3" json:"offset,omitempty"`
 	// include_status includes the status of each record.
-	IncludeStatus *bool `protobuf:"varint,5,opt,name=include_status,json=includeStatus,proto3,oneof" json:"include_status,omitempty"`
+	IncludeStatus bool `protobuf:"varint,5,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
 	// include_parent includes the parent of each record.
-	IncludeParent *bool `protobuf:"varint,6,opt,name=include_parent,json=includeParent,proto3,oneof" json:"include_parent,omitempty"`
+	IncludeParent bool `protobuf:"varint,6,opt,name=include_parent,json=includeParent,proto3" json:"include_parent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -679,8 +643,8 @@ func (x *RetrieveRequest) GetWhere() *Where {
 }
 
 func (x *RetrieveRequest) GetSearchTerm() string {
-	if x != nil && x.SearchTerm != nil {
-		return *x.SearchTerm
+	if x != nil {
+		return x.SearchTerm
 	}
 	return ""
 }
@@ -693,22 +657,22 @@ func (x *RetrieveRequest) GetLimit() uint32 {
 }
 
 func (x *RetrieveRequest) GetOffset() uint32 {
-	if x != nil && x.Offset != nil {
-		return *x.Offset
+	if x != nil {
+		return x.Offset
 	}
 	return 0
 }
 
 func (x *RetrieveRequest) GetIncludeStatus() bool {
-	if x != nil && x.IncludeStatus != nil {
-		return *x.IncludeStatus
+	if x != nil {
+		return x.IncludeStatus
 	}
 	return false
 }
 
 func (x *RetrieveRequest) GetIncludeParent() bool {
-	if x != nil && x.IncludeParent != nil {
-		return *x.IncludeParent
+	if x != nil {
+		return x.IncludeParent
 	}
 	return false
 }
@@ -795,19 +759,12 @@ const file_core_pkg_service_legacy_device_pb_device_proto_rawDesc = "" +
 	"\x02in\x18\x02 \x01(\v2\x1d.service.device.pb.StringListR\x02inB\x05\n" +
 	"\x03_eq\"%\n" +
 	"\vRackKeyList\x12\x16\n" +
-	"\x06values\x18\x01 \x03(\rR\x06values\"\xd2\x01\n" +
-	"\x0eRackKeyOrdered\x12\x13\n" +
+	"\x06values\x18\x01 \x03(\rR\x06values\"X\n" +
+	"\n" +
+	"RackKeySet\x12\x13\n" +
 	"\x02eq\x18\x01 \x01(\rH\x00R\x02eq\x88\x01\x01\x12.\n" +
-	"\x02in\x18\x02 \x01(\v2\x1e.service.device.pb.RackKeyListR\x02in\x12\x13\n" +
-	"\x02gt\x18\x03 \x01(\rH\x01R\x02gt\x88\x01\x01\x12\x15\n" +
-	"\x03gte\x18\x04 \x01(\rH\x02R\x03gte\x88\x01\x01\x12\x13\n" +
-	"\x02lt\x18\x05 \x01(\rH\x03R\x02lt\x88\x01\x01\x12\x15\n" +
-	"\x03lte\x18\x06 \x01(\rH\x04R\x03lte\x88\x01\x01B\x05\n" +
-	"\x03_eqB\x05\n" +
-	"\x03_gtB\x06\n" +
-	"\x04_gteB\x05\n" +
-	"\x03_ltB\x06\n" +
-	"\x04_lte\"\x8b\x04\n" +
+	"\x02in\x18\x02 \x01(\v2\x1e.service.device.pb.RackKeyListR\x02inB\x05\n" +
+	"\x03_eq\"\x87\x04\n" +
 	"\x05Where\x12.\n" +
 	"\x03and\x18\x01 \x01(\v2\x1c.service.device.pb.WhereListR\x03and\x12,\n" +
 	"\x02or\x18\x02 \x01(\v2\x1c.service.device.pb.WhereListR\x02or\x12/\n" +
@@ -816,29 +773,25 @@ const file_core_pkg_service_legacy_device_pb_device_proto_rawDesc = "" +
 	"\x04name\x18\x05 \x01(\v2\x13.x.filter.pb.StringH\x02R\x04name\x88\x01\x01\x12,\n" +
 	"\x04make\x18\x06 \x01(\v2\x13.x.filter.pb.StringH\x03R\x04make\x88\x01\x01\x12.\n" +
 	"\x05model\x18\a \x01(\v2\x13.x.filter.pb.StringH\x04R\x05model\x88\x01\x01\x124\n" +
-	"\blocation\x18\b \x01(\v2\x13.x.filter.pb.StringH\x05R\blocation\x88\x01\x01\x12:\n" +
-	"\x04rack\x18\t \x01(\v2!.service.device.pb.RackKeyOrderedH\x06R\x04rack\x88\x01\x01B\x06\n" +
+	"\blocation\x18\b \x01(\v2\x13.x.filter.pb.StringH\x05R\blocation\x88\x01\x01\x126\n" +
+	"\x04rack\x18\t \x01(\v2\x1d.service.device.pb.RackKeySetH\x06R\x04rack\x88\x01\x01B\x06\n" +
 	"\x04_notB\x06\n" +
 	"\x04_keyB\a\n" +
 	"\x05_nameB\a\n" +
 	"\x05_makeB\b\n" +
 	"\x06_modelB\v\n" +
 	"\t_locationB\a\n" +
-	"\x05_rack\"\xd1\x02\n" +
+	"\x05_rack\"\xfc\x01\n" +
 	"\x0fRetrieveRequest\x123\n" +
-	"\x05where\x18\x01 \x01(\v2\x18.service.device.pb.WhereH\x00R\x05where\x88\x01\x01\x12$\n" +
-	"\vsearch_term\x18\x02 \x01(\tH\x01R\n" +
-	"searchTerm\x88\x01\x01\x12\x19\n" +
-	"\x05limit\x18\x03 \x01(\rH\x02R\x05limit\x88\x01\x01\x12\x1b\n" +
-	"\x06offset\x18\x04 \x01(\rH\x03R\x06offset\x88\x01\x01\x12*\n" +
-	"\x0einclude_status\x18\x05 \x01(\bH\x04R\rincludeStatus\x88\x01\x01\x12*\n" +
-	"\x0einclude_parent\x18\x06 \x01(\bH\x05R\rincludeParent\x88\x01\x01B\b\n" +
-	"\x06_whereB\x0e\n" +
-	"\f_search_termB\b\n" +
-	"\x06_limitB\t\n" +
-	"\a_offsetB\x11\n" +
-	"\x0f_include_statusB\x11\n" +
-	"\x0f_include_parent\"G\n" +
+	"\x05where\x18\x01 \x01(\v2\x18.service.device.pb.WhereH\x00R\x05where\x88\x01\x01\x12\x1f\n" +
+	"\vsearch_term\x18\x02 \x01(\tR\n" +
+	"searchTerm\x12\x19\n" +
+	"\x05limit\x18\x03 \x01(\rH\x01R\x05limit\x88\x01\x01\x12\x16\n" +
+	"\x06offset\x18\x04 \x01(\rR\x06offset\x12%\n" +
+	"\x0einclude_status\x18\x05 \x01(\bR\rincludeStatus\x12%\n" +
+	"\x0einclude_parent\x18\x06 \x01(\bR\rincludeParentB\b\n" +
+	"\x06_whereB\b\n" +
+	"\x06_limit\"G\n" +
 	"\x10RetrieveResponse\x123\n" +
 	"\adevices\x18\x01 \x03(\v2\x19.service.device.pb.DeviceR\adevicesB\xc5\x01\n" +
 	"\x15com.service.device.pbB\vDeviceProtoP\x01Z9github.com/synnaxlabs/synnax/pkg/service/legacy/device/pb\xa2\x02\x03SDP\xaa\x02\x11Service.Device.Pb\xca\x02\x11Service\\Device\\Pb\xe2\x02\x1dService\\Device\\Pb\\GPBMetadata\xea\x02\x13Service::Device::Pbb\x06proto3"
@@ -863,7 +816,7 @@ var file_core_pkg_service_legacy_device_pb_device_proto_goTypes = []any{
 	(*StringList)(nil),       // 3: service.device.pb.StringList
 	(*StringSet)(nil),        // 4: service.device.pb.StringSet
 	(*RackKeyList)(nil),      // 5: service.device.pb.RackKeyList
-	(*RackKeyOrdered)(nil),   // 6: service.device.pb.RackKeyOrdered
+	(*RackKeySet)(nil),       // 6: service.device.pb.RackKeySet
 	(*Where)(nil),            // 7: service.device.pb.Where
 	(*RetrieveRequest)(nil),  // 8: service.device.pb.RetrieveRequest
 	(*RetrieveResponse)(nil), // 9: service.device.pb.RetrieveResponse
@@ -878,7 +831,7 @@ var file_core_pkg_service_legacy_device_pb_device_proto_depIdxs = []int32{
 	12, // 2: service.device.pb.Device.parent:type_name -> service.ontology.pb.ID
 	7,  // 3: service.device.pb.WhereList.values:type_name -> service.device.pb.Where
 	3,  // 4: service.device.pb.StringSet.in:type_name -> service.device.pb.StringList
-	5,  // 5: service.device.pb.RackKeyOrdered.in:type_name -> service.device.pb.RackKeyList
+	5,  // 5: service.device.pb.RackKeySet.in:type_name -> service.device.pb.RackKeyList
 	2,  // 6: service.device.pb.Where.and:type_name -> service.device.pb.WhereList
 	2,  // 7: service.device.pb.Where.or:type_name -> service.device.pb.WhereList
 	7,  // 8: service.device.pb.Where.not:type_name -> service.device.pb.Where
@@ -887,7 +840,7 @@ var file_core_pkg_service_legacy_device_pb_device_proto_depIdxs = []int32{
 	13, // 11: service.device.pb.Where.make:type_name -> x.filter.pb.String
 	13, // 12: service.device.pb.Where.model:type_name -> x.filter.pb.String
 	13, // 13: service.device.pb.Where.location:type_name -> x.filter.pb.String
-	6,  // 14: service.device.pb.Where.rack:type_name -> service.device.pb.RackKeyOrdered
+	6,  // 14: service.device.pb.Where.rack:type_name -> service.device.pb.RackKeySet
 	7,  // 15: service.device.pb.RetrieveRequest.where:type_name -> service.device.pb.Where
 	1,  // 16: service.device.pb.RetrieveResponse.devices:type_name -> service.device.pb.Device
 	17, // [17:17] is the sub-list for method output_type

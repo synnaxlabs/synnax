@@ -92,13 +92,13 @@ struct RetrieveRequest {
     /// @brief where selects the racks to retrieve. An absent where selects all of them.
     std::optional<Where> where;
     /// @brief search_term keeps the racks that match the term, closest match first.
-    std::optional<std::string> search_term;
+    std::string search_term = "";
     /// @brief limit is the most racks to return.
     std::optional<std::uint32_t> limit;
     /// @brief offset is the number of matching racks to skip.
-    std::optional<std::uint32_t> offset;
+    std::uint32_t offset = 0;
     /// @brief include_status includes the status of each record.
-    std::optional<bool> include_status;
+    bool include_status = false;
 
     static RetrieveRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

@@ -10,15 +10,22 @@
 package channel_test
 
 import (
+	"fmt"
+	"math/rand/v2"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -28,11 +35,16 @@ import (
 
 func createChannel(ctx SpecContext, dt telem.DataType) channel.Channel {
 	GinkgoHelper()
-	ch := channel.Channel{
-		Name:     UniqueChannelName(),
-		DataType: dt,
-		Virtual:  true,
-	}
+	return createNamedChannel(ctx, UniqueChannelName(), dt)
+}
+
+func createNamedChannel(
+	ctx SpecContext,
+	name string,
+	dt telem.DataType,
+) channel.Channel {
+	GinkgoHelper()
+	ch := channel.Channel{Name: name, DataType: dt, Virtual: true}
 	Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 	return ch
 }
@@ -115,12 +127,12 @@ var _ = Describe("Service", func() {
 				GinkgoHelper()
 				return MustSucceed(apiSvc.Retrieve(
 					AuthedCtx(ctx, author),
-					apichannel.RetrieveRequest{
+					apichannel.RetrieveRequest{Request: channel.RetrieveRequest{
 						Where: &apichannel.Where{
 							Key: &filter.Set[channel.Key]{In: keys},
 						},
-						IncludeStatus: new(true),
-					},
+						IncludeStatus: true,
+					}},
 				)).Channels
 			}
 
@@ -150,6 +162,134 @@ var _ = Describe("Service", func() {
 			)
 		})
 
+		Describe("RangeKey", func() {
+			var (
+				rng     ranger.Range
+				term    string
+				byName  channel.Channel
+				byAlias channel.Channel
+				both    *apichannel.Where
+			)
+			BeforeEach(func(ctx SpecContext) {
+				grantOn(
+					ctx,
+					author.OntologyID(),
+					[]access.Action{access.ActionRetrieve},
+					ontology.ID{Type: ontology.ResourceTypeChannel},
+					ontology.ID{Type: ontology.ResourceTypeRangeAlias},
+				)
+				rng = ranger.Range{
+					Name:      "range",
+					TimeRange: telem.TimeRange{
+						Start: telem.TimeStamp(5 * telem.Second),
+						End:   telem.TimeStamp(10 * telem.Second),
+					},
+				}
+				Expect(rangeSvc.NewWriter(nil).Create(ctx, &rng)).To(Succeed())
+				term = fmt.Sprintf("probe%09d", rand.IntN(999999999))
+				byName = createNamedChannel(ctx, term, telem.Float32T)
+				byAlias = createChannel(ctx, telem.Float32T)
+				Expect(aliasSvc.NewWriter(nil).Set(
+					ctx, rng.Key, byAlias.Key(), term+" inlet",
+				)).To(Succeed())
+				both = &apichannel.Where{Key: &filter.Set[channel.Key]{
+					In: []channel.Key{byName.Key(), byAlias.Key()},
+				}}
+			})
+
+			retrieve := func(ctx SpecContext, req channel.RetrieveRequest) []channel.Key {
+				GinkgoHelper()
+				res := MustSucceed(apiSvc.Retrieve(
+					AuthedCtx(ctx, author),
+					apichannel.RetrieveRequest{Request: req, RangeKey: &rng.Key},
+				))
+				return lo.Map(
+					res.Channels,
+					func(ch apichannel.Channel, _ int) channel.Key {
+						return ch.Key
+					},
+				)
+			}
+
+			It(
+				"Should fill the alias of each channel on the range",
+				func(ctx SpecContext) {
+					res := MustSucceed(apiSvc.Retrieve(
+						AuthedCtx(ctx, author),
+						apichannel.RetrieveRequest{
+							Request:  channel.RetrieveRequest{Where: both},
+							RangeKey: &rng.Key,
+						},
+					))
+					Expect(res.Channels).To(ConsistOf(
+						SatisfyAll(
+							HaveField("Key", byAlias.Key()),
+							HaveField("Alias", HaveValue(Equal(term+" inlet"))),
+						),
+						SatisfyAll(
+							HaveField("Key", byName.Key()),
+							HaveField("Alias", BeNil()),
+						),
+					))
+				},
+			)
+
+			It("Should rank the channels whose alias matches the term first", func(
+				ctx SpecContext,
+			) {
+				Expect(retrieve(ctx, channel.RetrieveRequest{
+					Where:      both,
+					SearchTerm: term,
+				})).To(Equal([]channel.Key{byAlias.Key(), byName.Key()}))
+			})
+
+			It("Should page the merged channels", func(ctx SpecContext) {
+				req := channel.RetrieveRequest{
+					Where:      both,
+					SearchTerm: term,
+					Limit:      new(uint32(1)),
+				}
+				Expect(retrieve(ctx, req)).To(Equal([]channel.Key{byAlias.Key()}))
+				req.Offset = 1
+				Expect(retrieve(ctx, req)).To(Equal([]channel.Key{byName.Key()}))
+				req.Offset = 2
+				Expect(retrieve(ctx, req)).To(BeEmpty())
+			})
+
+			It("Should leave out an alias match that the where rejects", func(
+				ctx SpecContext,
+			) {
+				Expect(retrieve(ctx, channel.RetrieveRequest{
+					Where: &apichannel.Where{
+						Key: &filter.Set[channel.Key]{Eq: new(byName.Key())},
+					},
+					SearchTerm: term,
+				})).To(Equal([]channel.Key{byName.Key()}))
+			})
+
+			It("Should require retrieve access on the aliases it fills", func(
+				ctx SpecContext,
+			) {
+				reader := MustSucceed(userSvc.NewWriter(nil).Create(
+					ctx,
+					user.User{Username: "reader-" + uuid.New().String()},
+				))
+				grantOn(
+					ctx,
+					reader.OntologyID(),
+					[]access.Action{access.ActionRetrieve},
+					ontology.ID{Type: ontology.ResourceTypeChannel},
+				)
+				Expect(apiSvc.Retrieve(
+					AuthedCtx(ctx, reader),
+					apichannel.RetrieveRequest{
+						Request:  channel.RetrieveRequest{Where: both},
+						RangeKey: &rng.Key,
+					},
+				)).Error().To(MatchError(access.ErrDenied))
+			})
+		})
+
 		It("Should treat a missing key as a non-match", func(ctx SpecContext) {
 			grantOn(
 				ctx,
@@ -160,8 +300,12 @@ var _ = Describe("Service", func() {
 			ch := createChannel(ctx, telem.Float32T)
 			res := MustSucceed(apiSvc.Retrieve(
 				AuthedCtx(ctx, author),
-				apichannel.RetrieveRequest{Where: &apichannel.Where{
-					Key: &filter.Set[channel.Key]{In: []channel.Key{ch.Key(), 999999}},
+				apichannel.RetrieveRequest{Request: channel.RetrieveRequest{
+					Where: &apichannel.Where{
+						Key: &filter.Set[channel.Key]{
+							In: []channel.Key{ch.Key(), 999999},
+						},
+					},
 				}},
 			))
 			Expect(res.Channels).To(HaveLen(1))
@@ -171,8 +315,8 @@ var _ = Describe("Service", func() {
 		It("Should return a path error for an invalid regex", func(ctx SpecContext) {
 			Expect(apiSvc.Retrieve(
 				AuthedCtx(ctx, author),
-				apichannel.RetrieveRequest{Where: &apichannel.Where{
-					Name: &filter.String{Regex: new("(a")},
+				apichannel.RetrieveRequest{Request: channel.RetrieveRequest{
+					Where: &apichannel.Where{Name: &filter.String{Regex: new("(a")}},
 				}},
 			)).Error().To(SatisfyAll(
 				BeAssignableToTypeOf(validate.PathError{}),

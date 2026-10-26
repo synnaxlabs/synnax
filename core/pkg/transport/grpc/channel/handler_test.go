@@ -10,9 +10,13 @@
 package channel
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
+	"github.com/synnaxlabs/synnax/pkg/api/channel/pb"
+	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/filter"
@@ -26,25 +30,29 @@ import (
 var _ = Describe("gRPC Channel Translators", func() {
 	Describe("RetrieveRequest", func() {
 		t := retrieveRequestTranslator{}
-		It("Should round-trip a filter tree", func(ctx SpecContext) {
+		It("Should round-trip a filter tree and a range", func(ctx SpecContext) {
+			rangeKey := uuid.New()
 			msg := channel.RetrieveRequest{
-				Where: &channel.Where{
-					Or: []channel.Where{
-						{Key: &filter.Set[channel.Key]{In: []channel.Key{1048577}}},
-						{Name: &filter.String{Regex: new("^pressure")}},
-					},
-					Not: &channel.Where{
-						DataType: &filter.Set[telem.DataType]{
-							In: []telem.DataType{telem.StringT},
+				Request: svcchannel.RetrieveRequest{
+					Where: &channel.Where{
+						Or: []channel.Where{
+							{Key: &filter.Set[channel.Key]{In: []channel.Key{1048577}}},
+							{Name: &filter.String{Regex: new("^pressure")}},
 						},
+						Not: &channel.Where{
+							DataType: &filter.Set[telem.DataType]{
+								In: []telem.DataType{telem.StringT},
+							},
+						},
+						Leaseholder: &filter.Set[node.Key]{Eq: new(node.Key(1))},
+						IsIndex:     &filter.Bool{Eq: new(false)},
+						Virtual:     new(false),
 					},
-					Leaseholder: &filter.Ordered[node.Key]{Eq: new(node.Key(1))},
-					IsIndex:     &filter.Bool{Eq: new(false)},
-					Virtual:     new(false),
+					SearchTerm:    "pressure",
+					Limit:         new(uint32(10)),
+					IncludeStatus: true,
 				},
-				SearchTerm:    new("pressure"),
-				Limit:         new(uint32(10)),
-				IncludeStatus: new(true),
+				RangeKey: &rangeKey,
 			}
 			fwd := MustSucceed(t.Forward(ctx, msg))
 			b := MustSucceed(proto.Marshal(fwd))
@@ -86,7 +94,7 @@ var _ = Describe("gRPC Channel Translators", func() {
 			}}}
 			fwd := MustSucceed(t.Forward(ctx, msg))
 			b := MustSucceed(proto.Marshal(fwd))
-			var decoded RetrieveResponse
+			var decoded pb.RetrieveResponse
 			Expect(proto.Unmarshal(b, &decoded)).To(Succeed())
 			res := MustSucceed(t.Backward(ctx, &decoded))
 			Expect(res.Channels).To(HaveLen(1))

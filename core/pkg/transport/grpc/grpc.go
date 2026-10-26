@@ -29,7 +29,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
 	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
-	apialias "github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
@@ -85,9 +84,6 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	// CHANNEL
 	t.ChannelRename = noop.UnaryServer[apichannel.RenameRequest, struct{}]{}
 	t.ChannelRetrieveGroup = noop.UnaryServer[apichannel.RetrieveGroupRequest, apichannel.RetrieveGroupResponse]{}
-
-	// ALIAS
-	t.AliasSearch = noop.UnaryServer[apialias.SearchRequest, apialias.SearchResponse]{}
 
 	// FRAME
 	t.FrameRead = noop.UnaryServer[apiframer.ReadRequest, apiframer.ReadResponse]{}

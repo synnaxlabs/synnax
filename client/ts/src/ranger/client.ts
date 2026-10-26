@@ -807,14 +807,6 @@ export class Client extends query.Retriever<
     return await this.createAliasClient(range).retrieve(channels);
   }
 
-  /**
-   * @returns the channels whose alias in the range matches term, closest match first.
-   * The aliases of parent ranges are not searched.
-   */
-  async searchAliases(range: Key, term: string): Promise<channel.Key[]> {
-    return await this.createAliasClient(range).search(term);
-  }
-
   async listAliases(range: Key): Promise<Record<channel.Key, string>> {
     return await this.createAliasClient(range).list();
   }

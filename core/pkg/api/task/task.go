@@ -12,7 +12,6 @@ package task
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -132,7 +131,7 @@ func (s *Service) Retrieve(
 	if err := q.Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
-	if lo.FromPtr(req.IncludeStatus) {
+	if req.IncludeStatus {
 		statuses, err := s.status.Join[task.StatusDetails](
 			ctx,
 			task.OntologyIDsFromTasks(res.Tasks),

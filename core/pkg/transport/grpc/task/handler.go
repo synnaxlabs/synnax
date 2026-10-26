@@ -33,7 +33,7 @@ type (
 		task.RetrieveRequest,
 		*RetrieveRequest,
 		task.RetrieveResponse,
-		*RetrieveResponse,
+		*pb.RetrieveResponse,
 	]
 	deleteServer = grpc.UnaryServer[
 		task.DeleteRequest,
@@ -63,7 +63,7 @@ var (
 	_ grpc.Translator[task.CreateRequest, *CreateRequest]       = createRequestTranslator{}
 	_ grpc.Translator[task.CreateResponse, *CreateResponse]     = createResponseTranslator{}
 	_ grpc.Translator[task.RetrieveRequest, *RetrieveRequest]   = retrieveRequestTranslator{}
-	_ grpc.Translator[task.RetrieveResponse, *RetrieveResponse] = retrieveResponseTranslator{}
+	_ grpc.Translator[task.RetrieveResponse, *pb.RetrieveResponse] = retrieveResponseTranslator{}
 	_ grpc.Translator[task.DeleteRequest, *DeleteRequest]       = deleteRequestTranslator{}
 	_ grpc.Translator[task.CopyRequest, *CopyRequest]           = copyRequestTranslator{}
 	_ grpc.Translator[task.CopyResponse, *CopyResponse]         = copyResponseTranslator{}
@@ -139,23 +139,15 @@ func (retrieveRequestTranslator) Backward(
 func (retrieveResponseTranslator) Forward(
 	_ context.Context,
 	res task.RetrieveResponse,
-) (*RetrieveResponse, error) {
-	tasks, err := pb.TasksToPB(res.Tasks)
-	if err != nil {
-		return nil, err
-	}
-	return &RetrieveResponse{Tasks: tasks}, nil
+) (*pb.RetrieveResponse, error) {
+	return pb.RetrieveResponseToPB(res)
 }
 
 func (retrieveResponseTranslator) Backward(
 	_ context.Context,
-	res *RetrieveResponse,
+	res *pb.RetrieveResponse,
 ) (task.RetrieveResponse, error) {
-	tasks, err := pb.TasksFromPB(res.Tasks)
-	if err != nil {
-		return task.RetrieveResponse{}, err
-	}
-	return task.RetrieveResponse{Tasks: tasks}, nil
+	return pb.RetrieveResponseFromPB(res)
 }
 
 func (deleteRequestTranslator) Forward(

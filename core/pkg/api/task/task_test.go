@@ -107,7 +107,7 @@ var _ = Describe("Retrieve", func() {
 			Where: &apitask.Where{Key: &filter.Set[task.Key]{
 				In: []task.Key{withoutStatus.Key, withStatus.Key},
 			}},
-			IncludeStatus: new(true),
+			IncludeStatus: true,
 		}))
 		Expect(res.Tasks).To(HaveLen(2))
 		Expect(res.Tasks[0].Key).To(Equal(withoutStatus.Key))
@@ -146,7 +146,7 @@ var _ = Describe("Retrieve", func() {
 			match.OntologyID(), other.OntologyID(),
 		)
 		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
-			SearchTerm: new("cryostat"),
+			SearchTerm: "cryostat",
 		}))
 		Expect(res.Tasks).To(HaveExactElements(HaveField("Key", match.Key)))
 	})

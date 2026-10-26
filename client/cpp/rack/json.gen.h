@@ -89,10 +89,10 @@ inline x::json::json Where::to_json() const {
 inline RetrieveRequest RetrieveRequest::parse(x::json::Parser parser) {
     return RetrieveRequest{
         .where = parser.field<std::optional<Where>>("where"),
-        .search_term = parser.field<std::optional<std::string>>("search_term"),
+        .search_term = parser.field<std::string>("search_term", ""),
         .limit = parser.field<std::optional<std::uint32_t>>("limit"),
-        .offset = parser.field<std::optional<std::uint32_t>>("offset"),
-        .include_status = parser.field<std::optional<bool>>("include_status"),
+        .offset = parser.field<std::uint32_t>("offset", 0),
+        .include_status = parser.field<bool>("include_status", false),
     };
 }
 

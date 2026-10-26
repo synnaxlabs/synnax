@@ -382,7 +382,11 @@ func WheresFromPB(pbs []*Where) ([]rack.Where, error) {
 
 // RetrieveRequestToPB converts RetrieveRequest to RetrieveRequest.
 func RetrieveRequestToPB(r rack.RetrieveRequest) (*RetrieveRequest, error) {
-	pb := &RetrieveRequest{}
+	pb := &RetrieveRequest{
+		SearchTerm:    r.SearchTerm,
+		Offset:        r.Offset,
+		IncludeStatus: r.IncludeStatus,
+	}
 	if r.Where != nil {
 		var err error
 		pb.Where, err = WhereToPB(*r.Where)
@@ -390,17 +394,8 @@ func RetrieveRequestToPB(r rack.RetrieveRequest) (*RetrieveRequest, error) {
 			return nil, err
 		}
 	}
-	if r.SearchTerm != nil {
-		pb.SearchTerm = r.SearchTerm
-	}
 	if r.Limit != nil {
 		pb.Limit = r.Limit
-	}
-	if r.Offset != nil {
-		pb.Offset = r.Offset
-	}
-	if r.IncludeStatus != nil {
-		pb.IncludeStatus = r.IncludeStatus
 	}
 	return pb, nil
 }
@@ -411,6 +406,9 @@ func RetrieveRequestFromPB(pb *RetrieveRequest) (rack.RetrieveRequest, error) {
 	if pb == nil {
 		return r, nil
 	}
+	r.SearchTerm = pb.SearchTerm
+	r.Offset = pb.Offset
+	r.IncludeStatus = pb.IncludeStatus
 	if pb.Where != nil {
 		val, err := WhereFromPB(pb.Where)
 		if err != nil {
@@ -418,17 +416,8 @@ func RetrieveRequestFromPB(pb *RetrieveRequest) (rack.RetrieveRequest, error) {
 		}
 		r.Where = &val
 	}
-	if pb.SearchTerm != nil {
-		r.SearchTerm = pb.SearchTerm
-	}
 	if pb.Limit != nil {
 		r.Limit = pb.Limit
-	}
-	if pb.Offset != nil {
-		r.Offset = pb.Offset
-	}
-	if pb.IncludeStatus != nil {
-		r.IncludeStatus = pb.IncludeStatus
 	}
 	return r, nil
 }

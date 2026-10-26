@@ -195,42 +195,6 @@ func (s *Service) List(
 }
 
 type (
-	// SearchRequest names the range whose aliases to search and the term to match.
-	SearchRequest struct {
-		// Term is the text to match against the aliases.
-		Term string `json:"term" msgpack:"term"`
-		// Range is the range whose aliases to search.
-		Range ranger.Key `json:"range" msgpack:"range"`
-	}
-	// SearchResponse holds the channels a SearchRequest matches.
-	SearchResponse struct {
-		// Channels are the channels whose alias matches the term, closest match first.
-		Channels []channel.Key `json:"channels" msgpack:"channels"`
-	}
-)
-
-// Search returns the channels whose alias on the range matches the term, closest match
-// first. It does not search the aliases of parent ranges. It requires retrieve access
-// on every matching alias.
-func (s *Service) Search(
-	ctx context.Context,
-	req SearchRequest,
-) (SearchResponse, error) {
-	keys, err := s.alias.NewReader(nil).Search(ctx, req.Range, req.Term)
-	if err != nil {
-		return SearchResponse{}, err
-	}
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: alias.OntologyIDs(req.Range, keys),
-	}); err != nil {
-		return SearchResponse{}, err
-	}
-	return SearchResponse{Channels: keys}, nil
-}
-
-type (
 	RetrieveRequest struct {
 		Channels []channel.Key `json:"channels" msgpack:"channels"`
 		Range    ranger.Key    `json:"range"    msgpack:"range"`

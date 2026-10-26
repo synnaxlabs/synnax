@@ -84,7 +84,7 @@ inline Where Where::parse(x::json::Parser parser) {
         .key = parser.field<std::optional<::x::filter::Set<Key>>>("key"),
         .name = parser.field<std::optional<::x::filter::String>>("name"),
         .type = parser.field<std::optional<::x::filter::String>>("type"),
-        .rack = parser.field<std::optional<::x::filter::Ordered<::synnax::rack::Key>>>(
+        .rack = parser.field<std::optional<::x::filter::Set<::synnax::rack::Key>>>(
             "rack"
         ),
         .internal = parser.field<std::optional<::x::filter::Bool>>("internal"),
@@ -227,10 +227,10 @@ inline x::json::json ScanConfig::to_json() const {
 inline RetrieveRequest RetrieveRequest::parse(x::json::Parser parser) {
     return RetrieveRequest{
         .where = parser.field<std::optional<Where>>("where"),
-        .search_term = parser.field<std::optional<std::string>>("search_term"),
+        .search_term = parser.field<std::string>("search_term", ""),
         .limit = parser.field<std::optional<std::uint32_t>>("limit"),
-        .offset = parser.field<std::optional<std::uint32_t>>("offset"),
-        .include_status = parser.field<std::optional<bool>>("include_status"),
+        .offset = parser.field<std::uint32_t>("offset", 0),
+        .include_status = parser.field<bool>("include_status", false),
     };
 }
 

@@ -21,7 +21,7 @@ service TaskCreateService {
 }
 
 service TaskRetrieveService {
-  rpc Exec(RetrieveRequest) returns (RetrieveResponse);
+  rpc Exec(RetrieveRequest) returns (service.task.pb.RetrieveResponse);
 }
 
 service TaskDeleteService {
@@ -46,9 +46,6 @@ message RetrieveRequest {
   service.task.pb.RetrieveRequest request = 6;
 }
 
-message RetrieveResponse {
-  repeated service.task.pb.Task tasks = 1;
-}
 
 message DeleteRequest {
   repeated string keys = 1;

@@ -440,40 +440,32 @@ func (x *RackKeyList) GetValues() []uint32 {
 	return nil
 }
 
-// RackKeyOrdered selects numbers and times. A value must match every operator that is
-// set.
-type RackKeyOrdered struct {
+// RackKeySet selects values that only compare for equality, such as keys, enum values,
+// and UUIDs. A value must match every operator that is set.
+type RackKeySet struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// eq matches a value equal to eq.
 	Eq *uint32 `protobuf:"varint,1,opt,name=eq,proto3,oneof" json:"eq,omitempty"`
 	// in matches a value equal to an element of in.
-	In *RackKeyList `protobuf:"bytes,2,opt,name=in,proto3" json:"in,omitempty"`
-	// gt matches a value greater than gt.
-	Gt *uint32 `protobuf:"varint,3,opt,name=gt,proto3,oneof" json:"gt,omitempty"`
-	// gte matches a value greater than or equal to gte.
-	Gte *uint32 `protobuf:"varint,4,opt,name=gte,proto3,oneof" json:"gte,omitempty"`
-	// lt matches a value less than lt.
-	Lt *uint32 `protobuf:"varint,5,opt,name=lt,proto3,oneof" json:"lt,omitempty"`
-	// lte matches a value less than or equal to lte.
-	Lte           *uint32 `protobuf:"varint,6,opt,name=lte,proto3,oneof" json:"lte,omitempty"`
+	In            *RackKeyList `protobuf:"bytes,2,opt,name=in,proto3" json:"in,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *RackKeyOrdered) Reset() {
-	*x = RackKeyOrdered{}
+func (x *RackKeySet) Reset() {
+	*x = RackKeySet{}
 	mi := &file_core_pkg_service_task_pb_task_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *RackKeyOrdered) String() string {
+func (x *RackKeySet) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*RackKeyOrdered) ProtoMessage() {}
+func (*RackKeySet) ProtoMessage() {}
 
-func (x *RackKeyOrdered) ProtoReflect() protoreflect.Message {
+func (x *RackKeySet) ProtoReflect() protoreflect.Message {
 	mi := &file_core_pkg_service_task_pb_task_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -485,51 +477,23 @@ func (x *RackKeyOrdered) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use RackKeyOrdered.ProtoReflect.Descriptor instead.
-func (*RackKeyOrdered) Descriptor() ([]byte, []int) {
+// Deprecated: Use RackKeySet.ProtoReflect.Descriptor instead.
+func (*RackKeySet) Descriptor() ([]byte, []int) {
 	return file_core_pkg_service_task_pb_task_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *RackKeyOrdered) GetEq() uint32 {
+func (x *RackKeySet) GetEq() uint32 {
 	if x != nil && x.Eq != nil {
 		return *x.Eq
 	}
 	return 0
 }
 
-func (x *RackKeyOrdered) GetIn() *RackKeyList {
+func (x *RackKeySet) GetIn() *RackKeyList {
 	if x != nil {
 		return x.In
 	}
 	return nil
-}
-
-func (x *RackKeyOrdered) GetGt() uint32 {
-	if x != nil && x.Gt != nil {
-		return *x.Gt
-	}
-	return 0
-}
-
-func (x *RackKeyOrdered) GetGte() uint32 {
-	if x != nil && x.Gte != nil {
-		return *x.Gte
-	}
-	return 0
-}
-
-func (x *RackKeyOrdered) GetLt() uint32 {
-	if x != nil && x.Lt != nil {
-		return *x.Lt
-	}
-	return 0
-}
-
-func (x *RackKeyOrdered) GetLte() uint32 {
-	if x != nil && x.Lte != nil {
-		return *x.Lte
-	}
-	return 0
 }
 
 // Where is a filter that selects tasks.
@@ -548,7 +512,7 @@ type Where struct {
 	// type selects by type.
 	Type *pb1.String `protobuf:"bytes,6,opt,name=type,proto3,oneof" json:"type,omitempty"`
 	// rack selects by rack.
-	Rack *RackKeyOrdered `protobuf:"bytes,7,opt,name=rack,proto3,oneof" json:"rack,omitempty"`
+	Rack *RackKeySet `protobuf:"bytes,7,opt,name=rack,proto3,oneof" json:"rack,omitempty"`
 	// internal selects by internal.
 	Internal *pb1.Bool `protobuf:"bytes,8,opt,name=internal,proto3,oneof" json:"internal,omitempty"`
 	// snapshot selects by snapshot.
@@ -629,7 +593,7 @@ func (x *Where) GetType() *pb1.String {
 	return nil
 }
 
-func (x *Where) GetRack() *RackKeyOrdered {
+func (x *Where) GetRack() *RackKeySet {
 	if x != nil {
 		return x.Rack
 	}
@@ -740,13 +704,13 @@ type RetrieveRequest struct {
 	// where selects the tasks to retrieve. An absent where selects all of them.
 	Where *Where `protobuf:"bytes,1,opt,name=where,proto3,oneof" json:"where,omitempty"`
 	// search_term keeps the tasks that match the term, closest match first.
-	SearchTerm *string `protobuf:"bytes,2,opt,name=search_term,json=searchTerm,proto3,oneof" json:"search_term,omitempty"`
+	SearchTerm string `protobuf:"bytes,2,opt,name=search_term,json=searchTerm,proto3" json:"search_term,omitempty"`
 	// limit is the most tasks to return.
 	Limit *uint32 `protobuf:"varint,3,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
 	// offset is the number of matching tasks to skip.
-	Offset *uint32 `protobuf:"varint,4,opt,name=offset,proto3,oneof" json:"offset,omitempty"`
+	Offset uint32 `protobuf:"varint,4,opt,name=offset,proto3" json:"offset,omitempty"`
 	// include_status includes the status of each record.
-	IncludeStatus *bool `protobuf:"varint,5,opt,name=include_status,json=includeStatus,proto3,oneof" json:"include_status,omitempty"`
+	IncludeStatus bool `protobuf:"varint,5,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -789,8 +753,8 @@ func (x *RetrieveRequest) GetWhere() *Where {
 }
 
 func (x *RetrieveRequest) GetSearchTerm() string {
-	if x != nil && x.SearchTerm != nil {
-		return *x.SearchTerm
+	if x != nil {
+		return x.SearchTerm
 	}
 	return ""
 }
@@ -803,15 +767,15 @@ func (x *RetrieveRequest) GetLimit() uint32 {
 }
 
 func (x *RetrieveRequest) GetOffset() uint32 {
-	if x != nil && x.Offset != nil {
-		return *x.Offset
+	if x != nil {
+		return x.Offset
 	}
 	return 0
 }
 
 func (x *RetrieveRequest) GetIncludeStatus() bool {
-	if x != nil && x.IncludeStatus != nil {
-		return *x.IncludeStatus
+	if x != nil {
+		return x.IncludeStatus
 	}
 	return false
 }
@@ -897,27 +861,20 @@ const file_core_pkg_service_task_pb_task_proto_rawDesc = "" +
 	"\x02in\x18\x02 \x01(\v2\x19.service.task.pb.UuidListR\x02inB\x05\n" +
 	"\x03_eq\"%\n" +
 	"\vRackKeyList\x12\x16\n" +
-	"\x06values\x18\x01 \x03(\rR\x06values\"\xd0\x01\n" +
-	"\x0eRackKeyOrdered\x12\x13\n" +
+	"\x06values\x18\x01 \x03(\rR\x06values\"V\n" +
+	"\n" +
+	"RackKeySet\x12\x13\n" +
 	"\x02eq\x18\x01 \x01(\rH\x00R\x02eq\x88\x01\x01\x12,\n" +
-	"\x02in\x18\x02 \x01(\v2\x1c.service.task.pb.RackKeyListR\x02in\x12\x13\n" +
-	"\x02gt\x18\x03 \x01(\rH\x01R\x02gt\x88\x01\x01\x12\x15\n" +
-	"\x03gte\x18\x04 \x01(\rH\x02R\x03gte\x88\x01\x01\x12\x13\n" +
-	"\x02lt\x18\x05 \x01(\rH\x03R\x02lt\x88\x01\x01\x12\x15\n" +
-	"\x03lte\x18\x06 \x01(\rH\x04R\x03lte\x88\x01\x01B\x05\n" +
-	"\x03_eqB\x05\n" +
-	"\x03_gtB\x06\n" +
-	"\x04_gteB\x05\n" +
-	"\x03_ltB\x06\n" +
-	"\x04_lte\"\x84\x04\n" +
+	"\x02in\x18\x02 \x01(\v2\x1c.service.task.pb.RackKeyListR\x02inB\x05\n" +
+	"\x03_eq\"\x80\x04\n" +
 	"\x05Where\x12,\n" +
 	"\x03and\x18\x01 \x01(\v2\x1a.service.task.pb.WhereListR\x03and\x12*\n" +
 	"\x02or\x18\x02 \x01(\v2\x1a.service.task.pb.WhereListR\x02or\x12-\n" +
 	"\x03not\x18\x03 \x01(\v2\x16.service.task.pb.WhereH\x00R\x03not\x88\x01\x01\x12/\n" +
 	"\x03key\x18\x04 \x01(\v2\x18.service.task.pb.UuidSetH\x01R\x03key\x88\x01\x01\x12,\n" +
 	"\x04name\x18\x05 \x01(\v2\x13.x.filter.pb.StringH\x02R\x04name\x88\x01\x01\x12,\n" +
-	"\x04type\x18\x06 \x01(\v2\x13.x.filter.pb.StringH\x03R\x04type\x88\x01\x01\x128\n" +
-	"\x04rack\x18\a \x01(\v2\x1f.service.task.pb.RackKeyOrderedH\x04R\x04rack\x88\x01\x01\x122\n" +
+	"\x04type\x18\x06 \x01(\v2\x13.x.filter.pb.StringH\x03R\x04type\x88\x01\x01\x124\n" +
+	"\x04rack\x18\a \x01(\v2\x1b.service.task.pb.RackKeySetH\x04R\x04rack\x88\x01\x01\x122\n" +
 	"\binternal\x18\b \x01(\v2\x11.x.filter.pb.BoolH\x05R\binternal\x88\x01\x01\x122\n" +
 	"\bsnapshot\x18\t \x01(\v2\x11.x.filter.pb.BoolH\x06R\bsnapshot\x88\x01\x01B\x06\n" +
 	"\x04_notB\x06\n" +
@@ -933,19 +890,16 @@ const file_core_pkg_service_task_pb_task_proto_rawDesc = "" +
 	"\x03key\x18\x03 \x01(\tR\x03key\x12\x1f\n" +
 	"\vconfig_hash\x18\x04 \x01(\tR\n" +
 	"configHash\x12+\n" +
-	"\x04args\x18\x05 \x01(\v2\x17.google.protobuf.StructR\x04args\"\x90\x02\n" +
+	"\x04args\x18\x05 \x01(\v2\x17.google.protobuf.StructR\x04args\"\xd3\x01\n" +
 	"\x0fRetrieveRequest\x121\n" +
-	"\x05where\x18\x01 \x01(\v2\x16.service.task.pb.WhereH\x00R\x05where\x88\x01\x01\x12$\n" +
-	"\vsearch_term\x18\x02 \x01(\tH\x01R\n" +
-	"searchTerm\x88\x01\x01\x12\x19\n" +
-	"\x05limit\x18\x03 \x01(\rH\x02R\x05limit\x88\x01\x01\x12\x1b\n" +
-	"\x06offset\x18\x04 \x01(\rH\x03R\x06offset\x88\x01\x01\x12*\n" +
-	"\x0einclude_status\x18\x05 \x01(\bH\x04R\rincludeStatus\x88\x01\x01B\b\n" +
-	"\x06_whereB\x0e\n" +
-	"\f_search_termB\b\n" +
-	"\x06_limitB\t\n" +
-	"\a_offsetB\x11\n" +
-	"\x0f_include_status\"?\n" +
+	"\x05where\x18\x01 \x01(\v2\x16.service.task.pb.WhereH\x00R\x05where\x88\x01\x01\x12\x1f\n" +
+	"\vsearch_term\x18\x02 \x01(\tR\n" +
+	"searchTerm\x12\x19\n" +
+	"\x05limit\x18\x03 \x01(\rH\x01R\x05limit\x88\x01\x01\x12\x16\n" +
+	"\x06offset\x18\x04 \x01(\rR\x06offset\x12%\n" +
+	"\x0einclude_status\x18\x05 \x01(\bR\rincludeStatusB\b\n" +
+	"\x06_whereB\b\n" +
+	"\x06_limit\"?\n" +
 	"\x10RetrieveResponse\x12+\n" +
 	"\x05tasks\x18\x01 \x03(\v2\x15.service.task.pb.TaskR\x05tasksB\xb0\x01\n" +
 	"\x13com.service.task.pbB\tTaskProtoP\x01Z0github.com/synnaxlabs/synnax/pkg/service/task/pb\xa2\x02\x03STP\xaa\x02\x0fService.Task.Pb\xca\x02\x0fService\\Task\\Pb\xe2\x02\x1bService\\Task\\Pb\\GPBMetadata\xea\x02\x11Service::Task::Pbb\x06proto3"
@@ -970,7 +924,7 @@ var file_core_pkg_service_task_pb_task_proto_goTypes = []any{
 	(*UuidList)(nil),         // 3: service.task.pb.UuidList
 	(*UuidSet)(nil),          // 4: service.task.pb.UuidSet
 	(*RackKeyList)(nil),      // 5: service.task.pb.RackKeyList
-	(*RackKeyOrdered)(nil),   // 6: service.task.pb.RackKeyOrdered
+	(*RackKeySet)(nil),       // 6: service.task.pb.RackKeySet
 	(*Where)(nil),            // 7: service.task.pb.Where
 	(*Command)(nil),          // 8: service.task.pb.Command
 	(*RetrieveRequest)(nil),  // 9: service.task.pb.RetrieveRequest
@@ -986,14 +940,14 @@ var file_core_pkg_service_task_pb_task_proto_depIdxs = []int32{
 	12, // 2: service.task.pb.Task.status:type_name -> service.status.pb.Status
 	7,  // 3: service.task.pb.WhereList.values:type_name -> service.task.pb.Where
 	3,  // 4: service.task.pb.UuidSet.in:type_name -> service.task.pb.UuidList
-	5,  // 5: service.task.pb.RackKeyOrdered.in:type_name -> service.task.pb.RackKeyList
+	5,  // 5: service.task.pb.RackKeySet.in:type_name -> service.task.pb.RackKeyList
 	2,  // 6: service.task.pb.Where.and:type_name -> service.task.pb.WhereList
 	2,  // 7: service.task.pb.Where.or:type_name -> service.task.pb.WhereList
 	7,  // 8: service.task.pb.Where.not:type_name -> service.task.pb.Where
 	4,  // 9: service.task.pb.Where.key:type_name -> service.task.pb.UuidSet
 	13, // 10: service.task.pb.Where.name:type_name -> x.filter.pb.String
 	13, // 11: service.task.pb.Where.type:type_name -> x.filter.pb.String
-	6,  // 12: service.task.pb.Where.rack:type_name -> service.task.pb.RackKeyOrdered
+	6,  // 12: service.task.pb.Where.rack:type_name -> service.task.pb.RackKeySet
 	14, // 13: service.task.pb.Where.internal:type_name -> x.filter.pb.Bool
 	14, // 14: service.task.pb.Where.snapshot:type_name -> x.filter.pb.Bool
 	11, // 15: service.task.pb.Command.args:type_name -> google.protobuf.Struct

@@ -99,9 +99,9 @@ func UuidSetsFromPB(pbs []*UuidSet) ([]filter.Set[uuid.UUID], error) {
 	return result, nil
 }
 
-// RackKeyOrderedToPB converts filter.Ordered[rack.Key] to RackKeyOrdered.
-func RackKeyOrderedToPB(r filter.Ordered[rack.Key]) (*RackKeyOrdered, error) {
-	pb := &RackKeyOrdered{}
+// RackKeySetToPB converts filter.Set[rack.Key] to RackKeySet.
+func RackKeySetToPB(r filter.Set[rack.Key]) (*RackKeySet, error) {
+	pb := &RackKeySet{}
 	if r.Eq != nil {
 		v := uint32(*r.Eq)
 		pb.Eq = &v
@@ -109,28 +109,12 @@ func RackKeyOrderedToPB(r filter.Ordered[rack.Key]) (*RackKeyOrdered, error) {
 	if r.In != nil {
 		pb.In = &RackKeyList{Values: lo.Map(r.In, func(v rack.Key, _ int) uint32 { return uint32(v) })}
 	}
-	if r.Gt != nil {
-		v := uint32(*r.Gt)
-		pb.Gt = &v
-	}
-	if r.Gte != nil {
-		v := uint32(*r.Gte)
-		pb.Gte = &v
-	}
-	if r.Lt != nil {
-		v := uint32(*r.Lt)
-		pb.Lt = &v
-	}
-	if r.Lte != nil {
-		v := uint32(*r.Lte)
-		pb.Lte = &v
-	}
 	return pb, nil
 }
 
-// RackKeyOrderedFromPB converts RackKeyOrdered to filter.Ordered[rack.Key].
-func RackKeyOrderedFromPB(pb *RackKeyOrdered) (filter.Ordered[rack.Key], error) {
-	var r filter.Ordered[rack.Key]
+// RackKeySetFromPB converts RackKeySet to filter.Set[rack.Key].
+func RackKeySetFromPB(pb *RackKeySet) (filter.Set[rack.Key], error) {
+	var r filter.Set[rack.Key]
 	if pb == nil {
 		return r, nil
 	}
@@ -141,31 +125,15 @@ func RackKeyOrderedFromPB(pb *RackKeyOrdered) (filter.Ordered[rack.Key], error) 
 	if pb.In != nil {
 		r.In = lo.Map(pb.In.Values, func(v uint32, _ int) rack.Key { return rack.Key(v) })
 	}
-	if pb.Gt != nil {
-		v := rack.Key(*pb.Gt)
-		r.Gt = &v
-	}
-	if pb.Gte != nil {
-		v := rack.Key(*pb.Gte)
-		r.Gte = &v
-	}
-	if pb.Lt != nil {
-		v := rack.Key(*pb.Lt)
-		r.Lt = &v
-	}
-	if pb.Lte != nil {
-		v := rack.Key(*pb.Lte)
-		r.Lte = &v
-	}
 	return r, nil
 }
 
-// RackKeyOrderedsToPB converts a slice of filter.Ordered[rack.Key] to RackKeyOrdered.
-func RackKeyOrderedsToPB(rs []filter.Ordered[rack.Key]) ([]*RackKeyOrdered, error) {
-	result := make([]*RackKeyOrdered, len(rs))
+// RackKeySetsToPB converts a slice of filter.Set[rack.Key] to RackKeySet.
+func RackKeySetsToPB(rs []filter.Set[rack.Key]) ([]*RackKeySet, error) {
+	result := make([]*RackKeySet, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = RackKeyOrderedToPB(rs[i])
+		result[i], err = RackKeySetToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -173,12 +141,12 @@ func RackKeyOrderedsToPB(rs []filter.Ordered[rack.Key]) ([]*RackKeyOrdered, erro
 	return result, nil
 }
 
-// RackKeyOrderedsFromPB converts a slice of RackKeyOrdered to filter.Ordered[rack.Key].
-func RackKeyOrderedsFromPB(pbs []*RackKeyOrdered) ([]filter.Ordered[rack.Key], error) {
-	result := make([]filter.Ordered[rack.Key], len(pbs))
+// RackKeySetsFromPB converts a slice of RackKeySet to filter.Set[rack.Key].
+func RackKeySetsFromPB(pbs []*RackKeySet) ([]filter.Set[rack.Key], error) {
+	result := make([]filter.Set[rack.Key], len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = RackKeyOrderedFromPB(pb)
+		result[i], err = RackKeySetFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -233,7 +201,7 @@ func WhereToPB(r task.Where) (*Where, error) {
 	}
 	if r.Rack != nil {
 		var err error
-		pb.Rack, err = RackKeyOrderedToPB(*r.Rack)
+		pb.Rack, err = RackKeySetToPB(*r.Rack)
 		if err != nil {
 			return nil, err
 		}
@@ -304,7 +272,7 @@ func WhereFromPB(pb *Where) (task.Where, error) {
 		r.Type = &val
 	}
 	if pb.Rack != nil {
-		val, err := RackKeyOrderedFromPB(pb.Rack)
+		val, err := RackKeySetFromPB(pb.Rack)
 		if err != nil {
 			return task.Where{}, err
 		}
@@ -415,7 +383,11 @@ func CommandsFromPB(pbs []*Command) ([]task.Command, error) {
 
 // RetrieveRequestToPB converts RetrieveRequest to RetrieveRequest.
 func RetrieveRequestToPB(r task.RetrieveRequest) (*RetrieveRequest, error) {
-	pb := &RetrieveRequest{}
+	pb := &RetrieveRequest{
+		SearchTerm:    r.SearchTerm,
+		Offset:        r.Offset,
+		IncludeStatus: r.IncludeStatus,
+	}
 	if r.Where != nil {
 		var err error
 		pb.Where, err = WhereToPB(*r.Where)
@@ -423,17 +395,8 @@ func RetrieveRequestToPB(r task.RetrieveRequest) (*RetrieveRequest, error) {
 			return nil, err
 		}
 	}
-	if r.SearchTerm != nil {
-		pb.SearchTerm = r.SearchTerm
-	}
 	if r.Limit != nil {
 		pb.Limit = r.Limit
-	}
-	if r.Offset != nil {
-		pb.Offset = r.Offset
-	}
-	if r.IncludeStatus != nil {
-		pb.IncludeStatus = r.IncludeStatus
 	}
 	return pb, nil
 }
@@ -444,6 +407,9 @@ func RetrieveRequestFromPB(pb *RetrieveRequest) (task.RetrieveRequest, error) {
 	if pb == nil {
 		return r, nil
 	}
+	r.SearchTerm = pb.SearchTerm
+	r.Offset = pb.Offset
+	r.IncludeStatus = pb.IncludeStatus
 	if pb.Where != nil {
 		val, err := WhereFromPB(pb.Where)
 		if err != nil {
@@ -451,17 +417,8 @@ func RetrieveRequestFromPB(pb *RetrieveRequest) (task.RetrieveRequest, error) {
 		}
 		r.Where = &val
 	}
-	if pb.SearchTerm != nil {
-		r.SearchTerm = pb.SearchTerm
-	}
 	if pb.Limit != nil {
 		r.Limit = pb.Limit
-	}
-	if pb.Offset != nil {
-		r.Offset = pb.Offset
-	}
-	if pb.IncludeStatus != nil {
-		r.IncludeStatus = pb.IncludeStatus
 	}
 	return r, nil
 }

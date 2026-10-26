@@ -220,9 +220,14 @@ const retrieveMultipleParamsZ = retrieveRequestZ.extend({
 });
 /**
  * Selects the channels to retrieve. A rangeKey attaches each channel's alias in that
- * range.
+ * range, and a search term then also matches those aliases, ranked first.
  */
-export type RetrieveMultipleParams = z.infer<typeof retrieveMultipleParamsZ>;
+export type RetrieveMultipleParams = RetrieveRequest & { rangeKey?: ranger.Key };
+
+const retrieveReqZ = z.object({
+  request: retrieveRequestZ,
+  rangeKey: rangerKeyZ.optional(),
+});
 
 /** The options a retrieval by keys or names accepts. */
 export type RetrieveOptions = Pick<RetrieveMultipleParams, "rangeKey">;
@@ -664,12 +669,18 @@ export class Client extends query.Retriever<
     });
   }
 
-  /** Fetches channel payloads. Missing channels are omitted, not thrown. */
-  private async execRetrieve(request: RetrieveRequest): Promise<Payload[]> {
+  /**
+   * Fetches channel payloads, with their aliases in the range when one is given.
+   * Missing channels are omitted, not thrown.
+   */
+  private async execRetrieve(
+    request: RetrieveRequest,
+    rangeKey?: ranger.Key,
+  ): Promise<Payload[]> {
     const res = await this.cfg.unary.send(
       "/channel/retrieve",
-      request,
-      retrieveRequestZ,
+      { request, rangeKey },
+      retrieveReqZ,
       retrieveResZ,
     );
     return res.channels;
@@ -724,19 +735,14 @@ export class Client extends query.Retriever<
     rangeKey,
     ...req
   }: RetrieveMultipleParams): Promise<Channel[]> {
-    const { searchTerm } = req;
-    const searchesAliases = rangeKey != null && searchTerm != null && searchTerm !== "";
-    const [channels, aliasMatches] = await Promise.all([
-      this.fetchChannels(req),
-      searchesAliases ? this.cfg.ranges.searchAliases(rangeKey, searchTerm) : [],
-    ]);
-    if (rangeKey == null) return channels;
-    const merged = await this.prependAliasMatches(aliasMatches, req.where, channels);
-    await this.ensureAliases(
-      rangeKey,
-      merged.map((ch) => ch.key),
-    );
-    return merged;
+    if (rangeKey == null) return await this.fetchChannels(req);
+    const payloads = await this.execRetrieve(req, rangeKey);
+    payloads.forEach(({ key: channel, alias }) => {
+      if (alias == null) return;
+      const entry: ranger.alias.Alias = { range: rangeKey, channel, alias };
+      this.cfg.ranges.aliases.set(createKey(entry), entry);
+    });
+    return payloads.map((p) => this.sugar(stripComposed(p)));
   }
 
   private async fetchChannels(req: RetrieveRequest): Promise<Channel[]> {
@@ -746,29 +752,5 @@ export class Client extends query.Retriever<
     const resolved = names != null ? await this.resolveNames(names) : null;
     if (resolved != null) return resolved;
     return (await this.execRetrieve(req)).map((p) => this.sugar(stripComposed(p)));
-  }
-
-  /**
-   * @returns channels with the channels of keys in front, in key order. A key that
-   * channels does not hold must also match where.
-   */
-  private async prependAliasMatches(
-    keys: Key[],
-    where: Where | undefined,
-    channels: Channel[],
-  ): Promise<Channel[]> {
-    if (keys.length === 0) return channels;
-    const byKey = new Map(channels.map((ch) => [ch.key, ch]));
-    const missing = keys.filter((key) => !byKey.has(key));
-    if (missing.length > 0) {
-      const inMissing: Where = { key: { in: missing } };
-      const fetched = await this.execRetrieve({
-        where: where == null ? inMissing : { and: [where, inMissing] },
-      });
-      fetched.forEach((p) => byKey.set(p.key, this.sugar(stripComposed(p))));
-    }
-    const matched = keys.flatMap((key) => byKey.get(key) ?? []);
-    const matchedKeys = new Set(matched.map((ch) => ch.key));
-    return [...matched, ...channels.filter((ch) => !matchedKeys.has(ch.key))];
   }
 }

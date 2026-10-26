@@ -515,13 +515,13 @@ type RetrieveRequest struct {
 	// where selects the racks to retrieve. An absent where selects all of them.
 	Where *Where `protobuf:"bytes,1,opt,name=where,proto3,oneof" json:"where,omitempty"`
 	// search_term keeps the racks that match the term, closest match first.
-	SearchTerm *string `protobuf:"bytes,2,opt,name=search_term,json=searchTerm,proto3,oneof" json:"search_term,omitempty"`
+	SearchTerm string `protobuf:"bytes,2,opt,name=search_term,json=searchTerm,proto3" json:"search_term,omitempty"`
 	// limit is the most racks to return.
 	Limit *uint32 `protobuf:"varint,3,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
 	// offset is the number of matching racks to skip.
-	Offset *uint32 `protobuf:"varint,4,opt,name=offset,proto3,oneof" json:"offset,omitempty"`
+	Offset uint32 `protobuf:"varint,4,opt,name=offset,proto3" json:"offset,omitempty"`
 	// include_status includes the status of each record.
-	IncludeStatus *bool `protobuf:"varint,5,opt,name=include_status,json=includeStatus,proto3,oneof" json:"include_status,omitempty"`
+	IncludeStatus bool `protobuf:"varint,5,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -564,8 +564,8 @@ func (x *RetrieveRequest) GetWhere() *Where {
 }
 
 func (x *RetrieveRequest) GetSearchTerm() string {
-	if x != nil && x.SearchTerm != nil {
-		return *x.SearchTerm
+	if x != nil {
+		return x.SearchTerm
 	}
 	return ""
 }
@@ -578,15 +578,15 @@ func (x *RetrieveRequest) GetLimit() uint32 {
 }
 
 func (x *RetrieveRequest) GetOffset() uint32 {
-	if x != nil && x.Offset != nil {
-		return *x.Offset
+	if x != nil {
+		return x.Offset
 	}
 	return 0
 }
 
 func (x *RetrieveRequest) GetIncludeStatus() bool {
-	if x != nil && x.IncludeStatus != nil {
-		return *x.IncludeStatus
+	if x != nil {
+		return x.IncludeStatus
 	}
 	return false
 }
@@ -679,19 +679,16 @@ const file_core_pkg_service_rack_pb_rack_proto_rawDesc = "" +
 	"\x05_nameB\v\n" +
 	"\t_embeddedB\x0f\n" +
 	"\r_integrationsB\x0f\n" +
-	"\r_host_is_node\"\x90\x02\n" +
+	"\r_host_is_node\"\xd3\x01\n" +
 	"\x0fRetrieveRequest\x121\n" +
-	"\x05where\x18\x01 \x01(\v2\x16.service.rack.pb.WhereH\x00R\x05where\x88\x01\x01\x12$\n" +
-	"\vsearch_term\x18\x02 \x01(\tH\x01R\n" +
-	"searchTerm\x88\x01\x01\x12\x19\n" +
-	"\x05limit\x18\x03 \x01(\rH\x02R\x05limit\x88\x01\x01\x12\x1b\n" +
-	"\x06offset\x18\x04 \x01(\rH\x03R\x06offset\x88\x01\x01\x12*\n" +
-	"\x0einclude_status\x18\x05 \x01(\bH\x04R\rincludeStatus\x88\x01\x01B\b\n" +
-	"\x06_whereB\x0e\n" +
-	"\f_search_termB\b\n" +
-	"\x06_limitB\t\n" +
-	"\a_offsetB\x11\n" +
-	"\x0f_include_status\"?\n" +
+	"\x05where\x18\x01 \x01(\v2\x16.service.rack.pb.WhereH\x00R\x05where\x88\x01\x01\x12\x1f\n" +
+	"\vsearch_term\x18\x02 \x01(\tR\n" +
+	"searchTerm\x12\x19\n" +
+	"\x05limit\x18\x03 \x01(\rH\x01R\x05limit\x88\x01\x01\x12\x16\n" +
+	"\x06offset\x18\x04 \x01(\rR\x06offset\x12%\n" +
+	"\x0einclude_status\x18\x05 \x01(\bR\rincludeStatusB\b\n" +
+	"\x06_whereB\b\n" +
+	"\x06_limit\"?\n" +
 	"\x10RetrieveResponse\x12+\n" +
 	"\x05racks\x18\x01 \x03(\v2\x15.service.rack.pb.RackR\x05racksB\xb0\x01\n" +
 	"\x13com.service.rack.pbB\tRackProtoP\x01Z0github.com/synnaxlabs/synnax/pkg/service/rack/pb\xa2\x02\x03SRP\xaa\x02\x0fService.Rack.Pb\xca\x02\x0fService\\Rack\\Pb\xe2\x02\x1bService\\Rack\\Pb\\GPBMetadata\xea\x02\x11Service::Rack::Pbb\x06proto3"

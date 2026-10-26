@@ -79,7 +79,7 @@ export type Where = {
   key?: filter.Set<typeof keyZ>;
   name?: filter.String;
   type?: filter.String;
-  rack?: filter.Ordered<typeof rack.keyZ>;
+  rack?: filter.Set<typeof rack.keyZ>;
   internal?: filter.Bool;
   snapshot?: filter.Bool;
 };
@@ -103,7 +103,7 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   /** type selects by type. */
   type: filter.stringZ.optional(),
   /** rack selects by rack. */
-  rack: filter.orderedZ(rack.keyZ).optional(),
+  rack: filter.setZ(rack.keyZ).optional(),
   /** internal selects by internal. */
   internal: filter.boolZ.optional(),
   /** snapshot selects by snapshot. */
@@ -145,15 +145,18 @@ export const retrieveRequestZ = z.strictObject({
   /** where selects the tasks to retrieve. An absent where selects all of them. */
   where: whereZ.optional(),
   /** searchTerm keeps the tasks that match the term, closest match first. */
-  searchTerm: z.string().optional(),
+  searchTerm: z.string().default(""),
   /** limit is the most tasks to return. */
   limit: z.uint32().optional(),
   /** offset is the number of matching tasks to skip. */
-  offset: z.uint32().optional(),
+  offset: z.uint32().default(0),
   /** includeStatus includes the status of each record. */
-  includeStatus: z.boolean().optional(),
+  includeStatus: z.boolean().default(false),
 });
-export interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
+export interface RetrieveRequest extends optional.Optional<
+  z.infer<typeof retrieveRequestZ>,
+  "searchTerm" | "offset" | "includeStatus"
+> {}
 
 export const readConfigZ = persistConfigZ.extend({
   sampleRate: z.number().default(10),

@@ -106,7 +106,7 @@ var _ = Describe("Retrieve", func() {
 				Where: &apidevice.Where{Key: &filter.Set[device.Key]{
 					In: []device.Key{withoutStatus.Key, withStatus.Key},
 				}},
-				IncludeStatus: new(true),
+				IncludeStatus: true,
 			},
 		))
 		Expect(res.Devices).To(HaveLen(2))

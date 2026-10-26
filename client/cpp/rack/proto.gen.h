@@ -214,10 +214,10 @@ RetrieveRequest::to_proto() const {
         if (err) return {{}, err};
         *pb.mutable_where() = v;
     }
-    if (this->search_term.has_value()) pb.set_search_term(*this->search_term);
+    pb.set_search_term(this->search_term);
     if (this->limit.has_value()) pb.set_limit(*this->limit);
-    if (this->offset.has_value()) pb.set_offset(*this->offset);
-    if (this->include_status.has_value()) pb.set_include_status(*this->include_status);
+    pb.set_offset(this->offset);
+    pb.set_include_status(this->include_status);
     return {pb, x::errors::NIL};
 }
 
@@ -229,10 +229,10 @@ RetrieveRequest::from_proto(const ::service::rack::pb::RetrieveRequest &pb) {
         if (err) return {{}, err};
         cpp.where = v;
     }
-    if (pb.has_search_term()) cpp.search_term = pb.search_term();
+    cpp.search_term = pb.search_term();
     if (pb.has_limit()) cpp.limit = pb.limit();
-    if (pb.has_offset()) cpp.offset = pb.offset();
-    if (pb.has_include_status()) cpp.include_status = pb.include_status();
+    cpp.offset = pb.offset();
+    cpp.include_status = pb.include_status();
     return {cpp, x::errors::NIL};
 }
 

@@ -41,7 +41,7 @@ export type Where = {
   make?: filter.String;
   model?: filter.String;
   location?: filter.String;
-  rack?: filter.Ordered<typeof rack.keyZ>;
+  rack?: filter.Set<typeof rack.keyZ>;
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -67,7 +67,7 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   /** location selects by location. */
   location: filter.stringZ.optional(),
   /** rack selects by rack. */
-  rack: filter.orderedZ(rack.keyZ).optional(),
+  rack: filter.setZ(rack.keyZ).optional(),
 });
 
 export const statusZ = status.statusZ({ details: statusDetailsZ });
@@ -78,17 +78,20 @@ export const retrieveRequestZ = z.strictObject({
   /** where selects the devices to retrieve. An absent where selects all of them. */
   where: whereZ.optional(),
   /** searchTerm keeps the devices that match the term, closest match first. */
-  searchTerm: z.string().optional(),
+  searchTerm: z.string().default(""),
   /** limit is the most devices to return. */
   limit: z.uint32().optional(),
   /** offset is the number of matching devices to skip. */
-  offset: z.uint32().optional(),
+  offset: z.uint32().default(0),
   /** includeStatus includes the status of each record. */
-  includeStatus: z.boolean().optional(),
+  includeStatus: z.boolean().default(false),
   /** includeParent includes the parent of each record. */
-  includeParent: z.boolean().optional(),
+  includeParent: z.boolean().default(false),
 });
-export interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
+export interface RetrieveRequest extends optional.Optional<
+  z.infer<typeof retrieveRequestZ>,
+  "searchTerm" | "offset" | "includeStatus" | "includeParent"
+> {}
 
 export interface DeviceSchemas<
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,

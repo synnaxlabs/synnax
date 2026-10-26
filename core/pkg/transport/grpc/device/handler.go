@@ -31,7 +31,7 @@ type (
 		device.RetrieveRequest,
 		*RetrieveRequest,
 		device.RetrieveResponse,
-		*RetrieveResponse,
+		*pb.RetrieveResponse,
 	]
 	deleteServer = grpc.UnaryServer[
 		device.DeleteRequest,
@@ -53,7 +53,7 @@ var (
 	_ grpc.Translator[device.CreateRequest, *CreateRequest]       = createRequestTranslator{}
 	_ grpc.Translator[device.CreateResponse, *CreateResponse]     = createResponseTranslator{}
 	_ grpc.Translator[device.RetrieveRequest, *RetrieveRequest]   = retrieveRequestTranslator{}
-	_ grpc.Translator[device.RetrieveResponse, *RetrieveResponse] = retrieveResponseTranslator{}
+	_ grpc.Translator[device.RetrieveResponse, *pb.RetrieveResponse] = retrieveResponseTranslator{}
 	_ grpc.Translator[device.DeleteRequest, *DeleteRequest]       = deleteRequestTranslator{}
 )
 
@@ -127,23 +127,15 @@ func (retrieveRequestTranslator) Backward(
 func (retrieveResponseTranslator) Forward(
 	_ context.Context,
 	res device.RetrieveResponse,
-) (*RetrieveResponse, error) {
-	devices, err := pb.DevicesToPB(res.Devices)
-	if err != nil {
-		return nil, err
-	}
-	return &RetrieveResponse{Devices: devices}, nil
+) (*pb.RetrieveResponse, error) {
+	return pb.RetrieveResponseToPB(res)
 }
 
 func (retrieveResponseTranslator) Backward(
 	_ context.Context,
-	res *RetrieveResponse,
+	res *pb.RetrieveResponse,
 ) (device.RetrieveResponse, error) {
-	devices, err := pb.DevicesFromPB(res.Devices)
-	if err != nil {
-		return device.RetrieveResponse{}, err
-	}
-	return device.RetrieveResponse{Devices: devices}, nil
+	return pb.RetrieveResponseFromPB(res)
 }
 
 func (deleteRequestTranslator) Forward(

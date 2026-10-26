@@ -108,7 +108,7 @@ var _ = Describe("Retrieve", func() {
 			Where: &apirack.Where{Key: &filter.Set[rack.Key]{
 				In: []rack.Key{withoutStatus.Key, withStatus.Key},
 			}},
-			IncludeStatus: new(true),
+			IncludeStatus: true,
 		}))
 		Expect(res.Racks).To(HaveLen(2))
 		Expect(res.Racks[0].Key).To(Equal(withoutStatus.Key))

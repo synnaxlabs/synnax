@@ -22,7 +22,7 @@ service ChannelCreateService {
 }
 
 service ChannelRetrieveService {
-  rpc Exec(RetrieveRequest) returns (RetrieveResponse) {}
+  rpc Exec(RetrieveRequest) returns (api.channel.pb.RetrieveResponse) {}
 }
 
 service ChannelDeleteService {
@@ -42,11 +42,9 @@ message RetrieveRequest {
   reserved 1 to 4;
   reserved "node_key", "keys", "names", "search";
   service.channel.pb.RetrieveRequest request = 5;
+  optional string range_key = 6;
 }
 
-message RetrieveResponse {
-  repeated api.channel.pb.Channel channels = 1;
-}
 
 message DeleteRequest {
   repeated uint32 keys = 1;

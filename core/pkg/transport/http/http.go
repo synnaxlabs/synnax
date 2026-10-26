@@ -210,9 +210,6 @@ func Bind(layer *api.Layer, router *http.Router) {
 		AliasList: router.NewUnaryServer[alias.ListRequest, alias.ListResponse](
 			"/api/v1/range/alias/list",
 		),
-		AliasSearch: router.NewUnaryServer[alias.SearchRequest, alias.SearchResponse](
-			"/api/v1/range/alias/search",
-		),
 		AliasDelete: router.NewUnaryServer[alias.DeleteRequest, struct{}](
 			"/api/v1/range/alias/delete",
 		),

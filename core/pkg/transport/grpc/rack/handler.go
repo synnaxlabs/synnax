@@ -32,7 +32,7 @@ type (
 		rack.RetrieveRequest,
 		*RetrieveRequest,
 		rack.RetrieveResponse,
-		*RetrieveResponse,
+		*pb.RetrieveResponse,
 	]
 	deleteServer = grpc.UnaryServer[
 		rack.DeleteRequest,
@@ -54,7 +54,7 @@ var (
 	_ grpc.Translator[rack.CreateRequest, *CreateRequest]       = createRequestTranslator{}
 	_ grpc.Translator[rack.CreateResponse, *CreateResponse]     = createResponseTranslator{}
 	_ grpc.Translator[rack.RetrieveRequest, *RetrieveRequest]   = retrieveRequestTranslator{}
-	_ grpc.Translator[rack.RetrieveResponse, *RetrieveResponse] = retrieveResponseTranslator{}
+	_ grpc.Translator[rack.RetrieveResponse, *pb.RetrieveResponse] = retrieveResponseTranslator{}
 	_ grpc.Translator[rack.DeleteRequest, *DeleteRequest]       = deleteRequestTranslator{}
 )
 
@@ -128,23 +128,15 @@ func (retrieveRequestTranslator) Backward(
 func (retrieveResponseTranslator) Forward(
 	_ context.Context,
 	res rack.RetrieveResponse,
-) (*RetrieveResponse, error) {
-	racks, err := pb.RacksToPB(res.Racks)
-	if err != nil {
-		return nil, err
-	}
-	return &RetrieveResponse{Racks: racks}, nil
+) (*pb.RetrieveResponse, error) {
+	return pb.RetrieveResponseToPB(res)
 }
 
 func (retrieveResponseTranslator) Backward(
 	_ context.Context,
-	res *RetrieveResponse,
+	res *pb.RetrieveResponse,
 ) (rack.RetrieveResponse, error) {
-	racks, err := pb.RacksFromPB(res.Racks)
-	if err != nil {
-		return rack.RetrieveResponse{}, err
-	}
-	return rack.RetrieveResponse{Racks: racks}, nil
+	return pb.RetrieveResponseFromPB(res)
 }
 
 func (deleteRequestTranslator) Forward(

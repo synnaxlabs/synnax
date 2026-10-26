@@ -25,8 +25,7 @@ export const matches = (record: Payload, where?: Where): boolean => {
     return false;
   if (where.type != null && !filter.matchesString(where.type, record.type))
     return false;
-  if (where.rack != null && !filter.matchesOrdered(where.rack, record.rack))
-    return false;
+  if (where.rack != null && !filter.matchesSet(where.rack, record.rack)) return false;
   if (where.internal != null && !filter.matchesSet(where.internal, record.internal))
     return false;
   if (where.snapshot != null && !filter.matchesSet(where.snapshot, record.snapshot))

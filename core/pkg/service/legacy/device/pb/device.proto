@@ -76,21 +76,13 @@ message RackKeyList {
   repeated uint32 values = 1;
 }
 
-// RackKeyOrdered selects numbers and times. A value must match every operator that is
-// set.
-message RackKeyOrdered {
+// RackKeySet selects values that only compare for equality, such as keys, enum values,
+// and UUIDs. A value must match every operator that is set.
+message RackKeySet {
   // eq matches a value equal to eq.
   optional uint32 eq = 1;
   // in matches a value equal to an element of in.
   RackKeyList in = 2;
-  // gt matches a value greater than gt.
-  optional uint32 gt = 3;
-  // gte matches a value greater than or equal to gte.
-  optional uint32 gte = 4;
-  // lt matches a value less than lt.
-  optional uint32 lt = 5;
-  // lte matches a value less than or equal to lte.
-  optional uint32 lte = 6;
 }
 
 // Where is a filter that selects devices.
@@ -112,7 +104,7 @@ message Where {
   // location selects by location.
   optional .x.filter.pb.String location = 8;
   // rack selects by rack.
-  optional RackKeyOrdered rack = 9;
+  optional RackKeySet rack = 9;
 }
 
 // RetrieveRequest is a request to retrieve devices.
@@ -120,15 +112,15 @@ message RetrieveRequest {
   // where selects the devices to retrieve. An absent where selects all of them.
   optional Where where = 1;
   // search_term keeps the devices that match the term, closest match first.
-  optional string search_term = 2;
+  string search_term = 2;
   // limit is the most devices to return.
   optional uint32 limit = 3;
   // offset is the number of matching devices to skip.
-  optional uint32 offset = 4;
+  uint32 offset = 4;
   // include_status includes the status of each record.
-  optional bool include_status = 5;
+  bool include_status = 5;
   // include_parent includes the parent of each record.
-  optional bool include_parent = 6;
+  bool include_parent = 6;
 }
 
 // RetrieveResponse holds the devices a RetrieveRequest selects.
