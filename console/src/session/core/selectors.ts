@@ -57,14 +57,13 @@ export const useSelectSelected = (): Core | undefined =>
 const selectConnParams = (state: StoreState): SynnaxParams | undefined => {
   const core = selectSelected(state);
   if (core == null) return undefined;
-  const { host, port, username, password, secure, name } = core;
-  return { host, port, username, password, secure, name };
+  const { clusterKey: _, ...params } = core;
+  return params;
 };
 
 /**
- * The parameters a client needs to reach the selected Core. Leaves out the record's
- * key and cached cluster key, so caching the cluster key after the first connection
- * does not replace the client.
+ * The parameters a client needs to reach the selected Core. Leaves out the cached
+ * cluster key, so caching it after the first connection does not replace the client.
  */
 export const useSelectConnParams = (): SynnaxParams | undefined =>
   Select.useMemo(selectConnParams, []);
