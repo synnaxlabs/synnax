@@ -159,8 +159,8 @@ describe("Feed", () => {
     const writer = await client.openWriter({ start, channels: [time.key, data.key] });
     let written = 0;
     let running = true;
-    // A 1 kHz writer: ten samples a millisecond apart, paced to the wall clock. Each data
-    // sample holds its sample number.
+    // A 1 kHz writer: ten samples a millisecond apart, paced to the wall clock. Each
+    // data sample holds its sample number.
     const writing = (async () => {
       while (running) {
         const numbers = Array.from({ length: 10 }, (_, i) => written + i);

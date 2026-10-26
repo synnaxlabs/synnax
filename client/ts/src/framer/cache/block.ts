@@ -153,9 +153,9 @@ const cut = (s: Series, tr: TimeRange): Series =>
 
 /**
  * Splits a fetch's series of one channel at raw block edges, and cuts the time range of
- * each part to its block. A series cut in two copies its samples, so a block never holds
- * the buffer of samples another block holds. Samples with no index sample of the same
- * Core alignment stay out, as when the Core commits a channel before its index.
+ * each part to its block. A series cut in two copies its samples, so a block never
+ * holds the buffer of samples another block holds. Samples with no index sample of the
+ * same Core alignment stay out, as when the Core commits a channel before its index.
  * @param timestamps - The fetch's series of the channel's index, in time order.
  * @param series - The fetch's series of the channel, in time order.
  * @returns the part of each raw block that holds index samples, by block index, in

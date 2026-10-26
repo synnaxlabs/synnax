@@ -228,13 +228,12 @@ export class Reader {
     }
   }
 
-  // Reads the requested channels and their indexes over tr, splits the result at block
-  // edges, and fills the blocks. The read holds every sample of a block after the first,
-  // so such a block merges them with the ones it holds. The first block takes them only
-  // while its coverage still ends at the read's start. The result holds the requests to
-  // fetch again: a first block that a new data type reset after its start, a first
-  // catch-up block that another fetch filled first, since that fetch did not trust its
-  // newest samples, and a block of a channel whose history changed while the read ran.
+  // Reads the channels and their indexes over tr, and fills the blocks. A block after
+  // the first merges the read with its samples. The first block takes the read only
+  // while its coverage ends at the read's start. The result holds the requests to fetch
+  // again: a first block that a new data type reset, a first catch-up block that
+  // another fetch filled with newest samples it did not trust, and a block whose
+  // history changed while the read ran.
   private async load(
     { first, last, start, catchUp, entries }: Group,
     tr: TimeRange,
