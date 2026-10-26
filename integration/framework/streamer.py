@@ -9,13 +9,36 @@
 
 import threading
 from collections.abc import Callable
-from typing import Literal, overload
+from typing import Literal, Protocol, overload
 
 import numpy as np
 
 import synnax as sy
-from framework.websocket import is_websocket_error, suppress_websocket_errors
+from framework.websocket import suppress_websocket_errors
 from synnax.telem import SampleValue
+
+
+class Stream(Protocol):
+    def read(self, timeout: sy.TimeSpan) -> sy.Frame | None: ...
+
+    def close(self) -> None: ...
+
+
+class Source(Protocol):
+    """The part of a Synnax client that opens streams."""
+
+    def open_streamer(self, channels: list[str]) -> Stream: ...
+
+
+class Channels(Protocol):
+    def retrieve(self, channel: list[str]) -> list[sy.Channel]: ...
+
+
+class Client(Source, Protocol):
+    """The part of a Synnax client that a Streamer uses."""
+
+    @property
+    def channels(self) -> Channels: ...
 
 
 def _scalar(value: SampleValue) -> int | float | str:
@@ -30,21 +53,21 @@ def _scalar(value: SampleValue) -> int | float | str:
 
 
 class Streamer:
-    """Background streamer that reads subscribed channels into a shared frame."""
+    """Background streamer that reads subscribed channels into a shared frame.
 
-    WEBSOCKET_RETRY_DELAY: sy.TimeSpan = 500 * sy.TimeSpan.MILLISECOND
+    An error stops the stream. read, wait_for, and check then raise it.
+    """
 
     def __init__(
         self,
-        client: sy.Synnax,
+        client: Client,
         read_timeout: sy.CrudeTimeSpan,
         log: Callable[[str], None],
-        set_failed: Callable[[], None],
     ) -> None:
         self._client = client
         self._read_timeout = sy.TimeSpan.from_seconds(read_timeout)
         self._log = log
-        self._set_failed = set_failed
+        self._error: Exception | None = None
         self._channels: set[str] = set()
         self._frame: dict[str, int | float | str] = {}
         self._cond = threading.Condition()
@@ -66,6 +89,7 @@ class Streamer:
     ) -> None:
         timeout_span = sy.TimeSpan.from_seconds(timeout)
         self._log(f"Subscribing to channels: {channels} ({timeout_span} timeout)")
+        names = [channels] if isinstance(channels, str) else channels
 
         loop = sy.Loop(200 * sy.TimeSpan.MILLISECOND)
         time_start = sy.TimeStamp.now()
@@ -76,13 +100,7 @@ class Streamer:
             if elapsed > timeout_span:
                 break
             try:
-                existing = self._client.channels.retrieve(channels)
-                if isinstance(channels, str):
-                    found = existing is not None
-                else:
-                    found = isinstance(existing, list) and len(existing) == len(
-                        channels
-                    )
+                found = len(self._client.channels.retrieve(names)) == len(names)
                 if found:
                     break
             except Exception as e:
@@ -93,10 +111,7 @@ class Streamer:
             raise TimeoutError(f"Unable to retrieve channels: {channels}")
 
         self._log("Channels retrieved")
-        if isinstance(channels, str):
-            self._channels.add(channels)
-        elif isinstance(channels, list):
-            self._channels.update(channels)
+        self._channels.update(names)
 
     @overload
     def read(self, key: str, default: Literal[None] = None) -> int | float | None: ...
@@ -110,10 +125,9 @@ class Streamer:
     def read(
         self, key: str, default: int | float | str | None = None
     ) -> int | float | str | None:
-        try:
-            return self._frame.get(key, default)
-        except Exception:
-            return default
+        """:raises RuntimeError: If the stream failed."""
+        self.check()
+        return self._frame.get(key, default)
 
     def wait_for(
         self,
@@ -121,11 +135,15 @@ class Streamer:
         predicate: Callable[[int | float | str], bool],
         timeout: sy.CrudeTimeSpan,
     ) -> bool:
-        """Block until key's latest value satisfies predicate, or timeout."""
+        """Block until key's latest value satisfies predicate, or timeout.
+
+        :raises RuntimeError: If the stream failed.
+        """
         deadline = sy.TimeSpan.from_seconds(timeout).seconds
         timer = sy.Timer()
         with self._cond:
             while True:
+                self.check()
                 if self._should_stop:
                     return False
                 value = self._frame.get(key)
@@ -135,6 +153,13 @@ class Streamer:
                 if remaining <= 0:
                     return False
                 self._cond.wait(remaining)
+
+    def check(self) -> None:
+        """:raises RuntimeError: If the stream failed. Its cause is the error that
+        stopped the stream.
+        """
+        if self._error is not None:
+            raise RuntimeError(f"Streamer failed: {self._error}") from self._error
 
     def is_subscribed(self, key: str) -> bool:
         return key in self._channels
@@ -169,28 +194,20 @@ class Streamer:
         try:
             streamer = self._client.open_streamer(list(self._channels))
             while not self._should_stop:
-                try:
-                    frame = streamer.read(self._read_timeout)
-                    if frame is not None:
-                        with self._cond:
-                            for name in self._channels:
-                                series = frame.get(name)
-                                if series is not None and len(series) > 0:
-                                    self._frame[name] = _scalar(series[-1])
-                            self._cond.notify_all()
-                except Exception as e:
-                    if is_websocket_error(e):
-                        sy.sleep(self.WEBSOCKET_RETRY_DELAY)
-                    else:
-                        self._log(f"Streamer error: {e}")
-                        break
+                frame = streamer.read(self._read_timeout)
+                if frame is None:
+                    continue
+                with self._cond:
+                    for name in self._channels:
+                        series = frame.get(name)
+                        if series is not None and len(series) > 0:
+                            self._frame[name] = _scalar(series[-1])
+                    self._cond.notify_all()
         except Exception as e:
-            if not is_websocket_error(e):
-                import traceback
-
-                self._log(f"Streamer thread error: {e}\n {traceback.format_exc()}")
-                self._set_failed()
-                raise
+            self._log(f"Streamer failed: {e}")
+            with self._cond:
+                self._error = e
+                self._cond.notify_all()
         finally:
             if streamer is not None:
                 with suppress_websocket_errors():

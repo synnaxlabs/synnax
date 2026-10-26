@@ -123,7 +123,6 @@ class TestCase(ABC):
             client=self.client,
             read_timeout=self.read_timeout,
             log=self.log,
-            set_failed=lambda: setattr(self, "STATUS", STATUS.FAILED),
         )
         self._auto_pass: bool = False
         self._should_stop = False
@@ -603,6 +602,11 @@ class TestCase(ABC):
             if not self._auto_pass:
                 self.run()
             log_phase("run")
+            self.streamer.check()
+            if self._notifications is not None:
+                self._notifications.check()
+            if self._task_status is not None:
+                self._task_status.check()
 
             # Set to PENDING only if not in final state
             if self._status not in [STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED]:
