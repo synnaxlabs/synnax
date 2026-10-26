@@ -22,10 +22,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -113,11 +111,11 @@ var _ = Describe("Where", Ordered, func() {
 		func(ctx SpecContext, w status.Where, expected []string) {
 			f := MustSucceed(status.MatchWhere[any](w))
 			var res []status.Status[any]
-			// The API skips not-found, since a missing key is a non-match.
-			Expect(errors.Skip(
-				svc.NewRetrieve[any]().Where(f).Entries(&res).Exec(ctx, tx),
-				query.ErrNotFound,
-			)).To(Succeed())
+			Expect(svc.NewRetrieve[any]().
+				SkipMissingKeys().
+				Where(f).
+				Entries(&res).
+				Exec(ctx, tx)).To(Succeed())
 			Expect(lo.Map(res, func(s status.Status[any], _ int) string {
 				return keys[s.Key]
 			})).To(ConsistOf(expected))

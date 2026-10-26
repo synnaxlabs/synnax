@@ -19,8 +19,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -87,11 +85,11 @@ var _ = Describe("Where", func() {
 		func(ctx SpecContext, w ranger.Where, expected []string) {
 			f := MustSucceed(ranger.MatchWhere(w))
 			var res []ranger.Range
-			// The API skips not-found, since a missing key is a non-match.
-			Expect(errors.Skip(
-				svc.NewRetrieve().Where(f).Entries(&res).Exec(ctx, tx),
-				query.ErrNotFound,
-			)).To(Succeed())
+			Expect(svc.NewRetrieve().
+				SkipMissingKeys().
+				Where(f).
+				Entries(&res).
+				Exec(ctx, tx)).To(Succeed())
 			Expect(lo.Map(res, func(r ranger.Range, _ int) string {
 				return keys[r.Key]
 			})).To(ConsistOf(expected))
