@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import base64
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -24,6 +25,7 @@ from agent.agent import (
     main,
     parse,
     render_body,
+    run_agent,
     skill_prompt,
     stored_names,
 )
@@ -213,6 +215,41 @@ class TestMain:
         assert lines[0].startswith("report<<EOF_")
         assert lines[1:] == ["Done.", lines[0].removeprefix("report<<")]
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="fake agent is a script")
+    def test_no_commit_opens_no_pr(
+        self,
+        repo: Path,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        idle = tmp_path / "idle-agent"
+        idle.write_text("#!/bin/sh\necho Nothing to fix.\n")
+        idle.chmod(0o755)
+        output = tmp_path / "github_output"
+        monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+        argv = ["--prompt", "Fix it", "--agent", "claude", "--bin", str(idle)]
+        assert main(argv) == 0
+        assert "The agent made no changes" in capsys.readouterr().out
+        assert not output.exists()
+        assert git(repo, "rev-list", "--count", "HEAD") == "1"
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="fake agent is a script")
+    def test_report_agent_may_push_its_own_work(
+        self,
+        repo: Path,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        agent = tmp_path / "env-agent"
+        agent.write_text('#!/bin/sh\necho "auth=$GIT_CONFIG_KEY_0"\n')
+        agent.chmod(0o755)
+        argv = ["--prompt", "Hunt", "--agent", "claude", "--bin", str(agent)]
+        assert main([*argv, "--output", "report"]) == 0
+        assert "auth=http.https://github.com/.extraheader" in capsys.readouterr().out
+        text = instructions(Options("p", "claude", "report"), tmp_path)
+        assert "Never push" not in text
+
     def test_rejects_dirty_checkout(self, repo: Path, tmp_path: Path) -> None:
         (repo / "stray.txt").write_text("not the agent's")
         with pytest.raises(SystemExit, match="uncommitted changes"):
@@ -230,6 +267,17 @@ class TestMain:
 def test_stored_names_are_unique_and_url_safe() -> None:
     paths = [Path("before/shot.png"), Path("after/shot.png"), Path("a#1 [x].png")]
     assert stored_names(paths) == ["1-shot.png", "2-shot.png", "3-a_1__x_.png"]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="uses a POSIX shell")
+def test_timeout_kills_the_agent_and_its_children(tmp_path: Path) -> None:
+    pid_file = tmp_path / "pid"
+    script = f"sleep 60 & echo $! > {pid_file}; wait"
+    with pytest.raises(subprocess.TimeoutExpired):
+        run_agent(["sh", "-c", script], {"PATH": "/usr/bin:/bin"}, 1)
+    child = int(pid_file.read_text())
+    with pytest.raises(ProcessLookupError):
+        os.kill(child, 0)
 
 
 def test_git_auth_sends_the_app_token() -> None:
