@@ -10,7 +10,7 @@
 import {
   type channel,
   DataType,
-  type framer,
+  framer,
   type status as cstatus,
   ValidationError,
 } from "@synnaxlabs/client";
@@ -168,6 +168,30 @@ describe("remote", () => {
       await expect.poll(() => source.value().data, POLL).toBe(rewritten);
       expect(handler).toHaveBeenCalledTimes(2);
       expect(source.value().time).toEqual(time);
+    });
+
+    it("should clear a value once a history change deletes its samples", async () => {
+      const core = createCore();
+      const { key } = core.data[0];
+      let deleted = false;
+      const client = connect(core, {
+        readLatest: async (keys, count, tr) =>
+          deleted ? new framer.Frame() : core.readLatest(keys, count, tr),
+      });
+      const source = createNumber(client, key);
+      const handler = vi.fn();
+      source.onChange(handler);
+      source.value();
+      await expect.poll(() => handler.mock.calls.length, POLL).toBe(1);
+      await expect.poll(() => core.streams(core.historyChange.key), POLL).toBe(true);
+      // The Core deletes every sample, so its reads return none.
+      deleted = true;
+      core.rewrite(key, new TimeRange(START, core.now()), 0);
+      await expect.poll(() => handler.mock.calls.length, POLL).toBe(2);
+      const { data, status, time } = source.value();
+      expect(data).toBeNaN();
+      expect(status.variant).toBe("success");
+      expect(time).toBeUndefined();
     });
 
     it("should report the end of the newest sample as its time", async () => {

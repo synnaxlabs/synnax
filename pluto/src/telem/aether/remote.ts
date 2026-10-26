@@ -165,8 +165,9 @@ class ChannelValue<V>
     const { subscription, key } = this;
     if (subscription == null || key == null)
       return { data: empty, status: sourceStatus(this.loading, this.failures) };
-    const { series, status, time } = subscription.value(key);
-    this.convert(series);
+    const snapshot = subscription.value(key);
+    this.convert(snapshot);
+    const { status, time } = snapshot;
     return { data: this.converted?.value ?? empty, status, time };
   }
 
@@ -182,10 +183,15 @@ class ChannelValue<V>
   }
 
   // Converts the newest sample when its series or length changes, since a string
-  // conversion scans the series. Returns true when it converts.
-  private convert(series: MultiSeries): boolean {
+  // conversion scans the series. A successful read with no samples, as after a delete,
+  // clears it. Returns true when the converted value changes.
+  private convert({ series, status }: framer.Snapshot): boolean {
     const last = series.series.at(-1);
-    if (last == null || last.length === 0) return false;
+    if (last == null || last.length === 0) {
+      if (this.converted == null || status.variant !== "success") return false;
+      this.converted = null;
+      return true;
+    }
     const prev = this.converted;
     if (prev?.series === last && prev.length === last.length) return false;
     this.converted = {
@@ -215,11 +221,11 @@ class ChannelValue<V>
       });
       [this.subscription, this.key] = [subscription, key];
       subscription.onChange(() => {
-        const { series, status } = subscription.value(key);
-        this.failures.observe(status);
+        const snapshot = subscription.value(key);
+        this.failures.observe(snapshot.status);
         // A history change that rewrites the newest sample notifies too, so the value
         // redraws. Consumers that count arrivals compare its time.
-        if (this.convert(series)) this.notify();
+        if (this.convert(snapshot)) this.notify();
       });
     } catch (e) {
       if (generation !== this.generation) return;
