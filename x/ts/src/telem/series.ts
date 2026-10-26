@@ -217,6 +217,10 @@ export class Series<T extends TelemValue = TelemValue>
   private cachedDataView?: TypedArray;
   /** The write position cachedDataView was built at. */
   private cachedDataViewWritePos: number = FULL_BUFFER;
+  /** Caches alignmentBounds, which only change with the write position. */
+  private cachedAlignmentBounds?: bounds.Bounds<bigint>;
+  /** The write position cachedAlignmentBounds was built at. */
+  private cachedAlignmentBoundsWritePos: number = FULL_BUFFER;
 
   /**
    * A zod schema that can be used to validate that a particular value
@@ -1104,13 +1108,23 @@ export class Series<T extends TelemValue = TelemValue>
    * occupied by the series in a group of series. This is typically used to order the
    * series within a channel's data. The lower bound is the alignment of the first
    * sample, and the upper bound is the alignment of the last sample + 1. The lower
-   * bound is inclusive, while the upper bound is exclusive.
+   * bound is inclusive, while the upper bound is exclusive. The bounds are frozen, and
+   * the same object returns until the series grows.
    */
   get alignmentBounds(): bounds.Bounds<bigint> {
-    return bounds.construct(
-      this.alignment,
-      this.alignment + BigInt(this.length) * this.alignmentMultiple,
-    );
+    if (
+      this.cachedAlignmentBounds == null ||
+      this.cachedAlignmentBoundsWritePos !== this.writePos
+    ) {
+      this.cachedAlignmentBounds = Object.freeze(
+        bounds.construct(
+          this.alignment,
+          this.alignment + BigInt(this.length) * this.alignmentMultiple,
+        ),
+      );
+      this.cachedAlignmentBoundsWritePos = this.writePos;
+    }
+    return this.cachedAlignmentBounds;
   }
 
   private maybeGarbageCollectGLBuffer(gl: GLBufferController): void {
