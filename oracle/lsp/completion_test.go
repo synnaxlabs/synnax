@@ -125,7 +125,7 @@ var _ = Describe("Completion", func() {
 			openDoc(ctx, "file:///go-domain.oracle", "  @go \n")
 			list := completionFor(ctx, "file:///go-domain.oracle", 0, 6)
 			Expect(labels(list.Items)).To(ContainElements(
-				"output", "omit", "marshal", "wire", "to_any",
+				"output", "omit", "marshal", "wire", "to_any", "request_output",
 			))
 		})
 	})
@@ -337,6 +337,29 @@ var _ = Describe("Hover", func() {
 			To(HavePrefix("**filter**"))
 		Expect(HoverContents(hoverAt(ctx, "file:///filter.oracle", 1, 15))).
 			To(HavePrefix("**@filter**"))
+	})
+
+	It("should return no doc for the filter namespace", func(ctx SpecContext) {
+		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
+			TextDocument: protocol.TextDocumentItem{
+				URI: "file:///namespace.oracle", Version: 1,
+				Text: "name filter.String\n",
+			},
+		})).To(Succeed())
+		Expect(hoverAt(ctx, "file:///namespace.oracle", 0, 7)).To(BeNil())
+	})
+
+	It("should describe request_output and a key type", func(ctx SpecContext) {
+		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
+			TextDocument: protocol.TextDocumentItem{
+				URI: "file:///request.oracle", Version: 1,
+				Text: "@go request_output \"api\"\nKey uint32 @key\n",
+			},
+		})).To(Succeed())
+		Expect(HoverContents(hoverAt(ctx, "file:///request.oracle", 0, 6))).
+			To(HavePrefix("**request_output**"))
+		Expect(HoverContents(hoverAt(ctx, "file:///request.oracle", 1, 13))).
+			To(ContainSubstring("marks a key type"))
 	})
 
 	It("should return nil for unknown document", func(ctx SpecContext) {
