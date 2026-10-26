@@ -55,7 +55,7 @@ export type Where = {
   key?: filter.Set<typeof keyZ>;
   name?: filter.String;
 };
-export const whereZ: z.ZodType<Where> = z.object({
+export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
   get and() {
     return zod.nullToUndefined(whereZ.array());
@@ -83,7 +83,7 @@ export const retrieveResponseZ = z.object({
 export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
 
 /** RetrieveRequest is a request to retrieve arcs. */
-export const retrieveRequestZ = z.object({
+export const retrieveRequestZ = z.strictObject({
   /** where selects the arcs to retrieve. An absent where selects all of them. */
   where: whereZ.optional(),
   /** searchTerm keeps the arcs that match the term, closest match first. */

@@ -83,7 +83,7 @@ export type Where = {
   internal?: filter.Bool;
   snapshot?: filter.Bool;
 };
-export const whereZ: z.ZodType<Where> = z.object({
+export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
   get and() {
     return zod.nullToUndefined(whereZ.array());
@@ -141,7 +141,7 @@ export type Status<Data extends z.ZodType = z.ZodNever> = z.infer<
 >;
 
 /** RetrieveRequest is a request to retrieve tasks. */
-export const retrieveRequestZ = z.object({
+export const retrieveRequestZ = z.strictObject({
   /** where selects the tasks to retrieve. An absent where selects all of them. */
   where: whereZ.optional(),
   /** searchTerm keeps the tasks that match the term, closest match first. */

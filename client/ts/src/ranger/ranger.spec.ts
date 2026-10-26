@@ -278,7 +278,6 @@ describe("range", () => {
       await rng.addLabel(label.key);
       const newRange = await client.ranges.retrieve({
         where: { key: { in: [rng.key] } },
-        includeLabels: true,
       });
       expect(newRange[0].labels).toHaveLength(1);
       expect(newRange[0].labels?.[0]).toEqual(label);
@@ -298,7 +297,6 @@ describe("range", () => {
       await client.ontology.addChildren(parent.ontologyID, child.ontologyID);
       const newParent = await client.ranges.retrieve({
         where: { key: { in: [child.key] } },
-        includeParent: true,
       });
       expect(newParent[0].parent).toEqual(parent.payload);
     });

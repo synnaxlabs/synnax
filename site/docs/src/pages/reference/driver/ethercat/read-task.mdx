@@ -331,7 +331,7 @@ import { Synnax } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve EtherCAT device
-const [dev] = await client.devices.retrieve({ names: ["EL3102"] });
+const [dev] = await client.devices.retrieve({ where: { name: { eq: "EL3102" } } });
 
 // Create index channel for timestamps
 const ecTime = await client.channels.create(
@@ -415,7 +415,7 @@ import { Synnax } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve EtherCAT device
-const [dev] = await client.devices.retrieve({ names: ["Servo Drive"] });
+const [dev] = await client.devices.retrieve({ where: { name: { eq: "Servo Drive" } } });
 
 // Create index channel
 const ecTime = await client.channels.create(

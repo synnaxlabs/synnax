@@ -10,6 +10,7 @@
 package status_test
 
 import (
+	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"os"
 
@@ -22,26 +23,28 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
-// The case table is shared with the TypeScript matches, so that the Core and the
-// client cache agree on every filter.
+// The case table is shared with the TypeScript matches, so that the Core and the client
+// cache agree on every filter.
 const vectorsPath = "../../../../x/testdata/filter/vectors.json"
 
 type whereCase struct {
 	Name     string       `json:"name"`
 	Where    status.Where `json:"where"`
 	Expected []string     `json:"expected"`
+	// ServerComputed is for the TypeScript matches. The Core computes every case.
+	ServerComputed bool `json:"server_computed"`
 }
 
 type vectors struct {
-	Statuses struct {
-		Records map[string]status.Status[any] `json:"records"`
-		Cases   []whereCase                   `json:"cases"`
-	} `json:"statuses"`
+	Records map[string]status.Status[any] `json:"records"`
+	Cases   []whereCase                   `json:"cases"`
 }
 
 var _ = Describe("Where", Ordered, func() {
@@ -51,8 +54,15 @@ var _ = Describe("Where", Ordered, func() {
 		labelSvc *label.Service
 		tx       gorp.Tx
 	)
-	Expect(json.Unmarshal(MustSucceed(os.ReadFile(vectorsPath)), &v)).To(Succeed())
-	keys := lo.MapEntries(v.Statuses.Records, func(
+	var entities map[string]jsontext.Value
+	Expect(json.Unmarshal(MustSucceed(os.ReadFile(vectorsPath)), &entities)).
+		To(Succeed())
+	Expect(json.Unmarshal(
+		entities["statuses"],
+		&v,
+		json.RejectUnknownMembers(true),
+	)).To(Succeed())
+	keys := lo.MapEntries(v.Records, func(
 		alias string,
 		s status.Status[any],
 	) (status.Key, string) {
@@ -79,7 +89,7 @@ var _ = Describe("Where", Ordered, func() {
 		}))
 		tx = DeferClose(db.OpenTx())
 		labels := make(map[label.Key]label.Label)
-		for _, s := range v.Statuses.Records {
+		for _, s := range v.Records {
 			for _, l := range s.Labels {
 				labels[l.Key] = l
 			}
@@ -89,7 +99,7 @@ var _ = Describe("Where", Ordered, func() {
 		for _, l := range labels {
 			Expect(labelSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 		}
-		for _, s := range v.Statuses.Records {
+		for _, s := range v.Records {
 			Expect(labelSvc.NewWriter(tx).Label(
 				ctx,
 				s.OntologyID(),
@@ -98,9 +108,10 @@ var _ = Describe("Where", Ordered, func() {
 		}
 	})
 
-	for _, c := range v.Statuses.Cases {
-		It("Should match the case: "+c.Name, func(ctx SpecContext) {
-			f := MustSucceed(status.MatchWhere[any](c.Where))
+	DescribeTable(
+		"Should match the case",
+		func(ctx SpecContext, w status.Where, expected []string) {
+			f := MustSucceed(status.MatchWhere[any](w))
 			var res []status.Status[any]
 			// The API skips not-found, since a missing key is a non-match.
 			Expect(errors.Skip(
@@ -109,7 +120,43 @@ var _ = Describe("Where", Ordered, func() {
 			)).To(Succeed())
 			Expect(lo.Map(res, func(s status.Status[any], _ int) string {
 				return keys[s.Key]
-			})).To(ConsistOf(c.Expected))
-		})
-	}
+			})).To(ConsistOf(expected))
+		},
+		lo.Map(v.Cases, func(c whereCase, _ int) TableEntry {
+			return Entry(c.Name, c.Where, c.Expected)
+		}),
+	)
+
+	DescribeTable(
+		"Should return a path error for an invalid variant",
+		func(variant filter.Set[status.Variant], msg string) {
+			Expect(status.MatchWhere[any](status.Where{Variant: &variant})).Error().
+				To(SatisfyAll(
+					BeAssignableToTypeOf(validate.PathError{}),
+					MatchError(msg),
+				))
+		},
+		Entry(
+			"eq",
+			filter.Set[status.Variant]{Eq: new(status.Variant("bogus"))},
+			`variant.eq: invalid variant "bogus": validation error`,
+		),
+		Entry(
+			"in",
+			filter.Set[status.Variant]{
+				In: []status.Variant{status.VariantError, "bogus"},
+			},
+			`variant.in.1: invalid variant "bogus": validation error`,
+		),
+	)
+})
+
+var _ = Describe("RetrieveRequest", func() {
+	It("Should reject a member that the request does not declare", func() {
+		var req status.RetrieveRequest
+		Expect(json.Unmarshal([]byte(`{"keys":["status-a"]}`), &req)).To(SatisfyAll(
+			MatchError(json.ErrUnknownName),
+			MatchError(ContainSubstring(`unknown object member name "keys"`)),
+		))
+	})
 })

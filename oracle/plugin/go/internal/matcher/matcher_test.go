@@ -1,0 +1,135 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package matcher_test
+
+import (
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/matcher"
+	"github.com/synnaxlabs/oracle/resolution"
+	. "github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+var _ = Describe("Matcher", func() {
+	var loader *MockFileLoader
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		AddFilterSchema(loader)
+	})
+
+	table := func(ctx SpecContext, source string) *resolution.Table {
+		req := MustGenerateRequest(ctx, `
+			import "schemas/x/filter"
+
+			@go output "core/pkg/service/thing"
+		`+source, "thing", loader)
+		return req.Resolutions
+	}
+
+	type summary struct {
+		Func, Access string
+		Kind         matcher.Kind
+	}
+	summarize := func(ms []matcher.Matcher) []summary {
+		return lo.Map(ms, func(m matcher.Matcher, _ int) summary {
+			return summary{Func: m.Func, Access: m.Access, Kind: m.Kind}
+		})
+	}
+
+	Describe("List", func() {
+		It("Should list the @filter fields and the bare lines in field order", func(
+			ctx SpecContext,
+		) {
+			t := table(ctx, `
+				Thing struct {
+					key      uuid     { @key }
+					internal bool     { @filter }
+					name     string
+					owner    uuid     { @filter scalar }
+					tags     string[]
+					color    string
+				}
+				Where filter Thing {
+					key
+					tags
+					name
+				}
+			`)
+			ms := MustSucceed(matcher.List(t.MustGet("thing.Thing"), t))
+			Expect(summarize(ms)).To(Equal([]summary{
+				{Func: "MatchInternal", Access: "Internal", Kind: matcher.Single},
+				{Func: "MatchNames", Access: "Name", Kind: matcher.Variadic},
+				{Func: "MatchOwner", Access: "Owner", Kind: matcher.Single},
+				{Func: "MatchTag", Access: "Tags", Kind: matcher.Element},
+			}))
+		})
+
+		It("Should read a union's base fields and tag through its methods", func(
+			ctx SpecContext,
+		) {
+			t := table(ctx, `
+				Type enum {
+					first = "first"
+				}
+				Base struct {
+					key  uuid   { @key }
+					name string
+				}
+				View union on type Type extends Base {
+					first { size int32 }
+				}
+				Where filter View {
+					name
+					type
+				}
+			`)
+			ms := MustSucceed(matcher.List(t.MustGet("thing.View"), t))
+			Expect(summarize(ms)).To(Equal([]summary{
+				{Func: "MatchNames", Access: "Base().Name", Kind: matcher.Variadic},
+				{Func: "MatchTypes", Access: "Type()", Kind: matcher.Variadic},
+			}))
+		})
+
+		It("Should reject @filter on the @key field", func(ctx SpecContext) {
+			t := table(ctx, `
+				Thing struct {
+					key uuid { @key @filter }
+				}
+				Where filter Thing {
+					key
+				}
+			`)
+			Expect(matcher.List(t.MustGet("thing.Thing"), t)).Error().To(MatchError(
+				"thing.Thing: @filter on the @key field key duplicates MatchKeys",
+			))
+		})
+	})
+
+	DescribeTable("Plural",
+		func(name, plural string) { Expect(matcher.Plural(name)).To(Equal(plural)) },
+		Entry("a regular noun", "Name", "Names"),
+		Entry("a noun ending in y", "Property", "Properties"),
+		Entry("a noun that is already plural", "Properties", "PropertiesList"),
+	)
+
+	DescribeTable("Singular",
+		func(name, singular string) {
+			Expect(matcher.Singular(name)).To(Equal(singular))
+		},
+		Entry("a regular plural", "Tags", "Tag"),
+		Entry("a plural ending in ies", "Properties", "Property"),
+		Entry("a plural ending in ches", "Matches", "Match"),
+		Entry("a plural ending in xes", "Boxes", "Box"),
+		Entry("a name ending in ss", "Class", "Class"),
+		Entry("a name with no plural ending", "Data", "Data"),
+	)
+})

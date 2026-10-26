@@ -41,7 +41,7 @@ export type Where = {
   name?: filter.String;
   type?: filter.Set<typeof typeZ>;
 };
-export const whereZ: z.ZodType<Where> = z.object({
+export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
   get and() {
     return zod.nullToUndefined(whereZ.array());
@@ -93,7 +93,7 @@ export const VIEW_SCHEMAS: {
 };
 
 /** RetrieveRequest is a request to retrieve views. */
-export const retrieveRequestZ = z.object({
+export const retrieveRequestZ = z.strictObject({
   /** where selects the views to retrieve. An absent where selects all of them. */
   where: whereZ.optional(),
   /** searchTerm keeps the views that match the term, closest match first. */

@@ -223,6 +223,59 @@ var _ = Describe("Retrieve", func() {
 			)
 		})
 
+		Context("Lenient", func() {
+			DescribeTable(
+				"Should skip a missing key instead of returning ErrNotFound",
+				func(ctx SpecContext, build func() gorp.Filter[int32, entry]) {
+					var res []entry
+					Expect(gorp.NewRetrieve[int32, entry]().
+						Where(build()).
+						Entries(&res).
+						Exec(ctx, tx)).To(Succeed())
+					Expect(res).To(ConsistOf(entries[:2]))
+				},
+				Entry("alone", func() gorp.Filter[int32, entry] {
+					return gorp.MatchKeysLenient[int32, entry](
+						entries[0].GorpKey(),
+						444444,
+						entries[1].GorpKey(),
+					)
+				}),
+				Entry("under And", func() gorp.Filter[int32, entry] {
+					return gorp.And(gorp.MatchKeysLenient[int32, entry](
+						entries[0].GorpKey(),
+						entries[1].GorpKey(),
+						444444,
+					))
+				}),
+				Entry("under Or with a strict child", func() gorp.Filter[int32, entry] {
+					return gorp.Or(
+						gorp.MatchKeysLenient[int32, entry](
+							entries[0].GorpKey(),
+							444444,
+						),
+						gorp.MatchKeys[int32, entry](entries[1].GorpKey()),
+					)
+				}),
+			)
+
+			It("Should report that a match exists when any key has an entry", func(
+				ctx SpecContext,
+			) {
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Where(gorp.MatchKeysLenient[int32, entry](entries[0].GorpKey(), 444444)).
+					Exists(ctx, tx)).To(BeTrue())
+			})
+
+			It("Should keep a strict filter strict under And", func(ctx SpecContext) {
+				var res []entry
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Where(gorp.And(gorp.MatchKeys[int32, entry](entries[0].GorpKey(), 444444))).
+					Entries(&res).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+			})
+		})
+
 		Context("Single Entry", func() {
 			It("Should retrieve the entry by key", func(ctx SpecContext) {
 				res := &entry{}

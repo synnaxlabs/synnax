@@ -44,7 +44,8 @@ Set struct<T> {
     }
 
     @doc value  """
-        selects keys and enum values. A value must match every operator that is set.
+        selects values that only compare for equality, such as keys, enum values, and
+        UUIDs. A value must match every operator that is set.
     """
     @go marshal
 }

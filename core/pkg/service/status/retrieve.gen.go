@@ -42,3 +42,11 @@ func (i indexes) all() []gorp.Index[Key, Status[any]] {
 		i.search,
 	}
 }
+
+// MatchSearch matches the statuses whose text matches term.
+// The closest match comes first.
+func MatchSearch(term string) Filter[any] {
+	return func(r Retrieve[any]) gorp.Filter[Key, Status[any]] {
+		return r.indexes.search.Filter(term)
+	}
+}

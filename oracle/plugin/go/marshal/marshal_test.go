@@ -1585,6 +1585,25 @@ var _ = Describe("Recursive Codecs", func() {
 	)
 
 	It(
+		"Should populate one nested level of a recursive struct in test fixtures",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/test"
+			@go marshal
+
+			Node struct {
+				name     string
+				children Node[]
+			}
+		`
+			resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+			ExpectContent(resp, "codec_gen_test.go").
+				ToContain(`Children: []test.Node{test.Node{Name: "test_3", ` +
+					`Children: []test.Node{test.Node{}}}}`)
+		},
+	)
+
+	It(
 		"Should guard a recursive union and its cycle members with a depth limit",
 		func(ctx SpecContext) {
 			source := `

@@ -134,15 +134,6 @@ func MatchNames[D any](names ...string) Filter[D] {
 	}
 }
 
-// MatchSearch returns a filter for statuses whose name matches term, closest match
-// first. An empty term matches no status. Only a Retrieve[any] can search, because the
-// search index holds details of any type.
-func MatchSearch(term string) Filter[any] {
-	return func(r Retrieve[any]) gorp.Filter[Key, Status[any]] {
-		return r.indexes.search.Filter(term)
-	}
-}
-
 // MatchVariants returns a filter for statuses with the given variants.
 func MatchVariants[D any](variants ...Variant) Filter[D] {
 	return func(_ Retrieve[D]) gorp.Filter[Key, Status[D]] {

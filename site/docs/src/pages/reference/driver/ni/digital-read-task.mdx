@@ -183,7 +183,9 @@ import { Synnax } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve device
-const [digitalDev] = await client.devices.retrieve({ names: ["Mod1_Digital"] });
+const [digitalDev] = await client.devices.retrieve({
+  where: { name: { eq: "Mod1_Digital" } },
+});
 
 // Create index channel
 const diTime = await client.channels.create(

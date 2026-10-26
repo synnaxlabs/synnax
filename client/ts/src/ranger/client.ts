@@ -38,7 +38,6 @@ import {
   ontologyID,
   type Payload,
   payloadZ,
-  type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/ranger/types.gen";
@@ -248,18 +247,27 @@ export class Range {
   }
 }
 
+// Every retrieve includes labels and parents, so callers cannot set either flag.
+const retrieveMultipleParamsZ = retrieveRequestZ.omit({
+  includeLabels: true,
+  includeParent: true,
+});
+export type RetrieveMultipleParams = z.infer<typeof retrieveMultipleParamsZ>;
+
 /**
  * Canonicalizes every retrieve shape addressing more than one range. The time range arm
  * comes before the request, which would read a time range as an empty request.
  */
 const retrieveMultiParamsZ = z.union([
-  keyZ.array().transform((keys): RetrieveRequest => ({ where: { key: { in: keys } } })),
+  query.keysRequestZ(keyZ),
   z
     .string()
     .array()
-    .transform((names): RetrieveRequest => ({ where: { name: { in: names } } })),
-  TimeRange.z.transform((overlaps): RetrieveRequest => ({ where: { overlaps } })),
-  retrieveRequestZ,
+    .transform((names): RetrieveMultipleParams => ({ where: { name: { in: names } } })),
+  TimeRange.z.transform((overlaps): RetrieveMultipleParams => ({
+    where: { overlaps },
+  })),
+  retrieveMultipleParamsZ,
 ]);
 
 /**
@@ -335,8 +343,8 @@ const seenKeys = (
 const watchRequestRelationships = (
   relationships: query.Table<string, ontology.Relationship>,
   ranges: query.Table<Key, Range>,
-): query.Watch<RetrieveRequest, Key> =>
-  query.watch<RetrieveRequest, Key, string, ontology.Relationship>(
+): query.Watch<RetrieveMultipleParams, Key> =>
+  query.watch<RetrieveMultipleParams, Key, string, ontology.Relationship>(
     relationships,
     (event, req) => {
       const rel = relOfEvent(event);
@@ -371,8 +379,8 @@ const watchLabels = (
   labels: query.Table<label.Key, label.Label>,
   cache: ontology.Cache,
   ranges: query.Table<Key, Range>,
-): query.Watch<RetrieveRequest, Key> =>
-  query.watch<RetrieveRequest, Key, label.Key, label.Label>(labels, (event) =>
+): query.Watch<RetrieveMultipleParams, Key> =>
+  query.watch<RetrieveMultipleParams, Key, label.Key, label.Label>(labels, (event) =>
     seenKeys(ranges, rangesWithLabel(cache, event.key)),
   );
 
@@ -455,9 +463,8 @@ export class Client extends query.Retriever<
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (query) => await this.fetchRequest(query),
-        matches: (r, query) => matches(this.lines, r.payload, query.where ?? {}),
-        serverComputed: (query) =>
-          query.where != null && serverComputed(this.lines, query.where),
+        matches: (r, query) => matches(this.lines, r.payload, query.where),
+        serverComputed: (query) => serverComputed(this.lines, query.where),
         watch: [
           watchRequestRelationships(relationships, ranges),
           watchLabels(labels, ontologyClient.cache, ranges),
@@ -467,8 +474,8 @@ export class Client extends query.Retriever<
       single: { schema: z.string(), space: single },
     });
     this.cfg = cfg;
-    this.lines = createLines((r) =>
-      label.cachedLabelsOf(ontologyClient.cache, labels, ontologyID(r.key)),
+    this.lines = createLines((r, keys) =>
+      label.cachedLabeledByAny(ontologyClient.cache, ontologyID(r.key), keys),
     );
     this.writer = new Writer(cfg.unary);
     this.store = ranges;
@@ -583,17 +590,17 @@ export class Client extends query.Retriever<
 
   async retrieve(params: Key | Name): Promise<Range>;
   async retrieve(
-    params: Key[] | Name[] | CrudeTimeRange | RetrieveRequest,
+    params: Key[] | Name[] | CrudeTimeRange | RetrieveMultipleParams,
   ): Promise<Range[]>;
   async retrieve(
-    params: Key | Name | Key[] | Name[] | CrudeTimeRange | RetrieveRequest,
+    params: Key | Name | Key[] | Name[] | CrudeTimeRange | RetrieveMultipleParams,
   ): Promise<Range | Range[]> {
     // The branches narrow params onto different base overloads.
     if (typeof params === "string") return await super.retrieve(params);
     return await super.retrieve(params);
   }
 
-  private async execRetrieve(req: RetrieveRequest): Promise<Range[]> {
+  private async execRetrieve(req: RetrieveMultipleParams): Promise<Range[]> {
     const { ranges } = await this.cfg.unary.send(
       "/range/retrieve",
       { ...req, includeLabels: true, includeParent: true },
@@ -699,7 +706,7 @@ export class Client extends query.Retriever<
    * their relationships through. Powers the table's fetch primitive.
    */
   private async fetchThrough(keys: Key[]): Promise<Range[]> {
-    const ranges = await this.execRetrieve({ where: { key: { in: keys } } });
+    const ranges = await this.execRetrieve(query.keysRequest(keys));
     this.hydrateMany(ranges);
     return ranges;
   }
@@ -735,7 +742,7 @@ export class Client extends query.Retriever<
     }
   }
 
-  private async fetchRequest(query: RetrieveRequest): Promise<Range[]> {
+  private async fetchRequest(query: RetrieveMultipleParams): Promise<Range[]> {
     const ranges = await this.execRetrieve(query);
     this.hydrateMany(ranges);
     return ranges;

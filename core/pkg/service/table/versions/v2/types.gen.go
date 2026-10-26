@@ -202,22 +202,33 @@ func (u *CellConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type CellConfigType `json:"variant"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data,
+		&disc,
+		opts,
+		json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case TextCellConfigType:
-		var v TextCellConfig
+		var v struct {
+			Type CellConfigType `json:"variant"`
+			TextCellConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.TextCellConfig
 	case ValueCellConfigType:
-		var v ValueCellConfig
+		var v struct {
+			Type CellConfigType `json:"variant"`
+			ValueCellConfig
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ValueCellConfig
 	default:
 		return errors.Newf("CellConfig: unknown variant %q", disc.Type)
 	}

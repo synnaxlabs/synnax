@@ -203,7 +203,7 @@ import { Synnax } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve the device
-const [device] = await client.devices.retrieve({ names: ["EL3102"] });
+const [device] = await client.devices.retrieve({ where: { name: { eq: "EL3102" } } });
 
 // Disable the device
 device.properties.enabled = false;
@@ -254,7 +254,7 @@ import { Synnax } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve the device
-const [device] = await client.devices.retrieve({ names: ["EL3102"] });
+const [device] = await client.devices.retrieve({ where: { name: { eq: "EL3102" } } });
 
 // Re-enable the device
 device.properties.enabled = true;
@@ -328,7 +328,9 @@ import { Synnax } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve every EtherCAT device
-const ethercatDevices = await client.devices.retrieve({ makes: ["ethercat"] });
+const ethercatDevices = await client.devices.retrieve({
+  where: { make: { eq: "ethercat" } },
+});
 
 for (const dev of ethercatDevices) {
   console.log(`Device: ${dev.name}`);
@@ -340,7 +342,7 @@ for (const dev of ethercatDevices) {
 }
 
 // Retrieve a specific device by name
-const [device] = await client.devices.retrieve({ names: ["EK1100"] });
+const [device] = await client.devices.retrieve({ where: { name: { eq: "EK1100" } } });
 
 // Access PDO information
 interface PDOEntry {

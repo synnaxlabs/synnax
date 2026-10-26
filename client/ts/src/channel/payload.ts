@@ -58,6 +58,10 @@ export const escapeInvalidName = (name: string, changeEmptyToUnderscore = false)
   return result;
 };
 
+/** @returns whether the channel computes its samples from an expression. */
+export const isCalculated = ({ virtual, expression }: Payload): boolean =>
+  virtual && expression !== "";
+
 /** @returns the key of the status that reports on the given channel. */
 export const statusKey = (channel: Key): string => idToString(ontologyID(channel));
 

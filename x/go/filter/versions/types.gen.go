@@ -19,7 +19,8 @@ type String = v0.String
 // Bool selects boolean values.
 type Bool = v0.Bool
 
-// Set selects keys and enum values. A value must match every operator that is set.
+// Set selects values that only compare for equality, such as keys, enum values, and
+// UUIDs. A value must match every operator that is set.
 type Set[T any] = v0.Set[T]
 
 // Ordered selects numbers and times. A value must match every operator that is set.

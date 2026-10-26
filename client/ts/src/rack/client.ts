@@ -27,7 +27,8 @@ import {
   type Status,
   statusZ,
 } from "@/rack/types.gen";
-import { type Lines, matches, serverComputed } from "@/rack/where.gen";
+import { LINES } from "@/rack/where";
+import { matches, serverComputed } from "@/rack/where.gen";
 import { type status } from "@/status";
 import { type task } from "@/task";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -35,14 +36,7 @@ import { checkForMultipleOrNoResults } from "@/util/retrieve";
 export const SET_CHANNEL_NAME = "sy_rack_set";
 export const DELETE_CHANNEL_NAME = "sy_rack_delete";
 
-const keysRequest = (keys: Key[]): RetrieveRequest => ({
-  where: { key: { in: keys } },
-});
-
-const retrieveMultiParamsZ = z.union([
-  keyZ.array().transform(keysRequest),
-  retrieveRequestZ,
-]);
+const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
 export const rackZ = payloadZ;
 
 const singleRetrieveParamsZ = z.union([
@@ -78,7 +72,6 @@ const emptyResZ = z.object({});
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
 // Only the Core knows which Core serves a request.
-const LINES: Lines = { hostIsNode: null };
 
 /** Drops includeStatus when unset so equivalent queries hash identically. */
 const normalizeSingle = (params: RetrieveSingleParams): SingleQuery => {
@@ -131,7 +124,7 @@ export class Client extends query.Retriever<
     const store = cache.createTable<Key, Omit<Payload, "status">>({
       name: "racks",
       fetch: async (keys) =>
-        (await this.fetchThrough(keysRequest(keys))).map(stripStatus),
+        (await this.fetchThrough(query.keysRequest(keys))).map(stripStatus),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, payloadZ, {
           value: ({ status: _, ...rack }) => rack,
@@ -162,8 +155,8 @@ export class Client extends query.Retriever<
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => (await this.fetchThrough(req)).map(stripStatus),
-        matches: (r, req) => matches(LINES, r, req.where ?? {}),
-        serverComputed: (req) => req.where != null && serverComputed(LINES, req.where),
+        matches: (r, req) => matches(LINES, r, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
         watch: [
           query.watch(statusStore, (event, q: RetrieveRequest) => {
             if (q.includeStatus !== true) return null;

@@ -21,10 +21,11 @@ export interface Lines {
 }
 
 /**
- * @returns whether the record matches where.
- * @throws if where is server-computed, since only the Core can check it.
+ * @returns whether the record matches where. An absent where matches every record.
+ * @throws {Error} if where is server-computed, since only the Core can check it.
  */
-export const matches = (lines: Lines, record: Label, where: Where): boolean => {
+export const matches = (lines: Lines, record: Label, where?: Where): boolean => {
+  if (where == null) return true;
   if (where.and != null && !where.and.every((w) => matches(lines, record, w)))
     return false;
   if (where.or != null && !where.or.some((w) => matches(lines, record, w)))
@@ -42,11 +43,12 @@ export const matches = (lines: Lines, record: Label, where: Where): boolean => {
 
 /**
  * @returns whether only the Core can check where, because it holds a regex or a line
- * whose entry in lines is null.
+ * whose entry in lines is null. An absent where is not server-computed.
  */
-export const serverComputed = (lines: Lines, where: Where): boolean =>
-  where.and?.some((w) => serverComputed(lines, w)) === true ||
-  where.or?.some((w) => serverComputed(lines, w)) === true ||
-  (where.not != null && serverComputed(lines, where.not)) ||
-  where.name?.regex != null ||
-  (where.for != null && lines.for == null);
+export const serverComputed = (lines: Lines, where?: Where): boolean =>
+  where != null &&
+  (where.and?.some((w) => serverComputed(lines, w)) === true ||
+    where.or?.some((w) => serverComputed(lines, w)) === true ||
+    (where.not != null && serverComputed(lines, where.not)) ||
+    where.name?.regex != null ||
+    (where.for != null && lines.for == null));

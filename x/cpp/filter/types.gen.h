@@ -62,8 +62,8 @@ struct Bool {
     from_proto(const ::x::filter::pb::Bool &pb);
 };
 
-/// @brief Set selects keys and enum values. A value must match every operator that is
-/// set.
+/// @brief Set selects values that only compare for equality, such as keys, enum values,
+/// and UUIDs. A value must match every operator that is set.
 template<typename T>
 struct Set {
     /// @brief eq matches a value equal to eq.

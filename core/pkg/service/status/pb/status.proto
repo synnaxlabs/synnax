@@ -65,8 +65,8 @@ message StringList {
   repeated string values = 1;
 }
 
-// StringSet selects keys and enum values. A value must match every operator that is
-// set.
+// StringSet selects values that only compare for equality, such as keys, enum values,
+// and UUIDs. A value must match every operator that is set.
 message StringSet {
   // eq matches a value equal to eq.
   optional string eq = 1;
@@ -77,8 +77,8 @@ message VariantList {
   repeated Variant values = 1;
 }
 
-// VariantSet selects keys and enum values. A value must match every operator that is
-// set.
+// VariantSet selects values that only compare for equality, such as keys, enum values,
+// and UUIDs. A value must match every operator that is set.
 message VariantSet {
   // eq matches a value equal to eq.
   optional Variant eq = 1;

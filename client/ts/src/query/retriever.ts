@@ -33,13 +33,22 @@ const soleMember = (value: Record<string, unknown>): [string, unknown] | null =>
   return set.length === 1 ? set[0] : null;
 };
 
+/** The element type of the `in` list on the field line of a filter W. */
+type InElement<W, F extends string> =
+  NonNullable<W> extends { [P in F]?: { in?: Array<infer E> } } ? E : unknown;
+
 /** @returns the list of a filter that only matches field against a list, or null. */
-export const whereIn = (where: unknown, field: string): unknown[] | null => {
+export const whereIn = <W, F extends string>(
+  where: W,
+  field: F,
+): Array<InElement<W, F>> | null => {
   if (!isObject(where)) return null;
   const line = soleMember(where);
   if (line?.[0] !== field || !isObject(line[1])) return null;
   const op = soleMember(line[1]);
-  return op?.[0] === "in" && Array.isArray(op[1]) ? op[1] : null;
+  return op?.[0] === "in" && Array.isArray(op[1])
+    ? (op[1] as Array<InElement<W, F>>)
+    : null;
 };
 
 /**
@@ -81,6 +90,18 @@ const isBareKey = (params: unknown): params is record.Key =>
  */
 export const keyListZ = <K extends z.ZodType<record.Key>>(key: K) =>
   z.array(key).transform((keys) => ({ keys }));
+
+/** @returns a request whose `where` matches the records with the given keys. */
+export const keysRequest = <K extends record.Key>(keys: K[]) => ({
+  where: { key: { in: keys } },
+});
+
+/**
+ * Request schema arm reading a bare key list as a `where` on the keys. Union it onto a
+ * domain's request schema: `z.union([keysRequestZ(keyZ), retrieveRequestZ])`.
+ */
+export const keysRequestZ = <K extends z.ZodType<record.Key>>(key: K) =>
+  z.array(key).transform(keysRequest);
 
 interface ComposeProp<V, D> {
   /**
@@ -297,7 +318,7 @@ export abstract class Retriever<
    * Reads the record the params address, or every record matching them. Serves the
    * cache when the answer is fresh, fetching otherwise. A bare key is shorthand for `{
    * key }`; a bare key list is accepted by domains whose request schema unions in
-   * {@link keyListZ}.
+   * {@link keysRequestZ} or {@link keyListZ}.
    * @throws {NotFoundError} if a single-record query matches nothing or the record was
    * deleted.
    * @throws {ValidationError} if params contain `key` (or are a bare key) but fail the

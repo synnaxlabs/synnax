@@ -366,12 +366,7 @@ func analyze(c *analysisCtx) {
 	validateImportPlacement(c)
 	validateNoVersionFileActions(c)
 	for _, typ := range types {
-		for i, t := range c.table.Types {
-			if t.QualifiedName == typ.QualifiedName {
-				c.table.Types[i] = typ
-				break
-			}
-		}
+		replaceType(c.table, typ)
 	}
 	omitRemovedFields(c)
 	expandFilters(c)

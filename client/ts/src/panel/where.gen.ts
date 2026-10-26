@@ -13,30 +13,23 @@ import { filter } from "@synnaxlabs/x";
 import { type Panel, type Where } from "@/panel/types.gen";
 
 /**
- * Lines checks the typed lines of a Where against a record. A null entry marks a line
- * that only the Core can check.
+ * @returns whether the record matches where. An absent where matches every record.
  */
-export type Lines = Record<never, never>;
-
-/**
- * @returns whether the record matches where.
- * @throws if where is server-computed, since only the Core can check it.
- */
-export const matches = (lines: Lines, record: Panel, where: Where): boolean => {
-  if (where.and != null && !where.and.every((w) => matches(lines, record, w)))
-    return false;
-  if (where.or != null && !where.or.some((w) => matches(lines, record, w)))
-    return false;
-  if (where.not != null && matches(lines, record, where.not)) return false;
+export const matches = (record: Panel, where?: Where): boolean => {
+  if (where == null) return true;
+  if (where.and != null && !where.and.every((w) => matches(record, w))) return false;
+  if (where.or != null && !where.or.some((w) => matches(record, w))) return false;
+  if (where.not != null && matches(record, where.not)) return false;
   if (where.key != null && !filter.matchesSet(where.key, record.key)) return false;
   return true;
 };
 
 /**
- * @returns whether only the Core can check where, because it holds a regex or a line
- * whose entry in lines is null.
+ * @returns whether only the Core can check where, because it holds a regex. An absent
+ * where is not server-computed.
  */
-export const serverComputed = (lines: Lines, where: Where): boolean =>
-  where.and?.some((w) => serverComputed(lines, w)) === true ||
-  where.or?.some((w) => serverComputed(lines, w)) === true ||
-  (where.not != null && serverComputed(lines, where.not));
+export const serverComputed = (where?: Where): boolean =>
+  where != null &&
+  (where.and?.some((w) => serverComputed(w)) === true ||
+    where.or?.some((w) => serverComputed(w)) === true ||
+    (where.not != null && serverComputed(where.not)));

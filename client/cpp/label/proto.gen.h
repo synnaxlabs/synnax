@@ -54,23 +54,4 @@ Label::from_proto(const ::service::label::pb::Label &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::label::pb::RetrieveResponse, x::errors::Error>
-RetrieveResponse::to_proto() const {
-    ::service::label::pb::RetrieveResponse pb;
-    for (const auto &item: this->labels) {
-        auto [v, err] = item.to_proto();
-        if (err) return {{}, err};
-        *pb.add_labels() = v;
-    }
-    return {pb, x::errors::NIL};
-}
-
-inline std::pair<RetrieveResponse, x::errors::Error>
-RetrieveResponse::from_proto(const ::service::label::pb::RetrieveResponse &pb) {
-    RetrieveResponse cpp;
-    if (auto err = x::pb::from_proto_repeated<Label>(cpp.labels, pb.labels()))
-        return {{}, err};
-    return {cpp, x::errors::NIL};
-}
-
 }

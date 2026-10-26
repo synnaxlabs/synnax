@@ -98,52 +98,6 @@ func (x *Label) GetColor() *pb.Color {
 	return nil
 }
 
-// RetrieveResponse holds the labels a RetrieveRequest selects.
-type RetrieveResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// labels are the labels the request selects.
-	Labels        []*Label `protobuf:"bytes,1,rep,name=labels,proto3" json:"labels,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RetrieveResponse) Reset() {
-	*x = RetrieveResponse{}
-	mi := &file_core_pkg_service_label_pb_label_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RetrieveResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RetrieveResponse) ProtoMessage() {}
-
-func (x *RetrieveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_label_pb_label_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RetrieveResponse.ProtoReflect.Descriptor instead.
-func (*RetrieveResponse) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_label_pb_label_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *RetrieveResponse) GetLabels() []*Label {
-	if x != nil {
-		return x.Labels
-	}
-	return nil
-}
-
 var File_core_pkg_service_label_pb_label_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_label_pb_label_proto_rawDesc = "" +
@@ -152,9 +106,7 @@ const file_core_pkg_service_label_pb_label_proto_rawDesc = "" +
 	"\x05Label\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12'\n" +
-	"\x05color\x18\x03 \x01(\v2\x11.x.color.pb.ColorR\x05color\"C\n" +
-	"\x10RetrieveResponse\x12/\n" +
-	"\x06labels\x18\x01 \x03(\v2\x17.service.label.pb.LabelR\x06labelsB\xb7\x01\n" +
+	"\x05color\x18\x03 \x01(\v2\x11.x.color.pb.ColorR\x05colorB\xb7\x01\n" +
 	"\x14com.service.label.pbB\n" +
 	"LabelProtoP\x01Z1github.com/synnaxlabs/synnax/pkg/service/label/pb\xa2\x02\x03SLP\xaa\x02\x10Service.Label.Pb\xca\x02\x10Service\\Label\\Pb\xe2\x02\x1cService\\Label\\Pb\\GPBMetadata\xea\x02\x12Service::Label::Pbb\x06proto3"
 
@@ -170,20 +122,18 @@ func file_core_pkg_service_label_pb_label_proto_rawDescGZIP() []byte {
 	return file_core_pkg_service_label_pb_label_proto_rawDescData
 }
 
-var file_core_pkg_service_label_pb_label_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_core_pkg_service_label_pb_label_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_core_pkg_service_label_pb_label_proto_goTypes = []any{
-	(*Label)(nil),            // 0: service.label.pb.Label
-	(*RetrieveResponse)(nil), // 1: service.label.pb.RetrieveResponse
-	(*pb.Color)(nil),         // 2: x.color.pb.Color
+	(*Label)(nil),    // 0: service.label.pb.Label
+	(*pb.Color)(nil), // 1: x.color.pb.Color
 }
 var file_core_pkg_service_label_pb_label_proto_depIdxs = []int32{
-	2, // 0: service.label.pb.Label.color:type_name -> x.color.pb.Color
-	0, // 1: service.label.pb.RetrieveResponse.labels:type_name -> service.label.pb.Label
-	2, // [2:2] is the sub-list for method output_type
-	2, // [2:2] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	1, // 0: service.label.pb.Label.color:type_name -> x.color.pb.Color
+	1, // [1:1] is the sub-list for method output_type
+	1, // [1:1] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_label_pb_label_proto_init() }
@@ -197,7 +147,7 @@ func file_core_pkg_service_label_pb_label_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_label_pb_label_proto_rawDesc), len(file_core_pkg_service_label_pb_label_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

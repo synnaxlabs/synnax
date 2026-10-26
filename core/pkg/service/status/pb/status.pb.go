@@ -342,8 +342,8 @@ func (x *StringList) GetValues() []string {
 	return nil
 }
 
-// StringSet selects keys and enum values. A value must match every operator that is
-// set.
+// StringSet selects values that only compare for equality, such as keys, enum values,
+// and UUIDs. A value must match every operator that is set.
 type StringSet struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// eq matches a value equal to eq.
@@ -442,8 +442,8 @@ func (x *VariantList) GetValues() []Variant {
 	return nil
 }
 
-// VariantSet selects keys and enum values. A value must match every operator that is
-// set.
+// VariantSet selects values that only compare for equality, such as keys, enum values,
+// and UUIDs. A value must match every operator that is set.
 type VariantSet struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// eq matches a value equal to eq.

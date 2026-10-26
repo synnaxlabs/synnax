@@ -24,9 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -181,25 +179,11 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var resChannels []channel.Channel
-	q := s.internal.NewRetrieve().Entries(&resChannels)
-	if req.Where != nil {
-		f, err := channel.MatchWhere(*req.Where)
-		if err != nil {
-			return RetrieveResponse{}, validate.PathedError(err, "where")
-		}
-		q = q.Where(f)
+	q, err := req.Apply(s.internal.NewRetrieve().Entries(&resChannels))
+	if err != nil {
+		return RetrieveResponse{}, err
 	}
-	if term := lo.FromPtr(req.SearchTerm); term != "" {
-		q = q.Search(term)
-	}
-	if req.Limit != nil {
-		q = q.Limit(int(*req.Limit))
-	}
-	if req.Offset != nil {
-		q = q.Offset(int(*req.Offset))
-	}
-	// A filter is a predicate, so a key that does not exist is a non-match.
-	if err := errors.Skip(q.Exec(ctx, nil), query.ErrNotFound); err != nil {
+	if err := q.Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
 	res := RetrieveResponse{Channels: translateChannelsForward(resChannels)}
@@ -310,7 +294,7 @@ func (s *Service) Delete(
 		}); err != nil {
 			return struct{}{}, err
 		}
-		return struct{}{}, w.DeleteManyByNames(ctx, req.Names, false)
+		return struct{}{}, w.DeleteManyByNamePatterns(ctx, req.Names, false)
 	}
 	return struct{}{}, nil
 }

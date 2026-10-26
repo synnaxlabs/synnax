@@ -39,374 +39,47 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", v1.Where{
 				And: []v1.Where{
 					{
-						And: []v1.Where{
-							{
-								And: []v1.Where{
-									{
-										And:     []v1.Where{{}},
-										Or:      []v1.Where{{}},
-										Not:     new(v1.Where{}),
-										Key:     new(filter.Set[v1.Key]{}),
-										Variant: new(filter.Set[v1.Variant]{}),
-										Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809")},
-									},
-								},
-								Or: []v1.Where{
-									{
-										And:     []v1.Where{{}},
-										Or:      []v1.Where{{}},
-										Not:     new(v1.Where{}),
-										Key:     new(filter.Set[v1.Key]{}),
-										Variant: new(filter.Set[v1.Variant]{}),
-										Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567810")},
-									},
-								},
-								Not: new(v1.Where{
-									And:     []v1.Where{{}},
-									Or:      []v1.Where{{}},
-									Not:     new(v1.Where{}),
-									Key:     new(filter.Set[v1.Key]{}),
-									Variant: new(filter.Set[v1.Variant]{}),
-									Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567817")},
-								}),
-								Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_25")), In: []string{"test_26"}}),
-								Variant: new(filter.Set[v1.Variant]{
-									Eq: new(v1.Variant("success")),
-									In: []v1.Variant{v1.Variant("success")},
-								}),
-								Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781e")},
-							},
-						},
-						Or: []v1.Where{
-							{
-								And: []v1.Where{
-									{
-										And:     []v1.Where{{}},
-										Or:      []v1.Where{{}},
-										Not:     new(v1.Where{}),
-										Key:     new(filter.Set[v1.Key]{}),
-										Variant: new(filter.Set[v1.Variant]{}),
-										Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567826")},
-									},
-								},
-								Or: []v1.Where{
-									{
-										And:     []v1.Where{{}},
-										Or:      []v1.Where{{}},
-										Not:     new(v1.Where{}),
-										Key:     new(filter.Set[v1.Key]{}),
-										Variant: new(filter.Set[v1.Variant]{}),
-										Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456782d")},
-									},
-								},
-								Not: new(v1.Where{
-									And:     []v1.Where{{}},
-									Or:      []v1.Where{{}},
-									Not:     new(v1.Where{}),
-									Key:     new(filter.Set[v1.Key]{}),
-									Variant: new(filter.Set[v1.Variant]{}),
-									Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567834")},
-								}),
-								Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_54")), In: []string{"test_55"}}),
-								Variant: new(filter.Set[v1.Variant]{
-									Eq: new(v1.Variant("success")),
-									In: []v1.Variant{v1.Variant("success")},
-								}),
-								Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456783b")},
-							},
-						},
-						Not: new(v1.Where{
-							And: []v1.Where{
-								{
-									And:     []v1.Where{{}},
-									Or:      []v1.Where{{}},
-									Not:     new(v1.Where{}),
-									Key:     new(filter.Set[v1.Key]{}),
-									Variant: new(filter.Set[v1.Variant]{}),
-									Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567843")},
-								},
-							},
-							Or: []v1.Where{
-								{
-									And:     []v1.Where{{}},
-									Or:      []v1.Where{{}},
-									Not:     new(v1.Where{}),
-									Key:     new(filter.Set[v1.Key]{}),
-									Variant: new(filter.Set[v1.Variant]{}),
-									Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456784a")},
-								},
-							},
-							Not: new(v1.Where{
-								And:     []v1.Where{{}},
-								Or:      []v1.Where{{}},
-								Not:     new(v1.Where{}),
-								Key:     new(filter.Set[v1.Key]{}),
-								Variant: new(filter.Set[v1.Variant]{}),
-								Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567851")},
-							}),
-							Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_83")), In: []string{"test_84"}}),
-							Variant: new(filter.Set[v1.Variant]{
-								Eq: new(v1.Variant("success")),
-								In: []v1.Variant{v1.Variant("success")},
-							}),
-							Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567858")},
-						}),
-						Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_90")), In: []string{"test_91"}}),
+						And: []v1.Where{{}},
+						Or:  []v1.Where{{}},
+						Not: new(v1.Where{}),
+						Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_6")), In: []string{"test_7"}}),
 						Variant: new(filter.Set[v1.Variant]{
 							Eq: new(v1.Variant("success")),
 							In: []v1.Variant{v1.Variant("success")},
 						}),
-						Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456785f")},
+						Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b")},
 					},
 				},
 				Or: []v1.Where{
 					{
-						And: []v1.Where{
-							{
-								And: []v1.Where{
-									{
-										And:     []v1.Where{{}},
-										Or:      []v1.Where{{}},
-										Not:     new(v1.Where{}),
-										Key:     new(filter.Set[v1.Key]{}),
-										Variant: new(filter.Set[v1.Variant]{}),
-										Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567868")},
-									},
-								},
-								Or: []v1.Where{
-									{
-										And:     []v1.Where{{}},
-										Or:      []v1.Where{{}},
-										Not:     new(v1.Where{}),
-										Key:     new(filter.Set[v1.Key]{}),
-										Variant: new(filter.Set[v1.Variant]{}),
-										Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786f")},
-									},
-								},
-								Not: new(v1.Where{
-									And:     []v1.Where{{}},
-									Or:      []v1.Where{{}},
-									Not:     new(v1.Where{}),
-									Key:     new(filter.Set[v1.Key]{}),
-									Variant: new(filter.Set[v1.Variant]{}),
-									Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567876")},
-								}),
-								Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_120")), In: []string{"test_121"}}),
-								Variant: new(filter.Set[v1.Variant]{
-									Eq: new(v1.Variant("success")),
-									In: []v1.Variant{v1.Variant("success")},
-								}),
-								Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456787d")},
-							},
-						},
-						Or: []v1.Where{
-							{
-								And: []v1.Where{
-									{
-										And:     []v1.Where{{}},
-										Or:      []v1.Where{{}},
-										Not:     new(v1.Where{}),
-										Key:     new(filter.Set[v1.Key]{}),
-										Variant: new(filter.Set[v1.Variant]{}),
-										Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567885")},
-									},
-								},
-								Or: []v1.Where{
-									{
-										And:     []v1.Where{{}},
-										Or:      []v1.Where{{}},
-										Not:     new(v1.Where{}),
-										Key:     new(filter.Set[v1.Key]{}),
-										Variant: new(filter.Set[v1.Variant]{}),
-										Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456788c")},
-									},
-								},
-								Not: new(v1.Where{
-									And:     []v1.Where{{}},
-									Or:      []v1.Where{{}},
-									Not:     new(v1.Where{}),
-									Key:     new(filter.Set[v1.Key]{}),
-									Variant: new(filter.Set[v1.Variant]{}),
-									Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567893")},
-								}),
-								Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_149")), In: []string{"test_150"}}),
-								Variant: new(filter.Set[v1.Variant]{
-									Eq: new(v1.Variant("success")),
-									In: []v1.Variant{v1.Variant("success")},
-								}),
-								Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456789a")},
-							},
-						},
-						Not: new(v1.Where{
-							And: []v1.Where{
-								{
-									And:     []v1.Where{{}},
-									Or:      []v1.Where{{}},
-									Not:     new(v1.Where{}),
-									Key:     new(filter.Set[v1.Key]{}),
-									Variant: new(filter.Set[v1.Variant]{}),
-									Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678a2")},
-								},
-							},
-							Or: []v1.Where{
-								{
-									And:     []v1.Where{{}},
-									Or:      []v1.Where{{}},
-									Not:     new(v1.Where{}),
-									Key:     new(filter.Set[v1.Key]{}),
-									Variant: new(filter.Set[v1.Variant]{}),
-									Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678a9")},
-								},
-							},
-							Not: new(v1.Where{
-								And:     []v1.Where{{}},
-								Or:      []v1.Where{{}},
-								Not:     new(v1.Where{}),
-								Key:     new(filter.Set[v1.Key]{}),
-								Variant: new(filter.Set[v1.Variant]{}),
-								Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678b0")},
-							}),
-							Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_178")), In: []string{"test_179"}}),
-							Variant: new(filter.Set[v1.Variant]{
-								Eq: new(v1.Variant("success")),
-								In: []v1.Variant{v1.Variant("success")},
-							}),
-							Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678b7")},
-						}),
-						Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_185")), In: []string{"test_186"}}),
-						Variant: new(filter.Set[v1.Variant]{
-							Eq: new(v1.Variant("success")),
-							In: []v1.Variant{v1.Variant("success")},
-						}),
-						Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678be")},
-					},
-				},
-				Not: new(v1.Where{
-					And: []v1.Where{
-						{
-							And: []v1.Where{
-								{
-									And:     []v1.Where{{}},
-									Or:      []v1.Where{{}},
-									Not:     new(v1.Where{}),
-									Key:     new(filter.Set[v1.Key]{}),
-									Variant: new(filter.Set[v1.Variant]{}),
-									Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678c7")},
-								},
-							},
-							Or: []v1.Where{
-								{
-									And:     []v1.Where{{}},
-									Or:      []v1.Where{{}},
-									Not:     new(v1.Where{}),
-									Key:     new(filter.Set[v1.Key]{}),
-									Variant: new(filter.Set[v1.Variant]{}),
-									Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678ce")},
-								},
-							},
-							Not: new(v1.Where{
-								And:     []v1.Where{{}},
-								Or:      []v1.Where{{}},
-								Not:     new(v1.Where{}),
-								Key:     new(filter.Set[v1.Key]{}),
-								Variant: new(filter.Set[v1.Variant]{}),
-								Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678d5")},
-							}),
-							Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_215")), In: []string{"test_216"}}),
-							Variant: new(filter.Set[v1.Variant]{
-								Eq: new(v1.Variant("success")),
-								In: []v1.Variant{v1.Variant("success")},
-							}),
-							Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678dc")},
-						},
-					},
-					Or: []v1.Where{
-						{
-							And: []v1.Where{
-								{
-									And:     []v1.Where{{}},
-									Or:      []v1.Where{{}},
-									Not:     new(v1.Where{}),
-									Key:     new(filter.Set[v1.Key]{}),
-									Variant: new(filter.Set[v1.Variant]{}),
-									Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678e4")},
-								},
-							},
-							Or: []v1.Where{
-								{
-									And:     []v1.Where{{}},
-									Or:      []v1.Where{{}},
-									Not:     new(v1.Where{}),
-									Key:     new(filter.Set[v1.Key]{}),
-									Variant: new(filter.Set[v1.Variant]{}),
-									Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678eb")},
-								},
-							},
-							Not: new(v1.Where{
-								And:     []v1.Where{{}},
-								Or:      []v1.Where{{}},
-								Not:     new(v1.Where{}),
-								Key:     new(filter.Set[v1.Key]{}),
-								Variant: new(filter.Set[v1.Variant]{}),
-								Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678f2")},
-							}),
-							Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_244")), In: []string{"test_245"}}),
-							Variant: new(filter.Set[v1.Variant]{
-								Eq: new(v1.Variant("success")),
-								In: []v1.Variant{v1.Variant("success")},
-							}),
-							Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678f9")},
-						},
-					},
-					Not: new(v1.Where{
-						And: []v1.Where{
-							{
-								And:     []v1.Where{{}},
-								Or:      []v1.Where{{}},
-								Not:     new(v1.Where{}),
-								Key:     new(filter.Set[v1.Key]{}),
-								Variant: new(filter.Set[v1.Variant]{}),
-								Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-							},
-						},
-						Or: []v1.Where{
-							{
-								And:     []v1.Where{{}},
-								Or:      []v1.Where{{}},
-								Not:     new(v1.Where{}),
-								Key:     new(filter.Set[v1.Key]{}),
-								Variant: new(filter.Set[v1.Variant]{}),
-								Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808")},
-							},
-						},
-						Not: new(v1.Where{
-							And:     []v1.Where{{}},
-							Or:      []v1.Where{{}},
-							Not:     new(v1.Where{}),
-							Key:     new(filter.Set[v1.Key]{}),
-							Variant: new(filter.Set[v1.Variant]{}),
-							Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f")},
-						}),
-						Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_273")), In: []string{"test_274"}}),
+						And: []v1.Where{{}},
+						Or:  []v1.Where{{}},
+						Not: new(v1.Where{}),
+						Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_17")), In: []string{"test_18"}}),
 						Variant: new(filter.Set[v1.Variant]{
 							Eq: new(v1.Variant("success")),
 							In: []v1.Variant{v1.Variant("success")},
 						}),
 						Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567816")},
-					}),
-					Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_280")), In: []string{"test_281"}}),
+					},
+				},
+				Not: new(v1.Where{
+					And: []v1.Where{{}},
+					Or:  []v1.Where{{}},
+					Not: new(v1.Where{}),
+					Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_28")), In: []string{"test_29"}}),
 					Variant: new(filter.Set[v1.Variant]{
 						Eq: new(v1.Variant("success")),
 						In: []v1.Variant{v1.Variant("success")},
 					}),
-					Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781d")},
+					Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567821")},
 				}),
-				Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_287")), In: []string{"test_288"}}),
+				Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_35")), In: []string{"test_36"}}),
 				Variant: new(filter.Set[v1.Variant]{
 					Eq: new(v1.Variant("success")),
 					In: []v1.Variant{v1.Variant("success")},
 				}),
-				Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567824")},
+				Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567828")},
 			}),
 			Entry("zero values", v1.Where{
 				And:     []v1.Where{},
@@ -420,28 +93,14 @@ var _ = Describe("Codec", func() {
 				And: []v1.Where{},
 				Or:  []v1.Where{},
 				Not: new(v1.Where{
-					And: []v1.Where{},
-					Or:  []v1.Where{},
-					Not: new(v1.Where{
-						And: []v1.Where{},
-						Or:  []v1.Where{},
-						Not: new(v1.Where{
-							And:     []v1.Where{},
-							Or:      []v1.Where{},
-							Not:     new(v1.Where{}),
-							Key:     new(filter.Set[v1.Key]{}),
-							Variant: new(filter.Set[v1.Variant]{}),
-							Labels:  []uuid.UUID{},
-						}),
-						Key:     new(filter.Set[v1.Key]{Eq: new(v1.Key("test_17")), In: []string{}}),
-						Variant: new(filter.Set[v1.Variant]{Eq: new(v1.Variant("success")), In: []v1.Variant{}}),
-						Labels:  []uuid.UUID{},
-					}),
-					Key:     new(filter.Set[v1.Key]{Eq: new(v1.Key("test_24")), In: []string{}}),
+					And:     []v1.Where{},
+					Or:      []v1.Where{},
+					Not:     new(v1.Where{}),
+					Key:     new(filter.Set[v1.Key]{Eq: new(v1.Key("test_8")), In: []string{}}),
 					Variant: new(filter.Set[v1.Variant]{Eq: new(v1.Variant("success")), In: []v1.Variant{}}),
 					Labels:  []uuid.UUID{},
 				}),
-				Key:     new(filter.Set[v1.Key]{Eq: new(v1.Key("test_31")), In: []string{}}),
+				Key:     new(filter.Set[v1.Key]{Eq: new(v1.Key("test_15")), In: []string{}}),
 				Variant: new(filter.Set[v1.Variant]{Eq: new(v1.Variant("success")), In: []v1.Variant{}}),
 				Labels:  []uuid.UUID{},
 			}),
@@ -589,374 +248,47 @@ func BenchmarkEncodeDecodeWhere(b *testing.B) {
 	seed := v1.Where{
 		And: []v1.Where{
 			{
-				And: []v1.Where{
-					{
-						And: []v1.Where{
-							{
-								And:     []v1.Where{{}},
-								Or:      []v1.Where{{}},
-								Not:     new(v1.Where{}),
-								Key:     new(filter.Set[v1.Key]{}),
-								Variant: new(filter.Set[v1.Variant]{}),
-								Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809")},
-							},
-						},
-						Or: []v1.Where{
-							{
-								And:     []v1.Where{{}},
-								Or:      []v1.Where{{}},
-								Not:     new(v1.Where{}),
-								Key:     new(filter.Set[v1.Key]{}),
-								Variant: new(filter.Set[v1.Variant]{}),
-								Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567810")},
-							},
-						},
-						Not: new(v1.Where{
-							And:     []v1.Where{{}},
-							Or:      []v1.Where{{}},
-							Not:     new(v1.Where{}),
-							Key:     new(filter.Set[v1.Key]{}),
-							Variant: new(filter.Set[v1.Variant]{}),
-							Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567817")},
-						}),
-						Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_25")), In: []string{"test_26"}}),
-						Variant: new(filter.Set[v1.Variant]{
-							Eq: new(v1.Variant("success")),
-							In: []v1.Variant{v1.Variant("success")},
-						}),
-						Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781e")},
-					},
-				},
-				Or: []v1.Where{
-					{
-						And: []v1.Where{
-							{
-								And:     []v1.Where{{}},
-								Or:      []v1.Where{{}},
-								Not:     new(v1.Where{}),
-								Key:     new(filter.Set[v1.Key]{}),
-								Variant: new(filter.Set[v1.Variant]{}),
-								Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567826")},
-							},
-						},
-						Or: []v1.Where{
-							{
-								And:     []v1.Where{{}},
-								Or:      []v1.Where{{}},
-								Not:     new(v1.Where{}),
-								Key:     new(filter.Set[v1.Key]{}),
-								Variant: new(filter.Set[v1.Variant]{}),
-								Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456782d")},
-							},
-						},
-						Not: new(v1.Where{
-							And:     []v1.Where{{}},
-							Or:      []v1.Where{{}},
-							Not:     new(v1.Where{}),
-							Key:     new(filter.Set[v1.Key]{}),
-							Variant: new(filter.Set[v1.Variant]{}),
-							Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567834")},
-						}),
-						Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_54")), In: []string{"test_55"}}),
-						Variant: new(filter.Set[v1.Variant]{
-							Eq: new(v1.Variant("success")),
-							In: []v1.Variant{v1.Variant("success")},
-						}),
-						Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456783b")},
-					},
-				},
-				Not: new(v1.Where{
-					And: []v1.Where{
-						{
-							And:     []v1.Where{{}},
-							Or:      []v1.Where{{}},
-							Not:     new(v1.Where{}),
-							Key:     new(filter.Set[v1.Key]{}),
-							Variant: new(filter.Set[v1.Variant]{}),
-							Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567843")},
-						},
-					},
-					Or: []v1.Where{
-						{
-							And:     []v1.Where{{}},
-							Or:      []v1.Where{{}},
-							Not:     new(v1.Where{}),
-							Key:     new(filter.Set[v1.Key]{}),
-							Variant: new(filter.Set[v1.Variant]{}),
-							Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456784a")},
-						},
-					},
-					Not: new(v1.Where{
-						And:     []v1.Where{{}},
-						Or:      []v1.Where{{}},
-						Not:     new(v1.Where{}),
-						Key:     new(filter.Set[v1.Key]{}),
-						Variant: new(filter.Set[v1.Variant]{}),
-						Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567851")},
-					}),
-					Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_83")), In: []string{"test_84"}}),
-					Variant: new(filter.Set[v1.Variant]{
-						Eq: new(v1.Variant("success")),
-						In: []v1.Variant{v1.Variant("success")},
-					}),
-					Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567858")},
-				}),
-				Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_90")), In: []string{"test_91"}}),
+				And: []v1.Where{{}},
+				Or:  []v1.Where{{}},
+				Not: new(v1.Where{}),
+				Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_6")), In: []string{"test_7"}}),
 				Variant: new(filter.Set[v1.Variant]{
 					Eq: new(v1.Variant("success")),
 					In: []v1.Variant{v1.Variant("success")},
 				}),
-				Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456785f")},
+				Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b")},
 			},
 		},
 		Or: []v1.Where{
 			{
-				And: []v1.Where{
-					{
-						And: []v1.Where{
-							{
-								And:     []v1.Where{{}},
-								Or:      []v1.Where{{}},
-								Not:     new(v1.Where{}),
-								Key:     new(filter.Set[v1.Key]{}),
-								Variant: new(filter.Set[v1.Variant]{}),
-								Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567868")},
-							},
-						},
-						Or: []v1.Where{
-							{
-								And:     []v1.Where{{}},
-								Or:      []v1.Where{{}},
-								Not:     new(v1.Where{}),
-								Key:     new(filter.Set[v1.Key]{}),
-								Variant: new(filter.Set[v1.Variant]{}),
-								Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786f")},
-							},
-						},
-						Not: new(v1.Where{
-							And:     []v1.Where{{}},
-							Or:      []v1.Where{{}},
-							Not:     new(v1.Where{}),
-							Key:     new(filter.Set[v1.Key]{}),
-							Variant: new(filter.Set[v1.Variant]{}),
-							Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567876")},
-						}),
-						Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_120")), In: []string{"test_121"}}),
-						Variant: new(filter.Set[v1.Variant]{
-							Eq: new(v1.Variant("success")),
-							In: []v1.Variant{v1.Variant("success")},
-						}),
-						Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456787d")},
-					},
-				},
-				Or: []v1.Where{
-					{
-						And: []v1.Where{
-							{
-								And:     []v1.Where{{}},
-								Or:      []v1.Where{{}},
-								Not:     new(v1.Where{}),
-								Key:     new(filter.Set[v1.Key]{}),
-								Variant: new(filter.Set[v1.Variant]{}),
-								Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567885")},
-							},
-						},
-						Or: []v1.Where{
-							{
-								And:     []v1.Where{{}},
-								Or:      []v1.Where{{}},
-								Not:     new(v1.Where{}),
-								Key:     new(filter.Set[v1.Key]{}),
-								Variant: new(filter.Set[v1.Variant]{}),
-								Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456788c")},
-							},
-						},
-						Not: new(v1.Where{
-							And:     []v1.Where{{}},
-							Or:      []v1.Where{{}},
-							Not:     new(v1.Where{}),
-							Key:     new(filter.Set[v1.Key]{}),
-							Variant: new(filter.Set[v1.Variant]{}),
-							Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567893")},
-						}),
-						Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_149")), In: []string{"test_150"}}),
-						Variant: new(filter.Set[v1.Variant]{
-							Eq: new(v1.Variant("success")),
-							In: []v1.Variant{v1.Variant("success")},
-						}),
-						Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456789a")},
-					},
-				},
-				Not: new(v1.Where{
-					And: []v1.Where{
-						{
-							And:     []v1.Where{{}},
-							Or:      []v1.Where{{}},
-							Not:     new(v1.Where{}),
-							Key:     new(filter.Set[v1.Key]{}),
-							Variant: new(filter.Set[v1.Variant]{}),
-							Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678a2")},
-						},
-					},
-					Or: []v1.Where{
-						{
-							And:     []v1.Where{{}},
-							Or:      []v1.Where{{}},
-							Not:     new(v1.Where{}),
-							Key:     new(filter.Set[v1.Key]{}),
-							Variant: new(filter.Set[v1.Variant]{}),
-							Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678a9")},
-						},
-					},
-					Not: new(v1.Where{
-						And:     []v1.Where{{}},
-						Or:      []v1.Where{{}},
-						Not:     new(v1.Where{}),
-						Key:     new(filter.Set[v1.Key]{}),
-						Variant: new(filter.Set[v1.Variant]{}),
-						Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678b0")},
-					}),
-					Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_178")), In: []string{"test_179"}}),
-					Variant: new(filter.Set[v1.Variant]{
-						Eq: new(v1.Variant("success")),
-						In: []v1.Variant{v1.Variant("success")},
-					}),
-					Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678b7")},
-				}),
-				Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_185")), In: []string{"test_186"}}),
-				Variant: new(filter.Set[v1.Variant]{
-					Eq: new(v1.Variant("success")),
-					In: []v1.Variant{v1.Variant("success")},
-				}),
-				Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678be")},
-			},
-		},
-		Not: new(v1.Where{
-			And: []v1.Where{
-				{
-					And: []v1.Where{
-						{
-							And:     []v1.Where{{}},
-							Or:      []v1.Where{{}},
-							Not:     new(v1.Where{}),
-							Key:     new(filter.Set[v1.Key]{}),
-							Variant: new(filter.Set[v1.Variant]{}),
-							Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678c7")},
-						},
-					},
-					Or: []v1.Where{
-						{
-							And:     []v1.Where{{}},
-							Or:      []v1.Where{{}},
-							Not:     new(v1.Where{}),
-							Key:     new(filter.Set[v1.Key]{}),
-							Variant: new(filter.Set[v1.Variant]{}),
-							Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678ce")},
-						},
-					},
-					Not: new(v1.Where{
-						And:     []v1.Where{{}},
-						Or:      []v1.Where{{}},
-						Not:     new(v1.Where{}),
-						Key:     new(filter.Set[v1.Key]{}),
-						Variant: new(filter.Set[v1.Variant]{}),
-						Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678d5")},
-					}),
-					Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_215")), In: []string{"test_216"}}),
-					Variant: new(filter.Set[v1.Variant]{
-						Eq: new(v1.Variant("success")),
-						In: []v1.Variant{v1.Variant("success")},
-					}),
-					Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678dc")},
-				},
-			},
-			Or: []v1.Where{
-				{
-					And: []v1.Where{
-						{
-							And:     []v1.Where{{}},
-							Or:      []v1.Where{{}},
-							Not:     new(v1.Where{}),
-							Key:     new(filter.Set[v1.Key]{}),
-							Variant: new(filter.Set[v1.Variant]{}),
-							Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678e4")},
-						},
-					},
-					Or: []v1.Where{
-						{
-							And:     []v1.Where{{}},
-							Or:      []v1.Where{{}},
-							Not:     new(v1.Where{}),
-							Key:     new(filter.Set[v1.Key]{}),
-							Variant: new(filter.Set[v1.Variant]{}),
-							Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678eb")},
-						},
-					},
-					Not: new(v1.Where{
-						And:     []v1.Where{{}},
-						Or:      []v1.Where{{}},
-						Not:     new(v1.Where{}),
-						Key:     new(filter.Set[v1.Key]{}),
-						Variant: new(filter.Set[v1.Variant]{}),
-						Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678f2")},
-					}),
-					Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_244")), In: []string{"test_245"}}),
-					Variant: new(filter.Set[v1.Variant]{
-						Eq: new(v1.Variant("success")),
-						In: []v1.Variant{v1.Variant("success")},
-					}),
-					Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678f9")},
-				},
-			},
-			Not: new(v1.Where{
-				And: []v1.Where{
-					{
-						And:     []v1.Where{{}},
-						Or:      []v1.Where{{}},
-						Not:     new(v1.Where{}),
-						Key:     new(filter.Set[v1.Key]{}),
-						Variant: new(filter.Set[v1.Variant]{}),
-						Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					},
-				},
-				Or: []v1.Where{
-					{
-						And:     []v1.Where{{}},
-						Or:      []v1.Where{{}},
-						Not:     new(v1.Where{}),
-						Key:     new(filter.Set[v1.Key]{}),
-						Variant: new(filter.Set[v1.Variant]{}),
-						Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808")},
-					},
-				},
-				Not: new(v1.Where{
-					And:     []v1.Where{{}},
-					Or:      []v1.Where{{}},
-					Not:     new(v1.Where{}),
-					Key:     new(filter.Set[v1.Key]{}),
-					Variant: new(filter.Set[v1.Variant]{}),
-					Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f")},
-				}),
-				Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_273")), In: []string{"test_274"}}),
+				And: []v1.Where{{}},
+				Or:  []v1.Where{{}},
+				Not: new(v1.Where{}),
+				Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_17")), In: []string{"test_18"}}),
 				Variant: new(filter.Set[v1.Variant]{
 					Eq: new(v1.Variant("success")),
 					In: []v1.Variant{v1.Variant("success")},
 				}),
 				Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567816")},
-			}),
-			Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_280")), In: []string{"test_281"}}),
+			},
+		},
+		Not: new(v1.Where{
+			And: []v1.Where{{}},
+			Or:  []v1.Where{{}},
+			Not: new(v1.Where{}),
+			Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_28")), In: []string{"test_29"}}),
 			Variant: new(filter.Set[v1.Variant]{
 				Eq: new(v1.Variant("success")),
 				In: []v1.Variant{v1.Variant("success")},
 			}),
-			Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781d")},
+			Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567821")},
 		}),
-		Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_287")), In: []string{"test_288"}}),
+		Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_35")), In: []string{"test_36"}}),
 		Variant: new(filter.Set[v1.Variant]{
 			Eq: new(v1.Variant("success")),
 			In: []v1.Variant{v1.Variant("success")},
 		}),
-		Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567824")},
+		Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567828")},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -978,374 +310,47 @@ func FuzzDecodeWhere(f *testing.F) {
 		seed := v1.Where{
 			And: []v1.Where{
 				{
-					And: []v1.Where{
-						{
-							And: []v1.Where{
-								{
-									And:     []v1.Where{{}},
-									Or:      []v1.Where{{}},
-									Not:     new(v1.Where{}),
-									Key:     new(filter.Set[v1.Key]{}),
-									Variant: new(filter.Set[v1.Variant]{}),
-									Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809")},
-								},
-							},
-							Or: []v1.Where{
-								{
-									And:     []v1.Where{{}},
-									Or:      []v1.Where{{}},
-									Not:     new(v1.Where{}),
-									Key:     new(filter.Set[v1.Key]{}),
-									Variant: new(filter.Set[v1.Variant]{}),
-									Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567810")},
-								},
-							},
-							Not: new(v1.Where{
-								And:     []v1.Where{{}},
-								Or:      []v1.Where{{}},
-								Not:     new(v1.Where{}),
-								Key:     new(filter.Set[v1.Key]{}),
-								Variant: new(filter.Set[v1.Variant]{}),
-								Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567817")},
-							}),
-							Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_25")), In: []string{"test_26"}}),
-							Variant: new(filter.Set[v1.Variant]{
-								Eq: new(v1.Variant("success")),
-								In: []v1.Variant{v1.Variant("success")},
-							}),
-							Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781e")},
-						},
-					},
-					Or: []v1.Where{
-						{
-							And: []v1.Where{
-								{
-									And:     []v1.Where{{}},
-									Or:      []v1.Where{{}},
-									Not:     new(v1.Where{}),
-									Key:     new(filter.Set[v1.Key]{}),
-									Variant: new(filter.Set[v1.Variant]{}),
-									Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567826")},
-								},
-							},
-							Or: []v1.Where{
-								{
-									And:     []v1.Where{{}},
-									Or:      []v1.Where{{}},
-									Not:     new(v1.Where{}),
-									Key:     new(filter.Set[v1.Key]{}),
-									Variant: new(filter.Set[v1.Variant]{}),
-									Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456782d")},
-								},
-							},
-							Not: new(v1.Where{
-								And:     []v1.Where{{}},
-								Or:      []v1.Where{{}},
-								Not:     new(v1.Where{}),
-								Key:     new(filter.Set[v1.Key]{}),
-								Variant: new(filter.Set[v1.Variant]{}),
-								Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567834")},
-							}),
-							Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_54")), In: []string{"test_55"}}),
-							Variant: new(filter.Set[v1.Variant]{
-								Eq: new(v1.Variant("success")),
-								In: []v1.Variant{v1.Variant("success")},
-							}),
-							Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456783b")},
-						},
-					},
-					Not: new(v1.Where{
-						And: []v1.Where{
-							{
-								And:     []v1.Where{{}},
-								Or:      []v1.Where{{}},
-								Not:     new(v1.Where{}),
-								Key:     new(filter.Set[v1.Key]{}),
-								Variant: new(filter.Set[v1.Variant]{}),
-								Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567843")},
-							},
-						},
-						Or: []v1.Where{
-							{
-								And:     []v1.Where{{}},
-								Or:      []v1.Where{{}},
-								Not:     new(v1.Where{}),
-								Key:     new(filter.Set[v1.Key]{}),
-								Variant: new(filter.Set[v1.Variant]{}),
-								Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456784a")},
-							},
-						},
-						Not: new(v1.Where{
-							And:     []v1.Where{{}},
-							Or:      []v1.Where{{}},
-							Not:     new(v1.Where{}),
-							Key:     new(filter.Set[v1.Key]{}),
-							Variant: new(filter.Set[v1.Variant]{}),
-							Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567851")},
-						}),
-						Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_83")), In: []string{"test_84"}}),
-						Variant: new(filter.Set[v1.Variant]{
-							Eq: new(v1.Variant("success")),
-							In: []v1.Variant{v1.Variant("success")},
-						}),
-						Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567858")},
-					}),
-					Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_90")), In: []string{"test_91"}}),
+					And: []v1.Where{{}},
+					Or:  []v1.Where{{}},
+					Not: new(v1.Where{}),
+					Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_6")), In: []string{"test_7"}}),
 					Variant: new(filter.Set[v1.Variant]{
 						Eq: new(v1.Variant("success")),
 						In: []v1.Variant{v1.Variant("success")},
 					}),
-					Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456785f")},
+					Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b")},
 				},
 			},
 			Or: []v1.Where{
 				{
-					And: []v1.Where{
-						{
-							And: []v1.Where{
-								{
-									And:     []v1.Where{{}},
-									Or:      []v1.Where{{}},
-									Not:     new(v1.Where{}),
-									Key:     new(filter.Set[v1.Key]{}),
-									Variant: new(filter.Set[v1.Variant]{}),
-									Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567868")},
-								},
-							},
-							Or: []v1.Where{
-								{
-									And:     []v1.Where{{}},
-									Or:      []v1.Where{{}},
-									Not:     new(v1.Where{}),
-									Key:     new(filter.Set[v1.Key]{}),
-									Variant: new(filter.Set[v1.Variant]{}),
-									Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456786f")},
-								},
-							},
-							Not: new(v1.Where{
-								And:     []v1.Where{{}},
-								Or:      []v1.Where{{}},
-								Not:     new(v1.Where{}),
-								Key:     new(filter.Set[v1.Key]{}),
-								Variant: new(filter.Set[v1.Variant]{}),
-								Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567876")},
-							}),
-							Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_120")), In: []string{"test_121"}}),
-							Variant: new(filter.Set[v1.Variant]{
-								Eq: new(v1.Variant("success")),
-								In: []v1.Variant{v1.Variant("success")},
-							}),
-							Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456787d")},
-						},
-					},
-					Or: []v1.Where{
-						{
-							And: []v1.Where{
-								{
-									And:     []v1.Where{{}},
-									Or:      []v1.Where{{}},
-									Not:     new(v1.Where{}),
-									Key:     new(filter.Set[v1.Key]{}),
-									Variant: new(filter.Set[v1.Variant]{}),
-									Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567885")},
-								},
-							},
-							Or: []v1.Where{
-								{
-									And:     []v1.Where{{}},
-									Or:      []v1.Where{{}},
-									Not:     new(v1.Where{}),
-									Key:     new(filter.Set[v1.Key]{}),
-									Variant: new(filter.Set[v1.Variant]{}),
-									Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456788c")},
-								},
-							},
-							Not: new(v1.Where{
-								And:     []v1.Where{{}},
-								Or:      []v1.Where{{}},
-								Not:     new(v1.Where{}),
-								Key:     new(filter.Set[v1.Key]{}),
-								Variant: new(filter.Set[v1.Variant]{}),
-								Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567893")},
-							}),
-							Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_149")), In: []string{"test_150"}}),
-							Variant: new(filter.Set[v1.Variant]{
-								Eq: new(v1.Variant("success")),
-								In: []v1.Variant{v1.Variant("success")},
-							}),
-							Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456789a")},
-						},
-					},
-					Not: new(v1.Where{
-						And: []v1.Where{
-							{
-								And:     []v1.Where{{}},
-								Or:      []v1.Where{{}},
-								Not:     new(v1.Where{}),
-								Key:     new(filter.Set[v1.Key]{}),
-								Variant: new(filter.Set[v1.Variant]{}),
-								Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678a2")},
-							},
-						},
-						Or: []v1.Where{
-							{
-								And:     []v1.Where{{}},
-								Or:      []v1.Where{{}},
-								Not:     new(v1.Where{}),
-								Key:     new(filter.Set[v1.Key]{}),
-								Variant: new(filter.Set[v1.Variant]{}),
-								Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678a9")},
-							},
-						},
-						Not: new(v1.Where{
-							And:     []v1.Where{{}},
-							Or:      []v1.Where{{}},
-							Not:     new(v1.Where{}),
-							Key:     new(filter.Set[v1.Key]{}),
-							Variant: new(filter.Set[v1.Variant]{}),
-							Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678b0")},
-						}),
-						Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_178")), In: []string{"test_179"}}),
-						Variant: new(filter.Set[v1.Variant]{
-							Eq: new(v1.Variant("success")),
-							In: []v1.Variant{v1.Variant("success")},
-						}),
-						Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678b7")},
-					}),
-					Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_185")), In: []string{"test_186"}}),
-					Variant: new(filter.Set[v1.Variant]{
-						Eq: new(v1.Variant("success")),
-						In: []v1.Variant{v1.Variant("success")},
-					}),
-					Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678be")},
-				},
-			},
-			Not: new(v1.Where{
-				And: []v1.Where{
-					{
-						And: []v1.Where{
-							{
-								And:     []v1.Where{{}},
-								Or:      []v1.Where{{}},
-								Not:     new(v1.Where{}),
-								Key:     new(filter.Set[v1.Key]{}),
-								Variant: new(filter.Set[v1.Variant]{}),
-								Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678c7")},
-							},
-						},
-						Or: []v1.Where{
-							{
-								And:     []v1.Where{{}},
-								Or:      []v1.Where{{}},
-								Not:     new(v1.Where{}),
-								Key:     new(filter.Set[v1.Key]{}),
-								Variant: new(filter.Set[v1.Variant]{}),
-								Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678ce")},
-							},
-						},
-						Not: new(v1.Where{
-							And:     []v1.Where{{}},
-							Or:      []v1.Where{{}},
-							Not:     new(v1.Where{}),
-							Key:     new(filter.Set[v1.Key]{}),
-							Variant: new(filter.Set[v1.Variant]{}),
-							Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678d5")},
-						}),
-						Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_215")), In: []string{"test_216"}}),
-						Variant: new(filter.Set[v1.Variant]{
-							Eq: new(v1.Variant("success")),
-							In: []v1.Variant{v1.Variant("success")},
-						}),
-						Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678dc")},
-					},
-				},
-				Or: []v1.Where{
-					{
-						And: []v1.Where{
-							{
-								And:     []v1.Where{{}},
-								Or:      []v1.Where{{}},
-								Not:     new(v1.Where{}),
-								Key:     new(filter.Set[v1.Key]{}),
-								Variant: new(filter.Set[v1.Variant]{}),
-								Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678e4")},
-							},
-						},
-						Or: []v1.Where{
-							{
-								And:     []v1.Where{{}},
-								Or:      []v1.Where{{}},
-								Not:     new(v1.Where{}),
-								Key:     new(filter.Set[v1.Key]{}),
-								Variant: new(filter.Set[v1.Variant]{}),
-								Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678eb")},
-							},
-						},
-						Not: new(v1.Where{
-							And:     []v1.Where{{}},
-							Or:      []v1.Where{{}},
-							Not:     new(v1.Where{}),
-							Key:     new(filter.Set[v1.Key]{}),
-							Variant: new(filter.Set[v1.Variant]{}),
-							Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678f2")},
-						}),
-						Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_244")), In: []string{"test_245"}}),
-						Variant: new(filter.Set[v1.Variant]{
-							Eq: new(v1.Variant("success")),
-							In: []v1.Variant{v1.Variant("success")},
-						}),
-						Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678f9")},
-					},
-				},
-				Not: new(v1.Where{
-					And: []v1.Where{
-						{
-							And:     []v1.Where{{}},
-							Or:      []v1.Where{{}},
-							Not:     new(v1.Where{}),
-							Key:     new(filter.Set[v1.Key]{}),
-							Variant: new(filter.Set[v1.Variant]{}),
-							Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-						},
-					},
-					Or: []v1.Where{
-						{
-							And:     []v1.Where{{}},
-							Or:      []v1.Where{{}},
-							Not:     new(v1.Where{}),
-							Key:     new(filter.Set[v1.Key]{}),
-							Variant: new(filter.Set[v1.Variant]{}),
-							Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808")},
-						},
-					},
-					Not: new(v1.Where{
-						And:     []v1.Where{{}},
-						Or:      []v1.Where{{}},
-						Not:     new(v1.Where{}),
-						Key:     new(filter.Set[v1.Key]{}),
-						Variant: new(filter.Set[v1.Variant]{}),
-						Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f")},
-					}),
-					Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_273")), In: []string{"test_274"}}),
+					And: []v1.Where{{}},
+					Or:  []v1.Where{{}},
+					Not: new(v1.Where{}),
+					Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_17")), In: []string{"test_18"}}),
 					Variant: new(filter.Set[v1.Variant]{
 						Eq: new(v1.Variant("success")),
 						In: []v1.Variant{v1.Variant("success")},
 					}),
 					Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567816")},
-				}),
-				Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_280")), In: []string{"test_281"}}),
+				},
+			},
+			Not: new(v1.Where{
+				And: []v1.Where{{}},
+				Or:  []v1.Where{{}},
+				Not: new(v1.Where{}),
+				Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_28")), In: []string{"test_29"}}),
 				Variant: new(filter.Set[v1.Variant]{
 					Eq: new(v1.Variant("success")),
 					In: []v1.Variant{v1.Variant("success")},
 				}),
-				Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781d")},
+				Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567821")},
 			}),
-			Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_287")), In: []string{"test_288"}}),
+			Key: new(filter.Set[v1.Key]{Eq: new(v1.Key("test_35")), In: []string{"test_36"}}),
 			Variant: new(filter.Set[v1.Variant]{
 				Eq: new(v1.Variant("success")),
 				In: []v1.Variant{v1.Variant("success")},
 			}),
-			Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567824")},
+			Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567828")},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1373,28 +378,14 @@ func FuzzDecodeWhere(f *testing.F) {
 			And: []v1.Where{},
 			Or:  []v1.Where{},
 			Not: new(v1.Where{
-				And: []v1.Where{},
-				Or:  []v1.Where{},
-				Not: new(v1.Where{
-					And: []v1.Where{},
-					Or:  []v1.Where{},
-					Not: new(v1.Where{
-						And:     []v1.Where{},
-						Or:      []v1.Where{},
-						Not:     new(v1.Where{}),
-						Key:     new(filter.Set[v1.Key]{}),
-						Variant: new(filter.Set[v1.Variant]{}),
-						Labels:  []uuid.UUID{},
-					}),
-					Key:     new(filter.Set[v1.Key]{Eq: new(v1.Key("test_17")), In: []string{}}),
-					Variant: new(filter.Set[v1.Variant]{Eq: new(v1.Variant("success")), In: []v1.Variant{}}),
-					Labels:  []uuid.UUID{},
-				}),
-				Key:     new(filter.Set[v1.Key]{Eq: new(v1.Key("test_24")), In: []string{}}),
+				And:     []v1.Where{},
+				Or:      []v1.Where{},
+				Not:     new(v1.Where{}),
+				Key:     new(filter.Set[v1.Key]{Eq: new(v1.Key("test_8")), In: []string{}}),
 				Variant: new(filter.Set[v1.Variant]{Eq: new(v1.Variant("success")), In: []v1.Variant{}}),
 				Labels:  []uuid.UUID{},
 			}),
-			Key:     new(filter.Set[v1.Key]{Eq: new(v1.Key("test_31")), In: []string{}}),
+			Key:     new(filter.Set[v1.Key]{Eq: new(v1.Key("test_15")), In: []string{}}),
 			Variant: new(filter.Set[v1.Variant]{Eq: new(v1.Variant("success")), In: []v1.Variant{}}),
 			Labels:  []uuid.UUID{},
 		}

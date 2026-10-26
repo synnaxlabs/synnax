@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -15,7 +14,6 @@
 #include "client/cpp/channel/proto.gen.h"
 #include "client/cpp/errors/errors.h"
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/strings/strings.h"
 
 namespace synnax::channel {
 x::errors::Error Client::create(Channel &channel) const {
@@ -129,21 +127,8 @@ Client::retrieve(const std::vector<Key> &keys) const {
         RetrieveRequest{.where = Where{.key = x::filter::Set<Key>{.in = keys}}}
     );
     if (err) return {{}, err};
-    // Callers bind the channels to keys by position, so a missing key is an error.
-    std::unordered_set<Key> found;
-    for (const auto &ch: channels)
-        found.insert(ch.key);
-    std::vector<std::string> missing;
-    for (const auto key: keys)
-        if (!found.contains(key)) missing.push_back(std::to_string(key));
-    if (!missing.empty())
-        return {
-            {},
-            errors::not_found_error(
-                "channels",
-                "keys " + x::strings::join(missing, ", ")
-            )
-        };
+    if (auto found_err = errors::check_keys_found("channels", keys, channels))
+        return {{}, found_err};
     return {channels, x::errors::NIL};
 }
 

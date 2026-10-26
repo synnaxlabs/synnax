@@ -10,6 +10,7 @@
 package device_test
 
 import (
+	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"os"
 
@@ -39,22 +40,30 @@ type whereCase struct {
 	Name     string       `json:"name"`
 	Where    device.Where `json:"where"`
 	Expected []string     `json:"expected"`
+	// ServerComputed marks a case that only the Core evaluates, which the TypeScript
+	// matches checks.
+	ServerComputed bool `json:"server_computed"`
 }
 
+// vectors is the device section of the case table.
 type vectors struct {
-	Devices struct {
-		Records map[string]device.Device `json:"records"`
-		Cases   []whereCase              `json:"cases"`
-	} `json:"devices"`
+	Records map[string]device.Device `json:"records"`
+	Cases   []whereCase              `json:"cases"`
 }
 
 var _ = Describe("Where", Ordered, func() {
 	var (
-		v   vectors
-		svc *device.Service
+		v    vectors
+		svc  *device.Service
+		file map[string]jsontext.Value
 	)
-	Expect(json.Unmarshal(MustSucceed(os.ReadFile(vectorsPath)), &v)).To(Succeed())
-	aliases := lo.MapEntries(v.Devices.Records, func(
+	Expect(json.Unmarshal(MustSucceed(os.ReadFile(vectorsPath)), &file)).To(Succeed())
+	Expect(json.Unmarshal(
+		file["devices"],
+		&v,
+		json.RejectUnknownMembers(true),
+	)).To(Succeed())
+	aliases := lo.MapEntries(v.Records, func(
 		alias string,
 		d device.Device,
 	) (device.Key, string) {
@@ -64,57 +73,57 @@ var _ = Describe("Where", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		otg := DeferClose(MustOpen(ontology.Open(ctx, ontology.Config{DB: db})))
-		g := DeferClose(MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-		})))
-		lbl := DeferClose(MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		}))
+		lbl := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
-		})))
-		stat := DeferClose(MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		}))
+		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
 			Label:    lbl,
-		})))
-		racks := DeferClose(MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+		}))
+		racks := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
 			Ontology:     otg,
 			Group:        g,
 			HostProvider: mock.NewStaticHostProvider(1),
 			Status:       stat,
-		})))
-		svc = DeferClose(MustOpen(device.OpenService(ctx, device.ServiceConfig{
+		}))
+		svc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
 			Status:   stat,
 			Rack:     racks,
-		})))
-		for _, d := range v.Devices.Records {
+		}))
+		for _, d := range v.Records {
 			r := rack.Rack{Key: d.Rack, Name: "Rack"}
 			Expect(racks.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 			Expect(svc.NewWriter(nil).Create(ctx, &d)).To(Succeed())
 		}
 	})
 
-	for _, c := range v.Devices.Cases {
-		It("Should match the case: "+c.Name, func(ctx SpecContext) {
-			f := MustSucceed(device.MatchWhere(c.Where))
-			var res []device.Device
-			// The API skips not-found, since a missing key is a non-match.
-			Expect(errors.Skip(
-				svc.NewRetrieve().Where(f).Entries(&res).Exec(ctx, nil),
-				query.ErrNotFound,
-			)).To(Succeed())
-			Expect(lo.Map(res, func(d device.Device, _ int) string {
-				return aliases[d.Key]
-			})).To(ConsistOf(c.Expected))
-		})
-	}
+	DescribeTable("Should match the case", func(ctx SpecContext, c whereCase) {
+		f := MustSucceed(device.MatchWhere(c.Where))
+		var res []device.Device
+		// The API skips not-found, since a missing key is a non-match.
+		Expect(errors.Skip(
+			svc.NewRetrieve().Where(f).Entries(&res).Exec(ctx, nil),
+			query.ErrNotFound,
+		)).To(Succeed())
+		Expect(lo.Map(res, func(d device.Device, _ int) string {
+			return aliases[d.Key]
+		})).To(ConsistOf(c.Expected))
+	}, lo.Map(v.Cases, func(c whereCase, _ int) TableEntry {
+		return Entry(c.Name, c)
+	}))
 
 	It("Should return a path error for an invalid regex", func() {
 		var w device.Where
@@ -122,11 +131,19 @@ var _ = Describe("Where", Ordered, func() {
 			[]byte(`{"or":[{"key":{"in":[]}},{"model":{"regex":"(a"}}]}`),
 			&w,
 		)).To(Succeed())
-		_, err := device.MatchWhere(w)
-		var pathErr validate.PathError
-		Expect(err).To(BeAssignableToTypeOf(pathErr))
-		Expect(err).To(MatchError(ContainSubstring(
-			"or.1.model.regex: error parsing regexp: missing closing ): `(a`",
-		)))
+		Expect(device.MatchWhere(w)).Error().To(SatisfyAll(
+			BeAssignableToTypeOf(validate.PathError{}),
+			MatchError(
+				"or.1.model.regex: error parsing regexp: missing closing ): `(a`: validation error",
+			),
+		))
+	})
+
+	It("Should reject a request member that it does not declare", func() {
+		var req device.RetrieveRequest
+		Expect(json.Unmarshal([]byte(`{"keys":["dev1"]}`), &req)).To(SatisfyAll(
+			BeAssignableToTypeOf(&json.SemanticError{}),
+			MatchError(ContainSubstring(`unknown object member name "keys"`)),
+		))
 	})
 })

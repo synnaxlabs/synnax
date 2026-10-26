@@ -21,7 +21,6 @@ from synnax import label, ranger
 from synnax.ontology import ID
 from synnax.state import LatestState, State
 from tests.channel import RetrieveCounter
-from x import filter
 from x.params import RequiresNamedParams
 from x.strings import random_name
 from x.testutil import assert_eventually
@@ -545,7 +544,7 @@ class TestRangeRetrieveFilters:
     ) -> None:
         """Should keep ranges that match a filter tree and the other filters"""
         where = ranger.Where(
-            not_=ranger.Where(name=filter.String(eq=window_ranges[0].name))
+            not_=ranger.Where(name=sy.filter.String(eq=window_ranges[0].name))
         )
         res = client.ranges.retrieve(where=where, overlaps_with=window)
         assert {r.key for r in res} == {r.key for r in window_ranges[1:]}

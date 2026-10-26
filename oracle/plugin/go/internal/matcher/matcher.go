@@ -28,10 +28,10 @@ import (
 type Kind int
 
 const (
-	// Values matches a field equal to any of the values: MatchNames(vals ...string).
-	Values Kind = iota
-	// Value matches a field equal to one value: MatchInternal(v bool).
-	Value
+	// Variadic matches a field equal to any of the values: MatchNames(vals ...string).
+	Variadic Kind = iota
+	// Single matches a field equal to one value: MatchInternal(v bool).
+	Single
 	// Element matches a slice field that holds a value: MatchTag(v string).
 	Element
 )
@@ -52,7 +52,8 @@ type Matcher struct {
 func List(typ resolution.Type, table *resolution.Table) ([]Matcher, error) {
 	bare := bareLines(typ, table)
 	var out []Matcher
-	for _, f := range Fields(typ, table) {
+	fields, _ := resolution.RecordFields(typ, table)
+	for _, f := range fields {
 		filtered := plugindomain.HasDomainFromField(f, "filter")
 		if _, isKey := f.Domains["key"]; isKey {
 			if filtered {
@@ -110,12 +111,6 @@ func Access(
 	return "", false
 }
 
-// Fields returns the fields every record of typ holds.
-func Fields(typ resolution.Type, table *resolution.Table) []resolution.Field {
-	fields, _ := resolution.RecordFields(typ, table)
-	return fields
-}
-
 // bareLines returns the names of the bare lines of every filter over typ.
 func bareLines(typ resolution.Type, table *resolution.Table) set.Set[string] {
 	names := make(set.Set[string])
@@ -128,7 +123,7 @@ func bareLines(typ resolution.Type, table *resolution.Table) set.Set[string] {
 			continue
 		}
 		for _, line := range t.Filter.Lines {
-			if line.Bare() {
+			if !line.HasType() {
 				names.Add(line.Name)
 			}
 		}
@@ -140,13 +135,13 @@ func newMatcher(f resolution.Field, table *resolution.Table) Matcher {
 	goName := naming.GetFieldName(f)
 	switch {
 	case key.ResolvePrimitive(f.Type, table) == "bool":
-		return Matcher{Field: f, Func: "Match" + goName, Kind: Value}
+		return Matcher{Field: f, Func: "Match" + goName, Kind: Single}
 	case f.Type.Name == "Array" && len(f.Type.TypeArgs) == 1:
 		return Matcher{Field: f, Func: "Match" + Singular(goName), Kind: Element}
 	case plugindomain.HasExprFromField(f, "filter", "scalar"):
-		return Matcher{Field: f, Func: "Match" + goName, Kind: Value}
+		return Matcher{Field: f, Func: "Match" + goName, Kind: Single}
 	}
-	return Matcher{Field: f, Func: "Match" + Plural(goName), Kind: Values}
+	return Matcher{Field: f, Func: "Match" + Plural(goName), Kind: Variadic}
 }
 
 // Plural returns the plural form of a name. A name that is already plural

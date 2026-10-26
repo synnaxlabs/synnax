@@ -10,6 +10,7 @@
 package ranger_test
 
 import (
+	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"os"
 
@@ -24,27 +25,34 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// The case table is shared with the TypeScript matches, so that the Core and the
-// client cache agree on every filter.
+// The case table is shared with the TypeScript matches, so that the Core and the client
+// cache agree on every filter.
 const vectorsPath = "../../../../x/testdata/filter/vectors.json"
 
 type whereCase struct {
 	Name     string       `json:"name"`
 	Where    ranger.Where `json:"where"`
 	Expected []string     `json:"expected"`
+	// ServerComputed is for the TypeScript matches. The Core computes every case.
+	ServerComputed bool `json:"server_computed"`
 }
 
 type vectors struct {
-	Ranges struct {
-		Records map[string]ranger.Range `json:"records"`
-		Cases   []whereCase             `json:"cases"`
-	} `json:"ranges"`
+	Records map[string]ranger.Range `json:"records"`
+	Cases   []whereCase             `json:"cases"`
 }
 
 var _ = Describe("Where", func() {
 	var v vectors
-	Expect(json.Unmarshal(MustSucceed(os.ReadFile(vectorsPath)), &v)).To(Succeed())
-	keys := lo.MapEntries(v.Ranges.Records, func(
+	var entities map[string]jsontext.Value
+	Expect(json.Unmarshal(MustSucceed(os.ReadFile(vectorsPath)), &entities)).
+		To(Succeed())
+	Expect(json.Unmarshal(
+		entities["ranges"],
+		&v,
+		json.RejectUnknownMembers(true),
+	)).To(Succeed())
+	keys := lo.MapEntries(v.Records, func(
 		alias string,
 		r ranger.Range,
 	) (ranger.Key, string) {
@@ -53,11 +61,11 @@ var _ = Describe("Where", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		labels := make(map[label.Key]label.Label)
-		for _, r := range v.Ranges.Records {
+		for _, r := range v.Records {
 			r.Labels = nil
 			Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
 		}
-		for _, r := range v.Ranges.Records {
+		for _, r := range v.Records {
 			for _, l := range r.Labels {
 				labels[l.Key] = l
 			}
@@ -65,7 +73,7 @@ var _ = Describe("Where", func() {
 		for _, l := range labels {
 			Expect(labelSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 		}
-		for _, r := range v.Ranges.Records {
+		for _, r := range v.Records {
 			Expect(labelSvc.NewWriter(tx).Label(
 				ctx,
 				r.OntologyID(),
@@ -74,9 +82,10 @@ var _ = Describe("Where", func() {
 		}
 	})
 
-	for _, c := range v.Ranges.Cases {
-		It("Should match the case: "+c.Name, func(ctx SpecContext) {
-			f := MustSucceed(ranger.MatchWhere(c.Where))
+	DescribeTable(
+		"Should match the case",
+		func(ctx SpecContext, w ranger.Where, expected []string) {
+			f := MustSucceed(ranger.MatchWhere(w))
 			var res []ranger.Range
 			// The API skips not-found, since a missing key is a non-match.
 			Expect(errors.Skip(
@@ -85,9 +94,12 @@ var _ = Describe("Where", func() {
 			)).To(Succeed())
 			Expect(lo.Map(res, func(r ranger.Range, _ int) string {
 				return keys[r.Key]
-			})).To(ConsistOf(c.Expected))
-		})
-	}
+			})).To(ConsistOf(expected))
+		},
+		lo.Map(v.Cases, func(c whereCase, _ int) TableEntry {
+			return Entry(c.Name, c.Where, c.Expected)
+		}),
+	)
 
 	It("Should return a path error for an invalid regex", func() {
 		var w ranger.Where
@@ -95,11 +107,25 @@ var _ = Describe("Where", func() {
 			[]byte(`{"or":[{"key":{"in":[]}},{"name":{"regex":"(a"}}]}`),
 			&w,
 		)).To(Succeed())
-		_, err := ranger.MatchWhere(w)
-		var pathErr validate.PathError
-		Expect(err).To(BeAssignableToTypeOf(pathErr))
-		Expect(err).To(MatchError(ContainSubstring(
-			"or.1.name.regex: error parsing regexp: missing closing ): `(a`",
-		)))
+		Expect(ranger.MatchWhere(w)).Error().To(SatisfyAll(
+			BeAssignableToTypeOf(validate.PathError{}),
+			MatchError("or.1.name.regex: error parsing regexp: missing closing ): "+
+				"`(a`: validation error"),
+		))
+	})
+})
+
+var _ = Describe("RetrieveRequest", func() {
+	It("Should reject a member that the request does not declare", func() {
+		var req ranger.RetrieveRequest
+		Expect(
+			json.Unmarshal(
+				[]byte(`{"keys":["00000000-0000-4000-8000-00000000000a"]}`),
+				&req,
+			),
+		).To(SatisfyAll(
+			MatchError(json.ErrUnknownName),
+			MatchError(ContainSubstring(`unknown object member name "keys"`)),
+		))
 	})
 })

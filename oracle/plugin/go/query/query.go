@@ -189,6 +189,12 @@ type searchInfo struct {
 
 // retrieveInfo holds extracted data about a @retrieve-annotated struct.
 type retrieveInfo struct {
+	// Name is the Go name of the retrieved type, with no type arguments.
+	Name string
+	// AnyArgs passes any for each type parameter of an indexes-only generic type, whose
+	// table holds records of every type argument.
+	AnyArgs string
+	// GoName is the Go type of a record in the table.
 	GoName   string
 	KeyType  string
 	IsCustom bool // user defines the struct (@retrieve custom)
@@ -302,11 +308,10 @@ func extractRetrieveInfo(
 	r *resolver.Resolver,
 	ctx *resolver.Context,
 ) (*retrieveInfo, error) {
-	_, isUnion := typ.Form.(resolution.UnionForm)
-	if _, isStruct := typ.Form.(resolution.StructForm); !isStruct && !isUnion {
+	allFields, ok := resolution.RecordFields(typ, table)
+	if !ok {
 		return nil, nil
 	}
-	allFields := matcher.Fields(typ, table)
 	matchers, err := matcher.List(typ, table)
 	if err != nil {
 		return nil, err
@@ -346,7 +351,8 @@ func extractRetrieveInfo(
 		keyType = r.ResolveTypeRef(keyField.Type, ctx)
 	}
 
-	goName := naming.GetGoName(typ)
+	name := naming.GetGoName(typ)
+	var anyArgs string
 
 	isCustom := plugindomain.HasExprFromType(typ, "retrieve", "custom")
 	indexesOnly := plugindomain.HasExprFromType(typ, "retrieve", "indexes")
@@ -359,7 +365,7 @@ func extractRetrieveInfo(
 			}
 		}
 		if len(args) > 0 {
-			goName += "[" + strings.Join(args, ", ") + "]"
+			anyArgs = "[" + strings.Join(args, ", ") + "]"
 		}
 	}
 
@@ -456,7 +462,7 @@ func extractRetrieveInfo(
 				Func:           m.Func,
 				GoType:         goType,
 				ElemGoType:     elemGoType,
-				IsScalar:       m.Kind == matcher.Value,
+				IsScalar:       m.Kind == matcher.Single,
 				IsBool:         key.ResolvePrimitive(field.Type, table) == "bool",
 				IsSlice:        m.Kind == matcher.Element,
 				IndexFieldName: structField,
@@ -477,7 +483,9 @@ func extractRetrieveInfo(
 	}
 
 	return &retrieveInfo{
-		GoName:      goName,
+		Name:        name,
+		AnyArgs:     anyArgs,
+		GoName:      name + anyArgs,
 		KeyType:     keyType,
 		IsCustom:    isCustom,
 		IndexesOnly: indexesOnly,
@@ -499,7 +507,8 @@ func addSearched(
 	searched set.Set[searchDecl],
 ) {
 	read := make(set.Set[string])
-	for _, f := range matcher.Fields(retrieved, table) {
+	fields, _ := resolution.RecordFields(retrieved, table)
+	for _, f := range fields {
 		if plugindomain.HasDomainFromField(f, "search") {
 			read.Add(f.Name)
 		}
@@ -630,6 +639,16 @@ func (i indexes) all() []gorp.Index[{{$ret.KeyType}}, {{$ret.GoName}}] {
 {{- end}}
 	}
 }
+{{- if and $ret.IndexesOnly $ret.HasSearch}}
+
+// MatchSearch matches the {{$ret.Name | toLower | pluralize}} whose text matches term.
+// The closest match comes first.
+func MatchSearch(term string) Filter{{$ret.AnyArgs}} {
+	return func(r Retrieve{{$ret.AnyArgs}}) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
+		return r.indexes.search.Filter(term)
+	}
+}
+{{- end}}
 {{- if $ret.HasSortedIndex}}
 
 // Ordering is a per-service sort handle that is bound to the Retrieve when

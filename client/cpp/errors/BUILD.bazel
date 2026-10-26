@@ -17,6 +17,7 @@ cc_library(
     deps = [
         "//freighter/cpp:freighter",
         "//x/cpp/errors",
+        "//x/cpp/strings",
     ],
 )
 

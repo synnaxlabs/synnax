@@ -779,9 +779,13 @@ import { Synnax } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve devices
-const [vDev] = await client.devices.retrieve({ names: ["Mod1_Voltage"] });
-const [cDev] = await client.devices.retrieve({ names: ["Mod2_Current"] });
-const [tcDev] = await client.devices.retrieve({ names: ["Mod1_TC"] });
+const [vDev] = await client.devices.retrieve({
+  where: { name: { eq: "Mod1_Voltage" } },
+});
+const [cDev] = await client.devices.retrieve({
+  where: { name: { eq: "Mod2_Current" } },
+});
+const [tcDev] = await client.devices.retrieve({ where: { name: { eq: "Mod1_TC" } } });
 
 // Create index and data channels
 const aiTime = await client.channels.create(

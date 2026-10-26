@@ -71,7 +71,8 @@ message UuidList {
   repeated string values = 1;
 }
 
-// UuidSet selects keys and enum values. A value must match every operator that is set.
+// UuidSet selects values that only compare for equality, such as keys, enum values, and
+// UUIDs. A value must match every operator that is set.
 message UuidSet {
   // eq matches a value equal to eq.
   optional string eq = 1;

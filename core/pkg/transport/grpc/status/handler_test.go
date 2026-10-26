@@ -26,14 +26,14 @@ var _ = Describe("gRPC Status Translators", func() {
 		t := retrieveRequestTranslator{}
 		It("Should round-trip a filter tree", func(ctx SpecContext) {
 			msg := status.RetrieveRequest{
-				Where: &svcstatus.Where{
-					Or: []svcstatus.Where{
+				Where: &status.Where{
+					Or: []status.Where{
 						{
 							Key: &filter.Set[svcstatus.Key]{
 								In: []svcstatus.Key{"a", "b"},
 							},
 						},
-						{Not: &svcstatus.Where{Variant: &filter.Set[svcstatus.Variant]{
+						{Not: &status.Where{Variant: &filter.Set[svcstatus.Variant]{
 							Eq: new(svcstatus.VariantError),
 						}}},
 					},
@@ -56,11 +56,12 @@ var _ = Describe("gRPC Status Translators", func() {
 			b = protowire.AppendString(b, "a")
 			var decoded RetrieveRequest
 			Expect(proto.Unmarshal(b, &decoded)).To(Succeed())
-			_, err := t.Backward(ctx, &decoded)
-			Expect(err).To(MatchError(validate.ErrValidation))
-			Expect(err).To(MatchError(ContainSubstring(
-				"retrieve request has unknown fields",
-			)))
+			Expect(t.Backward(ctx, &decoded)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(
+					ContainSubstring("grpc.status.RetrieveRequest has unknown fields"),
+				),
+			))
 		})
 	})
 })

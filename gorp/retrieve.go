@@ -186,7 +186,8 @@ func (r Retrieve[K, E]) isBareKeys() bool {
 	return r.filter.keys.Bounded() &&
 		r.filter.eval == nil &&
 		r.filter.raw == nil &&
-		r.filter.resolve == nil
+		r.filter.resolve == nil &&
+		!r.filter.lenient
 }
 
 // Exec executes the query against the provided transaction.

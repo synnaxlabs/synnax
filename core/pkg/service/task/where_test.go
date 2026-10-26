@@ -10,6 +10,7 @@
 package task_test
 
 import (
+	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"os"
 
@@ -42,22 +43,30 @@ type whereCase struct {
 	Name     string     `json:"name"`
 	Where    task.Where `json:"where"`
 	Expected []string   `json:"expected"`
+	// ServerComputed marks a case that only the Core evaluates, which the TypeScript
+	// matches checks.
+	ServerComputed bool `json:"server_computed"`
 }
 
+// vectors is the task section of the case table.
 type vectors struct {
-	Tasks struct {
-		Records map[string]task.Task `json:"records"`
-		Cases   []whereCase          `json:"cases"`
-	} `json:"tasks"`
+	Records map[string]task.Task `json:"records"`
+	Cases   []whereCase          `json:"cases"`
 }
 
 var _ = Describe("Where", Ordered, func() {
 	var (
-		v   vectors
-		svc *task.Service
+		v    vectors
+		svc  *task.Service
+		file map[string]jsontext.Value
 	)
-	Expect(json.Unmarshal(MustSucceed(os.ReadFile(vectorsPath)), &v)).To(Succeed())
-	aliases := lo.MapEntries(v.Tasks.Records, func(
+	Expect(json.Unmarshal(MustSucceed(os.ReadFile(vectorsPath)), &file)).To(Succeed())
+	Expect(json.Unmarshal(
+		file["tasks"],
+		&v,
+		json.RejectUnknownMembers(true),
+	)).To(Succeed())
+	aliases := lo.MapEntries(v.Records, func(
 		alias string,
 		t task.Task,
 	) (task.Key, string) {
@@ -67,33 +76,33 @@ var _ = Describe("Where", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		otg := DeferClose(MustOpen(ontology.Open(ctx, ontology.Config{DB: db})))
-		g := DeferClose(MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-		})))
-		lbl := DeferClose(MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		}))
+		lbl := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
-		})))
-		stat := DeferClose(MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		}))
+		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
 			Label:    lbl,
-		})))
-		racks := DeferClose(MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+		}))
+		racks := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
 			Ontology:     otg,
 			Group:        g,
 			HostProvider: mock.NewStaticHostProvider(1),
 			Status:       stat,
-		})))
-		lj := DeferClose(MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{
+		}))
+		lj := MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{
 			DB: db,
-		})))
-		svc = DeferClose(MustOpen(task.OpenService(ctx, task.ServiceConfig{
+		}))
+		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
@@ -101,28 +110,28 @@ var _ = Describe("Where", Ordered, func() {
 			Status:   stat,
 			ImEx:     imex.NewService(),
 			Configs:  MustSucceed(config.NewRegistry(lj.Stores()...)),
-		})))
-		for _, t := range v.Tasks.Records {
+		}))
+		for _, t := range v.Records {
 			r := rack.Rack{Key: t.Rack, Name: "Rack"}
 			Expect(racks.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 			Expect(svc.NewWriter(nil).Create(ctx, &t)).To(Succeed())
 		}
 	})
 
-	for _, c := range v.Tasks.Cases {
-		It("Should match the case: "+c.Name, func(ctx SpecContext) {
-			f := MustSucceed(task.MatchWhere(c.Where))
-			var res []task.Task
-			// The API skips not-found, since a missing key is a non-match.
-			Expect(errors.Skip(
-				svc.NewRetrieve().Where(f).Entries(&res).Exec(ctx, nil),
-				query.ErrNotFound,
-			)).To(Succeed())
-			Expect(lo.Map(res, func(t task.Task, _ int) string {
-				return aliases[t.Key]
-			})).To(ConsistOf(c.Expected))
-		})
-	}
+	DescribeTable("Should match the case", func(ctx SpecContext, c whereCase) {
+		f := MustSucceed(task.MatchWhere(c.Where))
+		var res []task.Task
+		// The API skips not-found, since a missing key is a non-match.
+		Expect(errors.Skip(
+			svc.NewRetrieve().Where(f).Entries(&res).Exec(ctx, nil),
+			query.ErrNotFound,
+		)).To(Succeed())
+		Expect(lo.Map(res, func(t task.Task, _ int) string {
+			return aliases[t.Key]
+		})).To(ConsistOf(c.Expected))
+	}, lo.Map(v.Cases, func(c whereCase, _ int) TableEntry {
+		return Entry(c.Name, c)
+	}))
 
 	It("Should return a path error for an invalid regex", func() {
 		var w task.Where
@@ -130,11 +139,19 @@ var _ = Describe("Where", Ordered, func() {
 			[]byte(`{"or":[{"key":{"in":[]}},{"type":{"regex":"(a"}}]}`),
 			&w,
 		)).To(Succeed())
-		_, err := task.MatchWhere(w)
-		var pathErr validate.PathError
-		Expect(err).To(BeAssignableToTypeOf(pathErr))
-		Expect(err).To(MatchError(ContainSubstring(
-			"or.1.type.regex: error parsing regexp: missing closing ): `(a`",
-		)))
+		Expect(task.MatchWhere(w)).Error().To(SatisfyAll(
+			BeAssignableToTypeOf(validate.PathError{}),
+			MatchError(
+				"or.1.type.regex: error parsing regexp: missing closing ): `(a`: validation error",
+			),
+		))
+	})
+
+	It("Should reject a request member that it does not declare", func() {
+		var req task.RetrieveRequest
+		Expect(json.Unmarshal([]byte(`{"names":["Task"]}`), &req)).To(SatisfyAll(
+			BeAssignableToTypeOf(&json.SemanticError{}),
+			MatchError(ContainSubstring(`unknown object member name "names"`)),
+		))
 	})
 })

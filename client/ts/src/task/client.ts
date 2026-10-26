@@ -51,7 +51,7 @@ import {
   statusZ,
   type Where,
 } from "@/task/types.gen";
-import { type Lines, matches, serverComputed } from "@/task/where.gen";
+import { matches, serverComputed } from "@/task/where.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export type { PayloadSchemas as Schemas } from "@/task/types.gen";
@@ -295,10 +295,6 @@ const singleWhere = (q: SingleRequest): Where => {
   return { type: { eq: q.type }, rack: q.rack == null ? undefined : { eq: q.rack } };
 };
 
-const keysRequest = (keys: Key[]): RetrieveRequest => ({
-  where: { key: { in: keys } },
-});
-
 const singleRetrieveParamsZ = z.union([
   z
     .object({ key: keyZ, includeStatus: z.boolean().optional() })
@@ -350,11 +346,9 @@ const singleQueryZ = z
 // includeStatus does not change a request's identity either: cached fetches
 // always request it, so the schema strips it before hashing.
 const retrieveMultiParamsZ = z.union([
-  keyZ.array().transform(keysRequest),
+  query.keysRequestZ(keyZ),
   retrieveRequestZ.transform(({ includeStatus: _, ...rest }) => rest),
 ]);
-
-const LINES: Lines = {};
 
 interface RetrieveSchemas<S extends Schemas = Schemas> {
   schemas?: S;
@@ -379,7 +373,7 @@ const copyResZ = <S extends Schemas = Schemas>(schemas?: S) =>
   z.object({ task: payloadZ(schemas) });
 
 const matchesSingle = (t: Omit<Task, "status">, q: SingleRequest): boolean =>
-  matches(LINES, t, singleWhere(q));
+  matches(t, singleWhere(q));
 
 /** Config for {@link Client}. */
 export interface ClientConfig {
@@ -417,7 +411,7 @@ export class Client extends query.Retriever<
     const store = cache.createTable<Key, Omit<Task, "status">>({
       name: "tasks",
       equal: (a, b) => deep.equal(a.payload, b.payload),
-      fetch: async (keys) => await this.fetchThrough(keysRequest(keys)),
+      fetch: async (keys) => await this.fetchThrough(query.keysRequest(keys)),
       listen: [
         {
           bind: (table) => ({
@@ -496,8 +490,8 @@ export class Client extends query.Retriever<
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.fetchThrough(req),
-        matches: (t, req) => matches(LINES, t, req.where ?? {}),
-        serverComputed: (req) => req.where != null && serverComputed(LINES, req.where),
+        matches: (t, req) => matches(t, req.where),
+        serverComputed: (req) => serverComputed(req.where),
         watch: [query.watch(statusStore, (event) => affectedKeys(event))],
       },
       compose: (record) => this.compose(record),
@@ -865,7 +859,7 @@ export class Client extends query.Retriever<
     if ("commands" in params) {
       const retrieveNames = async () => {
         const { commands } = params;
-        const ts = await this.retrieve(keysRequest(commands.map((t) => t.task)));
+        const ts = await this.retrieve(query.keysRequest(commands.map((t) => t.task)));
         return ts.map((t) => t.name);
       };
       return await executeCommandsSync({

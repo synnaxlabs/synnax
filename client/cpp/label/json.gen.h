@@ -12,7 +12,6 @@
 #pragma once
 
 #include <string>
-#include <vector>
 
 #include "client/cpp/label/types.gen.h"
 #include "x/cpp/color/color.h"
@@ -33,18 +32,6 @@ inline x::json::json Label::to_json() const {
     j["key"] = this->key.to_json();
     j["name"] = this->name;
     j["color"] = this->color.to_json();
-    return j;
-}
-
-inline RetrieveResponse RetrieveResponse::parse(x::json::Parser parser) {
-    return RetrieveResponse{
-        .labels = parser.field<std::vector<Label>>("labels", std::vector<Label>{}),
-    };
-}
-
-inline x::json::json RetrieveResponse::to_json() const {
-    x::json::json j;
-    j["labels"] = x::json::to_array(this->labels);
     return j;
 }
 

@@ -29,11 +29,16 @@ import (
 )
 
 type (
-	Key              = ranger.Key
-	Range            = ranger.Range
-	RetrieveRequest  = ranger.RetrieveRequest
+	// Key is a unique identifier for a range.
+	Key = ranger.Key
+	// Range is a user-defined region of time.
+	Range = ranger.Range
+	// RetrieveRequest is a request to retrieve ranges.
+	RetrieveRequest = ranger.RetrieveRequest
+	// RetrieveResponse holds the ranges a RetrieveRequest selects.
 	RetrieveResponse = ranger.RetrieveResponse
-	Where            = ranger.Where
+	// Where is a filter that selects ranges.
+	Where = ranger.Where
 )
 
 func rangeAccessOntologyIDs(ranges []Range) []ontology.ID {
@@ -138,25 +143,11 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	q := s.internal.NewRetrieve().Entries(&res.Ranges)
-	if req.Where != nil {
-		f, err := ranger.MatchWhere(*req.Where)
-		if err != nil {
-			return RetrieveResponse{}, validate.PathedError(err, "where")
-		}
-		q = q.Where(f)
+	q, err := req.Apply(s.internal.NewRetrieve().Entries(&res.Ranges))
+	if err != nil {
+		return RetrieveResponse{}, err
 	}
-	if term := lo.FromPtr(req.SearchTerm); term != "" {
-		q = q.Search(term)
-	}
-	if req.Limit != nil {
-		q = q.Limit(int(*req.Limit))
-	}
-	if req.Offset != nil {
-		q = q.Offset(int(*req.Offset))
-	}
-	// A filter is a predicate, so a key that does not exist is a non-match.
-	if err := errors.Skip(q.Exec(ctx, nil), query.ErrNotFound); err != nil {
+	if err := q.Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
 	if lo.FromPtr(req.IncludeLabels) {

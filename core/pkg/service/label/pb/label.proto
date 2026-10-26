@@ -27,9 +27,3 @@ message Label {
   // color is the display color for visual identification of the label.
   .x.color.pb.Color color = 3;
 }
-
-// RetrieveResponse holds the labels a RetrieveRequest selects.
-message RetrieveResponse {
-  // labels are the labels the request selects.
-  repeated Label labels = 1;
-}

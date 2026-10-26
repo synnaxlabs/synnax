@@ -26,6 +26,7 @@ import { z } from "zod";
 
 import {
   analyzeParams,
+  isCalculated,
   type Params,
   type PrimitiveParams,
   statusKey,
@@ -277,11 +278,10 @@ const namesWhere = (names: string[]): Where => {
  * selects nothing else and no other field of the request is set. Returns null for any
  * other request.
  */
-const onlyIn = (
+const onlyIn = <F extends keyof Where & string>(
   { where, ...rest }: RetrieveRequest,
-  field: string,
-): unknown[] | null =>
-  Object.values(rest).every((v) => v == null) ? query.whereIn(where, field) : null;
+  field: F,
+) => (Object.values(rest).every((v) => v == null) ? query.whereIn(where, field) : null);
 
 const affectedChannelKeys = (
   event: query.TableEvent<status.Key, status.Status>,
@@ -335,7 +335,7 @@ export class Client extends query.Retriever<
       name: "channels",
       equal: (a, b) => deep.equal(a.payload, b.payload),
       fetch: async (keys) =>
-        (await this.execRetrieve({ where: { key: { in: keys } } })).map((p) =>
+        (await this.execRetrieve(query.keysRequest(keys))).map((p) =>
           sugar(stripComposed(p)),
         ),
       listen: [
@@ -378,9 +378,8 @@ export class Client extends query.Retriever<
       request: {
         schema: retrieveMultipleParamsZ,
         fetch: async (query) => await this.fetchRequest(query),
-        matches: (ch, query) => matches(LINES, ch, query.where ?? {}),
-        serverComputed: (query) =>
-          query.where != null && serverComputed(LINES, query.where),
+        matches: (ch, query) => matches(LINES, ch, query.where),
+        serverComputed: (query) => serverComputed(LINES, query.where),
         watch: [
           query.watch(aliasStore, (event, query: RetrieveMultipleParams) => {
             if (query.rangeKey == null) return null;
@@ -742,9 +741,9 @@ export class Client extends query.Retriever<
 
   private async fetchChannels(req: RetrieveRequest): Promise<Channel[]> {
     const keys = onlyIn(req, "key");
-    if (keys != null) return await this.store.retrieve(keys as Key[]);
+    if (keys != null) return await this.store.retrieve(keys);
     const names = onlyIn(req, "name");
-    const resolved = names != null ? await this.resolveNames(names as string[]) : null;
+    const resolved = names != null ? await this.resolveNames(names) : null;
     if (resolved != null) return resolved;
     return (await this.execRetrieve(req)).map((p) => this.sugar(stripComposed(p)));
   }
@@ -773,7 +772,3 @@ export class Client extends query.Retriever<
     return [...matched, ...channels.filter((ch) => !matchedKeys.has(ch.key))];
   }
 }
-
-/** @returns whether the channel computes its samples from an expression. */
-export const isCalculated = ({ virtual, expression }: Payload): boolean =>
-  virtual && expression !== "";

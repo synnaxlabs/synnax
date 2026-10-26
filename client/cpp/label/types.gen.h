@@ -13,7 +13,6 @@
 
 #include <string>
 #include <utility>
-#include <vector>
 
 #include "x/cpp/color/color.h"
 #include "x/cpp/errors/errors.h"
@@ -25,7 +24,6 @@
 namespace synnax::label {
 
 struct Label;
-struct RetrieveResponse;
 
 using Key = x::uuid::UUID;
 
@@ -48,20 +46,5 @@ struct Label {
     to_proto() const;
     static std::pair<Label, x::errors::Error>
     from_proto(const ::service::label::pb::Label &pb);
-};
-
-/// @brief RetrieveResponse holds the labels a RetrieveRequest selects.
-struct RetrieveResponse {
-    /// @brief labels are the labels the request selects.
-    std::vector<Label> labels;
-
-    static RetrieveResponse parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::service::label::pb::RetrieveResponse;
-    [[nodiscard]] std::pair<::service::label::pb::RetrieveResponse, x::errors::Error>
-    to_proto() const;
-    static std::pair<RetrieveResponse, x::errors::Error>
-    from_proto(const ::service::label::pb::RetrieveResponse &pb);
 };
 }

@@ -10,6 +10,7 @@
 package channel_test
 
 import (
+	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"os"
 
@@ -50,13 +51,15 @@ type whereCase struct {
 	Name     string        `json:"name"`
 	Where    channel.Where `json:"where"`
 	Expected []string      `json:"expected"`
+	// ServerComputed marks a case that only the Core evaluates, which the TypeScript
+	// matches checks.
+	ServerComputed bool `json:"server_computed"`
 }
 
+// vectors is the channel section of the case table.
 type vectors struct {
-	Channels struct {
-		Records map[string]record `json:"records"`
-		Cases   []whereCase       `json:"cases"`
-	} `json:"channels"`
+	Records map[string]record `json:"records"`
+	Cases   []whereCase       `json:"cases"`
 }
 
 var _ = Describe("Where", Ordered, func() {
@@ -64,18 +67,23 @@ var _ = Describe("Where", Ordered, func() {
 		v      vectors
 		chSvc  *channel.Service
 		byName = make(map[string]string)
+		file   map[string]jsontext.Value
 	)
-	Expect(json.Unmarshal(MustSucceed(os.ReadFile(vectorsPath)), &v)).To(Succeed())
+	Expect(json.Unmarshal(MustSucceed(os.ReadFile(vectorsPath)), &file)).To(Succeed())
+	Expect(json.Unmarshal(
+		file["channels"],
+		&v,
+		json.RejectUnknownMembers(true),
+	)).To(Succeed())
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		cfg := serviceConfig(ctx, mock.NewNode(ctx))
 		// An Aspen database leases each record to its leaseholder, and the records sit
 		// on nodes that the mock cluster does not have.
-		cfg.DB = DeferClose(gorp.Wrap(memkv.New()))
-		chSvc = DeferClose(MustOpen(channel.OpenService(ctx, cfg)))
-		chs := make([]channel.Channel, 0, len(v.Channels.Records))
-		for alias, r := range v.Channels.Records {
+		cfg := serviceConfig(ctx, mock.NewNode(ctx), DeferClose(gorp.Wrap(memkv.New())))
+		chSvc = MustOpen(channel.OpenService(ctx, cfg))
+		chs := make([]channel.Channel, 0, len(v.Records))
+		for alias, r := range v.Records {
 			byName[r.Name] = alias
 			chs = append(chs, channel.Channel{
 				Name:        r.Name,
@@ -95,20 +103,20 @@ var _ = Describe("Where", Ordered, func() {
 			Exec(ctx, cfg.DB)).To(Succeed())
 	})
 
-	for _, c := range v.Channels.Cases {
-		It("Should match the case: "+c.Name, func(ctx SpecContext) {
-			f := MustSucceed(channel.MatchWhere(c.Where))
-			var res []channel.Channel
-			// The API skips not-found, since a missing key is a non-match.
-			Expect(errors.Skip(
-				chSvc.NewRetrieve().Where(f).Entries(&res).Exec(ctx, nil),
-				query.ErrNotFound,
-			)).To(Succeed())
-			Expect(lo.Map(res, func(ch channel.Channel, _ int) string {
-				return byName[ch.Name]
-			})).To(ConsistOf(c.Expected))
-		})
-	}
+	DescribeTable("Should match the case", func(ctx SpecContext, c whereCase) {
+		f := MustSucceed(channel.MatchWhere(c.Where))
+		var res []channel.Channel
+		// The API skips not-found, since a missing key is a non-match.
+		Expect(errors.Skip(
+			chSvc.NewRetrieve().Where(f).Entries(&res).Exec(ctx, nil),
+			query.ErrNotFound,
+		)).To(Succeed())
+		Expect(lo.Map(res, func(ch channel.Channel, _ int) string {
+			return byName[ch.Name]
+		})).To(ConsistOf(c.Expected))
+	}, lo.Map(v.Cases, func(c whereCase, _ int) TableEntry {
+		return Entry(c.Name, c)
+	}))
 
 	It("Should return a path error for an invalid regex", func() {
 		var w channel.Where
@@ -116,11 +124,19 @@ var _ = Describe("Where", Ordered, func() {
 			[]byte(`{"or":[{"key":{"in":[]}},{"name":{"regex":"(a"}}]}`),
 			&w,
 		)).To(Succeed())
-		_, err := channel.MatchWhere(w)
-		var pathErr validate.PathError
-		Expect(err).To(BeAssignableToTypeOf(pathErr))
-		Expect(err).To(MatchError(ContainSubstring(
-			"or.1.name.regex: error parsing regexp: missing closing ): `(a`",
-		)))
+		Expect(channel.MatchWhere(w)).Error().To(SatisfyAll(
+			BeAssignableToTypeOf(validate.PathError{}),
+			MatchError(
+				"or.1.name.regex: error parsing regexp: missing closing ): `(a`: validation error",
+			),
+		))
+	})
+
+	It("Should reject a request member that it does not declare", func() {
+		var req channel.RetrieveRequest
+		Expect(json.Unmarshal([]byte(`{"keys":[1]}`), &req)).To(SatisfyAll(
+			BeAssignableToTypeOf(&json.SemanticError{}),
+			MatchError(ContainSubstring(`unknown object member name "keys"`)),
+		))
 	})
 })

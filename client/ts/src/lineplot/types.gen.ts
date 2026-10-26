@@ -227,7 +227,7 @@ export type Where = {
   not?: Where;
   key?: filter.Set<typeof keyZ>;
 };
-export const whereZ: z.ZodType<Where> = z.object({
+export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
   get and() {
     return zod.nullToUndefined(whereZ.array());
@@ -284,7 +284,7 @@ export const axesZ = z.object({
 export interface Axes extends z.infer<typeof axesZ> {}
 
 /** RetrieveRequest is a request to retrieve line plots. */
-export const retrieveRequestZ = z.object({
+export const retrieveRequestZ = z.strictObject({
   /** where selects the line plots to retrieve. An absent where selects all of them. */
   where: whereZ.optional(),
   /** searchTerm keeps the line plots that match the term, closest match first. */

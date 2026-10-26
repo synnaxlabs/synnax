@@ -43,7 +43,7 @@ export type Where = {
   location?: filter.String;
   rack?: filter.Ordered<typeof rack.keyZ>;
 };
-export const whereZ: z.ZodType<Where> = z.object({
+export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
   get and() {
     return zod.nullToUndefined(whereZ.array());
@@ -74,7 +74,7 @@ export const statusZ = status.statusZ({ details: statusDetailsZ });
 export type Status = z.infer<typeof statusZ>;
 
 /** RetrieveRequest is a request to retrieve devices. */
-export const retrieveRequestZ = z.object({
+export const retrieveRequestZ = z.strictObject({
   /** where selects the devices to retrieve. An absent where selects all of them. */
   where: whereZ.optional(),
   /** searchTerm keeps the devices that match the term, closest match first. */

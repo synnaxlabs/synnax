@@ -16,6 +16,7 @@ import (
 	"encoding/json/v2"
 	"strconv"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -46,10 +47,10 @@ func MatchWhere(w Where) (Filter, error) {
 	}
 	if l := w.Key; l != nil {
 		if l.Eq != nil {
-			fs = append(fs, MatchKeys(*l.Eq))
+			fs = append(fs, matchKeys(*l.Eq))
 		}
 		if l.In != nil {
-			fs = append(fs, MatchKeys(l.In...))
+			fs = append(fs, matchKeys(l.In...))
 		}
 	}
 	return And(fs...), nil
@@ -65,6 +66,36 @@ func matchWheres(ws []Where, path string) ([]Filter, error) {
 		fs[i] = f
 	}
 	return fs, nil
+}
+
+// matchKeys matches the records whose key is one of keys. A key with no record is a
+// non-match, as for every other line.
+func matchKeys(keys ...Key) Filter {
+	return func(Retrieve) gorp.Filter[Key, Table] {
+		return gorp.MatchKeysLenient[Key, Table](keys...)
+	}
+}
+
+// Apply narrows q to the records that the request selects. It returns a
+// validate.PathError for a value that no filter can hold.
+func (r RetrieveRequest) Apply(q Retrieve) (Retrieve, error) {
+	if r.Where != nil {
+		f, err := MatchWhere(*r.Where)
+		if err != nil {
+			return Retrieve{}, validate.PathedError(err, "where")
+		}
+		q = q.Where(f)
+	}
+	if r.SearchTerm != nil {
+		q = q.Search(*r.SearchTerm)
+	}
+	if r.Limit != nil {
+		q = q.Limit(int(*r.Limit))
+	}
+	if r.Offset != nil {
+		q = q.Offset(int(*r.Offset))
+	}
+	return q, nil
 }
 
 // UnmarshalJSONFrom decodes the request and rejects a member that it does not declare,
