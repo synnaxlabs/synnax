@@ -184,6 +184,7 @@ class BaseStreamer implements Streamer {
   private armed = false;
   // Updates waiting on an ack, oldest first. The Core acks in request order.
   private readonly pendingAcks: PromiseWithResolvers<void>[] = [];
+  private failure?: Error;
 
   constructor(
     stream: Stream<typeof reqZ, typeof resZ>,
@@ -224,6 +225,7 @@ class BaseStreamer implements Streamer {
         res = await this.receiveWithDeadline();
       } catch (e) {
         const err = errors.fromUnknown(e);
+        this.failure = err;
         this.pendingAcks.splice(0).forEach(({ reject }) => reject(err));
         throw err;
       }
@@ -260,6 +262,8 @@ class BaseStreamer implements Streamer {
     { waitForAck = false }: StreamerUpdateOptions = {},
   ): Promise<void> {
     const hasChanged = await this.adapter.update(channels);
+    // A read that failed while the channels resolved left no reader for the ack.
+    if (this.failure != null) throw this.failure;
     if (!hasChanged && !waitForAck) return;
     this.stream.send({
       keys: Array.from(this.adapter.keys),

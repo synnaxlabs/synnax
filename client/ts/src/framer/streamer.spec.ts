@@ -748,6 +748,23 @@ describe("Streamer", () => {
       streamer.close();
     }, 30_000);
 
+    it("should reject an acked update that follows a failed read", async () => {
+      const { proxy, client: proxied } = await createProxiedTestClient({
+        onRetry: quiet,
+      });
+      const ch = await newVirtualChannel(client);
+      const streamer = await proxied.openStreamer({
+        channels: [],
+        keepAlive: KEEP_ALIVE,
+      });
+      await sleep.sleep(ARMED);
+      expect(proxy.blackholeStreams()).toBeGreaterThan(0);
+      const err = await streamer.read().catch((e: unknown) => e);
+      expect(Unreachable.matches(err)).toBe(true);
+      await expect(streamer.update(ch.key, { waitForAck: true })).rejects.toBe(err);
+      streamer.close();
+    }, 30_000);
+
     it("should reconnect and resume streaming after a silent death", async () => {
       const { proxy, client: proxied } = await createProxiedTestClient({
         onRetry: quiet,
