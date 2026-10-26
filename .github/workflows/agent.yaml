@@ -88,7 +88,8 @@ jobs:
               Name=tag:pool,Values=agent Name=instance-state-name,Values=stopped \
               --query 'Reservations[].Instances[].InstanceId')
             if [ -z "$ids" ]; then exit 0; fi
-            id=$(printf '%s\n' $ids | shuf -n 1)
+            read -ra stopped <<< "$ids"
+            id=$(shuf -n 1 -e "${stopped[@]}")
             previous=$(aws ec2 start-instances --instance-ids "$id" --output text \
               --query 'StartingInstances[0].PreviousState.Name')
             if [ "$previous" = stopped ]; then exit 0; fi
@@ -137,6 +138,18 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      # A PR branch can predate the wrapper, so the job runs this revision's copy.
+      - name: Keep the wrapper
+        run: cp -R scripts/agent "$RUNNER_TEMP/agent"
+
+      # The setup script must come from the PR the agent works on.
+      - name: Check out the pull request
+        if: inputs.pr
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          PR: ${{ inputs.pr }}
+        run: gh pr checkout "$PR"
+
       # A runner can stay stopped for weeks, so every job takes the latest agent CLIs.
       - name: Update the agent CLIs
         run: sudo npm install -g @anthropic-ai/claude-code@latest @openai/codex@latest
@@ -177,4 +190,4 @@ jobs:
             printf '%s\n' "$RECIPIENT" > "$RUNNER_TEMP/recipient.asc"
             args+=(--recipient "$RUNNER_TEMP/recipient.asc")
           fi
-          scripts/agent/run "${args[@]}"
+          "$RUNNER_TEMP/agent/run" "${args[@]}"
