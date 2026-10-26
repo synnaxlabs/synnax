@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { connectServerScript, INTEGRATIONS,OPCUA } from "./common/server";
+import { connectServerScript, INTEGRATIONS, OPCUA } from "./common/server";
 
 export const driver = true;
 export const integrations = INTEGRATIONS;
