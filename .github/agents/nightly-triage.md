@@ -6,18 +6,21 @@ questions.
 
 1. Read `CLAUDE.md`, `docs/claude/testing.md`, and the guides they name for the code you
    touch. Follow them.
-2. List the failed jobs and read their logs:
-   `gh run view <run> --json jobs --jq '.jobs[] | select(.conclusion == "failure")'` and
-   `gh run view <run> --log-failed`. For an integration job, use the
-   `.claude/skills/synnax-integration-debug/SKILL.md` steps on the `test-results-*`
-   artifacts.
-3. For each failed test, decide:
-   - **Regression**: it fails the same way on rerun, or a commit since the last green
-     nightly changed the code under test. Find that commit with `git log`.
-   - **Flake**: it passed on the last nightly runs and on `main` pull requests with no
-     related change, and the failure comes from timing or order. Usual causes here are a
-     timer that waits on the wall clock, the coarse ~16 ms Windows clock, a stream read
-     before the stream is live, and fixtures that share state.
+2. List the failed jobs and read their logs. This session runs inside the failed run, so
+   the run is still in progress and `gh run view --log-failed` gives nothing. Read each
+   job's log instead:
+   `gh run view <run> --json jobs --jq '.jobs[] | select(.conclusion == "failure") | .databaseId'`
+   and `gh api repos/{owner}/{repo}/actions/jobs/<job id>/logs`. For an integration job,
+   use the `.claude/skills/synnax-integration-debug/SKILL.md` steps on the
+   `test-results-*` artifacts (`gh run download <run> --pattern 'test-results-*'`).
+3. For each failed test, give one verdict:
+   - **Regression**: you can link a commit since the last green nightly to the failure.
+     Find it with `git log`, and show how its change causes the failed assertion.
+   - **Flake**: the test passed on the last nightly runs and on `main` pull requests
+     with no related change, and you can name the timing or order fault. Usual causes
+     here are a timer that waits on the wall clock, the coarse ~16 ms Windows clock, a
+     stream read before the stream is live, and fixtures that share state.
+   - **Inconclusive**: the evidence does not prove either. Say what is missing.
 4. Search Linear (team `SY`) for an open issue on the same test or symptom.
 
 Then act once per cause:
@@ -27,8 +30,7 @@ Then act once per cause:
   subject (`SY-####: Fix ...`) when one exists. The workflow opens one pull request from
   your commits, so put only one cause in it.
 - **Matching Linear issue, no proven fix**: add a comment to the issue with the run
-  link, the failed test, the log lines that matter, and your flake or regression
-  verdict.
+  link, the failed test, the log lines that matter, your verdict, and its evidence.
 - **No issue, no proven fix**: push nothing. Put a draft issue in your report, written
   to `.claude/skills/create-linear-issue/SKILL.md`.
 
@@ -40,5 +42,5 @@ Never make a test pass by:
 
 A fix that changes how a user-facing surface behaves is not small. Report it instead.
 
-Your last message is the report. Keep it short: each failed job, flake or regression,
-the cause, and what you did (commit, Linear comment, or draft issue).
+Your last message is the report. Keep it short: each failed job, its verdict, the cause,
+and what you did (commit, Linear comment, or draft issue).
