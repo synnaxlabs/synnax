@@ -17,9 +17,14 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { caseconv, DataType, errors, primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
-import { Device } from "@/feature/opcua/device";
 import { type HaulItem } from "@/feature/opcua/device/Browser";
 import { Select } from "@/feature/opcua/device/Select";
+import {
+  type Device,
+  migrateProperties,
+  type Properties as DeviceProperties,
+  SCHEMAS,
+} from "@/feature/opcua/device/types";
 import { type ChannelKeyAndIDGetter, createForm } from "@/feature/opcua/task/Form";
 import {
   deployReadConfigZ,
@@ -33,7 +38,7 @@ import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-const getChannelByNodeID = (props: Device.Properties, nodeId: string): channel.Key =>
+const getChannelByNodeID = (props: DeviceProperties, nodeId: string): channel.Key =>
   props.read.channels[nodeId] ??
   props.read.channels[caseconv.snakeToCamel(nodeId)] ??
   0;
@@ -109,7 +114,7 @@ const getChannelKeyAndID: ChannelKeyAndIDGetter<ReadChannel> = ({ channel, key }
   id: Task.getChannelNameID(key),
 });
 
-const resolve = (device: Device.Device, { nodeId }: ReadChannel) => ({
+const resolve = (device: Device, { nodeId }: ReadChannel) => ({
   channel: getChannelByNodeID(device.properties, nodeId),
 });
 
@@ -133,7 +138,7 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
 interface DetermineIndexChannelParams {
   client: Synnax;
   config: ReadConfig;
-  device: Device.Device;
+  device: Device;
   taskName: string;
 }
 
@@ -204,11 +209,11 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
 ) => {
   const previous = await client.devices.retrieve({
     key: config.device,
-    schemas: Device.SCHEMAS,
+    schemas: SCHEMAS,
   });
   const device = await client.devices.create(
-    { ...previous, properties: Device.migrateProperties(previous.properties) },
-    Device.SCHEMAS,
+    { ...previous, properties: migrateProperties(previous.properties) },
+    SCHEMAS,
   );
 
   const index = await determineIndexChannel({
@@ -254,7 +259,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
     ...c,
     channel: getChannelByNodeID(device.properties, c.nodeId),
   }));
-  await client.devices.create(device, Device.SCHEMAS);
+  await client.devices.create(device, SCHEMAS);
   return [config, device.rack];
 };
 

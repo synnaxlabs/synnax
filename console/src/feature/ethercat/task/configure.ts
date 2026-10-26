@@ -10,7 +10,7 @@
 import { channel, ethercat, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { DataType, errors, primitive } from "@synnaxlabs/x";
 
-import { Device } from "@/feature/ethercat/device";
+import { SLAVE_SCHEMAS, type SlaveDevice } from "@/feature/ethercat/device/types";
 import {
   addressKey,
   DIRECTIONS,
@@ -27,7 +27,7 @@ import { Device as PlatformDevice } from "@/platform/device";
 type Channel = ReadChannel | WriteChannel;
 
 export interface SlaveValidationResult<C extends Channel> {
-  slaves: Device.SlaveDevice[];
+  slaves: SlaveDevice[];
   rack: number;
   channelsBySlaveKey: Map<string, Extract<C, EntryChannel>[]>;
 }
@@ -41,7 +41,7 @@ const entryWidth = (bitLength: number): number => {
 };
 
 const validateEntries = <C extends Channel>(
-  slave: Device.SlaveDevice,
+  slave: SlaveDevice,
   channels: C[],
   pdoType: PDOType,
 ): Extract<C, EntryChannel>[] => {
@@ -101,7 +101,7 @@ export const retrieveAndValidateSlaves = async <C extends Channel>(
 
   const slaves = await client.devices.retrieve({
     keys: slaveKeys,
-    schemas: Device.SLAVE_SCHEMAS,
+    schemas: SLAVE_SCHEMAS,
   });
 
   for (const slave of slaves) PlatformDevice.checkConfigured(slave);
@@ -139,7 +139,7 @@ export interface IndexOptions {
 
 export const checkOrCreateIndex = async (
   client: Synnax,
-  slave: Device.SlaveDevice,
+  slave: SlaveDevice,
   options: IndexOptions,
 ): Promise<boolean> => {
   const { indexProperty, channelsProperty, nameSuffix } = options;

@@ -19,9 +19,9 @@ import { Telem } from "@synnaxlabs/pluto";
 import { DataType, deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { Device } from "@/feature/modbus/device";
 import { useFromConfig } from "@/feature/modbus/device/queries";
 import { Select as SelectDevice } from "@/feature/modbus/device/Select";
+import { SCHEMAS } from "@/feature/modbus/device/types";
 import { OrderFields } from "@/feature/modbus/task/OrderFields";
 import { SelectReadChannelTypeField } from "@/feature/modbus/task/SelectReadChannelTypeField";
 import {
@@ -179,7 +179,7 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({ deviceKey }) => 
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: Device.SCHEMAS,
+    schemas: SCHEMAS,
   });
   let shouldCreateIndex = false;
   if (dev.properties.read.index)
@@ -232,7 +232,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       });
     }
   } finally {
-    if (modified) await client.devices.create(dev, Device.SCHEMAS);
+    if (modified) await client.devices.create(dev, SCHEMAS);
   }
 
   config.channels.forEach((c) => {

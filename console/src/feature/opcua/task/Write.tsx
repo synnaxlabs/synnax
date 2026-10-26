@@ -16,9 +16,14 @@ import { Access } from "@synnaxlabs/pluto";
 import { caseconv, errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { Device } from "@/feature/opcua/device";
 import { type HaulItem } from "@/feature/opcua/device/Browser";
 import { Select } from "@/feature/opcua/device/Select";
+import {
+  type Device,
+  migrateProperties,
+  type Properties as DeviceProperties,
+  SCHEMAS,
+} from "@/feature/opcua/device/types";
 import { type ChannelKeyAndIDGetter, createForm } from "@/feature/opcua/task/Form";
 import {
   deployWriteConfigZ,
@@ -75,10 +80,10 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => 
 
 const contextMenuItems = Component.renderProp(ContextMenuItem);
 
-const getChannelByNodeID = (props: Device.Properties, nodeId: string) =>
+const getChannelByNodeID = (props: DeviceProperties, nodeId: string) =>
   props.write.channels[nodeId] ?? props.write.channels[caseconv.snakeToCamel(nodeId)];
 
-const resolve = (device: Device.Device, { nodeId }: WriteChannel) => ({
+const resolve = (device: Device, { nodeId }: WriteChannel) => ({
   cmdChannel: getChannelByNodeID(device.properties, nodeId) ?? 0,
 });
 
@@ -104,10 +109,10 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
 ) => {
   let dev = await client.devices.retrieve({
     key: config.device,
-    schemas: Device.SCHEMAS,
+    schemas: SCHEMAS,
   });
   try {
-    dev = { ...dev, properties: Device.migrateProperties(dev.properties) };
+    dev = { ...dev, properties: migrateProperties(dev.properties) };
     const commandsToCreate: WriteChannel[] = [];
     for (const channel of config.channels) {
       const key = getChannelByNodeID(dev.properties, channel.nodeId);
@@ -156,7 +161,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       cmdChannel: getChannelByNodeID(dev.properties, c.nodeId),
     }));
   } finally {
-    await client.devices.create(dev, Device.SCHEMAS);
+    await client.devices.create(dev, SCHEMAS);
   }
   return [config, dev.rack];
 };
