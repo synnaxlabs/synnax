@@ -123,8 +123,21 @@ class TestRangeClient:
         self, two_ranges: list[sy.Range], client: sy.Synnax
     ) -> None:
         """Should raise an error when a range is not found"""
-        with pytest.raises(sy.exceptions.QueryError):
+        with pytest.raises(
+            sy.NotFoundError, match="Range matching not_found not found"
+        ):
             client.ranges.retrieve(name="not_found")
+
+    def test_retrieve_by_name_multiple_found(self, client: sy.Synnax) -> None:
+        """Should raise an error when more than one range has the name"""
+        name = random_name()
+        tr = sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND)
+        client.ranges.create([sy.Range(name=name, time_range=tr) for _ in range(2)])
+        with pytest.raises(
+            sy.MultipleFoundError,
+            match=f"Expected one Range matching {name}, but found 2",
+        ):
+            client.ranges.retrieve(name=name)
 
     def test_search(self, two_ranges: list[sy.Range], client: sy.Synnax) -> None:
         """Should search for ranges"""
@@ -186,7 +199,7 @@ class TestRangeClient:
         def test_delete_by_key(self, rng: sy.Range, client: sy.Synnax) -> None:
             """Should delete a range by key"""
             client.ranges.delete(rng.key)
-            with pytest.raises(sy.exceptions.QueryError):
+            with pytest.raises(sy.NotFoundError):
                 client.ranges.retrieve(key=rng.key)
 
         def test_delete_multiple_keys(self, client: sy.Synnax) -> None:
@@ -210,7 +223,7 @@ class TestRangeClient:
             keys = [r.key for r in ranges]
             client.ranges.delete(keys)
             for k in keys:
-                with pytest.raises(sy.exceptions.QueryError):
+                with pytest.raises(sy.NotFoundError):
                     client.ranges.retrieve(key=k)
 
     @pytest.mark.ranger
@@ -356,7 +369,9 @@ class TestRangeClient:
                 name="test",
                 time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
             )
-            with pytest.raises(sy.exceptions.QueryError):
+            with pytest.raises(
+                sy.NotFoundError, match="Channel matching not_found not found"
+            ):
                 rng["not_found"]
 
         def test_channel_not_found_on_set(self, client: sy.Synnax) -> None:
@@ -364,8 +379,21 @@ class TestRangeClient:
                 name="test",
                 time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
             )
-            with pytest.raises(sy.exceptions.QueryError):
+            with pytest.raises(
+                sy.NotFoundError, match="Channel matching not_found not found"
+            ):
                 rng.set_alias("not_found", "test")
+
+        def test_resolve_missing_alias(self, client: sy.Synnax) -> None:
+            rng = client.ranges.create(
+                name="test",
+                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            )
+            aliases = ranger.alias.Client(rng.key, client._transport.unary)
+            with pytest.raises(
+                sy.NotFoundError, match="Alias matching not_found not found"
+            ):
+                aliases.resolve("not_found")
 
     @pytest.mark.ranger
     class TestRangeChildren:

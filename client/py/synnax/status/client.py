@@ -13,7 +13,6 @@ from uuid import UUID
 from pydantic import BaseModel, JsonValue
 
 from freighter import Empty, UnaryClient
-from synnax.exceptions import NotFoundError
 from synnax.ontology import ID
 from synnax.status.types_gen import (
     Key,
@@ -23,6 +22,7 @@ from synnax.status.types_gen import (
     Variant,
     Where,
 )
+from synnax.util import one
 from x import filter
 from x.lists import normalize
 from x.params import require_named_params
@@ -244,9 +244,7 @@ class Client:
         ).statuses
 
         if single:
-            if len(res) == 0:
-                raise NotFoundError(f"Status with key '{key}' not found")
-            return res[0]
+            return one("Status", key, res)
         return res
 
     def rename(self, key: Key, name: str) -> None:

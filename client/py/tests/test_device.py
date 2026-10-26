@@ -258,7 +258,9 @@ class TestDevice:
     def test_retrieve_single_by_each_filter(self, client: sy.Synnax) -> None:
         """Should return one device for each singular filter."""
         rack = client.racks.create(name=str(uuid4()))
-        dev = client.devices.create(basic_device(rack.key, 1))
+        dev = basic_device(rack.key, 1)
+        dev.model = str(uuid4())
+        dev = client.devices.create(dev)
         by_name = client.devices.retrieve(name=dev.name, include_status=True)
         assert_type(by_name, sy.Device)
         assert by_name.key == dev.key
@@ -268,6 +270,21 @@ class TestDevice:
         missing = client.devices.retrieve(location=str(uuid4()), ignore_not_found=True)
         assert_type(missing, sy.Device | None)
         assert missing is None
+
+    def test_retrieve_single_multiple_found(self, client: sy.Synnax) -> None:
+        """Should raise when more than one device matches, even with
+        ignore_not_found."""
+        rack = client.racks.create(name=str(uuid4()))
+        make = str(uuid4())
+        for n in range(2):
+            dev = basic_device(rack.key, n)
+            dev.make = make
+            client.devices.create(dev)
+        with pytest.raises(
+            sy.MultipleFoundError,
+            match=f"Expected one Device matching {make}, but found 2",
+        ):
+            client.devices.retrieve(make=make, ignore_not_found=True)
 
     def test_retrieve_no_filters(self, client: sy.Synnax) -> None:
         """Should return a list of every device when no filter is given."""

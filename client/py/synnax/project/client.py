@@ -13,7 +13,6 @@ from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
-from synnax.exceptions import NotFoundError
 from synnax.project.types_gen import (
     Key,
     Project,
@@ -21,6 +20,7 @@ from synnax.project.types_gen import (
     RetrieveResponse,
     Where,
 )
+from synnax.util import one
 from x import filter
 from x.lists import normalize
 
@@ -164,7 +164,5 @@ class Client:
         )
         projects = res.projects
         if is_single:
-            if len(projects) == 0:
-                raise NotFoundError("Project not found")
-            return projects[0]
+            return one("Project", key, projects)
         return projects
