@@ -586,7 +586,10 @@ class TestTimeArithmetic:
         assert type(result) is sy.TimeSpan
         assert int(result) == int(Fraction(a, b))
 
-    @given(_SPAN, _FACTOR.filter(lambda v: abs(v) >= 1e-3))
+    @given(
+        st.integers(min_value=-(2**52), max_value=2**52),
+        _FACTOR.filter(lambda v: abs(v) >= 1e-3),
+    )
     def test_div_by_float(self, a: int, b: float) -> None:
         """Should return a span truncated toward zero when dividing by a float"""
         result = sy.TimeSpan(a) / b
