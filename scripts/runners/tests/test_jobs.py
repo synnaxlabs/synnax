@@ -88,6 +88,21 @@ class TestJobs:
         assert j.queued == {2: set(LABELS)}
         assert j.counts() == {"ubuntu-test-bot": 1}
 
+    def test_should_restore_running_jobs_no_delivery_reported(
+        self, client: Client
+    ) -> None:
+        running = delivery("in_progress", 3)["workflow_job"] | {"status": "in_progress"}
+        github = Responses(
+            {
+                "/actions/runs?status=queued&per_page=100": runs(),
+                "/actions/runs?status=in_progress&per_page=100": runs(7),
+                "/actions/runs/7/jobs?per_page=100": {"jobs": [running]},
+            }
+        )
+        j = jobs(github, client)
+        j.resync(sy.TimeStamp.now())
+        assert j.active["runner"]["id"] == 3
+
     def test_should_keep_the_current_job_on_a_late_completion(
         self, client: Client
     ) -> None:

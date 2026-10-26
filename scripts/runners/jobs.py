@@ -177,6 +177,8 @@ class Jobs:
         return dict(pools)
 
     def resync(self, now: sy.TimeStamp) -> None:
+        """Rebuilds the queued jobs from the API and adds the running jobs that no
+        delivery reported, at most once per RESYNC_INTERVAL."""
         if self.synced is not None and now.span(self.synced) < RESYNC_INTERVAL:
             return
         # Stamped before the calls, so a failure waits out the interval instead of
@@ -188,6 +190,9 @@ class Jobs:
                 for job in self.github.run_jobs(run):
                     if job["status"] == "queued":
                         queued[job["id"]] = set(job.get("labels", []))
+                    # Restores the jobs that started before a restart.
+                    elif job["status"] == "in_progress" and job.get("runner_name"):
+                        self.active.setdefault(job["runner_name"], view(job))
             self.queued = queued
         except Exception as e:
             self.log.error("queued resync", e)
