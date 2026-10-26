@@ -12,6 +12,7 @@ import {
   DataType,
   id,
   Series,
+  Size,
   sleep,
   TimeRange,
   TimeSpan,
@@ -21,8 +22,9 @@ import { afterAll, describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
+import { tileSpan, type TileSpec } from "@/framer/cache/tile";
 import { type Transform } from "@/framer/cache/transform";
-import { Feed, type LatestReader } from "@/framer/feed";
+import { Feed, type FeedProps, type LatestReader } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
 import { createTestClient } from "@/testutil";
 
@@ -487,6 +489,194 @@ describe("feed", () => {
     const closed = direct.close().then(() => true);
     const timedOut = sleep.sleep(TimeSpan.seconds(1)).then(() => false);
     expect(await Promise.race([closed, timedOut])).toBe(true);
+  });
+
+  describe("readTile", () => {
+    const LEVEL = 12;
+    const COUNT = 1000;
+
+    // Writes COUNT samples one millisecond apart from the start of a finished tile.
+    // Data sample i holds the value i.
+    const writeTile = async () => {
+      const channels = await createChannels();
+      const span = tileSpan(LEVEL);
+      const index = Number(TimeStamp.now().valueOf() / span.valueOf()) - 1;
+      const start = new TimeStamp(BigInt(index) * span.valueOf());
+      await client.write(start, {
+        [channels.time.key]: Array.from({ length: COUNT }, (_, i) =>
+          start.add(TimeSpan.milliseconds(i)),
+        ),
+        [channels.data.key]: Array.from({ length: COUNT }, (_, i) => i),
+      });
+      return { ...channels, index, start };
+    };
+
+    it("should read the min and max of each group of a tile", async () => {
+      const { time, data, index, start } = await writeTile();
+      const tile = { level: LEVEL, index, pointLimit: 100 };
+      const aggregation = "min_max";
+      const [times, values] = await Promise.all([
+        feed.readTile({ ...tile, key: time.key, aggregation }),
+        feed.readTile({ ...tile, key: data.key, aggregation }),
+      ]);
+      expect(Array.from(values)).toEqual(
+        Array.from({ length: 50 }, (_, g) => [g * 20, g * 20 + 19]).flat(),
+      );
+      expect(times.length).toBe(100);
+      expect(times.series[0].at(0)).toEqual(start.valueOf());
+      expect(values.series.map((s) => s.alignment)).toEqual(
+        times.series.map((s) => s.alignment),
+      );
+      values.series.forEach((s) => expect(s.alignmentMultiple).toBe(10n));
+    });
+
+    it("should read the mean of each group of a tile", async () => {
+      const { data, index } = await writeTile();
+      const values = await feed.readTile({
+        key: data.key,
+        level: LEVEL,
+        index,
+        pointLimit: 100,
+        aggregation: "average",
+      });
+      expect(Array.from(values)).toEqual(
+        Array.from({ length: 100 }, (_, g) => g * 10 + 4.5),
+      );
+      values.series.forEach((s) => expect(s.alignmentMultiple).toBe(10n));
+    });
+
+    it("should return every sample of a tile under the point limit", async () => {
+      const { data, index } = await writeTile();
+      const values = await feed.readTile({
+        key: data.key,
+        level: LEVEL,
+        index,
+        pointLimit: 2000,
+        aggregation: "min_max",
+      });
+      expect(Array.from(values)).toEqual(Array.from({ length: COUNT }, (_, i) => i));
+      values.series.forEach((s) => expect(s.alignmentMultiple).toBe(1n));
+    });
+
+    it("should serve a second read of a finished tile from the cache", async () => {
+      const { data, index } = await writeTile();
+      const spec: TileSpec = {
+        key: data.key,
+        level: LEVEL,
+        index,
+        pointLimit: 100,
+        aggregation: "min_max",
+      };
+      const first = await feed.readTile(spec);
+      expect(await feed.readTile(spec)).toBe(first);
+    });
+
+    it("should read a partial tile up to its end", async () => {
+      const { data, index, start } = await writeTile();
+      const values = await feed.readTile({
+        key: data.key,
+        level: LEVEL,
+        index,
+        pointLimit: 100,
+        aggregation: "min_max",
+        end: start.add(TimeSpan.milliseconds(500)),
+      });
+      expect(Array.from(values)).toEqual(
+        Array.from({ length: 50 }, (_, g) => [g * 10, g * 10 + 9]).flat(),
+      );
+    });
+
+    it("should read an empty tile for a channel with no data in it", async () => {
+      const { data, index } = await writeTile();
+      const values = await feed.readTile({
+        key: data.key,
+        level: LEVEL,
+        index: index - 1,
+        pointLimit: 100,
+        aggregation: "min_max",
+      });
+      expect(values.length).toBe(0);
+    });
+
+    const TILE: TileSpec = {
+      key: 1,
+      level: LEVEL,
+      index: 3,
+      pointLimit: 100,
+      aggregation: "min_max",
+    };
+
+    // Returns a feed whose remote read counts its calls and answers every key with one
+    // float32 sample equal to the key.
+    const createFeed = (props: Partial<FeedProps> = {}) => {
+      const counter = { calls: 0 };
+      const direct = new Feed({
+        readRemote: async (_, keys) => {
+          counter.calls++;
+          return new Frame(
+            keys,
+            keys.map((k) => new Series({ data: new Float32Array([k]) })),
+          );
+        },
+        openStreamer: async () => {
+          throw new UnexpectedError("streamer unused");
+        },
+        readLatest: async () => new Frame([], []),
+        ...props,
+      });
+      return { direct, counter };
+    };
+
+    it("should forward fetchTimeout to the tile reader", async () => {
+      const { direct } = createFeed({
+        fetchTimeout: TimeSpan.milliseconds(20),
+        readRemote: async () => await new Promise<Frame>(() => {}),
+      });
+      const read = direct.readTile(TILE);
+      await expect(read).rejects.toThrow(Unreachable);
+      await expect(read).rejects.toThrow("timed out after 20ms");
+      await direct.close();
+    });
+
+    it("should apply the configured transform to tiles", async () => {
+      const transform: Transform = {
+        resolveDataType: () => DataType.FLOAT64,
+        convert: (series) => series.convert(DataType.FLOAT64),
+      };
+      const { direct } = createFeed({ transform });
+      const tile = await direct.readTile(TILE);
+      expect(tile.dataType.equals(DataType.FLOAT64)).toBe(true);
+      expect(Array.from(tile)).toEqual([1]);
+      await direct.close();
+    });
+
+    it("should forward staleCoverageThreshold to the tile cache", async () => {
+      const { direct, counter } = createFeed({
+        staleCoverageThreshold: TimeSpan.milliseconds(50),
+      });
+      await direct.readTile(TILE);
+      await direct.readTile(TILE);
+      expect(counter.calls).toBe(1);
+      await sleep.sleep(TimeSpan.milliseconds(60));
+      await direct.readTile(TILE);
+      expect(counter.calls).toBe(2);
+      await direct.close();
+    });
+
+    it("should forward tileBudget to the tile cache", async () => {
+      const { direct, counter } = createFeed({ tileBudget: Size.bytes(4) });
+      await direct.readTile({ ...TILE, index: 1 });
+      await direct.readTile({ ...TILE, index: 2 });
+      await direct.readTile({ ...TILE, index: 1 });
+      expect(counter.calls).toBe(3);
+      await direct.close();
+    });
+
+    it("should reject tile reads after the feed closes", async () => {
+      const { direct } = createFeed();
+      await direct.close();
+      await expect(direct.readTile(TILE)).rejects.toThrow("tile reader is closed");
+    });
   });
 
   describe("readLatest", () => {

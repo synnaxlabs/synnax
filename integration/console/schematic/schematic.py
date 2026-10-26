@@ -44,7 +44,7 @@ AlignmentType = Literal[
     "bottom",
 ]
 
-ALIGNMENT_EXTRACTORS = {
+_ALIGNMENT_EXTRACTORS = {
     "left": box_left,
     "right": box_right,
     "top": box_top,
@@ -359,6 +359,33 @@ class Schematic(ConsolePage):
     def get_edge_count(self) -> int:
         """Get the number of edges on the schematic pane."""
         return self.page.locator(".react-flow__edge").count()
+
+    @property
+    def symbol_name(self) -> Locator:
+        """The toolbar header name of the selected symbols, or Mixed when they differ.
+
+        Symbols must be selected first (see select).
+        """
+        return self.page.locator(".console-schematic__symbol .pluto-text").first
+
+    def change_symbol(self, name: str) -> None:
+        """Change the selected symbols to the named symbol from the symbols tab.
+
+        Symbols must be selected first (see select). A click on the symbols tab
+        ends the change, so this searches the tab that the change opens.
+
+        :param name: The name of the symbol in the symbols tab (e.g. "Solenoid").
+        """
+        self.notifications.close_all()
+        self.page.get_by_label("Change symbol", exact=True).click(timeout=5000)
+        symbols = self.page.locator(".console-schematic__symbols")
+        self.layout.wait_for_visible(symbols)
+        symbols.locator("input[role='textbox']").first.fill(name)
+        item = symbols.locator(".console-schematic-symbols__button").filter(
+            has=self.page.locator("small").get_by_text(name, exact=True)
+        )
+        item.first.click(timeout=5000)
+        self.layout.wait_for_hidden(self.page.locator(".console-schematic__change"))
 
     def set_authority(self, authority: int) -> None:
         """Set the control authority for the schematic page."""

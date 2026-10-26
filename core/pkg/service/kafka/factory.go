@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -23,7 +24,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -186,22 +186,17 @@ func (f *factory) reportConfigError(
 		)
 		return
 	}
-	details := task.NewStatusDetails(t, false)
-	details.Cmd = cmdKey
-	stat := task.Status{
-		Key:     t.OntologyID().String(),
-		Name:    t.Name,
-		Variant: status.VariantError,
-		Message: err.Error(),
-		Time:    telem.Now(),
-		Details: details,
-	}
-	if err := f.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		return f.cfg.Status.NewWriter(tx).Set(ctx, &stat)
-	}); err != nil {
+	if sErr := driver.NewStatusHandler(f.cfg.DB, f.cfg.Status, t).Send(
+		ctx,
+		cmdKey,
+		status.VariantError,
+		false,
+		"Failed to configure task",
+		err.Error(),
+	); sErr != nil {
 		f.cfg.L.Error("failed to set configuration status",
 			zap.Stringer("task", t),
-			zap.Error(err),
+			zap.Error(sErr),
 		)
 	}
 }

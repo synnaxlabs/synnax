@@ -59,7 +59,7 @@ std::string format_channels(const Channels &ch) {
             ch.read.begin(),
             ch.read.end()
         );
-        std::sort(read_pairs.begin(), read_pairs.end());
+        std::ranges::sort(read_pairs);
         bool first = true;
         for (const auto &[id, name]: read_pairs) {
             if (!first) ss << ", ";
@@ -77,7 +77,7 @@ std::string format_channels(const Channels &ch) {
             ch.write.begin(),
             ch.write.end()
         );
-        std::sort(write_pairs.begin(), write_pairs.end());
+        std::ranges::sort(write_pairs);
         bool first = true;
         for (const auto &[id, name]: write_pairs) {
             if (!first) ss << ", ";

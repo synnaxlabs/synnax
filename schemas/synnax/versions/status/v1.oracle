@@ -22,7 +22,10 @@ Status struct<Details?, V extends Variant = Variant> {
         @key
     }
     name        string = "" {
-        @doc value "is an optional human-readable name for the status."
+        @doc value """
+            is the name of what the status is about, such as a task, device, or rack.
+            Empty when the status is not about a named thing.
+        """
     }
     variant     V               {
         @doc value """
@@ -31,10 +34,17 @@ Status struct<Details?, V extends Variant = Variant> {
         """
     }
     message     string          {
-        @doc value "is the main message text describing the status."
+        @doc value """
+            says what happened in one short line, such as "Failed to start task" or
+            "Started task". A status that reports a state names the state instead, such
+            as "Driver not running".
+        """
     }
     description string = "" {
-        @doc value "is an optional detailed description providing additional context."
+        @doc value """
+            says why it happened and what to do now, in full sentences. Raw error text
+            goes here, never in the message. Empty when the message says enough.
+        """
     }
     time        telem.TimeStamp = now {
         @doc value "is the timestamp when the status was created."

@@ -16,7 +16,7 @@ import synnax as sy
 
 # A notification expires on its own after a few seconds, so a button that is still
 # attached resolves at once.
-SILENCE_TIMEOUT = 1000
+_SILENCE_TIMEOUT = 1000
 
 
 class NotificationsClient:
@@ -132,14 +132,14 @@ class NotificationsClient:
         )
         if clear_all.count() > 0:
             try:
-                clear_all.dispatch_event("click", timeout=SILENCE_TIMEOUT)
+                clear_all.dispatch_event("click", timeout=_SILENCE_TIMEOUT)
             except PlaywrightTimeoutError:
                 # An expired toast can drop the count to four, which hides the control.
                 pass
         # Last to first: a silenced toast unmounts and shifts the indexes after it.
         for i in reversed(range(buttons.count())):
             try:
-                buttons.nth(i).dispatch_event("click", timeout=SILENCE_TIMEOUT)
+                buttons.nth(i).dispatch_event("click", timeout=_SILENCE_TIMEOUT)
             except PlaywrightTimeoutError:
                 pass
         try:
@@ -166,13 +166,18 @@ class NotificationsClient:
         except PlaywrightTimeoutError:
             return False
 
-    def wait_for(self, text: str) -> bool:
+    def wait_for(self, text: str, name: str | None = None) -> bool:
         """Wait for a notification containing specific text to appear.
 
         :param text: Text to search for in the notification.
+        :param name: Text the notification's name must contain, if given.
         :returns: True if the notification was found, False if timeout.
         """
         notification = self._all().filter(has_text=text)
+        if name is not None:
+            notification = notification.filter(
+                has=self.page.locator(".pluto-notification__name", has_text=name)
+            )
         try:
             notification.first.wait_for(state="visible", timeout=5000)
             return True

@@ -15,6 +15,9 @@
     & > .pluto-text--overflow-fade {
         min-width: 0;
     }
+    & p:last-child {
+        flex-shrink: 0;
+    }
 }
 
 .pluto-device__list-item-location {

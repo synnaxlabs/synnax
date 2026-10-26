@@ -9,8 +9,10 @@
 
 #pragma once
 
+#include <cmath>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "wasmtime.hh"
@@ -28,13 +30,12 @@ namespace arc::runtime::wasm {
 /// @brief Convert SampleValue to wasmtime::Val for WASM function calls.
 inline wasmtime::Val sample_to_wasm(const x::telem::SampleValue &val) {
     return std::visit(
-        []<typename T0>(T0 &&arg) -> wasmtime::Val {
+        []<typename T0>(const T0 &arg) -> wasmtime::Val {
             using T = std::decay_t<T0>;
-            if constexpr (std::is_same_v<T, double>) {
-                return wasmtime::Val(arg);
-            } else if constexpr (std::is_same_v<T, float>) {
-                return wasmtime::Val(arg);
-            } else if constexpr (std::is_same_v<T, int64_t>) {
+            if constexpr (
+                std::is_same_v<T, double> || std::is_same_v<T, float> ||
+                std::is_same_v<T, int64_t>
+            ) {
                 return wasmtime::Val(arg);
             } else if constexpr (std::is_same_v<T, uint64_t>) {
                 return wasmtime::Val(static_cast<int64_t>(arg));
@@ -130,7 +131,8 @@ sample_from_wasm(const wasmtime::Val &val, const types::Type &type) {
 inline x::telem::SampleValue
 sample_from_bits(const uint64_t bits, const types::Type &type) {
     // Check for timestamp (i64 with nanosecond time units)
-    if (type.is_timestamp()) return x::telem::SampleValue(x::telem::TimeStamp(bits));
+    if (type.is_timestamp())
+        return x::telem::SampleValue(x::telem::TimeStamp(static_cast<int64_t>(bits)));
 
     switch (type.kind) {
         case types::Kind::U8:
@@ -151,12 +153,12 @@ sample_from_bits(const uint64_t bits, const types::Type &type) {
             return x::telem::SampleValue(static_cast<int64_t>(bits));
         case types::Kind::F32: {
             const auto bits32 = static_cast<uint32_t>(bits);
-            float f;
+            float f = NAN;
             memcpy(&f, &bits32, sizeof(float));
             return x::telem::SampleValue(f);
         }
         case types::Kind::F64: {
-            double d;
+            double d = NAN;
             memcpy(&d, &bits, sizeof(double));
             return x::telem::SampleValue(d);
         }
@@ -192,19 +194,19 @@ class Module {
 
 public:
     Module(
-        const ModuleConfig &cfg,
+        ModuleConfig cfg,
         wasmtime::Module module,
         wasmtime::Engine engine,
         wasmtime::Store store,
         wasmtime::Memory memory,
         wasmtime::Instance instance
     ):
-        cfg(cfg),
+        cfg(std::move(cfg)),
         module(std::move(module)),
         engine(std::move(engine)),
         store(std::move(store)),
-        memory(std::move(memory)),
-        instance(std::move(instance)) {}
+        memory(memory),
+        instance(instance) {}
 
     static std::pair<std::shared_ptr<Module>, x::errors::Error>
     open(const ModuleConfig &cfg) {
@@ -236,7 +238,7 @@ public:
         const auto mod = mod_result.ok();
 
         wasmtime::Linker linker(engine);
-        for (auto &m: cfg.modules)
+        for (const auto &m: cfg.modules)
             m->bind_to(linker, store);
 
         auto inst_result = linker.instantiate(store, mod);
@@ -277,11 +279,11 @@ public:
 
         auto module = std::make_shared<Module>(
             cfg,
-            std::move(mod),
+            mod,
             std::move(engine),
             std::move(store),
-            std::move(mem),
-            std::move(instance)
+            mem,
+            instance
         );
         for (auto &m: module->cfg.modules)
             m->set_wasm_context(&module->store, &module->memory);
@@ -319,7 +321,7 @@ public:
             const types::Params &inputs,
             const uint32_t base
         ):
-            module(module), fn(std::move(fn)), outputs(outputs), base(base) {
+            module(module), fn(fn), outputs(outputs), base(base) {
             this->args.resize(inputs.size(), wasmtime::Val(0));
             this->streamed.assign(inputs.size(), false);
             // An input with a nil value is edge-fed and streams in call(); a literal
@@ -372,7 +374,7 @@ public:
                 auto trap = result.err();
                 auto msg = trap.message();
                 std::string trap_msg(msg.data(), msg.size());
-                return x::errors::Error("WASM execution failed: " + trap_msg);
+                return x::errors::Error(errors::WASM_TRAP, trap_msg);
             }
 
             const auto results = result.ok();
@@ -390,7 +392,10 @@ public:
             const size_t mem_size = mem_span.size();
 
             if (this->base + sizeof(uint64_t) > mem_size)
-                return x::errors::Error("base address out of memory bounds");
+                return x::errors::Error(
+                    errors::WASM_TRAP,
+                    "The base address is out of memory bounds."
+                );
 
             uint64_t dirty_flags = 0;
             memcpy(&dirty_flags, mem_data + base, sizeof(uint64_t));

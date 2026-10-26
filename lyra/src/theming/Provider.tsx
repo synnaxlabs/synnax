@@ -11,10 +11,8 @@ import { caseconv, deep, zod } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactElement,
-  useCallback,
   useEffect,
   useLayoutEffect,
-  useMemo,
   useState,
 } from "react";
 
@@ -57,6 +55,42 @@ const prefersDark = () =>
 
 const isDarkMode = (): boolean => prefersDark()?.matches ?? true;
 
+const OVERRIDDEN_KEYS = ["synnaxLight", "synnaxDark"];
+
+/** @returns the variant the caller's theme pins, or null when it names none. */
+const pinnedKey = (theme: UseProviderProps["theme"]): string | null =>
+  theme != null && OVERRIDDEN_KEYS.includes(theme.key) ? theme.key : null;
+
+const parseThemes = (
+  theme: UseProviderProps["theme"],
+  themes: Record<string, baseTheme.ThemeSpec>,
+): Record<string, baseTheme.Theme> => {
+  if (theme != null) {
+    // The override applies to both variants and each keeps its own key, since
+    // consumers tell light from dark by key. The caller's key pins a variant when it
+    // names one and is otherwise ignored.
+    const { key: _, ...override } = theme;
+    const synnaxLight = zod.parse(
+      baseTheme.themeZ,
+      deep.override(deep.copy(baseTheme.SYNNAX_LIGHT), override),
+      { label: "theme" },
+    );
+    const synnaxDark = zod.parse(
+      baseTheme.themeZ,
+      deep.override(deep.copy(baseTheme.SYNNAX_DARK), override),
+      { label: "theme" },
+    );
+    return { synnaxLight, synnaxDark };
+  }
+  return Object.entries(themes).reduce<Record<string, baseTheme.Theme>>(
+    (acc, [key, value]) => ({
+      ...acc,
+      [key]: zod.parse(baseTheme.themeZ, value, { label: "theme" }),
+    }),
+    {},
+  );
+};
+
 export const useProvider = ({
   theme,
   themes = baseTheme.SYNNAX_THEMES,
@@ -65,47 +99,26 @@ export const useProvider = ({
   lightTheme = "synnaxLight",
   darkTheme = "synnaxDark",
 }: UseProviderProps): ContextValue => {
-  const [selected, setSelected] = useState<string>(() =>
-    isDarkMode() ? darkTheme : lightTheme,
+  const [selected, setSelected] = useState<string>(
+    () => pinnedKey(theme) ?? (isDarkMode() ? darkTheme : lightTheme),
   );
+  const [prevTheme, setPrevTheme] = useState(theme);
+  if (theme !== prevTheme) {
+    setPrevTheme(theme);
+    const pinned = pinnedKey(theme);
+    if (pinned != null) setSelected(pinned);
+  }
 
-  const parsedThemes = useMemo(() => {
-    if (theme != null) {
-      // The override applies to both variants and each keeps its own key, since
-      // consumers tell light from dark by key. The caller's key pins a variant when it
-      // names one and is otherwise ignored.
-      const { key, ...override } = theme;
-      const synnaxLight = zod.parse(
-        baseTheme.themeZ,
-        deep.override(deep.copy(baseTheme.SYNNAX_LIGHT), override),
-        { label: "theme" },
-      );
-      const synnaxDark = zod.parse(
-        baseTheme.themeZ,
-        deep.override(deep.copy(baseTheme.SYNNAX_DARK), override),
-        { label: "theme" },
-      );
-      const overridden: Record<string, baseTheme.Theme> = { synnaxLight, synnaxDark };
-      if (Object.hasOwn(overridden, key)) setSelected(key);
-      return overridden;
-    }
-    return Object.entries(themes).reduce<Record<string, baseTheme.Theme>>(
-      (acc, [key, value]) => ({
-        ...acc,
-        [key]: zod.parse(baseTheme.themeZ, value, { label: "theme" }),
-      }),
-      {},
-    );
-  }, [theme, themes]);
+  const parsedThemes = parseThemes(theme, themes);
 
-  const handleToggle = useCallback((): void => {
+  const handleToggle = (): void => {
     const keys = Object.keys(themes);
     const index = keys.indexOf(selected);
     const nextIndex = (index + 1) % keys.length;
     setSelected(keys[nextIndex]);
-  }, [toggleTheme, selected, themes]);
+  };
 
-  const parsedTheme = useMemo(() => parsedThemes[selected], [parsedThemes, selected]);
+  const parsedTheme = parsedThemes[selected];
 
   // When a caller supplies theme, they own OS-sync (or the decision to opt out of
   // it) themselves; listening here too would flip selected out from under a
@@ -151,11 +164,11 @@ export const Provider = ({
   // but not the key. This reduces re-renders, but should be corrected once the user
   // has the ability to edit the theme themselves.
   useLayoutEffect(() => {
-    if (el === undefined) el = document.documentElement;
-    if (el == null) return;
-    setThemeClass(el, ret.theme);
-    if (applyCSSVars) CSS.applyVars(el, toCSSVars(ret.theme));
-    else CSS.removeVars(el, "--pluto");
+    const target = el === undefined ? document.documentElement : el;
+    if (target == null) return;
+    setThemeClass(target, ret.theme);
+    if (applyCSSVars) CSS.applyVars(target, toCSSVars(ret.theme));
+    else CSS.removeVars(target, "--pluto");
   }, [ret.theme.key, el]);
 
   return <Context value={ret}>{children}</Context>;

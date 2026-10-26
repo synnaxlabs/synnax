@@ -113,6 +113,27 @@ var _ = Describe("CanEmbed", func() {
 				c string
 			}
 		`, false),
+		Entry("an aliased parent whose embed name a sibling parent's field shadows", `
+			@go output "core/test"
+
+			Base struct {
+				x string
+			}
+
+			A struct extends Base {
+				aa string
+			}
+
+			AliasA = A
+
+			B struct {
+				base string
+			}
+
+			Child struct extends AliasA, B {
+				c string
+			}
+		`, false),
 		Entry("a flattened parent promoting a name another parent embeds", `
 			@go output "core/test"
 

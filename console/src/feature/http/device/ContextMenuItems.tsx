@@ -7,39 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
 import { Menu } from "@synnaxlabs/lyra/menu";
 
-import { useConnectModal } from "@/feature/http/device/useConnectModal";
 import { Task } from "@/feature/http/task";
 import { Device as PlatformDevice } from "@/platform/device";
-import { type Tree } from "@/platform/tree";
 
-const TASK_CONTEXT_MENU_ITEM_CONFIGS: PlatformDevice.TaskContextMenuItemConfig[] = [
-  {
+const TASK_CONTEXT_MENU_ITEMS = [
+  PlatformDevice.createTaskContextMenuItem({
     itemKey: "http.readTask",
     label: "Create read task",
     useCreate: Task.useCreateRead,
-  },
-  {
+  }),
+  PlatformDevice.createTaskContextMenuItem({
     itemKey: "http.writeTask",
     label: "Create write task",
     useCreate: Task.useCreateWrite,
-  },
+  }),
 ];
 
-export const ContextMenuItems = (props: Tree.ContextMenuProps) => {
-  const connect = useConnectModal();
-  const onConfigure = (deviceKey: device.Key) => connect({ deviceKey });
-  return (
-    <>
-      <PlatformDevice.EditConnectionMenuItem {...props} onConfigure={onConfigure} />
-      <Menu.Divider />
-      <PlatformDevice.TaskContextMenuItems
-        {...props}
-        onConfigure={onConfigure}
-        taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
-      />
-    </>
-  );
-};
+export const ContextMenuItems = (props: PlatformDevice.ContextMenuItemsProps) => (
+  <>
+    <PlatformDevice.EditConnectionMenuItem {...props} />
+    <Menu.Divider />
+    <PlatformDevice.TaskContextMenuItems {...props} items={TASK_CONTEXT_MENU_ITEMS} />
+  </>
+);

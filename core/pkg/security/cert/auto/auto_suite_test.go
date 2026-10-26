@@ -19,7 +19,7 @@ import (
 
 func TestAuto(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cert Auto Suite")
+	RunSpecs(t, "Cert Auto Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

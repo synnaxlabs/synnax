@@ -27,6 +27,7 @@ var _ = Describe("Errors", func() {
 		Entry("RepeatedUsername", auth.ErrRepeatedUsername),
 		Entry("InvalidToken", auth.ErrInvalidToken),
 		Entry("ExpiredToken", auth.ErrExpiredToken),
+		Entry("SessionEnded", auth.ErrSessionEnded),
 		Entry("AccessDenied", auth.ErrAccessDenied),
 		Entry("Auth", auth.ErrAuth),
 	)

@@ -10,23 +10,11 @@
  */
 
 .console-kafka-connect {
-    position: relative;
-    width: 120rem;
-    height: 108rem;
-    .console-content {
-        width: 100%;
-        flex-grow: 1;
-        min-height: 0;
-        padding: 3rem 4rem;
-        overflow-y: auto;
-    }
-    .pluto-navbar {
-        .pluto--start {
-            padding-left: 2rem;
-        }
-        .pluto--end {
-            padding-right: 2rem;
-        }
+    width: 155rem;
+
+    /* Fits the longest label, so the column holds still as fields show and hide. */
+    .pluto-form-sections.pluto--direction-y {
+        grid-template-columns: minmax(18rem, max-content) minmax(0, 1fr);
     }
 }
 

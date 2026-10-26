@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, JsonValue
@@ -18,17 +19,20 @@ from synnax.ethercat.types_gen import (
     WriteChannel,
     WriteConfig,
 )
+from synnax.exceptions import MultipleFoundError, NotFoundError
 from synnax.telem import CrudeRate, Rate
 
 # Device identifiers - must match driver expectations
-MAKE = "EtherCAT"
-MODEL = "Slave"
+MAKE = "ethercat"
+MODEL = "slave"
 
 
 class PDOEntry(BaseModel):
     """A single PDO entry stored in slave device properties after scanning.
 
     :param name: Human-readable name of the PDO entry (e.g. "Position actual value").
+    :param pdo_name: Name of the parent PDO (e.g. "Channel 1"), when the slave gives
+        one.
     :param pdo_index: Parent PDO index (e.g. 0x1A00 for TxPDO, 0x1600 for RxPDO).
     :param index: CoE object dictionary index (e.g. 0x6064 = 24676).
     :param sub_index: CoE object dictionary subindex.
@@ -37,6 +41,7 @@ class PDOEntry(BaseModel):
     """
 
     name: str
+    pdo_name: str | None = None
     pdo_index: int = Field(default=0, ge=0, le=65535)
     index: int = Field(ge=0, le=65535)
     sub_index: int = Field(ge=0, le=255)
@@ -49,8 +54,8 @@ class ReadTask(
 ):
     """A read task for sampling data from EtherCAT slave devices.
 
-    The task supports both automatic channels (PDO resolved by name) and manual
-    channels (PDO address specified inline).
+    Each channel reads one PDO entry by its CoE address. Use find_entry to get the
+    address of an entry by name.
 
     :param name: A human-readable name for the task.
     :param sample_rate: The rate at which to sample data from slaves (Hz).
@@ -58,8 +63,7 @@ class ReadTask(
     :param data_saving_disabled: Whether to only stream data for real-time consumption
         instead of saving it permanently within Synnax.
     :param auto_start: Whether to start the task automatically when configured.
-    :param channels: The input channels to acquire data from (ReadChannel variants:
-        AutomaticReadChannel, ManualReadChannel).
+    :param channels: The input channels to acquire data from (EntryReadChannel).
     """
 
     TYPE = "ethercat_read"
@@ -105,8 +109,7 @@ class WriteTask(
     :param data_saving_disabled: Whether to only stream state data for real-time
         consumption instead of saving it permanently within Synnax.
     :param auto_start: Whether to start the task automatically when configured.
-    :param channels: The output channels to write to (WriteChannel variants:
-        AutomaticWriteChannel, ManualWriteChannel).
+    :param channels: The output channels to write to (EntryWriteChannel).
     """
 
     TYPE = "ethercat_write"
@@ -188,8 +191,10 @@ class Device(device.Device):
             "name": name,
             "enabled": enabled,
             "pdos": {
-                "inputs": [p.model_dump() for p in (input_pdos or [])],
-                "outputs": [p.model_dump() for p in (output_pdos or [])],
+                "inputs": [p.model_dump(exclude_none=True) for p in (input_pdos or [])],
+                "outputs": [
+                    p.model_dump(exclude_none=True) for p in (output_pdos or [])
+                ],
             },
         }
         super().__init__(
@@ -202,3 +207,56 @@ class Device(device.Device):
             configured=configured,
             properties=props,
         )
+
+
+def find_entry(
+    slave: device.Device,
+    name: str,
+    *,
+    pdo_name: str | None = None,
+    direction: Literal["input", "output"] = "input",
+) -> PDOEntry:
+    """Finds the PDO entry with the given name in the scanned properties of a slave.
+
+    Entries that share a CoE address are the same object, so they count as one match.
+
+    :param slave: The EtherCAT slave device.
+    :param name: The entry name (e.g. "Input").
+    :param pdo_name: The name of the PDO that holds the entry (e.g. "Channel 1").
+        Necessary when more than one PDO holds an entry with the same name.
+    :param direction: "input" for TxPDO entries, "output" for RxPDO entries.
+    :returns: The entry, with the index, sub_index, and data_type for an entry
+        channel.
+    :raises NotFoundError: If no entry matches.
+    :raises MultipleFoundError: If entries at different addresses match.
+    """
+    pdos = _ScannedProperties.model_validate(slave.properties).pdos
+    matches: dict[tuple[int, int], PDOEntry] = {}
+    for raw in pdos.get(f"{direction}s", []):
+        if raw.get("name") != name or (
+            pdo_name is not None and raw.get("pdo_name") != pdo_name
+        ):
+            continue
+        entry = PDOEntry.model_validate(raw)
+        matches.setdefault((entry.index, entry.sub_index), entry)
+    target = f"{direction} entry {name!r}"
+    if pdo_name is not None:
+        target += f" in PDO {pdo_name!r}"
+    if len(matches) == 0:
+        raise NotFoundError(f"no {target} on slave {slave.name!r}")
+    if len(matches) > 1:
+        found = ", ".join(_format(e) for e in matches.values())
+        message = f"{target} on slave {slave.name!r} matches {found}"
+        if pdo_name is None:
+            message += ". Pass pdo_name to pick one"
+        raise MultipleFoundError(message)
+    return next(iter(matches.values()))
+
+
+class _ScannedProperties(BaseModel):
+    pdos: dict[str, list[dict[str, JsonValue]]] = {}
+
+
+def _format(entry: PDOEntry) -> str:
+    address = f"0x{entry.index:04X}:{entry.sub_index:02X}"
+    return address if entry.pdo_name is None else f"{address} ({entry.pdo_name})"

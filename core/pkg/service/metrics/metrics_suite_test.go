@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -29,7 +28,6 @@ import (
 var (
 	dist       mock.Node
 	otg        *ontology.Ontology
-	searchIdx  *search.Index
 	groupSvc   *group.Service
 	framerSvc  *framer.Service
 	channelSvc *channel.Service
@@ -37,7 +35,7 @@ var (
 
 func TestMetrics(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Metrics Suite")
+	RunSpecs(t, "Service Metrics Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
@@ -46,24 +44,20 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	dist = mock.NewNode(ctx)
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: dist.DB}))
-	searchIdx = MustOpen(search.OpenIndex())
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: otg,
-		Search:   searchIdx,
 	}))
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: otg,
 		Group:    groupSvc,
-		Search:   searchIdx,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       dist.DB,
 		Label:    labelSvc,
 		Ontology: otg,
 		Group:    groupSvc,
-		Search:   searchIdx,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      dist.Channel,
@@ -71,7 +65,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		HostProvider: dist.Cluster,
 		Ontology:     otg,
 		Group:        groupSvc,
-		Search:       searchIdx,
 		Status:       statusSvc,
 	}))
 	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{

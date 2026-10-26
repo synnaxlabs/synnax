@@ -265,7 +265,7 @@ var _ = Describe("Write task", func() {
 		}
 		write(index.Key(), telem.NewSeries([]telem.TimeStamp{start}))
 		write(data.Key(), telem.NewSeriesV[float64](1.5))
-		Eventually(func() string { return taskStatus(ctx, t).Message }).
+		Eventually(func() string { return taskStatus(ctx, t).Description }).
 			Should(Equal("Channel " + data.Name + " arrived without its index"))
 		Expect(taskStatus(ctx, t).Variant).To(Equal(status.VariantError))
 		Consistently(func() []*kgo.Record {
@@ -353,7 +353,7 @@ var _ = Describe("Write task", func() {
 			index, data, _, t := startOne(ctx, dt, cfg)
 			writeFrame(ctx, index, data,
 				[]telem.TimeStamp{telem.TimeStamp(10 * telem.Second)}, values)
-			Eventually(func() string { return taskStatus(ctx, t).Message }).
+			Eventually(func() string { return taskStatus(ctx, t).Description }).
 				WithTimeout(15 * time.Second).Should(ContainSubstring(msg))
 			stat := taskStatus(ctx, t)
 			Expect(stat.Variant).To(Equal(status.VariantError))

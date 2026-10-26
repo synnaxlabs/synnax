@@ -22,18 +22,21 @@ import { resolveIcon } from "@/channel/resolveIcon";
 import { HAUL_TYPE } from "@/channel/types";
 import { type Flux } from "@/flux";
 
-const listItemRenderProp = Component.renderProp(
-  ({ itemKey, ...rest }: List.ItemRenderProps<channel.Key>): ReactElement | null => {
-    const item = List.useItem<channel.Key, channel.Channel>(itemKey);
-    const Icon = resolveIcon(item?.payload);
-    return (
-      <Select.Item itemKey={itemKey} {...rest}>
-        <Icon />
-        {item?.name}
-      </Select.Item>
-    );
-  },
-);
+const ListItem = ({
+  itemKey,
+  ...rest
+}: List.ItemRenderProps<channel.Key>): ReactElement | null => {
+  const item = List.useItem<channel.Key, channel.Channel>(itemKey);
+  const Icon = resolveIcon(item?.payload);
+  return (
+    <Select.Item itemKey={itemKey} {...rest}>
+      <Icon />
+      {item?.name}
+    </Select.Item>
+  );
+};
+
+const listItemRenderProp = Component.renderProp(ListItem);
 
 export interface SelectMultipleProps
   extends

@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/internal/timer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -28,7 +29,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -133,7 +133,7 @@ func (f *factory) ConfigureTask(
 				zap.Error(err),
 			)
 		} else {
-			f.setConfigStatus(ctx, t, cmdKey, status.VariantError, err.Error())
+			f.setConfigError(ctx, t, cmdKey, err)
 		}
 		return nil, err
 	}
@@ -145,7 +145,7 @@ func (f *factory) ConfigureTask(
 				zap.Error(err),
 			)
 		} else {
-			f.setConfigStatus(ctx, t, cmdKey, status.VariantError, err.Error())
+			f.setConfigError(ctx, t, cmdKey, err)
 		}
 		return nil, err
 	}
@@ -166,31 +166,25 @@ func (f *factory) ConfigureTask(
 	return arcTask, nil
 }
 
-func (f *factory) setConfigStatus(
+func (f *factory) setConfigError(
 	ctx context.Context,
 	t task.Task,
 	cmdKey string,
-	variant status.Variant,
-	message string,
+	err error,
 ) {
-	details := task.NewStatusDetails(t, false)
-	details.Cmd = cmdKey
-	stat := task.Status{
-		Key:     t.OntologyID().String(),
-		Name:    t.Name,
-		Variant: variant,
-		Message: message,
-		Time:    telem.Now(),
-		Details: details,
-	}
-	if err := f.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		return f.cfg.Status.NewWriter(tx).Set(ctx, &stat)
-	}); err != nil {
+	if sErr := driver.NewStatusHandler(f.cfg.DB, f.cfg.Status, t).Send(
+		ctx,
+		cmdKey,
+		status.VariantError,
+		false,
+		"Failed to configure task",
+		err.Error(),
+	); sErr != nil {
 		f.cfg.L.Error(
 			"failed to set configuration status for task",
 			zap.Stringer("key", t.Key),
 			zap.String("name", t.Name),
-			zap.Error(err),
+			zap.Error(sErr),
 		)
 	}
 }

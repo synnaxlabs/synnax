@@ -14,12 +14,12 @@ import (
 	"io"
 	"time"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
@@ -74,7 +74,14 @@ func (t *scanTask) Exec(ctx context.Context, cmd task.Command) error {
 	switch cmd.Type {
 	case "start":
 		t.startLoop()
-		return t.status.Send(ctx, cmd.Key, status.VariantSuccess, true, "Scan started")
+		return t.status.Send(
+			ctx,
+			cmd.Key,
+			status.VariantSuccess,
+			true,
+			"Started scan",
+			"",
+		)
 	case "stop":
 		return t.stop(ctx, cmd.Key, true)
 	case testConnectionCommandType:
@@ -100,7 +107,7 @@ func (t *scanTask) stop(ctx context.Context, cmdKey string, sendStatus bool) err
 	if !sendStatus {
 		return nil
 	}
-	return t.status.Send(ctx, cmdKey, status.VariantSuccess, false, "Scan stopped")
+	return t.status.Send(ctx, cmdKey, status.VariantSuccess, false, "Stopped scan", "")
 }
 
 func (t *scanTask) startLoop() {
@@ -145,24 +152,24 @@ func (t *scanTask) scan(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
-		variant, message := t.check(ctx, dev)
-		t.setDeviceStatus(ctx, dev, variant, message)
+		variant, message, description := t.check(ctx, dev)
+		t.setDeviceStatus(ctx, dev, variant, message, description)
 	}
 }
 
-// check pings dev and returns the status variant and message describing the result.
+// check pings dev and returns the variant, message, and description of the result.
 func (t *scanTask) check(
 	ctx context.Context,
 	dev device.Device,
-) (status.Variant, string) {
+) (status.Variant, string, string) {
 	props, err := decodeProperties(dev)
 	if err != nil {
-		return status.VariantError, "Invalid connection properties: " + err.Error()
+		return status.VariantError, "Invalid connection properties", err.Error()
 	}
 	if err := t.ping(ctx, props); err != nil {
-		return status.VariantError, "Connection failed: " + err.Error()
+		return status.VariantError, "Failed to connect", err.Error()
 	}
-	return status.VariantSuccess, "Device connected"
+	return status.VariantSuccess, "Device connected", ""
 }
 
 func (t *scanTask) ping(ctx context.Context, props Properties) error {
@@ -176,18 +183,20 @@ func (t *scanTask) setDeviceStatus(
 	dev device.Device,
 	variant status.Variant,
 	message string,
+	description string,
 ) {
-	written := string(variant) + ":" + message
+	written := string(variant) + ":" + message + ":" + description
 	if t.lastWritten[dev.Key] == written {
 		return
 	}
 	stat := device.Status{
-		Key:     dev.OntologyID().String(),
-		Name:    dev.Name,
-		Variant: variant,
-		Message: message,
-		Time:    telem.Now(),
-		Details: device.StatusDetails{Rack: dev.Rack, Device: dev.Key},
+		Key:         dev.OntologyID().String(),
+		Name:        dev.Name,
+		Variant:     variant,
+		Message:     message,
+		Description: description,
+		Time:        telem.Now(),
+		Details:     device.StatusDetails{Rack: dev.Rack, Device: dev.Key},
 	}
 	if err := t.factoryCfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		return t.factoryCfg.Status.NewWriter(tx).Set(ctx, &stat)
@@ -206,14 +215,25 @@ func (t *scanTask) testConnection(ctx context.Context, cmd task.Command) error {
 	running := t.closer != nil
 	var args testConnectionArgs
 	if err := cmd.Args.Unmarshal(&args); err != nil {
-		return t.status.Send(ctx, cmd.Key, status.VariantError, running,
-			"Invalid connection: "+errors.Wrap(err, "parsing arguments").Error())
+		return t.status.Send(
+			ctx,
+			cmd.Key,
+			status.VariantError,
+			running,
+			"Invalid connection",
+			errors.Wrap(err, "parsing arguments").Error(),
+		)
 	}
 	args.Connection.ApplyDefaults()
 	if err := t.ping(ctx, args.Connection); err != nil {
-		return t.status.Send(ctx, cmd.Key, status.VariantError, running,
-			"Connection failed: "+err.Error())
+		return t.status.Send(
+			ctx,
+			cmd.Key,
+			status.VariantError,
+			running,
+			"Failed to connect",
+			err.Error(),
+		)
 	}
-	return t.status.Send(ctx, cmd.Key, status.VariantSuccess, running,
-		"Connection successful")
+	return t.status.Send(ctx, cmd.Key, status.VariantSuccess, running, "Connected", "")
 }

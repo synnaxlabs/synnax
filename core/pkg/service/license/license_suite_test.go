@@ -19,7 +19,7 @@ import (
 
 func TestLicense(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service License Suite")
+	RunSpecs(t, "Service License Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

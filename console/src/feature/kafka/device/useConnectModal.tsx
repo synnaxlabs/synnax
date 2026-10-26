@@ -11,21 +11,17 @@ import "@/feature/kafka/device/Connect.css";
 
 import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
-import { Component } from "@synnaxlabs/lyra/component";
-import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
-import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Status } from "@synnaxlabs/lyra/status";
-import { Device as PDevice, type Flux, Rack } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
+import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
 
 import {
   type Device,
+  INTEGRATION,
   type SASL,
   type SASLType,
   SCHEMAS,
@@ -38,9 +34,7 @@ import {
 } from "@/feature/kafka/task/types";
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
-import { type Device as PlatformDevice } from "@/platform/device";
-import { Modals } from "@/platform/modals";
-import { Triggers } from "@/platform/triggers";
+import { Device as PlatformDevice } from "@/platform/device";
 
 const TEST_CONNECTION_TIMEOUT = TimeSpan.seconds(15);
 
@@ -103,7 +97,12 @@ const beforeSave = async ({
 };
 
 const BrokersField = () => (
-  <Form.Field<string[]> path="properties.brokers" label="Brokers" required>
+  <Form.Field<string[]>
+    path="properties.brokers"
+    label="Brokers"
+    padHelpText={false}
+    required
+  >
     {({ value, onChange }) => (
       <Flex.Box y gap="small">
         {value.map((broker, i) => (
@@ -167,6 +166,7 @@ const CAField = () => {
     <Form.TextField
       path="properties.caCertificate"
       label="CA certificate"
+      padHelpText={false}
       inputProps={CA_INPUT_PROPS}
     />
   );
@@ -176,120 +176,123 @@ const CAField = () => {
 const SASLFields = () => {
   const { set } = Form.useContext();
   const sasl = Form.useFieldValue<SASL>("properties.sasl");
-  const handleMechanism = useCallback(
-    (mechanism: SASLType) => {
-      if (mechanism === "none") set("properties.sasl", { mechanism });
-      else
-        set("properties.sasl", {
-          mechanism,
-          username: "username" in sasl ? sasl.username : "",
-          password: "password" in sasl ? sasl.password : "",
-        });
-    },
-    [sasl, set],
-  );
+  const handleMechanism = (mechanism: SASLType) => {
+    if (mechanism === "none") set("properties.sasl", { mechanism });
+    else
+      set("properties.sasl", {
+        mechanism,
+        username: "username" in sasl ? sasl.username : "",
+        password: "password" in sasl ? sasl.password : "",
+      });
+  };
   return (
     <>
-      <Flex.Box x justify="between">
-        <Input.Item label="Authentication">
-          <Select.Simple<SASLType>
-            value={sasl.mechanism}
-            onChange={handleMechanism}
-            resourceName="mechanism"
-            triggerProps={SASL_TRIGGER_PROPS}
-          >
-            {SASL_ITEMS}
-          </Select.Simple>
-        </Input.Item>
-        <Form.SwitchField path="properties.tls" label="TLS" onChange={handleTLS} />
-      </Flex.Box>
+      <Input.Item label="Mechanism">
+        <Select.Simple<SASLType>
+          value={sasl.mechanism}
+          onChange={handleMechanism}
+          resourceName="mechanism"
+          triggerProps={SASL_TRIGGER_PROPS}
+        >
+          {SASL_ITEMS}
+        </Select.Simple>
+      </Input.Item>
       {sasl.mechanism !== "none" && (
-        <Flex.Box x justify="between">
+        <>
           <Form.TextField
-            grow
             path="properties.sasl.username"
+            label="Username"
+            padHelpText={false}
             inputProps={USERNAME_INPUT_PROPS}
           />
           <Form.TextField
-            grow
             path="properties.sasl.password"
+            label="Password"
+            padHelpText={false}
             inputProps={PASSWORD_INPUT_PROPS}
           />
-        </Flex.Box>
+        </>
       )}
     </>
   );
 };
 
-export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
-  ({ deviceKey, close }) => {
-    const { capture } = Analytics.use();
-    const {
-      form,
-      save,
-      status: stat,
-      variant,
-    } = useForm({
-      query: deviceKey == null ? null : { key: deviceKey },
-      beforeValidate,
-      beforeSave,
-      afterSave: useCallback(() => {
-        if (deviceKey == null) capture("device_connected", { integration: "kafka" });
-        close();
-      }, [capture, close, deviceKey]),
-    });
+export const Connect = ({
+  deviceKey,
+  rack: defaultRack,
+  close,
+  onBack,
+}: PlatformDevice.ConnectProps) => {
+  const { capture } = Analytics.use();
+  const {
+    form,
+    save,
+    status: stat,
+    variant,
+  } = useForm({
+    query: deviceKey == null ? null : { key: deviceKey },
+    initialValues: { ...INITIAL_VALUES, rack: defaultRack ?? 0 },
+    beforeValidate,
+    beforeSave,
+    afterSave: ({ get }) => {
+      if (deviceKey == null) capture("device_connected", { integration: INTEGRATION });
+      close(get<device.Key>("key").value);
+    },
+  });
+  const rackKey = Form.useFieldValue<
+    rack.Key,
+    rack.Key,
+    PDevice.FormSchema<typeof SCHEMAS>
+  >("rack", { ctx: form });
+  const reason = PlatformDevice.useBlockedReason({
+    integration: INTEGRATION,
+    name: "Kafka",
+    rack: rackKey,
+  });
+  return (
+    <Modal.Frame className={CSS.B("kafka-connect")}>
+      <Modal.Header icon={<Icon.Logo.Kafka />}>{HEADER}</Modal.Header>
+      <Modal.Body gap="large" justify="start">
+        <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
+          <Form.TextField path="name" showLabel={false} inputProps={NAME_INPUT_PROPS} />
+          <Form.Sections>
+            <Form.Section title="Connection">
+              <BrokersField />
+              <PlatformDevice.RackField integration={INTEGRATION} />
+            </Form.Section>
+            <Form.Section title="Security">
+              <Form.SwitchField
+                path="properties.tls"
+                label="TLS"
+                padHelpText={false}
+                onChange={handleTLS}
+              />
+              <CAField />
+              <SASLFields />
+            </Form.Section>
+          </Form.Sections>
+        </Form.Form>
+      </Modal.Body>
+      <PlatformDevice.ConnectFooter
+        reason={reason}
+        variant={variant}
+        message={stat.description}
+        onConnect={() => save()}
+        onBack={onBack}
+      />
+    </Modal.Frame>
+  );
+};
 
-    return (
-      <Modal.Frame className={CSS.B("kafka-connect")}>
-        <Modal.Header icon={<Icon.Logo.Kafka />}>Cluster.Connect</Modal.Header>
-        <Flex.Box className={CSS.B("content")} grow size="small">
-          <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
-            <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
-            <Form.Field<rack.Key> path="rack" label="Connect from" required>
-              {selectRackRenderProp}
-            </Form.Field>
-            <BrokersField />
-            <Divider.Divider x padded="bottom" />
-            <SASLFields />
-            <CAField />
-          </Form.Form>
-        </Flex.Box>
-        <Modal.Footer>
-          <Nav.Bar.Start gap="small">
-            {variant == "success" ? (
-              <Triggers.SaveHelpText action="Connect" noBar />
-            ) : (
-              <Status.Summary variant={variant} message={stat.description} />
-            )}
-          </Nav.Bar.Start>
-          <Nav.Bar.End>
-            <Button.Button
-              status={status.keepVariants(variant, "loading")}
-              onClick={() => save()}
-              variant="filled"
-              trigger={Triggers.SAVE}
-            >
-              Connect
-            </Button.Button>
-          </Nav.Bar.End>
-        </Modal.Footer>
-      </Modal.Frame>
-    );
-  },
-);
+export const useConnectModal = PlatformDevice.createConnectModal(Connect, INTEGRATION);
 
-const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "kafka" };
-
-const selectRackRenderProp = Component.renderProp(
-  (props: Pick<Rack.SelectSingleProps, "value" | "onChange">) => (
-    <Rack.SelectSingle {...props} initialQuery={INITIAL_RACK_QUERY} />
-  ),
-);
+const HEADER = ["Device", "Connect", "Kafka cluster"];
 
 const NAME_INPUT_PROPS = {
   level: "h2",
   variant: "text",
   placeholder: "Kafka cluster",
+  "aria-label": "Name",
   autoFocus: true,
 } as const;
 

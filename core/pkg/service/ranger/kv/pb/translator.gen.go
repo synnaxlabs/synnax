@@ -14,7 +14,6 @@ package pb
 import (
 	"uuid"
 
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 )
 
@@ -35,11 +34,10 @@ func PairFromPB(pb *Pair) (kv.Pair, error) {
 		return r, nil
 	}
 	var err error
-	parsedRange, err := uuid.Parse(pb.Range)
+	r.Range, err = uuid.Parse(pb.Range)
 	if err != nil {
 		return kv.Pair{}, err
 	}
-	r.Range = ranger.Key(parsedRange)
 	r.Key = pb.Key
 	r.Value = pb.Value
 	return r, nil

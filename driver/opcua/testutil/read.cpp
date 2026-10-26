@@ -22,7 +22,7 @@
 
 namespace driver::opcua::testutil {
 std::pair<::x::telem::Series, x::errors::Error>
-simple_read(std::shared_ptr<UA_Client> client, const std::string &node_id) {
+simple_read(const std::shared_ptr<UA_Client> &client, const std::string &node_id) {
     // Parse the node ID string - returns RAII-wrapped NodeId
     auto [node_id_wrapper, parse_err] = types::NodeId::parse(node_id);
     if (parse_err) return {::x::telem::Series(0), parse_err};

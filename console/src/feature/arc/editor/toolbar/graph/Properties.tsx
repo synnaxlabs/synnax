@@ -18,7 +18,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Arc, Diagram } from "@synnaxlabs/pluto";
 import { box, deep, type direction, location, xy } from "@synnaxlabs/x";
-import { memo, type ReactElement, useCallback, useMemo } from "react";
+import { memo, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
@@ -43,17 +43,16 @@ interface IndividualConfigProps {
 
 const IndividualConfig = ({ nodeKey }: IndividualConfigProps): ReactElement | null => {
   const config = Arc.useNodeConfig({ nodeKey });
-  const initialValues = useMemo(() => deep.copy(config), [config]);
+  const initialValues = deep.copy(config);
   const dispatch = Arc.useSingleDispatch();
   const formMethods = Form.use<typeof Arc.Graph.Node.configZ>({
     schema: Arc.Graph.Node.configZ,
     values: initialValues,
     sync: true,
-    onChange: useCallback(
-      ({ values: config }: Form.OnChangeParams<typeof Arc.Graph.Node.configZ>) =>
-        dispatch(arc.setNodeInputs({ key: nodeKey, inputs: deep.copy(config) })),
-      [dispatch, nodeKey],
-    ),
+    onChange: ({
+      values: config,
+    }: Form.OnChangeParams<typeof Arc.Graph.Node.configZ>) =>
+      dispatch(arc.setNodeInputs({ key: nodeKey, inputs: deep.copy(config) })),
   });
   if (config == null) return null;
   const C = Arc.Graph.Node.REGISTRY[config.type];
@@ -92,12 +91,12 @@ const MultiConfig = ({ nodes }: MultiElementPropertiesProps): ReactElement => {
             );
             const orientation = el.className.match(/react-flow__handle-(\w+)/)?.[1];
             if (orientation == null || !location.isOuter(orientation))
-              throw new Error(`[arc] - cannot find handle orientation`);
+              throw new Error("Cannot find the handle orientation.");
             return new Diagram.HandleLayout(dist, orientation);
           });
           return new Diagram.NodeLayout(node.key, nodeBox, handles);
         } catch (e) {
-          handleError(e, "failed to calculate Arc node layout");
+          handleError(e, "Failed to align nodes");
         }
         return null;
       })

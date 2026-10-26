@@ -31,6 +31,19 @@ describe("Kafka.Device.Select", () => {
     await waitFor(() => expect(trigger.textContent).toContain(dev.name));
   });
 
+  it("should open the connect modal from the footer", async () => {
+    await renderWithDeviceForm(
+      <>
+        <Kafka.Device.Select />
+        <Modals.Stack />
+      </>,
+      { deviceKey: "", client },
+    );
+    fireEvent.click(await findDialogTrigger());
+    fireEvent.click(await screen.findByText("Connect Kafka cluster"));
+    expect(await screen.findByPlaceholderText("localhost:9092")).toBeTruthy();
+  });
+
   it("should open the connect modal when an unconfigured cluster is selected", async () => {
     const dev = await createKafkaDevice(client, { configured: false });
     await renderWithDeviceForm(
@@ -45,7 +58,6 @@ describe("Kafka.Device.Select", () => {
       target: { value: dev.name },
     });
     fireEvent.click(await screen.findByText(dev.name));
-    await screen.findByText("Cluster");
     await waitFor(() => expect(screen.getByDisplayValue(dev.name)).toBeTruthy());
   });
 });

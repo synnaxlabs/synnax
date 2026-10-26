@@ -17,12 +17,17 @@ on:
         required: true
         type: string
       ginkgo_flags:
-        description:
-          Additional flags to pass to Ginkgo (e.g., -p, --randomize-all,
-          --fail-on-empty)
+        description: Additional flags to pass to Ginkgo (e.g., --label-filter)
         required: false
         type: string
         default: ""
+      shards:
+        description:
+          How many jobs split the Ginkgo suites on each OS, from 1 to 4. A cached run is
+          one job.
+        required: false
+        type: number
+        default: 1
       coverage_flag:
         description: The codecov flag for this module
         required: true
@@ -49,10 +54,10 @@ on:
         required: false
         type: boolean
         default: false
-      warm:
+      cached:
         description:
-          Whether to lint and compile the tests without running them, which fills the
-          caches that pull requests restore
+          Whether to run go test, which reuses the results that main saves, instead of
+          Ginkgo
         required: false
         type: boolean
         default: false
@@ -164,20 +169,34 @@ jobs:
           key: ${{ steps.cache.outputs.cache-primary-key }}
 
   test:
-    name: Test (${{ matrix.os }})
+    name:
+      Test (${{ matrix.os }}${{ !inputs.cached && inputs.shards > 1 && format(',
+      {0}/{1}', matrix.shard, inputs.shards) || '' }})
     strategy:
       fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
+        shard: [1, 2, 3, 4]
         exclude:
           - os: ${{ !inputs.macos && 'macos-latest' }}
           - os: ${{ !inputs.ubuntu && 'ubuntu-latest' }}
           - os: ${{ !inputs.windows && 'windows-latest' }}
+          - shard: ${{ (inputs.cached || inputs.shards < 2) && 2 }}
+          - shard: ${{ (inputs.cached || inputs.shards < 3) && 3 }}
+          - shard: ${{ (inputs.cached || inputs.shards < 4) && 4 }}
         include:
           - os: ubuntu-latest
+            shard: 1
             codegen: true
     runs-on: ${{ matrix.os }}
     steps:
+      # The matrix holds four shards, so a larger count would skip suites.
+      - name: Check the shard count
+        if: inputs.shards < 1 || inputs.shards > 4
+        run: |
+          echo "::error::shards must be from 1 to 4, not ${{ inputs.shards }}."
+          exit 1
+
       - name: Checkout repository
         uses: actions/checkout@v7
 
@@ -187,16 +206,18 @@ jobs:
       # restores into the moved paths.
       - name: Move the Go caches off the OS disk
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path "$env:RUNNER_TEMP\gotmp" | Out-Null
           Add-Content $env:GITHUB_ENV "GOCACHE=$env:RUNNER_TEMP\gocache"
           Add-Content $env:GITHUB_ENV "GOMODCACHE=$env:RUNNER_TEMP\gomod"
           Add-Content $env:GITHUB_ENV "GOTMPDIR=$env:RUNNER_TEMP\gotmp"
 
-      # The Ubuntu image ships toolchains these tests never use, and a --race --cover
-      # build of the Core overflows the disk they leave free.
+      # The Ubuntu image ships toolchains these tests never use, and Ginkgo keeps every
+      # --race --cover test binary of the Core until its last suite ends, which
+      # overflows the disk they leave free. go test deletes each binary after its run.
       - name: Free disk space
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && !inputs.cached
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
             /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
@@ -219,10 +240,12 @@ jobs:
             ${{ hashFiles(format('{0}/go.sum', inputs.directory),
             '.github/workflows/test.go.yaml') }}
         run: |
-          echo "build=$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
-          echo "modules=$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
-          echo "module=go-test-${{ runner.os }}-$DIRECTORY-" >> "$GITHUB_OUTPUT"
-          echo "sum=go-test-${{ runner.os }}-$DIRECTORY-$SUM-" >> "$GITHUB_OUTPUT"
+          {
+            echo "build=$(go env GOCACHE)"
+            echo "modules=$(go env GOMODCACHE)"
+            echo "module=go-test-${{ runner.os }}-$DIRECTORY-"
+            echo "sum=go-test-${{ runner.os }}-$DIRECTORY-$SUM-"
+          } >> "$GITHUB_OUTPUT"
 
       # A run reads the caches of its own branch and of main, never those of another
       # pull request, so only main saves them. A changed go.sum falls back to an older
@@ -240,37 +263,56 @@ jobs:
             ${{ steps.key.outputs.module }}
 
       - name: Install stringer
-        if: matrix.codegen && !inputs.warm
+        if: matrix.codegen
         run: go install golang.org/x/tools/cmd/stringer@v0.52.0
 
       - name: Install antlr4
-        if: matrix.codegen && !inputs.warm && inputs.install_antlr4
+        if: matrix.codegen && inputs.install_antlr4
         run: |
           scripts/install_antlr4.sh
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Verify `go generate` is up to date
-        if: matrix.codegen && !inputs.warm
+        if: matrix.codegen
         run: scripts/check_go_generate.sh ${{ inputs.directory }}
 
-      # Matches the compile flags of the Test step below, so it fills the cache entries
-      # that step looks up.
-      - name: Compile the tests
-        if: inputs.warm
-        run: |
-          go run github.com/onsi/ginkgo/v2/ginkgo build -r --cover --race \
-            --ldflags="-w -s"
-        working-directory: ${{ inputs.directory }}
+      # go test reuses a result only while each file the test read keeps its
+      # modification time, which a checkout resets. Runs after go generate, which
+      # rewrites files.
+      - name: Pin the modification times
+        if: inputs.cached
+        run: python3 -I .github/scripts/pin_mtimes.py ${{ inputs.directory }}
 
       # macOS skips race and cover until it runs on stronger machines.
       - name: Test
-        if: ${{ !inputs.warm }}
+        if: inputs.cached
         timeout-minutes: 150
         run: >-
-          go run github.com/onsi/ginkgo/v2/ginkgo -r ${{ runner.os == 'macOS' &&
-          '--procs=2 --compilers=1' || '-p --cover --coverprofile=cover.out --race' }}
-          --randomize-all --randomize-suites --fail-on-pending --fail-on-empty
-          --keep-going --trace --timeout=2h --github-output ${{ inputs.ginkgo_flags }}
+          go test ${{ runner.os != 'macOS' && '-race -cover -coverprofile=cover.out' ||
+          '' }} -timeout=30m ./...
+        working-directory: ${{ inputs.directory }}
+
+      # Each shard takes every nth suite in path order, which spreads the versions of
+      # one service across the shards.
+      - name: Test
+        if: ${{ !inputs.cached }}
+        timeout-minutes: 150
+        shell: bash
+        env:
+          FLAGS:
+            ${{ runner.os == 'macOS' && '--procs=2 --compilers=1' || '-p --cover
+            --coverprofile=cover.out --race' }} ${{ inputs.ginkgo_flags }}
+          SHARD: ${{ matrix.shard }}
+          SHARDS: ${{ inputs.shards }}
+          SUITE:
+            "{{if or .TestGoFiles .XTestGoFiles}}.{{slice .ImportPath (len
+            .Module.Path)}}{{end}}"
+        run: |
+          suites=$(go list -f "$SUITE" ./... |
+            awk -v n="$SHARDS" -v s="$SHARD" 'NF && ++i % n == s % n')
+          # shellcheck disable=SC2086 # Splits the flags and suites into arguments.
+          go run github.com/onsi/ginkgo/v2/ginkgo $FLAGS --randomize-suites \
+            --fail-on-empty --keep-going --trace --timeout=2h --github-output $suites
         working-directory: ${{ inputs.directory }}
 
       # Each save holds every entry it restored, so stale builds pile up until their
@@ -278,7 +320,7 @@ jobs:
       # deleting the oldest files first keeps the ones this run read. One compile of
       # the Core tests reads or writes about 16 GB.
       - name: Trim the Go build cache
-        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && matrix.shard == 1 }}
         shell: bash
         env:
           BUDGET: 20000000000
@@ -295,8 +337,10 @@ jobs:
             xargs -r rm -f
           du -sh .
 
+      # The shards restore the same cache and save under one key, so only the first
+      # saves.
       - name: Save the Go caches
-        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && matrix.shard == 1 }}
         uses: actions/cache/save@v6
         with:
           path: |
@@ -305,7 +349,7 @@ jobs:
           key: ${{ steps.cache.outputs.cache-primary-key }}
 
       - name: Upload coverage
-        if: runner.os != 'macOS' && !inputs.warm
+        if: runner.os != 'macOS'
         uses: codecov/codecov-action@v7
         with:
           fail_ci_if_error: true

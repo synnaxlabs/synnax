@@ -12,6 +12,7 @@ import "@/components/tabs/Picker.css";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
 import { type ReactElement, useId } from "react";
 
 import { PICKER_ATTRIBUTE, QUERY_ATTRIBUTE } from "@/components/tabs/sync";
@@ -70,17 +71,17 @@ export const Picker = ({ query, options }: PickerProps): ReactElement => {
         empty
       >
         {options.map((option, i) => (
-          <Button.Button
+          <List.Item
             key={option.key}
+            itemKey={`${menu}-${option.key}`}
+            el="button"
             role="option"
-            aria-selected={i === 0}
+            selected={i === 0}
             data-tab-key={option.key}
-            variant="text"
             justify="start"
-            full="x"
           >
             {content(option)}
-          </Button.Button>
+          </List.Item>
         ))}
       </Flex.Box>
     </Flex.Box>

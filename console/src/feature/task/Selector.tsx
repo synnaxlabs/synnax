@@ -10,7 +10,6 @@
 import { task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
@@ -55,8 +54,5 @@ export const SELECTOR_TAB_TYPE = "taskSelector";
 
 export const useOpenSelector = (): (() => void) => {
   const openTab = Panel.useOpenTab();
-  return useCallback(
-    () => openTab({ variant: "view", type: SELECTOR_TAB_TYPE }),
-    [openTab],
-  );
+  return () => openTab({ variant: "view", type: SELECTOR_TAB_TYPE });
 };

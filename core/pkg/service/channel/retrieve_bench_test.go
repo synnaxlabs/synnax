@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/telem"
@@ -44,14 +43,9 @@ func newBenchEnv(b *testing.B, count int) *benchEnv {
 	if err != nil {
 		b.Fatalf("failed to open ontology: %v", err)
 	}
-	searchIdx, err := search.OpenIndex()
-	if err != nil {
-		b.Fatalf("failed to open search index: %v", err)
-	}
 	groupSvc, err := group.OpenService(b.Context(), group.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
-		Search:   searchIdx,
 	})
 	if err != nil {
 		b.Fatalf("failed to open group service: %v", err)
@@ -60,7 +54,6 @@ func newBenchEnv(b *testing.B, count int) *benchEnv {
 		DB:       node.DB,
 		Ontology: otg,
 		Group:    groupSvc,
-		Search:   searchIdx,
 	})
 	if err != nil {
 		b.Fatalf("failed to open label service: %v", err)
@@ -70,7 +63,6 @@ func newBenchEnv(b *testing.B, count int) *benchEnv {
 		Group:    groupSvc,
 		Ontology: otg,
 		Label:    labelSvc,
-		Search:   searchIdx,
 	})
 	if err != nil {
 		b.Fatalf("failed to open status service: %v", err)
@@ -81,7 +73,6 @@ func newBenchEnv(b *testing.B, count int) *benchEnv {
 		HostProvider: node.Cluster,
 		Ontology:     otg,
 		Group:        groupSvc,
-		Search:       searchIdx,
 		Status:       statusSvc,
 	})
 	if err != nil {
@@ -123,7 +114,7 @@ func newBenchEnv(b *testing.B, count int) *benchEnv {
 		svc:     svc,
 		indexes: indexes,
 		closer: io.MultiCloser{
-			node, otg, searchIdx, groupSvc, svc, statusSvc, labelSvc,
+			node, otg, groupSvc, svc, statusSvc, labelSvc,
 		},
 	}
 }

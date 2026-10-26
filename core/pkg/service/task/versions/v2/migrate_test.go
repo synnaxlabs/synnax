@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -26,7 +27,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -34,9 +34,7 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -47,24 +45,20 @@ var _ = Describe("Migrations", func() {
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
 			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-			searchIdx := MustOpen(search.OpenIndex())
 			g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
-				Search:   searchIdx,
 			}))
 			labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    g,
-				Search:   searchIdx,
 			}))
 			stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 				Ontology: otg,
 				DB:       db,
 				Group:    g,
 				Label:    labelSvc,
-				Search:   searchIdx,
 			}))
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 				DB:           db,
@@ -72,7 +66,6 @@ var _ = Describe("Migrations", func() {
 				Group:        g,
 				HostProvider: mock.NewStaticHostProvider(1),
 				Status:       stat,
-				Search:       searchIdx,
 			}))
 
 			testRack := &rack.Rack{Name: "Migration Test Rack"}
@@ -123,7 +116,6 @@ var _ = Describe("Migrations", func() {
 				Group:    g,
 				Rack:     rackSvc,
 				Status:   stat,
-				Search:   searchIdx,
 				ImEx:     imex.NewService(),
 				Configs:  configs,
 			}))
@@ -170,24 +162,20 @@ var _ = Describe("Migrations", func() {
 			seedDB := gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec))
 			db := DeferClose(gorp.Wrap(kvDB))
 			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-			searchIdx := MustOpen(search.OpenIndex())
 			g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
-				Search:   searchIdx,
 			}))
 			labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    g,
-				Search:   searchIdx,
 			}))
 			stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 				Ontology: otg,
 				DB:       db,
 				Group:    g,
 				Label:    labelSvc,
-				Search:   searchIdx,
 			}))
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 				DB:           db,
@@ -195,7 +183,6 @@ var _ = Describe("Migrations", func() {
 				Group:        g,
 				HostProvider: mock.NewStaticHostProvider(1),
 				Status:       stat,
-				Search:       searchIdx,
 			}))
 			testRack := &rack.Rack{Name: "Decompose Test Rack"}
 			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
@@ -332,7 +319,6 @@ var _ = Describe("Migrations", func() {
 				Group:    g,
 				Rack:     rackSvc,
 				Status:   stat,
-				Search:   searchIdx,
 				ImEx:     imex.NewService(),
 				Configs:  configs,
 			}))
@@ -462,7 +448,7 @@ var _ = Describe("NameMigration", func() {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  "Task",
-			Migrations: []migrate.Migration{v2.NameMigration},
+			Migrations: []gorp.Migration{v2.NameMigration},
 		})).To(Succeed())
 		var out v2.Task
 		Expect(gorp.NewRetrieve[v2.Key, v2.Task]().

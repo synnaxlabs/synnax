@@ -14,6 +14,7 @@ import { describe, expect, it } from "vitest";
 import { Kafka } from "@/feature/kafka";
 import { createKafkaDevice } from "@/feature/kafka/testutil";
 import { createTestSink } from "@/platform/analytics/testutil";
+import { createRunningRack } from "@/platform/device/testutil";
 import { pressSaveTrigger, renderModalOpener } from "@/platform/modals/testutil";
 import { answerNextCommand, selectFromDropdown } from "@/platform/task/testutil";
 import { getSwitchInput, uniqueName } from "@/testutil";
@@ -91,18 +92,17 @@ describe("Kafka.Device.useConnectModal", () => {
   });
 
   it("should report a device it connected", async () => {
-    const rack = await client.racks.create({
-      name: uniqueName("kafka_rack"),
-      integrations: ["kafka"],
-    });
+    const rack = await createRunningRack(client, "kafka");
     const scan = await rack.createTask({
       name: uniqueName("kafka_scan"),
       type: Kafka.Task.SCAN_TYPE,
       config: {},
     });
     const analytics = createTestSink();
-    await renderModalOpener(Kafka.Device.useConnectModal, [{}], { client, analytics });
-    await selectFromDropdown("Select Driver", rack.name);
+    await renderModalOpener(Kafka.Device.useConnectModal, [{ rack: rack.key }], {
+      client,
+      analytics,
+    });
     fireEvent.change(screen.getByPlaceholderText("Kafka cluster"), {
       target: { value: uniqueName("kafka_cluster") },
     });
@@ -119,9 +119,10 @@ describe("Kafka.Device.useConnectModal", () => {
     );
   });
 
-  // Submitting with no rack chosen fails validation. That error is the proof the keys
-  // reached the same save path the Connect button uses.
+  // A running rack keeps Connect enabled while none is chosen, so the save fails
+  // validation. That error proves the keys reached the Connect button's save path.
   it("should submit on the shortcut its footer advertises", async () => {
+    await createRunningRack(client, "kafka");
     await renderModalOpener(Kafka.Device.useConnectModal, [{}], { client });
     await screen.findByRole("dialog");
     pressSaveTrigger();

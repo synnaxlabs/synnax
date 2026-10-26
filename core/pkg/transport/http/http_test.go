@@ -11,6 +11,7 @@ package http_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -32,6 +33,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	svcmock "github.com/synnaxlabs/synnax/pkg/service/mock"
 	thttp "github.com/synnaxlabs/synnax/pkg/transport/http"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -55,6 +57,7 @@ var _ = Describe("HTTP", func() {
 			Entry("unary auth login", http.MethodPost, "/api/v1/auth/login"),
 			Entry("unary channel create", http.MethodPost, "/api/v1/channel/create"),
 			Entry("unary frame delete", http.MethodPost, "/api/v1/frame/delete"),
+			Entry("unary frame read", http.MethodPost, "/api/v1/frame/read"),
 			Entry("stream frame writer", http.MethodGet, "/api/v1/frame/write"),
 			Entry("unary task rename", http.MethodPost, "/api/v1/task/rename"),
 			Entry("unary device rename", http.MethodPost, "/api/v1/device/rename"),
@@ -80,11 +83,6 @@ var _ = Describe("HTTP", func() {
 		BeforeEach(func(ctx SpecContext) {
 			node := mock.NewNode(ctx)
 			signer = svcmock.NewSigner()
-			lic := svcmock.NewLicense()
-			lic.Exp = new(uint32(time.Now().Add(-100 * 24 * time.Hour).Unix()))
-			key := append([]byte("license/"), lic.Jti.String()...)
-			Expect(node.Layer.DB.KV().Set(ctx, key, []byte(signer.Sign(lic)))).
-				To(Succeed())
 			sec := MustSucceed(security.NewProvider(security.ProviderConfig{
 				Insecure: new(true),
 			}))
@@ -130,8 +128,37 @@ var _ = Describe("HTTP", func() {
 			return res.Token
 		}
 
+		It("Should log in with a MessagePack session request", func() {
+			body := MustSucceed(
+				msgpack.Codec.Encode(context.Background(), map[string]any{
+					"proof": map[string]string{
+						"method":   "password",
+						"username": creds.Username,
+						"password": creds.Password,
+					},
+				}),
+			)
+			req := httptest.NewRequest(
+				http.MethodPost,
+				"/api/v1/auth/session/create",
+				bytes.NewReader(body),
+			)
+			req.Header.Set(fiber.HeaderContentType, msgpack.Codec.ContentType())
+			req.Header.Set(fiber.HeaderAccept, msgpack.Codec.ContentType())
+			res := MustSucceed(app.Test(req, fiber.TestConfig{
+				Timeout:       10 * time.Second,
+				FailOnTimeout: true,
+			}))
+			raw := MustSucceed(io.ReadAll(res.Body))
+			Expect(res.StatusCode).To(Equal(http.StatusOK), string(raw))
+			var created apiauth.SessionCreateResponse
+			Expect(msgpack.Codec.Decode(context.Background(), raw, &created)).
+				To(Succeed())
+			Expect(created.Token).To(HavePrefix("sys_"))
+		})
+
 		DescribeTable(
-			"Should reach an ungated endpoint while the license is expired",
+			"Should reach an ungated endpoint while no license is active",
 			func(path string, body func() any) {
 				status, res := post(path, login(), body())
 				Expect(status).To(Equal(http.StatusOK), string(res))
@@ -162,7 +189,7 @@ var _ = Describe("HTTP", func() {
 			),
 		)
 
-		It("Should refuse a gated endpoint while the license is expired", func(
+		It("Should refuse a gated endpoint while no license is active", func(
 			ctx SpecContext,
 		) {
 			status, body := post(
@@ -173,7 +200,7 @@ var _ = Describe("HTTP", func() {
 			Expect(status).To(Equal(http.StatusBadRequest))
 			var pld errors.Payload
 			Expect(json.Unmarshal(body, &pld)).To(Succeed())
-			Expect(errors.Decode(ctx, pld)).To(MatchError(license.ErrExpired))
+			Expect(errors.Decode(ctx, pld)).To(MatchError(license.ErrMissing))
 		})
 	})
 })

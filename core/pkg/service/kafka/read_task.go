@@ -277,10 +277,17 @@ func (t *readTask) start(ctx context.Context, cmdKey string) error {
 		}
 	}
 	if err := t.open(ctx); err != nil {
-		t.setStatus(ctx, cmdKey, status.VariantError, false, err.Error())
+		t.setStatus(
+			ctx,
+			cmdKey,
+			status.VariantError,
+			false,
+			"Failed to start task",
+			err.Error(),
+		)
 		return err
 	}
-	t.setStatus(ctx, cmdKey, status.VariantSuccess, true, "Task started successfully")
+	t.setStatus(ctx, cmdKey, status.VariantSuccess, true, "Started task", "")
 	return nil
 }
 
@@ -296,10 +303,17 @@ func (t *readTask) stop(ctx context.Context, cmdKey string, sendStatus bool) err
 		return err
 	}
 	if err != nil {
-		t.setStatus(ctx, cmdKey, status.VariantError, false, err.Error())
+		t.setStatus(
+			ctx,
+			cmdKey,
+			status.VariantError,
+			false,
+			"Failed to stop task",
+			err.Error(),
+		)
 		return err
 	}
-	t.setStatus(ctx, cmdKey, status.VariantSuccess, false, "Task stopped successfully")
+	t.setStatus(ctx, cmdKey, status.VariantSuccess, false, "Stopped task", "")
 	return nil
 }
 
@@ -470,12 +484,24 @@ func (t *readTask) consume(ctx context.Context) error {
 		})
 		if fetchErr != nil {
 			t.setStatus(
-				ctx, driver.NoCommand, status.VariantError, false, fetchErr.Error(),
+				ctx,
+				driver.NoCommand,
+				status.VariantError,
+				false,
+				"Failed to fetch records",
+				fetchErr.Error(),
 			)
 			return fetchErr
 		}
 		if err := t.process(ctx, fetches); err != nil {
-			t.setStatus(ctx, driver.NoCommand, status.VariantError, false, err.Error())
+			t.setStatus(
+				ctx,
+				driver.NoCommand,
+				status.VariantError,
+				false,
+				"Failed to process records",
+				err.Error(),
+			)
 			return err
 		}
 	}
@@ -617,13 +643,20 @@ func (g *readGroup) frame(rows []row) frame.Frame {
 	return frame.NewMulti(g.keys, series)
 }
 
-// skip reports a skipped record. A repeat of the last report is not rewritten.
-func (t *readTask) skip(ctx context.Context, message string) {
-	if message == t.lastSkip {
+// skip reports a skipped record and why. A repeat of the last report is not rewritten.
+func (t *readTask) skip(ctx context.Context, description string) {
+	if description == t.lastSkip {
 		return
 	}
-	t.lastSkip = message
-	t.setStatus(ctx, driver.NoCommand, status.VariantError, true, message)
+	t.lastSkip = description
+	t.setStatus(
+		ctx,
+		driver.NoCommand,
+		status.VariantError,
+		true,
+		"Skipped record",
+		description,
+	)
 }
 
 // ackCurrent answers cmdKey with the task's current status, for a command that needs
@@ -644,8 +677,16 @@ func (t *readTask) setStatus(
 	variant status.Variant,
 	running bool,
 	message string,
+	description string,
 ) {
-	if err := t.status.Send(ctx, cmdKey, variant, running, message); err != nil {
+	if err := t.status.Send(
+		ctx,
+		cmdKey,
+		variant,
+		running,
+		message,
+		description,
+	); err != nil {
 		t.factoryCfg.L.Error("failed to set task status",
 			zap.Stringer("task", t.task.Key),
 			zap.Error(err),

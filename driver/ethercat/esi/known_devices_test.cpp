@@ -45,7 +45,7 @@ protected:
 TEST_F(BeckhoffDevicesTest, VendorNameReturnsBeckhoff) {
     auto name = vendor_name(BECKHOFF_VENDOR_ID);
     ASSERT_TRUE(name.has_value());
-    EXPECT_NE(name->find("Beckhoff"), std::string_view::npos);
+    EXPECT_NE(name.value().find("Beckhoff"), std::string_view::npos);
 }
 
 // DEWESoft vendor tests (vendor ID: 0xDEBE50F7)
@@ -115,6 +115,59 @@ TEST_F(DEWESoftDevicesTest, RevisionFallbackWorks) {
         this->slave
     );
     EXPECT_TRUE(found) << "Revision fallback should work";
+}
+
+/// @brief it should fill the name and data type of a live entry from the registry entry
+/// at the same index, sub-index, and bit length.
+TEST_F(BeckhoffDevicesTest, FillKnownEntriesUsesRegistryEntryAtSameAddress) {
+    constexpr uint32_t el3102 = 0x0C1E3052;
+    ASSERT_TRUE(lookup_device_pdos(BECKHOFF_VENDOR_ID, el3102, 1, this->slave));
+    const auto known = this->slave.input_pdos.back();
+    slave::Properties live{
+        .vendor_id = BECKHOFF_VENDOR_ID,
+        .product_code = el3102,
+        .revision = 1,
+        .input_pdos = {
+            {.index = known.index,
+             .sub_index = known.sub_index,
+             .bit_length = known.bit_length,
+             .name = "Input (unknown) 0x6000:01",
+             .data_type = x::telem::UNKNOWN_T},
+            {.index = 0x7FFF,
+             .sub_index = 1,
+             .bit_length = 8,
+             .name = "Input (uint8) 0x7FFF:01",
+             .data_type = x::telem::UINT8_T},
+        },
+    };
+    fill_known_entries(live);
+    EXPECT_EQ(live.input_pdos[0].name, known.name);
+    EXPECT_EQ(live.input_pdos[0].data_type, known.data_type);
+    EXPECT_EQ(live.input_pdos[1].name, "Input (uint8) 0x7FFF:01");
+    EXPECT_EQ(live.input_pdos[1].data_type, x::telem::UINT8_T);
+}
+
+/// @brief it should leave a live entry unchanged when the registry entry at its address
+/// has another bit length.
+TEST_F(BeckhoffDevicesTest, FillKnownEntriesSkipsEntryOfOtherBitLength) {
+    constexpr uint32_t el3102 = 0x0C1E3052;
+    ASSERT_TRUE(lookup_device_pdos(BECKHOFF_VENDOR_ID, el3102, 1, this->slave));
+    const auto known = this->slave.input_pdos.back();
+    slave::Properties live{
+        .vendor_id = BECKHOFF_VENDOR_ID,
+        .product_code = el3102,
+        .revision = 1,
+        .input_pdos = {
+            {.index = known.index,
+             .sub_index = known.sub_index,
+             .bit_length = static_cast<uint8_t>(known.bit_length + 8),
+             .name = "Input (unknown) 0x6000:01",
+             .data_type = x::telem::UNKNOWN_T},
+        },
+    };
+    fill_known_entries(live);
+    EXPECT_EQ(live.input_pdos[0].name, "Input (unknown) 0x6000:01");
+    EXPECT_EQ(live.input_pdos[0].data_type, x::telem::UNKNOWN_T);
 }
 
 }

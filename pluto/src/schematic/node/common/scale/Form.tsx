@@ -174,7 +174,7 @@ export const StyleFields = (): ReactElement => (
       fallback={colorFallbacks.textColor}
     />
     <Base.Field<text.Level> path="level" label="Text size" padHelpText={false}>
-      {NodeForm.SelectTextLevel}
+      {(p) => <NodeForm.SelectTextLevel {...p} />}
     </Base.Field>
   </>
 );

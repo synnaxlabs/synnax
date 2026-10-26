@@ -181,10 +181,17 @@ func (t *writeTask) start(ctx context.Context, cmdKey string) error {
 		}
 	}
 	if err := t.open(ctx); err != nil {
-		t.setStatus(ctx, cmdKey, status.VariantError, false, err.Error())
+		t.setStatus(
+			ctx,
+			cmdKey,
+			status.VariantError,
+			false,
+			"Failed to start task",
+			err.Error(),
+		)
 		return err
 	}
-	t.setStatus(ctx, cmdKey, status.VariantSuccess, true, "Task started successfully")
+	t.setStatus(ctx, cmdKey, status.VariantSuccess, true, "Started task", "")
 	return nil
 }
 
@@ -200,10 +207,17 @@ func (t *writeTask) stop(ctx context.Context, cmdKey string, sendStatus bool) er
 		return err
 	}
 	if err != nil {
-		t.setStatus(ctx, cmdKey, status.VariantError, false, err.Error())
+		t.setStatus(
+			ctx,
+			cmdKey,
+			status.VariantError,
+			false,
+			"Failed to stop task",
+			err.Error(),
+		)
 		return err
 	}
-	t.setStatus(ctx, cmdKey, status.VariantSuccess, false, "Task stopped successfully")
+	t.setStatus(ctx, cmdKey, status.VariantSuccess, false, "Stopped task", "")
 	return nil
 }
 
@@ -363,15 +377,22 @@ func (t *writeTask) record(
 
 // reportError writes an error status that keeps the task running. A repeat of the
 // last report is not rewritten.
-func (t *writeTask) reportError(ctx context.Context, message string) {
+func (t *writeTask) reportError(ctx context.Context, description string) {
 	t.mu.Lock()
-	repeat := message == t.lastErr
-	t.lastErr = message
+	repeat := description == t.lastErr
+	t.lastErr = description
 	t.mu.Unlock()
 	if repeat {
 		return
 	}
-	t.setStatus(ctx, driver.NoCommand, status.VariantError, true, message)
+	t.setStatus(
+		ctx,
+		driver.NoCommand,
+		status.VariantError,
+		true,
+		"Failed to produce record",
+		description,
+	)
 }
 
 // ackCurrent answers cmdKey with the task's current status, for a command that needs
@@ -392,8 +413,16 @@ func (t *writeTask) setStatus(
 	variant status.Variant,
 	running bool,
 	message string,
+	description string,
 ) {
-	if err := t.status.Send(ctx, cmdKey, variant, running, message); err != nil {
+	if err := t.status.Send(
+		ctx,
+		cmdKey,
+		variant,
+		running,
+		message,
+		description,
+	); err != nil {
 		t.factoryCfg.L.Error("failed to set task status",
 			zap.Stringer("task", t.task.Key),
 			zap.Error(err),

@@ -15,19 +15,17 @@ import {
   BASIC128_RSA15_SECURITY_POLICY,
   BASIC256_SECURITY_POLICY,
   BASIC256_SHA256_SECURITY_POLICY,
-  NO_SECURITY_POLICY,
   type SecurityPolicy,
 } from "@/feature/opcua/device/types";
 
-export interface SelectSecurityPolicyProps extends Select.ButtonsProps<SecurityPolicy> {}
+export interface SelectSecurityPolicyProps extends Omit<
+  Select.SingleSimpleProps<SecurityPolicy>,
+  "resourceName" | "children"
+> {}
 
+/** Selects a security policy other than None. */
 export const SelectSecurityPolicy = (props: SelectSecurityPolicyProps) => (
-  <Select.Buttons {...props}>
-    <Select.Item itemKey={NO_SECURITY_POLICY}>None</Select.Item>
-    <Select.Item itemKey={BASIC128_RSA15_SECURITY_POLICY}>
-      Basic 128-bit RSA
-    </Select.Item>
-    <Select.Item itemKey={BASIC256_SECURITY_POLICY}>Basic 256-bit</Select.Item>
+  <Select.Simple<SecurityPolicy> resourceName="security policy" {...props}>
     <Select.Item itemKey={BASIC256_SHA256_SECURITY_POLICY}>
       Basic 256-bit with SHA-256
     </Select.Item>
@@ -37,5 +35,11 @@ export const SelectSecurityPolicy = (props: SelectSecurityPolicyProps) => (
     <Select.Item itemKey={AES256_SHA256_RSAPSS_SECURITY_POLICY}>
       AES 256-bit with SHA-256
     </Select.Item>
-  </Select.Buttons>
+    <Select.Item itemKey={BASIC256_SECURITY_POLICY}>
+      Basic 256-bit (deprecated)
+    </Select.Item>
+    <Select.Item itemKey={BASIC128_RSA15_SECURITY_POLICY}>
+      Basic 128-bit RSA (deprecated)
+    </Select.Item>
+  </Select.Simple>
 );

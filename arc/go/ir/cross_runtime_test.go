@@ -63,6 +63,7 @@ var _ = Describe("Cross-runtime IR contract", Ordered, func() {
 		Entry("default input param", "default_input_param", ir.DefaultInputParam),
 		Entry("lhs input param", "lhs_input_param", ir.LHSInputParam),
 		Entry("rhs input param", "rhs_input_param", ir.RHSInputParam),
+		Entry("done param", "done_param", ir.DoneParam),
 	)
 
 	// Guard against drift-by-addition: a new constant added to the C++ header
@@ -73,6 +74,7 @@ var _ = Describe("Cross-runtime IR contract", Ordered, func() {
 			"default_input_param",
 			"lhs_input_param",
 			"rhs_input_param",
+			"done_param",
 		)
 		var uncovered []string
 		for name := range cppConstants {

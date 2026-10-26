@@ -18,7 +18,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel as PChannel } from "@synnaxlabs/pluto";
 import { DataType, id, primitive } from "@synnaxlabs/x";
-import { type FC, useMemo } from "react";
+import { type FC } from "react";
 
 import { Device } from "@/feature/kafka/device";
 import {
@@ -127,7 +127,7 @@ const CHANNEL_POINTER_INPUT_PROPS = { placeholder: "Omitted" } as const;
 const TIMESTAMP_POINTER_INPUT_PROPS = { placeholder: "Omitted" } as const;
 
 const useChannelName = (key: channel.Key): string | undefined => {
-  const query = useMemo(() => (primitive.isNonZero(key) ? { key } : null), [key]);
+  const query = primitive.isNonZero(key) ? { key } : null;
   return PChannel.useResultName(query).data;
 };
 
@@ -188,7 +188,7 @@ const renderSelectJSONType = Component.renderProp(
 
 const ChannelDetails = ({ path }: Task.Views.DetailsProps) => {
   const { channel: key, jsonType } = PForm.useFieldValue<WriteChannel>(path);
-  const query = useMemo(() => (primitive.isNonZero(key) ? { key } : null), [key]);
+  const query = primitive.isNonZero(key) ? { key } : null;
   const { data: dataType } = PChannel.useResultDataType(query);
   const isTimestamp = dataType != null && DataType.TIMESTAMP.equals(dataType);
   // A string, JSON, or UUID channel always goes out as a string, so it has no JSON

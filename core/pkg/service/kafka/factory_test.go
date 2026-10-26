@@ -73,7 +73,8 @@ var _ = Describe("Factory", func() {
 					To(MatchError(validate.ErrValidation))
 				stat := taskStatus(ctx, t)
 				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Message).To(ContainSubstring("topic"))
+				Expect(stat.Message).To(Equal("Failed to configure task"))
+				Expect(stat.Description).To(ContainSubstring("topic"))
 				Expect(stat.Details.Cmd).To(Equal("cmd-1"))
 			},
 		)
@@ -146,7 +147,7 @@ var _ = Describe("Factory", func() {
 				})).To(Succeed())
 				stat := taskStatus(ctx, t)
 				Expect(stat.Variant).To(Equal(status.VariantSuccess))
-				Expect(stat.Message).To(Equal("Connection successful"))
+				Expect(stat.Message).To(Equal("Connected"))
 				Expect(stat.Details.Cmd).To(Equal("cmd-2"))
 			},
 		)
@@ -165,7 +166,7 @@ var _ = Describe("Factory", func() {
 				})).To(Succeed())
 				stat := taskStatus(ctx, t)
 				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Message).To(ContainSubstring("Connection failed"))
+				Expect(stat.Message).To(Equal("Failed to connect"))
 				Expect(stat.Details.Cmd).To(Equal("cmd-3"))
 			},
 		)
@@ -180,7 +181,7 @@ var _ = Describe("Factory", func() {
 				})).To(Succeed())
 				stat := taskStatus(ctx, t)
 				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Message).To(ContainSubstring("brokers"))
+				Expect(stat.Description).To(ContainSubstring("brokers"))
 			},
 		)
 
@@ -238,7 +239,7 @@ var _ = Describe("Factory", func() {
 						kafka.Properties{Brokers: brokers, TLS: true},
 					)
 					Expect(stat.Variant).To(Equal(status.VariantError))
-					Expect(stat.Message).To(ContainSubstring("Connection failed"))
+					Expect(stat.Message).To(Equal("Failed to connect"))
 				},
 			)
 
@@ -248,7 +249,7 @@ var _ = Describe("Factory", func() {
 					CaCertificate: caPEM,
 				})
 				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Message).To(ContainSubstring("requires TLS"))
+				Expect(stat.Description).To(ContainSubstring("requires TLS"))
 			})
 
 			It("Should reject a CA certificate that is not PEM", func(ctx SpecContext) {
@@ -258,7 +259,7 @@ var _ = Describe("Factory", func() {
 					CaCertificate: "not a certificate",
 				})
 				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Message).To(ContainSubstring("PEM-encoded certificate"))
+				Expect(stat.Description).To(ContainSubstring("PEM-encoded certificate"))
 			})
 		})
 
@@ -294,8 +295,7 @@ var _ = Describe("Factory", func() {
 						To(Equal(status.VariantError))
 				}).WithTimeout(15 * time.Second).Should(Succeed())
 				Expect(deviceStatus(ctx, live).Message).To(Equal("Device connected"))
-				Expect(deviceStatus(ctx, dead).Message).
-					To(ContainSubstring("Connection failed"))
+				Expect(deviceStatus(ctx, dead).Message).To(Equal("Failed to connect"))
 			},
 		)
 	})

@@ -12,9 +12,9 @@ package v1
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp/migrate"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v0"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // Migration converts every range from the Orc value-color layout (Color stored inline)
@@ -22,7 +22,7 @@ import (
 // color denoted "no color" under the value layout, so it maps to nil. It runs after the
 // codec migration so it always reads the deterministic value-color encoding that
 // migration leaves behind.
-var Migration = gorp.NewEntryMigration(
+var Migration = migrate.NewEntry(
 	"range_color_nullable",
 	func(ctx context.Context, old v0.Range) (Range, error) {
 		rng, err := autoMigrateRange(ctx, old)

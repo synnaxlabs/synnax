@@ -87,7 +87,7 @@ const List = (): ReactElement => {
   );
 };
 
-const listItem = Component.renderProp((props: BaseList.ItemProps<string>) => {
+const ListItem = (props: BaseList.ItemProps<string>) => {
   const { itemKey } = props;
   const entry = Range.useResolve(itemKey);
   const isLocal = entry != null && entry.variant !== "persisted";
@@ -136,7 +136,9 @@ const listItem = Component.renderProp((props: BaseList.ItemProps<string>) => {
       )}
     </Select.Item>
   );
-});
+};
+
+const listItem = Component.renderProp(ListItem);
 
 const Actions = (): ReactElement | null => {
   const openExplorer = Explorer.useOpenTab();

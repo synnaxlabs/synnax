@@ -9,7 +9,7 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Header as PHeader } from "@synnaxlabs/lyra/header";
-import { type ReactNode, useCallback, useEffect } from "react";
+import { type ReactNode, useEffect } from "react";
 
 import { Button } from "@/platform/button";
 import { Empty } from "@/platform/empty";
@@ -28,6 +28,8 @@ const Header = () => (
     </PHeader.Title>
   </PHeader.Header>
 );
+
+const HEADER = <Header />;
 
 const EMPTY_CONTENT = <Empty.Action message="No channels in task" />;
 
@@ -59,12 +61,12 @@ export const useAdd = <C extends Channel>({
 }: UseAddProps<C>): (() => void) => {
   const ctx = Form.useContext();
   const { push } = Form.useFieldList<C["key"], C>(path);
-  return useCallback(() => {
+  return () => {
     const channel = createChannel(ctx.get<C[]>(path).value);
     if (channel == null) return;
     push(channel);
     onSelect([channel.key]);
-  }, [ctx, path, push, createChannel, onSelect]);
+  };
 };
 
 export interface ChannelListProps<C extends Channel> extends Omit<
@@ -83,7 +85,7 @@ export const ChannelList = <C extends Channel>({
   createChannel,
   createChannels,
   path = "config.channels",
-  header = <Header />,
+  header = HEADER,
   ...rest
 }: ChannelListProps<C>) => {
   const ctx = Form.useContext();
@@ -108,15 +110,12 @@ export const ChannelList = <C extends Channel>({
   const { data, push, remove } = Form.useFieldList<C["key"], C>(path);
   const { onSelect } = rest;
   const handleAdd = useAdd({ path, createChannel, onSelect });
-  const handleDuplicate = useCallback(
-    (chs: C[], keys: string[]) => {
-      if (createChannels == null) return;
-      const duplicated = createChannels(chs, keys);
-      push(duplicated);
-      return duplicated.map(({ key }) => key);
-    },
-    [createChannels, onSelect, push],
-  );
+  const handleDuplicate = (chs: C[], keys: string[]) => {
+    if (createChannels == null) return;
+    const duplicated = createChannels(chs, keys);
+    push(duplicated);
+    return duplicated.map(({ key }) => key);
+  };
   return (
     <Base
       {...rest}

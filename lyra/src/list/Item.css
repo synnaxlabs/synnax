@@ -55,6 +55,14 @@
     }
 }
 
+/* While an item holds the hover, the pointer tints no other item, so one item is marked
+   at a time. */
+.pluto-list__scroll:has(.pluto-list__item.pluto--hovered)
+    .pluto-list__item:not(.pluto--hovered) {
+    --pluto-hover-bg: var(--pluto-bg);
+    --pluto-hover-border-color: var(--pluto-border-color);
+}
+
 /* The virtualizer positions rows itself, at offsets it assumes rather than measures, so
    a row shorter than the assumed pitch would leave a gap. */
 .pluto-list__scroll--virtual > .pluto-list__virtualizer .pluto-list__item {

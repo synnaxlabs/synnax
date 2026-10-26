@@ -11,17 +11,16 @@ package rack
 
 import (
 	"context"
-	"io"
 	"iter"
 	"strconv"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	xchange "github.com/synnaxlabs/x/change"
-	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/zyn"
 )
 
@@ -58,10 +57,7 @@ func newResource(r Rack) ontology.Resource {
 
 type change = xchange.Change[Key, Rack]
 
-var (
-	_ ontology.Service = (*Service)(nil)
-	_ search.Service   = (*Service)(nil)
-)
+var _ ontology.Service = (*Service)(nil)
 
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeRack }
 
@@ -103,13 +99,12 @@ func (s *Service) OnChange(
 	return s.table.Observe().OnChange(handleChange)
 }
 
-// OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter(
+// Search implements ontology.Service.
+func (s *Service) Search(
 	ctx context.Context,
-) (iter.Seq[ontology.Resource], io.Closer, error) {
-	n, closer, err := s.table.OpenNexter(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-	return xiter.Map(n, newResource), closer, nil
+	tx gorp.Tx,
+	term string,
+	limit int,
+) (search.Result[ontology.ID], error) {
+	return ontology.SearchIndex(ctx, tx, s.indexes.search, term, limit, Key.OntologyID)
 }

@@ -21,7 +21,7 @@ namespace {
 /// @brief maximum time the event loop blocks when no transfers are active. Only affects
 /// shutdown latency — new submissions interrupt the wait immediately via
 /// curl_multi_wakeup.
-const auto IDLE_POLL_TIMEOUT = static_cast<long>(x::telem::SECOND.milliseconds());
+const auto IDLE_POLL_TIMEOUT = static_cast<int>(x::telem::SECOND.milliseconds());
 
 const auto SKIPPED = x::errors::Error(
     http::errors::SKIPPED_ERROR,
@@ -141,6 +141,7 @@ CURL *Processor::create_handle(const Request &req, ActiveTransfer &t) {
 Processor::Processor(const x::telem::TimeSpan active_poll_timeout):
     active_poll_timeout_ms(static_cast<int>(active_poll_timeout.milliseconds())) {
     ensure_curl_initialized();
+    // NOLINTNEXTLINE(cppcoreguidelines-prefer-member-initializer): curl inits first.
     this->multi = curl_multi_init();
     this->io_thread = std::thread([this] { run(); });
 }
@@ -236,8 +237,8 @@ void Processor::run() {
         }
 
         // Check for completed transfers.
-        CURLMsg *msg;
-        int msgs_left;
+        CURLMsg *msg = nullptr;
+        int msgs_left = 0;
         while ((msg = curl_multi_info_read(this->multi, &msgs_left)) != nullptr) {
             if (msg->msg != CURLMSG_DONE) continue;
             CURL *handle = msg->easy_handle;

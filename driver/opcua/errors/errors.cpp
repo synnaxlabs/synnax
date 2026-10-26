@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <format>
 #include <string>
 #include <unordered_map>
 
@@ -404,8 +405,16 @@ static bool is_connection_status_code(const UA_StatusCode &status) {
 x::errors::Error parse(const UA_StatusCode &status) {
     if (status == UA_STATUSCODE_GOOD) return x::errors::NIL;
     const std::string status_name = UA_StatusCode_name(status);
-    const std::string message = status_code_description(status);
-    if (is_connection_status_code(status))
+    // The low 16 bits carry flags, not the condition the code names.
+    const UA_StatusCode condition = status & 0xFFFF0000;
+    std::string message = status_code_description(condition);
+    if (message.empty())
+        message = std::format(
+            "The server returned {} (0x{:08X}).",
+            status_name,
+            status
+        );
+    if (is_connection_status_code(condition))
         return {UNREACHABLE.sub(status_name), message};
     return {CRITICAL.sub(status_name), message};
 }

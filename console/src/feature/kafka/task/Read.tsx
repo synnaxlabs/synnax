@@ -24,7 +24,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Channel as PChannel, Telem } from "@synnaxlabs/pluto";
 import { DataType, errors, id, primitive } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC } from "react";
 
 import { Device } from "@/feature/kafka/device";
 import { TimeFormatField } from "@/feature/kafka/task/TimeFormatField";
@@ -139,12 +139,9 @@ const ExistingChannelNameField = ({ channel: key }: { channel: channel.Key }) =>
   const { update } = PChannel.useRename();
   const canRename = Access.useUpdateGranted(channel.TYPE_ONTOLOGY_ID);
   const isPreview = Task.useIsPreview();
-  const handleChange = useCallback(
-    (next: string) => {
-      if (next.length > 0 && next !== name) update({ key, name: next });
-    },
-    [key, name, update],
-  );
+  const handleChange = (next: string) => {
+    if (next.length > 0 && next !== name) update({ key, name: next });
+  };
   return (
     <Input.Item label="Channel" padHelpText={false}>
       <Input.Text
@@ -179,28 +176,25 @@ const TimestampFields = ({ path }: { path: string }) => {
   const { index, fields, recordKey } = PForm.useFieldValue<ReadRecord>(path);
   const indexField = fields.find((f) => f.key === index);
   const dev = Device.useFromConfig();
-  const handleChange = useCallback(
-    (mode: TimingMode) => {
-      if (mode === "value" && indexField == null) {
-        const field: ReadField = {
-          ...kafka.readFieldZ.parse({}),
-          key: id.create(),
-          pointer: "/timestamp",
-          dataType: DataType.TIMESTAMP.toString(),
-          timeFormat: "unix_sec",
-        };
-        set(`${path}.fields`, [...fields, field]);
-        set(`${path}.index`, field.key);
-      } else if (mode === "arrival" && indexField != null) {
-        set(
-          `${path}.fields`,
-          fields.filter((f) => f.key !== index),
-        );
-        set(`${path}.index`, "");
-      }
-    },
-    [fields, index, indexField, path, set],
-  );
+  const handleChange = (mode: TimingMode) => {
+    if (mode === "value" && indexField == null) {
+      const field: ReadField = {
+        ...kafka.readFieldZ.parse({}),
+        key: id.create(),
+        pointer: "/timestamp",
+        dataType: DataType.TIMESTAMP.toString(),
+        timeFormat: "unix_sec",
+      };
+      set(`${path}.fields`, [...fields, field]);
+      set(`${path}.index`, field.key);
+    } else if (mode === "arrival" && indexField != null) {
+      set(
+        `${path}.fields`,
+        fields.filter((f) => f.key !== index),
+      );
+      set(`${path}.index`, "");
+    }
+  };
   const fieldPath = `${path}.fields.${indexField?.key}`;
   return (
     <>

@@ -209,7 +209,8 @@ var _ = Describe("Read task", func() {
 			Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{2.5}))
 			stat := taskStatus(ctx, t)
 			Expect(stat.Variant).To(Equal(status.VariantError))
-			Expect(stat.Message).To(Equal("Record has no value at /v"))
+			Expect(stat.Message).To(Equal("Skipped record"))
+			Expect(stat.Description).To(Equal("Record has no value at /v"))
 			Expect(stat.Details.Running).To(BeTrue())
 		},
 	)
@@ -228,7 +229,7 @@ var _ = Describe("Read task", func() {
 			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 20e9, "v": 1.0})
 			expectStored(ctx, data.Key(), 1)
 			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 15e9, "v": 2.0})
-			Eventually(func() string { return taskStatus(ctx, t).Message }).
+			Eventually(func() string { return taskStatus(ctx, t).Description }).
 				WithTimeout(15 * time.Second).
 				Should(ContainSubstring("is not after the last written"))
 			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 25e9, "v": 3.0})
@@ -373,7 +374,7 @@ var _ = Describe("Read task", func() {
 		start(ctx, dt, t)
 		rec := &kgo.Record{Topic: topic, Value: []byte("{")}
 		Expect(producer.ProduceSync(ctx, rec).FirstErr()).To(Succeed())
-		Eventually(func() string { return taskStatus(ctx, t).Message }).
+		Eventually(func() string { return taskStatus(ctx, t).Description }).
 			WithTimeout(15 * time.Second).
 			Should(ContainSubstring("Record is not JSON"))
 		produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9, "v": 1.0})
@@ -417,7 +418,7 @@ var _ = Describe("Read task", func() {
 			})
 			start(ctx, dt, t)
 			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9, "v": 1.0})
-			Eventually(func() string { return taskStatus(ctx, t).Message }).
+			Eventually(func() string { return taskStatus(ctx, t).Description }).
 				WithTimeout(15 * time.Second).
 				Should(ContainSubstring(`pointer "v" must start with '/'`))
 		},
@@ -547,7 +548,7 @@ var _ = Describe("Read task", func() {
 			})
 			start(ctx, dt, t)
 			produceJSON(ctx, producer, topic, "", doc)
-			Eventually(func() string { return taskStatus(ctx, t).Message }).
+			Eventually(func() string { return taskStatus(ctx, t).Description }).
 				WithTimeout(15 * time.Second).Should(ContainSubstring(msg))
 			stat := taskStatus(ctx, t)
 			Expect(stat.Variant).To(Equal(status.VariantError))

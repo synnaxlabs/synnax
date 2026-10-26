@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/feature/kafka/device/commands";
+export * from "@/feature/kafka/device/ContextMenuItems";
+export * from "@/feature/kafka/device/network";
 export * from "@/feature/kafka/device/queries";
 export * from "@/feature/kafka/device/Select";
 export * from "@/feature/kafka/device/types";

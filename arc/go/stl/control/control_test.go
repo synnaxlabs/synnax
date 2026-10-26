@@ -39,6 +39,14 @@ var _ = Describe("Control", func() {
 		return GraphConfig(ctx, NewGraphRoot(nil), "set_authority",
 			msgpack.EncodedJSON{"value": value, "channel": channel})
 	}
+	// nextCtx builds a node context whose marks are no-ops.
+	nextCtx := func(ctx context.Context) node.Context {
+		return node.Context{
+			Context:     ctx,
+			MarkChanged: func(int) {},
+			MarkDone:    func() {},
+		}
+	}
 
 	Describe("NewModule", func() {
 		It("Should create factory with state", func(ctx SpecContext) {
@@ -130,7 +138,7 @@ var _ = Describe("Control", func() {
 				n := MustSucceed(
 					factory.Create(setAuthority.Config(value, channel)),
 				)
-				n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
+				n.Next(nextCtx(ctx))
 				changes := authorityState.Flush()
 				Expect(changes).To(HaveLen(1))
 				Expect(changes[0].Authority).To(Equal(uint8(200)))
@@ -146,7 +154,7 @@ var _ = Describe("Control", func() {
 				n := MustSucceed(
 					factory.Create(setAuthority.Config(value, channel)),
 				)
-				n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
+				n.Next(nextCtx(ctx))
 				changes := authorityState.Flush()
 				Expect(changes).To(HaveLen(1))
 				Expect(changes[0].Authority).To(Equal(uint8(150)))
@@ -161,7 +169,7 @@ var _ = Describe("Control", func() {
 				n := MustSucceed(
 					factory.Create(setAuthority.Config(value, channel)),
 				)
-				nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
+				nCtx := nextCtx(ctx)
 				n.Next(nCtx)
 				n.Next(nCtx)
 				n.Next(nCtx)
@@ -178,11 +186,31 @@ var _ = Describe("Control", func() {
 				n := MustSucceed(
 					factory.Create(setAuthority.Config(value, channel)),
 				)
-				n.Next(node.Context{Context: ctx, MarkChanged: func(int) {
-					// setAuthority declares no outputs; MarkChanged should never fire.
-					outputs = append(outputs, "called")
-				}})
+				nCtx := nextCtx(ctx)
+				// setAuthority declares no outputs; MarkChanged should never fire.
+				nCtx.MarkChanged = func(int) { outputs = append(outputs, "called") }
+				n.Next(nCtx)
 				Expect(outputs).To(BeEmpty())
+			},
+			Entry("const inputs", uint8(200), uint32(42)),
+			Entry("var value", VarOf(uint8(200)), uint32(42)),
+		)
+
+		DescribeTable("Should mark done only on the run that sets authority",
+			func(ctx SpecContext, value, channel any) {
+				n := MustSucceed(
+					factory.Create(setAuthority.Config(value, channel)),
+				)
+				done := 0
+				nCtx := nextCtx(ctx)
+				nCtx.MarkDone = func() { done++ }
+				n.Next(nCtx)
+				Expect(done).To(Equal(1))
+				n.Next(nCtx)
+				Expect(done).To(Equal(1))
+				n.Reset(node.Context{})
+				n.Next(nCtx)
+				Expect(done).To(Equal(2))
 			},
 			Entry("const inputs", uint8(200), uint32(42)),
 			Entry("var value", VarOf(uint8(200)), uint32(42)),
@@ -190,7 +218,7 @@ var _ = Describe("Control", func() {
 
 		It("Should read params through a graph-compiled config", func(ctx SpecContext) {
 			n := MustSucceed(factory.Create(constConfig(ctx, 200, 42)))
-			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
+			n.Next(nextCtx(ctx))
 			changes := authorityState.Flush()
 			Expect(changes).To(HaveLen(1))
 			Expect(changes[0].Authority).To(Equal(uint8(200)))
@@ -202,7 +230,7 @@ var _ = Describe("Control", func() {
 			func(ctx SpecContext) {
 				cfg := setAuthority.Config(NewVarInput[uint8](5), uint32(42))
 				n := MustSucceed(factory.Create(cfg))
-				n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
+				n.Next(nextCtx(ctx))
 				changes := authorityState.Flush()
 				Expect(changes).To(HaveLen(1))
 				Expect(changes[0].Authority).To(Equal(uint8(5)))
@@ -216,7 +244,7 @@ var _ = Describe("Control", func() {
 				cfg := setAuthority.Config(v, uint32(42))
 				v.Set(77)
 				n := MustSucceed(factory.Create(cfg))
-				nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
+				nCtx := nextCtx(ctx)
 				n.Next(nCtx)
 				v.Set(33)
 				n.Next(nCtx)
@@ -233,7 +261,7 @@ var _ = Describe("Control", func() {
 				cfg := setAuthority.Config(v, uint32(42))
 				v.Set(77)
 				n := MustSucceed(factory.Create(cfg))
-				nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
+				nCtx := nextCtx(ctx)
 				n.Next(nCtx)
 				Expect(authorityState.Flush()[0].Authority).To(Equal(uint8(77)))
 				n.Reset(node.Context{})
@@ -261,7 +289,7 @@ var _ = Describe("Control", func() {
 				n := MustSucceed(
 					factory.Create(setAuthority.Config(value, channel)),
 				)
-				nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
+				nCtx := nextCtx(ctx)
 				n.Next(nCtx)
 				changes := authorityState.Flush()
 				Expect(changes).To(HaveLen(1))
@@ -279,7 +307,7 @@ var _ = Describe("Control", func() {
 				n := MustSucceed(
 					factory.Create(setAuthority.Config(value, channel)),
 				)
-				nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
+				nCtx := nextCtx(ctx)
 				n.Next(nCtx)
 				first := authorityState.Flush()
 				Expect(first).To(HaveLen(1))

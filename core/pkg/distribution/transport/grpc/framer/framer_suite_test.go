@@ -24,7 +24,7 @@ import (
 
 func TestFramer(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Distribution Transport gRPC Framer Suite")
+	RunSpecs(t, "Distribution Transport gRPC Framer Suite", SuiteConfig())
 }
 
 var (

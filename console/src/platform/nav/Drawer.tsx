@@ -13,11 +13,7 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { type Resize } from "@synnaxlabs/lyra/resize";
 import { Eraser } from "@synnaxlabs/pluto";
 import { box, direction, type location, xy } from "@synnaxlabs/x";
-import {
-  type MouseEvent as ReactMouseEvent,
-  type ReactElement,
-  useCallback,
-} from "react";
+import { type MouseEvent as ReactMouseEvent, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Errors } from "@/platform/errors";
@@ -42,32 +38,30 @@ export const Drawer = ({
   ...rest
 }: DrawerProps): ReactElement => {
   const { erase } = Eraser.use({ enabled: !hover });
-  const handleResize = useCallback(
-    (_: number, { box }: Resize.HandlerExtra) => erase(box),
-    [erase],
-  );
-  const handleMouseLeave = useCallback(
-    (e: ReactMouseEvent) => {
-      const threshold = direction.isY(loc) ? Y_THRESHOLD : X_THRESHOLD;
-      const content = (e.target as HTMLElement).closest(`.${CLASS}`);
-      if (content == null) return;
-      let b = box.construct(content);
-      b = box.translate(b, xy.scale(threshold, -1));
-      b = box.resize(b, {
-        width: box.width(b) + threshold.x * 2,
-        height: box.height(b) + threshold.y * 2,
-      });
-      const lis = (e: MouseEvent) => {
+  const handleResize = (_: number, { box }: Resize.HandlerExtra) => erase(box);
+  const handleMouseLeave = (e: ReactMouseEvent) => {
+    const threshold = direction.isY(loc) ? Y_THRESHOLD : X_THRESHOLD;
+    const content = (e.target as HTMLElement).closest(`.${CLASS}`);
+    if (content == null) return;
+    let b = box.construct(content);
+    b = box.translate(b, xy.scale(threshold, -1));
+    b = box.resize(b, {
+      width: box.width(b) + threshold.x * 2,
+      height: box.height(b) + threshold.y * 2,
+    });
+    const controller = new AbortController();
+    window.addEventListener(
+      "mousemove",
+      (e: MouseEvent) => {
         const pos = xy.construct(e);
         if (!box.contains(b, pos)) {
-          window.removeEventListener("mousemove", lis);
+          controller.abort();
           onStopHover();
-        } else if (e.buttons != 0) window.removeEventListener("mousemove", lis);
-      };
-      window.addEventListener("mousemove", lis);
-    },
-    [loc, onStopHover],
-  );
+        } else if (e.buttons != 0) controller.abort();
+      },
+      { signal: controller.signal },
+    );
+  };
   return (
     <Nav.Drawer
       location={loc}
@@ -81,7 +75,7 @@ export const Drawer = ({
       borderColor={6}
       {...rest}
     >
-      <Errors.Boundary>{collapsed ? null : children}</Errors.Boundary>
+      <Errors.SuspenseBoundary>{collapsed ? null : children}</Errors.SuspenseBoundary>
     </Nav.Drawer>
   );
 };
