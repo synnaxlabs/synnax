@@ -26,6 +26,7 @@ from freighter import (
 )
 from synnax.telem import Size, TimeSpan
 from x.codec import JSONCodec
+from x.exceptions import Registry
 
 
 class Transport:
@@ -39,6 +40,7 @@ class Transport:
         self,
         url: URL,
         instrumentation: Instrumentation,
+        registry: Registry,
         secure: bool = False,
         open_timeout: TimeSpan = TimeSpan.SECOND * 5,
         read_timeout: TimeSpan = TimeSpan.SECOND * 5,
@@ -47,6 +49,7 @@ class Transport:
         ca_cert: str | None = None,
     ) -> None:
         """
+        :param registry: Decodes the errors that the Core returns.
         :param secure: Whether to use TLS. The client then verifies the Core's
             certificate against ca_cert, or the system trust roots when ca_cert is None.
         :param ca_cert: The path to a PEM file of CA certificates that sign the Core's
@@ -61,6 +64,7 @@ class Transport:
         ws_args = {
             "base_url": self.url,
             "encoder": codec,
+            "registry": registry,
             "max_message_size": int(Size.MB * 5),
             "ssl_context": ssl_context,
             "open_timeout": open_timeout.seconds,
@@ -74,6 +78,7 @@ class Transport:
         http = HTTPClient(
             url=self.url,
             codec=codec,
+            registry=registry,
             ssl_context=ssl_context,
             timeout=Timeout(connect=open_timeout.seconds, read=read_timeout.seconds),
             retries=Retry(total=max_retries),

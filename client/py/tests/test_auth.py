@@ -15,6 +15,7 @@ import freighter
 import synnax as sy
 from freighter import Empty
 from freighter.mock import MockUnaryClient
+from synnax.exceptions import create_registry
 
 
 @pytest.mark.auth
@@ -86,7 +87,7 @@ class TestAuthRetry:
     )
     def test_decode(self, type_: str, exc: type[sy.AuthError]) -> None:
         """Should decode each auth error type the Core sends."""
-        err = freighter.decode_exception(
+        err = create_registry().decode(
             freighter.ExceptionPayload(type=type_, data="refused")
         )
         assert type(err) is exc
@@ -101,7 +102,7 @@ class TestAuthRetry:
         """Should re-authenticate and retry after a token error from the Core."""
         mock_client = auth_setup
         mock_client.response_errors = [
-            freighter.decode_exception(
+            create_registry().decode(
                 freighter.ExceptionPayload(type=type_, data="refused")
             ),
             None,

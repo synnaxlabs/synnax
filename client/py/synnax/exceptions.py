@@ -9,9 +9,11 @@
 
 import json
 from dataclasses import dataclass
+from functools import partial
 from typing import Any
 
 import freighter
+from x.exceptions import ExceptionPayload, Provider, Registry
 
 _FREIGHTER_EXCEPTION_PREFIX = "sy."
 
@@ -157,7 +159,7 @@ class PathError(ValidationError):
         super().__init__(f"{'.'.join(path)}: {error}")
 
 
-def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
+def _decode(registry: Registry, encoded: ExceptionPayload) -> Exception | None:
     if encoded.type is None:
         return None if encoded.data is None else UnexpectedError(encoded.data)
 
@@ -184,9 +186,7 @@ def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
                 return UnexpectedError(encoded.data)
             try:
                 data = json.loads(encoded.data)
-                decoded_err = freighter.decode_exception(
-                    freighter.ExceptionPayload(**data["error"])
-                )
+                decoded_err = registry.decode(ExceptionPayload(**data["error"]))
                 if decoded_err is None:
                     return UnexpectedError(encoded.data)
                 return PathError(
@@ -230,8 +230,13 @@ def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
     return UnexpectedError(encoded.data)
 
 
-def _encode(err: Exception) -> freighter.ExceptionPayload | None:
-    raise NotImplementedError
+def _encode(_: Exception) -> ExceptionPayload | None:
+    return None
 
 
-freighter.register_exception(_encode, _decode)
+def create_registry() -> Registry:
+    """:returns: a registry that decodes the errors of Freighter and the Core."""
+    registry = Registry()
+    registry.register(freighter.EXCEPTION_PROVIDER)
+    registry.register(Provider(encode=_encode, decode=partial(_decode, registry)))
+    return registry
