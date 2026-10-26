@@ -94,7 +94,13 @@ var _ = Describe("Migration", func() {
 			},
 		}
 		empty := v0.View{Key: uuid.New(), Name: "Empty", Type: "range"}
-		create(ctx, ranges, statuses, empty)
+		emptyStatuses := v0.View{
+			Key:   uuid.New(),
+			Name:  "Empty statuses",
+			Type:  "status",
+			Query: msgpack.EncodedJSON{"has_labels": []any{}, "variants": []any{}},
+		}
+		create(ctx, ranges, statuses, empty, emptyStatuses)
 		run(ctx)
 		Expect(retrieve(ctx, ranges.Key)).To(Equal(v1.View{Variant: v1.RangeView{
 			Base:  v1.Base{Key: ranges.Key, Name: "Ranges"},
@@ -113,6 +119,11 @@ var _ = Describe("Migration", func() {
 		Expect(retrieve(ctx, empty.Key)).To(Equal(v1.View{Variant: v1.RangeView{
 			Base: v1.Base{Key: empty.Key, Name: "Empty"},
 		}}))
+		Expect(retrieve(ctx, emptyStatuses.Key)).To(Equal(v1.View{
+			Variant: v1.StatusView{
+				Base: v1.Base{Key: emptyStatuses.Key, Name: "Empty statuses"},
+			},
+		}))
 	})
 
 	It(
