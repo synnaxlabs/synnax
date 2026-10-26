@@ -304,7 +304,9 @@ var _ = Describe("Arrays", func() {
 	Describe("OptionalWrapperName", func() {
 		DescribeTable("should derive the optional list wrapper name",
 			func(ref resolution.TypeRef, expected string) {
-				Expect(arrays.OptionalWrapperName(ref, "test", table)).To(Equal(expected))
+				Expect(
+					arrays.OptionalWrapperName(ref, "test", table),
+				).To(Equal(expected))
 			},
 			Entry(
 				"array of a named type",

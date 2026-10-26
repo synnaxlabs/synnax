@@ -409,7 +409,10 @@ func (p *Plugin) processFields(
 }
 
 // addInstance adds the message of inst to the file once and returns its name.
-func (p *Plugin) addInstance(inst instance.Instance, data *templateData) (string, error) {
+func (p *Plugin) addInstance(
+	inst instance.Instance,
+	data *templateData,
+) (string, error) {
 	if data.instances.Contains(inst.Name) {
 		return inst.Name, nil
 	}

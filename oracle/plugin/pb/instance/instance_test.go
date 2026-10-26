@@ -63,13 +63,17 @@ var _ = Describe("Of", func() {
 	}
 
 	It("Should name a use over a local type after the type and the struct", func() {
-		inst := MustBeOk(instance.Of(fieldOf("thing.Thing", "key").Type, "thing", table))
+		inst := MustBeOk(
+			instance.Of(fieldOf("thing.Thing", "key").Type, "thing", table),
+		)
 		Expect(inst.Name).To(Equal("KeySet"))
 		Expect(inst.Generic.QualifiedName).To(Equal("filter.Set"))
 	})
 
 	It("Should substitute the type arguments into the fields", func() {
-		inst := MustBeOk(instance.Of(fieldOf("thing.Thing", "key").Type, "thing", table))
+		inst := MustBeOk(
+			instance.Of(fieldOf("thing.Thing", "key").Type, "thing", table),
+		)
 		Expect(inst.Fields).To(HaveLen(2))
 		Expect(inst.Fields[0].Name).To(Equal("eq"))
 		Expect(inst.Fields[0].Type.Name).To(Equal("thing.Key"))
@@ -79,12 +83,16 @@ var _ = Describe("Of", func() {
 	})
 
 	It("Should name a use over a primitive after the primitive", func() {
-		inst := MustBeOk(instance.Of(fieldOf("thing.Thing", "raw").Type, "thing", table))
+		inst := MustBeOk(
+			instance.Of(fieldOf("thing.Thing", "raw").Type, "thing", table),
+		)
 		Expect(inst.Name).To(Equal("UuidSet"))
 	})
 
 	It("Should name a use through an alias after the alias's target", func() {
-		inst := MustBeOk(instance.Of(fieldOf("thing.Thing", "aliased").Type, "thing", table))
+		inst := MustBeOk(
+			instance.Of(fieldOf("thing.Thing", "aliased").Type, "thing", table),
+		)
 		Expect(inst.Name).To(Equal("UuidSet"))
 		Expect(inst.Fields[0].Type.Name).To(Equal("uuid"))
 	})
@@ -99,7 +107,9 @@ var _ = Describe("Of", func() {
 	})
 
 	It("Should name a use over a map after the map's type arguments", func() {
-		inst := MustBeOk(instance.Of(fieldOf("thing.Thing", "labels").Type, "thing", table))
+		inst := MustBeOk(
+			instance.Of(fieldOf("thing.Thing", "labels").Type, "thing", table),
+		)
 		Expect(inst.Name).To(Equal("StringDetailMapSet"))
 	})
 
@@ -118,10 +128,13 @@ var _ = Describe("Of", func() {
 		Expect(ok).To(BeFalse())
 	})
 
-	It("Should leave a use over a type parameter to the generic struct's message", func() {
-		_, ok := instance.Of(fieldOf("thing.Holder", "set").Type, "thing", table)
-		Expect(ok).To(BeFalse())
-	})
+	It(
+		"Should leave a use over a type parameter to the generic struct's message",
+		func() {
+			_, ok := instance.Of(fieldOf("thing.Holder", "set").Type, "thing", table)
+			Expect(ok).To(BeFalse())
+		},
+	)
 
 	It("Should leave a struct that is not generic", func() {
 		_, ok := instance.Of(fieldOf("thing.Thing", "name").Type, "thing", table)
