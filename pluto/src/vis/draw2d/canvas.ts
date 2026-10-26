@@ -631,12 +631,39 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
       atlas.fillText(this, text, x, y);
       return;
     }
-    this.wrapped.fillText(
-      text,
-      this.scale_.x.pos(x),
-      this.scale_.y.pos(y),
-      maxWidth != null ? this.scale_.x.dim(maxWidth) : undefined,
-    );
+    this.drawText("fill", text, xy.construct(x, y), maxWidth, xy.ONE);
+  }
+
+  // The canvas scales no glyphs, so each context passes its position and magnification
+  // down, and the bottom one applies the magnification as a transform. maxWidth is in
+  // glyph units, so the transform scales it too.
+  private drawText(
+    mode: "fill" | "stroke",
+    text: string,
+    position: xy.XY,
+    maxWidth: number | undefined,
+    magnification: xy.XY,
+  ): void {
+    const pos = this.scale_.pos(position);
+    const mag = this.scale_.dim(magnification);
+    if (this.wrapped instanceof SugaredOffscreenCanvasRenderingContext2D) {
+      this.wrapped.drawText(mode, text, pos, maxWidth, mag);
+      return;
+    }
+    const draw = (x: number, y: number): void => {
+      if (mode === "fill") this.wrapped.fillText(text, x, y, maxWidth);
+      else this.wrapped.strokeText(text, x, y, maxWidth);
+    };
+    if (xy.equals(mag, xy.ONE)) {
+      draw(pos.x, pos.y);
+      return;
+    }
+    this.wrapped.save();
+    this.wrapped.translate(pos.x, pos.y);
+    // An inverted scale flips positions, but text never draws mirrored.
+    this.wrapped.scale(Math.abs(mag.x), Math.abs(mag.y));
+    draw(0, 0);
+    this.wrapped.restore();
   }
 
   measureText(text: string): TextMetrics {
@@ -653,12 +680,7 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
   }
 
   strokeText(text: string, x: number, y: number, maxWidth?: number | undefined): void {
-    this.wrapped.strokeText(
-      text,
-      this.scale_.x.pos(x),
-      this.scale_.y.pos(y),
-      maxWidth != null ? this.scale_.x.dim(maxWidth) : undefined,
-    );
+    this.drawText("stroke", text, xy.construct(x, y), maxWidth, xy.ONE);
   }
 
   get direction(): CanvasDirection {
