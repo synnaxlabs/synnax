@@ -115,9 +115,9 @@ codified; the evidence feeding it can. Score each touched pattern on:
 4. **Deliberate arrival** -> introduced by an RFC or a sweeping refactor: declared
    invariant. Accreted from a one-off commit or copied sideways: incident. Read the
    actual code and history for the why.
-5. **Enforcement and defense** -> documented in an AGENTS.md, guarded by lint or codegen,
-   or visibly defended in review: load-bearing by revealed preference. Violations that
-   survived review unchallenged: the pattern may already be dead.
+5. **Enforcement and defense** -> documented in an AGENTS.md, guarded by lint or
+   codegen, or visibly defended in review: load-bearing by revealed preference.
+   Violations that survived review unchallenged: the pattern may already be dead.
 6. **Conformers benefit or merely comply** -> conformance yields reuse, safety, or
    simpler reasoning: structure. Boilerplate everyone works around: friction wearing
    architecture's clothes.
