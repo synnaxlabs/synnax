@@ -60,6 +60,10 @@ jobs:
             THEMES=(flake-hunt slop dead-code test-quality docs-drift)
             THEME=${THEMES[$(( $(date -u +%u) - 1 ))]}
           fi
+          if [ ! -f ".github/agents/nightly/$THEME.md" ]; then
+            echo "::error::No theme for $(date -u +%A). Pick one by name."
+            exit 1
+          fi
           echo "theme=$THEME" >> "$GITHUB_OUTPUT"
           EOF=$(openssl rand -hex 16)
           {
