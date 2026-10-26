@@ -15,7 +15,7 @@ import {
   type Series,
   sync,
   TimeRange,
-  type TimeStamp,
+  TimeStamp,
   type Window,
 } from "@synnaxlabs/x";
 
@@ -23,6 +23,7 @@ import { channel } from "@/channel";
 import { NotFoundError } from "@/errors";
 import { type ChannelRetriever } from "@/framer/adapter";
 import { domainOf } from "@/framer/cache/block";
+import { Dynamic } from "@/framer/cache/dynamic";
 import {
   isDefinitive,
   LOADING,
@@ -48,26 +49,37 @@ export interface LatestProps {
   breaker?: breaker.Config;
 }
 
+// Past this many samples, Latest drops samples that no value served.
+const UNSERVED_CAP = 100_000;
+// Bounds on the samples of a buffer that streamed series grow into.
+const MIN_BUFFER = 1_024;
+const MAX_BUFFER = 65_536;
+
 /**
- * Serves the newest samples of one channel: a read of its newest stored samples, then
- * every newer sample the stream delivers. When the stream drops, it reads the newest
- * samples again once the Core acks the channel. Once loaded, the samples only grow at
- * their end and lose whole series from their front, unless their data type changes.
+ * Serves the newest samples of one channel: a read of its newest stored samples, and
+ * every newer sample the stream delivers. Streamed samples serve while the read waits
+ * or fails. When the stream drops, it reads the newest samples again once the Core acks
+ * the channel. The samples grow at their end and lose whole series from their front,
+ * unless their data type changes. A series leaves only once a value served it.
  */
 export class Latest {
-  // series holds the samples from front on, and total counts them.
+  // series holds closed series from front on. The buffer's leading buffer holds the
+  // newest samples after them, while streamed series continue it.
   private series: Series[] = [];
   private front = 0;
-  private total = 0;
-  // held holds streamed series until the read lands.
-  private held: Series[] | null = [];
+  private closedTotal = 0;
+  private buffer: Dynamic;
+  // unserved counts the newest samples that no value served.
+  private unserved = 0;
+  // loadMark is where the series streamed during the running load start, or null when
+  // no load runs.
+  private loadMark: number | null = 0;
   private readonly demand: Demand;
   // dedupe is how fresh finds repeated samples: by Core alignment for a stored channel,
   // and by time for a calculated one, whose alignments depend on how its inputs split
   // into series. A channel that only streams repeats no sample.
   private dedupe: "alignment" | "time" | null = null;
   private failure: status.Status | null = null;
-  private loading = true;
   private generation = 0;
   // abort ends the load's wait for the stream's ack.
   private abort = new AbortController();
@@ -76,6 +88,13 @@ export class Latest {
     loading: status.create(LOADING),
     success: status.create(SUCCESS),
   };
+  // snapshot is the value last served. It holds until a change marks it dirty, or the
+  // clock reaches validUntil, where a series leaves the window.
+  private snapshot: Snapshot | null = null;
+  private dirty = true;
+  private validUntil = 0n;
+  // grown is true when the stream grew the leading buffer since the last value.
+  private grown = false;
 
   constructor(
     private readonly props: LatestProps,
@@ -84,6 +103,7 @@ export class Latest {
     private count: number,
     private readonly notify: () => void,
   ) {
+    this.buffer = this.createBuffer();
     this.demand = props.streamer.demand([key], (frame) => {
       const series = frame.get(key);
       if (series == null) return;
@@ -105,20 +125,28 @@ export class Latest {
     this.count = count;
     this.stop();
     this.clear();
-    this.held = [];
-    this.loading = true;
+    this.loadMark = 0;
     void this.load();
   }
 
-  /** @returns the newest samples, trimmed to the count and the window. */
+  /**
+   * @returns the newest samples, trimmed to the count and the window. The snapshot
+   * stays the same object until its samples or status change. A stream that only grows
+   * the newest series keeps the snapshot's series and moves its time.
+   */
   value(): Snapshot {
-    this.trim();
-    const last = this.series.at(-1);
-    return {
-      series: new MultiSeries(this.series.slice(this.front)),
-      status: this.status(),
-      time: last == null || last.timeRange.isZero ? undefined : last.timeRange.end,
-    };
+    if (
+      this.dirty ||
+      this.snapshot == null ||
+      this.props.now().valueOf() >= this.validUntil
+    )
+      return this.rebuild();
+    const status = this.status();
+    if (!this.grown && status === this.snapshot.status) return this.snapshot;
+    this.grown = false;
+    this.unserved = 0;
+    this.snapshot = { series: this.snapshot.series, status, time: this.time() };
+    return this.snapshot;
   }
 
   /** Releases the channel's stream. */
@@ -126,15 +154,46 @@ export class Latest {
     this.stop();
     this.demand.close();
     this.clear();
-    this.held = null;
+    this.loadMark = null;
+  }
+
+  private rebuild(): Snapshot {
+    this.trim();
+    this.dirty = false;
+    this.grown = false;
+    this.unserved = 0;
+    const series = this.series.slice(this.front);
+    const leading = this.buffer.leadingBuffer;
+    if (leading != null) series.push(leading);
+    this.validUntil = this.leavesAt();
+    this.snapshot = {
+      series: new MultiSeries(series),
+      status: this.status(),
+      time: this.time(),
+    };
+    return this.snapshot;
+  }
+
+  // Returns when the window's start passes the front series' end or the leading
+  // buffer's start, which trim then drops or closes.
+  private leavesAt(): bigint {
+    if (this.window?.variant !== "dynamic") return TimeStamp.MAX.valueOf();
+    const span = BigInt(this.window.timeSpan);
+    const first = this.series[this.front];
+    const leading = this.buffer.leadingBuffer;
+    let at = TimeStamp.MAX.valueOf();
+    if (first != null && !first.timeRange.isZero) at = first.timeRange.end.valueOf();
+    else if (leading != null) at = leading.timeRange.start.valueOf();
+    return at + span;
   }
 
   // Reads the newest samples again, since frames may have dropped. The samples held
   // stay until the read lands.
   private reload(): void {
     this.stop();
-    this.held ??= [];
-    this.loading = true;
+    this.closeLeading();
+    this.loadMark ??= this.series.length;
+    this.dirty = true;
     this.notify();
     void this.load();
   }
@@ -148,9 +207,22 @@ export class Latest {
   }
 
   private clear(): void {
+    this.buffer.close();
+    this.buffer = this.createBuffer();
     this.series = [];
     this.front = 0;
-    this.total = 0;
+    this.closedTotal = 0;
+    this.unserved = 0;
+    this.dirty = true;
+  }
+
+  private createBuffer(): Dynamic {
+    const size = Math.min(Math.max(this.count, MIN_BUFFER), MAX_BUFFER);
+    return new Dynamic({ dynamicBufferSize: size, now: this.props.now });
+  }
+
+  private get total(): number {
+    return this.closedTotal + (this.buffer.leadingBuffer?.length ?? 0);
   }
 
   // Reads the newest stored samples after the stream acks the channel, so the stream
@@ -182,33 +254,78 @@ export class Latest {
       } catch (e) {
         if (generation !== this.generation) return;
         this.failure = status.fromException(e, READ_FAILED);
+        this.dirty = true;
         this.notify();
         if (isDefinitive(e)) return this.land([]);
         if (!(await brk.wait())) return;
       }
   }
 
-  // Adds the read, then the series streamed while it ran.
+  // Puts the read before the series streamed while it ran, keeping each sample once.
   private land(read: Series[]): void {
-    const held = this.held ?? [];
-    this.held = null;
-    this.loading = false;
+    this.closeLeading();
+    const streamed = this.series.splice(Math.max(this.loadMark ?? 0, this.front));
+    streamed.forEach((s) => (this.closedTotal -= s.length));
+    this.loadMark = null;
     this.push(read);
-    this.push(held);
+    this.push(streamed);
+    this.unserved = this.total;
+    this.dirty = true;
   }
 
   private push(series: Series[]): void {
-    if (this.held != null) return void this.held.push(...series);
     for (const s of series) {
       const fresh = this.fresh(s);
       if (fresh == null) continue;
       // Series of two data types cannot share a snapshot.
-      const first = this.series.at(this.front);
+      const first = this.series[this.front] ?? this.buffer.leadingBuffer;
       if (first != null && !first.dataType.equals(fresh.dataType)) this.clear();
-      this.series.push(fresh);
-      this.total += fresh.length;
+      this.unserved += fresh.length;
+      this.append(fresh);
     }
     this.trim();
+  }
+
+  // Grows the leading buffer with a series that continues the newest one, and closes a
+  // series that does not as it is.
+  private append(s: Series): void {
+    const newest = this.newest();
+    if (
+      newest == null ||
+      s.timeRange.isZero ||
+      s.alignment !== newest.alignment + BigInt(newest.length)
+    ) {
+      this.closeLeading();
+      return this.closeSeries(s);
+    }
+    const { flushed, allocated } = this.buffer.write(new MultiSeries([s]));
+    flushed.series.forEach((f) => this.closeSeries(f));
+    if (flushed.series.length > 0 || allocated.series.length > 0) this.dirty = true;
+    else this.grown = true;
+  }
+
+  private closeLeading(): void {
+    const flushed = this.buffer.flush();
+    if (flushed != null) this.closeSeries(flushed);
+  }
+
+  private closeSeries(s: Series): void {
+    this.series.push(s);
+    this.closedTotal += s.length;
+    this.dirty = true;
+  }
+
+  private newest(): Series | undefined {
+    return (
+      this.buffer.leadingBuffer ??
+      (this.front < this.series.length ? this.series.at(-1) : undefined)
+    );
+  }
+
+  // Returns the end of the series' samples, or undefined when it has no time range.
+  private endOf(s: Series): TimeStamp | undefined {
+    if (s === this.buffer.leadingBuffer) return this.buffer.dataTimeRange?.end;
+    return s.timeRange.isZero ? undefined : s.timeRange.end;
   }
 
   // Returns the samples of s newer than the newest sample held, or null if it has none.
@@ -224,7 +341,7 @@ export class Latest {
       !s.timeRange.start.before(resolveWindow(this.window, this.props.now()).end)
     )
       return null;
-    const newest = this.front < this.series.length ? this.series.at(-1) : undefined;
+    const newest = this.newest();
     if (newest == null || this.dedupe == null) return s;
     if (
       this.dedupe === "alignment" &&
@@ -234,32 +351,53 @@ export class Latest {
       if (overlap >= BigInt(s.length)) return null;
       return overlap > 0n ? s.sub(Number(overlap)) : s;
     }
-    if (!timed || newest.timeRange.isZero) return s;
-    return s.timeRange.end.after(newest.timeRange.end) ? s : null;
+    const end = this.endOf(newest);
+    if (!timed || end == null) return s;
+    return s.timeRange.end.after(end) ? s : null;
   }
 
-  // Drops whole series from the front while the rest hold the count, and series that
-  // end before the window.
+  // Closes the leading buffer once the window starts after its first sample, and drops
+  // whole series from the front that end before the window or that the rest of the
+  // samples replace under the count. A series no value served stays until the samples
+  // pass the cap.
   private trim(): void {
-    const { series } = this;
-    while (
-      this.front < series.length &&
-      this.total - series[this.front].length >= this.count
-    )
-      this.total -= series[this.front++].length;
     if (this.window != null) {
       const { start } = resolveWindow(this.window, this.props.now());
-      while (
-        this.front < series.length &&
-        !series[this.front].timeRange.isZero &&
-        series[this.front].timeRange.end.beforeEq(start)
-      )
-        this.total -= series[this.front++].length;
+      const leading = this.buffer.leadingBuffer;
+      if (leading != null && !leading.timeRange.start.after(start)) this.closeLeading();
+      while (this.front < this.series.length) {
+        const { timeRange } = this.series[this.front];
+        if (timeRange.isZero || timeRange.end.after(start)) break;
+        this.drop();
+      }
     }
-    if (this.front > series.length / 2) {
-      this.series = series.slice(this.front);
+    const cap = Math.max(this.count, UNSERVED_CAP);
+    while (this.front < this.series.length) {
+      const { length } = this.series[this.front];
+      const { total } = this;
+      if (total - length < this.count) break;
+      if (total - this.unserved < length && total <= cap) break;
+      this.drop();
+    }
+    if (this.front > this.series.length / 2) {
+      this.series = this.series.slice(this.front);
+      if (this.loadMark != null)
+        this.loadMark = Math.max(0, this.loadMark - this.front);
       this.front = 0;
     }
+  }
+
+  private drop(): void {
+    const { length } = this.series[this.front++];
+    this.closedTotal -= length;
+    this.unserved = Math.min(this.unserved, this.total);
+    this.dirty = true;
+  }
+
+  // Returns the end of the newest sample's span.
+  private time(): TimeStamp | undefined {
+    const newest = this.newest();
+    return newest == null ? undefined : this.endOf(newest);
   }
 
   private status(): status.Status {
@@ -267,6 +405,6 @@ export class Latest {
     if (this.failure != null && status.moreSevere(this.failure.variant, stream.variant))
       return this.failure;
     if (stream.variant !== "success") return stream;
-    return this.loading ? this.statuses.loading : this.statuses.success;
+    return this.loadMark != null ? this.statuses.loading : this.statuses.success;
   }
 }

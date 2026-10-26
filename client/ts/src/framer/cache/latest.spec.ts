@@ -7,21 +7,36 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Rate, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  DataType,
+  dynamicWindow,
+  Rate,
+  Series,
+  sleep,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+  type Window,
+} from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
+import { domainOf } from "@/framer/cache/block";
 import { Joins } from "@/framer/cache/join";
 import { Latest, type LatestProps } from "@/framer/cache/latest";
 import { Store } from "@/framer/cache/store";
 import { MultiplexedStreamer } from "@/framer/cache/streamer";
+import { Frame } from "@/framer/frame";
 import { SyntheticCore } from "@/testutil";
 
 const START = TimeStamp.seconds(1_000_000);
 const POLL = { timeout: 5000, interval: 5 };
 
 // Wires a latest to the Core as a feed does, counting its reads. onRead runs before
-// each read.
-const createLatest = (core: SyntheticCore, onRead: () => void = () => {}) => {
+// each read, which waits for it.
+const createLatest = (
+  core: SyntheticCore,
+  onRead: () => void | Promise<void> = () => {},
+) => {
   const store = new Store({ now: core.now });
   const streamer = new MultiplexedStreamer({
     store,
@@ -36,7 +51,7 @@ const createLatest = (core: SyntheticCore, onRead: () => void = () => {}) => {
     retrieveChannels: core.retrieveChannels,
     now: core.now,
     readLatest: async (key, count, tr) => {
-      onRead();
+      await onRead();
       reads++;
       return core.readLatest([key], count, tr).get(key);
     },
@@ -45,10 +60,9 @@ const createLatest = (core: SyntheticCore, onRead: () => void = () => {}) => {
     count: number,
     notify: (l: Latest) => void = () => {},
     key = core.data[0].key,
+    window?: Window,
   ): Latest => {
-    const latest: Latest = new Latest(props, key, undefined, count, () =>
-      notify(latest),
-    );
+    const latest: Latest = new Latest(props, key, window, count, () => notify(latest));
     return latest;
   };
   return {
@@ -67,7 +81,181 @@ const createCore = (derived = false): SyntheticCore =>
     derived,
   });
 
+// Returns the timestamps of the snapshot's samples.
+const timesOf = (latest: Latest): bigint[] =>
+  Array.from(latest.value().series) as bigint[];
+
 describe("Latest", () => {
+  describe("snapshot", () => {
+    it("should return the same snapshot while nothing changes", async () => {
+      const core = createCore();
+      const { open, close } = createLatest(core);
+      const latest = open(100);
+      try {
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        expect(latest.value()).toBe(latest.value());
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+
+    it("should keep the series and move the time as the stream grows", async () => {
+      const core = createCore();
+      const { open, close } = createLatest(core);
+      const latest = open(100, undefined, core.index.key);
+      try {
+        await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+        core.advance(TimeSpan.milliseconds(100));
+        await expect.poll(() => latest.value().series.series.length, POLL).toBe(2);
+        const before = latest.value();
+        core.advance(TimeSpan.milliseconds(100));
+        await expect.poll(() => latest.value().series.length, POLL).toBe(120);
+        const after = latest.value();
+        expect(after.series).toBe(before.series);
+        expect(after.time?.valueOf()).toBe(
+          before.time!.add(TimeSpan.milliseconds(100)).valueOf(),
+        );
+      } finally {
+        latest.close();
+        await close();
+      }
+    });
+  });
+
+  it("should serve every sample of a frame larger than the count", async () => {
+    const core = createCore();
+    const { open, close } = createLatest(core);
+    const key = core.data[0].key;
+    const latest = open(10_000, undefined, key);
+    try {
+      await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+      const domain = domainOf(latest.value().series.series[0].alignment) + 1n;
+      const start = core.now();
+      const series = [0, 1].map(
+        (i) =>
+          new Series({
+            data: new Float32Array(10_000).fill(i),
+            dataType: DataType.FLOAT32,
+            timeRange: new TimeRange(
+              start.add(TimeSpan.seconds(i)),
+              start.add(TimeSpan.seconds(i + 1)),
+            ),
+            alignment: (domain << 32n) + BigInt(i * 10_000),
+          }),
+      );
+      core.stream(new Frame([key, key], series));
+      await expect.poll(() => latest.value().series.length, POLL).toBe(20_000);
+    } finally {
+      latest.close();
+      await close();
+    }
+  });
+
+  it("should hold about two windows of samples as the stream grows", async () => {
+    const core = createCore();
+    const { open, close } = createLatest(core);
+    const window = dynamicWindow(TimeSpan.seconds(1));
+    const latest = open(1000, undefined, core.index.key, window);
+    try {
+      await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+      for (let i = 0; i < 30; i++) {
+        core.advance(TimeSpan.milliseconds(100));
+        const recent = core.now().sub(TimeSpan.milliseconds(10)).valueOf();
+        await expect
+          .poll(() => latest.value().time?.valueOf() ?? 0n, POLL)
+          .toBeGreaterThan(recent);
+      }
+      expect(latest.value().series.length).toBeLessThanOrEqual(210);
+    } finally {
+      latest.close();
+      await close();
+    }
+  });
+
+  it("should drop the samples the window leaves with no stream", async () => {
+    const core = createCore();
+    const { open, close } = createLatest(core);
+    const window = dynamicWindow(TimeSpan.seconds(1));
+    const latest = open(1000, undefined, core.index.key, window);
+    try {
+      await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+      expect(latest.value().series.length).toBe(100);
+      core.advance(TimeSpan.seconds(2), false);
+      expect(latest.value().series.length).toBe(0);
+    } finally {
+      latest.close();
+      await close();
+    }
+  });
+
+  it("should drop samples no value served once they pass the cap", async () => {
+    const core = createCore();
+    const { open, close } = createLatest(core);
+    const latest = open(10, undefined, core.index.key);
+    try {
+      await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+      for (let i = 0; i < 300; i++) core.advance(TimeSpan.seconds(5));
+      const recent = core.now().sub(TimeSpan.milliseconds(10)).valueOf();
+      await expect
+        .poll(() => latest.value().time?.valueOf() ?? 0n, POLL)
+        .toBeGreaterThan(recent);
+      expect(latest.value().series.length).toBeLessThan(150_000);
+    } finally {
+      latest.close();
+      await close();
+    }
+  });
+
+  it("should serve streamed samples while the read waits", async () => {
+    const core = createCore();
+    let release: () => void = () => {};
+    const released = new Promise<void>((resolve) => (release = resolve));
+    let waiting = false;
+    const { open, close } = createLatest(core, async () => {
+      waiting = true;
+      await released;
+    });
+    const latest = open(1000, undefined, core.index.key);
+    try {
+      await expect.poll(() => waiting, POLL).toBe(true);
+      core.advance(TimeSpan.milliseconds(100));
+      await expect.poll(() => latest.value().series.length, POLL).toBe(10);
+      expect(latest.value().status.variant).toBe("loading");
+      release();
+      await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+      const times = timesOf(latest);
+      expect(times).toHaveLength(1000);
+      const steps = new Set(times.slice(1).map((t, i) => t - times[i]));
+      expect([...steps]).toEqual([Rate.hz(100).period.valueOf()]);
+    } finally {
+      latest.close();
+      await close();
+    }
+  });
+
+  it("should serve streamed samples while the read fails", async () => {
+    const core = createCore();
+    const { open, close } = createLatest(core, () => {
+      throw new Error("stream closed unexpectedly");
+    });
+    const latest = open(1000, undefined, core.index.key);
+    try {
+      await expect
+        .poll(() => latest.value().status.description, POLL)
+        .toBe("stream closed unexpectedly");
+      core.advance(TimeSpan.milliseconds(100));
+      await expect.poll(() => latest.value().series.length, POLL).toBe(10);
+      expect(latest.value().status).toMatchObject({
+        variant: "error",
+        message: "Failed to read channel data",
+      });
+    } finally {
+      latest.close();
+      await close();
+    }
+  });
+
   it("should keep its samples for an equal window and count", async () => {
     const core = createCore();
     const { open, reads, close } = createLatest(core);

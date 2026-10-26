@@ -743,7 +743,8 @@ describe("Feed.subscribe", () => {
         expect(after[1].length).toBe(5);
         core.advance(TimeSpan.milliseconds(200));
         await expect.poll(() => sub.value(key).series.series.length, POLL).toBe(1);
-        expect(sub.value(key).series.length).toBe(20);
+        // The two frames grow one buffer.
+        expect(sub.value(key).series.length).toBe(25);
       } finally {
         sub.close();
         await feed.close();
