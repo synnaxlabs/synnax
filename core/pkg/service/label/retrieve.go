@@ -33,6 +33,7 @@ func MatchFor(id ontology.ID) Filter {
 			if err := r.ontology.NewRetrieve().
 				WhereIDs(id).
 				TraverseTo(LabelsOntologyTraverser).
+				ExcludeFieldData(true).
 				Entries(&labels).
 				Exec(ctx, ctx.Tx); err != nil {
 				return nil, err
