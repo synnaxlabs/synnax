@@ -118,10 +118,6 @@ func (s *Service) Create(
 	return CreateResponse(req), nil
 }
 
-type (
-	Where = device.Where
-)
-
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,

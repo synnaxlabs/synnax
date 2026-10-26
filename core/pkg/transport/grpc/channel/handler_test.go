@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/channel/pb"
+	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/filter"
@@ -33,12 +34,12 @@ var _ = Describe("gRPC Channel Translators", func() {
 			rangeKey := uuid.New()
 			msg := channel.AliasedRetrieveRequest{
 				Request: channel.RetrieveRequest{
-					Where: &channel.Where{
-						Or: []channel.Where{
+					Where: &svcchannel.Where{
+						Or: []svcchannel.Where{
 							{Key: &filter.Set[channel.Key]{In: []channel.Key{1048577}}},
 							{Name: &filter.String{Regex: new("^pressure")}},
 						},
-						Not: &channel.Where{
+						Not: &svcchannel.Where{
 							DataType: &filter.Set[telem.DataType]{
 								In: []telem.DataType{telem.StringT},
 							},

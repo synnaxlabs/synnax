@@ -28,9 +28,8 @@ import (
 )
 
 type (
-	Key   = rack.Key
-	Rack  = rack.Rack
-	Where = rack.Where
+	Key  = rack.Key
+	Rack = rack.Rack
 )
 
 // ServiceConfig is the configuration for the rack API service.

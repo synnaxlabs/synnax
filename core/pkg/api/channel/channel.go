@@ -182,9 +182,6 @@ func (s *Service) Create(
 	return CreateResponse{Channels: translateChannelsForward(translated)}, nil
 }
 
-// Where is a filter that selects channels.
-type Where = channel.Where
-
 // AliasedRetrieveRequest is a RetrieveRequest with an optional range. With a range, the
 // Core fills the alias of each channel on it, and a search term also matches those
 // aliases, ranked first.
