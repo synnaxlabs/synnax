@@ -106,6 +106,8 @@ func generatePyFile(
 		TypeDefs:    make([]typeDefData, 0, len(typeDefs)),
 		SortedDecls: make([]sortedDeclData, 0),
 		imports:     newImportManager(),
+
+		missingIncludes: make(set.Set[string]),
 	}
 	if len(structs) > 0 {
 		data.imports.addPydantic("BaseModel")
@@ -240,6 +242,15 @@ func generatePyFile(
 	var buf bytes.Buffer
 	if err := fileTemplate.Execute(&buf, data); err != nil {
 		return nil, err
+	}
+	if len(data.missingIncludes) > 0 {
+		missing := data.missingIncludes.Slice()
+		slices.Sort(missing)
+		return nil, errors.Newf(
+			"types with no generated Python declaration need a @py include "+
+				"module: %s",
+			strings.Join(missing, ", "),
+		)
 	}
 	return buf.Bytes(), nil
 }
@@ -853,6 +864,7 @@ func buildExtendsExpr(
 	data *templateData,
 ) string {
 	baseName := getPyName(parent)
+	importLocalHand(parent, baseName, data)
 
 	// A base class defined in another schema module must be imported and
 	// referenced through its module alias (e.g. task_.ReadConfig).
@@ -1323,6 +1335,7 @@ func pyStructLiteral(
 		return "None"
 	}
 	className := getPyName(resolved)
+	importLocalHand(resolved, className, data)
 	if resolved.Namespace != data.Namespace {
 		outputPath := output.GetPath(resolved, "py")
 		if outputPath == "" {
@@ -1452,6 +1465,21 @@ func sizedIntBounds(
 	return b, ok
 }
 
+// importLocalHand imports name from typ's `@py include` module when typ is
+// hand-written or omitted in the namespace being generated, since the generated file
+// declares no such type. A missing module is recorded so generation fails.
+func importLocalHand(typ resolution.Type, name string, data *templateData) {
+	if typ.Namespace != data.Namespace || !omit.IsSkipped(typ, "py") {
+		return
+	}
+	module := domain.GetStringFromType(typ, "py", "include")
+	if module == "" {
+		data.missingIncludes.Add(typ.QualifiedName)
+		return
+	}
+	data.imports.addModuleImport(toPythonModulePath(module), name)
+}
+
 func addCrossNamespaceImport(modulePath, typeName string, data *templateData) string {
 	parts := strings.Split(modulePath, ".")
 	if len(parts) >= 2 {
@@ -1519,6 +1547,7 @@ func typeToPython(
 	}
 
 	pyName := getPyName(resolved)
+	importLocalHand(resolved, pyName, data)
 	switch form := resolved.Form.(type) {
 	case resolution.StructForm:
 		if resolved.Namespace != data.Namespace {
@@ -1874,6 +1903,9 @@ type templateData struct {
 	SortedDecls   []sortedDeclData
 	TypeVars      []typeVarData
 	RebuildModels []string
+	// missingIncludes holds the hand-written types referenced in this namespace that
+	// declare no @py include module, so generation fails.
+	missingIncludes set.Set[string]
 }
 
 type sortedDeclData struct {
