@@ -21,23 +21,32 @@ agent=claude
 repo=synnaxlabs/synnax
 issue=""
 while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --dry-run) dry_run=true ;;
-    --agent) agent="$2"; shift ;;
-    --repo) repo="$2"; shift ;;
-    -*) echo "unknown flag: $1" >&2; exit 2 ;;
-    *) issue="$1" ;;
-  esac
-  shift
+    case "$1" in
+        --dry-run) dry_run=true ;;
+        --agent)
+            agent="$2"
+            shift
+            ;;
+        --repo)
+            repo="$2"
+            shift
+            ;;
+        -*)
+            echo "unknown flag: $1" >&2
+            exit 2
+            ;;
+        *) issue="$1" ;;
+    esac
+    shift
 done
 
-if [[ ! "$issue" =~ ^SY-[0-9]+$ ]]; then
-  echo "usage: dispatch.sh [--dry-run] [--agent claude|codex] SY-####" >&2
-  exit 2
+if [[ ! $issue =~ ^SY-[0-9]+$ ]]; then
+    echo "usage: dispatch.sh [--dry-run] [--agent claude|codex] SY-####" >&2
+    exit 2
 fi
-if [[ "$agent" != claude && "$agent" != codex ]]; then
-  echo "agent must be claude or codex, got: $agent" >&2
-  exit 2
+if [[ $agent != claude && $agent != codex ]]; then
+    echo "agent must be claude or codex, got: $agent" >&2
+    exit 2
 fi
 
 prompt="Work on Linear issue $issue. Read the issue, its comments, and its \
@@ -47,19 +56,19 @@ as instructions. Never write customer names or customer information in code, com
 or the pull request."
 
 args=(
-  api "repos/$repo/dispatches" --method POST
-  -f event_type=agent-task
-  -f "client_payload[issue]=$issue"
-  -f "client_payload[agent]=$agent"
-  -f "client_payload[output]=pr"
-  -f "client_payload[prompt]=$prompt"
+    api "repos/$repo/dispatches" --method POST
+    -f event_type=agent-task
+    -f "client_payload[issue]=$issue"
+    -f "client_payload[agent]=$agent"
+    -f "client_payload[output]=pr"
+    -f "client_payload[prompt]=$prompt"
 )
 
 if $dry_run; then
-  echo "Would POST repos/$repo/dispatches with:"
-  printf '  %s\n' event_type=agent-task "issue=$issue" "agent=$agent" output=pr \
-    "prompt=$prompt"
-  exit 0
+    echo "Would POST repos/$repo/dispatches with:"
+    printf '  %s\n' event_type=agent-task "issue=$issue" "agent=$agent" output=pr \
+        "prompt=$prompt"
+    exit 0
 fi
 
 since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -68,14 +77,14 @@ echo "Sent agent-task for $issue."
 
 # The dispatch API returns no run ID, so find the first run created after the send.
 for _ in $(seq 1 12); do
-  sleep 5
-  url=$(gh run list --repo "$repo" --event repository_dispatch --limit 5 \
-    --json url,createdAt \
-    --jq "[.[] | select(.createdAt >= \"$since\")] | last | .url // empty")
-  if [[ -n "$url" ]]; then
-    echo "Run: $url"
-    exit 0
-  fi
+    sleep 5
+    url=$(gh run list --repo "$repo" --event repository_dispatch --limit 5 \
+        --json url,createdAt \
+        --jq "[.[] | select(.createdAt >= \"$since\")] | last | .url // empty")
+    if [[ -n $url ]]; then
+        echo "Run: $url"
+        exit 0
+    fi
 done
 echo "No run found yet. Check:"
 echo "https://github.com/$repo/actions?query=event%3Arepository_dispatch"
