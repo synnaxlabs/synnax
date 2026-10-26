@@ -11,9 +11,10 @@
 A new Oracle definition, `filter`, lists what an entity can be filtered by. From that
 one block, Oracle generates a recursive filter type with `and`, `or`, and `not`, and the
 retrieve request and response, in Go, TypeScript, Python, C++, and protobuf. It also
-generates a Go interpreter that turns a filter into the service's existing matchers, and
-a TypeScript `matches` that keeps cached lists live. Saved views store filters. The flat
-filter fields on retrieve requests go away. Endpoints and handlers stay hand-written.
+generates a Go interpreter that turns a filter into the service's existing matchers, an
+`Apply` that runs a request on a retrieve, and a TypeScript `matches` that keeps cached
+lists live. Saved views store filters. The flat filter fields on retrieve requests go
+away. Endpoints and handlers stay hand-written.
 
 ## 1 Motivation
 
@@ -53,16 +54,23 @@ Where filter Range {
 }
 ```
 
-- **Bare line**: Names a field of the target. Oracle picks its operators from the field
-  type (§2.1), and go/query emits its matcher. `key` always maps to `MatchKeys`.
+- **Bare line**: Names a required field of the target. Oracle picks its operators from
+  the field type (§2.1), and `go/query` emits its matcher. `key` always maps to a key
+  match, and takes its type from `@retrieve key` when the target has no key field.
 - **Typed line**: Calls a matcher written by hand in the target's service package. The
   generated Go calls `MatchOverlaps(telem.TimeRange)`, and a `T[]` line calls a variadic
   matcher: `MatchLabels(...label.Key)`. A missing or mistyped function fails the Core
   build.
-- **Target**: A struct or a union (`Where filter View`).
+- **Target**: A struct or a union in the same schema (`Where filter View`). A schema
+  declares at most one filter.
+
+A line has no `?`, default, or domain removal, and `and`, `or`, and `not` are reserved.
+An optional field, or a field whose type is a type parameter, needs a typed line. A
+union's discriminator needs a named enum (`union on type Type`) to get a bare line.
 
 The analyzer expands the definition into an ordinary struct, as `@create` expands into
-`New` (`oracle/analyzer/create.go`), so every type plugin emits it with no change.
+`New` (`oracle/analyzer/create.go`). The type plugins emit it as a struct. They needed
+fixes for recursive types, generic instances, and strict decoding (§3).
 
 ```
 Where struct {
@@ -81,7 +89,7 @@ any child matches, and `not` when its child does not. An empty node or an empty 
 matches every record. An empty `or`, `in`, or `any` matches none. A key that does not
 exist is a non-match, never `ErrNotFound`.
 
-go/query builds one matcher list from bare lines and `@filter` fields, and the
+`go/query` builds one matcher list from bare lines and `@filter` fields, and the
 interpreter reads names from it. A field can have both; it gets one matcher.
 
 ### 2.1 Operators
@@ -97,8 +105,9 @@ field type selects one:
 | numbers, timestamps         | `filter.Ordered<T>`  | `eq`, `in`, `gt`, `gte`, `lt`, `lte` |
 | `T[]`                       | `filter.Contains<T>` | `any`                                |
 
-All operators set on one slot are ANDed. "All of these labels" is an AND of nodes. A
-regex is RE2, and the TypeScript API takes a pattern string, with `(?i)` for case.
+A distinct alias of `string` or `bool` gets `filter.Set<T>`, so its values keep their
+type. All operators set on one slot are ANDed. "All of these labels" is an AND of nodes.
+A regex is RE2, and the TypeScript API takes a pattern string, with `(?i)` for case.
 
 ### 2.2 The retrieve request
 
@@ -106,7 +115,7 @@ Oracle derives the request and the response from the definition:
 
 ```
 RetrieveRequest {
-    where          Where?
+    where          Where?      // absent selects every record
     search_term    string?     // the target has @search fields
     order_by       Order?      // the target has @index sorted fields
     limit          uint32?
@@ -123,35 +132,49 @@ RetrieveResponse {
 `Order` holds a `field`, from the `OrderField` enum of `@index sorted` fields, and a
 `direction`. Gorp's `OrderBy` walks a `SortedIndex` (`gorp/index.go:207`), so a field
 without the index cannot sort. When both are set, `order_by` replaces search relevance.
-The response holds the target type, unless `@response type T` on the definition names
-another. Channels return the wire-only `APIChannel`.
+No entity has an `@index sorted` field yet, so no request has `order_by`.
+
+The response holds the target. A generic target holds `T<any>`, since one table holds
+records of every type argument. `@response type T` on the definition replaces the target
+with T, and the `include_*` fields then come from the fields of T. Channels return the
+wire-only `APIChannel`. The request and the response go wherever the definition goes, so
+an `omit` on the definition omits them too.
 
 ### 2.3 The Core
 
 A new Go plugin generates the interpreter. `MatchWhere` walks a `Where` and returns the
 service's bound filter, built from `And`, `Or`, `Not`, and the matchers. `OrderingOf`
-turns an `Order` into the service's `Ordering`. For a generic target such as
-`status.Status<D>`, both are generic functions. The API handler stays hand-written: it
-runs the filter, the joins that `include_*` asks for, and access checks. The status join
-that channel, device, rack, and task each copy today becomes one shared helper.
+turns an `Order` into the service's `Ordering`. `RetrieveRequest.Apply` applies the
+where, the search term, the order, the limit, and the offset to a retrieve. For a
+generic target such as `status.Status<D>`, `MatchWhere` and `OrderingOf` are generic,
+and `Apply` takes the retrieve over `any`. The API handler stays hand-written: it calls
+`Apply`, runs the query, the joins that `include_*` asks for, and access checks. The
+status join that channel, device, rack, and task each copy today becomes one shared
+helper.
 
 The generated request decodes strictly. An unknown key anywhere in the request is an
-error, so a stale client that sends `keys` fails instead of matching every record. A bad
-filter, such as an invalid regex, returns a `validate.PathError`
+error, so a stale client that sends `keys` fails instead of matching every record. Go
+rejects unknown JSON members at any depth, and TypeScript uses `z.strictObject`. The
+gRPC translators call `pb.RejectUnknown` (`x/go/pb/unknown.go`), which walks nested
+messages. A bad filter, such as an invalid regex, returns a `validate.PathError`
 (`x/go/validate/errors.go:33`) with the path to the bad value (`where.or.1.name.regex`).
 The TypeScript client receives it as a `PathError`.
 
-The handler skips `ErrNotFound` once, because a filter is a predicate. The
+A filter never returns `ErrNotFound`. The generated `key` line uses Gorp's
+`MatchKeysLenient`, which drops a key with no record. A typed line that names another
+resource, such as `subjects` on policies or `for` on labels, matches nothing when that
+resource does not exist. Lookups that the Core does for itself stay strict. The
 `ignore_not_found_error` field goes away. Client methods that return one record still
 raise not-found.
 
 ### 2.4 The TypeScript cache
 
-Oracle generates `matches(record, where)` for each entity. Bare lines are checked in
-generated code. Typed lines take functions from a table that the hand-written client
-passes in. An entry is a function or an explicit `null` for a line only the Core can
-check; a missing entry is a type error. A filter with a `null` line or a regex is
-server-computed and refetches (RFC 0047 §5.1).
+Oracle generates `matches` and `serverComputed` for each entity. Bare lines are checked
+in generated code. Typed lines take functions from a `Lines` table that the hand-written
+client passes in: `matches(lines, record, where)`. An entity with no typed lines has no
+table. An entry is a function or an explicit `null` for a line only the Core can check;
+a missing entry is a type error. A filter with a `null` line or a regex is
+server-computed and refetches (RFC 0047 §5.1). An absent `where` matches every record.
 
 One case table, `x/testdata/filter/vectors.json`, runs against the Go interpreter and
 the TypeScript `matches`, as `x/testdata/crdt/vectors.json` does for CRDTs.
@@ -164,8 +187,9 @@ nothing. The pager keeps `offset: 0`, which marks the first page as fetched.
 
 ### 2.5 Saved views
 
-A view stores `where` and `order_by`, never a search term, limit, or offset. The `range`
-and `status` variants of `View` replace `query` with these two fields.
+A view stores only `where`, never a search term, limit, or offset. The `range` and
+`status` variants of `View` replace `query` with `where`. A view gets `order_by` when
+its target gets a sorted index.
 
 A stored `Where` has versions in its target's chain, as `color.Color` does in
 `schemas/x/versions/color` and ranger's `Ref` does in `schemas/synnax/versions/ranger`.
@@ -186,28 +210,37 @@ and its flat fields go away together, since a client must match the Core's versi
 - **Phase 1: This RFC.**
 - **Phase 2: Oracle.** All generator work, with specs for each shape and no schema that
   uses `filter` yet:
-  - The matcher list in go/query, and a generator error for `@filter` on a `@key` field.
+  - The matcher list in `go/query`, and a generator error for `@filter` on a `@key`
+    field.
   - The operator types in `schemas/x/filter.oracle`. The protobuf plugin emits one
     message per generic instantiation; it ignores type arguments today.
   - The `filter` definition: the grammar, the analyzer expansion into `Where`, the
-    formatter, the LSP, and a recursion test for every type plugin.
+    formatter, the LSP, the TextMate grammar, and a recursion test for every type
+    plugin.
+  - Type plugin fixes: recursive TypeScript types, a protobuf message per generic
+    instance, C++ type parameter fields, union decoding under strict decoding, and codec
+    fixtures for recursive types.
   - Request derivation: `RetrieveRequest`, `RetrieveResponse`, `Order`, and `@include`.
   - Version files that accept `filter` definitions, and `oracle migrate` support.
-  - The Go interpreter plugin with strict decoding and path errors, and the TypeScript
-    `matches` plugin.
+  - The Go interpreter plugin with `Apply`, strict decoding, and path errors, Gorp's
+    `MatchKeysLenient`, and the TypeScript `matches` plugin.
 - **Phase 3: Ranges and statuses.** The two entities with saved views move to `where` in
   every language:
   - Schemas, handlers, and behavior specs for AND, OR, NOT, and each operator.
   - The shared case table, the server-computed rule in the cache, and the empty-value
     fix.
+  - `pb.RejectUnknown` for the gRPC translators, and `query.keysRequest` for the
+    key-list requests of the TypeScript clients.
   - The TypeScript, Python, and C++ clients, with retrieve-by-key specs, and the Pluto
     queries.
   - Saved views that store `where` and `order_by`.
   - The flat fields, `ignore_not_found_error`, and the hand-written `requestMatches` go
     away. Old protobuf field numbers are reserved.
 - **Phase 4: Channels, devices, racks, and tasks.** The same move, plus the shared
-  status-join helper that all four use.
-- **Phase 5: Every other entity with an API retrieve.** The same move.
+  status-join helper that all four use. A channel search with a range also searches the
+  aliases of that range, and the TypeScript and Python clients merge the two results.
+- **Phase 5: Every other entity with an API retrieve.** The same move. Control, license,
+  ontology, and range alias retrieves keep their requests.
 
 ## 4 What this RFC does not cover
 
@@ -237,8 +270,11 @@ and its flat fields go away together, since a client must match the Core's versi
 7. **Flat-field compatibility at cutover, rejected**: A client must match the Core's
    major and minor version (`client/ts/src/connection/status.ts:261`). Strict decoding
    makes a stale client fail loudly.
-8. **The name `Filter`, rejected**: go/query already emits `Filter` in every service
+8. **The name `Filter`, rejected**: `go/query` already emits `Filter` in every service
    package (`core/pkg/service/ranger/retrieve.gen.go:60`).
+9. **A handler that skips `ErrNotFound`, rejected**: The skip also hides a not-found
+   from a lookup inside a matcher, which is a real fault. The `key` line drops missing
+   keys instead.
 
 ## 6 Open questions
 
