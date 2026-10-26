@@ -289,6 +289,8 @@ Driver also writes them again when a device returns after a power loss.
 - **Rejected values** -> If a device rejects a value, the task does not start. The error
   names the parameter and the reason that the device gave, for example
   `rejected startup parameter 0x8000:15 (Filter settings): Value of parameter written too high`.
+  If a device rejects a value when it reconnects, it stays out of operation until the
+  bus starts again.
 - **Invalid properties** -> If a parameter is not valid, the device status shows
   **Invalid device properties** and says which field is wrong.
 

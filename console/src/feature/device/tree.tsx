@@ -17,7 +17,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Access, Device } from "@synnaxlabs/pluto";
 
-import { getContextMenuItems, getIcon, getMake } from "@/feature/device/make";
+import { ContextMenuItems, getIcon, getMake } from "@/feature/device/make";
 import { ContextMenu } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
@@ -52,8 +52,9 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const group = Group.useCreateFromSelection();
   const handleLink = Core.useCopyLinkToClipboard();
   if (ids.length === 0) return null;
-  const C = singleResource ? getContextMenuItems(first?.data?.make) : null;
-  const customMenuItems = C ? <C {...props} /> : null;
+  const make = singleResource ? getMake(first?.data?.make) : null;
+  const customMenuItems =
+    make == null ? null : <ContextMenuItems {...props} make={make} />;
   return (
     <ContextMenu.Menu>
       {hasUpdatePermission && singleResource && (

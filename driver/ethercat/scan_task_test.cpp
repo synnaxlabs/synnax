@@ -641,6 +641,7 @@ TEST_F(EtherCATScanDeviceSetTest, ReportsAnInvalidStartupParameter) {
         "startup_parameters.0.value: must be a whole number from 0 to 255"
     );
 }
+
 /// @brief it should show an invalid startup parameter on the device status at each
 /// scan.
 TEST_F(EtherCATScanDeviceSetTest, ScanReportsAnInvalidStartupParameter) {
@@ -674,8 +675,8 @@ TEST_F(EtherCATScanDeviceSetTest, ScanReportsAnInvalidStartupParameter) {
     }
 }
 
-/// @brief it should return a partial scan error when the first scan cannot pass a
-/// saved device's settings to its master.
+/// @brief it should return a partial scan error when the first scan cannot pass a saved
+/// device's settings to its master.
 TEST_F(EtherCATScanDeviceSetTest, FirstScanReturnsAConfigureFailure) {
     synnax::device::Device dev = this->create_slave(x::json::json::array());
     dev.properties["network"] = "eth9";

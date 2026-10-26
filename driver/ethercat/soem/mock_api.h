@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <deque>
 #include <functional>
 #include <map>
 #include <optional>
@@ -108,15 +109,8 @@ public:
     /// @brief abort codes for objects that reject SDO writes, keyed by index and
     /// sub-index. A code of 0 makes the write time out.
     std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_write_aborts;
-    /// @brief one SDO abort in the SOEM error list.
-    struct SDOAbort {
-        uint16_t slave;
-        uint16_t index;
-        uint8_t sub_index;
-        uint32_t code;
-    };
-    /// @brief the SDO aborts in the SOEM error list, oldest first.
-    std::vector<SDOAbort> sdo_aborts;
+    /// @brief the SOEM error list, oldest first.
+    std::deque<ec_errort> errors;
     /// @brief PO2SOconfig hooks keyed by slave.
     std::map<uint16_t, std::function<void(uint16_t)>> po2so_configs;
     /// @brief the value count_bus_slaves returns, or nullopt for the slave count.
@@ -270,19 +264,27 @@ public:
             this->sdo_objects[{index, sub_index}] = value;
             return 1;
         }
-        if (it->second != 0)
-            this->sdo_aborts.push_back({slave, index, sub_index, it->second});
+        if (it->second != 0) this->push_sdo_abort(slave, index, sub_index, it->second);
         return 0;
     }
 
-    uint32_t pop_sdo_abort(uint16_t slave, uint16_t index, uint8_t sub_index) override {
-        uint32_t code = 0;
-        for (const auto &abort: this->sdo_aborts)
-            if (abort.slave == slave && abort.index == index &&
-                abort.sub_index == sub_index)
-                code = abort.code;
-        this->sdo_aborts.clear();
-        return code;
+    /// @brief appends an SDO abort for the object to the SOEM error list.
+    void
+    push_sdo_abort(uint16_t slave, uint16_t index, uint8_t sub_index, uint32_t code) {
+        ec_errort err{};
+        err.Etype = EC_ERR_TYPE_SDO_ERROR;
+        err.Slave = slave;
+        err.Index = index;
+        err.SubIdx = sub_index;
+        err.AbortCode = static_cast<int32>(code);
+        this->errors.push_back(err);
+    }
+
+    bool poperror(ec_errort &err) override {
+        if (this->errors.empty()) return false;
+        err = this->errors.front();
+        this->errors.pop_front();
+        return true;
     }
 
     void

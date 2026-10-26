@@ -28,12 +28,12 @@ constexpr size_t EMPTY_INTERFACE_PROBE_INTERVAL = 6;
 
 std::string get_pdo_error_guidance(const std::string &error) {
     if (error.contains("CoE") || error.contains("mailbox"))
-        return "Use manual channel configuration with explicit index/sub_index values.";
+        return "Check the slave's CoE mailbox and scan again. Channels can use only "
+               "the entries a scan discovers.";
     if (error.contains("SII") || error.contains("fallback"))
         return "PDO order may be unreliable. Verify data correctness after configuration.";
-    if (error.contains("empty") || error.contains("no PDO"))
-        return "Use manual channel configuration if needed.";
-    return "Use manual channel configuration if automatic discovery is insufficient.";
+    return "Channels can use only the entries a scan discovers. Scan again if entries "
+           "are missing.";
 }
 
 /// @brief sets the variant, message, and description of status from the condition of an
@@ -54,10 +54,10 @@ void set_live_status(const slave::Health &health, synnax::device::Status &status
     if (health.faulted) {
         status.variant = synnax::status::VARIANT_ERROR;
         status.message = "Error in " + state;
-        status.description = health.al_status.empty()
+        status.description = health.fault.empty()
                                ? "The device reports an error without an error "
                                  "code. With IgH, the kernel log (dmesg) shows it."
-                               : health.al_status;
+                               : health.fault;
         return;
     }
     status.variant = synnax::status::VARIANT_WARNING;
@@ -80,13 +80,7 @@ std::pair<slave::Properties, x::errors::Error>
 parse_properties(const x::json::json &json) {
     auto parser = x::json::Parser(json);
     auto props = slave::Properties::parse(parser);
-    if (parser.ok()) return {props, x::errors::NIL};
-    const auto report = parser.error_json();
-    std::string problems;
-    for (const auto &e: report["errors"])
-        problems += (problems.empty() ? "" : "; ") + e["path"].get<std::string>() +
-                    ": " + e["message"].get<std::string>();
-    return {props, x::errors::Error(x::errors::VALIDATION, problems)};
+    return {props, parser.error()};
 }
 }
 
@@ -216,7 +210,7 @@ synnax::device::Device Scanner::create_slave_device(
     );
     if (props_err) {
         status.message = "Invalid device properties";
-        status.description = props_err.data;
+        status.description = common::config_err_description(props_err);
         status.variant = synnax::status::VARIANT_ERROR;
     } else if (!is_enabled) {
         status.message = "Device disabled";
@@ -302,7 +296,7 @@ void Scanner::on_device_set(const synnax::device::Device &dev) {
     if (err) {
         status.variant = synnax::status::VARIANT_ERROR;
         status.message = "Invalid device properties";
-        status.description = err.data;
+        status.description = common::config_err_description(err);
     } else
         LOG(INFO) << SCAN_LOG_PREFIX << "set slave " << props.position << " on "
                   << props.network << " enabled=" << props.enabled << " with "

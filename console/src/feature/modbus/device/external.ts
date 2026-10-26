@@ -9,6 +9,7 @@
 
 export * from "@/feature/modbus/device/commands";
 export * from "@/feature/modbus/device/ContextMenuItems";
+export * from "@/feature/modbus/device/network";
 export * from "@/feature/modbus/device/queries";
 export * from "@/feature/modbus/device/Select";
 export * from "@/feature/modbus/device/types";

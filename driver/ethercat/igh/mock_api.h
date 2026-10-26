@@ -49,6 +49,8 @@ class MockAPI final : public API {
     int activate_result = 0;
     /// @brief configurable return value for master_slave_config.
     bool slave_config_fails = false;
+    /// @brief whether slave_config_sdo fails.
+    bool config_sdo_fails = false;
 
     /// @brief running byte offset per domain for slave_config_reg_pdo_entry.
     size_t output_domain_offset = 0;
@@ -170,6 +172,8 @@ public:
     void set_activate_result(int result) { this->activate_result = result; }
 
     void set_slave_config_fails(bool fails) { this->slave_config_fails = fails; }
+
+    void set_config_sdo_fails(bool fails) { this->config_sdo_fails = fails; }
 
     void set_output_domain_size(size_t sz) {
         this->output_domain_sz = sz;
@@ -335,6 +339,7 @@ public:
         const uint8_t *data,
         size_t size
     ) const override {
+        if (this->config_sdo_fails) return -ENOMEM;
         auto *self = const_cast<MockAPI *>(this);
         for (const auto &[pos, config]: this->created_slave_configs)
             if (config == sc)

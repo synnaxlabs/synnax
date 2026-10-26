@@ -9,15 +9,17 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type ReactElement } from "react";
+import { type ComponentType } from "react";
 import { z } from "zod";
 
+import { useConfigureModal as useConfigureHardwareModal } from "@/feature/device/Configure";
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
 import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
+import { type Device as PlatformDevice } from "@/platform/device";
 import { type Tree } from "@/platform/tree";
 
 export const makeZ = z.enum([
@@ -52,27 +54,29 @@ export const getIcon = (make: Make | null) =>
  * hooks.
  */
 export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => void) => {
-  const ethercat = EtherCAT.Device.useConfigureModal();
+  const configure = useConfigureHardwareModal();
   const http = HTTP.Device.useConnectModal();
-  const labjack = LabJack.Device.useConfigureModal();
   const modbus = Modbus.Device.useConnectModal();
-  const ni = NI.Device.useConfigureModal();
   const opcua = OPCUA.Device.useConnectModal();
   return (make, deviceKey) => {
     const openers: Record<Make, (args: { deviceKey: device.Key }) => void> = {
-      [EtherCAT.Device.MAKE]: ethercat,
-      [HTTP.Device.MAKE]: http,
-      [LabJack.Device.MAKE]: labjack,
-      [Modbus.Device.MAKE]: modbus,
-      [NI.Device.MAKE]: ni,
-      [OPCUA.Device.MAKE]: opcua,
+      [EtherCAT.Device.MAKE]: ({ deviceKey }) =>
+        configure({ deviceKey, integration: EtherCAT.Device.INTEGRATION }),
+      [HTTP.Device.MAKE]: ({ deviceKey }) => void http({ deviceKey }),
+      [LabJack.Device.MAKE]: ({ deviceKey }) =>
+        configure({ deviceKey, integration: LabJack.Device.INTEGRATION }),
+      [Modbus.Device.MAKE]: ({ deviceKey }) => void modbus({ deviceKey }),
+      [NI.Device.MAKE]: ({ deviceKey }) =>
+        configure({ deviceKey, integration: NI.Device.INTEGRATION }),
+      [OPCUA.Device.MAKE]: ({ deviceKey }) => void opcua({ deviceKey }),
     };
     openers[make]({ deviceKey });
   };
 };
 
-const CONTEXT_MENU_ITEMS: Partial<
-  Record<Make, (props: Tree.ContextMenuProps) => ReactElement | null>
+const CONTEXT_MENU_ITEMS: Record<
+  Make,
+  ComponentType<PlatformDevice.ContextMenuItemsProps>
 > = {
   [EtherCAT.Device.MAKE]: EtherCAT.Device.ContextMenuItems,
   [HTTP.Device.MAKE]: HTTP.Device.ContextMenuItems,
@@ -82,8 +86,13 @@ const CONTEXT_MENU_ITEMS: Partial<
   [OPCUA.Device.MAKE]: OPCUA.Device.ContextMenuItems,
 };
 
-export const getContextMenuItems = (make: unknown) => {
-  const m = getMake(make);
-  if (m == null) return null;
-  return CONTEXT_MENU_ITEMS[m];
+export interface ContextMenuItemsProps extends Tree.ContextMenuProps {
+  make: Make;
+}
+
+/** The context menu items of a device's integration, wired to its configure form. */
+export const ContextMenuItems = ({ make, ...rest }: ContextMenuItemsProps) => {
+  const configure = useConfigureModal();
+  const Items = CONTEXT_MENU_ITEMS[make];
+  return <Items {...rest} onConfigure={(deviceKey) => configure(make, deviceKey)} />;
 };

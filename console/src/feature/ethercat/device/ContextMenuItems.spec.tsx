@@ -12,14 +12,14 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { EtherCAT } from "@/feature/ethercat";
 import { createIdentifier, createSlaveDevice } from "@/feature/ethercat/testutil";
+import { type Device } from "@/platform/device";
 import { createDeviceResource } from "@/platform/device/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
-import { type Tree } from "@/platform/tree";
 import {
   createBaseProps,
   createSelection,
@@ -57,10 +57,11 @@ const renderContextMenu = async (devices: EtherCAT.Device.SlaveDevice[]) => {
   const resources = devices.map((d) =>
     createDeviceResource({ key: d.key, name: d.name, configured: d.configured }),
   );
-  const props: Tree.ContextMenuProps = {
+  const props: Device.ContextMenuItemsProps = {
     ...createBaseProps({ client, store }),
     selection: createSelection({ ids: resources.map((r) => r.id) }),
     state: createState(resources),
+    onConfigure: vi.fn(),
   };
   // The menu suspends on the slaves fetch; a tree that suspends inside a sync
   // act never commits, so the mount needs an async act (see renderHookSuspended).

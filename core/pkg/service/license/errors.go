@@ -19,10 +19,18 @@ import (
 var (
 	// ErrLicense is the base error for every license failure.
 	ErrLicense = errors.New("license error")
+	// ErrMissing is returned while no license applies to this Core.
+	ErrMissing = errors.Wrap(ErrLicense, "no license is activated on this Core")
 	// ErrExpired is returned while the license on this Core no longer covers it.
 	ErrExpired = errors.Wrap(ErrLicense, "the license on this Core has expired")
 	// ErrInvalid is returned when a license key fails to verify.
 	ErrInvalid = errors.Wrap(ErrLicense, "invalid license")
+	// ErrEdition is returned when a Desktop license is activated on a Core that listens
+	// on an address other than loopback.
+	ErrEdition = errors.Wrap(
+		ErrLicense,
+		"a Desktop license runs only on a Core that listens on loopback addresses",
+	)
 	// ErrFingerprint is returned when the license is bound to other machines.
 	ErrFingerprint = errors.Wrap(
 		ErrLicense,
@@ -37,8 +45,10 @@ var (
 
 const (
 	errorType       = "sy.license"
+	missingType     = errorType + ".missing"
 	expiredType     = errorType + ".expired"
 	invalidType     = errorType + ".invalid"
+	editionType     = errorType + ".edition"
 	fingerprintType = errorType + ".fingerprint"
 	tooManyType     = errorType + ".too_many"
 )
@@ -48,11 +58,17 @@ func newTooManyError(count uint32) error {
 }
 
 func encode(_ context.Context, err error) (errors.Payload, bool) {
+	if errors.CheapIs(err, ErrMissing) {
+		return errors.Payload{Type: missingType, Data: err.Error()}, true
+	}
 	if errors.CheapIs(err, ErrExpired) {
 		return errors.Payload{Type: expiredType, Data: err.Error()}, true
 	}
 	if errors.CheapIs(err, ErrInvalid) {
 		return errors.Payload{Type: invalidType, Data: err.Error()}, true
+	}
+	if errors.CheapIs(err, ErrEdition) {
+		return errors.Payload{Type: editionType, Data: err.Error()}, true
 	}
 	if errors.CheapIs(err, ErrFingerprint) {
 		return errors.Payload{Type: fingerprintType, Data: err.Error()}, true
@@ -68,10 +84,14 @@ func encode(_ context.Context, err error) (errors.Payload, bool) {
 
 func decode(_ context.Context, p errors.Payload) (error, bool) {
 	switch p.Type {
+	case missingType:
+		return errors.Wrap(ErrMissing, p.Data), true
 	case expiredType:
 		return errors.Wrap(ErrExpired, p.Data), true
 	case invalidType:
 		return errors.Wrap(ErrInvalid, p.Data), true
+	case editionType:
+		return errors.Wrap(ErrEdition, p.Data), true
 	case fingerprintType:
 		return errors.Wrap(ErrFingerprint, p.Data), true
 	case tooManyType:

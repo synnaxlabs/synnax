@@ -426,9 +426,8 @@ TEST_F(EngineTest, UnmappedEntryIsRejected) {
     EXPECT_FALSE(this->engine->running());
 }
 
-/// @brief it should reject an entry that is longer than the PDO the slave maps when the
-/// entry runs past the end of the process image.
-TEST_F(EngineTest, EntryPastTheEndOfTheImageIsRejected) {
+/// @brief it should reject an entry that is longer than the PDO the slave maps.
+TEST_F(EngineTest, EntryLongerThanItsPDOIsRejected) {
     const auto res = this->engine->open_reader(
         {pdo::Entry(0, 0x6000, 4, 32, true, x::telem::UINT32_T)},
         x::telem::Rate(100),
@@ -437,7 +436,7 @@ TEST_F(EngineTest, EntryPastTheEndOfTheImageIsRejected) {
     ASSERT_OCCURRED_AS(res.second, errors::PDO_MAPPING_ERROR);
     EXPECT_EQ(
         res.second.data,
-        "PDO 0x6000:04 on slave 0 lies outside the process image"
+        "PDO 0x6000:04 on slave 0 is 4 bits, not 32. Scan the network again"
     );
     EXPECT_FALSE(this->engine->running());
 }
@@ -717,7 +716,7 @@ TEST_F(EngineTest, FaultedSlaveReturnsToOpWhileTheBusRuns) {
         .position = 0,
         .state = slave::State::SAFE_OP,
         .faulted = true,
-        .al_status = "Sync manager watchdog",
+        .fault = "Sync manager watchdog",
     };
     ASSERT_EVENTUALLY_TRUE(
         !this->engine->health().empty() && this->engine->health()[0] == faulted

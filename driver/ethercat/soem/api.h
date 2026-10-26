@@ -106,10 +106,9 @@ public:
         int timeout
     ) = 0;
 
-    /// @brief empties the SOEM error list, returning the code of the latest SDO abort
-    /// in it for the given object, or 0 when it holds none.
-    virtual uint32_t
-    pop_sdo_abort(uint16_t slave, uint16_t index, uint8_t subindex) = 0;
+    /// @brief moves the oldest entry of the SOEM error list into err, returning false
+    /// when the list is empty.
+    virtual bool poperror(ec_errort &err) = 0;
 
     /// @brief makes SOEM call config in PRE-OP each time it maps the slave on the way
     /// to SAFE-OP, including reconfiguration after a fault. Passing nullptr removes it.
@@ -320,14 +319,8 @@ public:
         );
     }
 
-    uint32_t pop_sdo_abort(uint16_t slave, uint16_t index, uint8_t subindex) override {
-        uint32_t code = 0;
-        ec_errort err;
-        while (ecx_poperror(&this->context, &err))
-            if (err.Etype == EC_ERR_TYPE_SDO_ERROR && err.Slave == slave &&
-                err.Index == index && err.SubIdx == subindex)
-                code = static_cast<uint32_t>(err.AbortCode);
-        return code;
+    bool poperror(ec_errort &err) override {
+        return ecx_poperror(&this->context, &err) != 0;
     }
 
     void

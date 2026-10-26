@@ -63,6 +63,25 @@ constexpr uint16_t RXPDO_MAPPING_END = 0x17FF;
 
 /// @}
 
+namespace {
+/// @brief empties the SOEM error list, returning the code of the latest SDO abort in it
+/// for the object, or 0 when it holds none.
+uint32_t pop_sdo_abort(
+    API &api,
+    const uint16_t slave,
+    const uint16_t index,
+    const uint8_t sub_index
+) {
+    uint32_t code = 0;
+    ec_errort err{};
+    while (api.poperror(err))
+        if (err.Etype == EC_ERR_TYPE_SDO_ERROR && err.Slave == slave &&
+            err.Index == index && err.SubIdx == sub_index)
+            code = static_cast<uint32_t>(err.AbortCode);
+    return code;
+}
+}
+
 Master::Master(std::unique_ptr<API> api, std::string interface_name):
     iface_name(std::move(interface_name)),
     api(std::move(api)),
@@ -144,7 +163,7 @@ void Master::write_startup_parameters(
             continue;
         failure = "rejected startup parameter " + param.to_string() + ": " +
                   errors::sdo_abort_reason(
-                      this->api->pop_sdo_abort(pos, param.index, param.sub_index)
+                      pop_sdo_abort(*this->api, pos, param.index, param.sub_index)
                   );
         break;
     }
@@ -169,11 +188,12 @@ x::errors::Error Master::activate() {
             const bool disabled = this->disabled_slaves.contains(i);
             this->api->set_slave_group(i, disabled ? DISABLED_GROUP : ENABLED_GROUP);
             const auto it = this->startup_parameters.find(i);
-            if (it == this->startup_parameters.end() || it->second.empty()) {
+            if (disabled || it == this->startup_parameters.end() ||
+                it->second.empty()) {
                 this->api->set_PO2SOconfig(i, nullptr);
                 continue;
             }
-            if (!disabled) parameterized.push_back(static_cast<uint16_t>(i));
+            parameterized.push_back(static_cast<uint16_t>(i));
             this->api->set_PO2SOconfig(i, [this, params = it->second](uint16_t pos) {
                 this->write_startup_parameters(pos, params);
             });
@@ -332,13 +352,13 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
             }
         );
         if (const auto code = this->api->slave_ALstatuscode(i); h.faulted && code != 0)
-            h.al_status = ec_ALstatuscode2string(code);
+            h.fault = ec_ALstatuscode2string(code);
         {
             std::lock_guard lock(this->mu);
             if (const auto it = this->startup_failures.find(i);
                 it != this->startup_failures.end()) {
                 h.faulted = true;
-                h.al_status = it->second;
+                h.fault = it->second;
             }
         }
         if (breaker.running()) this->recover(static_cast<uint16_t>(i));
@@ -347,6 +367,10 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
 }
 
 void Master::recover(const uint16_t pos) {
+    {
+        std::lock_guard lock(this->mu);
+        if (this->startup_failures.contains(pos)) return;
+    }
     const uint16_t state = this->api->slave_state(pos);
     if (state == EC_STATE_SAFE_OP + EC_STATE_ERROR) {
         this->api->set_slave_state(pos, EC_STATE_SAFE_OP + EC_STATE_ACK);

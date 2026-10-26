@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, type Synnax } from "@synnaxlabs/client";
+import { type device, type rack, type Synnax } from "@synnaxlabs/client";
 import { deep } from "@synnaxlabs/x";
 
 import { MAKE, type Properties, ZERO_PROPERTIES } from "@/feature/http/device/types";
@@ -17,14 +17,16 @@ import { uniqueName } from "@/testutil";
 export interface CreateHTTPDeviceOptions {
   configured?: boolean;
   properties?: Partial<Properties>;
+  rack?: rack.Key;
 }
 
-/** Creates a rack and a configured HTTP server device on the live Core. */
+/** Creates a configured HTTP server device on the live Core. */
 export const createHTTPDevice = async (
   client: Synnax,
-  { configured = true, properties }: CreateHTTPDeviceOptions = {},
+  { configured = true, properties, rack }: CreateHTTPDeviceOptions = {},
 ): Promise<device.Device> =>
   await createTestDevice(client, {
+    rack,
     name: uniqueName("http_server"),
     make: MAKE,
     model: "HTTP server",
