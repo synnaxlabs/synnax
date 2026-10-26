@@ -379,6 +379,49 @@ describe("Feed.subscribe", () => {
         await feed.close();
       }
     });
+
+    it("should draw a held write into an earlier span in time order", async () => {
+      const core = createCore();
+      const feed = core.openFeed({
+        ...OPTIONS,
+        readRemote: async () => {
+          throw new Error("read failed");
+        },
+      });
+      const span = TimeSpan.seconds(30);
+      const { key: index } = core.index;
+      const sub = feed.subscribe(raw([index], span));
+      const stop = tick(core);
+      try {
+        await expect
+          .poll(() => sub.value(index).series.length, POLL)
+          .toBeGreaterThan(100);
+        stop();
+        // A writer fills an earlier span in a domain of its own.
+        const at = sub.value(index).series.series[0].timeRange.start.sub(PERIOD);
+        core.stream(
+          new Frame(
+            index,
+            new Series({
+              data: new BigInt64Array([at.valueOf()]),
+              dataType: DataType.TIMESTAMP,
+              timeRange: new TimeRange(at, at.add(TimeSpan.NANOSECOND)),
+              alignment: 9n << 32n,
+            }),
+          ),
+        );
+        await expect
+          .poll(() => timesOf(sub.value(index)).includes(at.valueOf()), POLL)
+          .toBe(true);
+        expect(timesOf(sub.value(index))[0]).toBe(at.valueOf());
+        expectComplete(timesOf(sub.value(index)));
+        expect(sub.value(index).time?.valueOf()).toBe(newestOf(core) + 1n);
+      } finally {
+        stop();
+        sub.close();
+        await feed.close();
+      }
+    });
   });
 
   describe("duplicates", () => {

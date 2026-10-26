@@ -662,7 +662,9 @@ export class Points {
         ? []
         : this.props.joins
             .held(this.key)
-            .filter((s) => s.timeRange.isZero || s.timeRange.overlapsWith(tr));
+            .filter((s) => s.timeRange.isZero || s.timeRange.overlapsWith(tr))
+            // A writer can fill an earlier span after later samples streamed.
+            .sort((a, b) => TimeRange.sort(a.timeRange, b.timeRange));
     return { raw: this.raw, tail, filling: filling.size > 0 };
   }
 
