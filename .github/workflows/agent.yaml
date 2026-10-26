@@ -131,6 +131,14 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      # The setup script must come from the PR the agent works on.
+      - name: Check out the pull request
+        if: inputs.pr
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          PR: ${{ inputs.pr }}
+        run: gh pr checkout "$PR"
+
       # A runner can stay stopped for weeks, so every job takes the latest agent CLIs.
       - name: Update the agent CLIs
         run: sudo npm install -g @anthropic-ai/claude-code@latest @openai/codex@latest
