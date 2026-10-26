@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
+	svcranger "github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -29,11 +30,11 @@ var _ = Describe("gRPC Ranger Translators", func() {
 		It("Should round-trip a filter tree", func(ctx SpecContext) {
 			key := uuid.New()
 			msg := ranger.RetrieveRequest{
-				Where: &ranger.Where{
-					Or: []ranger.Where{
+				Where: &svcranger.Where{
+					Or: []svcranger.Where{
 						{Key: &filter.Set[ranger.Key]{In: []ranger.Key{key}}},
 						{
-							Not: &ranger.Where{
+							Not: &svcranger.Where{
 								Name: &filter.String{Eq: new("Cold flow")},
 							},
 						},

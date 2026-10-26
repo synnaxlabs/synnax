@@ -141,6 +141,7 @@ var _ = Describe("Filter definitions", func() {
 				where.Filter.Target,
 			).To(Equal(resolution.TypeRef{Name: "test.Thing"}))
 			line := func(name string) resolution.Field {
+				GinkgoHelper()
 				return MustBeOk(lo.Find(
 					where.Filter.Lines,
 					func(l resolution.Field) bool { return l.Name == name },
@@ -407,6 +408,19 @@ var _ = Describe("Filter definitions", func() {
 				"declares filters Where and Other2; a schema declares at most one"),
 		)
 
+		DescribeTable("Should reject a type-level @key outside a distinct type",
+			func(ctx SpecContext, declaration string) {
+				_, diag := analyzer.AnalyzeSource(ctx, declaration, "test", loader)
+				Expect(diag.String()).To(ContainSubstring(
+					"test.Key has @key, which marks only a distinct type such as " +
+						"Key uint32",
+				))
+			},
+			Entry("an alias", "Key = uuid {\n @key\n}"),
+			Entry("a struct", "Key struct {\n value uuid\n @key\n}"),
+			Entry("an enum", "Key enum {\n a = \"a\"\n @key\n}"),
+		)
+
 		It("Should reject bare lines without the filter import", func(
 			ctx SpecContext,
 		) {
@@ -499,10 +513,13 @@ var _ = Describe("Filter definitions", func() {
 			Expect(res.Fields[0].Optional).To(BeFalse())
 		})
 
-		It("Should omit the derived types wherever the filter is omitted", func(
-			ctx SpecContext,
-		) {
-			table, diag := analyzer.AnalyzeSource(ctx, `
+		DescribeTable(
+			"Should omit the derived types wherever the filter is omitted",
+			func(
+				ctx SpecContext,
+				name string,
+			) {
+				table, diag := analyzer.AnalyzeSource(ctx, `
 				import "schemas/x/filter"
 
 				@go output "out"
@@ -517,15 +534,15 @@ var _ = Describe("Filter definitions", func() {
 					@cpp omit
 				}
 			`, "test", loader)
-			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			for _, name := range []string{"RetrieveRequest", "RetrieveResponse"} {
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
 				typ := table.MustGet("test." + name)
-				_, omitted := typ.Domains["cpp"].Expressions.Find("omit")
-				Expect(omitted).To(BeTrue(), name)
-				_, omitted = typ.Domains["go"].Expressions.Find("omit")
-				Expect(omitted).To(BeFalse(), name)
-			}
-		})
+				MustBeOk(typ.Domains["cpp"].Expressions.Find("omit"))
+				_, omitted := typ.Domains["go"].Expressions.Find("omit")
+				Expect(omitted).To(BeFalse())
+			},
+			Entry("the request", "RetrieveRequest"),
+			Entry("the response", "RetrieveResponse"),
+		)
 
 		It("Should leave out search_term when no field has @search", func(
 			ctx SpecContext,
@@ -647,6 +664,7 @@ var _ = Describe("Filter definitions", func() {
 			`, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			goOutput := func(name string) string {
+				GinkgoHelper()
 				typ := table.MustGet("test." + name)
 				expr := MustBeOk(typ.Domains["go"].Expressions.Find("output"))
 				return expr.Values[0].StringValue
@@ -724,6 +742,29 @@ var _ = Describe("Filter definitions", func() {
 				"filter Where: @response takes `type <Type>`"),
 			Entry("with an unknown type", "@response type Missing",
 				"filter Where: unknown response type Missing"),
+		)
+
+		DescribeTable("Should reject an invalid @go request_output",
+			func(ctx SpecContext, output string) {
+				_, diag := analyzer.AnalyzeSource(ctx, `
+					import "schemas/x/filter"
+
+					Thing struct {
+						key uuid { @key }
+					}
+					Where filter Thing {
+						key
+
+						`+output+`
+					}
+				`, "test", loader)
+				Expect(diag.String()).To(ContainSubstring(
+					"filter Where: @go request_output takes one path",
+				))
+			},
+			Entry("without a path", "@go request_output"),
+			Entry("with an identifier", "@go request_output api"),
+			Entry("with two paths", `@go request_output "a" "b"`),
 		)
 
 		It("Should reject a derived name the schema already declares", func(

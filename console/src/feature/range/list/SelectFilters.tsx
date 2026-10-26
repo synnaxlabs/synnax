@@ -25,12 +25,12 @@ import { Label } from "@/platform/label";
 import { View } from "@/platform/view";
 
 export interface SelectFiltersProps {
-  request: ranger.RetrieveRequest;
-  onRequestChange: state.Setter<ranger.RetrieveRequest>;
+  request: ranger.RetrieveMultipleParams;
+  onRequestChange: state.Setter<ranger.RetrieveMultipleParams>;
 }
 
 const FilterContextMenu = ({ request, onRequestChange }: SelectFiltersProps) => {
-  const handleRequestChange = (setter: state.SetArg<ranger.RetrieveRequest>) => {
+  const handleRequestChange = (setter: state.SetArg<ranger.RetrieveMultipleParams>) => {
     onRequestChange((prev) => {
       const next = state.executeSetter(setter, prev);
       return { ...next, offset: 0, limit: 0 };
@@ -72,7 +72,7 @@ export const SelectFilters = ({ request, onRequestChange }: SelectFiltersProps) 
 );
 
 interface LabelsFilterProps {
-  request: ranger.RetrieveRequest;
+  request: ranger.RetrieveMultipleParams;
 }
 
 interface TagsProps {

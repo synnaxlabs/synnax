@@ -282,6 +282,50 @@ describe("Retriever", () => {
       expect(fetchRequest).not.toHaveBeenCalled();
     });
 
+    describe("keysRequestZ", () => {
+      const keysZ = z.union([query.keysRequestZ(z.string()), requestZ]);
+      class KeysClient extends query.Retriever<typeof keysZ, string, Thing> {
+        constructor(
+          cache: query.Cache,
+          fetchKeys: (keys: string[]) => Promise<Thing[]>,
+          fetchRequest: () => Promise<Thing[]>,
+        ) {
+          const store = cache.createTable<string, Thing>({
+            name: "things",
+            fetch: fetchKeys,
+          });
+          super(cache, {
+            name: "thing",
+            table: store,
+            request: { schema: keysZ, fetch: fetchRequest },
+          });
+          this.store = store;
+        }
+
+        readonly store: query.Table<string, Thing>;
+      }
+
+      it("routes a bare key list through the table fetch", async () => {
+        const fetchKeys = vi.fn(async (keys: string[]) => keys.map((k) => thing(k)));
+        const fetchRequest = vi.fn(async () => []);
+        const client = new KeysClient(newCache(), fetchKeys, fetchRequest);
+        client.store.set([thing("a")]);
+        const results = await client.retrieve(["a", "b"]);
+        expect(results.map((t) => t.key)).toEqual(["a", "b"]);
+        expect(fetchKeys).toHaveBeenCalledWith(["b"]);
+        expect(fetchRequest).not.toHaveBeenCalled();
+      });
+
+      it("answers an empty key list with no fetch", async () => {
+        const fetchKeys = vi.fn(async () => []);
+        const fetchRequest = vi.fn(async () => []);
+        const client = new KeysClient(newCache(), fetchKeys, fetchRequest);
+        expect(await client.retrieve([])).toEqual([]);
+        expect(fetchKeys).not.toHaveBeenCalled();
+        expect(fetchRequest).not.toHaveBeenCalled();
+      });
+    });
+
     it("routes a where with another line through the request fetch", async () => {
       const fetchRequest = vi.fn(async () => [thing("a")]);
       const client = new Client(newCache(), async () => [], fetchRequest);

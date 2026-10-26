@@ -820,8 +820,7 @@ func (p *Plugin) processStruct(
 		// by annotated forward-reference getters instead.
 		IsRecursive: form.IsRecursive && !isExtendBase(entry, table),
 		Strict:      resolution.InFilterRequest(entry, table),
-		// Query caches key on a request, and an interface has no index signature.
-		TypeAlias: filterRequests(table).Contains(entry.QualifiedName),
+		Request:     filterRequests(table).Contains(entry.QualifiedName),
 	}
 	if tsDomain, ok := entry.Domains["ts"]; ok {
 		for _, expr := range tsDomain.Expressions {
@@ -1092,9 +1091,7 @@ func (p *Plugin) processStruct(
 	}
 
 	for _, field := range allFields {
-		// The Core fills a request's defaults, so a client leaves them out. A schema
-		// default would make a request with every default look like one that sets them.
-		if sd.TypeAlias && field.Default != nil {
+		if sd.Request && field.Default != nil {
 			field.Default = nil
 			field.Optional = true
 		}
@@ -3099,9 +3096,10 @@ type structData struct {
 	ExtendFields      []fieldData
 	PartialFields     []fieldData
 	OmittedFields     []string
-	// TypeAlias is true when the type is a type alias of the schema's output instead
-	// of an interface.
-	TypeAlias bool
+	// Request is true for a request derived from a filter. A query cache keys on it, so
+	// it is a type alias, since an interface has no index signature. It leaves its
+	// defaults to the Core, so the cache sees only the fields that a caller set.
+	Request bool
 	// ConditionalOmittedFields names the conditional (type-param-typed) base fields a
 	// synthesized @create New strips from its inner optional.Optional base before
 	// re-appending them as z.input conditionals. The New's template wraps the base in
@@ -3584,7 +3582,7 @@ export const {{ camelCase .TSName }}Z = z.{{ if .Strict }}strictObject{{ else }}
 {{- end }}
 });
 {{- if $.GenerateTypes }}
-{{- if .TypeAlias }}
+{{- if .Request }}
 export type {{ .TSName }} = z.infer<typeof {{ camelCase .TSName }}Z>;
 {{- else }}
 export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{{ end }}<typeof {{ camelCase .TSName }}Z> {}

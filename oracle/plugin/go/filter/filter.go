@@ -32,20 +32,22 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/set"
 )
 
 // Options configures the go/filter plugin.
 type Options struct {
 	// FileNamePattern is the basename written next to each filter.
 	FileNamePattern string
-	// RequestFileName is the basename written next to each derived request.
-	RequestFileName string
+	// RequestFileNamePattern is the basename written next to each derived request.
+	RequestFileNamePattern string
 }
 
 // DefaultOptions returns the default plugin options.
 func DefaultOptions() Options {
-	return Options{FileNamePattern: "where.gen.go", RequestFileName: "request.gen.go"}
+	return Options{
+		FileNamePattern:        "where.gen.go",
+		RequestFileNamePattern: "request.gen.go",
+	}
 }
 
 // Plugin generates the Go interpreter of each filter definition.
@@ -93,24 +95,18 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 				"filter %s: has no derived retrieve request", typ.QualifiedName,
 			)
 		}
-		if output.IsOmitted(request, "go") {
-			continue
-		}
 		requestPath := output.GetPath(request, "go")
 		content, err = generateRequestFile(typ, request, outputPath, requestPath, req)
 		if err != nil {
 			return nil, err
 		}
 		resp.Files = append(resp.Files, plugin.File{
-			Path:    requestPath + "/" + p.Options.RequestFileName,
+			Path:    requestPath + "/" + p.Options.RequestFileNamePattern,
 			Content: content,
 		})
 	}
 	return resp, nil
 }
-
-// interpreted are the operator members the template interprets.
-var interpreted = set.New("eq", "in", "regex", "gt", "gte", "lt", "lte", "any")
 
 // comparisons maps each ordering member to its Go operator.
 var comparisons = map[string]string{"gt": ">", "gte": ">=", "lt": "<", "lte": "<="}
@@ -125,14 +121,6 @@ type templateData struct {
 	// TypeArgs passes the target's type parameters, such as [Details].
 	TypeArgs string
 	Lines    []lineData
-	// Search is the search the request applies, or nil when it has no search_term.
-	Search *searchData
-}
-
-type searchData struct {
-	// Filter is true when the service writes its own Retrieve and searches through a
-	// hand-written MatchSearch filter instead of a Search method.
-	Filter bool
 }
 
 type lineData struct {
@@ -142,7 +130,9 @@ type lineData struct {
 	GoName string
 	// Func is the matcher of a bare line, or the hand-written function of a typed line.
 	Func string
-	// Members are the members of a bare line's operator, and nil for a typed line.
+	// Typed is true when the line calls a hand-written matcher.
+	Typed bool
+	// Members are the members of a bare line's operator.
 	Members []string
 	// Scalar is true when Func takes one value, so an `in` ORs one call per value.
 	Scalar bool
@@ -155,9 +145,6 @@ type lineData struct {
 	// Enum is true when a bare line selects string enum values, which it validates.
 	Enum bool
 }
-
-// Typed reports whether the line calls a hand-written matcher.
-func (l lineData) Typed() bool { return l.Members == nil }
 
 // Has reports whether the line's operator has the member.
 func (l lineData) Has(member string) bool { return lo.Contains(l.Members, member) }
@@ -221,6 +208,9 @@ func generateFile(
 	})
 	funcs["MatchKeys"] = struct{}{}
 	funcs["MatchWhere"] = struct{}{}
+	if hasSearch(target, table) {
+		funcs["MatchSearch"] = struct{}{}
+	}
 
 	data := templateData{
 		Manager: imports.NewManager(),
@@ -252,6 +242,7 @@ func generateFile(
 		field := lo.Must(form.Field(line.Name))
 		ld := lineData{Path: line.Name, GoName: naming.GetFieldName(field)}
 		if line.HasType() {
+			ld.Typed = true
 			ld.Func = "Match" + ld.GoName
 			if _, taken := funcs[ld.Func]; taken {
 				return fail(
@@ -279,11 +270,19 @@ func generateFile(
 		if !ok || len(field.Type.TypeArgs) > 1 {
 			return fail("line %s: the operator %s is not a struct", line.Name, op.Name)
 		}
+		known, ok := resolution.OperatorMembers(op.QualifiedName)
+		if !ok {
+			return fail(
+				"line %s: go/filter has no interpreter for the operator %s",
+				line.Name,
+				op.QualifiedName,
+			)
+		}
 		ld.Members = lo.Map(opForm.Fields, func(f resolution.Field, _ int) string {
 			return f.Name
 		})
 		for _, m := range ld.Members {
-			if !interpreted.Contains(m) {
+			if !lo.Contains(known, m) {
 				return fail(
 					"line %s: go/filter cannot interpret the member %s of %s",
 					line.Name,
@@ -302,7 +301,7 @@ func generateFile(
 			continue
 		}
 		ld.Func = m.Func
-		ld.Scalar = m.Kind != matcher.Variadic
+		ld.Scalar = m.Kind.Scalar()
 		ld.Field = m.Access
 		data.Lines = append(data.Lines, ld)
 	}
@@ -324,8 +323,8 @@ type requestData struct {
 	// Args passes any for each type parameter of the target, since a request selects
 	// records of every type argument.
 	Args string
-	// Search is the search the request applies, or nil when it has no search_term.
-	Search *searchData
+	// Search is true when the request has a search_term.
+	Search bool
 }
 
 func generateRequestFile(
@@ -356,22 +355,29 @@ func generateRequestFile(
 	)); n > 0 {
 		data.Args = "[" + strings.Join(slices.Repeat([]string{"any"}, n), ", ") + "]"
 	}
-	if _, ok := request.Form.(resolution.StructForm).Field("search_term"); ok {
-		data.Search = &searchData{
-			Filter: plugindomain.HasExprFromType(target, "retrieve", "indexes"),
-		}
-	}
+	_, data.Search = request.Form.(resolution.StructForm).Field("search_term")
 	data.AddExternal("encoding/json/jsontext")
 	data.AddExternal("encoding/json/v2")
 	data.AddInternal(
 		"validate",
-		gomod.ResolveImportPath("x/go/validate", req.RepoRoot, gomod.DefaultModulePrefix),
+		gomod.ResolveImportPath(
+			"x/go/validate",
+			req.RepoRoot,
+			gomod.DefaultModulePrefix,
+		),
 	)
 	var buf bytes.Buffer
 	if err := requestTemplate.Execute(&buf, data); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+func hasSearch(target resolution.Type, table *resolution.Table) bool {
+	fields, _ := resolution.RecordFields(target, table)
+	return lo.SomeBy(fields, func(f resolution.Field) bool {
+		return plugindomain.HasDomainFromField(f, "search")
+	})
 }
 
 func isStringEnum(ref resolution.TypeRef, table *resolution.Table) bool {
@@ -590,14 +596,10 @@ func (r RetrieveRequest) Apply(q {{$.Service}}Retrieve{{$.Args}}) ({{$.Service}}
 		}
 		q = q.Where(f)
 	}
-{{- with .Search}}
-{{- if .Filter}}
+{{- if .Search}}
 	if r.SearchTerm != "" {
-		q = q.Where({{$.Service}}MatchSearch(r.SearchTerm))
+		q = q.Where({{.Service}}MatchSearch(r.SearchTerm))
 	}
-{{- else}}
-	q = q.Search(r.SearchTerm)
-{{- end}}
 {{- end}}
 	if r.Limit != nil {
 		q = q.Limit(int(*r.Limit))

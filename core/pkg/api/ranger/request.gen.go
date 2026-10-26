@@ -31,7 +31,9 @@ func (r RetrieveRequest) Apply(q serviceranger.Retrieve) (serviceranger.Retrieve
 		}
 		q = q.Where(f)
 	}
-	q = q.Search(r.SearchTerm)
+	if r.SearchTerm != "" {
+		q = q.Where(serviceranger.MatchSearch(r.SearchTerm))
+	}
 	if r.Limit != nil {
 		q = q.Limit(int(*r.Limit))
 	}

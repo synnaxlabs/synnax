@@ -183,11 +183,6 @@ func (s *Service) SetByKeyOrName(
 	}, nil
 }
 
-type (
-	// Where is a filter that selects statuses.
-	Where = status.Where
-)
-
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
