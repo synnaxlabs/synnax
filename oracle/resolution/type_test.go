@@ -13,7 +13,23 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/resolution"
+	. "github.com/synnaxlabs/x/testutil"
 )
+
+var _ = Describe("OperatorMembers", func() {
+	DescribeTable("Should return the members of an operator type",
+		func(op string, members []string) {
+			Expect(MustBeOk(resolution.OperatorMembers(op))).To(Equal(members))
+		},
+		Entry("a set", resolution.OperatorSet, []string{"eq", "in"}),
+		Entry("a string", resolution.OperatorString, []string{"eq", "in", "regex"}),
+	)
+
+	It("Should return false for a type that is not an operator", func() {
+		_, ok := resolution.OperatorMembers("filter.Thing")
+		Expect(ok).To(BeFalse())
+	})
+})
 
 var _ = Describe("CollectionKind", func() {
 	var table *resolution.Table

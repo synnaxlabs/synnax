@@ -32,7 +32,6 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/set"
 )
 
 // Options configures the go/filter plugin.
@@ -108,9 +107,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 	return resp, nil
 }
-
-// interpreted are the operator members the template interprets.
-var interpreted = set.New("eq", "in", "regex", "gt", "gte", "lt", "lte", "any")
 
 // comparisons maps each ordering member to its Go operator.
 var comparisons = map[string]string{"gt": ">", "gte": ">=", "lt": "<", "lte": "<="}
@@ -274,11 +270,19 @@ func generateFile(
 		if !ok || len(field.Type.TypeArgs) > 1 {
 			return fail("line %s: the operator %s is not a struct", line.Name, op.Name)
 		}
+		known, ok := resolution.OperatorMembers(op.QualifiedName)
+		if !ok {
+			return fail(
+				"line %s: go/filter has no interpreter for the operator %s",
+				line.Name,
+				op.QualifiedName,
+			)
+		}
 		ld.Members = lo.Map(opForm.Fields, func(f resolution.Field, _ int) string {
 			return f.Name
 		})
 		for _, m := range ld.Members {
-			if !interpreted.Contains(m) {
+			if !lo.Contains(known, m) {
 				return fail(
 					"line %s: go/filter cannot interpret the member %s of %s",
 					line.Name,

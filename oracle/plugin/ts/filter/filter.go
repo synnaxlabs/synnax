@@ -27,7 +27,6 @@ import (
 	tstypes "github.com/synnaxlabs/oracle/plugin/ts/types"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/set"
 )
 
 // Options configures the ts/filter plugin.
@@ -80,9 +79,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 	return resp, nil
 }
-
-// members are the operator members that the x/ts/src/filter functions check.
-var members = set.New("eq", "in", "regex", "gt", "gte", "lt", "lte", "any")
 
 // checks maps each operator type to the x/ts/src/filter function that checks it.
 var checks = map[string]string{
@@ -177,11 +173,20 @@ func generateFile(
 					op.Name,
 				)
 			}
+			known, isOperator := resolution.OperatorMembers(op.QualifiedName)
+			ld.Check, ok = checks[op.QualifiedName]
+			if !ok || !isOperator {
+				return fail(
+					"line %s: ts/filter has no check for the operator %s",
+					line.Name,
+					op.QualifiedName,
+				)
+			}
 			ms := lo.Map(opForm.Fields, func(f resolution.Field, _ int) string {
 				return f.Name
 			})
 			for _, m := range ms {
-				if !members.Contains(m) {
+				if !lo.Contains(known, m) {
 					return fail(
 						"line %s: ts/filter cannot check the member %s of %s",
 						line.Name,
@@ -189,14 +194,6 @@ func generateFile(
 						op.Name,
 					)
 				}
-			}
-			ld.Check, ok = checks[op.QualifiedName]
-			if !ok {
-				return fail(
-					"line %s: ts/filter has no check for the operator %s",
-					line.Name,
-					op.QualifiedName,
-				)
 			}
 			ld.Field = tstypes.FieldName(field.Name)
 			ld.Regex = lo.Contains(ms, "regex")

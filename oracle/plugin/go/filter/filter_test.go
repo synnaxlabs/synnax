@@ -417,25 +417,39 @@ var _ = Describe("Go Filter Plugin", func() {
 			))
 		})
 
-		It("Should reject an operator member it cannot interpret", func(
+		DescribeTable("Should reject an operator member it cannot interpret", func(
 			ctx SpecContext,
+			from, to, line, message string,
 		) {
-			loader.Add("schemas/x/filter", `@go output "x/go/filter"
-String struct {
-	eq       string?
-	contains string?
-}
-`+FilterSchema[strings.Index(FilterSchema, "Bool struct"):])
+			loader.Add(
+				"schemas/x/filter",
+				`@go output "x/go/filter"`+strings.Replace(FilterSchema, from, to, 1),
+			)
 			req := MustGenerateRequest(ctx, thing+`
 				Where filter Thing {
-					name
+					`+line+`
 				}
 			`, "thing", loader)
 			Expect(p.Generate(req)).Error().To(MatchError(
-				"filter thing.Where: line name: go/filter cannot interpret the member " +
-					"contains of String",
+				"filter thing.Where: line " + line + ": go/filter cannot interpret " +
+					message,
 			))
-		})
+		},
+			Entry(
+				"a member no operator has",
+				"regex string?",
+				"contains string?",
+				"name",
+				"the member contains of String",
+			),
+			Entry(
+				"a member of another operator",
+				"in T[]?\n\t@pb omit\n}\nOrdered",
+				"in T[]?\n\tgt T?\n\t@pb omit\n}\nOrdered",
+				"key",
+				"the member gt of Set",
+			),
+		)
 
 		It("Should skip a filter with no Go output", func(ctx SpecContext) {
 			resp := MustGenerate(ctx, `
