@@ -124,7 +124,6 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
   name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: INITIAL_VALUES,
-  normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
   retrieve: async ({ client, query }) => {
     const [stat, labels] = await Promise.all([
       client.statuses.retrieve(query),
