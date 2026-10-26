@@ -23,8 +23,8 @@ import { Access, Project as PProject } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect, useState } from "react";
 
 import { Account } from "@/feature/account";
-import { useOpenSample } from "@/feature/project/sample";
 import { ContextMenu, listItem } from "@/feature/project/Selector";
+import { useOpenSample } from "@/feature/project/useOpenSample";
 import { Shell } from "@/feature/shell";
 import { Button } from "@/platform/button";
 import { CSS } from "@/platform/css";

@@ -4,7 +4,8 @@
     "types": ["node", "react", "react-dom", "pluralize"],
     "paths": { "@/*": ["./src/*"] },
     "declaration": false,
-    "declarationMap": false
+    "declarationMap": false,
+    "allowImportingTsExtensions": true
   },
-  "include": ["src/**/*", "eslint.config.ts", "stylelint.config.ts"]
+  "include": ["src/**/*", "scripts/**/*.ts", "eslint.config.ts", "stylelint.config.ts"]
 }
