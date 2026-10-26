@@ -13,7 +13,6 @@ import (
 	"context"
 	"slices"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -21,9 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -119,28 +116,16 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	q := s.internal.NewRetrieve().Entries(&res.Labels)
+	q, err := req.Apply(s.internal.NewRetrieve().Entries(&res.Labels))
+	if err != nil {
+		return RetrieveResponse{}, err
+	}
+	if err := q.Exec(ctx, nil); err != nil {
+		return RetrieveResponse{}, err
+	}
 	objects := []ontology.ID{}
 	if req.Where != nil {
-		f, err := label.MatchWhere(*req.Where)
-		if err != nil {
-			return RetrieveResponse{}, validate.PathedError(err, "where")
-		}
-		q = q.Where(f)
 		objects = forIDs(*req.Where, objects)
-	}
-	if term := lo.FromPtr(req.SearchTerm); term != "" {
-		q = q.Search(term)
-	}
-	if req.Limit != nil {
-		q = q.Limit(int(*req.Limit))
-	}
-	if req.Offset != nil {
-		q = q.Offset(int(*req.Offset))
-	}
-	// A filter is a predicate, so a key that does not exist is a non-match.
-	if err := errors.Skip(q.Exec(ctx, nil), query.ErrNotFound); err != nil {
-		return RetrieveResponse{}, err
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),

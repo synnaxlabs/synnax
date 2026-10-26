@@ -12,7 +12,6 @@ package access
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -22,9 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -103,25 +100,11 @@ func (s *Service) RetrievePolicy(
 	req RetrievePolicyRequest,
 ) (RetrievePolicyResponse, error) {
 	var res RetrievePolicyResponse
-	q := s.internal.Policy.NewRetrieve().Entries(&res.Policies)
-	if req.Where != nil {
-		f, err := policy.MatchWhere(*req.Where)
-		if err != nil {
-			return RetrievePolicyResponse{}, validate.PathedError(err, "where")
-		}
-		q = q.Where(f)
+	q, err := req.Apply(s.internal.Policy.NewRetrieve().Entries(&res.Policies))
+	if err != nil {
+		return RetrievePolicyResponse{}, err
 	}
-	if term := lo.FromPtr(req.SearchTerm); term != "" {
-		q = q.Search(term)
-	}
-	if req.Limit != nil {
-		q = q.Limit(int(*req.Limit))
-	}
-	if req.Offset != nil {
-		q = q.Offset(int(*req.Offset))
-	}
-	// A filter is a predicate, so a key that does not exist is a non-match.
-	if err := errors.Skip(q.Exec(ctx, nil), query.ErrNotFound); err != nil {
+	if err := q.Exec(ctx, nil); err != nil {
 		return RetrievePolicyResponse{}, err
 	}
 	if err := s.internal.NewEnforcer(nil).Enforce(ctx, access.Request{
@@ -192,25 +175,11 @@ func (s *Service) RetrieveRole(
 	req RetrieveRoleRequest,
 ) (RetrieveRoleResponse, error) {
 	var res RetrieveRoleResponse
-	q := s.internal.Role.NewRetrieve().Entries(&res.Roles)
-	if req.Where != nil {
-		f, err := role.MatchWhere(*req.Where)
-		if err != nil {
-			return RetrieveRoleResponse{}, validate.PathedError(err, "where")
-		}
-		q = q.Where(f)
+	q, err := req.Apply(s.internal.Role.NewRetrieve().Entries(&res.Roles))
+	if err != nil {
+		return RetrieveRoleResponse{}, err
 	}
-	if term := lo.FromPtr(req.SearchTerm); term != "" {
-		q = q.Search(term)
-	}
-	if req.Limit != nil {
-		q = q.Limit(int(*req.Limit))
-	}
-	if req.Offset != nil {
-		q = q.Offset(int(*req.Offset))
-	}
-	// A filter is a predicate, so a key that does not exist is a non-match.
-	if err := errors.Skip(q.Exec(ctx, nil), query.ErrNotFound); err != nil {
+	if err := q.Exec(ctx, nil); err != nil {
 		return RetrieveRoleResponse{}, err
 	}
 	if err := s.internal.NewEnforcer(nil).Enforce(ctx, access.Request{
