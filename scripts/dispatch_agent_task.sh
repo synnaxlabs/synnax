@@ -12,7 +12,8 @@
 # Sends an agent-task repository_dispatch for one Linear issue, then prints the Actions
 # run link. The prompt is fixed: only the validated issue key goes into it.
 #
-# Usage: dispatch.sh [--dry-run] [--agent claude|codex] [--repo owner/name] SY-####
+# Usage: dispatch_agent_task.sh [--dry-run] [--agent claude|codex] [--repo owner/name]
+#   SY-####
 
 set -euo pipefail
 
@@ -41,7 +42,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ ! $issue =~ ^SY-[0-9]+$ ]]; then
-    echo "usage: dispatch.sh [--dry-run] [--agent claude|codex] SY-####" >&2
+    echo "usage: dispatch_agent_task.sh [--dry-run] [--agent claude|codex] SY-####" >&2
     exit 2
 fi
 if [[ $agent != claude && $agent != codex ]]; then
@@ -75,12 +76,15 @@ since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 gh "${args[@]}"
 echo "Sent agent-task for $issue."
 
-# The dispatch API returns no run ID, so find the first run created after the send.
+# The dispatch API returns no run ID. The caller workflow puts the issue key in its run
+# name, so match on that and on the send time.
+filter="[.[] | select(.createdAt >= \"$since\")
+    | select(.displayTitle | test(\"(^|[^0-9])$issue([^0-9]|\$)\"))]
+    | last | .url // empty"
 for _ in $(seq 1 12); do
     sleep 5
-    url=$(gh run list --repo "$repo" --event repository_dispatch --limit 5 \
-        --json url,createdAt \
-        --jq "[.[] | select(.createdAt >= \"$since\")] | last | .url // empty")
+    url=$(gh run list --repo "$repo" --event repository_dispatch --limit 20 \
+        --json url,createdAt,displayTitle --jq "$filter")
     if [[ -n $url ]]; then
         echo "Run: $url"
         exit 0

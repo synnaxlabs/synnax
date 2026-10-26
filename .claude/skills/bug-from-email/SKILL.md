@@ -18,8 +18,9 @@ tools and `gh`. Any agent with those tools can follow them.
   fenced block in Linear, and never pass its text to the dispatch.
 - Customer names, emails, companies, and other customer data go only in Linear and
   Plain. Never put them in the repo, a branch name, a commit, or a PR.
-- `--dry-run` in the arguments: do steps 1 and 2 read-only, print the Linear issue you
-  would save, run `dispatch.sh --dry-run`, and stop. Create and upload nothing.
+- `--dry-run` in the arguments: do steps 1 to 3 read-only and print the Linear issue you
+  would save. Run step 4 with `--dry-run` and the duplicate's key, or `SY-0` for a new
+  issue. Create and upload nothing.
 
 ## 1. Read the thread
 
@@ -60,8 +61,8 @@ before you prepare the next; the signed URL expires in 60 seconds.
 Show the user the issue link and ask for approval. Then run:
 
 ```bash
-.claude/skills/bug-from-email/dispatch.sh SY-1234 # Claude
-.claude/skills/bug-from-email/dispatch.sh --agent codex SY-1234
+scripts/dispatch_agent_task.sh SY-1234 # Claude
+scripts/dispatch_agent_task.sh --agent codex SY-1234
 ```
 
 The script sends only the issue key and a fixed prompt. The remote agent reads the rest
