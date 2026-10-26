@@ -391,7 +391,8 @@ func (x *KeyList) GetValues() []uint32 {
 	return nil
 }
 
-// KeySet selects keys and enum values. A value must match every operator that is set.
+// KeySet selects values that only compare for equality, such as keys, enum values, and
+// UUIDs. A value must match every operator that is set.
 type KeySet struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// eq matches a value equal to eq.
@@ -626,8 +627,8 @@ func (x *TelemDataTypeList) GetValues() []string {
 	return nil
 }
 
-// TelemDataTypeSet selects keys and enum values. A value must match every operator that
-// is set.
+// TelemDataTypeSet selects values that only compare for equality, such as keys, enum
+// values, and UUIDs. A value must match every operator that is set.
 type TelemDataTypeSet struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// eq matches a value equal to eq.

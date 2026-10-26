@@ -36,7 +36,7 @@ export type Where = {
   integrations?: filter.Contains<z.ZodString>;
   hostIsNode?: boolean;
 };
-export const whereZ: z.ZodType<Where> = z.object({
+export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
   get and() {
     return zod.nullToUndefined(whereZ.array());
@@ -68,7 +68,7 @@ export const statusZ = status.statusZ({ details: statusDetailsZ });
 export type Status = z.infer<typeof statusZ>;
 
 /** RetrieveRequest is a request to retrieve racks. */
-export const retrieveRequestZ = z.object({
+export const retrieveRequestZ = z.strictObject({
   /** where selects the racks to retrieve. An absent where selects all of them. */
   where: whereZ.optional(),
   /** searchTerm keeps the racks that match the term, closest match first. */

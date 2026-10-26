@@ -24,7 +24,6 @@ import {
   type Status,
   statusZ,
 } from "@/status/types.gen";
-import { createLines } from "@/status/where";
 import { type Lines, matches, serverComputed } from "@/status/where.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -42,14 +41,7 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
-const keysRequest = (keys: Key[]): RetrieveRequest => ({
-  where: { key: { in: keys } },
-});
-
-const retrieveMultiParamsZ = z.union([
-  keyZ.array().transform(keysRequest),
-  retrieveRequestZ,
-]);
+const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
 
 const singleRetrieveParamsZ = z
   .object({ key: keyZ, includeLabels: z.boolean().optional() })
@@ -61,8 +53,7 @@ const singleRetrieveParamsZ = z
 const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
 
 export type SingleRetrieveParams = z.input<typeof singleRetrieveParamsZ>;
-export type MultiRetrieveParams = RetrieveRequest;
-export type RetrieveParams = SingleRetrieveParams | MultiRetrieveParams;
+export type RetrieveParams = SingleRetrieveParams | RetrieveRequest;
 
 const retrieveResponseZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
   detailsSchema?: DetailsSchema,
@@ -103,7 +94,7 @@ export class Client extends query.Retriever<
     const { relationships } = ontologyClient.cache;
     const store = cache.createTable<Key, Status>({
       name: "statuses",
-      fetch: async (keys) => await this.fetchThrough(keysRequest(keys)),
+      fetch: async (keys) => await this.fetchThrough(query.keysRequest(keys)),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, statusZ(), {
           value: (changed, prev) => {
@@ -139,9 +130,8 @@ export class Client extends query.Retriever<
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.fetchThrough(req),
-        matches: (status, req) => matches(this.lines, status, req.where ?? {}),
-        serverComputed: (req) =>
-          req.where != null && serverComputed(this.lines, req.where),
+        matches: (status, req) => matches(this.lines, status, req.where),
+        serverComputed: (req) => serverComputed(this.lines, req.where),
         watch: [
           query.watch(relationships, (event, _: RetrieveRequest) =>
             this.affectedKeys(event),
@@ -162,17 +152,22 @@ export class Client extends query.Retriever<
     });
     this.cfg = cfg;
     this.store = store;
-    this.lines = createLines((status, labelKey) => this.isLabeledBy(status, labelKey));
+    this.lines = {
+      labels: (status, keys) =>
+        label.cachedLabeledByAny(ontologyClient.cache, ontologyID(status.key), keys),
+    };
   }
 
   async retrieve<DetailsSchema extends z.ZodType>(
     params: SingleRetrieveParams & { detailsSchema?: DetailsSchema },
   ): Promise<Status<DetailsSchema>>;
   async retrieve(params: Key | SingleRetrieveParams): Promise<Status>;
-  async retrieve(params: MultiRetrieveParams): Promise<Status[]>;
+  async retrieve(params: Key[] | RetrieveRequest): Promise<Status[]>;
   async retrieve<DetailsSchema extends z.ZodType = z.ZodNever>(
-    rawParams: Key | (RetrieveParams & { detailsSchema?: DetailsSchema }),
+    rawParams: Key | Key[] | (RetrieveParams & { detailsSchema?: DetailsSchema }),
   ): Promise<Status<DetailsSchema> | Status<DetailsSchema>[]> {
+    if (Array.isArray(rawParams))
+      return (await super.retrieve(rawParams)) as Status<DetailsSchema>[];
     const params = typeof rawParams === "string" ? { key: rawParams } : rawParams;
     const { detailsSchema, ...rest } = params;
     const isSingle = "key" in rest;
@@ -356,17 +351,6 @@ export class Client extends query.Retriever<
           new Error("failed to fetch status label", { cause: exc }),
         ),
       );
-  }
-
-  /** Reports whether the status is labeled by the given label. */
-  private isLabeledBy(status: Key, labelKey: label.Key): boolean {
-    return this.cfg.ontology.cache.relationships.has(
-      ontology.relationshipToString({
-        from: ontologyID(status),
-        type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
-        to: label.ontologyID(labelKey),
-      }),
-    );
   }
 
   /** Statuses whose labels the relationship event changes; backfills the label. */

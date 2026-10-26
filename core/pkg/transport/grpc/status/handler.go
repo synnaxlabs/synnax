@@ -18,9 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/status/pb"
-	"github.com/synnaxlabs/x/errors"
 	xpb "github.com/synnaxlabs/x/pb"
-	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -151,11 +149,8 @@ func (retrieveRequestTranslator) Backward(
 ) (status.RetrieveRequest, error) {
 	// A client older than the Core sends the reserved fields, which would otherwise
 	// select every status.
-	if len(msg.ProtoReflect().GetUnknown()) > 0 {
-		return status.RetrieveRequest{}, errors.Wrap(
-			validate.ErrValidation,
-			"retrieve request has unknown fields",
-		)
+	if err := xpb.RejectUnknown(msg); err != nil {
+		return status.RetrieveRequest{}, err
 	}
 	return pb.RetrieveRequestFromPB(msg.Request)
 }

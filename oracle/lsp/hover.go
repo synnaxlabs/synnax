@@ -29,6 +29,8 @@ var hoverDocs = map[string]string{
 	"extends": "**extends**\n\nInherits the fields of another struct.",
 	"action": "**action**\n\nDeclares a wire mutation on a struct. Actions are " +
 		"never persisted.",
+	"filter": "**filter**\n\nDeclares the filter tree of a struct or union.\n\n" +
+		"```oracle\nWhere filter Range {\n    name\n    labels uuid[]\n}\n```",
 
 	"uuid":    "**uuid**\n\nUniversally unique identifier (128-bit).",
 	"string":  "**string**\n\nUTF-8 encoded text.",
@@ -48,27 +50,31 @@ var hoverDocs = map[string]string{
 	"record":  "**record**\n\nUntyped key-value record (map of string to any).",
 	"bytes":   "**bytes**\n\nByte array / binary data.",
 
-	"key": "**@key**\n\nMarks the field as the struct's primary key.",
-	"doc": "**@doc**\n\nDocumentation for the declaration.\n\nUse " +
+	"@key": "**@key**\n\nMarks the field as the struct's primary key.",
+	"@doc": "**@doc**\n\nDocumentation for the declaration.\n\nUse " +
 		"`@doc value \"...\"` on fields and declarations.",
-	"validate": "**@validate**\n\nValidation constraints.\n\nExpressions: " +
+	"@validate": "**@validate**\n\nValidation constraints.\n\nExpressions: " +
 		"`required`, `skip`, `min_length`, `max_length`, `min`, `max`, `pattern`",
-	"filter": "**@filter**\n\nRetrieve requests can filter on this field.",
-	"search": "**@search**\n\nRetrieve requests can search the text of this field.",
-	"index": "**@index**\n\nIndex configuration for the field.\n\n" +
+	"@filter": "**@filter**\n\nRetrieve requests can filter on this field.",
+	"@search": "**@search**\n\nRetrieve requests can search the text of this field.",
+	"@response": "**@response**\n\nSets the record type of a filter's retrieve " +
+		"response.\n\nUse `@response type <Type>`.",
+	"@include": "**@include**\n\nRetrieve requests can ask the Core to fill this " +
+		"field.",
+	"@index": "**@index**\n\nIndex configuration for the field.\n\n" +
 		"Expressions: `lookup`, `sorted`",
-	"ontology": "**@ontology**\n\nOntology resource type.\n\nUse " +
+	"@ontology": "**@ontology**\n\nOntology resource type.\n\nUse " +
 		"`@ontology type \"name\"`.",
-	"go": "**@go**\n\nGo output configuration.\n\nUse `output \"path\"` " +
+	"@go": "**@go**\n\nGo output configuration.\n\nUse `output \"path\"` " +
 		"to set the output directory; `marshal` to generate a codec; " +
 		"`migrate` to generate migrations.",
-	"ts": "**@ts**\n\nTypeScript output configuration.\n\nExpressions:\n- " +
+	"@ts": "**@ts**\n\nTypeScript output configuration.\n\nExpressions:\n- " +
 		"`output \"path\"` - Output directory\n- `use_input` - Use `z.input` " +
 		"instead of `z.infer`\n- `name \"TypeName\"` - Override the " +
 		"generated name",
-	"py":  "**@py**\n\nPython output configuration.",
-	"cpp": "**@cpp**\n\nC++ output configuration.",
-	"pb":  "**@pb**\n\nProtobuf output configuration.",
+	"@py":  "**@py**\n\nPython output configuration.",
+	"@cpp": "**@cpp**\n\nC++ output configuration.",
+	"@pb":  "**@pb**\n\nProtobuf output configuration.",
 
 	"required":   "**required**\n\nField must be set.",
 	"skip":       "**skip**\n\nSkip validation for this field.",
@@ -128,6 +134,10 @@ func getWordAtPosition(content string, pos protocol.Position) string {
 
 	if start == end {
 		return ""
+	}
+	// A domain name keeps its sigil, so @filter and the filter keyword differ.
+	if start > 0 && line[start-1] == '@' {
+		start--
 	}
 	return line[start:end]
 }

@@ -698,6 +698,25 @@ func (p *Plugin) typeDefBaseToTS(
 // entry's schema: struct extends bases, union shared bases, and union variant payloads.
 // Such schemas must stay ZodObjects, since the z.ZodType annotation used to break
 // recursive inference has no .extend.
+// filterRequestTypes returns the qualified names of the types a filter request holds:
+// each filter, its derived request, and the operators of its bare lines.
+func filterRequestTypes(table *resolution.Table) set.Set[string] {
+	names := make(set.Set[string])
+	for _, typ := range table.StructTypes() {
+		if typ.Filter == nil {
+			continue
+		}
+		names.Add(typ.QualifiedName, typ.Filter.Request)
+		form := typ.Form.(resolution.StructForm)
+		for _, line := range typ.Filter.Lines {
+			if !line.HasType() {
+				names.Add(lo.Must(form.Field(line.Name)).Type.Name)
+			}
+		}
+	}
+	return names
+}
+
 func isExtendBase(entry resolution.Type, table *resolution.Table) bool {
 	matches := func(ref resolution.TypeRef) bool {
 		resolved, ok := ref.Resolve(table)
@@ -808,6 +827,7 @@ func (p *Plugin) processStruct(
 		// z.ZodType, which has no .extend. Their inference cycles are broken
 		// by annotated forward-reference getters instead.
 		IsRecursive: form.IsRecursive && !isExtendBase(entry, table),
+		Strict:      filterRequestTypes(table).Contains(entry.QualifiedName),
 	}
 	if tsDomain, ok := entry.Domains["ts"]; ok {
 		for _, expr := range tsDomain.Expressions {
@@ -3092,11 +3112,14 @@ type structData struct {
 	AllParamsOptional        bool
 	Handwritten              bool
 	IsRecursive              bool
-	IsAlias                  bool
-	IsSingleParam            bool
-	IsGeneric                bool
-	ConcreteTypes            bool
-	CoalesceTypeParams       bool
+	// Strict is true when the schema rejects unknown keys, so a stale field in a filter
+	// request fails instead of selecting every record.
+	Strict             bool
+	IsAlias            bool
+	IsSingleParam      bool
+	IsGeneric          bool
+	ConcreteTypes      bool
+	CoalesceTypeParams bool
 	// IsPrimitiveConstrainedGeneric is true when every type param is constrained to a
 	// primitive set (e.g. T extends numeric) and has a default. In this mode the
 	// runtime zod schema is emitted as a plain z.object (defaults substituted for
@@ -3276,7 +3299,7 @@ export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{
 {{ formatDoc .TSName .Doc }}
 {{- end }}
 export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.BareConstraint }}{{ if $p.HasDefault }} = {{ $p.BareDefault }}{{ end }}{{ end }}>({{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name | camelCase }}?: z.ZodType<{{ $p.Name }}>{{ end }}) =>
-  z.object({
+  z.{{ if .Strict }}strictObject{{ else }}object{{ end }}({
 {{- range .Fields }}
 {{- if .Doc }}
   {{ formatDoc .TSName .Doc 2 }}
@@ -3341,7 +3364,7 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ $p.
     })
 {{- end }};
 {{- else }}
-  z.object({
+  z.{{ if .Strict }}strictObject{{ else }}object{{ end }}({
 {{- range .Fields }}
 {{- if .IsSelfRef }}
     get {{ .TSName }}(): {{ .ZodSchemaType }} {
@@ -3415,7 +3438,7 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if 
     })
 {{- end }};
 {{- else }}
-  z.object({
+  z.{{ if .Strict }}strictObject{{ else }}object{{ end }}({
 {{- range .Fields }}
 {{- if .IsSelfRef }}
     get {{ .TSName }}(): {{ .ZodSchemaType }} {
@@ -3528,7 +3551,7 @@ export type {{ .TSName }} = {
   {{ .TSName }}{{ if .IsOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
 {{- end }}
 };
-export const {{ camelCase .TSName }}Z: z.ZodType<{{ .TSName }}> = z.object({
+export const {{ camelCase .TSName }}Z: z.ZodType<{{ .TSName }}> = z.{{ if .Strict }}strictObject{{ else }}object{{ end }}({
 {{- range .Fields }}
 {{- if .Doc }}
   {{ formatDoc .TSName .Doc 2 }}
@@ -3543,7 +3566,7 @@ export const {{ camelCase .TSName }}Z: z.ZodType<{{ .TSName }}> = z.object({
 {{- end }}
 });
 {{- else }}
-export const {{ camelCase .TSName }}Z = z.object({
+export const {{ camelCase .TSName }}Z = z.{{ if .Strict }}strictObject{{ else }}object{{ end }}({
 {{- range .Fields }}
 {{- if .Doc }}
   {{ formatDoc .TSName .Doc 2 }}

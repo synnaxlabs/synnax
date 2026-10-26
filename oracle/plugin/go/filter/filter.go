@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 // Package filter generates the Go interpreter of a filter definition. MatchWhere turns
-// a
-// Where into the service's Filter, OrderingOf turns an Order into the service's
-// Ordering, and the retrieve request rejects unknown JSON members.
+// a Where into the service's Filter, OrderingOf turns an Order into the service's
+// Ordering, and RetrieveRequest.Apply narrows a Retrieve to the records a request
+// selects. The request also rejects unknown JSON members.
 package filter
 
 import (
@@ -21,15 +21,20 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/plugin"
+	plugindomain "github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/matcher"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/typemap"
+	goprimitives "github.com/synnaxlabs/oracle/plugin/go/primitives"
+	"github.com/synnaxlabs/oracle/plugin/go/types"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/internal/arrays"
 	"github.com/synnaxlabs/oracle/plugin/output"
+	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
 // Options configures the go/filter plugin.
@@ -83,30 +88,41 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	return resp, nil
 }
 
-// operators lists the members of each operator type in schemas/x/filter.oracle.
-var operators = map[string][]string{
-	"String":   {"Eq", "In", "Regex"},
-	"Bool":     {"Eq"},
-	"Set":      {"Eq", "In"},
-	"Ordered":  {"Eq", "In", "Gt", "Gte", "Lt", "Lte"},
-	"Contains": {"Any"},
-}
+// interpreted are the operator members the template interprets.
+var interpreted = set.New("eq", "in", "regex", "gt", "gte", "lt", "lte", "any")
 
-// comparisons maps each Ordered member that no matcher covers to its Go operator.
-var comparisons = map[string]string{"Gt": ">", "Gte": ">=", "Lt": "<", "Lte": "<="}
+// comparisons maps each ordering member to its Go operator.
+var comparisons = map[string]string{"gt": ">", "gte": ">=", "lt": "<", "lte": "<="}
 
 type templateData struct {
 	*imports.Manager
 	Package string
 	// Target is the Go type of a target record, such as Status[Details].
 	Target string
+	// KeyType is the Go type of the target's key, or empty when no line matches keys.
+	KeyType string
 	// TypeParams declares the target's type parameters, such as [Details any].
 	TypeParams string
 	// TypeArgs passes the target's type parameters, such as [Details].
 	TypeArgs string
-	Lines    []lineData
+	// RequestArgs passes any for each type parameter, since a request selects records
+	// of every type argument.
+	RequestArgs string
+	Lines       []lineData
 	// OrderFields lists the sorted fields, or nil when the request has no order_by.
 	OrderFields []orderFieldData
+	// Search is the search the request applies, or nil when it has no search_term.
+	Search *searchData
+	// OffsetOptional is true when the request's offset is a pointer.
+	OffsetOptional bool
+}
+
+type searchData struct {
+	// Optional is true when search_term is a pointer.
+	Optional bool
+	// Filter is true when the service writes its own Retrieve and searches through a
+	// hand-written MatchSearch filter instead of a Search method.
+	Filter bool
 }
 
 type lineData struct {
@@ -116,38 +132,40 @@ type lineData struct {
 	GoName string
 	// Func is the matcher of a bare line, or the hand-written function of a typed line.
 	Func string
-	// Operator is the operator type of a bare line, and empty for a typed line.
-	Operator string
-	// One is true when Func takes one value, so an `in` ORs one call per value.
-	One bool
+	// Members are the members of a bare line's operator, and nil for a typed line.
+	Members []string
+	// Scalar is true when Func takes one value, so an `in` ORs one call per value.
+	Scalar bool
 	// Field is the selector that reads the target field, for members no matcher covers.
 	Field string
-	// Deref is true when a typed line's value is a pointer.
-	Deref bool
-	// Spread is true when a typed line's value is a slice passed as variadic values.
-	Spread bool
+	// Pointer is true when a typed line's value is a pointer.
+	Pointer bool
+	// Variadic is true when a typed line's value is a slice passed as variadic values.
+	Variadic bool
 	// Enum is true when a bare line selects string enum values, which it validates.
 	Enum bool
 }
 
+// Typed reports whether the line calls a hand-written matcher.
+func (l lineData) Typed() bool { return l.Members == nil }
+
 // Has reports whether the line's operator has the member.
-func (l lineData) Has(member string) bool {
-	return lo.Contains(operators[l.Operator], member)
-}
+func (l lineData) Has(member string) bool { return lo.Contains(l.Members, member) }
 
 type comparisonData struct{ Member, Op string }
 
-// Comparisons returns the Ordered members the line compares with a closure.
+// Comparisons returns the ordering members the line compares with a closure.
 func (l lineData) Comparisons() []comparisonData {
-	if l.Operator != "Ordered" {
-		return nil
+	var out []comparisonData
+	for _, m := range []string{"gt", "gte", "lt", "lte"} {
+		if l.Has(m) {
+			out = append(out, comparisonData{
+				Member: naming.ToPascalCase(m),
+				Op:     comparisons[m],
+			})
+		}
 	}
-	return lo.Map(
-		[]string{"Gt", "Gte", "Lt", "Lte"},
-		func(m string, _ int) comparisonData {
-			return comparisonData{Member: m, Op: comparisons[m]}
-		},
-	)
+	return out
 }
 
 type orderFieldData struct {
@@ -173,6 +191,12 @@ func generateFile(
 	if !ok {
 		return fail("unknown target %s", where.Filter.Target.Name)
 	}
+	if !plugindomain.HasDomainFromType(target, "retrieve") {
+		return fail(
+			"the target %s has no @retrieve, so it has no Retrieve or Filter to build on",
+			target.QualifiedName,
+		)
+	}
 	if got := output.GetPath(target, "go"); got != outputPath {
 		return fail(
 			"the target %s generates into %q, but the filter generates into %q",
@@ -180,6 +204,10 @@ func generateFile(
 			got,
 			outputPath,
 		)
+	}
+	request, ok := table.Get(where.Filter.Request)
+	if !ok {
+		return fail("has no derived retrieve request")
 	}
 	matchers, err := matcher.List(target, table)
 	if err != nil {
@@ -200,7 +228,24 @@ func generateFile(
 		Manager: imports.NewManager(),
 		Package: pkg,
 	}
-	var params []string
+	ctx := &resolver.Context{
+		Table:                         table,
+		OutputPath:                    outputPath,
+		Namespace:                     where.Namespace,
+		RepoRoot:                      req.RepoRoot,
+		DomainName:                    "go",
+		SubstituteDefaultedTypeParams: true,
+	}
+	r := &resolver.Resolver{
+		Formatter: types.GoFormatter(),
+		ImportResolver: &types.GoImportResolver{
+			RepoRoot:       req.RepoRoot,
+			CurrentPackage: pkg,
+		},
+		ImportAdder:     data.Manager,
+		PrimitiveMapper: goprimitives.Mapper(),
+	}
+	var params, anys []string
 	for _, tp := range resolution.NonDefaultedTypeParams(
 		resolution.TypeParams(target.Form),
 	) {
@@ -213,11 +258,13 @@ func generateFile(
 			)
 		}
 		params = append(params, tp.Name)
+		anys = append(anys, "any")
 	}
 	data.Target = naming.GetGoName(target)
 	if len(params) > 0 {
 		data.TypeParams = "[" + strings.Join(params, ", ") + " any]"
 		data.TypeArgs = "[" + strings.Join(params, ", ") + "]"
+		data.RequestArgs = "[" + strings.Join(anys, ", ") + "]"
 		data.Target += data.TypeArgs
 	}
 
@@ -225,7 +272,7 @@ func generateFile(
 	for _, line := range where.Filter.Lines {
 		field := lo.Must(form.Field(line.Name))
 		ld := lineData{Path: line.Name, GoName: naming.GetFieldName(field)}
-		if !line.Bare() {
+		if line.HasType() {
 			ld.Func = "Match" + ld.GoName
 			if _, taken := funcs[ld.Func]; taken {
 				return fail(
@@ -235,27 +282,62 @@ func generateFile(
 					ld.Func,
 				)
 			}
-			ld.Spread = arrays.IsArray(field.Type, table) &&
+			ld.Variadic = arrays.IsArray(field.Type, table) &&
 				arrays.Size(field.Type, table) == nil
-			ld.Deref = !typemap.Nilable(field.Type, table)
+			ld.Pointer = !typemap.Nilable(field.Type, table)
 			data.Lines = append(data.Lines, ld)
 			continue
 		}
-		ld.Operator = strings.TrimPrefix(field.Type.Name, "filter.")
-		ld.Enum = ld.Operator == "Set" && isStringEnum(field.Type.TypeArgs[0], table)
-		// The matcher list leaves out the key, which MatchKeys matches.
-		if m, ok := byField[line.Name]; ok {
-			ld.Func = m.Func
-			ld.One = m.Kind != matcher.Values
-			ld.Field = m.Access
-		} else {
-			ld.Func = "MatchKeys"
+		op, ok := table.Get(field.Type.Name)
+		if !ok {
+			return fail(
+				"line %s has the unknown operator %s",
+				line.Name,
+				field.Type.Name,
+			)
 		}
+		opForm, ok := op.Form.(resolution.StructForm)
+		if !ok || len(field.Type.TypeArgs) > 1 {
+			return fail("line %s: the operator %s is not a struct", line.Name, op.Name)
+		}
+		ld.Members = lo.Map(opForm.Fields, func(f resolution.Field, _ int) string {
+			return f.Name
+		})
+		for _, m := range ld.Members {
+			if !interpreted.Contains(m) {
+				return fail(
+					"line %s: go/filter cannot interpret the member %s of %s",
+					line.Name,
+					m,
+					op.Name,
+				)
+			}
+		}
+		ld.Enum = len(field.Type.TypeArgs) == 1 &&
+			isStringEnum(field.Type.TypeArgs[0], table)
+		// The matcher list leaves out the key, which matchKeys matches.
+		m, ok := byField[line.Name]
+		if !ok {
+			ld.Func = "matchKeys"
+			data.KeyType = r.ResolveTypeRef(field.Type.TypeArgs[0], ctx)
+			data.Lines = append(data.Lines, ld)
+			continue
+		}
+		ld.Func = m.Func
+		ld.Scalar = m.Kind != matcher.Variadic
+		ld.Field = m.Access
 		data.Lines = append(data.Lines, ld)
 	}
 
-	request := table.MustGet(where.Namespace + ".RetrieveRequest")
-	if _, ok := request.Form.(resolution.StructForm).Field("order_by"); ok {
+	requestForm := request.Form.(resolution.StructForm)
+	if term, ok := requestForm.Field("search_term"); ok {
+		data.Search = &searchData{
+			Optional: term.Optional,
+			Filter:   plugindomain.HasExprFromType(target, "retrieve", "indexes"),
+		}
+	}
+	data.OffsetOptional = lo.Must(requestForm.Field("offset")).Optional
+	if _, ok := requestForm.Field("order_by"); ok {
 		orderField := table.MustGet(where.Namespace + ".OrderField")
 		for _, v := range orderField.Form.(resolution.EnumForm).Values {
 			goName := naming.ToPascalCase(v.Name)
@@ -294,7 +376,7 @@ func addImports(data templateData, repoRoot string) {
 	data.AddExternal("encoding/json/v2")
 	data.AddExternal("strconv")
 	internal("validate", "x/go/validate")
-	needsRegex := lo.SomeBy(data.Lines, func(l lineData) bool { return l.Has("Regex") })
+	needsRegex := lo.SomeBy(data.Lines, func(l lineData) bool { return l.Has("regex") })
 	needsMatch := needsRegex || lo.SomeBy(data.Lines, func(l lineData) bool {
 		return len(l.Comparisons()) > 0
 	})
@@ -305,7 +387,7 @@ func addImports(data templateData, repoRoot string) {
 	if needsRegex || needsEnum || data.OrderFields != nil {
 		internal("errors", "x/go/errors")
 	}
-	if needsMatch || data.OrderFields != nil {
+	if needsMatch || data.KeyType != "" || data.OrderFields != nil {
 		internal("gorp", "gorp")
 	}
 	if data.OrderFields != nil {
@@ -361,10 +443,10 @@ func MatchWhere{{.TypeParams}}(w Where) (Filter{{.TypeArgs}}, error) {
 {{- range .Lines}}
 {{- $line := .}}
 	if l := w.{{.GoName}}; l != nil {
-{{- if not .Operator}}
-		fs = append(fs, {{.Func}}{{$.TypeArgs}}({{if .Deref}}*{{end}}l{{if .Spread}}...{{end}}))
+{{- if .Typed}}
+		fs = append(fs, {{.Func}}{{$.TypeArgs}}({{if .Pointer}}*{{end}}l{{if .Variadic}}...{{end}}))
 {{- else}}
-{{- if .Has "Eq"}}
+{{- if .Has "eq"}}
 		if l.Eq != nil {
 {{- if .Enum}}
 			if !l.Eq.IsValid() {
@@ -378,7 +460,7 @@ func MatchWhere{{.TypeParams}}(w Where) (Filter{{.TypeArgs}}, error) {
 			fs = append(fs, {{.Func}}{{$.TypeArgs}}(*l.Eq))
 		}
 {{- end}}
-{{- if .Has "In"}}
+{{- if .Has "in"}}
 		if l.In != nil {
 {{- if .Enum}}
 			for i, v := range l.In {
@@ -392,7 +474,7 @@ func MatchWhere{{.TypeParams}}(w Where) (Filter{{.TypeArgs}}, error) {
 				}
 			}
 {{- end}}
-{{- if .One}}
+{{- if .Scalar}}
 			in := make([]Filter{{$.TypeArgs}}, len(l.In))
 			for i, v := range l.In {
 				in[i] = {{.Func}}{{$.TypeArgs}}(v)
@@ -403,7 +485,7 @@ func MatchWhere{{.TypeParams}}(w Where) (Filter{{.TypeArgs}}, error) {
 {{- end}}
 		}
 {{- end}}
-{{- if .Has "Any"}}
+{{- if .Has "any"}}
 		if l.Any != nil {
 			anyOf := make([]Filter{{$.TypeArgs}}, len(l.Any))
 			for i, v := range l.Any {
@@ -412,7 +494,7 @@ func MatchWhere{{.TypeParams}}(w Where) (Filter{{.TypeArgs}}, error) {
 			fs = append(fs, Or{{$.TypeArgs}}(anyOf...))
 		}
 {{- end}}
-{{- if .Has "Regex"}}
+{{- if .Has "regex"}}
 		if l.Regex != nil {
 			re, err := regexp.Compile(*l.Regex)
 			if err != nil {
@@ -427,7 +509,7 @@ func MatchWhere{{.TypeParams}}(w Where) (Filter{{.TypeArgs}}, error) {
 				_ Retrieve{{$.TypeArgs}},
 				e *{{$.Target}},
 			) (bool, error) {
-				return re.MatchString(string(e.{{.Field}})), nil
+				return re.MatchString(e.{{.Field}}), nil
 			}))
 		}
 {{- end}}
@@ -460,6 +542,16 @@ func matchWheres{{.TypeParams}}(ws []Where, path string) ([]Filter{{.TypeArgs}},
 	}
 	return fs, nil
 }
+{{- if .KeyType}}
+
+// matchKeys matches the records whose key is one of keys. A key with no record is a
+// non-match, as for every other line.
+func matchKeys{{.TypeParams}}(keys ...{{.KeyType}}) Filter{{.TypeArgs}} {
+	return func(Retrieve{{.TypeArgs}}) gorp.Filter[{{.KeyType}}, {{.Target}}] {
+		return gorp.MatchKeysLenient[{{.KeyType}}, {{.Target}}](keys...)
+	}
+}
+{{- end}}
 {{- if .OrderFields}}
 
 // OrderingOf returns the Ordering that o describes. It returns a validate.PathError for
@@ -489,6 +581,57 @@ func OrderingOf{{.TypeParams}}(o Order) (Ordering{{.TypeArgs}}, error) {
 	)
 }
 {{- end}}
+
+// Apply narrows q to the records that the request selects. It returns a
+// validate.PathError for a value that no filter can hold.
+func (r RetrieveRequest) Apply(q Retrieve{{.RequestArgs}}) (Retrieve{{.RequestArgs}}, error) {
+	if r.Where != nil {
+		f, err := MatchWhere{{.RequestArgs}}(*r.Where)
+		if err != nil {
+			return Retrieve{{.RequestArgs}}{}, validate.PathedError(err, "where")
+		}
+		q = q.Where(f)
+	}
+{{- with .Search}}
+{{- if .Filter}}
+{{- if .Optional}}
+	if r.SearchTerm != nil && *r.SearchTerm != "" {
+		q = q.Where(MatchSearch(*r.SearchTerm))
+	}
+{{- else}}
+	if r.SearchTerm != "" {
+		q = q.Where(MatchSearch(r.SearchTerm))
+	}
+{{- end}}
+{{- else if .Optional}}
+	if r.SearchTerm != nil {
+		q = q.Search(*r.SearchTerm)
+	}
+{{- else}}
+	q = q.Search(r.SearchTerm)
+{{- end}}
+{{- end}}
+{{- if .OrderFields}}
+	if r.OrderBy != nil {
+		o, err := OrderingOf{{.RequestArgs}}(*r.OrderBy)
+		if err != nil {
+			return Retrieve{{.RequestArgs}}{}, validate.PathedError(err, "order_by")
+		}
+		q = q.OrderBy(o)
+	}
+{{- end}}
+	if r.Limit != nil {
+		q = q.Limit(int(*r.Limit))
+	}
+{{- if .OffsetOptional}}
+	if r.Offset != nil {
+		q = q.Offset(int(*r.Offset))
+	}
+{{- else}}
+	q = q.Offset(int(r.Offset))
+{{- end}}
+	return q, nil
+}
 
 // UnmarshalJSONFrom decodes the request and rejects a member that it does not declare,
 // at any depth, so a client that sends a field the Core removed fails.

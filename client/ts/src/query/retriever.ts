@@ -66,6 +66,19 @@ const keysOnly = (query: unknown): unknown[] | null => {
   return field[1];
 };
 
+/**
+ * The params a request schema accepts. A recursive `where` schema infers no input type,
+ * so `where` takes its output type, which the schema also accepts.
+ */
+type RequestInput<Z extends z.ZodType> =
+  z.input<Z> extends infer I
+    ? I extends unknown
+      ? "where" extends keyof I
+        ? Omit<I, "where"> & Pick<Extract<z.output<Z>, { where?: unknown }>, "where">
+        : I
+      : never
+    : never;
+
 /** True for params that are a bare record key rather than a query object. */
 const isBareKey = (params: unknown): params is record.Key =>
   typeof params === "string" || typeof params === "number";
@@ -77,6 +90,18 @@ const isBareKey = (params: unknown): params is record.Key =>
  */
 export const keyListZ = <K extends z.ZodType<record.Key>>(key: K) =>
   z.array(key).transform((keys) => ({ keys }));
+
+/** @returns a request whose `where` matches the records with the given keys. */
+export const keysRequest = <K extends record.Key>(keys: K[]) => ({
+  where: { key: { in: keys } },
+});
+
+/**
+ * Request schema arm reading a bare key list as a `where` on the keys. Union it onto a
+ * domain's request schema: `z.union([keysRequestZ(keyZ), retrieveRequestZ])`.
+ */
+export const keysRequestZ = <K extends z.ZodType<record.Key>>(key: K) =>
+  z.array(key).transform(keysRequest);
 
 interface ComposeProp<V, D> {
   /**
@@ -293,16 +318,16 @@ export abstract class Retriever<
    * Reads the record the params address, or every record matching them. Serves the
    * cache when the answer is fresh, fetching otherwise. A bare key is shorthand for `{
    * key }`; a bare key list is accepted by domains whose request schema unions in
-   * {@link keyListZ}.
+   * {@link keysRequestZ} or {@link keyListZ}.
    * @throws {NotFoundError} if a single-record query matches nothing or the record was
    * deleted.
    * @throws {ValidationError} if params contain `key` (or are a bare key) but fail the
    * single-query schema.
    */
   retrieve(params: K | SingleInput, options?: FetchOptions): Promise<D>;
-  retrieve(params: K[] | z.input<Z>, options?: FetchOptions): Promise<D[]>;
+  retrieve(params: K[] | RequestInput<Z>, options?: FetchOptions): Promise<D[]>;
   async retrieve(
-    params: K | K[] | SingleInput | z.input<Z>,
+    params: K | K[] | SingleInput | RequestInput<Z>,
     options?: FetchOptions,
   ): Promise<D | D[]> {
     const [space, query] = this.route(params);
@@ -315,11 +340,11 @@ export abstract class Retriever<
    */
   onChange(params: K | SingleInput, handler: ChangeHandler<D>): destructor.Destructor;
   onChange(
-    params: K[] | z.input<Z>,
+    params: K[] | RequestInput<Z>,
     handler: ChangeHandler<D[]>,
   ): destructor.Destructor;
   onChange(
-    params: K | K[] | SingleInput | z.input<Z>,
+    params: K | K[] | SingleInput | RequestInput<Z>,
     handler: ChangeHandler<D> | ChangeHandler<D[]>,
   ): destructor.Destructor {
     const [space, query] = this.route(params);
@@ -331,9 +356,9 @@ export abstract class Retriever<
    * undefined when nothing is cached. May be stale for unsubscribed queries.
    */
   getCached(params: K | SingleInput): Cached<D> | undefined;
-  getCached(params: K[] | z.input<Z>): Cached<D[]> | undefined;
+  getCached(params: K[] | RequestInput<Z>): Cached<D[]> | undefined;
   getCached(
-    params: K | K[] | SingleInput | z.input<Z>,
+    params: K | K[] | SingleInput | RequestInput<Z>,
   ): Cached<D> | Cached<D[]> | undefined {
     const [space, query] = this.route(params);
     return space.getCached(query) as Cached<D> | Cached<D[]> | undefined;

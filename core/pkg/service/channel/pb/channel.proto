@@ -82,7 +82,8 @@ message KeyList {
   repeated uint32 values = 1;
 }
 
-// KeySet selects keys and enum values. A value must match every operator that is set.
+// KeySet selects values that only compare for equality, such as keys, enum values, and
+// UUIDs. A value must match every operator that is set.
 message KeySet {
   // eq matches a value equal to eq.
   optional uint32 eq = 1;
@@ -113,8 +114,8 @@ message TelemDataTypeList {
   repeated string values = 1;
 }
 
-// TelemDataTypeSet selects keys and enum values. A value must match every operator that
-// is set.
+// TelemDataTypeSet selects values that only compare for equality, such as keys, enum
+// values, and UUIDs. A value must match every operator that is set.
 message TelemDataTypeSet {
   // eq matches a value equal to eq.
   optional string eq = 1;

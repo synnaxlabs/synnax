@@ -176,7 +176,7 @@ func (r *renderer) renderFilter(t resolution.Type, f resolution.Filter) {
 	r.indent++
 	for _, l := range f.Lines {
 		head := l.Name
-		if !l.Bare() {
+		if l.HasType() {
 			head += " " + r.ref(l.Type)
 		}
 		r.renderMember(head, append(

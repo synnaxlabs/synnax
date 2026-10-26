@@ -3194,9 +3194,10 @@ func (u View) Type() ViewType {
 					`}{Type: LinearScaleType, LinearScale: v})`,
 					`func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {`,
 					`Type ScaleType `+"`"+`json:"type"`+"`",
+					`json.RejectUnknownMembers(false),`,
 					`case LinearScaleType:`,
-					`var v LinearScale`,
-					`u.Variant = v`,
+					"var v struct {\n\t\t\tType ScaleType `json:\"type\"`\n\t\t\tLinearScale\n\t\t}",
+					`u.Variant = v.LinearScale`,
 				)
 		},
 	)
@@ -3518,16 +3519,24 @@ func (u *rtScale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type rtScaleType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data,
+		&disc,
+		opts,
+		json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case rtLinearScaleType:
-		var v rtLinearScale
+		var v struct {
+			Type rtScaleType `json:"type"`
+			rtLinearScale
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.rtLinearScale
 	default:
 		return gotesterrors.Newf("rtScale: unknown type %q", disc.Type)
 	}

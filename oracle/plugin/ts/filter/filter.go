@@ -15,7 +15,6 @@ package filter
 
 import (
 	"bytes"
-	"strings"
 	"text/template"
 
 	"github.com/samber/lo"
@@ -28,6 +27,7 @@ import (
 	tstypes "github.com/synnaxlabs/oracle/plugin/ts/types"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
 // Options configures the ts/filter plugin.
@@ -81,13 +81,20 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	return resp, nil
 }
 
-// checks maps each operator type to the function in x/ts/src/filter that checks it.
-var checks = map[string]string{
-	"String":   "matchesString",
-	"Bool":     "matchesSet",
-	"Set":      "matchesSet",
-	"Ordered":  "matchesOrdered",
-	"Contains": "matchesContains",
+// members are the operator members that the x/ts/src/filter functions check.
+var members = set.New("eq", "in", "regex", "gt", "gte", "lt", "lte", "any")
+
+// check returns the x/ts/src/filter function that checks an operator with the members.
+func check(ms []string) string {
+	switch {
+	case lo.Contains(ms, "regex"):
+		return "matchesString"
+	case lo.Contains(ms, "any"):
+		return "matchesContains"
+	case lo.ContainsBy(ms, func(m string) bool { return m != "eq" && m != "in" }):
+		return "matchesOrdered"
+	}
+	return "matchesSet"
 }
 
 type templateData struct {
@@ -125,7 +132,10 @@ func generateFile(
 		)
 	}
 	// The cache holds the records the response returns, so bare lines read those.
-	response := table.MustGet(where.Namespace + ".RetrieveResponse")
+	response, ok := table.Get(where.Filter.Response)
+	if !ok {
+		return fail("has no derived retrieve response")
+	}
 	elem := response.Form.(resolution.StructForm).Fields[0].Type.TypeArgs[0]
 	record, _, ok := resolution.Dealias(elem, table)
 	if !ok {
@@ -143,7 +153,7 @@ func generateFile(
 	form := where.Form.(resolution.StructForm)
 	for _, line := range where.Filter.Lines {
 		ld := lineData{Name: tstypes.FieldName(line.Name)}
-		if line.Bare() {
+		if !line.HasType() {
 			field, ok := lo.Find(fields, func(f resolution.Field) bool {
 				return f.Name == line.Name
 			})
@@ -154,13 +164,39 @@ func generateFile(
 					record.Name,
 				)
 			}
-			operator := strings.TrimPrefix(
-				lo.Must(form.Field(line.Name)).Type.Name,
-				"filter.",
-			)
-			ld.Check = checks[operator]
+			opRef := lo.Must(form.Field(line.Name)).Type
+			op, ok := table.Get(opRef.Name)
+			if !ok {
+				return fail(
+					"line %s has the unknown operator %s",
+					line.Name,
+					opRef.Name,
+				)
+			}
+			opForm, ok := op.Form.(resolution.StructForm)
+			if !ok {
+				return fail(
+					"line %s: the operator %s is not a struct",
+					line.Name,
+					op.Name,
+				)
+			}
+			ms := lo.Map(opForm.Fields, func(f resolution.Field, _ int) string {
+				return f.Name
+			})
+			for _, m := range ms {
+				if !members.Contains(m) {
+					return fail(
+						"line %s: ts/filter cannot check the member %s of %s",
+						line.Name,
+						m,
+						op.Name,
+					)
+				}
+			}
+			ld.Check = check(ms)
 			ld.Field = tstypes.FieldName(field.Name)
-			ld.Regex = operator == "String"
+			ld.Regex = lo.Contains(ms, "regex")
 		}
 		data.Lines = append(data.Lines, ld)
 	}
@@ -192,11 +228,14 @@ import { {{ range $i, $name := .Names }}{{ if $i }}, {{ end }}{{ $name }}{{ end 
 import { {{ range $i, $name := .Names }}{{ if $i }}, {{ end }}{{ $name }}{{ end }} } from "{{ .Path }}";
 {{- end }}
 
+{{- $lines := "" }}
+{{- if .HasTyped }}
+{{- $lines = "lines, " }}
+
 /**
  * Lines checks the typed lines of a Where against a record. A null entry marks a line
  * that only the Core can check.
  */
-{{- if .HasTyped }}
 export interface Lines {
 {{- range .Lines }}
 {{- if not .Check }}
@@ -204,18 +243,19 @@ export interface Lines {
 {{- end }}
 {{- end }}
 }
-{{- else }}
-export type Lines = Record<never, never>;
 {{- end }}
 
 /**
- * @returns whether the record matches where.
- * @throws if where is server-computed, since only the Core can check it.
+ * @returns whether the record matches where. An absent where matches every record.
+{{- if .HasTyped }}
+ * @throws {Error} if where is server-computed, since only the Core can check it.
+{{- end }}
  */
-export const matches = (lines: Lines, record: {{ .Record }}, where: Where): boolean => {
-  if (where.and != null && !where.and.every((w) => matches(lines, record, w))) return false;
-  if (where.or != null && !where.or.some((w) => matches(lines, record, w))) return false;
-  if (where.not != null && matches(lines, record, where.not)) return false;
+export const matches = ({{ if .HasTyped }}lines: Lines, {{ end }}record: {{ .Record }}, where?: Where): boolean => {
+  if (where == null) return true;
+  if (where.and != null && !where.and.every((w) => matches({{ $lines }}record, w))) return false;
+  if (where.or != null && !where.or.some((w) => matches({{ $lines }}record, w))) return false;
+  if (where.not != null && matches({{ $lines }}record, where.not)) return false;
 {{- range .Lines }}
 {{- if .Check }}
   if (where.{{ .Name }} != null && !filter.{{ .Check }}(where.{{ .Name }}, record.{{ .Field }})) return false;
@@ -230,19 +270,25 @@ export const matches = (lines: Lines, record: {{ .Record }}, where: Where): bool
 };
 
 /**
+{{- if .HasTyped }}
  * @returns whether only the Core can check where, because it holds a regex or a line
- * whose entry in lines is null.
+ * whose entry in lines is null. An absent where is not server-computed.
+{{- else }}
+ * @returns whether only the Core can check where, because it holds a regex. An absent
+ * where is not server-computed.
+{{- end }}
  */
-export const serverComputed = (lines: Lines, where: Where): boolean =>
-  where.and?.some((w) => serverComputed(lines, w)) === true ||
-  where.or?.some((w) => serverComputed(lines, w)) === true ||
-  (where.not != null && serverComputed(lines, where.not))
+export const serverComputed = ({{ if .HasTyped }}lines: Lines, {{ end }}where?: Where): boolean =>
+  where != null && (
+  where.and?.some((w) => serverComputed({{ $lines }}w)) === true ||
+  where.or?.some((w) => serverComputed({{ $lines }}w)) === true ||
+  (where.not != null && serverComputed({{ $lines }}where.not))
 {{- range .Lines }}
 {{- if .Regex }} ||
   where.{{ .Name }}?.regex != null
 {{- else if not .Check }} ||
   (where.{{ .Name }} != null && lines.{{ .Name }} == null)
 {{- end }}
-{{- end }};
+{{- end }});
 `),
 )

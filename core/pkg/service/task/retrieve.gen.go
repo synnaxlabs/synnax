@@ -42,3 +42,11 @@ func (i indexes) all() []gorp.Index[Key, Task] {
 		i.search,
 	}
 }
+
+// MatchSearch matches the tasks whose text matches term.
+// The closest match comes first.
+func MatchSearch(term string) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Task] {
+		return r.indexes.search.Filter(term)
+	}
+}

@@ -137,8 +137,6 @@ const Selector = ({
   selected,
   icon,
 }: SelectorProps): ReactElement => {
-  const { getItem } = listProps;
-  if (getItem == null) throw new UnexpectedError("No item getter found");
   const contextMenuProps = Menu.useContextMenu();
   const hasCreatePermission = Access.useCreateGranted(view.TYPE_ONTOLOGY_ID);
   const renameModal = Modals.useRename();
@@ -159,10 +157,8 @@ const Selector = ({
       onSelect(data?.key ?? "");
     },
   });
-  const handleCreate = () => {
-    if (getItem(selected) == null) throw new UnexpectedError("No current view found");
+  const handleCreate = () =>
     create({ name: `View for ${resourceType}`, type: resourceType });
-  };
   return (
     <Select.Frame
       {...listProps}

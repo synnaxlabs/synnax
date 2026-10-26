@@ -14,7 +14,6 @@ import pytest
 import synnax as sy
 from synnax import ranger, status
 from synnax.view import RangeView, StatusView
-from x import filter
 from x.testutil import assert_eventually
 
 
@@ -34,7 +33,7 @@ class TestView:
         """Should store a where tree."""
         where = status.Where(
             or_=[
-                status.Where(variant=filter.Set[status.Variant](in_=["error"])),
+                status.Where(variant=sy.filter.Set[status.Variant](in_=["error"])),
                 status.Where(not_=status.Where(labels=[uuid4()])),
             ]
         )
@@ -47,13 +46,15 @@ class TestView:
         """Should reject a where that the Core cannot run."""
         with pytest.raises(sy.PathError) as exc:
             client.views.create(
-                RangeView(name="Bad", where=ranger.Where(name=filter.String(regex="(")))
+                RangeView(
+                    name="Bad", where=ranger.Where(name=sy.filter.String(regex="("))
+                )
             )
         assert exc.value.path == ["where", "name", "regex"]
 
     def test_rename(self, client: sy.Synnax) -> None:
         """Should rename a view and keep its where."""
-        where = status.Where(variant=filter.Set[status.Variant](eq="error"))
+        where = status.Where(variant=sy.filter.Set[status.Variant](eq="error"))
         v = client.views.create(StatusView(name="Before Rename", where=where))
         client.views.rename(v.key, "After Rename")
         renamed = client.views.retrieve(key=v.key)
@@ -69,7 +70,7 @@ class TestView:
                 StatusView(
                     name="Multi 2",
                     where=status.Where(
-                        variant=filter.Set[status.Variant](in_=["error"])
+                        variant=sy.filter.Set[status.Variant](in_=["error"])
                     ),
                 ),
             ]
@@ -78,7 +79,7 @@ class TestView:
         assert isinstance(views[0], RangeView)
         assert isinstance(views[1], StatusView)
         assert views[1].where == status.Where(
-            variant=filter.Set[status.Variant](in_=["error"])
+            variant=sy.filter.Set[status.Variant](in_=["error"])
         )
 
     def test_retrieve_by_key(self, client: sy.Synnax) -> None:
@@ -86,7 +87,7 @@ class TestView:
         created = client.views.create(
             StatusView(
                 name="Retrieve Me",
-                where=status.Where(variant=filter.Set[status.Variant](eq="success")),
+                where=status.Where(variant=sy.filter.Set[status.Variant](eq="success")),
             )
         )
         assert client.views.retrieve(key=created.key) == created

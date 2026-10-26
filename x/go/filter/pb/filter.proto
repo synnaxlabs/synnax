@@ -45,7 +45,8 @@ message ListWrapper {
   repeated google.protobuf.Any values = 1;
 }
 
-// Set selects keys and enum values. A value must match every operator that is set.
+// Set selects values that only compare for equality, such as keys, enum values, and
+// UUIDs. A value must match every operator that is set.
 message Set {
   // eq matches a value equal to eq.
   optional google.protobuf.Any eq = 1;
