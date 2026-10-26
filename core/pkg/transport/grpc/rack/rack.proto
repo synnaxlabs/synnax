@@ -43,7 +43,6 @@ message RetrieveRequest {
   api.rack.pb.RetrieveRequest request = 5;
 }
 
-
 message DeleteRequest {
   repeated uint32 keys = 1;
 }

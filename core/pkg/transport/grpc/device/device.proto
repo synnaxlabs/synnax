@@ -39,11 +39,9 @@ message CreateResponse {
 
 message RetrieveRequest {
   reserved 1 to 12;
-  reserved "keys", "names", "makes", "models", "locations", "racks", "search",
-    "limit", "offset", "ignore_not_found", "include_status", "include_parent";
+  reserved "keys", "names", "makes", "models", "locations", "racks", "search", "limit", "offset", "ignore_not_found", "include_status", "include_parent";
   api.device.pb.RetrieveRequest request = 13;
 }
-
 
 message DeleteRequest {
   repeated string keys = 1;
