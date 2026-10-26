@@ -175,8 +175,8 @@ func docValue(doc string) resolution.Domain {
 	}
 }
 
-// declaresFilter reports whether the file declares a filter, whose bare lines and order
-// read the types of the filter schema.
+// declaresFilter reports whether the file declares a filter, whose bare lines read the
+// types of the filter schema.
 func declaresFilter(ast parser.ISchemaContext) bool {
 	return lo.SomeBy(ast.AllDefinition(), func(def parser.IDefinitionContext) bool {
 		return def.FilterDef() != nil

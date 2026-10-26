@@ -93,9 +93,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 				"filter %s: has no derived retrieve request", typ.QualifiedName,
 			)
 		}
-		if output.IsOmitted(request, "go") {
-			continue
-		}
 		requestPath := output.GetPath(request, "go")
 		content, err = generateRequestFile(typ, request, outputPath, requestPath, req)
 		if err != nil {
@@ -134,7 +131,9 @@ type lineData struct {
 	GoName string
 	// Func is the matcher of a bare line, or the hand-written function of a typed line.
 	Func string
-	// Members are the members of a bare line's operator, and nil for a typed line.
+	// Typed is true when the line calls a hand-written matcher.
+	Typed bool
+	// Members are the members of a bare line's operator.
 	Members []string
 	// Scalar is true when Func takes one value, so an `in` ORs one call per value.
 	Scalar bool
@@ -147,9 +146,6 @@ type lineData struct {
 	// Enum is true when a bare line selects string enum values, which it validates.
 	Enum bool
 }
-
-// Typed reports whether the line calls a hand-written matcher.
-func (l lineData) Typed() bool { return l.Members == nil }
 
 // Has reports whether the line's operator has the member.
 func (l lineData) Has(member string) bool { return lo.Contains(l.Members, member) }
@@ -247,6 +243,7 @@ func generateFile(
 		field := lo.Must(form.Field(line.Name))
 		ld := lineData{Path: line.Name, GoName: naming.GetFieldName(field)}
 		if line.HasType() {
+			ld.Typed = true
 			ld.Func = "Match" + ld.GoName
 			if _, taken := funcs[ld.Func]; taken {
 				return fail(
