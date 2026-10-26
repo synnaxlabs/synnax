@@ -159,7 +159,7 @@ export const retrieveRequestZ = z.strictObject({
   /** includeLabels includes the labels of each record. */
   includeLabels: z.boolean().default(false),
 });
-export interface RetrieveRequest extends optional.Optional<
+export type RetrieveRequest = optional.Optional<
   z.infer<typeof retrieveRequestZ>,
   "searchTerm" | "offset" | "includeLabels"
-> {}
+>;

@@ -840,7 +840,8 @@ func (p *Plugin) processStruct(
 		IsRecursive: form.IsRecursive && !isExtendBase(entry, table),
 		Strict:      filterRequestTypes(table).Contains(entry.QualifiedName),
 	}
-	// Callers build a request, so its type leaves defaulted fields optional.
+	// Callers build a request, so its type leaves defaulted fields optional. It is a
+	// type alias, since query caches key on it and an interface has no index signature.
 	if filterRequests(table).Contains(entry.QualifiedName) {
 		for _, f := range form.Fields {
 			if f.Default != nil {
@@ -3607,11 +3608,10 @@ export const {{ camelCase .TSName }}Z = z.{{ if .Strict }}strictObject{{ else }}
 });
 {{- if $.GenerateTypes }}
 {{- if .DefaultedFields }}
-export interface {{ .TSName }}
-  extends optional.Optional<
-    z.infer<typeof {{ camelCase .TSName }}Z>,
-    {{ range $i, $f := .DefaultedFields }}{{ if $i }} | {{ end }}"{{ $f }}"{{ end }}
-  > {}
+export type {{ .TSName }} = optional.Optional<
+  z.infer<typeof {{ camelCase .TSName }}Z>,
+  {{ range $i, $f := .DefaultedFields }}{{ if $i }} | {{ end }}"{{ $f }}"{{ end }}
+>;
 {{- else }}
 export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{{ end }}<typeof {{ camelCase .TSName }}Z> {}
 {{- end }}

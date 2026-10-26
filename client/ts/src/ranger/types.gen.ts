@@ -149,10 +149,10 @@ export const retrieveRequestZ = z.strictObject({
   /** includeParent includes the parent of each record. */
   includeParent: z.boolean().default(false),
 });
-export interface RetrieveRequest extends optional.Optional<
+export type RetrieveRequest = optional.Optional<
   z.infer<typeof retrieveRequestZ>,
   "searchTerm" | "offset" | "includeLabels" | "includeParent"
-> {}
+>;
 
 export const ontologyID = ontology.createIDFactory<Key>("range");
 export const TYPE_ONTOLOGY_ID = ontologyID("");
