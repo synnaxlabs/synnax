@@ -265,6 +265,7 @@ class BaseStreamer implements Streamer {
     // A read that failed while the channels resolved left no reader for the ack.
     if (this.failure != null) throw this.failure;
     if (!hasChanged && !waitForAck) return;
+    this.adapter.advance();
     this.stream.send({
       keys: Array.from(this.adapter.keys),
       downsampleFactor: this.downsampleFactor,
