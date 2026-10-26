@@ -59,7 +59,24 @@ var _ = Describe("gRPC Ranger Translators", func() {
 			Expect(proto.Unmarshal(b, &decoded)).To(Succeed())
 			Expect(t.Backward(ctx, &decoded)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("retrieve request has unknown fields")),
+				MatchError(
+					ContainSubstring("grpc.ranger.RetrieveRequest has unknown fields"),
+				),
+			))
+		})
+
+		It("Should reject an unknown field inside the request", func(ctx SpecContext) {
+			inner := protowire.AppendTag(nil, 99, protowire.VarintType)
+			inner = protowire.AppendVarint(inner, 1)
+			b := protowire.AppendTag(nil, 3, protowire.BytesType)
+			b = protowire.AppendBytes(b, inner)
+			var decoded RetrieveRequest
+			Expect(proto.Unmarshal(b, &decoded)).To(Succeed())
+			Expect(t.Backward(ctx, &decoded)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					"service.ranger.pb.RetrieveRequest has unknown fields",
+				)),
 			))
 		})
 	})

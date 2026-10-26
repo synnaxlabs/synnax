@@ -18,9 +18,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/pb"
-	"github.com/synnaxlabs/x/errors"
+	xpb "github.com/synnaxlabs/x/pb"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -152,11 +151,8 @@ func (retrieveRequestTranslator) Backward(
 ) (ranger.RetrieveRequest, error) {
 	// A client older than the Core sends the reserved keys and names fields, which
 	// would otherwise select every range.
-	if len(r.ProtoReflect().GetUnknown()) > 0 {
-		return ranger.RetrieveRequest{}, errors.Wrap(
-			validate.ErrValidation,
-			"retrieve request has unknown fields",
-		)
+	if err := xpb.RejectUnknown(r); err != nil {
+		return ranger.RetrieveRequest{}, err
 	}
 	return pb.RetrieveRequestFromPB(r.Request)
 }
