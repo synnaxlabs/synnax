@@ -141,15 +141,15 @@ export class Store {
    * block never expires.
    */
   expired(block: Block): boolean {
-    return (
-      !block.held && !this.now().span(block.fetchedAt).lessThan(this.staleThreshold)
-    );
+    if (block.held) return false;
+    const age = this.now().valueOf() - block.fetchedAt.valueOf();
+    return (age < 0n ? -age : age) >= this.staleThreshold.valueOf();
   }
 
   /**
    * @returns the channel's raw block at the index, cached empty when absent. An expired
    * block comes back without its fetched samples.
-   * @throws {UnexpectedError} if the block under the raw block's key is not a raw block.
+   * @throws {UnexpectedError} if another kind of block holds the raw block's key.
    */
   raw(ch: channel.Key, index: number): RawBlock {
     const cached = this.findRaw(ch, index);
@@ -165,7 +165,7 @@ export class Store {
 
   /**
    * @returns the channel's raw block at the index, or undefined when none is cached.
-   * @throws {UnexpectedError} if the block under the raw block's key is not a raw block.
+   * @throws {UnexpectedError} if another kind of block holds the raw block's key.
    */
   findRaw(ch: channel.Key, index: number): RawBlock | undefined {
     const key = rawKey(ch, index);
