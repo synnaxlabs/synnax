@@ -877,6 +877,7 @@ describe("line", () => {
     const feed = synnax.openFeed();
     const client: telem.Client = {
       feed,
+      exactFeed: feed,
       channels: synnax.channels,
       now: () => TimeStamp.now(),
     };

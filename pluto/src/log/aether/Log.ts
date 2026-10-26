@@ -67,8 +67,8 @@ export const logStateZ = log.logZ
 
 const SCROLLBAR_RENDER_THRESHOLD = 0.98;
 const SCROLLBAR_WIDTH = 6;
-// Floor on the thumb so it stays visible at the 100k entry cap, where the
-// proportional height falls below a pixel.
+// Floor on the thumb so it stays visible at the entry cap, where the proportional
+// height falls below a pixel.
 const SCROLLBAR_MIN_HEIGHT = 32;
 const CANVAS: render.Canvas2DVariant = "lower2d";
 const CONTENT_PADDING = 6;
@@ -110,6 +110,12 @@ interface ScrollbackState {
   awayFromEnd: boolean;
 }
 
+interface Anchors {
+  start?: LogEntry;
+  end?: LogEntry;
+  scroll?: LogEntry;
+}
+
 const ZERO_SCROLLBACK: ScrollbackState = {
   offset: 0,
   offsetRef: 0,
@@ -137,6 +143,10 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
   scrollState: ScrollbackState = { ...ZERO_SCROLLBACK };
   // Render key for requestRender — allocated once, not per call.
   private renderKey: string = "";
+  // The entries at the selection ends and the bottom of the paused view. A source
+  // change can insert or evict entries before them, so their indices are found again
+  // by identity.
+  private anchors: Anchors = {};
 
   get lineHeight(): number {
     return this.internal.lineHeight;
@@ -251,21 +261,12 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     }
 
     this.entries = this.internal.telem.value();
+    this.setAnchors(this.state.selectionStart, this.state.selectionEnd);
     this.checkEmpty();
     i.stopListeningTelem?.();
     i.stopListeningTelem = i.telem.onChange(() => {
-      const { evictedCount } = this.internal.telem.wrapped;
       this.entries = this.internal.telem.value();
-      // When old entries are evicted, adjust scroll offset and selection indices
-      // so they still point at the same logical entries.
-      if (evictedCount > 0) {
-        if (this.state.scrolling)
-          this.scrollState.offset = Math.max(
-            this.calcVisibleLineCount(this.internal.lineHeight),
-            this.scrollState.offset - evictedCount,
-          );
-        this.clampSelection(evictedCount);
-      }
+      this.reanchor();
       this.checkEmpty();
       if (this.state.visible) this.requestRender();
     });
@@ -370,25 +371,53 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     });
   }
 
-  private clampSelection(evictedCount: number): void {
+  private setAnchors(selectionStart: number, selectionEnd: number): void {
+    this.anchors = {
+      start: this.entries[selectionStart],
+      end: this.entries[selectionEnd],
+      scroll: this.state.scrolling
+        ? this.entries[this.scrollState.offset - 1]
+        : undefined,
+    };
+  }
+
+  // Moves the paused view and the selection back onto their anchored entries. An
+  // evicted anchor maps to the oldest entry.
+  private reanchor(): void {
+    const { start, end, scroll } = this.anchors;
+    if (scroll != null && this.state.scrolling) {
+      const offset = Math.max(
+        this.calcVisibleLineCount(this.internal.lineHeight),
+        this.entries.indexOf(scroll) + 1,
+      );
+      // Wheel moves count from offsetRef, so it shifts with the anchored entry.
+      this.scrollState.offsetRef += offset - this.scrollState.offset;
+      this.scrollState.offset = offset;
+      this.anchors.scroll = this.entries[offset - 1];
+    }
+    if (start == null || end == null) return;
+    const newStart = this.entries.indexOf(start);
+    const newEnd = this.entries.indexOf(end);
     const { selectionStart, selectionEnd } = this.state;
-    if (selectionStart < 0) return;
-    const newStart = selectionStart - evictedCount;
-    const newEnd = selectionEnd - evictedCount;
-    if (newEnd < 0)
+    if (newStart === selectionStart && newEnd === selectionEnd) return;
+    if (newStart < 0 && newEnd < 0) {
+      this.anchors = { scroll: this.anchors.scroll };
       this.setState((s) => ({
         ...s,
         selectionStart: -1,
         selectionEnd: -1,
         selectedText: "",
       }));
-    else
-      this.setState((s) => ({
-        ...s,
-        selectionStart: Math.max(0, newStart),
-        selectionEnd: newEnd,
-        selectedText: "",
-      }));
+      return;
+    }
+    const [nextStart, nextEnd] = [Math.max(0, newStart), Math.max(0, newEnd)];
+    this.setAnchors(nextStart, nextEnd);
+    this.setState((s) => ({
+      ...s,
+      selectionStart: nextStart,
+      selectionEnd: nextEnd,
+      selectedText: "",
+    }));
   }
 
   private renderSelection(

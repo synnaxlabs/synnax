@@ -99,6 +99,8 @@ describe("remote", () => {
           return telemTest.mockSubscription(this.streamDestructorF);
         },
       };
+
+      exactFeed = { stream: this.feed.stream };
     }
 
     let c: MockClient;
@@ -482,6 +484,8 @@ describe("remote", () => {
           return telemTest.mockSubscription(this.streamDestructorF);
         },
       };
+
+      exactFeed = { stream: this.feed.stream };
     }
 
     let c: MockClient;
@@ -888,6 +892,8 @@ describe("remote", () => {
           return telemTest.mockSubscription(this.streamDestructorF);
         },
       };
+
+      exactFeed = { stream: this.feed.stream };
 
       resolveAll(): void {
         this.resolveWhere(() => true);

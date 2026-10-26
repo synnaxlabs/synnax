@@ -19,6 +19,7 @@ import { type Client } from "@/telem/aether/remote";
  */
 export const createClient = (core: SyntheticCore): Client & { feed: framer.Feed } => ({
   feed: core.openFeed({ transform: GL_TRANSFORM }),
+  exactFeed: core.openFeed(),
   channels: core.channels,
   now: core.now,
 });

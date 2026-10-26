@@ -58,6 +58,11 @@ import {
 /** The slice of a Synnax client that remote telemetry sources consume. */
 export interface Client {
   feed: Pick<framer.Feed, "read" | "stream" | "readLatest" | "readTile">;
+  /**
+   * Streams series as the Core sends them, without the WebGL conversion of feed, for
+   * sources that need exact sample times.
+   */
+  exactFeed: Pick<framer.Feed, "stream">;
   channels: {
     retrieve: (ch: channel.Key | channel.Name) => Promise<channel.Channel>;
   };

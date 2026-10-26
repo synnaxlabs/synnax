@@ -467,7 +467,6 @@ describe("log/aether/Log", () => {
         selectionEnd: 10,
       });
 
-      source.evictedCount = 3;
       source.setEntries(entries.slice(3));
       source.notify();
 
@@ -489,7 +488,6 @@ describe("log/aether/Log", () => {
         selectionEnd: 2,
       });
 
-      source.evictedCount = 5;
       source.setEntries(entries.slice(5));
       source.notify();
 
@@ -512,7 +510,6 @@ describe("log/aether/Log", () => {
         selectionEnd: 10,
       });
 
-      source.evictedCount = 0;
       source.notify();
 
       expect(log.state.selectionStart).toBe(5);
@@ -534,12 +531,86 @@ describe("log/aether/Log", () => {
       });
 
       // Evict 4 entries — start goes negative, end stays positive
-      source.evictedCount = 4;
       source.setEntries(entries.slice(4));
       source.notify();
 
       expect(log.state.selectionStart).toBe(0);
       expect(log.state.selectionEnd).toBe(4);
+    });
+  });
+
+  describe("anchoring on insert", () => {
+    it("should keep the selection on its entries when an earlier one arrives", () => {
+      const entries = Array.from({ length: 20 }, (_, i) => makeEntry(i));
+      const { log, source, updateState } = setup(entries);
+      updateState({
+        region: REGION_500,
+        wheelPos: 0,
+        scrolling: false,
+        empty: true,
+        visible: true,
+        selectionStart: 5,
+        selectionEnd: 10,
+      });
+      source.setEntries([makeEntry(-1), ...entries]);
+      source.notify();
+      expect(log.state.selectionStart).toBe(6);
+      expect(log.state.selectionEnd).toBe(11);
+    });
+
+    it("should keep the paused view on its entries when an earlier one arrives", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { log, source, updateState } = setup(entries);
+      updateState({
+        region: REGION_500,
+        wheelPos: 0,
+        scrolling: false,
+        empty: true,
+        visible: true,
+      });
+      updateState({
+        region: REGION_500,
+        wheelPos: 100,
+        scrolling: true,
+        empty: false,
+        visible: true,
+      });
+      const offset = log.scrollState.offset;
+      source.setEntries([makeEntry(-1), ...entries]);
+      source.notify();
+      expect(log.scrollState.offset).toBe(offset + 1);
+    });
+  });
+
+  describe("scrolling after an insert", () => {
+    it("should scroll from the anchored entry, not from the old index", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { log, source, updateState } = setup(entries);
+      updateState({
+        region: REGION_500,
+        wheelPos: 0,
+        scrolling: false,
+        empty: true,
+        visible: true,
+      });
+      updateState({
+        region: REGION_500,
+        wheelPos: 100,
+        scrolling: true,
+        empty: false,
+        visible: true,
+      });
+      const offset = log.scrollState.offset;
+      source.setEntries([makeEntry(-1), ...entries]);
+      source.notify();
+      updateState({
+        region: REGION_500,
+        wheelPos: 100,
+        scrolling: true,
+        empty: false,
+        visible: true,
+      });
+      expect(log.scrollState.offset).toBe(offset + 1);
     });
   });
 
@@ -566,7 +637,6 @@ describe("log/aether/Log", () => {
 
       const offsetBeforeEviction = log.scrollState.offset;
 
-      source.evictedCount = 10;
       source.setEntries(entries.slice(10));
       source.notify();
 
