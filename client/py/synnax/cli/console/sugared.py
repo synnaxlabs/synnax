@@ -26,7 +26,7 @@ class DefaultAskKwargs(AskKwargs[R]):
     default: R
 
 
-class SugaredConsole:
+class Sugared:
     enabled: bool
     prompt: Prompt
     print: Print
