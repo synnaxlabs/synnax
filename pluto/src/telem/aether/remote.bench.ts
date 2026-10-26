@@ -19,11 +19,7 @@ import {
 import { allocSuite } from "@synnaxlabs/x/bench";
 import { afterAll, test } from "vitest";
 
-import {
-  type Client,
-  TiledChannelData,
-  type TiledChannelDataProps,
-} from "@/telem/aether/remote";
+import { ChannelData, type ChannelDataProps,type Client } from "@/telem/aether/remote";
 import { type ValueProps } from "@/telem/aether/telem";
 import { telemTest } from "@/telem/aether/test";
 
@@ -56,16 +52,16 @@ const liveView = (core: SyntheticCore): ValueProps =>
 
 const createSource = async (
   client: Client,
-  props: TiledChannelDataProps,
+  props: ChannelDataProps,
   view: ValueProps,
-): Promise<TiledChannelData> => {
-  const source = new TiledChannelData(client, props, undefined, client.now);
+): Promise<ChannelData> => {
+  const source = new ChannelData(client, props, undefined, client.now);
   await settle(source, view);
   return source;
 };
 
 // settle reads the view until the source holds everything the view draws.
-const settle = async (source: TiledChannelData, view: ValueProps): Promise<void> => {
+const settle = async (source: ChannelData, view: ValueProps): Promise<void> => {
   const deadline = TimeStamp.now().add(TimeSpan.seconds(30));
   while (TimeStamp.now().before(deadline)) {
     if (source.value(view).status.variant !== "loading") return;
@@ -90,7 +86,7 @@ const staticRead = async (view: ValueProps): Promise<() => void> => {
 
 const liveRead = async (): Promise<{
   core: SyntheticCore;
-  source: TiledChannelData;
+  source: ChannelData;
 }> => {
   const { core, client } = createClient();
   const source = await createSource(

@@ -283,7 +283,7 @@ const fetchChannelProperties = async (
   return { key: c.index, dataType: DataType.TIMESTAMP, virtual: false, isCalculated };
 };
 
-const tiledChannelDataPropsZ = z.object({
+const channelDataPropsZ = z.object({
   channel: z.number().or(z.string()),
   useIndexOfChannel: z.boolean().default(false),
   /** The line's x channel, or zero when x is the index of the line's y channel. */
@@ -293,7 +293,7 @@ const tiledChannelDataPropsZ = z.object({
   aggregation: aggregationZ.default("min_max"),
 });
 
-export type TiledChannelDataProps = z.input<typeof tiledChannelDataPropsZ>;
+export type ChannelDataProps = z.input<typeof channelDataPropsZ>;
 
 // The points a line draws before a read gives its own.
 const DEFAULT_POINTS = 1000;
@@ -306,12 +306,12 @@ const viewRange = ({ lower, upper }: bounds.Bounds): TimeRange =>
  * the home view when none is passed. A live line draws its newest samples at full
  * resolution. An xy line draws its home view reduced with decimate.
  */
-export class TiledChannelData
-  extends AbstractSource<typeof tiledChannelDataPropsZ>
+export class ChannelData
+  extends AbstractSource<typeof channelDataPropsZ>
   implements SeriesSource
 {
-  static readonly TYPE = "tiled-series-source";
-  schema = tiledChannelDataPropsZ;
+  static readonly TYPE = "channel-data";
+  schema = channelDataPropsZ;
 
   private readonly client: Client | null;
   private readonly now: () => TimeStamp;
@@ -544,8 +544,8 @@ export class TiledChannelData
 type Create = (client: Client | null, props: unknown, options?: CreateOptions) => Telem;
 
 const REGISTRY: Record<string, Create> = {
-  [TiledChannelData.TYPE]: (client, props, options) =>
-    new TiledChannelData(client, props, options),
+  [ChannelData.TYPE]: (client, props, options) =>
+    new ChannelData(client, props, options),
   [ChannelValue.NUMBER_TYPE]: (client, props, options) =>
     new ChannelValue(client, props, NUMBER, options),
   [ChannelValue.STRING_TYPE]: (client, props, options) =>
@@ -564,8 +564,8 @@ export class RemoteFactory {
   }
 }
 
-export const tiledChannelData = (props: TiledChannelDataProps): SeriesSourceSpec => ({
-  type: TiledChannelData.TYPE,
+export const channelData = (props: ChannelDataProps): SeriesSourceSpec => ({
+  type: ChannelData.TYPE,
   props,
   variant: "source",
   valueType: "series",

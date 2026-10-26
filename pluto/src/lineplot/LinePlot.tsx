@@ -123,12 +123,12 @@ const createTelemetry = (
     aggregation,
   };
   return {
-    x: telem.tiledChannelData({
+    x: telem.channelData({
       ...props,
       channel: hasX ? xChannel : yChannel,
       useIndexOfChannel: !hasX,
     }),
-    y: telem.tiledChannelData({ ...props, channel: yChannel }),
+    y: telem.channelData({ ...props, channel: yChannel }),
   };
 };
 

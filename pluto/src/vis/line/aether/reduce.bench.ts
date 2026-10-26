@@ -18,7 +18,7 @@ import {
 } from "@synnaxlabs/x";
 import { afterAll, test } from "vitest";
 
-import { TiledChannelData, type TiledChannelDataProps } from "@/telem/aether/remote";
+import { ChannelData, type ChannelDataProps } from "@/telem/aether/remote";
 import { telemTest } from "@/telem/aether/test";
 import {
   buildDrawOperations,
@@ -48,8 +48,8 @@ const view = (): View => ({
   width: 1000,
 });
 
-const createSource = (props: TiledChannelDataProps): TiledChannelData =>
-  new TiledChannelData(client, props, undefined, client.now);
+const createSource = (props: ChannelDataProps): ChannelData =>
+  new ChannelData(client, props, undefined, client.now);
 
 const channel = core.data[0].key;
 const x = createSource({

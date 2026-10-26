@@ -31,12 +31,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createFactory, type CreateOptions } from "@/telem/aether/factory";
 import {
+  ChannelData,
+  type ChannelDataProps,
   type Client,
   DISCONNECTED_STATUS,
   streamChannelStringValue,
   streamChannelValue,
-  TiledChannelData,
-  type TiledChannelDataProps,
 } from "@/telem/aether/remote";
 import {
   type NumberSource,
@@ -248,13 +248,13 @@ describe("remote", () => {
     });
   });
 
-  describe("TiledChannelData", () => {
+  describe("ChannelData", () => {
     const create = (
       client: Client | null,
-      props: Partial<TiledChannelDataProps>,
+      props: Partial<ChannelDataProps>,
       options?: CreateOptions,
-    ): TiledChannelData => {
-      const source = new TiledChannelData(
+    ): ChannelData => {
+      const source = new ChannelData(
         client,
         { channel: 0, window: staticWindow(HOME), ...props },
         options,
@@ -265,10 +265,7 @@ describe("remote", () => {
       return source;
     };
 
-    const settle = async (
-      source: TiledChannelData,
-      props?: ValueProps,
-    ): Promise<void> =>
+    const settle = async (source: ChannelData, props?: ValueProps): Promise<void> =>
       await expect.poll(() => source.value(props).status.variant, POLL).toBe("success");
 
     // Counts the reductions of every read the Core serves.
@@ -355,7 +352,7 @@ describe("remote", () => {
       const { bounds: zoomed } = view(TimeSpan.seconds(60), TimeSpan.seconds(65));
       await settle(x);
       await settle(y, { bounds: zoomed });
-      const alignments = (source: TiledChannelData): bounds.Bounds<bigint>[] =>
+      const alignments = (source: ChannelData): bounds.Bounds<bigint>[] =>
         source.value().data[1].series.map((s) => s.alignmentBounds);
       expect(alignments(y)).toEqual(alignments(x));
     });
@@ -566,7 +563,7 @@ describe("remote", () => {
 
     it("should return empty, loaded data from a disconnected line source", () => {
       const statuses: cstatus.Crude[] = [];
-      const source = new TiledChannelData(
+      const source = new ChannelData(
         null,
         { channel: 1, window: staticWindow(HOME) },
         { onStatusChange: (s) => statuses.push(s) },
