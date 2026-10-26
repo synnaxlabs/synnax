@@ -131,6 +131,10 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      # A runner can stay stopped for weeks, so every job takes the latest agent CLIs.
+      - name: Update the agent CLIs
+        run: sudo npm install -g @anthropic-ai/claude-code@latest @openai/codex@latest
+
       - name: Set up the task
         if: inputs.setup != ''
         env:
