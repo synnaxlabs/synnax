@@ -13,7 +13,7 @@ import {
   type framer,
   type status as cstatus,
 } from "@synnaxlabs/client";
-import { id, MultiSeries, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { id, MultiSeries, Series, TimeStamp } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -118,7 +118,6 @@ describe("StreamMultiChannelLog", () => {
     };
     const log = new StreamMultiChannelLog(c, {
       channels: [c.channelA.key],
-      timeSpan: TimeSpan.seconds(30),
     });
     log.value();
     log.cleanup();
@@ -130,7 +129,6 @@ describe("StreamMultiChannelLog", () => {
   it("should return an empty array when no channels are configured", () => {
     const props: StreamMultiChannelLogProps = {
       channels: [],
-      timeSpan: TimeSpan.seconds(30),
     };
     const log = new StreamMultiChannelLog(c, props);
     expect(log.value()).toHaveLength(0);
@@ -140,7 +138,6 @@ describe("StreamMultiChannelLog", () => {
   it("should open a stream with the correct channel keys", async () => {
     const props: StreamMultiChannelLogProps = {
       channels: [c.channelA.key, c.channelB.key],
-      timeSpan: TimeSpan.seconds(30),
     };
     const log = new StreamMultiChannelLog(c, props);
     await waitForResolve(log);
@@ -151,7 +148,6 @@ describe("StreamMultiChannelLog", () => {
   it("should append entries when stream data arrives", async () => {
     const props: StreamMultiChannelLogProps = {
       channels: [c.channelA.key],
-      timeSpan: TimeSpan.seconds(30),
     };
     const log = new StreamMultiChannelLog(c, props);
     await waitForResolve(log);
@@ -163,7 +159,6 @@ describe("StreamMultiChannelLog", () => {
   it("should populate channelKey and value in each entry", async () => {
     const props: StreamMultiChannelLogProps = {
       channels: [c.channelA.key],
-      timeSpan: TimeSpan.seconds(30),
     };
     const log = new StreamMultiChannelLog(c, props);
     await waitForResolve(log);
@@ -178,7 +173,6 @@ describe("StreamMultiChannelLog", () => {
   it("should clean f64-widened FLOAT32 values to shortest decimal", async () => {
     const props: StreamMultiChannelLogProps = {
       channels: [c.channelA.key],
-      timeSpan: TimeSpan.seconds(30),
     };
     const log = new StreamMultiChannelLog(c, props);
     await waitForResolve(log);
@@ -192,7 +186,6 @@ describe("StreamMultiChannelLog", () => {
   it("should stringify INT64 bigint values", async () => {
     const props: StreamMultiChannelLogProps = {
       channels: [c.channelInt.key],
-      timeSpan: TimeSpan.seconds(30),
     };
     const log = new StreamMultiChannelLog(c, props);
     await waitForResolve(log);
@@ -207,7 +200,6 @@ describe("StreamMultiChannelLog", () => {
   it("should stringify JSON values as their serialized form", async () => {
     const props: StreamMultiChannelLogProps = {
       channels: [c.channelJSON.key],
-      timeSpan: TimeSpan.seconds(30),
     };
     const log = new StreamMultiChannelLog(c, props);
     await waitForResolve(log);
@@ -224,7 +216,6 @@ describe("StreamMultiChannelLog", () => {
   it("should maintain arrival order and not sort across multiple channels", async () => {
     const props: StreamMultiChannelLogProps = {
       channels: [c.channelA.key, c.channelB.key],
-      timeSpan: TimeSpan.seconds(30),
     };
     const log = new StreamMultiChannelLog(c, props);
     await waitForResolve(log);
@@ -243,7 +234,6 @@ describe("StreamMultiChannelLog", () => {
   it("should notify observers when new data arrives", async () => {
     const props: StreamMultiChannelLogProps = {
       channels: [c.channelA.key],
-      timeSpan: TimeSpan.seconds(30),
     };
     const log = new StreamMultiChannelLog(c, props);
     await waitForResolve(log);
@@ -257,7 +247,6 @@ describe("StreamMultiChannelLog", () => {
   it("should stop the stream on cleanup", async () => {
     const props: StreamMultiChannelLogProps = {
       channels: [c.channelA.key],
-      timeSpan: TimeSpan.seconds(30),
     };
     const log = new StreamMultiChannelLog(c, props);
     await waitForResolve(log);
@@ -268,7 +257,6 @@ describe("StreamMultiChannelLog", () => {
   it("should clear all entries on cleanup", async () => {
     const props: StreamMultiChannelLogProps = {
       channels: [c.channelA.key],
-      timeSpan: TimeSpan.seconds(30),
     };
     const log = new StreamMultiChannelLog(c, props);
     await waitForResolve(log);
@@ -282,7 +270,6 @@ describe("StreamMultiChannelLog", () => {
   it("should cap entries at 100,000", async () => {
     const props: StreamMultiChannelLogProps = {
       channels: [c.channelA.key],
-      timeSpan: TimeSpan.days(1),
     };
     const log = new StreamMultiChannelLog(c, props);
     await waitForResolve(log);
@@ -295,7 +282,6 @@ describe("StreamMultiChannelLog", () => {
   it("should read entries from subsequent buffer allocations", async () => {
     const props: StreamMultiChannelLogProps = {
       channels: [c.channelA.key],
-      timeSpan: TimeSpan.seconds(30),
     };
     const log = new StreamMultiChannelLog(c, props);
     await waitForResolve(log);
@@ -312,7 +298,6 @@ describe("StreamMultiChannelLog", () => {
   it("should read all entries when multiple buffers arrive in a single callback", async () => {
     const props: StreamMultiChannelLogProps = {
       channels: [c.channelA.key],
-      timeSpan: TimeSpan.seconds(30),
     };
     const log = new StreamMultiChannelLog(c, props);
     await waitForResolve(log);
@@ -328,7 +313,6 @@ describe("StreamMultiChannelLog", () => {
   it("should not re-read entries when allocated is empty", async () => {
     const props: StreamMultiChannelLogProps = {
       channels: [c.channelA.key],
-      timeSpan: TimeSpan.seconds(30),
     };
     const log = new StreamMultiChannelLog(c, props);
     await waitForResolve(log);
@@ -342,56 +326,41 @@ describe("StreamMultiChannelLog", () => {
     expect(log.value()).toHaveLength(2);
   });
 
-  it("should garbage collect entries older than keepFor", async () => {
+  it("should keep entries of any age", async () => {
     let now = TimeStamp.milliseconds(1_000);
-    const props: StreamMultiChannelLogProps = {
-      channels: [c.channelA.key],
-      timeSpan: TimeSpan.seconds(30),
-      keepFor: TimeSpan.milliseconds(500),
-    };
-    const log = new StreamMultiChannelLog(c, props, undefined, () => now);
+    const log = new StreamMultiChannelLog(
+      c,
+      { channels: [c.channelA.key] },
+      undefined,
+      () => now,
+    );
     await waitForResolve(log);
-
-    const seriesA = new Series({ data: new Float32Array([1, 2]) });
-    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesA])]]));
-    expect(log.value()).toHaveLength(2);
-
-    // Advance time past the span — threshold becomes 2000 - 500 = 1500ms
-    now = TimeStamp.milliseconds(2_000);
-
-    const seriesB = new Series({ data: new Float32Array([3]) });
-    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesB])]]));
-    const entries = log.value();
-    expect(entries).toHaveLength(1);
-    expect(entries[0].value).toBe("3");
+    const series = new Series({ data: new Float32Array([1, 2]) });
+    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+    now = TimeStamp.days(365);
+    const next = new Series({ data: new Float32Array([3]) });
+    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([next])]]));
+    expect(log.value().map((e) => e.value)).toEqual(["1", "2", "3"]);
   });
 
-  it("should notify when GC evicts as many entries as were pushed in the same callback", async () => {
-    let now = TimeStamp.milliseconds(1_000);
-    const props: StreamMultiChannelLogProps = {
-      channels: [c.channelA.key],
-      timeSpan: TimeSpan.milliseconds(500),
-    };
-    const log = new StreamMultiChannelLog(c, props, undefined, () => now);
+  it("should notify when eviction removes as many entries as were pushed", async () => {
+    const log = new StreamMultiChannelLog(
+      c,
+      { channels: [c.channelA.key] },
+      undefined,
+      undefined,
+      2,
+    );
     await waitForResolve(log);
-
     const seriesA = new Series({ data: new Float32Array([1, 2]) });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesA])]]));
     expect(log.value()).toHaveLength(2);
-
-    // Advance time so both existing entries are stale (threshold = 2000 - 500 = 1500ms)
-    now = TimeStamp.milliseconds(2_000);
-
-    // Push exactly 2 new entries — GC evicts the 2 old ones, net count unchanged.
-    // The notify guard must fire because new entries arrived, not because count changed.
     const handleChange = vi.fn();
     log.onChange(handleChange);
-    const seriesB = new Series({ data: new Float32Array([3, 4]) });
-    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesB])]]));
+    const seriesB = new Series({ data: new Float32Array([3, 4]), alignment: 2n });
+    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesA, seriesB])]]));
     await expect.poll(() => handleChange.mock.calls.length > 0).toBe(true);
-    const entries = log.value();
-    expect(entries).toHaveLength(2);
-    expect(entries.map((e) => e.value)).toEqual(["3", "4"]);
+    expect(log.value().map((e) => e.value)).toEqual(["3", "4"]);
   });
 
   describe("newline handling", () => {
@@ -402,7 +371,6 @@ describe("StreamMultiChannelLog", () => {
       });
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
       };
       const log = new StreamMultiChannelLog(c, props);
       await waitForResolve(log);
@@ -424,7 +392,6 @@ describe("StreamMultiChannelLog", () => {
       });
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
       };
       const log = new StreamMultiChannelLog(c, props);
       await waitForResolve(log);
@@ -440,7 +407,6 @@ describe("StreamMultiChannelLog", () => {
       });
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
       };
       const log = new StreamMultiChannelLog(c, props);
       await waitForResolve(log);
@@ -456,7 +422,6 @@ describe("StreamMultiChannelLog", () => {
       });
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
       };
       const log = new StreamMultiChannelLog(c, props);
       await waitForResolve(log);
@@ -475,7 +440,6 @@ describe("StreamMultiChannelLog", () => {
     it("should not split numeric channel values", async () => {
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
       };
       const log = new StreamMultiChannelLog(c, props);
       await waitForResolve(log);
@@ -493,7 +457,6 @@ describe("StreamMultiChannelLog", () => {
       });
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
       };
       const log = new StreamMultiChannelLog(c, props);
       await waitForResolve(log);
@@ -511,7 +474,6 @@ describe("StreamMultiChannelLog", () => {
       });
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
       };
       const log = new StreamMultiChannelLog(c, props);
       await waitForResolve(log);
@@ -531,7 +493,6 @@ describe("StreamMultiChannelLog", () => {
       });
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
       };
       const log = new StreamMultiChannelLog(c, props);
       await waitForResolve(log);
@@ -550,7 +511,6 @@ describe("StreamMultiChannelLog", () => {
       });
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
       };
       const log = new StreamMultiChannelLog(c, props);
       await waitForResolve(log);
@@ -573,7 +533,6 @@ describe("StreamMultiChannelLog", () => {
       });
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
       };
       const log = new StreamMultiChannelLog(c, props, undefined, undefined, 100);
       await waitForResolve(log);
@@ -591,7 +550,6 @@ describe("StreamMultiChannelLog", () => {
     it("should be a no-op when channels have not changed", async () => {
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
       };
       const log = new StreamMultiChannelLog(c, props);
       await waitForResolve(log);
@@ -607,7 +565,6 @@ describe("StreamMultiChannelLog", () => {
     it("should preserve entries for remaining channels when a channel is removed", async () => {
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key, c.channelB.key],
-        timeSpan: TimeSpan.seconds(30),
       };
       const log = new StreamMultiChannelLog(c, props);
       await waitForResolve(log);
@@ -631,7 +588,6 @@ describe("StreamMultiChannelLog", () => {
     it("should scrub entries for a removed channel", async () => {
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key, c.channelB.key],
-        timeSpan: TimeSpan.seconds(30),
       };
       const log = new StreamMultiChannelLog(c, props);
       await waitForResolve(log);
@@ -656,7 +612,6 @@ describe("StreamMultiChannelLog", () => {
     it("should stop streaming when all channels are removed", async () => {
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
       };
       const log = new StreamMultiChannelLog(c, props);
       await waitForResolve(log);
@@ -671,7 +626,6 @@ describe("StreamMultiChannelLog", () => {
     it("should not duplicate entries when the stream is restarted", async () => {
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
       };
       const log = new StreamMultiChannelLog(c, props);
       await waitForResolve(log);
@@ -698,7 +652,6 @@ describe("StreamMultiChannelLog", () => {
     it("should skip the initial batch for newly-added channels on restart", async () => {
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
       };
       const log = new StreamMultiChannelLog(c, props);
       await waitForResolve(log);
@@ -724,7 +677,6 @@ describe("StreamMultiChannelLog", () => {
     it("should accept new data after skipping the initial batch", async () => {
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
       };
       const log = new StreamMultiChannelLog(c, props);
       await waitForResolve(log);
@@ -770,7 +722,6 @@ describe("StreamMultiChannelLog", () => {
 
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
       };
       const log = new StreamMultiChannelLog(c, props);
       await waitForResolve(log);
@@ -784,7 +735,6 @@ describe("StreamMultiChannelLog", () => {
 
   describe("indexed channels", () => {
     const NOW = TimeStamp.seconds(100);
-    const SPAN = TimeSpan.seconds(30);
     const IDX = 10;
     const DATA = 11;
     const IDX_2 = 12;
@@ -808,7 +758,6 @@ describe("StreamMultiChannelLog", () => {
         c,
         {
           channels: [DATA],
-          timeSpan: SPAN,
           ...props,
         },
         { onStatusChange: (s) => statuses.push(s) },
@@ -953,7 +902,7 @@ describe("StreamMultiChannelLog", () => {
       const statuses: cstatus.Crude[] = [];
       const log = new StreamMultiChannelLog(
         c,
-        { channels: [DATA], timeSpan: SPAN },
+        { channels: [DATA] },
         { onStatusChange: (st) => statuses.push(st) },
         () => NOW,
         2,
@@ -1032,7 +981,7 @@ describe("StreamMultiChannelLog", () => {
       const statuses: cstatus.Crude[] = [];
       const log = new StreamMultiChannelLog(
         null,
-        { channels: [1], timeSpan: TimeSpan.seconds(30) },
+        { channels: [1] },
         { onStatusChange: (s) => statuses.push(s) },
       );
       expect(log.value()).toHaveLength(0);

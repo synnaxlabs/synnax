@@ -13,7 +13,6 @@ import {
   DataType,
   type destructor,
   type Series,
-  TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -36,8 +35,6 @@ const MAX_INDEX_BUFFERS = 4;
 
 const streamMultiChannelLogPropsZ = z.object({
   channels: z.array(channel.keyZ.or(z.string())),
-  timeSpan: TimeSpan.z,
-  keepFor: TimeSpan.z.optional(),
 });
 
 export type StreamMultiChannelLogProps = z.input<typeof streamMultiChannelLogPropsZ>;
@@ -67,8 +64,8 @@ interface PushResult {
 }
 
 /**
- * Streams the samples of several channels into one list, sorted by sample time, and
- * evicts entries older than keepFor.
+ * Streams the samples of several channels into one list, sorted by sample time. The
+ * list keeps the newest maxEntries entries.
  */
 export class StreamMultiChannelLog
   extends AbstractSource<typeof streamMultiChannelLogPropsZ>
@@ -290,20 +287,13 @@ export class StreamMultiChannelLog
     return group.length;
   }
 
-  // Evicts stale entries from the front of the array.
+  // Evicts the oldest entries past maxEntries.
   private gcEntries(): void {
-    const threshold = this.now().sub(this.props.keepFor ?? this.props.timeSpan);
-    // Single splice instead of shift() loop to avoid O(n²).
-    const cutoff = this.entries.findIndex((e) => e.timestamp >= threshold);
-    const end = cutoff === -1 ? this.entries.length : cutoff;
-    if (end > 0) this.entries.splice(0, end);
-    if (this.entries.length > this.maxEntries) {
-      let excess = this.entries.length - this.maxEntries;
-      // Skip leading continuations so the new head isn't an orphan.
-      while (excess < this.entries.length && this.entries[excess].continuation)
-        excess++;
-      this.entries.splice(0, excess);
-    }
+    if (this.entries.length <= this.maxEntries) return;
+    let excess = this.entries.length - this.maxEntries;
+    // Skip leading continuations so the new head isn't an orphan.
+    while (excess < this.entries.length && this.entries[excess].continuation) excess++;
+    this.entries.splice(0, excess);
   }
 
   cleanup(): void {
