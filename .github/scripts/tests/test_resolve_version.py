@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT = Path(__file__).resolve().parent / "resolve_version.sh"
+SCRIPT = Path(__file__).resolve().parents[1] / "resolve_version.sh"
 
 
 class Repo:
@@ -215,7 +215,7 @@ class TestErrors:
         assert "unknown product" in repo.resolve_error("python", "patch")
 
 
-LATEST = Path(__file__).resolve().parent / "latest_version.sh"
+LATEST = Path(__file__).resolve().parents[1] / "latest_version.sh"
 
 
 def latest(repo: Repo, product: str, minor: str, candidates: bool = False) -> str:

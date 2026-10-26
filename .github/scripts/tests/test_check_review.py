@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT = Path(__file__).resolve().parent / "check_review.sh"
+SCRIPT = Path(__file__).resolve().parents[1] / "check_review.sh"
 
 # Stands in for gh: serves canned JSON from FAKE_GH_DIR for the endpoints the script
 # calls and applies the requested jq expression. A commit with no canned check runs
