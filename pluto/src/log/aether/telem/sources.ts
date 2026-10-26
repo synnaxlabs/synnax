@@ -85,9 +85,12 @@ export class StreamMultiChannelLog
     );
   }
 
+  /** @returns the entries, with the worst status of the channels' snapshots. */
   value(): telem.Result<LogEntry[]> {
     if (this._channels.length > 0 && !this.valid) this.subscribe();
-    return telem.success(this.entries);
+    const { subscription } = this;
+    if (subscription == null) return telem.success(this.entries);
+    return { data: this.entries, status: this.status(subscription) };
   }
 
   /** Channels that stay keep their entries and samples, so none show twice. */
@@ -134,16 +137,20 @@ export class StreamMultiChannelLog
   private pull(subscription: framer.Subscription): void {
     const now = this.now();
     let pushed = 0;
-    let worst: cstatus.Status | undefined;
-    for (const key of this._channels) {
-      const { series, status } = subscription.value(key);
-      if (worst == null || cstatus.moreSevere(status.variant, worst.variant))
-        worst = status;
-      pushed += this.append(key, series.series, now);
-    }
-    if (worst != null) this.failures.observe(worst);
+    for (const key of this._channels)
+      pushed += this.append(key, subscription.value(key).series.series, now);
+    this.failures.observe(this.status(subscription));
     this._evictedCount = this.gcEntries();
     if (pushed > 0) this.notify();
+  }
+
+  private status(subscription: framer.Subscription): cstatus.Status {
+    let worst = telem.SUCCESS_STATUS;
+    for (const key of this._channels) {
+      const { status } = subscription.value(key);
+      if (cstatus.moreSevere(status.variant, worst.variant)) worst = status;
+    }
+    return worst;
   }
 
   // Appends the samples after the key's cursor. Series only leave the front of a

@@ -302,6 +302,22 @@ describe("StreamMultiChannelLog", () => {
     });
   });
 
+  it("should report the worst status of its channels' snapshots", async () => {
+    const core = createCore();
+    const [a, b] = core.data.map((c) => c.key);
+    const log = open(core, connect(core), { channels: [a, 999, b] });
+    expect(log.value().status.variant).toBe("loading");
+    await expect
+      .poll(() => log.value().status, POLL)
+      .toMatchObject({
+        variant: "error",
+        message: "Failed to read channel data",
+        description: "channel 999 not found",
+      });
+    log.setChannels([a, b]);
+    await expect.poll(() => log.value().status.variant, POLL).toBe("success");
+  });
+
   it("should report a disconnected status once instead of throwing", () => {
     const statuses: cstatus.Crude[] = [];
     const log = open(
