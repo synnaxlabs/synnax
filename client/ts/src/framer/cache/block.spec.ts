@@ -299,15 +299,6 @@ describe("block", () => {
         expect(block.fetched[2]).toBe(next);
         expect(block.fetched.flatMap((s) => Array.from(s))).toEqual([1, 2, 3, 4, 5, 6]);
       });
-
-      it("should drop a streamed series a fetched series holds in time", () => {
-        const block = new RawBlock(1, 0);
-        const inside = createValues(9n, [1], seconds(2).range(seconds(3)));
-        const across = createValues(9n, [1], seconds(4).range(seconds(8)));
-        block.stream([inside, across]);
-        block.fill([fetched(0, [1, 2], seconds(1).range(seconds(5)))], seconds(5), 2);
-        expect(block.streamed).toEqual([across]);
-      });
     });
 
     describe("expire", () => {
@@ -322,28 +313,32 @@ describe("block", () => {
         expect(block.sealed).toBe(false);
       });
 
-      it("should keep the streamed samples", () => {
-        const block = new RawBlock(1, 0);
-        const streamed = createValues(9n, [1], seconds(9).range(seconds(10)));
-        block.stream([streamed]);
-        block.fill([], seconds(5), 0);
-        block.expire();
-        expect(block.streamed).toEqual([streamed]);
-      });
-
       it("should report a block with nothing to drop", () => {
         expect(new RawBlock(1, 0).expire()).toBe(false);
       });
     });
 
-    describe("streamedIn", () => {
-      it("should return the streamed series that overlap a range", () => {
+    describe("seriesIn", () => {
+      it("should return the fetched series that overlap a range", () => {
         const block = new RawBlock(1, 0);
-        const early = createValues(9n, [1], seconds(1).range(seconds(2)));
-        const late = createValues(10n, [2], seconds(8).range(seconds(9)));
-        block.stream([early, late]);
-        expect(block.streamedIn(seconds(7).range(seconds(20)))).toEqual([
-          { series: late, range: late.timeRange },
+        const early = fetched(0, [1], seconds(1).range(seconds(2)));
+        const late = fetched(1, [2], seconds(8).range(seconds(9)));
+        block.fill([early, late], seconds(9), 2);
+        expect(block.seriesIn(seconds(7).range(seconds(20)))).toEqual([late]);
+      });
+
+      it("should return the open buffer after the fetched series", () => {
+        const block = new RawBlock(1, 0);
+        const early = fetched(0, [1], seconds(1).range(seconds(2)));
+        block.fill([early], seconds(4), 1);
+        const buffer = new Dynamic({ dynamicBufferSize: 10 });
+        buffer.write(
+          new MultiSeries([createValues(9n, [1, 2], seconds(4).range(seconds(6)))]),
+        );
+        block.buffer = buffer;
+        expect(block.seriesIn(seconds(0).range(seconds(20)))).toEqual([
+          early,
+          buffer.leadingBuffer,
         ]);
       });
 
@@ -354,10 +349,10 @@ describe("block", () => {
           new MultiSeries([createValues(9n, [1, 2], seconds(4).range(seconds(6)))]),
         );
         block.buffer = buffer;
-        expect(block.streamedIn(seconds(7).range(seconds(20)))).toEqual([]);
-        const [live] = block.streamedIn(seconds(5).range(seconds(20)));
-        expect(live.series).toBe(buffer.leadingBuffer);
-        expect(live.range).toEqual(seconds(4).range(seconds(6)));
+        expect(block.seriesIn(seconds(7).range(seconds(20)))).toEqual([]);
+        expect(block.seriesIn(seconds(5).range(seconds(20)))).toEqual([
+          buffer.leadingBuffer,
+        ]);
       });
     });
 
@@ -389,8 +384,8 @@ describe("block", () => {
 
       it("should not hold a block for a series a caller acquires", () => {
         const block = new RawBlock(1, 0);
-        const series = createValues(9n, [1], seconds(9).range(seconds(10)));
-        block.stream([series]);
+        const series = fetched(0, [1], seconds(1).range(seconds(2)));
+        block.fill([series], seconds(5), 1);
         series.acquire();
         expect(block.held).toBe(false);
         series.release();
@@ -399,26 +394,21 @@ describe("block", () => {
 
     it("should stop counting the bytes of the series it drops", () => {
       const block = new RawBlock(1, 0);
-      block.stream([createValues(9n, [1], seconds(2).range(seconds(3)))]);
-      block.stream([createValues(9n, [1], seconds(9).range(seconds(10)))]);
       block.fill([fetched(0, [1, 2], seconds(1).range(seconds(5)))], seconds(5), 2);
-      expect(block.bytes).toBe(2 * 4 + 4);
+      expect(block.bytes).toBe(2 * 4);
       block.expire();
-      expect(block.bytes).toBe(4);
-      block.reset();
       expect(block.bytes).toBe(0);
     });
 
     it("should count the bytes of every series it holds", () => {
       const block = new RawBlock(1, 0);
       block.fill([fetched(0, [1, 2], seconds(1).range(seconds(3)))], seconds(5), 2);
-      block.stream([createValues(9n, [1], seconds(9).range(seconds(10)))]);
       const buffer = new Dynamic({ dynamicBufferSize: 10 });
       buffer.write(
         new MultiSeries([createValues(9n, [1], seconds(11).range(seconds(12)))]),
       );
       block.buffer = buffer;
-      expect(block.bytes).toBe(2 * 4 + 4 + 10 * 4);
+      expect(block.bytes).toBe(2 * 4 + 10 * 4);
     });
   });
 });

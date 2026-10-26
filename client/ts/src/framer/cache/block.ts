@@ -210,17 +210,10 @@ export const split = (
 const sumBytes = (series: Series[]): number =>
   series.reduce((sum, s) => sum + s.byteCapacity.valueOf(), 0);
 
-/** A streamed series and the span its samples cover. */
-interface Streamed {
-  series: Series;
-  range: TimeRange;
-}
-
 /**
- * One channel's raw samples over one level 16 tile of the grid. Fetched series carry
- * block alignment and cover the block from its start. Streamed series keep the stream's
- * alignment and never claim coverage, unless the block is joined: then the stream
- * writes block-aligned samples that extend the coverage.
+ * One channel's raw samples over one level 16 tile of the grid, in block alignment.
+ * Fetched series cover the block from its start. While a join writes the stream into
+ * the block, the stream's buffer holds the samples after them.
  */
 export class RawBlock implements Block {
   readonly range: TimeRange;
@@ -234,8 +227,7 @@ export class RawBlock implements Block {
   /** The index samples in [range.start, coveredEnd). */
   coveredCount = 0;
   private _fetched: Series[] = [];
-  private _streamed: Series[] = [];
-  // The bytes of the fetched and streamed series.
+  // The bytes of the fetched series.
   private seriesBytes = 0;
   /** The channel's live buffer while a stream writes into the block. */
   buffer: Dynamic | null = null;
@@ -254,11 +246,6 @@ export class RawBlock implements Block {
   /** Fetched series in alignment order, with no overlap. */
   get fetched(): readonly Series[] {
     return this._fetched;
-  }
-
-  /** Buffers the stream filled while the block was open. */
-  get streamed(): readonly Series[] {
-    return this._streamed;
   }
 
   get bytes(): number {
@@ -305,22 +292,8 @@ export class RawBlock implements Block {
     return true;
   }
 
-  /** Drops every sample and the coverage, so reads fetch the block from its start. */
-  reset(): void {
-    this.expire();
-    this.seriesBytes -= sumBytes(this._streamed);
-    this._streamed = [];
-  }
-
-  /** Adds buffers the stream filled. */
-  stream(series: Series[]): void {
-    this._streamed.push(...series);
-    this.seriesBytes += sumBytes(series);
-  }
-
   /**
    * Adds the series of a fetch from coveredEnd. Samples the block already holds win.
-   * Streamed series that a fetched series holds in time leave the block.
    * @param series - The fetch's series in block alignment.
    * @param coveredEnd - The end of the span the fetch answers for.
    * @param coveredCount - The index samples in the block before coveredEnd.
@@ -330,29 +303,18 @@ export class RawBlock implements Block {
     series.forEach((s) => this.insert(s));
     this.coveredEnd = coveredEnd;
     this.coveredCount = coveredCount;
-    this._streamed = this._streamed.filter((s) => {
-      const held = this._fetched.some(
-        (f) =>
-          f.timeRange.start.beforeEq(s.timeRange.start) &&
-          f.timeRange.end.afterEq(s.timeRange.end),
-      );
-      if (held) this.seriesBytes -= s.byteCapacity.valueOf();
-      return !held;
-    });
   }
 
   /**
-   * @returns the streamed series whose samples overlap tr, with the live buffer last.
-   * The live buffer's span ends at its last stamped write, not at its open end.
+   * @returns the series whose samples overlap tr in time order, the stream's buffer
+   * last. The buffer's span ends at its last stamped write, not at its open end.
    */
-  streamedIn(tr: TimeRange): Streamed[] {
-    const out = this._streamed
-      .filter((s) => s.timeRange.overlapsWith(tr))
-      .map((series) => ({ series, range: series.timeRange }));
+  seriesIn(tr: TimeRange): Series[] {
+    const out = this._fetched.filter((s) => s.timeRange.overlapsWith(tr));
     const live = this.buffer?.leadingBuffer;
     const range = this.buffer?.dataTimeRange;
     if (live != null && range != null && live.length > 0 && range.overlapsWith(tr))
-      out.push({ series: live, range });
+      out.push(live);
     return out;
   }
 

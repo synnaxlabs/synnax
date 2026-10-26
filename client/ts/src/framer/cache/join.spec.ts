@@ -66,8 +66,12 @@ const waitsOf = (joins: Joins, ...keys: channel.Key[]): Wait[] =>
 
 const keysOf = (joins: Joins): channel.Key[] => joins.waiting(INDEX).map((w) => w.key);
 
+// Returns the buffer the stream writes the channel's samples into.
+const leadingOf = (store: Store, ch: channel.Key): Series | null =>
+  store.open(ch)?.buffer?.leadingBuffer ?? null;
+
 const streamed = (store: Store, ch: channel.Key): number[] =>
-  Array.from(store.leadingBuffer(ch) ?? []).map(Number);
+  Array.from(leadingOf(store, ch) ?? []).map(Number);
 
 describe("Joins", () => {
   describe("landed", () => {
@@ -80,13 +84,13 @@ describe("Joins", () => {
         ),
       );
       expect(waiting.size).toBe(0);
-      expect(store.leadingBuffer(DATA)).toBeNull();
+      expect(leadingOf(store, DATA)).toBeNull();
       expect(keysOf(joins)).toEqual([INDEX, DATA]);
       expect(joins.landed(INDEX, waitsOf(joins, INDEX, DATA)).size).toBe(0);
       expect(keysOf(joins)).toEqual([]);
       expect(joins.joined(DATA)).toBe(true);
       expect(streamed(store, DATA)).toEqual([10, 20, 30]);
-      expect(store.leadingBuffer(DATA)?.alignment).toBe(alignmentOf(BLOCK, 0));
+      expect(leadingOf(store, DATA)?.alignment).toBe(alignmentOf(BLOCK, 0));
       expect(store.raw(DATA, BLOCK).coveredEnd).toEqual(at(3).add(1));
     });
 
@@ -127,7 +131,7 @@ describe("Joins", () => {
       );
       expect(joins.landed(INDEX, waitsOf(joins, INDEX, DATA)).size).toBe(0);
       expect(streamed(store, DATA)).toEqual([50, 60]);
-      expect(store.leadingBuffer(DATA)?.alignment).toBe(alignmentOf(BLOCK, 4));
+      expect(leadingOf(store, DATA)?.alignment).toBe(alignmentOf(BLOCK, 4));
       expect(store.raw(INDEX, BLOCK).coveredCount).toBe(6);
       expect(store.raw(DATA, BLOCK).coveredCount).toBe(6);
     });
@@ -155,7 +159,7 @@ describe("Joins", () => {
       );
       expect(joins.landed(INDEX, waitsOf(joins, INDEX, DATA)).size).toBe(0);
       expect(streamed(store, DATA)).toEqual([50, 60]);
-      expect(store.leadingBuffer(DATA)?.alignment).toBe(alignmentOf(BLOCK, 4));
+      expect(leadingOf(store, DATA)?.alignment).toBe(alignmentOf(BLOCK, 4));
       expect(store.raw(INDEX, BLOCK).coveredEnd).toEqual(claimed);
     });
 
@@ -177,7 +181,7 @@ describe("Joins", () => {
       expect(keysOf(joins)).toEqual([DATA]);
       expect(joins.bounced(DATA)).toBe(true);
       expect(joins.catchUpFrom(DATA, at(1000))).toBe(BLOCK);
-      expect(store.leadingBuffer(DATA)).toBeNull();
+      expect(leadingOf(store, DATA)).toBeNull();
     });
 
     it("should place a historyless member's first samples at their index offsets", () => {
@@ -195,11 +199,20 @@ describe("Joins", () => {
       );
       expect(joins.landed(INDEX, waitsOf(joins, DATA), true).size).toBe(0);
       expect(streamed(store, DATA)).toEqual([50, 60]);
-      expect(store.leadingBuffer(DATA)?.alignment).toBe(alignmentOf(BLOCK, 4));
+      expect(leadingOf(store, DATA)?.alignment).toBe(alignmentOf(BLOCK, 4));
     });
   });
 
   describe("write", () => {
+    it("should leave the series of a channel outside every join out of the store", () => {
+      const { store, joins } = createJoined();
+      const other = 3;
+      const series = createData([1, 2], 0n, spanOf([1, 2]));
+      expect(joins.write(createFrame([other, series]))).toEqual(new Set());
+      expect(store.open(other)).toBeNull();
+      expect(store.findRaw(other, BLOCK)).toBeUndefined();
+    });
+
     it("should place untimed data samples by their Core alignment", () => {
       const { store } = createJoined();
       expect(streamed(store, DATA)).toEqual([10, 20]);
@@ -322,12 +335,6 @@ describe("Joins", () => {
       );
       expect(waiting).toEqual(new Set([INDEX]));
       expect(keysOf(joins)).toEqual([DATA]);
-    });
-
-    it("should write the series of a channel in no join into the store", () => {
-      const { store, joins } = createJoins();
-      joins.write(createFrame([3, createData([1, 2], 0n, spanOf([1, 2]))]));
-      expect(streamed(store, 3)).toEqual([1, 2]);
     });
   });
 

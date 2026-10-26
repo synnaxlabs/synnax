@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { MultiSeries, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import {
@@ -138,14 +138,13 @@ class Join {
 }
 
 /**
- * Writes the stream's frames into the store, and joins the streams of joined channels
- * to their raw blocks. A join holds the streamed series of its index channel and of
- * the data channels on it while it catches up with a read. Then index samples get
- * block offsets in time order, and data samples take the offsets of the index samples
- * that share their Core alignment, from the same frame or an earlier one. A gap in the
- * stream, a new data type, or a change to the history of an open block sends a join
- * back to wait. Every method that can do so returns the index channels of the joins
- * that wait.
+ * Joins the streams of joined channels to their raw blocks in the store. A join holds
+ * the streamed series of its index channel and of the data channels on it while it
+ * catches up with a read. Then index samples get block offsets in time order, and data
+ * samples take the offsets of the index samples that share their Core alignment, from
+ * the same frame or an earlier one. A gap in the stream, a new data type, or a change
+ * to the history of an open block sends a join back to wait. Every method that can do
+ * so returns the index channels of the joins that wait.
  */
 export class Joins {
   private readonly joins = new Map<channel.Key, Join>();
@@ -259,17 +258,18 @@ export class Joins {
     return this.drain();
   }
 
-  /** Writes a streamed frame, holding the series of joined channels that wait. */
+  /**
+   * Writes the series of joined channels in a streamed frame, holding those of members
+   * that wait. Other channels' series stay out of the store.
+   */
   write(frame: Map<channel.Key, Series[]>): Set<channel.Key> {
     frame.forEach((series, ch) => {
       const j = this.joins.get(ch);
       if (j != null) this.writeIndex(j, series);
     });
     frame.forEach((series, ch) => {
-      if (this.joins.has(ch)) return;
       const m = this.members.get(ch);
-      if (m == null) this.store.write(ch, new MultiSeries(series));
-      else this.writeData(m, series);
+      if (m != null && !this.joins.has(ch)) this.writeData(m, series);
     });
     return this.drain();
   }

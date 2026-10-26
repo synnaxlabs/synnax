@@ -26,7 +26,6 @@ import {
   offsetOf,
   RAW_LEVEL,
   RawBlock,
-  rawIndex,
   rawKey,
 } from "@/framer/cache/block";
 import { Dynamic, type DynamicProps } from "@/framer/cache/dynamic";
@@ -85,10 +84,10 @@ export const calculated = (p: channel.Payload): boolean =>
 
 /**
  * Caches blocks of channel samples under one byte budget. The least recently used block
- * leaves first. Every block of a channel holds one data type. Streamed samples go into
- * the raw block of their time, which stays open until the stream moves past it.
- * A sealed block stays valid until a history change names it while the history signals
- * stream. Other blocks expire.
+ * leaves first. Every block of a channel holds one data type. A join appends streamed
+ * samples to the raw block of their time, which stays open until the stream moves past
+ * it. A sealed block stays valid until a history change names it while the history
+ * signals stream. Other blocks expire.
  */
 export class Store {
   private readonly budget: number;
@@ -260,7 +259,7 @@ export class Store {
   /**
    * @returns the channel's raw block at the index, cached empty when absent. An expired
    * block comes back without its fetched samples.
-   * @throws {UnexpectedError} if the block under the raw block's key is not a raw block.
+   * @throws {UnexpectedError} if another kind of block holds the raw block's key.
    */
   raw(ch: channel.Key, index: number): RawBlock {
     const cached = this.findRaw(ch, index);
@@ -276,7 +275,7 @@ export class Store {
 
   /**
    * @returns the channel's raw block at the index, or undefined when none is cached.
-   * @throws {UnexpectedError} if the block under the raw block's key is not a raw block.
+   * @throws {UnexpectedError} if another kind of block holds the raw block's key.
    */
   findRaw(ch: channel.Key, index: number): RawBlock | undefined {
     const key = rawKey(ch, index);
@@ -331,41 +330,12 @@ export class Store {
   }
 
   /**
-   * Writes streamed series of the channel into the raw blocks of their start times. A
-   * series with no time range goes into the block of the wall clock.
-   */
-  write(ch: channel.Key, series: MultiSeries): void {
-    for (const s of series.series) {
-      this.retainDataType(ch, s.dataType);
-      const live = this.liveOf(ch);
-      const index = rawIndex(s.timeRange.isZero ? this.now() : s.timeRange.start);
-      if (live.block != null && live.block.index !== index) this.seal(live);
-      let block = live.block;
-      const opened = block == null;
-      if (block == null) {
-        block = this.raw(ch, index);
-        block.buffer = live.buffer;
-        live.block = block;
-      }
-      const res = live.buffer.write(new MultiSeries([s]));
-      block.stream(res.flushed.series);
-      if (opened || res.flushed.series.length > 0 || res.allocated.series.length > 0)
-        this.set(rawKey(ch, index), block);
-    }
-  }
-
-  /**
    * Closes the channel's open block, stamping the end of its buffer. Call it when the
    * stream stops delivering the channel, so reads fetch the span it will not deliver.
    */
   flush(ch: channel.Key): void {
     const live = this.live.get(ch);
     if (live != null) this.seal(live);
-  }
-
-  /** @returns the buffer the stream is writing the channel's samples into. */
-  leadingBuffer(ch: channel.Key): Series | null {
-    return this.live.get(ch)?.buffer.leadingBuffer ?? null;
   }
 
   /**
@@ -408,16 +378,15 @@ export class Store {
     this.bytes = 0;
   }
 
-  // Closes the open block. A joined block keeps its streamed samples as fetched ones,
-  // and is complete when the stream moved past it.
+  // Closes the open block. It keeps its streamed samples as fetched ones, and is
+  // complete when the stream moved past it.
   private seal(live: Live, complete = false): void {
     const { block } = live;
     if (block == null) return;
     const flushed = live.buffer.flush();
     if (flushed != null && flushed.length > 0)
-      if (block.joined) block.fill([flushed], block.coveredEnd, block.coveredCount);
-      else block.stream([flushed]);
-    if (block.joined && complete) block.extend(block.range.end, block.coveredCount);
+      block.fill([flushed], block.coveredEnd, block.coveredCount);
+    if (complete) block.extend(block.range.end, block.coveredCount);
     block.joined = false;
     block.buffer = null;
     live.block = null;

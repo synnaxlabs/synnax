@@ -84,7 +84,7 @@ interface AckWaiter {
 
 export interface MultiplexedStreamerProps {
   store: Store;
-  /** Writes the stream's frames into the store. */
+  /** Joins the stream's frames to the raw blocks of joined channels. */
   joins: Joins;
   /** Receives the index channels of the joins that wait for a catch-up read. */
   onWait: (indexes: Set<channel.Key>) => void;
@@ -501,13 +501,7 @@ export class MultiplexedStreamer {
           else existing.push(s);
         });
         onWait(joins.write(grouped));
-        const demanded = this.demandedKeys();
-        grouped.forEach((_, k) => {
-          // A frame for a key with no remaining demand arrived behind the stream
-          // update, so its block must not stay open.
-          if (!demanded.has(k)) onWait(joins.flush(k));
-          this.setStatus(k, STREAMING);
-        });
+        grouped.forEach((_, k) => this.setStatus(k, STREAMING));
         if (grouped.size !== 0)
           this.entries.forEach((e) => {
             if (e.removed) return;

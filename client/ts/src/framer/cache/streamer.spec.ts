@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
-import { Series, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { DataType, Series, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { type channel } from "@/channel";
@@ -823,49 +823,60 @@ describe("MultiplexedStreamer", () => {
   });
 
   describe("buffer flushing", () => {
-    const stampedSeries = (): Series =>
+    const TIMES = [10, 11, 12].map((s) => TimeStamp.seconds(s).valueOf());
+
+    const createTimestamps = (): Series =>
       new Series({
-        data: new Float32Array([1, 2, 3]),
+        data: new BigInt64Array(TIMES),
+        dataType: DataType.TIMESTAMP,
         alignment: 0n,
         timeRange: TimeStamp.seconds(10).range(TimeStamp.seconds(13)),
       });
 
-    it("should flush a channel's buffer when its demand ends", async () => {
-      const store = new Store();
+    // Returns the stores a streamer writes into, with a caught-up join of each index
+    // channel, so the stream writes their samples into open blocks.
+    const createJoined = (...indexes: channel.Key[]) => {
+      const cache = createCache();
+      indexes.forEach((k) => {
+        cache.joins.join(k, k);
+        cache.joins.landed(k, cache.joins.waiting(k));
+      });
+      return cache;
+    };
+
+    it("should close a channel's open block when its demand ends", async () => {
+      const cache = createJoined(1);
+      const { store } = cache;
       const streamer = new MultiplexedStreamer({
-        ...createCache(store),
+        ...cache,
         openStreamer: createStreamOpener([
-          oneFrameStreamer([1], new Frame({ 1: stampedSeries() })),
+          oneFrameStreamer([1], new Frame({ 1: createTimestamps() })),
         ]),
         removalDelay: TimeSpan.milliseconds(50),
       });
       const sub = streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(200);
-      expect(store.leadingBuffer(1)).not.toBeNull();
+      expect(store.open(1)).not.toBeNull();
 
       sub.close();
       await vi.advanceTimersByTimeAsync(300);
 
-      expect(store.leadingBuffer(1)).toBeNull();
-      // The flushed samples stay readable but claim no coverage, so a read still
-      // fetches the block.
+      expect(store.open(1)).toBeNull();
       const block = store.raw(1, 0);
       expect(block.buffer).toBeNull();
-      expect(block.streamed.flatMap((s) => Array.from(s))).toEqual([1, 2, 3]);
-      expect(block.covers(TimeStamp.seconds(10).range(TimeStamp.seconds(20)))).toBe(
-        false,
-      );
+      expect(block.fetched.flatMap((s) => Array.from(s))).toEqual(TIMES);
       await streamer.close();
     });
 
-    it("should flush only the keys that left the stream", async () => {
-      const store = new Store();
+    it("should close only the blocks of the keys that left the stream", async () => {
+      const cache = createJoined(1, 2);
+      const { store } = cache;
       const streamer = new MultiplexedStreamer({
-        ...createCache(store),
+        ...cache,
         openStreamer: createStreamOpener([
           oneFrameStreamer(
             [1, 2],
-            new Frame([1, 2], [stampedSeries(), stampedSeries()]),
+            new Frame([1, 2], [createTimestamps(), createTimestamps()]),
           ),
         ]),
         removalDelay: TimeSpan.milliseconds(50),
@@ -873,76 +884,57 @@ describe("MultiplexedStreamer", () => {
       const sub1 = streamer.demand([1], () => {});
       const sub2 = streamer.demand([2], () => {});
       await vi.advanceTimersByTimeAsync(200);
-      expect(store.leadingBuffer(1)).not.toBeNull();
-      expect(store.leadingBuffer(2)).not.toBeNull();
+      expect(store.open(1)).not.toBeNull();
+      expect(store.open(2)).not.toBeNull();
 
       sub2.close();
       await vi.advanceTimersByTimeAsync(300);
 
-      expect(store.leadingBuffer(1)).not.toBeNull();
-      expect(store.leadingBuffer(2)).toBeNull();
+      expect(store.open(1)).not.toBeNull();
+      expect(store.open(2)).toBeNull();
       sub1.close();
       await streamer.close();
     });
 
-    it("should flush buffers when the stream drops", async () => {
-      const store = new Store();
+    it("should close open blocks when the stream drops", async () => {
+      const cache = createJoined(1);
+      const { store } = cache;
       const hooks: StreamHooks[] = [];
       const streamer = new MultiplexedStreamer({
-        ...createCache(store),
+        ...cache,
         openStreamer: createStreamOpener(
-          [oneFrameStreamer([1], new Frame({ 1: stampedSeries() }))],
+          [oneFrameStreamer([1], new Frame({ 1: createTimestamps() }))],
           hooks,
         ),
       });
       const sub = streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(200);
-      expect(store.leadingBuffer(1)).not.toBeNull();
+      expect(store.open(1)).not.toBeNull();
 
       hooks[0].onDrop(new Error("conn lost"));
 
-      expect(store.leadingBuffer(1)).toBeNull();
+      expect(store.open(1)).toBeNull();
       sub.close();
       await streamer.close();
     });
 
-    it("should flush buffers when the run loop dies", async () => {
-      const store = new Store();
+    it("should close open blocks when the run loop dies", async () => {
+      const cache = createJoined(1);
+      const { store } = cache;
       const dying = new MockStreamer([1], undefined, [
-        new Frame({ 1: stampedSeries() }),
+        new Frame({ 1: createTimestamps() }),
       ]);
       const replacement = pendingStreamer([1]);
       const streamer = new MultiplexedStreamer({
-        ...createCache(store),
+        ...cache,
         openStreamer: createStreamOpener([dying, replacement]),
       });
       const sub = streamer.demand([1], () => {});
       await vi.advanceTimersByTimeAsync(1000);
 
       expect(replacement.iteratorVi).toHaveBeenCalled();
-      expect(store.leadingBuffer(1)).toBeNull();
-      const block = store.raw(1, 0);
-      expect(block.buffer).toBeNull();
-      expect(block.streamed.flatMap((s) => Array.from(s))).toEqual([1, 2, 3]);
-      sub.close();
-      await streamer.close();
-    });
-
-    it("should flush a frame for a key with no demand", async () => {
-      const store = new Store();
-      const streamer = new MultiplexedStreamer({
-        ...createCache(store),
-        openStreamer: createStreamOpener([
-          oneFrameStreamer([1], new Frame({ 2: stampedSeries() })),
-        ]),
-      });
-      const sub = streamer.demand([1], () => {});
-      await vi.advanceTimersByTimeAsync(200);
-
-      expect(store.leadingBuffer(2)).toBeNull();
-      const block = store.raw(2, 0);
-      expect(block.buffer).toBeNull();
-      expect(block.streamed.flatMap((s) => Array.from(s))).toEqual([1, 2, 3]);
+      expect(store.open(1)).toBeNull();
+      expect(store.raw(1, 0).buffer).toBeNull();
       sub.close();
       await streamer.close();
     });

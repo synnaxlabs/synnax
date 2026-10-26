@@ -11,7 +11,6 @@ import { Unreachable } from "@synnaxlabs/freighter";
 import {
   debounce,
   errors,
-  MultiSeries,
   type Reduction,
   type Series,
   sync,
@@ -123,14 +122,13 @@ export class Reader {
   }
 
   /**
-   * Reads the given time range for the given channel. Series are not cut to the range,
-   * so the result can hold samples outside it. Series come in time order. A streamed
-   * series that overlaps a fetched one is left out.
-   * @throws {UnexpectedError} if the reader is closed while the read is pending.
-   * @throws {Unreachable} if a fetch serving the read exceeds the fetch timeout.
+   * Fetches the channel's raw blocks over the time range that their samples do not
+   * cover yet. Settles once every fetch lands.
+   * @throws {UnexpectedError} if the reader is closed while the fill is pending.
+   * @throws {Unreachable} if a fetch serving the fill exceeds the fetch timeout.
    * @throws {NotFoundError} if the channel does not exist.
    */
-  async read(tr: TimeRange, ch: channel.Key): Promise<MultiSeries> {
+  async fill(tr: TimeRange, ch: channel.Key): Promise<void> {
     if (this.closed) throw new UnexpectedError("telemetry reader is closed");
     const blocks = indexes(tr, RAW_LEVEL).map((i) => this.props.store.raw(ch, i));
     const waits: Array<Promise<void>> = [];
@@ -139,7 +137,7 @@ export class Reader {
       b.pending ??= this.enqueue(b, TimeStamp.min(tr.end, b.range.end), false);
       waits.push(b.pending);
     }
-    // The read settles after its last fetch, and its first failure wins.
+    // The fill settles after its last fetch, and its first failure wins.
     let failure: Error | undefined;
     await Promise.all(
       waits.map(async (w) => {
@@ -151,15 +149,6 @@ export class Reader {
       }),
     );
     if (failure != null) throw failure;
-    // A streamed series stays in the block it starts in, so one that crosses into the
-    // read's first block is in the block before it.
-    const before = this.props.store.findRaw(ch, blocks[0].index - 1);
-    const series = assemble(tr, before == null ? blocks : [before, ...blocks]);
-    // A fetch with a new data type drops the channel's blocks from the store, but this
-    // read took its blocks before the fetch, so they can hold the old data type.
-    if (new Set(series.map((s) => s.dataType.toString())).size > 1)
-      return await this.read(tr, ch);
-    return new MultiSeries(series);
   }
 
   /**
@@ -333,7 +322,7 @@ export class Reader {
         }
         const from = block.index === first ? start : block.range.start;
         if (changed) {
-          block.reset();
+          block.expire();
           if (!from.equals(block.range.start)) {
             refetch.add(r);
             return;
@@ -410,23 +399,4 @@ const runs = (entries: Array<debounce.Entry<Request>>): Group[] => {
       });
   }
   return out;
-};
-
-/**
- * @returns the series of the blocks that overlap tr in time order. The fetched form of
- * a span wins: a streamed series that overlaps a fetched one is left out.
- */
-export const assemble = (tr: TimeRange, blocks: RawBlock[]): Series[] => {
-  const fetched = blocks.flatMap((b) =>
-    b.fetched
-      .filter((s) => s.timeRange.overlapsWith(tr))
-      .map((series) => ({ series, range: series.timeRange })),
-  );
-  const all = blocks.flatMap((b) => b.fetched);
-  const streamed = blocks
-    .flatMap((b) => b.streamedIn(tr))
-    .filter(({ range }) => !all.some((f) => f.timeRange.overlapsWith(range)));
-  return [...fetched, ...streamed]
-    .sort((a, b) => TimeRange.sort(a.range, b.range))
-    .map(({ series }) => series);
 };
