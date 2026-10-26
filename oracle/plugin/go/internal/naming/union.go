@@ -29,8 +29,7 @@ type UnionBase struct {
 	Method string
 }
 
-// UnionBases returns the bases that the Go union reads with a method, in extends
-// order.
+// UnionBases returns the bases that the Go union reads with a method, in extends order.
 func UnionBases(form resolution.UnionForm, table *resolution.Table) []UnionBase {
 	return lo.FilterMap(
 		resolver.SharedBases(form, table),
