@@ -122,7 +122,7 @@ export interface TableParams<
  * with NotFound when any key in it has vanished. Splits a rejected batch in halves
  * until each vanished key stands alone, so a few vanished keys cost a few requests,
  * not one per key.
- * @throws the first error that is not a NotFoundError.
+ * @throws {Error} if the fetch rejects with an error other than NotFoundError.
  */
 export const fetchSurvivors = async <Key extends record.Key, Result>(
   fetch: (keys: Key[]) => Promise<Result[]>,
