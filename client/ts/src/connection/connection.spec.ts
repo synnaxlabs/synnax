@@ -116,6 +116,7 @@ const createInfo = (overrides: Partial<connection.Info> = {}): connection.Info =
   clusterKey: "test-cluster",
   nodeVersion: __VERSION__,
   clockSkew: TimeSpan.ZERO,
+  roundTrip: TimeSpan.ZERO,
   license: "ok",
   ...overrides,
 });
@@ -267,6 +268,30 @@ describe("connection", () => {
         info: await sendCheck(unary),
       });
       expect(status.details.clockSkewExceeded).toBe(false);
+    });
+
+    it("should not flag skew within half the round trip", () => {
+      const config = createConfig({ clockSkewThreshold: TimeSpan.seconds(1) });
+      const status = apply(config, {
+        type: "check.success",
+        info: createInfo({
+          clockSkew: TimeSpan.milliseconds(-1500),
+          roundTrip: TimeSpan.seconds(2),
+        }),
+      });
+      expect(status.details.clockSkewExceeded).toBe(false);
+    });
+
+    it("should flag skew beyond half the round trip", () => {
+      const config = createConfig({ clockSkewThreshold: TimeSpan.seconds(1) });
+      const status = apply(config, {
+        type: "check.success",
+        info: createInfo({
+          clockSkew: TimeSpan.milliseconds(-2500),
+          roundTrip: TimeSpan.seconds(2),
+        }),
+      });
+      expect(status.details.clockSkewExceeded).toBe(true);
     });
   });
 
