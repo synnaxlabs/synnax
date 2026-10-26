@@ -43,16 +43,8 @@ export default manifest.define([
   hero("console/alarms/hero", "scripts/still-alarm-hero.ts"),
   hero("hardware/hero", "scripts/still-hardware-hero.ts"),
   hero("console/projects/hero", "scripts/still-project-hero.ts"),
-  {
-    id: "console/ui-overview/palette-search",
-    script: "scripts/ui-overview-palette-search.ts",
-  },
   { id: "console/line-plots/toolbar", script: "scripts/line-plot-toolbar.ts" },
   { id: "console/line-plots/slope", script: "scripts/line-plot-slope.ts" },
-  {
-    id: "console/ui-overview/documentation",
-    script: "scripts/ui-overview-documentation.ts",
-  },
   { id: "console/logs/example", script: "scripts/log-example.ts" },
   {
     id: "console/schematics/connections",
@@ -169,10 +161,6 @@ export default manifest.define([
     id: "control/arc/graph-editor/build-alarm",
     script: "scripts/control-arc-build-alarm.ts",
   },
-  {
-    id: "device-drivers/task/command-palette",
-    script: "scripts/task-command-palette.ts",
-  },
   { id: "console/line-plots/create", script: "scripts/line-plot-create.ts" },
   { id: "console/logs/create", script: "scripts/log-create.ts" },
   { id: "console/schematics/create", script: "scripts/schematic-create.ts" },
@@ -191,10 +179,6 @@ export default manifest.define([
   { id: "console/panels/split", script: "scripts/panels-split.ts" },
   { id: "console/panels/move", script: "scripts/panels-move.ts" },
   { id: "console/panels/focus", script: "scripts/panels-focus.ts" },
-  {
-    id: "device-drivers/task/layout-selector",
-    script: "scripts/task-layout-selector.ts",
-  },
   // Hardware shots run against the simulated Driver in fixtures/hardware.ts.
   { id: "device-drivers/task/task-basic", script: "scripts/tasks-start.ts" },
   { id: "hardware/devices/toolbar", script: "scripts/devices-toolbar.ts" },

@@ -88,6 +88,11 @@ two-color gradient, from `Hero.Hero`.
 - A release before 0.60 frames its existing picture or video with `image` or `video`.
   `framed` shows all of it. `bleed` cuts it at the right and bottom, for media whose
   subject is at its top left. A video is always `framed`, so its controls show.
+- A still is `bleed`, `layered`, or `centered` when its subject is at the left of the
+  window. A subject at the middle, such as a dialog, needs `framed`.
+- A page or release has one cover: the hero at its top. A hero for a feature inside it
+  is `inset`, which keeps it in the text column, shorter, and in a faint tint. An inset
+  hero takes no `tone` and cannot be `layered`.
 - Give neighbors a different palette and tone. `layered` needs a `toolbar` region.
 
 ### Navigation

@@ -20,6 +20,7 @@ export const components = mdxOverrides;
 
 <Hero.Hero
   image="releases/0-49-0/thumbnail"
+  extension="webp"
   themed={false}
   layout="framed"
   tone="soft"
@@ -44,9 +45,10 @@ providing a unified view of your entire system's health.
 
 <Hero.Hero
   image="releases/0-49-0/status-handling"
+  extension="webp"
   themed={false}
   layout="bleed"
-  tone="deep"
+  inset
   palette="red-orange"
 />
 
@@ -78,7 +80,12 @@ The schematic editor toolbar now includes buttons for aligning, distributing, an
 rotating selected elements.
 
 <Flex.Box x justify="center">
-  <Image style={{ width: 400 }} id="releases/0-49-0/spacing" themed={false} />
+  <Image
+    style={{ width: 400 }}
+    id="releases/0-49-0/spacing"
+    extension="webp"
+    themed={false}
+  />
 </Flex.Box>
 
 <Divider.Divider x />

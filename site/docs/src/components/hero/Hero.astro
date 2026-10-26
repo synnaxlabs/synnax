@@ -47,13 +47,25 @@ const PALETTES = {
 } as const;
 
 interface BaseProps {
+    /** The two colors of the gradient. */
+    palette: keyof typeof PALETTES;
+}
+
+interface CoverProps {
+    inset?: false;
     /**
      * `soft` is a muted diagonal between the two colors. `deep` glows them from
      * opposite corners of a dark base.
      */
     tone: "soft" | "deep";
-    /** The two colors of the gradient. */
-    palette: keyof typeof PALETTES;
+}
+
+interface InsetProps {
+    /**
+     * Shows a feature inside a page: in the text column, shorter, and in a faint tint
+     * of the palette. A page has one hero without `inset`, at its top.
+     */
+    inset: true;
 }
 
 interface StillProps extends BaseProps {
@@ -62,9 +74,10 @@ interface StillProps extends BaseProps {
     /**
      * Where the window sits on the gradient. `bleed` runs it off the right and bottom
      * edges. `layered` dims that window and lifts its bottom toolbar out in front.
-     * `centered` runs it off the bottom edge only.
+     * `centered` runs it off the bottom edge only. `framed` shows all of it, for a
+     * subject at the middle of the window.
      */
-    layout: "bleed" | "layered" | "centered";
+    layout: "bleed" | "layered" | "centered" | "framed";
 }
 
 /**
@@ -89,10 +102,11 @@ interface VideoMediaProps extends BaseProps {
     layout: MediaLayout;
 }
 
-export type Props = StillProps | ImageMediaProps | VideoMediaProps;
+export type Props = (StillProps | ImageMediaProps | VideoMediaProps) &
+    (CoverProps | InsetProps);
 
 const props = Astro.props;
-const { layout, tone, palette } = props;
+const { layout, palette } = props;
 const [from, to] = PALETTES[palette];
 let toolbar: Rect | undefined;
 let still: string | undefined;
@@ -108,6 +122,8 @@ if ("still" in props) {
         throw new Error(
             `the ${props.still} still records no toolbar for the layered layout`,
         );
+    if (layout === "layered" && props.inset === true)
+        throw new Error(`the ${props.still} hero cannot be both layered and inset`);
 }
 const style = [
     `--from: ${from}`,
@@ -123,24 +139,27 @@ const style = [
 ].join("; ");
 ---
 
-<div class:list={["docs-hero", layout, tone, { media: still == null }]} style={style}>
+<div
+    class:list={[
+        "docs-hero",
+        layout,
+        props.inset === true ? "inset" : props.tone,
+        { media: still == null },
+    ]}
+    style={style}
+>
     <div class="window">
         {still != null ? (
-            <Image id={still} extension="webp" loading="eager" />
+            <Image id={still} extension="webp" />
         ) : "image" in props ? (
-            <Image
-                id={props.image}
-                themed={props.themed}
-                extension={props.extension}
-                loading="eager"
-            />
+            <Image id={props.image} themed={props.themed} extension={props.extension} />
         ) : (
             "video" in props && <Video id={props.video} themed={props.themed} />
         )}
     </div>
     {layout === "layered" && still != null && (
         <div class="toolbar">
-            <Image id={still} extension="webp" loading="eager" />
+            <Image id={still} extension="webp" />
         </div>
     )}
 </div>
@@ -156,8 +175,10 @@ const style = [
         box-shadow: inset 0 0 0 1px rgb(255 255 255 / 8%);
 
         @media (width > 1100px) {
-            width: calc(100% + 10rem);
-            margin-inline: -5rem;
+            &:not(.inset) {
+                width: calc(100% + 10rem);
+                margin-inline: -5rem;
+            }
         }
 
         /* Sizes are in CSS pixels at the 792 px desktop width, and scale with it. */
@@ -168,10 +189,13 @@ const style = [
 
     /* Turns `from` back and `to` forward in hue and lightens `to`, which keeps the two
        colors apart at half strength when `to` follows `from` on the hue wheel. */
-    .soft {
+    .soft,
+    .inset {
         --a: oklch(from var(--from) l c calc(h - 18));
         --b: oklch(from var(--to) l c calc(h + 18));
+    }
 
+    .soft {
         background:
             radial-gradient(90% 70% at 0% 0%, rgb(255 255 255 / 4%), transparent 60%),
             linear-gradient(
@@ -264,7 +288,7 @@ const style = [
     }
 
     /* Media from before Studio sits nearer the corner than a still. */
-    .media.bleed .window {
+    .media.bleed:not(.inset) .window {
         top: calc(30 * var(--px));
         left: calc(32 * var(--px));
     }
@@ -277,6 +301,41 @@ const style = [
             position: relative;
             width: calc(728 * var(--px));
             margin: calc(30 * var(--px)) auto calc(34 * var(--px));
+        }
+
+        &:not(.media, .inset) .window {
+            --scale: 0.57;
+        }
+    }
+
+    /* Over the page gray, so it follows the theme and stays quieter than the cover. */
+    .inset {
+        margin-top: 3rem;
+        border-radius: 1.5rem;
+        background: linear-gradient(
+            135deg in oklab,
+            color-mix(in oklab, var(--a) 26%, var(--pluto-gray-l2)),
+            color-mix(in oklab, var(--b) 26%, var(--pluto-gray-l3))
+        );
+        box-shadow: inset 0 0 0 1px var(--pluto-gray-l4);
+
+        &:not(.framed) {
+            aspect-ratio: 12 / 5;
+        }
+
+        &.bleed .window {
+            --scale: 0.61;
+
+            top: calc(36 * var(--px));
+            left: calc(40 * var(--px));
+            width: calc(780 * var(--px));
+        }
+
+        &.framed .window {
+            --scale: 0.47;
+
+            width: calc(600 * var(--px));
+            margin: calc(28 * var(--px)) auto;
         }
     }
 </style>
