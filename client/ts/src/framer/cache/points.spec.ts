@@ -22,6 +22,7 @@ import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
 import { AccessDeniedError, ValidationError } from "@/errors";
+import { rawIndex } from "@/framer/cache/block";
 import {
   index as tileIndex,
   level as tileLevel,
@@ -193,6 +194,25 @@ describe("Points", () => {
         const filled = store.leadingBuffer(key);
         core.advance(TimeSpan.milliseconds(300));
         await expect.poll(() => store.leadingBuffer(key) !== filled, POLL).toBe(true);
+        expect(servesBuffer()).toBe(true);
+      } finally {
+        await close();
+      }
+    });
+    it("should serve the new block when the stream crosses a block edge", async () => {
+      const core = createCore();
+      const { store, joins, subscribe, close } = createPoints(core);
+      const key = core.index.key;
+      const points = subscribe(key, window, RAW);
+      const servesBuffer = () =>
+        points.value().series.series.at(-1) === store.leadingBuffer(key);
+      try {
+        await expect.poll(() => joins.joined(key), POLL).toBe(true);
+        core.advance(TimeSpan.milliseconds(100));
+        await expect.poll(servesBuffer, POLL).toBe(true);
+        const block = rawIndex(core.now());
+        core.advance(TimeSpan.seconds(4));
+        await expect.poll(() => store.open(key)?.index, POLL).toBe(block + 1);
         expect(servesBuffer()).toBe(true);
       } finally {
         await close();
