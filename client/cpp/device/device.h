@@ -72,7 +72,7 @@ struct RetrieveOptions {
     bool include_parent = false;
 };
 
-/// @brief Request structure for retrieving devices with various filter options.
+/// @brief Client for managing devices in a Synnax cluster.
 class Client {
 public:
     /// @brief Constructs a new device client with the given transport clients.
