@@ -26,8 +26,8 @@
         padding: 0 1.5rem;
         flex-grow: 1;
 
-        /* Lets the content shrink below the text's intrinsic width so the ellipsis
-        engages instead of the box widening. */
+        /* Lets the content shrink below the text's intrinsic width so the text fades
+        instead of the box widening. */
         min-width: 0;
 
         & .pluto-text {

@@ -14,6 +14,7 @@ import { type z } from "zod";
 
 import { telemTest } from "@/telem/aether/test";
 import { renderAether } from "@/testutil/renderAether";
+import { type FillTextOptions } from "@/vis/draw2d/canvas";
 import { canvasTest } from "@/vis/render/test";
 import { stringValue } from "@/vis/stringValue/aether";
 
@@ -51,6 +52,11 @@ const calls = (recorder: canvasTest.Recorder, op: string) =>
 
 const fillTexts = (recorder: canvasTest.Recorder): string[] =>
   calls(recorder, "fillText").map((c) => c.args[0] as string);
+
+const fades = (recorder: canvasTest.Recorder): FillTextOptions["fade"][] =>
+  calls(recorder, "fillText").map(
+    (c) => (c.args[4] as FillTextOptions | undefined)?.fade,
+  );
 
 const lastFillStyle = (recorder: canvasTest.Recorder): string | undefined =>
   calls(recorder, "set:fillStyle").at(-1)?.args[0] as string | undefined;
@@ -129,38 +135,53 @@ describe("stringValue.StringValue", () => {
 
   describe("overflow", () => {
     const narrow = box.construct(xy.ZERO, { width: 6 * CHAR_WIDTH, height: 30 });
+    // Lyra fades overflowing text over its last 2.25rem.
+    const FADE = { end: 6 * CHAR_WIDTH, width: 2.25 * THEME.sizes.base };
 
-    it("should draw a value that fits unchanged", () => {
+    it("should draw a value that fits with no fade", () => {
       const { recorder } = setup({ value: "ABCDEF", state: { box: narrow } });
       expect(fillTexts(recorder)).toEqual(["ABCDEF"]);
+      expect(fades(recorder)).toEqual([undefined]);
     });
 
-    it("should end a value too long for the box with an ellipsis", () => {
+    it("should fade out the end of a value too long for the box", () => {
       const { recorder } = setup({ value: "ABCDEFGHIJ", state: { box: narrow } });
-      expect(fillTexts(recorder)).toEqual(["ABCDE…"]);
+      expect(fillTexts(recorder)).toEqual(["ABCDEFGHIJ"]);
+      expect(fades(recorder)).toEqual([FADE]);
+    });
+
+    // Emoji ignore the fade, so only the clip keeps them inside the box.
+    it("should clip a value too long for the box to the box", () => {
+      const { recorder } = setup({ value: "ABCDEFGHIJ", state: { box: narrow } });
+      expect(calls(recorder, "scissor").map((c) => c.args[0])).toEqual([narrow]);
+    });
+
+    it("should not clip a value that fits", () => {
+      const { recorder } = setup({ value: "ABCDEF", state: { box: narrow } });
+      expect(calls(recorder, "scissor")).toEqual([]);
     });
 
     // A web font that loads after the first draw changes the text's width, but not the
     // value, the font string, or the box.
-    it("should cut the value again when the font's metrics change", () => {
+    it("should measure the value again when the font's metrics change", () => {
       const { component, recorder } = setup({
-        value: "ABCDEFGHIJ",
+        value: "ABCDEF",
         state: { box: narrow },
       });
       recorder.upper2d.textDimensions = (label) => ({
-        width: Array.from(label).length * 12,
+        width: label.length * 12,
         height: 12,
       });
       recorder.clear();
       component.render({});
-      expect(fillTexts(recorder)).toEqual(["ABC…"]);
+      expect(fades(recorder)).toEqual([FADE]);
     });
 
-    it("should fit the value to a box that grows", () => {
+    it("should stop fading the value in a box that grows to fit it", () => {
       const { h, recorder } = setup({ value: "ABCDEFGHIJ", state: { box: narrow } });
       recorder.clear();
       h.setState((p) => ({ ...p, box: BOX }));
-      expect(fillTexts(recorder)).toEqual(["ABCDEFGHIJ"]);
+      expect(fades(recorder)).toEqual([undefined]);
     });
   });
 

@@ -12,7 +12,6 @@ import { box, color, type destructor, scale, text, xy } from "@synnaxlabs/x";
 
 import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
-import { text as aetherText } from "@/text/aether";
 import { theming } from "@/theming/aether";
 import { type diagram } from "@/vis/diagram/aether";
 import { render } from "@/vis/render";
@@ -20,7 +19,7 @@ import { staleness } from "@/vis/staleness/aether";
 
 export const stateZ = staleness.configZ.extend({
   // box is the region the text fills. The text starts at its left edge, centers on it
-  // vertically, and ends in an ellipsis where it would overflow.
+  // vertically, and fades out where it would overflow.
   box: box.box,
   telem: telem.stringSourceSpecZ.default(telem.noopStringSourceSpec),
   level: text.levelZ.default("p"),
@@ -30,6 +29,9 @@ export const stateZ = staleness.configZ.extend({
 });
 
 const CANVAS_VARIANTS: render.Canvas2DVariant[] = ["upper2d", "lower2d"];
+
+// Lyra fades overflowing text over its last 2.25rem.
+const FADE_REM = 2.25;
 
 interface InternalState {
   theme: theme.Theme;
@@ -101,7 +103,7 @@ export class StringValue
   }
 
   render({ viewportScale = scale.XY.IDENTITY }: { viewportScale?: scale.XY }): void {
-    const { renderCtx, source, fontString, requestRender } = this.internal;
+    const { renderCtx, source, fontString, requestRender, theme } = this.internal;
     const { box: b } = this.state;
     if (requestRender == null) renderCtx.erase(box.construct(this.prevState.box));
     if (box.areaIsZero(b)) return;
@@ -110,13 +112,20 @@ export class StringValue
     canvas.textAlign = "left";
     canvas.textBaseline = "middle";
     canvas.fillStyle = color.hex(this.textColor);
-    const label = aetherText.truncate(
-      source.value(),
-      box.width(b),
-      (l) => canvas.textDimensions(l).width,
-    );
-    if (label.length === 0) return;
-    canvas.fillText(label, box.left(b), box.center(b).y);
+    const value = source.value();
+    if (value.length === 0) return;
+    const position = xy.construct(box.left(b), box.center(b).y);
+    const width = box.width(b);
+    if (canvas.textDimensions(value).width <= width) {
+      canvas.fillText(value, position.x, position.y);
+      return;
+    }
+    // Color glyphs such as emoji ignore the fade, so the box clips them.
+    const removeScissor = canvas.scissor(b);
+    canvas.fillText(value, position.x, position.y, undefined, {
+      fade: { end: width, width: FADE_REM * theme.sizes.base },
+    });
+    removeScissor();
   }
 }
 

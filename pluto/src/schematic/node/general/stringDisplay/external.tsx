@@ -22,7 +22,7 @@ const Preview = ({
   level,
 }: schematic.StringDisplayNodeConfig): ReactElement => (
   <StringDisplay strokeColor={strokeColor} level={level}>
-    <Text.Text level={level} color={textColor} variant="code" overflow="ellipsis">
+    <Text.Text level={level} color={textColor} variant="code" overflow="fade">
       Hello world!
     </Text.Text>
   </StringDisplay>

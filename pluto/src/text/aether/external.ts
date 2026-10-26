@@ -9,4 +9,3 @@
 
 export * from "@/text/aether/atlas";
 export * from "@/text/aether/dimensions";
-export * from "@/text/aether/truncate";
