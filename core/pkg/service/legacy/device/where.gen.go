@@ -17,6 +17,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -54,14 +55,30 @@ func MatchWhere(w Where) (Filter, error) {
 		}
 	}
 	if l := w.Name; l != nil {
-		if l.Eq != nil {
-			fs = append(fs, MatchNames(*l.Eq))
+		if !l.CaseInsensitive {
+			if l.Eq != nil {
+				fs = append(fs, MatchNames(*l.Eq))
+			}
+			if l.In != nil {
+				fs = append(fs, MatchNames(l.In...))
+			}
 		}
-		if l.In != nil {
-			fs = append(fs, MatchNames(l.In...))
+		if l.CaseInsensitive || l.Contains != nil || l.StartsWith != nil {
+			op := *l
+			fs = append(fs, Match(func(
+				_ gorp.Context,
+				_ Retrieve,
+				e *Device,
+			) (bool, error) {
+				return filter.MatchesString(op, e.Name), nil
+			}))
 		}
 		if l.Regex != nil {
-			re, err := regexp.Compile(*l.Regex)
+			pattern := *l.Regex
+			if l.CaseInsensitive {
+				pattern = "(?i)" + pattern
+			}
+			re, err := regexp.Compile(pattern)
 			if err != nil {
 				return nil, validate.PathedError(
 					errors.Wrap(validate.ErrValidation, err.Error()),
@@ -79,14 +96,30 @@ func MatchWhere(w Where) (Filter, error) {
 		}
 	}
 	if l := w.Make; l != nil {
-		if l.Eq != nil {
-			fs = append(fs, MatchMakes(*l.Eq))
+		if !l.CaseInsensitive {
+			if l.Eq != nil {
+				fs = append(fs, MatchMakes(*l.Eq))
+			}
+			if l.In != nil {
+				fs = append(fs, MatchMakes(l.In...))
+			}
 		}
-		if l.In != nil {
-			fs = append(fs, MatchMakes(l.In...))
+		if l.CaseInsensitive || l.Contains != nil || l.StartsWith != nil {
+			op := *l
+			fs = append(fs, Match(func(
+				_ gorp.Context,
+				_ Retrieve,
+				e *Device,
+			) (bool, error) {
+				return filter.MatchesString(op, e.Make), nil
+			}))
 		}
 		if l.Regex != nil {
-			re, err := regexp.Compile(*l.Regex)
+			pattern := *l.Regex
+			if l.CaseInsensitive {
+				pattern = "(?i)" + pattern
+			}
+			re, err := regexp.Compile(pattern)
 			if err != nil {
 				return nil, validate.PathedError(
 					errors.Wrap(validate.ErrValidation, err.Error()),
@@ -104,14 +137,30 @@ func MatchWhere(w Where) (Filter, error) {
 		}
 	}
 	if l := w.Model; l != nil {
-		if l.Eq != nil {
-			fs = append(fs, MatchModels(*l.Eq))
+		if !l.CaseInsensitive {
+			if l.Eq != nil {
+				fs = append(fs, MatchModels(*l.Eq))
+			}
+			if l.In != nil {
+				fs = append(fs, MatchModels(l.In...))
+			}
 		}
-		if l.In != nil {
-			fs = append(fs, MatchModels(l.In...))
+		if l.CaseInsensitive || l.Contains != nil || l.StartsWith != nil {
+			op := *l
+			fs = append(fs, Match(func(
+				_ gorp.Context,
+				_ Retrieve,
+				e *Device,
+			) (bool, error) {
+				return filter.MatchesString(op, e.Model), nil
+			}))
 		}
 		if l.Regex != nil {
-			re, err := regexp.Compile(*l.Regex)
+			pattern := *l.Regex
+			if l.CaseInsensitive {
+				pattern = "(?i)" + pattern
+			}
+			re, err := regexp.Compile(pattern)
 			if err != nil {
 				return nil, validate.PathedError(
 					errors.Wrap(validate.ErrValidation, err.Error()),
@@ -129,14 +178,30 @@ func MatchWhere(w Where) (Filter, error) {
 		}
 	}
 	if l := w.Location; l != nil {
-		if l.Eq != nil {
-			fs = append(fs, MatchLocations(*l.Eq))
+		if !l.CaseInsensitive {
+			if l.Eq != nil {
+				fs = append(fs, MatchLocations(*l.Eq))
+			}
+			if l.In != nil {
+				fs = append(fs, MatchLocations(l.In...))
+			}
 		}
-		if l.In != nil {
-			fs = append(fs, MatchLocations(l.In...))
+		if l.CaseInsensitive || l.Contains != nil || l.StartsWith != nil {
+			op := *l
+			fs = append(fs, Match(func(
+				_ gorp.Context,
+				_ Retrieve,
+				e *Device,
+			) (bool, error) {
+				return filter.MatchesString(op, e.Location), nil
+			}))
 		}
 		if l.Regex != nil {
-			re, err := regexp.Compile(*l.Regex)
+			pattern := *l.Regex
+			if l.CaseInsensitive {
+				pattern = "(?i)" + pattern
+			}
+			re, err := regexp.Compile(pattern)
 			if err != nil {
 				return nil, validate.PathedError(
 					errors.Wrap(validate.ErrValidation, err.Error()),

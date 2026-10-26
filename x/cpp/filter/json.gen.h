@@ -24,7 +24,10 @@ inline String String::parse(x::json::Parser parser) {
     return String{
         .eq = parser.field<std::optional<std::string>>("eq"),
         .in = parser.field<std::optional<std::vector<std::string>>>("in"),
+        .contains = parser.field<std::optional<std::string>>("contains"),
+        .starts_with = parser.field<std::optional<std::string>>("starts_with"),
         .regex = parser.field<std::optional<std::string>>("regex"),
+        .case_insensitive = parser.field<bool>("case_insensitive", false),
     };
 }
 
@@ -32,7 +35,10 @@ inline x::json::json String::to_json() const {
     x::json::json j;
     j["eq"] = this->eq;
     if (this->in.has_value()) j["in"] = *this->in;
+    j["contains"] = this->contains;
+    j["starts_with"] = this->starts_with;
     j["regex"] = this->regex;
+    j["case_insensitive"] = this->case_insensitive;
     return j;
 }
 

@@ -24,14 +24,20 @@ class String(BaseModel):
     Attributes:
         eq: Matches a value equal to eq.
         in_: Matches a value equal to an element of in.
-        regex: Matches a value that the RE2 pattern regex matches.
+        contains: Matches a value that holds contains.
+        starts_with: Matches a value that begins with starts_with.
+        regex: Matches a value that the unanchored RE2 pattern regex matches.
+        case_insensitive: Makes every operator on the slot ignore case.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     eq: str | None = None
     in_: list[str] | None = Field(default=None, alias="in")
+    contains: str | None = None
+    starts_with: str | None = None
     regex: str | None = None
+    case_insensitive: bool = False
 
 
 class Bool(BaseModel):

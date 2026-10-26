@@ -33,12 +33,21 @@ export const matchesSet = <T>(op: Set<z.ZodType<T>>, value: T): boolean =>
   (op.in == null || op.in.some((v) => equal(v, value)));
 
 /**
- * @returns whether value matches every member of op that is set.
+ * @returns whether value matches every member of op that is set. With caseInsensitive,
+ * it compares lower-case values.
  * @throws {Error} if op sets a regex, since regex dialects differ between languages.
  */
 export const matchesString = (op: String, value: string): boolean => {
   if (op.regex != null) throw new Error("cannot match a regex locally");
-  return matchesSet(op, value);
+  const fold = (s: string): string =>
+    op.caseInsensitive === true ? s.toLowerCase() : s;
+  const v = fold(value);
+  return (
+    (op.eq == null || fold(op.eq) === v) &&
+    (op.in == null || op.in.some((e) => fold(e) === v)) &&
+    (op.contains == null || v.includes(fold(op.contains))) &&
+    (op.startsWith == null || v.startsWith(fold(op.startsWith)))
+  );
 };
 
 /** @returns whether value matches every member of op that is set. */

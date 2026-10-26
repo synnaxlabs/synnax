@@ -51,6 +51,27 @@ describe("filter", () => {
       expect(filter.matchesString({ eq: "a", in: ["a"] }, "a")).toBe(true);
     });
 
+    it("should match contains and startsWith", () => {
+      expect(filter.matchesString({ contains: "an" }, "Tank")).toBe(true);
+      expect(filter.matchesString({ contains: "x" }, "Tank")).toBe(false);
+      expect(filter.matchesString({ startsWith: "Ta" }, "Tank")).toBe(true);
+      expect(filter.matchesString({ startsWith: "an" }, "Tank")).toBe(false);
+    });
+
+    it("should compare case by default", () => {
+      expect(filter.matchesString({ eq: "tank" }, "Tank")).toBe(false);
+      expect(filter.matchesString({ contains: "TA" }, "Tank")).toBe(false);
+    });
+
+    it("should ignore case with caseInsensitive", () => {
+      const ci = { caseInsensitive: true };
+      expect(filter.matchesString({ eq: "TANK", ...ci }, "tank")).toBe(true);
+      expect(filter.matchesString({ in: ["TANK"], ...ci }, "tank")).toBe(true);
+      expect(filter.matchesString({ contains: "AN", ...ci }, "tank")).toBe(true);
+      expect(filter.matchesString({ startsWith: "TA", ...ci }, "tank")).toBe(true);
+      expect(filter.matchesString({ eq: "ÄRGER", ...ci }, "ärger")).toBe(true);
+    });
+
     it("should throw on a regex", () => {
       expect(() => filter.matchesString({ regex: "a" }, "a")).toThrow(
         "cannot match a regex locally",

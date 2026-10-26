@@ -49,19 +49,28 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v0.String{
-				Eq:    new(string("test_1")),
-				In:    []string{"test_2"},
-				Regex: new(string("test_3")),
+				Eq:              new(string("test_1")),
+				In:              []string{"test_2"},
+				Contains:        new(string("test_3")),
+				StartsWith:      new(string("test_4")),
+				Regex:           new(string("test_5")),
+				CaseInsensitive: false,
 			}),
 			Entry("zero values", v0.String{
-				Eq:    nil,
-				In:    []string{},
-				Regex: nil,
+				Eq:              nil,
+				In:              []string{},
+				Contains:        nil,
+				StartsWith:      nil,
+				Regex:           nil,
+				CaseInsensitive: false,
 			}),
 			Entry("empty collections", v0.String{
-				Eq:    new(string("test_1")),
-				In:    []string{},
-				Regex: new(string("test_3")),
+				Eq:              new(string("test_1")),
+				In:              []string{},
+				Contains:        new(string("test_3")),
+				StartsWith:      new(string("test_4")),
+				Regex:           new(string("test_5")),
+				CaseInsensitive: false,
 			}),
 		)
 	})
@@ -375,9 +384,12 @@ func BenchmarkEncodeDecodeBool(b *testing.B) {
 
 func BenchmarkEncodeDecodeString(b *testing.B) {
 	seed := v0.String{
-		Eq:    new(string("test_1")),
-		In:    []string{"test_2"},
-		Regex: new(string("test_3")),
+		Eq:              new(string("test_1")),
+		In:              []string{"test_2"},
+		Contains:        new(string("test_3")),
+		StartsWith:      new(string("test_4")),
+		Regex:           new(string("test_5")),
+		CaseInsensitive: false,
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -436,9 +448,12 @@ func FuzzDecodeBool(f *testing.F) {
 func FuzzDecodeString(f *testing.F) {
 	{
 		seed := v0.String{
-			Eq:    new(string("test_1")),
-			In:    []string{"test_2"},
-			Regex: new(string("test_3")),
+			Eq:              new(string("test_1")),
+			In:              []string{"test_2"},
+			Contains:        new(string("test_3")),
+			StartsWith:      new(string("test_4")),
+			Regex:           new(string("test_5")),
+			CaseInsensitive: false,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -448,9 +463,12 @@ func FuzzDecodeString(f *testing.F) {
 	}
 	{
 		seed := v0.String{
-			Eq:    nil,
-			In:    []string{},
-			Regex: nil,
+			Eq:              nil,
+			In:              []string{},
+			Contains:        nil,
+			StartsWith:      nil,
+			Regex:           nil,
+			CaseInsensitive: false,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -460,9 +478,12 @@ func FuzzDecodeString(f *testing.F) {
 	}
 	{
 		seed := v0.String{
-			Eq:    new(string("test_1")),
-			In:    []string{},
-			Regex: new(string("test_3")),
+			Eq:              new(string("test_1")),
+			In:              []string{},
+			Contains:        new(string("test_3")),
+			StartsWith:      new(string("test_4")),
+			Regex:           new(string("test_5")),
+			CaseInsensitive: false,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

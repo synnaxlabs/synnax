@@ -185,12 +185,33 @@ var _ = Describe("Go Filter Plugin", func() {
 				ToBeValidGoSource().
 				ToContain(
 					`"regexp"`,
-					"re, err := regexp.Compile(*l.Regex)",
+					"pattern := *l.Regex",
+					`pattern = "(?i)" + pattern`,
+					"re, err := regexp.Compile(pattern)",
 					"errors.Wrap(validate.ErrValidation, err.Error())",
 					`"name",`,
 					`"regex",`,
 					"e *Thing,",
 					"return re.MatchString(e.Name), nil",
+				)
+		})
+
+		It("Should match text operators and ignore case through x/filter", func(
+			ctx SpecContext,
+		) {
+			resp := MustGenerate(ctx, thing+`
+				Where filter Thing {
+					name
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					`/x/go/filter"`,
+					"if !l.CaseInsensitive {",
+					"fs = append(fs, MatchNames(*l.Eq))",
+					"if l.CaseInsensitive || l.Contains != nil || l.StartsWith != nil {",
+					"return filter.MatchesString(op, e.Name), nil",
 				)
 		})
 
@@ -437,10 +458,10 @@ var _ = Describe("Go Filter Plugin", func() {
 		},
 			Entry(
 				"a member no operator has",
-				"regex string?",
-				"contains string?",
+				"regex            string?",
+				"ends_with        string?",
 				"name",
-				"the member contains of String",
+				"the member ends_with of String",
 			),
 			Entry(
 				"a member of another operator",

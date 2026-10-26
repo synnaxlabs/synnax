@@ -17,6 +17,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -54,14 +55,30 @@ func MatchWhere(w Where) (Filter, error) {
 		}
 	}
 	if l := w.Username; l != nil {
-		if l.Eq != nil {
-			fs = append(fs, MatchUsernames(*l.Eq))
+		if !l.CaseInsensitive {
+			if l.Eq != nil {
+				fs = append(fs, MatchUsernames(*l.Eq))
+			}
+			if l.In != nil {
+				fs = append(fs, MatchUsernames(l.In...))
+			}
 		}
-		if l.In != nil {
-			fs = append(fs, MatchUsernames(l.In...))
+		if l.CaseInsensitive || l.Contains != nil || l.StartsWith != nil {
+			op := *l
+			fs = append(fs, Match(func(
+				_ gorp.Context,
+				_ Retrieve,
+				e *User,
+			) (bool, error) {
+				return filter.MatchesString(op, e.Username), nil
+			}))
 		}
 		if l.Regex != nil {
-			re, err := regexp.Compile(*l.Regex)
+			pattern := *l.Regex
+			if l.CaseInsensitive {
+				pattern = "(?i)" + pattern
+			}
+			re, err := regexp.Compile(pattern)
 			if err != nil {
 				return nil, validate.PathedError(
 					errors.Wrap(validate.ErrValidation, err.Error()),

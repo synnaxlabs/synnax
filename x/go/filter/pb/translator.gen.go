@@ -18,12 +18,20 @@ import (
 
 // StringToPB converts String to String.
 func StringToPB(r filter.String) (*String, error) {
-	pb := &String{}
+	pb := &String{
+		CaseInsensitive: r.CaseInsensitive,
+	}
 	if r.Eq != nil {
 		pb.Eq = r.Eq
 	}
 	if r.In != nil {
 		pb.In = &StringList{Values: r.In}
+	}
+	if r.Contains != nil {
+		pb.Contains = r.Contains
+	}
+	if r.StartsWith != nil {
+		pb.StartsWith = r.StartsWith
 	}
 	if r.Regex != nil {
 		pb.Regex = r.Regex
@@ -37,11 +45,18 @@ func StringFromPB(pb *String) (filter.String, error) {
 	if pb == nil {
 		return r, nil
 	}
+	r.CaseInsensitive = pb.CaseInsensitive
 	if pb.Eq != nil {
 		r.Eq = pb.Eq
 	}
 	if pb.In != nil {
 		r.In = xpb.ListValues(pb.In.Values)
+	}
+	if pb.Contains != nil {
+		r.Contains = pb.Contains
+	}
+	if pb.StartsWith != nil {
+		r.StartsWith = pb.StartsWith
 	}
 	if pb.Regex != nil {
 		r.Regex = pb.Regex

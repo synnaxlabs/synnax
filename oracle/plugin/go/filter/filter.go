@@ -144,6 +144,8 @@ type lineData struct {
 	Variadic bool
 	// Enum is true when a bare line selects string enum values, which it validates.
 	Enum bool
+	// Text is true when a bare line's operator is filter.String.
+	Text bool
 }
 
 // Has reports whether the line's operator has the member.
@@ -291,6 +293,7 @@ func generateFile(
 				)
 			}
 		}
+		ld.Text = op.QualifiedName == resolution.OperatorString
 		ld.Enum = len(field.Type.TypeArgs) == 1 &&
 			isStringEnum(field.Type.TypeArgs[0], table)
 		// The matcher list leaves out the key, which the service's MatchKeys matches.
@@ -398,15 +401,16 @@ func addImports(data templateData, repoRoot string) {
 	}
 	data.AddExternal("strconv")
 	internal("validate", "x/go/validate")
-	needsRegex := lo.SomeBy(data.Lines, func(l lineData) bool { return l.Has("regex") })
-	needsMatch := needsRegex || lo.SomeBy(data.Lines, func(l lineData) bool {
+	hasText := lo.SomeBy(data.Lines, func(l lineData) bool { return l.Text })
+	needsMatch := hasText || lo.SomeBy(data.Lines, func(l lineData) bool {
 		return len(l.Comparisons()) > 0
 	})
-	if needsRegex {
+	if hasText {
 		data.AddExternal("regexp")
+		internal("filter", "x/go/filter")
 	}
 	needsEnum := lo.SomeBy(data.Lines, func(l lineData) bool { return l.Enum })
-	if needsRegex || needsEnum {
+	if hasText || needsEnum {
 		internal("errors", "x/go/errors")
 	}
 	if needsMatch {
@@ -464,6 +468,54 @@ func MatchWhere{{.TypeParams}}(w Where) (Filter{{.TypeArgs}}, error) {
 	if l := w.{{.GoName}}; l != nil {
 {{- if .Typed}}
 		fs = append(fs, {{.Func}}{{$.TypeArgs}}({{if .Pointer}}*{{end}}l{{if .Variadic}}...{{end}}))
+{{- else if .Text}}
+		if !l.CaseInsensitive {
+			if l.Eq != nil {
+				fs = append(fs, {{.Func}}{{$.TypeArgs}}(*l.Eq))
+			}
+			if l.In != nil {
+{{- if .Scalar}}
+				in := make([]Filter{{$.TypeArgs}}, len(l.In))
+				for i, v := range l.In {
+					in[i] = {{.Func}}{{$.TypeArgs}}(v)
+				}
+				fs = append(fs, Or{{$.TypeArgs}}(in...))
+{{- else}}
+				fs = append(fs, {{.Func}}{{$.TypeArgs}}(l.In...))
+{{- end}}
+			}
+		}
+		if l.CaseInsensitive || l.Contains != nil || l.StartsWith != nil {
+			op := *l
+			fs = append(fs, Match{{$.TypeArgs}}(func(
+				_ gorp.Context,
+				_ Retrieve{{$.TypeArgs}},
+				e *{{$.Target}},
+			) (bool, error) {
+				return filter.MatchesString(op, e.{{.Field}}), nil
+			}))
+		}
+		if l.Regex != nil {
+			pattern := *l.Regex
+			if l.CaseInsensitive {
+				pattern = "(?i)" + pattern
+			}
+			re, err := regexp.Compile(pattern)
+			if err != nil {
+				return nil, validate.PathedError(
+					errors.Wrap(validate.ErrValidation, err.Error()),
+					"{{.Path}}",
+					"regex",
+				)
+			}
+			fs = append(fs, Match{{$.TypeArgs}}(func(
+				_ gorp.Context,
+				_ Retrieve{{$.TypeArgs}},
+				e *{{$.Target}},
+			) (bool, error) {
+				return re.MatchString(e.{{.Field}}), nil
+			}))
+		}
 {{- else}}
 {{- if .Has "eq"}}
 		if l.Eq != nil {
@@ -511,25 +563,6 @@ func MatchWhere{{.TypeParams}}(w Where) (Filter{{.TypeArgs}}, error) {
 				anyOf[i] = {{.Func}}{{$.TypeArgs}}(v)
 			}
 			fs = append(fs, Or{{$.TypeArgs}}(anyOf...))
-		}
-{{- end}}
-{{- if .Has "regex"}}
-		if l.Regex != nil {
-			re, err := regexp.Compile(*l.Regex)
-			if err != nil {
-				return nil, validate.PathedError(
-					errors.Wrap(validate.ErrValidation, err.Error()),
-					"{{.Path}}",
-					"regex",
-				)
-			}
-			fs = append(fs, Match{{$.TypeArgs}}(func(
-				_ gorp.Context,
-				_ Retrieve{{$.TypeArgs}},
-				e *{{$.Target}},
-			) (bool, error) {
-				return re.MatchString(e.{{.Field}}), nil
-			}))
 		}
 {{- end}}
 {{- range .Comparisons}}
