@@ -98,9 +98,10 @@ var _ = Describe("Where", Ordered, func() {
 		}
 	})
 
-	for _, c := range v.Statuses.Cases {
-		It("Should match the case: "+c.Name, func(ctx SpecContext) {
-			f := MustSucceed(status.MatchWhere[any](c.Where))
+	DescribeTable(
+		"Should match the case",
+		func(ctx SpecContext, w status.Where, expected []string) {
+			f := MustSucceed(status.MatchWhere[any](w))
 			var res []status.Status[any]
 			// The API skips not-found, since a missing key is a non-match.
 			Expect(errors.Skip(
@@ -109,7 +110,10 @@ var _ = Describe("Where", Ordered, func() {
 			)).To(Succeed())
 			Expect(lo.Map(res, func(s status.Status[any], _ int) string {
 				return keys[s.Key]
-			})).To(ConsistOf(c.Expected))
-		})
-	}
+			})).To(ConsistOf(expected))
+		},
+		lo.Map(v.Statuses.Cases, func(c whereCase, _ int) TableEntry {
+			return Entry(c.Name, c.Where, c.Expected)
+		}),
+	)
 })

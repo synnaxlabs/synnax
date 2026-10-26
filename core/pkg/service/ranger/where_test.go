@@ -74,9 +74,10 @@ var _ = Describe("Where", func() {
 		}
 	})
 
-	for _, c := range v.Ranges.Cases {
-		It("Should match the case: "+c.Name, func(ctx SpecContext) {
-			f := MustSucceed(ranger.MatchWhere(c.Where))
+	DescribeTable(
+		"Should match the case",
+		func(ctx SpecContext, w ranger.Where, expected []string) {
+			f := MustSucceed(ranger.MatchWhere(w))
 			var res []ranger.Range
 			// The API skips not-found, since a missing key is a non-match.
 			Expect(errors.Skip(
@@ -85,9 +86,12 @@ var _ = Describe("Where", func() {
 			)).To(Succeed())
 			Expect(lo.Map(res, func(r ranger.Range, _ int) string {
 				return keys[r.Key]
-			})).To(ConsistOf(c.Expected))
-		})
-	}
+			})).To(ConsistOf(expected))
+		},
+		lo.Map(v.Ranges.Cases, func(c whereCase, _ int) TableEntry {
+			return Entry(c.Name, c.Where, c.Expected)
+		}),
+	)
 
 	It("Should return a path error for an invalid regex", func() {
 		var w ranger.Where
