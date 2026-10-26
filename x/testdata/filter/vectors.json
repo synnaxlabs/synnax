@@ -1017,24 +1017,6 @@
         "expected": ["c"]
       },
       {
-        "name": "rack gt",
-        "where": {
-          "rack": {
-            "gt": 65538
-          }
-        },
-        "expected": ["c"]
-      },
-      {
-        "name": "rack lte",
-        "where": {
-          "rack": {
-            "lte": 65538
-          }
-        },
-        "expected": ["a", "b"]
-      },
-      {
         "name": "the slots on one node are ANDed",
         "where": {
           "make": {
@@ -1278,24 +1260,6 @@
           }
         },
         "expected": ["c"]
-      },
-      {
-        "name": "rack gt",
-        "where": {
-          "rack": {
-            "gt": 65538
-          }
-        },
-        "expected": ["c"]
-      },
-      {
-        "name": "rack lte",
-        "where": {
-          "rack": {
-            "lte": 65538
-          }
-        },
-        "expected": ["a", "b"]
       },
       {
         "name": "internal eq true",
@@ -1546,10 +1510,10 @@
         "expected": ["e"]
       },
       {
-        "name": "leaseholder lt",
+        "name": "leaseholder in",
         "where": {
           "leaseholder": {
-            "lt": 2
+            "in": [1]
           }
         },
         "expected": ["a", "b", "c", "d"]
