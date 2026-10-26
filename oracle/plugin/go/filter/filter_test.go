@@ -10,6 +10,8 @@
 package filter_test
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/go/filter"
@@ -80,8 +82,10 @@ var _ = Describe("Go Filter Plugin", func() {
 				ToBeValidGoSource().
 				ToContain(
 					"func MatchWhere(w Where) (Filter, error) {",
-					"fs = append(fs, MatchKeys(*l.Eq))",
-					"fs = append(fs, MatchKeys(l.In...))",
+					"fs = append(fs, matchKeys(*l.Eq))",
+					"fs = append(fs, matchKeys(l.In...))",
+					"func matchKeys(keys ...uuid.UUID) Filter {",
+					"return gorp.MatchKeysLenient[uuid.UUID, Thing](keys...)",
 					"fs = append(fs, MatchNames(l.In...))",
 					"fs = append(fs, MatchActive(*l.Eq))",
 					"fs = append(fs, MatchKinds(l.In...))",
@@ -125,7 +129,7 @@ var _ = Describe("Go Filter Plugin", func() {
 			ExpectContent(resp, "where.gen.go").
 				ToBeValidGoSource().
 				ToContain(
-					"return re.MatchString(string(e.Base().Name)), nil",
+					"return re.MatchString(e.Base().Name), nil",
 					"fs = append(fs, MatchTypes(l.In...))",
 				)
 		})
@@ -188,7 +192,7 @@ var _ = Describe("Go Filter Plugin", func() {
 					`"name",`,
 					`"regex",`,
 					"e *Thing,",
-					"return re.MatchString(string(e.Name)), nil",
+					"return re.MatchString(e.Name), nil",
 				)
 		})
 
@@ -310,6 +314,7 @@ var _ = Describe("Go Filter Plugin", func() {
 					name    string
 					variant V
 					details Details
+					@retrieve indexes
 				}
 				Where filter Status {
 					key
@@ -322,7 +327,7 @@ var _ = Describe("Go Filter Plugin", func() {
 					ToContain(
 						"func MatchWhere[Details any](w Where) (Filter[Details], error) {",
 						"var fs []Filter[Details]",
-						"fs = append(fs, MatchKeys[Details](l.In...))",
+						"fs = append(fs, matchKeys[Details](l.In...))",
 						"fs = append(fs, MatchVariants[Details](l.In...))",
 						"fs = append(fs, Match[Details](func(",
 						"_ Retrieve[Details],",
@@ -333,6 +338,110 @@ var _ = Describe("Go Filter Plugin", func() {
 					)
 			},
 		)
+
+		It("Should apply each member of the request to the Retrieve", func(
+			ctx SpecContext,
+		) {
+			resp := MustGenerate(ctx, `
+				import "schemas/x/filter"
+
+				@go output "core/pkg/service/thing"
+
+				Thing struct {
+					key        uuid   { @key }
+					name       string { @search }
+					created_at int64  { @index sorted }
+					@retrieve
+				}
+				Where filter Thing {
+					key
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					"func (r RetrieveRequest) Apply(q Retrieve) (Retrieve, error) {",
+					"f, err := MatchWhere(*r.Where)",
+					`return Retrieve{}, validate.PathedError(err, "where")`,
+					"q = q.Search(*r.SearchTerm)",
+					"o, err := OrderingOf(*r.OrderBy)",
+					`return Retrieve{}, validate.PathedError(err, "order_by")`,
+					"q = q.Limit(int(*r.Limit))",
+					"q = q.Offset(int(*r.Offset))",
+				).
+				ToPreserveOrder("r.Where", "r.SearchTerm", "r.OrderBy", "r.Limit", "r.Offset")
+		})
+
+		It(
+			"Should search through MatchSearch when the service writes its Retrieve",
+			func(
+				ctx SpecContext,
+			) {
+				resp := MustGenerate(ctx, `
+				import "schemas/x/filter"
+
+				@go output "core/pkg/service/status"
+
+				Status struct<Details?> {
+					key     string { @key }
+					name    string { @search }
+					details Details
+					@retrieve indexes
+				}
+				Where filter Status {
+					key
+				}
+			`, "status", loader, p)
+				ExpectContent(resp, "where.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"func (r RetrieveRequest) Apply(q Retrieve[any]) (Retrieve[any], error) {",
+						"f, err := MatchWhere[any](*r.Where)",
+						`if r.SearchTerm != nil && *r.SearchTerm != "" {`,
+						"q = q.Where(MatchSearch(*r.SearchTerm))",
+					).
+					ToNotContain("q.Search(")
+			},
+		)
+
+		It("Should reject a target with no @retrieve", func(ctx SpecContext) {
+			req := MustGenerateRequest(ctx, `
+				import "schemas/x/filter"
+
+				@go output "core/pkg/service/thing"
+
+				Thing struct {
+					key uuid { @key }
+				}
+				Where filter Thing {
+					key
+				}
+			`, "thing", loader)
+			Expect(p.Generate(req)).Error().To(MatchError(
+				"filter thing.Where: the target thing.Thing has no @retrieve, so it has " +
+					"no Retrieve or Filter to build on",
+			))
+		})
+
+		It("Should reject an operator member it cannot interpret", func(
+			ctx SpecContext,
+		) {
+			loader.Add("schemas/x/filter", `@go output "x/go/filter"
+String struct {
+	eq       string?
+	contains string?
+}
+`+FilterSchema[strings.Index(FilterSchema, "Bool struct"):])
+			req := MustGenerateRequest(ctx, thing+`
+				Where filter Thing {
+					name
+				}
+			`, "thing", loader)
+			Expect(p.Generate(req)).Error().To(MatchError(
+				"filter thing.Where: line name: go/filter cannot interpret the member " +
+					"contains of String",
+			))
+		})
 
 		It("Should skip a filter with no Go output", func(ctx SpecContext) {
 			resp := MustGenerate(ctx, `
@@ -359,6 +468,7 @@ var _ = Describe("Go Filter Plugin", func() {
 				Thing struct {
 					key    uuid { @key }
 					active bool { @filter }
+					@retrieve
 				}
 				Where filter Thing {
 					active bool
@@ -379,6 +489,7 @@ var _ = Describe("Go Filter Plugin", func() {
 				Thing struct<T extends string> {
 					key   uuid { @key }
 					value T
+					@retrieve
 				}
 				Where filter Thing {
 					key
