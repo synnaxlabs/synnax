@@ -133,7 +133,7 @@ var _ = Describe("Open", func() {
 						},
 						StorageKey:           []byte("Cluster-join-test-storage"),
 						Storage:              kvDB,
-						StorageFlushInterval: cluster.FlushOnEvery,
+						StorageFlushInterval: -1 * time.Second,
 						Codec:                msgpack.Codec,
 					}
 					clusterTwo := MustSucceed(cluster.Open(ctx, clusterTwoConfig))
@@ -220,7 +220,7 @@ var _ = Describe("Open", func() {
 						},
 						StorageKey:           storageKey,
 						Storage:              kvDB,
-						StorageFlushInterval: cluster.FlushOnEvery,
+						StorageFlushInterval: -1 * time.Second,
 						Codec:                msgpack.Codec,
 					}
 					clusterTwo := MustSucceed(cluster.Open(ctx, oldConfig))
@@ -245,7 +245,7 @@ var _ = Describe("Open", func() {
 						},
 						StorageKey:           storageKey,
 						Storage:              kvDB,
-						StorageFlushInterval: cluster.FlushOnEvery,
+						StorageFlushInterval: -1 * time.Second,
 					}
 					clusterTwoAgain := MustSucceed(cluster.Open(ctx, upgradedConfig))
 					Expect(clusterTwoAgain.Host().Key).To(Equal(node.Key(2)))
@@ -299,7 +299,7 @@ var _ = Describe("Open", func() {
 						},
 						StorageKey:           storageKey,
 						Storage:              kvDB,
-						StorageFlushInterval: cluster.FlushOnEvery,
+						StorageFlushInterval: -1 * time.Second,
 						Codec:                gob.Codec,
 					}
 					clusterTwo := MustSucceed(cluster.Open(ctx, oldConfig))
@@ -323,7 +323,7 @@ var _ = Describe("Open", func() {
 						},
 						StorageKey:           storageKey,
 						Storage:              kvDB,
-						StorageFlushInterval: cluster.FlushOnEvery,
+						StorageFlushInterval: -1 * time.Second,
 					}
 					clusterTwoAgain := MustSucceed(cluster.Open(ctx, upgradedConfig))
 					Expect(clusterTwoAgain.Host().Key).To(Equal(node.Key(2)))

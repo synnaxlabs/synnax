@@ -77,7 +77,7 @@ var _ = Describe("Cluster", func() {
 			cfg.Pledge.Peers = []address.Address{"unreachable"}
 			openCtx, cancel := context.WithTimeout(ctx, 20*time.Millisecond)
 			defer cancel()
-			Expect(cluster.Open(openCtx, cluster.FastConfig, cfg)).Error().
+			Expect(cluster.Open(openCtx, cluster.DefaultConfig, cfg)).Error().
 				To(MatchError(context.DeadlineExceeded))
 		})
 
@@ -86,7 +86,7 @@ var _ = Describe("Cluster", func() {
 		) {
 			cfg := isolatedConfig()
 			cfg.Pledge.RetryScale = 0.5
-			Expect(cluster.Open(ctx, cluster.FastConfig, cfg)).Error().To(MatchError(
+			Expect(cluster.Open(ctx, cluster.DefaultConfig, cfg)).Error().To(MatchError(
 				ContainSubstring("retry_scale: must be greater than or equal to 1"),
 			))
 		})
