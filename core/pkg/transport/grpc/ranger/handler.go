@@ -17,7 +17,8 @@ import (
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger/pb"
+	"github.com/synnaxlabs/synnax/pkg/api/ranger/pb"
+	rangerpb "github.com/synnaxlabs/synnax/pkg/service/ranger/pb"
 	xpb "github.com/synnaxlabs/x/pb"
 	"github.com/synnaxlabs/x/telem"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -94,7 +95,7 @@ func (createRequestTranslator) Forward(
 	_ context.Context,
 	r ranger.CreateRequest,
 ) (*CreateRequest, error) {
-	ranges, err := pb.RangesToPB(r.Ranges)
+	ranges, err := rangerpb.RangesToPB(r.Ranges)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +106,7 @@ func (createRequestTranslator) Backward(
 	_ context.Context,
 	r *CreateRequest,
 ) (ranger.CreateRequest, error) {
-	ranges, err := pb.RangesFromPB(r.Ranges)
+	ranges, err := rangerpb.RangesFromPB(r.Ranges)
 	if err != nil {
 		return ranger.CreateRequest{}, err
 	}
@@ -116,7 +117,7 @@ func (createResponseTranslator) Forward(
 	_ context.Context,
 	r ranger.CreateResponse,
 ) (*CreateResponse, error) {
-	ranges, err := pb.RangesToPB(r.Ranges)
+	ranges, err := rangerpb.RangesToPB(r.Ranges)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +128,7 @@ func (createResponseTranslator) Backward(
 	_ context.Context,
 	r *CreateResponse,
 ) (ranger.CreateResponse, error) {
-	ranges, err := pb.RangesFromPB(r.Ranges)
+	ranges, err := rangerpb.RangesFromPB(r.Ranges)
 	if err != nil {
 		return ranger.CreateResponse{}, err
 	}

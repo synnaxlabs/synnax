@@ -26,6 +26,7 @@
 #include "x/cpp/mem/indirect.h"
 #include "x/cpp/telem/types.gen.h"
 
+#include "core/pkg/api/status/pb/status.pb.h"
 #include "core/pkg/service/status/pb/status.pb.h"
 
 namespace synnax::status {
@@ -117,11 +118,11 @@ struct RetrieveResponse {
     static RetrieveResponse parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::status::pb::RetrieveResponse;
-    [[nodiscard]] std::pair<::service::status::pb::RetrieveResponse, x::errors::Error>
+    using proto_type = ::api::status::pb::RetrieveResponse;
+    [[nodiscard]] std::pair<::api::status::pb::RetrieveResponse, x::errors::Error>
     to_proto() const;
     static std::pair<RetrieveResponse, x::errors::Error>
-    from_proto(const ::service::status::pb::RetrieveResponse &pb);
+    from_proto(const ::api::status::pb::RetrieveResponse &pb);
 };
 
 /// @brief RetrieveRequest is a request to retrieve statuses.
@@ -141,10 +142,10 @@ struct RetrieveRequest {
     static RetrieveRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::status::pb::RetrieveRequest;
-    [[nodiscard]] std::pair<::service::status::pb::RetrieveRequest, x::errors::Error>
+    using proto_type = ::api::status::pb::RetrieveRequest;
+    [[nodiscard]] std::pair<::api::status::pb::RetrieveRequest, x::errors::Error>
     to_proto() const;
     static std::pair<RetrieveRequest, x::errors::Error>
-    from_proto(const ::service::status::pb::RetrieveRequest &pb);
+    from_proto(const ::api::status::pb::RetrieveRequest &pb);
 };
 }

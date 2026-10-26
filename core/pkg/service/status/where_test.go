@@ -150,13 +150,3 @@ var _ = Describe("Where", Ordered, func() {
 		),
 	)
 })
-
-var _ = Describe("RetrieveRequest", func() {
-	It("Should reject a member that the request does not declare", func() {
-		var req status.RetrieveRequest
-		Expect(json.Unmarshal([]byte(`{"keys":["status-a"]}`), &req)).To(SatisfyAll(
-			MatchError(json.ErrUnknownName),
-			MatchError(ContainSubstring(`unknown object member name "keys"`)),
-		))
-	})
-})

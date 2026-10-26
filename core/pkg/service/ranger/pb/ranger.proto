@@ -79,25 +79,3 @@ message Where {
   // labels matches ranges that have any of the given labels.
   LabelKeyList labels = 7;
 }
-
-// RetrieveRequest is a request to retrieve ranges.
-message RetrieveRequest {
-  // where selects the ranges to retrieve. An absent where selects all of them.
-  optional Where where = 1;
-  // search_term keeps the ranges that match the term, closest match first.
-  string search_term = 2;
-  // limit is the most ranges to return.
-  optional uint32 limit = 3;
-  // offset is the number of matching ranges to skip.
-  uint32 offset = 4;
-  // include_labels includes the labels of each record.
-  bool include_labels = 5;
-  // include_parent includes the parent of each record.
-  bool include_parent = 6;
-}
-
-// RetrieveResponse holds the ranges a RetrieveRequest selects.
-message RetrieveResponse {
-  // ranges are the ranges the request selects.
-  repeated Range ranges = 1;
-}

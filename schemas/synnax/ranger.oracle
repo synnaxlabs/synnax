@@ -90,8 +90,9 @@ Where filter Range {
         @doc value "matches ranges that have any of the given labels."
     }
 
-    @doc value  "is a filter that selects ranges."
+    @doc value         "is a filter that selects ranges."
     @go marshal
+    @go request_output "core/pkg/api/ranger"
 }
 
 Ref union on variant {

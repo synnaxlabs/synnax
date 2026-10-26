@@ -11,11 +11,7 @@
 
 package ranger
 
-import (
-	"github.com/synnaxlabs/synnax/pkg/service/ranger/versions"
-	"github.com/synnaxlabs/x/validate"
-	"strconv"
-)
+import "github.com/synnaxlabs/synnax/pkg/service/ranger/versions"
 
 // Key is a unique identifier for a range, represented as a UUID.
 type Key = versions.Key
@@ -45,35 +41,3 @@ type KeyRef = versions.KeyRef
 
 // WindowRef is a window carried inline: rolling or fixed.
 type WindowRef = versions.WindowRef
-
-// RetrieveRequest is a request to retrieve ranges.
-type RetrieveRequest struct {
-	// Where selects the ranges to retrieve. An absent where selects all of them.
-	Where *Where `json:"where,omitzero" msgpack:"where,omitempty"`
-	// SearchTerm keeps the ranges that match the term, closest match first.
-	SearchTerm string `json:"search_term" msgpack:"search_term"`
-	// Limit is the most ranges to return.
-	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
-	// Offset is the number of matching ranges to skip.
-	Offset uint32 `json:"offset" msgpack:"offset"`
-	// IncludeLabels includes the labels of each record.
-	IncludeLabels bool `json:"include_labels" msgpack:"include_labels"`
-	// IncludeParent includes the parent of each record.
-	IncludeParent bool `json:"include_parent" msgpack:"include_parent"`
-}
-
-// RetrieveResponse holds the ranges a RetrieveRequest selects.
-type RetrieveResponse struct {
-	// Ranges are the ranges the request selects.
-	Ranges []Range `json:"ranges" msgpack:"ranges"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (r RetrieveResponse) Validate() error {
-	v := validate.New("RetrieveResponse")
-	for i := range r.Ranges {
-		v.Exec(func() error { return validate.PathedError(r.Ranges[i].Validate(), "ranges", strconv.Itoa(i)) })
-	}
-	return v.Error()
-}

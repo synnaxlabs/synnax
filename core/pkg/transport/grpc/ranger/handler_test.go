@@ -75,7 +75,7 @@ var _ = Describe("gRPC Ranger Translators", func() {
 			Expect(t.Backward(ctx, &decoded)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(
-					"service.ranger.pb.RetrieveRequest has unknown fields",
+					"api.ranger.pb.RetrieveRequest has unknown fields",
 				)),
 			))
 		})

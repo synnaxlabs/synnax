@@ -114,18 +114,3 @@ var _ = Describe("Where", func() {
 		))
 	})
 })
-
-var _ = Describe("RetrieveRequest", func() {
-	It("Should reject a member that the request does not declare", func() {
-		var req ranger.RetrieveRequest
-		Expect(
-			json.Unmarshal(
-				[]byte(`{"keys":["00000000-0000-4000-8000-00000000000a"]}`),
-				&req,
-			),
-		).To(SatisfyAll(
-			MatchError(json.ErrUnknownName),
-			MatchError(ContainSubstring(`unknown object member name "keys"`)),
-		))
-	})
-})

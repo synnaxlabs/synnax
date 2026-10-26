@@ -633,134 +633,6 @@ func (x *Where) GetLabels() *LabelKeyList {
 	return nil
 }
 
-// RetrieveRequest is a request to retrieve statuses.
-type RetrieveRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// where selects the statuses to retrieve. An absent where selects all of them.
-	Where *Where `protobuf:"bytes,1,opt,name=where,proto3,oneof" json:"where,omitempty"`
-	// search_term keeps the statuses that match the term, closest match first.
-	SearchTerm string `protobuf:"bytes,2,opt,name=search_term,json=searchTerm,proto3" json:"search_term,omitempty"`
-	// limit is the most statuses to return.
-	Limit *uint32 `protobuf:"varint,3,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
-	// offset is the number of matching statuses to skip.
-	Offset uint32 `protobuf:"varint,4,opt,name=offset,proto3" json:"offset,omitempty"`
-	// include_labels includes the labels of each record.
-	IncludeLabels bool `protobuf:"varint,5,opt,name=include_labels,json=includeLabels,proto3" json:"include_labels,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RetrieveRequest) Reset() {
-	*x = RetrieveRequest{}
-	mi := &file_core_pkg_service_status_pb_status_proto_msgTypes[9]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RetrieveRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RetrieveRequest) ProtoMessage() {}
-
-func (x *RetrieveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_status_pb_status_proto_msgTypes[9]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RetrieveRequest.ProtoReflect.Descriptor instead.
-func (*RetrieveRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_status_pb_status_proto_rawDescGZIP(), []int{9}
-}
-
-func (x *RetrieveRequest) GetWhere() *Where {
-	if x != nil {
-		return x.Where
-	}
-	return nil
-}
-
-func (x *RetrieveRequest) GetSearchTerm() string {
-	if x != nil {
-		return x.SearchTerm
-	}
-	return ""
-}
-
-func (x *RetrieveRequest) GetLimit() uint32 {
-	if x != nil && x.Limit != nil {
-		return *x.Limit
-	}
-	return 0
-}
-
-func (x *RetrieveRequest) GetOffset() uint32 {
-	if x != nil {
-		return x.Offset
-	}
-	return 0
-}
-
-func (x *RetrieveRequest) GetIncludeLabels() bool {
-	if x != nil {
-		return x.IncludeLabels
-	}
-	return false
-}
-
-// RetrieveResponse holds the statuses a RetrieveRequest selects.
-type RetrieveResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// statuses are the statuses the request selects.
-	Statuses      []*Status `protobuf:"bytes,1,rep,name=statuses,proto3" json:"statuses,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RetrieveResponse) Reset() {
-	*x = RetrieveResponse{}
-	mi := &file_core_pkg_service_status_pb_status_proto_msgTypes[10]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RetrieveResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RetrieveResponse) ProtoMessage() {}
-
-func (x *RetrieveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_status_pb_status_proto_msgTypes[10]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RetrieveResponse.ProtoReflect.Descriptor instead.
-func (*RetrieveResponse) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_status_pb_status_proto_rawDescGZIP(), []int{10}
-}
-
-func (x *RetrieveResponse) GetStatuses() []*Status {
-	if x != nil {
-		return x.Statuses
-	}
-	return nil
-}
-
 var File_core_pkg_service_status_pb_status_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_status_pb_status_proto_rawDesc = "" +
@@ -805,18 +677,7 @@ const file_core_pkg_service_status_pb_status_proto_rawDesc = "" +
 	"\x04_notB\x06\n" +
 	"\x04_keyB\n" +
 	"\n" +
-	"\b_variant\"\xd5\x01\n" +
-	"\x0fRetrieveRequest\x123\n" +
-	"\x05where\x18\x01 \x01(\v2\x18.service.status.pb.WhereH\x00R\x05where\x88\x01\x01\x12\x1f\n" +
-	"\vsearch_term\x18\x02 \x01(\tR\n" +
-	"searchTerm\x12\x19\n" +
-	"\x05limit\x18\x03 \x01(\rH\x01R\x05limit\x88\x01\x01\x12\x16\n" +
-	"\x06offset\x18\x04 \x01(\rR\x06offset\x12%\n" +
-	"\x0einclude_labels\x18\x05 \x01(\bR\rincludeLabelsB\b\n" +
-	"\x06_whereB\b\n" +
-	"\x06_limit\"I\n" +
-	"\x10RetrieveResponse\x125\n" +
-	"\bstatuses\x18\x01 \x03(\v2\x19.service.status.pb.StatusR\bstatuses*\x83\x01\n" +
+	"\b_variant*\x83\x01\n" +
 	"\aVariant\x12\x13\n" +
 	"\x0fVARIANT_SUCCESS\x10\x00\x12\x10\n" +
 	"\fVARIANT_INFO\x10\x01\x12\x13\n" +
@@ -839,27 +700,25 @@ func file_core_pkg_service_status_pb_status_proto_rawDescGZIP() []byte {
 }
 
 var file_core_pkg_service_status_pb_status_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_core_pkg_service_status_pb_status_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_core_pkg_service_status_pb_status_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_core_pkg_service_status_pb_status_proto_goTypes = []any{
-	(Variant)(0),             // 0: service.status.pb.Variant
-	(*LabelLabelList)(nil),   // 1: service.status.pb.LabelLabelList
-	(*Status)(nil),           // 2: service.status.pb.Status
-	(*WhereList)(nil),        // 3: service.status.pb.WhereList
-	(*StringList)(nil),       // 4: service.status.pb.StringList
-	(*StringSet)(nil),        // 5: service.status.pb.StringSet
-	(*VariantList)(nil),      // 6: service.status.pb.VariantList
-	(*VariantSet)(nil),       // 7: service.status.pb.VariantSet
-	(*LabelKeyList)(nil),     // 8: service.status.pb.LabelKeyList
-	(*Where)(nil),            // 9: service.status.pb.Where
-	(*RetrieveRequest)(nil),  // 10: service.status.pb.RetrieveRequest
-	(*RetrieveResponse)(nil), // 11: service.status.pb.RetrieveResponse
-	(*pb.Label)(nil),         // 12: service.label.pb.Label
-	(*anypb.Any)(nil),        // 13: google.protobuf.Any
+	(Variant)(0),           // 0: service.status.pb.Variant
+	(*LabelLabelList)(nil), // 1: service.status.pb.LabelLabelList
+	(*Status)(nil),         // 2: service.status.pb.Status
+	(*WhereList)(nil),      // 3: service.status.pb.WhereList
+	(*StringList)(nil),     // 4: service.status.pb.StringList
+	(*StringSet)(nil),      // 5: service.status.pb.StringSet
+	(*VariantList)(nil),    // 6: service.status.pb.VariantList
+	(*VariantSet)(nil),     // 7: service.status.pb.VariantSet
+	(*LabelKeyList)(nil),   // 8: service.status.pb.LabelKeyList
+	(*Where)(nil),          // 9: service.status.pb.Where
+	(*pb.Label)(nil),       // 10: service.label.pb.Label
+	(*anypb.Any)(nil),      // 11: google.protobuf.Any
 }
 var file_core_pkg_service_status_pb_status_proto_depIdxs = []int32{
-	12, // 0: service.status.pb.LabelLabelList.values:type_name -> service.label.pb.Label
+	10, // 0: service.status.pb.LabelLabelList.values:type_name -> service.label.pb.Label
 	0,  // 1: service.status.pb.Status.variant:type_name -> service.status.pb.Variant
-	13, // 2: service.status.pb.Status.details:type_name -> google.protobuf.Any
+	11, // 2: service.status.pb.Status.details:type_name -> google.protobuf.Any
 	1,  // 3: service.status.pb.Status.labels:type_name -> service.status.pb.LabelLabelList
 	9,  // 4: service.status.pb.WhereList.values:type_name -> service.status.pb.Where
 	4,  // 5: service.status.pb.StringSet.in:type_name -> service.status.pb.StringList
@@ -872,13 +731,11 @@ var file_core_pkg_service_status_pb_status_proto_depIdxs = []int32{
 	5,  // 12: service.status.pb.Where.key:type_name -> service.status.pb.StringSet
 	7,  // 13: service.status.pb.Where.variant:type_name -> service.status.pb.VariantSet
 	8,  // 14: service.status.pb.Where.labels:type_name -> service.status.pb.LabelKeyList
-	9,  // 15: service.status.pb.RetrieveRequest.where:type_name -> service.status.pb.Where
-	2,  // 16: service.status.pb.RetrieveResponse.statuses:type_name -> service.status.pb.Status
-	17, // [17:17] is the sub-list for method output_type
-	17, // [17:17] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	15, // [15:15] is the sub-list for method output_type
+	15, // [15:15] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_status_pb_status_proto_init() }
@@ -889,14 +746,13 @@ func file_core_pkg_service_status_pb_status_proto_init() {
 	file_core_pkg_service_status_pb_status_proto_msgTypes[4].OneofWrappers = []any{}
 	file_core_pkg_service_status_pb_status_proto_msgTypes[6].OneofWrappers = []any{}
 	file_core_pkg_service_status_pb_status_proto_msgTypes[8].OneofWrappers = []any{}
-	file_core_pkg_service_status_pb_status_proto_msgTypes[9].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_status_pb_status_proto_rawDesc), len(file_core_pkg_service_status_pb_status_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   11,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

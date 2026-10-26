@@ -12,11 +12,8 @@
 package status
 
 import (
-	"encoding/json/jsontext"
-	"encoding/json/v2"
 	"strconv"
 
-	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -48,10 +45,10 @@ func MatchWhere[Details any](w Where) (Filter[Details], error) {
 	}
 	if l := w.Key; l != nil {
 		if l.Eq != nil {
-			fs = append(fs, matchKeys[Details](*l.Eq))
+			fs = append(fs, MatchKeys[Details](*l.Eq))
 		}
 		if l.In != nil {
-			fs = append(fs, matchKeys[Details](l.In...))
+			fs = append(fs, MatchKeys[Details](l.In...))
 		}
 	}
 	if l := w.Variant; l != nil {
@@ -95,38 +92,4 @@ func matchWheres[Details any](ws []Where, path string) ([]Filter[Details], error
 		fs[i] = f
 	}
 	return fs, nil
-}
-
-// matchKeys matches the records whose key is one of keys. A key with no record is a
-// non-match, as for every other line.
-func matchKeys[Details any](keys ...Key) Filter[Details] {
-	return func(Retrieve[Details]) gorp.Filter[Key, Status[Details]] {
-		return gorp.MatchKeysLenient[Key, Status[Details]](keys...)
-	}
-}
-
-// Apply narrows q to the records that the request selects. It returns a
-// validate.PathError for a value that no filter can hold.
-func (r RetrieveRequest) Apply(q Retrieve[any]) (Retrieve[any], error) {
-	if r.Where != nil {
-		f, err := MatchWhere[any](*r.Where)
-		if err != nil {
-			return Retrieve[any]{}, validate.PathedError(err, "where")
-		}
-		q = q.Where(f)
-	}
-	if r.SearchTerm != "" {
-		q = q.Where(MatchSearch(r.SearchTerm))
-	}
-	if r.Limit != nil {
-		q = q.Limit(int(*r.Limit))
-	}
-	return q.Offset(int(r.Offset)), nil
-}
-
-// UnmarshalJSONFrom decodes the request and rejects a member that it does not declare,
-// at any depth, so a client that sends a field the Core removed fails.
-func (r *RetrieveRequest) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	type plain RetrieveRequest
-	return json.UnmarshalDecode(dec, (*plain)(r), json.RejectUnknownMembers(true))
 }
