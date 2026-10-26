@@ -32,7 +32,11 @@ var _ = Describe("gRPC Ranger Translators", func() {
 				Where: &ranger.Where{
 					Or: []ranger.Where{
 						{Key: &filter.Set[ranger.Key]{In: []ranger.Key{key}}},
-						{Not: &ranger.Where{Name: &filter.String{Eq: new("Cold flow")}}},
+						{
+							Not: &ranger.Where{
+								Name: &filter.String{Eq: new("Cold flow")},
+							},
+						},
 					},
 					Overlaps: &telem.TimeRange{Start: 1, End: 2},
 				},

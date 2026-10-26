@@ -190,8 +190,10 @@ var _ = Describe("View", func() {
 			Entry("status", v1.View{Variant: v1.StatusView{
 				Base: v1.Base{Key: uuid.New(), Name: "Statuses"},
 				Where: &statusv1.Where{
-					Labels:  []uuid.UUID{uuid.New()},
-					Variant: &filter.Set[statusv1.Variant]{Eq: new(statusv1.VariantError)},
+					Labels: []uuid.UUID{uuid.New()},
+					Variant: &filter.Set[statusv1.Variant]{
+						Eq: new(statusv1.VariantError),
+					},
 				},
 			}}),
 		)
