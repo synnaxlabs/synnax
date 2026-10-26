@@ -88,8 +88,8 @@ def percentile(values: Iterable[float], q: float) -> float:
 
 
 def reverted(messages: Iterable[str]) -> set[int]:
-    """Returns the PR numbers that revert commits reference. A squash merge
-    ends its subject with its own PR number, which is left out."""
+    """Returns the PR numbers that revert commits reference. A squash merge ends
+    its subject with its own PR number, which is left out."""
     numbers: set[int] = set()
     for message in messages:
         subject = message.split("\n", 1)[0]
