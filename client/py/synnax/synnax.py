@@ -173,7 +173,10 @@ class Synnax(framer.Client):
         self.devices = device.Client(client=self._transport.unary)
         self.views = view.Client(client=self._transport.unary)
         self.imex = ImexClient(file_transport=self._transport.file_transport)
-        self.projects = project.Client(client=self._transport.unary)
+        self.projects = project.Client(
+            client=self._transport.unary,
+            file_transport=self._transport.file_transport,
+        )
         self.tasks = task.Client(
             client=self._transport.unary,
             frame_client=self,

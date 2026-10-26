@@ -32,6 +32,7 @@ _FILE_CONTENT_TYPES: dict[str, str] = {
     "json": "application/json",
     "csv": "text/csv",
     "tdms": "application/x-tdms",
+    "zip": "application/zip",
 }
 
 
