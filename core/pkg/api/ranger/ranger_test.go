@@ -18,6 +18,7 @@ import (
 	apiranger "github.com/synnaxlabs/synnax/pkg/api/ranger"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -36,7 +37,7 @@ var _ = Describe("Retrieve", func() {
 		grant(ctx, access.ActionRetrieve, u.OntologyID(), r.OntologyID())
 		res := MustSucceed(apiSvc.Retrieve(
 			AuthedCtx(ctx, u),
-			apiranger.RetrieveRequest{Where: &apiranger.Where{
+			apiranger.RetrieveRequest{Where: &ranger.Where{
 				Key: &filter.Set[apiranger.Key]{In: []apiranger.Key{r.Key, uuid.New()}},
 			}},
 		))
@@ -48,7 +49,7 @@ var _ = Describe("Retrieve", func() {
 	) {
 		u := createUser(ctx)
 		Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), apiranger.RetrieveRequest{
-			Where: &apiranger.Where{Name: &filter.String{Regex: new("(a")}},
+			Where: &ranger.Where{Name: &filter.String{Regex: new("(a")}},
 		})).Error().To(SatisfyAll(
 			BeAssignableToTypeOf(validate.PathError{}),
 			MatchError("where.name.regex: error parsing regexp: missing closing ): "+
