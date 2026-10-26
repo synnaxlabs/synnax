@@ -7,14 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Table as PTable } from "@synnaxlabs/pluto";
-import { act, renderHook } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
-import { Provider } from "react-redux";
+import { act } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Table } from "@/session/table";
-import { createSliceStore, documentIn } from "@/session/window/testutil";
+import {
+  createSliceStore,
+  documentIn,
+  DRIFT_STATE,
+  inWindow,
+} from "@/session/window/testutil";
 
 const storeWith = (slice: Table.SliceState) =>
   createSliceStore({
@@ -27,28 +29,6 @@ const storeWith = (slice: Table.SliceState) =>
 const KEY = "table-1";
 const AUX_WINDOW = "aux-window";
 
-const wrapperFor = (
-  store: ReturnType<typeof storeWith>,
-  key: string,
-): FC<PropsWithChildren> => {
-  const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
-    <Provider store={store}>
-      <PTable.Scope.Provider value={key}>{children}</PTable.Scope.Provider>
-    </Provider>
-  );
-  Wrapper.displayName = "Wrapper";
-  return Wrapper;
-};
-
-const renderGetters = (store: ReturnType<typeof storeWith>, key: string = KEY) =>
-  renderHook(
-    () => ({
-      state: Table.useGet(),
-      editable: Table.useGetEditable(),
-    }),
-    { wrapper: wrapperFor(store, key) },
-  ).result.current;
-
 describe("Table Slice", () => {
   let store: ReturnType<typeof storeWith>;
 
@@ -57,7 +37,10 @@ describe("Table Slice", () => {
   });
 
   const exists = (key: string = KEY): boolean =>
-    documentIn(Table.selectSliceState(store.getState()), key) != null;
+    documentIn(store.getState()[Table.SLICE_NAME], key) != null;
+
+  const doc = (key: string = KEY): Table.State =>
+    documentIn(store.getState()[Table.SLICE_NAME], key) ?? Table.ZERO_STATE;
 
   // A window is a viewport: an edit in one window must not reach another window's
   // view of the same document.
@@ -74,9 +57,8 @@ describe("Table Slice", () => {
 
   describe("create", () => {
     it("should bootstrap session state from ZERO_STATE for the key", () => {
-      const get = renderGetters(store);
       act(() => void store.dispatch(Table.create({ key: KEY })));
-      expect(get.state()).toEqual(Table.ZERO_STATE);
+      expect(doc()).toEqual(Table.ZERO_STATE);
     });
 
     it("should create multiple tables independently", () => {
@@ -90,155 +72,139 @@ describe("Table Slice", () => {
     });
 
     it("should apply provided fields over the defaults", () => {
-      const get = renderGetters(store);
       act(() => void store.dispatch(Table.create({ key: KEY, editable: false })));
-      expect(get.editable()).toBe(false);
+      expect(doc().editable).toBe(false);
     });
 
     it("should not overwrite an existing entry", () => {
-      const get = renderGetters(store);
       act(() => {
         store.dispatch(Table.create({ key: KEY }));
         store.dispatch(Table.setEditable({ key: KEY, editable: false }));
         store.dispatch(Table.create({ key: KEY }));
       });
-      expect(get.editable()).toBe(false);
+      expect(doc().editable).toBe(false);
     });
   });
 
   describe("setSelectedCells", () => {
     it("should set the selected cells", () => {
-      const get = renderGetters(store);
       act(() => {
         store.dispatch(Table.create({ key: KEY }));
         store.dispatch(Table.setSelectedCells({ key: KEY, cells: ["a", "b"] }));
       });
-      expect(get.state().selectedCells).toEqual(["a", "b"]);
+      expect(doc().selectedCells).toEqual(["a", "b"]);
     });
 
     it("should set the anchor when provided", () => {
-      const get = renderGetters(store);
       act(() => {
         store.dispatch(Table.create({ key: KEY }));
         store.dispatch(
           Table.setSelectedCells({ key: KEY, cells: ["a", "b"], anchor: "a" }),
         );
       });
-      expect(get.state().lastSelected).toBe("a");
+      expect(doc().lastSelected).toBe("a");
     });
 
     it("should leave the anchor untouched when omitted", () => {
-      const get = renderGetters(store);
       act(() => {
         store.dispatch(Table.create({ key: KEY }));
         store.dispatch(Table.setSelectedCells({ key: KEY, cells: ["a"], anchor: "a" }));
         store.dispatch(Table.setSelectedCells({ key: KEY, cells: ["b"] }));
       });
-      expect(get.state().lastSelected).toBe("a");
+      expect(doc().lastSelected).toBe("a");
     });
 
     it("should lazily create the entry when the key does not exist", () => {
-      const get = renderGetters(store);
       act(
         () => void store.dispatch(Table.setSelectedCells({ key: KEY, cells: ["a"] })),
       );
-      expect(get.state().selectedCells).toEqual(["a"]);
+      expect(doc().selectedCells).toEqual(["a"]);
     });
   });
 
   describe("setEditable", () => {
     it("should toggle editing when no value is provided", () => {
-      const get = renderGetters(store);
       act(() => {
         store.dispatch(Table.create({ key: KEY, editable: true }));
         store.dispatch(Table.setEditable({ key: KEY }));
       });
-      expect(get.editable()).toBe(false);
+      expect(doc().editable).toBe(false);
     });
 
     it("should clear the selection when editing is disabled", () => {
-      const get = renderGetters(store);
       act(() => {
         store.dispatch(Table.create({ key: KEY }));
         store.dispatch(Table.setSelectedCells({ key: KEY, cells: ["a"], anchor: "a" }));
         store.dispatch(Table.setEditable({ key: KEY, editable: false }));
       });
-      expect(get.state().selectedCells).toEqual([]);
-      expect(get.state().lastSelected).toBeNull();
+      expect(doc().selectedCells).toEqual([]);
+      expect(doc().lastSelected).toBeNull();
     });
   });
 
   describe("setHideIndicators", () => {
     it("should set the hide indicators flag", () => {
-      const get = renderGetters(store);
       act(() => {
         store.dispatch(Table.create({ key: KEY }));
         store.dispatch(Table.setHideIndicators({ key: KEY, hideIndicators: true }));
       });
-      expect(get.state().hideIndicators).toBe(true);
+      expect(doc().hideIndicators).toBe(true);
     });
 
     it("should toggle the flag when no value is provided", () => {
-      const get = renderGetters(store);
       act(() => void store.dispatch(Table.create({ key: KEY })));
       act(() => void store.dispatch(Table.setHideIndicators({ key: KEY })));
-      expect(get.state().hideIndicators).toBe(true);
+      expect(doc().hideIndicators).toBe(true);
       act(() => void store.dispatch(Table.setHideIndicators({ key: KEY })));
-      expect(get.state().hideIndicators).toBe(false);
+      expect(doc().hideIndicators).toBe(false);
     });
   });
 
   describe("setCentered", () => {
     it("should set the centered flag", () => {
-      const get = renderGetters(store);
       act(() => {
         store.dispatch(Table.create({ key: KEY }));
         store.dispatch(Table.setCentered({ key: KEY, centered: true }));
       });
-      expect(get.state().centered).toBe(true);
+      expect(doc().centered).toBe(true);
     });
 
     it("should toggle the flag when no value is provided", () => {
-      const get = renderGetters(store);
       act(() => void store.dispatch(Table.create({ key: KEY })));
       act(() => void store.dispatch(Table.setCentered({ key: KEY })));
-      expect(get.state().centered).toBe(true);
+      expect(doc().centered).toBe(true);
       act(() => void store.dispatch(Table.setCentered({ key: KEY })));
-      expect(get.state().centered).toBe(false);
+      expect(doc().centered).toBe(false);
     });
 
     it("should lazily create the entry when the key does not exist", () => {
-      const get = renderGetters(store);
       act(() => void store.dispatch(Table.setCentered({ key: KEY })));
-      expect(get.state().centered).toBe(true);
+      expect(doc().centered).toBe(true);
     });
   });
 
   describe("setPropertiesTab", () => {
     it("should leave the properties tab unset by default", () => {
-      const get = renderGetters(store);
       act(() => void store.dispatch(Table.create({ key: KEY })));
-      expect(get.state().propertiesTab).toBeUndefined();
+      expect(doc().propertiesTab).toBeUndefined();
     });
 
     it("should set the properties tab", () => {
-      const get = renderGetters(store);
       act(() => {
         store.dispatch(Table.create({ key: KEY }));
         store.dispatch(Table.setPropertiesTab({ key: KEY, tab: "redline" }));
       });
-      expect(get.state().propertiesTab).toBe("redline");
+      expect(doc().propertiesTab).toBe("redline");
     });
 
     it("should keep the properties tab when the selection changes", () => {
-      const get = renderGetters(store);
       act(() => {
         store.dispatch(Table.create({ key: KEY }));
         store.dispatch(Table.setPropertiesTab({ key: KEY, tab: "style" }));
         store.dispatch(Table.setSelectedCells({ key: KEY, cells: ["a"] }));
         store.dispatch(Table.setSelectedCells({ key: KEY, cells: ["b"] }));
       });
-      expect(get.state().propertiesTab).toBe("style");
+      expect(doc().propertiesTab).toBe("style");
     });
   });
 
@@ -261,27 +227,23 @@ describe("Table Slice", () => {
     });
 
     it("should ignore keys that do not exist", () => {
-      const get = renderGetters(store);
       act(() => {
         store.dispatch(Table.create({ key: KEY }));
         store.dispatch(Table.remove({ keys: ["absent"] }));
       });
-      expect(get.state()).toEqual(Table.ZERO_STATE);
+      expect(doc()).toEqual(Table.ZERO_STATE);
     });
   });
 
-  describe("stateZ schema", () => {
-    it("should accept the zero state", () => {
-      expect(() => Table.stateZ.parse(Table.ZERO_STATE)).not.toThrow();
-    });
-
-    it("should apply defaults when fields are missing", () => {
-      const parsed = Table.stateZ.parse({});
-      expect(parsed.editable).toBe(true);
-      expect(parsed.selectedCells).toEqual([]);
-      expect(parsed.lastSelected).toBeNull();
-      expect(parsed.hideIndicators).toBe(false);
-      expect(parsed.centered).toBe(false);
+  describe("zero state", () => {
+    it("should hold the defaults for a new table", () => {
+      expect(Table.ZERO_STATE).toEqual({
+        editable: true,
+        selectedCells: [],
+        lastSelected: null,
+        hideIndicators: false,
+        centered: false,
+      });
     });
   });
 
@@ -294,20 +256,33 @@ describe("Table Slice", () => {
 });
 
 describe("persistence", () => {
+  const persist = (state: Table.State): Table.State | undefined => {
+    const stored = {
+      ...DRIFT_STATE,
+      [Table.SLICE_NAME]: { version: 0 as const, windows: inWindow({ [KEY]: state }) },
+    };
+    Table.PERSIST_EXCLUDE.forEach((exclude) => exclude(stored));
+    return documentIn(stored[Table.SLICE_NAME], KEY);
+  };
+
   // A selection is the state of an edit in progress, so it does not outlive the
   // session that made it.
   it("should clear the selection on the way to disk", () => {
-    const state = Table.stateZ.parse({
+    const purged = persist({
+      ...Table.ZERO_STATE,
       selectedCells: ["a", "b"],
       lastSelected: "b",
     });
-    const purged = Table.purgeState(state);
-    expect(purged.selectedCells).toEqual([]);
-    expect(purged.lastSelected).toBeNull();
+    expect(purged?.selectedCells).toEqual([]);
+    expect(purged?.lastSelected).toBeNull();
   });
 
   it("should leave the rest of the document alone", () => {
-    const state = Table.stateZ.parse({ selectedCells: ["a"], centered: true });
-    expect(Table.purgeState(state).centered).toBe(true);
+    const purged = persist({
+      ...Table.ZERO_STATE,
+      selectedCells: ["a"],
+      centered: true,
+    });
+    expect(purged?.centered).toBe(true);
   });
 });
