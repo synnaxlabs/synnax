@@ -134,6 +134,17 @@ func assertsError(pass *analysis.Pass, receiver ast.Expr) bool {
 	if name == "Error" {
 		return true
 	}
+	// Skip async options such as WithTimeout to reach Eventually or Consistently.
+	for _, isAssert := actualIndex[name]; !isAssert; _, isAssert = actualIndex[name] {
+		sel, isSel := call.Fun.(*ast.SelectorExpr)
+		if !isSel {
+			return false
+		}
+		if call, ok = sel.X.(*ast.CallExpr); !ok {
+			return false
+		}
+		name = calleeName(call)
+	}
 	i, ok := actualIndex[name]
 	if !ok || len(call.Args) <= i {
 		return false

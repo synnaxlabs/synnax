@@ -11,10 +11,11 @@ package good
 
 type Assertion struct{}
 
-func (Assertion) To(any, ...any) bool        { return true }
-func (Assertion) ToNot(any, ...any) bool     { return true }
-func (Assertion) ShouldNot(any, ...any) bool { return true }
-func (a Assertion) Error() Assertion         { return a }
+func (Assertion) To(any, ...any) bool         { return true }
+func (Assertion) ToNot(any, ...any) bool      { return true }
+func (Assertion) ShouldNot(any, ...any) bool  { return true }
+func (a Assertion) Error() Assertion          { return a }
+func (a Assertion) WithTimeout(int) Assertion { return a }
 
 func Expect(any, ...any) Assertion     { return Assertion{} }
 func Eventually(any, ...any) Assertion { return Assertion{} }
