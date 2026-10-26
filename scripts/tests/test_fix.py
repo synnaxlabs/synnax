@@ -154,7 +154,9 @@ class TestFix:
 
 
 class TestPreCommitHook:
-    def test_commits_fixes(self, repo: Repo) -> None:
+    """Commits through the pre-commit hook."""
+
+    def test_should_commit_fixes(self, repo: Repo) -> None:
         repo.install_hooks()
         repo.write("a.sh", "echo a\n")
         repo.git("add", "a.sh")
@@ -162,7 +164,7 @@ class TestPreCommitHook:
         assert "Copyright" in repo.git("show", "HEAD:a.sh")
         assert repo.git("status", "--porcelain", "a.sh") == ""
 
-    def test_commits_only_the_staged_copy(self, repo: Repo) -> None:
+    def test_should_commit_only_the_staged_copy(self, repo: Repo) -> None:
         repo.install_hooks()
         repo.write("a.sh", "echo a\n")
         repo.git("add", "a.sh")
