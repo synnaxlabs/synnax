@@ -70,6 +70,8 @@ jobs:
     name: Test (${{ matrix.os }})
     env:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      # uv fails on a stale uv.lock instead of rewriting it.
+      UV_LOCKED: 1
     # A service with an empty image does not start, so a package that needs no server
     # leaves both inputs empty.
     services:
