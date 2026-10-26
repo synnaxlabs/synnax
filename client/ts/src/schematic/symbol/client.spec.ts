@@ -15,7 +15,7 @@ import { group } from "@/group";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { type schematic } from "@/schematic";
-import { createTestClient, expectLive } from "@/testutil";
+import { createTestClient, expectLive, spyOnSend } from "@/testutil";
 
 const client = createTestClient();
 
@@ -216,6 +216,24 @@ describe("Symbol Client", () => {
         where: { key: { in: [kept.key, outsider.key] } },
       });
       expect(retrieved.map((s) => s.key)).toEqual([kept.key]);
+    });
+
+    it.each([
+      ["a bare parent request", {}],
+      ["a parent request with a zero offset", { offset: 0 }],
+    ])("should answer %s from cached children", async (_, extra) => {
+      const local = createTestClient();
+      const parent = await createParent();
+      const created = await local.schematics.symbols.create({
+        symbols: [{ name: "cached", data: SYMBOL_DATA }],
+        parent,
+      });
+      const send = spyOnSend(local);
+      const retrieved = await local.schematics.symbols.retrieve({ parent, ...extra });
+      expect(retrieved.map((s) => s.key)).toEqual(created.map((s) => s.key));
+      expect(
+        send.mock.calls.filter(([target]) => target === "/schematic/symbol/retrieve"),
+      ).toHaveLength(0);
     });
 
     it("should return an empty list for a childless parent", async () => {

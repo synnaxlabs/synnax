@@ -331,7 +331,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
       req.where == null &&
       primitive.isZero(req.searchTerm) &&
       req.limit == null &&
-      req.offset == null
+      primitive.isZero(req.offset)
     )
       return await this.store.retrieve(keys);
     const where: Where = { key: { in: keys } };
