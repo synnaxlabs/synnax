@@ -47,6 +47,7 @@ func NewRootCmd() *cobra.Command {
 		newFmtCmd(),
 		newLSPCmd(),
 		migrateCmd,
+		newSurfaceCmd(),
 		newSyncCmd(),
 	)
 	return rootCmd
