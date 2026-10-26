@@ -59,12 +59,13 @@ def run_scripts(
         "SYNNAX_PASSWORD": conn.password,
         "SYNNAX_SECURE": "1" if conn.secure else "0",
     }
+    env.pop("SYNNAX_CA_CERT", None)
     if conn.ca_cert is not None:
         env["SYNNAX_CA_CERT"] = conn.ca_cert
     procs = []
     for module in modules:
         proc = subprocess.Popen(
-            [sys.executable, "-m", "framework.run_with_connection", module],
+            [sys.executable, "-u", "-m", "framework.run_with_connection", module],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,

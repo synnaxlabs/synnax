@@ -8,9 +8,11 @@
 #  included in the file licenses/APL.txt.
 
 import sys
+import time
 
 from framework.run_with_connection import options_from_env
 
 opts = options_from_env()
 print(f"secure={opts.secure}")
 print(f"ca_cert={opts.ca_cert}", file=sys.stderr)
+time.sleep(60)
