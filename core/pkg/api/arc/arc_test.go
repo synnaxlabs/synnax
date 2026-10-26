@@ -81,6 +81,19 @@ var _ = Describe("Service", func() {
 				Expect(res.Arcs).To(BeEmpty())
 			},
 		)
+
+		It(
+			"Should deny the retrieve before compiling the program",
+			func(ctx SpecContext) {
+				a := arc.Arc{Name: "uncompilable", Mode: arc.ModeText}
+				a.Text.Doc = text.Create("a ->")
+				Expect(arcSvc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
+				Expect(apiSvc.Retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
+					Where:          &arc.Where{Key: &filter.Set[arc.Key]{Eq: &a.Key}},
+					IncludeProgram: new(true),
+				})).Error().To(MatchError(access.ErrDenied))
+			},
+		)
 	})
 
 	Describe("Create", func() {

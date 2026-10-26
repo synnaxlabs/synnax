@@ -262,25 +262,24 @@ func (s *Service) Retrieve(
 	if err := errors.Skip(q.Exec(ctx, nil), query.ErrNotFound); err != nil {
 		return RetrieveResponse{}, err
 	}
-	// Raw is derived from the replicated document and not stored, so materialize it
-	// before compilation and for clients that read the source text directly rather than
-	// reconstructing the document.
-	for i := range res.Arcs {
-		res.Arcs[i].Text = res.Arcs[i].Text.Materialize()
-	}
-	for i := range res.Arcs {
-		if !lo.FromPtr(req.IncludeProgram) {
-			res.Arcs[i].Program = nil
-		} else if err := s.compile(ctx, &res.Arcs[i]); err != nil {
-			return RetrieveResponse{}, err
-		}
-	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: arc.OntologyIDsFromArcs(res.Arcs),
 	}); err != nil {
 		return RetrieveResponse{}, err
+	}
+	includeProgram := lo.FromPtr(req.IncludeProgram)
+	// Raw is derived from the replicated document and not stored, so materialize it
+	// before compilation and for clients that read the source text directly rather than
+	// reconstructing the document.
+	for i := range res.Arcs {
+		res.Arcs[i].Text = res.Arcs[i].Text.Materialize()
+		if includeProgram {
+			if err := s.compile(ctx, &res.Arcs[i]); err != nil {
+				return RetrieveResponse{}, err
+			}
+		}
 	}
 	return res, nil
 }
