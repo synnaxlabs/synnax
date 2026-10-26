@@ -466,8 +466,8 @@ describe("Panel.Mosaic", () => {
   });
 
   describe("surgical re-renders", () => {
-    // tabRenders counts how many times each tab's name render prop ran, so specs can
-    // assert that a selection change re-renders only the leaves it touches.
+    // tabRenders counts how many times each tab's name rendered, so specs can assert
+    // that a selection change re-renders none.
     const tabRenders = new Map<string, number>();
     const TabNameCounter = (): ReactElement => {
       const tabKey = Panel.TabScope.use();
@@ -477,7 +477,7 @@ describe("Panel.Mosaic", () => {
     const countingTabName: Panel.MosaicProps["tabName"] = () => <TabNameCounter />;
     const stableOnSelect = (): void => {};
 
-    it("should re-render only the leaf whose selection changed", async () => {
+    it("should re-render no tab name when the selection changes", async () => {
       tabRenders.clear();
       const a1 = resourceTab();
       const a2 = resourceTab();
@@ -517,6 +517,7 @@ describe("Panel.Mosaic", () => {
       });
       await waitFor(() => expect(utils.getByText(contentText(b2))).toBeTruthy());
       const baseline = new Map(tabRenders);
+      expect(baseline.size).toBe(4);
 
       // A focus swap changes no leaf's selection, so no leaf re-renders.
       await act(async () => {
@@ -526,14 +527,12 @@ describe("Panel.Mosaic", () => {
       expect(isTabFocused(utils, b2.key)).toBe(true);
       expect(isTabFocused(utils, a2.key)).toBe(false);
 
-      // Changing the right leaf's selection re-renders only the right leaf.
+      // A compiled tab reuses its name while the tabName prop is unchanged.
       await act(async () => {
         utils.rerender(make([b1.key, a2.key]));
       });
       await waitFor(() => expect(utils.getByText(contentText(b1))).toBeTruthy());
-      expect(tabRenders.get(a1.key)).toEqual(baseline.get(a1.key));
-      expect(tabRenders.get(a2.key)).toEqual(baseline.get(a2.key));
-      expect(tabRenders.get(b1.key)).toBeGreaterThan(baseline.get(b1.key) ?? 0);
+      expect(tabRenders).toEqual(baseline);
     });
   });
 

@@ -59,7 +59,7 @@ export const Light = ({
         style={
           onColor == null
             ? undefined
-            : { [CSS.variable("symbol-color")]: color.rgbaString(onColor) }
+            : { [Primitive.SYMBOL_COLOR]: color.rgbaString(onColor) }
         }
       >
         <Primitive.Circle cx="32" cy="32" r="30" />

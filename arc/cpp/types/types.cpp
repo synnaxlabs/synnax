@@ -57,7 +57,7 @@ std::string Channels::to_string() const {
             this->read.begin(),
             this->read.end()
         );
-        std::sort(pairs.begin(), pairs.end());
+        std::ranges::sort(pairs);
         bool first = true;
         for (const auto &[id, name]: pairs) {
             if (!first) ss << ", ";
@@ -73,7 +73,7 @@ std::string Channels::to_string() const {
             this->write.begin(),
             this->write.end()
         );
-        std::sort(pairs.begin(), pairs.end());
+        std::ranges::sort(pairs);
         bool first = true;
         for (const auto &[id, name]: pairs) {
             if (!first) ss << ", ";

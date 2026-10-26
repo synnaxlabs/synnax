@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/lsp"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
@@ -26,13 +27,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/debounce"
-	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
@@ -65,10 +64,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// Search is the search index for fuzzy searching Arcs.
-	//
-	// [REQUIRED]
-	Search *search.Index
 	// Signals is used to broadcast collaborative-edit actions to the cluster.
 	//
 	// [OPTIONAL] - Defaults to nil.
@@ -111,7 +106,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
-	c.Search = override.Nil(c.Search, other.Search)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Task = override.Nil(c.Task, other.Task)
 	c.Status = override.Nil(c.Status, other.Status)
@@ -138,7 +132,6 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("channel", c.Channel)
 	v.NotNil("task", c.Task)
 	v.NotNil("status", c.Status)
-	v.NotNil("search", c.Search)
 	v.NotNil("imex", c.ImEx)
 	v.Positive("task_sync_debounce", c.TaskSyncDebounce)
 	return v.Error()
@@ -147,6 +140,7 @@ func (c ServiceConfig) Validate() error {
 // Service is the primary service for retrieving and modifying arcs from Synnax.
 type Service struct {
 	table    *gorp.Table[Key, Arc]
+	indexes  indexes
 	closer   xio.MultiCloser
 	cfg      ServiceConfig
 	state    *actions.State[Key, Action]
@@ -241,8 +235,9 @@ func OpenService(
 		return nil, err
 	}
 	s = &Service{
-		cfg:   cfg,
-		state: actions.NewState[Key, Action](cfg.DB),
+		cfg:     cfg,
+		state:   actions.NewState[Key, Action](cfg.DB),
+		indexes: newIndexes(),
 		sweeper: newTextSweeper(
 			cfg.Now,
 			cfg.TextSweepQuiescence,
@@ -253,6 +248,7 @@ func OpenService(
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Arc]{
 		DB:              cfg.DB,
+		Indexes:         s.indexes.all(),
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
@@ -266,7 +262,6 @@ func OpenService(
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
-	cfg.Search.RegisterService(s)
 	if err = cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
 		return nil, err
 	}
@@ -317,8 +312,8 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 // NewRetrieve opens a new query builder for retrieving Arcs from Synnax.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:   s.table.NewRetrieve(),
-		baseTX: s.cfg.DB,
-		search: s.cfg.Search,
+		gorp:    s.table.NewRetrieve(),
+		baseTX:  s.cfg.DB,
+		indexes: s.indexes,
 	}
 }

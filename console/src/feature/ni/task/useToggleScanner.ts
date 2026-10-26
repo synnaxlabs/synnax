@@ -10,7 +10,6 @@
 import { DisconnectedError, type rack } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { SCAN_SCHEMAS, SCAN_TYPE } from "@/feature/ni/task/types";
 
@@ -19,31 +18,28 @@ export const useToggleScanner = (rackKey: rack.Key) => {
   const client = Synnax.use();
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
-  return useCallback(
-    () =>
-      handleError(async () => {
-        if (client == null) throw new DisconnectedError();
-        const { config, payload } = await client.tasks.retrieve({
-          type: SCAN_TYPE,
-          rack: rackKey,
-          schemas: SCAN_SCHEMAS,
-        });
-        // Never write the status back: the Driver owns it and this copy may be stale.
-        const {
-          config: { disabled },
-        } = await client.tasks.create(
-          {
-            ...payload,
-            config: { ...config, disabled: !config.disabled },
-            status: undefined,
-          },
-          SCAN_SCHEMAS,
-        );
-        addStatus({
-          variant: "success",
-          message: `NI device scanning ${disabled ? "disabled" : "enabled"}`,
-        });
-      }, "Failed to toggle NI device scanner"),
-    [client, addStatus, handleError, rackKey],
-  );
+  return () =>
+    handleError(async () => {
+      if (client == null) throw new DisconnectedError();
+      const { config, payload } = await client.tasks.retrieve({
+        type: SCAN_TYPE,
+        rack: rackKey,
+        schemas: SCAN_SCHEMAS,
+      });
+      // Never write the status back: the Driver owns it and this copy may be stale.
+      const {
+        config: { disabled },
+      } = await client.tasks.create(
+        {
+          ...payload,
+          config: { ...config, disabled: !config.disabled },
+          status: undefined,
+        },
+        SCAN_SCHEMAS,
+      );
+      addStatus({
+        variant: "success",
+        message: `${disabled ? "Disabled" : "Enabled"} NI device scanning`,
+      });
+    }, "Failed to toggle NI device scanner");
 };

@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { hashTarget } from "@/util/hash";
+
 /**
  * Names the URL query parameter an element syncs with. Tab frames, pickers, and inline
  * values that share a key show the same choice. An empty value marks a tab frame that
@@ -21,8 +23,12 @@ export const PICKER_ATTRIBUTE = "data-tabs-picker";
 export const CHANGE_EVENT = "docs:tabs-change";
 
 const TAB = '[role="tab"]';
+const STRIP = '[role="tablist"]';
+const PANEL = '[role="tabpanel"]';
 const OPTION = "[data-tab-key]";
 const SELECTED_CLASS = "pluto--selected";
+const CLIPPED_START_CLASS = "pluto-tabs__selector--clipped-start";
+const CLIPPED_END_CLASS = "pluto-tabs__selector--clipped-end";
 
 /** Resolves and reacts to the choice for one query key. */
 export interface Query {
@@ -42,6 +48,36 @@ const ownTabs = (frame: Element): HTMLElement[] =>
     (tab) => tab.closest(`[${QUERY_ATTRIBUTE}]`) === frame,
   );
 
+// A strip of tabs is static HTML, so this script, not the tabs component, fades each
+// edge that hides tabs and scrolls the selected tab into view.
+const clip = (strip: Element): void => {
+  const max = strip.scrollWidth - strip.clientWidth;
+  strip.classList.toggle(CLIPPED_START_CLASS, max > 1 && strip.scrollLeft > 1);
+  strip.classList.toggle(CLIPPED_END_CLASS, max > 1 && strip.scrollLeft < max - 1);
+};
+
+const clipAll = (): void => document.querySelectorAll(STRIP).forEach(clip);
+
+const reveal = (tab: Element): void => {
+  const strip = tab.closest(STRIP);
+  if (strip == null) return;
+  const port = strip.getBoundingClientRect();
+  const { left, right } = tab.getBoundingClientRect();
+  // Centered, a tab clears the fade at each edge, and the strip stops at its ends.
+  if (left < port.left || right > port.right)
+    strip.scrollLeft += (left + right - port.left - port.right) / 2;
+  clip(strip);
+};
+
+// The panels of a frame without a query key stay findable in the page while hidden,
+// and a match selects their tab. A frame with a key holds a choice that applies to the
+// whole site, which a search must not change.
+const hide = (frame: Element, panel: HTMLElement, hidden: boolean): void => {
+  if (!hidden) panel.removeAttribute("hidden");
+  else if (keyOf(frame).length === 0) panel.setAttribute("hidden", "until-found");
+  else panel.hidden = true;
+};
+
 const selectTab = (frame: Element, value: string): boolean => {
   const tabs = ownTabs(frame);
   if (!tabs.some((tab) => tab.dataset.tabKey === value)) return false;
@@ -53,7 +89,8 @@ const selectTab = (frame: Element, value: string): boolean => {
     const panel = frame.querySelector<HTMLElement>(
       `[id="${tab.getAttribute("aria-controls")}"]`,
     );
-    if (panel != null) panel.hidden = !selected;
+    if (panel != null) hide(frame, panel, !selected);
+    if (selected) reveal(tab);
   }
   return true;
 };
@@ -124,6 +161,12 @@ export const start = (queries: Queries): void => {
       apply(key, value);
     }
     if (replaced) window.history.replaceState(window.history.state, "", url);
+    for (const panel of document.querySelectorAll<HTMLElement>(`${PANEL}[hidden]`)) {
+      const frame = panel.closest(`[${QUERY_ATTRIBUTE}]`);
+      if (frame != null) hide(frame, panel, true);
+    }
+    revealHashTarget();
+    clipAll();
     document.dispatchEvent(new CustomEvent(CHANGE_EVENT));
   };
 
@@ -135,6 +178,21 @@ export const start = (queries: Queries): void => {
     if (key.length > 0) choose(key, value, frame);
     else if (selectTab(frame, value))
       document.dispatchEvent(new CustomEvent(CHANGE_EVENT));
+  };
+
+  const selectPanel = (panel: Element): void => {
+    const tab = document.getElementById(panel.getAttribute("aria-labelledby") ?? "");
+    if (tab != null) select(tab);
+  };
+
+  // Selects each tab whose panel holds the URL hash target, outermost first.
+  const revealHashTarget = (): HTMLElement | null => {
+    const target = hashTarget();
+    const panels: Element[] = [];
+    for (let p = target?.closest(PANEL); p != null; p = p.parentElement?.closest(PANEL))
+      panels.unshift(p);
+    panels.forEach(selectPanel);
+    return target;
   };
 
   document.addEventListener("click", (e) => {
@@ -182,6 +240,27 @@ export const start = (queries: Queries): void => {
     // Toggle events do not bubble.
     { capture: true },
   );
+
+  window.addEventListener("hashchange", () => revealHashTarget()?.scrollIntoView());
+
+  // Find in page fires beforematch on each hidden panel that holds the match.
+  document.addEventListener(
+    "beforematch",
+    (e) => {
+      if (e.target instanceof Element && e.target.matches(PANEL)) selectPanel(e.target);
+    },
+    { capture: true },
+  );
+
+  // Scroll events do not bubble.
+  document.addEventListener(
+    "scroll",
+    (e) => {
+      if (e.target instanceof Element && e.target.matches(STRIP)) clip(e.target);
+    },
+    { capture: true, passive: true },
+  );
+  window.addEventListener("resize", clipAll, { passive: true });
 
   // After a swap, not on page load, so the new page never shows its first tabs.
   document.addEventListener("astro:after-swap", load);

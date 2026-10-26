@@ -10,17 +10,13 @@
 import "@/lineplot/Viewport.css";
 
 import { CSS } from "@synnaxlabs/lyra/css";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { box, xy } from "@synnaxlabs/x";
-import {
-  type PropsWithChildren,
-  type ReactElement,
-  useCallback,
-  useLayoutEffect,
-} from "react";
+import { type PropsWithChildren, type ReactElement, useLayoutEffect } from "react";
 
-import { useContext } from "@/lineplot/Frame";
+import { useContext, useFetchContext } from "@/lineplot/Frame";
 import { Viewport as Base } from "@/viewport";
 
 export interface ViewportProps extends PropsWithChildren, Base.UseProps {}
@@ -35,21 +31,25 @@ export const Viewport = ({
   onChange,
   ...rest
 }: ViewportProps): ReactElement => {
-  const { setViewport, loading, loadingMessage } = useContext("LinePlot.Viewport");
+  const { setViewport, setViewportElement } = useContext("LinePlot.Viewport");
+  const { loading, fetching, loadingMessage } = useFetchContext("LinePlot.Viewport");
 
   useLayoutEffect(() => {
     setViewport({ box: initial, mode: "zoom", cursor: xy.ZERO, stage: "start" });
   }, [setViewport, initial]);
 
-  const handleChange = useCallback(
-    (e: Base.UseEvent): void => {
-      setViewport(e);
-      onChange?.(e);
-    },
-    [onChange, setViewport],
-  );
+  const handleChange = (e: Base.UseEvent): void => {
+    setViewport(e);
+    onChange?.(e);
+  };
 
   const maskProps = Base.use({ onChange: handleChange, initial, ref, ...rest });
+
+  const { ref: maskRef } = maskProps;
+  useLayoutEffect(() => {
+    setViewportElement(maskRef.current);
+    return () => setViewportElement(null);
+  }, [maskRef, setViewportElement]);
 
   return (
     <Base.Mask className={CSS.BE("line-plot", "viewport")} {...maskProps}>
@@ -62,6 +62,9 @@ export const Viewport = ({
             </Text.Text>
           )}
         </Status.Loading>
+      )}
+      {!loading && fetching && (
+        <Icon.Loading className={CSS.BE("line-plot", "fetching")} />
       )}
       {children}
     </Base.Mask>

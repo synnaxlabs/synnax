@@ -33,6 +33,7 @@ public:
     indirect() = default;
 
     /// @brief Nullptr constructor - creates empty indirect
+    // NOLINTNEXTLINE(misc-explicit-constructor): nullptr stands for an empty value.
     indirect(std::nullptr_t): ptr(nullptr) {}
 
     /// @brief Value constructor - takes ownership of value

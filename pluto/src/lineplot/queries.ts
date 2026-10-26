@@ -10,7 +10,6 @@
 import { lineplot, NotFoundError, type project } from "@synnaxlabs/client";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { color, compare, DataType, type require, uuid, verbs } from "@synnaxlabs/x";
-import { useMemo } from "react";
 
 import { Channel } from "@/channel";
 import { Flux } from "@/flux";
@@ -124,29 +123,24 @@ const useStoredLines = createSelector(({ lines }) => lines);
 // the lines actually change.
 const useRawLines = (params: KeyParams): RawDerivedLine[] => {
   const lines = useStoredLines(params);
-  return useMemo(
-    () => lines.map((l) => ({ ...l, ...lineplot.parseLineKey(l.key) })),
-    [lines],
-  );
+  return lines.map((l) => ({ ...l, ...lineplot.parseLineKey(l.key) }));
+};
+
+const useLinesBase = (params: KeyParams): DerivedLine[] => {
+  const lines = useRawLines(params);
+  const palette = Theming.use().colors.visualization.palettes.default;
+  return lines.map(({ color, ...line }, i) => ({
+    ...line,
+    ...resolveColor(color, i, palette),
+    isDefaultLabel: line.label == null,
+  }));
 };
 
 // useLines returns the plot's lines, each enriched with its decoded
 // identity and its render color resolved from the active palette (a line with
 // no stored color is assigned one by its position). Lines are materialized
 // eagerly by the reducer, so this is the complete set of plotted lines.
-export const useLines = Scope.bindHook((params: KeyParams): DerivedLine[] => {
-  const lines = useRawLines(params);
-  const palette = Theming.use().colors.visualization.palettes.default;
-  return useMemo(
-    () =>
-      lines.map(({ color, ...line }, i) => ({
-        ...line,
-        ...resolveColor(color, i, palette),
-        isDefaultLabel: line.label == null,
-      })),
-    [lines, palette],
-  );
-});
+export const useLines = Scope.bindHook(useLinesBase);
 
 export const useLineKeys = Scope.bindHook(
   createSelector(({ lines }) => lines.map((l) => l.key), compare.arraysEqual),
@@ -204,11 +198,7 @@ const useXAxisBase = createSelector<XAxisBaseReturn, XAxisParams>(
   (a, b) => a.axis === b.axis && a.channel === b.channel,
 );
 
-// useXAxis returns the x-axis configuration with its tick type resolved:
-// a null stored type is derived from the plotted channel's data type (timestamp
-// maps to time, otherwise linear), defaulting to time while the channel loads.
-// A non-null stored type is an explicit user override.
-export const useXAxis = Scope.bindHook((params: XAxisParams): lineplot.Axis => {
+const useResolvedXAxis = (params: XAxisParams): lineplot.Axis => {
   const { axis, channel } = useXAxisBase({
     key: params.key,
     axisKey: params.axisKey,
@@ -216,14 +206,18 @@ export const useXAxis = Scope.bindHook((params: XAxisParams): lineplot.Axis => {
   const { data: dataType } = Channel.useResultDataType(
     channel > 0 ? { key: channel } : null,
   );
-  return useMemo(() => {
-    if (axis.type != null) return axis;
-    let type: lineplot.TickType = "linear";
-    if (channel == 0 || dataType == null || dataType.equals(DataType.TIMESTAMP))
-      type = "time";
-    return { ...axis, type };
-  }, [axis, channel, dataType]);
-});
+  if (axis.type != null) return axis;
+  let type: lineplot.TickType = "linear";
+  if (channel == 0 || dataType == null || dataType.equals(DataType.TIMESTAMP))
+    type = "time";
+  return { ...axis, type };
+};
+
+// useXAxis returns the x-axis configuration with its tick type resolved:
+// a null stored type is derived from the plotted channel's data type (timestamp
+// maps to time, otherwise linear), defaulting to time while the channel loads.
+// A non-null stored type is an explicit user override.
+export const useXAxis = Scope.bindHook(useResolvedXAxis);
 
 interface YAxisReturn {
   axis: lineplot.Axis;
@@ -269,29 +263,26 @@ const useRawLine = createSelector<RawLine, LineParams>(
   (a, b) => a.line === b.line && a.index === b.index,
 );
 
+const useLineBase = (params: LineParams): require.Require<DerivedLine, "label"> => {
+  const raw = useRawLine(params);
+  const palette = Theming.use().colors.visualization.palettes.default;
+  const { yChannel } = lineplot.parseLineKey(raw.line.key);
+  const { data: chanName } = Channel.useResultName(
+    yChannel > 0 ? { key: yChannel } : null,
+  );
+  return {
+    ...raw.line,
+    ...lineplot.parseLineKey(raw.line.key),
+    ...resolveColor(raw.line.color, raw.index, palette),
+    label: raw.line.label ?? chanName ?? "",
+    isDefaultLabel: raw.line.label == null,
+  };
+};
+
 // useLine returns a single line, enriched with its identity and its color
 // resolved by position the same way as useLines, subscribing narrowly so
 // it re-renders only when that line, its position, or the palette changes.
-export const useLine = Scope.bindHook(
-  (params: LineParams): require.Require<DerivedLine, "label"> => {
-    const raw = useRawLine(params);
-    const palette = Theming.use().colors.visualization.palettes.default;
-    const { yChannel } = lineplot.parseLineKey(raw.line.key);
-    const { data: chanName } = Channel.useResultName(
-      yChannel > 0 ? { key: yChannel } : null,
-    );
-    return useMemo(
-      () => ({
-        ...raw.line,
-        ...lineplot.parseLineKey(raw.line.key),
-        ...resolveColor(raw.line.color, raw.index, palette),
-        label: raw.line.label ?? chanName ?? "",
-        isDefaultLabel: raw.line.label == null,
-      }),
-      [raw, palette, chanName],
-    );
-  },
-);
+export const useLine = Scope.bindHook(useLineBase);
 
 // DerivedRule is a stored rule with its render color resolved to a concrete
 // palette color, ready for the chart and toolbar to consume directly.
@@ -299,21 +290,19 @@ export interface DerivedRule extends Omit<lineplot.Rule, "color">, ResolvedColor
 
 const useRawRules = createSelector(({ rules }) => rules);
 
+const useRulesBase = (params: KeyParams): DerivedRule[] => {
+  const rules = useRawRules(params);
+  const palette = Theming.use().colors.visualization.palettes.default;
+  return rules.map(({ color, ...rule }, i) => ({
+    ...rule,
+    ...resolveColor(color, i, palette),
+  }));
+};
+
 // useRules returns the plot's rules, each with its render color resolved
 // from the active palette (a rule with no stored color is assigned one by its
 // position, the same way lines are).
-export const useRules = Scope.bindHook((params: KeyParams): DerivedRule[] => {
-  const rules = useRawRules(params);
-  const palette = Theming.use().colors.visualization.palettes.default;
-  return useMemo(
-    () =>
-      rules.map(({ color, ...rule }, i) => ({
-        ...rule,
-        ...resolveColor(color, i, palette),
-      })),
-    [rules, palette],
-  );
-});
+export const useRules = Scope.bindHook(useRulesBase);
 
 export interface RuleParams {
   key: lineplot.Key;
@@ -334,20 +323,19 @@ const useRawRule = createSelector<RawRule, RuleParams>(
   (a, b) => a.rule === b.rule && a.index === b.index,
 );
 
+const useRuleBase = (params: RuleParams): DerivedRule => {
+  const raw = useRawRule(params);
+  const palette = Theming.use().colors.visualization.palettes.default;
+  return {
+    ...raw.rule,
+    ...resolveColor(raw.rule.color, raw.index, palette),
+  };
+};
+
 // useRule returns a single rule with its color resolved by position the
 // same way as useRules. It throws NotFoundError when no rule with ruleKey
 // exists, so callers must only request rules they know are present.
-export const useRule = Scope.bindHook((params: RuleParams): DerivedRule => {
-  const raw = useRawRule(params);
-  const palette = Theming.use().colors.visualization.palettes.default;
-  return useMemo(
-    () => ({
-      ...raw.rule,
-      ...resolveColor(raw.rule.color, raw.index, palette),
-    }),
-    [raw, palette],
-  );
-});
+export const useRule = Scope.bindHook(useRuleBase);
 
 export interface AxisRulesParams {
   key: lineplot.Key;

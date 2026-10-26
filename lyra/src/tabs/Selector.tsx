@@ -13,10 +13,8 @@ import {
   type DragEventHandler,
   type KeyboardEventHandler,
   type ReactElement,
-  useCallback,
   useEffect,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -34,11 +32,13 @@ import { Triggers } from "@/triggers";
 /**
  * The visual variant of a tab selector.
  *
- * - `default`: rounded chip tabs on a borderless strip; the selected tab carries a
- *   subtle fill.
+ * - `default`: rounded tabs on a borderless strip; the selected tab carries a subtle
+ *   fill.
  * - `pill`: separated outlined rounded buttons.
+ * - `chip`: separated outlined rounded tabs; only the selected one fills, with the same
+ *   subtle fill as `default`.
  */
-export type Variant = "default" | "pill";
+export type Variant = "default" | "pill" | "chip";
 
 /**
  * Where a tab's contents sit along the strip's main axis. Vertical strips always
@@ -66,6 +66,7 @@ interface VariantDefaults {
 const VARIANT_DEFAULTS: Record<Variant, VariantDefaults> = {
   default: { align: "center", sizing: "elastic" },
   pill: { align: "start", sizing: "fixed" },
+  chip: { align: "start", sizing: "content" },
 };
 
 interface ContextValue {
@@ -325,19 +326,22 @@ export interface SelectorOnDropParams extends Haul.OnDropProps {
 
 // align is claimed for the tabs' own alignment; the strip's cross-axis alignment is
 // the Selector's to decide, not a caller's.
-export interface SelectorProps extends Omit<Flex.BoxProps, "onDrop" | "align"> {
+interface StyleProps extends Omit<Flex.BoxProps, "onDrop" | "align" | "wrap"> {
   /** size sets the height of the strip and the typography level of its tabs. */
   size?: Component.Size;
   /**
-   * variant is the chassis its tabs wear: borderless chips on a plain strip, or
-   * separated outlined pills. Everything else about how the strip behaves is a knob
-   * below, which variant only supplies the default for.
+   * variant is the chassis its tabs wear: see {@link Variant}. Everything else about
+   * how the strip behaves is a knob below, which variant only supplies the default for.
    */
   variant?: Variant;
   /** align places a tab's contents along the strip. Defaults per variant. */
   align?: Align;
   /** sizing decides how tabs claim width. Defaults per variant. */
   sizing?: Sizing;
+}
+
+interface DropProps {
+  wrap?: false;
   /**
    * haulType enables drag-and-drop reordering by declaring the Haul item type the
    * strip accepts. When set, dragging an accepted item over the strip opens the slot
@@ -357,6 +361,19 @@ export interface SelectorProps extends Omit<Flex.BoxProps, "onDrop" | "align"> {
    */
   onDrop?: (params: SelectorOnDropParams) => Haul.Item[];
 }
+
+interface WrapProps {
+  /**
+   * wrap lays the tabs out in rows. A wrapping strip takes no drops, because the
+   * insertion index reads one axis.
+   */
+  wrap: true;
+  haulType?: never;
+  canDrop?: never;
+  onDrop?: never;
+}
+
+export type SelectorProps = StyleProps & (DropProps | WrapProps);
 
 /**
  * Selector is the strip that lays out a Frame's tabs. It renders a tablist with
@@ -389,7 +406,7 @@ export const Selector = ({
   // The thumb is a sibling of the strip anchored on the frame, so it can hang below
   // the scrollport, which clips its own children. The strip and thumb share the
   // frame as offset parent, so the offsets compose directly.
-  const updateOverflow = useCallback((): void => {
+  const updateOverflow = (): void => {
     const el = internalRef.current;
     const thumb = thumbRef.current;
     if (el == null || thumb == null) return;
@@ -418,25 +435,19 @@ export const Selector = ({
     // Hangs just below the strip; the grab target's upward extension keeps hover
     // continuous across the gap.
     thumb.style.top = `${offsetTop + offsetHeight + 1}px`;
-  }, []);
-  const attachStrip = useCallback(
-    (el: HTMLDivElement | null): void => {
-      el?.addEventListener("scroll", updateOverflow, { passive: true });
-    },
-    [updateOverflow],
-  );
+  };
+  const attachStrip = (el: HTMLDivElement | null): void => {
+    el?.addEventListener("scroll", updateOverflow, { passive: true });
+  };
   const wheelRef = useWheelScrollX<HTMLDivElement>();
   // A preview shifting tabs toward the end grows the scrollable overflow, so a
   // measurement taken before the reset reads a strip that only the drag made
   // scrollable. Clearing and measuring together keeps the two in step wherever a
   // preview ends.
-  const clearPreview = useCallback(
-    (el: HTMLElement, snap: boolean): void => {
-      resetTabs(el, snap);
-      updateOverflow();
-    },
-    [updateOverflow],
-  );
+  const clearPreview = (el: HTMLElement, snap: boolean): void => {
+    resetTabs(el, snap);
+    updateOverflow();
+  };
   const resizeRef = useResize(updateOverflow);
   // Tabs mount, close, and rename without firing scroll or resize, so re-measure
   // after every render.
@@ -453,7 +464,7 @@ export const Selector = ({
 
   // One closure owns the whole thumb drag; pointer capture routes every move
   // through the thumb until release.
-  const attachThumb = useCallback((thumb: HTMLDivElement | null): void => {
+  const attachThumb = (thumb: HTMLDivElement | null): void => {
     thumbRef.current = thumb;
     if (thumb == null) return;
     let drag: { start: number; scroll: number } | null = null;
@@ -480,40 +491,37 @@ export const Selector = ({
     };
     thumb.addEventListener("pointerup", endDrag);
     thumb.addEventListener("pointercancel", endDrag);
-  }, []);
+  };
   const defaults = VARIANT_DEFAULTS[variant];
   const resolvedAlign = align ?? (horizontal ? defaults.align : "start");
   const resolvedSizing = sizing ?? defaults.sizing;
 
-  const handleKeyDown = useCallback<KeyboardEventHandler<HTMLDivElement>>(
-    (e) => {
-      onKeyDown?.(e);
-      const el = internalRef.current;
-      if (el == null || e.defaultPrevented) return;
-      const key = Triggers.eventKey(e);
-      const next = horizontal ? "ArrowRight" : "ArrowDown";
-      const prev = horizontal ? "ArrowLeft" : "ArrowUp";
-      if (key == null || ![next, prev, "Home", "End"].includes(key)) return;
-      // Only hover when a tab itself is focused: arrow keys pressed inside a tab's
-      // children (an editable name, a close button) must keep their own meaning.
-      if (!(e.target instanceof HTMLElement) || e.target.getAttribute("role") !== "tab")
-        return;
-      const tabs = Array.from(el.querySelectorAll<HTMLElement>('[role="tab"]'));
-      if (tabs.length === 0) return;
-      let target: number;
-      if (key === "Home") target = 0;
-      else if (key === "End") target = tabs.length - 1;
-      else {
-        if (!(document.activeElement instanceof HTMLElement)) return;
-        const current = tabs.indexOf(document.activeElement);
-        const delta = key === next ? 1 : -1;
-        target = current === -1 ? 0 : (current + delta + tabs.length) % tabs.length;
-      }
-      e.preventDefault();
-      tabs[target].focus();
-    },
-    [onKeyDown, horizontal],
-  );
+  const handleKeyDown: KeyboardEventHandler<HTMLDivElement> = (e) => {
+    onKeyDown?.(e);
+    const el = internalRef.current;
+    if (el == null || e.defaultPrevented) return;
+    const key = Triggers.eventKey(e);
+    const next = horizontal ? "ArrowRight" : "ArrowDown";
+    const prev = horizontal ? "ArrowLeft" : "ArrowUp";
+    if (key == null || ![next, prev, "Home", "End"].includes(key)) return;
+    // Only hover when a tab itself is focused: arrow keys pressed inside a tab's
+    // children (an editable name, a close button) must keep their own meaning.
+    if (!(e.target instanceof HTMLElement) || e.target.getAttribute("role") !== "tab")
+      return;
+    const tabs = Array.from(el.querySelectorAll<HTMLElement>('[role="tab"]'));
+    if (tabs.length === 0) return;
+    let target: number;
+    if (key === "Home") target = 0;
+    else if (key === "End") target = tabs.length - 1;
+    else {
+      if (!(document.activeElement instanceof HTMLElement)) return;
+      const current = tabs.indexOf(document.activeElement);
+      const delta = key === next ? 1 : -1;
+      target = current === -1 ? 0 : (current + delta + tabs.length) % tabs.length;
+    }
+    e.preventDefault();
+    tabs[target].focus();
+  };
 
   // Kept on the strip rather than on each tab so one selection change schedules one
   // effect instead of one per tab. The selection spans every strip sharing it, so the
@@ -537,54 +545,45 @@ export const Selector = ({
   // Set on a drop over a live preview so the layout effect snaps the transforms away.
   const committingRef = useRef(false);
 
-  const handleCanDrop = useCallback<Haul.CanDrop>(
-    (state) => {
-      if (haulType === "") return false;
-      if (canDrop != null) return canDrop(state);
-      return Haul.filterByType(haulType, state.items).length > 0;
-    },
-    [haulType, canDrop],
-  );
+  const handleCanDrop: Haul.CanDrop = (state) => {
+    if (haulType === "") return false;
+    if (canDrop != null) return canDrop(state);
+    return Haul.filterByType(haulType, state.items).length > 0;
+  };
 
-  const handleDragOver = useCallback(
-    ({ event, items }: Haul.OnDragOverProps): void => {
-      const el = internalRef.current;
-      if (event == null || el == null) return;
-      const index = getInsertionIndex(el, { x: event.clientX, y: event.clientY });
-      const [dragged] = Haul.filterByType(haulType, items);
-      const key = dragged == null ? null : String(dragged.key);
-      const prev = previewRef.current;
-      if (prev != null && prev.index === index && prev.key === key) return;
-      previewRef.current = { index, key };
-      const reordered =
-        key == null ? null : applyReorderPreview(el, index, key, horizontal);
-      if (reordered != null) {
-        setGhost(reordered);
-        return;
-      }
-      const size = getGhostSize(el, key, horizontal);
-      applyInsertPreview(el, index, size ?? 0, horizontal);
-      setGhost({ offset: getGhostOffset(el, index, horizontal), size });
-    },
-    [haulType, horizontal],
-  );
+  const handleDragOver = ({ event, items }: Haul.OnDragOverProps): void => {
+    const el = internalRef.current;
+    if (event == null || el == null) return;
+    const index = getInsertionIndex(el, { x: event.clientX, y: event.clientY });
+    const [dragged] = Haul.filterByType(haulType, items);
+    const key = dragged == null ? null : String(dragged.key);
+    const prev = previewRef.current;
+    if (prev != null && prev.index === index && prev.key === key) return;
+    previewRef.current = { index, key };
+    const reordered =
+      key == null ? null : applyReorderPreview(el, index, key, horizontal);
+    if (reordered != null) {
+      setGhost(reordered);
+      return;
+    }
+    const size = getGhostSize(el, key, horizontal);
+    applyInsertPreview(el, index, size ?? 0, horizontal);
+    setGhost({ offset: getGhostOffset(el, index, horizontal), size });
+  };
 
-  const handleDrop = useCallback<Haul.OnDrop>(
-    (params) => {
-      const el = internalRef.current;
-      setGhost(null);
-      committingRef.current = previewRef.current != null;
-      previewRef.current = null;
-      if (params.event == null || el == null || onDrop == null) {
-        committingRef.current = false;
-        if (el != null) clearPreview(el, false);
-        return [];
-      }
-      const cursor = { x: params.event.clientX, y: params.event.clientY };
-      return onDrop({ ...params, index: getInsertionIndex(el, cursor) });
-    },
-    [onDrop, clearPreview],
-  );
+  const handleDrop: Haul.OnDrop = (params) => {
+    const el = internalRef.current;
+    setGhost(null);
+    committingRef.current = previewRef.current != null;
+    previewRef.current = null;
+    if (params.event == null || el == null || onDrop == null) {
+      committingRef.current = false;
+      if (el != null) clearPreview(el, false);
+      return [];
+    }
+    const cursor = { x: params.event.clientX, y: params.event.clientY };
+    return onDrop({ ...params, index: getInsertionIndex(el, cursor) });
+  };
 
   const dropProps = Haul.useDrop({
     type: haulType,
@@ -593,22 +592,19 @@ export const Selector = ({
     onDragOver: handleDragOver,
   });
 
-  const handleDragLeave = useCallback<DragEventHandler<HTMLDivElement>>(
-    (e) => {
-      onDragLeave?.(e);
-      const el = internalRef.current;
-      // dragleave also fires crossing onto a child tab; reset only on a true leave so
-      // the preview doesn't flicker on every crossing.
-      if (el != null && e.relatedTarget instanceof Node && el.contains(e.relatedTarget))
-        return;
-      setGhost(null);
-      if (el != null && previewRef.current != null) {
-        clearPreview(el, false);
-        previewRef.current = null;
-      }
-    },
-    [onDragLeave, clearPreview],
-  );
+  const handleDragLeave: DragEventHandler<HTMLDivElement> = (e) => {
+    onDragLeave?.(e);
+    const el = internalRef.current;
+    // dragleave also fires crossing onto a child tab; reset only on a true leave so
+    // the preview doesn't flicker on every crossing.
+    if (el != null && e.relatedTarget instanceof Node && el.contains(e.relatedTarget))
+      return;
+    setGhost(null);
+    if (el != null && previewRef.current != null) {
+      clearPreview(el, false);
+      previewRef.current = null;
+    }
+  };
 
   // Snap the transforms away the frame a dropped reorder commits, before paint, so the
   // new order with stale transforms never shows.
@@ -636,13 +632,12 @@ export const Selector = ({
     }
   }, [dragging, clearPreview]);
 
+  const ghostOffsetKey = horizontal ? "left" : "top";
+  const ghostSizeKey = horizontal ? "width" : "height";
   const ghostStyle: CSSProperties | undefined =
     ghost == null
       ? undefined
-      : {
-          [horizontal ? "left" : "top"]: ghost.offset,
-          [horizontal ? "width" : "height"]: ghost.size ?? undefined,
-        };
+      : { [ghostOffsetKey]: ghost.offset, [ghostSizeKey]: ghost.size ?? undefined };
   // A passive strip registers no drop zone, so it still forwards the consumer's
   // onDragLeave rather than dropping it.
   const dropListeners =
@@ -654,7 +649,7 @@ export const Selector = ({
           onDragLeave: handleDragLeave,
         };
 
-  const ctx = useMemo<ContextValue>(() => ({ size, variant }), [size, variant]);
+  const ctx: ContextValue = { size, variant };
 
   return (
     <Context value={ctx}>

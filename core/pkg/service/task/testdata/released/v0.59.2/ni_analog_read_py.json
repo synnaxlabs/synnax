@@ -1,0 +1,99 @@
+{
+  "name": "ni_analog_read_py",
+  "version": 2,
+  "auto_start": false,
+  "data_saving_disabled": false,
+  "sample_rate": 1000,
+  "stream_rate": 50,
+  "channels": [
+    {
+      "disabled": false,
+      "port": 0,
+      "max_val": 1e-6,
+      "custom_scale": {
+        "type": "none"
+      },
+      "units": "PicoCoulombs",
+      "name": "",
+      "channel": 3010,
+      "device": "fixture-ni-py-dev",
+      "min_val": -1e-6,
+      "terminal_config": "Diff",
+      "type": "ai_charge",
+      "key": "ch-py-ai-charge"
+    },
+    {
+      "device": "fixture-ni-py-dev",
+      "hysteresis": 0.125,
+      "key": "ch-py-ai-freq-voltage",
+      "min_val": 45.5,
+      "max_val": 65.5,
+      "custom_scale": {
+        "type": "none"
+      },
+      "threshold_level": 0.5,
+      "type": "ai_freq_voltage",
+      "name": "",
+      "disabled": false,
+      "channel": 3020,
+      "port": 1
+    },
+    {
+      "key": "ch-py-ai-thermistor-iex",
+      "min_val": -40.5,
+      "units": "DegC",
+      "channel": 3030,
+      "resistance_config": "4Wire",
+      "b": 0.000234126,
+      "type": "ai_thermistor_iex",
+      "disabled": true,
+      "device": "fixture-ni-py-dev",
+      "current_excit_source": "Internal",
+      "current_excit_val": 0.00015,
+      "a": 0.001129241,
+      "name": "",
+      "port": 2,
+      "max_val": 150.5,
+      "c": 8.76741e-8
+    },
+    {
+      "resistance_config": "2Wire",
+      "units": "Kelvins",
+      "b": 0.000239243,
+      "c": 1.561926e-7,
+      "type": "ai_thermistor_vex",
+      "disabled": false,
+      "a": 0.001028444,
+      "key": "ch-py-ai-thermistor-vex",
+      "name": "",
+      "device": "fixture-ni-py-dev",
+      "min_val": 233.5,
+      "max_val": 423.5,
+      "channel": 3040,
+      "voltage_excit_source": "External",
+      "voltage_excit_val": 2.5,
+      "r1": 0,
+      "port": 3
+    },
+    {
+      "min_val": -7.5,
+      "type": "ai_voltage_rms",
+      "key": "ch-py-ai-voltage-rms",
+      "disabled": false,
+      "channel": 3050,
+      "device": "fixture-ni-py-dev",
+      "max_val": 7.5,
+      "terminal_config": "RSE",
+      "custom_scale": {
+        "type": "linear",
+        "slope": 1.5,
+        "y_intercept": -0.25,
+        "pre_scaled_units": "Volts",
+        "scaled_units": "vrms-custom"
+      },
+      "name": "",
+      "port": 4
+    }
+  ],
+  "type": "ni_analog_read"
+}

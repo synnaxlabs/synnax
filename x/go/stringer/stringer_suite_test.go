@@ -19,7 +19,7 @@ import (
 
 func TestStringer(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Stringer Suite")
+	RunSpecs(t, "Stringer Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

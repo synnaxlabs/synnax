@@ -53,9 +53,9 @@ describe("task notifications", () => {
     await addStatus({
       key: "task:1",
       variant: "disabled",
-      message: "Task has not been deployed",
+      message: "Task not deployed",
     });
-    expect(screen.queryByText("Task has not been deployed")).toBeNull();
+    expect(screen.queryByText("Task not deployed")).toBeNull();
   });
 
   it("does not suppress a task error status", async () => {

@@ -16,7 +16,7 @@
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/test/test.h"
 
-using json = nlohmann::json;
+using nlohmann::json;
 
 TEST(ParseTimeFormat, ISO8601) {
     const auto fmt = ASSERT_NIL_P(x::json::parse_time_format("iso8601"));

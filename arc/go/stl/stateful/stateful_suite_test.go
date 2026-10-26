@@ -19,7 +19,7 @@ import (
 
 func TestVars(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "STL Stateful Suite")
+	RunSpecs(t, "STL Stateful Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

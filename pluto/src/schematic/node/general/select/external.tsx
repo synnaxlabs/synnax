@@ -18,7 +18,7 @@ import { type Spec } from "@/schematic/node/spec";
 
 const Preview = ({ fillColor }: schematic.SelectNodeConfig): ReactElement => (
   <Select
-    onChange={() => {}}
+    onSend={() => {}}
     options={[]}
     fillColor={fillColor}
     disabled

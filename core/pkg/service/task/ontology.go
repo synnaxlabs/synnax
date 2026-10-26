@@ -11,17 +11,16 @@ package task
 
 import (
 	"context"
-	"io"
 	"iter"
 	"uuid"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	xchange "github.com/synnaxlabs/x/change"
-	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/zyn"
 )
 
@@ -61,16 +60,9 @@ func newResource(t Task) ontology.Resource {
 
 type change = xchange.Change[Key, Task]
 
-var (
-	_ ontology.Service      = (*Service)(nil)
-	_ search.Service        = (*Service)(nil)
-	_ search.FieldsProvider = (*Service)(nil)
-)
+var _ ontology.Service = (*Service)(nil)
 
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeTask }
-
-// SearchableFields implements ontology.SearchableFieldsProvider.
-func (s *Service) SearchableFields() []string { return []string{"type"} }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(
@@ -107,13 +99,18 @@ func (s *Service) OnChange(
 	return s.table.Observe().OnChange(handleChange)
 }
 
-// OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter(
+func newSearchIndex() *gorp.SearchIndex[Key, Task] {
+	return gorp.NewSearchIndex("search", func(e *Task) []string {
+		return []string{e.Name, e.Type}
+	})
+}
+
+// Search implements ontology.Service.
+func (s *Service) Search(
 	ctx context.Context,
-) (iter.Seq[ontology.Resource], io.Closer, error) {
-	n, closer, err := s.table.OpenNexter(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-	return xiter.Map(n, newResource), closer, nil
+	tx gorp.Tx,
+	term string,
+	limit int,
+) (search.Result[ontology.ID], error) {
+	return ontology.SearchIndex(ctx, tx, s.search, term, limit, OntologyID)
 }

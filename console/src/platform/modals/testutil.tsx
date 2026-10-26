@@ -102,10 +102,10 @@ export interface ModalHookHandle<T> {
  */
 export const renderModalHook = <T,>(
   useHook: () => T,
-): RenderHookResult<ModalHookHandle<T>, undefined> =>
-  renderHook(() => ({ hook: useHook(), store: Session.Modals.useStore("test") }), {
-    wrapper: Wrapper,
-  });
+): RenderHookResult<ModalHookHandle<T>, undefined> => {
+  const useHandle = () => ({ hook: useHook(), store: Session.Modals.useStore("test") });
+  return renderHook(useHandle, { wrapper: Wrapper });
+};
 
 /** Pulls the close callback the store bound into the topmost modal's rendered content. */
 export const closeOf = (

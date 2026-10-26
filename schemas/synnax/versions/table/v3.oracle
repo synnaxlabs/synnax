@@ -1,0 +1,71 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+Key = v0.Key
+
+FlexAlignment = v2.FlexAlignment
+
+CellConfig = v2.CellConfig
+
+Row struct {
+    key   string = create {
+        @doc value "is the unique identifier for this row within the table."
+    }
+    size  float64 = 36 {
+        @doc value "is the height of the row in pixels."
+    }
+    cells string[] {
+        @doc value """
+            is the ordered list of cell keys in this row from left to right. Each key
+            points at an entry in the table's cells map.
+        """
+    }
+
+    @doc value  "is a single row in a table, with a key, height, and ordered cell keys."
+    @go marshal
+}
+
+Column struct {
+    key  string = create {
+        @doc value "is the unique identifier for this column within the table."
+    }
+    size float64 = 72 {
+        @doc value "is the width of the column in pixels."
+    }
+
+    @doc value  "is a single column in a table, with a key and width."
+    @go marshal
+}
+
+Table struct {
+    key     Key = create {
+        @doc value "is the unique identifier for this table."
+        @key
+    }
+    name    string                  {
+        @doc value "is a human-readable name for the table."
+    }
+    rows    Row[] = [] {
+        @doc value "are the table rows in display order, top to bottom."
+    }
+    columns Column[] = [] {
+        @doc value "are the table columns in display order, left to right."
+    }
+    cells   map<string, CellConfig> = {} {
+        @doc value """
+            contains all cells in the table, keyed by cell key. Cell positions are
+            derived from rows[*].cells[*] references; cells not referenced by any row
+            are orphaned and will be pruned on the next structural edit.
+        """
+    }
+
+    @go imex
+    @go marshal
+    @go migrate
+}
