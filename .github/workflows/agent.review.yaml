@@ -1,0 +1,117 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Calls an agent to work through the unresolved review threads on an agent pull request.
+# workflow_run runs this file and the gate from the default branch, so no pull request
+# code runs with secrets outside the agent workflow. The agent asks Greptile for a new
+# review, which starts the next round, so the gate caps the rounds per pull request.
+
+name: Agent - Address review
+
+on:
+  workflow_run:
+    workflows:
+      - Agent - Review submitted
+    types:
+      - completed
+
+permissions: {}
+
+jobs:
+  gate:
+    name: Gate
+    if:
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.pull_requests[0]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    outputs:
+      run: ${{ steps.gate.outputs.run }}
+      prompt: ${{ steps.prompt.outputs.prompt }}
+    env:
+      PR: ${{ github.event.workflow_run.pull_requests[0].number }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      # A thread needs action when it is open and its last word belongs to Greptile or
+      # a person other than the author. Agent replies come from other bots.
+      - name: Count the threads that need action
+        id: threads
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          COUNT=$(gh api graphql -F p="$PR" -f o="$GITHUB_REPOSITORY_OWNER" \
+            -f r="${GITHUB_REPOSITORY#*/}" -f query='
+            query($o: String!, $r: String!, $p: Int!) {
+              repository(owner: $o, name: $r) {
+                pullRequest(number: $p) {
+                  author { login }
+                  reviewThreads(first: 100) { nodes {
+                    isResolved
+                    comments(last: 1) { nodes { author { login __typename } } }
+                  } }
+                }
+              }
+            }' --jq '.data.repository.pullRequest as $pr
+              | [$pr.reviewThreads.nodes[] | select(.isResolved | not)
+                | .comments.nodes[0].author
+                | select(.login != $pr.author.login
+                  and (.__typename == "User" or .login == "greptile-apps"))]
+              | length')
+          echo "$COUNT threads need action"
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+
+      - name: Gate the round
+        id: gate
+        if: steps.threads.outputs.count != '0'
+        uses: ./.github/actions/agent-gate
+        with:
+          pr: ${{ env.PR }}
+          kind: review
+          cap: 3
+          task: address review threads
+          agents: ${{ vars.AGENT_LOGINS }}
+
+      - name: Write the prompt
+        id: prompt
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          EOF=$(openssl rand -hex 16)
+          {
+            echo "prompt<<$EOF"
+            cat .github/agents/review.md
+            printf '\nThe pull request is #%s.\n' "$PR"
+            echo "$EOF"
+          } >> "$GITHUB_OUTPUT"
+
+  agent:
+    name: Agent
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    # Shared with the other agent workflows, so one agent at a time pushes to a branch.
+    concurrency:
+      group: agent-pr-${{ github.event.workflow_run.pull_requests[0].number }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    uses: ./.github/workflows/agent.yaml
+    with:
+      prompt: ${{ needs.gate.outputs.prompt }}
+      agent: ${{ vars.AGENT_DEFAULT || 'claude' }}
+      output: comment
+      pr: ${{ github.event.workflow_run.pull_requests[0].number }}
+      timeout-minutes: 60
+    secrets: inherit
