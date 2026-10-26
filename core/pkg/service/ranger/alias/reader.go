@@ -192,8 +192,7 @@ func (r Reader) SearchChannels(
 	})
 	named := q.Search(term)
 	if limit > 0 {
-		// Far enough to fill the page once the alias matches are dropped.
-		named = named.Limit(limit + offset + len(matched))
+		named = named.Limit(limit + offset)
 	}
 	var byName []channel.Channel
 	if err := named.Entries(&byName).Exec(ctx, r.tx); err != nil {
