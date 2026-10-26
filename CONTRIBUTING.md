@@ -17,8 +17,9 @@ person dispatches every release ([RFC 0058](docs/tech/rfc/0058-release-workflow.
   issue.
 - Description: what changed and why, leading with the effect on a user or the
   architecture. Never a file-by-file walk.
-- One review tier label. The author merges once the gate passes, after answering every
-  Greptile comment with a fix or a reason.
+- One review tier label. Answer every Greptile comment with a fix or a reason. A
+  `review/bot` PR that is not a draft merges by itself once CI and the gate pass. The
+  author merges a `review/human` PR once the gate passes.
 - A version bump rides the PR that ships the change. Test-only and docs-only changes
   bump nothing.
 
