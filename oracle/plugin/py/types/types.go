@@ -1343,8 +1343,10 @@ func pyStructLiteral(
 	if !ok {
 		return "None"
 	}
-	if form, ok := resolved.Form.(resolution.UnionForm); ok {
-		return pyUnionLiteral(resolved, form, val, table, data)
+	if union, _, ok := resolution.Dealias(typeRef, table); ok {
+		if form, ok := union.Form.(resolution.UnionForm); ok {
+			return pyUnionLiteral(union, form, val, table, data)
+		}
 	}
 	className := getPyName(resolved)
 	importLocalHand(resolved, className, data)
