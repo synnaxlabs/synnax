@@ -166,7 +166,8 @@ def report(
 
 
 def gh(*args: str) -> list[str]:
-    out = subprocess.run(["gh", *args], check=True, capture_output=True, text=True)
+    # gh's stderr goes to the log, so a failed call shows its cause.
+    out = subprocess.run(["gh", *args], check=True, stdout=subprocess.PIPE, text=True)
     return out.stdout.splitlines()
 
 
