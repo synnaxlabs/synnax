@@ -68,10 +68,8 @@ var _ = Describe("MockFileLoader", func() {
 		})
 
 		It("should return FileNotFoundError for missing file", func() {
-			_, _, err := loader.Load("schema/nonexistent")
-			Expect(err).To(MatchError(&FileNotFoundError{Path: "schema/nonexistent"}))
-			var fnf *FileNotFoundError
-			Expect(err).To(BeAssignableToTypeOf(fnf))
+			Expect(loader.Load("schema/nonexistent")).Error().
+				To(MatchError(&FileNotFoundError{Path: "schema/nonexistent"}))
 		})
 	})
 
