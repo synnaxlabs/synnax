@@ -814,3 +814,28 @@ class TestReadFrameAdapter:
         adapted = adapter.adapt(frame)
         assert list(adapted.to_df().columns) == [ch.name for ch in requested]
         assert list(adapted.to_df()[ch3.name]) == [100.0]
+
+    @pytest.mark.parametrize("by_name", [True, False])
+    def test_adapt_keeps_first_position_of_repeated_channel(
+        self,
+        client: sy.Synnax,
+        channels: tuple[sy.Channel, sy.Channel, sy.Channel],
+        by_name: bool,
+    ) -> None:
+        """Should order a repeated channel by its first requested position."""
+        ch1, ch2, _ = channels
+        requested = [ch1, ch2, ch1]
+        adapter = ReadFrameAdapter(client.channels._retriever)
+        if by_name:
+            adapter.update([ch.name for ch in requested])
+        else:
+            adapter.update([ch.key for ch in requested])
+        frame = sy.Frame(
+            [ch2.key, ch1.key],
+            [
+                sy.Series([10], data_type=sy.DataType.INT64),
+                sy.Series([1.0], data_type=sy.DataType.FLOAT64),
+            ],
+        )
+        adapted = adapter.adapt(frame)
+        assert list(adapted.to_df().columns) == [ch1.name, ch2.name]

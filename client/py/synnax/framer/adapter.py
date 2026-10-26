@@ -56,9 +56,9 @@ class ReadFrameAdapter:
             self.keys = [keys_by_name[name] for name in normal.channels]
         self._rank = {}
         for i, key in enumerate(self.keys):
-            self._rank[key] = i
+            self._rank.setdefault(key, i)
             if key in self._names:
-                self._rank[self._names[key]] = i
+                self._rank.setdefault(self._names[key], i)
 
     def adapt(self, fr: Frame) -> Frame:
         """Sorts the frame's series into the order of the requested channels and
