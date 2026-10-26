@@ -128,6 +128,16 @@ class TestSelect:
         assert dispatches == []
         assert skipped == ["SY-1: blocked", "SY-2: blocked"]
 
+    def test_should_count_a_done_issue_with_an_open_pr(self) -> None:
+        """Should count a Done issue toward the cap while an open PR names it."""
+        issues = [issue(1, state="completed"), issue(2, state="started"), issue(3)]
+        assert keys(issues, open_prs={"SY-1"}, cap=2) == []
+
+    def test_should_not_count_or_dispatch_a_done_issue_without_a_pr(self) -> None:
+        """Should neither dispatch a Done issue nor count it toward the cap."""
+        issues = [issue(1, state="completed"), issue(2, state="started"), issue(3)]
+        assert keys(issues, cap=2) == ["SY-3"]
+
     def test_should_skip_only_the_issue_with_unknown_blockers(self) -> None:
         """Should skip an issue whose blockers are unknown and dispatch the rest."""
         dispatches, skipped = select([issue(1, blockers=None), issue(2)], set(), 3)

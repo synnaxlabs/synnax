@@ -11,7 +11,7 @@
 
 An issue is ready when it is in Backlog or Todo, every blocker is Done, no open pull
 request names it, and its project has fewer than the cap in flight. In flight means
-In Progress or In Review, or named by an open pull request. Without --dry-run, moves
+In Progress or In Review, or named by an open pull request in any state. Without --dry-run, moves
 each selected issue to In Progress and writes the agent workflow matrix to --output.
 
 Needs LINEAR_API_KEY, and gh authenticated for the repository.
@@ -37,11 +37,14 @@ _KEY = re.compile(r"\bSY-(\d+)\b", re.IGNORECASE)
 _FIELD = re.compile(r"^[-*]?\s*(RFC|Phase):\s*`?([^`\s]+)`?\s*$", re.MULTILINE)
 
 ISSUES_QUERY = """
-query($after: String, $team: String!, $label: String!) {
+query($after: String, $team: String!, $label: String!, $numbers: [Float!]!) {
   issues(first: 100, after: $after, filter: {
     team: {key: {eq: $team}},
     labels: {some: {name: {eq: $label}}},
-    state: {type: {in: ["backlog", "unstarted", "started"]}}
+    or: [
+      {state: {type: {in: ["backlog", "unstarted", "started"]}}},
+      {number: {in: $numbers}}
+    ]
   }) {
     nodes {
       id identifier number title description
@@ -147,7 +150,7 @@ def select(
     dispatches: list[Dispatch] = []
     skipped: list[str] = []
     for issue in sorted(issues, key=lambda i: i.number):
-        if issue.state == "started" or issue.key in open_prs:
+        if issue.state not in ("backlog", "unstarted") or issue.key in open_prs:
             continue
         fields = agent_fields(issue.description)
         if issue.project is None:
@@ -183,11 +186,14 @@ def _linear(query: str, variables: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
-def fetch_issues() -> list[Issue]:
+def fetch_issues(open_prs: set[str]) -> list[Issue]:
+    """Returns the open agent-ready issues, plus those in any state that an open PR
+    names, so they count toward their project's cap."""
+    numbers = sorted(int(key.removeprefix("SY-")) for key in open_prs)
     issues: list[Issue] = []
     after: str | None = None
     while True:
-        variables = {"after": after, "team": TEAM, "label": LABEL}
+        variables = {"after": after, "team": TEAM, "label": LABEL, "numbers": numbers}
         page = _linear(ISSUES_QUERY, variables)["issues"]
         issues.extend(parse_issue(n) for n in page["nodes"])
         if not page["pageInfo"]["hasNextPage"]:
@@ -243,9 +249,8 @@ def main() -> None:
     parser.add_argument("--cap", type=int, default=3)
     parser.add_argument("--output")
     args = parser.parse_args()
-    dispatches, skipped = select(
-        fetch_issues(), open_pr_keys(fetch_open_prs()), args.cap
-    )
+    open_prs = open_pr_keys(fetch_open_prs())
+    dispatches, skipped = select(fetch_issues(open_prs), open_prs, args.cap)
     for reason in skipped:
         print(f"skip {reason}", file=sys.stderr)
     for d in dispatches:
