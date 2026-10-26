@@ -77,7 +77,6 @@ class _IngestionCLI:
 
 
 def _run_ingestion(ctx: Context, cli: _IngestionCLI) -> None:
-    """Runs the ingestion process."""
     assert cli.reader is not None
     assert cli.db_channels is not None
     assert cli.client is not None
@@ -108,14 +107,12 @@ def _initialize_reader(
 
 
 def _connect_client(ctx: Context, cli: _IngestionCLI) -> str | None:
-    """Prompts the user to connect to a Synnax py."""
     if cli.client is None:
         cli.client = connect_client(ctx)
     return "ingest_all" if cli.client else None
 
 
 def _ingest_all(ctx: Context, cli: _IngestionCLI) -> str | None:
-    """Prompts the user to ingest all channels."""
     assert cli.reader is not None
     if ctx.console.ask("Would you like to ingest all channels?", default=True):
         cli.filtered_channels = cli.reader.channels()
@@ -124,7 +121,6 @@ def _ingest_all(ctx: Context, cli: _IngestionCLI) -> str | None:
 
 
 def _channels_to_ingest(ctx: Context, cli: _IngestionCLI) -> str | None:
-    """Prompts the user to select channels to ingest."""
     assert cli.reader is not None
     ctx.console.info("Which channels would you like to ingest?")
     channels = cli.reader.channels()
@@ -274,7 +270,6 @@ def _create_indexes(
     cli: _IngestionCLI,
     options: list[ChannelMeta],
 ) -> list[ChannelMeta]:
-    """Prompts the user to create index channels."""
     assert cli.client is not None
     assert cli.db_channels is not None
     grouped = channel.prompt_group_names(ctx, [ch.name for ch in options])
@@ -339,8 +334,6 @@ def _assign_index_or_rate(
     ctx: Context,
     cli: _IngestionCLI,
 ) -> dict[Rate | int, list[ChannelMeta]] | None:
-    """Prompts the user to assign an index/rate to the channels in the given
-    group"""
     assert cli.client is not None
     assert cli.not_found is not None
     client = cli.client
