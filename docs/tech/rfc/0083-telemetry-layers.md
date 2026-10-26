@@ -64,6 +64,8 @@ because `Series.updateGLBuffer` rejects other types (`x/ts/src/telem/series.ts:9
 3. **The cache stores exact data**: Any conversion for rendering happens in the
    visualization, at GPU upload.
 4. **One of each**: One join of history and live data, one cache, one window type.
+5. **A read costs nothing**: A render loop reads each source many times per frame, so a
+   read returns a snapshot the `Feed` built when an input changed.
 
 ## 3 Design
 
@@ -187,8 +189,8 @@ an exact index answers time questions with no second copy.
   connectivity check. Their blocks, and blocks the channel's data has not passed, expire
   after 10 minutes.
 - **Reads**: A `points` request reads reduced blocks for history and raw blocks from the
-  live edge of RFC 0068 §3.8. A `latest` request reads raw blocks back from the end of
-  the window.
+  live edge of RFC 0068 §3.8. A `latest` request reads the newest samples from the Core
+  and keeps them outside the blocks (§5, decision 12).
 
 The block cache replaces the raw cache (`client/ts/src/framer/cache/static.ts`,
 `dynamic.ts`, `unary.ts`) and the `TileReader` of RFC 0068 §3.6.
@@ -216,6 +218,24 @@ static window with exact timestamps before Pluto gets it, so Pluto knows only ti
   `sy_history_change`, as the control service publishes `sy_control`
   (`core/pkg/service/control/service.go:79`). Only the node that stores a channel
   publishes its changes.
+
+### 3.7 Performance
+
+- **Snapshots**: `value(key)` returns the same snapshot until the key's samples, status,
+  or request change, the rule React sets for `getSnapshot` in `useSyncExternalStore`.
+  Tile requests, reads, holds, and pruning run when an input changes, not on a read.
+- **Growth is not a change**: The open block grows its newest series in place. A frame
+  that only grows it keeps the snapshot's series and moves `time`. PlotJuggler 4 keeps
+  the same rule with a generation count that in-order appends do not move.
+- **Linear pairing**: The line pairs x and y series by alignment with a forward scan
+  (Bouros and Mamoulis, PVLDB 2017), in time linear in the series and pairs. Hot
+  comparisons use bigints and allocate nothing. No tool checked pairs two series lists,
+  because each stores x and y in one unit.
+- **One notification per frame**: A subscription merges its keys' changes into one
+  `onChange` per microtask, and a handler that throws does not stop the others.
+- **The gate**: A phase that changes the read path runs `LinePlot.bench`,
+  `remote.bench`, `tile.bench`, and a log frame bench against `main` on one machine, and
+  merges only when no case is slower than `main`.
 
 ## 4 Implementation phases
 
@@ -290,6 +310,12 @@ signal channel. No phase changes a stored format.
     a pushed result needs a copy in each source to answer that read. A dynamic window
     moves with the clock, so a push needs a timer in the `Feed` and sends results that
     no frame draws. The trade is real: a caller that wants push wraps `onChange`.
+12. **Values and logs read outside the join**: A value needs one sample and a log one
+    page, but a join reads whole open blocks. At 1 kHz, 300 values would read about 20
+    million samples to show 300. A `latest` request reads the newest samples from the
+    Core and removes duplicates with the stream by alignment, or by time for calculated
+    channels. The trade is real: two paths read history, and a `latest` key keeps a
+    buffer that its count bounds, not the byte budget.
 
 ## 6 What this RFC does not cover
 
