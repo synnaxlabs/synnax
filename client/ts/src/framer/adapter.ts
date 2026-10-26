@@ -11,7 +11,7 @@ import { type CrudeSeries, Series } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import { analyzeParams, paramsZ } from "@/channel/payload";
-import { QueryError, ValidationError } from "@/errors";
+import { NotFoundError, ValidationError } from "@/errors";
 import { Codec } from "@/framer/codec";
 import { type CrudeFrame, Frame } from "@/framer/frame";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -19,7 +19,7 @@ import { checkForMultipleOrNoResults } from "@/util/retrieve";
 /** Fetches channel payloads. Missing channels are omitted, not thrown. */
 export type ChannelRetriever = (channels: channel.Params) => Promise<channel.Payload[]>;
 
-/** Fetches channel payloads, throwing a {@link QueryError} when any is missing. */
+/** Fetches channel payloads, throwing a {@link NotFoundError} when any is missing. */
 const retrieveRequired = async (
   retrieve: ChannelRetriever,
   channels: channel.Params,
@@ -31,7 +31,7 @@ const retrieveRequired = async (
     if (results.find((c) => c.name === v || c.key === v) == null) notFound.push(v);
   });
   if (notFound.length > 0)
-    throw new QueryError(`Could not find channels: ${JSON.stringify(notFound)}`);
+    throw new NotFoundError(`channels not found matching ${JSON.stringify(notFound)}`);
   return results;
 };
 
@@ -59,7 +59,7 @@ export class ReadAdapter {
 
   async update(channels: channel.Params): Promise<boolean> {
     const { variant, normalized } = analyzeParams(channels);
-    const fetched = await this.retrieveChannels(normalized);
+    const fetched = await retrieveRequired(this.retrieveChannels, normalized);
     const newKeys = fetched.map((c) => c.key);
     const newKeySet = new Set(newKeys);
     if (newKeySet.size === this.keys.size && newKeySet.isSubsetOf(this.keys))
