@@ -1236,7 +1236,7 @@ var _ = Describe("Writer", func() {
 				func(ctx SpecContext) {
 					names := []string{UniqueChannelName(), UniqueChannelName()}
 					Expect(
-						channelWriter.DeleteManyByNames(ctx, names, false),
+						channelWriter.DeleteManyByNamePatterns(ctx, names, false),
 					).To(Succeed())
 				},
 			)
@@ -1266,10 +1266,11 @@ var _ = Describe("Writer", func() {
 			It(
 				"Should return an error when deleting an internal channel by name",
 				func(ctx SpecContext) {
-					Expect(
-						channelWriter.DeleteManyByNames(ctx, []string{internalCh.Name}, false),
-					).
-						To(MatchError(ContainSubstring("can't delete internal channel")))
+					Expect(channelWriter.DeleteManyByNamePatterns(
+						ctx,
+						[]string{internalCh.Name},
+						false,
+					)).To(MatchError(ContainSubstring("can't delete internal channel")))
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchNames(internalCh.Name)).
 						Exists(ctx, nil)).To(BeTrue())

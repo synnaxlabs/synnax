@@ -310,7 +310,7 @@ func (s *Service) Delete(
 		}); err != nil {
 			return struct{}{}, err
 		}
-		return struct{}{}, w.DeleteManyByNames(ctx, req.Names, false)
+		return struct{}{}, w.DeleteManyByNamePatterns(ctx, req.Names, false)
 	}
 	return struct{}{}, nil
 }
