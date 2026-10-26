@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT = Path(__file__).resolve().parent / "dispatch_agent_task.sh"
+SCRIPT = Path(__file__).resolve().parents[1] / "dispatch_agent_task.sh"
 
 FAKE_GH = """#!/bin/bash
 printf '%s\\x1f' "$@" >> "$GH_CALLS"
