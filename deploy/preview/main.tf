@@ -33,13 +33,12 @@ variable "region" {
 }
 
 variable "domain" {
-  description = "Parent domain of the previews. A preview is at pr-<number>.<domain>."
+  description = <<-EOT
+    Parent domain of the previews, with a wildcard record to the host. A preview is at
+    pr-<number>.<domain>. Empty uses <host IP>.sslip.io, which needs no DNS record.
+  EOT
   type        = string
-}
-
-variable "acme_email" {
-  description = "Contact address for the Let's Encrypt account."
-  type        = string
+  default     = ""
 }
 
 variable "repository" {
@@ -146,19 +145,24 @@ resource "aws_iam_role_policy_attachment" "host_ecr" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 }
 
-data "aws_caller_identity" "current" {}
+# A human writes the key with put-parameter --overwrite, so it never enters the state.
+resource "aws_ssm_parameter" "license" {
+  name  = var.license_parameter
+  type  = "SecureString"
+  value = "unset"
+  lifecycle {
+    ignore_changes = [value]
+  }
+}
 
 resource "aws_iam_role_policy" "host_license" {
   role = aws_iam_role.host.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Effect = "Allow"
-      Action = "ssm:GetParameter"
-      Resource = join("", [
-        "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}",
-        ":parameter${var.license_parameter}",
-      ])
+      Effect   = "Allow"
+      Action   = "ssm:GetParameter"
+      Resource = aws_ssm_parameter.license.arn
     }]
   })
 }
@@ -175,13 +179,12 @@ resource "aws_instance" "host" {
   vpc_security_group_ids      = [aws_security_group.preview.id]
   user_data_replace_on_change = true
   user_data = templatefile("${path.module}/bootstrap.sh", {
-    domain     = var.domain
-    acme_email = var.acme_email
-    ttl_days   = var.ttl_days
-    license    = var.license_parameter
-    region     = var.region
-    caddyfile  = file("${path.module}/Caddyfile")
-    preview    = file("${path.module}/preview.sh")
+    domain    = local.domain
+    ttl_days  = var.ttl_days
+    license   = var.license_parameter
+    region    = var.region
+    caddyfile = file("${path.module}/Caddyfile")
+    preview   = file("${path.module}/preview.sh")
   })
   root_block_device {
     volume_size = 60
@@ -196,8 +199,15 @@ resource "aws_instance" "host" {
   }
 }
 
-resource "aws_eip" "host" {
-  instance = aws_instance.host.id
+resource "aws_eip" "host" {}
+
+resource "aws_eip_association" "host" {
+  allocation_id = aws_eip.host.id
+  instance_id   = aws_instance.host.id
+}
+
+locals {
+  domain = coalesce(var.domain, "${replace(aws_eip.host.public_ip, ".", "-")}.sslip.io")
 }
 
 resource "aws_iam_openid_connect_provider" "github" {
@@ -286,6 +296,10 @@ output "instance_id" {
 output "public_ip" {
   description = "Target of the wildcard DNS record *.<domain>."
   value       = aws_eip.host.public_ip
+}
+
+output "domain" {
+  value = local.domain
 }
 
 output "ecr_repository_url" {

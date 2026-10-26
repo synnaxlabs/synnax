@@ -1,5 +1,1 @@
-{
-	email {$ACME_EMAIL}
-}
-
 import /etc/caddy/sites/*.caddy
