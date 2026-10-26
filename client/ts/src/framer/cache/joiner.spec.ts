@@ -12,6 +12,7 @@ import { type breaker, Rate, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
+import { UnsupportedError } from "@/errors";
 import { Joins } from "@/framer/cache/join";
 import { Joiner } from "@/framer/cache/joiner";
 import { Reader, type RemoteReader } from "@/framer/cache/reader";
@@ -248,7 +249,7 @@ describe("Joiner", () => {
     const { joins, joiner, join, close } = createJoiner(core, {
       readRemote: async (tr, keys, reduction) => {
         if (keys.includes(calculated) || keys.includes(index))
-          throw new Error("cannot open iterator on virtual channel");
+          throw new UnsupportedError("cannot open iterator on virtual channel");
         return core.read(tr, keys, reduction);
       },
     });
@@ -276,7 +277,7 @@ describe("Joiner", () => {
     const { store, joins, joiner, join, close } = createJoiner(core, {
       readRemote: async (tr, keys, reduction) => {
         if (keys.includes(calculated) || keys.includes(index))
-          throw new Error("cannot open iterator on virtual channel");
+          throw new UnsupportedError("cannot open iterator on virtual channel");
         return core.read(tr, keys, reduction);
       },
     });
