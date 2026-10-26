@@ -66,11 +66,12 @@ true => m4.f{}
 A module edit makes the task of every importer drift (RFC 0056 §4.3). The Core finds
 importers from the import statements in the text and keeps no copy of them (§5.3).
 
-- **Module hash**: The hash of the module's compiled code (§5.4). Compiled code contains
-  the module's own imports, so an edit at any depth moves the hash of every module above
-  it. A module that does not compile hashes its text.
-- **Task config**: Stores the automation's own hash (RFC 0056 §6.6) and the hash of each
-  module it imports, so `config_hash` moves when any of them moves.
+- **Compiled hash**: The hash of an Arc's compiled code (§5.4). Compiled code contains
+  the Arc's imports, so an edit to a module at any depth moves the hash of every
+  importer. An Arc that does not compile hashes its source.
+- **Task config**: Stores the automation's compiled hash where RFC 0056 §6.6 stores its
+  text hash, so `config_hash` moves when the automation or any module it imports
+  changes.
 - **Cycles**: The analyzer reports the chain, and the importer lookup visits each Arc
   once.
 - **Delete**: A module in use can be deleted. Its importers resync and fail to compile,
@@ -85,11 +86,12 @@ Two kinds of change resync Arcs.
 
 #### 3.2.0 Naming the change
 
-An as-built copy of each stored hash lives outside the hashed config, so a diff names
-what changed and promotion never moves `config_hash`. A resync promotes stored to
-as-built when the task status shows the Driver running the stored config. A save before
-the Driver echoes a redeploy skips promotion and over-names until a later resync
-matches.
+Outside the hashed config, the Core stores the automation's text hash and the compiled
+hash of each module it imports, each with an as-built copy. The text hash leaves imports
+out, so a diff tells an automation edit from a module edit, and promotion never moves
+`config_hash`. A resync promotes stored to as-built when the task status shows the
+Driver running the stored config. A save before the Driver echoes a redeploy skips
+promotion and over-names until a later resync matches.
 
 #### 3.2.1 Cost
 
@@ -127,8 +129,8 @@ Arc's status.
 ### 3.5 Migrations
 
 - **Arc**: Existing Arcs re-parent under "Arcs". Type defaults to `automation`.
-- **Task config**: A new version adds the module hashes of §3.2, empty until the next
-  sync. The as-built record of §3.2.0 starts empty.
+- **Task config**: Keeps its version. Its hash becomes the compiled hash at the next
+  sync, and the record of §3.2.0 starts empty.
 
 ## 4 Implementation phases
 
@@ -138,9 +140,9 @@ Each phase is one pull request into `main`.
 - **Phase 2: Module resolution and `export`.** Path walk, analyzer resolution, and cycle
   diagnostics.
 - **Phase 3: Compile modules into the importer.**
-- **Phase 4: Change propagation.** Module hashes, the importer lookup, the resyncs of
-  §3.2, and the task config version of §3.5.
-- **Phase 5: Naming the change.** The as-built record of §3.2.0.
+- **Phase 4: Change propagation.** Compiled hashes, the importer lookup, and the resyncs
+  of §3.2.
+- **Phase 5: Naming the change.** The hashes and as-built copies of §3.2.0.
 
 No stable release stores a module. Shipped task configs take the migration of §3.5.
 
@@ -161,15 +163,14 @@ text, so the Core reads them there instead of keeping a second copy. An `imports
 ontology relationship costs less per module save (§3.2.1), but the ontology refuses
 cycles, so the relationship would need its own cycle rules.
 
-**5.4 A module hashes its compiled code.** No rule folds hashes level by level, and an
+**5.4 An Arc hashes its compiled code.** No rule folds hashes level by level, and an
 edit that changes no code, like a comment, moves no hash. This needs equal text to
-compile to equal code. An automation keeps the hash of RFC 0056 §6.6, so an autosave
-does not compile.
+compile to equal code. The Core compiles an automation on each save.
 
-**5.5 Drift names the module that changed.** An as-built hash per module lives beside
-the task config (§3.2.0). RFC 0056 §4.4 rejected a deployed config snapshot, which
-duplicates Driver-held state. A hash is one string, kept outside `config_hash`. No
-Driver change.
+**5.5 Drift names the module that changed.** The text hash, a hash per module, and their
+as-built copies live beside the task config (§3.2.0). RFC 0056 §4.4 rejected a deployed
+config snapshot, which duplicates Driver-held state. A hash is one string, kept outside
+`config_hash`. No Driver change.
 
 **5.6 A rename breaks its importers.** An import names a path, so a renamed or moved
 module fails the compile of each importer. Rewriting importers on a rename needs a
