@@ -10,6 +10,7 @@
 package status_test
 
 import (
+	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"os"
 
@@ -35,13 +36,13 @@ type whereCase struct {
 	Name     string       `json:"name"`
 	Where    status.Where `json:"where"`
 	Expected []string     `json:"expected"`
+	// ServerComputed is for the TypeScript matches. The Core computes every case.
+	ServerComputed bool `json:"server_computed"`
 }
 
 type vectors struct {
-	Statuses struct {
-		Records map[string]status.Status[any] `json:"records"`
-		Cases   []whereCase                   `json:"cases"`
-	} `json:"statuses"`
+	Records map[string]status.Status[any] `json:"records"`
+	Cases   []whereCase                   `json:"cases"`
 }
 
 var _ = Describe("Where", Ordered, func() {
@@ -51,8 +52,15 @@ var _ = Describe("Where", Ordered, func() {
 		labelSvc *label.Service
 		tx       gorp.Tx
 	)
-	Expect(json.Unmarshal(MustSucceed(os.ReadFile(vectorsPath)), &v)).To(Succeed())
-	keys := lo.MapEntries(v.Statuses.Records, func(
+	var entities map[string]jsontext.Value
+	Expect(json.Unmarshal(MustSucceed(os.ReadFile(vectorsPath)), &entities)).
+		To(Succeed())
+	Expect(json.Unmarshal(
+		entities["statuses"],
+		&v,
+		json.RejectUnknownMembers(true),
+	)).To(Succeed())
+	keys := lo.MapEntries(v.Records, func(
 		alias string,
 		s status.Status[any],
 	) (status.Key, string) {
@@ -79,7 +87,7 @@ var _ = Describe("Where", Ordered, func() {
 		}))
 		tx = DeferClose(db.OpenTx())
 		labels := make(map[label.Key]label.Label)
-		for _, s := range v.Statuses.Records {
+		for _, s := range v.Records {
 			for _, l := range s.Labels {
 				labels[l.Key] = l
 			}
@@ -89,7 +97,7 @@ var _ = Describe("Where", Ordered, func() {
 		for _, l := range labels {
 			Expect(labelSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 		}
-		for _, s := range v.Statuses.Records {
+		for _, s := range v.Records {
 			Expect(labelSvc.NewWriter(tx).Label(
 				ctx,
 				s.OntologyID(),
@@ -112,7 +120,7 @@ var _ = Describe("Where", Ordered, func() {
 				return keys[s.Key]
 			})).To(ConsistOf(expected))
 		},
-		lo.Map(v.Statuses.Cases, func(c whereCase, _ int) TableEntry {
+		lo.Map(v.Cases, func(c whereCase, _ int) TableEntry {
 			return Entry(c.Name, c.Where, c.Expected)
 		}),
 	)
