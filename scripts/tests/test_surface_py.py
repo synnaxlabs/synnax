@@ -50,6 +50,8 @@ def write(root: Path, source: str = SOURCE) -> str:
 
 
 class TestReport:
+    """Tests the report of a small package and how edits change it."""
+
     def test_lists_public_objects_with_signatures(self, tmp_path: Path) -> None:
         assert write(tmp_path) == (
             "widget module\n"
@@ -76,4 +78,25 @@ class TestReport:
     def test_changes_when_a_signature_changes(self, tmp_path: Path) -> None:
         before = write(tmp_path)
         after = write(tmp_path, SOURCE.replace("force: bool", "force: int"))
+        assert after != before
+
+    def test_changes_when_a_parameter_becomes_positional_only(
+        self, tmp_path: Path
+    ) -> None:
+        before = write(tmp_path)
+        after = write(tmp_path, SOURCE.replace("valve: Valve,", "valve: Valve, /,"))
+        assert "widget.open_valve(valve: Valve, /, *, force: bool = False)" in after
+        assert after != before
+
+    def test_keeps_whitespace_inside_string_values(self, tmp_path: Path) -> None:
+        before = write(tmp_path, SOURCE.replace("= 10", "= 'a b'"))
+        after = write(tmp_path, SOURCE.replace("= 10", "= 'a  b'"))
+        assert after != before
+
+    def test_changes_when_a_type_bound_changes(self, tmp_path: Path) -> None:
+        source = SOURCE + "\nclass Box[T: int]:\n    item: T\n"
+        source = source.replace('"LIMIT"]', '"LIMIT", "Box"]')
+        before = write(tmp_path, source)
+        after = write(tmp_path, source.replace("T: int", "T: str"))
+        assert "widget.Box[T: int] class()" in before
         assert after != before

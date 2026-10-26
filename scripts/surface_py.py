@@ -16,7 +16,6 @@ package is read statically with griffe, so its dependencies need not be installe
 """
 
 import argparse
-import re
 import sys
 
 import griffe
@@ -28,12 +27,15 @@ KIND_PREFIX = {
 
 
 def flat(expr: object) -> str:
-    return re.sub(r"\s+", " ", str(expr)).strip()
+    return str(expr).replace("\\", "\\\\").replace("\n", "\\n")
 
 
 def signature(fn: griffe.Function) -> str:
     params = []
     kw_only_marked = False
+    positional_only = [
+        p for p in fn.parameters if p.kind == griffe.ParameterKind.positional_only
+    ]
     for p in fn.parameters:
         if p.kind == griffe.ParameterKind.var_positional:
             kw_only_marked = True
@@ -46,12 +48,26 @@ def signature(fn: griffe.Function) -> str:
         if p.default is not None:
             s += f" = {flat(p.default)}"
         params.append(s)
-        if p.kind == griffe.ParameterKind.positional_only:
+        if positional_only and p is positional_only[-1]:
             params.append("/")
-    out = f"({', '.join(params)})".replace(", /, ", ", ")
+    out = f"{type_params(fn)}({', '.join(params)})"
     if fn.returns is not None:
         out += f" -> {flat(fn.returns)}"
     return out
+
+
+def type_params(obj: griffe.Class | griffe.Function) -> str:
+    if not obj.type_parameters:
+        return ""
+    out = []
+    for tp in obj.type_parameters:
+        s = tp.name
+        if tp.annotation is not None:
+            s += f": {flat(tp.annotation)}"
+        if tp.default is not None:
+            s += f" = {flat(tp.default)}"
+        out.append(s)
+    return f"[{', '.join(out)}]"
 
 
 def labels(obj: griffe.Object) -> str:
@@ -70,7 +86,9 @@ def walk(obj: griffe.Object, out: list[str]) -> None:
             walk(member, out)
         elif isinstance(member, griffe.Class):
             bases = ", ".join(flat(b) for b in member.bases)
-            out.append(f"{member.path} class({bases}){labels(member)}")
+            out.append(
+                f"{member.path}{type_params(member)} class({bases}){labels(member)}"
+            )
             walk(member, out)
         elif isinstance(member, griffe.Function):
             out.extend(
