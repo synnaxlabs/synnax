@@ -19,7 +19,7 @@ import pytest
 import synnax as sy
 from synnax import label
 from synnax.ontology import ID
-from synnax.state import LatestState, State
+from synnax.state import Latest, State
 from tests.channel import RetrieveCounter
 from x.params import RequiresNamedParams
 from x.strings import random_name
@@ -767,11 +767,11 @@ class TestRangeData:
 class TestOnCreate:
     """Tests for the handler that on_create registers on the range set channel."""
 
-    def latest_state(self, client: sy.Synnax, sample: sy.Series) -> LatestState:
+    def latest_state(self, client: sy.Synnax, sample: sy.Series) -> Latest:
         ch = client.channels.retrieve("sy_range_set")
         state = State([ch])
         state.update(sy.Frame([ch.key], [sample]))
-        return LatestState(state)
+        return Latest(state)
 
     def test_valid_sample(self, client: sy.Synnax) -> None:
         """Should pass the range in a JSON object sample to the callback"""
