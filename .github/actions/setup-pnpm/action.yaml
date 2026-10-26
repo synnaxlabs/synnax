@@ -43,6 +43,10 @@ runs:
         echo "prefix=pnpm-store-$RUNNER_OS-$RUNNER_ARCH-" >> "$GITHUB_OUTPUT"
         echo "key=pnpm-store-$RUNNER_OS-$RUNNER_ARCH-$LOCKFILE" >> "$GITHUB_OUTPUT"
 
+    - name: Set up zstd
+      if: inputs.cache == 'true'
+      uses: ./.github/actions/setup-zstd
+
     - name: Restore the pnpm store
       id: cache
       if: inputs.cache == 'true'
