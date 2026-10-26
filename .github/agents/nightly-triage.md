@@ -42,5 +42,12 @@ Never make a test pass by:
 
 A fix that changes how a user-facing surface behaves is not small. Report it instead.
 
+This repository is public. When a failure points to a possible security issue
+(injection, cross-site scripting, a way past authentication or access control, unsafe
+deserialization, path traversal, an exposed secret, weak or missing TLS verification, or
+any other fault an attacker can use), stop work on it. Push nothing and write no PR,
+comment, or issue text about it. In your report, write only
+`Possible security issue in <area>, see the private security audit`, with no details.
+
 Your last message is the report. Keep it short: each failed job, its verdict, the cause,
 and what you did (commit, Linear comment, or draft issue).
