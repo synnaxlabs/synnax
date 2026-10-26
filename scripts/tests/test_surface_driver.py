@@ -54,6 +54,8 @@ def write(root: Path, task: str = TASK) -> str:
 
 
 class TestReport:
+    """Tests the report of a small Driver tree and how edits change it."""
+
     def test_lists_commands_flags_keys_and_members(self, tmp_path: Path) -> None:
         assert write(tmp_path) == (
             "driver/cmd/exec.cpp command start\n"
@@ -73,3 +75,25 @@ class TestReport:
         before = write(tmp_path)
         after = write(tmp_path, TASK.replace("= 4", "= 8"))
         assert after != before
+
+    def test_changes_when_a_brace_initialized_default_changes(
+        self, tmp_path: Path
+    ) -> None:
+        braced = TASK.replace("worker_count = 4;", "worker_count{4};")
+        before = write(tmp_path, braced)
+        after = write(tmp_path, braced.replace("{4}", "{8}"))
+        assert "ManagerConfig member size_t worker_count{4}" in before
+        assert after != before
+
+    def test_lists_the_defaults_resolve_sets(self, tmp_path: Path) -> None:
+        rack = tmp_path / "driver" / "rack"
+        rack.mkdir(parents=True)
+        (rack / "rack.h").write_text(
+            "static Config resolve(Parser &p) {\n"
+            '    Config cfg{.connection = {.host = "localhost", .port = 9090}};\n'
+            "    return cfg;\n"
+            "}\n"
+        )
+        out = write(tmp_path)
+        assert "driver/rack/rack.h resolve .port = 9090\n" in out
+        assert 'driver/rack/rack.h resolve .host = "localhost"\n' in out

@@ -15,7 +15,8 @@ reads the C++ source as text, so it needs no build. It reports:
 - each subcommand and flag the Driver command line accepts;
 - each key a parser reads in the files that load the Driver config (config file,
   environment, and arguments);
-- each member, with its default, of a config struct that has an `override` method.
+- each member, with its default, of a config struct that has an `override` method;
+- the defaults that `resolve` and `default_integrations` set.
 
     uv run --project scripts scripts/surface_driver.py .
 """
@@ -42,6 +43,8 @@ READ = re.compile(
     r'\(\s*"([^"]+)"(?:\s*,\s*"(-[^"]*)")?'
 )
 STRUCT = re.compile(r"\bstruct\s+(\w+)\s*(?::[^{;]*)?\{")
+DEFAULTS = re.compile(r"\b(resolve|default_integrations)\s*\([^)]*\)[^;{]*\{")
+INIT = re.compile(r"\.(\w+)\s*=\s*([^,{}]+?)\s*(?=[,}])")
 
 
 def files(root: Path) -> list[Path]:
@@ -62,25 +65,41 @@ def body(src: str, open_brace: int) -> str:
 
 
 def members(struct_body: str) -> list[str]:
-    top, depth = [], 0
+    top: list[str] = []
+    depth, skipping = 0, False
     for ch in struct_body:
+        if ch == "{" and depth == 0:
+            skipping = "(" in "".join(top).rsplit(";", 1)[-1]
         if ch == "{":
             depth += 1
-        elif ch == "}":
-            depth -= 1
-            top.append(";")
-        elif depth == 0:
+        if not skipping:
             top.append(ch)
+        if ch == "}":
+            depth -= 1
+            if depth == 0 and skipping:
+                skipping = False
+                top.append(";")
     out = []
     for decl in "".join(top).split(";"):
         decl = " ".join(decl.split())
         decl = re.sub(r"^(public|private|protected):\s*", "", decl)
         if (
             decl
-            and "(" not in decl.split("=")[0]
+            and "(" not in decl.split("=")[0].split("{")[0]
             and not decl.startswith(("template", "friend", "using", "static", "#"))
         ):
             out.append(decl)
+    return out
+
+
+def defaults(src: str) -> list[str]:
+    out = []
+    for m in DEFAULTS.finditer(src):
+        name, fn_body = m.group(1), body(src, m.end() - 1)
+        if name == "resolve":
+            out += [f"{name} .{k} = {v}" for k, v in INIT.findall(fn_body)]
+        else:
+            out.append(f"{name} {' '.join(fn_body.split())}")
     return out
 
 
@@ -97,6 +116,7 @@ def report(root: Path) -> str:
             if "override(" not in struct_body:
                 continue
             lines.update(f"{rel} {m.group(1)} member {d}" for d in members(struct_body))
+        lines.update(f"{rel} {d}" for d in defaults(src))
     return "".join(f"{line}\n" for line in sorted(lines))
 
 
