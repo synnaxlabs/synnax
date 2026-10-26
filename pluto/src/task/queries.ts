@@ -98,6 +98,17 @@ export const useList = Flux.createList<ListQuery, task.Key, task.Task>({
   getCached: ({ client, query }) => client.tasks.getCached(query),
 });
 
+export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRetrieve<
+  ListQuery,
+  task.Task[]
+>({
+  name: PLURAL_RESOURCE_NAME,
+  normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
+  retrieve: async ({ client, query }) => await client.tasks.retrieve(query),
+  onChange: ({ client, query }, handler) => client.tasks.onChange(query, handler),
+  getCached: ({ client, query }) => client.tasks.getCached(query),
+});
+
 const createFormSchema = <S extends task.Schemas = task.Schemas>(
   schemas: S,
 ): FormSchema<S> =>

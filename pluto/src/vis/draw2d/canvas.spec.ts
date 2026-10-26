@@ -44,6 +44,11 @@ interface Write {
   value: unknown;
 }
 
+interface FakeGradient {
+  stops: [offset: number, color: string][];
+  addColorStop: (offset: number, color: string) => void;
+}
+
 /**
  * The slice of the canvas surface the wrapper touches. Declared as plain properties
  * rather than extending the DOM interface so the spies stay unbound function values.
@@ -62,11 +67,20 @@ interface FakeContext {
   lineTo: Mock<(x: number, y: number) => void>;
   arc: Mock<(...args: number[]) => void>;
   setLineDash: Mock<(segments: number[]) => void>;
+  getLineDash: Mock<() => number[]>;
   beginPath: Mock<() => void>;
+  save: Mock<() => void>;
+  restore: Mock<() => void>;
+  translate: Mock<(x: number, y: number) => void>;
+  scale: Mock<(x: number, y: number) => void>;
+  createLinearGradient: Mock<
+    (x0: number, y0: number, x1: number, y1: number) => FakeGradient
+  >;
   font: string;
   fillStyle: string | CanvasGradient | CanvasPattern;
   strokeStyle: string | CanvasGradient | CanvasPattern;
   lineWidth: number;
+  lineDashOffset: number;
   globalAlpha: number;
 }
 
@@ -86,6 +100,8 @@ const METRICS: TextMetrics = {
  */
 const createFakeContext = (): FakeContext => {
   const writes: Write[] = [];
+  let lineDash: number[] = [];
+  const saved: { values: Record<string, unknown>; lineDash: number[] }[] = [];
   const values: Record<string, unknown> = {
     font: "10px sans-serif",
     fillStyle: "#000000",
@@ -117,8 +133,24 @@ const createFakeContext = (): FakeContext => {
     moveTo: vi.fn(),
     lineTo: vi.fn(),
     arc: vi.fn(),
-    setLineDash: vi.fn(),
+    setLineDash: vi.fn((segments: number[]) => {
+      lineDash = [...segments];
+    }),
+    getLineDash: vi.fn(() => [...lineDash]),
     beginPath: vi.fn(),
+    save: vi.fn(() => saved.push({ values: { ...values }, lineDash })),
+    restore: vi.fn(() => {
+      const state = saved.pop();
+      if (state == null) return;
+      Object.assign(values, state.values);
+      lineDash = state.lineDash;
+    }),
+    translate: vi.fn(),
+    scale: vi.fn(),
+    createLinearGradient: vi.fn((): FakeGradient => {
+      const stops: FakeGradient["stops"] = [];
+      return { stops, addColorStop: (offset, color) => stops.push([offset, color]) };
+    }),
   } as unknown as FakeContext;
   Object.keys(values).forEach((prop) =>
     Object.defineProperty(ctx, prop, {
@@ -319,22 +351,101 @@ describe("SugaredOffscreenCanvasRenderingContext2D", () => {
   });
 
   describe("text", () => {
-    it("should scale the position of filled text", () => {
-      const [ctx, fake] = create(scale.XY.magnify(xy.construct(2, 3)));
+    const doubled = scale.XY.magnify(xy.construct(2, 3));
+
+    it("should draw text at its position when the scale is the identity", () => {
+      const [ctx, fake] = create();
       ctx.fillText("hello", 1, 2);
-      expect(fake.fillText).toHaveBeenCalledWith("hello", 2, 6, undefined);
+      expect(fake.fillText).toHaveBeenCalledWith("hello", 1, 2, undefined);
+      expect(fake.save).not.toHaveBeenCalled();
     });
 
-    it("should scale the max width of filled text", () => {
-      const [ctx, fake] = create(scale.XY.magnify(xy.construct(2, 3)));
+    it("should translate text with no transform when the scale only translates", () => {
+      const [ctx, fake] = create(scale.XY.translate(xy.construct(10, 20)));
+      ctx.fillText("hello", 1, 2);
+      expect(fake.fillText).toHaveBeenCalledWith("hello", 11, 22, undefined);
+      expect(fake.scale).not.toHaveBeenCalled();
+    });
+
+    it("should magnify filled text with a transform at the scaled position", () => {
+      const [ctx, fake] = create(doubled);
+      ctx.fillText("hello", 1, 2);
+      expect(fake.translate).toHaveBeenCalledWith(2, 6);
+      expect(fake.scale).toHaveBeenCalledWith(2, 3);
+      expect(fake.fillText).toHaveBeenCalledWith("hello", 0, 0, undefined);
+    });
+
+    it("should restore the transform after magnified text", () => {
+      const [ctx, fake] = create(doubled);
+      ctx.fillText("hello", 1, 2);
+      expect(fake.save).toHaveBeenCalledOnce();
+      expect(fake.restore).toHaveBeenCalledOnce();
+      expect(fake.restore.mock.invocationCallOrder[0]).toBeGreaterThan(
+        fake.fillText.mock.invocationCallOrder[0],
+      );
+    });
+
+    it("should leave the max width to the transform", () => {
+      const [ctx, fake] = create(doubled);
       ctx.fillText("hello", 1, 2, 10);
-      expect(fake.fillText).toHaveBeenCalledWith("hello", 2, 6, 20);
+      expect(fake.fillText).toHaveBeenCalledWith("hello", 0, 0, 10);
     });
 
-    it("should scale the position of stroked text", () => {
-      const [ctx, fake] = create(scale.XY.magnify(xy.construct(2, 3)));
+    it("should magnify stroked text glyphs with a transform", () => {
+      const [ctx, fake] = create(doubled);
       ctx.strokeText("hello", 1, 2);
-      expect(fake.strokeText).toHaveBeenCalledWith("hello", 2, 6, undefined);
+      expect(fake.translate).toHaveBeenCalledWith(2, 6);
+      expect(fake.scale).toHaveBeenCalledWith(2, 3);
+      expect(fake.strokeText).toHaveBeenCalledWith("hello", 0, 0, undefined);
+    });
+
+    // The wrapper scales the stroke settings when they are set, and the transform would
+    // scale them a second time.
+    it("should stroke text outlines with the stroke settings scaled once", () => {
+      const [ctx, fake] = create(scale.XY.magnify(xy.construct(2, 2)));
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 2]);
+      ctx.lineDashOffset = 3;
+      let atStroke: unknown;
+      fake.strokeText.mockImplementation(() => {
+        atStroke = {
+          lineWidth: fake.lineWidth,
+          lineDash: fake.getLineDash(),
+          lineDashOffset: fake.lineDashOffset,
+        };
+      });
+      ctx.strokeText("hello", 1, 2);
+      expect(atStroke).toEqual({ lineWidth: 1, lineDash: [4, 2], lineDashOffset: 3 });
+    });
+
+    it("should restore the stroke settings after stroked text", () => {
+      const [ctx, fake] = create(scale.XY.magnify(xy.construct(2, 2)));
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 2]);
+      ctx.lineDashOffset = 3;
+      ctx.strokeText("hello", 1, 2);
+      expect(fake.lineWidth).toBe(2);
+      expect(fake.getLineDash()).toEqual([8, 4]);
+      expect(fake.lineDashOffset).toBe(6);
+    });
+
+    it("should never mirror text under an inverted scale", () => {
+      const inverted = scale.XY.magnify(xy.construct(-2, 3));
+      const [ctx, fake] = create(inverted);
+      ctx.fillText("hello", 1, 2);
+      expect(fake.translate).toHaveBeenCalledWith(-2, 6);
+      expect(fake.scale).toHaveBeenCalledWith(2, 3);
+    });
+
+    it("should compose the magnification of every wrapped context", () => {
+      const parent = scale.XY.magnify(xy.construct(2, 2));
+      const child = scale.XY.translate(xy.construct(5, 5)).magnify(xy.construct(3, 3));
+      const [ctx, fake] = create(parent);
+      ctx.applyScale(child).fillText("hello", 1, 1);
+      const { x, y } = parent.pos(child.pos(xy.ONE));
+      expect(fake.translate).toHaveBeenCalledWith(x, y);
+      expect(fake.scale).toHaveBeenCalledWith(6, 6);
+      expect(fake.fillText).toHaveBeenCalledWith("hello", 0, 0, undefined);
     });
 
     it("should measure through to the canvas", () => {
@@ -346,6 +457,68 @@ describe("SugaredOffscreenCanvasRenderingContext2D", () => {
     it("should derive text dimensions from the ink bounding box", () => {
       const [ctx] = create();
       expect(ctx.textDimensions("hello")).toEqual({ width: 24, height: 10 });
+    });
+
+    describe("fade", () => {
+      const fade = { end: 20, width: 5 };
+
+      const gradientOf = (fake: FakeContext): FakeGradient =>
+        fake.createLinearGradient.mock.results[0].value;
+
+      it("should fade text from its fill color to transparent", () => {
+        const [ctx, fake] = create();
+        ctx.fillStyle = "#ff0000";
+        let atFill: unknown;
+        fake.fillText.mockImplementation(() => {
+          atFill = fake.fillStyle;
+        });
+        ctx.fillText("hello", 1, 2, undefined, { fade });
+        expect(fake.translate).toHaveBeenCalledWith(1, 2);
+        expect(fake.createLinearGradient).toHaveBeenCalledWith(15, 0, 20, 0);
+        expect(gradientOf(fake).stops).toEqual([
+          [0, "#ff0000"],
+          [1, "#ff000000"],
+        ]);
+        expect(atFill).toBe(gradientOf(fake));
+        expect(fake.fillText).toHaveBeenCalledWith("hello", 0, 0, undefined);
+      });
+
+      it("should keep the fill color's alpha at the start of the fade", () => {
+        const [ctx, fake] = create();
+        ctx.fillStyle = "#ff000080";
+        ctx.fillText("hello", 1, 2, undefined, { fade });
+        expect(gradientOf(fake).stops[0]).toEqual([0, "#ff000080"]);
+      });
+
+      // The transform would scale a fade in canvas units a second time.
+      it("should fade in glyph units under a magnification", () => {
+        const [ctx, fake] = create();
+        ctx.applyScale(doubled).fillText("hello", 1, 2, undefined, { fade });
+        expect(fake.scale).toHaveBeenCalledWith(2, 3);
+        expect(fake.createLinearGradient).toHaveBeenCalledWith(15, 0, 20, 0);
+      });
+
+      it("should restore the fill style after faded text", () => {
+        const [ctx, fake] = create();
+        ctx.fillStyle = "#ff0000";
+        ctx.fillText("hello", 1, 2, undefined, { fade });
+        expect(fake.fillStyle).toBe("#ff0000");
+      });
+
+      it("should throw when the atlas would draw a fade", () => {
+        const [ctx] = create();
+        expect(() =>
+          ctx.fillText("hello", 1, 2, undefined, { useAtlas: true, fade }),
+        ).toThrow("A text atlas cannot fade text");
+      });
+
+      it("should throw when the fill is not a solid color", () => {
+        const [ctx] = create();
+        ctx.fillStyle = {} as CanvasGradient;
+        expect(() => ctx.fillText("hello", 1, 2, undefined, { fade })).toThrow(
+          "Text can fade only from a solid fill color",
+        );
+      });
     });
 
     describe("atlas fallback", () => {
