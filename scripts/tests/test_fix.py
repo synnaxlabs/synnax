@@ -158,12 +158,13 @@ class TestPreCommitHook:
         assert "Copyright" in repo.git("show", "HEAD:a.sh")
         assert repo.git("status", "--porcelain", "a.sh") == ""
 
-    def test_blocks_partially_staged_files(self, repo: Repo) -> None:
+    def test_commits_only_the_staged_copy(self, repo: Repo) -> None:
         repo.install_hooks()
         repo.write("a.sh", "echo a\n")
         repo.git("add", "a.sh")
         repo.write("a.sh", "echo a\necho b\n")
-        result = repo.commit()
-        assert result.returncode != 0
-        assert "unstaged changes" in result.stderr
-        assert "a.sh" not in repo.git("ls-tree", "--name-only", "HEAD")
+        assert repo.commit().returncode == 0
+        committed = repo.git("show", "HEAD:a.sh")
+        assert "Copyright" in committed
+        assert "echo b" not in committed
+        assert repo.git("diff", "-U0", "a.sh").splitlines()[-1] == "+echo b"
