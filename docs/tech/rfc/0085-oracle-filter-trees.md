@@ -229,7 +229,8 @@ A client method that returns one record raises not-found when no record matches,
 multiple-found when more than one matches. This is true in every client and language, as
 in Django `get`, SQLAlchemy `one`, and Entity Framework `Single`. In Python,
 `ignore_not_found=True` returns `None` when no record matches, and still raises when
-more than one matches.
+more than one matches. A list retrieve drops missing keys. A caller that needs every
+record checks for itself, as the framer and the C++ channel client do.
 
 ## 3 Implementation phases
 
@@ -314,8 +315,8 @@ and its flat fields go away together, since a client must match the Core's versi
 7. **The name `Filter`, rejected**: `go/query` already emits `Filter` in every service
    package (`core/pkg/service/ranger/retrieve.gen.go:60`).
 8. **A handler that skips `ErrNotFound`, rejected**: The skip also hides a not-found
-   from a lookup inside a matcher, which is a real fault. The `key` line drops missing
-   keys instead.
+   from a lookup inside a matcher, which is a real fault. The retrieve drops missing
+   keys instead (§2.3).
 9. **Requests in the service package, rejected**: Only the API uses them, and the API
    owns envelopes (`core/CLAUDE.md`).
 10. **A lenient key matcher, rejected**: A flag on one matcher spreads through `and` and
