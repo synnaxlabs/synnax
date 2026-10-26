@@ -246,7 +246,9 @@ import { Synnax } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve device
-const [dev] = await client.devices.retrieve({ names: ["Modbus Server"] });
+const [dev] = await client.devices.retrieve({
+  where: { name: { eq: "Modbus Server" } },
+});
 
 // Create index channel
 const modbusTime = await client.channels.create(

@@ -427,7 +427,9 @@ import { Synnax } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve device
-const [counterDev] = await client.devices.retrieve({ names: ["Mod1_Counter"] });
+const [counterDev] = await client.devices.retrieve({
+  where: { name: { eq: "Mod1_Counter" } },
+});
 
 // Create index channel
 const ctrTime = await client.channels.create(

@@ -220,7 +220,7 @@ import { Synnax, TimeStamp, Rate } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve device
-const [dev] = await client.devices.retrieve({ names: ["my_labjack"] });
+const [dev] = await client.devices.retrieve({ where: { name: { eq: "my_labjack" } } });
 
 // Create command channels, each with its own index
 const ao0CmdTime = await client.channels.create(

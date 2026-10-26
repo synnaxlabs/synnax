@@ -236,7 +236,9 @@ import { Synnax } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve OPC UA server device
-const [dev] = await client.devices.retrieve({ names: ["my_opc_server"] });
+const [dev] = await client.devices.retrieve({
+  where: { name: { eq: "my_opc_server" } },
+});
 
 // Create index channel
 const dataTime = await client.channels.create(

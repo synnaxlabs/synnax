@@ -214,7 +214,9 @@ import { Synnax, TimeStamp, Rate } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve device
-const [cDev] = await client.devices.retrieve({ names: ["Mod1_Current"] });
+const [cDev] = await client.devices.retrieve({
+  where: { name: { eq: "Mod1_Current" } },
+});
 
 // Create command and state time indices
 const aoCmdTime = await client.channels.create(

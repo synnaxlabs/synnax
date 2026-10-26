@@ -211,7 +211,9 @@ import { Synnax, TimeStamp } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve device
-const [dev] = await client.devices.retrieve({ names: ["Modbus Server"] });
+const [dev] = await client.devices.retrieve({
+  where: { name: { eq: "Modbus Server" } },
+});
 
 // Create command channel for coil
 const coilCmdTime = await client.channels.create(

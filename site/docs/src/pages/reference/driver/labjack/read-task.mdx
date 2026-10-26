@@ -242,7 +242,7 @@ import { Synnax } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve device
-const [dev] = await client.devices.retrieve({ names: ["my_labjack"] });
+const [dev] = await client.devices.retrieve({ where: { name: { eq: "my_labjack" } } });
 
 // Create index channel
 const aiTime = await client.channels.create(
