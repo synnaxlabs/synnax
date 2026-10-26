@@ -54,7 +54,7 @@ const followCore = async (initial: History) => {
     supervisor.commands.mock.calls.filter(([cmd]) => cmd === "supervisor_history")
       .length;
   return {
-    captured: (event: Analytics.Name) =>
+    captured: (event: Parameters<Analytics.Sink["capture"]>[0]) =>
       sink.capture.mock.calls.filter(([name]) => name === event),
     /** Delivers a status change and waits until the app has read the next history. */
     change: async (next: History): Promise<void> => {

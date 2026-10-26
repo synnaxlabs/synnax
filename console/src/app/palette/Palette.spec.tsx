@@ -65,6 +65,8 @@ const pressChord = async (...codes: string[]): Promise<HTMLInputElement> => {
 };
 
 describe("Palette", () => {
+  const DOCS_URL = "https://docs.synnaxlabs.com/reference/console/get-started";
+
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -123,7 +125,7 @@ describe("Palette", () => {
       fireEvent.click(item);
     });
     await waitFor(() => {
-      expect(open).toHaveBeenCalledWith(Docs.URL, "_blank", "noopener,noreferrer");
+      expect(open).toHaveBeenCalledWith(DOCS_URL, "_blank", "noopener,noreferrer");
     });
   });
 
@@ -142,7 +144,7 @@ describe("Palette", () => {
       fireEvent.keyUp(window, { code: "Enter" });
     });
     await waitFor(() => {
-      expect(open).toHaveBeenCalledWith(Docs.URL, "_blank", "noopener,noreferrer");
+      expect(open).toHaveBeenCalledWith(DOCS_URL, "_blank", "noopener,noreferrer");
     });
     expect(open).toHaveBeenCalledTimes(1);
     await waitFor(() => {
