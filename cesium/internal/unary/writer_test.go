@@ -18,6 +18,7 @@ import (
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/domain"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/control"
@@ -130,6 +131,50 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(t.Occurred()).To(BeTrue())
 					},
 				)
+				Describe("Domain start", func() {
+					It(
+						"Should start the domain where SetDomainStart sets it",
+						func(ctx SpecContext) {
+							w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+								Start:   10 * telem.SecondTS,
+								Subject: control.Subject{Key: "foo"},
+							}))
+							w.SetDomainStart(5 * telem.SecondTS)
+							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(5, 6, 7)))
+							Expect(
+								MustSucceed(w.Commit(ctx)),
+							).To(Equal(7*telem.SecondTS + 1))
+							MustSucceed(w.Close())
+							Expect(MustSucceed(db.HasDataFor(
+								ctx,
+								(5 * telem.SecondTS).Range(6*telem.SecondTS),
+							))).To(BeTrue())
+						},
+					)
+					It(
+						"Should fail the first write when stored data holds the domain start",
+						func(ctx SpecContext) {
+							Expect(unary.Write(
+								ctx,
+								db,
+								10*telem.SecondTS,
+								telem.NewSeriesSecondsTSV(10, 11, 12, 13),
+							)).To(Succeed())
+							w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+								Start:   20 * telem.SecondTS,
+								Subject: control.Subject{Key: "foo"},
+							}))
+							w.SetDomainStart(12 * telem.SecondTS)
+							Expect(
+								w.Write(telem.NewSeriesSecondsTSV(12, 20)),
+							).Error().To(And(
+								MatchError(domain.ErrWriteConflict),
+								MatchError(ContainSubstring("cannot start writer")),
+							))
+							MustSucceed(w.Close())
+						},
+					)
+				})
 				Describe("Open", func() {
 					It(
 						"Should not allow opening a writer if the specified end timestamp is before the start",
@@ -254,6 +299,37 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					By("Releasing control of the DB")
 					Expect(dataDB.LeadingControlState()).To(BeNil())
 				})
+				Specify(
+					"Commit end after a control handoff",
+					func(ctx SpecContext) {
+						Expect(unary.Write(
+							ctx,
+							indexDB,
+							10*telem.SecondTS,
+							telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15),
+						)).To(Succeed())
+						w1, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{
+							Start:     10 * telem.SecondTS,
+							Authority: control.AuthorityAbsolute - 1,
+							Subject:   control.Subject{Key: "foo"},
+						}))
+						MustSucceed(w1.Write(telem.NewSeries([]int64{0, 1})))
+						Expect(
+							MustSucceed(w1.Commit(ctx)),
+						).To(Equal(11*telem.SecondTS + 1))
+						w2, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{
+							Start:     12 * telem.SecondTS,
+							Authority: control.AuthorityAbsolute,
+							Subject:   control.Subject{Key: "bar"},
+						}))
+						MustSucceed(w2.Write(telem.NewSeries([]int64{2, 3})))
+						Expect(
+							MustSucceed(w2.Commit(ctx)),
+						).To(Equal(13*telem.SecondTS + 1))
+						MustSucceed(w2.Close())
+						MustSucceed(w1.Close())
+					},
+				)
 				Specify("Open Writer domain overlap", func(ctx SpecContext) {
 					Expect(
 						unary.Write(
@@ -876,6 +952,33 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						t = MustSucceed(w1.Close())
 						Expect(t.Occurred()).To(BeTrue())
 					})
+					Specify(
+						"Domain start of a region another writer has written",
+						func(ctx SpecContext) {
+							w1, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+								Start:     10 * telem.SecondTS,
+								Authority: control.AuthorityAbsolute - 1,
+								Subject:   control.Subject{Key: "foo"},
+							}))
+							MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(10, 11)))
+							w2, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+								Start:     20 * telem.SecondTS,
+								Authority: control.AuthorityAbsolute,
+								Subject:   control.Subject{Key: "bar"},
+							}))
+							w2.SetDomainStart(20 * telem.SecondTS)
+							MustSucceed(w2.Write(telem.NewSeriesSecondsTSV(12, 13)))
+							Expect(
+								MustSucceed(w2.Commit(ctx)),
+							).To(Equal(13*telem.SecondTS + 1))
+							MustSucceed(w2.Close())
+							MustSucceed(w1.Close())
+							Expect(MustSucceed(db.HasDataFor(
+								ctx,
+								(10 * telem.SecondTS).Range(11*telem.SecondTS),
+							))).To(BeTrue())
+						},
+					)
 				})
 				Describe("ErrOnUnauthorizedOpen", func() {
 					It(
