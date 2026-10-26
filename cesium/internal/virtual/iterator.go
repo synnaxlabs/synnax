@@ -24,6 +24,7 @@ type IteratorConfig struct {
 	Bounds telem.TimeRange
 }
 
+// ErrIteratorClosed is the error a seek records on a closed Iterator.
 var ErrIteratorClosed = resource.NewClosedError("virtual.iterator")
 
 // Iterator reads the DB's retained sample with the same movement contract as a unary
@@ -32,13 +33,14 @@ var ErrIteratorClosed = resource.NewClosedError("virtual.iterator")
 type Iterator struct {
 	lastSample *atomic.Pointer[telem.Series]
 	wrapError  func(error) error
-	Channel    channel.Channel
-	sample     *telem.Series
-	frame      channel.Frame
-	view       telem.TimeRange
-	bounds     telem.TimeRange
-	err        error
-	closed     bool
+	// The channel the iterator reads.
+	Channel channel.Channel
+	sample  *telem.Series
+	frame   channel.Frame
+	view    telem.TimeRange
+	bounds  telem.TimeRange
+	err     error
+	closed  bool
 }
 
 // OpenIterator opens an Iterator over the DB's retained sample.
@@ -61,10 +63,13 @@ func (i *Iterator) SetBounds(tr telem.TimeRange) {
 	i.seekReset(tr.End)
 }
 
+// Value returns the frame the last successful move filled.
 func (i *Iterator) Value() channel.Frame { return i.frame }
 
+// Bounds returns the time range the iterator can move within.
 func (i *Iterator) Bounds() telem.TimeRange { return i.bounds }
 
+// View returns the time range the last move covered.
 func (i *Iterator) View() telem.TimeRange { return i.view }
 
 // IndexKey returns the channel's own key, since a virtual channel has no index.
@@ -96,6 +101,8 @@ func (i *Iterator) EndAfter(_ context.Context, _ int64) (telem.TimeStamp, error)
 	return telem.TimeStampMax, nil
 }
 
+// SeekFirst moves the view to the start of the retained sample. It returns false when
+// the bounds hold no sample.
 func (i *Iterator) SeekFirst(_ context.Context) bool {
 	found, ok := i.seek()
 	if !ok {
@@ -105,6 +112,8 @@ func (i *Iterator) SeekFirst(_ context.Context) bool {
 	return true
 }
 
+// SeekLast moves the view to just past the retained sample. It returns false when the
+// bounds hold no sample.
 func (i *Iterator) SeekLast(_ context.Context) bool {
 	found, ok := i.seek()
 	if !ok {
@@ -114,6 +123,8 @@ func (i *Iterator) SeekLast(_ context.Context) bool {
 	return true
 }
 
+// SeekLE moves the view to ts when the retained sample holds it, else to just past the
+// sample. It returns false when no sample lies at or before ts.
 func (i *Iterator) SeekLE(_ context.Context, ts telem.TimeStamp) bool {
 	found, ok := i.seek()
 	if !ok || found.Start.After(ts) {
@@ -127,6 +138,8 @@ func (i *Iterator) SeekLE(_ context.Context, ts telem.TimeStamp) bool {
 	return true
 }
 
+// SeekGE moves the view to ts when the retained sample holds it, else to the start of
+// the sample. It returns false when no sample lies at or after ts.
 func (i *Iterator) SeekGE(_ context.Context, ts telem.TimeStamp) bool {
 	found, ok := i.seek()
 	if !ok || found.Start.Before(ts) {
@@ -178,8 +191,10 @@ func (i *Iterator) Prev(_ context.Context, span telem.TimeSpan) bool {
 	return i.Valid()
 }
 
+// Valid returns true when the frame holds data and no error has occurred.
 func (i *Iterator) Valid() bool { return i.frame.HasData() && i.err == nil }
 
+// Error returns the error of the last operation, if any.
 func (i *Iterator) Error() error { return i.wrapError(i.err) }
 
 // Close closes the iterator. Closing a closed iterator returns nil.

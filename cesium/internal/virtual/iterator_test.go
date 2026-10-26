@@ -55,7 +55,7 @@ var _ = Describe("Iterator", func() {
 		return MustSucceed(db.OpenIterator(virtual.IteratorConfig{Bounds: bounds}))
 	}
 	BeforeEach(func(ctx SpecContext) {
-		db = MustSucceed(virtual.Open(ctx, virtual.Config{
+		db = MustOpen(virtual.Open(ctx, virtual.Config{
 			MetaCodec: json.Codec,
 			Channel: channel.Channel{
 				Name:     "Retained",
@@ -66,10 +66,6 @@ var _ = Describe("Iterator", func() {
 			FS: fs.NewMem(),
 		}))
 	})
-	AfterEach(func() {
-		Expect(db.Close()).To(Succeed())
-	})
-
 	It("Should return the retained sample on SeekLast then Prev", func(
 		ctx SpecContext,
 	) {
