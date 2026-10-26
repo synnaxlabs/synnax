@@ -782,13 +782,18 @@ class TestOnCreate:
         sample = {
             "key": str(key),
             "name": "on_create",
-            "time_range": {"start": int(start), "end": int(start + 1)},
+            "time_range": {
+                "start": int(start),
+                "end": int(start + sy.TimeSpan.NANOSECOND),
+            },
         }
         handler(self.latest_state(client, sy.Series([sample], data_type="json")))
         assert len(received) == 1
         assert received[0].key == key
         assert received[0].name == "on_create"
-        assert received[0].time_range == sy.TimeRange(start, start + 1)
+        assert received[0].time_range == sy.TimeRange(
+            start, start + sy.TimeSpan.NANOSECOND
+        )
 
     def test_non_object_sample(self, client: sy.Synnax) -> None:
         """Should raise a TypeError when the sample is not a JSON object"""
