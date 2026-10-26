@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT = Path(__file__).resolve().parent / "run_bazel.sh"
+SCRIPT = Path(__file__).resolve().parents[1] / "run_bazel.sh"
 
 CORRUPT_REPO = "ERROR: Error loading '@@grpc+//:grpc': no such package"
 LD_TRAILER = (
