@@ -469,16 +469,15 @@ var _ = Describe("FS", func() {
 					Expect(fs.Exists("a")).To(BeFalse())
 					Expect(fs.Exists("b")).To(BeTrue())
 				})
-				It(
-					"Should return a not-exist error when the source is missing",
-					func() {
-						Expect(fs.Rename("missing", "b")).To(MatchError(os.ErrNotExist))
+				DescribeTable("Should return a not-exist error for a missing source",
+					func(oldName string) {
+						Expect(
+							fs.Rename(oldName, "b.json"),
+						).To(MatchError(os.ErrNotExist))
 					},
+					Entry("missing file", "missing.json"),
+					Entry("missing parent directory", "missing/a.json"),
 				)
-				It("Should return a not-exist error when a parent is missing", func() {
-					Expect(fs.Rename("missing/a.json", "b.json")).
-						To(MatchError(os.ErrNotExist))
-				})
 			})
 			Describe("Truncate", func() {
 				It(
