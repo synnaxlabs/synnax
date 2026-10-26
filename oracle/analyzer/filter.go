@@ -571,9 +571,9 @@ func retrieveResponse(
 	}, fields, true
 }
 
-// atRequestOutput returns domains with the Go output replaced by the filter's
-// `@go request_output`, which places the request and response in another package than
-// the tree.
+// atRequestOutput returns domains with the Go output replaced by the filter's `@go
+// request_output`, which places the request and response in another package than the
+// tree.
 func atRequestOutput(
 	domains map[string]resolution.Domain, where resolution.Type,
 ) map[string]resolution.Domain {
