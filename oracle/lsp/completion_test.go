@@ -103,7 +103,7 @@ var _ = Describe("Completion", func() {
 			list := completionFor(ctx, "file:///domain.oracle", 0, 3)
 			Expect(labels(list.Items)).To(ContainElements(
 				"key", "validate", "ontology", "doc", "go", "ts", "py", "cpp",
-				"pb", "filter",
+				"pb", "filter", "response", "include",
 			))
 		})
 	})
@@ -326,6 +326,19 @@ var _ = Describe("Hover", func() {
 		Expect(HoverContents(hover)).To(ContainSubstring("string"))
 	})
 
+	It("should tell the filter keyword from the @filter domain", func(ctx SpecContext) {
+		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
+			TextDocument: protocol.TextDocumentItem{
+				URI: "file:///filter.oracle", Version: 1,
+				Text: "Where filter Range {}\nname string @filter\n",
+			},
+		})).To(Succeed())
+		Expect(HoverContents(hoverAt(ctx, "file:///filter.oracle", 0, 8))).
+			To(HavePrefix("**filter**"))
+		Expect(HoverContents(hoverAt(ctx, "file:///filter.oracle", 1, 15))).
+			To(HavePrefix("**@filter**"))
+	})
+
 	It("should return nil for unknown document", func(ctx SpecContext) {
 		hover := hoverAt(ctx, "file:///unknown.oracle", 0, 0)
 		Expect(hover).To(BeNil())
@@ -475,6 +488,15 @@ var _ = Describe("SemanticTokensFull", func() {
 			lsp.SemanticTokenTypeProperty,
 		),
 	)
+
+	It("should not color the filter schema in a field type as a keyword", func(
+		ctx SpecContext,
+	) {
+		openDoc(ctx, "file:///operator.oracle", "name filter.String\n")
+		data := tokensFor(ctx, "file:///operator.oracle").Data
+		Expect(tokenTypeAt(data, 0, 5)).
+			ToNot(Equal(uint32(lsp.SemanticTokenTypeKeyword)))
+	})
 
 	DescribeTable(
 		"should color a primitive in type position as a type",
