@@ -59,7 +59,7 @@ export const withinSizeThreshold = (prev: number, next: number): boolean =>
 const EMPTY_LINEAR_BOUNDS = bounds.DECIMAL;
 
 // Computed per call so an empty time axis tracks the present instead of app start.
-export const emptyBounds = (type: TickType): bounds.Bounds => {
+const emptyBounds = (type: TickType): bounds.Bounds => {
   if (type === "linear") return EMPTY_LINEAR_BOUNDS;
   const now = TimeStamp.now();
   return {
@@ -77,7 +77,7 @@ export interface AxisRenderProps {
   hold: boolean;
 }
 
-export const autoBounds = (
+const autoBounds = (
   b: bounds.Bounds[],
   padding: number = 0.1,
   type: TickType,
