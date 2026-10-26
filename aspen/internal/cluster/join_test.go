@@ -342,8 +342,8 @@ var _ = Describe("Open", func() {
 			cfg := cluster.Config{}
 			ctx, cancel := signal.Isolated()
 			defer cancel()
-			_, err := cluster.Open(ctx, cfg)
-			Expect(err).To(HaveOccurred())
+			Expect(cluster.Open(ctx, cfg)).Error().
+				To(MatchError(ContainSubstring("host_address: required")))
 		})
 	})
 })

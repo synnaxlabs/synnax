@@ -141,7 +141,6 @@ var _ = Describe("Control", func() {
 					Expect(g3).To(BeNil())
 					Expect(t3.Occurred()).To(BeFalse())
 					Expect(count3()).To(Equal(0))
-					Expect(err).To(HaveOccurred())
 					Expect(
 						err,
 					).To(MatchError(ContainSubstring("encountered multiple control regions")))
@@ -253,7 +252,6 @@ var _ = Describe("Control", func() {
 					Expect(t.Occurred()).To(BeFalse())
 					Expect(g1).To(BeNil())
 					Expect(t.Occurred()).To(BeFalse())
-					Expect(err).To(HaveOccurred())
 					Expect(
 						err,
 					).To(MatchError(ContainSubstring("overlaps with a controlled region")))
