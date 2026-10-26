@@ -422,6 +422,44 @@ describe("Feed.subscribe", () => {
         await feed.close();
       }
     });
+
+    it("should read a block once while the stream holds part of it", async () => {
+      // The view opens shortly before a block edge, and the commit point passes the
+      // edge while the catch-up read waits.
+      const edge = tileRange({
+        level: RAW_LEVEL,
+        index: rawIndex(START.add(TimeSpan.minutes(10))),
+      }).end;
+      const core = createCore({ now: edge.sub(TimeSpan.seconds(5)) });
+      const { promise: released, resolve: release } = Promise.withResolvers<void>();
+      const feed = core.openFeed({
+        ...OPTIONS,
+        readRemote: async (tr, keys, reduction) => {
+          // Only a catch-up read ends after the Core's clock.
+          if (tr.end.after(core.now())) await released;
+          return core.read(tr, keys, reduction);
+        },
+      });
+      const span = TimeSpan.seconds(30);
+      const { key: index } = core.index;
+      const sub = feed.subscribe(raw([index], span));
+      const stop = tick(core);
+      try {
+        const passed = edge.add(TimeSpan.seconds(2)).valueOf();
+        await expect
+          .poll(() => timesOf(sub.value(index)).at(-1), POLL)
+          .toBeGreaterThan(passed);
+        stop();
+        await sleep.sleep(TimeSpan.milliseconds(100));
+        const times = timesOf(sub.value(index));
+        expect(times.every((t, i) => i === 0 || t > times[i - 1])).toBe(true);
+      } finally {
+        release();
+        stop();
+        sub.close();
+        await feed.close();
+      }
+    });
   });
 
   describe("duplicates", () => {

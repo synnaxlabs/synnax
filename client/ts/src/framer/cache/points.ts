@@ -632,7 +632,10 @@ export class Points {
     const { store } = this.props;
     const now = this.props.now();
     const last = this.lastBlock(tr);
-    const joinFrom = this.streaming ? rawIndex(now.sub(COMMIT_MARGIN)) : Infinity;
+    // A waiting join's catch-up read fills the blocks from its first held sample on.
+    const joinFrom = this.streaming
+      ? this.props.joins.catchUpFrom(this.key, now.sub(COMMIT_MARGIN))
+      : Infinity;
     const blocks: RawBlock[] = [];
     for (let i = rawIndex(tr.start); i <= last; i++)
       blocks.push(store.raw(this.key, i));
