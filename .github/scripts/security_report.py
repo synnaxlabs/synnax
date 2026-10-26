@@ -31,6 +31,7 @@ import sys
 import tempfile
 import urllib.request
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -43,6 +44,9 @@ COUNTED = {"error", "warning"}
 # Findings listed per rule, which keeps the report within a Linear description.
 LISTED = 25
 SEVERITY = re.compile(r"^### (Critical|High|Medium|Low): (.+)$", re.MULTILINE)
+
+# Sends a JSON payload to a URL with headers and returns the response body.
+Send = Callable[[str, dict[str, Any], dict[str, str]], bytes]
 
 
 @dataclass(frozen=True)
@@ -145,7 +149,11 @@ def read_agents(jobs: dict[str, Any], key: str) -> list[Scan]:
                 log = f"The agent job ended with {job['result']} and no report."
                 scans.append(Scan(name, 1, [], log))
                 continue
-            body = gpg(home, "--decrypt", text=armor).strip()
+            try:
+                body = gpg(home, "--decrypt", text=armor).strip()
+            except RuntimeError as e:
+                scans.append(Scan(name, 1, [], str(e)))
+                continue
             findings = [
                 Finding(m[1], m[1].lower(), "", m[2]) for m in SEVERITY.finditer(body)
             ]
@@ -175,9 +183,11 @@ def post(url: str, payload: dict[str, Any], headers: dict[str, str]) -> bytes:
     return body
 
 
-def linear(key: str, query: str, variables: dict[str, Any]) -> dict[str, Any]:
+def linear(
+    send: Send, key: str, query: str, variables: dict[str, Any]
+) -> dict[str, Any]:
     payload = {"query": query, "variables": variables}
-    body = json.loads(post(LINEAR_URL, payload, {"Authorization": key}))
+    body = json.loads(send(LINEAR_URL, payload, {"Authorization": key}))
     if body.get("errors"):
         # The errors can quote the report, so they stay out of the log.
         raise RuntimeError("the Linear API returned errors")
@@ -185,14 +195,16 @@ def linear(key: str, query: str, variables: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
-def file_issue(key: str, title: str, description: str) -> str:
+def file_issue(send: Send, key: str, title: str, description: str) -> str:
     """Files an issue in the SY team and returns its URL."""
     teams = linear(
+        send,
         key,
         "query($key: String!) { teams(filter: {key: {eq: $key}}) { nodes { id } } }",
         {"key": TEAM},
     )["teams"]["nodes"]
     created = linear(
+        send,
         key,
         "mutation($input: IssueCreateInput!) "
         "{ issueCreate(input: $input) { issue { url } } }",
@@ -208,32 +220,33 @@ def file_issue(key: str, title: str, description: str) -> str:
     return url
 
 
-def publish(scans: list[Scan], report: str, env: dict[str, str]) -> None:
+def publish(send: Send, scans: list[Scan], report: str, env: dict[str, str]) -> None:
     total = sum(len(s.findings) for s in scans)
     failed = sum(s.exit_code != 0 for s in scans)
     text = f"Weekly security audit: {total} findings, {failed} failed scans."
     if total or failed:
         date = datetime.now(UTC).date().isoformat()
         title = f"Security audit {date}: {total} findings"
-        text += " " + file_issue(env["LINEAR_API_KEY"], title, report)
-    post(env["SLACK_WEBHOOK_URL"], {"text": text}, {})
+        text += " " + file_issue(send, env["LINEAR_API_KEY"], title, report)
+    send(env["SLACK_WEBHOOK_URL"], {"text": text}, {})
 
 
-def main(argv: list[str]) -> int:
+def main(argv: list[str], send: Send = post) -> int:
     p = argparse.ArgumentParser()
     p.add_argument("out", type=Path)
     p.add_argument("--agents", action="store_true")
     p.add_argument("--publish", action="store_true")
     args = p.parse_args(argv)
-    scans = []
+    scans = read_scans(args.out)
+    if not scans:
+        sys.exit(f"{args.out} holds no scan")
     if args.agents:
         jobs = json.loads(os.environ["AGENT_REPORTS"])
-        scans = read_agents(jobs, os.environ["REPORT_PRIVATE_KEY"])
-    scans += read_scans(args.out)
+        scans = read_agents(jobs, os.environ["REPORT_PRIVATE_KEY"]) + scans
     report = render(scans, os.environ.get("RUN_URL", ""))
     (args.out / "report.md").write_text(report)
     if args.publish:
-        publish(scans, report, dict(os.environ))
+        publish(send, scans, report, dict(os.environ))
     failed = [s.name for s in scans if s.exit_code != 0]
     if failed:
         print(f"Failed scans: {', '.join(failed)}", file=sys.stderr)

@@ -32,7 +32,9 @@ BAZEL = {
     "grpc": ("https://github.com/grpc/grpc.git", "v{}"),
     "openssl": ("https://github.com/openssl/openssl.git", "openssl-{}"),
 }
-BAZEL_DEP = re.compile(r'bazel_dep\(name = "([^"]+)", version = "([^"]+)"')
+BAZEL_DEP = re.compile(
+    r'bazel_dep\(\s*name\s*=\s*"([^"]+)"\s*,\s*version\s*=\s*"([^"]+)"'
+)
 
 
 def tag(name: str, version: str) -> str:
@@ -46,11 +48,13 @@ def tag(name: str, version: str) -> str:
 def queries(module: str, gitlinks: str) -> list[tuple[str, str, dict[str, Any]]]:
     """Returns (location, dependency, OSV query) for each dependency to check."""
     found = []
-    for name, version in BAZEL_DEP.findall(module):
-        if name in BAZEL:
-            package = {"name": BAZEL[name][0], "ecosystem": "GIT"}
-            query = {"package": package, "version": tag(name, version)}
-            found.append(("MODULE.bazel", f"{name} {version}", query))
+    versions = dict(BAZEL_DEP.findall(module))
+    if missing := sorted(BAZEL.keys() - versions.keys()):
+        raise ValueError(f"MODULE.bazel has no version for {', '.join(missing)}")
+    for name in sorted(BAZEL):
+        package = {"name": BAZEL[name][0], "ecosystem": "GIT"}
+        query = {"package": package, "version": tag(name, versions[name])}
+        found.append(("MODULE.bazel", f"{name} {versions[name]}", query))
     for line in gitlinks.splitlines():
         mode, commit, _, path = line.split(maxsplit=3)
         if mode == "160000":
