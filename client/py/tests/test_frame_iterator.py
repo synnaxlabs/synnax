@@ -528,6 +528,7 @@ class TestIterator:
             (lambda: sy.LimitReduction(point_limit=-1), "point_limit"),
             (lambda: sy.LimitReduction(point_limit=2**32), "point_limit"),
         ],
+        ids=["negative_factor", "zero_limit", "negative_limit", "limit_overflow"],
     )
     def test_reduction_out_of_range(
         self, make: Callable[[], sy.Reduction], field: str

@@ -34,7 +34,7 @@ from typing import Any
 CI = "CI"
 INTEGRATION = "integration"
 GATE = "integration / Wait for turn"
-TEST_BOT_JOBS = ("integration / Test (windows) / ", "integration / Migration / ")
+TEST_BOT_JOBS = "integration / Test (windows) / "
 POLL_SECONDS = 30
 MAX_BACKOFF_SECONDS = 300
 REQUEST_TIMEOUT_SECONDS = 30
