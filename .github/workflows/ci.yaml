@@ -91,6 +91,7 @@ jobs:
       pluto: ${{ steps.filter.outputs.pluto }}
       portal: ${{ steps.filter.outputs.portal }}
       protobuf: ${{ steps.filter.outputs.protobuf }}
+      py_packages: ${{ steps.filter.outputs.py_packages }}
       scripts: ${{ steps.filter.outputs.scripts }}
       site_common: ${{ steps.filter.outputs.site_common }}
       soem: ${{ steps.filter.outputs.soem }}
@@ -519,6 +520,11 @@ jobs:
       - name: Check unused code
         run: pnpm knip
 
+      - name: Check exports that only tests use
+        # Report-only until the current findings are fixed.
+        continue-on-error: true
+        run: pnpm knip --production --include exports,types
+
   lint-integration:
     needs: changes
     if: inputs.full || needs.changes.outputs.lint_integration == 'true'
@@ -600,6 +606,11 @@ jobs:
     if: inputs.full || needs.changes.outputs.protobuf == 'true'
     uses: ./.github/workflows/test.protobuf.yaml
     secrets: inherit
+
+  py-packages:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.py_packages == 'true'
+    uses: ./.github/workflows/test.py.packages.yaml
 
   scripts:
     needs: changes
@@ -789,6 +800,7 @@ jobs:
       - pluto
       - portal
       - protobuf
+      - py-packages
       - scripts
       - site-common
       - soem

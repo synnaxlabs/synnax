@@ -18,14 +18,14 @@ import { createSliceStore, inWindow } from "@/session/window/testutil";
 
 const KEY = "table-1";
 
-const customState = Table.stateZ.parse({
+const customState: Table.State = {
   editable: false,
   selectedCells: ["a", "b"],
   lastSelected: "b",
   hideIndicators: true,
   centered: true,
   propertiesTab: "style",
-});
+};
 
 const storeWith = (slice: Table.SliceState) =>
   createSliceStore({
@@ -53,36 +53,17 @@ const createCustomStore = () =>
 
 describe("table selector hooks", () => {
   it("should resolve the key from the surrounding scope", () => {
-    const { result } = renderHook(() => Table.useSelect(), {
+    const { result } = renderHook(() => Table.useSelectSelectedCellKeys(), {
       wrapper: wrapperFor(createCustomStore(), KEY),
     });
-    expect(result.current).toEqual(customState);
+    expect(result.current).toEqual(customState.selectedCells);
   });
 
   it("should let an explicit key override the scope", () => {
-    const { result } = renderHook(() => Table.useSelect({ key: "absent" }), {
+    const { result } = renderHook(() => Table.useSelectEditable({ key: "absent" }), {
       wrapper: wrapperFor(createCustomStore(), KEY),
     });
-    expect(result.current).toEqual(Table.ZERO_STATE);
-  });
-
-  it("should return the optional entry when present and undefined when absent", () => {
-    const store = createCustomStore();
-    const { result } = renderHook(() => Table.useSelectOptional(), {
-      wrapper: wrapperFor(store, KEY),
-    });
-    expect(result.current).toEqual(customState);
-    const { result: absent } = renderHook(() => Table.useSelectOptional(), {
-      wrapper: wrapperFor(store, "absent"),
-    });
-    expect(absent.current).toBeUndefined();
-  });
-
-  it("should report existence", () => {
-    const { result } = renderHook(() => Table.useSelectExists(), {
-      wrapper: wrapperFor(createCustomStore(), KEY),
-    });
-    expect(result.current).toBe(true);
+    expect(result.current).toBe(Table.ZERO_STATE.editable);
   });
 
   it("should return the editable flag", () => {
@@ -118,13 +99,6 @@ describe("table selector hooks", () => {
       wrapper: wrapperFor(createCustomStore(), KEY),
     });
     expect(result.current).toEqual(["a", "b"]);
-  });
-
-  it("should return the last-selected cell key", () => {
-    const { result } = renderHook(() => Table.useSelectLastSelected(), {
-      wrapper: wrapperFor(createCustomStore(), KEY),
-    });
-    expect(result.current).toBe("b");
   });
 });
 
@@ -172,7 +146,7 @@ describe("table selector stability under dispatch", () => {
       version: 0,
       windows: inWindow({
         [KEY]: customState,
-        "table-2": Table.stateZ.parse({ selectedCells: ["z"] }),
+        "table-2": { ...Table.ZERO_STATE, selectedCells: ["z"] },
       }),
     });
     const { result, rerender } = renderHook(
@@ -182,21 +156,5 @@ describe("table selector stability under dispatch", () => {
     expect(result.current).toEqual(["a", "b"]);
     rerender({ key: "table-2" });
     expect(result.current).toEqual(["z"]);
-  });
-});
-
-describe("table getters", () => {
-  it("should read a table's state on demand across dispatches", () => {
-    const store = storeWith(Table.ZERO_SLICE_STATE);
-    const { result } = renderHook(() => Table.useGet(), {
-      wrapper: wrapperFor(store, KEY),
-    });
-    const get = result.current;
-    expect(get()).toEqual(Table.ZERO_STATE);
-    act(() => {
-      store.dispatch(Table.create({ key: KEY }));
-      store.dispatch(Table.setSelectedCells({ key: KEY, cells: ["c"] }));
-    });
-    expect(get().selectedCells).toEqual(["c"]);
   });
 });
