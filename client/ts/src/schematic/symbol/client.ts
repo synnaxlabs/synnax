@@ -12,7 +12,7 @@ import {
   type UnaryClient,
   type UploadBody,
 } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
+import { array, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { group } from "@/group";
@@ -333,6 +333,13 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
     if (parent == null) return await this.execRetrieve(req);
     const keys = await this.resolveChildKeys(parent);
     if (keys.length === 0) return [];
+    if (
+      req.where == null &&
+      primitive.isZero(req.searchTerm) &&
+      req.limit == null &&
+      req.offset == null
+    )
+      return await this.store.retrieve(keys);
     const where: Where = { key: { in: keys } };
     return await this.execRetrieve({
       ...req,
