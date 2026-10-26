@@ -138,8 +138,9 @@ export class Reader {
     const waits: Array<Promise<void>> = [];
     for (const b of blocks) {
       if (b.covers(tr)) continue;
-      b.pending ??= this.enqueue(b, TimeStamp.min(tr.end, b.range.end), false);
-      waits.push(b.pending);
+      waits.push(
+        b.pending ?? this.enqueue(b, TimeStamp.min(tr.end, b.range.end), false),
+      );
     }
     // The read settles after its last fetch, and its first failure wins.
     let failure: Error | undefined;
@@ -179,18 +180,14 @@ export class Reader {
     const waits: Array<Promise<void>> = [];
     for (let i = first; i <= last; i++) {
       const b = this.props.store.raw(ch, i);
-      waits.push(this.enqueue(b, i === last ? TimeStamp.MAX : b.range.end, true));
+      const end = i === last ? TimeStamp.MAX : b.range.end;
+      waits.push(this.batcher.enqueue({ block: b, end, catchUp: true }));
     }
     await Promise.all(waits);
   }
 
   private enqueue(block: RawBlock, end: TimeStamp, catchUp: boolean): Promise<void> {
-    const pending = this.batcher.enqueue({ block, end, catchUp }).finally(() => {
-      if (block.pending !== pending) return;
-      block.pending = null;
-      this.props.store.evict();
-    });
-    return pending;
+    return this.props.store.hold(block, this.batcher.enqueue({ block, end, catchUp }));
   }
 
   private async batchRead(entries: Array<debounce.Entry<Request>>): Promise<void> {
@@ -239,8 +236,7 @@ export class Reader {
       );
       entries.forEach(({ req, resolve }) => {
         if (!refetch.has(req)) return resolve();
-        req.block.pending = this.enqueue(req.block, req.end, req.catchUp);
-        resolve(req.block.pending);
+        resolve(this.enqueue(req.block, req.end, req.catchUp));
       });
     } catch (err) {
       const byChannel = Map.groupBy(entries, ({ req }) => req.block.channel);
