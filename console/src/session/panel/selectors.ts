@@ -24,7 +24,6 @@ import {
 import { Project } from "@/session/project";
 import { Select } from "@/session/select";
 
-/** @returns the panel slice state. */
 const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
 export interface ActiveWindow {

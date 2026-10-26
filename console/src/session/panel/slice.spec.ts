@@ -707,8 +707,8 @@ describe("Panel Slice", () => {
     // The persist driver purges a copy of the store state, never the frozen state
     // itself, so the copy is part of the call contract being exercised here.
     const purge = (...actions: Panel.Action[]): TestState => {
-      const state = deep.copy(run(...actions));
-      Panel.PERSIST_EXCLUDE.forEach((exclude) => exclude(state));
+      let state = deep.copy(run(...actions));
+      Panel.PERSIST_EXCLUDE.forEach((exclude) => (state = exclude(state)));
       return state;
     };
 
