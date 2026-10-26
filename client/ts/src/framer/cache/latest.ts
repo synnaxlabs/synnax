@@ -24,14 +24,9 @@ import { NotFoundError } from "@/errors";
 import { type ChannelRetriever } from "@/framer/adapter";
 import { domainOf } from "@/framer/cache/block";
 import { Dynamic } from "@/framer/cache/dynamic";
-import {
-  isDefinitive,
-  LOADING,
-  newBreaker,
-  READ_FAILED,
-  SUCCESS,
-} from "@/framer/cache/status";
+import { LOADING, READ_FAILED, SUCCESS } from "@/framer/cache/status";
 import { type Demand, type MultiplexedStreamer } from "@/framer/cache/streamer";
+import { createBreaker, isDefinitive } from "@/framer/retry";
 import { type Snapshot } from "@/framer/subscription";
 import { status } from "@/status";
 
@@ -232,7 +227,7 @@ export class Latest {
     const generation = this.generation;
     const { signal } = this.abort;
     const { retrieveChannels, streamer, readLatest, now } = this.props;
-    const brk = newBreaker(this.notifier, this.props.breaker);
+    const brk = createBreaker(this.notifier, this.props.breaker);
     while (generation === this.generation)
       try {
         const [payload] = await retrieveChannels([this.key]);

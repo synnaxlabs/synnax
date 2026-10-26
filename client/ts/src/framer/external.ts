@@ -22,6 +22,7 @@ export * from "@/framer/frame";
 export * from "@/framer/hardened";
 export * from "@/framer/iterator";
 export * from "@/framer/reader";
+export * as retry from "@/framer/retry";
 export * from "@/framer/streamer";
 export * from "@/framer/subscription";
 export * from "@/framer/types.gen";

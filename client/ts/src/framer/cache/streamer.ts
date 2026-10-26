@@ -24,8 +24,8 @@ import {
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import { type Joins } from "@/framer/cache/join";
-import { isDefinitive } from "@/framer/cache/status";
 import { type Store } from "@/framer/cache/store";
+import { isDefinitive } from "@/framer/retry";
 import { type Streamer, type StreamerConfig } from "@/framer/streamer";
 import { status } from "@/status";
 

@@ -39,13 +39,7 @@ import {
 import { type Joins } from "@/framer/cache/join";
 import { type Joiner } from "@/framer/cache/joiner";
 import { assemble, COMMIT_MARGIN, type Reader } from "@/framer/cache/reader";
-import {
-  isDefinitive,
-  LOADING,
-  newBreaker,
-  READ_FAILED,
-  SUCCESS,
-} from "@/framer/cache/status";
+import { LOADING, READ_FAILED, SUCCESS } from "@/framer/cache/status";
 import { type Store } from "@/framer/cache/store";
 import { type Demand, type MultiplexedStreamer } from "@/framer/cache/streamer";
 import {
@@ -55,6 +49,7 @@ import {
   tileRequestKey,
   type TileSpec,
 } from "@/framer/cache/tile";
+import { createBreaker, isDefinitive } from "@/framer/retry";
 import { type PointsLimit, type Snapshot } from "@/framer/subscription";
 import { status } from "@/status";
 
@@ -146,8 +141,8 @@ export class Points {
     private limit: PointsLimit,
     private readonly notify: () => void,
   ) {
-    this.breaker = newBreaker(this.notifier, props.breaker);
-    this.tileBreaker = newBreaker(this.notifier, props.breaker);
+    this.breaker = createBreaker(this.notifier, props.breaker);
+    this.tileBreaker = createBreaker(this.notifier, props.breaker);
     this.stopInvalidations = props.store.onInvalidate((ch, tr) => {
       if (ch != null && ch !== this.key) return;
       this.held.forEach(({ spec }, key) => {

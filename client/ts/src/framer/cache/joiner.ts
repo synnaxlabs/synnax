@@ -12,8 +12,9 @@ import { type breaker, type destructor, sync, type TimeStamp } from "@synnaxlabs
 import { type channel } from "@/channel";
 import { type Joins, type Wait } from "@/framer/cache/join";
 import { COMMIT_MARGIN, type Reader } from "@/framer/cache/reader";
-import { isDefinitive, newBreaker, READ_FAILED } from "@/framer/cache/status";
+import { READ_FAILED } from "@/framer/cache/status";
 import { type MultiplexedStreamer } from "@/framer/cache/streamer";
+import { createBreaker, isDefinitive } from "@/framer/retry";
 import { status } from "@/status";
 
 export interface JoinerProps {
@@ -76,7 +77,7 @@ export class Joiner {
         abort: new AbortController(),
         running: false,
         handlers: new Set(),
-        breaker: newBreaker(this.notifier, this.props.breaker),
+        breaker: createBreaker(this.notifier, this.props.breaker),
         landed: new Set(),
         rejected: new Set(),
       };
