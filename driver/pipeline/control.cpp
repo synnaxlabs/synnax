@@ -73,17 +73,16 @@ bool Control::stop() {
 void Control::run() {
     auto [s, open_err] = this->factory->open_streamer(this->config);
     this->streamer = std::move(s);
+    this->settle_open();
     if (open_err) {
         if (synnax::errors::is_temporarily_unavailable(open_err) &&
             breaker.wait(open_err.message())) {
             this->run();
             return;
         }
-        this->settle_open();
         this->sink->stopped_with_err(open_err);
         return;
     }
-    this->settle_open();
 
     x::errors::Error sink_err = x::errors::NIL;
     while (breaker.running()) {

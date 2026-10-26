@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <future>
+#include <thread>
 
 #include "gtest/gtest.h"
 
@@ -158,28 +159,57 @@ public:
 
 /// @brief it should block wait_until_open until the streamer is open.
 TEST(ControlPipeline, WaitUntilOpenBlocksUntilStreamerOpens) {
-    std::promise<void> release;
-    const auto factory = std::make_shared<GatedStreamerFactory>(
-        mock::simple_streamer_factory(
-            {1},
-            std::make_shared<std::vector<x::telem::Frame>>()
+    auto release = std::make_shared<std::promise<void>>();
+    auto control = std::make_shared<Control>(
+        std::make_shared<GatedStreamerFactory>(
+            mock::simple_streamer_factory(
+                {1},
+                std::make_shared<std::vector<x::telem::Frame>>()
+            ),
+            release->get_future().share()
         ),
-        release.get_future().share()
-    );
-    auto control = Control(
-        factory,
         synnax::framer::StreamerConfig{.channels = {1}},
         std::make_shared<mock::Sink>(),
         x::breaker::Config{}
     );
-    ASSERT_TRUE(control.start());
-    auto waited = std::async(std::launch::async, [&] { control.wait_until_open(); });
-    ASSERT_EQ(
+    ASSERT_TRUE(control->start());
+    // The waiter owns what it touches, so a wait that never wakes cannot hang the
+    // test.
+    auto opened = std::make_shared<std::promise<void>>();
+    auto waited = opened->get_future();
+    std::thread([control, opened] {
+        control->wait_until_open();
+        opened->set_value();
+    }).detach();
+    EXPECT_EQ(
         waited.wait_for(std::chrono::milliseconds(50)),
         std::future_status::timeout
     );
-    release.set_value();
+    release->set_value();
     ASSERT_EQ(waited.wait_for(std::chrono::seconds(5)), std::future_status::ready);
+    control->stop();
+}
+
+/// @brief it should release wait_until_open when a temporary open failure leaves the
+/// pipeline retrying.
+TEST(ControlPipeline, WaitUntilOpenReturnsWhileOpenRetries) {
+    auto control = Control(
+        std::make_shared<mock::StreamerFactory>(
+            std::vector{freighter::UNREACHABLE},
+            std::make_shared<std::vector<mock::StreamerConfig>>(
+                std::vector{mock::StreamerConfig{
+                    std::make_shared<std::vector<x::telem::Frame>>(),
+                    {},
+                    x::errors::NIL
+                }}
+            )
+        ),
+        synnax::framer::StreamerConfig{},
+        std::make_shared<mock::Sink>(),
+        x::breaker::Config{.base_interval = x::telem::SECOND * 3600, .max_retries = 1}
+    );
+    ASSERT_TRUE(control.start());
+    control.wait_until_open();
     control.stop();
 }
 
