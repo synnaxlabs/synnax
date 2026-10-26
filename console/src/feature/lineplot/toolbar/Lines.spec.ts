@@ -28,20 +28,20 @@ const createChannel = async (): Promise<channel.Channel> =>
     isIndex: true,
   });
 
-const renderLinesTab = async () => {
+const renderLinesTab = async (xChannel: channel.Key = 0) => {
   const ch = await createChannel();
   const name = uniqueName("plot");
   const lineKey = lineplot.lineKey({
     yAxis: "y1",
     xAxis: "x1",
     range: Session.Range.RECENT_KEY,
-    xChannel: 0,
+    xChannel,
     yChannel: ch.key,
   });
   const handle = await renderLinePlot(Toolbar, {
     linePlot: {
       name,
-      channels: { y1: [ch.key] },
+      channels: { x1: xChannel, y1: [ch.key] },
       ranges: { x1: [Session.Range.RECENT_KEY] },
       lines: [{ key: lineKey }],
     },
@@ -110,12 +110,12 @@ describe("lineplot/toolbar/Lines", () => {
     });
   });
 
-  it("switches the downsample mode when a mode button is clicked", async () => {
+  it("persists an aggregation change to the server", async () => {
     const { key, lineKey } = await renderLinesTab();
     fireEvent.click(await screen.findByText("Average"));
     await waitFor(async () => {
       const plot = await client.lineplots.retrieve(key);
-      expect(plot.lines.find((l) => l.key === lineKey)?.downsampleMode).toBe("average");
+      expect(plot.lines.find((l) => l.key === lineKey)?.aggregation).toBe("average");
     });
   });
 
@@ -131,15 +131,24 @@ describe("lineplot/toolbar/Lines", () => {
     });
   });
 
-  it("persists a downsample factor change to the server", async () => {
+  it("hides the aggregation for a line whose x channel is not an index", async () => {
+    const index = await createChannel();
+    const x = await client.channels.create({
+      name: uniqueName("plot_x"),
+      dataType: DataType.FLOAT32,
+      index: index.key,
+    });
+    await renderLinesTab(x.key);
+    await screen.findByText("High");
+    await waitFor(() => expect(screen.queryByText("Average")).toBeNull());
+  });
+
+  it("persists a detail change to the server", async () => {
     const { key, lineKey } = await renderLinesTab();
-    await screen.findByText("Average");
-    const input = screen.getByDisplayValue("1");
-    fireEvent.change(input, { target: { value: "10" } });
-    fireEvent.blur(input);
+    fireEvent.click(await screen.findByText("High"));
     await waitFor(async () => {
       const plot = await client.lineplots.retrieve(key);
-      expect(plot.lines.find((l) => l.key === lineKey)?.downsample).toBe(10);
+      expect(plot.lines.find((l) => l.key === lineKey)?.detail).toBe("high");
     });
   });
 });

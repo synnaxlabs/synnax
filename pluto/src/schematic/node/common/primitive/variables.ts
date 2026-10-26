@@ -12,5 +12,8 @@ import { CSS } from "@synnaxlabs/lyra/css";
 /** The CSS variable that colors a symbol's strokes and fills. */
 export const SYMBOL_COLOR = CSS.variable("symbol-color");
 
+/** The CSS variable that sets the width of a symbol's field, next to its Set button. */
+export const SYMBOL_FIELD_WIDTH = CSS.variable("symbol-field-width");
+
 /** The CSS variable that sets how long a toggle holds before it activates. */
 export const TOGGLE_DELAY = CSS.variable("toggle-delay");

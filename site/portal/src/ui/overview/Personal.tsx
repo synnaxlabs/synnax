@@ -14,9 +14,11 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
 import { type Machine } from "@/server/license/desktop";
+import { type Invited } from "@/server/organization";
 import { Devices } from "@/ui/devices";
 import { Enterprise } from "@/ui/Enterprise";
 import { date, machineName, statusOf } from "@/ui/format";
+import { Invitations } from "@/ui/invitations";
 import { Licenses } from "@/ui/licenses";
 import { DOWNLOAD_URL } from "@/ui/links";
 import { Page, Section } from "@/ui/Page";
@@ -33,6 +35,8 @@ export interface PersonalProps {
   machines: Machine[];
   /** devices is the URL of the Devices tab. */
   devices: string;
+  /** invitations are the team invitations the user has not accepted. */
+  invitations: Invited[];
   now: Date;
 }
 
@@ -40,8 +44,14 @@ export interface PersonalProps {
  * Personal is the overview of a personal account: how to start with Synnax Desktop,
  * or the machines already logged in.
  */
-export const Personal = ({ machines, devices, now }: PersonalProps): ReactElement => (
+export const Personal = ({
+  machines,
+  devices,
+  invitations,
+  now,
+}: PersonalProps): ReactElement => (
   <Page title="Synnax Desktop" subtitle="Free for personal use">
+    <Invitations.Section invitations={invitations} />
     {machines.length === 0 ? (
       <GetStarted />
     ) : (

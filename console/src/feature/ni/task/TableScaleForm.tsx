@@ -158,6 +158,7 @@ export const TableScaleForm = ({ prefix }: TableScaleFormProps): ReactElement =>
               <Input.Item label="Scaled column" padHelpText>
                 <Select.Simple<string>
                   resourceName="scaled column"
+                  searchName="column"
                   value={scaledCol}
                   onChange={handleScaledColChange}
                 >
