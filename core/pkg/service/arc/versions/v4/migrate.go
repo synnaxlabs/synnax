@@ -38,4 +38,4 @@ func MigrateArc(ctx context.Context, old v3.Arc) (Arc, error) {
 }
 
 // Migration rewrites the text of every stored Arc for the bracket swap.
-var Migration = gorp.NewEntryMigration("v60_swap_brackets", MigrateArc)
+var Migration = gorp.NewEntryMigration("v61_swap_brackets", MigrateArc)
