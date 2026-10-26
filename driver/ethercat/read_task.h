@@ -73,6 +73,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         std::unordered_map<std::string, slave::Properties> slave_cache;
         std::string first_network;
 
+        channel::Claims claims;
         cfg.iter("channels", [&](x::json::Parser &ch) {
             const auto parsed = ::synnax::ethercat::parse_read_channel(ch);
             if (ch.error()) return;
@@ -102,7 +103,9 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             }
             const auto &slave = slave_cache.at(slave_key);
             auto channel_ptr = channel::make_input(parsed, slave, ch);
-            if (channel_ptr->enabled) this->channels.push_back(std::move(channel_ptr));
+            if (!channel_ptr->enabled) return;
+            claims.claim(*channel_ptr, slave, ch);
+            this->channels.push_back(std::move(channel_ptr));
         });
 
         if (cfg.error()) return;
@@ -182,11 +185,8 @@ public:
 
     x::errors::Error start() override {
         if (auto err = this->engine->ensure_initialized(); err) return err;
-        if (auto err = topology::validate(
-                slave::discovered_properties(this->engine->slaves()),
-                this->cfg.device_cache
-            );
-            err)
+        const auto slaves = slave::discovered_properties(this->engine->slaves());
+        if (auto err = topology::validate(slaves, this->cfg.device_cache); err)
             return err;
 
         std::vector<pdo::Entry> entries;
