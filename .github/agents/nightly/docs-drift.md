@@ -8,7 +8,7 @@ Find docs that still describe an API the way it was before a recent change.
    (`client/ts`, `client/py`, `client/cpp`), the Core CLI, Console behavior, Arc, the
    Driver task configs, and anything under `schemas/`.
 3. For each changed name, flag, field, or behavior, search the docs for the old form:
-   `site/docs`, package `README.md` files, `docs/claude/`, `CLAUDE.md` files, and the
+   `site/docs`, package `README.md` files, `docs/claude/`, `AGENTS.md` files, and the
    doc comments of the changed code.
 4. Update each stale doc to match the code on `main`. Read the code to confirm; never
    write from the PR title alone.

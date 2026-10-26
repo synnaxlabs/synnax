@@ -115,7 +115,7 @@ codified; the evidence feeding it can. Score each touched pattern on:
 4. **Deliberate arrival** -> introduced by an RFC or a sweeping refactor: declared
    invariant. Accreted from a one-off commit or copied sideways: incident. Read the
    actual code and history for the why.
-5. **Enforcement and defense** -> documented in a AGENTS.md, guarded by lint or codegen,
+5. **Enforcement and defense** -> documented in an AGENTS.md, guarded by lint or codegen,
    or visibly defended in review: load-bearing by revealed preference. Violations that
    survived review unchallenged: the pattern may already be dead.
 6. **Conformers benefit or merely comply** -> conformance yields reuse, safety, or
@@ -270,7 +270,7 @@ The phase list exists to prevent that, and a Claude session enforces it on the u
 - **Lowest-risk, dependency-unblocking work first.** Migrations are first-class entries
   in the list, and a compatibility statement closes the plan.
 - **The phase list ends in the phase table.** Its format is in
-  `docs/tech/rfc/CLAUDE.md`. The `plan-to-issues` skill files one Linear issue per row,
+  `docs/tech/rfc/AGENTS.md`. The `plan-to-issues` skill files one Linear issue per row,
   so a row that cannot merge alone or lists the wrong dependencies breaks the plan.
 - **The first phase opens this session.** A plan whose first PR is not open by the end
   of the session that wrote it is the failure mode in progress. When the working diff
