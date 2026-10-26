@@ -1375,13 +1375,8 @@ var _ = Describe("Async populate", func() {
 
 		It("Should fall back to a sequential scan for Or when populate fails",
 			func(ctx SpecContext) {
-				// Regression: without a construction-time eval on Or's
-				// resolver branch, resolveFilter would swallow
-				// ErrIndexInvalid and leave r.filter.eval nil, so
-				// match() would return true for every entry. The
-				// "gamma" branch matches nothing in the seed, so the
-				// correct result excludes the "beta" entry; the buggy
-				// behavior would include it.
+				// The "gamma" branch matches nothing, so a fallback that matched
+				// every entry would include the "beta" entry.
 				Expect(
 					table.WaitForIndexes(ctx),
 				).To(MatchError(ContainSubstring("populate boom")))
@@ -1397,10 +1392,7 @@ var _ = Describe("Async populate", func() {
 
 		It("Should fall back to a sequential scan for Not when populate fails",
 			func(ctx SpecContext) {
-				// Same regression shape as Or: Not's resolver branch
-				// previously omitted the construction-time eval, so a
-				// failed populate would let every entry through (Not of
-				// a vacuously-true match).
+				// A fallback that matched every entry would make Not match none.
 				Expect(
 					table.WaitForIndexes(ctx),
 				).To(MatchError(ContainSubstring("populate boom")))

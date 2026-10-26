@@ -217,6 +217,41 @@ var _ = Describe("Filter Combinators", func() {
 				Exec(ctx, tx)).To(MatchError(errFilter))
 		})
 
+		DescribeTable(
+			"Should fail the retrieve when the function returns ErrIndexInvalid",
+			func(
+				ctx SpecContext,
+				wrap func(gorp.Filter[int32, entry]) gorp.Filter[int32, entry],
+			) {
+				var res []entry
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Entries(&res).
+					Where(wrap(gorp.MatchKeysFunc[int32, entry](
+						func(gorp.Context) ([]int32, error) {
+							return nil, gorp.ErrIndexInvalid
+						},
+					))).
+					Exec(ctx, tx)).To(MatchError(gorp.ErrIndexInvalid))
+				Expect(res).To(BeEmpty())
+			},
+			Entry("alone", func(f gorp.Filter[int32, entry]) gorp.Filter[int32, entry] {
+				return f
+			}),
+			Entry("under Not", gorp.Not[int32, entry]),
+			Entry(
+				"under And",
+				func(f gorp.Filter[int32, entry]) gorp.Filter[int32, entry] {
+					return gorp.And(idLT(4), f)
+				},
+			),
+			Entry(
+				"under Or",
+				func(f gorp.Filter[int32, entry]) gorp.Filter[int32, entry] {
+					return gorp.Or(idLT(4), f)
+				},
+			),
+		)
+
 		It("Should count the entries whose keys the function returns",
 			func(ctx SpecContext) {
 				Expect(gorp.NewRetrieve[int32, entry]().
