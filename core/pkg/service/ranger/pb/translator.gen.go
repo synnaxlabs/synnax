@@ -17,6 +17,7 @@ import (
 	labelpb "github.com/synnaxlabs/synnax/pkg/service/label/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	colorpb "github.com/synnaxlabs/x/color/pb"
+	xpb "github.com/synnaxlabs/x/pb"
 	telempb "github.com/synnaxlabs/x/telem/pb"
 )
 
@@ -83,7 +84,7 @@ func RangeFromPB(pb *Range) (ranger.Range, error) {
 		if err != nil {
 			return ranger.Range{}, err
 		}
-		r.Labels = vals
+		r.Labels = xpb.ListValues(vals)
 	}
 	if pb.Parent != nil {
 		val, err := RangeFromPB(pb.Parent)

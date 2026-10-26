@@ -15,6 +15,7 @@ import (
 	labelpb "github.com/synnaxlabs/synnax/pkg/service/label/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
+	xpb "github.com/synnaxlabs/x/pb"
 	"github.com/synnaxlabs/x/telem"
 	"google.golang.org/protobuf/types/known/anypb"
 )
@@ -121,7 +122,7 @@ func StatusFromPB[Details any](
 		if err != nil {
 			return status.Status[Details]{}, err
 		}
-		r.Labels = vals
+		r.Labels = xpb.ListValues(vals)
 	}
 	return r, nil
 }
