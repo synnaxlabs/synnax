@@ -1383,9 +1383,9 @@ func (p *Plugin) generateArrayElementConversion(
 }
 
 // elementConversion returns the per-item statements that translate an array element
-// that proto cannot hold as is: a uuid (directly or through aliases and distinct types),
-// a type hand-written in C++, or an enum. toPB takes the proto adder and fromPB takes
-// the C++ container prefix ("cpp.field." or "cpp.field->"). Both read the loop
+// that proto cannot hold as is: a uuid (directly or through aliases and distinct
+// types), a type hand-written in C++, or an enum. toPB takes the proto adder and fromPB
+// takes the C++ container prefix ("cpp.field." or "cpp.field->"). Both read the loop
 // variable item.
 func (p *Plugin) elementConversion(
 	elemType resolution.TypeRef,
