@@ -54,7 +54,8 @@ EOF
 
 RUNNER_DIR=$HOME_DIR/actions-runner
 mkdir -p "$RUNNER_DIR"
-curl -fsSL "https://github.com/actions/runner/releases/download/v$RUNNER_VERSION/actions-runner-linux-x64-$RUNNER_VERSION.tar.gz" \
+RUNNER_URL=https://github.com/actions/runner/releases/download/v$RUNNER_VERSION
+curl -fsSL "$RUNNER_URL/actions-runner-linux-x64-$RUNNER_VERSION.tar.gz" \
     | tar -C "$RUNNER_DIR" -xz
 "$RUNNER_DIR/bin/installdependencies.sh"
 echo "PATH=/usr/local/go/bin:$HOME_DIR/go/bin:/usr/local/bin:/usr/bin:/bin" \

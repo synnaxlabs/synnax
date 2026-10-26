@@ -24,6 +24,12 @@ variable "instances" {
   default     = 2
 }
 
+variable "zones" {
+  description = "Zones with capacity for instance_type: a stopped runner restarts there"
+  type        = list(string)
+  default     = ["us-east-1a", "us-east-1b", "us-east-1c", "us-east-1d"]
+}
+
 variable "instance_type" {
   type    = string
   default = "c7i.4xlarge"

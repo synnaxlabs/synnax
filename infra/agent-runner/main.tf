@@ -45,14 +45,6 @@ data "aws_vpc" "default" {
   default = true
 }
 
-data "aws_ec2_instance_type_offerings" "runner" {
-  location_type = "availability-zone"
-  filter {
-    name   = "instance-type"
-    values = [var.instance_type]
-  }
-}
-
 data "aws_subnets" "default" {
   filter {
     name   = "vpc-id"
@@ -64,8 +56,12 @@ data "aws_subnets" "default" {
   }
   filter {
     name   = "availability-zone"
-    values = data.aws_ec2_instance_type_offerings.runner.locations
+    values = var.zones
   }
+}
+
+locals {
+  subnets = data.aws_subnets.default.ids
 }
 
 resource "aws_security_group" "runner" {
@@ -106,7 +102,7 @@ resource "aws_instance" "runner" {
   count                                = var.instances
   ami                                  = data.aws_ssm_parameter.ubuntu.value
   instance_type                        = var.instance_type
-  subnet_id                            = data.aws_subnets.default.ids[count.index % length(data.aws_subnets.default.ids)]
+  subnet_id                            = local.subnets[count.index % length(local.subnets)]
   vpc_security_group_ids               = [aws_security_group.runner.id]
   iam_instance_profile                 = aws_iam_instance_profile.runner.name
   associate_public_ip_address          = true
