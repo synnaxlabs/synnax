@@ -8,11 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { Unreachable } from "@synnaxlabs/freighter";
-import { type breaker, Rate, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { type breaker, Rate, Size, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
 import { UnsupportedError } from "@/errors";
+import { rawIndex } from "@/framer/cache/block";
 import { Joins } from "@/framer/cache/join";
 import { Joiner } from "@/framer/cache/joiner";
 import { Reader, type RemoteReader } from "@/framer/cache/reader";
@@ -38,6 +39,7 @@ const createCore = (props: Partial<SyntheticCoreProps> = {}): SyntheticCore =>
 interface JoinerOptions {
   breaker?: breaker.Config;
   readRemote?: RemoteReader;
+  budget?: Size;
 }
 
 // Wires a joiner to the Core as a feed does.
@@ -46,9 +48,10 @@ const createJoiner = (
   {
     breaker = BREAKER,
     readRemote = async (tr, keys, reduction) => core.read(tr, keys, reduction),
+    budget,
   }: JoinerOptions = {},
 ) => {
-  const store = new Store({ now: core.now });
+  const store = new Store({ now: core.now, budget });
   const joins = new Joins(store);
   const reader = new Reader({
     readRemote,
@@ -96,6 +99,17 @@ const tick = (core: SyntheticCore): (() => void) => {
   return () => clearInterval(id);
 };
 
+// Pins the channel's raw block of the Core's clock, as a subscription to it does.
+const pinOpen = (store: Store, core: SyntheticCore, ch: channel.Key): void =>
+  store.repin(new Set(), new Set([store.raw(ch, rawIndex(core.now()))]));
+
+// Returns true when the stream writes both channels into open blocks that hold the same
+// number of samples.
+const paired = (store: Store, a: channel.Key, b: channel.Key): boolean => {
+  const [x, y] = [store.open(a), store.open(b)];
+  return x != null && y != null && x.coveredCount === y.coveredCount;
+};
+
 describe("Joiner", () => {
   it("should land a member once the stream acks it and its index", async () => {
     const core = createCore();
@@ -113,6 +127,57 @@ describe("Joiner", () => {
       expect(store.open(data)?.coveredCount).toBe(store.open(index)?.coveredCount);
     } finally {
       stop();
+      await close();
+    }
+  });
+
+  it("should keep the caught-up index samples until the join lands", async () => {
+    const core = createCore();
+    const [index, data] = [core.index.key, core.data[0].key];
+    const read = Promise.withResolvers<void>();
+    const streamed = Promise.withResolvers<void>();
+    const { store, join, close } = createJoiner(core, {
+      // The store keeps only pinned and open blocks.
+      budget: Size.bytes(1),
+      readRemote: async (tr, keys, reduction) => {
+        const frame = core.read(tr, keys, reduction);
+        read.resolve();
+        // Samples streamed while the read is in flight wait for the join to land.
+        await streamed.promise;
+        return frame;
+      },
+    });
+    pinOpen(store, core, data);
+    join(data, index);
+    try {
+      await read.promise;
+      core.advance(TimeSpan.milliseconds(500));
+      await sleep.sleep(TimeSpan.milliseconds(50));
+      streamed.resolve();
+      await expect.poll(() => paired(store, data, index), POLL).toBe(true);
+      expect(store.open(index)?.coveredCount).toBeGreaterThan(50);
+    } finally {
+      await close();
+    }
+  });
+
+  it("should keep the newest index block until the next sample", async () => {
+    const core = createCore({ channels: 2 });
+    const [index, data, other] = [core.index.key, ...core.data.map((c) => c.key)];
+    const { store, joins, join, close } = createJoiner(core, {
+      // The store keeps only pinned and open blocks.
+      budget: Size.bytes(1),
+    });
+    pinOpen(store, core, data);
+    join(data, index);
+    try {
+      await expect.poll(() => joins.joined(data), POLL).toBe(true);
+      // Another channel's block enters the store before the next sample streams.
+      store.raw(other, rawIndex(core.now()));
+      core.advance(TimeSpan.milliseconds(100));
+      await expect.poll(() => paired(store, data, index), POLL).toBe(true);
+      expect(store.open(index)?.coveredCount).toBeGreaterThan(10);
+    } finally {
       await close();
     }
   });

@@ -10,6 +10,7 @@
 import { Unreachable } from "@synnaxlabs/freighter";
 import {
   debounce,
+  type destructor,
   errors,
   type Reduction,
   type Series,
@@ -55,6 +56,8 @@ interface Request {
   block: RawBlock;
   end: TimeStamp;
   catchUp: boolean;
+  // The blocks the read filled, which a catch-up keeps until its caller releases them.
+  pinned?: Set<RawBlock>;
 }
 
 // One Core read from start to end over the blocks first to last, shared by every
@@ -136,7 +139,12 @@ export class Reader {
     for (const b of blocks) {
       if (b.covers(tr)) continue;
       waits.push(
-        b.pending ?? this.enqueue(b, TimeStamp.min(tr.end, b.range.end), false),
+        b.pending ??
+          this.enqueue({
+            block: b,
+            end: TimeStamp.min(tr.end, b.range.end),
+            catchUp: false,
+          }),
       );
     }
     // The fill settles after its last fetch, and its first failure wins.
@@ -158,19 +166,30 @@ export class Reader {
    * the blocks that hold them, and trusts every sample the read returns. Its cost grows
    * with the blocks that hold samples, not with the span to now. Call it only after the
    * stream acked the channel and its index, so the stream delivers every sample the
-   * read misses.
+   * read misses. The store keeps the blocks the read fills until the returned
+   * destructor runs, so the join finds the samples it numbers the stream's samples
+   * after.
    * @throws {UnexpectedError} if the reader is closed while the read is pending.
    * @throws {Unreachable} if the fetch exceeds the fetch timeout.
    * @throws {NotFoundError} if the channel does not exist.
    */
-  async catchUp(ch: channel.Key, first: number): Promise<void> {
+  async catchUp(ch: channel.Key, first: number): Promise<destructor.Destructor> {
     if (this.closed) throw new UnexpectedError("telemetry reader is closed");
-    const block = this.props.store.raw(ch, first);
-    await this.batcher.enqueue({ block, end: TimeStamp.MAX, catchUp: true });
+    const { store } = this.props;
+    const block = store.raw(ch, first);
+    const pinned = new Set<RawBlock>();
+    const release = (): void => store.repin(pinned, new Set());
+    try {
+      await this.batcher.enqueue({ block, end: TimeStamp.MAX, catchUp: true, pinned });
+    } catch (e) {
+      release();
+      throw errors.fromUnknown(e);
+    }
+    return release;
   }
 
-  private enqueue(block: RawBlock, end: TimeStamp, catchUp: boolean): Promise<void> {
-    return this.props.store.hold(block, this.batcher.enqueue({ block, end, catchUp }));
+  private enqueue(req: Request): Promise<void> {
+    return this.props.store.hold(req.block, this.batcher.enqueue(req));
   }
 
   private async batchRead(entries: Array<debounce.Entry<Request>>): Promise<void> {
@@ -217,7 +236,7 @@ export class Reader {
       );
       entries.forEach(({ req, resolve }) => {
         if (!refetch.has(req)) return resolve();
-        resolve(this.enqueue(req.block, req.end, req.catchUp));
+        resolve(this.enqueue(req));
       });
     } catch (err) {
       const byChannel = Map.groupBy(entries, ({ req }) => req.block.channel);
@@ -345,6 +364,12 @@ export class Reader {
           base + countBefore(part.timestamps, coveredEnd),
         );
         block.sealed = !seen.before(coveredEnd);
+        // A pin before the set, since the set can evict the blocks filled before it.
+        entries.forEach(({ req: { pinned } }) => {
+          if (pinned == null || pinned.has(block)) return;
+          pinned.add(block);
+          store.repin(new Set(), new Set([block]));
+        });
         store.set(rawKey(key, block.index), block);
       });
     });

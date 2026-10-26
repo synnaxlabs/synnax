@@ -304,6 +304,11 @@ export class Joins {
     const im = j.indexMember;
     if (!im.joined) return this.drain();
     this.writeIndex(j, im.take());
+    // The join numbers the next index sample after the newest one stored, so the store
+    // must keep that block until the sample arrives.
+    const newest = this.store.newestBlock(j.index);
+    if (im.joined && this.store.open(j.index) == null && Number.isFinite(newest))
+      this.store.join(this.store.raw(j.index, newest));
     j.members.forEach((m) => {
       if (m !== im && m.joined) this.writeData(m, m.take());
     });
