@@ -186,8 +186,12 @@ func (s *Service) SetByKeyOrName(
 }
 
 type (
-	RetrieveRequest  = status.RetrieveRequest
+	// RetrieveRequest is a request to retrieve statuses.
+	RetrieveRequest = status.RetrieveRequest
+	// RetrieveResponse holds the statuses a RetrieveRequest selects.
 	RetrieveResponse = status.RetrieveResponse
+	// Where is a filter that selects statuses.
+	Where = status.Where
 )
 
 func (s *Service) Retrieve(

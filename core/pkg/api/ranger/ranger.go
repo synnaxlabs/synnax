@@ -29,11 +29,16 @@ import (
 )
 
 type (
-	Key              = ranger.Key
-	Range            = ranger.Range
-	RetrieveRequest  = ranger.RetrieveRequest
+	// Key is a unique identifier for a range.
+	Key = ranger.Key
+	// Range is a user-defined region of time.
+	Range = ranger.Range
+	// RetrieveRequest is a request to retrieve ranges.
+	RetrieveRequest = ranger.RetrieveRequest
+	// RetrieveResponse holds the ranges a RetrieveRequest selects.
 	RetrieveResponse = ranger.RetrieveResponse
-	Where            = ranger.Where
+	// Where is a filter that selects ranges.
+	Where = ranger.Where
 )
 
 func rangeAccessOntologyIDs(ranges []Range) []ontology.ID {
