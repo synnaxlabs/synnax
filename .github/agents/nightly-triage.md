@@ -11,7 +11,7 @@ questions.
    job's log instead:
    `gh run view <run> --json jobs --jq '.jobs[] | select(.conclusion == "failure") | .databaseId'`
    and `gh api repos/{owner}/{repo}/actions/jobs/<job id>/logs`. For an integration job,
-   use the `.claude/skills/synnax-integration-debug/SKILL.md` steps on the
+   use the `.agents/skills/synnax-integration-debug/SKILL.md` steps on the
    `test-results-*` artifacts (`gh run download <run> --pattern 'test-results-*'`).
 3. For each failed test, give one verdict:
    - **Regression**: you can link a commit since the last green nightly to the failure.
@@ -32,7 +32,7 @@ Then act once per cause:
 - **Matching Linear issue, no proven fix**: add a comment to the issue with the run
   link, the failed test, the log lines that matter, your verdict, and its evidence.
 - **No issue, no proven fix**: push nothing. Put a draft issue in your report, written
-  to `.claude/skills/create-linear-issue/SKILL.md`.
+  to `.agents/skills/create-linear-issue/SKILL.md`.
 
 Never make a test pass by:
 
