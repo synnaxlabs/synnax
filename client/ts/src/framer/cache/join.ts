@@ -39,6 +39,33 @@ interface Mapped {
   runs: Run[];
 }
 
+// The positions [from, to) of an index series that fall in one raw block, and the block
+// offset of the first.
+interface Span {
+  block: number;
+  from: number;
+  to: number;
+  offset: number;
+}
+
+// Returns the spans of the positions [pos, end) of an index series, one per run.
+const spansOf = (runs: Run[], pos: number, end: number): Span[] =>
+  runs
+    .filter((r) => r.to > pos && r.from < end)
+    .map((r) => {
+      const from = Math.max(r.from, pos);
+      return {
+        block: r.block,
+        from,
+        to: Math.min(r.to, end),
+        offset: r.offset + (from - r.from),
+      };
+    });
+
+// A held series takes its Core alignment past every block alignment, so the x and y of
+// a waiting join still pair.
+const HELD_ALIGNMENT = 1n << 62n;
+
 /** A member of a join that waits for a catch-up read, and the wait it is in. */
 export interface Wait {
   key: channel.Key;
@@ -165,6 +192,10 @@ export class Joins {
   private readonly members = new Map<channel.Key, Member>();
   private readonly waits = new Set<channel.Key>();
   private lastWait = 0;
+  // Copies of held series in the alignments they draw at, so each read returns the
+  // same objects.
+  private readonly lifted = new WeakMap<Series, Series>();
+  private readonly placed = new WeakMap<Series, { at: Mapped; pieces: Series[] }>();
 
   constructor(private readonly store: Store) {}
 
@@ -203,6 +234,20 @@ export class Joins {
     return [...j.members.values()]
       .filter((m) => !m.joined)
       .map((m) => ({ key: m.key, wait: m.wait }));
+  }
+
+  /**
+   * @returns the streamed series that the channel's join holds for it while it waits
+   * for a catch-up read, in alignments where x and y pair. Once the index joins, they
+   * take the block offsets of their index samples.
+   */
+  held(ch: channel.Key): Series[] {
+    const m = this.members.get(ch);
+    if (m == null) return [];
+    const j = m.join;
+    if (!j.indexMember.joined) return m.held.map((s) => this.lift(s));
+    if (m.joined) return [];
+    return m.held.flatMap((s) => this.offsets(j, s));
   }
 
   /** @returns true when the channel's join has caught up with its stream. */
@@ -381,6 +426,37 @@ export class Joins {
     this.store.flush(m.key);
   }
 
+  private lift(s: Series): Series {
+    let lifted = this.lifted.get(s);
+    if (lifted != null) return lifted;
+    const { data, dataType, sampleOffset, timeRange } = s;
+    lifted = new Series({
+      data,
+      dataType,
+      sampleOffset,
+      timeRange,
+      alignment: HELD_ALIGNMENT + s.alignment,
+    });
+    this.lifted.set(s, lifted);
+    return lifted;
+  }
+
+  // Returns the samples of a held data series at the block offsets of the index samples
+  // that share their Core alignment, or none before the join takes those samples.
+  private offsets(j: Join, s: Series): Series[] {
+    const at = j.locate(s.alignment);
+    if (at == null || at.pos + s.length > at.mapped.series.length) return [];
+    const cached = this.placed.get(s);
+    if (cached?.at === at.mapped) return cached.pieces;
+    const { series: times, runs } = at.mapped;
+    const pieces = spansOf(runs, at.pos, at.pos + s.length).map(
+      ({ block, from, to, offset }) =>
+        piece(s, from - at.pos, to - at.pos, times, from, block, offset),
+    );
+    this.placed.set(s, { at: at.mapped, pieces });
+    return pieces;
+  }
+
   private writeIndex(j: Join, series: Series[]): MultiSeries {
     const allocated = new MultiSeries([]);
     const im = j.indexMember;
@@ -424,13 +500,18 @@ export class Joins {
       const b = rawIndex(new TimeStamp(s.data[lo]));
       const end = tileRange({ level: RAW_LEVEL, index: b }).end.valueOf();
       const hi = search(s, end, lo);
-      const newest = newestOf(this.store.raw(index, b));
+      const block = this.store.raw(index, b);
+      const newest = newestOf(block);
       const fresh = Math.max(lo, search(s, newest.end, lo));
       runs.push({
         from: lo,
         to: hi,
         block: b,
-        offset: newest.count - fresh + lo,
+        // A run the block holds in full can sit before the block's newest samples.
+        offset:
+          fresh === hi
+            ? offsetAt(block, BigInt(s.data[lo]))
+            : newest.count - fresh + lo,
         fresh,
       });
       lo = hi;
@@ -472,26 +553,23 @@ export class Joins {
     pos: number,
     allocated: MultiSeries,
   ): boolean {
-    const end = pos + s.length;
     const pieces: Array<{ block: RawBlock; p: Series }> = [];
-    for (const run of runs) {
-      if (run.to <= pos || run.from >= end) continue;
-      const block = this.store.raw(m.key, run.block);
-      let from = Math.max(run.from, pos);
-      const to = Math.min(run.to, end);
-      let offset = run.offset + (from - run.from);
+    for (const span of spansOf(runs, pos, pos + s.length)) {
+      const block = this.store.raw(m.key, span.block);
+      let { from, offset } = span;
+      const { to } = span;
       const held = block.coveredCount - offset;
       if (held >= to - from) continue;
       if (held >= 0) {
         from += held;
         offset += held;
       } else if (!m.historyless || block.coveredCount !== 0) {
-        m.from = Math.min(m.from ?? run.block, run.block);
+        m.from = Math.min(m.from ?? span.block, span.block);
         return false;
       }
       pieces.push({
         block,
-        p: piece(s, from - pos, to - pos, times, from, run.block, offset),
+        p: piece(s, from - pos, to - pos, times, from, span.block, offset),
       });
     }
     if (pieces.length === 0) return true;
@@ -513,6 +591,20 @@ const newestOf = (block: RawBlock): { end: bigint; count: number } => {
     end: BigInt(newest.data[newest.length - 1]) + 1n,
     count: offsetOf(newest.alignment) + newest.length,
   };
+};
+
+// Returns the block offset of the index sample stamped t.
+const offsetAt = (block: RawBlock, t: bigint): number => {
+  const series = [...block.fetched, ...block.streamed];
+  const live = block.buffer?.leadingBuffer;
+  if (live != null) series.push(live);
+  return series.reduce(
+    (offset, s) =>
+      s.length > 0 && BigInt(s.data[0]) <= t
+        ? Math.max(offset, offsetOf(s.alignment) + search(s, t))
+        : offset,
+    0,
+  );
 };
 
 // Returns the samples [from, to) of the series with block alignment and the time range

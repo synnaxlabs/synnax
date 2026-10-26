@@ -244,9 +244,9 @@ export class Points {
     const targets = this.targets(view, home, extremesKept);
     targets.forEach((spec) => this.request(spec));
     const tiles = this.select(targets, home);
-    const { raw, filling } = this.rawEdge(home);
+    const { raw, tail, filling } = this.rawEdge(home);
     this.prune(targets, tiles, next, home, extremesKept);
-    let series = [...tiles.flatMap((t) => t.series.series), ...raw];
+    let series = [...tiles.flatMap((t) => t.series.series), ...raw, ...tail];
     const dataType = this.props.store.dataType(this.key);
     const retyped =
       dataType != null && series.some((s) => !s.dataType.equals(dataType));
@@ -262,7 +262,7 @@ export class Points {
     const snapshot = {
       series: new MultiSeries(series),
       status: this.status(),
-      time: this.time(),
+      time: this.time(tail),
     };
     // A restart reads every tile again, so the next value rebuilds.
     this.memo = retyped
@@ -391,7 +391,9 @@ export class Points {
     const keys = [...new Set([this.key, index])];
     const demand = this.props.streamer.demand(keys, (frame) => {
       if (!frame.has(this.key)) return;
-      this.grown = true;
+      // A waiting join holds the frame, which adds to the held samples drawn.
+      if (this.props.joins.joined(this.key)) this.grown = true;
+      else this.memo = null;
       this.notify();
     });
     demand.onStatusChange(() => this.notify());
@@ -610,17 +612,22 @@ export class Points {
     return Math.min(end, Math.max(now, this.props.store.newestBlock(this.key)));
   }
 
-  // Returns the samples of the raw range, and whether a block of it waits for its
-  // samples. While the window streams, the join fills the blocks from the commit point
-  // on, and reads fill the rest. A block being filled shows the samples it showed
-  // before.
-  private rawEdge(home: TimeRange): { raw: Series[]; filling: boolean } {
-    if (this.parked != null) return { raw: [], filling: false };
+  // Returns the samples of the raw range, the tail of samples a waiting join holds in
+  // it, and whether a block of it waits for its samples. While the window streams, the
+  // join fills the blocks from the commit point on, and reads fill the rest. A block
+  // being filled shows the samples it showed before, and the tail shows the stream
+  // until the join catches up.
+  private rawEdge(home: TimeRange): {
+    raw: Series[];
+    tail: Series[];
+    filling: boolean;
+  } {
+    if (this.parked != null) return { raw: [], tail: [], filling: false };
     this.cutoff(home);
     const tr = this.rawRange(home);
     if (!tr.start.before(tr.end)) {
       this.raw = [];
-      return { raw: [], filling: false };
+      return { raw: [], tail: [], filling: false };
     }
     const { store } = this.props;
     const now = this.props.now();
@@ -650,7 +657,13 @@ export class Points {
     this.raw = [...fresh, ...standIns]
       .filter((s) => s.timeRange.overlapsWith(tr))
       .sort((a, b) => TimeRange.sort(a.timeRange, b.timeRange));
-    return { raw: this.raw, filling: filling.size > 0 };
+    const tail =
+      this.live == null
+        ? []
+        : this.props.joins
+            .held(this.key)
+            .filter((s) => s.timeRange.isZero || s.timeRange.overlapsWith(tr));
+    return { raw: this.raw, tail, filling: filling.size > 0 };
   }
 
   // While the window streams, the read waits for the stream's ack: a read before it can
@@ -709,8 +722,10 @@ export class Points {
     this.pins = next;
   }
 
-  // Returns the end of the newest raw sample's span.
-  private time(): TimeStamp | undefined {
+  // Returns the end of the newest drawn sample's span.
+  private time(tail: Series[] = []): TimeStamp | undefined {
+    const newest = tail.findLast((s) => !s.timeRange.isZero);
+    if (newest != null) return newest.timeRange.end;
     const last = this.raw.at(-1);
     if (last == null) return undefined;
     const buffer = this.props.store.open(this.key)?.buffer;
