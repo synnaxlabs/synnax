@@ -22,23 +22,8 @@ export interface UseProps extends z.input<typeof stringValue.stateZ> {
  * use draws the latest value of a string source into a box on the canvas. The worker
  * draws each sample, so a sample never re-renders the calling component.
  */
-export const use = ({
-  aetherKey,
-  box,
-  telem,
-  level,
-  color,
-  stalenessColor,
-  stalenessTimeout,
-}: UseProps): void => {
-  const memoProps = useMemoDeepEqual({
-    box,
-    telem,
-    level,
-    color,
-    stalenessColor,
-    stalenessTimeout,
-  });
+export const use = ({ aetherKey, ...rest }: UseProps): void => {
+  const memoProps = useMemoDeepEqual(rest);
   const { setState } = Aether.useLifecycle({
     aetherKey,
     type: stringValue.StringValue.TYPE,

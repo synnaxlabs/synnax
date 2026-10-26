@@ -24,7 +24,7 @@ export const stateZ = staleness.configZ.extend({
   box: box.box,
   telem: telem.stringSourceSpecZ.default(telem.noopStringSourceSpec),
   level: text.levelZ.default("p"),
-  // color is the text color. An absent or zero color takes the theme's text color.
+  // color is the text color. Absent, the text takes the theme's text color.
   color: color.colorZ.optional(),
   stalenessColor: color.colorZ.optional(),
 });
@@ -97,8 +97,7 @@ export class StringValue
   private get textColor(): color.Color {
     const { theme, stale } = this.internal;
     if (stale) return staleness.resolveColor(this.state.stalenessColor, theme);
-    const { color: c } = this.state;
-    return c == null || color.isZero(c) ? theme.colors.text : c;
+    return this.state.color ?? theme.colors.text;
   }
 
   render({ viewportScale = scale.XY.IDENTITY }: { viewportScale?: scale.XY }): void {

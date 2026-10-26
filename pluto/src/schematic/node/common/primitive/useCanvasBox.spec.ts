@@ -105,6 +105,23 @@ describe("Primitive.useCanvasBox", () => {
     expect(await measure(createSymbol({ ...LAYOUT, zoom: 2.5 }))).toEqual(CONTENT);
   });
 
+  it("should be empty while the symbol is hidden", async () => {
+    const el = createSymbol(LAYOUT);
+    const { result } = renderHook(() => Primitive.useCanvasBox());
+    act(() => {
+      result.current.ref(el);
+    });
+    await waitFor(() => expect(result.current.box).toEqual(CONTENT));
+    const root = el.parentElement as HTMLElement;
+    root.getBoundingClientRect = () => rect(xy.ZERO, 0, 0);
+    define(root, { offsetWidth: 0 });
+    el.getBoundingClientRect = () => rect(xy.ZERO, 0, 0);
+    el.style.width = "0px";
+    el.style.height = "0px";
+    define(el, { offsetWidth: 0, offsetHeight: 0, clientWidth: 0, clientHeight: 0 });
+    await waitFor(() => expect(result.current.box).toEqual(box.ZERO));
+  });
+
   it("should place the box at the node's position", async () => {
     const position = xy.construct(400, -50);
     expect(await measure(createSymbol(LAYOUT), position)).toEqual(

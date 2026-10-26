@@ -10,6 +10,7 @@
 import { theme } from "@synnaxlabs/lyra/theme";
 import { box, color, scale, xy } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { type z } from "zod";
 
 import { telemTest } from "@/telem/aether/test";
 import { renderAether } from "@/testutil/renderAether";
@@ -25,7 +26,7 @@ const CHAR_WIDTH = 8;
 
 interface SetupOptions {
   value?: string;
-  state?: Record<string, unknown>;
+  state?: Partial<z.input<typeof stringValue.stateZ>>;
 }
 
 // Mounts a StringValue under the real provider stack with a recording render context.
@@ -173,11 +174,6 @@ describe("stringValue.StringValue", () => {
       const configured = color.construct("#00ff00");
       const { recorder } = setup({ value: "IDLE", state: { color: configured } });
       expect(lastFillStyle(recorder)).toBe(color.hex(configured));
-    });
-
-    it("should use the theme's text color for a zero color", () => {
-      const { recorder } = setup({ value: "IDLE", state: { color: color.ZERO } });
-      expect(lastFillStyle(recorder)).toBe(color.hex(THEME.colors.text));
     });
   });
 

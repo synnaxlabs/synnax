@@ -14,28 +14,28 @@ import { type RefCallback, useState } from "react";
 
 const ROOT_SELECTOR = `.${CSS.B("symbol-primitive")}`;
 
-const px = (value: string): number => parseFloat(value) || 0;
-
 // The diagram zooms with a transform. Layout sizes such as offsetWidth ignore it and
 // client rects include it, so their ratio is the zoom.
 const measure = (el: HTMLElement): box.Box => {
   const root = el.closest(ROOT_SELECTOR);
   if (!(root instanceof HTMLElement))
     throw new Error("useCanvasBox needs an element inside a symbol primitive");
+  // A hidden symbol has no layout to draw into.
+  if (root.offsetWidth === 0) return box.ZERO;
   const rootRect = root.getBoundingClientRect();
   const rect = el.getBoundingClientRect();
-  const zoom = root.offsetWidth === 0 ? 1 : rootRect.width / root.offsetWidth;
+  const zoom = rootRect.width / root.offsetWidth;
   const style = getComputedStyle(el);
-  const padLeft = px(style.paddingLeft);
-  const padTop = px(style.paddingTop);
+  const padLeft = parseFloat(style.paddingLeft);
+  const padTop = parseFloat(style.paddingTop);
   return box.construct(
     {
       x: (rect.left - rootRect.left) / zoom + el.clientLeft + padLeft,
       y: (rect.top - rootRect.top) / zoom + el.clientTop + padTop,
     },
     {
-      width: el.clientWidth - padLeft - px(style.paddingRight),
-      height: el.clientHeight - padTop - px(style.paddingBottom),
+      width: el.clientWidth - padLeft - parseFloat(style.paddingRight),
+      height: el.clientHeight - padTop - parseFloat(style.paddingBottom),
     },
   );
 };
