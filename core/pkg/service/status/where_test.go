@@ -23,9 +23,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // The case table is shared with the TypeScript matches, so that the Core and the client
@@ -123,5 +125,28 @@ var _ = Describe("Where", Ordered, func() {
 		lo.Map(v.Cases, func(c whereCase, _ int) TableEntry {
 			return Entry(c.Name, c.Where, c.Expected)
 		}),
+	)
+
+	DescribeTable(
+		"Should return a path error for an invalid variant",
+		func(variant filter.Set[status.Variant], msg string) {
+			Expect(status.MatchWhere[any](status.Where{Variant: &variant})).Error().
+				To(SatisfyAll(
+					BeAssignableToTypeOf(validate.PathError{}),
+					MatchError(msg),
+				))
+		},
+		Entry(
+			"eq",
+			filter.Set[status.Variant]{Eq: new(status.Variant("bogus"))},
+			`variant.eq: invalid variant "bogus": validation error`,
+		),
+		Entry(
+			"in",
+			filter.Set[status.Variant]{
+				In: []status.Variant{status.VariantError, "bogus"},
+			},
+			`variant.in.1: invalid variant "bogus": validation error`,
+		),
 	)
 })
