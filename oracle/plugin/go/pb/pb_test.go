@@ -1519,8 +1519,7 @@ var _ = Describe("Go PB Plugin", func() {
 					Key uint32
 
 					Test struct {
-						@key
-						rack Key
+						rack Key { @key }
 						name string
 					}
 				`

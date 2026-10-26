@@ -407,6 +407,19 @@ var _ = Describe("Filter definitions", func() {
 				"declares filters Where and Other2; a schema declares at most one"),
 		)
 
+		DescribeTable("Should reject a type-level @key outside a distinct type",
+			func(ctx SpecContext, declaration string) {
+				_, diag := analyzer.AnalyzeSource(ctx, declaration, "test", loader)
+				Expect(diag.String()).To(ContainSubstring(
+					"test.Key has @key, which marks only a distinct type such as " +
+						"Key uint32",
+				))
+			},
+			Entry("an alias", "Key = uuid {\n @key\n}"),
+			Entry("a struct", "Key struct {\n value uuid\n @key\n}"),
+			Entry("an enum", "Key enum {\n a = \"a\"\n @key\n}"),
+		)
+
 		It("Should reject bare lines without the filter import", func(
 			ctx SpecContext,
 		) {
