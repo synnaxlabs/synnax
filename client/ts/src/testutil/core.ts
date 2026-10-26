@@ -108,7 +108,9 @@ export class SyntheticCore {
       openStreamer: async (config) => this.openStreamer(config),
       readLatest: async (keys) => this.readLatest(keys),
       retrieveChannels: async (keys) =>
-        [this.index, ...this.data].filter((c) => (keys as channel.Key[]).includes(c.key)),
+        [this.index, ...this.data].filter((c) =>
+          (keys as channel.Key[]).includes(c.key),
+        ),
     });
   }
 

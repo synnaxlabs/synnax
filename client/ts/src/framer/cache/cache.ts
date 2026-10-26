@@ -13,12 +13,12 @@ import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import { type ChannelRetriever } from "@/framer/adapter";
 import { type DynamicProps } from "@/framer/cache/dynamic";
+import { Stamps } from "@/framer/cache/stamps";
 import {
   DEFAULT_STATIC_PROPS,
   type StaticProps,
   zeroGCMetrics,
 } from "@/framer/cache/static";
-import { Stamps } from "@/framer/cache/stamps";
 import { Unary } from "@/framer/cache/unary";
 
 const DEFAULT_DYNAMIC_BUFFER_SIZE: TimeSpan = TimeSpan.seconds(60);
