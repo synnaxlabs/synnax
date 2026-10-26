@@ -21,8 +21,6 @@
     .box { fill: #f6f8fa; stroke: #8c959f; }
     .group { fill: #f6f8fa; stroke: #8250df; }
     .new { stroke: #bf3989; stroke-width: 2; }
-    .imports { stroke: #0969da; }
-    .imports-ink { fill: #0969da; }
     @media (prefers-color-scheme: dark) {
       .ink { fill: #e6edf3; }
       .muted { fill: #8b949e; }
@@ -30,8 +28,6 @@
       .box { fill: #161b22; stroke: #484f58; }
       .group { fill: #1c1730; stroke: #a371f7; }
       .new { stroke: #f778ba; }
-      .imports { stroke: #79c0ff; }
-      .imports-ink { fill: #79c0ff; }
     }
   </style>
   <defs>
@@ -56,17 +52,6 @@
             orient="auto"
         >
       <path d="M0,0 L10,5 L0,10 z" fill="#bf3989" />
-    </marker>
-    <marker
-            id="arrow-imports"
-            viewBox="0 0 10 10"
-            refX="9"
-            refY="5"
-            markerWidth="7"
-            markerHeight="7"
-            orient="auto"
-        >
-      <path d="M0,0 L10,5 L0,10 z" fill="#0969da" />
     </marker>
   </defs>
 
@@ -110,16 +95,6 @@
     <path d="M370,104 H428" />
   </g>
 
-  <!-- imports edge, arc to arc -->
-  <path
-        d="M600,94 H635 V114 H603"
-        fill="none"
-        class="imports"
-        stroke-width="1.5"
-        marker-end="url(#arrow-imports)"
-    />
-  <text x="644" y="108" font-size="12" class="imports-ink">imports</text>
-
   <!-- legend -->
   <rect
         x="20"
@@ -135,8 +110,6 @@
   <g font-size="13">
     <line x1="40" y1="226" x2="80" y2="226" class="edge" stroke-width="1.5" />
     <text x="92" y="231" class="ink">"parent of" relationship</text>
-    <line x1="40" y1="260" x2="80" y2="260" class="imports" stroke-width="1.5" />
-    <text x="92" y="265" class="ink">"imports" relationship (new)</text>
     <rect x="400" y="217" width="40" height="18" rx="4" class="group" />
     <text x="454" y="231" class="ink">group</text>
     <rect x="400" y="251" width="40" height="18" rx="4" class="box" />
