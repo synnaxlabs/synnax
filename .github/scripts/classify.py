@@ -32,6 +32,24 @@ from urllib.parse import quote
 
 HUMAN = "review/human"
 BOT = "review/bot"
+# Tier labels from before the two-tier scheme. Both ask for a human.
+HUMAN_TIERS = {HUMAN, "review/light", "review/thorough"}
+UI_PREFIXES = ("console/", "pluto/", "lyra/")
+# Files that make or judge the reports. A pull request that changes one could forge
+# its own result, so it always gets a human.
+CLASSIFIER_PATHS = (
+    ".github/scripts/classify.py",
+    ".github/scripts/surface.sh",
+    ".github/workflows/check.classify.yaml",
+    ".github/workflows/label.classify.yaml",
+    ".github/actions/",
+    "client/ts/scripts/surface.sh",
+    "core/cmd/surface/",
+    "oracle/cmd/surface.go",
+    "oracle/surface/",
+    "scripts/surface_driver.py",
+    "scripts/surface_py.py",
+)
 MARKER = "<!-- review-classifier -->"
 SURFACES = {
     "oracle": "Oracle schemas",
@@ -42,10 +60,11 @@ SURFACES = {
 }
 STATUS_TEXT = {"same": "No change", "changed": "Changed", "error": "Report failed"}
 MAX_DIFF_CHARS = 12_000
-MAX_CONSOLE_PATCH_CHARS = 150_000
+MAX_UI_PATCH_CHARS = 150_000
 AGENT_TIMEOUT_S = 600
 
-PROMPT = """You classify a pull request to the Synnax Console, a desktop and web app.
+PROMPT = """You classify a pull request to the Synnax Console, a desktop and web app,
+and to Pluto and Lyra, the UI libraries the Console is built from.
 A human must review the pull request if it adds a new design, makes a change a user
 can see in the UI, or adds a feature. Refactors, tests, type changes, and internal
 fixes with no visible change do not need a human. If you are not sure, say yes.
@@ -82,18 +101,32 @@ def read_surfaces(root: Path) -> list[Surface]:
     return out
 
 
-def console_prompt(files: list[dict[str, Any]]) -> str | None:
-    console = [f for f in files if f["filename"].startswith("console/")]
-    if not console:
+def ui_answer(files: list[dict[str, Any]], command: str) -> Answer | None:
+    """Asks the agent about the UI patches. Returns None when no UI file changed, and
+    a human answer without asking when a patch is missing or too large to send."""
+    ui = [f for f in files if f["filename"].startswith(UI_PREFIXES)]
+    if not ui:
         return None
-    parts = []
-    for f in console:
-        patch = f.get("patch") or "(no patch: binary or too large)"
-        parts.append(f"--- {f['filename']} ({f['status']})\n{patch}\n")
-    body = "".join(parts)
-    if len(body) > MAX_CONSOLE_PATCH_CHARS:
-        body = body[:MAX_CONSOLE_PATCH_CHARS] + "\n(diff cut: too large)\n"
-    return PROMPT + body
+    if any(not f.get("patch") for f in ui):
+        return Answer(True, "A UI file has no patch: it is binary or too large.")
+    body = "".join(f"--- {f['filename']} ({f['status']})\n{f['patch']}\n" for f in ui)
+    if len(body) > MAX_UI_PATCH_CHARS:
+        return Answer(True, "The UI diff is too large for the agent.")
+    return ask_agent(PROMPT + body, command)
+
+
+def trust_reasons(pull: dict[str, Any], files: list[dict[str, Any]]) -> list[str]:
+    reasons = []
+    if pull["head"]["repo"]["full_name"] != pull["base"]["repo"]["full_name"]:
+        reasons.append("The pull request comes from a fork.")
+    changed = sorted(
+        f["filename"] for f in files if f["filename"].startswith(CLASSIFIER_PATHS)
+    )
+    if changed:
+        reasons.append(
+            f"The pull request changes the classifier: {', '.join(changed)}."
+        )
+    return reasons
 
 
 def parse_answer(text: str) -> Answer:
@@ -124,13 +157,17 @@ def ask_agent(prompt: str, command: str) -> Answer:
     return parse_answer(result.stdout)
 
 
-def needs_human(surfaces: list[Surface], console: Answer | None) -> bool:
-    return any(s.status != "same" for s in surfaces) or bool(console and console.human)
+def needs_human(
+    surfaces: list[Surface], console: Answer | None, reasons: list[str]
+) -> bool:
+    changed = any(s.status != "same" for s in surfaces)
+    return changed or bool(console and console.human) or bool(reasons)
 
 
 def plan_labels(current: set[str], human: bool) -> tuple[list[str], list[str]]:
-    """Returns the labels to add and to remove, so exactly one tier label stays."""
-    if human or HUMAN in current:
+    """Returns the labels to add and to remove, so exactly one of review/human and
+    review/bot stays. An existing human tier label counts as review/human."""
+    if human or current & HUMAN_TIERS:
         return ([] if HUMAN in current else [HUMAN]), ([BOT] if BOT in current else [])
     return ([] if BOT in current else [BOT]), []
 
@@ -144,27 +181,38 @@ def fence(text: str) -> str:
     return f"{ticks}diff\n{text.rstrip()}\n{ticks}"
 
 
-def render(surfaces: list[Surface], console: Answer | None, kept: bool) -> str:
-    human = needs_human(surfaces, console) or kept
-    tier = HUMAN if human else BOT
-    if needs_human(surfaces, console):
+def render(
+    surfaces: list[Surface],
+    console: Answer | None,
+    reasons: list[str],
+    kept: bool,
+) -> str:
+    changed = any(s.status != "same" for s in surfaces) or bool(
+        console and console.human
+    )
+    tier = HUMAN if changed or reasons or kept else BOT
+    if changed:
         summary = "This pull request changes a user-facing interface."
+    elif reasons:
+        summary = "The classifier cannot trust its reports for this pull request."
     elif kept:
-        summary = f"No interface changed, but `{HUMAN}` is already set, so it stays."
+        summary = "No interface changed, but a human review tier is already set."
     else:
         summary = "This pull request changes no user-facing interface."
     rows = [f"| {SURFACES[s.name]} | {STATUS_TEXT[s.status]} |" for s in surfaces]
     if console is None:
-        rows.append("| Console | Not changed |")
+        rows.append("| Console and UI libraries | Not changed |")
     else:
         verdict = "Visible change" if console.human else "No visible change"
-        rows.append(f"| Console | {verdict}: {console.reason} |")
+        rows.append(f"| Console and UI libraries | {verdict}: {console.reason} |")
     lines = [
         MARKER,
         f"## Review tier: `{tier}`",
         "",
         summary,
         "",
+        *[f"- {r}" for r in reasons],
+        *([""] if reasons else []),
         "| Interface | Result |",
         "| --- | --- |",
         *rows,
@@ -247,12 +295,16 @@ def main() -> None:
         "--jq",
         ".[] | {filename, status, patch}",
     )
-    prompt = console_prompt(files)
-    console = None if prompt is None else ask_agent(prompt, os.environ["REVIEW_AGENT"])
+    console = ui_answer(files, os.environ["REVIEW_AGENT"])
+    reasons = trust_reasons(pull, files)
     surfaces = read_surfaces(root)
+    # The agent can take minutes: read the head and labels again before writing.
+    pull = json.loads(gh("api", f"repos/{repo}/pulls/{number}"))
+    if pull["head"]["sha"] != head_sha:
+        print(f"#{number} moved past {head_sha}; a newer run classifies it")
+        return
     current = {label["name"] for label in pull["labels"]}
-    human = needs_human(surfaces, console)
-    add, remove = plan_labels(current, human)
+    add, remove = plan_labels(current, needs_human(surfaces, console, reasons))
     for label in add:
         gh(
             "api",
@@ -269,7 +321,8 @@ def main() -> None:
             "DELETE",
             f"repos/{repo}/issues/{number}/labels/{quote(label, safe='')}",
         )
-    upsert_comment(repo, number, render(surfaces, console, HUMAN in current))
+    kept = bool(current & HUMAN_TIERS)
+    upsert_comment(repo, number, render(surfaces, console, reasons, kept))
     print(f"#{number}: add {add}, remove {remove}")
 
 

@@ -8,11 +8,12 @@
 # included in the file licenses/APL.txt.
 
 # Labels a pull request review/human or review/bot from the results Check - Classify
-# uploaded, and keeps one comment with the evidence. An agent reads the Console part of
-# the diff, fetched through the API. The workflow runs from the default branch and never
-# checks out or runs pull request code: the artifacts are data. The label goes on with
-# an App token, because a label set with GITHUB_TOKEN starts no other workflow, and the
-# review gate and auto-merge wait for it.
+# uploaded, and keeps one comment with the evidence. An agent reads the UI part of the
+# diff (Console, Pluto, Lyra), fetched through the API. A fork, or a change to the
+# classifier itself, always gets a human: either could forge the uploaded results. The
+# workflow runs from the default branch and never checks out or runs pull request code:
+# the artifacts are data. The label goes on with an App token, because a label set with
+# GITHUB_TOKEN starts no other workflow, and the review gate and auto-merge wait for it.
 
 name: Label - Classify
 
@@ -25,9 +26,13 @@ on:
 
 permissions: {}
 
+# One run per pull request branch at a time, so an older run never writes after a newer
+# one. A newer queued run replaces an older queued one.
 concurrency:
-  group: label-classify-${{ github.event.workflow_run.head_sha }}
-  cancel-in-progress: true
+  group:
+    label-classify-${{ github.event.workflow_run.head_repository.full_name }}-${{
+    github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
 
 jobs:
   label:
