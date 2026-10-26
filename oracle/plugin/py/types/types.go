@@ -210,8 +210,14 @@ func generatePyFile(
 			if err != nil {
 				return nil, err
 			}
-			hasAlias := lo.SomeBy(sd.Fields, func(f fieldData) bool { return f.Alias != "" })
-			sd.ModelConfig = modelConfig(hasAlias, resolution.InFilterRequest(typ, table))
+			hasAlias := lo.SomeBy(
+				sd.Fields,
+				func(f fieldData) bool { return f.Alias != "" },
+			)
+			sd.ModelConfig = modelConfig(
+				hasAlias,
+				resolution.InFilterRequest(typ, table),
+			)
 			if sd.ModelConfig != "" {
 				data.imports.addPydantic("ConfigDict")
 			}
