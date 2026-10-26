@@ -65,9 +65,8 @@
     posthog.init("phc_NX1V2suy6Rd924qT3hjDCM23miC3SxqoP7r1GHF8Vsq", {
         api_host: "https://us.i.posthog.com",
         person_profiles: "identified_only",
-        // The privacy policy promises no analytics cookie or stored identifier, and no
-        // recordings of visitors.
-        persistence: "memory",
-        disable_session_recording: true,
+        // Stores nothing in the browser, so EU visitors need no consent banner. PostHog
+        // drops every event unless the project turns on cookieless tracking.
+        cookieless_mode: "always",
     });
 </script>
