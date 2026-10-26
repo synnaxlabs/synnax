@@ -12,6 +12,7 @@ import {
   type breaker,
   deep,
   type destructor,
+  errors,
   MultiSeries,
   resolveWindow,
   type Series,
@@ -348,6 +349,8 @@ export class Points {
       this.leave?.();
       this.demand = null;
       this.leave = null;
+      this.abort.abort();
+      this.abort = new AbortController();
       return;
     }
     const keys = [...new Set([this.key, index])];
@@ -618,7 +621,8 @@ export class Points {
   }
 
   // While the window streams, the read waits for the stream's ack: a read before it can
-  // miss samples that a lagging writer stamps before the commit point.
+  // miss samples that a lagging writer stamps before the commit point. Once the window
+  // stops streaming, its samples are committed, so the read stops waiting.
   private readRaw(tr: TimeRange): void {
     if (this.rawReading || this.rawRetrying) return;
     const generation = this.generation;
@@ -627,8 +631,12 @@ export class Points {
     this.rawReading = true;
     const read = async (): Promise<void> => {
       if (demand != null && index != null)
-        await streamer.waitAcked([...new Set([this.key, index])], abort.signal);
-      await reader.read(tr, this.key);
+        try {
+          await streamer.waitAcked([...new Set([this.key, index])], abort.signal);
+        } catch (e) {
+          if (!abort.signal.aborted) throw errors.fromUnknown(e);
+        }
+      if (generation === this.generation) await reader.read(tr, this.key);
     };
     read()
       .then(() => {

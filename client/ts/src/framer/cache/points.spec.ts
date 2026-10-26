@@ -238,6 +238,31 @@ describe("Points", () => {
     }
   });
 
+  it("should read a window that stops streaming while its read waits", async () => {
+    const core = createCore();
+    const { subscribe, close } = createPoints(core);
+    const now = core.now();
+    const live = new TimeRange(
+      now.sub(TimeSpan.minutes(2)),
+      now.add(TimeSpan.minutes(1)),
+    );
+    const points = subscribe(core.data[0].key, staticWindow(live), RAW);
+    try {
+      await expect.poll(() => points.value().series.length, POLL).toBeGreaterThan(0);
+      core.disconnect();
+      await sleep.sleep(TimeSpan.milliseconds(100));
+      const past = new TimeRange(START, START.add(TimeSpan.minutes(2)));
+      points.update(staticWindow(past), RAW);
+      points.value();
+      core.reconnect();
+      await expect
+        .poll(() => points.value().series.length, POLL)
+        .toBeGreaterThanOrEqual(12_000);
+    } finally {
+      await close();
+    }
+  });
+
   it("should stop reading raw samples after a definitive failure", async () => {
     const core = createCore();
     let reads = 0;
