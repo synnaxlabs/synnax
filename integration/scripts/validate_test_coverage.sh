@@ -26,11 +26,11 @@ EXEMPT="example migration"
 
 # Matrix definition (single source of truth)
 # Format: "name:target:hosted" where target can be comma-separated file prefixes.
-# hosted is true when the suite needs no NI software, so it can run on a GitHub-hosted
-# runner instead of a test bot.
+# hosted is true when the suite runs on a GitHub-hosted runner. A suite that needs NI
+# software, the timer precision of a test bot, or more than 4 CPUs is not hosted.
 MATRIX_ENTRIES=(
     "arc:arc,control:true"
-    "console:console:true"
+    "console:console:false"
     "driver:driver,latency:false"
 )
 

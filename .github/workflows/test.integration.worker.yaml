@@ -79,9 +79,13 @@ jobs:
         with:
           version: latest-known
 
+      # The Console cases use only Chromium. On Windows, --with-deps adds the Media
+      # Foundation feature that only WebKit needs, which takes 3 minutes.
       - name: Install Playwright
         working-directory: integration
-        run: uv run playwright install --with-deps
+        run: >-
+          uv run playwright install ${{ runner.os == 'Linux' && '--with-deps' || '' }}
+          chromium
 
       - name: Start resource sampler (Windows)
         id: sampler-win
