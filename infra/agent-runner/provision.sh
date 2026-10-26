@@ -20,6 +20,7 @@ RUNNER_VERSION=2.338.2
 BAZELISK_VERSION=1.30.0
 UV_VERSION=0.13.0
 PNPM_VERSION=12.14.0
+GOLANGCI_LINT_VERSION=2.15.0
 REPO=synnaxlabs/synnax
 HOME_DIR=/home/runner
 IDLE_MINUTES=${idle_minutes}
@@ -72,6 +73,13 @@ curl -fsSL -o /usr/local/bin/bazel \
 chmod +x /usr/local/bin/bazel
 curl -LsSf "https://astral.sh/uv/$UV_VERSION/install.sh" \
     | env UV_INSTALL_DIR=/usr/local/bin sh
+
+# The pre-commit hook formats Go and C++, so the formatters CI pins are installed.
+curl -fsSL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh \
+    | sh -s -- -b /usr/local/bin "v$GOLANGCI_LINT_VERSION"
+RAW_URL=https://raw.githubusercontent.com/$REPO/main
+curl -fsSL "$RAW_URL/scripts/install_clang_format.sh" \
+    | env UV_TOOL_DIR=/opt/uv-tools UV_TOOL_BIN_DIR=/usr/local/bin bash
 # Each agent job updates the agent CLIs to the latest release before it runs.
 npm install -g "pnpm@$PNPM_VERSION" @anthropic-ai/claude-code@latest \
     @openai/codex@latest
