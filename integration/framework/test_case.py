@@ -281,6 +281,7 @@ class TestCase(ABC):
             failure = f"Failed to {action}: {e}"
             if self._error_message is None:
                 self._error_message = failure
+                self._error_traceback = traceback.format_exc()
             else:
                 self._error_message += f"\n{failure}"
             self.STATUS = STATUS.FAILED

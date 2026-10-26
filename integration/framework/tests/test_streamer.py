@@ -75,6 +75,20 @@ class TestStreamer:
         with pytest.raises(RuntimeError, match="reset"):
             streamer.check()
 
+    def test_keeps_read_error_over_close_error(
+        self, client: Client, streamer: Streamer
+    ) -> None:
+        """Should raise the read error that stopped the stream, not a later close
+        error."""
+        client.stream.close_error = ConnectionError("reset")
+        streamer.start()
+        client.stream.push(ValueError("decode failed"))
+        with pytest.raises(RuntimeError, match="decode failed"):
+            streamer.wait_for(CHANNEL, lambda v: v == 1.0, WAIT)
+        stop(streamer)
+        with pytest.raises(RuntimeError, match="decode failed"):
+            streamer.check()
+
     def test_stop_without_error(self, client: Client, streamer: Streamer) -> None:
         """Should not report an error after a clean stop."""
         streamer.start()

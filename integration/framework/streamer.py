@@ -190,17 +190,9 @@ class Streamer:
         for ch in self._channels:
             self._frame[ch] = 0
 
+        streamer = None
         try:
-            self._stream()
-        except Exception as e:
-            self._log(f"Streamer failed: {e}")
-            with self._cond:
-                self._error = e
-                self._cond.notify_all()
-
-    def _stream(self) -> None:
-        streamer = self._client.open_streamer(list(self._channels))
-        try:
+            streamer = self._client.open_streamer(list(self._channels))
             while not self._should_stop:
                 frame = streamer.read(self._read_timeout)
                 if frame is None:
@@ -211,6 +203,20 @@ class Streamer:
                         if series is not None and len(series) > 0:
                             self._frame[name] = _scalar(series[-1])
                     self._cond.notify_all()
+        except Exception as e:
+            self._fail(e)
         finally:
-            with suppress_websocket_errors():
-                streamer.close()
+            if streamer is not None:
+                try:
+                    with suppress_websocket_errors():
+                        streamer.close()
+                except Exception as e:
+                    self._fail(e)
+
+    def _fail(self, error: Exception) -> None:
+        """Saves error unless an earlier one stopped the stream, and wakes waiters."""
+        self._log(f"Streamer failed: {error}")
+        with self._cond:
+            if self._error is None:
+                self._error = error
+            self._cond.notify_all()
