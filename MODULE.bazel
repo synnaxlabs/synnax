@@ -105,7 +105,7 @@ single_version_override(
         "//patches:grpc-declare-upb-gen-headers.patch",
         "//patches:grpc-add-upb-gen-headers-dep.patch",
         # OpenSSL 4.0 returns const from the X509 accessors and makes ASN1_OCTET_STRING
-        # opaque. curl 8.22 requires that major, so grpc has to build against it.
+        # opaque. curl requires that major, so grpc has to build against it.
         # Upstream support is not released yet.
         "//patches:grpc-openssl-4-compat.patch",
     ],
