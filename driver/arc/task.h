@@ -229,7 +229,6 @@ public:
                 writer_factory,
                 synnax::framer::WriterConfig{
                     .channels = task->runtime->write_channels,
-                    .start = x::telem::TimeStamp::now(),
                     .authorities = std::move(initial_authorities),
                     .subject =
                         x::control::Subject{
@@ -241,8 +240,7 @@ public:
                 std::move(source),
                 x::breaker::default_config("arc_acquisition"),
                 "arc_acquisition",
-                /* err_on_unauthorized */ false,
-                /* open_eagerly */ true
+                /* err_on_unauthorized */ false
             );
         }
         if (!task->runtime->read_channels.empty()) {
@@ -264,13 +262,12 @@ public:
     /// @brief starts the task. A task whose runtime is already running is not
     /// restarted: the command is answered with the current status.
     bool start(const std::string &cmd_key) {
-        const auto start = x::telem::TimeStamp::now();
         if (!this->runtime->start()) {
             this->state.ack(cmd_key, true);
             return false;
         }
         auto acq_started = true;
-        if (this->acquisition) acq_started = this->acquisition->start(start);
+        if (this->acquisition) acq_started = this->acquisition->start();
         auto control_started = true;
         if (this->control) control_started = this->control->start();
         this->state.send_start(cmd_key);
