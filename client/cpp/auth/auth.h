@@ -255,7 +255,7 @@ public:
         auto [_, err] = delete_client->send("/auth/session/delete", req);
         if (err.matches(ENDED_ERRORS)) this->forget(sent);
         if (err) return err;
-        if (std::find(keys.begin(), keys.end(), own) != keys.end()) this->forget(sent);
+        if (std::ranges::find(keys, own) != keys.end()) this->forget(sent);
         return x::errors::NIL;
     }
 
