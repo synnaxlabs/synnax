@@ -475,6 +475,10 @@ var _ = Describe("FS", func() {
 						Expect(fs.Rename("missing", "b")).To(MatchError(os.ErrNotExist))
 					},
 				)
+				It("Should return a not-exist error when a parent is missing", func() {
+					Expect(fs.Rename("missing/a.json", "b.json")).
+						To(MatchError(os.ErrNotExist))
+				})
 			})
 			Describe("Truncate", func() {
 				It(
