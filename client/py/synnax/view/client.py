@@ -18,6 +18,7 @@ from synnax.view.types_gen import (
     Key,
     RetrieveRequest,
     RetrieveResponse,
+    Type,
     View,
     Where,
 )
@@ -92,6 +93,7 @@ class Client:
         *,
         where: Where | None = None,
         keys: list[Key] | None = None,
+        types: list[Type] | None = None,
         search_term: str = "",
         limit: int | None = None,
         offset: int = 0,
@@ -103,6 +105,7 @@ class Client:
         key: Key | None = None,
         where: Where | None = None,
         keys: list[Key] | None = None,
+        types: list[Type] | None = None,
         search_term: str = "",
         limit: int | None = None,
         offset: int = 0,
@@ -110,7 +113,10 @@ class Client:
         is_single = key is not None
         if key is not None:
             keys = [key]
-        flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
+        flat = Where(
+            key=None if keys is None else filter.Set[Key](in_=keys),
+            type=None if types is None else filter.Set[Type](in_=types),
+        )
         res = self._client.send(
             "/view/retrieve",
             RetrieveRequest(

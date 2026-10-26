@@ -131,6 +131,18 @@ class TestView:
         assert len(res) == 1
         assert res[0].name == "Status"
 
+    def test_retrieve_by_types(self, client: sy.Synnax) -> None:
+        """Should retrieve only the views of the given types."""
+        views = client.views.create(
+            [
+                RangeView(name="Range"),
+                StatusView(name="Status"),
+            ]
+        )
+        res = client.views.retrieve(keys=[v.key for v in views], types=["range"])
+        assert len(res) == 1
+        assert res[0].name == "Range"
+
     def test_delete(self, client: sy.Synnax) -> None:
         """Should delete a view."""
         v = client.views.create(RangeView(name="To Delete"))
