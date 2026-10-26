@@ -41,6 +41,32 @@ var _ = Describe("StatusHandler", func() {
 		handler = driver.NewStatusHandler(db, statusSvc, t)
 	})
 
+	// setUnreadable stores a status under the key of t whose details are not task
+	// details, so the handler fails to read it back and every write fails.
+	setUnreadable := func(ctx SpecContext) {
+		GinkgoHelper()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			w := statusSvc.NewWriter(tx)
+			if err := w.Delete(ctx, t.OntologyID().String()); err != nil {
+				return err
+			}
+			return w.Set(ctx, &status.Status[string]{
+				Key:     t.OntologyID().String(),
+				Name:    t.Name,
+				Time:    telem.Now(),
+				Variant: status.VariantInfo,
+				Details: "not task details",
+			})
+		})).To(Succeed())
+	}
+
+	deleteStored := func(ctx SpecContext) {
+		GinkgoHelper()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return statusSvc.NewWriter(tx).Delete(ctx, t.OntologyID().String())
+		})).To(Succeed())
+	}
+
 	retrieve := func(ctx SpecContext) task.Status {
 		GinkgoHelper()
 		var stat task.Status
@@ -152,6 +178,21 @@ var _ = Describe("StatusHandler", func() {
 				Expect(retrieve(ctx).Time).To(Equal(first))
 			},
 		)
+		It(
+			"should write a warning again after its write failed",
+			func(ctx SpecContext) {
+				setUnreadable(ctx)
+				Expect(handler.Warn(ctx, "Broker unreachable", "dial timeout")).
+					ToNot(Succeed())
+				deleteStored(ctx)
+				Expect(handler.Warn(ctx, "Broker unreachable", "dial timeout")).
+					To(Succeed())
+				stat := retrieve(ctx)
+				Expect(stat.Variant).To(Equal(status.VariantWarning))
+				Expect(stat.Message).To(Equal("Broker unreachable"))
+				Expect(stat.Description).To(Equal("dial timeout"))
+			},
+		)
 		It("should write a warning whose description changed", func(ctx SpecContext) {
 			Expect(handler.Warn(ctx, "Broker unreachable", "dial timeout")).
 				To(Succeed())
@@ -182,6 +223,20 @@ var _ = Describe("StatusHandler", func() {
 				Expect(stat.Description).To(Equal("outage"))
 				Expect(stat.Details.Running).To(BeTrue())
 				Expect(stat.Details.Cmd).To(Equal(driver.NoCommand))
+			},
+		)
+		It(
+			"should clear a warning again after its write failed",
+			func(ctx SpecContext) {
+				Expect(handler.Warn(ctx, "Broker unreachable", "dial timeout")).
+					To(Succeed())
+				setUnreadable(ctx)
+				Expect(handler.ClearWarning(ctx)).ToNot(Succeed())
+				deleteStored(ctx)
+				Expect(handler.ClearWarning(ctx)).To(Succeed())
+				stat := retrieve(ctx)
+				Expect(stat.Variant).To(Equal(status.VariantSuccess))
+				Expect(stat.Message).To(Equal("Task configured"))
 			},
 		)
 		It("should write nothing when no warning is active", func(ctx SpecContext) {

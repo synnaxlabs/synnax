@@ -73,10 +73,12 @@ func (t DataType) bits() int {
 
 // Metric is one value of one tag.
 type Metric struct {
-	// Value is nil for a null value and for a data type with no Value form.
+	// Value is nil for a null value, for a data type with no Value form, and for a
+	// DateTime later than a telem.TimeStamp can hold.
 	Value Value
 	Name  string
-	// Timestamp is the acquisition time. Zero when the message gave none.
+	// Timestamp is the acquisition time. Zero when the message gave none, or gave one
+	// later than a telem.TimeStamp can hold.
 	Timestamp telem.TimeStamp
 	DataType  DataType
 	// Historical is true for a value that is not the current value of the tag.
@@ -128,13 +130,27 @@ func decodeMetric(p *pb.Payload, m *pb.Payload_Metric, tg tag) Metric {
 	if m.Timestamp != nil {
 		stamp = m.GetTimestamp()
 	}
+	ts, _ := fromMillis(stamp)
 	return Metric{
 		Name:       tg.name,
 		DataType:   dt,
 		Value:      decodeValue(m, dt),
-		Timestamp:  telem.TimeStamp(stamp) * telem.MillisecondTS,
+		Timestamp:  ts,
 		Historical: m.GetIsHistorical(),
 	}
+}
+
+// maxMillis is the latest time, in milliseconds after the Unix epoch, that a
+// telem.TimeStamp can hold.
+const maxMillis = uint64(telem.TimeStampMax / telem.MillisecondTS)
+
+// fromMillis returns the time ms milliseconds after the Unix epoch. ok is false when a
+// telem.TimeStamp cannot hold it.
+func fromMillis(ms uint64) (ts telem.TimeStamp, ok bool) {
+	if ms > maxMillis {
+		return 0, false
+	}
+	return telem.TimeStamp(ms) * telem.MillisecondTS, true
 }
 
 // decodeValue returns the value of m as the data type dt.
@@ -176,8 +192,8 @@ func decodeValue(m *pb.Payload_Metric, dt DataType) Value {
 			return UintValue(bits)
 		}
 	case DateTime:
-		if integer {
-			return DateTimeValue(telem.TimeStamp(bits) * telem.MillisecondTS)
+		if ts, ok := fromMillis(bits); integer && ok {
+			return DateTimeValue(ts)
 		}
 	case Float:
 		if v, ok := m.GetValue().(*pb.Payload_Metric_FloatValue); ok {

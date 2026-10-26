@@ -322,6 +322,19 @@ var _ = Describe("Host", func() {
 					longValue(1700000000456),
 					Equal(sparkplug.DateTimeValue(1700000000456*telem.MillisecondTS)),
 				),
+				Entry("the latest DateTime that a timestamp holds",
+					sparkplug.DateTime,
+					longValue(uint64(telem.TimeStampMax/telem.MillisecondTS)),
+					Equal(sparkplug.DateTimeValue(
+						telem.TimeStampMax/telem.MillisecondTS*telem.MillisecondTS,
+					)),
+				),
+				Entry("a DateTime later than a timestamp holds",
+					sparkplug.DateTime, longValue(253402214400000), BeNil(),
+				),
+				Entry("a DateTime past the signed range",
+					sparkplug.DateTime, longValue(math.MaxUint64), BeNil(),
+				),
 				Entry("a null Double", sparkplug.Double, nullValue(), BeNil()),
 				Entry("a null String", sparkplug.String, nullValue(), BeNil()),
 				Entry("a metric with no value", sparkplug.Int32,
@@ -394,6 +407,13 @@ var _ = Describe("Host", func() {
 				)
 				Expect(ev.Metrics).To(HaveLen(1))
 				Expect(ev.Metrics[0].Timestamp).To(Equal(payloadTime))
+			})
+			It("Should give zero for a timestamp later than a timestamp holds", func() {
+				m := byAlias(1, doubleValue(1))
+				m.Timestamp = new(uint64(253402214400000))
+				ev := handle(nodeTopic(sparkplug.NData), data(1, m))
+				Expect(ev.Metrics).To(HaveLen(1))
+				Expect(ev.Metrics[0].Timestamp).To(BeZero())
 			})
 			It("Should give zero when the message has no timestamp", func() {
 				ev := handle(

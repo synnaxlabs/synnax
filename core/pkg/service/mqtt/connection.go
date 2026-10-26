@@ -92,6 +92,9 @@ type connection struct {
 	ins      alamos.Instrumentation
 	// clock stamps arrivals in rising order. Only the delivery goroutine uses it.
 	clock telem.MonoClock
+	// subscribing orders each change to mu.subs with the broker call that carries it,
+	// so the broker sees the changes in the same order. It never waits on lifecycle.
+	subscribing sync.Mutex
 	// lifecycle serializes configure, attach, and close, which wait on the broker.
 	// The pool lock never waits on a broker.
 	lifecycle struct {
@@ -391,6 +394,8 @@ func (c *connection) requestRebirth(
 // outage. When the broker does not answer the subscribe, it returns the error and
 // leaves the connection down.
 func (c *connection) setClient(ctx context.Context, client paho.Client) error {
+	c.subscribing.Lock()
+	defer c.subscribing.Unlock()
 	c.mu.Lock()
 	c.mu.client = client
 	filters := make(map[string]byte, len(c.mu.subs))
@@ -676,6 +681,8 @@ func (a *attachment) follow(ctx context.Context, node sparkplug.NodeID) error {
 // each filter, at the highest quality of service that an attachment asked for.
 func (a *attachment) subscribe(ctx context.Context, filter string, qos byte) error {
 	c := a.conn
+	c.subscribing.Lock()
+	defer c.subscribing.Unlock()
 	c.mu.Lock()
 	a.filters.Add(filter)
 	sub, ok := c.mu.subs[filter]
@@ -734,6 +741,8 @@ func (a *attachment) publish(
 // It reports whether the connection has no attachments left.
 func (a *attachment) close() (unused bool) {
 	c := a.conn
+	c.subscribing.Lock()
+	defer c.subscribing.Unlock()
 	c.mu.Lock()
 	delete(c.mu.attachments, a)
 	var orphaned []string

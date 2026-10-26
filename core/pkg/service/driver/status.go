@@ -76,43 +76,53 @@ func (h *StatusHandler) Send(
 
 // Warn records an unsolicited warning with a supporting description, leaving the
 // running state as it was. A warning equal to the active one writes nothing, so a
-// retry loop can call Warn on every attempt.
+// retry loop can call Warn on every attempt. A failed write leaves the active status as
+// it was, so the next call writes the warning again.
 func (h *StatusHandler) Warn(ctx context.Context, message, description string) error {
 	h.mu.Lock()
+	defer h.mu.Unlock()
 	active := h.stat.Variant == status.VariantWarning
 	if active && h.stat.Message == message && h.stat.Description == description {
-		h.mu.Unlock()
 		return nil
+	}
+	next := h.stat
+	next.Variant = status.VariantWarning
+	next.Message = message
+	next.Description = description
+	next.Details.Cmd = NoCommand
+	next.Time = telem.Now()
+	if err := h.write(ctx, next); err != nil {
+		return err
 	}
 	if !active {
 		h.prior.variant = h.stat.Variant
 		h.prior.message = h.stat.Message
 		h.prior.description = h.stat.Description
 	}
-	h.stat.Variant = status.VariantWarning
-	h.stat.Message = message
-	h.stat.Description = description
-	h.stat.Details.Cmd = NoCommand
-	stat := h.stamp()
-	h.mu.Unlock()
-	return h.write(ctx, stat)
+	h.stat = next
+	return nil
 }
 
 // ClearWarning restores the status that the active warning replaced. It writes
-// nothing when no warning is active.
+// nothing when no warning is active. A failed write leaves the warning active, so the
+// next call clears it again.
 func (h *StatusHandler) ClearWarning(ctx context.Context) error {
 	h.mu.Lock()
+	defer h.mu.Unlock()
 	if h.stat.Variant != status.VariantWarning {
-		h.mu.Unlock()
 		return nil
 	}
-	h.stat.Variant = h.prior.variant
-	h.stat.Message = h.prior.message
-	h.stat.Description = h.prior.description
-	h.stat.Details.Cmd = NoCommand
-	stat := h.stamp()
-	h.mu.Unlock()
-	return h.write(ctx, stat)
+	next := h.stat
+	next.Variant = h.prior.variant
+	next.Message = h.prior.message
+	next.Description = h.prior.description
+	next.Details.Cmd = NoCommand
+	next.Time = telem.Now()
+	if err := h.write(ctx, next); err != nil {
+		return err
+	}
+	h.stat = next
+	return nil
 }
 
 // Ack answers cmdKey by re-sending the current status, re-asserting the running
