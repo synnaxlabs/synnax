@@ -20,6 +20,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type FC, useState } from "react";
 
+import { type Device } from "@/feature/opcua/device";
 import {
   Browser,
   canDropHaulItem,
@@ -28,7 +29,6 @@ import {
   isHaulItem,
 } from "@/feature/opcua/device/Browser";
 import { use } from "@/feature/opcua/device/queries";
-import type * as Device from "@/feature/opcua/device/types";
 import { useConnectModal } from "@/feature/opcua/device/useConnectModal";
 import { type Channel } from "@/feature/opcua/task/types";
 import { CSS } from "@/platform/css";
