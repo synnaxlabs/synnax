@@ -7,14 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { LinePlot as PLinePlot } from "@synnaxlabs/pluto";
-import { act, renderHook } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
-import { Provider } from "react-redux";
+import { deep } from "@synnaxlabs/x";
+import { act } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { LinePlot } from "@/session/lineplot";
-import { createSliceStore, documentIn } from "@/session/window/testutil";
+import { createSliceStore, documentIn, inWindow } from "@/session/window/testutil";
 
 const storeWith = (slice: LinePlot.SliceState) =>
   createSliceStore({
@@ -27,35 +25,15 @@ const storeWith = (slice: LinePlot.SliceState) =>
 const KEY = "plot-1";
 const AUX_WINDOW = "aux-window";
 
-const wrapperFor = (
-  store: ReturnType<typeof storeWith>,
-  key: string,
-): FC<PropsWithChildren> => {
-  const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
-    <Provider store={store}>
-      <PLinePlot.Scope.Provider value={key}>{children}</PLinePlot.Scope.Provider>
-    </Provider>
-  );
-  Wrapper.displayName = "Wrapper";
-  return Wrapper;
-};
-
-const renderGetters = (store: ReturnType<typeof storeWith>, key: string = KEY) =>
-  renderHook(
-    () => ({
-      state: LinePlot.useGet(),
-      toolbarTab: LinePlot.useGetActiveToolbarTab(),
-      viewportMode: LinePlot.useGetViewportMode(),
-    }),
-    { wrapper: wrapperFor(store, key) },
-  ).result.current;
-
 describe("LinePlot Slice", () => {
   let store: ReturnType<typeof storeWith>;
 
   beforeEach(() => {
     store = storeWith(LinePlot.ZERO_SLICE_STATE);
   });
+
+  const docOf = (key: string = KEY) =>
+    documentIn(store.getState()[LinePlot.SLICE_NAME], key);
 
   // A window is a viewport: an edit in one window must not reach another window's
   // view of the same document.
@@ -72,180 +50,168 @@ describe("LinePlot Slice", () => {
 
   describe("create", () => {
     it("should bootstrap session state from ZERO_STATE for the key", () => {
-      const get = renderGetters(store);
       act(() => void store.dispatch(LinePlot.create({ key: KEY })));
-      expect(get.state()).toEqual(LinePlot.ZERO_STATE);
+      expect(docOf()).toEqual(LinePlot.ZERO_STATE);
     });
 
     it("should create multiple plots independently", () => {
-      const get = renderGetters(store);
       act(() => {
         store.dispatch(LinePlot.create({ key: "plot-1" }));
         store.dispatch(LinePlot.create({ key: "plot-2" }));
         store.dispatch(LinePlot.setActiveToolbarTab({ key: "plot-1", tab: "lines" }));
         store.dispatch(LinePlot.setActiveToolbarTab({ key: "plot-2", tab: "axes" }));
       });
-      expect(get.toolbarTab({ key: "plot-1" })).toBe("lines");
-      expect(get.toolbarTab({ key: "plot-2" })).toBe("axes");
+      expect(docOf("plot-1")?.toolbar.activeTab).toBe("lines");
+      expect(docOf("plot-2")?.toolbar.activeTab).toBe("axes");
     });
 
     it("should fill annotations with the default for a key", () => {
-      const get = renderGetters(store);
       act(() => void store.dispatch(LinePlot.create({ key: KEY })));
-      expect(get.state().annotations).toEqual(LinePlot.ZERO_ANNOTATIONS_STATE);
+      expect(docOf()?.annotations).toEqual(LinePlot.ZERO_STATE.annotations);
     });
 
     it("should not overwrite an existing entry", () => {
-      const get = renderGetters(store);
       act(() => {
         store.dispatch(LinePlot.create({ key: KEY }));
         store.dispatch(LinePlot.setActiveToolbarTab({ key: KEY, tab: "lines" }));
         store.dispatch(LinePlot.create({ key: KEY }));
       });
-      expect(get.toolbarTab()).toBe("lines");
+      expect(docOf()?.toolbar.activeTab).toBe("lines");
     });
   });
 
   describe("setActiveToolbarTab", () => {
     it("should set the active toolbar tab", () => {
-      const get = renderGetters(store);
       act(() => {
         store.dispatch(LinePlot.create({ key: KEY }));
         store.dispatch(LinePlot.setActiveToolbarTab({ key: KEY, tab: "axes" }));
       });
-      expect(get.toolbarTab()).toBe("axes");
+      expect(docOf()?.toolbar.activeTab).toBe("axes");
     });
 
     it("should lazily create the entry when the key does not exist", () => {
-      const get = renderGetters(store);
       act(
         () =>
           void store.dispatch(LinePlot.setActiveToolbarTab({ key: KEY, tab: "axes" })),
       );
-      expect(get.toolbarTab()).toBe("axes");
+      expect(docOf()?.toolbar.activeTab).toBe("axes");
     });
   });
 
   describe("setControlHold", () => {
     it("should set the hold state to true", () => {
-      const get = renderGetters(store);
       act(() => {
         store.dispatch(LinePlot.create({ key: KEY }));
         store.dispatch(LinePlot.setControlHold({ key: KEY, hold: true }));
       });
-      expect(get.state().control.hold).toBe(true);
+      expect(docOf()?.control.hold).toBe(true);
     });
 
     it("should set the hold state to false", () => {
-      const get = renderGetters(store);
       act(() => {
         store.dispatch(LinePlot.create({ key: KEY }));
         store.dispatch(LinePlot.setControlHold({ key: KEY, hold: false }));
       });
-      expect(get.state().control.hold).toBe(false);
+      expect(docOf()?.control.hold).toBe(false);
     });
 
     it("should toggle the hold state when value is undefined", () => {
-      const get = renderGetters(store);
       act(() => void store.dispatch(LinePlot.create({ key: KEY })));
-      expect(get.state().control.hold).toBe(false);
+      expect(docOf()?.control.hold).toBe(false);
       act(() => void store.dispatch(LinePlot.setControlHold({ key: KEY })));
-      expect(get.state().control.hold).toBe(true);
+      expect(docOf()?.control.hold).toBe(true);
       act(() => void store.dispatch(LinePlot.setControlHold({ key: KEY })));
-      expect(get.state().control.hold).toBe(false);
+      expect(docOf()?.control.hold).toBe(false);
     });
   });
 
   describe("toggleControlClickMode", () => {
     it("should set the click mode when it is currently null", () => {
-      const get = renderGetters(store);
       act(() => {
         store.dispatch(LinePlot.create({ key: KEY }));
         store.dispatch(LinePlot.toggleControlClickMode({ key: KEY, mode: "measure" }));
       });
-      expect(get.state().control.clickMode).toBe("measure");
+      expect(docOf()?.control.clickMode).toBe("measure");
     });
 
     it("should clear the click mode when it already matches the mode", () => {
-      const get = renderGetters(store);
       act(() => {
         store.dispatch(LinePlot.create({ key: KEY }));
         store.dispatch(LinePlot.toggleControlClickMode({ key: KEY, mode: "measure" }));
         store.dispatch(LinePlot.toggleControlClickMode({ key: KEY, mode: "measure" }));
       });
-      expect(get.state().control.clickMode).toBeNull();
+      expect(docOf()?.control.clickMode).toBeNull();
     });
 
     it("should switch to the new mode when a different mode is active", () => {
-      const get = renderGetters(store);
       act(() => {
         store.dispatch(LinePlot.create({ key: KEY }));
         store.dispatch(LinePlot.toggleControlClickMode({ key: KEY, mode: "measure" }));
         store.dispatch(LinePlot.toggleControlClickMode({ key: KEY, mode: "annotate" }));
       });
-      expect(get.state().control.clickMode).toBe("annotate");
+      expect(docOf()?.control.clickMode).toBe("annotate");
     });
   });
 
   describe("setControlEnableTooltip", () => {
     it("should set the tooltip state to true", () => {
-      const get = renderGetters(store);
       act(() => {
         store.dispatch(LinePlot.create({ key: KEY }));
         store.dispatch(LinePlot.setControlEnableTooltip({ key: KEY, enabled: true }));
       });
-      expect(get.state().control.enableTooltip).toBe(true);
+      expect(docOf()?.control.enableTooltip).toBe(true);
     });
 
     it("should set the tooltip state to false", () => {
-      const get = renderGetters(store);
       act(() => {
         store.dispatch(LinePlot.create({ key: KEY }));
         store.dispatch(LinePlot.setControlEnableTooltip({ key: KEY, enabled: false }));
       });
-      expect(get.state().control.enableTooltip).toBe(false);
+      expect(docOf()?.control.enableTooltip).toBe(false);
     });
 
     it("should toggle the tooltip state when value is undefined", () => {
-      const get = renderGetters(store);
       act(() => void store.dispatch(LinePlot.create({ key: KEY })));
-      const initial = get.state().control.enableTooltip;
+      const initial = docOf()?.control.enableTooltip;
       act(() => void store.dispatch(LinePlot.setControlEnableTooltip({ key: KEY })));
-      expect(get.state().control.enableTooltip).toBe(!initial);
+      expect(docOf()?.control.enableTooltip).toBe(!initial);
       act(() => void store.dispatch(LinePlot.setControlEnableTooltip({ key: KEY })));
-      expect(get.state().control.enableTooltip).toBe(initial);
+      expect(docOf()?.control.enableTooltip).toBe(initial);
     });
   });
 
   describe("setViewportMode", () => {
     it("should set the viewport mode", () => {
-      const get = renderGetters(store);
       act(() => {
         store.dispatch(LinePlot.create({ key: KEY }));
         store.dispatch(LinePlot.setViewportMode({ key: KEY, mode: "pan" }));
       });
-      expect(get.viewportMode()).toBe("pan");
+      expect(docOf()?.mode).toBe("pan");
     });
   });
 
   describe("viewport", () => {
+    const viewportOf = () => {
+      const viewport = docOf()?.viewport;
+      if (viewport == null) throw new Error(`no line plot ${KEY}`);
+      return viewport;
+    };
+
     it("should reset the viewport and bump the render trigger on setViewport", () => {
-      const get = renderGetters(store);
       act(() => void store.dispatch(LinePlot.create({ key: KEY })));
-      const before = get.state().viewport.renderTrigger;
+      const before = viewportOf().renderTrigger;
       act(
         () =>
           void store.dispatch(
             LinePlot.setViewport({ key: KEY, zoom: { width: 2, height: 2 } }),
           ),
       );
-      const viewport = get.state().viewport;
+      const viewport = viewportOf();
       expect(viewport.renderTrigger).toBe(before + 1);
       expect(viewport.zoom).toEqual({ width: 2, height: 2 });
     });
 
     it("should merge over the existing viewport on storeViewport", () => {
-      const get = renderGetters(store);
       act(() => {
         store.dispatch(LinePlot.create({ key: KEY }));
         store.dispatch(
@@ -256,7 +222,7 @@ describe("LinePlot Slice", () => {
           }),
         );
       });
-      const viewport = get.state().viewport;
+      const viewport = viewportOf();
       expect(viewport.zoom).toEqual({ width: 3, height: 3 });
       expect(viewport.pan).toEqual({ x: 1, y: 1 });
     });
@@ -264,45 +230,40 @@ describe("LinePlot Slice", () => {
 
   describe("setSelectedRule", () => {
     it("should set the selected rules and switch to the annotations tab", () => {
-      const get = renderGetters(store);
       act(() => {
         store.dispatch(LinePlot.create({ key: KEY }));
         store.dispatch(LinePlot.setSelectedRule({ key: KEY, ruleKey: ["r1", "r2"] }));
       });
-      expect(get.state().selectedRules).toEqual(["r1", "r2"]);
-      expect(get.toolbarTab()).toBe("annotations");
+      expect(docOf()?.selectedRules).toEqual(["r1", "r2"]);
+      expect(docOf()?.toolbar.activeTab).toBe("annotations");
     });
 
     it("should accept a single rule key", () => {
-      const get = renderGetters(store);
       act(() => {
         store.dispatch(LinePlot.create({ key: KEY }));
         store.dispatch(LinePlot.setSelectedRule({ key: KEY, ruleKey: "r1" }));
       });
-      expect(get.state().selectedRules).toEqual(["r1"]);
+      expect(docOf()?.selectedRules).toEqual(["r1"]);
     });
   });
 
   describe("setMeasureMode", () => {
     it("should set the measure mode", () => {
-      const get = renderGetters(store);
       act(() => {
         store.dispatch(LinePlot.create({ key: KEY }));
         store.dispatch(LinePlot.setMeasureMode({ key: KEY, mode: "two" }));
       });
-      expect(get.state().measure.mode).toBe("two");
+      expect(docOf()?.measure.mode).toBe("two");
     });
   });
 
   describe("setRangeAnnotationsVisible", () => {
     it("should default to visible on a newly created plot", () => {
-      const get = renderGetters(store);
       act(() => void store.dispatch(LinePlot.create({ key: KEY })));
-      expect(get.state().annotations.visible).toBe(true);
+      expect(docOf()?.annotations.visible).toBe(true);
     });
 
     it("should hide and re-show range annotations", () => {
-      const get = renderGetters(store);
       act(() => void store.dispatch(LinePlot.create({ key: KEY })));
       act(
         () =>
@@ -310,31 +271,29 @@ describe("LinePlot Slice", () => {
             LinePlot.setRangeAnnotationsVisible({ key: KEY, visible: false }),
           ),
       );
-      expect(get.state().annotations.visible).toBe(false);
+      expect(docOf()?.annotations.visible).toBe(false);
       act(
         () =>
           void store.dispatch(
             LinePlot.setRangeAnnotationsVisible({ key: KEY, visible: true }),
           ),
       );
-      expect(get.state().annotations.visible).toBe(true);
+      expect(docOf()?.annotations.visible).toBe(true);
     });
   });
 
   describe("setLineVisible", () => {
     it("should hide a line by adding it to hiddenLines", () => {
-      const get = renderGetters(store);
       act(() => {
         store.dispatch(LinePlot.create({ key: KEY }));
         store.dispatch(
           LinePlot.setLineVisible({ key: KEY, lineKey: "l1", visible: false }),
         );
       });
-      expect(get.state().hiddenLines).toEqual(["l1"]);
+      expect(docOf()?.hiddenLines).toEqual(["l1"]);
     });
 
     it("should show a hidden line by removing it from hiddenLines", () => {
-      const get = renderGetters(store);
       act(() => {
         store.dispatch(LinePlot.create({ key: KEY }));
         store.dispatch(
@@ -344,64 +303,63 @@ describe("LinePlot Slice", () => {
           LinePlot.setLineVisible({ key: KEY, lineKey: "l1", visible: true }),
         );
       });
-      expect(get.state().hiddenLines).toEqual([]);
+      expect(docOf()?.hiddenLines).toEqual([]);
     });
   });
 
   describe("remove", () => {
     it("should remove a plot by key", () => {
-      const get = renderGetters(store);
       act(() => {
         store.dispatch(LinePlot.create({ key: KEY }));
         store.dispatch(LinePlot.setActiveToolbarTab({ key: KEY, tab: "lines" }));
       });
-      expect(get.toolbarTab()).toBe("lines");
+      expect(docOf()?.toolbar.activeTab).toBe("lines");
       act(() => void store.dispatch(LinePlot.remove({ keys: [KEY] })));
-      expect(get.state()).toEqual(LinePlot.ZERO_STATE);
+      expect(docOf()).toBeUndefined();
     });
 
     it("should ignore keys that do not exist", () => {
-      const get = renderGetters(store);
       act(() => {
         store.dispatch(LinePlot.create({ key: KEY }));
         store.dispatch(LinePlot.remove({ keys: ["absent"] }));
       });
-      expect(get.state()).toEqual(LinePlot.ZERO_STATE);
+      expect(docOf()).toEqual(LinePlot.ZERO_STATE);
     });
   });
 
-  describe("stateZ schema", () => {
-    it("should accept the zero state", () => {
-      expect(() => LinePlot.stateZ.parse(LinePlot.ZERO_STATE)).not.toThrow();
-    });
-
-    it("should apply prefaulted defaults when nested objects are missing", () => {
-      const parsed = LinePlot.stateZ.parse({});
-      expect(parsed.control.hold).toBe(false);
-      expect(parsed.control.enableTooltip).toBe(true);
-      expect(parsed.toolbar.activeTab).toBe("data");
-      expect(parsed.measure.mode).toBe("one");
-      expect(parsed.annotations.visible).toBe(true);
-      expect(parsed.selectedRules).toEqual([]);
-      expect(parsed.hiddenLines).toEqual([]);
-    });
+  it("should apply defaults to every nested object", () => {
+    const zero = LinePlot.ZERO_STATE;
+    expect(zero.control.hold).toBe(false);
+    expect(zero.control.enableTooltip).toBe(true);
+    expect(zero.toolbar.activeTab).toBe("data");
+    expect(zero.measure.mode).toBe("one");
+    expect(zero.annotations.visible).toBe(true);
+    expect(zero.selectedRules).toEqual([]);
+    expect(zero.hiddenLines).toEqual([]);
   });
 });
 
 describe("persistence", () => {
+  const purge = (doc: Partial<LinePlot.State>): LinePlot.State | undefined => {
+    const slice: LinePlot.SliceState = {
+      version: 0,
+      windows: inWindow({ [KEY]: { ...LinePlot.ZERO_STATE, ...doc } }),
+    };
+    const state = deep.copy(storeWith(slice).getState());
+    LinePlot.PERSIST_EXCLUDE.forEach((exclude) => exclude(state));
+    return documentIn(state[LinePlot.SLICE_NAME], KEY);
+  };
+
   // A selection is the state of an edit in progress, so it does not outlive the
   // session that made it.
   it("should clear the selection on the way to disk", () => {
-    const state = LinePlot.stateZ.parse({ selectedRules: ["r1", "r2"] });
-    expect(LinePlot.purgeState(state).selectedRules).toEqual([]);
+    expect(purge({ selectedRules: ["r1", "r2"] })?.selectedRules).toEqual([]);
   });
 
   it("should leave the rest of the document alone", () => {
-    const state = LinePlot.stateZ.parse({
-      selectedRules: ["r1"],
-      hiddenLines: ["l1"],
-    });
     // Hidden lines are how the window looks at the plot, so they survive.
-    expect(LinePlot.purgeState(state).hiddenLines).toEqual(["l1"]);
+    expect(purge({ selectedRules: ["r1"], hiddenLines: ["l1"] })?.hiddenLines).toEqual([
+      "l1",
+    ]);
   });
 });
