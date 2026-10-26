@@ -82,7 +82,7 @@ describe("table/Toolbar", () => {
     fireEvent.click(await screen.findByText("Enable editing"));
     await waitFor(() =>
       expect(
-        documentIn(Session.Table.selectSliceState(store.getState()), key)?.editable,
+        documentIn(store.getState()[Session.Table.SLICE_NAME], key)?.editable,
       ).toBe(true),
     );
   });
