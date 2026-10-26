@@ -132,6 +132,10 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      # A PR branch can predate the wrapper, so the job runs this revision's copy.
+      - name: Keep the wrapper
+        run: cp -R scripts/agent "$RUNNER_TEMP/agent"
+
       # The setup script must come from the PR the agent works on.
       - name: Check out the pull request
         if: inputs.pr
@@ -175,4 +179,4 @@ jobs:
           if [ -n "$PR" ] && [ "$PR" != "0" ]; then args+=(--pr "$PR"); fi
           if [ -n "$TITLE" ]; then args+=(--title "$TITLE"); fi
           if [ -n "$LABELS" ]; then args+=(--labels "$LABELS"); fi
-          scripts/agent/run "${args[@]}"
+          "$RUNNER_TEMP/agent/run" "${args[@]}"
