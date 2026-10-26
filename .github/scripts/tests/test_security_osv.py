@@ -7,10 +7,17 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import pytest
+
 from security_osv import queries, sarif, tag
 
 MODULE = """
-bazel_dep(name = "curl", version = "8.22.0")
+bazel_dep(name = "cpp-httplib", version = "0.46.0")
+bazel_dep(
+    name = "curl",
+    version = "8.22.0",
+)
+bazel_dep(name = "grpc", version = "1.84.0")
 bazel_dep(name = "openssl", version = "4.0.1.bcr.0")
 bazel_dep(name = "rules_cc", version = "0.2.26")
 """
@@ -37,35 +44,22 @@ class TestQueries:
 
     def test_should_check_known_modules_and_submodules(self) -> None:
         """Should skip Bazel modules OSV has no Git data for, and plain files."""
-        assert queries(MODULE, GITLINKS) == [
-            (
-                "MODULE.bazel",
-                "curl 8.22.0",
-                {
-                    "package": {
-                        "name": "https://github.com/curl/curl.git",
-                        "ecosystem": "GIT",
-                    },
-                    "version": "curl-8_22_0",
-                },
-            ),
-            (
-                "MODULE.bazel",
-                "openssl 4.0.1.bcr.0",
-                {
-                    "package": {
-                        "name": "https://github.com/openssl/openssl.git",
-                        "ecosystem": "GIT",
-                    },
-                    "version": "openssl-4.0.1",
-                },
-            ),
-            (
-                "vendor/open62541/open62541",
-                "vendor/open62541/open62541 b1e4008bc461",
-                {"commit": "b1e4008bc4611a422a86704a60c29d390fa486a5"},
-            ),
+        found = queries(MODULE, GITLINKS)
+        assert [dependency for _, dependency, _ in found] == [
+            "cpp-httplib 0.46.0",
+            "curl 8.22.0",
+            "grpc 1.84.0",
+            "openssl 4.0.1.bcr.0",
+            "vendor/open62541/open62541 b1e4008bc461",
         ]
+        curl = {"name": "https://github.com/curl/curl.git", "ecosystem": "GIT"}
+        assert found[1][2] == {"package": curl, "version": "curl-8_22_0"}
+        assert found[4][2] == {"commit": "b1e4008bc4611a422a86704a60c29d390fa486a5"}
+
+    def test_should_reject_a_module_it_cannot_find(self) -> None:
+        """Should fail when a checked Bazel module has no readable version."""
+        with pytest.raises(ValueError, match="no version for grpc"):
+            queries(MODULE.replace('"grpc"', '"grpc_old"'), GITLINKS)
 
 
 class TestSarif:

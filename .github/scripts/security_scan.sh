@@ -35,7 +35,7 @@ done
 scan gitleaks gitleaks git --redact --no-banner --exit-code 0 \
     --report-format sarif --report-path - .
 
-scan osv python3 .github/scripts/security_osv.py
+scan osv python3 "$(dirname "$0")/security_osv.py"
 
 scan zizmor zizmor --format sarif --no-exit-codes --no-progress .github
 
