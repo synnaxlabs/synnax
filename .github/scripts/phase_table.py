@@ -21,8 +21,7 @@ import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-HEADER = ("Phase", "Scope", "Touches", "Depends on", "Tier")
-TIERS = ("thorough", "light", "bot")
+HEADER = ("Phase", "Scope", "Touches", "Depends on")
 MAX_SCOPE_LENGTH = 60
 _PATH = re.compile(r"`([^`]+)`")
 
@@ -33,7 +32,6 @@ class Phase:
     scope: str
     touches: list[str]
     depends_on: list[int]
-    tier: str
 
 
 def _cells(line: str) -> list[str]:
@@ -44,7 +42,7 @@ def _parse_row(cells: list[str], expected: int) -> tuple[Phase | None, list[str]
     errors: list[str] = []
     if len(cells) != len(HEADER):
         return None, [f"row {expected}: want {len(HEADER)} cells, got {len(cells)}"]
-    number_cell, scope, touches_cell, depends_cell, tier = cells
+    number_cell, scope, touches_cell, depends_cell = cells
     if number_cell != str(expected):
         errors.append(f"row {expected}: phase is {number_cell!r}, want {expected}")
     if not scope:
@@ -63,10 +61,8 @@ def _parse_row(cells: list[str], expected: int) -> tuple[Phase | None, list[str]
                 errors.append(f"phase {expected}: {dep!r} is not an earlier phase")
             else:
                 depends_on.append(int(dep))
-    if tier not in TIERS:
-        errors.append(f"phase {expected}: tier {tier!r} is not one of {TIERS}")
     paths = [m.group(1) for p in touches if (m := _PATH.fullmatch(p))]
-    return Phase(expected, scope, paths, depends_on, tier), errors
+    return Phase(expected, scope, paths, depends_on), errors
 
 
 def parse(markdown: str) -> list[Phase]:

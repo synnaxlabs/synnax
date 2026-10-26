@@ -27,10 +27,10 @@ The `Implementation phases` section of an RFC that plans work ends in one phase 
 Tools read it, so the format is strict:
 
 ```markdown
-| Phase | Scope                     | Touches                  | Depends on | Tier  |
-| ----- | ------------------------- | ------------------------ | ---------- | ----- |
-| 1     | Add the `foo` codec       | `core/pkg/foo`           | -          | light |
-| 2     | Read `foo` in the clients | `client/ts`, `client/py` | 1          | bot   |
+| Phase | Scope                     | Touches                  | Depends on |
+| ----- | ------------------------- | ------------------------ | ---------- |
+| 1     | Add the `foo` codec       | `core/pkg/foo`           | -          |
+| 2     | Read `foo` in the clients | `client/ts`, `client/py` | 1          |
 ```
 
 - **Phase**: `1` to `N`, in order. Each phase is one PR that merges into `main` alone.
@@ -39,7 +39,8 @@ Tools read it, so the format is strict:
 - **Touches**: The packages or files the PR changes, as comma-separated backticked
   paths.
 - **Depends on**: Earlier phase numbers, comma-separated, or `-` for none.
-- **Tier**: The review tier from `CONTRIBUTING.md`: `thorough`, `light`, or `bot`.
+
+The table has no review tier: the tier comes from each PR's real diff.
 
 Check a table with `.github/scripts/phase_table.py`:
 
