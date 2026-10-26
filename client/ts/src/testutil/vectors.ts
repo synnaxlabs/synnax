@@ -62,22 +62,21 @@ export const readVectors = <R, W>(
  * Adds a spec for each case: the client matches the case, or a case the vectors mark as
  * server-computed is one the client leaves to the Core.
  */
-export const itMatchesVectors = <R, W, L>(
+export const itMatchesVectors = <R, W>(
   { records, cases }: Vectors<R, W>,
-  lines: L,
-  matches: (lines: L, record: R, where: W) => boolean,
-  serverComputed: (lines: L, where: W) => boolean,
+  matches: (record: R, where: W) => boolean,
+  serverComputed: (where: W) => boolean,
 ): void =>
   cases.forEach(({ name, where, expected, serverComputed: computed }) => {
     if (computed === true)
       it(`should mark the case as server-computed: ${name}`, () => {
-        expect(serverComputed(lines, where)).toBe(true);
+        expect(serverComputed(where)).toBe(true);
       });
     else
       it(`should match the case: ${name}`, () => {
-        expect(serverComputed(lines, where)).toBe(false);
+        expect(serverComputed(where)).toBe(false);
         const matched = records
-          .filter(([, r]) => matches(lines, r, where))
+          .filter(([, r]) => matches(r, where))
           .map(([alias]) => alias);
         expect(matched.sort()).toEqual([...expected].sort());
       });
