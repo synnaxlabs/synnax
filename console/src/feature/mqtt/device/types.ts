@@ -12,6 +12,9 @@ import { caseconv } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const MAKE = "mqtt";
+
+/** The name a rack lists in its integrations when its Driver runs this one. */
+export const INTEGRATION = "mqtt";
 const makeZ = z.literal(MAKE);
 const modelZ = z.literal("MQTT broker");
 

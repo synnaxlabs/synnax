@@ -10,23 +10,19 @@
 import "@/feature/mqtt/device/Connect.css";
 
 import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
-import { Divider } from "@synnaxlabs/lyra/divider";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
-import { Nav } from "@synnaxlabs/lyra/nav";
-import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Device as PDevice, type Flux, Rack } from "@synnaxlabs/pluto";
+import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 
 import { retrieveScanTask } from "@/feature/mqtt/device/retrieveScanTask";
 import {
   type Device,
+  INTEGRATION,
   MAKE,
   type Properties,
   SCHEMAS,
@@ -35,9 +31,7 @@ import {
 import { TEST_CONNECTION_COMMAND_TYPE } from "@/feature/mqtt/task/types";
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
-import { type Device as PlatformDevice } from "@/platform/device";
-import { Modals } from "@/platform/modals";
-import { Triggers } from "@/platform/triggers";
+import { Device as PlatformDevice } from "@/platform/device";
 
 const INITIAL_VALUES: Device = {
   key: "",
@@ -72,7 +66,7 @@ const beforeSave = async ({
     timeout: TEST_CONNECTION_TIMEOUT,
     args: { location: get<string>("location").value, properties },
   });
-  if (state.variant === "error") throw new Error(state.message);
+  if (state.variant === "error") throw status.toError(state);
   const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
     name: get<string>("name").value,
     message: "Broker connected",
@@ -86,10 +80,12 @@ const beforeSave = async ({
   return true;
 };
 
-const Connect = ({
+export const Connect = ({
   deviceKey,
+  rack: defaultRack,
   close,
-}: Modals.ContentProps<PlatformDevice.ConnectParams, void>) => {
+  onBack,
+}: PlatformDevice.ConnectProps) => {
   const { capture } = Analytics.use();
   const {
     form,
@@ -98,13 +94,23 @@ const Connect = ({
     variant,
   } = useForm({
     query: deviceKey == null ? null : { key: deviceKey },
+    initialValues: { ...INITIAL_VALUES, rack: defaultRack ?? 0 },
     beforeSave,
-    afterSave: () => {
+    afterSave: ({ get }) => {
       if (deviceKey == null) capture("device_connected", { integration: "mqtt" });
-      close();
+      close(get<device.Key>("key").value);
     },
   });
-
+  const rackKey = Form.useFieldValue<
+    rack.Key,
+    rack.Key,
+    PDevice.FormSchema<typeof SCHEMAS>
+  >("rack", { ctx: form });
+  const reason = PlatformDevice.useBlockedReason({
+    integration: INTEGRATION,
+    name: "MQTT",
+    rack: rackKey,
+  });
   const secure = Form.useFieldValue<
     boolean,
     boolean,
@@ -113,145 +119,126 @@ const Connect = ({
 
   return (
     <Modal.Frame className={CSS.B("mqtt-connect")}>
-      <Modal.Header icon={<Icon.Logo.MQTT />}>Broker.Connect</Modal.Header>
-      <Flex.Box className={CSS.B("content")} grow gap="large">
+      <Modal.Header icon={<Icon.Logo.MQTT />}>{HEADER}</Modal.Header>
+      <Modal.Body gap="large">
         <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
-          <Flex.Box gap="small">
-            <Form.TextField path="name" inputProps={NAME_INPUT_PROPS} />
-            <Form.Field<rack.Key> path="rack" label="Connect from" required>
-              {selectRackRenderProp}
-            </Form.Field>
-            <Flex.Box x align="end">
+          <Form.TextField path="name" showLabel={false} inputProps={NAME_INPUT_PROPS} />
+          <Form.Sections>
+            <Form.Section title="Connection">
               <Form.TextField
-                grow
                 path="location"
                 label="Host"
+                padHelpText={false}
                 inputProps={HOST_INPUT_PROPS}
               />
-              <Form.Field<number | undefined> path="properties.port" label="Port">
+              <Form.Field<number | undefined>
+                path="properties.port"
+                label="Port"
+                padHelpText={false}
+              >
                 {secure ? renderSecurePort : renderPort}
               </Form.Field>
-              <Form.SwitchField path="properties.secure" label="TLS" />
-            </Flex.Box>
-            <Divider.Divider x />
-          </Flex.Box>
-          {secure && (
-            <Flex.Box gap="small">
-              <Form.SwitchField
-                path="properties.verificationSkipped"
-                label="Skip certificate verification"
-                align="start"
-              />
-              <Text.Text level="small" color={9}>
-                Certificate and key files are paths on the Core host. An empty CA file
-                uses the system roots.
-              </Text.Text>
               <Form.TextField
-                path="properties.caFile"
-                label="CA file"
-                inputProps={CA_FILE_INPUT_PROPS}
-              />
-              <Flex.Box x>
-                <Form.TextField
-                  grow
-                  path="properties.certFile"
-                  label="Client certificate"
-                  inputProps={CERT_FILE_INPUT_PROPS}
-                />
-                <Form.TextField
-                  grow
-                  path="properties.keyFile"
-                  label="Client key"
-                  inputProps={KEY_FILE_INPUT_PROPS}
-                />
-              </Flex.Box>
-              <Divider.Divider x />
-            </Flex.Box>
-          )}
-          <Flex.Box gap="small">
-            <Flex.Box x justify="between">
-              <Form.TextField grow path="properties.username" label="Username" />
-              <Form.TextField
-                grow
-                path="properties.password"
-                label="Password"
-                inputProps={PASSWORD_INPUT_PROPS}
-              />
-            </Flex.Box>
-            <Flex.Box x align="end">
-              <Form.TextField
-                grow
                 path="properties.clientId"
                 label="Client ID"
+                padHelpText={false}
                 inputProps={CLIENT_ID_INPUT_PROPS}
               />
               <Form.Field<number | undefined>
                 path="properties.keepAlive"
                 label="Keep alive"
+                padHelpText={false}
               >
                 {renderKeepAlive}
               </Form.Field>
-            </Flex.Box>
-            <Divider.Divider x />
-          </Flex.Box>
-          <Flex.Box gap="small">
-            <Text.Text level="small" weight={500} color={9}>
-              Sparkplug B
-            </Text.Text>
-            <Text.Text level="small" color={9}>
-              Leave the host ID empty for a passive host. Separate groups with commas,
-              or leave them empty to browse all groups.
-            </Text.Text>
-            <Flex.Box x>
+              <PlatformDevice.RackField integration={INTEGRATION} />
+            </Form.Section>
+            <Form.Section title="Authentication">
               <Form.TextField
-                grow
+                path="properties.username"
+                label="Username"
+                padHelpText={false}
+                inputProps={USERNAME_INPUT_PROPS}
+              />
+              <Form.TextField
+                path="properties.password"
+                label="Password"
+                padHelpText={false}
+                inputProps={PASSWORD_INPUT_PROPS}
+              />
+            </Form.Section>
+            <Form.Section title="Security">
+              <Form.SwitchField
+                path="properties.secure"
+                label="TLS"
+                padHelpText={false}
+              />
+              {secure && (
+                <>
+                  <Form.SwitchField
+                    path="properties.verificationSkipped"
+                    label="Skip verification"
+                    padHelpText={false}
+                  />
+                  <Form.TextField
+                    path="properties.caFile"
+                    label="CA file"
+                    padHelpText={false}
+                    inputProps={CA_FILE_INPUT_PROPS}
+                  />
+                  <Form.TextField
+                    path="properties.certFile"
+                    label="Client certificate"
+                    padHelpText={false}
+                    inputProps={CERT_FILE_INPUT_PROPS}
+                  />
+                  <Form.TextField
+                    path="properties.keyFile"
+                    label="Client key"
+                    padHelpText={false}
+                    inputProps={KEY_FILE_INPUT_PROPS}
+                  />
+                  <Text.Text level="small" color={9}>
+                    Certificate and key files are paths on the Core host. An empty CA
+                    file uses the system roots.
+                  </Text.Text>
+                </>
+              )}
+            </Form.Section>
+            <Form.Section title="Sparkplug B">
+              <Form.TextField
                 path="properties.sparkplug.hostId"
                 label="Host ID"
+                padHelpText={false}
                 inputProps={HOST_ID_INPUT_PROPS}
               />
               <Form.Field<string[]>
-                grow
                 path="properties.sparkplug.groups"
                 label="Groups"
+                padHelpText={false}
               >
                 {groupsRenderProp}
               </Form.Field>
-            </Flex.Box>
-          </Flex.Box>
+              <Text.Text level="small" color={9}>
+                Leave the host ID empty for a passive host. Separate groups with commas,
+                or leave them empty to browse all groups.
+              </Text.Text>
+            </Form.Section>
+          </Form.Sections>
         </Form.Form>
-      </Flex.Box>
-      <Modal.Footer>
-        <Nav.Bar.Start gap="small">
-          {variant == "success" ? (
-            <Triggers.SaveHelpText action="Connect" noBar />
-          ) : (
-            <Status.Summary variant={variant} message={stat.description} />
-          )}
-        </Nav.Bar.Start>
-        <Nav.Bar.End>
-          <Button.Button
-            status={status.keepVariants(variant, "loading")}
-            onClick={() => save()}
-            variant="filled"
-            trigger={Triggers.SAVE}
-          >
-            Connect
-          </Button.Button>
-        </Nav.Bar.End>
-      </Modal.Footer>
+      </Modal.Body>
+      <PlatformDevice.ConnectFooter
+        reason={reason}
+        variant={variant}
+        message={stat.description}
+        onConnect={() => save()}
+        onBack={onBack}
+      />
     </Modal.Frame>
   );
 };
 
-export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(Connect);
-
-const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: MAKE };
-
-const selectRackRenderProp = Component.renderProp(
-  (props: Pick<Rack.SelectSingleProps, "value" | "onChange">) => (
-    <Rack.SelectSingle {...props} initialQuery={INITIAL_RACK_QUERY} />
-  ),
-);
+export const useConnectModal = PlatformDevice.createConnectModal(Connect, INTEGRATION);
 
 const groupsRenderProp = Component.renderProp(
   ({ value, onChange, ...rest }: Input.Control<string[]>) => (
@@ -271,12 +258,13 @@ const parseGroups = (text: string): string[] =>
     .map((group) => group.trim())
     .filter((group) => group !== "");
 
-const HOST_ID_INPUT_PROPS = { placeholder: "Passive host" } as const;
+const HEADER = ["Device", "Connect", "MQTT broker"];
 
 const NAME_INPUT_PROPS = {
   level: "h2",
   variant: "text",
   placeholder: "MQTT broker",
+  "aria-label": "Name",
 } as const;
 
 const HOST_INPUT_PROPS = {
@@ -292,14 +280,6 @@ const PORT_INPUT_PROPS = {
 
 const SECURE_PORT_INPUT_PROPS = { ...PORT_INPUT_PROPS, placeholder: "8883" } as const;
 
-const CA_FILE_INPUT_PROPS = { placeholder: "/etc/ssl/certs/ca.pem" } as const;
-
-const CERT_FILE_INPUT_PROPS = { placeholder: "/etc/ssl/certs/client.pem" } as const;
-
-const KEY_FILE_INPUT_PROPS = { placeholder: "/etc/ssl/private/client.key" } as const;
-
-const PASSWORD_INPUT_PROPS = { type: "password" } as const;
-
 const CLIENT_ID_INPUT_PROPS = {
   placeholder: "Derived from the device when empty",
 } as const;
@@ -309,6 +289,18 @@ const KEEP_ALIVE_INPUT_PROPS = {
   placeholder: "30",
   style: { width: "23rem" },
 } as const;
+
+const USERNAME_INPUT_PROPS = { placeholder: "Anonymous" } as const;
+
+const PASSWORD_INPUT_PROPS = { type: "password" } as const;
+
+const CA_FILE_INPUT_PROPS = { placeholder: "/etc/ssl/certs/ca.pem" } as const;
+
+const CERT_FILE_INPUT_PROPS = { placeholder: "/etc/ssl/certs/client.pem" } as const;
+
+const KEY_FILE_INPUT_PROPS = { placeholder: "/etc/ssl/private/client.key" } as const;
+
+const HOST_ID_INPUT_PROPS = { placeholder: "Passive host" } as const;
 
 const createOptionalNumericRenderProp = (
   props: Omit<Input.NumericProps, "value" | "onChange" | "onClear">,

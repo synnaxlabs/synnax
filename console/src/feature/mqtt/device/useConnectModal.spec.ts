@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type device } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -14,28 +15,44 @@ import { describe, expect, it } from "vitest";
 import { MQTT } from "@/feature/mqtt";
 import { createBroker, openScanner } from "@/feature/mqtt/testutil";
 import { createTestSink } from "@/platform/analytics/testutil";
+import { createRunningRack } from "@/platform/device/testutil";
 import { pressSaveTrigger, renderModalOpener } from "@/platform/modals/testutil";
-import { selectFromDropdown } from "@/platform/task/testutil";
-import { getSwitchInput, uniqueName } from "@/testutil";
+import { getSwitchInput } from "@/testutil";
 
 const client = createTestClient();
 
+const createRack = async () => await createRunningRack(client, MQTT.Device.INTEGRATION);
+
 const renderConnectModal = async () => {
-  const handle = await renderModalOpener(MQTT.Device.useConnectModal, [{}], {
+  const rack = await createRack();
+  const handle = await renderModalOpener(
+    MQTT.Device.useConnectModal,
+    [{ rack: rack.key }],
+    { client },
+  );
+  await screen.findByPlaceholderText("broker.example.com");
+  return { ...handle, rack };
+};
+
+const renderEditModal = async (deviceKey: device.Key) => {
+  const handle = await renderModalOpener(MQTT.Device.useConnectModal, [{ deviceKey }], {
     client,
   });
-  await screen.findByText("Broker");
+  await screen.findByPlaceholderText("broker.example.com");
   return handle;
 };
 
-describe("useConnectModal", () => {
+const fillHost = () =>
+  fireEvent.change(screen.getByPlaceholderText("broker.example.com"), {
+    target: { value: "localhost" },
+  });
+
+describe("MQTT.Device.useConnectModal", () => {
   it("should populate the form from an existing device", async () => {
     const dev = await createBroker(client, {
       properties: { username: "plant_user", clientId: "console_client", port: 1884 },
     });
-    await renderModalOpener(MQTT.Device.useConnectModal, [{ deviceKey: dev.key }], {
-      client,
-    });
+    await renderEditModal(dev.key);
     await screen.findByDisplayValue(dev.name);
     expect(screen.getByDisplayValue(dev.location)).toBeTruthy();
     expect(await screen.findByDisplayValue("plant_user")).toBeTruthy();
@@ -54,7 +71,7 @@ describe("useConnectModal", () => {
     expect(screen.queryByText("CA file")).toBeNull();
     fireEvent.click(getSwitchInput("TLS"));
     await screen.findByText("CA file");
-    expect(screen.getByText("Skip certificate verification")).toBeTruthy();
+    expect(screen.getByText("Skip verification")).toBeTruthy();
     expect(screen.getByText("Client certificate")).toBeTruthy();
     expect(screen.getByText("Client key")).toBeTruthy();
     expect(screen.getByText(/paths on the Core host/)).toBeTruthy();
@@ -68,9 +85,7 @@ describe("useConnectModal", () => {
     const dev = await createBroker(client, {
       properties: { secure: true, caFile: "/etc/ssl/plant_ca.pem" },
     });
-    await renderModalOpener(MQTT.Device.useConnectModal, [{ deviceKey: dev.key }], {
-      client,
-    });
+    await renderEditModal(dev.key);
     expect(await screen.findByDisplayValue("/etc/ssl/plant_ca.pem")).toBeTruthy();
     expect(getSwitchInput("TLS").checked).toBe(true);
   });
@@ -81,9 +96,7 @@ describe("useConnectModal", () => {
         sparkplug: { hostId: "synnax_core", groups: ["plant", "utilities"] },
       },
     });
-    await renderModalOpener(MQTT.Device.useConnectModal, [{ deviceKey: dev.key }], {
-      client,
-    });
+    await renderEditModal(dev.key);
     expect(await screen.findByDisplayValue("synnax_core")).toBeTruthy();
     expect(screen.getByDisplayValue("plant, utilities")).toBeTruthy();
   });
@@ -92,7 +105,7 @@ describe("useConnectModal", () => {
     await renderConnectModal();
     const input = screen.getByPlaceholderText("Passive host");
     fireEvent.change(input, { target: { value: "core/1" } });
-    fireEvent.click(screen.getByRole("button", { name: /Connect/ }));
+    pressSaveTrigger();
     expect(await screen.findByText("Host ID must not hold /, +, or #")).toBeTruthy();
   });
 
@@ -103,7 +116,7 @@ describe("useConnectModal", () => {
     fireEvent.change(input, { target: { value: " plant ,, line#1" } });
     fireEvent.blur(input);
     await waitFor(() => expect(input.value).toBe("plant, line#1"));
-    fireEvent.click(screen.getByRole("button", { name: /Connect/ }));
+    pressSaveTrigger();
     expect(
       await screen.findByText('Group "line#1" must not hold /, +, or #'),
     ).toBeTruthy();
@@ -119,23 +132,32 @@ describe("useConnectModal", () => {
     fireEvent.change(keepAlive, { target: { value: "0" } });
     fireEvent.blur(keepAlive);
     await waitFor(() => expect(keepAlive.value).toBe("0"));
-    fireEvent.click(screen.getByRole("button", { name: /Connect/ }));
+    pressSaveTrigger();
     expect(await screen.findByText("Port must be 1 to 65535")).toBeTruthy();
     expect(screen.getByText("Keep alive must be 1 to 65535")).toBeTruthy();
   });
 
+  it("should resolve with the device it connected", async () => {
+    const { result, rack } = await renderConnectModal();
+    const scanner = await openScanner(client, rack.key);
+    fillHost();
+    pressSaveTrigger();
+    await scanner.answer({});
+    scanner.close();
+    const key = await result();
+    if (key == null) throw new Error("the modal closed without a device");
+    expect((await client.devices.retrieve({ key })).rack).toBe(rack.key);
+  });
+
   it("should report a device it connected and leave an empty port unset", async () => {
-    const rack = await client.racks.create({
-      name: uniqueName("mqtt_rack"),
-      integrations: [MQTT.Device.MAKE],
-    });
+    const rack = await createRack();
     const scanner = await openScanner(client, rack.key);
     const analytics = createTestSink();
-    await renderModalOpener(MQTT.Device.useConnectModal, [{}], { client, analytics });
-    await selectFromDropdown("Select Driver", rack.name);
-    fireEvent.change(screen.getByPlaceholderText("broker.example.com"), {
-      target: { value: "localhost" },
+    await renderModalOpener(MQTT.Device.useConnectModal, [{ rack: rack.key }], {
+      client,
+      analytics,
     });
+    fillHost();
     pressSaveTrigger();
     const cmd = await scanner.answer({});
     scanner.close();
@@ -149,16 +171,9 @@ describe("useConnectModal", () => {
   });
 
   it("should leave a port and keep alive the user typed and then cleared unset", async () => {
-    const rack = await client.racks.create({
-      name: uniqueName("mqtt_rack"),
-      integrations: [MQTT.Device.MAKE],
-    });
+    const { rack } = await renderConnectModal();
     const scanner = await openScanner(client, rack.key);
-    await renderModalOpener(MQTT.Device.useConnectModal, [{}], { client });
-    await selectFromDropdown("Select Driver", rack.name);
-    fireEvent.change(screen.getByPlaceholderText("broker.example.com"), {
-      target: { value: "localhost" },
-    });
+    fillHost();
     for (const placeholder of ["1883", "30"]) {
       const input = screen.getByPlaceholderText(placeholder);
       fireEvent.change(input, { target: { value: "42" } });
@@ -176,8 +191,9 @@ describe("useConnectModal", () => {
   });
 
   it("should not report an edited device as connected", async () => {
-    const dev = await createBroker(client);
-    const scanner = await openScanner(client, dev.rack);
+    const rack = await createRack();
+    const dev = await createBroker(client, { rack: rack.key });
+    const scanner = await openScanner(client, rack.key);
     const analytics = createTestSink();
     await renderModalOpener(MQTT.Device.useConnectModal, [{ deviceKey: dev.key }], {
       client,
@@ -191,9 +207,21 @@ describe("useConnectModal", () => {
     expect(analytics.capture).not.toHaveBeenCalled();
   });
 
-  // Submitting with no rack chosen fails validation. That error is the proof the keys
-  // reached the same save path the Connect button uses.
+  it("should show the error a Driver reports for the connection", async () => {
+    const { rack } = await renderConnectModal();
+    const scanner = await openScanner(client, rack.key);
+    fillHost();
+    pressSaveTrigger();
+    await scanner.answer({ variant: "error", message: "Connection refused" });
+    scanner.close();
+    expect(await screen.findByText("Connection refused")).toBeTruthy();
+  });
+
+  // Two running racks leave the rack field empty, so the save fails validation. That
+  // error proves the keys reached the Connect button's save path.
   it("should submit on the shortcut its footer advertises", async () => {
+    await createRack();
+    await createRack();
     await renderModalOpener(MQTT.Device.useConnectModal, [{}], { client });
     await screen.findByRole("dialog");
     pressSaveTrigger();
@@ -201,12 +229,11 @@ describe("useConnectModal", () => {
   });
 
   it("should surface a missing scan task on the rack of the broker", async () => {
-    const dev = await createBroker(client);
-    await renderModalOpener(MQTT.Device.useConnectModal, [{ deviceKey: dev.key }], {
-      client,
-    });
+    const rack = await createRack();
+    const dev = await createBroker(client, { rack: rack.key });
+    await renderEditModal(dev.key);
     await screen.findByDisplayValue(dev.name);
-    fireEvent.click(screen.getByRole("button", { name: /Connect/ }));
+    pressSaveTrigger();
     expect(await screen.findByText(/not found/i)).toBeTruthy();
   });
 });

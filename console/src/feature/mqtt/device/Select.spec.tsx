@@ -7,18 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
 import { createBroker } from "@/feature/mqtt/testutil";
 import { renderWithDeviceForm } from "@/platform/device/testutil";
 import { Modals } from "@/platform/modals";
-import { findDialogTrigger, uniqueName } from "@/testutil";
+import { findDialogTrigger } from "@/testutil";
 
-const renderSelect = async (client: Synnax | null) =>
+const client = createTestClient();
+
+const renderSelect = async () =>
   await renderWithDeviceForm(
     <>
       <MQTT.Device.Select />
@@ -27,31 +28,23 @@ const renderSelect = async (client: Synnax | null) =>
     { deviceKey: "", client },
   );
 
-describe("MQTT Device.Select", () => {
-  it("should open the connect modal from the empty content", async () => {
-    const client = createTestClient();
-    await renderSelect(client);
+describe("MQTT.Device.Select", () => {
+  it("should open the connect modal from the connect action", async () => {
+    await renderSelect();
     fireEvent.click(await findDialogTrigger());
-    fireEvent.change(await screen.findByPlaceholderText("Search devices..."), {
-      target: { value: uniqueName("no_such_device") },
-    });
-    await screen.findByText("No MQTT brokers connected");
-    fireEvent.click(screen.getByText("Connect broker"));
-    await screen.findByText("Broker");
-    expect(screen.getByPlaceholderText("broker.example.com")).toBeTruthy();
+    fireEvent.click(await screen.findByText("Connect MQTT broker"));
+    expect(await screen.findByPlaceholderText("broker.example.com")).toBeTruthy();
   });
 
-  it("should open the connect modal when an unconfigured MQTT broker is selected", async () => {
-    const client = createTestClient();
+  it("should open the connect modal when an unconfigured broker is selected", async () => {
     const dev = await createBroker(client, { configured: false });
-    await renderSelect(client);
+    await renderSelect();
     fireEvent.click(await findDialogTrigger());
     fireEvent.change(await screen.findByPlaceholderText("Search devices..."), {
       target: { value: dev.name },
     });
     fireEvent.click(await screen.findByText(dev.name));
-    await screen.findByText("Broker");
-    const nameInput = await screen.findByDisplayValue(dev.name);
-    expect(nameInput).toBeTruthy();
+    await screen.findByPlaceholderText("broker.example.com");
+    await waitFor(() => expect(screen.getByDisplayValue(dev.name)).toBeTruthy());
   });
 });

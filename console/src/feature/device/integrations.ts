@@ -11,8 +11,10 @@ import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
 import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
+import { MQTT } from "@/feature/mqtt";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
+import { FLAGS } from "@/flags";
 import { type Device as PlatformDevice } from "@/platform/device";
 import { type Task } from "@/platform/task";
 
@@ -24,6 +26,7 @@ export const NETWORK: PlatformDevice.Network[] = [
   OPCUA.Device.NETWORK,
   Modbus.Device.NETWORK,
   HTTP.Device.NETWORK,
+  ...(FLAGS.mqtt ? [MQTT.Device.NETWORK] : []),
 ];
 
 export const HARDWARE: Hardware[] = [

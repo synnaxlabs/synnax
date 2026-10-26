@@ -7,18 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { NETWORK } from "@/feature/mqtt/device/network";
 import { MAKE } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
 import { Device } from "@/platform/device";
 
 export const Select = () => {
-  const connect = useConnectModal();
+  const openConnect = useConnectModal();
   return (
     <Device.Select
-      onConfigure={(deviceKey) => connect({ deviceKey })}
+      onConfigure={(deviceKey) => void openConnect({ deviceKey })}
       emptyContent="No MQTT brokers connected"
       label="MQTT broker"
       make={MAKE}
+      connect={{ title: NETWORK.title, open: () => openConnect() }}
     />
   );
 };

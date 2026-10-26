@@ -24,12 +24,14 @@ import { uniqueName } from "@/testutil";
 export interface CreateBrokerOptions {
   configured?: boolean;
   properties?: Partial<Properties>;
+  /** Defaults to a new rack. */
+  rack?: rack.Key;
 }
 
-/** Creates a rack and a configured MQTT broker device on the live Core. */
+/** Creates an MQTT broker device on the live Core. */
 export const createBroker = async (
   client: Synnax,
-  { configured = true, properties }: CreateBrokerOptions = {},
+  { configured = true, properties, rack: rackKey }: CreateBrokerOptions = {},
 ): Promise<device.Device> =>
   await createTestDevice(
     client,
@@ -39,6 +41,7 @@ export const createBroker = async (
       model: "MQTT broker",
       configured,
       properties: { ...deep.copy(ZERO_PROPERTIES), ...properties },
+      rack: rackKey,
     },
     SCHEMAS,
   );
