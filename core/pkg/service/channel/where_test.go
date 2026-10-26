@@ -131,4 +131,12 @@ var _ = Describe("Where", Ordered, func() {
 			),
 		))
 	})
+
+	It("Should reject a request member that it does not declare", func() {
+		var req channel.RetrieveRequest
+		Expect(json.Unmarshal([]byte(`{"keys":[1]}`), &req)).To(SatisfyAll(
+			BeAssignableToTypeOf(&json.SemanticError{}),
+			MatchError(ContainSubstring(`unknown object member name "keys"`)),
+		))
+	})
 })
