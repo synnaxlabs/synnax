@@ -63,7 +63,7 @@ export interface CaptureRunOptions {
 export const STUDIO_PORT = 9095;
 
 /** Default URL of the Desktop build of the Console dev server. */
-export const DESKTOP_URL = "http://localhost:5175";
+const DESKTOP_URL = "http://localhost:5175";
 
 /**
  * runCapture provisions the core, drives the script through a capture session,
