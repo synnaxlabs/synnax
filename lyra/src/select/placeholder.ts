@@ -32,3 +32,7 @@ export const plural = (resourceName: string): string => {
   if (ACRONYM.test(resourceName.split(" ").at(-1) ?? "")) return `${resourceName}s`;
   return pluralize.plural(resourceName);
 };
+
+/** @returns what the search field of a selection reads. */
+export const searchPlaceholder = (resourceName: string): string =>
+  `Search ${plural(resourceName)}...`;

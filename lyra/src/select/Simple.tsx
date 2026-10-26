@@ -11,12 +11,12 @@ import { caseconv, type record } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode } from "react";
 
 import { Dialog } from "@/dialog";
-import { DefaultEmptyContent } from "@/select/Body";
+import { EmptyContent } from "@/select/Body";
 import { Dialog as SelectDialog } from "@/select/Dialog";
 import { Frame, type MultipleFrameProps, type SingleFrameProps } from "@/select/Frame";
 import { List } from "@/select/List";
 import { MultipleTrigger, type MultipleTriggerProps } from "@/select/MultipleTrigger";
-import { plural, usePlaceholder } from "@/select/placeholder";
+import { plural, searchPlaceholder, usePlaceholder } from "@/select/placeholder";
 import { useVisibleCount } from "@/select/registry";
 import { useClosed } from "@/select/scope";
 import { Search } from "@/select/Search";
@@ -75,7 +75,7 @@ type EmptyProps = Pick<BaseSimpleProps, "resourceName" | "emptyContent">;
 const OpenEmpty = ({ resourceName, emptyContent }: EmptyProps): ReactNode => {
   const count = useVisibleCount();
   if (count > 0) return null;
-  return emptyContent ?? <DefaultEmptyContent resourceName={resourceName} />;
+  return <EmptyContent resourceName={resourceName} emptyContent={emptyContent} />;
 };
 
 const Empty = (props: EmptyProps): ReactNode =>
@@ -135,7 +135,7 @@ export const Simple = <K extends record.Key>({
   };
   const dialog = (
     <SelectDialog {...dialogProps}>
-      <Search placeholder={`Search ${plural(resourceName)}...`} />
+      <Search placeholder={searchPlaceholder(resourceName)} />
       <List bordered borderColor={6} grow rounded full="x">
         {children}
         <Empty resourceName={resourceName} emptyContent={emptyContent} />
