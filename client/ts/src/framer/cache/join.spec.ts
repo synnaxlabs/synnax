@@ -99,6 +99,17 @@ describe("Joins", () => {
       expect(keysOf(joins)).toEqual([DATA]);
     });
 
+    it("should keep a member waiting that joined again since its read began", () => {
+      const { joins } = createJoins();
+      joins.join(INDEX, INDEX);
+      const waits = joins.waiting(INDEX);
+      joins.leave(DATA, INDEX);
+      joins.join(DATA, INDEX);
+      joins.landed(INDEX, waits);
+      expect(joins.joined(DATA)).toBe(false);
+      expect(keysOf(joins)).toEqual([DATA]);
+    });
+
     it("should keep a data member waiting until its index lands", () => {
       const { joins } = createJoins();
       joins.landed(INDEX, waitsOf(joins, DATA));

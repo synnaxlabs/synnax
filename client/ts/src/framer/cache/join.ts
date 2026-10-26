@@ -69,12 +69,13 @@ class Member {
   from: number | null = null;
   // fresh is true from a landing until the member places a streamed sample.
   fresh = false;
-  // wait numbers the member's waits, so a landing knows the wait its read began in.
-  wait = 0;
 
   constructor(
     readonly key: channel.Key,
     readonly join: Join,
+    // wait numbers the member's wait among the waits of every member, so a landing
+    // knows the wait its read began in.
+    public wait: number,
   ) {}
 
   take(): Series[] {
@@ -94,8 +95,11 @@ class Join {
   private recent: Mapped[] = [];
   private last: Series | null = null;
 
-  constructor(readonly index: channel.Key) {
-    this.indexMember = new Member(index, this);
+  constructor(
+    readonly index: channel.Key,
+    wait: number,
+  ) {
+    this.indexMember = new Member(index, this, wait);
     this.members.set(index, this.indexMember);
   }
 
@@ -160,6 +164,7 @@ export class Joins {
   private readonly joins = new Map<channel.Key, Join>();
   private readonly members = new Map<channel.Key, Member>();
   private readonly waits = new Set<channel.Key>();
+  private lastWait = 0;
 
   constructor(private readonly store: Store) {}
 
@@ -170,7 +175,7 @@ export class Joins {
   join(ch: channel.Key, index: channel.Key): void {
     let j = this.joins.get(index);
     if (j == null) {
-      j = new Join(index);
+      j = new Join(index, ++this.lastWait);
       this.joins.set(index, j);
     }
     this.addMember(j, index);
@@ -337,7 +342,7 @@ export class Joins {
   private addMember(j: Join, ch: channel.Key): void {
     let m = j.members.get(ch);
     if (m == null) {
-      m = new Member(ch, j);
+      m = new Member(ch, j, ++this.lastWait);
       j.members.set(ch, m);
     }
     this.members.set(ch, m);
@@ -369,7 +374,7 @@ export class Joins {
 
   private unjoin(m: Member): void {
     m.joined = false;
-    m.wait++;
+    m.wait = ++this.lastWait;
     const open = this.store.open(m.key);
     if (open?.joined !== true) return;
     m.from = Math.min(m.from ?? open.index, open.index);
