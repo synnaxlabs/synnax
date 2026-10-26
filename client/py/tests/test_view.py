@@ -126,7 +126,7 @@ class TestView:
         )
         res = client.views.retrieve(
             keys=[v.key for v in views],
-            where=view.Where(type=filter.Set[view.Type](eq="status")),
+            where=view.Where(type=sy.filter.Set[view.Type](eq="status")),
         )
         assert len(res) == 1
         assert res[0].name == "Status"
