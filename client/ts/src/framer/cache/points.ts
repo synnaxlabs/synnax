@@ -427,8 +427,8 @@ export class Points {
 
   // Returns the span raw samples serve: from the boundary to the end of a static
   // window, or on for a dynamic one.
-  private rawRange(home: TimeRange): TimeRange {
-    return new TimeRange(this.boundary, this.dynamic ? TimeStamp.MAX : home.end);
+  private rawRange(home: TimeRange, boundary: TimeStamp = this.boundary): TimeRange {
+    return new TimeRange(boundary, this.dynamic ? TimeStamp.MAX : home.end);
   }
 
   // tilesEnd is where tiles stop for the boundary: the boundary, or the start of a raw
@@ -445,14 +445,18 @@ export class Points {
     boundary: TimeStamp = this.boundary,
   ): TileSpec[] {
     if (this.rawOnly) return [];
-    const end = this.tilesEnd(boundary);
     const aggregation: Aggregation = extremesKept ? "min_max" : this.limit.aggregation;
     // Tiles are cut to [start, end): from the start of a static window to the start of
-    // raw samples.
-    const start = this.dynamic ? undefined : home.start;
+    // raw samples. A view may reach past a static window, as on a zoom out, so it cuts
+    // tiles only where raw samples start.
+    const viewed = this.limit.view != null;
+    const start = this.dynamic || viewed ? undefined : home.start;
+    const raw = this.rawRange(home, boundary);
+    const end =
+      viewed && !raw.start.before(raw.end) ? undefined : this.tilesEnd(boundary);
     const tiled = new TimeRange(
       start == null ? view.start : TimeStamp.max(view.start, start),
-      TimeStamp.min(view.end, end),
+      end == null ? view.end : TimeStamp.min(view.end, end),
     );
     if (!tiled.start.before(tiled.end)) return [];
     const level = tileLevel(view);
@@ -467,7 +471,7 @@ export class Points {
       const spec: TileSpec = { key: this.key, level, index, pointLimit, aggregation };
       const tr = tileRange(spec);
       if (start != null && tr.start.before(start)) spec.start = start;
-      if (tr.end.after(end)) spec.end = end;
+      if (end != null && tr.end.after(end)) spec.end = end;
       return spec;
     });
   }

@@ -455,6 +455,28 @@ describe("Points", () => {
     }
   });
 
+  it("should draw a view that reaches past a static window", async () => {
+    const core = createCore();
+    const { subscribe, close } = createPoints(core);
+    const range = new TimeRange(
+      START.add(TimeSpan.minutes(4)),
+      START.add(TimeSpan.minutes(6)),
+    );
+    const view = new TimeRange(
+      START.add(TimeSpan.minutes(2)),
+      START.add(TimeSpan.minutes(8)),
+    );
+    const points = subscribe(core.index.key, staticWindow(range), { ...TILED, view });
+    try {
+      await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+      const { lower, upper } = points.value().series.bounds;
+      expect(lower).toBeLessThan(Number(range.start.valueOf()));
+      expect(upper).toBeGreaterThan(Number(range.end.valueOf()));
+    } finally {
+      await close();
+    }
+  });
+
   it("should evict the tiles it unpins past the budget", async () => {
     const core = createCore();
     const { store, subscribe, unsubscribe, close } = createPoints(core, undefined, {

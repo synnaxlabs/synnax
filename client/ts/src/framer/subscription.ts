@@ -27,7 +27,10 @@ export interface PointsLimit {
   aggregation: Aggregation;
   /** Reduces with min_max, so the bounds of the samples keep their extremes. */
   extremesKept?: boolean;
-  /** The range to draw inside the window, as when zoomed. Defaults to the window. */
+  /**
+   * The range to draw, as when zoomed or panned. It may reach past a static window.
+   * Defaults to the window.
+   */
   view?: TimeRange;
 }
 
