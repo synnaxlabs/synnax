@@ -10,16 +10,17 @@
 // Creates the sample project on a Core and starts its Arc programs, for a Console that
 // cannot create it itself, such as the web Console.
 //
-// Usage: node scripts/create_sample.ts [PORT]
+// Usage: node scripts/create_sample.ts [PORT | URL], such as 9090 (localhost) or
+// https://core.example.com. The default is 9090.
 
 import { Synnax } from "@synnaxlabs/client";
 
 import { create } from "../src/feature/project/sample.ts";
 import { RECENT_KEY } from "../src/session/range/slice.ts";
+import { parse } from "./coreURL.ts";
 
 const client = new Synnax({
-  host: "localhost",
-  port: Number(process.argv[2] ?? 9090),
+  ...parse(process.argv[2] ?? "9090"),
   username: "synnax",
   password: "seldon",
 });
