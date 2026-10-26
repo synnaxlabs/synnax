@@ -31,6 +31,8 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
+	"github.com/synnaxlabs/oracle/plugin/internal/arrays"
+	"github.com/synnaxlabs/oracle/plugin/internal/telem"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -62,6 +64,7 @@ func (p *Plugin) Domains() []string { return []string{"cpp"} }
 func (p *Plugin) Requires() []string { return nil }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
+	req = req.OmitFields("cpp")
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 
 	typeDefCollector, err := framework.CollectDistinct("cpp", req)
@@ -372,14 +375,14 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 		Doc:     doc.Get(td.Domains),
 	}
 
-	if form.Base.Name == "Array" && len(form.Base.TypeArgs) > 0 {
+	if base, ok := arrays.Wrapped(form, data.table); ok {
 		tdd.IsArrayWrapper = true
-		elemTypeRef := form.Base.TypeArgs[0]
+		elemTypeRef := base.TypeArgs[0]
 		tdd.ElementType = p.typeRefToCpp(elemTypeRef, data)
 		tdd.ElementIsPrimitive = resolution.IsPrimitive(elemTypeRef.Name)
-		if form.Base.ArraySize != nil {
+		if base.ArraySize != nil {
 			tdd.IsFixedSizeArray = true
-			tdd.ArraySize = *form.Base.ArraySize
+			tdd.ArraySize = *base.ArraySize
 			data.AddSystem("array")
 		} else {
 			data.AddSystem("vector")
@@ -415,7 +418,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 			pbOutputPath := output.GetPBPath(td)
 			if pbOutputPath != "" {
 				pbName := cppnaming.PBName(td)
-				pbNamespace := cppnaming.PBNamespace(pbOutputPath)
+				pbNamespace := cppnaming.PBNamespace(pbOutputPath, td.Namespace)
 				tdd.HasProto = true
 				tdd.ProtoType = fmt.Sprintf("%s::%s", pbNamespace, pbName)
 				tdd.ProtoNamespace = pbNamespace
@@ -498,6 +501,10 @@ func (p *Plugin) aliasTargetToCpp(
 	resolved, ok := typeRef.Resolve(data.table)
 	if !ok {
 		return typeRef.Name
+	}
+	// A string enum declares no C++ type, only its member constants.
+	if form, ok := resolved.Form.(resolution.EnumForm); ok && !form.IsIntEnum {
+		return p.resolveEnumType(resolved, form, data)
 	}
 
 	name := resolved.Name
@@ -652,7 +659,7 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 		pbOutputPath := output.GetPBPath(entry)
 		if pbOutputPath != "" {
 			pbName := cppnaming.PBName(entry)
-			pbNamespace := cppnaming.PBNamespace(pbOutputPath)
+			pbNamespace := cppnaming.PBNamespace(pbOutputPath, entry.Namespace)
 			sd.HasProto = true
 			sd.ProtoType = fmt.Sprintf("%s::%s", pbNamespace, pbName)
 			sd.ProtoNamespace = pbNamespace
@@ -792,20 +799,62 @@ func getUnderlyingPrimitive(
 		return typeRef.Name
 	}
 
-	resolved, ok := typeRef.Resolve(table)
+	resolved, _, ok := resolution.Dealias(typeRef, table)
 	if !ok {
 		return ""
 	}
 
-	if form, ok := resolved.Form.(resolution.DistinctForm); ok {
+	switch form := resolved.Form.(type) {
+	case resolution.PrimitiveForm:
+		return form.Name
+	case resolution.DistinctForm:
 		return getUnderlyingPrimitive(form.Base, table)
 	}
 
 	return ""
 }
 
+// zeroValue returns the member initializer of a required field of typeRef, or "" when
+// the type's default constructor gives the zero value.
+func (p *Plugin) zeroValue(typeRef resolution.TypeRef, data *templateData) string {
+	if isIntEnum(typeRef, data.table) {
+		return "{}"
+	}
+	held := typeRef
+	if hand, ok := handWritten(typeRef, data.table); ok {
+		held = hand
+	}
+	return cppDefaultValue(
+		p.typeRefToCpp(held, data),
+		getUnderlyingPrimitive(typeRef, data.table),
+	)
+}
+
+// handWritten returns the type that ref stands for through aliases and distinct types
+// when that type is hand-written in C++. Both are using declarations in C++, so a field
+// of ref holds the hand-written type.
+func handWritten(
+	ref resolution.TypeRef,
+	table *resolution.Table,
+) (resolution.TypeRef, bool) {
+	resolved, ok := ref.Resolve(table)
+	if !ok {
+		return resolution.TypeRef{}, false
+	}
+	if omit.IsHand(resolved, "cpp") {
+		return ref, true
+	}
+	switch form := resolved.Form.(type) {
+	case resolution.AliasForm:
+		return handWritten(form.Target, table)
+	case resolution.DistinctForm:
+		return handWritten(form.Base, table)
+	}
+	return resolution.TypeRef{}, false
+}
+
 func isIntEnum(typeRef resolution.TypeRef, table *resolution.Table) bool {
-	resolved, ok := typeRef.Resolve(table)
+	resolved, _, ok := resolution.Dealias(typeRef, table)
 	if !ok {
 		return false
 	}
@@ -820,17 +869,16 @@ func (p *Plugin) processField(
 ) fieldData {
 	cppType := p.typeRefToCpp(field.Type, data)
 	isSelfRef := resolution.RefersTo(field.Type, entry.QualifiedName, data.table)
-	underlyingPrimitive := getUnderlyingPrimitive(field.Type, data.table)
 
-	if field.Optional {
-		if isSelfRef {
-			data.AddInternal("x/cpp/mem/indirect.h")
-			cppType = fmt.Sprintf("x::mem::indirect<%s>", cppType)
-		} else {
-			data.AddSystem("optional")
-			cppType = fmt.Sprintf("std::optional<%s>", cppType)
-		}
-		underlyingPrimitive = ""
+	var defaultValue string
+	if !field.Optional {
+		defaultValue = p.zeroValue(field.Type, data)
+	} else if isSelfRef {
+		data.AddInternal("x/cpp/mem/indirect.h")
+		cppType = fmt.Sprintf("x::mem::indirect<%s>", cppType)
+	} else {
+		data.AddSystem("optional")
+		cppType = fmt.Sprintf("std::optional<%s>", cppType)
 	}
 
 	cppFieldName := domain.GetFieldName(field, "cpp")
@@ -839,10 +887,6 @@ func (p *Plugin) processField(
 	}
 	cppFieldName = keywords.Escape(cppFieldName)
 
-	defaultValue := cppDefaultValue(cppType, underlyingPrimitive)
-	if !field.Optional && isIntEnum(field.Type, data.table) {
-		defaultValue = "{}"
-	}
 	if field.Default != nil {
 		if lit := p.cppDefaultLiteral(field.Type, *field.Default, data); lit != "" {
 			defaultValue = lit
@@ -886,8 +930,7 @@ func (p *Plugin) cppDefaultLiteral(
 		if val.IdentValue == "true" || val.IdentValue == "false" {
 			return val.IdentValue
 		}
-		if val.IdentValue == "now" &&
-			strings.Contains(p.typeRefToCpp(typeRef, data), "::telem::TimeStamp") {
+		if val.IdentValue == "now" && telem.IsTimeStamp(typeRef, data.table, "cpp") {
 			return "x::telem::TimeStamp::now()"
 		}
 		if uv, ok := validation.ResolveUnionVariant(
@@ -896,9 +939,11 @@ func (p *Plugin) cppDefaultLiteral(
 			data.table,
 		); ok {
 			// std::variant default-constructs its first alternative, so a default
-			// naming any other variant must be written out explicitly.
+			// naming any other variant must be written out explicitly. The variant
+			// structs live with the union, not with an alias of it.
+			_, unionRef, _ := resolution.Dealias(typeRef, data.table)
 			return cppnaming.QualifiedVariantTypeName(
-				p.typeRefToCpp(typeRef, data),
+				p.typeRefToCpp(unionRef, data),
 				uv.Variant.Name,
 			) + "{}"
 		}
@@ -926,7 +971,7 @@ func (p *Plugin) cppStructLiteral(
 	val resolution.ExpressionValue,
 	data *templateData,
 ) string {
-	resolved, ok := typeRef.Resolve(data.table)
+	resolved, _, ok := resolution.Dealias(typeRef, data.table)
 	if !ok {
 		return "{}"
 	}
@@ -1242,32 +1287,16 @@ func (p *Plugin) buildGenericType(
 		return baseName
 	}
 
-	var args []string
 	var typeParams []resolution.TypeParam
 	if targetType != nil {
-		switch form := targetType.Form.(type) {
-		case resolution.StructForm:
-			typeParams = form.TypeParams
-		case resolution.AliasForm:
-			typeParams = form.TypeParams
+		typeParams = resolution.TypeParams(targetType.Form)
+	}
+	var args []string
+	for i, arg := range typeArgs {
+		if i < len(typeParams) && typeParams[i].HasDefault() {
+			continue
 		}
-
-		if len(typeParams) > 0 {
-			for i, arg := range typeArgs {
-				if i < len(typeParams) && typeParams[i].HasDefault() {
-					continue
-				}
-				args = append(args, p.typeRefToCpp(arg, data))
-			}
-		} else {
-			for _, arg := range typeArgs {
-				args = append(args, p.typeRefToCpp(arg, data))
-			}
-		}
-	} else {
-		for _, arg := range typeArgs {
-			args = append(args, p.typeRefToCpp(arg, data))
-		}
+		args = append(args, p.typeRefToCpp(arg, data))
 	}
 
 	if len(args) == 0 {
@@ -1703,7 +1732,7 @@ using {{$td.Name}} = {{$td.CppType}};
 {{end}}struct {{$s.Name}}{{if $s.HasExtends}} : {{range $i, $parent := $s.ExtendsTypes}}{{if $i}}, {{end}}public {{$parent}}{{end}}{{end}} {
 {{- range $s.Fields}}
 {{- if .Doc}}
-    {{formatDoc .Name .Doc | printf "%s"}}
+    {{formatDoc .Name .Doc 4 | printf "%s"}}
 {{- end}}
     {{.CppType}} {{.Name}}{{if .DefaultValue}} = {{.DefaultValue}}{{end}};
 {{- end}}

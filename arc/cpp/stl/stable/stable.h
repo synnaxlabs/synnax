@@ -38,7 +38,7 @@ struct StableForInputs {
                 {},
                 x::errors::Error(
                     x::errors::VALIDATION,
-                    "stable_for node missing required duration parameter"
+                    "The stable_for node is missing its duration parameter."
                 )
             };
         return {
@@ -66,7 +66,7 @@ class StableFor : public runtime::node::Node {
     void refresh_duration() {
         const auto [i, err] = this->state.resolve_input("duration");
         if (err || !this->state.ref_sourced(i)) return;
-        if (const auto v = this->state.ref_input(i); v != nullptr && v->size() > 0)
+        if (const auto v = this->state.ref_input(i); v != nullptr && !v->empty())
             this->duration = x::telem::TimeSpan(v->at<int64_t>(-1));
     }
 
@@ -82,7 +82,7 @@ public:
         if (this->state.refresh_inputs()) {
             const auto &input_data = this->state.input(this->input_idx);
             const auto &input_time = this->state.input_time(this->input_idx);
-            if (input_data->size() > 0) {
+            if (!input_data->empty()) {
                 const auto density = input_data->data_type().density();
                 const auto *data = reinterpret_cast<const uint8_t *>(
                     input_data->data()
@@ -103,17 +103,17 @@ public:
 
         if (!this->value.has_value()) return x::errors::NIL;
         const auto current_time = ctx.cycle.now;
-        if (x::telem::TimeSpan(current_time - this->last_changed) >= this->duration) {
-            if (!this->last_sent.has_value() || *this->last_sent != *this->value) {
-                const auto &o = this->state.output(0);
-                const auto &o_time = this->state.output_time(0);
-                o->resize(1);
-                std::memcpy(o->data(), this->value->data(), this->value->size());
-                *o_time = x::telem::Series(current_time.nanoseconds());
-                this->last_sent = *this->value;
-                this->state.emit(ctx.mark_changed, 0);
-            }
+        if ((x::telem::TimeSpan(current_time - this->last_changed) >= this->duration) &&
+            (!this->last_sent.has_value() || *this->last_sent != *this->value)) {
+            const auto &o = this->state.output(0);
+            const auto &o_time = this->state.output_time(0);
+            o->resize(1);
+            std::memcpy(o->data(), this->value->data(), this->value->size());
+            *o_time = x::telem::Series(current_time.nanoseconds());
+            this->last_sent = *this->value;
+            this->state.emit(ctx.mark_changed, 0);
         }
+
         return x::errors::NIL;
     }
 
@@ -133,7 +133,7 @@ class Module : public stl::Module {
 public:
     [[nodiscard]] std::string module_name() const override { return "stable"; }
 
-    bool handles(const std::string &node_type) const override {
+    [[nodiscard]] bool handles(const std::string &node_type) const override {
         return node_type == "stable_for" || node_type == "for";
     }
 

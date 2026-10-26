@@ -41,6 +41,7 @@ type options struct {
 	// slowConsumerTimeout bounds how long the relay waits for a streamer to receive a
 	// frame before dropping it.
 	slowConsumerTimeout time.Duration
+	chunkSize           int64
 }
 
 func (o *options) Report() alamos.Report { return alamos.Report{"dirname": o.dirname} }
@@ -51,6 +52,7 @@ func newOptions(dirname string, opts ...Option) (*options, error) {
 		relayBufferSize:     defaultRelayBufferSize,
 		streamBufferSize:    defaultStreamBufferSize,
 		slowConsumerTimeout: defaultSlowConsumerTimeout,
+		chunkSize:           defaultChunkSize,
 	}
 	for _, opt := range opts {
 		opt(o)
@@ -78,6 +80,7 @@ func mergeAndValidateOptions(o *options) error {
 	v.Positive("relay_buffer_size", o.relayBufferSize)
 	v.Positive("stream_buffer_size", o.streamBufferSize)
 	v.Positive("slow_consumer_timeout", o.slowConsumerTimeout)
+	v.Positive("chunk_size", o.chunkSize)
 	return v.Error()
 }
 
@@ -120,4 +123,12 @@ func WithStreamBufferSize(size int) Option {
 // streamer to receive a frame before dropping it. Defaults to 20ms.
 func WithSlowConsumerTimeout(timeout time.Duration) Option {
 	return func(o *options) { o.slowConsumerTimeout = timeout }
+}
+
+// WithChunkSize sets the most samples, summed over an iterator's channels, that one
+// chunk of a fixed-span Next or Prev holds. A run of equal timestamps can exceed it.
+// Defaults to 8,388,608 samples. IteratorConfig.AutoChunkSize sets the chunk size of
+// an automatic span, per channel.
+func WithChunkSize(size int64) Option {
+	return func(o *options) { o.chunkSize = size }
 }

@@ -16,13 +16,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v8"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -127,9 +127,9 @@ var _ = Describe("Migration", func() {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:        db,
 			Namespace: "Schematic",
-			Migrations: []migrate.Migration{
-				gorp.NewMigration(v0.Migration.Key(), noop),
-				gorp.NewMigration(v7.Migration.Key(), noop),
+			Migrations: []gorp.Migration{
+				migrate.New(v0.Migration.Key(), noop),
+				migrate.New(v7.Migration.Key(), noop),
 				v8.Migration,
 			},
 		})).To(Succeed())
@@ -244,7 +244,7 @@ var _ = Describe("ScaleMigration", func() {
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 				DB:         db,
 				Namespace:  "Schematic",
-				Migrations: []migrate.Migration{v8.ScaleMigration},
+				Migrations: []gorp.Migration{v8.ScaleMigration},
 			})).To(Succeed())
 			var got v8.Schematic
 			Expect(gorp.NewRetrieve[v8.Key, v8.Schematic]().

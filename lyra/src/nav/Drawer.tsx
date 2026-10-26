@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
 
 import { CSS } from "@/css";
 import { useSyncedRef } from "@/hooks";
@@ -30,29 +30,20 @@ export const Drawer = ({
 }: DrawerProps) => {
   const collapsedRef = useSyncedRef(collapsed);
   const [dragCollapsed, setDragCollapsed] = useState(false);
-  const underCollapseThreshold = useCallback(
-    (size: number, { dragSize }: Resize.HandlerExtra) =>
-      size - dragSize > collapseThreshold,
-    [collapseThreshold],
-  );
-  const handleResize = useCallback(
-    (size: number, extra: Resize.HandlerExtra) => {
-      if (collapsedRef.current) return;
-      const next = underCollapseThreshold(size, extra);
-      setDragCollapsed(next);
-      if (!next) onResize?.(size, extra);
-    },
-    [onResize, underCollapseThreshold],
-  );
-  const handleResizeEnd = useCallback(
-    (size: number, extra: Resize.HandlerExtra) => {
-      setDragCollapsed(false);
-      if (collapsedRef.current) return;
-      if (underCollapseThreshold(size, extra)) onCollapse?.();
-      else onResizeEnd?.(size, extra);
-    },
-    [onResizeEnd, onCollapse, underCollapseThreshold],
-  );
+  const underCollapseThreshold = (size: number, { dragSize }: Resize.HandlerExtra) =>
+    size - dragSize > collapseThreshold;
+  const handleResize = (size: number, extra: Resize.HandlerExtra) => {
+    if (collapsedRef.current) return;
+    const next = underCollapseThreshold(size, extra);
+    setDragCollapsed(next);
+    if (!next) onResize?.(size, extra);
+  };
+  const handleResizeEnd = (size: number, extra: Resize.HandlerExtra) => {
+    setDragCollapsed(false);
+    if (collapsedRef.current) return;
+    if (underCollapseThreshold(size, extra)) onCollapse?.();
+    else onResizeEnd?.(size, extra);
+  };
   return (
     <Resize.Single
       className={CSS.cls(

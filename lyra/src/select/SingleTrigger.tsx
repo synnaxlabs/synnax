@@ -9,9 +9,11 @@
 
 import "@/select/SingleTrigger.css";
 
-import { type record } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useId } from "react";
+import { primitive, type record } from "@synnaxlabs/x";
+import { type KeyboardEvent, type ReactElement, useId } from "react";
 
+import { Button } from "@/button";
+import { Caret } from "@/caret";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
@@ -34,6 +36,12 @@ export interface SingleTriggerProps extends Dialog.TriggerProps {
   icon?: Icon.ReactElement;
   /** Whether to render the icon alone, with no name and no caret. */
   iconOnly?: boolean;
+  /**
+   * Whether hovering the trigger shows a button that clears the selection, and Delete or
+   * Backspace on the focused trigger clears it. The button covers the icon, or the caret
+   * when there is no icon. Single sets it from `allowNone`.
+   */
+  clearable?: boolean;
   /** Chooses an icon from the selected entry, overriding `icon`. */
   renderIcon?: (entry: unknown) => Icon.ReactElement | undefined;
   /**
@@ -64,45 +72,41 @@ export const SingleTrigger = <K extends record.Key>({
   hideCaret = false,
   renderIcon,
   collapsible = false,
+  clearable = false,
   preview,
   className,
   tooltip,
   hideTooltip,
   id: idProp,
+  onKeyDown,
   ...rest
 }: SingleTriggerProps): ReactElement => {
   const allSelected = useSelected<K>();
-  const { setSelected } = useContext<K>();
+  const { setSelected, clear } = useContext<K>();
   const [selected] = allSelected;
   const fixed = useIsFixed(selected);
   const fixedText = useText(selected);
   const item = List.useItem<K, SingleTriggerEntry<K>>(selected);
   const { name, icon } = item ?? {};
   const resolvedIcon = renderIcon?.(item) ?? icon ?? baseIcon;
-  const canDrop = useCallback(
-    (hauled: Haul.DraggingState) =>
-      staticCanDrop(hauled, haulType, allSelected, disabled),
-    [haulType, allSelected, disabled],
-  );
+  const canDrop = (hauled: Haul.DraggingState) =>
+    staticCanDrop(hauled, haulType, allSelected, disabled);
   const { startDrag, onDragEnd, ...dropProps } = Haul.useDragAndDrop({
     type: haulType,
     canDrop,
-    onDrop: Haul.useFilterByTypeCallback(
-      haulType,
-      ({ items }) => {
-        if (items.length !== 0) setSelected([items[0].key as K]);
-        return items;
-      },
-      [setSelected],
-    ),
+    onDrop: ({ items }) => {
+      const dropped = Haul.filterByType(haulType, items);
+      if (dropped.length !== 0) setSelected([dropped[0].key as K]);
+      return dropped;
+    },
   });
   // A drag copies the selection: a single select must keep its value. Only a key that
   // resolves to an entry drags, so an empty sentinel such as 0 never does.
   const draggable =
     haulType !== "" && item != null && !fixed && disabled !== true && preview !== true;
-  const handleDragStart = useCallback(() => {
+  const handleDragStart = () => {
     if (item != null) startDrag([{ key: item.key, type: haulType }]);
-  }, [startDrag, item, haulType]);
+  };
   const dragging = Haul.useDraggingState();
   const baseId = useId();
   const id = idProp ?? baseId;
@@ -110,6 +114,34 @@ export const SingleTrigger = <K extends record.Key>({
   // A self-reference reads the trigger's own aria-label, so the name becomes the
   // aria-label followed by the selection.
   const shown = fixed ? fixedText : (name ?? (preview === true ? "None" : placeholder));
+  const { visible, variant } = Dialog.useContext();
+  // A key with no entry, such as a deleted resource, can still be cleared. A zero key
+  // means none.
+  const canClear =
+    clearable && primitive.isNonZero(selected) && disabled !== true && preview !== true;
+  const clearOnIcon = canClear && resolvedIcon != null;
+  const clearOnCaret =
+    canClear && !clearOnIcon && variant !== "modal" && !hideCaret && !iconOnly;
+  const clearShown = clearOnIcon || clearOnCaret;
+  // The clear button is not a tab stop, so the focused trigger takes the key instead.
+  const handleKeyDown = (e: KeyboardEvent<HTMLElement>): void => {
+    onKeyDown?.(e);
+    if (!canClear || (e.key !== "Delete" && e.key !== "Backspace")) return;
+    e.preventDefault();
+    clear();
+  };
+  const withClear = (glyph: ReactElement): ReactElement => (
+    <span className={CSS.BE("select-single-trigger", "icon")}>
+      {glyph}
+      <Button.Close
+        el="div"
+        role="button"
+        aria-label={`Clear ${name ?? fixedText ?? "selection"}`}
+        className={CSS.BE("select-single-trigger", "clear")}
+        onClick={clear}
+      />
+    </span>
+  );
   const labelledBySelection =
     rest["aria-label"] != null &&
     !iconOnly &&
@@ -124,6 +156,8 @@ export const SingleTrigger = <K extends record.Key>({
         CSS.dropRegion(canDrop(dragging)),
         name == null && !fixed ? CSS.BM("select-single-trigger", "empty") : null,
         collapsible && CSS.BM("select-single-trigger", "collapsible"),
+        clearShown && CSS.M("reveals"),
+        clearShown && CSS.BM("select-single-trigger", "clearable"),
         className,
       )}
       disabled={disabled}
@@ -132,20 +166,25 @@ export const SingleTrigger = <K extends record.Key>({
       onDragEnd={onDragEnd}
       {...dropProps}
       {...rest}
+      onKeyDown={handleKeyDown}
       aria-labelledby={
         labelledBySelection ? `${id} ${labelId}` : rest["aria-labelledby"]
       }
       tooltip={tooltip ?? (collapsible ? shown : undefined)}
       hideTooltip={hideTooltip ?? (collapsible ? nameReadable : undefined)}
       preview={preview}
-      hideCaret={hideCaret || iconOnly}
+      hideCaret={hideCaret || iconOnly || clearOnCaret}
     >
-      {resolvedIcon}
+      {clearOnIcon ? withClear(resolvedIcon) : resolvedIcon}
       {!iconOnly && (
         <Label itemKey={selected} id={labelId}>
           {shown}
         </Label>
       )}
+      {clearOnCaret &&
+        withClear(
+          <Caret.Animated enabled={visible} enabledLoc="bottom" disabledLoc="left" />,
+        )}
     </Dialog.Trigger>
   );
 };

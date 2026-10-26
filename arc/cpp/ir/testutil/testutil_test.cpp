@@ -26,8 +26,8 @@ TEST(BuilderTest, StrataLayerMembersAcrossRoot) {
     ASSERT_EQ(ir.root.strata.size(), 2);
     ASSERT_EQ(ir.root.strata[0].size(), 2);
     ASSERT_TRUE(ir.root.strata[0][0].node_key.has_value());
-    EXPECT_EQ(*ir.root.strata[0][0].node_key, "A");
-    EXPECT_EQ(*ir.root.strata[1][0].node_key, "C");
+    EXPECT_EQ(ir.root.strata[0][0].node_key.value(), "A");
+    EXPECT_EQ(ir.root.strata[1][0].node_key.value(), "C");
 }
 
 /// @brief sequence() with parallel stratum specs should produce a sequential
@@ -64,11 +64,11 @@ TEST(BuilderTest, SequenceAppendsSequentialWithParallelChildren) {
     EXPECT_EQ(stage_a.mode, arc::ir::ScopeMode::Parallel);
     ASSERT_EQ(stage_a.strata.size(), 2);
     ASSERT_EQ(stage_a.strata[0].size(), 2);
-    EXPECT_EQ(*stage_a.strata[0][0].node_key, "A");
+    EXPECT_EQ(stage_a.strata[0][0].node_key.value(), "A");
 
     const auto &stage_b = *main.steps[1].scope;
     ASSERT_EQ(stage_b.strata.size(), 1);
-    EXPECT_EQ(*stage_b.strata[0][0].node_key, "D");
+    EXPECT_EQ(stage_b.strata[0][0].node_key.value(), "D");
 }
 
 /// @brief sequence() with step specs should produce a sequential gated
@@ -91,8 +91,8 @@ TEST(BuilderTest, SequenceAppendsSequentialWithSequentialChildren) {
     const auto &flow_a = *main.steps[0].scope;
     EXPECT_EQ(flow_a.mode, arc::ir::ScopeMode::Sequential);
     ASSERT_EQ(flow_a.steps.size(), 2);
-    EXPECT_EQ(*flow_a.steps[0].node_key, "N1");
-    EXPECT_EQ(*flow_a.steps[1].node_key, "N2");
+    EXPECT_EQ(flow_a.steps[0].node_key.value(), "N1");
+    EXPECT_EQ(flow_a.steps[1].node_key.value(), "N2");
 }
 
 /// @brief edge() should create continuous edges.

@@ -887,6 +887,51 @@ describe("queries", () => {
     });
   });
 
+  describe("useMultiple", () => {
+    const createDevice = async (make: string) => {
+      const rack = await client.racks.create({ name: "test" });
+      return await client.devices.create({
+        key: id.create(),
+        name: "test",
+        rack: rack.key,
+        location: "test",
+        make,
+        model: "test",
+        properties: {},
+      });
+    };
+
+    it("should add a device of the make created after the query resolves", async () => {
+      const make = id.create();
+      const first = await createDevice(make);
+      const { result } = await renderHookSuspended(
+        () => Device.useMultiple({ makes: [make] }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current?.map((d) => d.key)).toEqual([first.key]),
+      );
+      const second = await createDevice(make);
+      await waitFor(() =>
+        expect(result.current?.map((d) => d.key).sort()).toEqual(
+          [first.key, second.key].sort(),
+        ),
+      );
+    });
+
+    it("should reflect a device configured after the query resolves", async () => {
+      const make = id.create();
+      const dev = await createDevice(make);
+      const { result } = await renderHookSuspended(
+        () => Device.useMultiple({ makes: [make] }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current?.[0]?.configured).toBe(false));
+      await client.devices.create({ ...dev, configured: true });
+      await waitFor(() => expect(result.current?.[0]?.configured).toBe(true));
+    });
+  });
+
   describe("keyed multi-retrieve", () => {
     it("should retrieve multiple devices from the server when none are cached", async () => {
       const rack = await client.racks.create({ name: "test" });
@@ -1154,11 +1199,19 @@ describe("queries", () => {
         const rack = await client.racks.create({
           name: "test custom props rack",
         });
-        const useForm = Device.createForm({
-          properties: customPropertiesZ,
-          make: z.string(),
-          model: z.string(),
-        });
+        const useForm = Device.createForm(
+          { properties: customPropertiesZ, make: z.string(), model: z.string() },
+          {
+            key: "",
+            rack: 0,
+            name: "",
+            make: "",
+            model: "",
+            location: "",
+            configured: true,
+            properties: { serialNumber: "", calibrationDate: "" },
+          },
+        );
         const { result } = renderHook(() => useForm({ query: null }), {
           wrapper,
         });
@@ -1334,6 +1387,16 @@ describe("queries", () => {
     });
     const makeSchema = z.literal("custom_make");
     const modelSchema = z.string();
+    const SCHEMA_VALUES = {
+      key: "",
+      rack: 0,
+      name: "",
+      make: "custom_make" as const,
+      model: "",
+      location: "",
+      configured: true,
+      properties: { sampleRate: 0, channels: {} },
+    };
     const schemas = {
       properties: propertiesSchema,
       make: makeSchema,
@@ -1626,7 +1689,7 @@ describe("queries", () => {
           schemas,
         );
 
-        const useForm = Device.createForm(schemas);
+        const useForm = Device.createForm(schemas, SCHEMA_VALUES);
         const { result } = renderHook(() => useForm({ query: { key: dev.key } }), {
           wrapper,
         });
@@ -1673,7 +1736,10 @@ describe("queries", () => {
           properties: {},
         });
 
-        const useForm = Device.createForm(defaultedSchemas);
+        const useForm = Device.createForm(defaultedSchemas, {
+          ...SCHEMA_VALUES,
+          properties: { connection: { host: "" } },
+        });
         const { result } = renderHook(() => useForm({ query: { key: dev.key } }), {
           wrapper,
         });
@@ -1698,7 +1764,7 @@ describe("queries", () => {
           properties: {},
         });
 
-        const useForm = Device.createForm(schemas);
+        const useForm = Device.createForm(schemas, SCHEMA_VALUES);
         const Display = (): ReactElement => {
           useForm({ query: { key: dev.key } });
           return <div data-testid="loaded" />;
@@ -1736,7 +1802,7 @@ describe("queries", () => {
 
         const foreignKey = id.create();
         const foreignSeen = { current: false };
-        const useForm = Device.createForm(schemas);
+        const useForm = Device.createForm(schemas, SCHEMA_VALUES);
         const { result } = renderHook(
           () => {
             Device.useSetSynchronizer((changed) => {
@@ -1788,7 +1854,7 @@ describe("queries", () => {
         );
 
         const latestProperties = { current: undefined as record.Unknown | undefined };
-        const useForm = Device.createForm(schemas);
+        const useForm = Device.createForm(schemas, SCHEMA_VALUES);
         const { result } = renderHook(
           () => {
             Device.useSetSynchronizer((changed) => {
@@ -1832,7 +1898,7 @@ describe("queries", () => {
           schemas,
         );
 
-        const useForm = Device.createForm(schemas);
+        const useForm = Device.createForm(schemas, SCHEMA_VALUES);
         const { result } = renderHook(() => useForm({ query: { key: dev.key } }), {
           wrapper,
         });

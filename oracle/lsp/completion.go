@@ -11,6 +11,7 @@ package lsp
 
 import (
 	"context"
+	"slices"
 	"strings"
 
 	"go.lsp.dev/protocol"
@@ -173,7 +174,7 @@ var (
 		{
 			Label:  "search",
 			Kind:   protocol.CompletionItemKindProperty,
-			Detail: protocol.NewOptional("Index the resource for search"),
+			Detail: protocol.NewOptional("Retrieve requests can search the field"),
 		},
 		{
 			Label:  "index",
@@ -254,9 +255,28 @@ var (
 		{
 			Label:  "omit",
 			Kind:   protocol.CompletionItemKindValue,
-			Detail: protocol.NewOptional("Skip code generation for this declaration"),
+			Detail: protocol.NewOptional("Leave a type or field out of the language"),
 		},
 	}
+
+	goExpressionCompletions = append(
+		slices.Clone(outputExpressionCompletions),
+		protocol.CompletionItem{
+			Label:  "marshal",
+			Kind:   protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional("Generate a codec, or omit a field from it"),
+		},
+		protocol.CompletionItem{
+			Label:  "wire",
+			Kind:   protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional("Omit a field from JSON and msgpack"),
+		},
+		protocol.CompletionItem{
+			Label:  "to_any",
+			Kind:   protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional("Generate ToAny on a generic struct"),
+		},
+	)
 
 	ontologyExpressionCompletions = []protocol.CompletionItem{
 		{
@@ -271,6 +291,11 @@ var (
 			Label:  "output",
 			Kind:   protocol.CompletionItemKindValue,
 			Detail: protocol.NewOptional("Output path for generated code"),
+		},
+		{
+			Label:  "omit",
+			Kind:   protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional("Leave a type or field out of the language"),
 		},
 		{
 			Label:  "use_input",
@@ -329,8 +354,9 @@ func getCompletionsForContext(linePrefix string) []protocol.CompletionItem {
 			return tsExpressionCompletions
 		case strings.HasPrefix(rest, "ontology "):
 			return ontologyExpressionCompletions
-		case strings.HasPrefix(rest, "go "),
-			strings.HasPrefix(rest, "py "),
+		case strings.HasPrefix(rest, "go "):
+			return goExpressionCompletions
+		case strings.HasPrefix(rest, "py "),
 			strings.HasPrefix(rest, "cpp "),
 			strings.HasPrefix(rest, "pb "):
 			return outputExpressionCompletions

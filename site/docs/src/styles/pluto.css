@@ -36,13 +36,46 @@
     }
 }
 
+/* An article's tabs frame their panel like a Console pane, with the strip as the
+   pane's header. */
+article .pluto-tabs {
+    margin: 4rem 0 var(--docs-block-gap);
+    border: var(--pluto-border);
+    border-radius: 1.5rem;
+    background: var(--pluto-gray-l0);
+    overflow: hidden;
+
+    /* A panel hidden until found keeps its box, so only a shown panel gets padding. */
+    .pluto-tabs__content:not([hidden]) {
+        padding: var(--docs-block-padding);
+
+        & > :last-child {
+            margin-bottom: 0;
+        }
+    }
+}
+
+/* Tabs keep their full labels. On a phone, the strip scrolls instead. */
 article .pluto-tabs__selector {
-    margin: 1rem 1rem 2.5rem;
-    --pluto-height-medium: 6.5rem;
-    --pluto-tabs-tab-height: 5.5rem;
+    flex: 1;
+    min-width: 0;
+    justify-content: flex-start;
+
+    --pluto-height-medium: 7rem;
+    --pluto-tabs-tab-height: 5rem;
+
+    @media (pointer: coarse) {
+        --pluto-height-medium: 8rem;
+        --pluto-tabs-tab-height: 6.5rem;
+
+        /* A chip takes the small button height, not the tab height. */
+        &.pluto-tabs__selector--chip {
+            --pluto-height-small: 6rem;
+        }
+    }
 
     .pluto-tabs__tab {
-        padding: 0 2.5rem;
+        padding: 0 2rem;
         gap: 1.5rem;
 
         @media (max-width: 800px) {
@@ -56,26 +89,10 @@ article .pluto-tabs__selector {
     }
 }
 
-/* Tree component */
+/* Tree component. The page nav and the header drawer each size their own tree. */
 .pluto-tree {
-    max-height: calc(100vh - 15rem);
     overflow-y: auto;
     overflow-x: hidden;
-    padding-top: 5rem;
-    mask-image: linear-gradient(
-        to bottom,
-        transparent 0,
-        black 5rem,
-        black calc(100% - 5rem),
-        transparent 100%
-    );
-    -webkit-mask-image: linear-gradient(
-        to bottom,
-        transparent 0,
-        black 5rem,
-        black calc(100% - 5rem),
-        transparent 100%
-    );
 
     /* Firefox scrollbar */
     scrollbar-width: thin;
@@ -140,6 +157,7 @@ article .pluto-tabs__selector {
 
     .page-nav-section-header {
         margin-top: 2.5rem;
+        padding-inline: 0.5rem;
         cursor: default;
         box-shadow: none !important;
 
@@ -174,54 +192,19 @@ article table code {
 .pluto-breadcrumb code,
 .on-this-page-item code {
     color: inherit;
-    font-size: inherit;
     line-height: inherit;
     font-weight: inherit;
+}
+
+.pluto-tree code,
+.pluto-breadcrumb code {
+    font-size: inherit;
 }
 
 /* The page nav already sits on gray-l2, so the default chip vanishes into it. */
 .pluto-tree code {
     background: var(--pluto-gray-l3);
     border-color: var(--pluto-gray-l4);
-}
-
-/* Note component - override base layer text colors */
-.pluto-note {
-    &.pluto--info {
-        &,
-        & p,
-        & li,
-        & span,
-        & a,
-        & strong,
-        & code {
-            color: var(--pluto-primary-text);
-        }
-    }
-
-    &.pluto--warning {
-        &,
-        & p,
-        & li,
-        & span,
-        & a,
-        & strong,
-        & code {
-            color: var(--pluto-warning-text);
-        }
-    }
-
-    &.pluto--error {
-        &,
-        & p,
-        & li,
-        & span,
-        & a,
-        & strong,
-        & code {
-            color: var(--pluto-error-text);
-        }
-    }
 }
 
 /* Override Pluto's typography.css which sets font-family directly on td/th.

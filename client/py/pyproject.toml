@@ -21,9 +21,9 @@ dependencies = [
     "click>=8.5.0,<9",
     "keyring>=25.7.0,<26",
     "matplotlib>=3.11.2,<4",
-    "numpy>=2.5.3,<3",
+    "numpy>=2.5.4,<3",
     "pandas>=3.0.6,<4",
-    "pydantic>=2.13.5,<3",
+    "pydantic>=2.14.1,<3",
     "rich>=15.0.0,<16",
     "typing-extensions>=4.16.0,<5",
     "urllib3>=2.8.0,<3",
@@ -38,18 +38,19 @@ Repository = "https://github.com/synnaxlabs/synnax"
 
 [dependency-groups]
 dev = [
-    "asyncua>=2.0.1,<3",
+    "asyncua>=2.1.0,<3",
     "flask>=3.1.3,<4",
-    "mypy>=2.3.1,<3",
-    "ruff>=0.16.8,<1",
+    "mypy>=2.4.0,<3",
+    "ruff>=0.17.1,<1",
     "pandas-stubs>=3.0.5.260914,<4",
-    "pymodbus>=3.15.0,<4",
+    "pymodbus>=3.16.1,<4",
     "pytest>=9.1.1,<10",
     "pytest-asyncio>=1.4.0,<2",
     "pytest-cov>=7.1.0,<8",
     "scipy>=1.18.1,<2",
     "scipy-stubs>=1.18.1.1,<2",
     "types-pyserial>=3.5.0.20260712,<4",
+    "nptdms>=1.13.0,<2",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -133,6 +134,7 @@ markers = [
     "telem: mark test as a telem test",
     "timing: mark test as a timing test",
     "tsconvert: mark test as a tsconvert test",
+    "reader: mark test as a frame reader test",
     "writer: mark test as a frame writer test",
     "streamer: mark test as a frame streamer test",
     "calculations: mark test as a calculated channels test",

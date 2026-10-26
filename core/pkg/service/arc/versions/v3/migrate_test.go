@@ -20,15 +20,15 @@ import (
 	graph "github.com/synnaxlabs/arc/graph/versions/v0"
 	ir "github.com/synnaxlabs/arc/ir/versions/v0"
 	text "github.com/synnaxlabs/arc/text/versions/v0"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v1"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
 	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -133,7 +133,6 @@ var _ = Describe("MigrateArc", func() {
 			Expect(got.Graph.Nodes).To(HaveLen(2))
 			Expect(got.Graph.Nodes[1].Position.X).To(Equal(100.0))
 			Expect(got.Program).To(BeNil())
-			Expect(got.Status).To(BeNil())
 		})
 
 		It(
@@ -203,7 +202,7 @@ var _ = Describe("MigrateArc", func() {
 		})
 
 		It(
-			"drops Status and Program and preserves core wire fields when v0 entries carry a populated Status",
+			"drops Program and preserves core wire fields when v0 entries carry a populated Status",
 			func(ctx SpecContext) {
 				statusKey := uuid.New().String()
 				labelKey := uuid.New()
@@ -233,7 +232,6 @@ var _ = Describe("MigrateArc", func() {
 				Expect(got.Key).To(Equal(seed.Key))
 				Expect(got.Name).To(Equal(seed.Name))
 				Expect(got.Mode).To(Equal(v3.Mode(seed.Mode)))
-				Expect(got.Status).To(BeNil())
 				Expect(got.Program).To(BeNil())
 			},
 		)
@@ -248,10 +246,10 @@ func migrateFromV1(ctx SpecContext, seed v1.Arc) v3.Arc {
 	db := DeferClose(gorp.Wrap(memkv.New()))
 	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v1.Key, v1.Arc]{DB: db}))
 	Expect(gorp.NewCreate[v1.Key, v1.Arc]().Entry(&seed).Exec(ctx, db)).To(Succeed())
-	prior := append([]migrate.Migration{v0.Migration}, v1.Migrations...)
-	applied := make([]migrate.Migration, 0, len(prior)+1)
+	prior := append([]gorp.Migration{v0.Migration}, v1.Migrations...)
+	applied := make([]gorp.Migration, 0, len(prior)+1)
 	for _, m := range prior {
-		applied = append(applied, gorp.NewMigration(
+		applied = append(applied, migrate.New(
 			m.Key(),
 			func(context.Context, gorp.Tx, alamos.Instrumentation) error { return nil },
 		))
@@ -279,8 +277,8 @@ func migrateFromV0(ctx SpecContext, seed v0.Arc) v3.Arc {
 		DB:        db,
 		Namespace: "Arc",
 		Migrations: slices.Concat(
-			[]migrate.Migration{v0.Migration}, v1.Migrations,
-			[]migrate.Migration{v3.Migration, v3.ModeMigration},
+			[]gorp.Migration{v0.Migration}, v1.Migrations,
+			[]gorp.Migration{v3.Migration, v3.ModeMigration},
 		),
 	})).To(Succeed())
 	var got v3.Arc

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Context, type UnaryClient, Unreachable } from "@synnaxlabs/freighter";
-import { type breaker, TimeSpan, TimeStamp, url } from "@synnaxlabs/x";
+import { type breaker, observe, TimeSpan, TimeStamp, url } from "@synnaxlabs/x";
 import { assert, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -26,10 +26,11 @@ import {
   AuthError,
   DisconnectedError,
   ExpiredLicenseError,
+  MissingLicenseError,
 } from "@/errors";
 import { license } from "@/license";
 import { query } from "@/query";
-import { TEST_CLIENT_PARAMS, waitForStatus } from "@/testutil";
+import { TEST_CLIENT_PARAMS } from "@/testutil";
 import { Transport } from "@/transport";
 
 const liveUnary = (): UnaryClient => {
@@ -271,7 +272,9 @@ describe("connection", () => {
 
   describe("reduce", () => {
     it("should start in loading", () => {
-      expect(createInitialStatus(createConfig()).variant).toEqual("loading");
+      const initial = createInitialStatus(createConfig());
+      expect(initial.variant).toEqual("loading");
+      expect(initial.message).toEqual("Connecting");
     });
 
     it("should track an in-flight check without moving the variant", () => {
@@ -298,11 +301,13 @@ describe("connection", () => {
     });
 
     it("should reach success on a check when no stream is required", () => {
-      const status = apply(createConfig(), {
+      const status = apply(createConfig({ name: "Lab Core" }), {
         type: "check.success",
         info: createInfo(),
       });
       expect(status.variant).toEqual("success");
+      expect(status.name).toEqual("Lab Core");
+      expect(status.message).toEqual("Connected");
       expect(status.details.clusterKey).toEqual("test-cluster");
     });
 
@@ -355,6 +360,8 @@ describe("connection", () => {
       const failed = apply(config, { type: "check.failure", error, attempt: 1 });
       const exhausted = reduce(failed, { type: "retry.exhausted" }, config);
       expect(exhausted.variant).toEqual("error");
+      expect(exhausted.message).toEqual("Cannot reach Core");
+      expect(exhausted.description).toEqual("server down");
       expect(reasonOf(exhausted)).toEqual("unreachable");
       expect(exhausted.details.retry).toBeNull();
     });
@@ -387,9 +394,12 @@ describe("connection", () => {
         { type: "stream.denied" },
       );
       expect(denied.variant).toEqual("warning");
+      expect(denied.message).toEqual("Connected");
+      expect(denied.description).toEqual(
+        "Live updates are unavailable. This user cannot read the change channels.",
+      );
       expect(denied.details.streamDenied).toBe(true);
       expect(denied.details.streamLive).toBe(false);
-      expect(denied.description).not.toEqual("");
       // later checks must not drag the settled denial back into loading
       const checked = reduce(
         denied,
@@ -416,6 +426,25 @@ describe("connection", () => {
       expect(replaced.details.streamDenied).toBe(false);
     });
 
+    it("should hold connecting on a live stream until the new credentials log in", () => {
+      const config = createConfig({ requiresStream: true });
+      const replaced = apply(
+        config,
+        { type: "check.success", info: createInfo() },
+        { type: "credentials.replaced" },
+      );
+      expect(replaced.details.authenticated).toBe(false);
+      const live = reduce(replaced, { type: "stream.live" }, config);
+      expect(live.variant).toEqual("loading");
+      expect(live.details.streamLive).toBe(true);
+      const checked = reduce(
+        live,
+        { type: "check.success", info: createInfo() },
+        config,
+      );
+      expect(checked.variant).toEqual("success");
+    });
+
     it("should degrade to reconnecting when a heartbeat fails while connected", () => {
       const config = createConfig();
       const connected = apply(config, { type: "check.success", info: createInfo() });
@@ -439,6 +468,8 @@ describe("connection", () => {
         error: new AuthError("invalid credentials"),
       });
       expect(rejected.variant).toEqual("error");
+      expect(rejected.message).toEqual("Failed to authenticate");
+      expect(rejected.description).toEqual("invalid credentials");
       expect(reasonOf(rejected)).toEqual("auth");
       expect(rejected.details.authenticated).toBe(false);
       const retrying = reduce(rejected, { type: "retry.requested" }, config);
@@ -458,32 +489,33 @@ describe("connection", () => {
       expect(reasonOf(status)).toEqual("auth");
     });
 
-    it("should connect when the Core reports no license", () => {
-      const status = apply(createConfig(), {
+    it("should enter error(unlicensed) when the Core reports no license", () => {
+      const config = createConfig();
+      const status = apply(config, {
         type: "check.success",
         info: createInfo({ license: "missing" }),
       });
-      expect(status.variant).toEqual("success");
+      expect(reasonOf(status)).toEqual("unlicensed");
       expect(status.details.license).toEqual("missing");
+      expect(status.details.authenticated).toBe(true);
+      expect(MissingLicenseError.matches(status.details.error)).toBe(true);
+      expect(modeFor(status)).toEqual("checking");
     });
 
-    it("should enter error(unlicensed) when the Core reports an expired license", () => {
+    it("should report an expired license with its own error", () => {
       const status = apply(createConfig(), {
         type: "check.success",
         info: createInfo({ license: "expired" }),
       });
       expect(reasonOf(status)).toEqual("unlicensed");
-      expect(status.details.license).toEqual("expired");
-      expect(status.details.authenticated).toBe(true);
       expect(ExpiredLicenseError.matches(status.details.error)).toBe(true);
-      expect(modeFor(status)).toEqual("checking");
     });
 
     it("should leave error(unlicensed) once a check reports a license", () => {
       const config = createConfig();
       const unlicensed = apply(config, {
         type: "check.success",
-        info: createInfo({ license: "expired" }),
+        info: createInfo({ license: "missing" }),
       });
       const licensed = reduce(
         unlicensed,
@@ -499,7 +531,7 @@ describe("connection", () => {
       const config = createConfig({ requiresStream: true });
       const unlicensed = apply(config, {
         type: "check.success",
-        info: createInfo({ license: "expired" }),
+        info: createInfo({ license: "missing" }),
       });
       const checked = reduce(
         unlicensed,
@@ -514,7 +546,7 @@ describe("connection", () => {
       const config = createConfig({ escalateAfter: 2 });
       const unlicensed = apply(config, {
         type: "check.success",
-        info: createInfo({ license: "expired" }),
+        info: createInfo({ license: "missing" }),
       });
       const error = new Unreachable({ message: "server down" });
       const once = reduce(
@@ -525,6 +557,8 @@ describe("connection", () => {
       expect(once.variant).toEqual("loading");
       const twice = reduce(once, { type: "check.failure", error, attempt: 2 }, config);
       expect(reasonOf(twice)).toEqual("unreachable");
+      expect(twice.message).toEqual("Cannot reach Core");
+      expect(twice.description).toEqual("server down");
       expect(twice.details.error).toBe(error);
     });
 
@@ -532,7 +566,7 @@ describe("connection", () => {
       const config = createConfig();
       const unlicensed = apply(config, {
         type: "check.success",
-        info: createInfo({ license: "expired" }),
+        info: createInfo({ license: "missing" }),
       });
       const retrying = reduce(unlicensed, { type: "retry.requested" }, config);
       expect(retrying.variant).toEqual("loading");
@@ -585,6 +619,7 @@ describe("connection", () => {
         config,
       );
       expect(replaced.variant).toEqual("loading");
+      expect(replaced.message).toEqual("Connecting");
       expect(replaced.details.clusterKey).toEqual("other-cluster");
       expect(replaced.details.epoch).toBe(0);
       expect(replaced.details.streamLive).toBe(false);
@@ -774,9 +809,17 @@ describe("connection", () => {
     it("should keep checking after escalation and self-heal", async () => {
       const unary = createScriptedUnary({ failing: true });
       const client = createClient(unary, { escalateAfter: 1 });
-      await waitForStatus(client, (s) => s.variant === "error");
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "error",
+      );
       unary.setFailing(false);
-      const status = await waitForStatus(client, (s) => s.variant === "success");
+      const status = await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "success",
+      );
       expect(reasonOf(status)).toBeUndefined();
       await client.close();
     });
@@ -788,8 +831,16 @@ describe("connection", () => {
         { escalateAfter: 2 },
         { ...FAST_RETRY, maxRetries: 3 },
       );
-      await waitForStatus(client, (s) => s.variant === "error");
-      await waitForStatus(client, (s) => s.details.retry == null);
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "error",
+      );
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => s.details.retry == null,
+      );
       const send = unary.send as ReturnType<typeof vi.fn>;
       const calls = send.mock.calls.length;
       await sleep(TimeSpan.milliseconds(20));
@@ -803,7 +854,11 @@ describe("connection", () => {
     it("should check immediately on retryNow while in heartbeat mode", async () => {
       const unary = mockUnary(() => TimeStamp.now());
       const client = createClient(unary, {}, FAST_RETRY, TimeSpan.seconds(60));
-      await waitForStatus(client, (s) => s.variant === "success");
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "success",
+      );
       const send = unary.send as ReturnType<typeof vi.fn>;
       // the mode switch into heartbeat may fire one buffered check; settle
       // before measuring quiescence
@@ -820,7 +875,11 @@ describe("connection", () => {
     it("should stop checking once the connection is closed", async () => {
       const unary = failingUnary();
       const client = createClient(unary, { escalateAfter: 1 });
-      await waitForStatus(client, (s) => s.variant === "error");
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "error",
+      );
       await client.close();
       expect(client.status.variant).toEqual("disabled");
       const send = unary.send as ReturnType<typeof vi.fn>;
@@ -832,7 +891,11 @@ describe("connection", () => {
     it("should idle rather than check while parked on an auth error", async () => {
       const unary = mockUnary(() => TimeStamp.now());
       const client = createClient(unary);
-      await waitForStatus(client, (s) => s.variant === "success");
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "success",
+      );
       client.notify({ type: "auth.failure", error: new AuthError("bad password") });
       const send = unary.send as ReturnType<typeof vi.fn>;
       const calls = send.mock.calls.length;
@@ -844,14 +907,22 @@ describe("connection", () => {
     it("should resume checking when credentials are replaced", async () => {
       const unary = mockUnary(() => TimeStamp.now());
       const client = createClient(unary);
-      await waitForStatus(client, (s) => s.variant === "success");
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "success",
+      );
       client.notify({ type: "auth.failure", error: new AuthError("bad password") });
       const send = unary.send as ReturnType<typeof vi.fn>;
       const calls = send.mock.calls.length;
       await sleep(TimeSpan.milliseconds(30));
       expect(send.mock.calls.length).toBe(calls);
       client.notify({ type: "credentials.replaced" });
-      await waitForStatus(client, (s) => s.variant === "success");
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "success",
+      );
       expect(send.mock.calls.length).toBeGreaterThan(calls);
       await client.close();
     });
@@ -875,6 +946,8 @@ describe("connection", () => {
       );
       const send = unary.send as ReturnType<typeof vi.fn>;
       while (send.mock.calls.length === 0) await sleep(TimeSpan.milliseconds(1));
+      // the stream opens behind the auth middleware, so a login lands first
+      client.notify({ type: "auth.success" });
       client.notify({ type: "stream.live" });
       expect(client.status.variant).toEqual("success");
       // the check issued before the stream came up fails late: it was aimed
@@ -905,9 +978,17 @@ describe("connection", () => {
         FAST_RETRY,
         TimeSpan.milliseconds(5),
       );
-      await waitForStatus(client, (s) => s.details.clusterKey === "first");
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => s.details.clusterKey === "first",
+      );
       unary.setClusterKey("second");
-      await waitForStatus(client, (s) => s.details.clusterKey === "second");
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => s.details.clusterKey === "second",
+      );
       while (calls.length < 2) await sleep(TimeSpan.milliseconds(1));
       expect(calls.slice(0, 2)).toEqual(["reset", "ensure"]);
       await client.close();
@@ -920,7 +1001,11 @@ describe("connection", () => {
         requiresStream: true,
         stream: { reset: async () => {}, ensure: ensured },
       });
-      await waitForStatus(client, (s) => s.details.authenticated);
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => s.details.authenticated,
+      );
       while (ensured.mock.calls.length === 0) await sleep(TimeSpan.milliseconds(1));
       expect(client.status.variant).toEqual("loading");
       client.notify({ type: "stream.live" });
@@ -930,7 +1015,7 @@ describe("connection", () => {
 
     it("should not demand the stream until the Core is licensed", async () => {
       const ensured = vi.fn(async () => {});
-      const unary = createScriptedUnary({ license: "expired" });
+      const unary = createScriptedUnary({ license: "missing" });
       const client = createClient(unary, {
         requiresStream: true,
         stream: { reset: async () => {}, ensure: ensured },
@@ -964,7 +1049,11 @@ describe("connection", () => {
         },
         onInternalError: (error) => internal.push(error),
       });
-      await waitForStatus(client, (s) => s.details.streamDenied);
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => s.details.streamDenied,
+      );
       expect(client.status.variant).toEqual("warning");
       expect(probes).toEqual(1);
       const checksAtDenial = checks;
@@ -993,15 +1082,21 @@ describe("connection", () => {
         },
         onInternalError: (error) => internal.push(error),
       });
-      await waitForStatus(
+      await observe.until(
         client,
+        () => client.status,
         (s) => s.variant === "error" && s.details.reason === "unreachable",
       );
       // parked beneath the error, retries keep climbing
-      await waitForStatus(client, (s) => (s.details.retry?.attempt ?? 0) >= 3);
-      unary.setFailing(false);
-      const status = await waitForStatus(
+      await observe.until(
         client,
+        () => client.status,
+        (s) => (s.details.retry?.attempt ?? 0) >= 3,
+      );
+      unary.setFailing(false);
+      const status = await observe.until(
+        client,
+        () => client.status,
         (s) => s.variant === "success" && s.details.streamLive,
       );
       // same cluster returned: recovery must not take the replacement path
@@ -1028,9 +1123,17 @@ describe("connection", () => {
         FAST_RETRY,
         TimeSpan.milliseconds(5),
       );
-      await waitForStatus(client, (s) => s.details.clusterKey === "first");
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => s.details.clusterKey === "first",
+      );
       unary.setClusterKey("second");
-      await waitForStatus(client, (s) => s.details.clusterKey === "second");
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => s.details.clusterKey === "second",
+      );
       while (internal.length === 0) await sleep(TimeSpan.milliseconds(1));
       expect(internal[0].message).toEqual(
         "failed to reset cache after cluster replacement",
@@ -1053,8 +1156,9 @@ describe("connection", () => {
     it("should short-circuit unary calls while the cluster is unreachable", async () => {
       const unary = createScriptedUnary({ failing: true });
       const client = createClient(unary, { escalateAfter: 1 });
-      await waitForStatus(
+      await observe.until(
         client,
+        () => client.status,
         (s) => s.variant === "error" && s.details.reason === "unreachable",
       );
       const next = vi.fn(async (ctx: Context) => ctx);
@@ -1068,7 +1172,11 @@ describe("connection", () => {
     it("should exempt the check and login endpoints so the connection can heal", async () => {
       const unary = createScriptedUnary({ failing: true });
       const client = createClient(unary, { escalateAfter: 1 });
-      await waitForStatus(client, (s) => s.variant === "error");
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "error",
+      );
       const mw = client.middleware();
       const next = vi.fn(async (ctx: Context) => ctx);
       await mw(createUnaryContext("/api/v1/connectivity/check"), next);
@@ -1095,10 +1203,18 @@ describe("connection", () => {
         FAST_RETRY,
         TimeSpan.milliseconds(5),
       );
-      await waitForStatus(client, (s) => s.details.clusterKey === "first");
-      unary.setLicense("expired");
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => s.details.clusterKey === "first",
+      );
+      unary.setLicense("missing");
       unary.setClusterKey("second");
-      await waitForStatus(client, (s) => s.details.clusterKey === "second");
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => s.details.clusterKey === "second",
+      );
       while (calls.length === 0) await sleep(TimeSpan.milliseconds(1));
       const send = unary.send as ReturnType<typeof vi.fn>;
       const sent = send.mock.calls.length;
@@ -1107,29 +1223,11 @@ describe("connection", () => {
       await client.close();
     });
 
-    it("should open the stream on a Core with no license", async () => {
-      const client: connection.Client = createClient(
-        createScriptedUnary({ license: "missing" }),
-        {
-          requiresStream: true,
-          stream: {
-            reset: async () => {},
-            ensure: async () => client.notify({ type: "stream.live" }),
-          },
-        },
-      );
-      const status = await waitForStatus(
-        client,
-        (s) => s.variant === "success" && s.details.streamLive,
-      );
-      expect(status.details.license).toEqual("missing");
-      await client.close();
-    });
-
     it("should short-circuit unary calls with the expired license error", async () => {
       const client = createClient(createScriptedUnary({ license: "expired" }));
-      await waitForStatus(
+      await observe.until(
         client,
+        () => client.status,
         (s) => s.variant === "error" && s.details.reason === "unlicensed",
       );
       const next = vi.fn(async (ctx: Context) => ctx);
@@ -1142,12 +1240,16 @@ describe("connection", () => {
 
     it("should check again once a license is activated", async () => {
       const client = createClient(
-        createScriptedUnary({ license: "expired" }),
+        createScriptedUnary({ license: "missing" }),
         {},
         FAST_RETRY,
         TimeSpan.seconds(60),
       );
-      await waitForStatus(client, (s) => s.variant === "error");
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "error",
+      );
       const retryNow = vi.spyOn(client, "retryNow");
       const licenses = new license.Client({
         unary: {
@@ -1165,22 +1267,27 @@ describe("connection", () => {
     });
 
     it("should short-circuit unary calls with the license error while unlicensed", async () => {
-      const client = createClient(createScriptedUnary({ license: "expired" }));
-      await waitForStatus(
+      const client = createClient(createScriptedUnary({ license: "missing" }));
+      await observe.until(
         client,
+        () => client.status,
         (s) => s.variant === "error" && s.details.reason === "unlicensed",
       );
       const next = vi.fn(async (ctx: Context) => ctx);
       await expect(
         client.middleware()(createUnaryContext("/channel/retrieve"), next),
-      ).rejects.toThrow(ExpiredLicenseError);
+      ).rejects.toThrow(MissingLicenseError);
       expect(next).not.toHaveBeenCalled();
       await client.close();
     });
 
     it("should exempt the license endpoints so a license can be activated", async () => {
-      const client = createClient(createScriptedUnary({ license: "expired" }));
-      await waitForStatus(client, (s) => s.variant === "error");
+      const client = createClient(createScriptedUnary({ license: "missing" }));
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "error",
+      );
       const mw = client.middleware();
       const next = vi.fn(async (ctx: Context) => ctx);
       await mw(createUnaryContext(`/api/v1${license.RETRIEVE_ENDPOINT}`), next);
@@ -1192,7 +1299,11 @@ describe("connection", () => {
 
     it("should pass calls through while the cluster is reachable", async () => {
       const client = createClient(createScriptedUnary());
-      await waitForStatus(client, (s) => s.variant === "success");
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "success",
+      );
       const next = vi.fn(async (ctx: Context) => ctx);
       await client.middleware()(createUnaryContext("/channel/retrieve"), next);
       expect(next).toHaveBeenCalledTimes(1);
@@ -1205,7 +1316,11 @@ describe("connection", () => {
       const client = createClient(mockUnary(() => TimeStamp.now()));
       const observed: connection.Status[] = [];
       const detach = client.onChange((status) => observed.push(status));
-      await waitForStatus(client, (s) => s.variant === "success");
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "success",
+      );
       expect(observed.some((s) => s.variant === "success")).toBe(true);
       const count = observed.length;
       detach();

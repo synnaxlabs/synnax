@@ -17,7 +17,7 @@ import (
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	device "github.com/synnaxlabs/synnax/pkg/service/device/versions/v0"
+	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -249,8 +249,8 @@ type ChannelField struct {
 	Name string `json:"name" msgpack:"name"`
 	// DataType is the data type of the command channel.
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
-	// TimeFormat is the output encoding when the command channel holds timestamps.
-	// Required for timestamp channels.
+	// TimeFormat is the output encoding when the command channel holds timestamps. An
+	// unset format is ISO 8601.
 	TimeFormat *TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
 	// EnumValues maps numeric channel values to string labels. Only valid when
 	// json_type is 'string'.

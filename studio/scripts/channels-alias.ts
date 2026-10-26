@@ -29,7 +29,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.moveTo({ x: 756, y: 500 });
 
   session.startRecording();
-  await session.hold(1000);
+  await session.hold(1800);
 
   await capture.contextMenu(session, item, "Set alias under Hotfire 09");
   // The tree name turns into a contenteditable with its text selected, so
@@ -38,18 +38,17 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     .locator(".pluto-text--editable[contenteditable='true']")
     .first();
   await session.waitFor(editable);
-  await session.zoom(editable, 2);
   await session.hold(400);
   await session.type("pressure_01");
   await session.hold(400);
   await session.press("Enter");
+  session.endZoom();
 
   const aliased = page
     .locator(".console-nav__drawer")
     .getByText("pressure_01", { exact: true })
     .first();
   await session.waitFor(aliased);
-  await session.hold(1400);
-  session.endZoom();
-  await session.hold(1000);
+  await session.moveTo({ x: 800, y: 450 });
+  await session.hold(2800);
 };

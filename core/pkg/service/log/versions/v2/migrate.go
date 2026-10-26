@@ -14,10 +14,10 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
 	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
@@ -101,4 +101,4 @@ func migrateStored(
 }
 
 // Migration lifts stored logs from the v0 blob layout to the typed v2 shape.
-var Migration = gorp.NewInstrumentedEntryMigration("v55_lift_typed_log", migrateStored)
+var Migration = migrate.NewInstrumentedEntry("v55_lift_typed_log", migrateStored)

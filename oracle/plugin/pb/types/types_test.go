@@ -24,7 +24,7 @@ import (
 
 func TestPBTypes(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin PB Types Suite")
+	RunSpecs(t, "Plugin PB Types Suite", SuiteConfig())
 }
 
 // pbDomains creates domains that enable pb generation with the given go output path.
@@ -77,6 +77,31 @@ var _ = Describe("Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		Context("field-level omit", func() {
+			It("Should reserve the number of a field omitted in pb", func(
+				ctx SpecContext,
+			) {
+				source := `
+					@go output "core/pkg/service/auth"
+					@pb
+
+					Session struct {
+						key     string
+						hash    bytes { @pb omit }
+						subject string
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, p)
+				ExpectContent(resp, "test.proto").
+					ToContain(
+						"string key = 1;",
+						"reserved 2;",
+						"string subject = 3;",
+					).
+					ToNotContain("hash")
+			})
+		})
+
 		Context("primitive type mappings", func() {
 			DescribeTable("should generate correct proto type",
 				func(ctx SpecContext, oracleType, expectedProtoType string) {
@@ -167,6 +192,26 @@ var _ = Describe("Plugin", func() {
 						`google.protobuf.Struct data = 1;`,
 					)
 			})
+		})
+
+		It("Should name an enum-only package after its namespace", func() {
+			table := resolution.NewTable()
+			Expect(table.Add(resolution.Type{
+				Name:          "Variant",
+				Namespace:     "status",
+				QualifiedName: "status.Variant",
+				Form: resolution.EnumForm{
+					Values: []resolution.EnumValue{{Name: "info"}, {Name: "error"}},
+				},
+				Domains: pbDomains("core/pkg/service/legacy"),
+			})).To(Succeed())
+			resp := MustSucceed(p.Generate(&plugin.Request{
+				Resolutions: table,
+				RepoRoot:    "/tmp/test",
+			}))
+			Expect(resp.Files).To(HaveLen(1))
+			Expect(string(resp.Files[0].Content)).
+				To(ContainSubstring("package service.status.pb;"))
 		})
 
 		It("Should generate proto file for simple struct", func() {
@@ -1045,6 +1090,37 @@ var _ = Describe("Protobuf Union Generation", func() {
 	)
 
 	It(
+		"Should nest an aliased shared base as a message field",
+		func(ctx SpecContext) {
+			loader.Add("schemas/hw", `
+			@go output "core/pkg/hw"
+			@pb
+
+			BaseAIChan struct { port int32 }
+			`)
+			source := `
+			import "schemas/hw"
+
+			@go output "core/pkg/hw/ni"
+			@pb
+
+			BaseAIChan = hw.BaseAIChan
+			VoltageFields struct { minVal float64 }
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage VoltageFields
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, p)
+			ExpectContent(resp, "ni.proto").
+				ToContain(
+					".hw.pb.BaseAIChan base_ai_chan = 1;",
+					"VoltageFields ai_voltage = 2;",
+				)
+		},
+	)
+
+	It(
 		"Should error when a variant omits a field from a shared base",
 		func(ctx SpecContext) {
 			source := `
@@ -1064,6 +1140,32 @@ var _ = Describe("Protobuf Union Generation", func() {
 			Expect(err).To(MatchError(ContainSubstring(
 				`union "AIChannel" variant "ai_temp_builtin" omits inherited field(s) [port], which protobuf cannot express`,
 			)))
+		},
+	)
+
+	It(
+		"Should error when a variant names an alias of a struct that omits a field",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/hw/ni"
+			@pb
+
+			BaseAIChan struct { port int32 }
+			Temp struct extends BaseAIChan {
+				-port
+			}
+			Builtin = Temp
+
+			AIChannel union on type {
+				temp Builtin
+			}
+		`
+			req := MustGenerateRequest(ctx, source, "ni", loader)
+			Expect(p.Generate(req)).Error().To(MatchError(
+				`failed to generate core/pkg/hw/ni/pb: union "AIChannel" ` +
+					`variant "temp" omits inherited field(s) [port], which ` +
+					`protobuf cannot express; drop @pb or the omission`,
+			))
 		},
 	)
 

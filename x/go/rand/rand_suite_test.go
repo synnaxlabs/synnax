@@ -19,7 +19,7 @@ import (
 
 func TestRand(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Rand Suite")
+	RunSpecs(t, "Rand Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

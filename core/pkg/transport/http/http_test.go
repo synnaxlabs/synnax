@@ -27,7 +27,6 @@ import (
 	apilicense "github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/security"
-	secmock "github.com/synnaxlabs/synnax/pkg/security/mock"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
@@ -56,6 +55,7 @@ var _ = Describe("HTTP", func() {
 			Entry("unary auth login", http.MethodPost, "/api/v1/auth/login"),
 			Entry("unary channel create", http.MethodPost, "/api/v1/channel/create"),
 			Entry("unary frame delete", http.MethodPost, "/api/v1/frame/delete"),
+			Entry("unary frame read", http.MethodPost, "/api/v1/frame/read"),
 			Entry("stream frame writer", http.MethodGet, "/api/v1/frame/write"),
 			Entry("unary task rename", http.MethodPost, "/api/v1/task/rename"),
 			Entry("unary device rename", http.MethodPost, "/api/v1/device/rename"),
@@ -81,14 +81,8 @@ var _ = Describe("HTTP", func() {
 		BeforeEach(func(ctx SpecContext) {
 			node := mock.NewNode(ctx)
 			signer = svcmock.NewSigner()
-			lic := svcmock.NewLicense()
-			lic.Exp = new(uint32(time.Now().Add(-100 * 24 * time.Hour).Unix()))
-			key := append([]byte("license/"), lic.Jti.String()...)
-			Expect(node.Layer.DB.KV().Set(ctx, key, []byte(signer.Sign(lic)))).
-				To(Succeed())
 			sec := MustSucceed(security.NewProvider(security.ProviderConfig{
 				Insecure: new(true),
-				KeySize:  secmock.SmallKeySize,
 			}))
 			svc := MustOpen(service.OpenLayer(ctx, service.LayerConfig{
 				Distribution:    node.Layer,
@@ -133,7 +127,7 @@ var _ = Describe("HTTP", func() {
 		}
 
 		DescribeTable(
-			"Should reach an ungated endpoint while the license is expired",
+			"Should reach an ungated endpoint while no license is active",
 			func(path string, body func() any) {
 				status, res := post(path, login(), body())
 				Expect(status).To(Equal(http.StatusOK), string(res))
@@ -164,7 +158,7 @@ var _ = Describe("HTTP", func() {
 			),
 		)
 
-		It("Should refuse a gated endpoint while the license is expired", func(
+		It("Should refuse a gated endpoint while no license is active", func(
 			ctx SpecContext,
 		) {
 			status, body := post(
@@ -175,7 +169,7 @@ var _ = Describe("HTTP", func() {
 			Expect(status).To(Equal(http.StatusBadRequest))
 			var pld errors.Payload
 			Expect(json.Unmarshal(body, &pld)).To(Succeed())
-			Expect(errors.Decode(ctx, pld)).To(MatchError(license.ErrExpired))
+			Expect(errors.Decode(ctx, pld)).To(MatchError(license.ErrMissing))
 		})
 	})
 })

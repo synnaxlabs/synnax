@@ -21,12 +21,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v0"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v5"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/text"
 )
@@ -60,7 +59,7 @@ func migrateSeed(ctx SpecContext, seed v0.LinePlot) v5.LinePlot {
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:         db,
 		Namespace:  "LinePlot",
-		Migrations: []migrate.Migration{v0.Migration, v5.Migration},
+		Migrations: []gorp.Migration{v0.Migration, v5.Migration},
 	})).To(Succeed())
 	var got v5.LinePlot
 	Expect(gorp.NewRetrieve[v5.Key, v5.LinePlot]().

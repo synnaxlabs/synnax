@@ -12,7 +12,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { state } from "@synnaxlabs/lyra/state";
 import { binary, type record } from "@synnaxlabs/x";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 import { z } from "zod";
 
 import { FS } from "@/platform/fs";
@@ -63,13 +63,11 @@ export const TableScaleForm = ({ prefix }: TableScaleFormProps): ReactElement =>
   const preScaled = Form.useField<number[]>(`${prefix}.preScaledVals`);
   const scaled = Form.useField<number[]>(`${prefix}.scaledVals`);
 
-  const rows = useMemo(() => {
-    const length = Math.max(preScaled.value.length, scaled.value.length);
-    return Array.from({ length }, (_, i) => [
-      preScaled.value[i] ?? 0,
-      scaled.value[i] ?? 0,
-    ]);
-  }, [preScaled.value, scaled.value]);
+  const length = Math.max(preScaled.value.length, scaled.value.length);
+  const rows = Array.from({ length }, (_, i) => [
+    preScaled.value[i] ?? 0,
+    scaled.value[i] ?? 0,
+  ]);
 
   const applyColumns = (
     value: Record<string, unknown[]>,
@@ -160,6 +158,7 @@ export const TableScaleForm = ({ prefix }: TableScaleFormProps): ReactElement =>
               <Input.Item label="Scaled column" padHelpText>
                 <Select.Simple<string>
                   resourceName="scaled column"
+                  searchName="column"
                   value={scaledCol}
                   onChange={handleScaledColChange}
                 >

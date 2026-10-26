@@ -30,12 +30,6 @@ struct WriteTaskConfig : ::synnax::ethercat::WriteConfig {
     std::string interface_name;
     /// @brief configured output channels.
     std::vector<std::unique_ptr<channel::Output>> outputs;
-    /// @brief state feedback channels.
-    /// Dynamically populated by querying the core.
-    std::vector<synnax::channel::Channel> state_channels;
-    /// @brief index channel keys for state timestamps.
-    /// Dynamically populated by querying the core.
-    std::set<synnax::channel::Key> state_indexes;
     /// @brief cached device properties for topology validation.
     std::unordered_map<std::string, slave::Properties> device_cache;
 
@@ -43,8 +37,6 @@ struct WriteTaskConfig : ::synnax::ethercat::WriteConfig {
         ::synnax::ethercat::WriteConfig(std::move(other)),
         interface_name(std::move(other.interface_name)),
         outputs(std::move(other.outputs)),
-        state_channels(std::move(other.state_channels)),
-        state_indexes(std::move(other.state_indexes)),
         device_cache(std::move(other.device_cache)) {}
 
     WriteTaskConfig(const WriteTaskConfig &) = delete;
@@ -55,22 +47,27 @@ struct WriteTaskConfig : ::synnax::ethercat::WriteConfig {
         x::json::Parser &cfg
     ):
         ::synnax::ethercat::WriteConfig(::synnax::ethercat::WriteConfig::parse(cfg)) {
+        if (cfg.error()) return;
         std::unordered_map<std::string, slave::Properties> slave_cache;
         std::string first_network;
 
+        channel::Claims claims;
         for (std::size_t i = 0; i < this->channels.size(); ++i) {
             const auto path = "channels." + std::to_string(i) + ".";
             const auto &slave_key = channel::base(this->channels[i]).device;
             if (!slave_cache.contains(slave_key)) {
                 auto [slave_dev, slave_err] = client->devices.retrieve(slave_key);
                 if (slave_err) {
-                    cfg.field_err(path + "device", slave_err.message());
+                    cfg.field_err(path + "device", slave_err.data);
                     continue;
                 }
                 auto props_parser = x::json::Parser(slave_dev.properties);
                 auto props = slave::Properties::parse(props_parser);
                 if (props_parser.error()) {
-                    cfg.field_err(path + "device", props_parser.error().message());
+                    cfg.field_err(
+                        path + "device",
+                        common::config_err_description(props_parser.error())
+                    );
                     continue;
                 }
                 slave_cache.emplace(slave_key, std::move(props));
@@ -88,7 +85,9 @@ struct WriteTaskConfig : ::synnax::ethercat::WriteConfig {
 
             const auto &slave = slave_cache.at(slave_key);
             auto output = channel::make_output(this->channels[i], slave, cfg, path);
-            if (output->enabled) this->outputs.push_back(std::move(output));
+            if (!output->enabled) continue;
+            claims.claim(*output, slave, cfg, path);
+            this->outputs.push_back(std::move(output));
         }
 
         if (cfg.error()) return;
@@ -104,12 +103,14 @@ struct WriteTaskConfig : ::synnax::ethercat::WriteConfig {
         if (!state_keys.empty()) {
             auto [state_chs, err] = client->channels.retrieve(state_keys);
             if (err) {
-                cfg.field_err("channels", err.message());
+                cfg.field_err("channels", err.data);
                 return;
             }
-            this->state_channels = std::move(state_chs);
-            for (const auto &ch: this->state_channels)
-                if (ch.index != 0) this->state_indexes.insert(ch.index);
+            std::unordered_map<synnax::channel::Key, synnax::channel::Channel> by_key;
+            for (auto &ch: state_chs)
+                by_key.emplace(ch.key, std::move(ch));
+            for (const auto &out: this->outputs)
+                if (out->state_key != 0) out->state = by_key.at(out->state_key);
         }
     }
 
@@ -122,12 +123,13 @@ struct WriteTaskConfig : ::synnax::ethercat::WriteConfig {
         return {std::move(cfg), parser.error()};
     }
 
-    [[nodiscard]] std::vector<synnax::channel::Key> cmd_keys() const {
-        std::vector<synnax::channel::Key> keys;
-        keys.reserve(this->outputs.size());
-        for (const auto &ch: this->outputs)
-            keys.push_back(ch->command_key);
-        return keys;
+    /// @brief returns the command and state channel of each output.
+    [[nodiscard]] std::vector<common::Sink::Output> output_channels() const {
+        std::vector<common::Sink::Output> outs;
+        outs.reserve(this->outputs.size());
+        for (const auto &out: this->outputs)
+            outs.push_back({out->command_key, out->state});
+        return outs;
     }
 };
 
@@ -139,32 +141,21 @@ class WriteTaskSink final : public common::Sink {
 
 public:
     explicit WriteTaskSink(std::shared_ptr<engine::Engine> eng, WriteTaskConfig cfg):
-        Sink(
-            cfg.state_rate,
-            cfg.state_indexes,
-            cfg.state_channels,
-            cfg.cmd_keys(),
-            cfg.data_saving_disabled
-        ),
+        Sink(cfg.state_rate, cfg.output_channels(), cfg.data_saving_disabled),
         cfg(std::move(cfg)),
         engine(std::move(eng)) {}
 
     x::errors::Error start() override {
         if (auto err = this->engine->ensure_initialized(); err) return err;
-        if (auto err = topology::validate(
-                slave::discovered_properties(this->engine->slaves()),
-                this->cfg.device_cache
-            ))
+        const auto slaves = slave::discovered_properties(this->engine->slaves());
+        if (auto err = topology::validate(slaves, this->cfg.device_cache); err)
             return err;
 
         std::vector<pdo::Entry> entries;
         entries.reserve(this->cfg.outputs.size());
         for (const auto &ch: this->cfg.outputs)
             entries.push_back(*ch);
-        auto [wtr, err] = this->engine->open_writer(
-            std::move(entries),
-            this->cfg.execution_rate
-        );
+        auto [wtr, err] = this->engine->open_writer(entries, this->cfg.execution_rate);
         if (err) return err;
         this->writer = std::move(wtr);
         return x::errors::NIL;
@@ -180,7 +171,7 @@ public:
         for (size_t i = 0; i < this->cfg.outputs.size(); ++i) {
             const auto &ch = this->cfg.outputs[i];
             if (!frame.contains(ch->command_key)) continue;
-            tx.write(i, frame.at(ch->command_key, -1));
+            if (auto err = tx.write(i, frame.at(ch->command_key, -1)); err) return err;
         }
         this->set_state(frame);
         return x::errors::NIL;

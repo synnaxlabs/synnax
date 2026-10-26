@@ -8,13 +8,21 @@
 // included in the file licenses/APL.txt.
 
 #include <cstdint>
+#include <format>
 #include <functional>
+#include <optional>
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 #pragma once
 
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
+
+#include "driver/ethercat/errors/errors.h"
+#include "driver/ethercat/telem/telem.h"
 
 namespace driver::ethercat::pdo {
 /// @brief key for PDO offset cache lookup.
@@ -47,6 +55,8 @@ struct Offset {
     size_t byte = 0;
     /// @brief bit offset within the byte for sub-byte entries (0-7).
     uint8_t bit = 0;
+    /// @brief the size in bits the slave maps the entry with.
+    uint8_t bit_length = 0;
 };
 
 using Offsets = std::unordered_map<Key, Offset, KeyHash>;
@@ -70,7 +80,9 @@ struct Entry {
     [[nodiscard]] size_t byte_length() const { return (bit_length + 7) / 8; }
 };
 
-/// @brief information about a single PDO entry discovered during slave enumeration.
+/// @brief information about a single PDO entry discovered during slave enumeration. An
+/// entry with index 0 is padding: it occupies bit_length bits of the process image and
+/// holds no object.
 struct Properties {
     /// @brief parent PDO index (e.g., 0x1A00 for TxPDO, 0x1600 for RxPDO).
     uint16_t pdo_index;
@@ -86,9 +98,14 @@ struct Properties {
     std::string name;
     /// @brief Synnax data type for channel creation.
     x::telem::DataType data_type;
+    /// @brief name of the parent PDO (e.g., "Channel 1"), when the slave provides one.
+    std::optional<std::string> pdo_name = std::nullopt;
 
     /// @brief returns the size of this PDO entry in bytes (rounded up from bits).
     [[nodiscard]] size_t byte_length() const { return (this->bit_length + 7) / 8; }
+
+    /// @brief returns true if this entry is padding rather than an object.
+    [[nodiscard]] bool is_padding() const { return this->index == 0; }
 
     /// @brief parses PDO properties from JSON.
     static Properties parse(x::json::Parser &parser, const bool is_input) {
@@ -100,12 +117,13 @@ struct Properties {
             .is_input = is_input,
             .name = parser.field<std::string>("name"),
             .data_type = x::telem::DataType(parser.field<std::string>("data_type")),
+            .pdo_name = parser.field<std::optional<std::string>>("pdo_name"),
         };
     }
 
     /// @brief serializes this PDO entry to JSON.
     [[nodiscard]] nlohmann::json to_json() const {
-        return {
+        nlohmann::json j = {
             {"name", this->name},
             {"pdo_index", this->pdo_index},
             {"index", this->index},
@@ -113,19 +131,50 @@ struct Properties {
             {"bit_length", this->bit_length},
             {"data_type", this->data_type.name()}
         };
+        if (this->pdo_name) j["pdo_name"] = *this->pdo_name;
+        return j;
     }
 };
 
-/// @brief looks up the offset for a PDO entry in a precomputed offset map.
-inline Offset find_offset(const Offsets &offsets, const Entry &entry) {
-    Key key{entry.slave_position, entry.index, entry.sub_index, entry.is_input};
-    auto it = offsets.find(key);
-    if (it != offsets.end()) return it->second;
-    return {};
+/// @brief looks up the offset for a PDO entry in a precomputed offset map. Returns
+/// errors::PDO_MAPPING_ERROR when the map does not hold the entry or maps it with
+/// another bit length.
+inline std::pair<Offset, x::errors::Error>
+find_offset(const Offsets &offsets, const Entry &entry) {
+    const Key key{entry.slave_position, entry.index, entry.sub_index, entry.is_input};
+    if (const auto it = offsets.find(key); it != offsets.end()) {
+        if (it->second.bit_length == entry.bit_length)
+            return {it->second, x::errors::NIL};
+        return {
+            {},
+            x::errors::Error(
+                errors::PDO_MAPPING_ERROR,
+                std::format(
+                    "PDO {} on slave {} is {} bits, not {}. Scan the network again",
+                    telem::format_index_sub_index(entry.index, entry.sub_index),
+                    entry.slave_position,
+                    it->second.bit_length,
+                    entry.bit_length
+                )
+            )
+        };
+    }
+    return {
+        {},
+        x::errors::Error(
+            errors::PDO_MAPPING_ERROR,
+            std::format(
+                "PDO {} is not in the process image of slave {}",
+                telem::format_index_sub_index(entry.index, entry.sub_index),
+                entry.slave_position
+            )
+        )
+    };
 }
 
 /// @brief computes bit-granularity offsets for a slave's PDO properties list,
-/// accumulating from a base byte offset.
+/// accumulating from a base byte offset. Padding counts toward later offsets and gets
+/// no offset of its own.
 inline void compute_offsets(
     Offsets &offsets,
     const uint16_t slave_position,
@@ -135,13 +184,23 @@ inline void compute_offsets(
 ) {
     size_t bit_offset = 0;
     for (const auto &pdo: pdos) {
-        Key key{slave_position, pdo.index, pdo.sub_index, is_input};
-        offsets[key] = {
-            base_byte_offset + bit_offset / 8,
-            static_cast<uint8_t>(bit_offset % 8)
-        };
+        if (!pdo.is_padding())
+            offsets[Key{slave_position, pdo.index, pdo.sub_index, is_input}] = {
+                base_byte_offset + bit_offset / 8,
+                static_cast<uint8_t>(bit_offset % 8),
+                pdo.bit_length
+            };
         bit_offset += pdo.bit_length;
     }
+}
+
+/// @brief returns the number of process image bits the PDO entries occupy, padding
+/// included.
+inline size_t total_bits(const std::vector<Properties> &pdos) {
+    size_t bits = 0;
+    for (const auto &pdo: pdos)
+        bits += pdo.bit_length;
+    return bits;
 }
 
 /// @brief computes byte-granularity offsets for registered PDO entries,
@@ -157,10 +216,10 @@ inline void compute_offsets(
     for (const auto &entry: entries) {
         Key key{entry.slave_position, entry.index, entry.sub_index, entry.is_input};
         if (entry.is_input) {
-            offsets[key] = {input_byte_offset, 0};
+            offsets[key] = {input_byte_offset, 0, entry.bit_length};
             input_byte_offset += entry.byte_length();
         } else {
-            offsets[key] = {output_byte_offset, 0};
+            offsets[key] = {output_byte_offset, 0, entry.bit_length};
             output_byte_offset += entry.byte_length();
         }
     }

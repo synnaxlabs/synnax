@@ -176,6 +176,32 @@ var _ = Describe("Iterator", func() {
 		Entry("after the sample", telem.Nanosecond, false),
 	)
 
+	It("Should read the retained sample through MoveTo and Continue", func(
+		ctx SpecContext,
+	) {
+		write(ctx, stamped(stamp, 4))
+		i := openIterator(telem.TimeRangeMax)
+		Expect(i.Bounds()).To(Equal(telem.TimeRangeMax))
+		Expect(i.IndexKey()).To(Equal(key))
+		from := stamp - telem.TimeStamp(telem.Second)
+		i.MoveTo(ctx, from)
+		Expect(i.View()).To(Equal(from.SpanRange(0)))
+		Expect(i.EndAfter(ctx, 10)).To(Equal(stamp + 1))
+		Expect(i.Continue(ctx, stamp+1)).To(BeTrue())
+		Expect(i.View()).To(Equal(from.Range(stamp + 1)))
+		Expect(i.Value().Get(key).Series[0]).To(telem.MatchSeriesDataV[int64](4))
+		Expect(i.Close()).To(Succeed())
+	})
+
+	It("Should report no end past the retained sample", func(ctx SpecContext) {
+		write(ctx, stamped(stamp, 4))
+		i := openIterator(telem.TimeRangeMax)
+		i.MoveTo(ctx, stamp+1)
+		Expect(i.EndAfter(ctx, 10)).To(Equal(telem.TimeStampMax))
+		Expect(i.Continue(ctx, stamp+telem.TimeStamp(telem.Second))).To(BeFalse())
+		Expect(i.Close()).To(Succeed())
+	})
+
 	It("Should be invalid when the sample is outside the bounds", func(
 		ctx SpecContext,
 	) {

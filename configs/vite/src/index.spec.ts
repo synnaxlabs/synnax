@@ -179,6 +179,125 @@ describe("lib", () => {
     expect(emitted(present, "a/index.js")).toBe(true);
   });
 
+  describe("reactCompiled", () => {
+    const REACT = {
+      "src/react.d.ts":
+        'declare module "react" { export const useState: <T>(v: T) => [T]; }\n' +
+        "declare namespace JSX { interface Element {} " +
+        "interface IntrinsicElements { [tag: string]: unknown } }\n",
+    };
+    const HOOK =
+      'import { useState } from "react";\n' +
+      "export const useCount = () => { const [n] = useState(0); return { n }; };\n";
+    const UNCOMPILABLE =
+      'import { useState } from "react";\n' +
+      "export const useCount = (n?: number) => {\n" +
+      "  const [count] = useState(0);\n" +
+      "  n ??= count;\n" +
+      "  return { n };\n" +
+      "};\n";
+    const UNCOMPILABLE_ERROR = "Handle ??= operators in AssignmentExpression";
+    const COMPILED = 'from "react/compiler-runtime"';
+
+    const buildBundle = async (
+      files: Record<string, string>,
+      manifest: Record<string, unknown> = {},
+    ): Promise<string> => {
+      const root = createPackage({ ...REACT, ...files }, { manifest });
+      await build({
+        root,
+        configFile: false,
+        logLevel: "silent",
+        plugins: lib({ name: "pkg", reactCompiled: true }),
+        build: { rolldownOptions: { external: [/^react/] } },
+      });
+      return read(root, "pkg.js");
+    };
+
+    it("should compile each emitted file and replace JSX files", async () => {
+      const root = createPackage(
+        {
+          ...REACT,
+          "src/index.ts": 'export * from "@/Count";\n',
+          "src/Count.tsx":
+            'import { useState } from "react";\n' +
+            "export const Count = () => {\n" +
+            "  const [n] = useState(0);\n" +
+            "  return <p>{n}</p>;\n" +
+            "};\n",
+        },
+        { transpiled: true },
+      );
+      await buildPackage(root, { name: "pkg", transpiled: true, reactCompiled: true });
+      expect(emitted(root, "Count.jsx")).toBe(false);
+      expect(read(root, "Count.js")).toContain(COMPILED);
+      expect(read(root, "index.js")).toContain('export * from "./Count.js";');
+    });
+
+    it("should fail on a hook that the compiler cannot compile", async () => {
+      const root = createPackage(
+        { ...REACT, "src/index.ts": UNCOMPILABLE },
+        { transpiled: true },
+      );
+      await expect(
+        buildPackage(root, { name: "pkg", transpiled: true, reactCompiled: true }),
+      ).rejects.toThrow(UNCOMPILABLE_ERROR);
+    });
+
+    it("should fail a bundled build on a hook that the compiler cannot compile", async () => {
+      await expect(buildBundle({ "src/index.ts": UNCOMPILABLE })).rejects.toThrow(
+        UNCOMPILABLE_ERROR,
+      );
+    });
+
+    it("should keep a callback inside a hook built by a factory", async () => {
+      const root = createPackage(
+        {
+          ...REACT,
+          "src/index.ts": 'export * from "@/create";\n',
+          "src/create.ts":
+            'import { useState } from "react";\n' +
+            "export const create = (label: string) => {\n" +
+            "  const useLabel = () => {\n" +
+            "    const [n] = useState(0);\n" +
+            "    return { n, read: () => label };\n" +
+            "  };\n" +
+            "  return useLabel;\n" +
+            "};\n",
+        },
+        { transpiled: true },
+      );
+      await buildPackage(root, { name: "pkg", transpiled: true, reactCompiled: true });
+      const code = read(root, "create.js");
+      expect(code).toContain(COMPILED);
+      expect(code).toContain("() => label");
+    });
+
+    it("should compile a hook wrapped in a type cast", async () => {
+      const code = await buildBundle({
+        "src/index.ts":
+          'import { useState } from "react";\n' +
+          "export const useCount = (() => {\n" +
+          "  const [n] = useState(0);\n" +
+          "  return { n };\n" +
+          "}) as () => { n: number };\n",
+      });
+      expect(code).toContain(COMPILED);
+    });
+
+    it("should leave a lowercase Pluto namespace uncompiled", async () => {
+      const code = await buildBundle(
+        {
+          "src/index.ts": 'export * from "@/telem";\n',
+          "src/telem/index.ts": 'export * as telem from "@/telem/count";\n',
+          "src/telem/count.ts": HOOK,
+        },
+        { name: "@synnaxlabs/pluto" },
+      );
+      expect(code).not.toContain(COMPILED);
+    });
+  });
+
   it("should reject a module entry that imports for side effects", async () => {
     const root = createPackage(
       {

@@ -130,6 +130,15 @@ class TestSeries:
         assert s.data_type == telem.DataType.BOOLEAN
         assert s.data == b"\x01\x00\x01"
 
+    @pytest.mark.parametrize("value", [np.True_, np.False_])
+    def test_construction_from_np_bool_scalar(self, value: np.bool_) -> None:
+        """Should infer BOOLEAN from a numpy bool_ scalar"""
+        s = telem.Series(value)
+        assert s.data_type == telem.DataType.BOOLEAN
+        assert len(s) == 1
+        assert s.data == bytes([int(value)])
+        assert s[0] == value
+
     def test_bool_normalizes_nonzero_numeric_inputs(self) -> None:
         """Should normalize nonzero numeric inputs to 0x01 when dtype is BOOLEAN"""
         s = telem.Series([0, 1, 42, -3, 0], data_type=telem.DataType.BOOLEAN)
@@ -283,6 +292,37 @@ class TestSeries:
         expected_start = (2 << 32) | 10
         assert bounds.lower == float(expected_start)
         assert bounds.upper == float(expected_start + 3)
+
+    def test_alignment_bounds_with_multiple(self) -> None:
+        """Should step alignment_bounds by the alignment multiple of each sample"""
+        s = telem.Series(
+            [1, 2, 3],
+            data_type=telem.DataType.INT8,
+            alignment=telem.Alignment(0, 8),
+            alignment_multiple=4,
+        )
+        assert s.alignment_bounds.lower == 8
+        assert s.alignment_bounds.upper == 20
+
+    def test_alignment_multiple_preserved_from_series(self) -> None:
+        """Should preserve the alignment multiple when constructing from a Series"""
+        s1 = telem.Series([1, 2], data_type=telem.DataType.INT8, alignment_multiple=4)
+        assert telem.Series(s1).alignment_multiple == 4
+        assert telem.Series(telem.MultiSeries([s1])).alignment_multiple == 4
+
+    def test_alignment_multiple_argument_wins(self) -> None:
+        """Should prefer an explicit alignment multiple to the source's multiple"""
+        s1 = telem.Series([1, 2], data_type=telem.DataType.INT8, alignment_multiple=4)
+        assert telem.Series(s1, alignment_multiple=2).alignment_multiple == 2
+        multi = telem.MultiSeries([s1])
+        assert telem.Series(multi, alignment_multiple=2).alignment_multiple == 2
+
+    def test_astype_keeps_alignment_multiple(self) -> None:
+        """Should keep the alignment multiple when converting the data type"""
+        s1 = telem.Series([1, 2], data_type=telem.DataType.INT8, alignment_multiple=4)
+        converted = s1.astype(telem.DataType.FLOAT64)
+        assert converted.alignment_multiple == 4
+        assert converted.alignment_bounds.upper == 8
 
     def test_alignment_preserved_from_series(self) -> None:
         """Should preserve alignment when constructing from another telem.Series"""
@@ -901,3 +941,19 @@ class TestSeriesProperties:
         s = telem.Series(values, alignment=align)
         assert telem.Series(s).alignment == align
         assert s.astype(telem.DataType.FLOAT64).alignment == align
+
+    @given(st.lists(_INT64, max_size=20), st.integers(0, 2**64 - 21))
+    def test_alignment_bounds_exact(self, values: list[int], align: int) -> None:
+        """Should keep every bit of a 64-bit alignment in the bounds"""
+        bounds = telem.Series(
+            values, data_type="int64", alignment=align
+        ).alignment_bounds
+        assert bounds.lower == align
+        assert bounds.upper == align + len(values)
+
+    @given(st.lists(_INT64, min_size=1, max_size=20))
+    def test_datetime64_round_trip(self, values: list[int]) -> None:
+        """Should round-trip a datetime64[ns] array as timestamps"""
+        s = telem.Series(np.array(values, dtype="datetime64[ns]"))
+        assert s.data_type == telem.DataType.TIMESTAMP
+        assert np.asarray(s).tolist() == values

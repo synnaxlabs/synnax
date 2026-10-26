@@ -12,7 +12,7 @@ import { type Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 
 import { createPrompt } from "@/platform/modals/factory";
 import { Triggers } from "@/platform/triggers";
@@ -36,11 +36,11 @@ const Rename = ({
 }: Session.Modals.ContentProps<RenameParams, string>) => {
   const [name, setName] = useState(initialValue);
   const [error, setError] = useState<string | undefined>(undefined);
-  const handleClick = useCallback(() => {
+  const handleClick = () => {
     if (allowEmpty && name.length === 0) return close();
     if (!allowEmpty && name.length === 0) return setError(`${label} is required`);
     return close(name);
-  }, [close, setError, name, allowEmpty]);
+  };
   return (
     <Modal.Frame>
       <Modal.Header icon={icon}>{title}</Modal.Header>

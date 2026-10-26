@@ -14,7 +14,6 @@ import {
   type ReactElement,
   type ReactNode,
   type Ref,
-  useCallback,
   useEffect,
   useId,
   useRef,
@@ -58,6 +57,15 @@ export interface ExtensionProps {
   hideTooltip?: DialogProps["hide"];
 }
 
+interface AnchorProps extends ChildProps {
+  element: ReactElement<ChildProps>;
+}
+
+// Clones in its own component because the compiler cannot tell that cloneElement never
+// calls the handlers it receives, while it knows render never calls a JSX prop.
+const Anchor = ({ element, ...props }: AnchorProps): ReactElement =>
+  cloneElement(element, props);
+
 const CLOSE_DURATION = TimeSpan.milliseconds(150);
 const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];
 
@@ -90,24 +98,24 @@ export const Dialog = ({
   const releaseRef = useRef<destructor.Destructor | null>(null);
   const visibleRef = useSyncedRef(visible);
   const hideRef = useSyncedRef(hide);
-  const hidden = useCallback((anchor: HTMLElement): boolean => {
+  const hidden = (anchor: HTMLElement): boolean => {
     const h = hideRef.current;
     return typeof h === "function" ? h(anchor) : h;
-  }, []);
+  };
   const delayRef = useSyncedRef(delay);
 
-  const clearOpenTimeout = useCallback((): void => {
+  const clearOpenTimeout = (): void => {
     if (openTimeoutRef.current == null) return;
     clearTimeout(openTimeoutRef.current);
     openTimeoutRef.current = null;
-  }, []);
-  const clearCloseTimeout = useCallback((): void => {
+  };
+  const clearCloseTimeout = (): void => {
     if (closeTimeoutRef.current == null) return;
     clearTimeout(closeTimeoutRef.current);
     closeTimeoutRef.current = null;
-  }, []);
+  };
 
-  const close = useCallback((immediate: boolean = false): void => {
+  const close = (immediate: boolean = false): void => {
     clearOpenTimeout();
     if (!visibleRef.current) return;
     markClosed();
@@ -126,10 +134,10 @@ export const Dialog = ({
       setClosing(false);
       setVisible(false);
     }, CLOSE_DURATION.milliseconds);
-  }, []);
-  const closeNow = useCallback((): void => close(true), [close]);
+  };
+  const closeNow = (): void => close(true);
 
-  const open = useCallback((): void => {
+  const open = (): void => {
     clearCloseTimeout();
     setClosing(false);
     releaseRef.current?.();
@@ -137,28 +145,22 @@ export const Dialog = ({
     // Set from the ref on open so mounting alone never re-renders the dialog
     setAnchor(anchorRef.current);
     setVisible(true);
-  }, []);
+  };
 
-  const handlePointerEnter = useCallback(
-    (e: React.PointerEvent<HTMLElement>): void => {
-      if (e.pointerType === "touch" || hidden(e.currentTarget)) return;
-      clearOpenTimeout();
-      if (visibleRef.current || isWarm()) return open();
-      openTimeoutRef.current = setTimeout(
-        open,
-        new TimeSpan(delayRef.current).milliseconds,
-      );
-    },
-    [open, hidden],
-  );
-  const handlePointerLeave = useCallback((): void => close(), [close]);
-  const handleFocus = useCallback(
-    (e: React.FocusEvent<HTMLElement>): void => {
-      if (!e.currentTarget.matches(":focus-visible") || hidden(e.currentTarget)) return;
-      open();
-    },
-    [open, hidden],
-  );
+  const handlePointerEnter = (e: React.PointerEvent<HTMLElement>): void => {
+    if (e.pointerType === "touch" || hidden(e.currentTarget)) return;
+    clearOpenTimeout();
+    if (visibleRef.current || isWarm()) return open();
+    openTimeoutRef.current = setTimeout(
+      open,
+      new TimeSpan(delayRef.current).milliseconds,
+    );
+  };
+  const handlePointerLeave = (): void => close();
+  const handleFocus = (e: React.FocusEvent<HTMLElement>): void => {
+    if (!e.currentTarget.matches(":focus-visible") || hidden(e.currentTarget)) return;
+    open();
+  };
 
   useEffect(() => {
     if (!visible) return;
@@ -175,13 +177,14 @@ export const Dialog = ({
     return () => window.removeEventListener("scroll", handleScroll, { capture: true });
   }, [visible, close]);
 
-  const handleEscape = useCallback(
-    ({ stage }: Triggers.UseEvent): void => {
-      if (stage === "start" && visibleRef.current) close(true);
-    },
-    [close],
-  );
-  Triggers.use({ triggers: ESCAPE_TRIGGERS, callback: handleEscape, priority: 200 });
+  const handleEscape = ({ stage }: Triggers.UseEvent): void => {
+    if (stage === "start" && visibleRef.current) close(true);
+  };
+  Triggers.use({
+    triggers: ESCAPE_TRIGGERS,
+    callback: handleEscape,
+    priority: 200,
+  });
 
   useEffect(() => {
     if (hide === true) close(true);
@@ -193,11 +196,11 @@ export const Dialog = ({
       clearCloseTimeout();
       releaseRef.current?.();
     },
-    [],
+    [clearOpenTimeout, clearCloseTimeout],
   );
 
   const [tip, children_] = children;
-  const combinedAnchorRef = useCombinedRefs(anchorRef, children_.props.ref);
+  const attachAnchor = useCombinedRefs(anchorRef, children_.props.ref);
 
   return (
     <>
@@ -212,38 +215,40 @@ export const Dialog = ({
           {formatTip(tip)}
         </Frame>
       )}
-      {cloneElement(children_, {
-        ref: combinedAnchorRef,
-        "aria-describedby": visible ? id : children_.props["aria-describedby"],
-        // A string tip doubles as an icon-only anchor's accessible name. An
-        // anchor with visible text keeps that text as its name: aria-label
-        // would override it, breaking label-in-name.
-        "aria-label":
+      <Anchor
+        element={children_}
+        ref={attachAnchor}
+        aria-describedby={visible ? id : children_.props["aria-describedby"]}
+        // A string tip doubles as an icon-only anchor's accessible name. An anchor with
+        // visible text keeps that text as its name: aria-label would override it,
+        // breaking label-in-name.
+        aria-label={
           children_.props["aria-label"] ??
           (typeof tip === "string" && Text.isSquare(children_.props.children)
             ? tip
-            : undefined),
-        onPointerEnter: (e) => {
+            : undefined)
+        }
+        onPointerEnter={(e) => {
           handlePointerEnter(e);
           children_.props.onPointerEnter?.(e);
-        },
-        onPointerLeave: (e) => {
+        }}
+        onPointerLeave={(e) => {
           handlePointerLeave();
           children_.props.onPointerLeave?.(e);
-        },
-        onPointerDown: (e) => {
+        }}
+        onPointerDown={(e) => {
           closeNow();
           children_.props.onPointerDown?.(e);
-        },
-        onFocus: (e) => {
+        }}
+        onFocus={(e) => {
           handleFocus(e);
           children_.props.onFocus?.(e);
-        },
-        onBlur: (e) => {
+        }}
+        onBlur={(e) => {
           closeNow();
           children_.props.onBlur?.(e);
-        },
-      })}
+        }}
+      />
     </>
   );
 };

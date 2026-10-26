@@ -25,7 +25,7 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, type Flux, Label } from "@synnaxlabs/pluto";
 import { color } from "@synnaxlabs/x";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button as PlatformButton } from "@/platform/button";
 import { CSS } from "@/platform/css";
@@ -49,13 +49,12 @@ const LabelListItem = ({
     query: isCreate ? null : { key: itemKey },
     initialValues,
     autoSave: !isCreate,
-    afterSave: useCallback(
-      ({ reset }: Flux.AfterSaveParams<query.Params, typeof Label.formSchema>) => {
-        onClose?.();
-        if (isCreate) reset({ name: "", color: color.construct("#000000") });
-      },
-      [isCreate, onClose],
-    ),
+    afterSave: ({
+      reset,
+    }: Flux.AfterSaveParams<query.Params, typeof Label.formSchema>) => {
+      onClose?.();
+      if (isCreate) reset({ name: "", color: color.construct("#000000") });
+    },
     sync: true,
   });
   const inputRef = useRef<HTMLInputElement>(null);
@@ -67,11 +66,11 @@ const LabelListItem = ({
   const ref = useRef<HTMLDivElement>(null);
   Dialog.useClickOutside({
     ref,
-    onClickOutside: useCallback(() => {
+    onClickOutside: () => {
       if (!isCreate) return;
       if (form.validate()) save();
       else onClose?.();
-    }, [isCreate, form, save, onClose]),
+    },
   });
   return (
     <List.Item
@@ -87,17 +86,11 @@ const LabelListItem = ({
     >
       <Flex.Box x gap="small" align="center">
         <Form.Form<typeof Label.formSchema> {...form}>
-          <Form.Field<color.Color>
-            hideIfNull
-            path="color"
-            padHelpText={false}
-            showLabel={false}
-          >
+          <Form.Field<color.Color> path="color" padHelpText={false} showLabel={false}>
             {(p) => <Color.Swatch onlyChangeOnBlur variant="text" {...p} />}
           </Form.Field>
           <Form.TextField
             showLabel={false}
-            hideIfNull
             path="name"
             showHelpText={false}
             padHelpText={false}
@@ -154,7 +147,7 @@ const EMPTY_CONTENT = (
   </Flex.Box>
 );
 
-export const useEditModal = Modals.create(() => {
+const Edit = () => {
   const { data, getItem, retrieve, subscribe, answered } = Label.useList();
   const { fetchMore, search } = List.usePager({ retrieve, pageSize: 15 });
   const [newFormVisible, setNewFormVisible] = useState(false);
@@ -210,4 +203,6 @@ export const useEditModal = Modals.create(() => {
       </List.Frame>
     </Modal.Frame>
   );
-});
+};
+
+export const useEditModal = Modals.create(Edit);

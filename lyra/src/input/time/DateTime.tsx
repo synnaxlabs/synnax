@@ -14,10 +14,11 @@ import {
   type TimeSpan as XTimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, useCallback } from "react";
+import { type ReactElement, type ReactNode } from "react";
 
 import { type Component } from "@/component";
 import { CSS } from "@/css";
+import { useNow } from "@/hooks";
 import { Icon } from "@/icon";
 import { type Action, type BaseProps, Editor } from "@/input/time/Editor";
 import {
@@ -44,7 +45,7 @@ export interface DateTimeAnchors {
   parent?: NumericTimeRange;
 }
 
-export interface DateTimeProps extends Control<number>, BaseProps {
+export interface DateTimeProps extends Control<number | undefined, number>, BaseProps {
   anchors?: DateTimeAnchors;
   /**
    * An instant whose day is already shown beside this input; the label drops its own
@@ -123,23 +124,22 @@ export const DateTime = ({
   tooltip,
   ...rest
 }: DateTimeProps): ReactElement => {
-  const isEmpty = emptyValue != null && value === emptyValue;
+  const isEmpty = value == null || (emptyValue != null && value === emptyValue);
   const stamp = isEmpty ? null : fromNumeric(value);
   const formatted = stamp?.toPreciseString("local") ?? "";
   const parentStart = parent?.start;
-  const languageReady = useLanguage();
+  const language = useLanguage();
+  const today = useNow(TelemText.nextMidnight);
 
   // Editor memoizes the readings on this function. Anchors resolve on each call, so
   // `now` inside a reading is the moment of the edit.
-  const suggest = useCallback(
-    (text: string) =>
-      suggestTimeStamps(text, {
-        anchors: resolveAnchors(start, end, parentStart),
-        current: isEmpty ? undefined : fromNumeric(value),
-        bound,
-      }),
-    [start, end, parentStart, isEmpty, value, bound, languageReady],
-  );
+  const suggest = (text: string) =>
+    suggestTimeStamps(text, {
+      anchors: resolveAnchors(start, end, parentStart),
+      language,
+      current: isEmpty ? undefined : fromNumeric(value),
+      bound,
+    });
 
   // Digits in the fixed layout nudge; a phrase walks its readings.
   const nudgeText = (text: string, caret: number, steps: number): string | null => {
@@ -153,7 +153,7 @@ export const DateTime = ({
     // The empty value is a sentinel, not an instant to round.
     const round = (v: number): number =>
       v === emptyValue ? v : Number(roundNumeric(v));
-    if (round(next) !== round(value)) onChange(round(next));
+    if (value == null || round(next) !== round(value)) onChange(round(next));
   };
 
   const actions: Action<TimeStamp>[] = [
@@ -192,7 +192,7 @@ export const DateTime = ({
       <>
         {showDay && (
           <span className={CSS.BE("datetime", "day")}>
-            {TelemText.describeDay(stamp, TimeStamp.now())}
+            {TelemText.describeDay(stamp, today)}
           </span>
         )}
         <span>{TelemText.formatTime(stamp, resolution)}</span>

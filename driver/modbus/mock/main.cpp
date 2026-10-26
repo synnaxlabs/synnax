@@ -12,7 +12,10 @@
 
 #include "driver/modbus/mock/slave.h"
 
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): the signal handler
+// clears it.
 std::atomic running(true);
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 void signal_handler(const int signal) {
     std::cout << "\nReceived signal " << signal << ", shutting down..." << std::endl;

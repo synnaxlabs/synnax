@@ -14,8 +14,8 @@ package password
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // Retrieve is used to retrieve Password records from the database using a
@@ -35,9 +35,9 @@ type indexes struct {
 	username *gorp.LookupIndex[Key, Password, string]
 }
 
-// newIndexes constructs a fresh indexes value, allocating one index instance
-// per registered field. Call once per Service in OpenService and store the
-// result on the Service struct.
+// newIndexes constructs a fresh indexes value, allocating one instance of each
+// index. Call once per Service in OpenService and store the result on the
+// Service struct.
 func newIndexes() indexes {
 	return indexes{
 		subject: gorp.NewLookupIndex[Key, Password, ontology.ID](
@@ -98,7 +98,7 @@ func Not(f Filter) Filter {
 // r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing
 // inside Or / Not falls back to a full scan.
 func MatchKeys(keys ...Key) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Password] {
+	return func(Retrieve) gorp.Filter[Key, Password] {
 		return gorp.MatchKeys[Key, Password](keys...)
 	}
 }

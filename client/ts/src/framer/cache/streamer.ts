@@ -397,7 +397,7 @@ export class MultiplexedStreamer {
       });
     } catch (e) {
       ins.L.error("failed to update streamer", { error: e });
-      const failure = status.fromException(e, "failed to stream channel");
+      const failure = status.fromException(e, "Failed to stream channel");
       const desired = this.desiredKeys();
       const fresh = Array.from(desired).filter((k) => !this.sentKeys.has(k));
       if (isKeyRejection(e) && !this.connMu.closed && fresh.length > 0) {
@@ -461,7 +461,7 @@ export class MultiplexedStreamer {
             if (!demanded.has(k)) unary.flushDynamic();
             this.setStatus(k, STREAMING);
           } catch (e) {
-            this.setStatus(k, status.fromException(e, "failed to buffer channel"));
+            this.setStatus(k, status.fromException(e, "Failed to buffer channel"));
           }
         });
         if (changed.size !== 0)

@@ -1,0 +1,130 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/channel/v0"
+import "schemas/synnax/versions/symbol/v2"
+import "schemas/x/versions/border/v0"
+import "schemas/x/versions/color/v1"
+import "schemas/x/versions/spatial/v0"
+import "schemas/x/versions/text/v0"
+
+Key = v0.Key
+
+Node = v8.Node
+
+Handle = v7.Handle
+
+Edge = v7.Edge
+
+Segment = v9.Segment
+
+SegmentedEdgeConfig = v9.SegmentedEdgeConfig
+
+EdgeConfig = v9.EdgeConfig
+
+FlexAlignment = v9.FlexAlignment
+
+ComponentSize = v9.ComponentSize
+
+ButtonMode = v9.ButtonMode
+
+LabelConfig = v9.LabelConfig
+
+LabeledConfig = v9.LabeledConfig
+
+ScaledConfig = v9.ScaledConfig
+
+StalenessConfig = v9.StalenessConfig
+
+NumericTelemConfig = v9.NumericTelemConfig
+
+ControlStateConfig = v9.ControlStateConfig
+
+ToggleConfig = v9.ToggleConfig
+
+StaticSymbolConfig = v9.StaticSymbolConfig
+
+ToggleSymbolConfig = v9.ToggleSymbolConfig
+
+DummyToggleSymbolConfig = v9.DummyToggleSymbolConfig
+
+ScaleIndicatorConfig = v9.ScaleIndicatorConfig
+
+StateMapping = v9.StateMapping
+
+PageType = v9.PageType
+
+Page = v9.Page
+
+NodeConfig union on variant extends v9.NodeConfig {
+    gauge {
+        units = ""
+    }
+    input extends LabeledConfig, StalenessConfig {
+        command_channel
+        state_channel   channel.Key? {
+            @doc value "is the channel that reports the value the device holds."
+        }
+        fill_color      {
+            @doc value """
+                is the fill color of the Set button, which the input border follows.
+            """
+        }
+        disabled
+        inline_size     float64 = 150 {
+            @doc value """
+                is the width of the field in pixels, not counting the Set button.
+            """
+        }
+    }
+    select extends LabeledConfig, StalenessConfig {
+        command_channel
+        state_channel   channel.Key? {
+            @doc value "is the channel that reports the state the device holds."
+        }
+        fill_color      {
+            @doc value """
+                is the fill color of the Set button, which the select border follows.
+            """
+        }
+        inline_size     {
+            @doc value """
+                is the width of the field in pixels, not counting the Set button.
+            """
+        }
+    }
+    setpoint extends LabeledConfig, StalenessConfig {
+        command_channel
+        state_channel   channel.Key? {
+            @doc value "is the channel that reports the value the device holds."
+        }
+        fill_color      {
+            @doc value """
+                is the fill color of the Set button, which the setpoint border follows.
+            """
+        }
+        units           = ""
+        disabled
+        inline_size     float64 = 100 {
+            @doc value """
+                is the width of the field in pixels, not counting the Set button.
+            """
+        }
+    }
+    value {
+        text_color {
+            @doc value "is the color of the displayed value."
+        }
+        units      = ""
+    }
+}
+
+ElementConfig union on variant extends v9.ElementConfig {}
+
+Schematic struct extends v9.Schematic {}

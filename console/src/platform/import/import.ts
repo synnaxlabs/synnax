@@ -17,7 +17,6 @@ import {
 import { type UploadBody } from "@synnaxlabs/freighter";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Synnax } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { useImportBatch } from "@/platform/import/useImportBatch";
 import { Runtime } from "@/platform/runtime";
@@ -41,35 +40,32 @@ export const use = (): ((projectKey?: string) => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const importBatch = useImportBatch();
-  return useCallback(
-    (projectKey?: string) =>
-      handleError(async () => {
-        if (client == null) throw new DisconnectedError();
-        const files = await Runtime.pickFiles({
-          title: "Import",
-          extension: "json",
-          multiple: true,
-        });
-        if (files == null) return;
-        const activeProjectKey = Session.Project.selectSelected(store.getState());
-        if (projectKey != null && activeProjectKey !== projectKey) {
-          const proj = await client.projects.retrieve(projectKey);
-          store.dispatch(Session.Project.select(proj.key));
-        }
-        const activeProjectKeyAfter = Session.Project.selectSelected(store.getState());
-        await importBatch({
-          // importBatch names failures after the item, so the path doubles as the name.
-          items: files.map((file) => ({ name: file.path, read: file.read })),
-          importItem: async (file) =>
-            await client.imex.import(await file.read(), {
-              ...imex.JSON_OPTIONS,
-              fileName: file.name,
-              parent: project.ontologyID(activeProjectKeyAfter),
-            }),
-        });
-      }),
-    [store, client, handleError, importBatch],
-  );
+  return (projectKey?: string) =>
+    handleError(async () => {
+      if (client == null) throw new DisconnectedError();
+      const files = await Runtime.pickFiles({
+        title: "Import",
+        extension: "json",
+        multiple: true,
+      });
+      if (files == null) return;
+      const activeProjectKey = Session.Project.selectSelected(store.getState());
+      if (projectKey != null && activeProjectKey !== projectKey) {
+        const proj = await client.projects.retrieve(projectKey);
+        store.dispatch(Session.Project.select(proj.key));
+      }
+      const activeProjectKeyAfter = Session.Project.selectSelected(store.getState());
+      await importBatch({
+        // importBatch names failures after the item, so the path doubles as the name.
+        items: files.map((file) => ({ name: file.path, read: file.read })),
+        importItem: async (file) =>
+          await client.imex.import(await file.read(), {
+            ...imex.JSON_OPTIONS,
+            fileName: file.name,
+            parent: project.ontologyID(activeProjectKeyAfter),
+          }),
+      });
+    }, "Failed to import files");
 };
 
 /**

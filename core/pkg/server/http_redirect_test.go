@@ -29,7 +29,6 @@ var _ = Describe("HttpRedirect", func() {
 		mock.GenerateCerts(fs)
 		prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 			FS:       fs,
-			KeySize:  mock.SmallKeySize,
 			Insecure: new(false),
 		}))
 		src := MustSucceed(file.NewSource(fs,

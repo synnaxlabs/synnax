@@ -10,16 +10,20 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { type Client } from "@/components/client/choice";
+import { type Edition } from "@/components/edition";
 
 export interface Info {
   key: Client;
   name: string;
   icon: Icon.ReactElement;
+  edition?: Edition.Edition;
+  /** Shows only in tab blocks that fill its slot. */
+  optional?: boolean;
 }
 
 export const INFO: Info[] = [
   { key: "console", name: "Console", icon: <Icon.Visualize /> },
   { key: "python", name: "Python", icon: <Icon.Python /> },
   { key: "typescript", name: "TypeScript", icon: <Icon.TypeScript /> },
-  { key: "cpp", name: "C++", icon: <Icon.CPlusPlus /> },
+  { key: "arc", name: "Arc", icon: <Icon.Arc />, optional: true },
 ];

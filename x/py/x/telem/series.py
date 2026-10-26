@@ -13,9 +13,10 @@ import json
 import uuid
 from collections.abc import Iterator
 from datetime import datetime
-from typing import Any, TypeAlias
+from typing import Any, TypeAlias, cast
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 from pydantic import BaseModel, PrivateAttr
 
@@ -82,6 +83,9 @@ class Series(ArrayOperators, BaseModel):
     """The underlying buffer"""
     alignment: Alignment = Alignment(0, 0)
     """The alignment of the Series, representing the position within an array of arrays"""
+    alignment_multiple: int = 1
+    """The number of alignment steps between consecutive samples. Above one when the
+    Core reduced the Series from a longer one."""
     _len_cache: int | None = PrivateAttr(None)
 
     def __len__(self) -> int:
@@ -106,11 +110,12 @@ class Series(ArrayOperators, BaseModel):
         data_type: CrudeDataType | None = None,
         time_range: TimeRange | None = None,
         alignment: CrudeAlignment | None = None,
+        alignment_multiple: int | None = None,
     ):
         if data_type is not None:
             data_type = DataType(data_type)
         align = None if alignment is None else Alignment(alignment)
-        if isinstance(data, (TimeStamp, int, float, np.number)):
+        if isinstance(data, (TimeStamp, int, float, np.number, np.bool_)):
             data_type = data_type or DataType(data)
             data_ = np.array([data], dtype=data_type.np).tobytes()
         elif isinstance(data, Series):
@@ -118,6 +123,8 @@ class Series(ArrayOperators, BaseModel):
             data_ = data.data
             time_range = data.time_range if time_range is None else time_range
             align = data.alignment if align is None else align
+            if alignment_multiple is None:
+                alignment_multiple = data.alignment_multiple
         elif isinstance(data, MultiSeries):
             if len(data.series) == 1:
                 data_type = data_type or data.series[0].data_type
@@ -126,6 +133,8 @@ class Series(ArrayOperators, BaseModel):
                     data.series[0].time_range if time_range is None else time_range
                 )
                 align = data.series[0].alignment if align is None else align
+                if alignment_multiple is None:
+                    alignment_multiple = data.series[0].alignment_multiple
             else:
                 raise ValueError(
                     "[Series] - MultiSeries with more than one series cannot be converted to a Series"
@@ -158,6 +167,7 @@ class Series(ArrayOperators, BaseModel):
             data=data_,
             time_range=time_range,
             alignment=Alignment(0) if align is None else align,
+            alignment_multiple=1 if alignment_multiple is None else alignment_multiple,
         )
         self._len_cache = None
 
@@ -206,7 +216,8 @@ class Series(ArrayOperators, BaseModel):
             d = self.__variable_getitem__(index)
             return d.decode("utf-8")
 
-        return self.__array__()[index]  # type: ignore[no-any-return]
+        # numpy stubs type scalar indexing as Any.
+        return cast(np.number | np.bool_, self.__array__()[index])
 
     def __variable_getitem__(self, index: int) -> bytes:
         offset = 0
@@ -260,11 +271,11 @@ class Series(ArrayOperators, BaseModel):
 
         The lower bound is the alignment of the first sample (inclusive), and the
         upper bound is the alignment just after the last sample (exclusive).
-        This represents the range [alignment, alignment + length).
+        This represents the range [alignment, alignment + length * alignment_multiple).
         """
         return Bounds(
-            lower=float(int(self.alignment)),
-            upper=float(int(self.alignment) + len(self)),
+            lower=int(self.alignment),
+            upper=int(self.alignment) + len(self) * self.alignment_multiple,
         )
 
     def astype(self, data_type: DataType) -> Series:
@@ -273,6 +284,7 @@ class Series(ArrayOperators, BaseModel):
             data_type=data_type,
             time_range=self.time_range,
             alignment=self.alignment,
+            alignment_multiple=self.alignment_multiple,
         )
 
     def to_datetime(self) -> list[datetime]:
@@ -280,7 +292,7 @@ class Series(ArrayOperators, BaseModel):
 
 
 SampleValue: TypeAlias = (
-    np.number | uuid.UUID | dict[str, Any] | str | int | float | TimeStamp
+    np.number | np.bool_ | uuid.UUID | dict[str, Any] | str | int | float | TimeStamp
 )
 TypedCrudeSeries: TypeAlias = Series | pd.Series | np.ndarray
 
@@ -318,6 +330,7 @@ CrudeSeries: TypeAlias = (
     | list[uuid.UUID]
     | list[TimeStamp]
     | np.number
+    | np.bool_
     | str
     | uuid.UUID
     | dict[str, Any]
@@ -328,13 +341,13 @@ CrudeSeries: TypeAlias = (
 )
 
 
-def elapsed_seconds(d: np.ndarray) -> np.ndarray:
+def elapsed_seconds(d: npt.NDArray[np.int64]) -> npt.NDArray[np.float64]:
     """Converts a Series of timestamps to elapsed seconds since the first timestamp.
 
     :param d: A Series of timestamps.
     :returns: A Series of elapsed seconds.
     """
-    return (d - d[0]) / TimeSpan.SECOND  # type: ignore[no-any-return]
+    return (d - d[:1]) / TimeSpan.SECOND
 
 
 class MultiSeries(ArrayOperators):

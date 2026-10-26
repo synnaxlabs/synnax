@@ -28,6 +28,7 @@ export interface RenderPaletteParams {
   commands?: Command.Command[];
   client?: Client | null;
   preloadedState?: ConsolePreloadedState;
+  store?: TestStore;
   /** Receives every notification the rendered tree raises. */
   onStatuses?: (statuses: Status.NotificationSpec[]) => void;
 }
@@ -73,9 +74,14 @@ export const renderPalette = async ({
   commands = [],
   client = null,
   preloadedState,
+  store: initialStore,
   onStatuses,
 }: RenderPaletteParams = {}): Promise<PaletteHandle> => {
-  const { wrapper, store } = await createConsoleWrapper({ client, preloadedState });
+  const { wrapper, store } = await createConsoleWrapper({
+    client,
+    preloadedState,
+    store: initialStore,
+  });
   render(
     <>
       <CommandPalette commands={commands} />

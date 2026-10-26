@@ -73,82 +73,77 @@ TEST(PropertiesPdoCount, ReturnsSumOfInputAndOutputPdos) {
     ASSERT_EQ(props.pdo_count(), 3);
 }
 
-TEST(PropertiesFindInputPdo, ReturnsNulloptWhenEmpty) {
-    Properties props;
-    ASSERT_FALSE(props.find_input_pdo("nonexistent").has_value());
-}
-
-TEST(PropertiesFindInputPdo, ReturnsNulloptWhenNameNotFound) {
-    Properties props{
-        .input_pdos = {
-            {.pdo_index = 0x1A00,
-             .index = 0x6000,
-             .sub_index = 1,
-             .bit_length = 16,
-             .name = "Position"},
-        },
-    };
-    ASSERT_FALSE(props.find_input_pdo("Velocity").has_value());
-}
-
-TEST(PropertiesFindInputPdo, ReturnsMatchingPdo) {
-    Properties props{
-        .input_pdos = {
-            {.pdo_index = 0x1A00,
-             .index = 0x6000,
-             .sub_index = 1,
-             .bit_length = 16,
-             .name = "Position"},
-            {.pdo_index = 0x1A00,
-             .index = 0x6000,
-             .sub_index = 2,
-             .bit_length = 32,
-             .name = "Velocity"},
-        },
-    };
-    auto result = props.find_input_pdo("Velocity");
-    ASSERT_TRUE(result.has_value());
-    ASSERT_EQ(result->name, "Velocity");
-    ASSERT_EQ(result->bit_length, 32);
-}
-
-TEST(PropertiesFindOutputPdo, ReturnsNulloptWhenEmpty) {
-    Properties props;
-    ASSERT_FALSE(props.find_output_pdo("nonexistent").has_value());
-}
-
-TEST(PropertiesFindOutputPdo, ReturnsNulloptWhenNameNotFound) {
-    Properties props{
+Properties find_pdo_slave() {
+    return Properties{
+        .input_pdos =
+            {
+                {.pdo_index = 0x1A00,
+                 .index = 0x6000,
+                 .sub_index = 1,
+                 .bit_length = 1,
+                 .is_input = true,
+                 .name = "Status"},
+                {.pdo_index = 0x1A00,
+                 .index = 0,
+                 .sub_index = 0,
+                 .bit_length = 7,
+                 .is_input = true,
+                 .name = ""},
+                {.pdo_index = 0x1A00,
+                 .index = 0x6000,
+                 .sub_index = 0x11,
+                 .bit_length = 16,
+                 .is_input = true,
+                 .name = "Value"},
+            },
         .output_pdos = {
             {.pdo_index = 0x1600,
              .index = 0x7000,
              .sub_index = 1,
-             .bit_length = 16,
-             .name = "TargetPosition"},
-        },
-    };
-    ASSERT_FALSE(props.find_output_pdo("TargetVelocity").has_value());
-}
-
-TEST(PropertiesFindOutputPdo, ReturnsMatchingPdo) {
-    Properties props{
-        .output_pdos = {
-            {.pdo_index = 0x1600,
-             .index = 0x7000,
-             .sub_index = 1,
-             .bit_length = 16,
-             .name = "TargetPosition"},
-            {.pdo_index = 0x1600,
-             .index = 0x7000,
-             .sub_index = 2,
              .bit_length = 8,
+             .is_input = false,
              .name = "ControlWord"},
         },
     };
-    auto result = props.find_output_pdo("ControlWord");
+}
+
+/// @brief it should find no entry on a slave that has no entries.
+TEST(PropertiesFindPdo, ReturnsNulloptWhenEmpty) {
+    Properties props;
+    ASSERT_FALSE(props.find_pdo(0x6000, 1, true).has_value());
+}
+
+/// @brief it should find the input entry at an address.
+TEST(PropertiesFindPdo, ReturnsTheInputEntryAtAnAddress) {
+    const auto result = find_pdo_slave().find_pdo(0x6000, 0x11, true);
     ASSERT_TRUE(result.has_value());
-    ASSERT_EQ(result->name, "ControlWord");
-    ASSERT_EQ(result->bit_length, 8);
+    ASSERT_EQ(result.value().name, "Value");
+    ASSERT_EQ(result.value().bit_length, 16);
+}
+
+/// @brief it should find the output entry at an address.
+TEST(PropertiesFindPdo, ReturnsTheOutputEntryAtAnAddress) {
+    const auto result = find_pdo_slave().find_pdo(0x7000, 1, false);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result.value().name, "ControlWord");
+    ASSERT_EQ(result.value().bit_length, 8);
+}
+
+/// @brief it should find no entry at an address the slave does not have.
+TEST(PropertiesFindPdo, ReturnsNulloptForAnAddressTheSlaveDoesNotHave) {
+    ASSERT_FALSE(find_pdo_slave().find_pdo(0x6010, 1, true).has_value());
+    ASSERT_FALSE(find_pdo_slave().find_pdo(0x6000, 2, true).has_value());
+}
+
+/// @brief it should search only the entries of the given direction.
+TEST(PropertiesFindPdo, SearchesOnlyTheGivenDirection) {
+    ASSERT_FALSE(find_pdo_slave().find_pdo(0x7000, 1, true).has_value());
+    ASSERT_FALSE(find_pdo_slave().find_pdo(0x6000, 1, false).has_value());
+}
+
+/// @brief it should never find a padding entry.
+TEST(PropertiesFindPdo, NeverMatchesPadding) {
+    ASSERT_FALSE(find_pdo_slave().find_pdo(0, 0, true).has_value());
 }
 
 TEST(PropertiesParse, ParsesBasicProperties) {
@@ -278,4 +273,17 @@ TEST(PropertiesToJson, SerializesAllFields) {
     ASSERT_EQ(j["pdos"]["outputs"][0]["name"], "Control");
 }
 
+/// @brief it should leave padding entries out of the JSON of a slave.
+TEST(PropertiesToJson, OmitsPaddingEntries) {
+    Properties props{
+        .input_pdos = {
+            {.pdo_index = 0x1A00, .index = 0x6000, .sub_index = 1, .bit_length = 1},
+            {.pdo_index = 0x1A00, .index = 0, .bit_length = 7},
+            {.pdo_index = 0x1A00, .index = 0x6000, .sub_index = 17, .bit_length = 16},
+        },
+    };
+    const auto j = props.to_json();
+    ASSERT_EQ(j["pdos"]["inputs"].size(), 2);
+    EXPECT_EQ(j["pdos"]["inputs"][1]["sub_index"], 17);
+}
 }

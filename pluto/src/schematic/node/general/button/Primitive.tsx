@@ -14,12 +14,7 @@ import { Button as Base } from "@synnaxlabs/lyra/button";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { color } from "@synnaxlabs/x";
-import {
-  type CSSProperties,
-  type MouseEventHandler,
-  type ReactElement,
-  useMemo,
-} from "react";
+import { type CSSProperties, type MouseEventHandler, type ReactElement } from "react";
 
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -61,10 +56,7 @@ export const Button = ({
   onClickDelay: delay,
 }: ButtonProps): ReactElement => {
   const symbolColor = color.rgbaString(fillColor);
-  const style = useMemo<CSSProperties>(
-    () => ({ [CSS.variable("symbol-color")]: symbolColor }),
-    [symbolColor],
-  );
+  const style: CSSProperties = { [Primitive.SYMBOL_COLOR]: symbolColor };
   // The activation delay gates Base.Button's onClick, so single-shot actuation
   // (fire's release write, pulse's press write) routes through it. An undelayed
   // pulse keeps its raw press edge. Momentary always acts on raw press/release:

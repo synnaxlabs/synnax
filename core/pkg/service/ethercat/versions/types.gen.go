@@ -11,64 +11,63 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v1"
-
-// PDOAddress addresses a PDO entry explicitly in the CoE object dictionary.
-type PDOAddress = v1.PDOAddress
+import "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v2"
 
 // BaseReadChannel carries the fields every EtherCAT read channel shares.
-type BaseReadChannel = v1.BaseReadChannel
+type BaseReadChannel = v2.BaseReadChannel
 
 // ReadChannel is a single EtherCAT read channel (TxPDO, slave to master). The type
 // field selects how the PDO entry is addressed.
-type ReadChannel = v1.ReadChannel
-type ReadChannelVariant = v1.ReadChannelVariant
-type ReadChannelType = v1.ReadChannelType
+type ReadChannel = v2.ReadChannel
+type ReadChannelVariant = v2.ReadChannelVariant
+type ReadChannelType = v2.ReadChannelType
 
 const (
-	// AutomaticReadChannelType resolves its PDO address from the slave's discovered
-	// PDOs.
-	AutomaticReadChannelType ReadChannelType = v1.AutomaticReadChannelType
-	// ManualReadChannelType specifies its PDO address inline.
-	ManualReadChannelType ReadChannelType = v1.ManualReadChannelType
+	// EntryReadChannelType addresses a PDO entry by its CoE index and sub-index.
+	EntryReadChannelType ReadChannelType = v2.EntryReadChannelType
+	// UnresolvedReadChannelType is a channel whose PDO entry name matched no single
+	// entry on its slave. It must be given an entry before the task runs.
+	UnresolvedReadChannelType ReadChannelType = v2.UnresolvedReadChannelType
 )
 
-// AutomaticReadChannel resolves its PDO address from the slave's discovered PDOs.
-type AutomaticReadChannel = v1.AutomaticReadChannel
+// EntryReadChannel addresses a PDO entry by its CoE index and sub-index.
+type EntryReadChannel = v2.EntryReadChannel
 
-// ManualReadChannel specifies its PDO address inline.
-type ManualReadChannel = v1.ManualReadChannel
+// UnresolvedReadChannel is a channel whose PDO entry name matched no single entry on
+// its slave. It must be given an entry before the task runs.
+type UnresolvedReadChannel = v2.UnresolvedReadChannel
 
 // BaseWriteChannel carries the fields every EtherCAT write channel shares.
-type BaseWriteChannel = v1.BaseWriteChannel
+type BaseWriteChannel = v2.BaseWriteChannel
 
 // WriteChannel is a single EtherCAT write channel (RxPDO, master to slave). The type
 // field selects how the PDO entry is addressed.
-type WriteChannel = v1.WriteChannel
-type WriteChannelVariant = v1.WriteChannelVariant
-type WriteChannelType = v1.WriteChannelType
+type WriteChannel = v2.WriteChannel
+type WriteChannelVariant = v2.WriteChannelVariant
+type WriteChannelType = v2.WriteChannelType
 
 const (
-	// AutomaticWriteChannelType resolves its PDO address from the slave's discovered
-	// PDOs.
-	AutomaticWriteChannelType WriteChannelType = v1.AutomaticWriteChannelType
-	// ManualWriteChannelType specifies its PDO address inline.
-	ManualWriteChannelType WriteChannelType = v1.ManualWriteChannelType
+	// EntryWriteChannelType addresses a PDO entry by its CoE index and sub-index.
+	EntryWriteChannelType WriteChannelType = v2.EntryWriteChannelType
+	// UnresolvedWriteChannelType is a channel whose PDO entry name matched no single
+	// entry on its slave. It must be given an entry before the task runs.
+	UnresolvedWriteChannelType WriteChannelType = v2.UnresolvedWriteChannelType
 )
 
-// AutomaticWriteChannel resolves its PDO address from the slave's discovered PDOs.
-type AutomaticWriteChannel = v1.AutomaticWriteChannel
+// EntryWriteChannel addresses a PDO entry by its CoE index and sub-index.
+type EntryWriteChannel = v2.EntryWriteChannel
 
-// ManualWriteChannel specifies its PDO address inline.
-type ManualWriteChannel = v1.ManualWriteChannel
+// UnresolvedWriteChannel is a channel whose PDO entry name matched no single entry on
+// its slave. It must be given an entry before the task runs.
+type UnresolvedWriteChannel = v2.UnresolvedWriteChannel
 
 // ReadConfig configures an EtherCAT read task. Each channel addresses a PDO entry on
 // its own slave; all slaves must share one network interface.
-type ReadConfig = v1.ReadConfig
+type ReadConfig = v2.ReadConfig
 
 // WriteConfig configures an EtherCAT write task. Each channel addresses a PDO entry on
 // its own slave; all slaves must share one network interface.
-type WriteConfig = v1.WriteConfig
+type WriteConfig = v2.WriteConfig
 
 // ScanConfig configures an EtherCAT scan task.
-type ScanConfig = v1.ScanConfig
+type ScanConfig = v2.ScanConfig

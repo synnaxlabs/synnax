@@ -21,14 +21,14 @@
 #include "driver/http/device/device.h"
 
 namespace {
-using json = nlohmann::json;
+using nlohmann::json;
 /// @brief finds a pre-formatted header matching "Key: Value" in a Request's header
 /// vector. Returns the full header string, or empty string if not found.
 std::string
 find_header(const std::vector<std::string> &headers, const std::string &key) {
     const auto prefix = key + ": ";
-    auto it = std::find_if(headers.begin(), headers.end(), [&](const std::string &h) {
-        return h.compare(0, prefix.size(), prefix) == 0;
+    auto it = std::ranges::find_if(headers, [&](const std::string &h) {
+        return h.starts_with(prefix);
     });
     return it != headers.end() ? *it : "";
 }

@@ -631,12 +631,47 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
       atlas.fillText(this, text, x, y);
       return;
     }
-    this.wrapped.fillText(
-      text,
-      this.scale_.x.pos(x),
-      this.scale_.y.pos(y),
-      maxWidth != null ? this.scale_.x.dim(maxWidth) : undefined,
-    );
+    this.drawText("fill", text, xy.construct(x, y), maxWidth, xy.ONE);
+  }
+
+  // Scaling a position does not scale glyphs, so each context passes its position and
+  // magnification down, and the bottom one applies the magnification as a transform.
+  // maxWidth is in glyph units, so the transform scales it too.
+  private drawText(
+    mode: "fill" | "stroke",
+    text: string,
+    position: xy.XY,
+    maxWidth: number | undefined,
+    magnification: xy.XY,
+  ): void {
+    const pos = this.scale_.pos(position);
+    const mag = this.scale_.dim(magnification);
+    if (this.wrapped instanceof SugaredOffscreenCanvasRenderingContext2D) {
+      this.wrapped.drawText(mode, text, pos, maxWidth, mag);
+      return;
+    }
+    const { wrapped: w } = this;
+    const draw = (x: number, y: number): void => {
+      if (mode === "fill") w.fillText(text, x, y, maxWidth);
+      else w.strokeText(text, x, y, maxWidth);
+    };
+    if (xy.equals(mag, xy.ONE)) {
+      draw(pos.x, pos.y);
+      return;
+    }
+    w.save();
+    w.translate(pos.x, pos.y);
+    // An inverted scale flips positions, but text never draws mirrored.
+    const glyphScale = xy.construct(Math.abs(mag.x), Math.abs(mag.y));
+    w.scale(glyphScale.x, glyphScale.y);
+    if (mode === "stroke") {
+      // The stroke settings hold the x scale already, so undo it under the transform.
+      w.lineWidth /= glyphScale.x;
+      w.setLineDash(w.getLineDash().map((segment) => segment / glyphScale.x));
+      w.lineDashOffset /= glyphScale.x;
+    }
+    draw(0, 0);
+    w.restore();
   }
 
   measureText(text: string): TextMetrics {
@@ -653,12 +688,7 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
   }
 
   strokeText(text: string, x: number, y: number, maxWidth?: number | undefined): void {
-    this.wrapped.strokeText(
-      text,
-      this.scale_.x.pos(x),
-      this.scale_.y.pos(y),
-      maxWidth != null ? this.scale_.x.dim(maxWidth) : undefined,
-    );
+    this.drawText("stroke", text, xy.construct(x, y), maxWidth, xy.ONE);
   }
 
   get direction(): CanvasDirection {

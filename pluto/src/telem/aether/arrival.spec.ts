@@ -33,6 +33,7 @@ class MockClient implements Client {
   feed = {
     readLatest: async (): Promise<MultiSeries> => new MultiSeries([]),
     lastWrite: (): TimeStamp | null => null,
+    readTile: async (): Promise<MultiSeries> => new MultiSeries([]),
     read: async (): Promise<MultiSeries> => new MultiSeries([]),
     stream: (
       handler: framer.StreamHandler,

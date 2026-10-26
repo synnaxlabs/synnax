@@ -56,7 +56,6 @@ export const GaugeForm = ({ tab, onTabChange }: FormProps): ReactElement => (
           <Base.Field<text.Level>
             path="level"
             label="Size"
-            hideIfNull
             padHelpText={false}
             onChange={handleLevelChange}
           >
@@ -67,14 +66,13 @@ export const GaugeForm = ({ tab, onTabChange }: FormProps): ReactElement => (
           <Base.NumericField
             path="barWidth"
             label="Bar width"
-            hideIfNull
             padHelpText={false}
             inputProps={GAUGE_BAR_WIDTH_INPUT_PROPS}
           />
         </Base.Section>
         <Base.Section title="Range">
           <Form.UnitsField />
-          <Form.BoundsFields path="bounds" hideIfNull padHelpText={false} />
+          <Form.BoundsFields path="bounds" padHelpText={false} />
         </Base.Section>
       </Base.Sections>
     </Tabs.Content>

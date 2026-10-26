@@ -22,22 +22,6 @@ from synnax import task
 from x import telem
 
 
-class PDOAddress(BaseModel):
-    """Addresses a PDO entry explicitly in the CoE object dictionary.
-
-    Attributes:
-        index: Is the CoE object dictionary index of the PDO entry.
-        sub_index: Is the CoE object dictionary sub-index of the PDO entry.
-        bit_length: Is the size of the PDO entry, in bits.
-        data_type: Is the data type of the PDO entry.
-    """
-
-    index: int = Field(default=0, ge=0, le=65535)
-    sub_index: int = Field(default=0, ge=0, le=255)
-    bit_length: int = Field(default=16, ge=0, le=255)
-    data_type: telem.DataType = telem.DataType("uint16")
-
-
 class BaseReadChannel(BaseModel):
     """Carries the fields every EtherCAT read channel shares.
 
@@ -93,44 +77,54 @@ class ScanConfig(task.ScanConfig):
         return hash(self.key)
 
 
-class AutomaticReadChannel(BaseReadChannel):
-    """Resolves its PDO address from the slave's discovered PDOs."""
+class EntryReadChannel(BaseReadChannel):
+    """Addresses a PDO entry by its CoE index and sub-index."""
 
-    type: Literal["automatic"] = "automatic"
-    pdo: str = ""
+    type: Literal["entry"] = "entry"
+    index: int = Field(ge=0, le=65535)
+    sub_index: int = Field(ge=0, le=255)
+    data_type: telem.DataType
 
 
-class ManualReadChannel(BaseReadChannel, PDOAddress):
-    """Specifies its PDO address inline."""
+class UnresolvedReadChannel(BaseReadChannel):
+    """Is a channel whose PDO entry name matched no single entry on its slave. It must
+    be given an entry before the task runs.
+    """
 
-    type: Literal["manual"] = "manual"
+    type: Literal["unresolved"] = "unresolved"
+    pdo: str
 
 
 # Is a single EtherCAT read channel (TxPDO, slave to master). The type field
 # selects how the PDO entry is addressed.
 ReadChannel = Annotated[
-    AutomaticReadChannel | ManualReadChannel,
+    EntryReadChannel | UnresolvedReadChannel,
     Field(discriminator="type"),
 ]
 
 
-class AutomaticWriteChannel(BaseWriteChannel):
-    """Resolves its PDO address from the slave's discovered PDOs."""
+class EntryWriteChannel(BaseWriteChannel):
+    """Addresses a PDO entry by its CoE index and sub-index."""
 
-    type: Literal["automatic"] = "automatic"
-    pdo: str = ""
+    type: Literal["entry"] = "entry"
+    index: int = Field(ge=0, le=65535)
+    sub_index: int = Field(ge=0, le=255)
+    data_type: telem.DataType
 
 
-class ManualWriteChannel(BaseWriteChannel, PDOAddress):
-    """Specifies its PDO address inline."""
+class UnresolvedWriteChannel(BaseWriteChannel):
+    """Is a channel whose PDO entry name matched no single entry on its slave. It must
+    be given an entry before the task runs.
+    """
 
-    type: Literal["manual"] = "manual"
+    type: Literal["unresolved"] = "unresolved"
+    pdo: str
 
 
 # Is a single EtherCAT write channel (RxPDO, master to slave). The type field
 # selects how the PDO entry is addressed.
 WriteChannel = Annotated[
-    AutomaticWriteChannel | ManualWriteChannel,
+    EntryWriteChannel | UnresolvedWriteChannel,
     Field(discriminator="type"),
 ]
 

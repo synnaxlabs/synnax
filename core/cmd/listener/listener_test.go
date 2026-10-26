@@ -305,6 +305,22 @@ var _ = Describe("Listener", func() {
 		})
 	})
 
+	Describe("Loopback", func() {
+		It("Should be true when every listener is loopback", func() {
+			Expect(listener.Configs{
+				{Address: "localhost:1", Loopback: true},
+				{Address: "127.0.0.1:2", Loopback: true},
+			}.Loopback()).To(BeTrue())
+		})
+
+		It("Should be false when any listener is not loopback", func() {
+			Expect(listener.Configs{
+				{Address: "localhost:1", Loopback: true},
+				{Address: "localhost:2"},
+			}.Loopback()).To(BeFalse())
+		})
+	})
+
 	Describe("Resolve", func() {
 		var (
 			prov      security.Provider
@@ -316,7 +332,6 @@ var _ = Describe("Listener", func() {
 			mock.GenerateCerts(coreFS)
 			prov = MustSucceed(security.NewProvider(security.ProviderConfig{
 				FS:       coreFS,
-				KeySize:  mock.SmallKeySize,
 				Insecure: new(false),
 			}))
 			coreFC = cert.FactoryConfig{
@@ -481,7 +496,6 @@ var _ = Describe("Listener", func() {
 				lc.CACertPath = "absent.crt"
 				extProv := MustSucceed(security.NewProvider(security.ProviderConfig{
 					LoaderConfig: lc,
-					KeySize:      mock.SmallKeySize,
 					Insecure:     new(false),
 				}))
 				extFC := foreignFC

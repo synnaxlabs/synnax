@@ -26,7 +26,7 @@ import {
   Table,
 } from "@synnaxlabs/pluto";
 import { deep, type text } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 import { type z } from "zod";
 
 import { Core } from "@/platform/core";
@@ -169,17 +169,14 @@ const CellForm = ({ cellKey }: CellFormProps): ReactElement | null => {
   const handleTabChange = (tab: Properties.TabKey) =>
     sessionDispatch(Session.Table.setPropertiesTab({ key, tab }));
 
-  const handleChange = useCallback(
-    ({ values }: Form.OnChangeParams<typeof Table.Cell.configZ>) => {
-      if (cell == null) return;
-      dispatch([
-        table.setCell({
-          cell: { key: cellKey, config: Table.Cell.configZ.parse(values) },
-        }),
-      ]);
-    },
-    [cell, cellKey, dispatch],
-  );
+  const handleChange = ({ values }: Form.OnChangeParams<typeof Table.Cell.configZ>) => {
+    if (cell == null) return;
+    dispatch([
+      table.setCell({
+        cell: { key: cellKey, config: Table.Cell.configZ.parse(values) },
+      }),
+    ]);
+  };
 
   const methods = Form.use<typeof Table.Cell.configZ>({
     values: cell != null ? deep.copy(cell) : Table.Cell.defaultConfig("text"),

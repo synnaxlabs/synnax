@@ -26,6 +26,18 @@ import { License } from "@/platform/license";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 
+interface Standing {
+  label: string;
+  variant: status.Variant;
+}
+
+const standingOf = ({ state, warning }: license.Info): Standing => {
+  if (state === "expired") return { label: "Expired", variant: "error" };
+  if (state === "missing") return { label: "Inactive", variant: "warning" };
+  if (warning !== "") return { label: "Expiring", variant: "warning" };
+  return { label: "Active", variant: "success" };
+};
+
 const BINDINGS: Record<License.Binding, string> = {
   floating: "Runs on any machine",
   host: "Bound to this machine",
@@ -97,7 +109,7 @@ interface HeadlineProps {
 }
 
 const Headline = ({ info }: HeadlineProps): ReactElement => {
-  const { label, variant } = License.standing(info);
+  const { label, variant } = standingOf(info);
   const lic = info.license;
   const description =
     info.warning !== ""
@@ -124,11 +136,7 @@ const Headline = ({ info }: HeadlineProps): ReactElement => {
   );
 };
 
-/**
- * Opens a dialog with the active Core's license and the facts support asks for: the
- * license's claims, the host fingerprint, and the Core and Console versions.
- */
-export const useInfoModal = Modals.create(() => {
+const Info = () => {
   const result = PLicense.useResult({});
   const info = result.data;
   const { details } = Synnax.useConnectionStatus();
@@ -200,4 +208,10 @@ export const useInfoModal = Modals.create(() => {
       </Modal.Body>
     </Modal.Frame>
   );
-});
+};
+
+/**
+ * Opens a dialog with the active Core's license and the facts support asks for: the
+ * license's claims, the host fingerprint, and the Core and Console versions.
+ */
+export const useInfoModal = Modals.create(Info);

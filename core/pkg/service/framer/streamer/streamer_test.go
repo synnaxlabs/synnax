@@ -27,7 +27,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -46,24 +45,20 @@ var _ = Describe("Streamer", Ordered, func() {
 		ShouldNotLeakGoroutines()
 		node = mock.NewNode(ctx)
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
-		searchIdx := MustOpen(search.OpenIndex())
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       node.DB,
 			Ontology: otg,
-			Search:   searchIdx,
 		}))
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       node.DB,
 			Ontology: otg,
 			Group:    groupSvc,
-			Search:   searchIdx,
 		}))
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       node.DB,
 			Group:    groupSvc,
 			Ontology: otg,
 			Label:    labelSvc,
-			Search:   searchIdx,
 		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel:      node.Channel,
@@ -71,7 +66,6 @@ var _ = Describe("Streamer", Ordered, func() {
 			HostProvider: node.Cluster,
 			Ontology:     otg,
 			Group:        groupSvc,
-			Search:       searchIdx,
 			Status:       statusSvc,
 		}))
 		channelWriter = channelSvc.NewWriter(nil)
@@ -386,6 +380,49 @@ var _ = Describe("Streamer", Ordered, func() {
 			inlet.Close()
 			Eventually(outlet.Outlet()).Should(BeClosed())
 		})
+
+		It(
+			"Should drop a frame whose samples all lie off the grid",
+			func(ctx SpecContext) {
+				ch := &channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.Float32T,
+					Virtual:  true,
+				}
+				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				keys := []channel.Key{ch.Key()}
+				w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+					Start: telem.Now(),
+					Keys:  keys,
+				}))
+				s := MustSucceed(streamerSvc.New(ctx, streamer.Config{
+					Keys:             keys,
+					SendOpenAck:      true,
+					DownsampleFactor: 2,
+				}))
+				sCtx, cancel := signal.Isolated()
+				inlet, outlet := confluence.Attach(s)
+				defer cancel()
+				s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+				Eventually(outlet.Outlet()).Should(Receive())
+				for _, v := range []float32{1, 2, 3} {
+					Expect(
+						w.Write(frame.NewUnary(ch.Key(), telem.NewSeriesV(v))),
+					).To(BeTrue())
+				}
+				var res streamer.Response
+				Eventually(outlet.Outlet()).Should(Receive(&res))
+				Expect(
+					res.Frame.Get(ch.Key()).Series[0],
+				).To(telem.MatchSeriesDataV[float32](1))
+				Eventually(outlet.Outlet()).Should(Receive(&res))
+				Expect(
+					res.Frame.Get(ch.Key()).Series[0],
+				).To(telem.MatchSeriesDataV[float32](3))
+				inlet.Close()
+				Eventually(outlet.Outlet()).Should(BeClosed())
+			},
+		)
 
 		It(
 			"Should correctly combine downsampling with calculations",

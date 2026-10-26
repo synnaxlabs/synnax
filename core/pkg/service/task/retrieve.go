@@ -13,26 +13,24 @@ import (
 	"context"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 )
 
 // Retrieve is used to retrieve Task records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {
-	baseTX     gorp.Tx
-	gorp       gorp.Retrieve[Key, Task]
-	search     *search.Index
-	searchTerm string
-	otg        *ontology.Ontology
-	configs    config.Registry
-	entry      *Task
-	entries    *[]Task
+	baseTX  gorp.Tx
+	gorp    gorp.Retrieve[Key, Task]
+	search  *gorp.SearchIndex[Key, Task]
+	otg     *ontology.Ontology
+	configs config.Registry
+	entry   *Task
+	entries *[]Task
 }
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to Where.
@@ -59,8 +57,15 @@ func Or(fs ...Filter) Filter { return gorp.OrBound(fs...) }
 // Not returns a filter that inverts the provided filter.
 func Not(f Filter) Filter { return gorp.NotBound(f) }
 
-// Search sets a fuzzy search term that Retrieve will use to filter results.
-func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
+// Search filters the tasks to those whose name or type matches term, closest match
+// first. An empty term adds no filter.
+func (r Retrieve) Search(term string) Retrieve {
+	if term == "" {
+		return r
+	}
+	r.gorp = r.gorp.Where(r.search.Filter(term))
+	return r
+}
 
 // MatchKeys returns a filter that restricts results to tasks whose key matches any of
 // the provided values. Composing MatchKeys at the top level of a Where clause (i.e.
@@ -149,24 +154,6 @@ func (r Retrieve) Offset(offset int) Retrieve {
 	return r
 }
 
-func (r Retrieve) execSearch(ctx context.Context) (Retrieve, error) {
-	if r.searchTerm == "" {
-		return r, nil
-	}
-	ids, err := r.search.Search(ctx, search.Request{
-		Type: ontology.ResourceTypeTask,
-		Term: r.searchTerm,
-	})
-	if err != nil {
-		return Retrieve{}, err
-	}
-	keys, err := KeysFromOntologyIDs(ids)
-	if err != nil {
-		return Retrieve{}, err
-	}
-	return r.Where(MatchKeys(keys...)), nil
-}
-
 // results returns pointers to the tasks the executed query populated.
 func (r Retrieve) results() []*Task {
 	if r.entries != nil {
@@ -209,12 +196,8 @@ func (r Retrieve) composeConfigs(
 
 // Exec executes the query against the provided transaction.
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
-	var err error
-	if r, err = r.execSearch(ctx); err != nil {
-		return err
-	}
 	tx = gorp.OverrideTx(r.baseTX, tx)
-	if err = r.gorp.Exec(ctx, tx); err != nil {
+	if err := r.gorp.Exec(ctx, tx); err != nil {
 		return err
 	}
 	return r.composeConfigs(ctx, tx, r.results())
@@ -222,18 +205,10 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 
 // Count returns the number of tasks matching the query.
 func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
-	var err error
-	if r, err = r.execSearch(ctx); err != nil {
-		return 0, err
-	}
 	return r.gorp.Count(ctx, gorp.OverrideTx(r.baseTX, tx))
 }
 
 // Exists checks whether any tasks match the query.
 func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
-	var err error
-	if r, err = r.execSearch(ctx); err != nil {
-		return false, err
-	}
 	return r.gorp.Exists(ctx, gorp.OverrideTx(r.baseTX, tx))
 }

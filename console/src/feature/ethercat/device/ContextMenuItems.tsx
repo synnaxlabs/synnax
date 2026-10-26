@@ -11,54 +11,45 @@ import { device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { useEnabledState, useToggleEnabled } from "@/feature/ethercat/device/queries";
-import { useConfigureModal } from "@/feature/ethercat/device/useConfigureModal";
 import { Task } from "@/feature/ethercat/task";
 import { Device } from "@/platform/device";
-import { type Tree } from "@/platform/tree";
 
-const TASK_CONTEXT_MENU_ITEM_CONFIGS: Device.TaskContextMenuItemConfig[] = [
-  {
+const TASK_CONTEXT_MENU_ITEMS = [
+  Device.createTaskContextMenuItem({
     itemKey: "ethercat.readTask",
     label: "Create read task",
     useCreate: Task.useCreateRead,
-  },
-  {
+  }),
+  Device.createTaskContextMenuItem({
     itemKey: "ethercat.writeTask",
     label: "Create write task",
     useCreate: Task.useCreateWrite,
-  },
+  }),
 ];
 
-export const ContextMenuItems = (props: Tree.ContextMenuProps) => {
+export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
   const keys = props.selection.ids.map((id) => id.key);
   const hasUpdatePermission = Access.useUpdateGranted(device.ontologyID(keys));
   const { update: toggleEnabled } = useToggleEnabled();
-  const configure = useConfigureModal();
-  const onConfigure = (deviceKey: device.Key) => configure({ deviceKey });
 
   const { allDisabled, allEnabled } = useEnabledState({ keys });
 
-  const handleDisable = useCallback(() => {
+  const handleDisable = () => {
     toggleEnabled({ keys, enabled: false });
-  }, [keys, toggleEnabled]);
+  };
 
-  const handleEnable = useCallback(() => {
+  const handleEnable = () => {
     toggleEnabled({ keys, enabled: true });
-  }, [keys, toggleEnabled]);
+  };
 
   return (
     <>
-      <Device.ConfigureMenuItem {...props} onConfigure={onConfigure} />
+      <Device.ConfigureMenuItem {...props} />
       <Device.ChangeIdentifierMenuItem {...props} icon="Logo.EtherCAT" />
       <Menu.Divider />
-      <Device.TaskContextMenuItems
-        {...props}
-        onConfigure={onConfigure}
-        taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
-      />
+      <Device.TaskContextMenuItems {...props} items={TASK_CONTEXT_MENU_ITEMS} />
       <Menu.Divider />
       {hasUpdatePermission && !allDisabled && (
         <Menu.Item itemKey="ethercat.disable" onClick={handleDisable}>

@@ -15,18 +15,17 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/task/versions"
 	xconfig "github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
@@ -63,10 +62,6 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL]
 	Channel *channel.Service
-	// Search is the search index for fuzzy searching tasks.
-	//
-	// [REQUIRED]
-	Search *search.Index
 	// Signals is used to propagate task changes through the Synnax signals' channel
 	// communication mechanism.
 	//
@@ -103,7 +98,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Rack = override.Nil(c.Rack, other.Rack)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Channel = override.Nil(c.Channel, other.Channel)
-	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	c.Configs = override.Zero(c.Configs, other.Configs)
@@ -119,7 +113,6 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("group", c.Group)
 	v.NotNil("rack", c.Rack)
 	v.NotNil("status", c.Status)
-	v.NotNil("search", c.Search)
 	v.NotNil("imex", c.ImEx)
 	v.Ternary("configs", c.Configs.IsZero(), "must be non-zero")
 	return v.Error()
@@ -130,6 +123,7 @@ type Service struct {
 	closer            xio.MultiCloser
 	group             group.Group
 	table             *gorp.Table[Key, Task]
+	search            *gorp.SearchIndex[Key, Task]
 	commandChannelKey channel.Key
 }
 
@@ -146,11 +140,12 @@ func OpenService(
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg}
+	s = &Service{cfg: cfg, search: newSearchIndex()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Task]{
-		DB: cfg.DB,
+		DB:      cfg.DB,
+		Indexes: []gorp.Index[Key, Task]{s.search},
 		Migrations: versions.NewMigrations(versions.MigrationsConfig{
 			Status:   cfg.Status,
 			Ontology: cfg.Ontology,
@@ -171,7 +166,6 @@ func OpenService(
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
-	cfg.Search.RegisterService(s)
 	if err = cfg.ImEx.RegisterExporter(s); !ok(err, nil) {
 		return nil, err
 	}
@@ -247,7 +241,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		search:  s.cfg.Search,
+		search:  s.search,
 		baseTX:  s.cfg.DB,
 		gorp:    s.table.NewRetrieve(),
 		otg:     s.cfg.Ontology,

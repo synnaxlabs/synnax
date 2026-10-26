@@ -9,7 +9,9 @@
 
 import { UnexpectedError } from "@synnaxlabs/client";
 import {
+  type Aggregation,
   array,
+  type DataType,
   deep,
   type destructor,
   id,
@@ -24,7 +26,12 @@ import {
   type Factory,
 } from "@/telem/aether/factory";
 import { PipelineFactory } from "@/telem/aether/pipeline";
-import { type Sink, type Source, type Spec } from "@/telem/aether/telem";
+import {
+  type Sink,
+  type Source,
+  type Spec,
+  type ValueProps,
+} from "@/telem/aether/telem";
 
 /** Provides utilities for creating and managing telemetry sources and sinks. */
 export class Context {
@@ -94,12 +101,24 @@ class Memoized<V> {
 }
 
 export class MemoizedSource<V, S extends Source<V> = Source<V>> extends Memoized<S> {
-  value(): V {
-    return this.wrapped.value();
+  value(props?: ValueProps): V {
+    return this.wrapped.value(props);
   }
 
   loading(): boolean {
     return this.wrapped.loading?.() ?? false;
+  }
+
+  fetching(): boolean {
+    return this.wrapped.fetching?.() ?? false;
+  }
+
+  aggregation(): Aggregation | null {
+    return this.wrapped.aggregation?.() ?? null;
+  }
+
+  dataType(): DataType | null {
+    return this.wrapped.dataType?.() ?? null;
   }
 
   sampleTime(): TimeStamp | null {

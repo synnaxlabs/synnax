@@ -12,8 +12,8 @@ package kv
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // Writer is used to create and delete key-value pairs.

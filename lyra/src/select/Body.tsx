@@ -8,17 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { type record } from "@synnaxlabs/x";
-import pluralize from "pluralize";
-import { type ReactElement, type ReactNode, useMemo } from "react";
+import { type ReactElement, type ReactNode } from "react";
 import { type z } from "zod";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Items, type ItemsProps } from "@/select/Items";
 import { List as SelectList } from "@/select/List";
+import { plural, searchPlaceholder } from "@/select/placeholder";
 import { Search, type SearchProps } from "@/select/Search";
 import { Status } from "@/status";
-import { Text } from "@/text";
 
 /** Props for {@link Body}. */
 export interface BodyProps<K extends record.Key>
@@ -33,11 +32,25 @@ export interface BodyProps<K extends record.Key>
   fixedItems?: ReactNode;
 }
 
-export const DefaultEmptyContent = ({ resourceName }: { resourceName: string }) => (
-  <Text.Text center status="disabled">
-    No {pluralize.plural(resourceName)} found
-  </Text.Text>
-);
+/** Props for {@link EmptyContent}. */
+export interface EmptyContentProps {
+  resourceName: string;
+  /** A string renders as gray text. Unset, it says no items were found. */
+  emptyContent?: ReactNode;
+}
+
+/** The content a selection shows when it has no options to list. */
+export const EmptyContent = ({
+  resourceName,
+  emptyContent,
+}: EmptyContentProps): ReactNode => {
+  if (emptyContent != null && typeof emptyContent !== "string") return emptyContent;
+  return (
+    <Status.Summary center variant="disabled" hideIcon>
+      {emptyContent ?? `No ${plural(resourceName)} found`}
+    </Status.Summary>
+  );
+};
 
 /**
  * The search field, list, and empty and error content of a data-driven selection. Use
@@ -55,34 +68,21 @@ export const Body = <K extends record.Key>({
 }: BodyProps<K>): ReactElement => {
   const loading = status?.variant === "loading";
   const hasSearch = onSearch != null;
-  emptyContent = useMemo(() => {
-    if (loading) return hasSearch ? null : <Status.Loading />;
-    if (status != null && status.variant !== "success")
-      return (
-        <Status.Summary
-          center
-          variant={status?.variant}
-          description={status?.description}
-        >
-          {status?.message}
-        </Status.Summary>
-      );
-    if (typeof emptyContent === "string")
-      return (
-        <Status.Summary center variant="disabled">
-          {emptyContent}
-        </Status.Summary>
-      );
-    if (emptyContent == null)
-      return <DefaultEmptyContent resourceName={resourceName} />;
-    return emptyContent;
-  }, [status?.key, emptyContent, loading, hasSearch]);
+  let empty: ReactNode;
+  if (loading) empty = hasSearch ? null : <Status.Loading />;
+  else if (status != null && status.variant !== "success")
+    empty = (
+      <Status.Summary center variant={status.variant} description={status.description}>
+        {status.message}
+      </Status.Summary>
+    );
+  else empty = <EmptyContent resourceName={resourceName} emptyContent={emptyContent} />;
   return (
     <>
       {hasSearch && (
         <Search
           onSearch={onSearch}
-          placeholder={`Search ${pluralize.plural(resourceName)}...`}
+          placeholder={searchPlaceholder(resourceName)}
           actions={actions}
           loading={loading}
         />
@@ -90,7 +90,7 @@ export const Body = <K extends record.Key>({
       {footer == null || footer === false ? (
         <SelectList bordered borderColor={6} grow rounded full="x">
           {fixedItems}
-          <Items<K> emptyContent={emptyContent}>{children}</Items>
+          <Items<K> emptyContent={empty}>{children}</Items>
         </SelectList>
       ) : (
         <Flex.Box
@@ -105,7 +105,7 @@ export const Body = <K extends record.Key>({
         >
           <SelectList grow full="x">
             {fixedItems}
-            <Items<K> emptyContent={emptyContent}>{children}</Items>
+            <Items<K> emptyContent={empty}>{children}</Items>
           </SelectList>
           {footer}
         </Flex.Box>

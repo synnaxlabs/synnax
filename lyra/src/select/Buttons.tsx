@@ -10,7 +10,7 @@
 import "@/select/Buttons.css";
 
 import { type record } from "@synnaxlabs/x";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
@@ -36,7 +36,8 @@ export interface ButtonsProps<K extends record.Key = record.Key>
   /**
    * "text" (the default) spaces the buttons like tabs: the unselected ones are plain
    * text and only the selected one carries a chassis. "outlined" packs bordered
-   * buttons into one control, for controls that float over a canvas.
+   * buttons into one control, for controls that float over a canvas. "card" splits
+   * the width between bordered cards that stack an icon, a title, and a description.
    */
   variant?: ButtonsVariant;
 }
@@ -70,15 +71,16 @@ export const Buttons = <K extends record.Key = record.Key>({
     onChange,
   } as FrameProps<K, record.Keyed<K>>;
   const isEmpty = value == null || (Array.isArray(value) && value.length === 0);
-  const ctx = useMemo(() => ({ preview, variant }), [preview, variant]);
+  const ctx = { preview, variant };
   const text = variant === "text";
+  const card = variant === "card";
   return (
     <Frame<K, record.Keyed<K>> closeDialogOnSelect={false} {...selectionProps}>
       <ButtonsContext value={ctx}>
         <Flex.Box
           x
-          pack={!text}
-          gap={text ? "tiny" : undefined}
+          pack={variant === "outlined"}
+          gap={text ? "tiny" : card ? "medium" : undefined}
           className={CSS.cls(
             className,
             CSS.B("select-btns"),

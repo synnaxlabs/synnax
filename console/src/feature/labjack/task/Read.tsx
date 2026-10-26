@@ -12,13 +12,12 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { deep, errors, id, primitive } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC } from "react";
 
 import { use } from "@/feature/labjack/device/queries";
 import { Select } from "@/feature/labjack/device/Select";
 import { SelectPort } from "@/feature/labjack/device/SelectPort";
 import * as Device from "@/feature/labjack/device/types";
-import { useConfigureModal } from "@/feature/labjack/device/useConfigureModal";
 import {
   convertPortTypeToReadChannelType,
   convertReadChannelTypeToPortType,
@@ -39,6 +38,7 @@ import {
   type ReadChannelType,
   type ReadSchemas,
 } from "@/feature/labjack/task/types";
+import { useConfigure } from "@/feature/labjack/task/useConfigure";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
@@ -207,32 +207,20 @@ const isChannelTareable = (channel: ReadChannel) => channel.type === "analog";
 const ChannelsForm = ({ device }: ChannelsFormProps) => {
   const [tare, allowTare, handleTare] = Task.useTare({ isChannelTareable });
   const { model } = device;
-  const createChannel = useCallback(
-    (channels: ReadChannel[], channelKeyToCopy?: string) =>
-      getOpenChannel(channels, model, channelKeyToCopy),
-    [model],
+  const createChannel = (channels: ReadChannel[], channelKeyToCopy?: string) =>
+    getOpenChannel(channels, model, channelKeyToCopy);
+  const listItem = ({ key, ...p }: Task.ChannelListItemProps) => (
+    <ChannelListItem key={key} {...p} onTare={tare} deviceModel={model} />
   );
-  const listItem = useCallback(
-    ({ key, ...p }: Task.ChannelListItemProps) => (
-      <ChannelListItem key={key} {...p} onTare={tare} deviceModel={model} />
-    ),
-    [tare, model],
+  const details = (p: Task.Views.DetailsProps) => (
+    <ChannelDetails {...p} deviceModel={model} />
   );
-  const details = useCallback(
-    (p: Task.Views.DetailsProps) => <ChannelDetails {...p} deviceModel={model} />,
-    [model],
-  );
-  const resolve = useCallback(
-    (c: ReadChannel) => ({
-      channel:
-        device.properties[convertReadChannelTypeToPortType(c.type)].channels[c.port] ??
-        0,
-    }),
-    [device],
-  );
-  const detailsTitle = useCallback(
-    (p: Task.Views.DetailsProps) => <DetailsTitle {...p} deviceModel={device.model} />,
-    [device.model],
+  const resolve = (c: ReadChannel) => ({
+    channel:
+      device.properties[convertReadChannelTypeToPortType(c.type)].channels[c.port] ?? 0,
+  });
+  const detailsTitle = (p: Task.Views.DetailsProps) => (
+    <DetailsTitle {...p} deviceModel={device.model} />
   );
   return (
     <Task.Views.ListAndDetails<ReadChannel>
@@ -250,7 +238,7 @@ const ChannelsForm = ({ device }: ChannelsFormProps) => {
 
 const Form: FC = PlatformDevice.wrapTaskForm({
   use,
-  useConfigure: useConfigureModal,
+  useConfigure,
   Content: ChannelsForm,
 });
 

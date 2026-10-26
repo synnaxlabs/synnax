@@ -12,10 +12,6 @@
 .pluto-state-indicator {
     display: flex;
     flex-direction: row;
-    border: var(--pluto-border);
-    border-color: var(--pluto-symbol-display);
-    border-radius: var(--pluto-border-radius);
-    border-width: 2px;
     padding: 0;
     align-items: center;
     justify-content: center;

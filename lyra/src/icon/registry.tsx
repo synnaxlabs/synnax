@@ -42,7 +42,6 @@ import {
   FaAlignRight,
   FaApple,
   FaBezierCurve,
-  FaCarSide,
   FaCreativeCommonsZero,
   FaDocker,
   FaLinux,
@@ -50,18 +49,9 @@ import {
   FaRegStar,
   FaStar,
   FaStream,
-  FaWind,
   FaWindows,
 } from "react-icons/fa";
-import {
-  FaBridge,
-  FaCheck,
-  FaGaugeHigh,
-  FaGear,
-  FaHelmetSafety,
-  FaPlus,
-  FaXmark,
-} from "react-icons/fa6";
+import { FaCheck, FaHelmetSafety, FaPlus, FaXmark } from "react-icons/fa6";
 import { FiTable } from "react-icons/fi";
 import { GiHamburgerMenu } from "react-icons/gi";
 import { GoNumber } from "react-icons/go";
@@ -124,7 +114,6 @@ import {
   MdFiberManualRecord,
   MdFilterCenterFocus,
   MdHardware,
-  MdHive,
   MdHorizontalDistribute,
   MdHttp,
   MdInsights,
@@ -171,6 +160,7 @@ import {
   MdPolicy,
   MdQuestionMark,
   MdRedo,
+  MdReplay,
   MdRotate90DegreesCcw,
   MdRotate90DegreesCw,
   MdRotateLeft,
@@ -197,7 +187,6 @@ import {
   PiFileCsv,
   PiMagnifyingGlassBold,
   PiSelectionPlusBold,
-  PiThermometerSimpleFill,
   PiUploadSimple,
   PiWaveSawtoothBold,
   PiWaveSineBold,
@@ -210,17 +199,14 @@ import {
   RiProgress4Line,
   RiProgress8Line,
   RiSettings3Fill,
-  RiWeightFill,
 } from "react-icons/ri";
 import { RxComponentBoolean, RxReset } from "react-icons/rx";
 import {
   SiCplusplus,
-  SiGooglenearby,
   SiNpm,
   SiPagerduty,
   SiPnpm,
   SiPython,
-  SiSpringCreators,
   SiTypescript,
   SiYarn,
 } from "react-icons/si";
@@ -236,12 +222,12 @@ import {
   TbBoxModel2,
   TbChartArcs,
   TbCircleDashed,
-  TbCircleLetterAFilled,
   TbCircleLetterVFilled,
-  TbCircuitResistor,
   TbColumnInsertLeft,
   TbColumnInsertRight,
   TbColumnRemove,
+  TbDatabase,
+  TbDatabaseOff,
   TbDecimal,
   TbEraser,
   TbLayoutSidebar,
@@ -265,6 +251,8 @@ import {
 } from "react-icons/vsc";
 
 import { CSS } from "@/css";
+import { Bridge } from "@/icon/Bridge";
+import { Device } from "@/icon/Device";
 import { EtherCAT } from "@/icon/EtherCAT";
 import { Fitting } from "@/icon/Fitting";
 import { type IconProps, type ReactElement, wrapSVGIcon } from "@/icon/Icon";
@@ -274,10 +262,13 @@ import { NI } from "@/icon/NI";
 import { OPCUA } from "@/icon/OPCUA";
 import { Process } from "@/icon/Process";
 import { Pump } from "@/icon/Pump";
+import { Rack } from "@/icon/Rack";
+import { Units } from "@/icon/Units";
 import { Valve } from "@/icon/Valve";
 
 export const Pause = wrapSVGIcon(MdPause, "pause");
 export const Play = wrapSVGIcon(MdPlayArrow, "play");
+export const Replay = wrapSVGIcon(MdReplay, "replay");
 export const Stop = wrapSVGIcon(MdStop, "stop");
 export const Circle = wrapSVGIcon(MdFiberManualRecord, "circle");
 export const Square = wrapSVGIcon(MdSquare, "square");
@@ -391,7 +382,8 @@ export const Logo = {
   PagerDuty: wrapSVGIcon(SiPagerduty, "logo-pagerduty"),
   Windows: wrapSVGIcon(FaWindows, "logo-windows"),
   EtherCAT,
-  HTTP: wrapSVGIcon(MdHttp, "logo-http"),
+  // Crops the view box to the mark, which fills only a thin strip of the original.
+  HTTP: wrapSVGIcon((props) => <MdHttp {...props} viewBox="1 9 22 6" />, "logo-http"),
 };
 export const Arrow = {
   Right: wrapSVGIcon(TbArrowRight, "arrow-right"),
@@ -474,8 +466,9 @@ export const Connect = wrapSVGIcon(TbPlugConnected, "connect");
 export const Disconnect = wrapSVGIcon(TbPlugConnectedX, "disconnect");
 export const Hardware = wrapSVGIcon(MdHardware, "hardware");
 export const Save = wrapSVGIcon(MdSaveAlt, "save");
+export const Database = wrapSVGIcon(TbDatabase, "database");
+export const DatabaseOff = wrapSVGIcon(TbDatabaseOff, "database-off");
 export const Task = wrapSVGIcon(TbRadarFilled, "task");
-export const Device = wrapSVGIcon(SiGooglenearby, "device");
 export const Computer = wrapSVGIcon(MdComputer, "computer");
 export const Link = wrapSVGIcon(MdLink, "link");
 export const Attachment = wrapSVGIcon(GrAttachment, "attachment");
@@ -524,20 +517,6 @@ export const Scientific = wrapSVGIcon(MdOutlineScience, "scientific");
 export const Engineering = wrapSVGIcon(TbLetterE, "engineering");
 export const String = wrapSVGIcon(VscSymbolString, "string");
 export const Control = wrapSVGIcon(MdOutlineControlCamera, "control");
-export const Rack = wrapSVGIcon(MdHive, "rack");
-export const Units = {
-  Acceleration: wrapSVGIcon(FaCarSide, "units-acceleration"),
-  Current: wrapSVGIcon(TbCircleLetterAFilled, "units-current"),
-  Force: wrapSVGIcon(RiWeightFill, "units-force"),
-  Pressure: wrapSVGIcon(FaGaugeHigh, "units-pressure"),
-  Resistance: wrapSVGIcon(TbCircuitResistor, "units-resistance"),
-  Strain: wrapSVGIcon(SiSpringCreators, "units-strain"),
-  Temperature: wrapSVGIcon(PiThermometerSimpleFill, "units-temperature"),
-  Torque: wrapSVGIcon(FaGear, "units-torque"),
-  Velocity: wrapSVGIcon(FaWind, "units-velocity"),
-  Voltage: wrapSVGIcon(TbCircleLetterVFilled, "units-voltage"),
-};
-export const Bridge = wrapSVGIcon(FaBridge, "bridge");
 export const Sound = wrapSVGIcon(FaMicrophone, "sound");
 export const Function = wrapSVGIcon(TbMathFunction, "function");
 export const Visible = wrapSVGIcon(MdOutlineVisibility, "visible");
@@ -679,6 +658,8 @@ const icons = {
   Disconnect,
   Hardware,
   Save,
+  Database,
+  DatabaseOff,
   Task,
   Device,
   Computer,

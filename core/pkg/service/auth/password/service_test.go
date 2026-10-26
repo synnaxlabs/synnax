@@ -15,10 +15,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/gorp"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 	"golang.org/x/crypto/bcrypt"
@@ -241,7 +241,7 @@ var _ = Describe("Service", func() {
 	})
 	Describe("DeleteFor", func() {
 		It("Should remove the subject's password", func(ctx SpecContext) {
-			Expect(svc.DeleteFor(ctx, alice)).To(Succeed())
+			Expect(svc.DeleteFor(ctx, nil, alice)).To(Succeed())
 			Expect(svc.Authenticate(ctx, proof(username, "secret"))).Error().
 				To(MatchError(auth.ErrInvalidCredentials))
 		})

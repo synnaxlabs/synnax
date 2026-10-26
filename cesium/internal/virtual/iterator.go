@@ -63,6 +63,39 @@ func (i *Iterator) SetBounds(tr telem.TimeRange) {
 
 func (i *Iterator) Value() channel.Frame { return i.frame }
 
+func (i *Iterator) Bounds() telem.TimeRange { return i.bounds }
+
+func (i *Iterator) View() telem.TimeRange { return i.view }
+
+// IndexKey returns the channel's own key, since a virtual channel has no index.
+func (i *Iterator) IndexKey() channel.Key { return i.Channel.Key }
+
+// MoveTo empties the frame and moves the view to the empty range at ts without reading,
+// so that Continue reads forward from ts. Unlike a seek, MoveTo keeps the error.
+func (i *Iterator) MoveTo(_ context.Context, ts telem.TimeStamp) {
+	i.sample = i.lastSample.Load()
+	i.move(ts.SpanRange(0))
+}
+
+// Continue extends the view to end and fills the frame when the retained sample lies
+// in the span the view grew by.
+func (i *Iterator) Continue(ctx context.Context, end telem.TimeStamp) bool {
+	start := i.view.Start
+	ok := i.Next(ctx, i.view.End.Span(end))
+	i.view.Start = start
+	return ok
+}
+
+// EndAfter returns the exclusive end of the range from the view's end that holds the
+// next n samples. That is just past the retained sample when it lies at or after the
+// view's end, else telem.TimeStampMax.
+func (i *Iterator) EndAfter(_ context.Context, _ int64) (telem.TimeStamp, error) {
+	if i.sample != nil && !i.sample.TimeRange.Start.Before(i.view.End) {
+		return i.sample.TimeRange.End, nil
+	}
+	return telem.TimeStampMax, nil
+}
+
 func (i *Iterator) SeekFirst(_ context.Context) bool {
 	found, ok := i.seek()
 	if !ok {

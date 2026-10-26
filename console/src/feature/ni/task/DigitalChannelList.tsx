@@ -14,7 +14,6 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { useCallback } from "react";
 
 import { type DigitalChannel } from "@/feature/ni/task/types";
 import { CSS } from "@/platform/css";
@@ -46,7 +45,6 @@ const ListItem = <C extends DigitalChannel>({ name, ...rest }: ListItemProps<C>)
         <Flex.Box pack align="center" className="port-line-input" x>
           <Form.NumericField
             inputProps={PORT_INPUT_PROPS}
-            hideIfNull
             showLabel={false}
             showHelpText={false}
             path={`${path}.port`}
@@ -56,7 +54,6 @@ const ListItem = <C extends DigitalChannel>({ name, ...rest }: ListItemProps<C>)
           </Text.Text>
           <Form.NumericField
             inputProps={LINE_INPUT_PROPS}
-            hideIfNull
             showLabel={false}
             showHelpText={false}
             path={`${path}.line`}
@@ -85,11 +82,8 @@ export const DigitalChannelList = <C extends DigitalChannel>({
   name,
   ...rest
 }: DigitalChannelListProps<C>) => {
-  const listItem = useCallback(
-    ({ key, ...p }: Task.ChannelListItemProps) => (
-      <ListItem<C> key={key} {...p} name={name} />
-    ),
-    [name],
+  const listItem = ({ key, ...p }: Task.ChannelListItemProps) => (
+    <ListItem<C> key={key} {...p} name={name} />
   );
 
   return <Task.Views.List<C> {...rest} listItem={listItem} />;

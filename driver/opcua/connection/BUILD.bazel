@@ -24,11 +24,11 @@ cc_library(
         "//driver/errors",
         "//driver/opcua/errors",
         "//driver/task",
-        "//vendor/mbedtls",
         "//vendor/open62541",
         "//x/cpp/errors",
         "//x/cpp/json",
         "@abseil-cpp//absl/log",
+        "@mbedtls",
         "@nlohmann_json//:json",
     ],
 )
