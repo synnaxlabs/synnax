@@ -112,10 +112,10 @@ describe("createStore", () => {
     );
   });
 
-  it("should keep the account link across launches", async () => {
+  it("should keep the account link and analytics choice across launches", async () => {
     const store = await createStore();
     const link = { secret: "shh", email: "someone@example.com", user: "user_a" };
-    store.dispatch(Session.Account.link(link));
+    store.dispatch(Session.Account.link({ ...link, analyticsAllowed: true }));
     await waitForPersisted(
       db,
       (p) => p.account?.link?.secret === link.secret,
@@ -125,6 +125,7 @@ describe("createStore", () => {
     expect(Session.Account.selectSliceState(reloaded.getState())).toEqual({
       version: 0,
       link,
+      analyticsAllowed: true,
     });
   });
 
