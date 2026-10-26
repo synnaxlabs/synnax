@@ -47,6 +47,9 @@ on:
       pr-url:
         description: "URL of the PR the agent opened, pushed to, or commented on"
         value: ${{ jobs.run.outputs.pr-url }}
+      report:
+        description: "The agent's final message, for output report"
+        value: ${{ jobs.run.outputs.report }}
 
 permissions:
   contents: read
@@ -88,6 +91,7 @@ jobs:
     timeout-minutes: ${{ inputs.timeout-minutes }}
     outputs:
       pr-url: ${{ steps.agent.outputs.pr-url }}
+      report: ${{ steps.agent.outputs.report }}
     env:
       AGENT: ${{ inputs.agent || vars.AGENT_DEFAULT || 'claude' }}
     steps:
