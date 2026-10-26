@@ -7,12 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type channel,
-  framer,
-  status as cstatus,
-  UnexpectedError,
-} from "@synnaxlabs/client";
+import { type channel, framer, status as cstatus } from "@synnaxlabs/client";
 import {
   type Aggregation,
   aggregationZ,
@@ -146,7 +141,6 @@ class ChannelValue<V>
   private subscription: framer.Subscription | null = null;
   private key: channel.Key | null = null;
   private converted: Converted<V> | null = null;
-  private appended = 0;
   private generation = 0;
   private valid = false;
   private loading = true;
@@ -182,24 +176,24 @@ class ChannelValue<V>
     this.subscription = null;
     this.key = null;
     this.converted = null;
-    this.appended = 0;
     this.valid = false;
     this.loading = true;
     this.failures.reset();
   }
 
   // Converts the newest sample when its series or length changes, since a string
-  // conversion scans the series.
-  private convert(series: MultiSeries): void {
+  // conversion scans the series. Returns true when it converts.
+  private convert(series: MultiSeries): boolean {
     const last = series.series.at(-1);
-    if (last == null || last.length === 0) return;
+    if (last == null || last.length === 0) return false;
     const prev = this.converted;
-    if (prev?.series === last && prev.length === last.length) return;
+    if (prev?.series === last && prev.length === last.length) return false;
     this.converted = {
       series: last,
       length: last.length,
       value: this.conversion.convert(last),
     };
+    return true;
   }
 
   /** Never rejects: a failure invalidates the source and reaches onStatusChange. */
@@ -221,15 +215,11 @@ class ChannelValue<V>
       });
       [this.subscription, this.key] = [subscription, key];
       subscription.onChange(() => {
-        const { status, appended } = subscription.value(key);
+        const { series, status } = subscription.value(key);
         this.failures.observe(status);
-        if (appended == null)
-          throw new UnexpectedError(`snapshot of channel ${key} has no appended count`);
-        // Consumers count notifications as arrivals, so a history change that reads the
-        // newest sample again does not notify.
-        const arrived = appended > this.appended;
-        this.appended = appended;
-        if (arrived) this.notify();
+        // A history change that rewrites the newest sample notifies too, so the value
+        // redraws. Consumers that count arrivals compare its time.
+        if (this.convert(series)) this.notify();
       });
     } catch (e) {
       if (generation !== this.generation) return;

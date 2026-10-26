@@ -145,7 +145,7 @@ describe("remote", () => {
       expect(latest).not.toBe(newest(createCore(), key).at(-1));
     });
 
-    it("should show a history change without notifying", async () => {
+    it("should notify a rewrite of the newest sample at its time", async () => {
       const core = createCore();
       const { key } = core.data[0];
       let reads = 0;
@@ -160,12 +160,14 @@ describe("remote", () => {
       source.onChange(handler);
       source.value();
       await expect.poll(() => handler.mock.calls.length, POLL).toBe(1);
+      const { time } = source.value();
       await expect.poll(() => core.streams(core.historyChange.key), POLL).toBe(true);
       core.rewrite(key, new TimeRange(START, core.now()), 10);
       await expect.poll(() => reads, POLL).toBe(2);
       const rewritten = newest(core, key).at(-1);
       await expect.poll(() => source.value().data, POLL).toBe(rewritten);
-      expect(handler).toHaveBeenCalledTimes(1);
+      expect(handler).toHaveBeenCalledTimes(2);
+      expect(source.value().time).toEqual(time);
     });
 
     it("should report the end of the newest sample as its time", async () => {
