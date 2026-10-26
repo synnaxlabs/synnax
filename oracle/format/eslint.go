@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// ESLint is a Formatter that applies `eslint --fix` to TypeScript / JavaScript content
+// eslint is a Formatter that applies `eslint --fix` to TypeScript / JavaScript content
 // via stdin. ESLint's `--fix` flag is incompatible with `--stdin`, so this
 // implementation uses `--fix-dry-run --format json --stdin --stdin-filename=<absPath>`
 // and parses the JSON envelope to extract the fixed source. When eslint reports no
@@ -27,16 +27,16 @@ import (
 // The command runs from the nearest package.json directory so `pnpm exec` resolves the
 // package-local eslint binary and so jiti/tsx (used to load the package's
 // eslint.config.ts) is available in node_modules.
-type ESLint struct {
+type eslint struct {
 	// Bin is the eslint binary to run.
 	Bin string
 	// Args are extra args inserted before the stdin flags.
 	Args []string
 }
 
-// NewESLint returns an ESLint formatter using `pnpm exec eslint`.
-func NewESLint() *ESLint {
-	return &ESLint{Bin: "pnpm", Args: []string{"exec", "eslint"}}
+// newESLint returns an ESLint formatter using `pnpm exec eslint`.
+func newESLint() *eslint {
+	return &eslint{Bin: "pnpm", Args: []string{"exec", "eslint"}}
 }
 
 type eslintReport struct {
@@ -53,7 +53,7 @@ type eslintReport struct {
 // rules that have no auto-fix available, matching the legacy post-hook's stance. A
 // fatal parse error from eslint is surfaced as an error since it indicates the
 // generated source is broken.
-func (e *ESLint) Format(
+func (e *eslint) Format(
 	ctx context.Context,
 	content []byte,
 	absPath string,

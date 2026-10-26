@@ -14,25 +14,25 @@ import (
 	"path/filepath"
 )
 
-// Prettier is a Formatter that runs prettier over its input via stdin.
+// prettier is a Formatter that runs prettier over its input via stdin.
 // `--stdin-filepath=<absPath>` is passed so prettier can resolve the surrounding
 // .prettierrc / prettier.config.* and pick the right parser from the file extension.
 // The command runs from the nearest package.json directory so `pnpm exec` resolves the
 // workspace's prettier instead of the system PATH copy.
-type Prettier struct {
+type prettier struct {
 	// Bin is the prettier binary to run.
 	Bin string
 	// Args are extra args inserted before --stdin-filepath.
 	Args []string
 }
 
-// NewPrettier returns a Prettier formatter using `pnpm exec prettier`.
-func NewPrettier() *Prettier {
-	return &Prettier{Bin: "pnpm", Args: []string{"exec", "prettier"}}
+// newPrettier returns a Prettier formatter using `pnpm exec prettier`.
+func newPrettier() *prettier {
+	return &prettier{Bin: "pnpm", Args: []string{"exec", "prettier"}}
 }
 
 // Format runs prettier with content on stdin.
-func (p *Prettier) Format(
+func (p *prettier) Format(
 	ctx context.Context,
 	content []byte,
 	absPath string,
