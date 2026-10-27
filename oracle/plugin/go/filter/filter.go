@@ -156,14 +156,18 @@ func (l lineData) Has(member string) bool { return lo.Contains(l.Members, member
 // NoOperator returns the condition that the line sets no operator, wrapped to the line
 // width of the generated file.
 func (l lineData) NoOperator() string {
-	const width, start, indent = 88, len("\t\tif ") + 6, 12
+	const width, tab = 88, 4
 	var b strings.Builder
-	col := start
+	col := 2*tab + len("if ")
 	for i, op := range l.Operators {
 		term := "l." + op + " == nil"
-		if i > 0 && col+len(" && ")+len(term)+len(" {") > width {
+		end := " &&"
+		if i == len(l.Operators)-1 {
+			end = " {"
+		}
+		if i > 0 && col+len(" && ")+len(term)+len(end) > width {
 			b.WriteString(" &&\n\t\t\t")
-			col = indent
+			col = 3 * tab
 		} else if i > 0 {
 			b.WriteString(" && ")
 			col += len(" && ")
