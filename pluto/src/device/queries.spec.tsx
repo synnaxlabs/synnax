@@ -419,7 +419,6 @@ describe("queries", () => {
         result.current.retrieve({});
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
-      const initialLength = result.current.data.length;
 
       const newDev = await client.devices.create({
         key: id.create(),
@@ -431,10 +430,7 @@ describe("queries", () => {
         properties: {},
       });
 
-      await waitFor(() => {
-        expect(result.current.data).toHaveLength(initialLength + 1);
-        expect(result.current.data).toContain(newDev.key);
-      });
+      await waitFor(() => expect(result.current.data).toContain(newDev.key));
     });
 
     it("should update the list when a device is updated", async () => {

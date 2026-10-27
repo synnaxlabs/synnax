@@ -12,17 +12,12 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { type ReactElement } from "react";
 
-import { Link } from "@/platform/link";
 import { Session } from "@/session";
 
 export const ReloadConsoleItem = (): ReactElement => {
   const dispatch = Session.useDispatch();
-  const handleClick = () => {
-    Link.markNextIgnored();
-    dispatch(Drift.reloadWindow({}));
-  };
   return (
-    <Menu.Item onClick={handleClick} itemKey="hardReload">
+    <Menu.Item onClick={() => dispatch(Drift.reloadWindow({}))} itemKey="hardReload">
       <Icon.Refresh />
       Reload Console
     </Menu.Item>

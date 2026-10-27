@@ -35,7 +35,7 @@ QUESTION ITSELF. A QUESTION THE USER CANNOT PARSE IN ONE PASS GETS `/restate`.
 4. The section memory file `project_docs_<section>_section.md`, if it exists. It holds
    the locked decisions and verified facts from earlier runs. Never re-ask a locked
    decision.
-5. `site/docs/CONTRIBUTING.md` and the Prose section of the root `CLAUDE.md`.
+5. `site/docs/CONTRIBUTING.md` and the Prose section of the root `AGENTS.md`.
 
 ## The process spine
 

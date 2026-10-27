@@ -35,7 +35,7 @@ class _DeleteRequest(BaseModel):
     keys: list[UUID]
 
 
-ONTOLOGY_TYPE = ID(type="policy")
+_ONTOLOGY_TYPE = ID(type="policy")
 
 
 class Client:

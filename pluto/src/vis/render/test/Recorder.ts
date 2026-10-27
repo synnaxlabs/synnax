@@ -160,6 +160,9 @@ export class Recorder {
 
   region: box.Box = box.ZERO;
   dpr: number = 1;
+  /** Incremented by {@link restore}. */
+  generation: number = 0;
+  private readonly restoreHandlers = new Set<() => void>();
 
   readonly loop = {
     set: (...args: unknown[]): void => {
@@ -171,6 +174,20 @@ export class Recorder {
     this.upper2d = buildCanvas();
     this.lower2d = buildCanvas();
     this.gl = buildCanvas();
+  }
+
+  onRestore(f: () => void): destructor.Destructor {
+    this.restoreHandlers.add(f);
+    return () => {
+      this.restoreHandlers.delete(f);
+    };
+  }
+
+  /** Stands in for a restore of the WebGL context: increments the generation and calls
+   * every function passed to {@link onRestore}. */
+  restore(): void {
+    this.generation++;
+    this.restoreHandlers.forEach((f) => f());
   }
 
   /** Resets every recording — the per-canvas calls and the scissor/erase/loop lists.

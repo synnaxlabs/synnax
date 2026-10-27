@@ -16,6 +16,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { createTestSink, wrapWithSink } from "@/platform/analytics/testutil";
 import { Schematic } from "@/platform/schematic";
 import { Session } from "@/session";
+import { documentIn } from "@/session/window/testutil";
 import { createConsoleWrapper } from "@/testutil";
 
 const client: Synnax = createTestClient();
@@ -96,7 +97,8 @@ describe("schematic useCreate", () => {
       });
       await waitFor(() =>
         expect(
-          Session.Schematic.selectEditable({ state: harness.store.getState(), key }),
+          documentIn(harness.store.getState()[Session.Schematic.SLICE_NAME], key)
+            ?.editable,
         ).toBe(true),
       );
     });

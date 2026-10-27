@@ -236,6 +236,7 @@ describe("desktop ledger", () => {
       await expect(resolve(store, mintSecret())).rejects.toMatchObject({
         status: 403,
         message: "This machine is not logged in",
+        code: "unlinked",
       });
     });
 
@@ -245,6 +246,7 @@ describe("desktop ledger", () => {
       await expect(resolve(store, first.secret)).rejects.toMatchObject({
         status: 403,
         message: "This machine is not logged in",
+        code: "unlinked",
       });
     });
 
@@ -257,6 +259,7 @@ describe("desktop ledger", () => {
       await expect(resolve(store, linked.secret)).rejects.toMatchObject({
         status: 403,
         message: "This machine was logged out. Log in again.",
+        code: "unlinked",
       });
     });
 
@@ -269,6 +272,7 @@ describe("desktop ledger", () => {
       await expect(resolve(store, linked.secret)).rejects.toMatchObject({
         status: 403,
         message: "This machine was logged out. Log in again.",
+        code: "unlinked",
       });
     });
   });
@@ -341,6 +345,7 @@ describe("desktop ledger", () => {
       ).rejects.toMatchObject({
         status: 403,
         message: "This machine was logged out. Log in again.",
+        code: "unlinked",
       });
       expect(await eventsOf("renew")).toHaveLength(0);
     });
