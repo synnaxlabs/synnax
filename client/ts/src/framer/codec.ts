@@ -99,6 +99,8 @@ export class Codec {
   private states: Map<number, CodecState> = new Map();
   private currState: CodecState | undefined;
   private seqNum: number = 0;
+  // oldest is the lowest sequence number that states can hold.
+  private oldest: number = 0;
 
   constructor(keys: channel.Key[] = [], dataTypes: DataType[] = []) {
     if (keys.length > 0 || dataTypes.length > 0) this.update(keys, dataTypes);
@@ -301,6 +303,8 @@ export class Codec {
     index += SEQ_NUM_SIZE;
     const state = this.states.get(seqNum);
     if (state == null) return returnFrame;
+    // The remote never encodes with an older state again.
+    for (; this.oldest < seqNum; this.oldest++) this.states.delete(this.oldest);
 
     if (sizeFlag) {
       if (index + DATA_LENGTH_SIZE > view.byteLength) return returnFrame;
