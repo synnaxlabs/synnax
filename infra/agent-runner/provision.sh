@@ -111,7 +111,8 @@ chown -R runner:runner "$HOME_DIR"
 
 # Registers the seat's runners in the agent-runners group and starts each as a service.
 # All run as the runner user, so they share its agent login. A Claude seat adds a runner
-# that only Label - Classify uses, so a label never waits behind a long agent job.
+# that only Label - Classify uses, so a label never waits behind a long agent job. It
+# is safe to run again.
 # Usage: register-agent-runners <organization registration token>
 cat > /usr/local/bin/register-agent-runners << EOF
 #!/bin/bash
@@ -119,15 +120,17 @@ set -euo pipefail
 token=\$1
 register() {
     dir=$HOME_DIR/runners/\$1
-    if [ -e "\$dir/.runner" ]; then return; fi
-    mkdir -p "\$dir"
-    cp -R $RUNNER_DIR/. "\$dir"
-    chown -R runner:runner "\$dir"
+    if [ ! -e "\$dir/.runner" ]; then
+        mkdir -p "\$dir"
+        cp -R $RUNNER_DIR/. "\$dir"
+        chown -R runner:runner "\$dir"
+        cd "\$dir"
+        sudo -u runner ./config.sh --unattended --replace \
+            --url https://github.com/$ORG --runnergroup agent-runners \
+            --token "\$token" --name "agent-$SEAT-\$1" --labels "\$2"
+    fi
     cd "\$dir"
-    sudo -u runner ./config.sh --unattended --replace --url https://github.com/$ORG \
-        --runnergroup agent-runners --token "\$token" --name "agent-$SEAT-\$1" \
-        --labels "\$2"
-    ./svc.sh install runner
+    if [ ! -e .service ]; then ./svc.sh install runner; fi
     ./svc.sh start
 }
 for i in \$(seq $RUNNERS); do register "\$i" "agent,agent-$AGENT,seat-$SEAT"; done

@@ -32,9 +32,13 @@ variable "seats" {
   validation {
     condition = alltrue([
       for name, s in var.seats :
-      can(regex("^[a-z0-9-]+$", name)) && contains(["claude", "codex"], s.agent)
+      can(regex("^[a-z0-9-]+$", name)) && contains(["claude", "codex"], s.agent) &&
+      s.runners > 0 && floor(s.runners) == s.runners
     ])
-    error_message = "Seat names use a-z, 0-9, and dashes. Agents are claude or codex."
+    error_message = join(" ", [
+      "Seat names use a-z, 0-9, and dashes. Agents are claude or codex.",
+      "Runner counts are positive whole numbers.",
+    ])
   }
 }
 
