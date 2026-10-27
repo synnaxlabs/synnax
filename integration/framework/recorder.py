@@ -19,7 +19,6 @@ one. TestCase does this automatically for cases that set collect_notifications
 or collect_task_status; standalone callers can use the context manager form.
 """
 
-import logging
 import threading
 from collections.abc import Callable
 from typing import Any, Self
@@ -27,9 +26,8 @@ from typing import Any, Self
 from pydantic import ValidationError
 
 import synnax as sy
+from framework.streamer import Source
 from synnax.status import SET_CHANNEL
-
-_logger = logging.getLogger("synnax.recorder")
 
 _OPEN_TIMEOUT = 5.0
 _CLOSE_TIMEOUT = 3.0
@@ -44,12 +42,13 @@ class Recorder:
     raw status via _record; wait_for-style queries scan the stored state, so a
     status matches whether it arrived before or after the call. A condition
     variable guards the state and wakes waiters the moment a status is recorded,
-    so queries block rather than poll.
+    so queries block rather than poll. An error stops recording, and every later
+    query raises it.
     """
 
     _label = "status"
 
-    def __init__(self, client: sy.Synnax) -> None:
+    def __init__(self, client: Source) -> None:
         self._client = client
         self._stop = threading.Event()
         self._ready = threading.Event()
@@ -74,8 +73,16 @@ class Recorder:
         self._thread.start()
         if not self._ready.wait(timeout=_OPEN_TIMEOUT):
             raise TimeoutError(f"{self._label} stream did not open in time")
+        self.check()
+
+    def check(self) -> None:
+        """:raises RuntimeError: If recording failed. Its cause is the error that
+        stopped recording.
+        """
         if self._error is not None:
-            raise self._error
+            raise RuntimeError(
+                f"{self._label} recorder failed: {self._error}"
+            ) from self._error
 
     def close(self) -> None:
         """Stop recording and tear down the subscription."""
@@ -91,6 +98,7 @@ class Recorder:
         timer = sy.Timer()
         with self._cond:
             while True:
+                self.check()
                 if predicate():
                     return True
                 remaining = timeout - timer.elapsed().seconds
@@ -99,23 +107,34 @@ class Recorder:
                 self._cond.wait(remaining)
 
     def _run(self) -> None:
+        streamer = None
         try:
-            with self._client.open_streamer([SET_CHANNEL]) as streamer:
-                self._ready.set()
-                while not self._stop.is_set():
-                    frame = streamer.read(timeout=_READ_TIMEOUT)
-                    if frame is None or SET_CHANNEL not in frame:
-                        continue
-                    for raw in frame[SET_CHANNEL]:
-                        with self._cond:
-                            if self._record(raw):
-                                self._cond.notify_all()
+            streamer = self._client.open_streamer([SET_CHANNEL])
+            self._ready.set()
+            while not self._stop.is_set():
+                frame = streamer.read(_READ_TIMEOUT)
+                if frame is None or SET_CHANNEL not in frame:
+                    continue
+                for raw in frame[SET_CHANNEL]:
+                    with self._cond:
+                        if self._record(raw):
+                            self._cond.notify_all()
         except Exception as e:
-            if not self._ready.is_set():
-                self._error = e
-                self._ready.set()
-            else:
-                _logger.error("%s recorder stopped", self._label, exc_info=e)
+            self._fail(e)
+        finally:
+            if streamer is not None:
+                try:
+                    streamer.close()
+                except Exception as e:
+                    self._fail(e)
+
+    def _fail(self, error: Exception) -> None:
+        """Saves error unless an earlier one stopped recording, and wakes waiters."""
+        with self._cond:
+            if self._error is None:
+                self._error = error
+            self._cond.notify_all()
+        self._ready.set()
 
 
 class Notifications(Recorder):
@@ -123,7 +142,7 @@ class Notifications(Recorder):
 
     _label = "status notification"
 
-    def __init__(self, client: sy.Synnax) -> None:
+    def __init__(self, client: Source) -> None:
         super().__init__(client)
         self._texts: list[str] = []
 
@@ -152,7 +171,7 @@ class TaskStatus(Recorder):
 
     _label = "task status"
 
-    def __init__(self, client: sy.Synnax) -> None:
+    def __init__(self, client: Source) -> None:
         super().__init__(client)
         self._latest: dict[sy.task.Key, sy.task.Status] = {}
         self._texts: dict[sy.task.Key, list[str]] = {}
@@ -169,8 +188,12 @@ class TaskStatus(Recorder):
         )
 
     def latest(self, task_key: sy.task.Key) -> sy.task.Status | None:
-        """Return the most recent recorded status for task_key, or None."""
+        """Return the most recent recorded status for task_key, or None.
+
+        :raises RuntimeError: If recording failed.
+        """
         with self._cond:
+            self.check()
             return self._latest.get(task_key)
 
     def is_running(self, task_key: sy.task.Key) -> bool:
