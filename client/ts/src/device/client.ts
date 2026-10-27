@@ -204,8 +204,8 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Retrieves the devices that match every condition in parts, or one device when
-   * parts end with `one()`.
+   * Retrieves the devices that match every condition in parts, or one device when parts
+   * end with `one()`.
    */
   async retrieve(...parts: OneParts): Promise<Device>;
   async retrieve(...parts: ListParts): Promise<Device[]>;
@@ -238,7 +238,10 @@ export class Client extends query.Retriever<
 
   async retrieve(...args: unknown[]): Promise<Device | Array<Device>> {
     if (this.isParts(args)) return await this.retrieveParts(args);
-    const [rawParams] = args as [Key | (RetrieveParams & { schemas?: DeviceSchemas })];
+    const [rawParams] = args as [
+      Key | Key[] | (RetrieveParams & { schemas?: DeviceSchemas }),
+    ];
+    if (Array.isArray(rawParams)) return await super.retrieve(rawParams);
     const params = typeof rawParams === "string" ? { key: rawParams } : rawParams;
     const { schemas, ...rest } = params;
     const isSingle = "key" in rest;
