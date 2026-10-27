@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Status as LyraStatus } from "@synnaxlabs/lyra/status";
 import { save } from "@tauri-apps/plugin-dialog";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import {
@@ -31,6 +32,7 @@ import {
 } from "@/feature/embedded/testutil";
 import { License } from "@/platform/license";
 import { Session } from "@/session";
+import { CaptureStatuses } from "@/testutil";
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({ save: vi.fn() }));
 
@@ -77,13 +79,17 @@ const openDiagnostics = async (
     ...handlers,
   });
   const { wrapper, store } = await createDesktopWrapper();
+  let statuses: LyraStatus.NotificationSpec[] = [];
   render(
-    <Command.List
-      commands={Embedded.COMMANDS}
-      value=">"
-      onChange={() => {}}
-      inputPlaceholder={<>Commands</>}
-    />,
+    <>
+      <Command.List
+        commands={Embedded.COMMANDS}
+        value=">"
+        onChange={() => {}}
+        inputPlaceholder={<>Commands</>}
+      />
+      <CaptureStatuses onStatuses={(next) => (statuses = next)} />
+    </>,
     { wrapper },
   );
   const command = await screen.findByText("Open diagnostics");
@@ -91,7 +97,7 @@ const openDiagnostics = async (
     fireEvent.click(command, { detail: 1 });
   });
   await screen.findByText("Diagnostics");
-  return { ...supervisor, store };
+  return { ...supervisor, store, statuses: () => statuses };
 };
 
 /** Opens the erase dialog from the diagnostics and holds its confirm button. */
@@ -181,7 +187,7 @@ describe("Embedded diagnostics", () => {
   it("should log the machine out before it erases the data", async () => {
     const hub = stubHub(async () => new Response(null, { status: 204 }));
     let atReset: Session.Account.SliceState | undefined;
-    const { store } = await openDiagnostics(RUNNING, {
+    const { store, statuses } = await openDiagnostics(RUNNING, {
       supervisor_reset: () => {
         atReset = Session.Account.selectSliceState(store.getState());
       },
@@ -189,6 +195,7 @@ describe("Embedded diagnostics", () => {
     store.dispatch(Session.Account.link(LINK));
     await holdErase();
     await waitFor(() => expect(atReset).toEqual(Session.Account.ZERO_SLICE_STATE));
+    expect(statuses().map(({ message }) => message)).toContain("Erasing all data");
     expect(hub).toHaveBeenCalledWith(
       License.UNLINK_URL,
       expect.objectContaining({ headers: { authorization: "Bearer shh" } }),

@@ -25,6 +25,7 @@ const HOLD_TO_CONFIRM = TimeSpan.seconds(1);
 export const useReset = (): (() => void) => {
   const confirm = Modals.useConfirm();
   const handleError = Status.useErrorHandler();
+  const addStatus = Status.useAdder();
   const store = Session.useStore();
   return () =>
     handleError(async () => {
@@ -35,6 +36,11 @@ export const useReset = (): (() => void) => {
         confirm: { label: "Erase all data", delay: HOLD_TO_CONFIRM.milliseconds },
       });
       if (confirmed !== true) return;
+      addStatus({
+        variant: "info",
+        message: "Erasing all data",
+        description: "Synnax restarts when the erase finishes.",
+      });
       // An erase works offline. A machine the hub never hears from leaves its account
       // when its license expires.
       const { link } = Session.Account.selectSliceState(store.getState());
