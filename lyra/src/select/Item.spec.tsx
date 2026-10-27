@@ -13,7 +13,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Dialog } from "@/dialog";
 import { Select } from "@/select";
-import { createRenderCounter } from "@/testutil/renders";
+import { createRenderCounter } from "@/testutil/internal";
 import { Triggers } from "@/triggers";
 
 interface RenderOptions {
