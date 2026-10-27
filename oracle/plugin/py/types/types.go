@@ -1471,7 +1471,11 @@ func addCrossNamespaceImport(modulePath, typeName string, data *templateData) st
 
 // qualify returns the name by which the module of data refers to resolved, whose Python
 // name is pyName and whose Python output is outputPath, and adds the import it needs.
-func qualify(resolved resolution.Type, pyName, outputPath string, data *templateData) string {
+func qualify(
+	resolved resolution.Type,
+	pyName, outputPath string,
+	data *templateData,
+) string {
 	if resolved.Namespace == data.Namespace {
 		if data.TypesModule != "" {
 			data.imports.addLocal(pyName)
@@ -1544,7 +1548,12 @@ func typeToPython(
 			typeArgsToPython(resolved, typeRef.TypeArgs, table, data)
 
 	case resolution.EnumForm:
-		return qualify(resolved, pyName, enum.FindOutputPath(resolved, table, "py"), data)
+		return qualify(
+			resolved,
+			pyName,
+			enum.FindOutputPath(resolved, table, "py"),
+			data,
+		)
 
 	case resolution.DistinctForm:
 		return qualify(resolved, pyName, output.GetPath(resolved, "py"), data)
@@ -2096,7 +2105,7 @@ var templateFuncs = template.FuncMap{
 	"pyDocComment":           pyDocComment,
 	"genericArg":             genericArg,
 	"hasTypeParams":          hasTypeParams,
-	"fieldName": FieldName,
+	"fieldName":              FieldName,
 }
 
 var fileTemplate = template.Must(

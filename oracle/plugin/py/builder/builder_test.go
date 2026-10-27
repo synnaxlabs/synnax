@@ -141,7 +141,7 @@ var _ = Describe("Py Builder Plugin", func() {
 				}
 			`, "thing", loader, p)
 			ExpectContent(resp, "builder_gen.py").ToContain(
-				`for_: filter.ValueLine[Condition, Span] = filter.ValueLine(`+
+				`for_: filter.ValueLine[Condition, Span] = filter.ValueLine(` +
 					`Condition, "for_")`,
 			)
 		})
