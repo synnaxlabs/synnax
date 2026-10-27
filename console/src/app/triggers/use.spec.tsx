@@ -100,7 +100,7 @@ const renderTriggers = async (ui?: ReactNode) => {
     () => {
       Triggers.use();
       return {
-        overlaid: Session.Panel.useSelectOverlaid(),
+        isOverlaid: Session.Panel.useGetIsOverlaid(),
         modals: Modals.useStore("app/triggers.spec"),
       };
     },
@@ -164,9 +164,9 @@ describe("app/triggers", () => {
     it("should stop overlaying the focused tab", async () => {
       const { result, store } = await renderTriggers();
       act(() => void store.dispatch(Session.Panel.startOverlaying({})));
-      expect(result.current.overlaid).toBe(true);
+      expect(result.current.isOverlaid()).toBe(true);
       act(pressEscape);
-      expect(result.current.overlaid).toBe(false);
+      expect(result.current.isOverlaid()).toBe(false);
     });
 
     it("should stop overlaying when a first press was claimed elsewhere", async () => {
@@ -176,7 +176,7 @@ describe("app/triggers", () => {
       act(pressEscape);
       act(() => void store.dispatch(Session.Panel.startOverlaying({})));
       act(pressEscape);
-      expect(result.current.overlaid).toBe(false);
+      expect(result.current.isOverlaid()).toBe(false);
     });
   });
 
@@ -185,24 +185,24 @@ describe("app/triggers", () => {
       const { result, store } = await renderTriggers();
       focusTab(store);
       act(() => press(CONTROL, "KeyL"));
-      expect(result.current.overlaid).toBe(true);
+      expect(result.current.isOverlaid()).toBe(true);
       act(() => press(CONTROL, "KeyL"));
-      expect(result.current.overlaid).toBe(false);
+      expect(result.current.isOverlaid()).toBe(false);
     });
 
     it("should also leave focus mode on Escape", async () => {
       const { result, store } = await renderTriggers();
       focusTab(store);
       act(() => press(CONTROL, "KeyL"));
-      expect(result.current.overlaid).toBe(true);
+      expect(result.current.isOverlaid()).toBe(true);
       act(pressEscape);
-      expect(result.current.overlaid).toBe(false);
+      expect(result.current.isOverlaid()).toBe(false);
     });
 
     it("should stay out of focus mode when no tab is focused", async () => {
       const { result } = await renderTriggers();
       act(() => press(CONTROL, "KeyL"));
-      expect(result.current.overlaid).toBe(false);
+      expect(result.current.isOverlaid()).toBe(false);
     });
   });
 
@@ -336,29 +336,39 @@ describe("app/triggers", () => {
   });
 
   describe("reserved", () => {
-    const renderHint = (engine: Session.Runtime.Engine, trigger: PTriggers.Trigger) =>
+    // The props are computed once at load, so a desktop run needs a fresh module.
+    const loadDesktopProps = async (): Promise<PTriggers.ProviderProps> => {
+      mocks.engine = "tauri";
+      vi.resetModules();
+      try {
+        return (await import("@/app/triggers")).Triggers.PROVIDER_PROPS;
+      } finally {
+        mocks.engine = "web";
+      }
+    };
+
+    const renderHint = (props: PTriggers.ProviderProps, trigger: PTriggers.Trigger) =>
       render(
-        <PTriggers.Provider {...Triggers.createProviderProps(engine)}>
+        <PTriggers.Provider {...props}>
           <PTriggers.Text trigger={trigger} />
         </PTriggers.Provider>,
       ).container;
 
     it("should hide the hint for a shortcut the browser keeps", () => {
-      expect(renderHint("web", ["Control", "T"]).textContent).toBe("");
+      expect(renderHint(Triggers.PROVIDER_PROPS, ["Control", "T"]).textContent).toBe(
+        "",
+      );
     });
 
     it("should keep the hint for a shortcut the browser passes on", () => {
-      expect(renderHint("web", ["Control", "S"]).textContent).toContain("S");
+      expect(
+        renderHint(Triggers.PROVIDER_PROPS, ["Control", "S"]).textContent,
+      ).toContain("S");
     });
 
-    it("should keep every hint in the desktop app", () => {
-      expect(renderHint("tauri", ["Control", "T"]).textContent).toContain("T");
-    });
-
-    it("should reserve shortcuts for the runtime the specs run in", () => {
-      expect(Triggers.PROVIDER_PROPS.reserved).toEqual(
-        Triggers.createProviderProps("web").reserved,
-      );
+    it("should keep every hint in the desktop app", async () => {
+      const props = await loadDesktopProps();
+      expect(renderHint(props, ["Control", "T"]).textContent).toContain("T");
     });
   });
 

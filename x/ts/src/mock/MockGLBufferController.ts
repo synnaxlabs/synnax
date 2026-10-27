@@ -11,7 +11,16 @@ import { type Mock, vi } from "vitest";
 
 import { type GLBufferController } from "@/telem/gl";
 
+// WebGL copies data whether it is a buffer or a view.
+const bytes = (data: AllowSharedBufferSource): Uint8Array =>
+  ArrayBuffer.isView(data)
+    ? new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
+    : new Uint8Array(data);
+
+/** A controller that is also the GL context it hands to a series. */
 export class MockGLBufferController implements GLBufferController {
+  readonly gl: GLBufferController["gl"] = this;
+  generation: number = 0;
   ARRAY_BUFFER: number = 1;
   STATIC_DRAW: number = 2;
   DYNAMIC_DRAW: number = 3;
@@ -46,7 +55,7 @@ export class MockGLBufferController implements GLBufferController {
   ): void {
     if (typeof dataOrSize === "number")
       this.buffers[this.targets[target]] = new ArrayBuffer(dataOrSize);
-    else this.buffers[this.targets[target]] = dataOrSize as ArrayBuffer;
+    else this.buffers[this.targets[target]] = bytes(dataOrSize).slice().buffer;
 
     this.bufferDataMock(target, dataOrSize as ArrayBuffer, usage);
   }
@@ -64,7 +73,7 @@ export class MockGLBufferController implements GLBufferController {
       this.buffers[target] = buffer;
     }
     const view = new Uint8Array(buffer);
-    view.set(new Uint8Array(data as ArrayBuffer), offset);
+    view.set(bytes(data), offset);
     this.bufferSubDataMock(target, offset, data as ArrayBuffer);
   }
 }

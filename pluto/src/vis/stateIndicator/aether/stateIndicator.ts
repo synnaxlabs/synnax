@@ -54,7 +54,7 @@ export class StateIndicator
   }
 
   private updateMatchedOption(): void {
-    const nextValue = this.internal.source.value();
+    const nextValue = this.internal.source.value().data;
     if (isNaN(nextValue)) return;
     const matched = this.state.options.find((o) => o.value === nextValue);
     const nextKey = matched?.key ?? null;
