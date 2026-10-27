@@ -17,6 +17,7 @@ import (
 
 	servicechannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 // Apply narrows q to the records that the request selects. A key with no record is a
@@ -49,4 +50,14 @@ func (r RetrieveRequest) Apply(q servicechannel.Retrieve) (servicechannel.Retrie
 func (r *RetrieveRequest) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain RetrieveRequest
 	return json.UnmarshalDecode(dec, (*plain)(r), json.RejectUnknownMembers(true))
+}
+
+// DecodeMsgpack decodes the request and rejects a member that it does not declare, at
+// any depth, as UnmarshalJSONFrom does.
+func (r *RetrieveRequest) DecodeMsgpack(dec *msgpack.Decoder) error {
+	type plain RetrieveRequest
+	dec.DisallowUnknownFields(true)
+	// The rest of an enclosing value decodes without the flag.
+	defer dec.DisallowUnknownFields(false)
+	return dec.Decode((*plain)(r))
 }

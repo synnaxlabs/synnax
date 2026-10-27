@@ -281,6 +281,11 @@ var _ = Describe("Go Filter Plugin", func() {
 					"func (r *RetrieveRequest) UnmarshalJSONFrom(dec *jsontext.Decoder) error {",
 					"type plain RetrieveRequest",
 					"json.UnmarshalDecode(dec, (*plain)(r), json.RejectUnknownMembers(true))",
+					`"github.com/vmihailenco/msgpack/v5"`,
+					"func (r *RetrieveRequest) DecodeMsgpack(dec *msgpack.Decoder) error {",
+					"dec.DisallowUnknownFields(true)",
+					"defer dec.DisallowUnknownFields(false)",
+					"return dec.Decode((*plain)(r))",
 				)
 		})
 

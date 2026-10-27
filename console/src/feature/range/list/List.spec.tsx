@@ -115,7 +115,7 @@ describe("range/list/SelectFilters", () => {
     const next = state.executeSetter(setter, { offset: 25, limit: 25 });
     expect(next.where?.labels).toEqual([label.key]);
     expect(next.offset).toBe(0);
-    expect(next.limit).toBe(0);
+    expect(next.limit).toBeUndefined();
   });
 
   it("renders the applied label filters as chips", async () => {
