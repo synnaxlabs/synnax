@@ -55,6 +55,7 @@ var _ = Describe("Of", func() {
 		table = testutil.MustGenerateRequest(ctx, source, "thing", loader).Resolutions
 	})
 	fieldOf := func(typeName, fieldName string) resolution.Field {
+		GinkgoHelper()
 		typ := MustBeOk(table.Get(typeName))
 		return MustBeOk(lo.Find(
 			typ.Form.(resolution.StructForm).Fields,
