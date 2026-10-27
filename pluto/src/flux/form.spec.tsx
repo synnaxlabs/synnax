@@ -713,6 +713,16 @@ describe("useForm", () => {
       await expectAlways(() => expect(update).toHaveBeenCalledTimes(1), SETTLE);
     });
 
+    it("should not autosave an edit that an explicit save already sent", async () => {
+      const { result, update } = renderDebouncedForm();
+      act(() => result.current.form.set("name", "Jane"));
+      await act(async () => {
+        await result.current.saveAsync();
+      });
+      expect(update).toHaveBeenCalledWith("Jane");
+      await expectAlways(() => expect(update).toHaveBeenCalledTimes(1), SETTLE);
+    });
+
     it("should flush a pending update when the form unmounts", async () => {
       const { result, update, unmount } = renderDebouncedForm();
       act(() => {

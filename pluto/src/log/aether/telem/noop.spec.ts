@@ -17,7 +17,7 @@ describe("NoopLogSource", () => {
   it("should return an empty array from value()", () => {
     const factory = new LogFactory(null);
     const source = factory.create(noopLogSourceSpec) as LogSource;
-    expect(source.value()).toEqual([]);
+    expect(source.value().data).toEqual([]);
   });
 
   it("should have evictedCount of 0", () => {
