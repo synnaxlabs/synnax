@@ -145,12 +145,9 @@ Scanner::parse_device(NISysCfgResourceHandle resource) {
 
     auto err = x::errors::NIL;
     if (this->cfg.should_ignore(dev.model)) {
-        const auto msg = "skipping " + dev.model + " (" + dev.key +
-                         "): model matches an ignored_models pattern";
         if (this->ignored_keys.insert(dev.key).second)
-            LOG(INFO) << SCAN_LOG_PREFIX << msg;
-        else
-            VLOG(1) << SCAN_LOG_PREFIX << msg;
+            VLOG(1) << SCAN_LOG_PREFIX << "skipping " << dev.model << " (" << dev.key
+                    << "): model matches an ignored_models pattern";
         err = SKIP_DEVICE_ERR;
     } else {
         VLOG(1) << SCAN_LOG_PREFIX << "device validated successfully: " << dev.key

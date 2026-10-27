@@ -14,6 +14,8 @@
 #include <string>
 #include <vector>
 
+#include "absl/log/globals.h"
+#include "absl/log/log_entry.h"
 #include "absl/log/log_sink.h"
 #include "absl/log/log_sink_registry.h"
 #include "gtest/gtest.h"
@@ -248,17 +250,24 @@ public:
     NISYSCFGCFUNC FreeDetailedStringW(wchar_t[]) override { return NISysCfg_OK; }
 };
 
-/// @brief captures the text of every log line at INFO or above while in scope.
+/// @brief enables VLOG(1) and captures the text of every VLOG(1) line while in scope.
 class CaptureSink final : public absl::LogSink {
+    int prev_vlog_level;
     std::mutex mu;
     std::vector<std::string> lines;
 
 public:
-    CaptureSink() { absl::AddLogSink(this); }
-    ~CaptureSink() override { absl::RemoveLogSink(this); }
+    CaptureSink(): prev_vlog_level(absl::SetGlobalVLogLevel(1)) {
+        absl::AddLogSink(this);
+    }
+
+    ~CaptureSink() override {
+        absl::RemoveLogSink(this);
+        absl::SetGlobalVLogLevel(this->prev_vlog_level);
+    }
 
     void Send(const absl::LogEntry &entry) override {
-        if (entry.verbosity() != absl::LogEntry::kNoVerbosityLevel) return;
+        if (entry.verbosity() != 1) return;
         std::lock_guard lock(this->mu);
         this->lines.emplace_back(entry.text_message());
     }
@@ -271,7 +280,8 @@ public:
     }
 };
 
-/// @brief the scanner should log each device skipped by the model filter once.
+/// @brief the scanner should log each device skipped by the model filter once, at
+/// VLOG(1).
 TEST(ScannerTest, testLogsIgnoredDeviceOnce) {
     auto api = std::make_shared<FakeAPI>(std::vector<FakeAPI::Resource>{
         {"022B5288", "NI cRIO-9040"},
