@@ -38,7 +38,9 @@ class ReadFrameAdapter:
         normal = channel.normalize_params(channels)
         fetched = self.retriever.retrieve(normal.channels)
         new_keys = [ch.key for ch in fetched]
-        if set(new_keys) != set(self.keys):
+        # The Core counts every update that carries keys, and both sides must agree on
+        # the sequence number of each codec state.
+        if len(new_keys) > 0:
             self.codec.update(new_keys, [ch.data_type for ch in fetched])
 
         if isinstance(normal, channel.NormalizedKeyResult):

@@ -10,16 +10,19 @@
 package config_test
 
 import (
+	"context"
 	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	arcversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -156,6 +159,65 @@ var _ = Describe("Service", func() {
 				"arc_key":     uuid.New().String(),
 				"performance": "BOGUS",
 			})).To(MatchError(ContainSubstring("invalid performance: BOGUS")))
+		})
+
+		Context("With a resolve hook", func() {
+			openResolving := func(
+				ctx SpecContext,
+				resolve func(context.Context, gorp.Tx, *arctask.Config) error,
+			) *config.Service[arctask.Config] {
+				GinkgoHelper()
+				return MustOpen(config.OpenService(
+					ctx,
+					config.ServiceConfig[arctask.Config]{
+						DB:            db,
+						Type:          testType,
+						Ladder:        arcversions.ConfigLadder,
+						SetEntryKey:   (*arctask.Config).SetKey,
+						ResolveEntry:  resolve,
+						ValidateEntry: (*arctask.Config).Validate,
+					},
+				))
+			}
+
+			It("Should store the entry the hook resolves, before validating it", func(
+				ctx SpecContext,
+			) {
+				resolving := openResolving(ctx, func(
+					_ context.Context,
+					tx gorp.Tx,
+					c *arctask.Config,
+				) error {
+					Expect(tx).ToNot(BeNil())
+					c.Performance = "low"
+					return nil
+				})
+				key := uuid.New()
+				Expect(resolving.Write(ctx, nil, key, msgpack.EncodedJSON{
+					"arc_key":     uuid.New().String(),
+					"performance": "BOGUS",
+				})).To(Succeed())
+				data := MustSucceed(resolving.Read(ctx, nil, key))
+				Expect(data["performance"]).To(Equal("low"))
+			})
+
+			It("Should return the hook's error and store nothing", func(
+				ctx SpecContext,
+			) {
+				resolving := openResolving(ctx, func(
+					context.Context,
+					gorp.Tx,
+					*arctask.Config,
+				) error {
+					return errors.New("resolve failed")
+				})
+				key := uuid.New()
+				Expect(resolving.Write(ctx, nil, key, msgpack.EncodedJSON{
+					"arc_key": uuid.New().String(),
+				})).To(MatchError("resolve failed"))
+				Expect(resolving.Read(ctx, nil, key)).Error().
+					To(MatchError(query.ErrNotFound))
+			})
 		})
 	})
 

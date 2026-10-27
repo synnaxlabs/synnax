@@ -65,6 +65,12 @@ describe("respond", () => {
       expect(await body(res)).toEqual({ error: "Too many activations." });
     });
 
+    it("should carry the code of an HTTP error that has one", async () => {
+      const res = toResponse(new HTTPError(403, "Logged out.", "unlinked"));
+      expect(res.status).toBe(403);
+      expect(await body(res)).toEqual({ error: "Logged out.", code: "unlinked" });
+    });
+
     it("should hide a value that is not an error", async () => {
       vi.spyOn(console, "error").mockImplementation(() => {});
       const res = toResponse("boom");
