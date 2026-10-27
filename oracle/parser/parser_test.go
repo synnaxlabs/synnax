@@ -604,13 +604,13 @@ var _ = Describe("Parser", func() {
 	Describe("Error Handling", func() {
 		It("Should report syntax errors", func() {
 			_, diag := parser.Parse(`struct { }`) // name should be before struct
-			Expect(diag).To(HaveOccurred())
+			Expect(diag).To(MatchError(ContainSubstring("mismatched input 'struct'")))
 			Expect(diag.Ok()).To(BeFalse())
 		})
 
 		It("Should report errors for missing braces", func() {
 			_, diag := parser.Parse(`Range struct key uuid`)
-			Expect(diag).To(HaveOccurred())
+			Expect(diag).To(MatchError(ContainSubstring("mismatched input 'key'")))
 			Expect(diag.Ok()).To(BeFalse())
 		})
 
@@ -620,7 +620,7 @@ var _ = Describe("Parser", func() {
 					pending
 				}
 			`) // missing = value
-			Expect(diag).To(HaveOccurred())
+			Expect(diag).To(MatchError(ContainSubstring("expecting '='")))
 			Expect(diag.Ok()).To(BeFalse())
 		})
 

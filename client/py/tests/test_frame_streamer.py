@@ -34,6 +34,20 @@ def write(client: sy.Synnax, ch: sy.Channel, data: list[float]) -> None:
         w.write({ch.key: data})
 
 
+def read_while_writing(
+    client: sy.Synnax, s: sy.Streamer, ch: sy.Channel
+) -> sy.Frame | None:
+    """Writes until the streamer reads a frame. The Core does not acknowledge an
+    updated channel set, so a write can reach the relay before the update does."""
+    with client.open_writer(sy.TimeStamp.now(), ch.key) as w:
+        deadline = time.monotonic() + READ_TIMEOUT
+        while time.monotonic() < deadline:
+            w.write({ch.key: [1.0]})
+            if (frame := s.read(timeout=0.05)) is not None:
+                return frame
+    return None
+
+
 @pytest.mark.framer
 @pytest.mark.streamer
 class TestStreamer:
@@ -178,6 +192,27 @@ class TestStreamer:
                 frame = s.read(timeout=1)
                 assert frame is not None
                 assert np.array_equal(frame[virtual_channel.key], data)
+
+    def test_update_same_channels(
+        self, virtual_channel: sy.Channel, client: sy.Synnax
+    ) -> None:
+        """Should read frames after setting the channels the streamer already has"""
+        with client.open_streamer(virtual_channel.key) as s:
+            s.update_channels([virtual_channel.key])
+            frame = read_while_writing(client, s, virtual_channel)
+            assert frame is not None
+            assert np.array_equal(frame[virtual_channel.key], [1.0])
+
+    def test_update_channels_after_none(
+        self, virtual_channel: sy.Channel, client: sy.Synnax
+    ) -> None:
+        """Should read frames of the channels set after an empty set of channels"""
+        with client.open_streamer(virtual_channel.key) as s:
+            s.update_channels([])
+            s.update_channels([virtual_channel.key])
+            frame = read_while_writing(client, s, virtual_channel)
+            assert frame is not None
+            assert np.array_equal(frame[virtual_channel.key], [1.0])
 
     def test_update_channels_rapid(
         self,

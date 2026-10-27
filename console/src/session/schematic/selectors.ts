@@ -51,17 +51,15 @@ const createGetter = <R>(selector: (params: KeyedSelectorParams) => R) => {
   return useGetter;
 };
 
-export const selectState = ({ state, key }: KeyedSelectorParams): State =>
+const selectState = ({ state, key }: KeyedSelectorParams): State =>
   Window.selectDocument(state, selectSliceState(state), key) ?? ZERO_STATE;
 
-export const useSelect = createSelector(selectState);
 export const useGet = createGetter(selectState);
 
 const selectSelected = (params: KeyedSelectorParams): string[] =>
   selectState(params)?.selected;
 
 export const useSelectSelected = createSelector(selectSelected);
-export const useGetSelected = createGetter(selectSelected);
 
 const selectControlStatus = (params: KeyedSelectorParams): Control.Status =>
   selectState(params).control.status;
@@ -78,24 +76,20 @@ const selectAuthority = (params: KeyedSelectorParams): control.Authority =>
 
 export const useSelectAuthority = createSelector(selectAuthority);
 
-export const selectToolbar = (params: KeyedSelectorParams): ToolbarState =>
+const selectToolbar = (params: KeyedSelectorParams): ToolbarState =>
   selectState(params).toolbar;
-
-export const useSelectToolbar = createSelector(selectToolbar);
-export const useGetToolbar = createGetter(selectToolbar);
 
 const selectActiveToolbarTab = (params: KeyedSelectorParams): ToolbarTab =>
   selectToolbar(params).selectedTab;
 
 export const useSelectActiveToolbarTab = createSelector(selectActiveToolbarTab);
-export const useGetActiveToolbarTab = createGetter(selectActiveToolbarTab);
 
 const selectChanging = (params: KeyedSelectorParams): boolean =>
   selectToolbar(params).changing;
 
 export const useSelectChanging = createSelector(selectChanging);
 
-export const selectSelectedSymbolGroup = (params: KeyedSelectorParams): string =>
+const selectSelectedSymbolGroup = (params: KeyedSelectorParams): string =>
   selectToolbar(params).selectedSymbolGroup;
 
 export const useSelectSelectedSymbolGroup = createSelector(selectSelectedSymbolGroup);
@@ -106,7 +100,7 @@ const selectPropertiesTab = (
 
 export const useSelectPropertiesTab = createSelector(selectPropertiesTab);
 
-export const selectLegend = (params: KeyedSelectorParams): LegendState =>
+const selectLegend = (params: KeyedSelectorParams): LegendState =>
   selectState(params).legend;
 
 export const useSelectLegend = createSelector(selectLegend);
@@ -116,17 +110,15 @@ const selectLegendVisible = (params: KeyedSelectorParams): boolean =>
 
 export const useSelectLegendVisible = createSelector(selectLegendVisible);
 
-export const selectEditable = (params: KeyedSelectorParams): boolean =>
+const selectEditable = (params: KeyedSelectorParams): boolean =>
   selectState(params).editable;
 
 const useSelectEditableBase = createSelector(selectEditable);
-export const useGetEditable = createGetter(selectEditable);
 
 const selectFitViewOnResize = (params: KeyedSelectorParams): boolean =>
   selectState(params).fitViewOnResize;
 
 export const useSelectFitViewOnResize = createSelector(selectFitViewOnResize);
-export const useGetFitViewOnResize = createGetter(selectFitViewOnResize);
 
 const selectTooltipsDisabled = (params: KeyedSelectorParams): boolean =>
   selectState(params).tooltipsDisabled;
