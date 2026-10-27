@@ -10,7 +10,8 @@
 package pebblekv
 
 import (
-	"github.com/cockroachdb/errors/oserror"
+	"os"
+
 	pebblev1 "github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/v2"
 	"github.com/cockroachdb/pebble/v2/vfs"
@@ -22,7 +23,7 @@ import (
 func RequiresMigration(dirname string, fs vfs.FS) (bool, error) {
 	dbDesc, err := pebble.Peek(dirname, fs)
 	if err != nil {
-		return false, errors.Skip(err, oserror.ErrNotExist)
+		return false, errors.Skip(err, os.ErrNotExist)
 	}
 	return !dbDesc.FormatMajorVersion.IsSupported() &&
 		uint64(dbDesc.FormatMajorVersion) < uint64(pebble.FormatNewest), nil

@@ -1,0 +1,124 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Arc"
+description: "Learn what Arc is, what it is for, where it runs, and when to use it."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Edition } from "@/components/edition";
+import { Hero } from "@/components/hero";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+<Hero.Hero
+  still="control/arc/hero"
+  layout="centered"
+  tone="deep"
+  palette="violet-blue"
+/>
+
+Arc is the Synnax language for automations. An Arc automation reads channels, computes
+values, and writes channels. It runs on the Synnax Core or on a Driver, where the data
+arrives, so its timing does not depend on your computer or the network. You write Arc in
+the Console, as text or as a graph of blocks.
+
+<Divider.Divider x />
+
+## What Arc is for
+
+- [Test sequences](/reference/control/arc/test-sequences) -> Open and close valves in
+  stages, and go to an abort stage on unsafe values.
+- [Bang-bang control](/reference/control/arc/bang-bang-control) -> Hold a value between
+  a low and a high limit.
+- [Computed values](/reference/control/arc/compute-values) -> Write averages, rates of
+  change, and unit conversions to channels that Synnax stores.
+- [Alarms](/reference/alarms/arc) -> Set a status when a value goes out of limits.
+
+<Divider.Divider x />
+
+## Flows
+
+A flow sends values from channels, through expressions, to a channel with `->`. The flow
+runs each time one of its channels gets a new value, after each channel has its first
+value. This flow writes the average of two pressure sensors to a third channel:
+
+```arc channels="tank_pt_1, tank_pt_2, tank_pt_avg"
+(tank_pt_1 + tank_pt_2) / 2 -> tank_pt_avg
+```
+
+<Divider.Divider x />
+
+## Sequences
+
+A sequence runs its steps in order: writes, waits, and stages. A stage holds until one
+of its conditions is true, and `=> next` moves the sequence on. When the last step
+finishes, the sequence stops, and `start_cmd` can start it again. This sequence runs
+each time `start_cmd` becomes 1:
+
+```arc channels="press_vlv_cmd, vent_vlv_cmd, tank_pt, start_cmd" bodies="press, pressurize, vent"
+import time
+
+sequence press {
+    stage pressurize {
+        1 -> press_vlv_cmd
+        tank_pt > 300 => next
+    }
+    0 -> press_vlv_cmd
+    time.wait{duration=10s}
+    stage vent {
+        1 -> vent_vlv_cmd
+        tank_pt < 5 => next
+    }
+    0 -> vent_vlv_cmd
+}
+
+start_cmd == 1 => press
+```
+
+See the [execution model](/reference/control/arc/execution-model) for how stages,
+conditions, and writes run.
+
+<Divider.Divider x />
+
+## Where an Arc automation runs
+
+You choose where each automation runs in its **Driver** list:
+
+- **The Core** -> The entry `Node 1` (or the number of your Core) runs the automation
+  inside the Core. It needs no Driver. When the automation has an error while it runs,
+  the Core logs a warning and keeps it running.
+- **A [Driver](/reference/hardware#where-the-driver-runs)** -> The entry
+  `Node 1 Embedded Driver` is the Driver that runs with the Core. A standalone Driver
+  shows with the name of its computer. A Driver runs the automation next to the hardware
+  it connects to, and can run it on a real-time loop. When the automation has an error
+  while it runs, the Driver stops it.
+
+<Edition.Enterprise>
+
+You can also run automations on a
+[standalone Driver](/reference/hardware#where-the-driver-runs) on a different computer,
+such as an NI Linux Real-Time controller.
+
+</Edition.Enterprise>
+
+<Divider.Divider x />
+
+## Text and graph editors
+
+When you create an Arc automation, you choose its **Editor mode**. You cannot change it
+later.
+
+- **Text** -> You write Arc code. Use it for sequences and for automations with many
+  conditions.
+- **Graph** -> You connect blocks for channels, comparisons, and statuses. Use it for
+  simple automations, such as alarms.
+
+<Divider.Divider x />
+
+## Arc, calculated channels, or Python
+
+| Use                                                                                        | To                                                                        | Runs                                      |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- | ----------------------------------------- |
+| [Calculated channel](/reference/channels/calculated)                                       | Show a value computed from other channels, live or over past data.        | While something streams or reads it.      |
+| Arc automation                                                                             | Run sequences and control loops, store computed values, and set statuses. | From when you start it until you stop it. |
+| [Python script](/reference/control#ways-to-control) <Edition.Badge edition="enterprise" /> | Use Python libraries, or connect to other software.                       | On your computer, while the script runs.  |
