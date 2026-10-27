@@ -42,7 +42,8 @@ afterEach(() => {
 // jsdom's XML parser does not attach CSSStyleDeclaration to painted SVG shapes, which
 // normalizeSVG's computed-style pass requires; a shapeless SVG exercises the same
 // production load path without touching that jsdom hole.
-const SHAPELESS_SVG = '<svg viewBox="0 0 100 100"><g id="grp"></g></svg>';
+const SHAPELESS_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g id="grp"></g></svg>';
 
 // The triggers provider identifies a key by KeyboardEvent.code, not by the printed
 // character, so the zoom keys are pressed as Equal, Minus, and Digit0.
