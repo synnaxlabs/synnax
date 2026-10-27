@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 func createChannel(ctx SpecContext, dt telem.DataType) channel.Channel {
@@ -333,6 +334,33 @@ var _ = Describe("AliasedRetrieveRequest", func() {
 			BeAssignableToTypeOf(&json.SemanticError{}),
 			MatchError(ContainSubstring(`unknown object member name "where"`)),
 		))
+	})
+
+	DescribeTable(
+		"Should reject a MessagePack member that the request does not declare",
+		func(body any) {
+			data := MustSucceed(msgpack.Marshal(body))
+			var req apichannel.AliasedRetrieveRequest
+			Expect(msgpack.Unmarshal(data, &req)).
+				To(MatchError(`msgpack: unknown field "keys"`))
+		},
+		Entry("in a bare channel request", map[string]any{"keys": []int{1048577}}),
+		Entry("after the request", struct {
+			Request map[string]any `msgpack:"request"`
+			Keys    []int          `msgpack:"keys"`
+		}{Request: map[string]any{}, Keys: []int{1048577}}),
+	)
+
+	It("Should decode a MessagePack request that it declares", func() {
+		rng := uuid.New()
+		data := MustSucceed(msgpack.Marshal(map[string]any{
+			"request":   map[string]any{"search_term": "temp"},
+			"range_key": rng,
+		}))
+		var req apichannel.AliasedRetrieveRequest
+		Expect(msgpack.Unmarshal(data, &req)).To(Succeed())
+		Expect(req.Request.SearchTerm).To(Equal("temp"))
+		Expect(req.RangeKey).To(HaveValue(Equal(rng)))
 	})
 })
 
