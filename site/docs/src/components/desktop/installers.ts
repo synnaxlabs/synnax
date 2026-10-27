@@ -28,5 +28,8 @@ export const installers = (version: string): Platform[] => {
  * @param agent - The user agent of the browser.
  * @returns The installer, or null if none installs on the platform.
  */
-export const installer = (version: string, agent: string): Platform | null =>
-  installers(version).find((platform) => platform.agent.test(agent)) ?? null;
+export const installer = (version: string, agent: string): Platform | null => {
+  // iPhones say "like Mac OS X" and iPads may pose as a Macintosh.
+  if (/iPhone|iPad|Android|Mobile/.test(agent)) return null;
+  return installers(version).find((platform) => platform.agent.test(agent)) ?? null;
+};

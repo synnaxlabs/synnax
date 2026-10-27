@@ -12,6 +12,15 @@ import { describe, expect, it } from "vitest";
 import { compare } from "@/compare";
 
 describe("compare", () => {
+  describe("newF", () => {
+    it("should order bigints and return zero for equal ones", () => {
+      const f = compare.newF(2n);
+      expect(f(1n, 2n)).toBe(-1);
+      expect(f(2n, 2n)).toBe(0);
+      expect(f(3n, 2n)).toBe(1);
+    });
+  });
+
   describe("numericStrings", () => {
     interface Spec {
       name: string;

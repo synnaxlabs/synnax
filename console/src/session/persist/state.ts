@@ -712,9 +712,10 @@ const PERSIST_DEBOUNCE = TimeSpan.milliseconds(250);
  * Saves every change dispatched so far without waiting out the debounce, and resolves
  * once storage holds them. Only the main window persists: elsewhere, and in a store
  * without persistence, it resolves at once.
+ * @throws {Error} if the write fails.
  */
 export const flush = async (dispatch: (action: Action) => unknown): Promise<void> => {
-  // The persisting middleware answers this action with its write queue.
+  // The persisting middleware answers this action with its write.
   await dispatch(flushState());
 };
 
@@ -741,20 +742,22 @@ const createMiddleware = <S extends object>(
     // Redux forbids dispatching while middleware is constructed, so an engine that
     // could not open its storage announces it on the first action instead.
     let announced = !engine.unreadable;
-    const debouncedPersist = scheduler.debounce(() => {
-      // Captured when the write is queued: a swap may retarget `current` before the
-      // queue reaches this write, and it must land under the session it belongs to.
-      const state = store.getState() as S;
-      const context = current;
-      queue = queue.then(async () => {
-        try {
-          await engine.persist(state, context);
-        } catch (e) {
-          engine.onError(new Error("failed to persist state", { cause: e }));
-          store.dispatch(storeUnavailable());
-        }
+    // The context is captured when the write is queued: a swap may retarget `current`
+    // before the queue reaches this write, and it must land under the session it
+    // belongs to. The queue reports a failed write and goes on. The returned write
+    // still rejects, for a caller that waits on it.
+    const persist = (state: S, context: Context): Promise<void> => {
+      const write = queue.then(async () => await engine.persist(state, context));
+      queue = write.catch((e: unknown) => {
+        engine.onError(new Error("failed to persist state", { cause: e }));
+        store.dispatch(storeUnavailable());
       });
-    }, debounceInterval);
+      return write;
+    };
+    const debouncedPersist = scheduler.debounce(
+      () => void persist(store.getState() as S, current),
+      debounceInterval,
+    );
     return (next) => (action) => {
       const result = next(action);
       if (!announced) {
@@ -780,8 +783,8 @@ const createMiddleware = <S extends object>(
             engine.onError(new Error("failed to clear state", { cause: err }));
           });
       else if (type === flushState.type) {
-        debouncedPersist.flush();
-        return queue;
+        debouncedPersist.cancel();
+        return persist(state, current);
       } else if (type === purge.type) {
         const { payload } = action as PayloadAction<string>;
         queue = queue

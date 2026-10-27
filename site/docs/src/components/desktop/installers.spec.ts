@@ -17,6 +17,7 @@ const AGENTS = {
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
   iphone:
     "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
+  ipad: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148",
   linux:
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
 };
@@ -36,6 +37,10 @@ describe("Desktop installers", () => {
 
   it("should find no installer for a phone that says like Mac OS X", () => {
     expect(Desktop.installer("1.0.0", AGENTS.iphone)).toBeNull();
+  });
+
+  it("should find no installer for an iPad that poses as a Mac", () => {
+    expect(Desktop.installer("1.0.0", AGENTS.ipad)).toBeNull();
   });
 
   it("should find no installer for Linux", () => {

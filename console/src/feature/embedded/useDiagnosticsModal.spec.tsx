@@ -37,6 +37,21 @@ import { CaptureStatuses } from "@/testutil";
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({ save: vi.fn() }));
 
+const mocks = vi.hoisted((): { engine: "web" | "tauri"; label: string } => ({
+  engine: "web",
+  label: "main",
+}));
+
+vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+  const { mockRuntimeEngine } = await import("@/testutil/runtime");
+  return await mockRuntimeEngine(importOriginal, mocks);
+});
+
+vi.mock("@tauri-apps/api/window", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  getCurrentWindow: () => ({ label: mocks.label }),
+}));
+
 const DIAGNOSTICS = {
   version: "0.58.0",
   history: {
@@ -111,7 +126,11 @@ const holdErase = async (): Promise<void> => {
 
 /** Answers every request to the hub with `answer` until the test ends. */
 describe("Embedded diagnostics", () => {
-  beforeEach(() => vi.mocked(save).mockReset());
+  beforeEach(() => {
+    vi.mocked(save).mockReset();
+    mocks.engine = "web";
+    mocks.label = "main";
+  });
   afterEach(clearSupervisor);
 
   it("should show the health, the data, and a readable log", async () => {
@@ -210,6 +229,14 @@ describe("Embedded diagnostics", () => {
     await waitFor(() => expect(commands).toHaveBeenCalledWith("supervisor_reset"));
     expect(Session.Account.selectSliceState(store.getState()).link).toBeUndefined();
     expect(logged).toHaveBeenCalledWith(offline);
+  });
+
+  it("should offer the erase only in the main window", async () => {
+    mocks.engine = "tauri";
+    mocks.label = "child";
+    await openDiagnostics(RUNNING);
+    expect(screen.getByRole("button", { name: "Show logs" })).toBeTruthy();
+    expect(screen.queryByText("Erase all data")).toBeNull();
   });
 
   it("should show the data folder and the logs", async () => {
