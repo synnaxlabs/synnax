@@ -31,7 +31,8 @@ jobs:
         run: |
           sudo apt-get update
           if [ "${{ matrix.os }}" = ubuntu-24.04 ]; then FUSE=libfuse2t64; else FUSE=libfuse2; fi
-          sudo apt-get install -y xvfb imagemagick x11-utils "$FUSE"
+          # A desktop Ubuntu always has libegl1; a bare runner does not.
+          sudo apt-get install -y xvfb imagemagick x11-utils libegl1 "$FUSE"
 
       - name: Launch AppImage and screenshot
         env:
@@ -59,7 +60,7 @@ jobs:
         run: |
           sudo apt-get install -y ./bundles/*.deb
           dpkg-deb -I bundles/*.deb
-          BIN=$(dpkg-deb -c bundles/*.deb | awk '{print $6}' | grep '^./usr/bin/.' | head -1 | sed 's/^\.//')
+          BIN=$(dpkg-deb -c bundles/*.deb | grep -o '\./usr/bin/[^ ]*' | head -1 | cut -c2-)
           echo "Binary: $BIN"
           pkill -f AppImage || true
           sleep 2
