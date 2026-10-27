@@ -30,6 +30,16 @@
 namespace synnax::device {
 
 inline std::pair<::service::device::pb::StringSet, x::errors::Error>
+string_set_to_proto(const ::x::filter::Set<std::string> &self);
+inline std::pair<::x::filter::Set<std::string>, x::errors::Error>
+string_set_from_proto(const ::service::device::pb::StringSet &pb);
+
+inline std::pair<::service::device::pb::RackKeySet, x::errors::Error>
+rack_key_set_to_proto(const ::x::filter::Set<::synnax::rack::Key> &self);
+inline std::pair<::x::filter::Set<::synnax::rack::Key>, x::errors::Error>
+rack_key_set_from_proto(const ::service::device::pb::RackKeySet &pb);
+
+inline std::pair<::service::device::pb::StringSet, x::errors::Error>
 string_set_to_proto(const ::x::filter::Set<std::string> &self) {
     ::service::device::pb::StringSet pb;
     if (self.eq.has_value()) pb.set_eq(*self.eq);
