@@ -17,11 +17,11 @@ import pytest
 from reliability import (
     JOB_NAME,
     Cases,
-    auto_pass,
     ci_jobs,
     enumerate_tests,
     integration_sources,
     os_of,
+    platform_skip,
     suite_jobs,
 )
 
@@ -166,11 +166,11 @@ CASES = {
         "class NIRead(TaskCase):\n"
         "    def setup(self):\n"
         '        if platform.system().lower() != "windows":\n'
-        '            self.auto_pass(msg="Windows DAQmx drivers required")\n\n\n'
+        '            self.skip("Windows DAQmx drivers required")\n\n\n'
         "class NIMissing(TaskCase):\n"
         "    def setup(self):\n"
         '        if platform.system().lower() == "windows":\n'
-        '            self.auto_pass(msg="DAQmx is installed")\n'
+        '            self.skip("DAQmx is installed")\n'
     ),
 }
 
@@ -211,26 +211,33 @@ class TestCases:
             Cases(CASES).resolve("driver/ni", "ni")
 
 
-class TestAutoPass:
-    """Auto-pass messages read from a platform gate."""
+class TestPlatformSkip:
+    """Skip reasons read from a platform gate."""
 
     @pytest.mark.parametrize(
         ("msg", "reason"),
         [
             ('"Windows only"', "Windows only"),
-            ("5", "Auto-passed"),
-            ("None", "Auto-passed"),
+            ("5", "Skipped"),
+            ("None", "Skipped"),
         ],
     )
     def test_should_read_a_string_message_and_fall_back_otherwise(
         self, msg: str, reason: str
     ) -> None:
         node = ast.parse(
-            'if platform.system().lower() != "windows":\n'
-            f"    self.auto_pass(msg={msg})\n"
+            f'if platform.system().lower() != "windows":\n    self.skip(reason={msg})\n'
         ).body[0]
         assert isinstance(node, ast.If)
-        assert auto_pass(node, "linux") == reason
+        assert platform_skip(node, "linux") == reason
+
+    def test_should_read_an_auto_pass_from_an_older_source(self) -> None:
+        node = ast.parse(
+            'if platform.system().lower() != "windows":\n'
+            '    self.auto_pass(msg="Windows only")\n'
+        ).body[0]
+        assert isinstance(node, ast.If)
+        assert platform_skip(node, "linux") == "Windows only"
 
 
 class TestOsOf:
