@@ -161,6 +161,8 @@ type Codec struct {
 		// the previous state. seqNum and the states backlog are used to keep the two in
 		// sync.
 		states map[uint32]state
+		// oldest is the lowest sequence number that states can hold.
+		oldest uint32
 		// pending holds the states added by Update that Encode and Decode have not
 		// applied yet, oldest first. pendingMu guards it.
 		pending   []state
@@ -412,6 +414,14 @@ func (c *Codec) Encode(ctx context.Context, src framer.Frame) ([]byte, error) {
 	return result, nil
 }
 
+// prune drops the states older than seqNum. A remote encoder never goes back to an
+// older state, and an encoder only uses its newest one.
+func (c *Codec) prune(seqNum uint32) {
+	for ; c.mu.oldest < seqNum; c.mu.oldest++ {
+		delete(c.mu.states, c.mu.oldest)
+	}
+}
+
 func (c *Codec) panicIfNotUpdated(opName string) {
 	if c.mu.seqNum < 1 {
 		panic(
@@ -592,6 +602,7 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 	c.encodeSorter.reset(src.Count())
 	c.processUpdates()
 	c.panicIfNotUpdated("Encode")
+	c.prune(c.mu.seqNum)
 	currState := c.mu.states[c.mu.seqNum]
 	src = src.KeepKeys(currState.keySet)
 
@@ -825,6 +836,7 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 		)
 		return framer.Frame{}, err
 	}
+	c.prune(seqNum)
 	fgs := decodeFlags(flagB)
 	if fgs.extended {
 		return framer.Frame{}, errors.Wrap(
