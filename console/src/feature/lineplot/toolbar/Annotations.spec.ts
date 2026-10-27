@@ -17,6 +17,7 @@ import {
 } from "@/feature/lineplot/testutil";
 import { Toolbar } from "@/feature/lineplot/toolbar";
 import { Session } from "@/session";
+import { documentIn } from "@/session/window/testutil";
 import { getIconButton, getLabeledInput, uniqueName } from "@/testutil";
 
 const renderRulesTab = async () => {
@@ -51,7 +52,7 @@ describe("lineplot/toolbar/Annotations", () => {
       expect(plot.rules).toHaveLength(1);
       expect(plot.rules[0].label).toBe("Rule 1");
       expect(
-        Session.LinePlot.selectSelectedRules({ state: store.getState(), key }),
+        documentIn(store.getState()[Session.LinePlot.SLICE_NAME], key)?.selectedRules,
       ).toEqual([plot.rules[0].key]);
     });
   });
@@ -144,7 +145,7 @@ describe("lineplot/toolbar/Annotations", () => {
       expect(plot.rules).toHaveLength(0);
     });
     expect(
-      Session.LinePlot.selectSelectedRules({ state: store.getState(), key }),
+      documentIn(store.getState()[Session.LinePlot.SLICE_NAME], key)?.selectedRules,
     ).toEqual([]);
   });
 });

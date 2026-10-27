@@ -30,7 +30,8 @@ def _scalar(value: SampleValue) -> int | float | str:
 
 
 class Streamer:
-    """Background streamer that reads subscribed channels into a shared frame."""
+    """Background streamer that reads subscribed channels into a shared frame. A
+    channel has no value until its first sample arrives."""
 
     WEBSOCKET_RETRY_DELAY: sy.TimeSpan = 500 * sy.TimeSpan.MILLISECOND
 
@@ -161,9 +162,6 @@ class Streamer:
     def _loop(self) -> None:
         if not self._channels:
             return
-
-        for ch in self._channels:
-            self._frame[ch] = 0
 
         streamer = None
         try:

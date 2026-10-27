@@ -1,0 +1,187 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Troubleshoot Synnax Desktop"
+description:
+  "Find problems with the diagnostics dialog and logs, then fix common problems."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Problem } from "@/components/problem";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Synnax Desktop starts Synnax when the app opens and stops it when the app closes. To
+find a problem, start with the diagnostics dialog and the logs, then look for your
+problem under [common problems](#common-problems). Each command runs from the
+[command palette](/reference/get-started/ui-overview#search-and-command-palette).
+
+<Divider.Divider x />
+
+## Diagnostics
+
+To open the diagnostics dialog, run the "Open diagnostics" command. The dialog shows the
+state of Synnax, such as **Running** or **Stopped unexpectedly**, and:
+
+- **Version** -> the version of Synnax Desktop.
+- **Running since** -> when Synnax became ready. Shown only while Synnax runs.
+- **Starts** -> the number of times Synnax started since the app opened.
+- **Last problem** -> the last problem, if there was one.
+- **Data** -> the size and location of the data folder.
+- The end of the log, updated every 2 seconds.
+
+The dialog has the buttons **Erase all data**, **Show data folder**, **Show logs**,
+**Export**, and **Restart**.
+
+### Export diagnostics for support
+
+1. In the diagnostics dialog, click **Export**.
+2. Select where to save the file.
+
+Synnax Desktop saves a zip file named `synnax-diagnostics-<date>.zip`. It holds a
+summary of the app, the computer, and the recent starts, and all log files. It holds no
+recorded data and no passwords. Send this file to the person who supports you.
+
+<Divider.Divider x />
+
+## Logs
+
+Synnax writes its log to `core.log` in the log folder. To open the folder, run the "Show
+logs" command.
+
+| Operating system | Log folder                                   |
+| ---------------- | -------------------------------------------- |
+| macOS            | `~/Library/Logs/com.synnaxlabs.desktop`      |
+| Windows          | `%LOCALAPPDATA%\com.synnaxlabs.desktop\logs` |
+
+<Divider.Divider x />
+
+## Common problems
+
+### The top bar shows "Reconnecting"
+
+<Problem.Body>
+<Problem.Cause>
+
+The Console cannot reach Synnax. Most often, Synnax stopped and Synnax Desktop is
+starting it again.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Wait a few seconds for the indicator to go away. If it stays, run "Open diagnostics".
+
+</Problem.Fix>
+</Problem.Body>
+
+### Synnax Desktop shows "Synnax stopped unexpectedly"
+
+<Problem.Body>
+<Problem.Cause>
+
+Synnax failed five times in a row, so Synnax Desktop stopped trying to start it. A
+failure is a crash, a start that takes more than 60 seconds, or three failed health
+checks in a row. The last problem shows under the heading.
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. Click **Restart** to try again.
+2. If Synnax stops again, click **Diagnostics** and
+   [export diagnostics](#export-diagnostics-for-support) for support.
+
+</Problem.Fix>
+</Problem.Body>
+
+### The app shows "Starting Synnax..." for more than a minute
+
+<Problem.Body>
+<Problem.Cause>
+
+After 60 seconds, Synnax Desktop counts the start as a failure and tries again.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Wait for the next start. If the start keeps failing, the app shows "Synnax stopped
+unexpectedly". Then see
+[Synnax stopped unexpectedly](#synnax-desktop-shows-synnax-stopped-unexpectedly).
+
+</Problem.Fix>
+</Problem.Body>
+
+### Synnax Desktop shows "You are offline"
+
+<Problem.Body>
+<Problem.Cause>
+
+Synnax Desktop needs internet access to log in.
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. Connect the computer to the internet.
+2. Click **Try again**.
+
+</Problem.Fix>
+</Problem.Body>
+
+### Synnax Desktop shows "Your login has lapsed"
+
+<Problem.Body>
+<Problem.Cause>
+
+The license of Synnax Desktop lasts 30 days. While the app runs with internet access, it
+renews the license in the background, when it opens and every 6 hours. If it cannot
+renew for 30 days, a grace period of 14 days starts. After the grace period, the license
+lapses. Within 7 days of the expiry, a failed renewal shows "Failed to renew license".
+
+</Problem.Cause>
+<Problem.Fix>
+
+Connect the computer to the internet, then click **Log in** and log in with the same
+account. Your data stays on the computer.
+
+</Problem.Fix>
+</Problem.Body>
+
+### Synnax Desktop shows "This machine was logged out"
+
+<Problem.Body>
+<Problem.Cause>
+
+Someone logged the computer out on the **Devices** page of the Synnax portal, so its
+license is gone.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Click **Log in** and log in again.
+
+</Problem.Fix>
+</Problem.Body>
+
+### Live data or tasks stopped
+
+<Problem.Body>
+<Problem.Fix>
+
+1. Run the "Restart Synnax" command.
+2. Click **Restart** to confirm. Running tasks and live data stop for a few seconds,
+   then start again.
+
+If a task still does not run, see
+[Troubleshoot hardware](/reference/hardware/troubleshooting).
+
+</Problem.Fix>
+</Problem.Body>
+
+### I want to start again with no data
+
+<Problem.Body>
+<Problem.Fix>
+
+Run the "Erase all data" command. To learn what it deletes, see
+[erase all data](/reference/desktop/data#erase-all-data).
+
+</Problem.Fix>
+</Problem.Body>

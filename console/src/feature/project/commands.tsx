@@ -12,7 +12,7 @@ import { type UploadBody } from "@synnaxlabs/freighter";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Project as PProject, Synnax } from "@synnaxlabs/pluto";
 
-import { useOpenSample } from "@/feature/project/sample";
+import { useOpenSample } from "@/feature/project/useOpenSample";
 import { Command } from "@/platform/command";
 import { Export } from "@/platform/export";
 import { Import } from "@/platform/import";
