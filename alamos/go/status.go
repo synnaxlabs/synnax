@@ -15,8 +15,8 @@ import "go.opentelemetry.io/otel/codes"
 type Status uint8
 
 var otelStatusCodes = map[Status]codes.Code{
-	StatusOk:    codes.Ok,
-	StatusError: codes.Error,
+	statusOk:    codes.Ok,
+	statusError: codes.Error,
 }
 
 func (s Status) otel() codes.Code {
@@ -28,8 +28,6 @@ func (s Status) otel() codes.Code {
 }
 
 const (
-	// StatusOk represents a successful operation.
-	StatusOk Status = iota
-	// StatusError represents a failed operation.
-	StatusError = 1
+	statusOk    Status = iota
+	statusError        = 1
 )
