@@ -126,18 +126,18 @@ print(f"Device configured: {device.name} (key={device.key})")
   <Fragment slot="typescript">
 
 ```typescript
-import { Synnax } from "@synnaxlabs/client";
+import { device, rack, Synnax } from "@synnaxlabs/client";
 
 // Connect to Synnax
 const client = new Synnax();
 
 // Get the embedded rack (local driver rack)
-const [rack] = await client.racks.retrieve({ where: { embedded: { eq: true } } });
+const [embedded] = await client.racks.retrieve(rack.embedded.eq(true));
 
 // Configure device connection
-const device = await client.devices.create({
+const dev = await client.devices.create({
   key: crypto.randomUUID(),
-  rack: rack.key,
+  rack: embedded.key,
   name: "My NI Module",
   make: "NI",
   model: "NI 9205",
@@ -148,16 +148,15 @@ const device = await client.devices.create({
 });
 
 // Or retrieve by model
-const [byModel] = await client.devices.retrieve({
-  where: { model: { eq: "NI 9205" } },
-});
+const [byModel] = await client.devices.retrieve(device.model.eq("NI 9205"));
 
 // Or retrieve by name
-const [byName] = await client.devices.retrieve({
-  where: { name: { eq: "My NI Module" } },
-});
+const byName = await client.devices.retrieve(
+  device.name.eq("My NI Module"),
+  device.one(),
+);
 
-console.log(`Device configured: ${device.name} (key=${device.key})`);
+console.log(`Device configured: ${dev.name} (key=${dev.key})`);
 ```
 
   </Fragment>

@@ -237,12 +237,12 @@ client.tasks.configure(task)
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```typescript
-import { Synnax } from "@synnaxlabs/client";
+import { device, Synnax } from "@synnaxlabs/client";
 
 const client = new Synnax();
 
 // Retrieve device
-const [dev] = await client.devices.retrieve({ where: { name: { eq: "my_labjack" } } });
+const dev = await client.devices.retrieve(device.name.eq("my_labjack"), device.one());
 
 // Create index channel
 const aiTime = await client.channels.create(

@@ -34,6 +34,10 @@ export const CLIENT_NAV: PageNavNode = {
       name: "Ranges",
     },
     {
+      href: "/reference/client/queries",
+      name: "Queries",
+    },
+    {
       href: "/reference/client/series-and-frames",
       name: "Series and frames",
     },

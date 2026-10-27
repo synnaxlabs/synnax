@@ -206,14 +206,15 @@ client.tasks.configure(task)
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```typescript
-import { Synnax, TimeStamp } from "@synnaxlabs/client";
+import { device, Synnax, TimeStamp } from "@synnaxlabs/client";
 
 const client = new Synnax();
 
 // Retrieve device
-const [dev] = await client.devices.retrieve({
-  where: { name: { eq: "Modbus Server" } },
-});
+const dev = await client.devices.retrieve(
+  device.name.eq("Modbus Server"),
+  device.one(),
+);
 
 // Create command channel for coil
 const coilCmdTime = await client.channels.create(

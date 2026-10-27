@@ -774,18 +774,20 @@ client.tasks.configure(task)
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```typescript
-import { Synnax } from "@synnaxlabs/client";
+import { device, Synnax } from "@synnaxlabs/client";
 
 const client = new Synnax();
 
 // Retrieve devices
-const [vDev] = await client.devices.retrieve({
-  where: { name: { eq: "Mod1_Voltage" } },
-});
-const [cDev] = await client.devices.retrieve({
-  where: { name: { eq: "Mod2_Current" } },
-});
-const [tcDev] = await client.devices.retrieve({ where: { name: { eq: "Mod1_TC" } } });
+const vDev = await client.devices.retrieve(
+  device.name.eq("Mod1_Voltage"),
+  device.one(),
+);
+const cDev = await client.devices.retrieve(
+  device.name.eq("Mod2_Current"),
+  device.one(),
+);
+const tcDev = await client.devices.retrieve(device.name.eq("Mod1_TC"), device.one());
 
 // Create index and data channels
 const aiTime = await client.channels.create(

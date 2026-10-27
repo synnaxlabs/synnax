@@ -178,14 +178,15 @@ client.tasks.configure(task)
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```typescript
-import { Synnax } from "@synnaxlabs/client";
+import { device, Synnax } from "@synnaxlabs/client";
 
 const client = new Synnax();
 
 // Retrieve device
-const [digitalDev] = await client.devices.retrieve({
-  where: { name: { eq: "Mod1_Digital" } },
-});
+const digitalDev = await client.devices.retrieve(
+  device.name.eq("Mod1_Digital"),
+  device.one(),
+);
 
 // Create index channel
 const diTime = await client.channels.create(

@@ -356,12 +356,12 @@ client.tasks.configure(task)
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task (automatic mode)</Text.Text>
 
 ```typescript
-import { Synnax, TimeStamp } from "@synnaxlabs/client";
+import { device, Synnax, TimeStamp } from "@synnaxlabs/client";
 
 const client = new Synnax();
 
 // Retrieve EtherCAT device
-const [dev] = await client.devices.retrieve({ where: { name: { eq: "Servo Drive" } } });
+const dev = await client.devices.retrieve(device.name.eq("Servo Drive"), device.one());
 
 // Create command channels, each with its own index
 const controlCmdTime = await client.channels.create(
@@ -490,12 +490,12 @@ await streamer.close();
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task (manual mode)</Text.Text>
 
 ```typescript
-import { Synnax, TimeStamp } from "@synnaxlabs/client";
+import { device, Synnax, TimeStamp } from "@synnaxlabs/client";
 
 const client = new Synnax();
 
 // Retrieve EtherCAT device
-const [dev] = await client.devices.retrieve({ where: { name: { eq: "Servo Drive" } } });
+const dev = await client.devices.retrieve(device.name.eq("Servo Drive"), device.one());
 
 // Create command time index
 const cmdTime = await client.channels.create(

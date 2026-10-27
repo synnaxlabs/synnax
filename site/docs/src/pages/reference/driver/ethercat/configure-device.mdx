@@ -198,18 +198,18 @@ client.devices.create(device)
   <Fragment slot="typescript">
 
 ```typescript
-import { Synnax } from "@synnaxlabs/client";
+import { device, Synnax } from "@synnaxlabs/client";
 
 const client = new Synnax();
 
 // Retrieve the device
-const [device] = await client.devices.retrieve({ where: { name: { eq: "EL3102" } } });
+const dev = await client.devices.retrieve(device.name.eq("EL3102"), device.one());
 
 // Disable the device
-device.properties.enabled = false;
+dev.properties.enabled = false;
 
 // Update the device
-await client.devices.create(device);
+await client.devices.create(dev);
 ```
 
   </Fragment>
@@ -249,18 +249,18 @@ client.devices.create(device)
   <Fragment slot="typescript">
 
 ```typescript
-import { Synnax } from "@synnaxlabs/client";
+import { device, Synnax } from "@synnaxlabs/client";
 
 const client = new Synnax();
 
 // Retrieve the device
-const [device] = await client.devices.retrieve({ where: { name: { eq: "EL3102" } } });
+const dev = await client.devices.retrieve(device.name.eq("EL3102"), device.one());
 
 // Re-enable the device
-device.properties.enabled = true;
+dev.properties.enabled = true;
 
 // Update the device
-await client.devices.create(device);
+await client.devices.create(dev);
 ```
 
   </Fragment>
@@ -322,15 +322,13 @@ for pdo in rx_pdos:
   <Fragment slot="typescript">
 
 ```typescript
-import { Synnax } from "@synnaxlabs/client";
+import { device, Synnax } from "@synnaxlabs/client";
 
 // Connect to Synnax
 const client = new Synnax();
 
 // Retrieve every EtherCAT device
-const ethercatDevices = await client.devices.retrieve({
-  where: { make: { eq: "ethercat" } },
-});
+const ethercatDevices = await client.devices.retrieve(device.make.eq("ethercat"));
 
 for (const dev of ethercatDevices) {
   console.log(`Device: ${dev.name}`);
@@ -342,7 +340,7 @@ for (const dev of ethercatDevices) {
 }
 
 // Retrieve a specific device by name
-const [device] = await client.devices.retrieve({ where: { name: { eq: "EK1100" } } });
+const ek1100 = await client.devices.retrieve(device.name.eq("EK1100"), device.one());
 
 // Access PDO information
 interface PDOEntry {
@@ -352,14 +350,14 @@ interface PDOEntry {
   dataType: string;
 }
 
-const pdos = device.properties.pdos as {
+const pdos = ek1100.properties.pdos as {
   inputs?: PDOEntry[];
   outputs?: PDOEntry[];
 };
 const txPdos = pdos.inputs ?? []; // Input PDOs (device -> Synnax)
 const rxPdos = pdos.outputs ?? []; // Output PDOs (Synnax -> device)
 
-console.log(`\nTxPDOs (inputs) for ${device.name}:`);
+console.log(`\nTxPDOs (inputs) for ${ek1100.name}:`);
 for (const pdo of txPdos) {
   console.log(
     `  ${pdo.name}: index=0x${pdo.index.toString(16).padStart(4, "0")}, ` +
@@ -367,7 +365,7 @@ for (const pdo of txPdos) {
   );
 }
 
-console.log(`\nRxPDOs (outputs) for ${device.name}:`);
+console.log(`\nRxPDOs (outputs) for ${ek1100.name}:`);
 for (const pdo of rxPdos) {
   console.log(
     `  ${pdo.name}: index=0x${pdo.index.toString(16).padStart(4, "0")}, ` +

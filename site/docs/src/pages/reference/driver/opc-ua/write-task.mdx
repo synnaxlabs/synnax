@@ -220,14 +220,15 @@ client.tasks.configure(task)
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```typescript
-import { Synnax, TimeStamp } from "@synnaxlabs/client";
+import { device, Synnax, TimeStamp } from "@synnaxlabs/client";
 
 const client = new Synnax();
 
 // Retrieve OPC UA server device
-const [dev] = await client.devices.retrieve({
-  where: { name: { eq: "my_opc_server" } },
-});
+const dev = await client.devices.retrieve(
+  device.name.eq("my_opc_server"),
+  device.one(),
+);
 
 // Create command channels, each with its own index
 const setpointCmdTime = await client.channels.create(

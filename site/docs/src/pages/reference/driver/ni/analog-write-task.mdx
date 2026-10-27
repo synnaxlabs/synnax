@@ -209,14 +209,15 @@ client.tasks.configure(task)
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```typescript
-import { Synnax, TimeStamp, Rate } from "@synnaxlabs/client";
+import { device, Rate, Synnax, TimeStamp } from "@synnaxlabs/client";
 
 const client = new Synnax();
 
 // Retrieve device
-const [cDev] = await client.devices.retrieve({
-  where: { name: { eq: "Mod1_Current" } },
-});
+const cDev = await client.devices.retrieve(
+  device.name.eq("Mod1_Current"),
+  device.one(),
+);
 
 // Create command and state time indices
 const aoCmdTime = await client.channels.create(
