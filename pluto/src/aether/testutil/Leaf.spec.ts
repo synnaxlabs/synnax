@@ -9,8 +9,8 @@
 
 import { describe, expect, it } from "vitest";
 
-import { createDriver, ROOT_KEY } from "@/aether/test/driver";
-import { Leaf, leafStateZ } from "@/aether/test/Leaf";
+import { createDriver, ROOT_KEY } from "@/aether/testutil/driver";
+import { Leaf, leafStateZ } from "@/aether/testutil/Leaf";
 
 const mount = () => {
   const driver = createDriver({ [Leaf.TYPE]: Leaf });

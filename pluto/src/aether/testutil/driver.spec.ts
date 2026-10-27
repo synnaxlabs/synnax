@@ -10,9 +10,9 @@
 import { describe, expect, it } from "vitest";
 
 import { type aether } from "@/aether/aether";
-import { Composite } from "@/aether/test/Composite";
-import { createDriver, ROOT_KEY } from "@/aether/test/driver";
-import { Leaf } from "@/aether/test/Leaf";
+import { Composite } from "@/aether/testutil/Composite";
+import { createDriver, ROOT_KEY } from "@/aether/testutil/driver";
+import { Leaf } from "@/aether/testutil/Leaf";
 
 const REGISTRY: aether.ComponentRegistry = {
   [Leaf.TYPE]: Leaf,

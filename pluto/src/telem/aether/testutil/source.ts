@@ -28,7 +28,7 @@ import {
   type Telem,
   type ValueProps,
 } from "@/telem/aether/telem";
-import { registerInstance, TEST_SOURCE_TYPE } from "@/telem/aether/test/factory";
+import { registerInstance, TEST_SOURCE_TYPE } from "@/telem/aether/testutil/factory";
 
 export class TestSource<V> extends observe.Observer<void> implements Source<V>, Telem {
   static readonly TYPE = TEST_SOURCE_TYPE;

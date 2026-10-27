@@ -10,7 +10,7 @@
 import { box, scale, xy } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { canvasTest } from "@/vis/render/test";
+import { canvasTest } from "@/vis/render/testutil";
 
 interface DrawableCtx {
   fillRect(x: number, y: number, w: number, h: number): void;

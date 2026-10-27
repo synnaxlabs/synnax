@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Call } from "@/vis/render/test/Recorder";
+import { type Call } from "@/vis/render/testutil/Recorder";
 
 /** Stand-in values for the WebGL enums that recorded calls are asserted against. */
 export const GL_ENUMS = {

@@ -19,7 +19,7 @@ import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
 import { Telem } from "@/telem";
 import { telem } from "@/telem/aether";
-import { telemTest } from "@/telem/aether/test";
+import { telemTest } from "@/telem/aether/testutil";
 import { createAetherProvider } from "@/testutil/Aether";
 import { Staleness } from "@/vis/staleness";
 import { staleness } from "@/vis/staleness/aether";
