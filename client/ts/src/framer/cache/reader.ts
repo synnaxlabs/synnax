@@ -265,6 +265,7 @@ export class Reader {
       (req) => req.block.channel,
     );
     const channels = [...requested.keys()];
+    const pins = entries.flatMap(({ req }) => (req.pinned == null ? [] : [req.pinned]));
     const refetch = new Set<Request>();
     const payloads = await this.timed(
       retrieveChannels(channels),
@@ -365,8 +366,8 @@ export class Reader {
           block.sealed = !seen.before(end);
         }
         // A pin before the set, since the set can evict the blocks filled before it.
-        entries.forEach(({ req: { pinned } }) => {
-          if (pinned == null || pinned.has(block)) return;
+        pins.forEach((pinned) => {
+          if (pinned.has(block)) return;
           pinned.add(block);
           store.repin(new Set(), new Set([block]));
         });
