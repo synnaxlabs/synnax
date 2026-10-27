@@ -20,7 +20,7 @@ import {
 } from "@/log/aether/telem/mock";
 import { type LogEntry } from "@/log/aether/telem/types";
 import { renderAether } from "@/testutil/renderAether";
-import { canvasTest } from "@/vis/render/test";
+import { canvasTest } from "@/vis/render/testutil";
 
 const THEME: theme.Theme = theme.themeZ.parse(theme.SYNNAX_DARK);
 

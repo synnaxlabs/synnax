@@ -20,6 +20,7 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
 });
 
 import { Core } from "@/platform/core";
+import { Session } from "@/session";
 import { createCore, createCoreState } from "@/session/core/testutil";
 import { createSessionConsoleWrapper, createStatusConsoleWrapper } from "@/testutil";
 
@@ -81,5 +82,28 @@ describe("Core.TokenKeeper", () => {
     render(<Core.TokenKeeper />, { wrapper });
     await act(async () => {});
     expect(calls).toEqual([]);
+  });
+
+  it("should not save a session to another Core at the same address", async () => {
+    const calls = recordKeychain();
+    const client = createTestClient();
+    await client.connect();
+    const first = createCore("First");
+    const second = createCore("Second");
+    const { wrapper, store } = await createStatusConsoleWrapper({
+      client,
+      status: client.connection.status,
+      preloadedState: createCoreState([first, second], first.key),
+    });
+    render(<Core.TokenKeeper />, { wrapper });
+    await waitFor(() => expect(calls).toHaveLength(1));
+    await act(async () => {
+      store.dispatch(Session.Core.select(second.key));
+    });
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({
+      cmd: "keychain_set",
+      args: { account: `http://synnax@localhost:9090#${first.key}` },
+    });
   });
 });
