@@ -9,7 +9,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Batcher, type Entry } from "@/debounce/batcher";
+import { Batcher, type Entry } from "@/scheduler/batcher";
 import { TimeSpan } from "@/telem/telem";
 
 const resolveAll = (entries: Array<Entry<number, number>>): void =>

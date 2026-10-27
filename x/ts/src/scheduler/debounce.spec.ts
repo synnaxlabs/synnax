@@ -9,7 +9,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { debounce } from "@/debounce/debounce";
+import { debounce } from "@/scheduler/debounce";
 import { TimeSpan } from "@/telem/telem";
 
 describe("debounce", () => {

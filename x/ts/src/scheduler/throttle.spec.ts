@@ -9,8 +9,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { throttle } from "@/scheduler/throttle";
 import { TimeSpan } from "@/telem/telem";
-import { throttle } from "@/throttle/throttle";
 
 describe("throttle", () => {
   beforeEach(() => {
