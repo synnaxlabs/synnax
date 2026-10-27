@@ -14,6 +14,7 @@ import {
   type CrudeTimeSpan,
   deep,
   type destructor,
+  errors,
   id,
   primitive,
   type record,
@@ -24,6 +25,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { AccessDeniedError } from "@/errors";
 import { type framer } from "@/framer";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
@@ -425,10 +427,15 @@ export class Client extends query.Retriever<
             // The set signal omits config: a changed hash makes the cached one stale.
             onChange: async (changed: SetSignal[]) => {
               const stale: Key[] = [];
+              const unheld: Key[] = [];
               table.batch(() =>
                 changed.forEach((sig) => {
                   const cached = table.get(sig.key);
-                  if (cached == null || cached.configHash !== sig.configHash) {
+                  if (cached == null) {
+                    unheld.push(sig.key);
+                    return;
+                  }
+                  if (cached.configHash !== sig.configHash) {
                     stale.push(sig.key);
                     return;
                   }
@@ -438,6 +445,17 @@ export class Client extends query.Retriever<
                 }),
               );
               if (stale.length > 0) await table.retrieve(stale, { refresh: true });
+              // The signal reaches users who cannot read every task, so each key is
+              // fetched alone and a denied one stays out of the table.
+              await Promise.all(
+                unheld.map(async (key) => {
+                  try {
+                    await table.retrieve([key], { refresh: true });
+                  } catch (e) {
+                    if (!AccessDeniedError.matches(e)) throw errors.fromUnknown(e);
+                  }
+                }),
+              );
             },
           }),
         },

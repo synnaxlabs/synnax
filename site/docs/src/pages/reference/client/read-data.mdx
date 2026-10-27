@@ -432,7 +432,8 @@ const data = Array.from(series);
 ### Reading from multiple channels
 
 The returned data is an instance of the
-[Frame](/reference/client/series-and-frames#frames) class.
+[Frame](/reference/client/series-and-frames#frames) class. A list of channels always
+returns a `Frame`, even if the list has only one channel.
 
 <Client.Tabs exclude={["console", "cpp"]}>
 
