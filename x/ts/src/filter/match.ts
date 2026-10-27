@@ -41,8 +41,14 @@ const escape = (s: string): string => s.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
  */
 export const matchesString = (op: String, value: string): boolean => {
   if (op.regex != null) throw new Error("cannot match a regex locally");
-  const flags = op.caseInsensitive === true ? "iu" : "u";
-  const test = (pattern: string): boolean => new RegExp(pattern, flags).test(value);
+  if (op.caseInsensitive !== true)
+    return (
+      (op.eq == null || op.eq === value) &&
+      (op.in == null || op.in.includes(value)) &&
+      (op.contains == null || value.includes(op.contains)) &&
+      (op.startsWith == null || value.startsWith(op.startsWith))
+    );
+  const test = (pattern: string): boolean => new RegExp(pattern, "iu").test(value);
   return (
     (op.eq == null || test(`^${escape(op.eq)}$`)) &&
     (op.in == null || op.in.some((e) => test(`^${escape(e)}$`))) &&
