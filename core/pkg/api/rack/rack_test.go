@@ -44,6 +44,17 @@ var _ = Describe("Create", func() {
 		Expect(retrieveRack(ctx, r.Key).Integrations).To(Equal([]string{"ni"}))
 	})
 	It(
+		"Should let a rack with the Driver role save itself twice",
+		func(ctx SpecContext) {
+			r := rack.Rack{Name: "Self"}
+			Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+			Expect(apiSvc.Create(
+				SubjectCtx(ctx, r.OntologyID()), nil,
+				apirack.CreateRequest{Racks: []rack.Rack{r, r}},
+			)).Error().ToNot(HaveOccurred())
+		},
+	)
+	It(
 		"Should not let a rack with the Driver role create a rack",
 		func(ctx SpecContext) {
 			r := rack.Rack{Name: "Self"}
