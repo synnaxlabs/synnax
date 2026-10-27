@@ -18,6 +18,9 @@ production. Previews sign with the production key, so a license key issued there
 on any Core but is recorded only in the `preview` branch. Previews are visible only to
 members of the Vercel team, so the Desktop app cannot renew against one.
 
+Previews and development send no mail, so an invitation reaches no one. Copy its link
+from the team's Members tab instead.
+
 ## Development
 
 ```sh

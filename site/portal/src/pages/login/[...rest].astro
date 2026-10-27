@@ -9,27 +9,14 @@
 // included in the file licenses/APL.txt.
 
 import Guest from "@/layouts/Guest.astro";
-import { guest, invitee } from "@/page";
+import { guest } from "@/page";
 import { landing } from "@/shell";
 import { Auth } from "@/ui/auth";
 
-const ticket = Auth.readTicket(Astro.url.searchParams);
-const invited = ticket == null ? null : await invitee(Astro);
-if (invited == null) {
-    const away = guest(Astro);
-    if (away != null) return away;
-}
-const token = ticket?.page === "/login" ? ticket.token : null;
+const away = guest(Astro);
+if (away != null) return away;
 ---
 
-<Guest title={invited == null && token == null ? "Log in" : "Join your team"}>
-    {invited != null ? (
-        <Auth.Invited client:load {...invited} />
-    ) : (
-        <Auth.Login
-            client:load
-            target={landing(Astro.url.searchParams)}
-            ticket={token}
-        />
-    )}
+<Guest title="Log in">
+    <Auth.Login client:load target={landing(Astro.url.searchParams)} />
 </Guest>

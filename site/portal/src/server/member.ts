@@ -28,7 +28,8 @@ export interface Change {
   now: Date;
 }
 
-const requireRole = (role: string): void => {
+/** requireRole refuses a role that is not admin or member with a 400. */
+export const requireRole = (role: string): void => {
   if (role !== ADMIN_ROLE && role !== MEMBER_ROLE) throw badRequest("Choose a role");
 };
 
@@ -50,70 +51,6 @@ const record = async (
       .values({ at: now, kind, actor, organization: team.key, detail });
     await apply();
   });
-
-export interface InviteArgs extends Change {
-  email: string;
-  role: string;
-  /** redirectURL is the absolute URL the link in the email lands on. */
-  redirectURL: string;
-}
-
-/**
- * invite emails an invitation to join the team. It names the actor as the inviter only
- * when they are an admin of the team, since Clerk refuses any other inviter.
- * @throws {HTTPError} 400 for an empty email, an unknown role, or an invitation Clerk
- * refuses.
- */
-export const invite = async (
-  store: Store,
-  directory: Directory,
-  { email, role, redirectURL, ...change }: InviteArgs,
-): Promise<void> => {
-  const address = email.trim();
-  if (address === "") throw badRequest("Enter an email address");
-  requireRole(role);
-  const roster = await directory.roster(change.team.clerkOrgID);
-  const admin = roster.some((m) => m.userID === change.actor && m.role === ADMIN_ROLE);
-  await record(
-    store,
-    change,
-    "invite",
-    { email: address, role },
-    async () =>
-      await directory.invite({
-        clerkOrgID: change.team.clerkOrgID,
-        email: address,
-        role,
-        inviterUserID: admin ? change.actor : null,
-        redirectURL,
-      }),
-  );
-};
-
-export interface RevokeInvitationArgs extends Change {
-  invitationID: string;
-}
-
-/**
- * revokeInvitation cancels an invitation no one has accepted.
- * @throws {HTTPError} 404 when the team has no such pending invitation.
- */
-export const revokeInvitation = async (
-  store: Store,
-  directory: Directory,
-  { invitationID, ...change }: RevokeInvitationArgs,
-): Promise<void> => {
-  const sent = await directory.outstanding(change.team.clerkOrgID);
-  const found = sent.find((s) => s.invitationID === invitationID);
-  if (found == null) throw notFound("Invitation");
-  await record(
-    store,
-    change,
-    "revoke_invitation",
-    { email: found.email, role: found.role },
-    async () => await directory.revokeInvitation(change.team.clerkOrgID, invitationID),
-  );
-};
 
 export interface MemberArgs extends Change {
   /** userID is the Clerk user id of the member changed. */

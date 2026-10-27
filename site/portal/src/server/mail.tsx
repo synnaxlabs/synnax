@@ -38,7 +38,7 @@ export interface Message extends Notice {
   to: string[];
 }
 
-/** Mailer sends license notices. Clerk sends the rest of the portal's mail. */
+/** Mailer sends license notices and team invitations. Clerk sends sign-in codes. */
 export interface Mailer {
   send: (message: Message) => Promise<void>;
 }

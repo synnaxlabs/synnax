@@ -40,15 +40,10 @@ type SignIn = NonNullable<Clerk["client"]>["signIn"];
 export interface LoginProps {
   /** target is where to land after logging in. */
   target: string;
-  /**
-   * ticket is the token of a team invitation sent to an existing account. With one, the
-   * page logs in with the ticket and accepts the invitation.
-   */
-  ticket: string | null;
 }
 
-/** Login logs a user in with email and password, Google, Microsoft, or a ticket. */
-export const Login = ({ target, ticket }: LoginProps): ReactElement => {
+/** Login logs a user in with email and password, Google, or Microsoft. */
+export const Login = ({ target }: LoginProps): ReactElement => {
   const clerk = useClerk();
   // factor is the second step Clerk asked for, or null while on the password step.
   const [factor, setFactor] = useState<CodeFactor | null>(null);
@@ -77,12 +72,6 @@ export const Login = ({ target, ticket }: LoginProps): ReactElement => {
     if (clerk?.client == null || !methods.validate()) return;
     const { email, password } = methods.value();
     const res = await clerk.client.signIn.create({ identifier: email, password });
-    await proceed(clerk, res);
-  });
-
-  const accept = useAction(async () => {
-    if (clerk?.client == null || ticket == null) return;
-    const res = await clerk.client.signIn.create({ strategy: "ticket", ticket });
     await proceed(clerk, res);
   });
 
@@ -137,29 +126,6 @@ export const Login = ({ target, ticket }: LoginProps): ReactElement => {
             Verify
           </Button.Button>
         </Form.Form>
-      </Card>
-    );
-
-  if (ticket != null)
-    return (
-      <Card
-        title="Join your team"
-        description="Log in to accept the invitation"
-        error={accept.error}
-      >
-        <Button.Button
-          variant="filled"
-          size="large"
-          full="x"
-          justify="center"
-          onClick={accept.run}
-          disabled={clerk == null}
-          status={accept.loading ? "loading" : undefined}
-          trigger={["Enter"]}
-        >
-          Accept and log in
-          <Icon.Arrow.Right />
-        </Button.Button>
       </Card>
     );
 

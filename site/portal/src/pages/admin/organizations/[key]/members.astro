@@ -14,7 +14,9 @@ import { failure, loadScoped } from "@/page";
 import { Page } from "@/ui/Page";
 import { Admin as Console } from "@/ui/admin";
 import { type Team } from "@/server/member";
-import { type Member, type Sent } from "@/server/directory";
+import { type Invitation } from "@/server/db/schema";
+import { type Member } from "@/server/directory";
+import { list } from "@/server/invitation";
 
 const loaded = await loadScoped(Astro);
 if (loaded instanceof Response) return loaded;
@@ -23,13 +25,13 @@ const { portal, session, organizations, scope } = loaded;
 let error: string | undefined;
 let team: Team | undefined;
 let roster: Member[] = [];
-let invitations: Sent[] = [];
+let invitations: Invitation[] = [];
 try {
     requireStaff(session);
     team = await teamFor(portal, session, Astro.params.key ?? "");
     [roster, invitations] = await Promise.all([
         portal.directory.roster(team.clerkOrgID),
-        portal.directory.outstanding(team.clerkOrgID),
+        list(portal.store.query, team.key),
     ]);
 } catch (err) {
     const f = failure(err);
@@ -54,6 +56,7 @@ try {
             tab="members"
             roster={roster}
             invitations={invitations}
+            now={portal.now()}
         />
     )}
 </Admin>

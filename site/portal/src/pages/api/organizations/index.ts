@@ -23,12 +23,11 @@ export const POST: APIRoute = async (context) =>
     const session = await portal.session();
     requireStaff(session);
     const body = await form(context);
-    const { key } = await register(portal.store, portal.directory, {
+    const { key } = await register(portal.store, portal.directory, portal.mail, {
       name: body.name ?? "",
       email: body.email ?? "",
       actor: session.userID,
       now: portal.now(),
-      redirectURL: new URL("/sign-up", context.url.origin).href,
     });
     return Response.json({ key });
   });
