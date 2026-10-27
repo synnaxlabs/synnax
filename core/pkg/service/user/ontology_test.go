@@ -75,7 +75,7 @@ var _ = Describe("Ontology", func() {
 			Expect(user.KeyFromOntologyID(ontology.ID{
 				Type: ontology.ResourceTypeUser,
 				Key:  "not-a-uuid",
-			})).Error().To(HaveOccurred())
+			})).Error().To(MatchError("invalid uuid"))
 		})
 	})
 	Describe("Type", func() {

@@ -15,7 +15,7 @@ import {
   Series,
 } from "@synnaxlabs/x";
 
-import { type DrawOperation } from "@/vis/line/aether/line";
+import { type DrawOperation } from "@/vis/line/aether/draw";
 
 interface Points {
   xs: number[];

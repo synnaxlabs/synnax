@@ -34,7 +34,7 @@ if [ "$1" = "--files" ]; then
         echo "No files provided."
         exit 0
     fi
-    printf '%s\n' "$@" | xargs -P "$jobs" -n 32 clang-format -i
+    printf '%s\0' "$@" | xargs -0 -P "$jobs" -n 32 clang-format -i || exit 1
     echo "Completed! Formatted $# files."
     exit 0
 fi

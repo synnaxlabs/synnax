@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type SynnaxParams } from "@synnaxlabs/client";
-import { useStore } from "react-redux";
 
 import {
   type Core,
@@ -20,21 +19,11 @@ import { Select } from "@/session/select";
 
 const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
-export const useGetSliceState = (): (() => SliceState) => {
-  const store = useStore<StoreState>();
-  return () => selectSliceState(store.getState());
-};
-
 export const selectSelectedKey = (state: StoreState): string | undefined =>
   selectSliceState(state).selected;
 
 export const useSelectSelectedKey = (): string | undefined =>
   Select.useMemo((s: StoreState) => selectSelectedKey(s), []);
-
-export const useGetSelectedKey = (): (() => string | undefined) => {
-  const store = useStore<StoreState>();
-  return () => selectSelectedKey(store.getState());
-};
 
 /** The Core stored under key, or nothing when key names none. */
 export const selectState = (state: StoreState, key?: string): Core | undefined =>
@@ -42,11 +31,6 @@ export const selectState = (state: StoreState, key?: string): Core | undefined =
 
 export const useSelectState = (key?: string): Core | undefined =>
   Select.useMemo((s: StoreState) => selectState(s, key), [key]);
-
-export const useGetState = (): ((key?: string) => Core | undefined) => {
-  const store = useStore<StoreState>();
-  return (key?: string) => selectState(store.getState(), key);
-};
 
 export const selectSelected = (state: StoreState): Core | undefined =>
   selectState(state, selectSelectedKey(state));
@@ -102,7 +86,7 @@ export const selectIsClusterOrphaned = (
     (c) => c.clusterKey === clusterKey,
   );
 
-export const selectMany = (state: StoreState, keys?: string[]): Core[] =>
+const selectMany = (state: StoreState, keys?: string[]): Core[] =>
   Select.byKeys(state.core.cores, keys);
 
 export const useSelectMany = (keys?: string[]): Core[] =>
@@ -113,8 +97,3 @@ const selectIsAnySelected = (state: StoreState): boolean =>
 
 export const useSelectIsAnySelected = (): boolean =>
   Select.useMemo(selectIsAnySelected, []);
-
-export const useGetIsAnySelected = (): (() => boolean) => {
-  const store = useStore<StoreState>();
-  return () => selectIsAnySelected(store.getState());
-};
