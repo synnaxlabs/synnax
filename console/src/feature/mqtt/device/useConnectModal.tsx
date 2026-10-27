@@ -64,7 +64,11 @@ const beforeSave = async ({
   const state = await scanTask.executeCommandSync({
     type: TEST_CONNECTION_COMMAND_TYPE,
     timeout: TEST_CONNECTION_TIMEOUT,
-    args: { location: get<string>("location").value, properties },
+    args: {
+      location: get<string>("location").value,
+      properties,
+      device: get<device.Key>("key").value,
+    },
   });
   if (state.variant === "error") throw status.toError(state);
   const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({

@@ -50,11 +50,16 @@ const (
 	browseSampleLimit = 64
 )
 
+var errReconnecting = errors.New("the connection is down and tries again on its own")
+
 // testConnectionArgs describes a broker that may not be a stored device yet, so that
 // the Console can test a connection before it saves the device.
 type testConnectionArgs struct {
 	Properties msgpack.EncodedJSON `json:"properties"`
 	Location   string              `json:"location"`
+	// Device is the key of the broker device that the test edits. Empty for a broker
+	// that is not a device yet.
+	Device device.Key `json:"device"`
 }
 
 type browseArgs struct {
@@ -111,7 +116,7 @@ func (s *scanner) Check(ctx context.Context, dev device.Device) error {
 		return err
 	}
 	if pooled {
-		return errors.New("the connection is down and tries again on its own")
+		return errReconnecting
 	}
 	cfg, err := newClientConfig(dev)
 	if err != nil {
@@ -163,6 +168,14 @@ func (s *scanner) testConnection(ctx context.Context, cmd task.Command) error {
 	})
 	if err != nil {
 		return err
+	}
+	// A broker drops the older of two sessions with one client ID, so a probe with the
+	// settings of the connection that tasks share would drop that connection.
+	if live, connected := s.pool.live(args.Device, cfg); live {
+		if !connected {
+			return errReconnecting
+		}
+		return nil
 	}
 	return probe(ctx, s.ins, cfg)
 }

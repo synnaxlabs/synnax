@@ -911,6 +911,20 @@ func (p *pool) state(key device.Key) (open, connected bool, err error) {
 	return conn.mu.stop != nil, conn.mu.client != nil, conn.mu.configErr
 }
 
+// live reports whether the broker device key has an open connection with the settings
+// of cfg, and whether that connection is connected.
+func (p *pool) live(key device.Key, cfg clientConfig) (live, connected bool) {
+	p.mu.Lock()
+	conn, ok := p.conns[key]
+	p.mu.Unlock()
+	if !ok {
+		return false, false
+	}
+	conn.mu.Lock()
+	defer conn.mu.Unlock()
+	return conn.mu.stop != nil && conn.mu.cfg.equal(cfg), conn.mu.client != nil
+}
+
 // reconfigure points the open connection of the broker device key at the current
 // properties of the device. It does nothing for a device with no open connection. On an
 // error the connection keeps its configuration, and state reports the error.

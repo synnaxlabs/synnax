@@ -70,6 +70,22 @@ var _ = Describe("Scan task", func() {
 		return configure(ctx, factory, t), t
 	}
 
+	// configureRead configures a read task on dev, which opens the shared connection
+	// when it starts.
+	configureRead := func(ctx context.Context, dev device.Device) driver.Task {
+		GinkgoHelper()
+		ch := createVirtual(ctx, telem.Float64T)
+		return configure(ctx, factory, newTask(
+			rackKey, mqtt.ReadTaskType,
+			readConfig(dev, plainEntry("plant/edit", field("v", ch, ""))),
+		))
+	}
+	startRead := func(ctx context.Context, read driver.Task) {
+		GinkgoHelper()
+		Expect(read.Exec(ctx, task.Command{Type: "start", Key: "start"})).
+			To(Succeed())
+	}
+
 	Describe("InitialTasks", func() {
 		It("Should ask for one scan task", func() {
 			initial := factory.InitialTasks()
@@ -200,21 +216,6 @@ var _ = Describe("Scan task", func() {
 	})
 
 	Describe("Device edits", func() {
-		// configureRead configures a read task on dev, which opens the shared
-		// connection when it starts.
-		configureRead := func(ctx context.Context, dev device.Device) driver.Task {
-			GinkgoHelper()
-			ch := createVirtual(ctx, telem.Float64T)
-			return configure(ctx, factory, newTask(
-				rackKey, mqtt.ReadTaskType,
-				readConfig(dev, plainEntry("plant/edit", field("v", ch, ""))),
-			))
-		}
-		startRead := func(ctx context.Context, read driver.Task) {
-			GinkgoHelper()
-			Expect(read.Exec(ctx, task.Command{Type: "start", Key: "start"})).
-				To(Succeed())
-		}
 		It("Should reconnect a running task with the new properties, with no scan task",
 			func(ctx SpecContext) {
 				broker := startBroker(0)
@@ -308,22 +309,24 @@ var _ = Describe("Scan task", func() {
 	})
 
 	Describe("Test connection", func() {
-		// testConnection runs a connection test with properties on a new scan task and
-		// returns the status that answers it.
+		// test runs a connection test with args on a new scan task and returns the
+		// status that answers it.
+		test := func(ctx context.Context, args msgpack.EncodedJSON) task.Status {
+			GinkgoHelper()
+			configured, t := scan(ctx)
+			args["location"] = "127.0.0.1"
+			return answer(ctx, configured, t, task.Command{
+				Type: "test_connection",
+				Key:  "test",
+				Args: args,
+			})
+		}
 		testConnection := func(
 			ctx context.Context,
 			properties msgpack.EncodedJSON,
 		) task.Status {
 			GinkgoHelper()
-			configured, t := scan(ctx)
-			return answer(ctx, configured, t, task.Command{
-				Type: "test_connection",
-				Key:  "test",
-				Args: msgpack.EncodedJSON{
-					"location":   "127.0.0.1",
-					"properties": properties,
-				},
-			})
+			return test(ctx, msgpack.EncodedJSON{"properties": properties})
 		}
 		expectSuccess := func(stat task.Status) {
 			GinkgoHelper()
@@ -343,6 +346,22 @@ var _ = Describe("Scan task", func() {
 					"port": broker.port,
 				}))
 				Eventually(broker.clientCount).Should(BeZero())
+			},
+		)
+
+		It("Should report the shared connection of a device with the same settings",
+			func(ctx SpecContext) {
+				broker := startBroker(0)
+				properties := msgpack.EncodedJSON{
+					"port": broker.port, "client_id": "line-9",
+				}
+				dev := createBrokerDevice(ctx, rackKey, 0, properties)
+				startRead(ctx, configureRead(ctx, dev))
+				Eventually(broker.clientCount).Should(Equal(1))
+				expectSuccess(test(ctx, msgpack.EncodedJSON{
+					"device": dev.Key, "properties": properties,
+				}))
+				Expect(broker.connectedIDs()).To(Equal([]string{"line-9"}))
 			},
 		)
 
