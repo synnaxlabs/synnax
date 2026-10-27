@@ -10,7 +10,6 @@
 import { DataType, id, Series, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
-import { UnauthorizedError } from "@/errors";
 import { framer } from "@/framer";
 import { ValidationError } from "@/index";
 import {
@@ -298,7 +297,7 @@ describe("Writer", () => {
           channels,
           errOnUnauthorized: true,
         }),
-      ).rejects.toThrow(UnauthorizedError);
+      ).rejects.toMatchObject({ type: "sy.control.unauthorized" });
       await w1.close();
     });
 
