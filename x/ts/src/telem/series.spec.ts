@@ -1169,6 +1169,14 @@ describe("Series", () => {
       expect(series.binarySearch(3)).toEqual(2);
       expect(series.binarySearch(6)).toEqual(5);
     });
+
+    it("should return the index of a timestamp equal to the value", () => {
+      const series = new Series({
+        data: new BigInt64Array([10n, 20n, 30n]),
+        dataType: DataType.TIMESTAMP,
+      });
+      expect(series.binarySearch(20n)).toEqual(1);
+    });
   });
 
   describe("array construction", () => {
