@@ -104,6 +104,7 @@ export const retrieveAndValidateSlaves = async <C extends Channel>(
     schemas: Device.SLAVE_SCHEMAS,
   });
 
+  PlatformDevice.checkFound(slaveKeys, slaves);
   for (const slave of slaves) PlatformDevice.checkConfigured(slave);
 
   const networks = [...new Set(slaves.map((s) => s.properties.network))];
