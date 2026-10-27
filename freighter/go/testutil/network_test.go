@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package mock_test
+package testutil_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/freighter/mock"
-	"github.com/synnaxlabs/freighter/test"
+	"github.com/synnaxlabs/freighter/testutil"
 )
 
 var _ = Describe("Network", func() {
@@ -27,34 +26,38 @@ var _ = Describe("Network", func() {
 
 		DescribeTable(
 			"Should describe the mock protocol for every transport it builds",
-			func(build func(*mock.Network[test.Request, test.Response]) freighter.Transport) {
-				Expect(build(mock.NewNetwork[test.Request, test.Response]()).Report()).
+			func(build func(*testutil.Network[testutil.Request, testutil.Response]) freighter.Transport) {
+				Expect(
+					build(
+						testutil.NewNetwork[testutil.Request, testutil.Response](),
+					).Report(),
+				).
 					To(Equal(mockReport))
 			},
 			Entry("unary server", func(
-				n *mock.Network[test.Request, test.Response],
+				n *testutil.Network[testutil.Request, testutil.Response],
 			) freighter.Transport {
 				return n.UnaryServer("")
 			}),
 			Entry("unary client", func(
-				n *mock.Network[test.Request, test.Response],
+				n *testutil.Network[testutil.Request, testutil.Response],
 			) freighter.Transport {
 				return n.UnaryClient()
 			}),
 			Entry("stream server", func(
-				n *mock.Network[test.Request, test.Response],
+				n *testutil.Network[testutil.Request, testutil.Response],
 			) freighter.Transport {
 				return n.StreamServer("")
 			}),
 			Entry("stream client", func(
-				n *mock.Network[test.Request, test.Response],
+				n *testutil.Network[testutil.Request, testutil.Response],
 			) freighter.Transport {
 				return n.StreamClient()
 			}),
 		)
 
 		It("Should describe the mock protocol for a directly linked pair", func() {
-			server, client := mock.NewStreamPair[test.Request, test.Response]()
+			server, client := testutil.NewStreamPair[testutil.Request, testutil.Response]()
 			Expect(server.Report()).To(Equal(mockReport))
 			Expect(client.Report()).To(Equal(mockReport))
 		})

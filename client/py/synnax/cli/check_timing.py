@@ -14,8 +14,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import synnax as sy
-from synnax.cli import channel, default
-from synnax.cli.connect import connect_client
+from synnax.cli import channel, connect, default
 from synnax.config import default_clusters
 from x.telem import to_int
 
@@ -23,7 +22,7 @@ from x.telem import to_int
 @click.command()
 def check_timing() -> None:
     """Check the timing characteristics of a time channel."""
-    client = connect_client(default.context(), default_clusters())
+    client = connect.from_clusters(default.context(), default_clusters())
     if client is None:
         return
 

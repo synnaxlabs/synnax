@@ -15,13 +15,15 @@ import { badRequest } from "@/server/errors";
 import { activate } from "@/server/license/activate";
 import { DENIAL_MESSAGES } from "@/server/license/deny";
 import { parse } from "@/server/license/fingerprint";
+import { offer, readCode } from "@/server/license/handoff";
 import { filename } from "@/server/license/limits";
 import { readName } from "@/server/license/machine";
 import { check } from "@/server/ratelimit";
 
 /**
- * POST grants a seat to the machine whose host hashes are posted as `fingerprint` and
- * answers `{ key, activation, filename }`.
+ * POST grants a seat to the machine whose fingerprint is posted as `fingerprint` and
+ * answers `{ key, activation, filename }`. With a `handoff` code, it also holds the key
+ * for the Console that made the code.
  */
 export const POST: APIRoute = async (context) =>
   await handle(async () => {
@@ -37,6 +39,7 @@ export const POST: APIRoute = async (context) =>
       throw badRequest((err as Error).message);
     }
     const name = readName(body.name);
+    const code = body.handoff == null ? null : readCode(body.handoff);
     const now = portal.now();
     await check(portal.store, {
       actor: session.userID,
@@ -51,9 +54,10 @@ export const POST: APIRoute = async (context) =>
       now,
     });
     if (!result.ok) throw badRequest(DENIAL_MESSAGES[result.reason]);
+    if (code != null) await offer(portal.store, { code, key: result.key, now });
     return Response.json({
       key: result.key,
       activation: result.activation.key,
-      filename: filename(license.label),
+      filename: filename(license.label, name),
     });
   });
