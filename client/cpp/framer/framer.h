@@ -213,7 +213,7 @@ private:
 /// FrameClient.
 /// @see FrameClient
 ///
-/// @note read() and setChannels() can be called concurrently with one another, but
+/// @note read() and set_channels() can be called concurrently with one another, but
 /// they cannot be called concurrently with close() or with themselves.
 class Streamer {
 public:
@@ -226,17 +226,17 @@ public:
     /// @returns the next frame of telemetry received from the Synnax cluster and an
     /// error. If error.ok() is false, then the streamer has failed and must be
     /// closed.
-    /// @note read is not safe to call concurrently with itself or with close(), but
-    /// it is safe to call concurrently with setChannels().
+    /// @note read is not safe to call concurrently with itself or with close(), but it
+    /// is safe to call concurrently with set_channels().
     [[nodiscard]] std::pair<x::telem::Frame, x::errors::Error> read();
 
     /// @brief sets the channels to stream from the Synnax cluster, replacing any
-    /// channels set during construction or a previous call to setChannels().
+    /// channels set during construction or a previous call to set_channels().
     /// @returns an error. If error.ok() is false, then the streamer has failed and
     /// must be closed.
     /// @param channels - the channels to stream.
-    /// @note setChannels is not safe to call concurrently with itself or with
-    /// close(), but it is safe to call concurrently with read().
+    /// @note set_channels is not safe to call concurrently with itself or with close(),
+    /// but it is safe to call concurrently with read().
     [[nodiscard]] x::errors::Error
     set_channels(const std::vector<channel::Key> &channels);
 
