@@ -138,7 +138,10 @@ public:
         channels(this->t.chan_retrieve, this->t.chan_create),
         auth([&]() -> std::shared_ptr<auth::Middleware> {
             auto mw = std::make_shared<auth::Middleware>(
-                std::move(this->t.auth_login),
+                std::move(this->t.auth_session_create),
+                std::move(this->t.auth_session_renew),
+                std::move(this->t.auth_session_retrieve),
+                std::move(this->t.auth_session_delete),
                 cfg.username,
                 cfg.password
             );
@@ -197,6 +200,9 @@ public:
 
     ~Synnax() {
         if (this->connectivity) this->connectivity->stop();
+        // The destructor is the client's close, so the session ends here. It cannot
+        // report a failure, and a session it cannot reach idles out on its own.
+        if (this->auth) this->auth->logout();
     }
 };
 }

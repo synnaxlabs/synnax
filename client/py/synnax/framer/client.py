@@ -7,8 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from collections.abc import Mapping
-from typing import cast, overload
+from collections.abc import Mapping, Sequence
+from typing import TypeAlias, cast, overload
 
 import pandas as pd
 
@@ -42,6 +42,15 @@ from synnax.telem import (
 )
 from x.control import Authority, CrudeAuthority
 from x.fs import FilePath
+
+# A str is a Sequence[str], so a list or tuple of names keeps the overloads disjoint.
+_FrameParams: TypeAlias = (
+    channel.Payload
+    | Sequence[channel.Key]
+    | Sequence[channel.Payload]
+    | list[str]
+    | tuple[str, ...]
+)
 
 _ontology_type = ontology.ID(type="framer")
 
@@ -239,17 +248,17 @@ class Client:
     def read(
         self,
         tr: TimeRange,
-        channels: list[channel.Key] | tuple[channel.Key] | list[str] | tuple[str],
+        channels: channel.Key | str,
         reduction: Reduction | None = None,
-    ) -> Frame: ...
+    ) -> MultiSeries: ...
 
     @overload
     def read(
         self,
         tr: TimeRange,
-        channels: channel.Key | str,
+        channels: _FrameParams,
         reduction: Reduction | None = None,
-    ) -> MultiSeries: ...
+    ) -> Frame: ...
 
     def read(
         self,
@@ -257,21 +266,21 @@ class Client:
         channels: channel.Params,
         reduction: Reduction | None = None,
     ) -> MultiSeries | Frame:
-        """
-        Reads telemetry from the channel between the two timestamps.
+        """Reads telemetry from the channels between the two timestamps.
 
         :param tr: The time range to read from.
-        :param channels: The key or name of the channel to read from.
+        :param channels: A single channel key or name, or a sequence of channel keys or
+        names.
         :param reduction: How the Core reduces the samples of each channel. A
         StrideReduction keeps every factor-th sample. A LimitReduction reduces each
         channel to about point_limit points. Defaults to keeping every sample.
-
-        :returns: A tuple where the first item is a numpy array containing the telemetry
-        and the second item is the time range occupied by that array.
+        :returns: A MultiSeries for a single key or name. A Frame for a sequence, even
+        a sequence with one item.
+        :raises QueryError: If a single channel has no data in the time range.
         """
         normal = channel.normalize_params(channels)
         frame = self._reader.read(tr, channels, reduction)
-        if len(normal.channels) > 1:
+        if not normal.single:
             return frame
         series = frame.get(normal.channels[0], None)
         if series is None:
@@ -329,7 +338,7 @@ class Client:
     @overload
     def read_latest(
         self,
-        channels: list[channel.Key] | tuple[channel.Key] | list[str] | tuple[str],
+        channels: _FrameParams,
         n: int = 1,
     ) -> Frame: ...
 
@@ -338,18 +347,14 @@ class Client:
         channels: channel.Params,
         n: int = 1,
     ) -> Frame | MultiSeries:
-        """Reads the latest n samples from the given channel(s).
+        """Reads the latest n samples from the given channels. If fewer than n samples
+        are available, returns only the samples that exist.
 
-        If fewer than n samples are available, returns only the samples that
-        exist.
-
-        Args:
-            channels: A single channel key/name or a list of channel keys/names.
-            n: The maximum number of samples to read. Defaults to 1.
-
-        Returns:
-            A MultiSeries when a single channel is provided, or a Frame when
-            multiple channels are provided.
+        :param channels: A single channel key or name, or a sequence of channel keys or
+        names.
+        :param n: The maximum number of samples to read from each channel.
+        :returns: A MultiSeries for a single key or name. A Frame for a sequence, even
+        a sequence with one item.
         """
         normal = channel.normalize_params(channels)
         aggregate = Frame()
@@ -362,7 +367,7 @@ class Client:
                 i.seek_last()
                 i.prev(AUTO_SPAN)
                 aggregate.append(i.value)
-        if len(normal.channels) > 1:
+        if not normal.single:
             return aggregate
         result = aggregate.get(normal.channels[0], MultiSeries([]))
         if result is None:

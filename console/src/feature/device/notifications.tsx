@@ -21,7 +21,7 @@ const shouldShowConfigureButton = (make: Make): boolean =>
 
 const detailsZ = z.object({ make: z.unknown() });
 
-export const Notification: Notifications.Notification = ({ status, silence }) => {
+const Notification: Notifications.Notification = ({ status, silence }) => {
   const configure = useConfigureModal();
   const key = getKeyFromStatus(status);
   const make = getMake(detailsZ.safeParse(status.details).data?.make);

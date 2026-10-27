@@ -65,11 +65,10 @@ class Transport:
             "ssl_context": ssl_context,
             "open_timeout": open_timeout.seconds,
             "close_timeout": read_timeout.seconds,
+            "ping_interval": keep_alive.seconds,
+            "ping_timeout": 180,
         }
         self.stream = WebsocketClient(**ws_args)
-        # The sync client keeps the websockets keep-alive defaults.
-        ws_args["ping_interval"] = keep_alive.seconds
-        ws_args["ping_timeout"] = 180
         self.stream_async = AsyncWebsocketClient(**ws_args)
         http = HTTPClient(
             url=self.url,
