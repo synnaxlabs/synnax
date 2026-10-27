@@ -20,6 +20,7 @@ import { event, invitation, type Organization, organization } from "@/server/db/
 import { failingEvents, type Memory, openMemory } from "@/server/db/testutil";
 import { ADMIN_ROLE, MEMBER_ROLE, type Team } from "@/server/directory";
 import { NOW } from "@/server/license/testutil";
+import { mirrorTeams } from "@/server/organization";
 import {
   body,
   type ContextArgs,
@@ -549,6 +550,19 @@ describe("organization routes", () => {
       expect(await globex()).toBeUndefined();
       expect(h.directory.organizations).toHaveLength(1);
       expect((await register()).status).toBe(200);
+    });
+
+    it("should keep one record when the webhook saves the team first", async () => {
+      h.signIn(STAFF);
+      const { create } = h.directory;
+      h.directory.create = async (name) => {
+        const team = await create(name);
+        await mirrorTeams(store.query, [team]);
+        return team;
+      };
+      expect((await register()).status).toBe(200);
+      const teams = await store.query.select().from(organization);
+      expect(teams.filter((o) => o.name === "Globex")).toHaveLength(1);
     });
 
     it("should refuse a name another team has, in any case", async () => {
