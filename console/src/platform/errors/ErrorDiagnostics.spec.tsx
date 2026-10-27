@@ -10,13 +10,11 @@
 import { NotFoundError, panel, status } from "@synnaxlabs/client";
 import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
 import { Unreachable } from "@synnaxlabs/freighter";
-import { Errors } from "@synnaxlabs/pluto";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Boundary } from "@/platform/errors/Boundary";
-import { ErrorDiagnostics } from "@/platform/errors/ErrorDiagnostics";
+import { Errors } from "@/platform/errors";
 import { Session } from "@/session";
 import {
   createConsoleWrapper,
@@ -65,10 +63,7 @@ describe("ErrorDiagnostics", () => {
   });
 
   const renderBoundary = async (store: TestStore, child: ReactElement) =>
-    await renderWithConsole(
-      <Errors.Boundary FallbackComponent={ErrorDiagnostics}>{child}</Errors.Boundary>,
-      { store },
-    );
+    await renderWithConsole(<Errors.Boundary>{child}</Errors.Boundary>, { store });
 
   it("appends the connected Core to any error", async () => {
     const store = await createTestStore();
@@ -105,9 +100,9 @@ describe("ErrorDiagnostics", () => {
     // Prime the query cache the way the mosaic's retrieve does.
     await client.panels.retrieve(doc.key);
     render(
-      <Boundary panelKey={doc.key}>
+      <Errors.Boundary panelKey={doc.key}>
         <Throw error={retrieveNotFoundError()} />
-      </Boundary>,
+      </Errors.Boundary>,
       { wrapper },
     );
     const expected = [
@@ -128,9 +123,9 @@ describe("ErrorDiagnostics", () => {
     await client.panels.create({ ...doc, parent: await createPanelParent(client) });
     await client.panels.retrieve(doc.key);
     render(
-      <Boundary panelKey={doc.key}>
+      <Errors.Boundary panelKey={doc.key}>
         <Throw error={new Error("boom")} />
-      </Boundary>,
+      </Errors.Boundary>,
       { wrapper },
     );
     expect(messageText()).toBe(`boom\nCore: none\n"fridge_schem" (${doc.key})`);
@@ -176,9 +171,9 @@ describe("ErrorDiagnostics", () => {
   it("omits the name when the crashed panel isn't cached", async () => {
     const store = await createTestStore();
     await renderWithConsole(
-      <Boundary panelKey="uncached-key">
+      <Errors.Boundary panelKey="uncached-key">
         <Throw error={new Error("boom")} />
-      </Boundary>,
+      </Errors.Boundary>,
       { store },
     );
     expect(messageText()).toBe("boom\nCore: none\n(uncached-key)");

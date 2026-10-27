@@ -92,7 +92,7 @@ func (fp *filterPersist) _switch(
 			if err := op.apply(ctx, txn); err != nil {
 				return err
 			}
-			if err := op.Digest().apply(ctx, txn); err != nil {
+			if err := op.digest().apply(ctx, txn); err != nil {
 				return err
 			}
 			accepted.Operations = append(accepted.Operations, op)

@@ -43,7 +43,7 @@ tr = sy.TimeRange(
 temperature = client.read(tr, "temperature")
 print(temperature.to_numpy())
 
-# Many channels give a Frame.
+# A list of channels gives a Frame.
 frame = client.read(tr, ["time", "temperature", "pressure"])
 df = frame.to_df()
 ```
@@ -71,7 +71,7 @@ const tr = new TimeRange(
 const temperature = await client.read(tr, "temperature");
 console.log(Array.from(temperature));
 
-// Many channels give a Frame.
+// A list of channels gives a Frame.
 const frame = await client.read(tr, ["time", "temperature", "pressure"]);
 const pressure = frame.get("pressure");
 ```
@@ -87,7 +87,8 @@ const samples = await channel.read(tr);
 
 </Client.Tabs>
 
-To work with the result, see [Series and frames](/reference/client/series-and-frames).
+A list of channels always gives a `Frame`, even a list of one channel. To work with the
+result, see [Series and frames](/reference/client/series-and-frames).
 
 <Divider.Divider x />
 
