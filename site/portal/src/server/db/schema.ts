@@ -36,10 +36,17 @@ export const EVENT_KINDS = [
   "release",
   "rename",
   "revoke",
+  "restore",
   "expiry_notice",
   "link",
   "renew",
   "unlink",
+  "register",
+  "rename_organization",
+  "invite",
+  "revoke_invitation",
+  "change_role",
+  "remove_member",
 ] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
 

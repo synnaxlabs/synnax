@@ -11,39 +11,27 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useState } from "react";
 
 import { type Listed } from "@/server/directory";
-import { type Owned } from "@/server/license/list";
+import { type Held, type Owned } from "@/server/license/list";
 import { IssueDialog } from "@/ui/admin/IssueDialog";
-import {
-  date,
-  type LicenseStatus,
-  STATUS_LABELS,
-  STATUSES,
-  statusOf,
-  term,
-} from "@/ui/format";
-import { Licenses } from "@/ui/licenses";
+import { LicenseTable } from "@/ui/admin/LicenseTable";
+import { type LicenseStatus, STATUS_LABELS, STATUSES, statusOf } from "@/ui/format";
 import { Empty, Page } from "@/ui/Page";
-import { Row, Table } from "@/ui/Table";
 
-export interface AdminProps {
-  /** teams are the organizations in Clerk a license can be issued to. */
+export interface LicensesProps {
+  /** teams are the organizations a license can be issued to. */
   teams: Listed[];
-  licenses: Owned[];
+  licenses: (Owned & Held)[];
   now: Date;
 }
-
-const COLUMNS =
-  "minmax(0, 2fr) minmax(0, 1.5fr) 14rem minmax(0, 1.4fr) 8rem 10rem 3rem";
 
 const expiry = ({ license: lic }: Owned): number =>
   lic.expiresAt == null ? Infinity : lic.expiresAt.getTime();
 
-/** Admin lists every license and issues new ones. Staff only. */
-export const Admin = ({ teams, licenses, now }: AdminProps): ReactElement => {
+/** Licenses lists every license and issues new ones. Staff only. */
+export const Licenses = ({ teams, licenses, now }: LicensesProps): ReactElement => {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<LicenseStatus | null>(null);
   const query = search.trim().toLowerCase();
@@ -58,7 +46,7 @@ export const Admin = ({ teams, licenses, now }: AdminProps): ReactElement => {
   if (status === "expiring") shown.sort((a, b) => expiry(a) - expiry(b));
   return (
     <Page
-      title="All licenses"
+      title="Licenses"
       subtitle="Every license issued"
       actions={<IssueDialog teams={teams} />}
     >
@@ -93,41 +81,7 @@ export const Admin = ({ teams, licenses, now }: AdminProps): ReactElement => {
           {shown.length === 0 ? (
             <Empty icon={<Icon.Search />} message="No licenses match" />
           ) : (
-            <Table
-              columns={COLUMNS}
-              head={[
-                "Label",
-                "Organization",
-                "Status",
-                "Term",
-                "Machines",
-                "Issued",
-                "",
-              ]}
-            >
-              {shown.map(({ license: lic, organization: org }) => (
-                <Row key={lic.key} columns={COLUMNS} href={`/licenses/${lic.key}`}>
-                  <Text.Text level="p" weight={500} overflow="ellipsis">
-                    {lic.label}
-                  </Text.Text>
-                  <Text.Text level="p" color={9} overflow="ellipsis">
-                    {org.name}
-                  </Text.Text>
-                  <Flex.Box>
-                    <Licenses.StatusTag status={statusOf(lic, now)} />
-                  </Flex.Box>
-                  <Text.Text level="p" color={9} overflow="ellipsis">
-                    {term(lic)}
-                  </Text.Text>
-                  <Text.Text level="p" color={9}>
-                    {lic.nodes}
-                  </Text.Text>
-                  <Text.Text level="p" color={9}>
-                    {date(lic.issuedAt)}
-                  </Text.Text>
-                </Row>
-              ))}
-            </Table>
+            <LicenseTable entries={shown} now={now} />
           )}
         </>
       )}

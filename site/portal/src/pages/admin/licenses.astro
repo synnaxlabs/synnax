@@ -8,12 +8,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import Portal from "@/layouts/Portal.astro";
+import Admin from "@/layouts/Admin.astro";
 import { requireStaff } from "@/access";
 import { failure, loadScoped } from "@/page";
 import { Page } from "@/ui/Page";
-import { Admin } from "@/ui/admin";
-import { type Owned, listAll } from "@/server/license/list";
+import { Admin as Console } from "@/ui/admin";
+import { type Held, type Owned, listAll } from "@/server/license/list";
 import { type Listed } from "@/server/directory";
 
 const loaded = await loadScoped(Astro);
@@ -22,7 +22,7 @@ const { portal, session, organizations, scope } = loaded;
 
 let error: string | undefined;
 let teams: Listed[] = [];
-let licenses: Owned[] = [];
+let licenses: (Owned & Held)[] = [];
 try {
     requireStaff(session);
     teams = await portal.directory.teams();
@@ -34,16 +34,21 @@ try {
 }
 ---
 
-<Portal
-    title="Admin"
+<Admin
+    title="Licenses"
     session={session}
     organizations={organizations}
     scope={scope}
-    tab="admin"
+    section="licenses"
 >
     {error != null ? (
-        <Page title="All licenses" error={error} />
+        <Page title="Licenses" error={error} />
     ) : (
-        <Admin.Admin client:load teams={teams} licenses={licenses} now={portal.now()} />
+        <Console.Licenses
+            client:load
+            teams={teams}
+            licenses={licenses}
+            now={portal.now()}
+        />
     )}
-</Portal>
+</Admin>

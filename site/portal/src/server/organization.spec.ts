@@ -17,15 +17,15 @@ import {
   ensurePersonal,
   invitationsFor,
   isMember,
-  listAll,
   listForMember,
-  mirrorTeam,
+  listTeams,
+  mirrorTeams,
   organizationsFor,
   pick,
   retrieve,
 } from "@/server/organization";
 import { type Session } from "@/server/session";
-import { createOrganization } from "@/testutil";
+import { createLicense, createOrganization } from "@/testutil";
 
 const SESSION: Session = {
   userID: "user_a",
@@ -84,9 +84,11 @@ describe("organization", () => {
     });
   });
 
-  describe("mirrorTeam", () => {
-    it("should record a Clerk organization as a team", async () => {
-      const org = await mirrorTeam(store, { clerkOrgID: "org_acme", name: "Acme" });
+  describe("mirrorTeams", () => {
+    it("should record each Clerk organization as a team", async () => {
+      const [org] = await mirrorTeams(store.query, [
+        { clerkOrgID: "org_acme", name: "Acme" },
+      ]);
       expect(org).toMatchObject({
         kind: "team",
         name: "Acme",
@@ -96,14 +98,29 @@ describe("organization", () => {
     });
 
     it("should rename the team when Clerk renames it, keeping its key", async () => {
-      const first = await mirrorTeam(store, { clerkOrgID: "org_acme", name: "Acme" });
-      const second = await mirrorTeam(store, {
-        clerkOrgID: "org_acme",
-        name: "Acme Corp",
-      });
+      const [first] = await mirrorTeams(store.query, [
+        { clerkOrgID: "org_acme", name: "Acme" },
+      ]);
+      const [second] = await mirrorTeams(store.query, [
+        { clerkOrgID: "org_acme", name: "Acme Corp" },
+      ]);
       expect(second.key).toBe(first.key);
       expect(second.name).toBe("Acme Corp");
       expect(await store.query.select().from(organization)).toHaveLength(1);
+    });
+
+    it("should return the rows in the order given", async () => {
+      await mirrorTeams(store.query, [{ clerkOrgID: "org_b", name: "Globex" }]);
+      const rows = await mirrorTeams(store.query, [
+        { clerkOrgID: "org_a", name: "Acme" },
+        { clerkOrgID: "org_b", name: "Globex" },
+        { clerkOrgID: "org_c", name: "Initech" },
+      ]);
+      expect(rows.map((r) => r.clerkOrgID)).toEqual(["org_a", "org_b", "org_c"]);
+    });
+
+    it("should record nothing for no teams", async () => {
+      expect(await mirrorTeams(store.query, [])).toEqual([]);
     });
   });
 
@@ -266,20 +283,39 @@ describe("organization", () => {
     });
   });
 
-  describe("listAll", () => {
-    it("should return every organization by name", async () => {
-      await createOrganization(store, { kind: "team", name: "Zeta", clerkOrgID: "z" });
-      await createOrganization(store, { kind: "team", name: "Alpha", clerkOrgID: "a" });
-      await createOrganization(store, {
-        kind: "personal",
-        name: "Mid",
-        ownerUserID: "user_a",
+  describe("listTeams", () => {
+    it("should list every team in Clerk with its members and licenses", async () => {
+      const directory = memory({
+        organizations: [{ clerkOrgID: "org_acme", name: "Acme" }],
+        members: {
+          user_a: [{ clerkOrgID: "org_acme", name: "Acme", role: "org:admin" }],
+          user_b: [{ clerkOrgID: "org_acme", name: "Acme", role: "org:member" }],
+        },
       });
-      expect((await listAll(store)).map((o) => o.name)).toEqual([
-        "Alpha",
-        "Mid",
-        "Zeta",
+      const [acme] = await mirrorTeams(store.query, [
+        { clerkOrgID: "org_acme", name: "Acme" },
       ]);
+      const lic = await createLicense(store, { organization: acme.key });
+      expect(await listTeams(store, directory)).toEqual([
+        { organization: acme, members: 2, licenses: [{ license: lic, seats: 0 }] },
+      ]);
+    });
+
+    it("should record a team the portal has not seen", async () => {
+      const directory = memory({
+        organizations: [{ clerkOrgID: "org_new", name: "New" }],
+      });
+      const [summary] = await listTeams(store, directory);
+      expect(summary).toMatchObject({
+        organization: { kind: "team", clerkOrgID: "org_new", name: "New" },
+        members: 0,
+        licenses: [],
+      });
+      expect(await store.query.select().from(organization)).toHaveLength(1);
+    });
+
+    it("should list nothing when Clerk has no teams", async () => {
+      expect(await listTeams(store, memory())).toEqual([]);
     });
   });
 

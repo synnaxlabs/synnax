@@ -10,6 +10,7 @@
 
 import Portal from "@/layouts/Portal.astro";
 import { loadScoped } from "@/page";
+import { ADMIN_ROLE } from "@/server/directory";
 import { Members } from "@/ui/members";
 
 const loaded = await loadScoped(Astro, "team");
@@ -18,6 +19,8 @@ const { portal, session, organizations, scope } = loaded;
 if (scope.clerkOrgID == null)
     throw new Error(`team ${scope.key} has no Clerk organization`);
 const roster = await portal.directory.roster(scope.clerkOrgID);
+const admin = roster.some((m) => m.userID === session.userID && m.role === ADMIN_ROLE);
+const invitations = admin ? await portal.directory.outstanding(scope.clerkOrgID) : [];
 ---
 
 <Portal
@@ -29,9 +32,9 @@ const roster = await portal.directory.roster(scope.clerkOrgID);
 >
     <Members.Members
         client:load
-        name={scope.name}
-        clerkOrgID={scope.clerkOrgID}
+        organization={scope}
         roster={roster}
+        invitations={invitations}
         userID={session.userID}
     />
 </Portal>
