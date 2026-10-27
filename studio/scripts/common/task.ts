@@ -164,7 +164,7 @@ export const recordTask = async (
 
   await session.click(form.locator("button:has(svg.pluto-icon--play)").first());
   session.endZoom();
-  await session.waitFor(form.getByText("Task started successfully").first());
+  await session.waitFor(form.getByText("Started task").first());
   await session.moveTo({ x: 1100, y: 120 });
   await session.hold(3000);
 };

@@ -2,10 +2,11 @@
 title: "Version 0.57 release notes"
 ---
 
+import { Hero } from "@/components/hero";
 import Release from "@/components/releases/Release.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
-import { Image, Video } from "@/components/media/Media";
+import { Image } from "@/components/media/Media";
 
 export const components = mdxOverrides;
 
@@ -16,7 +17,13 @@ export const components = mdxOverrides;
     title="Projects, panels, and a redesigned Console"
 >
 
-<Video id="releases/0-57-0/panels" themed={false} />
+<Hero.Hero
+  video="releases/0-57-0/panels"
+  themed={false}
+  layout="framed"
+  tone="deep"
+  palette="blue-violet"
+/>
 
 Synnax v0.57 rebuilds how you organize work in the Console. Projects replace workspaces,
 and each project holds a set of panels you switch between instantly. We redesigned the
@@ -83,7 +90,7 @@ and choose `Copy link`.
 
 ### A redesigned Console
 
-<Image id="releases/0-57-0/visual-language" themed={false} />
+<Image id="releases/0-57-0/visual-language" extension="webp" themed={false} />
 
 We redesigned the Console from the ground up, down to the context menus, for consistency
 and clarity. The interface is nearly colorless by design, so the only color on screen
@@ -135,7 +142,7 @@ while the table scrolls.
 
 ### Fill levels and scales
 
-<Image id="releases/0-57-0/tank-fill" themed={false} />
+<Image id="releases/0-57-0/tank-fill" extension="webp" themed={false} />
 
 Tanks can now show a live fill level. Bind a channel, set the bounds, and the tank
 tracks the value. A graduated scale can be drawn along the outside wall, with major and
@@ -221,8 +228,8 @@ and element-wise operations on boolean series all work on both runtimes.
 
 #### Creating and ending ranges
 
-An Arc program can now create and close [ranges](/reference/concepts/ranges), so a test
-marks its own runs while it executes:
+An Arc program can now create and close [ranges](/reference/ranges), so a test marks its
+own runs while it executes:
 
 ```arc
 import ranges
@@ -276,7 +283,7 @@ The Arc editor's deploy controls now behave like a hardware task's, described be
 
 ### Tasks
 
-<Image id="releases/0-57-0/task-deploy" themed={false} />
+<Image id="releases/0-57-0/task-deploy" extension="webp" themed={false} />
 
 We reworked the whole task lifecycle this release: how a configuration is saved, when it
 reaches hardware, and when a device is claimed.
