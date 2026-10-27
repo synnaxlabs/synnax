@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package test
+package testutil
 
 import (
 	"context"
@@ -18,7 +18,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/testutil"
+	xtestutil "github.com/synnaxlabs/x/testutil"
 )
 
 func UnarySuite(
@@ -36,7 +36,7 @@ func UnarySuite(
 					return Response(req), nil
 				},
 			)
-			res := testutil.MustSucceed(
+			res := xtestutil.MustSucceed(
 				client.Send(ctx, addr, Request{ID: 1, Message: "hello"}),
 			)
 			gomega.Expect(res).To(gomega.Equal(Response{ID: 1, Message: "hello"}))
@@ -104,7 +104,7 @@ func UnarySuite(
 				)
 				gomega.Expect(client.Send(ctx, addr, Request{ID: 1})).
 					To(gomega.Equal(Response{ID: 1}))
-				host, _ := testutil.MustSucceed2(net.SplitHostPort(string(remote)))
+				host, _ := xtestutil.MustSucceed2(net.SplitHostPort(string(remote)))
 				ip := net.ParseIP(host)
 				gomega.Expect(ip).ToNot(gomega.BeNil())
 				gomega.Expect(ip.IsLoopback()).To(gomega.BeTrue())
