@@ -504,7 +504,7 @@ export class Client implements Handle {
       `The Synnax Core version ${nodeVersion != null ? `${nodeVersion} ` : ""}is too ` +
         `${clientIsNewer ? "old" : "new"} for client version ${clientVersion}.\n` +
         `  This may cause compatibility issues. We recommend updating the ${toUpgrade}. For more information, see\n` +
-        `  https://docs.synnaxlabs.com/reference/client/resources/troubleshooting#old-${toUpgrade.toLowerCase()}-version`,
+        `  https://docs.synnaxlabs.com/reference/client/troubleshooting#old-${toUpgrade.toLowerCase()}-version`,
     );
   }
 }

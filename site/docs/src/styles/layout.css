@@ -24,12 +24,16 @@ main {
     flex-direction: row;
 
     & > section {
+        /* Width spare beside the 1100 px section widens the gap to the outline, so
+           wide media in the article keeps clear of it. */
+        --docs-outline-gap: clamp(2rem, (100vw - 1100px) / 2, 8rem);
+
         display: flex;
         flex-direction: row;
         flex: 1;
         padding: 0 2rem;
-        gap: 2rem;
-        max-width: 1100px;
+        gap: var(--docs-outline-gap);
+        max-width: calc(1100px - 2rem + var(--docs-outline-gap));
         margin: 0 auto;
         justify-content: center;
         min-width: 0;
@@ -41,6 +45,11 @@ main {
     main > section {
         padding: 0 1rem;
     }
+}
+
+/* A legal page has no outline, so it keeps the gutter of a reference article. */
+main > section.legal-page {
+    padding: 0 3rem;
 }
 
 /* Sticky navigation */
@@ -64,6 +73,14 @@ main {
     --docs-page-nav-width: 8rem;
 }
 
+.page-nav ~ section {
+    --docs-outline-gap: clamp(
+        2rem,
+        (100vw - var(--docs-page-nav-width) - 1100px) / 2,
+        8rem
+    );
+}
+
 .page-nav {
     /* Icons center 4rem from the left edge, half the rail width. */
     --docs-page-nav-padding: 0.75rem;
@@ -75,7 +92,11 @@ main {
     min-width: var(--docs-page-nav-width);
     height: calc(100vh - var(--nav-height));
     overflow: hidden;
-    background: var(--pluto-gray-l2-20);
+    /* Opaque, so art that runs past the text column, such as the landing hero's grid,
+       stays behind it. */
+    background:
+        linear-gradient(var(--pluto-gray-l2-20), var(--pluto-gray-l2-20)),
+        var(--pluto-gray-l0);
     border-right: var(--pluto-border);
     transition:
         width 0.2s ease,
@@ -367,15 +388,24 @@ article {
     }
 
     /* Media shares the note and code block geometry. */
-    video,
+    video:not(.docs-hero video),
     iframe,
-    img:not(.diagram img, .blog-author__photo, figure img) {
+    img:not(
+        .diagram img,
+        .docs-hero img,
+        .docs-landing img,
+        .blog-author__photo,
+        figure img
+    ) {
         display: block;
         width: 100%;
         margin: 5rem 0 var(--docs-block-gap);
     }
 
-    :is(video, img:not(.diagram img, .blog-author__photo)) {
+    :is(
+        video:not(.docs-hero video),
+        img:not(.diagram img, .docs-hero img, .docs-landing img, .blog-author__photo)
+    ) {
         border: var(--pluto-border);
         border-radius: 1rem;
         box-shadow: 0 0 1rem 0 var(--pluto-gray-l4);

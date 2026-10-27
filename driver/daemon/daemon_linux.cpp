@@ -29,7 +29,7 @@ const std::string SYSTEMD_SERVICE_PATH = "/etc/systemd/system/synnax-driver.serv
 
 const auto *const SYSTEMD_SERVICE_TEMPLATE = R"([Unit]
 Description=Synnax Driver Service
-Documentation=https://docs.synnaxlabs.com/reference/driver
+Documentation=https://docs.synnaxlabs.com/reference/enterprise/driver/install
 After=network-online.target
 Wants=network-online.target
 StartLimitIntervalSec=60
