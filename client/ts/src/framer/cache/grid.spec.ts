@@ -16,6 +16,7 @@ import {
   indexes,
   level,
   pointLimit,
+  type Position,
   tileRange,
   tileSpan,
 } from "@/framer/cache/grid";
@@ -174,12 +175,15 @@ describe("grid", () => {
   });
 
   describe("choose", () => {
+    const at = (level: number, ...indexes: number[]): Position[] =>
+      indexes.map((index) => ({ level, index }));
+
     it("should draw each slot's own tile", () => {
       const available = [
         { level: 3, index: 4 },
         { level: 3, index: 5 },
       ];
-      expect(choose(3, [4, 5], available)).toEqual([
+      expect(choose(at(3, 4, 5), available)).toEqual([
         { level: 3, index: 4 },
         { level: 3, index: 5 },
       ]);
@@ -192,7 +196,7 @@ describe("grid", () => {
         { level: 2, index: 9 },
         { level: 4, index: 2 },
       ];
-      expect(choose(3, [4], available)).toEqual([{ level: 3, index: 4 }]);
+      expect(choose(at(3, 4), available)).toEqual([{ level: 3, index: 4 }]);
     });
 
     it("should fill a slot with both of its children", () => {
@@ -200,7 +204,7 @@ describe("grid", () => {
         { level: 2, index: 8 },
         { level: 2, index: 9 },
       ];
-      expect(choose(3, [4], available)).toEqual([
+      expect(choose(at(3, 4), available)).toEqual([
         { level: 2, index: 8 },
         { level: 2, index: 9 },
       ]);
@@ -212,7 +216,7 @@ describe("grid", () => {
         { level: 1, index: 18 },
         { level: 1, index: 19 },
       ];
-      expect(choose(3, [4], available)).toEqual(available);
+      expect(choose(at(3, 4), available)).toEqual(available);
     });
 
     it("should fill part of a slot with the finer tiles under it", () => {
@@ -220,7 +224,7 @@ describe("grid", () => {
         { level: 1, index: 16 },
         { level: 1, index: 19 },
       ];
-      expect(choose(3, [4], available)).toEqual(available);
+      expect(choose(at(3, 4), available)).toEqual(available);
     });
 
     it("should prefer an ancestor over finer tiles that cover part of a slot", () => {
@@ -228,16 +232,16 @@ describe("grid", () => {
         { level: 2, index: 8 },
         { level: 4, index: 2 },
       ];
-      expect(choose(3, [4], available)).toEqual([{ level: 4, index: 2 }]);
+      expect(choose(at(3, 4), available)).toEqual([{ level: 4, index: 2 }]);
     });
 
     it("should fill empty slots with a coarse ancestor", () => {
       const available = [{ level: 4, index: 2 }];
-      expect(choose(3, [4, 5], available)).toEqual([{ level: 4, index: 2 }]);
+      expect(choose(at(3, 4, 5), available)).toEqual([{ level: 4, index: 2 }]);
     });
 
     it("should use an ancestor of any level", () => {
-      expect(choose(3, [4, 5], [{ level: 13, index: 0 }])).toEqual([
+      expect(choose(at(3, 4, 5), [{ level: 13, index: 0 }])).toEqual([
         { level: 13, index: 0 },
       ]);
     });
@@ -247,7 +251,7 @@ describe("grid", () => {
         { level: 5, index: 1 },
         { level: 4, index: 2 },
       ];
-      expect(choose(3, [4, 5], available)).toEqual([{ level: 4, index: 2 }]);
+      expect(choose(at(3, 4, 5), available)).toEqual([{ level: 4, index: 2 }]);
     });
 
     it("should not use an ancestor that overlaps a drawn slot", () => {
@@ -255,7 +259,7 @@ describe("grid", () => {
         { level: 3, index: 4 },
         { level: 4, index: 2 },
       ];
-      expect(choose(3, [4, 5], available)).toEqual([{ level: 3, index: 4 }]);
+      expect(choose(at(3, 4, 5), available)).toEqual([{ level: 3, index: 4 }]);
     });
 
     it("should use an ancestor that covers drawn slots out of view", () => {
@@ -263,11 +267,31 @@ describe("grid", () => {
         { level: 3, index: 4 },
         { level: 4, index: 2 },
       ];
-      expect(choose(3, [5, 6], available)).toEqual([{ level: 4, index: 2 }]);
+      expect(choose(at(3, 5, 6), available)).toEqual([{ level: 4, index: 2 }]);
     });
 
     it("should leave a slot with no available tile empty", () => {
-      expect(choose(3, [4, 5], [])).toEqual([]);
+      expect(choose(at(3, 4, 5), [])).toEqual([]);
+    });
+
+    it("should draw slots of mixed levels with their own tiles", () => {
+      const slots = [...at(4, 2), ...at(3, 6), ...at(2, 14)];
+      expect(choose(slots, slots)).toEqual(slots);
+    });
+
+    it("should fill slots of mixed levels with the ancestor that covers them", () => {
+      const available = at(4, 2);
+      expect(choose([...at(3, 4), ...at(2, 10)], available)).toEqual(available);
+    });
+
+    it("should not use an ancestor that overlaps a drawn slot of another level", () => {
+      const available = [...at(3, 4), ...at(4, 2)];
+      expect(choose([...at(3, 4), ...at(2, 10)], available)).toEqual(at(3, 4));
+    });
+
+    it("should fill a slot of each level with its finer tiles", () => {
+      const available = [...at(2, 8), ...at(2, 9), ...at(1, 20), ...at(1, 21)];
+      expect(choose([...at(3, 4), ...at(2, 10)], available)).toEqual(available);
     });
 
     it("should return tiles of mixed levels in time order", () => {
@@ -277,7 +301,7 @@ describe("grid", () => {
         { level: 3, index: 5 },
         { level: 4, index: 3 },
       ];
-      expect(choose(3, [4, 5, 6, 7], available)).toEqual([
+      expect(choose(at(3, 4, 5, 6, 7), available)).toEqual([
         { level: 2, index: 8 },
         { level: 2, index: 9 },
         { level: 3, index: 5 },

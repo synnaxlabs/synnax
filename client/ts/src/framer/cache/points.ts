@@ -524,8 +524,7 @@ export class Points {
       ({ spec }) => end == null || !tileRange(spec).end.after(end),
     );
     return choose(
-      targets[0].level,
-      targets.map((t) => t.index),
+      targets,
       drawable.map((t) => t.spec),
     ).map((p) => this.find(p, preferred, targets[0].aggregation, drawable)!);
   }
