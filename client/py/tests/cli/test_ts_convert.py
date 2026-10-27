@@ -14,7 +14,7 @@ import pytest
 import synnax as sy
 from synnax.cli import console
 from synnax.cli.flow import Context
-from synnax.cli.ts_convert import pure_tsconvert
+from synnax.cli.ts_convert import _pure_tsconvert
 from synnax.io import FACTORY
 
 from .data import DATA_DIR
@@ -35,7 +35,7 @@ def remove_testdata() -> Iterator[None]:
 class TestTSConvert:
     @pytest.mark.usefixtures("remove_testdata")
     def test_tsconvert(self) -> None:
-        pure_tsconvert(
+        _pure_tsconvert(
             ctx=Context(console=console.Mock(), prompt_enabled=False),
             input_path=DATA_DIR / "tsconvert.csv",
             output_path=DATA_DIR / "tsconvert_out.csv",
@@ -52,7 +52,7 @@ class TestTSConvert:
 
     @pytest.mark.usefixtures("remove_testdata")
     def test_tsconvert_with_string_data_channel(self) -> None:
-        pure_tsconvert(
+        _pure_tsconvert(
             ctx=Context(console=console.Mock(), prompt_enabled=False),
             input_path=DATA_DIR / "tsconvert_string_first_col.csv",
             output_path=DATA_DIR / "tsconvert_out.csv",
@@ -69,7 +69,7 @@ class TestTSConvert:
 
     @pytest.mark.usefixtures("remove_testdata")
     def test_tsconvert_iso(self) -> None:
-        pure_tsconvert(
+        _pure_tsconvert(
             ctx=Context(console=console.Mock(), prompt_enabled=False),
             input_path=DATA_DIR / "tsconvert_iso.csv",
             output_path=DATA_DIR / "tsconvert_out.csv",
