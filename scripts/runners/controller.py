@@ -9,7 +9,7 @@
 
 # /// script
 # requires-python = ">=3.12,<4"
-# dependencies = ["boto3", "certifi", "synnax>=0.59,<0.60"]
+# dependencies = ["boto3", "certifi>=2026.10.19", "synnax>=0.59,<0.60"]
 # ///
 
 """Polls GitHub and EC2 every --interval and writes the fleet's state to Synnax.
