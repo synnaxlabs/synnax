@@ -10,7 +10,8 @@ rules. Nobody watches this session, so do not ask questions.
 2. Fix only what you can prove. A finding you are not sure of goes in the report, not in
    a PR.
 3. Each PR holds one idea, branches from `main`, and merges alone. Aim for under 200
-   changed lines. Never stack PRs. There is no limit on the number of PRs.
+   changed lines. Stack only on an open PR the change needs (root `AGENTS.md`, Rule 3).
+   There is no limit on the number of PRs.
 4. Keep each change mechanical. Change behavior only to remove the fault the theme
    names, such as a race. Never change stored shapes or wire formats, never bump
    versions, and never hand-edit generated code.
