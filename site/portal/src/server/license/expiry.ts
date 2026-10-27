@@ -18,6 +18,7 @@ import {
   license,
   organization,
 } from "@/server/db/schema";
+import { expiring } from "@/server/license/notice";
 import { type Mailer } from "@/server/mail";
 
 /** NOTICE_DAYS are the days before expiry that get a warning, most urgent last. */
@@ -111,11 +112,7 @@ export const sweep = async ({
           license: key,
           detail: { days, to },
         });
-        await mail.send({
-          to,
-          subject: `Your Synnax license expires in ${inDays(days)}`,
-          text: expiryText(locked, org.name, days),
-        });
+        await mail.send({ to, ...expiring(locked, org, days) });
         return { license: key, days, to };
       });
       if (notice != null) sent.push(notice);
@@ -139,35 +136,3 @@ const notices = async (q: Query, licenseKey: string): Promise<Event[]> =>
     .select()
     .from(event)
     .where(and(eq(event.license, licenseKey), eq(event.kind, "expiry_notice")));
-
-const inDays = (days: number): string => `${days} ${days === 1 ? "day" : "days"}`;
-
-const expiryText = (lic: License, organizationName: string, days: number): string =>
-  [
-    `The Synnax license "${lic.label}" for ${organizationName} expires in ` +
-      `${inDays(days)}, on ${lic.expiresAt?.toISOString().slice(0, 10)}.`,
-    "",
-    lic.maxVersion == null
-      ? "Cores running under it will refuse to start after that date."
-      : `After that date it covers Core versions up to ${lic.maxVersion}.`,
-    "",
-    "Reply to this email to renew.",
-  ].join("\n");
-
-export const revocationText = (lic: License, organizationName: string): string =>
-  [
-    `The Synnax license "${lic.label}" for ${organizationName} has been revoked.`,
-    "",
-    "It can no longer activate a Core. A Core checks its license offline, so a Core " +
-      "that already holds it keeps running as its terms allow, even after a restart.",
-    "",
-    "Contact Synnax Labs if you believe this is a mistake.",
-  ].join("\n");
-
-export const restorationText = (lic: License, organizationName: string): string =>
-  [
-    `The Synnax license "${lic.label}" for ${organizationName} has been restored.`,
-    "",
-    "It can activate Cores again while its terms allow. Machines that held a seat " +
-      "before the revocation still hold it.",
-  ].join("\n");

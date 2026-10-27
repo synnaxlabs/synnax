@@ -27,6 +27,7 @@ import {
 } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { ADMIN_ROLE, type Team } from "@/server/directory";
+import { restored, revoked } from "@/server/license/notice";
 import { HASH_A, HASH_B, NOW } from "@/server/license/testutil";
 import { PER_ACTOR, PER_ORGANIZATION } from "@/server/ratelimit";
 import {
@@ -790,19 +791,7 @@ describe("license routes", () => {
       h.signIn(STAFF);
       await post();
       expect(h.mail.sent).toEqual([
-        {
-          to: ["user_admin@example.com"],
-          subject: 'Your Synnax license "Test rig" was revoked',
-          text: [
-            'The Synnax license "Test rig" for Acme has been revoked.',
-            "",
-            "It can no longer activate a Core. A Core checks its license offline, so a " +
-              "Core that already holds it keeps running as its terms allow, even after " +
-              "a restart.",
-            "",
-            "Contact Synnax Labs if you believe this is a mistake.",
-          ].join("\n"),
-        },
+        { to: ["user_admin@example.com"], ...revoked(lic, acme) },
       ]);
     });
 
@@ -876,16 +865,7 @@ describe("license routes", () => {
       h.signIn(STAFF);
       await post();
       expect(h.mail.sent).toEqual([
-        {
-          to: ["user_admin@example.com"],
-          subject: 'Your Synnax license "Test rig" was restored',
-          text: [
-            'The Synnax license "Test rig" for Acme has been restored.',
-            "",
-            "It can activate Cores again while its terms allow. Machines that held a " +
-              "seat before the revocation still hold it.",
-          ].join("\n"),
-        },
+        { to: ["user_admin@example.com"], ...restored(lic, acme) },
       ]);
     });
 

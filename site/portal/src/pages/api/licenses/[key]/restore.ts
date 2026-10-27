@@ -11,8 +11,8 @@ import { type APIRoute } from "astro";
 
 import { licenseFor, requireStaff } from "@/access";
 import { handle } from "@/respond";
-import { restorationText } from "@/server/license/expiry";
 import { restore } from "@/server/license/issue";
+import { restored } from "@/server/license/notice";
 import { emails } from "@/server/session";
 
 /** POST restores a revoked license and mails the organization. Staff only. */
@@ -30,10 +30,6 @@ export const POST: APIRoute = async (context) =>
     });
     const to = await emails(portal.directory, organization);
     if (to.length > 0)
-      await portal.mail.send({
-        to,
-        subject: `Your Synnax license "${license.label}" was restored`,
-        text: restorationText(license, organization.name),
-      });
+      await portal.mail.send({ to, ...restored(license, organization) });
     return new Response(null, { status: 204 });
   });
