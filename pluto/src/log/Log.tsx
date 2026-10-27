@@ -10,16 +10,13 @@
 import { type log } from "@synnaxlabs/client";
 import { type Menu } from "@synnaxlabs/lyra/menu";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { primitive, TimeSpan } from "@synnaxlabs/x";
+import { primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { streamMultiChannelLog } from "@/log/aether/telem/sources";
 import { Base, type BaseProps } from "@/log/Base";
 import { use, useRedo, useUndo } from "@/log/queries";
 import { useKey } from "@/log/Suspended";
-
-const DEFAULT_RETENTION = TimeSpan.days(7);
-const PRELOAD = TimeSpan.seconds(30);
 
 const useUndoRedo = (
   key: log.Key,
@@ -55,11 +52,7 @@ export const Log = ({ enableTriggers, ...rest }: LogProps): ReactElement | null 
   // A channel entry with key 0 is an unconfigured placeholder row; the telem source
   // must not subscribe to it.
   const activeChannels = channels.filter((e) => !primitive.isZero(e.channel));
-  const telem = streamMultiChannelLog({
-    channels: [],
-    timeSpan: PRELOAD,
-    keepFor: DEFAULT_RETENTION,
-  });
+  const telem = streamMultiChannelLog({ channels: [] });
   return (
     <Base
       telem={telem}

@@ -16,7 +16,7 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
-const RECEIPT_TIMESTAMP_PRECISION_BOUNDS: bounds.Bounds = { lower: 0, upper: 3 };
+const TIMESTAMP_PRECISION_BOUNDS: bounds.Bounds = { lower: 0, upper: 3 };
 
 export const Properties = (): ReactElement => {
   const key = Log.useKey();
@@ -32,24 +32,24 @@ export const Properties = (): ReactElement => {
   const handleShowChannelNamesChange = (visible: boolean) =>
     dispatch(log.setChannelNamesHidden({ channelNamesHidden: !visible }));
 
-  const handleShowReceiptTimestampChange = (visible: boolean) =>
+  const handleShowTimestampChange = (visible: boolean) =>
     dispatch(log.setReceiptTimestampHidden({ receiptTimestampHidden: !visible }));
 
   return (
     <Flex.Box x className={CSS.BE("log", "toolbar", "properties")}>
-      <Input.Item label="Show receipt timestamp">
+      <Input.Item label="Show timestamp">
         <Input.Switch
           value={!receiptTimestampHidden}
-          onChange={handleShowReceiptTimestampChange}
+          onChange={handleShowTimestampChange}
           disabled={!hasEditPermission}
         />
       </Input.Item>
-      <Input.Item label="Receipt timestamp precision">
+      <Input.Item label="Timestamp precision">
         <Input.Numeric
           value={timestampPrecision}
           onChange={handlePrecisionChange}
           resetValue={0}
-          bounds={RECEIPT_TIMESTAMP_PRECISION_BOUNDS}
+          bounds={TIMESTAMP_PRECISION_BOUNDS}
           disabled={!hasEditPermission}
         />
       </Input.Item>

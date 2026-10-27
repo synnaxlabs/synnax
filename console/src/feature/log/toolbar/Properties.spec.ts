@@ -22,7 +22,7 @@ const renderProperties = async (overrides: Partial<log.New> = {}, as?: Client) =
   const checkboxes = () =>
     result.container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
   // The switches render in document order: index 0 is Show Receipt Timestamp, the last
-  // is Show Channel Names (Receipt Timestamp Precision is a numeric input, not a switch).
+  // is Show Channel Names (Timestamp Precision is a numeric input, not a switch).
   return {
     key,
     showReceiptTimestamp: () => checkboxes()[0],
@@ -34,8 +34,8 @@ describe("log/toolbar/Properties", () => {
   it("renders the property controls", async () => {
     await renderProperties();
     expect(await screen.findByText("Show channel names")).toBeDefined();
-    expect(screen.getByText("Receipt timestamp precision")).toBeDefined();
-    expect(screen.getByText("Show receipt timestamp")).toBeDefined();
+    expect(screen.getByText("Timestamp precision")).toBeDefined();
+    expect(screen.getByText("Show timestamp")).toBeDefined();
   });
 
   it("reflects showChannelNames from the server", async () => {
