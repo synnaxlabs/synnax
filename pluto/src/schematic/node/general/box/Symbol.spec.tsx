@@ -13,15 +13,15 @@ import { render } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { type Node } from "@/schematic/node";
 import { Symbol } from "@/schematic/node/general/box/Symbol";
-import { type NodeProps } from "@/schematic/node/spec";
 
 const NODE_KEY = "b1";
 
 const CONFIG = schematic.boxNodeConfigZ.parse({ variant: "box" });
 
 const renderSymbol = (
-  props: Partial<NodeProps<schematic.BoxNodeConfig>> = {},
+  props: Partial<Node.NodeProps<schematic.BoxNodeConfig>> = {},
 ): ReturnType<typeof render> =>
   render(
     <ReactFlowProvider>

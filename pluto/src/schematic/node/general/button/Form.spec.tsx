@@ -14,8 +14,8 @@ import { fireEvent, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
+import { Node } from "@/schematic/node";
 import { ButtonForm } from "@/schematic/node/general/button/Form";
-import { createConfig } from "@/schematic/node/registry";
 import { createAsyncSynnaxWrapper, renderForm } from "@/testutil";
 
 const client = createTestClient();
@@ -33,7 +33,7 @@ describe("ButtonForm", () => {
   });
 
   it("should unbind the command channel when it is cleared", async () => {
-    const config = createConfig({ variant: "button", commandChannel: ch.key });
+    const config = Node.createConfig({ variant: "button", commandChannel: ch.key });
     const { findByLabelText, value } = renderForm(
       <ButtonForm tab="control" onTabChange={vi.fn()} />,
       config,

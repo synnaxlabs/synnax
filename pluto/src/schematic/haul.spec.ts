@@ -10,70 +10,63 @@
 import { type Haul } from "@synnaxlabs/lyra/haul";
 import { describe, expect, it } from "vitest";
 
-import {
-  canDropHaulItem,
-  createHaulItem,
-  filterHaulItems,
-  HAUL_TYPE,
-  type HaulItemData,
-  isHaulItem,
-} from "@/schematic/haul";
+import { Schematic } from "@/schematic";
 
-const ITEM_DATA: HaulItemData = { key: "n1", config: { variant: "tank" } };
+const ITEM_DATA: Schematic.HaulItemData = { key: "n1", config: { variant: "tank" } };
 
 const foreignItem = (key: string, type = "other"): Haul.Item => ({ key, type });
 
 describe("HAUL_TYPE", () => {
   it("is the schematic element type tag", () => {
-    expect(HAUL_TYPE).toBe("schematic-element");
+    expect(Schematic.HAUL_TYPE).toBe("schematic-element");
   });
 });
 
 describe("createHaulItem", () => {
   it("wraps AddNodeProps into a haul item keyed by the node key", () => {
-    expect(createHaulItem(ITEM_DATA)).toEqual({
-      type: HAUL_TYPE,
+    expect(Schematic.createHaulItem(ITEM_DATA)).toEqual({
+      type: Schematic.HAUL_TYPE,
       key: ITEM_DATA.key,
       data: ITEM_DATA,
     });
   });
 
   it("preserves the position and config fields on the data payload", () => {
-    const data: HaulItemData<"valve"> = {
+    const data: Schematic.HaulItemData<"valve"> = {
       key: "n2",
       position: { x: 5, y: 7 },
       config: { variant: "valve", label: { label: "V1" } },
     };
-    expect(createHaulItem(data).data).toEqual(data);
+    expect(Schematic.createHaulItem(data).data).toEqual(data);
   });
 });
 
 describe("isHaulItem", () => {
   it("returns true for items created by createHaulItem", () => {
-    expect(isHaulItem(createHaulItem(ITEM_DATA))).toBe(true);
+    expect(Schematic.isHaulItem(Schematic.createHaulItem(ITEM_DATA))).toBe(true);
   });
 
   it("returns false for items of any other type", () => {
-    expect(isHaulItem(foreignItem("x"))).toBe(false);
+    expect(Schematic.isHaulItem(foreignItem("x"))).toBe(false);
   });
 });
 
 describe("filterHaulItems", () => {
   it("keeps only schematic items and preserves their order", () => {
-    const a = createHaulItem({ key: "a", config: { variant: "tank" } });
+    const a = Schematic.createHaulItem({ key: "a", config: { variant: "tank" } });
     const b = foreignItem("b");
-    const c = createHaulItem({ key: "c", config: { variant: "valve" } });
-    expect(filterHaulItems([a, b, c])).toEqual([a, c]);
+    const c = Schematic.createHaulItem({ key: "c", config: { variant: "valve" } });
+    expect(Schematic.filterHaulItems([a, b, c])).toEqual([a, c]);
   });
 
   it("returns an empty array when no items match", () => {
-    expect(filterHaulItems([foreignItem("a"), foreignItem("b", "another")])).toEqual(
-      [],
-    );
+    expect(
+      Schematic.filterHaulItems([foreignItem("a"), foreignItem("b", "another")]),
+    ).toEqual([]);
   });
 
   it("returns an empty array for empty input", () => {
-    expect(filterHaulItems([])).toEqual([]);
+    expect(Schematic.filterHaulItems([])).toEqual([]);
   });
 });
 
@@ -85,17 +78,21 @@ describe("canDropHaulItem", () => {
 
   it("accepts a drag containing at least one schematic item", () => {
     expect(
-      canDropHaulItem(draggingState([foreignItem("a"), createHaulItem(ITEM_DATA)])),
+      Schematic.canDropHaulItem(
+        draggingState([foreignItem("a"), Schematic.createHaulItem(ITEM_DATA)]),
+      ),
     ).toBe(true);
   });
 
   it("rejects a drag containing only foreign item types", () => {
     expect(
-      canDropHaulItem(draggingState([foreignItem("a"), foreignItem("b", "another")])),
+      Schematic.canDropHaulItem(
+        draggingState([foreignItem("a"), foreignItem("b", "another")]),
+      ),
     ).toBe(false);
   });
 
   it("rejects an empty drag", () => {
-    expect(canDropHaulItem(draggingState([]))).toBe(false);
+    expect(Schematic.canDropHaulItem(draggingState([]))).toBe(false);
   });
 });

@@ -7,19 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Form } from "@synnaxlabs/lyra/form";
+import { Form as Base } from "@synnaxlabs/lyra/form";
 import { fireEvent, render } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { Control } from "@/schematic/node/common/control";
-import { ControlChipField } from "@/schematic/node/common/form/Control";
+import { Form } from "@/schematic/node/common/form";
 
 const schema = z.object({ control: Control.stateConfigZ.optional() });
 
 const Stored = (): ReactElement => {
-  const control = Form.useFieldValue<Control.StateConfig | undefined>("control", {
+  const control = Base.useFieldValue<Control.StateConfig | undefined>("control", {
     optional: true,
   });
   return <div data-testid="stored">{JSON.stringify(control ?? null)}</div>;
@@ -27,12 +27,12 @@ const Stored = (): ReactElement => {
 
 const renderField = (control?: Control.StateConfig) => {
   const Harness = (): ReactElement => {
-    const methods = Form.use({ values: { control }, schema });
+    const methods = Base.use({ values: { control }, schema });
     return (
-      <Form.Form<typeof schema> {...methods}>
-        <ControlChipField />
+      <Base.Form<typeof schema> {...methods}>
+        <Form.ControlChipField />
         <Stored />
-      </Form.Form>
+      </Base.Form>
     );
   };
   return render(<Harness />);
