@@ -457,6 +457,25 @@ var _ = Describe("Service", func() {
 				Provider: "idp", ID: uuid.New().String(),
 			})).Error().To(MatchError(validate.ErrValidation))
 		})
+		It("Should keep one link when a user links two accounts at once", func(
+			ctx SpecContext,
+		) {
+			first, second := db.OpenTx(), db.OpenTx()
+			MustSucceed(svc.NewWriter(first).Create(ctx, subject, oidc.Account{
+				Provider: "idp", ID: uuid.New().String(),
+			}))
+			MustSucceed(svc.NewWriter(second).Create(ctx, subject, oidc.Account{
+				Provider: "idp", ID: uuid.New().String(),
+			}))
+			Expect(first.Commit(ctx)).To(Succeed())
+			Expect(second.Commit(ctx)).To(Succeed())
+			Expect(first.Close()).To(Succeed())
+			Expect(second.Close()).To(Succeed())
+			var links []oidc.Link
+			Expect(svc.NewRetrieve().Where(oidc.MatchSubjects(subject)).
+				Entries(&links).Exec(ctx, nil)).To(Succeed())
+			Expect(links).To(HaveLen(1))
+		})
 		It("Should reject a link without an account", func(ctx SpecContext) {
 			Expect(
 				svc.NewWriter(nil).Create(ctx, subject, oidc.Account{Provider: "idp"}),
