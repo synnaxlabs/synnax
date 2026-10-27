@@ -11,6 +11,7 @@ package framer
 
 import (
 	"context"
+	"io"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -383,7 +384,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 					Variant: int32(framer.IteratorResponseVariantData),
 					Buffer:  []byte{0x01, 0x02, 0x03},
 				}
-				Expect(t.Backward(ctx, pb)).Error().To(HaveOccurred())
+				Expect(t.Backward(ctx, pb)).Error().To(MatchError(io.ErrUnexpectedEOF))
 			},
 		)
 
@@ -449,7 +450,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 				Expect(
 					t.Backward(ctx, &StreamerResponse{Buffer: []byte{0x01, 0x02}}),
 				).Error().
-					To(HaveOccurred())
+					To(MatchError(io.ErrUnexpectedEOF))
 			},
 		)
 
@@ -495,7 +496,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 				Expect(
 					t.Backward(ctx, &WriterRequest{Buffer: []byte{0x01, 0x02}}),
 				).Error().
-					To(HaveOccurred())
+					To(MatchError(io.ErrUnexpectedEOF))
 			},
 		)
 

@@ -82,7 +82,7 @@ TEST(RackTests, testRetrieveRacksByKeys) {
     ASSERT_EQ(racks.size(), 2);
     for (const auto &r: racks) {
         ASSERT_TRUE(r.status.has_value());
-        if (r.key == a.key) ASSERT_EQ(r.status.value().message, "Rack is healthy");
+        if (r.key == a.key) { ASSERT_EQ(r.status.value().message, "Rack is healthy"); }
     }
 }
 
