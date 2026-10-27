@@ -361,6 +361,7 @@ func generateRequestFile(
 	_, data.Search = request.Form.(resolution.StructForm).Field("search_term")
 	data.AddExternal("encoding/json/jsontext")
 	data.AddExternal("encoding/json/v2")
+	data.AddExternal("github.com/vmihailenco/msgpack/v5")
 	data.AddInternal(
 		"validate",
 		gomod.ResolveImportPath(
@@ -619,6 +620,16 @@ func (r RetrieveRequest) Apply(q {{$.Service}}Retrieve{{$.Args}}) ({{$.Service}}
 func (r *RetrieveRequest) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain RetrieveRequest
 	return json.UnmarshalDecode(dec, (*plain)(r), json.RejectUnknownMembers(true))
+}
+
+// DecodeMsgpack decodes the request and rejects a member that it does not declare, at
+// any depth, as UnmarshalJSONFrom does.
+func (r *RetrieveRequest) DecodeMsgpack(dec *msgpack.Decoder) error {
+	type plain RetrieveRequest
+	dec.DisallowUnknownFields(true)
+	// The rest of an enclosing value decodes without the flag.
+	defer dec.DisallowUnknownFields(false)
+	return dec.Decode((*plain)(r))
 }
 `),
 )
