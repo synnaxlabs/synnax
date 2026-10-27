@@ -28,7 +28,7 @@ import {
   isHaulItem,
 } from "@/feature/opcua/device/Browser";
 import { use } from "@/feature/opcua/device/queries";
-import type * as Device from "@/feature/opcua/device/types";
+import { type Device } from "@/feature/opcua/device/types";
 import { useConnectModal } from "@/feature/opcua/device/useConnectModal";
 import { type Channel } from "@/feature/opcua/task/types";
 import { CSS } from "@/platform/css";
@@ -133,7 +133,7 @@ interface ChannelListProps<C extends Channel> extends Pick<
   "contextMenuItems" | "resolve"
 > {
   children: Component.RenderProp<ExtraItemProps>;
-  device: Device.Device;
+  device: Device;
   convertHaulItemToChannel: (item: HaulItem) => C;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
 }
@@ -199,11 +199,11 @@ export interface FormProps<C extends Channel> extends Required<
   children?: Component.RenderProp<ExtraItemProps>;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
   /** Returns the bindings the device holds for a channel's node. */
-  resolve: (device: Device.Device, channel: C) => Partial<C>;
+  resolve: (device: Device, channel: C) => Partial<C>;
 }
 
 interface BodyProps<C extends Channel>
-  extends FormProps<C>, PlatformDevice.TaskFormContentProps<Device.Device> {}
+  extends FormProps<C>, PlatformDevice.TaskFormContentProps<Device> {}
 
 const Body = <C extends Channel>({
   device,
@@ -232,7 +232,7 @@ const Body = <C extends Channel>({
 };
 
 export const createForm = <C extends Channel>(props: FormProps<C>): FC<{}> => {
-  const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>) => (
+  const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => (
     <Body<C> device={device} {...props} />
   );
   Content.displayName = "OPCTaskForm";

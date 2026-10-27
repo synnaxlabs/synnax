@@ -10,8 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import { OPCUA } from "@/feature/opcua";
-import * as v0 from "@/feature/opcua/device/types/v0";
-import * as v1 from "@/feature/opcua/device/types/v1";
+import { v0, v1 } from "@/feature/opcua/device/types/versions";
 
 interface TestCase {
   description: string;
