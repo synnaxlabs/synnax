@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, rack } from "@synnaxlabs/client";
+import { device, group, rack } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { expectAlways } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -53,6 +53,12 @@ describe("device toolbar permissions", () => {
     await waitFor(() => expect(result.current).toBe(false));
   });
 
+  const READS = [
+    device.TYPE_ONTOLOGY_ID,
+    rack.TYPE_ONTOLOGY_ID,
+    group.TYPE_ONTOLOGY_ID,
+  ];
+
   const renderRackActions = async (grants: Grants) =>
     await renderToolbar(Device.TOOLBAR.content, {
       client: await createTestClientWithGrants(client, grants),
@@ -61,7 +67,7 @@ describe("device toolbar permissions", () => {
 
   it("should withhold Create rack from a subject who cannot change racks", async () => {
     await renderRackActions({
-      retrieve: [device.TYPE_ONTOLOGY_ID, rack.TYPE_ONTOLOGY_ID],
+      retrieve: READS,
       create: [rack.TYPE_ONTOLOGY_ID],
     });
     await screen.findByText("Devices");
@@ -70,7 +76,7 @@ describe("device toolbar permissions", () => {
 
   it("should offer Create rack to a subject who may create and change racks", async () => {
     await renderRackActions({
-      retrieve: [device.TYPE_ONTOLOGY_ID, rack.TYPE_ONTOLOGY_ID],
+      retrieve: READS,
       create: [rack.TYPE_ONTOLOGY_ID],
       update: [rack.TYPE_ONTOLOGY_ID],
     });
