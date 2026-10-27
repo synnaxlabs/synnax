@@ -353,6 +353,8 @@ var _ = Describe("Go Filter Plugin", func() {
 					`return Retrieve{}, validate.PathedError(err, "where")`,
 					`if r.SearchTerm != "" {`,
 					"q = q.Where(MatchSearch(r.SearchTerm))",
+					"if *r.Limit == 0 {",
+					"return q.Where(MatchKeys()), nil",
 					"q = q.Limit(int(*r.Limit))",
 					"return q.Offset(int(r.Offset)), nil",
 				).
@@ -389,6 +391,7 @@ var _ = Describe("Go Filter Plugin", func() {
 						"(servicething.Retrieve, error) {",
 					"f, err := servicething.MatchWhere(*r.Where)",
 					"return servicething.Retrieve{}, validate.PathedError(err, \"where\")",
+					"return q.Where(servicething.MatchKeys()), nil",
 				)
 		})
 
@@ -416,6 +419,7 @@ var _ = Describe("Go Filter Plugin", func() {
 					"func (r RetrieveRequest) Apply(q Retrieve[any]) (Retrieve[any], error) {",
 					"f, err := MatchWhere[any](*r.Where)",
 					"q = q.Where(MatchSearch(r.SearchTerm))",
+					"return q.Where(MatchKeys[any]()), nil",
 				)
 		})
 
