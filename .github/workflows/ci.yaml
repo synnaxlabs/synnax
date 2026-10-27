@@ -263,7 +263,6 @@ jobs:
       directory: console
       package: console
       shards: 3
-      test_args: --no-file-parallelism
     secrets: inherit
 
   copyright:
