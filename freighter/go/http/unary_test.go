@@ -647,7 +647,7 @@ var _ = Describe("Unary", func() {
 
 		It("should expose the Cookie header as a param", func(ctx context.Context) {
 			bindParamEcho(fiber.HeaderCookie)
-			body := MustSucceed(json.Codec.Encode(ctx, test.Request{}))
+			body := MustSucceed(json.Codec.Encode(ctx, testutil.Request{}))
 			httpReq := MustSucceed(http.NewRequestWithContext(
 				ctx, http.MethodPost,
 				"http://"+unaryAddr.String()+"/",
@@ -658,7 +658,7 @@ var _ = Describe("Unary", func() {
 			httpRes := MustSucceed((&http.Client{}).Do(httpReq))
 			DeferCleanup(func() { Expect(httpRes.Body.Close()).To(Succeed()) })
 			respBody := MustSucceed(io.ReadAll(httpRes.Body))
-			var res test.Response
+			var res testutil.Response
 			Expect(json.Codec.Decode(ctx, respBody, &res)).To(Succeed())
 			Expect(res.Message).To(Equal("session=abc; theme=dark"))
 		})
