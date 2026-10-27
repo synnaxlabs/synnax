@@ -100,7 +100,7 @@ Previews receive no webhooks. The portal creates organizations on first use inst
 ### Resend
 
 Verify the `synnaxlabs.com` sending domain and create an API key with send permission
-for it. Set it as `RESEND_API_KEY` on production only. Expiry, revocation, and
+for it. Set it as `RESEND_API_KEY` on production only. Issue, expiry, revocation, and
 restoration notices go out from `MAIL_FROM`.
 
 ### Vercel

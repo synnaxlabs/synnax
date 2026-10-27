@@ -11,6 +11,7 @@ import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 import { z } from "zod";
 
@@ -61,6 +62,9 @@ const Content = ({ teams }: IssueDialogProps): ReactElement => {
         navigate(`/licenses/${key}`);
       }}
     >
+      <Text.Text level="p" color={10}>
+        The team's admins get an email with its terms and a link to it.
+      </Text.Text>
       {teams.length !== 1 && (
         <Form.Field<string>
           path="organization"

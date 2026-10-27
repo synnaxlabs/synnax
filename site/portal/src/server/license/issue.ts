@@ -84,30 +84,32 @@ export const validate = (args: Terms & { now: Date }): void => {
 
 export const issue = async (store: Store, args: IssueArgs): Promise<License> => {
   validate(args);
-  const [row] = await store.query
-    .insert(license)
-    .values({
-      organization: args.organization,
-      edition: args.edition,
-      term: args.term,
-      nodes: args.nodes,
-      channels: args.channels,
-      label: args.label,
-      expiresAt: args.expiresAt,
-      maxVersion: args.maxVersion,
-      issuedBy: args.actor,
-      issuedAt: args.now,
-    })
-    .returning();
-  await store.query.insert(event).values({
-    at: args.now,
-    kind: "issue",
-    actor: args.actor,
-    organization: row.organization,
-    license: row.key,
-    detail: { nodes: row.nodes, channels: row.channels, term: row.term },
+  return await store.transact(async (tx) => {
+    const [row] = await tx
+      .insert(license)
+      .values({
+        organization: args.organization,
+        edition: args.edition,
+        term: args.term,
+        nodes: args.nodes,
+        channels: args.channels,
+        label: args.label,
+        expiresAt: args.expiresAt,
+        maxVersion: args.maxVersion,
+        issuedBy: args.actor,
+        issuedAt: args.now,
+      })
+      .returning();
+    await tx.insert(event).values({
+      at: args.now,
+      kind: "issue",
+      actor: args.actor,
+      organization: row.organization,
+      license: row.key,
+      detail: { nodes: row.nodes, channels: row.channels, term: row.term },
+    });
+    return row;
   });
-  return row;
 };
 
 export interface AmendArgs extends Terms {

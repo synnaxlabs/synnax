@@ -150,6 +150,17 @@ describe("issue", () => {
   };
 
   describe("issue", () => {
+    it("should store no license when its event fails", async () => {
+      await expect(
+        failingEvents(
+          store,
+          "issue",
+          async () => await issue(store, { ...base, organization: org.key }),
+        ),
+      ).rejects.toThrow();
+      expect(await store.query.select().from(license)).toEqual([]);
+    });
+
     it("should record a subscription and its issue event", async () => {
       const lic = await issue(store, {
         ...base,

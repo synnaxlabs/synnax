@@ -9,8 +9,8 @@
 
 import { describe, expect, it } from "vitest";
 
-import { type Organization } from "@/server/db/schema";
-import { expiring, restored, revoked } from "@/server/license/notice";
+import { type License, type Organization } from "@/server/db/schema";
+import { expiring, issued, restored, revoked } from "@/server/license/notice";
 import { LICENSE } from "@/server/license/testutil";
 
 const TEAM: Organization = {
@@ -23,21 +23,29 @@ const TEAM: Organization = {
 };
 
 describe("notice", () => {
-  it("should name the license, its organization, and its expiry", () => {
+  it("should name the license, its organization, and its term", () => {
     expect(revoked(LICENSE, TEAM)).toMatchObject({
       facts: [
         { label: "License", value: "Test rig" },
         { label: "Organization", value: "Acme" },
-        { label: "Expires", value: "2027-03-01" },
+        { label: "Term", value: "Until 2027-03-01" },
       ],
       action: { label: "View license", href: `/licenses/${LICENSE.key}` },
       reason: "You get this email because you are an admin of Acme.",
     });
   });
 
-  it("should leave out the expiry of a license that never expires", () => {
-    const { facts } = restored({ ...LICENSE, expiresAt: null }, TEAM);
-    expect(facts.map((f) => f.label)).toEqual(["License", "Organization"]);
+  it("should describe a perpetual term by its last version", () => {
+    const perpetual: License = {
+      ...LICENSE,
+      term: "perpetual",
+      expiresAt: null,
+      maxVersion: "0.60",
+    };
+    expect(restored(perpetual, TEAM).facts).toContainEqual({
+      label: "Term",
+      value: "Perpetual, up to v0.60",
+    });
   });
 
   it("should tell a personal owner the license is theirs", () => {
@@ -45,6 +53,29 @@ describe("notice", () => {
     expect(revoked(LICENSE, personal).reason).toBe(
       "You get this email because the license is yours.",
     );
+  });
+
+  describe("issued", () => {
+    it("should tell the admins how to put the license to use", () => {
+      expect(issued(LICENSE, TEAM)).toMatchObject({
+        subject: 'Your Synnax license "Test rig" is ready',
+        heading: "Your new license is ready",
+        paragraphs: [
+          "Activate a machine in the portal to give a Core its license key.",
+          "Any member of Acme can activate machines, up to the license's seats.",
+        ],
+      });
+    });
+
+    it("should list the license's full terms", () => {
+      expect(issued({ ...LICENSE, channels: 500 }, TEAM).facts).toEqual([
+        { label: "License", value: "Test rig" },
+        { label: "Organization", value: "Acme" },
+        { label: "Term", value: "Until 2027-03-01" },
+        { label: "Seats", value: "2" },
+        { label: "Channels per Core", value: "500" },
+      ]);
+    });
   });
 
   describe("expiring", () => {

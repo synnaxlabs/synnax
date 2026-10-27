@@ -9,20 +9,15 @@
 
 import { type License, type Organization } from "@/server/db/schema";
 import { type Fact, type Notice } from "@/server/mail";
-
-const day = (d: Date): string => d.toISOString().slice(0, 10);
+import { channels, term } from "@/ui/format";
 
 const inDays = (days: number): string => `${days} ${days === 1 ? "day" : "days"}`;
 
-const facts = (lic: License, org: Organization): Fact[] => {
-  const facts: Fact[] = [
-    { label: "License", value: lic.label },
-    { label: "Organization", value: org.name },
-  ];
-  if (lic.expiresAt != null)
-    facts.push({ label: "Expires", value: day(lic.expiresAt) });
-  return facts;
-};
+const facts = (lic: License, org: Organization): Fact[] => [
+  { label: "License", value: lic.label },
+  { label: "Organization", value: org.name },
+  { label: "Term", value: term(lic) },
+];
 
 const base = (
   lic: License,
@@ -35,6 +30,25 @@ const base = (
       ? `You get this email because you are an admin of ${org.name}.`
       : "You get this email because the license is yours.",
 });
+
+/** issued tells an organization that staff issued it a license. */
+export const issued = (lic: License, org: Organization): Notice => {
+  const notice = base(lic, org);
+  return {
+    subject: `Your Synnax license "${lic.label}" is ready`,
+    heading: "Your new license is ready",
+    paragraphs: [
+      "Activate a machine in the portal to give a Core its license key.",
+      `Any member of ${org.name} can activate machines, up to the license's seats.`,
+    ],
+    ...notice,
+    facts: [
+      ...notice.facts,
+      { label: "Seats", value: String(lic.nodes) },
+      { label: "Channels per Core", value: channels(lic.channels) },
+    ],
+  };
+};
 
 /** expiring warns that a license expires in `days` days. */
 export const expiring = (lic: License, org: Organization, days: number): Notice => ({

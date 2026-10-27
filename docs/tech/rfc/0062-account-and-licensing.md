@@ -324,8 +324,8 @@ Neon Postgres holds the portal's tables through Drizzle:
   issue, activate, renew, release, rename, transfer, revoke, restore, register, invite,
   role change, and removal.
 
-Resend sends the mail Clerk does not: expiry warnings at 30, 7, and 1 days, and
-revocation and restoration notices. Each is HTML with a plain-text part, and links to
+Resend sends the mail Clerk does not: expiry warnings at 30, 7, and 1 days, and issue,
+revocation, and restoration notices. Each is HTML with a plain-text part, and links to
 the license. A daily Vercel Cron job runs the expiry sweep.
 
 The portal deploys like the docs site: Vercel's Git integration deploys `main` to

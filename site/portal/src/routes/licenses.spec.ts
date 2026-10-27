@@ -27,7 +27,7 @@ import {
 } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { ADMIN_ROLE, type Team } from "@/server/directory";
-import { restored, revoked } from "@/server/license/notice";
+import { issued, restored, revoked } from "@/server/license/notice";
 import { HASH_A, HASH_B, NOW } from "@/server/license/testutil";
 import { PER_ACTOR, PER_ORGANIZATION } from "@/server/ratelimit";
 import {
@@ -255,6 +255,36 @@ describe("license routes", () => {
             detail: { nodes: 3, channels: 500, term: "subscription" },
           }),
         ]);
+      });
+
+      it("should mail the new license to the team's admins", async () => {
+        addPerson("user_admin", [ACME_ADMIN]);
+        await post(SUBSCRIPTION);
+        const [row] = await licenses();
+        expect(h.mail.sent).toEqual([
+          { to: ["user_admin@example.com"], ...issued(row, acme) },
+        ]);
+      });
+
+      it("should mail nobody when the team has no admin yet", async () => {
+        expect((await post(SUBSCRIPTION)).status).toBe(200);
+        expect(h.mail.sent).toEqual([]);
+      });
+
+      it("should say the license is issued when its mail fails", async () => {
+        addPerson("user_admin", [ACME_ADMIN]);
+        h.portal.mail = {
+          send: async () => {
+            throw new Error("mail: down");
+          },
+        };
+        await expectError(
+          await post(SUBSCRIPTION),
+          502,
+          '"Test stand" is issued, but the email to its admins failed. Open it from ' +
+            "the Licenses tab and send them its link.",
+        );
+        expect(await licenses()).toHaveLength(1);
       });
 
       it("should default the channel cap to unlimited", async () => {
