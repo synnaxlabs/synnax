@@ -53,7 +53,7 @@ import {
 } from "@/telem/aether/remote";
 import { type Source, type ValueProps } from "@/telem/aether/telem";
 import { telemTest } from "@/telem/aether/test";
-import { buildDrawOperations, DEFAULT_OVERLAP_THRESHOLD } from "@/vis/line/aether/draw";
+import { line } from "@/vis/line/aether";
 
 const waitForResolve = async <T>(source: Source<T>): Promise<T> => {
   source.value();
@@ -2004,11 +2004,12 @@ describe("remote", () => {
         y: TiledChannelData,
         shown?: ValueProps,
       ): number[] =>
-        buildDrawOperations(
-          x.value(shown).data[1],
-          y.value(shown).data[1],
-          DEFAULT_OVERLAP_THRESHOLD,
-        )
+        line
+          .buildDrawOperations(
+            x.value(shown).data[1],
+            y.value(shown).data[1],
+            line.DEFAULT_OVERLAP_THRESHOLD,
+          )
           .flatMap((op) =>
             Array.from({ length: op.count }, (_, i) => {
               const t = op.x.at(op.xOffset + i, true);
