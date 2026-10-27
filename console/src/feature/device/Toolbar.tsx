@@ -22,9 +22,7 @@ import { Tree } from "@/platform/tree";
 const Content = (): ReactElement => {
   const openConnect = useConnectModal();
   const canCreate = Access.useCreateGranted(device.TYPE_ONTOLOGY_ID);
-  // creating the rack's key needs update on the new rack
-  const canUpdateRack = Access.useUpdateGranted(rack.TYPE_ONTOLOGY_ID);
-  const canCreateRack = Access.useCreateGranted(rack.TYPE_ONTOLOGY_ID) && canUpdateRack;
+  const canCreateRack = Access.useCreateGranted(rack.TYPE_ONTOLOGY_ID);
   const openCreateRack = Rack.useCreateModal();
   const groupID = Device.useGroupID({});
   return (

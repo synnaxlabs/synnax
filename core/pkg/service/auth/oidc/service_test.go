@@ -457,22 +457,22 @@ var _ = Describe("Service", func() {
 				Provider: "idp", ID: uuid.New().String(),
 			})).Error().To(MatchError(validate.ErrValidation))
 		})
-		It("Should keep one link when a user links two accounts at once", func(
+		It("Should keep one user when two users link one account at once", func(
 			ctx SpecContext,
 		) {
+			account := oidc.Account{Provider: "idp", ID: uuid.New().String()}
+			other := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+				Username: uuid.New().String(),
+			})).OntologyID()
 			first, second := db.OpenTx(), db.OpenTx()
-			MustSucceed(svc.NewWriter(first).Create(ctx, subject, oidc.Account{
-				Provider: "idp", ID: uuid.New().String(),
-			}))
-			MustSucceed(svc.NewWriter(second).Create(ctx, subject, oidc.Account{
-				Provider: "idp", ID: uuid.New().String(),
-			}))
+			MustSucceed(svc.NewWriter(first).Create(ctx, subject, account))
+			MustSucceed(svc.NewWriter(second).Create(ctx, other, account))
 			Expect(first.Commit(ctx)).To(Succeed())
 			Expect(second.Commit(ctx)).To(Succeed())
 			Expect(first.Close()).To(Succeed())
 			Expect(second.Close()).To(Succeed())
 			var links []oidc.Link
-			Expect(svc.NewRetrieve().Where(oidc.MatchSubjects(subject)).
+			Expect(svc.NewRetrieve().Where(oidc.MatchSubjects(subject, other)).
 				Entries(&links).Exec(ctx, nil)).To(Succeed())
 			Expect(links).To(HaveLen(1))
 		})

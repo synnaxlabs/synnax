@@ -65,20 +65,19 @@ describe("device toolbar permissions", () => {
       items: Device.TREE_ITEMS,
     });
 
-  it("should withhold Create rack from a subject who cannot change racks", async () => {
+  it("should withhold Create rack from a subject who cannot create racks", async () => {
     await renderRackActions({
       retrieve: READS,
-      create: [rack.TYPE_ONTOLOGY_ID],
+      update: [rack.TYPE_ONTOLOGY_ID],
     });
     await screen.findByText("Devices");
     await expectAlways(() => expect(queryIconButton(document.body, "rack")).toBeNull());
   });
 
-  it("should offer Create rack to a subject who may create and change racks", async () => {
+  it("should offer Create rack to a subject who may create racks", async () => {
     await renderRackActions({
       retrieve: READS,
       create: [rack.TYPE_ONTOLOGY_ID],
-      update: [rack.TYPE_ONTOLOGY_ID],
     });
     expect(await findIconButton(document.body, "rack")).toBeTruthy();
   });
