@@ -13,6 +13,10 @@ Modules reference siblings via relative-path `replace` directives in each `go.mo
 ## Commands
 
 - Build: `cd <module> && go build ./...`
+- Exports: `cd x/go && go run ./cmd/exports ../../core ../../x/go ...` prints the
+  exported identifiers that no other package's non-test code uses. Unexport them, or
+  move a helper that other packages' tests need into a `testutil` package. Pass every
+  module that can import the package.
 - Test: **always `ginkgo`, never `go test`**. `ginkgo` (package), `ginkgo -r`
   (recursive), `ginkgo -v`, `ginkgo --focus "Name"`.
 
@@ -57,7 +61,8 @@ defer func() {
 
 `fmt.Errorf` is forbidden in all cases (including `%w`), as are the std `errors` package
 and third-party error packages. Use `errors.New(msg)`, `errors.Newf(format, ...)`,
-`errors.Wrap(err, msg)`, `errors.Wrapf(err, format, ...)`.
+`errors.Wrap(err, msg)`, `errors.Wrapf(err, format, ...)`. The `depguard` and
+`forbidigo` linters enforce it.
 
 ### Rule 3: Sentinel errors for matchable conditions
 

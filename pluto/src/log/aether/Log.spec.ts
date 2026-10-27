@@ -20,7 +20,7 @@ import {
 } from "@/log/aether/telem/mock";
 import { type LogEntry } from "@/log/aether/telem/types";
 import { renderAether } from "@/testutil/renderAether";
-import { canvasTest } from "@/vis/render/test";
+import { canvasTest } from "@/vis/render/testutil";
 
 const THEME: theme.Theme = theme.themeZ.parse(theme.SYNNAX_DARK);
 
@@ -325,7 +325,7 @@ describe("log/aether/Log", () => {
       // afterUpdate calls setChannels on the source. Verify the filter works
       // by pushing entries for configured and unconfigured channels.
       source.push(makeEntry(0, 1), makeEntry(1, 2), makeEntry(2, 99));
-      const keys = source.value().map((e) => e.channelKey);
+      const keys = source.value().data.map((e) => e.channelKey);
       expect(keys).toContain(1);
       expect(keys).toContain(2);
       expect(keys).not.toContain(99);

@@ -21,6 +21,10 @@ import (
 type Request struct {
 	// Keys are the channels to stream live samples from.
 	Keys channel.Keys
+	// AckRequested asks the streamer for a Response with Ack set once the relay applies
+	// Keys. A write issued after the ack is delivered, except on channels leased to
+	// another node.
+	AckRequested bool
 }
 
 // Response carries a batch of live samples delivered to a relay subscriber.
@@ -34,6 +38,9 @@ type Response struct {
 	// silently dead connection. The relay never sets it; the API layer's response
 	// sender does.
 	KeepAlive bool `json:"keep_alive" msgpack:"keep_alive"`
+	// Ack marks the empty response that answers a Request with AckRequested set. Acks
+	// arrive in the order of their requests.
+	Ack bool `json:"ack" msgpack:"ack"`
 }
 
 func reqToStorage(req Request) ts.StreamerRequest {

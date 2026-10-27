@@ -15,8 +15,7 @@ import numpy as np
 
 from synnax import Synnax
 from synnax.channel import Channel
-from synnax.cli import channel, default, flow
-from synnax.cli.connect import connect_client
+from synnax.cli import channel, connect, default, flow
 from synnax.cli.flow import Context
 from synnax.cli.io import prompt_file
 from synnax.cli.telem import select_data_type
@@ -108,7 +107,7 @@ def _initialize_reader(
 
 def _connect_client(ctx: Context, cli: _Flow) -> str | None:
     if cli.client is None:
-        cli.client = connect_client(ctx)
+        cli.client = connect.from_context(ctx)
     return "ingest_all" if cli.client else None
 
 
