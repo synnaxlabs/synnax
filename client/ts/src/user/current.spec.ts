@@ -13,12 +13,12 @@ import { query } from "@/query";
 import {
   createTestClient,
   createTestClientWithRole,
-  TEST_CLIENT_PARAMS,
+  TEST_CREDENTIALS,
 } from "@/testutil";
 
 const client = createTestClient();
 
-const { username, password } = TEST_CLIENT_PARAMS;
+const { username, password } = TEST_CREDENTIALS;
 
 describe("current", () => {
   it("should retrieve the user before the client connects", async () => {

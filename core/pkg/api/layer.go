@@ -63,7 +63,7 @@ type Transport struct {
 	AuthLogin           freighter.UnaryServer[auth.LoginRequest, auth.LoginResponse]
 	AuthChangePassword  freighter.UnaryServer[auth.ChangePasswordRequest, struct{}]
 	AuthSessionCreate   freighter.UnaryServer[auth.SessionCreateRequest, auth.SessionCreateResponse]
-	AuthSessionRenew    freighter.UnaryServer[struct{}, struct{}]
+	AuthSessionRenew    freighter.UnaryServer[struct{}, auth.SessionRenewResponse]
 	AuthSessionRetrieve freighter.UnaryServer[auth.SessionRetrieveRequest, auth.SessionRetrieveResponse]
 	AuthSessionDelete   freighter.UnaryServer[auth.SessionDeleteRequest, struct{}]
 	// USER

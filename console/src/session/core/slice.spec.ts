@@ -204,6 +204,23 @@ describe("coreZ", () => {
   });
 });
 
+describe("PERSIST_EXCLUDE", () => {
+  it("should keep every password out of the stored state", () => {
+    const state = {
+      [Core.SLICE_NAME]: withCores(
+        { ...ALPHA, password: "secret" },
+        { ...BRAVO, password: "other" },
+      ),
+    };
+    const [purgePasswords] = Core.PERSIST_EXCLUDE;
+    const purged = purgePasswords(state);
+    const cores = Object.values(purged[Core.SLICE_NAME].cores);
+    expect(cores.map((c) => c.password)).toEqual(["", ""]);
+    expect(cores.map((c) => c.name)).toEqual([ALPHA.name, BRAVO.name]);
+    expect(state[Core.SLICE_NAME].cores.alpha.password).toBe("secret");
+  });
+});
+
 describe("rename", () => {
   it("should rename a Core in place", () => {
     const state = reduce(

@@ -47,7 +47,7 @@ service AuthSessionCreateService {
 }
 
 service AuthSessionRenewService {
-  rpc Exec(google.protobuf.Empty) returns (google.protobuf.Empty);
+  rpc Exec(google.protobuf.Empty) returns (SessionRenewResponse);
 }
 
 service AuthSessionRetrieveService {
@@ -87,6 +87,11 @@ message SessionCreateResponse {
   Session session = 2;
   optional User user = 3;
   reserved 4;
+}
+
+message SessionRenewResponse {
+  Session session = 1;
+  optional User user = 2;
 }
 
 message SessionRetrieveRequest {
