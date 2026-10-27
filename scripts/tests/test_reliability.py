@@ -328,6 +328,14 @@ class TestSuiteJobs:
     def test_should_leave_out_unlisted_jobs(self) -> None:
         assert suite_jobs([job("www / Test (ubuntu-latest)", "ubuntu-latest")]) == {}
 
+    def test_should_include_the_lint_rule_suite(self) -> None:
+        eslint = job("eslint-config / Test (ubuntu-latest)", "ubuntu-latest")
+        assert suite_jobs([eslint]) == {("eslint-config", "ubuntu"): eslint}
+
+    def test_should_leave_out_the_thread_sanitizer_rerun_of_driver_tests(self) -> None:
+        tsan = job("driver-tsan / Test (ubuntu-build-bot)", "ubuntu-build-bot")
+        assert suite_jobs([tsan]) == {}
+
     def test_should_reject_a_job_with_no_entry(self) -> None:
         with pytest.raises(
             ValueError, match="no JOBS or UNLISTED entry for new / Test"
