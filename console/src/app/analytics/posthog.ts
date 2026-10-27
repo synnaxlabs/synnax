@@ -106,9 +106,9 @@ const init = (posthog: PostHog, installID: string): void => {
     // Screens are synthesized from the focused tab; there is no navigation to observe.
     capture_pageview: false,
     capture_pageleave: false,
-    // Replays show the text of the app but mask what the user types. Plots, logs, and
-    // values draw on canvases in a worker, which replays show blank.
-    session_recording: { maskAllInputs: true },
+    // Replays show the text of the app and what the user types, except passwords.
+    // Plots, logs, and values draw on canvases in a worker, which replays show blank.
+    session_recording: { maskAllInputs: false },
     capture_exceptions: true,
     capture_heatmaps: false,
     capture_dead_clicks: false,
